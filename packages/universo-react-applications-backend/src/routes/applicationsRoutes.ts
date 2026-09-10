@@ -1,4 +1,4 @@
-import { Router, type RequestHandler } from 'express'
+import { Router, type Request, type RequestHandler } from 'express'
 import type { RateLimitRequestHandler } from 'express-rate-limit'
 import type { DbExecutor } from '@universo-react/utils'
 import { asyncHandler } from '../shared/asyncHandler'
@@ -14,12 +14,14 @@ import { createRuntimeInterpretationNetworkMatrixController } from '../controlle
 import { createApplicationLayoutsController } from '../controllers/applicationLayoutsController'
 import { createRuntimePlayCanvasController } from '../controllers/runtimePlayCanvasController'
 import { createRuntimeMarketingPageController } from '../controllers/runtimeMarketingPageController'
+import { createEffectiveLayoutController } from '../controllers/effectiveLayoutController'
 
 export function createApplicationsRoutes(
     ensureAuth: RequestHandler,
     getDbExecutor: () => DbExecutor,
     readLimiter: RateLimitRequestHandler,
-    writeLimiter: RateLimitRequestHandler
+    writeLimiter: RateLimitRequestHandler,
+    getRequestDbExecutor?: (req: Request) => DbExecutor
 ): Router {
     const router = Router({ mergeParams: true })
     router.use(ensureAuth)
@@ -33,9 +35,10 @@ export function createApplicationsRoutes(
     const workspace = createRuntimeWorkspaceController(getDbExecutor)
     const interpretationNetwork = createRuntimeInterpretationNetworkController(getDbExecutor)
     const interpretationNetworkMatrix = createRuntimeInterpretationNetworkMatrixController(getDbExecutor)
-    const layouts = createApplicationLayoutsController(getDbExecutor)
+    const layouts = createApplicationLayoutsController(getDbExecutor, getRequestDbExecutor)
     const playCanvasRuntime = createRuntimePlayCanvasController(getDbExecutor)
     const marketingPageRuntime = createRuntimeMarketingPageController(getDbExecutor)
+    const effectiveLayoutRuntime = createEffectiveLayoutController()
 
     // ── Application CRUD ──
     router.get('/', readLimiter, asyncHandler(app.list))
@@ -81,7 +84,7 @@ export function createApplicationsRoutes(
     router.delete('/:applicationId/members/:memberId', writeLimiter, asyncHandler(app.removeMember))
 
     // ── Runtime rows ──
-    router.get('/:applicationId/runtime/template', readLimiter, asyncHandler(marketingPageRuntime.getTemplate))
+    router.get('/:applicationId/runtime/effective-layout', readLimiter, asyncHandler(effectiveLayoutRuntime.getEffectiveLayout))
     router.get('/:applicationId/runtime/marketing-page', readLimiter, asyncHandler(marketingPageRuntime.getMarketingPage))
     router.get('/:applicationId/runtime', readLimiter, asyncHandler(runtime.getRuntime))
     router.get('/:applicationId/runtime/playcanvas-manifests', readLimiter, asyncHandler(playCanvasRuntime.listManifests))

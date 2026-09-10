@@ -148,7 +148,7 @@ export const runtimeCodenameTextSql = (columnRef: string): string =>
 export const runtimeStandardKindSql = (kindColumn = 'kind'): string => `COALESCE(${kindColumn}, '')`
 
 export const runtimeRegistrarLedgerSql = (configColumn = 'config'): string => `(
-    COALESCE((${configColumn}->'capabilities'->'ledgerSchema'->>'enabled')::boolean, false) = true
+    COALESCE(lower(${configColumn}->'capabilities'->'ledgerSchema'->>'enabled') = 'true', false)
     AND jsonb_typeof(${configColumn}->'ledger') = 'object'
     AND COALESCE(${configColumn}->'ledger'->>'sourcePolicy', '') = 'registrar'
 )`
@@ -159,7 +159,7 @@ export const runtimeObjectFilterSql = (kindColumn = 'kind', configColumn = 'conf
     AND NOT ${runtimeRegistrarLedgerSql(configColumn)})`
 
 export const runtimeLayoutCapableFilterSql = (configColumn = 'config'): string =>
-    `COALESCE((${configColumn}->'capabilities'->'layoutConfig'->>'enabled')::boolean, false) = true`
+    `COALESCE(lower(${configColumn}->'capabilities'->'layoutConfig'->>'enabled') = 'true', false)`
 
 export const resolveRuntimeCodenameText = (codename: unknown): string => {
     if (typeof codename === 'string') {

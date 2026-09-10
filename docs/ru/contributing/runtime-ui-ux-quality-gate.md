@@ -68,7 +68,14 @@ pnpm check:runtime-ux-agents
 -   `expectNoPageHorizontalOverflow`
 -   `expectRuntimeUxViewportMatrix`
 -   `expectElementFitsViewport`
+-   `expectTableHorizontalScrollConstrained`
 
 Общая viewport matrix: `1920x1080`, `768x1024` и mobile `390x844`. Более узкая matrix допустима только если documented support boundary явно исключает конкретный viewport.
+
+Для `FlowListTable` передавайте в `expectTableHorizontalScrollConstrained`
+существующий locator контейнера таблицы; helper не придумывает product
+selector или test id. Внутренний table scroll разрешён только когда
+overflow принадлежит названному контейнеру; page-level overflow всё равно
+считается ошибкой.
 
 Тесты должны использовать user-facing locators, labels, roles, stable test IDs и web-first assertions. Одного успешного CRUD-запроса недостаточно.

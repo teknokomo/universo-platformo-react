@@ -1,8 +1,15 @@
-import { useEffect, useMemo } from 'react'
+import { useEffect, useMemo, useSyncExternalStore } from 'react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
+import { normalizeLocale } from '@universo-react/utils'
 import DashboardApp from './standalone/DashboardApp'
 import GuestApp from './standalone/GuestApp'
+import {
+    getRuntimeLocationServerSnapshot,
+    getRuntimeLocationSnapshot,
+    readRuntimeLocale,
+    subscribeRuntimeLocation
+} from './utils/runtimeLocale'
 // Side-effect: register i18n namespace
 import './i18n'
 
@@ -25,15 +32,15 @@ function resolveStandaloneLocale() {
         return 'en'
     }
 
-    const explicitLocale = new URL(window.location.href).searchParams.get('locale')
+    const explicitLocale = readRuntimeLocale()
     const storedLocale = window.localStorage.getItem('i18nextLng')
     const candidates = [explicitLocale, storedLocale, window.document.documentElement.lang, window.navigator.language, 'en']
     for (const candidate of candidates) {
         if (typeof candidate !== 'string') continue
-        const normalized = candidate.trim().slice(0, 2).toLowerCase()
-        if (/^[a-z]{2}$/.test(normalized)) {
-            return normalized
-        }
+        const trimmed = candidate.trim()
+        if (!trimmed) continue
+        const normalized = normalizeLocale(trimmed)
+        if (/^[a-z]{2}$/.test(normalized)) return normalized
     }
 
     return 'en'
@@ -42,8 +49,9 @@ function resolveStandaloneLocale() {
 export default function App() {
     const { i18n } = useTranslation('apps')
     const queryClient = useMemo(() => new QueryClient(), [])
-    const locationState = useMemo(resolveStandaloneLocation, [])
-    const locale = useMemo(resolveStandaloneLocale, [])
+    const locationSnapshot = useSyncExternalStore(subscribeRuntimeLocation, getRuntimeLocationSnapshot, getRuntimeLocationServerSnapshot)
+    const locationState = useMemo(resolveStandaloneLocation, [locationSnapshot])
+    const locale = useMemo(resolveStandaloneLocale, [locationSnapshot])
 
     // Standalone dev entry: applicationId is required; you can provide it via URL hash for quick testing.
     // Example: http://localhost:5174/#/a/<uuid>

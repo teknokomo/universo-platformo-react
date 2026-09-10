@@ -385,6 +385,23 @@
             "descriptionRu": "Description (Russian)",
             "template": "Template",
             "scope": "Scope",
+            "target": "Target",
+            "scopeMode": "Layout target",
+            "scopeModeHint": "Choose the runtime target for this layout.",
+            "scopeModes": {
+                "global": "Global default",
+                "entity": "Specific entity"
+            },
+            "scopeKinds": {
+                "global": "Global",
+                "page": "Page",
+                "object": "Object",
+                "entity": "Entity"
+            },
+            "targetHint": "Only targets available to this application are listed.",
+            "noTargets": "No authorized entity targets are available.",
+            "unnamedTarget": "Selected entity",
+            "allTemplates": "All",
             "allScopes": "All",
             "active": "Active",
             "inactive": "Inactive",
@@ -411,6 +428,21 @@
             "schemaNotReady": "Create or sync the application schema before managing layouts.",
             "templateImmutable": "A layout template cannot be changed after creation.",
             "globalScope": "Global",
+            "templateGlobalHint": "Global layouts use the application default template.",
+            "templateScopedHint": "This template is fixed after the layout is created.",
+            "composition": {
+                "global": "Global default",
+                "inherited": "Scoped overlay",
+                "independent": "Independent layout"
+            },
+            "detailTarget": "Target: {{target}}",
+            "detailTemplate": "Template: {{template}}",
+            "detailComposition": "Composition: {{composition}}",
+            "validation": {
+                "nameRequired": "Enter a layout name.",
+                "targetRequired": "Select an authorized target.",
+                "localizedNameRequired": "Enter a name in English or Russian."
+            },
             "templates": {
                 "dashboard": "Dashboard",
                 "marketingPage": "Marketing page"
@@ -767,7 +799,7 @@
             "objectBehaviorTitleGlobal": "Default entity runtime behavior",
             "objectBehaviorTitleObject": "Entity runtime behavior",
             "objectBehaviorDescriptionGlobal": "These settings define the default create/search behavior for entities that use this global layout until an entity-specific layout overrides it.",
-            "objectBehaviorDescriptionObject": "This scoped layout overrides the create/search behavior inherited from its global base layout.",
+            "objectBehaviorDescriptionObject": "This layout controls create/search behavior for its selected entity target.",
             "showCreateButton": "Show create button",
             "searchMode": "Search mode",
             "searchModePageLocal": "Page-local",
@@ -852,7 +884,6 @@
                 "playcanvasCanvas": "PlayCanvas canvas",
                 "resourcePreview": "Resource preview",
                 "learnerPlayer": "Learner player",
-                "detailsSidePanel": "Details side panel",
                 "productTree": "Product tree",
                 "usersByCountryChart": "Users by country chart",
                 "languageSwitcher": "Language switcher",
@@ -941,7 +972,20 @@
         "app": {
             "errors": {
                 "missingApplicationId": "Application ID is missing in URL",
-                "loadFailed": "Failed to load runtime data"
+                "loadFailed": "Failed to load runtime data",
+                "invalidRuntimeTarget": "The runtime target in this URL is invalid",
+                "layout": {
+                    "LAYOUT_REQUEST_INVALID": "The selected runtime target is invalid.",
+                    "LAYOUT_PAYLOAD_INVALID": "The application layout data is invalid.",
+                    "LAYOUT_CAPABILITY_UNSUPPORTED": "This layout uses a capability that is not available here.",
+                    "UNAUTHORIZED": "You must sign in to open this application.",
+                    "LAYOUT_TARGET_FORBIDDEN": "You do not have access to this application target.",
+                    "LAYOUT_TARGET_NOT_FOUND": "The selected application target was not found.",
+                    "LAYOUT_DEFAULT_INVALID": "The application layout configuration needs attention.",
+                    "LAYOUT_PERSISTED_INVALID": "The saved application layout is invalid.",
+                    "LAYOUT_CONFLICT": "The application layout changed. Reload and try again.",
+                    "LAYOUT_RUNTIME_QUERY_FAILED": "The application layout could not be loaded right now."
+                }
             },
             "actions": "Actions",
             "edit": "Edit",

@@ -1,19 +1,35 @@
 import { describe, expect, it } from 'vitest'
 
 import {
+    applicationLayoutCompositionSchema,
     applicationLayoutConfigResetMutationSchema,
+    applicationLayoutContractSchema,
+    applicationLayoutMutationSchema,
+    applicationLayoutScopeSchema,
+    applicationLayoutSnapshotSchema,
     applicationLayoutWidgetConfigBatchMutationSchema,
     applicationLayoutWidgetResetBatchMutationSchema,
+    applicationLayoutWidgetMoveMutationSchema,
     applicationLayoutWidgetSchema,
+    effectiveLayoutWidgetSchema,
+    effectiveLayoutResultSchema,
     INTERPRETATION_NETWORK_SPLIT_PANE_DEFAULT,
     INTERPRETATION_NETWORK_SPLIT_PANE_MAX_PERCENT,
     INTERPRETATION_NETWORK_SPLIT_PANE_MIN_PERCENT,
     normalizeInterpretationNetworkSplitPaneSettings,
     normalizeInterpretationNetworkTableSettings,
     normalizeInterpretationNetworkMatrixViewSettings,
-    parseApplicationLayoutWidgetConfig
+    parseApplicationLayoutWidgetConfig,
+    runtimeTargetSchema
 } from '../common/applicationLayouts'
-import { LAYOUT_WIDGET_DEFINITIONS, LAYOUT_ZONE_DEFINITIONS } from '../common/layoutWidgetDefinitions'
+import {
+    LAYOUT_SEMANTIC_ZONE_MAPPINGS,
+    LAYOUT_WIDGET_DEFINITIONS,
+    LAYOUT_ZONE_DEFINITIONS,
+    layoutWidgetMetadataResponseSchema
+} from '../common/layoutWidgetDefinitions'
+import { APPLICATION_TEMPLATE_REGISTRY } from '../common/applicationTemplates'
+import { marketingLayoutWidgetReferenceSchema } from '../common/marketingPage'
 
 describe('application layout widget config contracts', () => {
     it('keeps one complete widget metadata registry for metahub and application authoring', () => {
@@ -28,34 +44,352 @@ describe('application layout widget config contracts', () => {
         ])
         expect(LAYOUT_WIDGET_DEFINITIONS.every((widget) => widget.labelKey && widget.defaultLabel)).toBe(true)
         expect(marketingWidgets.every((widget) => widget.labelKey === `layouts.widgets.${widget.key}`)).toBe(true)
+
+        const languageSwitcher = LAYOUT_WIDGET_DEFINITIONS.find((widget) => widget.key === 'languageSwitcher')
+        expect(languageSwitcher).toMatchObject({
+            shared: true,
+            supportedTemplates: ['dashboard', 'marketing-page'],
+            allowedZonesByTemplate: {
+                dashboard: ['top'],
+                'marketing-page': ['marketing-header']
+            },
+            requiredHostCapabilities: ['locale.state', 'locale.change', 'keyboard.focus', 'accessibility.label', 'theme.safe']
+        })
+    })
+
+    it('validates the complete widget metadata transport envelope', () => {
+        const dashboardWidget = LAYOUT_WIDGET_DEFINITIONS.find((widget) => widget.key === 'languageSwitcher')
+        if (!dashboardWidget) throw new Error('languageSwitcher metadata is missing')
+
+        const response = {
+            items: [dashboardWidget],
+            templates: [
+                {
+                    ...APPLICATION_TEMPLATE_REGISTRY.dashboard,
+                    zones: LAYOUT_ZONE_DEFINITIONS.filter((zone) => zone.templateKey === 'dashboard'),
+                    widgets: [dashboardWidget]
+                }
+            ]
+        }
+
+        expect(layoutWidgetMetadataResponseSchema.safeParse(response).success).toBe(true)
+        expect(
+            layoutWidgetMetadataResponseSchema.safeParse({
+                ...response,
+                items: [{ key: 'languageSwitcher', templateKey: 'dashboard' }]
+            }).success
+        ).toBe(false)
     })
 
     it('keeps canonical localized metadata for every layout zone', () => {
         expect(LAYOUT_ZONE_DEFINITIONS).toEqual([
-            { key: 'left', templateKey: 'dashboard', labelKey: 'layouts.zones.left', defaultLabel: 'Left' },
-            { key: 'top', templateKey: 'dashboard', labelKey: 'layouts.zones.top', defaultLabel: 'Top' },
-            { key: 'right', templateKey: 'dashboard', labelKey: 'layouts.zones.right', defaultLabel: 'Right' },
-            { key: 'bottom', templateKey: 'dashboard', labelKey: 'layouts.zones.bottom', defaultLabel: 'Bottom' },
-            { key: 'center', templateKey: 'dashboard', labelKey: 'layouts.zones.center', defaultLabel: 'Center' },
+            { key: 'left', templateKey: 'dashboard', semanticRegion: 'sidebar', labelKey: 'layouts.zones.left', defaultLabel: 'Left' },
+            { key: 'top', templateKey: 'dashboard', semanticRegion: 'header', labelKey: 'layouts.zones.top', defaultLabel: 'Top' },
+            { key: 'right', templateKey: 'dashboard', semanticRegion: 'auxiliary', labelKey: 'layouts.zones.right', defaultLabel: 'Right' },
+            { key: 'bottom', templateKey: 'dashboard', semanticRegion: 'footer', labelKey: 'layouts.zones.bottom', defaultLabel: 'Bottom' },
+            { key: 'center', templateKey: 'dashboard', semanticRegion: 'main', labelKey: 'layouts.zones.center', defaultLabel: 'Center' },
             {
                 key: 'marketing-header',
                 templateKey: 'marketing-page',
+                semanticRegion: 'header',
                 labelKey: 'layouts.zones.marketingHeader',
                 defaultLabel: 'Marketing header'
             },
             {
                 key: 'marketing-main',
                 templateKey: 'marketing-page',
+                semanticRegion: 'main',
                 labelKey: 'layouts.zones.marketingMain',
                 defaultLabel: 'Marketing content'
             },
             {
                 key: 'marketing-footer',
                 templateKey: 'marketing-page',
+                semanticRegion: 'footer',
                 labelKey: 'layouts.zones.marketingFooter',
                 defaultLabel: 'Marketing footer'
             }
         ])
+        expect(LAYOUT_SEMANTIC_ZONE_MAPPINGS.filter((mapping) => mapping.semanticRegion === 'main')).toEqual([
+            { semanticRegion: 'main', templateKey: 'dashboard', physicalZone: 'center' },
+            { semanticRegion: 'main', templateKey: 'marketing-page', physicalZone: 'marketing-main' }
+        ])
+    })
+
+    it('keeps the target selector strict and excludes record identity', () => {
+        const applicationId = '0190a9b5-3cde-7abc-8def-0123456789a1'
+        const entityTypeId = '0190a9b5-3cde-7abc-8def-0123456789a2'
+
+        expect(
+            runtimeTargetSchema.safeParse({
+                applicationId,
+                targetKind: 'page',
+                entityTypeId,
+                locale: 'en-US',
+                themeVariant: 'system'
+            }).success
+        ).toBe(true)
+        expect(
+            runtimeTargetSchema.safeParse({
+                applicationId,
+                targetKind: 'object',
+                entityTypeCodename: 'ContentObject',
+                locale: 'en'
+            }).success
+        ).toBe(true)
+        expect(
+            runtimeTargetSchema.safeParse({
+                applicationId,
+                targetKind: 'page',
+                entityTypeId,
+                entityTypeCodename: 'ContentPage',
+                locale: 'en'
+            }).success
+        ).toBe(false)
+        expect(
+            runtimeTargetSchema.safeParse({
+                applicationId,
+                targetKind: null,
+                locale: 'en',
+                recordKey: 'hero'
+            }).success
+        ).toBe(false)
+        expect(
+            runtimeTargetSchema.safeParse({
+                applicationId: '550e8400-e29b-41d4-a716-446655440000',
+                targetKind: null,
+                locale: 'en'
+            }).success
+        ).toBe(false)
+    })
+
+    it('requires explicit scoped composition mode and preserves mixed-template snapshots', () => {
+        const dashboardId = '0190a9b5-3cde-7abc-8def-0123456789a1'
+        const marketingGlobalId = '0190a9b5-3cde-7abc-8def-0123456789a2'
+        const marketingScopedId = '0190a9b5-3cde-7abc-8def-0123456789a3'
+        const scopeEntityId = '0190a9b5-3cde-7abc-8def-0123456789a4'
+
+        expect(applicationLayoutCompositionSchema.safeParse({ compositionMode: 'overlay', baseLayoutId: marketingGlobalId }).success).toBe(
+            true
+        )
+        expect(applicationLayoutCompositionSchema.safeParse({ compositionMode: 'independent', baseLayoutId: null }).success).toBe(true)
+        expect(applicationLayoutCompositionSchema.safeParse({ compositionMode: 'overlay', baseLayoutId: null }).success).toBe(false)
+        expect(
+            applicationLayoutCompositionSchema.safeParse({ compositionMode: 'independent', baseLayoutId: marketingGlobalId }).success
+        ).toBe(false)
+        expect(
+            applicationLayoutCompositionSchema.safeParse({
+                compositionMode: 'overlay',
+                baseLayoutId: '550e8400-e29b-41d4-a716-446655440000'
+            }).success
+        ).toBe(false)
+
+        const layout = (overrides: Record<string, unknown>, includeComposition = true) => ({
+            id: dashboardId,
+            templateKey: 'dashboard',
+            scopeKind: 'global',
+            scopeEntityId: null,
+            sourceKind: 'metahub',
+            sourceLayoutId: null,
+            ...(includeComposition ? { compositionMode: 'independent', baseLayoutId: null } : {}),
+            widgets: [],
+            ...overrides
+        })
+
+        const parsed = applicationLayoutSnapshotSchema.safeParse({
+            layouts: [
+                layout({ id: dashboardId, templateKey: 'dashboard' }),
+                layout({ id: marketingGlobalId, templateKey: 'marketing-page' })
+            ],
+            scopedLayouts: [
+                layout({
+                    id: marketingScopedId,
+                    templateKey: 'marketing-page',
+                    scopeKind: 'entity',
+                    scopeEntityId,
+                    compositionMode: 'overlay',
+                    baseLayoutId: marketingGlobalId
+                }),
+                layout({
+                    id: '0190a9b5-3cde-7abc-8def-0123456789a5',
+                    templateKey: 'marketing-page',
+                    scopeKind: 'entity',
+                    scopeEntityId: '0190a9b5-3cde-7abc-8def-0123456789a6',
+                    compositionMode: 'independent',
+                    baseLayoutId: null
+                })
+            ]
+        })
+
+        expect(parsed.success).toBe(true)
+        expect(
+            applicationLayoutContractSchema.safeParse(
+                layout(
+                    {
+                        id: marketingScopedId,
+                        templateKey: 'marketing-page',
+                        scopeKind: 'entity',
+                        scopeEntityId,
+                        widgets: []
+                    },
+                    false
+                )
+            ).success
+        ).toBe(false)
+        expect(
+            applicationLayoutContractSchema.safeParse(
+                layout({
+                    id: marketingScopedId,
+                    templateKey: 'marketing-page',
+                    scopeKind: 'entity',
+                    scopeEntityId,
+                    widgets: []
+                })
+            ).success
+        ).toBe(true)
+        expect(
+            applicationLayoutSnapshotSchema.safeParse({
+                layouts: [
+                    layout({
+                        id: marketingGlobalId,
+                        templateKey: 'marketing-page',
+                        compositionMode: 'overlay',
+                        baseLayoutId: dashboardId
+                    })
+                ]
+            }).success
+        ).toBe(false)
+    })
+
+    it('accepts languageSwitcher only in its template-aware mapped zones', () => {
+        const baseLayout = {
+            id: '0190a9b5-3cde-7abc-8def-0123456789a1',
+            templateKey: 'marketing-page' as const,
+            scopeKind: 'global' as const,
+            scopeEntityId: null,
+            sourceKind: 'metahub' as const,
+            sourceLayoutId: null,
+            compositionMode: 'independent' as const,
+            baseLayoutId: null,
+            widgets: []
+        }
+        const languageSwitcher = {
+            id: '0190a9b5-3cde-7abc-8def-0123456789a2',
+            widgetKey: 'languageSwitcher' as const,
+            zone: 'marketing-header' as const,
+            semanticRegion: 'header' as const,
+            instanceKey: 'language-switcher',
+            sortOrder: 0,
+            isActive: true
+        }
+
+        expect(applicationLayoutContractSchema.safeParse({ ...baseLayout, widgets: [languageSwitcher] }).success).toBe(true)
+        expect(
+            applicationLayoutContractSchema.safeParse({
+                ...baseLayout,
+                widgets: [{ ...languageSwitcher, zone: 'marketing-main', semanticRegion: 'main' }]
+            }).success
+        ).toBe(false)
+    })
+
+    it('preserves repeated marketing widget identities in neutral references and layout contracts', () => {
+        const baseLayout = {
+            id: '0190a9b5-3cde-7abc-8def-0123456789a1',
+            templateKey: 'marketing-page' as const,
+            scopeKind: 'global' as const,
+            scopeEntityId: null,
+            sourceKind: 'application' as const,
+            sourceLayoutId: null,
+            compositionMode: 'independent' as const,
+            baseLayoutId: null
+        }
+        const widgets = [
+            {
+                id: '0190a9b5-3cde-7abc-8def-0123456789a2',
+                widgetKey: 'marketing.collection' as const,
+                zone: 'marketing-main' as const,
+                semanticRegion: 'main' as const,
+                instanceKey: 'collection-primary',
+                sortOrder: 0,
+                isActive: true
+            },
+            {
+                id: '0190a9b5-3cde-7abc-8def-0123456789a3',
+                widgetKey: 'marketing.collection' as const,
+                zone: 'marketing-main' as const,
+                semanticRegion: 'main' as const,
+                instanceKey: 'collection-secondary',
+                sortOrder: 1,
+                isActive: true
+            }
+        ]
+
+        const references = marketingLayoutWidgetReferenceSchema.array().parse(
+            widgets.map(({ id, widgetKey, zone, instanceKey, sortOrder, isActive }) => ({
+                id,
+                widgetKey,
+                zone,
+                instanceKey,
+                sortOrder,
+                isActive
+            }))
+        )
+
+        expect(references.map((widget) => widget.instanceKey)).toEqual(['collection-primary', 'collection-secondary'])
+        expect(applicationLayoutContractSchema.safeParse({ ...baseLayout, widgets }).success).toBe(true)
+        expect(
+            applicationLayoutContractSchema.safeParse({
+                ...baseLayout,
+                widgets: [...widgets, { ...widgets[1], id: '0190a9b5-3cde-7abc-8def-0123456789a4', sortOrder: 2 }]
+            }).success
+        ).toBe(false)
+    })
+
+    it('validates the effective-layout success and typed failure envelopes', () => {
+        const result = effectiveLayoutResultSchema.safeParse({
+            status: 'ok',
+            target: {
+                applicationId: '0190a9b5-3cde-7abc-8def-0123456789a1',
+                targetKind: 'page',
+                entityTypeCodename: 'ContentPage',
+                locale: 'en'
+            },
+            scope: 'entity',
+            layout: {
+                id: '0190a9b5-3cde-7abc-8def-0123456789a2',
+                templateKey: 'marketing-page',
+                sourceKind: 'application',
+                sourceLayoutId: null,
+                scopeKind: 'entity',
+                scopeEntityId: '0190a9b5-3cde-7abc-8def-0123456789a3',
+                compositionMode: 'independent',
+                baseLayoutId: null
+            },
+            widgets: [],
+            precedence: ['application-entity'],
+            publicationIdentity: null,
+            effectiveHash: 'a'.repeat(64)
+        })
+
+        expect(result.success).toBe(true)
+        expect(
+            effectiveLayoutResultSchema.safeParse({
+                status: 'failed',
+                error: { code: 'LAYOUT_TARGET_NOT_FOUND', httpStatus: 404 }
+            }).success
+        ).toBe(true)
+        expect(
+            effectiveLayoutResultSchema.safeParse({
+                status: 'failed',
+                error: { code: 'LAYOUT_TARGET_NOT_FOUND', httpStatus: 400 }
+            }).success
+        ).toBe(false)
+        expect(
+            effectiveLayoutResultSchema.safeParse({
+                ...(result.success ? result.data : {}),
+                unexpected: true
+            }).success
+        ).toBe(false)
     })
 
     it('validates the application-level marketing appearance reset payload', () => {
@@ -77,20 +411,72 @@ describe('application layout widget config contracts', () => {
             version: 1
         }
 
-        expect(applicationLayoutWidgetSchema.parse(baseWidget)).toMatchObject({
+        expect(
+            applicationLayoutWidgetSchema.parse({
+                ...baseWidget,
+                sourceConfig: null,
+                sourceWidgetId: null,
+                sourceBaseWidgetId: null,
+                isCustomized: false
+            })
+        ).toMatchObject({
             sourceConfig: null,
+            sourceWidgetId: null,
+            sourceBaseWidgetId: null,
+            isCustomized: false
+        })
+        expect(applicationLayoutWidgetSchema.safeParse({ ...baseWidget, id: '550e8400-e29b-41d4-a716-446655440000' }).success).toBe(false)
+        expect(
+            applicationLayoutWidgetSchema.parse({
+                ...baseWidget,
+                sourceConfig: { structureMode: 'multiple' },
+                sourceWidgetId: '0190a9b5-3cde-7abc-8def-0123456789a2',
+                sourceBaseWidgetId: '0190a9b5-3cde-7abc-8def-0123456789a3',
+                isCustomized: false
+            })
+        ).toMatchObject({
+            sourceConfig: { structureMode: 'multiple' },
+            sourceWidgetId: '0190a9b5-3cde-7abc-8def-0123456789a2',
+            sourceBaseWidgetId: '0190a9b5-3cde-7abc-8def-0123456789a3',
             isCustomized: false
         })
         expect(
             applicationLayoutWidgetSchema.parse({
                 ...baseWidget,
                 sourceConfig: { structureMode: 'singleSystem' },
+                sourceWidgetId: '0190a9b5-3cde-7abc-8def-0123456789a2',
+                sourceBaseWidgetId: '0190a9b5-3cde-7abc-8def-0123456789a3',
                 isCustomized: true
             })
         ).toMatchObject({
             sourceConfig: { structureMode: 'singleSystem' },
+            sourceWidgetId: '0190a9b5-3cde-7abc-8def-0123456789a2',
+            sourceBaseWidgetId: '0190a9b5-3cde-7abc-8def-0123456789a3',
             isCustomized: true
         })
+    })
+
+    it('keeps effective widget identity UUID v7 strict', () => {
+        const widget = {
+            id: '0190a9b5-3cde-7abc-8def-0123456789a1',
+            layoutId: '0190a9b5-3cde-7abc-8def-0123456789a2',
+            zone: 'center' as const,
+            semanticRegion: 'main' as const,
+            widgetKey: 'overviewTitle' as const,
+            instanceKey: 'overview-title',
+            sortOrder: 0,
+            config: {},
+            isActive: true
+        }
+
+        expect(effectiveLayoutWidgetSchema.safeParse(widget).success).toBe(true)
+        expect(effectiveLayoutWidgetSchema.safeParse({ ...widget, sortOrder: -200 }).success).toBe(true)
+        expect(
+            effectiveLayoutWidgetSchema.safeParse({
+                ...widget,
+                sourceWidgetId: '550e8400-e29b-41d4-a716-446655440000'
+            }).success
+        ).toBe(false)
     })
 
     it('validates scoped reset batches and rejects duplicate widgets', () => {
@@ -146,6 +532,49 @@ describe('application layout widget config contracts', () => {
             validation: 'uuid',
             path: ['updates', 0, 'layoutId']
         })
+    })
+
+    it('requires UUID v7 identifiers at the application layout mutation boundary', () => {
+        const validId = '0190a9b5-3cde-7abc-8def-0123456789a1'
+        const legacyUuid = '550e8400-e29b-41d4-a716-446655440000'
+
+        expect(applicationLayoutMutationSchema.safeParse({ scopeEntityId: validId }).success).toBe(true)
+        expect(applicationLayoutMutationSchema.safeParse({ scopeEntityId: legacyUuid }).success).toBe(false)
+        expect(
+            applicationLayoutWidgetMoveMutationSchema.safeParse({
+                widgetId: validId,
+                targetZone: 'center',
+                targetIndex: 0,
+                expectedVersion: 1
+            }).success
+        ).toBe(true)
+        expect(
+            applicationLayoutWidgetMoveMutationSchema.safeParse({
+                widgetId: legacyUuid,
+                targetZone: 'center',
+                targetIndex: 0,
+                expectedVersion: 1
+            }).success
+        ).toBe(false)
+    })
+
+    it('keeps the logical global scope key distinct from physical UUID identities', () => {
+        expect(
+            applicationLayoutScopeSchema.safeParse({
+                id: 'global',
+                scopeKind: 'global',
+                scopeEntityId: null,
+                name: 'Global'
+            }).success
+        ).toBe(true)
+        expect(
+            applicationLayoutScopeSchema.safeParse({
+                id: 'global',
+                scopeKind: 'entity',
+                scopeEntityId: '550e8400-e29b-41d4-a716-446655440000',
+                name: 'Legacy entity'
+            }).success
+        ).toBe(false)
     })
 
     it('rejects duplicate widget IDs in widget config batch mutations', () => {
@@ -749,6 +1178,15 @@ describe('application layout widget config contracts', () => {
                 }
             })
         ).toThrow()
+    })
+
+    it('marks dashboard shell widgets as single-instance placements', () => {
+        expect(LAYOUT_WIDGET_DEFINITIONS.filter((widget) => widget.key === 'appNavbar' || widget.key === 'header')).toEqual(
+            expect.arrayContaining([
+                expect.objectContaining({ key: 'appNavbar', multiInstance: false }),
+                expect.objectContaining({ key: 'header', multiInstance: false })
+            ])
+        )
     })
 
     it('accepts localized row-count warnings for detailsTable widgets', () => {

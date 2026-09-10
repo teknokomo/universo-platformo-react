@@ -906,6 +906,10 @@ export const FormDialog: React.FC<FormDialogProps> = ({
     wizardSteps,
     hiddenFieldIds
 }) => {
+    const dialogInstanceId = React.useId().replace(/[^a-zA-Z0-9_-]/g, '')
+    const dialogTitleId = `runtime-form-dialog-title-${dialogInstanceId}`
+    const dialogDescriptionId = `runtime-form-dialog-description-${dialogInstanceId}`
+    const dialogDescriptionTargetId = contentHeaderId || (contentHeader ? dialogDescriptionId : undefined)
     const [formData, setFormData] = useState<Record<string, unknown>>({})
     const [blockEditorErrors, setBlockEditorErrors] = useState<Record<string, string | null>>({})
     const [inlineFieldErrors, setInlineFieldErrors] = useState<Record<string, string | null>>({})
@@ -2705,7 +2709,7 @@ export const FormDialog: React.FC<FormDialogProps> = ({
     const formBody = (
         <Stack spacing={2} sx={surface === 'page' ? undefined : { mt: 1 }}>
             {error && <Alert severity='error'>{error}</Alert>}
-            {contentHeader ? <Box id={contentHeaderId}>{contentHeader}</Box> : null}
+            {contentHeader ? <Box id={dialogDescriptionTargetId}>{contentHeader}</Box> : null}
             {hasWizard ? (
                 <Stack spacing={1}>
                     <Stepper activeStep={activeWizardStep} alternativeLabel sx={{ mb: 0.5 }}>
@@ -2816,10 +2820,11 @@ export const FormDialog: React.FC<FormDialogProps> = ({
             onClose={onClose}
             maxWidth={dialogMaxWidth}
             fullWidth
-            aria-describedby={contentHeaderId}
+            aria-labelledby={dialogTitleId}
+            aria-describedby={dialogDescriptionTargetId}
             slotProps={{ paper: { sx: { borderRadius: 1 } } }}
         >
-            <DialogTitle>{title}</DialogTitle>
+            <DialogTitle id={dialogTitleId}>{title}</DialogTitle>
             <DialogContent sx={{ overflowY: 'visible', overflowX: 'visible' }}>{formBody}</DialogContent>
             <DialogActions sx={{ p: 3, pt: 2, justifyContent: showDeleteButton ? 'space-between' : 'flex-end' }}>
                 {actionButtons}

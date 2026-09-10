@@ -24,6 +24,7 @@ The source is shown in both card and list-style views so administrators can dist
 Administrators can:
 
 -   create application-owned global or entity-scoped layouts;
+-   create an independent Page/Object layout with a different immutable template;
 -   copy a metahub layout into an application-owned layout;
 -   make a layout default for its scope;
 -   activate or deactivate layouts;
@@ -57,6 +58,32 @@ marketing renderer and its typed appearance config. Dashboard zones and
 widgets are not injected into that layout; section order and visibility are
 validated by the marketing contract. Content changes are made through the
 published Object records, not through dashboard CRUD controls.
+
+The shared capability registry exposes `languageSwitcher` in the Dashboard
+`top` zone and the marketing `marketing-header` zone. Other widgets remain
+template-specific and are rejected if a placement targets an unsupported
+template or zone.
+
+Runtime selection is target-aware. Hosted and standalone clients request
+`/api/v1/applications/:applicationId/runtime/effective-layout` with the global
+surface or an authorized Page/Object target. An active scoped default wins over
+the active global default for that target. `recordKey` is content-only and does
+not change the selected template. Publication identity, lineage, and the
+`effectiveHash` are validated server-side before a renderer is chosen.
+
+Hosted links use ordinary query parameters. The standalone entry uses the same
+contract inside its hash route, so the language control does not discard a
+target or workspace when it changes locale:
+
+```text
+/a/<applicationId>?targetKind=object&entityTypeId=<entityTypeId>&locale=ru
+/#/a/<applicationId>?targetKind=object&entityTypeId=<entityTypeId>&locale=ru
+```
+
+An invalid target selector is rejected before layout resolution. The dedicated
+standalone Playwright proof is opt-in and reports
+`BLOCKED` when no deployed shell is configured; a skipped standalone test is not
+treated as evidence.
 
 ## Side Menu Modes
 

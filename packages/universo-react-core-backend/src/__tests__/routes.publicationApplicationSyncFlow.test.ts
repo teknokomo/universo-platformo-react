@@ -6,6 +6,7 @@ const request = require('supertest') as typeof import('supertest')
 const runtimeSources = new Map<string, Record<string, unknown>>()
 const publicationByApplicationId = new Map<string, string>()
 const mockExecutor = { query: jest.fn() }
+const mockRequestExecutor = { query: jest.fn() }
 
 jest.mock('../utils/logger', () => ({
     __esModule: true,
@@ -23,6 +24,10 @@ jest.mock('@universo-react/auth-backend', () => {
     const ensureAuthWithRls = (req: express.Request, _res: express.Response, next: express.NextFunction) => {
         ;(req as express.Request & { user?: { id: string }; rlsWrapped?: boolean }).user = { id: 'user-1' }
         ;(req as express.Request & { rlsWrapped?: boolean }).rlsWrapped = true
+        ;(req as express.Request & { dbContext?: unknown }).dbContext = {
+            executor: mockRequestExecutor,
+            isReleased: () => false
+        }
         next()
     }
 
@@ -60,6 +65,7 @@ jest.mock('@universo-react/utils', () => {
         OptimisticLockError: MockOptimisticLockError,
         lookupUserEmail: jest.fn(async () => null),
         isDatabaseConnectTimeoutError: jest.fn(() => false),
+        getRequestDbContext: jest.fn((req) => (req as express.Request & { dbContext?: unknown }).dbContext),
         getRequestDbExecutor: jest.fn((_req, executor) => executor)
     }
 })
@@ -124,12 +130,17 @@ jest.mock('@universo-react/applications-backend', () => {
             (
                 _ensureAuth,
                 getDbExecutor: () => unknown,
-                loadPublishedPublicationRuntimeSource: (executor: unknown, publicationId: string) => Promise<Record<string, unknown> | null>
+                loadPublishedPublicationRuntimeSource: (
+                    executor: unknown,
+                    publicationId: string
+                ) => Promise<Record<string, unknown> | null>,
+                options?: { getRequestDbExecutor?: (req: express.Request) => unknown }
             ) => {
                 const router = expressModule.Router()
 
                 router.post(
                     '/application/:applicationId/sync',
+                    _ensureAuth,
                     async (req: express.Request, res: express.Response, next: express.NextFunction) => {
                         try {
                             const publicationId = publicationByApplicationId.get(req.params.applicationId)
@@ -138,6 +149,10 @@ jest.mock('@universo-react/applications-backend', () => {
                                 return
                             }
 
+                            // The long-running application schema sync path deliberately uses
+                            // the trusted pool executor. Request-scoped RLS remains on the
+                            // regular applications CRUD/runtime routes; wrapping DDL sync in
+                            // the middleware transaction would deadlock its final metadata update.
                             const runtimeSource = await loadPublishedPublicationRuntimeSource(getDbExecutor(), publicationId)
                             if (!runtimeSource) {
                                 res.status(400).json({ error: 'Publication sync context unavailable' })
@@ -254,7 +269,8 @@ describe('core route composition publication -> application sync flow', () => {
         }
         expect(applicationsModule.createApplicationsServiceRoutes.mock.calls[0][0]).toBe(authModule.ensureAuthWithRls)
         expect(applicationsModule.createApplicationsServiceRoutes.mock.calls[0][3]).toMatchObject({
-            syncEnsureAuth: authModule.ensureAuth
+            syncEnsureAuth: authModule.ensureAuth,
+            getRequestDbExecutor: expect.any(Function)
         })
         expect(metahubsModule.loadPublishedPublicationRuntimeSource).toHaveBeenCalledWith(mockExecutor, 'publication-1')
     })

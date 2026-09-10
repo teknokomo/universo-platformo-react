@@ -216,7 +216,14 @@ describe('LayoutDetails interpretation network widget editor', () => {
             }
         ])
         getLayoutZoneWidgetObjects.mockResolvedValue([
-            { key: 'interpretationNetworkWorkspace', allowedZones: ['center'], multiInstance: true }
+            {
+                key: 'interpretationNetworkWorkspace',
+                allowedZones: ['center'],
+                allowedZonesByTemplate: { dashboard: ['center'] },
+                multiInstance: true,
+                templateKey: 'dashboard',
+                supportedTemplates: ['dashboard']
+            }
         ])
         updateLayoutZoneWidgetConfig.mockResolvedValue({
             data: {

@@ -4500,7 +4500,7 @@ export const lmsTemplate: MetahubTemplateManifest = {
                         dataType: 'STRING',
                         name: vlc('Instructor', 'Преподаватель'),
                         sortOrder: 7,
-                        validationRules: { maxLength: 255 }
+                        validationRules: { maxLength: 255, localized: true, versioned: true }
                     },
                     {
                         codename: 'Tags',

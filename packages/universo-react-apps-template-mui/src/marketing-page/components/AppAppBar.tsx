@@ -6,14 +6,23 @@ import Container from '@mui/material/Container'
 import Divider from '@mui/material/Divider'
 import Drawer from '@mui/material/Drawer'
 import IconButton from '@mui/material/IconButton'
-import MenuItem from '@mui/material/MenuItem'
-import MenuList from '@mui/material/MenuList'
+import List from '@mui/material/List'
+import ListItem from '@mui/material/ListItem'
+import ListItemButton from '@mui/material/ListItemButton'
 import Toolbar from '@mui/material/Toolbar'
 import MenuIcon from '@mui/icons-material/Menu'
 import CloseRoundedIcon from '@mui/icons-material/CloseRounded'
 import { useTranslation } from 'react-i18next'
 
-import type { MarketingActionHandler, MarketingAction, MarketingMedia, MarketingNavigationItem } from '../types'
+import {
+    MARKETING_NAVIGATION_BAR_HEIGHT_PX,
+    MARKETING_NAVIGATION_STACK_GAP_PX,
+    type MarketingActionHandler,
+    type MarketingAction,
+    type MarketingMedia,
+    type MarketingNavigationItem
+} from '../types'
+import LanguageSwitcher from '../../components/LanguageSwitcher'
 import {
     MarketingActionButton,
     MarketingColorModeControl,
@@ -40,6 +49,14 @@ const StyledToolbar = styled(Toolbar)(({ theme }) => ({
     padding: '8px 12px'
 }))
 
+const MARKETING_NAVIGATION_DRAWER_ID = 'marketing-navigation-drawer'
+
+const navigationDrawerId = (instanceKey?: string): string => {
+    if (!instanceKey) return MARKETING_NAVIGATION_DRAWER_ID
+    const encoded = encodeURIComponent(instanceKey)
+    return `${MARKETING_NAVIGATION_DRAWER_ID}-${encoded}`
+}
+
 export interface AppAppBarProps {
     brand: {
         name: string
@@ -51,6 +68,11 @@ export interface AppAppBarProps {
         signIn?: MarketingAction
         signUp?: MarketingAction
     }
+    showLanguageSwitcher?: boolean
+    navigationInstanceKey?: string
+    navigationAriaLabel?: string
+    navigationPosition?: 'fixed' | 'static'
+    navigationStackIndex?: number
     onAction?: MarketingActionHandler
 }
 
@@ -139,115 +161,175 @@ function MobileNavigation({
 
     return (
         <Box sx={{ p: 2, backgroundColor: 'background.default' }}>
-            <MenuList disablePadding>
+            <List disablePadding>
                 {actions.map((action) => {
                     const resolved = resolveMarketingAction(action)
                     if (!resolved) return null
                     return (
-                        <MenuItem key={action.semanticKey} onClick={onClose} sx={{ px: 0 }}>
-                            <Box
+                        <ListItem key={action.semanticKey} disablePadding>
+                            <ListItemButton
                                 component='a'
                                 href={resolved.href}
                                 target={resolved.target}
                                 rel={resolved.rel}
-                                onClick={(event) => invokeMarketingAction(event, action, onAction)}
-                                sx={{ width: '100%', color: 'inherit', textDecoration: 'none', py: 1 }}
+                                onClick={(event) => {
+                                    invokeMarketingAction(event, action, onAction)
+                                    onClose()
+                                }}
+                                sx={{ px: 0 }}
                             >
                                 {action.label}
-                            </Box>
-                        </MenuItem>
+                            </ListItemButton>
+                        </ListItem>
                     )
                 })}
-            </MenuList>
+            </List>
             <Divider sx={{ my: 2 }} />
-            <MenuList disablePadding>
-                <Box sx={{ display: 'flex', gap: 1, flexDirection: 'column' }}>
-                    <MarketingActionButton
-                        action={auth?.signUp}
-                        onAction={(action) => {
-                            onAction?.(action)
-                            onClose()
-                        }}
-                        color='primary'
-                        variant='contained'
-                        fullWidth
-                    >
-                        {auth?.signUp?.label}
-                    </MarketingActionButton>
-                    <MarketingActionButton
-                        action={auth?.signIn}
-                        onAction={(action) => {
-                            onAction?.(action)
-                            onClose()
-                        }}
-                        color='primary'
-                        variant='outlined'
-                        fullWidth
-                    >
-                        {auth?.signIn?.label}
-                    </MarketingActionButton>
-                </Box>
-            </MenuList>
+            <List disablePadding>
+                <ListItem disablePadding>
+                    <Box sx={{ display: 'flex', gap: 1, flexDirection: 'column', width: '100%' }}>
+                        <MarketingActionButton
+                            action={auth?.signUp}
+                            onAction={(action) => {
+                                onAction?.(action)
+                                onClose()
+                            }}
+                            color='primary'
+                            variant='contained'
+                            fullWidth
+                        >
+                            {auth?.signUp?.label}
+                        </MarketingActionButton>
+                        <MarketingActionButton
+                            action={auth?.signIn}
+                            onAction={(action) => {
+                                onAction?.(action)
+                                onClose()
+                            }}
+                            color='primary'
+                            variant='outlined'
+                            fullWidth
+                        >
+                            {auth?.signIn?.label}
+                        </MarketingActionButton>
+                    </Box>
+                </ListItem>
+            </List>
         </Box>
     )
 }
 
-export default function AppAppBar({ brand, navigation, auth, onAction }: AppAppBarProps) {
+export default function AppAppBar({
+    brand,
+    navigation,
+    auth,
+    showLanguageSwitcher = true,
+    navigationInstanceKey,
+    navigationAriaLabel,
+    navigationPosition = 'fixed',
+    navigationStackIndex = 0,
+    onAction
+}: AppAppBarProps) {
     const [open, setOpen] = React.useState(false)
+    const menuButtonRef = React.useRef<HTMLButtonElement>(null)
+    const drawerWasOpen = React.useRef(false)
     const { t } = useTranslation('apps')
+    const drawerId = navigationDrawerId(navigationInstanceKey)
+    const normalizedNavigationStackIndex = Number.isFinite(navigationStackIndex) ? Math.max(0, Math.trunc(navigationStackIndex)) : 0
+    const navigationTopOffset =
+        normalizedNavigationStackIndex === 0
+            ? 'calc(var(--template-frame-height, 0px) + 28px)'
+            : `calc(var(--template-frame-height, 0px) + 28px + ${
+                  normalizedNavigationStackIndex * (MARKETING_NAVIGATION_BAR_HEIGHT_PX + MARKETING_NAVIGATION_STACK_GAP_PX)
+              }px)`
 
     const toggleDrawer = (newOpen: boolean) => () => setOpen(newOpen)
 
+    React.useEffect(() => {
+        if (!open && drawerWasOpen.current) {
+            menuButtonRef.current?.focus()
+        }
+        drawerWasOpen.current = open
+    }, [open])
+
     return (
         <AppBar
-            position='fixed'
+            position={navigationPosition}
             enableColorOnDark
             sx={{
                 boxShadow: 0,
                 bgcolor: 'transparent',
                 backgroundImage: 'none',
-                mt: 'calc(var(--template-frame-height, 0px) + 28px)'
+                width: '100%',
+                ...(navigationPosition === 'fixed' ? { mt: navigationTopOffset } : {})
             }}
         >
             <Container maxWidth='lg'>
-                <StyledToolbar variant='dense' disableGutters>
-                    <Box sx={{ flexGrow: 1, display: 'flex', alignItems: 'center', px: 0, minWidth: 0 }}>
-                        <Brand brand={brand} onAction={onAction} />
-                        <Box sx={{ display: { xs: 'none', md: 'flex' }, minWidth: 0 }}>
-                            <NavigationActions items={navigation} onAction={onAction} />
-                        </Box>
-                    </Box>
-                    <Box sx={{ display: { xs: 'none', md: 'flex' }, gap: 1, alignItems: 'center' }}>
-                        <MarketingActionButton action={auth?.signIn} onAction={onAction} color='primary' variant='text' size='small'>
-                            {auth?.signIn?.label}
-                        </MarketingActionButton>
-                        <MarketingActionButton action={auth?.signUp} onAction={onAction} color='primary' variant='contained' size='small'>
-                            {auth?.signUp?.label}
-                        </MarketingActionButton>
-                        <MarketingColorModeControl />
-                    </Box>
-                    <Box sx={{ display: { xs: 'flex', md: 'none' }, gap: 1, alignItems: 'center' }}>
-                        <MarketingColorModeControl size='medium' />
-                        <IconButton aria-label={t('marketingPage.navigation.openMenu')} onClick={toggleDrawer(true)}>
-                            <MenuIcon />
-                        </IconButton>
-                        <Drawer
-                            anchor='top'
-                            open={open}
-                            onClose={toggleDrawer(false)}
-                            slotProps={{ paper: { sx: { top: 'var(--template-frame-height, 0px)' } } }}
-                        >
-                            <Box sx={{ backgroundColor: 'background.default' }}>
-                                <Box sx={{ display: 'flex', justifyContent: 'flex-end', p: 1 }}>
-                                    <IconButton aria-label={t('marketingPage.navigation.closeMenu')} onClick={toggleDrawer(false)}>
-                                        <CloseRoundedIcon />
-                                    </IconButton>
-                                </Box>
-                                <MobileNavigation items={navigation} auth={auth} onAction={onAction} onClose={toggleDrawer(false)} />
+                <Box component='nav' data-testid='marketing-navigation-instance' aria-label={navigationAriaLabel || brand.name}>
+                    <StyledToolbar variant='dense' disableGutters>
+                        <Box sx={{ flexGrow: 1, display: 'flex', alignItems: 'center', px: 0, minWidth: 0 }}>
+                            <Brand brand={brand} onAction={onAction} />
+                            <Box sx={{ display: { xs: 'none', md: 'flex' }, minWidth: 0 }}>
+                                <NavigationActions items={navigation} onAction={onAction} />
                             </Box>
-                        </Drawer>
-                    </Box>
-                </StyledToolbar>
+                        </Box>
+                        {showLanguageSwitcher ? (
+                            <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                                <LanguageSwitcher />
+                            </Box>
+                        ) : null}
+                        <Box
+                            data-testid='marketing-desktop-actions'
+                            sx={{ display: { xs: 'none', md: 'flex' }, gap: 1, alignItems: 'center' }}
+                        >
+                            <MarketingActionButton action={auth?.signIn} onAction={onAction} color='primary' variant='text' size='small'>
+                                {auth?.signIn?.label}
+                            </MarketingActionButton>
+                            <MarketingActionButton
+                                action={auth?.signUp}
+                                onAction={onAction}
+                                color='primary'
+                                variant='contained'
+                                size='small'
+                            >
+                                {auth?.signUp?.label}
+                            </MarketingActionButton>
+                            <MarketingColorModeControl />
+                        </Box>
+                        <Box
+                            data-testid='marketing-mobile-actions'
+                            sx={{ display: { xs: 'flex', md: 'none' }, gap: 1, alignItems: 'center' }}
+                        >
+                            <MarketingColorModeControl size='medium' />
+                            <IconButton
+                                ref={menuButtonRef}
+                                aria-label={t('marketingPage.navigation.openMenu')}
+                                aria-expanded={open}
+                                aria-controls={drawerId}
+                                onClick={toggleDrawer(true)}
+                            >
+                                <MenuIcon />
+                            </IconButton>
+                            <Drawer
+                                id={drawerId}
+                                anchor='top'
+                                open={open}
+                                onClose={toggleDrawer(false)}
+                                ModalProps={{ keepMounted: true }}
+                                slotProps={{ paper: { sx: { top: 'var(--template-frame-height, 0px)' } } }}
+                            >
+                                <Box sx={{ backgroundColor: 'background.default' }}>
+                                    <Box sx={{ display: 'flex', justifyContent: 'flex-end', p: 1 }}>
+                                        <IconButton aria-label={t('marketingPage.navigation.closeMenu')} onClick={toggleDrawer(false)}>
+                                            <CloseRoundedIcon />
+                                        </IconButton>
+                                    </Box>
+                                    <MobileNavigation items={navigation} auth={auth} onAction={onAction} onClose={toggleDrawer(false)} />
+                                </Box>
+                            </Drawer>
+                        </Box>
+                    </StyledToolbar>
+                </Box>
             </Container>
         </AppBar>
     )

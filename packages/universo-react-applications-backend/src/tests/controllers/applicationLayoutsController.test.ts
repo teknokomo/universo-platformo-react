@@ -125,6 +125,84 @@ describe('applicationLayoutsController', () => {
         expect(res.json).toHaveBeenCalledWith({ items: [], total: 0 })
     })
 
+    it('uses the supplied request-scoped executor for layout reads', async () => {
+        const requestScopedExecutor = {
+            query: jest.fn().mockResolvedValue([{ settings: null }]),
+            transaction: jest.fn(),
+            isReleased: jest.fn(() => false)
+        }
+        const controller = createApplicationLayoutsController(
+            () => executor as never,
+            () => requestScopedExecutor as never
+        )
+        const res = createResponse()
+        mockListApplicationLayouts.mockResolvedValue({ items: [], total: 0 })
+
+        await controller.list(
+            {
+                params: { applicationId: 'app-1' },
+                query: {}
+            } as unknown as Request,
+            res
+        )
+
+        expect(requestScopedExecutor.query).toHaveBeenCalled()
+        expect(mockEnsureApplicationAccess).toHaveBeenCalledWith(requestScopedExecutor, 'user-1', 'app-1', ['owner', 'admin'])
+        expect(mockListApplicationLayouts).toHaveBeenCalledWith(requestScopedExecutor, 'app_runtime_schema', {
+            limit: 50,
+            offset: 0,
+            scopeEntityId: undefined
+        })
+        expect(executor.query).not.toHaveBeenCalled()
+    })
+
+    it.each([
+        { scopeEntityId: 'not-a-uuid' },
+        { scopeEntityId: '018f8a78-7b8f-4c1d-a111-2222333344a1' },
+        { scopeEntityId: '018f8a78-7b8f-7c1d-a111-2222333344a1', scope: 'global' }
+    ])('rejects malformed layout scope query %# before the store boundary', async (query) => {
+        const controller = createApplicationLayoutsController(() => executor as never)
+        const res = createResponse()
+
+        executor.query.mockResolvedValueOnce([{ settings: null }])
+
+        await controller.list(
+            {
+                params: { applicationId: 'app-1' },
+                query
+            } as unknown as Request,
+            res
+        )
+
+        expect(mockListApplicationLayouts).not.toHaveBeenCalled()
+        expect(res.status).toHaveBeenCalledWith(400)
+        expect(res.status.mock.results[0]?.value.json).toHaveBeenCalledWith({ error: 'APPLICATION_LAYOUT_SCOPE_INVALID' })
+    })
+
+    it('passes a valid UUID v7 layout scope to the store', async () => {
+        const controller = createApplicationLayoutsController(() => executor as never)
+        const res = createResponse()
+        const scopeEntityId = '018f8a78-7b8f-7c1d-a111-2222333344a1'
+
+        executor.query.mockResolvedValueOnce([{ settings: null }])
+        mockListApplicationLayouts.mockResolvedValue({ items: [], total: 0 })
+
+        await controller.list(
+            {
+                params: { applicationId: 'app-1' },
+                query: { scopeEntityId }
+            } as unknown as Request,
+            res
+        )
+
+        expect(mockListApplicationLayouts).toHaveBeenCalledWith(executor, 'app_runtime_schema', {
+            limit: 50,
+            offset: 0,
+            scopeEntityId
+        })
+        expect(res.json).toHaveBeenCalledWith({ items: [], total: 0 })
+    })
+
     it('keeps create mutations restricted to owner/admin even when read policy includes editor', async () => {
         const controller = createApplicationLayoutsController(() => executor as never)
         const res = createResponse()
@@ -178,13 +256,19 @@ describe('applicationLayoutsController', () => {
 
         await controller.update(
             {
-                params: { applicationId: 'app-1', layoutId: 'layout-route' },
+                params: { applicationId: 'app-1', layoutId: '018f8a78-7b8f-7c1d-a111-2222333344a2' },
                 body
             } as unknown as Request,
             res
         )
 
-        expect(mockUpdateApplicationLayout).toHaveBeenCalledWith(executor, 'app_runtime_schema', 'layout-route', body, 'user-1')
+        expect(mockUpdateApplicationLayout).toHaveBeenCalledWith(
+            executor,
+            'app_runtime_schema',
+            '018f8a78-7b8f-7c1d-a111-2222333344a2',
+            body,
+            'user-1'
+        )
         expect(res.status).toHaveBeenCalledWith(409)
         expect(res.status.mock.results[0]?.value.json).toHaveBeenCalledWith({ error: 'APPLICATION_LAYOUT_VERSION_CONFLICT' })
     })
@@ -237,7 +321,7 @@ describe('applicationLayoutsController', () => {
 
         await controller.resetConfig(
             {
-                params: { applicationId: 'app-1', layoutId: 'layout-1' },
+                params: { applicationId: 'app-1', layoutId: '018f8a78-7b8f-7c1d-a111-2222333344a1' },
                 body: { expectedVersion: 0, unexpected: true }
             } as unknown as Request,
             res
@@ -258,7 +342,7 @@ describe('applicationLayoutsController', () => {
 
             await controller.remove(
                 {
-                    params: { applicationId: 'app-1', layoutId: 'layout-1' },
+                    params: { applicationId: 'app-1', layoutId: '018f8a78-7b8f-7c1d-a111-2222333344a1' },
                     query: { expectedVersion }
                 } as unknown as Request,
                 res
@@ -279,13 +363,19 @@ describe('applicationLayoutsController', () => {
 
         await controller.remove(
             {
-                params: { applicationId: 'app-1', layoutId: 'layout-1' },
+                params: { applicationId: 'app-1', layoutId: '018f8a78-7b8f-7c1d-a111-2222333344a1' },
                 query: { expectedVersion: '7' }
             } as unknown as Request,
             res
         )
 
-        expect(mockDeleteApplicationLayout).toHaveBeenCalledWith(executor, 'app_runtime_schema', 'layout-1', 'user-1', 7)
+        expect(mockDeleteApplicationLayout).toHaveBeenCalledWith(
+            executor,
+            'app_runtime_schema',
+            '018f8a78-7b8f-7c1d-a111-2222333344a1',
+            'user-1',
+            7
+        )
         expect(res.status).toHaveBeenCalledWith(204)
     })
 
@@ -298,14 +388,20 @@ describe('applicationLayoutsController', () => {
 
         await controller.copy(
             {
-                params: { applicationId: 'app-1', layoutId: 'layout-1' },
+                params: { applicationId: 'app-1', layoutId: '018f8a78-7b8f-7c1d-a111-2222333344a1' },
                 body
             } as unknown as Request,
             res
         )
 
         expect(mockEnsureApplicationAccess).toHaveBeenCalledWith(executor, 'user-1', 'app-1', ['owner', 'admin'])
-        expect(mockCopyApplicationLayout).toHaveBeenCalledWith(executor, 'app_runtime_schema', 'layout-1', body, 'user-1')
+        expect(mockCopyApplicationLayout).toHaveBeenCalledWith(
+            executor,
+            'app_runtime_schema',
+            '018f8a78-7b8f-7c1d-a111-2222333344a1',
+            body,
+            'user-1'
+        )
         expect(res.status).toHaveBeenCalledWith(201)
         expect(res.status.mock.results[0]?.value.json).toHaveBeenCalledWith({ item })
     })
@@ -316,7 +412,7 @@ describe('applicationLayoutsController', () => {
 
         await controller.copy(
             {
-                params: { applicationId: 'app-1', layoutId: 'layout-1' },
+                params: { applicationId: 'app-1', layoutId: '018f8a78-7b8f-7c1d-a111-2222333344a1' },
                 body: { unexpected: true }
             } as unknown as Request,
             res
@@ -334,7 +430,7 @@ describe('applicationLayoutsController', () => {
 
         await controller.copy(
             {
-                params: { applicationId: 'app-1', layoutId: 'layout-1' },
+                params: { applicationId: 'app-1', layoutId: '018f8a78-7b8f-7c1d-a111-2222333344a1' },
                 body: { expectedVersion: 7 }
             } as unknown as Request,
             res
@@ -361,13 +457,19 @@ describe('applicationLayoutsController', () => {
 
         await controller.upsertWidget(
             {
-                params: { applicationId: 'app-1', layoutId: 'layout-route' },
+                params: { applicationId: 'app-1', layoutId: '018f8a78-7b8f-7c1d-a111-2222333344a2' },
                 body
             } as unknown as Request,
             res
         )
 
-        expect(mockUpsertApplicationLayoutWidget).toHaveBeenCalledWith(executor, 'app_runtime_schema', 'layout-route', body, 'user-1')
+        expect(mockUpsertApplicationLayoutWidget).toHaveBeenCalledWith(
+            executor,
+            'app_runtime_schema',
+            '018f8a78-7b8f-7c1d-a111-2222333344a2',
+            body,
+            'user-1'
+        )
         expect(res.status).toHaveBeenCalledWith(409)
         expect(res.status.mock.results[0]?.value.json).toHaveBeenCalledWith({
             error: 'APPLICATION_LAYOUT_WIDGET_DUPLICATE_INSTANCE'
@@ -382,7 +484,11 @@ describe('applicationLayoutsController', () => {
 
         await controller.updateWidgetConfig(
             {
-                params: { applicationId: 'app-1', layoutId: 'layout-route', widgetId: 'widget-route' },
+                params: {
+                    applicationId: 'app-1',
+                    layoutId: '018f8a78-7b8f-7c1d-a111-2222333344a2',
+                    widgetId: '018f8a78-7b8f-7c1d-a111-2222333344a3'
+                },
                 body
             } as unknown as Request,
             res
@@ -391,8 +497,8 @@ describe('applicationLayoutsController', () => {
         expect(mockUpdateApplicationLayoutWidgetConfig).toHaveBeenCalledWith(
             executor,
             'app_runtime_schema',
-            'layout-route',
-            'widget-route',
+            '018f8a78-7b8f-7c1d-a111-2222333344a2',
+            '018f8a78-7b8f-7c1d-a111-2222333344a3',
             body,
             'user-1'
         )
@@ -407,7 +513,11 @@ describe('applicationLayoutsController', () => {
 
         await controller.toggleWidget(
             {
-                params: { applicationId: 'app-1', layoutId: 'layout-route', widgetId: 'widget-route' },
+                params: {
+                    applicationId: 'app-1',
+                    layoutId: '018f8a78-7b8f-7c1d-a111-2222333344a2',
+                    widgetId: '018f8a78-7b8f-7c1d-a111-2222333344a3'
+                },
                 body
             } as unknown as Request,
             res
@@ -416,8 +526,8 @@ describe('applicationLayoutsController', () => {
         expect(mockToggleApplicationLayoutWidget).toHaveBeenCalledWith(
             executor,
             'app_runtime_schema',
-            'layout-route',
-            'widget-route',
+            '018f8a78-7b8f-7c1d-a111-2222333344a2',
+            '018f8a78-7b8f-7c1d-a111-2222333344a3',
             body,
             'user-1'
         )
@@ -431,7 +541,11 @@ describe('applicationLayoutsController', () => {
 
         await controller.removeWidget(
             {
-                params: { applicationId: 'app-1', layoutId: 'layout-route', widgetId: 'widget-route' },
+                params: {
+                    applicationId: 'app-1',
+                    layoutId: '018f8a78-7b8f-7c1d-a111-2222333344a2',
+                    widgetId: '018f8a78-7b8f-7c1d-a111-2222333344a3'
+                },
                 query: { expectedVersion: '5' }
             } as unknown as Request,
             res
@@ -440,8 +554,8 @@ describe('applicationLayoutsController', () => {
         expect(mockDeleteApplicationLayoutWidget).toHaveBeenCalledWith(
             executor,
             'app_runtime_schema',
-            'layout-route',
-            'widget-route',
+            '018f8a78-7b8f-7c1d-a111-2222333344a2',
+            '018f8a78-7b8f-7c1d-a111-2222333344a3',
             'user-1',
             5
         )
@@ -454,7 +568,7 @@ describe('applicationLayoutsController', () => {
 
         await controller.resetConfig(
             {
-                params: { applicationId: 'app-1', layoutId: 'layout-1' },
+                params: { applicationId: 'app-1', layoutId: '018f8a78-7b8f-7c1d-a111-2222333344a1' },
                 body: {}
             } as unknown as Request,
             res
@@ -476,7 +590,7 @@ describe('applicationLayoutsController', () => {
 
             await controller.resetConfig(
                 {
-                    params: { applicationId: 'app-1', layoutId: 'layout-1' },
+                    params: { applicationId: 'app-1', layoutId: '018f8a78-7b8f-7c1d-a111-2222333344a1' },
                     body: { expectedVersion: 7 }
                 } as unknown as Request,
                 res

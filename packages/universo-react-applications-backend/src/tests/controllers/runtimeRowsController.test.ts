@@ -5,6 +5,7 @@ const mockResolveRuntimeSchema = jest.fn()
 const mockRuntimeQuery = jest.fn()
 const mockCreateQueryHelper = jest.fn(() => mockRuntimeQuery)
 const mockResolveInterpretationNetworkRuntimeSurface = jest.fn()
+const mockResolveEffectiveLayoutForRequest = jest.fn()
 
 jest.mock('../../shared/runtimeHelpers', () => {
     const actual = jest.requireActual('../../shared/runtimeHelpers')
@@ -20,8 +21,14 @@ jest.mock('../../services/interpretationNetwork/runtimeInterpretationNetworkSurf
     resolveInterpretationNetworkRuntimeSurface: (...args: unknown[]) => mockResolveInterpretationNetworkRuntimeSurface(...args)
 }))
 
+jest.mock('../../services/effectiveLayoutResolver', () => ({
+    __esModule: true,
+    resolveEffectiveLayoutForRequest: (...args: unknown[]) => mockResolveEffectiveLayoutForRequest(...args)
+}))
+
 import {
     createRuntimeRowsController,
+    mapRuntimeZoneWidgets,
     partitionRuntimeMenuItems,
     resolvePreferredScopeEntityIdFromGlobalMenu
 } from '../../controllers/runtimeRowsController'
@@ -60,6 +67,43 @@ const mutableObjectCollectionId = '019f2000-0000-7000-8000-000000000100'
 const staleOrPageObjectCollectionId = '019f2000-0000-7000-8000-000000000999'
 const testApplicationId = '019f2000-0000-7000-8000-000000000001'
 
+mockResolveEffectiveLayoutForRequest.mockResolvedValue({
+    status: 'ok',
+    target: {
+        applicationId: testApplicationId,
+        targetKind: 'object',
+        entityTypeId: mutableObjectCollectionId,
+        locale: 'en'
+    },
+    resolvedEntityTypeId: mutableObjectCollectionId,
+    scope: 'global',
+    layout: {
+        id: '019f2000-0000-7000-8000-000000000101',
+        scopeKind: 'application-global',
+        scopeEntityId: null,
+        templateKey: 'dashboard',
+        sourceKind: 'application',
+        sourceLayoutId: null,
+        sourceSnapshotHash: null,
+        sourceContentHash: null,
+        localContentHash: null,
+        syncState: 'clean',
+        name: { en: 'Dashboard' },
+        description: null,
+        config: {},
+        isActive: true,
+        isDefault: true,
+        sortOrder: 0,
+        version: 1,
+        compositionMode: 'independent',
+        baseLayoutId: null
+    },
+    widgets: [],
+    precedence: ['application-global'],
+    publicationIdentity: null,
+    effectiveHash: 'test-effective-layout-hash'
+})
+
 const runtimeObjectCollectionRows = [
     {
         id: mutableObjectCollectionId,
@@ -90,6 +134,43 @@ const mutableRuntimeComponents = [
         ui_config: { hidden: true, formHidden: true, serverOwned: true }
     }
 ]
+
+describe('runtimeRowsController zone widget transport', () => {
+    it('preserves all five Dashboard zones without positional remapping', () => {
+        const zoneWidgets = mapRuntimeZoneWidgets([
+            { id: 'left-widget', layout_id: 'layout-1', widget_key: 'menuWidget', sort_order: 0, config: {}, zone: 'left' },
+            { id: 'top-widget', layout_id: 'layout-1', widget_key: 'header', sort_order: 1, config: {}, zone: 'top' },
+            { id: 'right-widget', layout_id: 'layout-1', widget_key: 'productTree', sort_order: 2, config: {}, zone: 'right' },
+            { id: 'bottom-widget', layout_id: 'layout-1', widget_key: 'footer', sort_order: 3, config: {}, zone: 'bottom' },
+            { id: 'center-widget', layout_id: 'layout-1', widget_key: 'detailsTable', sort_order: 4, config: {}, zone: 'center' }
+        ])
+
+        expect(Object.keys(zoneWidgets)).toEqual(['left', 'top', 'right', 'bottom', 'center'])
+        expect(zoneWidgets.left[0]?.id).toBe('left-widget')
+        expect(zoneWidgets.top[0]?.id).toBe('top-widget')
+        expect(zoneWidgets.right[0]?.id).toBe('right-widget')
+        expect(zoneWidgets.bottom[0]?.id).toBe('bottom-widget')
+        expect(zoneWidgets.center[0]?.id).toBe('center-widget')
+    })
+
+    it('fails closed for an unknown persisted zone instead of assigning it to left', () => {
+        let failure: unknown
+        try {
+            mapRuntimeZoneWidgets([
+                { id: 'unknown-widget', layout_id: 'layout-1', widget_key: 'header', sort_order: 0, config: {}, zone: 'legacy' }
+            ])
+        } catch (error) {
+            failure = error
+        }
+
+        expect(failure).toMatchObject({
+            statusCode: 409,
+            body: {
+                code: 'LAYOUT_PERSISTED_INVALID'
+            }
+        })
+    })
+})
 
 function createRuntimeMutationHarness() {
     const { executor } = createMockDbExecutor()

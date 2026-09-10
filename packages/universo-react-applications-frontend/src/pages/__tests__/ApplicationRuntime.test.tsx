@@ -5,6 +5,7 @@ import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import ApplicationRuntime from '../ApplicationRuntime'
 import { createRuntimeAdapter } from '../../api/runtimeAdapter'
+import { applicationsQueryKeys } from '../../api/queryKeys'
 
 const runtimeMocks = vi.hoisted(() => ({
     capturedCellRenderers: null as any,
@@ -21,6 +22,11 @@ const runtimeMocks = vi.hoisted(() => ({
     setPaginationModel: vi.fn(),
     dashboardStateOverrides: {} as Record<string, unknown>,
     templateKey: 'dashboard',
+    templateQueryOptions: undefined as { queryKey?: unknown; queryFn?: () => Promise<unknown> } | undefined,
+    getApplicationEffectiveLayout: vi.fn(),
+    effectiveLayoutZone: undefined as string | undefined,
+    capturedDashboardProps: null as { layoutConfig?: Record<string, unknown>; zoneWidgets?: unknown } | null,
+    capturedMarketingProps: null as { locale?: string; target?: unknown; sharedLayoutWidgets?: unknown } | null,
     triggerRerender: undefined as undefined | (() => void)
 }))
 
@@ -43,7 +49,37 @@ vi.mock('react-i18next', () => ({
 // template-dispatch query is covered by the marketing runtime contract tests;
 // keep this suite deterministic and independent from a QueryClient provider.
 vi.mock('@tanstack/react-query', () => ({
-    useQuery: vi.fn(() => ({ isLoading: false, isError: false, data: { templateKey: runtimeMocks.templateKey } }))
+    useQuery: vi.fn((options: { queryKey?: unknown; queryFn?: () => Promise<unknown> }) => {
+        runtimeMocks.templateQueryOptions = options
+        return {
+            isLoading: false,
+            isError: false,
+            data: {
+                status: 'ok',
+                layout: { templateKey: runtimeMocks.templateKey, config: { showFooter: false } },
+                widgets: [
+                    {
+                        id: 'effective-widget-1',
+                        layoutId: 'effective-layout-1',
+                        zone:
+                            runtimeMocks.effectiveLayoutZone ??
+                            (runtimeMocks.templateKey === 'marketing-page' ? 'marketing-header' : 'center'),
+                        widgetKey: runtimeMocks.templateKey === 'marketing-page' ? 'languageSwitcher' : 'menuWidget',
+                        sortOrder: 1,
+                        config: {},
+                        sourceWidgetId: null,
+                        sourceBaseWidgetId: null,
+                        isActive: true,
+                        version: 1
+                    }
+                ]
+            }
+        }
+    })
+}))
+
+vi.mock('../../api/applications', () => ({
+    getApplicationEffectiveLayout: runtimeMocks.getApplicationEffectiveLayout
 }))
 
 vi.mock('../../api/runtimeAdapter', () => ({
@@ -57,16 +93,24 @@ vi.mock('../../api/mutations', () => ({
     getRuntimeCellPendingKey: vi.fn((rowId: string, field: string) => `${rowId}:${field}`)
 }))
 
-vi.mock('@universo-react/apps-template-mui', async () => {
-    const actual = await vi.importActual<typeof import('@universo-react/apps-template-mui')>('@universo-react/apps-template-mui')
-
+vi.mock('@universo-react/apps-template-mui', () => {
     return {
-        ...actual,
-        MarketingRuntimeContent: () => <div data-testid='marketing-runtime-content'>marketing</div>,
+        getRuntimeLayoutErrorCode: vi.fn(() => null),
+        AppMainLayout: ({ children }: { children: ReactNode }) => <div data-testid='app-main-layout'>{children}</div>,
+        MarketingRuntimeContent: (props: {
+            locale?: string
+            target?: unknown
+            layoutIdentity?: unknown
+            sharedLayoutWidgets?: unknown
+        }) => {
+            runtimeMocks.capturedMarketingProps = props
+            return <div data-testid='marketing-runtime-content'>marketing</div>
+        },
         AppsDashboard: ({
             details,
             layoutConfig,
-            menu
+            menu,
+            zoneWidgets
         }: {
             details?: {
                 title?: string
@@ -106,64 +150,69 @@ vi.mock('@universo-react/apps-template-mui', async () => {
                 ) => void
             }
             layoutConfig?: Record<string, unknown>
+            zoneWidgets?: unknown
             menu?: { items?: Array<{ label: string; selected?: boolean; href?: string | null }> }
-        }) => (
-            <div data-testid='apps-dashboard'>
-                <div data-testid='apps-dashboard-layout'>{JSON.stringify(layoutConfig ?? {})}</div>
-                <div data-testid='apps-dashboard-menu'>
-                    {menu?.items?.map((item) => `${item.label}:${Boolean(item.selected)}:${item.href ?? ''}`).join('|')}
+        }) => {
+            runtimeMocks.capturedDashboardProps = { layoutConfig, zoneWidgets }
+            return (
+                <div data-testid='apps-dashboard'>
+                    <div data-testid='apps-dashboard-layout'>{JSON.stringify(layoutConfig ?? {})}</div>
+                    <div data-testid='apps-dashboard-zone-widgets'>{JSON.stringify(zoneWidgets ?? {})}</div>
+                    <div data-testid='apps-dashboard-menu'>
+                        {menu?.items?.map((item) => `${item.label}:${Boolean(item.selected)}:${item.href ?? ''}`).join('|')}
+                    </div>
+                    <div data-testid='apps-dashboard-banner'>{details?.banner}</div>
+                    <div data-testid='apps-dashboard-title'>{details?.title}</div>
+                    <div data-testid='apps-dashboard-details'>
+                        {JSON.stringify({
+                            locale: details?.locale,
+                            sections: details?.sections,
+                            objectCollections: details?.objectCollections,
+                            pagePlayer: details?.pagePlayer
+                                ? {
+                                      showOutline: details.pagePlayer.showOutline,
+                                      showProgressHeader: details.pagePlayer.showProgressHeader,
+                                      completeButtonMode: details.pagePlayer.completeButtonMode,
+                                      progressStorageKey: details.pagePlayer.progressStorageKey,
+                                      hasProgressHandler: typeof details.pagePlayer.onProgressChange === 'function'
+                                  }
+                                : null,
+                            tableDefaults: details?.tableDefaults ?? null
+                        })}
+                    </div>
+                    <button
+                        data-testid='apps-dashboard-complete-page'
+                        onClick={() => void details?.pagePlayer?.onProgressChange?.({ action: 'complete' })}
+                        type='button'
+                    >
+                        complete
+                    </button>
+                    <button
+                        data-testid='apps-dashboard-open-course-target'
+                        onClick={() =>
+                            details?.onOpenCreateTarget?.({
+                                id: 'create-course',
+                                label: 'Course',
+                                sectionCodename: 'Courses',
+                                createDefaults: [{ fieldCodename: 'Status', enumCodename: 'Draft' }]
+                            })
+                        }
+                        type='button'
+                    >
+                        create course target
+                    </button>
+                    <button
+                        data-testid='apps-dashboard-open-course-row-edit'
+                        onClick={() => details?.onOpenRowTarget?.({ rowId: 'course-row-1', sectionCodename: 'Courses' }, 'edit')}
+                        type='button'
+                    >
+                        edit course row
+                    </button>
+                    <div data-testid='apps-dashboard-actions'>{details?.actions}</div>
+                    <div data-testid='apps-dashboard-content'>{details?.content}</div>
                 </div>
-                <div data-testid='apps-dashboard-banner'>{details?.banner}</div>
-                <div data-testid='apps-dashboard-title'>{details?.title}</div>
-                <div data-testid='apps-dashboard-details'>
-                    {JSON.stringify({
-                        locale: details?.locale,
-                        sections: details?.sections,
-                        objectCollections: details?.objectCollections,
-                        pagePlayer: details?.pagePlayer
-                            ? {
-                                  showOutline: details.pagePlayer.showOutline,
-                                  showProgressHeader: details.pagePlayer.showProgressHeader,
-                                  completeButtonMode: details.pagePlayer.completeButtonMode,
-                                  progressStorageKey: details.pagePlayer.progressStorageKey,
-                                  hasProgressHandler: typeof details.pagePlayer.onProgressChange === 'function'
-                              }
-                            : null,
-                        tableDefaults: details?.tableDefaults ?? null
-                    })}
-                </div>
-                <button
-                    data-testid='apps-dashboard-complete-page'
-                    onClick={() => void details?.pagePlayer?.onProgressChange?.({ action: 'complete' })}
-                    type='button'
-                >
-                    complete
-                </button>
-                <button
-                    data-testid='apps-dashboard-open-course-target'
-                    onClick={() =>
-                        details?.onOpenCreateTarget?.({
-                            id: 'create-course',
-                            label: 'Course',
-                            sectionCodename: 'Courses',
-                            createDefaults: [{ fieldCodename: 'Status', enumCodename: 'Draft' }]
-                        })
-                    }
-                    type='button'
-                >
-                    create course target
-                </button>
-                <button
-                    data-testid='apps-dashboard-open-course-row-edit'
-                    onClick={() => details?.onOpenRowTarget?.({ rowId: 'course-row-1', sectionCodename: 'Courses' }, 'edit')}
-                    type='button'
-                >
-                    edit course row
-                </button>
-                <div data-testid='apps-dashboard-actions'>{details?.actions}</div>
-                <div data-testid='apps-dashboard-content'>{details?.content}</div>
-            </div>
-        ),
+            )
+        },
         CrudDialogs: ({
             state,
             surface,
@@ -390,25 +439,113 @@ describe('ApplicationRuntime pending interaction safety', () => {
         runtimeMocks.updateLearningContentProgress.mockClear()
         runtimeMocks.dashboardStateOverrides = {}
         runtimeMocks.templateKey = 'dashboard'
+        runtimeMocks.templateQueryOptions = undefined
+        runtimeMocks.getApplicationEffectiveLayout.mockReset()
+        runtimeMocks.effectiveLayoutZone = undefined
+        runtimeMocks.capturedDashboardProps = null
+        runtimeMocks.capturedMarketingProps = null
         runtimeMocks.triggerRerender = undefined
     })
 
-    it('keeps workspace routes on the dashboard runtime for marketing applications', () => {
+    it('dispatches a scoped marketing layout on an entity runtime route', () => {
         runtimeMocks.templateKey = 'marketing-page'
 
-        renderRuntimePageAt('/applications/app-1/runtime/workspaces')
+        renderRuntimePageAt(
+            '/applications/app-1/runtime/entities/landing?targetKind=page&entityTypeId=019fa968-aac3-7ce7-9717-79e7c6c6e77e&locale=ru'
+        )
 
-        expect(screen.getByTestId('runtime-workspaces-page')).toHaveTextContent('workspaces:app-1:list:dashboard')
-        expect(screen.queryByTestId('marketing-runtime-content')).not.toBeInTheDocument()
+        expect(screen.getByTestId('marketing-runtime-content')).toHaveTextContent('marketing')
+        expect(screen.queryByTestId('apps-dashboard')).not.toBeInTheDocument()
+        expect(runtimeMocks.capturedMarketingProps).toMatchObject({
+            locale: 'ru',
+            target: {
+                targetKind: 'page',
+                entityTypeId: '019fa968-aac3-7ce7-9717-79e7c6c6e77e',
+                entityTypeCodename: null
+            }
+        })
     })
 
-    it('renders the marketing runtime only at the application root', () => {
+    it('dispatches the marketing runtime from the effective template at the application root', () => {
         runtimeMocks.templateKey = 'marketing-page'
 
         renderRuntimePageAt('/applications/app-1/runtime')
 
         expect(screen.getByTestId('marketing-runtime-content')).toHaveTextContent('marketing')
         expect(screen.queryByTestId('apps-dashboard')).not.toBeInTheDocument()
+        expect(runtimeMocks.capturedMarketingProps).toMatchObject({
+            locale: 'en',
+            target: null,
+            sharedLayoutWidgets: [
+                expect.objectContaining({ id: 'effective-widget-1', widgetKey: 'languageSwitcher', zone: 'marketing-header' })
+            ]
+        })
+    })
+
+    it('routes marketing applications to the shared workspace runtime surface', () => {
+        runtimeMocks.templateKey = 'marketing-page'
+        const workspaceId = '00000000-0000-7000-8000-000000000111'
+
+        renderRuntimePageAt(`/applications/app-1/runtime/workspaces/${workspaceId}/settings`)
+
+        expect(screen.getByTestId('app-main-layout')).toBeInTheDocument()
+        expect(screen.getByTestId('runtime-workspaces-page')).toHaveTextContent(`workspaces:app-1:${workspaceId}:settings`)
+        expect(screen.queryByTestId('marketing-runtime-content')).not.toBeInTheDocument()
+    })
+
+    it('passes effective dashboard config and widgets to the dashboard renderer', () => {
+        renderRuntimePageAt('/applications/app-1/runtime')
+
+        expect(screen.getByTestId('apps-dashboard-layout')).toHaveTextContent('"showFooter":false')
+        expect(screen.getByTestId('apps-dashboard-zone-widgets')).toHaveTextContent('effective-widget-1')
+    })
+
+    it('fails closed when effective dashboard layout contains an unknown zone', () => {
+        runtimeMocks.effectiveLayoutZone = 'unsupported-zone'
+
+        expect(() => renderRuntimePageAt('/applications/app-1/runtime')).toThrow('Effective layout contains an unsupported Dashboard zone')
+    })
+
+    it('loads effective layout with every layout target and excludes content record from layout identity', async () => {
+        runtimeMocks.templateKey = 'marketing-page'
+
+        runtimeMocks.getApplicationEffectiveLayout.mockResolvedValue({
+            status: 'ok',
+            layout: { templateKey: 'marketing-page', config: {} }
+        })
+
+        renderRuntimePageAt(
+            '/applications/app-1/runtime?targetKind=page&entityTypeCodename=LandingPage&workspaceId=workspace-a&locale=ru&themeVariant=dark&recordKey=content-record-1'
+        )
+
+        expect(runtimeMocks.templateQueryOptions?.queryKey).toEqual(
+            applicationsQueryKeys.runtimeEffectiveLayout('app-1', {
+                targetKind: 'page',
+                entityTypeCodename: 'LandingPage',
+                workspaceId: 'workspace-a',
+                locale: 'ru',
+                themeVariant: 'dark'
+            })
+        )
+        expect(JSON.stringify(runtimeMocks.templateQueryOptions?.queryKey)).not.toContain('content-record-1')
+
+        await runtimeMocks.templateQueryOptions?.queryFn?.()
+        expect(runtimeMocks.getApplicationEffectiveLayout).toHaveBeenCalledWith('app-1', {
+            targetKind: 'page',
+            entityTypeId: null,
+            entityTypeCodename: 'LandingPage',
+            workspaceId: 'workspace-a',
+            locale: 'ru',
+            themeVariant: 'dark'
+        })
+        expect(runtimeMocks.capturedMarketingProps).toMatchObject({ locale: 'ru', target: { targetKind: 'page' } })
+    })
+
+    it('fails closed for an entity selector without a target kind instead of falling back to the global layout', () => {
+        renderRuntimePageAt('/applications/app-1/runtime?entityTypeCodename=LandingPage')
+
+        expect(screen.getByRole('alert')).toHaveTextContent('The runtime target in this URL is invalid')
+        expect(runtimeMocks.getApplicationEffectiveLayout).not.toHaveBeenCalled()
     })
 
     it('resolves the Structure section as the preferred target for a Matrix deep link', () => {
@@ -746,7 +883,7 @@ describe('ApplicationRuntime pending interaction safety', () => {
         expect(screen.getByTestId('apps-dashboard-title')).toHaveTextContent('Workspaces')
         expect(screen.getByTestId('runtime-workspaces-page')).toHaveTextContent('workspaces:app-1')
         expect(screen.getByTestId('apps-dashboard-menu')).toHaveTextContent(
-            'Modules:false:/a/app-1/object-1|Workspaces:true:/a/app-1/workspaces'
+            'Modules:false:/a/app-1/object-1?targetKind=object&entityTypeId=object-1&locale=en|Workspaces:true:/a/app-1/workspaces?locale=en'
         )
         expect(screen.getByTestId('apps-dashboard-layout')).toHaveTextContent('"showOverviewTitle":false')
         expect(screen.getByTestId('apps-dashboard-layout')).toHaveTextContent('"showOverviewCards":false')
@@ -763,7 +900,7 @@ describe('ApplicationRuntime pending interaction safety', () => {
 
         expect(screen.getByTestId('runtime-workspaces-page')).toHaveTextContent(`workspaces:app-1:${workspaceId}:access`)
         expect(screen.getByTestId('apps-dashboard-menu')).toHaveTextContent(
-            `Modules:false:/a/app-1/object-1|Workspaces:true:/a/app-1/workspaces|Dashboard:false:/a/app-1/workspaces/${workspaceId}|Access:true:/a/app-1/workspaces/${workspaceId}/access|Settings:false:/a/app-1/workspaces/${workspaceId}/settings`
+            `Modules:false:/a/app-1/object-1?targetKind=object&entityTypeId=object-1&locale=en|Workspaces:true:/a/app-1/workspaces?locale=en|Dashboard:false:/a/app-1/workspaces/${workspaceId}?locale=en|Access:true:/a/app-1/workspaces/${workspaceId}/access?locale=en|Settings:false:/a/app-1/workspaces/${workspaceId}/settings?locale=en`
         )
     })
 
@@ -798,7 +935,7 @@ describe('ApplicationRuntime pending interaction safety', () => {
         renderRuntimePageAt('/applications/app-1/runtime/workspaces')
 
         expect(screen.getByTestId('apps-dashboard-menu')).toHaveTextContent(
-            'Modules:false:/a/app-1/object-1|Workspaces:true:/a/app-1/workspaces'
+            'Modules:false:/a/app-1/object-1?targetKind=object&entityTypeId=object-1&locale=en|Workspaces:true:/a/app-1/workspaces?locale=en'
         )
     })
 
@@ -818,6 +955,41 @@ describe('ApplicationRuntime pending interaction safety', () => {
         renderRuntimePageAt('/applications/app-1/runtime/workspaces')
 
         expect(screen.getByTestId('apps-dashboard-menu')).toHaveTextContent('Modules:false:/a/app-1|Workspaces:true:/a/app-1/workspaces')
+    })
+
+    it('keeps target-aware section links when workspaces are disabled', () => {
+        runtimeMocks.dashboardStateOverrides = {
+            appData: {
+                zoneWidgets: { left: [], right: [], center: [] },
+                menus: [],
+                activeMenuId: null,
+                settings: { sectionLinksEnabled: true },
+                workspacesEnabled: false,
+                permissions: {
+                    manageMembers: false,
+                    manageApplication: false,
+                    createContent: false,
+                    editContent: false,
+                    deleteContent: false,
+                    readReports: false
+                },
+                section: { id: 'page-1', name: 'Landing', codename: 'Landing', kind: 'page' },
+                objectCollection: { id: 'object-1', name: 'Products', codename: 'Products', kind: 'object' },
+                sections: [{ id: 'page-1', codename: 'Landing', kind: 'page' }],
+                objectCollections: [{ id: 'object-1', codename: 'Products', kind: 'object', tableName: 'obj_products' }]
+            },
+            menuSlot: {
+                title: null,
+                showTitle: false,
+                items: [{ id: 'products', label: 'Products', kind: 'section', objectCollectionId: 'object-1', selected: false }]
+            }
+        }
+
+        renderRuntimePageAt('/applications/app-1/runtime?locale=ru')
+
+        expect(screen.getByTestId('apps-dashboard-menu')).toHaveTextContent(
+            'Products:false:/a/app-1/object-1?targetKind=object&entityTypeId=object-1&locale=ru'
+        )
     })
 
     it('uses a route UUID as the initially selected runtime section', () => {

@@ -76,12 +76,15 @@ const VISUAL_LINKUP_FAMILY_LABELS: Record<VisualLinkupLocale, Record<VisualLinku
 const resolveVisualLinkupFamilyLabel = (locale: VisualLinkupLocale, family: VisualLinkupFamily): string =>
     VISUAL_LINKUP_FAMILY_LABELS[locale][family]
 
+const getMmoommNavigationItem = (page: Page, name: string | RegExp): Locator =>
+    page.getByRole('link', { name }).or(page.getByRole('button', { name })).first()
+
 export const openMmoommSpaceSection = async (page: Page) => {
     const existingSpaceRuntimeStatus = page.getByTestId('playcanvas-realtime-status')
     if (await existingSpaceRuntimeStatus.isVisible().catch(() => false)) {
         return
     }
-    const spaceButton = page.getByRole('button', { name: /^(Space|Космос)$/ })
+    const spaceButton = getMmoommNavigationItem(page, /^(Space|Космос)$/)
     const initialShellTimeout = Math.min(30_000, MMOOMM_RUNTIME_EXPECT_TIMEOUT)
 
     for (const [attempt, timeout] of [initialShellTimeout, MMOOMM_RUNTIME_EXPECT_TIMEOUT].entries()) {
@@ -109,7 +112,7 @@ export const openMmoommSpaceSection = async (page: Page) => {
 }
 
 export const openMmoommVisualLinkupLabSection = async (page: Page) => {
-    const labButton = page.getByRole('button', { name: MMOOMM_VISUAL_LINKUP_LAB_BUTTON_NAME })
+    const labButton = getMmoommNavigationItem(page, MMOOMM_VISUAL_LINKUP_LAB_BUTTON_NAME)
     await expect(labButton).toBeVisible({ timeout: MMOOMM_RUNTIME_EXPECT_TIMEOUT })
     await labButton.click()
 }
@@ -729,11 +732,8 @@ export interface MmoommRuntimeProofOptions {
 
 const expectMmoommRuntimeLocaleLabels = async (page: Page, widget: Locator, canvas: Locator, locale: 'en' | 'ru', label: string) => {
     if (locale === 'ru') {
-        await expect(
-            page.getByRole('button', { name: 'Добро пожаловать' }),
-            `${label} must expose the Russian welcome menu item`
-        ).toBeVisible()
-        await expect(page.getByRole('button', { name: 'Космос' }), `${label} must expose the Russian space menu item`).toBeVisible()
+        await expect(getMmoommNavigationItem(page, 'Добро пожаловать'), `${label} must expose the Russian welcome menu item`).toBeVisible()
+        await expect(getMmoommNavigationItem(page, 'Космос'), `${label} must expose the Russian space menu item`).toBeVisible()
         await expect(widget.getByTestId('playcanvas-realtime-status'), `${label} must expose Russian connected state`).toContainText(
             /Realtime (подключён|восстановлен)/
         )
@@ -753,15 +753,15 @@ const expectMmoommRuntimeLocaleLabels = async (page: Page, widget: Locator, canv
             await expect(widget.getByRole('button', { name }), `${label} must expose Russian control "${name}"`).toBeVisible()
         }
     } else {
-        await expect(page.getByRole('button', { name: 'Welcome' }), `${label} must expose the English welcome menu item`).toBeVisible()
-        await expect(page.getByRole('button', { name: 'Space' }), `${label} must expose the English space menu item`).toBeVisible()
+        await expect(getMmoommNavigationItem(page, 'Welcome'), `${label} must expose the English welcome menu item`).toBeVisible()
+        await expect(getMmoommNavigationItem(page, 'Space'), `${label} must expose the English space menu item`).toBeVisible()
     }
 }
 
 export const expectMmoommRuntimeReady = async (page: Page, applicationId: string, options: MmoommRuntimeProofOptions = {}) => {
     const label = options.label ?? 'MMOOMM app snapshot runtime'
     await page.goto(`/a/${applicationId}`)
-    await expect(page.getByRole('button', { name: MMOOMM_WELCOME_BUTTON_NAME })).toBeVisible({
+    await expect(getMmoommNavigationItem(page, MMOOMM_WELCOME_BUTTON_NAME)).toBeVisible({
         timeout: MMOOMM_RUNTIME_EXPECT_TIMEOUT
     })
     await expect(page.getByRole('heading', { name: MMOOMM_WELCOME_TEXT })).toBeVisible()
@@ -822,8 +822,8 @@ export const expectMmoommVisualLinkupLabRuntimeReady = async (
 ) => {
     const label = options.label ?? 'MMOOMM Visual Linkup Lab runtime'
     await page.goto(`/a/${applicationId}`)
-    await expect(page.getByRole('button', { name: MMOOMM_WELCOME_BUTTON_NAME })).toBeVisible({ timeout: MMOOMM_RUNTIME_EXPECT_TIMEOUT })
-    await expect(page.getByRole('button', { name: MMOOMM_VISUAL_LINKUP_LAB_BUTTON_NAME })).toBeVisible({
+    await expect(getMmoommNavigationItem(page, MMOOMM_WELCOME_BUTTON_NAME)).toBeVisible({ timeout: MMOOMM_RUNTIME_EXPECT_TIMEOUT })
+    await expect(getMmoommNavigationItem(page, MMOOMM_VISUAL_LINKUP_LAB_BUTTON_NAME)).toBeVisible({
         timeout: MMOOMM_RUNTIME_EXPECT_TIMEOUT
     })
     await expect(page.getByTestId('playcanvas-canvas-widget')).toHaveCount(0)

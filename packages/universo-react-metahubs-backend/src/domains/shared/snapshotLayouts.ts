@@ -3,10 +3,91 @@ import { applicationTemplateKeySchema } from '@universo-react/types'
 import type { MetahubSchemaService } from '../metahubs/services/MetahubSchemaService'
 import type { MetahubSnapshot } from '../publications/services/SnapshotSerializer'
 import { createLogger } from '../../utils/logger'
+import { findDuplicateActiveSingleInstanceWidgetKey } from '../layouts/widgetInvariants'
 
 const log = createLogger('snapshotLayouts')
 
 const isRecord = (value: unknown): value is Record<string, unknown> => Boolean(value) && typeof value === 'object' && !Array.isArray(value)
+
+const readStoredString = (value: unknown, field: string): string => {
+    if (typeof value !== 'string' || value.length === 0) {
+        throw new Error(`Stored layout snapshot field ${field} must be a non-empty string`)
+    }
+    return value
+}
+
+const readStoredNullableString = (value: unknown, field: string): string | null => {
+    if (value === null) return null
+    return readStoredString(value, field)
+}
+
+const readStoredRecord = (value: unknown, field: string): Record<string, unknown> => {
+    if (!isRecord(value)) {
+        throw new Error(`Stored layout snapshot field ${field} must be an object`)
+    }
+    return value
+}
+
+const readStoredNullableRecord = (value: unknown, field: string): Record<string, unknown> | null => {
+    if (value === null) return null
+    return readStoredRecord(value, field)
+}
+
+const readStoredBoolean = (value: unknown, field: string): boolean => {
+    if (typeof value !== 'boolean') {
+        throw new Error(`Stored layout snapshot field ${field} must be a boolean`)
+    }
+    return value
+}
+
+const readStoredInteger = (value: unknown, field: string): number => {
+    if (typeof value !== 'number' || !Number.isInteger(value)) {
+        throw new Error(`Stored layout snapshot field ${field} must be an integer`)
+    }
+    return value
+}
+
+const getSafeErrorCode = (error: unknown): string => (error instanceof Error && error.name ? error.name : 'UNKNOWN_ERROR')
+
+const validateSnapshotWidgetMultiplicity = (snapshot: MetahubSnapshot): void => {
+    const layouts = [...(snapshot.layouts ?? []), ...(snapshot.scopedLayouts ?? [])]
+    const widgetsByLayout = new Map<string, NonNullable<MetahubSnapshot['layoutZoneWidgets']>>()
+    for (const widget of snapshot.layoutZoneWidgets ?? []) {
+        const rows = widgetsByLayout.get(widget.layoutId) ?? []
+        rows.push(widget)
+        widgetsByLayout.set(widget.layoutId, rows)
+    }
+    const overridesByLayoutAndWidget = new Map<string, NonNullable<MetahubSnapshot['layoutWidgetOverrides']>[number]>()
+    for (const override of snapshot.layoutWidgetOverrides ?? []) {
+        overridesByLayoutAndWidget.set(`${override.layoutId}:${override.baseWidgetId}`, override)
+    }
+
+    for (const layout of layouts) {
+        const ownRows = widgetsByLayout.get(layout.id) ?? []
+        const baseRows = layout.baseLayoutId ? widgetsByLayout.get(layout.baseLayoutId) ?? [] : []
+        const effectiveRows = layout.baseLayoutId
+            ? [
+                  ...baseRows.map((widget) => {
+                      const override = overridesByLayoutAndWidget.get(`${layout.id}:${widget.id}`)
+                      return {
+                          widgetKey: widget.widgetKey,
+                          isActive:
+                              override?.isDeletedOverride === true
+                                  ? false
+                                  : typeof override?.isActive === 'boolean'
+                                  ? override.isActive
+                                  : widget.isActive
+                      }
+                  }),
+                  ...ownRows
+              ]
+            : ownRows
+
+        if (findDuplicateActiveSingleInstanceWidgetKey(effectiveRows) !== null) {
+            throw new Error('Stored layout snapshot contains duplicate active single-instance widgets')
+        }
+    }
+}
 
 const manifestKey = (projectId: string, sceneId: string | null | undefined): string => `${projectId}\u0000${sceneId ?? ''}`
 
@@ -220,32 +301,36 @@ export async function attachLayoutsToSnapshot(options: {
         )
 
         const layouts = (layoutRows ?? []).map((r) => ({
-            id: String(r.id),
-            scopeEntityId: typeof r.scope_entity_id === 'string' ? r.scope_entity_id : null,
-            baseLayoutId: typeof r.base_layout_id === 'string' ? r.base_layout_id : null,
+            id: readStoredString(r.id, 'layout id'),
+            scopeEntityId: readStoredNullableString(r.scope_entity_id, 'layout scope entity id'),
+            baseLayoutId: readStoredNullableString(r.base_layout_id, 'layout base id'),
             templateKey: applicationTemplateKeySchema.parse(r.template_key),
-            name: (r.name as Record<string, unknown>) ?? {},
-            description: (r.description as Record<string, unknown> | null) ?? null,
-            config: (r.config as Record<string, unknown>) ?? {},
-            isActive: Boolean(r.is_active),
-            isDefault: Boolean(r.is_default),
-            sortOrder: typeof r.sort_order === 'number' ? r.sort_order : 0
+            name: readStoredRecord(r.name, 'layout name'),
+            description: readStoredNullableRecord(r.description, 'layout description'),
+            config: readStoredRecord(r.config, 'layout config'),
+            isActive: readStoredBoolean(r.is_active, 'layout active state'),
+            isDefault: readStoredBoolean(r.is_default, 'layout default state'),
+            sortOrder: readStoredInteger(r.sort_order, 'layout sort order')
         }))
 
         const globalLayouts = layouts.filter((layout) => layout.scopeEntityId === null)
-        const scopedLayouts = layouts.filter((layout) => layout.scopeEntityId !== null && layout.baseLayoutId)
-        const defaultLayout =
-            globalLayouts.find((layout) => layout.isDefault && layout.isActive) ??
-            globalLayouts.find((layout) => layout.isActive) ??
-            globalLayouts.find((layout) => layout.isDefault) ??
-            globalLayouts[0] ??
-            null
+        const scopedLayouts = layouts.filter((layout) => layout.scopeEntityId !== null)
+        const activeGlobalDefaults = globalLayouts.filter((layout) => layout.isActive && layout.isDefault)
+        if (globalLayouts.some((layout) => layout.isActive) && activeGlobalDefaults.length !== 1) {
+            throw new Error('Metahub layouts must contain exactly one active global default layout')
+        }
+        const defaultLayout = activeGlobalDefaults[0] ?? null
 
-        snapshot.layouts = globalLayouts.map(({ scopeEntityId: _scopeEntityId, baseLayoutId: _baseLayoutId, ...layout }) => layout)
+        snapshot.layouts = globalLayouts.map(({ scopeEntityId: _scopeEntityId, baseLayoutId: _baseLayoutId, ...layout }) => ({
+            ...layout,
+            compositionMode: 'independent' as const,
+            baseLayoutId: null
+        }))
         snapshot.scopedLayouts = scopedLayouts.map(({ scopeEntityId, baseLayoutId, ...layout }) => ({
             ...layout,
             scopeEntityId: scopeEntityId as string,
-            baseLayoutId: baseLayoutId as string
+            baseLayoutId,
+            compositionMode: baseLayoutId ? 'overlay' : 'independent'
         }))
         snapshot.defaultLayoutId = defaultLayout?.id ?? null
         snapshot.layoutConfig = defaultLayout?.config ?? {}
@@ -287,13 +372,13 @@ export async function attachLayoutsToSnapshot(options: {
             }>(widgetSql, widgetParams)
 
             snapshot.layoutZoneWidgets = (zoneRows ?? []).map((row) => ({
-                id: String(row.id),
-                layoutId: String(row.layout_id),
-                zone: String(row.zone),
-                widgetKey: String(row.widget_key),
-                sortOrder: typeof row.sort_order === 'number' ? row.sort_order : 0,
-                config: row.config && typeof row.config === 'object' ? row.config : {},
-                isActive: row.is_active !== false
+                id: readStoredString(row.id, 'widget id'),
+                layoutId: readStoredString(row.layout_id, 'widget layout id'),
+                zone: readStoredString(row.zone, 'widget zone'),
+                widgetKey: readStoredString(row.widget_key, 'widget key'),
+                sortOrder: readStoredInteger(row.sort_order, 'widget sort order'),
+                config: readStoredRecord(row.config, 'widget config'),
+                isActive: readStoredBoolean(row.is_active, 'widget active state')
             }))
         } else {
             snapshot.layoutZoneWidgets = []
@@ -328,25 +413,31 @@ export async function attachLayoutsToSnapshot(options: {
             )
 
             snapshot.layoutWidgetOverrides = (overrideRows ?? [])
-                .filter((row) => exportedScopedLayoutIds.has(String(row.layout_id)))
+                .filter((row) => exportedScopedLayoutIds.has(readStoredString(row.layout_id, 'widget override layout id')))
                 .map((row) => ({
-                    id: String(row.id),
-                    layoutId: String(row.layout_id),
-                    baseWidgetId: String(row.base_widget_id),
-                    zone: row.zone,
-                    sortOrder: typeof row.sort_order === 'number' ? row.sort_order : null,
-                    config: row.config && typeof row.config === 'object' && !Array.isArray(row.config) ? row.config : null,
-                    isActive: typeof row.is_active === 'boolean' ? row.is_active : null,
-                    isDeletedOverride: row.is_deleted_override === true
+                    id: readStoredString(row.id, 'widget override id'),
+                    layoutId: readStoredString(row.layout_id, 'widget override layout id'),
+                    baseWidgetId: readStoredString(row.base_widget_id, 'widget override base widget id'),
+                    zone: readStoredNullableString(row.zone, 'widget override zone'),
+                    sortOrder: row.sort_order === null ? null : readStoredInteger(row.sort_order, 'widget override sort order'),
+                    config: readStoredNullableRecord(row.config, 'widget override config'),
+                    isActive: row.is_active === null ? null : readStoredBoolean(row.is_active, 'widget override active state'),
+                    isDeletedOverride: readStoredBoolean(row.is_deleted_override, 'widget override deletion state')
                 }))
         } else {
             snapshot.layoutWidgetOverrides = []
         }
+
+        validateSnapshotWidgetMultiplicity(snapshot)
     } catch (e) {
         // A publication must never silently turn a malformed or unavailable
-        // layout into an empty dashboard. Callers can expose a safe diagnostic
-        // while retaining the original error for server logs.
-        log.error('Failed to load metahub layout config', e)
+        // layout into an empty dashboard. Keep the diagnostic structured and
+        // free of raw configuration, SQL, and error payloads.
+        log.error('Failed to load metahub layout config', {
+            code: 'LAYOUT_SNAPSHOT_LOAD_FAILED',
+            errorCode: getSafeErrorCode(e),
+            operation: 'attach-layouts'
+        })
         throw e
     }
 }

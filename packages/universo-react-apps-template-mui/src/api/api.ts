@@ -1,23 +1,50 @@
 import { z } from 'zod'
-import type { RecordsUnionDatasource, ReportFilter, RuntimeDatasourceFilter, RuntimeDatasourceSort } from '@universo-react/types'
+import type {
+    EffectiveLayoutResult,
+    RecordsUnionDatasource,
+    ReportFilter,
+    RuntimeDatasourceFilter,
+    RuntimeDatasourceSort
+} from '@universo-react/types'
 import {
     objectRecordBehaviorSchema,
     objectCollectionRuntimeViewConfigSchema,
     dashboardLayoutConfigSchema,
+    effectiveLayoutResultSchema,
     playCanvasRuntimeManifestSchema,
     runtimePageBlockSchema,
     reportDefinitionSchema,
     workflowActionSchema,
     readLocalizedTextValue,
-    applicationTemplateKeySchema,
     marketingPageRuntimeViewModelSchema,
     type MarketingPageRuntimeViewModel
 } from '@universo-react/types'
-import { extractErrorMessage, fetchWithCsrf } from './client'
-export { buildAppsApiUrl, extractErrorMessage, fetchWithCsrf } from './client'
+import {
+    buildRuntimeApiUrl,
+    createRuntimeFetcher,
+    extractErrorMessage,
+    fetchWithCsrf,
+    normalizeRuntimeLayoutTarget,
+    parseRuntimeResponse
+} from './client'
+export { effectiveLayoutResultSchema } from '@universo-react/types'
+export {
+    buildAppsApiUrl,
+    buildRuntimeApiUrl,
+    buildRuntimeLayoutQueryKey,
+    createRuntimeFetcher,
+    extractErrorMessage,
+    fetchWithCsrf,
+    getRuntimeLayoutErrorCode,
+    normalizeRuntimeLayoutTarget,
+    parseRuntimeResponse
+} from './client'
+export type { NormalizedRuntimeLayoutTarget, RuntimeLayoutTarget, RuntimeTargetKind } from './client'
 export * from './runtimeRows'
 
 export type { DashboardLayoutConfig } from '@universo-react/types'
+
+const buildAppApiUrl = buildRuntimeApiUrl
 
 export const runtimePermissionsSchema = z
     .object({
@@ -86,6 +113,16 @@ const runtimeZoneWidgetSchema = z.object({
     isActive: z.boolean().optional().default(true)
 })
 
+export const runtimeZoneWidgetsSchema = z
+    .object({
+        left: z.array(runtimeZoneWidgetSchema).default([]),
+        top: z.array(runtimeZoneWidgetSchema).optional(),
+        right: z.array(runtimeZoneWidgetSchema).default([]),
+        bottom: z.array(runtimeZoneWidgetSchema).optional(),
+        center: z.array(runtimeZoneWidgetSchema).default([])
+    })
+    .strict()
+
 const runtimeMenuItemSchema = z.object({
     id: z.string(),
     kind: z.enum(['section', 'hub', 'link']),
@@ -132,13 +169,7 @@ export const appDataResponseSchema = z.object({
     workflowCapabilities: z.record(z.boolean()).optional(),
     // Added by backend for dashboard rendering; optional for backward compatibility.
     layoutConfig: dashboardLayoutConfigSchema,
-    zoneWidgets: z
-        .object({
-            left: z.array(runtimeZoneWidgetSchema),
-            right: z.array(runtimeZoneWidgetSchema).optional().default([]),
-            center: z.array(runtimeZoneWidgetSchema).optional().default([])
-        })
-        .optional(),
+    zoneWidgets: runtimeZoneWidgetsSchema.optional(),
     menus: z
         .array(
             z.object({
@@ -163,14 +194,8 @@ export const appDataResponseSchema = z.object({
 
 export type AppDataResponse = z.infer<typeof appDataResponseSchema>
 
-export const runtimeTemplateResponseSchema = z
-    .object({
-        templateKey: applicationTemplateKeySchema,
-        config: z.record(z.unknown()).optional().default({})
-    })
-    .strict()
-
-export type RuntimeTemplateResponse = z.infer<typeof runtimeTemplateResponseSchema>
+export type RuntimeEffectiveLayoutResponse = EffectiveLayoutResult
+export type RuntimeEffectiveLayoutSuccess = Extract<EffectiveLayoutResult, { status: 'ok' }>
 export type MarketingPageRuntimeResponse = MarketingPageRuntimeViewModel
 
 /** @deprecated Use AppDataResponse instead */
@@ -235,24 +260,59 @@ export type RuntimeLedgerProjectionResponse = z.infer<typeof runtimeLedgerProjec
 export type RuntimeReportRunResponse = z.infer<typeof runtimeReportRunResponseSchema>
 export type RuntimePlayCanvasManifestResponse = z.infer<typeof runtimePlayCanvasManifestsResponseSchema>
 
-/** Build the base API URL for a given application's runtime endpoint. */
-const buildAppApiUrl = (apiBaseUrl: string, applicationId: string, path = ''): string => {
-    const normalizedBase = apiBaseUrl.replace(/\/$/, '')
-    const apiPath = `${normalizedBase}/applications/${applicationId}/runtime${path}`
-
-    if (/^https?:\/\//i.test(normalizedBase)) {
-        return new URL(apiPath).toString()
-    }
-
-    return new URL(apiPath, window.location.origin).toString()
+export async function fetchRuntimeEffectiveLayout(options: {
+    apiBaseUrl: string
+    applicationId: string
+    target?: import('./client').RuntimeLayoutTarget | null
+}): Promise<RuntimeEffectiveLayoutResponse> {
+    const fetchRuntime = createRuntimeFetcher({
+        apiBaseUrl: options.apiBaseUrl,
+        applicationId: options.applicationId,
+        target: options.target
+    })
+    return fetchRuntime('/effective-layout', effectiveLayoutResultSchema, 'Effective layout API request failed')
 }
 
-export async function fetchRuntimeTemplate(options: { apiBaseUrl: string; applicationId: string }): Promise<RuntimeTemplateResponse> {
-    const res = await fetch(buildAppApiUrl(options.apiBaseUrl, options.applicationId, '/template'), { credentials: 'include' })
-    if (!res.ok) throw new Error(await extractErrorMessage(res, 'Runtime template API request failed'))
-    const parsed = runtimeTemplateResponseSchema.safeParse(await res.json())
-    if (!parsed.success) throw new Error('Runtime template API response validation failed')
-    return parsed.data
+const DASHBOARD_ZONES = ['left', 'top', 'right', 'bottom', 'center'] as const
+type DashboardZone = (typeof DASHBOARD_ZONES)[number]
+type DashboardZoneWidget = z.infer<typeof runtimeZoneWidgetsSchema>['left'][number]
+
+const isDashboardZone = (value: string): value is DashboardZone => DASHBOARD_ZONES.includes(value as DashboardZone)
+
+export const toDashboardZoneWidgets = (result: RuntimeEffectiveLayoutSuccess): z.infer<typeof runtimeZoneWidgetsSchema> => {
+    if (result.layout.templateKey !== 'dashboard') {
+        throw new Error('Effective layout is not a Dashboard layout')
+    }
+
+    const grouped: Record<DashboardZone, DashboardZoneWidget[]> = {
+        left: [],
+        top: [],
+        right: [],
+        bottom: [],
+        center: []
+    }
+
+    for (const widget of result.widgets) {
+        if (!widget.isActive) continue
+        if (!isDashboardZone(widget.zone)) {
+            throw new Error(`Effective layout contains an unsupported Dashboard zone: ${widget.zone}`)
+        }
+
+        grouped[widget.zone].push({
+            id: widget.id,
+            layoutId: widget.layoutId,
+            widgetKey: widget.widgetKey,
+            sortOrder: widget.sortOrder,
+            config: widget.config,
+            isActive: widget.isActive
+        })
+    }
+
+    for (const zone of DASHBOARD_ZONES) {
+        grouped[zone].sort((left, right) => left.sortOrder - right.sortOrder || left.id.localeCompare(right.id))
+    }
+
+    return grouped
 }
 
 export async function fetchMarketingPageRuntime(options: {
@@ -261,23 +321,29 @@ export async function fetchMarketingPageRuntime(options: {
     locale: string
     workspaceId?: string | null
     target?: MarketingRuntimeTarget | null
+    expectedLayoutHash?: string | null
 }): Promise<MarketingPageRuntimeResponse> {
-    const url = new URL(buildAppApiUrl(options.apiBaseUrl, options.applicationId, '/marketing-page'))
+    const url = new URL(buildRuntimeApiUrl(options.apiBaseUrl, options.applicationId, '/marketing-page'))
     url.searchParams.set('locale', options.locale)
     if (options.workspaceId?.trim()) url.searchParams.set('workspaceId', options.workspaceId.trim())
-    if (options.target?.entityTypeId?.trim()) url.searchParams.set('entityTypeId', options.target.entityTypeId.trim())
-    if (options.target?.entityTypeCodename?.trim()) {
-        url.searchParams.set('entityTypeCodename', options.target.entityTypeCodename.trim())
-    }
+    const target = options.target
+        ? normalizeRuntimeLayoutTarget({
+              targetKind: options.target.targetKind,
+              entityTypeId: options.target.entityTypeId,
+              entityTypeCodename: options.target.entityTypeCodename
+          })
+        : null
+    if (target?.targetKind) url.searchParams.set('targetKind', target.targetKind)
+    if (target?.entityTypeId) url.searchParams.set('entityTypeId', target.entityTypeId)
+    if (target?.entityTypeCodename) url.searchParams.set('entityTypeCodename', target.entityTypeCodename)
     if (options.target?.recordKey?.trim()) url.searchParams.set('recordKey', options.target.recordKey.trim())
+    if (options.expectedLayoutHash?.trim()) url.searchParams.set('expectedLayoutHash', options.expectedLayoutHash.trim())
     const res = await fetch(url.toString(), { credentials: 'include' })
-    if (!res.ok) throw new Error(await extractErrorMessage(res, 'Marketing page runtime API request failed'))
-    const parsed = marketingPageRuntimeViewModelSchema.safeParse(await res.json())
-    if (!parsed.success) throw new Error('Marketing page runtime response validation failed')
-    return parsed.data
+    return parseRuntimeResponse(res, marketingPageRuntimeViewModelSchema, 'Marketing page runtime API request failed')
 }
 
 export type MarketingRuntimeTarget = {
+    targetKind?: import('./client').RuntimeTargetKind | null
     entityTypeId?: string | null
     entityTypeCodename?: string | null
     recordKey?: string | null
@@ -317,10 +383,7 @@ export async function fetchAppData(options: {
         lifecycleState,
         libraryView
     } = options
-    const normalizedBase = apiBaseUrl.replace(/\/$/, '')
-    const runtimePath = `${normalizedBase}/applications/${applicationId}/runtime`
-    const isAbsoluteBase = /^https?:\/\//i.test(normalizedBase)
-    const url = isAbsoluteBase ? new URL(runtimePath) : new URL(runtimePath, window.location.origin)
+    const url = new URL(buildRuntimeApiUrl(apiBaseUrl, applicationId))
     url.searchParams.set('limit', String(limit))
     url.searchParams.set('offset', String(offset))
     url.searchParams.set('locale', locale)
@@ -357,16 +420,7 @@ export async function fetchAppData(options: {
     }
 
     const res = await fetch(url.toString(), { credentials: 'include' })
-    if (!res.ok) {
-        throw new Error(await extractErrorMessage(res, 'App data API request failed'))
-    }
-
-    const json = await res.json()
-    const parsed = appDataResponseSchema.safeParse(json)
-    if (!parsed.success) {
-        throw new Error('App data API response validation failed')
-    }
-    return parsed.data
+    return parseRuntimeResponse(res, appDataResponseSchema, 'App data API request failed')
 }
 
 export async function fetchRuntimeRecordsUnion(options: {
@@ -399,11 +453,7 @@ export async function fetchRuntimeRecordsUnion(options: {
         throw new Error(await extractErrorMessage(res, 'Runtime records union API request failed'))
     }
 
-    const parsed = appDataResponseSchema.safeParse(await res.json())
-    if (!parsed.success) {
-        throw new Error('Runtime records union API response validation failed')
-    }
-    return parsed.data
+    return parseRuntimeResponse(res, appDataResponseSchema, 'Runtime records union API request failed')
 }
 
 export async function fetchRuntimePlayCanvasManifests(options: {

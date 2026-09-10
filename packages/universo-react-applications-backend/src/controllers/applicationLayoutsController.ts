@@ -1,15 +1,21 @@
 import type { Request, Response } from 'express'
 import { z } from 'zod'
-import {
-    applicationLayoutCopyMutationSchema,
-    applicationLayoutConfigResetMutationSchema,
-    applicationLayoutWidgetConfigBatchMutationSchema,
-    applicationLayoutWidgetResetBatchMutationSchema
-} from '@universo-react/types'
-import type { DbExecutor } from '@universo-react/utils'
+import { uuidV7Schema, type DbExecutor } from '@universo-react/utils'
 import { ensureApplicationAccess, type ApplicationRole } from '../routes/guards'
 import { getRequestDbExecutor } from '../utils'
 import { normalizeLocale, resolveUserId } from '../shared/runtimeHelpers'
+import {
+    strictApplicationLayoutConfigResetMutationSchema,
+    strictApplicationLayoutCopyMutationSchema,
+    strictApplicationLayoutCreateSchema,
+    strictApplicationLayoutUpdateSchema,
+    strictApplicationLayoutWidgetConfigBatchMutationSchema,
+    strictApplicationLayoutWidgetConfigMutationSchema,
+    strictApplicationLayoutWidgetMoveMutationSchema,
+    strictApplicationLayoutWidgetMutationSchema,
+    strictApplicationLayoutWidgetResetBatchMutationSchema,
+    strictApplicationLayoutWidgetToggleMutationSchema
+} from '../validation/applicationLayoutMutationSchemas'
 import {
     applicationLayoutTablesExist,
     copyApplicationLayout,
@@ -46,15 +52,23 @@ const applicationLayoutReadPolicySchema = z
     })
     .passthrough()
 
-const parseLimit = (value: unknown): number => {
-    const parsed = Number(value)
-    return Number.isInteger(parsed) ? Math.min(Math.max(parsed, 1), 100) : 50
-}
-
-const parseOffset = (value: unknown): number => {
-    const parsed = Number(value)
-    return Number.isInteger(parsed) ? Math.max(parsed, 0) : 0
-}
+const applicationLayoutListQuerySchema = z
+    .object({
+        scopeEntityId: uuidV7Schema.optional(),
+        scope: z.enum(['global']).optional(),
+        limit: z.coerce.number().int().min(1).max(100).optional(),
+        offset: z.coerce.number().int().min(0).max(Number.MAX_SAFE_INTEGER).optional()
+    })
+    .strict()
+    .superRefine((value, context) => {
+        if (value.scope === 'global' && value.scopeEntityId !== undefined) {
+            context.addIssue({
+                code: z.ZodIssueCode.custom,
+                path: ['scopeEntityId'],
+                message: 'Global scope cannot be combined with scopeEntityId'
+            })
+        }
+    })
 
 const parseExpectedVersion = (value: unknown): number => {
     if (value === undefined) {
@@ -100,7 +114,11 @@ const handleKnownError = (res: Response, error: unknown): boolean => {
         res.status(400).json({ error: message })
         return true
     }
-    if (message === 'APPLICATION_LAYOUT_WIDGET_DUPLICATE_INSTANCE' || message === 'APPLICATION_LAYOUT_WIDGET_INSTANCE_IMMUTABLE') {
+    if (
+        message === 'APPLICATION_LAYOUT_WIDGET_DUPLICATE_INSTANCE' ||
+        message === 'APPLICATION_LAYOUT_WIDGET_SINGLETON_CONFLICT' ||
+        message === 'APPLICATION_LAYOUT_WIDGET_INSTANCE_IMMUTABLE'
+    ) {
         res.status(409).json({ error: message })
         return true
     }
@@ -130,6 +148,15 @@ const handleKnownError = (res: Response, error: unknown): boolean => {
     return false
 }
 
+const parseLayoutParam = (res: Response, value: unknown, errorCode: string): string | null => {
+    const parsed = uuidV7Schema.safeParse(value)
+    if (!parsed.success) {
+        res.status(400).json({ error: errorCode })
+        return null
+    }
+    return parsed.data
+}
+
 const normalizeLayoutReadRoles = (settings: unknown): ApplicationRole[] => {
     const parsed = applicationLayoutReadPolicySchema.safeParse(settings)
     const configuredRoles = parsed.success ? parsed.data.applicationLayouts?.readRoles : undefined
@@ -144,7 +171,10 @@ const normalizeLayoutReadRoles = (settings: unknown): ApplicationRole[] => {
     return APPLICATION_LAYOUT_READ_ROLES.filter((role) => roles.has(role))
 }
 
-export function createApplicationLayoutsController(getDbExecutor: () => DbExecutor) {
+export function createApplicationLayoutsController(
+    getDbExecutor: () => DbExecutor,
+    getRequestScopedDbExecutor: (req: Request) => DbExecutor = (req) => getRequestDbExecutor(req, getDbExecutor())
+) {
     const resolveReadRoles = async (executor: DbExecutor, applicationId: string): Promise<ApplicationRole[]> => {
         const rows = await executor.query<{ settings: unknown }>(
             `
@@ -169,7 +199,7 @@ export function createApplicationLayoutsController(getDbExecutor: () => DbExecut
             return null
         }
 
-        const executor = getRequestDbExecutor(req, getDbExecutor())
+        const executor = getRequestScopedDbExecutor(req)
         await ensureApplicationAccess(executor, userId, applicationId, roles)
         const schemaName = await getApplicationRuntimeSchemaName(executor, applicationId)
         if (!schemaName || !(await applicationLayoutTablesExist(executor, schemaName))) {
@@ -181,7 +211,7 @@ export function createApplicationLayoutsController(getDbExecutor: () => DbExecut
 
     return {
         async listScopes(req: Request, res: Response) {
-            const executor = getRequestDbExecutor(req, getDbExecutor())
+            const executor = getRequestScopedDbExecutor(req)
             const ctx = await ensureSchema(req, res, await resolveReadRoles(executor, req.params.applicationId))
             if (!ctx) return
             const locale = normalizeLocale(typeof req.query.locale === 'string' ? req.query.locale : undefined)
@@ -189,18 +219,18 @@ export function createApplicationLayoutsController(getDbExecutor: () => DbExecut
         },
 
         async list(req: Request, res: Response) {
-            const executor = getRequestDbExecutor(req, getDbExecutor())
+            const executor = getRequestScopedDbExecutor(req)
             const ctx = await ensureSchema(req, res, await resolveReadRoles(executor, req.params.applicationId))
             if (!ctx) return
-            const scopeEntityId =
-                typeof req.query.scopeEntityId === 'string'
-                    ? req.query.scopeEntityId || null
-                    : req.query.scope === 'global'
-                    ? null
-                    : undefined
+            const parsedQuery = applicationLayoutListQuerySchema.safeParse(req.query)
+            if (!parsedQuery.success) {
+                res.status(400).json({ error: 'APPLICATION_LAYOUT_SCOPE_INVALID' })
+                return
+            }
+            const scopeEntityId = parsedQuery.data.scopeEntityId ?? (parsedQuery.data.scope === 'global' ? null : undefined)
             const result = await listApplicationLayouts(ctx.executor, ctx.schemaName, {
-                limit: parseLimit(req.query.limit),
-                offset: parseOffset(req.query.offset),
+                limit: parsedQuery.data.limit ?? 50,
+                offset: parsedQuery.data.offset ?? 0,
                 scopeEntityId
             })
             res.json(result)
@@ -209,18 +239,25 @@ export function createApplicationLayoutsController(getDbExecutor: () => DbExecut
         async create(req: Request, res: Response) {
             const ctx = await ensureSchema(req, res)
             if (!ctx) return
+            const parsedBody = strictApplicationLayoutCreateSchema.safeParse(req.body)
+            if (!parsedBody.success) {
+                res.status(400).json({ error: 'APPLICATION_LAYOUT_INVALID' })
+                return
+            }
             try {
-                res.status(201).json({ item: await createApplicationLayout(ctx.executor, ctx.schemaName, req.body, ctx.userId) })
+                res.status(201).json({ item: await createApplicationLayout(ctx.executor, ctx.schemaName, parsedBody.data, ctx.userId) })
             } catch (error) {
                 if (!handleKnownError(res, error)) throw error
             }
         },
 
         async detail(req: Request, res: Response) {
-            const executor = getRequestDbExecutor(req, getDbExecutor())
+            const executor = getRequestScopedDbExecutor(req)
             const ctx = await ensureSchema(req, res, await resolveReadRoles(executor, req.params.applicationId))
             if (!ctx) return
-            const detail = await getApplicationLayoutDetail(ctx.executor, ctx.schemaName, req.params.layoutId)
+            const layoutId = parseLayoutParam(res, req.params.layoutId, 'APPLICATION_LAYOUT_ID_INVALID')
+            if (!layoutId) return
+            const detail = await getApplicationLayoutDetail(ctx.executor, ctx.schemaName, layoutId)
             if (!detail) {
                 res.status(404).json({ error: 'Layout not found' })
                 return
@@ -231,8 +268,15 @@ export function createApplicationLayoutsController(getDbExecutor: () => DbExecut
         async update(req: Request, res: Response) {
             const ctx = await ensureSchema(req, res)
             if (!ctx) return
+            const layoutId = parseLayoutParam(res, req.params.layoutId, 'APPLICATION_LAYOUT_ID_INVALID')
+            if (!layoutId) return
+            const parsedBody = strictApplicationLayoutUpdateSchema.safeParse(req.body)
+            if (!parsedBody.success) {
+                res.status(400).json({ error: 'APPLICATION_LAYOUT_INVALID' })
+                return
+            }
             try {
-                const item = await updateApplicationLayout(ctx.executor, ctx.schemaName, req.params.layoutId, req.body, ctx.userId)
+                const item = await updateApplicationLayout(ctx.executor, ctx.schemaName, layoutId, parsedBody.data, ctx.userId)
                 if (!item) {
                     res.status(404).json({ error: 'Layout not found' })
                     return
@@ -246,19 +290,15 @@ export function createApplicationLayoutsController(getDbExecutor: () => DbExecut
         async resetConfig(req: Request, res: Response) {
             const ctx = await ensureSchema(req, res)
             if (!ctx) return
-            const parsedBody = applicationLayoutConfigResetMutationSchema.safeParse(req.body)
+            const layoutId = parseLayoutParam(res, req.params.layoutId, 'APPLICATION_LAYOUT_ID_INVALID')
+            if (!layoutId) return
+            const parsedBody = strictApplicationLayoutConfigResetMutationSchema.safeParse(req.body)
             if (!parsedBody.success) {
                 res.status(400).json({ error: 'APPLICATION_LAYOUT_CONFIG_RESET_INVALID' })
                 return
             }
             try {
-                const item = await resetApplicationLayoutConfig(
-                    ctx.executor,
-                    ctx.schemaName,
-                    req.params.layoutId,
-                    parsedBody.data,
-                    ctx.userId
-                )
+                const item = await resetApplicationLayoutConfig(ctx.executor, ctx.schemaName, layoutId, parsedBody.data, ctx.userId)
                 if (!item) {
                     res.status(404).json({ error: 'Layout not found' })
                     return
@@ -272,15 +312,11 @@ export function createApplicationLayoutsController(getDbExecutor: () => DbExecut
         async remove(req: Request, res: Response) {
             const ctx = await ensureSchema(req, res)
             if (!ctx) return
+            const layoutId = parseLayoutParam(res, req.params.layoutId, 'APPLICATION_LAYOUT_ID_INVALID')
+            if (!layoutId) return
             try {
                 const expectedVersion = parseExpectedVersion(req.query.expectedVersion)
-                const deleted = await deleteApplicationLayout(
-                    ctx.executor,
-                    ctx.schemaName,
-                    req.params.layoutId,
-                    ctx.userId,
-                    expectedVersion
-                )
+                const deleted = await deleteApplicationLayout(ctx.executor, ctx.schemaName, layoutId, ctx.userId, expectedVersion)
                 res.status(deleted ? 204 : 404).send()
             } catch (error) {
                 if (!handleKnownError(res, error)) throw error
@@ -290,13 +326,15 @@ export function createApplicationLayoutsController(getDbExecutor: () => DbExecut
         async copy(req: Request, res: Response) {
             const ctx = await ensureSchema(req, res)
             if (!ctx) return
-            const parsedBody = applicationLayoutCopyMutationSchema.safeParse(req.body)
+            const layoutId = parseLayoutParam(res, req.params.layoutId, 'APPLICATION_LAYOUT_ID_INVALID')
+            if (!layoutId) return
+            const parsedBody = strictApplicationLayoutCopyMutationSchema.safeParse(req.body)
             if (!parsedBody.success) {
                 res.status(400).json({ error: 'APPLICATION_LAYOUT_COPY_INVALID' })
                 return
             }
             try {
-                const item = await copyApplicationLayout(ctx.executor, ctx.schemaName, req.params.layoutId, parsedBody.data, ctx.userId)
+                const item = await copyApplicationLayout(ctx.executor, ctx.schemaName, layoutId, parsedBody.data, ctx.userId)
                 if (!item) {
                     res.status(404).json({ error: 'Layout not found' })
                     return
@@ -308,24 +346,34 @@ export function createApplicationLayoutsController(getDbExecutor: () => DbExecut
         },
 
         async listWidgets(req: Request, res: Response) {
-            const executor = getRequestDbExecutor(req, getDbExecutor())
+            const executor = getRequestScopedDbExecutor(req)
             const ctx = await ensureSchema(req, res, await resolveReadRoles(executor, req.params.applicationId))
             if (!ctx) return
-            res.json({ items: await listApplicationLayoutWidgets(ctx.executor, ctx.schemaName, req.params.layoutId) })
+            const layoutId = parseLayoutParam(res, req.params.layoutId, 'APPLICATION_LAYOUT_ID_INVALID')
+            if (!layoutId) return
+            res.json({ items: await listApplicationLayoutWidgets(ctx.executor, ctx.schemaName, layoutId) })
         },
 
-        async listWidgetObject(_req: Request, res: Response) {
-            const executor = getRequestDbExecutor(_req, getDbExecutor())
-            const ctx = await ensureSchema(_req, res, await resolveReadRoles(executor, _req.params.applicationId))
+        async listWidgetObject(req: Request, res: Response) {
+            const executor = getRequestScopedDbExecutor(req)
+            const ctx = await ensureSchema(req, res, await resolveReadRoles(executor, req.params.applicationId))
             if (!ctx) return
+            if (!parseLayoutParam(res, req.params.layoutId, 'APPLICATION_LAYOUT_ID_INVALID')) return
             res.json({ items: listApplicationLayoutWidgetObject() })
         },
 
         async upsertWidget(req: Request, res: Response) {
             const ctx = await ensureSchema(req, res)
             if (!ctx) return
+            const layoutId = parseLayoutParam(res, req.params.layoutId, 'APPLICATION_LAYOUT_ID_INVALID')
+            if (!layoutId) return
+            const parsedBody = strictApplicationLayoutWidgetMutationSchema.safeParse(req.body)
+            if (!parsedBody.success) {
+                res.status(400).json({ error: 'APPLICATION_LAYOUT_INVALID' })
+                return
+            }
             try {
-                const item = await upsertApplicationLayoutWidget(ctx.executor, ctx.schemaName, req.params.layoutId, req.body, ctx.userId)
+                const item = await upsertApplicationLayoutWidget(ctx.executor, ctx.schemaName, layoutId, parsedBody.data, ctx.userId)
                 res.status(201).json({ item })
             } catch (error) {
                 if (!handleKnownError(res, error)) throw error
@@ -335,13 +383,21 @@ export function createApplicationLayoutsController(getDbExecutor: () => DbExecut
         async updateWidgetConfig(req: Request, res: Response) {
             const ctx = await ensureSchema(req, res)
             if (!ctx) return
+            const layoutId = parseLayoutParam(res, req.params.layoutId, 'APPLICATION_LAYOUT_ID_INVALID')
+            const widgetId = parseLayoutParam(res, req.params.widgetId, 'APPLICATION_LAYOUT_WIDGET_ID_INVALID')
+            if (!layoutId || !widgetId) return
+            const parsedBody = strictApplicationLayoutWidgetConfigMutationSchema.safeParse(req.body)
+            if (!parsedBody.success) {
+                res.status(400).json({ error: 'APPLICATION_LAYOUT_INVALID' })
+                return
+            }
             try {
                 const item = await updateApplicationLayoutWidgetConfig(
                     ctx.executor,
                     ctx.schemaName,
-                    req.params.layoutId,
-                    req.params.widgetId,
-                    req.body,
+                    layoutId,
+                    widgetId,
+                    parsedBody.data,
                     ctx.userId
                 )
                 if (!item) {
@@ -357,7 +413,7 @@ export function createApplicationLayoutsController(getDbExecutor: () => DbExecut
         async updateWidgetConfigsBatch(req: Request, res: Response) {
             const ctx = await ensureSchema(req, res)
             if (!ctx) return
-            const parsedBody = applicationLayoutWidgetConfigBatchMutationSchema.safeParse(req.body)
+            const parsedBody = strictApplicationLayoutWidgetConfigBatchMutationSchema.safeParse(req.body)
             if (!parsedBody.success) {
                 res.status(400).json({ error: 'APPLICATION_LAYOUT_WIDGET_BATCH_INVALID' })
                 return
@@ -373,7 +429,7 @@ export function createApplicationLayoutsController(getDbExecutor: () => DbExecut
         async resetWidgetConfigsBatch(req: Request, res: Response) {
             const ctx = await ensureSchema(req, res)
             if (!ctx) return
-            const parsedBody = applicationLayoutWidgetResetBatchMutationSchema.safeParse(req.body)
+            const parsedBody = strictApplicationLayoutWidgetResetBatchMutationSchema.safeParse(req.body)
             if (!parsedBody.success) {
                 res.status(400).json({ error: 'APPLICATION_LAYOUT_WIDGET_RESET_BATCH_INVALID' })
                 return
@@ -389,8 +445,15 @@ export function createApplicationLayoutsController(getDbExecutor: () => DbExecut
         async moveWidget(req: Request, res: Response) {
             const ctx = await ensureSchema(req, res)
             if (!ctx) return
+            const layoutId = parseLayoutParam(res, req.params.layoutId, 'APPLICATION_LAYOUT_ID_INVALID')
+            if (!layoutId) return
+            const parsedBody = strictApplicationLayoutWidgetMoveMutationSchema.safeParse(req.body)
+            if (!parsedBody.success) {
+                res.status(400).json({ error: 'APPLICATION_LAYOUT_INVALID' })
+                return
+            }
             try {
-                const item = await moveApplicationLayoutWidget(ctx.executor, ctx.schemaName, req.params.layoutId, req.body, ctx.userId)
+                const item = await moveApplicationLayoutWidget(ctx.executor, ctx.schemaName, layoutId, parsedBody.data, ctx.userId)
                 if (!item) {
                     res.status(404).json({ error: 'Widget not found or stale version' })
                     return
@@ -404,13 +467,21 @@ export function createApplicationLayoutsController(getDbExecutor: () => DbExecut
         async toggleWidget(req: Request, res: Response) {
             const ctx = await ensureSchema(req, res)
             if (!ctx) return
+            const layoutId = parseLayoutParam(res, req.params.layoutId, 'APPLICATION_LAYOUT_ID_INVALID')
+            const widgetId = parseLayoutParam(res, req.params.widgetId, 'APPLICATION_LAYOUT_WIDGET_ID_INVALID')
+            if (!layoutId || !widgetId) return
+            const parsedBody = strictApplicationLayoutWidgetToggleMutationSchema.safeParse(req.body)
+            if (!parsedBody.success) {
+                res.status(400).json({ error: 'APPLICATION_LAYOUT_INVALID' })
+                return
+            }
             try {
                 const item = await toggleApplicationLayoutWidget(
                     ctx.executor,
                     ctx.schemaName,
-                    req.params.layoutId,
-                    req.params.widgetId,
-                    req.body,
+                    layoutId,
+                    widgetId,
+                    parsedBody.data,
                     ctx.userId
                 )
                 if (!item) {
@@ -426,13 +497,16 @@ export function createApplicationLayoutsController(getDbExecutor: () => DbExecut
         async removeWidget(req: Request, res: Response) {
             const ctx = await ensureSchema(req, res)
             if (!ctx) return
+            const layoutId = parseLayoutParam(res, req.params.layoutId, 'APPLICATION_LAYOUT_ID_INVALID')
+            const widgetId = parseLayoutParam(res, req.params.widgetId, 'APPLICATION_LAYOUT_WIDGET_ID_INVALID')
+            if (!layoutId || !widgetId) return
             try {
                 const expectedVersion = parseExpectedVersion(req.query.expectedVersion)
                 const deleted = await deleteApplicationLayoutWidget(
                     ctx.executor,
                     ctx.schemaName,
-                    req.params.layoutId,
-                    req.params.widgetId,
+                    layoutId,
+                    widgetId,
                     ctx.userId,
                     expectedVersion
                 )

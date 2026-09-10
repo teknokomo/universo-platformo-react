@@ -1,11 +1,17 @@
 import type { Request, Response } from 'express'
 
 const mockResolveRuntimeSchema = jest.fn()
+const mockResolveEffectiveLayout = jest.fn()
 
 jest.mock('../../shared/runtimeHelpers', () => ({
     __esModule: true,
     ...jest.requireActual('../../shared/runtimeHelpers'),
     resolveRuntimeSchema: (...args: unknown[]) => mockResolveRuntimeSchema(...args)
+}))
+
+jest.mock('../../services/effectiveLayoutResolver', () => ({
+    __esModule: true,
+    resolveEffectiveLayoutForRequest: (...args: unknown[]) => mockResolveEffectiveLayout(...args)
 }))
 
 import {
@@ -98,6 +104,16 @@ const marketingSectionRows = () => [
 
 const defaultMarketingWidgetRows = () => [
     {
+        id: '0190a9b5-3cde-7abc-8def-0123456789c0',
+        layout_id: marketingLayoutId,
+        zone: 'marketing-header',
+        widget_key: 'languageSwitcher',
+        sort_order: 0,
+        config: { instanceKey: 'language-switcher' },
+        is_active: true,
+        version: 1
+    },
+    {
         id: '0190a9b5-3cde-7abc-8def-0123456789c1',
         layout_id: marketingLayoutId,
         zone: 'marketing-header',
@@ -184,9 +200,83 @@ const createResponse = () => {
     return { json, status } as unknown as Response & { json: jest.Mock; status: jest.Mock }
 }
 
+type MockLayoutRow = Record<string, unknown>
+type MockEffectiveTarget = { entityTypeId?: string | null }
+
+const asMockRecord = (value: unknown): MockLayoutRow => (value && typeof value === 'object' && !Array.isArray(value) ? value : {})
+
 describe('runtime marketing page controller', () => {
     beforeEach(() => {
         jest.clearAllMocks()
+        mockResolveEffectiveLayout.mockImplementation(
+            async (executor: { query: jest.Mock }, _auth: unknown, target: MockEffectiveTarget) => {
+                const entityTypeId = typeof target.entityTypeId === 'string' ? target.entityTypeId : null
+                const layoutRows = (await executor.query('FROM _app_layouts', [entityTypeId])) as MockLayoutRow[]
+                const globalLayout = layoutRows.find((row) => row.scope_entity_id === null && row.is_default === true)
+                const scopedLayout = entityTypeId
+                    ? layoutRows.find((row) => row.scope_entity_id === entityTypeId && row.is_default === true)
+                    : undefined
+                const selectedLayout = scopedLayout ?? globalLayout
+                if (!selectedLayout) throw new Error('missing layout')
+                const selectedTemplateKey = selectedLayout.template_key
+                const widgetRows =
+                    selectedTemplateKey === 'marketing-page'
+                        ? ((await executor.query('SELECT * FROM "app_schema"._app_widgets', [selectedLayout.id])) as MockLayoutRow[])
+                        : []
+                const selectedScopeEntityId = typeof selectedLayout.scope_entity_id === 'string' ? selectedLayout.scope_entity_id : null
+                const semanticRegion = (zone: string) =>
+                    zone === 'marketing-header' ? 'header' : zone === 'marketing-footer' ? 'footer' : 'main'
+                return {
+                    status: 'ok',
+                    target,
+                    resolvedEntityTypeId: entityTypeId,
+                    scope: selectedScopeEntityId ? 'entity' : 'global',
+                    layout: {
+                        id: selectedLayout.id,
+                        scopeKind: selectedScopeEntityId ? 'entity' : 'global',
+                        scopeEntityId: selectedScopeEntityId,
+                        templateKey: selectedTemplateKey,
+                        sourceKind: selectedLayout.source_kind ?? 'application',
+                        sourceLayoutId: selectedLayout.source_layout_id ?? null,
+                        sourceSnapshotHash: selectedLayout.source_snapshot_hash ?? null,
+                        sourceContentHash: selectedLayout.source_content_hash ?? null,
+                        localContentHash: selectedLayout.local_content_hash ?? null,
+                        syncState: selectedLayout.sync_state ?? 'clean',
+                        compositionMode: selectedLayout.compositionMode ?? 'independent',
+                        baseLayoutId: selectedLayout.baseLayoutId ?? null,
+                        name: selectedLayout.name ?? {},
+                        description: selectedLayout.description ?? null,
+                        config: selectedLayout.config ?? {},
+                        isActive: true,
+                        isDefault: true,
+                        sortOrder: selectedLayout.sort_order ?? 0,
+                        version: selectedLayout.version ?? 1
+                    },
+                    widgets: widgetRows.map((row) => {
+                        const config = asMockRecord(row.config)
+                        return {
+                            id: row.id,
+                            layoutId: row.layout_id,
+                            zone: row.zone,
+                            semanticRegion: semanticRegion(String(row.zone)),
+                            widgetKey: row.widget_key,
+                            instanceKey: config.instanceKey,
+                            sortOrder: row.sort_order,
+                            config: row.config ?? {},
+                            sourceConfig: row.source_config ?? null,
+                            sourceWidgetId: row.source_widget_id ?? null,
+                            sourceBaseWidgetId: row.source_base_widget_id ?? null,
+                            isActive: row.is_active,
+                            version: row.version ?? 1
+                        }
+                    }),
+                    precedence: [selectedScopeEntityId ? 'application-entity' : 'application-global'],
+                    publicationIdentity: null,
+                    materializationHash: 'a'.repeat(64),
+                    effectiveHash: 'b'.repeat(64)
+                }
+            }
+        )
     })
 
     it('filters unsafe actions and media before they reach the runtime payload', () => {
@@ -332,7 +422,7 @@ describe('runtime marketing page controller', () => {
                 ]
             if (sql.includes('_app_widgets')) {
                 return defaultMarketingWidgetRows().map((row, index) =>
-                    index === 2
+                    index === 3
                         ? {
                               ...row,
                               config: {
@@ -408,7 +498,7 @@ describe('runtime marketing page controller', () => {
                 ]
             if (sql.includes('_app_widgets'))
                 return defaultMarketingWidgetRows().map((row, index) =>
-                    index === 3 ? { ...row, config: { ...row.config, instanceKey: 'features' } } : row
+                    index === 4 ? { ...row, config: { ...row.config, instanceKey: 'features' } } : row
                 )
             throw new Error(`Unexpected runtime query: ${sql}`)
         })
@@ -503,6 +593,9 @@ describe('runtime marketing page controller', () => {
                 })
             })
         )
+        const effectiveTarget = mockResolveEffectiveLayout.mock.calls.at(-1)?.[2] as Record<string, unknown>
+        expect(effectiveTarget).toEqual(expect.objectContaining({ applicationId, targetKind: null, locale: 'en' }))
+        expect(effectiveTarget).not.toHaveProperty('recordKey')
         const responsePayload = res.json.mock.calls[0]?.[0] as {
             marketingPage?: {
                 widgets?: Array<{ widgetKey?: string; data?: { records?: Array<{ kind?: string; provenance?: Record<string, unknown> }> } }>
@@ -527,6 +620,7 @@ describe('runtime marketing page controller', () => {
         )
         expect(manager.query.mock.calls.filter(([sql]) => String(sql).includes('LIMIT 1000')).length).toBe(marketingObjectRows().length)
         const featureWidget = responsePayload.marketingPage?.widgets?.find((widget) => widget.widgetKey === 'marketing.collection')
+        expect(responsePayload.marketingPage?.widgets?.some((widget) => widget.widgetKey === 'languageSwitcher')).toBe(false)
         expect(featureWidget?.data?.records).toEqual(
             expect.arrayContaining([expect.objectContaining({ kind: 'sectionCopy', sectionKey: 'features' })])
         )
@@ -535,12 +629,37 @@ describe('runtime marketing page controller', () => {
         )
     })
 
+    it('fails closed when the effective layout hash changed between host and content requests', async () => {
+        const manager = { query: jest.fn() }
+        mockResolveRuntimeSchema.mockResolvedValue({ schemaName: 'app_schema', schemaIdent: '"app_schema"', manager })
+        mockResolveEffectiveLayout.mockResolvedValueOnce({ status: 'ok', effectiveHash: 'b'.repeat(64) })
+        const controller = createRuntimeMarketingPageController(() => manager as never)
+        const res = createResponse()
+
+        await controller.getMarketingPage(
+            {
+                params: { applicationId },
+                query: { locale: 'en', expectedLayoutHash: 'a'.repeat(64) }
+            } as unknown as Request,
+            res
+        )
+
+        expect(res.status).toHaveBeenCalledWith(409)
+        expect(res.status.mock.results[0]?.value.json).toHaveBeenCalledWith({
+            code: 'MARKETING_RUNTIME_LAYOUT_STALE',
+            error: 'The marketing layout changed while its content was loading. Reload and try again.'
+        })
+        expect(manager.query).not.toHaveBeenCalled()
+    })
+
     it('prefers an active scoped marketing layout for the requested entity type', async () => {
         const manager = { query: jest.fn() }
         mockResolveRuntimeSchema.mockResolvedValue({ schemaName: 'app_schema', schemaIdent: '"app_schema"', manager })
         const scopedWidgets = defaultMarketingWidgetRows().map((row) => ({ ...row, layout_id: scopedMarketingLayoutId }))
         manager.query.mockImplementation(async (sql: string) => {
-            if (sql.includes('o.kind =')) return [{ id: scopedEntityTypeId, kind: 'object' }]
+            if (sql.includes('_app_objects') && sql.includes('LIMIT 2')) {
+                return [{ id: scopedEntityTypeId, kind: 'catalog' }]
+            }
             if (sql.includes('_app_layouts'))
                 return [
                     {
@@ -575,7 +694,10 @@ describe('runtime marketing page controller', () => {
         const res = createResponse()
 
         await controller.getMarketingPage(
-            { params: { applicationId }, query: { locale: 'en', entityTypeId: scopedEntityTypeId } } as unknown as Request,
+            {
+                params: { applicationId },
+                query: { locale: 'en', targetKind: 'object', entityTypeId: scopedEntityTypeId }
+            } as unknown as Request,
             res
         )
 
@@ -589,9 +711,16 @@ describe('runtime marketing page controller', () => {
                 })
             })
         )
+        expect(mockResolveEffectiveLayout.mock.calls.at(-1)?.[2]).toEqual(
+            expect.objectContaining({ applicationId, targetKind: 'object', entityTypeId: scopedEntityTypeId, locale: 'en' })
+        )
         expect(manager.query.mock.calls).toContainEqual([
             expect.stringContaining('FROM "app_schema"._app_widgets'),
             [scopedMarketingLayoutId]
+        ])
+        expect(manager.query.mock.calls).toContainEqual([
+            expect.stringContaining("COALESCE(o.kind, '') NOT IN ('hub', 'set', 'enumeration', 'page', 'ledger')"),
+            ['object', scopedEntityTypeId]
         ])
     })
 

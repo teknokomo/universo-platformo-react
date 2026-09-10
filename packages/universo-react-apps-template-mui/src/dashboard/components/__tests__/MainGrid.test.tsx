@@ -234,6 +234,16 @@ describe('MainGrid enhanced runtime details', () => {
         expect(screen.getByTestId('customized-grid')).toBeInTheDocument()
     })
 
+    it('does not restore the legacy footer when the persisted bottom zone is explicitly empty', () => {
+        render(
+            <DashboardDetailsProvider value={details}>
+                <MainGrid layoutConfig={{ ...baseLayoutConfig, showFooter: true }} bottomWidgets={[]} />
+            </DashboardDetailsProvider>
+        )
+
+        expect(screen.queryByTestId('copyright')).not.toBeInTheDocument()
+    })
+
     it('renders metadata-defined detailsTable widgets with runtime actions instead of the fallback current-object grid', () => {
         render(
             <DashboardDetailsProvider

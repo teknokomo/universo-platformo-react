@@ -896,7 +896,7 @@ test.describe('Metahubs LMS App Export', () => {
         assertLmsFixtureEnvelopeContract(envelope)
 
         const fixturePath = path.join(FIXTURES_DIR, LMS_FIXTURE_FILENAME)
-        fs.writeFileSync(fixturePath, JSON.stringify(envelope, null, 2), 'utf8')
+        fs.writeFileSync(fixturePath, `${JSON.stringify(envelope, null, 2)}\n`, 'utf8')
 
         expect(fs.existsSync(fixturePath)).toBe(true)
     })

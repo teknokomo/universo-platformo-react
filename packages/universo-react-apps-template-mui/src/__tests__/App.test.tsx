@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { act, render, screen, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('react-i18next', () => ({
@@ -67,5 +67,22 @@ describe('App', () => {
         render(<App />)
 
         expect(screen.getByText('guest-app:ru')).toBeInTheDocument()
+    })
+
+    it('recomputes the standalone hash route when its locale changes without a reload', async () => {
+        const applicationId = '018f8a78-7b8f-7c1d-a111-222233334445'
+        window.history.replaceState({}, '', `/#/a/${applicationId}?locale=en`)
+
+        render(<App />)
+        expect(screen.getByText(`dashboard:${applicationId}:en`)).toBeInTheDocument()
+
+        act(() => {
+            window.history.pushState({}, '', `/#/a/${applicationId}?locale=ru`)
+            window.dispatchEvent(new PopStateEvent('popstate'))
+        })
+
+        await waitFor(() => {
+            expect(screen.getByText(`dashboard:${applicationId}:ru`)).toBeInTheDocument()
+        })
     })
 })

@@ -17,6 +17,7 @@ import Header from './components/Header'
 import MainGrid from './components/MainGrid'
 import SideMenu from './components/SideMenu'
 import SideMenuRight from './components/SideMenuRight'
+import { renderWidget } from './components/widgetRenderer'
 import { DashboardDetailsProvider } from './DashboardDetailsContext'
 import type { AppDataResponse } from '../api/api'
 import type { ResourceSourceTypeOption } from '../components/dialogs/FormDialog'
@@ -164,7 +165,9 @@ export interface ZoneWidgetItem {
 
 export interface ZoneWidgets {
     left: ZoneWidgetItem[]
+    top?: ZoneWidgetItem[]
     right?: ZoneWidgetItem[]
+    bottom?: ZoneWidgetItem[]
     center?: ZoneWidgetItem[]
 }
 
@@ -210,11 +213,14 @@ const readSideMenuConfig = (config: DashboardLayoutConfig | undefined) => {
 }
 
 const EMPTY_RIGHT_WIDGETS: ZoneWidgetItem[] = []
+const EMPTY_TOP_WIDGETS: ZoneWidgetItem[] = []
+const EMPTY_BOTTOM_WIDGETS: ZoneWidgetItem[] = []
 const EMPTY_CENTER_WIDGETS: ZoneWidgetItem[] = []
 const WORKSPACE_SWITCHER_WIDGET_ID = 'runtime-workspace-switcher-widget'
 const WORKSPACE_SWITCHER_DIVIDER_WIDGET_ID = 'runtime-workspace-switcher-divider-widget'
 const FALLBACK_MENU_WIDGET_ID = 'runtime-workspace-menu-widget'
 const SIDE_MENU_MODE_STORAGE_PREFIX = 'universo:apps-template:side-menu-mode'
+const SHELL_TOP_WIDGET_KEYS = new Set(['appNavbar', 'header'])
 
 const withRuntimeWorkspaceSwitcher = (zoneWidgets: ZoneWidgets | undefined, workspacesEnabled?: boolean): ZoneWidgets | undefined => {
     if (!workspacesEnabled) return zoneWidgets
@@ -308,7 +314,12 @@ export default function Dashboard(props: DashboardProps) {
         () => withRuntimeWorkspaceSwitcher(props.zoneWidgets, props.details?.workspacesEnabled),
         [props.details?.workspacesEnabled, props.zoneWidgets]
     )
+    const hasPersistedLeftComposition = Array.isArray(zoneWidgets?.left)
+    const hasPersistedCenterComposition = Array.isArray(zoneWidgets?.center)
+    const topWidgets = zoneWidgets?.top ?? EMPTY_TOP_WIDGETS
+    const leftWidgets = zoneWidgets?.left ?? []
     const rightWidgets = zoneWidgets?.right ?? EMPTY_RIGHT_WIDGETS
+    const bottomWidgets = zoneWidgets?.bottom ?? EMPTY_BOTTOM_WIDGETS
     const centerWidgets = zoneWidgets?.center ?? EMPTY_CENTER_WIDGETS
     const showRightSideMenu = (layout.showRightSideMenu ?? true) && rightWidgets.length > 0
     const hasViewportBoundedCanvas = hasFitViewportPlayCanvasWidget(centerWidgets)
@@ -320,18 +331,50 @@ export default function Dashboard(props: DashboardProps) {
         readStoredSideMenuMode(sideMenuStorageKey, availableSideMenuModes, rememberSideMenuChoice)
     )
     const [overlayOpen, setOverlayOpen] = useState(false)
-    const sideMenuEnabled = layout.showSideMenu
+    const sideMenuEnabled = hasPersistedLeftComposition ? leftWidgets.some((widget) => widget.isActive !== false) : layout.showSideMenu
     const sideMenuMode =
         storedSideMenuMode && availableSideMenuModes.includes(storedSideMenuMode) ? storedSideMenuMode : primarySideMenuMode
     const showDesktopNavbar = sideMenuEnabled && (availableSideMenuModes.length > 1 || sideMenuMode === 'overlay')
-    const showAppNavbar = layout.showAppNavbar || showDesktopNavbar
+    const hasPersistedTopComposition = Array.isArray(zoneWidgets?.top)
+    const hasPersistedBottomComposition = Array.isArray(zoneWidgets?.bottom)
+    const activeTopWidgets = topWidgets.filter((widget) => widget.isActive !== false)
+    const hasActiveTopWidget = (widgetKey: string) => activeTopWidgets.some((widget) => widget.widgetKey === widgetKey)
+    const showAppNavbar = hasPersistedTopComposition ? hasActiveTopWidget('appNavbar') : layout.showAppNavbar || showDesktopNavbar
+    const showHeader = hasPersistedTopComposition ? hasActiveTopWidget('header') : layout.showHeader
+    const languageSwitcherEnabled = hasPersistedTopComposition
+        ? hasActiveTopWidget('languageSwitcher')
+        : layout.showLanguageSwitcher !== false
+    const headerOwnsLanguageSwitcher = showHeader && languageSwitcherEnabled
+    const appNavbarOwnsLanguageSwitcher = showAppNavbar && languageSwitcherEnabled
+    const headerOwnsOptionsMenu =
+        showHeader && (hasPersistedTopComposition ? hasActiveTopWidget('optionsMenu') : layout.showOptionsMenu !== false)
     const dockedSideMenuModes = availableSideMenuModes.filter((mode): mode is 'wide' | 'compact' => mode === 'wide' || mode === 'compact')
-    const lastDockedSideMenuModeRef = useRef<DashboardSideMenuMode>(
-        primarySideMenuMode === 'overlay' ? dockedSideMenuModes[0] ?? 'wide' : primarySideMenuMode
-    )
     const canToggleDockedSideMenuMode = sideMenuEnabled && dockedSideMenuModes.length > 1
     const canOpenOverlaySideMenu = sideMenuEnabled && availableSideMenuModes.includes('overlay')
     const canToggleOverlaySideMenuMode = canOpenOverlaySideMenu && dockedSideMenuModes.length > 0
+    const appNavbarVisibleOnDesktop = showAppNavbar && (sideMenuMode === 'overlay' || canToggleDockedSideMenuMode)
+    const headerOwnsColorMode = showHeader && (headerOwnsOptionsMenu || !appNavbarVisibleOnDesktop)
+    const visibleTopWidgets = activeTopWidgets
+        .filter((widget) => !SHELL_TOP_WIDGET_KEYS.has(widget.widgetKey))
+        .filter((widget) => widget.widgetKey !== 'languageSwitcher' || !appNavbarOwnsLanguageSwitcher)
+        .slice()
+        .sort((left, right) => left.sortOrder - right.sortOrder)
+    const visibleBottomWidgets = bottomWidgets
+        .filter((widget) => widget.isActive !== false)
+        .slice()
+        .sort((left, right) => left.sortOrder - right.sortOrder)
+    const lastDockedSideMenuModeRef = useRef<DashboardSideMenuMode>(
+        primarySideMenuMode === 'overlay' ? dockedSideMenuModes[0] ?? 'wide' : primarySideMenuMode
+    )
+    const headerLayoutConfig = {
+        ...layout,
+        showBreadcrumbs: hasPersistedTopComposition ? hasActiveTopWidget('breadcrumbs') : layout.showBreadcrumbs,
+        showSearch: hasPersistedTopComposition ? hasActiveTopWidget('search') : layout.showSearch,
+        showDatePicker: hasPersistedTopComposition ? hasActiveTopWidget('datePicker') : layout.showDatePicker,
+        showOptionsMenu: headerOwnsOptionsMenu,
+        showLanguageSwitcher: headerOwnsLanguageSwitcher,
+        showColorMode: headerOwnsColorMode
+    }
 
     useEffect(() => {
         if (!rememberSideMenuChoice) {
@@ -444,6 +487,9 @@ export default function Dashboard(props: DashboardProps) {
                         sideMenuMode={sideMenuMode}
                         availableSideMenuModes={availableSideMenuModes}
                         reserveDockedSideMenuWidth={sideMenuMode !== 'overlay'}
+                        showLanguageSwitcher={appNavbarOwnsLanguageSwitcher}
+                        showLanguageSwitcherOnDesktop={!headerOwnsLanguageSwitcher}
+                        showColorModeOnDesktop={!headerOwnsColorMode}
                         onToggleDockedSideMenuMode={canToggleDockedSideMenuMode ? toggleDockedSideMenuMode : undefined}
                         onOpenSideMenu={openOverlaySideMenu}
                     />
@@ -477,10 +523,28 @@ export default function Dashboard(props: DashboardProps) {
                             mt: { xs: showAppNavbar ? 8 : 0, md: showDesktopNavbar ? 8 : 0 }
                         }}
                     >
-                        {layout.showHeader && <Header layoutConfig={layout} />}
+                        {visibleTopWidgets.map((widget) => (
+                            <Box
+                                key={widget.id}
+                                data-testid={`top-zone-widget-${widget.widgetKey}`}
+                                sx={{
+                                    width: '100%',
+                                    minWidth: 0,
+                                    display:
+                                        (widget.widgetKey === 'languageSwitcher' && headerOwnsLanguageSwitcher) ||
+                                        (widget.widgetKey === 'optionsMenu' && headerOwnsOptionsMenu)
+                                            ? { xs: 'flex', md: 'none' }
+                                            : undefined
+                                }}
+                            >
+                                {renderWidget(widget, props.menus, props.menu)}
+                            </Box>
+                        ))}
+                        {showHeader && <Header layoutConfig={headerLayoutConfig} />}
                         <MainGrid
                             layoutConfig={layout}
-                            centerWidgets={centerWidgets}
+                            centerWidgets={hasPersistedCenterComposition ? centerWidgets : undefined}
+                            bottomWidgets={hasPersistedBottomComposition ? visibleBottomWidgets : undefined}
                             fullWidth={sideMenuMode === 'overlay' || sideMenuMode === 'compact'}
                         />
                     </Stack>

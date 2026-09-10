@@ -45,6 +45,12 @@ the only source of top-level composition: its `zone`, `sortOrder`, and
 `isActive` values control placement, order, and visibility. Collection records
 retain their own item order and visibility.
 
+The shared `languageSwitcher` capability is the one cross-template exception:
+the same registry definition may be placed in Dashboard `top` or
+`marketing-header`. The marketing app bar owns its visual placement, so an
+active persisted widget is not rendered a second time by the generic marketing
+content renderer.
+
 Each widget has a strict built-in Object source. The collection variant selects
 its matching source (`MarketingPageLogo`, `MarketingPageFeature`,
 `MarketingPageTestimonial`, `MarketingPageHighlight`, or `MarketingPageFaq`),
@@ -54,12 +60,13 @@ after publication, from the application layout override. The application
 override is scoped to appearance and widget presentation; published Object
 records remain the content authority.
 
-Every registered dashboard and marketing widget is an instance type rather
-than a singleton. The same widget key may therefore be added or duplicated any
-number of times in a metahub or application layout. Each placement is stored
-as its own row with a server-generated UUID v7; marketing placements also have
-their own unique `instanceKey`. Deleting one placement leaves sibling
-instances and their content records intact.
+Registered repeatable dashboard and marketing widgets are instance types, so
+the same repeatable key may be added or duplicated any number of times in a
+metahub or application layout. Dashboard shell keys such as `appNavbar` and
+`header` are single-instance placements and are rejected when already present.
+Each placement is stored as its own row with a server-generated UUID v7;
+marketing placements also have their own unique `instanceKey`. Deleting one
+placement leaves sibling instances and their content records intact.
 
 ## Runtime and application settings
 
@@ -77,6 +84,12 @@ keys, invalid source/variant combinations, unsafe URLs, and malformed media
 fail closed instead of falling back to the dashboard.
 
 The hosted route selects the template before initializing dashboard CRUD state. The application runtime owns an application-level `AppMainLayout` so the saved appearance overrides are applied; the renderer itself does not create another theme provider. The standalone shell owns the equivalent provider for direct template previews.
+
+An entity-scoped application layout can independently select the Dashboard
+template for a Page/Object target even when the global layout is
+`marketing-page`. The target-aware effective-layout response is resolved before
+the host chooses a renderer; a missing or invalid scoped composition is a typed
+error and never silently falls back to the marketing global layout.
 
 ## Actions and media
 
@@ -101,4 +114,5 @@ At minimum, verify:
 -   no page-level horizontal overflow, raw UUID/JSON/object leakage, unsafe links, or console/page errors;
 -   publication/snapshot restore and application sync preserve `templateKey` and appearance config.
 
-The minimal Supabase profile verifies SQL/RLS and the safe handling of the seeded URL media references. The MUI/Webflow assets are external network resources, so visual runs still require network availability; deterministic local/Storage media and Storage API/imgproxy behavior require the separate full-stack media suite.
+The minimal Supabase profile verifies SQL/RLS and the safe handling of the seeded URL media references. The MUI/Webflow assets are external network resources, so visual runs still require network availability;
+deterministic local/Storage media and Storage API/imgproxy behavior require the separate full-stack media suite.

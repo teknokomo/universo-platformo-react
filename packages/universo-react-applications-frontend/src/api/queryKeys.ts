@@ -1,5 +1,6 @@
 import { QueryClient } from '@tanstack/react-query'
-import { PaginationParams } from '../types'
+import { normalizeRuntimeLayoutTarget as normalizeSharedRuntimeLayoutTarget } from '@universo-react/utils'
+import { PaginationParams, type ApplicationRuntimeLayoutTarget } from '../types'
 
 /**
  * Centralized query key factory for applications
@@ -64,7 +65,7 @@ export const applicationsQueryKeys = {
             sortBy: params?.sortBy ?? 'sortOrder',
             sortOrder: params?.sortOrder ?? 'asc',
             search: params?.search?.trim() || undefined,
-            scopeEntityId: params?.scopeEntityId ?? undefined
+            scopeEntityId: params?.scopeEntityId === null ? null : params?.scopeEntityId?.trim() || undefined
         }
         return [...applicationsQueryKeys.layouts(applicationId), 'list', normalized] as const
     },
@@ -129,6 +130,15 @@ export const applicationsQueryKeys = {
     /** Prefix key for all runtime queries of an application (for broad invalidation). */
     runtimeAll: (applicationId: string) => [...applicationsQueryKeys.detail(applicationId), 'runtime'] as const,
 
+    /** Target-aware identity for effective-layout reads; recordKey selects content, not layout. */
+    runtimeEffectiveLayout: (applicationId: string, target?: ApplicationRuntimeLayoutTarget) =>
+        [
+            ...applicationsQueryKeys.detail(applicationId),
+            'runtime',
+            'effective-layout',
+            normalizeSharedRuntimeLayoutTarget(target)
+        ] as const,
+
     /** Key for fetching a single runtime row (raw data for edit forms). */
     runtimeRow: (applicationId: string, rowId: string, workspaceId?: string | null) =>
         [
@@ -180,6 +190,11 @@ export const invalidateApplicationLayoutsQueries = {
 
     detail: (queryClient: QueryClient, applicationId: string, layoutId: string) =>
         queryClient.invalidateQueries({ queryKey: applicationsQueryKeys.layoutDetail(applicationId, layoutId) })
+}
+
+export const invalidateApplicationRuntimeQueries = {
+    all: (queryClient: QueryClient, applicationId: string) =>
+        queryClient.invalidateQueries({ queryKey: applicationsQueryKeys.runtimeAll(applicationId) })
 }
 
 export const invalidateMigrationsQueries = {

@@ -539,6 +539,7 @@ export function createRuntimeReportsController(getDbExecutor: () => DbExecutor) 
 
     const runResolvedReport = async (params: {
         ctx: RuntimeSchemaContext
+        applicationId: string
         definition: ReportDefinition
         target?: RuntimeReportTarget
         limit?: number
@@ -572,6 +573,7 @@ export function createRuntimeReportsController(getDbExecutor: () => DbExecutor) 
             const offset = Math.max(0, Math.trunc(params.offset ?? 0))
             const payload = await executeRuntimeRecordsUnionDatasource({
                 runtimeContext: params.ctx,
+                applicationId: params.applicationId,
                 datasource: unionDatasource,
                 limit,
                 offset,
@@ -659,6 +661,7 @@ export function createRuntimeReportsController(getDbExecutor: () => DbExecutor) 
             const { definition, target } = await resolveSavedReportExecution(ctx, parsed.data)
             const result = await runResolvedReport({
                 ctx,
+                applicationId: req.params.applicationId,
                 definition,
                 target,
                 limit: parsed.data.limit,
@@ -692,6 +695,7 @@ export function createRuntimeReportsController(getDbExecutor: () => DbExecutor) 
             const { definition, target } = await resolveSavedReportExecution(ctx, parsed.data)
             const result = await runResolvedReport({
                 ctx,
+                applicationId: req.params.applicationId,
                 definition,
                 target,
                 limit: parsed.data.limit,

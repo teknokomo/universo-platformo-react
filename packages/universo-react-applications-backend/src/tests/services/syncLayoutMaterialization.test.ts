@@ -10,6 +10,7 @@ import {
 } from '../../routes/sync/syncHelpers'
 import { buildRuntimeSnapshotForApplicationSync } from '../../routes/sync/syncEngine'
 import type { PublishedApplicationSnapshot } from '../../services/applicationSyncContracts'
+import { stableLineageUuidV7 } from '../../shared/applicationLayoutWidgetLineage'
 
 describe('sync layout materialization helpers', () => {
     it('preserves marketing layouts and never injects dashboard widgets', () => {
@@ -116,6 +117,47 @@ describe('sync layout materialization helpers', () => {
         expect(() => normalizeSnapshotLayoutZoneWidgets(snapshot)).toThrow(/not allowed/)
     })
 
+    it('rejects duplicate Dashboard singleton definitions during materialization', () => {
+        const snapshot: PublishedApplicationSnapshot = {
+            entities: {},
+            layouts: [
+                {
+                    id: 'dashboard-layout',
+                    templateKey: 'dashboard',
+                    name: { en: 'Dashboard' },
+                    description: null,
+                    config: {},
+                    isActive: true,
+                    isDefault: true,
+                    sortOrder: 0
+                }
+            ],
+            layoutZoneWidgets: [
+                {
+                    id: 'navbar-one',
+                    layoutId: 'dashboard-layout',
+                    zone: 'top',
+                    widgetKey: 'appNavbar',
+                    sortOrder: 0,
+                    config: {},
+                    isActive: true
+                },
+                {
+                    id: 'navbar-two',
+                    layoutId: 'dashboard-layout',
+                    zone: 'top',
+                    widgetKey: 'appNavbar',
+                    sortOrder: 1,
+                    config: {},
+                    isActive: true
+                }
+            ],
+            defaultLayoutId: 'dashboard-layout'
+        }
+
+        expect(() => materializeSnapshotLayoutsAndWidgets(snapshot)).toThrow('duplicate singleton widget appNavbar')
+    })
+
     it('builds the same runtime snapshot for sync apply and preview comparisons', () => {
         const snapshot: PublishedApplicationSnapshot = {
             entities: {
@@ -177,6 +219,15 @@ describe('sync layout materialization helpers', () => {
                             }
                         ]
                     }
+                },
+                {
+                    id: 'non-menu-widget',
+                    layoutId: 'global-layout-1',
+                    zone: 'top',
+                    widgetKey: 'header',
+                    sortOrder: 2,
+                    config: {},
+                    isActive: true
                 }
             ],
             defaultLayoutId: 'global-layout-1'
@@ -240,6 +291,7 @@ describe('sync layout materialization helpers', () => {
                     id: 'course-items-layout',
                     scopeEntityId: 'snapshot-course-items',
                     baseLayoutId: 'global-layout-1',
+                    compositionMode: 'overlay',
                     templateKey: 'dashboard',
                     name: { en: 'Course Items' },
                     description: null,
@@ -677,6 +729,7 @@ describe('sync layout materialization helpers', () => {
                     id: 'structure-layout',
                     scopeEntityId: 'snapshot-structure-object',
                     baseLayoutId: 'global-layout-1',
+                    compositionMode: 'overlay',
                     templateKey: 'dashboard',
                     name: { en: 'Structure layout' },
                     description: null,
@@ -710,6 +763,15 @@ describe('sync layout materialization helpers', () => {
                             }
                         ]
                     }
+                },
+                {
+                    id: 'non-menu-widget',
+                    layoutId: 'global-layout-1',
+                    zone: 'top',
+                    widgetKey: 'header',
+                    sortOrder: 2,
+                    isActive: true,
+                    config: {}
                 }
             ],
             layoutWidgetOverrides: [
@@ -833,7 +895,7 @@ describe('sync layout materialization helpers', () => {
         expect(menu).toEqual(expect.objectContaining({ sortOrder: 0 }))
     })
 
-    it('keeps inherited materialized widget identities stable across repeated projections', () => {
+    it('allocates fresh UUID-v7 placeholders for inherited projection rows', () => {
         const snapshot: PublishedApplicationSnapshot = {
             layouts: [
                 {
@@ -852,6 +914,7 @@ describe('sync layout materialization helpers', () => {
                     id: 'scoped-layout-1',
                     scopeEntityId: 'scope-entity-1',
                     baseLayoutId: 'global-layout-1',
+                    compositionMode: 'overlay',
                     templateKey: 'dashboard',
                     name: { en: 'Scoped' },
                     description: null,
@@ -882,7 +945,59 @@ describe('sync layout materialization helpers', () => {
             (widget) => widget.sourceBaseWidgetId === '018f8a78-7b8f-7c1d-a111-2222333344a2'
         )
 
-        expect(first?.id).toBe(second?.id)
+        expect(first?.id).toEqual(expect.stringMatching(/^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/))
+        expect(second?.id).toEqual(expect.stringMatching(/^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/))
+        expect(first?.id).not.toBe(second?.id)
+    })
+
+    it('keeps generated workspace widget lineage stable across scoped materializations', () => {
+        const globalLayoutId = '018f8a78-7b8f-7c1d-a111-2222333344a2'
+        const scopedLayoutId = '018f8a78-7b8f-7c1d-a111-2222333344a3'
+        const scopeEntityId = '018f8a78-7b8f-7c1d-a111-2222333344a4'
+        const snapshot: PublishedApplicationSnapshot = {
+            layouts: [
+                {
+                    id: globalLayoutId,
+                    templateKey: 'dashboard',
+                    name: { en: 'Global default' },
+                    description: null,
+                    config: {},
+                    isActive: true,
+                    isDefault: true,
+                    sortOrder: 0
+                }
+            ],
+            scopedLayouts: [
+                {
+                    id: scopedLayoutId,
+                    scopeEntityId,
+                    baseLayoutId: globalLayoutId,
+                    compositionMode: 'overlay',
+                    templateKey: 'dashboard',
+                    name: { en: 'Scoped' },
+                    description: null,
+                    config: {},
+                    isActive: true,
+                    isDefault: true,
+                    sortOrder: 0
+                }
+            ],
+            layoutZoneWidgets: [],
+            defaultLayoutId: globalLayoutId
+        }
+
+        const first = materializeSnapshotLayoutsAndWidgets(withWorkspaceRuntimeLayoutWidgets(snapshot, true)).widgets
+        const second = materializeSnapshotLayoutsAndWidgets(withWorkspaceRuntimeLayoutWidgets(snapshot, true)).widgets
+        const firstWorkspaceWidget = first.find((widget) => widget.layoutId === scopedLayoutId && widget.widgetKey === 'workspaceSwitcher')
+        const secondWorkspaceWidget = second.find(
+            (widget) => widget.layoutId === scopedLayoutId && widget.widgetKey === 'workspaceSwitcher'
+        )
+
+        expect(firstWorkspaceWidget?.sourceBaseWidgetId).toBe(
+            stableLineageUuidV7(globalLayoutId, `workspace:${globalLayoutId}:workspaceSwitcher`)
+        )
+        expect(secondWorkspaceWidget?.sourceBaseWidgetId).toBe(firstWorkspaceWidget?.sourceBaseWidgetId)
+        expect(firstWorkspaceWidget?.id).not.toBe(secondWorkspaceWidget?.id)
     })
 
     it('materializes scoped layouts from global layouts, sparse overrides, and entity-owned widgets', () => {
@@ -924,12 +1039,13 @@ describe('sync layout materialization helpers', () => {
                     id: 'object-layout-1',
                     scopeEntityId: 'object-1',
                     baseLayoutId: 'global-layout-1',
+                    compositionMode: 'overlay',
                     templateKey: 'dashboard',
                     name: { en: 'Object override' },
                     description: null,
                     config: { showHeader: false },
                     isActive: true,
-                    isDefault: false,
+                    isDefault: true,
                     sortOrder: 0
                 }
             ],
@@ -1027,6 +1143,7 @@ describe('sync layout materialization helpers', () => {
                     id: 'object-layout-1',
                     scopeEntityId: 'object-1',
                     baseLayoutId: 'global-layout-1',
+                    compositionMode: 'overlay',
                     templateKey: 'dashboard',
                     name: { en: 'Object override' },
                     description: null,
@@ -1096,6 +1213,11 @@ describe('sync layout materialization helpers', () => {
                 }
             })
         )
+
+        expect(() => buildMergedDashboardLayoutConfig({ ...snapshot, layoutConfig: { showHeader: 'false' } })).toThrow()
+        expect(() => buildMergedDashboardLayoutConfig({ ...snapshot, layoutConfig: 'false' as never })).toThrow(
+            /layoutConfig must be an object/
+        )
     })
 
     it('drops inherited widgets that are marked as deleted overrides', () => {
@@ -1128,6 +1250,7 @@ describe('sync layout materialization helpers', () => {
                     id: 'object-layout-1',
                     scopeEntityId: 'object-1',
                     baseLayoutId: 'global-layout-1',
+                    compositionMode: 'overlay',
                     templateKey: 'dashboard',
                     name: { en: 'Object override' },
                     description: null,
@@ -1183,5 +1306,163 @@ describe('sync layout materialization helpers', () => {
         }
 
         expect(() => normalizeSnapshotLayoutZoneWidgets(snapshot)).toThrow(/Invalid dashboard layout widget zone/)
+    })
+
+    it('rejects a dashboard override whose base widget belongs to another global layout', () => {
+        const snapshot: PublishedApplicationSnapshot = {
+            entities: {},
+            layouts: [
+                {
+                    id: 'global-layout-1',
+                    templateKey: 'dashboard',
+                    name: { en: 'Global default' },
+                    config: {},
+                    isActive: true,
+                    isDefault: true,
+                    sortOrder: 0
+                },
+                {
+                    id: 'global-layout-2',
+                    templateKey: 'dashboard',
+                    name: { en: 'Other dashboard' },
+                    config: {},
+                    isActive: true,
+                    isDefault: false,
+                    sortOrder: 1
+                }
+            ],
+            layoutZoneWidgets: [
+                {
+                    id: 'base-widget-1',
+                    layoutId: 'global-layout-1',
+                    zone: 'top',
+                    widgetKey: 'header',
+                    sortOrder: 1,
+                    config: {},
+                    isActive: true
+                },
+                {
+                    id: 'foreign-widget-1',
+                    layoutId: 'global-layout-2',
+                    zone: 'top',
+                    widgetKey: 'header',
+                    sortOrder: 1,
+                    config: {},
+                    isActive: true
+                }
+            ],
+            scopedLayouts: [
+                {
+                    id: 'scoped-layout-1',
+                    scopeEntityId: 'object-1',
+                    baseLayoutId: 'global-layout-1',
+                    compositionMode: 'overlay',
+                    templateKey: 'dashboard',
+                    name: { en: 'Scoped dashboard' },
+                    config: {},
+                    isActive: true,
+                    isDefault: true,
+                    sortOrder: 0
+                }
+            ],
+            layoutWidgetOverrides: [
+                {
+                    layoutId: 'scoped-layout-1',
+                    baseWidgetId: 'foreign-widget-1',
+                    isDeletedOverride: false
+                }
+            ],
+            defaultLayoutId: 'global-layout-1'
+        }
+
+        expect(() => normalizeSnapshotLayoutZoneWidgets(snapshot)).toThrow(/outside base layout/)
+    })
+
+    it('fails closed for malformed dashboard snapshot field types instead of coercing them', () => {
+        const snapshot: PublishedApplicationSnapshot = {
+            entities: {},
+            layouts: [
+                {
+                    id: 'global-layout-1',
+                    templateKey: 'dashboard',
+                    name: { en: 'Global default' },
+                    config: 'false',
+                    isActive: 'false',
+                    isDefault: true,
+                    sortOrder: '1'
+                } as never
+            ],
+            layoutZoneWidgets: [
+                {
+                    id: 'base-widget-1',
+                    layoutId: 'global-layout-1',
+                    zone: 'top',
+                    widgetKey: 'header',
+                    sortOrder: 1,
+                    config: {},
+                    isActive: 'false'
+                } as never
+            ],
+            defaultLayoutId: 'global-layout-1'
+        }
+
+        expect(() => normalizeSnapshotLayouts(snapshot)).toThrow(/config must be an object/)
+
+        snapshot.layouts![0]!.config = { showHeader: 'false' }
+        expect(() => normalizeSnapshotLayouts(snapshot)).toThrow(/invalid dashboard configuration/)
+
+        snapshot.layouts![0]!.config = []
+        expect(() => normalizeSnapshotLayouts(snapshot)).toThrow(/config must be an object/)
+
+        snapshot.layouts![0]!.config = {}
+        expect(() => normalizeSnapshotLayouts(snapshot)).toThrow(/isActive must be a boolean/)
+
+        snapshot.layouts![0]!.isActive = true
+        snapshot.layouts![0]!.sortOrder = 1
+        expect(() => normalizeSnapshotLayoutZoneWidgets(snapshot)).toThrow(/isActive must be a boolean/)
+
+        snapshot.layoutZoneWidgets![0]!.isActive = true
+        snapshot.layoutZoneWidgets![0]!.sourceLineageKey = 42
+        expect(() => normalizeSnapshotLayoutZoneWidgets(snapshot)).toThrow(/sourceLineageKey/)
+
+        snapshot.layoutZoneWidgets![0]!.sourceLineageKey = undefined
+        snapshot.defaultLayoutId = 42
+        expect(() => normalizeSnapshotLayouts(snapshot)).toThrow(/defaultLayoutId/)
+    })
+
+    it('fails closed for malformed scoped dashboard layout configuration', () => {
+        const snapshot: PublishedApplicationSnapshot = {
+            entities: {},
+            layouts: [
+                {
+                    id: 'global-layout-1',
+                    templateKey: 'dashboard',
+                    name: { en: 'Global default' },
+                    config: {},
+                    isActive: true,
+                    isDefault: true,
+                    sortOrder: 0
+                }
+            ],
+            scopedLayouts: [
+                {
+                    id: 'scoped-layout-1',
+                    scopeEntityId: 'object-1',
+                    baseLayoutId: 'global-layout-1',
+                    compositionMode: 'overlay',
+                    templateKey: 'dashboard',
+                    name: { en: 'Scoped dashboard' },
+                    config: { showHeader: 'false' },
+                    isActive: true,
+                    isDefault: true,
+                    sortOrder: 0
+                }
+            ],
+            layoutZoneWidgets: [],
+            layoutWidgetOverrides: [],
+            defaultLayoutId: 'global-layout-1'
+        }
+
+        expect(() => normalizeSnapshotLayouts(snapshot)).toThrow(/invalid dashboard configuration/)
     })
 })

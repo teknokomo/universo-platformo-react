@@ -1,5 +1,46 @@
 # Current Research
 
+## 2026-09-08: Unified application-template widgets and scoped-layout implementation closeout
+
+-   The IMPLEMENT continuation is complete for the verified local scope. The
+    runtime now selects a target-aware effective layout before choosing the
+    Dashboard or marketing renderer, with Page/Object/global precedence,
+    publication lineage checks, authorization, optimistic versions, UUID v7
+    identities, and fail-closed errors.
+-   The shared widget/zone registry remains owned by `@universo-react/types`.
+    The isolated `apps-template-mui` package reuses its existing MUI shells and
+    LanguageSwitcher while keeping Dashboard and marketing renderers separate.
+    Dashboard top, bottom, center, left, and right zones are transported by
+    typed adapters, and responsive shell ownership prevents duplicate language
+    or color-mode controls.
+-   Normal visible application navigation now carries the target selector to
+    the runtime. A fresh minimal-Supabase Playwright run proved Marketing Page
+    global content -> visible Blog link -> entity-scoped Dashboard, including a
+    real table, shared language widget, keyboard menu operation, RU mobile,
+    tablet, no-leakage, and no page-level overflow assertions.
+-   Focused verification is green: applications-backend 4 suites / 215 tests,
+    metahubs-backend 3 suites / 71 tests, applications-frontend 49 tests,
+    apps-template-mui Dashboard 22 tests, types 36 tests, and utils 17 tests.
+    Package lint/static/docs gates also pass after the EN/RU parity correction.
+-   The standalone browser environment and a separate real-database concurrency
+    wrapper are not provisioned in this checkout; component and direct store/
+    route coverage are present, and these boundaries are recorded explicitly.
+    OntoIndex remains dirty/degraded for the worktree, and Thermos/autoreview
+    cannot initialize the read-only environment-owned state database.
+
+## 2026-09-07: Unified application-template widgets and scoped-layout research
+
+-   Research artifact created: memory-bank/research/unified-application-template-widgets-scoped-layouts-research-2026-09-07.md.
+-   Current source review confirms that marketing widget lifecycle support is already implemented; the remaining problem is a template-neutral capability contract, target-first effective-layout resolution, cross-template entity-scoped selection, and removal of runtime fail-open placement/error handling.
+-   Concrete blockers recorded for PLAN: hosted and standalone dispatch commit to the global template before resolving an entity target; application authoring derives scoped template from the global layout; metahub materialization rejects template-mismatched overlays; dashboard runtime rows omit top/bottom zones and can reclassify or ignore failures; current tests do not prove the cross-template precedence/hosted/standalone matrix.
+-   The recommended clean-break direction preserves separate template renderers, adds neutral capability/semantic-region metadata and one resolver, keeps existing storage/version boundaries, treats cross-template selection as an independent composition by default, and fails closed on invalid or incomplete layouts.
+-   MUI official documentation, WAI landmark guidance, React stable-key guidance, Context7 /mui/material-ui/v9.2.0, OntoIndex, direct source, prior research, and prior implementation records were checked on 2026-09-07. No product code, schema, or manager file was changed in RESEARCH mode.
+-   QA on 2026-09-07 found and corrected a broken PLAN link, incomplete source inventory, missing UI/cache/concurrency/zone-transport contracts, and documentation drift. The artifact is reviewed but remains gated for a decision-focused PLAN until the open contract decisions are resolved.
+-   Current OntoIndex QA state is indexed at HEAD but dirty/degraded: seven dirty files include the research updates, embeddings are unavailable, and ambiguous symbol queries limit graph evidence; direct source remains authoritative.
+-   QA also added an executable QA/Test Oracle Matrix covering resolver precedence, cross-template hosted/standalone dispatch, zone transport, materialization failures, API/RBAC, concurrency, cache invalidation, publication/snapshot, UX, and MUI primitive reuse. These cells are requirements and current status is partial/missing/blocked, not acceptance.
+-   Closeout review additionally tightened application-scoped materialization, target-aware bootstrap request identity, UUID v7/remapped lineage invariants, deterministic malformed-versus-corrupt error classes, exact languageSwitcher and primitive-reuse test targets, and catalog-range versus lockfile-version reporting.
+-   Decision-focused PLAN created and QA-refined: `memory-bank/plan/unified-application-template-widgets-scoped-layouts-plan-2026-09-07.md`. It preserves the no-version-bump/clean-break boundary and adds exact target unions, source-chain precedence, independent-versus-overlay lineage rules, deterministic capability/error contracts, real-database concurrency, shared runtime UX oracles, hosted/standalone Playwright wrappers, visual provenance, and GitBook closeout gates. No product code was changed in PLAN mode.
+
 ## 2026-09-04: Widgetized marketing-page runtime research
 
 -   Research artifact created: `memory-bank/research/marketing-page-widgetized-runtime-research-2026-09-04.md`.

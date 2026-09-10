@@ -7830,4 +7830,35 @@ describe('widgetRenderer detailsTable datasource', () => {
         expect(screen.queryByRole('tab', { name: 'course-outline' })).not.toBeInTheDocument()
         expect(screen.queryByText(rawTabId)).not.toBeInTheDocument()
     })
+
+    describe('dashboard placement widgets', () => {
+        const placement = (id: string, widgetKey: string) => ({ id, widgetKey, sortOrder: 0, config: {} })
+
+        it('renders explicit top controls through the shared renderer', () => {
+            render(
+                <>
+                    {renderWidget(placement('breadcrumbs', 'breadcrumbs'))}
+                    {renderWidget(placement('search', 'search'))}
+                    {renderWidget(placement('date-picker', 'datePicker'))}
+                    {renderWidget(placement('options-menu', 'optionsMenu'))}
+                </>
+            )
+
+            expect(screen.getByTestId('runtime-breadcrumbs-widget')).toBeInTheDocument()
+            expect(screen.getByTestId('runtime-search-widget')).toBeInTheDocument()
+            expect(screen.getByTestId('runtime-date-picker-widget')).toBeInTheDocument()
+            expect(screen.getByTestId('runtime-options-menu-widget')).toBeInTheDocument()
+            expect(screen.getByRole('textbox', { name: 'Search…' })).toBeInTheDocument()
+            expect(screen.getByRole('button', { name: 'Open notifications' })).toBeInTheDocument()
+        })
+
+        it('renders dashboard footer placements with visible existing footer content', () => {
+            render(<>{renderWidget(placement('footer', 'footer'))}</>)
+
+            const footer = screen.getByTestId('runtime-footer-widget')
+            expect(footer).toBeInTheDocument()
+            expect(footer).toHaveTextContent('Sitemark')
+            expect(footer).toHaveTextContent(String(new Date().getFullYear()))
+        })
+    })
 })

@@ -9,7 +9,7 @@ import Highlights from './components/Highlights'
 import LogoCollection from './components/LogoCollection'
 import Pricing from './components/Pricing'
 import Testimonials from './components/Testimonials'
-import type { MarketingPageProps, MarketingPageWidget } from './types'
+import type { MarketingPageProps, MarketingPageWidget, MarketingRenderOptions } from './types'
 
 type WidgetKey = MarketingPageWidget['widgetKey']
 type WidgetOf<K extends WidgetKey> = Extract<MarketingPageWidget, { widgetKey: K }>
@@ -17,6 +17,12 @@ type RendererProps<K extends WidgetKey> = {
     widget: WidgetOf<K>
     onAction: MarketingPageProps['onAction']
     onLeadSubmit: MarketingPageProps['onLeadSubmit']
+    showLanguageSwitcher?: MarketingRenderOptions['showLanguageSwitcher']
+    navigationInstanceKey?: MarketingRenderOptions['navigationInstanceKey']
+    navigationAriaLabel?: MarketingRenderOptions['navigationAriaLabel']
+    navigationPosition?: MarketingRenderOptions['navigationPosition']
+    navigationStackIndex?: MarketingRenderOptions['navigationStackIndex']
+    heroBackgroundOwner?: MarketingRenderOptions['heroBackgroundOwner']
 }
 type WidgetRenderer<K extends WidgetKey> = (props: RendererProps<K>) => ReactNode
 
@@ -47,11 +53,35 @@ const renderCollection = ({ widget, onAction }: RendererProps<'marketing.collect
 }
 
 const marketingWidgetRenderers = {
-    'marketing.navigation': ({ widget, onAction }: RendererProps<'marketing.navigation'>) => (
-        <AppAppBar brand={widget.content.brand} navigation={widget.content.navigation} auth={widget.content.auth} onAction={onAction} />
+    'marketing.navigation': ({
+        widget,
+        onAction,
+        showLanguageSwitcher,
+        navigationInstanceKey,
+        navigationAriaLabel,
+        navigationPosition,
+        navigationStackIndex
+    }: RendererProps<'marketing.navigation'>) => (
+        <AppAppBar
+            brand={widget.content.brand}
+            navigation={widget.content.navigation}
+            auth={widget.content.auth}
+            showLanguageSwitcher={showLanguageSwitcher}
+            navigationInstanceKey={navigationInstanceKey}
+            navigationAriaLabel={navigationAriaLabel}
+            navigationPosition={navigationPosition}
+            navigationStackIndex={navigationStackIndex}
+            onAction={onAction}
+        />
     ),
-    'marketing.hero': ({ widget, onAction, onLeadSubmit }: RendererProps<'marketing.hero'>) => (
-        <Hero instanceKey={widget.instanceKey} data={widget.content} onAction={onAction} onLeadSubmit={onLeadSubmit} />
+    'marketing.hero': ({ widget, onAction, onLeadSubmit, heroBackgroundOwner }: RendererProps<'marketing.hero'>) => (
+        <Hero
+            instanceKey={widget.instanceKey}
+            data={widget.content}
+            onAction={onAction}
+            onLeadSubmit={onLeadSubmit}
+            backgroundOwner={heroBackgroundOwner}
+        />
     ),
     'marketing.collection': renderCollection,
     'marketing.pricing': ({ widget, onAction }: RendererProps<'marketing.pricing'>) => (
@@ -80,10 +110,11 @@ export const marketingWidgetLabel = (widget: MarketingPageWidget): string => {
 export function renderMarketingWidget(
     widget: MarketingPageWidget,
     onAction: MarketingPageProps['onAction'],
-    onLeadSubmit: MarketingPageProps['onLeadSubmit']
+    onLeadSubmit: MarketingPageProps['onLeadSubmit'],
+    options: MarketingRenderOptions = {}
 ): ReactNode {
     const renderer = marketingWidgetRenderers[widget.widgetKey] as WidgetRenderer<WidgetKey>
-    return renderer({ widget: widget as never, onAction, onLeadSubmit })
+    return renderer({ widget: widget as never, onAction, onLeadSubmit, ...options })
 }
 
 export { marketingWidgetRenderers }

@@ -409,6 +409,19 @@ const successResponse = (schemaName, description = 'Successful response.') => ({
     ...jsonSchemaRef(schemaName)
 })
 
+const errorResponse = (schemaName, status) => ({
+    description:
+        {
+            400: 'The request is invalid.',
+            401: 'Authentication is required.',
+            403: 'The authenticated user is not allowed to access this resource.',
+            404: 'The requested resource was not found.',
+            409: 'The request conflicts with the current resource state.',
+            503: 'The runtime service is temporarily unavailable.'
+        }[status] ?? 'The request failed.',
+    ...jsonSchemaRef(schemaName)
+})
+
 const createdResponse = (schemaName) => successResponse(schemaName, 'Successful create or action response.')
 
 const interpretationNetworkOperationOverrides = {
@@ -602,8 +615,92 @@ const playCanvasAssetExpectedCurrentChecksumQueryParameter = {
     description: 'Current file checksum required before deleting a PlayCanvas asset file.'
 }
 
+const effectiveLayoutTargetParameters = [
+    {
+        name: 'targetKind',
+        in: 'query',
+        required: false,
+        schema: { type: 'string', enum: ['page', 'object'] },
+        description: 'Optional entity target kind. Omit it for the application global layout.'
+    },
+    {
+        name: 'entityTypeId',
+        in: 'query',
+        required: false,
+        schema: { $ref: '#/components/schemas/UuidV7' },
+        description: 'UUID v7 of the Page/Object entity type. Mutually exclusive with entityTypeCodename.'
+    },
+    {
+        name: 'entityTypeCodename',
+        in: 'query',
+        required: false,
+        schema: {
+            type: 'string',
+            minLength: 1,
+            maxLength: 128,
+            pattern: '^[A-Za-z][A-Za-z0-9._-]*$'
+        },
+        description: 'Codename of the Page/Object entity type. Mutually exclusive with entityTypeId.'
+    },
+    {
+        name: 'workspaceId',
+        in: 'query',
+        required: false,
+        schema: { $ref: '#/components/schemas/UuidV7' },
+        description: 'Optional UUID v7 workspace selector, authorized before entity lookup.'
+    },
+    {
+        name: 'locale',
+        in: 'query',
+        required: false,
+        schema: { type: 'string', minLength: 2, maxLength: 32, pattern: '^[A-Za-z]{2,8}(?:[-_][A-Za-z0-9]{2,8})*$' },
+        description: 'Localized runtime content requested by the client.'
+    },
+    {
+        name: 'themeVariant',
+        in: 'query',
+        required: false,
+        schema: { type: 'string', enum: ['light', 'dark', 'system'] },
+        description: 'Requested presentation theme variant.'
+    }
+]
+
 const packageOperationOverrides = {
     ...interpretationNetworkOperationOverrides,
+    'GET /applications/{applicationId}/runtime/effective-layout': {
+        summary: 'Resolve the effective application layout before renderer selection',
+        description:
+            'Returns the server-selected global or Page/Object-scoped layout, template, widget composition, lineage, precedence, and stable fail-closed error codes. The target is authorized before entity metadata is resolved.',
+        parameters: effectiveLayoutTargetParameters,
+        responses: {
+            200: successResponse('EffectiveLayoutResult'),
+            400: errorResponse('EffectiveLayoutFailure', 400),
+            401: errorResponse('EffectiveLayoutFailure', 401),
+            403: errorResponse('EffectiveLayoutFailure', 403),
+            404: errorResponse('EffectiveLayoutFailure', 404),
+            409: errorResponse('EffectiveLayoutFailure', 409),
+            503: errorResponse('EffectiveLayoutFailure', 503)
+        },
+        removeResponses: ['429', '500']
+    },
+    'POST /applications/{applicationId}/layouts': {
+        requestBody: {
+            required: true,
+            ...jsonSchemaRef('ApplicationLayoutCreateRequest')
+        }
+    },
+    'PATCH /applications/{applicationId}/layouts/{layoutId}': {
+        requestBody: {
+            required: true,
+            ...jsonSchemaRef('ApplicationLayoutUpdateRequest')
+        }
+    },
+    'POST /applications/{applicationId}/layouts/{layoutId}/config/reset': {
+        requestBody: {
+            required: true,
+            ...jsonSchemaRef('ApplicationLayoutConfigResetRequest')
+        }
+    },
     'POST /applications/{applicationId}/layouts/{layoutId}/copy': {
         summary: 'Copy an application layout from a versioned source snapshot',
         description:
@@ -617,6 +714,39 @@ const packageOperationOverrides = {
             409: { $ref: '#/components/responses/Conflict' }
         },
         removeResponses: ['200']
+    },
+    'PUT /applications/{applicationId}/layouts/{layoutId}/zone-widget': {
+        requestBody: {
+            required: true,
+            ...jsonSchemaRef('ApplicationLayoutWidgetUpsertRequest')
+        }
+    },
+    'PATCH /applications/{applicationId}/layouts/{layoutId}/zone-widget/{widgetId}/config': {
+        requestBody: {
+            required: true,
+            ...jsonSchemaRef('ApplicationLayoutWidgetConfigRequest')
+        }
+    },
+    'PATCH /applications/{applicationId}/layouts/{layoutId}/zone-widget/{widgetId}/toggle-active': {
+        requestBody: {
+            required: true,
+            ...jsonSchemaRef('ApplicationLayoutWidgetToggleRequest')
+        }
+    },
+    'PATCH /applications/{applicationId}/layouts/{layoutId}/zone-widgets/move': {
+        requestBody: {
+            required: true,
+            ...jsonSchemaRef('ApplicationLayoutWidgetMoveRequest')
+        }
+    },
+    'PATCH /applications/{applicationId}/layouts/zone-widgets/config/batch': {
+        requestBody: {
+            required: true,
+            ...jsonSchemaRef('ApplicationLayoutWidgetConfigBatchRequest')
+        },
+        responses: {
+            409: { $ref: '#/components/responses/ApplicationInterpretationNetworkStructureModeConflict' }
+        }
     },
     'GET /metahub/{metahubId}/packages': {
         responses: {
@@ -874,6 +1004,56 @@ const buildSpec = () => {
                     description:
                         'Generic JSON object used where the route inventory is current but payload-specific schemas remain handler-defined.'
                 },
+                UuidV7: {
+                    type: 'string',
+                    format: 'uuid',
+                    pattern: '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-7[0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$',
+                    description: 'UUID version 7 identifier.'
+                },
+                ApplicationLayoutCreateRequest: {
+                    type: 'object',
+                    additionalProperties: false,
+                    properties: {
+                        templateKey: { type: 'string', enum: ['dashboard', 'marketing-page'] },
+                        name: { type: 'object', additionalProperties: true },
+                        description: {
+                            oneOf: [{ type: 'object', additionalProperties: true }, { type: 'null' }]
+                        },
+                        config: { type: 'object', additionalProperties: true },
+                        scopeEntityId: {
+                            oneOf: [{ $ref: '#/components/schemas/UuidV7' }, { type: 'null' }]
+                        },
+                        isActive: { type: 'boolean' },
+                        isDefault: { type: 'boolean' },
+                        sortOrder: { type: 'integer' },
+                        expectedVersion: { type: 'integer', minimum: 1 }
+                    },
+                    required: ['name']
+                },
+                ApplicationLayoutUpdateRequest: {
+                    type: 'object',
+                    additionalProperties: false,
+                    properties: {
+                        name: { type: 'object', additionalProperties: true },
+                        description: {
+                            oneOf: [{ type: 'object', additionalProperties: true }, { type: 'null' }]
+                        },
+                        config: { type: 'object', additionalProperties: true },
+                        isActive: { type: 'boolean' },
+                        isDefault: { type: 'boolean' },
+                        sortOrder: { type: 'integer' },
+                        expectedVersion: { type: 'integer', minimum: 1 }
+                    },
+                    required: ['expectedVersion']
+                },
+                ApplicationLayoutConfigResetRequest: {
+                    type: 'object',
+                    additionalProperties: false,
+                    properties: {
+                        expectedVersion: { type: 'integer', minimum: 1 }
+                    },
+                    required: ['expectedVersion']
+                },
                 ApplicationLayoutWidgetResetBatchRequest: {
                     type: 'object',
                     additionalProperties: false,
@@ -888,11 +1068,11 @@ const buildSpec = () => {
                                 type: 'object',
                                 additionalProperties: false,
                                 properties: {
-                                    layoutId: { type: 'string', format: 'uuid' },
-                                    widgetId: { type: 'string', format: 'uuid' },
+                                    layoutId: { $ref: '#/components/schemas/UuidV7' },
+                                    widgetId: { $ref: '#/components/schemas/UuidV7' },
                                     expectedVersion: { type: 'integer', minimum: 1 }
                                 },
-                                required: ['layoutId', 'widgetId']
+                                required: ['layoutId', 'widgetId', 'expectedVersion']
                             }
                         }
                     },
@@ -906,6 +1086,76 @@ const buildSpec = () => {
                     },
                     required: ['expectedVersion'],
                     description: 'Optimistic source layout version required before copying its complete widget composition.'
+                },
+                ApplicationLayoutWidgetUpsertRequest: {
+                    type: 'object',
+                    additionalProperties: false,
+                    properties: {
+                        zone: {
+                            type: 'string',
+                            enum: ['left', 'top', 'right', 'bottom', 'center', 'marketing-header', 'marketing-main', 'marketing-footer']
+                        },
+                        widgetKey: { type: 'string', minLength: 1 },
+                        sortOrder: { type: 'integer' },
+                        config: { type: 'object', additionalProperties: true },
+                        expectedVersion: { type: 'integer', minimum: 1 }
+                    },
+                    required: ['zone', 'widgetKey', 'expectedVersion']
+                },
+                ApplicationLayoutWidgetConfigRequest: {
+                    type: 'object',
+                    additionalProperties: false,
+                    properties: {
+                        config: { type: 'object', additionalProperties: true },
+                        expectedVersion: { type: 'integer', minimum: 1 }
+                    },
+                    required: ['expectedVersion']
+                },
+                ApplicationLayoutWidgetConfigBatchRequest: {
+                    type: 'object',
+                    additionalProperties: false,
+                    properties: {
+                        updates: {
+                            type: 'array',
+                            minItems: 1,
+                            maxItems: 100,
+                            items: {
+                                type: 'object',
+                                additionalProperties: false,
+                                properties: {
+                                    layoutId: { $ref: '#/components/schemas/UuidV7' },
+                                    widgetId: { $ref: '#/components/schemas/UuidV7' },
+                                    config: { type: 'object', additionalProperties: true },
+                                    expectedVersion: { type: 'integer', minimum: 1 }
+                                },
+                                required: ['layoutId', 'widgetId', 'expectedVersion']
+                            }
+                        }
+                    },
+                    required: ['updates']
+                },
+                ApplicationLayoutWidgetMoveRequest: {
+                    type: 'object',
+                    additionalProperties: false,
+                    properties: {
+                        widgetId: { $ref: '#/components/schemas/UuidV7' },
+                        targetZone: {
+                            type: 'string',
+                            enum: ['left', 'top', 'right', 'bottom', 'center', 'marketing-header', 'marketing-main', 'marketing-footer']
+                        },
+                        targetIndex: { type: 'integer', minimum: 0 },
+                        expectedVersion: { type: 'integer', minimum: 1 }
+                    },
+                    required: ['widgetId', 'targetZone', 'targetIndex', 'expectedVersion']
+                },
+                ApplicationLayoutWidgetToggleRequest: {
+                    type: 'object',
+                    additionalProperties: false,
+                    properties: {
+                        isActive: { type: 'boolean' },
+                        expectedVersion: { type: 'integer', minimum: 1 }
+                    },
+                    required: ['isActive', 'expectedVersion']
                 },
                 ApplicationLayoutWidgetBatchResponse: {
                     type: 'object',
@@ -922,9 +1172,12 @@ const buildSpec = () => {
                     type: 'object',
                     additionalProperties: false,
                     properties: {
-                        id: { type: 'string', format: 'uuid' },
-                        layoutId: { type: 'string', format: 'uuid' },
-                        zone: { type: 'string', enum: ['left', 'top', 'right', 'bottom', 'center'] },
+                        id: { $ref: '#/components/schemas/UuidV7' },
+                        layoutId: { $ref: '#/components/schemas/UuidV7' },
+                        zone: {
+                            type: 'string',
+                            enum: ['left', 'top', 'right', 'bottom', 'center', 'marketing-header', 'marketing-main', 'marketing-footer']
+                        },
                         widgetKey: { type: 'string' },
                         sortOrder: { type: 'integer' },
                         config: { type: 'object', additionalProperties: true },
@@ -947,6 +1200,135 @@ const buildSpec = () => {
                         'isActive',
                         'version'
                     ]
+                },
+                EffectiveLayoutTarget: {
+                    type: 'object',
+                    additionalProperties: false,
+                    properties: {
+                        applicationId: { $ref: '#/components/schemas/UuidV7' },
+                        targetKind: { oneOf: [{ type: 'string', enum: ['page', 'object'] }, { type: 'null' }] },
+                        entityTypeId: {
+                            oneOf: [{ $ref: '#/components/schemas/UuidV7' }, { type: 'null' }]
+                        },
+                        entityTypeCodename: { oneOf: [{ type: 'string' }, { type: 'null' }] },
+                        workspaceId: {
+                            oneOf: [{ $ref: '#/components/schemas/UuidV7' }, { type: 'null' }]
+                        },
+                        locale: { type: 'string' },
+                        themeVariant: { oneOf: [{ type: 'string', enum: ['light', 'dark', 'system'] }, { type: 'null' }] }
+                    },
+                    required: ['applicationId', 'targetKind', 'entityTypeId', 'entityTypeCodename', 'workspaceId', 'locale', 'themeVariant']
+                },
+                EffectiveLayoutMetadata: {
+                    type: 'object',
+                    additionalProperties: false,
+                    properties: {
+                        id: { $ref: '#/components/schemas/UuidV7' },
+                        templateKey: { type: 'string', enum: ['dashboard', 'marketing-page'] },
+                        sourceKind: { type: 'string', enum: ['metahub', 'application'] },
+                        sourceLayoutId: {
+                            oneOf: [{ $ref: '#/components/schemas/UuidV7' }, { type: 'null' }]
+                        },
+                        sourceSnapshotHash: { oneOf: [{ type: 'string', pattern: '^[a-fA-F0-9]{64}$' }, { type: 'null' }] },
+                        sourceContentHash: { oneOf: [{ type: 'string', pattern: '^[a-fA-F0-9]{64}$' }, { type: 'null' }] },
+                        localContentHash: { oneOf: [{ type: 'string', pattern: '^[a-fA-F0-9]{64}$' }, { type: 'null' }] },
+                        scopeKind: { type: 'string', enum: ['global', 'entity'] },
+                        scopeEntityId: { oneOf: [{ $ref: '#/components/schemas/UuidV7' }, { type: 'null' }] },
+                        name: { type: 'object', additionalProperties: true },
+                        description: { oneOf: [{ type: 'object', additionalProperties: true }, { type: 'null' }] },
+                        config: { type: 'object', additionalProperties: true },
+                        syncState: { type: 'string' },
+                        isActive: { type: 'boolean' },
+                        isDefault: { type: 'boolean' },
+                        sortOrder: { type: 'integer', minimum: 0 },
+                        version: { type: 'integer', minimum: 1 },
+                        compositionMode: { type: 'string', enum: ['overlay', 'independent'] },
+                        baseLayoutId: { oneOf: [{ $ref: '#/components/schemas/UuidV7' }, { type: 'null' }] }
+                    },
+                    required: ['id', 'templateKey', 'sourceKind', 'sourceLayoutId', 'compositionMode', 'baseLayoutId']
+                },
+                EffectiveLayoutPublicationIdentity: {
+                    type: 'object',
+                    additionalProperties: false,
+                    properties: {
+                        publicationId: { $ref: '#/components/schemas/UuidV7' },
+                        publicationVersionId: { $ref: '#/components/schemas/UuidV7' },
+                        snapshotHash: { type: 'string', pattern: '^[a-fA-F0-9]{64}$' }
+                    },
+                    required: ['publicationId', 'publicationVersionId', 'snapshotHash']
+                },
+                EffectiveLayoutError: {
+                    type: 'object',
+                    additionalProperties: false,
+                    properties: {
+                        code: {
+                            type: 'string',
+                            enum: [
+                                'LAYOUT_REQUEST_INVALID',
+                                'LAYOUT_PAYLOAD_INVALID',
+                                'LAYOUT_CAPABILITY_UNSUPPORTED',
+                                'UNAUTHORIZED',
+                                'LAYOUT_TARGET_FORBIDDEN',
+                                'LAYOUT_TARGET_NOT_FOUND',
+                                'LAYOUT_DEFAULT_INVALID',
+                                'LAYOUT_PERSISTED_INVALID',
+                                'LAYOUT_CONFLICT',
+                                'LAYOUT_RUNTIME_QUERY_FAILED'
+                            ]
+                        },
+                        httpStatus: { type: 'integer', enum: [400, 401, 403, 404, 409, 503] }
+                    },
+                    required: ['code', 'httpStatus']
+                },
+                EffectiveLayoutResult: {
+                    oneOf: [
+                        {
+                            type: 'object',
+                            additionalProperties: false,
+                            properties: {
+                                status: { type: 'string', enum: ['ok'] },
+                                target: { $ref: '#/components/schemas/EffectiveLayoutTarget' },
+                                resolvedEntityTypeId: { oneOf: [{ $ref: '#/components/schemas/UuidV7' }, { type: 'null' }] },
+                                scope: { type: 'string', enum: ['global', 'entity'] },
+                                layout: { $ref: '#/components/schemas/EffectiveLayoutMetadata' },
+                                widgets: { type: 'array', items: { $ref: '#/components/schemas/ApplicationLayoutWidget' } },
+                                precedence: { type: 'array', minItems: 1, items: { type: 'string' } },
+                                publicationIdentity: {
+                                    oneOf: [{ $ref: '#/components/schemas/EffectiveLayoutPublicationIdentity' }, { type: 'null' }]
+                                },
+                                materializationHash: { type: 'string', pattern: '^[a-fA-F0-9]{64}$' },
+                                effectiveHash: { type: 'string', pattern: '^[a-fA-F0-9]{64}$' }
+                            },
+                            required: [
+                                'status',
+                                'target',
+                                'scope',
+                                'layout',
+                                'widgets',
+                                'precedence',
+                                'publicationIdentity',
+                                'effectiveHash'
+                            ]
+                        },
+                        {
+                            type: 'object',
+                            additionalProperties: false,
+                            properties: {
+                                status: { type: 'string', enum: ['failed'] },
+                                error: { $ref: '#/components/schemas/EffectiveLayoutError' }
+                            },
+                            required: ['status', 'error']
+                        }
+                    ]
+                },
+                EffectiveLayoutFailure: {
+                    type: 'object',
+                    additionalProperties: false,
+                    properties: {
+                        status: { type: 'string', enum: ['failed'] },
+                        error: { $ref: '#/components/schemas/EffectiveLayoutError' }
+                    },
+                    required: ['status', 'error']
                 },
                 InterpretationNetworkLocalizedContentEntry: {
                     type: 'object',

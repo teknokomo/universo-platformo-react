@@ -244,6 +244,10 @@ test('@flow @permission @marketing-page enforces runtime read and layout mutatio
         const anonymousPage = await anonymousContext.newPage()
         const anonymousRuntime = await anonymousPage.request.get(`/api/v1/applications/${application.id}/runtime/marketing-page`)
         expect(anonymousRuntime.status()).toBe(401)
+        const anonymousEffectiveLayout = await anonymousPage.request.get(
+            `/api/v1/applications/${application.id}/runtime/effective-layout?locale=en&themeVariant=light`
+        )
+        expect(anonymousEffectiveLayout.status()).toBe(401)
         const anonymousLayouts = await anonymousPage.request.get(`/api/v1/applications/${application.id}/layouts`)
         expect(anonymousLayouts.status()).toBe(401)
 
@@ -254,6 +258,23 @@ test('@flow @permission @marketing-page enforces runtime read and layout mutatio
             expect(response.status).toBe(200)
             expect((await response.json()).templateKey).toBe('marketing-page')
         }
+
+        const roleEffectiveLayouts = await Promise.all(
+            [adminApi, editorApi, memberApi].map((session) =>
+                getApiResponse(session, `/api/v1/applications/${application.id}/runtime/effective-layout?locale=en&themeVariant=light`)
+            )
+        )
+        for (const response of roleEffectiveLayouts) {
+            expect(response.status).toBe(200)
+            expect((await response.json()).layout.templateKey).toBe('marketing-page')
+        }
+
+        const missingCsrfCreate = await requestApi(ownerApi, `/api/v1/applications/${application.id}/layouts`, {
+            method: 'POST',
+            headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
+            body: JSON.stringify({ templateKey: 'dashboard', name: { en: 'must not be created' }, isActive: true })
+        })
+        expect(missingCsrfCreate.status).toBe(419)
 
         const workspacePayload = await listApplicationWorkspaces(ownerApi, application.id)
         const ownerPersonalWorkspace = (workspacePayload.items ?? []).find(
@@ -495,9 +516,11 @@ test('@flow @permission @marketing-page enforces runtime read and layout mutatio
         const copiedLayoutResponse = await copyApplicationLayout(ownerApi, application.id, marketingLayout.id, sourceForCopy.item.version)
         const copiedLayoutId = copiedLayoutResponse.item?.id
         if (!copiedLayoutId || copiedLayoutId === marketingLayout.id) throw new Error('Marketing layout copy reused the source layout id')
+        expect(isUuidV7(copiedLayoutId)).toBe(true)
         const copiedDetail = await getApplicationLayout(ownerApi, application.id, copiedLayoutId)
         const copiedFaq = copiedDetail.widgets?.find((widget: { widgetKey?: string }) => widget.widgetKey === 'marketing.collection')
         expect(copiedFaq?.id).toBeTruthy()
+        expect(isUuidV7(copiedFaq?.id)).toBe(true)
         expect(copiedFaq?.id).not.toBe(faqWidget.id)
         expect(copiedFaq?.config?.instanceKey).not.toBe(faqWidget.config.instanceKey)
 
@@ -529,6 +552,11 @@ test('@flow @permission @marketing-page enforces runtime read and layout mutatio
             `/api/v1/applications/${unrelatedApplication.id}/runtime/marketing-page`
         )
         expect([403, 404]).toContain(crossApplicationRuntime.status)
+        const crossApplicationEffectiveLayout = await getApiResponse(
+            memberApi,
+            `/api/v1/applications/${unrelatedApplication.id}/runtime/effective-layout?locale=en&themeVariant=light`
+        )
+        expect([403, 404]).toContain(crossApplicationEffectiveLayout.status)
 
         adminBrowser = await createLoggedInBrowserContext(
             browser,

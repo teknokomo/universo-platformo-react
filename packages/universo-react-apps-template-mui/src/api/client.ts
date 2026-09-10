@@ -1,3 +1,12 @@
+import { z } from 'zod'
+import { LAYOUT_RUNTIME_ERROR_CODES, type LayoutRuntimeErrorCode } from '@universo-react/types'
+import {
+    normalizeRuntimeLayoutTarget as normalizeSharedRuntimeLayoutTarget,
+    type NormalizedRuntimeLayoutTarget as SharedNormalizedRuntimeLayoutTarget,
+    type RuntimeLayoutTargetInput,
+    type RuntimeLayoutTargetKind as SharedRuntimeLayoutTargetKind
+} from '@universo-react/utils'
+
 const AUTH_CSRF_STORAGE_KEY = 'up.auth.csrf'
 
 let csrfTokenPromise: Promise<string> | null = null
@@ -19,6 +28,86 @@ const buildApiUrl = (apiBaseUrl: string, path: string): string => {
     }
 
     return new URL(apiPath, window.location.origin).toString()
+}
+
+export type RuntimeTargetKind = SharedRuntimeLayoutTargetKind
+export type RuntimeLayoutTarget = RuntimeLayoutTargetInput
+export type NormalizedRuntimeLayoutTarget = SharedNormalizedRuntimeLayoutTarget
+
+export const normalizeRuntimeLayoutTarget = (target?: RuntimeLayoutTarget | null): NormalizedRuntimeLayoutTarget =>
+    normalizeSharedRuntimeLayoutTarget(target)
+
+export const buildRuntimeLayoutQueryKey = (applicationId: string, target?: RuntimeLayoutTarget | null) =>
+    ['applications', applicationId, 'runtime', 'effective-layout', normalizeRuntimeLayoutTarget(target)] as const
+
+/** Build the base URL for an application's authenticated runtime API. */
+export const buildRuntimeApiUrl = (apiBaseUrl: string, applicationId: string, path = ''): string => {
+    const normalizedBase = apiBaseUrl.replace(/\/$/, '')
+    const apiPath = `${normalizedBase}/applications/${encodeURIComponent(applicationId)}/runtime${path}`
+
+    if (/^https?:\/\//i.test(normalizedBase)) {
+        return new URL(apiPath).toString()
+    }
+
+    return new URL(apiPath, window.location.origin).toString()
+}
+
+export const applyRuntimeLayoutTargetQuery = (url: URL, target?: RuntimeLayoutTarget | null): NormalizedRuntimeLayoutTarget => {
+    const normalized = normalizeRuntimeLayoutTarget(target)
+    if (normalized.targetKind) url.searchParams.set('targetKind', normalized.targetKind)
+    if (normalized.entityTypeId) url.searchParams.set('entityTypeId', normalized.entityTypeId)
+    if (normalized.entityTypeCodename) url.searchParams.set('entityTypeCodename', normalized.entityTypeCodename)
+    if (normalized.workspaceId) url.searchParams.set('workspaceId', normalized.workspaceId)
+    if (normalized.locale) url.searchParams.set('locale', normalized.locale)
+    if (normalized.themeVariant) url.searchParams.set('themeVariant', normalized.themeVariant)
+    return normalized
+}
+
+export async function parseRuntimeResponse<TSchema extends z.ZodTypeAny>(
+    response: Response,
+    schema: TSchema,
+    fallbackPrefix: string
+): Promise<z.infer<TSchema>> {
+    if (!response.ok) {
+        return throwAppsApiError(response, fallbackPrefix)
+    }
+
+    let payload: unknown
+    try {
+        payload = await response.json()
+    } catch {
+        throw new Error(`${fallbackPrefix} response validation failed`)
+    }
+
+    const parsed = schema.safeParse(payload)
+    if (!parsed.success) {
+        throw new Error(`${fallbackPrefix} response validation failed`)
+    }
+    return parsed.data
+}
+
+export interface RuntimeFetcherOptions {
+    apiBaseUrl: string
+    applicationId: string
+    target?: RuntimeLayoutTarget | null
+    fetchImpl?: typeof fetch
+}
+
+export const createRuntimeFetcher = ({ apiBaseUrl, applicationId, target, fetchImpl = fetch }: RuntimeFetcherOptions) => {
+    return async <TSchema extends z.ZodTypeAny>(
+        path: string,
+        schema: TSchema,
+        fallbackPrefix: string,
+        init: RequestInit = {}
+    ): Promise<z.infer<TSchema>> => {
+        const url = new URL(buildRuntimeApiUrl(apiBaseUrl, applicationId, path))
+        applyRuntimeLayoutTargetQuery(url, target)
+        const response = await fetchImpl(url.toString(), {
+            ...init,
+            credentials: init.credentials ?? 'include'
+        })
+        return parseRuntimeResponse(response, schema, fallbackPrefix)
+    }
 }
 
 export const buildAppsApiUrl = (apiBaseUrl: string, applicationId: string, path = ''): string => {
@@ -73,6 +162,21 @@ export class AppsApiError extends Error {
     }
 }
 
+export const getRuntimeLayoutErrorCode = (error: unknown): LayoutRuntimeErrorCode | null => {
+    const candidate =
+        error instanceof AppsApiError
+            ? error.code
+            : error && typeof error === 'object' && 'code' in error
+            ? (error as { code?: unknown }).code
+            : error && typeof error === 'object' && 'error' in error
+            ? (error as { error?: { code?: unknown } }).error?.code ?? null
+            : null
+
+    return typeof candidate === 'string' && (LAYOUT_RUNTIME_ERROR_CODES as readonly string[]).includes(candidate)
+        ? (candidate as LayoutRuntimeErrorCode)
+        : null
+}
+
 export const throwAppsApiError = async (res: Response, fallbackPrefix: string): Promise<never> => {
     const text = await res.text().catch(() => '')
     let message = `${fallbackPrefix} (${res.status})`
@@ -81,10 +185,19 @@ export const throwAppsApiError = async (res: Response, fallbackPrefix: string): 
 
     if (text) {
         try {
-            const json = JSON.parse(text) as { error?: unknown; message?: unknown; detail?: unknown; code?: unknown; details?: unknown }
+            const json = JSON.parse(text) as {
+                error?: unknown
+                message?: unknown
+                detail?: unknown
+                code?: unknown
+                details?: unknown
+            }
             const candidate = json.error ?? json.message ?? json.detail
             if (typeof candidate === 'string' && candidate.trim()) message = candidate.trim()
             if (typeof json.code === 'string' && json.code.trim()) code = json.code.trim()
+            if (!code && candidate && typeof candidate === 'object' && 'code' in candidate && typeof candidate.code === 'string') {
+                code = candidate.code.trim()
+            }
             details = json.details
         } catch {
             message = text

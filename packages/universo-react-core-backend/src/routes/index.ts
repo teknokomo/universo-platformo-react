@@ -31,7 +31,13 @@ import {
 // Universo Platformo | Profile
 import { createProfileRoutes } from '@universo-react/profile-backend'
 import { getKnex, getPoolExecutor } from '@universo-react/database'
-import { OptimisticLockError, lookupUserEmail, isDatabaseConnectTimeoutError, getRequestDbExecutor } from '@universo-react/utils'
+import {
+    OptimisticLockError,
+    lookupUserEmail,
+    isDatabaseConnectTimeoutError,
+    getRequestDbContext,
+    getRequestDbExecutor
+} from '@universo-react/utils'
 import helmet from 'helmet'
 import { createSupabaseAdminClient } from '../utils/supabaseAdmin'
 
@@ -51,6 +57,14 @@ const requireConfiguredCsrfProtection: RequestHandler = (req, res, next) => {
 
 // Create RLS-enabled authentication middleware
 const ensureAuthWithRls = createEnsureAuthWithRls({ getKnex })
+
+const getRequiredRequestDbExecutor = (req: Request) => {
+    const context = getRequestDbContext(req)
+    if (!context || context.isReleased()) {
+        throw new Error('Request-scoped database executor is unavailable')
+    }
+    return context.executor
+}
 
 // Security headers (safe defaults for APIs; CSP disabled for now)
 router.use(helmet({ contentSecurityPolicy: false }))
@@ -104,7 +118,8 @@ let applicationsRouter: ExpressRouter | null = null
 router.use((req: Request, res: Response, next: NextFunction) => {
     if (!applicationsRouter) {
         applicationsRouter = createApplicationsServiceRoutes(ensureAuthWithRls, getPoolExecutor, loadPublishedPublicationRuntimeSource, {
-            syncEnsureAuth: ensurePlainAuth
+            syncEnsureAuth: ensurePlainAuth,
+            getRequestDbExecutor: getRequiredRequestDbExecutor
         })
     }
     if (applicationsRouter) {

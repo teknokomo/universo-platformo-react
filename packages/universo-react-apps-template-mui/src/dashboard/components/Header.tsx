@@ -1,5 +1,6 @@
 import Stack from '@mui/material/Stack'
 import NotificationsRoundedIcon from '@mui/icons-material/NotificationsRounded'
+import { useTranslation } from 'react-i18next'
 import CustomDatePicker from './CustomDatePicker'
 import NavbarBreadcrumbs from './NavbarBreadcrumbs'
 import MenuButton from './MenuButton'
@@ -14,14 +15,17 @@ export interface HeaderLayoutConfig {
     showDatePicker?: boolean
     showOptionsMenu?: boolean
     showLanguageSwitcher?: boolean
+    showColorMode?: boolean
 }
 
 export default function Header({ layoutConfig }: { layoutConfig?: HeaderLayoutConfig }) {
+    const { t } = useTranslation('apps')
     const showBreadcrumbs = layoutConfig?.showBreadcrumbs ?? true
     const showSearch = layoutConfig?.showSearch ?? true
     const showDatePicker = layoutConfig?.showDatePicker ?? true
     const showOptionsMenu = layoutConfig?.showOptionsMenu ?? true
     const showLanguageSwitcher = layoutConfig?.showLanguageSwitcher ?? true
+    const showColorMode = layoutConfig?.showColorMode ?? true
 
     return (
         <Stack
@@ -42,13 +46,11 @@ export default function Header({ layoutConfig }: { layoutConfig?: HeaderLayoutCo
                 {showDatePicker && <CustomDatePicker />}
                 {showLanguageSwitcher && <LanguageSwitcher />}
                 {showOptionsMenu && (
-                    <>
-                        <MenuButton showBadge aria-label='Open notifications'>
-                            <NotificationsRoundedIcon />
-                        </MenuButton>
-                        <ColorModeIconDropdown />
-                    </>
+                    <MenuButton showBadge aria-label={t('runtime.notifications', 'Open notifications')}>
+                        <NotificationsRoundedIcon />
+                    </MenuButton>
                 )}
+                {showColorMode && <ColorModeIconDropdown aria-label={t('colorMode.label', 'Color mode')} />}
             </Stack>
         </Stack>
     )

@@ -324,14 +324,20 @@ describe('applicationSyncRoutes', () => {
         return { generator, migrator, migrationManager }
     }
 
-    const buildApp = (loadPublishedApplicationSyncContext: jest.Mock) => {
+    const buildApp = (
+        loadPublishedApplicationSyncContext: jest.Mock,
+        options: {
+            ensureAuth?: (req: Request, res: Response, next: NextFunction) => void
+            requestExecutor?: unknown
+        } = {}
+    ) => {
         const app = express()
         app.use(express.json())
         app.use(
             '/',
             createApplicationSyncRoutes(
-                ensureAuth,
-                () => exec as never,
+                options.ensureAuth ?? ensureAuth,
+                () => (options.requestExecutor ?? exec) as never,
                 loadPublishedApplicationSyncContext,
                 mockRateLimiter,
                 mockRateLimiter
@@ -345,6 +351,7 @@ describe('applicationSyncRoutes', () => {
         jest.clearAllMocks()
         mockedCreateDDLServices.mockReset()
         exec.query.mockReset()
+        exec.query.mockResolvedValue([])
         mockSchemaHasTable.mockReset()
         mockSchemaHasTable.mockResolvedValue(false)
         mockedCalculateSchemaDiff.mockClear()
@@ -370,6 +377,45 @@ describe('applicationSyncRoutes', () => {
         mockUpdateConnectorPublicationSchemaOptions.mockResolvedValue(undefined)
         mockAcquireAdvisoryLock.mockResolvedValue(true)
         mockReleaseAdvisoryLock.mockResolvedValue(undefined)
+    })
+
+    it('returns 401 before resolving a request executor when authentication has no user', async () => {
+        const requestExecutor = jest.fn(() => exec)
+        const unauthenticated = (_req: Request, _res: Response, next: NextFunction) => next()
+        const app = express()
+        app.use(express.json())
+        app.use('/', createApplicationSyncRoutes(unauthenticated, requestExecutor, jest.fn(), mockRateLimiter, mockRateLimiter))
+        app.use(errorHandler)
+
+        await request(app).get('/application/application-1/diff').expect(401)
+
+        expect(requestExecutor).not.toHaveBeenCalled()
+        expect(mockEnsureApplicationAccess).not.toHaveBeenCalled()
+    })
+
+    it('passes the request-scoped executor to authorization and publication loading', async () => {
+        const requestExecutor = { query: jest.fn() }
+        const loadPublishedApplicationSyncContext = jest.fn().mockResolvedValue(null)
+        const app = buildApp(loadPublishedApplicationSyncContext, { requestExecutor })
+
+        await request(app).get('/application/application-1/diff').expect(400)
+
+        expect(mockEnsureApplicationAccess).toHaveBeenCalledWith(requestExecutor, 'user-1', 'application-1', ['owner', 'admin'])
+        expect(loadPublishedApplicationSyncContext).toHaveBeenCalledWith(requestExecutor, 'publication-1')
+    })
+
+    it('denies a cross-tenant application before reading its publication through the request executor', async () => {
+        const requestExecutor = { query: jest.fn() }
+        const loadPublishedApplicationSyncContext = jest.fn()
+        const accessError = Object.assign(new Error('Access denied'), { statusCode: 403 })
+        mockEnsureApplicationAccess.mockRejectedValue(accessError)
+        const app = buildApp(loadPublishedApplicationSyncContext, { requestExecutor })
+
+        await request(app).get('/application/application-1/diff').expect(403)
+
+        expect(mockEnsureApplicationAccess).toHaveBeenCalledWith(requestExecutor, 'user-1', 'application-1', ['owner', 'admin'])
+        expect(loadPublishedApplicationSyncContext).not.toHaveBeenCalled()
+        expect(mockFindApplicationCopySource).not.toHaveBeenCalled()
     })
 
     it('returns 400 on sync when the publication-owned context seam returns null', async () => {

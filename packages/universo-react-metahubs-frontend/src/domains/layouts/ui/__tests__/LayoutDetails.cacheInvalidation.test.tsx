@@ -142,7 +142,16 @@ const seedGlobalLayoutResponse = () => {
         }
     ])
 
-    getLayoutZoneWidgetObjects.mockResolvedValue([{ key: 'menuWidget', allowedZones: ['left', 'right'], multiInstance: true }])
+    getLayoutZoneWidgetObjects.mockResolvedValue([
+        {
+            key: 'menuWidget',
+            allowedZones: ['left', 'right'],
+            allowedZonesByTemplate: { dashboard: ['left', 'right'] },
+            multiInstance: true,
+            templateKey: 'dashboard',
+            supportedTemplates: ['dashboard']
+        }
+    ])
 }
 
 describe('LayoutDetails cache invalidation for global layouts', () => {

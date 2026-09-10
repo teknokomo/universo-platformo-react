@@ -1,17 +1,6 @@
 import { z } from 'zod'
 import type { RuntimeRecordCommand, RuntimeRestoreTarget } from './types'
-import { extractErrorMessage, fetchWithCsrf } from './client'
-
-const buildRuntimeApiUrl = (apiBaseUrl: string, applicationId: string, path = ''): string => {
-    const normalizedBase = apiBaseUrl.replace(/\/$/, '')
-    const apiPath = `${normalizedBase}/applications/${applicationId}/runtime${path}`
-
-    if (/^https?:\/\//i.test(normalizedBase)) {
-        return new URL(apiPath).toString()
-    }
-
-    return new URL(apiPath, window.location.origin).toString()
-}
+import { buildRuntimeApiUrl, extractErrorMessage, fetchWithCsrf } from './client'
 
 const appendWorkspaceId = (url: string, workspaceId?: string | null): string => {
     if (!workspaceId?.trim()) return url

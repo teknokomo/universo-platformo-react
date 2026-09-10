@@ -23,6 +23,7 @@ const mockEnsureMetahubAccess = jest.fn()
 const mockEnsureSchema = jest.fn(async () => 'mhb_a1b2c3d4e5f67890abcdef1234567890_b1')
 const mockGetLayoutById = jest.fn()
 const mockDeleteLayout = jest.fn()
+const layoutIdV7 = '0190a9b5-3cde-7abc-8def-0123456789a1'
 
 jest.mock('../../domains/shared/guards', () => ({
     __esModule: true,
@@ -59,11 +60,34 @@ describe('Layouts Routes', () => {
     }
 
     const createLayoutCopyTransactionTrx = (params?: {
+        sourceLayout?: Record<string, unknown>
         copiedLayout?: Record<string, unknown>
         sourceWidgets?: Array<Record<string, unknown>>
         sourceOverrides?: Array<Record<string, unknown>>
         baseWidgets?: Array<Record<string, unknown>>
     }) => {
+        const sourceLayout =
+            params?.sourceLayout ??
+            ({
+                id: layoutIdV7,
+                scope_entity_id: null,
+                base_layout_id: null,
+                template_key: 'dashboard',
+                name: {
+                    _schema: 'v1',
+                    _primary: 'en',
+                    locales: { en: { content: 'Main dashboard' } }
+                },
+                description: null,
+                config: { showOverviewCards: true },
+                is_active: true,
+                is_default: true,
+                sort_order: 0,
+                _upl_version: 1,
+                _upl_created_at: '2026-02-25T00:00:00.000Z',
+                _upl_updated_at: '2026-02-25T00:00:00.000Z'
+            } as Record<string, unknown>)
+
         const created =
             params?.copiedLayout ??
             ({
@@ -91,22 +115,29 @@ describe('Layouts Routes', () => {
         const sourceWidgets = params?.sourceWidgets ?? []
         const sourceOverrides = params?.sourceOverrides ?? []
         const baseWidgets = params?.baseWidgets ?? []
+        const isOverlayLayout = typeof sourceLayout.base_layout_id === 'string'
 
         const queryMock = jest.fn().mockResolvedValue([])
-        // Sequence: INSERT layout RETURNING * → [created]
+        // Sequence: lock source → (lock base) → INSERT layout RETURNING *.
+        queryMock.mockResolvedValueOnce([sourceLayout])
+        if (isOverlayLayout) {
+            queryMock.mockResolvedValueOnce([{ id: sourceLayout.base_layout_id }])
+        }
         queryMock.mockResolvedValueOnce([created])
         if (sourceWidgets.length > 0) {
             // SELECT widgets → sourceWidgets
             queryMock.mockResolvedValueOnce(sourceWidgets)
-            // INSERT widgets batch → undefined
-            queryMock.mockResolvedValueOnce(undefined)
+            // INSERT widgets batch RETURNING id
+            queryMock.mockResolvedValueOnce(sourceWidgets.map((widget, index) => ({ id: String(widget.id ?? `copied-widget-${index}`) })))
         }
-        if (sourceOverrides.length > 0 || baseWidgets.length > 0) {
+        if (isOverlayLayout) {
             queryMock.mockResolvedValueOnce(sourceOverrides)
-            if (baseWidgets.length > 0) {
-                queryMock.mockResolvedValueOnce(baseWidgets)
-            }
-            queryMock.mockResolvedValueOnce(undefined)
+            queryMock.mockResolvedValueOnce(baseWidgets)
+            queryMock.mockResolvedValueOnce(
+                Array.from({ length: Math.max(sourceOverrides.length, baseWidgets.length) }, (_, index) => ({
+                    id: String(baseWidgets[index]?.id ?? sourceOverrides[index]?.base_widget_id ?? `copied-override-${index}`)
+                }))
+            )
         }
 
         return { query: queryMock }
@@ -152,7 +183,7 @@ describe('Layouts Routes', () => {
         mockEnsureSchema.mockResolvedValue('mhb_a1b2c3d4e5f67890abcdef1234567890_b1')
         mockDeleteLayout.mockResolvedValue(undefined)
         mockGetLayoutById.mockResolvedValue({
-            id: 'layout-1',
+            id: layoutIdV7,
             templateKey: 'dashboard',
             name: {
                 _schema: 'v1',
@@ -175,7 +206,7 @@ describe('Layouts Routes', () => {
 
             const app = buildApp()
             const response = await request(app)
-                .post('/metahub/missing/layout/layout-1/copy')
+                .post(`/metahub/missing/layout/${layoutIdV7}/copy`)
                 .send({ name: { en: 'Copy' } })
                 .expect(403)
 
@@ -188,7 +219,7 @@ describe('Layouts Routes', () => {
 
             const app = buildApp()
             const response = await request(app)
-                .post('/metahub/metahub-1/layout/layout-1/copy')
+                .post(`/metahub/metahub-1/layout/${layoutIdV7}/copy`)
                 .send({ name: { en: 'Copy' } })
                 .expect(403)
 
@@ -197,9 +228,44 @@ describe('Layouts Routes', () => {
 
         it('returns 400 for invalid copy payload', async () => {
             const app = buildApp()
-            const response = await request(app).post('/metahub/metahub-1/layout/layout-1/copy').send({ copyWidgets: 'yes' }).expect(400)
+            const response = await request(app)
+                .post(`/metahub/metahub-1/layout/${layoutIdV7}/copy`)
+                .send({ copyWidgets: 'yes' })
+                .expect(400)
 
             expect(response.body.error).toBe('Invalid input')
+        })
+
+        it('returns 400 for a non-positive copy expectedVersion', async () => {
+            const app = buildApp()
+            const response = await request(app)
+                .post(`/metahub/metahub-1/layout/${layoutIdV7}/copy`)
+                .send({ expectedVersion: 0 })
+                .expect(400)
+
+            expect(response.body.error).toBe('Invalid input')
+        })
+
+        it('returns 400 for a non-v7 layout path before loading the layout', async () => {
+            const app = buildApp()
+            const response = await request(app)
+                .post('/metahub/metahub-1/layout/550e8400-e29b-41d4-a716-446655440000/copy')
+                .send({ name: { en: 'Copy' } })
+                .expect(400)
+
+            expect(response.body.error).toBe('Invalid layout ID')
+            expect(mockGetLayoutById).not.toHaveBeenCalled()
+        })
+
+        it('returns 400 for a malformed layout path before loading the layout', async () => {
+            const app = buildApp()
+            const response = await request(app)
+                .post('/metahub/metahub-1/layout/layout-1/copy')
+                .send({ name: { en: 'Copy' } })
+                .expect(400)
+
+            expect(response.body.error).toBe('Invalid layout ID')
+            expect(mockGetLayoutById).not.toHaveBeenCalled()
         })
 
         it('copies layout successfully without widgets when copyWidgets is disabled', async () => {
@@ -210,7 +276,7 @@ describe('Layouts Routes', () => {
 
             const app = buildApp()
             const response = await request(app)
-                .post('/metahub/metahub-1/layout/layout-1/copy')
+                .post(`/metahub/metahub-1/layout/${layoutIdV7}/copy`)
                 .send({
                     copyWidgets: false,
                     name: { en: 'Main dashboard (copy)' }
@@ -221,9 +287,9 @@ describe('Layouts Routes', () => {
             expect(response.body.id).toBe('layout-copy-id')
             expect(response.body.templateKey).toBe('dashboard')
             expect(response.body.isDefault).toBe(false)
-            // Only INSERT layout query, no widget queries
-            expect(trx.query).toHaveBeenCalledTimes(1)
-            const insertParams = (trx.query as jest.Mock).mock.calls[0]?.[1]
+            // Source lock + INSERT layout query, no widget queries
+            expect(trx.query).toHaveBeenCalledTimes(2)
+            const insertParams = (trx.query as jest.Mock).mock.calls[1]?.[1]
             const config = JSON.parse(insertParams?.[5] as string)
             expect(config.__skipDefaultZoneWidgetSeed).toBe(true)
         })
@@ -246,7 +312,7 @@ describe('Layouts Routes', () => {
 
             const app = buildApp()
             await request(app)
-                .post('/metahub/metahub-1/layout/layout-1/copy')
+                .post(`/metahub/metahub-1/layout/${layoutIdV7}/copy`)
                 .send({
                     copyWidgets: true,
                     deactivateAllWidgets: true,
@@ -254,39 +320,38 @@ describe('Layouts Routes', () => {
                 })
                 .expect(201)
 
-            // INSERT layout + SELECT widgets + INSERT widgets = 3 queries
-            expect(trx.query).toHaveBeenCalledTimes(3)
-            // 3rd call is the widget INSERT — check is_active=false in params
-            const widgetInsertParams = (trx.query as jest.Mock).mock.calls[2]?.[1] as unknown[]
+            // Lock source + INSERT layout + SELECT widgets + INSERT widgets = 4 queries
+            expect(trx.query).toHaveBeenCalledTimes(4)
+            // 4th call is the widget INSERT — check is_active=false in params
+            const widgetInsertParams = (trx.query as jest.Mock).mock.calls[3]?.[1] as unknown[]
             // is_active is the 6th param per widget (index 5)
             expect(widgetInsertParams?.[5]).toBe(false)
         })
 
         it('copies scoped layout entity scope and inherited overrides when deactivating copied widgets', async () => {
-            mockGetLayoutById.mockResolvedValueOnce({
-                id: 'layout-1',
-                scopeEntityId: 'object-1',
-                baseLayoutId: 'base-layout-1',
-                templateKey: 'dashboard',
-                name: {
-                    _schema: 'v1',
-                    _primary: 'en',
-                    locales: {
-                        en: { content: 'Entity dashboard' }
-                    }
-                },
-                description: null,
-                config: {
-                    dashboardBehavior: {
-                        showCreateButton: false,
-                        searchMode: 'server'
-                    }
-                },
-                isActive: true,
-                sortOrder: 0
-            })
-
             const trx = createLayoutCopyTransactionTrx({
+                sourceLayout: {
+                    id: layoutIdV7,
+                    scope_entity_id: 'object-1',
+                    base_layout_id: 'base-layout-1',
+                    template_key: 'dashboard',
+                    name: {
+                        _schema: 'v1',
+                        _primary: 'en',
+                        locales: { en: { content: 'Entity dashboard' } }
+                    },
+                    description: null,
+                    config: {
+                        dashboardBehavior: {
+                            showCreateButton: false,
+                            searchMode: 'server'
+                        }
+                    },
+                    is_active: true,
+                    is_default: false,
+                    sort_order: 0,
+                    _upl_version: 1
+                },
                 copiedLayout: {
                     id: 'layout-copy-id',
                     scope_entity_id: 'object-1',
@@ -341,7 +406,7 @@ describe('Layouts Routes', () => {
 
             const app = buildApp()
             const response = await request(app)
-                .post('/metahub/metahub-1/layout/layout-1/copy')
+                .post(`/metahub/metahub-1/layout/${layoutIdV7}/copy`)
                 .send({
                     copyWidgets: true,
                     deactivateAllWidgets: true,
@@ -351,13 +416,13 @@ describe('Layouts Routes', () => {
 
             expect(response.body.scopeEntityId).toBe('object-1')
             expect(response.body.baseLayoutId).toBe('base-layout-1')
-            expect(trx.query).toHaveBeenCalledTimes(6)
+            expect(trx.query).toHaveBeenCalledTimes(8)
 
-            const layoutInsertParams = (trx.query as jest.Mock).mock.calls[0]?.[1] as unknown[]
+            const layoutInsertParams = (trx.query as jest.Mock).mock.calls[2]?.[1] as unknown[]
             expect(layoutInsertParams?.[0]).toBe('object-1')
             expect(layoutInsertParams?.[1]).toBe('base-layout-1')
 
-            const overrideInsertParams = (trx.query as jest.Mock).mock.calls[5]?.[1] as unknown[]
+            const overrideInsertParams = (trx.query as jest.Mock).mock.calls[7]?.[1] as unknown[]
             expect(overrideInsertParams?.[0]).toBe('layout-copy-id')
             expect(overrideInsertParams?.[1]).toBe('base-widget-1')
             expect(overrideInsertParams?.[5]).toBe(false)
@@ -368,25 +433,171 @@ describe('Layouts Routes', () => {
             expect(overrideInsertParams?.[18]).toBe(false)
             expect(overrideInsertParams?.[23]).toBe(true)
         })
+
+        it('preserves an independent entity scope when the source has no base layout', async () => {
+            const trx = createLayoutCopyTransactionTrx({
+                sourceLayout: {
+                    id: layoutIdV7,
+                    scope_entity_id: 'page-1',
+                    base_layout_id: null,
+                    template_key: 'dashboard',
+                    name: {
+                        _schema: 'v1',
+                        _primary: 'en',
+                        locales: { en: { content: 'Entity dashboard' } }
+                    },
+                    description: null,
+                    config: {},
+                    is_active: true,
+                    is_default: false,
+                    sort_order: 0,
+                    _upl_version: 1
+                },
+                copiedLayout: {
+                    id: 'layout-copy-id',
+                    scope_entity_id: 'page-1',
+                    base_layout_id: null,
+                    template_key: 'dashboard',
+                    name: {
+                        _schema: 'v1',
+                        _primary: 'en',
+                        locales: { en: { content: 'Entity dashboard (copy)' } }
+                    },
+                    description: null,
+                    config: {},
+                    is_active: true,
+                    is_default: false,
+                    sort_order: 0,
+                    _upl_version: 1,
+                    _upl_created_at: '2026-02-26T00:00:00.000Z',
+                    _upl_updated_at: '2026-02-26T00:00:00.000Z'
+                },
+                sourceWidgets: [
+                    {
+                        zone: 'left',
+                        widget_key: 'menuWidget',
+                        sort_order: 1,
+                        config: {},
+                        is_active: true
+                    }
+                ]
+            })
+            ;(mockExec.transaction as jest.Mock).mockImplementationOnce(async (callback: (trx: unknown) => Promise<unknown>) =>
+                callback(trx)
+            )
+
+            const app = buildApp()
+            const response = await request(app)
+                .post(`/metahub/metahub-1/layout/${layoutIdV7}/copy`)
+                .send({ copyWidgets: true, name: { en: 'Entity dashboard (copy)' } })
+                .expect(201)
+
+            expect(response.body.scopeEntityId).toBe('page-1')
+            expect(response.body.baseLayoutId).toBeNull()
+            expect(trx.query).toHaveBeenCalledTimes(4)
+
+            const layoutInsertParams = (trx.query as jest.Mock).mock.calls[1]?.[1] as unknown[]
+            expect(layoutInsertParams?.[0]).toBe('page-1')
+            expect(layoutInsertParams?.[1]).toBeNull()
+        })
+
+        it('copies a shared language switcher placed in the marketing header', async () => {
+            const trx = createLayoutCopyTransactionTrx({
+                sourceLayout: {
+                    id: layoutIdV7,
+                    scope_entity_id: null,
+                    base_layout_id: null,
+                    template_key: 'marketing-page',
+                    name: {
+                        _schema: 'v1',
+                        _primary: 'en',
+                        locales: { en: { content: 'Marketing page' } }
+                    },
+                    description: null,
+                    config: {},
+                    is_active: true,
+                    is_default: false,
+                    sort_order: 0,
+                    _upl_version: 1
+                },
+                copiedLayout: {
+                    id: 'layout-copy-id',
+                    scope_entity_id: null,
+                    base_layout_id: null,
+                    template_key: 'marketing-page',
+                    name: {
+                        _schema: 'v1',
+                        _primary: 'en',
+                        locales: { en: { content: 'Marketing page (copy)' } }
+                    },
+                    description: null,
+                    config: {},
+                    is_active: true,
+                    is_default: false,
+                    sort_order: 0,
+                    _upl_version: 1,
+                    _upl_created_at: '2026-02-26T00:00:00.000Z',
+                    _upl_updated_at: '2026-02-26T00:00:00.000Z'
+                },
+                sourceWidgets: [
+                    {
+                        zone: 'marketing-header',
+                        widget_key: 'languageSwitcher',
+                        sort_order: 1,
+                        config: {},
+                        is_active: true
+                    }
+                ]
+            })
+            ;(mockExec.transaction as jest.Mock).mockImplementationOnce(async (callback: (trx: unknown) => Promise<unknown>) =>
+                callback(trx)
+            )
+
+            const app = buildApp()
+            await request(app)
+                .post(`/metahub/metahub-1/layout/${layoutIdV7}/copy`)
+                .send({ copyWidgets: true, name: { en: 'Marketing page (copy)' } })
+                .expect(201)
+
+            expect(trx.query).toHaveBeenCalledTimes(4)
+            const widgetInsertParams = (trx.query as jest.Mock).mock.calls[3]?.[1] as unknown[]
+            expect(JSON.parse(widgetInsertParams?.[4] as string)).toEqual({})
+        })
     })
 
     describe('GET /metahub/:metahubId/layout/:layoutId/zone-widgets/object', () => {
+        it('returns 400 for a non-v7 layout path', async () => {
+            const app = buildApp()
+
+            const response = await request(app).get('/metahub/metahub-1/layout/layout-1/zone-widgets/object').expect(400)
+
+            expect(response.body.error).toBe('Invalid layout ID')
+        })
+
         it('returns the canonical widget and zone metadata for the layout editor', async () => {
             const app = buildApp()
 
-            const response = await request(app).get('/metahub/metahub-1/layout/layout-1/zone-widgets/object').expect(200)
+            const response = await request(app).get(`/metahub/metahub-1/layout/${layoutIdV7}/zone-widgets/object`).expect(200)
 
             expect(response.body.items).toEqual(
                 expect.arrayContaining([
                     expect.objectContaining({
                         key: 'marketing.hero',
                         templateKey: 'marketing-page',
+                        supportedTemplates: ['marketing-page'],
+                        allowedZonesByTemplate: { 'marketing-page': ['marketing-main'] },
+                        requiredHostCapabilities: [],
+                        shared: false,
                         labelKey: 'layouts.widgets.marketing.hero',
                         defaultLabel: 'Hero'
                     }),
                     expect.objectContaining({
                         key: 'marketing.collection',
                         templateKey: 'marketing-page',
+                        supportedTemplates: ['marketing-page'],
+                        allowedZonesByTemplate: { 'marketing-page': ['marketing-main'] },
+                        requiredHostCapabilities: [],
+                        shared: false,
                         labelKey: 'layouts.widgets.marketing.collection',
                         defaultLabel: 'Collection'
                     })
@@ -413,6 +624,20 @@ describe('Layouts Routes', () => {
                     ])
                 })
             )
+            expect(marketingTemplate.widgets).toEqual(
+                expect.arrayContaining([
+                    expect.objectContaining({
+                        key: 'languageSwitcher',
+                        templateKey: 'dashboard',
+                        supportedTemplates: ['dashboard', 'marketing-page'],
+                        allowedZonesByTemplate: {
+                            dashboard: ['top'],
+                            'marketing-page': ['marketing-header']
+                        },
+                        shared: true
+                    })
+                ])
+            )
             expect(mockEnsureMetahubAccess).toHaveBeenCalledWith(expect.anything(), 'test-user-id', 'metahub-1', undefined, undefined)
         })
     })
@@ -421,9 +646,9 @@ describe('Layouts Routes', () => {
         it('deletes layout successfully', async () => {
             const app = buildApp()
 
-            await request(app).delete('/metahub/metahub-1/layout/layout-1').query({ expectedVersion: 1 }).expect(204)
+            await request(app).delete(`/metahub/metahub-1/layout/${layoutIdV7}`).query({ expectedVersion: 1 }).expect(204)
 
-            expect(mockDeleteLayout).toHaveBeenCalledWith('metahub-1', 'layout-1', 1, 'test-user-id')
+            expect(mockDeleteLayout).toHaveBeenCalledWith('metahub-1', layoutIdV7, 1, 'test-user-id')
         })
 
         it('returns 409 when service reports deletion conflict', async () => {
@@ -434,9 +659,57 @@ describe('Layouts Routes', () => {
             )
 
             const app = buildApp()
-            const response = await request(app).delete('/metahub/metahub-1/layout/layout-1').query({ expectedVersion: 1 }).expect(409)
+            const response = await request(app).delete(`/metahub/metahub-1/layout/${layoutIdV7}`).query({ expectedVersion: 1 }).expect(409)
 
             expect(response.body.error).toBe('At least one active layout is required')
+        })
+    })
+
+    describe('UUID v7 ingress guards', () => {
+        it('rejects non-v7 scope and base identities before create service access', async () => {
+            const app = buildApp()
+
+            await request(app)
+                .post('/metahub/metahub-1/layouts')
+                .send({
+                    scopeEntityId: 'scope-1',
+                    baseLayoutId: 'base-1',
+                    name: { en: 'Scoped layout' }
+                })
+                .expect(400)
+        })
+
+        it('rejects a non-v7 widget path before widget deletion', async () => {
+            const app = buildApp()
+
+            const response = await request(app)
+                .delete(`/metahub/metahub-1/layout/${layoutIdV7}/zone-widget/widget-1`)
+                .query({ expectedVersion: 1 })
+                .expect(400)
+
+            expect(response.body.error).toBe('Invalid widget ID')
+        })
+
+        it('rejects a non-v7 scope path before scope visibility mutation', async () => {
+            const app = buildApp()
+
+            const response = await request(app)
+                .patch(`/metahub/metahub-1/layout/${layoutIdV7}/zone-widget/${layoutIdV7}/scope-visibility/scope-1`)
+                .send({ isVisible: true, expectedVersion: 1 })
+                .expect(400)
+
+            expect(response.body.error).toBe('Invalid scope entity ID')
+        })
+
+        it('rejects a non-v7 widget identity in the move body before the service', async () => {
+            const app = buildApp()
+
+            const response = await request(app)
+                .patch(`/metahub/metahub-1/layout/${layoutIdV7}/zone-widgets/move`)
+                .send({ widgetId: 'widget-1', expectedVersion: 1 })
+                .expect(400)
+
+            expect(response.body.error).toBe('Invalid input')
         })
     })
 })

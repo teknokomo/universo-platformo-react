@@ -52,6 +52,17 @@ export {
 export { normalizeDashboardLayoutConfig, normalizeDashboardSideMenuConfig } from './dashboardLayout'
 export { normalizeMenuWidgetConfigTargets, type RuntimeMenuTargetMaps } from './menuWidgetTargets'
 export {
+    uuidV7Schema,
+    normalizeRuntimeLayoutTarget,
+    normalizeRuntimeTarget,
+    parseRuntimeTarget,
+    canonicalRuntimeTargetIdentity,
+    canonicalRuntimeTargetKey,
+    type NormalizedRuntimeLayoutTarget,
+    type RuntimeLayoutTargetInput,
+    type RuntimeLayoutTargetKind
+} from './identity'
+export {
     normalizeMarketingAction,
     parseMarketingActionHref,
     normalizeMarketingLocalizedText,

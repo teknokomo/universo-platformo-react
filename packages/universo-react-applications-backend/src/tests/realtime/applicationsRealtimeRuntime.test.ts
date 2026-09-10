@@ -238,6 +238,18 @@ describe('applications realtime runtime authorization', () => {
         expect(mockWsTransportUpgradeHandler).not.toHaveBeenCalled()
     })
 
+    it('fails closed when the realtime upgrade origin policy is omitted', async () => {
+        const server = new EventEmitter() as HttpServer
+        const socket = { destroyed: false, destroy: jest.fn() }
+
+        await attachApplicationsRealtimeRuntime(server)
+
+        server.emit('upgrade', { headers: { origin: 'https://allowed.example' } } as IncomingMessage, socket, Buffer.alloc(0))
+
+        expect(socket.destroy).toHaveBeenCalledTimes(1)
+        expect(mockWsTransportUpgradeHandler).not.toHaveBeenCalled()
+    })
+
     it('passes allowed realtime WebSocket upgrades to Colyseus', async () => {
         const server = new EventEmitter() as HttpServer
         const socket = { destroyed: false, destroy: jest.fn() }

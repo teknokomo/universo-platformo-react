@@ -48,6 +48,9 @@ interface AppNavbarProps {
     sideMenuMode?: DashboardSideMenuMode
     availableSideMenuModes?: DashboardSideMenuMode[]
     reserveDockedSideMenuWidth?: boolean
+    showLanguageSwitcher?: boolean
+    showLanguageSwitcherOnDesktop?: boolean
+    showColorModeOnDesktop?: boolean
     onToggleDockedSideMenuMode?: () => void
     onOpenSideMenu?: () => void
 }
@@ -60,17 +63,50 @@ export default function AppNavbar({
     sideMenuMode = 'wide',
     availableSideMenuModes = ['wide'],
     reserveDockedSideMenuWidth = true,
+    showLanguageSwitcher = true,
+    showLanguageSwitcherOnDesktop = true,
+    showColorModeOnDesktop = true,
     onToggleDockedSideMenuMode,
     onOpenSideMenu
 }: AppNavbarProps) {
     const [leftOpen, setLeftOpen] = React.useState(false)
     const [rightOpen, setRightOpen] = React.useState(false)
+    const leftMenuTriggerRef = React.useRef<HTMLButtonElement | null>(null)
+    const leftMenuWasOpenRef = React.useRef(false)
+    const mobileMenuInstanceId = React.useId().replace(/[^a-zA-Z0-9_-]/g, '')
+    const leftDrawerId = `runtime-mobile-navigation-drawer-${mobileMenuInstanceId}`
     const { t } = useTranslation('apps', { i18n })
 
-    const toggleLeftDrawer = (newOpen: boolean) => () => {
-        setLeftOpen(newOpen)
-        if (newOpen) setRightOpen(false)
-    }
+    const restoreLeftMenuFocus = React.useCallback(() => {
+        const trigger = leftMenuTriggerRef.current
+        if (trigger?.isConnected && !trigger.disabled) trigger.focus()
+    }, [])
+
+    React.useEffect(() => {
+        if (leftMenuWasOpenRef.current && !leftOpen) restoreLeftMenuFocus()
+        leftMenuWasOpenRef.current = leftOpen
+    }, [leftOpen, restoreLeftMenuFocus])
+
+    React.useEffect(() => {
+        if (!leftOpen || typeof window === 'undefined') return undefined
+
+        const closeOnNavigation = () => setLeftOpen(false)
+        window.addEventListener('popstate', closeOnNavigation)
+        window.addEventListener('hashchange', closeOnNavigation)
+
+        return () => {
+            window.removeEventListener('popstate', closeOnNavigation)
+            window.removeEventListener('hashchange', closeOnNavigation)
+        }
+    }, [leftOpen])
+
+    const toggleLeftDrawer = React.useCallback(
+        (newOpen: boolean) => () => {
+            setLeftOpen(newOpen)
+            if (newOpen) setRightOpen(false)
+        },
+        []
+    )
 
     const toggleRightDrawer = (newOpen: boolean) => () => {
         setRightOpen(newOpen)
@@ -88,6 +124,10 @@ export default function AppNavbar({
             ? t('runtime.menu.enableWideMenu', 'Enable wide menu')
             : t('runtime.menu.enableCompactMenu', 'Enable compact menu')
     const canOpenOverlayMenu = availableSideMenuModes.includes('overlay') && typeof onOpenSideMenu === 'function'
+    const usesExternalOverlayMenu = sideMenuMode === 'overlay' && canOpenOverlayMenu
+    const leftMenuAriaProps = usesExternalOverlayMenu
+        ? { 'aria-haspopup': 'dialog' as const }
+        : { 'aria-expanded': leftOpen, 'aria-controls': leftDrawerId }
     const appBarLeft = reserveDockedSideMenuWidth
         ? sideMenuMode === 'compact'
             ? compactDrawerWidth
@@ -95,8 +135,9 @@ export default function AppNavbar({
             ? drawerWidth
             : 0
         : 0
-    const handleOpenLeftMenu = () => {
-        if (sideMenuMode === 'overlay' && canOpenOverlayMenu) {
+    const handleOpenLeftMenu = (event: React.MouseEvent<HTMLButtonElement>) => {
+        leftMenuTriggerRef.current = event.currentTarget
+        if (usesExternalOverlayMenu) {
             onOpenSideMenu?.()
             return
         }
@@ -129,7 +170,7 @@ export default function AppNavbar({
                         pointerEvents: 'auto'
                     }}
                 >
-                    <MenuButton aria-label={t('runtime.menu.open', 'Open menu')} onClick={handleOpenLeftMenu}>
+                    <MenuButton aria-label={t('runtime.menu.open', 'Open menu')} {...leftMenuAriaProps} onClick={handleOpenLeftMenu}>
                         <MenuRoundedIcon />
                     </MenuButton>
                 </Box>
@@ -159,8 +200,16 @@ export default function AppNavbar({
                         data-testid='runtime-app-toolbar-actions'
                         sx={{ alignItems: 'center', pointerEvents: 'auto' }}
                     >
-                        <LanguageSwitcher />
-                        <ColorModeIconDropdown data-testid='runtime-color-mode-button' />
+                        {showLanguageSwitcher && (
+                            <Box sx={{ display: showLanguageSwitcherOnDesktop ? undefined : { xs: 'inline-flex', md: 'none' } }}>
+                                <LanguageSwitcher />
+                            </Box>
+                        )}
+                        <ColorModeIconDropdown
+                            data-testid='runtime-color-mode-button'
+                            aria-label={t('colorMode.label', 'Color mode')}
+                            sx={showColorModeOnDesktop ? undefined : { display: { xs: 'inline-flex', md: 'none' } }}
+                        />
                         {showModeSwitcher && sideMenuMode !== 'overlay' && (
                             <Box sx={{ display: { xs: 'inline-flex', md: 'none' } }}>
                                 <MenuButton
@@ -185,12 +234,26 @@ export default function AppNavbar({
                                 }
                             }}
                         >
-                            <MenuButton aria-label={t('runtime.menu.open', 'Open menu')} onClick={handleOpenLeftMenu}>
+                            <MenuButton
+                                aria-label={t('runtime.menu.open', 'Open menu')}
+                                {...leftMenuAriaProps}
+                                onClick={handleOpenLeftMenu}
+                            >
                                 <MenuRoundedIcon />
                             </MenuButton>
                         </Box>
                     </Stack>
-                    <SideMenuMobile open={leftOpen} toggleDrawer={toggleLeftDrawer} menu={menu} menus={menus} zoneWidgets={zoneWidgets} />
+                    {!usesExternalOverlayMenu && (
+                        <SideMenuMobile
+                            open={leftOpen}
+                            drawerId={leftDrawerId}
+                            restoreFocusRef={leftMenuTriggerRef}
+                            toggleDrawer={toggleLeftDrawer}
+                            menu={menu}
+                            menus={menus}
+                            zoneWidgets={zoneWidgets}
+                        />
+                    )}
                     {hasRightWidgets && (
                         <SideMenuMobileRight
                             open={rightOpen}

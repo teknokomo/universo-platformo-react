@@ -38,6 +38,7 @@ import DriveFileMoveRoundedIcon from '@mui/icons-material/DriveFileMoveRounded'
 import FileDownloadRoundedIcon from '@mui/icons-material/FileDownloadRounded'
 import LockRoundedIcon from '@mui/icons-material/LockRounded'
 import MoreVertRoundedIcon from '@mui/icons-material/MoreVertRounded'
+import NotificationsRoundedIcon from '@mui/icons-material/NotificationsRounded'
 import NavigateBeforeRoundedIcon from '@mui/icons-material/NavigateBeforeRounded'
 import NavigateNextRoundedIcon from '@mui/icons-material/NavigateNextRounded'
 import PersonRoundedIcon from '@mui/icons-material/PersonRounded'
@@ -103,6 +104,13 @@ import ChartUserByCountry from './ChartUserByCountry'
 import CustomizedDataGrid from './CustomizedDataGrid'
 import QuizWidget from './QuizWidget'
 import WorkspaceSwitcher from './WorkspaceSwitcher'
+import LanguageSwitcher from '../../components/LanguageSwitcher'
+import CustomDatePicker from './CustomDatePicker'
+import NavbarBreadcrumbs from './NavbarBreadcrumbs'
+import MenuButton from './MenuButton'
+import ColorModeIconDropdown from '../../shared-theme/ColorModeIconDropdown'
+import Search from './Search'
+import Copyright from '../internals/components/Copyright'
 import { RelationBuilderWidget } from './RelationBuilderWidget'
 import InterpretationNetworkWorkspaceWidget from './InterpretationNetworkWorkspaceWidget'
 import PageBlocksView from './PageBlocksView'
@@ -3304,6 +3312,52 @@ function PlayCanvasWidgetSuspenseFallback({ minHeight = 240 }: PlayCanvasWidgetS
     )
 }
 
+function UserProfileWidget({ widget }: { widget: ZoneWidgetItem }): ReactNode {
+    const { t } = useTranslation('apps')
+    return (
+        <Stack
+            key={widget.id}
+            direction='row'
+            sx={{
+                p: 2,
+                gap: 1,
+                alignItems: 'center',
+                borderTop: '1px solid',
+                borderColor: 'divider'
+            }}
+        >
+            <Avatar sizes='small' sx={{ width: 36, height: 36 }}>
+                <PersonRoundedIcon fontSize='small' />
+            </Avatar>
+            <Box sx={{ mr: 'auto' }}>
+                <Typography variant='body2' sx={{ fontWeight: 500, lineHeight: '16px' }}>
+                    {t('runtime.user', 'User')}
+                </Typography>
+            </Box>
+        </Stack>
+    )
+}
+
+function OptionsMenuWidget({ widget }: { widget: ZoneWidgetItem }): ReactNode {
+    const { t } = useTranslation('apps')
+
+    return (
+        <Stack
+            key={widget.id}
+            data-testid='runtime-options-menu-widget'
+            direction='row'
+            spacing={1}
+            useFlexGap
+            sx={{ alignItems: 'center', flexWrap: 'wrap' }}
+        >
+            <MenuButton showBadge aria-label={t('runtime.notifications', 'Open notifications')}>
+                <NotificationsRoundedIcon />
+            </MenuButton>
+            <ColorModeIconDropdown aria-label={t('colorMode.label', 'Color mode')} />
+        </Stack>
+    )
+}
+
 export function renderWidget(
     widget: ZoneWidgetItem,
     menus?: DashboardMenusMap,
@@ -3335,27 +3389,34 @@ export function renderWidget(
         case 'infoCard':
             return <CardAlert key={widget.id} />
         case 'userProfile':
+            return <UserProfileWidget key={widget.id} widget={widget} />
+        case 'languageSwitcher':
+            return <LanguageSwitcher key={widget.id} />
+        case 'breadcrumbs':
             return (
-                <Stack
-                    key={widget.id}
-                    direction='row'
-                    sx={{
-                        p: 2,
-                        gap: 1,
-                        alignItems: 'center',
-                        borderTop: '1px solid',
-                        borderColor: 'divider'
-                    }}
-                >
-                    <Avatar sizes='small' sx={{ width: 36, height: 36 }}>
-                        <PersonRoundedIcon fontSize='small' />
-                    </Avatar>
-                    <Box sx={{ mr: 'auto' }}>
-                        <Typography variant='body2' sx={{ fontWeight: 500, lineHeight: '16px' }}>
-                            User
-                        </Typography>
-                    </Box>
-                </Stack>
+                <Box key={widget.id} data-testid='runtime-breadcrumbs-widget' sx={{ maxWidth: '100%', minWidth: 0, overflowX: 'auto' }}>
+                    <NavbarBreadcrumbs />
+                </Box>
+            )
+        case 'search':
+            return (
+                <Box key={widget.id} data-testid='runtime-search-widget' sx={{ maxWidth: '100%', minWidth: 0, width: '100%' }}>
+                    <Search />
+                </Box>
+            )
+        case 'datePicker':
+            return (
+                <Box key={widget.id} data-testid='runtime-date-picker-widget' sx={{ maxWidth: '100%', minWidth: 0 }}>
+                    <CustomDatePicker />
+                </Box>
+            )
+        case 'optionsMenu':
+            return <OptionsMenuWidget key={widget.id} widget={widget} />
+        case 'footer':
+            return (
+                <Box key={widget.id} component='footer' data-testid='runtime-footer-widget' sx={{ width: '100%', minWidth: 0 }}>
+                    <Copyright sx={{ my: 4 }} />
+                </Box>
             )
         case 'productTree':
             return <CustomizedTreeView key={widget.id} />

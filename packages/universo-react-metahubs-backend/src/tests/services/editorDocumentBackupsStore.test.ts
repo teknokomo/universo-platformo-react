@@ -120,6 +120,34 @@ describe('editorDocumentBackupsStore', () => {
             expect(harness.txQuery).not.toHaveBeenCalled()
             expect(harness.statements).toEqual([])
         })
+
+        it('uses the caller-owned transaction when explicitly requested', async () => {
+            const query = jest.fn(async (sql: string) => {
+                if (sql.includes(`INSERT INTO ${BACKUP_TABLE}`)) return [{ id: 'id-1' }]
+                if (sql.includes(`DELETE FROM ${BACKUP_TABLE} AS target`)) return []
+                throw new Error(`Unexpected SQL: ${sql}`)
+            })
+            const transaction = jest.fn(async () => {
+                throw new Error('A caller-owned transaction must not be nested')
+            })
+            const exec = { query, transaction } as unknown as DbExecutor
+
+            await expect(
+                insertEditorDocumentBackupSet(
+                    exec,
+                    {
+                        metahubId: '019e8afa-0000-7000-8000-000000000010',
+                        projectId: '019e8afa-0000-7000-8000-000000000011',
+                        openedAt: new Date('2026-08-22T10:00:00.000Z'),
+                        rows: [backupRow()]
+                    },
+                    { withinTransaction: true }
+                )
+            ).resolves.toBe(1)
+
+            expect(transaction).not.toHaveBeenCalled()
+            expect(query).toHaveBeenCalledTimes(2)
+        })
     })
 
     describe('failure injection', () => {

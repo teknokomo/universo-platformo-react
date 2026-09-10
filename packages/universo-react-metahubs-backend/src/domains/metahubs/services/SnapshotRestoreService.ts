@@ -70,6 +70,7 @@ import {
 import { buildPlayCanvasMetahubLifecycleLockKey } from '../../playcanvas-projects/services/playCanvasLifecycleLocks'
 import type { MetahubSchemaService } from './MetahubSchemaService'
 import { validateMarketingSnapshotLayouts } from '../../publications/services/marketingSnapshotValidation'
+import { findDuplicateActiveSingleInstanceWidgetKey } from '../../layouts/widgetInvariants'
 
 const log = createLogger('SnapshotRestoreService')
 
@@ -160,6 +161,50 @@ const getFieldCodenameText = (codename: MetaFieldSnapshot['codename']): string =
     return getCodenamePrimary(codename) ?? '[unknown]'
 }
 
+const getSafeErrorCode = (error: unknown): string => (error instanceof Error && error.name ? error.name : 'UNKNOWN_ERROR')
+
+const validateSnapshotWidgetMultiplicity = (snapshot: MetahubSnapshot): void => {
+    const layouts = [...(snapshot.layouts ?? []), ...(snapshot.scopedLayouts ?? [])]
+    const widgetsByLayout = new Map<string, NonNullable<MetahubSnapshot['layoutZoneWidgets']>>()
+    for (const widget of snapshot.layoutZoneWidgets ?? []) {
+        const rows = widgetsByLayout.get(widget.layoutId) ?? []
+        rows.push(widget)
+        widgetsByLayout.set(widget.layoutId, rows)
+    }
+    const overridesByLayoutAndWidget = new Map<string, NonNullable<MetahubSnapshot['layoutWidgetOverrides']>[number]>()
+    for (const override of snapshot.layoutWidgetOverrides ?? []) {
+        overridesByLayoutAndWidget.set(`${override.layoutId}:${override.baseWidgetId}`, override)
+    }
+
+    for (const layout of layouts) {
+        const ownRows = widgetsByLayout.get(layout.id) ?? []
+        const baseRows = layout.baseLayoutId ? widgetsByLayout.get(layout.baseLayoutId) ?? [] : []
+        const effectiveRows = layout.baseLayoutId
+            ? [
+                  ...baseRows.map((widget) => {
+                      const override = overridesByLayoutAndWidget.get(`${layout.id}:${widget.id}`)
+                      return {
+                          widgetKey: widget.widgetKey,
+                          isActive:
+                              override?.isDeletedOverride === true
+                                  ? false
+                                  : typeof override?.isActive === 'boolean'
+                                  ? override.isActive
+                                  : widget.isActive
+                      }
+                  }),
+                  ...ownRows
+              ]
+            : ownRows
+
+        if (findDuplicateActiveSingleInstanceWidgetKey(effectiveRows) !== null) {
+            throw new MetahubValidationError('Snapshot contains duplicate active single-instance layout widgets', {
+                operation: 'layout-widget-restore'
+            })
+        }
+    }
+}
+
 const buildPageBlockContentValidationOptions = (component: Partial<BlockContentCapabilityConfig>): PageBlockContentValidationOptions => ({
     allowedBlockTypes: component.allowedBlockTypes,
     maxBlocks: component.maxBlocks
@@ -243,6 +288,7 @@ export class SnapshotRestoreService {
         // Validate template-specific layout data before any destructive table
         // replacement. Dashboard snapshots keep their existing restore rules.
         validateSnapshotLayoutIdentities(snapshot)
+        validateSnapshotWidgetMultiplicity(snapshot)
         validateSnapshotActionIdentities(snapshot)
         validateMarketingSnapshotLayouts(snapshot)
         const restoredModuleSourceBackups: RestoredModuleSourceBackup[] = []
@@ -337,10 +383,9 @@ export class SnapshotRestoreService {
                             }
                         } catch (rollbackError) {
                             log.warn('Failed to roll back module source file during snapshot restore rollback', {
-                                metahubId,
-                                schemaName: this.schemaName,
-                                sourcePath: backup.sourcePath,
-                                error: rollbackError
+                                code: 'SNAPSHOT_RESTORE_MODULE_SOURCE_ROLLBACK_FAILED',
+                                errorCode: getSafeErrorCode(rollbackError),
+                                resource: 'module-source'
                             })
                         }
                     }
@@ -372,19 +417,18 @@ export class SnapshotRestoreService {
                             }
                         } catch (rollbackError) {
                             log.warn('Failed to roll back PlayCanvas project file during snapshot restore rollback', {
-                                metahubId,
-                                schemaName: this.schemaName,
-                                sourcePath: backup.sourcePath,
-                                error: rollbackError
+                                code: 'SNAPSHOT_RESTORE_PLAYCANVAS_FILE_ROLLBACK_FAILED',
+                                errorCode: getSafeErrorCode(rollbackError),
+                                resource: 'playcanvas-project-file'
                             })
                         }
                     }
                 })
             } catch (rollbackLockError) {
                 log.warn('Failed to acquire PlayCanvas lifecycle lock for snapshot restore rollback', {
-                    metahubId,
-                    schemaName: this.schemaName,
-                    error: rollbackLockError
+                    code: 'SNAPSHOT_RESTORE_ROLLBACK_LOCK_FAILED',
+                    errorCode: getSafeErrorCode(rollbackLockError),
+                    resource: 'playcanvas-lifecycle'
                 })
             }
             throw error
@@ -421,10 +465,8 @@ export class SnapshotRestoreService {
             try {
                 if (!(await this.isCurrentSourceChecksum(metahubId, candidate.sourcePath, candidate.sourceChecksum))) {
                     log.warn('Skipped stale file-backed module source cleanup because the external source changed', {
-                        metahubId,
-                        schemaName: this.schemaName,
-                        sourcePath: candidate.sourcePath,
-                        expectedSourceChecksum: candidate.sourceChecksum
+                        code: 'SNAPSHOT_RESTORE_STALE_MODULE_SOURCE_CHANGED',
+                        resource: 'module-source'
                     })
                     continue
                 }
@@ -433,10 +475,9 @@ export class SnapshotRestoreService {
                 })
             } catch (error) {
                 log.warn('Failed to clean up stale file-backed module source after snapshot restore', {
-                    metahubId,
-                    schemaName: this.schemaName,
-                    sourcePath: candidate.sourcePath,
-                    error
+                    code: 'SNAPSHOT_RESTORE_STALE_MODULE_SOURCE_CLEANUP_FAILED',
+                    errorCode: getSafeErrorCode(error),
+                    resource: 'module-source'
                 })
             }
         }
@@ -497,10 +538,8 @@ export class SnapshotRestoreService {
             try {
                 if (!(await this.isCurrentPlayCanvasFileChecksum(metahubId, candidate.sourcePath, candidate.checksum))) {
                     log.warn('Skipped stale PlayCanvas project file cleanup because the external file changed', {
-                        metahubId,
-                        schemaName: this.schemaName,
-                        sourcePath: candidate.sourcePath,
-                        expectedChecksum: candidate.checksum
+                        code: 'SNAPSHOT_RESTORE_STALE_PLAYCANVAS_FILE_CHANGED',
+                        resource: 'playcanvas-project-file'
                     })
                     continue
                 }
@@ -509,10 +548,9 @@ export class SnapshotRestoreService {
                 })
             } catch (error) {
                 log.warn('Failed to clean up stale PlayCanvas project file after snapshot restore', {
-                    metahubId,
-                    schemaName: this.schemaName,
-                    sourcePath: candidate.sourcePath,
-                    error
+                    code: 'SNAPSHOT_RESTORE_STALE_PLAYCANVAS_FILE_CLEANUP_FAILED',
+                    errorCode: getSafeErrorCode(error),
+                    resource: 'playcanvas-project-file'
                 })
             }
         }
@@ -951,7 +989,10 @@ export class SnapshotRestoreService {
             const newSharedEntityId = sharedEntityIdMaps[override.entityKind].get(override.sharedEntityId) ?? null
 
             if (!newTargetObjectId || !newSharedEntityId) {
-                log.warn(`Shared override ${override.id} has unresolved references, skipping restore (entityKind=${override.entityKind})`)
+                log.warn('Shared override has unresolved references, skipping restore', {
+                    code: 'SNAPSHOT_RESTORE_SHARED_OVERRIDE_UNRESOLVED',
+                    resource: 'shared-entity-override'
+                })
                 continue
             }
 
@@ -1113,9 +1154,10 @@ export class SnapshotRestoreService {
                 if (newTreeEntityId) {
                     mappedHubs.push(newTreeEntityId)
                 } else {
-                    log.warn(
-                        `Hub reference ${oldTreeEntityId} not found in entityIdMap for entity codename=${entityCodenameText}, dropping reference`
-                    )
+                    log.warn('Hub reference could not be resolved during snapshot restore', {
+                        code: 'SNAPSHOT_RESTORE_HUB_REFERENCE_UNRESOLVED',
+                        resource: 'entity-reference'
+                    })
                 }
             }
             config.hubs = mappedHubs
@@ -1139,7 +1181,10 @@ export class SnapshotRestoreService {
         for (const [oldEntityId, entityFixedValues] of Object.entries(constants)) {
             const newEntityId = entityIdMap.get(oldEntityId)
             if (!newEntityId) {
-                log.warn(`Entity ${oldEntityId} not found in entityIdMap, skipping constants`)
+                log.warn('Entity reference could not be resolved; skipping constants', {
+                    code: 'SNAPSHOT_RESTORE_CONSTANT_ENTITY_UNRESOLVED',
+                    resource: 'constants'
+                })
                 continue
             }
 
@@ -1243,17 +1288,19 @@ export class SnapshotRestoreService {
         const targetObjectId = field.targetEntityId ? entityIdMap.get(field.targetEntityId) ?? null : null
 
         if (field.targetEntityId && !targetObjectId) {
-            log.warn(
-                `Cross-reference target entity ${field.targetEntityId} not found in entityIdMap for field codename=${field.codename}, nullifying reference`
-            )
+            log.warn('Cross-reference target entity could not be resolved; nullifying reference', {
+                code: 'SNAPSHOT_RESTORE_TARGET_ENTITY_UNRESOLVED',
+                resource: 'field-reference'
+            })
         }
 
         const targetConstantId = field.targetConstantId ? constantIdMap.get(field.targetConstantId) ?? null : null
 
         if (field.targetConstantId && !targetConstantId) {
-            log.warn(
-                `Cross-reference target constant ${field.targetConstantId} not found in constantIdMap for field codename=${field.codename}, nullifying reference`
-            )
+            log.warn('Cross-reference target constant could not be resolved; nullifying reference', {
+                code: 'SNAPSHOT_RESTORE_TARGET_CONSTANT_UNRESOLVED',
+                resource: 'field-reference'
+            })
         }
 
         const [inserted] = await qb
@@ -1310,7 +1357,10 @@ export class SnapshotRestoreService {
         for (const [oldEntityId, values] of Object.entries(optionValues)) {
             const newEntityId = entityIdMap.get(oldEntityId)
             if (!newEntityId) {
-                log.warn(`Entity ${oldEntityId} not found in entityIdMap, skipping enum values`)
+                log.warn('Entity reference could not be resolved; skipping enumeration values', {
+                    code: 'SNAPSHOT_RESTORE_ENUMERATION_ENTITY_UNRESOLVED',
+                    resource: 'enumeration-values'
+                })
                 continue
             }
 
@@ -1363,7 +1413,10 @@ export class SnapshotRestoreService {
         for (const [oldEntityId, entityElements] of Object.entries(elements)) {
             const newEntityId = entityIdMap.get(oldEntityId)
             if (!newEntityId) {
-                log.warn(`Entity ${oldEntityId} not found in entityIdMap, skipping elements`)
+                log.warn('Entity reference could not be resolved; skipping elements', {
+                    code: 'SNAPSHOT_RESTORE_ELEMENT_ENTITY_UNRESOLVED',
+                    resource: 'elements'
+                })
                 continue
             }
 
@@ -1463,11 +1516,10 @@ export class SnapshotRestoreService {
             moduleScopes.add(scopeKey)
 
             if (!isNullableModuleScope(restoredModule.attachedToKind) && !attachedToId) {
-                log.warn(
-                    `Module attachment ${module.attachedToKind}:${
-                        module.attachedToId ?? '[null]'
-                    } not found during snapshot restore, skipping module ${moduleCodenameText}`
-                )
+                log.warn('Module attachment could not be resolved; skipping module', {
+                    code: 'SNAPSHOT_RESTORE_MODULE_ATTACHMENT_UNRESOLVED',
+                    resource: 'module'
+                })
                 continue
             }
 
@@ -1765,14 +1817,20 @@ export class SnapshotRestoreService {
 
             const newEntityId = entityIdMap.get(oldEntityId)
             if (!newEntityId) {
-                log.warn(`Entity ${oldEntityId} not found in entityIdMap, skipping actions`)
+                log.warn('Entity reference could not be resolved; skipping actions', {
+                    code: 'SNAPSHOT_RESTORE_ACTION_ENTITY_UNRESOLVED',
+                    resource: 'actions'
+                })
                 continue
             }
 
             for (const action of actions) {
                 const moduleId = action.moduleId ? moduleIdMap.get(action.moduleId) ?? null : null
                 if (action.actionType === 'module' && action.moduleId && !moduleId) {
-                    log.warn(`Action ${action.id} references missing module ${action.moduleId}, skipping restore`)
+                    log.warn('Action module reference could not be resolved; skipping action', {
+                        code: 'SNAPSHOT_RESTORE_ACTION_MODULE_UNRESOLVED',
+                        resource: 'action'
+                    })
                     continue
                 }
 
@@ -1827,14 +1885,20 @@ export class SnapshotRestoreService {
 
             const newEntityId = entityIdMap.get(oldEntityId)
             if (!newEntityId) {
-                log.warn(`Entity ${oldEntityId} not found in entityIdMap, skipping event bindings`)
+                log.warn('Entity reference could not be resolved; skipping event bindings', {
+                    code: 'SNAPSHOT_RESTORE_EVENT_BINDING_ENTITY_UNRESOLVED',
+                    resource: 'event-bindings'
+                })
                 continue
             }
 
             for (const binding of eventBindings) {
                 const newActionId = actionIdMap.get(binding.actionId)
                 if (!newActionId) {
-                    log.warn(`Event binding ${binding.id} references missing action ${binding.actionId}, skipping restore`)
+                    log.warn('Event binding action reference could not be resolved; skipping event binding', {
+                        code: 'SNAPSHOT_RESTORE_EVENT_BINDING_ACTION_UNRESOLVED',
+                        resource: 'event-binding'
+                    })
                     continue
                 }
 
@@ -1922,10 +1986,10 @@ export class SnapshotRestoreService {
             runtimeManifestChecksumMap: new Map()
         }
     ): Promise<void> {
+        validateSnapshotWidgetMultiplicity(snapshot)
         const layouts = snapshot.layouts ?? []
         const scopedLayouts = snapshot.scopedLayouts ?? []
         const overrides = snapshot.layoutWidgetOverrides ?? []
-        const hasMarketingLayout = [...layouts, ...scopedLayouts].some((layout) => layout.templateKey === 'marketing-page')
         const widgetTableName = await resolveWidgetTableName(qb, this.schemaName)
 
         // Fresh branch initialization seeds a default dashboard layout. Snapshot import
@@ -1974,16 +2038,17 @@ export class SnapshotRestoreService {
 
         for (const layout of scopedLayouts) {
             const newScopeEntityId = entityIdMap.get(layout.scopeEntityId)
-            const newBaseLayoutId = layoutIdMap.get(layout.baseLayoutId)
+            const baseLayout = layout.baseLayoutId ? layouts.find((candidate) => candidate.id === layout.baseLayoutId) : undefined
+            const newBaseLayoutId = layout.baseLayoutId ? layoutIdMap.get(layout.baseLayoutId) ?? null : null
 
-            if (!newScopeEntityId || !newBaseLayoutId) {
-                if (hasMarketingLayout) {
-                    throw new MetahubValidationError('Marketing scoped layout references an unresolved restored entity or base layout', {
-                        layoutId: layout.id
-                    })
-                }
-                log.warn(`Scoped layout ${layout.id} has unresolved references, skipping restore`)
-                continue
+            if (
+                !newScopeEntityId ||
+                (layout.baseLayoutId !== null && (!newBaseLayoutId || !baseLayout || baseLayout.templateKey !== layout.templateKey))
+            ) {
+                throw new MetahubValidationError('Scoped layout references an unresolved restored entity or base layout', {
+                    layoutId: layout.id,
+                    baseLayoutId: layout.baseLayoutId
+                })
             }
 
             const [inserted] = await qb
@@ -2023,13 +2088,10 @@ export class SnapshotRestoreService {
         for (const widget of widgets) {
             const newLayoutId = layoutIdMap.get(widget.layoutId)
             if (!newLayoutId) {
-                if (hasMarketingLayout) {
-                    throw new MetahubValidationError('Marketing widget references an unresolved restored layout', {
-                        widgetId: widget.id
-                    })
-                }
-                log.warn(`Layout ${widget.layoutId} not found in layoutIdMap, skipping widget`)
-                continue
+                throw new MetahubValidationError('Widget references an unresolved restored layout', {
+                    widgetId: widget.id,
+                    layoutId: widget.layoutId
+                })
             }
 
             const [inserted] = await qb
@@ -2066,13 +2128,11 @@ export class SnapshotRestoreService {
             const newBaseWidgetId = widgetIdMap.get(override.baseWidgetId)
 
             if (!newScopedLayoutId || !newBaseWidgetId) {
-                if (hasMarketingLayout) {
-                    throw new MetahubValidationError('Marketing widget override references an unresolved restored layout or widget', {
-                        overrideId: override.id
-                    })
-                }
-                log.warn(`Layout widget override ${override.id} has unresolved references, skipping restore`)
-                continue
+                throw new MetahubValidationError('Widget override references an unresolved restored layout or widget', {
+                    overrideId: override.id,
+                    layoutId: override.layoutId,
+                    baseWidgetId: override.baseWidgetId
+                })
             }
 
             await qb

@@ -21,7 +21,7 @@ It exposes authenticated CRUD routes, application membership guards, connector f
 -   Allow owner/admin visibility changes after creation while keeping workspace mode structural.
 -   Expose runtime sync, diff, and release-bundle routes for managed application schemas.
 -   Manage application-side layouts, including metahub lineage, application-owned copies, defaults, activation, and widget activity.
--   Widget placement mutations are instance-based: dashboard and marketing widget keys may be added or duplicated without a per-key singleton limit. Every inserted row receives a server-owned identity; marketing rows receive a unique `instanceKey`, while source-lineage uniqueness remains enforced only for inherited materialization.
+-   Widget placement mutations are instance-based: registered repeatable widget keys may be added or duplicated, while single-instance shell keys such as `appNavbar` and `header` are rejected when a layout already contains them. Every inserted row receives a server-owned identity; marketing rows receive a unique `instanceKey`, while source-lineage uniqueness remains enforced only for inherited materialization.
 -   Materialize curated runtime menu contracts from `menuWidget` config, including explicit section items, hub/object codename resolution, overflow items, start-page selection, and workspace entry placement.
 -   Own transactional Object commands for `recordBehavior`: atomic record numbering, `post` / `unpost` / `void` transitions, lifecycle hooks, and posted-row immutability checks.
 -   Apply declarative `beforePost` module movements through the generic Ledger service inside the posting transaction.

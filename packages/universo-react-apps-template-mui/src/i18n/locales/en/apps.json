@@ -431,6 +431,29 @@
         "retry": "Retry",
         "loading": "Loading application",
         "loadError": "The application could not be loaded.",
+        "invalidTarget": "The runtime target in this URL is invalid.",
+        "layoutErrors": {
+            "LAYOUT_REQUEST_INVALID": "The selected runtime target is invalid.",
+            "LAYOUT_PAYLOAD_INVALID": "The application layout data is invalid.",
+            "LAYOUT_CAPABILITY_UNSUPPORTED": "This layout uses a capability that is not available here.",
+            "UNAUTHORIZED": "You must sign in to open this application.",
+            "LAYOUT_TARGET_FORBIDDEN": "You do not have access to this application target.",
+            "LAYOUT_TARGET_NOT_FOUND": "The selected application target was not found.",
+            "LAYOUT_DEFAULT_INVALID": "The application layout configuration needs attention.",
+            "LAYOUT_PERSISTED_INVALID": "The saved application layout is invalid.",
+            "LAYOUT_CONFLICT": "The application layout changed. Reload and try again.",
+            "LAYOUT_RUNTIME_QUERY_FAILED": "The application layout could not be loaded right now."
+        },
+        "notifications": "Open notifications",
+        "search": "Search…",
+        "breadcrumbs": {
+            "label": "Breadcrumbs",
+            "dashboard": "Dashboard",
+            "home": "Home"
+        },
+        "user": "User",
+        "details": "Details",
+        "overview": "Overview",
         "table": {
             "name": "Name",
             "description": "Description",
@@ -614,6 +637,7 @@
         "navigation": {
             "openMenu": "Open menu",
             "closeMenu": "Close menu",
+            "landmark": "{{brand}} navigation {{index}}",
             "skipToContent": "Skip to content"
         },
         "form": {

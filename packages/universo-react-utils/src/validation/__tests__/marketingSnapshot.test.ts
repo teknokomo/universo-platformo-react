@@ -44,7 +44,9 @@ const createSnapshot = (widgets: unknown[] = [collectionWidget(ids.widget, 'logo
             config: {},
             isDefault: true,
             isActive: true,
-            sortOrder: 0
+            sortOrder: 0,
+            compositionMode: 'independent',
+            baseLayoutId: null
         }
     ],
     defaultLayoutId: ids.layout,
@@ -125,13 +127,37 @@ describe('validateMarketingSnapshotLayouts', () => {
         expect(() => validateSnapshotLayoutIdentities(snapshot)).toThrow('widget source base id')
     })
 
+    it('rejects a UUID-v7 source lineage reference that is not a valid scoped overlay relation', () => {
+        const snapshot = createSnapshot()
+        snapshot.layoutZoneWidgets![0]!.sourceBaseWidgetId = ids.secondWidget
+
+        expect(() => validateSnapshotLayoutIdentities(snapshot)).toThrow('source base reference is invalid')
+    })
+
     it('validates scoped layouts and override targets against the global composition', () => {
+        const missingComposition = createSnapshot()
+        missingComposition.scopedLayouts = [
+            {
+                id: ids.scopedLayout,
+                scopeEntityId: ids.scopeEntity,
+                baseLayoutId: ids.layout,
+                templateKey: 'marketing-page',
+                name: { en: 'Scoped marketing page' },
+                config: {},
+                isDefault: false,
+                isActive: true,
+                sortOrder: 0
+            }
+        ]
+        expect(() => validateMarketingSnapshotLayouts(missingComposition)).toThrow('composition mode')
+
         const snapshot = createSnapshot()
         snapshot.scopedLayouts = [
             {
                 id: ids.scopedLayout,
                 scopeEntityId: ids.scopeEntity,
                 baseLayoutId: ids.layout,
+                compositionMode: 'overlay',
                 templateKey: 'marketing-page',
                 name: { en: 'Scoped marketing page' },
                 config: {},
@@ -152,6 +178,155 @@ describe('validateMarketingSnapshotLayouts', () => {
 
         snapshot.layoutWidgetOverrides![0]!.baseWidgetId = ids.secondWidget
         expect(() => validateMarketingSnapshotLayouts(snapshot)).toThrow('missing global widget')
+    })
+
+    it('accepts independent marketing composition without a base layout', () => {
+        const snapshot = createSnapshot()
+        snapshot.scopedLayouts = [
+            {
+                id: ids.scopedLayout,
+                scopeEntityId: ids.scopeEntity,
+                baseLayoutId: null,
+                compositionMode: 'independent',
+                templateKey: 'marketing-page',
+                name: { en: 'Independent marketing page' },
+                config: {},
+                isDefault: false,
+                isActive: true,
+                sortOrder: 0
+            }
+        ]
+        snapshot.layoutZoneWidgets![0]!.layoutId = ids.scopedLayout
+
+        expect(() => validateMarketingSnapshotLayouts(snapshot)).not.toThrow()
+
+        snapshot.scopedLayouts[0]!.baseLayoutId = ids.layout
+        expect(() => validateMarketingSnapshotLayouts(snapshot)).toThrow('null base layout id')
+    })
+
+    it('accepts dashboard and marketing layouts in one snapshot', () => {
+        const snapshot = createSnapshot()
+        snapshot.layouts!.unshift({
+            id: ids.secondLayout,
+            templateKey: 'dashboard',
+            name: { en: 'Dashboard' },
+            config: {},
+            isDefault: false,
+            isActive: true,
+            sortOrder: 0,
+            compositionMode: 'independent',
+            baseLayoutId: null
+        })
+        snapshot.layoutZoneWidgets!.push({
+            id: ids.secondWidget,
+            layoutId: ids.secondLayout,
+            zone: 'center',
+            widgetKey: 'overviewTitle',
+            sortOrder: 0,
+            config: {},
+            isActive: true
+        })
+
+        expect(() => validateMarketingSnapshotLayouts(snapshot)).not.toThrow()
+        expect(() => validateSnapshotLayoutIdentities(snapshot)).not.toThrow()
+    })
+
+    it('rejects a scoped override whose base widget belongs to another global layout', () => {
+        const snapshot = createSnapshot()
+        snapshot.layouts!.unshift({
+            id: ids.secondLayout,
+            templateKey: 'dashboard',
+            name: { en: 'Dashboard' },
+            config: {},
+            isDefault: false,
+            isActive: true,
+            sortOrder: 0,
+            compositionMode: 'independent',
+            baseLayoutId: null
+        })
+        snapshot.layoutZoneWidgets!.push({
+            id: ids.secondWidget,
+            layoutId: ids.secondLayout,
+            zone: 'center',
+            widgetKey: 'overviewTitle',
+            sortOrder: 0,
+            config: {},
+            isActive: true
+        })
+        snapshot.scopedLayouts = [
+            {
+                id: ids.scopedLayout,
+                scopeEntityId: ids.scopeEntity,
+                baseLayoutId: ids.layout,
+                compositionMode: 'overlay',
+                templateKey: 'marketing-page',
+                name: { en: 'Scoped marketing page' },
+                config: {},
+                isDefault: false,
+                isActive: true,
+                sortOrder: 0
+            }
+        ]
+        snapshot.layoutWidgetOverrides = [
+            {
+                id: ids.override,
+                layoutId: ids.scopedLayout,
+                baseWidgetId: ids.secondWidget,
+                isDeletedOverride: false
+            }
+        ]
+
+        expect(() => validateSnapshotLayoutIdentities(snapshot)).toThrow('wrong layout')
+    })
+
+    it('rejects a dashboard scoped override with a foreign base widget in mixed templates', () => {
+        const snapshot = createSnapshot()
+        snapshot.layouts!.unshift({
+            id: ids.secondLayout,
+            templateKey: 'dashboard',
+            name: { en: 'Dashboard' },
+            config: {},
+            isDefault: false,
+            isActive: true,
+            sortOrder: 0,
+            compositionMode: 'independent',
+            baseLayoutId: null
+        })
+        snapshot.layoutZoneWidgets!.push({
+            id: ids.secondWidget,
+            layoutId: ids.secondLayout,
+            zone: 'center',
+            widgetKey: 'overviewTitle',
+            sortOrder: 0,
+            config: {},
+            isActive: true
+        })
+        snapshot.scopedLayouts = [
+            {
+                id: ids.scopedLayout,
+                scopeEntityId: ids.scopeEntity,
+                baseLayoutId: ids.secondLayout,
+                compositionMode: 'overlay',
+                templateKey: 'dashboard',
+                name: { en: 'Scoped dashboard' },
+                config: {},
+                isDefault: false,
+                isActive: true,
+                sortOrder: 0
+            }
+        ]
+        snapshot.layoutWidgetOverrides = [
+            {
+                id: ids.override,
+                layoutId: ids.scopedLayout,
+                baseWidgetId: ids.widget,
+                isDeletedOverride: false
+            }
+        ]
+
+        expect(() => validateMarketingSnapshotLayouts(snapshot)).toThrow(
+            'Dashboard widget override base widget belongs to the wrong layout'
+        )
     })
 
     it('requires pricing benefits when pricing widget benefits are enabled', () => {

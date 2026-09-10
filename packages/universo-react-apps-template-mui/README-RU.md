@@ -18,10 +18,12 @@
 
 ### 🖥️ Система дашбордов
 
--   **Зонная компоновка**: 4 зоны дашборда — left (боковая панель), right (боковая панель), center (основной контент), top (заголовок/навбар)
+-   **Зонная компоновка**: 5 зон дашборда — left (боковая панель), top (заголовок/навбар), right (боковая панель), center (основной контент) и bottom (подвал/хвост основного контента)
 -   **Рендеринг на основе данных**: Виджеты рендерятся из конфигурации `ZoneWidgets`, а не из захардкоженного JSX
 -   **DashboardDetailsContext**: React Context, предоставляющий данные таблицы (строки, колонки, пагинация) вложенным виджетам
--   **Конфиг макета**: Булевые флаги видимости (`showSideMenu`, `showHeader`, `showColumnsContainer` и т.д.)
+-   **Выбор макета в runtime**: Hosted и standalone используют один target-aware effective-layout ответ и отображают только активные макеты и виджеты
+-   **Сохранённая композиция**: Когда runtime получает сохранённую композицию, источником истины являются активные строки виджетов, их зоны и порядок; существующие булевые флаги остаются fallback для прямого вызова компонента без сохранённой коллекции зон.
+-   **Многострочные данные runtime**: Семантические длинные строки безопасно переносятся и по умолчанию получают auto-height строки; настроенная числовая высота по-прежнему поддерживается.
 
 ### 📣 Управляемая данными маркетинговая страница
 
@@ -29,8 +31,9 @@
 -   **Контент принадлежит сущностям**: опубликованный рантайм получает локализованные записи из шаблона метахаба `marketing-page`; в секциях нет захардкоженных demo-массивов.
 -   **Безопасные действия и медиа**: внутренние, anchor, внешние, email- и telephone-действия валидируются до рендера; небезопасные URL и отсутствующие медиа завершаются локализованным fallback.
 -   **Внешний вид приложения**: режим темы, ограниченные цвета, брендовые медиа и политика действий настраиваются в типизированном макете приложения; сохранённые маркетинговые экземпляры виджетов владеют зоной, порядком, активностью, источником и флагами представления.
--   **Макеты с экземплярами**: runtime сохраняет каждое активное размещение, включая несколько строк с одним ключом виджета. Идентичность размещения отделена от типа виджета, поэтому повторные экземпляры dashboard- и маркетинговых виджетов отображаются независимо.
+-   **Макеты с экземплярами**: runtime сохраняет каждое активное размещение, включая несколько строк с одним ключом виджета. Идентичность размещения отделена от типа виджета, поэтому повторяемые экземпляры dashboard- и marketing-виджетов отображаются независимо; `appNavbar` и `header` дашборда являются явными одиночными shell-размещениями.
 -   **Единая граница темы**: провайдеры принадлежат hosted/standalone shell, а `MarketingPage` остаётся provider-free presentational-компонентом.
+-   **Общая возможность виджета**: `languageSwitcher` зарегистрирован один раз, доступен в Dashboard `top` и marketing `marketing-header` и отображается существующими shell-контролами без дублирования.
 
 ### 📊 Виджет ColumnsContainer
 
@@ -42,7 +45,7 @@
 ### 🧩 Рендерер виджетов
 
 -   **Общий рендерер**: `renderWidget()` маппит ключи виджетов в конкретные React-компоненты
--   **Поддерживаемые виджеты**: `brandSelector`, `divider`, `menuWidget`, `spacer`, `infoCard`, `userProfile`, `productTree`, `usersByCountryChart`, `detailsTable`, `relationBuilder`, `columnsContainer`, `interpretationNetworkWorkspace`
+-   **Поддерживаемые виджеты**: `brandSelector`, `workspaceSwitcher`, `divider`, `menuWidget`, `spacer`, `infoCard`, `userProfile`, `appNavbar`, `header`, `breadcrumbs`, `search`, `datePicker`, `optionsMenu`, `languageSwitcher`, `footer`, `productTree`, `usersByCountryChart`, `detailsTable`, `learnerPlayer`, `relationBuilder`, `detailsTabs`, `quizWidget`, `playcanvasCanvas`, `resourcePreview`, `columnsContainer`, `interpretationNetworkWorkspace`
 -   **Union datasources**: `detailsTable` умеет рендерить `records.union`, резолвя несколько runtime-разделов из metadata и запрашивая их через обычный `fetchAppData`
 -   **Конструктор связей**: `relationBuilder` удерживает дочерние записи в контексте выбранной родительской строки и переиспользует общие CRUD-диалоги, picker-ы записей и сохранённую сортировку строк
 -   **Резолвинг меню**: 2-уровневый фолбэк — ID виджета → карта menus → легаси одиночный menu проп
@@ -232,7 +235,7 @@ Dashboard
 │   │       │   ├── Колонка 1 (ширина: 9/12) → detailsTable
 │   │       │   └── Колонка 2 (ширина: 3/12) → productTree
 │   │       └── ИЛИ отдельный detailsTable (фолбэк)
-│   └── Footer (опционально)
+│   └── Виджеты bottom (зона bottom, опционально)
 └── SideMenuRight (зона right, опционально)
     └── [виджеты right: productTree, usersByCountryChart]
 ```
@@ -255,11 +258,44 @@ Dashboard (DashboardDetailsProvider value={details})
 ```
 Конфиг ZoneWidgets → Dashboard → распределение по зонам
   ├── left[]   → SideMenu (renderWidget для каждого элемента)
+  ├── top[]    → явные top-размещения; Header показывает только controls без одноимённого явного размещения
   ├── right[]  → SideMenuRight (renderWidget для каждого элемента)
-  └── center[] → MainGrid
+  ├── center[] → MainGrid
        └── фильтр по widgetKey === 'columnsContainer'
             → renderWidget(container) → Grid с вложенными вызовами renderWidget
+  └── bottom[] → подвал/хвост основного контента
 ```
+
+### Target-aware runtime-контракт
+
+Runtime сначала запрашивает `GET /api/v1/applications/:applicationId/runtime/effective-layout`.
+Запрос может относиться к глобальной поверхности приложения или к
+авторизованному типу сущности Page/Object. Сервер применяет precedence для
+scoped-макета, проверяет совместимость шаблона и виджетов и возвращает выбранный
+шаблон, зоны, lineage и `effectiveHash` одним ответом. `recordKey` относится
+только к загрузке контента и никогда не выбирает макет.
+
+Scoped-макет того же шаблона может быть точечным overlay. Scoped-макет другого
+шаблона является явно независимой композицией: он не наследует несовместимые
+виджеты или физические зоны. Отсутствующая или повреждённая материализация даёт
+локализованную fail-closed ошибку runtime, а не незаметный fallback на глобальный
+шаблон.
+
+Standalone использует тот же effective-layout API и требует аутентифицированный
+runtime adapter с контекстом target/workspace. GuestApp и анонимный выбор
+шаблона не входят в этот контракт.
+
+Hosted-маршруты хранят runtime-контекст в обычной query-строке. В standalone
+hash-маршрутах те же параметры находятся внутри hash route, например:
+
+```text
+/a/<applicationId>?targetKind=object&entityTypeId=<entityTypeId>&workspaceId=<workspaceId>&locale=ru
+/#/a/<applicationId>?targetKind=object&entityTypeId=<entityTypeId>&workspaceId=<workspaceId>&locale=ru
+```
+
+Общий языковой контрол обновляет правильное расположение query и сохраняет
+параметры target/workspace. Некорректный target selector завершается fail-closed
+до рендера любого макета.
 
 ## Структура файлов
 
@@ -322,7 +358,7 @@ packages/universo-react-apps-template-mui/
 ```typescript
 interface DashboardProps {
     layoutConfig?: DashboardLayoutConfig // Булевые флаги видимости
-    zoneWidgets?: ZoneWidgets // Конфиги виджетов по зонам
+    zoneWidgets?: ZoneWidgets // Конфиги зон left, top, right, center и bottom
     details?: DashboardDetailsSlot // Данные таблицы для виджетов деталей
     menu?: DashboardMenuSlot // Легаси одиночное меню (устарело)
     menus?: DashboardMenusMap // Карта меню по ID виджетов

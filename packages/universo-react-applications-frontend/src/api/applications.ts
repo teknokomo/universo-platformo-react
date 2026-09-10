@@ -1,4 +1,5 @@
 import apiClient from './apiClient'
+import { extractAxiosError, normalizeRuntimeLayoutTarget as normalizeSharedRuntimeLayoutTarget } from '@universo-react/utils'
 import type {
     ApplicationCopyOptions,
     ApplicationLayout,
@@ -18,6 +19,7 @@ import type {
     RuntimeDatasourceFilter,
     RuntimeDatasourceSort
 } from '@universo-react/types'
+import { effectiveLayoutResultSchema, layoutWidgetDefinitionSchema } from '@universo-react/types'
 import type { RuntimeRecordCommand } from '@universo-react/apps-template-mui'
 import type { RuntimeRestoreTarget } from '@universo-react/apps-template-mui'
 import {
@@ -29,6 +31,8 @@ import {
     PaginatedResponse,
     ApplicationLocalizedPayload,
     ApplicationRuntimeResponse,
+    ApplicationRuntimeLayoutTarget,
+    ApplicationEffectiveLayoutResponse,
     ApplicationWorkspaceLimitItem
 } from '../types'
 import type { SimpleLocalizedInput } from '../types'
@@ -157,6 +161,41 @@ export const getApplicationRuntime = async (
         }
     })
     return response.data
+}
+
+export const getApplicationEffectiveLayout = async (
+    applicationId: string,
+    target?: ApplicationRuntimeLayoutTarget
+): Promise<ApplicationEffectiveLayoutResponse> => {
+    const normalizedTarget = normalizeSharedRuntimeLayoutTarget(target)
+    const params = {
+        targetKind: normalizedTarget.targetKind ?? undefined,
+        entityTypeId: normalizedTarget.entityTypeId ?? undefined,
+        entityTypeCodename: normalizedTarget.entityTypeCodename ?? undefined,
+        workspaceId: normalizedTarget.workspaceId ?? undefined,
+        locale: normalizedTarget.locale ?? undefined,
+        themeVariant: normalizedTarget.themeVariant ?? undefined
+    }
+    try {
+        const response = await apiClient.get<unknown>(`/applications/${applicationId}/runtime/effective-layout`, {
+            params
+        })
+        const parsed = effectiveLayoutResultSchema.parse(response.data)
+        if (parsed.status === 'failed') {
+            const error = new Error('Runtime layout request failed')
+            Object.assign(error, { status: parsed.error.httpStatus, code: parsed.error.code })
+            throw error
+        }
+        return parsed as ApplicationEffectiveLayoutResponse
+    } catch (error) {
+        const apiError = extractAxiosError(error)
+        if (apiError.code || apiError.status) {
+            const normalizedError = new Error(apiError.message)
+            Object.assign(normalizedError, { status: apiError.status, code: apiError.code })
+            throw normalizedError
+        }
+        throw error
+    }
 }
 
 export const updateApplicationRuntimeCell = async (params: {
@@ -508,10 +547,14 @@ export const listApplicationLayoutWidgetObject = async (
     applicationId: string,
     layoutId: string
 ): Promise<ApplicationLayoutWidgetDefinition[]> => {
-    const response = await apiClient.get<{ items: ApplicationLayoutWidgetDefinition[] }>(
-        `/applications/${applicationId}/layouts/${layoutId}/zone-widgets/object`
-    )
-    return response.data.items ?? []
+    const response = await apiClient.get<unknown>(`/applications/${applicationId}/layouts/${layoutId}/zone-widgets/object`)
+    const payload = response.data
+    const items = payload && typeof payload === 'object' && 'items' in payload ? payload.items : undefined
+    const parsed = layoutWidgetDefinitionSchema.array().safeParse(items ?? [])
+    if (!parsed.success) {
+        throw new Error('APPLICATION_LAYOUT_WIDGET_METADATA_INVALID')
+    }
+    return parsed.data
 }
 
 export const upsertApplicationLayoutWidget = async (

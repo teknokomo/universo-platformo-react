@@ -7,16 +7,15 @@
 
 import { type Request, type Response, type RequestHandler } from 'express'
 import stableStringify from 'json-stable-stringify'
-import { createHash } from 'node:crypto'
 import { assertCanonicalIdentifier, assertCanonicalSchemaName, quoteIdentifier } from '@universo-react/migrations-core'
 import type { EntityDefinition, SchemaSnapshot } from '@universo-react/schema-ddl'
 import {
     ApplicationSchemaStatus,
     ComponentDefinitionDataType,
-    DASHBOARD_LAYOUT_WIDGETS,
     MARKETING_LAYOUT_ZONES,
-    MARKETING_WIDGET_REGISTRY,
     applicationTemplateKeySchema,
+    getLayoutWidgetAllowedZones,
+    getLayoutWidgetDefinition,
     marketingWidgetKeySchema,
     normalizeInterpretationNetworkHexColor,
     parseApplicationLayoutConfig,
@@ -36,11 +35,12 @@ import {
     resolveApplicationLifecycleContractFromConfig,
     resolvePlatformSystemFieldsContractFromConfig,
     validateNumberOrThrow,
-    generateUuidV7,
-    isUuidV7
+    generateUuidV7
 } from '@universo-react/utils'
 import type { PublishedApplicationSnapshot } from '../../services/applicationSyncContracts'
 import { withWorkspaceContract } from '../../services/applicationWorkspaces'
+import { selectCanonicalLayoutCandidate } from '../../services/effectiveLayoutSelection'
+import { stableLineageUuidV7 } from '../../shared/applicationLayoutWidgetLineage'
 import type { ApplicationSyncQueryBuilder } from '../../ddl'
 import {
     EMPTY_VLC,
@@ -55,20 +55,6 @@ import {
     type SnapshotWidgetRow,
     type EntityField
 } from './syncTypes'
-
-const stableMaterializedWidgetId = (sourceWidgetId: string, layoutId: string): string => {
-    const digest = createHash('sha256').update(`${layoutId}:${sourceWidgetId}`, 'utf8').digest('hex')
-    const sourceHex = sourceWidgetId.replace(/-/g, '')
-    if (!isUuidV7(sourceWidgetId)) {
-        throw new Error('[SchemaSync] Inherited layout widget source id must be a UUID v7')
-    }
-    const timestamp = sourceHex.slice(0, 12)
-    const variant = ['8', '9', 'a', 'b'][Number.parseInt(digest[7] ?? '0', 16) % 4]
-    return `${timestamp.slice(0, 8)}-${timestamp.slice(8, 12)}-7${digest.slice(17, 20)}-${variant}${digest.slice(21, 24)}-${digest.slice(
-        24,
-        36
-    )}`
-}
 
 const buildDashboardWidgetVisibilityConfig = (items: Array<{ widgetKey: string; zone: string }>): Record<string, boolean> => {
     const active = new Set(items.map((item) => item.widgetKey))
@@ -640,8 +626,24 @@ type MaterializedSnapshotWidget = PersistedAppLayoutZoneWidget & {
 }
 
 type NormalizedScopedLayout = PersistedAppLayout & {
-    baseLayoutId: string
+    baseLayoutId: string | null
+    compositionMode: 'overlay' | 'independent'
 }
+
+const stripLayoutCompositionMetadata = (config: Record<string, unknown>): Record<string, unknown> => {
+    const { compositionMode: _compositionMode, baseLayoutId: _baseLayoutId, ...rendererConfig } = config
+    return rendererConfig
+}
+
+const withLayoutCompositionMetadata = (
+    config: Record<string, unknown>,
+    compositionMode: 'overlay' | 'independent',
+    baseLayoutId: string | null
+): Record<string, unknown> => ({
+    ...config,
+    compositionMode,
+    baseLayoutId
+})
 
 type NormalizedLayoutWidgetOverride = {
     layoutId: string
@@ -656,12 +658,63 @@ type NormalizedLayoutWidgetOverride = {
 const isMarketingWidgetKey = (value: string): boolean => marketingWidgetKeySchema.safeParse(value).success
 
 const isWidgetAllowedForTemplate = (templateKey: ApplicationTemplateKey, widgetKey: string, zone: string): boolean => {
-    if (templateKey === 'dashboard') {
-        const widget = DASHBOARD_LAYOUT_WIDGETS.find((candidate) => candidate.key === widgetKey)
-        return Boolean(widget?.allowedZones.includes(zone as never))
+    return Boolean(getLayoutWidgetAllowedZones(widgetKey, templateKey)?.includes(zone as never))
+}
+
+const readSnapshotRows = (value: unknown, field: string): unknown[] => {
+    if (value === undefined) return []
+    if (!Array.isArray(value)) {
+        throw new Error(`[SchemaSync] Snapshot ${field} must be an array`)
     }
-    const widget = MARKETING_WIDGET_REGISTRY[widgetKey as keyof typeof MARKETING_WIDGET_REGISTRY]
-    return Boolean(widget?.allowedZones.includes(zone as never))
+    return value
+}
+
+const readSnapshotRecord = (value: unknown, field: string, context: string): Record<string, unknown> => {
+    if (!isRecord(value) || Array.isArray(value)) {
+        throw new Error(`[SchemaSync] Snapshot ${context} ${field} must be an object`)
+    }
+    return value
+}
+
+const readOptionalSnapshotRecord = (
+    value: unknown,
+    field: string,
+    context: string,
+    options: { nullable?: boolean } = {}
+): Record<string, unknown> | null | undefined => {
+    if (value === undefined) return undefined
+    if (options.nullable && value === null) return null
+    return readSnapshotRecord(value, field, context)
+}
+
+const readOptionalSnapshotBoolean = (value: unknown, field: string, context: string, defaultValue: boolean): boolean => {
+    if (value === undefined) return defaultValue
+    if (typeof value !== 'boolean') {
+        throw new Error(`[SchemaSync] Snapshot ${context} ${field} must be a boolean`)
+    }
+    return value
+}
+
+const readOptionalSnapshotInteger = (value: unknown, field: string, context: string, defaultValue: number): number => {
+    if (value === undefined) return defaultValue
+    if (typeof value !== 'number' || !Number.isFinite(value) || !Number.isInteger(value)) {
+        throw new Error(`[SchemaSync] Snapshot ${context} ${field} must be an integer`)
+    }
+    return value
+}
+
+const readOptionalSnapshotString = (
+    value: unknown,
+    field: string,
+    context: string,
+    options: { nullable?: boolean; defaultValue?: string | null } = {}
+): string | null | undefined => {
+    if (value === undefined) return options.defaultValue
+    if (options.nullable && value === null) return null
+    if (typeof value !== 'string' || value.length === 0) {
+        throw new Error(`[SchemaSync] Snapshot ${context} ${field} must be a non-empty string`)
+    }
+    return value
 }
 
 const materializedWidgetInstanceKey = (widget: { widgetKey: string; config: Record<string, unknown> }): string => {
@@ -671,56 +724,99 @@ const materializedWidgetInstanceKey = (widget: { widgetKey: string; config: Reco
 
 const getSnapshotTemplateByLayoutId = (snapshot: PublishedApplicationSnapshot): Map<string, ApplicationTemplateKey> => {
     const templateByLayoutId = new Map<string, ApplicationTemplateKey>()
-    for (const rawLayout of Array.isArray(snapshot.layouts) ? snapshot.layouts : []) {
+    for (const rawLayout of readSnapshotRows(snapshot.layouts, 'layouts')) {
         const layout = (rawLayout ?? {}) as SnapshotLayoutRow
-        const id = typeof layout.id === 'string' ? layout.id : ''
+        const id = readOptionalSnapshotString(layout.id, 'id', 'layout', { defaultValue: '' })
         if (!id) continue
         templateByLayoutId.set(id, parseApplicationTemplateKey(layout.templateKey, `layout ${id}`))
     }
-    for (const rawLayout of Array.isArray(snapshot.scopedLayouts) ? snapshot.scopedLayouts : []) {
+    for (const rawLayout of readSnapshotRows(snapshot.scopedLayouts, 'scoped layouts')) {
         const layout = (rawLayout ?? {}) as SnapshotScopedLayoutRow
-        const id = typeof layout.id === 'string' ? layout.id : ''
+        const id = readOptionalSnapshotString(layout.id, 'id', 'scoped layout', { defaultValue: '' })
         if (!id) continue
         templateByLayoutId.set(id, parseApplicationTemplateKey(layout.templateKey, `scoped layout ${id}`))
     }
     return templateByLayoutId
 }
 
+const assertMaterializedWidgetIdentitySafety = (
+    layoutId: string,
+    templateKey: ApplicationTemplateKey,
+    widgets: readonly { widgetKey: string; config: Record<string, unknown> }[]
+): void => {
+    const seenInstances = new Set<string>()
+    const seenSingletons = new Set<string>()
+
+    for (const widget of widgets) {
+        const definition = getLayoutWidgetDefinition(widget.widgetKey)
+        if (!definition || !definition.supportedTemplates.includes(templateKey)) {
+            throw new Error(`[SchemaSync] Layout ${layoutId} contains an unsupported widget definition`)
+        }
+
+        if (templateKey === 'marketing-page') {
+            const instanceKey = materializedWidgetInstanceKey(widget)
+            if (seenInstances.has(instanceKey)) {
+                throw new Error(`Layout ${layoutId} contains duplicate widget instance ${instanceKey}`)
+            }
+            seenInstances.add(instanceKey)
+        }
+
+        if (!definition.multiInstance) {
+            if (seenSingletons.has(widget.widgetKey)) {
+                throw new Error(`Layout ${layoutId} contains duplicate singleton widget ${widget.widgetKey}`)
+            }
+            seenSingletons.add(widget.widgetKey)
+        }
+    }
+}
+
 const normalizeSnapshotLayoutEntries = (snapshot: PublishedApplicationSnapshot): PersistedAppLayout[] => {
-    const rows = (Array.isArray(snapshot.layouts) ? snapshot.layouts : [])
-        .map((layout) => {
-            const normalizedLayout = (layout ?? {}) as SnapshotLayoutRow
+    const rows = readSnapshotRows(snapshot.layouts, 'layouts').map((layout) => {
+        const normalizedLayout = (layout ?? {}) as SnapshotLayoutRow
+        const layoutId = readOptionalSnapshotString(normalizedLayout.id, 'id', 'layout', { defaultValue: '' })
+        if (!layoutId) {
+            throw new Error('[SchemaSync] Snapshot global layout must have an id')
+        }
+        if (normalizedLayout.scopeEntityId !== undefined && normalizedLayout.scopeEntityId !== null) {
+            throw new Error(`[SchemaSync] Global layout ${layoutId} cannot contain a scope entity`)
+        }
 
-            const templateKey = parseApplicationTemplateKey(normalizedLayout.templateKey, `layout ${String(normalizedLayout.id ?? '')}`)
-            const rawConfig = isRecord(normalizedLayout.config) ? normalizedLayout.config : {}
-            let config = rawConfig
-            if (templateKey === 'marketing-page') {
-                try {
-                    config = parseApplicationLayoutConfig(templateKey, rawConfig)
-                } catch {
-                    throw new Error(`Layout ${String(normalizedLayout.id ?? '')} contains invalid marketing configuration`)
-                }
-            }
+        const templateKey = parseApplicationTemplateKey(normalizedLayout.templateKey, `layout ${layoutId}`)
+        const rawConfig = (readOptionalSnapshotRecord(normalizedLayout.config, 'config', `layout ${layoutId}`) ?? {}) as Record<
+            string,
+            unknown
+        >
+        let config = stripLayoutCompositionMetadata(rawConfig)
+        try {
+            config = parseApplicationLayoutConfig(templateKey, config)
+        } catch {
+            throw new Error(`Layout ${layoutId} contains invalid ${templateKey} configuration`)
+        }
+        config = withLayoutCompositionMetadata(config, 'independent', null)
 
-            return {
-                id: String(normalizedLayout.id ?? ''),
-                scopeEntityId:
-                    typeof normalizedLayout.scopeEntityId === 'string' && normalizedLayout.scopeEntityId.length > 0
-                        ? normalizedLayout.scopeEntityId
-                        : null,
-                templateKey,
-                name: isRecord(normalizedLayout.name) ? normalizedLayout.name : {},
-                description: isRecord(normalizedLayout.description) ? normalizedLayout.description : null,
-                config,
-                isActive: Boolean(normalizedLayout.isActive),
-                isDefault: Boolean(normalizedLayout.isDefault),
-                sortOrder: typeof normalizedLayout.sortOrder === 'number' ? normalizedLayout.sortOrder : 0
-            }
-        })
-        .filter((layout) => layout.id.length > 0)
+        return {
+            id: layoutId,
+            scopeEntityId: null,
+            templateKey,
+            name: (readOptionalSnapshotRecord(normalizedLayout.name, 'name', `layout ${layoutId}`) ?? {}) as Record<string, unknown>,
+            description: (readOptionalSnapshotRecord(normalizedLayout.description, 'description', `layout ${layoutId}`, {
+                nullable: true
+            }) ?? null) as Record<string, unknown> | null,
+            config,
+            isActive: readOptionalSnapshotBoolean(normalizedLayout.isActive, 'isActive', `layout ${layoutId}`, false),
+            isDefault: readOptionalSnapshotBoolean(normalizedLayout.isDefault, 'isDefault', `layout ${layoutId}`, false),
+            sortOrder: readOptionalSnapshotInteger(normalizedLayout.sortOrder, 'sortOrder', `layout ${layoutId}`, 0)
+        }
+    })
 
-    const desiredDefaultLayoutId = typeof snapshot.defaultLayoutId === 'string' ? snapshot.defaultLayoutId : null
+    const desiredDefaultLayoutId = readOptionalSnapshotString(snapshot.defaultLayoutId, 'defaultLayoutId', 'snapshot', {
+        nullable: true,
+        defaultValue: null
+    }) as string | null
     if (desiredDefaultLayoutId) {
+        if (!rows.some((row) => row.id === desiredDefaultLayoutId)) {
+            throw new Error(`[SchemaSync] Snapshot default layout ${desiredDefaultLayoutId} does not exist`)
+        }
         for (const row of rows) {
             if (row.scopeEntityId === null) {
                 row.isDefault = row.id === desiredDefaultLayoutId
@@ -743,9 +839,16 @@ const ensureScopedDefaultLayouts = (rows: PersistedAppLayout[]): PersistedAppLay
 
     for (const bucket of rowsByScope.values()) {
         if (bucket.length === 0) continue
-        if (bucket.some((row) => row.isDefault)) continue
-        const fallback = bucket.find((row) => row.isActive) ?? bucket[0]
-        fallback.isDefault = true
+        const scopeEntityId = bucket[0]?.scopeEntityId ?? null
+        const selected = selectCanonicalLayoutCandidate(bucket, scopeEntityId)
+        if (!selected || selected.layout.scopeEntityId !== scopeEntityId) {
+            const scope = bucket[0]?.scopeEntityId ?? 'global'
+            throw new Error(`[SchemaSync] Scope ${scope} must contain exactly one active default layout`)
+        }
+        if (bucket.some((row) => row.isDefault && !row.isActive)) {
+            const scope = bucket[0]?.scopeEntityId ?? 'global'
+            throw new Error(`[SchemaSync] Scope ${scope} contains an inactive default layout`)
+        }
     }
 
     return rows.sort((a, b) => {
@@ -761,58 +864,79 @@ const normalizeSnapshotWidgetEntries = (
     snapshot: PublishedApplicationSnapshot,
     templateByLayoutId = getSnapshotTemplateByLayoutId(snapshot)
 ): MaterializedSnapshotWidget[] => {
-    return (Array.isArray(snapshot.layoutZoneWidgets) ? snapshot.layoutZoneWidgets : [])
-        .map((item) => (item ?? {}) as SnapshotWidgetRow)
-        .map((item) => {
-            const id = String(item.id ?? '')
-            const layoutId = String(item.layoutId ?? '')
-            const templateKey = templateByLayoutId.get(layoutId)
-            const widgetKey = typeof item.widgetKey === 'string' ? item.widgetKey : ''
-            if (!templateKey || !id || !layoutId || !widgetKey) return null
-            const zone = normalizeLayoutZone(item.zone, templateKey)
-            if (!isWidgetAllowedForTemplate(templateKey, widgetKey, zone)) {
-                throw new Error(`[SchemaSync] Widget ${widgetKey} is not allowed in ${templateKey} zone ${zone}`)
-            }
-            const rawConfig = isRecord(item.config) ? item.config : {}
-            let config = rawConfig
-            try {
-                config = parseApplicationLayoutWidgetConfig(widgetKey, rawConfig)
-            } catch {
-                throw new Error(`[SchemaSync] Invalid ${templateKey} widget config for ${widgetKey}`)
-            }
-            if (templateKey === 'marketing-page' && !isMarketingWidgetKey(widgetKey)) {
-                throw new Error(`[SchemaSync] Invalid marketing widget key ${widgetKey}`)
-            }
-            return {
-                id,
-                layoutId,
-                sourceBaseWidgetId:
-                    typeof item.sourceBaseWidgetId === 'string' && item.sourceBaseWidgetId.length > 0 ? item.sourceBaseWidgetId : null,
-                zone,
-                widgetKey,
-                sortOrder: typeof item.sortOrder === 'number' ? Math.trunc(item.sortOrder) : 0,
-                config,
-                isActive: item.isActive !== false
-            }
-        })
-        .filter((item): item is NonNullable<typeof item> => item !== null)
+    return readSnapshotRows(snapshot.layoutZoneWidgets, 'layout widgets').map((item) => {
+        const normalizedItem = (item ?? {}) as SnapshotWidgetRow
+        const id = readOptionalSnapshotString(normalizedItem.id, 'id', 'layout widget', { defaultValue: '' })
+        const layoutId = readOptionalSnapshotString(normalizedItem.layoutId, 'layoutId', `layout widget ${id}`, { defaultValue: '' })
+        const widgetKey = readOptionalSnapshotString(normalizedItem.widgetKey, 'widgetKey', `layout widget ${id}`, { defaultValue: '' })
+        if (!id || !layoutId || !widgetKey) {
+            throw new Error('[SchemaSync] Snapshot layout widget has an invalid identity')
+        }
+        const templateKey = templateByLayoutId.get(layoutId)
+        if (!templateKey) {
+            throw new Error('[SchemaSync] Snapshot layout widget references an unknown layout')
+        }
+        const zone = normalizeLayoutZone(normalizedItem.zone, templateKey)
+        if (!isWidgetAllowedForTemplate(templateKey, widgetKey, zone)) {
+            throw new Error(`[SchemaSync] Widget ${widgetKey} is not allowed in ${templateKey} zone ${zone}`)
+        }
+        const rawConfig = (readOptionalSnapshotRecord(normalizedItem.config, 'config', `layout widget ${id}`) ?? {}) as Record<
+            string,
+            unknown
+        >
+        let config = rawConfig
+        try {
+            config = parseApplicationLayoutWidgetConfig(widgetKey, rawConfig)
+        } catch {
+            throw new Error(`[SchemaSync] Invalid ${templateKey} widget config for ${widgetKey}`)
+        }
+        if (templateKey === 'marketing-page' && !isMarketingWidgetKey(widgetKey)) {
+            throw new Error(`[SchemaSync] Invalid marketing widget key ${widgetKey}`)
+        }
+        return {
+            id,
+            layoutId,
+            sourceBaseWidgetId: readOptionalSnapshotString(normalizedItem.sourceBaseWidgetId, 'sourceBaseWidgetId', `layout widget ${id}`, {
+                nullable: true,
+                defaultValue: null
+            }) as string | null,
+            ...(normalizedItem.sourceLineageKey === undefined
+                ? {}
+                : {
+                      sourceLineageKey: readOptionalSnapshotString(
+                          normalizedItem.sourceLineageKey,
+                          'sourceLineageKey',
+                          `layout widget ${id}`
+                      ) as string
+                  }),
+            zone,
+            widgetKey,
+            sortOrder: readOptionalSnapshotInteger(normalizedItem.sortOrder, 'sortOrder', `layout widget ${id}`, 0),
+            config,
+            isActive: readOptionalSnapshotBoolean(normalizedItem.isActive, 'isActive', `layout widget ${id}`, true)
+        }
+    })
 }
 
 export const withWorkspaceRuntimeLayoutWidgets = (
     snapshot: PublishedApplicationSnapshot,
     workspacesEnabled: boolean
 ): PublishedApplicationSnapshot => {
-    if (!workspacesEnabled || !Array.isArray(snapshot.layouts)) {
+    if (!workspacesEnabled) {
         return snapshot
     }
 
+    const layouts = readSnapshotRows(snapshot.layouts, 'layouts')
     const widgets = normalizeSnapshotWidgetEntries(snapshot)
     const nextWidgets: PersistedAppLayoutZoneWidget[] = [...widgets]
 
-    for (const rawLayout of snapshot.layouts) {
+    for (const rawLayout of layouts) {
         const layout = (rawLayout ?? {}) as SnapshotLayoutRow
-        const layoutId = typeof layout.id === 'string' && layout.id.length > 0 ? layout.id : ''
-        const scopeEntityId = typeof layout.scopeEntityId === 'string' && layout.scopeEntityId.length > 0 ? layout.scopeEntityId : null
+        const layoutId = readOptionalSnapshotString(layout.id, 'id', 'workspace layout', { defaultValue: '' })
+        const scopeEntityId = readOptionalSnapshotString(layout.scopeEntityId, 'scopeEntityId', `workspace layout ${layoutId}`, {
+            nullable: true,
+            defaultValue: null
+        }) as string | null
         const templateKey = parseApplicationTemplateKey(layout.templateKey, `workspace layout ${layoutId}`)
 
         if (!layoutId || scopeEntityId || templateKey !== 'dashboard') {
@@ -830,6 +954,7 @@ export const withWorkspaceRuntimeLayoutWidgets = (
             {
                 id: generateUuidV7(),
                 layoutId,
+                sourceLineageKey: `workspace:${layoutId}:workspaceSwitcher`,
                 zone: 'left',
                 widgetKey: 'workspaceSwitcher',
                 sortOrder: firstSortOrder - 200,
@@ -839,6 +964,7 @@ export const withWorkspaceRuntimeLayoutWidgets = (
             {
                 id: generateUuidV7(),
                 layoutId,
+                sourceLineageKey: `workspace:${layoutId}:divider`,
                 zone: 'left',
                 widgetKey: 'divider',
                 sortOrder: firstSortOrder - 199,
@@ -848,6 +974,18 @@ export const withWorkspaceRuntimeLayoutWidgets = (
         )
     }
 
+    const templateByLayoutId = getSnapshotTemplateByLayoutId(snapshot)
+    const widgetsByLayoutId = new Map<string, PersistedAppLayoutZoneWidget[]>()
+    for (const widget of nextWidgets) {
+        const group = widgetsByLayoutId.get(widget.layoutId) ?? []
+        group.push(widget)
+        widgetsByLayoutId.set(widget.layoutId, group)
+    }
+    for (const [layoutId, layoutWidgets] of widgetsByLayoutId) {
+        const templateKey = templateByLayoutId.get(layoutId)
+        if (templateKey) assertMaterializedWidgetIdentitySafety(layoutId, templateKey, layoutWidgets)
+    }
+
     return {
         ...snapshot,
         layoutZoneWidgets: nextWidgets
@@ -855,49 +993,92 @@ export const withWorkspaceRuntimeLayoutWidgets = (
 }
 
 const normalizeSnapshotScopedLayouts = (snapshot: PublishedApplicationSnapshot): NormalizedScopedLayout[] => {
-    return (Array.isArray(snapshot.scopedLayouts) ? snapshot.scopedLayouts : [])
-        .map((layout) => (layout ?? {}) as SnapshotScopedLayoutRow)
-        .map((layout) => {
-            const id = String(layout.id ?? '')
-            const templateKey = parseApplicationTemplateKey(layout.templateKey, `scoped layout ${id}`)
-            const rawConfig = isRecord(layout.config) ? layout.config : {}
-            let config = rawConfig
-            if (templateKey === 'marketing-page') {
-                try {
-                    config = parseApplicationLayoutConfig(templateKey, rawConfig)
-                } catch {
-                    throw new Error(`Scoped layout ${id} contains invalid marketing configuration`)
-                }
-            }
-            return {
-                id,
-                scopeEntityId: typeof layout.scopeEntityId === 'string' && layout.scopeEntityId.length > 0 ? layout.scopeEntityId : null,
-                baseLayoutId: typeof layout.baseLayoutId === 'string' && layout.baseLayoutId.length > 0 ? layout.baseLayoutId : '',
-                templateKey,
-                name: isRecord(layout.name) ? layout.name : {},
-                description: isRecord(layout.description) ? layout.description : null,
-                config,
-                isActive: layout.isActive !== false,
-                isDefault: Boolean(layout.isDefault),
-                sortOrder: typeof layout.sortOrder === 'number' ? layout.sortOrder : 0
-            }
+    const rows = readSnapshotRows(snapshot.scopedLayouts, 'scoped layouts').map((rawLayout) => {
+        const layout = (rawLayout ?? {}) as SnapshotScopedLayoutRow
+        const id = readOptionalSnapshotString(layout.id, 'id', 'scoped layout', { defaultValue: '' })
+        const scopeEntityId = readOptionalSnapshotString(layout.scopeEntityId, 'scopeEntityId', `scoped layout ${id}`, {
+            defaultValue: ''
         })
-        .filter((layout) => layout.id.length > 0 && layout.scopeEntityId && layout.baseLayoutId.length > 0) as NormalizedScopedLayout[]
+        if (!id || !scopeEntityId) {
+            throw new Error('[SchemaSync] Scoped layout must have both id and scope entity id')
+        }
+        const baseLayoutId = readOptionalSnapshotString(layout.baseLayoutId, 'baseLayoutId', `scoped layout ${id}`, {
+            nullable: true,
+            defaultValue: null
+        }) as string | null
+        const compositionMode = layout.compositionMode
+        if (compositionMode !== 'overlay' && compositionMode !== 'independent') {
+            throw new Error(`[SchemaSync] Scoped layout ${id} has an invalid composition mode`)
+        }
+        if (compositionMode === 'overlay' && !baseLayoutId) {
+            throw new Error(`[SchemaSync] Overlay layout ${id} must reference a base layout`)
+        }
+        if (compositionMode === 'independent' && baseLayoutId) {
+            throw new Error(`[SchemaSync] Independent layout ${id} cannot reference a base layout`)
+        }
+        const templateKey = parseApplicationTemplateKey(layout.templateKey, `scoped layout ${id}`)
+        const rawConfig = (readOptionalSnapshotRecord(layout.config, 'config', `scoped layout ${id}`) ?? {}) as Record<string, unknown>
+        let config = stripLayoutCompositionMetadata(rawConfig)
+        try {
+            config = parseApplicationLayoutConfig(templateKey, config)
+        } catch {
+            throw new Error(`Scoped layout ${id} contains invalid ${templateKey} configuration`)
+        }
+        return {
+            id,
+            scopeEntityId,
+            baseLayoutId,
+            compositionMode,
+            templateKey,
+            name: (readOptionalSnapshotRecord(layout.name, 'name', `scoped layout ${id}`) ?? {}) as Record<string, unknown>,
+            description: (readOptionalSnapshotRecord(layout.description, 'description', `scoped layout ${id}`, {
+                nullable: true
+            }) ?? null) as Record<string, unknown> | null,
+            config,
+            isActive: readOptionalSnapshotBoolean(layout.isActive, 'isActive', `scoped layout ${id}`, true),
+            isDefault: readOptionalSnapshotBoolean(layout.isDefault, 'isDefault', `scoped layout ${id}`, false),
+            sortOrder: readOptionalSnapshotInteger(layout.sortOrder, 'sortOrder', `scoped layout ${id}`, 0)
+        }
+    })
+    return rows as NormalizedScopedLayout[]
 }
 
 const normalizeSnapshotLayoutWidgetOverrides = (snapshot: PublishedApplicationSnapshot): NormalizedLayoutWidgetOverride[] => {
-    return (Array.isArray(snapshot.layoutWidgetOverrides) ? snapshot.layoutWidgetOverrides : [])
-        .map((row) => (row ?? {}) as SnapshotLayoutWidgetOverrideRow)
-        .map((row) => ({
-            layoutId: typeof row.layoutId === 'string' && row.layoutId.length > 0 ? row.layoutId : '',
-            baseWidgetId: typeof row.baseWidgetId === 'string' && row.baseWidgetId.length > 0 ? row.baseWidgetId : '',
-            zone: typeof row.zone === 'string' && row.zone.length > 0 ? row.zone : null,
-            sortOrder: typeof row.sortOrder === 'number' ? row.sortOrder : null,
-            config: isRecord(row.config) ? row.config : null,
-            isActive: typeof row.isActive === 'boolean' ? row.isActive : null,
-            isDeletedOverride: row.isDeletedOverride === true
-        }))
-        .filter((row) => row.layoutId.length > 0 && row.baseWidgetId.length > 0)
+    return readSnapshotRows(snapshot.layoutWidgetOverrides, 'widget overrides').map((rawRow) => {
+        const row = (rawRow ?? {}) as SnapshotLayoutWidgetOverrideRow
+        const layoutId = readOptionalSnapshotString(row.layoutId, 'layoutId', 'widget override', { defaultValue: '' })
+        const baseWidgetId = readOptionalSnapshotString(row.baseWidgetId, 'baseWidgetId', `widget override ${layoutId}`, {
+            defaultValue: ''
+        })
+        if (!layoutId || !baseWidgetId) {
+            throw new Error('[SchemaSync] Snapshot widget override has an invalid identity')
+        }
+        const zone = readOptionalSnapshotString(row.zone, 'zone', `widget override ${layoutId}`, {
+            nullable: true,
+            defaultValue: null
+        }) as string | null
+        const config = readOptionalSnapshotRecord(row.config, 'config', `widget override ${layoutId}`, { nullable: true })
+        const isActive =
+            row.isActive === undefined || row.isActive === null
+                ? null
+                : readOptionalSnapshotBoolean(row.isActive, 'isActive', `widget override ${layoutId}`, false)
+        const isDeletedOverride =
+            row.isDeletedOverride === undefined
+                ? false
+                : readOptionalSnapshotBoolean(row.isDeletedOverride, 'isDeletedOverride', `widget override ${layoutId}`, false)
+        return {
+            layoutId,
+            baseWidgetId,
+            zone,
+            sortOrder:
+                row.sortOrder === undefined || row.sortOrder === null
+                    ? null
+                    : readOptionalSnapshotInteger(row.sortOrder, 'sortOrder', `widget override ${layoutId}`, 0),
+            config: config === undefined ? null : config,
+            isActive,
+            isDeletedOverride
+        }
+    })
 }
 
 export const materializeSnapshotLayoutsAndWidgets = (
@@ -911,6 +1092,50 @@ export const materializeSnapshotLayoutsAndWidgets = (
     const rawWidgets = normalizeSnapshotWidgetEntries(snapshot, templateByLayoutId)
     const scopedLayouts = normalizeSnapshotScopedLayouts(snapshot)
     const overrideRows = normalizeSnapshotLayoutWidgetOverrides(snapshot)
+    const knownLayoutIds = new Set(templateByLayoutId.keys())
+    for (const widget of rawWidgets) {
+        if (!knownLayoutIds.has(widget.layoutId)) {
+            throw new Error(`[SchemaSync] Widget ${widget.id} references an unknown layout ${widget.layoutId}`)
+        }
+    }
+    const independentLayoutIds = new Set(
+        scopedLayouts.filter((layout) => layout.compositionMode === 'independent').map((layout) => layout.id)
+    )
+    const scopedLayoutById = new Map(scopedLayouts.map((layout) => [layout.id, layout]))
+    const baseWidgetById = new Map<string, MaterializedSnapshotWidget>()
+    for (const widget of rawWidgets) {
+        if (baseWidgetById.has(widget.id)) {
+            throw new Error(`[SchemaSync] Snapshot contains duplicate layout widget id ${widget.id}`)
+        }
+        baseWidgetById.set(widget.id, widget)
+    }
+    const overrideTargets = new Set<string>()
+    for (const override of overrideRows) {
+        const scopedLayout = scopedLayoutById.get(override.layoutId)
+        if (!scopedLayout) {
+            throw new Error(`[SchemaSync] Widget override ${override.layoutId}:${override.baseWidgetId} must target a scoped layout`)
+        }
+        if (independentLayoutIds.has(override.layoutId)) {
+            throw new Error(`[SchemaSync] Independent layout ${override.layoutId} cannot contain widget overrides`)
+        }
+        if (!scopedLayout.baseLayoutId) {
+            throw new Error(`[SchemaSync] Overlay layout ${override.layoutId} must reference a base layout`)
+        }
+        const baseWidget = baseWidgetById.get(override.baseWidgetId)
+        if (!baseWidget) {
+            throw new Error(`[SchemaSync] Widget override references a missing base widget ${override.baseWidgetId}`)
+        }
+        if (baseWidget.layoutId !== scopedLayout.baseLayoutId) {
+            throw new Error(
+                `[SchemaSync] Widget override ${override.layoutId}:${override.baseWidgetId} references a widget outside base layout ${scopedLayout.baseLayoutId}`
+            )
+        }
+        const target = `${override.layoutId}:${override.baseWidgetId}`
+        if (overrideTargets.has(target)) {
+            throw new Error(`[SchemaSync] Snapshot contains duplicate widget override target ${target}`)
+        }
+        overrideTargets.add(target)
+    }
     const widgetsByLayoutId = new Map<string, MaterializedSnapshotWidget[]>()
     for (const widget of rawWidgets) {
         const bucket = widgetsByLayoutId.get(widget.layoutId) ?? []
@@ -921,16 +1146,7 @@ export const materializeSnapshotLayoutsAndWidgets = (
     for (const [layoutId, widgets] of widgetsByLayoutId) {
         const templateKey = templateByLayoutId.get(layoutId)
         if (!templateKey) continue
-        const seenInstances = new Set<string>()
-        for (const widget of widgets) {
-            if (templateKey === 'marketing-page') {
-                const instanceKey = materializedWidgetInstanceKey(widget)
-                if (seenInstances.has(instanceKey)) {
-                    throw new Error(`Layout ${layoutId} contains duplicate widget instance ${instanceKey}`)
-                }
-                seenInstances.add(instanceKey)
-            }
-        }
+        assertMaterializedWidgetIdentitySafety(layoutId, templateKey, widgets)
     }
 
     if (scopedLayouts.length === 0) {
@@ -959,9 +1175,34 @@ export const materializeSnapshotLayoutsAndWidgets = (
     const materializedWidgets: MaterializedSnapshotWidget[] = rawWidgets.filter((item) => baseLayoutMap.has(item.layoutId))
 
     for (const scopedLayout of scopedLayouts) {
-        const baseLayout = baseLayoutMap.get(scopedLayout.baseLayoutId)
-        if (!baseLayout || !scopedLayout.scopeEntityId) {
+        if (scopedLayout.compositionMode === 'independent') {
+            const ownedWidgets = (widgetsByLayoutId.get(scopedLayout.id) ?? []).map((item) => ({
+                ...item,
+                layoutId: scopedLayout.id,
+                sourceBaseWidgetId: null
+            }))
+            materializedLayouts.push({
+                id: scopedLayout.id,
+                scopeEntityId: scopedLayout.scopeEntityId,
+                templateKey: scopedLayout.templateKey,
+                name: scopedLayout.name,
+                description: scopedLayout.description,
+                config: withLayoutCompositionMetadata(scopedLayout.config, 'independent', null),
+                isActive: scopedLayout.isActive,
+                isDefault: scopedLayout.isDefault,
+                sortOrder: scopedLayout.sortOrder
+            })
+            materializedWidgets.push(...ownedWidgets)
             continue
+        }
+
+        const baseLayoutId = scopedLayout.baseLayoutId
+        if (!baseLayoutId) {
+            throw new Error(`Overlay layout ${scopedLayout.id} must reference a base layout`)
+        }
+        const baseLayout = baseLayoutMap.get(baseLayoutId)
+        if (!baseLayout) {
+            throw new Error(`Scoped layout ${scopedLayout.id} references a missing base layout`)
         }
 
         const scopedTemplateKey = parseApplicationTemplateKey(scopedLayout.templateKey, `scoped layout ${scopedLayout.id}`)
@@ -972,7 +1213,7 @@ export const materializeSnapshotLayoutsAndWidgets = (
         const ownedWidgetsForLayout = widgetsByLayoutId.get(scopedLayout.id) ?? []
         const materializedScopedWidgets: MaterializedSnapshotWidget[] = []
 
-        const baseWidgets = widgetsByLayoutId.get(scopedLayout.baseLayoutId) ?? []
+        const baseWidgets = widgetsByLayoutId.get(baseLayoutId) ?? []
         const ownedWidgets = ownedWidgetsForLayout.map((item) => ({
             ...item,
             layoutId: scopedLayout.id
@@ -1001,13 +1242,18 @@ export const materializeSnapshotLayoutsAndWidgets = (
                 throw new Error(`Scoped layout ${scopedLayout.id} cannot change a marketing widget instance key`)
             }
             materializedScopedWidgets.push({
-                id: stableMaterializedWidgetId(baseWidget.id, scopedLayout.id),
+                // The physical application row is allocated by sync persistence.
+                // This projection only needs a fresh UUID-v7 placeholder; the
+                // source lineage is the stable logical identity.
+                id: generateUuidV7(),
                 layoutId: scopedLayout.id,
                 zone: inheritedZone,
                 widgetKey: baseWidget.widgetKey,
                 sortOrder: override?.sortOrder ?? baseWidget.sortOrder,
                 config: inheritedConfig,
-                sourceBaseWidgetId: baseWidget.id,
+                sourceBaseWidgetId: baseWidget.sourceLineageKey
+                    ? stableLineageUuidV7(baseWidget.layoutId, baseWidget.sourceLineageKey)
+                    : baseWidget.id,
                 isActive: inheritedIsActive
             })
         }
@@ -1018,7 +1264,7 @@ export const materializeSnapshotLayoutsAndWidgets = (
             templateKey: scopedTemplateKey,
             name: Object.keys(scopedLayout.name).length > 0 ? scopedLayout.name : baseLayout.name,
             description: scopedLayout.description ?? baseLayout.description,
-            config:
+            config: withLayoutCompositionMetadata(
                 scopedTemplateKey === 'dashboard'
                     ? {
                           ...baseLayout.config,
@@ -1030,6 +1276,9 @@ export const materializeSnapshotLayoutsAndWidgets = (
                           ...scopedLayout.config
                       }
                     : { ...baseLayout.config, ...scopedLayout.config },
+                'overlay',
+                baseLayoutId
+            ),
             isActive: scopedLayout.isActive,
             isDefault: scopedLayout.isDefault,
             sortOrder: scopedLayout.sortOrder
@@ -1040,16 +1289,7 @@ export const materializeSnapshotLayoutsAndWidgets = (
 
     for (const scopedLayout of scopedLayouts) {
         const widgets = materializedWidgets.filter((widget) => widget.layoutId === scopedLayout.id)
-        const seenInstances = new Set<string>()
-        for (const widget of widgets) {
-            if (scopedLayout.templateKey === 'marketing-page') {
-                const instanceKey = materializedWidgetInstanceKey(widget)
-                if (seenInstances.has(instanceKey)) {
-                    throw new Error(`Layout ${scopedLayout.id} contains duplicate widget instance ${instanceKey}`)
-                }
-                seenInstances.add(instanceKey)
-            }
-        }
+        assertMaterializedWidgetIdentitySafety(scopedLayout.id, scopedLayout.templateKey, widgets)
     }
 
     const layouts = ensureScopedDefaultLayouts(materializedLayouts)
@@ -1329,8 +1569,9 @@ export function resolveSetConstantPreviewValue(field: EntityField, fallbackRefId
 }
 
 export function buildMergedDashboardLayoutConfig(snapshot: PublishedApplicationSnapshot): Record<string, unknown> {
-    return normalizeDashboardLayoutConfig(snapshot.layoutConfig as Record<string, unknown> | undefined) as unknown as Record<
-        string,
-        unknown
-    >
+    if (snapshot.layoutConfig !== undefined && !isRecord(snapshot.layoutConfig)) {
+        throw new Error('[SchemaSync] Snapshot layoutConfig must be an object')
+    }
+    const parsed = parseApplicationLayoutConfig('dashboard', snapshot.layoutConfig ?? {})
+    return normalizeDashboardLayoutConfig(parsed) as unknown as Record<string, unknown>
 }

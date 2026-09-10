@@ -10,6 +10,7 @@ import type {
     PaginatedResponse
 } from '../../../types'
 import type { ApplicationLayoutWidgetKey, ApplicationLayoutZone, LayoutCopyOptions } from '@universo-react/types'
+import { layoutWidgetMetadataResponseSchema } from '@universo-react/types'
 
 export type LayoutScopeParams = {
     scopeEntityId?: string | null
@@ -98,10 +99,12 @@ export const deleteLayout = (metahubId: string, layoutId: string, expectedVersio
     apiClient.delete<void>(`/metahub/${metahubId}/layout/${layoutId}`, { params: { expectedVersion } })
 
 export const getLayoutZoneWidgetObjects = async (metahubId: string, layoutId: string): Promise<DashboardLayoutWidgetItem[]> => {
-    const response = await apiClient.get<{ items: DashboardLayoutWidgetItem[] }>(
-        `/metahub/${metahubId}/layout/${layoutId}/zone-widgets/object`
-    )
-    return response.data.items ?? []
+    const response = await apiClient.get<unknown>(`/metahub/${metahubId}/layout/${layoutId}/zone-widgets/object`)
+    const parsed = layoutWidgetMetadataResponseSchema.safeParse(response.data)
+    if (!parsed.success) {
+        throw new Error('LAYOUT_WIDGET_METADATA_INVALID')
+    }
+    return parsed.data.items as DashboardLayoutWidgetItem[]
 }
 
 export const listLayoutZoneWidgets = async (metahubId: string, layoutId: string): Promise<MetahubLayoutZoneWidget[]> => {

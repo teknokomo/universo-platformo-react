@@ -880,6 +880,7 @@ describe('Public Applications Routes', () => {
 
     it('creates a guest session for an active link and stores only a secret hash server-side', async () => {
         let persistedState: unknown = null
+        let persistedDisplayName: unknown = null
 
         const dataSource = buildDataSource(
             withPublicApplication((sql, params) => {
@@ -932,6 +933,7 @@ describe('Public Applications Routes', () => {
                             codename: 'DisplayName',
                             column_name: 'display_name',
                             data_type: 'STRING',
+                            validation_rules: { localized: true, versioned: true },
                             parent_component_id: null
                         },
                         { id: 'attr-2', codename: 'IsGuest', column_name: 'is_guest', data_type: 'BOOLEAN', parent_component_id: null },
@@ -967,6 +969,7 @@ describe('Public Applications Routes', () => {
                 }
 
                 if (sql.includes(`INSERT INTO "${schemaName}"."students_table"`)) {
+                    persistedDisplayName = params[1]
                     persistedState = params[2]
                     return []
                 }
@@ -986,6 +989,14 @@ describe('Public Applications Routes', () => {
         expect(response.body.participantId).toBe(response.body.studentId)
         expect(response.body.sessionToken).toEqual(expect.any(String))
         expect(typeof persistedState).toBe('string')
+        expect(persistedDisplayName).toEqual(
+            expect.objectContaining({
+                _primary: 'en',
+                locales: expect.objectContaining({
+                    en: expect.objectContaining({ content: 'Guest Learner' })
+                })
+            })
+        )
         expect(persistedState).not.toBe(response.body.sessionToken)
         expect(JSON.parse(String(persistedState))).toEqual(
             expect.objectContaining({

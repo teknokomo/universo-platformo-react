@@ -8,7 +8,7 @@ import MoreVertRoundedIcon from '@mui/icons-material/MoreVertRounded'
 import type { AppDataResponse } from '../api/api'
 import type { FieldConfig, FieldValidationRules } from '../components/dialogs/FormDialog'
 import type { CellRendererOverrides } from '../api/types'
-import { formatRuntimeColumnValue, formatRuntimeSafeValue } from './displayValue'
+import { formatRuntimeColumnValue, formatRuntimeSafeValue, isRuntimeTechnicalFieldName } from './displayValue'
 import { isSemanticLongTextRuntimeField } from './fieldSemantics'
 
 export interface ToGridColumnsOptions {
@@ -32,6 +32,21 @@ const buildGridRowActionsTriggerTestId = (rowId: string) => `grid-row-actions-tr
 const isHiddenColumn = (column: AppDataResponse['columns'][number]): boolean =>
     column.uiConfig?.hidden === true || column.uiConfig?.gridHidden === true
 
+const hasHumanReadableReferenceOptions = (column: AppDataResponse['columns'][number]): boolean =>
+    column.dataType === 'REF' &&
+    ((Array.isArray(column.refOptions) && column.refOptions.length > 0) ||
+        (Array.isArray(column.enumOptions) && column.enumOptions.length > 0))
+
+/**
+ * Technical fields are useful to the persistence contract but are not user-facing
+ * business data. Reference IDs remain visible only when the API can render a
+ * human-readable label for them.
+ */
+const isTechnicalGridColumn = (column: AppDataResponse['columns'][number]): boolean => {
+    if (hasHumanReadableReferenceOptions(column)) return false
+    return isRuntimeTechnicalFieldName(column.field) || isRuntimeTechnicalFieldName(column.codename)
+}
+
 /**
  * Convert API column definitions into MUI DataGrid `GridColDef[]`.
  *
@@ -41,7 +56,7 @@ const isHiddenColumn = (column: AppDataResponse['columns'][number]): boolean =>
 export function toGridColumns(response: AppDataResponse, options?: ToGridColumnsOptions): GridColDef[] {
     const locale = options?.locale ?? 'en'
     const cols: GridColDef[] = response.columns
-        .filter((c) => !isHiddenColumn(c))
+        .filter((c) => !isHiddenColumn(c) && !isTechnicalGridColumn(c))
         .map((c) => {
             // TABLE columns are virtual — not sortable/filterable, show chip
             if (c.dataType === 'TABLE') {

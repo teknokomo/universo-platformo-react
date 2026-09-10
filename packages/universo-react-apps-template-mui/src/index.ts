@@ -29,6 +29,8 @@ export type {
     MarketingMedia,
     MarketingPageData,
     MarketingPageProps,
+    MarketingLayoutWidgetReference,
+    MarketingRenderOptions,
     MarketingPricingTier,
     MarketingSectionCopy,
     MarketingTestimonial
@@ -81,8 +83,29 @@ export { default as LanguageSwitcher } from './components/LanguageSwitcher'
 export { getDataGridLocaleText } from './utils/getDataGridLocale'
 
 // API — adapter pattern
-export { fetchRuntimeTemplate, fetchMarketingPageRuntime } from './api/api'
-export type { AppDataResponse, RuntimeTemplateResponse, MarketingPageRuntimeResponse } from './api/api'
+export {
+    buildRuntimeApiUrl,
+    buildRuntimeLayoutQueryKey,
+    createRuntimeFetcher,
+    fetchRuntimeEffectiveLayout,
+    fetchMarketingPageRuntime,
+    getRuntimeLayoutErrorCode,
+    normalizeRuntimeLayoutTarget,
+    parseRuntimeResponse,
+    toDashboardZoneWidgets,
+    runtimeZoneWidgetsSchema
+} from './api/api'
+export { effectiveLayoutResultSchema } from '@universo-react/types'
+export type {
+    AppDataResponse,
+    NormalizedRuntimeLayoutTarget,
+    RuntimeLayoutTarget,
+    RuntimeTargetKind,
+    RuntimeEffectiveLayoutResponse,
+    RuntimeEffectiveLayoutSuccess,
+    MarketingPageRuntimeResponse
+} from './api/api'
+export type { EffectiveLayoutResult } from '@universo-react/types'
 export type { CrudDataAdapter, CellRendererOverrides, RuntimeRecordCommand, RuntimeRestoreTarget } from './api/types'
 export { createStandaloneAdapter } from './api/adapters'
 export { updateLearningContentProgress } from './api/api'

@@ -44,8 +44,14 @@ export const readLocalizedText = (value: unknown, locale = 'en'): string | undef
     const raw = value as {
         _primary?: unknown
         locales?: Record<string, { content?: unknown }>
+        [locale: string]: unknown
     }
     const normalizedLocale = locale.split(/[-_]/)[0]?.toLowerCase() || 'en'
+    const directRecordValue = raw[normalizedLocale]
+    if (typeof directRecordValue === 'string' && directRecordValue.length > 0) {
+        return directRecordValue
+    }
+
     const directValue = raw.locales?.[normalizedLocale]?.content
     if (typeof directValue === 'string' && directValue.length > 0) {
         return directValue
@@ -60,7 +66,12 @@ export const readLocalizedText = (value: unknown, locale = 'en'): string | undef
     const fallbackValue = Object.values(raw.locales ?? {}).find(
         (entry) => typeof entry?.content === 'string' && entry.content.length > 0
     )?.content
-    return typeof fallbackValue === 'string' ? fallbackValue : undefined
+    if (typeof fallbackValue === 'string') return fallbackValue
+
+    const fallbackRecordValue = Object.entries(raw).find(
+        ([key, entry]) => key !== '_primary' && key !== 'locales' && typeof entry === 'string' && entry.length > 0
+    )?.[1]
+    return typeof fallbackRecordValue === 'string' ? fallbackRecordValue : undefined
 }
 
 export async function parseJsonResponse<T>(response: PlaywrightResponse, label: string): Promise<T> {

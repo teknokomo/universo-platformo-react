@@ -44,6 +44,9 @@ export const ConfirmDeleteDialog: React.FC<ConfirmDeleteDialogProps> = ({
     onCancel,
     onConfirm
 }) => {
+    const dialogInstanceId = React.useId().replace(/[^a-zA-Z0-9_-]/g, '')
+    const dialogTitleId = `runtime-confirm-delete-dialog-title-${dialogInstanceId}`
+    const dialogDescriptionId = `runtime-confirm-delete-dialog-description-${dialogInstanceId}`
     const [isDeleting, setIsDeleting] = useState(false)
 
     const handleConfirm = async () => {
@@ -65,14 +68,12 @@ export const ConfirmDeleteDialog: React.FC<ConfirmDeleteDialogProps> = ({
             onClose={isLoading ? undefined : onCancel}
             maxWidth='sm'
             fullWidth
-            aria-labelledby='confirm-delete-dialog-title'
-            aria-describedby='confirm-delete-dialog-description'
-            disableEnforceFocus
-            disableRestoreFocus
+            aria-labelledby={dialogTitleId}
+            aria-describedby={dialogDescriptionId}
         >
-            <DialogTitle id='confirm-delete-dialog-title'>{title}</DialogTitle>
+            <DialogTitle id={dialogTitleId}>{title}</DialogTitle>
             <DialogContent>
-                <DialogContentText id='confirm-delete-dialog-description' sx={{ mb: error ? 2 : 0 }}>
+                <DialogContentText id={dialogDescriptionId} sx={{ mb: error ? 2 : 0 }}>
                     {description}
                 </DialogContentText>
                 {error && (

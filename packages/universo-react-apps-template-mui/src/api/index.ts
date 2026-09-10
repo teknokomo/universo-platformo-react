@@ -1,4 +1,7 @@
 export {
+    buildRuntimeApiUrl,
+    buildRuntimeLayoutQueryKey,
+    createRuntimeFetcher,
     fetchAppData,
     fetchAppRow,
     createAppRow,
@@ -12,19 +15,32 @@ export {
     fetchRuntimeLedgerFacts,
     fetchRuntimeLedgerProjection,
     fetchRuntimeRecordsUnion,
+    fetchRuntimeEffectiveLayout,
+    fetchMarketingPageRuntime,
+    normalizeRuntimeLayoutTarget,
+    parseRuntimeResponse,
     setRuntimeLibraryRelation,
     exportRuntimeReportCsv,
-    appDataResponseSchema
+    appDataResponseSchema,
+    toDashboardZoneWidgets,
+    runtimeZoneWidgetsSchema
 } from './api'
-export { dashboardLayoutConfigSchema } from '@universo-react/types'
+export { dashboardLayoutConfigSchema, effectiveLayoutResultSchema } from '@universo-react/types'
 export type {
     AppDataResponse,
     ApplicationRuntimeResponse,
     DashboardLayoutConfig,
     RuntimeLedgerFactsResponse,
     RuntimeLedgerMetadataResponse,
-    RuntimeLedgerProjectionResponse
+    RuntimeLedgerProjectionResponse,
+    NormalizedRuntimeLayoutTarget,
+    RuntimeLayoutTarget,
+    RuntimeTargetKind,
+    RuntimeEffectiveLayoutResponse,
+    RuntimeEffectiveLayoutSuccess,
+    MarketingPageRuntimeResponse
 } from './api'
+export type { EffectiveLayoutResult } from '@universo-react/types'
 
 export { appQueryKeys, runtimeKeys, useAppRow, useCreateAppRow, useUpdateAppRow, useDeleteAppRow, useRestoreAppRow } from './mutations'
 

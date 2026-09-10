@@ -219,6 +219,53 @@ describe('SnapshotSerializer system field propagation', () => {
         expect(runtimeEntities[0].config?.systemFields).toEqual(snapshot.systemFields?.['object-1'])
     })
 
+    it('restores type-level capabilities when deserializing an entity payload', () => {
+        const serializer = new SnapshotSerializer({} as never, {} as never)
+        const runtimeEntities = serializer.deserializeSnapshot({
+            versionEnvelope: {
+                structureVersion: '53.0.0',
+                templateVersion: null,
+                snapshotFormatVersion: 1
+            },
+            entities: {
+                'object-site-settings': {
+                    id: 'object-site-settings',
+                    kind: 'object',
+                    codename: createCodenameVlc('siteSettings'),
+                    config: {
+                        recordBehavior: 'reference'
+                    },
+                    fields: []
+                }
+            },
+            entityTypeDefinitions: {
+                object: {
+                    id: 'type-object',
+                    kindKey: 'object',
+                    codename: createCodenameVlc('object'),
+                    presentation: {},
+                    capabilities: {
+                        layoutConfig: { enabled: true }
+                    },
+                    ui: {},
+                    config: {
+                        typeManaged: true
+                    },
+                    published: true
+                }
+            }
+        } as unknown as MetahubSnapshot)
+
+        expect(runtimeEntities[0]?.config).toEqual({
+            typeManaged: true,
+            recordBehavior: 'reference',
+            capabilities: {
+                layoutConfig: { enabled: true }
+            },
+            systemFields: null
+        })
+    })
+
     it('serializes shared sections and materializes them into runtime entities', async () => {
         const objectsService = {
             findAllByKind: jest.fn(async () => [])
