@@ -168,7 +168,7 @@ export const appDataResponseSchema = z.object({
     permissions: runtimePermissionsSchema,
     workflowCapabilities: z.record(z.boolean()).optional(),
     // Added by backend for dashboard rendering; optional for backward compatibility.
-    layoutConfig: dashboardLayoutConfigSchema,
+    layoutConfig: dashboardLayoutConfigSchema.optional(),
     zoneWidgets: runtimeZoneWidgetsSchema.optional(),
     menus: z
         .array(

@@ -801,7 +801,8 @@ export default function DashboardApp(props: DashboardAppProps) {
                           }
                         : undefined
                 }
-                sharedLayoutWidgets={templateQuery.data.widgets}
+                effectiveLayoutWidgets={templateQuery.data.widgets}
+                effectiveLayoutConfig={templateQuery.data.layout}
                 onLayoutStale={() => void templateQuery.refetch()}
                 loadingLabel={t('runtime.loading', 'Loading application')}
                 errorLabel={t('runtime.loadError', 'The application could not be loaded.')}

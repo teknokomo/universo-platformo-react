@@ -24,6 +24,7 @@
 -   📊 **Ledger Types** - Shared append-only Ledger configuration, field roles, source policies, and projections
 -   🎓 **LMS Platform Primitives** - Generic resource, Learning Content project/reference, sequence, workflow action, role policy, report definition, union datasource, and acceptance-matrix contracts
 -   🧭 **Interpretation Network Layout Contract** - Shared peer Matrix views, allowed/default settings, coherence validation, and boundary normalization for the metahub, Application control panel, and published runtime
+-   🧩 **Neutral Layout Envelope** - Shared placement metadata, sparse zone settings, source baselines, and deterministic effective-layout contracts for template-owned runtime behavior
 
 ## Description
 
@@ -39,6 +40,7 @@ Base protocol types and ECS domain types for Universo Platformo.
 -   Object `recordBehavior` and Ledger configuration contracts
 -   Generic LMS-like platform primitives that remain reusable outside LMS configurations, including workspace-authored Learning Content references, projects, sharing, recents, stars, trash, course/track policies, player presets, and column presets
 -   Strict `interpretationNetworkWorkspace` layout configuration, including `matrixMode`, `allowedMatrixViews`, and `defaultMatrixView`
+-   Neutral layout envelopes for widget placement, registry-backed zone settings, application-local sparse overrides, and source-baseline comparison
 
 ### Out of scope:
 
@@ -79,6 +81,26 @@ Ledgers classify ordinary field definitions through `fieldRoles` and use source 
 -   `normalizeInterpretationNetworkTableSettings()` repairs table projection, breadcrumb depth, toolbar layout, optional headers, the focused parent card, total tree-cell counter, and breadcrumb coloring consistently across template, Application Settings, and runtime parsing.
 
 This contract changes widget configuration only. It does not add a database schema migration or require a metahub template version bump.
+
+## Neutral Layout Envelope
+
+`common/layoutEnvelope` is the shared serializable contract for layout metadata
+that is owned by the platform shell while the renderer remains owned by a
+template package. It keeps placement metadata (`zone`, `position`, and
+`instanceKey`) separate from renderer configuration and supports sparse zone
+settings without requiring every template to persist a complete settings map.
+
+The effective value is resolved in this order: registry default, metahub base,
+then application-local overlay. An application overlay is allowed to contain
+only the settings changed by the administrator. The source baseline is retained
+for comparison and synchronization, but is excluded from the semantic layout
+hash and publication snapshot so source bookkeeping cannot change rendered
+content by itself.
+
+The marketing-page contract currently exposes `marketing-header.position` with
+`fixed` and `flow` values. The shared envelope is intentionally neutral so
+other template zones can add registry-backed settings without introducing
+template-specific fields into the platform protocol.
 
 ## Install (workspace)
 

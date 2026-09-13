@@ -16,6 +16,8 @@ const mockCreateApplicationLayout = jest.fn()
 const mockDeleteApplicationLayout = jest.fn()
 const mockDeleteApplicationLayoutWidget = jest.fn()
 const mockResetApplicationLayoutConfig = jest.fn()
+const mockUpdateApplicationLayoutZoneSetting = jest.fn()
+const mockResetApplicationLayoutZoneSetting = jest.fn()
 const mockUpdateApplicationLayoutWidgetConfigsBatch = jest.fn()
 const mockResetApplicationLayoutWidgetConfigsBatch = jest.fn()
 const mockToggleApplicationLayoutWidget = jest.fn()
@@ -54,6 +56,8 @@ jest.mock('../../persistence/applicationLayoutsStore', () => ({
     listApplicationLayouts: (...args: unknown[]) => mockListApplicationLayouts(...args),
     moveApplicationLayoutWidget: jest.fn(),
     resetApplicationLayoutConfig: (...args: unknown[]) => mockResetApplicationLayoutConfig(...args),
+    updateApplicationLayoutZoneSetting: (...args: unknown[]) => mockUpdateApplicationLayoutZoneSetting(...args),
+    resetApplicationLayoutZoneSetting: (...args: unknown[]) => mockResetApplicationLayoutZoneSetting(...args),
     resetApplicationLayoutWidgetConfigsBatch: (...args: unknown[]) => mockResetApplicationLayoutWidgetConfigsBatch(...args),
     toggleApplicationLayoutWidget: (...args: unknown[]) => mockToggleApplicationLayoutWidget(...args),
     updateApplicationLayout: (...args: unknown[]) => mockUpdateApplicationLayout(...args),
@@ -332,6 +336,71 @@ describe('applicationLayoutsController', () => {
         expect(res.status.mock.results[0]?.value.json).toHaveBeenCalledWith({
             error: 'APPLICATION_LAYOUT_CONFIG_RESET_INVALID'
         })
+    })
+
+    it('updates a zone setting through the request-scoped owner/admin boundary', async () => {
+        const requestScopedExecutor = {
+            query: jest.fn().mockResolvedValue([{ settings: null }]),
+            transaction: jest.fn(),
+            isReleased: jest.fn(() => false)
+        }
+        const controller = createApplicationLayoutsController(
+            () => executor as never,
+            () => requestScopedExecutor as never
+        )
+        const res = createResponse()
+        const layoutId = '018f8a78-7b8f-7c1d-a111-2222333344a1'
+        const body = { value: 'flow', expectedVersion: 7 }
+        const item = { id: layoutId, version: 8 }
+        mockUpdateApplicationLayoutZoneSetting.mockResolvedValue(item)
+
+        await controller.updateZoneSetting(
+            {
+                params: { applicationId: 'app-1', layoutId, zone: 'marketing-header', settingKey: 'position' },
+                body
+            } as unknown as Request,
+            res
+        )
+
+        expect(mockEnsureApplicationAccess).toHaveBeenCalledWith(requestScopedExecutor, 'user-1', 'app-1', ['owner', 'admin'])
+        expect(mockUpdateApplicationLayoutZoneSetting).toHaveBeenCalledWith(
+            requestScopedExecutor,
+            'app_runtime_schema',
+            layoutId,
+            'marketing-header',
+            'position',
+            body,
+            'user-1'
+        )
+        expect(res.json).toHaveBeenCalledWith({ item })
+    })
+
+    it('resets a zone setting and maps stale versions to HTTP 409', async () => {
+        const controller = createApplicationLayoutsController(() => executor as never)
+        const res = createResponse()
+        const layoutId = '018f8a78-7b8f-7c1d-a111-2222333344a1'
+        const body = { expectedVersion: 9 }
+        mockResetApplicationLayoutZoneSetting.mockRejectedValue(new Error('APPLICATION_LAYOUT_VERSION_CONFLICT'))
+
+        await controller.resetZoneSetting(
+            {
+                params: { applicationId: 'app-1', layoutId, zone: 'marketing-header', settingKey: 'position' },
+                body
+            } as unknown as Request,
+            res
+        )
+
+        expect(mockResetApplicationLayoutZoneSetting).toHaveBeenCalledWith(
+            executor,
+            'app_runtime_schema',
+            layoutId,
+            'marketing-header',
+            'position',
+            body,
+            'user-1'
+        )
+        expect(res.status).toHaveBeenCalledWith(409)
+        expect(res.status.mock.results[0]?.value.json).toHaveBeenCalledWith({ error: 'APPLICATION_LAYOUT_VERSION_CONFLICT' })
     })
 
     it.each(['abc', '0', '-1', '1.5', '9007199254740992'])(

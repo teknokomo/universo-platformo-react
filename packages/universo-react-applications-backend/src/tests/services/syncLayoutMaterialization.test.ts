@@ -13,6 +13,28 @@ import type { PublishedApplicationSnapshot } from '../../services/applicationSyn
 import { stableLineageUuidV7 } from '../../shared/applicationLayoutWidgetLineage'
 
 describe('sync layout materialization helpers', () => {
+    it('fails closed when a global snapshot layout omits explicit composition metadata', () => {
+        const snapshot: PublishedApplicationSnapshot = {
+            entities: {},
+            layouts: [
+                {
+                    id: 'global-layout-1',
+                    templateKey: 'dashboard',
+                    name: { en: 'Global default' },
+                    description: null,
+                    config: {},
+                    isActive: true,
+                    isDefault: true,
+                    sortOrder: 0
+                }
+            ],
+            layoutZoneWidgets: [],
+            defaultLayoutId: 'global-layout-1'
+        }
+
+        expect(() => normalizeSnapshotLayouts(snapshot)).toThrow('missing an explicit composition mode')
+    })
+
     it('preserves marketing layouts and never injects dashboard widgets', () => {
         const snapshot: PublishedApplicationSnapshot = {
             entities: {},
@@ -20,6 +42,8 @@ describe('sync layout materialization helpers', () => {
                 {
                     id: 'marketing-layout',
                     templateKey: 'marketing-page',
+                    compositionMode: 'independent',
+                    baseLayoutId: null,
                     name: { en: 'Marketing' },
                     description: null,
                     config: { themeMode: 'light' },
@@ -45,6 +69,8 @@ describe('sync layout materialization helpers', () => {
                 {
                     id: 'marketing-layout',
                     templateKey: 'marketing-page',
+                    compositionMode: 'independent',
+                    baseLayoutId: null,
                     name: { en: 'Marketing' },
                     description: null,
                     config: { themeMode: 'light' },
@@ -93,6 +119,8 @@ describe('sync layout materialization helpers', () => {
                 {
                     id: 'marketing-layout',
                     templateKey: 'marketing-page',
+                    compositionMode: 'independent',
+                    baseLayoutId: null,
                     name: { en: 'Marketing' },
                     description: null,
                     config: { themeMode: 'light' },
@@ -124,6 +152,8 @@ describe('sync layout materialization helpers', () => {
                 {
                     id: 'dashboard-layout',
                     templateKey: 'dashboard',
+                    compositionMode: 'independent',
+                    baseLayoutId: null,
                     name: { en: 'Dashboard' },
                     description: null,
                     config: {},
@@ -178,6 +208,8 @@ describe('sync layout materialization helpers', () => {
                 {
                     id: 'global-layout-1',
                     templateKey: 'dashboard',
+                    compositionMode: 'independent',
+                    baseLayoutId: null,
                     name: { en: 'Global default' },
                     description: null,
                     config: { showSideMenu: true },
@@ -278,6 +310,8 @@ describe('sync layout materialization helpers', () => {
                 {
                     id: 'global-layout-1',
                     templateKey: 'dashboard',
+                    compositionMode: 'independent',
+                    baseLayoutId: null,
                     name: { en: 'Global default' },
                     description: null,
                     config: {},
@@ -336,6 +370,8 @@ describe('sync layout materialization helpers', () => {
                 {
                     id: 'global-layout-1',
                     templateKey: 'dashboard',
+                    compositionMode: 'independent',
+                    baseLayoutId: null,
                     name: { en: 'Global default' },
                     description: null,
                     config: {},
@@ -490,6 +526,8 @@ describe('sync layout materialization helpers', () => {
                 {
                     id: 'global-layout-1',
                     templateKey: 'dashboard',
+                    compositionMode: 'independent',
+                    baseLayoutId: null,
                     name: { en: 'Global default' },
                     description: null,
                     config: {},
@@ -566,6 +604,8 @@ describe('sync layout materialization helpers', () => {
                 {
                     id: 'global-layout-1',
                     templateKey: 'dashboard',
+                    compositionMode: 'independent',
+                    baseLayoutId: null,
                     name: { en: 'Global default' },
                     description: null,
                     config: {},
@@ -644,6 +684,8 @@ describe('sync layout materialization helpers', () => {
                 {
                     id: 'global-layout-1',
                     templateKey: 'dashboard',
+                    compositionMode: 'independent',
+                    baseLayoutId: null,
                     name: { en: 'Global default' },
                     description: null,
                     config: {},
@@ -716,6 +758,8 @@ describe('sync layout materialization helpers', () => {
                 {
                     id: 'global-layout-1',
                     templateKey: 'dashboard',
+                    compositionMode: 'independent',
+                    baseLayoutId: null,
                     name: { en: 'Global default' },
                     description: null,
                     config: {},
@@ -850,6 +894,8 @@ describe('sync layout materialization helpers', () => {
                 {
                     id: 'global-layout-1',
                     templateKey: 'dashboard',
+                    compositionMode: 'independent',
+                    baseLayoutId: null,
                     name: { en: 'Global default' },
                     description: null,
                     config: { showSideMenu: true },
@@ -901,6 +947,8 @@ describe('sync layout materialization helpers', () => {
                 {
                     id: 'global-layout-1',
                     templateKey: 'dashboard',
+                    compositionMode: 'independent',
+                    baseLayoutId: null,
                     name: { en: 'Global default' },
                     description: null,
                     config: {},
@@ -959,6 +1007,8 @@ describe('sync layout materialization helpers', () => {
                 {
                     id: globalLayoutId,
                     templateKey: 'dashboard',
+                    compositionMode: 'independent',
+                    baseLayoutId: null,
                     name: { en: 'Global default' },
                     description: null,
                     config: {},
@@ -1006,6 +1056,8 @@ describe('sync layout materialization helpers', () => {
                 {
                     id: 'global-layout-1',
                     templateKey: 'dashboard',
+                    compositionMode: 'independent',
+                    baseLayoutId: null,
                     name: { en: 'Global default' },
                     description: null,
                     config: { showHeader: true, showSideMenu: true },
@@ -1119,6 +1171,8 @@ describe('sync layout materialization helpers', () => {
                 {
                     id: 'global-layout-1',
                     templateKey: 'dashboard',
+                    compositionMode: 'independent',
+                    baseLayoutId: null,
                     name: { en: 'Global default' },
                     description: null,
                     config: { showDetailsTable: true },
@@ -1170,11 +1224,16 @@ describe('sync layout materialization helpers', () => {
     it('keeps menu widget side-menu settings out of the runtime layout config', () => {
         const snapshot: PublishedApplicationSnapshot = {
             entities: {},
-            layoutConfig: { showSideMenu: true },
+            layoutConfig: {
+                showSideMenu: true,
+                __layout: { zoneSettings: { top: {} } }
+            },
             layouts: [
                 {
                     id: 'global-layout-1',
                     templateKey: 'dashboard',
+                    compositionMode: 'independent',
+                    baseLayoutId: null,
                     name: { en: 'Global default' },
                     description: null,
                     config: {},
@@ -1226,6 +1285,8 @@ describe('sync layout materialization helpers', () => {
                 {
                     id: 'global-layout-1',
                     templateKey: 'dashboard',
+                    compositionMode: 'independent',
+                    baseLayoutId: null,
                     name: { en: 'Global default' },
                     description: null,
                     config: { showHeader: true },
@@ -1281,6 +1342,8 @@ describe('sync layout materialization helpers', () => {
                 {
                     id: 'global-layout-1',
                     templateKey: 'dashboard',
+                    compositionMode: 'independent',
+                    baseLayoutId: null,
                     name: { en: 'Global default' },
                     description: null,
                     config: {},
@@ -1315,6 +1378,8 @@ describe('sync layout materialization helpers', () => {
                 {
                     id: 'global-layout-1',
                     templateKey: 'dashboard',
+                    compositionMode: 'independent',
+                    baseLayoutId: null,
                     name: { en: 'Global default' },
                     config: {},
                     isActive: true,
@@ -1324,6 +1389,8 @@ describe('sync layout materialization helpers', () => {
                 {
                     id: 'global-layout-2',
                     templateKey: 'dashboard',
+                    compositionMode: 'independent',
+                    baseLayoutId: null,
                     name: { en: 'Other dashboard' },
                     config: {},
                     isActive: true,
@@ -1385,6 +1452,8 @@ describe('sync layout materialization helpers', () => {
                 {
                     id: 'global-layout-1',
                     templateKey: 'dashboard',
+                    compositionMode: 'independent',
+                    baseLayoutId: null,
                     name: { en: 'Global default' },
                     config: 'false',
                     isActive: 'false',
@@ -1437,6 +1506,8 @@ describe('sync layout materialization helpers', () => {
                 {
                     id: 'global-layout-1',
                     templateKey: 'dashboard',
+                    compositionMode: 'independent',
+                    baseLayoutId: null,
                     name: { en: 'Global default' },
                     config: {},
                     isActive: true,

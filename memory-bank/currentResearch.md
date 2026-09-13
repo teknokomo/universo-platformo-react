@@ -1,5 +1,16 @@
 # Current Research
 
+## 2026-09-12: Composable marketing header and generic layout-zone settings research
+
+-   Research artifact created: `memory-bank/research/marketing-header-widget-zone-settings-research-2026-09-12.md`.
+-   QA on 2026-09-12 rechecked the brief, current source, three prior research artifacts, Context7 MUI/Zod documentation, primary MUI/MDN/React/Zod/WAI sources, and three independent read-only subagent reviews. The artifact was corrected in place; no product code or MANAGER brief was changed.
+-   Current source confirms that `marketing-header` is only nominally compositional: each `marketing.navigation` still owns a fixed AppBar shell, brand/auth/theme/mobile Drawer behavior, while the first navigation instance receives the separately persisted language switcher through a `sharedLayoutWidgets` side channel.
+-   The recommended clean-break architecture uses one zone-owned banner/AppBar shell plus atomic persisted `marketing.brand`, repeatable `marketing.navigation`, `marketing.auth`, shared `languageSwitcher`, and shared `colorModeSwitcher`; the mobile trigger/Drawer remain one shell-owned responsive affordance.
+-   QA fixed the storage/snapshot ambiguity: existing serialized layout `config` remains the single physical carrier for reserved neutral metadata; decoded/effective contracts may expose typed zone settings only after one canonical neutral layout-envelope codec strips and validates them before strict renderer parsing. No second snapshot wire format is recommended.
+-   Application synchronization has a concrete baseline gap: layout rows retain source hashes but no source config baseline. Accepted source sync must atomically update a stored `sourceZoneSettings` baseline while preserving any application-local sparse override; a dedicated Zone Settings reset removes only that override and reuses layout OCC instead of changing the whole marketing appearance reset.
+-   Header placement remains a required typed logical `start | end` capability with localized keyboard-accessible authoring, but its physical encoding is intentionally deferred to PLAN. The runtime contract also requires exactly one accessible banner owner, one active mobile projection per persisted control, and measured fixed-header scroll padding/geometry rather than per-navigation constants.
+-   No product code, database migration, template version, manager brief, or implementation plan was changed in RESEARCH mode. Remaining PLAN decisions are bounded to the exact reserved JSON key/possible composition normalization, logical-placement encoding, sync convergence policy, shared-widget cardinality timing, and mobile projection of language/theme controls.
+
 ## 2026-09-08: Unified application-template widgets and scoped-layout implementation closeout
 
 -   The IMPLEMENT continuation is complete for the verified local scope. The

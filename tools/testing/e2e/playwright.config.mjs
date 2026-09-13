@@ -17,7 +17,11 @@ export default defineConfig({
     retries: process.env.CI ? 1 : 0,
     workers: process.env.CI ? 2 : 1,
     outputDir: path.resolve(repoRoot, 'test-results'),
-    reporter: [['list'], ['html', { open: 'never', outputFolder: path.resolve(repoRoot, 'playwright-report') }]],
+    reporter: [
+        ['list'],
+        ['html', { open: 'never', outputFolder: path.resolve(repoRoot, 'playwright-report') }],
+        ['json', { outputFile: path.resolve(repoRoot, 'test-results/playwright-results.json') }]
+    ],
     use: {
         baseURL: env.baseURL,
         browserName: 'chromium',

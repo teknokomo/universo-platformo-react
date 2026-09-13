@@ -28,6 +28,7 @@ export * from './common/admin'
 export * from './common/applications'
 export * from './common/applicationLayouts'
 export * from './common/layoutWidgetDefinitions'
+export * from './common/layoutEnvelope'
 export {
     LAYOUT_SEMANTIC_REGIONS,
     layoutSemanticRegionSchema,

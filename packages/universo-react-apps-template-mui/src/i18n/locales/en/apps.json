@@ -637,8 +637,7 @@
         "navigation": {
             "openMenu": "Open menu",
             "closeMenu": "Close menu",
-            "landmark": "{{brand}} navigation {{index}}",
-            "skipToContent": "Skip to content"
+            "landmark": "{{brand}} navigation {{index}}"
         },
         "form": {
             "invalidEmail": "Enter a valid email address.",

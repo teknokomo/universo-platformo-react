@@ -11,6 +11,7 @@ import { DASHBOARD_LAYOUT_WIDGETS } from '@universo-react/types'
 import { EntityFormDialog } from '@universo-react/template-mui'
 import { generateUuidV7 } from '@universo-react/utils'
 import { useTranslation } from 'react-i18next'
+import { useCommonTranslations } from '@universo-react/i18n'
 
 import ApplicationLayoutSharedBehaviorFields, {
     getSharedBehaviorFromWidgetConfig,
@@ -134,6 +135,7 @@ function SortableColumnRow({
 
 export default function ApplicationColumnsContainerEditorDialog({ open, config, showSharedBehavior = false, onSave, onCancel }: Props) {
     const { t } = useTranslation(['applications', 'common'])
+    const { t: tc } = useCommonTranslations()
     const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }))
     const [columns, setColumns] = useState<ColumnsContainerColumn[]>([])
     const [sharedBehaviorValue, setSharedBehaviorValue] = useState(() => getSharedBehaviorFromWidgetConfig(config))
@@ -152,9 +154,9 @@ export default function ApplicationColumnsContainerEditorDialog({ open, config, 
         () =>
             CENTER_WIDGET_KEYS.map((key) => ({
                 key,
-                label: t(`layouts.widgets.${key}`, key)
+                label: tc(`layouts.widgets.${key}`, key)
             })),
-        [t]
+        [tc]
     )
 
     const totalWidth = useMemo(() => columns.reduce((sum, column) => sum + column.width, 0), [columns])

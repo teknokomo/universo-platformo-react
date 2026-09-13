@@ -7,7 +7,15 @@ import type {
     DashboardLayoutWidgetKey,
     DashboardLayoutZone
 } from '@universo-react/types'
-import { parseApplicationLayoutWidgetConfig } from '@universo-react/types'
+import {
+    applicationLayoutWidgetKeySchema,
+    decodeLayoutConfigEnvelope,
+    decodeWidgetConfigEnvelope,
+    encodeLayoutConfigEnvelope,
+    encodeWidgetConfigEnvelope,
+    getLayoutZoneSettingDefault,
+    parseApplicationLayoutWidgetConfig
+} from '@universo-react/types'
 import { buildDashboardLayoutConfig } from '../../shared'
 import { toJsonbValue } from '../../shared/jsonb'
 import { codenamePrimaryTextSql, ensureCodenameValue } from '../../shared/codename'
@@ -18,6 +26,7 @@ import {
     shouldSeedObjectSystemComponents
 } from './systemComponentSeed'
 import { buildTemplateSeedEntityCodenameValue, resolveTemplateSeedCodenameConfig } from './TemplateSeedExecutor'
+import { resolveMarketingSeedWidgetLookup } from './templateSeedWidgetIdentity'
 
 const buildEntityMapKey = (kind: string, codename: string): string => `${kind}:${codename}`
 const buildFixedValueMapKey = (setCodename: string, fixedValueCodename: string): string => `${setCodename}:${fixedValueCodename}`
@@ -168,7 +177,31 @@ export class TemplateSeedMigrator {
                 }
             }
 
-            const config = layout.config ?? {}
+            const layoutEnvelope = decodeLayoutConfigEnvelope(layout.config ?? {}, {
+                templateKey: layout.templateKey,
+                allowSourceZoneSettings: false
+            })
+            const layoutNeutral = {
+                ...layoutEnvelope.neutral,
+                composition: { mode: 'independent' as const, baseLayoutId: null }
+            }
+            if (layout.templateKey === 'marketing-page') {
+                layoutNeutral.zoneSettings = {
+                    ...(layoutNeutral.zoneSettings ?? {}),
+                    'marketing-header': {
+                        ...(layoutNeutral.zoneSettings?.['marketing-header'] ?? {}),
+                        position:
+                            layoutNeutral.zoneSettings?.['marketing-header']?.position ??
+                            ((getLayoutZoneSettingDefault(layout.templateKey, 'marketing-header', 'position') ?? 'fixed') as
+                                | 'fixed'
+                                | 'flow')
+                    }
+                }
+            }
+            const config = encodeLayoutConfigEnvelope(
+                { rendererConfig: layoutEnvelope.rendererConfig, neutral: layoutNeutral },
+                { templateKey: layout.templateKey }
+            )
 
             if (dryRun) {
                 layoutIdMap.set(layout.codename, `dry-run:layout:${layout.codename}`)
@@ -235,7 +268,19 @@ export class TemplateSeedMigrator {
             const isMarketingLayout = layoutRow?.template_key === 'marketing-page'
             let insertedAny = false
             for (const w of widgets) {
-                const config = isMarketingLayout ? parseApplicationLayoutWidgetConfig(w.widgetKey, w.config ?? {}) : w.config ?? {}
+                const widgetKey = applicationLayoutWidgetKeySchema.parse(w.widgetKey)
+                const widgetEnvelope = decodeWidgetConfigEnvelope(w.config ?? {}, {
+                    templateKey: layoutRow?.template_key ?? 'dashboard',
+                    widgetKey,
+                    zone: w.zone
+                })
+                const rendererConfig = isMarketingLayout
+                    ? parseApplicationLayoutWidgetConfig(w.widgetKey, widgetEnvelope.rendererConfig)
+                    : widgetEnvelope.rendererConfig
+                const config = encodeWidgetConfigEnvelope(
+                    { rendererConfig, neutral: widgetEnvelope.neutral },
+                    { templateKey: layoutRow?.template_key ?? 'dashboard', widgetKey, zone: w.zone }
+                )
                 if (dryRun && layoutId.startsWith('dry-run:')) {
                     insertedAny = true
                     result.zoneWidgetsAdded++
@@ -249,7 +294,10 @@ export class TemplateSeedMigrator {
                     _mhb_deleted: false
                 })
                 if (isMarketingLayout) {
-                    existsQuery.whereRaw("config->>'instanceKey' = ?", [config.instanceKey])
+                    const lookup = resolveMarketingSeedWidgetLookup(w.widgetKey, widgetEnvelope.rendererConfig)
+                    if (lookup.kind === 'instanceKey') {
+                        existsQuery.whereRaw("config->>'instanceKey' = ?", [lookup.value])
+                    }
                 } else {
                     existsQuery.where({ zone: w.zone, sort_order: w.sortOrder })
                 }
@@ -312,7 +360,20 @@ export class TemplateSeedMigrator {
                     zone: row.zone as DashboardLayoutZone
                 }))
             )
-            await trx.withSchema(this.schemaName).from('_mhb_layouts').where({ id: layoutId }).update({ config: layoutConfig })
+            const layoutEnvelope = decodeLayoutConfigEnvelope(layoutRow?.config ?? {}, {
+                templateKey: 'dashboard',
+                allowSourceZoneSettings: false
+            })
+            await trx
+                .withSchema(this.schemaName)
+                .from('_mhb_layouts')
+                .where({ id: layoutId })
+                .update({
+                    config: encodeLayoutConfigEnvelope(
+                        { rendererConfig: layoutConfig, neutral: layoutEnvelope.neutral },
+                        { templateKey: 'dashboard' }
+                    )
+                })
         }
     }
 

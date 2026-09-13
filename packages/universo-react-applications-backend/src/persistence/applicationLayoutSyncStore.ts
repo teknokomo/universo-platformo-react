@@ -1,6 +1,17 @@
 import { qSchemaTable } from '@universo-react/database'
-import { applicationTemplateKeySchema, type ApplicationTemplateKey } from '@universo-react/types'
-import { generateUuidV7, type DbExecutor } from '@universo-react/utils'
+import {
+    applicationTemplateKeySchema,
+    decodeLayoutConfigEnvelope,
+    decodeLayoutWidgetConfigEnvelope,
+    encodeLayoutConfigEnvelope,
+    encodeLayoutWidgetConfigEnvelope,
+    encodeSnapshotLayoutConfigEnvelope,
+    parseApplicationLayoutConfig,
+    parseApplicationLayoutWidgetConfig,
+    type ApplicationTemplateKey,
+    type PersistedLayoutNeutralMetadata
+} from '@universo-react/types'
+import { generateUuidV7, normalizeDashboardLayoutConfig, type DbExecutor } from '@universo-react/utils'
 import type { ApplicationLayoutSyncResolution } from '@universo-react/types'
 import type { PersistedAppLayout, PersistedAppLayoutZoneWidget } from '../routes/sync/syncTypes'
 import { stableLineageUuidV7 } from '../shared/applicationLayoutWidgetLineage'
@@ -76,6 +87,21 @@ export interface ApplicationLayoutSyncPolicy {
 const activeRowPredicate = '_upl_deleted = false AND _app_deleted = false'
 
 const isRecord = (value: unknown): value is JsonRecord => Boolean(value && typeof value === 'object' && !Array.isArray(value))
+
+const requireRecord = (value: unknown, context: string): JsonRecord => {
+    if (!isRecord(value)) throw new Error(`[SchemaSync] ${context} must be an object`)
+    return value
+}
+
+const requireBoolean = (value: unknown, context: string): boolean => {
+    if (typeof value !== 'boolean') throw new Error(`[SchemaSync] ${context} must be a boolean`)
+    return value
+}
+
+const requireInteger = (value: unknown, context: string): number => {
+    if (typeof value !== 'number' || !Number.isInteger(value)) throw new Error(`[SchemaSync] ${context} must be an integer`)
+    return value
+}
 
 const json = (value: unknown): string => JSON.stringify(value ?? null)
 
@@ -167,13 +193,44 @@ const buildSourceLayoutMap = (
     return map
 }
 
-const remapLayoutConfig = (config: JsonRecord, sourceToPhysical: ReadonlyMap<string, string>): JsonRecord => {
-    const baseLayoutId = config.baseLayoutId
-    if (baseLayoutId === undefined || baseLayoutId === null) return config
-    if (typeof baseLayoutId !== 'string') throw new Error('[SchemaSync] Layout base reference is malformed')
-    const physicalBaseId = sourceToPhysical.get(baseLayoutId)
-    if (!physicalBaseId) throw new Error(`[SchemaSync] Layout references missing base layout ${baseLayoutId}`)
-    return { ...config, baseLayoutId: physicalBaseId }
+const remapLayoutConfig = (
+    templateKey: ApplicationTemplateKey,
+    config: JsonRecord,
+    sourceToPhysical: ReadonlyMap<string, string>,
+    sourceComposition: PersistedAppLayout['sourceComposition'],
+    options: { applicationOwned?: boolean } = {}
+): JsonRecord => {
+    const decoded = decodeLayoutConfigEnvelope(config, { templateKey })
+    const rendererConfig = decoded.rendererConfig
+    const neutral: PersistedLayoutNeutralMetadata = { ...decoded.neutral }
+    const composition = sourceComposition
+    if (!composition) throw new Error('[SchemaSync] Layout snapshot is missing composition transport metadata')
+    if (decoded.neutral.composition) {
+        const decodedComposition = decoded.neutral.composition
+        if (
+            decodedComposition.mode !== composition.mode ||
+            (composition.mode === 'overlay' && decodedComposition.baseLayoutId !== composition.baseLayoutId) ||
+            (composition.mode === 'independent' && decodedComposition.baseLayoutId !== null)
+        ) {
+            throw new Error('[SchemaSync] Layout snapshot contains conflicting composition metadata')
+        }
+    }
+    if (composition?.mode === 'overlay') {
+        const physicalBaseId = sourceToPhysical.get(composition.baseLayoutId)
+        if (!physicalBaseId) throw new Error(`[SchemaSync] Layout references missing base layout ${composition.baseLayoutId}`)
+        neutral.composition = { mode: 'overlay', baseLayoutId: physicalBaseId }
+    } else {
+        neutral.composition = { mode: 'independent', baseLayoutId: null }
+    }
+    if (options.applicationOwned) {
+        neutral.composition = { mode: 'independent', baseLayoutId: null }
+        delete neutral.sourceZoneSettings
+    } else {
+        if (neutral.zoneSettings) neutral.sourceZoneSettings = neutral.zoneSettings
+        else delete neutral.sourceZoneSettings
+        delete neutral.zoneSettings
+    }
+    return encodeLayoutConfigEnvelope({ rendererConfig, neutral }, { templateKey })
 }
 
 const layoutRowsSelect = (table: string): string => `
@@ -342,6 +399,25 @@ const layoutMutationPayload = (input: SyncLayoutInput, physicalLayoutId: string,
     sourceSnapshotHash: input.sourceSnapshotHash
 })
 
+const mergeSourceZoneSettingsIntoLocalConfig = (
+    templateKey: ApplicationTemplateKey,
+    currentConfig: JsonRecord,
+    sourceConfig: JsonRecord
+): JsonRecord => {
+    const current = decodeLayoutConfigEnvelope(currentConfig, { templateKey })
+    const source = decodeLayoutConfigEnvelope(sourceConfig, { templateKey })
+    const neutral: PersistedLayoutNeutralMetadata = {
+        ...current.neutral,
+        ...(source.neutral.sourceZoneSettings
+            ? { sourceZoneSettings: source.neutral.sourceZoneSettings }
+            : source.neutral.zoneSettings
+            ? { sourceZoneSettings: source.neutral.zoneSettings }
+            : {})
+    }
+    if (!source.neutral.sourceZoneSettings && !source.neutral.zoneSettings) delete neutral.sourceZoneSettings
+    return encodeLayoutConfigEnvelope({ rendererConfig: current.rendererConfig, neutral }, { templateKey })
+}
+
 const updateLayout = async (
     executor: DbExecutor,
     table: string,
@@ -369,7 +445,7 @@ const updateLayout = async (
             sync_state = $15,
             is_source_excluded = $16,
             source_deleted_at = $17,
-            source_deleted_by = CASE WHEN $17 IS NULL THEN NULL ELSE source_deleted_by END,
+            source_deleted_by = CASE WHEN $17::timestamptz IS NULL THEN NULL ELSE source_deleted_by END,
             _upl_updated_at = NOW(),
             _upl_updated_by = $18,
             _upl_version = COALESCE(_upl_version, 1) + 1,
@@ -411,6 +487,7 @@ const updateLayoutMetadata = async (
     table: string,
     layoutId: string,
     values: {
+        config?: JsonRecord
         sourceSnapshotHash?: string | null
         sourceContentHash?: string | null
         syncState?: string
@@ -427,8 +504,9 @@ const updateLayoutMetadata = async (
             sync_state = COALESCE($4, sync_state),
             is_default = COALESCE($5, is_default),
             is_active = COALESCE($6, is_active),
+            config = CASE WHEN $7::jsonb IS NULL THEN config ELSE $7::jsonb END,
             _upl_updated_at = NOW(),
-            _upl_updated_by = $7,
+            _upl_updated_by = $8,
             _upl_version = COALESCE(_upl_version, 1) + 1
         WHERE id = $1 AND _app_deleted = false AND _upl_deleted = false
         RETURNING id
@@ -440,6 +518,7 @@ const updateLayoutMetadata = async (
             values.syncState ?? null,
             values.isDefault ?? null,
             values.isActive ?? null,
+            values.config === undefined ? null : json(values.config),
             userId
         ]
     )
@@ -572,7 +651,12 @@ export async function syncApplicationLayouts(
             const physicalLayoutId = sourceToPhysical.get(sourceLayoutId)
             if (!physicalLayoutId) throw new Error('[SchemaSync] Layout source map is incomplete')
             const existing = existingByPhysicalId.get(physicalLayoutId)
-            const mappedConfig = remapLayoutConfig(isRecord(layoutInput.row.config) ? layoutInput.row.config : {}, sourceToPhysical)
+            const mappedConfig = remapLayoutConfig(
+                layoutInput.row.templateKey,
+                layoutInput.row.config,
+                sourceToPhysical,
+                layoutInput.row.sourceComposition
+            )
             let isDefault = layoutInput.row.isDefault
 
             if (isDefault) {
@@ -620,12 +704,30 @@ export async function syncApplicationLayouts(
             }
 
             const payload = layoutMutationPayload(layoutInput, physicalLayoutId, mappedConfig, isDefault)
+            const applicationCopyPayload = {
+                ...payload,
+                // An application-owned copy starts a new local lineage. The
+                // publication snapshot that produced the source row cannot
+                // validate this independent copy as an inherited layer.
+                sourceSnapshotHash: null,
+                config: remapLayoutConfig(
+                    layoutInput.row.templateKey,
+                    layoutInput.row.config,
+                    sourceToPhysical,
+                    layoutInput.row.sourceComposition,
+                    { applicationOwned: true }
+                )
+            }
             const locallyModified =
                 existing?.source_kind === 'metahub' &&
                 existing.source_content_hash !== null &&
                 existing.local_content_hash !== null &&
                 existing.source_content_hash !== existing.local_content_hash
             const resolution = input.policy?.bySourceLayoutId?.[sourceLayoutId] ?? input.policy?.default
+            const sourceChanged =
+                existing?.source_kind === 'metahub' &&
+                existing.source_content_hash !== null &&
+                existing.source_content_hash !== layoutInput.sourceContentHash
 
             if (!existing) {
                 await insertLayout(tx, layoutsTable, payload, input.userId)
@@ -644,7 +746,13 @@ export async function syncApplicationLayouts(
                 continue
             }
 
-            if (locallyModified && existing.source_content_hash !== layoutInput.sourceContentHash && resolution !== 'overwrite_local') {
+            if (sourceChanged && resolution === 'skip_source') {
+                await updateLayoutMetadata(tx, layoutsTable, physicalLayoutId, { syncState: 'source_updated' }, input.userId)
+                continue
+            }
+
+            if (locallyModified && resolution !== 'overwrite_local') {
+                if (!sourceChanged) continue
                 if (resolution === 'copy_source_as_application') {
                     const copyRows = await tx.query<{ id: string }>(
                         `
@@ -666,7 +774,7 @@ export async function syncApplicationLayouts(
                             ...(widgetsByLayoutId.get(physicalLayoutId) ?? []).map((widget) => widget.id)
                         ])
                         const copyId = allocatePhysicalUuid(copyUsedIds)
-                        const copyPayload = { ...payload, physicalLayoutId: copyId, isDefault: false }
+                        const copyPayload = { ...applicationCopyPayload, physicalLayoutId: copyId, isDefault: false }
                         await insertLayout(tx, layoutsTable, copyPayload, input.userId, 'application', 'clean')
                         for (const widget of widgetsByLayoutId.get(physicalLayoutId) ?? []) {
                             const copiedWidgetId = allocatePhysicalUuid(copyUsedIds)
@@ -687,6 +795,11 @@ export async function syncApplicationLayouts(
                         layoutsTable,
                         physicalLayoutId,
                         {
+                            config: mergeSourceZoneSettingsIntoLocalConfig(
+                                layoutInput.row.templateKey,
+                                requireRecord(existing.config, `Persisted layout ${existing.id} config`),
+                                mappedConfig
+                            ),
                             sourceSnapshotHash: input.snapshotHash,
                             sourceContentHash: layoutInput.sourceContentHash,
                             syncState: 'local_modified'
@@ -701,6 +814,11 @@ export async function syncApplicationLayouts(
                         layoutsTable,
                         physicalLayoutId,
                         {
+                            config: mergeSourceZoneSettingsIntoLocalConfig(
+                                layoutInput.row.templateKey,
+                                requireRecord(existing.config, `Persisted layout ${existing.id} config`),
+                                mappedConfig
+                            ),
                             sourceSnapshotHash: input.snapshotHash,
                             sourceContentHash: layoutInput.sourceContentHash,
                             syncState: 'local_modified'
@@ -709,17 +827,7 @@ export async function syncApplicationLayouts(
                     )
                     continue
                 }
-                if (resolution === 'skip_source') {
-                    await updateLayoutMetadata(tx, layoutsTable, physicalLayoutId, { syncState: 'source_updated' }, input.userId)
-                    continue
-                }
-                await updateLayoutMetadata(
-                    tx,
-                    layoutsTable,
-                    physicalLayoutId,
-                    { sourceSnapshotHash: input.snapshotHash, sourceContentHash: layoutInput.sourceContentHash, syncState: 'conflict' },
-                    input.userId
-                )
+                await updateLayoutMetadata(tx, layoutsTable, physicalLayoutId, { syncState: 'conflict' }, input.userId)
                 continue
             }
 
@@ -755,17 +863,23 @@ export async function syncApplicationLayouts(
                 continue
             }
             if (locallyModified && resolution !== 'overwrite_local' && resolution !== 'skip_source') {
+                const detachedConfig = mergeSourceZoneSettingsIntoLocalConfig(
+                    applicationTemplateKeySchema.parse(missing.template_key),
+                    requireRecord(missing.config, `Persisted layout ${missing.id} config`),
+                    {}
+                )
                 const rows = await tx.query<{ id: string }>(
                     `
                     UPDATE ${layoutsTable}
-                    SET source_kind = 'application', source_layout_id = NULL, source_snapshot_hash = NULL,
+                    SET config = $2::jsonb,
+                        source_kind = 'application', source_layout_id = NULL, source_snapshot_hash = NULL,
                         source_content_hash = NULL, sync_state = 'clean',
-                        _upl_updated_at = NOW(), _upl_updated_by = $2,
+                        _upl_updated_at = NOW(), _upl_updated_by = $3,
                         _upl_version = COALESCE(_upl_version, 1) + 1
                     WHERE id = $1 AND _upl_deleted = false AND _app_deleted = false
                     RETURNING id
                     `,
-                    [missing.id, input.userId]
+                    [missing.id, json(detachedConfig), input.userId]
                 )
                 requireExactlyOne(rows, '[SchemaSync] Local layout detachment lost its target row')
                 continue
@@ -807,7 +921,14 @@ export async function getPersistedDashboardLayoutConfig(executor: DbExecutor, sc
                   ['dashboard']
               )
     const value = preferred[0]?.config ?? fallback[0]?.config
-    return isRecord(value) ? value : {}
+    if (value === undefined) return {}
+    if (!isRecord(value)) throw new Error('[SchemaSync] Persisted dashboard layout config is invalid')
+    try {
+        const decoded = decodeLayoutConfigEnvelope(value, { templateKey: 'dashboard' })
+        return normalizeDashboardLayoutConfig(decoded.rendererConfig) as unknown as Record<string, unknown>
+    } catch {
+        throw new Error('[SchemaSync] Persisted dashboard layout config is invalid')
+    }
 }
 
 const parseTemplateKey = (value: unknown, context: string): ApplicationTemplateKey => {
@@ -827,17 +948,26 @@ export async function getPersistedPublishedLayouts(
          ORDER BY l.scope_entity_id NULLS FIRST, l.sort_order ASC, l._upl_created_at ASC, l.id ASC`,
         ['conflict']
     )
-    const layouts = rows.map((row) => ({
-        id: row.id,
-        scopeEntityId: row.scope_entity_id ?? null,
-        templateKey: parseTemplateKey(row.template_key, `persisted layout ${row.id}`),
-        name: isRecord(row.name) ? row.name : {},
-        description: isRecord(row.description) ? row.description : null,
-        config: isRecord(row.config) ? row.config : {},
-        isActive: row.is_active === true,
-        isDefault: row.is_default === true,
-        sortOrder: typeof row.sort_order === 'number' ? row.sort_order : 0
-    }))
+    const layouts = rows.map((row) => {
+        const templateKey = parseTemplateKey(row.template_key, `persisted layout ${row.id}`)
+        const decoded = decodeLayoutConfigEnvelope(requireRecord(row.config, `Persisted layout ${row.id} config`), { templateKey })
+        if (!decoded.neutral.composition) {
+            throw new Error(`[SchemaSync] Persisted layout ${row.id} is missing canonical composition metadata`)
+        }
+        const rendererConfig = parseApplicationLayoutConfig(templateKey, decoded.rendererConfig)
+        return {
+            id: row.id,
+            scopeEntityId: row.scope_entity_id ?? null,
+            templateKey,
+            name: requireRecord(row.name, `Persisted layout ${row.id} name`),
+            description: row.description === null ? null : requireRecord(row.description, `Persisted layout ${row.id} description`),
+            config: encodeSnapshotLayoutConfigEnvelope({ rendererConfig, neutral: decoded.neutral }, { templateKey }),
+            sourceComposition: decoded.neutral.composition,
+            isActive: requireBoolean(row.is_active, `Persisted layout ${row.id} isActive`),
+            isDefault: requireBoolean(row.is_default, `Persisted layout ${row.id} isDefault`),
+            sortOrder: requireInteger(row.sort_order, `Persisted layout ${row.id} sortOrder`)
+        }
+    })
     return { layouts, defaultLayoutId: layouts.find((row) => row.scopeEntityId === null && row.isDefault)?.id ?? null }
 }
 
@@ -859,16 +989,31 @@ export async function getPersistedPublishedWidgets(executor: DbExecutor, schemaN
         `,
         ['conflict']
     )
-    return rows.map((row) => ({
-        id: row.id,
-        layoutId: row.layout_id,
-        sourceBaseWidgetId: row.source_base_widget_id,
-        zone: row.zone as PersistedAppLayoutZoneWidget['zone'],
-        widgetKey: row.widget_key,
-        sortOrder: typeof row.sort_order === 'number' ? row.sort_order : 0,
-        config: isRecord(row.config) ? row.config : {},
-        isActive: row.is_active !== false
-    }))
+    return rows.map((row) => {
+        const templateKey = parseTemplateKey(row.template_key, `persisted widget ${row.id}`)
+        if (typeof row.zone !== 'string' || row.zone.length === 0 || typeof row.widget_key !== 'string' || row.widget_key.length === 0) {
+            throw new Error(`[SchemaSync] Persisted widget ${row.id} identity is invalid`)
+        }
+        const decoded = decodeLayoutWidgetConfigEnvelope(requireRecord(row.config, `Persisted widget ${row.id} config`), {
+            templateKey,
+            widgetKey: row.widget_key,
+            zone: row.zone
+        })
+        const rendererConfig = parseApplicationLayoutWidgetConfig(row.widget_key, decoded.rendererConfig)
+        return {
+            id: row.id,
+            layoutId: row.layout_id,
+            sourceBaseWidgetId: row.source_base_widget_id,
+            zone: row.zone as PersistedAppLayoutZoneWidget['zone'],
+            widgetKey: row.widget_key,
+            sortOrder: requireInteger(row.sort_order, `Persisted widget ${row.id} sortOrder`),
+            config: encodeLayoutWidgetConfigEnvelope(
+                { rendererConfig, neutral: decoded.neutral },
+                { templateKey, widgetKey: row.widget_key, zone: row.zone }
+            ),
+            isActive: requireBoolean(row.is_active, `Persisted widget ${row.id} isActive`)
+        }
+    })
 }
 
 export async function readMigrationRow(

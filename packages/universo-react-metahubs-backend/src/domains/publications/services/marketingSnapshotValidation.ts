@@ -2,7 +2,7 @@ import {
     MarketingSnapshotValidationError,
     SnapshotLayoutValidationError,
     validateSnapshotLayoutIdentities as validateSharedSnapshotLayoutIdentities,
-    validateMarketingSnapshotLayouts as validateSharedMarketingSnapshotLayouts
+    validateMarketingSnapshotTransportLayouts as validateSharedMarketingSnapshotLayouts
 } from '@universo-react/utils'
 import type { MetahubSnapshot } from './SnapshotSerializer'
 import { MetahubValidationError } from '../../shared/domainErrors'

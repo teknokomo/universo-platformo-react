@@ -2,6 +2,7 @@ import { z } from 'zod'
 import { APPLICATION_TEMPLATE_REGISTRY, layoutSemanticRegionSchema } from './applicationTemplates'
 import { dashboardLayoutConfigSchema, dashboardSideMenuConfigSchema, type DashboardLayoutConfig } from './dashboardLayout'
 import { getLayoutWidgetAllowedZones, getLayoutWidgetDefinition, getLayoutZoneDefinition } from './layoutWidgetDefinitions'
+import { layoutLogicalPlacementSchema, layoutZoneSettingsSchema, persistedLayoutNeutralMetadataSchema } from './layoutEnvelope'
 import { DASHBOARD_LAYOUT_WIDGETS, DASHBOARD_LAYOUT_ZONES, type MenuWidgetTarget } from './metahubs'
 import { moduleBackedWidgetConfigSchema, sharedBehaviorSchema } from './moduleBackedWidgetConfig'
 import { interpretationNetworkWorkspaceWidgetConfigSchema } from './interpretationNetworkLayout'
@@ -17,6 +18,8 @@ import { reportDefinitionSchema } from './lmsPlatform'
 import { workflowActionSchema } from './workflowActions'
 import {
     applicationTemplateKeySchema,
+    marketingAuthWidgetConfigSchema,
+    marketingBrandWidgetConfigSchema,
     marketingCollectionWidgetConfigSchema,
     marketingFooterWidgetConfigSchema,
     marketingHeroWidgetConfigSchema,
@@ -255,9 +258,13 @@ const MARKETING_ONLY_LAYOUT_CONFIG_KEYS = new Set([
     'allowTelephoneActions',
     'externalLinkTarget'
 ])
+const RESERVED_LAYOUT_CONFIG_KEYS = new Set(['__layout', 'compositionMode', 'baseLayoutId'])
 
 export const parseApplicationLayoutConfig = (templateKey: ApplicationTemplateKey | string, config: unknown): ApplicationLayoutConfig => {
     const key = applicationTemplateKeySchema.parse(templateKey)
+    if (isApplicationLayoutRecord(config) && Object.keys(config).some((configKey) => RESERVED_LAYOUT_CONFIG_KEYS.has(configKey))) {
+        throw new Error('Layout metadata must be decoded before renderer configuration is parsed.')
+    }
     if (key === 'marketing-page') return marketingPageConfigSchema.parse(config ?? {}) as ApplicationLayoutConfig
     if (isApplicationLayoutRecord(config) && Object.keys(config).some((configKey) => MARKETING_ONLY_LAYOUT_CONFIG_KEYS.has(configKey))) {
         throw new Error('Dashboard layouts cannot contain marketing-page configuration keys.')
@@ -864,7 +871,9 @@ const widgetConfigSchemaByKey = {
     resourcePreview: resourcePreviewWidgetConfigSchema,
     learnerPlayer: learnerPlayerWidgetConfigSchema,
     interpretationNetworkWorkspace: interpretationNetworkWorkspaceWidgetConfigSchema,
+    'marketing.brand': marketingBrandWidgetConfigSchema,
     'marketing.navigation': marketingNavigationWidgetConfigSchema,
+    'marketing.auth': marketingAuthWidgetConfigSchema,
     'marketing.hero': marketingHeroWidgetConfigSchema,
     'marketing.collection': marketingCollectionWidgetConfigSchema,
     'marketing.pricing': marketingPricingWidgetConfigSchema,
@@ -901,6 +910,7 @@ export const applicationLayoutWidgetSchema = z.object({
     sourceConfig: z.record(z.unknown()).nullable().default(null),
     sourceWidgetId: uuidV7Schema.nullable().optional(),
     sourceBaseWidgetId: uuidV7Schema.nullable().optional(),
+    placement: layoutLogicalPlacementSchema.optional(),
     isCustomized: z.boolean().default(false),
     isActive: z.boolean(),
     version: z.number().int().positive()
@@ -917,6 +927,8 @@ export const applicationLayoutSchema = z.object({
     name: applicationLayoutLocalizedContentSchema,
     description: applicationLayoutLocalizedContentSchema.nullable().optional(),
     config: applicationLayoutConfigSchema,
+    /** Decoded neutral metadata; the renderer config above never contains __layout. */
+    neutral: persistedLayoutNeutralMetadataSchema.optional(),
     compositionMode: applicationLayoutCompositionModeSchema.optional(),
     baseLayoutId: uuidV7Schema.nullable().optional(),
     isActive: z.boolean(),
@@ -960,6 +972,7 @@ export const effectiveLayoutWidgetSchema = z
         sourceConfig: z.record(z.string(), z.unknown()).nullable().optional(),
         sourceWidgetId: uuidV7Schema.nullable().optional(),
         sourceBaseWidgetId: uuidV7Schema.nullable().optional(),
+        placement: layoutLogicalPlacementSchema.optional(),
         isCustomized: z.boolean().optional().default(false),
         isActive: z.boolean(),
         version: z.number().int().positive().optional()
@@ -1189,6 +1202,8 @@ const effectiveLayoutMetadataBaseSchema = z
         name: applicationLayoutLocalizedContentSchema.optional(),
         description: applicationLayoutLocalizedContentSchema.nullable().optional(),
         config: applicationLayoutConfigSchema.optional(),
+        /** Effective zone settings are decoded, descriptor-backed metadata, separate from renderer config. */
+        zoneSettings: layoutZoneSettingsSchema.optional(),
         syncState: applicationLayoutSyncStateSchema.optional(),
         isActive: z.boolean().optional(),
         isDefault: z.boolean().optional(),
@@ -1197,20 +1212,44 @@ const effectiveLayoutMetadataBaseSchema = z
     })
     .strict()
 
-export const effectiveLayoutMetadataSchema = z.discriminatedUnion('compositionMode', [
-    effectiveLayoutMetadataBaseSchema
-        .extend({
-            compositionMode: z.literal('overlay'),
-            baseLayoutId: uuidV7Schema
-        })
-        .strict(),
-    effectiveLayoutMetadataBaseSchema
-        .extend({
-            compositionMode: z.literal('independent'),
-            baseLayoutId: z.null()
-        })
-        .strict()
-])
+export const effectiveLayoutMetadataSchema = z
+    .discriminatedUnion('compositionMode', [
+        effectiveLayoutMetadataBaseSchema
+            .extend({
+                compositionMode: z.literal('overlay'),
+                baseLayoutId: uuidV7Schema
+            })
+            .strict(),
+        effectiveLayoutMetadataBaseSchema
+            .extend({
+                compositionMode: z.literal('independent'),
+                baseLayoutId: z.null()
+            })
+            .strict()
+    ])
+    .superRefine((value, context) => {
+        for (const [zone, values] of Object.entries(value.zoneSettings ?? {})) {
+            const zoneDefinition = getLayoutZoneDefinition(zone, value.templateKey)
+            if (!zoneDefinition) {
+                context.addIssue({
+                    code: z.ZodIssueCode.custom,
+                    path: ['zoneSettings', zone],
+                    message: 'Effective zone settings must use a registered zone for the layout template.'
+                })
+                continue
+            }
+            for (const [settingKey, settingValue] of Object.entries(values)) {
+                const setting = zoneDefinition.settings.find((candidate) => candidate.key === settingKey)
+                if (!setting || typeof settingValue !== 'string' || !setting.options.includes(settingValue)) {
+                    context.addIssue({
+                        code: z.ZodIssueCode.custom,
+                        path: ['zoneSettings', zone, settingKey],
+                        message: 'Effective zone setting is not declared by the layout registry.'
+                    })
+                }
+            }
+        }
+    })
 export type EffectiveLayoutMetadata = z.infer<typeof effectiveLayoutMetadataSchema>
 
 export const publicationIdentitySchema = z

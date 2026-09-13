@@ -8,13 +8,17 @@ import {
     createPublication,
     disposeApiContext,
     getApplication,
+    getApplicationLayout,
+    listApplicationLayouts,
     listPublicationApplications,
     syncApplicationSchema,
     syncPublication,
+    updateApplicationLayoutZoneSetting,
     waitForPublicationReady
 } from '../../support/backend/api-session.mjs'
 import { recordCreatedApplication, recordCreatedMetahub, recordCreatedPublication } from '../../support/backend/run-manifest.mjs'
 import { applyBrowserPreferences, calculateRelativeBrightness, parseRgbColor } from '../../support/browser/preferences'
+import { expectNoPageHorizontalOverflow, expectNoTechnicalLeakage } from '../../support/browser/runtimeUx'
 import { installMarketingPageLocalMedia } from '../../support/marketingPageMedia'
 import { storageStatePath } from '../../support/env/load-e2e-env.mjs'
 
@@ -31,6 +35,17 @@ type BrowserIssue = {
     text: string
     status?: number
     url?: string
+}
+
+const languageMenuLabel = (menuLocale: string, targetLocale: string) => {
+    const normalizedMenuLocale = menuLocale.split(/[-_]/)[0]?.toLowerCase() || 'en'
+    const normalizedTargetLocale = targetLocale.split(/[-_]/)[0]?.toLowerCase() || 'en'
+
+    if (normalizedMenuLocale === 'ru') {
+        return normalizedTargetLocale === 'ru' ? /русский/i : /английский/i
+    }
+
+    return normalizedTargetLocale === 'ru' ? /russian/i : /english/i
 }
 
 function watchBrowserIssues(page: Page): BrowserIssue[] {
@@ -127,32 +142,22 @@ async function provisionMarketingApplication(api: ApiContext, runId: string, att
     return applicationId
 }
 
-async function assertNoRuntimeLeakage(page: import('@playwright/test').Page) {
-    const bodyText = await page.locator('body').innerText()
-    expect(bodyText).not.toContain('[object Object]')
-    expect(bodyText).not.toMatch(/\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/i)
-    expect(await page.locator('a[href^="javascript:"]').count()).toBe(0)
-    expect(await page.locator('a[href="#"]').count()).toBe(0)
-
-    const overflowDetails = await page.evaluate(() => {
-        const viewportWidth = document.documentElement.clientWidth
-        const offenders = Array.from(document.querySelectorAll<HTMLElement>('*'))
-            .map((element) => {
-                const rect = element.getBoundingClientRect()
-                return {
-                    tag: element.tagName,
-                    id: element.id,
-                    left: Math.round(rect.left * 100) / 100,
-                    right: Math.round(rect.right * 100) / 100
-                }
-            })
-            .filter(({ left, right }) => left < -1 || right > viewportWidth + 1)
-            .slice(0, 20)
-
-        return { viewportWidth, scrollWidth: document.documentElement.scrollWidth, offenders }
-    })
-
-    expect(overflowDetails.scrollWidth, JSON.stringify(overflowDetails)).toBeLessThanOrEqual(overflowDetails.viewportWidth)
+async function updateMarketingHeaderPosition(api: ApiContext, applicationId: string, position: 'fixed' | 'flow'): Promise<void> {
+    const layouts = await listApplicationLayouts(api, applicationId, { limit: 100, offset: 0 })
+    const marketingLayout = layouts.items?.find((layout) => layout.templateKey === 'marketing-page')
+    if (!marketingLayout?.id || typeof marketingLayout.version !== 'number') {
+        throw new Error(`Application ${applicationId} did not expose a versioned marketing layout`)
+    }
+    const detail = await getApplicationLayout(api, applicationId, marketingLayout.id)
+    await updateApplicationLayoutZoneSetting(
+        api,
+        applicationId,
+        marketingLayout.id,
+        'marketing-header',
+        'position',
+        position,
+        detail.item.version
+    )
 }
 
 async function assertMarketingPageAccessibility(page: Page, label: string) {
@@ -164,6 +169,44 @@ async function assertMarketingPageAccessibility(page: Page, label: string) {
         nodes: violation.nodes.map((node) => node.html)
     }))
     expect(violations, `${label} accessibility violations: ${JSON.stringify(violations)}`).toEqual([])
+}
+
+const readMarketingHeaderAnchorGeometry = async (page: Page) =>
+    page.evaluate(() => {
+        const header = document.querySelector<HTMLElement>('[data-testid="marketing-header-shell"]')
+        const target = document.querySelector<HTMLElement>('#pricing')
+        if (!header || !target) throw new Error('Marketing header anchor geometry was not rendered')
+
+        const parsePixels = (value: string): number => {
+            const parsed = Number.parseFloat(value)
+            return Number.isFinite(parsed) ? parsed : 0
+        }
+        const headerRect = header.getBoundingClientRect()
+        const rootStyles = window.getComputedStyle(document.documentElement)
+        return {
+            position: window.getComputedStyle(header).position,
+            frameOffset: parsePixels(rootStyles.getPropertyValue('--template-frame-height')),
+            visualOffset: parsePixels(header.dataset.marketingHeaderVisualOffset ?? ''),
+            headerTop: headerRect.top,
+            headerBottom: headerRect.bottom,
+            headerHeight: headerRect.height,
+            spacerHeight:
+                document.querySelector<HTMLElement>('[data-testid="marketing-header-spacer"]')?.getBoundingClientRect().height ?? 0,
+            occlusion: parsePixels(rootStyles.getPropertyValue('--marketing-header-occlusion')),
+            scrollPadding: parsePixels(rootStyles.scrollPaddingBlockStart),
+            targetTop: target.getBoundingClientRect().top
+        }
+    })
+
+const expectMarketingHeaderAnchorGeometry = async (page: Page, label: string): Promise<void> => {
+    const geometry = await readMarketingHeaderAnchorGeometry(page)
+    expect(geometry.position, `${label} header position`).toBe('fixed')
+    expect(geometry.visualOffset, `${label} original visual offset`).toBe(28)
+    expect(Math.abs(geometry.headerTop - geometry.frameOffset - geometry.visualOffset), `${label} header top`).toBeLessThanOrEqual(1)
+    expect(geometry.spacerHeight, `${label} must preserve the reference overlay contract without a document spacer`).toBe(0)
+    expect(Math.abs(geometry.occlusion - geometry.headerBottom), `${label} occlusion`).toBeLessThanOrEqual(1)
+    expect(Math.abs(geometry.scrollPadding - geometry.occlusion), `${label} scroll padding`).toBeLessThanOrEqual(1)
+    expect(geometry.targetTop, `${label} anchor must remain below the fixed header`).toBeGreaterThanOrEqual(geometry.headerBottom - 1)
 }
 
 test('@visual @marketing-page matrix preserves localized responsive visual contracts', async ({ browser, runManifest }, testInfo) => {
@@ -198,7 +241,19 @@ test('@visual @marketing-page matrix preserves localized responsive visual contr
 
                 await expect(page.locator('html')).toHaveAttribute('lang', language)
                 await expect(page.locator('#marketing-page-main')).toBeVisible()
+                await expect(page.getByRole('link', { name: isRussian ? 'Перейти к содержимому' : 'Skip to content' })).toHaveCount(0)
                 await expect(page.locator('#hero')).toBeVisible()
+                const backgroundOwnership = await page.evaluate(() => {
+                    const pageRoot = document.querySelector<HTMLElement>('[data-testid="marketing-page-root"]')
+                    const hero = document.querySelector<HTMLElement>('#hero')
+                    if (!pageRoot || !hero) throw new Error('Marketing page background ownership was not rendered')
+                    return {
+                        page: window.getComputedStyle(pageRoot).backgroundImage,
+                        hero: window.getComputedStyle(hero).backgroundImage
+                    }
+                })
+                expect(backgroundOwnership.page).toBe('none')
+                expect(backgroundOwnership.hero).toContain('radial-gradient')
                 await expect(page.locator('#logoCollection')).toBeVisible()
                 await expect(page.locator('#features')).toBeVisible()
                 await expect(page.locator('#testimonials')).toBeVisible()
@@ -220,6 +275,7 @@ test('@visual @marketing-page matrix preserves localized responsive visual contr
                     await expect(pricingAnchor).toBeVisible()
                     await pricingAnchor.click()
                     await expect(page).toHaveURL(/#pricing$/)
+                    await expectMarketingHeaderAnchorGeometry(page, `${project} ${viewport.name} desktop pricing anchor`)
                 }
 
                 const firstFaqSummary = page.locator('#faq .MuiAccordionSummary-root').first()
@@ -236,6 +292,30 @@ test('@visual @marketing-page matrix preserves localized responsive visual contr
                     await openMenu.click()
                     const closeMenu = page.getByRole('button', { name: isRussian ? 'Закрыть меню' : 'Close menu' })
                     await expect(closeMenu).toBeVisible()
+                    const drawer = page.getByTestId('marketing-header-drawer')
+                    await expect(drawer).toBeVisible()
+                    await expect
+                        .poll(async () =>
+                            page.evaluate(() => {
+                                const drawerElement = document.querySelector<HTMLElement>('[data-testid="marketing-header-drawer"]')
+                                return Boolean(drawerElement?.contains(document.activeElement))
+                            })
+                        )
+                        .toBe(true)
+                    await closeMenu.focus()
+                    await page.keyboard.press('Shift+Tab')
+                    await expect
+                        .poll(async () =>
+                            page.evaluate(() => {
+                                const drawerElement = document.querySelector<HTMLElement>('[data-testid="marketing-header-drawer"]')
+                                return Boolean(drawerElement?.contains(document.activeElement))
+                            })
+                        )
+                        .toBe(true)
+                    const openDrawerAccessibility = await new AxeBuilder({ page })
+                        .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
+                        .analyze()
+                    expect(openDrawerAccessibility.violations, JSON.stringify(openDrawerAccessibility.violations)).toEqual([])
                     await page.keyboard.press('Escape')
                     await expect(closeMenu).toBeHidden()
                     await expect(openMenu).toBeFocused()
@@ -244,6 +324,7 @@ test('@visual @marketing-page matrix preserves localized responsive visual contr
                     await expect(mobilePricingAnchor).toBeVisible()
                     await mobilePricingAnchor.click()
                     await expect(page).toHaveURL(/#pricing$/)
+                    await expectMarketingHeaderAnchorGeometry(page, `${project} ${viewport.name} mobile pricing anchor`)
                 }
 
                 await expect(page.locator('a[href^="javascript:"]')).toHaveCount(0)
@@ -259,7 +340,11 @@ test('@visual @marketing-page matrix preserves localized responsive visual contr
                             )
                     )
                     .toBe(true)
-                await assertNoRuntimeLeakage(page)
+                await expectNoTechnicalLeakage(page.locator('body'), {
+                    label: `${project} ${viewport.name} marketing runtime`,
+                    checkUuidSubstrings: true
+                })
+                await expectNoPageHorizontalOverflow(page, `${project} ${viewport.name} marketing runtime`)
                 await assertMarketingPageAccessibility(page, `${project} ${viewport.name}`)
                 expect(browserIssues, `${project} ${viewport.name} browser issues`).toEqual([])
 
@@ -274,11 +359,110 @@ test('@visual @marketing-page matrix preserves localized responsive visual contr
                     expect(brightness).toBeGreaterThan(180)
                 }
 
+                await page.evaluate(() => window.scrollTo(0, 0))
                 await expect(page).toHaveScreenshot(`marketing-page-${project}-${viewport.name}.png`, {
                     fullPage: true,
                     animations: 'disabled',
                     caret: 'hide',
                     maxDiffPixelRatio: 0.02
+                })
+                await expect(page).toHaveScreenshot(`marketing-page-${project}-${viewport.name}-header-band.png`, {
+                    clip: { x: 0, y: 0, width: viewport.width, height: Math.min(320, viewport.height) },
+                    animations: 'disabled',
+                    caret: 'hide',
+                    maxDiffPixelRatio: 0.005
+                })
+            } finally {
+                await context.close()
+            }
+        }
+
+        const controlsContext = await browser.newContext({
+            storageState: storageStatePath,
+            locale,
+            colorScheme: isDark ? 'dark' : 'light',
+            viewport: { width: 1440, height: 1000 }
+        })
+        const controlsPage = await controlsContext.newPage()
+        try {
+            await applyBrowserPreferences(controlsPage, { language, isDarkMode: isDark })
+            await controlsPage.goto(`/a/${applicationId}?locale=${language}&themeVariant=${isDark ? 'dark' : 'light'}`)
+            await expect(controlsPage.locator('#marketing-page-main')).toBeVisible()
+
+            const languageButton = controlsPage.getByRole('button', { name: /language|язык/i }).first()
+            await expect(languageButton).toBeVisible()
+            await languageButton.click()
+            await expect(controlsPage.getByRole('menu')).toBeVisible()
+            const switchedLanguage = isRussian ? 'en' : 'ru'
+            await controlsPage.getByRole('menuitem', { name: languageMenuLabel(language, switchedLanguage), exact: true }).click()
+            await expect(controlsPage.locator('html')).toHaveAttribute('lang', switchedLanguage)
+            await expect(
+                controlsPage.getByRole('heading', { name: switchedLanguage === 'ru' ? 'Наши новые продукты' : 'Our latest products' })
+            ).toBeVisible()
+            await controlsPage.reload()
+            await expect(controlsPage.locator('html')).toHaveAttribute('lang', switchedLanguage)
+
+            const restoredLanguageButton = controlsPage.getByRole('button', { name: /language|язык/i }).first()
+            await restoredLanguageButton.click()
+            await controlsPage.getByRole('menuitem', { name: languageMenuLabel(switchedLanguage, language), exact: true }).click()
+            await expect(controlsPage.locator('html')).toHaveAttribute('lang', language)
+
+            const colorModeButton = controlsPage.locator('button[data-screenshot="toggle-mode"]')
+            await expect(colorModeButton).toHaveCount(1)
+            await colorModeButton.click()
+            const switchedTheme = isDark ? 'light' : 'dark'
+            await controlsPage
+                .getByRole('menuitem', { name: switchedTheme === 'dark' ? /dark|тёмная/i : /light|светлая/i, exact: true })
+                .click()
+            await expect(controlsPage.locator('html')).toHaveAttribute('data-mui-color-scheme', switchedTheme)
+            await controlsPage.locator('button[data-screenshot="toggle-mode"]').click()
+            await controlsPage.getByRole('menuitem', { name: isDark ? /dark|тёмная/i : /light|светлая/i, exact: true }).click()
+            await expect(controlsPage.locator('html')).toHaveAttribute('data-mui-color-scheme', isDark ? 'dark' : 'light')
+            await controlsPage.goto(`/a/${applicationId}?locale=${language}&themeVariant=${isDark ? 'dark' : 'light'}`)
+            await expect(controlsPage.locator('html')).toHaveAttribute('data-mui-color-scheme', isDark ? 'dark' : 'light')
+        } finally {
+            await controlsContext.close()
+        }
+
+        await updateMarketingHeaderPosition(api, applicationId, 'flow')
+        for (const viewport of VIEWPORTS) {
+            const context = await browser.newContext({
+                storageState: storageStatePath,
+                locale,
+                colorScheme: isDark ? 'dark' : 'light',
+                viewport: { width: viewport.width, height: viewport.height }
+            })
+            const page = await context.newPage()
+            try {
+                await applyBrowserPreferences(page, { language, isDarkMode: isDark })
+                await page.goto(`/a/${applicationId}?locale=${language}&themeVariant=${isDark ? 'dark' : 'light'}`)
+                await expect(page.locator('#marketing-page-main')).toBeVisible()
+                const header = page.getByTestId('marketing-header-shell')
+                await expect(header).toHaveClass(/MuiAppBar-positionStatic/)
+                await expect(page.getByTestId('marketing-header-spacer')).toHaveCount(0)
+                const initialTop = await header.evaluate((element) => element.getBoundingClientRect().top)
+                const baselineScrollPadding = await page.evaluate(() => ({
+                    scrollPadding: window.getComputedStyle(document.documentElement).scrollPaddingBlockStart,
+                    occlusion: document.documentElement.style.getPropertyValue('--marketing-header-occlusion')
+                }))
+                expect(baselineScrollPadding.occlusion).toBe('')
+                await page.evaluate(() => window.scrollTo({ top: 640, behavior: 'instant' }))
+                await page.waitForFunction(() => window.scrollY > 0)
+                const scrolled = await header.evaluate((element) => {
+                    const rect = element.getBoundingClientRect()
+                    return { top: rect.top, bottom: rect.bottom }
+                })
+                expect(scrolled.top).toBeLessThan(initialTop - 100)
+                expect(scrolled.bottom).toBeLessThanOrEqual(0)
+                await expectNoTechnicalLeakage(page.locator('body'), {
+                    label: `${project} ${viewport.name} flow marketing runtime`,
+                    checkUuidSubstrings: true
+                })
+                await expectNoPageHorizontalOverflow(page, `${project} ${viewport.name} flow marketing runtime`)
+                await page.screenshot({
+                    path: testInfo.outputPath(`marketing-page-${project}-${viewport.name}-flow.png`),
+                    fullPage: true,
+                    animations: 'disabled'
                 })
             } finally {
                 await context.close()

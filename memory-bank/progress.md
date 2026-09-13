@@ -59,6 +59,82 @@
 
 ---
 
+## 2026-09-13 - Marketing header QA remediation and implementation closeout
+
+-   Completed the full QA remediation for the marketing header widget zone and
+    synchronized the approved implementation plan, task checklist, package
+    READMEs, and paired GitBook guides. The clean-break contract remains in
+    force: no schema/migration, snapshot, UUID policy, or metahub-template
+    version change and no legacy `sharedLayoutWidgets` or multi-AppBar path.
+-   The browser acceptance gaps are closed. The real local-Supabase flows now
+    prove owner/admin success, editor/member denial, cross-scope `404`, stale
+    OCC `409`, no-change-after-denial, real EN/RU Zone Settings dialog behavior,
+    sparse metahub inheritance/reset, source-baseline sync resolutions,
+    Start/End placement, snapshot round-trip, and fixed/flow geometry at
+    desktop, tablet, and mobile sizes.
+-   The canonical `pnpm run test:e2e:marketing-page:verify:local-supabase` gate passed 13 flow tests
+    with one intentional standalone skip and 5 visual projects. The visual
+    matrix covers RU/EN and light/dark states with responsive screenshot loops,
+    real language/color controls, geometry oracles, and axe checks for fixed
+    desktop and the open mobile Drawer. Screenshots were inspected from the
+    browser runtime; Supabase cleanup passed.
+-   Full workspace build passed 36/36 projects. Documentation provenance,
+    GitBook EN/RU parity for 113 page pairs, screenshot assets, local links,
+    template contract, package isolation, package lint/type checks, Prettier,
+    and `git diff --check` passed. Focused backend suites passed 884
+    applications tests and 1,284 metahubs tests with 4 existing contract skips;
+    the apps-template focused Vitest run passed 7 files / 74 tests and the Zone
+    Settings Jest suite passed 3/3.
+-   Final OntoIndex `gn_verify_diff` passed against the complete 137-file dirty
+    worktree allowlist (125 tracked changes and 12 untracked additions) and 9
+    representative test surfaces, with no unexpected
+    files, symbols, impacts, or missing required tests.
+-   Thermos findings from the available review were fixed. The local autoreview
+    helper produced no structured verdict because its Codex strict-JSON stream
+    disconnected repeatedly and the Claude fallback API was unavailable; no
+    clean external autoreview PASS is claimed. The separately deployed
+    standalone shell remains an explicit BLOCKED/skipped environment boundary
+    when no authenticated shell is configured.
+
+---
+
+## 2026-09-12 - Marketing header widget zone settings implementation closeout
+
+-   Completed the clean-break marketing header refactor without changing the
+    database schema, migrations, UUID policy, snapshot format, or metahub
+    template version. The isolated `apps-template-mui` runtime now renders one
+    MUI header shell and one responsive Drawer from persisted brand,
+    navigation, authentication, language, and color-mode widget projections.
+-   Added typed neutral layout envelopes, metadata-driven Start/End placement,
+    singleton/repeatable registry rules, sparse zone-setting inheritance and
+    reset, application/metahub persistence, snapshot/sync/hash handling, and
+    fail-closed validation. The default marketing header is fixed; the shared
+    zone setting can switch it to normal document flow.
+-   Reused existing MUI and shared runtime primitives, including the
+    LanguageSwitcher and color-mode control, and added the shared localized
+    Zone Settings dialog with read-only, inherited, reset, conflict, and
+    keyboard/focus behavior. The runtime reserves measured fixed-header space
+    and preserves skip-link and anchor offsets.
+-   Focused verification passed: applications-backend 7 suites / 318 tests,
+    metahubs-backend 8 suites / 101 tests, applications-frontend 15 tests,
+    metahubs-frontend 5 tests, apps-template-mui 31 tests, template-mui dialog
+    tests 3/3, types 46 tests, and utils 17 tests. Affected package lint,
+    builds, Prettier, `git diff --check`, template contract, isolation, and
+    runtime UX guards passed.
+-   The canonical local-minimal-Supabase Chromium lifecycle passed 12 tests
+    with one intentional standalone skip. The responsive visual matrix passed
+    5/5 for RU/EN and light/dark desktop/tablet/mobile projects. Screenshots
+    were inspected from the real browser; the refreshed GitBook evidence now
+    matches the current template source and passes provenance, EN/RU parity,
+    screenshot-asset, and local-link checks. Supabase cleanup and stop passed.
+-   OntoIndex `gn_verify_diff` returned `PASS` for the complete dirty-worktree
+    allowlist with no unexpected files, symbols, impacts, or missing tests.
+    The Thermos subagent review completed earlier and its actionable findings
+    were fixed. The final local autoreview retries produced no structured
+    result: Codex failed after repeated strict-JSON stream disconnects, and
+    Claude reported an unavailable API connection. No clean external
+    autoreview verdict is claimed.
+
 ## 2026-09-09 - Unified template implementation verification continuation
 
 -   Reproduced and fixed the fresh marketing-layout authoring crash caused by
@@ -1437,3 +1513,72 @@ introduced.
     no structured verdict. Final OntoIndex `gn_verify_diff` passed for the
     complete 195-file dirty-worktree allowlist with no unexpected changes or
     missing test evidence. No clean automated Thermos verdict is claimed.
+
+## Marketing header widget-zone settings — final QA remediation — 2026-09-13
+
+-   Completed the remaining QA remediation for the descriptor-driven marketing
+    header composition. Inactive persisted widgets are excluded from runtime
+    output, shared authoring and zone-settings consumers have localized
+    read-only, inherited, reset, pending/error, keyboard/focus, and responsive
+    coverage, and the browser flows cover scoped layouts, permissions, copy,
+    delete, reset, conflict resolution, and runtime winners.
+-   Closed the publication consistency gap found during security review. The
+    snapshot path now captures layout, widgets, and overrides inside one
+    transaction while holding the same PostgreSQL advisory graph lock used by
+    layout mutations. A real PostgreSQL test passed 1/1 with a concurrent
+    mutation blocked until the snapshot completed.
+-   Regenerated and validated the OpenAPI source after correcting application
+    zone-setting `value` to the string contract enforced by the backend. No
+    schema, migration, or metahub-template version was changed.
+-   The canonical local-minimal-Supabase wrapper passed its 36/36 workspace
+    build, 15 Chromium tests plus one explicit standalone opt-in skip, and all
+    5 visual matrix projects with zero retries and zero unexpected results. It
+    reset test schemas and stopped the dedicated Supabase profile. Fresh mobile
+    authoring and EN/RU light/dark runtime screenshots were inspected from the
+    timestamped artifact directory. Documentation checks passed for provenance,
+    screenshot assets, local links, and 113 EN/RU GitBook page pairs.
+-   Final isolated verification also passed the changed-surface suites: 378
+    applications-backend tests, 120 metahubs-backend tests plus 4 intentional
+    skips and the real PostgreSQL concurrency test, 27 apps-template marketing
+    tests, 34 applications-frontend tests, 8 metahubs-frontend tests, 6 shared
+    template tests, 199 types tests, and 368 utils tests. Package lint,
+    typecheck, builds, OpenAPI validation, Prettier, and diff checks passed.
+-   OntoIndex remains dirty/degraded because the committed graph predates the
+    current worktree, so direct source and test evidence were used for changed
+    files. The local autoreview helper did not return a structured verdict after
+    its external review stream/context limits; the actionable security and UX
+    findings were reviewed and fixed directly.
+
+## Marketing header widget-zone settings — implementation closeout — 2026-09-13
+
+-   Closed the user-reported regression set: shared EN/RU authoring labels now
+    resolve from the common i18n registry in metahub and application layout
+    screens; the zone-settings footer uses the existing `StandardDialog`
+    contract and its standard action-area spacing; and the published header
+    again matches the original `.backup/templates/marketing-page` geometry.
+-   Preserved clean-break data contracts and security invariants. Copied
+    application layouts receive a new local lineage baseline, snapshot restore
+    acquires the same transaction-scoped advisory layout-graph lock as layout
+    mutations, and no schema, migration, or metahub-template version changed.
+-   The canonical local-minimal-Supabase verification passed the 36-package
+    build, 15 Chromium flow tests plus one explicit standalone opt-in skip, and
+    all five visual matrix projects with zero retries or unexpected results.
+    The browser evidence covered RU and EN authoring, strict footer spacing,
+    fixed and flow header modes, desktop/tablet/mobile layouts, focus and
+    overflow behavior, runtime background ownership, and empty browser issue
+    collections. Documentation provenance, screenshot assets, local links,
+    and 113 EN/RU GitBook page pairs also passed.
+-   Targeted Jest/Vitest and backend regression suites passed, including the
+    real PostgreSQL copy/restore/concurrency checks. Affected package lint,
+    sequential builds, type checks, OpenAPI validation, Prettier, and
+    `git diff --check` passed. OntoIndex `gn_verify_diff` passed for the full
+    current allowlist. The ship-readiness audit still requests manual review
+    for the high-impact `MetahubLayoutsService` graph surface; this was
+    manually reviewed and covered by the focused and browser gates. The
+    autoreview helper was retried, but its 419,497-character local bundle
+    exceeded the review model context window, so no automated clean verdict is
+    claimed.
+-   A final stale unit-fixture gap was closed by adding the explicit persisted
+    `top: appNavbar` composition to the Dashboard side-menu fixtures. The
+    Dashboard and cross-template suites now pass 32/32 tests; the production
+    clean-break rule that requires explicit top composition remains unchanged.

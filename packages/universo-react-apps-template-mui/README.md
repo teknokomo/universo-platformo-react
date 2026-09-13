@@ -33,7 +33,9 @@ Runtime dashboard template for published applications in the Universo Platformo 
 -   **Application appearance**: Theme mode, bounded colors, brand media, and action policy are configured in the typed application layout; persisted marketing widget instances own zone, order, active state, source, and presentation flags.
 -   **Instance-oriented layouts**: Runtime layout data preserves every active placement, including multiple rows with the same widget key. Placement identity is separate from widget type, so repeatable dashboard and marketing instances render independently; the dashboard `appNavbar` and `header` are explicit single-shell placements.
 -   **One theme boundary**: Hosted and standalone shells own providers; `MarketingPage` is presentational and provider-free.
--   **Shared widget capability**: `languageSwitcher` is registered once, is available in Dashboard `top` and marketing `marketing-header`, and is rendered by the existing shell controls without duplicate instances.
+-   **Atomic marketing header**: `marketing.brand`, repeatable `marketing.navigation`, singleton `marketing.auth`, `languageSwitcher`, and `colorModeSwitcher` are persisted as separate header capabilities. One `MarketingHeaderShell` owns the banner, responsive Drawer, measured fixed offset, and Start/End groups.
+-   **Shared controls**: `languageSwitcher` and `colorModeSwitcher` use the same registry definitions in Dashboard `top` and marketing `marketing-header`; the runtime renders each active persisted capability once.
+-   **Header behavior**: The marketing header supports localized fixed-on-screen and normal-flow modes. Fixed mode preserves the original MUI reference composition with one `ResizeObserver`, the original 28px visual offset, and content scrolling behind the fixed shell; flow mode leaves no fixed-header residue.
 
 ### 📊 ColumnsContainer Widget
 

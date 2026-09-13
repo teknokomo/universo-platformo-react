@@ -13,9 +13,20 @@ import {
     type EntityDefinition,
     type SchemaSnapshot
 } from '@universo-react/schema-ddl'
+import stableStringify from 'json-stable-stringify'
 import { quoteQualifiedIdentifier } from '@universo-react/migrations-core'
-import { ComponentDefinitionDataType, type ApplicationPackageDefinition, type PackageSourceDescriptor } from '@universo-react/types'
-import { validateMarketingSnapshotLayouts, validateSnapshotLayoutIdentities, type DbExecutor } from '@universo-react/utils'
+import {
+    ComponentDefinitionDataType,
+    decodeLayoutConfigEnvelope,
+    decodeLayoutWidgetConfigEnvelope,
+    encodeLayoutWidgetConfigEnvelope,
+    encodeSnapshotLayoutConfigEnvelope,
+    parseApplicationLayoutConfig,
+    parseApplicationLayoutWidgetConfig,
+    type ApplicationPackageDefinition,
+    type PackageSourceDescriptor
+} from '@universo-react/types'
+import { validateMarketingSnapshotTransportLayouts, validateSnapshotLayoutIdentities, type DbExecutor } from '@universo-react/utils'
 import {
     createApplicationReleaseBundle,
     extractInstalledReleaseVersion,
@@ -469,89 +480,220 @@ export async function loadApplicationRuntimeLayouts(
     schemaName: string
 ): Promise<{
     layouts: unknown[]
+    scopedLayouts: unknown[]
     layoutZoneWidgets: unknown[]
+    layoutWidgetOverrides: unknown[]
     defaultLayoutId: string | null
     layoutConfig: Record<string, unknown>
 }> {
     const schemaIdent = quoteSchemaName(schemaName)
 
-    try {
-        const layouts = await exec.query<RuntimeApplicationLayoutRow>(
-            `
-                SELECT
-                  id, scope_entity_id, template_key, name, description, config, is_active, is_default, sort_order,
-                  source_kind, source_layout_id, source_snapshot_hash, source_content_hash,
-                  local_content_hash, sync_state, is_source_excluded
-                FROM ${schemaIdent}._app_layouts
-                WHERE _upl_deleted = false
-                  AND _app_deleted = false
-                ORDER BY sort_order ASC, _upl_created_at ASC
-            `
-        )
+    const requireString = (value: unknown, field: string, context: string): string => {
+        if (typeof value !== 'string' || value.length === 0) {
+            throw new Error(`[SchemaSync] Runtime ${context} ${field} is invalid`)
+        }
+        return value
+    }
+    const requireRecord = (value: unknown, field: string, context: string): Record<string, unknown> => {
+        if (!isRecord(value)) throw new Error(`[SchemaSync] Runtime ${context} ${field} is invalid`)
+        return value
+    }
+    const requireBoolean = (value: unknown, field: string, context: string): boolean => {
+        if (typeof value !== 'boolean') throw new Error(`[SchemaSync] Runtime ${context} ${field} is invalid`)
+        return value
+    }
+    const requireInteger = (value: unknown, field: string, context: string): number => {
+        if (typeof value !== 'number' || !Number.isInteger(value)) {
+            throw new Error(`[SchemaSync] Runtime ${context} ${field} is invalid`)
+        }
+        return value
+    }
 
-        const normalizedLayouts = layouts.map((row) => ({
-            id: String(row.id ?? ''),
-            scopeEntityId: typeof row.scope_entity_id === 'string' && row.scope_entity_id.length > 0 ? row.scope_entity_id : null,
-            templateKey: parseApplicationTemplateKey(row.template_key, `runtime layout ${String(row.id ?? '')}`),
-            name: isRecord(row.name) ? row.name : {},
-            description: isRecord(row.description) ? row.description : null,
-            config: isRecord(row.config) ? row.config : {},
-            isActive: row.is_active === true,
-            isDefault: row.is_default === true,
-            sortOrder: typeof row.sort_order === 'number' ? row.sort_order : 0,
-            sourceKind: typeof row.source_kind === 'string' ? row.source_kind : 'metahub',
-            sourceLayoutId: typeof row.source_layout_id === 'string' ? row.source_layout_id : null,
-            sourceSnapshotHash: typeof row.source_snapshot_hash === 'string' ? row.source_snapshot_hash : null,
-            sourceContentHash: typeof row.source_content_hash === 'string' ? row.source_content_hash : null,
-            localContentHash: typeof row.local_content_hash === 'string' ? row.local_content_hash : null,
-            syncState: typeof row.sync_state === 'string' ? row.sync_state : 'clean',
-            isSourceExcluded: row.is_source_excluded === true
-        }))
+    const layouts = await exec.query<RuntimeApplicationLayoutRow>(
+        `
+            SELECT
+              id, scope_entity_id, template_key, name, description, config, is_active, is_default, sort_order,
+              source_kind, source_layout_id, source_snapshot_hash, source_content_hash,
+              local_content_hash, sync_state, is_source_excluded
+            FROM ${schemaIdent}._app_layouts
+            WHERE _upl_deleted = false
+              AND _app_deleted = false
+            ORDER BY scope_entity_id NULLS FIRST, sort_order ASC, _upl_created_at ASC, id ASC
+        `
+    )
 
-        const defaultLayoutId = normalizedLayouts.find((layout) => layout.isActive && layout.isDefault)?.id ?? null
-        const layoutConfig =
-            normalizedLayouts.find((layout) => layout.isActive && layout.isDefault)?.config ??
-            normalizedLayouts.find((layout) => layout.isActive)?.config ??
-            {}
-
-        let normalizedWidgets: unknown[] = []
-        try {
-            const widgets = await exec.query<RuntimeApplicationWidgetRow>(
-                `
-                    SELECT id, layout_id, zone, widget_key, sort_order, config, is_active
-                    FROM ${schemaIdent}._app_widgets
-                    WHERE _upl_deleted = false
-                      AND _app_deleted = false
-                    ORDER BY layout_id ASC, zone ASC, sort_order ASC, _upl_created_at ASC
-                `
-            )
-
-            normalizedWidgets = widgets.map((row) => ({
-                id: String(row.id ?? ''),
-                layoutId: String(row.layout_id ?? ''),
-                zone: typeof row.zone === 'string' ? row.zone : 'center',
-                widgetKey: typeof row.widget_key === 'string' ? row.widget_key : '',
-                sortOrder: typeof row.sort_order === 'number' ? row.sort_order : 0,
-                config: isRecord(row.config) ? row.config : {},
-                isActive: row.is_active !== false
-            }))
-        } catch {
-            normalizedWidgets = []
+    const normalizedLayouts = layouts.map((row) => {
+        const id = requireString(row.id, 'id', 'layout')
+        const scopeEntityId =
+            row.scope_entity_id === null || row.scope_entity_id === undefined
+                ? null
+                : requireString(row.scope_entity_id, 'scopeEntityId', `layout ${id}`)
+        const templateKey = parseApplicationTemplateKey(row.template_key, `runtime layout ${id}`)
+        const decoded = decodeLayoutConfigEnvelope(requireRecord(row.config, 'config', `layout ${id}`), { templateKey })
+        const rendererConfig = parseApplicationLayoutConfig(templateKey, decoded.rendererConfig)
+        const composition = decoded.neutral.composition
+        if (!composition) throw new Error(`[SchemaSync] Runtime layout ${id} is missing canonical composition metadata`)
+        if (scopeEntityId === null && composition.mode !== 'independent') {
+            throw new Error(`[SchemaSync] Runtime global layout ${id} cannot use overlay composition`)
+        }
+        if (scopeEntityId !== null && composition.mode === 'overlay' && composition.baseLayoutId === id) {
+            throw new Error(`[SchemaSync] Runtime layout ${id} cannot use itself as a base layout`)
         }
 
         return {
-            layouts: normalizedLayouts,
-            layoutZoneWidgets: normalizedWidgets,
-            defaultLayoutId,
-            layoutConfig: isRecord(layoutConfig) ? layoutConfig : {}
+            id,
+            scopeEntityId,
+            templateKey,
+            name: requireRecord(row.name, 'name', `layout ${id}`),
+            description:
+                row.description === null || row.description === undefined
+                    ? null
+                    : requireRecord(row.description, 'description', `layout ${id}`),
+            config: encodeSnapshotLayoutConfigEnvelope({ rendererConfig, neutral: decoded.neutral }, { templateKey }),
+            composition,
+            isActive: requireBoolean(row.is_active, 'isActive', `layout ${id}`),
+            isDefault: requireBoolean(row.is_default, 'isDefault', `layout ${id}`),
+            sortOrder: requireInteger(row.sort_order, 'sortOrder', `layout ${id}`)
         }
-    } catch {
+    })
+
+    const globalLayouts = normalizedLayouts.filter((layout) => layout.scopeEntityId === null)
+    const scopedLayouts = normalizedLayouts.filter((layout) => layout.scopeEntityId !== null)
+    const globalLayoutIds = new Set(globalLayouts.map((layout) => layout.id))
+    const layoutById = new Map(normalizedLayouts.map((layout) => [layout.id, layout]))
+    for (const layout of scopedLayouts) {
+        if (layout.composition.mode === 'overlay' && !globalLayoutIds.has(layout.composition.baseLayoutId)) {
+            throw new Error(`[SchemaSync] Runtime scoped layout ${layout.id} references a missing global base layout`)
+        }
+    }
+
+    const serializeLayout = (layout: (typeof normalizedLayouts)[number]) => ({
+        id: layout.id,
+        ...(layout.scopeEntityId === null ? {} : { scopeEntityId: layout.scopeEntityId }),
+        templateKey: layout.templateKey,
+        name: layout.name,
+        description: layout.description,
+        config: layout.config,
+        isActive: layout.isActive,
+        isDefault: layout.isDefault,
+        sortOrder: layout.sortOrder,
+        baseLayoutId: layout.composition.baseLayoutId,
+        compositionMode: layout.composition.mode
+    })
+
+    const defaultLayoutId = globalLayouts.find((layout) => layout.isActive && layout.isDefault)?.id ?? null
+    const dashboardLayouts = globalLayouts.filter((layout) => layout.templateKey === 'dashboard')
+    const dashboardLayout =
+        dashboardLayouts.find((layout) => layout.isActive && layout.isDefault) ?? dashboardLayouts.find((layout) => layout.isActive)
+    const layoutConfig = dashboardLayout
+        ? parseApplicationLayoutConfig(
+              'dashboard',
+              decodeLayoutConfigEnvelope(dashboardLayout.config, { templateKey: 'dashboard' }).rendererConfig
+          )
+        : {}
+
+    const widgets = await exec.query<RuntimeApplicationWidgetRow>(
+        `
+            SELECT id, layout_id, zone, widget_key, sort_order, config, is_active, source_widget_id, source_base_widget_id
+            FROM ${schemaIdent}._app_widgets
+            WHERE _upl_deleted = false
+              AND _app_deleted = false
+            ORDER BY layout_id ASC, zone ASC, sort_order ASC, _upl_created_at ASC, id ASC
+        `
+    )
+    const normalizedWidgets = widgets.map((row) => {
+        const id = requireString(row.id, 'id', 'widget')
+        const layoutId = requireString(row.layout_id, 'layoutId', `widget ${id}`)
+        const layout = layoutById.get(layoutId)
+        if (!layout) throw new Error(`[SchemaSync] Runtime widget ${id} references an unknown layout ${layoutId}`)
+        const zone = requireString(row.zone, 'zone', `widget ${id}`)
+        const widgetKey = requireString(row.widget_key, 'widgetKey', `widget ${id}`)
+        const decoded = decodeLayoutWidgetConfigEnvelope(requireRecord(row.config, 'config', `widget ${id}`), {
+            templateKey: layout.templateKey,
+            widgetKey,
+            zone
+        })
+        const rendererConfig = parseApplicationLayoutWidgetConfig(widgetKey, decoded.rendererConfig)
         return {
-            layouts: [],
-            layoutZoneWidgets: [],
-            defaultLayoutId: null,
-            layoutConfig: {}
+            id,
+            layoutId,
+            zone,
+            widgetKey,
+            sortOrder: requireInteger(row.sort_order, 'sortOrder', `widget ${id}`),
+            config: encodeLayoutWidgetConfigEnvelope(
+                { rendererConfig, neutral: decoded.neutral },
+                { templateKey: layout.templateKey, widgetKey, zone }
+            ),
+            isActive: requireBoolean(row.is_active, 'isActive', `widget ${id}`),
+            sourceWidgetId:
+                row.source_widget_id === null || row.source_widget_id === undefined
+                    ? null
+                    : requireString(row.source_widget_id, 'sourceWidgetId', `widget ${id}`),
+            sourceBaseWidgetId:
+                row.source_base_widget_id === null || row.source_base_widget_id === undefined
+                    ? null
+                    : requireString(row.source_base_widget_id, 'sourceBaseWidgetId', `widget ${id}`)
         }
+    })
+
+    const snapshotWidgetIdBySourceId = new Map<string, string>()
+    for (const widget of normalizedWidgets) {
+        const layout = layoutById.get(widget.layoutId)
+        if (!layout) throw new Error(`[SchemaSync] Runtime widget ${widget.id} references an unknown layout`)
+        if (layout.scopeEntityId !== null) continue
+        snapshotWidgetIdBySourceId.set(widget.id, widget.id)
+        if (widget.sourceWidgetId) snapshotWidgetIdBySourceId.set(widget.sourceWidgetId, widget.id)
+    }
+    const widgetById = new Map(normalizedWidgets.map((widget) => [widget.id, widget]))
+    const layoutZoneWidgets: unknown[] = []
+    const layoutWidgetOverrides: unknown[] = []
+    for (const widget of normalizedWidgets) {
+        const layout = layoutById.get(widget.layoutId)
+        if (!layout) throw new Error(`[SchemaSync] Runtime widget ${widget.id} references an unknown layout`)
+        if (layout.scopeEntityId !== null && layout.composition.mode === 'overlay' && widget.sourceBaseWidgetId) {
+            const baseWidgetId = snapshotWidgetIdBySourceId.get(widget.sourceBaseWidgetId)
+            const baseWidget = baseWidgetId ? widgetById.get(baseWidgetId) : undefined
+            if (!baseWidget || baseWidget.layoutId !== layout.composition.baseLayoutId) {
+                throw new Error(`[SchemaSync] Runtime widget ${widget.id} references a missing overlay base widget`)
+            }
+            if (
+                widget.isActive === baseWidget.isActive &&
+                widget.zone === baseWidget.zone &&
+                widget.sortOrder === baseWidget.sortOrder &&
+                stableStringify(widget.config) === stableStringify(baseWidget.config)
+            ) {
+                continue
+            }
+            layoutWidgetOverrides.push({
+                id: widget.id,
+                layoutId: widget.layoutId,
+                baseWidgetId,
+                zone: widget.zone,
+                sortOrder: widget.sortOrder,
+                config: widget.config,
+                isActive: widget.isActive,
+                isDeletedOverride: !widget.isActive
+            })
+            continue
+        }
+        layoutZoneWidgets.push({
+            id: widget.id,
+            layoutId: widget.layoutId,
+            zone: widget.zone,
+            widgetKey: widget.widgetKey,
+            sortOrder: widget.sortOrder,
+            config: widget.config,
+            isActive: widget.isActive
+        })
+    }
+
+    return {
+        layouts: globalLayouts.map(serializeLayout),
+        scopedLayouts: scopedLayouts.map(serializeLayout),
+        layoutZoneWidgets,
+        layoutWidgetOverrides,
+        defaultLayoutId,
+        layoutConfig: isRecord(layoutConfig) ? layoutConfig : {}
     }
 }
 
@@ -656,7 +798,7 @@ export function buildApplicationSyncSourceFromPublication(options: {
         publicationSnapshot: Record<string, unknown>
     }
 }): ApplicationSchemaSyncSource {
-    validateMarketingSnapshotLayouts(options.syncContext.snapshot)
+    validateMarketingSnapshotTransportLayouts(options.syncContext.snapshot)
     validateSnapshotLayoutIdentities(options.syncContext.snapshot)
     const bundle = createPublicationApplicationReleaseBundle({
         application: options.application,
@@ -685,7 +827,7 @@ export function buildApplicationSyncSourceFromBundle(bundle: ApplicationReleaseB
     if (!snapshot || typeof snapshot !== 'object' || !snapshot.entities || typeof snapshot.entities !== 'object') {
         throw new Error('Invalid application release bundle snapshot')
     }
-    validateMarketingSnapshotLayouts(snapshot)
+    validateMarketingSnapshotTransportLayouts(snapshot)
     validateSnapshotLayoutIdentities(snapshot)
     const artifacts = validateApplicationReleaseBundleArtifacts(bundle)
 
@@ -756,14 +898,20 @@ export async function createExistingApplicationReleaseBundle(options: {
         snapshot.defaultLayoutId = runtimeLayouts.defaultLayoutId
         snapshot.layoutConfig = runtimeLayouts.layoutConfig
     }
+    if (runtimeLayouts.scopedLayouts.length > 0) {
+        snapshot.scopedLayouts = runtimeLayouts.scopedLayouts
+    }
     if (runtimeLayouts.layoutZoneWidgets.length > 0) {
         snapshot.layoutZoneWidgets = runtimeLayouts.layoutZoneWidgets
+    }
+    if (runtimeLayouts.layoutWidgetOverrides.length > 0) {
+        snapshot.layoutWidgetOverrides = runtimeLayouts.layoutWidgetOverrides
     }
 
     // Validate the reconstructed snapshot before exposing it as a release
     // bundle. Imports already preflight this contract; exports must not emit a
     // bundle that the next application would reject or partially materialize.
-    validateMarketingSnapshotLayouts(snapshot)
+    validateMarketingSnapshotTransportLayouts(snapshot)
     validateSnapshotLayoutIdentities(snapshot)
 
     const snapshotHash = resolveApplicationReleaseSnapshotHash(snapshot)

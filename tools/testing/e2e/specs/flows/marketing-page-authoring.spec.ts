@@ -3,25 +3,35 @@ import type { Locator, Page, Response, TestInfo } from '@playwright/test'
 import { expect, test } from '../../fixtures/test'
 import {
     createLoggedInApiContext,
+    createLayout,
     disposeApiContext,
     getApplication,
     getApplicationLayout,
+    getLayout,
     getMarketingPageRuntime,
     getPublication,
     listLayoutZoneWidgets,
+    listEntityInstances,
     listLayouts,
     listApplicationLayouts,
     listConnectors,
-    listPublicationApplications
+    listPublicationApplications,
+    resetLayoutZoneSetting,
+    updateLayoutZoneSetting
 } from '../../support/backend/api-session.mjs'
 import { recordCreatedApplication, recordCreatedMetahub, recordCreatedPublication } from '../../support/backend/run-manifest.mjs'
 import { waitForSettledMutationResponse } from '../../support/browser/network'
 import { applyBrowserPreferences } from '../../support/browser/preferences'
 import {
+    expectLocatorFitsViewport,
+    expectLocatorHasNoInlineOverflow,
     expectNoPageHorizontalOverflow,
     expectNoTechnicalLeakage,
+    expectNoUnexpectedBrowserRuntimeIssues,
     expectRuntimeUxViewportMatrix,
-    expectSemanticFieldControls
+    expectSemanticFieldControls,
+    expectStrictRuntimeUxSurface,
+    watchBrowserRuntimeIssues
 } from '../../support/browser/runtimeUx'
 import { entityDialogSelectors, toolbarSelectors } from '../../support/selectors/contracts'
 import { parseJsonResponse, readLocalizedText } from './entity-runtime-helpers'
@@ -77,6 +87,52 @@ const buildExecutionRunId = (runId: string, testInfo: TestInfo): string => {
 }
 
 const escapeRegExp = (value: string): string => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+
+const expectLayoutWidgetLabelsReadable = async (page: Page, label: string): Promise<void> => {
+    const labels = page.locator('.layout-widget-label:visible')
+    await expect(labels, `${label} must expose widget labels`).not.toHaveCount(0)
+
+    const metrics = await labels.evaluateAll((elements) =>
+        elements.map((element) => {
+            const node = element as HTMLElement
+            const rect = node.getBoundingClientRect()
+            const styles = window.getComputedStyle(node)
+            return {
+                text: node.innerText,
+                width: rect.width,
+                height: rect.height,
+                scrollWidth: node.scrollWidth,
+                writingMode: styles.writingMode
+            }
+        })
+    )
+    const unreadable = metrics.filter(
+        ({ text, width, height, scrollWidth, writingMode }) =>
+            !text.trim() || width < 32 || height > 72 || scrollWidth > width + 1 || writingMode !== 'horizontal-tb'
+    )
+    expect(unreadable, `${label} contains clipped, vertical, or unusably narrow widget labels`).toEqual([])
+}
+
+const expectStandardZoneSettingsFooter = async (dialog: Locator, label: string): Promise<void> => {
+    const actions = dialog.getByTestId('layout-zone-settings-actions')
+    await expect(actions, `${label} must use the shared dialog actions surface`).toHaveClass(/MuiDialogActions-root/)
+    const spacing = await actions.evaluate((element) => {
+        const styles = window.getComputedStyle(element)
+        return {
+            right: Number.parseFloat(styles.paddingRight) || 0,
+            bottom: Number.parseFloat(styles.paddingBottom) || 0
+        }
+    })
+    expect(spacing.right, `${label} must preserve the standard right footer inset`).toBeGreaterThanOrEqual(23)
+    expect(spacing.bottom, `${label} must preserve the standard bottom footer inset`).toBeGreaterThanOrEqual(23)
+}
+
+const expectRussianMarketingHeaderLabels = async (zone: Locator): Promise<void> => {
+    for (const label of ['Бренд', 'Навигация', 'Аутентификация', 'Переключатель языка', 'Переключатель темы']) {
+        await expect(zone.getByText(label, { exact: true }), `Russian header must expose ${label}`).toBeVisible()
+    }
+    await expect(zone).not.toContainText(/Brand|Authentication|Language switcher|Color mode switcher/)
+}
 
 const responseIsMutation = (response: Response, method: string, path: RegExp): boolean =>
     response.request().method() === method && path.test(new URL(response.url()).pathname)
@@ -235,6 +291,7 @@ test('@flow @combined @marketing-page browser authoring publishes edited content
     runManifest
 }, testInfo) => {
     test.setTimeout(420_000)
+    const browserIssues = watchBrowserRuntimeIssues(page)
 
     const executionRunId = buildExecutionRunId(runManifest.runId, testInfo)
     const metahubName = `E2E ${executionRunId} marketing authoring`
@@ -282,6 +339,163 @@ test('@flow @combined @marketing-page browser authoring publishes edited content
         // authoring surface before publication. The later runtime assertion
         // proves that publication carries this semantic choice forward.
         const { layoutId: marketingLayoutId, widgetId: faqWidgetId } = await findMarketingWidget(api, metahub.id, 'faq')
+
+        // Exercise the metahub source chain directly: a global position flows
+        // into a scoped layout, a local override wins, and reset exposes later
+        // source changes again. Renderer-owned config must remain byte-for-byte
+        // stable throughout the neutral metadata mutations.
+        const metahubGlobalLayout = await getLayout(api, metahub.id, marketingLayoutId)
+        const metahubRendererConfig = { ...(metahubGlobalLayout.config ?? {}) }
+        const flowGlobalLayout = await updateLayoutZoneSetting(
+            api,
+            metahub.id,
+            marketingLayoutId,
+            'marketing-header',
+            'position',
+            'flow',
+            metahubGlobalLayout.version
+        )
+        expect(flowGlobalLayout.config).toEqual(metahubRendererConfig)
+        expect(flowGlobalLayout.neutral?.zoneSettings?.['marketing-header']).toEqual({ position: 'flow' })
+
+        const entityResponse = await listEntityInstances(api, metahub.id, { kind: 'object', limit: 200, offset: 0 })
+        const siteSettingsEntity = (entityResponse?.items ?? []).find(
+            (entity: { id?: string; codename?: unknown }) => readLocalizedText(entity.codename, 'en') === 'MarketingPageSiteSettings'
+        )
+        if (typeof siteSettingsEntity?.id !== 'string') {
+            throw new Error('The marketing authoring fixture did not expose the site-settings entity for scoped inheritance')
+        }
+
+        const scopedMetahubLayout = await createLayout(api, metahub.id, {
+            scopeEntityId: siteSettingsEntity.id,
+            baseLayoutId: marketingLayoutId,
+            templateKey: 'marketing-page',
+            name: { en: `Scoped marketing ${executionRunId}`, ru: `Область маркетинга ${executionRunId}` },
+            namePrimaryLocale: 'en',
+            isActive: true,
+            isDefault: true,
+            config: {}
+        })
+        if (!scopedMetahubLayout?.id || typeof scopedMetahubLayout.version !== 'number') {
+            throw new Error('The scoped metahub layout did not return a versioned layout')
+        }
+        const scopedMetahubBeforeOverride = await getLayout(api, metahub.id, scopedMetahubLayout.id)
+        expect(scopedMetahubBeforeOverride.neutral?.zoneSettings?.['marketing-header']).toBeUndefined()
+
+        const scopedMetahubFixedLayout = await updateLayoutZoneSetting(
+            api,
+            metahub.id,
+            scopedMetahubLayout.id,
+            'marketing-header',
+            'position',
+            'fixed',
+            scopedMetahubBeforeOverride.version
+        )
+        expect(scopedMetahubFixedLayout.neutral?.zoneSettings?.['marketing-header']).toEqual({ position: 'fixed' })
+
+        const scopedMetahubResetLayout = await resetLayoutZoneSetting(
+            api,
+            metahub.id,
+            scopedMetahubLayout.id,
+            'marketing-header',
+            'position',
+            scopedMetahubFixedLayout.version
+        )
+        expect(scopedMetahubResetLayout.neutral?.zoneSettings?.['marketing-header']).toBeUndefined()
+        expect((await getLayout(api, metahub.id, marketingLayoutId)).neutral?.zoneSettings?.['marketing-header']).toEqual({
+            position: 'flow'
+        })
+
+        await applyBrowserPreferences(page, { language: 'ru' })
+        await page.goto(`/metahub/${metahub.id}/resources/layouts/${scopedMetahubLayout.id}`)
+        const russianScopedLayoutDetails = page.getByTestId('metahub-layout-details-content')
+        await expect(russianScopedLayoutDetails).toBeVisible()
+        const russianMetahubHeaderZone = page.getByTestId('layout-zone-marketing-header')
+        await expect(russianMetahubHeaderZone).toContainText('Шапка маркетинговой страницы')
+        await expectRussianMarketingHeaderLabels(russianMetahubHeaderZone)
+        await expect(russianScopedLayoutDetails.getByText('Начало', { exact: true })).toBeVisible()
+        await expect(russianScopedLayoutDetails.getByText('Конец', { exact: true })).toBeVisible()
+        const russianZoneSettingsButton = page.getByTestId('layout-zone-settings-marketing-header')
+        await russianZoneSettingsButton.focus()
+        await page.keyboard.press('Enter')
+        const russianZoneSettingsDialog = page.getByRole('dialog', { name: 'Настройки: Шапка маркетинговой страницы' })
+        await expect(russianZoneSettingsDialog).toBeVisible()
+        await expect(russianZoneSettingsDialog.getByText('Поведение шапки', { exact: true })).toBeVisible()
+        await expect(russianZoneSettingsDialog.getByRole('radio', { name: 'Закреплена на экране', exact: true })).toBeVisible()
+        await expectStrictRuntimeUxSurface(russianZoneSettingsDialog, {
+            label: 'Russian metahub Zone Settings dialog',
+            locale: 'ru'
+        })
+        await expectStandardZoneSettingsFooter(russianZoneSettingsDialog, 'Russian metahub Zone Settings dialog')
+        await russianZoneSettingsDialog.getByRole('button', { name: 'Отмена', exact: true }).click()
+        await expect(russianZoneSettingsDialog).toHaveCount(0)
+
+        await applyBrowserPreferences(page, { language: 'en' })
+        await page.goto(`/metahub/${metahub.id}/resources/layouts/${scopedMetahubLayout.id}`)
+        const scopedLayoutDetails = page.getByTestId('metahub-layout-details-content')
+        await expect(scopedLayoutDetails).toBeVisible()
+        const scopedZoneSettingsButton = page.getByTestId('layout-zone-settings-marketing-header')
+        await expect(scopedZoneSettingsButton).toBeVisible()
+        await scopedZoneSettingsButton.focus()
+        await page.keyboard.press('Enter')
+        const scopedZoneSettingsDialog = page.getByRole('dialog')
+        await expect(scopedZoneSettingsDialog.getByText('Inherited from the current layout source', { exact: true })).toBeVisible()
+        await expectRuntimeUxViewportMatrix(page, 'Shared metahub Zone Settings dialog', {
+            beforeEachViewport: async (viewport) => {
+                await expect(scopedZoneSettingsDialog).toBeVisible()
+                await expectLocatorFitsViewport(scopedZoneSettingsDialog, `Metahub Zone Settings dialog at ${viewport.name}`)
+                await expectLocatorHasNoInlineOverflow(scopedZoneSettingsDialog, `Metahub Zone Settings dialog at ${viewport.name}`)
+                await expectStrictRuntimeUxSurface(scopedZoneSettingsDialog, {
+                    label: `Metahub Zone Settings dialog at ${viewport.name}`,
+                    locale: 'en'
+                })
+            }
+        })
+        const scopedFixedRadio = scopedZoneSettingsDialog.getByRole('radio', { name: 'Fixed on screen', exact: true })
+        await scopedFixedRadio.focus()
+        await page.keyboard.press('Space')
+        await expect(scopedFixedRadio).toBeChecked()
+        const scopedZoneSaveResponse = waitForSettledMutationResponse(
+            page,
+            (response) => responseIsMutation(response, 'PATCH', /\/zone-settings\/marketing-header\/position$/),
+            { label: 'Saving the scoped marketing header position', timeout: 90_000 }
+        )
+        const scopedZoneSaveButton = scopedZoneSettingsDialog.getByRole('button', { name: 'Save', exact: true })
+        await scopedZoneSaveButton.focus()
+        await page.keyboard.press('Enter')
+        expect((await scopedZoneSaveResponse).ok()).toBe(true)
+        await expect(scopedZoneSettingsDialog).toHaveCount(0)
+        await page.reload()
+        await page.getByTestId('layout-zone-settings-marketing-header').focus()
+        await page.keyboard.press('Enter')
+        const scopedCustomizedDialog = page.getByRole('dialog')
+        await expect(scopedCustomizedDialog.getByText('Customized for this layout', { exact: true })).toBeVisible()
+        await expect(scopedCustomizedDialog.getByRole('radio', { name: 'Fixed on screen', exact: true })).toBeChecked()
+        const scopedZoneResetResponse = waitForSettledMutationResponse(
+            page,
+            (response) => responseIsMutation(response, 'POST', /\/zone-settings\/marketing-header\/position\/reset$/),
+            { label: 'Resetting the scoped marketing header position', timeout: 90_000 }
+        )
+        const scopedZoneResetButton = scopedCustomizedDialog.getByRole('button', { name: 'Reset override', exact: true })
+        await scopedZoneResetButton.focus()
+        await page.keyboard.press('Enter')
+        expect((await scopedZoneResetResponse).ok()).toBe(true)
+        await expect(scopedCustomizedDialog).toHaveCount(0)
+
+        const scopedAfterBrowserReset = await getLayout(api, metahub.id, scopedMetahubLayout.id)
+        expect(scopedAfterBrowserReset.neutral?.zoneSettings?.['marketing-header']).toBeUndefined()
+        const globalAfterScopedReset = await getLayout(api, metahub.id, marketingLayoutId)
+        const restoredGlobalLayout = await resetLayoutZoneSetting(
+            api,
+            metahub.id,
+            marketingLayoutId,
+            'marketing-header',
+            'position',
+            globalAfterScopedReset.version
+        )
+        expect(restoredGlobalLayout.config).toEqual(metahubRendererConfig)
+        expect(restoredGlobalLayout.neutral?.zoneSettings?.['marketing-header']).toBeUndefined()
+
         await page.goto(`/metahub/${metahub.id}/resources/layouts/${marketingLayoutId}`)
         const marketingLayoutDetails = page.getByTestId('metahub-layout-details-content')
         await expect(marketingLayoutDetails).toBeVisible()
@@ -462,6 +676,23 @@ test('@flow @combined @marketing-page browser authoring publishes edited content
         await page.goto(`/a/${application.id}/admin/layouts/${applicationMarketingLayout.id}`)
         const applicationLayoutDetails = page.getByTestId('application-layout-details-content')
         await expect(applicationLayoutDetails).toBeVisible()
+        const russianApplicationHeaderZone = page.getByTestId('layout-zone-marketing-header')
+        await expectRussianMarketingHeaderLabels(russianApplicationHeaderZone)
+        await expect(applicationLayoutDetails.getByText('Начало', { exact: true })).toBeVisible()
+        await expect(applicationLayoutDetails.getByText('Конец', { exact: true })).toBeVisible()
+        const applicationZoneSettingsButton = page.getByTestId('layout-zone-settings-marketing-header')
+        await applicationZoneSettingsButton.focus()
+        await page.keyboard.press('Enter')
+        const applicationZoneSettingsDialog = page.getByRole('dialog', { name: 'Настройки: Шапка маркетинговой страницы' })
+        await expect(applicationZoneSettingsDialog).toBeVisible()
+        await expect(applicationZoneSettingsDialog.getByText('Поведение шапки', { exact: true })).toBeVisible()
+        await expectStrictRuntimeUxSurface(applicationZoneSettingsDialog, {
+            label: 'Russian application Zone Settings dialog',
+            locale: 'ru'
+        })
+        await expectStandardZoneSettingsFooter(applicationZoneSettingsDialog, 'Russian application Zone Settings dialog')
+        await applicationZoneSettingsDialog.getByRole('button', { name: 'Отмена', exact: true }).click()
+        await expect(applicationZoneSettingsDialog).toHaveCount(0)
         for (const [zone, label] of [
             ['marketing-header', 'Шапка маркетинговой страницы'],
             ['marketing-main', 'Содержимое маркетинговой страницы'],
@@ -497,7 +728,7 @@ test('@flow @combined @marketing-page browser authoring publishes edited content
         if (!logoWidget?.id) throw new Error('The application marketing layout did not expose the logos widget')
         await page
             .getByTestId(`layout-widget-${logoWidget.id}`)
-            .getByRole('button', { name: /Редактировать|Edit/ })
+            .getByRole('button', { name: 'Редактировать виджет: Коллекция: Логотипы', exact: true })
             .click()
         const applicationWidgetDialog = page.getByRole('dialog').filter({ has: page.getByTestId('marketing-widget-config-dialog') })
         await expect(applicationWidgetDialog).toBeVisible()
@@ -534,6 +765,17 @@ test('@flow @combined @marketing-page browser authoring publishes edited content
                 return current.widgets?.filter((item) => item.widgetKey === 'marketing.hero' && typeof item.id === 'string').length ?? 0
             })
             .toBeGreaterThan(1)
+        const duplicatedApplicationLayout = (await getApplicationLayout(api, application.id, applicationMarketingLayout.id)) as {
+            widgets?: LayoutWidget[]
+        }
+        const duplicatedHeroWidget = duplicatedApplicationLayout.widgets?.find(
+            (item) => item.widgetKey === 'marketing.hero' && item.id !== heroWidget.id && typeof item.id === 'string'
+        )
+        if (typeof duplicatedHeroWidget?.id !== 'string') {
+            throw new Error('The application marketing layout did not expose the duplicated hero widget')
+        }
+        const duplicatedHeroSurface = page.getByTestId(`layout-widget-${duplicatedHeroWidget.id}`)
+        await expect(duplicatedHeroSurface).toBeVisible()
         await expectNoTechnicalLeakage(applicationLayoutDetails, {
             label: 'Russian application marketing layout after duplicating a hero widget',
             checkUuidSubstrings: true
@@ -543,7 +785,13 @@ test('@flow @combined @marketing-page browser authoring publishes edited content
             checkUuidSubstrings: true
         })
         await expectNoPageHorizontalOverflow(page, 'Russian application marketing layout authoring')
-        await expectRuntimeUxViewportMatrix(page, 'Russian application marketing layout authoring viewport matrix')
+        await expectRuntimeUxViewportMatrix(page, 'Russian application marketing layout authoring viewport matrix', {
+            beforeEachViewport: async (viewport) => {
+                if (viewport.name === 'mobile-390') {
+                    await expectLayoutWidgetLabelsReadable(page, 'Russian application marketing layout authoring at mobile-390')
+                }
+            }
+        })
         await page.screenshot({
             path: testInfo.outputPath('marketing-page-application-layout-ru.png'),
             fullPage: true,
@@ -607,12 +855,57 @@ test('@flow @combined @marketing-page browser authoring publishes edited content
         await expect(page.locator('#marketing-widget-faq')).toHaveCount(0)
         await page.unroute(`**/api/v1/applications/${application.id}/runtime/marketing-page**`)
 
-        await expectNoTechnicalLeakage(page.locator('body'), {
+        await testInfo.attach('marketing-runtime-retry-observability.json', {
+            body: Buffer.from(
+                JSON.stringify(
+                    {
+                        interceptedFailures: marketingRuntimeFailures,
+                        localizedErrorObserved: true,
+                        retryRecoveredRuntime: true,
+                        retryIndex: testInfo.retry
+                    },
+                    null,
+                    2
+                )
+            ),
+            contentType: 'application/json'
+        })
+
+        await expectStrictRuntimeUxSurface(page.locator('body'), {
             label: 'Published marketing-page authoring flow',
-            checkUuidSubstrings: true
+            locale: 'en'
         })
         await expectNoPageHorizontalOverflow(page, 'Published marketing-page authoring flow')
         await page.screenshot({ path: testInfo.outputPath('marketing-page-authoring-runtime.png'), fullPage: true, animations: 'disabled' })
+
+        // Complete the browser copy/delete lifecycle after the published runtime
+        // has proved that the duplicated widget received independent identity.
+        await page.goto(`/a/${application.id}/admin/layouts/${applicationMarketingLayout.id}`)
+        const removalSurface = page.getByTestId(`layout-widget-${duplicatedHeroWidget.id}`)
+        await expect(removalSurface).toBeVisible()
+        await removalSurface.getByRole('button', { name: /Удалить виджет|Remove widget/ }).click()
+        const removeWidgetDialog = page.getByRole('dialog').filter({ hasText: /Удалить виджет|Remove widget/ })
+        await expect(removeWidgetDialog).toBeVisible()
+        const removeWidgetResponse = page.waitForResponse(
+            (response) =>
+                response.url().includes(`/api/v1/applications/${application.id}/layouts/${applicationMarketingLayout.id}/zone-widget/`) &&
+                response.request().method() === 'DELETE',
+            { timeout: 90_000 }
+        )
+        await removeWidgetDialog.getByRole('button', { name: /Удалить|Delete/, exact: true }).click()
+        expect((await removeWidgetResponse).ok()).toBe(true)
+        await expect
+            .poll(async () => {
+                const current = (await getApplicationLayout(api, application.id!, applicationMarketingLayout.id!)) as {
+                    widgets?: LayoutWidget[]
+                }
+                return current.widgets?.filter((item) => item.widgetKey === 'marketing.hero' && typeof item.id === 'string').length ?? 0
+            })
+            .toBe(1)
+        await expect(removalSurface).toHaveCount(0)
+        expectNoUnexpectedBrowserRuntimeIssues(browserIssues, 'Marketing-page authoring browser flow', {
+            allowTextPatterns: [/503|E2E transient marketing runtime failure/i]
+        })
     } finally {
         await disposeApiContext(api)
     }

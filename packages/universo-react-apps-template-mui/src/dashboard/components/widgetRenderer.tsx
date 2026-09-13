@@ -3358,6 +3358,12 @@ function OptionsMenuWidget({ widget }: { widget: ZoneWidgetItem }): ReactNode {
     )
 }
 
+function ColorModeSwitcherWidget({ widgetId }: { widgetId: string }): ReactNode {
+    const { t } = useTranslation('apps')
+
+    return <ColorModeIconDropdown key={widgetId} aria-label={t('colorMode.label', 'Color mode')} />
+}
+
 export function renderWidget(
     widget: ZoneWidgetItem,
     menus?: DashboardMenusMap,
@@ -3392,6 +3398,8 @@ export function renderWidget(
             return <UserProfileWidget key={widget.id} widget={widget} />
         case 'languageSwitcher':
             return <LanguageSwitcher key={widget.id} />
+        case 'colorModeSwitcher':
+            return <ColorModeSwitcherWidget key={widget.id} widgetId={widget.id} />
         case 'breadcrumbs':
             return (
                 <Box key={widget.id} data-testid='runtime-breadcrumbs-widget' sx={{ maxWidth: '100%', minWidth: 0, overflowX: 'auto' }}>

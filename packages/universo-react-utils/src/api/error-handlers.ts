@@ -9,6 +9,8 @@ export interface ApiError {
     status?: number
 }
 
+const isLegacyErrorCode = (value: unknown): value is string => typeof value === 'string' && /^[A-Z][A-Z0-9_]*$/u.test(value)
+
 /**
  * Extracts error information from various error types
  * @param error - Unknown error object (axios, Error, or other)
@@ -48,6 +50,8 @@ export function extractAxiosError(error: unknown): ApiError {
                 ? payload.code
                 : nestedError && typeof nestedError === 'object' && 'code' in nestedError && typeof nestedError.code === 'string'
                 ? nestedError.code
+                : isLegacyErrorCode(nestedError)
+                ? nestedError
                 : undefined
         return {
             message,
@@ -79,7 +83,8 @@ export function extractAxiosError(error: unknown): ApiError {
 export function isApiError(error: unknown, code?: string): boolean {
     if (!axios.isAxiosError(error)) return false
     if (!code) return true
-    return error.response?.data?.code === code
+    const payload = error.response?.data as { code?: unknown; error?: unknown } | undefined
+    return payload?.code === code || payload?.error === code
 }
 
 /**

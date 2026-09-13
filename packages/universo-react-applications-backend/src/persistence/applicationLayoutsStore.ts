@@ -1,12 +1,15 @@
 import { qSchemaTable } from '@universo-react/database'
 import {
+    applicationLayoutsListResponseSchema,
     applicationTemplateKeySchema,
+    getLayoutZoneSettingDefinition,
     type ApplicationLayout,
     type ApplicationLayoutConfigResetMutation,
     type ApplicationLayoutCopyMutation,
     type ApplicationLayoutCreate,
     type ApplicationLayoutScope,
-    type ApplicationLayoutUpdate
+    type ApplicationLayoutUpdate,
+    type LayoutZoneSettings
 } from '@universo-react/types'
 import { type DbExecutor } from '@universo-react/utils'
 import { activeAppRowCondition, softDeleteSetClause } from '@universo-react/utils/database'
@@ -16,20 +19,29 @@ import {
     strictApplicationLayoutConfigResetMutationSchema,
     strictApplicationLayoutCopyMutationSchema,
     strictApplicationLayoutCreateSchema,
-    strictApplicationLayoutUpdateSchema
+    strictApplicationLayoutZoneSettingMutationSchema,
+    strictApplicationLayoutZoneSettingResetMutationSchema,
+    strictApplicationLayoutUpdateSchema,
+    type StrictApplicationLayoutZoneSettingMutation,
+    type StrictApplicationLayoutZoneSettingResetMutation
 } from '../validation/applicationLayoutMutationSchemas'
 
 import {
     GLOBAL_SCOPE_ID,
     applicationLayoutMutationLockKey,
     applicationLayoutScopeLockKey,
+    assertRendererConfigInput,
+    encodeLayoutConfigForStorage,
     getApplicationLayoutDetail,
+    getApplicationLayoutRawConfig,
     isRecord,
+    layoutCompositionToNeutral,
     layoutSelect,
     lockApplicationLayoutMutation,
     mapLayout,
     parseLayoutConfigForStorage,
     prepareCopiedWidgetConfigs,
+    readLayoutConfigEnvelope,
     resolveExistingLayoutComposition,
     runApplicationLayoutTransaction,
     type LayoutRow
@@ -58,6 +70,39 @@ interface ApplicationLayoutWidgetTombstoneRow {
     is_active: boolean
     _upl_deleted: boolean
     _app_deleted: boolean
+}
+
+const updateZoneSettings = (
+    current: Readonly<LayoutZoneSettings | undefined>,
+    zone: string,
+    settingKey: string,
+    value: unknown | undefined
+): LayoutZoneSettings | undefined => {
+    const next = { ...(current ?? {}) } as Record<string, Record<string, unknown>>
+    const zoneValues = { ...(next[zone] ?? {}) }
+    if (value === undefined) {
+        delete zoneValues[settingKey]
+    } else {
+        zoneValues[settingKey] = value
+    }
+    if (Object.keys(zoneValues).length === 0) {
+        delete next[zone]
+    } else {
+        next[zone] = zoneValues
+    }
+    return Object.keys(next).length === 0 ? undefined : (next as LayoutZoneSettings)
+}
+
+const validateZoneSetting = (templateKey: ApplicationLayout['templateKey'], zone: string, settingKey: string, value: unknown): void => {
+    const definition = getLayoutZoneSettingDefinition(templateKey, zone, settingKey)
+    if (!definition || typeof value !== 'string' || !definition.options.includes(value)) {
+        throw new Error('APPLICATION_LAYOUT_ZONE_SETTING_INVALID')
+    }
+}
+
+const readCurrentLayoutEnvelope = (current: Awaited<ReturnType<typeof getApplicationLayoutDetail>>) => {
+    if (!current) return null
+    return readLayoutConfigEnvelope(current.item.templateKey, getApplicationLayoutRawConfig(current))
 }
 
 const tombstoneApplicationLayoutWidgets = async (
@@ -273,7 +318,9 @@ export async function listApplicationLayouts(
         `SELECT COUNT(*)::text AS count FROM ${layoutsTable} WHERE ${conditions.join(' AND ')}`,
         params.slice(0, -2)
     )
-    return { items: rows.map(mapLayout), total: Number(countRows[0]?.count ?? 0) }
+    const rawCount = countRows[0]?.count
+    if (typeof rawCount !== 'string' || !/^\d+$/u.test(rawCount)) throw new Error('APPLICATION_LAYOUT_RESPONSE_INVALID')
+    return applicationLayoutsListResponseSchema.parse({ items: rows.map(mapLayout), total: Number(rawCount) })
 }
 
 export async function createApplicationLayout(
@@ -282,6 +329,7 @@ export async function createApplicationLayout(
     input: ApplicationLayoutCreate,
     userId: string | null
 ): Promise<ApplicationLayout> {
+    if (isRecord(input)) assertRendererConfigInput(input.config)
     const data = strictApplicationLayoutCreateSchema.parse(input)
     const templateKey = applicationTemplateKeySchema.parse(data.templateKey)
     const config = parseLayoutConfigForStorage(templateKey, data.config ?? {}, { compositionMode: 'independent', baseLayoutId: null })
@@ -349,16 +397,22 @@ export async function updateApplicationLayout(
     input: ApplicationLayoutUpdate,
     userId: string | null
 ): Promise<ApplicationLayout | null> {
+    if (isRecord(input)) assertRendererConfigInput(input.config)
     const data = strictApplicationLayoutUpdateSchema.parse(input)
     const layoutsTable = qSchemaTable(schemaName, '_app_layouts')
     return runApplicationLayoutTransaction(executor, async (tx) => {
         const current = await lockApplicationLayoutMutation(tx, schemaName, layoutId)
         if (!current) return null
-        const composition = resolveExistingLayoutComposition(current.item, current.widgets)
-        const config = parseLayoutConfigForStorage(
+        const currentEnvelope = readCurrentLayoutEnvelope(current)
+        if (!currentEnvelope) return null
+        const composition = resolveExistingLayoutComposition(current.item)
+        const config = encodeLayoutConfigForStorage(
             current.item.templateKey,
-            data.config === undefined ? current.item.config : data.config,
-            composition
+            data.config === undefined ? currentEnvelope.rendererConfig : data.config,
+            {
+                ...currentEnvelope.neutral,
+                composition: layoutCompositionToNeutral(composition)
+            }
         )
         if (data.expectedVersion !== undefined && current.item.version !== data.expectedVersion) {
             throw new Error('APPLICATION_LAYOUT_VERSION_CONFLICT')
@@ -469,7 +523,9 @@ export async function resetApplicationLayoutConfig(
             throw new Error('APPLICATION_LAYOUT_VERSION_CONFLICT')
         }
 
-        const config = parseLayoutConfigForStorage('marketing-page', {}, resolveExistingLayoutComposition(current.item, current.widgets))
+        const currentEnvelope = readCurrentLayoutEnvelope(current)
+        if (!currentEnvelope) return null
+        const config = encodeLayoutConfigForStorage('marketing-page', {}, currentEnvelope.neutral)
         const localHash = hashApplicationLayoutContent({ layout: { ...current.item, config }, widgets: current.widgets })
         const syncState = current.item.sourceKind === 'metahub' && localHash !== current.item.sourceContentHash ? 'local_modified' : 'clean'
         const rows = await tx.query<LayoutRow>(
@@ -494,6 +550,84 @@ export async function resetApplicationLayoutConfig(
         }
         return mapLayout(rows[0])
     })
+}
+
+const mutateApplicationLayoutZoneSetting = async (
+    executor: DbExecutor,
+    schemaName: string,
+    layoutId: string,
+    zone: string,
+    settingKey: string,
+    expectedVersion: number,
+    value: unknown | undefined,
+    userId: string | null
+): Promise<ApplicationLayout | null> => {
+    const layoutsTable = qSchemaTable(schemaName, '_app_layouts')
+    return runApplicationLayoutTransaction(executor, async (tx) => {
+        const current = await lockApplicationLayoutMutation(tx, schemaName, layoutId)
+        if (!current) return null
+        if (current.item.version !== expectedVersion) throw new Error('APPLICATION_LAYOUT_VERSION_CONFLICT')
+        if (value !== undefined) {
+            validateZoneSetting(current.item.templateKey, zone, settingKey, value)
+        } else if (!getLayoutZoneSettingDefinition(current.item.templateKey, zone, settingKey)) {
+            throw new Error('APPLICATION_LAYOUT_ZONE_SETTING_INVALID')
+        }
+
+        const currentEnvelope = readCurrentLayoutEnvelope(current)
+        if (!currentEnvelope) return null
+        const nextZoneSettings = updateZoneSettings(currentEnvelope.neutral.zoneSettings, zone, settingKey, value)
+        const nextNeutral = { ...currentEnvelope.neutral }
+        if (nextZoneSettings === undefined) delete nextNeutral.zoneSettings
+        else nextNeutral.zoneSettings = nextZoneSettings
+        const config = encodeLayoutConfigForStorage(current.item.templateKey, currentEnvelope.rendererConfig, nextNeutral)
+        const localHash = hashApplicationLayoutContent({ layout: { ...current.item, config }, widgets: current.widgets })
+        const syncState = current.item.sourceKind === 'metahub' && localHash !== current.item.sourceContentHash ? 'local_modified' : 'clean'
+        const rows = await tx.query<LayoutRow>(
+            `
+            UPDATE ${layoutsTable}
+            SET config = $2::jsonb,
+                local_content_hash = $3,
+                sync_state = $4,
+                _upl_updated_at = NOW(),
+                _upl_updated_by = $5,
+                _upl_version = COALESCE(_upl_version, 1) + 1
+            WHERE id = $1
+              AND COALESCE(_upl_version, 1) = $6
+              AND _upl_deleted = false
+              AND _app_deleted = false
+            RETURNING *, COALESCE(_upl_version, 1)::int AS version, source_deleted_at::text
+            `,
+            [layoutId, JSON.stringify(config), localHash, syncState, userId, expectedVersion]
+        )
+        if (!rows[0]) throw new Error('APPLICATION_LAYOUT_VERSION_CONFLICT')
+        return mapLayout(rows[0])
+    })
+}
+
+export async function updateApplicationLayoutZoneSetting(
+    executor: DbExecutor,
+    schemaName: string,
+    layoutId: string,
+    zone: string,
+    settingKey: string,
+    input: StrictApplicationLayoutZoneSettingMutation,
+    userId: string | null
+): Promise<ApplicationLayout | null> {
+    const data = strictApplicationLayoutZoneSettingMutationSchema.parse(input)
+    return mutateApplicationLayoutZoneSetting(executor, schemaName, layoutId, zone, settingKey, data.expectedVersion, data.value, userId)
+}
+
+export async function resetApplicationLayoutZoneSetting(
+    executor: DbExecutor,
+    schemaName: string,
+    layoutId: string,
+    zone: string,
+    settingKey: string,
+    input: StrictApplicationLayoutZoneSettingResetMutation,
+    userId: string | null
+): Promise<ApplicationLayout | null> {
+    const data = strictApplicationLayoutZoneSettingResetMutationSchema.parse(input)
+    return mutateApplicationLayoutZoneSetting(executor, schemaName, layoutId, zone, settingKey, data.expectedVersion, undefined, userId)
 }
 
 export async function deleteApplicationLayout(
@@ -597,14 +731,14 @@ export async function copyApplicationLayout(
         if (current.item.version !== data.expectedVersion) {
             throw new Error('APPLICATION_LAYOUT_VERSION_CONFLICT')
         }
-        const copiedLayoutConfig = parseLayoutConfigForStorage(
-            current.item.templateKey,
-            current.item.config,
-            // A copy is application-owned and deliberately severs metahub
-            // lineage. It must never retain an overlay envelope that points
-            // at the source layout after source widget ids are cleared.
-            { compositionMode: 'independent', baseLayoutId: null }
-        )
+        const currentEnvelope = readCurrentLayoutEnvelope(current)
+        if (!currentEnvelope) return null
+        const copiedNeutral = {
+            ...currentEnvelope.neutral,
+            composition: layoutCompositionToNeutral({ compositionMode: 'independent', baseLayoutId: null })
+        }
+        delete copiedNeutral.sourceZoneSettings
+        const copiedLayoutConfig = encodeLayoutConfigForStorage(current.item.templateKey, currentEnvelope.rendererConfig, copiedNeutral)
         const copiedConfigByWidgetId = prepareCopiedWidgetConfigs(current.item.templateKey, current.widgets)
         const localHash = hashApplicationLayoutContent({
             layout: { ...current.item, isDefault: false, config: copiedLayoutConfig },
@@ -635,21 +769,29 @@ export async function copyApplicationLayout(
         )
         const copied = rows[0]
         if (!copied) return null
-        await tx.query(
+        const updatedConfigRows = await tx.query<{ id: string }>(
             `UPDATE ${layoutsTable}
              SET config = $2::jsonb
-             WHERE id = $1 AND _upl_deleted = false AND _app_deleted = false`,
+             WHERE id = $1 AND _upl_deleted = false AND _app_deleted = false
+             RETURNING id`,
             [copied.id, JSON.stringify(copiedLayoutConfig)]
         )
+        if (updatedConfigRows.length !== 1 || updatedConfigRows[0]?.id !== copied.id) {
+            throw new Error('APPLICATION_LAYOUT_COPY_CONFIG_UPDATE_FAILED')
+        }
         for (const widget of current.widgets) {
             const config = copiedConfigByWidgetId.get(widget.id) ?? widget.config
-            await tx.query(
+            const insertedWidgetRows = await tx.query<{ id: string }>(
                 `
                 INSERT INTO ${widgetsTable} (layout_id, zone, widget_key, sort_order, config, is_active, _upl_created_by, _upl_updated_by)
                 VALUES ($1, $2, $3, $4, $5::jsonb, $6, $7, $7)
+                RETURNING id
                 `,
                 [copied.id, widget.zone, widget.widgetKey, widget.sortOrder, JSON.stringify(config), widget.isActive, userId]
             )
+            if (insertedWidgetRows.length !== 1 || typeof insertedWidgetRows[0]?.id !== 'string') {
+                throw new Error('APPLICATION_LAYOUT_COPY_WIDGET_INSERT_FAILED')
+            }
         }
         return mapLayout({ ...copied, config: copiedLayoutConfig })
     })

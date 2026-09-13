@@ -2,10 +2,16 @@ import { z } from 'zod'
 import {
     APPLICATION_TEMPLATE_REGISTRY,
     applicationTemplateKeySchema,
+    applicationLayoutWidgetKeySchema,
     getLayoutWidgetAllowedZones,
     LAYOUT_WIDGET_DEFINITIONS,
     LAYOUT_ZONE_DEFINITIONS,
     MARKETING_WIDGET_REGISTRY,
+    decodeWidgetConfigEnvelope,
+    encodeWidgetConfigEnvelope,
+    decodeLayoutConfigEnvelope,
+    encodeLayoutConfigEnvelope,
+    getLayoutZoneSettingDefault,
     marketingPageConfigSchema,
     parseApplicationLayoutWidgetConfig,
     type ApplicationLayoutWidgetKey,
@@ -22,6 +28,8 @@ import {
     LAYOUT_CONFIG_SKIP_DEFAULT_WIDGET_SEED_KEY,
     createLayoutSchema,
     updateLayoutSchema,
+    updateLayoutZoneSettingSchema,
+    resetLayoutZoneSettingSchema,
     assignLayoutZoneWidgetSchema,
     moveLayoutZoneWidgetSchema,
     updateLayoutZoneWidgetConfigSchema,
@@ -78,15 +86,26 @@ const prepareCopiedWidgetConfig = (
         })
     }
 
-    const rawConfig = isRecord(config) ? config : {}
-    if (templateKey === 'dashboard') return rawConfig
+    const decoded = decodeWidgetConfigEnvelope(config ?? {}, {
+        templateKey,
+        widgetKey: String(widgetKey),
+        zone: String(zone)
+    })
+    const rawConfig = decoded.rendererConfig
 
     try {
         const isMarketingWidget =
             typeof widgetKey === 'string' && Object.prototype.hasOwnProperty.call(MARKETING_WIDGET_REGISTRY, widgetKey)
-        return parseApplicationLayoutWidgetConfig(
-            widgetKey as ApplicationLayoutWidgetKey,
-            isMarketingWidget ? { ...rawConfig, instanceKey: generateUuidV7() } : rawConfig
+        const parsed =
+            templateKey === 'dashboard'
+                ? rawConfig
+                : parseApplicationLayoutWidgetConfig(
+                      widgetKey as ApplicationLayoutWidgetKey,
+                      isMarketingWidget ? { ...rawConfig, instanceKey: generateUuidV7() } : rawConfig
+                  )
+        return encodeWidgetConfigEnvelope(
+            { rendererConfig: parsed, neutral: decoded.neutral },
+            { templateKey, widgetKey: String(widgetKey), zone: String(zone) }
         )
     } catch {
         throw new MetahubDomainError({
@@ -95,6 +114,28 @@ const prepareCopiedWidgetConfig = (
             code: 'VALIDATION_ERROR'
         })
     }
+}
+
+const prepareCopiedOverrideConfig = (
+    templateKey: ApplicationTemplateKey,
+    widgetKey: unknown,
+    zone: unknown,
+    config: unknown
+): Record<string, unknown> | null => {
+    if (config === null || config === undefined) return null
+    const parsedWidgetKey = applicationLayoutWidgetKeySchema.parse(widgetKey)
+    const parsedZone = String(zone)
+    const decoded = decodeWidgetConfigEnvelope(config, {
+        templateKey,
+        widgetKey: parsedWidgetKey,
+        zone: parsedZone
+    })
+    const rendererConfig =
+        templateKey === 'dashboard' ? decoded.rendererConfig : parseApplicationLayoutWidgetConfig(parsedWidgetKey, decoded.rendererConfig)
+    return encodeWidgetConfigEnvelope(
+        { rendererConfig, neutral: decoded.neutral },
+        { templateKey, widgetKey: parsedWidgetKey, zone: parsedZone }
+    )
 }
 
 // ---------------------------------------------------------------------------
@@ -340,6 +381,14 @@ export function createLayoutsController(createHandler: ReturnType<typeof createM
                 const isOverlayLayout = isScopedLayout && baseLayoutId !== null
 
                 if (isOverlayLayout) {
+                    if (!uuidV7Schema.safeParse(baseLayoutId).success) {
+                        throw new MetahubDomainError({
+                            message: 'Layout base identifier is invalid',
+                            statusCode: 409,
+                            code: 'VALIDATION_ERROR',
+                            details: { operation: 'copy-layout' }
+                        })
+                    }
                     const baseLayout = await queryOne<Record<string, unknown>>(
                         trx,
                         `SELECT id FROM ${layoutsQt}
@@ -395,9 +444,43 @@ export function createLayoutsController(createHandler: ReturnType<typeof createM
                 }
 
                 const isDashboardLayout = sourceTemplateKey === 'dashboard'
-                const sourceConfig = isRecord(sourceLayout.config) ? sourceLayout.config : {}
+                let sourceEnvelope: ReturnType<typeof decodeLayoutConfigEnvelope>
+                try {
+                    sourceEnvelope = decodeLayoutConfigEnvelope(sourceLayout.config ?? {}, {
+                        templateKey: sourceTemplateKey,
+                        allowSourceZoneSettings: false
+                    })
+                } catch {
+                    throw new MetahubDomainError({
+                        message: 'Layout configuration metadata is invalid',
+                        statusCode: 409,
+                        code: 'VALIDATION_ERROR',
+                        details: { operation: 'copy-layout' }
+                    })
+                }
+                const sourceRendererConfig = sourceEnvelope.rendererConfig
+                const sourceComposition = sourceEnvelope.neutral.composition
+                if (!sourceComposition) {
+                    throw new MetahubDomainError({
+                        message: 'Layout composition metadata is invalid',
+                        statusCode: 409,
+                        code: 'VALIDATION_ERROR',
+                        details: { operation: 'copy-layout' }
+                    })
+                }
+                if (
+                    (isOverlayLayout && (sourceComposition.mode !== 'overlay' || sourceComposition.baseLayoutId !== baseLayoutId)) ||
+                    (!isOverlayLayout && sourceComposition.mode !== 'independent')
+                ) {
+                    throw new MetahubDomainError({
+                        message: 'Layout composition metadata does not match its scope',
+                        statusCode: 409,
+                        code: 'VALIDATION_ERROR',
+                        details: { operation: 'copy-layout' }
+                    })
+                }
                 if (!isDashboardLayout) {
-                    const marketingConfig = marketingPageConfigSchema.safeParse(sourceConfig)
+                    const marketingConfig = marketingPageConfigSchema.safeParse(sourceRendererConfig)
                     if (!marketingConfig.success) {
                         throw new MetahubDomainError({
                             message: 'Marketing layout configuration is invalid',
@@ -409,17 +492,40 @@ export function createLayoutsController(createHandler: ReturnType<typeof createM
                 }
                 const now = new Date()
 
-                const layoutConfig = !isDashboardLayout
-                    ? sourceConfig
+                const copiedRendererConfig = !isDashboardLayout
+                    ? sourceRendererConfig
                     : copyOptions.copyWidgets
                     ? shouldDeactivateWidgets
-                        ? { ...sourceConfig, ...buildDashboardLayoutConfig([]) }
-                        : sourceConfig
+                        ? { ...sourceRendererConfig, ...buildDashboardLayoutConfig([]) }
+                        : sourceRendererConfig
                     : {
-                          ...sourceConfig,
+                          ...sourceRendererConfig,
                           ...buildDashboardLayoutConfig([]),
                           [LAYOUT_CONFIG_SKIP_DEFAULT_WIDGET_SEED_KEY]: true
                       }
+                const copiedNeutral = { ...sourceEnvelope.neutral }
+                if (isOverlayLayout && baseLayoutId) {
+                    copiedNeutral.composition = { mode: 'overlay', baseLayoutId }
+                } else {
+                    copiedNeutral.composition = { mode: 'independent', baseLayoutId: null }
+                    if (sourceTemplateKey === 'marketing-page') {
+                        copiedNeutral.zoneSettings = {
+                            ...(copiedNeutral.zoneSettings ?? {}),
+                            'marketing-header': {
+                                ...(copiedNeutral.zoneSettings?.['marketing-header'] ?? {}),
+                                position:
+                                    copiedNeutral.zoneSettings?.['marketing-header']?.position ??
+                                    ((getLayoutZoneSettingDefault(sourceTemplateKey, 'marketing-header', 'position') ?? 'fixed') as
+                                        | 'fixed'
+                                        | 'flow')
+                            }
+                        }
+                    }
+                }
+                const layoutConfig = encodeLayoutConfigEnvelope(
+                    { rendererConfig: copiedRendererConfig, neutral: copiedNeutral },
+                    { templateKey: sourceTemplateKey }
+                )
 
                 const createdLayout = await queryOne<Record<string, unknown>>(
                     trx,
@@ -545,9 +651,9 @@ export function createLayoutsController(createHandler: ReturnType<typeof createM
                                 .map((row) => [String(row.base_widget_id), row])
                         )
 
-                        const baseWidgets = await queryMany<{ id: string; widget_key?: string; is_active?: boolean }>(
+                        const baseWidgets = await queryMany<{ id: string; widget_key?: string; zone?: string; is_active?: boolean }>(
                             trx,
-                            `SELECT id, widget_key, is_active FROM ${widgetsQt}
+                            `SELECT id, widget_key, zone, is_active FROM ${widgetsQt}
                              WHERE layout_id = $1 AND _upl_deleted = false AND _mhb_deleted = false
                              ORDER BY zone ASC, sort_order ASC, _upl_created_at ASC
                              FOR UPDATE`,
@@ -562,10 +668,12 @@ export function createLayoutsController(createHandler: ReturnType<typeof createM
                                           baseWidgetId: baseWidget.id,
                                           zone: sourceOverride.zone ?? null,
                                           sortOrder: sourceOverride.sort_order ?? null,
-                                          config:
-                                              sourceOverride.config && typeof sourceOverride.config === 'object'
-                                                  ? (sourceOverride.config as Record<string, unknown>)
-                                                  : null,
+                                          config: prepareCopiedOverrideConfig(
+                                              sourceTemplateKey,
+                                              baseWidget.widget_key,
+                                              sourceOverride.zone ?? baseWidget.zone,
+                                              sourceOverride.config
+                                          ),
                                           isActive: null,
                                           isDeletedOverride: true
                                       }
@@ -575,10 +683,12 @@ export function createLayoutsController(createHandler: ReturnType<typeof createM
                                       baseWidgetId: baseWidget.id,
                                       zone: sourceOverride?.zone ?? null,
                                       sortOrder: sourceOverride?.sort_order ?? null,
-                                      config:
-                                          sourceOverride?.config && typeof sourceOverride.config === 'object'
-                                              ? (sourceOverride.config as Record<string, unknown>)
-                                              : null,
+                                      config: prepareCopiedOverrideConfig(
+                                          sourceTemplateKey,
+                                          baseWidget.widget_key,
+                                          sourceOverride?.zone ?? baseWidget.zone,
+                                          sourceOverride?.config
+                                      ),
                                       isActive: false,
                                       isDeletedOverride: false
                                   }
@@ -589,7 +699,12 @@ export function createLayoutsController(createHandler: ReturnType<typeof createM
                                       baseWidgetId: String(row.base_widget_id),
                                       zone: row.zone ?? null,
                                       sortOrder: row.sort_order ?? null,
-                                      config: row.config && typeof row.config === 'object' ? (row.config as Record<string, unknown>) : null,
+                                      config: prepareCopiedOverrideConfig(
+                                          sourceTemplateKey,
+                                          baseWidgets.find((baseWidget) => baseWidget.id === String(row.base_widget_id))?.widget_key,
+                                          row.zone ?? baseWidgets.find((baseWidget) => baseWidget.id === String(row.base_widget_id))?.zone,
+                                          row.config
+                                      ),
                                       isActive: typeof row.is_active === 'boolean' ? row.is_active : null,
                                       isDeletedOverride: row.is_deleted_override === true
                                   }))
@@ -666,14 +781,17 @@ export function createLayoutsController(createHandler: ReturnType<typeof createM
                 return createdLayout
             })
 
+            const createdTemplateKey = applicationTemplateKeySchema.parse(created.template_key)
+            const createdEnvelope = decodeLayoutConfigEnvelope(created.config ?? {}, { templateKey: createdTemplateKey })
             return res.status(201).json({
                 id: created.id,
                 scopeEntityId: created.scope_entity_id ?? null,
                 baseLayoutId: created.base_layout_id ?? null,
-                templateKey: applicationTemplateKeySchema.parse(created.template_key),
+                templateKey: createdTemplateKey,
                 name: created.name ?? {},
                 description: created.description ?? null,
-                config: created.config ?? {},
+                config: createdEnvelope.rendererConfig,
+                neutral: createdEnvelope.neutral,
                 isActive: created.is_active !== false,
                 isDefault: created.is_default === true,
                 sortOrder: typeof created.sort_order === 'number' ? created.sort_order : 0,
@@ -770,6 +888,63 @@ export function createLayoutsController(createHandler: ReturnType<typeof createM
         { permission: 'manageMetahub' }
     )
 
+    const updateZoneSetting = createHandler(
+        async ({ req, res, metahubId, userId, exec, schemaService }) => {
+            const layoutId = parseUuidV7Param(req.params.layoutId)
+            if (!layoutId) return res.status(400).json({ error: 'Invalid layout ID' })
+
+            const parsed = updateLayoutZoneSettingSchema.safeParse({
+                ...(req.body ?? {}),
+                zone: req.params.zone,
+                settingKey: req.params.settingKey
+            })
+            if (!parsed.success) {
+                return res.status(400).json({ error: 'Invalid input', details: parsed.error.flatten() })
+            }
+
+            const layoutsService = new MetahubLayoutsService(exec, schemaService)
+            const updated = await layoutsService.updateLayoutZoneSetting(
+                metahubId,
+                layoutId,
+                parsed.data.zone,
+                parsed.data.settingKey,
+                parsed.data.value,
+                userId,
+                parsed.data.expectedVersion
+            )
+            return res.json({ item: updated })
+        },
+        { permission: 'manageMetahub' }
+    )
+
+    const resetZoneSetting = createHandler(
+        async ({ req, res, metahubId, userId, exec, schemaService }) => {
+            const layoutId = parseUuidV7Param(req.params.layoutId)
+            if (!layoutId) return res.status(400).json({ error: 'Invalid layout ID' })
+
+            const parsed = resetLayoutZoneSettingSchema.safeParse({
+                ...(req.body ?? {}),
+                zone: req.params.zone,
+                settingKey: req.params.settingKey
+            })
+            if (!parsed.success) {
+                return res.status(400).json({ error: 'Invalid input', details: parsed.error.flatten() })
+            }
+
+            const layoutsService = new MetahubLayoutsService(exec, schemaService)
+            const updated = await layoutsService.resetLayoutZoneSetting(
+                metahubId,
+                layoutId,
+                parsed.data.zone,
+                parsed.data.settingKey,
+                userId,
+                parsed.data.expectedVersion
+            )
+            return res.json({ item: updated })
+        },
+        { permission: 'manageMetahub' }
+    )
+
     const widgetsObject = createHandler(async ({ req, res }) => {
         if (!parseUuidV7Param(req.params.layoutId)) return res.status(400).json({ error: 'Invalid layout ID' })
 
@@ -785,7 +960,9 @@ export function createLayoutsController(createHandler: ReturnType<typeof createM
             requiredHostCapabilities: [...widget.requiredHostCapabilities],
             shared: widget.shared,
             labelKey: widget.labelKey,
-            defaultLabel: widget.defaultLabel
+            defaultLabel: widget.defaultLabel,
+            ...(widget.defaultPlacement ? { defaultPlacement: widget.defaultPlacement } : {}),
+            ...(widget.mobileProjection ? { mobileProjection: widget.mobileProjection } : {})
         }))
         const templates = (Object.keys(APPLICATION_TEMPLATE_REGISTRY) as ApplicationTemplateKey[]).map((templateKey) => ({
             ...APPLICATION_TEMPLATE_REGISTRY[templateKey],
@@ -982,6 +1159,8 @@ export function createLayoutsController(createHandler: ReturnType<typeof createM
         copy,
         update,
         remove,
+        updateZoneSetting,
+        resetZoneSetting,
         widgetsObject,
         listZoneWidgets,
         assignZoneWidget,

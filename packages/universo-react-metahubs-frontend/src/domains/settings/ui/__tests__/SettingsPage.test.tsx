@@ -78,6 +78,25 @@ vi.mock('react-i18next', () => ({
     })
 }))
 
+vi.mock('@universo-react/i18n', () => ({
+    useCommonTranslations: () => ({
+        t: (key: string, options?: string | { defaultValue?: string }) => {
+            const mapped: Record<string, string> = {
+                'layouts.widgets.interpretationNetworkWorkspace': 'Interpretation network workspace',
+                'layouts.zones.top': 'Top zone',
+                'layouts.zones.left': 'Left zone',
+                'layouts.zones.center': 'Center zone',
+                'layouts.zones.right': 'Right zone',
+                'layouts.zones.bottom': 'Bottom zone',
+                'layouts.zones.marketingHeader': 'Marketing header',
+                'layouts.zones.marketingMain': 'Marketing content',
+                'layouts.zones.marketingFooter': 'Marketing footer'
+            }
+            return mapped[key] ?? (typeof options === 'string' ? options : options?.defaultValue) ?? key
+        }
+    })
+}))
+
 vi.mock('notistack', () => ({
     useSnackbar: () => ({ enqueueSnackbar: snackbarMocks.enqueueSnackbar })
 }))

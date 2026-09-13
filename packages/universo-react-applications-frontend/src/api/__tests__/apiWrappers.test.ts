@@ -224,7 +224,21 @@ describe('applications-frontend api wrappers', () => {
         api.deleteApplication('m1')
         expect(del).toHaveBeenCalledWith('/applications/m1')
 
-        post.mockResolvedValueOnce({ data: { items: [{ id: 'widget-1', isCustomized: false }] } })
+        const widgetResponse = {
+            id: '0190a9b5-3cde-7abc-8def-0123456789af',
+            layoutId: '0190a9b5-3cde-7abc-8def-0123456789ae',
+            zone: 'top',
+            widgetKey: 'header',
+            sortOrder: 0,
+            config: {},
+            sourceConfig: null,
+            sourceWidgetId: null,
+            sourceBaseWidgetId: null,
+            isCustomized: false,
+            isActive: true,
+            version: 1
+        }
+        post.mockResolvedValueOnce({ data: { items: [widgetResponse] } })
         const resetWidgets = await api.resetApplicationLayoutWidgetConfigsBatch('app-1', {
             updates: [
                 {
@@ -243,12 +257,38 @@ describe('applications-frontend api wrappers', () => {
                 }
             ]
         })
-        expect(resetWidgets).toEqual([{ id: 'widget-1', isCustomized: false }])
+        expect(resetWidgets).toEqual([widgetResponse])
 
-        post.mockResolvedValueOnce({ data: { item: { id: 'layout-1', templateKey: 'marketing-page', version: 8 } } })
-        const resetLayout = await api.resetApplicationLayoutConfig('app-1', 'layout-1', { expectedVersion: 7 })
-        expect(post).toHaveBeenCalledWith('/applications/app-1/layouts/layout-1/config/reset', { expectedVersion: 7 })
-        expect(resetLayout).toEqual({ id: 'layout-1', templateKey: 'marketing-page', version: 8 })
+        const layoutResponse = {
+            id: '0190a9b5-3cde-7abc-8def-0123456789ae',
+            scopeId: 'global',
+            scopeKind: 'global',
+            scopeEntityId: null,
+            templateKey: 'marketing-page',
+            name: { en: 'Marketing page' },
+            description: null,
+            config: {},
+            neutral: { composition: { mode: 'independent', baseLayoutId: null } },
+            compositionMode: 'independent',
+            baseLayoutId: null,
+            isActive: true,
+            isDefault: true,
+            sortOrder: 0,
+            sourceKind: 'application',
+            sourceLayoutId: null,
+            sourceSnapshotHash: null,
+            sourceContentHash: null,
+            localContentHash: null,
+            syncState: 'clean',
+            isSourceExcluded: false,
+            sourceDeletedAt: null,
+            sourceDeletedBy: null,
+            version: 8
+        }
+        post.mockResolvedValueOnce({ data: { item: layoutResponse } })
+        const resetLayout = await api.resetApplicationLayoutConfig('app-1', layoutResponse.id, { expectedVersion: 7 })
+        expect(post).toHaveBeenCalledWith(`/applications/app-1/layouts/${layoutResponse.id}/config/reset`, { expectedVersion: 7 })
+        expect(resetLayout).toEqual(layoutResponse)
 
         await api.getApplicationRuntime('app-1', {
             limit: 25,
@@ -465,6 +505,11 @@ describe('applications-frontend api wrappers', () => {
         ])
 
         get.mockResolvedValueOnce({ data: { items: [{ key: 'languageSwitcher' }] } })
+        await expect(api.listApplicationLayoutWidgetObject('app-1', 'layout-1')).rejects.toThrow(
+            'APPLICATION_LAYOUT_WIDGET_METADATA_INVALID'
+        )
+
+        get.mockResolvedValueOnce({ data: {} })
         await expect(api.listApplicationLayoutWidgetObject('app-1', 'layout-1')).rejects.toThrow(
             'APPLICATION_LAYOUT_WIDGET_METADATA_INVALID'
         )

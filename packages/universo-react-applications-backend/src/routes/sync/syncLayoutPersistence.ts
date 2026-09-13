@@ -14,10 +14,16 @@ import type { DDLServices } from '@universo-react/schema-ddl'
 import {
     DASHBOARD_LAYOUT_ZONES,
     MARKETING_LAYOUT_ZONES,
+    decodeLayoutConfigEnvelope,
+    decodeLayoutWidgetConfigEnvelope,
+    encodeLayoutConfigEnvelope,
+    encodeLayoutWidgetConfigEnvelope,
+    parseApplicationLayoutWidgetConfig,
     type ApplicationLayoutChange,
-    type ApplicationTemplateKey
+    type ApplicationTemplateKey,
+    type LayoutNeutralComposition
 } from '@universo-react/types'
-import { validateMarketingSnapshotLayouts, type DbExecutor } from '@universo-react/utils'
+import { validateMarketingSnapshotTransportLayouts, type DbExecutor } from '@universo-react/utils'
 import type { PublishedApplicationSnapshot } from '../../services/applicationSyncContracts'
 import { type ApplicationSyncTransaction, getApplicationSyncDdlServices } from '../../ddl'
 import { hashApplicationLayoutContent } from '../../utils/applicationLayoutHash'
@@ -71,7 +77,6 @@ const createSyncExecutor = ({ trx, requestExecutor }: SyncExecutorOptions = {}):
 
 const hashApplicationLayoutWidgetContent = (widget: PersistedAppLayoutZoneWidget): string => {
     const payload = stableStringify({
-        sourceBaseWidgetId: widget.sourceBaseWidgetId ?? null,
         zone: widget.zone,
         widgetKey: widget.widgetKey,
         sortOrder: widget.sortOrder,
@@ -112,22 +117,51 @@ const buildSyncInputs = (
 }
 
 const buildComparableLayout = (row: ApplicationLayoutSyncLayoutRow, physicalToSource: ReadonlyMap<string, string>): PersistedAppLayout => {
-    const rawConfig = isRecord(row.config) ? row.config : {}
-    const baseLayoutId = rawConfig.baseLayoutId
-    const config =
-        typeof baseLayoutId === 'string' && physicalToSource.has(baseLayoutId)
-            ? { ...rawConfig, baseLayoutId: physicalToSource.get(baseLayoutId) }
-            : rawConfig
+    if (!isRecord(row.config)) throw new Error(`[SchemaSync] Persisted layout ${row.id} config is invalid`)
+    if (!isRecord(row.name)) throw new Error(`[SchemaSync] Persisted layout ${row.id} name is invalid`)
+    if (row.description !== null && row.description !== undefined && !isRecord(row.description)) {
+        throw new Error(`[SchemaSync] Persisted layout ${row.id} description is invalid`)
+    }
+    if (typeof row.is_active !== 'boolean') throw new Error(`[SchemaSync] Persisted layout ${row.id} active state is invalid`)
+    if (typeof row.is_default !== 'boolean') throw new Error(`[SchemaSync] Persisted layout ${row.id} default state is invalid`)
+    if (typeof row.sort_order !== 'number' || !Number.isInteger(row.sort_order)) {
+        throw new Error(`[SchemaSync] Persisted layout ${row.id} sort order is invalid`)
+    }
+    const rawConfig = row.config
+    const templateKey = parseApplicationTemplateKey(row.template_key, `persisted layout ${row.id}`)
+    const decoded = decodeLayoutConfigEnvelope(rawConfig, { templateKey })
+    const rendererConfig = decoded.rendererConfig
+    const composition = decoded.neutral.composition
+    if (!composition) throw new Error(`[SchemaSync] Persisted layout ${row.id} is missing canonical composition metadata`)
+    const neutral = { ...decoded.neutral }
+    delete neutral.composition
+    if (neutral.sourceZoneSettings !== undefined) {
+        neutral.zoneSettings = neutral.sourceZoneSettings
+        delete neutral.sourceZoneSettings
+    }
+    const config = encodeLayoutConfigEnvelope({ rendererConfig, neutral }, { templateKey })
+    const sourceComposition: LayoutNeutralComposition =
+        composition.mode === 'overlay'
+            ? {
+                  mode: 'overlay',
+                  baseLayoutId:
+                      physicalToSource.get(composition.baseLayoutId) ??
+                      (() => {
+                          throw new Error(`[SchemaSync] Persisted layout ${row.id} references a missing source base layout`)
+                      })()
+              }
+            : { mode: 'independent', baseLayoutId: null }
     return {
         id: row.source_layout_id ?? row.id,
         scopeEntityId: row.scope_entity_id ?? null,
-        templateKey: parseApplicationTemplateKey(row.template_key, `persisted layout ${row.id}`),
-        name: isRecord(row.name) ? row.name : {},
-        description: isRecord(row.description) ? row.description : null,
+        templateKey,
+        name: row.name,
+        description: row.description ?? null,
         config,
-        isActive: row.is_active === true,
-        isDefault: row.is_default === true,
-        sortOrder: typeof row.sort_order === 'number' ? row.sort_order : 0
+        sourceComposition,
+        isActive: row.is_active,
+        isDefault: row.is_default,
+        sortOrder: row.sort_order
     }
 }
 
@@ -141,16 +175,30 @@ const buildComparableWidget = (
         config: unknown
         is_active: boolean
     },
-    physicalToSource: ReadonlyMap<string, string>
-): Record<string, unknown> => ({
-    layoutId: physicalToSource.get(row.layout_id) ?? row.layout_id,
-    sourceBaseWidgetId: row.source_base_widget_id,
-    zone: row.zone,
-    widgetKey: row.widget_key,
-    sortOrder: row.sort_order,
-    config: isRecord(row.config) ? row.config : {},
-    isActive: row.is_active
-})
+    physicalToSource: ReadonlyMap<string, string>,
+    templateKey: ApplicationTemplateKey
+): Record<string, unknown> => {
+    const zone = normalizeLayoutZone(row.zone, templateKey)
+    const decoded = decodeLayoutWidgetConfigEnvelope(row.config, {
+        templateKey,
+        widgetKey: row.widget_key,
+        zone
+    })
+    const rendererConfig = parseApplicationLayoutWidgetConfig(row.widget_key, decoded.rendererConfig)
+    const config = encodeLayoutWidgetConfigEnvelope(
+        { rendererConfig, neutral: decoded.neutral },
+        { templateKey, widgetKey: row.widget_key, zone }
+    )
+    return {
+        layoutId: physicalToSource.get(row.layout_id) ?? row.layout_id,
+        sourceBaseWidgetId: row.source_base_widget_id,
+        zone,
+        widgetKey: row.widget_key,
+        sortOrder: row.sort_order,
+        config,
+        isActive: row.is_active
+    }
+}
 
 export async function buildApplicationLayoutChanges(options: {
     schemaName: string
@@ -158,7 +206,7 @@ export async function buildApplicationLayoutChanges(options: {
     executor: DbExecutor
 }): Promise<ApplicationLayoutChange[]> {
     const { schemaName, snapshot, executor: requestExecutor } = options
-    validateMarketingSnapshotLayouts(snapshot)
+    validateMarketingSnapshotTransportLayouts(snapshot)
     const nextInputs = buildSyncInputs(snapshot, null)
 
     const executor = createSyncExecutor({ requestExecutor })
@@ -290,7 +338,7 @@ export async function persistPublishedLayouts(options: {
     layoutResolutionPolicy?: ApplicationLayoutSyncPolicy
 }): Promise<void> {
     const { schemaName, snapshot, snapshotHash = null, userId = null, trx, executor: requestExecutor, layoutResolutionPolicy } = options
-    validateMarketingSnapshotLayouts(snapshot)
+    validateMarketingSnapshotTransportLayouts(snapshot)
     const executor = createSyncExecutor({ trx, requestExecutor })
     const inputs = buildSyncInputs(snapshot, snapshotHash)
 
@@ -321,7 +369,7 @@ export async function persistPublishedWidgets(options: {
     executor?: DbExecutor
 }): Promise<void> {
     const { schemaName, snapshot, userId = null, trx, executor: requestExecutor } = options
-    validateMarketingSnapshotLayouts(snapshot)
+    validateMarketingSnapshotTransportLayouts(snapshot)
     const inputs = buildSyncInputs(snapshot, null)
     const executor = createSyncExecutor({ trx, requestExecutor })
     await syncApplicationWidgets(executor, schemaName, { widgets: inputs.widgets, userId })
@@ -345,11 +393,7 @@ export async function getPersistedPublishedWidgets(options: {
     schemaName: string
     executor: DbExecutor
 }): Promise<PersistedAppLayoutZoneWidget[]> {
-    const rows = await readPersistedPublishedWidgets(createSyncExecutor({ requestExecutor: options.executor }), options.schemaName)
-    return rows.map((row) => ({
-        ...row,
-        zone: normalizeLayoutZone(row.zone, row.widgetKey.startsWith('marketing.') ? 'marketing-page' : 'dashboard')
-    }))
+    return readPersistedPublishedWidgets(createSyncExecutor({ requestExecutor: options.executor }), options.schemaName)
 }
 
 export async function hasDashboardLayoutConfigChanges(options: {
@@ -406,6 +450,9 @@ export async function hasPublishedWidgetsChanges(options: {
             .filter((row) => row.source_kind === 'metahub' && row.source_layout_id)
             .map((row) => [row.id, row.source_layout_id as string])
     )
+    const persistedTemplateByLayoutId = new Map(
+        layouts.map((row) => [row.id, parseApplicationTemplateKey(row.template_key, `persisted layout ${row.id}`)] as const)
+    )
     const currentRows = await (async () => {
         const widgets = await readPersistedPublishedWidgets(executor, schemaName)
         return widgets
@@ -418,19 +465,34 @@ export async function hasPublishedWidgetsChanges(options: {
                 config: row.config,
                 is_active: row.isActive
             }))
-            .map((row) => buildComparableWidget(row, physicalToSource))
+            .map((row) => {
+                const templateKey = persistedTemplateByLayoutId.get(row.layout_id)
+                if (!templateKey) throw new Error(`[SchemaSync] Persisted widget references missing layout ${row.layout_id}`)
+                return buildComparableWidget(row, physicalToSource, templateKey)
+            })
     })()
-    const nextRows = materializeTrustedSnapshotLayoutsAndWidgets(snapshot)
-        .widgets.filter((row) => row.isActive !== false)
-        .map((row) => ({
-            layoutId: row.layoutId,
-            sourceBaseWidgetId: row.sourceBaseWidgetId ?? null,
-            zone: row.zone,
-            widgetKey: row.widgetKey,
-            sortOrder: row.sortOrder,
-            config: row.config,
-            isActive: row.isActive
-        }))
+    const materialized = materializeTrustedSnapshotLayoutsAndWidgets(snapshot)
+    const sourceTemplateByLayoutId = new Map(materialized.layouts.map((row) => [row.id, row.templateKey] as const))
+    const nextRows = materialized.widgets
+        .filter((row) => row.isActive !== false)
+        .map((row) =>
+            buildComparableWidget(
+                {
+                    layout_id: row.layoutId,
+                    source_base_widget_id: row.sourceBaseWidgetId ?? null,
+                    zone: row.zone,
+                    widget_key: row.widgetKey,
+                    sort_order: row.sortOrder,
+                    config: row.config,
+                    is_active: row.isActive
+                },
+                new Map(),
+                sourceTemplateByLayoutId.get(row.layoutId) ??
+                    (() => {
+                        throw new Error(`[SchemaSync] Snapshot widget references missing layout ${row.layoutId}`)
+                    })()
+            )
+        )
     const sort = (rows: Array<Record<string, unknown>>) =>
         rows.sort((left, right) => JSON.stringify(left).localeCompare(JSON.stringify(right)))
     return stableStringify(sort(currentRows)) !== stableStringify(sort(nextRows))

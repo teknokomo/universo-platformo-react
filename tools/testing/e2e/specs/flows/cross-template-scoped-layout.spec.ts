@@ -8,10 +8,12 @@ import {
     expectNoDataGridTechnicalLeakage,
     expectNoPageHorizontalOverflow,
     expectNoTechnicalLeakage,
+    expectNoUnexpectedBrowserRuntimeIssues,
     expectRuntimeUxViewportMatrix,
     expectSemanticFieldControls,
     expectTableHorizontalScrollConstrained,
-    waitForLayoutFrame
+    waitForLayoutFrame,
+    watchBrowserRuntimeIssues
 } from '../../support/browser/runtimeUx'
 import {
     createApplicationLayout,
@@ -51,6 +53,17 @@ type LayoutWidget = {
     zone?: string
     sortOrder?: number
     config?: unknown
+    placement?: 'start' | 'end'
+}
+
+const readLayoutWidgetPlacement = (widget: LayoutWidget | undefined): 'start' | 'end' | undefined => {
+    if (!widget) return undefined
+    if (widget.placement === 'start' || widget.placement === 'end') return widget.placement
+    if (!widget.config || typeof widget.config !== 'object' || Array.isArray(widget.config)) return undefined
+    const neutral = (widget.config as Record<string, unknown>).__layout
+    if (!neutral || typeof neutral !== 'object' || Array.isArray(neutral)) return undefined
+    const placement = (neutral as Record<string, unknown>).placement
+    return placement === 'start' || placement === 'end' ? placement : undefined
 }
 
 type LayoutScope = {
@@ -469,6 +482,7 @@ test('@flow @combined @cross-template @scoped-layout covers Page/Object preceden
     runManifest
 }, testInfo) => {
     test.setTimeout(420_000)
+    const browserIssues = watchBrowserRuntimeIssues(page)
     const fixture = await createRuntimeFixture(runManifest)
     const effectiveRequestKeys = new Set<string>()
     const marketingRequestKeys = new Set<string>()
@@ -653,6 +667,7 @@ test('@flow @combined @cross-template @scoped-layout covers Page/Object preceden
 
         await waitForLayoutFrame(page)
         await page.screenshot({ path: testInfo.outputPath('cross-template-scoped-layout-object-dashboard-ru-mobile.png'), fullPage: true })
+        expectNoUnexpectedBrowserRuntimeIssues(browserIssues, 'Cross-template scoped-layout runtime lifecycle')
     } finally {
         await disposeApiContext(fixture.api)
     }
@@ -663,6 +678,7 @@ test('@flow @combined @cross-template @authoring covers localized layout CRUD, r
     runManifest
 }, testInfo) => {
     test.setTimeout(360_000)
+    const browserIssues = watchBrowserRuntimeIssues(page)
     const fixture = await createRuntimeFixture({
         ...runManifest,
         runId: `${runManifest.runId}-authoring`
@@ -827,6 +843,72 @@ test('@flow @combined @cross-template @authoring covers localized layout CRUD, r
         await expect(page.getByRole('row').filter({ hasText: updatedName })).toHaveCount(1)
 
         await page.goto(`/a/${applicationId}/admin/layouts/${fixture.globalLayout.id}`)
+        const globalMarketingDetail = await getApplicationLayout(fixture.api, applicationId, fixture.globalLayout.id)
+        const navigationWidget = (globalMarketingDetail.widgets ?? []).find(
+            (widget: LayoutWidget) => widget.widgetKey === 'marketing.navigation' && typeof widget.id === 'string'
+        )
+        if (!navigationWidget?.id) throw new Error('The global marketing layout did not expose a navigation widget for placement coverage')
+        const navigationSurface = page.getByTestId(`layout-widget-${navigationWidget.id}`)
+        await expect(navigationSurface).toBeVisible()
+        await navigationSurface.getByTestId(`layout-widget-move-menu-${navigationWidget.id}`).click()
+        const moveToEndResponse = page.waitForResponse(
+            (response) =>
+                response.request().method() === 'PATCH' &&
+                new URL(response.url()).pathname ===
+                    `/api/v1/applications/${applicationId}/layouts/${fixture.globalLayout.id}/zone-widgets/move`,
+            { timeout: 60_000 }
+        )
+        await page.getByTestId(`layout-widget-placement-${navigationWidget.id}-end`).click()
+        expect((await moveToEndResponse).ok()).toBe(true)
+        const navigationAfterEnd = await getApplicationLayout(fixture.api, applicationId, fixture.globalLayout.id)
+        const navigationEndWidget = navigationAfterEnd.widgets?.find((widget: LayoutWidget) => widget.id === navigationWidget.id)
+        expect(readLayoutWidgetPlacement(navigationEndWidget)).toBe('end')
+
+        await page.getByTestId(`layout-widget-${navigationWidget.id}`).getByTestId(`layout-widget-move-menu-${navigationWidget.id}`).click()
+        const moveToStartResponse = page.waitForResponse(
+            (response) =>
+                response.request().method() === 'PATCH' &&
+                new URL(response.url()).pathname ===
+                    `/api/v1/applications/${applicationId}/layouts/${fixture.globalLayout.id}/zone-widgets/move`,
+            { timeout: 60_000 }
+        )
+        await page.getByTestId(`layout-widget-placement-${navigationWidget.id}-start`).click()
+        expect((await moveToStartResponse).ok()).toBe(true)
+        const navigationAfterStart = await getApplicationLayout(fixture.api, applicationId, fixture.globalLayout.id)
+        const navigationStartWidget = navigationAfterStart.widgets?.find((widget: LayoutWidget) => widget.id === navigationWidget.id)
+        expect(readLayoutWidgetPlacement(navigationStartWidget)).toBe('start')
+
+        const zoneSettingsButton = page.getByTestId('layout-zone-settings-marketing-header')
+        await expect(zoneSettingsButton).toBeVisible()
+        await zoneSettingsButton.click()
+        const zoneSettingsDialog = page.getByRole('dialog')
+        await expect(zoneSettingsDialog.getByText('Inherited from the current layout source', { exact: true })).toBeVisible()
+        await zoneSettingsDialog.getByRole('radio', { name: 'Scrolls with page', exact: true }).check()
+        const zoneSettingSaveResponse = page.waitForResponse(
+            (response) =>
+                response.request().method() === 'PATCH' &&
+                new URL(response.url()).pathname ===
+                    `/api/v1/applications/${applicationId}/layouts/${fixture.globalLayout.id}/zone-settings/marketing-header/position`,
+            { timeout: 60_000 }
+        )
+        await zoneSettingsDialog.getByRole('button', { name: 'Save', exact: true }).click()
+        expect((await zoneSettingSaveResponse).ok()).toBe(true)
+        await expect(zoneSettingsDialog).toHaveCount(0)
+        await page.reload()
+        await page.getByTestId('layout-zone-settings-marketing-header').click()
+        const customizedZoneSettingsDialog = page.getByRole('dialog')
+        await expect(customizedZoneSettingsDialog.getByText('Customized for this layout', { exact: true })).toBeVisible()
+        const zoneSettingResetResponse = page.waitForResponse(
+            (response) =>
+                response.request().method() === 'POST' &&
+                new URL(response.url()).pathname ===
+                    `/api/v1/applications/${applicationId}/layouts/${fixture.globalLayout.id}/zone-settings/marketing-header/position/reset`,
+            { timeout: 60_000 }
+        )
+        await customizedZoneSettingsDialog.getByRole('button', { name: 'Reset override', exact: true }).click()
+        expect((await zoneSettingResetResponse).ok()).toBe(true)
+        await expect(customizedZoneSettingsDialog).toHaveCount(0)
+
         const appearancePanel = page.getByTestId('application-marketing-appearance-panel')
         await expect(appearancePanel).toBeVisible()
         const resetButton = page.getByTestId('application-marketing-appearance-reset')
@@ -854,6 +936,7 @@ test('@flow @combined @cross-template @authoring covers localized layout CRUD, r
         await expectNoPageHorizontalOverflow(page, 'Application layout detail')
         await waitForLayoutFrame(page)
         await page.screenshot({ path: testInfo.outputPath('application-layout-authoring-reset.png'), fullPage: true })
+        expectNoUnexpectedBrowserRuntimeIssues(browserIssues, 'Cross-template scoped-layout authoring lifecycle')
     } finally {
         await disposeApiContext(fixture.api)
     }

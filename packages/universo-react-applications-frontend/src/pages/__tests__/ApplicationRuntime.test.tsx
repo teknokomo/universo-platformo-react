@@ -26,7 +26,12 @@ const runtimeMocks = vi.hoisted(() => ({
     getApplicationEffectiveLayout: vi.fn(),
     effectiveLayoutZone: undefined as string | undefined,
     capturedDashboardProps: null as { layoutConfig?: Record<string, unknown>; zoneWidgets?: unknown } | null,
-    capturedMarketingProps: null as { locale?: string; target?: unknown; sharedLayoutWidgets?: unknown } | null,
+    capturedMarketingProps: null as {
+        locale?: string
+        target?: unknown
+        effectiveLayoutWidgets?: unknown
+        effectiveLayoutConfig?: unknown
+    } | null,
     triggerRerender: undefined as undefined | (() => void)
 }))
 
@@ -101,7 +106,8 @@ vi.mock('@universo-react/apps-template-mui', () => {
             locale?: string
             target?: unknown
             layoutIdentity?: unknown
-            sharedLayoutWidgets?: unknown
+            effectiveLayoutWidgets?: unknown
+            effectiveLayoutConfig?: unknown
         }) => {
             runtimeMocks.capturedMarketingProps = props
             return <div data-testid='marketing-runtime-content'>marketing</div>
@@ -476,9 +482,10 @@ describe('ApplicationRuntime pending interaction safety', () => {
         expect(runtimeMocks.capturedMarketingProps).toMatchObject({
             locale: 'en',
             target: null,
-            sharedLayoutWidgets: [
+            effectiveLayoutWidgets: [
                 expect.objectContaining({ id: 'effective-widget-1', widgetKey: 'languageSwitcher', zone: 'marketing-header' })
-            ]
+            ],
+            effectiveLayoutConfig: expect.objectContaining({ templateKey: 'marketing-page' })
         })
     })
 

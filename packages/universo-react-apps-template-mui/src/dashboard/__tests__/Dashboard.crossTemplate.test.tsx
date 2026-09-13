@@ -23,16 +23,19 @@ vi.mock('../components/AppNavbar', () => ({
     default: ({
         rightWidgets,
         showColorModeOnDesktop = true,
+        showColorMode = true,
         showLanguageSwitcher = true,
         showLanguageSwitcherOnDesktop = true
     }: {
         rightWidgets?: Array<unknown>
         showColorModeOnDesktop?: boolean
+        showColorMode?: boolean
         showLanguageSwitcher?: boolean
         showLanguageSwitcherOnDesktop?: boolean
     }) => (
         <div
             data-testid='top-shell'
+            data-color-mode={String(showColorMode)}
             data-color-mode-desktop={String(showColorModeOnDesktop)}
             data-language-switcher={String(showLanguageSwitcher)}
             data-language-switcher-desktop={String(showLanguageSwitcherOnDesktop)}
@@ -161,6 +164,33 @@ describe('Dashboard zone adapter', () => {
         expect(screen.queryByTestId('header-shell')).not.toBeInTheDocument()
     })
 
+    it('does not revive top shells or controls from legacy booleans when top composition is absent', () => {
+        render(
+            <Dashboard
+                details={details}
+                layoutConfig={{
+                    showSideMenu: false,
+                    showAppNavbar: true,
+                    showHeader: true,
+                    showBreadcrumbs: true,
+                    showSearch: true,
+                    showDatePicker: true,
+                    showOptionsMenu: true,
+                    showLanguageSwitcher: true
+                }}
+                zoneWidgets={{ left: [], bottom: [], center: [] }}
+            />
+        )
+
+        expect(screen.queryByTestId('top-shell')).not.toBeInTheDocument()
+        expect(screen.queryByTestId('header-shell')).not.toBeInTheDocument()
+        expect(screen.queryByTestId('runtime-breadcrumbs-widget')).not.toBeInTheDocument()
+        expect(screen.queryByTestId('runtime-search-widget')).not.toBeInTheDocument()
+        expect(screen.queryByTestId('runtime-date-picker-widget')).not.toBeInTheDocument()
+        expect(screen.queryByTestId('runtime-options-menu-widget')).not.toBeInTheDocument()
+        expect(screen.queryByTestId('runtime-language-switcher')).not.toBeInTheDocument()
+    })
+
     it('does not revive boolean center widgets when the persisted center zone is empty', () => {
         render(
             <Dashboard
@@ -192,7 +222,7 @@ describe('Dashboard zone adapter', () => {
         expect(screen.queryByTestId('left-zone')).not.toBeInTheDocument()
     })
 
-    it('assigns desktop shell controls to one owner when both persisted shells are enabled', () => {
+    it('renders persisted language and color-mode controls independently from both shell widgets', () => {
         render(
             <Dashboard
                 details={details}
@@ -205,25 +235,31 @@ describe('Dashboard zone adapter', () => {
                 }}
                 zoneWidgets={{
                     left: [widget('menu-1', 'menuWidget')],
-                    top: [widget('navbar-1', 'appNavbar'), widget('header-1', 'header'), widget('language-1', 'languageSwitcher')],
+                    top: [
+                        widget('navbar-1', 'appNavbar'),
+                        widget('header-1', 'header'),
+                        widget('language-1', 'languageSwitcher'),
+                        widget('color-mode-1', 'colorModeSwitcher')
+                    ],
                     bottom: [],
                     center: []
                 }}
             />
         )
 
-        expect(screen.getByTestId('top-shell')).toHaveAttribute('data-color-mode-desktop', 'true')
-        expect(screen.getByTestId('top-shell')).toHaveAttribute('data-language-switcher', 'true')
-        expect(screen.getByTestId('top-shell')).toHaveAttribute('data-language-switcher-desktop', 'false')
+        expect(screen.getByTestId('top-shell')).toHaveAttribute('data-color-mode', 'false')
+        expect(screen.getByTestId('top-shell')).toHaveAttribute('data-language-switcher', 'false')
         expect(screen.getByTestId('header-shell')).toHaveAttribute('data-show-breadcrumbs', 'false')
         expect(screen.getByTestId('header-shell')).toHaveAttribute('data-show-search', 'false')
         expect(screen.getByTestId('header-shell')).toHaveAttribute('data-show-date-picker', 'false')
         expect(screen.getByTestId('header-shell')).toHaveAttribute('data-show-options-menu', 'false')
-        expect(screen.getByTestId('header-shell')).toHaveAttribute('data-language-switcher', 'true')
+        expect(screen.getByTestId('header-shell')).toHaveAttribute('data-language-switcher', 'false')
         expect(screen.getByTestId('header-shell')).toHaveAttribute('data-show-color-mode', 'false')
+        expect(screen.getByTestId('top-zone-widget-languageSwitcher')).toBeInTheDocument()
+        expect(screen.getByTestId('top-zone-widget-colorModeSwitcher')).toBeInTheDocument()
     })
 
-    it('moves desktop color mode to AppNavbar when persisted Header has no options menu', () => {
+    it('keeps a persisted color-mode singleton independent when Header has no options menu', () => {
         render(
             <Dashboard
                 details={details}
@@ -234,16 +270,21 @@ describe('Dashboard zone adapter', () => {
                 }}
                 zoneWidgets={{
                     left: [widget('menu-1', 'menuWidget')],
-                    top: [widget('navbar-1', 'appNavbar', 1), widget('header-1', 'header', 2)],
+                    top: [
+                        widget('navbar-1', 'appNavbar', 1),
+                        widget('header-1', 'header', 2),
+                        widget('color-mode-1', 'colorModeSwitcher', 3)
+                    ],
                     bottom: [],
                     center: []
                 }}
             />
         )
 
-        expect(screen.getByTestId('top-shell')).toHaveAttribute('data-color-mode-desktop', 'true')
+        expect(screen.getByTestId('top-shell')).toHaveAttribute('data-color-mode', 'false')
         expect(screen.getByTestId('header-shell')).toHaveAttribute('data-show-options-menu', 'false')
         expect(screen.getByTestId('header-shell')).toHaveAttribute('data-show-color-mode', 'false')
+        expect(screen.getByTestId('top-zone-widget-colorModeSwitcher')).toBeInTheDocument()
     })
 
     it('keeps the persisted options menu owned by Header on desktop and available on mobile', () => {
@@ -253,17 +294,41 @@ describe('Dashboard zone adapter', () => {
                 layoutConfig={{ showSideMenu: false, showFooter: false }}
                 zoneWidgets={{
                     left: [],
-                    top: [widget('navbar-1', 'appNavbar', 1), widget('header-1', 'header', 2), widget('options-1', 'optionsMenu', 3)],
+                    top: [
+                        widget('navbar-1', 'appNavbar', 1),
+                        widget('header-1', 'header', 2),
+                        widget('options-1', 'optionsMenu', 3),
+                        widget('color-mode-1', 'colorModeSwitcher', 4)
+                    ],
                     bottom: [],
                     center: []
                 }}
             />
         )
 
-        expect(screen.getByTestId('top-shell')).toHaveAttribute('data-color-mode-desktop', 'false')
+        expect(screen.getByTestId('top-shell')).toHaveAttribute('data-color-mode', 'false')
         expect(screen.getByTestId('header-shell')).toHaveAttribute('data-show-options-menu', 'true')
-        expect(screen.getByTestId('header-shell')).toHaveAttribute('data-show-color-mode', 'true')
+        expect(screen.getByTestId('header-shell')).toHaveAttribute('data-show-color-mode', 'false')
         expect(screen.getByTestId('top-zone-widget-optionsMenu')).toBeInTheDocument()
+        expect(screen.getByTestId('top-zone-widget-colorModeSwitcher')).toBeInTheDocument()
+    })
+
+    it('hides the persisted color mode control when the singleton is inactive', () => {
+        render(
+            <Dashboard
+                details={details}
+                layoutConfig={{ showSideMenu: false, showAppNavbar: false, showHeader: true }}
+                zoneWidgets={{
+                    left: [],
+                    top: [widget('header-1', 'header')],
+                    bottom: [],
+                    center: []
+                }}
+            />
+        )
+
+        expect(screen.getByTestId('header-shell')).toHaveAttribute('data-show-color-mode', 'false')
+        expect(screen.queryByTestId('top-zone-widget-colorModeSwitcher')).not.toBeInTheDocument()
     })
 
     it('keeps a persisted language switcher available below the desktop-only Header', () => {
@@ -280,7 +345,7 @@ describe('Dashboard zone adapter', () => {
             />
         )
 
-        expect(screen.getByTestId('header-shell')).toHaveAttribute('data-language-switcher', 'true')
+        expect(screen.getByTestId('header-shell')).toHaveAttribute('data-language-switcher', 'false')
         expect(screen.getByTestId('top-zone-widget-languageSwitcher')).toBeInTheDocument()
     })
 
@@ -295,6 +360,26 @@ describe('Dashboard zone adapter', () => {
 
         expect(screen.queryByTestId('top-shell')).not.toBeInTheDocument()
         expect(screen.queryByTestId('header-shell')).not.toBeInTheDocument()
+    })
+
+    it('does not let an unpersisted shell recreate shared language or color controls', () => {
+        render(
+            <Dashboard
+                details={details}
+                layoutConfig={{
+                    showSideMenu: false,
+                    showAppNavbar: true,
+                    showHeader: true,
+                    showLanguageSwitcher: true,
+                    showColorMode: true
+                }}
+            />
+        )
+
+        expect(screen.queryByTestId('top-shell')).not.toBeInTheDocument()
+        expect(screen.queryByTestId('header-shell')).not.toBeInTheDocument()
+        expect(screen.queryByTestId('top-zone-widget-languageSwitcher')).not.toBeInTheDocument()
+        expect(screen.queryByTestId('top-zone-widget-colorModeSwitcher')).not.toBeInTheDocument()
     })
 
     it('collapses duplicate persisted shell rows to one navbar and one header', () => {

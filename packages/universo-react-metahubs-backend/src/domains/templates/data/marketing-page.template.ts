@@ -931,13 +931,51 @@ const marketingLayoutZoneWidgets: Record<string, TemplateSeedZoneWidget[]> = {
     'marketing-main': [
         {
             zone: 'marketing-header',
-            widgetKey: 'marketing.navigation',
+            widgetKey: 'marketing.brand',
             sortOrder: 0,
+            config: {
+                instanceKey: 'brand',
+                source: { entityCodename: 'MarketingPageSiteSettings', entityKind: 'object', recordKey: 'site-settings' }
+            },
+            isActive: true
+        },
+        {
+            zone: 'marketing-header',
+            widgetKey: 'marketing.navigation',
+            sortOrder: 1,
             config: {
                 instanceKey: 'navigation',
                 source: { entityCodename: 'MarketingPageNavigation', entityKind: 'object' },
                 maxItems: 24,
+                showAuthActions: false
+            },
+            isActive: true
+        },
+        {
+            zone: 'marketing-header',
+            widgetKey: 'marketing.auth',
+            sortOrder: 2,
+            config: {
+                instanceKey: 'auth',
                 showAuthActions: true
+            },
+            isActive: true
+        },
+        {
+            zone: 'marketing-header',
+            widgetKey: 'languageSwitcher',
+            sortOrder: 3,
+            config: {
+                __layout: { placement: 'end' }
+            },
+            isActive: true
+        },
+        {
+            zone: 'marketing-header',
+            widgetKey: 'colorModeSwitcher',
+            sortOrder: 4,
+            config: {
+                __layout: { placement: 'end' }
             },
             isActive: true
         },

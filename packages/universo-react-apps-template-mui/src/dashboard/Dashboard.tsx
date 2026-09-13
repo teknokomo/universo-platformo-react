@@ -334,29 +334,19 @@ export default function Dashboard(props: DashboardProps) {
     const sideMenuEnabled = hasPersistedLeftComposition ? leftWidgets.some((widget) => widget.isActive !== false) : layout.showSideMenu
     const sideMenuMode =
         storedSideMenuMode && availableSideMenuModes.includes(storedSideMenuMode) ? storedSideMenuMode : primarySideMenuMode
-    const showDesktopNavbar = sideMenuEnabled && (availableSideMenuModes.length > 1 || sideMenuMode === 'overlay')
     const hasPersistedTopComposition = Array.isArray(zoneWidgets?.top)
     const hasPersistedBottomComposition = Array.isArray(zoneWidgets?.bottom)
     const activeTopWidgets = topWidgets.filter((widget) => widget.isActive !== false)
     const hasActiveTopWidget = (widgetKey: string) => activeTopWidgets.some((widget) => widget.widgetKey === widgetKey)
-    const showAppNavbar = hasPersistedTopComposition ? hasActiveTopWidget('appNavbar') : layout.showAppNavbar || showDesktopNavbar
-    const showHeader = hasPersistedTopComposition ? hasActiveTopWidget('header') : layout.showHeader
-    const languageSwitcherEnabled = hasPersistedTopComposition
-        ? hasActiveTopWidget('languageSwitcher')
-        : layout.showLanguageSwitcher !== false
-    const headerOwnsLanguageSwitcher = showHeader && languageSwitcherEnabled
-    const appNavbarOwnsLanguageSwitcher = showAppNavbar && languageSwitcherEnabled
-    const headerOwnsOptionsMenu =
-        showHeader && (hasPersistedTopComposition ? hasActiveTopWidget('optionsMenu') : layout.showOptionsMenu !== false)
+    const showAppNavbar = hasPersistedTopComposition && hasActiveTopWidget('appNavbar')
+    const showHeader = hasPersistedTopComposition && hasActiveTopWidget('header')
+    const headerOwnsOptionsMenu = showHeader && hasActiveTopWidget('optionsMenu')
     const dockedSideMenuModes = availableSideMenuModes.filter((mode): mode is 'wide' | 'compact' => mode === 'wide' || mode === 'compact')
     const canToggleDockedSideMenuMode = sideMenuEnabled && dockedSideMenuModes.length > 1
     const canOpenOverlaySideMenu = sideMenuEnabled && availableSideMenuModes.includes('overlay')
     const canToggleOverlaySideMenuMode = canOpenOverlaySideMenu && dockedSideMenuModes.length > 0
-    const appNavbarVisibleOnDesktop = showAppNavbar && (sideMenuMode === 'overlay' || canToggleDockedSideMenuMode)
-    const headerOwnsColorMode = showHeader && (headerOwnsOptionsMenu || !appNavbarVisibleOnDesktop)
     const visibleTopWidgets = activeTopWidgets
         .filter((widget) => !SHELL_TOP_WIDGET_KEYS.has(widget.widgetKey))
-        .filter((widget) => widget.widgetKey !== 'languageSwitcher' || !appNavbarOwnsLanguageSwitcher)
         .slice()
         .sort((left, right) => left.sortOrder - right.sortOrder)
     const visibleBottomWidgets = bottomWidgets
@@ -368,12 +358,12 @@ export default function Dashboard(props: DashboardProps) {
     )
     const headerLayoutConfig = {
         ...layout,
-        showBreadcrumbs: hasPersistedTopComposition ? hasActiveTopWidget('breadcrumbs') : layout.showBreadcrumbs,
-        showSearch: hasPersistedTopComposition ? hasActiveTopWidget('search') : layout.showSearch,
-        showDatePicker: hasPersistedTopComposition ? hasActiveTopWidget('datePicker') : layout.showDatePicker,
+        showBreadcrumbs: hasPersistedTopComposition && hasActiveTopWidget('breadcrumbs'),
+        showSearch: hasPersistedTopComposition && hasActiveTopWidget('search'),
+        showDatePicker: hasPersistedTopComposition && hasActiveTopWidget('datePicker'),
         showOptionsMenu: headerOwnsOptionsMenu,
-        showLanguageSwitcher: headerOwnsLanguageSwitcher,
-        showColorMode: headerOwnsColorMode
+        showLanguageSwitcher: false,
+        showColorMode: false
     }
 
     useEffect(() => {
@@ -487,9 +477,10 @@ export default function Dashboard(props: DashboardProps) {
                         sideMenuMode={sideMenuMode}
                         availableSideMenuModes={availableSideMenuModes}
                         reserveDockedSideMenuWidth={sideMenuMode !== 'overlay'}
-                        showLanguageSwitcher={appNavbarOwnsLanguageSwitcher}
-                        showLanguageSwitcherOnDesktop={!headerOwnsLanguageSwitcher}
-                        showColorModeOnDesktop={!headerOwnsColorMode}
+                        showLanguageSwitcher={false}
+                        showLanguageSwitcherOnDesktop={false}
+                        showColorMode={false}
+                        showColorModeOnDesktop={false}
                         onToggleDockedSideMenuMode={canToggleDockedSideMenuMode ? toggleDockedSideMenuMode : undefined}
                         onOpenSideMenu={openOverlaySideMenu}
                     />
@@ -520,7 +511,7 @@ export default function Dashboard(props: DashboardProps) {
                             boxSizing: 'border-box',
                             px: { xs: 2, sm: 3 },
                             pb: hasViewportBoundedCanvas ? { xs: 2, sm: 3 } : 5,
-                            mt: { xs: showAppNavbar ? 8 : 0, md: showDesktopNavbar ? 8 : 0 }
+                            mt: showAppNavbar ? 8 : 0
                         }}
                     >
                         {visibleTopWidgets.map((widget) => (
@@ -531,10 +522,7 @@ export default function Dashboard(props: DashboardProps) {
                                     width: '100%',
                                     minWidth: 0,
                                     display:
-                                        (widget.widgetKey === 'languageSwitcher' && headerOwnsLanguageSwitcher) ||
-                                        (widget.widgetKey === 'optionsMenu' && headerOwnsOptionsMenu)
-                                            ? { xs: 'flex', md: 'none' }
-                                            : undefined
+                                        widget.widgetKey === 'optionsMenu' && headerOwnsOptionsMenu ? { xs: 'flex', md: 'none' } : undefined
                                 }}
                             >
                                 {renderWidget(widget, props.menus, props.menu)}

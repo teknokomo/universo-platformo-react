@@ -39,6 +39,7 @@ Frontend application for managing applications and connectors in the Universo Pl
 -   **Runtime-Safe Toggles**: Inactive layouts and widgets remain editable but are excluded from runtime rendering.
 -   **Runtime Widget Overrides**: Application-level settings update materialized widget configuration for the deployed instance without changing the source metahub template.
 -   **Widget Instance Rules**: The layout editor keeps repeatable compatible widgets available after placement, while server validation reserves single-instance shell widgets such as `appNavbar` and `header`. Each placement has its own server-owned identity.
+-   **Zone Settings**: The shared layout authoring surface exposes registry-backed zone settings, including the marketing header `fixed`/`flow` behavior, sparse inherited values, targeted reset, and read-only/conflict states.
 
 ### 🎨 User Interface
 
@@ -198,7 +199,14 @@ POST   /api/v1/applications/:id/layouts                # Create application-owne
 PATCH  /api/v1/applications/:id/layouts/:layoutId      # Update layout metadata/default/active state
 DELETE /api/v1/applications/:id/layouts/:layoutId      # Exclude metahub layout or soft-delete application layout
 POST   /api/v1/applications/:id/layouts/:layoutId/copy # Copy layout with { expectedVersion } into an application-owned layout
+PATCH  /api/v1/applications/:id/layouts/:layoutId/zone-settings/:zone/:settingKey # Update a typed sparse zone setting
+POST   /api/v1/applications/:id/layouts/:layoutId/zone-settings/:zone/:settingKey/reset # Remove one local override
 ```
+
+Zone-setting mutations require owner/admin access and the current positive
+`expectedVersion`. A stale version returns a typed `409`; a reset removes only
+the selected sparse override and leaves renderer configuration and unrelated
+placements intact.
 
 ## Roles & Permissions
 

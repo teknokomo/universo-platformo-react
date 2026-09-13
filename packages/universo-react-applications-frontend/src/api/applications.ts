@@ -15,11 +15,20 @@ import type {
     ApplicationLayoutWidgetMutation,
     ApplicationLayoutWidgetResetBatchMutation,
     ApplicationLayoutWidgetToggleMutation,
+    ApplicationLayoutZone,
+    LayoutLogicalPlacement,
+    LayoutZoneSettingValue,
     LayoutWidgetDefinition,
     RuntimeDatasourceFilter,
     RuntimeDatasourceSort
 } from '@universo-react/types'
-import { effectiveLayoutResultSchema, layoutWidgetDefinitionSchema } from '@universo-react/types'
+import {
+    applicationLayoutDetailResponseSchema,
+    applicationLayoutWidgetSchema,
+    applicationLayoutsListResponseSchema,
+    effectiveLayoutResultSchema,
+    layoutWidgetDefinitionSchema
+} from '@universo-react/types'
 import type { RuntimeRecordCommand } from '@universo-react/apps-template-mui'
 import type { RuntimeRestoreTarget } from '@universo-react/apps-template-mui'
 import {
@@ -58,6 +67,33 @@ export interface ApplicationCreateInput {
 export interface ApplicationCopyInput extends Partial<ApplicationInput>, Partial<ApplicationCopyOptions> {}
 
 export type ApplicationLayoutWidgetDefinition = LayoutWidgetDefinition
+
+export type ApplicationLayoutZoneSettingMutation = {
+    zone: ApplicationLayoutZone
+    settingKey: string
+    value: LayoutZoneSettingValue
+    expectedVersion: number
+}
+
+const isRecord = (value: unknown): value is Record<string, unknown> => Boolean(value && typeof value === 'object' && !Array.isArray(value))
+
+const parseApplicationLayoutItemResponse = (value: unknown): ApplicationLayout => {
+    const parsed = applicationLayoutDetailResponseSchema.safeParse(value)
+    if (!parsed.success) throw new Error('APPLICATION_LAYOUT_RESPONSE_INVALID')
+    return parsed.data.item
+}
+
+const parseApplicationLayoutWidgetItemResponse = (value: unknown): ApplicationLayoutWidget => {
+    const parsed = applicationLayoutWidgetSchema.safeParse(isRecord(value) ? value.item : undefined)
+    if (!parsed.success) throw new Error('APPLICATION_LAYOUT_WIDGET_RESPONSE_INVALID')
+    return parsed.data
+}
+
+const parseApplicationLayoutWidgetItemsResponse = (value: unknown): ApplicationLayoutWidget[] => {
+    const parsed = applicationLayoutWidgetSchema.array().safeParse(isRecord(value) && Array.isArray(value.items) ? value.items : undefined)
+    if (!parsed.success) throw new Error('APPLICATION_LAYOUT_WIDGET_RESPONSE_INVALID')
+    return parsed.data
+}
 
 const normalizeRuntimeWorkspaceId = (workspaceId?: string | null): string | undefined => {
     const normalized = workspaceId?.trim()
@@ -464,7 +500,7 @@ export const listApplicationLayouts = async (
     applicationId: string,
     params?: PaginationParams & { scopeEntityId?: string | null }
 ): Promise<PaginatedResponse<ApplicationLayout>> => {
-    const response = await apiClient.get<{ items: ApplicationLayout[]; total: number }>(`/applications/${applicationId}/layouts`, {
+    const response = await apiClient.get<unknown>(`/applications/${applicationId}/layouts`, {
         params: {
             limit: params?.limit,
             offset: params?.offset,
@@ -472,8 +508,10 @@ export const listApplicationLayouts = async (
             scope: params?.scopeEntityId === null ? 'global' : undefined
         }
     })
-    const items = response.data.items ?? []
-    const total = response.data.total ?? items.length
+    const parsed = applicationLayoutsListResponseSchema.safeParse(response.data)
+    if (!parsed.success) throw new Error('APPLICATION_LAYOUT_LIST_RESPONSE_INVALID')
+    const items = parsed.data.items
+    const total = parsed.data.total
     const limit = params?.limit ?? 50
     const offset = params?.offset ?? 0
     return {
@@ -489,13 +527,15 @@ export const listApplicationLayouts = async (
 }
 
 export const getApplicationLayout = async (applicationId: string, layoutId: string): Promise<ApplicationLayoutDetailResponse> => {
-    const response = await apiClient.get<ApplicationLayoutDetailResponse>(`/applications/${applicationId}/layouts/${layoutId}`)
-    return response.data
+    const response = await apiClient.get<unknown>(`/applications/${applicationId}/layouts/${layoutId}`)
+    const parsed = applicationLayoutDetailResponseSchema.safeParse(response.data)
+    if (!parsed.success) throw new Error('APPLICATION_LAYOUT_RESPONSE_INVALID')
+    return parsed.data
 }
 
 export const createApplicationLayout = async (applicationId: string, data: ApplicationLayoutCreate): Promise<ApplicationLayout> => {
-    const response = await apiClient.post<{ item: ApplicationLayout }>(`/applications/${applicationId}/layouts`, data)
-    return response.data.item
+    const response = await apiClient.post<unknown>(`/applications/${applicationId}/layouts`, data)
+    return parseApplicationLayoutItemResponse(response.data)
 }
 
 export const updateApplicationLayout = async (
@@ -503,8 +543,8 @@ export const updateApplicationLayout = async (
     layoutId: string,
     data: ApplicationLayoutUpdate
 ): Promise<ApplicationLayout> => {
-    const response = await apiClient.patch<{ item: ApplicationLayout }>(`/applications/${applicationId}/layouts/${layoutId}`, data)
-    return response.data.item
+    const response = await apiClient.patch<unknown>(`/applications/${applicationId}/layouts/${layoutId}`, data)
+    return parseApplicationLayoutItemResponse(response.data)
 }
 
 export const resetApplicationLayoutConfig = async (
@@ -512,11 +552,38 @@ export const resetApplicationLayoutConfig = async (
     layoutId: string,
     data: ApplicationLayoutConfigResetMutation
 ): Promise<ApplicationLayout> => {
-    const response = await apiClient.post<{ item: ApplicationLayout }>(
-        `/applications/${applicationId}/layouts/${layoutId}/config/reset`,
+    const response = await apiClient.post<unknown>(`/applications/${applicationId}/layouts/${layoutId}/config/reset`, data)
+    return parseApplicationLayoutItemResponse(response.data)
+}
+
+export const updateApplicationLayoutZoneSetting = async (
+    applicationId: string,
+    layoutId: string,
+    zone: ApplicationLayoutZone,
+    settingKey: string,
+    data: Pick<ApplicationLayoutZoneSettingMutation, 'value' | 'expectedVersion'>
+): Promise<ApplicationLayout> => {
+    const response = await apiClient.patch<unknown>(
+        `/applications/${applicationId}/layouts/${layoutId}/zone-settings/${encodeURIComponent(zone)}/${encodeURIComponent(settingKey)}`,
         data
     )
-    return response.data.item
+    return parseApplicationLayoutItemResponse(response.data)
+}
+
+export const resetApplicationLayoutZoneSetting = async (
+    applicationId: string,
+    layoutId: string,
+    zone: ApplicationLayoutZone,
+    settingKey: string,
+    data: { expectedVersion: number }
+): Promise<ApplicationLayout> => {
+    const response = await apiClient.post<unknown>(
+        `/applications/${applicationId}/layouts/${layoutId}/zone-settings/${encodeURIComponent(zone)}/${encodeURIComponent(
+            settingKey
+        )}/reset`,
+        data
+    )
+    return parseApplicationLayoutItemResponse(response.data)
 }
 
 export const deleteApplicationLayout = async (applicationId: string, layoutId: string, expectedVersion: number): Promise<void> => {
@@ -530,17 +597,15 @@ export const copyApplicationLayout = async (
     layoutId: string,
     expectedVersion: number
 ): Promise<ApplicationLayout> => {
-    const response = await apiClient.post<{ item: ApplicationLayout }>(`/applications/${applicationId}/layouts/${layoutId}/copy`, {
+    const response = await apiClient.post<unknown>(`/applications/${applicationId}/layouts/${layoutId}/copy`, {
         expectedVersion
     })
-    return response.data.item
+    return parseApplicationLayoutItemResponse(response.data)
 }
 
 export const listApplicationLayoutWidgets = async (applicationId: string, layoutId: string): Promise<ApplicationLayoutWidget[]> => {
-    const response = await apiClient.get<{ items: ApplicationLayoutWidget[] }>(
-        `/applications/${applicationId}/layouts/${layoutId}/zone-widgets`
-    )
-    return response.data.items ?? []
+    const response = await apiClient.get<unknown>(`/applications/${applicationId}/layouts/${layoutId}/zone-widgets`)
+    return parseApplicationLayoutWidgetItemsResponse(response.data)
 }
 
 export const listApplicationLayoutWidgetObject = async (
@@ -549,8 +614,8 @@ export const listApplicationLayoutWidgetObject = async (
 ): Promise<ApplicationLayoutWidgetDefinition[]> => {
     const response = await apiClient.get<unknown>(`/applications/${applicationId}/layouts/${layoutId}/zone-widgets/object`)
     const payload = response.data
-    const items = payload && typeof payload === 'object' && 'items' in payload ? payload.items : undefined
-    const parsed = layoutWidgetDefinitionSchema.array().safeParse(items ?? [])
+    const items = isRecord(payload) ? payload.items : undefined
+    const parsed = layoutWidgetDefinitionSchema.array().safeParse(items)
     if (!parsed.success) {
         throw new Error('APPLICATION_LAYOUT_WIDGET_METADATA_INVALID')
     }
@@ -562,11 +627,8 @@ export const upsertApplicationLayoutWidget = async (
     layoutId: string,
     data: ApplicationLayoutWidgetMutation
 ): Promise<ApplicationLayoutWidget> => {
-    const response = await apiClient.put<{ item: ApplicationLayoutWidget }>(
-        `/applications/${applicationId}/layouts/${layoutId}/zone-widget`,
-        data
-    )
-    return response.data.item
+    const response = await apiClient.put<unknown>(`/applications/${applicationId}/layouts/${layoutId}/zone-widget`, data)
+    return parseApplicationLayoutWidgetItemResponse(response.data)
 }
 
 export const updateApplicationLayoutWidgetConfig = async (
@@ -575,45 +637,36 @@ export const updateApplicationLayoutWidgetConfig = async (
     widgetId: string,
     data: ApplicationLayoutWidgetConfigMutation
 ): Promise<ApplicationLayoutWidget> => {
-    const response = await apiClient.patch<{ item: ApplicationLayoutWidget }>(
+    const response = await apiClient.patch<unknown>(
         `/applications/${applicationId}/layouts/${layoutId}/zone-widget/${widgetId}/config`,
         data
     )
-    return response.data.item
+    return parseApplicationLayoutWidgetItemResponse(response.data)
 }
 
 export const updateApplicationLayoutWidgetConfigsBatch = async (
     applicationId: string,
     data: ApplicationLayoutWidgetConfigBatchMutation
 ): Promise<ApplicationLayoutWidget[]> => {
-    const response = await apiClient.patch<{ items: ApplicationLayoutWidget[] }>(
-        `/applications/${applicationId}/layouts/zone-widgets/config/batch`,
-        data
-    )
-    return response.data.items
+    const response = await apiClient.patch<unknown>(`/applications/${applicationId}/layouts/zone-widgets/config/batch`, data)
+    return parseApplicationLayoutWidgetItemsResponse(response.data)
 }
 
 export const resetApplicationLayoutWidgetConfigsBatch = async (
     applicationId: string,
     data: ApplicationLayoutWidgetResetBatchMutation
 ): Promise<ApplicationLayoutWidget[]> => {
-    const response = await apiClient.post<{ items: ApplicationLayoutWidget[] }>(
-        `/applications/${applicationId}/layouts/zone-widgets/config/reset`,
-        data
-    )
-    return response.data.items
+    const response = await apiClient.post<unknown>(`/applications/${applicationId}/layouts/zone-widgets/config/reset`, data)
+    return parseApplicationLayoutWidgetItemsResponse(response.data)
 }
 
 export const moveApplicationLayoutWidget = async (
     applicationId: string,
     layoutId: string,
-    data: ApplicationLayoutWidgetMoveMutation
+    data: ApplicationLayoutWidgetMoveMutation & { targetPlacement?: LayoutLogicalPlacement }
 ): Promise<ApplicationLayoutWidget> => {
-    const response = await apiClient.patch<{ item: ApplicationLayoutWidget }>(
-        `/applications/${applicationId}/layouts/${layoutId}/zone-widgets/move`,
-        data
-    )
-    return response.data.item
+    const response = await apiClient.patch<unknown>(`/applications/${applicationId}/layouts/${layoutId}/zone-widgets/move`, data)
+    return parseApplicationLayoutWidgetItemResponse(response.data)
 }
 
 export const toggleApplicationLayoutWidget = async (
@@ -622,11 +675,11 @@ export const toggleApplicationLayoutWidget = async (
     widgetId: string,
     data: ApplicationLayoutWidgetToggleMutation
 ): Promise<ApplicationLayoutWidget> => {
-    const response = await apiClient.patch<{ item: ApplicationLayoutWidget }>(
+    const response = await apiClient.patch<unknown>(
         `/applications/${applicationId}/layouts/${layoutId}/zone-widget/${widgetId}/toggle-active`,
         data
     )
-    return response.data.item
+    return parseApplicationLayoutWidgetItemResponse(response.data)
 }
 
 export const deleteApplicationLayoutWidget = async (

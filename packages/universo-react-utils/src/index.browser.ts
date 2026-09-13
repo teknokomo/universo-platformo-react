@@ -115,6 +115,8 @@ export {
 
 export {
     validateMarketingSnapshotLayouts,
+    validateMarketingSnapshotTransportLayouts,
+    validateSnapshotLayoutNeutralMetadata,
     validateSnapshotLayoutIdentities,
     SnapshotLayoutValidationError,
     MarketingSnapshotValidationError,

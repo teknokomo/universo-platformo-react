@@ -9,18 +9,28 @@ import {
     MARKETING_LAYOUT_ZONES,
     MARKETING_WIDGET_REGISTRY,
     getLayoutWidgetAllowedZones,
+    getLayoutWidgetDefaultPlacement,
+    getLayoutZoneSettingDefinition,
+    decodeLayoutConfigEnvelope,
+    decodeWidgetConfigEnvelope,
+    encodeLayoutConfigEnvelope,
+    encodeWidgetConfigEnvelope,
+    getLayoutZoneSettingDefault,
+    RESERVED_LAYOUT_METADATA_KEY,
     applicationLayoutWidgetKeySchema,
     applicationLayoutZoneSchema,
     isEnabledCapabilityConfig,
     parseApplicationLayoutWidgetConfig,
     type ApplicationLayoutWidgetKey,
     type ApplicationLayoutZone,
+    type LayoutLogicalPlacement,
     type MarketingWidgetKey,
     resolveSharedBehavior,
     applicationTemplateKeySchema,
     marketingPageConfigSchema,
     type ApplicationTemplateKey,
     type LayoutWidgetDefinition,
+    type PersistedLayoutNeutralMetadata,
     type SharedBehavior,
     type VersionedLocalizedContent
 } from '@universo-react/types'
@@ -30,6 +40,7 @@ import { updateWithVersionCheck } from '../../../utils/optimisticLock'
 import { DEFAULT_DASHBOARD_ZONE_WIDGETS, buildDashboardLayoutConfig } from '../../shared'
 import { MetahubNotFoundError, MetahubConflictError, MetahubValidationError } from '../../shared/domainErrors'
 import { findDuplicateActiveSingleInstanceWidgetKey } from '../widgetInvariants'
+import { acquireMetahubLayoutGraphLock } from '../layoutGraphLocks'
 
 export type LayoutTemplateKey = ApplicationTemplateKey
 
@@ -41,6 +52,7 @@ export interface MetahubLayoutRow {
     name: VersionedLocalizedContent<string>
     description: VersionedLocalizedContent<string> | null
     config: Record<string, unknown>
+    neutral: PersistedLayoutNeutralMetadata
     isActive: boolean
     isDefault: boolean
     sortOrder: number
@@ -57,6 +69,7 @@ export interface LayoutZoneWidgetRow {
     instanceKey?: string
     sortOrder: number
     config: Record<string, unknown>
+    placement?: LayoutLogicalPlacement
     isActive: boolean
     isInherited?: boolean
     isOverridden?: boolean
@@ -196,6 +209,105 @@ const getWidgetDefinition = (widgetKey: ApplicationLayoutWidgetKey): LayoutWidge
 const isMarketingWidgetKey = (widgetKey: ApplicationLayoutWidgetKey | string): widgetKey is MarketingWidgetKey =>
     Object.prototype.hasOwnProperty.call(MARKETING_WIDGET_REGISTRY, widgetKey)
 
+const rendererConfigInputSchema = z.record(z.string(), z.unknown()).superRefine((value, context) => {
+    if (Object.prototype.hasOwnProperty.call(value, RESERVED_LAYOUT_METADATA_KEY)) {
+        context.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: [RESERVED_LAYOUT_METADATA_KEY],
+            message: 'Reserved layout metadata must be changed through the dedicated layout API.'
+        })
+    }
+})
+
+const layoutZoneSettingKeySchema = z.string().trim().min(1).max(128)
+const layoutZoneSettingValueSchema = z.string().trim().min(1).max(128)
+
+export const updateLayoutZoneSettingSchema = z
+    .object({
+        zone: layoutZoneSchema,
+        settingKey: layoutZoneSettingKeySchema,
+        value: layoutZoneSettingValueSchema,
+        expectedVersion: z.number().int().positive()
+    })
+    .strict()
+
+export const resetLayoutZoneSettingSchema = z
+    .object({
+        zone: layoutZoneSchema,
+        settingKey: layoutZoneSettingKeySchema,
+        expectedVersion: z.number().int().positive()
+    })
+    .strict()
+
+const decodeLayoutForStorage = (templateKey: LayoutTemplateKey, config: unknown) =>
+    decodeLayoutConfigEnvelope(config, { templateKey, allowSourceZoneSettings: false })
+
+const decodeWidgetForStorage = (
+    templateKey: LayoutTemplateKey,
+    widgetKey: ApplicationLayoutWidgetKey,
+    zone: ApplicationLayoutZone,
+    config: unknown
+) => decodeWidgetConfigEnvelope(config ?? {}, { templateKey, widgetKey, zone })
+
+const withIndependentLayoutComposition = (
+    templateKey: LayoutTemplateKey,
+    config: unknown,
+    options: { materializeDefaults?: boolean } = {}
+): Record<string, unknown> => {
+    const decoded = decodeLayoutForStorage(templateKey, config)
+    const neutral = {
+        ...decoded.neutral,
+        composition: { mode: 'independent' as const, baseLayoutId: null }
+    }
+    if (options.materializeDefaults !== false && templateKey === 'marketing-page') {
+        neutral.zoneSettings = {
+            ...(neutral.zoneSettings ?? {}),
+            'marketing-header': {
+                ...(neutral.zoneSettings?.['marketing-header'] ?? {}),
+                position:
+                    neutral.zoneSettings?.['marketing-header']?.position ??
+                    ((getLayoutZoneSettingDefault(templateKey, 'marketing-header', 'position') ?? 'fixed') as 'fixed' | 'flow')
+            }
+        }
+    }
+    return encodeLayoutConfigEnvelope({ rendererConfig: decoded.rendererConfig, neutral }, { templateKey })
+}
+
+const withOverlayLayoutComposition = (templateKey: LayoutTemplateKey, config: unknown, baseLayoutId: string): Record<string, unknown> => {
+    const decoded = decodeLayoutForStorage(templateKey, config)
+    if (!uuidV7Schema.safeParse(baseLayoutId).success) throw new Error('APPLICATION_LAYOUT_COMPOSITION_INVALID')
+    const neutral = {
+        ...decoded.neutral,
+        composition: { mode: 'overlay' as const, baseLayoutId }
+    }
+    return encodeLayoutConfigEnvelope({ rendererConfig: decoded.rendererConfig, neutral }, { templateKey })
+}
+
+const patchSparseZoneSetting = (
+    templateKey: LayoutTemplateKey,
+    config: unknown,
+    zone: ApplicationLayoutZone,
+    settingKey: string,
+    value: string | undefined
+): Record<string, unknown> => {
+    const decoded = decodeLayoutForStorage(templateKey, config)
+    const zoneSettings = { ...(decoded.neutral.zoneSettings ?? {}) }
+    const currentZoneSettings = { ...(zoneSettings[zone] ?? {}) } as Record<string, unknown>
+    if (value === undefined) {
+        delete currentZoneSettings[settingKey]
+    } else {
+        currentZoneSettings[settingKey] = value
+    }
+
+    if (Object.keys(currentZoneSettings).length === 0) delete zoneSettings[zone]
+    else zoneSettings[zone] = currentZoneSettings as never
+
+    const neutral = { ...decoded.neutral }
+    if (Object.keys(zoneSettings).length === 0) delete neutral.zoneSettings
+    else neutral.zoneSettings = zoneSettings
+    return encodeLayoutConfigEnvelope({ rendererConfig: decoded.rendererConfig, neutral }, { templateKey })
+}
+
 export const createLayoutSchema = z
     .object({
         scopeEntityId: uuidV7Schema.optional(),
@@ -212,7 +324,7 @@ export const createLayoutSchema = z
         isActive: z.boolean().optional(),
         isDefault: z.boolean().optional(),
         sortOrder: z.number().int().optional(),
-        config: z.record(z.unknown()).optional()
+        config: rendererConfigInputSchema.optional()
     })
     .strict()
 
@@ -226,7 +338,7 @@ export const updateLayoutSchema = z
         isActive: z.boolean().optional(),
         isDefault: z.boolean().optional(),
         sortOrder: z.number().int().optional(),
-        config: z.record(z.unknown()).optional(),
+        config: rendererConfigInputSchema.optional(),
         expectedVersion: z.number().int().positive()
     })
     .strict()
@@ -236,7 +348,7 @@ export const assignLayoutZoneWidgetSchema = z
         zone: layoutZoneSchema,
         widgetKey: layoutWidgetKeySchema,
         sortOrder: z.number().int().positive().optional(),
-        config: z.record(z.unknown()).optional(),
+        config: rendererConfigInputSchema.optional(),
         expectedVersion: z.number().int().positive()
     })
     .strict()
@@ -252,7 +364,7 @@ export const moveLayoutZoneWidgetSchema = z
 
 export const updateLayoutZoneWidgetConfigSchema = z
     .object({
-        config: z.record(z.unknown()),
+        config: rendererConfigInputSchema,
         expectedVersion: z.number().int().positive()
     })
     .strict()
@@ -325,6 +437,7 @@ export class MetahubLayoutsService {
 
     private mapRow(row: DbRow): MetahubLayoutRow {
         const templateKey = applicationTemplateKeySchema.parse(row.template_key)
+        const decoded = decodeLayoutForStorage(templateKey, row.config ?? {})
         return {
             id: String(row.id),
             scopeEntityId: typeof row.scope_entity_id === 'string' ? row.scope_entity_id : null,
@@ -332,7 +445,8 @@ export class MetahubLayoutsService {
             templateKey,
             name: row.name as VersionedLocalizedContent<string>,
             description: (row.description as VersionedLocalizedContent<string> | null) ?? null,
-            config: (row.config as Record<string, unknown>) ?? {},
+            config: decoded.rendererConfig,
+            neutral: decoded.neutral,
             isActive: Boolean(row.is_active),
             isDefault: Boolean(row.is_default),
             sortOrder: typeof row.sort_order === 'number' ? row.sort_order : 0,
@@ -348,9 +462,24 @@ export class MetahubLayoutsService {
         config: unknown,
         options: { generateInstanceKey?: boolean; expectedInstanceKey?: string } = {}
     ): Record<string, unknown> {
-        const rawConfig = isRecord(config) ? config : {}
+        const codecZone = this.resolveWidgetZone(templateKey, widgetKey, config)
+        let decoded: ReturnType<typeof decodeWidgetForStorage>
+        try {
+            decoded = decodeWidgetForStorage(templateKey, widgetKey, codecZone, config)
+        } catch (error) {
+            throw new MetahubValidationError('Layout widget configuration is invalid', {
+                widgetKey,
+                reason: error instanceof Error ? error.message : 'Invalid reserved metadata'
+            })
+        }
+        const rawConfig = decoded.rendererConfig
+
         if (templateKey === 'dashboard') {
-            return rawConfig
+            if (Object.keys(decoded.neutral).length === 0) return rawConfig
+            return encodeWidgetConfigEnvelope(
+                { rendererConfig: rawConfig, neutral: decoded.neutral },
+                { templateKey, widgetKey, zone: codecZone }
+            )
         }
 
         const candidate =
@@ -368,7 +497,12 @@ export class MetahubLayoutsService {
             if (options.expectedInstanceKey !== undefined && instanceKey !== options.expectedInstanceKey) {
                 throw new Error('Marketing widget instance key is immutable')
             }
-            return parsed
+            return Object.keys(decoded.neutral).length === 0
+                ? parsed
+                : encodeWidgetConfigEnvelope(
+                      { rendererConfig: parsed, neutral: decoded.neutral },
+                      { templateKey, widgetKey, zone: codecZone }
+                  )
         } catch (error) {
             throw new MetahubValidationError('Marketing widget configuration is invalid', {
                 widgetKey,
@@ -377,8 +511,58 @@ export class MetahubLayoutsService {
         }
     }
 
+    private resolveWidgetZone(
+        templateKey: LayoutTemplateKey,
+        widgetKey: ApplicationLayoutWidgetKey,
+        config: unknown
+    ): ApplicationLayoutZone {
+        if (isRecord(config) && typeof config.zone === 'string') {
+            const parsed = applicationLayoutZoneSchema.safeParse(config.zone)
+            if (parsed.success && getLayoutWidgetAllowedZones(widgetKey, templateKey)?.includes(parsed.data)) return parsed.data
+        }
+
+        const definition = getWidgetDefinition(widgetKey)
+        const zones = definition?.allowedZonesByTemplate[templateKey] ?? definition?.allowedZones ?? []
+        return zones[0] ?? (templateKey === 'marketing-page' ? 'marketing-main' : 'top')
+    }
+
     private getWidgetInstanceKey(config: Record<string, unknown>): string | undefined {
         return typeof config.instanceKey === 'string' && config.instanceKey.length > 0 ? config.instanceKey : undefined
+    }
+
+    private mapWidgetPresentation(
+        templateKey: LayoutTemplateKey,
+        widgetKey: ApplicationLayoutWidgetKey,
+        zone: ApplicationLayoutZone,
+        persistedConfig: unknown
+    ): { config: Record<string, unknown>; placement?: LayoutLogicalPlacement } {
+        const decoded = decodeWidgetForStorage(templateKey, widgetKey, zone, persistedConfig)
+        const defaultPlacement = getLayoutWidgetDefaultPlacement({ templateKey, widgetKey, zone })
+        return {
+            config: decoded.rendererConfig,
+            ...(decoded.neutral.placement ?? defaultPlacement ? { placement: decoded.neutral.placement ?? defaultPlacement } : {})
+        }
+    }
+
+    private parseWidgetRendererUpdate(
+        templateKey: LayoutTemplateKey,
+        widgetKey: ApplicationLayoutWidgetKey,
+        zone: ApplicationLayoutZone,
+        currentConfig: unknown,
+        incomingConfig: Record<string, unknown>,
+        expectedInstanceKey?: string
+    ): Record<string, unknown> {
+        const rendererConfig = rendererConfigInputSchema.parse(incomingConfig)
+        const candidate =
+            templateKey === 'marketing-page' && rendererConfig.instanceKey === undefined
+                ? { ...rendererConfig, instanceKey: expectedInstanceKey }
+                : rendererConfig
+        const currentEnvelope = decodeWidgetForStorage(templateKey, widgetKey, zone, currentConfig)
+        const persistedCandidate = encodeWidgetConfigEnvelope(
+            { rendererConfig: candidate, neutral: currentEnvelope.neutral },
+            { templateKey, widgetKey, zone }
+        )
+        return this.parseWidgetConfig(templateKey, widgetKey, persistedCandidate, { expectedInstanceKey })
     }
 
     private assertUniqueMarketingInstanceKeys(widgets: ResolvedLayoutWidgetState[]): void {
@@ -441,15 +625,21 @@ export class MetahubLayoutsService {
     private mapZoneWidgetRow(row: DbRow, templateKey: LayoutTemplateKey): LayoutZoneWidgetRow {
         const widgetKey = applicationLayoutWidgetKeySchema.parse(row.widget_key)
         const zone = applicationLayoutZoneSchema.parse(row.zone)
-        const config = this.parseWidgetConfig(templateKey, widgetKey, row.config)
+        const presentation = this.mapWidgetPresentation(
+            templateKey,
+            widgetKey,
+            zone,
+            this.parseWidgetConfig(templateKey, widgetKey, row.config)
+        )
         return {
             id: String(row.id),
             layoutId: String(row.layout_id),
             zone,
             widgetKey,
-            instanceKey: this.getWidgetInstanceKey(config),
+            instanceKey: this.getWidgetInstanceKey(presentation.config),
             sortOrder: typeof row.sort_order === 'number' ? row.sort_order : 1,
-            config,
+            config: presentation.config,
+            ...(presentation.placement === undefined ? {} : { placement: presentation.placement }),
             isActive: row.is_active !== false,
             version: typeof row._upl_version === 'number' ? row._upl_version : 1,
             createdAt: String(row._upl_created_at),
@@ -482,12 +672,8 @@ export class MetahubLayoutsService {
         return `mhb-layout-scope:${schemaName}:${baseLayoutId}:${scopeEntityId}`
     }
 
-    private buildLayoutGraphLockKey(schemaName: string): string {
-        return `mhb-layout-graph:${schemaName}`
-    }
-
     private async acquireLayoutGraphLock(db: SqlQueryable, schemaName: string): Promise<void> {
-        await db.query('SELECT pg_advisory_xact_lock(hashtext($1))', [this.buildLayoutGraphLockKey(schemaName)])
+        await acquireMetahubLayoutGraphLock(db, schemaName)
     }
 
     /**
@@ -1131,14 +1317,18 @@ export class MetahubLayoutsService {
     }
 
     private mapResolvedLayoutWidgetState(row: ResolvedLayoutWidgetState): LayoutZoneWidgetRow {
+        const templateKey: LayoutTemplateKey =
+            isMarketingWidgetKey(row.widgetKey) || row.zone.startsWith('marketing-') ? 'marketing-page' : 'dashboard'
+        const presentation = this.mapWidgetPresentation(templateKey, row.widgetKey, row.zone, row.config)
         return {
             id: row.id,
             layoutId: row.layoutId,
             zone: row.zone,
             widgetKey: row.widgetKey,
-            instanceKey: this.getWidgetInstanceKey(row.config),
+            instanceKey: this.getWidgetInstanceKey(presentation.config),
             sortOrder: row.sortOrder,
-            config: row.config,
+            config: presentation.config,
+            ...(presentation.placement === undefined ? {} : { placement: presentation.placement }),
             isActive: row.isActive,
             isInherited: row.isInherited,
             isOverridden: row.isOverridden,
@@ -1163,9 +1353,12 @@ export class MetahubLayoutsService {
 
         const templateKey = applicationTemplateKeySchema.parse(layoutRow.template_key)
 
-        const currentConfig = layoutRow?.config && typeof layoutRow.config === 'object' ? layoutRow.config : {}
+        const currentEnvelope = decodeLayoutForStorage(templateKey, layoutRow.config ?? {})
         const currentVersion = typeof layoutRow.version === 'number' ? layoutRow.version : 1
-        let nextConfig = templateKey === 'dashboard' ? stripDashboardWidgetVisibilityConfig(currentConfig) : currentConfig
+        let nextRendererConfig =
+            templateKey === 'dashboard'
+                ? stripDashboardWidgetVisibilityConfig(currentEnvelope.rendererConfig)
+                : currentEnvelope.rendererConfig
 
         if (templateKey === 'dashboard' && !this.isScopedEntityLayout(layoutRow)) {
             const widgetRows = await queryMany<ZoneWidgetConfigRow>(
@@ -1177,8 +1370,8 @@ export class MetahubLayoutsService {
             )
             this.assertNoDuplicateActiveSingleInstanceWidgets(widgetRows)
             const activeWidgets = widgetRows.filter((row) => row.is_active !== false)
-            nextConfig = {
-                ...nextConfig,
+            nextRendererConfig = {
+                ...nextRendererConfig,
                 ...buildDashboardLayoutConfig(
                     activeWidgets.flatMap((row) => {
                         const widgetKey = DASHBOARD_LAYOUT_WIDGETS.find((widget) => widget.key === String(row.widget_key))?.key
@@ -1187,6 +1380,14 @@ export class MetahubLayoutsService {
                     })
                 )
             }
+        }
+
+        let nextConfig = encodeLayoutConfigEnvelope(
+            { rendererConfig: nextRendererConfig, neutral: currentEnvelope.neutral },
+            { templateKey }
+        )
+        if (templateKey === 'marketing-page' && !this.isScopedEntityLayout(layoutRow)) {
+            nextConfig = withIndependentLayoutComposition(templateKey, nextConfig)
         }
 
         const updatedRows = await db.query<{ id: string }>(
@@ -1238,6 +1439,13 @@ export class MetahubLayoutsService {
         this.assertNoDuplicateActiveSingleInstanceWidgets(DEFAULT_DASHBOARD_ZONE_WIDGETS)
         const now = new Date()
         for (const item of DEFAULT_DASHBOARD_ZONE_WIDGETS) {
+            const widgetKey = applicationLayoutWidgetKeySchema.parse(item.widgetKey)
+            const zone = applicationLayoutZoneSchema.parse(item.zone)
+            const widgetEnvelope = decodeWidgetForStorage('dashboard', widgetKey, zone, item.config ?? {})
+            const widgetConfig = encodeWidgetConfigEnvelope(
+                { rendererConfig: widgetEnvelope.rendererConfig, neutral: widgetEnvelope.neutral },
+                { templateKey: 'dashboard', widgetKey, zone }
+            )
             const insertedRows = await db.query<{ id: string }>(
                 `INSERT INTO ${wt} (layout_id, zone, widget_key, sort_order, config, is_active,
                     _upl_created_at, _upl_created_by, _upl_updated_at, _upl_updated_by,
@@ -1250,7 +1458,7 @@ export class MetahubLayoutsService {
                     item.zone,
                     item.widgetKey,
                     item.sortOrder,
-                    JSON.stringify(item.config ?? {}),
+                    JSON.stringify(widgetConfig),
                     item.isActive !== false,
                     now,
                     userId ?? null
@@ -1525,7 +1733,19 @@ export class MetahubLayoutsService {
         const now = new Date()
         const scopedName = this.buildAutoScopedLayoutName(scopeEntity?.presentation, scopeEntity?.codename)
         const baseTemplateKey = applicationTemplateKeySchema.parse(baseLayout.template_key)
-        const baseConfig = baseTemplateKey === 'dashboard' ? stripDashboardWidgetVisibilityConfig(baseLayout.config) : baseLayout.config
+        const baseEnvelope = decodeLayoutForStorage(baseTemplateKey, baseLayout.config ?? {})
+        const baseRendererConfig =
+            baseTemplateKey === 'dashboard'
+                ? stripDashboardWidgetVisibilityConfig(baseEnvelope.rendererConfig)
+                : baseEnvelope.rendererConfig
+        if (!uuidV7Schema.safeParse(baseLayoutId).success) throw new Error('APPLICATION_LAYOUT_COMPOSITION_INVALID')
+        const baseConfig = encodeLayoutConfigEnvelope(
+            {
+                rendererConfig: baseRendererConfig,
+                neutral: { composition: { mode: 'overlay' as const, baseLayoutId } }
+            },
+            { templateKey: baseTemplateKey }
+        )
         const created = await queryOneOrThrow<DbRow>(
             tx,
             `INSERT INTO ${lt} (scope_entity_id, base_layout_id, template_key, name, description, config, is_active, is_default, sort_order, owner_id,
@@ -1563,6 +1783,7 @@ export class MetahubLayoutsService {
         const wt = qSchemaTable(schemaName, '_mhb_widgets')
 
         await this.exec.transaction(async (tx: SqlQueryable) => {
+            await this.acquireLayoutGraphLock(tx, schemaName)
             await this.assertScopeEntitySupportsLayout(tx, schemaName, scopeEntityId)
 
             const baseLayout = await queryOne<LayoutScopeRow>(
@@ -1678,25 +1899,45 @@ export class MetahubLayoutsService {
                 scopeEntityId && input.templateKey && (!baseTemplateKey || input.templateKey !== baseTemplateKey)
             )
             const templateKey = input.templateKey ?? baseTemplateKey ?? 'dashboard'
-            const baseLayoutConfig =
-                !isIndependentScopedLayout && templateKey === 'dashboard'
-                    ? stripDashboardWidgetVisibilityConfig(baseLayout?.config)
-                    : !isIndependentScopedLayout
-                    ? baseLayout?.config
-                    : undefined
-            let nextConfig =
-                scopeEntityId && !isIndependentScopedLayout
-                    ? { ...(baseLayoutConfig && typeof baseLayoutConfig === 'object' ? baseLayoutConfig : {}), ...(input.config ?? {}) }
-                    : input.config ??
-                      (templateKey === 'dashboard'
-                          ? { ...buildDashboardLayoutConfig([]), [LAYOUT_CONFIG_SKIP_DEFAULT_WIDGET_SEED_KEY]: true }
-                          : {})
+            const inputEnvelope = decodeLayoutForStorage(templateKey, input.config ?? {})
+            const baseEnvelope = baseLayout ? decodeLayoutForStorage(templateKey, baseLayout.config ?? {}) : null
+            const baseRendererConfig =
+                templateKey === 'dashboard'
+                    ? stripDashboardWidgetVisibilityConfig(baseEnvelope?.rendererConfig)
+                    : baseEnvelope?.rendererConfig ?? {}
+            let nextConfig: Record<string, unknown>
+
+            if (scopeEntityId && !isIndependentScopedLayout) {
+                // Renderer configuration keeps the existing whole-layout
+                // inheritance behavior. Neutral zone settings stay sparse:
+                // only values explicitly supplied by this scoped row survive.
+                nextConfig = encodeLayoutConfigEnvelope(
+                    {
+                        rendererConfig: { ...baseRendererConfig, ...inputEnvelope.rendererConfig },
+                        neutral: inputEnvelope.neutral
+                    },
+                    { templateKey }
+                )
+                if (baseLayout?.id) {
+                    nextConfig = withOverlayLayoutComposition(templateKey, nextConfig, String(baseLayout.id))
+                }
+            } else {
+                const rendererConfig =
+                    input.config !== undefined
+                        ? inputEnvelope.rendererConfig
+                        : templateKey === 'dashboard'
+                        ? { ...buildDashboardLayoutConfig([]), [LAYOUT_CONFIG_SKIP_DEFAULT_WIDGET_SEED_KEY]: true }
+                        : inputEnvelope.rendererConfig
+                nextConfig = encodeLayoutConfigEnvelope({ rendererConfig, neutral: inputEnvelope.neutral }, { templateKey })
+                nextConfig = withIndependentLayoutComposition(templateKey, nextConfig)
+            }
             if (templateKey === 'marketing-page') {
-                const parsedConfig = marketingPageConfigSchema.safeParse(nextConfig)
+                const parsedConfig = marketingPageConfigSchema.safeParse(decodeLayoutForStorage(templateKey, nextConfig).rendererConfig)
                 if (!parsedConfig.success) {
                     throw new MetahubValidationError('Marketing layout configuration is invalid')
                 }
-                nextConfig = parsedConfig.data
+                const neutral = decodeLayoutForStorage(templateKey, nextConfig).neutral
+                nextConfig = encodeLayoutConfigEnvelope({ rendererConfig: parsedConfig.data, neutral }, { templateKey })
             }
             const created = await queryOneOrThrow<DbRow>(
                 tx,
@@ -1743,6 +1984,7 @@ export class MetahubLayoutsService {
 
         // BUG-3 fix: All reads + writes inside a single transaction to prevent TOCTOU races
         return this.exec.transaction(async (tx: SqlQueryable) => {
+            await this.acquireLayoutGraphLock(tx, schemaName)
             const existing = await queryOne<DbRow>(tx, `SELECT * FROM ${lt} WHERE id = $1 AND ${ACTIVE} FOR UPDATE`, [layoutId])
             if (!existing) {
                 throw new MetahubNotFoundError('Layout', layoutId)
@@ -1756,13 +1998,34 @@ export class MetahubLayoutsService {
                 throw this.createConflictError('Layout template cannot change after creation')
             }
 
-            let nextConfig = input.config !== undefined ? input.config : existing.config ?? {}
+            if (input.config !== undefined) {
+                rendererConfigInputSchema.parse(input.config)
+            }
+            const currentEnvelope = decodeLayoutForStorage(existingTemplateKey, existing.config ?? {})
+            const inputEnvelope = decodeLayoutForStorage(existingTemplateKey, input.config ?? {})
+            let nextConfig = encodeLayoutConfigEnvelope(
+                {
+                    rendererConfig: input.config !== undefined ? inputEnvelope.rendererConfig : currentEnvelope.rendererConfig,
+                    neutral: currentEnvelope.neutral
+                },
+                { templateKey: existingTemplateKey }
+            )
+            if (typeof existing.scope_entity_id === 'string' && typeof existing.base_layout_id === 'string') {
+                nextConfig = withOverlayLayoutComposition(existingTemplateKey, nextConfig, String(existing.base_layout_id))
+            } else {
+                nextConfig = withIndependentLayoutComposition(existingTemplateKey, nextConfig)
+            }
             if (existingTemplateKey === 'marketing-page') {
-                const parsedConfig = marketingPageConfigSchema.safeParse(nextConfig)
+                const parsedConfig = marketingPageConfigSchema.safeParse(
+                    decodeLayoutForStorage(existingTemplateKey, nextConfig).rendererConfig
+                )
                 if (!parsedConfig.success) {
                     throw new MetahubValidationError('Marketing layout configuration is invalid')
                 }
-                nextConfig = parsedConfig.data
+                nextConfig = encodeLayoutConfigEnvelope(
+                    { rendererConfig: parsedConfig.data, neutral: decodeLayoutForStorage(existingTemplateKey, nextConfig).neutral },
+                    { templateKey: existingTemplateKey }
+                )
             }
 
             const nextIsActive = input.isActive ?? Boolean(existing.is_active)
@@ -1834,6 +2097,137 @@ export class MetahubLayoutsService {
             })
 
             return this.mapRow(updated)
+        })
+    }
+
+    async updateLayoutZoneSetting(
+        metahubId: string,
+        layoutId: string,
+        zone: ApplicationLayoutZone,
+        settingKey: string,
+        value: string,
+        userId: string | null | undefined,
+        expectedVersion: number
+    ): Promise<MetahubLayoutRow> {
+        const parsedZone = layoutZoneSchema.parse(zone)
+        const parsedSettingKey = layoutZoneSettingKeySchema.parse(settingKey)
+        const parsedValue = layoutZoneSettingValueSchema.parse(value)
+        const schemaName = await this.schemaService.ensureSchema(metahubId, userId ?? undefined)
+        const lt = qSchemaTable(schemaName, '_mhb_layouts')
+
+        return this.exec.transaction(async (tx: SqlQueryable) => {
+            await this.acquireLayoutGraphLock(tx, schemaName)
+            const locked = await this.lockLayoutScopeRow(tx, schemaName, layoutId)
+            if (!locked) throw this.createNotFoundError('Layout not found')
+            this.assertExpectedLayoutVersion(locked, expectedVersion)
+            const templateKey = this.assertLayoutSupportsWidgets(locked)
+            const settingDefinition = getLayoutZoneSettingDefinition(templateKey, parsedZone, parsedSettingKey)
+            if (settingDefinition?.kind !== 'enum' || !settingDefinition.options.includes(parsedValue)) {
+                throw new MetahubValidationError('Layout zone setting is invalid', {
+                    templateKey,
+                    zone: parsedZone,
+                    settingKey: parsedSettingKey,
+                    value: parsedValue
+                })
+            }
+
+            let nextConfig: Record<string, unknown>
+            try {
+                nextConfig = patchSparseZoneSetting(templateKey, locked.config ?? {}, parsedZone, parsedSettingKey, parsedValue)
+                if (this.isScopedEntityLayout(locked)) {
+                    nextConfig = withOverlayLayoutComposition(templateKey, nextConfig, String(locked.base_layout_id))
+                } else {
+                    nextConfig = withIndependentLayoutComposition(templateKey, nextConfig)
+                }
+            } catch {
+                throw new MetahubValidationError('Layout zone setting is invalid', {
+                    templateKey,
+                    zone: parsedZone,
+                    settingKey: parsedSettingKey,
+                    value: parsedValue
+                })
+            }
+
+            const updatedRows = await tx.query<DbRow>(
+                `UPDATE ${lt}
+                    SET config = $1,
+                        _upl_updated_at = $2,
+                        _upl_updated_by = $3,
+                        _upl_version = COALESCE(_upl_version, 1) + 1
+                  WHERE id = $4
+                    AND _upl_deleted = false
+                    AND _mhb_deleted = false
+                    AND COALESCE(_upl_version, 1) = $5
+                  RETURNING *`,
+                [JSON.stringify(nextConfig), new Date(), userId ?? null, layoutId, expectedVersion]
+            )
+            if (!updatedRows[0]) throw this.createConflictError('Layout was modified by another request')
+            return this.mapRow(updatedRows[0])
+        })
+    }
+
+    async resetLayoutZoneSetting(
+        metahubId: string,
+        layoutId: string,
+        zone: ApplicationLayoutZone,
+        settingKey: string,
+        userId: string | null | undefined,
+        expectedVersion: number
+    ): Promise<MetahubLayoutRow> {
+        const parsedZone = layoutZoneSchema.parse(zone)
+        const parsedSettingKey = layoutZoneSettingKeySchema.parse(settingKey)
+        const schemaName = await this.schemaService.ensureSchema(metahubId, userId ?? undefined)
+        const lt = qSchemaTable(schemaName, '_mhb_layouts')
+
+        return this.exec.transaction(async (tx: SqlQueryable) => {
+            await this.acquireLayoutGraphLock(tx, schemaName)
+            const locked = await this.lockLayoutScopeRow(tx, schemaName, layoutId)
+            if (!locked) throw this.createNotFoundError('Layout not found')
+            this.assertExpectedLayoutVersion(locked, expectedVersion)
+            const templateKey = this.assertLayoutSupportsWidgets(locked)
+            const settingDefinition = getLayoutZoneSettingDefinition(templateKey, parsedZone, parsedSettingKey)
+            if (!settingDefinition) {
+                throw new MetahubValidationError('Layout zone setting is invalid', {
+                    templateKey,
+                    zone: parsedZone,
+                    settingKey: parsedSettingKey
+                })
+            }
+
+            let nextConfig: Record<string, unknown>
+            try {
+                nextConfig = patchSparseZoneSetting(templateKey, locked.config ?? {}, parsedZone, parsedSettingKey, undefined)
+                if (this.isScopedEntityLayout(locked)) {
+                    nextConfig = withOverlayLayoutComposition(templateKey, nextConfig, String(locked.base_layout_id))
+                } else {
+                    // Reset removes only this local sparse key. The registry
+                    // default becomes effective until a value is explicitly
+                    // owned again by the layout.
+                    nextConfig = withIndependentLayoutComposition(templateKey, nextConfig, { materializeDefaults: false })
+                }
+            } catch {
+                throw new MetahubValidationError('Layout zone setting is invalid', {
+                    templateKey,
+                    zone: parsedZone,
+                    settingKey: parsedSettingKey
+                })
+            }
+
+            const updatedRows = await tx.query<DbRow>(
+                `UPDATE ${lt}
+                    SET config = $1,
+                        _upl_updated_at = $2,
+                        _upl_updated_by = $3,
+                        _upl_version = COALESCE(_upl_version, 1) + 1
+                  WHERE id = $4
+                    AND _upl_deleted = false
+                    AND _mhb_deleted = false
+                    AND COALESCE(_upl_version, 1) = $5
+                  RETURNING *`,
+                [JSON.stringify(nextConfig), new Date(), userId ?? null, layoutId, expectedVersion]
+            )
+            if (!updatedRows[0]) throw this.createConflictError('Layout was modified by another request')
+            return this.mapRow(updatedRows[0])
         })
     }
 
@@ -1936,6 +2330,7 @@ export class MetahubLayoutsService {
         const ACTIVE = '_upl_deleted = false AND _mhb_deleted = false'
 
         return this.exec.transaction(async (tx: SqlQueryable) => {
+            await this.acquireLayoutGraphLock(tx, schemaName)
             const lockedLayout = await this.lockLayoutScopeRow(tx, schemaName, layoutId)
             if (!lockedLayout) {
                 throw new MetahubNotFoundError('Layout', layoutId)
@@ -1989,6 +2384,7 @@ export class MetahubLayoutsService {
         const ACTIVE = '_upl_deleted = false AND _mhb_deleted = false'
 
         return this.exec.transaction(async (tx: SqlQueryable) => {
+            await this.acquireLayoutGraphLock(tx, schemaName)
             const lockedLayoutScope = await this.lockLayoutScopeRow(tx, schemaName, layoutId)
             if (!lockedLayoutScope) {
                 throw new MetahubNotFoundError('Layout', layoutId)
@@ -2102,6 +2498,7 @@ export class MetahubLayoutsService {
         const ACTIVE = '_upl_deleted = false AND _mhb_deleted = false'
 
         return this.exec.transaction(async (tx: SqlQueryable) => {
+            await this.acquireLayoutGraphLock(tx, schemaName)
             const lockedLayoutScope = await this.lockLayoutScopeRow(tx, schemaName, layoutId)
             if (!lockedLayoutScope) {
                 throw new MetahubNotFoundError('Layout', layoutId)
@@ -2233,6 +2630,7 @@ export class MetahubLayoutsService {
         const ACTIVE = '_upl_deleted = false AND _mhb_deleted = false'
 
         await this.exec.transaction(async (tx: SqlQueryable) => {
+            await this.acquireLayoutGraphLock(tx, schemaName)
             const layoutScope = await this.lockLayoutScopeRow(tx, schemaName, layoutId)
             if (!layoutScope) {
                 throw this.createNotFoundError('Layout not found')
@@ -2339,6 +2737,7 @@ export class MetahubLayoutsService {
         const ACTIVE = '_upl_deleted = false AND _mhb_deleted = false'
 
         await this.exec.transaction(async (tx: SqlQueryable) => {
+            await this.acquireLayoutGraphLock(tx, schemaName)
             const layoutScope = await this.lockLayoutScopeRow(tx, schemaName, layoutId)
             if (!layoutScope) throw this.createNotFoundError('Layout not found')
             if (!this.isScopedEntityLayout(layoutScope)) {
@@ -2381,6 +2780,7 @@ export class MetahubLayoutsService {
         const ACTIVE = '_upl_deleted = false AND _mhb_deleted = false'
 
         return this.exec.transaction(async (tx: SqlQueryable) => {
+            await this.acquireLayoutGraphLock(tx, schemaName)
             const layoutScope = await this.lockLayoutScopeRow(tx, schemaName, layoutId)
             if (!layoutScope) {
                 throw this.createNotFoundError('Layout not found')
@@ -2405,11 +2805,13 @@ export class MetahubLayoutsService {
                     }
 
                     const instanceKey = this.getWidgetInstanceKey(currentResolved.config)
-                    const validatedConfig = this.parseWidgetConfig(
+                    const validatedConfig = this.parseWidgetRendererUpdate(
                         templateKey,
                         currentResolved.widgetKey,
-                        config.instanceKey === undefined ? { ...config, instanceKey } : config,
-                        { expectedInstanceKey: instanceKey }
+                        currentResolved.zone,
+                        currentResolved.config,
+                        config,
+                        instanceKey
                     )
                     if (!currentResolved.baseWidgetId) {
                         throw new MetahubValidationError('Inherited marketing widget has no base identity')
@@ -2431,11 +2833,13 @@ export class MetahubLayoutsService {
                 }
 
                 const instanceKey = this.getWidgetInstanceKey(currentResolved.config)
-                const validatedConfig = this.parseWidgetConfig(
+                const validatedConfig = this.parseWidgetRendererUpdate(
                     templateKey,
                     currentResolved.widgetKey,
-                    templateKey === 'marketing-page' && config.instanceKey === undefined ? { ...config, instanceKey } : config,
-                    { expectedInstanceKey: instanceKey }
+                    currentResolved.zone,
+                    currentResolved.config,
+                    config,
+                    instanceKey
                 )
                 const now = new Date()
                 const updatedRows = await tx.query<DbRow>(
@@ -2470,12 +2874,7 @@ export class MetahubLayoutsService {
             this.assertWidgetAllowedInZone(templateKey, widgetKey, zone)
             const currentConfig = this.parseWidgetConfig(templateKey, widgetKey, current.config)
             const instanceKey = this.getWidgetInstanceKey(currentConfig)
-            const validatedConfig = this.parseWidgetConfig(
-                templateKey,
-                widgetKey,
-                templateKey === 'marketing-page' && config.instanceKey === undefined ? { ...config, instanceKey } : config,
-                { expectedInstanceKey: instanceKey }
-            )
+            const validatedConfig = this.parseWidgetRendererUpdate(templateKey, widgetKey, zone, currentConfig, config, instanceKey)
 
             const now = new Date()
             const updatedRows = await tx.query<DbRow>(
@@ -2508,6 +2907,7 @@ export class MetahubLayoutsService {
         const ACTIVE = '_upl_deleted = false AND _mhb_deleted = false'
 
         return this.exec.transaction(async (tx: SqlQueryable) => {
+            await this.acquireLayoutGraphLock(tx, schemaName)
             const layoutScope = await this.lockLayoutScopeRow(tx, schemaName, layoutId)
             if (!layoutScope) {
                 throw this.createNotFoundError('Layout not found')

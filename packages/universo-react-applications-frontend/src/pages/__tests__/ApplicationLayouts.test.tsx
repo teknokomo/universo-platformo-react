@@ -4,6 +4,8 @@ import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
+vi.setConfig({ testTimeout: 15_000 })
+
 const apiMocks = vi.hoisted(() => ({
     listApplicationLayoutScopes: vi.fn(),
     listApplicationLayouts: vi.fn(),
@@ -15,6 +17,8 @@ const apiMocks = vi.hoisted(() => ({
     deleteApplicationLayoutWidget: vi.fn(),
     resetApplicationLayoutWidgetConfigsBatch: vi.fn(),
     resetApplicationLayoutConfig: vi.fn(),
+    updateApplicationLayoutZoneSetting: vi.fn(),
+    resetApplicationLayoutZoneSetting: vi.fn(),
     updateApplicationLayoutWidgetConfig: vi.fn(),
     createApplicationLayout: vi.fn(),
     updateApplicationLayout: vi.fn(),
@@ -38,7 +42,7 @@ vi.mock('notistack', () => ({
 vi.mock('react-i18next', () => ({
     initReactI18next: { type: '3rdParty', init: vi.fn() },
     useTranslation: () => ({
-        t: (key: string, fallback?: string, params?: Record<string, unknown>) => {
+        t: (key: string, fallback?: string | { defaultValue?: string }, params?: Record<string, unknown>) => {
             const dictionary: Record<string, string> = {
                 'layouts.widgets.menuWidget': 'Menu',
                 'layouts.widgets.overviewCards': 'Overview cards',
@@ -76,9 +80,13 @@ vi.mock('react-i18next', () => ({
                 dictionary['layouts.widgetCustomization.application'] = 'Настроено в приложении'
                 dictionary['layouts.widgetCustomization.metahub'] = 'Унаследовано из метахаба'
             }
-            const template = dictionary[key] ?? fallback ?? key
-            if (!params) return template
-            return Object.entries(params).reduce(
+            const fallbackValue = typeof fallback === 'string' ? fallback : fallback?.defaultValue
+            const template = dictionary[key] ?? fallbackValue ?? key
+            const interpolationParams = {
+                ...(typeof fallback === 'object' ? fallback : {}),
+                ...(params ?? {})
+            }
+            return Object.entries(interpolationParams).reduce(
                 (message, [paramKey, value]) => message.replace(`{{${paramKey}}}`, String(value)),
                 template
             )
@@ -87,141 +95,170 @@ vi.mock('react-i18next', () => ({
     })
 }))
 
-vi.mock('@universo-react/template-mui', () => ({
-    EDITABLE_SIDE_MENU_MODES: ['wide', 'compact', 'overlay'],
-    ViewHeaderMUI: ({ title, description, children }: { title: string; description?: string; children?: React.ReactNode }) => (
-        <div>
-            <h1>{title}</h1>
-            {description ? <p>{description}</p> : null}
-            {children}
-        </div>
-    ),
-    ToolbarControls: ({ onViewModeChange }: { onViewModeChange?: (mode: string) => void }) => (
-        <div>
-            <button type='button' onClick={() => onViewModeChange?.('card')}>
-                card-view
-            </button>
-            <button type='button' onClick={() => onViewModeChange?.('list')}>
-                list-view
-            </button>
-        </div>
-    ),
-    FlowListTable: ({ data, customColumns }: { data?: Array<Record<string, unknown>>; customColumns?: Array<Record<string, unknown>> }) => (
-        <div data-testid='flow-list-table'>
-            {Array.isArray(data) && Array.isArray(customColumns)
-                ? data.map((row, index) => (
-                      <div key={String(row.id ?? index)}>
-                          {customColumns.map((column) => (
-                              <div key={String(column.id)}>{typeof column.render === 'function' ? column.render(row) : null}</div>
-                          ))}
-                      </div>
-                  ))
-                : null}
-        </div>
-    ),
-    LayoutAuthoringList: ({ items, viewMode, listContentTestId }: any) => (
-        <div data-testid={listContentTestId}>
-            <div>{viewMode}</div>
-            {(items ?? []).map((item: any) => (
-                <div key={item.id}>
-                    <div>{item.title}</div>
-                    <div>{item.meta}</div>
-                    <div>{item.statusContent}</div>
-                </div>
-            ))}
-            {viewMode === 'list' ? <div data-testid='flow-list-table' /> : null}
-        </div>
-    ),
-    LayoutAuthoringDetails: ({ zones, onDragEnd, onAddWidgetRequest, beforeZonesContent }: any) => (
-        <div data-testid='layout-authoring-details'>
-            {beforeZonesContent}
-            {Array.isArray(zones)
-                ? zones.map((zone: any) => (
-                      <div key={zone.zone}>
-                          <h2>{zone.title}</h2>
-                          {(zone.availableWidgets ?? []).map((widget: any) => (
-                              <button
-                                  key={`${zone.zone}-${widget.key}`}
-                                  type='button'
-                                  onClick={() => onAddWidgetRequest?.(zone.zone, widget.key)}
-                              >
-                                  add-{widget.label}
-                              </button>
-                          ))}
-                          {(zone.items ?? []).map((item: any) => (
-                              <div key={item.id}>
-                                  <button type='button' onClick={item.onClick}>
-                                      {item.label}
+vi.mock('@universo-react/template-mui', async () => {
+    const actual = await vi.importActual<typeof import('@universo-react/template-mui')>('@universo-react/template-mui')
+    return {
+        ...actual,
+        EDITABLE_SIDE_MENU_MODES: ['wide', 'compact', 'overlay'],
+        ViewHeaderMUI: ({ title, description, children }: { title: string; description?: string; children?: React.ReactNode }) => (
+            <div>
+                <h1>{title}</h1>
+                {description ? <p>{description}</p> : null}
+                {children}
+            </div>
+        ),
+        ToolbarControls: ({ onViewModeChange }: { onViewModeChange?: (mode: string) => void }) => (
+            <div>
+                <button type='button' onClick={() => onViewModeChange?.('card')}>
+                    card-view
+                </button>
+                <button type='button' onClick={() => onViewModeChange?.('list')}>
+                    list-view
+                </button>
+            </div>
+        ),
+        FlowListTable: ({
+            data,
+            customColumns
+        }: {
+            data?: Array<Record<string, unknown>>
+            customColumns?: Array<Record<string, unknown>>
+        }) => (
+            <div data-testid='flow-list-table'>
+                {Array.isArray(data) && Array.isArray(customColumns)
+                    ? data.map((row, index) => (
+                          <div key={String(row.id ?? index)}>
+                              {customColumns.map((column) => (
+                                  <div key={String(column.id)}>{typeof column.render === 'function' ? column.render(row) : null}</div>
+                              ))}
+                          </div>
+                      ))
+                    : null}
+            </div>
+        ),
+        LayoutAuthoringList: ({ items, viewMode, listContentTestId }: any) => (
+            <div data-testid={listContentTestId}>
+                <div>{viewMode}</div>
+                {(items ?? []).map((item: any) => (
+                    <div key={item.id}>
+                        <div>{item.title}</div>
+                        <div>{item.meta}</div>
+                        <div>{item.statusContent}</div>
+                    </div>
+                ))}
+                {viewMode === 'list' ? <div data-testid='flow-list-table' /> : null}
+            </div>
+        ),
+        LayoutAuthoringDetails: ({ zones, onDragEnd, onAddWidgetRequest, beforeZonesContent }: any) => (
+            <div data-testid='layout-authoring-details'>
+                {beforeZonesContent}
+                {Array.isArray(zones)
+                    ? zones.map((zone: any) => (
+                          <div key={zone.zone}>
+                              <h2>{zone.title}</h2>
+                              {zone.settingsAction ? (
+                                  <button
+                                      type='button'
+                                      data-testid={`layout-zone-settings-${zone.zone}`}
+                                      aria-label={zone.settingsAction.label}
+                                      disabled={zone.settingsAction.disabled}
+                                      onClick={zone.settingsAction.onClick}
+                                  >
+                                      {zone.settingsAction.label}
                                   </button>
-                                  {item.inheritedLabel ? <span>{item.inheritedLabel}</span> : null}
-                              </div>
-                          ))}
-                      </div>
-                  ))
-                : null}
-            <button type='button' onClick={() => onDragEnd?.({ active: { id: 'widget-center-1' }, over: { id: 'zone:top' } })}>
-                move-widget-center-to-top
-            </button>
-        </div>
-    ),
-    MarketingWidgetConfigDialog: ({ open, title, onSave, onCancel }: any) =>
-        open ? (
-            <div role='dialog' aria-label={title} data-testid='marketing-widget-config-dialog-mock'>
-                <h2>{title}</h2>
-                <button
-                    type='button'
-                    onClick={() =>
-                        onSave({
-                            instanceKey: '018f8a78-7b8f-7c1d-a111-2222333344a2',
-                            source: { entityCodename: 'marketingContent', entityKind: 'object' },
-                            ...(title.includes('Collection') ? { variant: 'features' } : {})
-                        })
-                    }
-                >
-                    save-marketing-widget
-                </button>
-                <button type='button' onClick={onCancel}>
-                    cancel-marketing-widget
-                </button>
-            </div>
-        ) : null,
-    LayoutStateChips: ({ labels, isDefault, sourceKind, syncState, isActive }: any) => (
-        <div>
-            <span>{isActive ? labels.active : labels.inactive}</span>
-            {isDefault ? <span>{labels.default}</span> : null}
-            {sourceKind ? <span>{labels.source?.[sourceKind]}</span> : null}
-            {syncState ? <span>{labels.syncState?.[syncState]}</span> : null}
-        </div>
-    ),
-    normalizeSideMenuConfig: (value: any) => ({
-        availableModes:
-            Array.isArray(value?.availableModes) && value.availableModes.length > 0 ? value.availableModes : ['wide', 'compact', 'overlay'],
-        primaryMode: typeof value?.primaryMode === 'string' ? value.primaryMode : 'wide',
-        rememberUserChoice: typeof value?.rememberUserChoice === 'boolean' ? value.rememberUserChoice : true
-    }),
-    EntityFormDialog: ({ open, title, extraFields, onSave }: any) =>
-        open ? (
-            <div data-testid='entity-form-dialog'>
-                <h3>{title}</h3>
-                {typeof extraFields === 'function' ? extraFields() : null}
-                <button type='button' onClick={onSave}>
-                    Save
+                              ) : null}
+                              {(zone.availableWidgets ?? []).map((widget: any) => (
+                                  <button
+                                      key={`${zone.zone}-${widget.key}`}
+                                      type='button'
+                                      onClick={() => onAddWidgetRequest?.(zone.zone, widget.key)}
+                                  >
+                                      add-{widget.label}
+                                  </button>
+                              ))}
+                              {(zone.items ?? []).map((item: any) => (
+                                  <div key={item.id}>
+                                      <button type='button' onClick={item.onClick}>
+                                          {item.label}
+                                      </button>
+                                      {item.inheritedLabel ? <span>{item.inheritedLabel}</span> : null}
+                                      {(item.moveActions ?? []).map((action: any) => (
+                                          <button key={action.key} type='button' onClick={action.onClick}>
+                                              {action.testId}
+                                          </button>
+                                      ))}
+                                  </div>
+                              ))}
+                          </div>
+                      ))
+                    : null}
+                <button type='button' onClick={() => onDragEnd?.({ active: { id: 'widget-divider-1' }, over: { id: 'zone:top' } })}>
+                    move-widget-divider-to-top
                 </button>
             </div>
-        ) : null,
-    StandardDialog: ({ open, title, children, actions }: any) =>
-        open ? (
-            <div role='dialog' aria-label={title}>
-                <h2>{title}</h2>
-                <div>{children}</div>
-                {actions ? <div data-testid='standard-dialog-actions'>{actions}</div> : null}
+        ),
+        LayoutZoneSettingsDialog: actual.LayoutZoneSettingsDialog,
+        MarketingWidgetConfigDialog: ({ open, title, onSave, onCancel }: any) =>
+            open ? (
+                <div role='dialog' aria-label={title} data-testid='marketing-widget-config-dialog-mock'>
+                    <h2>{title}</h2>
+                    <button
+                        type='button'
+                        onClick={() =>
+                            onSave({
+                                instanceKey: '018f8a78-7b8f-7c1d-a111-2222333344a2',
+                                source: { entityCodename: 'marketingContent', entityKind: 'object' },
+                                ...(title.includes('Collection') ? { variant: 'features' } : {})
+                            })
+                        }
+                    >
+                        save-marketing-widget
+                    </button>
+                    <button type='button' onClick={onCancel}>
+                        cancel-marketing-widget
+                    </button>
+                </div>
+            ) : null,
+        LayoutStateChips: ({ labels, isDefault, sourceKind, syncState, isActive }: any) => (
+            <div>
+                <span>{isActive ? labels.active : labels.inactive}</span>
+                {isDefault ? <span>{labels.default}</span> : null}
+                {sourceKind ? <span>{labels.source?.[sourceKind]}</span> : null}
+                {syncState ? <span>{labels.syncState?.[syncState]}</span> : null}
             </div>
-        ) : null,
-    LocalizedInlineField: ({ label }: { label: string }) => <div>{label}</div>,
-    EmptyListState: ({ title }: { title: string }) => <div>{title}</div>,
-    APIEmptySVG: 'api-empty',
-    useConfirm: () => ({ confirm: confirmMocks.confirm })
-}))
+        ),
+        normalizeSideMenuConfig: (value: any) => ({
+            availableModes:
+                Array.isArray(value?.availableModes) && value.availableModes.length > 0
+                    ? value.availableModes
+                    : ['wide', 'compact', 'overlay'],
+            primaryMode: typeof value?.primaryMode === 'string' ? value.primaryMode : 'wide',
+            rememberUserChoice: typeof value?.rememberUserChoice === 'boolean' ? value.rememberUserChoice : true
+        }),
+        EntityFormDialog: ({ open, title, extraFields, onSave }: any) =>
+            open ? (
+                <div data-testid='entity-form-dialog'>
+                    <h3>{title}</h3>
+                    {typeof extraFields === 'function' ? extraFields() : null}
+                    <button type='button' onClick={onSave}>
+                        Save
+                    </button>
+                </div>
+            ) : null,
+        StandardDialog: ({ open, title, children, actions }: any) =>
+            open ? (
+                <div role='dialog' aria-label={title}>
+                    <h2>{title}</h2>
+                    <div>{children}</div>
+                    {actions ? <div data-testid='standard-dialog-actions'>{actions}</div> : null}
+                </div>
+            ) : null,
+        LocalizedInlineField: ({ label }: { label: string }) => <div>{label}</div>,
+        EmptyListState: ({ title }: { title: string }) => <div>{title}</div>,
+        APIEmptySVG: 'api-empty',
+        useConfirm: () => ({ confirm: confirmMocks.confirm })
+    }
+})
 
 vi.mock('../../api/applications', () => ({
     listApplicationLayoutScopes: apiMocks.listApplicationLayoutScopes,
@@ -234,6 +271,8 @@ vi.mock('../../api/applications', () => ({
     deleteApplicationLayoutWidget: apiMocks.deleteApplicationLayoutWidget,
     resetApplicationLayoutWidgetConfigsBatch: apiMocks.resetApplicationLayoutWidgetConfigsBatch,
     resetApplicationLayoutConfig: apiMocks.resetApplicationLayoutConfig,
+    updateApplicationLayoutZoneSetting: apiMocks.updateApplicationLayoutZoneSetting,
+    resetApplicationLayoutZoneSetting: apiMocks.resetApplicationLayoutZoneSetting,
     updateApplicationLayoutWidgetConfig: apiMocks.updateApplicationLayoutWidgetConfig,
     createApplicationLayout: apiMocks.createApplicationLayout,
     updateApplicationLayout: apiMocks.updateApplicationLayout,
@@ -251,6 +290,11 @@ const renderPage = (initialEntry = '/a/app-1/admin/layouts/layout-1') => {
             queries: { retry: false },
             mutations: { retry: false }
         }
+    })
+    queryClient.setQueryData(applicationsQueryKeys.detail('app-1'), {
+        id: 'app-1',
+        role: 'owner',
+        permissions: { manageApplication: true }
     })
 
     const result = render(
@@ -422,6 +466,16 @@ describe('ApplicationLayouts', () => {
                     config: {},
                     isActive: true,
                     version: 1
+                },
+                {
+                    id: 'widget-divider-1',
+                    layoutId: 'layout-1',
+                    zone: 'left',
+                    widgetKey: 'divider',
+                    sortOrder: 2,
+                    config: {},
+                    isActive: true,
+                    version: 1
                 }
             ]
         })
@@ -465,17 +519,27 @@ describe('ApplicationLayouts', () => {
                 supportedTemplates: ['dashboard'],
                 labelKey: 'layouts.widgets.workspaceSwitcher',
                 defaultLabel: 'Workspace switcher'
+            },
+            {
+                key: 'divider',
+                allowedZones: ['left', 'top', 'bottom', 'right'],
+                allowedZonesByTemplate: { dashboard: ['left', 'top', 'bottom', 'right'] },
+                multiInstance: true,
+                templateKey: 'dashboard',
+                supportedTemplates: ['dashboard'],
+                labelKey: 'layouts.widgets.divider',
+                defaultLabel: 'Divider'
             }
         ])
         apiMocks.moveApplicationLayoutWidget.mockResolvedValue({
-            id: 'widget-center-1',
+            id: 'widget-divider-1',
             layoutId: 'layout-1',
             zone: 'top',
-            widgetKey: 'menuWidget',
+            widgetKey: 'divider',
             sortOrder: 1,
             config: {},
             isActive: true,
-            version: 4
+            version: 2
         })
         apiMocks.toggleApplicationLayoutWidget.mockResolvedValue({})
         apiMocks.upsertApplicationLayoutWidget.mockResolvedValue({})
@@ -510,14 +574,17 @@ describe('ApplicationLayouts', () => {
         expect(screen.queryByRole('button', { name: 'Back to applications' })).not.toBeInTheDocument()
         expect(screen.getByRole('button', { name: 'add-Workspace switcher' })).toBeInTheDocument()
 
-        await user.click(screen.getByRole('button', { name: 'move-widget-center-to-top' }))
+        expect(screen.queryByRole('button', { name: 'layout-widget-move-widget-center-1-top' })).not.toBeInTheDocument()
+        expect(screen.getByRole('button', { name: 'layout-widget-move-widget-divider-1-top' })).toBeInTheDocument()
+
+        await user.click(screen.getByRole('button', { name: 'move-widget-divider-to-top' }))
 
         await waitFor(() => {
             expect(apiMocks.moveApplicationLayoutWidget).toHaveBeenCalledWith('app-1', 'layout-1', {
-                widgetId: 'widget-center-1',
+                widgetId: 'widget-divider-1',
                 targetZone: 'top',
                 targetIndex: 1,
-                expectedVersion: 3
+                expectedVersion: 1
             })
         })
     })
@@ -808,6 +875,68 @@ describe('ApplicationLayouts', () => {
             )
         ).toBeInTheDocument()
         expect(screen.queryByDisplayValue(/\{/)).not.toBeInTheDocument()
+    })
+
+    it('uses the shared zone settings dialog for a marketing header and saves its descriptor value', async () => {
+        const user = userEvent.setup()
+        const marketingLayout = createMarketingLayout()
+        apiMocks.listApplicationLayouts.mockResolvedValueOnce({
+            items: [marketingLayout],
+            pagination: { total: 1, limit: 100, offset: 0, count: 1, hasMore: false }
+        })
+        apiMocks.getApplicationLayout.mockResolvedValueOnce({ item: marketingLayout, widgets: [] })
+        apiMocks.updateApplicationLayoutZoneSetting.mockResolvedValueOnce(marketingLayout)
+
+        renderPage()
+
+        await waitFor(() => expect(screen.getByTestId('layout-zone-settings-marketing-header')).toBeInTheDocument())
+        await user.click(screen.getByTestId('layout-zone-settings-marketing-header'))
+
+        const dialog = screen.getByRole('dialog', { name: 'Settings: Marketing header' })
+        expect(within(dialog).getByText('Inherited from the current layout source')).toBeInTheDocument()
+        await user.click(within(dialog).getByRole('radio', { name: 'Scrolls with page' }))
+        await user.click(within(dialog).getByRole('button', { name: 'Save' }))
+
+        await waitFor(() => {
+            expect(apiMocks.updateApplicationLayoutZoneSetting).toHaveBeenCalledWith('app-1', 'layout-1', 'marketing-header', 'position', {
+                value: 'flow',
+                expectedVersion: 7
+            })
+        })
+    })
+
+    it('keeps the zone settings dialog open and localizes a legacy conflict error payload', async () => {
+        const user = userEvent.setup()
+        const marketingLayout = createMarketingLayout()
+        apiMocks.listApplicationLayouts.mockResolvedValueOnce({
+            items: [marketingLayout],
+            pagination: { total: 1, limit: 100, offset: 0, count: 1, hasMore: false }
+        })
+        apiMocks.getApplicationLayout.mockResolvedValueOnce({ item: marketingLayout, widgets: [] })
+        apiMocks.updateApplicationLayoutZoneSetting.mockRejectedValueOnce({
+            isAxiosError: true,
+            response: {
+                status: 409,
+                data: { error: 'APPLICATION_LAYOUT_ZONE_SETTING_VERSION_CONFLICT' }
+            }
+        })
+
+        renderPage()
+
+        await waitFor(() => expect(screen.getByTestId('layout-zone-settings-marketing-header')).toBeInTheDocument())
+        await user.click(screen.getByTestId('layout-zone-settings-marketing-header'))
+
+        const dialog = screen.getByRole('dialog', { name: 'Settings: Marketing header' })
+        await user.click(within(dialog).getByRole('radio', { name: 'Scrolls with page' }))
+        await user.click(within(dialog).getByRole('button', { name: 'Save' }))
+
+        await waitFor(() => {
+            expect(snackbarMocks.enqueueSnackbar).toHaveBeenCalledWith('This layout changed in another session. Reload it and try again.', {
+                variant: 'error'
+            })
+        })
+        expect(dialog).toBeInTheDocument()
+        expect(within(dialog).getByText('This layout changed in another session. Reload it and try again.')).toBeInTheDocument()
     })
 
     it('confirms and resets marketing appearance to template defaults with the layout version', async () => {

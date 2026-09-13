@@ -6,7 +6,6 @@ import {
     type ApplicationLayoutWidget,
     type ApplicationLayoutWidgetConfigBatchMutation,
     type ApplicationLayoutWidgetConfigMutation,
-    type ApplicationLayoutWidgetMoveMutation,
     type ApplicationLayoutWidgetMutation,
     type ApplicationLayoutWidgetResetBatchMutation,
     type ApplicationLayoutWidgetToggleMutation,
@@ -27,21 +26,30 @@ import {
     strictApplicationLayoutWidgetResetBatchMutationSchema,
     strictApplicationLayoutWidgetToggleMutationSchema
 } from '../validation/applicationLayoutMutationSchemas'
+import type { StrictApplicationLayoutWidgetMoveMutation } from '../validation/applicationLayoutMutationSchemas'
 import {
     applicationLayoutWidgetPredicate,
     assertApplicationLayoutWidgetConfig,
     assertApplicationLayoutWidgetMultiplicity,
+    assertRendererConfigInput,
     assertWidgetPlacementForTemplate,
+    encodeLayoutConfigForStorage,
+    encodeWidgetConfigForStorage,
     getApplicationLayoutDetail,
+    getApplicationLayoutRawConfig,
+    getWidgetPlacement,
     isRecord,
     isMarketingWidgetKey,
+    layoutCompositionToNeutral,
     lockApplicationLayoutMutation,
     mapWidget,
+    readLayoutConfigEnvelope,
+    readWidgetConfigEnvelope,
     resolveExistingLayoutComposition,
     runApplicationLayoutTransaction,
+    type ApplicationLayoutWidgetWithPlacement,
     type WidgetRow,
-    widgetSelect,
-    withLayoutCompositionMetadata
+    widgetSelect
 } from './applicationLayoutStoreSupport'
 
 const ORDERED_LAYOUT_ZONES: Array<ApplicationLayoutWidget['zone']> = ['left', 'top', 'right', 'bottom', 'center', ...MARKETING_LAYOUT_ZONES]
@@ -81,12 +89,16 @@ const refreshLayoutLocalContentHash = async (
     const layoutsTable = qSchemaTable(schemaName, '_app_layouts')
     const current = await getApplicationLayoutDetail(executor, schemaName, layoutId)
     if (!current) return
-    const composition = resolveExistingLayoutComposition(current.item, current.widgets)
+    const currentEnvelope = readLayoutConfigEnvelope(current.item.templateKey, getApplicationLayoutRawConfig(current))
+    const composition = resolveExistingLayoutComposition(current.item)
     const rendererConfig =
         current.item.templateKey === 'dashboard'
             ? { ...current.item.config, ...buildDashboardWidgetVisibilityConfig(current.widgets) }
             : current.item.config
-    const config = withLayoutCompositionMetadata(rendererConfig, composition)
+    const config = encodeLayoutConfigForStorage(current.item.templateKey, rendererConfig, {
+        ...currentEnvelope.neutral,
+        composition: layoutCompositionToNeutral(composition)
+    })
     const layout = { ...current.item, config }
     const localHash = hashApplicationLayoutContent({ layout, widgets: current.widgets })
     const syncState = current.item.sourceKind === 'metahub' && localHash !== current.item.sourceContentHash ? 'local_modified' : 'clean'
@@ -117,14 +129,7 @@ export async function listApplicationLayoutWidgets(
     schemaName: string,
     layoutId: string
 ): Promise<ApplicationLayoutWidget[]> {
-    const widgetsTable = qSchemaTable(schemaName, '_app_widgets')
-    const rows = await executor.query<WidgetRow>(
-        `${widgetSelect(widgetsTable)}
-         WHERE layout_id = $1 AND _upl_deleted = false AND _app_deleted = false
-         ORDER BY zone ASC, sort_order ASC, _upl_created_at ASC`,
-        [layoutId]
-    )
-    return rows.map(mapWidget)
+    return (await getApplicationLayoutDetail(executor, schemaName, layoutId))?.widgets ?? []
 }
 
 export async function upsertApplicationLayoutWidget(
@@ -134,6 +139,7 @@ export async function upsertApplicationLayoutWidget(
     input: ApplicationLayoutWidgetMutation,
     userId: string | null
 ): Promise<ApplicationLayoutWidget> {
+    if (isRecord(input)) assertRendererConfigInput(input.config)
     const data = strictApplicationLayoutWidgetMutationSchema.parse(input)
     const widgetsTable = qSchemaTable(schemaName, '_app_widgets')
     const layoutsTable = qSchemaTable(schemaName, '_app_layouts')
@@ -148,6 +154,8 @@ export async function upsertApplicationLayoutWidget(
             throw new Error('APPLICATION_LAYOUT_VERSION_CONFLICT')
         }
         assertWidgetPlacementForTemplate(templateKey.data, data.widgetKey, data.zone)
+        const placement = getWidgetPlacement(templateKey.data, data.widgetKey, data.zone, config)
+        const storedConfig = encodeWidgetConfigForStorage(templateKey.data, data.widgetKey, data.zone, config, placement)
         assertApplicationLayoutWidgetMultiplicity(templateKey.data, [...current.widgets, { widgetKey: data.widgetKey }])
         if (isMarketingWidgetKey(data.widgetKey)) {
             const duplicate = current.widgets.find((widget) => String(widget.instanceKey) === String(config.instanceKey))
@@ -169,13 +177,15 @@ export async function upsertApplicationLayoutWidget(
             INSERT INTO ${widgetsTable} (layout_id, zone, widget_key, sort_order, config, is_active, _upl_created_by, _upl_updated_by)
             SELECT $1, $2, $3, COALESCE($4, 1), $5::jsonb, true, $6, $6
             WHERE ${applicationLayoutWidgetPredicate(layoutsTable, '$1')}
-            RETURNING *, COALESCE(_upl_version, 1)::int AS version
+            RETURNING *,
+                      (source_config IS NOT NULL AND config IS DISTINCT FROM source_config) AS is_customized,
+                      COALESCE(_upl_version, 1)::int AS version
             `,
-            [layoutId, data.zone, data.widgetKey, data.sortOrder ?? null, JSON.stringify(config), userId]
+            [layoutId, data.zone, data.widgetKey, data.sortOrder ?? null, JSON.stringify(storedConfig), userId]
         )
         if (!rows[0]) throw new Error('APPLICATION_LAYOUT_WIDGET_INVALID')
         await refreshLayoutLocalContentHash(tx, schemaName, layoutId, userId)
-        return mapWidget(rows[0])
+        return mapWidget(rows[0], current.item.templateKey)
     })
 }
 
@@ -187,10 +197,11 @@ export async function updateApplicationLayoutWidgetConfig(
     input: ApplicationLayoutWidgetConfigMutation,
     userId: string | null
 ): Promise<ApplicationLayoutWidget | null> {
+    if (isRecord(input)) assertRendererConfigInput(input.config)
     const data = strictApplicationLayoutWidgetConfigMutationSchema.parse(input)
     const widgetsTable = qSchemaTable(schemaName, '_app_widgets')
     const layoutsTable = qSchemaTable(schemaName, '_app_layouts')
-    return executor.transaction(async (tx) => {
+    return runApplicationLayoutTransaction(executor, async (tx) => {
         await lockInterpretationNetworkStructureMode(tx, schemaName)
         const currentLayout = await lockApplicationLayoutMutation(tx, schemaName, layoutId)
         const current = currentLayout?.widgets.find((widget) => widget.id === widgetId)
@@ -202,6 +213,16 @@ export async function updateApplicationLayoutWidgetConfig(
                 throw new Error('APPLICATION_LAYOUT_WIDGET_INSTANCE_IMMUTABLE')
             }
         }
+        const placement =
+            (current as ApplicationLayoutWidgetWithPlacement).placement ??
+            getWidgetPlacement(currentLayout.item.templateKey, current.widgetKey, current.zone, current.config)
+        const storedConfig = encodeWidgetConfigForStorage(
+            currentLayout.item.templateKey,
+            current.widgetKey,
+            current.zone,
+            config,
+            placement
+        )
         await assertInterpretationNetworkSingleSystemTransitionAllowed(
             tx,
             schemaName,
@@ -227,13 +248,15 @@ export async function updateApplicationLayoutWidgetConfig(
               AND _upl_deleted = false
               AND _app_deleted = false
               AND ${applicationLayoutWidgetPredicate(layoutsTable, 'layout_id')}
-            RETURNING *, COALESCE(_upl_version, 1)::int AS version
+            RETURNING *,
+                      (source_config IS NOT NULL AND config IS DISTINCT FROM source_config) AS is_customized,
+                      COALESCE(_upl_version, 1)::int AS version
             `,
-            [widgetId, JSON.stringify(config), userId, layoutId, data.expectedVersion]
+            [widgetId, JSON.stringify(storedConfig), userId, layoutId, data.expectedVersion]
         )
         if (!rows[0]) throw new Error('APPLICATION_LAYOUT_VERSION_CONFLICT')
         await refreshLayoutLocalContentHash(tx, schemaName, String(rows[0].layout_id), userId)
-        return mapWidget(rows[0])
+        return mapWidget(rows[0], currentLayout.item.templateKey)
     })
 }
 
@@ -243,6 +266,11 @@ export async function updateApplicationLayoutWidgetConfigsBatch(
     input: ApplicationLayoutWidgetConfigBatchMutation,
     userId: string | null
 ): Promise<ApplicationLayoutWidget[]> {
+    if (isRecord(input) && Array.isArray(input.updates)) {
+        for (const update of input.updates) {
+            if (isRecord(update)) assertRendererConfigInput(update.config)
+        }
+    }
     const data = strictApplicationLayoutWidgetConfigBatchMutationSchema.parse(input)
     const widgetsTable = qSchemaTable(schemaName, '_app_widgets')
     const layoutsTable = qSchemaTable(schemaName, '_app_layouts')
@@ -251,11 +279,13 @@ export async function updateApplicationLayoutWidgetConfigsBatch(
     return executor.transaction(async (tx) => {
         await lockInterpretationNetworkStructureMode(tx, schemaName)
         const layoutIds = [...new Set(updates.map((update) => update.layoutId))].sort((left, right) => left.localeCompare(right))
+        const layoutById = new Map<string, Awaited<ReturnType<typeof lockApplicationLayoutMutation>>>()
         for (const layoutId of layoutIds) {
             const currentLayout = await lockApplicationLayoutMutation(tx, schemaName, layoutId)
             if (!currentLayout || !currentLayout.item.isActive) {
                 throw new Error('APPLICATION_LAYOUT_WIDGET_BATCH_CONFLICT')
             }
+            layoutById.set(layoutId, currentLayout)
         }
 
         const currentRows = await tx.query<WidgetRow>(
@@ -310,6 +340,16 @@ export async function updateApplicationLayoutWidgetConfigsBatch(
         const saved: ApplicationLayoutWidget[] = []
         const touchedLayoutIds = new Set<string>()
         for (const update of updates) {
+            const current = currentByScopedId.get(`${update.layoutId}:${update.widgetId}`)!
+            const currentLayout = layoutById.get(update.layoutId)!
+            const placement = getWidgetPlacement(currentLayout.item.templateKey, current.widget_key, current.zone, current.config)
+            const storedConfig = encodeWidgetConfigForStorage(
+                currentLayout.item.templateKey,
+                current.widget_key,
+                current.zone,
+                validatedConfigs.get(update.widgetId)!,
+                placement
+            )
             const rows = await tx.query<WidgetRow>(
                 `
                 UPDATE ${widgetsTable}
@@ -320,12 +360,14 @@ export async function updateApplicationLayoutWidgetConfigsBatch(
                   AND _app_deleted = false
                   AND COALESCE(_upl_version, 1) = $5
                   AND ${applicationLayoutWidgetPredicate(layoutsTable, 'layout_id')}
-                RETURNING *, COALESCE(_upl_version, 1)::int AS version
+                RETURNING *,
+                          (source_config IS NOT NULL AND config IS DISTINCT FROM source_config) AS is_customized,
+                          COALESCE(_upl_version, 1)::int AS version
                 `,
-                [update.widgetId, JSON.stringify(validatedConfigs.get(update.widgetId)), userId, update.layoutId, update.expectedVersion]
+                [update.widgetId, JSON.stringify(storedConfig), userId, update.layoutId, update.expectedVersion]
             )
             if (!rows[0]) throw new Error('APPLICATION_LAYOUT_WIDGET_BATCH_CONFLICT')
-            saved.push(mapWidget(rows[0]))
+            saved.push(mapWidget(rows[0], currentLayout.item.templateKey))
             touchedLayoutIds.add(String(rows[0].layout_id))
         }
 
@@ -350,11 +392,13 @@ export async function resetApplicationLayoutWidgetConfigsBatch(
     return executor.transaction(async (tx) => {
         await lockInterpretationNetworkStructureMode(tx, schemaName)
         const layoutIds = [...new Set(updates.map((update) => update.layoutId))].sort((left, right) => left.localeCompare(right))
+        const layoutById = new Map<string, Awaited<ReturnType<typeof lockApplicationLayoutMutation>>>()
         for (const layoutId of layoutIds) {
             const currentLayout = await lockApplicationLayoutMutation(tx, schemaName, layoutId)
             if (!currentLayout || !currentLayout.item.isActive) {
                 throw new Error('APPLICATION_LAYOUT_WIDGET_BATCH_CONFLICT')
             }
+            layoutById.set(layoutId, currentLayout)
         }
 
         const currentRows = await tx.query<WidgetRow>(
@@ -372,13 +416,17 @@ export async function resetApplicationLayoutWidgetConfigsBatch(
             [updates.map((update) => update.layoutId), updates.map((update) => update.widgetId)]
         )
         const currentByScopedId = new Map(currentRows.map((row) => [`${row.layout_id}:${row.id}`, row]))
-
         for (const update of updates) {
             const current = currentByScopedId.get(`${update.layoutId}:${update.widgetId}`)
             if (!current || current.version !== update.expectedVersion) {
                 throw new Error('APPLICATION_LAYOUT_WIDGET_BATCH_CONFLICT')
             }
-            assertApplicationLayoutWidgetConfig(current.widget_key, current.source_config)
+            const currentLayout = layoutById.get(update.layoutId)!
+            try {
+                readWidgetConfigEnvelope(currentLayout.item.templateKey, current.widget_key, current.zone, current.source_config)
+            } catch {
+                throw new Error('APPLICATION_LAYOUT_WIDGET_INVALID')
+            }
         }
 
         await assertInterpretationNetworkSingleSystemTransitionAllowed(
@@ -386,9 +434,16 @@ export async function resetApplicationLayoutWidgetConfigsBatch(
             schemaName,
             updates.map((update) => {
                 const current = currentByScopedId.get(`${update.layoutId}:${update.widgetId}`)!
+                const currentLayout = layoutById.get(update.layoutId)!
+                const sourceRendererConfig = readWidgetConfigEnvelope(
+                    currentLayout.item.templateKey,
+                    current.widget_key,
+                    current.zone,
+                    current.source_config
+                ).rendererConfig
                 return {
                     current: { widgetKey: current.widget_key, config: current.config, isActive: current.is_active },
-                    next: { widgetKey: current.widget_key, config: current.source_config ?? {}, isActive: current.is_active }
+                    next: { widgetKey: current.widget_key, config: sourceRendererConfig, isActive: current.is_active }
                 }
             }),
             { lockAlreadyHeld: true }
@@ -418,7 +473,7 @@ export async function resetApplicationLayoutWidgetConfigsBatch(
                 [update.widgetId, update.layoutId, userId, update.expectedVersion]
             )
             if (!rows[0]) throw new Error('APPLICATION_LAYOUT_WIDGET_BATCH_CONFLICT')
-            saved.push(mapWidget(rows[0]))
+            saved.push(mapWidget(rows[0], layoutById.get(update.layoutId)!.item.templateKey))
             touchedLayoutIds.add(update.layoutId)
         }
 
@@ -433,14 +488,14 @@ export async function moveApplicationLayoutWidget(
     executor: DbExecutor,
     schemaName: string,
     layoutId: string,
-    input: ApplicationLayoutWidgetMoveMutation,
+    input: StrictApplicationLayoutWidgetMoveMutation,
     userId: string | null
 ): Promise<ApplicationLayoutWidget | null> {
     const data = strictApplicationLayoutWidgetMoveMutationSchema.parse(input)
     const widgetsTable = qSchemaTable(schemaName, '_app_widgets')
     const layoutsTable = qSchemaTable(schemaName, '_app_layouts')
 
-    return executor.transaction(async (tx) => {
+    return runApplicationLayoutTransaction(executor, async (tx) => {
         await lockInterpretationNetworkStructureMode(tx, schemaName)
         const currentLayout = await lockApplicationLayoutMutation(tx, schemaName, layoutId)
         if (!currentLayout || !currentLayout.item.isActive) return null
@@ -454,6 +509,14 @@ export async function moveApplicationLayoutWidget(
             throw new Error('APPLICATION_LAYOUT_VERSION_CONFLICT')
         }
         assertWidgetPlacementForTemplate(templateKey.data, moved.widgetKey, data.targetZone)
+        const currentPlacement =
+            (moved as ApplicationLayoutWidgetWithPlacement).placement ??
+            getWidgetPlacement(templateKey.data, moved.widgetKey, moved.zone, moved.config)
+        const nextPlacement = data.targetPlacement ?? currentPlacement
+        const movedStoredConfig =
+            data.targetPlacement !== undefined || moved.zone !== data.targetZone
+                ? encodeWidgetConfigForStorage(templateKey.data, moved.widgetKey, data.targetZone, moved.config, nextPlacement)
+                : null
 
         const buckets = new Map<ApplicationLayoutWidget['zone'], ApplicationLayoutWidget[]>()
         for (const zone of ORDERED_LAYOUT_ZONES) buckets.set(zone, [])
@@ -508,7 +571,9 @@ export async function moveApplicationLayoutWidget(
                   AND w._upl_deleted = false
                   AND w._app_deleted = false
                   AND ${applicationLayoutWidgetPredicate(layoutsTable, 'w.layout_id')}
-                RETURNING w.*, COALESCE(w._upl_version, 1)::int AS version
+                RETURNING w.*,
+                          (w.source_config IS NOT NULL AND w.config IS DISTINCT FROM w.source_config) AS is_customized,
+                          COALESCE(w._upl_version, 1)::int AS version
                 `,
                 [
                     layoutId,
@@ -518,7 +583,7 @@ export async function moveApplicationLayoutWidget(
                     pendingUpdates.map((update) => update.sortOrder)
                 ]
             )
-            const updatedById = new Map(updatedRows.map((row) => [row.id, mapWidget(row)]))
+            const updatedById = new Map(updatedRows.map((row) => [row.id, mapWidget(row, currentLayout.item.templateKey)]))
 
             if (updatedRows.length !== pendingUpdates.length) {
                 throw new Error('APPLICATION_LAYOUT_WIDGET_BATCH_CONFLICT')
@@ -531,6 +596,28 @@ export async function moveApplicationLayoutWidget(
                 movedResult = updatedById.get(update.id) ?? { ...moved, zone: update.zone, sortOrder: update.sortOrder }
                 break
             }
+        }
+
+        if (movedStoredConfig !== null) {
+            const movedRows = await tx.query<WidgetRow>(
+                `
+                UPDATE ${widgetsTable}
+                SET config = $2::jsonb,
+                    _upl_updated_at = NOW(),
+                    _upl_updated_by = $3,
+                    _upl_version = COALESCE(_upl_version, 1) + 1
+                WHERE id = $1
+                  AND layout_id = $4
+                  AND _upl_deleted = false
+                  AND _app_deleted = false
+                RETURNING *,
+                          (source_config IS NOT NULL AND config IS DISTINCT FROM source_config) AS is_customized,
+                          COALESCE(_upl_version, 1)::int AS version
+                `,
+                [moved.id, JSON.stringify(movedStoredConfig), userId, layoutId]
+            )
+            if (!movedRows[0]) throw new Error('APPLICATION_LAYOUT_WIDGET_BATCH_CONFLICT')
+            movedResult = mapWidget(movedRows[0], currentLayout.item.templateKey)
         }
 
         await refreshLayoutLocalContentHash(tx, schemaName, layoutId, userId)
@@ -579,13 +666,15 @@ export async function toggleApplicationLayoutWidget(
               AND _upl_deleted = false
               AND _app_deleted = false
               AND ${applicationLayoutWidgetPredicate(layoutsTable, 'layout_id')}
-            RETURNING *, COALESCE(_upl_version, 1)::int AS version
+            RETURNING *,
+                      (source_config IS NOT NULL AND config IS DISTINCT FROM source_config) AS is_customized,
+                      COALESCE(_upl_version, 1)::int AS version
             `,
             [widgetId, data.isActive, userId, layoutId, data.expectedVersion]
         )
         if (!rows[0]) throw new Error('APPLICATION_LAYOUT_VERSION_CONFLICT')
         await refreshLayoutLocalContentHash(tx, schemaName, String(rows[0].layout_id), userId)
-        return mapWidget(rows[0])
+        return mapWidget(rows[0], currentLayout.item.templateKey)
     })
 }
 

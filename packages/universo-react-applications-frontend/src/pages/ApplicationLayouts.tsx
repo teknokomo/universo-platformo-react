@@ -22,6 +22,7 @@ import { useCommonTranslations } from '@universo-react/i18n'
 import {
     LayoutAuthoringList,
     LayoutAuthoringDetails,
+    LayoutZoneSettingsDialog,
     LayoutStateChips,
     MarketingWidgetConfigDialog,
     ViewHeaderMUI as ViewHeader,
@@ -36,6 +37,9 @@ import type {
     ApplicationLayoutWidgetKey,
     ApplicationLayoutWidget,
     ApplicationLayoutWidgetMutation,
+    ApplicationLayoutDetailResponse,
+    LayoutLogicalPlacement,
+    LayoutPosition,
     ApplicationTemplateKey,
     ColumnsContainerConfig,
     DashboardLayoutZone,
@@ -47,6 +51,7 @@ import {
     DASHBOARD_LAYOUT_ZONES,
     getLayoutWidgetAllowedZones,
     getLayoutWidgetDefinition,
+    getLayoutZoneSettingDefinition,
     LAYOUT_ZONE_DEFINITIONS,
     MARKETING_LAYOUT_ZONES,
     MARKETING_SOURCE_CODENAMES,
@@ -71,16 +76,19 @@ import {
     listApplicationLayouts,
     moveApplicationLayoutWidget,
     resetApplicationLayoutConfig,
+    resetApplicationLayoutZoneSetting,
     resetApplicationLayoutWidgetConfigsBatch,
     toggleApplicationLayoutWidget,
     upsertApplicationLayoutWidget,
     updateApplicationLayout,
-    updateApplicationLayoutWidgetConfig
+    updateApplicationLayoutWidgetConfig,
+    updateApplicationLayoutZoneSetting
 } from '../api/applications'
 import { applicationsQueryKeys, invalidateApplicationRuntimeQueries } from '../api/queryKeys'
 import type { InterpretationNetworkMatrixSettings } from './application-settings/MatrixSettingsPanel'
 import { STORAGE_KEYS } from '../constants/storage'
 import { useViewPreference } from '../hooks/useViewPreference'
+import type { Application } from '../types'
 import { LayoutRuntimeSettingsPanels } from './application-layouts/LayoutRuntimeSettingsPanels'
 import { ApplicationLayoutListDialogs } from './application-layouts/ApplicationLayoutListDialogs'
 import { ApplicationLayoutWidgetEditors } from './application-layouts/ApplicationLayoutWidgetEditors'
@@ -160,6 +168,111 @@ const LAYOUT_ZONES_BY_TEMPLATE: Readonly<Record<ApplicationTemplateKey, readonly
 const isMarketingWidgetKey = (value: ApplicationLayoutWidgetKey): value is keyof typeof MARKETING_WIDGET_REGISTRY =>
     Object.prototype.hasOwnProperty.call(MARKETING_WIDGET_REGISTRY, value)
 
+const readWidgetPlacement = (widget: ApplicationLayoutWidget): 'start' | 'end' | undefined => {
+    const placement = widget.placement
+    if (placement === 'start' || placement === 'end') return placement
+    return getLayoutWidgetDefinition(widget.widgetKey)?.defaultPlacement
+}
+
+const getWidgetDropIndex = (
+    items: readonly ApplicationLayoutWidget[],
+    movingWidgetId: string,
+    placement?: LayoutLogicalPlacement,
+    overWidgetId?: string
+): number => {
+    const remainingItems = items.filter((item) => item.id !== movingWidgetId)
+    if (overWidgetId) {
+        const overIndex = remainingItems.findIndex((item) => item.id === overWidgetId)
+        return overIndex >= 0 ? overIndex : remainingItems.length
+    }
+    if (placement === 'start') return remainingItems.filter((item) => readWidgetPlacement(item) === 'start').length
+    return remainingItems.length
+}
+
+type LayoutZoneSettingState = {
+    value: LayoutPosition
+    inherited: boolean
+    customized: boolean
+    available: boolean
+}
+
+const marketingHeaderSettingDefinition = getLayoutZoneSettingDefinition('marketing-page', 'marketing-header', 'position')
+
+const buildMarketingHeaderDialogSettings = (t: (key: string, fallback: string) => string) =>
+    marketingHeaderSettingDefinition
+        ? [
+              {
+                  key: marketingHeaderSettingDefinition.key,
+                  kind: marketingHeaderSettingDefinition.kind,
+                  label: t(marketingHeaderSettingDefinition.labelKey, marketingHeaderSettingDefinition.defaultLabel),
+                  options: marketingHeaderSettingDefinition.options.map((value) => ({
+                      value,
+                      label: t(
+                          marketingHeaderSettingDefinition.optionLabelKeys[value],
+                          marketingHeaderSettingDefinition.defaultOptionLabels[value]
+                      )
+                  }))
+              }
+          ]
+        : []
+
+const readMarketingHeaderPosition = (layout: ApplicationLayout): LayoutZoneSettingState => {
+    if (!marketingHeaderSettingDefinition) return { value: 'fixed', inherited: true, customized: false, available: false }
+    const localHeader = layout.neutral?.zoneSettings?.['marketing-header']
+    const sourceHeader = layout.neutral?.sourceZoneSettings?.['marketing-header']
+    const settingKey = marketingHeaderSettingDefinition.key
+    const localPosition = localHeader?.[settingKey]
+    const sourcePosition = sourceHeader?.[settingKey]
+    const isSupportedPosition = (value: unknown): value is LayoutPosition =>
+        typeof value === 'string' && marketingHeaderSettingDefinition.options.includes(value)
+    const hasInvalidValue =
+        (localPosition !== undefined && !isSupportedPosition(localPosition)) ||
+        (sourcePosition !== undefined && !isSupportedPosition(sourcePosition))
+    const value = isSupportedPosition(localPosition)
+        ? localPosition
+        : isSupportedPosition(sourcePosition)
+        ? sourcePosition
+        : (marketingHeaderSettingDefinition.defaultValue as LayoutPosition)
+    return {
+        value,
+        inherited: localPosition === undefined,
+        customized: localPosition !== undefined,
+        available: !hasInvalidValue
+    }
+}
+
+const patchMarketingHeaderPosition = (layout: ApplicationLayout, value: string): ApplicationLayout => {
+    const settingKey = marketingHeaderSettingDefinition?.key
+    if (!settingKey) return layout
+    const existingZoneSettings = { ...(layout.neutral?.zoneSettings ?? {}) }
+    return {
+        ...layout,
+        neutral: {
+            ...(layout.neutral ?? {}),
+            zoneSettings: {
+                ...existingZoneSettings,
+                'marketing-header': { ...(existingZoneSettings['marketing-header'] ?? {}), [settingKey]: value }
+            }
+        }
+    }
+}
+
+const resetMarketingHeaderPosition = (layout: ApplicationLayout): ApplicationLayout => {
+    const settingKey = marketingHeaderSettingDefinition?.key
+    if (!settingKey) return layout
+    const zoneSettings = { ...(layout.neutral?.zoneSettings ?? {}) }
+    const headerSettings = zoneSettings['marketing-header']
+    if (headerSettings && typeof headerSettings === 'object') {
+        const { [settingKey]: _settingValue, ...remaining } = headerSettings
+        if (Object.keys(remaining).length > 0) zoneSettings['marketing-header'] = remaining
+        else delete zoneSettings['marketing-header']
+    }
+    const nextNeutral = { ...(layout.neutral ?? {}) }
+    if (Object.keys(zoneSettings).length > 0) nextNeutral.zoneSettings = zoneSettings
+    else delete nextNeutral.zoneSettings
+    return { ...layout, neutral: nextNeutral }
+}
+
 type MarketingWidgetEditorState = {
     open: boolean
     zone: ApplicationLayoutZone | null
@@ -187,6 +300,11 @@ const ApplicationLayouts = () => {
     const { confirm } = useConfirm()
     const queryClient = useQueryClient()
     const navigate = useNavigate()
+    const applicationAccess = applicationId ? queryClient.getQueryData<Application>(applicationsQueryKeys.detail(applicationId)) : undefined
+    const canManageLayouts =
+        typeof applicationAccess?.permissions?.manageApplication === 'boolean'
+            ? applicationAccess.permissions.manageApplication
+            : applicationAccess?.role === 'owner' || applicationAccess?.role === 'admin'
 
     const [view, setView] = useViewPreference(STORAGE_KEYS.LAYOUT_DISPLAY_STYLE)
     const [scopeFilter, setScopeFilter] = useState<string>('all')
@@ -219,6 +337,8 @@ const ApplicationLayouts = () => {
         widgetKey: null,
         config: null
     })
+    const [zoneSettingsOpen, setZoneSettingsOpen] = useState(false)
+    const [zoneSettingsError, setZoneSettingsError] = useState<string | null>(null)
     const layoutDetailQueryKey =
         applicationId && layoutId ? applicationsQueryKeys.layoutDetail(applicationId, layoutId) : ['application-layout-detail-empty']
 
@@ -352,6 +472,74 @@ const ApplicationLayouts = () => {
         }
     })
 
+    const updateZoneSettingMutation = useMutation({
+        mutationFn: ({ layout, settingKey, value }: { layout: ApplicationLayout; settingKey: string; value: string }) =>
+            updateApplicationLayoutZoneSetting(String(applicationId), layout.id, 'marketing-header', settingKey, {
+                value,
+                expectedVersion: layout.version
+            }),
+        onMutate: async ({ layout: _layout, value }) => {
+            setZoneSettingsError(null)
+            await queryClient.cancelQueries({ queryKey: layoutDetailQueryKey })
+            const previous = queryClient.getQueryData<{ item: ApplicationLayout; widgets: ApplicationLayoutWidget[] }>(layoutDetailQueryKey)
+            queryClient.setQueryData(layoutDetailQueryKey, (current: typeof previous) =>
+                current ? { ...current, item: patchMarketingHeaderPosition(current.item, value) } : current
+            )
+            return { previous }
+        },
+        onError: (error, _variables, context) => {
+            if (context?.previous) queryClient.setQueryData(layoutDetailQueryKey, context.previous)
+            const apiError = extractAxiosError(error)
+            const message =
+                apiError.code === 'APPLICATION_LAYOUT_ZONE_SETTING_VERSION_CONFLICT' ||
+                apiError.code === 'APPLICATION_LAYOUT_VERSION_CONFLICT'
+                    ? t('layouts.zoneSettingVersionConflict', 'This layout changed in another session. Reload it and try again.')
+                    : apiError.code === 'APPLICATION_LAYOUT_ZONE_SETTING_CONFLICT'
+                    ? t('layouts.zoneSettingUnresolved', 'Resolve the layout source conflict before changing this setting.')
+                    : t('layouts.zoneSettingUpdateError', 'Failed to save zone settings.')
+            setZoneSettingsError(message)
+            enqueueSnackbar(message, { variant: 'error' })
+        },
+        onSuccess: async () => {
+            setZoneSettingsOpen(false)
+            await invalidateLayouts()
+        }
+    })
+
+    const resetZoneSettingMutation = useMutation({
+        mutationFn: (layout: ApplicationLayout) => {
+            const settingKey = marketingHeaderSettingDefinition?.key
+            if (!settingKey) return Promise.reject(new Error('LAYOUT_ZONE_SETTING_UNAVAILABLE'))
+            return resetApplicationLayoutZoneSetting(String(applicationId), layout.id, 'marketing-header', settingKey, {
+                expectedVersion: layout.version
+            })
+        },
+        onMutate: async (_layout) => {
+            setZoneSettingsError(null)
+            await queryClient.cancelQueries({ queryKey: layoutDetailQueryKey })
+            const previous = queryClient.getQueryData<{ item: ApplicationLayout; widgets: ApplicationLayoutWidget[] }>(layoutDetailQueryKey)
+            queryClient.setQueryData(layoutDetailQueryKey, (current: typeof previous) =>
+                current ? { ...current, item: resetMarketingHeaderPosition(current.item) } : current
+            )
+            return { previous }
+        },
+        onError: (error, _layout, context) => {
+            if (context?.previous) queryClient.setQueryData(layoutDetailQueryKey, context.previous)
+            const apiError = extractAxiosError(error)
+            const message =
+                apiError.code === 'APPLICATION_LAYOUT_ZONE_SETTING_VERSION_CONFLICT' ||
+                apiError.code === 'APPLICATION_LAYOUT_VERSION_CONFLICT'
+                    ? t('layouts.zoneSettingVersionConflict', 'This layout changed in another session. Reload it and try again.')
+                    : t('layouts.zoneSettingResetError', 'Failed to reset zone settings.')
+            setZoneSettingsError(message)
+            enqueueSnackbar(message, { variant: 'error' })
+        },
+        onSuccess: async () => {
+            setZoneSettingsOpen(false)
+            await invalidateLayouts()
+        }
+    })
+
     const requestMarketingAppearanceReset = async (layout: ApplicationLayout) => {
         if (resetMarketingAppearanceMutation.isPending) return
         const confirmed = await confirm({
@@ -457,16 +645,19 @@ const ApplicationLayouts = () => {
         mutationFn: ({
             widget,
             targetZone,
-            targetIndex
+            targetIndex,
+            targetPlacement
         }: {
             widget: ApplicationLayoutWidget
             targetZone: ApplicationLayoutWidget['zone']
             targetIndex: number
+            targetPlacement?: LayoutLogicalPlacement
         }) =>
             moveApplicationLayoutWidget(String(applicationId), String(layoutId), {
                 widgetId: widget.id,
                 targetZone,
                 targetIndex,
+                targetPlacement,
                 expectedVersion: widget.version
             }),
         onError: (error) => notifyWidgetMutationError(error, 'layouts.widgetMoveError', 'Failed to move widget.'),
@@ -757,7 +948,7 @@ const ApplicationLayouts = () => {
         const title = resolveLocalizedText(layout.name, i18n.language, t('layouts.unnamed', 'Untitled layout'))
         const widgets = detailQuery.data.widgets
         const widgetObject: ApplicationLayoutWidgetDefinition[] = widgetObjectQuery.data ?? []
-        const widgetLabelByKey = Object.fromEntries(widgetObject.map((item) => [item.key, t(item.labelKey, item.defaultLabel)])) as Record<
+        const widgetLabelByKey = Object.fromEntries(widgetObject.map((item) => [item.key, tc(item.labelKey, item.defaultLabel)])) as Record<
             string,
             string
         >
@@ -796,8 +987,15 @@ const ApplicationLayouts = () => {
         const objectBehaviorConfig = normalizeObjectCollectionRuntimeViewConfig(extractObjectCollectionLayoutBehaviorConfig(layout.config))
         const sideMenuConfig = normalizeEditableSideMenuConfig(layout.config?.sideMenu)
         const zoneLabels = Object.fromEntries(
-            LAYOUT_ZONE_DEFINITIONS.map((zone) => [zone.key, t(zone.labelKey, zone.defaultLabel)])
+            LAYOUT_ZONE_DEFINITIONS.map((zone) => [zone.key, tc(zone.labelKey, zone.defaultLabel)])
         ) as Record<ApplicationLayoutZone, string>
+        const marketingHeaderSetting = readMarketingHeaderPosition(layout)
+
+        const openMarketingHeaderSettings = () => {
+            if (!marketingHeaderSetting.available) return
+            setZoneSettingsError(null)
+            setZoneSettingsOpen(true)
+        }
 
         const handleLayoutConfigUpdate = async (nextConfig: Record<string, unknown>) => {
             await updateMutation.mutateAsync({
@@ -835,20 +1033,23 @@ const ApplicationLayouts = () => {
 
             let targetZone = currentItem.zone
             let targetIndex = 0
+            let targetPlacement: LayoutLogicalPlacement | undefined
 
             if (overId.startsWith('zone:')) {
-                targetZone = overId.replace('zone:', '') as ApplicationLayoutZone
+                const groupMatch = overId.match(/^zone:([^:]+):group:(start|end)$/)
+                targetZone = (groupMatch?.[1] ?? overId.replace('zone:', '')) as ApplicationLayoutZone
                 if (!layoutZones.includes(targetZone)) return
-                targetIndex = widgetsByZone[targetZone].length
+                targetPlacement = groupMatch?.[2] as LayoutLogicalPlacement | undefined
+                targetIndex = getWidgetDropIndex(widgetsByZone[targetZone], activeWidgetId, targetPlacement)
             } else {
                 const overItem = widgets.find((item) => item.id === overId)
                 if (!overItem) return
                 targetZone = overItem.zone
-                targetIndex = widgetsByZone[targetZone].findIndex((item) => item.id === overItem.id)
-                if (targetIndex < 0) {
-                    targetIndex = widgetsByZone[targetZone].length
-                }
+                targetIndex = getWidgetDropIndex(widgetsByZone[targetZone], activeWidgetId, undefined, overItem.id)
+                if (targetZone === 'marketing-header') targetPlacement = readWidgetPlacement(overItem)
             }
+
+            if (!getLayoutWidgetAllowedZones(currentItem.widgetKey, layout.templateKey)?.includes(targetZone)) return
 
             const sourceIndex = widgetsByZone[currentItem.zone].findIndex((item) => item.id === currentItem.id)
             if (currentItem.zone === targetZone && sourceIndex === targetIndex) {
@@ -858,7 +1059,8 @@ const ApplicationLayouts = () => {
             await moveWidgetMutation.mutateAsync({
                 widget: currentItem,
                 targetZone,
-                targetIndex
+                targetIndex,
+                targetPlacement
             })
         }
 
@@ -869,7 +1071,7 @@ const ApplicationLayouts = () => {
             )
 
         const getWidgetChipLabel = (widget: ApplicationLayoutWidget): string => {
-            const base = widgetLabelByKey[widget.widgetKey] ?? t('layouts.widgets.unknown', 'Widget')
+            const base = widgetLabelByKey[widget.widgetKey] ?? tc('layouts.widgets.unknown', 'Widget')
 
             if (isMarketingWidgetKey(widget.widgetKey)) {
                 const variant = widget.config?.variant
@@ -882,18 +1084,18 @@ const ApplicationLayouts = () => {
             }
 
             if (widget.widgetKey === 'menuWidget') {
-                const config = widget.config as MenuWidgetConfig | undefined
+                const config = widget.config as unknown as MenuWidgetConfig | undefined
                 const titleValue = config?.title ? resolveLocalizedText(config.title, i18n.language, '') : ''
                 return titleValue ? `${base}: ${titleValue}` : base
             }
 
             if (widget.widgetKey === 'columnsContainer') {
-                const config = widget.config as ColumnsContainerConfig | undefined
+                const config = widget.config as unknown as ColumnsContainerConfig | undefined
                 if (!config?.columns?.length) return base
                 const nestedWidgets = config.columns
                     .flatMap((column) =>
                         (column.widgets ?? []).map(
-                            (columnWidget) => widgetLabelByKey[columnWidget.widgetKey] ?? t('layouts.widgets.unknown', 'Widget')
+                            (columnWidget) => widgetLabelByKey[columnWidget.widgetKey] ?? tc('layouts.widgets.unknown', 'Widget')
                         )
                     )
                     .join(', ')
@@ -915,13 +1117,15 @@ const ApplicationLayouts = () => {
                 return
             }
             if (widget.widgetKey === 'menuWidget') {
-                setMenuEditorZone(widget.zone)
+                if (!DASHBOARD_LAYOUT_ZONES.includes(widget.zone as DashboardLayoutZone)) return
+                setMenuEditorZone(widget.zone as DashboardLayoutZone)
                 setEditingWidget(widget)
                 return
             }
 
             if (widget.widgetKey === 'columnsContainer') {
-                setColumnsEditorZone(widget.zone)
+                if (!DASHBOARD_LAYOUT_ZONES.includes(widget.zone as DashboardLayoutZone)) return
+                setColumnsEditorZone(widget.zone as DashboardLayoutZone)
                 setEditingWidget(widget)
                 return
             }
@@ -999,6 +1203,83 @@ const ApplicationLayouts = () => {
             })
         }
 
+        const buildWidgetRow = (widget: ApplicationLayoutWidget) => {
+            const label = getWidgetChipLabel(widget)
+            const canDuplicate = true
+            const isHeaderWidget = layout.templateKey === 'marketing-page' && widget.zone === 'marketing-header'
+            const placement = readWidgetPlacement(widget)
+            const placementActions = isHeaderWidget
+                ? (['start', 'end'] as const)
+                      .filter((targetPlacement) => targetPlacement !== placement)
+                      .map((targetPlacement) => ({
+                          key: `${widget.id}-placement-${targetPlacement}`,
+                          testId: `layout-widget-placement-${widget.id}-${targetPlacement}`,
+                          label: t(
+                              targetPlacement === 'start' ? 'layouts.moveToStart' : 'layouts.moveToEnd',
+                              targetPlacement === 'start' ? 'Move to Start' : 'Move to End'
+                          ),
+                          onClick: () =>
+                              moveWidgetMutation.mutate({
+                                  widget,
+                                  targetZone: widget.zone,
+                                  targetIndex: getWidgetDropIndex(widgetsByZone[widget.zone], widget.id, targetPlacement),
+                                  targetPlacement
+                              })
+                      }))
+                : []
+            const zoneMoveActions = layoutZones
+                .filter(
+                    (targetZone) =>
+                        targetZone !== widget.zone &&
+                        getLayoutWidgetAllowedZones(widget.widgetKey, layout.templateKey)?.includes(targetZone)
+                )
+                .map((targetZone) => ({
+                    key: `${widget.id}-${targetZone}`,
+                    testId: `layout-widget-move-${widget.id}-${targetZone}`,
+                    label: t('layouts.moveToZone', 'Move to {{zone}}', { zone: zoneLabels[targetZone] }),
+                    onClick: () =>
+                        moveWidgetMutation.mutate({
+                            widget,
+                            targetZone,
+                            targetIndex: getWidgetDropIndex(widgetsByZone[targetZone], widget.id)
+                        })
+                }))
+            return {
+                id: widget.id,
+                label,
+                isActive: widget.isActive,
+                draggable: !moveWidgetMutation.isPending,
+                moveActions: [...placementActions, ...zoneMoveActions],
+                onEdit: () => openStructuredWidgetEditor(widget),
+                onClick: () => openStructuredWidgetEditor(widget),
+                onDuplicate: canDuplicate
+                    ? () => {
+                          if (!duplicateWidgetMutation.isPending) duplicateWidgetMutation.mutate(widget)
+                      }
+                    : undefined,
+                onRemove: () => void requestDeleteWidget(widget),
+                onToggleActive: (active: boolean) => {
+                    if (!toggleWidgetMutation.isPending) toggleWidgetMutation.mutate({ widget, isActive: active })
+                },
+                editTooltip: tc('actions.edit', 'Edit'),
+                removeTooltip: tc('actions.delete', 'Delete'),
+                toggleActiveTooltip: widget.isActive ? t('layouts.deactivate', 'Deactivate') : t('layouts.activate', 'Activate'),
+                editAriaLabel: t('layouts.editWidgetNamed', 'Edit widget: {{label}}', { label }),
+                duplicateTooltip: canDuplicate ? t('layouts.duplicateWidget', 'Duplicate widget') : undefined,
+                duplicateAriaLabel: canDuplicate ? t('layouts.duplicateWidgetNamed', 'Duplicate widget: {{label}}', { label }) : undefined,
+                removeAriaLabel: t('layouts.removeWidgetNamed', 'Remove widget: {{label}}', { label }),
+                toggleActiveAriaLabel: widget.isActive
+                    ? t('layouts.deactivateWidgetNamed', 'Deactivate widget: {{label}}', { label })
+                    : t('layouts.activateWidgetNamed', 'Activate widget: {{label}}', { label }),
+                inheritedLabel:
+                    isMarketingWidgetKey(widget.widgetKey) || widget.widgetKey === 'interpretationNetworkWorkspace'
+                        ? isApplicationOwnedWidget(layout, widget)
+                            ? t('layouts.widgetCustomization.application', 'Customized in application')
+                            : t('layouts.widgetCustomization.metahub', 'Inherited from metahub')
+                        : undefined
+            }
+        }
+
         const requestDeleteWidget = async (widget: ApplicationLayoutWidget) => {
             if (deleteWidgetMutation.isPending) return
             const confirmed = await confirm({
@@ -1017,6 +1298,11 @@ const ApplicationLayouts = () => {
                 // The mutation reports a localized error and keeps the layout open.
             }
         }
+
+        const widgetRowsByZone = Object.fromEntries(layoutZones.map((zone) => [zone, widgetsByZone[zone].map(buildWidgetRow)])) as Record<
+            ApplicationLayoutZone,
+            ReturnType<typeof buildWidgetRow>[]
+        >
 
         return (
             <Stack spacing={2} sx={{ width: '100%', maxWidth: { sm: '100%', md: '1700px' }, mx: 'auto', px: { xs: 1.5, md: 2 } }}>
@@ -1096,7 +1382,7 @@ const ApplicationLayouts = () => {
                                     layout={layout}
                                     isSaving={updateMutation.isPending}
                                     isResetting={resetMarketingAppearanceMutation.isPending}
-                                    canManage
+                                    canManage={canManageLayouts}
                                     onChange={(key, value) => void handleViewSettingChange(key, value)}
                                     onReset={() => void requestMarketingAppearanceReset(layout)}
                                 />
@@ -1117,68 +1403,92 @@ const ApplicationLayouts = () => {
                             title: zoneLabels[zone],
                             availableWidgets: getAvailableWidgetsForZone(zone).map((item) => ({
                                 key: item.key,
-                                label: widgetLabelByKey[item.key] ?? item.defaultLabel ?? t('layouts.widgets.unknown', 'Widget')
+                                label: widgetLabelByKey[item.key] ?? item.defaultLabel ?? tc('layouts.widgets.unknown', 'Widget')
                             })),
-                            items: widgetsByZone[zone].map((widget) => {
-                                const label = getWidgetChipLabel(widget)
-                                const canDuplicate = true
-
-                                return {
-                                    id: widget.id,
-                                    label,
-                                    isActive: widget.isActive,
-                                    draggable: !moveWidgetMutation.isPending,
-                                    moveActions: layoutZones
-                                        .filter((targetZone) => targetZone !== widget.zone)
-                                        .map((targetZone) => ({
-                                            key: `${widget.id}-${targetZone}`,
-                                            testId: `layout-widget-move-${widget.id}-${targetZone}`,
-                                            label: t('layouts.moveToZone', 'Move to {{zone}}', { zone: zoneLabels[targetZone] }),
-                                            onClick: () =>
-                                                moveWidgetMutation.mutate({
-                                                    widget,
-                                                    targetZone,
-                                                    targetIndex: widgetsByZone[targetZone].length
-                                                })
-                                        })),
-                                    onEdit: () => openStructuredWidgetEditor(widget),
-                                    onClick: () => openStructuredWidgetEditor(widget),
-                                    onDuplicate: canDuplicate
-                                        ? () => {
-                                              if (!duplicateWidgetMutation.isPending) {
-                                                  duplicateWidgetMutation.mutate(widget)
-                                              }
+                            items: widgetRowsByZone[zone],
+                            groups:
+                                zone === 'marketing-header'
+                                    ? [
+                                          {
+                                              key: 'start',
+                                              title: tc('layouts.startGroup', { defaultValue: 'Start' }),
+                                              items: widgetRowsByZone[zone].filter((item) => {
+                                                  const widget = widgetsByZone[zone].find((candidate) => candidate.id === item.id)
+                                                  return widget ? readWidgetPlacement(widget) !== 'end' : true
+                                              })
+                                          },
+                                          {
+                                              key: 'end',
+                                              title: tc('layouts.endGroup', { defaultValue: 'End' }),
+                                              items: widgetRowsByZone[zone].filter((item) => {
+                                                  const widget = widgetsByZone[zone].find((candidate) => candidate.id === item.id)
+                                                  return widget ? readWidgetPlacement(widget) === 'end' : false
+                                              })
                                           }
-                                        : undefined,
-                                    onRemove: () => void requestDeleteWidget(widget),
-                                    onToggleActive: (active) => {
-                                        if (!toggleWidgetMutation.isPending) toggleWidgetMutation.mutate({ widget, isActive: active })
-                                    },
-                                    editTooltip: tc('actions.edit', 'Edit'),
-                                    removeTooltip: tc('actions.delete', 'Delete'),
-                                    toggleActiveTooltip: widget.isActive
-                                        ? t('layouts.deactivate', 'Deactivate')
-                                        : t('layouts.activate', 'Activate'),
-                                    editAriaLabel: t('layouts.editWidgetNamed', 'Edit widget: {{label}}', { label }),
-                                    duplicateTooltip: canDuplicate ? t('layouts.duplicateWidget', 'Duplicate widget') : undefined,
-                                    duplicateAriaLabel: canDuplicate
-                                        ? t('layouts.duplicateWidgetNamed', 'Duplicate widget: {{label}}', { label })
-                                        : undefined,
-                                    removeAriaLabel: t('layouts.removeWidgetNamed', 'Remove widget: {{label}}', { label }),
-                                    toggleActiveAriaLabel: widget.isActive
-                                        ? t('layouts.deactivateWidgetNamed', 'Deactivate widget: {{label}}', { label })
-                                        : t('layouts.activateWidgetNamed', 'Activate widget: {{label}}', { label }),
-                                    inheritedLabel:
-                                        isMarketingWidgetKey(widget.widgetKey) || widget.widgetKey === 'interpretationNetworkWorkspace'
-                                            ? isApplicationOwnedWidget(layout, widget)
-                                                ? t('layouts.widgetCustomization.application', 'Customized in application')
-                                                : t('layouts.widgetCustomization.metahub', 'Inherited from metahub')
-                                            : undefined
-                                }
-                            })
+                                      ]
+                                    : undefined,
+                            settingsAction:
+                                zone === 'marketing-header' && marketingHeaderSetting.available
+                                    ? {
+                                          label: `${tc('layouts.zoneSettings.settings', { defaultValue: 'Settings' })}: ${
+                                              zoneLabels[zone]
+                                          }`,
+                                          summary: marketingHeaderSetting.customized
+                                              ? tc('layouts.zoneSettings.customized', { defaultValue: 'Customized for this layout' })
+                                              : tc('layouts.zoneSettings.inherited', {
+                                                    defaultValue: 'Inherited from the current layout source'
+                                                }),
+                                          onClick: openMarketingHeaderSettings
+                                      }
+                                    : undefined
                         }))}
                     />
                 </Box>
+
+                {layout.templateKey === 'marketing-page' && marketingHeaderSetting.available ? (
+                    <LayoutZoneSettingsDialog
+                        open={zoneSettingsOpen}
+                        title={`${tc('layouts.zoneSettings.settings', { defaultValue: 'Settings' })}: ${zoneLabels['marketing-header']}`}
+                        settings={buildMarketingHeaderDialogSettings((key, fallback) => tc(key, { defaultValue: fallback }))}
+                        values={
+                            marketingHeaderSettingDefinition ? { [marketingHeaderSettingDefinition.key]: marketingHeaderSetting.value } : {}
+                        }
+                        inherited={marketingHeaderSetting.inherited}
+                        readOnly={!canManageLayouts}
+                        isBusy={updateZoneSettingMutation.isPending || resetZoneSettingMutation.isPending}
+                        error={zoneSettingsError}
+                        labels={{
+                            inherited: tc('layouts.zoneSettings.inherited', { defaultValue: 'Inherited from the current layout source' }),
+                            customized: tc('layouts.zoneSettings.customized', { defaultValue: 'Customized for this layout' }),
+                            cancel: tc('layouts.zoneSettings.cancel', { defaultValue: 'Cancel' }),
+                            save: tc('layouts.zoneSettings.save', { defaultValue: 'Save' }),
+                            reset: tc('layouts.zoneSettings.reset', { defaultValue: 'Reset override' }),
+                            saving: tc('layouts.zoneSettings.saving', { defaultValue: 'Saving…' })
+                        }}
+                        onClose={() => {
+                            setZoneSettingsError(null)
+                            setZoneSettingsOpen(false)
+                        }}
+                        onSave={async (values) => {
+                            const settingKey = marketingHeaderSettingDefinition?.key
+                            const value = settingKey ? values[settingKey] : undefined
+                            if (settingKey && value !== undefined) {
+                                try {
+                                    await updateZoneSettingMutation.mutateAsync({ layout, settingKey, value })
+                                } catch {
+                                    // The mutation exposes the localized failure through zoneSettingsError.
+                                }
+                            }
+                        }}
+                        onReset={async () => {
+                            try {
+                                await resetZoneSettingMutation.mutateAsync(layout)
+                            } catch {
+                                // The mutation exposes the localized failure through zoneSettingsError.
+                            }
+                        }}
+                    />
+                ) : null}
 
                 {marketingWidgetEditor.open && marketingWidgetEditor.widgetKey ? (
                     <MarketingWidgetConfigDialog
@@ -1186,8 +1496,8 @@ const ApplicationLayouts = () => {
                         widgetKey={marketingWidgetEditor.widgetKey}
                         initialConfig={marketingWidgetEditor.config}
                         sourceOptions={marketingSourceOptions}
-                        title={widgetLabelByKey[marketingWidgetEditor.widgetKey] ?? t('layouts.widgets.unknown', 'Widget')}
-                        t={t}
+                        title={widgetLabelByKey[marketingWidgetEditor.widgetKey] ?? tc('layouts.widgets.unknown', 'Widget')}
+                        t={(key, defaultValue, options) => t(key, defaultValue ?? key, options)}
                         onSave={async (config) => {
                             const { widgetId, zone, widgetKey } = marketingWidgetEditor
                             if (!widgetKey || !zone) return
@@ -1230,13 +1540,13 @@ const ApplicationLayouts = () => {
                             if (editingWidget?.widgetKey === 'menuWidget') {
                                 await updateWidgetConfigMutation.mutateAsync({
                                     widget: editingWidget,
-                                    config: config as Record<string, unknown>
+                                    config: config as unknown as Record<string, unknown>
                                 })
                             } else {
                                 await addWidgetMutation.mutateAsync({
                                     zone: menuEditorZone,
                                     widgetKey: 'menuWidget',
-                                    config: config as Record<string, unknown>
+                                    config: config as unknown as Record<string, unknown>
                                 })
                             }
                             setMenuEditorZone(null)
@@ -1255,13 +1565,13 @@ const ApplicationLayouts = () => {
                             if (editingWidget?.widgetKey === 'columnsContainer') {
                                 await updateWidgetConfigMutation.mutateAsync({
                                     widget: editingWidget,
-                                    config: config as Record<string, unknown>
+                                    config: config as unknown as Record<string, unknown>
                                 })
                             } else {
                                 await addWidgetMutation.mutateAsync({
                                     zone: columnsEditorZone,
                                     widgetKey: 'columnsContainer',
-                                    config: config as Record<string, unknown>
+                                    config: config as unknown as Record<string, unknown>
                                 })
                             }
                             setColumnsEditorZone(null)

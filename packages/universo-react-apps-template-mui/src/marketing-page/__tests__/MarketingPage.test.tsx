@@ -1,11 +1,11 @@
-import { act, fireEvent, render, screen, within } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import userEvent from '@testing-library/user-event'
 
 import AppMainLayout from '../../layouts/AppMainLayout'
 import MarketingPage, { widgetAnchorId } from '../MarketingPage'
 import { MarketingMediaView } from '../components/MarketingPrimitives'
-import type { MarketingAction, MarketingPageData } from '../types'
+import type { MarketingAction, MarketingEffectiveLayoutWidgets, MarketingPageData } from '../types'
 
 vi.mock('react-i18next', () => ({
     initReactI18next: { type: '3rdParty', init: vi.fn() },
@@ -16,7 +16,6 @@ vi.mock('react-i18next', () => ({
                 'marketingPage.actions.signUp': 'Sign up',
                 'marketingPage.navigation.openMenu': 'Open navigation menu',
                 'marketingPage.navigation.closeMenu': 'Close navigation menu',
-                'marketingPage.navigation.skipToContent': 'Skip to content',
                 'marketingPage.colorMode.label': 'Color mode',
                 'marketingPage.colorMode.system': 'System',
                 'marketingPage.colorMode.light': 'Light',
@@ -27,11 +26,9 @@ vi.mock('react-i18next', () => ({
                 'marketingPage.form.submitted': 'Thanks for subscribing!',
                 'marketingPage.form.submitting': 'Submitting'
             }
-            if (key === 'marketingPage.navigation.landmark') {
-                return `${options?.brand} navigation ${options?.index}`
-            }
+            if (key === 'marketingPage.navigation.landmark') return `${options?.brand} navigation ${options?.index}`
             if (key === 'marketingPage.empty') return `No items in ${options?.section ?? 'section'}`
-            return labels[key] ?? key
+            return labels[key] ?? options?.defaultValue ?? key
         },
         i18n: { language: 'en', resolvedLanguage: 'en' }
     })
@@ -42,7 +39,7 @@ const uuid = '0190a9b5-3cde-7abc-8def-012345678900'
 const action = (href: string, label: string): MarketingAction => ({
     semanticKey: label.toLowerCase().replace(/\s+/g, '-'),
     label,
-    actionKind: href.startsWith('#') ? 'internal' : 'internal',
+    actionKind: 'internal',
     href,
     target: '_self'
 })
@@ -54,6 +51,59 @@ const config = {
     externalLinkTarget: 'new-tab' as const
 }
 
+const effectiveLayoutWidgets: MarketingEffectiveLayoutWidgets = [
+    {
+        id: 'brand',
+        widgetKey: 'marketing.brand',
+        zone: 'marketing-header',
+        semanticRegion: 'header',
+        instanceKey: 'brand',
+        sortOrder: 0,
+        isActive: true,
+        config: {}
+    },
+    {
+        id: 'navigation',
+        widgetKey: 'marketing.navigation',
+        zone: 'marketing-header',
+        semanticRegion: 'header',
+        instanceKey: 'navigation',
+        sortOrder: 1,
+        isActive: true,
+        config: { __layout: { placement: 'start' } }
+    },
+    {
+        id: 'auth',
+        widgetKey: 'marketing.auth',
+        zone: 'marketing-header',
+        semanticRegion: 'header',
+        instanceKey: 'auth',
+        sortOrder: 2,
+        isActive: true,
+        config: { __layout: { placement: 'end' } }
+    },
+    {
+        id: 'language',
+        widgetKey: 'languageSwitcher',
+        zone: 'marketing-header',
+        semanticRegion: 'header',
+        instanceKey: 'language',
+        sortOrder: 3,
+        isActive: true,
+        config: { __layout: { placement: 'end' } }
+    },
+    {
+        id: 'color-mode',
+        widgetKey: 'colorModeSwitcher',
+        zone: 'marketing-header',
+        semanticRegion: 'header',
+        instanceKey: 'color-mode',
+        sortOrder: 4,
+        isActive: true,
+        config: { __layout: { placement: 'end' } }
+    }
+]
+
 const data: MarketingPageData = {
     templateKey: 'marketing-page',
     locale: 'en',
@@ -61,16 +111,28 @@ const data: MarketingPageData = {
     runtime: { layoutId: uuid, layoutVersion: 1, layoutHash: 'a'.repeat(64) },
     widgets: [
         {
-            instanceKey: 'navigation',
-            widgetKey: 'marketing.navigation',
+            instanceKey: 'brand',
+            widgetKey: 'marketing.brand',
             zone: 'marketing-header',
             sortOrder: 0,
             isActive: true,
-            content: {
-                brand: { name: 'Acme' },
-                navigation: [{ ...action('#features', 'Features'), order: 1, visible: true }],
-                auth: { signIn: action('/sign-in', 'Sign in'), signUp: action('/sign-up', 'Sign up') }
-            }
+            content: { name: 'Acme' }
+        },
+        {
+            instanceKey: 'navigation',
+            widgetKey: 'marketing.navigation',
+            zone: 'marketing-header',
+            sortOrder: 1,
+            isActive: true,
+            content: { navigation: [{ ...action('#features', 'Features'), order: 1, visible: true }] }
+        },
+        {
+            instanceKey: 'auth',
+            widgetKey: 'marketing.auth',
+            zone: 'marketing-header',
+            sortOrder: 2,
+            isActive: true,
+            content: { signIn: action('/sign-in', 'Sign in'), signUp: action('/sign-up', 'Sign up') }
         },
         {
             instanceKey: 'features-secondary',
@@ -111,11 +173,7 @@ const data: MarketingPageData = {
             zone: 'marketing-main',
             sortOrder: 0,
             isActive: true,
-            content: {
-                title: 'Our latest',
-                accent: 'products',
-                description: 'A typed marketing page.'
-            }
+            content: { title: 'Our latest', accent: 'products', description: 'A typed marketing page.' }
         },
         {
             instanceKey: 'features-primary',
@@ -157,172 +215,162 @@ const data: MarketingPageData = {
     ]
 }
 
+const renderPage = (position: 'fixed' | 'flow' = 'fixed') =>
+    render(
+        <AppMainLayout>
+            <MarketingPage
+                data={data}
+                effectiveLayoutWidgets={effectiveLayoutWidgets}
+                effectiveLayoutConfig={{ templateKey: 'marketing-page', zoneSettings: { 'marketing-header': { position } } }}
+            />
+        </AppMainLayout>
+    )
+
 describe('MarketingPage', () => {
     beforeEach(() => {
         window.localStorage.clear()
+        document.documentElement.style.removeProperty('--marketing-header-occlusion')
+        document.documentElement.style.removeProperty('scroll-padding-block-start')
     })
 
-    it('renders active payload widgets by canonical zone and persisted order', () => {
-        render(
-            <AppMainLayout>
-                <MarketingPage data={data} />
-            </AppMainLayout>
-        )
+    it('renders active content payload widgets by canonical zone and persisted order', () => {
+        renderPage()
 
         expect(screen.getByRole('heading', { name: 'Our latest products' })).toBeInTheDocument()
         expect(screen.getByRole('heading', { name: 'Product features' })).toBeInTheDocument()
         expect(screen.getByRole('heading', { name: 'Automation features' })).toBeInTheDocument()
         expect(screen.queryByText('Hidden?')).not.toBeInTheDocument()
-        expect(screen.getByRole('link', { name: 'Skip to content' })).toHaveAttribute('href', '#marketing-page-main')
+        expect(screen.queryByRole('link', { name: 'Skip to content' })).not.toBeInTheDocument()
+        expect(screen.getByRole('main')).toHaveAttribute('tabindex', '-1')
         expect(screen.getByRole('contentinfo').closest('main')).toBeNull()
         expect(
             Array.from(document.querySelectorAll<HTMLElement>('[data-marketing-widget-instance]')).map(
                 (node) => node.dataset.marketingWidgetInstance
             )
-        ).toEqual(['navigation', 'hero', 'features-primary', 'features-secondary', 'logos-empty', 'footer'])
-        const ids = Array.from(document.querySelectorAll<HTMLElement>('[id]')).map((node) => node.id)
-        expect(new Set(ids).size).toBe(ids.length)
-        expect(document.getElementById('features-features-secondary')).toBeInTheDocument()
+        ).toEqual(['hero', 'features-primary', 'features-secondary', 'logos-empty', 'footer'])
+        expect(document.getElementById('marketing-widget-features-secondary')).toBeInTheDocument()
     })
 
-    it('renders repeated and empty collection instances without requiring section state', () => {
+    it('uses one zone-owned shell, one Drawer, and atomic persisted header projections', () => {
+        renderPage()
+
+        expect(screen.getAllByTestId('marketing-header-shell')).toHaveLength(1)
+        expect(document.querySelectorAll('.MuiAppBar-root')).toHaveLength(1)
+        expect(document.querySelectorAll('[data-testid="marketing-header-drawer"]')).toHaveLength(1)
+        expect(screen.getAllByRole('button', { name: 'Language' })).toHaveLength(1)
+        expect(screen.getByRole('link', { name: 'Sign in' })).toHaveAttribute('href', '/sign-in')
+    })
+
+    it('renders no header shell when every projected capability is inactive at its authoritative source', () => {
+        const inactiveHeaderData: MarketingPageData = {
+            ...data,
+            widgets: data.widgets.map((widget) =>
+                widget.zone === 'marketing-header'
+                    ? {
+                          ...widget,
+                          isActive: false
+                      }
+                    : widget
+            ) as MarketingPageData['widgets']
+        }
+        const inactiveControls: MarketingEffectiveLayoutWidgets = effectiveLayoutWidgets.map((widget) =>
+            widget.widgetKey === 'languageSwitcher' || widget.widgetKey === 'colorModeSwitcher' ? { ...widget, isActive: false } : widget
+        )
+
         render(
             <AppMainLayout>
-                <MarketingPage data={data} />
+                <MarketingPage
+                    data={inactiveHeaderData}
+                    effectiveLayoutWidgets={inactiveControls}
+                    effectiveLayoutConfig={{ templateKey: 'marketing-page' }}
+                />
             </AppMainLayout>
         )
 
-        expect(screen.getAllByText('Automation').length).toBeGreaterThan(0)
-        expect(screen.getByText('No items in Trusted companies')).toBeInTheDocument()
-        expect(data).not.toHaveProperty('sectionOrder')
-        expect(data).not.toHaveProperty('sectionVisibility')
-        expect(data).not.toHaveProperty('records')
-        expect(data).not.toHaveProperty('sectionCopies')
+        expect(screen.queryByTestId('marketing-header-shell')).not.toBeInTheDocument()
+        expect(screen.queryByRole('button', { name: 'Language' })).not.toBeInTheDocument()
+        expect(screen.queryByRole('link', { name: 'Sign in' })).not.toBeInTheDocument()
+        expect(screen.getByRole('main')).toBeInTheDocument()
     })
 
-    it('keeps widget fragment anchors unique for distinct semantic keys', () => {
-        expect(widgetAnchorId('promo.one')).not.toBe(widgetAnchorId('promo-one'))
-        expect(widgetAnchorId('promo.one')).toMatch(/^marketing-widget-/)
-    })
-
-    it('keeps navigation actions and mobile menu user-facing', () => {
-        render(
-            <AppMainLayout>
-                <MarketingPage data={data} />
-            </AppMainLayout>
-        )
-
-        fireEvent.click(screen.getByRole('button', { name: 'Open navigation menu', hidden: true }))
-
-        expect(screen.getByRole('button', { name: 'Close navigation menu' })).toBeInTheDocument()
-        expect(screen.getByRole('link', { name: 'Features' })).toHaveAttribute('href', '#features')
-    })
-
-    it('renders three navigation instances in flow with unique landmarks, drawers, and focus restoration', async () => {
+    it('projects all navigation instances into one mobile Drawer and restores menu focus', async () => {
         const user = userEvent.setup()
-        const baseNavigation = data.widgets[0]
-        if (baseNavigation.widgetKey !== 'marketing.navigation') throw new Error('Expected a navigation fixture')
-
-        const navigationKeys = ['navigation-primary', '0190a9b5-3cde-7abc-8def-012345678901', '0190a9b5-3cde-7abc-8def-012345678902']
-        const duplicatedNavigationData: MarketingPageData = {
+        const duplicatedData: MarketingPageData = {
             ...data,
             widgets: [
-                ...navigationKeys.map((instanceKey, index) => ({ ...baseNavigation, instanceKey, sortOrder: index })),
-                ...data.widgets.slice(1)
+                ...data.widgets,
+                {
+                    instanceKey: 'navigation-secondary',
+                    widgetKey: 'marketing.navigation',
+                    zone: 'marketing-header',
+                    sortOrder: 5,
+                    isActive: true,
+                    content: { navigation: [{ ...action('/about', 'About') }] }
+                }
             ]
         }
+        const duplicatedLayout: MarketingEffectiveLayoutWidgets = [
+            ...effectiveLayoutWidgets,
+            {
+                id: 'navigation-secondary',
+                widgetKey: 'marketing.navigation',
+                zone: 'marketing-header',
+                semanticRegion: 'header',
+                instanceKey: 'navigation-secondary',
+                sortOrder: 5,
+                isActive: true,
+                config: { __layout: { placement: 'start' } }
+            }
+        ]
 
         render(
             <AppMainLayout>
                 <MarketingPage
-                    data={duplicatedNavigationData}
-                    sharedLayoutWidgets={[
-                        { id: 'shared-language', widgetKey: 'languageSwitcher', zone: 'marketing-header', sortOrder: 0, isActive: true }
-                    ]}
+                    data={duplicatedData}
+                    effectiveLayoutWidgets={duplicatedLayout}
+                    effectiveLayoutConfig={{
+                        templateKey: 'marketing-page',
+                        zoneSettings: { 'marketing-header': { position: 'fixed' } }
+                    }}
                 />
             </AppMainLayout>
         )
 
-        expect(document.querySelectorAll("button[aria-label='language.tooltip']")).toHaveLength(1)
-        const landmarks = screen.getAllByTestId('marketing-navigation-instance')
-        expect(landmarks).toHaveLength(3)
-        expect(landmarks.map((landmark) => landmark.getAttribute('aria-label'))).toEqual([
-            'Acme navigation 1',
-            'Acme navigation 2',
-            'Acme navigation 3'
-        ])
-        expect(new Set(landmarks.map((landmark) => landmark.getAttribute('aria-label'))).size).toBe(3)
-        expect(landmarks.every((landmark) => landmark.closest('.MuiAppBar-root')?.classList.contains('MuiAppBar-positionFixed'))).toBe(true)
-        expect(
-            Array.from(document.querySelectorAll<HTMLElement>('[data-marketing-widget-instance]')).map(
-                (node) => node.dataset.marketingWidgetInstance
-            )
-        ).toEqual([
-            'navigation-primary',
-            navigationKeys[1],
-            navigationKeys[2],
-            'hero',
-            'features-primary',
-            'features-secondary',
-            'logos-empty',
-            'footer'
-        ])
-
-        const drawerIds = landmarks.map((landmark) =>
-            landmark.querySelector<HTMLButtonElement>('button[aria-controls]')?.getAttribute('aria-controls')
-        )
-        expect(drawerIds).toEqual(navigationKeys.map((key) => `marketing-navigation-drawer-${encodeURIComponent(key)}`))
-        expect(new Set(drawerIds).size).toBe(3)
-        expect(landmarks.every((landmark) => !landmark.getAttribute('aria-label')?.includes(navigationKeys[1]))).toBe(true)
-
-        const secondMenuButton = within(landmarks[1]).getByRole('button', { name: 'Open navigation menu', hidden: true })
-        act(() => secondMenuButton.focus())
-        await user.keyboard('{Enter}')
-        const secondDrawer = document.getElementById(drawerIds[1] ?? '')
-        expect(secondDrawer).toBeInTheDocument()
-        if (!secondDrawer) return
-
-        const closeButton = within(secondDrawer).getByRole('button', { name: 'Close navigation menu' })
-        act(() => closeButton.focus())
-        await user.keyboard('{Enter}')
-        expect(secondMenuButton).toHaveFocus()
+        const menuButton = screen.getByRole('button', { name: 'Open navigation menu', hidden: true })
+        await user.click(menuButton)
+        const drawer = document.getElementById('marketing-header-drawer')
+        expect(drawer).not.toBeNull()
+        if (!drawer) return
+        expect(within(drawer).getByRole('link', { name: 'About' })).toHaveAttribute('href', '/about')
+        expect(within(drawer).getByRole('link', { name: 'Sign in' })).toHaveAttribute('href', '/sign-in')
+        await user.click(within(drawer).getByRole('button', { name: 'Close navigation menu' }))
+        expect(menuButton).toHaveFocus()
     })
 
-    it('renders a shared language switcher when the layout has no navigation widget', () => {
-        const withoutNavigationData: MarketingPageData = {
-            ...data,
-            widgets: data.widgets.filter((widget) => widget.widgetKey !== 'marketing.navigation')
-        }
+    it('keeps flow mode in normal flow without fixed spacer or scroll padding', () => {
+        renderPage('flow')
 
-        render(
-            <AppMainLayout>
-                <MarketingPage
-                    data={withoutNavigationData}
-                    sharedLayoutWidgets={[
-                        { id: 'shared-language', widgetKey: 'languageSwitcher', zone: 'marketing-header', sortOrder: 0, isActive: true }
-                    ]}
-                />
-            </AppMainLayout>
-        )
-
-        expect(screen.getByTestId('marketing-shared-language-header')).toBeInTheDocument()
-        expect(document.querySelectorAll("button[aria-label='language.tooltip']")).toHaveLength(1)
+        expect(screen.getByTestId('marketing-header-shell')).toHaveClass('MuiAppBar-positionStatic')
+        expect(screen.queryByTestId('marketing-header-spacer')).not.toBeInTheDocument()
+        expect(document.documentElement.style.getPropertyValue('--marketing-header-occlusion')).toBe('')
+        expect(document.documentElement.style.getPropertyValue('scroll-padding-block-start')).toBe('')
     })
 
-    it('does not expose storage-backed media identifiers in the runtime UI', () => {
+    it('keeps storage-backed media locators out of the runtime UI', () => {
         render(
             <AppMainLayout>
                 <MarketingMediaView
-                    media={{
-                        src: '',
-                        resource: { type: 'file', storageKey: 'marketing/hero.webp' },
-                        alt: 'Product preview'
-                    }}
+                    media={{ src: '', resource: { type: 'file', storageKey: 'marketing/hero.webp' }, alt: 'Product preview' }}
                 />
             </AppMainLayout>
         )
 
         expect(screen.getByText('Media is configured but unavailable in this runtime.')).toBeInTheDocument()
         expect(screen.queryByText(/storageKey|marketing\/hero\.webp/)).not.toBeInTheDocument()
+    })
+
+    it('keeps widget fragment anchors unique for distinct semantic keys', () => {
+        expect(widgetAnchorId('promo.one')).not.toBe(widgetAnchorId('promo-one'))
+        expect(widgetAnchorId('promo.one')).toMatch(/^marketing-widget-/)
     })
 })

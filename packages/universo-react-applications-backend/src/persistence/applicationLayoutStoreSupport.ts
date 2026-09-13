@@ -2,11 +2,20 @@ import { qSchemaTable } from '@universo-react/database'
 import {
     LAYOUT_WIDGET_DEFINITIONS,
     MARKETING_WIDGET_REGISTRY,
-    applicationLayoutCompositionSchema,
+    applicationLayoutDetailResponseSchema,
+    applicationLayoutSchema,
+    applicationLayoutWidgetSchema,
     applicationTemplateKeySchema,
+    decodeLayoutConfigEnvelope,
+    decodeLayoutWidgetConfigEnvelope,
+    encodeLayoutConfigEnvelope,
+    encodeLayoutWidgetConfigEnvelope,
     getLayoutWidgetAllowedZones,
+    getLayoutWidgetDefaultPlacement,
     parseApplicationLayoutConfig,
     parseApplicationLayoutWidgetConfig,
+    type LayoutLogicalPlacement,
+    type PersistedLayoutNeutralMetadata,
     type ApplicationLayout,
     type ApplicationLayoutDetailResponse,
     type ApplicationLayoutWidget,
@@ -55,35 +64,95 @@ export interface WidgetRow {
 
 export type LayoutComposition = { compositionMode: 'overlay' | 'independent'; baseLayoutId: string | null }
 
+export type ApplicationLayoutWidgetWithPlacement = ApplicationLayoutWidget & { placement?: LayoutLogicalPlacement }
+
+export type LayoutConfigEnvelope = {
+    rendererConfig: Record<string, unknown>
+    neutral: PersistedLayoutNeutralMetadata
+}
+
+const rawLayoutConfigSymbol = Symbol('application-layout-raw-config')
+
+type InternalLayoutDetail = ApplicationLayoutDetailResponse & {
+    [rawLayoutConfigSymbol]?: Record<string, unknown>
+}
+
+export const getApplicationLayoutRawConfig = (detail: ApplicationLayoutDetailResponse): Record<string, unknown> => {
+    const rawConfig = (detail as InternalLayoutDetail)[rawLayoutConfigSymbol]
+    if (!isRecord(rawConfig)) throw new Error('APPLICATION_LAYOUT_CONFIG_INVALID')
+    return rawConfig
+}
+
+const attachRawLayoutConfig = (
+    detail: ApplicationLayoutDetailResponse,
+    rawConfig: Record<string, unknown>
+): ApplicationLayoutDetailResponse => {
+    Object.defineProperty(detail, rawLayoutConfigSymbol, { configurable: false, enumerable: false, value: rawConfig })
+    return detail
+}
+
 export const isRecord = (value: unknown): value is Record<string, unknown> =>
     Boolean(value && typeof value === 'object' && !Array.isArray(value))
 
-export const stripLayoutCompositionMetadata = (value: unknown): Record<string, unknown> => {
+const hasOwn = (value: Record<string, unknown>, key: string): boolean => Object.prototype.hasOwnProperty.call(value, key)
+
+export const assertRendererConfigInput = (value: unknown): Record<string, unknown> => {
     const config = isRecord(value) ? value : {}
-    const { compositionMode: _compositionMode, baseLayoutId: _baseLayoutId, ...rendererConfig } = config
-    return rendererConfig
+    if (hasOwn(config, '__layout') || hasOwn(config, 'compositionMode') || hasOwn(config, 'baseLayoutId')) {
+        throw new Error('APPLICATION_LAYOUT_RESERVED_METADATA')
+    }
+    return config
+}
+
+export const layoutCompositionToNeutral = (composition: LayoutComposition): PersistedLayoutNeutralMetadata['composition'] => {
+    if (composition.compositionMode === 'overlay') {
+        if (!composition.baseLayoutId) throw new Error('APPLICATION_LAYOUT_COMPOSITION_INVALID')
+        return { mode: 'overlay', baseLayoutId: composition.baseLayoutId }
+    }
+    return { mode: 'independent', baseLayoutId: null }
+}
+
+const neutralToComposition = (neutral: PersistedLayoutNeutralMetadata): LayoutComposition => {
+    if (!neutral.composition) throw new Error('APPLICATION_LAYOUT_COMPOSITION_INVALID')
+    return neutral.composition.mode === 'overlay'
+        ? { compositionMode: 'overlay', baseLayoutId: neutral.composition.baseLayoutId }
+        : { compositionMode: 'independent', baseLayoutId: null }
+}
+
+export const readLayoutConfigEnvelope = (templateKey: ApplicationLayout['templateKey'], value: unknown): LayoutConfigEnvelope => {
+    if (!isRecord(value)) throw new Error('APPLICATION_LAYOUT_CONFIG_INVALID')
+    const decoded = decodeLayoutConfigEnvelope(value, { templateKey })
+    return {
+        rendererConfig: parseApplicationLayoutConfig(templateKey, decoded.rendererConfig),
+        neutral: decoded.neutral
+    }
+}
+
+export const encodeLayoutConfigForStorage = (
+    templateKey: ApplicationLayout['templateKey'],
+    rendererConfig: unknown,
+    neutral: PersistedLayoutNeutralMetadata,
+    options: { omitSourceZoneSettings?: boolean } = {}
+): Record<string, unknown> => {
+    const parsedRendererConfig = parseApplicationLayoutConfig(templateKey, assertRendererConfigInput(rendererConfig))
+    return encodeLayoutConfigEnvelope(
+        { rendererConfig: parsedRendererConfig, neutral },
+        { templateKey, omitSourceZoneSettings: options.omitSourceZoneSettings }
+    )
 }
 
 export const withLayoutCompositionMetadata = (
     config: Record<string, unknown>,
-    composition: LayoutComposition
-): Record<string, unknown> => ({
-    ...config,
-    ...composition
-})
+    composition: LayoutComposition,
+    templateKey: ApplicationLayout['templateKey'] = 'dashboard'
+): Record<string, unknown> =>
+    encodeLayoutConfigForStorage(templateKey, config, {
+        composition: layoutCompositionToNeutral(composition)
+    })
 
-export const resolveExistingLayoutComposition = (
-    layout: ApplicationLayout,
-    widgets: readonly ApplicationLayoutWidget[]
-): LayoutComposition => {
-    if (layout.scopeEntityId && layout.compositionMode === 'overlay' && layout.baseLayoutId) {
-        return { compositionMode: 'overlay', baseLayoutId: layout.baseLayoutId }
-    }
-    const hasInheritedWidgets = widgets.some((widget) => widget.sourceBaseWidgetId !== null && widget.sourceBaseWidgetId !== undefined)
-    if (layout.scopeEntityId && hasInheritedWidgets && layout.sourceLayoutId) {
-        return { compositionMode: 'overlay', baseLayoutId: layout.sourceLayoutId }
-    }
-    return { compositionMode: 'independent', baseLayoutId: null }
+export const resolveExistingLayoutComposition = (layout: ApplicationLayout): LayoutComposition => {
+    if (!layout.neutral?.composition) throw new Error('APPLICATION_LAYOUT_COMPOSITION_INVALID')
+    return neutralToComposition(layout.neutral)
 }
 
 export const parseLayoutConfigForStorage = (
@@ -91,19 +160,16 @@ export const parseLayoutConfigForStorage = (
     value: unknown,
     composition: LayoutComposition
 ): Record<string, unknown> => {
-    const rendererConfig = parseApplicationLayoutConfig(templateKey, stripLayoutCompositionMetadata(value))
-    return withLayoutCompositionMetadata(rendererConfig, composition)
+    return encodeLayoutConfigForStorage(templateKey, value, {
+        composition: layoutCompositionToNeutral(composition)
+    })
 }
 
 export const parseLayoutConfigForRead = (templateKey: ApplicationLayout['templateKey'], value: unknown): ApplicationLayout['config'] => {
-    const rawConfig = stripLayoutCompositionMetadata(value)
     try {
-        return parseApplicationLayoutConfig(templateKey, rawConfig)
+        return readLayoutConfigEnvelope(templateKey, value).rendererConfig as ApplicationLayout['config']
     } catch {
-        // Keep a malformed persisted config inspectable by the admin UI. The
-        // appearance panel can then show its localized invalid-config state;
-        // mutation and runtime paths still validate strictly and fail closed.
-        return rawConfig as ApplicationLayout['config']
+        throw new Error('APPLICATION_LAYOUT_CONFIG_INVALID')
     }
 }
 
@@ -120,28 +186,31 @@ export function assertApplicationLayoutWidgetConfig(
             config.instanceKey === undefined
                 ? { ...config, instanceKey: generateUuidV7() }
                 : config
-        return parseApplicationLayoutWidgetConfig(widgetKey, candidate)
-    } catch {
+        const candidateConfig = isRecord(candidate) ? candidate : {}
+        if (hasOwn(candidateConfig, '__layout')) throw new Error('APPLICATION_LAYOUT_RESERVED_METADATA')
+        return parseApplicationLayoutWidgetConfig(widgetKey, candidateConfig)
+    } catch (error) {
+        if (error instanceof Error && error.message === 'APPLICATION_LAYOUT_RESERVED_METADATA') throw error
         throw new Error('APPLICATION_LAYOUT_WIDGET_INVALID')
     }
 }
 
 export const mapLayout = (row: LayoutRow): ApplicationLayout => {
     const templateKey = applicationTemplateKeySchema.parse(row.template_key)
-    const rawConfig = isRecord(row.config) ? row.config : {}
-    const composition = applicationLayoutCompositionSchema.parse({
-        compositionMode: rawConfig.compositionMode ?? 'independent',
-        baseLayoutId: rawConfig.baseLayoutId ?? null
-    })
-    return {
+    const envelope = readLayoutConfigEnvelope(templateKey, row.config)
+    const composition = neutralToComposition(envelope.neutral)
+    if (!isRecord(row.name)) throw new Error('APPLICATION_LAYOUT_RESPONSE_INVALID')
+    if (row.description !== null && !isRecord(row.description)) throw new Error('APPLICATION_LAYOUT_RESPONSE_INVALID')
+    return applicationLayoutSchema.parse({
         id: row.id,
         scopeId: row.scope_entity_id ?? GLOBAL_SCOPE_ID,
         scopeKind: row.scope_entity_id ? 'entity' : 'global',
         scopeEntityId: row.scope_entity_id,
         templateKey,
-        name: isRecord(row.name) ? row.name : {},
-        description: isRecord(row.description) ? row.description : null,
-        config: parseLayoutConfigForRead(templateKey, row.config),
+        name: row.name,
+        description: row.description,
+        config: envelope.rendererConfig as ApplicationLayout['config'],
+        neutral: envelope.neutral,
         compositionMode: composition.compositionMode,
         baseLayoutId: composition.baseLayoutId,
         isActive: row.is_active,
@@ -157,24 +226,83 @@ export const mapLayout = (row: LayoutRow): ApplicationLayout => {
         sourceDeletedAt: row.source_deleted_at,
         sourceDeletedBy: row.source_deleted_by,
         version: row.version
+    })
+}
+
+export const readWidgetConfigEnvelope = (
+    templateKey: ApplicationLayout['templateKey'],
+    widgetKey: string,
+    zone: string,
+    value: unknown
+): { rendererConfig: Record<string, unknown>; placement?: LayoutLogicalPlacement } => {
+    const decoded = decodeLayoutWidgetConfigEnvelope(value, { templateKey, widgetKey, zone })
+    const parsedConfig = parseApplicationLayoutWidgetConfig(widgetKey, decoded.rendererConfig)
+    const defaultPlacement = getLayoutWidgetDefaultPlacement({ templateKey, widgetKey, zone })
+    return {
+        rendererConfig: parsedConfig,
+        ...(decoded.neutral.placement ?? defaultPlacement ? { placement: decoded.neutral.placement ?? defaultPlacement } : {})
     }
 }
 
-export const mapWidget = (row: WidgetRow): ApplicationLayoutWidget => ({
-    id: row.id,
-    layoutId: row.layout_id,
-    zone: row.zone as ApplicationLayoutWidget['zone'],
-    widgetKey: row.widget_key as ApplicationLayoutWidget['widgetKey'],
-    instanceKey: isRecord(row.config) && typeof row.config.instanceKey === 'string' ? row.config.instanceKey : undefined,
-    sortOrder: row.sort_order,
-    config: isRecord(row.config) ? row.config : {},
-    sourceConfig: isRecord(row.source_config) ? row.source_config : null,
-    sourceWidgetId: row.source_widget_id ?? null,
-    sourceBaseWidgetId: row.source_base_widget_id ?? null,
-    isCustomized: row.is_customized === true,
-    isActive: row.is_active,
-    version: row.version
-})
+export const encodeWidgetConfigForStorage = (
+    templateKey: ApplicationLayout['templateKey'],
+    widgetKey: string,
+    zone: string,
+    rendererConfig: unknown,
+    placement?: LayoutLogicalPlacement
+): Record<string, unknown> => {
+    const config = isRecord(rendererConfig) ? rendererConfig : {}
+    if (hasOwn(config, '__layout')) throw new Error('APPLICATION_LAYOUT_RESERVED_METADATA')
+    const parsedConfig = parseApplicationLayoutWidgetConfig(widgetKey, config)
+    return encodeLayoutWidgetConfigEnvelope(
+        { rendererConfig: parsedConfig, neutral: placement === undefined ? {} : { placement } },
+        { templateKey, widgetKey, zone }
+    )
+}
+
+export const getWidgetPlacement = (
+    templateKey: ApplicationLayout['templateKey'],
+    widgetKey: string,
+    zone: string,
+    value: unknown
+): LayoutLogicalPlacement | undefined => readWidgetConfigEnvelope(templateKey, widgetKey, zone, value).placement
+
+export const mapWidget = (row: WidgetRow, templateKey: ApplicationLayout['templateKey']): ApplicationLayoutWidgetWithPlacement => {
+    if (typeof row.is_customized !== 'boolean') throw new Error('APPLICATION_LAYOUT_WIDGET_INVALID')
+    let rendererConfig: Record<string, unknown>
+    let placement: LayoutLogicalPlacement | undefined
+    try {
+        const decoded = readWidgetConfigEnvelope(templateKey, row.widget_key, row.zone, row.config)
+        rendererConfig = decoded.rendererConfig
+        placement = decoded.placement
+    } catch {
+        throw new Error('APPLICATION_LAYOUT_WIDGET_INVALID')
+    }
+    let sourceConfig: Record<string, unknown> | null = null
+    if (row.source_config !== null && row.source_config !== undefined) {
+        try {
+            sourceConfig = readWidgetConfigEnvelope(templateKey, row.widget_key, row.zone, row.source_config).rendererConfig
+        } catch {
+            throw new Error('APPLICATION_LAYOUT_WIDGET_INVALID')
+        }
+    }
+    return applicationLayoutWidgetSchema.parse({
+        id: row.id,
+        layoutId: row.layout_id,
+        zone: row.zone as ApplicationLayoutWidget['zone'],
+        widgetKey: row.widget_key as ApplicationLayoutWidget['widgetKey'],
+        instanceKey: typeof rendererConfig.instanceKey === 'string' ? rendererConfig.instanceKey : undefined,
+        sortOrder: row.sort_order,
+        config: rendererConfig,
+        sourceConfig,
+        sourceWidgetId: row.source_widget_id ?? null,
+        sourceBaseWidgetId: row.source_base_widget_id ?? null,
+        isCustomized: row.is_customized,
+        isActive: row.is_active,
+        version: row.version,
+        ...(placement === undefined ? {} : { placement })
+    })
+}
 
 export const layoutSelect = (layoutsTable: string): string => `
     SELECT
@@ -292,7 +420,17 @@ export const prepareCopiedWidgetConfigs = (
             if (instanceKeys.has(instanceKey)) throw new Error('APPLICATION_LAYOUT_WIDGET_DUPLICATE_INSTANCE')
             instanceKeys.add(instanceKey)
         }
-        copiedConfigs.set(widget.id, config)
+        copiedConfigs.set(
+            widget.id,
+            encodeWidgetConfigForStorage(
+                templateKey,
+                widget.widgetKey,
+                widget.zone,
+                config,
+                (widget as ApplicationLayoutWidgetWithPlacement).placement ??
+                    getWidgetPlacement(templateKey, widget.widgetKey, widget.zone, config)
+            )
+        )
     }
 
     return copiedConfigs
@@ -400,9 +538,12 @@ export const lockApplicationLayoutMutation = async (
         [layoutId]
     )
     const mappedLayout = mapLayout(layoutRows[0])
-    const mappedWidgets = widgets.map(mapWidget)
+    const mappedWidgets = widgets.map((widget) => mapWidget(widget, mappedLayout.templateKey))
     assertApplicationLayoutWidgetMultiplicity(mappedLayout.templateKey, mappedWidgets)
-    return { item: mappedLayout, widgets: mappedWidgets }
+    return attachRawLayoutConfig(
+        applicationLayoutDetailResponseSchema.parse({ item: mappedLayout, widgets: mappedWidgets }),
+        layoutRows[0].config
+    )
 }
 
 export const getApplicationLayoutDetail = async (
@@ -425,5 +566,12 @@ export const getApplicationLayoutDetail = async (
          ORDER BY zone ASC, sort_order ASC, _upl_created_at ASC${rowLock}`,
         [layoutId]
     )
-    return { item: mapLayout(rows[0]), widgets: widgets.map(mapWidget) }
+    const mappedLayout = mapLayout(rows[0])
+    return attachRawLayoutConfig(
+        applicationLayoutDetailResponseSchema.parse({
+            item: mappedLayout,
+            widgets: widgets.map((widget) => mapWidget(widget, mappedLayout.templateKey))
+        }),
+        rows[0].config
+    )
 }

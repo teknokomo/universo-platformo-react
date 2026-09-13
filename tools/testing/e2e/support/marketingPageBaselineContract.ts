@@ -44,10 +44,41 @@ const EXPECTED_ELEMENT_COUNTS: Record<string, number> = {
 const EXPECTED_WIDGET_COMPOSITION = [
     {
         zone: 'marketing-header',
-        widgetKey: 'marketing.navigation',
+        widgetKey: 'marketing.brand',
         sortOrder: 0,
+        instanceKey: 'brand',
+        source: { entityCodename: 'MarketingPageSiteSettings', entityKind: 'object', recordKey: 'site-settings' },
+        isActive: true
+    },
+    {
+        zone: 'marketing-header',
+        widgetKey: 'marketing.navigation',
+        sortOrder: 1,
         instanceKey: 'navigation',
         source: { entityCodename: 'MarketingPageNavigation', entityKind: 'object' },
+        showAuthActions: false,
+        isActive: true
+    },
+    {
+        zone: 'marketing-header',
+        widgetKey: 'marketing.auth',
+        sortOrder: 2,
+        instanceKey: 'auth',
+        showAuthActions: true,
+        isActive: true
+    },
+    {
+        zone: 'marketing-header',
+        widgetKey: 'languageSwitcher',
+        sortOrder: 3,
+        placement: 'end',
+        isActive: true
+    },
+    {
+        zone: 'marketing-header',
+        widgetKey: 'colorModeSwitcher',
+        sortOrder: 4,
+        placement: 'end',
         isActive: true
     },
     {
@@ -201,17 +232,23 @@ export function assertMarketingPageTemplateBaseline(manifest: TemplateManifest):
     assert.deepEqual(
         (layoutZoneWidgets['marketing-main'] ?? []).map((assignment) => {
             const config = readRecord(assignment.config, 'marketing widget config')
-            const source = readRecord(config.source, 'marketing widget source')
+            const source = config.source === undefined ? undefined : readRecord(config.source, 'marketing widget source')
             const copySource = config.copySource === undefined ? undefined : readRecord(config.copySource, 'marketing widget copy source')
+            const layoutMetadata = config.__layout === undefined ? undefined : readRecord(config.__layout, 'layout widget metadata')
+            const instanceKey =
+                config.instanceKey === undefined ? undefined : readString(config.instanceKey, 'marketing widget instanceKey')
+            const placement = layoutMetadata?.placement === undefined ? undefined : readString(layoutMetadata.placement, 'widget placement')
 
             return {
                 zone: readString(assignment.zone, 'marketing widget zone'),
                 widgetKey: readString(assignment.widgetKey, 'marketing widget key'),
                 sortOrder: assignment.sortOrder,
-                instanceKey: readString(config.instanceKey, 'marketing widget instanceKey'),
+                ...(instanceKey === undefined ? {} : { instanceKey }),
                 ...(config.variant === undefined ? {} : { variant: readString(config.variant, 'marketing collection variant') }),
-                source,
+                ...(source === undefined ? {} : { source }),
                 ...(copySource === undefined ? {} : { copySource }),
+                ...(config.showAuthActions === undefined ? {} : { showAuthActions: config.showAuthActions }),
+                ...(placement === undefined ? {} : { placement }),
                 isActive: assignment.isActive
             }
         }),

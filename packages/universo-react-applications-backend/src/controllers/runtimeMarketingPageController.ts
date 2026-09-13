@@ -7,6 +7,7 @@ import {
     MARKETING_MAX_RUNTIME_RECORDS,
     layoutHashSchema,
     marketingActionSchema,
+    marketingAtomicHeaderWidgetSchema,
     marketingPageConfigSchema,
     marketingPageDataSchema,
     marketingPageRecordSchema,
@@ -72,6 +73,12 @@ type RuntimeWidgetRow = {
     source_widget_id?: string | null
     source_base_widget_id?: string | null
     version?: number
+}
+
+type ValidatedMarketingWidgetConfig = {
+    config: Record<string, unknown>
+    source?: MarketingWidgetSource
+    copySource?: MarketingWidgetSource
 }
 
 const asRecord = (value: unknown): RawRecord => (value && typeof value === 'object' && !Array.isArray(value) ? (value as RawRecord) : {})
@@ -431,10 +438,7 @@ export function createRuntimeMarketingPageController(getDbExecutor: () => DbExec
         }
         const invalidLayout = (message: string) => res.status(409).json({ code: 'MARKETING_LAYOUT_INVALID', error: message })
         const unavailableSource = (message: string) => res.status(409).json({ code: 'MARKETING_SOURCE_UNAVAILABLE', error: message })
-        const validatedWidgetConfigs = new Map<
-            string,
-            { config: Record<string, unknown>; source: MarketingWidgetSource; copySource?: MarketingWidgetSource }
-        >()
+        const validatedWidgetConfigs = new Map<string, ValidatedMarketingWidgetConfig>()
         const instanceKeys = new Set<string>()
         for (const widgetRow of widgetRows) {
             const registryEntry = MARKETING_WIDGET_REGISTRY[widgetRow.widget_key as keyof typeof MARKETING_WIDGET_REGISTRY]
@@ -448,14 +452,19 @@ export function createRuntimeMarketingPageController(getDbExecutor: () => DbExec
             } catch {
                 return invalidLayout('Marketing widget configuration is invalid.')
             }
-            const parsedSource = marketingWidgetSourceSchema.safeParse(config.source)
-            if (!parsedSource.success) return invalidLayout('Marketing widget data source is invalid.')
-            const allowedSources = marketingWidgetSourceCodenames(
-                widgetRow.widget_key as MarketingWidgetKey,
-                typeof config.variant === 'string' ? (config.variant as MarketingCollectionVariant) : undefined
-            )
-            if (!allowedSources.includes(parsedSource.data.entityCodename)) {
-                return invalidLayout('Marketing widget data source does not match the widget variant.')
+            const isAuthWidget = widgetRow.widget_key === 'marketing.auth'
+            let source: MarketingWidgetSource | undefined
+            if (!isAuthWidget) {
+                const parsedSource = marketingWidgetSourceSchema.safeParse(config.source)
+                if (!parsedSource.success) return invalidLayout('Marketing widget data source is invalid.')
+                const allowedSources = marketingWidgetSourceCodenames(
+                    widgetRow.widget_key as MarketingWidgetKey,
+                    typeof config.variant === 'string' ? (config.variant as MarketingCollectionVariant) : undefined
+                )
+                if (!allowedSources.includes(parsedSource.data.entityCodename)) {
+                    return invalidLayout('Marketing widget data source does not match the widget variant.')
+                }
+                source = parsedSource.data
             }
 
             let copySource: MarketingWidgetSource | undefined
@@ -472,7 +481,7 @@ export function createRuntimeMarketingPageController(getDbExecutor: () => DbExec
             if (instanceKeys.has(instanceKey)) return invalidLayout('Marketing widget instance keys must be unique within a layout.')
             instanceKeys.add(instanceKey)
 
-            validatedWidgetConfigs.set(widgetRow.id, { config, source: parsedSource.data, copySource })
+            validatedWidgetConfigs.set(widgetRow.id, { config, ...(source ? { source } : {}), ...(copySource ? { copySource } : {}) })
         }
         const safeRuntimeAction = (value: unknown): MarketingAction | null => {
             const action = safeAction(value)
@@ -803,8 +812,11 @@ export function createRuntimeMarketingPageController(getDbExecutor: () => DbExec
             const validated = validatedWidgetConfigs.get(widgetRow.id)
             if (!validated) return invalidLayout('Marketing widget configuration is unavailable.')
             const { config, source, copySource } = validated
-            const contentRecords = sourceRecords(source)
-            if (!contentRecords && widgetRow.is_active) return unavailableSource('Marketing widget data source is unavailable.')
+            const contentRecords = source ? sourceRecords(source) : []
+            if (!source && widgetRow.widget_key !== 'marketing.auth') {
+                return invalidLayout('Marketing widget data source is unavailable.')
+            }
+            if (source && !contentRecords && widgetRow.is_active) return unavailableSource('Marketing widget data source is unavailable.')
             const copyRecords = sourceCopy(copySource)
             if (copyRecords === null && widgetRow.is_active) return unavailableSource('Marketing widget copy source is unavailable.')
 
@@ -823,7 +835,11 @@ export function createRuntimeMarketingPageController(getDbExecutor: () => DbExec
                 recordsForWidget.push(...values.slice(0, limit))
             }
 
-            if (widgetRow.widget_key === 'marketing.navigation') {
+            if (widgetRow.widget_key === 'marketing.brand') {
+                appendRecords(contentRecords ?? [], 1)
+            } else if (widgetRow.widget_key === 'marketing.auth') {
+                // Authentication actions are derived from the current locale by the isolated renderer.
+            } else if (widgetRow.widget_key === 'marketing.navigation') {
                 appendRecords(recordsByObject.get('MarketingPageSiteSettings') ?? [], 1)
                 appendRecords(contentRecords ?? [])
             } else if (widgetRow.widget_key === 'marketing.hero') {
@@ -842,7 +858,7 @@ export function createRuntimeMarketingPageController(getDbExecutor: () => DbExec
                 appendRecords(contentRecords ?? [])
             }
 
-            const parsedWidget = marketingRuntimeWidgetSchema.safeParse({
+            const rawWidget = {
                 instanceKey: config.instanceKey,
                 zone: widgetRow.zone,
                 widgetKey: widgetRow.widget_key,
@@ -850,9 +866,15 @@ export function createRuntimeMarketingPageController(getDbExecutor: () => DbExec
                 isActive: widgetRow.is_active,
                 config,
                 data: { records: recordsForWidget }
-            })
+            }
+            const parsedWidget =
+                widgetRow.widget_key === 'marketing.brand' || widgetRow.widget_key === 'marketing.auth'
+                    ? marketingAtomicHeaderWidgetSchema.safeParse(rawWidget)
+                    : marketingRuntimeWidgetSchema.safeParse(rawWidget)
             if (!parsedWidget.success) return invalidLayout('Marketing widget data is invalid.')
-            runtimeWidgets.push(parsedWidget.data)
+            // Inactive persisted rows still pass validation so corrupt data cannot
+            // hide behind the toggle, but they never become public runtime data.
+            if (widgetRow.is_active) runtimeWidgets.push(parsedWidget.data)
         }
 
         const parsedPage = marketingPageDataSchema.safeParse({

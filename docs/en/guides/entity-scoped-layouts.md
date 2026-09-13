@@ -29,6 +29,21 @@ fallback after publication/materialization.
     an application;
 -   every persisted runtime layout/widget identity is a real UUID v7.
 
+## Sparse Zone Settings
+
+An entity-scoped overlay may also store sparse settings for a zone owned by the
+same template. It records only explicit values, so a later change to the
+global base remains visible until the entity overlay deliberately customizes
+that setting. Resetting one setting removes that key and reveals the current
+effective inherited value without changing widget placement or unrelated
+settings.
+
+The shared `LayoutAuthoringDetails` surface groups these actions with the same
+placement metadata used by global layouts. The backend checks the target scope,
+permission, and layout version before accepting an update, so a client cannot
+write a setting into another entity's layout or silently overwrite a newer
+revision.
+
 ## Creating The First Scoped Layout
 
 ![Layout editor with quiz widget](../.gitbook/assets/quiz-tutorial/layout-quiz-widget.png)

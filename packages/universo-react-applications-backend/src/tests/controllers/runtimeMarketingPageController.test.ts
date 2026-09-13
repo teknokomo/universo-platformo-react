@@ -530,7 +530,18 @@ describe('runtime marketing page controller', () => {
                         is_default: true
                     }
                 ]
-            if (sql.includes('_app_widgets')) return defaultMarketingWidgetRows()
+            if (sql.includes('_app_widgets')) {
+                const rows = defaultMarketingWidgetRows()
+                return [
+                    ...rows,
+                    {
+                        ...rows[2],
+                        id: '0190a9b5-3cde-7abc-8def-0123456789ca',
+                        config: { ...rows[2].config, instanceKey: 'inactive-hero' },
+                        is_active: false
+                    }
+                ]
+            }
             if (sql.includes('_app_objects')) {
                 return marketingObjectRows()
             }
@@ -598,7 +609,11 @@ describe('runtime marketing page controller', () => {
         expect(effectiveTarget).not.toHaveProperty('recordKey')
         const responsePayload = res.json.mock.calls[0]?.[0] as {
             marketingPage?: {
-                widgets?: Array<{ widgetKey?: string; data?: { records?: Array<{ kind?: string; provenance?: Record<string, unknown> }> } }>
+                widgets?: Array<{
+                    widgetKey?: string
+                    instanceKey?: string
+                    data?: { records?: Array<{ kind?: string; provenance?: Record<string, unknown> }> }
+                }>
             }
         }
         const heroRecords =
@@ -620,6 +635,7 @@ describe('runtime marketing page controller', () => {
         )
         expect(manager.query.mock.calls.filter(([sql]) => String(sql).includes('LIMIT 1000')).length).toBe(marketingObjectRows().length)
         const featureWidget = responsePayload.marketingPage?.widgets?.find((widget) => widget.widgetKey === 'marketing.collection')
+        expect(responsePayload.marketingPage?.widgets?.some((widget) => widget.instanceKey === 'inactive-hero')).toBe(false)
         expect(responsePayload.marketingPage?.widgets?.some((widget) => widget.widgetKey === 'languageSwitcher')).toBe(false)
         expect(featureWidget?.data?.records).toEqual(
             expect.arrayContaining([expect.objectContaining({ kind: 'sectionCopy', sectionKey: 'features' })])

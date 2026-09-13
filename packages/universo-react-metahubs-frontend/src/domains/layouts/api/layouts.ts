@@ -9,7 +9,13 @@ import type {
     PaginationParams,
     PaginatedResponse
 } from '../../../types'
-import type { ApplicationLayoutWidgetKey, ApplicationLayoutZone, LayoutCopyOptions } from '@universo-react/types'
+import type {
+    ApplicationLayoutWidgetKey,
+    ApplicationLayoutZone,
+    LayoutCopyOptions,
+    LayoutLogicalPlacement,
+    LayoutZoneSettingValue
+} from '@universo-react/types'
 import { layoutWidgetMetadataResponseSchema } from '@universo-react/types'
 
 export type LayoutScopeParams = {
@@ -92,6 +98,35 @@ export const copyLayout = (metahubId: string, layoutId: string, data: LayoutCopy
 export const updateLayout = (metahubId: string, layoutId: string, data: MetahubLayoutUpdatePayload) =>
     apiClient.patch<MetahubLayout>(`/metahub/${metahubId}/layout/${layoutId}`, data)
 
+export const updateLayoutZoneSetting = (
+    metahubId: string,
+    layoutId: string,
+    zone: ApplicationLayoutZone,
+    settingKey: string,
+    value: LayoutZoneSettingValue,
+    expectedVersion: number
+): Promise<MetahubLayout> =>
+    apiClient
+        .patch<{ item: MetahubLayout }>(
+            `/metahub/${metahubId}/layout/${layoutId}/zone-settings/${encodeURIComponent(zone)}/${encodeURIComponent(settingKey)}`,
+            { value, expectedVersion }
+        )
+        .then((response) => response.data.item)
+
+export const resetLayoutZoneSetting = (
+    metahubId: string,
+    layoutId: string,
+    zone: ApplicationLayoutZone,
+    settingKey: string,
+    expectedVersion: number
+): Promise<MetahubLayout> =>
+    apiClient
+        .post<{ item: MetahubLayout }>(
+            `/metahub/${metahubId}/layout/${layoutId}/zone-settings/${encodeURIComponent(zone)}/${encodeURIComponent(settingKey)}/reset`,
+            { expectedVersion }
+        )
+        .then((response) => response.data.item)
+
 /**
  * Delete a layout
  */
@@ -131,6 +166,7 @@ export const moveLayoutZoneWidget = (
         widgetId: string
         targetZone?: ApplicationLayoutZone
         targetIndex?: number
+        targetPlacement?: LayoutLogicalPlacement
         expectedVersion: number
     }
 ) => apiClient.patch<{ items: MetahubLayoutZoneWidget[] }>(`/metahub/${metahubId}/layout/${layoutId}/zone-widgets/move`, data)

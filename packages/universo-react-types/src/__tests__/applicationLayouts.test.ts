@@ -36,7 +36,9 @@ describe('application layout widget config contracts', () => {
         const marketingWidgets = LAYOUT_WIDGET_DEFINITIONS.filter((widget) => widget.templateKey === 'marketing-page')
 
         expect(marketingWidgets.map((widget) => widget.key)).toEqual([
+            'marketing.brand',
             'marketing.navigation',
+            'marketing.auth',
             'marketing.hero',
             'marketing.collection',
             'marketing.pricing',
@@ -48,6 +50,9 @@ describe('application layout widget config contracts', () => {
         const languageSwitcher = LAYOUT_WIDGET_DEFINITIONS.find((widget) => widget.key === 'languageSwitcher')
         expect(languageSwitcher).toMatchObject({
             shared: true,
+            multiInstance: false,
+            defaultPlacement: 'end',
+            mobileProjection: 'compact-header',
             supportedTemplates: ['dashboard', 'marketing-page'],
             allowedZonesByTemplate: {
                 dashboard: ['top'],
@@ -55,6 +60,35 @@ describe('application layout widget config contracts', () => {
             },
             requiredHostCapabilities: ['locale.state', 'locale.change', 'keyboard.focus', 'accessibility.label', 'theme.safe']
         })
+    })
+
+    it('validates marketing header widget configs with their specialized schemas', () => {
+        expect(
+            parseApplicationLayoutWidgetConfig('marketing.brand', {
+                instanceKey: 'marketing-brand',
+                source: {
+                    entityCodename: 'MarketingPageSiteSettings',
+                    entityKind: 'object'
+                }
+            })
+        ).toMatchObject({ instanceKey: 'marketing-brand' })
+
+        expect(() => parseApplicationLayoutWidgetConfig('marketing.brand', { source: {} })).toThrow()
+        expect(() =>
+            parseApplicationLayoutWidgetConfig('marketing.brand', {
+                instanceKey: 'marketing-brand',
+                source: {
+                    entityCodename: 'MarketingPageSiteSettings',
+                    entityKind: 'page'
+                }
+            })
+        ).toThrow()
+
+        expect(parseApplicationLayoutWidgetConfig('marketing.auth', { instanceKey: 'marketing-auth' })).toMatchObject({
+            instanceKey: 'marketing-auth',
+            showAuthActions: true
+        })
+        expect(() => parseApplicationLayoutWidgetConfig('marketing.auth', { instanceKey: 'marketing-auth', unexpected: true })).toThrow()
     })
 
     it('validates the complete widget metadata transport envelope', () => {
@@ -83,31 +117,86 @@ describe('application layout widget config contracts', () => {
 
     it('keeps canonical localized metadata for every layout zone', () => {
         expect(LAYOUT_ZONE_DEFINITIONS).toEqual([
-            { key: 'left', templateKey: 'dashboard', semanticRegion: 'sidebar', labelKey: 'layouts.zones.left', defaultLabel: 'Left' },
-            { key: 'top', templateKey: 'dashboard', semanticRegion: 'header', labelKey: 'layouts.zones.top', defaultLabel: 'Top' },
-            { key: 'right', templateKey: 'dashboard', semanticRegion: 'auxiliary', labelKey: 'layouts.zones.right', defaultLabel: 'Right' },
-            { key: 'bottom', templateKey: 'dashboard', semanticRegion: 'footer', labelKey: 'layouts.zones.bottom', defaultLabel: 'Bottom' },
-            { key: 'center', templateKey: 'dashboard', semanticRegion: 'main', labelKey: 'layouts.zones.center', defaultLabel: 'Center' },
+            {
+                key: 'left',
+                templateKey: 'dashboard',
+                semanticRegion: 'sidebar',
+                labelKey: 'layouts.zones.left',
+                defaultLabel: 'Left',
+                settings: []
+            },
+            {
+                key: 'top',
+                templateKey: 'dashboard',
+                semanticRegion: 'header',
+                labelKey: 'layouts.zones.top',
+                defaultLabel: 'Top',
+                settings: []
+            },
+            {
+                key: 'right',
+                templateKey: 'dashboard',
+                semanticRegion: 'auxiliary',
+                labelKey: 'layouts.zones.right',
+                defaultLabel: 'Right',
+                settings: []
+            },
+            {
+                key: 'bottom',
+                templateKey: 'dashboard',
+                semanticRegion: 'footer',
+                labelKey: 'layouts.zones.bottom',
+                defaultLabel: 'Bottom',
+                settings: []
+            },
+            {
+                key: 'center',
+                templateKey: 'dashboard',
+                semanticRegion: 'main',
+                labelKey: 'layouts.zones.center',
+                defaultLabel: 'Center',
+                settings: []
+            },
             {
                 key: 'marketing-header',
                 templateKey: 'marketing-page',
                 semanticRegion: 'header',
                 labelKey: 'layouts.zones.marketingHeader',
-                defaultLabel: 'Marketing header'
+                defaultLabel: 'Marketing header',
+                settings: [
+                    {
+                        key: 'position',
+                        kind: 'enum',
+                        options: ['fixed', 'flow'],
+                        defaultValue: 'fixed',
+                        labelKey: 'layouts.zoneSettings.headerBehavior',
+                        defaultLabel: 'Header behavior',
+                        optionLabelKeys: {
+                            fixed: 'layouts.zoneSettings.fixed',
+                            flow: 'layouts.zoneSettings.flow'
+                        },
+                        defaultOptionLabels: {
+                            fixed: 'Fixed on screen',
+                            flow: 'Scrolls with page'
+                        }
+                    }
+                ]
             },
             {
                 key: 'marketing-main',
                 templateKey: 'marketing-page',
                 semanticRegion: 'main',
                 labelKey: 'layouts.zones.marketingMain',
-                defaultLabel: 'Marketing content'
+                defaultLabel: 'Marketing content',
+                settings: []
             },
             {
                 key: 'marketing-footer',
                 templateKey: 'marketing-page',
                 semanticRegion: 'footer',
                 labelKey: 'layouts.zones.marketingFooter',
-                defaultLabel: 'Marketing footer'
+                defaultLabel: 'Marketing footer',
+                settings: []
             }
         ])
         expect(LAYOUT_SEMANTIC_ZONE_MAPPINGS.filter((mapping) => mapping.semanticRegion === 'main')).toEqual([
@@ -388,6 +477,15 @@ describe('application layout widget config contracts', () => {
             effectiveLayoutResultSchema.safeParse({
                 ...(result.success ? result.data : {}),
                 unexpected: true
+            }).success
+        ).toBe(false)
+        expect(
+            effectiveLayoutResultSchema.safeParse({
+                ...(result.success ? result.data : {}),
+                layout: {
+                    ...(result.success ? result.data.layout : {}),
+                    zoneSettings: { 'marketing-header': { position: 'unsupported' } }
+                }
             }).success
         ).toBe(false)
     })

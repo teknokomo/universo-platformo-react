@@ -53,6 +53,17 @@ It combines SQL-first domain services with isolated DDL boundaries, template see
 -   The change is configuration-only: the schema version, template version, and minimum structure version are not increased.
 -   User-facing setup and authoring documentation is maintained in `docs/en/interpretation-network/` and `docs/ru/interpretation-network/`; localized screenshots must be regenerated from the imported snapshot before accepting template-facing documentation changes.
 
+## Layout Zone Settings
+
+-   Layout config carries neutral metadata through the shared `__layout` envelope;
+    renderer config parsers never receive that reserved namespace.
+-   The layout service resolves registry defaults, global/base values, and sparse
+    same-template overlay values independently from widget appearance config.
+-   Typed zone-setting update/reset routes reuse the existing `manageMetahub`
+    permission, graph lock, positive layout version check, parameterized SQL,
+    and `RETURNING` confirmation. Snapshot export retains semantic settings and
+    excludes application-only source baselines.
+
 ## Main Responsibilities
 
 -   Expose authenticated CRUD routes for design-time metahub resources.

@@ -221,6 +221,51 @@ describe('ConnectorDiffDialog', () => {
         })
     })
 
+    it('uses a human-readable fallback when a layout diff has no title', () => {
+        const sourceLayoutId = '018f8a78-7b8f-7c1d-a111-2222333344c1'
+        const applicationLayoutId = '018f8a78-7b8f-7c1d-a111-2222333344c2'
+        vi.mocked(useApplicationDiff).mockReturnValue(
+            createDiffQuery({
+                data: {
+                    schemaExists: true,
+                    diff: {
+                        hasChanges: true,
+                        additive: [],
+                        destructive: [],
+                        details: {
+                            layoutChanges: [
+                                {
+                                    type: 'LAYOUT_WARNING',
+                                    scope: 'global',
+                                    sourceLayoutId,
+                                    applicationLayoutId,
+                                    message: 'Review this layout.'
+                                }
+                            ]
+                        }
+                    }
+                }
+            })
+        )
+
+        render(
+            <ConnectorDiffDialog
+                open
+                connector={baseConnector}
+                applicationId='app-1'
+                onClose={vi.fn()}
+                onSync={vi.fn()}
+                isSyncing={false}
+                uiLocale='en'
+            />
+        )
+
+        expect(screen.getByText('Application layout')).toBeInTheDocument()
+        expect(screen.queryByText(sourceLayoutId)).not.toBeInTheDocument()
+        expect(screen.queryByText(applicationLayoutId)).not.toBeInTheDocument()
+        expect(screen.getByText('Layout scope: Global layout')).toBeInTheDocument()
+    })
+
     it('disables sync actions while syncing is in progress', () => {
         vi.mocked(useApplicationDiff).mockReturnValue(
             createDiffQuery({

@@ -216,6 +216,8 @@ export function assertMarketingPageRuntimeMaterialization(payload: RuntimePayloa
     assert.deepEqual(
         widgets.map((widget) => readString(widget.widgetKey)).sort(),
         [
+            'marketing.auth',
+            'marketing.brand',
             'marketing.collection',
             'marketing.collection',
             'marketing.collection',

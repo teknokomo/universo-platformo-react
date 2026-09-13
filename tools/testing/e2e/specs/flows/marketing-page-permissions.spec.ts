@@ -1,6 +1,15 @@
 import { createLocalizedContent, isUuidV7 } from '@universo-react/utils'
 import { expect, test } from '../../fixtures/test'
 import { createLoggedInBrowserContext } from '../../support/browser/auth'
+import { applyBrowserPreferences } from '../../support/browser/preferences'
+import {
+    expectLocatorFitsViewport,
+    expectLocatorHasNoInlineOverflow,
+    expectNoUnexpectedBrowserRuntimeIssues,
+    expectRuntimeUxViewportMatrix,
+    expectStrictRuntimeUxSurface,
+    watchBrowserRuntimeIssues
+} from '../../support/browser/runtimeUx'
 import {
     createAdminUser,
     createLoggedInApiContext,
@@ -9,20 +18,27 @@ import {
     disposeApiContext,
     copyApplicationLayout,
     deleteApplicationLayout,
+    getLayout,
     getApplicationLayout,
     getAssignableRoles,
     getMarketingPageRuntime,
     getRuntimeAppData,
     getRuntimeRow,
     resetApplicationLayoutWidgetConfigs,
+    resetApplicationLayoutZoneSetting,
     requestApi,
     listApplicationLayouts,
     listApplicationWorkspaces,
+    listLayouts,
     listPublicationApplications,
+    addMetahubMember,
     sendWithCsrf,
     syncApplicationSchema,
     syncPublication,
     toggleApplicationLayoutWidgetActive,
+    updateApplicationLayoutZoneSetting,
+    updateLayoutZoneSetting,
+    resetLayoutZoneSetting,
     updateApplicationLayoutWidgetConfig,
     waitForPublicationReady
 } from '../../support/backend/api-session.mjs'
@@ -89,7 +105,10 @@ async function waitForUser(credentials: { email: string; password: string }): Pr
         .toBe(true)
 }
 
-test('@flow @permission @marketing-page enforces runtime read and layout mutation boundaries', async ({ browser, runManifest }) => {
+test('@flow @permission @marketing-page enforces runtime read and layout mutation boundaries', async ({
+    browser,
+    runManifest
+}, testInfo) => {
     test.setTimeout(240_000)
 
     const ownerCredentials = runManifest.testUser
@@ -106,6 +125,7 @@ test('@flow @permission @marketing-page enforces runtime read and layout mutatio
     let memberApi: ApiSession | null = null
     let staleOwnerApi: ApiSession | null = null
     let adminBrowser: Awaited<ReturnType<typeof createLoggedInBrowserContext>> | null = null
+    let editorBrowser: Awaited<ReturnType<typeof createLoggedInBrowserContext>> | null = null
     let memberBrowser: Awaited<ReturnType<typeof createLoggedInBrowserContext>> | null = null
     let anonymousContext: Awaited<ReturnType<typeof browser.newContext>> | null = null
 
@@ -217,6 +237,10 @@ test('@flow @permission @marketing-page enforces runtime read and layout mutatio
         }
 
         for (const [index, value] of Object.values(users).entries()) {
+            await addMetahubMember(ownerApi, metahub.id, {
+                email: value.email,
+                role: value.role
+            })
             await sendWithCsrf(ownerApi, 'POST', `/api/v1/applications/${application.id}/members`, {
                 email: value.email,
                 role: value.role
@@ -235,6 +259,14 @@ test('@flow @permission @marketing-page enforces runtime read and layout mutatio
         const ownerLayouts = await listApplicationLayouts(ownerApi, application.id, { limit: 100, offset: 0 })
         const marketingLayout = ownerLayouts.items.find((layout: { templateKey?: string }) => layout.templateKey === 'marketing-page')
         if (!marketingLayout?.id) throw new Error('Permission fixture did not expose the synced marketing layout')
+        const metahubLayouts = await listLayouts(ownerApi, metahub.id, { limit: 100, offset: 0 })
+        const metahubMarketingLayout = metahubLayouts.items.find(
+            (layout: { templateKey?: string; scopeEntityId?: string | null }) =>
+                layout.templateKey === 'marketing-page' && layout.scopeEntityId == null
+        )
+        if (!metahubMarketingLayout?.id || typeof metahubMarketingLayout.version !== 'number') {
+            throw new Error('Permission fixture did not expose the metahub marketing layout')
+        }
 
         const ownerRuntime = await getApiResponse(ownerApi, `/api/v1/applications/${application.id}/runtime/marketing-page`)
         expect(ownerRuntime.status).toBe(200)
@@ -420,6 +452,225 @@ test('@flow @permission @marketing-page enforces runtime read and layout mutatio
         const updatedLayout = await getApplicationLayout(ownerApi, application.id, marketingLayout.id)
         expect(updatedLayout.item.config).toMatchObject({ themeMode: 'dark' })
 
+        // Zone settings use the same application permission boundary and the
+        // same row-level optimistic lock as the rest of layout authoring.
+        const zoneSettingPath = `/api/v1/applications/${application.id}/layouts/${marketingLayout.id}/zone-settings/marketing-header/position`
+        const zoneSettingVersion = updatedLayout.item.version
+        const rendererConfigBeforeZoneSetting = { ...updatedLayout.item.config }
+        for (const deniedApi of [editorApi, memberApi]) {
+            const deniedZoneMutation = await sendWithCsrf(deniedApi, 'PATCH', zoneSettingPath, {
+                value: 'flow',
+                expectedVersion: zoneSettingVersion
+            })
+            expect(deniedZoneMutation.status).toBe(403)
+        }
+        const unchangedAfterDeniedZoneMutations = await getApplicationLayout(ownerApi, application.id, marketingLayout.id)
+        expect(unchangedAfterDeniedZoneMutations.item.version).toBe(zoneSettingVersion)
+        expect(unchangedAfterDeniedZoneMutations.item.config).toEqual(rendererConfigBeforeZoneSetting)
+        expect(unchangedAfterDeniedZoneMutations.item.neutral?.zoneSettings?.['marketing-header']).toBeUndefined()
+
+        const crossApplicationLayoutsForZoneSetting = await listApplicationLayouts(ownerApi, unrelatedApplication.id, {
+            limit: 100,
+            offset: 0
+        })
+        const crossApplicationLayoutForZoneSetting = crossApplicationLayoutsForZoneSetting.items.find(
+            (layout: { templateKey?: string }) => layout.templateKey === 'marketing-page'
+        )
+        if (!crossApplicationLayoutForZoneSetting?.id || typeof crossApplicationLayoutForZoneSetting.version !== 'number') {
+            throw new Error('Cross-application fixture did not expose a versioned marketing layout for zone-setting coverage')
+        }
+        const crossApplicationZoneMutation = await sendWithCsrf(
+            ownerApi,
+            'PATCH',
+            `/api/v1/applications/${unrelatedApplication.id}/layouts/${marketingLayout.id}/zone-settings/marketing-header/position`,
+            { value: 'flow', expectedVersion: zoneSettingVersion }
+        )
+        expect(crossApplicationZoneMutation.status).toBe(404)
+
+        const adminZoneSetting = await updateApplicationLayoutZoneSetting(
+            adminApi,
+            application.id,
+            marketingLayout.id,
+            'marketing-header',
+            'position',
+            'flow',
+            zoneSettingVersion
+        )
+        expect(adminZoneSetting).toMatchObject({ id: marketingLayout.id, version: zoneSettingVersion + 1 })
+        expect(adminZoneSetting.config).toEqual(rendererConfigBeforeZoneSetting)
+        expect(adminZoneSetting.neutral?.zoneSettings?.['marketing-header']).toEqual({ position: 'flow' })
+
+        const ownerZoneSetting = await updateApplicationLayoutZoneSetting(
+            ownerApi,
+            application.id,
+            marketingLayout.id,
+            'marketing-header',
+            'position',
+            'flow',
+            adminZoneSetting.version
+        )
+        expect(ownerZoneSetting.neutral?.zoneSettings?.['marketing-header']).toEqual({ position: 'flow' })
+        expect(ownerZoneSetting.config).toEqual(rendererConfigBeforeZoneSetting)
+
+        staleOwnerApi = await createLoggedInApiContext(ownerCredentials)
+        for (const deniedApi of [editorApi, memberApi]) {
+            const deniedZoneReset = await sendWithCsrf(deniedApi, 'POST', `${zoneSettingPath}/reset`, {
+                expectedVersion: ownerZoneSetting.version
+            })
+            expect(deniedZoneReset.status).toBe(403)
+        }
+        const crossApplicationZoneReset = await sendWithCsrf(
+            ownerApi,
+            'POST',
+            `/api/v1/applications/${unrelatedApplication.id}/layouts/${marketingLayout.id}/zone-settings/marketing-header/position/reset`,
+            { expectedVersion: ownerZoneSetting.version }
+        )
+        expect(crossApplicationZoneReset.status).toBe(404)
+        const unchangedAfterDeniedZoneResets = await getApplicationLayout(ownerApi, application.id, marketingLayout.id)
+        expect(unchangedAfterDeniedZoneResets.item.version).toBe(ownerZoneSetting.version)
+        expect(unchangedAfterDeniedZoneResets.item.neutral?.zoneSettings?.['marketing-header']).toEqual({ position: 'flow' })
+
+        const adminZoneReset = await resetApplicationLayoutZoneSetting(
+            adminApi,
+            application.id,
+            marketingLayout.id,
+            'marketing-header',
+            'position',
+            ownerZoneSetting.version
+        )
+        expect(adminZoneReset).toMatchObject({ id: marketingLayout.id, version: ownerZoneSetting.version + 1 })
+        expect(adminZoneReset.config).toEqual(rendererConfigBeforeZoneSetting)
+        expect(adminZoneReset.neutral?.zoneSettings?.['marketing-header']).toBeUndefined()
+
+        const ownerFlowAfterAdminReset = await updateApplicationLayoutZoneSetting(
+            ownerApi,
+            application.id,
+            marketingLayout.id,
+            'marketing-header',
+            'position',
+            'flow',
+            adminZoneReset.version
+        )
+        expect(ownerFlowAfterAdminReset.neutral?.zoneSettings?.['marketing-header']).toEqual({ position: 'flow' })
+        const staleZoneMutation = await sendWithCsrf(staleOwnerApi, 'PATCH', zoneSettingPath, {
+            value: 'fixed',
+            expectedVersion: adminZoneReset.version
+        })
+        expect(staleZoneMutation.status).toBe(409)
+        const unchangedAfterStaleZoneMutation = await getApplicationLayout(ownerApi, application.id, marketingLayout.id)
+        expect(unchangedAfterStaleZoneMutation.item.neutral?.zoneSettings?.['marketing-header']).toEqual({ position: 'flow' })
+        expect(unchangedAfterStaleZoneMutation.item.config).toEqual(rendererConfigBeforeZoneSetting)
+
+        const resetZoneSetting = await resetApplicationLayoutZoneSetting(
+            ownerApi,
+            application.id,
+            marketingLayout.id,
+            'marketing-header',
+            'position',
+            ownerFlowAfterAdminReset.version
+        )
+        expect(resetZoneSetting).toMatchObject({ id: marketingLayout.id, version: ownerFlowAfterAdminReset.version + 1 })
+        expect(resetZoneSetting.config).toEqual(rendererConfigBeforeZoneSetting)
+        expect(resetZoneSetting.neutral?.zoneSettings?.['marketing-header']).toBeUndefined()
+
+        const metahubZonePath = `/api/v1/metahub/${metahub.id}/layout/${metahubMarketingLayout.id}/zone-settings/marketing-header/position`
+        const metahubZoneDetail = await getLayout(ownerApi, metahub.id, metahubMarketingLayout.id)
+        const metahubZoneVersion = metahubZoneDetail.version
+        const metahubRendererConfigBeforeZoneSetting = { ...(metahubZoneDetail.config ?? {}) }
+        for (const deniedApi of [editorApi, memberApi]) {
+            const deniedMetahubZoneMutation = await sendWithCsrf(deniedApi, 'PATCH', metahubZonePath, {
+                value: 'flow',
+                expectedVersion: metahubZoneVersion
+            })
+            expect(deniedMetahubZoneMutation.status).toBe(403)
+        }
+        const unchangedMetahubAfterDeniedZoneMutations = await getLayout(ownerApi, metahub.id, metahubMarketingLayout.id)
+        expect(unchangedMetahubAfterDeniedZoneMutations.version).toBe(metahubZoneVersion)
+        expect(unchangedMetahubAfterDeniedZoneMutations.config).toEqual(metahubRendererConfigBeforeZoneSetting)
+
+        const crossMetahubZoneMutation = await sendWithCsrf(
+            ownerApi,
+            'PATCH',
+            `/api/v1/metahub/${crossApplicationMetahub.id}/layout/${metahubMarketingLayout.id}/zone-settings/marketing-header/position`,
+            { value: 'flow', expectedVersion: metahubZoneVersion }
+        )
+        expect(crossMetahubZoneMutation.status).toBe(404)
+
+        const adminMetahubZoneSetting = await updateLayoutZoneSetting(
+            adminApi,
+            metahub.id,
+            metahubMarketingLayout.id,
+            'marketing-header',
+            'position',
+            'flow',
+            metahubZoneVersion
+        )
+        expect(adminMetahubZoneSetting).toMatchObject({ id: metahubMarketingLayout.id, version: metahubZoneVersion + 1 })
+        expect(adminMetahubZoneSetting.config).toEqual(metahubRendererConfigBeforeZoneSetting)
+
+        const ownerMetahubZoneSetting = await updateLayoutZoneSetting(
+            ownerApi,
+            metahub.id,
+            metahubMarketingLayout.id,
+            'marketing-header',
+            'position',
+            'fixed',
+            adminMetahubZoneSetting.version
+        )
+        expect(ownerMetahubZoneSetting.neutral?.zoneSettings?.['marketing-header']).toEqual({ position: 'fixed' })
+        for (const deniedApi of [editorApi, memberApi]) {
+            const deniedMetahubZoneReset = await sendWithCsrf(deniedApi, 'POST', `${metahubZonePath}/reset`, {
+                expectedVersion: ownerMetahubZoneSetting.version
+            })
+            expect(deniedMetahubZoneReset.status).toBe(403)
+        }
+        const crossMetahubZoneReset = await sendWithCsrf(
+            ownerApi,
+            'POST',
+            `/api/v1/metahub/${crossApplicationMetahub.id}/layout/${metahubMarketingLayout.id}/zone-settings/marketing-header/position/reset`,
+            { expectedVersion: ownerMetahubZoneSetting.version }
+        )
+        expect(crossMetahubZoneReset.status).toBe(404)
+        const unchangedMetahubAfterDeniedZoneResets = await getLayout(ownerApi, metahub.id, metahubMarketingLayout.id)
+        expect(unchangedMetahubAfterDeniedZoneResets.version).toBe(ownerMetahubZoneSetting.version)
+        expect(unchangedMetahubAfterDeniedZoneResets.neutral?.zoneSettings?.['marketing-header']).toEqual({ position: 'fixed' })
+
+        const adminMetahubZoneReset = await resetLayoutZoneSetting(
+            adminApi,
+            metahub.id,
+            metahubMarketingLayout.id,
+            'marketing-header',
+            'position',
+            ownerMetahubZoneSetting.version
+        )
+        expect(adminMetahubZoneReset).toMatchObject({ id: metahubMarketingLayout.id, version: ownerMetahubZoneSetting.version + 1 })
+        expect(adminMetahubZoneReset.config).toEqual(metahubRendererConfigBeforeZoneSetting)
+        expect(adminMetahubZoneReset.neutral?.zoneSettings?.['marketing-header']).toBeUndefined()
+        const ownerMetahubFlowAfterReset = await updateLayoutZoneSetting(
+            ownerApi,
+            metahub.id,
+            metahubMarketingLayout.id,
+            'marketing-header',
+            'position',
+            'flow',
+            adminMetahubZoneReset.version
+        )
+        const staleMetahubZoneMutation = await sendWithCsrf(ownerApi, 'PATCH', metahubZonePath, {
+            value: 'flow',
+            expectedVersion: adminMetahubZoneReset.version
+        })
+        expect(staleMetahubZoneMutation.status).toBe(409)
+        const resetMetahubZoneSetting = await resetLayoutZoneSetting(
+            ownerApi,
+            metahub.id,
+            metahubMarketingLayout.id,
+            'marketing-header',
+            'position',
+            ownerMetahubFlowAfterReset.version
+        )
+        expect(resetMetahubZoneSetting.config).toEqual(metahubRendererConfigBeforeZoneSetting)
+        expect(resetMetahubZoneSetting.neutral?.zoneSettings?.['marketing-header']).toBeUndefined()
+
         const marketingDetail = await getApplicationLayout(ownerApi, application.id, marketingLayout.id)
         const faqWidget = marketingDetail.widgets?.find((widget: { widgetKey?: string }) => widget.widgetKey === 'marketing.collection')
         if (!faqWidget?.id || typeof faqWidget.version !== 'number' || !faqWidget.config) {
@@ -471,7 +722,6 @@ test('@flow @permission @marketing-page enforces runtime read and layout mutatio
         })
 
         // Two authenticated sessions must reject the stale optimistic-lock write.
-        staleOwnerApi = await createLoggedInApiContext(ownerCredentials)
         const staleVersion = faqWidget.version
         const nextActive = !faqWidget.isActive
         const firstSessionMutation = await toggleApplicationLayoutWidgetActive(
@@ -558,16 +808,125 @@ test('@flow @permission @marketing-page enforces runtime read and layout mutatio
         )
         expect([403, 404]).toContain(crossApplicationEffectiveLayout.status)
 
-        adminBrowser = await createLoggedInBrowserContext(
-            browser,
-            { email: users.admin.email, password },
-            { basePathAfterLogin: `/a/${application.id}/admin/layouts/${marketingLayout.id}` }
-        )
+        adminBrowser = await createLoggedInBrowserContext(browser, { email: users.admin.email, password })
+        const adminBrowserIssues = watchBrowserRuntimeIssues(adminBrowser.page)
+        await adminBrowser.page.goto(`/a/${application.id}/admin/layouts/${marketingLayout.id}`)
         await expect(adminBrowser.page).toHaveURL(new RegExp(`/a/${application.id}/admin/layouts/${marketingLayout.id}(?:\\?.*)?$`))
         await expect(adminBrowser.page.getByTestId('application-marketing-appearance-panel')).toBeVisible()
         await expect(adminBrowser.page.getByLabel('Theme mode')).toBeEnabled()
 
+        const zoneSettingsButton = adminBrowser.page.getByTestId('layout-zone-settings-marketing-header')
+        await expect(zoneSettingsButton).toBeVisible()
+        await zoneSettingsButton.focus()
+        await adminBrowser.page.keyboard.press('Enter')
+        const zoneSettingsDialog = adminBrowser.page.getByRole('dialog')
+        await expect(zoneSettingsDialog).toBeVisible()
+        await expect(zoneSettingsDialog.getByText('Inherited from the current layout source', { exact: true })).toBeVisible()
+        await expectRuntimeUxViewportMatrix(adminBrowser.page, 'Shared application Zone Settings dialog', {
+            beforeEachViewport: async (viewport) => {
+                await expect(zoneSettingsDialog).toBeVisible()
+                await expectLocatorFitsViewport(zoneSettingsDialog, `Zone Settings dialog at ${viewport.name}`)
+                await expectLocatorHasNoInlineOverflow(zoneSettingsDialog, `Zone Settings dialog at ${viewport.name}`)
+                await expectStrictRuntimeUxSurface(zoneSettingsDialog, {
+                    label: `Zone Settings dialog at ${viewport.name}`,
+                    locale: 'en'
+                })
+                if (viewport.name === 'mobile-390') {
+                    await adminBrowser?.page.screenshot({
+                        path: testInfo.outputPath('marketing-zone-settings-admin-mobile-keyboard.png'),
+                        fullPage: true,
+                        animations: 'disabled'
+                    })
+                }
+            }
+        })
+        const flowRadio = zoneSettingsDialog.getByRole('radio', { name: 'Scrolls with page', exact: true })
+        await expect(flowRadio).toBeVisible()
+        await flowRadio.focus()
+        await adminBrowser.page.keyboard.press('Space')
+        await expect(flowRadio).toBeChecked()
+        const zoneSettingsSaveResponse = adminBrowser.page.waitForResponse(
+            (response) =>
+                response.url().includes(`/api/v1/applications/${application.id}/layouts/${marketingLayout.id}/zone-settings/`) &&
+                response.request().method() === 'PATCH' &&
+                response.status() === 200
+        )
+        const zoneSettingsSaveButton = zoneSettingsDialog.getByRole('button', { name: 'Save', exact: true })
+        await zoneSettingsSaveButton.focus()
+        await adminBrowser.page.keyboard.press('Enter')
+        await zoneSettingsSaveResponse
+        await expect(zoneSettingsDialog).toHaveCount(0)
+
+        await adminBrowser.page.reload()
+        await expect(adminBrowser.page.getByTestId('layout-zone-settings-marketing-header')).toBeVisible()
+        await adminBrowser.page.getByTestId('layout-zone-settings-marketing-header').click()
+        const customizedZoneSettingsDialog = adminBrowser.page.getByRole('dialog')
+        await expect(customizedZoneSettingsDialog.getByText('Customized for this layout', { exact: true })).toBeVisible()
+        await customizedZoneSettingsDialog.getByRole('button', { name: 'Cancel', exact: true }).click()
+        await expect(customizedZoneSettingsDialog).toHaveCount(0)
+
+        await adminBrowser.page.goto(`/a/${application.id}?locale=en&themeVariant=light`)
+        await expect(adminBrowser.page.locator('#marketing-page-main')).toBeVisible()
+        await expect(adminBrowser.page.getByTestId('marketing-header-shell')).toHaveClass(/MuiAppBar-positionStatic/)
+        await expect(adminBrowser.page.getByTestId('marketing-header-spacer')).toHaveCount(0)
+        const configuredRuntimeHeader = adminBrowser.page.getByTestId('marketing-header-shell')
+        const configuredRuntimeInitialTop = await configuredRuntimeHeader.evaluate((element) => element.getBoundingClientRect().top)
+        await adminBrowser.page.evaluate(() => window.scrollTo({ top: 640, behavior: 'instant' }))
+        await adminBrowser.page.waitForFunction(() => window.scrollY > 0)
+        const configuredRuntimeScrolledTop = await configuredRuntimeHeader.evaluate((element) => element.getBoundingClientRect().top)
+        expect(configuredRuntimeScrolledTop).toBeLessThan(configuredRuntimeInitialTop - 100)
+
+        await adminBrowser.page.goto(`/a/${application.id}/admin/layouts/${marketingLayout.id}`)
+        await expect(adminBrowser.page.getByTestId('layout-zone-settings-marketing-header')).toBeVisible()
+
+        await adminBrowser.page.getByTestId('layout-zone-settings-marketing-header').click()
+        const resetZoneSettingsDialog = adminBrowser.page.getByRole('dialog')
+        const zoneSettingsResetResponse = adminBrowser.page.waitForResponse(
+            (response) =>
+                response.url().includes(`/api/v1/applications/${application.id}/layouts/${marketingLayout.id}/zone-settings/`) &&
+                response.request().method() === 'POST' &&
+                response.status() === 200
+        )
+        const resetZoneSettingsButton = resetZoneSettingsDialog.getByRole('button', { name: 'Reset override', exact: true })
+        await resetZoneSettingsButton.focus()
+        await adminBrowser.page.keyboard.press('Enter')
+        await zoneSettingsResetResponse
+        await expect(resetZoneSettingsDialog).toHaveCount(0)
+
+        await applyBrowserPreferences(adminBrowser.page, { language: 'ru', isDarkMode: false })
+        await adminBrowser.page.goto(`/a/${application.id}/admin/layouts/${marketingLayout.id}?locale=ru`)
+        await expect(adminBrowser.page.getByTestId('layout-zone-settings-marketing-header')).toBeVisible()
+        await adminBrowser.page.getByTestId('layout-zone-settings-marketing-header').focus()
+        await adminBrowser.page.keyboard.press('Enter')
+        const russianZoneSettingsDialog = adminBrowser.page.getByRole('dialog')
+        await expect(russianZoneSettingsDialog.getByText('Унаследовано из текущего источника макета', { exact: true })).toBeVisible()
+        await expectStrictRuntimeUxSurface(russianZoneSettingsDialog, {
+            label: 'Russian shared Zone Settings dialog',
+            locale: 'ru'
+        })
+        await russianZoneSettingsDialog.getByRole('button', { name: 'Отмена', exact: true }).click()
+        expectNoUnexpectedBrowserRuntimeIssues(adminBrowserIssues, 'Admin Zone Settings browser flow')
+
+        editorBrowser = await createLoggedInBrowserContext(browser, { email: users.editor.email, password })
+        const editorBrowserIssues = watchBrowserRuntimeIssues(editorBrowser.page)
+        await applyBrowserPreferences(editorBrowser.page, { language: 'ru', isDarkMode: false })
+        await editorBrowser.page.goto(`/a/${application.id}/admin/layouts/${marketingLayout.id}?locale=ru`)
+        await expect(editorBrowser.page).toHaveURL(new RegExp(`/a/${application.id}(?:\\?.*)?$`))
+        await expect(editorBrowser.page.locator('#marketing-page-main')).toBeVisible()
+        await expect(editorBrowser.page.getByTestId('application-marketing-appearance-panel')).toHaveCount(0)
+        // Application layout reads remain restricted to the configured read roles;
+        // this fixture keeps the default owner/admin policy, so an editor is
+        // redirected to the runtime and never receives an admin Zone Settings surface.
+        await expect(editorBrowser.page.getByTestId('application-layout-details-content')).toHaveCount(0)
+        await expect(editorBrowser.page.getByTestId('layout-zone-settings-marketing-header')).toHaveCount(0)
+        await expectStrictRuntimeUxSurface(editorBrowser.page.locator('body'), {
+            label: 'Russian editor application-layout permission redirect',
+            locale: 'ru'
+        })
+        expectNoUnexpectedBrowserRuntimeIssues(editorBrowserIssues, 'Editor role browser coverage')
+
         memberBrowser = await createLoggedInBrowserContext(browser, { email: users.member.email, password })
+        const memberBrowserIssues = watchBrowserRuntimeIssues(memberBrowser.page)
         await memberBrowser.page.goto(`/a/${application.id}/admin/layouts`)
         await expect(memberBrowser.page).toHaveURL(new RegExp(`/a/${application.id}(?:\\?.*)?$`))
         await expect(memberBrowser.page.locator('#marketing-page-main')).toBeVisible()
@@ -575,8 +934,14 @@ test('@flow @permission @marketing-page enforces runtime read and layout mutatio
         const memberBody = await memberBrowser.page.locator('body').innerText()
         expect(memberBody).not.toContain(application.id)
         expect(memberBody).not.toContain('[object Object]')
+        await expectStrictRuntimeUxSurface(memberBrowser.page.locator('body'), {
+            label: 'Member marketing runtime permission redirect',
+            locale: 'en'
+        })
+        expectNoUnexpectedBrowserRuntimeIssues(memberBrowserIssues, 'Member role browser coverage')
     } finally {
         await adminBrowser?.context.close().catch(() => undefined)
+        await editorBrowser?.context.close().catch(() => undefined)
         await memberBrowser?.context.close().catch(() => undefined)
         await anonymousContext?.close().catch(() => undefined)
         if (adminApi) await disposeApiContext(adminApi)

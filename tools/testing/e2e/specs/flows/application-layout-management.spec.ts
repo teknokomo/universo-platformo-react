@@ -13,6 +13,7 @@ import {
     disposeApiContext,
     getApplicationLayout,
     listConnectors,
+    listLayoutZoneWidgets,
     listLayouts,
     listApplicationLayoutWidgetObject,
     listApplicationLayouts,
@@ -20,6 +21,7 @@ import {
     syncPublication,
     updateApplicationLayout,
     updateLayout,
+    upsertApplicationLayoutWidget,
     waitForPublicationReady
 } from '../../support/backend/api-session.mjs'
 import { recordCreatedApplication, recordCreatedMetahub, recordCreatedPublication } from '../../support/backend/run-manifest.mjs'
@@ -41,6 +43,7 @@ type ApplicationLayoutDetailResponse = {
         id?: string
         sourceKind?: string
         syncState?: string
+        version?: number
     }
     widgets?: Array<{
         id?: string
@@ -199,13 +202,32 @@ test('@flow @combined application layout management exposes sourced layouts and 
         if (!centerWidget?.id || !centerWidget.widgetKey) {
             throw new Error(`Application layout ${layoutId} did not expose a center widget for reorder coverage`)
         }
-
         await page.goto(`/a/${applicationId}/admin/layouts`)
         await expect(page.getByRole('heading', { name: 'Layouts' })).toBeVisible()
         await expect(page.getByText('Metahub', { exact: true })).toBeVisible()
         await expect(page.getByText('Clean', { exact: true })).toBeVisible()
         const appListRect = await page.getByTestId('application-layouts-list-content').boundingBox()
         await captureProofScreenshot(page, testInfo, 'application-layouts-list.png')
+
+        const currentDetail = (await getApplicationLayout(api, applicationId, layoutId)) as ApplicationLayoutDetailResponse
+        const currentVersion = currentDetail.item?.version
+        if (!Number.isInteger(currentVersion) || (currentVersion ?? 0) < 1) {
+            throw new Error(`Application layout ${layoutId} did not expose a version for cross-zone reorder setup`)
+        }
+        await upsertApplicationLayoutWidget(api, applicationId, layoutId, {
+            widgetKey: 'divider',
+            zone: 'left',
+            sortOrder: 99,
+            config: {},
+            expectedVersion: currentVersion
+        })
+        const detailWithDivider = (await getApplicationLayout(api, applicationId, layoutId)) as ApplicationLayoutDetailResponse
+        const movableWidget = detailWithDivider.widgets?.find(
+            (widget) => widget.widgetKey === 'divider' && widget.zone === 'left' && typeof widget.id === 'string'
+        )
+        if (!movableWidget?.id) {
+            throw new Error(`Application layout ${layoutId} did not persist the divider widget used for cross-zone reorder coverage`)
+        }
 
         await page.goto(`/a/${applicationId}/admin/layouts/${layoutId}`)
         await expect(page.getByRole('heading', { name: 'Main' })).toBeVisible()
@@ -238,10 +260,20 @@ test('@flow @combined application layout management exposes sourced layouts and 
             })
             .toBeGreaterThan(0)
 
-        await widgetCard.getByTestId(`layout-widget-move-menu-${centerWidget.id}`).click()
-        await page.getByTestId(`layout-widget-move-${centerWidget.id}-top`).click()
-        await waitForWidgetZone(api, applicationId, layoutId, centerWidget.id, 'top')
-        await expect(widgetCard).toBeVisible()
+        const movableWidgetCard = page.getByTestId(buildLayoutWidgetSelector(movableWidget.id))
+        await expect(movableWidgetCard).toBeVisible()
+        await movableWidgetCard.getByTestId(`layout-widget-move-menu-${movableWidget.id}`).click()
+        const moveResponsePromise = waitForSettledMutationResponse(
+            page,
+            (response) =>
+                response.request().method() === 'PATCH' &&
+                new URL(response.url()).pathname === `/api/v1/applications/${applicationId}/layouts/${layoutId}/zone-widgets/move`,
+            { label: 'Moving a dashboard widget between allowed zones' }
+        )
+        await page.getByTestId(`layout-widget-move-${movableWidget.id}-top`).click()
+        expect((await moveResponsePromise).ok()).toBe(true)
+        await waitForWidgetZone(api, applicationId, layoutId, movableWidget.id, 'top')
+        await expect(movableWidgetCard).toBeVisible()
         await captureProofScreenshot(page, testInfo, 'application-layouts-detail-after-move.png')
 
         const metahubLayouts = await listLayouts(api, metahub.id, { limit: 20, offset: 0 })
@@ -251,6 +283,7 @@ test('@flow @combined application layout management exposes sourced layouts and 
         }
 
         await page.goto(`/metahub/${metahub.id}/resources`)
+        await page.getByRole('tab', { name: 'Layouts', exact: true }).click()
         await expect(page.getByTestId('metahub-layouts-list-content')).toBeVisible()
         const metahubListRect = await page.getByTestId('metahub-layouts-list-content').boundingBox()
         await captureProofScreenshot(page, testInfo, 'metahub-layouts-list.png')
@@ -401,7 +434,17 @@ test('@flow @combined application layout sync resolves layout conflicts, preserv
             isDefault: true,
             expectedVersion: copiedBaseLayout.version
         })
-        await deleteApplicationLayout(api, applicationId, baseImportedLayout.id, baseImportedLayout.version)
+        const refreshedAppLayouts = (await listApplicationLayouts(api, applicationId, {
+            limit: 50,
+            offset: 0
+        })) as ApplicationLayoutListResponse
+        const refreshedBaseImportedLayout = refreshedAppLayouts.items?.find((item) => item.id === baseImportedLayout.id)
+        if (!refreshedBaseImportedLayout?.id || typeof refreshedBaseImportedLayout.version !== 'number') {
+            throw new Error('Could not refresh the previous default layout before deletion')
+        }
+        expect(refreshedBaseImportedLayout.isDefault).toBe(false)
+        expect(refreshedBaseImportedLayout.version).toBeGreaterThan(baseImportedLayout.version)
+        await deleteApplicationLayout(api, applicationId, refreshedBaseImportedLayout.id, refreshedBaseImportedLayout.version)
         await updateApplicationLayout(api, applicationId, secondaryImportedLayout.id, {
             name: { en: 'Secondary source layout locally customized' },
             expectedVersion: secondaryImportedLayout.version

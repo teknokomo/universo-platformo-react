@@ -43,6 +43,24 @@ describe('extractAxiosError', () => {
         expect(result.message).toBe('Internal Server Error')
     })
 
+    it('should treat an uppercase error payload as a legacy API code', () => {
+        const axiosError = {
+            isAxiosError: true,
+            response: {
+                status: 409,
+                data: {
+                    error: 'APPLICATION_LAYOUT_VERSION_CONFLICT'
+                }
+            },
+            message: 'Request failed with status code 409'
+        } as AxiosError
+
+        const result = extractAxiosError(axiosError)
+
+        expect(result.code).toBe('APPLICATION_LAYOUT_VERSION_CONFLICT')
+        expect(result.message).toBe('APPLICATION_LAYOUT_VERSION_CONFLICT')
+    })
+
     it('should extract error information from AxiosError without response', () => {
         const axiosError = {
             isAxiosError: true,
@@ -103,6 +121,19 @@ describe('isApiError', () => {
         const result = isApiError(axiosError, 'USER_NOT_FOUND')
 
         expect(result).toBe(true)
+    })
+
+    it('should match a legacy error payload when no separate code is provided', () => {
+        const axiosError = {
+            isAxiosError: true,
+            response: {
+                data: {
+                    error: 'APPLICATION_LAYOUT_VERSION_CONFLICT'
+                }
+            }
+        } as AxiosError
+
+        expect(isApiError(axiosError, 'APPLICATION_LAYOUT_VERSION_CONFLICT')).toBe(true)
     })
 
     it('should return false for AxiosError with non-matching code', () => {

@@ -12,7 +12,8 @@ const dashboardMocks = vi.hoisted(() => ({
     handleOpenCopy: vi.fn(),
     onSelectObjectCollection: vi.fn(),
     templateKey: 'dashboard',
-    capturedCrudOptions: null as null | { createDefaultContext?: (appData: unknown) => unknown }
+    capturedCrudOptions: null as null | { createDefaultContext?: (appData: unknown) => unknown },
+    marketingProps: null as null | Record<string, unknown>
 }))
 
 vi.mock('react-i18next', () => ({
@@ -43,7 +44,10 @@ vi.mock('@tanstack/react-query', () => ({
 }))
 
 vi.mock('../../marketing-page/MarketingRuntimeContent', () => ({
-    default: () => <div data-testid='marketing-runtime-content'>marketing</div>
+    default: (props: Record<string, unknown>) => {
+        dashboardMocks.marketingProps = props
+        return <div data-testid='marketing-runtime-content'>marketing</div>
+    }
 }))
 
 vi.mock('../../dashboard/Dashboard', () => ({
@@ -242,6 +246,7 @@ describe('DashboardApp', () => {
         dashboardMocks.templateKey = 'dashboard'
         dashboardMocks.onSelectObjectCollection.mockReset()
         dashboardMocks.capturedCrudOptions = null
+        dashboardMocks.marketingProps = null
         window.history.pushState({}, '', '/')
     })
 
@@ -253,6 +258,8 @@ describe('DashboardApp', () => {
 
         expect(screen.getByTestId('marketing-runtime-content')).toHaveTextContent('marketing')
         expect(screen.queryByTestId('dashboard-app')).not.toBeInTheDocument()
+        expect(dashboardMocks.marketingProps).toMatchObject({ effectiveLayoutWidgets: [], effectiveLayoutConfig: {} })
+        expect(dashboardMocks.marketingProps).not.toHaveProperty('sharedLayoutWidgets')
     })
 
     it('renders a scoped marketing layout on a standalone entity route', () => {

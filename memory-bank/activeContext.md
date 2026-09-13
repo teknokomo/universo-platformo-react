@@ -2,6 +2,35 @@
 
 > Current-focus memory only. Completed implementation detail belongs in progress.md; active and follow-up checklists belong in tasks.md.
 
+## Marketing header widget-zone QA remediation — 2026-09-13
+
+The current QA remediation is complete. Shared layout-authoring labels and
+zone-setting options are stored in the centralized EN/RU `common` namespace,
+and both metahub and application layout screens consume the same registry
+labels. The zone-settings dialog uses `StandardDialog`, including its shared
+action-area spacing and busy/read-only behavior. The published marketing page
+keeps the original MUI demo geometry: fixed mode uses the frame offset and
+28px visual margin, the hero owns the background at the viewport edge, and no
+compensating spacer changes the source template's document geometry.
+
+The copy path starts a new local lineage, and snapshot restore takes the same
+transaction-scoped PostgreSQL advisory graph lock as layout mutations. No
+schema, migration, or metahub-template version changed. Focused component,
+backend, frontend, type, lint, build, Prettier, OpenAPI, and documentation
+checks passed. The canonical local-minimal-Supabase wrapper passed the flow
+suite with one explicit standalone opt-in skip and all five visual matrix
+projects with zero retries or unexpected results; screenshots were inspected
+for EN/RU, light/dark, desktop/tablet/mobile, fixed/flow, and header-band
+geometry.
+
+OntoIndex `gn_verify_diff` passed for the complete dirty-worktree allowlist.
+The separate ship-readiness audit returned `DO-NOT-COMMIT` because the graph
+classifies the existing `MetahubLayoutsService` change as high impact and
+requires manual review; direct review and the focused/backend/browser gates
+covered that boundary. The local autoreview helper was attempted again but
+the 419,497-character bundle exceeded the review model context window, so no
+automated clean-review verdict is claimed.
+
 ## Marketing-page top-bar regression fix (2026-09-10)
 
 The published marketing runtime now preserves the original MUI demo geometry

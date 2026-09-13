@@ -305,6 +305,8 @@ jest.mock('../../ddl', () => ({
 
 import {
     buildApplicationLayoutChanges,
+    hasPublishedLayoutsChanges,
+    hasPublishedWidgetsChanges,
     persistPublishedLayouts as persistPublishedLayoutsImpl,
     persistPublishedWidgets as persistPublishedWidgetsImpl
 } from '../../routes/sync/syncLayoutPersistence'
@@ -384,7 +386,8 @@ const marketingIds = {
     layout: '0190a9b5-3cde-7abc-8def-0123456789a1',
     widget: '0190a9b5-3cde-7abc-8def-0123456789a2',
     siteSettings: '0190a9b5-3cde-7abc-8def-0123456789a3',
-    logos: '0190a9b5-3cde-7abc-8def-0123456789a4'
+    logos: '0190a9b5-3cde-7abc-8def-0123456789a4',
+    sharedWidget: '0190a9b5-3cde-7abc-8def-0123456789a5'
 } as const
 
 const createMarketingSnapshot = (): PublishedApplicationSnapshot =>
@@ -427,9 +430,23 @@ const createMarketingSnapshot = (): PublishedApplicationSnapshot =>
     } as unknown as PublishedApplicationSnapshot)
 
 const createMockSyncKnex = (overrides?: { layoutRows?: StoredRow[]; widgetRows?: StoredRow[] }): MockSyncKnex => {
+    const normalizeLayoutFixture = (row: StoredRow): StoredRow => ({
+        template_key: 'dashboard',
+        config: { __layout: { composition: { mode: 'independent', baseLayoutId: null } } },
+        ...row
+    })
+    const normalizeWidgetFixture = (row: StoredRow): StoredRow => ({
+        zone: 'center',
+        widget_key: 'detailsTable',
+        sort_order: 0,
+        config: {},
+        source_config: null,
+        is_active: true,
+        ...row
+    })
     const state = {
-        layoutRows: overrides?.layoutRows?.map((row) => ({ ...row })) ?? [],
-        widgetRows: overrides?.widgetRows?.map((row) => ({ ...row })) ?? []
+        layoutRows: overrides?.layoutRows?.map(normalizeLayoutFixture) ?? [],
+        widgetRows: overrides?.widgetRows?.map(normalizeWidgetFixture) ?? []
     }
 
     const createWhereBuilder = (rowsRef: 'layoutRows' | 'widgetRows') => {
@@ -605,6 +622,160 @@ describe('syncLayoutPersistence', () => {
         )
     })
 
+    it('treats a canonical persisted layout and widget as unchanged against the same publication snapshot', async () => {
+        const snapshot = createSnapshot()
+        currentKnex = createMockSyncKnex({
+            layoutRows: [
+                {
+                    id: `0190a9b5-3cde-7abc-8def-2123456789a1`,
+                    source_layout_id: dashboardIds.layout,
+                    scope_entity_id: null,
+                    template_key: 'dashboard',
+                    name: { en: 'Main' },
+                    description: null,
+                    config: {
+                        showHeader: true,
+                        __layout: {
+                            composition: { mode: 'independent', baseLayoutId: null }
+                        }
+                    },
+                    is_active: true,
+                    is_default: true,
+                    sort_order: 0,
+                    source_kind: 'metahub',
+                    source_content_hash: 'a'.repeat(64),
+                    local_content_hash: 'a'.repeat(64),
+                    sync_state: 'clean',
+                    is_source_excluded: false,
+                    _upl_deleted: false,
+                    _app_deleted: false
+                }
+            ],
+            widgetRows: [
+                {
+                    id: `0190a9b5-3cde-7abc-8def-2123456789a2`,
+                    layout_id: `0190a9b5-3cde-7abc-8def-2123456789a1`,
+                    source_widget_id: dashboardIds.widget,
+                    source_base_widget_id: null,
+                    zone: 'center',
+                    widget_key: 'detailsTable',
+                    sort_order: 1,
+                    config: { datasource: { kind: 'records.list', sectionCodename: 'object-1' } },
+                    is_active: true,
+                    _upl_deleted: false,
+                    _app_deleted: false
+                }
+            ]
+        })
+
+        await expect(
+            hasPublishedLayoutsChanges({
+                schemaName: 'app_018f8a787b8f7c1da111222233334444',
+                snapshot,
+                executor: mockSyncExecutor
+            })
+        ).resolves.toBe(false)
+        await expect(
+            hasPublishedWidgetsChanges({
+                schemaName: 'app_018f8a787b8f7c1da111222233334444',
+                snapshot,
+                executor: mockSyncExecutor
+            })
+        ).resolves.toBe(false)
+    })
+
+    it('fails closed when persisted widget config is malformed during change comparison', async () => {
+        const snapshot = createSnapshot()
+        const physicalLayoutId = '0190a9b5-3cde-7abc-8def-2123456789a1'
+        currentKnex = createMockSyncKnex({
+            layoutRows: [
+                {
+                    id: physicalLayoutId,
+                    source_layout_id: dashboardIds.layout,
+                    scope_entity_id: null,
+                    template_key: 'dashboard',
+                    name: { en: 'Main' },
+                    description: null,
+                    config: {
+                        showHeader: true,
+                        __layout: { composition: { mode: 'independent', baseLayoutId: null } }
+                    },
+                    is_active: true,
+                    is_default: true,
+                    sort_order: 0,
+                    source_kind: 'metahub',
+                    source_content_hash: 'a'.repeat(64),
+                    local_content_hash: 'a'.repeat(64),
+                    sync_state: 'clean',
+                    is_source_excluded: false,
+                    _upl_deleted: false,
+                    _app_deleted: false
+                }
+            ],
+            widgetRows: [
+                {
+                    id: '0190a9b5-3cde-7abc-8def-2123456789a2',
+                    layout_id: physicalLayoutId,
+                    source_widget_id: dashboardIds.widget,
+                    source_base_widget_id: null,
+                    zone: 'center',
+                    widget_key: 'detailsTable',
+                    sort_order: 1,
+                    config: { __layout: { placement: 'invalid' } },
+                    is_active: true,
+                    _upl_deleted: false,
+                    _app_deleted: false
+                }
+            ]
+        })
+
+        await expect(
+            hasPublishedWidgetsChanges({
+                schemaName: 'app_018f8a787b8f7c1da111222233334444',
+                snapshot,
+                executor: mockSyncExecutor
+            })
+        ).rejects.toThrow()
+    })
+
+    it('fails closed when persisted layout response fields are malformed during change comparison', async () => {
+        const snapshot = createSnapshot()
+        currentKnex = createMockSyncKnex({
+            layoutRows: [
+                {
+                    id: '0190a9b5-3cde-7abc-8def-2123456789a1',
+                    source_layout_id: dashboardIds.layout,
+                    scope_entity_id: null,
+                    template_key: 'dashboard',
+                    name: 'Main',
+                    description: null,
+                    config: {
+                        showHeader: true,
+                        __layout: { composition: { mode: 'independent', baseLayoutId: null } }
+                    },
+                    is_active: true,
+                    is_default: true,
+                    sort_order: 0,
+                    source_kind: 'metahub',
+                    source_content_hash: 'a'.repeat(64),
+                    local_content_hash: 'a'.repeat(64),
+                    sync_state: 'clean',
+                    is_source_excluded: false,
+                    _upl_deleted: false,
+                    _app_deleted: false
+                }
+            ]
+        })
+
+        await expect(
+            hasPublishedLayoutsChanges({
+                schemaName: 'app_018f8a787b8f7c1da111222233334444',
+                snapshot,
+                executor: mockSyncExecutor
+            })
+        ).rejects.toThrow('name is invalid')
+    })
+
     it('fails closed before DDL when no request executor or trusted transaction is supplied', async () => {
         await expect(
             persistPublishedLayoutsImpl({
@@ -734,6 +905,92 @@ describe('syncLayoutPersistence', () => {
         expect(Number(currentKnex.layoutRows[0]?._upl_version)).toBeGreaterThan(firstLayoutVersion)
     })
 
+    it('accepts strict neutral layout metadata and shared marketing-header widgets during application sync', async () => {
+        currentKnex = createMockSyncKnex({
+            layoutRows: [
+                {
+                    id: marketingIds.layout,
+                    source_kind: 'metahub',
+                    sync_state: 'clean',
+                    is_source_excluded: false,
+                    _upl_deleted: false,
+                    _app_deleted: false
+                }
+            ]
+        })
+        const snapshot = createMarketingSnapshot()
+        const neutralConfig = {
+            __layout: {
+                zoneSettings: {
+                    'marketing-header': { position: 'flow' }
+                }
+            }
+        }
+        snapshot.layouts[0]!.config = neutralConfig
+        snapshot.layoutConfig = neutralConfig
+        snapshot.layoutZoneWidgets.push({
+            id: marketingIds.sharedWidget,
+            layoutId: marketingIds.layout,
+            zone: 'marketing-header',
+            widgetKey: 'languageSwitcher',
+            sortOrder: 1,
+            config: { __layout: { placement: 'end' } },
+            isActive: true
+        })
+
+        await persistPublishedLayouts({
+            schemaName: 'app_018f8a787b8f7c1da111222233334444',
+            snapshot,
+            snapshotHash: 'snapshot-neutral',
+            userId: 'user-1'
+        })
+        await persistPublishedWidgets({ schemaName: 'app_018f8a787b8f7c1da111222233334444', snapshot, userId: 'user-1' })
+
+        expect(currentKnex.layoutRows[0]?.config).toMatchObject({
+            __layout: {
+                composition: {
+                    mode: 'independent',
+                    baseLayoutId: null
+                },
+                sourceZoneSettings: {
+                    'marketing-header': { position: 'flow' }
+                }
+            }
+        })
+        expect(currentKnex.widgetRows).toEqual(
+            expect.arrayContaining([
+                expect.objectContaining({
+                    widget_key: 'languageSwitcher',
+                    config: { __layout: { placement: 'end' } }
+                })
+            ])
+        )
+    })
+
+    it('rejects application-only neutral metadata before application sync writes', async () => {
+        const snapshot = createMarketingSnapshot()
+        snapshot.layouts[0]!.config = {
+            __layout: {
+                sourceZoneSettings: {
+                    'marketing-header': { position: 'fixed' }
+                }
+            }
+        }
+
+        await expect(
+            persistPublishedLayouts({
+                schemaName: 'app_018f8a787b8f7c1da111222233334444',
+                snapshot,
+                snapshotHash: 'snapshot-invalid-neutral',
+                userId: 'user-1'
+            })
+        ).rejects.toThrow('application-only source zone settings')
+
+        expect(mockEnsureSystemTables).not.toHaveBeenCalled()
+        expect(currentKnex.layoutRows).toHaveLength(0)
+        expect(currentKnex.widgetRows).toHaveLength(0)
+    })
+
     it('does not attach inherited lineage metadata to application-owned copied widgets', async () => {
         const query = jest.fn().mockResolvedValue([{ id: dashboardIds.widget }])
         const executor = { query } as unknown as DbExecutor
@@ -806,7 +1063,10 @@ describe('syncLayoutPersistence', () => {
         expect(scopedLayout?.id).toEqual(expect.stringMatching(/^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/))
         expect(baseLayout?.id).not.toBe(dashboardIds.layout)
         expect(scopedLayout?.id).not.toBe(dashboardIds.scopedLayout)
-        expect((scopedLayout?.config as Record<string, unknown>)?.baseLayoutId).toBe(baseLayout?.id)
+        expect(((scopedLayout?.config as Record<string, unknown>)?.__layout as Record<string, unknown>)?.composition).toMatchObject({
+            mode: 'overlay',
+            baseLayoutId: baseLayout?.id
+        })
 
         const firstLayoutIds = new Map(currentKnex.layoutRows.map((row) => [String(row.source_layout_id), String(row.id)]))
         const firstWidgetIds = new Map(
@@ -956,6 +1216,68 @@ describe('syncLayoutPersistence', () => {
         expect(currentKnex.layoutRows).toHaveLength(0)
     })
 
+    it('starts copied application layouts without an inherited snapshot baseline', async () => {
+        currentKnex = createMockSyncKnex({
+            layoutRows: [
+                {
+                    id: dashboardIds.layout,
+                    scope_entity_id: null,
+                    template_key: 'dashboard',
+                    name: { en: 'Main' },
+                    description: null,
+                    config: { showHeader: false },
+                    is_active: true,
+                    is_default: true,
+                    sort_order: 0,
+                    source_kind: 'metahub',
+                    source_layout_id: dashboardIds.layout,
+                    source_snapshot_hash: 'snapshot-old',
+                    source_content_hash: 'source-old',
+                    local_content_hash: 'local-custom',
+                    sync_state: 'local_modified',
+                    is_source_excluded: false,
+                    _upl_deleted: false,
+                    _app_deleted: false,
+                    _upl_version: 2
+                }
+            ],
+            widgetRows: [
+                {
+                    id: dashboardIds.widget,
+                    layout_id: dashboardIds.layout,
+                    zone: 'center',
+                    widget_key: 'detailsTable',
+                    sort_order: 1,
+                    config: { showHeader: false },
+                    source_widget_id: dashboardIds.widget,
+                    source_base_widget_id: null,
+                    source_content_hash: 'widget-source',
+                    local_content_hash: 'widget-source',
+                    is_active: true,
+                    _upl_deleted: false,
+                    _app_deleted: false,
+                    _upl_version: 1
+                }
+            ]
+        })
+
+        await persistPublishedLayouts({
+            schemaName: 'app_018f8a787b8f7c1da111222233334444',
+            snapshot: createSnapshot(),
+            snapshotHash: 'snapshot-new',
+            userId: 'user-1',
+            layoutResolutionPolicy: { default: 'copy_source_as_application' }
+        })
+
+        const copiedLayout = currentKnex.layoutRows.find((row) => row.source_kind === 'application')
+        expect(copiedLayout).toMatchObject({
+            source_layout_id: dashboardIds.layout,
+            source_snapshot_hash: null,
+            source_content_hash: expect.any(String),
+            sync_state: 'clean'
+        })
+    })
+
     it('keeps local widget configuration untouched when keep_local preserves a locally modified layout', async () => {
         currentKnex = createMockSyncKnex({
             layoutRows: [
@@ -1018,6 +1340,110 @@ describe('syncLayoutPersistence', () => {
         expect(currentKnex.layoutRows[0]?.source_snapshot_hash).toBe('snapshot-new')
         expect(currentKnex.layoutRows[0]?.sync_state).toBe('local_modified')
         expect(currentKnex.widgetRows[0]?.config).toEqual({ datasource: { kind: 'records.list', sectionCodename: 'legacy' } })
+
+        await persistPublishedLayouts({
+            schemaName: 'app_018f8a787b8f7c1da111222233334444',
+            snapshotHash: 'snapshot-new',
+            snapshot: createSnapshot(),
+            userId: 'user-1'
+        })
+
+        expect(currentKnex.layoutRows[0]?.config).toEqual({ showHeader: false })
+        expect(currentKnex.layoutRows[0]?.source_content_hash).toBeDefined()
+        expect(currentKnex.layoutRows[0]?.sync_state).toBe('local_modified')
+    })
+
+    it('does not advance an unresolved source baseline or overwrite local state on a repeated sync', async () => {
+        currentKnex = createMockSyncKnex({
+            layoutRows: [
+                {
+                    id: dashboardIds.layout,
+                    scope_entity_id: null,
+                    template_key: 'dashboard',
+                    name: { en: 'Main' },
+                    description: null,
+                    config: { showHeader: false },
+                    is_active: true,
+                    is_default: true,
+                    sort_order: 0,
+                    owner_id: null,
+                    source_kind: 'metahub',
+                    source_layout_id: dashboardIds.layout,
+                    source_snapshot_hash: 'snapshot-old',
+                    source_content_hash: 'old-source-hash',
+                    local_content_hash: 'local-custom-hash',
+                    sync_state: 'local_modified',
+                    is_source_excluded: false,
+                    _upl_deleted: false,
+                    _app_deleted: false
+                }
+            ]
+        })
+
+        const snapshot = createSnapshot()
+        await persistPublishedLayouts({
+            schemaName: 'app_018f8a787b8f7c1da111222233334444',
+            snapshotHash: 'snapshot-new',
+            snapshot,
+            userId: 'user-1'
+        })
+        await persistPublishedLayouts({
+            schemaName: 'app_018f8a787b8f7c1da111222233334444',
+            snapshotHash: 'snapshot-new',
+            snapshot,
+            userId: 'user-1'
+        })
+
+        expect(currentKnex.layoutRows[0]).toMatchObject({
+            config: { showHeader: false },
+            source_snapshot_hash: 'snapshot-old',
+            source_content_hash: 'old-source-hash',
+            sync_state: 'conflict'
+        })
+    })
+
+    it('keeps a clean local layout and its accepted baseline when skip_source is selected', async () => {
+        currentKnex = createMockSyncKnex({
+            layoutRows: [
+                {
+                    id: dashboardIds.layout,
+                    scope_entity_id: null,
+                    template_key: 'dashboard',
+                    name: { en: 'Main' },
+                    description: null,
+                    config: { showHeader: true },
+                    is_active: true,
+                    is_default: true,
+                    sort_order: 0,
+                    source_kind: 'metahub',
+                    source_layout_id: dashboardIds.layout,
+                    source_snapshot_hash: 'snapshot-old',
+                    source_content_hash: 'old-source-hash',
+                    local_content_hash: 'old-source-hash',
+                    sync_state: 'clean',
+                    is_source_excluded: false,
+                    _upl_deleted: false,
+                    _app_deleted: false
+                }
+            ]
+        })
+
+        const snapshot = createSnapshot()
+        await persistPublishedLayouts({
+            schemaName: 'app_018f8a787b8f7c1da111222233334444',
+            snapshotHash: 'snapshot-new',
+            snapshot,
+            userId: 'user-1',
+            layoutResolutionPolicy: { default: 'skip_source' }
+        })
+
+        expect(currentKnex.layoutRows[0]).toMatchObject({
+            config: { showHeader: true },
+            source_snapshot_hash: 'snapshot-old',
+            source_content_hash: 'old-source-hash',
+            local_content_hash: 'old-source-hash',
+            sync_state: 'source_updated'
+        })
     })
 
     it('keeps an application-owned Interpretation Network mode override during metahub re-sync', async () => {
@@ -1099,6 +1525,7 @@ describe('syncLayoutPersistence', () => {
             layoutRows: [
                 {
                     id: dashboardIds.layout,
+                    source_layout_id: dashboardIds.layout,
                     source_kind: 'metahub',
                     sync_state: 'local_modified',
                     is_source_excluded: false,
@@ -1363,6 +1790,7 @@ describe('syncLayoutPersistence', () => {
             layoutRows: [
                 {
                     id: dashboardIds.layout,
+                    source_layout_id: dashboardIds.layout,
                     source_kind: 'metahub',
                     sync_state: 'clean',
                     is_source_excluded: false,
@@ -1417,6 +1845,7 @@ describe('syncLayoutPersistence', () => {
                 {
                     id: dashboardIds.layout,
                     scope_entity_id: null,
+                    source_layout_id: dashboardIds.layout,
                     source_kind: 'metahub',
                     sync_state: 'clean',
                     is_source_excluded: false,
@@ -1426,6 +1855,7 @@ describe('syncLayoutPersistence', () => {
                 {
                     id: dashboardIds.homeLayout,
                     scope_entity_id: dashboardIds.homeEntity,
+                    source_layout_id: dashboardIds.homeLayout,
                     source_kind: 'metahub',
                     sync_state: 'clean',
                     is_source_excluded: false,
@@ -1502,6 +1932,7 @@ describe('syncLayoutPersistence', () => {
                 {
                     id: dashboardIds.layout,
                     scope_entity_id: null,
+                    source_layout_id: dashboardIds.layout,
                     source_kind: 'metahub',
                     sync_state: 'clean',
                     is_source_excluded: false,
@@ -1511,6 +1942,7 @@ describe('syncLayoutPersistence', () => {
                 {
                     id: dashboardIds.courseLayout,
                     scope_entity_id: dashboardIds.courseEntity,
+                    source_layout_id: dashboardIds.courseLayout,
                     source_kind: 'metahub',
                     sync_state: 'clean',
                     is_source_excluded: false,
@@ -1606,6 +2038,7 @@ describe('syncLayoutPersistence', () => {
             layoutRows: [
                 {
                     id: dashboardIds.layout,
+                    source_layout_id: dashboardIds.layout,
                     source_kind: 'metahub',
                     sync_state: 'clean',
                     is_source_excluded: false,
@@ -1684,7 +2117,17 @@ describe('syncLayoutPersistence', () => {
             layoutRows: [
                 {
                     id: dashboardIds.layout,
+                    source_layout_id: dashboardIds.layout,
                     source_kind: 'metahub',
+                    sync_state: 'clean',
+                    is_source_excluded: false,
+                    _upl_deleted: false,
+                    _app_deleted: false
+                },
+                {
+                    id: dashboardIds.homeLayout,
+                    source_layout_id: null,
+                    source_kind: 'application',
                     sync_state: 'clean',
                     is_source_excluded: false,
                     _upl_deleted: false,
@@ -1711,5 +2154,18 @@ describe('syncLayoutPersistence', () => {
             source_base_widget_id: null
         })
         expect(materialized?.id).not.toBe(dashboardIds.widget)
+    })
+
+    it('fails closed when a snapshot widget has no persisted source layout lineage', async () => {
+        currentKnex = createMockSyncKnex()
+
+        await expect(
+            persistPublishedWidgets({
+                schemaName: 'app_018f8a787b8f7c1da111222233334444',
+                snapshot: createSnapshot(),
+                userId: 'user-1'
+            })
+        ).rejects.toThrow('missing source lineage')
+        expect(currentKnex.widgetRows).toHaveLength(0)
     })
 })

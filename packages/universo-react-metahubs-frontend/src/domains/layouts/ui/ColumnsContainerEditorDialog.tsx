@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { useCommonTranslations } from '@universo-react/i18n'
 import { Box, Button, FormControl, IconButton, InputLabel, MenuItem, Paper, Select, Slider, Stack, Typography } from '@mui/material'
 import AddRoundedIcon from '@mui/icons-material/AddRounded'
 import DeleteRoundedIcon from '@mui/icons-material/DeleteRounded'
@@ -176,6 +177,7 @@ export default function ColumnsContainerEditorDialog({
     onCancel
 }: ColumnsContainerEditorDialogProps) {
     const { t } = useTranslation(['metahubs', 'common'])
+    const { t: tc } = useCommonTranslations()
     const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }))
 
     const [columns, setColumns] = useState<ColumnsContainerColumn[]>([])
@@ -199,9 +201,9 @@ export default function ColumnsContainerEditorDialog({
         () =>
             CENTER_WIDGET_KEYS.map((key) => ({
                 key,
-                label: t(`layouts.widgets.${key}`, key)
+                label: tc(`layouts.widgets.${key}`, key)
             })),
-        [t]
+        [tc]
     )
 
     const totalWidth = useMemo(() => columns.reduce((sum, c) => sum + c.width, 0), [columns])

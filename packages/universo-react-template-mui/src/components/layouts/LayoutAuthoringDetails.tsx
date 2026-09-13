@@ -7,6 +7,7 @@ import DragIndicatorRoundedIcon from '@mui/icons-material/DragIndicatorRounded'
 import EditRoundedIcon from '@mui/icons-material/EditRounded'
 import OpenWithRoundedIcon from '@mui/icons-material/OpenWithRounded'
 import RestartAltRoundedIcon from '@mui/icons-material/RestartAltRounded'
+import SettingsRoundedIcon from '@mui/icons-material/SettingsRounded'
 import VisibilityRoundedIcon from '@mui/icons-material/VisibilityRounded'
 import VisibilityOffRoundedIcon from '@mui/icons-material/VisibilityOffRounded'
 import {
@@ -64,12 +65,42 @@ export type LayoutAuthoringAvailableWidgetItem = {
     label: string
 }
 
+export type LayoutAuthoringZoneGroup = {
+    key: string
+    title: string
+    items: LayoutAuthoringWidgetRow[]
+}
+
 export type LayoutAuthoringZone = {
     zone: LayoutAuthoringZoneKey
     title: string
     items: LayoutAuthoringWidgetRow[]
+    groups?: LayoutAuthoringZoneGroup[]
     availableWidgets: LayoutAuthoringAvailableWidgetItem[]
     addDisabled?: boolean
+    settingsAction?: {
+        label: string
+        onClick: () => void
+        disabled?: boolean
+        summary?: string
+    }
+}
+
+/** Resolve a human-readable DnD target label without exposing technical droppable IDs. */
+export const getLayoutAuthoringDropTargetLabel = (
+    zones: readonly LayoutAuthoringZone[],
+    id: UniqueIdentifier | null,
+    fallbackLabel: string
+): string => {
+    if (id === null) return fallbackLabel
+    const normalizedId = String(id)
+    if (!normalizedId.startsWith('zone:')) return fallbackLabel
+
+    const zoneMatch = normalizedId.match(/^zone:([^:]+)(?::group:([^:]+))?$/)
+    const zone = zoneMatch ? zones.find((item) => item.zone === zoneMatch[1]) : undefined
+    if (!zone) return fallbackLabel
+    const group = zoneMatch?.[2] ? zone.groups?.find((item) => item.key === zoneMatch[2]) : undefined
+    return group ? `${zone.title}: ${group.title}` : zone.title
 }
 
 export type LayoutAuthoringDetailsProps = {
@@ -121,6 +152,7 @@ function SortableLayoutWidgetChip({
         disabled: !draggable
     })
     const [moveMenuAnchorEl, setMoveMenuAnchorEl] = useState<HTMLElement | null>(null)
+    const hasActions = Boolean(moveActions?.length || onEdit || onDuplicate || onReset || onToggleActive || onRemove)
 
     return (
         <Paper
@@ -135,6 +167,7 @@ function SortableLayoutWidgetChip({
             sx={{
                 display: 'flex',
                 alignItems: 'center',
+                flexWrap: { xs: 'wrap', sm: 'nowrap' },
                 gap: 1,
                 px: 1,
                 py: 0.5,
@@ -160,7 +193,8 @@ function SortableLayoutWidgetChip({
                     onClick={onClick}
                     sx={{
                         flexGrow: 1,
-                        minWidth: 0,
+                        flex: { xs: '1 1 8rem', sm: '1 1 auto' },
+                        minWidth: { xs: '8rem', sm: 0 },
                         justifyContent: 'flex-start',
                         textAlign: 'left',
                         borderRadius: 1,
@@ -168,16 +202,25 @@ function SortableLayoutWidgetChip({
                         ...(!isActive && { opacity: 0.45 })
                     }}
                 >
-                    <Typography component='span' className='layout-widget-label' variant='body2' sx={{ overflowWrap: 'anywhere' }}>
+                    <Typography
+                        component='span'
+                        className='layout-widget-label'
+                        variant='body2'
+                        sx={{ display: 'block', lineHeight: 1.35, overflowWrap: 'anywhere' }}
+                    >
                         {label}
                     </Typography>
                 </ButtonBase>
             ) : (
                 <Typography
                     component='span'
+                    className='layout-widget-label'
                     variant='body2'
                     sx={{
                         flexGrow: 1,
+                        flex: { xs: '1 1 8rem', sm: '1 1 auto' },
+                        minWidth: { xs: '8rem', sm: 0 },
+                        lineHeight: 1.35,
                         overflowWrap: 'anywhere',
                         ...(!isActive && { opacity: 0.45 })
                     }}
@@ -197,106 +240,131 @@ function SortableLayoutWidgetChip({
                         color: 'text.secondary',
                         fontSize: 11,
                         lineHeight: 1.4,
+                        flexShrink: 0,
                         whiteSpace: 'nowrap'
                     }}
                 >
                     {inheritedLabel}
                 </Box>
             ) : null}
-            {moveActions && moveActions.length > 0 ? (
-                <>
-                    <Tooltip title={moveWidgetLabel || ''} arrow>
-                        <IconButton
-                            size='small'
-                            data-testid={`layout-widget-move-menu-${id}`}
-                            aria-label={moveWidgetLabel}
-                            onClick={(event) => setMoveMenuAnchorEl(event.currentTarget)}
-                        >
-                            <OpenWithRoundedIcon fontSize='small' />
-                        </IconButton>
-                    </Tooltip>
-                    <Menu anchorEl={moveMenuAnchorEl} open={Boolean(moveMenuAnchorEl)} onClose={() => setMoveMenuAnchorEl(null)}>
-                        {moveActions.map((action) => (
-                            <MenuItem
-                                key={action.key}
-                                data-testid={action.testId}
-                                onClick={() => {
-                                    setMoveMenuAnchorEl(null)
-                                    action.onClick()
-                                }}
+            {hasActions ? (
+                <Box
+                    component='span'
+                    sx={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 0.25,
+                        flexShrink: 0,
+                        flexBasis: { xs: '100%', sm: 'auto' },
+                        justifyContent: { xs: 'flex-end', sm: 'initial' }
+                    }}
+                >
+                    {moveActions && moveActions.length > 0 ? (
+                        <>
+                            <Tooltip title={moveWidgetLabel || ''} arrow>
+                                <IconButton
+                                    size='small'
+                                    data-testid={`layout-widget-move-menu-${id}`}
+                                    aria-label={moveWidgetLabel}
+                                    onClick={(event) => setMoveMenuAnchorEl(event.currentTarget)}
+                                >
+                                    <OpenWithRoundedIcon fontSize='small' />
+                                </IconButton>
+                            </Tooltip>
+                            <Menu anchorEl={moveMenuAnchorEl} open={Boolean(moveMenuAnchorEl)} onClose={() => setMoveMenuAnchorEl(null)}>
+                                {moveActions.map((action) => (
+                                    <MenuItem
+                                        key={action.key}
+                                        data-testid={action.testId}
+                                        onClick={() => {
+                                            setMoveMenuAnchorEl(null)
+                                            action.onClick()
+                                        }}
+                                    >
+                                        {action.label}
+                                    </MenuItem>
+                                ))}
+                            </Menu>
+                        </>
+                    ) : null}
+                    {onEdit ? (
+                        <Tooltip title={editTooltip || ''} arrow>
+                            <IconButton
+                                size='small'
+                                data-testid={`layout-widget-edit-${id}`}
+                                aria-label={editAriaLabel || editTooltip}
+                                onClick={onEdit}
                             >
-                                {action.label}
-                            </MenuItem>
-                        ))}
-                    </Menu>
-                </>
-            ) : null}
-            {onEdit ? (
-                <Tooltip title={editTooltip || ''} arrow>
-                    <IconButton
-                        size='small'
-                        data-testid={`layout-widget-edit-${id}`}
-                        aria-label={editAriaLabel || editTooltip}
-                        onClick={onEdit}
-                    >
-                        <EditRoundedIcon fontSize='small' />
-                    </IconButton>
-                </Tooltip>
-            ) : null}
-            {onDuplicate ? (
-                <Tooltip title={duplicateTooltip || ''} arrow>
-                    <IconButton
-                        size='small'
-                        data-testid={`layout-widget-duplicate-${id}`}
-                        aria-label={duplicateAriaLabel || duplicateTooltip}
-                        onClick={onDuplicate}
-                    >
-                        <ContentCopyRoundedIcon fontSize='small' />
-                    </IconButton>
-                </Tooltip>
-            ) : null}
-            {onReset ? (
-                <Tooltip title={resetTooltip || ''} arrow>
-                    <IconButton
-                        size='small'
-                        data-testid={`layout-widget-reset-${id}`}
-                        aria-label={resetAriaLabel || resetTooltip}
-                        onClick={onReset}
-                    >
-                        <RestartAltRoundedIcon fontSize='small' />
-                    </IconButton>
-                </Tooltip>
-            ) : null}
-            {onToggleActive ? (
-                <Tooltip title={toggleActiveTooltip || ''} arrow>
-                    <IconButton
-                        size='small'
-                        data-testid={`layout-widget-toggle-${id}`}
-                        aria-label={toggleActiveAriaLabel || toggleActiveTooltip}
-                        onClick={() => onToggleActive(!isActive)}
-                        sx={!isActive ? { color: 'text.disabled' } : undefined}
-                    >
-                        {isActive ? <VisibilityRoundedIcon fontSize='small' /> : <VisibilityOffRoundedIcon fontSize='small' />}
-                    </IconButton>
-                </Tooltip>
-            ) : null}
-            {onRemove ? (
-                <Tooltip title={removeTooltip || ''} arrow>
-                    <IconButton
-                        size='small'
-                        data-testid={`layout-widget-remove-${id}`}
-                        aria-label={removeAriaLabel || removeTooltip}
-                        onClick={onRemove}
-                    >
-                        <CloseRoundedIcon fontSize='small' />
-                    </IconButton>
-                </Tooltip>
+                                <EditRoundedIcon fontSize='small' />
+                            </IconButton>
+                        </Tooltip>
+                    ) : null}
+                    {onDuplicate ? (
+                        <Tooltip title={duplicateTooltip || ''} arrow>
+                            <IconButton
+                                size='small'
+                                data-testid={`layout-widget-duplicate-${id}`}
+                                aria-label={duplicateAriaLabel || duplicateTooltip}
+                                onClick={onDuplicate}
+                            >
+                                <ContentCopyRoundedIcon fontSize='small' />
+                            </IconButton>
+                        </Tooltip>
+                    ) : null}
+                    {onReset ? (
+                        <Tooltip title={resetTooltip || ''} arrow>
+                            <IconButton
+                                size='small'
+                                data-testid={`layout-widget-reset-${id}`}
+                                aria-label={resetAriaLabel || resetTooltip}
+                                onClick={onReset}
+                            >
+                                <RestartAltRoundedIcon fontSize='small' />
+                            </IconButton>
+                        </Tooltip>
+                    ) : null}
+                    {onToggleActive ? (
+                        <Tooltip title={toggleActiveTooltip || ''} arrow>
+                            <IconButton
+                                size='small'
+                                data-testid={`layout-widget-toggle-${id}`}
+                                aria-label={toggleActiveAriaLabel || toggleActiveTooltip}
+                                onClick={() => onToggleActive(!isActive)}
+                                sx={!isActive ? { color: 'text.disabled' } : undefined}
+                            >
+                                {isActive ? <VisibilityRoundedIcon fontSize='small' /> : <VisibilityOffRoundedIcon fontSize='small' />}
+                            </IconButton>
+                        </Tooltip>
+                    ) : null}
+                    {onRemove ? (
+                        <Tooltip title={removeTooltip || ''} arrow>
+                            <IconButton
+                                size='small'
+                                data-testid={`layout-widget-remove-${id}`}
+                                aria-label={removeAriaLabel || removeTooltip}
+                                onClick={onRemove}
+                            >
+                                <CloseRoundedIcon fontSize='small' />
+                            </IconButton>
+                        </Tooltip>
+                    ) : null}
+                </Box>
             ) : null}
         </Paper>
     )
 }
 
-function LayoutZoneColumn({ zone, title, children }: { zone: LayoutAuthoringZoneKey; title: string; children: ReactNode }) {
+function LayoutZoneColumn({
+    zone,
+    title,
+    settingsAction,
+    children
+}: {
+    zone: LayoutAuthoringZoneKey
+    title: string
+    settingsAction?: LayoutAuthoringZone['settingsAction']
+    children: ReactNode
+}) {
     const { setNodeRef, isOver } = useDroppable({
         id: `zone:${zone}`
     })
@@ -314,11 +382,84 @@ function LayoutZoneColumn({ zone, title, children }: { zone: LayoutAuthoringZone
                 transition: 'border-color 120ms ease'
             }}
         >
-            <Typography variant='subtitle2' sx={{ mb: 1.25 }}>
-                {title}
-            </Typography>
+            <Stack direction='row' spacing={1} sx={{ alignItems: 'center', justifyContent: 'space-between', mb: 1.25 }}>
+                <Box sx={{ minWidth: 0 }}>
+                    <Typography variant='subtitle2'>{title}</Typography>
+                </Box>
+                {settingsAction ? (
+                    <Tooltip title={settingsAction.label} arrow>
+                        <span>
+                            <IconButton
+                                size='small'
+                                data-testid={`layout-zone-settings-${zone}`}
+                                aria-label={settingsAction.label}
+                                disabled={settingsAction.disabled}
+                                onClick={settingsAction.onClick}
+                            >
+                                <SettingsRoundedIcon fontSize='small' />
+                            </IconButton>
+                        </span>
+                    </Tooltip>
+                ) : null}
+            </Stack>
+            {settingsAction?.summary ? (
+                <Typography variant='caption' sx={{ display: 'block', mb: 1.25, color: 'text.secondary' }}>
+                    {settingsAction.summary}
+                </Typography>
+            ) : null}
             {children}
         </Paper>
+    )
+}
+
+function LayoutZoneGroup({
+    zone,
+    group,
+    emptyZoneLabel,
+    dragHint,
+    dragHandleLabel,
+    moveWidgetLabel
+}: {
+    zone: LayoutAuthoringZoneKey
+    group: LayoutAuthoringZoneGroup
+    emptyZoneLabel: string
+    dragHint: string
+    dragHandleLabel: string
+    moveWidgetLabel?: string
+}) {
+    const { setNodeRef, isOver } = useDroppable({ id: `zone:${zone}:group:${group.key}` })
+
+    return (
+        <Box
+            ref={setNodeRef}
+            sx={{
+                p: 1,
+                borderRadius: 1,
+                bgcolor: isOver ? 'action.hover' : 'transparent',
+                transition: 'background-color 120ms ease'
+            }}
+        >
+            <Typography variant='caption' sx={{ display: 'block', mb: 0.75, color: 'text.secondary' }}>
+                {group.title}
+            </Typography>
+            <SortableContext items={group.items.map((item) => item.id)} strategy={verticalListSortingStrategy}>
+                <Stack spacing={1}>
+                    {group.items.map((item) => (
+                        <SortableLayoutWidgetChip
+                            key={item.id}
+                            {...item}
+                            dragHandleLabel={dragHandleLabel.trim() ? `${dragHandleLabel}: ${item.label || dragHint}` : dragHint}
+                            moveWidgetLabel={moveWidgetLabel}
+                        />
+                    ))}
+                    {group.items.length === 0 ? (
+                        <Typography variant='caption' sx={{ color: 'text.secondary' }}>
+                            {emptyZoneLabel}
+                        </Typography>
+                    ) : null}
+                </Stack>
+            </SortableContext>
+        </Box>
     )
 }
 
@@ -363,7 +504,7 @@ export function LayoutAuthoringDetails({
         if (id === null) return dragHint
         const normalizedId = String(id)
         if (normalizedId.startsWith('zone:')) {
-            return zones.find((zone) => `zone:${zone.zone}` === normalizedId)?.title ?? dragHint
+            return getLayoutAuthoringDropTargetLabel(zones, id, dragHint)
         }
         return getWidgetLabel(id)
     }
@@ -404,7 +545,7 @@ export function LayoutAuthoringDetails({
             <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd} accessibility={{ announcements }}>
                 <Stack spacing={1.5}>
                     {zones.map((zone) => (
-                        <LayoutZoneColumn key={zone.zone} zone={zone.zone} title={zone.title}>
+                        <LayoutZoneColumn key={zone.zone} zone={zone.zone} title={zone.title} settingsAction={zone.settingsAction}>
                             <Stack spacing={1.25}>
                                 <Stack direction='row' spacing={1} sx={{ alignItems: 'center' }}>
                                     <Button
@@ -427,28 +568,37 @@ export function LayoutAuthoringDetails({
                                     ) : null}
                                 </Stack>
 
-                                <SortableContext items={zone.items.map((item) => item.id)} strategy={verticalListSortingStrategy}>
-                                    <Stack spacing={1}>
-                                        {zone.items.map((item) => (
-                                            <SortableLayoutWidgetChip
-                                                key={item.id}
-                                                {...item}
-                                                dragHandleLabel={getDragHandleLabel(item.id)}
-                                                moveWidgetLabel={moveWidgetLabel}
-                                            />
-                                        ))}
-                                        {zone.items.length === 0 ? (
-                                            <Typography
-                                                variant='caption'
-                                                sx={{
-                                                    color: 'text.secondary'
-                                                }}
-                                            >
-                                                {emptyZoneLabel}
-                                            </Typography>
-                                        ) : null}
-                                    </Stack>
-                                </SortableContext>
+                                {zone.groups?.length ? (
+                                    zone.groups.map((group) => (
+                                        <LayoutZoneGroup
+                                            key={group.key}
+                                            zone={zone.zone}
+                                            group={group}
+                                            emptyZoneLabel={emptyZoneLabel}
+                                            dragHint={dragHint}
+                                            dragHandleLabel={dragHandleLabel}
+                                            moveWidgetLabel={moveWidgetLabel}
+                                        />
+                                    ))
+                                ) : (
+                                    <SortableContext items={zone.items.map((item) => item.id)} strategy={verticalListSortingStrategy}>
+                                        <Stack spacing={1}>
+                                            {zone.items.map((item) => (
+                                                <SortableLayoutWidgetChip
+                                                    key={item.id}
+                                                    {...item}
+                                                    dragHandleLabel={getDragHandleLabel(item.id)}
+                                                    moveWidgetLabel={moveWidgetLabel}
+                                                />
+                                            ))}
+                                            {zone.items.length === 0 ? (
+                                                <Typography variant='caption' sx={{ color: 'text.secondary' }}>
+                                                    {emptyZoneLabel}
+                                                </Typography>
+                                            ) : null}
+                                        </Stack>
+                                    </SortableContext>
+                                )}
                             </Stack>
                         </LayoutZoneColumn>
                     ))}

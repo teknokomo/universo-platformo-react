@@ -14,6 +14,7 @@ It is the shared presentation layer for the current React shell, not a standalon
 -   Dialog, table, selection, pagination, and card components are re-exported from the package root.
 -   Editor.js block-content authoring is re-exported from the neutral `@universo-react/block-editor` package so administrative and published-app flows share one implementation.
 -   Layout presentation helpers such as `LayoutStateChips` and `LayoutAuthoringDetails` keep metahub and application layout screens aligned while leaving routing, labels, data loading, and widget-specific dialogs in consumer packages.
+-   `LayoutAuthoringDetails` provides generic zone actions and grouped placement metadata, while `LayoutZoneSettingsDialog` renders registry-backed settings such as fixed/flow positioning with inherited, customized, reset, optimistic-concurrency, read-only, and focus behavior.
 -   Factory helpers such as `createEntityActions()` and `createMemberActions()` reduce repeated CRUD-action wiring.
 -   Hooks such as `usePaginated()`, `useDebouncedSearch()`, `useUserSettings()`, `useListDialogs()`, and optimistic CRUD helpers support common frontend flows.
 
@@ -35,6 +36,7 @@ pnpm --filter @universo-react/template-mui test
 -   Keep exported components generic and reusable across multiple frontend modules.
 -   Add new translation keys through shared or consumer namespaces with EN/RU parity.
 -   Prefer documenting package-level responsibilities here and module-specific workflows in consumer package READMEs.
+-   Shared layout components consume serializable metadata and typed callbacks. Consumer packages own routes, permissions, queries, cache invalidation, and server error presentation.
 
 ## Related Documentation
 

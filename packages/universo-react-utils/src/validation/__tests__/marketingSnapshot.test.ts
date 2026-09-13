@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest'
 
-import { validateMarketingSnapshotLayouts, validateSnapshotLayoutIdentities, type MarketingSnapshotLike } from '../marketingSnapshot'
+import {
+    validateMarketingSnapshotLayouts,
+    validateMarketingSnapshotTransportLayouts,
+    validateSnapshotLayoutIdentities,
+    validateSnapshotLayoutNeutralMetadata,
+    type MarketingSnapshotLike
+} from '../marketingSnapshot'
 
 const ids = {
     layout: '0190a9b5-3cde-7abc-8def-0123456789a1',
@@ -231,6 +237,36 @@ describe('validateMarketingSnapshotLayouts', () => {
         expect(() => validateSnapshotLayoutIdentities(snapshot)).not.toThrow()
     })
 
+    it('accepts shared template widgets inside a marketing layout', () => {
+        const snapshot = createSnapshot()
+        snapshot.layoutZoneWidgets!.push({
+            id: ids.secondWidget,
+            layoutId: ids.layout,
+            zone: 'marketing-header',
+            widgetKey: 'languageSwitcher',
+            sortOrder: 1,
+            config: {},
+            isActive: true
+        })
+
+        expect(() => validateMarketingSnapshotLayouts(snapshot)).not.toThrow()
+    })
+
+    it('accepts the authentication header widget without a content source', () => {
+        const snapshot = createSnapshot()
+        snapshot.layoutZoneWidgets!.push({
+            id: ids.secondWidget,
+            layoutId: ids.layout,
+            zone: 'marketing-header',
+            widgetKey: 'marketing.auth',
+            sortOrder: 1,
+            config: { instanceKey: 'auth', showAuthActions: true },
+            isActive: true
+        })
+
+        expect(() => validateMarketingSnapshotLayouts(snapshot)).not.toThrow()
+    })
+
     it('rejects a scoped override whose base widget belongs to another global layout', () => {
         const snapshot = createSnapshot()
         snapshot.layouts!.unshift({
@@ -347,5 +383,73 @@ describe('validateMarketingSnapshotLayouts', () => {
         ])
         delete pricing.entities?.benefits
         expect(() => validateMarketingSnapshotLayouts(pricing)).toThrow('source entity is missing')
+    })
+})
+
+describe('validateMarketingSnapshotTransportLayouts', () => {
+    it('rejects plain widgets with an unsupported template zone before render validation', () => {
+        const snapshot = createSnapshot()
+        snapshot.layoutZoneWidgets![0]!.zone = 'marketing-footer'
+
+        expect(() => validateSnapshotLayoutNeutralMetadata(snapshot)).toThrow('Snapshot widget configuration is invalid')
+    })
+
+    it('validates neutral layout metadata and strips it before renderer validation', () => {
+        const snapshot = createSnapshot()
+        const neutralLayoutConfig = {
+            __layout: {
+                zoneSettings: {
+                    'marketing-header': { position: 'flow' }
+                }
+            }
+        }
+        snapshot.layouts![0]!.config = neutralLayoutConfig
+        snapshot.layoutConfig = neutralLayoutConfig
+        snapshot.layoutZoneWidgets!.push({
+            id: ids.secondWidget,
+            layoutId: ids.layout,
+            zone: 'marketing-header',
+            widgetKey: 'languageSwitcher',
+            sortOrder: 1,
+            config: { __layout: { placement: 'end' } },
+            isActive: true
+        })
+
+        expect(() => validateMarketingSnapshotTransportLayouts(snapshot)).not.toThrow()
+    })
+
+    it('fails closed on application-only or duplicated transport metadata', () => {
+        const sourceSettings = createSnapshot()
+        sourceSettings.layouts![0]!.config = {
+            __layout: {
+                sourceZoneSettings: {
+                    'marketing-header': { position: 'fixed' }
+                }
+            }
+        }
+        expect(() => validateMarketingSnapshotTransportLayouts(sourceSettings)).toThrow('application-only source zone settings')
+
+        const duplicatedComposition = createSnapshot()
+        duplicatedComposition.layouts![0]!.config = {
+            __layout: {
+                composition: {
+                    mode: 'independent',
+                    baseLayoutId: null
+                }
+            }
+        }
+        expect(() => validateMarketingSnapshotTransportLayouts(duplicatedComposition)).toThrow(
+            'must not duplicate top-level composition metadata'
+        )
+    })
+
+    it('fails closed on null layout and widget config envelopes', () => {
+        const nullLayoutConfig = createSnapshot()
+        nullLayoutConfig.layouts![0]!.config = null as never
+        expect(() => validateMarketingSnapshotTransportLayouts(nullLayoutConfig)).toThrow('neutral metadata is invalid')
+
+        const nullWidgetConfig = createSnapshot()
+        nullWidgetConfig.layoutZoneWidgets![0]!.config = null as never
+        expect(() => validateMarketingSnapshotTransportLayouts(nullWidgetConfig)).toThrow('widget configuration is invalid')
     })
 })
