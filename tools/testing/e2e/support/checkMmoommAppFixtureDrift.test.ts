@@ -38,6 +38,33 @@ const requireFirstProjectDocument = (fixture: FixtureRecord): FixtureRecord => {
     return requireRecord(documents[documentKey], 'project ShareDB document')
 }
 
+const addFirstProjectDocument = (fixture: FixtureRecord): FixtureRecord => {
+    const snapshot = requireRecord(fixture.snapshot, 'snapshot')
+    const playcanvasProjects = requireRecord(snapshot.playcanvasProjects, 'playcanvasProjects')
+    if (!Array.isArray(playcanvasProjects.projects) || playcanvasProjects.projects.length === 0) {
+        throw new Error('MMOOMM drift test fixture is missing PlayCanvas projects')
+    }
+    const project = requireRecord(playcanvasProjects.projects[0], 'first PlayCanvas project')
+    const settings = requireRecord(project.settings, 'first PlayCanvas project settings')
+    const realtime = requireRecord(settings.playCanvasEditorRealtime, 'PlayCanvas Editor realtime settings')
+    realtime.documents = {
+        project_123: {
+            data: {
+                id: 'project_123',
+                project: 123,
+                scripts: [],
+                width: 1280,
+                height: 720,
+                useLegacyScripts: false,
+                engineV2: true
+            },
+            version: 1,
+            updatedAt: '2026-01-01T00:00:00.000Z'
+        }
+    }
+    return requireFirstProjectDocument(fixture)
+}
+
 const writeFixture = (fixture: FixtureRecord, directory: string, filename: string): string => {
     const snapshot = requireRecord(fixture.snapshot, 'snapshot')
     fixture.snapshotHash = computeSnapshotHash(snapshot)
@@ -46,21 +73,28 @@ const writeFixture = (fixture: FixtureRecord, directory: string, filename: strin
     return outputPath
 }
 
-const runDriftCheck = (generatedPath: string) =>
+const runDriftCheck = (generatedPath: string, trackedPath = fixturePath) =>
     spawnSync(process.execPath, ['--disable-warning=MODULE_TYPELESS_PACKAGE_JSON', driftScriptPath, '--', generatedPath], {
         cwd: repoRoot,
-        encoding: 'utf8'
+        encoding: 'utf8',
+        env: {
+            ...process.env,
+            MMOOMM_APP_FIXTURE_TRACKED_PATH: trackedPath
+        }
     })
 
 test('ignores only the volatile ShareDB project document revision', () => {
     const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'mmoomm-drift-version-'))
     try {
-        const fixture = readFixture()
-        const document = requireFirstProjectDocument(fixture)
+        const trackedFixture = readFixture()
+        addFirstProjectDocument(trackedFixture)
+        const trackedPath = writeFixture(trackedFixture, directory, 'tracked.json')
+        const generatedFixture = structuredClone(trackedFixture)
+        const document = requireFirstProjectDocument(generatedFixture)
         document.version = Number(document.version ?? 0) + 97
-        const generatedPath = writeFixture(fixture, directory, 'generated.json')
+        const generatedPath = writeFixture(generatedFixture, directory, 'generated.json')
 
-        const result = runDriftCheck(generatedPath)
+        const result = runDriftCheck(generatedPath, trackedPath)
 
         assert.equal(result.status, 0, result.stderr || result.stdout)
     } finally {
@@ -71,13 +105,16 @@ test('ignores only the volatile ShareDB project document revision', () => {
 test('continues to reject semantic changes inside the ShareDB project document', () => {
     const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'mmoomm-drift-semantic-'))
     try {
-        const fixture = readFixture()
-        const document = requireFirstProjectDocument(fixture)
+        const trackedFixture = readFixture()
+        addFirstProjectDocument(trackedFixture)
+        const trackedPath = writeFixture(trackedFixture, directory, 'tracked.json')
+        const generatedFixture = structuredClone(trackedFixture)
+        const document = requireFirstProjectDocument(generatedFixture)
         const data = requireRecord(document.data, 'project ShareDB document data')
         data.width = Number(data.width ?? 0) + 1
-        const generatedPath = writeFixture(fixture, directory, 'generated.json')
+        const generatedPath = writeFixture(generatedFixture, directory, 'generated.json')
 
-        const result = runDriftCheck(generatedPath)
+        const result = runDriftCheck(generatedPath, trackedPath)
 
         assert.notEqual(result.status, 0)
         assert.match(result.stderr, /playCanvasEditorRealtime\.documents\.project_<number>\.data\.width/)

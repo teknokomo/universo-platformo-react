@@ -417,10 +417,13 @@ const createObjectCollectionsThroughBrowser = async (page: Page, metahubId: stri
     ]) {
         const createdId = await createStandardEntityThroughBrowser(page, metahubId, 'object', entity)
         await expect
-            .poll(async () => {
-                const payload = await listObjectCollections(api, metahubId, { limit: 100, offset: 0 })
-                return payload.items?.some((item: { id?: string }) => item.id === createdId) ?? false
-            })
+            .poll(
+                async () => {
+                    const payload = await listObjectCollections(api, metahubId, { limit: 100, offset: 0 })
+                    return payload.items?.some((item: { id?: string }) => item.id === createdId) ?? false
+                },
+                { timeout: APP_RUNTIME_TIMEOUT }
+            )
             .toBe(true)
         await page.reload({ waitUntil: 'domcontentloaded' })
         await expect(page.getByText(entity.name, { exact: true }).first()).toBeVisible({ timeout: 60_000 })
@@ -1232,7 +1235,11 @@ test.describe('MMOOMM PlayCanvas Editor fixture generator', () => {
         page,
         runManifest
     }, testInfo) => {
-        test.setTimeout(600_000)
+        // This UI-first generator exercises Editor authoring, publication, two runtime
+        // proofs, and a responsive viewport matrix. GitHub runners regularly need
+        // about ten minutes for the successful path, so keep headroom for normal CI
+        // variance without weakening any of the individual runtime assertions.
+        test.setTimeout(1_200_000)
         const shouldUpdateTrackedFixture = process.env.UPDATE_MMOOMM_APP_FIXTURE === '1'
         if (shouldUpdateTrackedFixture) {
             fs.mkdirSync(FIXTURES_DIR, { recursive: true })

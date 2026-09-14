@@ -119,6 +119,51 @@ export const normalizeRealtimeSceneEntities = (
     return Object.fromEntries(normalized)
 }
 
+const createDefaultRealtimeProjectLayers = (): Record<string, Record<string, unknown>> => ({
+    0: { name: 'World', opaqueSortMode: 2, transparentSortMode: 3 },
+    1: { name: 'Depth', opaqueSortMode: 2, transparentSortMode: 3 },
+    2: { name: 'Skybox', opaqueSortMode: 0, transparentSortMode: 3 },
+    3: { name: 'Immediate', opaqueSortMode: 0, transparentSortMode: 3 },
+    4: { name: 'UI', opaqueSortMode: 1, transparentSortMode: 1 }
+})
+
+const DEFAULT_REALTIME_PROJECT_LAYER_ORDER = [
+    { layer: 0, enabled: true, transparent: false },
+    { layer: 1, enabled: true, transparent: false },
+    { layer: 2, enabled: true, transparent: false },
+    { layer: 0, enabled: true, transparent: true },
+    { layer: 3, enabled: true, transparent: false },
+    { layer: 3, enabled: true, transparent: true },
+    { layer: 4, enabled: true, transparent: true }
+] as const
+
+const createDefaultRealtimeProjectLayerOrder = (): Array<Record<string, unknown>> =>
+    DEFAULT_REALTIME_PROJECT_LAYER_ORDER.map((entry) => ({ ...entry }))
+
+const normalizeRealtimeProjectLayerOrder = (value: unknown): Array<unknown> => {
+    if (!Array.isArray(value) || value.length === 0) {
+        return createDefaultRealtimeProjectLayerOrder()
+    }
+
+    const defaultEntryKeys = new Set(
+        DEFAULT_REALTIME_PROJECT_LAYER_ORDER.map((entry) => `${entry.layer}:${entry.transparent}:${entry.enabled}`)
+    )
+    const seenDefaultEntryKeys = new Set<string>()
+
+    return value.filter((entry) => {
+        if (!entry || typeof entry !== 'object' || Array.isArray(entry)) return true
+        const candidate = entry as { layer?: unknown; transparent?: unknown; enabled?: unknown }
+        if (typeof candidate.layer !== 'number' || typeof candidate.transparent !== 'boolean' || typeof candidate.enabled !== 'boolean') {
+            return true
+        }
+        const key = `${candidate.layer}:${candidate.transparent}:${candidate.enabled}`
+        if (!defaultEntryKeys.has(key)) return true
+        if (seenDefaultEntryKeys.has(key)) return false
+        seenDefaultEntryKeys.add(key)
+        return true
+    })
+}
+
 export const createDefaultRealtimeProjectSettingsDocument = (input: {
     documentId: string
     numericProjectId: number
@@ -129,7 +174,9 @@ export const createDefaultRealtimeProjectSettingsDocument = (input: {
     useLegacyScripts: false,
     engineV2: true,
     width: 1280,
-    height: 720
+    height: 720,
+    layers: createDefaultRealtimeProjectLayers(),
+    layerOrder: createDefaultRealtimeProjectLayerOrder()
 })
 
 export const normalizeRealtimeSettingsDocumentData = (
@@ -138,10 +185,17 @@ export const normalizeRealtimeSettingsDocumentData = (
     input: { numericProjectId: number; numericUserId: number }
 ): Record<string, unknown> => {
     if (/^project_\d+$/.test(documentId)) {
+        const defaults = createDefaultRealtimeProjectSettingsDocument({ documentId, numericProjectId: input.numericProjectId })
+        const layers =
+            data.layers && typeof data.layers === 'object' && !Array.isArray(data.layers) && Object.keys(data.layers).length > 0
+                ? data.layers
+                : defaults.layers
         return {
-            ...createDefaultRealtimeProjectSettingsDocument({ documentId, numericProjectId: input.numericProjectId }),
+            ...defaults,
             ...data,
-            scripts: Array.isArray(data.scripts) ? data.scripts : []
+            scripts: Array.isArray(data.scripts) ? data.scripts : [],
+            layers,
+            layerOrder: normalizeRealtimeProjectLayerOrder(data.layerOrder)
         }
     }
 
