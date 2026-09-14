@@ -6,7 +6,7 @@
 
 # Universo Platformo React
 
-[![Version](https://img.shields.io/badge/version-0.81.0--alpha-blue)](https://github.com/teknokomo/universo-platformo-react)
+[![Version](https://img.shields.io/badge/version-0.82.0--alpha-blue)](https://github.com/teknokomo/universo-platformo-react)
 [![License: Omsk Open License](https://img.shields.io/badge/license-Omsk%20Open%20License-green)](LICENSE.md)
 
 **Внимание, пожалуйста, прочитайте это внимательно.**
@@ -63,12 +63,12 @@ Universo Platformo React — это текущая эталонная реали
 
 ## Текущий статус
 
-**Текущая версия**: 0.81.0-alpha (Сентябрь 2026). Проект остаётся в альфа-стадии и готовится к более стабильной бета-фазе.
+**Текущая версия**: 0.82.0-alpha (Сентябрь 2026). Проект остаётся в альфа-стадии и готовится к более стабильной бета-фазе.
 
 ## Технологический стек
 
 -   Node.js (>=22.6.0)
--   PNPM (>=10)
+-   PNPM (>=12)
 -   React
 -   Express.js
 -   Supabase (PostgreSQL)
@@ -155,7 +155,7 @@ Universo Platformo разрабатывается на нескольких те
 ### Предварительные требования
 
 -   Node.js (>=22.6.0)
--   PNPM (>=9)
+-   PNPM (>=12)
 -   Окружение Supabase/PostgreSQL. Можно использовать удалённый проект Supabase или локальный профиль Supabase, описанный ниже.
 -   Docker, если вы используете локальный Supabase. Установите Docker Desktop или Docker Engine, запустите Docker daemon и проверьте, что `docker ps` работает в терминале перед запуском команд локального Supabase.
 

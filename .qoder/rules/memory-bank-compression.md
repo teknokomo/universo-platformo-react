@@ -19,6 +19,7 @@ trigger: always_on
 - `activeContext.md`: 100-150 lines (focus: current work only)
 - `tasks.md`: 500-600 lines (focus: active + recent tasks)
 - `progress.md`: 600-700 lines (focus: version table + 3-month history)
+- `currentResearch.md`: 600-700 lines (focus: active/unresolved research + recent 3-month research history)
 - `systemPatterns.md`: 600-700 lines (focus: reusable patterns)
 - `techContext.md`: 300-400 lines (canon — touch via the Canon Refresh phase)
 - `productContext.md`: 300-400 lines (canon — touch via the Canon Refresh phase)
@@ -56,6 +57,7 @@ trigger: always_on
 | `activeContext.md`  | 100-150      | ≥120 lines                |
 | `tasks.md`          | 500-600      | ≥480 lines                |
 | `progress.md`       | 600-700      | ≥560 lines                |
+| `currentResearch.md` | 600-700      | ≥560 lines                |
 | `systemPatterns.md` | 600-700      | ≥560 lines                |
 | `techContext.md`    | 300-400      | ≥320 lines                |
 | `productContext.md` | 300-400      | ≥320 lines                |
@@ -360,7 +362,40 @@ If the API fails (rate limit, network error, authentication):
 
 ---
 
-### 4. systemPatterns.md (Target: 600-700 lines)
+### 4. currentResearch.md (Target: 600-700 lines)
+
+**Purpose**: Maintain a compact research scratchpad/index for active questions and recent research without duplicating permanent artifacts or progress history.
+
+**PRESERVE Unchanged**:
+
+- All active or unresolved research, regardless of age.
+- Last 3 months of research findings in full detail.
+- Links to dedicated `memory-bank/research/` artifacts and durable source/version findings needed for future planning.
+- Open questions, unresolved constraints, rejected hypotheses that still explain a current decision boundary, and explicit research-to-PLAN handoff state.
+
+**CONDENSE 50%** (3-6 months old, unless still active/unresolved):
+
+- Keep research conclusions, architectural constraints, artifact links, and remaining open questions.
+- Merge repeated implementation/QA follow-ups into the research conclusion they validate.
+- Replace detailed test/build/tool logs already recorded in `progress.md` or `tasks.md` with a short outcome or cross-reference.
+
+**ARCHIVE 90%** (>6 months old, unless still active/unresolved):
+
+- Keep 1-3 dense bullets per topic/date with the durable conclusion and artifact/reference link.
+- Remove resolved implementation narration, transient diagnostics, and duplicate verification detail preserved elsewhere.
+- Group closely related historical findings by month when this preserves meaning.
+
+**REMOVE Completely**:
+
+- Research hypotheses explicitly disproved and no longer needed to understand a current decision.
+- Completed implementation evidence duplicated in `progress.md`/`tasks.md`.
+- Verbose command output, test counts, or temporary environment notes with no lasting research value.
+
+**Chronological Order**: Newest first, oldest last.
+
+---
+
+### 5. systemPatterns.md (Target: 600-700 lines)
 
 **Purpose**: Reusable architectural patterns and best practices
 
@@ -415,7 +450,7 @@ If the API fails (rate limit, network error, authentication):
 
 ---
 
-### 5. Canon Files: projectbrief.md / productContext.md / techContext.md
+### 6. Canon Files: projectbrief.md / productContext.md / techContext.md
 
 **Purpose**: Stable, high-level descriptions of the project (mission, product
 context, technical baseline). They are not compressed by removing recent
@@ -593,6 +628,7 @@ at the top of the file. Files marked this way are skipped entirely.
 
 - All currently CRITICAL patterns (from `systemPatterns.md`) preserved
 - Recent work (last 3 months) fully documented
+- `currentResearch.md` preserves all active/unresolved research and the last 3 months in full detail
 - Version history table intact and updated
 - No critical technical data lost vs backups
 
@@ -614,6 +650,7 @@ grep -n "CRITICAL" memory-bank/systemPatterns.md
 - `activeContext.md` = current focus only (no completed work)
 - `tasks.md` = task checklist format with `[ ]`/`[x]`
 - `progress.md` = chronological log (newest first)
+- `currentResearch.md` = active/recent research scratchpad and artifact index, newest first
 - `systemPatterns.md` = reusable patterns (no project history)
 - Canon files have a fresh `Last Reviewed` marker
 

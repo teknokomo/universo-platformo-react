@@ -1,7 +1,6 @@
 # Current Research
 
 ## 2026-09-12: Composable marketing header and generic layout-zone settings research
-
 -   Research artifact created: `memory-bank/research/marketing-header-widget-zone-settings-research-2026-09-12.md`.
 -   QA on 2026-09-12 rechecked the brief, current source, three prior research artifacts, Context7 MUI/Zod documentation, primary MUI/MDN/React/Zod/WAI sources, and three independent read-only subagent reviews. The artifact was corrected in place; no product code or MANAGER brief was changed.
 -   Current source confirms that `marketing-header` is only nominally compositional: each `marketing.navigation` still owns a fixed AppBar shell, brand/auth/theme/mobile Drawer behavior, while the first navigation instance receives the separately persisted language switcher through a `sharedLayoutWidgets` side channel.
@@ -12,35 +11,10 @@
 -   No product code, database migration, template version, manager brief, or implementation plan was changed in RESEARCH mode. Remaining PLAN decisions are bounded to the exact reserved JSON key/possible composition normalization, logical-placement encoding, sync convergence policy, shared-widget cardinality timing, and mobile projection of language/theme controls.
 
 ## 2026-09-08: Unified application-template widgets and scoped-layout implementation closeout
-
--   The IMPLEMENT continuation is complete for the verified local scope. The
-    runtime now selects a target-aware effective layout before choosing the
-    Dashboard or marketing renderer, with Page/Object/global precedence,
-    publication lineage checks, authorization, optimistic versions, UUID v7
-    identities, and fail-closed errors.
--   The shared widget/zone registry remains owned by `@universo-react/types`.
-    The isolated `apps-template-mui` package reuses its existing MUI shells and
-    LanguageSwitcher while keeping Dashboard and marketing renderers separate.
-    Dashboard top, bottom, center, left, and right zones are transported by
-    typed adapters, and responsive shell ownership prevents duplicate language
-    or color-mode controls.
--   Normal visible application navigation now carries the target selector to
-    the runtime. A fresh minimal-Supabase Playwright run proved Marketing Page
-    global content -> visible Blog link -> entity-scoped Dashboard, including a
-    real table, shared language widget, keyboard menu operation, RU mobile,
-    tablet, no-leakage, and no page-level overflow assertions.
--   Focused verification is green: applications-backend 4 suites / 215 tests,
-    metahubs-backend 3 suites / 71 tests, applications-frontend 49 tests,
-    apps-template-mui Dashboard 22 tests, types 36 tests, and utils 17 tests.
-    Package lint/static/docs gates also pass after the EN/RU parity correction.
--   The standalone browser environment and a separate real-database concurrency
-    wrapper are not provisioned in this checkout; component and direct store/
-    route coverage are present, and these boundaries are recorded explicitly.
-    OntoIndex remains dirty/degraded for the worktree, and Thermos/autoreview
-    cannot initialize the read-only environment-owned state database.
+-   Implementation is complete; durable outcome is target-first effective-layout resolution with Page/Object/global precedence, publication-lineage validation, optimistic versions, UUID v7 identities, fail-closed errors, and a shared neutral widget/zone registry in `@universo-react/types`. Detailed implementation and verification evidence belongs in `progress.md`/`tasks.md`.
+-   Remaining evidence boundary at closeout: standalone-browser and separate real-database concurrency wrappers were not provisioned in that checkout; OntoIndex was dirty/degraded for the worktree and Thermos/autoreview could not initialize its read-only state database.
 
 ## 2026-09-07: Unified application-template widgets and scoped-layout research
-
 -   Research artifact created: memory-bank/research/unified-application-template-widgets-scoped-layouts-research-2026-09-07.md.
 -   Current source review confirms that marketing widget lifecycle support is already implemented; the remaining problem is a template-neutral capability contract, target-first effective-layout resolution, cross-template entity-scoped selection, and removal of runtime fail-open placement/error handling.
 -   Concrete blockers recorded for PLAN: hosted and standalone dispatch commit to the global template before resolving an entity target; application authoring derives scoped template from the global layout; metahub materialization rejects template-mismatched overlays; dashboard runtime rows omit top/bottom zones and can reclassify or ignore failures; current tests do not prove the cross-template precedence/hosted/standalone matrix.
@@ -53,7 +27,6 @@
 -   Decision-focused PLAN created and QA-refined: `memory-bank/plan/unified-application-template-widgets-scoped-layouts-plan-2026-09-07.md`. It preserves the no-version-bump/clean-break boundary and adds exact target unions, source-chain precedence, independent-versus-overlay lineage rules, deterministic capability/error contracts, real-database concurrency, shared runtime UX oracles, hosted/standalone Playwright wrappers, visual provenance, and GitBook closeout gates. No product code was changed in PLAN mode.
 
 ## 2026-09-04: Widgetized marketing-page runtime research
-
 -   Research artifact created: `memory-bank/research/marketing-page-widgetized-runtime-research-2026-09-04.md`.
 -   Direct source review confirms that marketing is entity-data-driven but still rendered through a fixed section map; current layout, authoring, seed, snapshot, and sync paths remain dashboard-shaped or explicitly skip marketing widgets.
 -   Before PLAN, the neutral widget envelope, stable instance identity, no-schema-bump storage strategy, scope precedence, entity/public route selection, server-owned data binding, and template-aware lifecycle must be decided.
@@ -61,29 +34,14 @@
 -   No product code, database schema, or template version was changed in RESEARCH mode.
 
 ## 2026-09-04: Widgetized marketing-page implementation closeout
-
--   The clean-break implementation now routes marketing composition through the typed widget registry and entity-backed runtime read model in the isolated `apps-template-mui` package. The existing layout authoring surface supports browser-proven add, configure, activate/deactivate, delete, and keyboard reorder; no separate standalone workbench or compatibility reader was introduced.
--   The final focused evidence is green: types 180/180, utils 350/350, applications backend 100/100, metahubs backend 86/86, applications frontend 85/85 across layout/runtime/settings slices, metahubs frontend 16/16, apps-template marketing tests 10/10, and template-mui dialog/accessibility tests 2/2. Affected package lint/build checks and Prettier/diff checks passed; the utils package retains only pre-existing warning-level lint output.
--   `pnpm run test:e2e:marketing-page:verify:local-supabase` reached terminal exit 0 after the 36/36 E2E build. The contract check, six Chromium lifecycle flows, EN/RU light/dark responsive visual matrix (5/5), screenshot inspection/provenance, GitBook assets/links, and 113 EN/RU documentation pairs passed; cleanup stopped the disposable local Supabase instance.
--   The semantic hash intentionally excludes physical IDs, lineage IDs, baseline source configuration, timestamps, and mutable versions; effective layout/widget configuration and source binding inside the normalized config remain covered. No schema, snapshot, or metahub-template version was bumped, and no legacy compatibility layer was retained.
--   OntoIndex `gn_verify_diff` passed with its dirty-worktree graph-scan limitation. The local Thermos/autoreview helper could not initialize because the environment-owned `/home/vladimir/.codex/state_5.sqlite` is read-only; no independent clean-review verdict is claimed. Broad package invocations remain resource-sensitive outside the focused acceptance slices and are not represented as green by inference.
--   A complementary `apps-template-mui` run excluding only the known long-running `InterpretationNetworkWorkspaceWidget.test.tsx` passed 45 files and 557 tests; the complete `widgetRenderer.test.tsx` also passed 67/67. The excluded workspace-widget file remains an environment/resource-sensitive boundary and is not presented as green by inference.
+-   Implementation is complete and tracked in `progress.md`/`tasks.md`: marketing composition now uses the typed widget registry and entity-backed runtime read model in isolated `apps-template-mui`, reusing the existing layout authoring surface without a compatibility reader or separate workbench.
+-   Durable invariant: semantic hashing excludes physical/lineage IDs, source baseline config, timestamps, and mutable versions while covering effective layout/widget configuration and source binding; no schema, snapshot, or metahub-template version bump was required. Independent Thermos/autoreview remained unavailable because the environment-owned Codex state database was read-only.
 
 ## 2026-08-31: MUI 9 marketing-page implementation verification continuation
-
--   The implementation now contains a clean-break MUI 9 dependency policy (Core/System/Icons/Utils `9.2.0`, MUI X `9.8.0`, React `18.3.1`, Emotion 11 peers) and a data-driven `marketing-page` metahub/application path. Product schema, snapshot format, and metahub-template versions remain unchanged.
--   Shared strict contracts live in `@universo-react/types` and `@universo-react/utils`; the metahub seed uses existing Hub/Page/Object/Set/Enumeration presets, localized records, semantic keys, UUID v7 persisted ids, deterministic media/action metadata, and initial-only seed provenance. Runtime transport is an RLS/RBAC-checked, bounded marketing read model with a discriminated template envelope.
--   The isolated `apps-template-mui` renderer is provider-free and dispatched before dashboard CRUD state. It renders navigation, hero, logos, features, testimonials, highlights, pricing, FAQ, and footer from normalized entity data, with safe action/media handling, EN/RU i18n, keyboard FAQ and mobile-drawer semantics, and the MUI v9 `MenuList` contract.
--   The authenticated lifecycle now compares the post-publish/post-sync `/runtime/marketing-page` read model against every seeded semantic field via `marketingPageRuntimeMaterialization.ts`. The oracle deliberately ignores generated IDs/timestamps/provenance, but checks copy, actions, media/alt, relations, price/benefit associations, FAQ, footer, counts, and ordering; decimal price formatting and backend icon canonicalization are normalized explicitly.
--   Publication management now exposes a localized `sync` action with manage-permission, active-version, pending-state, and disabled-state guards; seven focused tests cover reachability and denial paths. The locale/theme matrix is provisioned independently and runs serially to avoid shared run-manifest write races.
--   `pnpm run test:e2e:marketing-page:verify:local-supabase` completed with exit code 0 after rebuilding the workspace: minimal Supabase doctor, 36/36 E2E build, field-level template contract, Chromium runtime/permission flows, four-project locale/theme matrix, screenshot provenance, 113 EN/RU documentation pairs, GitBook asset checks, and link checks all passed; local Supabase was stopped in `finally`.
--   The same wrapper now includes the browser authoring and snapshot-roundtrip flows: localized template-picker creation, generic localized hero edit with multiline semantics, publication/application sync through the existing UI, runtime reload assertion, real import dialog, semantic snapshot comparison, and imported runtime materialization all passed. The responsive matrix includes WCAG axe scans for every EN/RU × light/dark project.
--   The browser matrix covers EN/RU × light/dark at 1920×1080, 768×1024, and 390×844. It asserts localized `<html lang>`, section counts/order, anchors, FAQ keyboard interaction, mobile Escape/focus return, safe links, image settlement, no UUID/object leakage, no page-level horizontal overflow, and no unexpected console/page/API errors. The EN/light desktop and mobile captures were inspected with `view_image`; 12 baselines are tracked.
--   The static baseline contract is intentionally stronger than a count-only smoke check. The browser lifecycle now proves workspace CRUD, pristine and authored-workspace reset-audit semantics, cross-scope content-mutation denial, template-picker creation, content edit→publish→sync→reload, export/import, responsive screenshots, and browser axe. The E2E media adapter serves checked-in byte-for-byte copies of the seeded MUI/Webflow demo assets, while production Storage/imgproxy/media-origin behavior remains outside the minimal-Supabase run.
--   The full `apps-template-mui` Vitest invocation has a known long-running Interpretation Network workspace-widget tail under the MUI 9 DOM/runtime changes; focused marketing/runtime suites and the complete browser wrapper are green. OntoIndex remains stale/degraded for the dirty worktree and its scan cap prevents a complete independent changed-file proof; direct source/impact checks remain authoritative. The Thermos/autoreview helper remains unavailable because its Codex state database is read-only; a writable temporary-home retry hung and was stopped, so no independent clean-review claim is made.
+-   Implementation verification is recorded permanently in `progress.md`; research-relevant baseline is the clean-break MUI 9 policy plus a data-driven `marketing-page` path with strict shared contracts, RLS/RBAC-bounded runtime transport, a discriminated template envelope, and provider-free rendering in `apps-template-mui`.
+-   Durable oracle: post-publish/post-sync runtime materialization compares semantic content while ignoring generated IDs/timestamps/provenance; browser acceptance covers authoring, sync/reload, export/import, EN/RU light/dark responsive views, accessibility, safe links/media, no technical leakage, and no page-level overflow. Production Storage/imgproxy/media-origin behavior and the resource-sensitive full workspace-widget tail remained outside that local acceptance boundary.
 
 ## 2026-08-30: MUI 9 platform upgrade and data-driven marketing-page template
-
 -   Research artifact created: `memory-bank/research/mui-9-marketing-page-template-research-2026-08-30.md`.
 -   QA pass completed: added MUI System-prop and Core test-runtime gates, React 18/`react-is` resolution, deprecated `@mui/base`/Base UI handling, Drawer/Menu/Switch slot and Charts CSS migrations, Data Grid v9 locale/DOM checks, exact seven-to-eight template registry accounting, and the normative marketing entity mapping.
 -   Follow-up QA completed: added direct-dependency ownership findings (`apps-template-mui` Pro type augmentation, admin icons and root test helper), `ListItemText` and exhaustive Grid migration scans, legacy start-page ownership, full app-bar/hero/footer parity keys, `.backup` provenance, neutral registry ownership, URL/media safety rules, and golden-visual provenance requirements.
@@ -93,7 +51,6 @@
 -   Next step: create the linked PLAN artifact after resolving the open questions in the research document. No product code was changed in RESEARCH mode.
 
 ## 2026-08-25: PlayCanvas Editor assets pipeline and MMOOMM script-asset runtime loading
-
 -   Research artifact created: `memory-bank/research/playcanvas-editor-assets-and-mmoomm-script-assets-research-2026-08-25.md`. Source: manager-only PlayCanvas Editor assets and script-assets brief.
 -   Implementation tracking: `memory-bank/plan/playcanvas-editor-assets-and-mmoomm-script-assets-plan-2026-08-25.md`; the implementation and P6 documentation/version pass are complete. The final evidence and checklist are recorded in `tasks.md` and `progress.md`.
 -   Editor contracts pinned from vendored v2.30.4 source: create response needs only `{id}` (HTTP 200/201, multipart); the panel updates only via a messenger `asset.new` push; folder tree requires `path:number[]` on every asset doc; script parsing is a `pipeline{script-attributes}` realtime round-trip ending in messenger `scriptAttrsFinished:<job_id>` plus ShareDB ops `data.scripts.<name>`; delete uses the `fs{op:'delete'}` frame plus messenger events; file content is `GET /api/assets/:id/file/:filename` raw text.
@@ -103,7 +60,6 @@
 -   Open for PLAN: trust boundary for main-thread script execution; built-in catalog import semantics (copy vs live reference); code-editor `documents` collection scope; import-map injection point; visual-lab migration.
 
 ## 2026-08-21: PlayCanvas Engine, Editor, and Colyseus stable upgrade gate
-
 -   Research artifact created and reviewed: `memory-bank/research/playcanvas-engine-editor-colyseus-stable-upgrade-research-2026-08-21.md`. Source: manager-only PlayCanvas Engine, Editor, and Colyseus upgrade brief.
 -   Version decision: treat `playcanvas 2.21.4`, Editor `v2.30.4` with embedded Engine `2.21.3`, and Colyseus Core/SDK/Schema/transport `0.17.50/0.17.43/4.0.31/0.17.13` as a dated candidate, not an implementation freeze. Schema remains quarantined until 2026-08-25 04:10 UTC, and the same-day vendored Editor tag needs a separate soak/approval decision.
 -   Editor blockers: full recursive schema-v1 migration needs an owned/licensed catalog source; Code Editor needs ShareDB `documents`; Editor/Blank/Code Editor/Launch need individual config and route verdicts; five-minute artifact-token expiry can break late lazy assets; font generation requires a complete asset mutation pipeline; MCP stays disabled by default; automatic upstream migrations need checkpoint/recovery semantics.
@@ -114,7 +70,6 @@
 -   Planning implication: proceed to PLAN only after re-freezing versions/provenance and resolving schema ownership, surface capability policy, registry versioning, Zod/LocalPresence, and release-age/soak gates. Real browser/WebGL, iframe, ShareDB, artifact-lifetime, and multi-client WebSocket evidence is mandatory.
 
 ## 2026-07-19: Interpretation Network single system Structure and workspace templates
-
 -   Research artifact created: `memory-bank/research/interpretation-network-single-structure-and-templates-research-2026-07-19.md`.
 -   Settings decision: use `structureMode: multiple | singleSystem` in the strict `interpretationNetworkWorkspace` widget config. Metahub owns the source default, Application owns a materialized override/reset, and Workspace does not override the mode.
 -   Aggregate decision: one system Structure actually requires one server-owned Structure + canonical Interpretation + root Matrix cell. Create/resolve it through one idempotent workspace-RLS transaction with concurrency serialization; do not reuse the current three-client-request helper.
@@ -125,7 +80,6 @@
 -   External evidence: current React, MUI, React Router 6.30.4, Playwright, and PostgreSQL primary docs were refreshed through GitHub MCP in the original research run and rechecked through the built-in web tool in the resumed QA pass. Context7 OAuth failed originally, and no Context7 query tool was callable during resume.
 
 ## 2026-07-13: Interpretation Network configuration and runtime UX
-
 -   Research artifact created: `memory-bank/research/interpretation-network-configuration-runtime-ux-research-2026-07-13.md`.
 -   Core finding: the Structure multilingual edit issue is an initial-value key-resolution defect, not a limitation in the standard localized dialog; preserve the whole VLC through a field-ID/codename/runtime-key/`row.data` resolver.
 -   Configuration decision (QA-corrected 2026-07-14): the template supplies a seed/source default that is materialized into an application-local effective widget configuration; the runtime consumes that materialized value and a user's pane size is transient. This is not live metahub inheritance. Add a bounded accessible separator with a visible `setLayout` reset to the effective 50/50 default.
@@ -133,7 +87,6 @@
 -   Evidence decision: extend the existing product generator → fixture contract → drift check → imported snapshot/visual E2E pipeline; do not hand-edit the snapshot. Browser proof must include populated Structure, labels with end ellipsis, selection outline, resize/reset, keyboard path, localization, and responsive no-overflow checks.
 
 ## 2026-07-10: Interpretation Network hierarchical Matrix Table navigation
-
 -   Research artifact created: `memory-bank/research/interpretation-network-hierarchical-table-navigation-research-2026-07-10.md`. Brief: local Platformo Interpretation Network hierarchical table brief tracked outside the repository; source TZ: local Interpretation Network hierarchical table input plus screenshot QA input.
 -   Core finding: hierarchical Table is not just a `defaultMatrixView` change. The current template/fixture already default to `table`, but runtime fallback still defaults to `horizontalRows`, and `buildMatrixTableModel` still builds the table from independent `rowKey`/`colKey` axes instead of the focused `parentCellId` path.
 -   Screenshot finding: the full local set contains twelve PNGs, not two. They show the expected workflow: tree-to-table switch, breadcrumb chips, finite-depth ellipsis, upward breadcrumb navigation, hierarchy-derived row labels, colored child cells, right content/material pane, and an optional vertical toolbar. The raw address/CID-like diagnostic blocks visible in the legacy UI must not appear on normal published runtime surfaces.
@@ -142,7 +95,6 @@
 -   Evidence: Context7 confirmed current MUI Breadcrumbs collapse props and Playwright web-first assertion guidance; WAI-ARIA APG confirms breadcrumb landmark semantics; lmn.rs pages confirm table-oriented domain representation; local Elm source confirms path-stack navigation behavior as reference only.
 
 ## 2026-06-20: MMOOMM PlayCanvas Visual Linkup Lab
-
 -   Research artifact created and QA-updated: `memory-bank/research/mmoomm-playcanvas-visual-linkup-lab-research-2026-06-20.md`. Brief: local cross-project MMOOMM PlayCanvas Visual Linkup Lab brief, dated 2026-06-20; source TZ: local MMOOMM PlayCanvas Visual Linkup Lab input, dated 2026-06-20.
 -   Core finding: the visual lab should start as a second bound PlayCanvas project in the existing MMOOMM metahub fixture flow, not as a new package or new built-in entity kind. The low-risk first visual stack is `FOG_EXP2`, white translucent `StandardMaterial`, additive/emissive glow shell geometry, and low-band sphere/primitive geometry. CameraFrame, shader chunks, screen-space outlines, dither/noise, and custom post passes are valid but gated enhancements until projection and browser evidence prove them.
 -   Codebase risk finding: the current generator/contract/runtime path is still conceptually "one playable MMOOMM project + one published flight scene". PLAN must make project-row targeting, publish actions, manifest lookup, and widget published-scene selection deterministic by project identity before publishing or validating two PlayCanvas projects.
@@ -152,17 +104,9 @@
 -   Subagent QA follow-up (2026-06-20): clarified that PlayCanvas snippets are runtime-helper candidates, not proof of current Editor serialization; Editor-only lab acceptance now requires visible Editor/fullscreen canvas evidence plus serialized-scene assertions; PlayCanvas version authority wording now separates runtime package-local d.ts from vendored Editor metadata.
 -   Tooling note: Context7 and the web-search helper were requested but unavailable in this session (`unsupported call: mcp__context7`, `unsupported call: omniroute_web_search`). Official PlayCanvas docs/API/source plus local `playcanvas@2.18.1` d.ts were used instead. No application code or generated snapshot was edited in RESEARCH mode.
 -   Open PLAN decisions: Editor-only vs published vs runtime-visible lab; 16 recommended variants vs exactly 20; visual-only asteroid objects vs domain model asteroid types; whether generic runtime helpers belong in `@universo-react/playcanvas-engine` now or later.
--   Implementation update (2026-06-21): the accepted path is both
-    Editor-reviewable and runtime-visible. The generator authors 16 variants in
-    a second bound project (`MMOOMM Visual Linkup Lab`), publishes both projects,
-    and validates manifests by role/project identity. The runtime projection is
-    a generic extension of `@universo-react/playcanvas-engine` plus the existing
-    `apps-template-mui` `playcanvasCanvas` widget, driven by
-    `metadata.mmoomm.visualLab`. No new asteroid domain object types were added;
-    asteroid semantics are visual-lab metadata only for this slice.
+-   Implementation update (2026-06-21): the accepted path is both Editor-reviewable and runtime-visible. The generator authors 16 variants in a second bound project (`MMOOMM Visual Linkup Lab`), publishes both projects, and validates manifests by role/project identity. The runtime projection is a generic extension of `@universo-react/playcanvas-engine` plus the existing `apps-template-mui` `playcanvasCanvas` widget, driven by `metadata.mmoomm.visualLab`. No new asteroid domain object types were added; asteroid semantics are visual-lab metadata only for this slice.
 
 ## 2026-06-17: PlayCanvas metahub template + "Projects" entity type, MMOOMM snapshot regeneration
-
 -   Research artifact: `memory-bank/research/playcanvas-template-projects-entity-type-research-2026-06-17.md`. Brief: MANAGER cross-project brief (tracked outside the repository).
 -   Core finding: a new "Projects" section does NOT need a new builtin entity KIND. The 11 one-c-compatible presets are the precedent — registered presets with custom `kindKey`s, object-like capabilities, mapping to the OBJECT metadata surface and rendering through the generic entity UI. "Projects" = `kindKey: 'project'`, object-like-minimal, `sidebarSection: 'objects'`, `sidebarOrder < 10` (above Hub=10).
 -   The Entity Type Constructor (`EntitiesWorkspace.tsx`) is fully generic and exposes every field needed (kindKey, icon, tabs, sidebarSection, sidebarOrder integer, capability toggles with dependency graph, resourceSurfaces, behaviorProfile, preset selector). Menu + instance routing (`/entities/:kindKey/instances`) are data-driven — no menu/code edits to place "Projects" above Hubs.
@@ -173,7 +117,6 @@
 -   Recommended workflow: PLAN (this artifact is the required input). No blocking external unknowns; PlayCanvas Project model + open-source Editor frontend confirmed via vendor docs.
 
 ## 2026-06-16: OntoIndex code-intelligence adoption (CLI + MCP for AI agents)
-
 -   Research artifact: `memory-bank/research/ontoindex-code-intelligence-research-2026-06-16.md`. Brief: MANAGER cross-project brief (tracked outside the repository).
 -   Tool identity confirmed against primary README: OntoIndex is graph **code intelligence** (CLI/MCP/HTTP/web UI), AGPL-3.0-or-later, current project pin `v2.0.10`, node `20|22 LTS`, local-first `.ontoindex/` + `~/.ontoindex/`. NOT RDF/SPARQL, NOT runtime/business-data search.
 -   Version/port conflicts resolved: pin a version (currently `v2.0.10`) — README prose is not authoritative; serve port is **4747** (`3000` in the Gemini doc is stale from the LobeHub listing).
@@ -183,7 +126,6 @@
 -   QA pass (2026-06-16): artifact `Status: Reviewed`; OntoIndex facts re-verified against primary README (no change); corrected Claude Code MCP scope mechanics and Codex TOML distinction via official Claude Code + Codex docs.
 
 ## 2026-06-15: PlayCanvas Editor v2.23.4 → v2.24.2 upstream update and vendor governance
-
 -   Research artifact created: `memory-bank/research/playcanvas-editor-upstream-2-24-2-update-research-2026-06-15.md`.
 -   Source TZ and brief: MANAGER PlayCanvas Editor upstream-update materials (tracked outside the repository).
 -   Upstream diff confirmed: 8 commits, 42 files, peeled commit `00360100b3b5747648eb3d7287421ef25491f5c7`, upstream `playcanvas@2.19.5`, Node `>=22.22.0`. All other devDependencies identical to v2.23.4.
@@ -195,894 +137,494 @@
 -   Open questions to be resolved in PLAN: (1) vendor drift guard as package-local `editor:vendor-check` or root guard; (2) `.prettierignore` vs restricted root `format` glob; (3) browser smoke sub-assertion for new picker selectors inside existing `editor:browser-smoke` vs a separate script; (4) skip `engines.node` in this slice (use script-level `assertNodeVersion()`) or add it; (5) confirm v2.23.4 mentions in `memory-bank/{tasks,progress,currentResearch,plan,research}` are out of the active metadata guard's scope.
 
 ## 2026-06-15: PlayCanvas Editor v2.23.4 → v2.24.2 — PLAN artifact
-
--   Plan created: `memory-bank/plan/playcanvas-editor-upstream-2-24-2-update-plan-2026-06-15.md`.
--   8 phases, 57 checklist items, 542 lines. Linked to the reviewed RESEARCH artifact.
--   Phase 0 confirms `LICENSE` year range `2011-2026` and `engines.node >=22.22.0` stay valid; sibling worktree pattern (`~/dev/pc-editor-v2.24.2`) for safe `git archive` outside the `assertBuildScriptsDoNotInstall`-protected tree.
--   Phase 1 replaces the vendored source mirror (8 commits, 42 files) and refreshes `vendor/UPSTREAM.md`, `vendor/package.playcanvas-editor.json`, `vendor/LICENSE.playcanvas-editor`, `NOTICE.md`.
--   Phase 2 bumps the 3 in-tree constants (`scripts/lib/playcanvas-editor-artifact.mjs:10-12`, `src/index.ts:2-4`) and the unit-test expectations. Build goes green on first run.
--   Phase 3 propagates the new tag through the Zod schema (`playcanvasEditorCompatibility.ts:216`), 4 backend test sites, and the OpenAPI emitter; `index.yml` regenerated via `pnpm --filter @universo-react/rest-docs generate:openapi`.
--   Phase 4 updates the 9 PlayCanvas Editor Skills + 2 READMEs + `NOTICE.md`.
--   Phase 5 syncs the EN/RU GitBook docs (`docs/{en,ru}/platform/playcanvas-editor.md`) with the new picker selectors, the new `BuildJob` additive types, and a `picker:versioncontrol:hasRetainedDiff` troubleshooting note.
--   Phase 6 adds the 3 governance primitives: `tools/check-playcanvas-editor-metadata.mjs`, `tools/check-playcanvas-editor-vendor-drift.mjs`, `.prettierignore`; extends `playcanvas-editor-authoring` Skill with an "Upstream Update Governance" checklist.
--   Phase 7 runs the local minimal Supabase E2E (`pnpm supabase:e2e:start:minimal` → `pnpm env:e2e:local-supabase` → `pnpm run build:e2e` → `editor:build` → `editor:smoke` → `editor:browser-smoke` → `test:e2e:mmoomm-app-gate:local-supabase`); adds a v2.24.2 picker sub-assertion + screenshot to `e2e/editor-artifact.spec.ts`.
--   Phase 8 closes out: new `tasks.md` block, new `progress.md` entry, Canon Refresh of `techContext.md` (Last Reviewed 2026-06-15), Thermos/autoreview.
--   Out of scope (intentional): `@universo-react/playcanvas-engine` (runtime), metahub REST surface extension, `engines.node` field, `apps-template-mui`, i18n package, schema/template version bump, application version bump.
--   Decision: single PR (8 phases land together so CI is green at all times — phase 1 deliberately breaks the build until phase 2 lands).
--   QA pass on 2026-06-15: applied 23 fixes to the PLAN artifact, including 3 critical (naming unification to root-level `check:playcanvas-editor-*` matching `check:playcanvas-editor-isolation`; MMOOMM gate fallback protocol for blocked/known-difference scenarios; vendor-drift script designed as developer-local with CI no-op behavior; `pnpm format --check` replaced with valid `pnpm prettier --check`), 14 major (atomic vendor-tree replace, engines.node floor precondition, Skill workflow step 4 reconciliation, docs class-name TBD marker, `BuildJob` types framing in docs, previous-tag discipline, OpenAPI script name standardization, devDependencies/pnpm-workspace catalog "do not touch" rule, JSON comments deprecation, screenshot path unification, lockfile precondition, line-range precision, bridge `writeBridgeBootstrap` clarification, localStorage pre-existing-behavior note), and 6 minor (UUID v7 preservation note, `assertRootLockfileHash` precondition, `dist/editor` regenerated-vs-edited clarification, `check:package-naming` parity in closeout, `BuildJob` types risk-register wording, "one-line guard" → "version literal in Version Guard block" wording). Final artifact: 579 lines, 57 checklist items, `Status: Reviewed`-ready.
+-   PLAN handoff artifact: `memory-bank/plan/playcanvas-editor-upstream-2-24-2-update-plan-2026-06-15.md`; it implements the reviewed v2.24.2 research as one coordinated 8-phase change covering vendor replacement, metadata/types/OpenAPI propagation, skills/docs, update-governance guards, browser/E2E proof, and closeout.
+-   Durable planning constraints: keep runtime `@universo-react/playcanvas-engine` separate, avoid schema/template/application version bumps in this slice, preserve Node/lockfile/build-script safeguards, and land the vendor update atomically with its metadata/governance changes.
 
 ## 2026-06-10: MMOOMM PlayCanvas Editor main functionality and runtime projection
-
 -   Research artifact created: `memory-bank/research/mmoomm-playcanvas-editor-main-functionality-runtime-projection-research-2026-06-10.md`.
--   Scope confirmation: the active brief correctly targets a fully working main PlayCanvas Editor workflow plus browser-authored MMOOMM fixture generation, not another minimal compatibility slice.
 -   Capability gap: current Editor implementation has full-upstream UI boot foundations, metahub project storage, scene/settings persistence, and single-user ShareDB-compatible snapshot persistence, but still lacks broad binary asset pipeline, Code Editor sourcefile support, durable ShareDB op history, real multi-user collaboration, and version-control surfaces.
--   Implementation update: the canonical `tools/fixtures/metahubs-mmoomm-app-snapshot.json` is now generated by a browser-first Playwright flow that creates the metahub, connects packages, authors the domain model and modules through UI surfaces, opens PlayCanvas Editor, applies the MMOOMM scene through an iframe-local authoring control, publishes the project, configures layout widgets, exports the snapshot, and proves import/runtime replay.
--   Runtime import closure: publication snapshot generation now aligns PlayCanvas canvas widget `runtimeManifest` bindings with the final generated runtime manifest checksums before saving publication versions, preventing restored snapshots from showing an unavailable 3D scene after application sync.
 -   QA-updated on 2026-06-10: added the source TZ clean-test-DB/refactor/no-schema-template-bump constraint, existing Resources/Packages/PlayCanvas project/Modules UI paths, publication hash/application sync gates, script lifecycle/runtime cleanup evidence, DB/DDL/package ownership safeguards, root-build/Editor-artifact decision points, and Thermos/autoreview expectations.
 -   Planning implication: the next PLAN must start with the step-by-step browser product journey, then map it to a main Editor capability matrix, explicitly separate optional PlayCanvas Cloud/commercial extras from required user-facing Editor behavior, and reuse/generalize the existing MMOOMM runtime Playwright oracle for the new Editor-authored fixture.
 
 ## 2026-06-05: PlayCanvas Editor upstream UI full boot
-
 -   Research artifact created: `memory-bank/research/playcanvas-editor-upstream-ui-full-boot-research-2026-06-05.md`.
--   Scope correction: the vendored upstream Editor already contains the real PCUI/DOM hierarchy, inspector, assets panel, toolbar, viewport controls, chat, settings, and viewport modules; the next work must not rebuild those panels in MUI.
--   Current symptom: the visible empty canvas plus `Add Entity` experience is the bridge-minimal/fallback path, not successful full upstream Editor boot.
 -   Blocking contract: current `universo-hosted` config points realtime, messenger, and relay to `/disabled`, while the backend slice explicitly leaves WebSocket runtime outside scope; upstream scene loading depends on realtime authentication and document loading.
 -   Planning implication: the next PLAN must target a full upstream UI boot mode with real same-origin config/realtime/messenger behavior, Playwright screenshots, DOM/network/WebSocket tracing, and an acceptance gate that fails if only the fallback UI appears.
 
 ## 2026-06-05: PlayCanvas Editor minimal compatibility backend
-
 -   Research artifact created: `memory-bank/research/playcanvas-editor-minimal-compatibility-backend-research-2026-06-05.md`.
--   QA-reviewed on 2026-06-05: clarified that no PLAN artifact exists yet, upstream `.nvmrc` pins Node `22.22.3`, the current hosted `window.config` is bridge-only evidence, candidate REST endpoints remain unverified until browser tracing, and ShareDB cannot use default in-memory persistence outside tests/demos.
 -   Scope decision: the next slice is not another bounded postMessage bridge extension; it is an upstream-compatible backend investigation for shell/config, REST facade, ShareDB realtime, messenger stubs, and metahub-scoped persistence.
--   Upstream prerequisite: update the vendored Editor from `v2.22.1` to at least `v2.23.4` and repeat boot/network/WebSocket tracing after the update; upstream package metadata requires Node `>=22.22.0`.
 -   Core finding: unmodified upstream Editor expects a broad `window.config`, PlayCanvas-shaped REST endpoints, ShareDB collections for `scenes`, `assets`, and `settings`, and a separate messenger WebSocket. A pure REST save or current bridge command API is not enough for full upstream UI behavior.
--   Architecture implication: a separate `@universo-react/playcanvas-editor-backend` package is justified only if it owns PlayCanvas-compatible protocol logic while receiving metahub access, schema, storage, file, and package-attachment adapters from `metahubs-backend`.
--   Storage implication: existing `_mhb_playcanvas_*` tables are reusable candidates, but PLAN must decide whether ShareDB requires a new branch-scoped document/op persistence layer or can translate safely into existing scene/asset/settings records.
 -   Implementation follow-up: the corrective slice keeps ShareDB persistence explicitly `not-implemented`, validates compatibility contracts with Zod, adds a separate `@universo-react/playcanvas-editor-backend` package, and exposes manager-only same-origin `/playcanvas/editor-compatible/...` REST routes for config, scenes, assets, settings, and typed cloud-only no-op surfaces while continuing to persist scene edits through secured metahub PlayCanvas storage.
--   Layer implication: metahub branch owns authoring records, package attachment config owns display/default-project settings, and runtime manifests remain publication outputs; this slice is Platformo authoring infrastructure, not workspace end-user content.
 -   QA implication: acceptance needs browser evidence for real upstream boot, stable realtime/messenger behavior, visible hierarchy/inspector/viewport, one mutation, persistence, reload/reopen, security negatives, and no layout overflow.
 
 ## 2026-06-04: PlayCanvas Editor runtime host, bridge, and storage adapter
-
 -   Research artifact created: `memory-bank/research/playcanvas-editor-runtime-host-bridge-storage-adapter-research-2026-06-04.md`.
--   QA-updated on 2026-06-04 with stricter bridge schema guidance, corrected script/generated route coverage, explicit opaque-origin `postMessage` target-origin handling, local Editor/runtime docs coverage, and an open `@universo-react/utils` scope question.
 -   Scope decision: proceed to PLAN only after treating the first implementation as a proof of the real Editor host seam, not as full PlayCanvas Cloud parity.
 -   Critical finding: the current `@universo-react/playcanvas-editor-frontend` artifact is still intentionally `artifact-only`; the build overwrites `dist/editor/index.html` with a safe unavailable page, so implementation must add a real supported artifact mode and manifest/readiness contract before the iframe can become usable.
--   Upstream integration implication: vendored Editor source depends on injected `window.config`, REST globals, realtime scene/asset flows, and script parse pipeline acknowledgements, so pure postMessage-only storage is not proven sufficient without a deliberate Editor seam or shim.
 -   Bridge/security implication: the current iframe sandbox can produce opaque-origin messaging; the bridge must validate `event.source`, session nonce/expiry, schema, request ids, and capabilities, and any `allow-same-origin`/CSP relaxation must be an explicit security decision.
--   Storage implication: the adapter must preserve existing PlayCanvas project write ordering and checksum guards: metadata path first, guarded file write second, metadata/status refresh third, with localized conflict states.
--   Runtime implication: Editor save remains metahub authoring state only; publish/export/application sync stay explicit and must not be triggered silently by save.
 -   Implementation closure: the first real hosted bridge slice is now implemented with request-bound iframe bootstrap, typed session-backed bridge commands, replay/idempotency handling, metadata-first scene persistence with guarded file writes, browser smoke, and local minimal Supabase `@packages` E2E evidence.
 
 ## 2026-06-03: PlayCanvas project storage model for metahubs
-
 -   Research artifact created: `memory-bank/research/playcanvas-project-storage-model-for-metahubs-research-2026-06-03.md`.
 -   Scope decision: plan PlayCanvas project storage as a metahub authoring store before Editor bridge/adapter work; do not store scene/asset/script payloads in package attachment config or application runtime sync by default.
--   Recommended model candidate: hybrid branch-scoped DB metadata for projects/scenes/assets/script links plus a separate provider-backed PlayCanvas project file store for scene files, asset payloads, and generated `.js/.mjs` artifacts.
--   Existing file-backed Modules are now an implemented dependency: keep TS/TSX source ownership in Modules, reference them from PlayCanvas script assets through remappable module ids plus stable logical identifiers, and track generated artifacts separately.
--   Lifecycle implication: snapshot export/import, metahub copy/delete, file remap/rollback, and canonical publication hash updates must be planned together; unknown PlayCanvas snapshot fields will not affect runtime sync unless normalized into `publicationSnapshotHash.ts` or existing hashed fields.
 -   Runtime implication: the current `playcanvasCanvas` widget is module/widget-driven, not Editor scene-driven. Publication should produce a normalized runtime manifest or explicit widget projection; direct Editor scene JSON consumption requires separate stability/versioning proof.
 
 ## 2026-06-01: Modules as external files for PlayCanvas-ready authoring
-
 -   Research artifact created: `memory-bank/research/modules-external-files-playcanvas-research-2026-06-01.md`.
 -   Scope decision: implement file-backed Modules as a backend source-resolution/file-service contract, not as a simple `sourceKind` enum flip or a PlayCanvas Editor asset bridge.
 -   Storage recommendation: keep `sourceKind` semantics stable in the first slice and add a distinct physical storage contract such as `storageMode: inline | file`, with path/checksum/status metadata and explicit inline/file conversion actions.
--   Schema implication: `_mhb_modules` changes must go through the metahub system-table version/migrator path for existing schemas, not only baseline DDL edits.
--   Lifecycle invariant: authoring, compile, export, and publication creation may read current external file content, but `_app_modules` runtime remains bundle-only; file edits do not change an already published application until explicit recompile/publish creates a new snapshot/hash.
--   Snapshot/template implication: extend the snapshot module transport schema, canonical snapshot hash normalization, and template seed contract deliberately; current optional `sourceCode` and template `sourceKind: external` allowance are not sufficient and can create mixed, skipped-sync, or unrecoverable states.
--   Copy implication: metahub copy must add file-copy/remap/rollback behavior coordinated with DB schema cloning, otherwise copied metahubs can point at the original file tree.
 -   PlayCanvas implication: TS/TSX external module files are only future source inputs; Editor script assets still need generated JS/ESM artifacts, asset ids, virtual paths, hashes, and script-attribute metadata handling in a later bridge/storage brief.
 
 ## 2026-06-01: PlayCanvas Editor metahub authoring surface settings
-
 -   Research artifact created: `memory-bank/research/playcanvas-editor-metahub-authoring-surface-settings-research-2026-06-01.md`.
--   Scope decision: implement the next PlayCanvas Editor integration slice as metahub design-time package settings plus a safe artifact host, not scene/project persistence, Editor backend emulation, typed bridge, Colyseus authoring, or MCP/AI automation.
 -   Storage recommendation: add validated per-attachment config directly to `metahubs.rel_metahub_packages` with a versioned JSON envelope, and add a separate package-version authoring/display descriptor outside `source.runtimeTargets`.
--   Lifecycle implication: copy, metahub snapshot export, and metahub snapshot import must preserve package display settings in the same slice; runtime publication propagation through `_app_packages.config` should remain deferred unless PLAN explicitly expands sync/diff contracts.
--   UI implication: extend the existing Packages tab with typed localized settings and an honest `Open editor` host action; do not expose raw JSON/IDs/paths/URLs, and prove no horizontal overflow or iframe interaction traps.
 -   Static serving implication: the Editor artifact route must be reserved, traversal-safe, mounted before the core SPA fallback, and guarded with explicit availability checks, CSP/frame/sandbox/referrer/cache/content-type policy.
 
 ## 2026-05-31: PlayCanvas Editor package foundation
-
 -   Research artifact created: `memory-bank/research/playcanvas-editor-package-foundation-research-2026-05-31.md`.
 -   Scope decision: first slice should create a private `@universo-react/playcanvas-editor-frontend` artifact package, not a MUI component library and not a metahub storage/API bridge.
 -   Package-boundary decision: use an Universo-owned top-level manifest at `packages/universo-react-playcanvas-editor-frontend/`; keep upstream `playcanvas/editor` source isolated so upstream `package.json` does not blindly drive pnpm workspace install or catalog checks.
 -   Build implication: do not include the package in root `pnpm build` until Node, pnpm, Turbo output, catalog, and supply-chain constraints are proven. Start with package-local build/smoke commands.
--   Upstream conflict: Editor README says Node 18+, but current upstream `package.json` requires Node `>=22.22.0`; local root requires Node `>=22.6.0`.
--   Upstream snapshot: current `playcanvas/editor` `main` was observed at commit `92ce00254db223e33ee72fda3ad01979bee714b7`, package version `2.22.1`; future PLAN should pin a commit/tag or re-verify before implementation.
--   License implication: upstream Editor is MIT, but vendoring/bundling must preserve the PlayCanvas Ltd. copyright/license notice.
--   Smoke-mode implication: upstream `use_local_frontend` loads a local frontend bundle inside `playcanvas.com/editor/...`; it is not proof of a self-contained offline Editor or Universo backend/API bridge.
--   Serving implication: future static serving should mount a reserved Editor artifact route before the core frontend SPA fallback and define explicit CSP/cache/content-type headers; MUI/core may host only a thin iframe container.
 -   Integration implication: do not seed `@universo-react/playcanvas-editor-frontend` into the metahub package registry or use Modules/external files for the Editor app in the foundation slice.
 
 ## 2026-05-28: MMOOMM flight simulator metahub configuration
-
 -   Research artifact created: `memory-bank/research/mmoomm-flight-simulator-metahub-research-2026-05-28.md`.
--   Research artifact updated after re-reading the original MMOOMM foundation TZ text, the flight-simulator narrowing TZ text, the embedded flight-simulator brief, and the prior `.backup/` MMOOMM research.
 -   Scope decision: implement the first playable MMOOMM flight simulator as a metahub configuration that attaches the existing `@universo-react/playcanvas-engine`, `@universo-react/colyseus-client`, and `@universo-react/colyseus-server` packages; do not create an MMOOMM-specific workspace package.
 -   Repository finding: package registry seeding, publication snapshot serialization, and snapshot restore already support package dependencies, while `apps-template-mui` does not yet have a generic PlayCanvas canvas widget.
--   Historical correction: old backup packages such as `@universo/multiplayer-colyseus-backend` and `@universo/template-mmoomm` are evidence of prior exploration, but the current implementation must not revive those MMOOMM-specific package boundaries.
--   Sequencing correction: Scripts-to-Modules rename is already completed, so it is not a prerequisite for this flight-simulator PLAN.
--   Implementation implication: PLAN must trace the module package-import path and decide where Colyseus room classes compiled from metahub Modules are registered at runtime before coding the room/client bridge.
 -   QA implication: the generated snapshot must be a real importable product artifact and browser evidence must prove nonblank PlayCanvas rendering, click-to-move, stop, follow-camera zoom/orbit, observer sync, and no runtime layout overflow.
 
 ## 2026-05-27: MMOOMM 3D and multiplayer project-local skills
-
 -   Research artifact created: `memory-bank/research/mmoomm-3d-multiplayer-skills-research-2026-05-27.md`.
--   Final PLAN baseline: four project-local skills, `playcanvas-engine-runtime`, `colyseus-authoritative-multiplayer`, `browser-3d-runtime-integration`, and `browser-game-runtime-qa`; QA checks are independently triggerable because MMOOMM will repeatedly need browser 3D/multiplayer evidence.
--   Version invariant: the skills must anchor to the existing foundation wrappers: `@universo-react/playcanvas-engine` -> `playcanvas@2.18.1`, `@universo-react/colyseus-client` -> `@colyseus/sdk@0.17.42`, and `@universo-react/colyseus-server` -> `@colyseus/core@0.17.43`.
 -   Source decision: use `freshtechbro/claudedesignskills` only as MIT-licensed inspiration for boundaries and patterns; do not import vendor-specific `.claude/skills` layouts, slash-command flows, marketplace instructions, or verbatim content.
 -   Scope decision: PlayCanvas Editor, PCUI/Graph, Blender/asset-pipeline, React Three Fiber, and external skill installation remain deferred outside the MMOOMM MVP skill foundation.
 
 ## 2026-05-26: 1C-Compatible metahub template
-
 -   Research artifact created and updated: `memory-bank/research/1c-compatible-metahub-template-research-2026-05-26.md`.
 -   Scope decision: use `1C-Compatible` as the user-facing template name. This supersedes the earlier neutral-name recommendation.
--   Legal wording implication: the name can be planned as a product decision, but UI/docs must not imply official 1C certification, endorsement, partnership, or logo rights unless those are actually granted; avoid importing 1C code, configurations, table layouts, or UI assets.
--   Architecture decision: implement the new template as an opt-in set of specialized presets with reusable typed behavior configs (`singleValue`, `catalogBehavior`, `documentBehavior`, `documentPosting`, `journalBehavior`, `registerBehavior`, and roadmap chart/calculation configs); do not extend `ObjectRecordBehavior` as the primary model and do not change the default `basic`, `basic-demo`, or `lms` templates.
--   Phasing recommendation: first strengthen Object/Ledger behavior contracts and ship the core usable subset (Constant, reused Enumeration, Catalog, Document, Document Journal, Information Register, Accumulation Register), then add Chart of Accounts, Chart of Characteristic Types, Accounting Register, and finally Calculation Type/Register semantics.
 -   Planning implication: PLAN must resolve Constants storage, posting expression model, accumulation totals consistency, and Document Journal view/query strategy before implementation steps are finalized.
 
 ## 2026-05-20: LMS Learning Content product roadmap after V2
-
 -   Research artifact created: `memory-bank/research/lms-learning-content-product-roadmap-research-2026-05-20.md`.
--   Scope correction: the previous V2 implementation already delivered the core metadata/runtime groundwork, so the next PLAN should focus on product coherence, author/learner workflows, and user-friendly MUI surfaces rather than rebuilding the Learning Content object model from scratch.
--   Source-backed iSpring target: Learning Content is a project-centered authoring workbench with Recent, Starred, Shared with me, Projects, standalone content, Pages, Course Builder, Learning Track Builder, enrollments, Trash, custom fields, and content-type-specific status semantics.
 -   Repository-specific decision candidate: keep Workspaces as the operational boundary and keep iSpring-like Projects as workspace-scoped `ContentProjects`; improve generic `records.union`, `detailsTable`, `relationBuilder`, runtime record pickers, player/progress/status descriptors, Trash restore, and column/report metadata before adding any LMS-only UI.
 -   UX implication: the follow-up PLAN must include a UI Contract for Learning Content workbench, project/access dialogs, page authoring, course/track builders, enrollment wizard, learner player, Trash, column settings, and application Learning Content settings, with browser evidence across desktop/tablet/mobile and no raw IDs/JSON/object cells.
 
 ## 2026-05-19: AI agent workflow for user-friendly MUI runtime UI
-
 -   Research artifact created: `memory-bank/research/ai-agent-mui-ux-workflow-research-2026-05-19.md`.
--   Root finding: the LMS UI defects were not MUI limitations; they were missing UX semantics and missing test oracles. A raw owner ID input, raw JSON cover cell, and single-line Description can all pass functional tests unless the workflow explicitly forbids them.
 -   Workflow decision candidate: keep root agent instructions short, add project-local MUI runtime UX and runtime UX QA skills, and require UI plans/implementations/QA to include field-control contracts, DataGrid display contracts, localized validation checks, responsive browser proof, and anti-technical-leakage assertions.
--   Cross-agent decision candidate: use `.agents/skills` as the portable workflow layer and `.agents/agent-profiles` as the shared authoring layer, but create full self-contained native subagent/custom-agent files for actively used tools (`.codex/agents`, `.gemini/agents`, `.claude/agents`, `.github/agents`) instead of thin wrappers that only link back to shared files.
 -   Testing implication: focused Playwright helpers should assert no raw user-facing IDs, no raw JSON/object cells, multiline semantic long-text fields, localized error messages, and no page-level horizontal overflow across realistic viewports.
 
 ## 2026-05-18: LMS runtime copy UI integration
-
 -   Implementation outcome: published-app Copy actions now call the generic runtime copy endpoint instead of recreating copied rows through `createRow`.
--   UI invariant: copy dialog override values are sent as safe copy `data`, while the backend still owns metadata-defined relation copy, child-table copy, workspace scoping, lifecycle hooks, and validation.
--   Safety invariant: Copy requests pass `_upl_version` as `expectedVersion` when available, and stale-version copy attempts fail before runtime insert.
 -   Backend invariant: copy overrides are normalized through the same component metadata coercion, read-only REF label protection, fixed set-constant protection, record-picker validation, required-when validation, date derivation, and date-order validation used by create/update flows.
 -   Validation proof: focused applications-backend copy route tests, apps-template API/hook Vitest coverage, lint, and package builds passed on Node 22.
 
 ## 2026-05-18: LMS runtime copy relations
-
 -   Implementation outcome: Phase 7 course copy semantics and the matching Phase 9 track copy behavior are now closed through a generic runtime copy relation contract.
--   Backend invariant: runtime row copy commands may read Object metadata from `config.runtimeCopy.relations`, resolve target Objects/components by codename, and copy only explicitly declared related rows.
 -   Safety invariant: relation copy fails closed for invalid Object, parent-field, order-field, or reference-remap metadata; linked learning resources, enrollments, progress, reports, and audit-like rows are not copied unless metadata declares them.
--   LMS invariant: Courses copy CourseSections and CourseItems, with CourseItems.SectionId remapped to the copied CourseSections; LearningTracks copy TrackStages and TrackSteps, with TrackSteps.StageId remapped to the copied TrackStages.
--   Fixture invariant: the LMS fixture contract rejects generated snapshots that omit Course or LearningTrack runtime copy relation metadata.
 -   Validation proof: focused backend route coverage, applications/metahubs package lint and builds, template validator, fixture contract ESLint, full local-Supabase E2E build, Playwright snapshot generation, and imported LMS runtime flow passed on Node 22.
 -   Remaining implementation focus: close the remaining Phase 6/7/8/9/12 checklist labels that are still broader than the now-implemented copy/progress slices.
 
 ## 2026-05-18: LMS explicit runtime progress actions
-
 -   Implementation outcome: the Phase 8 explicit complete/recalculate action gap is closed through the existing generic runtime progress endpoint.
 -   Backend invariant: `POST /runtime/progress/content` now accepts `action: update | complete | recalculate`; update remains backward compatible, complete derives 100 percent completed progress server-side, and recalculate refuses browser-supplied progress/status values.
--   Recalculation invariant: parent Course/Track progress is recomputed only from `runtimeProgress.aggregateParents`, resolved metadata columns, and server-owned ContentProgress rows.
 -   Safety invariant: recalculation fails closed with `PROGRESS_RECALCULATION_UNAVAILABLE` when metadata is missing and keeps invalid aggregation metadata behind `PROGRESS_AGGREGATION_INVALID`.
--   UI invariant: the generic learner player Complete button posts an explicit `complete` action while preserving the existing MUI player surface.
--   Validation proof: focused backend route tests, app-template API/widget Vitest tests, package lint, and package builds passed on Node 22.
 -   Remaining implementation focus: close stale Phase 6/7/9/12 checklist labels and run any final browser screenshot matrix gaps tracked in `memory-bank/tasks.md`.
 
-## 2026-05-17: LMS parent progress aggregation closure
+## 2026-05-18: LMS Track Learner Player Implementation Note
+### Notes
+-   The Course Builder learner player was already generic enough for Track Builder except for target object resolution.
+-   This keeps LearningTracks and TrackSteps inside the workspace-scoped published app runtime and avoids an LMS-specific player widget.
 
+## 2026-05-17: LMS parent progress aggregation closure
 -   Implementation outcome: the next Phase 8 gap is closed with generic runtime progress aggregation from child records into parent records.
 -   Backend invariant: `runtimeProgress.aggregateParents` recalculates parent progress in the same transaction as the child progress write, using the existing ContentProgress store and parameterized SQL over resolved metadata columns.
--   Safety invariant: invalid aggregation metadata fails closed with `PROGRESS_AGGREGATION_INVALID`; aggregation only writes through server-owned runtime progress persistence and never trusts browser-selected physical tables.
--   LMS invariant: CourseItems aggregate required weighted progress into Courses, and TrackSteps aggregate required step progress into LearningTracks through template metadata.
 -   Fixture invariant: the LMS fixture contract rejects CourseItems or TrackSteps without `runtimeProgress.aggregateParents`.
--   Validation proof: focused backend route coverage, package lint/build, template validator, Playwright snapshot generation, `build:e2e`, and imported LMS runtime flow passed on Node 22 with the local minimal Supabase E2E profile.
 -   Remaining implementation focus: explicit recalculate actions, deeper learner-player behavior, Trash/restore operations, and visual documentation polish remain tracked in `memory-bank/tasks.md`.
 
 ## 2026-05-17: LMS enrollment due-date derivation closure
-
 -   Implementation outcome: the remaining Phase 10 enrollment wizard due-date gap is closed with generic metadata-driven date-offset derivation.
 -   UI invariant: `FormDialog` can derive hidden date fields from `uiConfig.derivedDateOffset`, so `DueDateMode=ForPeriod` submits a computed `DueDate`, while `DueDateMode=NoDueDate` submits a clear value without exposing raw JSON or LMS-only form logic.
--   Backend invariant: runtime row creation can apply Object-level `config.runtimeDerivations.dateOffset` before date-order validation and SQL insert, keeping direct API and UI-created rows aligned.
--   LMS invariant: Enrollments derive `DueDate` from `EnrolledAt + DuePeriodDays` for period-based deadlines and clear `DueDate` when no deadline is selected.
--   Validation proof: focused `FormDialog` Vitest, `applicationsRoutes` Jest, package lint/build, `build:e2e`, the Playwright LMS generator, and the imported LMS runtime flow all passed on Node 22 with the local minimal Supabase E2E profile.
 -   Later slices closed parent progress aggregation; remaining implementation focus is explicit recalculate actions, deeper learner-player behavior, and visual documentation polish.
 
 ## 2026-05-17: LMS generic learner player shell
-
 -   Implementation outcome: Course Builder now includes a metadata-defined `learnerPlayer` widget that reads Courses as the parent datasource and CourseItems as the playable outline.
 -   UI invariant: the player reuses MUI layout primitives, existing resource preview rendering, Editor.js page block rendering, and localized dashboard strings; it does not introduce an LMS-only page shell.
--   Runtime invariant: CourseItems target content through configurable codename fields such as `TargetObjectCodename` and `TargetRecordId`, and completion is persisted through the existing runtime progress endpoint.
--   Data invariant: published runtime rows may arrive with generated physical component field names, so the player maps API column codenames back to stable metadata field names before applying sequence, target, and title logic.
--   Sequence invariant: locked CourseItems remain visible in the outline but cannot be completed or opened in the content pane until the sequence policy marks them available.
 -   Fixture invariant: the LMS fixture contract now rejects Course Builder layouts without a generic learner-player tab over Courses and CourseItems.
 -   Browser proof: the imported LMS runtime flow includes a Course Builder Player tab screenshot and verifies CourseItems progress persistence through `/runtime/progress/content`.
 
 ## 2026-05-17: LMS server-owned sequence progress guard
-
 -   Implementation outcome: direct progress writes now enforce metadata-defined sequence availability for runtime targets before inserting or updating the generic progress store.
--   Metadata invariant: Objects may declare `config.runtimeProgress.sequencePolicy`; CourseItems use `scopeFieldCodename=CourseId`, and TrackSteps use `scopeFieldCodename=TrackId`.
--   Security invariant: invalid `runtimeProgress.sequencePolicy` metadata fails closed with `SEQUENCE_POLICY_INVALID`; locked targets fail with `SEQUENCE_ITEM_LOCKED` before progress persistence.
 -   SQL invariant: sequence evaluation uses existing metadata components to resolve safe column identifiers, generated lowercase aliases for selected dynamic fields, parameterized scope filters, and workspace-aware progress lookup.
 -   Fixture invariant: the LMS fixture contract now rejects CourseItems or TrackSteps without runtime sequence guard metadata.
--   Browser proof: the Playwright-generated LMS snapshot was regenerated after the guard metadata change, `build:e2e` passed, and the imported runtime flow passed through the local minimal Supabase E2E profile.
 -   Remaining implementation focus: fuller learner-player UX and learner-player screenshot coverage remain tracked in `memory-bank/tasks.md`.
 
 ## 2026-05-17: LMS scoped sequence availability in generic details tables
-
 -   Implementation outcome: Course Builder and Track Builder completion tabs now surface sequence availability through the existing `detailsTable` DataGrid widget.
 -   Shared contract invariant: `sequencePolicy.scopeFieldCodename` groups availability evaluation by a parent record such as `CourseId` or `TrackId`, so rows from different courses or tracks do not lock each other.
--   UI invariant: availability is rendered with existing MUI DataGrid/Chip primitives and localized labels; no custom LMS-only player table was introduced.
--   Template invariant: CourseItems completion tables use `scopeFieldCodename=CourseId`, and TrackSteps completion tables use `scopeFieldCodename=TrackId`.
 -   Fixture invariant: the LMS fixture contract rejects completion tabs that omit scoped sequential metadata.
--   Browser proof: the Playwright-generated LMS snapshot was regenerated after the scoped sequence policy change, `build:e2e` passed, and the imported runtime flow passed through the local minimal Supabase E2E profile.
 -   Remaining implementation focus: fuller learner-player behavior, direct locked-item API rejection, Trash/restore operations, and final learner-player screenshot coverage remain tracked in `memory-bank/tasks.md`.
 
 ## 2026-05-17: LMS course and track enrollment list tabs
-
 -   Implementation outcome: Course Builder and Track Builder enrollment tabs now combine scoped `relationBuilder` authoring with a generic `detailsTable` enrollment list.
--   UI invariant: the list uses existing published-app DataGrid/table primitives and metadata-defined `records.list` datasources; no LMS-only enrollment table component was introduced.
--   Data invariant: course and track enrollment lists are filtered by canonical `TargetType` values while the relation builder still scopes new rows to the selected parent `TargetId`.
 -   Fixture invariant: the LMS fixture contract now rejects Course Builder or Track Builder layouts that omit the enrollment list widget or use the wrong target-type filter.
--   Browser proof: the local Supabase LMS snapshot import/runtime flow passed after the published Enrollments tabs rendered the generic DataGrid list for course and track rows.
 -   Remaining implementation focus: richer learner player/progress behavior, Trash/restore operations, and final visual documentation screenshots remain tracked in `memory-bank/tasks.md`.
 
 ## 2026-05-17: LMS catalog-ready course and track metadata
-
 -   Implementation outcome: Courses and LearningTracks now expose metadata-driven catalog readiness fields through the existing Object/component model.
 -   Shared contract invariant: catalog publication policy is validated by `catalogPublicationPolicySchema` with only `disabled` and `open` self-enrollment modes; approval workflows remain explicitly deferred.
--   Template invariant: `CatalogVisible`, localized `CatalogCategory`, localized `CatalogAudience`, and `SelfEnrollmentMode` are regular metadata components, so the implementation does not add an LMS-only runtime branch.
--   Fixture invariant: the Playwright LMS generator seeds realistic bilingual catalog metadata, and the fixture contract rejects missing or unsupported course/track catalog policy values.
--   Browser proof: the regenerated LMS snapshot and imported runtime flow passed on the local minimal Supabase E2E profile after the catalog policy metadata was added.
 -   Remaining implementation focus: enrollment list tab/export, richer learner player/progress, Trash/restore operations, and final visual documentation screenshots remain tracked in `memory-bank/tasks.md`.
 
 ## 2026-05-17: LMS enrollment wizard and conditional due-date closure
-
 -   Implementation outcome: course and track enrollment creation now uses a generic metadata-defined `createWizard` in the shared relation-builder form.
--   UI invariant: conditional enrollment parameters are driven by `visibleWhen` and `requiredWhen` metadata; hidden stale values are omitted from create/update payloads.
 -   Backend invariant: conditional required fields are enforced by reusable Object-level `runtimeValidations.requiredWhen` before runtime row create, single-field update, and bulk update persistence.
--   LMS invariant: `DueDate` is required for `DueDateMode=ByDate`, and `DuePeriodDays` is required for `DueDateMode=ForPeriod`; the runtime controller remains LMS-agnostic.
--   Browser proof: the regenerated Playwright LMS snapshot and imported runtime flow passed on the local minimal Supabase E2E profile after the validation metadata was added.
 -   Remaining implementation focus: broader learner-player behavior, richer catalog/self-enrollment policy, Trash/restore operations, and final Learning Content documentation screenshots remain tracked in `memory-bank/tasks.md`.
 
 ## 2026-05-17: LMS enrollment validation and permission proof
-
 -   Implementation outcome: Enrollments now use generic Object-level `runtimeValidations.dateOrder` metadata, enforced by the runtime rows controller before create/update persistence.
--   Backend invariant: date-order validation applies to create, single-field update, and bulk update by merging the pending patch with the current row before SQL mutation.
 -   Security invariant: direct runtime enrollment creation still depends on generic `createContent`; focused route coverage proves member-role calls fail with `403` before runtime metadata reads.
--   LMS invariant: `DueDate` must be on or after `EnrolledAt`; the validation remains metadata-defined and can be reused by other Objects without LMS-specific code.
--   Browser proof: the Playwright-generated LMS fixture and imported runtime flow passed after the validation config was added to the template.
 -   Remaining implementation focus: full guided Enrollment Wizard, due-for-period/no-due-date wizard UX, and full course/track learner-player behavior remain open in `memory-bank/tasks.md`.
 
 ## 2026-05-17: LMS Learner enrollment visibility
-
 -   Implementation outcome: the LMS home page now exposes learner-facing My Courses and My Tracks through generic `detailsTabs`/`detailsTable` widgets, not through an LMS-only runtime component.
--   Runtime invariant: `records.list` filters may resolve `{{runtime.currentUserId}}` or `{ runtime: 'currentUserId' }` against the authenticated runtime context before parameterized SQL is built.
 -   Workspace seed invariant: personal workspace seed rows may resolve the same current-user token against the workspace owner, so generated LMS snapshots can contain portable user-scoped seed data without hardcoded user IDs.
--   Data-model invariant: Enrollments include hidden `AssignedUserId` for user scoping and `TargetTitle` for stable learner display, while canonical target identity remains `TargetType` plus `TargetId`.
--   UI invariant: published dashboard pages with Editor.js Page blocks must still render standalone center widgets from metadata layouts; Page content is not an exclusive replacement for the center column.
 -   Browser proof: the local Supabase LMS snapshot import/runtime flow passed with My Courses/My Tracks visibility, course/track enrollment rows, page blocks, builder tabs, inline linking, reorder, progress, and workflow actions.
 -   Remaining implementation focus: full guided Enrollment Wizard, direct enrollment permission proof, broader due-date validation, and full course/track learner-player behavior remain open in `memory-bank/tasks.md`.
 
 ## 2026-05-17: LMS Manual Enrollment Foundation and enrollment warnings
-
 -   Implementation outcome: Course Builder and Track Builder now use the generic `relationBuilder` for scoped enrollment authoring instead of an LMS-only enrollment UI.
--   Runtime invariant: `relationBuilder.createDefaults` may provide metadata-defined defaults for new child rows, but the selected parent field remains authoritative and is enforced again before create/update mutations.
 -   Data-model invariant: Enrollments now target content/course/track records through `TargetType` and `TargetId`; the canonical LMS fixture uses `ContentNodeIdRef` for content rows and no longer seeds a separate `Modules` object.
--   Workspace seed invariant: polymorphic `TargetId` values must be remapped by sibling `TargetType` during workspace creation so imported LMS snapshots never leak template-level record IDs into workspace runtime rows.
--   Published-app API invariant: runtime REF/enumeration option codenames may arrive as localized text objects from imported metadata and must be normalized before response validation.
 -   Browser proof: the local Supabase LMS snapshot import flow passed with Course Builder and Track Builder active-enrollment warnings, scoped course/track enrollment rows, inline linking, reorder, page progress, and workflow actions.
 -   Later slices closed the Enrollment Wizard, learner "My Courses" visibility, direct enrollment permission proof, due-date validation, parent progress aggregation, and learner-player screenshot proof items; remaining implementation focus is explicit recalculate actions, Trash/restore operations, and visual documentation polish.
 
 ## 2026-05-17: LMS Relation Builder runtime closure
-
 -   Implementation outcome: the Learning Content Relation Builder slice is now closed through a generic `relationBuilder` widget, not an LMS-only runtime fork.
 -   Runtime invariant: parent-scoped builders should prefer authoritative parent datasource rows and may use a metadata-sorted current-section fallback only before the user makes a manual parent selection.
--   Backend invariant: localized/versioned STRING list sort, search, and filter must use runtime codename text extraction with scalar JSON fallback so imported legacy-like values and structured VLC values behave consistently.
--   Browser proof: the local Supabase LMS snapshot import flow passed with Course Builder and Track Builder relation scopes, inline linking, reorder, player progress, and workflow actions.
 -   Remaining implementation focus: active-enrollment warnings, manual enrollment and learner visibility, and the broader learner-player screenshot matrix remain open in `memory-bank/tasks.md`.
 
 ## 2026-05-17: LMS Learning Content research review
-
 -   Research artifact updated: `memory-bank/research/lms-learning-content-ispring-research-2026-05-17.md`.
--   Scope clarified from the original brief: Learning Content is the correct first product slice, but iSpring Projects must become workspace-internal content Objects, not Universo Workspaces or Hubs.
--   Source-backed conclusions: iSpring Learning Content stores content in Projects; Courses use Course -> Section -> Content item; Pages can be created in Projects or Courses; course completion has navigation, completion condition, and status format; Learning Tracks support by-days, sequential, and free order; Trash restores content for 30 days; status/progress semantics vary by content type.
 -   Repository-specific correction: existing May 2026 work already delivered generic block authoring groundwork, safe resource preview/validation, sequence/completion helpers, workflow actions, reports/export, dashboard parity, and deferred resource states. Future PLAN work should focus on product coherence and missing runtime surfaces rather than re-planning that groundwork.
 -   Handoff recommendation: PLAN should prioritize Projects, unified content table, runtime page authoring, Course Builder, Track Builder, learner player/progress, Trash, Playwright snapshot regeneration, tests, screenshots, and docs. SCORM/xAPI, broad file import/conversion, messaging, AI generation, and full training/session scheduling remain deferred.
 
 ## 2026-05-16: Research gate before PLAN workflow
-
 -   Research outcome implemented: link-driven and current-information tasks now have a dedicated `RESEARCH` / `RPLAN` custom mode that creates a cited Memory Bank artifact before implementation planning.
 -   Workflow decision: `VAN` recommends `RESEARCH` / `RPLAN` before PLAN when user-provided links or current external facts are part of the decision input. `PLAN` no longer blocks when research is missing; it performs the needed research inline or through a research-capable subagent when available, then continues planning.
--   PLAN persistence decision: PLAN mode now saves a Markdown plan into `memory-bank/plan/` by default unless the user explicitly requests chat-only output or another destination.
--   Cross-agent sync: the same RESEARCH mode and PLAN research handling are mirrored for Gemini, GitHub Copilot custom agents, Claude Code subagents, Qoder agents, and Kiro steering.
--   Skill decision: `agents-best-practices` was imported as a complete project-local skill; the AI Research repository was added only as a curated subset; `autoresearch` remains disabled by default to preserve the project's explicit approval-gated mode sequence.
 -   Durable references: implementation plan lives in `memory-bank/plan/agent-research-before-plan-mode-plan-2026-05-16.md`; future research artifacts live in `memory-bank/research/`.
 
 ## 2026-04-13: Standard-kind contract cleanup and validation sync
-
 -   Research outcome implemented: the remaining legacy-removal drift was a shared contract problem, not a single-controller bug. The stale assumptions lived in `@universo-react/types`, dynamic menu/breadcrumb consumers, self-hosted fixture generation, and the touched runtime/browser proofs that still expected builtin/source or `custom.*-v2` behavior.
--   Implemented fix set: standard metadata kinds now stay direct (`catalog`, `hub`, `set`, `enumeration`) across the shared type surface, shell navigation resolves labels from unified entity metadata, self-hosted generator/export/import coverage asserts the direct kind contract, and the committed fixture aligns with the entity-owned route/API surface.
--   Validation sync: the focused schema-ddl, metahubs-backend, applications-backend, template-mui, and touched Playwright slices were aligned during the implementation wave, and the canonical root `pnpm build` was rerun green while updating the compressed memory-bank files.
 -   No open research thread remains for this standard-kind cleanup seam.
 
-## 2026-04-12: Metahub QA gap closure
-
 ## 2026-04-12: PR #763 review comment QA triage
-
 -   Research outcome implemented: only the dialog-related review comments were correct on the live tree. React docs confirmed that `EntityFormDialog` should not write `ref.current` during render, and the first-open reset path was indeed vulnerable to child mount effects overwriting or being overwritten by the passive open-reset cycle.
--   Implemented fix set: `EntityFormDialog` now performs the first-open reset in `useLayoutEffect`, resyncs to incoming initials while closed, renders extra fields from state only, and adds focused regression coverage for first-open child updates.
 -   Rejected suggestion with proof: removing the route-aware `Header` inset looked plausible from the nested `Stack` structure, but the targeted Chromium `metahub-shell-spacing.spec.ts` run showed a `16px` breadcrumb/title drift immediately after that patch, so the `Header` inset contract was restored unchanged.
--   Closure validation: focused `EntityFormDialog` Jest passed (`10/10`), `pnpm --filter @universo-react/template-mui build` passed, `pnpm run build:e2e` passed, the targeted Chromium metahub shell-spacing flow passed (`2 passed`), and the canonical root `pnpm build` completed successfully.
--   No open research thread remains for this PR review-triage seam.
-
 -   Research outcome implemented: the remaining QA debt after the visual spacing acceptance passes was structural, not visual-only. The accepted inset depended on duplicated metahub route detection across shared shell components, metahub loading states still used an implicit numeric override pattern, and the tree lacked real proof for browser geometry plus negative-path generic-entity ACL behavior.
 -   Implemented fix set: `pageSpacing.ts` now centralizes the route-aware metahub shell helpers consumed by `MainLayoutMUI` and `Header`; `SkeletonGrid` now exposes semantic `insetMode='page' | 'content'` plus the stable `skeleton-grid` selector; the affected metahub routes now use `insetMode='content'`; focused `entityInstancesRoutes` ACL tests now prove `403` denial behavior for generic delete and catalog-compatible create; and the new authenticated Playwright flow `metahub-shell-spacing.spec.ts` proves breadcrumb/header/loading-skeleton alignment on `/metahubs` during a delayed loading state.
--   Closure validation: `pnpm --filter @universo-react/template-mui build` passed, `pnpm --filter @universo-react/template-mui test` passed (`23/23`), `pnpm --filter @universo-react/metahubs-frontend build` passed, `pnpm run build:e2e` passed, the targeted Chromium shell-spacing flow passed (`2 passed` including auth setup), and the canonical root `pnpm build` completed green.
 -   Wider `entityInstancesRoutes` permanent-delete policy failures remain an older branch baseline and were not changed in this session; no open research thread remains for the metahub QA-gap closure itself.
 
 ## 2026-04-12: Metahub gutter narrowing follow-up
-
 -   Research outcome implemented: removing the old content bleed offsets fixed the original mismatch, but the resulting metahub page inset was still wider than the acceptance screenshots because breadcrumbs remained tied to the shared shell gutter.
--   Implemented fix set: `MainLayoutMUI` now applies a narrower route-aware gutter for `/metahubs` and `/metahub/*`, and `MetahubBoard` dropped its remaining extra header padding so metahub breadcrumbs, headers, content, and pagination all align to the same smaller inset.
--   Closure validation: `pnpm --filter @universo-react/template-mui build` passed, `pnpm --filter @universo-react/metahubs-frontend build` passed, and the canonical root `pnpm build` completed green (`30 successful`, `30 total`).
 -   No open research thread remains for this metahub gutter follow-up.
 
 ## 2026-04-12: Metahub page horizontal spacing fix
-
 -   Research outcome implemented: the spacing issue was not isolated to one list page. The same standalone page-shell drift existed across both legacy and entity-based metahub pages because the main layout already provided a gutter while the page content still applied older negative bleed offsets.
--   Implemented fix set: the old horizontal bleed offsets were removed from metahub card/table/banner/pagination wrappers and from the Common/Settings/Migrations/Layout page shells, so headers and the content below now align to the same left/right gutter.
--   Closure validation: `pnpm --filter @universo-react/metahubs-frontend build` completed green, diagnostics stayed clean, and the canonical root `pnpm build` completed green (`30 successful`, `30 total`).
 -   No open research thread remains for this metahub spacing seam.
 
 ## 2026-04-12: Entity V2 post-rebuild regression fix
-
 -   Research outcome implemented: the fresh-import defects were two narrow shipped-surface seams, not a wider entity-definition data-loss problem. The first-open blank fields came from shared dialog state timing, and the missing Hub V2 / Set V2 / Enumeration V2 rows came from an over-narrow compatibility read scope.
--   Implemented fix set: `EntityFormDialog` now renders fresh initial localized values on the first open, and `resolveRequestedLegacyCompatibleKinds(...)` now validates the requested compatible kind and widens read scopes back to the full compatible union for hub/set/enumeration list surfaces.
--   Closure validation: focused backend route regressions passed (`39/39`), focused shared dialog coverage passed (`9/9`), focused compatibility-helper coverage passed (`2/2`), and the canonical root `pnpm build` completed green (`30 successful`, `30 total`).
 -   No open research thread remains for this post-rebuild regression seam.
 
 ## 2026-04-12: Self-hosted fixture QA closure
-
 -   Research outcome implemented: the last real QA findings on the current tree were no longer preset manifests or compatibility ACLs; they were a stale committed self-hosted fixture and a browser import flow that still validated only counts/layout structure.
--   Implemented fix set: the supported self-hosted generator regenerated the committed snapshot, and the browser import flow now re-exports the imported metahub and validates `assertSelfHostedAppEnvelopeContract(...)` with an explicit stabilization timeout so imported `entityTypeDefinitions` drift fails in the browser.
--   Closure validation: direct contract check returned `fixture-contract:ok`, `pnpm run build:e2e` passed, the supported self-hosted generator/export flow passed (`2 passed`), the targeted Chromium self-hosted import flow passed (`2 passed`), and the canonical root `pnpm build` completed green (`30 successful`, `30 total`).
 -   No open research thread remains for this self-hosted fixture/import seam.
 
 ## 2026-04-12: Entity V2 QA completion follow-up
-
 -   Research outcome implemented: the last real implementation gap after the QA pass was not ACL/runtime parity anymore; it was preset manifest drift. Hub V2 and Enumeration V2 still inherited legacy-disabled component maps even though the approved plan promised V2-only automation uplift.
--   Implemented fix set: Hub V2 now explicitly enables modules/actions/events, Enumeration V2 now explicitly enables actions/events on top of inherited modules, direct preset-manifest coverage now asserts the upgraded component set, and the self-hosted fixture contract plus committed snapshot were regenerated through the supported generator path to lock the exported definitions.
--   Closure validation: focused `templateManifestValidator` coverage passed (`8/8`), the supported self-hosted generator/export flow passed (`1 passed`, `5.3m`), the edited EN/RU custom-entity guides remain line-count aligned (`72/72`), and the canonical root `pnpm build` completed green (`30 successful`, `30 total`).
 -   No open research thread remains for this preset-uplift seam.
 
 ## 2026-04-12: Entity V2 QA closure completion
-
 -   Research outcome implemented: the last real blocker after the deeper QA review was a low-level SQL seam, not a controller-level permission bug. Delete blocker services still filtered exact built-in `set` / `enumeration` target kinds even though compatible Set V2 / Enumeration V2 rows persisted custom target kinds.
--   Implemented fix set: low-level blocker services now accept compatible target-kind arrays, the generic entity delete plan plus the legacy set/enumeration/constant delete paths now pass those arrays consistently, focused service regressions lock the `ANY($n::text[])` SQL contract, and the Chromium legacy-compatible V2 flow now proves blocked delete when a catalog attribute still references a compatible Set V2.
--   Closure validation: focused metahubs-backend route/service coverage passed (`87/87`), `pnpm run build:e2e` completed green (`30 successful`, `30 total`), the targeted Chromium legacy-compatible V2 suite passed (`7 passed`), and the canonical root `pnpm build` completed green (`30 successful`, `30 total`).
 -   No open research thread remains for this blocker-service seam.
 
 ## 2026-04-11: Entity V2 completion remediation closure
-
 -   Research outcome implemented: the remaining live browser defects were the delegated Set V2 direct-constants `kindKey` gap, the delegated Enumeration V2 detail/value `kindKey` gap, a backend direct-enumeration update seam that still hardcoded the built-in `enumeration` kind, and a stale snapshot round-trip browser timeout after the self-hosted fixture expanded.
--   Implemented fix set: direct Set/Enumeration leaf flows now propagate `kindKey` through frontend APIs/hooks/query keys and UI invalidation, backend direct enumeration PATCH now updates through the stored compatible custom kind, the targeted legacy-compatible V2 Playwright proof now matches response pathnames instead of raw URLs, the supported self-hosted generator regenerated the committed fixture, and the snapshot import browser proof now has an explicit larger timeout budget for the expanded contract.
--   Closure validation: targeted Chromium legacy-compatible V2 flows passed (`3 passed`), the self-hosted generator passed (`2 passed`), the full snapshot export/import suite passed (`5 passed`), `pnpm docs:i18n:check` passed, and the canonical root `pnpm build` completed green (`30 successful`, `30 total`).
 -   No open research thread remains for the Entity V2 completion remediation seam.
 
 ## 2026-04-11: PR #757 review comment QA triage
-
 -   Review outcome implemented: the PR bot comments reduced to one real backend lifecycle issue plus a batch of indentation-only comments.
--   Confirmed real issue: generic custom-entity create dispatched `beforeCreate` with a preallocated UUID that was not guaranteed to become the persisted `_mhb_objects.id`, so future lifecycle modules could observe a mismatched object id across `beforeCreate` and `afterCreate`.
--   Implemented fix: `MetahubObjectsService.createObject(...)` now accepts an optional explicit id, and the generic create controller passes its preallocated pending UUID into persistence so create-time lifecycle events remain self-consistent.
 -   Rejected comments: the indentation warnings were not applied because neighboring metahubs-backend controllers/services already use the same indentation style and the bot cited a non-existent `.gemini/styleguide.md` file rather than an actually present repository contract.
--   Closure validation: focused metahubs-backend tests passed (`34/34`) and the canonical root `pnpm build` completed green (`30 successful`, `30 total`).
 -   No open research thread remains for the PR #757 review-triage seam.
 
 ## 2026-04-11: Entities automation closure remediation
-
 -   Research outcome implemented: the remaining QA-closure work narrowed to three real seams only: generic create still needed to use the lifecycle boundary, the automation ACL suspicion needed verification against the actual mounted surface instead of a speculative permission patch, and the EN/RU operator docs still under-described the real authoring workflow.
 -   Implemented fix set: generic custom-entity create now routes through `EntityMutationService` with a result-resolved committed object id, focused `EntityAutomationTab` coverage is green, catalog-compatible routes were verified to short-circuit into `CatalogList` before the generic automation tabs mount, and EN/RU docs now ship save-first `Modules -> Actions -> Events` guidance plus stable copied visual assets.
--   Build-only follow-up: `pnpm run build:e2e` surfaced a missing `DbExecutor` type import in `EntityActionExecutionService`; fixing that import was required before the final green validation result.
--   Closure validation: focused metahubs backend coverage passed (`27/27`), focused metahubs frontend automation coverage passed (`12/12`), `pnpm docs:i18n:check` passed, `pnpm run build:e2e` completed green, the targeted Chromium automation flow passed (`2 passed`), and the canonical root `pnpm build` completed green (`30 successful`, `30 total`).
 -   No open research thread remains for the entities automation closure seam.
 
 ## 2026-04-11: Post-rebuild Entities workspace QA closure
-
 -   Research outcome implemented: the residual defects reported after a clean rebuild/reset/import were real shipped-surface mismatches rather than stale local state. The honest remaining scope was limited to `EntitiesWorkspace` polish, shared menu target resolution, product-string pluralization, and supported fixture regeneration.
--   Implemented fix set: removed obsolete Entities page copy, tightened banner side spacing, restored built-in Documents localization through the consolidated namespace path, switched the toolbar CTA to the shared `Create` label, resolved menu edit/delete targets through the live entity-type map, pluralized `Catalogs V2` / `Каталоги V2` across user-facing seams, and regenerated the self-hosted snapshot through the Playwright generator path.
--   Closure validation: focused metahubs backend coverage passed (`24/24`), focused metahubs frontend coverage passed (`22/22`), `pnpm run build:e2e` passed, the supported self-hosted generator rerun passed, the focused Chromium entities workspace flow passed (`4 passed`), and the canonical root `pnpm build` completed green (`30 successful`, `30 total`).
 -   No open research thread remains for the post-rebuild Entities workspace QA seam.
 
 ## 2026-04-10: ECAE residual QA hardening closure
-
 -   Research outcome implemented: repository evidence confirmed that Phase 5 remains future-only, so the honest remaining scope was limited to residual hardening on the shipped strict-parity surface rather than hidden unfinished visual-builder work.
--   Implemented fix set: generic entity copy now retries `idx_mhb_objects_kind_codename_active` races like the legacy copy controllers, focused frontend coverage now locks fail-closed catalog-compatible copy/delete visibility while settings permissions are still loading, and Playwright now proves invited metahub members can open catalog-compatible instances read-only.
--   Closure validation: focused metahubs backend route coverage passed (`20/20`), focused metahubs frontend `EntityInstanceList` coverage passed (`9/9`), the targeted member ACL browser rerun passed, and the canonical root `pnpm build` completed green (`30 successful`, `30 total`).
 -   No open research thread remains for the residual QA hardening seam or for the Phase 5 scope question in this session.
 
 ## 2026-04-09: ECAE Phase 3.6-4 closure
-
 -   Research outcome implemented: the remaining builder/browser gap was real checkbox semantics in `EntitiesWorkspace`, not a test bug; after that repair the honest Phase 3.8 closure was focused compatibility proof plus Phase 4 docs rather than widening into a new speculative surface.
--   Implemented fix: `EntitiesWorkspace` now uses actual checkbox controls for structured builder toggles, focused backend proofs now cover legacy snapshot restore without v3-only entity metadata sections and legacy catalog-wrapper parity against object-scoped system-attribute reads, and EN/RU architecture/guide/API docs plus summaries are synced.
--   Closure validation: focused frontend regressions passed (`5/5`), `@universo-react/metahubs-frontend` build passed, focused workspace and publication/runtime Playwright flows passed (`2/2` each), focused backend suites passed (`27/27`), the repository-standard docs i18n check passed, and the canonical root `pnpm build` completed green (`30 successful`, `30 total`).
 -   No open research thread remains for the Phase 3.6-4 closure seam.
 
 ## 2026-04-09: ECAE Phase 2.9 browser validation closure
-
 -   Research outcome implemented: the correct Phase 2.9 scope was the already shipped entity-type authoring surface, not a speculative Phase 3 runtime UI. The validation target was therefore `EntitiesWorkspace`, the preset-backed create dialog, backend persistence, RU parity, and a pixel-proof dialog snapshot.
--   Implemented fix: added focused Playwright backend helpers plus a shipped-surface flow spec, added a dedicated visual spec for the create dialog, fixed the blank `Name` column in `EntitiesWorkspace` list mode via `row.name || row.kindKey`, and stabilized the visual proof by capturing the preset selector after blur.
--   Closure validation: the focused flow passed, the refreshed visual baseline passed on rerun, and the canonical root `pnpm build` completed successfully.
 -   No open research thread remains for the Phase 2.9 browser-validation seam.
 
 ## 2026-04-09: ECAE Phase 2.7b reusable entity presets closure
-
 -   Research outcome implemented: the safe reusable-preset seam was already present in the metahub template registry. The missing pieces were typed registry/API exposure for `definition_type='entity_type_preset'`, builtin preset manifests, and frontend create-flow consumption.
 -   Implemented fix: shared template DTOs/routes now expose `definitionType` plus `activeVersionManifest`, builtin entity presets are validated and seeded through the existing template seeder/migration path, and `EntitiesWorkspace` create mode now reuses the templates hooks/selector seam to prefill entity-type form state from preset manifests.
--   Additional closure fix: the canonical root `pnpm build` initially failed on `@universo-react/core-frontend` V8 heap exhaustion under Turbo, so the package build script now runs Vite with `NODE_OPTIONS='--max-old-space-size=8192'` to keep root validation reproducible.
--   Closure validation: focused metahubs backend/frontend checks passed, `@universo-react/core-frontend` build passed with the heap guard, and the canonical root `pnpm build` completed green (`30 successful`, `30 total`).
 -   No open research thread remains for the Phase 2.7b reusable-entity-preset seam.
 
 ## 2026-04-08: ECAE Phase 2.5c design-time service genericization closure
-
 -   Research outcome implemented: the honest safe Phase 2.5c slice was not broad layout-service genericization. The real reusable seam was an object-scoped system-attribute adapter plus one shared design-time child-copy helper that both legacy built-in copy routes and generic custom-entity copy can reuse.
--   Implemented fix: `MetahubAttributesService` now exposes object-scoped system-attribute aliases while preserving catalog wrappers, `copyDesignTimeObjectChildren(...)` centralizes attribute/element/constant/value copy behavior plus optional system-attribute reseeding, legacy catalog/set/enumeration copy controllers now use that helper internally, and generic custom-entity copy derives child-copy breadth from enabled components.
--   Closure validation: focused backend regressions passed (`82/82`), `@universo-react/metahubs-backend` lint returned to the existing warning-only backlog (`0 errors`), `@universo-react/metahubs-backend` build passed, and the canonical root `pnpm build` completed green (`30 successful`, `30 total`).
 -   No open research thread remains for the Phase 2.5c design-time genericization seam.
 
 ## 2026-04-08: ECAE Phase 2.5 generic entity CRUD backend closure
-
 -   Research outcome implemented: the generic object-layer seam was viable, but only as a coexistence-first slice. Built-in catalogs/sets/enumerations still carry extra policy/copy/runtime behavior, so the safe first cut was a custom-only generic route surface rather than a wholesale legacy-route replacement.
--   Implemented fix: `MetahubObjectsService` now supports generic kind strings and optional transaction runners on the mutation helpers used by generic CRUD, while the new entity-instance controllers/routes expose custom-only list/create/get/update/delete/restore/permanent/copy/reorder flows and route update/delete/copy/restore through `EntityMutationService`.
--   Closure validation: focused generic route tests passed (`9/9`), the combined ECAE regression suite passed (`33/33`), `@universo-react/utils` build passed, `@universo-react/metahubs-backend` build passed, touched-file lint had `0 errors` (warning backlog only), and the canonical root `pnpm build` completed green after clearing an unrelated generated `applications-backend/base/dist` cleanup blocker.
 -   No open research thread remains for the Phase 2.5 generic entity CRUD backend seam.
 
 ## 2026-04-08: ECAE Phase 2.4 resolver DB extension closure
-
 -   Research outcome implemented: the shared entity-type resolver is no longer registry-only. It now understands the hybrid model where built-ins come from code and custom kinds come from metahub data definitions.
--   Implemented fix: `EntityTypeResolver` now resolves built-ins first, falls through to `EntityTypeService.resolveType(...)` for custom DB-backed kinds when metahub context exists, and caches repeated custom-kind lookups per resolver instance.
--   Closure validation: focused resolver tests passed (`5/5`), the combined ECAE service+route+resolver regression suite passed (`24/24`), `@universo-react/metahubs-backend` build passed, touched-file lint was clean, and the canonical root `pnpm build` completed green (`30 successful`, `30 total`).
 -   No open research thread remains for the Phase 2.4 resolver DB extension seam.
 
 ## 2026-04-08: ECAE Phase 2.3 backend route surface closure
-
 -   Research outcome implemented: the new ECAE backend foundation is no longer service-only. The metahubs backend now exposes custom entity types, object-owned actions, and object-owned event bindings through the normal route/controller/auth/rate-limit stack.
--   Implemented fix: added entity-type, action, and event-binding controllers/routes, registered them in the metahubs domain router, and kept route handlers thin so validation/business rules stay in the Phase 2.2 services.
--   Closure validation: the new focused route suite passed (`8/8`), the combined ECAE service+route regression suite passed (`19/19`), `@universo-react/metahubs-backend` build passed, package lint finished with `0 errors` (warning backlog only), and the canonical root `pnpm build` completed green (`30 successful`, `30 total`).
 -   No open research thread remains for the Phase 2.3 backend route surface seam.
 
 ## 2026-04-08: ECAE Phase 2.2 backend service foundation closure
-
 -   Research outcome implemented: the first focused Phase 2.2 service run did not reveal domain-logic breakage; it exposed two narrower seams instead: test fixtures used non-canonical schema names, and the new services still had build-only typing gaps around optimistic locking and post-commit dispatch.
--   Implemented fix: the focused backend tests now use canonical metahub schema names, `ActionService` uses the shared codename text helper for conflict checks, shared optimistic-lock typing now includes `entity_type` / `action` / `event_binding`, and `EntityMutationService` now performs `after*` dispatch explicitly after the transaction instead of storing a callback closure.
--   Closure validation: focused entity/action/event/lifecycle service tests passed (`11/11`), `@universo-react/utils` build passed, `@universo-react/metahubs-backend` build passed, package lint finished with `0 errors` (warning backlog only), and the canonical root `pnpm build` completed green (`30 successful`, `30 total`).
 -   No open research thread remains for the Phase 2.2 backend service foundation seam.
 
 ## 2026-04-08: Post-QA lint closure for the Shared/Common wave
-
 -   Research outcome implemented: after the earlier product/security remediations were closed, the only remaining QA blocker was red package lint in the touched Shared/Common backend/frontend files.
 -   Confirmed root cause: the release gate was the error-level Prettier/ESLint drift in the touched metahubs files. The broader warning-only backlog was real but was not the blocker that kept this implementation wave open.
--   Implemented fix: root-level Prettier on the confirmed blocker files plus package `eslint --fix` restored green lint exits for both metahubs packages.
--   Closure validation: `@universo-react/metahubs-backend` lint passed, `@universo-react/metahubs-frontend` lint passed, focused backend routes passed (`35/35`), focused frontend tests passed (`18/18`), and root `pnpm build` passed (`30 successful`, `30 total`, `EXIT:0`).
 -   No open research thread remains for the lint-closure seam.
 
 ## 2026-04-08: Attribute move ownership remediation closure
-
 -   Research outcome implemented: the only blocking post-QA defect left in the Shared/Common wave was a fail-open attribute move seam. The route accepted a routed catalog id plus an arbitrary attribute id, and the service loaded the current row by bare id even though the request was scoped to a specific catalog.
--   Implemented fix: the attribute move controller now returns `404` unless the loaded attribute belongs to the routed catalog, and `MetahubAttributesService.moveAttribute(...)` now requires `id + object_id + active row` on the initial fetch and the follow-up re-reads.
--   Closure validation: focused attributes routes passed (`22/22`), neighboring constants routes passed (`11/11`), neighboring enumerations routes passed (`17/17`), the canonical Shared/Common Chromium wrapper flow passed (`4 passed`, `4.2m`), and root `pnpm build` remained green (`30 successful`, `27 cached`).
 -   No open research thread remains for the attribute move ownership seam.
 
 ## 2026-04-08: Strict E2E runner finalization cleanup closure
-
 -   Research outcome implemented: the remaining post-QA cleanup issue was infrastructure noise, not residual state. Under strict `runner-finalize` full reset, route-level manifest cleanup was redundant and only triggered false publication/application delete failures plus savepoint/RLS error logs before the already successful authoritative reset.
 -   Confirmed root cause: the Common/shared Chromium wrapper flow was functionally green after the settled-response Playwright fix, but `run-playwright-suite.mjs` still executed `cleanupE2eRun()` first and therefore hit backend delete-route savepoint noise that the subsequent full reset then cleaned anyway.
--   Implemented fix: strict finalization now skips route-level manifest/API cleanup entirely and relies on the post-stop full reset as the only teardown authority in that mode; non-strict/manual flows keep the old manifest-cleanup path.
--   Closure validation: the focused Shared/Common Chromium wrapper run now ends cleanly (`4 passed`, `3.9m`) with only server shutdown plus `[e2e-full-reset] Completed reset for runner-finalize`, and the canonical root `pnpm build` remained green (`30 successful`, `30 cached`).
 -   No open research thread remains for the strict finalization cleanup seam.
 
 ## 2026-04-08: Shared/Common QA closure sync
-
 -   Research outcome: the final QA follow-up did not uncover additional product-code gaps in the Shared/Common, imported connector, or runtime page-surface waves. The only remaining issue was stale closure state in memory-bank.
--   Revalidated current-tree evidence: root `pnpm build` passed, focused metahubs/applications frontend/backend suites passed, and the proof screenshots for Common toolbar alignment, RU Shared badge/list state, and runtime page-surface create state are still present in `test-results/`.
--   Verified tooling nuance: backend package `test` scripts run through `tools/testing/backend/run-jest.cjs` and accept positional test paths; the Vitest-style `--run` flag is invalid for those package scripts.
 -   No open research thread remains for this wave.
 
 ## 2026-04-08: Imported connector schema-sync duplicate seams closed
-
 -   Research outcome implemented: the imported self-hosted connector failure was a two-step application-runtime identifier reuse problem, not raw fixture corruption. The first live 500 came from repeated shared field ids across multiple target entities in `_app_attributes`; after that fix landed, the remaining live 500 came from repeated shared enumeration value ids across multiple target enumeration objects in `_app_values` seeding.
 -   Confirmed narrowing: the committed raw fixture and the direct runtime-materialized fixture bundle were clean under the new executable-payload checks. The remaining collisions only surfaced on the imported publication runtime path that applications-backend consumes for diff/sync.
--   Implemented fix: `resolveExecutablePayloadEntities(...)` now scopes repeated shared field ids per target entity, and the normalized publication runtime source now scopes repeated shared enumeration value ids per target enumeration object while rewriting predefined catalog-element REF payloads to the scoped ids.
--   Validation: focused `applicationReleaseBundle.test.ts` passed (`14 / 14`), the imported snapshot connector Chromium flow passed (`2 passed`, `1.3m`), and the canonical root `pnpm build` completed green after rebuilding `@universo-react/applications-backend`.
 -   No open research thread remains for the connector schema-sync duplicate seam.
 
 ## 2026-04-07: Remaining shared/Common QA contract gap remediation
-
 -   Research outcome implemented: the last open QA findings were real contract mismatches, not missing compilation/tests. Shared exclusion checkboxes still wrote override rows before the parent dialog was saved, metahub modules needed strict `general/library` handling, and `GET /shared-containers` still created virtual containers from a nominally read-only route.
--   Implemented fix: `SharedEntitySettingsFields` now stores exclusion state locally and shared attribute/constant/value save handlers sync only the changed exclusion flags after successful save; `MetahubModulesService` now validates the `general/library` contract fail closed; `GET /shared-containers` now lists existing pools only, while Common/shared authoring explicitly calls `POST /shared-containers/ensure` when it needs concrete ids.
--   Closure validation: focused metahubs-frontend regressions passed (`4 files / 19 tests`), focused metahubs-backend regressions passed (`3 suites / 27 tests`), and the canonical root `pnpm build` completed green (`30 successful`, `26 cached`, `58.468s`).
 -   No open research thread remains for this remediation batch.
 
 ## 2026-04-07: Residual QA closure for shared/Common docs, route coverage, and runner cleanup
-
 -   Research outcome implemented: the remaining post-QA gaps were narrow and verified. The public REST API docs still described the wrong modules detail path/method, shared entity override routing still lacked direct controller-level `400/403` coverage, and the Common/shared Chromium flow still ended with runner-level manifest cleanup failure even though the browser scenarios were green.
--   Implemented fix: EN/RU `rest-api.md` now mirror the live `GET/PATCH/DELETE /metahub/{metahubId}/script/{scriptId}` router contract, `sharedEntityOverridesRoutes.test.ts` now locks the missing invalid-input and forbidden-access seams, and `e2eCleanup.mjs` now treats orphan-discovery list calls as best-effort when the manifest already contains explicit resource ids.
--   Closure validation: focused metahubs-backend route tests passed (`12/12`), the EN/RU API reference pair stayed line-for-line aligned (`48/48`), the Common/shared Chromium flow passed twice (`4 passed`, `3.7m`) without leaving the run manifest behind, `pnpm docs:i18n:check` stayed green, and the canonical root `pnpm build` completed green (`30 successful`, `27 cached`, `22.196s`).
 -   No open research thread remains for this residual-gap closure batch.
 
 ## 2026-04-07: Shared Common fail-closed closure remediation
-
 -   Research outcome implemented: the reopened QA seams were real and narrow. The Common/shared modules UI already constrained authoring correctly, but the backend still allowed illegal `general` or `library` scope transitions, the browser flow lacked the negative dependency scenarios, and the touched EN/RU docs did not yet describe the operator-facing fail-closed rules explicitly.
--   Implemented fix: `MetahubModulesService` now enforces the `general/library` contract fail closed on create/update, `EntityModulesTab` prefers structured backend conflict messages, and the Common/shared Chromium flow now covers delete-in-use, codename-rename conflict, and circular `@shared/*` failures.
--   Closure validation: focused metahubs-backend service tests passed (`16/16`), focused metahubs-frontend modules-tab tests passed (`10/10`), `metahub-shared-common.spec.ts` passed in Chromium (`4 passed`, `4.0m`), `pnpm run docs:i18n:check` completed without errors, and the canonical root `pnpm build` completed green (`30 successful`, `25 cached`, `1m12.288s`).
 -   No open research thread remains for this remediation wave.
 
 ## 2026-04-07: Shared Common final closure
-
 -   Research outcome implemented: the last closure defects were request-scoped shared override mutation/savepoint coupling, publication-backed application-sync hash mismatch after shared runtime materialization, and stale browser expectations in the final Common/shared Playwright file.
--   Implemented fix: `SharedEntityOverridesService` now reuses explicit request/parent runners, publication-backed runtime sync now hashes the materialized runtime snapshot that applications actually consume, and the Chromium browser flow now asserts the real disabled Library role, async exclusion mutation, runtime create response, and quiz completion UI contracts.
--   Closure validation: focused shared override service tests passed (`3/3`), focused runtime-source tests passed (`4/4`), `pnpm run build:e2e` passed, `metahub-shared-common.spec.ts` passed (`3 passed`, `3.3m`), and the canonical root `pnpm build` completed green (`30 successful`, `25 cached`, `1m39.093s`).
 -   No open research thread remains for the shared Common closure.
 
 ## 2026-04-07: Widget shared-behavior closure for inherited catalog widgets
-
 -   Research outcome implemented: the remaining Phase 6 defect was not just missing button hiding. Global widgets had no consistent `sharedBehavior` editor path, inherited widget UI still allowed forbidden drag/toggle actions, and backend resolver/mutation seams still trusted sparse overrides that should have been locked by the base widget.
--   Implemented fix: global layout widget editors now persist `sharedBehavior` through menu/columns/quiz editors plus a generic behavior-only dialog; `LayoutDetails` gates inherited drag/toggle/exclude affordances through base-widget `sharedBehavior`; `MetahubLayoutsService` now ignores stale forbidden overrides, reuses `is_deleted_override` for inherited exclusion, and rejects forbidden inherited move/toggle/exclude writes fail closed.
--   Closure validation: focused metahubs frontend inherited-widget tests passed (`2/2`), focused metahubs-backend `MetahubLayoutsService` tests passed (`11/11`), `@universo-react/metahubs-frontend` and `@universo-react/metahubs-backend` built successfully, and the canonical root `pnpm build` finished green (`30 successful`, `0 cached`, `3m46.335s`).
 -   No open research thread remains for the widget shared-behavior wave.
 
 ## 2026-04-07: Layout-owned catalog behavior contract closure
-
 -   Research outcome implemented: the reopened QA defect was a contract split, not a runtime-resolution bug. Applications runtime already resolved behavior from layout `catalogBehavior`, but metahubs catalog authoring/API/tests still carried legacy `runtimeConfig`.
--   Implemented fix: metahubs frontend removed `runtimeConfig` from catalog form defaults, payload serializers, and shared catalog types; metahubs backend catalog controller now rejects `runtimeConfig`, strips stale persisted `config.runtimeConfig` on update/copy, and no longer returns it; touched regressions now enforce layout-owned behavior and mock reorder enablement through `_app_layouts.config.catalogBehavior`.
--   Closure validation: focused metahubs frontend/backend/applications backend suites passed, touched-file ESLint recheck had no error-level failures, and the canonical root `pnpm build` finished green (`30 successful`, `28 cached`, `1m8s`).
 -   No open research thread remains for this remediation wave.
 
 ## 2026-04-07: Snapshot hash integrity and catalog layout docs closure
-
 -   Research outcome implemented: the reopened QA defect was a real integrity gap, not a false positive. The shared canonical publication snapshot hash/checksum path had not kept up with the current export surface.
 -   Confirmed root cause: `normalizePublicationSnapshotForHash(...)` omitted `modules`, `catalogLayouts`, and `catalogLayoutWidgetOverrides`, even though those sections already participate in snapshot export/import and application release lineage.
--   Implemented fix: the shared normalizer now includes those sections with deterministic ordering, focused `@universo-react/utils` regressions fail closed on hash drift and envelope tampering across the newly covered sections, and the EN/RU catalog-layout docs now describe inherited widgets as placement/visibility overlays with base-layout config inheritance.
--   Closure validation: focused snapshot/hash tests passed (`22/22`), `pnpm --filter @universo-react/utils build` completed green, and the canonical root `pnpm build` finished green.
 -   No open research thread remains for this remediation wave.
 
 ## 2026-04-07: Self-hosted fixture regeneration and current structure baseline closure
-
 -   Research outcome implemented: the remaining self-hosted generator failure was split across two seams, not one export bug. The generator spec still expected `showDetailsTitle: false` to persist in Settings layout config, while the live contract keeps that behavior as a widget override.
 -   Confirmed root cause: current public structure version `0.1.0` still mapped numeric version `1` to `SYSTEM_TABLES_V1`, so freshly created branch schemas omitted `_mhb_modules` and publication creation failed during the generator flow.
--   Implemented fix: the generator assertion now follows sparse persisted layout semantics, and `SYSTEM_TABLE_VERSIONS` maps version `1` to `SYSTEM_TABLES`, restoring `_mhb_modules` to fresh current-version branch schemas.
--   Closure validation: the browser self-hosted generator passed (`2 passed`, `4.7m`), the browser snapshot import/export flow passed (`5 passed`, `1.9m`), focused `systemTableDefinitions` backend tests passed (`27/27`), and the canonical root `pnpm build` finished green.
 -   No open research thread remains for this fixture/baseline wave.
 
 ## 2026-04-06: Catalog layout QA remediation closure
-
 -   Research outcome implemented: the remaining QA defects were real contract mismatches, not just copy or CSS polish. Catalog runtime behavior still resolved partly from legacy catalog settings, catalog layouts still stored copied widget-visibility booleans, and the catalog dialog still exposed a fallback-runtime form.
 -   Implemented runtime contract: `catalogRuntimeConfig.ts` and `runtimeRowsController.ts` now resolve active catalog behavior only from layout config, with the global layout acting as the default baseline until a catalog-specific layout exists.
--   Implemented storage/materialization split: design-time catalog layouts now strip dashboard widget-visibility booleans from stored config, while application sync reconstructs those booleans from effective widgets when publishing runtime `_app_layouts` rows.
--   Implemented UI closure: the catalog tab now ships as `Layouts` / `Макеты`, the redundant embedded heading and fallback form are removed, embedded layout content no longer renders extra shell gutters, and the shared header now provides adaptive search in the embedded dialog-width layout manager.
--   Closure validation: focused utils/frontend/backend/shared-header tests passed, `pnpm run build:e2e` completed green (`30 successful`), `metahub-general-catalog-layouts.spec.ts` passed (`2 passed`, `1.8m`), and the canonical root `pnpm build` remained green.
 -   No open research thread remains for this remediation wave.
 
 ## 2026-04-06: Inherited catalog widgets closure
-
 -   Research outcome implemented: the remaining reopened defect was narrow and contract-level, not a broader failure of the General/catalog-layout architecture.
--   Implemented backend fix: catalog-layout widget payloads now expose `isInherited`, and inherited widgets fail closed on config edit, deletion, and direct reassignment while still supporting move/toggle through sparse override rows.
--   Implemented runtime fix: snapshot export and application sync now ignore inherited override config so inherited widgets always materialize with base widget config instead of freezing stale catalog-specific config.
--   Implemented UI proof: the shared layout editor now renders inherited badges and hides edit/remove affordances for inherited rows while preserving drag and active-state toggles.
 -   Closure validation: focused metahubs-backend service tests passed (`7/7`), focused metahubs-frontend layout tests passed (`4 tests total`), focused applications-backend sync tests passed (`2/2`), `pnpm run build:e2e` completed green, `metahub-general-catalog-layouts.spec.ts` passed (`2 passed`, `1.8m`), and the canonical root `pnpm build` remained green.
 -   No open research thread remains for this defect.
 
 ## 2026-04-06: Metahub General section plan final contract clarification
-
 -   Research outcome: the revised plan still had one residual ambiguity after the second QA pass. It correctly moved create/edit/copy behavior to the catalog-layout level, but it did not yet specify where that behavior should live in the contract/schema.
--   Verified type boundary: `DashboardLayoutConfig` only models dashboard presentation/layout fields, so it should not absorb create/edit/copy or catalog behavior settings.
--   Verified reuse seam: the existing `CatalogRuntimeViewConfig` already defines the relevant catalog runtime behavior fields and enums (`showCreateButton`, `searchMode`, `createSurface`, `editSurface`, `copySurface`).
 -   Planning conclusion applied: the plan now treats those fields as a catalog-layout-level nested behavior block inside the existing layout `config` JSONB, reusing the established catalog runtime setting shape/enums instead of introducing a new standalone schema family.
--   Final refinement applied: runtime behavior resolution is now explicit for the no-layout case as well. The selected catalog layout behavior config wins when present; otherwise runtime falls back to the existing catalog runtimeConfig behavior subset. The first catalog layout seeds its behavior config from the current catalog settings when present.
 -   Resulting contract split: dashboard presentation stays in `DashboardLayoutConfig`; catalog-specific runtime behavior that is not part of dashboard layout becomes part of the selected catalog layout's nested behavior config.
 -   No open research thread remains for this plan QA pass; the next action is user approval or implementation.
 
-## 2026-04-05: Frontend test warning remediation closure
-
--   Research outcome implemented: the remaining QA debt was not a product bug. The noisy MUI `anchorEl` warning came from jsdom layout validation for `Popover`/`Select` anchors inside modules-related frontend tests.
--   Implemented fix: the affected metahubs frontend tests now provide a stable non-zero `HTMLElement.prototype.getBoundingClientRect` mock while keeping the existing `user.click(...)` interaction path intact.
--   Validation result: focused `@universo-react/metahubs-frontend` dialog/script tests passed (`9/9`), the warning string `anchorEl` no longer appeared in the captured test log, package lint no longer had error-level failures on the touched scope, and the final root `pnpm build` finished green.
--   No open research thread remains for this remediation.
-
-## 2026-04-05: Metahub dialog settings and Modules-tab responsiveness closure
-
--   Research outcome implemented: the narrow-dialog Modules-tab regression was not a CRUD bug; the real failure was container-width geometry plus missing real-browser overflow assertions.
--   Implemented fix: metahub dialog behavior is now driven by shared settings and one template-mui presentation seam with preset sizing, fullscreen toggle, resize persistence, reset-to-default, and strict-modal close handling.
--   Implemented responsive fix: `EntityModulesTab` now switches by `ResizeObserver` container width, collapses the attached-modules list on narrow dialogs, and keeps horizontal overflow inside the editor shell only.
--   Closure validation: focused template-mui dialog tests passed, focused metahubs-frontend Modules-tab tests passed, targeted Playwright dialog/settings flows passed, and the final root `pnpm build` finished green.
--   No open research thread remains for this wave.
-
-## 2026-04-05: Quiz snapshot fixture export/import closure
-
--   Research outcome implemented: the newly requested durable quiz fixture could not safely ship on top of the existing import path because metahub export already serialized `snapshot.modules`, but `SnapshotRestoreService` did not restore `_mhb_modules` at all.
--   Implemented fix: metahub export now augments `snapshot.modules` with live `sourceCode`, and snapshot restore now recreates `_mhb_modules` with attachment-id remapping for entity- and component-scoped modules.
--   Implemented durable fixture contract: `tools/testing/e2e/support/quizFixtureContract.ts` now owns the canonical quiz metahub identity, bilingual 10-question content, canonical widget module source, and fail-closed snapshot assertions.
--   Implemented durable proof: the generator `tools/testing/e2e/specs/generators/metahubs-quiz-app-export.spec.ts` rewrites `tools/fixtures/metahubs-quiz-app-snapshot.json`, and `tools/testing/e2e/specs/flows/snapshot-import-quiz-runtime.spec.ts` proves browser import, restored design-time module state, application creation from the imported publication, and the full EN/RU runtime quiz contract.
--   Closure validation: focused metahubs-backend Jest passed, `pnpm run build:e2e` passed, the quiz generator passed with `2 passed`, the quiz import/runtime flow passed with `2 passed`, and the final root `pnpm build` finished green.
--   No open research thread remains for the 2026-04-05 quiz snapshot fixture wave.
-
-## 2026-04-05: Modules QA gap closure and final plan completion
-
--   Research outcome implemented: the previously identified modules QA gaps are fully closed, and the final plan-completion wave is now the durable state for the 2026-04-05 modules track.
--   Implemented proof: `@universo-react/modules-engine` now carries reproducible benchmark evidence with recorded `coldStartMs 7.13`, `meanMs 1.596`, and `p95Ms 2.127`.
--   Implemented compatibility hardening: core-backend startup now validates `isolated-vm` / `--no-node-snapshot` compatibility explicitly. The 2026-05-25 rename intentionally removes legacy `snapshot.scripts` compatibility because the alpha database is recreated.
--   Implemented product proof: browser authoring now exposes `quizWidget` `moduleCodename`, the real browser-authored Playwright flow covers authoring -> publication -> application -> runtime smoke, the shared auth `419` retry defect is fixed, and untouched draft role switches now reapply widget defaults so `rpc.client` remains present.
--   Closure validation: focused auth-frontend Vitest passed, focused metahubs-frontend `EntityModulesTab` coverage passed, the browser-authored Playwright flow passed with `2 passed`, and the final root `pnpm build` finished green with `30 successful`, `27 cached`, and `3m54.625s`.
--   No open research thread remains for the 2026-04-05 modules wave.
-
-## 2026-04-05: Modules hardening closure follow-up
-
--   Research outcome implemented: the compiler was still acting like a general esbuild entrypoint. Embedded module compilation now enforces an explicit SDK-only boundary by rejecting unsupported static imports plus `require()`, dynamic `import()`, and `import.meta` before bundling.
--   Research outcome implemented: browser client modules were still inheriting too much of the ambient Worker environment. The worker runtime now keeps its bridge internals on private host aliases and disables ambient network, nested-worker, storage, and dynamic-code globals before loading the client bundle.
--   Hidden defect found and fixed during the same pass: the isolated-vm bootstrap source used strict-mode-invalid `const eval = undefined` code. Runtime tests now parse generated bootstrap source so the same issue fails loudly.
--   No open research thread remains for this modules hardening closure wave.
-
 ## 2026-04-06: Codename JSONB/VLC contract re-audit
-
 -   Research outcome: the live source contract now persists codename through one `codename` JSONB/VLC field across the touched metahubs/admin flows; the older mixed-storage notes below are historical, not current-state guidance.
--   Verified settings seam: `general.codenameLocalizedEnabled` still exists in admin/metahub settings, route helpers, and template-seed config, but it only controls how many locale entries survive into the persisted VLC payload. When false, `enforceSingleLocaleCodename(...)` keeps only the primary locale instead of flattening codename to plain text or reviving `codename_localized` / `presentation.codename`.
--   Verified runtime seam: runtime/application code may still extract primary codename text at request or executable boundaries, but that is a boundary conversion only; it is not a second persisted storage contract.
 -   Workspace audit result: no source file under `packages/**/base/src` still persists `codename_localized` or `presentation.codename`, and no workspace artifact named `admin-role-codename-localized-contract-20260323.json` exists.
 -   No open research thread remains for this audit.
 
-## 2026-04-04: Self-hosted post-import schema diff and runtime inheritance regression wave
+## 2026-04-05: Frontend test warning remediation closure
+-   Research outcome implemented: the remaining QA debt was not a product bug. The noisy MUI `anchorEl` warning came from jsdom layout validation for `Popover`/`Select` anchors inside modules-related frontend tests.
+-   No open research thread remains for this remediation.
 
+## 2026-04-05: Metahub dialog settings and Modules-tab responsiveness closure
+-   Research outcome implemented: the narrow-dialog Modules-tab regression was not a CRUD bug; the real failure was container-width geometry plus missing real-browser overflow assertions.
+-   Implemented fix: metahub dialog behavior is now driven by shared settings and one template-mui presentation seam with preset sizing, fullscreen toggle, resize persistence, reset-to-default, and strict-modal close handling.
+-   No open research thread remains for this wave.
+
+## 2026-04-05: Quiz snapshot fixture export/import closure
+-   Research outcome implemented: the newly requested durable quiz fixture could not safely ship on top of the existing import path because metahub export already serialized `snapshot.modules`, but `SnapshotRestoreService` did not restore `_mhb_modules` at all.
+-   Implemented durable fixture contract: `tools/testing/e2e/support/quizFixtureContract.ts` now owns the canonical quiz metahub identity, bilingual 10-question content, canonical widget module source, and fail-closed snapshot assertions.
+-   No open research thread remains for the 2026-04-05 quiz snapshot fixture wave.
+
+## 2026-04-05: Modules QA gap closure and final plan completion
+-   Research outcome implemented: the previously identified modules QA gaps are fully closed, and the final plan-completion wave is now the durable state for the 2026-04-05 modules track.
+-   Implemented product proof: browser authoring now exposes `quizWidget` `moduleCodename`, the real browser-authored Playwright flow covers authoring -> publication -> application -> runtime smoke, the shared auth `419` retry defect is fixed, and untouched draft role switches now reapply widget defaults so `rpc.client` remains present.
+-   No open research thread remains for the 2026-04-05 modules wave.
+
+## 2026-04-05: Modules hardening closure follow-up
+-   Research outcome implemented: the compiler was still acting like a general esbuild entrypoint. Embedded module compilation now enforces an explicit SDK-only boundary by rejecting unsupported static imports plus `require()`, dynamic `import()`, and `import.meta` before bundling.
+-   No open research thread remains for this modules hardening closure wave.
+
+## 2026-04-04: Self-hosted post-import schema diff and runtime inheritance regression wave
 -   Research outcome implemented: the connector destructive-diff bug was caused by identity drift, not by harmless UI-only diff rendering. `@universo-react/schema-ddl/calculateSchemaDiff(...)` matches physical entities and fields by `entity.id` / `field.id`, not by codename.
 -   Confirmed-and-fixed root cause: `metahubsController.importFromSnapshot` restored the imported snapshot into a fresh branch through `SnapshotRestoreService`, which remapped entity/attribute/layout IDs to new runtime rows, but originally created the initial publication version from the raw imported snapshot payload instead of serializing the restored live branch. The imported publication baseline now serializes from the restored live branch, keeping executable identity aligned with later publications.
--   Confirmed-and-fixed runtime-config seam: eager normalization of sparse catalog runtime config erased the distinction between inheritance and authored catalog overrides. The shared contract now keeps runtime config sparse, introduces explicit `useLayoutOverrides`, and applies layout-like catalog overrides only when that seam is actually enabled.
--   Closure validation: focused shared/backend/frontend tests passed, the missing browser-safe `sanitizeCatalogRuntimeViewConfig` export was fixed in `@universo-react/utils`, `pnpm run build:e2e` finished green (`28/28`), the real Playwright self-hosted generator reran and rewrote the committed fixture, the targeted browser import flow passed on the regenerated snapshot, and the canonical root `pnpm build` finished green (`28/28`).
 -   No open research thread remains for this regression wave.
 
 ## 2026-03-23: Unified codename JSONB architecture revalidation
-
 -   Historical note: this section captured the pre-convergence migration gap when the branch still carried mixed codename storage seams.
--   Outcome preserved for traceability: it established the approved target of one `codename JSONB` VLC field plus primary-text machine semantics.
--   Current truth: the live source has since converged on that storage contract for the touched design-time/admin paths; see the 2026-04-06 re-audit above for the current-state summary.
 -   Closure update 2026-03-24: the touched backend/frontend request-contract slice is now implemented and validated; no open research thread remains for this specific codename payload seam.
 
 ## 2026-03-17: Admin roles / metapanel live-architecture revalidation
-
 -   Research outcome: the corrected admin-roles/metapanel plan still had hidden integration gaps against the live repository architecture, mainly around root routing, onboarding completion timing, permission refresh ownership, menu section filtering, and dashboard stats contracts.
--   Confirmed root cause: the current app does not use TanStack Query for permission state; `AbilityContextProvider` owns `/auth/permissions` loading and exposes `refreshAbility()`, so query invalidation alone cannot refresh role-driven routing/menu state.
--   Confirmed root cause: `OnboardingWizard` currently calls `completeOnboarding()` before the completion screen is shown, which means a `CompletionStep` CTA must first move the authoritative completion mutation out of the wizard instead of calling it a second time.
 -   Confirmed root cause: the current root route `/` bypasses the main shell and always enters the start flow for authenticated users, so `RegisteredUserGuard` alone cannot redirect post-onboarding users into Metapanel; a dedicated `/start` route plus root resolver is required.
--   Confirmed root cause: shell menu rendering is split between `rootMenuItems`, a separate MetaHubs section, and an Admin section derived from `isSuperuser || hasAnyGlobalRole`; filtering only `rootMenuItems` would leave visible sections that the role UX intends to hide.
 -   Confirmed root cause: Metapanel currently points at a global-users-specific stats endpoint, while the desired cards aggregate multiple domains; this should be promoted to a dedicated admin dashboard stats contract shared with AdminBoard.
--   Planning fix applied: the implementation plan is now v3 and explicitly adds `/start` topology, `AbilityContext` refresh, section-aware menu gating, injected privileged system-role provisioning, and a dedicated admin dashboard stats contract.
 -   No open research thread remains before implementation approval; the next action is user approval or another targeted plan QA pass.
 
 ## 2026-03-17: Configurable platform runtime `_upl_*` columns
-
 -   Research outcome implemented: the remaining bug was below the metahub/publication layer. Catalog snapshots already preserved disabled `upl.*` states, but runtime application business-table generation still created configurable `_upl_archived*` / `_upl_deleted*` columns unconditionally.
 -   Confirmed root cause: `@universo-react/schema-ddl` consumed only `config.systemFields.lifecycleContract`, while applications runtime CRUD/sync helpers still hardcoded `_upl_deleted` predicates and updates for dynamic business tables.
--   Implemented fix: one shared `@universo-react/utils` helper now derives platform archive/delete families from `config.systemFields.fields`, schema-ddl consumes that helper for conditional runtime DDL, and applications-backend consumes the same helper for active-row and soft-delete SQL.
--   Regression result: shared utils tests, schema-ddl generator tests, and applications runtime route tests all passed after the fix, and the final root build is green.
 -   No open research thread remains for this runtime `_upl_*` contract issue.
 
 ## 2026-03-17: Catalog tab mixing and basic template layout defaults
-
 -   Research outcome implemented: the tab-mixing defect was a scoped-list UX issue, not a backend data-integrity bug. `AttributeList` was using the shared paginated hook with previous-query placeholder reuse enabled while switching between two different scopes inside the same component instance.
--   Implemented fix: the scoped attributes view now opts out of `keepPreviousData` on query-key changes and resets page/expanded TABLE state on tab switches so old rows cannot linger in the new scope.
--   Research outcome implemented: the unwanted default center-zone columns container came directly from the built-in `basic` template seed data, not from a migration or runtime repair path.
 -   Implemented fix: the built-in base template now seeds `appNavbar` in the top zone and only `detailsTable` in the center zone for new metahubs; no template version bump or legacy branch was required because the target environment recreates the database from scratch.
 -   No open research thread remains for this wave.
 
 ## 2026-03-17: Disabled system attributes still created runtime `_app_*` columns
-
 -   Research outcome implemented: the bug was not in publication snapshot generation and not in schema-ddl itself. Publication snapshots already carried `systemFields.lifecycleContract`, and schema-ddl already omitted `_app_*` lifecycle columns when that contract disabled them.
 -   Confirmed root cause: the application release-bundle executable payload builder reconstructed entities directly from `snapshot.entities`, which do not carry the top-level publication `systemFields` data. That dropped `config.systemFields.lifecycleContract` before schema generation and caused runtime tables to fall back to default lifecycle columns.
--   Implemented fix: `createApplicationReleaseBundle(...)` now hydrates snapshot-level `systemFields` back into each executable entity config before creating the executable payload schema snapshot.
--   Regression result: release-bundle tests now assert payload hydration from publication `systemFields`, and application sync route tests now prove the generated schema payload contains the disabled lifecycle contract during publication-driven schema creation.
 -   No open research thread remains for this runtime lifecycle propagation issue.
 
 ## 2026-03-17: Application connector snapshot-hash mismatch
-
 -   Research outcome implemented: connector schema creation failed because the publication-side hash producer and the application-side hash verifier were normalizing different snapshot payloads.
 -   Confirmed root cause: `SnapshotSerializer.normalizeSnapshotForHash(...)` includes `systemFields` and omits absent optional keys, but `normalizePublicationSnapshotForHash(...)` had drifted by omitting `systemFields` and coercing absent optional publication/layout keys to `null`.
--   Implemented fix: the applications-backend publication normalization now includes `systemFields` per entity and as normalized top-level metadata before computing the canonical release-bundle snapshot hash, and it preserves serializer-compatible omission semantics for optional keys.
--   Regression result: direct release-bundle tests now cover publication snapshots with disabled lifecycle-related `systemFields` and the real layout/widget omitted-key shape that reproduced the runtime mismatch on compiled `dist`.
 -   No open research thread remains for this connector snapshot-hash issue.
 
 ## 2026-03-16: Platform system attributes governance closure
-
 -   Research outcome implemented: platform `_upl_*` catalog system attributes no longer depend only on metahub configuration; a global admin policy now decides whether they are configurable, always created, or forced back to platform defaults.
--   Confirmed architectural seam: metahubs frontend should not fetch admin settings directly for this feature; the correct contract is backend policy resolution plus list-response `meta` for catalog System views.
 -   Confirmed UX/root-cause findings: the empty platform action menu was caused by `canDisable: false` in the shared registry, and the row-jump bug was caused by optimistic `moveToFront: true` rather than backend `sort_order` rewrites.
--   Routing result implemented: catalog System uses dedicated `/system` routes for both global and hub-scoped catalog views, while legacy `?tab=system` URLs are redirected from the attribute view.
 -   No open research thread remains for this platform-governance wave.
 
 ## 2026-03-16: Metahub catalog system attributes and runtime lifecycle contract planning
-
 -   Code audit result: configurable catalog system attributes cannot be implemented safely as a metahub-only change because `_app_*` lifecycle fields are still hardcoded in runtime schema generation and assumed directly in application sync/CRUD routes.
 -   The critical propagation seam is the publication snapshot pipeline: catalog-level system-field metadata must be serialized explicitly and then resolved into a compact runtime lifecycle contract during publication/app sync.
--   The safest scope cut for wave 1 is to make lifecycle families (`published`, `archived`, `deleted` and their `_at` / `_by` companions) configurable while leaving `_app_owner_id`, `_app_access_level`, and baseline `_upl_*` audit infrastructure fixed.
 -   Recommended runtime rule: derive the lifecycle contract once during publication/app sync and persist it with application sync or release metadata; runtime requests should consume that contract instead of probing live schema shape or hardcoding `_app_deleted` assumptions.
--   Template/base seeding and manual catalog creation must share one idempotent `ensureCatalogSystemAttributes(...)` path so default rows cannot drift between builtin templates and interactive creation.
 -   Frontend planning result: add a dedicated `System` tab, standardize catalog tab order to `Attributes -> System -> Elements -> Settings`, keep `Settings` visible from every catalog sub-view, and expose toggle-only controls for system rows with localized labels and type badges.
--   External references used in the planning pass: Context7 Knex guidance, MUI Tabs guidance, TanStack Query invalidation/query-key guidance, PostgreSQL ALTER TABLE behavior, and UP-test Supabase live schema inspection.
 -   Open decision for implementation review: whether design-time persistence should extend the existing catalog-attribute entity with `isSystem/systemKey/isEnabled` metadata or use a small dedicated side-table if the current schema shape proves too rigid.
--   QA refinement conclusion: for this repository, wave 1 should extend `_mhb_attributes` directly rather than introduce a separate side-table, because template seeding, template migration, cleanup, snapshot serialization, and optimistic attribute CRUD already converge on `_mhb_attributes`.
--   QA refinement conclusion: any richer system-field registry must reuse `@universo-react/utils/database/systemFields.ts` as the canonical low-level field-name source and must not duplicate raw `_app_*` / `_upl_*` string constants in a second independent catalog.
--   QA refinement conclusion: backend service-level guards are required for reorder/move operations on system rows; UI-only restrictions are not sufficient because attribute ordering and transfer operations already exist in `MetahubAttributesService`.
 -   QA refinement conclusion: because metahub attribute routes, metahub element validation, snapshot serialization, and runtime application metadata all currently consume generic attribute collections, the implementation must exclude system rows from ordinary attribute/business-field flows by default and serialize them through a dedicated lifecycle metadata channel.
 
 ## 2026-03-13: Optional global migration catalog true final closure
-
 -   Research outcome implemented: the last remaining gap was not runtime correctness but artifact completeness. `application_release_bundle` now embeds deterministic executable payloads for both baseline and incremental execution instead of checksum-only descriptors.
--   The executable payload contract is intentionally deterministic: bundle artifact `schemaSnapshot.generatedAt` is bound to `manifest.generatedAt`, which keeps checksum validation stable across export and import.
--   Bundle apply now consumes the embedded artifact payloads on the real execution paths and rejects corrupted payload/checksum combinations before any schema existence checks, diff calculation, or DDL execution begin.
--   Validation for this closure wave is complete: `@universo-react/applications-backend` tests passed (80/80), package lint is green, and the final root `pnpm build` completed green (`27/27`, `2m38.453s`).
 -   No open research thread remains for this architecture wave.
 
 ## 2026-03-13: Optional global migration catalog closure
-
 -   Research outcome implemented: the remaining QA gaps were operational closure issues, not missing core architecture.
--   `@universo-react/applications-backend` now exposes a real application release-bundle workflow: publication-backed export emits the canonical `application_release_bundle` contract, and bundle apply reuses the existing schema sync engine instead of creating a second install path.
--   Successful publication sync and bundle apply now both persist `installed_release_metadata` through the central `applications.cat_applications` sync-state seam, keeping release/install state out of per-app runtime schemas.
--   The last touched raw global-catalog env parser in migrations-platform CLI now uses the shared `@universo-react/utils` helper, aligning the touched startup/runtime/CLI paths on one parsing contract.
--   Mirrored EN/RU operator docs now describe disabled-vs-enabled catalog behavior, release bundles, recovery guidance, and the env flag.
--   Validation for this closure wave is complete: utils tests 189, core-backend tests 17, applications-backend release-bundle tests 12 with lint green, migrations-platform tests 49 with lint green, final root `pnpm build` green (`27/27`, `2m37.175s`).
 -   No open research thread remains for this architecture wave.
 
-## 2026-03-13: QA blocker closure wave
-
 ## 2026-03-13: Optional global migration catalog architecture audit
-
 -   Code audit: `@universo-react/core-backend` startup still always calls `syncRegisteredPlatformDefinitionsToCatalog(...)`, so global catalog bootstrap remains in the critical startup path.
--   Code audit: runtime application/metahub migrations already write local history into `_app_migrations` / `_mhb_migrations`, but `MigrationManager`, `SystemTableMigrator`, and `MetahubSchemaService` also hard-call `mirrorToGlobalCatalog(...)`, which currently auto-creates `upl_migrations` through `PlatformMigrationCatalog.ensureStorage()`.
--   Code audit: fixed system-app schema generation uses `SchemaGenerator.generateFullSchema(...)` directly and does not record local baseline rows, which is why fixed-schema `_app_migrations` tables remain empty in the live database.
--   Context7 findings: Knex treats seeds as repeatable data loaders and keeps schema history in migrations; Prisma baselining uses a full `0_init` baseline plus incremental pending migrations, which matches the target direction for exported/file-backed apps.
--   Supabase UP-test read-only inspection: `upl_migrations` currently holds 20 `migration_runs`, 215 `definition_registry` rows, 215 `definition_revisions`, 215 `definition_exports`, 215 `definition_drafts`, and 430 `approval_events`; fixed `applications._app_migrations` and `metahubs._app_migrations` exist but have zero rows.
--   Planning implication: local per-schema migration history should remain canonical, while the global catalog should become optional observability/export infrastructure behind a feature flag and explicit capability checks.
--   Open research thread: implementation must safely degrade CLI/doctor/export commands that currently assume `PlatformMigrationCatalog.isStorageReady()` or definition-registry tables.
--   QA refinement finding: the earlier master-plan wording that expected `definition_registry` population on every fresh bootstrap is too strict for the intended architecture and must be replaced with an explicit two-mode acceptance contract.
--   QA refinement finding: enabled-mode global audit should remain fail-closed and same-transaction with local history/schema-state persistence; disabled mode may no-op safely, but enabled mode must not silently degrade.
--   QA refinement finding: file-bundle release/install metadata should reuse the existing central application sync-state surface in `applications.cat_applications` before any new metadata store is introduced.
 -   QA refinement finding: the env/config layer should follow the repository’s established small helper pattern in `@universo-react/utils` first, rather than introducing a broader shared capability abstraction prematurely.
 
 ## 2026-03-13: Optional global migration catalog implementation closure
-
 -   Research outcome implemented: the repository now supports explicit catalog-enabled and catalog-disabled modes without treating the full global definition registry as a mandatory cold-start dependency.
--   `@universo-react/migrations-platform` now uses `PlatformMigrationKernelCatalog` in disabled mode, preserving `upl_migrations.migration_runs` while keeping definition-registry lifecycle storage behind the feature flag.
--   Runtime application/metahub migration writes now preserve local canonical history even when global catalog mirroring is disabled, and enabled mode remains fail-closed by keeping explicit capability checks.
--   Fixed system-app schema generation now records deterministic local baseline rows and backfills missing `_app_migrations` baseline history when a schema already exists.
--   Central application release/install metadata now reuses `applications.cat_applications.installed_release_metadata`, keeping sync/install state in one canonical persistence surface.
--   Validation for this wave is complete: `@universo-react/schema-ddl` tests green, `@universo-react/migrations-catalog` tests 36/36 green, `@universo-react/migrations-platform` tests 101/101 green, and final root `pnpm build` green (`27/27`, `2m41.284s`).
 -   No open research thread remains for this architecture wave.
 
 ## 2026-03-13: QA blocker closure wave
-
 -   Research outcome implemented: the still-live blockers were narrow package-level correctness/tooling issues, not missing architecture from the completed system-app program.
--   The failing `@universo-react/migrations-core` validation case was caused by a malformed test owner id; the fix preserved strict managed owner-id validation by correcting the test input to a canonical UUID.
--   `@universo-react/migrations-core` lint now ignores committed/generated `src/**/*.d.ts`, `@universo-react/schema-ddl` no longer has error-level lint failures, and `@universo-react/core-backend` again exposes a package-level lint script with warning-only output on the touched surface.
--   Validation for this closure wave is complete: `@universo-react/migrations-core` tests 58/58 + lint green, `@universo-react/schema-ddl` tests green with warning-only lint, `@universo-react/core-backend` tests 16/16 with warning-only lint, final root `pnpm build` green (`27/27`, `2m27.925s`).
 -   No open research thread remains for this blocker-closure wave.
 
 ## 2026-03-13: Final QA closure gap audit
-
 -   Research outcome implemented: the remaining repository-side gaps were narrow contract and proof issues, not missing architectural waves.
--   Profile and admin fixed-system-app manifests now keep string validation limits aligned with their backing `VARCHAR(50)` columns, and shared migrations-platform tests assert that manifest `maxLength` never exceeds declared `VARCHAR(N)` lengths.
--   `@universo-react/applications-backend` now has direct persistence-level regression coverage for `copyApplicationWithOptions(...)`, so copy safety no longer depends only on route-level mocks.
--   The core-backend acceptance regression now captures both halves of the final contract: application-like fixed-schema fresh bootstrap and publication-created application runtime sync composition.
--   The docs tree now contains mirrored English/Russian architecture docs for fixed system-app convergence, with verified line parity across the touched doc pairs.
--   Validation for this closure wave is complete: profile Jest 5/5, admin Jest 3/3, applications persistence Jest 12/12, migrations-platform Jest 35/35, core-backend acceptance Jest 2/2, error-free lint for applications-backend and migrations-platform, warning-only touched lint elsewhere, final root `pnpm build` green (`27/27`, `2m37.515s`).
 -   No open research thread remains for this final QA closure wave.
 
 ## 2026-03-13: QA closure completion revalidation
-
 -   Research outcome implemented: four real residual defects remained after the earlier green state, and all were operational contract issues rather than broad architectural failures.
--   `@universo-react/migrations-platform` now records export lifecycle rows for bundle-oriented catalog exports, so CLI export and doctor observe the same active published revision state.
--   `@universo-react/migrations-catalog` and `@universo-react/migrations-platform` now use stable artifact-equivalence checks, so dependency-only changes are no longer skipped behind checksum-only no-op detection.
--   `@universo-react/utils` now exposes a browser-specific env entry whose precedence is `__UNIVERSO_PUBLIC_ENV__` → `import.meta.env` → `process.env` → browser origin, and `@universo-react/store` mirrors `import.meta.env` fallback support.
--   `@universo-react/migrations-core` now rejects malformed managed owner ids instead of silently normalizing them into potentially colliding schema-name inputs.
--   Validation for this closure wave is complete: `@universo-react/migrations-catalog` tests 28/28, `@universo-react/migrations-platform` regressions 64/64, `@universo-react/utils` env tests 5/5, `@universo-react/migrations-core` identifiers 8/8, touched-surface lint green, final root `pnpm build` green (`27/27`, `2m39.834s`).
 -   No open research thread remains for this QA closure completion wave.
 
 ## 2026-03-13: QA plan completion revalidation
-
 -   Research outcome implemented: the suspected metahubs naming/parity mismatch was not real on the live branch; the parity contract already expects the converged `cat_*` / `doc_*` fixed-schema naming.
--   `@universo-react/migrations-platform` doctor lifecycle checks now treat any export recorded for the active published revision as healthy, while operational sync/export flows still keep explicit export targets.
--   Shared backend Jest mapping now resolves `@universo-react/database`, which restores package-local execution of the metahubs parity contract suite.
--   A new core-backend router-level regression now covers publication-created application bootstrap through the composed runtime-sync seam.
--   Validation for this closure wave is complete: touched focused Jest suites are green, touched-package lint is green, and final root `pnpm build` is green (`27/27`, `2m39.643s`).
 -   No open research thread remains for this QA completion wave.
 
 ## 2026-03-13: Definition lifecycle closure audit
-
 -   Research outcome implemented: the remaining gap was operational, not storage-level — lifecycle tables and helpers already existed, but live imports still bypassed them.
--   `@universo-react/migrations-catalog` now routes active imports through draft creation, review request, and publication, while preserving published lifecycle provenance on unchanged revisions.
--   `@universo-react/migrations-platform` no-op and doctor checks now require published lifecycle provenance in addition to registry checksum/export parity, so pre-fix catalog rows are repaired once.
--   Validation for this closure wave is complete: `@universo-react/migrations-catalog` tests 34/34, `@universo-react/migrations-platform` tests 98/98, package lint green, final root `pnpm build` green (`27/27`, `2m51.177s`).
 -   No open research thread remains for this lifecycle closure wave.
 
 ## 2026-03-12: Ownership seam and live-start bootstrap investigation
-
 -   Research outcome implemented: the publication-derived runtime sync seam now stops at `loadPublishedPublicationRuntimeSource(...)` in `@universo-react/metahubs-backend`, while `@universo-react/applications-backend` owns the final sync-context adapter.
--   Reproduced and fixed package-level Jest forwarding drift by moving touched backend packages to the shared `tools/testing/backend/run-jest.cjs` wrapper.
--   Live startup investigation proved that the remaining bootstrap failures were phase-ordering defects, not only SQL idempotency defects: `OptimizeRlsPolicies1800000000200` and `SeedBuiltinMetahubTemplates1800000000250` both needed `post_schema_generation` registration.
--   Live validation now reaches a serving server: after bootstrap, `node ./run start` listens on port 3000 and returns `HTTP/1.1 200 OK` for the root route.
 -   No open research thread remains for this closure wave; future work should treat live startup smoke as mandatory whenever platform migration phases or fixed-schema bootstrap sequencing change.
 
 ## 2026-03-11: System-app unification completion planning audit
-
 -   Codebase audit result: the loader/CLI/registry foundation exists, but the completion program still lacks a rich system-app contract, unified schema-target handling across fixed + runtime schemas, runtime application-sync ownership separation, and the deep acceptance test matrix.
--   Context7 PostgreSQL 17 guidance confirmed that `SECURITY DEFINER` functions must set a trusted `search_path` explicitly with `pg_temp` last, and should revoke default `PUBLIC` execute privileges before selective grants.
--   Context7 TanStack Query guidance confirmed the repository should keep creating a fresh `QueryClient` per test, disable retries in tests, and prefer explicit query-key invalidation patterns.
--   Supabase UP-test (`osnvhnawsmyfduygsajj`) currently shows live drift: `profiles` schema exists with zero tables, `public.profiles` still exists, and all `upl_migrations.definition_*` tables are present but empty.
--   Supabase UP-test operational defaults observed during planning: transaction pooler on port `6543`, `search_path = "$user", public`, `statement_timeout = 2min`, `lock_timeout = 0`.
--   The failed live SQL probe against `upl_migrations.migration_runs.created_at` confirmed that operational tooling must use the real catalog timestamp columns (`_upl_created_at`, `_upl_updated_at`) instead of assuming generic names.
--   QA refinement after the first draft of the master plan: exact Metahub schema parity must stay explicit, requirement traceability must remain inside the plan, and future-facing abstractions such as managed custom schemas / rich artifact catalogs must not delay the current parity milestone unless they solve a concrete present-tense requirement.
 -   Existing frontend reuse patterns confirmed during the QA pass: `MigrationGuardShell`, `ApplicationMigrationGuard`, `MetahubMigrationGuard`, `ConnectorDiffDialog`, `EntityFormDialog`, `DynamicEntityFormDialog`, `CrudDialogs`, `RowActionsMenu`, `useCrudDashboard`, `createEntityActions`, `createMemberActions`, and existing optimistic/query invalidation helpers should be treated as the default UI/CRUD surface.
 
 ## 2026-03-07: Optimistic create UX redesign audit
-
 -   Existing optimistic create/copy behavior is intentionally immediate in cache **and** immediate in presentation: `ItemCard`, `FlowListTable`, and `CustomizedDataGrid` all react to `__pending` right away instead of deferring visual feedback until user interaction.
--   The current shared model has no dedicated concept of “optimistically created but visually normal until touched”; that distinction will need to be introduced at the helper/renderer level without changing backend schemas.
--   Metahubs and Applications optimistic create hooks still contain temporary `sortOrder ?? 999` placeholders, while many list renderers still display `sortOrder ?? 0`; this combination is the strongest current explanation for the observed temporary `999` / `0` ordinal artifacts.
--   `ElementList` still awaits `createElementMutation.mutateAsync(...)`, confirming that at least one create dialog remains blocking after the earlier fire-and-forget pass.
 -   `MetahubList` and `ApplicationList` table name cells use direct `Link` rendering, so pending entities in those views do not inherit the shared pending-navigation guard behavior.
 
 ## 2026-03-04: Codename QA closure follow-up
-
 -   Research outcome implemented: codename retry policy standardized across backend domains using shared constants.
--   Added direct unit coverage for codename validation/sanitization (`@universo-react/utils`) and retry candidate generation (`metahubs-backend` helper).
 -   No unresolved blocker from this research thread remains.
 
 ## 2026-02-10: Application Runtime 404 on Checkbox Update
-
 -   Root cause: runtime update requests did not include `catalogId`, so backend defaulted to the first catalog by codename and returned 404 (row not found) for other catalogs.
 -   Fix: include `catalogId` in runtime cell update payloads to target the correct runtime table.
 
 ## 2026-02-03: Display Attribute UX Fixes
-
 -   No new external research required; changes were internal UX and default-value adjustments.
 
-## RLS QueryRunner freeze investigation (2026-01-11)
-
-### Observations
-
--   UI can appear to “freeze” after create operations until server restart; server logs show repeated RLS middleware activity (QueryRunner create/connect).
-
-### Code audit (createQueryRunner call sites)
-
--   `@universo-react/auth-backend`: `ensureAuthWithRls` creates a per-request QueryRunner and releases it on response completion.
--   `@universo-react/auth-backend`: `permissionService` creates a QueryRunner only when one is not provided; releases it in `finally`.
--   `@universo-react/core-backend`: export/import uses QueryRunner with explicit connect + transaction and releases in `finally`.
-
-### Current hypothesis
-
--   The freeze is likely caused by pooled connection contention (too many concurrent requests each holding a per-request QueryRunner) or an edge-case where cleanup/release does not run.
--   The middleware cleanup is now guarded to run once per request to reduce cleanup races.
-
----
-
-## schema-ddl cleanup follow-up (2026-01-19)
-
-### Notes
-
--   Parameterized statement_timeout in `@universo-react/schema-ddl` locking helper to avoid raw interpolation
--   Removed deprecated static wrapper methods in `SchemaGenerator` and `MigrationManager`
--   Updated tests to use naming utilities directly
-
----
-
 ## Database pool monitoring (2026-01-31)
-
 ### Notes
-
 -   Supabase Pool Size observed at 15 connections for the project tier.
--   Knex + TypeORM pool budgets aligned to 8 + 7 (total 15).
 -   Error logging now includes pool state metrics to diagnose exhaustion events.
 
-## 2026-05-18: LMS Track Learner Player Implementation Note
-
+## schema-ddl cleanup follow-up (2026-01-19)
 ### Notes
+---
+-   Parameterized statement_timeout in `@universo-react/schema-ddl` locking helper to avoid raw interpolation
+-   Updated tests to use naming utilities directly
 
--   The Course Builder learner player was already generic enough for Track Builder except for target object resolution.
--   TrackSteps point to Courses through a fixed `CourseId` reference, so requiring a per-row `TargetObjectCodename` field would add redundant metadata and make track authoring noisier.
--   The safer platform-level extension is a static `learnerPlayer.targetObjectCodename` config field with row-level `targetObjectCodenameField` still supported for polymorphic CourseItems.
--   This keeps LearningTracks and TrackSteps inside the workspace-scoped published app runtime and avoids an LMS-specific player widget.
+## RLS QueryRunner freeze investigation (2026-01-11)
+### Observations
+### Code audit (createQueryRunner call sites)
+### Current hypothesis
+---
+-   UI can appear to “freeze” after create operations until server restart; server logs show repeated RLS middleware activity (QueryRunner create/connect).
+-   The middleware cleanup is now guarded to run once per request to reduce cleanup races.

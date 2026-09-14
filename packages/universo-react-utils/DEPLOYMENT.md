@@ -21,7 +21,7 @@ Complete guide for deploying the rate limiting system with Redis to production e
 
 -   **Node.js**: 22.22.2 recommended (>=22.6.0 required)
 -   **Redis**: 6.0+ (recommended: 7.0+)
--   **pnpm**: 10.x (workspace manager; 10.33.2 pinned)
+-   **pnpm**: 12.x (workspace manager; 12.4.1 pinned)
 -   **Operating System**: Linux (recommended), macOS, Windows with WSL2
 
 ### Knowledge Requirements

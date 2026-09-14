@@ -272,148 +272,72 @@
 
 ---
 
-# PlayCanvas Editor Assets Pipeline + MMOOMM Script Assets (2026-08-25)
+# PlayCanvas Editor Assets Pipeline + MMOOMM Script Assets — Complete ✅ (2026-08-25 → 2026-08-29)
 
-> Status: complete — implementation and post-QA remediation verified
-> Source plan: `memory-bank/plan/playcanvas-editor-assets-and-mmoomm-script-assets-plan-2026-08-25.md` (QA-reviewed)
-> Research: `memory-bank/research/playcanvas-editor-assets-and-mmoomm-script-assets-research-2026-08-25.md`
-> Branch: `feature/playcanvas-editor-assets-and-mmoomm-scripts`
+> Archived completion summary. Full plan: `plan/playcanvas-editor-assets-and-mmoomm-script-assets-plan-2026-08-25.md`; research: `research/playcanvas-editor-assets-and-mmoomm-script-assets-research-2026-08-25.md`; detailed evidence: `progress.md` August 26–29 entries.
 
-## Contract
+## Preserved contract
 
--   No legacy code preservation; test DB deleted and recreated fresh. Metahub schema/template versions NOT bumped (zero DDL — folders derive from `virtual_path`).
--   All user-facing text EN/RU localized from day one; UUID v7 for new row PKs; TanStack Query on the frontend; Chromium-only browser scope.
--   Evidence: focused tests per phase + real-browser proof (Playwright, minimal local Supabase) for editor and runtime flows; screenshots for UI claims.
+- [x] Clean-break implementation on disposable test DB; no legacy asset/runtime fallback, no schema/template-version bump, UUID v7 for persisted identities, EN/RU UI, Chromium browser proof.
+- [x] Keep Editor vendor protocol compatibility in Universo-owned backend/bridge layers; strict auth, CSRF, Origin, RBAC/IDOR, bounded payloads, safe paths, and redacted logging.
+- [x] Keep PlayCanvas runtime engine 2.21.4 staged through the import-map/prebuild flow; Editor package remains independently pinned to its upstream-compatible engine line.
 
-## Checklist
+## Asset / realtime pipeline outcome
 
-### Current implementation continuation — production shell returns HTTP 500 for static assets (2026-08-29)
+- [x] Added Editor compatibility asset create/read/delete routes, fail-closed unsupported mutations, folder `virtual_path`, stable numeric Editor document ids, UUID v7 row ids, MIME/extension allowlists, ETag/checksum handling, and upstream `{id}` create response.
+- [x] Added realtime `fs` delete + `pipeline` script-attribute handlers, scoped dynamic asset grants, messenger socket registry, bounded ShareDB handshake buffering, and prototype-pollution-safe JSON0 paths.
+- [x] URL bridge preserves `Request` method/body/headers/abort signal, injects pre-warmed CSRF, rewrites only supported asset routes, and rejects unknown paths without leaking credentials or absolute storage paths.
+- [x] File operations validate project/root/provider/path ownership, reject traversal and symlink escape, use checksum/version preconditions, atomic no-clobber rename semantics, and rollback physical artifacts after failed DB work.
+- [x] Production shell CORS regression closed: generated local profile emits strict localhost + 127.0.0.1 origins; doctor rejects missing/wildcard/incomplete CORS; missing hashed assets return 404 instead of SPA HTML.
 
--   [x] Diagnose the exact HTTP 500 response: browser asset requests were rejected by CORS because the generated development profile omitted `CORS_ORIGINS`.
--   [x] Keep static asset routing strict and make local profile generation always emit the two credential-safe loopback application origins.
--   [x] Extend the local Supabase doctor to fail before startup when the loopback CORS contract is absent, wildcarded, or incomplete.
--   [x] Regenerate the profile and verify HTML, JavaScript, CSS, missing-asset 404 behavior, and a rendered Chromium page at `http://localhost:3000`.
+## Script assets / publication / MMOOMM outcome
 
-### Phase 0 — Preconditions
+- [x] `compileScriptAssetEsm` supports isolated ESM compilation and metahub `@shared/<codename>` libraries while rejecting relative/absolute filesystem imports.
+- [x] Runtime loader fetches data URL, verifies SHA-256 against `artifactHash`, blob-imports/registers scripts, attaches them to target entities, and records `scriptsLoaded` as `true|none|failed`.
+- [x] Publication mirrors Editor scripts into `_mhb_playcanvas_script_assets`, compiles generated artifacts under advisory locking, ignores stale artifacts, and emits canonical manifest `scripts[]`.
+- [x] Gameplay logic moved from the generic widget into Editor-authored `flight-control.mjs`, `follow-camera.mjs`, `remote-ships.mjs` plus shared `flight-math.ts`; widget retains generic engine/realtime/HUD/bridge orchestration.
+- [x] Canonical MMOOMM fixture is generated through real Editor authoring, validates script assets/bindings/generated artifacts, and passes imported-runtime plus movement/camera parity checks.
+- [x] Runtime script startup waits for realtime authorization and published script-artifact readiness; optimistic-version semantics are consistent across PlayCanvas upserts.
+- [x] Snapshot scene/asset/source/generated-artifact refs validate local provider, project namespace, root and traversal even when files are absent; runtime-manifest canonicalization/checksum logic is shared.
 
--   [x] P0.1 OntoIndex freshness check; branch created
--   [x] P0.2 Baseline: editor-backend 60✓, metahubs-backend playcanvas 212✓, modules-engine ✓, PlayCanvasCanvasWidget 43✓ (pre-existing: InterpretationNetwork 16 failures on main — unrelated)
--   [x] P0.3 `busboy@^1.6.0` in catalog + editor-backend deps; installed 1.6.0
+## UI / maintainability / QA outcome
 
-### Phase 1 — Editor asset CRUD (backend + bridge)
+- [x] Merged module authoring into `MetahubModulesSurface` / single Shared Modules surface; EN/RU labels and multiline content behavior are covered.
+- [x] Browser asset flow covers Folder/CSS/CubeMap/HTML/JSON/Material/Script/Shader/Text, nested folders, editing, 1920/768/390, RU/light/dark, keyboard/accessibility, leakage/overflow/error oracles.
+- [x] Copied source owners are demoted to admins while copier remains sole owner; browser tests cover create/read/rename/delete/file RBAC, cross-project IDOR and unauthorized realtime mutation.
+- [x] Project persistence, compatibility routes, and realtime runtime were split into focused modules; `PlayCanvasCanvasWidget.tsx` reduced to 888 lines; topology guards and public-contract JSDoc added.
+- [x] Full workspace build passed 36/36; editor-backend, metahubs-backend, modules-engine, apps-template, metahubs-frontend, Editor artifact, fixture/docs/drift, lint/Prettier and OntoIndex gates passed in final closure.
+- [x] Autoreview infrastructure was unavailable because environment-owned Codex state was read-only; no product finding was emitted and no clean automated verdict was claimed.
 
--   [x] P1.1 Types: asset summary `path/parentId/createdAt`; `EditorAssetCreateRequest` zod (POST-only)
--   [x] P1.2 Service `createEditorCompatibilityAsset` (folders via virtual_path, uuidv7, replay-claim template, ShareDB seed, allow-list, `asset.new` push, `{id}` response)
--   [x] P1.3 File content route (raw bytes, stored MIME, ETag, 404 JSON)
--   [x] P1.4 Delete route (folder prefix, fail-closed, `asset.delete` push) + **P1.4b** fail-closed PUT 501 + catch-all JSON
--   [x] P1.5 Realtime frames: `fs{op:'delete'}` + `pipeline{script-attributes}` handlers (ShareDB ops + `scriptAttrsFinished:<guid>` push)
--   [x] P1.6 Messenger registry + `extendRealtimeAssetAllowList` seam
--   [x] P1.7 Bridge mapping: rewrite POST/DELETE/file/PUT/unknown `/api/assets*` to compatibility URLs (auth+CSRF headers)
--   [x] P1.8 Mapper upgrade: real `path[]`, numeric `uniqueId`, `createdAt`, folder rows
--   [x] P1.9 Whitelist extension at all four layers (types+zod, MIME map, extensions map, service validator)
+## Key decisions retained
 
-### Phase 2 — ESM script-asset pipeline + runtime loader
+- Create route deliberately returns upstream `{id}`; folder document ids derive from stable project/path keys while persisted row PKs remain UUID v7.
+- Generated artifact reuse is checksum-aware and publication-lock guarded; runtime manifest selection must not consume stale artifacts.
+- Asset deletion/rename must preserve rollback safety and process-local realtime grant cleanup; DELETE payloads remain bounded, strict and unique.
+- Request-scoped RLS responses commit before exposing response bodies; ShareDB seed operations serialize per backend/document.
+- Fixture/script sources remain single-source-of-truth inputs to generators; do not restore built-in runtime fallback copies.
 
--   [x] P2.1 `compileScriptAssetEsm` in modules-engine (+ exports, fail-closed import policy)
--   [x] P2.2 `runtimeFileUrl` MIME fix for `.mjs/.js` (text/javascript data URLs)
--   [x] P2.3 Import map plugin (core-frontend vite) + `ensure-playcanvas-esm.mjs` prebuild copy + gitignore
--   [x] P2.4 `playcanvasScriptAssets.ts` loader (fetch→sha256 verify→blob→import→registerScript→attach) + widget wiring + fail-closed i18n
--   [x] P2.5 Host bridge `app.__universoHost` + cleanup
--   [x] P2.6 `@shared/<codename>` resolution in `compileScriptAssetEsm`
--   [x] P2.7 Publication wiring: script_assets rows on parse, bindings via existing PUT routes, compile-at-publish → generated artifacts → manifest `scripts[]`
+## Retained implementation details
 
-### Phase 3 — MMOOMM logic extraction + fixture regeneration
-
--   [x] P3.1 Built-in scripts: `flight-control.mjs`, `follow-camera.mjs`, `remote-ships.mjs` + `flight-math` library module
--   [x] P3.2 Widget slimming (remove extracted logic; keep manifest/entities/Colyseus/HUD/markers)
--   [x] P3.3 Generator updates: drop flight-canvas-widget module; author scripts through Editor; bind to entities; publish with scripts[]
--   [x] P3.4 Contract + drift: `assertRuntimeScripts`, `assertScriptAssets`, `assertGeneratedArtifacts`
--   [x] P3.5 Regenerate fixture + snapshot-import E2E green
-
-### Phase 4 — Modules tabs merge (MUI)
-
--   [x] P4.1 `MetahubModulesSurface` (nested Tabs pattern from ComponentList)
--   [x] P4.2 `SharedResourcesPage` single modules tab
--   [x] P4.3 i18n keys EN/RU (`modules.scopes.*`), remove `runtimeModules` tab key
--   [x] P4.4 Tests: SharedResourcesPage + MetahubModulesSurface
-
-### Phase 5 — Test system
-
--   [x] P5.1 Vitest editor-backend: create/file/delete/PUT-501/frames/messenger/allow-list/limits
--   [x] P5.2 Jest metahubs-backend: service create/delete, whitelist, MIME fix, manifest scripts + publication wiring
--   [x] P5.3 Vitest modules-engine: compileScriptAssetEsm + @shared
--   [x] P5.4 Vitest apps-template-mui: loader unit tests + widget updates + blob/import-map integration test
--   [x] P5.5 Playwright: assets-panel flow spec, baseline-trace spec, generator updates, runtime proof `scriptsLoaded`
--   [x] P5.6 Docs screenshots EN/RU
-
-### Phase 6 — Docs + hygiene
-
--   [x] P6.1 GitBook page `platform/playcanvas-editor-assets.md` EN/RU + SUMMARY entries + shared-modules/module-scopes updates
--   [x] P6.2 READMEs: editor-backend (EN/RU scope), apps-template-mui, metahubs-frontend, modules-engine
--   [x] P6.3 Stale v2.24.2→v2.30.4 (frontend README, 2 skills) + engineVersions 2.21.3→2.21.4 sync
--   [x] P6.4 memory-bank progress/tasks updates
-
-### Phase 7 — QA remediation and acceptance closure (2026-08-27)
-
--   [x] P7.1 Restore the exact EN/RU module i18n namespace merge and align the merged-scope browser flow with the `Shared modules` tab.
--   [x] P7.2 Remove production legacy MMOOMM fallback logic and duplicate built-in sources; generate or verify a single source of truth for script assets.
--   [x] P7.3 Align and enforce the published script host bridge contract, including script inheritance, duplicate-name, and entity-attachment validation.
--   [x] P7.4 Make editor asset paths and IDs safe and stable: validate every asset name/path, cascade folder moves, reject cycles, preserve numeric document IDs, and map duplicate conflicts to localized 409 responses.
--   [x] P7.5 Close file/artifact race and drift paths: checksum-guarded rollback, artifact cleanup after database failure, and fail-closed ETag handling.
--   [x] P7.6 Remove browser exposure of absolute storage paths and add production CodeMirror accessible naming.
--   [x] P7.7 Add immutable pre-extraction runtime baseline comparison and complete asset-type, role/origin/CSRF, responsive, keyboard, and settled screenshot E2E coverage.
--   [x] P7.8 Run formatting, package lint/build, focused/full tests, minimal-Supabase Playwright flows, drift checks, and final review; update progress and mark all tasks complete.
-
-### Phase 8 — Post-QA implementation closure (2026-08-28)
-
--   [x] P8.1 Security logging: redact credentials, CSRF/access tokens, PII and raw source/file payloads from request logs; add regression tests.
--   [x] P8.2 Fetch compatibility: preserve `Request` method, body, headers and abort signal when rewriting Editor asset URLs; add POST/PUT/DELETE tests.
--   [x] P8.3 CSRF contract: make the full-boot editor mutation proof explicit, fail closed, and cover the chosen token/CSRF model with security tests.
--   [x] P8.4 Browser asset flow: remove internal Editor state mutations, add all required asset types, nested folders, content editing, RU and 1920/768/390 coverage with leakage/overflow/error oracles.
--   [x] P8.5 Runtime parity: generate a non-idle pre-extraction motion/camera baseline and compare timestamps, trajectory, camera pitch, guard clearance, source and bindings strictly.
--   [x] P8.6 Visual acceptance: add dedicated `ru-light`/`ru-dark` Playwright visual specs and robust screenshot dimensions/provenance/drift checks.
--   [x] P8.7 Runtime UX: localize Visual Lab family labels, use safe localized enum fallbacks, and protect multiline module descriptions with real integration tests.
--   [x] P8.8 Hygiene: remove stale fixture codenames/docs, make fixture drift deterministic, eliminate test cwd fragility and document/dedupe shared flight math.
--   [x] P8.9 Verification: run package/full builds, lint, Prettier, focused/full tests, minimal-Supabase E2E, contract/drift checks, OntoIndex diff verification and Thermos review.
-
-### Phase 9 — QA findings remediation (2026-08-29)
-
--   [x] P9.1 Normalize metahub copy access roles so a copied source owner becomes an admin; add a regression test with a source owner different from the copier.
--   [x] P9.2 Align the runtime host bridge with the realtime readiness contract: start script runtime only after realtime authorization, or implement a bounded early-intent queue; add ordering and pre-connect intent tests.
--   [x] P9.3 Make optimistic-version semantics consistent for all PlayCanvas upserts; preserve the documented optional/required contract and add unversioned-update and stale-version tests.
--   [x] P9.4 Validate and remap every local snapshot file path through the safe-path and provider checks, including missing-file references; add traversal tests for assets, scenes, sourcefiles, and generated artifacts.
--   [x] P9.5 Buffer or reject ShareDB frames received during asynchronous authentication/setup until the stream is listening; add a concurrent handshake regression test.
--   [x] P9.6 Add browser-level RBAC/IDOR coverage for asset create/read/rename/delete/file access and unauthorized ShareDB mutations; clarify copy/clone scope and content-view acceptance.
--   [x] P9.7 Re-run focused/full verification, minimal-Supabase Playwright editor and runtime flows, package lint/build/Prettier, fixture contract/drift, and an independent review in a writable environment.
-
-### Phase 10 — Strict QA debt closure (2026-08-29)
-
--   [x] P10.1 Split the PlayCanvas project persistence boundary into focused services/stores while preserving the existing DbExecutor, transaction, optimistic-lock, rollback, and realtime contracts.
--   [x] P10.2 Split the editor compatibility routes/realtime implementation into focused modules without changing the vendored protocol or security gates.
--   [x] P10.3 Centralize PlayCanvas runtime-manifest canonicalization/checksum logic and add producer/consumer parity coverage.
--   [x] P10.4 Reduce `PlayCanvasCanvasWidget.tsx` below the documented ~1200-line decomposition target using focused runtime hooks/modules; preserve browser behavior and accessibility.
--   [x] P10.5 Add direct multi-worker topology guard tests for single-worker, missing worker-id, and distinct-worker ownership cases.
--   [x] P10.6 Document newly exported public contracts with JSDoc and add browser asset-type matrix coverage for the supported text/data asset menu.
--   [x] P10.7 Run focused/full builds, lint, Prettier, Vitest/Jest, minimal-Supabase Playwright flows, fixture/docs/drift checks, OntoIndex diff verification, and independent Thermos reviews; update progress and close the phase.
-
-## Notes / Decisions Log
-
--   2026-08-25 IMPLEMENT session 1: Phases 0, 1, 2, 4 and P3.1+P3.2 implemented and verified (editor-backend 60✓, metahubs-backend playcanvas 212✓, modules-engine 22✓, widget 43✓, modules-frontend 26✓ incl. new MetahubModulesSurface 2✓; lint clean in all touched packages; zero new tsc errors vs baseline).
--   2026-08-26 P6 documentation pass: added the EN/RU PlayCanvas Editor asset and script-asset GitBook page, synchronized navigation and module-scope guidance, refreshed the affected package READMEs, and reconciled active PlayCanvas Editor skill/version references. `pnpm docs:i18n:check` (112 EN/RU pairs) and `pnpm docs:gitbook-screenshot-assets:check` passed.
--   Create route returns upstream shape `{id}` (deliberate envelope deviation — vendor reads only `result.id`).
--   Folder document ids: `hashToPositiveInt('key:folder:<projectId>:<path>')` matching the batch resolver's `metadata.editorDocumentKey` scheme; row PKs stay `generateUuidV7()`.
--   Realtime: dynamic asset grants registry (`grantRealtimeAssetDocuments`, scope `metahubId:projectId`) + messenger socket registry (`sendMessengerEvent`); `fs{op:'delete'}` → `documentPort.deleteAssets`; `pipeline{script-attributes}` → ShareDB ops + `scriptAttrsFinished:<guid>` push; script-asset rows mirrored on persist (`editor-script-<hash>` ids, kind from `.mjs` extension).
--   Bridge: `resolveEditorAssetCompatibilityUrl` rewrite table (POST/DELETE/PUT/file-GET/unknown→`/-unsupported`); CSRF header from pre-warmed `marker.compatibilityCsrfToken`; artifact template literals require DOUBLE-escaped regexes (`\/` → `\/` in output) and NO nested backticks — two syntax bugs caught by artifact contract tests.
--   Import map: `universoImportMapPlugin` (core-frontend vite) + `ensure-playcanvas-esm.mjs` predev/prebuild copy (playcanvas@2.21.4 `build/playcanvas.mjs`, gitignored, version-marker cache).
--   Runtime loader: `playcanvasScriptAssets.ts` (fetch data-URL → hex sha-256 verify vs `artifactHash` → blob import → `app.scripts.add`); `scriptsLoaded` dataset marker: 'true'|'none'|'failed'; host bridge `app.__universoHost` = frozen `{moveToTarget, pickAt}`.
--   Publication wiring: `persistEditorRealtimeDocument` mirrors parsed scripts into `_mhb_playcanvas_script_assets`; `ensureGeneratedScriptArtifacts` (publish pre-step) compiles sources via `compileScriptAssetEsm` (with metahub `@shared` libraries from `MetahubModulesService.listSharedLibraryCompilationInputs`) → `_mhb_playcanvas_generated_artifacts` + manifest `scripts[]`.
--   Extraction (P3.1/3.2): canonical Editor-authored `.mjs` script assets (`flight-control.mjs`, `follow-camera.mjs`, `remote-ships.mjs`) plus the `libraries/flight-math.ts` shared module in metahubs-backend; the fixture generator reads these files directly when authoring the project, manifest scripts override builtins by scriptName, and the widget retains only generic runtime/bridge orchestration.
--   2026-08-27 completion: generated the canonical MMOOMM fixture through the real Editor authoring flow on minimal local Supabase; contract and drift checks passed; imported runtime and dedicated baseline/movement parity E2E both passed (2/2 each). Asset CRUD browser flow passed (2/2), including create, raw file read, ShareDB rename, and UUID-cast delete regression. Editor-backend Vitest (9 targeted tests), metahubs-backend Jest (172 targeted tests), modules-engine Vitest (30 tests), apps-template Vitest (55 tests), Editor artifact tests (15 tests), docs screenshot generator (2/2), and package lint/build checks passed. P6.3 engine configuration now uses runtime engine `2.21.4`; no schema or template version was bumped.
--   2026-08-27 hardening follow-up: script-asset compilation now rejects relative and absolute filesystem imports and resolves source text from an isolated virtual directory; generated-artifact reuse is checksum-aware and guarded by a publication advisory lock; runtime manifest selection ignores stale artifacts. Compatibility asset deletion now removes files with checksum/version preconditions and restores them on a rolled-back transaction; file renames lock both paths and use atomic no-clobber hard links. DELETE payloads are bounded, strict, unique, and the process-local realtime asset grant registry evicts deleted ids. Targeted metahubs PlayCanvas Jest (222/222), editor-backend Vitest full suite (72/72), modules-engine compiler tests (33/33), and file-service rename/rollback regressions passed.
--   2026-08-28 QA remediation closure: completed P7.1–P7.8. Added commit-before-response handling for request-scoped RLS transactions, deterministic ShareDB seed serialization for static and dynamic asset grants, rollback cleanup for files/artifacts written before a failed database transaction, cross-platform traversal rejection for package artifacts, and one bounded reload recovery for a cold `/a/<applicationId>` shell in the runtime oracle. Regenerated the canonical fixture from the real Editor flow (2/2), then verified fixture contract and drift, imported MMOOMM runtime (2/2 in 11.0 minutes), full workspace build (36/36), Editor build, focused package suites, package/E2E lint, Prettier, vendor drift, docs checks, and `git diff --check`. No schema or metahub template version was bumped; the advisory autoreview remains unavailable because the environment's Codex state database is read-only.
--   2026-08-29 production-shell closure: strict static routing now returns the SPA document only for document navigations and returns an empty 404 for missing hashed assets. The remaining white page was traced with Chromium to the generated development Supabase profile omitting `CORS_ORIGINS`; browser asset requests therefore failed with `500 Not allowed by CORS` while headerless curl requests appeared healthy. Local profile generation now emits only `http://127.0.0.1:<port>` and `http://localhost:<port>`, and the doctor fails closed if either is missing or a wildcard is present. The regenerated profile passed doctor, real HTML/JS/CSS response checks, stale-asset 404, and a rendered Playwright Chromium shell.
--   2026-08-29 post-QA remediation: copied source owners are demoted to admins while the copier remains the sole owner; runtime script startup waits for realtime setup and published script artifacts; all PlayCanvas upserts honor the same optional optimistic-version contract; snapshot scene, asset, source-file, and generated-artifact references validate provider, root, project namespace, and traversal even when files are missing; ShareDB handshakes use bounded buffering; browser RBAC covers asset create/read/rename/delete/file access, cross-project IDOR, and unauthorized realtime mutation; compatibility errors no longer echo PlayCanvas identifiers. Focused suites, minimal-Supabase Playwright flows, fixture contract/drift, builds, lint, Prettier, and diff checks passed. Thermos autoreview remained unavailable because the Codex state database is read-only.
--   2026-08-29 strict QA debt closure: split PlayCanvas project services/stores, compatibility routes, and realtime runtime modules while preserving public contracts; centralized runtime-manifest canonicalization/checksum logic; reduced `PlayCanvasCanvasWidget.tsx` to 888 lines; added topology guards and public-contract JSDoc; and expanded the browser asset flow to exercise Folder/CSS/CubeMap/HTML/JSON/Material/Script/Shader/Text creation. Fresh E2E build plus minimal Supabase target flow passed 2/2. Full workspace build passed 36/36; editor-backend Vitest 113/113; focused metahubs-backend Jest 188; modules-engine 35; apps-template 73; metahubs-frontend 30; Editor artifact 16; applications manifest 4; static checks, package lint, Prettier, fixture/docs/drift, and `gn_verify_diff` all passed. The local autoreview helper could not start because `/home/vladimir/.codex/state_5.sqlite` is read-only; no product findings were emitted.
+- Asset allowlists are enforced at shared types/Zod, MIME mapping, extension mapping, and backend service validation layers.
+- Editor mapper rows preserve real `path[]`, numeric `uniqueId`, creation time and folder semantics expected by the upstream UI.
+- Dynamic realtime grants are scoped by metahub/project; deleted asset ids are evicted from the process-local grant registry.
+- Messenger events preserve `asset.new`, `asset.delete`, and `scriptAttrsFinished:<guid>` compatibility semantics.
+- Folder ids derive from the deterministic `folder:<projectId>:<path>` document-key namespace; row ids remain UUID v7.
+- Script rows mirrored from Editor persistence use deterministic Editor-facing ids while persistent generated-artifact identities stay server-owned.
+- Import-map staging uses the workspace PlayCanvas runtime artifact and a version-marker cache; staged engine output remains generated/ignored.
+- `app.__universoHost` exposes the frozen generic host commands used by authored scripts and is removed during runtime cleanup.
+- Manifest script selection lets authored assets override built-ins by script name only during the migration path; production fallback sources were removed.
+- Generated-artifact compilation resolves shared libraries through `MetahubModulesService.listSharedLibraryCompilationInputs` and persists canonical manifest scripts.
+- `MetahubModulesSurface` remains the merged authoring boundary; do not restore the removed duplicate runtime-modules tab.
+- Browser compatibility tests must use public Editor actions rather than mutating internal Editor state to manufacture asset changes.
+- Cross-platform traversal checks normalize both POSIX and Windows-style separators before storage/package-artifact access.
+- CORS diagnostics must exercise real browser-origin requests; headerless curl is insufficient evidence for production static assets.
+- ShareDB static/dynamic asset seeding remains serialized per backend/document to avoid duplicate remote-document creation races.
+- Compatibility failures return sanitized domain errors and must not reveal PlayCanvas project/document identifiers to unauthorized clients.
+- Copied metahub membership normalization preserves one owner (the copier) and demotes copied source owners to admins.
+- Multi-worker realtime ownership has explicit single-worker/missing-worker/distinct-worker topology guards.
+- Final PlayCanvas asset/runtime closure intentionally kept schema and metahub-template versions unchanged because the affected storage contract required no DDL.
 
 # Marketing-page widgetized runtime implementation (2026-09-04)
 
@@ -490,23 +414,10 @@ Evidence (2026-09-04): the marketing verification wrapper passed the 36/36 E2E b
 
 ## Initial implementation evidence before QA remediation (2026-09-08)
 
--   Target-aware effective-layout routing, shared widget/zone metadata, scoped
-    Dashboard/marketing selection, UUID v7 identity, strict validation, and
-    SQL-first concurrency boundaries are implemented without a schema,
-    snapshot, or metahub-template version bump.
--   Focused verification passed: applications-backend 4 suites / 215 tests;
-    metahubs-backend 3 suites / 71 tests; applications-frontend 49 tests;
-    apps-template-mui Dashboard 22 tests; types 36 tests; and utils 17 tests.
--   `pnpm test:e2e:cross-template:verify:local-supabase` passed 2/2 after a
-    full workspace build. Fresh screenshots cover marketing desktop, RU mobile,
-    tablet, scoped Dashboard desktop, and scoped Dashboard RU mobile. The flow
-    proves visible navigation into the scoped entity layout, shared language
-    widget, keyboard menu operation, no technical leakage, and no page-level
-    overflow.
--   Lint/static/docs gates passed after fixing EN/RU line parity and the stale
-    Russian documentation term. The standalone browser environment and the
-    environment-owned Thermos/autoreview state database remain explicit
-    limitations; no false PASS is recorded for either.
+-   Target-aware effective-layout routing, shared widget/zone metadata, scoped Dashboard/marketing selection, UUID v7 identity, strict validation, and SQL-first concurrency boundaries are implemented without a schema, snapshot, or metahub-template version bump.
+-   Focused verification passed: applications-backend 4 suites / 215 tests; metahubs-backend 3 suites / 71 tests; applications-frontend 49 tests; apps-template-mui Dashboard 22 tests; types 36 tests; and utils 17 tests.
+-   `pnpm test:e2e:cross-template:verify:local-supabase` passed 2/2 after a full workspace build. Fresh screenshots cover marketing desktop, RU mobile, tablet, scoped Dashboard desktop, and scoped Dashboard RU mobile. The flow proves visible navigation into the scoped entity layout, shared language widget, keyboard menu operation, no technical leakage, and no page-level overflow.
+-   Lint/static/docs gates passed after fixing EN/RU line parity and the stale Russian documentation term. The standalone browser environment and the environment-owned Thermos/autoreview state database remain explicit limitations; no false PASS is recorded for either.
 
 # Unified Application Template Widgets and Scoped Layouts — QA remediation IMPLEMENT (2026-09-08)
 
@@ -551,12 +462,7 @@ Evidence (2026-09-04): the marketing verification wrapper passed the 36/36 E2E b
 
 ### QA-ULTW-10 boundary note
 
-The Interpretation Network baseline is now aligned at its ownership boundary:
-the strict response schema remains unchanged, while the test supplies the
-current aggregate API response. The focused widget/layout test, hosted runtime
-flow, and root build remain green. The standalone browser acceptance gate is
-still explicitly BLOCKED in this checkout because no authenticated standalone
-shell and required target/template environment variables are configured.
+The Interpretation Network baseline is now aligned at its ownership boundary: the strict response schema remains unchanged, while the test supplies the current aggregate API response. The focused widget/layout test, hosted runtime flow, and root build remain green. The standalone browser acceptance gate is still explicitly BLOCKED in this checkout because no authenticated standalone shell and required target/template environment variables are configured.
 
 # Marketing Header Widget Zone Settings — IMPLEMENT (2026-09-12)
 
@@ -568,113 +474,59 @@ shell and required target/template environment variables are configured.
 
 ## Phase 0 — Baseline and impact
 
--   [x] MHW-00 Re-read the brief, research, approved plan, package READMEs and
-        implementation-mode instructions; record dirty-file boundaries.
--   [x] MHW-01 Check OntoIndex freshness and run impact analysis before editing
-        shared contracts, stores, services, authoring components and runtime
-        shells.
--   [x] MHW-02 Capture focused baseline tests and identify obsolete
-        multi-AppBar/Drawer and `sharedLayoutWidgets` assertions to replace.
+-   [x] MHW-00 Re-read the brief, research, approved plan, package READMEs and implementation-mode instructions; record dirty-file boundaries.
+-   [x] MHW-01 Check OntoIndex freshness and run impact analysis before editing shared contracts, stores, services, authoring components and runtime shells.
+-   [x] MHW-02 Capture focused baseline tests and identify obsolete multi-AppBar/Drawer and `sharedLayoutWidgets` assertions to replace.
 
 ## Phase 1 — Shared neutral contracts and registry
 
--   [x] MHW-10 Implement the strict neutral layout/widget envelope codec in the
-        surviving shared types package.
--   [x] MHW-11 Extend serializable zone-setting metadata and typed header
-        placement/cardinality registry contracts without executable validators
-        in API metadata.
--   [x] MHW-12 Add contract tests for round-trip, fail-closed validation,
-        renderer metadata stripping, defaults, placement and cardinality.
+-   [x] MHW-10 Implement the strict neutral layout/widget envelope codec in the surviving shared types package.
+-   [x] MHW-11 Extend serializable zone-setting metadata and typed header placement/cardinality registry contracts without executable validators in API metadata.
+-   [x] MHW-12 Add contract tests for round-trip, fail-closed validation, renderer metadata stripping, defaults, placement and cardinality.
 
 ## Phase 2 — Metahub lifecycle and APIs
 
--   [x] MHW-20 Normalize metahub layout composition/zone metadata through the
-        codec and implement sparse inheritance/reset.
--   [x] MHW-21 Add generic metahub zone-setting update/reset mutations using the
-        existing transaction, lock order and OCC boundary.
--   [x] MHW-22 Make all existing metahub layout/widget config writers preserve
-        system-owned neutral metadata and reject direct `__layout` injection.
--   [x] MHW-23 Update seed, copy, snapshot, restore and preflight tests without
-        changing versions.
+-   [x] MHW-20 Normalize metahub layout composition/zone metadata through the codec and implement sparse inheritance/reset.
+-   [x] MHW-21 Add generic metahub zone-setting update/reset mutations using the existing transaction, lock order and OCC boundary.
+-   [x] MHW-22 Make all existing metahub layout/widget config writers preserve system-owned neutral metadata and reject direct `__layout` injection.
+-   [x] MHW-23 Update seed, copy, snapshot, restore and preflight tests without changing versions.
 
 ## Phase 3 — Application lifecycle, sync and hashing
 
--   [x] MHW-30 Add application zone-setting update/reset mutations with existing
-        RBAC, transaction, lock and OCC contracts.
--   [x] MHW-31 Persist source zone-setting baselines and implement all sync
-        resolutions plus targeted reset semantics.
--   [x] MHW-32 Refactor application config writers, reset paths, effective
-        resolution and semantic hashing to preserve/exclude neutral metadata
-        correctly.
--   [x] MHW-33 Add backend Jest/integration/concurrency coverage for all source,
-        local, reset, hash and permission paths.
+-   [x] MHW-30 Add application zone-setting update/reset mutations with existing RBAC, transaction, lock and OCC contracts.
+-   [x] MHW-31 Persist source zone-setting baselines and implement all sync resolutions plus targeted reset semantics.
+-   [x] MHW-32 Refactor application config writers, reset paths, effective resolution and semantic hashing to preserve/exclude neutral metadata correctly.
+-   [x] MHW-33 Add backend Jest/integration/concurrency coverage for all source, local, reset, hash and permission paths.
 
 ## Phase 4 — Typed placement and shared authoring UI
 
--   [x] MHW-40 Transport typed Start/End placement through move, inheritance,
-        copy, snapshot, sync, reset, hash and hosted runtime adapters.
--   [x] MHW-41 Extend the real `LayoutAuthoringDetails` with metadata-driven
-        zone-heading actions, reused move menu, shared Zone Settings dialog
-        presentation, read-only/conflict states and EN/RU i18n.
--   [x] MHW-42 Wire application/metahub APIs, TanStack Query optimistic updates,
-        localized errors and integration tests.
+-   [x] MHW-40 Transport typed Start/End placement through move, inheritance, copy, snapshot, sync, reset, hash and hosted runtime adapters.
+-   [x] MHW-41 Extend the real `LayoutAuthoringDetails` with metadata-driven zone-heading actions, reused move menu, shared Zone Settings dialog presentation, read-only/conflict states and EN/RU i18n.
+-   [x] MHW-42 Wire application/metahub APIs, TanStack Query optimistic updates, localized errors and integration tests.
 
 ## Phase 5 — Runtime decomposition
 
--   [x] MHW-50 Replace marketing per-navigation shell ownership with one header
-        shell/banner/Drawer and atomic persisted controls, preserving MUI style
-        and package isolation.
--   [x] MHW-51 Add measured fixed/flow geometry, frame offset and skip/anchor
-        accessibility behavior.
--   [x] MHW-52 Convert Dashboard language/theme controls to persisted singleton
-        widgets without duplicate shell ownership.
--   [x] MHW-53 Replace obsolete runtime/component tests and add focused UX
-        coverage for one banner, one Drawer, projections and geometry.
+-   [x] MHW-50 Replace marketing per-navigation shell ownership with one header shell/banner/Drawer and atomic persisted controls, preserving MUI style and package isolation.
+-   [x] MHW-51 Add measured fixed/flow geometry, frame offset and skip/anchor accessibility behavior.
+-   [x] MHW-52 Convert Dashboard language/theme controls to persisted singleton widgets without duplicate shell ownership.
+-   [x] MHW-53 Replace obsolete runtime/component tests and add focused UX coverage for one banner, one Drawer, projections and geometry.
 
 ## Phase 6 — Browser, documentation and closeout
 
--   [x] MHW-60 Extend the existing Playwright suites and canonical local-Supabase
-        wrapper; cover lifecycle, snapshot, sync, permissions, concurrency,
-        keyboard, a11y, responsive geometry and real controls.
--   [x] MHW-61 Run and inspect the required visual screenshot matrix and traces;
-        preserve evidence under existing artifact conventions.
+-   [x] MHW-60 Extend the existing Playwright suites and canonical local-Supabase wrapper; cover lifecycle, snapshot, sync, permissions, concurrency, keyboard, a11y, responsive geometry and real controls.
+-   [x] MHW-61 Run and inspect the required visual screenshot matrix and traces; preserve evidence under existing artifact conventions.
 -   [x] MHW-62 Update affected READMEs and paired EN/RU GitBook documentation.
--   [x] MHW-63 Run focused/full tests, lint, builds, Prettier, docs checks,
-        package-boundary guards, OntoIndex diff verification and Thermos/
-        autoreview; fix all actionable findings.
--   [x] MHW-64 Update `progress.md` with verified implementation evidence and
-        mark this checklist complete only after every applicable gate passes.
+-   [x] MHW-63 Run focused/full tests, lint, builds, Prettier, docs checks, package-boundary guards, OntoIndex diff verification and Thermos/ autoreview; fix all actionable findings.
+-   [x] MHW-64 Update `progress.md` with verified implementation evidence and mark this checklist complete only after every applicable gate passes.
 
 ## Verification evidence
 
--   The marketing header now uses one MUI AppBar/banner and one responsive
-    Drawer. Brand, navigation, authentication, language, and color-mode
-    projections are rendered from the persisted zone composition; Dashboard
-    language and color-mode controls use the shared registry.
--   The `marketing-header` zone supports the typed `fixed`/`flow` setting with
-    sparse inheritance and reset. Neutral layout metadata is validated at
-    shared, metahub, application, snapshot, sync, and runtime boundaries;
-    renderer-only metadata is stripped before user-facing payloads.
--   Focused verification passed: apps-template 31/31, applications frontend
-    15/15, metahubs frontend 5/5, applications backend 318/318, metahubs
-    backend 101/101, types 46/46, and utils 17/17. Package lint, builds,
-    Prettier, isolation and runtime UX guards also passed.
--   The canonical Chromium lifecycle gate passed 13 flow tests with one
-    intentional standalone skip. The visual matrix passed 5/5 after
-    deterministic top
-    scrolling and refreshed baselines; inspected screenshots show the single
-    header shell and real controls at desktop, tablet, and mobile sizes.
--   Marketing template contract, GitBook provenance, EN/RU parity, screenshot
-    assets, local links, and the minimal-Supabase cleanup gate passed. No
-    schema, migration, snapshot, UUID policy, or metahub-template version was
-    changed, and no legacy compatibility path was retained.
--   OntoIndex `gn_verify_diff` returned `PASS` for the complete dirty-worktree
-    allowlist with no unexpected files, symbols, impacts, or missing tests.
-    The Thermos subagent review completed earlier and its actionable findings
-    were fixed. The final local autoreview retries produced no structured
-    result: Codex failed after repeated strict-JSON stream disconnects, and
-    Claude reported an unavailable API connection. No clean external
-    autoreview verdict is claimed.
+-   The marketing header now uses one MUI AppBar/banner and one responsive Drawer. Brand, navigation, authentication, language, and color-mode projections are rendered from the persisted zone composition; Dashboard language and color-mode controls use the shared registry.
+-   The `marketing-header` zone supports the typed `fixed`/`flow` setting with sparse inheritance and reset. Neutral layout metadata is validated at shared, metahub, application, snapshot, sync, and runtime boundaries; renderer-only metadata is stripped before user-facing payloads.
+-   Focused verification passed: apps-template 31/31, applications frontend 15/15, metahubs frontend 5/5, applications backend 318/318, metahubs backend 101/101, types 46/46, and utils 17/17. Package lint, builds, Prettier, isolation and runtime UX guards also passed.
+-   The canonical Chromium lifecycle gate passed 13 flow tests with one intentional standalone skip. The visual matrix passed 5/5 after deterministic top scrolling and refreshed baselines; inspected screenshots show the single header shell and real controls at desktop, tablet, and mobile sizes.
+-   Marketing template contract, GitBook provenance, EN/RU parity, screenshot assets, local links, and the minimal-Supabase cleanup gate passed. No schema, migration, snapshot, UUID policy, or metahub-template version was changed, and no legacy compatibility path was retained.
+-   OntoIndex `gn_verify_diff` returned `PASS` for the complete dirty-worktree allowlist with no unexpected files, symbols, impacts, or missing tests. The Thermos subagent review completed earlier and its actionable findings were fixed. The final local autoreview retries produced no structured result: Codex failed after repeated strict-JSON stream disconnects, and Claude reported an unavailable API connection. No clean external autoreview verdict is claimed.
 
 # Marketing Header Widget Zone Settings — QA REMEDIATION (2026-09-12)
 
@@ -685,75 +537,29 @@ shell and required target/template environment variables are configured.
 
 ## Browser acceptance gaps
 
--   [x] MHW-QA-01 Add API-session helpers and direct browser/API assertions for
-        application and metahub zone-setting update/reset, including owner/admin
-        success, editor/member `403`, cross-scope `404`, stale OCC `409`, and
-        no-change-after-denial.
--   [x] MHW-QA-02 Extend the authoring flow through the real shared Zone Settings
-        dialog in EN and RU. Cover inherited/customized labels, read-only state,
-        keyboard operation, save, cancel, reset, localized errors, and reload.
--   [x] MHW-QA-03 Add real runtime `flow` geometry proof at desktop, tablet and
-        mobile sizes: header leaves the viewport after scroll and no fixed spacer
-        or scroll-padding residue remains. Keep equivalent fixed geometry proof.
--   [x] MHW-QA-04 Complete the metahub sparse inheritance chain: global/base
-        setting, entity overlay inheritance, local fixed override, reset, and a
-        later base change becoming visible after reset.
--   [x] MHW-QA-05 Complete the application source lifecycle: non-default flow
-        snapshot export/import, linked application effective layout, source flow
-        to local fixed, upstream update, `keep_local`, `copy_source_as_application`,
-        targeted reset, and current source baseline visibility.
--   [x] MHW-QA-06 Prove Start/End placement through authoring, reload, snapshot,
-        application sync and runtime projection, including deterministic widget
-        identity and UUID v7 uniqueness after copy/duplicate/delete paths.
--   [x] MHW-QA-07 Run and inspect the final EN/RU light/dark desktop/tablet/mobile
-        screenshot matrix plus axe for fixed desktop and open mobile Drawer.
+-   [x] MHW-QA-01 Add API-session helpers and direct browser/API assertions for application and metahub zone-setting update/reset, including owner/admin success, editor/member `403`, cross-scope `404`, stale OCC `409`, and no-change-after-denial.
+-   [x] MHW-QA-02 Extend the authoring flow through the real shared Zone Settings dialog in EN and RU. Cover inherited/customized labels, read-only state, keyboard operation, save, cancel, reset, localized errors, and reload.
+-   [x] MHW-QA-03 Add real runtime `flow` geometry proof at desktop, tablet and mobile sizes: header leaves the viewport after scroll and no fixed spacer or scroll-padding residue remains. Keep equivalent fixed geometry proof.
+-   [x] MHW-QA-04 Complete the metahub sparse inheritance chain: global/base setting, entity overlay inheritance, local fixed override, reset, and a later base change becoming visible after reset.
+-   [x] MHW-QA-05 Complete the application source lifecycle: non-default flow snapshot export/import, linked application effective layout, source flow to local fixed, upstream update, `keep_local`, `copy_source_as_application`, targeted reset, and current source baseline visibility.
+-   [x] MHW-QA-06 Prove Start/End placement through authoring, reload, snapshot, application sync and runtime projection, including deterministic widget identity and UUID v7 uniqueness after copy/duplicate/delete paths.
+-   [x] MHW-QA-07 Run and inspect the final EN/RU light/dark desktop/tablet/mobile screenshot matrix plus axe for fixed desktop and open mobile Drawer.
 
 ## Regression and closeout
 
--   [x] MHW-QA-08 Resolve the reproducible apps-template Dashboard test failure
-        at its ownership boundary and rerun the package suite; separately resolve
-        or document the FormDialog timeout only if it remains reproducible after
-        isolated reruns.
--   [x] MHW-QA-09 Run the canonical minimal-Supabase marketing verification,
-        focused Jest/Vitest suites, package lint/build, Prettier, docs checks,
-        `git diff --check`, OntoIndex diff verification, and Thermos/autoreview.
--   [x] MHW-QA-10 Synchronize the plan Acceptance Checklist and this task list
-        with fresh evidence; update `progress.md` and README/GitBook text only
-        after the corresponding acceptance item is actually proven.
+-   [x] MHW-QA-08 Resolve the reproducible apps-template Dashboard test failure at its ownership boundary and rerun the package suite; separately resolve or document the FormDialog timeout only if it remains reproducible after isolated reruns.
+-   [x] MHW-QA-09 Run the canonical minimal-Supabase marketing verification, focused Jest/Vitest suites, package lint/build, Prettier, docs checks, `git diff --check`, OntoIndex diff verification, and Thermos/autoreview.
+-   [x] MHW-QA-10 Synchronize the plan Acceptance Checklist and this task list with fresh evidence; update `progress.md` and README/GitBook text only after the corresponding acceptance item is actually proven.
 
 ## QA verification evidence (2026-09-13)
 
--   MHW-QA-01 is closed by the real permissions flow and backend/API assertions:
-    owner/admin writes and resets succeeded; editor/member writes were denied
-    with `403`; cross-scope access returned `404`; stale optimistic updates
-    returned `409`; denied requests left the persisted state unchanged.
--   MHW-QA-02 is closed by the real shared Zone Settings dialog in English and
-    Russian, including inherited/customized labels, read-only behavior,
-    keyboard/focus handling, save/cancel/reset, localized errors, and reload.
--   MHW-QA-03 and MHW-QA-07 are closed by the browser geometry and visual matrix:
-    fixed mode keeps one measured header and spacer stable, flow mode scrolls
-    away without fixed residue, and desktop/tablet/mobile EN/RU light/dark
-    projects passed with axe checks for fixed desktop and the open mobile Drawer.
--   MHW-QA-04, MHW-QA-05, and MHW-QA-06 are closed by the metahub sparse
-    inheritance, application source-baseline/sync, snapshot round-trip, and
-    Start/End placement flows. Repeated local sync preserves local values,
-    targeted reset reveals the current source, and generated/copied identities
-    remain server-owned UUID v7 values.
--   MHW-QA-08 is closed by the focused apps-template Vitest suite (7 files / 74
-    tests), the shared Zone Settings Jest suite (3/3), and the affected package
-    suites. The earlier FormDialog timeout was isolated and is not a current
-    reproducible failure; no ownership-boundary failure remains in the current
-    implementation.
--   MHW-QA-09 is closed by the canonical local-minimal-Supabase run: 13 flow
-    tests passed with one intentional standalone skip, 5 visual projects passed,
-    the full 36/36 workspace build passed, and docs provenance, 113 EN/RU page
-    pairs, screenshot assets, local links, lint, Prettier, and diff checks passed.
-    Thermos findings were fixed; the local autoreview helper produced no
-    structured verdict because its external review streams were unavailable.
--   MHW-QA-10 is closed by the synchronized plan Acceptance Checklist, this
-    checklist, `progress.md`, package READMEs, and paired GitBook documentation.
-    The standalone deployment boundary remains explicitly BLOCKED/skipped when
-    no authenticated shell is configured and is not counted as acceptance.
+-   MHW-QA-01 is closed by the real permissions flow and backend/API assertions: owner/admin writes and resets succeeded; editor/member writes were denied with `403`; cross-scope access returned `404`; stale optimistic updates returned `409`; denied requests left the persisted state unchanged.
+-   MHW-QA-02 is closed by the real shared Zone Settings dialog in English and Russian, including inherited/customized labels, read-only behavior, keyboard/focus handling, save/cancel/reset, localized errors, and reload.
+-   MHW-QA-03 and MHW-QA-07 are closed by the browser geometry and visual matrix: fixed mode keeps one measured header and spacer stable, flow mode scrolls away without fixed residue, and desktop/tablet/mobile EN/RU light/dark projects passed with axe checks for fixed desktop and the open mobile Drawer.
+-   MHW-QA-04, MHW-QA-05, and MHW-QA-06 are closed by the metahub sparse inheritance, application source-baseline/sync, snapshot round-trip, and Start/End placement flows. Repeated local sync preserves local values, targeted reset reveals the current source, and generated/copied identities remain server-owned UUID v7 values.
+-   MHW-QA-08 is closed by the focused apps-template Vitest suite (7 files / 74 tests), the shared Zone Settings Jest suite (3/3), and the affected package suites. The earlier FormDialog timeout was isolated and is not a current reproducible failure; no ownership-boundary failure remains in the current implementation.
+-   MHW-QA-09 is closed by the canonical local-minimal-Supabase run: 13 flow tests passed with one intentional standalone skip, 5 visual projects passed, the full 36/36 workspace build passed, and docs provenance, 113 EN/RU page pairs, screenshot assets, local links, lint, Prettier, and diff checks passed. Thermos findings were fixed; the local autoreview helper produced no structured verdict because its external review streams were unavailable.
+-   MHW-QA-10 is closed by the synchronized plan Acceptance Checklist, this checklist, `progress.md`, package READMEs, and paired GitBook documentation. The standalone deployment boundary remains explicitly BLOCKED/skipped when no authenticated shell is configured and is not counted as acceptance.
 
 # Marketing header widget-zone settings — QA remediation (2026-09-13)
 

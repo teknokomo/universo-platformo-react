@@ -539,10 +539,100 @@ describe('PlayCanvasProjectsService', () => {
                 useLegacyScripts: false,
                 engineV2: true,
                 width: 1280,
-                height: 720
+                height: 720,
+                layers: {
+                    0: { name: 'World', opaqueSortMode: 2, transparentSortMode: 3 },
+                    1: { name: 'Depth', opaqueSortMode: 2, transparentSortMode: 3 },
+                    2: { name: 'Skybox', opaqueSortMode: 0, transparentSortMode: 3 },
+                    3: { name: 'Immediate', opaqueSortMode: 0, transparentSortMode: 3 },
+                    4: { name: 'UI', opaqueSortMode: 1, transparentSortMode: 1 }
+                },
+                layerOrder: [
+                    { layer: 0, enabled: true, transparent: false },
+                    { layer: 1, enabled: true, transparent: false },
+                    { layer: 2, enabled: true, transparent: false },
+                    { layer: 0, enabled: true, transparent: true },
+                    { layer: 3, enabled: true, transparent: false },
+                    { layer: 3, enabled: true, transparent: true },
+                    { layer: 4, enabled: true, transparent: true }
+                ]
             },
             version: 0,
             revision: '0'
+        })
+    })
+
+    it('normalizes repeated default PlayCanvas layer order entries from legacy realtime settings documents', async () => {
+        const standardLayerOrder = [
+            { layer: 0, enabled: true, transparent: false },
+            { layer: 1, enabled: true, transparent: false },
+            { layer: 2, enabled: true, transparent: false },
+            { layer: 0, enabled: true, transparent: true },
+            { layer: 3, enabled: true, transparent: false },
+            { layer: 3, enabled: true, transparent: true },
+            { layer: 4, enabled: true, transparent: true }
+        ]
+        const exec = {
+            query: jest.fn(async (sql: string) => {
+                if (sql.includes('SELECT') && sql.includes('_mhb_playcanvas_projects')) {
+                    return [
+                        {
+                            id: PROJECT_ID,
+                            codename: createLocalizedContent('en', 'playcanvas_project'),
+                            displayName: createLocalizedContent('en', 'PlayCanvas Project'),
+                            description: null,
+                            packageName: '@universo-react/playcanvas-editor-frontend',
+                            packageVersion: '0.1.0',
+                            compatibilityStatus: 'compatible',
+                            compatibilityNotes: {},
+                            schemaVersion: '1',
+                            settings: {
+                                playCanvasEditorRealtime: {
+                                    documents: {
+                                        project_123: {
+                                            data: {
+                                                id: 'project_123',
+                                                project: 123,
+                                                layerOrder: [...standardLayerOrder, ...standardLayerOrder]
+                                            },
+                                            version: 4
+                                        }
+                                    }
+                                }
+                            },
+                            defaultSceneId: SCENE_ID,
+                            publicationConfig: {},
+                            version: 7
+                        }
+                    ]
+                }
+                throw new Error(`Unexpected SQL: ${sql}`)
+            })
+        } as unknown as DbExecutor
+        const service = new PlayCanvasProjectsService(exec, makeSchemaService() as never)
+
+        await expect(
+            service.loadEditorRealtimeDocument({
+                metahubId: 'metahub-1',
+                projectId: PROJECT_ID,
+                sceneId: SCENE_ID,
+                userId: 'user-2',
+                collection: 'settings',
+                documentId: 'project_123',
+                numericProjectId: 123,
+                numericSceneId: 456,
+                numericUserId: 789
+            })
+        ).resolves.toMatchObject({
+            data: {
+                layers: expect.objectContaining({
+                    0: { name: 'World', opaqueSortMode: 2, transparentSortMode: 3 },
+                    4: { name: 'UI', opaqueSortMode: 1, transparentSortMode: 1 }
+                }),
+                layerOrder: standardLayerOrder
+            },
+            version: 4,
+            revision: '4'
         })
     })
 

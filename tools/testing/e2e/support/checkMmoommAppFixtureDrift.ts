@@ -3,7 +3,10 @@ import path from 'path'
 import { repoRoot } from './env/load-e2e-env.mjs'
 import { MMOOMM_APP_FIXTURE_FILENAME, assertMmoommAppFixtureEnvelopeContract } from './mmoommAppFixtureContract.ts'
 
-const trackedPath = path.resolve(repoRoot, 'tools', 'fixtures', MMOOMM_APP_FIXTURE_FILENAME)
+const trackedPath = path.resolve(
+    repoRoot,
+    process.env.MMOOMM_APP_FIXTURE_TRACKED_PATH ?? path.join('tools', 'fixtures', MMOOMM_APP_FIXTURE_FILENAME)
+)
 const defaultGeneratedPath = path.resolve(repoRoot, 'tools', 'testing', 'e2e', '.artifacts', `generated-${MMOOMM_APP_FIXTURE_FILENAME}`)
 const generatedPathArg = process.argv.slice(2).find((arg) => arg !== '--')
 const generatedPathInput = generatedPathArg ?? process.env.MMOOMM_APP_FIXTURE_GENERATED_PATH ?? defaultGeneratedPath

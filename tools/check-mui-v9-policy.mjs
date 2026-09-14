@@ -2,6 +2,8 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { pathToFileURL } from 'node:url'
 
+import { parsePnpmWorkspaceScalarMap } from './pnpm-workspace-config.mjs'
+
 const ROOT_DIR = process.cwd()
 const PACKAGE_DIR = path.join(ROOT_DIR, 'packages')
 const SOURCE_EXTENSIONS = new Set(['.cjs', '.js', '.jsx', '.mjs', '.ts', '.tsx'])
@@ -693,7 +695,7 @@ const checkOrphanSources = (orphanSources, issues) => {
     }
 }
 
-const checkReactIsPolicy = (rootManifest, catalog, issues) => {
+const checkReactIsPolicy = (rootManifest, catalog, workspaceOverrides, issues) => {
     const reactMajor = semverMajor(catalog.get('react') ?? rootManifest.dependencies?.react ?? rootManifest.devDependencies?.react)
     const reactDomMajor = semverMajor(
         catalog.get('react-dom') ?? rootManifest.dependencies?.['react-dom'] ?? rootManifest.devDependencies?.['react-dom']
@@ -710,17 +712,23 @@ const checkReactIsPolicy = (rootManifest, catalog, issues) => {
     // MUI's React 18 migration contract requires react-is to match React. Keep
     // the resolution pinned at the workspace root so every MUI consumer uses
     // the React 18-compatible implementation.
-    const reactIsOverride = rootManifest.pnpm?.overrides?.['react-is']
+    const reactIsOverride = workspaceOverrides.get('react-is')
     if (reactIsOverride !== '18.3.1') {
         addIssue(
             issues,
-            `root pnpm.overrides must pin react-is to 18.3.1 for the MUI v9/React 18 workspace (got ${reactIsOverride ?? 'missing'})`
+            `pnpm-workspace.yaml overrides must pin react-is to 18.3.1 for the MUI v9/React 18 workspace (got ${
+                reactIsOverride ?? 'missing'
+            })`
         )
     }
 }
 
 export const analyzeMuiV9Policy = ({ catalogText, lockfileText, rootManifest = {}, packages = [], orphanSources = [], documents = [] }) => {
     const catalog = catalogText instanceof Map ? catalogText : parseCatalog(catalogText)
+    const workspaceOverrides =
+        catalogText instanceof Map
+            ? new Map(Object.entries(rootManifest.pnpm?.overrides ?? {}))
+            : parsePnpmWorkspaceScalarMap(catalogText, 'overrides')
     const issues = []
     checkCatalog(catalog, issues)
     checkCatalogCoherence(catalog, issues)
@@ -728,7 +736,7 @@ export const analyzeMuiV9Policy = ({ catalogText, lockfileText, rootManifest = {
     checkOrphanSources(orphanSources, issues)
     checkStaleClaims(documents, issues)
     if (lockfileText) checkLockfile(lockfileText, catalog, issues)
-    checkReactIsPolicy(rootManifest, catalog, issues)
+    checkReactIsPolicy(rootManifest, catalog, workspaceOverrides, issues)
     return { catalog, issues: [...new Set(issues)].sort() }
 }
 

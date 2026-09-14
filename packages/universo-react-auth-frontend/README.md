@@ -234,7 +234,7 @@ const client = createAuthClient({ baseURL: '/api/v1' })
 ### Prerequisites
 
 -   Node.js 22.22.2 recommended (>=22.6.0 required)
--   PNPM 10 workspace environment
+-   PNPM 12 workspace environment (12.4.1 pinned at the workspace root)
 -   Material-UI peer dependencies
 
 ### Commands

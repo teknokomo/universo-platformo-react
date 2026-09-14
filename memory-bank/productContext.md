@@ -1,6 +1,6 @@
-# Product Context
+> **Last Reviewed**: 2026-09-14 (refreshed: repository 0.82.0-alpha; active 1C/Interpretation/Marketing/PlayCanvas configurations; MUI 9 widgetized/scoped application runtime focus)
 
-> **Last Reviewed**: 2026-06-18 (refreshed: repository version 0.65.0 → 0.69.0-alpha; PlayCanvas Editor package + "Projects" entity type binding now part of the configuration model)
+# Product Context
 
 ## Purpose
 
@@ -10,7 +10,7 @@ small, stable set of entity-type primitives, attach modules, and ship
 the result as an **application** that runs in workspaces with multi-user
 collaboration.
 
-The same primitives (Hub, Object, Page, Set, Enumeration, Ledger,
+The same core primitives (Hub, Object, Project, Page, Set, Enumeration, Ledger,
 Constants Library) cover everything from a learning management system
 to a planning tool to a custom business application — without
 introducing new platform-level types for each product.
@@ -68,9 +68,10 @@ parity.
 -   **Universo Kiberplano** (planned/early design): an integrated
     planning system that bridges digital plans, multi-agent
     orchestration, distributed nodes, and robotic execution.
--   **Future "1C-compatible" metahub template**: a curated preset set
-    that mirrors the full 1C:Enterprise 8.x metadata-object map for
-    organizations migrating from 1C.
+-   **1C-compatible metahub template**: active built-in template with specialized metadata presets for organizations migrating 1C-style transactional/accounting models.
+-   **Interpretation Network**: active template/runtime for hierarchical structures, interpretations, cells, relations, materials, and reusable matrix/table models.
+-   **Marketing Page**: active data-driven MUI 9 template proving persisted widget composition, scoped layouts, responsive runtime controls, and reusable authoring.
+-   **PlayCanvas/MMOOMM**: active Project-bound 3D authoring/runtime path using the vendored PlayCanvas Editor, engine runtime, modules, and Colyseus realtime packages.
 
 These configurations share the platform; they are not separate
 products.
@@ -159,18 +160,16 @@ product.
 
 ## Current Status
 
--   **Repository version**: `upr-0.69.0-alpha`.
--   **Active focus**: LMS Learning Content productization (Projects,
-    Standalone Content, Courses, Learning Tracks, Quizzes), with
-    iSpring LMS as the benchmark.
+-   **Repository version**: `0.82.0-alpha`.
+-   **Recent focus**: unified application-template widgets/scoped layouts and the marketing header zone-settings contract on MUI 9, with Interpretation Network and PlayCanvas/MMOOMM as major runtime workloads; LMS remains an active product configuration.
 -   **Platform groundwork**: ongoing consolidation of the metahub
     configuration model, the entity type constructor, and the
     metahub-as-application transition.
 
 ## Next Development Focus
 
--   Drive LMS Learning Content to parity with iSpring LMS on the
-    existing primitives.
+-   Continue productizing generic application-template widgets/layout authoring so Marketing, Interpretation Network, LMS, and future configurations share the same runtime contracts.
+-   Continue LMS Learning Content parity work on generic primitives.
 -   Continue the metahub-as-application migration: replace legacy
     feature packages (one area at a time) with applications shipped
     through `apps-template-mui`.

@@ -639,10 +639,13 @@ async function captureProjectsGuide(page: Page, locale: Locale, applicationId: s
         page.locator('main').getByText(localized(locale, 'Current workspace', 'Текущее рабочее пространство')).first(),
         `${locale} project metric card`
     ).toBeVisible({ timeout: 30_000 })
-    const expectedProjectCount = locale === 'en' ? '3' : '4'
-    await expect(page.locator('main').getByText(expectedProjectCount).first(), `${locale} project count after create`).toBeVisible({
-        timeout: 30_000
-    })
+    const projectMetric = page
+        .locator('main')
+        .getByText(localized(locale, 'Current workspace', 'Текущее рабочее пространство'))
+        .first()
+        .locator('..')
+    await expect(projectMetric.getByText('3', { exact: true }), `${locale} project count after create`).toBeVisible({ timeout: 30_000 })
+    await expect(page.getByText(projectTitle, { exact: true }), `${locale} created project`).toBeVisible({ timeout: 30_000 })
     await captureDocsStepScreenshot(page, locale, 'projects', 3, page.locator('body'))
     await fillVisibleSearch(page, locale, '')
     await openFirstRuntimeRowActions(page, `${locale} projects move`)
@@ -880,7 +883,6 @@ async function captureLearnerExperienceGuide(page: Page, locale: Locale, applica
     await expect(player, `${locale} learner player after reload`).toBeVisible({ timeout: 30_000 })
     await ensureLearnerCourseSelected(player, `${locale} learner course heading after reload`)
     await expect(player.getByText(progressPattern)).toBeVisible({ timeout: 30_000 })
-    await player.getByRole('combobox', { name: localized(locale, 'Course', 'Курс') }).click()
     await captureDocsStepScreenshot(page, locale, 'learner-experience', 5, page.locator('body'))
 }
 
@@ -1089,29 +1091,31 @@ test.describe('LMS user guide documentation screenshots', () => {
             metahubId: imported.metahubId
         })
 
-        const linkedApplication = await createPublicationLinkedApplication(api, imported.metahubId, imported.publicationId, {
-            name: { en: 'Learning Portal', ru: 'Учебный портал' },
-            namePrimaryLocale: 'en',
-            createApplicationSchema: false,
-            isPublic: true
-        })
-        const applicationId = linkedApplication?.application?.id
-        if (typeof applicationId !== 'string') {
-            throw new Error('LMS docs screenshot generator did not create an application id')
-        }
-        await recordCreatedApplication({
-            id: applicationId,
-            slug: linkedApplication.application.slug
-        })
-        await syncApplicationSchema(api, applicationId, {
-            schemaOptions: {
-                workspaceModeRequested: 'enabled',
-                acknowledgeIrreversibleWorkspaceEnablement: true
-            }
-        })
-        await verifyDocsPublicGuestContent(api, page, applicationId)
-
         for (const locale of ['en', 'ru'] as const) {
+            // Keep locale captures isolated so learner progress and other runtime mutations
+            // from the first locale cannot change the starting state of the second locale.
+            const linkedApplication = await createPublicationLinkedApplication(api, imported.metahubId, imported.publicationId, {
+                name: { en: 'Learning Portal', ru: 'Учебный портал' },
+                namePrimaryLocale: 'en',
+                createApplicationSchema: false,
+                isPublic: true
+            })
+            const applicationId = linkedApplication?.application?.id
+            if (typeof applicationId !== 'string') {
+                throw new Error(`LMS docs screenshot generator did not create an application id for ${locale}`)
+            }
+            await recordCreatedApplication({
+                id: applicationId,
+                slug: linkedApplication.application.slug
+            })
+            await syncApplicationSchema(api, applicationId, {
+                schemaOptions: {
+                    workspaceModeRequested: 'enabled',
+                    acknowledgeIrreversibleWorkspaceEnablement: true
+                }
+            })
+            await verifyDocsPublicGuestContent(api, page, applicationId)
+
             await applyBrowserPreferences(page, { language: locale, isDarkMode: false })
             const labels =
                 locale === 'en'

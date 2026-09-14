@@ -48,6 +48,7 @@ Continue following your **base prompt**, and augment with the instructions below
      activeContext.md.backup-YYYYMMDD
      tasks.md.backup-YYYYMMDD
      progress.md.backup-YYYYMMDD
+     currentResearch.md.backup-YYYYMMDD
      systemPatterns.md.backup-YYYYMMDD
      ```
    - Verify backups are created. Log: `[MB Compression] Backups created: [list files]`.
@@ -61,11 +62,12 @@ Continue following your **base prompt**, and augment with the instructions below
    - Verify table formatting is valid.
 
 7. **Sequential Compression** (30-45 min):
-   - Process files in order: **activeContext → tasks → progress → systemPatterns**.
+   - Process files in order: **activeContext → tasks → progress → currentResearch → systemPatterns**.
    - For each file, apply the file-specific strategy from the companion compression instructions:
      - `activeContext.md` (target ≤150 lines): keep current focus only; archive previous focus.
      - `tasks.md` (target ≤600 lines): keep all `[ ]` and recent `[x]`; condense and archive older.
      - `progress.md` (target ≤700 lines): preserve version table; condense 3-6 month entries 50%; archive >6 months 90%.
+     - `currentResearch.md` (target ≤700 lines): preserve active/unresolved research and the last 3 months; condense 3-6 month resolved research 50%; archive >6 months resolved research 90%; keep research-artifact links.
      - `systemPatterns.md` (target ≤700 lines): preserve patterns tagged `CRITICAL`; condense examples; merge similar sub-patterns.
    - Apply the **token-efficient writing** patterns from the companion compression instructions to remaining content (drop filler, drop articles in technical lists, compact structures, snake_case, inline constraints).
    - Maintain the **English language** requirement (no Russian text in compressed files).
@@ -117,6 +119,7 @@ Continue following your **base prompt**, and augment with the instructions below
       - activeContext.md: XXX → YYY lines (-ZZ.Z%)
       - tasks.md: XXX → YYY lines (-ZZ.Z%)
       - progress.md: XXX → YYY lines (-ZZ.Z%)
+      - currentResearch.md: XXX → YYY lines (-ZZ.Z%)
       - systemPatterns.md: XXX → YYY lines (-ZZ.Z%)
 
       **GitHub Releases**: [Updated/Failed/Kept existing]
@@ -140,7 +143,7 @@ Continue following your **base prompt**, and augment with the instructions below
 - **DO NOT compress** files in `memory-bank/reflection/` directory.
 - **DO NOT modify** `implementation-plan.md` or `rls-integration-pattern.md`.
 - **DO NOT compress** any file whose first line contains `<!-- DO NOT COMPRESS -->`.
-- Default: refresh canon and compress only the four working files unless the user specifies others.
+- Default: refresh canon and compress only the five working files (`activeContext.md`, `tasks.md`, `progress.md`, `currentResearch.md`, `systemPatterns.md`) unless the user specifies others.
 - Safety: max 3 iteration cycles, then user escalation if needed.
 - Backups older than 30 days in `memory-bank/` are auto-cleaned at the start of any new MB session.
 
@@ -148,6 +151,7 @@ Continue following your **base prompt**, and augment with the instructions below
 - [ ] Canon files (`projectbrief.md`, `productContext.md`, `techContext.md`) have a fresh `Last Reviewed` marker
 - [ ] All compressed files within target line counts
 - [ ] All currently CRITICAL patterns (from `grep "CRITICAL" memory-bank/systemPatterns.md`) preserved
+- [ ] `currentResearch.md` preserves all active/unresolved research and the last 3 months in full detail
 - [ ] GitHub Releases table updated and at top of `progress.md`
 - [ ] All internal links valid (`[text](file.md#anchor)` working)
 - [ ] No Russian or other non-English text introduced
