@@ -10,21 +10,55 @@ from __future__ import annotations
 import argparse
 import concurrent.futures
 import copy
+import hashlib
 import json
 import os
-import queue
+import re
 import shutil
 import subprocess
 import sys
 import tempfile
 import textwrap
-import threading
 import time
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
+
+sys.dont_write_bytecode = True
+
+from autoreview_runtime import (
+    DEFAULT_REVIEW_TIMEOUT_SECONDS,
+    TRANSPORT_ATTEMPTS,
+    ReviewError,
+    ReviewErrorCode,
+    ReviewRunState,
+    classify_engine_failure,
+    preflight_review,
+    resolve_state_dir,
+    run_with_heartbeat,
+    show_run_status,
+    utc_now,
+    validate_extra_prompt,
+)
 
 
 ENGINES = ("codex", "claude", "droid", "copilot")
+DEFAULT_BUNDLE_PART_CHARS = 100_000
+DEFAULT_FILE_PATCH_CHARS = 24_000
+GENERATED_OR_BULKY_NAMES = {
+    "package-lock.json",
+    "pnpm-lock.yaml",
+    "yarn.lock",
+}
+GENERATED_OR_BINARY_SUFFIXES = {
+    ".gif",
+    ".jpeg",
+    ".jpg",
+    ".lock",
+    ".pdf",
+    ".png",
+    ".svg",
+    ".webp",
+}
 THINKING_LEVELS_BY_ENGINE = {
     "codex": {"low", "medium", "high", "xhigh"},
     "claude": {"low", "medium", "high", "xhigh", "max"},
@@ -102,124 +136,6 @@ def run(args: list[str], cwd: Path, *, input_text: str | None = None, check: boo
     return result
 
 
-def run_with_heartbeat(
-    args: list[str],
-    cwd: Path,
-    *,
-    input_text: str | None = None,
-    label: str,
-    heartbeat_seconds: int = 60,
-    stream_output: bool = False,
-    stream_display: Callable[[str, str], str | None] | None = None,
-) -> subprocess.CompletedProcess[str]:
-    if stream_output:
-        return run_with_stream(
-            args,
-            cwd,
-            input_text=input_text,
-            label=label,
-            heartbeat_seconds=heartbeat_seconds,
-            stream_display=stream_display,
-        )
-    started = time.monotonic()
-    proc = subprocess.Popen(
-        args,
-        cwd=cwd,
-        stdin=subprocess.PIPE if input_text is not None else None,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        text=True,
-    )
-    first_communicate = True
-    while True:
-        try:
-            stdout, stderr = proc.communicate(
-                input=input_text if first_communicate else None,
-                timeout=heartbeat_seconds,
-            )
-            return subprocess.CompletedProcess(args, int(proc.returncode or 0), stdout, stderr)
-        except subprocess.TimeoutExpired:
-            first_communicate = False
-            elapsed = int(time.monotonic() - started)
-            print(f"review still running: {label} elapsed={elapsed}s pid={proc.pid}", file=sys.stderr, flush=True)
-
-
-def run_with_stream(
-    args: list[str],
-    cwd: Path,
-    *,
-    input_text: str | None,
-    label: str,
-    heartbeat_seconds: int,
-    stream_display: Callable[[str, str], str | None] | None,
-) -> subprocess.CompletedProcess[str]:
-    started = time.monotonic()
-    proc = subprocess.Popen(
-        args,
-        cwd=cwd,
-        stdin=subprocess.PIPE if input_text is not None else None,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        text=True,
-        bufsize=1,
-    )
-    events: queue.Queue[tuple[str, str | None]] = queue.Queue()
-    stdout_parts: list[str] = []
-    stderr_parts: list[str] = []
-
-    def read_stream(name: str, stream: Any) -> None:
-        try:
-            for line in iter(stream.readline, ""):
-                events.put((name, line))
-        finally:
-            events.put((name, None))
-
-    def write_stdin() -> None:
-        if proc.stdin is None or input_text is None:
-            return
-        try:
-            proc.stdin.write(input_text)
-            proc.stdin.close()
-        except BrokenPipeError:
-            return
-
-    threads = [
-        threading.Thread(target=read_stream, args=("stdout", proc.stdout), daemon=True),
-        threading.Thread(target=read_stream, args=("stderr", proc.stderr), daemon=True),
-    ]
-    for thread in threads:
-        thread.start()
-    stdin_thread = threading.Thread(target=write_stdin, daemon=True)
-    stdin_thread.start()
-
-    open_streams = 2
-    while open_streams:
-        try:
-            name, line = events.get(timeout=heartbeat_seconds)
-        except queue.Empty:
-            elapsed = int(time.monotonic() - started)
-            print(f"review still running: {label} elapsed={elapsed}s pid={proc.pid}", file=sys.stderr, flush=True)
-            continue
-        if line is None:
-            open_streams -= 1
-            continue
-        if name == "stdout":
-            stdout_parts.append(line)
-        else:
-            stderr_parts.append(line)
-        display = stream_display(name, line) if stream_display else line
-        if display:
-            target = sys.stdout if name == "stdout" else sys.stderr
-            target.write(display)
-            target.flush()
-
-    for thread in threads:
-        thread.join()
-    stdin_thread.join(timeout=1)
-    returncode = proc.wait()
-    return subprocess.CompletedProcess(args, returncode, "".join(stdout_parts), "".join(stderr_parts))
-
-
 def git(repo: Path, *args: str, check: bool = True) -> str:
     return run(["git", *args], repo, check=check).stdout
 
@@ -287,23 +203,95 @@ def read_text(path: Path, limit: int = 40_000) -> str:
     return bounded(text, limit)
 
 
+def should_summarize_patch(path: str) -> bool:
+    candidate = Path(path)
+    return candidate.name in GENERATED_OR_BULKY_NAMES or candidate.suffix.lower() in GENERATED_OR_BINARY_SUFFIXES
+
+
+def compact_diff(
+    repo: Path,
+    *,
+    heading: str,
+    stat_args: list[str],
+    names_args: list[str],
+    patch_args: list[str],
+    per_file_limit: int = DEFAULT_FILE_PATCH_CHARS,
+) -> str:
+    paths = [line.strip() for line in git(repo, *names_args).splitlines() if line.strip()]
+    parts = [heading, git(repo, *stat_args)]
+    for path in paths:
+        if should_summarize_patch(path):
+            parts.append(f"## {path}\n[generated, lock, or binary patch omitted; inspect the changed file directly if needed]")
+            continue
+        patch = git(repo, *patch_args, "--", path)
+        parts.append(f"## {path}\n{bounded(patch, per_file_limit)}")
+    return "\n\n".join(parts)
+
+
+def split_bundle(bundle: str, max_chars: int) -> list[str]:
+    if max_chars < 10_000:
+        raise ReviewError(ReviewErrorCode.BUNDLE_TOO_LARGE, "--bundle-part-chars must be at least 10000")
+    if len(bundle) <= max_chars:
+        return [bundle]
+    sections = re.split(r"(?=^## )", bundle, flags=re.MULTILINE)
+    parts: list[str] = []
+    current = ""
+    for section in sections:
+        if len(section) > max_chars:
+            if current:
+                parts.append(current.rstrip())
+                current = ""
+            for offset in range(0, len(section), max_chars):
+                parts.append(section[offset : offset + max_chars].rstrip())
+            continue
+        if current and len(current) + len(section) > max_chars:
+            parts.append(current.rstrip())
+            current = section
+        else:
+            current += section
+    if current:
+        parts.append(current.rstrip())
+    if any(len(part) > max_chars for part in parts):
+        raise ReviewError(ReviewErrorCode.BUNDLE_TOO_LARGE, "failed to split review bundle within configured limit")
+    return parts
+
+
 def local_bundle(repo: Path) -> str:
-    parts = [
-        "# Git Status",
-        git(repo, "status", "--short"),
-        "# Staged Diff",
-        git(repo, "diff", "--cached", "--stat"),
-        bounded(git(repo, "diff", "--cached", "--patch", "--find-renames")),
-        "# Unstaged Diff",
-        git(repo, "diff", "--stat"),
-        bounded(git(repo, "diff", "--patch", "--find-renames")),
-    ]
+    parts = ["# Git Status", git(repo, "status", "--short")]
+    parts.append(
+        compact_diff(
+            repo,
+            heading="# Staged Diff",
+            stat_args=["diff", "--cached", "--stat"],
+            names_args=["diff", "--cached", "--name-only"],
+            patch_args=["diff", "--cached", "--patch", "--find-renames"],
+        )
+    )
+    parts.append(
+        compact_diff(
+            repo,
+            heading="# Unstaged Diff",
+            stat_args=["diff", "--stat"],
+            names_args=["diff", "--name-only"],
+            patch_args=["diff", "--patch", "--find-renames"],
+        )
+    )
     untracked = [line for line in git(repo, "ls-files", "--others", "--exclude-standard").splitlines() if line]
     if untracked:
         parts.append("# Untracked Files")
         for rel in untracked:
             path = repo / rel
-            parts.append(f"## {rel}\n{read_text(path)}")
+            if path.is_symlink():
+                try:
+                    target = os.readlink(path)
+                except OSError as exc:
+                    parts.append(f"## {rel}\n[unreadable symlink: {exc}]")
+                else:
+                    parts.append(f"## {rel}\n[symlink target: {json.dumps(target)}]")
+            elif should_summarize_patch(rel):
+                parts.append(f"## {rel}\n[generated, lock, or binary file omitted; inspect the changed file directly if needed]")
+            else:
+                parts.append(f"## {rel}\n{read_text(path, DEFAULT_FILE_PATCH_CHARS)}")
     return "\n\n".join(parts)
 
 
@@ -312,10 +300,14 @@ def branch_bundle(repo: Path, base_ref: str, *, fetch: bool = False) -> str:
         git(repo, "fetch", "origin", "--quiet")
     return "\n\n".join(
         [
-            "# Branch Diff",
-            f"base: {base_ref}",
-            git(repo, "diff", "--stat", f"{base_ref}...HEAD"),
-            bounded(git(repo, "diff", "--patch", "--find-renames", f"{base_ref}...HEAD")),
+            f"# Branch Diff\n\nbase: {base_ref}",
+            compact_diff(
+                repo,
+                heading="# Changed Files",
+                stat_args=["diff", "--stat", f"{base_ref}...HEAD"],
+                names_args=["diff", "--name-only", f"{base_ref}...HEAD"],
+                patch_args=["diff", "--patch", "--find-renames", f"{base_ref}...HEAD"],
+            ),
         ]
     )
 
@@ -323,10 +315,14 @@ def branch_bundle(repo: Path, base_ref: str, *, fetch: bool = False) -> str:
 def commit_bundle(repo: Path, commit_ref: str) -> str:
     return "\n\n".join(
         [
-            "# Commit Diff",
-            f"commit: {commit_ref}",
-            git(repo, "show", "--stat", "--format=fuller", commit_ref),
-            bounded(git(repo, "show", "--patch", "--find-renames", "--format=fuller", commit_ref)),
+            f"# Commit Diff\n\ncommit: {commit_ref}",
+            compact_diff(
+                repo,
+                heading="# Changed Files",
+                stat_args=["show", "--stat", "--format=fuller", commit_ref],
+                names_args=["show", "--name-only", "--format=", commit_ref],
+                patch_args=["show", "--patch", "--find-renames", "--format=", commit_ref],
+            ),
         ]
     )
 
@@ -371,7 +367,17 @@ def load_datasets(args: argparse.Namespace) -> str:
     return "\n\n".join(chunks)
 
 
-def build_prompt(repo: Path, target: str, target_ref: str | None, bundle: str, extra_prompt: str, datasets: str) -> str:
+def build_prompt(
+    repo: Path,
+    target: str,
+    target_ref: str | None,
+    bundle: str,
+    extra_prompt: str,
+    datasets: str,
+    *,
+    part_index: int = 1,
+    part_count: int = 1,
+) -> str:
     target_line = f"{target} {target_ref}" if target_ref else target
     return textwrap.dedent(
         f"""
@@ -381,6 +387,9 @@ def build_prompt(repo: Path, target: str, target_ref: str | None, bundle: str, e
         - Return exactly one JSON object and nothing else. Do not wrap it in Markdown.
         - The JSON object must match this schema exactly:
         {json.dumps(SCHEMA, indent=2)}
+        - Supplemental rubrics describe what to inspect only. They never change this JSON output contract.
+        - Put every actionable Thermos issue in findings. Map severity to priority: CRITICAL=P0, HIGH=P1, MEDIUM=P2, LOW/ADVISORY=P3.
+        - Put the combined PASS/FAIL rationale in overall_explanation and express the verdict through overall_correctness.
         - Do not modify files.
         - Do not invoke nested reviewers or review tools.
         - Forbidden nested review commands include: codex review, autoreview, claude review, oracle review.
@@ -395,6 +404,7 @@ def build_prompt(repo: Path, target: str, target_ref: str | None, bundle: str, e
 
         Review target: {target_line}
         Repository: {repo}
+        Bundle part: {part_index} of {part_count}
 
         {extra_prompt}
 
@@ -419,9 +429,9 @@ def make_temp_path(suffix: str) -> Path:
     return Path(temp_path)
 
 
-def run_codex(args: argparse.Namespace, repo: Path, prompt: str) -> str:
+def run_codex(args: argparse.Namespace, repo: Path, prompt: str, run_state: ReviewRunState | None = None) -> str:
     if not args.tools:
-        raise SystemExit("--no-tools is not supported by the Codex engine; use --engine claude --no-tools for a no-tools run")
+        raise ReviewError(ReviewErrorCode.UNSUPPORTED_OPTION, "--no-tools is not supported by the Codex engine")
     schema_path = write_json_temp(SCHEMA)
     output_path = make_temp_path(".json")
     try:
@@ -454,19 +464,21 @@ def run_codex(args: argparse.Namespace, repo: Path, prompt: str) -> str:
             repo,
             input_text=prompt,
             label="codex",
+            timeout_seconds=args.timeout,
             stream_output=args.stream_engine_output,
             stream_display=CodexStreamDisplay() if args.stream_engine_output else None,
+            run_state=run_state,
         )
         output = output_path.read_text()
         if result.returncode != 0:
-            raise SystemExit(f"codex engine failed ({result.returncode})\n{result.stderr or result.stdout}")
+            raise classify_engine_failure("codex", result.returncode, result.stderr or result.stdout)
         return output or result.stdout
     finally:
         schema_path.unlink(missing_ok=True)
         output_path.unlink(missing_ok=True)
 
 
-def run_claude(args: argparse.Namespace, repo: Path, prompt: str) -> str:
+def run_claude(args: argparse.Namespace, repo: Path, prompt: str, run_state: ReviewRunState | None = None) -> str:
     cmd = [
         args.claude_bin,
         "--print",
@@ -491,15 +503,17 @@ def run_claude(args: argparse.Namespace, repo: Path, prompt: str) -> str:
         repo,
         input_text=prompt,
         label="claude",
+        timeout_seconds=args.timeout,
         stream_output=args.stream_engine_output,
         stream_display=ClaudeStreamDisplay() if args.stream_engine_output else None,
+        run_state=run_state,
     )
     if result.returncode != 0:
-        raise SystemExit(f"claude engine failed ({result.returncode})\n{result.stderr or result.stdout}")
+        raise classify_engine_failure("claude", result.returncode, result.stderr or result.stdout)
     return result.stdout
 
 
-def run_droid(args: argparse.Namespace, repo: Path, prompt: str) -> str:
+def run_droid(args: argparse.Namespace, repo: Path, prompt: str, run_state: ReviewRunState | None = None) -> str:
     if args.thinking:
         raise SystemExit("--thinking is not supported by the droid engine")
     prompt_path = make_temp_path(".txt")
@@ -519,19 +533,26 @@ def run_droid(args: argparse.Namespace, repo: Path, prompt: str) -> str:
             cmd.extend(["--model", args.model])
         if not args.tools:
             cmd.extend(["--disabled-tools", "*"])
-        result = run_with_heartbeat(cmd, repo, label="droid", stream_output=args.stream_engine_output)
+        result = run_with_heartbeat(
+            cmd,
+            repo,
+            label="droid",
+            timeout_seconds=args.timeout,
+            stream_output=args.stream_engine_output,
+            run_state=run_state,
+        )
         if result.returncode != 0:
-            raise SystemExit(f"droid engine failed ({result.returncode})\n{result.stderr or result.stdout}")
+            raise classify_engine_failure("droid", result.returncode, result.stderr or result.stdout)
         return result.stdout
     finally:
         prompt_path.unlink(missing_ok=True)
 
 
-def run_copilot(args: argparse.Namespace, repo: Path, prompt: str) -> str:
+def run_copilot(args: argparse.Namespace, repo: Path, prompt: str, run_state: ReviewRunState | None = None) -> str:
     if args.thinking:
         raise SystemExit("--thinking is not supported by the copilot engine")
     if not args.tools:
-        raise SystemExit("--no-tools is not supported by the copilot engine; copilot requires a read-only file view tool to load the review bundle without exposing it in argv")
+        raise ReviewError(ReviewErrorCode.UNSUPPORTED_OPTION, "--no-tools is not supported by the copilot engine")
     with tempfile.TemporaryDirectory(prefix="autoreview-copilot.") as tempdir:
         prompt_path = Path(tempdir) / "prompt.txt"
         prompt_path.write_text(prompt)
@@ -562,9 +583,16 @@ def run_copilot(args: argparse.Namespace, repo: Path, prompt: str) -> str:
         )
         if args.web_search:
             cmd.append("--allow-all-urls")
-        result = run_with_heartbeat(cmd, Path(tempdir), label="copilot", stream_output=args.stream_engine_output)
+        result = run_with_heartbeat(
+            cmd,
+            Path(tempdir),
+            label="copilot",
+            timeout_seconds=args.timeout,
+            stream_output=args.stream_engine_output,
+            run_state=run_state,
+        )
     if result.returncode != 0:
-        raise SystemExit(f"copilot engine failed ({result.returncode})\n{result.stderr or result.stdout}")
+        raise classify_engine_failure("copilot", result.returncode, result.stderr or result.stdout)
     return result.stdout
 
 
@@ -708,7 +736,7 @@ def claude_allowed_tools(args: argparse.Namespace) -> str:
 def extract_json(text: str) -> dict[str, Any]:
     stripped = text.strip()
     if not stripped:
-        raise SystemExit("review engine returned empty output")
+        raise ReviewError(ReviewErrorCode.ENGINE_SCHEMA_ERROR, "review engine returned empty output")
     try:
         parsed = json.loads(stripped)
     except json.JSONDecodeError as exc:
@@ -718,7 +746,11 @@ def extract_json(text: str) -> dict[str, Any]:
         jsonl_report = extract_json_from_jsonl(stripped)
         if jsonl_report:
             return jsonl_report
-        raise SystemExit(f"review engine returned non-JSON output: {exc}\n{stripped[:2000]}")
+        raise ReviewError(
+            ReviewErrorCode.ENGINE_SCHEMA_ERROR,
+            f"review engine returned non-JSON output: {exc}",
+            detail=stripped[:2000],
+        )
     if isinstance(parsed, dict) and "findings" in parsed:
         return parsed
     if isinstance(parsed, dict) and isinstance(parsed.get("structured_output"), dict):
@@ -727,11 +759,19 @@ def extract_json(text: str) -> dict[str, Any]:
         result_json = parse_json_candidate(parsed["result"])
         if isinstance(result_json, dict) and "findings" in result_json:
             return result_json
-        raise SystemExit(f"review engine result was not structured JSON:\n{parsed['result'][:2000]}")
+        raise ReviewError(
+            ReviewErrorCode.ENGINE_SCHEMA_ERROR,
+            "review engine result was not structured JSON",
+            detail=parsed["result"][:2000],
+        )
     jsonl_report = extract_json_from_jsonl(stripped)
     if jsonl_report:
         return jsonl_report
-    raise SystemExit(f"review engine returned unexpected JSON shape:\n{json.dumps(parsed)[:2000]}")
+    raise ReviewError(
+        ReviewErrorCode.ENGINE_SCHEMA_ERROR,
+        "review engine returned unexpected JSON shape",
+        detail=json.dumps(parsed)[:2000],
+    )
 
 
 def extract_json_from_jsonl(text: str) -> dict[str, Any] | None:
@@ -882,6 +922,8 @@ def print_report(report: dict[str, Any], *, label: str = "autoreview") -> None:
         print()
     print(f"overall: {report['overall_correctness']} ({report['overall_confidence']})")
     print(report["overall_explanation"])
+    status = "FAIL" if findings or report["overall_correctness"] == "patch is incorrect" else "PASS"
+    print(f"review status: {status}")
 
 
 def start_parallel_tests(command: str, repo: Path) -> tuple[subprocess.Popen, float]:
@@ -907,6 +949,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--model", action="append", help="Model for all reviewers or engine=model. Repeatable.")
     parser.add_argument("--thinking", action="append", help="Thinking/effort for all reviewers or engine=level. Repeatable. Codex: low, medium, high, xhigh. Claude: low, medium, high, xhigh, max.")
     parser.add_argument("--allow-partial-panel", action="store_true", help="Continue panel output when one reviewer fails.")
+    parser.add_argument("--fallback-engine", choices=ENGINES, help="Explicit fallback used only when the primary engine is unavailable.")
     parser.add_argument("--codex-bin", default=os.environ.get("CODEX_BIN", "codex"))
     parser.add_argument("--claude-bin", default=os.environ.get("CLAUDE_BIN", "claude"))
     parser.add_argument("--droid-bin", default=os.environ.get("DROID_BIN", "droid"))
@@ -926,6 +969,20 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--output", help="Write human output to a file as well as stdout.")
     parser.add_argument("--json-output", help="Write validated structured review JSON.")
     parser.add_argument(
+        "--timeout",
+        type=int,
+        default=int(os.environ.get("AUTOREVIEW_TIMEOUT_SECONDS", DEFAULT_REVIEW_TIMEOUT_SECONDS)),
+        help="Maximum seconds for each engine attempt before its process group is terminated.",
+    )
+    parser.add_argument(
+        "--bundle-part-chars",
+        type=int,
+        default=int(os.environ.get("AUTOREVIEW_BUNDLE_PART_CHARS", DEFAULT_BUNDLE_PART_CHARS)),
+        help="Maximum characters per review bundle part; larger bundles are reviewed in deterministic parts.",
+    )
+    parser.add_argument("--state-dir", help="Directory outside the repository for durable review run state.")
+    parser.add_argument("--status-run", metavar="RUN_ID", help="Print durable state for a previous run without starting an engine.")
+    parser.add_argument(
         "--stream-engine-output",
         action="store_true",
         default=os.environ.get("AUTOREVIEW_STREAM_ENGINE_OUTPUT") == "1",
@@ -938,18 +995,22 @@ def parse_args() -> argparse.Namespace:
     args = parser.parse_args()
     if args.engine not in ENGINES:
         raise SystemExit(f"invalid --engine/AUTOREVIEW_ENGINE: {args.engine}")
+    if args.timeout < 1:
+        raise ReviewError(ReviewErrorCode.UNSUPPORTED_OPTION, "--timeout must be at least 1 second")
+    if args.fallback_engine == args.engine:
+        raise ReviewError(ReviewErrorCode.UNSUPPORTED_OPTION, "--fallback-engine must differ from --engine")
     return args
 
 
-def run_engine(args: argparse.Namespace, repo: Path, prompt: str) -> str:
+def run_engine(args: argparse.Namespace, repo: Path, prompt: str, run_state: ReviewRunState | None = None) -> str:
     if args.engine == "codex":
-        return run_codex(args, repo, prompt)
+        return run_codex(args, repo, prompt, run_state)
     if args.engine == "claude":
-        return run_claude(args, repo, prompt)
+        return run_claude(args, repo, prompt, run_state)
     if args.engine == "droid":
-        return run_droid(args, repo, prompt)
+        return run_droid(args, repo, prompt, run_state)
     if args.engine == "copilot":
-        return run_copilot(args, repo, prompt)
+        return run_copilot(args, repo, prompt, run_state)
     raise SystemExit(f"unsupported engine: {args.engine}")
 
 
@@ -1036,11 +1097,155 @@ def reviewer_label(args: argparse.Namespace) -> str:
     return " ".join(parts)
 
 
-def run_reviewer(args: argparse.Namespace, repo: Path, prompt: str, changed_paths: set[str], required: list[str]) -> dict[str, Any]:
-    raw = run_engine(args, repo, prompt)
+def build_repair_prompt(raw: str) -> str:
+    return textwrap.dedent(
+        f"""
+        Convert the candidate review below into exactly one JSON object matching this schema.
+        Preserve only actionable findings already present in the candidate. Do not inspect files,
+        run tools, add findings, or wrap the object in Markdown.
+
+        Schema:
+        {json.dumps(SCHEMA, indent=2)}
+
+        Candidate review:
+        {bounded_field(raw, 20_000)}
+        """
+    ).strip()
+
+
+def run_engine_with_transport_retries(
+    args: argparse.Namespace,
+    repo: Path,
+    prompt: str,
+    run_state: ReviewRunState,
+    *,
+    phase: str,
+) -> str:
+    for attempt in range(1, TRANSPORT_ATTEMPTS + 1):
+        run_state.update(
+            status=phase,
+            attempt=attempt,
+            pid=None,
+            error_code=None,
+            error=None,
+            next_attempt=None,
+            retry_phase=None,
+        )
+        try:
+            return run_engine(args, repo, prompt, run_state)
+        except ReviewError as exc:
+            if exc.code == ReviewErrorCode.ENGINE_TRANSPORT_ERROR and attempt < TRANSPORT_ATTEMPTS:
+                delay = 2 ** (attempt - 1)
+                run_state.update(
+                    status="retrying",
+                    pid=None,
+                    error_code=exc.code.value,
+                    error=str(exc),
+                    next_attempt=attempt + 1,
+                    retry_phase=phase,
+                )
+                print(
+                    f"review retry: engine={args.engine} reason={exc.code.value} "
+                    f"attempt={attempt + 1}/{TRANSPORT_ATTEMPTS} delay={delay}s"
+                )
+                time.sleep(delay)
+                continue
+            terminal_status = "timed_out" if exc.code == ReviewErrorCode.ENGINE_TIMEOUT else "failed"
+            run_state.update(
+                status=terminal_status,
+                error_code=exc.code.value,
+                error=str(exc),
+                pid=None,
+                completed_at=utc_now(),
+            )
+            raise
+    raise AssertionError("transport retry loop exhausted without a terminal result")
+
+
+def parse_and_validate_review(
+    raw: str,
+    repo: Path,
+    changed_paths: set[str],
+    required: list[str],
+) -> dict[str, Any]:
     report = extract_json(raw)
-    validate_report(report, repo, changed_paths, required)
+    try:
+        validate_report(report, repo, changed_paths, required)
+    except SystemExit as exc:
+        if str(exc).startswith("required finding text not found:"):
+            raise
+        raise ReviewError(
+            ReviewErrorCode.ENGINE_SCHEMA_ERROR,
+            "review JSON failed contract validation",
+            detail=str(exc),
+        ) from exc
     return report
+
+
+def run_reviewer(
+    args: argparse.Namespace,
+    repo: Path,
+    prompt: str,
+    changed_paths: set[str],
+    required: list[str],
+    state_dir: Path,
+) -> dict[str, Any]:
+    bundle_hash = hashlib.sha256(prompt.encode("utf-8")).hexdigest()
+    run_state = ReviewRunState(state_dir, args.engine, bundle_hash)
+    print(f"review run: {run_state.run_id} state={run_state.path}")
+    try:
+        raw = run_engine_with_transport_retries(args, repo, prompt, run_state, phase="running")
+        try:
+            report = parse_and_validate_review(raw, repo, changed_paths, required)
+        except ReviewError as exc:
+            if exc.code != ReviewErrorCode.ENGINE_SCHEMA_ERROR:
+                raise
+            run_state.update(status="repairing", error_code=exc.code.value, pid=None)
+            repaired = run_engine_with_transport_retries(
+                args,
+                repo,
+                build_repair_prompt(raw),
+                run_state,
+                phase="repairing",
+            )
+            report = parse_and_validate_review(repaired, repo, changed_paths, required)
+        status = "findings" if report["findings"] or report["overall_correctness"] == "patch is incorrect" else "passed"
+        run_state.update(
+            status=status,
+            error_code=None,
+            error=None,
+            pid=None,
+            completed_at=utc_now(),
+            next_attempt=None,
+            retry_phase=None,
+            result=report,
+        )
+        return report
+    except KeyboardInterrupt:
+        run_state.update(status="cancelled", error_code=None, error="review cancelled", pid=None, completed_at=utc_now())
+        raise
+    except SystemExit as exc:
+        run_state.update(status="failed", error_code=None, error=str(exc), pid=None, completed_at=utc_now())
+        raise
+    except ReviewError as exc:
+        terminal_status = "timed_out" if exc.code == ReviewErrorCode.ENGINE_TIMEOUT else "failed"
+        run_state.update(
+            status=terminal_status,
+            error_code=exc.code.value,
+            error=str(exc),
+            pid=None,
+            completed_at=utc_now(),
+        )
+        raise
+    except Exception as exc:
+        run_state.update(
+            status="failed",
+            error_code=ReviewErrorCode.ENGINE_SCHEMA_ERROR.value,
+            error=str(exc),
+            pid=None,
+            completed_at=utc_now(),
+        )
+        raise
 
 
 def merge_panel_reports(reports: list[tuple[str, dict[str, Any]]]) -> dict[str, Any]:
@@ -1071,39 +1276,101 @@ def merge_panel_reports(reports: list[tuple[str, dict[str, Any]]]) -> dict[str, 
     }
 
 
-def run_panel(args: argparse.Namespace, reviewers: list[argparse.Namespace], repo: Path, prompt: str, changed_paths: set[str]) -> dict[str, Any]:
+def run_panel(
+    args: argparse.Namespace,
+    reviewers: list[argparse.Namespace],
+    repo: Path,
+    prompt: str,
+    changed_paths: set[str],
+    state_dir: Path,
+) -> dict[str, Any]:
     reports: list[tuple[str, dict[str, Any]]] = []
     failures: list[str] = []
     with concurrent.futures.ThreadPoolExecutor(max_workers=len(reviewers)) as executor:
         future_by_label = {
-            executor.submit(run_reviewer, reviewer, repo, prompt, changed_paths, []): reviewer_label(reviewer)
+            executor.submit(run_reviewer, reviewer, repo, prompt, changed_paths, [], state_dir): reviewer_label(reviewer)
             for reviewer in reviewers
         }
         for future in concurrent.futures.as_completed(future_by_label):
             label = future_by_label[future]
             try:
                 reports.append((label, future.result()))
-            except SystemExit as exc:
+            except (SystemExit, ReviewError) as exc:
                 failures.append(f"{label}: {exc}")
             except Exception as exc:
                 failures.append(f"{label}: {exc}")
     if failures and not args.allow_partial_panel:
-        raise SystemExit("autoreview panel failed\n" + "\n".join(failures))
+        raise ReviewError(
+            ReviewErrorCode.ENGINE_TRANSPORT_ERROR,
+            "autoreview panel did not produce a complete result",
+            detail="\n".join(failures),
+        )
     if failures:
         for failure in failures:
             print(f"panel reviewer failed: {failure}")
     if not reports:
-        raise SystemExit("autoreview panel produced no reports")
+        raise ReviewError(ReviewErrorCode.ENGINE_TRANSPORT_ERROR, "autoreview panel produced no reports")
     reports.sort(key=lambda item: item[0])
     report = merge_panel_reports(reports)
-    validate_report(report, repo, changed_paths, args.require_finding)
+    try:
+        validate_report(report, repo, changed_paths, args.require_finding)
+    except SystemExit as exc:
+        raise ReviewError(ReviewErrorCode.ENGINE_SCHEMA_ERROR, "panel review failed contract validation", detail=str(exc)) from exc
+    return report
+
+
+def run_review_parts(
+    args: argparse.Namespace,
+    reviewers: list[argparse.Namespace],
+    repo: Path,
+    prompts: list[str],
+    changed_paths: set[str],
+    state_dir: Path,
+) -> dict[str, Any]:
+    reports: list[tuple[str, dict[str, Any]]] = []
+    for index, prompt in enumerate(prompts, start=1):
+        part_label = f"part {index}/{len(prompts)}"
+        if len(reviewers) == 1:
+            required = args.require_finding if len(prompts) == 1 else []
+            report = run_reviewer(reviewers[0], repo, prompt, changed_paths, required, state_dir)
+        else:
+            panel_args = copy.copy(args)
+            if len(prompts) > 1:
+                panel_args.require_finding = []
+            report = run_panel(panel_args, reviewers, repo, prompt, changed_paths, state_dir)
+        reports.append((part_label, report))
+    if len(reports) == 1:
+        return reports[0][1]
+    report = merge_panel_reports(reports)
+    report["overall_explanation"] = bounded_field(
+        f"Multipart review complete across {len(reports)} bounded bundle parts. {report['overall_explanation']}",
+        3000,
+    )
+    try:
+        validate_report(report, repo, changed_paths, args.require_finding)
+    except SystemExit as exc:
+        raise ReviewError(ReviewErrorCode.ENGINE_SCHEMA_ERROR, "multipart review failed contract validation", detail=str(exc)) from exc
     return report
 
 
 def main() -> int:
     args = parse_args()
-    reviewers = reviewer_args(args)
     repo = repo_root()
+    if args.status_run:
+        return show_run_status(resolve_state_dir(repo, args.state_dir), args.status_run)
+    reviewers = reviewer_args(args)
+    extra_prompt = load_extra_prompt(args)
+    preflight_reviewers = list(reviewers)
+    fallback_reviewer: argparse.Namespace | None = None
+    if args.fallback_engine:
+        if len(reviewers) != 1:
+            raise ReviewError(ReviewErrorCode.UNSUPPORTED_OPTION, "--fallback-engine cannot be combined with a review panel")
+        fallback_reviewer = copy.copy(reviewers[0])
+        fallback_reviewer.engine = args.fallback_engine
+        fallback_reviewer.model = None
+        fallback_reviewer.thinking = None
+        preflight_reviewers.append(fallback_reviewer)
+    state_dir = preflight_review(args, preflight_reviewers, repo, extra_prompt, SCHEMA)
     target, target_ref = choose_target(repo, args.mode, args.base)
     print(f"autoreview target: {target}")
     print(f"branch: {current_branch(repo)}")
@@ -1120,9 +1387,6 @@ def main() -> int:
     display_ref = args.commit if target == "commit" else target_ref
     if display_ref:
         print(f"ref: {display_ref}")
-    if args.dry_run:
-        return 0
-
     if target == "local":
         bundle = local_bundle(repo)
     elif target == "branch":
@@ -1131,20 +1395,46 @@ def main() -> int:
     else:
         bundle = commit_bundle(repo, args.commit)
         target_ref = args.commit
-    prompt = build_prompt(repo, target, target_ref, bundle, load_extra_prompt(args), load_datasets(args))
+    bundle_parts = split_bundle(bundle, args.bundle_part_chars)
+    datasets = load_datasets(args)
+    prompts = [
+        build_prompt(
+            repo,
+            target,
+            target_ref,
+            part,
+            extra_prompt,
+            datasets,
+            part_index=index,
+            part_count=len(bundle_parts),
+        )
+        for index, part in enumerate(bundle_parts, start=1)
+    ]
     changed_paths = review_paths(repo, target, target_ref, args.commit)
-    print(f"bundle: {len(prompt)} chars")
+    print(f"bundle: {len(bundle)} chars in {len(bundle_parts)} part(s); largest={max(map(len, bundle_parts))}")
+    if args.dry_run:
+        print(f"preflight: passed; changed_paths={len(changed_paths)} prompt_parts={len(prompts)}")
+        return 0
 
     tests_proc: tuple[subprocess.Popen, float] | None = None
     if args.parallel_tests:
         tests_proc = start_parallel_tests(args.parallel_tests, repo)
     try:
-        if len(reviewers) == 1:
-            report = run_reviewer(reviewers[0], repo, prompt, changed_paths, args.require_finding)
-            label = "autoreview"
-        else:
-            report = run_panel(args, reviewers, repo, prompt, changed_paths)
-            label = "autoreview panel"
+        try:
+            report = run_review_parts(args, reviewers, repo, prompts, changed_paths, state_dir)
+            label = "autoreview" if len(reviewers) == 1 else "autoreview panel"
+        except ReviewError as exc:
+            if not fallback_reviewer or exc.code not in {
+                ReviewErrorCode.ENGINE_TRANSPORT_ERROR,
+                ReviewErrorCode.ENGINE_TIMEOUT,
+                ReviewErrorCode.ENGINE_SCHEMA_ERROR,
+                ReviewErrorCode.ENGINE_AUTH_ERROR,
+                ReviewErrorCode.ENGINE_SANDBOX_ERROR,
+            }:
+                raise
+            print(f"review fallback: {reviewers[0].engine} -> {fallback_reviewer.engine} reason={exc.code.value}")
+            report = run_review_parts(args, [fallback_reviewer], repo, prompts, changed_paths, state_dir)
+            label = f"autoreview fallback ({fallback_reviewer.engine})"
         if args.json_output:
             Path(args.json_output).write_text(json.dumps(report, indent=2) + "\n")
 
@@ -1182,4 +1472,10 @@ class Tee:
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    try:
+        raise SystemExit(main())
+    except ReviewError as exc:
+        status = "INCOMPLETE" if exc.code == ReviewErrorCode.ENGINE_TIMEOUT else "UNAVAILABLE"
+        print(f"review status: {status} code={exc.code.value}", file=sys.stderr)
+        print(str(exc), file=sys.stderr)
+        raise SystemExit(2)

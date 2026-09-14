@@ -37,9 +37,13 @@ Use this skill when:
     current task, do not treat those files as authored by the current
     implementation.
 -   For long reviews, heartbeat lines such as
-    `review still running: ... elapsed=... pid=...` mean the helper is still
-    active. Let it continue unless the process has clearly failed or stopped
-    emitting expected progress.
+    `review still running: ... elapsed=... remaining=... pid=...` mean the helper
+    is still active. The default per-attempt timeout is 10 minutes; on timeout
+    the complete child process group is terminated and the run becomes
+    `INCOMPLETE`.
+-   A review is complete only after a terminal `PASS`, `FAIL`, `UNAVAILABLE`, or
+    `INCOMPLETE` status. Starting an engine or observing a heartbeat is not a
+    review result.
 
 ## Pick Target
 
@@ -97,6 +101,8 @@ Optional review context:
 -   Supported opt-in engines: `codex`, `claude`, `droid`, and `copilot`.
 -   Do not switch engine/model after the user requested one unless they approve
     the change.
+-   Engine fallback is never implicit. Use `--fallback-engine <engine>` only
+    when that policy was explicitly selected.
 -   Multi-reviewer panels are opt-in only and can be expensive:
 
 ```bash
@@ -138,12 +144,35 @@ The helper:
     output is requested;
 -   supports `--dry-run`, `--parallel-tests`, `--prompt`, `--prompt-file`,
     `--dataset`, `--no-tools`, `--no-web-search`, `--stream-engine-output`,
-    `--panel`, and `--reviewers`;
+    `--panel`, `--reviewers`, `--timeout`, `--bundle-part-chars`,
+    `--fallback-engine`, and `--status-run`;
 -   allows read-only tools and web search by default where the selected engine
     supports them;
 -   runs Codex through `codex exec` with a read-only sandbox and structured output;
+-   validates supplemental prompts before engine execution and rejects output
+    instructions that conflict with the canonical JSON schema;
+-   summarizes lockfiles and binary artifacts, does not follow untracked
+    symlinks outside the repository, bounds per-file patches, and splits large
+    bundles into deterministic parts;
+-   writes private (`0600`) run state outside the repository so interrupted work
+    can be inspected later with `--status-run <run-id>`;
 -   filters findings to changed paths;
 -   exits nonzero when accepted/actionable findings remain.
+
+## Reliability Checks
+
+Run deterministic wrapper tests without invoking a review engine:
+
+```bash
+python3 .agents/skills/autoreview/scripts/test-autoreview-reliability.py
+```
+
+Review failures use stable codes such as `ENGINE_TRANSPORT_ERROR`,
+`ENGINE_TIMEOUT`, `ENGINE_SCHEMA_ERROR`, `ENGINE_AUTH_ERROR`,
+`ENGINE_SANDBOX_ERROR`, `PROMPT_CONFLICT`, `BUNDLE_TOO_LARGE`, and
+`UNSUPPORTED_OPTION`. Transport failures retry up to three attempts, including
+during the repair phase. A malformed or schema-invalid result gets one
+schema-repair pass that may only normalize existing findings.
 
 ## Final Report
 
