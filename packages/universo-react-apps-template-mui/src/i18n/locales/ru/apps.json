@@ -637,8 +637,7 @@
         "navigation": {
             "openMenu": "Открыть меню",
             "closeMenu": "Закрыть меню",
-            "landmark": "Навигация «{{brand}}», блок {{index}}",
-            "skipToContent": "Перейти к содержимому"
+            "landmark": "Навигация «{{brand}}», блок {{index}}"
         },
         "form": {
             "invalidEmail": "Введите корректный email.",

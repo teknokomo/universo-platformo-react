@@ -46,6 +46,40 @@ When a connector synchronization imports a newer metahub publication:
 The default conflict model is fail-closed: it preserves local work and exposes sync state for follow-up resolution.
 The connector diff dialog also allows an explicit overwrite policy for administrators who want metahub layout content to replace local metahub-derived customizations during that synchronization.
 
+## Zone Settings and Source Baselines
+
+Zone settings are stored as sparse, template-neutral metadata. The marketing
+header currently exposes `marketing-header.position`, with `fixed` keeping the
+header at the top while content scrolls behind it and `flow` allowing the
+header to scroll with the page. The registry supplies the default; a metahub
+base value and an application overlay are applied only when they exist.
+
+The source baseline is retained for synchronization and conflict detection. It
+does not participate in the semantic layout hash or publication snapshot.
+`keep_local` preserves an application override, while a targeted reset removes
+only that override and reveals the current inherited value. The same shared
+`LayoutAuthoringDetails` and `LayoutZoneSettingsDialog` surface is used for
+metahub and application layouts. Server-side scope, permission, version, and
+optimistic-concurrency checks remain authoritative; a read-only client can
+display the effective value but cannot persist a change.
+
+```mermaid
+flowchart LR
+    R[Registry default] --> B[Metahub base]
+    B --> O[Application sparse overlay]
+    O --> E[Effective runtime]
+    B --> S[Source baseline]
+    S --> C[Sync and conflict checks]
+    O --> X[Targeted reset]
+    X --> E
+```
+
+Application-owned updates use the scoped endpoint
+`PATCH /applications/:applicationId/layouts/:layoutId/zone-settings/:zone/:settingKey`.
+The matching `POST` reset endpoint removes the selected sparse override. Both
+endpoints return a typed optimistic-concurrency conflict when the layout
+version is stale.
+
 ## Runtime Behavior
 
 Only active layouts and active widgets are used by the application runtime.

@@ -20,6 +20,8 @@ export interface StandardDialogProps {
     actions?: ReactNode
     maxWidth?: DialogProps['maxWidth']
     fullWidth?: boolean
+    isBusy?: boolean
+    dialogActionsTestId?: string
     paperProps?: DialogPaperProps
     dialogTitleProps?: DialogTitleProps
     dialogContentProps?: DialogContentProps
@@ -35,6 +37,8 @@ export function StandardDialog({
     actions,
     maxWidth = 'sm',
     fullWidth = true,
+    isBusy = false,
+    dialogActionsTestId,
     paperProps,
     dialogTitleProps,
     dialogContentProps,
@@ -47,6 +51,7 @@ export function StandardDialog({
         open,
         onClose: onClose ?? (() => undefined),
         fallbackMaxWidth: maxWidth,
+        isBusy,
         disablePresentationControls
     })
     const titleNode = presentation.titleActions ? (
@@ -81,6 +86,7 @@ export function StandardDialog({
             </DialogContent>
             {actions ? (
                 <DialogActions
+                    data-testid={dialogActionsTestId}
                     {...dialogActionsProps}
                     sx={mergeDialogSx({ p: 3, pt: 2, gap: 1, justifyContent: 'flex-end' }, dialogActionsProps?.sx)}
                 >

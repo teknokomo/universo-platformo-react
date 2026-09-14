@@ -715,6 +715,42 @@ const packageOperationOverrides = {
         },
         removeResponses: ['200']
     },
+    'PATCH /applications/{applicationId}/layouts/{layoutId}/zone-settings/{zone}/{settingKey}': {
+        summary: 'Update an application layout zone setting',
+        description:
+            'Owner/admin-only update of a descriptor-defined setting for one layout zone. The server validates the value against the active template and applies the mutation with optimistic concurrency.',
+        requestBody: {
+            required: true,
+            ...jsonSchemaRef('ApplicationLayoutZoneSettingRequest')
+        }
+    },
+    'POST /applications/{applicationId}/layouts/{layoutId}/zone-settings/{zone}/{settingKey}/reset': {
+        summary: 'Reset an application layout zone setting',
+        description:
+            'Owner/admin-only reset of one application layout zone setting to its inherited or template default value. The server applies the mutation with optimistic concurrency.',
+        requestBody: {
+            required: true,
+            ...jsonSchemaRef('ApplicationLayoutZoneSettingResetRequest')
+        }
+    },
+    'PATCH /metahub/{metahubId}/layout/{layoutId}/zone-settings/{zone}/{settingKey}': {
+        summary: 'Update a metahub layout zone setting',
+        description:
+            'Manager-only update of a descriptor-defined metahub layout zone setting. The server validates the value and applies the mutation with optimistic concurrency.',
+        requestBody: {
+            required: true,
+            ...jsonSchemaRef('MetahubLayoutZoneSettingRequest')
+        }
+    },
+    'POST /metahub/{metahubId}/layout/{layoutId}/zone-settings/{zone}/{settingKey}/reset': {
+        summary: 'Reset a metahub layout zone setting',
+        description:
+            'Manager-only reset of one metahub layout zone setting to its template default value. The server applies the mutation with optimistic concurrency.',
+        requestBody: {
+            required: true,
+            ...jsonSchemaRef('MetahubLayoutZoneSettingResetRequest')
+        }
+    },
     'PUT /applications/{applicationId}/layouts/{layoutId}/zone-widget': {
         requestBody: {
             required: true,
@@ -1053,6 +1089,44 @@ const buildSpec = () => {
                         expectedVersion: { type: 'integer', minimum: 1 }
                     },
                     required: ['expectedVersion']
+                },
+                ApplicationLayoutZoneSettingRequest: {
+                    type: 'object',
+                    additionalProperties: false,
+                    properties: {
+                        value: { type: 'string', minLength: 1, maxLength: 128 },
+                        expectedVersion: { type: 'integer', minimum: 1 }
+                    },
+                    required: ['value', 'expectedVersion'],
+                    description: 'Descriptor-validated zone setting value and optimistic concurrency version.'
+                },
+                ApplicationLayoutZoneSettingResetRequest: {
+                    type: 'object',
+                    additionalProperties: false,
+                    properties: {
+                        expectedVersion: { type: 'integer', minimum: 1 }
+                    },
+                    required: ['expectedVersion'],
+                    description: 'Optimistic concurrency version required before resetting a zone setting.'
+                },
+                MetahubLayoutZoneSettingRequest: {
+                    type: 'object',
+                    additionalProperties: false,
+                    properties: {
+                        value: { type: 'string', minLength: 1, maxLength: 128 },
+                        expectedVersion: { type: 'integer', minimum: 1 }
+                    },
+                    required: ['value', 'expectedVersion'],
+                    description: 'Validated metahub zone setting value and optimistic concurrency version.'
+                },
+                MetahubLayoutZoneSettingResetRequest: {
+                    type: 'object',
+                    additionalProperties: false,
+                    properties: {
+                        expectedVersion: { type: 'integer', minimum: 1 }
+                    },
+                    required: ['expectedVersion'],
+                    description: 'Optimistic concurrency version required before resetting a metahub zone setting.'
                 },
                 ApplicationLayoutWidgetResetBatchRequest: {
                     type: 'object',

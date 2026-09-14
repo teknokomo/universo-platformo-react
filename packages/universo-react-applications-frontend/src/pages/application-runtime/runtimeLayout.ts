@@ -4,11 +4,7 @@ import {
     type DashboardMenuItem,
     type ZoneWidgets
 } from '@universo-react/apps-template-mui'
-import {
-    MARKETING_LAYOUT_ZONES,
-    sanitizeApplicationLearningContentSettings,
-    type MarketingLayoutWidgetReference
-} from '@universo-react/types'
+import { sanitizeApplicationLearningContentSettings } from '@universo-react/types'
 import type { ApplicationEffectiveLayoutResponse, ApplicationRuntimeTargetKind } from '../../types'
 
 export const WORKSPACE_ROUTE_LAYOUT_OVERRIDES: Partial<DashboardLayoutConfig> = {
@@ -170,25 +166,4 @@ export const toDashboardZoneWidgets = (effectiveLayout: ApplicationEffectiveLayo
     }
 
     return grouped
-}
-
-export const toMarketingLayoutWidgets = (
-    effectiveLayout: ApplicationEffectiveLayoutResponse | undefined
-): readonly MarketingLayoutWidgetReference[] | undefined => {
-    if (!effectiveLayout || effectiveLayout.layout.templateKey !== 'marketing-page') return undefined
-    const activeWidgets = effectiveLayout.widgets.filter((widget) => widget.isActive)
-    for (const widget of activeWidgets) {
-        if (!MARKETING_LAYOUT_ZONES.includes(widget.zone as (typeof MARKETING_LAYOUT_ZONES)[number])) {
-            throw new Error(`Effective layout contains an unsupported Marketing zone: ${widget.zone}`)
-        }
-    }
-
-    return activeWidgets.map(({ id, widgetKey, zone, instanceKey, sortOrder, isActive }) => ({
-        id,
-        widgetKey,
-        zone,
-        ...(instanceKey === undefined ? {} : { instanceKey }),
-        sortOrder,
-        isActive
-    }))
 }

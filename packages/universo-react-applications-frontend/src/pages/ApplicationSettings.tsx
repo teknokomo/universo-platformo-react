@@ -369,7 +369,11 @@ const loadLayoutsForScope = async (applicationId: string, scopeEntityId: LayoutS
     let offset = 0
     let hasMore = true
     while (hasMore) {
-        const layoutsResponse = await listApplicationLayouts(applicationId, { limit, offset, scopeEntityId })
+        const layoutsResponse = await listApplicationLayouts(applicationId, {
+            limit,
+            offset,
+            scopeEntityId
+        })
         layouts.push(...layoutsResponse.items)
         hasMore = layoutsResponse.pagination.hasMore
         offset += layoutsResponse.items.length

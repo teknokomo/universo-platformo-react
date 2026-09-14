@@ -76,6 +76,8 @@ export {
 } from './marketingPage'
 export {
     validateMarketingSnapshotLayouts,
+    validateMarketingSnapshotTransportLayouts,
+    validateSnapshotLayoutNeutralMetadata,
     validateSnapshotLayoutIdentities,
     SnapshotLayoutValidationError,
     MarketingSnapshotValidationError,

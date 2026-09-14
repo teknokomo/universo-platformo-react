@@ -421,8 +421,13 @@ export function ConnectorDiffDialog({
         const englishValue = localizedTitle.en
         if (typeof localeValue === 'string' && localeValue.length > 0) return localeValue
         if (typeof englishValue === 'string' && englishValue.length > 0) return englishValue
-        return change.sourceLayoutId ?? change.applicationLayoutId ?? change.scope
+        return t('connectors.diffDialog.layoutTitleFallback', 'Application layout')
     }
+
+    const getLayoutScopeLabel = (scope: string) =>
+        scope === 'global'
+            ? t('connectors.diffDialog.globalLayoutScope', 'Global layout')
+            : t('connectors.diffDialog.entityLayoutScope', 'Entity-specific layout')
 
     const formatLayoutChangeType = (change: ApplicationLayoutChange) => {
         if (change.type === 'LAYOUT_CONFLICT') {
@@ -1188,7 +1193,9 @@ export function ConnectorDiffDialog({
                                                 }}
                                             >
                                                 <Typography variant='subtitle2' sx={{ mb: 1 }}>
-                                                    {t('connectors.diffDialog.layoutScope', 'Layout scope: {{scope}}', { scope })}
+                                                    {t('connectors.diffDialog.layoutScope', 'Layout scope: {{scope}}', {
+                                                        scope: getLayoutScopeLabel(scope)
+                                                    })}
                                                 </Typography>
                                                 <Box sx={{ display: 'grid', gap: 1.5 }}>
                                                     {changes.map((change, index) => {

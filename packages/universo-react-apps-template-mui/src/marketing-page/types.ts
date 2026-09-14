@@ -7,11 +7,10 @@ import type {
     MarketingProvenance,
     MarketingRuntimeIdentity,
     MarketingWidgetInstanceKey,
-    ResourceSource
+    ResourceSource,
+    EffectiveLayoutMetadata,
+    EffectiveWidget
 } from '@universo-react/types'
-
-export const MARKETING_NAVIGATION_BAR_HEIGHT_PX = 48
-export const MARKETING_NAVIGATION_STACK_GAP_PX = 16
 
 export type MarketingActionKind = 'internal' | 'external' | 'mailto' | 'tel'
 
@@ -174,20 +173,32 @@ export interface MarketingWidgetFrame {
     isActive: boolean
 }
 
+export interface MarketingBrandData {
+    name: string
+    logo?: MarketingMedia
+    homeAction?: MarketingAction
+}
+
+export interface MarketingAuthData {
+    signIn?: MarketingAction
+    signUp?: MarketingAction
+}
+
+export interface MarketingBrandWidget extends MarketingWidgetFrame {
+    widgetKey: 'marketing.brand'
+    content: MarketingBrandData
+}
+
 export interface MarketingNavigationWidget extends MarketingWidgetFrame {
     widgetKey: 'marketing.navigation'
     content: {
-        brand: {
-            name: string
-            logo?: MarketingMedia
-            homeAction?: MarketingAction
-        }
         navigation: MarketingNavigationItem[]
-        auth?: {
-            signIn?: MarketingAction
-            signUp?: MarketingAction
-        }
     }
+}
+
+export interface MarketingAuthWidget extends MarketingWidgetFrame {
+    widgetKey: 'marketing.auth'
+    content: MarketingAuthData
 }
 
 export interface MarketingHeroWidget extends MarketingWidgetFrame {
@@ -221,7 +232,9 @@ export interface MarketingFooterWidget extends MarketingWidgetFrame {
 }
 
 export type MarketingPageWidget =
+    | MarketingBrandWidget
     | MarketingNavigationWidget
+    | MarketingAuthWidget
     | MarketingHeroWidget
     | MarketingCollectionWidget
     | MarketingPricingWidget
@@ -243,21 +256,11 @@ export interface MarketingPageData {
     richContent?: MarketingPageRuntimeViewModel['marketingPage']['richContent']
 }
 
-/** Layout-owned shared capabilities stay separate from marketing content widgets. */
-export interface MarketingLayoutWidgetReference {
-    id: string
-    widgetKey: string
-    zone: string
-    sortOrder: number
-    isActive: boolean
-}
+/** Runtime effective-layout input supplied by the host application. */
+export type MarketingEffectiveLayoutWidgets = readonly EffectiveWidget[]
+export type MarketingEffectiveLayoutConfig = Pick<EffectiveLayoutMetadata, 'templateKey' | 'zoneSettings'>
 
 export interface MarketingRenderOptions {
-    showLanguageSwitcher?: boolean
-    navigationInstanceKey?: string
-    navigationAriaLabel?: string
-    navigationPosition?: 'fixed' | 'static'
-    navigationStackIndex?: number
     heroBackgroundOwner?: 'widget' | 'page'
 }
 
@@ -268,7 +271,8 @@ export type MarketingLeadHandler = (email: string, source: MarketingFormSource) 
 
 export interface MarketingPageProps {
     data: MarketingPageData
-    sharedLayoutWidgets?: readonly MarketingLayoutWidgetReference[]
+    effectiveLayoutWidgets: MarketingEffectiveLayoutWidgets
+    effectiveLayoutConfig?: MarketingEffectiveLayoutConfig
     onAction?: MarketingActionHandler
     onLeadSubmit?: MarketingLeadHandler
 }

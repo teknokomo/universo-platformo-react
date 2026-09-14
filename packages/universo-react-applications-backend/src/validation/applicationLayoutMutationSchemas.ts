@@ -9,6 +9,7 @@ import {
     applicationLayoutWidgetMutationSchema,
     applicationLayoutWidgetResetBatchMutationSchema,
     applicationLayoutWidgetToggleMutationSchema,
+    layoutLogicalPlacementSchema,
     uuidV7Schema
 } from '@universo-react/types'
 
@@ -24,9 +25,24 @@ export const strictApplicationLayoutConfigResetMutationSchema = applicationLayou
 export const strictApplicationLayoutCopyMutationSchema = applicationLayoutCopyMutationSchema.strict()
 export const strictApplicationLayoutWidgetMutationSchema = applicationLayoutWidgetMutationSchema.strict()
 export const strictApplicationLayoutWidgetConfigMutationSchema = applicationLayoutWidgetConfigMutationSchema.strict()
-export const strictApplicationLayoutWidgetMoveMutationSchema = applicationLayoutWidgetMoveMutationSchema.strict()
+export const strictApplicationLayoutWidgetMoveMutationSchema = applicationLayoutWidgetMoveMutationSchema
+    .extend({ targetPlacement: layoutLogicalPlacementSchema.optional() })
+    .strict()
 export const strictApplicationLayoutWidgetToggleMutationSchema = applicationLayoutWidgetToggleMutationSchema.strict()
 export const strictApplicationLayoutWidgetResetBatchMutationSchema = applicationLayoutWidgetResetBatchMutationSchema.strict()
+
+export const strictApplicationLayoutZoneSettingMutationSchema = z
+    .object({
+        value: z.unknown(),
+        expectedVersion: z.number().int().positive()
+    })
+    .strict()
+
+export const strictApplicationLayoutZoneSettingResetMutationSchema = z
+    .object({
+        expectedVersion: z.number().int().positive()
+    })
+    .strict()
 
 const strictApplicationLayoutWidgetConfigBatchItemSchema = applicationLayoutWidgetConfigMutationSchema
     .strict()
@@ -65,3 +81,5 @@ export type StrictApplicationLayoutWidgetConfigMutation = z.infer<typeof strictA
 export type StrictApplicationLayoutWidgetConfigBatchMutation = z.infer<typeof strictApplicationLayoutWidgetConfigBatchMutationSchema>
 export type StrictApplicationLayoutWidgetMoveMutation = z.infer<typeof strictApplicationLayoutWidgetMoveMutationSchema>
 export type StrictApplicationLayoutWidgetToggleMutation = z.infer<typeof strictApplicationLayoutWidgetToggleMutationSchema>
+export type StrictApplicationLayoutZoneSettingMutation = z.infer<typeof strictApplicationLayoutZoneSettingMutationSchema>
+export type StrictApplicationLayoutZoneSettingResetMutation = z.infer<typeof strictApplicationLayoutZoneSettingResetMutationSchema>

@@ -7,11 +7,24 @@ import { expect, test } from '../../fixtures/test'
 import {
     createLoggedInApiContext,
     createMetahub,
+    createPublication,
     createPublicationLinkedApplication,
     disposeApiContext,
     getApplication,
+    getApplicationEffectiveLayout,
+    getApplicationLayout,
+    getLayout,
     getMarketingPageRuntime,
-    syncApplicationSchema
+    listApplicationLayouts,
+    listLayouts,
+    createPublicationVersion,
+    resetApplicationLayoutZoneSetting,
+    syncApplicationSchema,
+    syncPublication,
+    updateApplicationLayout,
+    updateApplicationLayoutZoneSetting,
+    updateLayoutZoneSetting,
+    waitForPublicationReady
 } from '../../support/backend/api-session.mjs'
 import { recordCreatedApplication, recordCreatedMetahub, recordCreatedPublication } from '../../support/backend/run-manifest.mjs'
 import { assertMarketingPageRuntimeMaterialization } from '../../support/marketingPageRuntimeMaterialization.ts'
@@ -24,13 +37,21 @@ const readLocalizedText = (value: unknown): string => {
     if (typeof value === 'string') return value
     if (!value || typeof value !== 'object' || Array.isArray(value)) return ''
 
-    const localized = value as { locales?: Record<string, { content?: unknown }>; _primary?: unknown }
+    const localized = value as {
+        locales?: Record<string, { content?: unknown }>
+        _primary?: unknown
+        [locale: string]: unknown
+    }
     const primaryLocale = typeof localized._primary === 'string' ? localized._primary : 'en'
     const primary = localized.locales?.[primaryLocale]?.content
     if (typeof primary === 'string' && primary.length > 0) return primary
 
     const english = localized.locales?.en?.content
-    return typeof english === 'string' ? english : ''
+    if (typeof english === 'string' && english.length > 0) return english
+
+    const flatPrimary = localized[primaryLocale]
+    if (typeof flatPrimary === 'string' && flatPrimary.length > 0) return flatPrimary
+    return typeof localized.en === 'string' ? localized.en : ''
 }
 
 const readCookieHeader = (api: ApiContext): string =>
@@ -154,6 +175,25 @@ test('@flow @marketing-page @snapshot verifies marketing-page export/import roun
         expect(typeof source?.id).toBe('string')
         await recordCreatedMetahub({ id: source.id, name: sourceName, codename: sourceCodename })
 
+        const sourceLayouts = await listLayouts(api, source.id, { limit: 100, offset: 0 })
+        const sourceMarketingLayout = sourceLayouts.items?.find((layout) => layout.templateKey === 'marketing-page')
+        if (!sourceMarketingLayout?.id || typeof sourceMarketingLayout.version !== 'number') {
+            throw new Error('The snapshot source did not expose a versioned marketing layout')
+        }
+        const sourceMarketingDetail = await getLayout(api, source.id, sourceMarketingLayout.id)
+        const sourceRendererConfig = { ...(sourceMarketingDetail.config ?? {}) }
+        const flowSourceLayout = await updateLayoutZoneSetting(
+            api,
+            source.id,
+            sourceMarketingLayout.id,
+            'marketing-header',
+            'position',
+            'flow',
+            sourceMarketingDetail.version
+        )
+        expect(flowSourceLayout.config).toEqual(sourceRendererConfig)
+        expect(flowSourceLayout.neutral?.zoneSettings?.['marketing-header']).toEqual({ position: 'flow' })
+
         const sourceEnvelope = await getMetahubExport(api, source.id)
         const sourcePath = testInfo.outputPath('marketing-page-source-export.json')
         await fs.writeFile(sourcePath, JSON.stringify(sourceEnvelope, null, 2), 'utf8')
@@ -165,6 +205,11 @@ test('@flow @marketing-page @snapshot verifies marketing-page export/import roun
 
         const importedEnvelope = await getMetahubExport(api, imported.metahubId)
         assertMarketingSnapshotRoundtrip(sourceEnvelope, importedEnvelope)
+        const importedLayouts = await listLayouts(api, imported.metahubId, { limit: 100, offset: 0 })
+        const importedMarketingLayout = importedLayouts.items?.find((layout) => layout.templateKey === 'marketing-page')
+        if (!importedMarketingLayout?.id) throw new Error('The imported snapshot did not expose a marketing layout')
+        const importedMarketingDetail = await getLayout(api, imported.metahubId, importedMarketingLayout.id)
+        expect(importedMarketingDetail.neutral?.zoneSettings?.['marketing-header']).toEqual({ position: 'flow' })
 
         const linkedApplication = await createPublicationLinkedApplication(api, imported.metahubId, imported.publicationId, {
             name: { en: `E2E ${runManifest.runId} imported marketing application` },
@@ -172,10 +217,52 @@ test('@flow @marketing-page @snapshot verifies marketing-page export/import roun
             createApplicationSchema: false,
             isPublic: false
         })
-        const applicationId = linkedApplication?.application?.id
-        expect(typeof applicationId).toBe('string')
-        await recordCreatedApplication({ id: applicationId, slug: linkedApplication.application.slug })
+        const importedApplicationId = linkedApplication?.application?.id
+        expect(typeof importedApplicationId).toBe('string')
+        await recordCreatedApplication({ id: importedApplicationId, slug: linkedApplication.application.slug })
 
+        await syncApplicationSchema(api, importedApplicationId, {
+            schemaOptions: {
+                workspaceModeRequested: 'enabled',
+                acknowledgeIrreversibleWorkspaceEnablement: true
+            }
+        })
+        await expect.poll(async () => (await getApplication(api, importedApplicationId))?.schemaStatus).toBe('synced')
+
+        const applicationLayouts = await listApplicationLayouts(api, importedApplicationId, { limit: 100, offset: 0 })
+        const applicationMarketingLayout = applicationLayouts.items?.find((layout) => layout.templateKey === 'marketing-page')
+        if (!applicationMarketingLayout?.id) throw new Error('The imported application did not expose a marketing layout')
+        const applicationMarketingDetail = await getApplicationLayout(api, importedApplicationId, applicationMarketingLayout.id)
+        expect(applicationMarketingDetail.item.neutral?.sourceZoneSettings?.['marketing-header']).toEqual({ position: 'flow' })
+        const effectiveApplicationLayout = await getApplicationEffectiveLayout(api, importedApplicationId, {
+            locale: 'en',
+            themeVariant: 'light'
+        })
+        expect(effectiveApplicationLayout.layout.zoneSettings?.['marketing-header']).toEqual({ position: 'flow' })
+
+        const sourcePublication = await createPublication(api, source.id, {
+            name: { en: `E2E ${runManifest.runId} source marketing publication` },
+            namePrimaryLocale: 'en',
+            autoCreateApplication: false
+        })
+        expect(typeof sourcePublication?.id).toBe('string')
+        await recordCreatedPublication({ id: sourcePublication.id, metahubId: source.id, schemaName: sourcePublication.schemaName })
+        await createPublicationVersion(api, source.id, sourcePublication.id, {
+            name: { en: `E2E ${runManifest.runId} source marketing v1` },
+            namePrimaryLocale: 'en'
+        })
+        await syncPublication(api, source.id, sourcePublication.id)
+        await waitForPublicationReady(api, source.id, sourcePublication.id)
+
+        const sourceLinkedApplication = await createPublicationLinkedApplication(api, source.id, sourcePublication.id, {
+            name: { en: `E2E ${runManifest.runId} source marketing application` },
+            namePrimaryLocale: 'en',
+            createApplicationSchema: false,
+            isPublic: false
+        })
+        const applicationId = sourceLinkedApplication?.application?.id
+        expect(typeof applicationId).toBe('string')
+        await recordCreatedApplication({ id: applicationId, slug: sourceLinkedApplication.application.slug })
         await syncApplicationSchema(api, applicationId, {
             schemaOptions: {
                 workspaceModeRequested: 'enabled',
@@ -184,6 +271,81 @@ test('@flow @marketing-page @snapshot verifies marketing-page export/import roun
         })
         await expect.poll(async () => (await getApplication(api, applicationId))?.schemaStatus).toBe('synced')
 
+        const sourceApplicationLayouts = await listApplicationLayouts(api, applicationId, { limit: 100, offset: 0 })
+        const sourceApplicationMarketingLayout = sourceApplicationLayouts.items?.find((layout) => layout.templateKey === 'marketing-page')
+        if (!sourceApplicationMarketingLayout?.id) throw new Error('The source application did not expose a marketing layout')
+        const sourceApplicationMarketingDetail = await getApplicationLayout(api, applicationId, sourceApplicationMarketingLayout.id)
+        expect(sourceApplicationMarketingDetail.item.neutral?.sourceZoneSettings?.['marketing-header']).toEqual({ position: 'flow' })
+
+        const localFlowOverride = await updateApplicationLayoutZoneSetting(
+            api,
+            applicationId,
+            sourceApplicationMarketingLayout.id,
+            'marketing-header',
+            'position',
+            'flow',
+            sourceApplicationMarketingDetail.item.version
+        )
+        expect(localFlowOverride.neutral?.zoneSettings?.['marketing-header']).toEqual({ position: 'flow' })
+        expect(localFlowOverride.neutral?.sourceZoneSettings?.['marketing-header']).toEqual({ position: 'flow' })
+
+        const localLayoutName = `E2E ${runManifest.runId} locally customized marketing layout`
+        const localLayoutCustomizationResponse = await updateApplicationLayout(api, applicationId, sourceApplicationMarketingLayout.id, {
+            name: { en: localLayoutName },
+            expectedVersion: localFlowOverride.version
+        })
+        const localLayoutCustomization = localLayoutCustomizationResponse?.item ?? localLayoutCustomizationResponse
+        expect(readLocalizedText(localLayoutCustomization?.name)).toBe(localLayoutName)
+
+        const currentSourceDetail = await getLayout(api, source.id, sourceMarketingLayout.id)
+        const fixedSourceLayout = await updateLayoutZoneSetting(
+            api,
+            source.id,
+            sourceMarketingLayout.id,
+            'marketing-header',
+            'position',
+            'fixed',
+            currentSourceDetail.version
+        )
+        expect(fixedSourceLayout.neutral?.zoneSettings?.['marketing-header']).toEqual({ position: 'fixed' })
+
+        await createPublicationVersion(api, source.id, sourcePublication.id, {
+            name: { en: `E2E ${runManifest.runId} imported marketing snapshot v2` },
+            namePrimaryLocale: 'en'
+        })
+        await syncPublication(api, source.id, sourcePublication.id)
+        await waitForPublicationReady(api, source.id, sourcePublication.id)
+
+        await syncApplicationSchema(api, applicationId, {
+            layoutResolutionPolicy: { default: 'keep_local' }
+        })
+
+        const keptLocalLayout = await getApplicationLayout(api, applicationId, sourceApplicationMarketingLayout.id)
+        expect(readLocalizedText(keptLocalLayout.item.name)).toBe(localLayoutName)
+        expect(keptLocalLayout.item.neutral?.zoneSettings?.['marketing-header']).toEqual({ position: 'flow' })
+        expect(keptLocalLayout.item.neutral?.sourceZoneSettings?.['marketing-header']).toEqual({ position: 'fixed' })
+        const keptLocalEffectiveLayout = await getApplicationEffectiveLayout(api, applicationId, {
+            locale: 'en',
+            themeVariant: 'light'
+        })
+        expect(keptLocalEffectiveLayout.layout.zoneSettings?.['marketing-header']).toEqual({ position: 'flow' })
+
+        const resetLocalLayout = await resetApplicationLayoutZoneSetting(
+            api,
+            applicationId,
+            sourceApplicationMarketingLayout.id,
+            'marketing-header',
+            'position',
+            keptLocalLayout.item.version
+        )
+        expect(resetLocalLayout.neutral?.zoneSettings?.['marketing-header']).toBeUndefined()
+        expect(resetLocalLayout.neutral?.sourceZoneSettings?.['marketing-header']).toEqual({ position: 'fixed' })
+        const resetLocalEffectiveLayout = await getApplicationEffectiveLayout(api, applicationId, {
+            locale: 'en',
+            themeVariant: 'light'
+        })
+        expect(resetLocalEffectiveLayout.layout.zoneSettings?.['marketing-header']).toEqual({ position: 'fixed' })
+
         const runtimePayload = await getMarketingPageRuntime(api, applicationId, 'en')
         assertMarketingPageRuntimeMaterialization(runtimePayload, marketingPageTemplate)
 
@@ -191,6 +353,20 @@ test('@flow @marketing-page @snapshot verifies marketing-page export/import roun
         await page.goto(`/a/${applicationId}`)
         await expect(page.locator('#marketing-page-main')).toBeVisible()
         await expect(page.getByRole('heading', { name: 'Our latest products' })).toBeVisible()
+        await expect(page.getByTestId('marketing-header-shell')).toHaveClass(/MuiAppBar-positionFixed/)
+        await expect(page.getByTestId('marketing-header-spacer')).toHaveCount(0)
+        const fixedInitialTop = await page.getByTestId('marketing-header-shell').evaluate((element) => element.getBoundingClientRect().top)
+        await page.evaluate(() => window.scrollTo({ top: 640, behavior: 'instant' }))
+        await page.waitForFunction(() => window.scrollY > 0)
+        const fixedScrolledTop = await page.getByTestId('marketing-header-shell').evaluate((element) => element.getBoundingClientRect().top)
+        expect(Math.abs(fixedScrolledTop - fixedInitialTop)).toBeLessThan(1)
+        await page.screenshot({
+            path: testInfo.outputPath('marketing-page-snapshot-fixed-runtime.png'),
+            fullPage: true,
+            animations: 'disabled'
+        })
+        await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' }))
+        await page.waitForFunction(() => window.scrollY === 0)
         await expect(page.locator('#pricing .MuiCard-root')).toHaveCount(3)
         await expect(page.locator('#faq .MuiAccordion-root')).toHaveCount(4)
         await localMedia.assertLoaded(page)

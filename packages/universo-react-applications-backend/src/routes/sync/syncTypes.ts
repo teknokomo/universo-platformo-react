@@ -8,6 +8,7 @@ import {
     ComponentDefinitionDataType,
     type ApplicationLayoutWidget,
     type ApplicationTemplateKey,
+    type LayoutNeutralComposition,
     type VersionedLocalizedContent
 } from '@universo-react/types'
 import type { ApplicationRecord, ApplicationCopySourceRecord } from '../../persistence/applicationsStore'
@@ -173,6 +174,8 @@ export type RuntimeApplicationWidgetRow = {
     sort_order: unknown
     config: unknown
     is_active: unknown
+    source_widget_id?: unknown
+    source_base_widget_id?: unknown
 }
 
 // --- Enumeration / layout snapshot types ---
@@ -210,6 +213,8 @@ export type SnapshotLayoutRow = {
     id?: unknown
     scopeEntityId?: unknown
     scopeEntityKind?: unknown
+    baseLayoutId?: unknown
+    compositionMode?: unknown
     templateKey?: unknown
     name?: unknown
     description?: unknown
@@ -222,8 +227,6 @@ export type SnapshotLayoutRow = {
 export type SnapshotScopedLayoutRow = SnapshotLayoutRow & {
     scopeEntityId?: unknown
     scopeEntityKind?: unknown
-    baseLayoutId?: unknown
-    compositionMode?: unknown
 }
 
 export type SnapshotLayoutWidgetOverrideRow = {
@@ -262,6 +265,8 @@ export type PersistedAppLayout = {
     name: Record<string, unknown>
     description: Record<string, unknown> | null
     config: Record<string, unknown>
+    /** Snapshot transport composition carried outside the JSONB config until sync remaps source IDs. */
+    sourceComposition?: LayoutNeutralComposition
     isActive: boolean
     isDefault: boolean
     sortOrder: number

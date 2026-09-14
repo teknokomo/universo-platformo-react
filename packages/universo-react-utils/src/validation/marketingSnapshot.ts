@@ -2,6 +2,10 @@ import {
     MARKETING_PAGE_TEMPLATE_KEY,
     MARKETING_WIDGET_REGISTRY,
     applicationTemplateKeySchema,
+    decodeLayoutConfigEnvelope,
+    decodeWidgetConfigEnvelope,
+    getLayoutWidgetAllowedZones,
+    getLayoutWidgetDefinition,
     marketingPageConfigSchema,
     marketingWidgetKeySchema,
     parseApplicationLayoutConfig,
@@ -84,7 +88,7 @@ export class MarketingSnapshotValidationError extends SnapshotLayoutValidationEr
 type ParsedMarketingWidget = {
     widgetKey: MarketingWidgetKey
     instanceKey: string
-    source: Record<string, unknown>
+    source?: Record<string, unknown>
     copySource?: Record<string, unknown>
     variant?: string
     showBenefits?: boolean
@@ -432,8 +436,12 @@ const parseWidget = (snapshot: MarketingSnapshotLike, widget: MarketingSnapshotW
         fail('Marketing snapshot widget active state is invalid', { widgetId: widget.id, layoutId: widget.layoutId })
     }
 
-    const source = readParsedSource(config.source, `widget:${widget.id}:source`)
-    assertObjectEntity(snapshot, source.entityCodename, `widget:${widget.id}:source`)
+    const source = config.source === undefined ? undefined : readParsedSource(config.source, `widget:${widget.id}:source`)
+    if (source) {
+        assertObjectEntity(snapshot, source.entityCodename, `widget:${widget.id}:source`)
+    } else if (widgetKey !== 'marketing.auth') {
+        fail('Marketing snapshot widget source is invalid', { scope: `widget:${widget.id}:source` })
+    }
 
     const copySource = config.copySource === undefined ? undefined : readParsedSource(config.copySource, `widget:${widget.id}:copySource`)
     if (copySource) {
@@ -451,7 +459,7 @@ const parseWidget = (snapshot: MarketingSnapshotLike, widget: MarketingSnapshotW
     return {
         widgetKey,
         instanceKey,
-        source,
+        ...(source ? { source } : {}),
         ...(copySource ? { copySource } : {}),
         ...(variant ? { variant } : {}),
         ...(typeof config.showBenefits === 'boolean' ? { showBenefits: config.showBenefits } : {})
@@ -663,9 +671,13 @@ export const validateMarketingSnapshotLayouts = (snapshot: unknown): void => {
         }
     }
 
-    const activeMarketingWidgets = widgets.filter(
-        (widget) => typeof widget.widgetKey === 'string' && widget.widgetKey.startsWith('marketing.') && widget.isActive === true
-    )
+    const activeMarketingWidgets = widgets.filter((widget) => {
+        const layout = allLayouts.find((candidate) => candidate.id === widget.layoutId)
+        if (layout?.templateKey !== MARKETING_PAGE_TEMPLATE_KEY || typeof widget.widgetKey !== 'string' || widget.isActive !== true) {
+            return false
+        }
+        return getLayoutWidgetDefinition(widget.widgetKey)?.supportedTemplates.includes(MARKETING_PAGE_TEMPLATE_KEY) === true
+    })
     if (activeMarketingWidgets.length === 0) {
         fail('Marketing snapshot must contain at least one active widget', {})
     }
@@ -677,35 +689,79 @@ export const validateMarketingSnapshotLayouts = (snapshot: unknown): void => {
         }
     }
 
-    const widgetsById = new Map<string, { widget: MarketingSnapshotWidgetLike; parsed: ParsedMarketingWidget; layoutId: string }>()
+    const widgetsById = new Map<string, { widget: MarketingSnapshotWidgetLike; parsed?: ParsedMarketingWidget; layoutId: string }>()
     const instanceKeysByLayout = new Map<string, Set<string>>()
+    const singleInstanceWidgetKeysByLayout = new Map<string, Set<string>>()
     for (const widget of widgets) {
         const layout = allLayouts.find((candidate) => candidate.id === widget.layoutId)
-        const isMarketingWidget = marketingWidgets.includes(widget)
         if (!layout) {
-            if (isMarketingWidget) {
+            if (marketingWidgets.includes(widget)) {
                 fail('Marketing snapshot widget references a missing layout', { widgetId: widget.id, layoutId: widget.layoutId })
             }
             continue
         }
         const isMarketingLayout = layout.templateKey === MARKETING_PAGE_TEMPLATE_KEY
-        if (isMarketingLayout !== isMarketingWidget) {
-            fail('Marketing and dashboard widgets cannot share a layout', { widgetId: widget.id, layoutId: widget.layoutId })
-        }
         if (!isMarketingLayout) continue
 
         assertMarketingWidgetIdentity(widget, layout.id)
-        const parsed = parseWidget(normalizedSnapshot, widget)
-        const instanceKeys = instanceKeysByLayout.get(layout.id) ?? new Set<string>()
-        if (instanceKeys.has(parsed.instanceKey)) {
-            fail('Marketing snapshot contains duplicate widget instance keys', { layoutId: layout.id, instanceKey: parsed.instanceKey })
+        const definition = typeof widget.widgetKey === 'string' ? getLayoutWidgetDefinition(widget.widgetKey) : undefined
+        if (!definition || !definition.supportedTemplates.includes(MARKETING_PAGE_TEMPLATE_KEY)) {
+            fail('Marketing snapshot widget is not supported by the marketing-page template', {
+                widgetId: widget.id,
+                layoutId: layout.id,
+                widgetKey: widget.widgetKey
+            })
         }
-        instanceKeys.add(parsed.instanceKey)
-        instanceKeysByLayout.set(layout.id, instanceKeys)
+        const allowedZones = getLayoutWidgetAllowedZones(widget.widgetKey, MARKETING_PAGE_TEMPLATE_KEY)
+        if (!allowedZones?.some((allowedZone) => allowedZone === widget.zone)) {
+            fail('Marketing snapshot widget placement is invalid', {
+                widgetId: widget.id,
+                layoutId: layout.id,
+                widgetKey: widget.widgetKey,
+                zone: widget.zone
+            })
+        }
+        if (!Number.isInteger(widget.sortOrder) || widget.sortOrder < 0 || widget.sortOrder > 100_000) {
+            fail('Marketing snapshot widget order is invalid', { widgetId: widget.id, layoutId: layout.id })
+        }
+        if (typeof widget.isActive !== 'boolean') {
+            fail('Marketing snapshot widget active state is invalid', { widgetId: widget.id, layoutId: layout.id })
+        }
+
+        const singleInstanceWidgetKeys = singleInstanceWidgetKeysByLayout.get(layout.id) ?? new Set<string>()
+        if (!definition.multiInstance && singleInstanceWidgetKeys.has(widget.widgetKey)) {
+            fail('Marketing snapshot contains duplicate single-instance widgets', {
+                layoutId: layout.id,
+                widgetKey: widget.widgetKey
+            })
+        }
+        if (!definition.multiInstance) singleInstanceWidgetKeys.add(widget.widgetKey)
+        singleInstanceWidgetKeysByLayout.set(layout.id, singleInstanceWidgetKeys)
+
+        let parsed: ParsedMarketingWidget | undefined
+        if (widget.widgetKey.startsWith('marketing.')) {
+            parsed = parseWidget(normalizedSnapshot, widget)
+            const instanceKeys = instanceKeysByLayout.get(layout.id) ?? new Set<string>()
+            if (instanceKeys.has(parsed.instanceKey)) {
+                fail('Marketing snapshot contains duplicate widget instance keys', { layoutId: layout.id, instanceKey: parsed.instanceKey })
+            }
+            instanceKeys.add(parsed.instanceKey)
+            instanceKeysByLayout.set(layout.id, instanceKeys)
+        } else {
+            try {
+                parseApplicationLayoutWidgetConfig(widget.widgetKey, widget.config)
+            } catch {
+                fail('Marketing snapshot widget configuration is invalid', {
+                    widgetId: widget.id,
+                    layoutId: widget.layoutId,
+                    widgetKey: widget.widgetKey
+                })
+            }
+        }
         if (widgetsById.has(widget.id)) fail('Marketing snapshot contains duplicate widget ids', { widgetId: widget.id })
         widgetsById.set(widget.id, { widget, parsed, layoutId: layout.id })
 
-        if (parsed.widgetKey === 'marketing.pricing' && parsed.showBenefits !== false) {
+        if (parsed?.widgetKey === 'marketing.pricing' && parsed.showBenefits !== false) {
             assertObjectEntity(normalizedSnapshot, 'MarketingPagePricingBenefit', `widget:${widget.id}:benefits`)
         }
     }
@@ -776,21 +832,212 @@ export const validateMarketingSnapshotLayouts = (snapshot: unknown): void => {
         if (
             override.zone !== undefined &&
             override.zone !== null &&
-            !MARKETING_WIDGET_REGISTRY[baseWidget.parsed.widgetKey].allowedZones.some((allowedZone) => allowedZone === override.zone)
+            !getLayoutWidgetAllowedZones(baseWidget.widget.widgetKey, MARKETING_PAGE_TEMPLATE_KEY)?.some(
+                (allowedZone) => allowedZone === override.zone
+            )
         ) {
             fail('Marketing widget override placement is invalid', { overrideId: override.id, zone: override.zone })
         }
         if (override.config !== undefined && override.config !== null) {
             const config = (() => {
                 try {
-                    return parseApplicationLayoutWidgetConfig(baseWidget.parsed.widgetKey, override.config)
+                    return parseApplicationLayoutWidgetConfig(baseWidget.widget.widgetKey, override.config)
                 } catch {
                     return fail('Marketing widget override configuration is invalid', { overrideId: override.id })
                 }
             })()
-            if (config.instanceKey !== baseWidget.parsed.instanceKey) {
+            if (baseWidget.parsed && config.instanceKey !== baseWidget.parsed.instanceKey) {
                 fail('Marketing widget override cannot change the base instance key', { overrideId: override.id })
             }
         }
     }
+}
+
+const hasReservedLayoutMetadata = (value: unknown): boolean => isRecord(value) && Object.prototype.hasOwnProperty.call(value, '__layout')
+
+const readSnapshotRecordArray = (value: unknown, field: string): Record<string, unknown>[] =>
+    readSnapshotArray(value, field).map((entry, index) => {
+        if (!isRecord(entry)) failSnapshotLayout(`Snapshot ${field} entry is invalid`, { index })
+        return entry
+    })
+
+const readSnapshotTemplateKey = (value: unknown, scope: string) => {
+    const parsed = applicationTemplateKeySchema.safeParse(value)
+    if (!parsed.success) failSnapshotLayout(`Snapshot ${scope} template key is invalid`, { scope })
+    return parsed.data
+}
+
+const decodeSnapshotLayoutRendererConfig = (config: unknown, templateKey: string): Record<string, unknown> => {
+    const decoded = decodeLayoutConfigEnvelope(config === undefined ? {} : config, { templateKey })
+    return decoded.rendererConfig
+}
+
+/**
+ * Validate the neutral `__layout` transport envelope without weakening the
+ * renderer-owned marketing config validator. Snapshot composition remains a
+ * top-level transport concern and application-only source settings are never
+ * accepted in a published snapshot.
+ */
+export const validateSnapshotLayoutNeutralMetadata = (snapshot: unknown): void => {
+    if (!isRecord(snapshot)) failSnapshotLayout('Snapshot must be an object', {})
+
+    const layouts = [
+        ...readSnapshotRecordArray(snapshot.layouts, 'layouts'),
+        ...readSnapshotRecordArray(snapshot.scopedLayouts, 'scoped layouts')
+    ]
+    const layoutsById = new Map<string, Record<string, unknown>>()
+    for (const layout of layouts) {
+        const layoutId = typeof layout.id === 'string' ? layout.id : String(layout.id)
+        const templateKey = readSnapshotTemplateKey(layout.templateKey, `layout:${layoutId}`)
+        let decoded: ReturnType<typeof decodeLayoutConfigEnvelope>
+        try {
+            decoded = decodeLayoutConfigEnvelope(layout.config === undefined ? {} : layout.config, { templateKey })
+        } catch {
+            failSnapshotLayout('Snapshot layout neutral metadata is invalid', { layoutId })
+        }
+        if (decoded.neutral.sourceZoneSettings !== undefined) {
+            failSnapshotLayout('Snapshot layout metadata contains application-only source zone settings', { layoutId })
+        }
+        if (decoded.neutral.composition !== undefined) {
+            failSnapshotLayout('Snapshot layout config must not duplicate top-level composition metadata', { layoutId })
+        }
+        if (layout.baseLayoutId !== null && layout.compositionMode !== 'overlay') {
+            failSnapshotLayout('Snapshot scoped layout composition is invalid', { layoutId })
+        }
+        if (layout.baseLayoutId === null && layout.compositionMode !== 'independent') {
+            failSnapshotLayout('Snapshot layout composition is invalid', { layoutId })
+        }
+        if (typeof layout.id === 'string') layoutsById.set(layout.id, layout)
+    }
+
+    const defaultLayout = typeof snapshot.defaultLayoutId === 'string' ? layoutsById.get(snapshot.defaultLayoutId) : undefined
+    if (snapshot.layoutConfig !== undefined && defaultLayout) {
+        const templateKey = readSnapshotTemplateKey(defaultLayout.templateKey, `layout:${String(defaultLayout.id)}`)
+        let decoded: ReturnType<typeof decodeLayoutConfigEnvelope>
+        try {
+            decoded = decodeLayoutConfigEnvelope(snapshot.layoutConfig, { templateKey })
+        } catch {
+            failSnapshotLayout('Snapshot default layout neutral metadata is invalid', { defaultLayoutId: snapshot.defaultLayoutId })
+        }
+        if (decoded.neutral.composition !== undefined || decoded.neutral.sourceZoneSettings !== undefined) {
+            failSnapshotLayout('Snapshot default layout config contains forbidden composition or source metadata', {
+                defaultLayoutId: snapshot.defaultLayoutId
+            })
+        }
+    }
+
+    const widgets = readSnapshotRecordArray(snapshot.layoutZoneWidgets, 'layout widgets')
+    const widgetsById = new Map<string, Record<string, unknown>>()
+    for (const widget of widgets) {
+        const layout = typeof widget.layoutId === 'string' ? layoutsById.get(widget.layoutId) : undefined
+        if (!layout) failSnapshotLayout('Snapshot widget references an unknown layout', { widgetId: widget.id })
+        const templateKey = readSnapshotTemplateKey(layout.templateKey, `layout:${String(layout.id)}`)
+        try {
+            decodeWidgetConfigEnvelope(widget.config === undefined ? {} : widget.config, {
+                templateKey,
+                widgetKey: String(widget.widgetKey),
+                zone: String(widget.zone)
+            })
+        } catch {
+            failSnapshotLayout('Snapshot widget configuration is invalid', { widgetId: widget.id })
+        }
+        if (typeof widget.id === 'string') widgetsById.set(widget.id, widget)
+    }
+
+    for (const override of readSnapshotRecordArray(snapshot.layoutWidgetOverrides, 'widget overrides')) {
+        if (override.config === null || override.config === undefined) continue
+        const baseWidget = typeof override.baseWidgetId === 'string' ? widgetsById.get(override.baseWidgetId) : undefined
+        const layout = typeof override.layoutId === 'string' ? layoutsById.get(override.layoutId) : undefined
+        if (!baseWidget || !layout) {
+            failSnapshotLayout('Snapshot widget override references an unknown layout or base widget', { overrideId: override.id })
+        }
+        const templateKey = readSnapshotTemplateKey(layout.templateKey, `layout:${String(layout.id)}`)
+        try {
+            decodeWidgetConfigEnvelope(override.config, {
+                templateKey,
+                widgetKey: String(baseWidget.widgetKey),
+                zone: String(override.zone ?? baseWidget.zone)
+            })
+        } catch {
+            failSnapshotLayout('Snapshot widget override configuration is invalid', { overrideId: override.id })
+        }
+    }
+}
+
+const buildMarketingRendererValidationSnapshot = (snapshot: Record<string, unknown>): Record<string, unknown> => {
+    const layouts = readSnapshotRecordArray(snapshot.layouts, 'layouts')
+    const scopedLayouts = readSnapshotRecordArray(snapshot.scopedLayouts, 'scoped layouts')
+    const allLayouts = [...layouts, ...scopedLayouts]
+    const layoutsById = new Map(allLayouts.filter((layout) => typeof layout.id === 'string').map((layout) => [layout.id as string, layout]))
+    const widgets = readSnapshotRecordArray(snapshot.layoutZoneWidgets, 'layout widgets')
+    const baseWidgetsById = new Map(
+        widgets.filter((widget) => typeof widget.id === 'string').map((widget) => [widget.id as string, widget])
+    )
+
+    const normalizeLayout = (layout: Record<string, unknown>): Record<string, unknown> => {
+        const templateKey = readSnapshotTemplateKey(layout.templateKey, `layout:${String(layout.id)}`)
+        return {
+            ...layout,
+            config: decodeSnapshotLayoutRendererConfig(layout.config, templateKey)
+        }
+    }
+
+    return {
+        ...snapshot,
+        layouts: snapshot.layouts === undefined ? undefined : layouts.map(normalizeLayout),
+        scopedLayouts: snapshot.scopedLayouts === undefined ? undefined : scopedLayouts.map(normalizeLayout),
+        layoutConfig:
+            snapshot.layoutConfig === undefined
+                ? snapshot.layoutConfig
+                : (() => {
+                      const defaultLayout =
+                          typeof snapshot.defaultLayoutId === 'string' ? layoutsById.get(snapshot.defaultLayoutId) : undefined
+                      if (!defaultLayout) return snapshot.layoutConfig
+                      const templateKey = readSnapshotTemplateKey(defaultLayout.templateKey, `layout:${String(defaultLayout.id)}`)
+                      return decodeSnapshotLayoutRendererConfig(snapshot.layoutConfig, templateKey)
+                  })(),
+        layoutZoneWidgets:
+            snapshot.layoutZoneWidgets === undefined
+                ? undefined
+                : widgets.map((widget) => {
+                      const layout = typeof widget.layoutId === 'string' ? layoutsById.get(widget.layoutId) : undefined
+                      if (!layout || !hasReservedLayoutMetadata(widget.config)) return widget
+                      const templateKey = readSnapshotTemplateKey(layout.templateKey, `layout:${String(layout.id)}`)
+                      return {
+                          ...widget,
+                          config: decodeWidgetConfigEnvelope(widget.config ?? {}, {
+                              templateKey,
+                              widgetKey: String(widget.widgetKey),
+                              zone: String(widget.zone)
+                          }).rendererConfig
+                      }
+                  }),
+        layoutWidgetOverrides:
+            snapshot.layoutWidgetOverrides === undefined
+                ? undefined
+                : readSnapshotRecordArray(snapshot.layoutWidgetOverrides, 'widget overrides').map((override) => {
+                      if (override.config === null || override.config === undefined || !hasReservedLayoutMetadata(override.config)) {
+                          return override
+                      }
+                      const layout = typeof override.layoutId === 'string' ? layoutsById.get(override.layoutId) : undefined
+                      const baseWidget = typeof override.baseWidgetId === 'string' ? baseWidgetsById.get(override.baseWidgetId) : undefined
+                      if (!layout || !baseWidget) return override
+                      const templateKey = readSnapshotTemplateKey(layout.templateKey, `layout:${String(layout.id)}`)
+                      return {
+                          ...override,
+                          config: decodeWidgetConfigEnvelope(override.config, {
+                              templateKey,
+                              widgetKey: String(baseWidget.widgetKey),
+                              zone: String(override.zone ?? baseWidget.zone)
+                          }).rendererConfig
+                      }
+                  })
+    }
+}
+
+/** Validate a published/release snapshot carrying neutral layout envelopes. */
+export const validateMarketingSnapshotTransportLayouts = (snapshot: unknown): void => {
+    validateSnapshotLayoutNeutralMetadata(snapshot)
+    if (!isRecord(snapshot)) failSnapshotLayout('Snapshot must be an object', {})
+    validateMarketingSnapshotLayouts(buildMarketingRendererValidationSnapshot(snapshot))
 }

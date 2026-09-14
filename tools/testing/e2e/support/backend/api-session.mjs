@@ -1384,6 +1384,36 @@ export async function updateLayout(api, metahubId, layoutId, payload) {
     return response.json()
 }
 
+export async function updateLayoutZoneSetting(api, metahubId, layoutId, zone, settingKey, value, expectedVersion) {
+    const response = await sendWithCsrf(
+        api,
+        'PATCH',
+        `/api/v1/metahub/${metahubId}/layout/${layoutId}/zone-settings/${encodeURIComponent(zone)}/${encodeURIComponent(settingKey)}`,
+        { value, expectedVersion }
+    )
+    if (!response.ok) {
+        throw await buildError(response, `Updating zone setting ${zone}/${settingKey} in metahub layout ${layoutId}`)
+    }
+
+    const body = await response.json()
+    return body?.item ?? body
+}
+
+export async function resetLayoutZoneSetting(api, metahubId, layoutId, zone, settingKey, expectedVersion) {
+    const response = await sendWithCsrf(
+        api,
+        'POST',
+        `/api/v1/metahub/${metahubId}/layout/${layoutId}/zone-settings/${encodeURIComponent(zone)}/${encodeURIComponent(settingKey)}/reset`,
+        { expectedVersion }
+    )
+    if (!response.ok) {
+        throw await buildError(response, `Resetting zone setting ${zone}/${settingKey} in metahub layout ${layoutId}`)
+    }
+
+    const body = await response.json()
+    return body?.item ?? body
+}
+
 export async function getLayout(api, metahubId, layoutId) {
     const response = await fetchFromApi(api, `/api/v1/metahub/${metahubId}/layout/${layoutId}`, { method: 'GET' })
     if (!response.ok) {
@@ -1501,6 +1531,40 @@ export async function updateApplicationLayout(api, applicationId, layoutId, payl
     }
 
     return response.json()
+}
+
+export async function updateApplicationLayoutZoneSetting(api, applicationId, layoutId, zone, settingKey, value, expectedVersion) {
+    const response = await sendWithCsrf(
+        api,
+        'PATCH',
+        `/api/v1/applications/${applicationId}/layouts/${layoutId}/zone-settings/${encodeURIComponent(zone)}/${encodeURIComponent(
+            settingKey
+        )}`,
+        { value, expectedVersion }
+    )
+    if (!response.ok) {
+        throw await buildError(response, `Updating zone setting ${zone}/${settingKey} in application layout ${layoutId}`)
+    }
+
+    const body = await response.json()
+    return body?.item ?? body
+}
+
+export async function resetApplicationLayoutZoneSetting(api, applicationId, layoutId, zone, settingKey, expectedVersion) {
+    const response = await sendWithCsrf(
+        api,
+        'POST',
+        `/api/v1/applications/${applicationId}/layouts/${layoutId}/zone-settings/${encodeURIComponent(zone)}/${encodeURIComponent(
+            settingKey
+        )}/reset`,
+        { expectedVersion }
+    )
+    if (!response.ok) {
+        throw await buildError(response, `Resetting zone setting ${zone}/${settingKey} in application layout ${layoutId}`)
+    }
+
+    const body = await response.json()
+    return body?.item ?? body
 }
 
 export async function copyApplicationLayout(api, applicationId, layoutId, expectedVersion) {

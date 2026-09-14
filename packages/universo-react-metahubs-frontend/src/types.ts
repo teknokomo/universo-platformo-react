@@ -20,6 +20,8 @@ import type {
     ApplicationLayoutWidgetKey,
     ApplicationTemplateKey,
     LayoutWidgetDefinition,
+    PersistedLayoutNeutralMetadata,
+    LayoutLogicalPlacement,
     BranchCopyOptions,
     ComponentSystemMetadata
 } from '@universo-react/types'
@@ -194,6 +196,7 @@ export interface MetahubLayout {
     name: VersionedLocalizedContent<string>
     description?: VersionedLocalizedContent<string> | null
     config: Record<string, unknown>
+    neutral?: PersistedLayoutNeutralMetadata
     isActive: boolean
     isDefault: boolean
     sortOrder: number
@@ -245,6 +248,7 @@ export interface MetahubLayoutZoneWidget {
     instanceKey?: string
     sortOrder: number
     config: Record<string, unknown>
+    placement?: LayoutLogicalPlacement
     isActive: boolean
     isInherited?: boolean
     isOverridden?: boolean

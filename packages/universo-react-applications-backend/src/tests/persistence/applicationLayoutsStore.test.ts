@@ -7,11 +7,13 @@ import {
     listApplicationLayoutWidgetObject,
     moveApplicationLayoutWidget,
     resetApplicationLayoutConfig,
+    resetApplicationLayoutZoneSetting,
     resetApplicationLayoutWidgetConfigsBatch,
     toggleApplicationLayoutWidget,
     updateApplicationLayout,
     updateApplicationLayoutWidgetConfig,
     updateApplicationLayoutWidgetConfigsBatch,
+    updateApplicationLayoutZoneSetting,
     upsertApplicationLayoutWidget
 } from '../../persistence/applicationLayoutsStore'
 import { createMockDbExecutor } from '../utils/dbMocks'
@@ -19,6 +21,7 @@ import { createMockDbExecutor } from '../utils/dbMocks'
 describe('applicationLayoutsStore', () => {
     const scopedBatchLayoutIdA = '018f8a78-7b8f-7c1d-a111-2222333345a1'
     const scopedBatchLayoutIdB = '018f8a78-7b8f-7c1d-a111-2222333345a2'
+    const independentLayoutConfig = { __layout: { composition: { mode: 'independent', baseLayoutId: null } } }
 
     const primeLockedLayout = (
         txExecutor: ReturnType<typeof createMockDbExecutor>['txExecutor'],
@@ -40,7 +43,7 @@ describe('applicationLayoutsStore', () => {
             template_key: options.templateKey,
             name: { en: 'Test layout' },
             description: null,
-            config: options.config ?? {},
+            config: options.config ?? independentLayoutConfig,
             is_active: true,
             is_default: true,
             sort_order: 0,
@@ -64,7 +67,7 @@ describe('applicationLayoutsStore', () => {
             .mockResolvedValueOnce([])
             .mockResolvedValueOnce([layoutRow])
             .mockResolvedValueOnce([])
-            .mockResolvedValueOnce(options.widgets ?? [])
+            .mockResolvedValueOnce((options.widgets ?? []).map((widget) => ({ is_customized: false, ...widget })))
 
         return layoutRow
     }
@@ -73,10 +76,12 @@ describe('applicationLayoutsStore', () => {
         const items = listApplicationLayoutWidgetObject()
         const marketingItems = items.filter((item) => item.templateKey === 'marketing-page')
 
-        expect(marketingItems).toHaveLength(5)
+        expect(marketingItems).toHaveLength(7)
         expect(marketingItems.every((item) => item.labelKey && item.defaultLabel)).toBe(true)
         expect(marketingItems.map((item) => item.labelKey)).toEqual([
+            'layouts.widgets.marketing.brand',
             'layouts.widgets.marketing.navigation',
+            'layouts.widgets.marketing.auth',
             'layouts.widgets.marketing.hero',
             'layouts.widgets.marketing.collection',
             'layouts.widgets.marketing.pricing',
@@ -100,6 +105,19 @@ describe('applicationLayoutsStore', () => {
         expect(executor.query.mock.calls[0]?.[1]).toEqual([100, 0])
         expect(executor.query.mock.calls[1]?.[0]).toContain('scope_entity_id IS NULL')
         expect(executor.query.mock.calls[1]?.[1]).toEqual([])
+    })
+
+    it('fails closed when the layout list count response is malformed', async () => {
+        const { executor } = createMockDbExecutor()
+        executor.query.mockResolvedValueOnce([]).mockResolvedValueOnce([{ count: 'invalid' }])
+
+        await expect(
+            listApplicationLayouts(executor, 'app_018f8a787b8f7c1da111222233334444', {
+                limit: 100,
+                offset: 0,
+                scopeEntityId: null
+            })
+        ).rejects.toThrow('APPLICATION_LAYOUT_RESPONSE_INVALID')
     })
 
     it('rejects a scoped layout when the application object is not layout-capable', async () => {
@@ -168,11 +186,11 @@ describe('applicationLayoutsStore', () => {
         const layoutId = '018f8a78-7b8f-7c1d-a111-2222333344a1'
         const layoutRow = {
             id: layoutId,
-            scope_entity_id: 'scope-1',
+            scope_entity_id: '0190a9b5-3cde-7abc-8def-2123456789d3',
             template_key: 'dashboard',
             name: { en: 'Main' },
             description: null,
-            config: {},
+            config: independentLayoutConfig,
             is_active: true,
             is_default: true,
             sort_order: 0,
@@ -188,7 +206,7 @@ describe('applicationLayoutsStore', () => {
             version: 8
         }
         txExecutor.query
-            .mockResolvedValueOnce([{ scope_entity_id: 'scope-1' }])
+            .mockResolvedValueOnce([{ scope_entity_id: '0190a9b5-3cde-7abc-8def-2123456789d3' }])
             .mockResolvedValueOnce([])
             .mockResolvedValueOnce([])
             .mockResolvedValueOnce([])
@@ -202,7 +220,9 @@ describe('applicationLayoutsStore', () => {
 
         expect(txExecutor.query).toHaveBeenCalledTimes(7)
         expect(txExecutor.query.mock.calls[1]?.[1]).toEqual(['app_018f8a787b8f7c1da111222233334444:application-layout-mutations'])
-        expect(txExecutor.query.mock.calls[2]?.[1]).toEqual(['app_018f8a787b8f7c1da111222233334444:layout-scope:scope-1'])
+        expect(txExecutor.query.mock.calls[2]?.[1]).toEqual([
+            'app_018f8a787b8f7c1da111222233334444:layout-scope:0190a9b5-3cde-7abc-8def-2123456789d3'
+        ])
         expect(txExecutor.query.mock.calls[3]?.[1]).toEqual([
             'app_018f8a787b8f7c1da111222233334444:layout:018f8a78-7b8f-7c1d-a111-2222333344a1'
         ])
@@ -224,7 +244,12 @@ describe('applicationLayoutsStore', () => {
             description: null,
             config: {
                 themeMode: 'dark',
-                primaryColor: '#1976d2'
+                primaryColor: '#1976d2',
+                __layout: {
+                    composition: { mode: 'independent', baseLayoutId: null },
+                    sourceZoneSettings: { 'marketing-header': { position: 'flow' } },
+                    zoneSettings: { 'marketing-header': { position: 'fixed' } }
+                }
             },
             is_active: true,
             is_default: true,
@@ -248,7 +273,19 @@ describe('applicationLayoutsStore', () => {
             .mockResolvedValueOnce([layoutRow]) // locked current layout
             .mockResolvedValueOnce([]) // widgets advisory lock
             .mockResolvedValueOnce([]) // locked current widgets
-            .mockResolvedValueOnce([{ ...layoutRow, config: {}, version: 5 }]) // updated layout
+            .mockResolvedValueOnce([
+                {
+                    ...layoutRow,
+                    config: {
+                        __layout: {
+                            composition: { mode: 'independent', baseLayoutId: null },
+                            sourceZoneSettings: { 'marketing-header': { position: 'flow' } },
+                            zoneSettings: { 'marketing-header': { position: 'fixed' } }
+                        }
+                    },
+                    version: 5
+                }
+            ]) // updated layout
 
         const saved = await resetApplicationLayoutConfig(
             executor,
@@ -267,6 +304,11 @@ describe('applicationLayoutsStore', () => {
                     allowEmailActions: true,
                     allowTelephoneActions: true,
                     externalLinkTarget: 'new-tab'
+                }),
+                neutral: expect.objectContaining({
+                    composition: { mode: 'independent', baseLayoutId: null },
+                    sourceZoneSettings: { 'marketing-header': { position: 'flow' } },
+                    zoneSettings: { 'marketing-header': { position: 'fixed' } }
                 })
             })
         )
@@ -287,6 +329,127 @@ describe('applicationLayoutsStore', () => {
         expect(txExecutor.query.mock.calls[7]?.[1]?.[5]).toBe(4)
     })
 
+    it('fails closed when the copied layout config update does not return its target row', async () => {
+        const { executor, txExecutor } = createMockDbExecutor()
+        const sourceLayoutId = '018f8a78-7b8f-7c1d-a111-2222333344c1'
+        const layoutRow = primeLockedLayout(txExecutor, {
+            layoutId: sourceLayoutId,
+            templateKey: 'dashboard',
+            widgets: [],
+            includeStructureLock: false
+        })
+        txExecutor.query
+            .mockResolvedValueOnce([{ ...layoutRow, id: '018f8a78-7b8f-7c1d-a111-2222333344c2', is_default: false, version: 1 }])
+            .mockResolvedValueOnce([])
+
+        await expect(
+            copyApplicationLayout(executor, 'app_018f8a787b8f7c1da111222233334444', sourceLayoutId, { expectedVersion: 1 }, 'user-1')
+        ).rejects.toThrow('APPLICATION_LAYOUT_COPY_CONFIG_UPDATE_FAILED')
+    })
+
+    it('updates and resets a marketing zone setting while preserving the neutral envelope', async () => {
+        const { executor, txExecutor } = createMockDbExecutor()
+        const layoutId = '018f8a78-7b8f-7c1d-a111-2222333344a1'
+        const currentConfig = {
+            themeMode: 'light',
+            __layout: {
+                composition: { mode: 'independent', baseLayoutId: null },
+                sourceZoneSettings: { 'marketing-header': { position: 'flow' } },
+                zoneSettings: { 'marketing-header': { position: 'fixed' } }
+            }
+        }
+        const layoutRow = {
+            id: layoutId,
+            scope_entity_id: null,
+            template_key: 'marketing-page',
+            name: { en: 'Marketing' },
+            description: null,
+            config: currentConfig,
+            is_active: true,
+            is_default: true,
+            sort_order: 0,
+            source_kind: 'metahub',
+            source_layout_id: layoutId,
+            source_snapshot_hash: 'a'.repeat(64),
+            source_content_hash: 'b'.repeat(64),
+            local_content_hash: 'c'.repeat(64),
+            sync_state: 'local_modified',
+            is_source_excluded: false,
+            source_deleted_at: null,
+            source_deleted_by: null,
+            version: 4
+        }
+
+        primeLockedLayout(txExecutor, {
+            layoutId,
+            templateKey: 'marketing-page',
+            config: currentConfig,
+            version: 4,
+            includeStructureLock: false
+        })
+        const updatedConfig = {
+            themeMode: 'light',
+            __layout: {
+                composition: { mode: 'independent', baseLayoutId: null },
+                sourceZoneSettings: { 'marketing-header': { position: 'flow' } },
+                zoneSettings: { 'marketing-header': { position: 'flow' } }
+            }
+        }
+        txExecutor.query.mockResolvedValueOnce([{ ...layoutRow, config: updatedConfig, version: 5 }])
+
+        const updated = await updateApplicationLayoutZoneSetting(
+            executor,
+            'app_018f8a787b8f7c1da111222233334444',
+            layoutId,
+            'marketing-header',
+            'position',
+            { value: 'flow', expectedVersion: 4 },
+            'user-1'
+        )
+
+        expect(updated?.config).toEqual(expect.objectContaining({ themeMode: 'light' }))
+        const persistedUpdatedConfig = JSON.parse(String(txExecutor.query.mock.calls.at(-1)?.[1]?.[1])) as Record<string, unknown>
+        expect(persistedUpdatedConfig.__layout).toEqual(
+            expect.objectContaining({
+                sourceZoneSettings: { 'marketing-header': { position: 'flow' } },
+                zoneSettings: { 'marketing-header': { position: 'flow' } }
+            })
+        )
+
+        primeLockedLayout(txExecutor, {
+            layoutId,
+            templateKey: 'marketing-page',
+            config: updatedConfig,
+            version: 5,
+            includeStructureLock: false
+        })
+        const resetConfig = {
+            themeMode: 'light',
+            __layout: {
+                composition: { mode: 'independent', baseLayoutId: null },
+                sourceZoneSettings: { 'marketing-header': { position: 'flow' } }
+            }
+        }
+        txExecutor.query.mockResolvedValueOnce([{ ...layoutRow, config: resetConfig, version: 6 }])
+
+        const reset = await resetApplicationLayoutZoneSetting(
+            executor,
+            'app_018f8a787b8f7c1da111222233334444',
+            layoutId,
+            'marketing-header',
+            'position',
+            { expectedVersion: 5 },
+            'user-1'
+        )
+
+        expect(reset?.config).toEqual(expect.objectContaining({ themeMode: 'light' }))
+        const persistedResetConfig = JSON.parse(String(txExecutor.query.mock.calls.at(-1)?.[1]?.[1])) as Record<string, unknown>
+        expect(persistedResetConfig.__layout).toEqual(
+            expect.objectContaining({ sourceZoneSettings: { 'marketing-header': { position: 'flow' } } })
+        )
+        expect((persistedResetConfig.__layout as Record<string, unknown>).zoneSettings).toBeUndefined()
+    })
+
     it('rejects a stale marketing appearance reset before issuing an update', async () => {
         const { executor, txExecutor } = createMockDbExecutor()
         txExecutor.query
@@ -301,7 +464,7 @@ describe('applicationLayoutsStore', () => {
                     template_key: 'marketing-page',
                     name: { en: 'Marketing' },
                     description: null,
-                    config: {},
+                    config: independentLayoutConfig,
                     is_active: true,
                     is_default: true,
                     sort_order: 0,
@@ -346,7 +509,7 @@ describe('applicationLayoutsStore', () => {
                     template_key: 'dashboard',
                     name: { en: 'Dashboard' },
                     description: null,
-                    config: {},
+                    config: independentLayoutConfig,
                     is_active: true,
                     is_default: true,
                     sort_order: 0,
@@ -387,12 +550,12 @@ describe('applicationLayoutsStore', () => {
             .mockResolvedValueOnce([]) // layout advisory lock
             .mockResolvedValueOnce([
                 {
-                    id: 'layout-1',
+                    id: '0190a9b5-3cde-7abc-8def-2123456789d1',
                     scope_entity_id: null,
                     template_key: 'dashboard',
                     name: { en: 'Main' },
                     description: null,
-                    config: {},
+                    config: independentLayoutConfig,
                     is_active: true,
                     is_default: true,
                     sort_order: 0,
@@ -413,7 +576,7 @@ describe('applicationLayoutsStore', () => {
             .mockResolvedValueOnce([{ count: '1' }]) // other active rows
             .mockResolvedValueOnce([
                 {
-                    id: 'layout-1',
+                    id: '0190a9b5-3cde-7abc-8def-2123456789d1',
                     is_active: false,
                     is_default: false,
                     _upl_deleted: true,
@@ -422,17 +585,23 @@ describe('applicationLayoutsStore', () => {
             ]) // application-owned layout tombstone
             .mockResolvedValueOnce([
                 {
-                    id: 'widget-1',
-                    layout_id: 'layout-1',
+                    id: '0190a9b5-3cde-7abc-8def-2123456789d4',
+                    layout_id: '0190a9b5-3cde-7abc-8def-2123456789d1',
                     is_active: false,
                     _upl_deleted: true,
                     _app_deleted: true
                 }
             ]) // dependent application-owned widget tombstone
-            .mockResolvedValueOnce([{ id: 'layout-2' }]) // next default candidate
+            .mockResolvedValueOnce([{ id: '0190a9b5-3cde-7abc-8def-2123456789d2' }]) // next default candidate
             .mockResolvedValueOnce([]) // assign next default
 
-        const deleted = await deleteApplicationLayout(executor, 'app_018f8a787b8f7c1da111222233334444', 'layout-1', 'user-1', 4)
+        const deleted = await deleteApplicationLayout(
+            executor,
+            'app_018f8a787b8f7c1da111222233334444',
+            '0190a9b5-3cde-7abc-8def-2123456789d1',
+            'user-1',
+            4
+        )
 
         expect(deleted).toBe(true)
         expect(executor.transaction).toHaveBeenCalledTimes(1)
@@ -440,15 +609,15 @@ describe('applicationLayoutsStore', () => {
         expect(txExecutor.query.mock.calls[8]?.[0]).toContain('SET is_active = false')
         expect(txExecutor.query.mock.calls[8]?.[0]).toContain('is_default = false')
         expect(txExecutor.query.mock.calls[8]?.[0]).toContain('RETURNING id, is_active, is_default, _upl_deleted, _app_deleted')
-        expect(txExecutor.query.mock.calls[8]?.[1]).toEqual(['layout-1', 'user-1', 4])
+        expect(txExecutor.query.mock.calls[8]?.[1]).toEqual(['0190a9b5-3cde-7abc-8def-2123456789d1', 'user-1', 4])
         expect(txExecutor.query.mock.calls[9]?.[0]).toContain('UPDATE')
         expect(txExecutor.query.mock.calls[9]?.[0]).toContain('_app_widgets')
         expect(txExecutor.query.mock.calls[9]?.[0]).toContain('_app_deleted_by = CASE WHEN $3 THEN $2::uuid ELSE NULL::uuid END')
         expect(txExecutor.query.mock.calls[9]?.[0]).toContain('RETURNING id, layout_id, is_active, _upl_deleted, _app_deleted')
-        expect(txExecutor.query.mock.calls[9]?.[1]).toEqual(['layout-1', 'user-1', true])
+        expect(txExecutor.query.mock.calls[9]?.[1]).toEqual(['0190a9b5-3cde-7abc-8def-2123456789d1', 'user-1', true])
         expect(txExecutor.query.mock.calls[10]?.[0]).toContain('SELECT id')
         expect(txExecutor.query.mock.calls[11]?.[0]).toContain('CASE WHEN id = $2 THEN true ELSE false END')
-        expect(txExecutor.query.mock.calls[11]?.[1]).toEqual([null, 'layout-2', 'user-1'])
+        expect(txExecutor.query.mock.calls[11]?.[1]).toEqual([null, '0190a9b5-3cde-7abc-8def-2123456789d2', 'user-1'])
     })
 
     it('fails closed when the application-owned delete does not return a valid tombstone', async () => {
@@ -461,12 +630,12 @@ describe('applicationLayoutsStore', () => {
             .mockResolvedValueOnce([])
             .mockResolvedValueOnce([
                 {
-                    id: 'layout-1',
+                    id: '0190a9b5-3cde-7abc-8def-2123456789d1',
                     scope_entity_id: null,
                     template_key: 'dashboard',
                     name: { en: 'Main' },
                     description: null,
-                    config: {},
+                    config: independentLayoutConfig,
                     is_active: true,
                     is_default: true,
                     sort_order: 0,
@@ -487,7 +656,7 @@ describe('applicationLayoutsStore', () => {
             .mockResolvedValueOnce([{ count: '1' }])
             .mockResolvedValueOnce([
                 {
-                    id: 'layout-1',
+                    id: '0190a9b5-3cde-7abc-8def-2123456789d1',
                     is_active: true,
                     is_default: false,
                     _upl_deleted: true,
@@ -495,9 +664,9 @@ describe('applicationLayoutsStore', () => {
                 }
             ])
 
-        await expect(deleteApplicationLayout(executor, 'app_018f8a787b8f7c1da111222233334444', 'layout-1', 'user-1', 4)).rejects.toThrow(
-            'APPLICATION_LAYOUT_DELETE_INVARIANT_VIOLATION'
-        )
+        await expect(
+            deleteApplicationLayout(executor, 'app_018f8a787b8f7c1da111222233334444', '0190a9b5-3cde-7abc-8def-2123456789d1', 'user-1', 4)
+        ).rejects.toThrow('APPLICATION_LAYOUT_DELETE_INVARIANT_VIOLATION')
 
         expect(txExecutor.query).toHaveBeenCalledTimes(9)
         expect(txExecutor.query.mock.calls.some(([sql]) => String(sql).includes('SELECT id\n'))).toBe(false)
@@ -510,7 +679,7 @@ describe('applicationLayoutsStore', () => {
         // advisory lock, then re-reads the row with FOR UPDATE and cannot issue
         // a second version-guarded update after the first caller tombstones it.
         const schemaName = 'app_018f8a787b8f7c1da111222233334444'
-        const layoutId = 'layout-concurrency'
+        const layoutId = '0190a9b5-3cde-7abc-8def-2123456789c1'
         const state = {
             deleted: false,
             deleteMutations: 0,
@@ -523,7 +692,7 @@ describe('applicationLayoutsStore', () => {
             template_key: 'dashboard',
             name: { en: 'Concurrent layout' },
             description: null,
-            config: {},
+            config: independentLayoutConfig,
             is_active: true,
             is_default: false,
             sort_order: 0,
@@ -626,7 +795,7 @@ describe('applicationLayoutsStore', () => {
             upsertApplicationLayoutWidget(
                 executor,
                 'app_018f8a787b8f7c1da111222233334444',
-                'layout-1',
+                '0190a9b5-3cde-7abc-8def-2123456789d1',
                 {
                     zone: 'center',
                     widgetKey: 'columnsContainer',
@@ -634,7 +803,7 @@ describe('applicationLayoutsStore', () => {
                     config: {
                         columns: [
                             {
-                                id: 'col-1',
+                                id: '0190a9b5-3cde-7abc-8def-2123456789d5',
                                 width: 6,
                                 widgets: [{ widgetKey: 'columnsContainer' }]
                             }
@@ -648,13 +817,13 @@ describe('applicationLayoutsStore', () => {
 
     it('rejects a valid dashboard widget when the parent layout is marketing-page', async () => {
         const { executor, txExecutor } = createMockDbExecutor()
-        primeLockedLayout(txExecutor, { layoutId: 'marketing-layout', templateKey: 'marketing-page' })
+        primeLockedLayout(txExecutor, { layoutId: '0190a9b5-3cde-7abc-8def-2123456789d8', templateKey: 'marketing-page' })
 
         await expect(
             upsertApplicationLayoutWidget(
                 executor,
                 'app_018f8a787b8f7c1da111222233334444',
-                'marketing-layout',
+                '0190a9b5-3cde-7abc-8def-2123456789d8',
                 {
                     zone: 'top',
                     widgetKey: 'header',
@@ -671,12 +840,12 @@ describe('applicationLayoutsStore', () => {
     it('fails closed when a marketing widget reuses an existing instance key', async () => {
         const { executor, txExecutor } = createMockDbExecutor()
         primeLockedLayout(txExecutor, {
-            layoutId: 'marketing-layout',
+            layoutId: '0190a9b5-3cde-7abc-8def-2123456789d8',
             templateKey: 'marketing-page',
             widgets: [
                 {
-                    id: 'hero-existing',
-                    layout_id: 'marketing-layout',
+                    id: '0190a9b5-3cde-7abc-8def-2123456789d6',
+                    layout_id: '0190a9b5-3cde-7abc-8def-2123456789d8',
                     zone: 'marketing-main',
                     widget_key: 'marketing.hero',
                     sort_order: 0,
@@ -699,7 +868,7 @@ describe('applicationLayoutsStore', () => {
             upsertApplicationLayoutWidget(
                 executor,
                 'app_018f8a787b8f7c1da111222233334444',
-                'marketing-layout',
+                '0190a9b5-3cde-7abc-8def-2123456789d8',
                 {
                     zone: 'marketing-main',
                     widgetKey: 'marketing.hero',
@@ -719,8 +888,8 @@ describe('applicationLayoutsStore', () => {
     it('creates a new application widget instance when the widget key already exists', async () => {
         const { executor, txExecutor } = createMockDbExecutor()
         const existingWidget = {
-            id: 'hero-existing',
-            layout_id: 'marketing-layout',
+            id: '0190a9b5-3cde-7abc-8def-2123456789d6',
+            layout_id: '0190a9b5-3cde-7abc-8def-2123456789d8',
             zone: 'marketing-main',
             widget_key: 'marketing.hero',
             sort_order: 0,
@@ -737,17 +906,17 @@ describe('applicationLayoutsStore', () => {
             version: 2
         }
         const layoutRow = primeLockedLayout(txExecutor, {
-            layoutId: 'marketing-layout',
+            layoutId: '0190a9b5-3cde-7abc-8def-2123456789d8',
             templateKey: 'marketing-page',
             widgets: [existingWidget]
         })
         const insertedWidget = {
             ...existingWidget,
-            id: 'hero-second',
+            id: '0190a9b5-3cde-7abc-8def-2123456789d7',
             sort_order: 1,
             config: {
                 ...existingWidget.config,
-                instanceKey: 'hero-second',
+                instanceKey: '0190a9b5-3cde-7abc-8def-2123456789d7',
                 showLeadForm: false
             },
             version: 1
@@ -756,12 +925,12 @@ describe('applicationLayoutsStore', () => {
             .mockResolvedValueOnce([insertedWidget])
             .mockResolvedValueOnce([layoutRow])
             .mockResolvedValueOnce([existingWidget, insertedWidget])
-            .mockResolvedValueOnce([{ id: 'marketing-layout' }])
+            .mockResolvedValueOnce([{ id: '0190a9b5-3cde-7abc-8def-2123456789d8' }])
 
         const result = await upsertApplicationLayoutWidget(
             executor,
             'app_018f8a787b8f7c1da111222233334444',
-            'marketing-layout',
+            '0190a9b5-3cde-7abc-8def-2123456789d8',
             {
                 zone: 'marketing-main',
                 widgetKey: 'marketing.hero',
@@ -774,9 +943,9 @@ describe('applicationLayoutsStore', () => {
             'user-1'
         )
 
-        expect(result.id).toBe('hero-second')
+        expect(result.id).toBe('0190a9b5-3cde-7abc-8def-2123456789d7')
         expect(result.widgetKey).toBe('marketing.hero')
-        expect(result.instanceKey).toBe('hero-second')
+        expect(result.instanceKey).toBe('0190a9b5-3cde-7abc-8def-2123456789d7')
         const insertCalls = txExecutor.query.mock.calls.filter(([sql]) => String(sql).includes('INSERT INTO'))
         expect(insertCalls).toHaveLength(1)
         expect(insertCalls[0]?.[1]?.[3]).toBeNull()
@@ -788,12 +957,12 @@ describe('applicationLayoutsStore', () => {
     it('rejects a second Dashboard appNavbar instance under the locked layout mutation', async () => {
         const { executor, txExecutor } = createMockDbExecutor()
         primeLockedLayout(txExecutor, {
-            layoutId: 'dashboard-layout',
+            layoutId: '0190a9b5-3cde-7abc-8def-2123456789d9',
             templateKey: 'dashboard',
             widgets: [
                 {
-                    id: 'navbar-existing',
-                    layout_id: 'dashboard-layout',
+                    id: '0190a9b5-3cde-7abc-8def-2123456789da',
+                    layout_id: '0190a9b5-3cde-7abc-8def-2123456789d9',
                     zone: 'top',
                     widget_key: 'appNavbar',
                     sort_order: 1,
@@ -812,7 +981,7 @@ describe('applicationLayoutsStore', () => {
             upsertApplicationLayoutWidget(
                 executor,
                 'app_018f8a787b8f7c1da111222233334444',
-                'dashboard-layout',
+                '0190a9b5-3cde-7abc-8def-2123456789d9',
                 { zone: 'top', widgetKey: 'appNavbar', expectedVersion: 1, config: {} },
                 'user-1'
             )
@@ -823,13 +992,13 @@ describe('applicationLayoutsStore', () => {
     it('fails closed on an already-persisted duplicate Dashboard singleton before copying', async () => {
         const { executor, txExecutor } = createMockDbExecutor()
         primeLockedLayout(txExecutor, {
-            layoutId: 'dashboard-layout',
+            layoutId: '0190a9b5-3cde-7abc-8def-2123456789d9',
             templateKey: 'dashboard',
             includeStructureLock: false,
             widgets: [
                 {
-                    id: 'navbar-one',
-                    layout_id: 'dashboard-layout',
+                    id: '0190a9b5-3cde-7abc-8def-2123456789db',
+                    layout_id: '0190a9b5-3cde-7abc-8def-2123456789d9',
                     zone: 'top',
                     widget_key: 'appNavbar',
                     sort_order: 1,
@@ -842,8 +1011,8 @@ describe('applicationLayoutsStore', () => {
                     version: 1
                 },
                 {
-                    id: 'navbar-two',
-                    layout_id: 'dashboard-layout',
+                    id: '0190a9b5-3cde-7abc-8def-2123456789dc',
+                    layout_id: '0190a9b5-3cde-7abc-8def-2123456789d9',
                     zone: 'top',
                     widget_key: 'appNavbar',
                     sort_order: 2,
@@ -859,7 +1028,13 @@ describe('applicationLayoutsStore', () => {
         })
 
         await expect(
-            copyApplicationLayout(executor, 'app_018f8a787b8f7c1da111222233334444', 'dashboard-layout', { expectedVersion: 1 }, 'user-1')
+            copyApplicationLayout(
+                executor,
+                'app_018f8a787b8f7c1da111222233334444',
+                '0190a9b5-3cde-7abc-8def-2123456789d9',
+                { expectedVersion: 1 },
+                'user-1'
+            )
         ).rejects.toThrow('APPLICATION_LAYOUT_WIDGET_SINGLETON_CONFLICT')
         expect(txExecutor.query.mock.calls.some(([sql]) => String(sql).includes('INSERT INTO'))).toBe(false)
     })
@@ -871,7 +1046,7 @@ describe('applicationLayoutsStore', () => {
             upsertApplicationLayoutWidget(
                 executor,
                 'app_018f8a787b8f7c1da111222233334444',
-                'dashboard-layout',
+                '0190a9b5-3cde-7abc-8def-2123456789d9',
                 { zone: 'top', widgetKey: 'header', expectedVersion: 1, config: {}, unknownField: true } as never,
                 'user-1'
             )
@@ -879,15 +1054,47 @@ describe('applicationLayoutsStore', () => {
         expect(executor.transaction).not.toHaveBeenCalled()
     })
 
+    it('rejects reserved layout and widget metadata at renderer-config mutation boundaries', async () => {
+        const layoutDb = createMockDbExecutor()
+        primeLockedLayout(layoutDb.txExecutor, { layoutId: '0190a9b5-3cde-7abc-8def-2123456789d9', templateKey: 'dashboard' })
+
+        await expect(
+            updateApplicationLayout(
+                layoutDb.executor,
+                'app_018f8a787b8f7c1da111222233334444',
+                '0190a9b5-3cde-7abc-8def-2123456789d9',
+                { expectedVersion: 1, config: { __layout: { composition: { mode: 'independent', baseLayoutId: null } } } },
+                'user-1'
+            )
+        ).rejects.toThrow('APPLICATION_LAYOUT_RESERVED_METADATA')
+
+        const widgetDb = createMockDbExecutor()
+        await expect(
+            upsertApplicationLayoutWidget(
+                widgetDb.executor,
+                'app_018f8a787b8f7c1da111222233334444',
+                '0190a9b5-3cde-7abc-8def-2123456789d9',
+                {
+                    zone: 'top',
+                    widgetKey: 'header',
+                    expectedVersion: 1,
+                    config: { __layout: { placement: 'start' } }
+                },
+                'user-1'
+            )
+        ).rejects.toThrow('APPLICATION_LAYOUT_RESERVED_METADATA')
+        expect(widgetDb.executor.transaction).not.toHaveBeenCalled()
+    })
+
     it('rejects a duplicate marketing instance key before insertion', async () => {
         const { executor, txExecutor } = createMockDbExecutor()
         primeLockedLayout(txExecutor, {
-            layoutId: 'marketing-layout',
+            layoutId: '0190a9b5-3cde-7abc-8def-2123456789d8',
             templateKey: 'marketing-page',
             widgets: [
                 {
-                    id: 'collection-existing',
-                    layout_id: 'marketing-layout',
+                    id: '0190a9b5-3cde-7abc-8def-2123456789dd',
+                    layout_id: '0190a9b5-3cde-7abc-8def-2123456789d8',
                     zone: 'marketing-main',
                     widget_key: 'marketing.collection',
                     sort_order: 0,
@@ -910,7 +1117,7 @@ describe('applicationLayoutsStore', () => {
             upsertApplicationLayoutWidget(
                 executor,
                 'app_018f8a787b8f7c1da111222233334444',
-                'marketing-layout',
+                '0190a9b5-3cde-7abc-8def-2123456789d8',
                 {
                     zone: 'marketing-main',
                     widgetKey: 'marketing.collection',
@@ -937,8 +1144,9 @@ describe('applicationLayoutsStore', () => {
             description: null,
             config: {
                 themeMode: 'light',
-                compositionMode: 'overlay',
-                baseLayoutId: '018f8a78-7b8f-7c1d-a111-2222333344a3'
+                __layout: {
+                    composition: { mode: 'overlay', baseLayoutId: '018f8a78-7b8f-7c1d-a111-2222333344a3' }
+                }
             },
             is_active: true,
             is_default: true,
@@ -979,8 +1187,9 @@ describe('applicationLayoutsStore', () => {
             .mockResolvedValueOnce([layoutRow])
             .mockResolvedValueOnce([])
             .mockResolvedValueOnce([widgetRow])
-            .mockResolvedValueOnce([{ ...layoutRow, id: 'copied-marketing-layout', is_default: false, version: 1 }])
-            .mockResolvedValueOnce([])
+            .mockResolvedValueOnce([{ ...layoutRow, id: '0190a9b5-3cde-7abc-8def-2123456789de', is_default: false, version: 1 }])
+            .mockResolvedValueOnce([{ id: '0190a9b5-3cde-7abc-8def-2123456789de' }])
+            .mockResolvedValueOnce([{ id: '0190a9b5-3cde-7abc-8def-2123456789df' }])
 
         const copied = await copyApplicationLayout(
             executor,
@@ -992,7 +1201,7 @@ describe('applicationLayoutsStore', () => {
 
         expect(copied).toEqual(
             expect.objectContaining({
-                id: 'copied-marketing-layout',
+                id: '0190a9b5-3cde-7abc-8def-2123456789de',
                 isDefault: false,
                 compositionMode: 'independent',
                 baseLayoutId: null
@@ -1002,8 +1211,7 @@ describe('applicationLayoutsStore', () => {
             ([sql]) => String(sql).includes('SET config = $2::jsonb') && String(sql).includes('_app_layouts')
         )
         expect(JSON.parse(String(copiedConfigUpdate?.[1]?.[1]))).toMatchObject({
-            compositionMode: 'independent',
-            baseLayoutId: null
+            __layout: { composition: { mode: 'independent', baseLayoutId: null } }
         })
         const insertWidgetCall = txExecutor.query.mock.calls.find(
             ([sql]) => String(sql).includes('INSERT INTO') && String(sql).includes('_app_widgets')
@@ -1022,7 +1230,7 @@ describe('applicationLayoutsStore', () => {
             layoutId,
             scopeEntityId: '018f8a78-7b8f-7c1d-a111-2222333344b4',
             templateKey: 'dashboard',
-            config: { compositionMode: 'overlay', baseLayoutId },
+            config: { __layout: { composition: { mode: 'overlay', baseLayoutId } } },
             widgets: [
                 {
                     id: inheritedWidgetId,
@@ -1055,8 +1263,7 @@ describe('applicationLayoutsStore', () => {
             ([sql]) => String(sql).includes('SET config = $2::jsonb') && String(sql).includes('_app_layouts')
         )
         expect(JSON.parse(String(refreshedConfigCall?.[1]?.[1]))).toMatchObject({
-            compositionMode: 'overlay',
-            baseLayoutId
+            __layout: { composition: { mode: 'overlay', baseLayoutId } }
         })
     })
 
@@ -1069,12 +1276,12 @@ describe('applicationLayoutsStore', () => {
             .mockResolvedValueOnce([])
             .mockResolvedValueOnce([
                 {
-                    id: 'marketing-layout',
+                    id: '0190a9b5-3cde-7abc-8def-2123456789d8',
                     scope_entity_id: null,
                     template_key: 'marketing-page',
                     name: { en: 'Marketing' },
                     description: null,
-                    config: { themeMode: 'light' },
+                    config: { themeMode: 'light', ...independentLayoutConfig },
                     is_active: true,
                     is_default: true,
                     sort_order: 0,
@@ -1093,8 +1300,8 @@ describe('applicationLayoutsStore', () => {
             .mockResolvedValueOnce([])
             .mockResolvedValueOnce([
                 {
-                    id: 'marketing-invalid-row',
-                    layout_id: 'marketing-layout',
+                    id: '0190a9b5-3cde-7abc-8def-2123456789e0',
+                    layout_id: '0190a9b5-3cde-7abc-8def-2123456789d8',
                     zone: 'center',
                     widget_key: 'marketing.hero',
                     sort_order: 0,
@@ -1112,7 +1319,13 @@ describe('applicationLayoutsStore', () => {
             ])
 
         await expect(
-            copyApplicationLayout(executor, 'app_018f8a787b8f7c1da111222233334444', 'marketing-layout', { expectedVersion: 1 }, 'user-1')
+            copyApplicationLayout(
+                executor,
+                'app_018f8a787b8f7c1da111222233334444',
+                '0190a9b5-3cde-7abc-8def-2123456789d8',
+                { expectedVersion: 1 },
+                'user-1'
+            )
         ).rejects.toThrow('APPLICATION_LAYOUT_WIDGET_INVALID')
         expect(txExecutor.query.mock.calls.some(([sql]) => String(sql).includes('INSERT INTO'))).toBe(false)
     })
@@ -1126,12 +1339,12 @@ describe('applicationLayoutsStore', () => {
             .mockResolvedValueOnce([]) // layout advisory lock
             .mockResolvedValueOnce([
                 {
-                    id: 'marketing-layout',
+                    id: '0190a9b5-3cde-7abc-8def-2123456789d8',
                     scope_entity_id: null,
                     template_key: 'marketing-page',
                     name: { en: 'Marketing' },
                     description: null,
-                    config: {},
+                    config: independentLayoutConfig,
                     is_active: true,
                     is_default: true,
                     sort_order: 0,
@@ -1151,7 +1364,13 @@ describe('applicationLayoutsStore', () => {
             .mockResolvedValueOnce([]) // locked widgets
 
         await expect(
-            copyApplicationLayout(executor, 'app_018f8a787b8f7c1da111222233334444', 'marketing-layout', { expectedVersion: 8 }, 'user-1')
+            copyApplicationLayout(
+                executor,
+                'app_018f8a787b8f7c1da111222233334444',
+                '0190a9b5-3cde-7abc-8def-2123456789d8',
+                { expectedVersion: 8 },
+                'user-1'
+            )
         ).rejects.toThrow('APPLICATION_LAYOUT_VERSION_CONFLICT')
         expect(txExecutor.query).toHaveBeenCalledTimes(7)
         expect(txExecutor.query.mock.calls.some(([sql]) => String(sql).includes('INSERT INTO'))).toBe(false)
@@ -1200,22 +1419,23 @@ describe('applicationLayoutsStore', () => {
         const { executor, txExecutor } = createMockDbExecutor()
 
         primeLockedLayout(txExecutor, {
-            layoutId: 'layout-1',
+            layoutId: '0190a9b5-3cde-7abc-8def-2123456789d1',
             templateKey: 'dashboard',
             widgets: [
                 {
                     id: '0190a9b5-3cde-7abc-8def-0123456789c3',
-                    layout_id: 'layout-1',
+                    layout_id: '0190a9b5-3cde-7abc-8def-2123456789d1',
                     zone: 'left',
                     widget_key: 'spacer',
                     sort_order: 1,
                     config: { items: [] },
+                    is_customized: false,
                     is_active: true,
                     version: 3
                 },
                 {
                     id: '0190a9b5-3cde-7abc-8def-0123456789c4',
-                    layout_id: 'layout-1',
+                    layout_id: '0190a9b5-3cde-7abc-8def-2123456789d1',
                     zone: 'left',
                     widget_key: 'spacer',
                     sort_order: 2,
@@ -1225,7 +1445,7 @@ describe('applicationLayoutsStore', () => {
                 },
                 {
                     id: '0190a9b5-3cde-7abc-8def-0123456789c5',
-                    layout_id: 'layout-1',
+                    layout_id: '0190a9b5-3cde-7abc-8def-2123456789d1',
                     zone: 'right',
                     widget_key: 'productTree',
                     sort_order: 1,
@@ -1239,33 +1459,48 @@ describe('applicationLayoutsStore', () => {
             .mockResolvedValueOnce([
                 {
                     id: '0190a9b5-3cde-7abc-8def-0123456789c4',
-                    layout_id: 'layout-1',
+                    layout_id: '0190a9b5-3cde-7abc-8def-2123456789d1',
                     zone: 'left',
                     widget_key: 'spacer',
                     sort_order: 1,
                     config: { items: [] },
+                    is_customized: false,
                     is_active: true,
                     version: 3
                 },
                 {
                     id: '0190a9b5-3cde-7abc-8def-0123456789c3',
-                    layout_id: 'layout-1',
+                    layout_id: '0190a9b5-3cde-7abc-8def-2123456789d1',
                     zone: 'right',
                     widget_key: 'spacer',
                     sort_order: 2,
-                    config: {},
+                    config: { items: [] },
+                    is_customized: false,
                     is_active: true,
                     version: 4
                 }
             ]) // batch widget update
             .mockResolvedValueOnce([
                 {
-                    id: 'layout-1',
+                    id: '0190a9b5-3cde-7abc-8def-0123456789c3',
+                    layout_id: '0190a9b5-3cde-7abc-8def-2123456789d1',
+                    zone: 'right',
+                    widget_key: 'spacer',
+                    sort_order: 2,
+                    config: { items: [] },
+                    is_customized: false,
+                    is_active: true,
+                    version: 4
+                }
+            ]) // moved widget config update
+            .mockResolvedValueOnce([
+                {
+                    id: '0190a9b5-3cde-7abc-8def-2123456789d1',
                     scope_entity_id: null,
                     template_key: 'dashboard',
                     name: { en: 'Main' },
                     description: null,
-                    config: {},
+                    config: independentLayoutConfig,
                     is_active: true,
                     is_default: true,
                     sort_order: 0,
@@ -1284,41 +1519,44 @@ describe('applicationLayoutsStore', () => {
             .mockResolvedValueOnce([
                 {
                     id: '0190a9b5-3cde-7abc-8def-0123456789c4',
-                    layout_id: 'layout-1',
+                    layout_id: '0190a9b5-3cde-7abc-8def-2123456789d1',
                     zone: 'left',
                     widget_key: 'spacer',
                     sort_order: 1,
                     config: {},
+                    is_customized: false,
                     is_active: true,
                     version: 3
                 },
                 {
                     id: '0190a9b5-3cde-7abc-8def-0123456789c5',
-                    layout_id: 'layout-1',
+                    layout_id: '0190a9b5-3cde-7abc-8def-2123456789d1',
                     zone: 'right',
                     widget_key: 'productTree',
                     sort_order: 1,
                     config: {},
+                    is_customized: false,
                     is_active: true,
                     version: 4
                 },
                 {
                     id: '0190a9b5-3cde-7abc-8def-0123456789c3',
-                    layout_id: 'layout-1',
+                    layout_id: '0190a9b5-3cde-7abc-8def-2123456789d1',
                     zone: 'right',
                     widget_key: 'spacer',
                     sort_order: 2,
                     config: {},
+                    is_customized: false,
                     is_active: true,
                     version: 4
                 }
             ]) // detail widgets for refresh hash
-            .mockResolvedValueOnce([{ id: 'layout-1' }]) // refresh hash update
+            .mockResolvedValueOnce([{ id: '0190a9b5-3cde-7abc-8def-2123456789d1' }]) // refresh hash update
 
         const moved = await moveApplicationLayoutWidget(
             executor,
             'app_018f8a787b8f7c1da111222233334444',
-            'layout-1',
+            '0190a9b5-3cde-7abc-8def-2123456789d1',
             {
                 widgetId: '0190a9b5-3cde-7abc-8def-0123456789c3',
                 targetZone: 'right',
@@ -1337,11 +1575,11 @@ describe('applicationLayoutsStore', () => {
             })
         )
         expect(executor.transaction).toHaveBeenCalledTimes(1)
-        expect(txExecutor.query).toHaveBeenCalledTimes(12)
+        expect(txExecutor.query).toHaveBeenCalledTimes(13)
         expect(txExecutor.query.mock.calls[8]?.[0]).toContain('WITH updates AS')
         expect(txExecutor.query.mock.calls[8]?.[0]).toContain('unnest($3::uuid[], $4::text[], $5::int[])')
         expect(txExecutor.query.mock.calls[8]?.[1]).toEqual([
-            'layout-1',
+            '0190a9b5-3cde-7abc-8def-2123456789d1',
             'user-1',
             ['0190a9b5-3cde-7abc-8def-0123456789c4', '0190a9b5-3cde-7abc-8def-0123456789c3'],
             ['left', 'right'],

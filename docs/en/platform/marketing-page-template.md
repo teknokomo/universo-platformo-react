@@ -15,7 +15,8 @@ The `marketing-page` template is the published-application landing page built wi
 3. Keep the standard Hub, Object, Page, Set, and Enumeration presets enabled.
 4. Create the metahub, publish a version, and create an application from that publication.
 
-The template manifest and snapshot versions remain unchanged. The built-in seed is an initial demo only; editors can replace records through the normal Object authoring surface.
+The template manifest and snapshot versions remain unchanged. The built-in seed
+is an initial demo only; editors can replace records through the normal Object authoring surface.
 
 ## Seeded entity model and widget composition
 
@@ -36,20 +37,24 @@ The template uses standard Object entities rather than a marketing-specific enti
 
 Long descriptions, quotes, answers, and footer copy are multiline fields in the authoring UI. Internal UUIDs, component columns, and semantic codenames are not shown as ordinary display values.
 
-The fresh `marketing-page` seed creates nine active widget instances in three
-template-specific zones: `marketing.navigation` in the header,
-`marketing.hero`, five `marketing.collection` instances (`logos`, `features`,
-`testimonials`, `highlights`, and `faq`), and `marketing.pricing` in the main
-zone, plus `marketing.footer` in the footer zone. The widget instance list is
-the only source of top-level composition: its `zone`, `sortOrder`, and
-`isActive` values control placement, order, and visibility. Collection records
-retain their own item order and visibility.
+The fresh `marketing-page` seed creates independent header capabilities for the
+brand, navigation, authentication, language, and color-mode controls, alongside
+the content widgets in the three template-specific zones. The widget instance
+list is the only source of top-level composition: its `zone`, `sortOrder`,
+`isActive`, and header Start/End placement control the rendered result.
+Navigation remains repeatable; the other header capabilities are singletons.
 
-The shared `languageSwitcher` capability is the one cross-template exception:
-the same registry definition may be placed in Dashboard `top` or
-`marketing-header`. The marketing app bar owns its visual placement, so an
-active persisted widget is not rendered a second time by the generic marketing
-content renderer.
+The `marketing-header` zone owns one semantic header shell and one responsive
+mobile Drawer. Header child widgets render their content inside the shell and
+do not create their own fixed bars or Drawers. The same language and color-mode
+capabilities can be placed in the Dashboard top zone through the shared registry.
+
+The header zone exposes **Settings** in both metahub and application authoring.
+Its first setting is **Header behavior**: **Fixed on screen** keeps the measured
+header visible over the original MUI composition while content scrolls behind it,
+while **Scrolls with page** leaves the header in normal document flow. Scoped
+layouts store sparse overrides, so resetting the setting reveals the current
+source value.
 
 Each widget has a strict built-in Object source. The collection variant selects
 its matching source (`MarketingPageLogo`, `MarketingPageFeature`,
@@ -108,7 +113,7 @@ The marketing matrix belongs under `specs/matrix/**` so the repository's EN/RU a
 
 At minimum, verify:
 
--   the nine seeded widget instances, their zones/order/active state, and baseline counts (6 logos, 3 features, 6 testimonials, 6 highlights, 3 pricing tiers with 4/6/4 benefits, and 4 FAQ items);
+-   the thirteen seeded widget placements, their zones/order/active state, and baseline counts (6 logos, 3 features, 6 testimonials, 6 highlights, 3 pricing tiers with 4/6/4 benefits, and 4 FAQ items);
 -   keyboard navigation, accordion semantics, localized labels, and `<html lang>`;
 -   light/dark and Russian long-copy rendering at desktop, tablet, and mobile widths;
 -   no page-level horizontal overflow, raw UUID/JSON/object leakage, unsafe links, or console/page errors;

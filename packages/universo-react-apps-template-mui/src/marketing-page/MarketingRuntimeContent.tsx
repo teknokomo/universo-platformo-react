@@ -11,7 +11,7 @@ import type { MarketingRuntimeTarget } from '../api/api'
 import AppMainLayout, { AppMainLayoutContext } from '../layouts/AppMainLayout'
 import MarketingPage from './MarketingPage'
 import { normalizeMarketingPageRuntime } from './normalize'
-import type { MarketingActionHandler, MarketingLayoutWidgetReference, MarketingPageData } from './types'
+import type { MarketingActionHandler, MarketingEffectiveLayoutConfig, MarketingEffectiveLayoutWidgets, MarketingPageData } from './types'
 
 export interface MarketingRuntimeContentProps {
     applicationId: string
@@ -23,7 +23,8 @@ export interface MarketingRuntimeContentProps {
         layoutVersion: number
         layoutHash: string
     }
-    sharedLayoutWidgets?: readonly MarketingLayoutWidgetReference[]
+    effectiveLayoutWidgets: MarketingEffectiveLayoutWidgets
+    effectiveLayoutConfig?: MarketingEffectiveLayoutConfig
     loadingLabel: string
     errorLabel: string
     retryLabel: string
@@ -110,7 +111,8 @@ export default function MarketingRuntimeContent({
     apiBaseUrl,
     workspaceId,
     target,
-    sharedLayoutWidgets,
+    effectiveLayoutWidgets,
+    effectiveLayoutConfig,
     loadingLabel,
     errorLabel,
     retryLabel,
@@ -229,6 +231,13 @@ export default function MarketingRuntimeContent({
     // submission requires an explicit same-origin endpoint with its own auth,
     // CSRF, rate-limit, and persistence contract; never treat a navigation
     // callback as an email submission handler.
-    const page = <MarketingPage data={data} sharedLayoutWidgets={sharedLayoutWidgets} onAction={onAction} />
+    const page = (
+        <MarketingPage
+            data={data}
+            effectiveLayoutWidgets={effectiveLayoutWidgets}
+            effectiveLayoutConfig={effectiveLayoutConfig}
+            onAction={onAction}
+        />
+    )
     return hostLayout ? page : <AppMainLayout {...appearance}>{page}</AppMainLayout>
 }

@@ -5,7 +5,12 @@ import {
     assertInterpretationNetworkSingleSystemTransitionAllowed,
     lockInterpretationNetworkStructureMode
 } from '../shared/interpretationNetworkStructureModeGuard'
-import { assertApplicationLayoutWidgetMultiplicity, isRecord, runApplicationLayoutTransaction } from './applicationLayoutStoreSupport'
+import {
+    assertApplicationLayoutWidgetMultiplicity,
+    isRecord,
+    readWidgetConfigEnvelope,
+    runApplicationLayoutTransaction
+} from './applicationLayoutStoreSupport'
 import {
     allocatePhysicalUuid,
     insertApplicationLayoutSyncWidget,
@@ -147,17 +152,16 @@ export async function syncApplicationWidgets(
         const layoutRows = await listApplicationLayoutSyncRows(tx, schemaName)
         const { sourceToPhysical } = getLayoutSourceMaps(layoutRows)
         for (const widget of input.widgets) {
-            if (sourceToPhysical.has(widget.layoutId)) continue
-            const legacyLayout = layoutRows.find(
-                (layout) =>
-                    layout.source_kind === 'metahub' && !layout.source_layout_id && layout.id === widget.layoutId && !layout._app_deleted
-            )
-            if (legacyLayout) sourceToPhysical.set(widget.layoutId, legacyLayout.id)
+            if (!sourceToPhysical.has(widget.layoutId)) {
+                throw new Error(`[SchemaSync] Snapshot widget references a layout missing source lineage ${widget.layoutId}`)
+            }
         }
         const templateByLayoutId = new Map<string, ApplicationTemplateKey>()
         for (const layout of layoutRows) {
+            if (layout._app_deleted) continue
             const templateKey = applicationTemplateKeySchema.safeParse(layout.template_key)
-            if (templateKey.success) templateByLayoutId.set(layout.id, templateKey.data)
+            if (!templateKey.success) throw new Error(`[SchemaSync] Persisted layout ${layout.id} template key is invalid`)
+            templateByLayoutId.set(layout.id, templateKey.data)
         }
         const validateWidgetGroups = (
             rows: readonly { layoutId: string; widgetKey: string }[],
@@ -187,10 +191,19 @@ export async function syncApplicationWidgets(
         )
         const cleanLayoutIds = new Set(inheritedLayouts.filter((row) => row.sync_state === 'clean').map((row) => row.id))
         const syncableRows = input.widgets
-            .map((row) => ({ row, physicalLayoutId: sourceToPhysical.get(row.layoutId) ?? null }))
-            .filter((item): item is { row: SyncWidgetInput; physicalLayoutId: string } => item.physicalLayoutId !== null)
+            .map((row) => ({ row, physicalLayoutId: sourceToPhysical.get(row.layoutId) }))
+            .filter((item): item is { row: SyncWidgetInput; physicalLayoutId: string } => item.physicalLayoutId !== undefined)
             .filter((item) => inheritedLayouts.some((layout) => layout.id === item.physicalLayoutId))
         const existingRows = await listApplicationLayoutSyncWidgets(tx, schemaName)
+        const canonicalCurrentConfigById = new Map<string, JsonRecord>()
+        for (const row of existingRows) {
+            if (row._app_deleted) continue
+            const templateKey = templateByLayoutId.get(row.layout_id)
+            if (!templateKey) throw new Error(`[SchemaSync] Persisted widget ${row.id} references an invalid layout`)
+            if (!isRecord(row.config)) throw new Error(`[SchemaSync] Persisted widget ${row.id} config is invalid`)
+            readWidgetConfigEnvelope(templateKey, row.widget_key, row.zone, row.config)
+            canonicalCurrentConfigById.set(row.id, row.config)
+        }
         validateWidgetGroups(
             existingRows
                 .filter((row) => !row._upl_deleted && !row._app_deleted)
@@ -289,7 +302,7 @@ export async function syncApplicationWidgets(
             current: item.current
                 ? {
                       widgetKey: item.current.widget_key,
-                      config: isRecord(item.current.config) ? item.current.config : {},
+                      config: canonicalCurrentConfigById.get(item.current.id) as JsonRecord,
                       isActive: item.current.is_active
                   }
                 : null,
@@ -297,7 +310,7 @@ export async function syncApplicationWidgets(
                 item.preserveApplicationOverride && item.current
                     ? {
                           widgetKey: item.current.widget_key,
-                          config: isRecord(item.current.config) ? item.current.config : {},
+                          config: canonicalCurrentConfigById.get(item.current.id) as JsonRecord,
                           isActive: item.current.is_active
                       }
                     : { widgetKey: item.row.widgetKey, config: item.row.config, isActive: item.row.isActive !== false }
@@ -309,7 +322,9 @@ export async function syncApplicationWidgets(
         for (const item of pending) {
             const sourceConfig = item.row.config
             const config =
-                item.preserveApplicationOverride && item.current && isRecord(item.current.config) ? item.current.config : sourceConfig
+                item.preserveApplicationOverride && item.current
+                    ? (canonicalCurrentConfigById.get(item.current.id) as JsonRecord)
+                    : sourceConfig
             const isActive = item.preserveApplicationOverride && item.current ? item.current.is_active : item.row.isActive !== false
             if (item.current) {
                 await updateWidget(

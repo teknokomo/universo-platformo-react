@@ -91,7 +91,7 @@ const layoutRow = (overrides: Record<string, unknown> = {}) => ({
     template_key: 'dashboard',
     name: { en: 'Dashboard' },
     description: null,
-    config: { compositionMode: 'independent', baseLayoutId: null },
+    config: { __layout: { composition: { mode: 'independent', baseLayoutId: null } } },
     is_active: true,
     is_default: true,
     sort_order: 0,
@@ -115,7 +115,7 @@ const widgetRow = (overrides: Record<string, unknown> = {}) => ({
     widget_key: 'header',
     sort_order: 0,
     config: {},
-    source_config: {},
+    source_config: null,
     source_widget_id: globalWidgetId,
     source_base_widget_id: null,
     is_customized: false,
@@ -176,7 +176,7 @@ describe('effectiveLayoutResolver', () => {
                 scope_entity_id: entityId,
                 template_key: 'marketing-page',
                 name: { en: 'Marketing' },
-                config: { themeMode: 'system', compositionMode: 'independent', baseLayoutId: null },
+                config: { themeMode: 'system', __layout: { composition: { mode: 'independent', baseLayoutId: null } } },
                 source_kind: 'application',
                 source_layout_id: globalLayoutId,
                 source_snapshot_hash: null,
@@ -223,6 +223,7 @@ describe('effectiveLayoutResolver', () => {
         expect(result.layout.sourceLayoutId).toBe(globalLayoutId)
         expect(result.materializationHash).toBe(snapshotHash)
         expect(result.precedence).toEqual(['application-entity', 'metahub-provenance'])
+        expect(result.layout.zoneSettings).toEqual({ 'marketing-header': { position: 'fixed' } })
         expect(effectiveLayoutResultSchema.safeParse(result).success).toBe(true)
     })
 
@@ -240,6 +241,62 @@ describe('effectiveLayoutResolver', () => {
         expect(result.layout.id).toBe(globalLayoutId)
         expect(result.publicationIdentity).toEqual({ publicationId, publicationVersionId, snapshotHash })
         expect(result.precedence).toEqual(['published-publication', 'application-global', 'metahub-provenance'])
+    })
+
+    it('fails closed when a persisted source widget envelope is malformed', async () => {
+        mockListCandidates.mockResolvedValue([layoutRow({ template_key: 'marketing-page' })] as never)
+        mockListWidgets.mockResolvedValue([
+            widgetRow({
+                zone: 'marketing-main',
+                widget_key: 'marketing.hero',
+                config: {
+                    instanceKey: 'hero',
+                    source: { entityKind: 'object', entityCodename: 'MarketingPageSiteSettings' }
+                },
+                source_config: { unexpected: true }
+            })
+        ])
+
+        await expect(
+            resolveEffectiveLayoutForRequest(
+                executor,
+                { applicationId, userId: 'user-1', role: 'member' },
+                { applicationId, targetKind: null, locale: 'en' }
+            )
+        ).rejects.toMatchObject<Partial<EffectiveLayoutError>>({ code: 'LAYOUT_PERSISTED_INVALID' })
+    })
+
+    it('fails closed when a persisted layout uses legacy root composition fields', async () => {
+        mockListCandidates.mockResolvedValue([layoutRow({ config: { compositionMode: 'independent', baseLayoutId: null } })] as never)
+
+        await expect(
+            resolveEffectiveLayoutForRequest(
+                executor,
+                { applicationId, userId: 'user-1', role: 'member' },
+                { applicationId, targetKind: null, locale: 'en' }
+            )
+        ).rejects.toMatchObject<Partial<EffectiveLayoutError>>({ code: 'LAYOUT_PERSISTED_INVALID' })
+    })
+
+    it('fails closed when persisted neutral layout metadata contains unsupported fields', async () => {
+        mockListCandidates.mockResolvedValue([
+            layoutRow({
+                config: {
+                    __layout: {
+                        composition: { mode: 'independent', baseLayoutId: null },
+                        unsupported: true
+                    }
+                }
+            })
+        ] as never)
+
+        await expect(
+            resolveEffectiveLayoutForRequest(
+                executor,
+                { applicationId, userId: 'user-1', role: 'member' },
+                { applicationId, targetKind: null, locale: 'en' }
+            )
+        ).rejects.toMatchObject<Partial<EffectiveLayoutError>>({ code: 'LAYOUT_PERSISTED_INVALID' })
     })
 
     it('accepts negative sort orders reserved for injected workspace widgets', async () => {
@@ -272,7 +329,7 @@ describe('effectiveLayoutResolver', () => {
         const scopedLayout = layoutRow({
             id: scopedLayoutId,
             scope_entity_id: entityId,
-            config: { compositionMode: 'independent', baseLayoutId: null },
+            config: { __layout: { composition: { mode: 'independent', baseLayoutId: null } } },
             source_kind: 'application',
             source_layout_id: null,
             source_snapshot_hash: null,
@@ -331,7 +388,7 @@ describe('effectiveLayoutResolver', () => {
                 id: scopedLayoutId,
                 scope_entity_id: entityId,
                 template_key: 'marketing-page',
-                config: { themeMode: 'system', compositionMode: 'independent', baseLayoutId: null },
+                config: { themeMode: 'system', __layout: { composition: { mode: 'independent', baseLayoutId: null } } },
                 source_kind: 'application',
                 source_layout_id: null,
                 source_snapshot_hash: null,
@@ -419,7 +476,7 @@ describe('effectiveLayoutResolver', () => {
             layoutRow({
                 id: scopedLayoutId,
                 scope_entity_id: entityId,
-                config: { compositionMode: 'overlay', baseLayoutId: globalLayoutId }
+                config: { __layout: { composition: { mode: 'overlay', baseLayoutId: globalLayoutId } } }
             })
         ] as never)
         mockListWidgets.mockResolvedValue([
@@ -443,7 +500,7 @@ describe('effectiveLayoutResolver', () => {
             layoutRow({
                 id: scopedLayoutId,
                 scope_entity_id: entityId,
-                config: { compositionMode: 'overlay', baseLayoutId: globalLayoutId }
+                config: { __layout: { composition: { mode: 'overlay', baseLayoutId: globalLayoutId } } }
             })
         ] as never)
         mockListWidgets.mockResolvedValue([
@@ -482,7 +539,7 @@ describe('effectiveLayoutResolver', () => {
             layoutRow({
                 id: scopedLayoutId,
                 scope_entity_id: entityId,
-                config: { compositionMode: 'overlay', baseLayoutId: globalLayoutId }
+                config: { __layout: { composition: { mode: 'overlay', baseLayoutId: globalLayoutId } } }
             })
         ] as never)
         mockListWidgets.mockResolvedValue([])

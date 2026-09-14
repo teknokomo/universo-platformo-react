@@ -1,6 +1,5 @@
 import type { ReactNode } from 'react'
 
-import AppAppBar from './components/AppAppBar'
 import FAQ from './components/FAQ'
 import Features from './components/Features'
 import Footer from './components/Footer'
@@ -17,11 +16,6 @@ type RendererProps<K extends WidgetKey> = {
     widget: WidgetOf<K>
     onAction: MarketingPageProps['onAction']
     onLeadSubmit: MarketingPageProps['onLeadSubmit']
-    showLanguageSwitcher?: MarketingRenderOptions['showLanguageSwitcher']
-    navigationInstanceKey?: MarketingRenderOptions['navigationInstanceKey']
-    navigationAriaLabel?: MarketingRenderOptions['navigationAriaLabel']
-    navigationPosition?: MarketingRenderOptions['navigationPosition']
-    navigationStackIndex?: MarketingRenderOptions['navigationStackIndex']
     heroBackgroundOwner?: MarketingRenderOptions['heroBackgroundOwner']
 }
 type WidgetRenderer<K extends WidgetKey> = (props: RendererProps<K>) => ReactNode
@@ -53,27 +47,9 @@ const renderCollection = ({ widget, onAction }: RendererProps<'marketing.collect
 }
 
 const marketingWidgetRenderers = {
-    'marketing.navigation': ({
-        widget,
-        onAction,
-        showLanguageSwitcher,
-        navigationInstanceKey,
-        navigationAriaLabel,
-        navigationPosition,
-        navigationStackIndex
-    }: RendererProps<'marketing.navigation'>) => (
-        <AppAppBar
-            brand={widget.content.brand}
-            navigation={widget.content.navigation}
-            auth={widget.content.auth}
-            showLanguageSwitcher={showLanguageSwitcher}
-            navigationInstanceKey={navigationInstanceKey}
-            navigationAriaLabel={navigationAriaLabel}
-            navigationPosition={navigationPosition}
-            navigationStackIndex={navigationStackIndex}
-            onAction={onAction}
-        />
-    ),
+    'marketing.brand': (): ReactNode => null,
+    'marketing.navigation': (): ReactNode => null,
+    'marketing.auth': (): ReactNode => null,
     'marketing.hero': ({ widget, onAction, onLeadSubmit, heroBackgroundOwner }: RendererProps<'marketing.hero'>) => (
         <Hero
             instanceKey={widget.instanceKey}
@@ -94,8 +70,12 @@ const marketingWidgetRenderers = {
 
 export const marketingWidgetLabel = (widget: MarketingPageWidget): string => {
     switch (widget.widgetKey) {
+        case 'marketing.brand':
+            return widget.content.name
         case 'marketing.navigation':
-            return widget.content.brand.name
+            return widget.content.navigation[0]?.label || 'Navigation'
+        case 'marketing.auth':
+            return widget.content.signIn?.label || widget.content.signUp?.label || 'Authentication'
         case 'marketing.hero':
             return widget.content.title
         case 'marketing.collection':

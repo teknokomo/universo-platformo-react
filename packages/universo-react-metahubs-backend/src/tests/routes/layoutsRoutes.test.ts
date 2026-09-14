@@ -23,7 +23,12 @@ const mockEnsureMetahubAccess = jest.fn()
 const mockEnsureSchema = jest.fn(async () => 'mhb_a1b2c3d4e5f67890abcdef1234567890_b1')
 const mockGetLayoutById = jest.fn()
 const mockDeleteLayout = jest.fn()
+const mockUpdateLayoutZoneSetting = jest.fn()
+const mockResetLayoutZoneSetting = jest.fn()
 const layoutIdV7 = '0190a9b5-3cde-7abc-8def-0123456789a1'
+const baseLayoutIdV7 = '0190a9b5-3cde-7abc-8def-0123456789b1'
+const baseWidgetOneIdV7 = '0190a9b5-3cde-7abc-8def-0123456789b2'
+const baseWidgetTwoIdV7 = '0190a9b5-3cde-7abc-8def-0123456789b3'
 
 jest.mock('../../domains/shared/guards', () => ({
     __esModule: true,
@@ -47,7 +52,9 @@ jest.mock('../../domains/layouts/services/MetahubLayoutsService', () => {
         ...actual,
         MetahubLayoutsService: jest.fn().mockImplementation(() => ({
             getLayoutById: (...args: unknown[]) => mockGetLayoutById(...args),
-            deleteLayout: (...args: unknown[]) => mockDeleteLayout(...args)
+            deleteLayout: (...args: unknown[]) => mockDeleteLayout(...args),
+            updateLayoutZoneSetting: (...args: unknown[]) => mockUpdateLayoutZoneSetting(...args),
+            resetLayoutZoneSetting: (...args: unknown[]) => mockResetLayoutZoneSetting(...args)
         }))
     }
 })
@@ -112,6 +119,33 @@ describe('Layouts Routes', () => {
                 _upl_updated_at: '2026-02-26T00:00:00.000Z'
             } as Record<string, unknown>)
 
+        const withCanonicalLayoutConfig = (layout: Record<string, unknown>): Record<string, unknown> => {
+            const rawConfig = layout.config
+            const rendererConfig =
+                rawConfig && typeof rawConfig === 'object' && !Array.isArray(rawConfig) ? (rawConfig as Record<string, unknown>) : {}
+            const existingNeutral =
+                rendererConfig.__layout && typeof rendererConfig.__layout === 'object' && !Array.isArray(rendererConfig.__layout)
+                    ? (rendererConfig.__layout as Record<string, unknown>)
+                    : {}
+            const baseLayoutId = typeof layout.base_layout_id === 'string' ? layout.base_layout_id : null
+            return {
+                ...layout,
+                config: {
+                    ...rendererConfig,
+                    __layout: {
+                        ...existingNeutral,
+                        composition: {
+                            mode: baseLayoutId ? 'overlay' : 'independent',
+                            baseLayoutId
+                        }
+                    }
+                }
+            }
+        }
+
+        const canonicalSourceLayout = withCanonicalLayoutConfig(sourceLayout)
+        const canonicalCreatedLayout = withCanonicalLayoutConfig(created)
+
         const sourceWidgets = params?.sourceWidgets ?? []
         const sourceOverrides = params?.sourceOverrides ?? []
         const baseWidgets = params?.baseWidgets ?? []
@@ -119,11 +153,11 @@ describe('Layouts Routes', () => {
 
         const queryMock = jest.fn().mockResolvedValue([])
         // Sequence: lock source → (lock base) → INSERT layout RETURNING *.
-        queryMock.mockResolvedValueOnce([sourceLayout])
+        queryMock.mockResolvedValueOnce([canonicalSourceLayout])
         if (isOverlayLayout) {
             queryMock.mockResolvedValueOnce([{ id: sourceLayout.base_layout_id }])
         }
-        queryMock.mockResolvedValueOnce([created])
+        queryMock.mockResolvedValueOnce([canonicalCreatedLayout])
         if (sourceWidgets.length > 0) {
             // SELECT widgets → sourceWidgets
             queryMock.mockResolvedValueOnce(sourceWidgets)
@@ -182,6 +216,8 @@ describe('Layouts Routes', () => {
         mockEnsureMetahubAccess.mockResolvedValue({ metahubId: 'metahub-1' })
         mockEnsureSchema.mockResolvedValue('mhb_a1b2c3d4e5f67890abcdef1234567890_b1')
         mockDeleteLayout.mockResolvedValue(undefined)
+        mockUpdateLayoutZoneSetting.mockResolvedValue({ id: layoutIdV7, config: { appearance: 'kept' }, version: 5 })
+        mockResetLayoutZoneSetting.mockResolvedValue({ id: layoutIdV7, config: { appearance: 'kept' }, version: 6 })
         mockGetLayoutById.mockResolvedValue({
             id: layoutIdV7,
             templateKey: 'dashboard',
@@ -196,6 +232,54 @@ describe('Layouts Routes', () => {
             config: { showOverviewCards: true },
             isActive: true,
             sortOrder: 0
+        })
+    })
+
+    describe('zone setting routes', () => {
+        it('updates a sparse zone setting through the dedicated controller', async () => {
+            const app = buildApp()
+            const response = await request(app)
+                .patch(`/metahub/metahub-1/layout/${layoutIdV7}/zone-settings/marketing-header/position`)
+                .send({ value: 'flow', expectedVersion: 4 })
+                .expect(200)
+
+            expect(response.body).toMatchObject({ item: { id: layoutIdV7, version: 5 } })
+            expect(mockUpdateLayoutZoneSetting).toHaveBeenCalledWith(
+                'metahub-1',
+                layoutIdV7,
+                'marketing-header',
+                'position',
+                'flow',
+                'test-user-id',
+                4
+            )
+        })
+
+        it('resets a sparse zone setting through the dedicated controller', async () => {
+            const app = buildApp()
+            await request(app)
+                .post(`/metahub/metahub-1/layout/${layoutIdV7}/zone-settings/marketing-header/position/reset`)
+                .send({ expectedVersion: 5 })
+                .expect(200)
+
+            expect(mockResetLayoutZoneSetting).toHaveBeenCalledWith(
+                'metahub-1',
+                layoutIdV7,
+                'marketing-header',
+                'position',
+                'test-user-id',
+                5
+            )
+        })
+
+        it('rejects reserved layout metadata in renderer mutation payloads', async () => {
+            const app = buildApp()
+            await request(app)
+                .patch(`/metahub/metahub-1/layout/${layoutIdV7}`)
+                .send({ config: { __layout: { composition: { mode: 'independent', baseLayoutId: null } } }, expectedVersion: 1 })
+                .expect(400)
+
+            expect(mockGetLayoutById).not.toHaveBeenCalled()
         })
     })
 
@@ -268,6 +352,44 @@ describe('Layouts Routes', () => {
             expect(mockGetLayoutById).not.toHaveBeenCalled()
         })
 
+        it('fails closed when the source layout contains application-only source zone settings', async () => {
+            const trx = createLayoutCopyTransactionTrx({
+                sourceLayout: {
+                    id: layoutIdV7,
+                    scope_entity_id: null,
+                    base_layout_id: null,
+                    template_key: 'marketing-page',
+                    name: {
+                        _schema: 'v1',
+                        _primary: 'en',
+                        locales: { en: { content: 'Marketing page' } }
+                    },
+                    description: null,
+                    config: {
+                        __layout: {
+                            sourceZoneSettings: { 'marketing-header': { position: 'flow' } }
+                        }
+                    },
+                    is_active: true,
+                    is_default: false,
+                    sort_order: 0,
+                    _upl_version: 1
+                }
+            })
+            ;(mockExec.transaction as jest.Mock).mockImplementationOnce(async (callback: (trx: unknown) => Promise<unknown>) =>
+                callback(trx)
+            )
+
+            const app = buildApp()
+            const response = await request(app)
+                .post(`/metahub/metahub-1/layout/${layoutIdV7}/copy`)
+                .send({ copyWidgets: false, name: { en: 'Invalid copy' } })
+                .expect(409)
+
+            expect(response.body.error).toBe('Layout configuration metadata is invalid')
+            expect(trx.query).toHaveBeenCalledTimes(1)
+        })
+
         it('copies layout successfully without widgets when copyWidgets is disabled', async () => {
             const trx = createLayoutCopyTransactionTrx()
             ;(mockExec.transaction as jest.Mock).mockImplementationOnce(async (callback: (trx: unknown) => Promise<unknown>) =>
@@ -333,7 +455,7 @@ describe('Layouts Routes', () => {
                 sourceLayout: {
                     id: layoutIdV7,
                     scope_entity_id: 'object-1',
-                    base_layout_id: 'base-layout-1',
+                    base_layout_id: baseLayoutIdV7,
                     template_key: 'dashboard',
                     name: {
                         _schema: 'v1',
@@ -355,7 +477,7 @@ describe('Layouts Routes', () => {
                 copiedLayout: {
                     id: 'layout-copy-id',
                     scope_entity_id: 'object-1',
-                    base_layout_id: 'base-layout-1',
+                    base_layout_id: baseLayoutIdV7,
                     template_key: 'dashboard',
                     name: {
                         _schema: 'v1',
@@ -390,7 +512,7 @@ describe('Layouts Routes', () => {
                 ],
                 sourceOverrides: [
                     {
-                        base_widget_id: 'base-widget-1',
+                        base_widget_id: baseWidgetOneIdV7,
                         zone: 'right',
                         sort_order: 2,
                         config: { title: 'Entity override' },
@@ -398,7 +520,10 @@ describe('Layouts Routes', () => {
                         is_deleted_override: false
                     }
                 ],
-                baseWidgets: [{ id: 'base-widget-1' }, { id: 'base-widget-2' }]
+                baseWidgets: [
+                    { id: baseWidgetOneIdV7, widget_key: 'resourcePreview', zone: 'right', is_active: true },
+                    { id: baseWidgetTwoIdV7, widget_key: 'detailsTable', zone: 'center', is_active: true }
+                ]
             })
             ;(mockExec.transaction as jest.Mock).mockImplementationOnce(async (callback: (trx: unknown) => Promise<unknown>) =>
                 callback(trx)
@@ -415,20 +540,20 @@ describe('Layouts Routes', () => {
                 .expect(201)
 
             expect(response.body.scopeEntityId).toBe('object-1')
-            expect(response.body.baseLayoutId).toBe('base-layout-1')
+            expect(response.body.baseLayoutId).toBe(baseLayoutIdV7)
             expect(trx.query).toHaveBeenCalledTimes(8)
 
             const layoutInsertParams = (trx.query as jest.Mock).mock.calls[2]?.[1] as unknown[]
             expect(layoutInsertParams?.[0]).toBe('object-1')
-            expect(layoutInsertParams?.[1]).toBe('base-layout-1')
+            expect(layoutInsertParams?.[1]).toBe(baseLayoutIdV7)
 
             const overrideInsertParams = (trx.query as jest.Mock).mock.calls[7]?.[1] as unknown[]
             expect(overrideInsertParams?.[0]).toBe('layout-copy-id')
-            expect(overrideInsertParams?.[1]).toBe('base-widget-1')
+            expect(overrideInsertParams?.[1]).toBe(baseWidgetOneIdV7)
             expect(overrideInsertParams?.[5]).toBe(false)
             expect(overrideInsertParams?.[6]).toBe(false)
             expect(overrideInsertParams?.[12]).toBe('layout-copy-id')
-            expect(overrideInsertParams?.[13]).toBe('base-widget-2')
+            expect(overrideInsertParams?.[13]).toBe(baseWidgetTwoIdV7)
             expect(overrideInsertParams?.[17]).toBe(false)
             expect(overrideInsertParams?.[18]).toBe(false)
             expect(overrideInsertParams?.[23]).toBe(true)

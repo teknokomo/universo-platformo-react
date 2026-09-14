@@ -31,6 +31,7 @@ Frontend package for entity-first metahub authoring, shared resources, and dynam
 -   **Merged Modules surface**: One Resources → Modules tab contains a localized scope switcher for metahub modules and shared `general/library` modules
 -   **Data-Driven Resource Labels**: Resource tabs resolve their titles from persisted entity type `ui.resourceSurfaces[].title` metadata instead of frontend hardcoded standard labels
 -   **Layout Widget Defaults**: Metahub layouts own canonical widget defaults, including allowed Interpretation Network Matrix views and the default Matrix view
+-   **Generic Zone Settings**: Layout details reuse the shared zone-heading action and settings dialog; the marketing header exposes localized fixed/flow behavior with inherited, customized, reset, read-only, and conflict states.
 
 ### 🎨 User Interface
 

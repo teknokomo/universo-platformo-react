@@ -50,6 +50,7 @@ interface AppNavbarProps {
     reserveDockedSideMenuWidth?: boolean
     showLanguageSwitcher?: boolean
     showLanguageSwitcherOnDesktop?: boolean
+    showColorMode?: boolean
     showColorModeOnDesktop?: boolean
     onToggleDockedSideMenuMode?: () => void
     onOpenSideMenu?: () => void
@@ -65,6 +66,7 @@ export default function AppNavbar({
     reserveDockedSideMenuWidth = true,
     showLanguageSwitcher = true,
     showLanguageSwitcherOnDesktop = true,
+    showColorMode = true,
     showColorModeOnDesktop = true,
     onToggleDockedSideMenuMode,
     onOpenSideMenu
@@ -205,11 +207,13 @@ export default function AppNavbar({
                                 <LanguageSwitcher />
                             </Box>
                         )}
-                        <ColorModeIconDropdown
-                            data-testid='runtime-color-mode-button'
-                            aria-label={t('colorMode.label', 'Color mode')}
-                            sx={showColorModeOnDesktop ? undefined : { display: { xs: 'inline-flex', md: 'none' } }}
-                        />
+                        {showColorMode && (
+                            <ColorModeIconDropdown
+                                data-testid='runtime-color-mode-button'
+                                aria-label={t('colorMode.label', 'Color mode')}
+                                sx={showColorModeOnDesktop ? undefined : { display: { xs: 'inline-flex', md: 'none' } }}
+                            />
+                        )}
                         {showModeSwitcher && sideMenuMode !== 'overlay' && (
                             <Box sx={{ display: { xs: 'inline-flex', md: 'none' } }}>
                                 <MenuButton

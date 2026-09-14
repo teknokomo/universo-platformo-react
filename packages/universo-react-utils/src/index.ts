@@ -39,6 +39,8 @@ export { resolveRateLimitKey } from './rate-limiting'
 
 export {
     validateMarketingSnapshotLayouts,
+    validateMarketingSnapshotTransportLayouts,
+    validateSnapshotLayoutNeutralMetadata,
     validateSnapshotLayoutIdentities,
     SnapshotLayoutValidationError,
     MarketingSnapshotValidationError,

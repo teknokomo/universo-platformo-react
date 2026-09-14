@@ -40,6 +40,14 @@ const zoneWidgets = {
             config: {}
         }
     ],
+    top: [
+        {
+            id: 'app-navbar-widget',
+            widgetKey: 'appNavbar',
+            sortOrder: 1,
+            config: {}
+        }
+    ],
     center: []
 }
 
@@ -55,6 +63,14 @@ const zoneWidgetsWithoutMenu = {
             id: 'divider',
             widgetKey: 'divider',
             sortOrder: 2,
+            config: {}
+        }
+    ],
+    top: [
+        {
+            id: 'app-navbar-widget',
+            widgetKey: 'appNavbar',
+            sortOrder: 1,
             config: {}
         }
     ],
@@ -292,7 +308,7 @@ describe('Dashboard side menu modes', () => {
         expect(screen.getByRole('button', { name: 'Enable compact menu' })).toBeInTheDocument()
         const toolbarActions = screen.getByTestId('runtime-app-toolbar-actions')
         expect(toolbarActions).toBeInTheDocument()
-        expect(toolbarActions.querySelector('[data-screenshot="toggle-mode"]')).toBeInTheDocument()
+        expect(toolbarActions.querySelector('button[aria-label="Enable compact menu"]')).toBeInTheDocument()
         expect(screen.queryByTestId('runtime-color-mode-button')).not.toBeInTheDocument()
         expect(screen.getByTestId('dashboard-main-grid')).toHaveAttribute('data-full-width', 'false')
     })
@@ -396,7 +412,7 @@ describe('Dashboard side menu modes', () => {
             <Dashboard
                 details={details}
                 menu={menu}
-                zoneWidgets={zoneWidgets}
+                zoneWidgets={{ left: [], center: [] }}
                 layoutConfig={{
                     showSideMenu: false,
                     showAppNavbar: false,

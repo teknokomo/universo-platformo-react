@@ -1,7 +1,7 @@
 import * as React from 'react'
 import { alpha, styled } from '@mui/material/styles'
-import Box from '@mui/material/Box'
 import AppBar from '@mui/material/AppBar'
+import Box from '@mui/material/Box'
 import Container from '@mui/material/Container'
 import Divider from '@mui/material/Divider'
 import Drawer from '@mui/material/Drawer'
@@ -9,19 +9,12 @@ import IconButton from '@mui/material/IconButton'
 import List from '@mui/material/List'
 import ListItem from '@mui/material/ListItem'
 import ListItemButton from '@mui/material/ListItemButton'
-import Toolbar from '@mui/material/Toolbar'
 import MenuIcon from '@mui/icons-material/Menu'
 import CloseRoundedIcon from '@mui/icons-material/CloseRounded'
+import Toolbar from '@mui/material/Toolbar'
 import { useTranslation } from 'react-i18next'
+import { getLayoutWidgetDefinition } from '@universo-react/types'
 
-import {
-    MARKETING_NAVIGATION_BAR_HEIGHT_PX,
-    MARKETING_NAVIGATION_STACK_GAP_PX,
-    type MarketingActionHandler,
-    type MarketingAction,
-    type MarketingMedia,
-    type MarketingNavigationItem
-} from '../types'
 import LanguageSwitcher from '../../components/LanguageSwitcher'
 import {
     MarketingActionButton,
@@ -32,6 +25,15 @@ import {
     sortVisibleMarketingItems
 } from './MarketingPrimitives'
 import Sitemark from './SitemarkIcon'
+import {
+    calculateMarketingHeaderGeometry,
+    MARKETING_HEADER_VISUAL_OFFSET_PX,
+    readMarketingFrameOffsetPx,
+    type MarketingHeaderGeometry,
+    type MarketingHeaderPosition,
+    type MarketingHeaderProjection
+} from '../marketingHeaderRuntime'
+import type { MarketingActionHandler, MarketingBrandData, MarketingNavigationItem } from '../types'
 
 const StyledToolbar = styled(Toolbar)(({ theme }) => ({
     display: 'flex',
@@ -49,34 +51,19 @@ const StyledToolbar = styled(Toolbar)(({ theme }) => ({
     padding: '8px 12px'
 }))
 
-const MARKETING_NAVIGATION_DRAWER_ID = 'marketing-navigation-drawer'
+const MARKETING_HEADER_DRAWER_ID = 'marketing-header-drawer'
 
-const navigationDrawerId = (instanceKey?: string): string => {
-    if (!instanceKey) return MARKETING_NAVIGATION_DRAWER_ID
-    const encoded = encodeURIComponent(instanceKey)
-    return `${MARKETING_NAVIGATION_DRAWER_ID}-${encoded}`
-}
+const usesDrawerProjection = (projection: MarketingHeaderProjection): boolean =>
+    getLayoutWidgetDefinition(projection.widgetKey)?.mobileProjection === 'drawer'
 
-export interface AppAppBarProps {
-    brand: {
-        name: string
-        logo?: MarketingMedia
-        homeAction?: MarketingAction
-    }
-    navigation: MarketingNavigationItem[]
-    auth?: {
-        signIn?: MarketingAction
-        signUp?: MarketingAction
-    }
-    showLanguageSwitcher?: boolean
-    navigationInstanceKey?: string
-    navigationAriaLabel?: string
-    navigationPosition?: 'fixed' | 'static'
-    navigationStackIndex?: number
+export interface MarketingHeaderShellProps {
+    widgets: readonly MarketingHeaderProjection[]
+    position?: MarketingHeaderPosition
+    frameOffsetPx?: number
     onAction?: MarketingActionHandler
 }
 
-function Brand({ brand, onAction }: { brand: AppAppBarProps['brand']; onAction?: MarketingActionHandler }) {
+const Brand = ({ brand, onAction }: { brand: MarketingBrandData; onAction?: MarketingActionHandler }) => {
     const content = brand.logo ? (
         <MarketingMediaView
             media={brand.logo}
@@ -104,9 +91,9 @@ function Brand({ brand, onAction }: { brand: AppAppBarProps['brand']; onAction?:
             </Box>
         </>
     )
-
     const resolved = resolveMarketingAction(brand.homeAction)
-    if (!resolved) {
+
+    if (!resolved || !brand.homeAction) {
         return (
             <Box
                 component='span'
@@ -126,7 +113,7 @@ function Brand({ brand, onAction }: { brand: AppAppBarProps['brand']; onAction?:
             target={resolved.target}
             rel={resolved.rel}
             aria-label={brand.name}
-            onClick={(event) => invokeMarketingAction(event, brand.homeAction as MarketingAction, onAction)}
+            onClick={(event) => invokeMarketingAction(event, brand.homeAction!, onAction)}
             sx={{ display: 'inline-flex', alignItems: 'center', position: 'relative', textDecoration: 'none' }}
         >
             {content}
@@ -134,203 +121,381 @@ function Brand({ brand, onAction }: { brand: AppAppBarProps['brand']; onAction?:
     )
 }
 
-function NavigationActions({ items, onAction }: { items: MarketingNavigationItem[]; onAction?: MarketingActionHandler }) {
+const NavigationLandmark = ({
+    navigation,
+    label,
+    onAction,
+    mobile = false,
+    onClose
+}: {
+    navigation: MarketingNavigationItem[]
+    label: string
+    onAction?: MarketingActionHandler
+    mobile?: boolean
+    onClose?: () => void
+}) => {
+    const actions = sortVisibleMarketingItems(navigation)
+
+    if (mobile) {
+        return (
+            <Box component='nav' aria-label={label} data-testid='marketing-header-drawer-navigation'>
+                <List disablePadding>
+                    {actions.map((item) => {
+                        const resolved = resolveMarketingAction(item)
+                        if (!resolved) return null
+                        return (
+                            <ListItem key={item.semanticKey} disablePadding>
+                                <ListItemButton
+                                    component='a'
+                                    href={resolved.href}
+                                    target={resolved.target}
+                                    rel={resolved.rel}
+                                    onClick={(event) => {
+                                        invokeMarketingAction(event, item, onAction)
+                                        onClose?.()
+                                    }}
+                                >
+                                    {item.label}
+                                </ListItemButton>
+                            </ListItem>
+                        )
+                    })}
+                </List>
+            </Box>
+        )
+    }
+
     return (
-        <>
-            {sortVisibleMarketingItems(items).map((item) => (
+        <Box
+            component='nav'
+            aria-label={label}
+            data-testid='marketing-header-navigation'
+            sx={{ display: 'flex', alignItems: 'center', minWidth: 0 }}
+        >
+            {actions.map((item) => (
                 <MarketingActionButton key={item.semanticKey} action={item} onAction={onAction} variant='text' color='info' size='small'>
                     {item.label}
                 </MarketingActionButton>
             ))}
-        </>
-    )
-}
-
-function MobileNavigation({
-    items,
-    auth,
-    onAction,
-    onClose
-}: {
-    items: MarketingNavigationItem[]
-    auth?: AppAppBarProps['auth']
-    onAction?: MarketingActionHandler
-    onClose: () => void
-}) {
-    const actions = sortVisibleMarketingItems(items)
-
-    return (
-        <Box sx={{ p: 2, backgroundColor: 'background.default' }}>
-            <List disablePadding>
-                {actions.map((action) => {
-                    const resolved = resolveMarketingAction(action)
-                    if (!resolved) return null
-                    return (
-                        <ListItem key={action.semanticKey} disablePadding>
-                            <ListItemButton
-                                component='a'
-                                href={resolved.href}
-                                target={resolved.target}
-                                rel={resolved.rel}
-                                onClick={(event) => {
-                                    invokeMarketingAction(event, action, onAction)
-                                    onClose()
-                                }}
-                                sx={{ px: 0 }}
-                            >
-                                {action.label}
-                            </ListItemButton>
-                        </ListItem>
-                    )
-                })}
-            </List>
-            <Divider sx={{ my: 2 }} />
-            <List disablePadding>
-                <ListItem disablePadding>
-                    <Box sx={{ display: 'flex', gap: 1, flexDirection: 'column', width: '100%' }}>
-                        <MarketingActionButton
-                            action={auth?.signUp}
-                            onAction={(action) => {
-                                onAction?.(action)
-                                onClose()
-                            }}
-                            color='primary'
-                            variant='contained'
-                            fullWidth
-                        >
-                            {auth?.signUp?.label}
-                        </MarketingActionButton>
-                        <MarketingActionButton
-                            action={auth?.signIn}
-                            onAction={(action) => {
-                                onAction?.(action)
-                                onClose()
-                            }}
-                            color='primary'
-                            variant='outlined'
-                            fullWidth
-                        >
-                            {auth?.signIn?.label}
-                        </MarketingActionButton>
-                    </Box>
-                </ListItem>
-            </List>
         </Box>
     )
 }
 
-export default function AppAppBar({
-    brand,
-    navigation,
+type AuthContent = Extract<MarketingHeaderProjection, { widgetKey: 'marketing.auth' }>['content']
+
+const AuthProjection = ({
     auth,
-    showLanguageSwitcher = true,
-    navigationInstanceKey,
-    navigationAriaLabel,
-    navigationPosition = 'fixed',
-    navigationStackIndex = 0,
-    onAction
-}: AppAppBarProps) {
-    const [open, setOpen] = React.useState(false)
-    const menuButtonRef = React.useRef<HTMLButtonElement>(null)
-    const drawerWasOpen = React.useRef(false)
-    const { t } = useTranslation('apps')
-    const drawerId = navigationDrawerId(navigationInstanceKey)
-    const normalizedNavigationStackIndex = Number.isFinite(navigationStackIndex) ? Math.max(0, Math.trunc(navigationStackIndex)) : 0
-    const navigationTopOffset =
-        normalizedNavigationStackIndex === 0
-            ? 'calc(var(--template-frame-height, 0px) + 28px)'
-            : `calc(var(--template-frame-height, 0px) + 28px + ${
-                  normalizedNavigationStackIndex * (MARKETING_NAVIGATION_BAR_HEIGHT_PX + MARKETING_NAVIGATION_STACK_GAP_PX)
-              }px)`
+    onAction,
+    mobile = false,
+    onClose
+}: {
+    auth: AuthContent
+    onAction?: MarketingActionHandler
+    mobile?: boolean
+    onClose?: () => void
+}) => (
+    <Box
+        data-testid={mobile ? 'marketing-header-drawer-auth' : 'marketing-header-auth'}
+        sx={{ display: 'flex', gap: 1, alignItems: 'center', flexDirection: mobile ? 'column' : 'row', width: mobile ? '100%' : 'auto' }}
+    >
+        <MarketingActionButton
+            action={auth.signIn}
+            onAction={(action) => {
+                onAction?.(action)
+                onClose?.()
+            }}
+            color='primary'
+            variant={mobile ? 'outlined' : 'text'}
+            size='small'
+            fullWidth={mobile}
+        >
+            {auth.signIn?.label}
+        </MarketingActionButton>
+        <MarketingActionButton
+            action={auth.signUp}
+            onAction={(action) => {
+                onAction?.(action)
+                onClose?.()
+            }}
+            color='primary'
+            variant='contained'
+            size='small'
+            fullWidth={mobile}
+        >
+            {auth.signUp?.label}
+        </MarketingActionButton>
+    </Box>
+)
 
-    const toggleDrawer = (newOpen: boolean) => () => setOpen(newOpen)
+const projectionKey = (projection: MarketingHeaderProjection): string => `${projection.widgetKey}-${projection.instanceKey}`
 
-    React.useEffect(() => {
-        if (!open && drawerWasOpen.current) {
-            menuButtonRef.current?.focus()
+const navigationLabel = (brandName: string, index: number, t: ReturnType<typeof useTranslation>['t']): string =>
+    t('marketingPage.navigation.landmark', {
+        brand: brandName,
+        index: String(index + 1),
+        defaultValue: `${brandName} navigation ${index + 1}`
+    })
+
+const useHeaderGeometry = (
+    headerRef: React.RefObject<HTMLElement | null>,
+    position: MarketingHeaderPosition,
+    frameOffsetPx?: number
+): MarketingHeaderGeometry => {
+    const geometryForPosition = React.useCallback(
+        (headerHeight: number, frameOffset: number): MarketingHeaderGeometry => {
+            const measured = calculateMarketingHeaderGeometry(headerHeight, frameOffset)
+            if (position === 'fixed') return measured
+            return { ...measured, topOffsetPx: 0, occlusionPx: 0 }
+        },
+        [position]
+    )
+    const [geometry, setGeometry] = React.useState<MarketingHeaderGeometry>(() => geometryForPosition(0, frameOffsetPx ?? 0))
+    const geometryRef = React.useRef(geometry)
+
+    React.useLayoutEffect(() => {
+        const update = () => {
+            const measuredHeight = position === 'fixed' ? headerRef.current?.getBoundingClientRect().height ?? 0 : 0
+            const measuredFrameOffset = frameOffsetPx ?? readMarketingFrameOffsetPx()
+            const next = geometryForPosition(measuredHeight, measuredFrameOffset)
+            const current = geometryRef.current
+            if (
+                current.headerHeightPx === next.headerHeightPx &&
+                current.frameOffsetPx === next.frameOffsetPx &&
+                current.occlusionPx === next.occlusionPx
+            ) {
+                return
+            }
+            geometryRef.current = next
+            setGeometry(next)
         }
-        drawerWasOpen.current = open
-    }, [open])
+
+        update()
+        if (position !== 'fixed') return undefined
+
+        const resizeObserver = typeof ResizeObserver === 'undefined' ? undefined : new ResizeObserver(update)
+        if (resizeObserver && headerRef.current) resizeObserver.observe(headerRef.current)
+        window.addEventListener('resize', update)
+        const mutationObserver = typeof MutationObserver === 'undefined' ? undefined : new MutationObserver(update)
+        mutationObserver?.observe(document.documentElement, { attributes: true, attributeFilter: ['class', 'style'] })
+        mutationObserver?.observe(document.body, { attributes: true, attributeFilter: ['class', 'style'] })
+
+        return () => {
+            resizeObserver?.disconnect()
+            mutationObserver?.disconnect()
+            window.removeEventListener('resize', update)
+        }
+    }, [frameOffsetPx, geometryForPosition, headerRef, position])
+
+    return geometry
+}
+
+const HeaderDrawer = ({
+    open,
+    projections,
+    brandName,
+    onClose,
+    onAction,
+    t
+}: {
+    open: boolean
+    projections: readonly MarketingHeaderProjection[]
+    brandName: string
+    onClose: () => void
+    onAction?: MarketingActionHandler
+    t: ReturnType<typeof useTranslation>['t']
+}) => {
+    const navigationProjections = projections.filter(
+        (projection): projection is Extract<MarketingHeaderProjection, { widgetKey: 'marketing.navigation' }> =>
+            projection.widgetKey === 'marketing.navigation'
+    )
+    const authProjection = projections.find(
+        (projection): projection is Extract<MarketingHeaderProjection, { widgetKey: 'marketing.auth' }> =>
+            projection.widgetKey === 'marketing.auth'
+    )
 
     return (
-        <AppBar
-            position={navigationPosition}
-            enableColorOnDark
-            sx={{
-                boxShadow: 0,
-                bgcolor: 'transparent',
-                backgroundImage: 'none',
-                width: '100%',
-                ...(navigationPosition === 'fixed' ? { mt: navigationTopOffset } : {})
-            }}
+        <Drawer
+            id={MARKETING_HEADER_DRAWER_ID}
+            data-testid='marketing-header-drawer'
+            anchor='top'
+            open={open}
+            onClose={onClose}
+            ModalProps={{ keepMounted: true }}
+            slotProps={{ paper: { sx: { top: 'var(--template-frame-height, 0px)' } } }}
         >
-            <Container maxWidth='lg'>
-                <Box component='nav' data-testid='marketing-navigation-instance' aria-label={navigationAriaLabel || brand.name}>
-                    <StyledToolbar variant='dense' disableGutters>
-                        <Box sx={{ flexGrow: 1, display: 'flex', alignItems: 'center', px: 0, minWidth: 0 }}>
-                            <Brand brand={brand} onAction={onAction} />
-                            <Box sx={{ display: { xs: 'none', md: 'flex' }, minWidth: 0 }}>
-                                <NavigationActions items={navigation} onAction={onAction} />
-                            </Box>
-                        </Box>
-                        {showLanguageSwitcher ? (
-                            <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-                                <LanguageSwitcher />
-                            </Box>
-                        ) : null}
-                        <Box
-                            data-testid='marketing-desktop-actions'
-                            sx={{ display: { xs: 'none', md: 'flex' }, gap: 1, alignItems: 'center' }}
-                        >
-                            <MarketingActionButton action={auth?.signIn} onAction={onAction} color='primary' variant='text' size='small'>
-                                {auth?.signIn?.label}
-                            </MarketingActionButton>
-                            <MarketingActionButton
-                                action={auth?.signUp}
-                                onAction={onAction}
-                                color='primary'
-                                variant='contained'
-                                size='small'
-                            >
-                                {auth?.signUp?.label}
-                            </MarketingActionButton>
-                            <MarketingColorModeControl />
-                        </Box>
-                        <Box
-                            data-testid='marketing-mobile-actions'
-                            sx={{ display: { xs: 'flex', md: 'none' }, gap: 1, alignItems: 'center' }}
-                        >
-                            <MarketingColorModeControl size='medium' />
-                            <IconButton
-                                ref={menuButtonRef}
-                                aria-label={t('marketingPage.navigation.openMenu')}
-                                aria-expanded={open}
-                                aria-controls={drawerId}
-                                onClick={toggleDrawer(true)}
-                            >
-                                <MenuIcon />
-                            </IconButton>
-                            <Drawer
-                                id={drawerId}
-                                anchor='top'
-                                open={open}
-                                onClose={toggleDrawer(false)}
-                                ModalProps={{ keepMounted: true }}
-                                slotProps={{ paper: { sx: { top: 'var(--template-frame-height, 0px)' } } }}
-                            >
-                                <Box sx={{ backgroundColor: 'background.default' }}>
-                                    <Box sx={{ display: 'flex', justifyContent: 'flex-end', p: 1 }}>
-                                        <IconButton aria-label={t('marketingPage.navigation.closeMenu')} onClick={toggleDrawer(false)}>
-                                            <CloseRoundedIcon />
-                                        </IconButton>
-                                    </Box>
-                                    <MobileNavigation items={navigation} auth={auth} onAction={onAction} onClose={toggleDrawer(false)} />
-                                </Box>
-                            </Drawer>
-                        </Box>
-                    </StyledToolbar>
+            <Box sx={{ backgroundColor: 'background.default', p: 2 }}>
+                <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+                    <IconButton aria-label={t('marketingPage.navigation.closeMenu', { defaultValue: 'Close menu' })} onClick={onClose}>
+                        <CloseRoundedIcon />
+                    </IconButton>
                 </Box>
-            </Container>
-        </AppBar>
+                {navigationProjections.map((projection, index) => (
+                    <React.Fragment key={projectionKey(projection)}>
+                        {index > 0 ? <Divider sx={{ my: 2 }} /> : null}
+                        <NavigationLandmark
+                            navigation={projection.content.navigation}
+                            label={navigationLabel(brandName, index, t)}
+                            onAction={onAction}
+                            mobile
+                            onClose={onClose}
+                        />
+                    </React.Fragment>
+                ))}
+                {authProjection ? (
+                    <>
+                        <Divider sx={{ my: 2 }} />
+                        <AuthProjection auth={authProjection.content} onAction={onAction} mobile onClose={onClose} />
+                    </>
+                ) : null}
+                {navigationProjections.length === 0 && !authProjection ? <Box component='span' sx={{ display: 'none' }} /> : null}
+            </Box>
+        </Drawer>
     )
 }
+
+export function MarketingHeaderShell({ widgets, position = 'fixed', frameOffsetPx, onAction }: MarketingHeaderShellProps) {
+    const headerRef = React.useRef<HTMLElement | null>(null)
+    const menuButtonRef = React.useRef<HTMLButtonElement | null>(null)
+    const wasOpen = React.useRef(false)
+    const [open, setOpen] = React.useState(false)
+    const { t } = useTranslation('apps')
+    const geometry = useHeaderGeometry(headerRef, position, frameOffsetPx)
+    const brandProjection = widgets.find(
+        (projection): projection is Extract<MarketingHeaderProjection, { widgetKey: 'marketing.brand' }> =>
+            projection.widgetKey === 'marketing.brand'
+    )
+    const brandName = brandProjection?.content.name || t('marketingPage.navigation.landmarkFallback', { defaultValue: 'Marketing' })
+    const navigationProjections = widgets.filter((projection) => projection.widgetKey === 'marketing.navigation')
+    const hasDrawerContent = widgets.some(usesDrawerProjection)
+    const desktopNavigationIndex = new Map(navigationProjections.map((projection, index) => [projectionKey(projection), index]))
+    const firstEndIndex = widgets.findIndex((projection) => projection.placement === 'end')
+
+    React.useEffect(() => {
+        if (!open && wasOpen.current) menuButtonRef.current?.focus()
+        wasOpen.current = open
+    }, [open])
+
+    React.useEffect(() => {
+        if (position !== 'fixed' || typeof document === 'undefined') return undefined
+        const root = document.documentElement
+        const previousOcclusion = root.style.getPropertyValue('--marketing-header-occlusion')
+        const previousScrollPadding = root.style.getPropertyValue('scroll-padding-block-start')
+        const previousOcclusionPriority = root.style.getPropertyPriority('--marketing-header-occlusion')
+        const previousScrollPaddingPriority = root.style.getPropertyPriority('scroll-padding-block-start')
+        const value = `${geometry.occlusionPx}px`
+        root.style.setProperty('--marketing-header-occlusion', value)
+        root.style.setProperty('scroll-padding-block-start', value)
+        return () => {
+            if (previousOcclusion) root.style.setProperty('--marketing-header-occlusion', previousOcclusion, previousOcclusionPriority)
+            else root.style.removeProperty('--marketing-header-occlusion')
+            if (previousScrollPadding)
+                root.style.setProperty('scroll-padding-block-start', previousScrollPadding, previousScrollPaddingPriority)
+            else root.style.removeProperty('scroll-padding-block-start')
+        }
+    }, [geometry.occlusionPx, position])
+
+    const renderProjection = (projection: MarketingHeaderProjection): React.ReactNode => {
+        switch (projection.widgetKey) {
+            case 'marketing.brand':
+                return <Brand brand={projection.content} onAction={onAction} />
+            case 'marketing.navigation': {
+                const index = desktopNavigationIndex.get(projectionKey(projection)) ?? 0
+                return (
+                    <NavigationLandmark
+                        navigation={projection.content.navigation}
+                        label={navigationLabel(brandName, index, t)}
+                        onAction={onAction}
+                    />
+                )
+            }
+            case 'marketing.auth':
+                return <AuthProjection auth={projection.content} onAction={onAction} />
+            case 'languageSwitcher':
+                return <LanguageSwitcher />
+            case 'colorModeSwitcher':
+                return <MarketingColorModeControl size='small' />
+        }
+    }
+
+    return (
+        <>
+            <AppBar
+                ref={headerRef}
+                component='header'
+                role='banner'
+                position={position === 'fixed' ? 'fixed' : 'static'}
+                enableColorOnDark
+                data-testid='marketing-header-shell'
+                data-marketing-header-position={position}
+                data-marketing-header-height={geometry.headerHeightPx}
+                data-marketing-header-frame-offset={geometry.frameOffsetPx}
+                data-marketing-header-visual-offset={geometry.visualOffsetPx}
+                data-marketing-header-top-offset={geometry.topOffsetPx}
+                data-marketing-header-occlusion={geometry.occlusionPx}
+                sx={{
+                    boxShadow: 0,
+                    bgcolor: 'transparent',
+                    backgroundImage: 'none',
+                    width: '100%',
+                    ...(position === 'fixed'
+                        ? { mt: `calc(var(--template-frame-height, 0px) + ${MARKETING_HEADER_VISUAL_OFFSET_PX}px)` }
+                        : {})
+                }}
+            >
+                <Container maxWidth='lg'>
+                    <StyledToolbar variant='dense' disableGutters>
+                        <Box
+                            data-testid='marketing-header-projections'
+                            sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexGrow: 1, minWidth: 0 }}
+                        >
+                            {widgets.map((projection, index) => {
+                                const drawerOnly = usesDrawerProjection(projection)
+                                return (
+                                    <Box
+                                        key={projectionKey(projection)}
+                                        sx={{
+                                            display: drawerOnly ? { xs: 'none', md: 'flex' } : 'flex',
+                                            alignItems: 'center',
+                                            minWidth: 0,
+                                            ...(index === firstEndIndex ? { marginLeft: 'auto' } : {})
+                                        }}
+                                    >
+                                        {renderProjection(projection)}
+                                    </Box>
+                                )
+                            })}
+                        </Box>
+                        <Box data-testid='marketing-header-mobile-menu' sx={{ display: { xs: 'flex', md: 'none' }, alignItems: 'center' }}>
+                            {hasDrawerContent ? (
+                                <IconButton
+                                    ref={menuButtonRef}
+                                    aria-label={t('marketingPage.navigation.openMenu', { defaultValue: 'Open menu' })}
+                                    aria-expanded={open}
+                                    aria-controls={MARKETING_HEADER_DRAWER_ID}
+                                    onClick={() => setOpen(true)}
+                                >
+                                    <MenuIcon />
+                                </IconButton>
+                            ) : null}
+                        </Box>
+                    </StyledToolbar>
+                </Container>
+            </AppBar>
+            {hasDrawerContent ? (
+                <HeaderDrawer
+                    open={open}
+                    projections={widgets}
+                    brandName={brandName}
+                    onClose={() => setOpen(false)}
+                    onAction={onAction}
+                    t={t}
+                />
+            ) : null}
+        </>
+    )
+}
+
+export { calculateMarketingHeaderGeometry }
+export type { MarketingHeaderGeometry, MarketingHeaderPosition, MarketingHeaderProjection }
+
+export default MarketingHeaderShell

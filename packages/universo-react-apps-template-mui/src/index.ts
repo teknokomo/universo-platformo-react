@@ -29,7 +29,6 @@ export type {
     MarketingMedia,
     MarketingPageData,
     MarketingPageProps,
-    MarketingLayoutWidgetReference,
     MarketingRenderOptions,
     MarketingPricingTier,
     MarketingSectionCopy,

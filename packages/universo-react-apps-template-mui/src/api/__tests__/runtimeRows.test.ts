@@ -14,7 +14,8 @@ import {
     setRuntimeLibraryRelation,
     updateAppRow,
     updateTabularRow,
-    updateLearningContentProgress
+    updateLearningContentProgress,
+    appDataResponseSchema
 } from '../api'
 
 const runtimeListResponse = {
@@ -49,6 +50,12 @@ describe('runtime row API helpers', () => {
     beforeEach(() => {
         vi.restoreAllMocks()
         window.sessionStorage.clear()
+    })
+
+    it('accepts a runtime response without the optional dashboard layout config', () => {
+        const { layoutConfig: _layoutConfig, ...legacyResponse } = runtimeListResponse
+
+        expect(appDataResponseSchema.parse(legacyResponse).layoutConfig).toBeUndefined()
     })
 
     it('passes deleted lifecycle state to the runtime list endpoint', async () => {

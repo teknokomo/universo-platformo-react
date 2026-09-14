@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
+import commonRu from '@universo-react/i18n/locales/ru/common.json'
 import { applicationsTranslations } from '../index'
 
 const getPath = (source: Record<string, unknown>, path: string): unknown =>
@@ -16,12 +17,13 @@ const getPath = (source: Record<string, unknown>, path: string): unknown =>
 describe('applications translations', () => {
     it('localizes layout widget labels used by the application layout editor', () => {
         const ru = applicationsTranslations.ru.applications
+        const common = commonRu.common
 
-        expect(getPath(ru, 'layouts.widgets.relationBuilder')).toBe('Конструктор связей')
-        expect(getPath(ru, 'layouts.widgets.detailsTabs')).toBe('Вкладки деталей')
-        expect(getPath(ru, 'layouts.widgets.interpretationNetworkWorkspace')).toBe('Рабочая область трактовочной сети')
-        expect(getPath(ru, 'layouts.widgets.playcanvasCanvas')).toBe('Холст PlayCanvas')
-        expect(getPath(ru, 'layouts.widgets.learnerPlayer')).toBe('Плеер обучения')
+        expect(getPath(common, 'layouts.widgets.relationBuilder')).toBe('Конструктор связей')
+        expect(getPath(common, 'layouts.widgets.detailsTabs')).toBe('Вкладки деталей')
+        expect(getPath(common, 'layouts.widgets.interpretationNetworkWorkspace')).toBe('Рабочая область трактовочной сети')
+        expect(getPath(common, 'layouts.widgets.playcanvasCanvas')).toBe('Холст PlayCanvas')
+        expect(getPath(common, 'layouts.widgets.learnerPlayer')).toBe('Плеер обучения')
         expect(getPath(ru, 'layouts.editWidgetNamed')).toBe('Редактировать виджет: {{label}}')
         expect(getPath(ru, 'layouts.interpretationNetworkEditor.title')).toBe('Рабочая область трактовочной сети')
         expect(getPath(ru, 'layouts.workspaceSwitcherEditor.title')).toBe('Переключатель рабочих пространств')

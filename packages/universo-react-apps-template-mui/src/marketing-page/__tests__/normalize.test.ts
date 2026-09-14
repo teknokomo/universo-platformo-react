@@ -10,6 +10,7 @@ const provenance = { layer: 'application' as const, isSeeded: true, isAuthored: 
 const sourceForWidget = (widgetKey: string, variant?: string) => {
     const entityCodenameByWidget: Record<string, string> = {
         'marketing.navigation': 'MarketingPageNavigation',
+        'marketing.brand': 'MarketingPageSiteSettings',
         'marketing.hero': 'MarketingPageSiteSettings',
         'marketing.collection': 'MarketingPageFeature',
         'marketing.pricing': 'MarketingPagePricing',
@@ -66,6 +67,32 @@ const widget = ({
     sortOrder,
     isActive,
     config: { instanceKey, source: sourceForWidget(widgetKey, typeof config.variant === 'string' ? config.variant : undefined), ...config },
+    data: { records: items }
+})
+
+const atomicWidget = ({
+    instanceKey,
+    widgetKey,
+    sortOrder,
+    items = [],
+    config = {}
+}: {
+    instanceKey: string
+    widgetKey: 'marketing.brand' | 'marketing.auth'
+    sortOrder: number
+    items?: unknown[]
+    config?: Record<string, unknown>
+}) => ({
+    instanceKey,
+    widgetKey,
+    zone: 'marketing-header',
+    sortOrder,
+    isActive: true,
+    config: {
+        instanceKey,
+        ...(widgetKey === 'marketing.brand' ? { source: sourceForWidget(widgetKey) } : {}),
+        ...config
+    },
     data: { records: items }
 })
 
@@ -249,7 +276,7 @@ describe('normalizeMarketingPageRuntime', () => {
         })
     })
 
-    it('applies the application brand asset override to navigation and footer widgets', () => {
+    it('normalizes atomic brand and auth widgets through the strict runtime schema', () => {
         const viewModel = envelope([
             widget({ instanceKey: 'navigation', widgetKey: 'marketing.navigation', zone: 'marketing-header', sortOrder: 0 }),
             widget({
@@ -270,7 +297,9 @@ describe('normalizeMarketingPageRuntime', () => {
                     })
                 ]
             }),
-            widget({ instanceKey: 'footer', widgetKey: 'marketing.footer', zone: 'marketing-footer', sortOrder: 0 })
+            widget({ instanceKey: 'footer', widgetKey: 'marketing.footer', zone: 'marketing-footer', sortOrder: 0 }),
+            atomicWidget({ instanceKey: 'brand', widgetKey: 'marketing.brand', sortOrder: 1 }),
+            atomicWidget({ instanceKey: 'auth', widgetKey: 'marketing.auth', sortOrder: 2 })
         ])
         viewModel.marketingPage.config = {
             brandLogo: {
@@ -282,12 +311,43 @@ describe('normalizeMarketingPageRuntime', () => {
 
         const normalized = normalizeMarketingPageRuntime(viewModel, 'en')
 
-        expect(normalized.widgets.find((item) => item.widgetKey === 'marketing.navigation')).toMatchObject({
-            content: { brand: { logo: { resource: { url: 'https://cdn.example.test/application.svg' } } } }
+        expect(normalized.widgets.find((item) => item.widgetKey === 'marketing.brand')).toMatchObject({
+            content: { name: 'Inherited brand', logo: { resource: { url: 'https://cdn.example.test/application.svg' } } }
+        })
+        expect(normalized.widgets.find((item) => item.widgetKey === 'marketing.navigation')).toMatchObject({ content: { navigation: [] } })
+        expect(normalized.widgets.find((item) => item.widgetKey === 'marketing.auth')).toMatchObject({
+            content: { signIn: { href: '/sign-in' }, signUp: { href: '/sign-up' } }
         })
         expect(normalized.widgets.find((item) => item.widgetKey === 'marketing.footer')).toMatchObject({
             content: { logo: { resource: { url: 'https://cdn.example.test/application.svg' } } }
         })
+    })
+
+    it('rejects malformed atomic configuration and duplicate atomic instance keys', () => {
+        expect(() =>
+            normalizeMarketingPageRuntime(
+                envelope([
+                    widget({ instanceKey: 'navigation', widgetKey: 'marketing.navigation', zone: 'marketing-header', sortOrder: 0 }),
+                    atomicWidget({
+                        instanceKey: 'auth',
+                        widgetKey: 'marketing.auth',
+                        sortOrder: 1,
+                        config: { showAuthActions: 'yes' }
+                    })
+                ]),
+                'en'
+            )
+        ).toThrow()
+
+        expect(() =>
+            normalizeMarketingPageRuntime(
+                envelope([
+                    widget({ instanceKey: 'navigation', widgetKey: 'marketing.navigation', zone: 'marketing-header', sortOrder: 0 }),
+                    atomicWidget({ instanceKey: 'navigation', widgetKey: 'marketing.brand', sortOrder: 1 })
+                ]),
+                'en'
+            )
+        ).toThrow()
     })
 
     it('keeps safe storage-backed media descriptors without exposing their locator as text', () => {

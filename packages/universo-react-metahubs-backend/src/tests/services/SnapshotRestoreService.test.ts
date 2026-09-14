@@ -94,8 +94,10 @@ function createMockKnex(
             return { raw: sql }
         }),
         returning: jest.fn().mockImplementation(function (this: any) {
-            const newId = `generated-id-${idCounter++}`
             const table = this._currentTable || '_unknown'
+            const currentId = idCounter++
+            const newId =
+                table === '_mhb_layouts' ? `019e8afa-0000-7000-8000-${String(currentId).padStart(12, '0')}` : `generated-id-${currentId}`
             const tableRows = insertedRows[table]
             const lastInsertedRow = Array.isArray(tableRows) ? tableRows[tableRows.length - 1] : null
             if (lastInsertedRow && typeof lastInsertedRow === 'object') {
@@ -1083,8 +1085,8 @@ describe('SnapshotRestoreService', () => {
                 {
                     id: validLayoutIds.dashboardWidget,
                     layoutId: validLayoutIds.dashboard,
-                    zone: 'main',
-                    widgetKey: 'details-table',
+                    zone: 'center',
+                    widgetKey: 'detailsTable',
                     sortOrder: 0,
                     config: {},
                     isActive: true
@@ -1092,7 +1094,7 @@ describe('SnapshotRestoreService', () => {
             ]
         } as unknown as Partial<MetahubSnapshot>)
 
-        const { knex, insertedRows, deletedTables } = createMockKnex()
+        const { knex, insertedRows, deletedTables, transactionRawCalls } = createMockKnex()
         const service = new SnapshotRestoreService(knex as any, 'mhb_a1b2c3d4e5f67890abcdef1234567890_b1')
 
         await service.restoreFromSnapshot('metahub-1', snapshot, 'user-1')
@@ -1107,9 +1109,17 @@ describe('SnapshotRestoreService', () => {
         })
         expect(insertedRows['_mhb_widgets']).toHaveLength(1)
         expect(insertedRows['_mhb_widgets']![0]).toMatchObject({
-            zone: 'main',
-            widget_key: 'details-table'
+            zone: 'center',
+            widget_key: 'detailsTable'
         })
+        expect(transactionRawCalls[0]).toEqual(
+            expect.arrayContaining([
+                expect.objectContaining({
+                    sql: expect.stringContaining('pg_advisory_xact_lock'),
+                    params: [expect.stringContaining('mhb-layout-graph:')]
+                })
+            ])
+        )
     })
 
     it('rejects a cross-template scoped overlay during snapshot restore', async () => {
@@ -1742,6 +1752,177 @@ describe('SnapshotRestoreService', () => {
         expect(trxFn).not.toHaveBeenCalled()
     })
 
+    it('rejects malformed reserved layout metadata before destructive restore writes', async () => {
+        const layoutId = '018f3f98-7a63-7b4a-9a5a-20c9a5b2d104'
+        const snapshot = makeMinimalSnapshot({
+            layouts: [
+                {
+                    id: layoutId,
+                    templateKey: 'marketing-page',
+                    name: { en: 'Marketing page' },
+                    description: null,
+                    config: {
+                        __layout: {
+                            composition: { mode: 'independent', baseLayoutId: null },
+                            unsupported: true
+                        }
+                    },
+                    isDefault: true,
+                    isActive: true,
+                    sortOrder: 0,
+                    compositionMode: 'independent',
+                    baseLayoutId: null
+                }
+            ],
+            defaultLayoutId: layoutId,
+            layoutConfig: {},
+            layoutZoneWidgets: []
+        } as unknown as Partial<MetahubSnapshot>)
+        const { knex, deletedTables, trxFn } = createMockKnex()
+        const service = new SnapshotRestoreService(knex as any, 'mhb_a1b2c3d4e5f67890abcdef1234567890_b1')
+
+        await expect(service.restoreFromSnapshot('metahub-1', snapshot, 'user-1')).rejects.toMatchObject({
+            code: 'VALIDATION_ERROR',
+            statusCode: 400,
+            details: { operation: 'layout-neutral-metadata-preflight' }
+        })
+        expect(deletedTables).toEqual([])
+        expect(trxFn).not.toHaveBeenCalled()
+    })
+
+    it('consumes snapshot composition transport fields without persisting them as renderer config', async () => {
+        const layoutId = '019e8afa-0000-7000-8000-000000000020'
+        const snapshot = makeMinimalSnapshot({
+            entities: {
+                'marketing-site-settings': {
+                    kind: 'object',
+                    codename: 'MarketingPageSiteSettings',
+                    presentation: { name: { en: 'Marketing site settings' }, description: {} },
+                    config: {},
+                    fields: []
+                }
+            },
+            layouts: [
+                {
+                    id: layoutId,
+                    templateKey: 'marketing-page',
+                    name: { en: 'Marketing page' },
+                    description: null,
+                    config: {
+                        themeMode: 'light'
+                    },
+                    isDefault: true,
+                    isActive: true,
+                    sortOrder: 0,
+                    compositionMode: 'independent',
+                    baseLayoutId: null
+                }
+            ],
+            defaultLayoutId: layoutId,
+            layoutConfig: {},
+            layoutZoneWidgets: [
+                {
+                    id: '019e8afa-0000-7000-8000-000000000021',
+                    layoutId,
+                    zone: 'marketing-main',
+                    widgetKey: 'marketing.hero',
+                    sortOrder: 0,
+                    config: {
+                        instanceKey: 'hero',
+                        source: { entityCodename: 'MarketingPageSiteSettings', entityKind: 'object' },
+                        showLeadForm: false
+                    },
+                    isActive: true
+                }
+            ]
+        } as unknown as Partial<MetahubSnapshot>)
+        const { knex, insertedRows } = createMockKnex()
+        const service = new SnapshotRestoreService(knex as any, 'mhb_a1b2c3d4e5f67890abcdef1234567890_b1')
+
+        await service.restoreFromSnapshot('metahub-1', snapshot, 'user-1')
+
+        const restoredConfig = (insertedRows['_mhb_layouts']?.[0] as { config?: Record<string, unknown> } | undefined)?.config
+        expect(restoredConfig).toMatchObject({
+            themeMode: 'light',
+            __layout: {
+                composition: { mode: 'independent', baseLayoutId: null },
+                zoneSettings: { 'marketing-header': { position: 'fixed' } }
+            }
+        })
+        expect(restoredConfig).not.toHaveProperty('compositionMode')
+        expect(restoredConfig).not.toHaveProperty('baseLayoutId')
+    })
+
+    it('rejects legacy root composition fields before restore writes', async () => {
+        const layoutId = '019e8afa-0000-7000-8000-000000000021'
+        const snapshot = makeMinimalSnapshot({
+            layouts: [
+                {
+                    id: layoutId,
+                    templateKey: 'dashboard',
+                    name: { en: 'Dashboard' },
+                    description: null,
+                    config: { compositionMode: 'independent', baseLayoutId: null },
+                    isDefault: true,
+                    isActive: true,
+                    sortOrder: 0,
+                    compositionMode: 'independent',
+                    baseLayoutId: null
+                }
+            ],
+            defaultLayoutId: layoutId,
+            layoutConfig: {},
+            layoutZoneWidgets: []
+        } as unknown as Partial<MetahubSnapshot>)
+        const { knex, deletedTables, trxFn } = createMockKnex()
+        const service = new SnapshotRestoreService(knex as any, 'mhb_a1b2c3d4e5f67890abcdef1234567890_b1')
+
+        await expect(service.restoreFromSnapshot('metahub-1', snapshot, 'user-1')).rejects.toMatchObject({
+            code: 'VALIDATION_ERROR',
+            statusCode: 400,
+            details: { operation: 'layout-neutral-metadata-preflight' }
+        })
+        expect(deletedTables).toEqual([])
+        expect(trxFn).not.toHaveBeenCalled()
+    })
+
+    it('rejects application-only source zone settings before restore writes', async () => {
+        const layoutId = '019e8afa-0000-7000-8000-000000000032'
+        const snapshot = makeMinimalSnapshot({
+            layouts: [
+                {
+                    id: layoutId,
+                    templateKey: 'marketing-page',
+                    name: { en: 'Marketing page' },
+                    description: null,
+                    config: {
+                        __layout: {
+                            sourceZoneSettings: { 'marketing-header': { position: 'flow' } }
+                        }
+                    },
+                    isDefault: true,
+                    isActive: true,
+                    sortOrder: 0,
+                    compositionMode: 'independent',
+                    baseLayoutId: null
+                }
+            ],
+            defaultLayoutId: layoutId,
+            layoutConfig: {},
+            layoutZoneWidgets: []
+        } as unknown as Partial<MetahubSnapshot>)
+        const { knex, deletedTables, trxFn } = createMockKnex()
+        const service = new SnapshotRestoreService(knex as any, 'mhb_a1b2c3d4e5f67890abcdef1234567890_b1')
+
+        await expect(service.restoreFromSnapshot('metahub-1', snapshot, 'user-1')).rejects.toMatchObject({
+            code: 'VALIDATION_ERROR',
+            statusCode: 400,
+            details: { operation: 'layout-neutral-metadata-preflight' }
+        })
+        expect(deletedTables).toEqual([])
+        expect(trxFn).not.toHaveBeenCalled()
+    })
+
     it('does not touch PlayCanvas storage when importing a legacy snapshot without a PlayCanvas section', async () => {
         const { knex } = createMockKnex()
         const playCanvasProjectSnapshotService = {
@@ -2358,7 +2539,7 @@ describe('SnapshotRestoreService', () => {
                     id: validLayoutIds.ownedWidget,
                     layoutId: validLayoutIds.scoped,
                     zone: 'right',
-                    widgetKey: 'statsOverview',
+                    widgetKey: 'resourcePreview',
                     sortOrder: 1,
                     config: { compact: true },
                     isActive: true
@@ -2369,7 +2550,7 @@ describe('SnapshotRestoreService', () => {
                     id: validLayoutIds.override,
                     layoutId: validLayoutIds.scoped,
                     baseWidgetId: validLayoutIds.globalWidget,
-                    zone: 'top',
+                    zone: 'left',
                     sortOrder: 2,
                     config: { showTitle: false },
                     isActive: true,
@@ -2412,14 +2593,14 @@ describe('SnapshotRestoreService', () => {
         expect(scopedWidgetRow).toMatchObject({
             layout_id: scopedLayoutRow.id,
             zone: 'right',
-            widget_key: 'statsOverview'
+            widget_key: 'resourcePreview'
         })
 
         expect(insertedRows['_mhb_layout_widget_overrides']).toHaveLength(1)
         expect(overrideRow).toMatchObject({
             layout_id: scopedLayoutRow.id,
             base_widget_id: globalWidgetRow.id,
-            zone: 'top',
+            zone: 'left',
             sort_order: 2,
             is_active: true,
             is_deleted_override: false

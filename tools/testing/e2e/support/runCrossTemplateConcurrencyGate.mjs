@@ -49,7 +49,7 @@ const preserveRunnerArtifacts = async (status) => {
             {
                 status: status.status,
                 gate: 'optimistic-version-concurrency',
-                browserEvidence: 'authenticated Playwright page verifies the committed layout after the API race',
+                browserEvidence: 'two independent authenticated Playwright browser contexts observe a stale 409 and recover after reload',
                 apiEvidence: 'two independent authenticated API sessions race one versioned layout mutation',
                 expectedOutcome: 'one 200 commit and one 409 APPLICATION_LAYOUT_VERSION_CONFLICT',
                 error: status.error ?? null,

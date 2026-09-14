@@ -14,9 +14,12 @@ import {
     ComponentDefinitionDataType,
     MARKETING_LAYOUT_ZONES,
     applicationTemplateKeySchema,
+    decodeLayoutConfigEnvelope,
+    decodeLayoutWidgetConfigEnvelope,
+    encodeLayoutConfigEnvelope,
+    encodeLayoutWidgetConfigEnvelope,
     getLayoutWidgetAllowedZones,
     getLayoutWidgetDefinition,
-    marketingWidgetKeySchema,
     normalizeInterpretationNetworkHexColor,
     parseApplicationLayoutConfig,
     parseApplicationLayoutWidgetConfig,
@@ -24,6 +27,8 @@ import {
     type ApplicationLayoutWidget,
     type ApplicationTemplateKey,
     type ComponentDefinitionValidationRules,
+    type LayoutNeutralComposition,
+    type PersistedLayoutNeutralMetadata,
     type MenuWidgetConfig,
     type VersionedLocalizedContent
 } from '@universo-react/types'
@@ -628,22 +633,89 @@ type MaterializedSnapshotWidget = PersistedAppLayoutZoneWidget & {
 type NormalizedScopedLayout = PersistedAppLayout & {
     baseLayoutId: string | null
     compositionMode: 'overlay' | 'independent'
+    neutral: PersistedLayoutNeutralMetadata
 }
 
-const stripLayoutCompositionMetadata = (config: Record<string, unknown>): Record<string, unknown> => {
-    const { compositionMode: _compositionMode, baseLayoutId: _baseLayoutId, ...rendererConfig } = config
-    return rendererConfig
-}
-
-const withLayoutCompositionMetadata = (
+const encodeMaterializedLayoutConfig = (
     config: Record<string, unknown>,
-    compositionMode: 'overlay' | 'independent',
-    baseLayoutId: string | null
-): Record<string, unknown> => ({
-    ...config,
-    compositionMode,
-    baseLayoutId
-})
+    templateKey: ApplicationTemplateKey,
+    neutral: PersistedLayoutNeutralMetadata = {}
+): Record<string, unknown> => encodeLayoutConfigEnvelope({ rendererConfig: config, neutral }, { templateKey, omitSourceZoneSettings: true })
+
+const readSnapshotComposition = (layout: SnapshotLayoutRow, layoutId: string, scope: 'global' | 'scoped'): LayoutNeutralComposition => {
+    const rawCompositionMode = layout.compositionMode
+    const baseLayoutId = readOptionalSnapshotString(layout.baseLayoutId, 'baseLayoutId', `${scope} layout ${layoutId}`, {
+        nullable: true,
+        defaultValue: null
+    }) as string | null
+
+    if (rawCompositionMode === undefined || rawCompositionMode === null) {
+        throw new Error(`[SchemaSync] ${scope} layout ${layoutId} is missing an explicit composition mode`)
+    }
+    if (rawCompositionMode !== 'overlay' && rawCompositionMode !== 'independent') {
+        throw new Error(`[SchemaSync] ${scope} layout ${layoutId} has an invalid composition mode`)
+    }
+    if (rawCompositionMode === 'overlay' && baseLayoutId === null) {
+        throw new Error(`[SchemaSync] Overlay layout ${layoutId} must reference a base layout`)
+    }
+    if (rawCompositionMode === 'independent' && baseLayoutId !== null) {
+        throw new Error(`[SchemaSync] Independent layout ${layoutId} cannot reference a base layout`)
+    }
+    if (scope === 'global' && rawCompositionMode === 'overlay') {
+        throw new Error(`[SchemaSync] Global layout ${layoutId} cannot use overlay composition`)
+    }
+    if (rawCompositionMode === 'overlay') {
+        return { mode: 'overlay', baseLayoutId: baseLayoutId as string }
+    }
+    return { mode: 'independent', baseLayoutId: null }
+}
+
+const normalizeSnapshotLayoutConfig = (
+    templateKey: ApplicationTemplateKey,
+    rawConfig: Record<string, unknown>,
+    context: string,
+    composition: { mode: 'overlay' | 'independent'; baseLayoutId: string | null }
+): { rendererConfig: Record<string, unknown>; neutral: PersistedLayoutNeutralMetadata; encoded: Record<string, unknown> } => {
+    try {
+        const decoded = decodeLayoutConfigEnvelope(rawConfig, { templateKey })
+        const rendererConfig = parseApplicationLayoutConfig(templateKey, decoded.rendererConfig)
+        const neutral: PersistedLayoutNeutralMetadata = { ...decoded.neutral }
+        if (neutral.composition) {
+            const decodedComposition = neutral.composition
+            if (
+                decodedComposition.mode !== composition.mode ||
+                (composition.mode === 'overlay' && decodedComposition.baseLayoutId !== composition.baseLayoutId) ||
+                (composition.mode === 'independent' && decodedComposition.baseLayoutId !== null)
+            ) {
+                throw new Error('Snapshot config composition does not match its top-level composition')
+            }
+        }
+        delete neutral.composition
+        return {
+            rendererConfig,
+            neutral,
+            encoded: encodeMaterializedLayoutConfig(rendererConfig, templateKey, neutral)
+        }
+    } catch {
+        throw new Error(`${context} contains invalid ${templateKey} configuration`)
+    }
+}
+
+const normalizeSnapshotWidgetConfig = (
+    templateKey: ApplicationTemplateKey,
+    widgetKey: string,
+    zone: string,
+    rawConfig: Record<string, unknown>,
+    context: string
+): Record<string, unknown> => {
+    try {
+        const decoded = decodeLayoutWidgetConfigEnvelope(rawConfig, { templateKey, widgetKey, zone })
+        const config = parseApplicationLayoutWidgetConfig(widgetKey, decoded.rendererConfig)
+        return encodeLayoutWidgetConfigEnvelope({ rendererConfig: config, neutral: decoded.neutral }, { templateKey, widgetKey, zone })
+    } catch {
+        throw new Error(`${context} contains invalid ${templateKey} widget configuration`)
+    }
+}
 
 type NormalizedLayoutWidgetOverride = {
     layoutId: string
@@ -654,8 +726,6 @@ type NormalizedLayoutWidgetOverride = {
     isActive: boolean | null
     isDeletedOverride: boolean
 }
-
-const isMarketingWidgetKey = (value: string): boolean => marketingWidgetKeySchema.safeParse(value).success
 
 const isWidgetAllowedForTemplate = (templateKey: ApplicationTemplateKey, widgetKey: string, zone: string): boolean => {
     return Boolean(getLayoutWidgetAllowedZones(widgetKey, templateKey)?.includes(zone as never))
@@ -782,17 +852,12 @@ const normalizeSnapshotLayoutEntries = (snapshot: PublishedApplicationSnapshot):
         }
 
         const templateKey = parseApplicationTemplateKey(normalizedLayout.templateKey, `layout ${layoutId}`)
+        const composition = readSnapshotComposition(normalizedLayout, layoutId, 'global')
         const rawConfig = (readOptionalSnapshotRecord(normalizedLayout.config, 'config', `layout ${layoutId}`) ?? {}) as Record<
             string,
             unknown
         >
-        let config = stripLayoutCompositionMetadata(rawConfig)
-        try {
-            config = parseApplicationLayoutConfig(templateKey, config)
-        } catch {
-            throw new Error(`Layout ${layoutId} contains invalid ${templateKey} configuration`)
-        }
-        config = withLayoutCompositionMetadata(config, 'independent', null)
+        const config = normalizeSnapshotLayoutConfig(templateKey, rawConfig, `Layout ${layoutId}`, composition).encoded
 
         return {
             id: layoutId,
@@ -803,6 +868,7 @@ const normalizeSnapshotLayoutEntries = (snapshot: PublishedApplicationSnapshot):
                 nullable: true
             }) ?? null) as Record<string, unknown> | null,
             config,
+            sourceComposition: composition,
             isActive: readOptionalSnapshotBoolean(normalizedLayout.isActive, 'isActive', `layout ${layoutId}`, false),
             isDefault: readOptionalSnapshotBoolean(normalizedLayout.isDefault, 'isDefault', `layout ${layoutId}`, false),
             sortOrder: readOptionalSnapshotInteger(normalizedLayout.sortOrder, 'sortOrder', `layout ${layoutId}`, 0)
@@ -884,15 +950,7 @@ const normalizeSnapshotWidgetEntries = (
             string,
             unknown
         >
-        let config = rawConfig
-        try {
-            config = parseApplicationLayoutWidgetConfig(widgetKey, rawConfig)
-        } catch {
-            throw new Error(`[SchemaSync] Invalid ${templateKey} widget config for ${widgetKey}`)
-        }
-        if (templateKey === 'marketing-page' && !isMarketingWidgetKey(widgetKey)) {
-            throw new Error(`[SchemaSync] Invalid marketing widget key ${widgetKey}`)
-        }
+        const config = normalizeSnapshotWidgetConfig(templateKey, widgetKey, zone, rawConfig, `[SchemaSync] Layout widget ${id}`)
         return {
             id,
             layoutId,
@@ -1018,12 +1076,10 @@ const normalizeSnapshotScopedLayouts = (snapshot: PublishedApplicationSnapshot):
         }
         const templateKey = parseApplicationTemplateKey(layout.templateKey, `scoped layout ${id}`)
         const rawConfig = (readOptionalSnapshotRecord(layout.config, 'config', `scoped layout ${id}`) ?? {}) as Record<string, unknown>
-        let config = stripLayoutCompositionMetadata(rawConfig)
-        try {
-            config = parseApplicationLayoutConfig(templateKey, config)
-        } catch {
-            throw new Error(`Scoped layout ${id} contains invalid ${templateKey} configuration`)
-        }
+        const normalized = normalizeSnapshotLayoutConfig(templateKey, rawConfig, `Scoped layout ${id}`, {
+            mode: compositionMode,
+            baseLayoutId
+        })
         return {
             id,
             scopeEntityId,
@@ -1034,7 +1090,12 @@ const normalizeSnapshotScopedLayouts = (snapshot: PublishedApplicationSnapshot):
             description: (readOptionalSnapshotRecord(layout.description, 'description', `scoped layout ${id}`, {
                 nullable: true
             }) ?? null) as Record<string, unknown> | null,
-            config,
+            config: normalized.rendererConfig,
+            sourceComposition: normalized.neutral.composition ?? {
+                mode: compositionMode,
+                baseLayoutId
+            },
+            neutral: normalized.neutral,
             isActive: readOptionalSnapshotBoolean(layout.isActive, 'isActive', `scoped layout ${id}`, true),
             isDefault: readOptionalSnapshotBoolean(layout.isDefault, 'isDefault', `scoped layout ${id}`, false),
             sortOrder: readOptionalSnapshotInteger(layout.sortOrder, 'sortOrder', `scoped layout ${id}`, 0)
@@ -1187,7 +1248,8 @@ export const materializeSnapshotLayoutsAndWidgets = (
                 templateKey: scopedLayout.templateKey,
                 name: scopedLayout.name,
                 description: scopedLayout.description,
-                config: withLayoutCompositionMetadata(scopedLayout.config, 'independent', null),
+                config: encodeMaterializedLayoutConfig(scopedLayout.config, scopedLayout.templateKey, scopedLayout.neutral),
+                sourceComposition: scopedLayout.sourceComposition,
                 isActive: scopedLayout.isActive,
                 isDefault: scopedLayout.isDefault,
                 sortOrder: scopedLayout.sortOrder
@@ -1218,6 +1280,12 @@ export const materializeSnapshotLayoutsAndWidgets = (
             ...item,
             layoutId: scopedLayout.id
         }))
+        let baseLayoutEnvelope: ReturnType<typeof decodeLayoutConfigEnvelope>
+        try {
+            baseLayoutEnvelope = decodeLayoutConfigEnvelope(baseLayout.config, { templateKey: scopedTemplateKey })
+        } catch {
+            throw new Error(`Scoped layout ${scopedLayout.id} references an invalid base layout configuration`)
+        }
         for (const baseWidget of baseWidgets) {
             const override = overrideMap.get(`${scopedLayout.id}:${baseWidget.id}`)
             if (override?.isDeletedOverride) {
@@ -1228,12 +1296,13 @@ export const materializeSnapshotLayoutsAndWidgets = (
                 throw new Error(`Widget ${baseWidget.widgetKey} is not allowed in scoped layout ${scopedLayout.id}`)
             }
             const inheritedIsActive = override?.isActive ?? baseWidget.isActive
-            let inheritedConfig = override?.config ?? baseWidget.config
-            try {
-                inheritedConfig = parseApplicationLayoutWidgetConfig(baseWidget.widgetKey, inheritedConfig)
-            } catch {
-                throw new Error(`Scoped layout ${scopedLayout.id} contains invalid widget configuration`)
-            }
+            const inheritedConfig = normalizeSnapshotWidgetConfig(
+                scopedTemplateKey,
+                baseWidget.widgetKey,
+                inheritedZone,
+                (override?.config ?? baseWidget.config) as Record<string, unknown>,
+                `Scoped layout ${scopedLayout.id}`
+            )
             if (
                 scopedTemplateKey === 'marketing-page' &&
                 materializedWidgetInstanceKey({ widgetKey: baseWidget.widgetKey, config: inheritedConfig }) !==
@@ -1264,10 +1333,10 @@ export const materializeSnapshotLayoutsAndWidgets = (
             templateKey: scopedTemplateKey,
             name: Object.keys(scopedLayout.name).length > 0 ? scopedLayout.name : baseLayout.name,
             description: scopedLayout.description ?? baseLayout.description,
-            config: withLayoutCompositionMetadata(
+            config: encodeMaterializedLayoutConfig(
                 scopedTemplateKey === 'dashboard'
                     ? {
-                          ...baseLayout.config,
+                          ...baseLayoutEnvelope.rendererConfig,
                           ...buildDashboardWidgetVisibilityConfig(
                               [...materializedScopedWidgets, ...ownedWidgets]
                                   .filter((item) => item.isActive !== false)
@@ -1275,10 +1344,21 @@ export const materializeSnapshotLayoutsAndWidgets = (
                           ),
                           ...scopedLayout.config
                       }
-                    : { ...baseLayout.config, ...scopedLayout.config },
-                'overlay',
-                baseLayoutId
+                    : { ...baseLayoutEnvelope.rendererConfig, ...scopedLayout.config },
+                scopedTemplateKey,
+                {
+                    ...baseLayoutEnvelope.neutral,
+                    ...scopedLayout.neutral,
+                    zoneSettings: {
+                        ...baseLayoutEnvelope.neutral.zoneSettings,
+                        ...scopedLayout.neutral.zoneSettings
+                    }
+                }
             ),
+            sourceComposition: {
+                mode: 'overlay',
+                baseLayoutId
+            },
             isActive: scopedLayout.isActive,
             isDefault: scopedLayout.isDefault,
             sortOrder: scopedLayout.sortOrder
@@ -1572,6 +1652,7 @@ export function buildMergedDashboardLayoutConfig(snapshot: PublishedApplicationS
     if (snapshot.layoutConfig !== undefined && !isRecord(snapshot.layoutConfig)) {
         throw new Error('[SchemaSync] Snapshot layoutConfig must be an object')
     }
-    const parsed = parseApplicationLayoutConfig('dashboard', snapshot.layoutConfig ?? {})
+    const decoded = decodeLayoutConfigEnvelope(snapshot.layoutConfig ?? {}, { templateKey: 'dashboard' })
+    const parsed = parseApplicationLayoutConfig('dashboard', decoded.rendererConfig)
     return normalizeDashboardLayoutConfig(parsed) as unknown as Record<string, unknown>
 }

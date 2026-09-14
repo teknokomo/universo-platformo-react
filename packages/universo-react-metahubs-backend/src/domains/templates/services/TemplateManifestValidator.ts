@@ -9,6 +9,8 @@ import {
     ENTITY_BEHAVIOR_CONFIG_KEYS,
     entityBehaviorConfigSchema,
     validateEntityBehaviorReferences,
+    marketingAuthWidgetConfigSchema,
+    marketingBrandWidgetConfigSchema,
     marketingCollectionWidgetConfigSchema,
     marketingFooterWidgetConfigSchema,
     marketingHeroWidgetConfigSchema,
@@ -17,6 +19,9 @@ import {
     marketingPricingWidgetConfigSchema,
     MARKETING_WIDGET_REGISTRY,
     marketingWidgetKeySchema,
+    decodeLayoutConfigEnvelope,
+    decodeWidgetConfigEnvelope,
+    getLayoutWidgetDefinition,
     type EntityBehaviorConfig,
     type MetahubTemplateSeed
 } from '@universo-react/types'
@@ -516,6 +521,19 @@ export const templateManifestSchema = baseTemplateManifestSchema.superRefine((ma
         }
         layoutTemplateKeySet.add(layout.templateKey)
         layoutTemplateByCodename.set(layout.codename, layout.templateKey)
+
+        try {
+            decodeLayoutConfigEnvelope(layout.config ?? {}, {
+                templateKey: layout.templateKey,
+                allowSourceZoneSettings: false
+            })
+        } catch (error) {
+            ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                path: ['seed', 'layouts', i, 'config'],
+                message: error instanceof Error ? error.message : 'Invalid metahub layout configuration.'
+            })
+        }
     }
 
     const scopedLayouts = manifest.seed.scopedLayouts ?? []
@@ -530,6 +548,19 @@ export const templateManifestSchema = baseTemplateManifestSchema.superRefine((ma
         }
         layoutCodenameSet.add(layout.codename)
         layoutTemplateByCodename.set(layout.codename, layout.templateKey)
+
+        try {
+            decodeLayoutConfigEnvelope(layout.config ?? {}, {
+                templateKey: layout.templateKey,
+                allowSourceZoneSettings: false
+            })
+        } catch (error) {
+            ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                path: ['seed', 'scopedLayouts', i, 'config'],
+                message: error instanceof Error ? error.message : 'Invalid metahub layout configuration.'
+            })
+        }
 
         if (!layoutCodenameSet.has(layout.baseLayoutCodename)) {
             ctx.addIssue({
@@ -561,6 +592,29 @@ export const templateManifestSchema = baseTemplateManifestSchema.superRefine((ma
                         message: 'Marketing widgets must use a registered marketing placement.'
                     })
                 }
+                const sharedWidgetDefinition = getLayoutWidgetDefinition(widget.widgetKey)
+                const isSharedMarketingWidget =
+                    sharedWidgetDefinition?.shared === true &&
+                    sharedWidgetDefinition.supportedTemplates.includes('marketing-page') &&
+                    sharedWidgetDefinition.allowedZonesByTemplate['marketing-page']?.some((zone) => zone === widget.zone)
+
+                if (isSharedMarketingWidget) {
+                    try {
+                        decodeWidgetConfigEnvelope(widget.config ?? {}, {
+                            templateKey: 'marketing-page',
+                            widgetKey: widget.widgetKey,
+                            zone: widget.zone
+                        })
+                    } catch {
+                        ctx.addIssue({
+                            code: z.ZodIssueCode.custom,
+                            path: ['seed', 'layoutZoneWidgets', layoutCodename, widgetIndex, 'config'],
+                            message: 'Shared layout widget configuration is invalid.'
+                        })
+                    }
+                    continue
+                }
+
                 if (!marketingWidgetKeySchema.safeParse(widget.widgetKey).success) {
                     ctx.addIssue({
                         code: z.ZodIssueCode.custom,
@@ -580,7 +634,9 @@ export const templateManifestSchema = baseTemplateManifestSchema.superRefine((ma
                 }
 
                 const configSchemas = {
+                    'marketing.brand': marketingBrandWidgetConfigSchema,
                     'marketing.navigation': marketingNavigationWidgetConfigSchema,
+                    'marketing.auth': marketingAuthWidgetConfigSchema,
                     'marketing.hero': marketingHeroWidgetConfigSchema,
                     'marketing.collection': marketingCollectionWidgetConfigSchema,
                     'marketing.pricing': marketingPricingWidgetConfigSchema,

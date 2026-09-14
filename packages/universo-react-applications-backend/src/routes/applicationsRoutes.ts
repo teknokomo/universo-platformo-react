@@ -63,6 +63,12 @@ export function createApplicationsRoutes(
     // Keep the collection-level reset route before the :layoutId route below;
     // otherwise Express treats "zone-widgets" as a layout id.
     router.post('/:applicationId/layouts/zone-widgets/config/reset', writeLimiter, asyncHandler(layouts.resetWidgetConfigsBatch))
+    router.patch('/:applicationId/layouts/:layoutId/zone-settings/:zone/:settingKey', writeLimiter, asyncHandler(layouts.updateZoneSetting))
+    router.post(
+        '/:applicationId/layouts/:layoutId/zone-settings/:zone/:settingKey/reset',
+        writeLimiter,
+        asyncHandler(layouts.resetZoneSetting)
+    )
     router.get('/:applicationId/layouts/:layoutId', readLimiter, asyncHandler(layouts.detail))
     router.patch('/:applicationId/layouts/:layoutId', writeLimiter, asyncHandler(layouts.update))
     router.post('/:applicationId/layouts/:layoutId/config/reset', writeLimiter, asyncHandler(layouts.resetConfig))

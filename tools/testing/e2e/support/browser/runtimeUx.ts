@@ -34,6 +34,20 @@ export type RuntimeUxViewportMatrixOptions = {
     restoreViewport?: boolean
 }
 
+export type BrowserRuntimeIssue = {
+    source: 'console' | 'pageerror'
+    text: string
+    url?: string
+}
+
+export type StrictRuntimeUxOptions = {
+    label: string
+    locale: 'en' | 'ru'
+    longTextLabels?: string[]
+    allowTextPatterns?: RegExp[]
+    forbiddenVisibleTextPatterns?: RegExp[]
+}
+
 export const RUNTIME_UX_VIEWPORT_MATRIX: RuntimeUxViewport[] = [
     { name: 'desktop-1920', width: 1920, height: 1080 },
     { name: 'tablet-768', width: 768, height: 1024 },
@@ -47,6 +61,12 @@ const JSON_LIKE_PATTERN =
 const INTERNAL_VALIDATION_PATTERN =
     /String must contain|Expected .* received|Invalid input|Required property|required_type|too_small|invalid_type|Zod/i
 const ISO_DATETIME_TEXT_PATTERN = /\b\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?Z\b/
+const RAW_STRUCTURED_VALUE_PATTERNS = [
+    /\[object (?:Object|Array)\]/i,
+    /(?:^|\n)\s*\{\s*(?:\n\s*)?"[^"\n]{1,120}"\s*:/m,
+    /(?:^|\n)\s*\[\s*(?:\n\s*)?\{\s*(?:\n\s*)?"[^"\n]{1,120}"\s*:/m
+]
+const INTERNAL_ERROR_CODE_PATTERN = /\b(?:APPLICATION|METAHUB|LAYOUT|VALIDATION|ZOD|INTERNAL)_[A-Z0-9_]+\b/
 
 const readVisibleText = async (locator: Locator): Promise<string> =>
     locator.evaluate((node) => {
@@ -56,6 +76,39 @@ const readVisibleText = async (locator: Locator): Promise<string> =>
 
 const isAllowedText = (text: string, allowTextPatterns: RegExp[]) => allowTextPatterns.some((pattern) => pattern.test(text))
 const escapeRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+
+const matchesPattern = (pattern: RegExp, value: string): boolean => {
+    pattern.lastIndex = 0
+    return pattern.test(value)
+}
+
+export const watchBrowserRuntimeIssues = (page: Page): BrowserRuntimeIssue[] => {
+    const issues: BrowserRuntimeIssue[] = []
+
+    page.on('console', (message) => {
+        if (message.type() !== 'error') return
+        const location = message.location()
+        issues.push({ source: 'console', text: message.text(), url: location.url || undefined })
+    })
+    page.on('pageerror', (error) => {
+        issues.push({ source: 'pageerror', text: error.message })
+    })
+
+    return issues
+}
+
+export function expectNoUnexpectedBrowserRuntimeIssues(
+    issues: BrowserRuntimeIssue[],
+    label: string,
+    options: { allowTextPatterns?: RegExp[] } = {}
+): void {
+    const allowTextPatterns = options.allowTextPatterns ?? []
+    const unexpected = issues.filter(
+        (issue) => !allowTextPatterns.some((pattern) => matchesPattern(pattern, `${issue.text}\n${issue.url ?? ''}`))
+    )
+
+    expect(unexpected, `${label} must not emit unexpected console errors or page errors`).toEqual([])
+}
 
 const collectTechnicalLeakageIssues = (text: string, options: Required<TechnicalLeakageOptions>): string[] => {
     const {
@@ -204,6 +257,34 @@ export async function expectLocalizedValidation(
             : [INTERNAL_VALIDATION_PATTERN]
     const matches = [...defaultForbidden, ...forbiddenPatterns].filter((pattern) => pattern.test(text))
     expect(matches, `${label} must not expose internal validation text for ${locale}`).toEqual([])
+}
+
+export async function expectStrictRuntimeUxSurface(surface: Locator, options: StrictRuntimeUxOptions): Promise<void> {
+    const { label, locale, longTextLabels = [], allowTextPatterns = [], forbiddenVisibleTextPatterns = [] } = options
+
+    await expectNoTechnicalLeakage(surface, {
+        label,
+        allowTextPatterns,
+        checkUuidOnlyLines: true,
+        checkUuidSubstrings: true,
+        checkJsonLikeText: true,
+        checkInternalValidationText: true,
+        checkIsoDateText: true,
+        forbiddenVisibleTextPatterns
+    })
+
+    const text = await readVisibleText(surface)
+    const rawStructuredMatches = RAW_STRUCTURED_VALUE_PATTERNS.filter(
+        (pattern) => matchesPattern(pattern, text) && !allowTextPatterns.some((allowPattern) => matchesPattern(allowPattern, text))
+    )
+    expect(rawStructuredMatches, `${label} must render structured values semantically instead of exposing raw JSON/object text`).toEqual([])
+    expect(matchesPattern(INTERNAL_ERROR_CODE_PATTERN, text), `${label} must not expose internal error codes`).toBe(false)
+
+    await expectLocalizedValidation(surface, locale, { label })
+    if (longTextLabels.length > 0) {
+        await expectSemanticFieldControls(surface, { longTextLabels })
+    }
+    await expectNoPageHorizontalOverflow(surface.page(), label)
 }
 
 export async function expectNoPageHorizontalOverflow(page: Page, label: string): Promise<void> {

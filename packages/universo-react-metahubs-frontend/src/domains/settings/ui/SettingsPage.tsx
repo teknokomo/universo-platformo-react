@@ -13,6 +13,7 @@ import { Box, Tabs, Tab, Typography, Stack, Button, Divider, Skeleton, IconButto
 import RestartAltIcon from '@mui/icons-material/RestartAlt'
 import SaveIcon from '@mui/icons-material/Save'
 import { useTranslation } from 'react-i18next'
+import { useCommonTranslations } from '@universo-react/i18n'
 import { useSnackbar } from 'notistack'
 import { buildEntitySurfaceSettingKey, DASHBOARD_LAYOUT_WIDGETS, METAHUB_SETTINGS_TABS } from '@universo-react/types'
 import type { DashboardLayoutWidgetKey } from '@universo-react/types'
@@ -89,8 +90,12 @@ const resolveBaseEntitySettingKey = (key: string): string => {
 
 const widgetDefinitionsByKey = new Map(DASHBOARD_LAYOUT_WIDGETS.map((widget) => [widget.key, widget]))
 
-const resolveWidgetLabel = (t: ReturnType<typeof useTranslation<'metahubs'>>['t'], widgetKey: DashboardLayoutWidgetKey): string =>
-    t(`layouts.widgets.${widgetKey}`, {
+const resolveWidgetLabel = (
+    tc: ReturnType<typeof useCommonTranslations>['t'],
+    t: ReturnType<typeof useTranslation<'metahubs'>>['t'],
+    widgetKey: DashboardLayoutWidgetKey
+): string =>
+    tc(`layouts.widgets.${widgetKey}`, {
         defaultValue: widgetDefinitionsByKey.has(widgetKey)
             ? widgetKey.replace(/([a-z0-9])([A-Z])/g, '$1 $2').replace(/^./, (value) => value.toUpperCase())
             : t('settings.layoutWidgets.unknownWidget', 'Unknown widget')
@@ -117,6 +122,7 @@ const SettingsPage = () => {
     const navigate = useNavigate()
     const queryClient = useQueryClient()
     const { t, i18n } = useTranslation('metahubs')
+    const { t: tc } = useCommonTranslations()
     const { enqueueSnackbar } = useSnackbar()
 
     // Data fetching
@@ -451,7 +457,7 @@ const SettingsPage = () => {
                         <Stack spacing={0} divider={<Divider />}>
                             {(layoutsQuery.data ?? []).map((item) => {
                                 const layoutTitle = getLocalizedContentText(item.layout.name, i18n.language, item.layout.id)
-                                const widgetLabel = resolveWidgetLabel(t, item.widget.widgetKey)
+                                const widgetLabel = resolveWidgetLabel(tc, t, item.widget.widgetKey)
                                 const splitPaneEnabled =
                                     item.widget.widgetKey === 'interpretationNetworkWorkspace'
                                         ? (item.widget.config?.splitPane as { enabled?: boolean } | undefined)?.enabled ?? true
@@ -481,7 +487,7 @@ const SettingsPage = () => {
                                                 <Typography variant='subtitle2'>{widgetLabel}</Typography>
                                                 <Chip
                                                     size='small'
-                                                    label={t(`layouts.zones.${item.widget.zone}`, {
+                                                    label={tc(`layouts.zones.${item.widget.zone}`, {
                                                         defaultValue: item.widget.zone
                                                     })}
                                                 />

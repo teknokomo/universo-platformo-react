@@ -11,7 +11,7 @@ import { getApplicationEffectiveLayout } from '../api/applications'
 import { applicationsQueryKeys } from '../api/queryKeys'
 import type { ApplicationRuntimeTargetKind, ApplicationRuntimeThemeVariant } from '../types'
 import { DashboardApplicationRuntime } from './application-runtime/DashboardApplicationRuntime'
-import { normalizeRuntimeLocale, toMarketingLayoutWidgets, UUID_PATH_SEGMENT_REGEX } from './application-runtime/runtimeLayout'
+import { normalizeRuntimeLocale, UUID_PATH_SEGMENT_REGEX } from './application-runtime/runtimeLayout'
 
 const ApplicationRuntime = () => {
     const routeParams = useParams<{ applicationId: string; '*': string }>()
@@ -135,7 +135,8 @@ const ApplicationRuntime = () => {
                           }
                         : undefined
                 }
-                sharedLayoutWidgets={toMarketingLayoutWidgets(effectiveLayoutQuery.data)}
+                effectiveLayoutWidgets={effectiveLayoutQuery.data.widgets}
+                effectiveLayoutConfig={effectiveLayoutQuery.data.layout}
                 onLayoutStale={() => void effectiveLayoutQuery.refetch()}
                 loadingLabel={t('app.runtime.loading', 'Loading application')}
                 errorLabel={runtimeLoadErrorMessage}

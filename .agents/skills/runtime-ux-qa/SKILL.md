@@ -31,6 +31,8 @@ Return:
 -   Semantic long text is single-line.
 -   Empty optional resource-source fields show errors.
 -   A localized surface shows raw English/internal validation messages.
+-   A supported locale falls back to English for a newly introduced layout label, settings title, radio option, action, or status message.
+-   A settings dialog bypasses the canonical dialog primitive or its action footer loses the standard right/bottom inset.
 -   Page-level horizontal overflow appears at realistic desktop/tablet/mobile widths.
 -   The workflow cannot be completed by keyboard or user-facing locators.
 -   QA only says "tests pass" without answering whether a normal user can use the feature.
@@ -40,6 +42,8 @@ Return:
 -   Prefer browser evidence for implemented UI: screenshots, visible locators, keyboard path, and responsive viewport proof.
 -   Automated checks are useful only if they encode UX semantics; CRUD success alone is not enough.
 -   When an implementation adds a screen next to an existing canonical screen, compare the shared component contract directly: density, header styling, numbered rows, action placement, and dialog affordances must match unless a visible product reason says otherwise.
+-   For layout authoring, verify the same common labels and settings dialog in both metahub and application surfaces, using the real `en`/`ru` resources rather than a test-only translation mock.
+-   For a template refactor based on an upstream/reference screen, compare the browser-rendered background, header offset, reserved content space, and fixed/flow scroll behavior with the checked-in reference contract.
 -   For destructive confirmation dialogs, browser or component evidence must prove that resize/fullscreen controls are absent and that footer actions have normal spacing. Saving screenshots without assertions is not sufficient evidence for this class of defect.
 -   Do not weaken or skip a UX canary without evidence that the failure is environmental.
 

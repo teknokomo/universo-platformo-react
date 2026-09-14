@@ -1,5 +1,13 @@
 import { createHash } from 'crypto'
-import { applicationTemplateKeySchema } from '@universo-react/types'
+import {
+    applicationTemplateKeySchema,
+    decodeLayoutConfigEnvelope,
+    decodeWidgetConfigEnvelope,
+    encodeLayoutConfigEnvelope,
+    encodeWidgetConfigEnvelope,
+    getLayoutZoneSettingDefault,
+    parseApplicationLayoutWidgetConfig
+} from '@universo-react/types'
 import { createLocalizedContent, getCodenamePrimary, isUuidV7, validateSnapshotLayoutIdentities } from '@universo-react/utils'
 import {
     assertSupportedModuleSdkApiVersion,
@@ -71,6 +79,8 @@ import { buildPlayCanvasMetahubLifecycleLockKey } from '../../playcanvas-project
 import type { MetahubSchemaService } from './MetahubSchemaService'
 import { validateMarketingSnapshotLayouts } from '../../publications/services/marketingSnapshotValidation'
 import { findDuplicateActiveSingleInstanceWidgetKey } from '../../layouts/widgetInvariants'
+import { acquireMetahubLayoutGraphLock } from '../../layouts/layoutGraphLocks'
+import { validateSnapshotLayoutNeutralMetadata } from '../../shared/snapshotLayouts'
 
 const log = createLogger('SnapshotRestoreService')
 
@@ -288,6 +298,14 @@ export class SnapshotRestoreService {
         // Validate template-specific layout data before any destructive table
         // replacement. Dashboard snapshots keep their existing restore rules.
         validateSnapshotLayoutIdentities(snapshot)
+        try {
+            validateSnapshotLayoutNeutralMetadata(snapshot)
+        } catch (error) {
+            if (error instanceof MetahubValidationError) throw error
+            throw new MetahubValidationError('Metahub snapshot layout metadata is invalid', {
+                operation: 'layout-neutral-metadata-preflight'
+            })
+        }
         validateSnapshotWidgetMultiplicity(snapshot)
         validateSnapshotActionIdentities(snapshot)
         validateMarketingSnapshotLayouts(snapshot)
@@ -347,6 +365,9 @@ export class SnapshotRestoreService {
                     const playCanvasProjectIdMap = playCanvasRestoreResult.projectIdMap
                     const actionIdMap = await this.restoreActions(trx, snapshot, entityIdMap, moduleIdMap, userId)
                     await this.restoreEventBindings(trx, snapshot, entityIdMap, actionIdMap, userId)
+                    // Layout restore replaces the complete graph. Serialize it
+                    // with authoring mutations and publication snapshot reads.
+                    await acquireMetahubLayoutGraphLock(transactionExecutor, this.schemaName)
                     await this.restoreLayouts(trx, snapshot, entityIdMap, userId, playCanvasRestoreResult)
                     await this.restoreSettings(trx, snapshot, userId)
                     await this.restorePackages(trx, metahubId, snapshot, userId, playCanvasProjectIdMap)
@@ -1975,6 +1996,49 @@ export class SnapshotRestoreService {
 
     // ── Final pass: Layouts + zone widgets ────────────────────────────────
 
+    private normalizeRestoredLayoutConfig(
+        templateKey: string,
+        rawConfig: unknown,
+        compositionMode: 'overlay' | 'independent',
+        baseLayoutId: string | null
+    ): Record<string, unknown> {
+        const decoded = decodeLayoutConfigEnvelope(rawConfig ?? {}, { templateKey, allowSourceZoneSettings: false })
+        const rendererConfig = decoded.rendererConfig
+        const neutral: Record<string, unknown> = { ...decoded.neutral }
+        if (compositionMode === 'overlay') {
+            if (baseLayoutId === null || !isUuidV7(baseLayoutId)) {
+                throw new Error('Snapshot overlay layout has an invalid base layout id')
+            }
+            neutral.composition = { mode: 'overlay', baseLayoutId }
+        } else {
+            neutral.composition = { mode: 'independent', baseLayoutId: null }
+        }
+        if (compositionMode === 'independent' && templateKey === 'marketing-page') {
+            const currentZoneSettings = (neutral.zoneSettings as Record<string, Record<string, unknown>> | undefined)?.['marketing-header']
+            neutral.zoneSettings = {
+                ...((neutral.zoneSettings as Record<string, unknown> | undefined) ?? {}),
+                'marketing-header': {
+                    ...(currentZoneSettings ?? {}),
+                    position:
+                        currentZoneSettings?.position ?? getLayoutZoneSettingDefault(templateKey, 'marketing-header', 'position') ?? 'fixed'
+                }
+            }
+        }
+        return encodeLayoutConfigEnvelope({ rendererConfig, neutral }, { templateKey })
+    }
+
+    private normalizeRestoredWidgetConfig(
+        templateKey: string,
+        widgetKey: string,
+        zone: string,
+        rawConfig: unknown
+    ): Record<string, unknown> {
+        const decoded = decodeWidgetConfigEnvelope(rawConfig ?? {}, { templateKey, widgetKey, zone })
+        const rendererConfig =
+            templateKey === 'dashboard' ? decoded.rendererConfig : parseApplicationLayoutWidgetConfig(widgetKey, decoded.rendererConfig)
+        return encodeWidgetConfigEnvelope({ rendererConfig, neutral: decoded.neutral }, { templateKey, widgetKey, zone })
+    }
+
     private async restoreLayouts(
         qb: SnapshotRestoreTransaction,
         snapshot: MetahubSnapshot,
@@ -1989,6 +2053,7 @@ export class SnapshotRestoreService {
         validateSnapshotWidgetMultiplicity(snapshot)
         const layouts = snapshot.layouts ?? []
         const scopedLayouts = snapshot.scopedLayouts ?? []
+        const layoutsById = new Map([...layouts, ...scopedLayouts].map((layout) => [layout.id, layout]))
         const overrides = snapshot.layoutWidgetOverrides ?? []
         const widgetTableName = await resolveWidgetTableName(qb, this.schemaName)
 
@@ -2014,7 +2079,12 @@ export class SnapshotRestoreService {
                     template_key: applicationTemplateKeySchema.parse(layout.templateKey),
                     name: layout.name ?? {},
                     description: layout.description ?? null,
-                    config: this.remapLayoutConfigReferences(layout.config ?? {}, entityIdMap, playCanvasRestoreResult),
+                    config: this.normalizeRestoredLayoutConfig(
+                        layout.templateKey,
+                        this.remapLayoutConfigReferences(layout.config ?? {}, entityIdMap, playCanvasRestoreResult),
+                        'independent',
+                        null
+                    ),
                     is_active: layout.isActive !== false,
                     is_default: layout.isDefault ?? false,
                     sort_order: layout.sortOrder ?? 0,
@@ -2060,7 +2130,12 @@ export class SnapshotRestoreService {
                     template_key: applicationTemplateKeySchema.parse(layout.templateKey),
                     name: layout.name ?? {},
                     description: layout.description ?? null,
-                    config: this.remapLayoutConfigReferences(layout.config ?? {}, entityIdMap, playCanvasRestoreResult),
+                    config: this.normalizeRestoredLayoutConfig(
+                        layout.templateKey,
+                        this.remapLayoutConfigReferences(layout.config ?? {}, entityIdMap, playCanvasRestoreResult),
+                        layout.compositionMode,
+                        newBaseLayoutId
+                    ),
                     is_active: layout.isActive !== false,
                     is_default: layout.isDefault ?? false,
                     sort_order: layout.sortOrder ?? 0,
@@ -2085,6 +2160,8 @@ export class SnapshotRestoreService {
         const widgets = snapshot.layoutZoneWidgets
         if (!widgets?.length) return
 
+        const snapshotWidgetsById = new Map(widgets.map((widget) => [widget.id, widget]))
+
         for (const widget of widgets) {
             const newLayoutId = layoutIdMap.get(widget.layoutId)
             if (!newLayoutId) {
@@ -2102,7 +2179,12 @@ export class SnapshotRestoreService {
                     zone: widget.zone,
                     widget_key: widget.widgetKey,
                     sort_order: widget.sortOrder ?? 0,
-                    config: this.remapLayoutConfigReferences(widget.config ?? {}, entityIdMap, playCanvasRestoreResult),
+                    config: this.normalizeRestoredWidgetConfig(
+                        layoutsById.get(widget.layoutId)?.templateKey ?? 'dashboard',
+                        widget.widgetKey,
+                        widget.zone,
+                        this.remapLayoutConfigReferences(widget.config ?? {}, entityIdMap, playCanvasRestoreResult)
+                    ),
                     is_active: widget.isActive !== false,
                     _upl_created_at: now,
                     _upl_created_by: userId,
@@ -2146,7 +2228,12 @@ export class SnapshotRestoreService {
                     config:
                         override.config == null
                             ? null
-                            : this.remapLayoutConfigReferences(override.config, entityIdMap, playCanvasRestoreResult),
+                            : this.normalizeRestoredWidgetConfig(
+                                  layoutsById.get(override.layoutId)?.templateKey ?? 'dashboard',
+                                  snapshotWidgetsById.get(override.baseWidgetId)?.widgetKey ?? '',
+                                  override.zone ?? snapshotWidgetsById.get(override.baseWidgetId)?.zone ?? 'marketing-main',
+                                  this.remapLayoutConfigReferences(override.config, entityIdMap, playCanvasRestoreResult)
+                              ),
                     is_active: typeof override.isActive === 'boolean' ? override.isActive : null,
                     is_deleted_override: override.isDeletedOverride === true,
                     _upl_created_at: now,

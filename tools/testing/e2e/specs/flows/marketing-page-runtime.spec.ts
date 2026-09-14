@@ -135,6 +135,7 @@ test('@flow @marketing-page publishes the data-driven MUI marketing page without
         const localMedia = await installMarketingPageLocalMedia(page)
         await page.goto(`/a/${applicationId}`)
         await expect(page.locator('#marketing-page-main')).toBeVisible()
+        await expect(page.getByRole('link', { name: 'Skip to content' })).toHaveCount(0)
         await expect(page.locator('#hero')).toBeVisible()
         await expect(page.locator('#logoCollection')).toBeVisible()
         await expect(page.locator('#features')).toBeVisible()

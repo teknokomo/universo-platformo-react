@@ -1,5 +1,6 @@
 import type { Request, Response } from 'express'
 import { z } from 'zod'
+import { applicationLayoutZoneSchema } from '@universo-react/types'
 import { uuidV7Schema, type DbExecutor } from '@universo-react/utils'
 import { ensureApplicationAccess, type ApplicationRole } from '../routes/guards'
 import { getRequestDbExecutor } from '../utils'
@@ -14,7 +15,9 @@ import {
     strictApplicationLayoutWidgetMoveMutationSchema,
     strictApplicationLayoutWidgetMutationSchema,
     strictApplicationLayoutWidgetResetBatchMutationSchema,
-    strictApplicationLayoutWidgetToggleMutationSchema
+    strictApplicationLayoutWidgetToggleMutationSchema,
+    strictApplicationLayoutZoneSettingMutationSchema,
+    strictApplicationLayoutZoneSettingResetMutationSchema
 } from '../validation/applicationLayoutMutationSchemas'
 import {
     applicationLayoutTablesExist,
@@ -30,11 +33,13 @@ import {
     listApplicationLayouts,
     moveApplicationLayoutWidget,
     resetApplicationLayoutConfig,
+    resetApplicationLayoutZoneSetting,
     resetApplicationLayoutWidgetConfigsBatch,
     toggleApplicationLayoutWidget,
     updateApplicationLayout,
     updateApplicationLayoutWidgetConfig,
     updateApplicationLayoutWidgetConfigsBatch,
+    updateApplicationLayoutZoneSetting,
     upsertApplicationLayoutWidget
 } from '../persistence/applicationLayoutsStore'
 
@@ -110,6 +115,10 @@ const handleKnownError = (res: Response, error: unknown): boolean => {
         res.status(400).json({ error: message })
         return true
     }
+    if (message === 'APPLICATION_LAYOUT_RESERVED_METADATA' || message === 'APPLICATION_LAYOUT_ZONE_SETTING_INVALID') {
+        res.status(400).json({ error: message })
+        return true
+    }
     if (message === 'APPLICATION_LAYOUT_SCOPE_INVALID') {
         res.status(400).json({ error: message })
         return true
@@ -155,6 +164,23 @@ const parseLayoutParam = (res: Response, value: unknown, errorCode: string): str
         return null
     }
     return parsed.data
+}
+
+const parseZoneSettingParam = (res: Response, value: unknown): string | null => {
+    const parsed = applicationLayoutZoneSchema.safeParse(value)
+    if (!parsed.success) {
+        res.status(400).json({ error: 'APPLICATION_LAYOUT_ZONE_SETTING_INVALID' })
+        return null
+    }
+    return parsed.data
+}
+
+const parseSettingKeyParam = (res: Response, value: unknown): string | null => {
+    if (typeof value !== 'string' || !/^[A-Za-z][A-Za-z0-9._-]{0,127}$/u.test(value)) {
+        res.status(400).json({ error: 'APPLICATION_LAYOUT_ZONE_SETTING_INVALID' })
+        return null
+    }
+    return value
 }
 
 const normalizeLayoutReadRoles = (settings: unknown): ApplicationRole[] => {
@@ -299,6 +325,70 @@ export function createApplicationLayoutsController(
             }
             try {
                 const item = await resetApplicationLayoutConfig(ctx.executor, ctx.schemaName, layoutId, parsedBody.data, ctx.userId)
+                if (!item) {
+                    res.status(404).json({ error: 'Layout not found' })
+                    return
+                }
+                res.json({ item })
+            } catch (error) {
+                if (!handleKnownError(res, error)) throw error
+            }
+        },
+
+        async updateZoneSetting(req: Request, res: Response) {
+            const ctx = await ensureSchema(req, res)
+            if (!ctx) return
+            const layoutId = parseLayoutParam(res, req.params.layoutId, 'APPLICATION_LAYOUT_ID_INVALID')
+            const zone = parseZoneSettingParam(res, req.params.zone)
+            const settingKey = parseSettingKeyParam(res, req.params.settingKey)
+            if (!layoutId || !zone || !settingKey) return
+            const parsedBody = strictApplicationLayoutZoneSettingMutationSchema.safeParse(req.body)
+            if (!parsedBody.success) {
+                res.status(400).json({ error: 'APPLICATION_LAYOUT_ZONE_SETTING_INVALID' })
+                return
+            }
+            try {
+                const item = await updateApplicationLayoutZoneSetting(
+                    ctx.executor,
+                    ctx.schemaName,
+                    layoutId,
+                    zone,
+                    settingKey,
+                    parsedBody.data,
+                    ctx.userId
+                )
+                if (!item) {
+                    res.status(404).json({ error: 'Layout not found' })
+                    return
+                }
+                res.json({ item })
+            } catch (error) {
+                if (!handleKnownError(res, error)) throw error
+            }
+        },
+
+        async resetZoneSetting(req: Request, res: Response) {
+            const ctx = await ensureSchema(req, res)
+            if (!ctx) return
+            const layoutId = parseLayoutParam(res, req.params.layoutId, 'APPLICATION_LAYOUT_ID_INVALID')
+            const zone = parseZoneSettingParam(res, req.params.zone)
+            const settingKey = parseSettingKeyParam(res, req.params.settingKey)
+            if (!layoutId || !zone || !settingKey) return
+            const parsedBody = strictApplicationLayoutZoneSettingResetMutationSchema.safeParse(req.body)
+            if (!parsedBody.success) {
+                res.status(400).json({ error: 'APPLICATION_LAYOUT_ZONE_SETTING_INVALID' })
+                return
+            }
+            try {
+                const item = await resetApplicationLayoutZoneSetting(
+                    ctx.executor,
+                    ctx.schemaName,
+                    layoutId,
+                    zone,
+                    settingKey,
+                    parsedBody.data,
+                    ctx.userId
+                )
                 if (!item) {
                     res.status(404).json({ error: 'Layout not found' })
                     return

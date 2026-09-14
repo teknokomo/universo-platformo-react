@@ -2,6 +2,7 @@ import { z } from 'zod'
 
 import type { VersionedLocalizedContent } from './admin'
 import type { LayoutSemanticRegion } from './applicationTemplates'
+import type { LayoutLogicalPlacement, LayoutWidgetMobileProjection } from './layoutEnvelope'
 export { APPLICATION_TEMPLATE_REGISTRY } from './applicationTemplates'
 export type { ApplicationTemplateRegistryEntry } from './applicationTemplates'
 import { pageBlockContentSchema } from './pageBlocks'
@@ -47,7 +48,9 @@ export const MARKETING_LAYOUT_ZONE_SEMANTICS = {
 
 /** Template-aware widget keys. Dashboard keys are deliberately not included. */
 export const MARKETING_WIDGET_KEYS = [
+    'marketing.brand',
     'marketing.navigation',
+    'marketing.auth',
     'marketing.hero',
     'marketing.collection',
     'marketing.pricing',
@@ -62,16 +65,63 @@ export const marketingCollectionVariantSchema = z.enum(MARKETING_COLLECTION_VARI
 
 export interface MarketingWidgetRegistryEntry {
     readonly key: MarketingWidgetKey
-    /** Every registered marketing widget can be placed as a separate instance. */
+    /** Header capabilities may be singleton; content widgets can remain repeatable. */
     readonly repeatable: boolean
     readonly allowedZones: readonly MarketingLayoutZone[]
+    /** Default logical group for persisted header capabilities. */
+    readonly defaultPlacement?: LayoutLogicalPlacement
+    /** Responsive projection owned by the marketing header shell. */
+    readonly mobileProjection?: LayoutWidgetMobileProjection
 }
 
+/** Serializable transport contract for one marketing widget capability. */
+export const marketingWidgetRegistryEntrySchema = z
+    .object({
+        key: marketingWidgetKeySchema,
+        repeatable: z.boolean(),
+        allowedZones: z.array(marketingLayoutZoneSchema).min(1),
+        defaultPlacement: z.enum(['start', 'end']).optional(),
+        mobileProjection: z.enum(['compact-header', 'drawer']).optional()
+    })
+    .strict()
+
+/** Strict registry envelope used by metadata consumers; it contains no executable validators. */
+export const marketingWidgetRegistrySchema = z
+    .record(z.string().trim().min(1).max(128), marketingWidgetRegistryEntrySchema)
+    .superRefine((registry, context) => {
+        for (const [registryKey, entry] of Object.entries(registry)) {
+            if (registryKey !== entry.key) {
+                context.addIssue({
+                    code: z.ZodIssueCode.custom,
+                    path: [registryKey, 'key'],
+                    message: 'Marketing registry keys must match their entry keys.'
+                })
+            }
+        }
+    })
+export type MarketingWidgetRegistry = z.infer<typeof marketingWidgetRegistrySchema>
+
 export const MARKETING_WIDGET_REGISTRY: Readonly<Record<MarketingWidgetKey, MarketingWidgetRegistryEntry>> = {
+    'marketing.brand': {
+        key: 'marketing.brand',
+        repeatable: false,
+        allowedZones: ['marketing-header'],
+        defaultPlacement: 'start',
+        mobileProjection: 'compact-header'
+    },
     'marketing.navigation': {
         key: 'marketing.navigation',
         repeatable: true,
-        allowedZones: ['marketing-header']
+        allowedZones: ['marketing-header'],
+        defaultPlacement: 'start',
+        mobileProjection: 'drawer'
+    },
+    'marketing.auth': {
+        key: 'marketing.auth',
+        repeatable: false,
+        allowedZones: ['marketing-header'],
+        defaultPlacement: 'end',
+        mobileProjection: 'drawer'
     },
     'marketing.hero': {
         key: 'marketing.hero',
@@ -118,7 +168,9 @@ export const marketingSourceCodenameSchema = z.enum(MARKETING_SOURCE_CODENAMES)
 export const MARKETING_COPY_SOURCE_CODENAME = 'MarketingPageSection' as const
 
 export const MARKETING_WIDGET_SOURCE_CODENAMES: Readonly<Record<MarketingWidgetKey, readonly MarketingSourceCodename[]>> = {
+    'marketing.brand': ['MarketingPageSiteSettings'],
     'marketing.navigation': ['MarketingPageNavigation'],
+    'marketing.auth': [],
     'marketing.hero': ['MarketingPageSiteSettings'],
     'marketing.collection': [
         'MarketingPageLogo',
@@ -808,6 +860,18 @@ export const marketingFooterWidgetConfigSchema = marketingWidgetConfigBaseSchema
     .strict()
     .superRefine((value, context) => refineMarketingWidgetSources(value, context, 'marketing.footer'))
 
+/** Header-only content capabilities are persisted separately from navigation. */
+export const marketingBrandWidgetConfigSchema = marketingWidgetConfigBaseSchema
+    .strict()
+    .superRefine((value, context) => refineMarketingWidgetSources(value, context, 'marketing.brand'))
+
+export const marketingAuthWidgetConfigSchema = z
+    .object({
+        instanceKey: marketingWidgetInstanceKeySchema,
+        showAuthActions: z.boolean().default(true)
+    })
+    .strict()
+
 export const marketingWidgetDataSchema = z
     .object({ records: z.array(marketingPageRecordSchema).max(MARKETING_MAX_RUNTIME_RECORDS) })
     .strict()
@@ -943,11 +1007,55 @@ export const marketingRuntimeWidgetSchema: z.ZodType<MarketingRuntimeWidget> = z
     marketingFooterWidgetSchema
 ])
 
+const marketingAtomicHeaderWidgetBaseSchema = z.object({
+    instanceKey: marketingWidgetInstanceKeySchema,
+    zone: z.literal('marketing-header'),
+    sortOrder: z.number().int().min(0).max(100_000),
+    isActive: z.boolean(),
+    data: marketingWidgetDataSchema
+})
+
+export const marketingBrandWidgetSchema = marketingAtomicHeaderWidgetBaseSchema
+    .extend({
+        widgetKey: z.literal('marketing.brand'),
+        config: marketingBrandWidgetConfigSchema
+    })
+    .superRefine((value, context) => {
+        if (value.data.records.some((record) => record.kind !== 'siteSettings')) {
+            context.addIssue({
+                code: z.ZodIssueCode.custom,
+                path: ['data'],
+                message: 'Brand data must contain site settings only.'
+            })
+        }
+    })
+
+export const marketingAuthWidgetSchema = marketingAtomicHeaderWidgetBaseSchema
+    .extend({
+        widgetKey: z.literal('marketing.auth'),
+        config: marketingAuthWidgetConfigSchema
+    })
+    .superRefine((value, context) => {
+        if (value.data.records.length > 0) {
+            context.addIssue({
+                code: z.ZodIssueCode.custom,
+                path: ['data'],
+                message: 'Authentication data must not contain content records.'
+            })
+        }
+    })
+
+export type MarketingAtomicHeaderWidget = z.infer<typeof marketingBrandWidgetSchema> | z.infer<typeof marketingAuthWidgetSchema>
+
+export const marketingAtomicHeaderWidgetSchema = z.union([marketingBrandWidgetSchema, marketingAuthWidgetSchema])
+
+export const marketingPageWidgetSchema = z.union([marketingRuntimeWidgetSchema, marketingAtomicHeaderWidgetSchema])
+
 export type MarketingPageData = {
     templateKey: typeof MARKETING_PAGE_TEMPLATE_KEY
     locale: MarketingLocaleCode
     config: MarketingPageConfig
-    widgets: MarketingRuntimeWidget[]
+    widgets: Array<MarketingRuntimeWidget | MarketingAtomicHeaderWidget>
     runtime: MarketingRuntimeIdentity
     provenance?: MarketingProvenance
     richContent?: z.infer<typeof pageBlockContentSchema>
@@ -958,7 +1066,7 @@ export const marketingPageDataSchema: z.ZodType<MarketingPageData> = z
         templateKey: z.literal(MARKETING_PAGE_TEMPLATE_KEY),
         locale: marketingLocaleCodeSchema,
         config: marketingPageConfigSchema,
-        widgets: z.array(marketingRuntimeWidgetSchema).min(1).max(64),
+        widgets: z.array(marketingPageWidgetSchema).min(1).max(64),
         runtime: marketingRuntimeIdentitySchema,
         provenance: marketingProvenanceSchema.optional(),
         richContent: pageBlockContentSchema.optional()

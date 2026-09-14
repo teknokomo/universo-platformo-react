@@ -14,150 +14,181 @@ import type { MetahubSnapshot } from '../../domains/publications/services/Snapsh
 
 type MockPoolExecutor = {
     query: jest.Mock<Promise<unknown[]>, [string, unknown[]]>
+    transaction: jest.Mock<Promise<unknown>, [(executor: MockPoolExecutor) => Promise<unknown>]>
+    isReleased: () => boolean
 }
 
-const createPoolExecutor = (): MockPoolExecutor => ({
-    query: jest.fn(async (sql: string, params: unknown[]) => {
-        if (sql.includes('_mhb_layouts')) {
-            return [
-                {
-                    id: 'layout-global-active',
-                    scope_entity_id: null,
-                    base_layout_id: null,
-                    template_key: 'dashboard',
-                    name: { en: 'Global active' },
-                    description: null,
-                    config: { showHeader: true },
-                    is_active: true,
-                    is_default: true,
-                    sort_order: 0
-                },
-                {
-                    id: 'layout-global-inactive',
-                    scope_entity_id: null,
-                    base_layout_id: null,
-                    template_key: 'dashboard',
-                    name: { en: 'Global inactive' },
-                    description: null,
-                    config: { showHeader: false },
-                    is_active: false,
-                    is_default: false,
-                    sort_order: 1
-                },
-                {
-                    id: 'layout-object-active',
-                    scope_entity_id: 'object-1',
-                    base_layout_id: 'layout-global-active',
-                    template_key: 'dashboard',
-                    name: { en: 'Object active' },
-                    description: null,
-                    config: { showHeader: false },
-                    is_active: true,
-                    is_default: true,
-                    sort_order: 0
-                },
-                {
-                    id: 'layout-object-inactive',
-                    scope_entity_id: 'object-2',
-                    base_layout_id: 'layout-global-inactive',
-                    template_key: 'dashboard',
-                    name: { en: 'Object inactive' },
-                    description: null,
-                    config: { showHeader: true },
-                    is_active: false,
-                    is_default: false,
-                    sort_order: 1
-                }
-            ]
-        }
+const createPoolExecutor = (): MockPoolExecutor => {
+    const executor = {
+        query: jest.fn(async (sql: string, params: unknown[]) => {
+            if (sql.includes('pg_advisory_xact_lock')) return []
+            if (sql.includes('_mhb_layouts')) {
+                return [
+                    {
+                        id: '019e8afa-0000-7000-8000-000000000001',
+                        scope_entity_id: null,
+                        base_layout_id: null,
+                        template_key: 'dashboard',
+                        name: { en: 'Global active' },
+                        description: null,
+                        config: {
+                            showHeader: true,
+                            __layout: { composition: { mode: 'independent', baseLayoutId: null } }
+                        },
+                        is_active: true,
+                        is_default: true,
+                        sort_order: 0
+                    },
+                    {
+                        id: '019e8afa-0000-7000-8000-000000000002',
+                        scope_entity_id: null,
+                        base_layout_id: null,
+                        template_key: 'dashboard',
+                        name: { en: 'Global inactive' },
+                        description: null,
+                        config: {
+                            showHeader: false,
+                            __layout: { composition: { mode: 'independent', baseLayoutId: null } }
+                        },
+                        is_active: false,
+                        is_default: false,
+                        sort_order: 1
+                    },
+                    {
+                        id: '019e8afa-0000-7000-8000-000000000003',
+                        scope_entity_id: 'object-1',
+                        base_layout_id: '019e8afa-0000-7000-8000-000000000001',
+                        template_key: 'dashboard',
+                        name: { en: 'Object active' },
+                        description: null,
+                        config: {
+                            showHeader: false,
+                            __layout: {
+                                composition: {
+                                    mode: 'overlay',
+                                    baseLayoutId: '019e8afa-0000-7000-8000-000000000001'
+                                }
+                            }
+                        },
+                        is_active: true,
+                        is_default: true,
+                        sort_order: 0
+                    },
+                    {
+                        id: '019e8afa-0000-7000-8000-000000000004',
+                        scope_entity_id: 'object-2',
+                        base_layout_id: '019e8afa-0000-7000-8000-000000000002',
+                        template_key: 'dashboard',
+                        name: { en: 'Object inactive' },
+                        description: null,
+                        config: {
+                            showHeader: true,
+                            __layout: {
+                                composition: {
+                                    mode: 'overlay',
+                                    baseLayoutId: '019e8afa-0000-7000-8000-000000000002'
+                                }
+                            }
+                        },
+                        is_active: false,
+                        is_default: false,
+                        sort_order: 1
+                    }
+                ]
+            }
 
-        if (sql.includes('information_schema.tables') && params[1] === '_mhb_widgets') {
-            return [{ exists: true }]
-        }
+            if (sql.includes('information_schema.tables') && params[1] === '_mhb_widgets') {
+                return [{ exists: true }]
+            }
 
-        if (sql.includes('_mhb_widgets')) {
-            return [
-                {
-                    id: 'widget-global-active',
-                    layout_id: 'layout-global-active',
-                    zone: 'left',
-                    widget_key: 'menuWidget',
-                    sort_order: 1,
-                    config: { showTitle: true },
-                    is_active: true
-                },
-                {
-                    id: 'widget-global-inactive',
-                    layout_id: 'layout-global-inactive',
-                    zone: 'right',
-                    widget_key: 'detailsTable',
-                    sort_order: 1,
-                    config: {},
-                    is_active: true
-                },
-                {
-                    id: 'widget-object-active',
-                    layout_id: 'layout-object-active',
-                    zone: 'top',
-                    widget_key: 'statsOverview',
-                    sort_order: 1,
-                    config: {},
-                    is_active: true
-                },
-                {
-                    id: 'widget-object-inactive',
-                    layout_id: 'layout-object-inactive',
-                    zone: 'bottom',
-                    widget_key: 'infoCard',
-                    sort_order: 2,
-                    config: {},
-                    is_active: false
-                }
-            ]
-        }
+            if (sql.includes('_mhb_widgets')) {
+                return [
+                    {
+                        id: 'widget-global-active',
+                        layout_id: '019e8afa-0000-7000-8000-000000000001',
+                        zone: 'left',
+                        widget_key: 'menuWidget',
+                        sort_order: 1,
+                        config: { showTitle: true },
+                        is_active: true
+                    },
+                    {
+                        id: 'widget-global-inactive',
+                        layout_id: '019e8afa-0000-7000-8000-000000000002',
+                        zone: 'center',
+                        widget_key: 'detailsTable',
+                        sort_order: 1,
+                        config: {},
+                        is_active: true
+                    },
+                    {
+                        id: 'widget-object-active',
+                        layout_id: '019e8afa-0000-7000-8000-000000000003',
+                        zone: 'top',
+                        widget_key: 'languageSwitcher',
+                        sort_order: 1,
+                        config: {},
+                        is_active: true
+                    },
+                    {
+                        id: 'widget-object-inactive',
+                        layout_id: '019e8afa-0000-7000-8000-000000000004',
+                        zone: 'right',
+                        widget_key: 'infoCard',
+                        sort_order: 2,
+                        config: {},
+                        is_active: false
+                    }
+                ]
+            }
 
-        if (sql.includes('information_schema.tables') && params[1] === '_mhb_layout_widget_overrides') {
-            return [{ exists: true }]
-        }
+            if (sql.includes('information_schema.tables') && params[1] === '_mhb_layout_widget_overrides') {
+                return [{ exists: true }]
+            }
 
-        if (sql.includes('_mhb_layout_widget_overrides')) {
-            return [
-                {
-                    id: 'override-active',
-                    layout_id: 'layout-object-active',
-                    base_widget_id: 'widget-global-active',
-                    zone: 'center',
-                    sort_order: 2,
-                    config: { ignored: true },
-                    is_active: true,
-                    is_deleted_override: false
-                },
-                {
-                    id: 'override-inactive',
-                    layout_id: 'layout-object-inactive',
-                    base_widget_id: 'widget-global-inactive',
-                    zone: 'left',
-                    sort_order: 1,
-                    config: null,
-                    is_active: false,
-                    is_deleted_override: false
-                },
-                {
-                    id: 'override-orphan',
-                    layout_id: 'layout-missing',
-                    base_widget_id: 'widget-global-active',
-                    zone: 'right',
-                    sort_order: 9,
-                    config: null,
-                    is_active: true,
-                    is_deleted_override: false
-                }
-            ]
-        }
+            if (sql.includes('_mhb_layout_widget_overrides')) {
+                return [
+                    {
+                        id: 'override-active',
+                        layout_id: '019e8afa-0000-7000-8000-000000000003',
+                        base_widget_id: 'widget-global-active',
+                        zone: 'left',
+                        sort_order: 2,
+                        config: { ignored: true },
+                        is_active: true,
+                        is_deleted_override: false
+                    },
+                    {
+                        id: 'override-inactive',
+                        layout_id: '019e8afa-0000-7000-8000-000000000004',
+                        base_widget_id: 'widget-global-inactive',
+                        zone: 'left',
+                        sort_order: 1,
+                        config: null,
+                        is_active: false,
+                        is_deleted_override: false
+                    },
+                    {
+                        id: 'override-orphan',
+                        layout_id: 'layout-missing',
+                        base_widget_id: 'widget-global-active',
+                        zone: 'right',
+                        sort_order: 9,
+                        config: null,
+                        is_active: true,
+                        is_deleted_override: false
+                    }
+                ]
+            }
 
-        throw new Error(`Unexpected query: ${sql}`)
-    })
-})
+            throw new Error(`Unexpected query: ${sql}`)
+        })
+    } as MockPoolExecutor
+
+    executor.transaction = jest.fn(async (callback: (tx: MockPoolExecutor) => Promise<unknown>) => callback(executor))
+    executor.isReleased = () => false
+    return executor
+}
 
 describe('attachLayoutsToSnapshot', () => {
     beforeEach(() => {
@@ -184,64 +215,134 @@ describe('attachLayoutsToSnapshot', () => {
         expect(schemaService.ensureSchema).toHaveBeenCalledWith('metahub-1', 'user-1')
 
         expect(snapshot.layouts).toEqual([
-            expect.objectContaining({ id: 'layout-global-active', isActive: true, isDefault: true }),
-            expect.objectContaining({ id: 'layout-global-inactive', isActive: false, isDefault: false })
+            expect.objectContaining({ id: '019e8afa-0000-7000-8000-000000000001', isActive: true, isDefault: true }),
+            expect.objectContaining({ id: '019e8afa-0000-7000-8000-000000000002', isActive: false, isDefault: false })
         ])
         expect(snapshot.layouts?.map((layout) => layout.templateKey)).toEqual(['dashboard', 'dashboard'])
 
         expect(snapshot.scopedLayouts).toEqual([
-            expect.objectContaining({ id: 'layout-object-active', scopeEntityId: 'object-1', baseLayoutId: 'layout-global-active' }),
             expect.objectContaining({
-                id: 'layout-object-inactive',
+                id: '019e8afa-0000-7000-8000-000000000003',
+                scopeEntityId: 'object-1',
+                baseLayoutId: '019e8afa-0000-7000-8000-000000000001'
+            }),
+            expect.objectContaining({
+                id: '019e8afa-0000-7000-8000-000000000004',
                 scopeEntityId: 'object-2',
-                baseLayoutId: 'layout-global-inactive'
+                baseLayoutId: '019e8afa-0000-7000-8000-000000000002'
             })
         ])
 
-        expect(snapshot.defaultLayoutId).toBe('layout-global-active')
+        expect(snapshot.defaultLayoutId).toBe('019e8afa-0000-7000-8000-000000000001')
         expect(snapshot.layoutConfig).toEqual({ showHeader: true })
 
         expect(snapshot.layoutZoneWidgets).toEqual(
             expect.arrayContaining([
-                expect.objectContaining({ id: 'widget-global-active', layoutId: 'layout-global-active' }),
-                expect.objectContaining({ id: 'widget-global-inactive', layoutId: 'layout-global-inactive' }),
-                expect.objectContaining({ id: 'widget-object-active', layoutId: 'layout-object-active' }),
-                expect.objectContaining({ id: 'widget-object-inactive', layoutId: 'layout-object-inactive', isActive: false })
+                expect.objectContaining({ id: 'widget-global-active', layoutId: '019e8afa-0000-7000-8000-000000000001' }),
+                expect.objectContaining({ id: 'widget-global-inactive', layoutId: '019e8afa-0000-7000-8000-000000000002' }),
+                expect.objectContaining({ id: 'widget-object-active', layoutId: '019e8afa-0000-7000-8000-000000000003' }),
+                expect.objectContaining({ id: 'widget-object-inactive', layoutId: '019e8afa-0000-7000-8000-000000000004', isActive: false })
             ])
         )
 
         expect(snapshot.layoutWidgetOverrides).toEqual([
             expect.objectContaining({
                 id: 'override-active',
-                layoutId: 'layout-object-active',
+                layoutId: '019e8afa-0000-7000-8000-000000000003',
                 baseWidgetId: 'widget-global-active',
                 config: { ignored: true }
             }),
             expect.objectContaining({
                 id: 'override-inactive',
-                layoutId: 'layout-object-inactive',
+                layoutId: '019e8afa-0000-7000-8000-000000000004',
                 baseWidgetId: 'widget-global-inactive',
                 isActive: false
             })
         ])
     })
 
+    it('round-trips flow zone settings and widget placement without snapshot composition duplication', async () => {
+        const globalLayoutId = '019e8afa-0000-7000-8000-000000000010'
+        const poolExecutor = createPoolExecutor()
+        poolExecutor.query.mockImplementation(async (sql: string, params: unknown[]) => {
+            if (sql.includes('pg_advisory_xact_lock')) return []
+            if (sql.includes('_mhb_layouts')) {
+                return [
+                    {
+                        id: globalLayoutId,
+                        scope_entity_id: null,
+                        base_layout_id: null,
+                        template_key: 'marketing-page',
+                        name: { en: 'Marketing page' },
+                        description: null,
+                        config: {
+                            appearance: 'hero',
+                            __layout: {
+                                composition: { mode: 'independent', baseLayoutId: null },
+                                zoneSettings: { 'marketing-header': { position: 'flow' } }
+                            }
+                        },
+                        is_active: true,
+                        is_default: true,
+                        sort_order: 0
+                    }
+                ]
+            }
+            if (sql.includes('information_schema.tables') && params[1] === '_mhb_widgets') return [{ exists: true }]
+            if (sql.includes('_mhb_widgets')) {
+                return [
+                    {
+                        id: '019e8afa-0000-7000-8000-000000000011',
+                        layout_id: globalLayoutId,
+                        zone: 'marketing-header',
+                        widget_key: 'marketing.brand',
+                        sort_order: 1,
+                        config: { instanceKey: 'brand', __layout: { placement: 'start' } },
+                        is_active: true
+                    }
+                ]
+            }
+            if (sql.includes('information_schema.tables') && params[1] === '_mhb_layout_widget_overrides') return [{ exists: false }]
+            throw new Error(`Unexpected query: ${sql}`)
+        })
+        mockGetPoolExecutor.mockReturnValue(poolExecutor)
+
+        const snapshot = {} as MetahubSnapshot
+        await attachLayoutsToSnapshot({
+            schemaService: { ensureSchema: jest.fn(async () => 'mhb_a1b2c3d4e5f67890abcdef1234567890_b1') } as any,
+            snapshot,
+            metahubId: 'metahub-1',
+            userId: 'user-1'
+        })
+
+        expect(snapshot.layouts?.[0]?.config).toEqual({
+            appearance: 'hero',
+            __layout: { zoneSettings: { 'marketing-header': { position: 'flow' } } }
+        })
+        expect(snapshot.layoutConfig).toEqual(snapshot.layouts?.[0]?.config)
+        expect(snapshot.layoutZoneWidgets?.[0]?.config).toEqual({ instanceKey: 'brand', __layout: { placement: 'start' } })
+        expect(snapshot.layouts?.[0]?.config.__layout).not.toHaveProperty('composition')
+    })
+
     it('fails closed when a stored layout template key is unknown', async () => {
         const poolExecutor = createPoolExecutor()
-        poolExecutor.query.mockImplementationOnce(async () => [
-            {
-                id: 'layout-corrupt',
-                scope_entity_id: null,
-                base_layout_id: null,
-                template_key: 'legacy-template',
-                name: { en: 'Corrupt' },
-                description: null,
-                config: {},
-                is_active: true,
-                is_default: true,
-                sort_order: 0
-            }
-        ])
+        poolExecutor.query.mockImplementation(async (sql: string) => {
+            if (sql.includes('pg_advisory_xact_lock')) return []
+            return [
+                {
+                    id: 'layout-corrupt',
+                    scope_entity_id: null,
+                    base_layout_id: null,
+                    template_key: 'legacy-template',
+                    name: { en: 'Corrupt' },
+                    description: null,
+                    config: {},
+                    is_active: true,
+                    is_default: true,
+                    sort_order: 0
+                }
+            ]
+        })
         mockGetPoolExecutor.mockReturnValue(poolExecutor)
 
         const snapshot = {} as MetahubSnapshot
@@ -256,22 +357,63 @@ describe('attachLayoutsToSnapshot', () => {
         expect(snapshot.layouts).toBeUndefined()
     })
 
+    it('fails closed when a stored metahub layout contains application-only source zone settings', async () => {
+        const poolExecutor = createPoolExecutor()
+        poolExecutor.query.mockImplementation(async (sql: string) => {
+            if (sql.includes('pg_advisory_xact_lock')) return []
+            return [
+                {
+                    id: '019e8afa-0000-7000-8000-000000000031',
+                    scope_entity_id: null,
+                    base_layout_id: null,
+                    template_key: 'marketing-page',
+                    name: { en: 'Invalid marketing layout' },
+                    description: null,
+                    config: {
+                        __layout: {
+                            composition: { mode: 'independent', baseLayoutId: null },
+                            sourceZoneSettings: { 'marketing-header': { position: 'flow' } }
+                        }
+                    },
+                    is_active: true,
+                    is_default: true,
+                    sort_order: 0
+                }
+            ]
+        })
+        mockGetPoolExecutor.mockReturnValue(poolExecutor)
+
+        const snapshot = {} as MetahubSnapshot
+        await expect(
+            attachLayoutsToSnapshot({
+                schemaService: { ensureSchema: jest.fn(async () => 'mhb_a1b2c3d4e5f67890abcdef1234567890_b1') } as any,
+                snapshot,
+                metahubId: 'metahub-1',
+                userId: 'user-1'
+            })
+        ).rejects.toThrow(/sourceZoneSettings/)
+        expect(snapshot.layouts).toBeUndefined()
+    })
+
     it('fails closed when stored dashboard layout fields have malformed types', async () => {
         const poolExecutor = createPoolExecutor()
-        poolExecutor.query.mockImplementationOnce(async () => [
-            {
-                id: 'layout-corrupt',
-                scope_entity_id: null,
-                base_layout_id: null,
-                template_key: 'dashboard',
-                name: { en: 'Corrupt' },
-                description: null,
-                config: 'false',
-                is_active: 'false',
-                is_default: true,
-                sort_order: '1'
-            }
-        ])
+        poolExecutor.query.mockImplementation(async (sql: string) => {
+            if (sql.includes('pg_advisory_xact_lock')) return []
+            return [
+                {
+                    id: 'layout-corrupt',
+                    scope_entity_id: null,
+                    base_layout_id: null,
+                    template_key: 'dashboard',
+                    name: { en: 'Corrupt' },
+                    description: null,
+                    config: 'false',
+                    is_active: 'false',
+                    is_default: true,
+                    sort_order: '1'
+                }
+            ]
+        })
         mockGetPoolExecutor.mockReturnValue(poolExecutor)
 
         const snapshot = {} as MetahubSnapshot
@@ -289,16 +431,17 @@ describe('attachLayoutsToSnapshot', () => {
     it('fails closed when a stored dashboard widget has malformed fields', async () => {
         const poolExecutor = createPoolExecutor()
         poolExecutor.query.mockImplementation(async (sql: string, params: unknown[]) => {
+            if (sql.includes('pg_advisory_xact_lock')) return []
             if (sql.includes('_mhb_layouts')) {
                 return [
                     {
-                        id: 'layout-global-active',
+                        id: '019e8afa-0000-7000-8000-000000000001',
                         scope_entity_id: null,
                         base_layout_id: null,
                         template_key: 'dashboard',
                         name: { en: 'Global active' },
                         description: null,
-                        config: {},
+                        config: { __layout: { composition: { mode: 'independent', baseLayoutId: null } } },
                         is_active: true,
                         is_default: true,
                         sort_order: 0
@@ -310,7 +453,7 @@ describe('attachLayoutsToSnapshot', () => {
                 return [
                     {
                         id: 'widget-corrupt',
-                        layout_id: 'layout-global-active',
+                        layout_id: '019e8afa-0000-7000-8000-000000000001',
                         zone: 'top',
                         widget_key: 'header',
                         sort_order: 0,

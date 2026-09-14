@@ -54,13 +54,17 @@ describe('metahubs i18n consolidation', () => {
 
     it('keeps layout widget shared behavior translations inside the consolidated metahubs namespace', () => {
         const ruTranslations = getMetahubsTranslations('ru') as {
-            layouts?: { sharedBehavior?: { title?: string; description?: string } }
+            layouts?: {
+                actions?: { exclude?: string }
+                sharedBehavior?: { title?: string; description?: string }
+            }
         }
 
         expect(ruTranslations.layouts?.sharedBehavior?.title).toBe('Общее поведение')
         expect(ruTranslations.layouts?.sharedBehavior?.description).toBe(
             'Определяет, можно ли в унаследованных макетах отключать, исключать или перемещать этот виджет.'
         )
+        expect(ruTranslations.layouts?.actions?.exclude).toBe('Исключить')
     })
 
     it('merges module authoring translations with resource scope labels', () => {

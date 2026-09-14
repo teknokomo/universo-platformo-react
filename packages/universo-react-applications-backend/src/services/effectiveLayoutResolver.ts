@@ -2,15 +2,22 @@ import {
     applicationLayoutSourceKindSchema,
     applicationLayoutSyncStateSchema,
     applicationTemplateKeySchema,
+    decodeLayoutConfigEnvelope,
+    decodeLayoutWidgetConfigEnvelope,
+    encodeLayoutConfigEnvelope,
+    getLayoutWidgetDefaultPlacement,
     getLayoutWidgetAllowedZones,
     getLayoutWidgetDefinition,
     getLayoutZoneDefinition,
+    LAYOUT_ZONE_DEFINITIONS,
     layoutInstanceKeySchema,
     parseApplicationLayoutConfig,
     parseApplicationLayoutWidgetConfig,
     type ApplicationLayoutSyncState,
     type ApplicationTemplateKey,
-    type EffectiveWidget
+    type EffectiveWidget,
+    type LayoutZoneSettings,
+    type PersistedLayoutNeutralMetadata
 } from '@universo-react/types'
 import { isValidSchemaName } from '@universo-react/schema-ddl'
 import { isUuidV7, type DbExecutor } from '@universo-react/utils'
@@ -63,6 +70,7 @@ interface ValidatedLayout {
     description: RecordValue | null
     config: RecordValue
     rawConfig: RecordValue
+    neutral: PersistedLayoutNeutralMetadata
     compositionHint: EffectiveLayoutCompositionMode | null
     baseLayoutId: string | null
     isActive: boolean
@@ -76,6 +84,8 @@ interface ValidatedLayout {
     syncState: ApplicationLayoutSyncState
     version: number
 }
+
+type EffectiveWidgetWithPlacement = EffectiveLayoutWidget & { placement?: 'start' | 'end' }
 
 const isRecord = (value: unknown): value is RecordValue => Boolean(value && typeof value === 'object' && !Array.isArray(value))
 
@@ -184,18 +194,6 @@ const parseInstalledMaterialization = (
     }
 }
 
-const parseCompositionHint = (value: unknown): EffectiveLayoutCompositionMode | null => {
-    if (value === undefined || value === null) return null
-    if (value === 'overlay' || value === 'independent') return value
-    return failEffectiveLayout('LAYOUT_PERSISTED_INVALID')
-}
-
-const parseOptionalBaseLayoutId = (value: unknown): { value: string | null; present: boolean } => {
-    const present = value !== undefined
-    if (!present || value === null) return { value: null, present }
-    return { value: requireUuidV7(value), present }
-}
-
 const validateLayoutRow = (row: EffectiveLayoutCandidateRow): ValidatedLayout => {
     const id = requireUuidV7(row.id)
     const scopeEntityId = readNullableUuidV7(row.scope_entity_id)
@@ -212,15 +210,17 @@ const validateLayoutRow = (row: EffectiveLayoutCandidateRow): ValidatedLayout =>
     if (readBoolean(row.is_source_excluded)) return failEffectiveLayout('LAYOUT_CONFLICT')
 
     const rawConfig = readRecord(row.config)
-    const compositionHint = parseCompositionHint(rawConfig.compositionMode)
-    const baseLayout = parseOptionalBaseLayoutId(rawConfig.baseLayoutId)
-    const rendererConfig = { ...rawConfig }
-    delete rendererConfig.compositionMode
-    delete rendererConfig.baseLayoutId
-
     let config: RecordValue
+    let neutral: PersistedLayoutNeutralMetadata
+    let compositionHint: EffectiveLayoutCompositionMode | null
+    let baseLayoutId: string | null
     try {
-        config = parseApplicationLayoutConfig(templateKeyResult.data, rendererConfig)
+        const decoded = decodeLayoutConfigEnvelope(rawConfig, { templateKey: templateKeyResult.data })
+        if (!decoded.neutral.composition) return failEffectiveLayout('LAYOUT_PERSISTED_INVALID')
+        neutral = decoded.neutral
+        config = parseApplicationLayoutConfig(templateKeyResult.data, decoded.rendererConfig)
+        compositionHint = decoded.neutral.composition.mode
+        baseLayoutId = decoded.neutral.composition.mode === 'overlay' ? decoded.neutral.composition.baseLayoutId : null
     } catch {
         return failEffectiveLayout('LAYOUT_PERSISTED_INVALID')
     }
@@ -233,8 +233,9 @@ const validateLayoutRow = (row: EffectiveLayoutCandidateRow): ValidatedLayout =>
         description: readNullableRecord(row.description),
         config,
         rawConfig,
+        neutral,
         compositionHint,
-        baseLayoutId: baseLayout.value,
+        baseLayoutId,
         isActive,
         isDefault,
         sortOrder: readNonNegativeInteger(row.sort_order),
@@ -264,13 +265,35 @@ const validateWidgetRow = (row: EffectiveLayoutWidgetRow, layout: ValidatedLayou
     if (!zoneDefinition) return failEffectiveLayout('LAYOUT_PERSISTED_INVALID')
     const config = readRecord(row.config)
     let parsedConfig: RecordValue
+    let placement: 'start' | 'end' | undefined
     try {
-        parsedConfig = parseApplicationLayoutWidgetConfig(row.widget_key, config)
+        const decoded = decodeLayoutWidgetConfigEnvelope(config, {
+            templateKey: layout.templateKey,
+            widgetKey: row.widget_key,
+            zone: row.zone
+        })
+        parsedConfig = parseApplicationLayoutWidgetConfig(row.widget_key, decoded.rendererConfig)
+        placement =
+            decoded.neutral.placement ??
+            getLayoutWidgetDefaultPlacement({ templateKey: layout.templateKey, widgetKey: row.widget_key, zone: row.zone })
     } catch {
         return failEffectiveLayout('LAYOUT_PERSISTED_INVALID')
     }
 
-    const sourceConfig = row.source_config === undefined || row.source_config === null ? null : readRecord(row.source_config)
+    let sourceConfig: RecordValue | null = null
+    if (row.source_config !== undefined && row.source_config !== null) {
+        try {
+            const rawSourceConfig = readRecord(row.source_config)
+            const decoded = decodeLayoutWidgetConfigEnvelope(rawSourceConfig, {
+                templateKey: layout.templateKey,
+                widgetKey: row.widget_key,
+                zone: row.zone
+            })
+            sourceConfig = parseApplicationLayoutWidgetConfig(row.widget_key, decoded.rendererConfig)
+        } catch {
+            return failEffectiveLayout('LAYOUT_PERSISTED_INVALID')
+        }
+    }
     const sourceWidgetId = readNullableUuidV7(row.source_widget_id)
     const sourceBaseWidgetId = readNullableUuidV7(row.source_base_widget_id)
     const instanceKey = parsedConfig.instanceKey
@@ -292,8 +315,9 @@ const validateWidgetRow = (row: EffectiveLayoutWidgetRow, layout: ValidatedLayou
         sourceBaseWidgetId,
         isCustomized: readBoolean(row.is_customized),
         isActive: readBoolean(row.is_active),
-        version: readPositiveInteger(row.version)
-    }
+        version: readPositiveInteger(row.version),
+        ...(placement === undefined ? {} : { placement })
+    } as EffectiveWidgetWithPlacement
 }
 
 const validateEffectiveWidgetMultiplicity = (widgets: readonly EffectiveLayoutWidget[]): void => {
@@ -415,6 +439,34 @@ const validateLineage = (
     return { publicationIdentity: null }
 }
 
+const resolveEffectiveZoneSettings = (
+    templateKey: ApplicationTemplateKey,
+    layers: readonly ValidatedLayout[]
+): Record<string, Record<string, unknown>> => {
+    const result: Record<string, Record<string, unknown>> = {}
+    const zoneDefinitions = LAYOUT_ZONE_DEFINITIONS.filter((definition) => definition.templateKey === templateKey)
+
+    for (const definition of zoneDefinitions) {
+        if (definition.settings.length === 0) continue
+        result[definition.key] = Object.fromEntries(definition.settings.map((setting) => [setting.key, setting.defaultValue]))
+    }
+
+    for (const layer of layers) {
+        const source = (layer.neutral.sourceZoneSettings ?? {}) as Record<string, Record<string, unknown>>
+        const local = (layer.neutral.zoneSettings ?? {}) as Record<string, Record<string, unknown>>
+        for (const [zone, values] of Object.entries(source)) {
+            if (!result[zone]) result[zone] = {}
+            Object.assign(result[zone], values)
+        }
+        for (const [zone, values] of Object.entries(local)) {
+            if (!result[zone]) result[zone] = {}
+            Object.assign(result[zone], values)
+        }
+    }
+
+    return result
+}
+
 const buildResult = (
     target: RuntimeTarget,
     resolvedEntityTypeId: string | null,
@@ -422,19 +474,29 @@ const buildResult = (
     widgets: EffectiveLayoutWidget[],
     materialization: InstalledMaterialization | null,
     publicationIdentity: EffectiveLayoutSuccess['publicationIdentity'],
-    compositionMode: EffectiveLayoutCompositionMode
+    compositionMode: EffectiveLayoutCompositionMode,
+    effectiveZoneSettings: Record<string, Record<string, unknown>>
 ): EffectiveLayoutSuccess => {
     const { layout, scope } = selected
+    const hashConfig = encodeLayoutConfigEnvelope(
+        {
+            rendererConfig: layout.config,
+            neutral: {
+                composition:
+                    compositionMode === 'overlay'
+                        ? { mode: 'overlay', baseLayoutId: layout.baseLayoutId as string }
+                        : { mode: 'independent', baseLayoutId: null },
+                zoneSettings: effectiveZoneSettings as LayoutZoneSettings
+            }
+        },
+        { templateKey: layout.templateKey }
+    )
     const effectiveHash = hashApplicationLayoutContent({
         layout: {
             templateKey: layout.templateKey,
             name: layout.name,
             description: layout.description,
-            config: {
-                ...layout.config,
-                compositionMode,
-                baseLayoutId: layout.baseLayoutId
-            },
+            config: hashConfig,
             isActive: true,
             isDefault: true,
             sortOrder: layout.sortOrder,
@@ -467,12 +529,14 @@ const buildResult = (
             ? { ...layoutMetadata, compositionMode: 'overlay' as const, baseLayoutId: layout.baseLayoutId as string }
             : { ...layoutMetadata, compositionMode: 'independent' as const, baseLayoutId: null }
 
+    const resolvedLayoutWithZoneSettings = { ...resolvedLayout, zoneSettings: effectiveZoneSettings }
+
     return {
         status: 'ok',
         target,
         resolvedEntityTypeId,
         scope,
-        layout: resolvedLayout,
+        layout: resolvedLayoutWithZoneSettings,
         widgets,
         precedence: buildPrecedence(layout, scope),
         publicationIdentity,
@@ -675,6 +739,24 @@ export async function resolveEffectiveLayoutForRequest(
             }
         }
 
-        return buildResult(target, resolvedEntityTypeId, selected, widgets, materialization, publicationIdentity, compositionMode)
+        const baseLayout =
+            compositionMode === 'overlay' && selected.layout.baseLayoutId
+                ? layouts.find((candidate) => candidate.id === selected.layout.baseLayoutId) ?? null
+                : null
+        if (compositionMode === 'overlay' && !baseLayout) return failEffectiveLayout('LAYOUT_PERSISTED_INVALID')
+        const effectiveZoneSettings = resolveEffectiveZoneSettings(
+            selected.layout.templateKey,
+            baseLayout ? [baseLayout, selected.layout] : [selected.layout]
+        )
+        return buildResult(
+            target,
+            resolvedEntityTypeId,
+            selected,
+            widgets,
+            materialization,
+            publicationIdentity,
+            compositionMode,
+            effectiveZoneSettings
+        )
     })
 }

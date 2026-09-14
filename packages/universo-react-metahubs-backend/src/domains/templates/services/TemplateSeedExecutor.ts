@@ -1,5 +1,13 @@
 import type { Knex } from 'knex'
-import { parseApplicationLayoutWidgetConfig } from '@universo-react/types'
+import {
+    applicationLayoutWidgetKeySchema,
+    decodeLayoutConfigEnvelope,
+    decodeWidgetConfigEnvelope,
+    encodeLayoutConfigEnvelope,
+    encodeWidgetConfigEnvelope,
+    getLayoutZoneSettingDefault,
+    parseApplicationLayoutWidgetConfig
+} from '@universo-react/types'
 import type {
     MetahubTemplateSeed,
     TemplateSeedLayout,
@@ -27,6 +35,7 @@ import {
 } from './systemComponentSeed'
 import { createTemplateSeedElements, resolveTemplateSeedElementData } from './templateSeedElements'
 import { createLogger } from '../../../utils/logger'
+import { resolveMarketingSeedWidgetLookup } from './templateSeedWidgetIdentity'
 
 const log = createLogger('TemplateSeedExecutor')
 
@@ -207,7 +216,31 @@ export class TemplateSeedExecutor {
             }
 
             // Config will be updated after zone widgets are inserted
-            const config = layout.config ?? {}
+            const layoutEnvelope = decodeLayoutConfigEnvelope(layout.config ?? {}, {
+                templateKey: layout.templateKey,
+                allowSourceZoneSettings: false
+            })
+            const layoutNeutral = {
+                ...layoutEnvelope.neutral,
+                composition: { mode: 'independent' as const, baseLayoutId: null }
+            }
+            if (layout.templateKey === 'marketing-page') {
+                layoutNeutral.zoneSettings = {
+                    ...(layoutNeutral.zoneSettings ?? {}),
+                    'marketing-header': {
+                        ...(layoutNeutral.zoneSettings?.['marketing-header'] ?? {}),
+                        position:
+                            layoutNeutral.zoneSettings?.['marketing-header']?.position ??
+                            ((getLayoutZoneSettingDefault(layout.templateKey, 'marketing-header', 'position') ?? 'fixed') as
+                                | 'fixed'
+                                | 'flow')
+                    }
+                }
+            }
+            const config = encodeLayoutConfigEnvelope(
+                { rendererConfig: layoutEnvelope.rendererConfig, neutral: layoutNeutral },
+                { templateKey: layout.templateKey }
+            )
 
             const [inserted] = await qb
                 .withSchema(this.schemaName)
@@ -283,6 +316,34 @@ export class TemplateSeedExecutor {
                 continue
             }
 
+            const [baseLayout] = await qb
+                .withSchema(this.schemaName)
+                .from('_mhb_layouts')
+                .where({ id: baseLayoutId, _upl_deleted: false, _mhb_deleted: false })
+                .select('config')
+                .limit(1)
+            const layoutEnvelope = decodeLayoutConfigEnvelope(layout.config ?? {}, {
+                templateKey: layout.templateKey,
+                allowSourceZoneSettings: false
+            })
+            const baseEnvelope = decodeLayoutConfigEnvelope(baseLayout?.config ?? {}, {
+                templateKey: layout.templateKey,
+                allowSourceZoneSettings: false
+            })
+            const config = encodeLayoutConfigEnvelope(
+                {
+                    // Keep the existing renderer inheritance behavior for a
+                    // same-template scoped seed while retaining sparse neutral
+                    // settings owned by the scoped row only.
+                    rendererConfig: { ...baseEnvelope.rendererConfig, ...layoutEnvelope.rendererConfig },
+                    neutral: {
+                        ...layoutEnvelope.neutral,
+                        composition: { mode: 'overlay' as const, baseLayoutId }
+                    }
+                },
+                { templateKey: layout.templateKey }
+            )
+
             const [inserted] = await qb
                 .withSchema(this.schemaName)
                 .into('_mhb_layouts')
@@ -290,7 +351,7 @@ export class TemplateSeedExecutor {
                     template_key: layout.templateKey,
                     name: layout.name,
                     description: layout.description ?? null,
-                    config: layout.config ?? {},
+                    config,
                     scope_entity_id: scopeEntityId,
                     base_layout_id: baseLayoutId,
                     is_active: layout.isActive,
@@ -339,7 +400,13 @@ export class TemplateSeedExecutor {
             const isMarketingLayout = layoutRow?.template_key === 'marketing-page'
             let insertedAny = false
             for (const w of widgets) {
-                let config = w.config ?? {}
+                const widgetKey = applicationLayoutWidgetKeySchema.parse(w.widgetKey)
+                const widgetEnvelope = decodeWidgetConfigEnvelope(w.config ?? {}, {
+                    templateKey: layoutRow?.template_key ?? 'dashboard',
+                    widgetKey,
+                    zone: w.zone
+                })
+                let config = widgetEnvelope.rendererConfig
                 if (isMarketingLayout) {
                     try {
                         config = parseApplicationLayoutWidgetConfig(w.widgetKey, config)
@@ -347,6 +414,10 @@ export class TemplateSeedExecutor {
                         throw new Error(`Invalid marketing widget configuration for ${w.widgetKey}`)
                     }
                 }
+                config = encodeWidgetConfigEnvelope(
+                    { rendererConfig: config, neutral: widgetEnvelope.neutral },
+                    { templateKey: layoutRow?.template_key ?? 'dashboard', widgetKey, zone: w.zone }
+                )
                 const existsQuery = qb.withSchema(this.schemaName).from(widgetTableName).where({
                     layout_id: layoutId,
                     widget_key: w.widgetKey,
@@ -354,7 +425,10 @@ export class TemplateSeedExecutor {
                     _mhb_deleted: false
                 })
                 if (isMarketingLayout) {
-                    existsQuery.whereRaw("config->>'instanceKey' = ?", [config.instanceKey])
+                    const lookup = resolveMarketingSeedWidgetLookup(w.widgetKey, widgetEnvelope.rendererConfig)
+                    if (lookup.kind === 'instanceKey') {
+                        existsQuery.whereRaw("config->>'instanceKey' = ?", [lookup.value])
+                    }
                 } else {
                     existsQuery.where({ zone: w.zone, sort_order: w.sortOrder })
                 }
@@ -407,7 +481,20 @@ export class TemplateSeedExecutor {
                     zone: row.zone as DashboardLayoutZone
                 }))
             )
-            await qb.withSchema(this.schemaName).from('_mhb_layouts').where({ id: layoutId }).update({ config: layoutConfig })
+            const layoutEnvelope = decodeLayoutConfigEnvelope(layoutRow?.config ?? {}, {
+                templateKey: 'dashboard',
+                allowSourceZoneSettings: false
+            })
+            await qb
+                .withSchema(this.schemaName)
+                .from('_mhb_layouts')
+                .where({ id: layoutId })
+                .update({
+                    config: encodeLayoutConfigEnvelope(
+                        { rendererConfig: layoutConfig, neutral: layoutEnvelope.neutral },
+                        { templateKey: 'dashboard' }
+                    )
+                })
         }
     }
 

@@ -1,3 +1,15 @@
+# Marketing header QA defect remediation — IMPLEMENT (2026-09-13)
+
+> This is the authoritative checklist for the current continuation. It closes the user-reported localization, dialog-spacing, and marketing-header visual regressions on top of the existing dirty implementation. Preserve unrelated worktree changes, keep the clean-break architecture, use shared primitives, and do not change schema or metahub-template versions.
+
+-   [x] MHWQA-20260913-01 Re-baseline the current implementation against the brief, research, plan, package READMEs, MUI/runtime UX and Playwright skills; record the shared i18n and dialog contracts and inspect the original backup template.
+-   [x] MHWQA-20260913-02 Move genuinely shared layout-authoring labels and setting options into the centralized `@universo-react/i18n` common namespace with EN/RU parity; consume them from metahub and application layout screens and add real-resource parity tests.
+-   [x] MHWQA-20260913-03 Replace the zone-settings dialog's ad hoc action footer with the existing `StandardDialog` contract (or its centralized equivalent), preserving presentation, focus, busy, read-only, reset, and optimistic-concurrency behavior; add spacing and accessibility assertions.
+-   [x] MHWQA-20260913-04 Restore the original MUI marketing-page visual contract while retaining the widgetized header: fixed mode uses the frame offset plus the original 28px visual margin, reserves the complete occlusion, preserves the original translucent toolbar/background continuity, and flow mode remains normal document flow.
+-   [x] MHWQA-20260913-05 Strengthen component and Playwright browser oracles for EN/RU metahub and application authoring, dialog spacing, fixed/flow header behavior, background continuity, scroll ownership, responsive overflow, keyboard/focus, and console/page/network errors; inspect generated screenshots.
+-   [x] MHWQA-20260913-06 Run Prettier, diff checks, affected lint/type/build, focused Jest/Vitest and relevant backend regression tests; run the minimal-local-Supabase Playwright verification where available and stop its dedicated services cleanly. All affected checks passed; the canonical wrapper passed the flow and visual matrix gates and stopped its dedicated Supabase profile cleanly.
+-   [x] MHWQA-20260913-07 Run OntoIndex changed-scope verification and the Thermos/autoreview gate where available, reconcile the subagent findings, update truthful documentation/task/progress evidence, and leave no unresolved defect or unverified claim. `gn_verify_diff` passed for the complete dirty-worktree allowlist; the ship-readiness audit requested manual review because `MetahubLayoutsService` has high graph impact, which was covered by direct source review and focused/backend/browser evidence. Autoreview was attempted again but the generated 419,497-character bundle exceeded the review model context window; no automated clean verdict is claimed.
+
 # Marketing-page runtime top-bar regression — IMPLEMENT (2026-09-10)
 
 > This is the authoritative checklist for the current regression fix. Restore the original MUI marketing-page geometry and sticky behavior while preserving the verified multi-instance widget contract. Do not add a new layout primitive, legacy compatibility layer, schema change, or template-version bump.
@@ -545,3 +557,219 @@ current aggregate API response. The focused widget/layout test, hosted runtime
 flow, and root build remain green. The standalone browser acceptance gate is
 still explicitly BLOCKED in this checkout because no authenticated standalone
 shell and required target/template environment variables are configured.
+
+# Marketing Header Widget Zone Settings — IMPLEMENT (2026-09-12)
+
+> This checklist is the authoritative execution list for the approved
+> `marketing-header-widget-zone-settings` plan. It is a clean-break change for
+> the disposable test database: no legacy compatibility path, no schema,
+> snapshot, or metahub-template version bump, and no dependency from
+> `apps-template-mui` into legacy UI packages.
+
+## Phase 0 — Baseline and impact
+
+-   [x] MHW-00 Re-read the brief, research, approved plan, package READMEs and
+        implementation-mode instructions; record dirty-file boundaries.
+-   [x] MHW-01 Check OntoIndex freshness and run impact analysis before editing
+        shared contracts, stores, services, authoring components and runtime
+        shells.
+-   [x] MHW-02 Capture focused baseline tests and identify obsolete
+        multi-AppBar/Drawer and `sharedLayoutWidgets` assertions to replace.
+
+## Phase 1 — Shared neutral contracts and registry
+
+-   [x] MHW-10 Implement the strict neutral layout/widget envelope codec in the
+        surviving shared types package.
+-   [x] MHW-11 Extend serializable zone-setting metadata and typed header
+        placement/cardinality registry contracts without executable validators
+        in API metadata.
+-   [x] MHW-12 Add contract tests for round-trip, fail-closed validation,
+        renderer metadata stripping, defaults, placement and cardinality.
+
+## Phase 2 — Metahub lifecycle and APIs
+
+-   [x] MHW-20 Normalize metahub layout composition/zone metadata through the
+        codec and implement sparse inheritance/reset.
+-   [x] MHW-21 Add generic metahub zone-setting update/reset mutations using the
+        existing transaction, lock order and OCC boundary.
+-   [x] MHW-22 Make all existing metahub layout/widget config writers preserve
+        system-owned neutral metadata and reject direct `__layout` injection.
+-   [x] MHW-23 Update seed, copy, snapshot, restore and preflight tests without
+        changing versions.
+
+## Phase 3 — Application lifecycle, sync and hashing
+
+-   [x] MHW-30 Add application zone-setting update/reset mutations with existing
+        RBAC, transaction, lock and OCC contracts.
+-   [x] MHW-31 Persist source zone-setting baselines and implement all sync
+        resolutions plus targeted reset semantics.
+-   [x] MHW-32 Refactor application config writers, reset paths, effective
+        resolution and semantic hashing to preserve/exclude neutral metadata
+        correctly.
+-   [x] MHW-33 Add backend Jest/integration/concurrency coverage for all source,
+        local, reset, hash and permission paths.
+
+## Phase 4 — Typed placement and shared authoring UI
+
+-   [x] MHW-40 Transport typed Start/End placement through move, inheritance,
+        copy, snapshot, sync, reset, hash and hosted runtime adapters.
+-   [x] MHW-41 Extend the real `LayoutAuthoringDetails` with metadata-driven
+        zone-heading actions, reused move menu, shared Zone Settings dialog
+        presentation, read-only/conflict states and EN/RU i18n.
+-   [x] MHW-42 Wire application/metahub APIs, TanStack Query optimistic updates,
+        localized errors and integration tests.
+
+## Phase 5 — Runtime decomposition
+
+-   [x] MHW-50 Replace marketing per-navigation shell ownership with one header
+        shell/banner/Drawer and atomic persisted controls, preserving MUI style
+        and package isolation.
+-   [x] MHW-51 Add measured fixed/flow geometry, frame offset and skip/anchor
+        accessibility behavior.
+-   [x] MHW-52 Convert Dashboard language/theme controls to persisted singleton
+        widgets without duplicate shell ownership.
+-   [x] MHW-53 Replace obsolete runtime/component tests and add focused UX
+        coverage for one banner, one Drawer, projections and geometry.
+
+## Phase 6 — Browser, documentation and closeout
+
+-   [x] MHW-60 Extend the existing Playwright suites and canonical local-Supabase
+        wrapper; cover lifecycle, snapshot, sync, permissions, concurrency,
+        keyboard, a11y, responsive geometry and real controls.
+-   [x] MHW-61 Run and inspect the required visual screenshot matrix and traces;
+        preserve evidence under existing artifact conventions.
+-   [x] MHW-62 Update affected READMEs and paired EN/RU GitBook documentation.
+-   [x] MHW-63 Run focused/full tests, lint, builds, Prettier, docs checks,
+        package-boundary guards, OntoIndex diff verification and Thermos/
+        autoreview; fix all actionable findings.
+-   [x] MHW-64 Update `progress.md` with verified implementation evidence and
+        mark this checklist complete only after every applicable gate passes.
+
+## Verification evidence
+
+-   The marketing header now uses one MUI AppBar/banner and one responsive
+    Drawer. Brand, navigation, authentication, language, and color-mode
+    projections are rendered from the persisted zone composition; Dashboard
+    language and color-mode controls use the shared registry.
+-   The `marketing-header` zone supports the typed `fixed`/`flow` setting with
+    sparse inheritance and reset. Neutral layout metadata is validated at
+    shared, metahub, application, snapshot, sync, and runtime boundaries;
+    renderer-only metadata is stripped before user-facing payloads.
+-   Focused verification passed: apps-template 31/31, applications frontend
+    15/15, metahubs frontend 5/5, applications backend 318/318, metahubs
+    backend 101/101, types 46/46, and utils 17/17. Package lint, builds,
+    Prettier, isolation and runtime UX guards also passed.
+-   The canonical Chromium lifecycle gate passed 13 flow tests with one
+    intentional standalone skip. The visual matrix passed 5/5 after
+    deterministic top
+    scrolling and refreshed baselines; inspected screenshots show the single
+    header shell and real controls at desktop, tablet, and mobile sizes.
+-   Marketing template contract, GitBook provenance, EN/RU parity, screenshot
+    assets, local links, and the minimal-Supabase cleanup gate passed. No
+    schema, migration, snapshot, UUID policy, or metahub-template version was
+    changed, and no legacy compatibility path was retained.
+-   OntoIndex `gn_verify_diff` returned `PASS` for the complete dirty-worktree
+    allowlist with no unexpected files, symbols, impacts, or missing tests.
+    The Thermos subagent review completed earlier and its actionable findings
+    were fixed. The final local autoreview retries produced no structured
+    result: Codex failed after repeated strict-JSON stream disconnects, and
+    Claude reported an unavailable API connection. No clean external
+    autoreview verdict is claimed.
+
+# Marketing Header Widget Zone Settings — QA REMEDIATION (2026-09-12)
+
+> This follow-up checklist records the implementation work required after the
+> QA pass found incomplete browser acceptance evidence. It keeps the clean-break
+> contract: no legacy compatibility path, schema/version bump, or template
+> version bump.
+
+## Browser acceptance gaps
+
+-   [x] MHW-QA-01 Add API-session helpers and direct browser/API assertions for
+        application and metahub zone-setting update/reset, including owner/admin
+        success, editor/member `403`, cross-scope `404`, stale OCC `409`, and
+        no-change-after-denial.
+-   [x] MHW-QA-02 Extend the authoring flow through the real shared Zone Settings
+        dialog in EN and RU. Cover inherited/customized labels, read-only state,
+        keyboard operation, save, cancel, reset, localized errors, and reload.
+-   [x] MHW-QA-03 Add real runtime `flow` geometry proof at desktop, tablet and
+        mobile sizes: header leaves the viewport after scroll and no fixed spacer
+        or scroll-padding residue remains. Keep equivalent fixed geometry proof.
+-   [x] MHW-QA-04 Complete the metahub sparse inheritance chain: global/base
+        setting, entity overlay inheritance, local fixed override, reset, and a
+        later base change becoming visible after reset.
+-   [x] MHW-QA-05 Complete the application source lifecycle: non-default flow
+        snapshot export/import, linked application effective layout, source flow
+        to local fixed, upstream update, `keep_local`, `copy_source_as_application`,
+        targeted reset, and current source baseline visibility.
+-   [x] MHW-QA-06 Prove Start/End placement through authoring, reload, snapshot,
+        application sync and runtime projection, including deterministic widget
+        identity and UUID v7 uniqueness after copy/duplicate/delete paths.
+-   [x] MHW-QA-07 Run and inspect the final EN/RU light/dark desktop/tablet/mobile
+        screenshot matrix plus axe for fixed desktop and open mobile Drawer.
+
+## Regression and closeout
+
+-   [x] MHW-QA-08 Resolve the reproducible apps-template Dashboard test failure
+        at its ownership boundary and rerun the package suite; separately resolve
+        or document the FormDialog timeout only if it remains reproducible after
+        isolated reruns.
+-   [x] MHW-QA-09 Run the canonical minimal-Supabase marketing verification,
+        focused Jest/Vitest suites, package lint/build, Prettier, docs checks,
+        `git diff --check`, OntoIndex diff verification, and Thermos/autoreview.
+-   [x] MHW-QA-10 Synchronize the plan Acceptance Checklist and this task list
+        with fresh evidence; update `progress.md` and README/GitBook text only
+        after the corresponding acceptance item is actually proven.
+
+## QA verification evidence (2026-09-13)
+
+-   MHW-QA-01 is closed by the real permissions flow and backend/API assertions:
+    owner/admin writes and resets succeeded; editor/member writes were denied
+    with `403`; cross-scope access returned `404`; stale optimistic updates
+    returned `409`; denied requests left the persisted state unchanged.
+-   MHW-QA-02 is closed by the real shared Zone Settings dialog in English and
+    Russian, including inherited/customized labels, read-only behavior,
+    keyboard/focus handling, save/cancel/reset, localized errors, and reload.
+-   MHW-QA-03 and MHW-QA-07 are closed by the browser geometry and visual matrix:
+    fixed mode keeps one measured header and spacer stable, flow mode scrolls
+    away without fixed residue, and desktop/tablet/mobile EN/RU light/dark
+    projects passed with axe checks for fixed desktop and the open mobile Drawer.
+-   MHW-QA-04, MHW-QA-05, and MHW-QA-06 are closed by the metahub sparse
+    inheritance, application source-baseline/sync, snapshot round-trip, and
+    Start/End placement flows. Repeated local sync preserves local values,
+    targeted reset reveals the current source, and generated/copied identities
+    remain server-owned UUID v7 values.
+-   MHW-QA-08 is closed by the focused apps-template Vitest suite (7 files / 74
+    tests), the shared Zone Settings Jest suite (3/3), and the affected package
+    suites. The earlier FormDialog timeout was isolated and is not a current
+    reproducible failure; no ownership-boundary failure remains in the current
+    implementation.
+-   MHW-QA-09 is closed by the canonical local-minimal-Supabase run: 13 flow
+    tests passed with one intentional standalone skip, 5 visual projects passed,
+    the full 36/36 workspace build passed, and docs provenance, 113 EN/RU page
+    pairs, screenshot assets, local links, lint, Prettier, and diff checks passed.
+    Thermos findings were fixed; the local autoreview helper produced no
+    structured verdict because its external review streams were unavailable.
+-   MHW-QA-10 is closed by the synchronized plan Acceptance Checklist, this
+    checklist, `progress.md`, package READMEs, and paired GitBook documentation.
+    The standalone deployment boundary remains explicitly BLOCKED/skipped when
+    no authenticated shell is configured and is not counted as acceptance.
+
+# Marketing header widget-zone settings — QA remediation (2026-09-13)
+
+> This is the authoritative checklist for the current IMPLEMENT pass. Resolve every confirmed QA finding from the 2026-09-13 review while preserving the clean-break contract, the existing MUI primitives, UUID v7, SQL-first/RLS access boundaries, EN/RU i18n, and the no schema/snapshot/metahub-template version bump requirement.
+
+-   [x] MHW-QA-00 Re-baseline the dirty worktree, refresh the implementation boundary from the brief/research/plan and QA findings, read the relevant package READMEs and skills, and record OntoIndex limitations before edits. The graph is fresh for committed `d9712619b23b6636354a2a4cdf117c3021c94a36` but excludes the current dirty/untracked feature files; direct source inspection remains authoritative.
+-   [x] MHW-QA-01 Make inactive persisted data widgets authoritative in the marketing header projection; add unit coverage for inactive brand/navigation/auth/language/theme widgets and verify zero rendered controls.
+-   [x] MHW-QA-02 Remove all legacy raw-config/legacy-composite fallback readers from the effective application-layout paths; enforce strict neutral-envelope decoding and add malformed/unsupported persisted-data tests without changing the physical JSONB carrier or versions.
+-   [x] MHW-QA-03 Complete the descriptor-driven zone-settings contract: typed descriptors, strict value resolution, shared dialog rendering, registry capability lookup, typed runtime effective-layout input, and fail-closed unsupported setting/zone/template behavior.
+-   [x] MHW-QA-04 Remove the remaining Dashboard shell ownership fallback once persisted top composition is absent; ensure bootstrap/materialization produces the canonical top composition and add regression coverage without reviving boolean demo controls.
+-   [x] MHW-QA-05 Add real consumer coverage for Application Layouts and metahub LayoutDetails using the shared authoring/settings primitives, including localized read-only, inherited/reset, pending/error, keyboard/focus, and responsive contracts; split only the directly affected oversized responsibilities where safe.
+-   [x] MHW-QA-06 Extend Playwright canonical execution to include scoped-layout lifecycle; add two-browser-context concurrency proof, localized conflict/rollback/reload/runtime-winner assertions, dialog responsive/keyboard evidence, editor-role browser coverage, global browser-error checks, and explicit skip/retry observability.
+-   [x] MHW-QA-07 Correct the public zone-setting API response types, grouped drop-target accessibility label handling, and strengthen shared runtime UX oracles for technical leakage, object/JSON rendering, localized validation, multiline content, and page overflow.
+-   [x] MHW-QA-08 Run Prettier, package lint/typecheck/build, focused and relevant full Jest/Vitest suites, local minimal-Supabase Playwright verification with inspected screenshots, docs/contract/isolation checks, OntoIndex diff verification, and Thermos/autoreview where the environment permits; update progress and close only evidenced tasks.
+
+-   Canonical local verification passed on 2026-09-13: the workspace E2E build completed 36/36 packages; Chromium recorded 15 passed tests plus one explicit opt-in standalone skip, with zero retries and zero unexpected results; the visual matrix passed all 5 projects with zero retries and zero unexpected results. The wrapper reset its test schemas and stopped the dedicated local Supabase profile.
+-   Snapshot publication consistency is now protected by a shared PostgreSQL transaction advisory lock: layout, widgets, and overrides are captured in one transaction using the same `mhb-layout-graph:<schema>` lock as mutations. The real PostgreSQL concurrency integration test passed 1/1, and generated OpenAPI now constrains application zone-setting values to strings of 1–128 characters.
+-   Fresh authoring and EN/RU light/dark responsive screenshots from artifact `tools/testing/e2e/.artifacts/marketing-page/2026-09-13T14-16-38-395Z/` were inspected. Documentation provenance, 113 EN/RU GitBook page pairs, screenshot assets, local links, package lint/build checks, OpenAPI validation, and `git diff --check` passed. The standalone deployment test remains an explicit opt-in skip without configured external host credentials.
+-   Final isolated changed-surface suites passed: applications backend 378 tests, metahubs backend 120 tests plus 4 intentional skips and the PostgreSQL concurrency proof, apps-template marketing 27 tests, applications frontend 34 tests, metahubs frontend 8 tests, shared template 6 tests, types 199 tests, and utils 368 tests. An intentionally parallel broad frontend run also exposed load-sensitive timeouts/failures in unchanged legacy suites; those files are outside this feature's changed surface and were not used as acceptance evidence.

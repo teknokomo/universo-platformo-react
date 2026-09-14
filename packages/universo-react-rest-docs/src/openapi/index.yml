@@ -2503,6 +2503,124 @@ paths:
             schema:
               $ref: "#/components/schemas/ApplicationLayoutCopyRequest"
       security: *a1
+  /applications/{applicationId}/layouts/{layoutId}/zone-settings/{zone}/{settingKey}:
+    patch:
+      tags:
+        - Applications
+      summary: Update an application layout zone setting
+      description: Owner/admin-only update of a descriptor-defined setting for one
+        layout zone. The server validates the value against the active template
+        and applies the mutation with optimistic concurrency.
+      operationId: Applications_patch_applications_applicationId_layouts_layoutId_zone_settings_zone_settingKey
+      parameters:
+        - name: applicationId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: applicationId path parameter.
+        - name: layoutId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: layoutId path parameter.
+        - name: zone
+          in: path
+          required: true
+          schema:
+            type: string
+          description: zone path parameter.
+        - name: settingKey
+          in: path
+          required: true
+          schema:
+            type: string
+          description: settingKey path parameter.
+      responses:
+        "200":
+          $ref: "#/components/responses/GenericSuccess"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ApplicationLayoutZoneSettingRequest"
+      security: *a1
+  /applications/{applicationId}/layouts/{layoutId}/zone-settings/{zone}/{settingKey}/reset:
+    post:
+      tags:
+        - Applications
+      summary: Reset an application layout zone setting
+      description: Owner/admin-only reset of one application layout zone setting to
+        its inherited or template default value. The server applies the mutation
+        with optimistic concurrency.
+      operationId: Applications_post_applications_applicationId_layouts_layoutId_zone_settings_zone_settingKey_reset
+      parameters:
+        - name: applicationId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: applicationId path parameter.
+        - name: layoutId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: layoutId path parameter.
+        - name: zone
+          in: path
+          required: true
+          schema:
+            type: string
+          description: zone path parameter.
+        - name: settingKey
+          in: path
+          required: true
+          schema:
+            type: string
+          description: settingKey path parameter.
+      responses:
+        "200":
+          $ref: "#/components/responses/GenericSuccess"
+        "201":
+          $ref: "#/components/responses/CreatedSuccess"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ApplicationLayoutZoneSettingResetRequest"
+      security: *a1
   /applications/{applicationId}/layouts/{layoutId}/zone-widget:
     put:
       tags:
@@ -10340,6 +10458,124 @@ paths:
             schema:
               $ref: "#/components/schemas/GenericObject"
       security: *a1
+  /metahub/{metahubId}/layout/{layoutId}/zone-settings/{zone}/{settingKey}:
+    patch:
+      tags:
+        - Layouts
+      summary: Update a metahub layout zone setting
+      description: Manager-only update of a descriptor-defined metahub layout zone
+        setting. The server validates the value and applies the mutation with
+        optimistic concurrency.
+      operationId: Layouts_patch_metahub_metahubId_layout_layoutId_zone_settings_zone_settingKey
+      parameters:
+        - name: metahubId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: metahubId path parameter.
+        - name: layoutId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: layoutId path parameter.
+        - name: zone
+          in: path
+          required: true
+          schema:
+            type: string
+          description: zone path parameter.
+        - name: settingKey
+          in: path
+          required: true
+          schema:
+            type: string
+          description: settingKey path parameter.
+      responses:
+        "200":
+          $ref: "#/components/responses/GenericSuccess"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MetahubLayoutZoneSettingRequest"
+      security: *a1
+  /metahub/{metahubId}/layout/{layoutId}/zone-settings/{zone}/{settingKey}/reset:
+    post:
+      tags:
+        - Layouts
+      summary: Reset a metahub layout zone setting
+      description: Manager-only reset of one metahub layout zone setting to its
+        template default value. The server applies the mutation with optimistic
+        concurrency.
+      operationId: Layouts_post_metahub_metahubId_layout_layoutId_zone_settings_zone_settingKey_reset
+      parameters:
+        - name: metahubId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: metahubId path parameter.
+        - name: layoutId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: layoutId path parameter.
+        - name: zone
+          in: path
+          required: true
+          schema:
+            type: string
+          description: zone path parameter.
+        - name: settingKey
+          in: path
+          required: true
+          schema:
+            type: string
+          description: settingKey path parameter.
+      responses:
+        "200":
+          $ref: "#/components/responses/GenericSuccess"
+        "201":
+          $ref: "#/components/responses/CreatedSuccess"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MetahubLayoutZoneSettingResetRequest"
+      security: *a1
   /metahub/{metahubId}/layout/{layoutId}/zone-widget:
     put:
       tags:
@@ -15755,6 +15991,58 @@ components:
           minimum: 1
       required:
         - expectedVersion
+    ApplicationLayoutZoneSettingRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        value:
+          type: string
+          minLength: 1
+          maxLength: 128
+        expectedVersion:
+          type: integer
+          minimum: 1
+      required:
+        - value
+        - expectedVersion
+      description: Descriptor-validated zone setting value and optimistic concurrency
+        version.
+    ApplicationLayoutZoneSettingResetRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        expectedVersion:
+          type: integer
+          minimum: 1
+      required:
+        - expectedVersion
+      description: Optimistic concurrency version required before resetting a zone setting.
+    MetahubLayoutZoneSettingRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        value:
+          type: string
+          minLength: 1
+          maxLength: 128
+        expectedVersion:
+          type: integer
+          minimum: 1
+      required:
+        - value
+        - expectedVersion
+      description: Validated metahub zone setting value and optimistic concurrency version.
+    MetahubLayoutZoneSettingResetRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        expectedVersion:
+          type: integer
+          minimum: 1
+      required:
+        - expectedVersion
+      description: Optimistic concurrency version required before resetting a metahub
+        zone setting.
     ApplicationLayoutWidgetResetBatchRequest:
       type: object
       additionalProperties: false

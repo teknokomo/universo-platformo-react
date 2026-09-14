@@ -109,6 +109,24 @@ describe('TemplateManifestValidator', () => {
         ).toBe(true)
     })
 
+    it('rejects application-only source zone settings in metahub seed layouts', () => {
+        const manifest = cloneTemplate(marketingPageTemplate)
+        const layout = manifest.seed.layouts[0]
+        expect(layout).toBeDefined()
+        if (layout) {
+            layout.config = {
+                ...(layout.config ?? {}),
+                __layout: {
+                    sourceZoneSettings: {
+                        'marketing-header': { position: 'flow' }
+                    }
+                }
+            }
+        }
+
+        expect(() => validateTemplateManifest(manifest)).toThrow(/sourceZoneSettings/i)
+    })
+
     it('accepts the built-in 1C-Compatible template without changing the default starter template presets', () => {
         expect(() => validateTemplateManifest(cloneTemplate(oneCCompatibleTemplate))).not.toThrow()
         expect(oneCCompatibleTemplate.codename).toBe('1c-compatible')

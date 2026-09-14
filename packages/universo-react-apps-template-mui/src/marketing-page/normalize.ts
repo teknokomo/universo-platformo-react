@@ -1,9 +1,12 @@
 import {
     marketingPageRuntimeViewModelSchema,
+    marketingPageRecordSchema,
     type MarketingAction as SharedMarketingAction,
+    type MarketingAtomicHeaderWidget,
     type MarketingCollectionVariant,
     type MarketingMedia as SharedMarketingMedia,
     type MarketingPageRecord,
+    type MarketingPageRuntimeViewModel,
     type MarketingRuntimeWidget,
     type MarketingSiteSettingsRecord
 } from '@universo-react/types'
@@ -12,6 +15,8 @@ import i18n from '@universo-react/i18n'
 
 import type {
     MarketingAction,
+    MarketingAuthWidget,
+    MarketingBrandWidget,
     MarketingCollectionWidget,
     MarketingCollectionWidgetContent,
     MarketingFeature,
@@ -165,6 +170,40 @@ const visibleInContent = <T extends { visible?: boolean; order?: number }>(items
 
 const widgetItems = (widget: MarketingRuntimeWidget): MarketingPageRecord[] => widget.data.records
 
+const isAtomicHeaderWidget = (
+    value: MarketingPageRuntimeViewModel['marketingPage']['widgets'][number]
+): value is MarketingAtomicHeaderWidget => {
+    return value.widgetKey === 'marketing.brand' || value.widgetKey === 'marketing.auth'
+}
+
+const runtimeRecords = (widget: MarketingAtomicHeaderWidget): MarketingPageRecord[] =>
+    widget.data.records
+        .map((record) => marketingPageRecordSchema.safeParse(record))
+        .filter((result): result is { success: true; data: MarketingPageRecord } => result.success)
+        .map((result) => result.data)
+
+type MarketingRuntimePage = Omit<MarketingPageRuntimeViewModel['marketingPage'], 'widgets'> & {
+    widgets: MarketingRuntimeWidget[]
+}
+
+interface ParsedMarketingRuntimeEnvelope {
+    page: MarketingRuntimePage
+    atomicHeaderWidgets: MarketingAtomicHeaderWidget[]
+}
+
+const parseMarketingRuntimeEnvelope = (viewModel: unknown): ParsedMarketingRuntimeEnvelope => {
+    const parsed = marketingPageRuntimeViewModelSchema.parse(viewModel)
+    const atomicHeaderWidgets = parsed.marketingPage.widgets.filter(isAtomicHeaderWidget)
+    const coreWidgets = parsed.marketingPage.widgets.filter((widget): widget is MarketingRuntimeWidget => !isAtomicHeaderWidget(widget))
+    return {
+        page: {
+            ...parsed.marketingPage,
+            widgets: coreWidgets
+        },
+        atomicHeaderWidgets
+    }
+}
+
 const firstSettings = (
     items: readonly MarketingPageRecord[],
     fallback?: MarketingSiteSettingsRecord
@@ -188,12 +227,7 @@ const sectionCopy = (
     }
 }
 
-const normalizeNavigation = (
-    items: readonly MarketingPageRecord[],
-    settings: MarketingSiteSettingsRecord | undefined,
-    locale: string,
-    showAuthActions = true
-): MarketingNavigationWidget['content'] => {
+const normalizeNavigation = (items: readonly MarketingPageRecord[], locale: string): MarketingNavigationWidget['content'] => {
     const navigation = visibleInContent(
         recordsOfKind(items, 'navigationLink').map(
             (record): MarketingNavigationItem => ({
@@ -215,21 +249,7 @@ const normalizeNavigation = (
         )
     )
 
-    return {
-        brand: {
-            name: text(settings?.brandName, locale, 'brandName'),
-            logo: media(settings?.brandLogo, locale)
-        },
-        navigation,
-        ...(showAuthActions
-            ? {
-                  auth: {
-                      signIn: internalAction('sign-in', translatedFallback(locale, 'authSignIn'), '/sign-in'),
-                      signUp: internalAction('sign-up', translatedFallback(locale, 'authSignUp'), '/sign-up')
-                  }
-              }
-            : {})
-    }
+    return { navigation }
 }
 
 const normalizeHero = (settings: MarketingSiteSettingsRecord | undefined, locale: string, showLeadForm = true): MarketingHeroData => {
@@ -429,6 +449,59 @@ const frame = (widget: MarketingRuntimeWidget) => ({
     isActive: widget.isActive
 })
 
+const atomicFrame = (
+    widget: MarketingAtomicHeaderWidget
+): {
+    instanceKey: MarketingBrandWidget['instanceKey']
+    zone: 'marketing-header'
+    sortOrder: number
+    isActive: boolean
+} => {
+    if (typeof widget.instanceKey !== 'string' || !widget.instanceKey.trim())
+        throw new Error('Invalid atomic marketing widget instance key')
+    if (typeof widget.sortOrder !== 'number' || !Number.isInteger(widget.sortOrder))
+        throw new Error('Invalid atomic marketing widget order')
+    if (typeof widget.isActive !== 'boolean') throw new Error('Invalid atomic marketing widget activity state')
+    if (widget.zone !== 'marketing-header') throw new Error('Atomic marketing widget must use the header zone')
+    return {
+        instanceKey: widget.instanceKey as MarketingBrandWidget['instanceKey'],
+        zone: 'marketing-header',
+        sortOrder: widget.sortOrder,
+        isActive: widget.isActive
+    }
+}
+
+const normalizeAtomicHeaderWidget = (
+    widget: MarketingAtomicHeaderWidget,
+    locale: string,
+    globalSettings: MarketingSiteSettingsRecord | undefined
+): MarketingBrandWidget | MarketingAuthWidget | undefined => {
+    const frameData = atomicFrame(widget)
+    const settings = firstSettings(runtimeRecords(widget), globalSettings)
+    if (widget.widgetKey === 'marketing.brand') {
+        return {
+            ...frameData,
+            widgetKey: 'marketing.brand',
+            content: {
+                name: text(settings?.brandName, locale, 'brandName'),
+                logo: media(settings?.brandLogo, locale)
+            }
+        }
+    }
+
+    const showAuthActions = widget.config.showAuthActions !== false
+    return {
+        ...frameData,
+        widgetKey: 'marketing.auth',
+        content: showAuthActions
+            ? {
+                  signIn: internalAction('sign-in', translatedFallback(locale, 'authSignIn'), '/sign-in'),
+                  signUp: internalAction('sign-up', translatedFallback(locale, 'authSignUp'), '/sign-up')
+              }
+            : {}
+    }
+}
+
 const normalizeCollection = (
     widget: Extract<MarketingRuntimeWidget, { widgetKey: 'marketing.collection' }>,
     locale: string
@@ -487,7 +560,7 @@ const normalizeWidget = (
             return {
                 ...frame(widget),
                 widgetKey: widget.widgetKey,
-                content: normalizeNavigation(items, firstSettings(items, globalSettings), locale, widget.config.showAuthActions)
+                content: normalizeNavigation(items, locale)
             }
         case 'marketing.hero':
             return {
@@ -522,19 +595,26 @@ const normalizeWidget = (
  * validation is not confused with an empty collection state.
  */
 export function normalizeMarketingPageRuntime(viewModel: unknown, locale: string): MarketingPageData {
-    const parsed = marketingPageRuntimeViewModelSchema.parse(viewModel)
-    const page = parsed.marketingPage
+    const parsed = parseMarketingRuntimeEnvelope(viewModel)
+    const page = parsed.page
     const requestedLocale = normalizeLanguage(locale)
-    const allItems = page.widgets.flatMap((widget) => widgetItems(widget))
+    const allItems = [
+        ...page.widgets.flatMap((widget) => widgetItems(widget)),
+        ...parsed.atomicHeaderWidgets.flatMap((widget) => runtimeRecords(widget))
+    ]
     const inheritedSettings = firstSettings(allItems)
     const globalSettings =
         page.config.brandLogo && inheritedSettings ? { ...inheritedSettings, brandLogo: page.config.brandLogo } : inheritedSettings
+
+    const normalizedAtomicWidgets = parsed.atomicHeaderWidgets
+        .map((widget) => normalizeAtomicHeaderWidget(widget, requestedLocale, globalSettings))
+        .filter((widget): widget is MarketingBrandWidget | MarketingAuthWidget => Boolean(widget))
 
     return {
         templateKey: 'marketing-page',
         locale: page.locale,
         config: page.config,
-        widgets: page.widgets.map((widget) => normalizeWidget(widget, requestedLocale, globalSettings)),
+        widgets: [...page.widgets.map((widget) => normalizeWidget(widget, requestedLocale, globalSettings)), ...normalizedAtomicWidgets],
         runtime: page.runtime,
         provenance: page.provenance,
         richContent: page.richContent

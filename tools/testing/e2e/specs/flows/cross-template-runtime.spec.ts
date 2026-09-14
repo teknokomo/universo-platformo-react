@@ -27,6 +27,7 @@ import {
     listPublicationApplications,
     syncApplicationSchema,
     syncPublication,
+    updateApplicationLayoutZoneSetting,
     updateRuntimeRow,
     upsertApplicationLayoutWidget,
     waitForPublicationReady
@@ -79,7 +80,9 @@ const watchBrowserIssues = (page: Page): BrowserIssue[] => {
 type MarketingNavigationGeometry = {
     appBarPosition: string
     appBarTop: number
+    appBarBottom: number
     expectedAppBarTop: number
+    visualOffset: number
     navigationTop: number
     navigationHeight: number
     heroTop: number
@@ -88,8 +91,8 @@ type MarketingNavigationGeometry = {
 
 const readMarketingNavigationGeometry = async (page: Page): Promise<MarketingNavigationGeometry> =>
     page.evaluate(() => {
-        const navigation = document.querySelector<HTMLElement>('[data-testid="marketing-navigation-instance"]')
-        const appBar = navigation?.closest<HTMLElement>('.MuiAppBar-root')
+        const navigation = document.querySelector<HTMLElement>('[data-testid="marketing-header-navigation"]')
+        const appBar = document.querySelector<HTMLElement>('[data-testid="marketing-header-shell"]')
         const hero = document.querySelector<HTMLElement>('[data-marketing-widget-instance="hero"]')
         if (!navigation || !appBar || !hero) throw new Error('Marketing navigation geometry was not rendered')
         const navigationRect = navigation.getBoundingClientRect()
@@ -97,38 +100,20 @@ const readMarketingNavigationGeometry = async (page: Page): Promise<MarketingNav
         const heroRect = hero.getBoundingClientRect()
         const frameHeight = Number.parseFloat(window.getComputedStyle(document.documentElement).getPropertyValue('--template-frame-height'))
         const normalizedFrameHeight = Number.isFinite(frameHeight) ? frameHeight : 0
+        const visualOffset = Number.parseFloat(appBar.dataset.marketingHeaderVisualOffset ?? '')
+        const normalizedVisualOffset = Number.isFinite(visualOffset) ? visualOffset : 0
         return {
             appBarPosition: window.getComputedStyle(appBar).position,
             appBarTop: appBarRect.top,
-            expectedAppBarTop: normalizedFrameHeight + 28,
+            appBarBottom: appBarRect.bottom,
+            expectedAppBarTop: normalizedFrameHeight + normalizedVisualOffset,
+            visualOffset: normalizedVisualOffset,
             navigationTop: navigationRect.top,
             navigationHeight: navigationRect.height,
             heroTop: heroRect.top,
             scrollY: window.scrollY
         }
     })
-
-type MarketingNavigationStackGeometry = Array<{
-    appBarPosition: string
-    top: number
-    bottom: number
-    height: number
-}>
-
-const readMarketingNavigationStackGeometry = async (page: Page): Promise<MarketingNavigationStackGeometry> =>
-    page.evaluate(() =>
-        Array.from(document.querySelectorAll<HTMLElement>('[data-testid="marketing-navigation-instance"]')).map((navigation) => {
-            const appBar = navigation.closest<HTMLElement>('.MuiAppBar-root')
-            if (!appBar) throw new Error('Marketing navigation AppBar geometry was not rendered')
-            const rect = appBar.getBoundingClientRect()
-            return {
-                appBarPosition: window.getComputedStyle(appBar).position,
-                top: rect.top,
-                bottom: rect.bottom,
-                height: rect.height
-            }
-        })
-    )
 
 type MarketingBackgroundOwnership = {
     pageBackgroundImage: string
@@ -178,6 +163,42 @@ async function waitForLinkedApplication(
 
 async function waitForApplicationSchema(api: Awaited<ReturnType<typeof createLoggedInApiContext>>, applicationId: string): Promise<void> {
     await expect.poll(async () => (await getApplication(api, applicationId))?.schemaStatus).toBe('synced')
+}
+
+async function upsertApplicationLayoutWidgetWithRetry(
+    api: Awaited<ReturnType<typeof createLoggedInApiContext>>,
+    applicationId: string,
+    layoutId: string,
+    payload: {
+        widgetKey: string
+        zone: string
+        sortOrder: number
+        config: Record<string, unknown>
+    }
+): Promise<void> {
+    await expect
+        .poll(
+            async () => {
+                const detail = await getApplicationLayout(api, applicationId, layoutId)
+                const currentVersion = detail?.item?.version
+                if (!Number.isInteger(currentVersion) || currentVersion < 1) {
+                    throw new Error(`Layout ${layoutId} did not expose a writable version before adding ${payload.widgetKey}`)
+                }
+
+                try {
+                    await upsertApplicationLayoutWidget(api, applicationId, layoutId, {
+                        ...payload,
+                        expectedVersion: currentVersion
+                    })
+                    return true
+                } catch (error) {
+                    if (error instanceof Error && error.message.includes('APPLICATION_LAYOUT_VERSION_CONFLICT')) return false
+                    throw error
+                }
+            },
+            { timeout: 30_000 }
+        )
+        .toBe(true)
 }
 
 test('@flow @combined @cross-template resolves an entity-scoped template and shared widget across runtime hosts', async ({
@@ -321,17 +342,11 @@ test('@flow @combined @cross-template resolves an entity-scoped template and sha
 
         for (const widget of sourceWidgetResponse?.items ?? []) {
             if (typeof widget.widgetKey !== 'string' || typeof widget.zone !== 'string') continue
-            const currentScopedMarketingLayout = await getApplicationLayout(api, applicationId, scopedMarketingLayout.id)
-            const currentVersion = currentScopedMarketingLayout?.item?.version
-            if (!Number.isInteger(currentVersion) || currentVersion < 1) {
-                throw new Error(`The scoped marketing layout version was unavailable before adding ${widget.widgetKey}`)
-            }
-            await upsertApplicationLayoutWidget(api, applicationId, scopedMarketingLayout.id, {
+            await upsertApplicationLayoutWidgetWithRetry(api, applicationId, scopedMarketingLayout.id, {
                 widgetKey: widget.widgetKey,
                 zone: widget.zone,
                 sortOrder: typeof widget.sortOrder === 'number' ? widget.sortOrder : 0,
-                config: widget.config && typeof widget.config === 'object' ? widget.config : {},
-                expectedVersion: currentVersion
+                config: widget.config && typeof widget.config === 'object' && !Array.isArray(widget.config) ? widget.config : {}
             })
         }
 
@@ -349,17 +364,11 @@ test('@flow @combined @cross-template resolves an entity-scoped template and sha
                 : {}
         delete repeatedNavigationConfig.instanceKey
         for (let duplicateIndex = 0; duplicateIndex < 2; duplicateIndex += 1) {
-            const currentScopedMarketingLayout = await getApplicationLayout(api, applicationId, scopedMarketingLayout.id)
-            const currentVersion = currentScopedMarketingLayout?.item?.version
-            if (!Number.isInteger(currentVersion) || currentVersion < 1) {
-                throw new Error(`The scoped marketing layout version was unavailable before repeated navigation ${duplicateIndex + 1}`)
-            }
-            await upsertApplicationLayoutWidget(api, applicationId, scopedMarketingLayout.id, {
+            await upsertApplicationLayoutWidgetWithRetry(api, applicationId, scopedMarketingLayout.id, {
                 widgetKey: 'marketing.navigation',
                 zone: navigationSourceWidget.zone,
                 sortOrder: (navigationSourceWidget.sortOrder ?? 0) + duplicateIndex + 1,
-                config: repeatedNavigationConfig,
-                expectedVersion: currentVersion
+                config: repeatedNavigationConfig
             })
         }
 
@@ -388,7 +397,10 @@ test('@flow @combined @cross-template resolves an entity-scoped template and sha
         )
         await expect(page.locator('#marketing-page-main')).toBeVisible()
         await expect(page.getByRole('heading', { name: 'Our latest products', exact: true })).toBeVisible()
-        const navigationLandmarks = page.getByTestId('marketing-navigation-instance')
+        await expect(page.getByTestId('marketing-header-shell')).toHaveCount(1)
+        await expect(page.getByRole('banner')).toHaveCount(1)
+        await expect(page.getByTestId('marketing-header-drawer')).toHaveCount(1)
+        const navigationLandmarks = page.getByTestId('marketing-header-navigation')
         await expect(navigationLandmarks).toHaveCount(3)
         for (let index = 0; index < 3; index += 1) {
             await expect(navigationLandmarks.nth(index)).toBeVisible()
@@ -401,22 +413,22 @@ test('@flow @combined @cross-template resolves an entity-scoped template and sha
             )
         expect(navigationLabels).toHaveLength(3)
         expect(new Set(navigationLabels).size).toBe(3)
-        const navigationStack = await readMarketingNavigationStackGeometry(page)
-        expect(navigationStack.map((item) => item.appBarPosition)).toEqual(['fixed', 'fixed', 'fixed'])
-        expect(navigationStack.every((item) => item.height > 0)).toBe(true)
-        for (let index = 1; index < navigationStack.length; index += 1) {
-            expect(navigationStack[index].top).toBeGreaterThanOrEqual(navigationStack[index - 1].bottom - 1)
-        }
+        const navigationGeometry = await readMarketingNavigationGeometry(page)
+        expect(navigationGeometry.appBarPosition).toBe('fixed')
+        expect(navigationGeometry.visualOffset).toBe(28)
+        expect(navigationGeometry.navigationHeight).toBeGreaterThan(0)
+        expect(
+            Math.abs(navigationGeometry.heroTop),
+            'Repeated navigation must overlay the reference Hero from document y=0'
+        ).toBeLessThanOrEqual(1)
         const repeatedBackgroundOwnership = await readMarketingBackgroundOwnership(page)
-        expect(repeatedBackgroundOwnership.pageBackgroundImage).toContain('radial-gradient')
-        expect(repeatedBackgroundOwnership.heroBackgroundImage).toBe('none')
+        expect(repeatedBackgroundOwnership.pageBackgroundImage).toBe('none')
+        expect(repeatedBackgroundOwnership.heroBackgroundImage).toContain('radial-gradient')
         await page.evaluate(() => window.scrollTo({ top: 320, behavior: 'instant' }))
         await page.waitForFunction(() => window.scrollY > 0)
-        const scrolledNavigationStack = await readMarketingNavigationStackGeometry(page)
-        expect(scrolledNavigationStack.map((item) => item.appBarPosition)).toEqual(['fixed', 'fixed', 'fixed'])
-        for (let index = 0; index < navigationStack.length; index += 1) {
-            expect(Math.abs(scrolledNavigationStack[index].top - navigationStack[index].top)).toBeLessThanOrEqual(1)
-        }
+        const scrolledNavigationGeometry = await readMarketingNavigationGeometry(page)
+        expect(scrolledNavigationGeometry.appBarPosition).toBe('fixed')
+        expect(Math.abs(scrolledNavigationGeometry.appBarTop - navigationGeometry.appBarTop)).toBeLessThanOrEqual(1)
         await page.screenshot({
             path: testInfo.outputPath('cross-template-scoped-marketing-repeated-navigation-scrolled.png'),
             fullPage: true,
@@ -444,31 +456,30 @@ test('@flow @combined @cross-template resolves an entity-scoped template and sha
             )}&locale=en&themeVariant=light`
         )
         await expect(navigationLandmarks).toHaveCount(3)
-        const mobileNavigationStack = await readMarketingNavigationStackGeometry(page)
-        expect(mobileNavigationStack.map((item) => item.appBarPosition)).toEqual(['fixed', 'fixed', 'fixed'])
-        expect(mobileNavigationStack.every((item) => item.height > 0)).toBe(true)
-        for (let index = 1; index < mobileNavigationStack.length; index += 1) {
-            expect(mobileNavigationStack[index].top).toBeGreaterThanOrEqual(mobileNavigationStack[index - 1].bottom - 1)
-        }
+        await expect(page.getByTestId('marketing-header-shell')).toHaveCount(1)
+        await expect(page.getByRole('banner')).toHaveCount(1)
         const mobileInitialGeometry = await readMarketingNavigationGeometry(page)
         expect(mobileInitialGeometry.appBarPosition).toBe('fixed')
+        expect(mobileInitialGeometry.visualOffset).toBe(28)
         expect(Math.abs(mobileInitialGeometry.appBarTop - mobileInitialGeometry.expectedAppBarTop)).toBeLessThanOrEqual(1)
         await page.evaluate(() => window.scrollTo({ top: 320, behavior: 'instant' }))
         await page.waitForFunction(() => window.scrollY > 0)
-        await expect(navigationLandmarks.nth(0)).toBeVisible()
         const mobileScrolledGeometry = await readMarketingNavigationGeometry(page)
-        const mobileScrolledNavigationStack = await readMarketingNavigationStackGeometry(page)
-        expect(mobileScrolledNavigationStack.map((item) => item.appBarPosition)).toEqual(['fixed', 'fixed', 'fixed'])
         expect(mobileScrolledGeometry.scrollY).toBeGreaterThan(0)
         expect(Math.abs(mobileScrolledGeometry.appBarTop - mobileInitialGeometry.appBarTop)).toBeLessThanOrEqual(1)
-        for (let index = 0; index < mobileNavigationStack.length; index += 1) {
-            expect(Math.abs(mobileScrolledNavigationStack[index].top - mobileNavigationStack[index].top)).toBeLessThanOrEqual(1)
-        }
         await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' }))
         await page.waitForFunction(() => window.scrollY === 0)
-        const firstMobileMenuButton = navigationLandmarks.nth(0).getByRole('button', { name: 'Open menu', exact: true })
+        const firstMobileMenuButton = page.getByTestId('marketing-header-mobile-menu').locator('button')
         await firstMobileMenuButton.click()
-        await expect(navigationLandmarks.nth(0).locator('button[aria-expanded="true"]')).toHaveCount(1)
+        await expect(firstMobileMenuButton).toHaveAttribute('aria-expanded', 'true')
+        await expect(page.getByTestId('marketing-header-drawer')).toBeVisible()
+        const drawerNavigationLandmarks = page.getByTestId('marketing-header-drawer-navigation')
+        await expect(drawerNavigationLandmarks).toHaveCount(3)
+        for (let index = 0; index < 3; index += 1) {
+            await expect(drawerNavigationLandmarks.nth(index)).toBeVisible()
+        }
+        const mobileAccessibility = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa']).analyze()
+        expect(mobileAccessibility.violations, JSON.stringify(mobileAccessibility.violations)).toEqual([])
         await page.keyboard.press('Escape')
         await expect(firstMobileMenuButton).toHaveAttribute('aria-expanded', 'false')
         await expect(firstMobileMenuButton).toBeFocused()
@@ -492,7 +503,7 @@ test('@flow @combined @cross-template resolves an entity-scoped template and sha
         if (typeof scopedLayout?.id !== 'string' || typeof scopedLayout.version !== 'number') {
             throw new Error('The scoped Dashboard layout did not return a writable version')
         }
-        await upsertApplicationLayoutWidget(api, applicationId, scopedLayout.id, {
+        await upsertApplicationLayoutWidgetWithRetry(api, applicationId, scopedLayout.id, {
             widgetKey: 'menuWidget',
             zone: 'left',
             sortOrder: 0,
@@ -500,8 +511,7 @@ test('@flow @combined @cross-template resolves an entity-scoped template and sha
                 autoShowAllSections: true,
                 showTitle: false,
                 items: []
-            },
-            expectedVersion: scopedLayout.version
+            }
         })
         const addScopedWidget = async (payload: {
             widgetKey: string
@@ -509,15 +519,7 @@ test('@flow @combined @cross-template resolves an entity-scoped template and sha
             sortOrder: number
             config: Record<string, unknown>
         }) => {
-            const currentLayout = await getApplicationLayout(api, applicationId, scopedLayout.id as string)
-            const currentVersion = currentLayout?.item?.version
-            if (!Number.isInteger(currentVersion) || currentVersion < 1) {
-                throw new Error(`The scoped Dashboard layout version was unavailable before adding ${payload.widgetKey}`)
-            }
-            await upsertApplicationLayoutWidget(api, applicationId, scopedLayout.id as string, {
-                ...payload,
-                expectedVersion: currentVersion
-            })
+            await upsertApplicationLayoutWidgetWithRetry(api, applicationId, scopedLayout.id as string, payload)
         }
         await addScopedWidget({ widgetKey: 'appNavbar', zone: 'top', sortOrder: 0, config: {} })
         await addScopedWidget({ widgetKey: 'languageSwitcher', zone: 'top', sortOrder: 1, config: {} })
@@ -538,17 +540,73 @@ test('@flow @combined @cross-template resolves an entity-scoped template and sha
             expect.arrayContaining([expect.objectContaining({ widgetKey: 'marketing.navigation' })])
         )
 
+        // Verify the real browser contract for the non-default position before
+        // restoring the fixed default used by the remaining runtime matrix.
+        const globalLayoutBeforeFlow = await getApplicationLayout(api, applicationId, globalLayout.id)
+        const flowGlobalLayout = await updateApplicationLayoutZoneSetting(
+            api,
+            applicationId,
+            globalLayout.id,
+            'marketing-header',
+            'position',
+            'flow',
+            globalLayoutBeforeFlow.item.version
+        )
+        expect(flowGlobalLayout.neutral?.zoneSettings?.['marketing-header']).toEqual({ position: 'flow' })
+
+        const assertFlowRuntime = async (viewport: { width: number; height: number }, screenshotName: string) => {
+            await page.setViewportSize(viewport)
+            await page.goto(`/a/${applicationId}?locale=en&themeVariant=light`)
+            await expect(page.locator('#marketing-page-main')).toBeVisible()
+            await expect(page.getByTestId('marketing-header-shell')).toHaveClass(/MuiAppBar-positionStatic/)
+            await expect(page.getByTestId('marketing-header-spacer')).toHaveCount(0)
+            const initial = await readMarketingNavigationGeometry(page)
+            expect(initial.appBarPosition).toBe('static')
+            expect(initial.heroTop).toBeGreaterThanOrEqual(initial.appBarBottom - 1)
+            const flowDocumentState = await page.evaluate(() => ({
+                scrollPaddingBlockStart: window.getComputedStyle(document.documentElement).scrollPaddingBlockStart,
+                marketingHeaderOcclusion: document.documentElement.style.getPropertyValue('--marketing-header-occlusion')
+            }))
+            expect(['auto', '0px']).toContain(flowDocumentState.scrollPaddingBlockStart)
+            expect(flowDocumentState.marketingHeaderOcclusion).toBe('')
+
+            await page.evaluate(() => window.scrollTo({ top: 640, behavior: 'instant' }))
+            await page.waitForFunction(() => window.scrollY > 0)
+            const scrolled = await readMarketingNavigationGeometry(page)
+            expect(scrolled.appBarPosition).toBe('static')
+            expect(scrolled.appBarTop).toBeLessThan(initial.appBarTop - 100)
+            expect(scrolled.heroTop).toBeLessThan(initial.heroTop - 100)
+            await page.screenshot({ path: testInfo.outputPath(screenshotName), fullPage: true, animations: 'disabled' })
+        }
+
+        await assertFlowRuntime({ width: 1440, height: 1000 }, 'cross-template-global-marketing-flow-desktop.png')
+        await assertFlowRuntime({ width: 768, height: 1024 }, 'cross-template-global-marketing-flow-tablet.png')
+        await assertFlowRuntime({ width: 390, height: 844 }, 'cross-template-global-marketing-flow-mobile.png')
+
+        const globalLayoutBeforeFixedRestore = await getApplicationLayout(api, applicationId, globalLayout.id)
+        await updateApplicationLayoutZoneSetting(
+            api,
+            applicationId,
+            globalLayout.id,
+            'marketing-header',
+            'position',
+            'fixed',
+            globalLayoutBeforeFixedRestore.item.version
+        )
+
         await page.setViewportSize({ width: 1440, height: 1000 })
         await page.goto(`/a/${applicationId}?locale=en&themeVariant=light`)
         await expect(page.locator('#marketing-page-main')).toBeVisible()
         await expect(page.locator('body')).not.toContainText(entityScope.scopeEntityId)
-        const marketingNavigation = page.getByTestId('marketing-navigation-instance').first()
+        await expect(page.getByTestId('marketing-header-spacer')).toHaveCount(0)
+        const marketingNavigation = page.getByTestId('marketing-header-navigation').first()
         const initialMarketingGeometry = await readMarketingNavigationGeometry(page)
         expect(initialMarketingGeometry.appBarPosition).toBe('fixed')
+        expect(initialMarketingGeometry.visualOffset).toBe(28)
         expect(Math.abs(initialMarketingGeometry.appBarTop - initialMarketingGeometry.expectedAppBarTop)).toBeLessThanOrEqual(1)
         expect(initialMarketingGeometry.navigationHeight).toBeGreaterThan(0)
-        expect(initialMarketingGeometry.heroTop).toBeGreaterThanOrEqual(-1)
-        expect(initialMarketingGeometry.heroTop).toBeLessThanOrEqual(1)
+        expect(Math.abs(initialMarketingGeometry.heroTop)).toBeLessThanOrEqual(1)
+        await expect(page.locator('a[href="#marketing-page-main"]')).toHaveCount(0)
         const singleBackgroundOwnership = await readMarketingBackgroundOwnership(page)
         expect(singleBackgroundOwnership.pageBackgroundImage).toBe('none')
         expect(singleBackgroundOwnership.heroBackgroundImage).toContain('radial-gradient')
@@ -581,8 +639,7 @@ test('@flow @combined @cross-template resolves an entity-scoped template and sha
                 const viewportGeometry = await readMarketingNavigationGeometry(page)
                 expect(viewportGeometry.appBarPosition).toBe('fixed')
                 expect(Math.abs(viewportGeometry.appBarTop - viewportGeometry.expectedAppBarTop)).toBeLessThanOrEqual(1)
-                expect(viewportGeometry.heroTop).toBeGreaterThanOrEqual(-1)
-                expect(viewportGeometry.heroTop).toBeLessThanOrEqual(1)
+                expect(Math.abs(viewportGeometry.heroTop)).toBeLessThanOrEqual(1)
             }
         })
         const accessibility = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa']).analyze()

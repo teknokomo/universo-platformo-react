@@ -862,10 +862,20 @@ export const DASHBOARD_LAYOUT_WIDGETS = [
     {
         key: 'languageSwitcher',
         allowedZones: ['top'] as const,
-        multiInstance: true,
+        multiInstance: false,
         requiredHostCapabilities: [
             'locale.state',
             'locale.change',
+            'keyboard.focus',
+            'accessibility.label',
+            'theme.safe'
+        ] as const satisfies readonly ApplicationTemplateHostCapability[]
+    },
+    {
+        key: 'colorModeSwitcher',
+        allowedZones: ['top'] as const,
+        multiInstance: false,
+        requiredHostCapabilities: [
             'keyboard.focus',
             'accessibility.label',
             'theme.safe'

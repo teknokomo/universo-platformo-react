@@ -56,7 +56,7 @@ describe('Applications Routes', () => {
         template_key: 'dashboard',
         name: { en: 'Dashboard' },
         description: null,
-        config: { compositionMode: 'independent', baseLayoutId: null },
+        config: { __layout: { composition: { mode: 'independent', baseLayoutId: null } } },
         is_active: true,
         is_default: true,
         sort_order: 0,
@@ -93,8 +93,7 @@ describe('Applications Routes', () => {
         mockListEffectiveLayoutCandidates.mockResolvedValue([
             buildEffectiveLayoutCandidate({
                 config: {
-                    compositionMode: 'independent',
-                    baseLayoutId: null,
+                    __layout: { composition: { mode: 'independent', baseLayoutId: null } },
                     objectBehavior: {
                         enableRowReordering: true,
                         reorderPersistenceField: 'SortOrder'
@@ -622,7 +621,7 @@ describe('Applications Routes', () => {
             mockListEffectiveLayoutCandidates.mockResolvedValue([
                 buildEffectiveLayoutCandidate({
                     id: runtimeLayoutId,
-                    config: { sideMenu: sideMenuConfig, compositionMode: 'independent', baseLayoutId: null }
+                    config: { sideMenu: sideMenuConfig, __layout: { composition: { mode: 'independent', baseLayoutId: null } } }
                 })
             ])
             mockListEffectiveLayoutWidgets.mockResolvedValue([
@@ -849,8 +848,7 @@ describe('Applications Routes', () => {
                             primaryMode: 'overlay',
                             rememberUserChoice: false
                         },
-                        compositionMode: 'independent',
-                        baseLayoutId: null
+                        __layout: { composition: { mode: 'independent', baseLayoutId: null } }
                     }
                 })
             ])

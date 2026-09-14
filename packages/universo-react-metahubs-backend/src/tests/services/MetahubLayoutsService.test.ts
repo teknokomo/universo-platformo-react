@@ -5,6 +5,8 @@ import {
     moveLayoutZoneWidgetSchema
 } from '../../domains/layouts/services/MetahubLayoutsService'
 
+const globalLayoutIdV7 = '0190a9b5-3cde-7abc-8def-0123456789a1'
+
 describe('MetahubLayoutsService', () => {
     it('accepts only UUID v7 layout, scope, base, and widget identities at the layout ingress schemas', () => {
         const uuidV7 = '0190a9b5-3cde-7abc-8def-0123456789a1'
@@ -47,6 +49,7 @@ describe('MetahubLayoutsService', () => {
             _upl_updated_at: '2026-04-01T00:00:00.000Z'
         }
         const query = jest.fn(async (sql: string) => {
+            if (sql.includes('pg_advisory_xact_lock(hashtext($1))')) return []
             if (sql.includes('SELECT id, scope_entity_id, base_layout_id') && sql.includes('_mhb_layouts')) return [layoutRow]
             if (sql.includes('SELECT id, widget_key, zone, is_active') && sql.includes('_mhb_widgets')) return [widgetRow]
             if (sql.includes('SELECT * FROM') && sql.includes('_mhb_widgets')) return [widgetRow]
@@ -69,6 +72,44 @@ describe('MetahubLayoutsService', () => {
         expect(result[0]).toMatchObject({ widgetKey: 'languageSwitcher', zone: 'marketing-header', config: {} })
     })
 
+    it('fails closed when a stored metahub layout contains application-only source zone settings', async () => {
+        const layoutId = '0190a9b5-3cde-7abc-8def-0123456789a2'
+        const query = jest.fn(async (sql: string) => {
+            if (sql.includes('SELECT * FROM') && sql.includes('_mhb_layouts')) {
+                return [
+                    {
+                        id: layoutId,
+                        scope_entity_id: null,
+                        base_layout_id: null,
+                        template_key: 'marketing-page',
+                        name: { en: 'Marketing' },
+                        description: null,
+                        config: {
+                            __layout: {
+                                composition: { mode: 'independent', baseLayoutId: null },
+                                sourceZoneSettings: { 'marketing-header': { position: 'flow' } }
+                            }
+                        },
+                        is_active: true,
+                        is_default: true,
+                        sort_order: 0,
+                        _upl_version: 1,
+                        _upl_created_at: '2026-04-01T00:00:00.000Z',
+                        _upl_updated_at: '2026-04-01T00:00:00.000Z'
+                    }
+                ]
+            }
+            throw new Error(`Unexpected SQL in source zone settings reader test: ${sql}`)
+        })
+        const exec = { query, transaction: jest.fn(), isReleased: () => false }
+        const schemaService = {
+            ensureSchema: jest.fn(async () => 'mhb_a1b2c3d4e5f67890abcdef1234567890_b1')
+        }
+        const service = new MetahubLayoutsService(exec as never, schemaService as never)
+
+        await expect(service.getLayoutById('metahub-1', layoutId, 'user-1')).rejects.toThrow(/sourceZoneSettings/)
+    })
+
     it.each(['appNavbar', 'header'])('rejects reactivating duplicate singleton %s widgets', async (widgetKey) => {
         const layoutId = 'dashboard-layout-1'
         const currentWidget = {
@@ -84,6 +125,7 @@ describe('MetahubLayoutsService', () => {
             _upl_updated_at: '2026-04-01T00:00:00.000Z'
         }
         const query = jest.fn(async (sql: string) => {
+            if (sql.includes('pg_advisory_xact_lock(hashtext($1))')) return []
             if (sql.includes('SELECT id, scope_entity_id, base_layout_id') && sql.includes('_mhb_layouts')) {
                 return [
                     {
@@ -313,6 +355,7 @@ describe('MetahubLayoutsService', () => {
         ]
         let persistedRows = initialRows.map((row) => ({ ...row }))
         const query = jest.fn(async (sql: string, params?: unknown[]) => {
+            if (sql.includes('pg_advisory_xact_lock(hashtext($1))') && String(params?.[0] ?? '').startsWith('mhb-layout-graph:')) return []
             if (sql.includes('_mhb_layouts')) return [layoutRow]
 
             if (sql.includes('sort_order = sort_order +')) {
@@ -402,6 +445,7 @@ describe('MetahubLayoutsService', () => {
         }
 
         const query = jest.fn(async (sql: string, params?: unknown[]) => {
+            if (sql.includes('pg_advisory_xact_lock(hashtext($1))') && String(params?.[0] ?? '').startsWith('mhb-layout-graph:')) return []
             if (sql.includes('SELECT id, scope_entity_id, base_layout_id') && sql.includes('_mhb_layouts')) {
                 return [baseLayoutScopeRow]
             }
@@ -578,7 +622,7 @@ describe('MetahubLayoutsService', () => {
         const createdRow = {
             id: layoutId,
             scope_entity_id: scopeEntityId,
-            base_layout_id: 'global-layout-1',
+            base_layout_id: globalLayoutIdV7,
             template_key: 'dashboard',
             name: {
                 _schema: '1',
@@ -616,7 +660,7 @@ describe('MetahubLayoutsService', () => {
             if (sql.includes('scope_entity_id IS NULL') && sql.includes('is_active = true') && sql.includes('_mhb_layouts')) {
                 return [
                     {
-                        id: 'global-layout-1',
+                        id: globalLayoutIdV7,
                         scope_entity_id: null,
                         base_layout_id: null,
                         template_key: 'dashboard',
@@ -627,8 +671,14 @@ describe('MetahubLayoutsService', () => {
 
             if (sql.includes('INSERT INTO') && sql.includes('_mhb_layouts') && sql.includes('RETURNING *')) {
                 expect(params?.[0]).toBe(scopeEntityId)
-                expect(params?.[1]).toBe('global-layout-1')
+                expect(params?.[1]).toBe(globalLayoutIdV7)
                 expect(JSON.parse(String(params?.[5] ?? '{}'))).toEqual({
+                    __layout: {
+                        composition: {
+                            mode: 'overlay',
+                            baseLayoutId: globalLayoutIdV7
+                        }
+                    },
                     showViewToggle: true,
                     defaultViewMode: 'card',
                     showHeader: true,
@@ -682,7 +732,7 @@ describe('MetahubLayoutsService', () => {
         )
 
         expect(created.scopeEntityId).toBe(scopeEntityId)
-        expect(created.baseLayoutId).toBe('global-layout-1')
+        expect(created.baseLayoutId).toBe(globalLayoutIdV7)
         expect(created.config).toEqual({
             showViewToggle: true,
             defaultViewMode: 'card',
@@ -697,7 +747,7 @@ describe('MetahubLayoutsService', () => {
     })
 
     it('creates global layouts empty by default without seeding default widgets', async () => {
-        const layoutId = 'global-layout-1'
+        const layoutId = globalLayoutIdV7
         const createdRow = {
             id: layoutId,
             scope_entity_id: null,
@@ -856,7 +906,7 @@ describe('MetahubLayoutsService', () => {
 
     it('ignores stale inherited widget overrides when the base sharedBehavior forbids them', async () => {
         const layoutId = 'object-layout-1'
-        const baseLayoutId = 'global-layout-1'
+        const baseLayoutId = globalLayoutIdV7
         const baseWidgetId = 'base-widget-1'
 
         const baseWidgetRow = {
@@ -879,6 +929,7 @@ describe('MetahubLayoutsService', () => {
         }
 
         const query = jest.fn(async (sql: string, params?: unknown[]) => {
+            if (sql.includes('pg_advisory_xact_lock(hashtext($1))') && String(params?.[0] ?? '').startsWith('mhb-layout-graph:')) return []
             if (
                 sql.includes('_mhb_layouts') &&
                 (sql.includes('SELECT id, scope_entity_id, base_layout_id') || sql.includes('SELECT * FROM'))
@@ -957,10 +1008,11 @@ describe('MetahubLayoutsService', () => {
 
     it('rejects inherited object widget config edits', async () => {
         const layoutId = 'object-layout-1'
-        const baseLayoutId = 'global-layout-1'
+        const baseLayoutId = globalLayoutIdV7
         const baseWidgetId = 'base-widget-1'
 
         const query = jest.fn(async (sql: string, params?: unknown[]) => {
+            if (sql.includes('pg_advisory_xact_lock(hashtext($1))') && String(params?.[0] ?? '').startsWith('mhb-layout-graph:')) return []
             if (
                 sql.includes('_mhb_layouts') &&
                 (sql.includes('SELECT id, scope_entity_id, base_layout_id') || sql.includes('SELECT * FROM'))
@@ -1030,10 +1082,11 @@ describe('MetahubLayoutsService', () => {
 
     it('rejects inherited widget exclusion when the base layout disables it', async () => {
         const layoutId = 'object-layout-1'
-        const baseLayoutId = 'global-layout-1'
+        const baseLayoutId = globalLayoutIdV7
         const baseWidgetId = 'base-widget-1'
 
         const query = jest.fn(async (sql: string, params?: unknown[]) => {
+            if (sql.includes('pg_advisory_xact_lock(hashtext($1))') && String(params?.[0] ?? '').startsWith('mhb-layout-graph:')) return []
             if (
                 sql.includes('_mhb_layouts') &&
                 (sql.includes('SELECT id, scope_entity_id, base_layout_id') || sql.includes('SELECT * FROM'))
@@ -1104,11 +1157,12 @@ describe('MetahubLayoutsService', () => {
 
     it('stores inherited widget exclusion through object override rows when allowed', async () => {
         const layoutId = 'object-layout-1'
-        const baseLayoutId = 'global-layout-1'
+        const baseLayoutId = globalLayoutIdV7
         const baseWidgetId = 'base-widget-1'
         const overrideRows: Array<Record<string, unknown>> = []
 
         const query = jest.fn(async (sql: string, params?: unknown[]) => {
+            if (sql.includes('pg_advisory_xact_lock(hashtext($1))') && String(params?.[0] ?? '').startsWith('mhb-layout-graph:')) return []
             if (
                 sql.includes('_mhb_layouts') &&
                 (sql.includes('SELECT id, scope_entity_id, base_layout_id') || sql.includes('SELECT * FROM'))
@@ -1204,10 +1258,11 @@ describe('MetahubLayoutsService', () => {
 
     it('rejects inherited widget moves when the base layout locks position', async () => {
         const layoutId = 'object-layout-1'
-        const baseLayoutId = 'global-layout-1'
+        const baseLayoutId = globalLayoutIdV7
         const baseWidgetId = 'base-widget-1'
 
         const query = jest.fn(async (sql: string, params?: unknown[]) => {
+            if (sql.includes('pg_advisory_xact_lock(hashtext($1))') && String(params?.[0] ?? '').startsWith('mhb-layout-graph:')) return []
             if (sql.includes('SELECT id, scope_entity_id, base_layout_id') && sql.includes('_mhb_layouts')) {
                 return [
                     {
@@ -1271,10 +1326,11 @@ describe('MetahubLayoutsService', () => {
 
     it('rejects inherited widget activation changes when the base layout disables deactivation', async () => {
         const layoutId = 'object-layout-1'
-        const baseLayoutId = 'global-layout-1'
+        const baseLayoutId = globalLayoutIdV7
         const baseWidgetId = 'base-widget-1'
 
         const query = jest.fn(async (sql: string, params?: unknown[]) => {
+            if (sql.includes('pg_advisory_xact_lock(hashtext($1))') && String(params?.[0] ?? '').startsWith('mhb-layout-graph:')) return []
             if (
                 sql.includes('_mhb_layouts') &&
                 (sql.includes('SELECT id, scope_entity_id, base_layout_id') || sql.includes('SELECT * FROM'))
@@ -1338,7 +1394,7 @@ describe('MetahubLayoutsService', () => {
     })
 
     it('blocks deletion of a global layout that is still referenced by scoped layouts', async () => {
-        const layoutId = 'global-layout-1'
+        const layoutId = globalLayoutIdV7
 
         const query = jest.fn(async (sql: string, params?: unknown[]) => {
             if (sql.includes('pg_advisory_xact_lock(hashtext($1))')) return []
@@ -1383,14 +1439,15 @@ describe('MetahubLayoutsService', () => {
 
     it('lists global widget visibility for every layout-capable entity scope', async () => {
         const query = jest.fn(async (sql: string, params?: unknown[]) => {
+            if (sql.includes('pg_advisory_xact_lock(hashtext($1))') && String(params?.[0] ?? '').startsWith('mhb-layout-graph:')) return []
             if (
                 sql.includes('FROM') &&
                 sql.includes('_mhb_layouts') &&
                 sql.includes('_mhb_widgets') &&
                 sql.includes('l.scope_entity_id IS NULL')
             ) {
-                expect(params).toEqual(['global-layout-1', 'base-widget-1'])
-                return [{ layout_id: 'global-layout-1', widget_id: 'base-widget-1', widget_is_active: true }]
+                expect(params).toEqual([globalLayoutIdV7, 'base-widget-1'])
+                return [{ layout_id: globalLayoutIdV7, widget_id: 'base-widget-1', widget_is_active: true }]
             }
 
             if (sql.includes('_mhb_objects') && sql.includes('_mhb_entity_type_definitions')) {
@@ -1436,7 +1493,7 @@ describe('MetahubLayoutsService', () => {
             }
 
             if (sql.includes('FROM') && sql.includes('_mhb_layouts') && sql.includes('base_layout_id = $1')) {
-                expect(params).toEqual(['global-layout-1', ['object-1', 'page-1']])
+                expect(params).toEqual([globalLayoutIdV7, ['object-1', 'page-1']])
                 return [
                     {
                         id: 'object-layout-1',
@@ -1467,7 +1524,7 @@ describe('MetahubLayoutsService', () => {
         }
 
         const service = new MetahubLayoutsService(exec as never, schemaService as never)
-        const result = await service.listLayoutWidgetScopeVisibility('metahub-1', 'global-layout-1', 'base-widget-1', 'user-1')
+        const result = await service.listLayoutWidgetScopeVisibility('metahub-1', globalLayoutIdV7, 'base-widget-1', 'user-1')
 
         expect(result).toEqual([
             expect.objectContaining({
@@ -1523,6 +1580,7 @@ describe('MetahubLayoutsService', () => {
         }
         let overrideActive = true
         const query = jest.fn(async (sql: string, params?: unknown[]) => {
+            if (sql.includes('pg_advisory_xact_lock(hashtext($1))') && String(params?.[0] ?? '').startsWith('mhb-layout-graph:')) return []
             if (sql.includes('_mhb_layouts') && sql.includes('FOR UPDATE')) return [layoutScope]
             if (sql.includes('_mhb_widgets') && sql.includes('WHERE id = $1')) return [baseWidget]
             if (sql.includes('_mhb_layout_widget_overrides') && sql.includes('base_widget_id = $2')) return overrideActive ? [override] : []
@@ -1570,13 +1628,14 @@ describe('MetahubLayoutsService', () => {
         let insertedOverride = false
 
         const query = jest.fn(async (sql: string, params?: unknown[]) => {
+            if (sql.includes('pg_advisory_xact_lock(hashtext($1))') && String(params?.[0] ?? '').startsWith('mhb-layout-graph:')) return []
             if (sql.includes('_mhb_objects') && sql.includes('_mhb_entity_type_definitions') && sql.includes('WHERE o.id = $1')) {
                 expect(params).toEqual(['page-1'])
                 return [{ id: 'page-1', kind: 'page', capabilities: { layoutConfig: { enabled: true } } }]
             }
 
             if (sql.includes('pg_advisory_xact_lock(hashtext($1))')) {
-                expect(params).toEqual(['mhb-layout-scope:mhb_a1b2c3d4e5f67890abcdef1234567890_b1:global-layout-1:page-1'])
+                expect(params).toEqual([`mhb-layout-scope:mhb_a1b2c3d4e5f67890abcdef1234567890_b1:${globalLayoutIdV7}:page-1`])
                 return []
             }
 
@@ -1584,7 +1643,7 @@ describe('MetahubLayoutsService', () => {
                 if (sql.includes('scope_entity_id IS NULL')) {
                     return [
                         {
-                            id: 'global-layout-1',
+                            id: globalLayoutIdV7,
                             scope_entity_id: null,
                             base_layout_id: null,
                             template_key: 'dashboard',
@@ -1598,11 +1657,11 @@ describe('MetahubLayoutsService', () => {
             }
 
             if (sql.includes('SELECT *') && sql.includes('_mhb_widgets') && sql.includes('FOR UPDATE')) {
-                expect(params).toEqual(['base-widget-1', 'global-layout-1'])
+                expect(params).toEqual(['base-widget-1', globalLayoutIdV7])
                 return [
                     {
                         id: 'base-widget-1',
-                        layout_id: 'global-layout-1',
+                        layout_id: globalLayoutIdV7,
                         zone: 'left',
                         widget_key: 'menuWidget',
                         is_active: true,
@@ -1634,12 +1693,12 @@ describe('MetahubLayoutsService', () => {
             if (sql.includes('INSERT INTO') && sql.includes('_mhb_layouts')) {
                 insertedScopedLayout = true
                 expect(params?.[0]).toBe('page-1')
-                expect(params?.[1]).toBe('global-layout-1')
+                expect(params?.[1]).toBe(globalLayoutIdV7)
                 return [
                     {
                         id: 'page-layout-1',
                         scope_entity_id: 'page-1',
-                        base_layout_id: 'global-layout-1',
+                        base_layout_id: globalLayoutIdV7,
                         template_key: 'dashboard',
                         config: {}
                     }
@@ -1663,7 +1722,7 @@ describe('MetahubLayoutsService', () => {
                     {
                         id: 'page-layout-1',
                         scope_entity_id: 'page-1',
-                        base_layout_id: 'global-layout-1',
+                        base_layout_id: globalLayoutIdV7,
                         template_key: 'dashboard',
                         config: {}
                     }
@@ -1675,7 +1734,7 @@ describe('MetahubLayoutsService', () => {
             }
 
             if (sql.includes('_mhb_layouts') && sql.includes('_mhb_widgets') && sql.includes('l.scope_entity_id IS NULL')) {
-                return [{ layout_id: 'global-layout-1', widget_id: 'base-widget-1', widget_is_active: true }]
+                return [{ layout_id: globalLayoutIdV7, widget_id: 'base-widget-1', widget_is_active: true }]
             }
 
             if (sql.includes('_mhb_objects') && sql.includes('_mhb_entity_type_definitions')) {
@@ -1724,7 +1783,7 @@ describe('MetahubLayoutsService', () => {
         const service = new MetahubLayoutsService(exec as never, schemaService as never)
         const result = await service.setLayoutWidgetScopeVisibility(
             'metahub-1',
-            'global-layout-1',
+            globalLayoutIdV7,
             'base-widget-1',
             'page-1',
             false,
@@ -1745,7 +1804,7 @@ describe('MetahubLayoutsService', () => {
 
     it('reuses the same scoped layout on repeated resolution', async () => {
         const schemaName = 'mhb_a1b2c3d4e5f67890abcdef1234567890_b1'
-        const baseLayoutId = 'global-layout-1'
+        const baseLayoutId = globalLayoutIdV7
         const scopeEntityId = 'page-1'
         let persistedLayout: {
             id: string
@@ -1816,7 +1875,7 @@ describe('MetahubLayoutsService', () => {
 
     it('serializes concurrent scoped resolution and creates no duplicate logical layout', async () => {
         const schemaName = 'mhb_a1b2c3d4e5f67890abcdef1234567890_b1'
-        const baseLayoutId = 'global-layout-1'
+        const baseLayoutId = globalLayoutIdV7
         const scopeEntityId = 'page-1'
         const lockTails = new Map<string, Promise<void>>()
         const queryCalls: Array<[string, unknown[] | undefined]> = []

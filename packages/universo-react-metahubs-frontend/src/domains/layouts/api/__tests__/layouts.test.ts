@@ -1,13 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { APPLICATION_TEMPLATE_REGISTRY, LAYOUT_WIDGET_DEFINITIONS, LAYOUT_ZONE_DEFINITIONS } from '@universo-react/types'
 
-const { get } = vi.hoisted(() => ({ get: vi.fn() }))
+const { get, patch, post } = vi.hoisted(() => ({ get: vi.fn(), patch: vi.fn(), post: vi.fn() }))
 
 vi.mock('../../../shared', () => ({
-    apiClient: { get }
+    apiClient: { get, patch, post }
 }))
 
-import { getLayoutZoneWidgetObjects } from '../layouts'
+import { getLayoutZoneWidgetObjects, resetLayoutZoneSetting, updateLayoutZoneSetting } from '../layouts'
 
 describe('layout metadata API wrapper', () => {
     beforeEach(() => {
@@ -44,5 +44,40 @@ describe('layout metadata API wrapper', () => {
         })
 
         await expect(getLayoutZoneWidgetObjects('metahub-1', 'layout-1')).rejects.toThrow('LAYOUT_WIDGET_METADATA_INVALID')
+    })
+
+    it('unwraps zone-setting mutation responses to the public MetahubLayout result', async () => {
+        const layout = {
+            id: 'layout-1',
+            scopeEntityId: null,
+            templateKey: 'marketing-page',
+            name: { en: 'Marketing page' },
+            description: null,
+            config: {},
+            neutral: { zoneSettings: { 'marketing-header': { position: 'flow' } } },
+            isActive: true,
+            isDefault: true,
+            sortOrder: 0,
+            version: 8,
+            createdAt: '2026-09-13T00:00:00.000Z',
+            updatedAt: '2026-09-13T00:00:00.000Z'
+        }
+        patch.mockResolvedValueOnce({ data: { item: layout } })
+        post.mockResolvedValueOnce({ data: { item: { ...layout, neutral: {}, version: 9 } } })
+
+        await expect(updateLayoutZoneSetting('metahub-1', 'layout-1', 'marketing-header', 'position', 'flow', 7)).resolves.toEqual(layout)
+        expect(patch).toHaveBeenCalledWith('/metahub/metahub-1/layout/layout-1/zone-settings/marketing-header/position', {
+            value: 'flow',
+            expectedVersion: 7
+        })
+
+        await expect(resetLayoutZoneSetting('metahub-1', 'layout-1', 'marketing-header', 'position', 8)).resolves.toEqual({
+            ...layout,
+            neutral: {},
+            version: 9
+        })
+        expect(post).toHaveBeenCalledWith('/metahub/metahub-1/layout/layout-1/zone-settings/marketing-header/position/reset', {
+            expectedVersion: 8
+        })
     })
 })
