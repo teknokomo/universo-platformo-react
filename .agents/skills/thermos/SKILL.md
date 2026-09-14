@@ -11,9 +11,9 @@ metadata:
 
 Use this skill to coordinate correctness, security, and maintainability reviews, synthesizing a single unified review report.
 
-## Required Output
+## Required Review Content
 
-When running a Thermos review, output:
+When running a Thermos review, capture:
 - a summary of files reviewed;
 - a list of correctness and security issues found (scored by severity);
 - a list of maintainability and code quality issues (scored by impact);
@@ -23,7 +23,7 @@ When running a Thermos review, output:
 
 1. Run the correctness/security check to identify critical bugs, vulnerabilities, and UUID v7 drift.
 2. Run the maintainability check to flag oversized files, circular references, and code formatting/test issues.
-3. Synthesize the findings into a clear, structured review markdown block.
+3. Return findings through the autoreview canonical JSON contract; let the wrapper render the human-readable report.
 4. Block merging if any CRITICAL correctness issues or REFACTOR_REQUIRED maintainability issues are discovered.
 
 ## Integration Commands

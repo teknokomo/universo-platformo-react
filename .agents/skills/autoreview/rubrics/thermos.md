@@ -20,12 +20,12 @@ Apply the following verification pipelines:
 
 ---
 
-## Output Report Structure
+## Structured Result Mapping
 
-Please organize your output report as follows:
+The autoreview wrapper owns the only output format and validates it against its canonical JSON schema. This rubric changes review criteria only.
 
-1. **Overview:** Summary of reviewed files and lines changed.
-2. **Correctness & Security Findings:** Table of issues (CRITICAL/HIGH/MEDIUM/LOW).
-3. **Maintainability & Code Quality Findings:** Table of issues (HIGH/MEDIUM/LOW/ADVISORY).
-4. **Verdict:** Either **PASS** (with minor warnings/advisories) or **FAIL** (if any CRITICAL correctness issue or HIGH/BLOCKER maintainability issue is found).
-5. **Action Plan:** Bullet-point checklist of items that must be resolved.
+- Put each actionable issue in `findings` and map severity as follows: CRITICAL to `P0`, HIGH to `P1`, MEDIUM to `P2`, and LOW or ADVISORY to `P3`.
+- Use `security`, `bug`, `regression`, `test_gap`, or `maintainability` as the finding category.
+- Put the combined correctness, security, and maintainability rationale in `overall_explanation`.
+- Set `overall_correctness` to `patch is incorrect` when actionable findings remain; otherwise set it to `patch is correct`.
+- Do not introduce alternate fields, Markdown tables, code fences, headings, or prose outside the canonical JSON object.

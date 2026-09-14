@@ -54,6 +54,7 @@ if [[ ${#engines[@]} -eq 0 ]]; then
 fi
 
 script_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+PYTHONDONTWRITEBYTECODE=1 python3 "$script_dir/test-autoreview-reliability.py"
 repo=$(mktemp -d "${TMPDIR:-/tmp}/autoreview-fixture.XXXXXX")
 trap 'rm -rf "$repo"' EXIT
 
