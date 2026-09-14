@@ -212,7 +212,7 @@ Tag usage:
 -   `@visual`: screenshot assertions for layout drift.
 -   `@generator`: on-demand snapshot generators (excluded from normal runs).
 
-Current `@flow` inventory: `64` tests across `46` files, confirmed via `pnpm exec playwright test -c tools/testing/e2e/playwright.config.mjs --grep @flow --list` on 2026-05-16 under Node.js 22.22.2 and PNPM 10.33.2. Full-suite pass status must be refreshed with an explicit `pnpm run test:e2e:full` run after intentional E2E scope changes.
+Current `@flow` inventory: `64` tests across `46` files, historically confirmed via `pnpm exec playwright test -c tools/testing/e2e/playwright.config.mjs --grep @flow --list` on 2026-05-16 under Node.js 22.22.2 and PNPM 10.33.2. The workspace is now pinned to PNPM 12.4.1. Full-suite pass status must be refreshed with an explicit `pnpm run test:e2e:full` run after intentional E2E scope changes.
 
 Refresh reviewed screenshot baselines after an intentional UI change:
 

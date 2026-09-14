@@ -237,7 +237,7 @@ const validateProfile = (data) => {
 ### Prerequisites
 
 -   Node.js 22.22.2 recommended (>=22.6.0 required)
--   pnpm 10.x
+-   pnpm 12.x (12.4.1 pinned at the workspace root)
 -   TypeScript 5+
 
 ### Available Modules

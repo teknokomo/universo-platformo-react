@@ -1,6 +1,6 @@
-# Technical Context
+> **Last Reviewed**: 2026-09-14 (refreshed: pnpm 12.4.1/Turbo 2.10.12/MUI 9.2; PlayCanvas Editor v2.30.4 and engine/Colyseus baselines; eight built-in templates and current widgetized/scoped runtime architecture)
 
-> **Last Reviewed**: 2026-06-15 (refreshed: PlayCanvas Editor Skills version anchor bumped v2.23.4 → v2.24.2; new governance primitives: `check:playcanvas-editor-metadata`, `check:playcanvas-editor-vendor-drift`, `.prettierignore`; vendored Editor frontend now at upstream `v2.24.2` with version-control picker rewrite and new `BuildJob` / `BuildJobFormat` types)
+# Technical Context
 
 ## Custom Modifications To Preserve
 
@@ -206,13 +206,14 @@
 
 ## Build, Test, And Tooling Notes
 
--   Package management: PNPM workspaces.
--   **Node.js version**: >=22.6.0 REQUIRED (for isolated-vm 6.x compatibility).
+-   Package management: PNPM workspaces pinned by root `packageManager` to `pnpm@12.4.1`; pnpm v12 workspace settings/overrides/build policy live in `pnpm-workspace.yaml`.
+-   **Node.js version**: >=22.6.0 REQUIRED (for isolated-vm 6.x compatibility); vendored PlayCanvas Editor requires >=22.22.0.
+-   **UI baseline**: React 18.3.1, Material UI Core 9.2.0, MUI X 9.8.0.
 -   **isolated-vm**: Version 6.x required for Node.js 22+ (uses V8 API changes).
 -   **Startup flag**: `--no-node-snapshot` REQUIRED for isolated-vm (configured in `bin/run`).
 -   Supply-chain policy: minimum release age, exotic-subdependency blocking, and trust-policy no-downgrade remain active.
 -   Primary root validation command: `pnpm build` from the repository root.
--   Turbo 2 is the workspace orchestrator; repeated root builds should reuse the local Turbo cache.
+-   Turbo `2.10.12` is the workspace orchestrator; repeated root builds should reuse the local Turbo cache.
 -   Generated artifacts must stay out of task `inputs` so the cache remains effective.
 -   `@universo-react/rest-docs` OpenAPI source is generated from `scripts/generate-openapi-source.js`; canonical entity-owned managed metadata paths appear only if `entityInstancesRoutes.ts` is included in that generator inventory.
 -   Backend package `test` scripts use the custom Jest wrapper under `tools/testing/backend/run-jest.cjs`.
@@ -264,8 +265,9 @@
 
 ## PlayCanvas Editor Skills
 
-- **PlayCanvas Editor Skills:** A suite of 9 specialized AI-agent skills (`.agents/skills/playcanvas-editor-*`) that govern scripting, assets, scenes, version control, realtime ShareDB/sockets, and platform compatibility for PlayCanvas Editor. Pinned to the vendored upstream Editor `v2.24.2` (peeled commit `00360100b3b5747648eb3d7287421ef25491f5c7`, released 2026-06-12). Version-control picker and builds-panel are upstream-owned and rendered inside the iframe; the Universo host shell treats the artifact as opaque. The `playcanvas-editor-authoring` Skill includes a `## Upstream Update Governance` section that codifies the next-bump procedure.
-- **PlayCanvas Editor governance primitives:** Three new root-level guards: `check:playcanvas-editor-isolation` (existing, blocks cross-package vendor imports), `check:playcanvas-editor-metadata` (new, fails on stale previous-version literals in active code), `check:playcanvas-editor-vendor-drift` (new, developer-local only — exits 0 in CI when `PC_EDITOR_UPSTREAM_DIR` is unset; uses `git archive` against a sibling worktree to compare the vendored source against the pinned upstream tag). `.prettierignore` excludes `vendor/playcanvas-editor/**` from `pnpm format` and `lint-staged` walks.
+-   **PlayCanvas Editor Skills**: 9 project-local skills govern scripting, assets, scenes, VCS, realtime ShareDB/sockets, and Universo compatibility. `@universo-react/playcanvas-editor-frontend` vendors upstream Editor `v2.30.4` (`cf296bcb669bdcb168778bf2979160a9fe8f67de`) with `playcanvas@2.21.3`; the runtime wrapper uses `playcanvas@2.21.4`.
+-   **Realtime baseline**: `@colyseus/core` 0.17.50, `@colyseus/sdk` 0.17.43, schema 4.0.31, ws-transport 0.17.13.
+-   **Editor governance**: `check:playcanvas-editor-isolation`, `check:playcanvas-editor-metadata`, and `check:playcanvas-editor-vendor-drift`; `.prettierignore` excludes vendored Editor source. Upstream version/control UI remains iframe-owned and the host treats the artifact as an integration boundary.
 
 ## Thermos Quality Gate
 
@@ -296,11 +298,11 @@
 
 ## Configuration Model Baseline
 
--   The platform exposes seven entity type presets (`builtinEntityTypePresets`): `hub`, `object`, `page`, `set`, `enumeration`, `ledger`, `fixed-values-library` (Constants Library).
--   A user can author custom entity types via the **Entity Type Constructor** by selecting `EntityTypeCapabilities`.
--   Metahub templates curate which presets a new metahub starts with. Today there are four: `basic` (default — hub/page/object/set/enumeration), `basic-demo`, `empty`, `lms`. A future `1c-compatible` template will deliver the full 1C:Enterprise metadata-object map.
--   In the base templates, register-style behavior on Object goes through `recordBehavior` mode (`reference`/`transactional`/`hybrid`) plus `posting` and `ledgerSchema` capabilities. The separate `Ledger` preset is reserved for templates that explicitly opt in.
--   Full description lives in `.agents/skills/universo-platform-architecture/`.
+-   Eight core presets: `hub`, `object`, `project`, `page`, `set`, `enumeration`, `ledger`, `fixed-values-library`; additional specialized 1C-compatible presets are registered by the same built-in registry.
+-   Custom entity types use the **Entity Type Constructor** + `EntityTypeCapabilities`; Object remains the generic reference/transactional/hybrid primitive with `posting`/`ledgerSchema` capabilities.
+-   Eight built-in metahub templates: `basic`, `basic-demo`, `empty`, `lms`, `1c-compatible`, `playcanvas`, `interpretation-network`, `marketing-page`. Registry source: `packages/universo-react-metahubs-backend/src/domains/templates/data/index.ts`.
+-   Runtime/template evolution is data-driven: MUI 9 application templates resolve persisted widget composition, global/entity-scoped layouts, source lineage, optimistic versions, zone settings, and target-aware effective layout.
+-   Full platform contract lives in `.agents/skills/universo-platform-architecture/`.
 
 ## Legacy UPDL Product Surface (historical)
 

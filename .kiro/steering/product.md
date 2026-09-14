@@ -82,7 +82,7 @@ The monorepo is organized into:
 ## Technical Foundation
 
 -   **Node.js** (>=18.15.0 <19.0.0 || ^20)
--   **PNPM** (>=9) - Package manager
+-   **PNPM** (>=12) - Package manager
 -   **TypeScript** (^5.8.3)
 -   **React** (^18.2.0) with Material-UI
 -   **Express** (^4.17.3)

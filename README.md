@@ -6,7 +6,7 @@
 
 # Universo Platformo React
 
-[![Version](https://img.shields.io/badge/version-0.81.0--alpha-blue)](https://github.com/teknokomo/universo-platformo-react)
+[![Version](https://img.shields.io/badge/version-0.82.0--alpha-blue)](https://github.com/teknokomo/universo-platformo-react)
 [![License: Omsk Open License](https://img.shields.io/badge/license-Omsk%20Open%20License-green)](LICENSE.md)
 
 **Attention, please read this carefully.**
@@ -63,12 +63,12 @@ Website: [https://universo.pro](https://universo.pro)
 
 ## Current Status
 
-**Current version**: 0.81.0-alpha (September 2026). The project remains in alpha and is being prepared for a more stable beta phase.
+**Current version**: 0.82.0-alpha (September 2026). The project remains in alpha and is being prepared for a more stable beta phase.
 
 ## Tech Stack
 
 -   Node.js (>=22.6.0)
--   PNPM (>=10)
+-   PNPM (>=12)
 -   React
 -   Express.js
 -   Supabase (PostgreSQL)
@@ -155,7 +155,7 @@ Each implementation shares the same strategic direction, and the high-level abst
 ### Prerequisites
 
 -   Node.js (>=22.6.0)
--   PNPM (>=10)
+-   PNPM (>=12)
 -   A Supabase/PostgreSQL environment. You can use either a hosted Supabase project or the local Supabase profile described below.
 -   Docker, when you use local Supabase. Install Docker Desktop or Docker Engine, start the Docker daemon, and verify `docker ps` works from your terminal before running local Supabase commands.
 

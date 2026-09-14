@@ -1,6 +1,6 @@
-# Project Brief - Universo Platformo
+> **Last Reviewed**: 2026-09-14 (refreshed: repository 0.82.0-alpha; complete workspace package inventory; eight built-in templates; MUI 9 widgetized/scoped runtime, Interpretation Network, and PlayCanvas/MMOOMM status)
 
-> **Last Reviewed**: 2026-06-18 (refreshed: repository version 0.65.0 → 0.69.0-alpha; added `project` entity-type preset and `playcanvas` metahub template for PlayCanvas Editor project binding)
+# Project Brief - Universo Platformo
 
 ## Mission & Strategic Vision
 
@@ -45,14 +45,13 @@ The platform is also the foundation for two larger initiatives:
 
 ## Current Status
 
--   **Repository version**: `upr-0.69.0-alpha`.
+-   **Repository version**: `0.82.0-alpha`.
 -   **Architecture status**: in active transition from a "feature packages
     on `universo-template-mui`" layout to an "everything is an Application
     on `apps-template-mui`" layout. Legacy packages remain functional and
     receive new work; they will be removed only after the corresponding
     application replaces them.
--   **Primary configuration in development**: LMS Learning Content,
-    benchmarked against iSpring LMS.
+-   **Recent platform focus**: MUI 9 application templates, data-driven widget composition, scoped layouts, and marketing-header zone settings; Interpretation Network, PlayCanvas/MMOOMM, LMS, and 1C-compatible configurations remain active platform workloads.
 -   **DB layer**: TypeORM was removed. Current path is Knex (connection
     management, transactions) plus raw SQL through `DbExecutor.query()`,
     with `@universo-react/schema-ddl` for runtime schema generation. The team
@@ -82,26 +81,27 @@ Plus cross-cutting capabilities: **attached modules** (TypeScript inside
 isolated-vm, server or client) and **workspaces inside published
 applications** (multi-tenant runtime isolation).
 
-### Metahub templates (curated subset)
+### Built-in metahub templates (8)
 
-| Template        | Codename     | Default presets                                                                             |
-| --------------- | ------------ | ------------------------------------------------------------------------------------------- |
-| Basic (default) | `basic`      | hub, page, object, set, enumeration                                                         |
-| Basic Demo      | `basic-demo` | basic + sample data                                                                         |
-| Empty           | `empty`      | _(none)_ — user picks via constructor                                                       |
-| LMS             | `lms`        | basic preset set, plus seeded LMS objects (incl. ledger-style Objects with `config.ledger`) |
-| PlayCanvas      | `playcanvas` | hub + project; attaches the PlayCanvas Editor package for 3D authoring                      |
+| Template | Codename | Role |
+| --- | --- | --- |
+| Basic | `basic` | Default hub/page/object/set/enumeration starter |
+| Basic Demo | `basic-demo` | Basic presets + demo data/widgets |
+| Empty | `empty` | No preset selected by default |
+| LMS | `lms` | Seeded learning-content configuration on generic presets |
+| 1C-Compatible | `1c-compatible` | 1C-style metadata presets for transactional/accounting domains |
+| PlayCanvas | `playcanvas` | Project binding + generic presets for Editor/3D authoring |
+| Interpretation Network | `interpretation-network` | Structures, interpretations, cells, relations, materials, reusable matrix/table models |
+| Marketing Page | `marketing-page` | Data-driven MUI marketing application with persisted widget/layout composition |
 
-The seeder registers additional specialized templates (e.g. the
-**1C-compatible** family exposing a full 1C:Enterprise metadata-object
-map); the table above is the curated subset most relevant to product work.
-
-The full architectural description lives in the project skill at
-`.agents/skills/universo-platform-architecture/`.
+The registry also exposes the eight core presets above plus specialized
+1C-compatible preset manifests. Source of truth:
+`packages/universo-react-metahubs-backend/src/domains/templates/data/index.ts`.
+The architectural contract lives in `.agents/skills/universo-platform-architecture/`.
 
 ## Three-Layer Workflow
 
-```
+```text
 Metahub                Application                Workspace
 (canonical config)     (deployed instance)        (runtime isolation)
 ─────────────────      ────────────────────       ─────────────────────
@@ -118,47 +118,18 @@ surfaces.
 
 ## Workspace Layout
 
-The repository is a PNPM workspace orchestrated by Turbo. Active feature
-packages today:
+The repository is a PNPM workspace orchestrated by Turbo. Active package
+directories use `packages/universo-react-<name>/`; package names use
+`@universo-react/<name>`. Current package inventory (37 directories):
 
-### Core shell
+-   **Shell / feature areas**: `core-backend`, `core-frontend`, `auth-backend`, `auth-frontend`, `start-backend`, `start-frontend`, `admin-backend`, `admin-frontend`, `applications-backend`, `applications-frontend`, `metahubs-backend`, `metahubs-frontend`, `metapanel-frontend`, `profile-backend`, `profile-frontend`.
+-   **Templates / UI**: `template-mui`, `apps-template-mui`, `block-editor`; `apps-template-mui` stays isolated from legacy feature UI packages.
+-   **3D / realtime / extension runtime**: `playcanvas-editor-backend`, `playcanvas-editor-frontend`, `playcanvas-engine`, `colyseus-client`, `colyseus-server`, `modules-engine`, `extension-sdk`.
+-   **Data / platform infrastructure**: `database`, `schema-ddl`, `migrations-core`, `migrations-platform`, `migrations-catalog`, `migration-guard-shared`, `api-client`, `i18n`, `store`, `types`, `utils`, `rest-docs`.
 
--   `universo-core-backend`, `universo-core-frontend`
-
-### Legacy feature packages (in scope for app migration)
-
--   `metahubs-backend`, `metahubs-frontend`
--   `applications-backend`, `applications-frontend`
--   `admin-backend`, `admin-frontend`
--   `profile-backend`, `profile-frontend`
--   `start-backend`, `start-frontend`
--   `auth-backend`, `auth-frontend`
-
-### UI templates
-
--   `universo-template-mui` (legacy template; used by the feature packages above)
--   `apps-template-mui` (new published-application template; **kept isolated** from `universo-template-mui` and from the legacy feature packages — duplication is intentional)
-
-### Infrastructure
-
--   `universo-database` — Knex singleton, three-tier executors
--   `universo-types` — shared domain types
--   `universo-utils` — validators, serializers
--   `universo-i18n` — centralized i18n runtime
--   `universo-api-client` — shared API client
--   `universo-block-editor` — Editor.js wrapper
--   `universo-store` — shared Redux + abilities
--   `universo-rest-docs` — OpenAPI / Swagger surface
-
-### DDL and migrations
-
--   `schema-ddl` — runtime schema generation, migration, diff utilities
--   `universo-migrations-core` — core migration runtime
--   `universo-migrations-platform` — platform-wide migration registry
--   `universo-migrations-catalog` — catalog storage for migration history
-
-This list will shrink over time as legacy feature packages are replaced
-by applications shipped through `apps-template-mui`.
+The architectural direction remains “everything is an Application” rendered
+through `apps-template-mui`; legacy feature packages stay operational until an
+equivalent application replaces them.
 
 ## Pseudo-App Bootstrap (transitional)
 

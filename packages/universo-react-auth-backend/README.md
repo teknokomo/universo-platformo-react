@@ -133,7 +133,7 @@ CREATE POLICY "Users can only access their own data" ON app.items
 ### Prerequisites
 
 -   Node.js 22.22.2 recommended (>=22.6.0 required)
--   PNPM 10 workspace environment
+-   PNPM 12 workspace environment (12.4.1 pinned at the workspace root)
 -   Access to Supabase project credentials
 -   PostgreSQL database with RLS policies (for RLS features)
 

@@ -7,7 +7,7 @@ inclusion: always
 ## Core Technologies
 
 -   **Node.js**: >=22.6.0 (REQUIRED for isolated-vm 6.x and autoskills tool)
--   **PNPM**: >=9 (package manager - NOT npm)
+-   **PNPM**: >=12 (package manager - NOT npm)
 -   **TypeScript**: ^5.8.3
 -   **React**: ^18.3.1
 -   **Express**: ^4.17.3
