@@ -1,9 +1,12 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
-import { analyzeMuiV9Policy } from './check-mui-v9-policy.mjs'
+import { analyzeMuiV9Policy, parseCatalog } from './check-mui-v9-policy.mjs'
 
-const catalogText = `catalog:
+const catalogText = `overrides:
+    react-is: 18.3.1
+
+catalog:
     '@mui/material': 9.2.0
     '@mui/system': 9.2.0
     '@mui/icons-material': 9.2.0
@@ -16,11 +19,6 @@ const rootManifest = {
     dependencies: {
         react: '18.3.1',
         'react-dom': '18.3.1'
-    },
-    pnpm: {
-        overrides: {
-            'react-is': '18.3.1'
-        }
     }
 }
 
@@ -218,5 +216,36 @@ test('requires one exact catalog version within each coordinated MUI group', () 
     assert.equal(
         issues.some((issue) => issue.includes('coordinated group')),
         true
+    )
+})
+
+test('requires the React 18 react-is override in pnpm-workspace.yaml', () => {
+    const issues = analyzeMuiV9Policy({
+        catalogText: catalogText.replace('    react-is: 18.3.1\n', ''),
+        rootManifest,
+        packages: [],
+        documents: []
+    }).issues
+
+    assert.equal(
+        issues.some((issue) => issue.includes('pnpm-workspace.yaml overrides must pin react-is to 18.3.1')),
+        true
+    )
+})
+
+test('keeps pre-parsed catalog analysis compatible with explicit root overrides', () => {
+    const issues = analyzeMuiV9Policy({
+        catalogText: parseCatalog(catalogText),
+        rootManifest: {
+            ...rootManifest,
+            pnpm: { overrides: { 'react-is': '18.3.1' } }
+        },
+        packages: [],
+        documents: []
+    }).issues
+
+    assert.equal(
+        issues.some((issue) => issue.includes('react-is')),
+        false
     )
 })

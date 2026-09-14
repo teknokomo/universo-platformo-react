@@ -1,9 +1,11 @@
 import fs from 'node:fs'
 import path from 'node:path'
 
+import { parsePnpmWorkspaceScalarMap } from './pnpm-workspace-config.mjs'
+
 const ROOT_DIR = process.cwd()
 const LOCKFILE_PATH = path.join(ROOT_DIR, 'pnpm-lock.yaml')
-const ROOT_PACKAGE_JSON_PATH = path.join(ROOT_DIR, 'package.json')
+const PNPM_WORKSPACE_PATH = path.join(ROOT_DIR, 'pnpm-workspace.yaml')
 
 const REQUIRED_ZOD_OVERRIDE = '3.25.76'
 
@@ -13,10 +15,10 @@ const fail = (message) => {
 }
 
 const readRootOverride = () => {
-    const rootPackageJson = JSON.parse(fs.readFileSync(ROOT_PACKAGE_JSON_PATH, 'utf8'))
-    const override = rootPackageJson?.pnpm?.overrides?.zod
+    const workspaceText = fs.readFileSync(PNPM_WORKSPACE_PATH, 'utf8')
+    const override = parsePnpmWorkspaceScalarMap(workspaceText, 'overrides').get('zod')
     if (override !== REQUIRED_ZOD_OVERRIDE) {
-        fail(`root pnpm.overrides.zod must stay "${REQUIRED_ZOD_OVERRIDE}", found "${String(override)}"`)
+        fail(`pnpm-workspace.yaml overrides.zod must stay "${REQUIRED_ZOD_OVERRIDE}", found "${String(override)}"`)
     }
 }
 
