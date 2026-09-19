@@ -239,7 +239,7 @@ const ApplicationAliases = () => {
                     <Stack spacing={0.25} sx={{ minWidth: 0 }}>
                         <Typography variant='body2'>{alias.applicationName || t('aliases.unknownApplication')}</Typography>
                         {alias.applicationContext ? (
-                            <Typography variant='caption' color='text.secondary' sx={{ overflowWrap: 'anywhere' }}>
+                            <Typography variant='caption' sx={{ color: 'text.secondary', overflowWrap: 'anywhere' }}>
                                 {alias.applicationContext}
                             </Typography>
                         ) : null}

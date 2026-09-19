@@ -333,7 +333,7 @@ export function ApplicationAddressesPanel({ applicationId }: ApplicationAddresse
                                 label={t('aliases.routing.canonical')}
                             />
                         </RadioGroup>
-                        <Typography variant='caption' color='text.secondary'>
+                        <Typography variant='caption' sx={{ color: 'text.secondary' }}>
                             {t('aliases.routing.help')}
                         </Typography>
                     </>
@@ -387,7 +387,7 @@ export function ApplicationAddressesPanel({ applicationId }: ApplicationAddresse
                 <Typography variant='subtitle2' gutterBottom>
                     {t('aliases.technicalAddress')}
                 </Typography>
-                <Typography variant='caption' color='text.secondary' component='p'>
+                <Typography variant='caption' component='p' sx={{ color: 'text.secondary' }}>
                     {t('aliases.technicalAddressHelp')}
                 </Typography>
                 <Stack direction='row' spacing={1} sx={{ alignItems: 'center', mt: 1, minWidth: 0 }}>
