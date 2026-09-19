@@ -16,7 +16,6 @@ For now the team keeps a manually curated snapshot-equivalent baseline, codifies
 | `src/platform/migrations/1800000000000-CreateApplicationsSchema.sql.ts` | Canonical file-backed SQL artifact that keeps the fixed-schema parity contract explicit |
 | `prepareApplicationsSchemaSupportMigrationDefinition`                   | `pre_schema_generation` support SQL that runs before fixed-schema generation            |
 | `finalizeApplicationsSchemaSupportMigrationDefinition`                  | `post_schema_generation` support SQL for indexes, policies, and other dependent objects |
-| `addApplicationAliasesMigrationDefinition`                              | `post_schema_generation` support SQL for the alias registry, routing policy, and RLS    |
 
 ## First-Start Bootstrap
 
@@ -24,7 +23,7 @@ On platform startup `@universo-react/core-backend` runs the fixed system-app pip
 
 1. Platform prelude migrations run the `pre_schema_generation` support SQL for the schema.
 2. `ensureRegisteredSystemAppSchemaGenerationPlans()` builds fixed application-like entities from the manifest and ensures the `applications` schema shape.
-3. Platform post-schema migrations run the frozen `FinalizeApplicationsSchemaSupport1800000000001` baseline SQL for indexes, capability-aware RLS policies, and other dependent objects, then run the additive `AddApplicationSettings1800000000100` and `AddApplicationAliases1800000000101` migrations. Immutable applied migrations keep the legacy `slug` column in the manifest; aliases live in the deployment-wide `obj_application_aliases` registry with an alias-routing constraint, capability-aware RLS policies, and a SECURITY DEFINER runtime resolver.
+3. Platform post-schema migrations run the current `post_schema_generation` baseline SQL for indexes, alias routing constraints, the deployment-wide `obj_application_aliases` registry, capability-aware RLS policies, and other dependent objects. The fresh schema has no application `slug` column or slug indexes.
 4. `bootstrapRegisteredSystemAppStructureMetadata()` syncs `_app_objects` and `_app_components` metadata for the fixed schema.
 5. A deterministic baseline row such as `baseline_applications_structure_0_1_0` is stored in `applications._app_migrations`.
 

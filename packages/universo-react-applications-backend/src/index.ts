@@ -18,7 +18,6 @@ export type { ApplicationRole } from './routes/guards'
 
 // Platform migration exports
 export {
-    addApplicationAliasesMigrationDefinition,
     createApplicationsSchemaMigrationDefinition,
     prepareApplicationsSchemaSupportMigrationDefinition,
     finalizeApplicationsSchemaSupportMigrationDefinition,

@@ -426,7 +426,6 @@ describe('platformMigrations', () => {
             'PrepareAdminSchemaSupport1733400000000',
             'FinalizeAdminSchemaSupport1733400000001',
             'SeedAdminLifecycleRoles1733400000002',
-            'AddAdminShellPermission1733400000003',
             'ApplyStartSchemaPolicies1733400000500',
             'PrepareProfileSchemaSupport1741277504477',
             'FinalizeProfileSchemaSupport1741277504478',
@@ -435,7 +434,6 @@ describe('platformMigrations', () => {
             'PrepareApplicationsSchemaSupport1800000000000',
             'FinalizeApplicationsSchemaSupport1800000000001',
             'AddApplicationSettings1800000000100',
-            'AddApplicationAliases1800000000101',
             'OptimizeRlsPolicies1800000000200',
             'SeedBuiltinMetahubTemplates1800000000250',
             'SeedBuiltinMetahubPackages1800000000260',
@@ -450,14 +448,6 @@ describe('platformMigrations', () => {
 
         expect(adminFinalizeIndex).toBeGreaterThan(-1)
         expect(startPoliciesIndex).toBeGreaterThan(adminFinalizeIndex)
-    })
-
-    it('runs the shell permission migration before the applications alias migration', () => {
-        const shellIndex = platformMigrations.findIndex((migration) => migration.id === 'AddAdminShellPermission1733400000003')
-        const aliasesIndex = platformMigrations.findIndex((migration) => migration.id === 'AddApplicationAliases1800000000101')
-
-        expect(shellIndex).toBeGreaterThan(-1)
-        expect(aliasesIndex).toBeGreaterThan(shellIndex)
     })
 
     it('drops optimized RLS policies through guarded SQL so missing tables do not break startup', async () => {

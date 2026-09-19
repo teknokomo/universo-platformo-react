@@ -1,6 +1,5 @@
 // Platform migration definitions (native SQL)
 export {
-    addAdminShellPermissionMigrationDefinition,
     createAdminSchemaMigrationDefinition,
     finalizeAdminSchemaSupportMigrationDefinition,
     prepareAdminSchemaSupportMigrationDefinition,

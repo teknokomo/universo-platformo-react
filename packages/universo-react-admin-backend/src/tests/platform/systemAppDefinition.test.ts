@@ -28,8 +28,7 @@ describe('admin system-app definition', () => {
         ).toEqual([
             'PrepareAdminSchemaSupport1733400000000',
             'FinalizeAdminSchemaSupport1733400000001',
-            'SeedAdminLifecycleRoles1733400000002',
-            'AddAdminShellPermission1733400000003'
+            'SeedAdminLifecycleRoles1733400000002'
         ])
     })
 
