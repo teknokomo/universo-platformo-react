@@ -21,8 +21,8 @@ import {
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useSnackbar } from 'notistack'
 import { MODULE_LIFECYCLE_EVENTS, type MetahubModuleRecord, type ModuleAttachmentKind } from '@universo-react/types'
+import { resolveApiErrorMessage } from '@universo-react/utils'
 import type { TabConfig } from '@universo-react/template-mui/components/dialogs'
-import { extractAxiosError } from '@universo-react/utils'
 
 import { getLocalizedContentText } from '../../../utils/localizedInput'
 import { modulesApi } from '../../modules/api/modulesApi'
@@ -71,10 +71,7 @@ const panelSx = {
     p: 2
 } as const
 
-const resolveErrorMessage = (error: unknown, fallback: string): string => {
-    const message = extractAxiosError(error).message.trim()
-    return message.length > 0 ? message : fallback
-}
+const resolveErrorMessage = (error: unknown, fallback: string): string => resolveApiErrorMessage(error, fallback)
 
 const ensureJsonRecord = (value: unknown): Record<string, unknown> => {
     if (!value || typeof value !== 'object' || Array.isArray(value)) {

@@ -15,7 +15,7 @@ For now the team keeps a manually curated snapshot-equivalent baseline, codifies
 | `src/platform/systemAppDefinition.ts`                                   | Canonical fixed-schema business model for the `applications` system app                 |
 | `src/platform/migrations/1800000000000-CreateApplicationsSchema.sql.ts` | Canonical file-backed SQL artifact that keeps the fixed-schema parity contract explicit |
 | `prepareApplicationsSchemaSupportMigrationDefinition`                   | `pre_schema_generation` support SQL that runs before fixed-schema generation            |
-| `finalizeApplicationsSchemaSupportMigrationDefinition`                  | `post_schema_generation` support SQL that runs after fixed-schema generation            |
+| `finalizeApplicationsSchemaSupportMigrationDefinition`                  | `post_schema_generation` support SQL for indexes, policies, and other dependent objects |
 
 ## First-Start Bootstrap
 
@@ -23,7 +23,7 @@ On platform startup `@universo-react/core-backend` runs the fixed system-app pip
 
 1. Platform prelude migrations run the `pre_schema_generation` support SQL for the schema.
 2. `ensureRegisteredSystemAppSchemaGenerationPlans()` builds fixed application-like entities from the manifest and ensures the `applications` schema shape.
-3. Platform post-schema migrations run the `post_schema_generation` support SQL for indexes, policies, and other dependent objects.
+3. Platform post-schema migrations run the current `post_schema_generation` baseline SQL for indexes, alias routing constraints, the deployment-wide `obj_application_aliases` registry, capability-aware RLS policies, and other dependent objects. The fresh schema has no application `slug` column or slug indexes.
 4. `bootstrapRegisteredSystemAppStructureMetadata()` syncs `_app_objects` and `_app_components` metadata for the fixed schema.
 5. A deterministic baseline row such as `baseline_applications_structure_0_1_0` is stored in `applications._app_migrations`.
 
@@ -36,6 +36,8 @@ The current manifest defines these business tables:
 -   `obj_connectors`
 -   `rel_connector_publications`
 -   `rel_application_users`
+
+Application aliases are deployment-wide routing metadata in `obj_application_aliases`; they are created by the clean baseline support SQL and are intentionally not a business table in the fixed system-app manifest.
 
 The current fixed-schema system-table surface comes from the enabled application-like capabilities:
 

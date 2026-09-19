@@ -22,13 +22,24 @@ const rolesStore = {
     listRoles: jest.fn(),
     listAssignableRoles: jest.fn(),
     findRoleById: jest.fn(),
+    findRoleByIdForUpdate: jest.fn(),
     findRoleByCodename: jest.fn(),
     createRole: jest.fn(),
     updateRole: jest.fn(),
     deleteRole: jest.fn(),
+    lockRoleMutation: jest.fn(),
+    lockRoleForPermissionUpdate: jest.fn(),
     replacePermissions: jest.fn(),
     countUsersByRoleId: jest.fn(),
     listRoleUsers: jest.fn()
+}
+
+const rolePermissionDelegationService = {
+    RoleDelegationError: class RoleDelegationError extends Error {
+        readonly statusCode = 403
+    },
+    assertRoleDelegationCeiling: jest.fn(),
+    replaceRolePermissionsWithDelegationCeiling: jest.fn()
 }
 
 const localesStore = {
@@ -45,6 +56,7 @@ jest.mock('../../persistence/instancesStore', () => instancesStore)
 jest.mock('../../persistence/settingsStore', () => settingsStore)
 jest.mock('../../persistence/rolesStore', () => rolesStore)
 jest.mock('../../persistence/localesStore', () => localesStore)
+jest.mock('../../services/rolePermissionDelegationService', () => rolePermissionDelegationService)
 
 const express = require('express') as typeof import('express')
 const request = require('supertest') as typeof import('supertest')
@@ -120,6 +132,8 @@ describe('admin routes request-scoped executor usage', () => {
         settingsStore.listSettings.mockResolvedValue([])
         rolesStore.listRoles.mockResolvedValue({ items: [], total: 0 })
         localesStore.listLocales.mockResolvedValue({ items: [], total: 0 })
+        rolePermissionDelegationService.assertRoleDelegationCeiling.mockResolvedValue(undefined)
+        rolePermissionDelegationService.replaceRolePermissionsWithDelegationCeiling.mockResolvedValue([])
     })
 
     it('uses request-scoped executor in instances routes', async () => {
@@ -329,7 +343,7 @@ describe('admin routes request-scoped executor usage', () => {
     it('returns 409 when role copy hits a concurrent codename conflict after validation', async () => {
         const { poolExec, requestExec, session } = buildExecutors()
         const sourceRoleId = '00000000-0000-4000-a000-000000000001'
-        rolesStore.findRoleById.mockResolvedValue({
+        rolesStore.findRoleByIdForUpdate.mockResolvedValue({
             id: sourceRoleId,
             codename: 'editor',
             name: localizedValue,

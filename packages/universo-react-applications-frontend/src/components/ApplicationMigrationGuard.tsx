@@ -26,10 +26,13 @@ import MaintenancePage from '../pages/MaintenancePage'
 
 export interface ApplicationMigrationGuardProps {
     children: ReactNode
+    /** Trusted application id resolved from a human-readable runtime reference. */
+    applicationIdOverride?: string
 }
 
-const ApplicationMigrationGuard = ({ children }: ApplicationMigrationGuardProps) => {
-    const { applicationId } = useParams<{ applicationId: string }>()
+const ApplicationMigrationGuard = ({ children, applicationIdOverride }: ApplicationMigrationGuardProps) => {
+    const { applicationId: routeApplicationId } = useParams<{ applicationId: string }>()
+    const applicationId = applicationIdOverride ?? routeApplicationId
     const location = useLocation()
     const navigate = useNavigate()
     const { t } = useTranslation('applications')

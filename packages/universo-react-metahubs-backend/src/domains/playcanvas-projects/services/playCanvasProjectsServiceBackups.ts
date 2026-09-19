@@ -3,7 +3,7 @@
  */
 
 import { createPlayCanvasEditorNumericIds } from '@universo-react/playcanvas-editor-backend'
-import { withAdvisoryLock, type DbExecutor } from '@universo-react/utils/database'
+import { withAdvisoryLock, type DbExecutor, acquireAdvisoryXactLock } from '@universo-react/utils/database'
 import { MetahubDomainError } from '../../shared/domainErrors'
 
 import { buildPlayCanvasMetahubLifecycleLockKey, buildPlayCanvasProjectLifecycleLockKey } from './playCanvasLifecycleLocks'
@@ -145,9 +145,7 @@ export class PlayCanvasProjectsServiceBackups extends PlayCanvasProjectsServiceR
 
         if (executor) {
             return withAdvisoryLock(executor, buildPlayCanvasMetahubLifecycleLockKey(metahubId), async (metahubExecutor) => {
-                await metahubExecutor.query('SELECT pg_advisory_xact_lock(hashtext($1))', [
-                    buildPlayCanvasProjectLifecycleLockKey(metahubId, projectId)
-                ])
+                await acquireAdvisoryXactLock(metahubExecutor, buildPlayCanvasProjectLifecycleLockKey(metahubId, projectId))
                 return runRestore(metahubExecutor)
             })
         }

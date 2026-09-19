@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useSnackbar } from 'notistack'
 import { useTranslation } from 'react-i18next'
+import { isApiError, resolveApiErrorMessage } from '@universo-react/utils'
 
 import { invalidateEntitiesQueries, invalidateEntityTypesQueries } from '../../shared'
 import * as entitiesApi from '../api'
@@ -64,20 +65,13 @@ type EntityReorderVariables = {
     newSortOrder: number
 }
 
-const getErrorMessage = (error: unknown, fallback: string) => {
-    if (error && typeof error === 'object' && 'response' in error) {
-        const responseData = (error as { response?: { data?: { message?: string; error?: string } } }).response?.data
-        if (typeof responseData?.message === 'string' && responseData.message.trim().length > 0) {
-            return responseData.message
-        }
-        if (typeof responseData?.error === 'string' && responseData.error.trim().length > 0) {
-            return responseData.error
-        }
+const getErrorMessage = (error: unknown, fallback: string) => resolveApiErrorMessage(error, fallback)
+
+const getDeleteErrorMessage = (error: unknown, fallback: string, t: (key: string, defaultValue: string) => string) => {
+    if (isApiError(error, 'RECORD_REFERENCED')) {
+        return t('records.deleteReferenced', 'This record is used by other records. Remove those references first.')
     }
-    if (error instanceof Error && error.message.trim().length > 0) {
-        return error.message
-    }
-    return fallback
+    return resolveApiErrorMessage(error, fallback)
 }
 
 export const useCreateEntityType = () => {
@@ -225,7 +219,9 @@ export const useDeleteEntityInstance = () => {
             enqueueSnackbar(t('entities.instances.deleteSuccess', 'Entity deleted'), { variant: 'success' })
         },
         onError: (error) => {
-            enqueueSnackbar(getErrorMessage(error, t('entities.instances.deleteError', 'Failed to delete entity')), { variant: 'error' })
+            enqueueSnackbar(getDeleteErrorMessage(error, t('entities.instances.deleteError', 'Failed to delete entity'), t), {
+                variant: 'error'
+            })
         }
     })
 }

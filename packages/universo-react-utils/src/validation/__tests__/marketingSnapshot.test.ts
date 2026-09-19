@@ -72,6 +72,27 @@ describe('validateMarketingSnapshotLayouts', () => {
         ).not.toThrow()
     })
 
+    it('accepts static image widgets without an entity source', () => {
+        const image = {
+            id: ids.secondWidget,
+            layoutId: ids.layout,
+            zone: 'marketing-main',
+            widgetKey: 'marketing.image',
+            sortOrder: 1,
+            config: {
+                instanceKey: 'hero-image',
+                media: {
+                    kind: 'hero',
+                    resource: { type: 'url', url: 'https://example.test/hero.webp', launchMode: 'inline' },
+                    decorative: true
+                }
+            },
+            isActive: true
+        }
+
+        expect(() => validateMarketingSnapshotLayouts(createSnapshot([collectionWidget(ids.widget, 'logos'), image]))).not.toThrow()
+    })
+
     it('rejects an empty or inactive marketing composition', () => {
         expect(() => validateMarketingSnapshotLayouts(createSnapshot([]))).toThrow('at least one active widget')
 

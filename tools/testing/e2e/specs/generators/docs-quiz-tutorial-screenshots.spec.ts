@@ -307,8 +307,7 @@ test.describe('Docs Quiz Tutorial Screenshots', () => {
         }
 
         await recordCreatedApplication({
-            id: applicationId,
-            slug: linkedApplication.application.slug
+            id: applicationId
         })
 
         await syncApplicationSchema(api, applicationId, {

@@ -63,11 +63,10 @@ test.describe('MMOOMM published script-assets runtime parity', () => {
             createApplicationSchema: false
         })
         const applicationId = linked?.application?.id ?? linked?.id
-        const applicationSlug = linked?.application?.slug ?? linked?.slug
         if (typeof applicationId !== 'string') {
             throw new Error('MMOOMM runtime parity linked application did not return an application id')
         }
-        await recordCreatedApplication({ id: applicationId, slug: applicationSlug })
+        await recordCreatedApplication({ id: applicationId })
 
         const replayLinked = await createPublicationLinkedApplication(api, imported.metahubId, imported.publicationId, {
             name: { en: `${applicationName} replay` },
@@ -75,11 +74,10 @@ test.describe('MMOOMM published script-assets runtime parity', () => {
             createApplicationSchema: false
         })
         const replayApplicationId = replayLinked?.application?.id ?? replayLinked?.id
-        const replayApplicationSlug = replayLinked?.application?.slug ?? replayLinked?.slug
         if (typeof replayApplicationId !== 'string') {
             throw new Error('MMOOMM runtime parity replay application did not return an application id')
         }
-        await recordCreatedApplication({ id: replayApplicationId, slug: replayApplicationSlug })
+        await recordCreatedApplication({ id: replayApplicationId })
 
         await syncApplicationSchema(api, applicationId)
         await syncApplicationSchema(api, replayApplicationId)

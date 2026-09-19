@@ -6,7 +6,7 @@ import Chip from '@mui/material/Chip'
 import Container from '@mui/material/Container'
 import Typography from '@mui/material/Typography'
 
-import type { MarketingFeature, MarketingSectionCopy } from '../types'
+import type { MarketingCollectionWidgetSettings, MarketingFeature, MarketingSectionCopy } from '../types'
 import {
     MarketingEmptyState,
     MarketingIcon,
@@ -16,17 +16,22 @@ import {
     sortVisibleMarketingItems
 } from './MarketingPrimitives'
 
+const ITEMS_AREA_HEIGHT = 500
+
 export interface FeaturesProps {
     section: MarketingSectionCopy
     items: MarketingFeature[]
     instanceKey?: string
+    settings?: MarketingCollectionWidgetSettings
 }
 
-export default function Features({ section, items, instanceKey }: FeaturesProps) {
+export default function Features({ section, items, instanceKey, settings }: FeaturesProps) {
     const sectionId = marketingSectionId('features', instanceKey)
     const visibleItems = sortVisibleMarketingItems(items)
     const [selectedItemIndex, setSelectedItemIndex] = React.useState(0)
     const selectedFeature = visibleItems[selectedItemIndex]
+    const showItemDescriptions = settings?.showItemDescriptions ?? true
+    const fixedItemsHeight = settings?.fixedItemsHeight ?? false
 
     if (visibleItems.length === 0) {
         return (
@@ -42,19 +47,22 @@ export default function Features({ section, items, instanceKey }: FeaturesProps)
             <MarketingSectionHeader section={section} id={sectionId} />
             <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row-reverse' }, gap: 2, mt: { xs: 3, sm: 6 } }}>
                 <Box
+                    data-testid='marketing-features-items'
                     sx={{
                         display: { xs: 'none', sm: 'flex' },
                         flexDirection: 'column',
                         gap: 2,
                         width: { md: 'calc(30% - 8px)' },
                         minWidth: 0,
-                        flexShrink: 0
+                        flexShrink: 0,
+                        ...(fixedItemsHeight ? { maxHeight: ITEMS_AREA_HEIGHT, overflowY: 'auto' } : {})
                     }}
                 >
                     {visibleItems.map((item, index) => (
                         <Box
                             key={item.semanticKey}
                             component={Button}
+                            data-testid='marketing-feature-card'
                             onClick={() => setSelectedItemIndex(index)}
                             aria-pressed={selectedItemIndex === index}
                             sx={{
@@ -62,7 +70,10 @@ export default function Features({ section, items, instanceKey }: FeaturesProps)
                                 width: '100%',
                                 minWidth: 0,
                                 height: 'auto',
-                                minHeight: 0,
+                                // Keep the card at its content height inside the
+                                // scrollable fixed-height column; flex-shrinking it
+                                // would overflow the text over the next card.
+                                flexShrink: 0,
                                 alignItems: 'flex-start',
                                 justifyContent: 'flex-start',
                                 textAlign: 'left',
@@ -70,6 +81,7 @@ export default function Features({ section, items, instanceKey }: FeaturesProps)
                             }}
                         >
                             <Box
+                                data-testid='marketing-feature-card-content'
                                 sx={{
                                     display: 'flex',
                                     flexDirection: 'column',
@@ -85,9 +97,11 @@ export default function Features({ section, items, instanceKey }: FeaturesProps)
                                 <Typography variant='h6' sx={{ overflowWrap: 'anywhere' }}>
                                     {item.title}
                                 </Typography>
-                                <Typography variant='body2' sx={{ overflowWrap: 'anywhere' }}>
-                                    {item.description}
-                                </Typography>
+                                {showItemDescriptions ? (
+                                    <Typography variant='body2' sx={{ overflowWrap: 'anywhere' }}>
+                                        {item.description}
+                                    </Typography>
+                                ) : null}
                             </Box>
                         </Box>
                     ))}
@@ -109,14 +123,11 @@ export default function Features({ section, items, instanceKey }: FeaturesProps)
                                 sx={{ width: '100%', maxWidth: 520, height: 500, objectFit: 'contain' }}
                             />
                         ) : (
-                            <Typography
-                                variant='body2'
-                                sx={{
-                                    color: 'text.secondary'
-                                }}
-                            >
-                                {selectedFeature?.description}
-                            </Typography>
+                            <MarketingIcon
+                                name={selectedFeature?.icon}
+                                data-testid='marketing-feature-placeholder-icon'
+                                sx={{ fontSize: 96, color: 'text.disabled' }}
+                            />
                         )}
                     </Card>
                 </Box>
@@ -149,19 +160,36 @@ export default function Features({ section, items, instanceKey }: FeaturesProps)
                                 loading='eager'
                                 sx={{ width: '100%', minHeight: 280, objectFit: 'cover' }}
                             />
-                        ) : null}
+                        ) : (
+                            <Box
+                                sx={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    minHeight: 280
+                                }}
+                            >
+                                <MarketingIcon
+                                    name={selectedFeature?.icon}
+                                    data-testid='marketing-feature-placeholder-icon'
+                                    sx={{ fontSize: 72, color: 'text.disabled' }}
+                                />
+                            </Box>
+                        )}
                         <Box sx={{ p: 2 }}>
                             <Typography gutterBottom sx={{ fontWeight: 'medium' }}>
                                 {selectedFeature?.title}
                             </Typography>
-                            <Typography
-                                variant='body2'
-                                sx={{
-                                    color: 'text.secondary'
-                                }}
-                            >
-                                {selectedFeature?.description}
-                            </Typography>
+                            {showItemDescriptions ? (
+                                <Typography
+                                    variant='body2'
+                                    sx={{
+                                        color: 'text.secondary'
+                                    }}
+                                >
+                                    {selectedFeature?.description}
+                                </Typography>
+                            ) : null}
                         </Box>
                     </Card>
                 </Box>

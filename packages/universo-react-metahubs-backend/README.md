@@ -168,6 +168,16 @@ pnpm --filter @universo-react/metahubs-backend build
 -   [Creating packages](../../../docs/en/contributing/creating-packages.md)
 -   [MIGRATIONS.md](MIGRATIONS.md)
 
+## Integration Tests
+
+Record-integrity integration tests (reference guard, semantic-key uniqueness) run against a real PostgreSQL when `DATABASE_TEST_URL` is set:
+
+```bash
+DATABASE_TEST_URL=postgresql://postgres:postgres@127.0.0.1:55322/postgres pnpm test:records-integration
+```
+
+Without the variable the suite is skipped, matching the other `.integration.test.ts` files in this package.
+
 ## Related Packages
 
 -   `@universo-react/database` for Knex runtime ownership and executor factories.

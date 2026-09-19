@@ -771,7 +771,7 @@ export function createPublicationApplicationReleaseBundle(options: {
 
     return createApplicationReleaseBundle({
         applicationId: options.application.id,
-        applicationKey: options.application.slug ?? options.application.id,
+        applicationKey: options.application.id,
         releaseVersion: resolveApplicationReleaseVersion({
             publicationVersionId: options.syncContext.publicationVersionId,
             snapshot: options.syncContext.snapshot,
@@ -931,7 +931,7 @@ export async function createExistingApplicationReleaseBundle(options: {
 
     return createApplicationReleaseBundle({
         applicationId: application.id,
-        applicationKey: application.slug ?? application.id,
+        applicationKey: application.id,
         releaseVersion: releaseLineage.releaseVersion,
         sourceKind: 'application',
         snapshot,

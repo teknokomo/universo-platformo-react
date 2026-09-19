@@ -1,6 +1,7 @@
 import type { CodenameVLC } from '@universo-react/types'
 import type { DbExecutor } from '@universo-react/utils'
 import { activeAppRowCondition, softDeleteSetClause } from '@universo-react/utils'
+import { acquireAdvisoryXactLock } from '@universo-react/utils/database'
 
 // ─── Types ───────────────────────────────────────────────────────────────
 
@@ -24,6 +25,13 @@ export interface RolePermissionRow {
     conditions: unknown
     fields: string[]
     _upl_created_at: string
+}
+
+export interface RolePermissionInput {
+    subject: string
+    action: string
+    conditions?: unknown
+    fields?: string[]
 }
 
 export interface UserRoleRow {
@@ -61,6 +69,7 @@ const ROLE_SELECT_COLUMNS = `
 `
 
 const ROLE_PERMISSION_RETURNING_COLUMNS = 'id, role_id, subject, action, conditions, fields, _upl_created_at'
+const ROLE_MUTATION_LOCK_KEY = 'admin:role-mutation'
 
 // ─── Roles ───────────────────────────────────────────────────────────────
 
@@ -162,6 +171,71 @@ export async function findRoleById(exec: DbExecutor, id: string): Promise<RoleWi
     return { ...roles[0], permissions }
 }
 
+/**
+ * Serialize role mutations that read an actor's permission graph and then
+ * change a role. The transaction-scoped lock is released on commit/rollback.
+ */
+export async function lockRoleMutation(exec: DbExecutor): Promise<void> {
+    await acquireAdvisoryXactLock(exec, ROLE_MUTATION_LOCK_KEY)
+}
+
+/**
+ * Serialize mutations that can replace a role's permission set.
+ * The row lock is held by the caller's transaction until commit/rollback.
+ */
+export async function lockRoleForPermissionUpdate(exec: DbExecutor, id: string): Promise<RoleRow | null> {
+    const rows = await exec.query<RoleRow>(
+        `SELECT ${ROLE_SELECT_COLUMNS}
+         FROM admin.obj_roles r
+         WHERE r.id = $1 AND ${activeAppRowCondition('r')}
+         FOR UPDATE`,
+        [id]
+    )
+
+    return rows[0] ?? null
+}
+
+/**
+ * Read a role and its active permissions under the same row locks used by
+ * permission replacement. Call this inside the transaction that consumes the
+ * role as a mutation source.
+ */
+export async function findRoleByIdForUpdate(exec: DbExecutor, id: string): Promise<RoleWithPermissions | null> {
+    const role = await lockRoleForPermissionUpdate(exec, id)
+    if (!role) return null
+
+    const permissions = await exec.query<RolePermissionRow>(
+        `SELECT ${ROLE_PERMISSION_RETURNING_COLUMNS}
+         FROM admin.rel_role_permissions
+         WHERE role_id = $1 AND ${activeAppRowCondition()}
+         ORDER BY _upl_created_at
+         FOR SHARE`,
+        [id]
+    )
+
+    return { ...role, permissions }
+}
+
+/**
+ * Read the actor's effective subject/action envelope while keeping the
+ * contributing assignment, role, and permission rows stable for this transaction.
+ */
+export async function listEffectivePermissionsForUser(exec: DbExecutor, userId: string): Promise<RolePermissionInput[]> {
+    return exec.query<RolePermissionInput>(
+        `SELECT rp.subject, rp.action, rp.conditions, rp.fields
+         FROM admin.rel_user_roles ur
+         JOIN admin.obj_roles r ON r.id = ur.role_id
+         JOIN admin.rel_role_permissions rp ON rp.role_id = r.id
+         WHERE ur.user_id = $1
+           AND ${activeAppRowCondition('ur')}
+           AND ${activeAppRowCondition('r')}
+           AND ${activeAppRowCondition('rp')}
+         ORDER BY r.id, rp.id
+         FOR SHARE OF ur, r, rp`,
+        [userId]
+    )
+}
+
 export async function findRoleByCodename(exec: DbExecutor, codename: string): Promise<RoleRow | null> {
     const rows = await exec.query<RoleRow>(
         `SELECT ${ROLE_SELECT_COLUMNS}
@@ -260,9 +334,14 @@ export async function deleteRole(exec: DbExecutor, id: string, deletedBy?: strin
 export async function replacePermissions(
     exec: DbExecutor,
     roleId: string,
-    permissions: Array<{ subject: string; action: string; conditions?: unknown; fields?: string[] }>,
+    permissions: RolePermissionInput[],
     deletedBy?: string
 ): Promise<RolePermissionRow[]> {
+    const lockedRole = await lockRoleForPermissionUpdate(exec, roleId)
+    if (!lockedRole) {
+        throw Object.assign(new Error('Role not found'), { statusCode: 404 })
+    }
+
     await exec.query(
         `UPDATE admin.rel_role_permissions
          SET ${softDeleteSetClause('$2')}

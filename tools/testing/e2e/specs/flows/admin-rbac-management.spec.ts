@@ -259,7 +259,7 @@ test('@flow @permission admin can manage roles, users, and locales from browser 
 
         try {
             await expect(delegatedAdminSession.page.getByRole('heading', { name: 'Instances' })).toBeVisible()
-            await expect(delegatedAdminSession.page.getByText('Local')).toBeVisible()
+            await expect(delegatedAdminSession.page.getByText('Current local installation')).toBeVisible()
         } finally {
             await delegatedAdminSession.context.close().catch(() => undefined)
         }

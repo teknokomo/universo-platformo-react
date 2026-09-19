@@ -1571,7 +1571,6 @@ describe('applicationSyncRoutes', () => {
 
         mockFindApplicationCopySource.mockResolvedValue({
             id: 'application-1',
-            slug: 'application-1',
             schemaName: 'app_019ccefc2f7b7b3682f485cdb1312268',
             schemaSnapshot: null,
             schemaStatus: 'ready',
@@ -1776,7 +1775,6 @@ describe('applicationSyncRoutes', () => {
 
         mockFindApplicationCopySource.mockResolvedValue({
             id: 'application-1',
-            slug: 'application-1',
             schemaName: 'app_019ccefc2f7b7b3682f485cdb1312268',
             schemaSnapshot: null,
             schemaStatus: 'ready',

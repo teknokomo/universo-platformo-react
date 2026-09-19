@@ -96,7 +96,42 @@ const isSafeRelativePath = (value: string): boolean => {
     }
 }
 
-const isSafeSectionHash = (value: string): boolean => value.startsWith('#') && MARKETING_SECTION_ANCHOR_VALUES.has(value.slice(1))
+/**
+ * Resolves emitted navigation anchors against the sections that are actually
+ * rendered for the active widget composition.
+ *
+ * Persisted navigation records address sections by their semantic section key
+ * (for example `logos`), while the DOM uses the section anchor id derived from
+ * the widget instance key (for example `logoCollection`). The resolver keeps
+ * validation fail-closed while translating canonical keys to the real rendered
+ * ids so anchors stay addressable for canonical and repeated widget instances.
+ */
+export interface MarketingSectionAnchors {
+    has(anchor: string): boolean
+    resolve(anchor: string): string
+}
+
+export const createMarketingSectionAnchors = (entries: Iterable<readonly [string, string]>): MarketingSectionAnchors => {
+    const anchors = new Map<string, string>()
+    for (const [alias, sectionId] of entries) {
+        if (!anchors.has(alias)) anchors.set(alias, sectionId)
+    }
+
+    return {
+        has: (anchor: string) => anchors.has(anchor),
+        resolve: (anchor: string) => anchors.get(anchor) ?? anchor
+    }
+}
+
+const DEFAULT_MARKETING_SECTION_ANCHORS: MarketingSectionAnchors = createMarketingSectionAnchors(
+    Array.from(MARKETING_SECTION_ANCHOR_VALUES).map((anchor) => [anchor, anchor] as const)
+)
+
+const isSafeSectionHash = (value: string, sectionAnchors?: MarketingSectionAnchors): boolean => {
+    if (!value.startsWith('#')) return false
+    const anchor = value.slice(1)
+    return (sectionAnchors ?? DEFAULT_MARKETING_SECTION_ANCHORS).has(anchor)
+}
 
 const isSafeExternalUrl = (value: string): boolean => {
     if (value.startsWith('//') || UNSAFE_MARKETING_CONTROL_RE.test(value)) return false
@@ -115,7 +150,7 @@ export interface ResolvedMarketingAction {
     rel?: 'noopener noreferrer'
 }
 
-export function resolveMarketingAction(action?: MarketingAction): ResolvedMarketingAction | null {
+export function resolveMarketingAction(action?: MarketingAction, sectionAnchors?: MarketingSectionAnchors): ResolvedMarketingAction | null {
     if (!action || typeof action.href !== 'string' || typeof action.label !== 'string' || !action.label.trim()) return null
 
     const canonical = parseMarketingActionHref(action.href, {
@@ -127,7 +162,12 @@ export function resolveMarketingAction(action?: MarketingAction): ResolvedMarket
     const kindMatches =
         (expectedKind === 'internal' && (canonical.kind === 'internal' || canonical.kind === 'anchor')) || canonical.kind === expectedKind
     if (!kindMatches) return null
-    if (canonical.kind === 'anchor' && !isSafeSectionHash(canonical.href)) return null
+    if (canonical.kind === 'anchor') {
+        if (!isSafeSectionHash(canonical.href, sectionAnchors)) return null
+        const anchor = canonical.href.slice(1)
+        const resolvedAnchor = (sectionAnchors ?? DEFAULT_MARKETING_SECTION_ANCHORS).resolve(anchor)
+        return { href: `#${resolvedAnchor}` }
+    }
 
     const attributes = toMarketingActionLinkAttributes(canonical)
     return {
@@ -207,6 +247,7 @@ export function MarketingEmptyState({ section }: { section: string }) {
 export interface MarketingActionButtonProps extends Omit<ButtonProps, 'action' | 'onClick'> {
     action?: MarketingAction
     onAction?: MarketingActionHandler
+    sectionAnchors?: MarketingSectionAnchors
     children?: ReactNode
 }
 
@@ -224,8 +265,8 @@ export const invokeMarketingAction = (
     onAction?.(action)
 }
 
-export function MarketingActionButton({ action, onAction, children, ...props }: MarketingActionButtonProps) {
-    const resolved = resolveMarketingAction(action)
+export function MarketingActionButton({ action, onAction, sectionAnchors, children, ...props }: MarketingActionButtonProps) {
+    const resolved = resolveMarketingAction(action, sectionAnchors)
     if (!resolved || !action) return null
     const AnchorButton = Button as React.ElementType
 
@@ -245,15 +286,17 @@ export function MarketingActionButton({ action, onAction, children, ...props }: 
 export function MarketingActionLink({
     action,
     onAction,
+    sectionAnchors,
     sx,
     children
 }: {
     action?: MarketingAction
     onAction?: MarketingActionHandler
+    sectionAnchors?: MarketingSectionAnchors
     sx?: SxProps<Theme>
     children?: ReactNode
 }) {
-    const resolved = resolveMarketingAction(action)
+    const resolved = resolveMarketingAction(action, sectionAnchors)
     if (!resolved || !action) return null
 
     return (
@@ -279,12 +322,14 @@ export function MarketingMediaView({
     media,
     sx,
     className,
-    loading = 'lazy'
+    loading = 'lazy',
+    fallback
 }: {
     media?: MarketingMedia
     sx?: SxProps<Theme>
     className?: string
     loading?: 'eager' | 'lazy'
+    fallback?: ReactNode
 }) {
     const { t } = useTranslation('apps')
     const { mode, systemMode } = useColorScheme()
@@ -311,6 +356,7 @@ export function MarketingMediaView({
     const alt = media.decorative ? '' : media.alt.trim() || t('marketingPage.mediaMissing')
 
     if (!validSource) {
+        if (fallback !== undefined) return <>{fallback}</>
         return (
             <Box
                 role={media.decorative ? undefined : 'img'}
@@ -358,6 +404,7 @@ export function MarketingColorModeControl({ size = 'small' }: MarketingColorMode
     return (
         <ColorModeIconDropdown
             size={size}
+            data-testid='marketing-color-mode-switcher'
             aria-label={t('marketingPage.colorMode.label')}
             labels={{
                 system: t('marketingPage.colorMode.system'),

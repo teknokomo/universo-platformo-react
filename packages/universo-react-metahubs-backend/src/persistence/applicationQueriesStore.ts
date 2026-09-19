@@ -18,7 +18,6 @@ export interface AppRow {
     id: string
     name: VersionedLocalizedContent<string> | null
     description: VersionedLocalizedContent<string> | null
-    slug: string | null
     isPublic?: boolean
     workspacesEnabled?: boolean
     settings: Record<string, unknown> | null
@@ -62,7 +61,6 @@ const APP_SELECT = `
     id,
     name,
     description,
-    slug,
     is_public            AS "isPublic",
     workspaces_enabled   AS "workspacesEnabled",
     settings,
@@ -115,7 +113,6 @@ export async function updateApplicationFields(
     id: string,
     fields: {
         schemaName?: string | null
-        slug?: string | null
         schemaStatus?: ApplicationSchemaStatus | null
         schemaError?: string | null
         schemaSyncedAt?: Date | null
@@ -136,7 +133,6 @@ export async function updateApplicationFields(
     }
 
     if (fields.schemaName !== undefined) push('schema_name', fields.schemaName)
-    if (fields.slug !== undefined) push('slug', fields.slug)
     if (fields.schemaStatus !== undefined) push('schema_status', fields.schemaStatus)
     if (fields.schemaError !== undefined) push('schema_error', fields.schemaError)
     if (fields.schemaSyncedAt !== undefined) push('schema_synced_at', fields.schemaSyncedAt)

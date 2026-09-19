@@ -28,6 +28,8 @@ import {
     isRuntimeRecordBehaviorEnabled,
     normalizeRuntimeRecordBehavior
 } from './runtimeRecordBehavior'
+import { buildRuntimeRecordRuleLockKey, evaluateRuntimeRecordRules } from './runtimeRecordRules'
+import { assertMarketingRuntimeRowCap } from '../controllers/runtimeRowSupport/rows'
 import {
     IDENTIFIER_REGEX,
     RUNTIME_WRITABLE_TYPES,
@@ -100,6 +102,7 @@ type RuntimeModuleRecordBinding = {
     }
     attrs: RuntimeModuleComponentRow[]
     tableIdent: string
+    tableName: string
     activeRowCondition: string
 }
 
@@ -182,6 +185,17 @@ const sanitizeClientModule = (module: ApplicationModuleDefinition): ApplicationM
 
 const createCapabilityError = (capability: ModuleCapability): Error =>
     new Error(`Module capability "${capability}" is not enabled for this module`)
+
+/**
+ * Module record writes enforce the same component rules as the REST row paths
+ * and surface the same stable codes so callers can localize the feedback.
+ */
+const createRuntimeModuleRuleFailure = (violation: { statusCode: number; code: string; field: string; message: string }): Error =>
+    Object.assign(new Error(violation.message), {
+        statusCode: violation.statusCode,
+        code: violation.code,
+        field: violation.field
+    })
 
 const createLifecycleRpcError = (): Error => new Error('Runtime module lifecycle handlers are not callable through public RPC')
 
@@ -1033,6 +1047,7 @@ export class RuntimeModulesService {
             },
             attrs,
             tableIdent: `${schemaIdent}.${quoteIdentifier(object.table_name)}`,
+            tableName: object.table_name,
             activeRowCondition: buildRuntimeActiveRowCondition(
                 lifecycleContract,
                 object.config,
@@ -1253,6 +1268,14 @@ export class RuntimeModulesService {
                 ...params,
                 executor: txExecutor
             })
+            await assertMarketingRuntimeRowCap({
+                manager: txExecutor,
+                schemaIdent: quoteIdentifier(params.schemaName),
+                tableName: binding.tableName,
+                runtimeRowCondition: binding.activeRowCondition,
+                objectCodename: params.entityCodename
+            })
+
             const touchedComponentIds = collectTouchedRecordComponentIds(binding.attrs, params.data)
             const columnValues = await this.buildWritableColumnValues({
                 executor: txExecutor,
@@ -1261,6 +1284,21 @@ export class RuntimeModulesService {
                 payload: params.data,
                 mode: 'create'
             })
+
+            // Fail-closed rule validation runs before lifecycle handlers: the
+            // request-scoped executor reuses the middleware transaction, so a
+            // handler write would survive the 4xx response.
+            const createRuleViolation = await evaluateRuntimeRecordRules({
+                manager: txExecutor,
+                dataTableIdent: binding.tableIdent,
+                activeCondition: binding.activeRowCondition,
+                attrs: binding.attrs,
+                row: Object.fromEntries(columnValues.map((entry) => [entry.column, entry.value])),
+                lockKey: buildRuntimeRecordRuleLockKey(params.schemaName, binding.tableIdent)
+            })
+            if (createRuleViolation) {
+                throw createRuntimeModuleRuleFailure(createRuleViolation)
+            }
 
             await this.dispatchLifecycleEvent(
                 this.buildLifecycleDispatchParams({
@@ -1430,6 +1468,19 @@ export class RuntimeModulesService {
             if (columnValues.length === 0) {
                 updated = previousRow
                 return
+            }
+
+            const updateRuleViolation = await evaluateRuntimeRecordRules({
+                manager: txExecutor,
+                dataTableIdent: binding.tableIdent,
+                activeCondition: binding.activeRowCondition,
+                attrs: binding.attrs,
+                row: Object.fromEntries(columnValues.map((entry) => [entry.column, entry.value])),
+                lockKey: buildRuntimeRecordRuleLockKey(params.schemaName, binding.tableIdent),
+                excludeRowId: params.recordId
+            })
+            if (updateRuleViolation) {
+                throw createRuntimeModuleRuleFailure(updateRuleViolation)
             }
 
             await this.dispatchLifecycleEvent(

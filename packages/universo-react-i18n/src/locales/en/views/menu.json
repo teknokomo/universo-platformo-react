@@ -73,6 +73,7 @@
         "administration": "Administration",
         "roles": "Roles",
         "locales": "Languages",
+        "aliases": "Slugs",
         "adminboard": "Admin Board",
         "instance": "Instance",
         "instanceboard": "Instance Board",

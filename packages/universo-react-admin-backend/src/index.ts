@@ -27,6 +27,14 @@ export {
     type EnsureBootstrapSuperuserInput,
     type EnsureBootstrapSuperuserResult
 } from './services/authUserProvisioningService'
+export {
+    assertRoleDelegationCeiling,
+    replaceRolePermissionsWithDelegationCeiling,
+    type AssertRoleDelegationCeilingInput,
+    type ReplaceRolePermissionsWithDelegationCeilingInput
+} from './services/rolePermissionDelegationService'
+export { RoleDelegationError } from './services/roleDelegationPolicy'
+export { assertRoleAssignmentWithinCeiling } from './services/roleAssignmentDelegationService'
 
 // Guards
 export {

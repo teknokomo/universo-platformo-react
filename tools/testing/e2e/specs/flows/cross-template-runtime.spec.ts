@@ -246,8 +246,7 @@ test('@flow @combined @cross-template resolves an entity-scoped template and sha
         const applicationId = typeof linkedApplication.id === 'string' ? linkedApplication.id : null
         if (!applicationId) throw new Error('Cross-template publication did not create an application')
         await recordCreatedApplication({
-            id: applicationId,
-            slug: typeof linkedApplication.slug === 'string' ? linkedApplication.slug : undefined
+            id: applicationId
         })
 
         await syncApplicationSchema(api, applicationId, {

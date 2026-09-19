@@ -42,7 +42,7 @@ const uuidV7FunctionSql = `
         uuid_bytes BYTEA;
     BEGIN
         unix_ts_ms = FLOOR(EXTRACT(EPOCH FROM clock_timestamp()) * 1000)::BIGINT;
-        uuid_bytes = gen_random_bytes(16);
+        uuid_bytes = extensions.gen_random_bytes(16);
         uuid_bytes = SET_BYTE(uuid_bytes, 0, GET_BYTE(INT8SEND(unix_ts_ms), 2));
         uuid_bytes = SET_BYTE(uuid_bytes, 1, GET_BYTE(INT8SEND(unix_ts_ms), 3));
         uuid_bytes = SET_BYTE(uuid_bytes, 2, GET_BYTE(INT8SEND(unix_ts_ms), 4));

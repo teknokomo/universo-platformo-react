@@ -2,6 +2,46 @@ import { describe, expect, it } from 'vitest'
 
 import commonEn from '@universo-react/i18n/locales/en/common.json'
 import commonRu from '@universo-react/i18n/locales/ru/common.json'
+import enApplications from '../locales/en/applications.json'
+import ruApplications from '../locales/ru/applications.json'
+
+/**
+ * The shared marketing widget dialog lives in `@universo-react/template-mui`,
+ * so the i18n coverage gate cannot scan it; these are the labels it resolves
+ * from the consumer bundle.
+ */
+const MARKETING_WIDGET_DIALOG_KEYS = [
+    'variant',
+    'maxItems',
+    'brandLogoHelper',
+    'brandLogoUrl',
+    'brandNameHelper',
+    'brandName',
+    'maxItemsHelper',
+    'showTitle',
+    'showDescription',
+    'showItemDescriptions',
+    'fixedItemsHeight',
+    'showBenefits',
+    'cardStyle',
+    'cardStyleFeatured',
+    'cardStyleUniform',
+    'cardWidth',
+    'cardWidthAuto',
+    'cardWidthFull',
+    'showNewsletter',
+    'showLeadForm',
+    'showAuthActions'
+] as const
+
+const readWidgetLabel = (bundle: unknown, key: string): string => {
+    if (!bundle || typeof bundle !== 'object' || Array.isArray(bundle)) return ''
+    const applications = (bundle as { applications?: { layouts?: { marketing?: { widget?: unknown } } } }).applications
+    const widget = applications?.layouts?.marketing?.widget
+    if (!widget || typeof widget !== 'object' || Array.isArray(widget)) return ''
+    const value = (widget as Record<string, unknown>)[key]
+    return typeof value === 'string' ? value.trim() : ''
+}
 
 const MARKETING_ZONE_KEYS = ['marketingHeader', 'marketingMain', 'marketingFooter'] as const
 
@@ -25,6 +65,16 @@ describe('application marketing layout translations', () => {
             expect(english).not.toBe('')
             expect(russian).not.toBe('')
             expect(russian).not.toBe(english)
+        }
+    })
+
+    it('keeps every shared marketing widget dialog label present in both locales', () => {
+        for (const key of MARKETING_WIDGET_DIALOG_KEYS) {
+            const english = readWidgetLabel(enApplications, key)
+            const russian = readWidgetLabel(ruApplications, key)
+
+            expect(english, `applications layouts.marketing.widget.${key} (EN)`).not.toBe('')
+            expect(russian, `applications layouts.marketing.widget.${key} (RU)`).not.toBe('')
         }
     })
 })

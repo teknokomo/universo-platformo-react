@@ -43,12 +43,6 @@ const applicationBusinessTables: readonly SystemAppBusinessTableDefinition[] = [
                 presentation: p('Application Settings', 'Persisted UI and behavior settings for the application control panel')
             },
             {
-                codename: 'slug',
-                physicalColumnName: 'slug',
-                dataType: ComponentDefinitionDataType.STRING,
-                physicalDataType: 'VARCHAR(100)'
-            },
-            {
                 codename: 'is_public',
                 physicalColumnName: 'is_public',
                 dataType: ComponentDefinitionDataType.BOOLEAN,
@@ -61,6 +55,18 @@ const applicationBusinessTables: readonly SystemAppBusinessTableDefinition[] = [
                 dataType: ComponentDefinitionDataType.BOOLEAN,
                 isRequired: true,
                 defaultSqlExpression: 'false'
+            },
+            {
+                codename: 'alias_routing_mode',
+                physicalColumnName: 'alias_routing_mode',
+                dataType: ComponentDefinitionDataType.STRING,
+                physicalDataType: 'VARCHAR(20)',
+                isRequired: true,
+                defaultSqlExpression: `'direct'`,
+                presentation: p('Alias Routing Mode', 'Policy for direct or canonical application aliases'),
+                uiConfig: {
+                    readOnly: true
+                }
             },
             {
                 codename: 'schema_name',

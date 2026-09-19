@@ -170,6 +170,14 @@ describe('NavbarBreadcrumbs', () => {
         expect(screen.getByText('Objects')).toBeInTheDocument()
     })
 
+    it('renders the localized Records segment for the records tab route', async () => {
+        renderBreadcrumbs('/metahub/mhb-1/entities/object/instance/obj-1/records')
+
+        await waitFor(() => {
+            expect(screen.getByText('Records')).toBeInTheDocument()
+        })
+    })
+
     it('renders entity-route set list breadcrumbs', async () => {
         renderBreadcrumbs('/metahub/mhb-1/entities/set/instances')
 

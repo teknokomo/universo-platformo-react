@@ -78,7 +78,7 @@ const CollapsibleMobileSearch: React.FC<{
 
     if (!expanded) {
         return (
-            <IconButton aria-label='Open search' title='Open search' onClick={() => setExpanded(true)} size='medium'>
+            <IconButton aria-label={searchPlaceholder} title={searchPlaceholder} onClick={() => setExpanded(true)} size='medium'>
                 <IconSearch style={{ width: 20, height: 20 }} />
             </IconButton>
         )

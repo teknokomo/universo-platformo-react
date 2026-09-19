@@ -9,12 +9,13 @@ import {
     disposeApiContext,
     getApplication,
     getPublication,
+    listConnectors,
     listObjectCollections,
     listPublicationApplications,
     listPublications
 } from '../../support/backend/api-session.mjs'
 import { recordCreatedApplication, recordCreatedMetahub, recordCreatedPublication } from '../../support/backend/run-manifest.mjs'
-import { entityDialogSelectors, toolbarSelectors } from '../../support/selectors/contracts'
+import { applicationSelectors, entityDialogSelectors, toolbarSelectors } from '../../support/selectors/contracts'
 
 type PublicationRecord = {
     id?: string
@@ -85,7 +86,6 @@ async function createPublicationThroughBrowser(
     options: {
         publicationName: string
         autoCreateApplication?: boolean
-        createApplicationSchema?: boolean
     }
 ) {
     await page.goto(`/metahub/${metahubId}/publications`)
@@ -95,7 +95,7 @@ async function createPublicationThroughBrowser(
         page,
         (response) => response.request().method() === 'POST' && response.url().endsWith(`/api/v1/metahub/${metahubId}/publications`),
         {
-            timeout: options.createApplicationSchema ? 90_000 : 30_000,
+            timeout: 30_000,
             label: 'Creating publication'
         }
     )
@@ -105,12 +105,6 @@ async function createPublicationThroughBrowser(
 
     if (options.autoCreateApplication) {
         await enableSwitch(dialog, 'Create application')
-        if (options.createApplicationSchema) {
-            const createSchemaSwitch = dialog.getByLabel('Create application schema', { exact: true })
-
-            await expect(createSchemaSwitch).toBeEnabled()
-            await enableSwitch(dialog, 'Create application schema')
-        }
     }
 
     await dialog.getByTestId(entityDialogSelectors.submitButton).click()
@@ -212,8 +206,7 @@ test('@flow publication create dialog supports publication-only and publication-
         const linkedPublicationName = `E2E ${executionRunId} Browser Publication App`
         const linkedPublication = await createPublicationThroughBrowser(api, page, appVariantMetahub.id, {
             publicationName: linkedPublicationName,
-            autoCreateApplication: true,
-            createApplicationSchema: false
+            autoCreateApplication: true
         })
 
         await recordCreatedPublication({
@@ -222,7 +215,7 @@ test('@flow publication create dialog supports publication-only and publication-
             schemaName: linkedPublication.schemaName
         })
 
-        let linkedApplication: { id?: string; slug?: string; schemaName?: string | null } | null = null
+        let linkedApplication: { id?: string; schemaName?: string | null } | null = null
         await expect
             .poll(async () => {
                 const payload = await listPublicationApplications(api, appVariantMetahub.id, linkedPublication.id)
@@ -236,8 +229,7 @@ test('@flow publication create dialog supports publication-only and publication-
         }
 
         await recordCreatedApplication({
-            id: linkedApplication.id,
-            slug: linkedApplication.slug
+            id: linkedApplication.id
         })
 
         const persistedApplication = await getApplication(api, linkedApplication.id)
@@ -252,7 +244,7 @@ test('@flow publication create dialog supports publication-only and publication-
     }
 })
 
-test('@flow @combined @slow publication create dialog supports immediate application-schema creation when the metahub has runtime fields', async ({
+test('@flow @combined @slow publication create dialog creates the application schema through the connector diff dialog when the metahub has runtime fields', async ({
     page,
     runManifest
 }, testInfo) => {
@@ -302,8 +294,7 @@ test('@flow @combined @slow publication create dialog supports immediate applica
         const publicationName = `E2E ${executionRunId} Browser Publication Schema`
         const publication = await createPublicationThroughBrowser(api, page, metahub.id, {
             publicationName,
-            autoCreateApplication: true,
-            createApplicationSchema: true
+            autoCreateApplication: true
         })
 
         await recordCreatedPublication({
@@ -312,7 +303,7 @@ test('@flow @combined @slow publication create dialog supports immediate applica
             schemaName: publication.schemaName
         })
 
-        let linkedApplication: { id?: string; slug?: string; schemaName?: string | null; schemaStatus?: string | null } | null = null
+        let linkedApplication: { id?: string; schemaName?: string | null; schemaStatus?: string | null } | null = null
         await expect
             .poll(async () => {
                 const payload = await listPublicationApplications(api, metahub.id, publication.id!)
@@ -326,9 +317,51 @@ test('@flow @combined @slow publication create dialog supports immediate applica
         }
 
         await recordCreatedApplication({
-            id: linkedApplication.id,
-            slug: linkedApplication.slug
+            id: linkedApplication.id
         })
+
+        let connector: { id?: string } | null = null
+        await expect
+            .poll(async () => {
+                const payload = await listConnectors(api, linkedApplication!.id!)
+                connector = (payload.items ?? [])[0] ?? null
+                return typeof connector?.id === 'string'
+            })
+            .toBe(true)
+
+        if (!connector?.id) {
+            throw new Error('Linked application did not expose a connector for schema creation')
+        }
+
+        await page.goto(`/a/${linkedApplication.id}/admin/connector/${connector.id}`)
+        await expect(page.getByTestId(applicationSelectors.connectorBoardSchemaCard)).toBeVisible()
+
+        const schemaDiffResponsePromise = page.waitForResponse(
+            (response) =>
+                response.request().method() === 'GET' && response.url().endsWith(`/api/v1/application/${linkedApplication!.id}/diff`)
+        )
+        await page.getByTestId(applicationSelectors.connectorBoardSyncButton).click()
+
+        const schemaDiffResponse = await schemaDiffResponsePromise
+        expect(schemaDiffResponse.status()).toBe(200)
+
+        const diffDialog = page.getByRole('dialog', { name: 'Schema Changes' })
+        await expect(diffDialog).toBeVisible()
+        await expect(diffDialog.getByRole('heading', { name: /The following schema will be created/i })).toBeVisible()
+
+        const syncResponsePromise = waitForSettledMutationResponse(
+            page,
+            (response) =>
+                response.request().method() === 'POST' && response.url().endsWith(`/api/v1/application/${linkedApplication!.id}/sync`),
+            { label: 'Syncing application schema', timeout: 120_000 }
+        )
+        await diffDialog.getByRole('button', { name: 'Create Schema' }).click()
+
+        const syncResponse = await syncResponsePromise
+        expect(syncResponse.status()).toBe(200)
+        const syncBody = await syncResponse.json()
+        expect(syncBody?.status).toBe('created')
+        await expect(diffDialog).toHaveCount(0)
 
         let persistedApplication: { id?: string; schemaName?: string | null; schemaStatus?: string | null } | null = null
         await expect

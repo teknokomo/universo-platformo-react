@@ -12,6 +12,9 @@ export type MetahubErrorCode =
     | 'COPY_COMPONENTS_FAILED'
     | 'PUBLICATION_COMPENSATION_FAILED'
     | 'APPLICATION_COMPENSATION_FAILED'
+    | 'RECORD_REFERENCED'
+    | 'RECORD_KEY_DUPLICATE'
+    | 'RECORD_REF_TARGET_MISSING'
     | 'TRANSFER_NOT_ALLOWED'
     | 'CODENAME_CONFLICT'
     | 'TABLE_CHILD_LIMIT_REACHED'
@@ -140,6 +143,56 @@ export class MetahubSchemaSyncError extends MetahubDomainError {
         this.name = 'MetahubSchemaSyncError'
         this.operation = operation
         if (cause) this.cause = cause
+    }
+}
+
+/**
+ * Raised when a record cannot be deleted because other records reference it
+ * through a REF component; deleting it would detach or break the referencing
+ * content (and, for workspace applications, break the next publication sync).
+ */
+export class MetahubRecordReferencedError extends MetahubDomainError {
+    constructor(entity: string, details?: Record<string, unknown>) {
+        super({
+            message: `${entity} is referenced by other records`,
+            statusCode: 409,
+            code: 'RECORD_REFERENCED',
+            details: { entity, ...details }
+        })
+        this.name = 'MetahubRecordReferencedError'
+    }
+}
+
+/**
+ * Raised when a record would duplicate an existing semantic key inside the
+ * same object; duplicated keys silently merge or drop public marketing content.
+ */
+export class MetahubRecordKeyDuplicateError extends MetahubDomainError {
+    constructor(entity: string, keyField: string, keyValue: string) {
+        super({
+            message: `${entity} already contains the key "${keyValue}"`,
+            statusCode: 409,
+            code: 'RECORD_KEY_DUPLICATE',
+            details: { entity, keyField, keyValue }
+        })
+        this.name = 'MetahubRecordKeyDuplicateError'
+    }
+}
+
+/**
+ * Raised when a REF component points at a record that no longer exists in its
+ * target object. Without this guard a stale editor can persist a
+ * reference-to-nowhere that only breaks later during publication sync.
+ */
+export class MetahubRecordReferenceMissingError extends MetahubDomainError {
+    constructor(keyField: string, keyValue: string) {
+        super({
+            message: `Reference target does not exist for "${keyField}"`,
+            statusCode: 400,
+            code: 'RECORD_REF_TARGET_MISSING',
+            details: { keyField, keyValue }
+        })
+        this.name = 'MetahubRecordReferenceMissingError'
     }
 }
 

@@ -21,6 +21,12 @@ export type { ConnectorPublicationInfoWrapperProps } from './ConnectorPublicatio
 export { ConnectorDeleteDialog } from './ConnectorDeleteDialog'
 export type { ConnectorDeleteDialogProps } from './ConnectorDeleteDialog'
 
+export { ApplicationAddressesPanel } from './ApplicationAddressesPanel'
+export type { ApplicationAddressesPanelProps } from './ApplicationAddressesPanel'
+
+export { ApplicationAliasDialog } from './ApplicationAliasDialog'
+export type { ApplicationAliasDialogProps, ApplicationAliasDialogSubmit, ApplicationAliasOption } from './ApplicationAliasDialog'
+
 export { ConnectorDiffDialog } from './ConnectorDiffDialog'
 export type { ConnectorDiffDialogProps } from './ConnectorDiffDialog'
 

@@ -360,7 +360,7 @@ export const getAdminMenuItems = (): TemplateMenuItem[] => [
  * Instance context menu items (shown when inside /admin/instance/:id)
  * Returns array of menu items for the instance context
  */
-export const getInstanceMenuItems = (instanceId: string): TemplateMenuItem[] => [
+export const getInstanceMenuItems = (instanceId: string, options?: { canManageAliases?: boolean }): TemplateMenuItem[] => [
     {
         id: 'instance-board',
         titleKey: 'instanceboard',
@@ -385,6 +385,16 @@ export const getInstanceMenuItems = (instanceId: string): TemplateMenuItem[] => 
         url: `/admin/instance/${instanceId}/locales`,
         icon: IconLanguage
     },
+    ...(options?.canManageAliases
+        ? [
+              {
+                  id: 'instance-aliases',
+                  titleKey: 'aliases',
+                  url: `/admin/instance/${instanceId}/aliases`,
+                  icon: IconTags
+              } satisfies TemplateMenuEntry
+          ]
+        : []),
     {
         id: 'instance-settings',
         titleKey: 'settings',

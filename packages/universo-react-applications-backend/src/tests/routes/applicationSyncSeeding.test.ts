@@ -53,6 +53,75 @@ describe('application sync predefined seeding', () => {
         expect(merge).not.toHaveBeenCalled()
     })
 
+    it('fails the sync when a marketing object exceeds the public runtime row limit', async () => {
+        const withSchema = jest.fn()
+        const trx = { withSchema } as unknown as Knex.Transaction
+        const entities = [
+            {
+                id: '019ccefc-2f7b-7b36-82f4-85cdb1312268',
+                kind: 'object',
+                codename: 'MarketingPageFaq',
+                fields: []
+            }
+        ] as unknown as EntityDefinition[]
+        const oversizedRows = Array.from({ length: 1001 }, (_unused, index) => ({
+            id: `019ccefc-2f7b-7b39-82f4-85cdb131${String(index).padStart(4, '0')}`,
+            data: {}
+        }))
+
+        await expect(
+            seedPredefinedElements(
+                'app_019ccefc2f7b7b3682f485cdb1312268',
+                { elements: { '019ccefc-2f7b-7b36-82f4-85cdb1312268': oversizedRows } } as never,
+                entities,
+                'user-1',
+                trx
+            )
+        ).rejects.toThrow('exceeds the public runtime row limit')
+
+        expect(withSchema).not.toHaveBeenCalled()
+    })
+
+    it('rejects snapshots with duplicate unique keys before writing', async () => {
+        const withSchema = jest.fn()
+        const trx = { withSchema } as unknown as Knex.Transaction
+        const entities = [
+            {
+                id: '019ccefc-2f7b-7b36-82f4-85cdb1312269',
+                kind: 'object',
+                codename: 'MarketingPageFaq',
+                fields: [
+                    {
+                        id: 'faq-key',
+                        codename: 'FaqKey',
+                        dataType: 'STRING',
+                        parentComponentId: null,
+                        validationRules: { unique: true }
+                    }
+                ]
+            }
+        ] as unknown as EntityDefinition[]
+
+        await expect(
+            seedPredefinedElements(
+                'app_019ccefc2f7b7b3682f485cdb1312268',
+                {
+                    elements: {
+                        '019ccefc-2f7b-7b36-82f4-85cdb1312269': [
+                            { id: '019ccefc-2f7b-7b39-82f4-85cdb131226b', data: { FaqKey: 'support' } },
+                            { id: '019ccefc-2f7b-7b39-82f4-85cdb131226c', data: { FaqKey: 'support' } }
+                        ]
+                    }
+                } as never,
+                entities,
+                'user-1',
+                trx
+            )
+        ).rejects.toThrow('duplicate unique key "support" for FaqKey')
+
+        expect(withSchema).not.toHaveBeenCalled()
+    })
+
     it('preserves VLC enum codenames during runtime sync seeding', async () => {
         const existingSelectBuilder = {
             select: jest.fn().mockReturnThis(),

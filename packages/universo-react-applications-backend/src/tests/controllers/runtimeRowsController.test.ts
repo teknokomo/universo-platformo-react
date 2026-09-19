@@ -411,6 +411,174 @@ describe('runtimeRowsController server-owned field enforcement', () => {
     })
 })
 
+describe('runtimeRowsController record rule enforcement', () => {
+    const uniqueComponent = {
+        id: 'section-key-component',
+        codename: 'SectionKey',
+        column_name: 'section_key',
+        data_type: 'STRING',
+        is_required: false,
+        validation_rules: { unique: true, pattern: '^[a-z0-9-]+$' },
+        ui_config: {}
+    }
+
+    const createRuleExecutor = (options: { probeConflict?: boolean; version?: number } = {}) => {
+        const { controller, executor } = createRuntimeMutationHarness()
+        const probeConflict = options.probeConflict ?? true
+        const version = options.version ?? 1
+        mockResolveInterpretationNetworkRuntimeSurface.mockResolvedValue({
+            featureState: 'missing-widget',
+            structureMode: 'multiple',
+            resolvedObjects: {}
+        })
+        executor.query.mockImplementation(async (sql: string) => {
+            if (sql.includes('FROM runtime_schema._app_objects') && sql.includes('ORDER BY')) return runtimeObjectCollectionRows
+            if (sql.includes('FROM runtime_schema._app_components')) {
+                return [...mutableRuntimeComponents, uniqueComponent]
+            }
+            if (sql.includes('pg_advisory_xact_lock')) return []
+            if (sql.includes('SELECT id FROM runtime_schema."structure"')) return probeConflict ? [{ id: 'existing-row' }] : []
+            if (sql.includes('SELECT _upl_version FROM runtime_schema."structure"')) return [{ _upl_version: version }]
+            if (sql.includes('SELECT *')) {
+                return [
+                    {
+                        id: '019f2000-0000-7000-8000-000000000002',
+                        section_key: 'taken-key',
+                        name: 'Stored row',
+                        _upl_version: version
+                    }
+                ]
+            }
+            return []
+        })
+        executor.transaction.mockImplementation(async (fn: (manager: typeof executor) => Promise<unknown>) => fn(executor))
+        return { controller, executor }
+    }
+
+    beforeEach(() => {
+        jest.clearAllMocks()
+        mockRuntimeQuery.mockReset()
+        mockRuntimeQuery.mockResolvedValue([])
+    })
+
+    it.each([
+        {
+            label: 'create',
+            run: async (controller: ReturnType<typeof createRuntimeRowsController>, res: ReturnType<typeof createResponse>) =>
+                controller.createRow(
+                    createRuntimeRequest({
+                        body: { objectCollectionId: mutableObjectCollectionId, data: { SectionKey: 'taken-key' } }
+                    }),
+                    res
+                )
+        },
+        {
+            label: 'bulk update',
+            run: async (controller: ReturnType<typeof createRuntimeRowsController>, res: ReturnType<typeof createResponse>) =>
+                controller.bulkUpdateRow(
+                    createRuntimeRequest({
+                        method: 'PATCH',
+                        body: { objectCollectionId: mutableObjectCollectionId, data: { SectionKey: 'taken-key' }, expectedVersion: 1 }
+                    }),
+                    res
+                )
+        },
+        {
+            label: 'single-cell update',
+            run: async (controller: ReturnType<typeof createRuntimeRowsController>, res: ReturnType<typeof createResponse>) =>
+                controller.updateCell(
+                    createRuntimeRequest({
+                        method: 'PATCH',
+                        body: {
+                            objectCollectionId: mutableObjectCollectionId,
+                            field: 'section_key',
+                            value: 'taken-key',
+                            expectedVersion: 1
+                        }
+                    }),
+                    res
+                )
+        },
+        {
+            label: 'copy',
+            run: async (controller: ReturnType<typeof createRuntimeRowsController>, res: ReturnType<typeof createResponse>) =>
+                controller.copyRow(
+                    createRuntimeRequest({
+                        body: { objectCollectionId: mutableObjectCollectionId, data: { SectionKey: 'taken-key' }, expectedVersion: 1 }
+                    }),
+                    res
+                )
+        },
+        {
+            label: 'restore',
+            run: async (controller: ReturnType<typeof createRuntimeRowsController>, res: ReturnType<typeof createResponse>) =>
+                controller.restoreRow(
+                    createRuntimeRequest({
+                        method: 'POST',
+                        body: { objectCollectionId: mutableObjectCollectionId, expectedVersion: 1 }
+                    }),
+                    res
+                )
+        }
+    ])('fails closed with a localized duplicate-key code for $label before any write', async ({ run }) => {
+        const { controller, executor } = createRuleExecutor()
+        const res = createResponse()
+
+        await run(controller, res)
+
+        expect(res.status).toHaveBeenCalledWith(409)
+        expect(res.status.mock.results[0]?.value.json).toHaveBeenCalledWith({
+            error: expect.stringContaining('A record with the same value already exists'),
+            code: 'RECORD_KEY_DUPLICATE',
+            field: 'SectionKey'
+        })
+        const executedSql = executor.query.mock.calls.map(([sql]) => String(sql)).join('\n')
+        expect(executedSql).not.toMatch(/\bINSERT\s+INTO\s+runtime_schema\."structure"/i)
+        expect(executedSql).not.toMatch(/\bUPDATE\s+runtime_schema\."structure"/i)
+    })
+
+    it('treats a version conflict as the primary failure and skips the duplicate probe', async () => {
+        const { controller, executor } = createRuleExecutor({ version: 7 })
+        const res = createResponse()
+
+        await controller.bulkUpdateRow(
+            createRuntimeRequest({
+                method: 'PATCH',
+                body: { objectCollectionId: mutableObjectCollectionId, data: { SectionKey: 'taken-key' }, expectedVersion: 1 }
+            }),
+            res
+        )
+
+        expect(res.status).toHaveBeenCalledWith(409)
+        expect(res.status.mock.results[0]?.value.json).toHaveBeenCalledWith(
+            expect.objectContaining({ code: 'RUNTIME_RECORD_VERSION_CONFLICT', expectedVersion: 1, actualVersion: 7 })
+        )
+        const executedSql = executor.query.mock.calls.map(([sql]) => String(sql)).join('\n')
+        expect(executedSql).not.toContain('SELECT id FROM runtime_schema."structure"')
+        expect(executedSql).not.toMatch(/\bUPDATE\s+runtime_schema\."structure"/i)
+    })
+
+    it('rejects a value that violates the component pattern before any write', async () => {
+        const { controller, executor } = createRuleExecutor({ probeConflict: false })
+        const res = createResponse()
+
+        await controller.updateCell(
+            createRuntimeRequest({
+                method: 'PATCH',
+                body: { objectCollectionId: mutableObjectCollectionId, field: 'section_key', value: 'Invalid Key!', expectedVersion: 1 }
+            }),
+            res
+        )
+
+        expect(res.status).toHaveBeenCalledWith(400)
+        expect(res.status.mock.results[0]?.value.json).toHaveBeenCalledWith(
+            expect.objectContaining({ code: 'RECORD_PATTERN_MISMATCH', field: 'SectionKey' })
+        )
+        const executedSql = executor.query.mock.calls.map(([sql]) => String(sql)).join('\n')
+        expect(executedSql).not.toMatch(/\bUPDATE\s+runtime_schema\."structure"/i)
+    })
+})
+
 describe('runtimeRowsController seeded-row delete ownership', () => {
     beforeEach(() => {
         jest.clearAllMocks()
@@ -847,20 +1015,14 @@ describe('runtimeRowsController single-system Structure protection', () => {
         expect(executor.query.mock.calls.some(([sql]) => String(sql).includes('UPDATE runtime_schema."structure"'))).toBe(false)
     })
 
-    it('rechecks Interpretation Network copy protection inside the transaction', async () => {
+    it('runs the Interpretation Network copy guard inside the transaction', async () => {
         const { controller, executor } = createRuntimeMutationHarness()
         const res = createResponse()
-        mockResolveInterpretationNetworkRuntimeSurface
-            .mockResolvedValueOnce({
-                featureState: 'ready',
-                structureMode: 'multiple',
-                resolvedObjects: { Structure: mutableObjectCollectionId }
-            })
-            .mockResolvedValue({
-                featureState: 'ready',
-                structureMode: 'singleSystem',
-                resolvedObjects: { Structure: mutableObjectCollectionId }
-            })
+        mockResolveInterpretationNetworkRuntimeSurface.mockResolvedValue({
+            featureState: 'ready',
+            structureMode: 'singleSystem',
+            resolvedObjects: { Structure: mutableObjectCollectionId }
+        })
         executor.query.mockImplementation(async (sql: string) => {
             if (sql.includes('FROM runtime_schema._app_objects') && sql.includes('ORDER BY')) return runtimeObjectCollectionRows
             if (sql.includes('FROM runtime_schema._app_components')) return mutableRuntimeComponents
@@ -888,6 +1050,11 @@ describe('runtimeRowsController single-system Structure protection', () => {
             code: 'INTERPRETATION_NETWORK_GENERIC_COPY_FORBIDDEN'
         })
         expect(executor.query.mock.calls.some(([sql]) => String(sql).includes('INSERT INTO runtime_schema."structure"'))).toBe(false)
+        const transactionOrder = executor.transaction.mock.invocationCallOrder[0]
+        const guardOrder = mockResolveInterpretationNetworkRuntimeSurface.mock.invocationCallOrder[0]
+        expect(transactionOrder).toBeDefined()
+        expect(guardOrder).toBeDefined()
+        expect(transactionOrder as number).toBeLessThan(guardOrder as number)
     })
 
     it('requires dedicated commands to copy an Interpretation Network aggregate', async () => {

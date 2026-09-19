@@ -162,8 +162,7 @@ async function setupPublicGuestApplication(api: ApiContext, runManifest, suffix:
     }
 
     await recordCreatedApplication({
-        id: applicationId,
-        slug: linkedApplication.application.slug
+        id: applicationId
     })
 
     await syncApplicationSchema(api, applicationId, {

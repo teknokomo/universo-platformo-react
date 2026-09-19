@@ -1,4 +1,7 @@
-import { createApplicationsSchemaMigrationDefinition } from '../../platform/migrations'
+import {
+    createApplicationsSchemaMigrationDefinition,
+    finalizeApplicationsSchemaSupportMigrationDefinition
+} from '../../platform/migrations'
 import { applicationsSystemAppDefinition } from '../../platform/systemAppDefinition'
 
 const normalizeSql = (value: string): string => value.replace(/\s+/g, ' ').trim()
@@ -58,6 +61,14 @@ describe('applications system-app definition', () => {
                             uiConfig: {
                                 readOnly: true
                             }
+                        }),
+                        expect.objectContaining({
+                            codename: 'alias_routing_mode',
+                            physicalColumnName: 'alias_routing_mode',
+                            dataType: 'STRING',
+                            uiConfig: {
+                                readOnly: true
+                            }
                         })
                     ])
                 }),
@@ -85,8 +96,21 @@ describe('applications system-app definition', () => {
         )
     })
 
-    it('creates application-like applications fixed-schema tables directly for fresh bootstrap', () => {
+    it('describes the target fresh schema without the retired application slug', () => {
         const createSql = normalizeSql(createApplicationsSchemaMigrationDefinition.up.map((statement) => statement.sql).join('\n'))
+        const finalizeSql = normalizeSql(
+            finalizeApplicationsSchemaSupportMigrationDefinition.up.map((statement) => statement.sql).join('\n')
+        )
+
+        expect(createSql).not.toMatch(/\bslug\b/iu)
+        expect(finalizeSql).not.toMatch(/\bslug\b/iu)
+    })
+
+    it('creates application-like fixed-schema tables and alias support in the clean baseline', () => {
+        const createSql = normalizeSql(createApplicationsSchemaMigrationDefinition.up.map((statement) => statement.sql).join('\n'))
+        const finalizeSql = normalizeSql(
+            finalizeApplicationsSchemaSupportMigrationDefinition.up.map((statement) => statement.sql).join('\n')
+        )
 
         for (const fragment of [
             'CREATE TABLE IF NOT EXISTS applications.obj_applications',
@@ -99,6 +123,13 @@ describe('applications system-app definition', () => {
 
         expect(createSql).not.toMatch(/CREATE UNIQUE INDEX(?! IF NOT EXISTS)/)
         expect(createSql).not.toMatch(/CREATE INDEX(?! IF NOT EXISTS)/)
+        expect(createSql).toContain('CREATE TABLE IF NOT EXISTS applications.obj_application_aliases')
+        expect(createSql).toContain('alias_routing_mode VARCHAR(20) NOT NULL DEFAULT')
+        expect(createSql).toContain('ON DELETE RESTRICT')
+        expect(createSql).toContain('WHERE released_at IS NULL')
+        expect(finalizeSql).toContain('CREATE TABLE IF NOT EXISTS applications.obj_application_aliases')
+        expect(finalizeSql).toContain('applications_alias_routing_mode_ck')
+        expect(finalizeSql).not.toMatch(/\bslug\b/iu)
     })
 
     it('keeps applications RLS policies decomposed by operation for public join and membership management', () => {
@@ -117,5 +148,24 @@ describe('applications system-app definition', () => {
 
         expect(createSql).not.toContain(normalizeSql('CREATE POLICY "Allow users to manage their own applications"'))
         expect(createSql).not.toContain(normalizeSql('CREATE POLICY "Allow users to manage their application memberships"'))
+    })
+
+    it('keeps alias create-only access out of arbitrary alias UPDATE and uses an atomic primary transition function', () => {
+        const createSql = normalizeSql(createApplicationsSchemaMigrationDefinition.up.map((statement) => statement.sql).join('\n'))
+        const updatePolicyStart = createSql.indexOf('CREATE POLICY "Allow application alias managers to update aliases"')
+        const nextPolicyStart = createSql.indexOf('CREATE POLICY', updatePolicyStart + 1)
+        const updatePolicy = createSql.slice(updatePolicyStart, nextPolicyStart === -1 ? undefined : nextPolicyStart)
+
+        expect(updatePolicyStart).toBeGreaterThanOrEqual(0)
+        expect(updatePolicy).not.toContain("'create'")
+        expect(updatePolicy).toContain("'update'")
+        expect(createSql).toContain('CREATE OR REPLACE FUNCTION applications.create_application_alias')
+        expect(createSql).toContain("admin.has_permission(p_user_id, 'applicationAliases', 'update', '{}'::jsonb)")
+        expect(createSql).toContain('Application alias primary permission denied')
+        expect(createSql).toContain('pg_advisory_xact_lock(hashtext')
+        expect(createSql).toContain('REVOKE ALL ON FUNCTION applications.create_application_alias(UUID, TEXT, BOOLEAN, UUID) FROM PUBLIC')
+        expect(normalizeSql(createApplicationsSchemaMigrationDefinition.down.map((statement) => statement.sql).join('\n'))).toContain(
+            'DROP FUNCTION IF EXISTS applications.create_application_alias(UUID, TEXT, BOOLEAN, UUID)'
+        )
     })
 })

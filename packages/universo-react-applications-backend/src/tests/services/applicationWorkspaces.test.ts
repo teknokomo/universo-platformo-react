@@ -612,6 +612,10 @@ describe('applicationWorkspaces service', () => {
             })
         ).resolves.toEqual({ resetRows: 1, operationId: '018f8a78-7b8f-7c1d-a111-222233334586' })
 
+        // The reset must open a nested (savepoint) transaction so a failure
+        // under a reused request transaction cannot leave partial deletes.
+        expect(executor.transaction).toHaveBeenCalledTimes(2)
+
         const resetSql = executor.query.mock.calls
             .map(([sql]) => String(sql))
             .find((sql) => sql.includes(`UPDATE "${schemaName}"."obj_features"`))
@@ -2091,5 +2095,70 @@ describe('applicationWorkspaces service', () => {
             expect.arrayContaining(['track-seed-row:track-items-cmp:0', '018f8a78-7b8f-7c1d-a111-222233335053', true])
         )
         expect(childInsertCall?.[1]).not.toEqual(expect.arrayContaining(['content-seed-row']))
+    })
+
+    it('rejects workspace seeding of marketing rows with case-insensitive duplicate unique keys', async () => {
+        const { executor } = createMockDbExecutor()
+        const schemaName = 'app_018f8a787b8f7c1da111222233335090'
+        const objectId = '018f8a78-7b8f-7c1d-a111-222233335091'
+        const componentId = '018f8a78-7b8f-7c1d-a111-222233335092'
+        const columnName = 'col_018f8a787b8f7c1da111222233335092'
+
+        executor.query.mockImplementation(async (sql: string) => {
+            if (sql.includes(`FROM "${schemaName}"."_app_settings"`)) {
+                return [
+                    {
+                        value: {
+                            version: 1,
+                            elements: {
+                                [objectId]: [
+                                    { id: 'pricing-row-a', data: { PricingKey: 'Starter' } },
+                                    { id: 'pricing-row-b', data: { PricingKey: ' starter ' } }
+                                ]
+                            }
+                        }
+                    }
+                ]
+            }
+
+            if (sql.includes(`FROM "${schemaName}"."_app_objects"`)) {
+                return [{ objectId, codename: 'MarketingPagePricing', tableName: 'obj_018f8a787b8f7c1da111222233335091' }]
+            }
+
+            if (sql.includes(`FROM "${schemaName}"."_app_components"`)) {
+                return [
+                    {
+                        objectId,
+                        componentId,
+                        parentComponentId: null,
+                        codename: 'PricingKey',
+                        columnName,
+                        dataType: 'STRING',
+                        uiConfig: { stringMode: 'plain' },
+                        validationRules: { unique: true },
+                        targetObjectId: null,
+                        targetObjectKind: null
+                    }
+                ]
+            }
+
+            if (sql.includes('FROM information_schema.columns')) {
+                return [{ tableName: 'obj_018f8a787b8f7c1da111222233335091', columnName, udtName: 'text' }]
+            }
+
+            return []
+        })
+
+        await expect(
+            syncWorkspaceSeededElements(executor, {
+                schemaName,
+                workspaceId: '018f8a78-7b8f-7c1d-a111-222233335099'
+            })
+        ).rejects.toThrow(/duplicate unique key/)
+
+        const runtimeInsert = executor.query.mock.calls.find(([sql]) =>
+            String(sql).includes(`INSERT INTO "${schemaName}"."obj_018f8a787b8f7c1da111222233335091"`)
+        )
+        expect(runtimeInsert).toBeUndefined()
     })
 })

@@ -24,7 +24,6 @@ import {
     createApplicationWithOwner,
     deleteApplicationMember,
     deleteApplicationWithSchema,
-    findApplicationBySlug,
     findApplicationCopySource,
     findApplicationDetails,
     findApplicationMemberById,
@@ -56,7 +55,6 @@ import {
     resolveRuntimeCodenameText,
     runtimeCodenameTextSql,
     buildDefaultCopyNameInput,
-    buildCopiedApplicationSlugCandidate,
     createQueryHelper
 } from '../shared/runtimeHelpers'
 
@@ -299,7 +297,6 @@ export function createApplicationsController(getDbExecutor: () => DbExecutor) {
                 name: a.name,
                 description: a.description,
                 settings: a.settings ?? {},
-                slug: a.slug,
                 isPublic: a.isPublic,
                 workspacesEnabled: a.workspacesEnabled,
                 version: a.version || 1,
@@ -345,7 +342,6 @@ export function createApplicationsController(getDbExecutor: () => DbExecutor) {
             name: application.name,
             description: application.description,
             settings: application.settings ?? {},
-            slug: application.slug,
             isPublic: application.isPublic,
             workspacesEnabled: application.workspacesEnabled,
             version: application.version || 1,
@@ -377,12 +373,6 @@ export function createApplicationsController(getDbExecutor: () => DbExecutor) {
                 description: optionalLocalizedInputSchema.optional(),
                 namePrimaryLocale: z.string().optional(),
                 descriptionPrimaryLocale: z.string().optional(),
-                slug: z
-                    .string()
-                    .min(1)
-                    .max(100)
-                    .regex(/^[a-z0-9-]+$/, 'Slug must contain only lowercase letters, numbers, and hyphens')
-                    .optional(),
                 isPublic: z.boolean().optional()
             })
             .strict()
@@ -392,7 +382,7 @@ export function createApplicationsController(getDbExecutor: () => DbExecutor) {
             return res.status(400).json({ error: 'Invalid input', details: result.error.flatten() })
         }
 
-        const { name, description, slug, isPublic, namePrimaryLocale, descriptionPrimaryLocale } = result.data
+        const { name, description, isPublic, namePrimaryLocale, descriptionPrimaryLocale } = result.data
         const resolvedIsPublic = isPublic ?? false
 
         const sanitizedName = sanitizeLocalizedInput(name)
@@ -412,53 +402,31 @@ export function createApplicationsController(getDbExecutor: () => DbExecutor) {
             }
         }
 
-        if (slug) {
-            const existing = await findApplicationBySlug(
-                {
-                    query: <TRow = unknown>(sql: string, parameters?: unknown[]) => query<TRow>(req, sql, parameters ?? [])
-                },
-                slug
-            )
-            if (existing) {
-                return res.status(409).json({ error: 'Application with this slug already exists' })
-            }
+        const provisionalSchemaName = generateSchemaName('00000000-0000-7000-8000-000000000000')
+        if (
+            !provisionalSchemaName.startsWith('app_') ||
+            !isValidSchemaName(provisionalSchemaName) ||
+            !IDENTIFIER_REGEX.test(provisionalSchemaName)
+        ) {
+            return res.status(400).json({ error: 'Invalid generated application schema name' })
         }
 
-        let saved
-        try {
-            const provisionalSchemaName = generateSchemaName('00000000-0000-7000-8000-000000000000')
-            if (
-                !provisionalSchemaName.startsWith('app_') ||
-                !isValidSchemaName(provisionalSchemaName) ||
-                !IDENTIFIER_REGEX.test(provisionalSchemaName)
-            ) {
-                return res.status(400).json({ error: 'Invalid generated application schema name' })
-            }
-
-            saved = await createApplicationWithOwner(getRequestDbExecutor(req, getDbExecutor()), {
-                name: nameVlc,
-                description: descriptionVlc ?? null,
-                slug,
-                isPublic: resolvedIsPublic,
-                workspacesEnabled: false,
-                userId,
-                resolveSchemaName: generateSchemaName,
-                validateSchemaName: (schemaName) =>
-                    schemaName.startsWith('app_') && isValidSchemaName(schemaName) && IDENTIFIER_REGEX.test(schemaName)
-            })
-        } catch (error) {
-            if (database.isSlugUniqueViolation(error)) {
-                return res.status(409).json({ error: 'Application with this slug already exists' })
-            }
-            throw error
-        }
+        const saved = await createApplicationWithOwner(getRequestDbExecutor(req, getDbExecutor()), {
+            name: nameVlc,
+            description: descriptionVlc ?? null,
+            isPublic: resolvedIsPublic,
+            workspacesEnabled: false,
+            userId,
+            resolveSchemaName: generateSchemaName,
+            validateSchemaName: (schemaName) =>
+                schemaName.startsWith('app_') && isValidSchemaName(schemaName) && IDENTIFIER_REGEX.test(schemaName)
+        })
 
         return res.status(201).json({
             id: saved.id,
             name: saved.name,
             description: saved.description,
             settings: saved.settings ?? {},
-            slug: saved.slug,
             isPublic: saved.isPublic,
             workspacesEnabled: saved.workspacesEnabled,
             version: saved.version || 1,
@@ -492,12 +460,6 @@ export function createApplicationsController(getDbExecutor: () => DbExecutor) {
                 settings: applicationSettingsUpdateSchema.optional(),
                 namePrimaryLocale: z.string().optional(),
                 descriptionPrimaryLocale: z.string().optional(),
-                slug: z
-                    .string()
-                    .min(1)
-                    .max(100)
-                    .regex(/^[a-z0-9-]+$/, 'Slug must contain only lowercase letters, numbers, and hyphens')
-                    .optional(),
                 isPublic: z.boolean().optional(),
                 copyConnector: z.boolean().optional(),
                 copyAccess: z.boolean().optional().default(false)
@@ -552,49 +514,6 @@ export function createApplicationsController(getDbExecutor: () => DbExecutor) {
             }
         }
 
-        const requestedSlug = parsed.data.slug
-        const sourceSlug = sourceApplication.slug
-        const maxSlugAttempts = 1000
-        let slugCandidate: string | undefined
-        let nextSlugAttempt = 1
-
-        const assignNextAvailableGeneratedSlug = async (): Promise<boolean> => {
-            if (!sourceSlug) return false
-            for (; nextSlugAttempt <= maxSlugAttempts; nextSlugAttempt++) {
-                const candidate = buildCopiedApplicationSlugCandidate(sourceSlug, nextSlugAttempt)
-                const existing = await findApplicationBySlug(
-                    {
-                        query: <TRow = unknown>(sql: string, parameters?: unknown[]) => query<TRow>(req, sql, parameters ?? [])
-                    },
-                    candidate
-                )
-                if (!existing) {
-                    slugCandidate = candidate
-                    nextSlugAttempt += 1
-                    return true
-                }
-            }
-            return false
-        }
-
-        if (requestedSlug) {
-            slugCandidate = requestedSlug
-            const existing = await findApplicationBySlug(
-                {
-                    query: <TRow = unknown>(sql: string, parameters?: unknown[]) => query<TRow>(req, sql, parameters ?? [])
-                },
-                slugCandidate
-            )
-            if (existing) {
-                return res.status(409).json({ error: 'Application with this slug already exists' })
-            }
-        } else if (sourceSlug) {
-            const hasSlugCandidate = await assignNextAvailableGeneratedSlug()
-            if (!hasSlugCandidate) {
-                return res.status(409).json({ error: 'Unable to generate unique slug for copied application' })
-            }
-        }
-
         const [{ id: newApplicationId }] = (await query<{ id: string }>(req, `SELECT public.uuid_generate_v7() AS id`)) as Array<{
             id: string
         }>
@@ -604,58 +523,27 @@ export function createApplicationsController(getDbExecutor: () => DbExecutor) {
             return res.status(400).json({ error: 'Invalid generated application schema name' })
         }
 
-        const runCopyTransaction = () =>
-            copyApplicationWithOptions(ds, {
-                newApplicationId,
-                sourceApplicationId: applicationId,
-                sourceApplication,
-                copiedName: nameVlc,
-                copiedDescription: descriptionVlc ?? null,
-                settings: sourceApplication.settings ?? {},
-                slug: slugCandidate ?? null,
-                isPublic: resolvedIsPublic,
-                workspacesEnabled: resolvedWorkspacesEnabled,
-                schemaName: newSchemaName,
-                schemaStatus: copyOptions.copyConnector ? ApplicationSchemaStatus.OUTDATED : ApplicationSchemaStatus.DRAFT,
-                copyAccess: copyOptions.copyAccess,
-                copyConnector: copyOptions.copyConnector,
-                actorUserId: userId
-            })
-
-        let copied: Awaited<ReturnType<typeof copyApplicationWithOptions>> | null = null
-        const maxCopyAttempts = requestedSlug ? 1 : sourceSlug ? maxSlugAttempts : 1
-        for (let attempt = 0; attempt < maxCopyAttempts; attempt++) {
-            try {
-                copied = await runCopyTransaction()
-                break
-            } catch (error) {
-                if (!database.isSlugUniqueViolation(error)) {
-                    throw error
-                }
-                if (requestedSlug) {
-                    return res.status(409).json({ error: 'Application with this slug already exists' })
-                }
-                if (sourceSlug) {
-                    const hasSlugCandidate = await assignNextAvailableGeneratedSlug()
-                    if (hasSlugCandidate) {
-                        continue
-                    }
-                    return res.status(409).json({ error: 'Unable to generate unique slug for copied application' })
-                }
-                throw error
-            }
-        }
-
-        if (!copied) {
-            return res.status(409).json({ error: 'Unable to generate unique slug for copied application' })
-        }
+        const copied = await copyApplicationWithOptions(ds, {
+            newApplicationId,
+            sourceApplicationId: applicationId,
+            sourceApplication,
+            copiedName: nameVlc,
+            copiedDescription: descriptionVlc ?? null,
+            settings: sourceApplication.settings ?? {},
+            isPublic: resolvedIsPublic,
+            workspacesEnabled: resolvedWorkspacesEnabled,
+            schemaName: newSchemaName,
+            schemaStatus: copyOptions.copyConnector ? ApplicationSchemaStatus.OUTDATED : ApplicationSchemaStatus.DRAFT,
+            copyAccess: copyOptions.copyAccess,
+            copyConnector: copyOptions.copyConnector,
+            actorUserId: userId
+        })
 
         return res.status(201).json({
             id: copied.id,
             name: copied.name,
             description: copied.description,
             settings: copied.settings ?? {},
-            slug: copied.slug,
             isPublic: copied.isPublic,
             workspacesEnabled: copied.workspacesEnabled,
             version: copied.version || 1,
@@ -697,13 +585,6 @@ export function createApplicationsController(getDbExecutor: () => DbExecutor) {
                 settings: applicationSettingsUpdateSchema.optional(),
                 namePrimaryLocale: z.string().optional(),
                 descriptionPrimaryLocale: z.string().optional(),
-                slug: z
-                    .string()
-                    .min(1)
-                    .max(100)
-                    .regex(/^[a-z0-9-]+$/, 'Slug must contain only lowercase letters, numbers, and hyphens')
-                    .nullable()
-                    .optional(),
                 isPublic: z.boolean().optional(),
                 workspacesEnabled: z.boolean().optional(),
                 expectedVersion: z.number().int().positive().optional()
@@ -715,17 +596,8 @@ export function createApplicationsController(getDbExecutor: () => DbExecutor) {
             return res.status(400).json({ error: 'Invalid input', details: result.error.flatten() })
         }
 
-        const {
-            name,
-            description,
-            settings,
-            slug,
-            isPublic,
-            workspacesEnabled,
-            namePrimaryLocale,
-            descriptionPrimaryLocale,
-            expectedVersion
-        } = result.data
+        const { name, description, settings, isPublic, workspacesEnabled, namePrimaryLocale, descriptionPrimaryLocale, expectedVersion } =
+            result.data
 
         if (workspacesEnabled !== undefined) {
             return res.status(400).json({
@@ -778,22 +650,6 @@ export function createApplicationsController(getDbExecutor: () => DbExecutor) {
             }
         }
 
-        let nextSlug = application.slug
-        if (slug !== undefined) {
-            if (slug !== null && slug !== application.slug) {
-                const existing = await findApplicationBySlug(
-                    {
-                        query: <TRow = unknown>(sql: string, parameters?: unknown[]) => query<TRow>(req, sql, parameters ?? [])
-                    },
-                    slug
-                )
-                if (existing && existing.id !== applicationId) {
-                    return res.status(409).json({ error: 'Application with this slug already exists' })
-                }
-            }
-            nextSlug = slug ?? null
-        }
-
         const sanitizedSettings = settings !== undefined ? sanitizeApplicationSettingsUpdate(settings) : undefined
         const nextSettings =
             sanitizedSettings !== undefined
@@ -809,7 +665,6 @@ export function createApplicationsController(getDbExecutor: () => DbExecutor) {
                 name: name !== undefined ? nextName : undefined,
                 description: description !== undefined ? nextDescription : undefined,
                 settings: sanitizedSettings !== undefined ? nextSettings : undefined,
-                slug: slug !== undefined ? nextSlug : undefined,
                 isPublic,
                 userId,
                 expectedVersion
@@ -852,7 +707,6 @@ export function createApplicationsController(getDbExecutor: () => DbExecutor) {
             name: saved.name,
             description: saved.description,
             settings: saved.settings ?? {},
-            slug: saved.slug,
             isPublic: saved.isPublic,
             workspacesEnabled: saved.workspacesEnabled,
             version: saved.version || 1,

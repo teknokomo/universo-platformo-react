@@ -367,34 +367,42 @@ export default function QuizWidget({ config }: { config?: Record<string, unknown
                 [currentQuestion.id]: currentAnswer
             }
 
-            if (!selectedModule.manifest.methods.some((method) => method.name === submitMethodName)) {
+            try {
+                const rawResult = await executeClientModuleMethod({
+                    bundle: clientBundle,
+                    methodName: submitMethodName,
+                    args: [
+                        {
+                            questionId: currentQuestion.id,
+                            answerIds: currentAnswer,
+                            responses: nextResponses,
+                            quizId: widgetConfig.quizId,
+                            locale: i18n.language
+                        }
+                    ],
+                    context: createClientModuleContext({ apiBaseUrl, applicationId, module: selectedModule })
+                })
+
                 return {
-                    result: {
-                        questionId: currentQuestion.id,
-                        message: t('answersCaptured', 'Answers saved locally. Add answer checking before publishing to show feedback here.')
-                    },
+                    result: normalizeSubmissionResult(rawResult, i18n.language),
                     responses: nextResponses
                 }
-            }
-
-            const rawResult = await executeClientModuleMethod({
-                bundle: clientBundle,
-                methodName: submitMethodName,
-                args: [
-                    {
-                        questionId: currentQuestion.id,
-                        answerIds: currentAnswer,
-                        responses: nextResponses,
-                        quizId: widgetConfig.quizId,
-                        locale: i18n.language
+            } catch (error) {
+                const submitMethodMissing =
+                    error instanceof Error && error.message.includes(`Client module method "${submitMethodName}" was not found`)
+                if (submitMethodMissing) {
+                    return {
+                        result: {
+                            questionId: currentQuestion.id,
+                            message: t(
+                                'answersCaptured',
+                                'Answers saved locally. Add answer checking before publishing to show feedback here.'
+                            )
+                        },
+                        responses: nextResponses
                     }
-                ],
-                context: createClientModuleContext({ apiBaseUrl, applicationId, module: selectedModule })
-            })
-
-            return {
-                result: normalizeSubmissionResult(rawResult, i18n.language),
-                responses: nextResponses
+                }
+                throw error
             }
         },
         onSuccess: ({ result, responses }) => {

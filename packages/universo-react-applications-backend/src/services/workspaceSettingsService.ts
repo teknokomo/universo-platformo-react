@@ -1,5 +1,6 @@
 import { database, type DbExecutor } from '@universo-react/utils'
 import { qColumn, qSchemaTable } from '@universo-react/database'
+import { acquireAdvisoryXactLock } from '@universo-react/utils/database'
 import {
     applyWorkspaceSettingOverrides,
     isWorkspaceSettingAllowed,
@@ -88,9 +89,7 @@ const lockWorkspaceSetting = async (
         key: string
     }
 ): Promise<void> => {
-    await executor.query('SELECT pg_advisory_xact_lock(hashtextextended($1::text, 0))', [
-        buildWorkspaceSettingLockKey(input.schemaName, input.workspaceId, input.key)
-    ])
+    await acquireAdvisoryXactLock(executor, buildWorkspaceSettingLockKey(input.schemaName, input.workspaceId, input.key))
 }
 
 const readActiveWorkspaceSetting = async (

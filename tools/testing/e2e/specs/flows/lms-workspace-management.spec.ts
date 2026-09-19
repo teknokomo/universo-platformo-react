@@ -196,8 +196,7 @@ test('@flow lms workspace management isolates learning resource rows across pers
             schemaName: lms.publication.schemaName
         })
         await recordCreatedApplication({
-            id: lms.applicationId,
-            slug: lms.applicationSlug
+            id: lms.applicationId
         })
 
         const assignableRoles = await getAssignableRoles(bootstrapApi)
@@ -232,11 +231,18 @@ test('@flow lms workspace management isolates learning resource rows across pers
         const sharedContentTitle = `Shared workspace learning resource ${runManifest.runId}`
         const initialOwnerWorkspacesPayload = await listApplicationWorkspaces(ownerApi, lms.applicationId)
         const initialOwnerWorkspaces = Array.isArray(initialOwnerWorkspacesPayload?.items) ? initialOwnerWorkspacesPayload.items : []
-        expect(initialOwnerWorkspaces.filter((workspace) => (workspace.workspaceType ?? workspace.type) === 'personal')).toHaveLength(1)
+        const ownerPersonalWorkspaces = initialOwnerWorkspaces.filter(
+            (workspace) =>
+                (workspace.workspaceType ?? workspace.type) === 'personal' &&
+                (workspace as { roleCodename?: string }).roleCodename === 'owner'
+        )
+        expect(ownerPersonalWorkspaces, 'the application administrator owns exactly one personal workspace').toHaveLength(1)
         expect(initialOwnerWorkspaces.filter((workspace) => (workspace.workspaceType ?? workspace.type) === 'shared')).toHaveLength(0)
         const ownerPersonalWorkspace = requireWorkspace(
             initialOwnerWorkspaces,
-            (workspace) => (workspace.workspaceType ?? workspace.type) === 'personal',
+            (workspace) =>
+                (workspace.workspaceType ?? workspace.type) === 'personal' &&
+                (workspace as { roleCodename?: string }).roleCodename === 'owner',
             'owner personal workspace'
         )
         const learningResourcesObjectId = await waitForApplicationObjectId(ownerApi, lms.applicationId, 'Learning Resources')
@@ -288,7 +294,7 @@ test('@flow lms workspace management isolates learning resource rows across pers
         await expect(page).toHaveURL(new RegExp(`/a/${lms.applicationId}/`))
         await expect(page.getByRole('heading', { name: 'Content Projects' })).toBeVisible({ timeout: 30_000 })
         await expect(page.getByRole('heading', { name: 'Pages and links' })).toBeVisible({ timeout: 30_000 })
-        await expect(page.getByTestId('runtime-workspace-switcher')).toHaveCount(1)
+        await expect(page.getByTestId('runtime-workspace-switcher').filter({ visible: true })).toHaveCount(1)
         await page.goto(`/a/${lms.applicationId}/workspaces`)
         await expect(page.getByTestId('runtime-workspaces-page')).toBeVisible({ timeout: 30_000 })
 
@@ -454,7 +460,7 @@ test('@flow lms workspace management isolates learning resource rows across pers
                 TargetRecordId: sharedContentRow.id,
                 PrincipalType: 'user',
                 PrincipalId: createdUser.userId,
-                AccessLevel: 'viewer',
+                AccessLevel: 'canView',
                 InvitedBy: runManifest.testUser.email
             }
         })
@@ -476,7 +482,7 @@ test('@flow lms workspace management isolates learning resource rows across pers
         await expect(memberPage).toHaveURL(new RegExp(`/a/${lms.applicationId}/workspaces/${sharedWorkspace.id}/access`), {
             timeout: 30_000
         })
-        await expect(memberPage.getByRole('button', { name: 'Add' })).toHaveCount(0, { timeout: 30_000 })
+        await expect(memberPage.getByRole('button', { name: 'Add' })).toBeDisabled({ timeout: 30_000 })
         await expect(memberPage.getByRole('button', { name: 'Remove member' })).toHaveCount(0)
 
         await memberPage.goto(`/a/${lms.applicationId}/${learningResourcesObjectId}`)

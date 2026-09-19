@@ -48,7 +48,10 @@ export const API_WHITELIST_URLS = [
  * Use only for public routes with dynamic path segments and route-local
  * validation, such as short-lived signed asset URLs.
  */
-export const API_WHITELIST_PATH_PATTERNS = [/^\/api\/v1\/metahub\/[^/]+\/packages\/[^/]+\/editor-artifact-token\/[^/]+\//] as const
+export const API_WHITELIST_PATH_PATTERNS = [
+    /^\/api\/v1\/metahub\/[^/]+\/packages\/[^/]+\/editor-artifact-token\/[^/]+\//,
+    /^\/api\/v1\/public\/applications\/[^/]+\/runtime$/
+] as const
 
 /**
  * Frontend UI routes where 401 response should NOT trigger redirect to /auth.
@@ -70,6 +73,13 @@ export const PUBLIC_UI_ROUTES = [
 ] as const
 
 /**
+ * Published application runtime paths are public at the UI layer. The
+ * application admin branch remains protected even though it shares the
+ * `/a/:applicationRef/*` prefix with the runtime route.
+ */
+const PUBLIC_APPLICATION_RUNTIME_PATH_RE = /^\/a\/[^/]+(?:\/(?!admin(?:\/|$)).*)?\/?$/
+
+/**
  * Check if a pathname matches any public UI route.
  * Used by API clients to determine if 401 should trigger auth redirect.
  *
@@ -84,6 +94,8 @@ export const PUBLIC_UI_ROUTES = [
  * ```
  */
 export function isPublicRoute(pathname: string): boolean {
+    if (PUBLIC_APPLICATION_RUNTIME_PATH_RE.test(pathname)) return true
+
     return PUBLIC_UI_ROUTES.some((route) => {
         // Exact match for root
         if (route === '/') return pathname === '/'

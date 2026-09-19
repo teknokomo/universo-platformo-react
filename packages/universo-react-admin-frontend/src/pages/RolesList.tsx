@@ -29,7 +29,6 @@ import {
     PaginationControls,
     FlowListTable,
     gridSpacing,
-    ConfirmDialog,
     useConfirm,
     ViewHeaderMUI as ViewHeader,
     BaseEntityMenu
@@ -388,6 +387,9 @@ const RolesList = () => {
                 if (descriptor.id === 'delete' && role.isSystem) {
                     return false
                 }
+                if (descriptor.id === 'edit' && role.isSystem && role.isSuperuser) {
+                    return false
+                }
                 if (descriptor.id === 'edit' && !canUpdateRoles) {
                     return false
                 }
@@ -650,8 +652,6 @@ const RolesList = () => {
                     await createRoleMutation.mutateAsync(data)
                 }}
             />
-
-            <ConfirmDialog />
         </MainCard>
     )
 }

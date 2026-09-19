@@ -182,7 +182,6 @@ export interface LinkedApplication {
     id: string
     name: VersionedLocalizedContent<string>
     description?: VersionedLocalizedContent<string>
-    slug: string
     createdAt: string
 }
 

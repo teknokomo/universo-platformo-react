@@ -1952,7 +1952,7 @@ describe('Metahubs Routes', () => {
     // ── Import / Export ─────────────────────────────────────────────────
 
     describe('POST /metahubs/import', () => {
-        const makeTestEnvelope = (snapshotOverrides?: Record<string, unknown>) => {
+        const makeTestEnvelope = (snapshotOverrides?: Record<string, unknown>, metahubOverrides?: Record<string, unknown>) => {
             const metahubId = '00000000-0000-0000-0000-000000000001'
             const snapshot = {
                 version: '1.0.0',
@@ -1975,7 +1975,8 @@ describe('Metahubs Routes', () => {
                     name: buildVLC('Test Metahub', 'Тестовый метахаб') as unknown as Record<string, unknown>,
                     description: createLocalizedContent('en', 'Description') as unknown as Record<string, unknown>,
                     codename: testCodenameVlc('test-codename') as unknown as Record<string, unknown>,
-                    slug: 'test-slug'
+                    slug: 'test-slug',
+                    ...metahubOverrides
                 }
             })
         }
@@ -2152,6 +2153,51 @@ describe('Metahubs Routes', () => {
                             ledger: false
                         }
                     }
+                })
+            )
+        })
+
+        it('uses the source codename when the imported localized name cannot produce a valid codename', async () => {
+            const metahubRow = {
+                id: 'new-metahub-id',
+                name: createLocalizedContent('en', '73rd Meridian Consortium'),
+                codename: testCodenameVlc('Consortium73rdMeridian'),
+                defaultBranchId: 'branch-main'
+            }
+
+            mockCreateMetahub.mockResolvedValueOnce(metahubRow)
+            mockFindMetahubById.mockResolvedValueOnce(metahubRow)
+            mockFindBranchByIdAndMetahub.mockResolvedValueOnce({
+                id: 'branch-main',
+                schemaName: 'test_schema',
+                metahubId: 'new-metahub-id'
+            })
+            mockCreatePublication.mockResolvedValueOnce({ id: 'pub-1' })
+            mockCreatePublicationVersion.mockResolvedValueOnce({ id: 'version-1', versionNumber: 1 })
+            mockExec.transaction.mockImplementation(async (cb: any) => {
+                const tx = { query: jest.fn(async () => []), transaction: jest.fn(), isReleased: () => false }
+                return cb(tx)
+            })
+
+            const envelope = makeTestEnvelope(
+                {},
+                {
+                    name: buildVLC('73rd Meridian Consortium', 'Консорциум «73-й Меридиан»') as unknown as Record<string, unknown>,
+                    codename: testCodenameVlc('consortium-73rd-meridian') as unknown as Record<string, unknown>
+                }
+            )
+
+            const app = buildApp()
+            await request(app).post('/metahubs/import').send(envelope).expect(201)
+
+            expect(mockCreateMetahub).toHaveBeenCalledWith(
+                expect.anything(),
+                expect.objectContaining({
+                    codename: expect.objectContaining({
+                        locales: expect.objectContaining({
+                            en: expect.objectContaining({ content: 'Consortium73rdMeridian' })
+                        })
+                    })
                 })
             )
         })

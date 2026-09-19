@@ -23,7 +23,6 @@ import {
     PaginationControls,
     FlowListTable,
     gridSpacing,
-    ConfirmDialog,
     useConfirm,
     RoleChip
 } from '@universo-react/template-mui'
@@ -280,11 +279,11 @@ export const ApplicationMembers = () => {
                         confirmButtonName:
                             spec.confirmKey && baseContext.t
                                 ? baseContext.t(spec.confirmKey)
-                                : spec.confirmButtonName || (baseContext.t ? baseContext.t('confirm.remove.confirm') : 'Confirm'),
+                                : spec.confirmButtonName || (baseContext.t ? baseContext.t('confirm:confirmButtonText') : 'Confirm'),
                         cancelButtonName:
                             spec.cancelKey && baseContext.t
                                 ? baseContext.t(spec.cancelKey)
-                                : spec.cancelButtonName || (baseContext.t ? baseContext.t('confirm.remove.cancel') : 'Cancel')
+                                : spec.cancelButtonName || (baseContext.t ? baseContext.t('confirm:cancelButtonText') : 'Cancel')
                     })
                     return confirmed
                 },
@@ -538,8 +537,6 @@ export const ApplicationMembers = () => {
                     return Promise.resolve()
                 }}
             />
-
-            <ConfirmDialog />
         </MainCard>
     )
 }

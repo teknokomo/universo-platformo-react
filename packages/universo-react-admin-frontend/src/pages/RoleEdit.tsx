@@ -79,6 +79,7 @@ const RoleEdit = () => {
     }, [role, syncedRoleId])
 
     const isSystemRole = role?.isSystem ?? false
+    const isImmutableSuperuserRole = role?.isSuperuser ?? false
     const roleDisplayName = role ? resolveLocalizedContent(role.name, uiLocale, getCodenamePrimary(role.codename)) : ''
     const roleDescription = role?.description ? resolveLocalizedContent(role.description, uiLocale, '') : ''
 
@@ -119,12 +120,12 @@ const RoleEdit = () => {
     }, [])
 
     const handleSavePermissions = useCallback(() => {
-        if (!roleId || isSystemRole || !canUpdateRoles) return
+        if (!roleId || isImmutableSuperuserRole || !canUpdateRoles) return
         updatePermsMutation.mutate({
             id: roleId,
             payload: { permissions }
         })
-    }, [canUpdateRoles, roleId, isSystemRole, permissions, updatePermsMutation])
+    }, [canUpdateRoles, roleId, isImmutableSuperuserRole, permissions, updatePermsMutation])
 
     const handleSettingsSubmit = useCallback(
         async (data: RoleFormDialogSubmitData) => {
@@ -152,7 +153,7 @@ const RoleEdit = () => {
     const handleTabChange = useCallback(
         (_event: unknown, nextTab: RoleTab) => {
             if (nextTab === 'settings') {
-                if (!canUpdateRoles) {
+                if (!canUpdateRoles || isImmutableSuperuserRole) {
                     return
                 }
 
@@ -162,7 +163,7 @@ const RoleEdit = () => {
             }
             // 'permissions' tab — noop, already shown
         },
-        [canUpdateRoles]
+        [canUpdateRoles, isImmutableSuperuserRole]
     )
 
     const handleBack = useCallback(() => {
@@ -246,11 +247,21 @@ const RoleEdit = () => {
                     )}
                 </Stack>
 
-                {isSystemRole && (
+                {isImmutableSuperuserRole ? (
                     <Alert severity='info'>
-                        {t('roles.systemRoleWarning', 'This is a system role. Only description, display name, and color can be modified.')}
+                        {t(
+                            'roles.superuserRoleWarning',
+                            'The Superuser system role is immutable. Its full-access bypass cannot be changed.'
+                        )}
                     </Alert>
-                )}
+                ) : isSystemRole ? (
+                    <Alert severity='info'>
+                        {t(
+                            'roles.systemRoleWarning',
+                            'This system role keeps its protected identity, while its permissions and presentation can be managed.'
+                        )}
+                    </Alert>
+                ) : null}
             </Stack>
 
             <Stack spacing={3}>
@@ -266,18 +277,22 @@ const RoleEdit = () => {
                         }}
                     >
                         <Tab value='permissions' label={t('roles.tabs.permissions', 'Permissions')} />
-                        <Tab value='settings' label={t('roles.tabs.settings', 'Settings')} disabled={!canUpdateRoles} />
+                        <Tab
+                            value='settings'
+                            label={t('roles.tabs.settings', 'Settings')}
+                            disabled={!canUpdateRoles || isImmutableSuperuserRole}
+                        />
                     </Tabs>
                 </Box>
 
                 <PermissionMatrix
                     permissions={permissions}
                     onChange={handlePermissionsChange}
-                    disabled={isSaving || isSystemRole || !canUpdateRoles}
-                    showSelectAll={!isSystemRole}
+                    disabled={isSaving || isImmutableSuperuserRole || !canUpdateRoles}
+                    showSelectAll={!isImmutableSuperuserRole}
                 />
 
-                {!isSystemRole && (
+                {!isImmutableSuperuserRole && (
                     <Stack
                         direction='row'
                         sx={{
@@ -307,9 +322,9 @@ const RoleEdit = () => {
                 initialDescription={role.description ?? null}
                 initialColor={role.color}
                 codenameDisabled={isSystemRole}
-                showIsSuperuser={!isSystemRole}
+                showIsSuperuser={false}
                 initialIsSuperuser={role.isSuperuser}
-                isSuperuserDisabled={isSystemRole || !canUpdateRoles}
+                isSuperuserDisabled
                 onClose={() => {
                     setSettingsDialogOpen(false)
                     setSettingsDialogError(null)

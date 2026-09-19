@@ -832,7 +832,7 @@ describe('runtimeInterpretationNetworkService', () => {
                 return [{ id: sourceMaterialId, title: 'Material', description: 'D', body: { blocks: [] }, cell_id: 'cell-root' }]
             }
             if (sql.includes('INSERT INTO "app_018f8a787b8f7c1da111222233334440"."material"')) {
-                clonedMaterialCellId = params?.[3]
+                clonedMaterialCellId = params?.[4]
                 return [{ id: '019f2000-0000-7000-8000-000000000301' }]
             }
             if (sql.includes('INSERT INTO "app_018f8a787b8f7c1da111222233334440"."table_template"')) {
@@ -857,6 +857,80 @@ describe('runtimeInterpretationNetworkService', () => {
 
         expect(insertCount).toBe(1)
         expect(clonedMaterialCellId).not.toBe('cell-root')
+    })
+
+    it('keeps cloned template materials owned by the copied matrix cells when saving a structure as a template', async () => {
+        const { executor, txExecutor } = createMockDbExecutor()
+        const sourceStructureId = '019f2000-0000-7000-8000-000000000251'
+        const sourceInterpretationId = '019f2000-0000-7000-8000-000000000252'
+        const sourceMaterialId = '019f2000-0000-7000-8000-000000000253'
+        const clonedMaterialId = '019f2000-0000-7000-8000-000000000351'
+        let materialInsertSql = ''
+        let materialInsertParams: unknown[] | undefined
+        let templateRowInsertSql = ''
+        let templateRowParams: unknown[] | undefined
+
+        const readInsertParamByColumn = (sql: string, params: unknown[] | undefined, columnName: string): unknown => {
+            const columnList = sql.slice(sql.indexOf('(') + 1, sql.indexOf(')'))
+            const columns = columnList.split(',').map((column) => column.trim().replace(/"/g, ''))
+            const index = columns.indexOf(columnName)
+            return index >= 0 ? params?.[index] : undefined
+        }
+
+        txExecutor.query.mockImplementation(async (sql: string, params?: unknown[]) => {
+            if (sql.includes('pg_advisory_xact_lock')) return []
+            if (sql.includes('FROM "app_018f8a787b8f7c1da111222233334440"."structure"')) {
+                return [{ id: sourceStructureId, _upl_version: 1 }]
+            }
+            if (sql.includes('FROM "app_018f8a787b8f7c1da111222233334440"."interpretation"')) {
+                return [{ id: sourceInterpretationId }]
+            }
+            if (sql.includes('FROM "app_018f8a787b8f7c1da111222233334440"."interpretation_rows"')) {
+                return [
+                    {
+                        id: 'row-1',
+                        cell_id: 'cell-root',
+                        parent_cell_id: null,
+                        row_key: 'axis-root',
+                        col_key: 'axis-root',
+                        cell_value: { locales: { en: { content: 'Root' } }, _primary: 'en' },
+                        material_ref: sourceMaterialId
+                    }
+                ]
+            }
+            if (sql.includes('FROM "app_018f8a787b8f7c1da111222233334440"."material"')) {
+                return [{ id: sourceMaterialId, title: 'Material', description: 'D', body: { blocks: [] }, cell_id: 'cell-root' }]
+            }
+            if (sql.includes('INSERT INTO "app_018f8a787b8f7c1da111222233334440"."material"')) {
+                materialInsertSql = sql
+                materialInsertParams = params
+                return [{ id: clonedMaterialId }]
+            }
+            if (sql.includes('INSERT INTO "app_018f8a787b8f7c1da111222233334440"."table_template"')) {
+                return [{ id: '019f2000-0000-7000-8000-000000000352' }]
+            }
+            if (sql.includes('UPDATE "app_018f8a787b8f7c1da111222233334440"."table_template"')) return [{ id: params?.[1] }]
+            if (sql.includes('INSERT INTO "app_018f8a787b8f7c1da111222233334440"."table_template_rows"')) {
+                templateRowInsertSql = sql
+                templateRowParams = params
+                return [{ id: '019f2000-0000-7000-8000-000000000451' }]
+            }
+            return []
+        })
+
+        await saveStructureAsTemplate(makeCtx(executor), makeSurface('singleSystem'), {
+            sourceStructureId,
+            templateName: 'Reusable with materials',
+            includeMaterials: true
+        })
+
+        const clonedMaterialCellId = readInsertParamByColumn(materialInsertSql, materialInsertParams, 'cell_id')
+        const templateRowCellId = readInsertParamByColumn(templateRowInsertSql, templateRowParams, 'cell_id')
+
+        expect(clonedMaterialCellId).toMatch(/^0[0-9a-f]{7}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i)
+        expect(clonedMaterialCellId).not.toBe('cell-root')
+        expect(templateRowCellId).toBe(clonedMaterialCellId)
+        expect(readInsertParamByColumn(templateRowInsertSql, templateRowParams, 'material_ref')).toBe(clonedMaterialId)
     })
 
     it('copies materials linked only by Material.CellId when saving a structure as a template', async () => {

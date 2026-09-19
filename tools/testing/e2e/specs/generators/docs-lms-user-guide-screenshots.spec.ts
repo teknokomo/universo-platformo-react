@@ -1105,8 +1105,7 @@ test.describe('LMS user guide documentation screenshots', () => {
                 throw new Error(`LMS docs screenshot generator did not create an application id for ${locale}`)
             }
             await recordCreatedApplication({
-                id: applicationId,
-                slug: linkedApplication.application.slug
+                id: applicationId
             })
             await syncApplicationSchema(api, applicationId, {
                 schemaOptions: {

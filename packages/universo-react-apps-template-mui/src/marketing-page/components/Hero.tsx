@@ -8,7 +8,7 @@ import Typography from '@mui/material/Typography'
 import { styled } from '@mui/material/styles'
 import { useTranslation } from 'react-i18next'
 
-import type { MarketingActionHandler, MarketingHeroData, MarketingLeadHandler } from '../types'
+import type { MarketingActionHandler, MarketingHeroData, MarketingLeadHandler, MarketingMedia } from '../types'
 import { marketingFieldId, marketingSectionId, MarketingActionButton, MarketingActionLink, MarketingMediaView } from './MarketingPrimitives'
 
 const StyledBox = styled('div')(({ theme }) => ({
@@ -34,6 +34,20 @@ const StyledBox = styled('div')(({ theme }) => ({
         borderColor: (theme.vars || theme).palette.grey[700]
     })
 }))
+
+export function MarketingHeroImage({ media }: { media: MarketingMedia }) {
+    return (
+        <Container sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', pb: { xs: 8, sm: 12 } }}>
+            <StyledBox>
+                <MarketingMediaView
+                    media={media}
+                    loading='eager'
+                    sx={{ display: 'block', width: '100%', height: '100%', objectFit: 'cover' }}
+                />
+            </StyledBox>
+        </Container>
+    )
+}
 
 type SubmissionState = 'idle' | 'submitting' | 'success' | 'error'
 
@@ -165,7 +179,7 @@ export default function Hero({ data, instanceKey, onAction, onLeadSubmit, backgr
                     flexDirection: 'column',
                     alignItems: 'center',
                     pt: { xs: 14, sm: 20 },
-                    pb: { xs: 8, sm: 12 }
+                    pb: { xs: 0, sm: 0 }
                 }}
             >
                 <Stack spacing={2} useFlexGap sx={{ alignItems: 'center', width: { xs: '100%', sm: '70%' } }}>
@@ -211,15 +225,6 @@ export default function Hero({ data, instanceKey, onAction, onLeadSubmit, backgr
                         </Typography>
                     ) : null}
                 </Stack>
-                {data.media ? (
-                    <StyledBox>
-                        <MarketingMediaView
-                            media={data.media}
-                            loading='eager'
-                            sx={{ display: 'block', width: '100%', height: '100%', objectFit: 'cover' }}
-                        />
-                    </StyledBox>
-                ) : null}
             </Container>
         </Box>
     )

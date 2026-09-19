@@ -24,7 +24,8 @@ import {
     buildApplicationMigrationExpandSelector,
     buildApplicationMigrationRollbackSelector,
     buildApplicationMigrationRowSelector,
-    buildApplicationMigrationSummarySelector
+    buildApplicationMigrationSummarySelector,
+    viewHeaderSelectors
 } from '../../support/selectors/contracts'
 
 type CatalogListResponse = {
@@ -186,10 +187,15 @@ test('@flow @combined application connector board exposes schema state and links
     const applicationName = `E2E ${runManifest.runId} connector board app`
     const firstVersionName = `E2E ${runManifest.runId} connector board v1`
     const secondVersionName = `E2E ${runManifest.runId} connector board v2`
+    const attributeKindSuffix =
+        runManifest.runId
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, '')
+            .slice(-8) || 'e2e'
     const firstAttributeName = 'Title'
-    const firstAttributeCodename = 'title'
+    const firstAttributeCodename = `title-${attributeKindSuffix}`
     const secondAttributeName = 'Summary'
-    const secondAttributeCodename = 'summary'
+    const secondAttributeCodename = `summary-${attributeKindSuffix}`
 
     try {
         const metahub = await createMetahub(api, {
@@ -253,8 +259,7 @@ test('@flow @combined application connector board exposes schema state and links
         }
 
         await recordCreatedApplication({
-            id: applicationId,
-            slug: linkedApplication.application.slug
+            id: applicationId
         })
 
         await syncApplicationSchema(api, applicationId)
@@ -302,7 +307,7 @@ test('@flow @combined application connector board exposes schema state and links
         await page.getByTestId(applicationSelectors.connectorBoardViewMigrationsButton).click()
 
         await expect(page).toHaveURL(`/a/${applicationId}/admin/migrations`)
-        await expect(page.getByRole('heading', { name: 'Migration History' })).toBeVisible()
+        await expect(page.getByTestId(viewHeaderSelectors.titleRegion).getByRole('heading', { name: 'Migration History' })).toBeVisible()
         await expect(page.getByTestId(applicationSelectors.migrationsTable)).toBeVisible()
 
         const latestRow = page.getByTestId(buildApplicationMigrationRowSelector(latestMigration.id))

@@ -8,7 +8,6 @@ export interface ApplicationRecord {
     name: VersionedLocalizedContent<string>
     description: VersionedLocalizedContent<string> | null
     settings: Record<string, unknown> | null
-    slug: string | null
     isPublic: boolean
     workspacesEnabled: boolean
     schemaName: string | null
@@ -106,7 +105,6 @@ const APPLICATION_SELECT = `
     a.name,
     a.description,
     a.settings,
-    a.slug,
     a.is_public AS "isPublic",
     a.workspaces_enabled AS "workspacesEnabled",
     a.schema_name AS "schemaName",
@@ -130,7 +128,6 @@ const APPLICATION_RETURNING = `
     name,
     description,
     settings,
-    slug,
     is_public AS "isPublic",
     workspaces_enabled AS "workspacesEnabled",
     schema_name AS "schemaName",
@@ -218,7 +215,7 @@ export async function listApplications(
 
     if (input.search) {
         parameters.push(`%${input.search}%`)
-        whereSql += ` AND (a.name::text ILIKE $${parameters.length} OR COALESCE(a.description::text, '') ILIKE $${parameters.length} OR COALESCE(a.slug, '') ILIKE $${parameters.length})`
+        whereSql += ` AND (a.name::text ILIKE $${parameters.length} OR COALESCE(a.description::text, '') ILIKE $${parameters.length})`
     }
 
     parameters.push(input.limit, input.offset)
@@ -303,21 +300,6 @@ export async function findApplicationCopySource(
         LIMIT 1
         `,
         [applicationId]
-    )
-
-    return rows[0] ?? null
-}
-
-export async function findApplicationBySlug(executor: SqlQueryable, slug: string): Promise<Pick<ApplicationRecord, 'id' | 'slug'> | null> {
-    const rows = await executor.query<Pick<ApplicationRecord, 'id' | 'slug'>>(
-        `
-        SELECT id, slug
-        FROM applications.obj_applications
-        WHERE slug = $1
-                    AND ${activeRowPredicate()}
-        LIMIT 1
-        `,
-        [slug]
     )
 
     return rows[0] ?? null
@@ -612,7 +594,6 @@ export async function createApplicationWithOwner(
     input: {
         name: VersionedLocalizedContent<string>
         description: VersionedLocalizedContent<string> | null
-        slug?: string
         isPublic: boolean
         workspacesEnabled: boolean
         userId: string
@@ -633,21 +614,19 @@ export async function createApplicationWithOwner(
                 id,
                 name,
                 description,
-                slug,
                 is_public,
                 workspaces_enabled,
                 schema_name,
                 _upl_created_by,
                 _upl_updated_by
             )
-            VALUES ($1, $2::jsonb, $3::jsonb, $4, $5, $6, $7, $8, $9)
+            VALUES ($1, $2::jsonb, $3::jsonb, $4, $5, $6, $7, $8)
             RETURNING ${APPLICATION_RETURNING}
             `,
             [
                 id,
                 JSON.stringify(input.name),
                 JSON.stringify(input.description),
-                input.slug ?? null,
                 input.isPublic,
                 input.workspacesEnabled,
                 schemaName,
@@ -683,7 +662,6 @@ export async function copyApplicationWithOptions(
         copiedName: VersionedLocalizedContent<string>
         copiedDescription: VersionedLocalizedContent<string> | null
         settings: Record<string, unknown> | null
-        slug: string | null
         isPublic: boolean
         workspacesEnabled: boolean
         schemaName: string
@@ -701,7 +679,6 @@ export async function copyApplicationWithOptions(
                 name,
                 description,
                 settings,
-                slug,
                 is_public,
                 workspaces_enabled,
                 schema_name,
@@ -714,7 +691,7 @@ export async function copyApplicationWithOptions(
                 _upl_created_by,
                 _upl_updated_by
             )
-            VALUES ($1, $2::jsonb, $3::jsonb, $4::jsonb, $5, $6, $7, $8, $9::applications.application_schema_status, NULL, NULL, NULL, NULL, NULL, $10, $11)
+            VALUES ($1, $2::jsonb, $3::jsonb, $4::jsonb, $5, $6, $7, $8::applications.application_schema_status, NULL, NULL, NULL, NULL, NULL, $9, $10)
             RETURNING ${APPLICATION_RETURNING}
             `,
             [
@@ -722,7 +699,6 @@ export async function copyApplicationWithOptions(
                 JSON.stringify(input.copiedName),
                 JSON.stringify(input.copiedDescription),
                 JSON.stringify(input.settings ?? {}),
-                input.slug,
                 input.isPublic,
                 input.workspacesEnabled,
                 input.schemaName,
@@ -851,7 +827,6 @@ export async function updateApplication(
         name?: VersionedLocalizedContent<string>
         description?: VersionedLocalizedContent<string> | null
         settings?: Record<string, unknown> | null
-        slug?: string | null
         isPublic?: boolean
         userId: string
         expectedVersion?: number
@@ -873,11 +848,6 @@ export async function updateApplication(
     if (input.settings !== undefined) {
         parameters.push(JSON.stringify(input.settings ?? {}))
         assignments.push(`settings = $${parameters.length}::jsonb`)
-    }
-
-    if (input.slug !== undefined) {
-        parameters.push(input.slug)
-        assignments.push(`slug = $${parameters.length}`)
     }
 
     if (input.isPublic !== undefined) {

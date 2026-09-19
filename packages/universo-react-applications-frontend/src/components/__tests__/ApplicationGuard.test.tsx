@@ -23,7 +23,7 @@ describe('ApplicationGuard', () => {
         const { default: ApplicationGuard } = await import('../ApplicationGuard')
 
         render(
-            <ApplicationGuard accessDeniedRedirectTo='/x'>
+            <ApplicationGuard accessDeniedRedirectTo='/x' applicationIdOverride='0190a9b5-3cde-7abc-8def-0123456789ab'>
                 <div>child</div>
             </ApplicationGuard>
         )
@@ -34,6 +34,7 @@ describe('ApplicationGuard', () => {
         const props = ResourceGuard.mock.calls[0][0]
         expect(props.resourceType).toBe('application')
         expect(props.resourceIdParam).toBe('applicationId')
+        expect(props.resourceId).toBe('0190a9b5-3cde-7abc-8def-0123456789ab')
         expect(props.accessDeniedRedirectTo).toBe('/x')
 
         await expect(props.fetchResource('m1')).resolves.toEqual({ id: 'm1', name: 'Test' })

@@ -142,6 +142,16 @@ pnpm --filter @universo-react/metahubs-backend build
 -   [Создание пакетов](../../../docs/ru/contributing/creating-packages.md)
 -   [MIGRATIONS-RU.md](MIGRATIONS-RU.md)
 
+## Интеграционные тесты
+
+Интеграционные тесты целостности записей (защита REF-ссылок, уникальность semantic-ключей) выполняются на реальном PostgreSQL при заданной переменной `DATABASE_TEST_URL`:
+
+```bash
+DATABASE_TEST_URL=postgresql://postgres:postgres@127.0.0.1:55322/postgres pnpm test:records-integration
+```
+
+Без переменной набор пропускается, как и остальные `.integration.test.ts` в этом пакете.
+
 ## Related Packages
 
 -   `@universo-react/database` для владения Knex runtime и фабрик executor-ов.

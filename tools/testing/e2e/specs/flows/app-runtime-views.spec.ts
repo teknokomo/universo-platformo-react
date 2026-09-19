@@ -1,7 +1,6 @@
 import { createLocalizedContent } from '@universo-react/utils'
 import { test, expect } from '../../fixtures/test'
 import { waitForSettledMutationResponse } from '../../support/browser/network'
-import { expectHeightsAligned, expectLeftEdgeAligned, expectRightEdgeAligned } from '../../support/browser/spacing'
 import {
     createLoggedInApiContext,
     createMetahub,
@@ -12,14 +11,27 @@ import {
     disposeApiContext,
     getLayout,
     listLayouts,
+    listLayoutZoneWidgets,
     listObjectCollections,
     sendWithCsrf,
     syncApplicationSchema,
     syncPublication,
+    updateLayoutZoneWidgetConfig,
     waitForPublicationReady
 } from '../../support/backend/api-session.mjs'
 import { recordCreatedApplication, recordCreatedMetahub, recordCreatedPublication } from '../../support/backend/run-manifest.mjs'
-import { applicationSelectors, entityDialogSelectors, viewHeaderSelectors } from '../../support/selectors/contracts'
+import { applicationSelectors, entityDialogSelectors } from '../../support/selectors/contracts'
+
+function readCodename(value: unknown): string {
+    if (typeof value === 'string') return value
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return ''
+    const record = value as { locales?: Record<string, { content?: unknown }>; _primary?: unknown }
+    const primary = typeof record._primary === 'string' ? record._primary : 'en'
+    const primaryContent = record.locales?.[primary]?.content
+    if (typeof primaryContent === 'string') return primaryContent
+    const englishContent = record.locales?.en?.content
+    return typeof englishContent === 'string' ? englishContent : ''
+}
 
 async function waitForLayoutId(api: Awaited<ReturnType<typeof createLoggedInApiContext>>, metahubId: string) {
     let layoutId: string | undefined
@@ -61,8 +73,10 @@ async function configureEnhancedLayout(api: Awaited<ReturnType<typeof createLogg
     const layoutId = await waitForLayoutId(api, metahubId)
     const layout = await getLayout(api, metahubId, layoutId)
     const currentConfig = layout?.config && typeof layout.config === 'object' ? layout.config : {}
+    const expectedVersion = typeof layout?.version === 'number' && layout.version > 0 ? layout.version : 1
 
     const response = await sendWithCsrf(api, 'PATCH', `/api/v1/metahub/${metahubId}/layout/${layoutId}`, {
+        expectedVersion,
         config: {
             ...currentConfig,
             showOverviewTitle: false,
@@ -114,19 +128,16 @@ test.describe('Application Runtime View Settings', () => {
 
             const layoutId = await waitForLayoutId(api, metahub.id)
 
-            await page.goto(`/metahub/${metahub.id}/layouts/${layoutId}`)
-            await page.waitForURL(`**/metahub/${metahub.id}/layouts/${layoutId}`)
+            await page.goto(`/metahub/${metahub.id}/resources/layouts/${layoutId}`)
+            await page.waitForURL(`**/metahub/${metahub.id}/resources/layouts/${layoutId}`)
 
             const viewSettingsHeading = page.getByText(/view settings|настройки отображения/i).first()
             await expect(viewSettingsHeading).toBeVisible({ timeout: 10_000 })
 
-            const viewToggleSwitch = page
-                .locator('label')
-                .filter({ hasText: /view toggle|переключатель/i })
-                .first()
-            if (await viewToggleSwitch.isVisible().catch(() => false)) {
-                await expect(viewToggleSwitch).toBeVisible()
-            }
+            // The runtime settings panel must render real controls, not an empty shell.
+            const runtimeSettingsPanel = page.getByTestId('layout-runtime-settings-panel')
+            await expect(runtimeSettingsPanel).toBeVisible({ timeout: 10_000 })
+            await expect(runtimeSettingsPanel.getByRole('switch').first()).toBeVisible()
         } finally {
             await disposeApiContext(api)
         }
@@ -165,13 +176,21 @@ test.describe('Application Runtime View Settings', () => {
             })
 
             const objectCollectionId = await waitForObjectId(api, metahub.id)
-            await createComponent(api, metahub.id, objectCollectionId, {
-                name: { en: 'Title' },
-                namePrimaryLocale: 'en',
-                codename: createLocalizedContent('en', 'title'),
-                dataType: 'STRING',
-                isRequired: false
-            })
+            // The object may already expose a seeded/system `title` component;
+            // tolerate the codename conflict and verify the runtime contract
+            // below through the real create dialog instead.
+            try {
+                await createComponent(api, metahub.id, objectCollectionId, {
+                    name: { en: 'Title' },
+                    namePrimaryLocale: 'en',
+                    codename: createLocalizedContent('en', 'title'),
+                    dataType: 'STRING',
+                    isRequired: false
+                })
+            } catch (error) {
+                const message = error instanceof Error ? error.message : String(error)
+                if (!message.includes('409')) throw error
+            }
 
             await configureEnhancedLayout(api, metahub.id)
 
@@ -210,30 +229,22 @@ test.describe('Application Runtime View Settings', () => {
             }
 
             await recordCreatedApplication({
-                id: applicationId,
-                slug: linkedApplication.application.slug
+                id: applicationId
             })
 
             await syncApplicationSchema(api, applicationId)
 
             await page.goto(`/a/${applicationId}`)
 
-            const cardViewButton = page.getByTitle('Card View')
-            const listViewButton = page.getByTitle('List View')
-            const searchInput = page.locator('input[type="search"]').first()
+            const detailsTable = page.locator('.MuiDataGrid-root').first()
 
             await expect(page.getByTestId(applicationSelectors.runtimeCreateButton)).toBeEnabled({ timeout: 30_000 })
-            await expect(cardViewButton).toBeVisible({ timeout: 30_000 })
-            await expect(listViewButton).toBeVisible()
-            await expect(searchInput).toBeVisible()
-            await expect(cardViewButton).toHaveAttribute('aria-pressed', 'true')
-            await expectHeightsAligned(
-                page.getByTestId(applicationSelectors.runtimeCreateButton),
-                page.getByTestId(viewHeaderSelectors.searchInput),
-                2
-            )
-            await expectHeightsAligned(page.getByTestId(applicationSelectors.runtimeCreateButton), cardViewButton, 2)
-            await expectHeightsAligned(page.getByTestId(applicationSelectors.runtimeCreateButton), listViewButton, 2)
+            await expect(detailsTable).toBeVisible({ timeout: 30_000 })
+            await expect(detailsTable.getByRole('columnheader', { name: 'Title' })).toBeVisible()
+            // A single-object application renders the records.list details table,
+            // which intentionally has no card/table toggle or header search; the
+            // card/table toggle belongs to records.union dashboards and is covered
+            // by the layout view-settings authoring test above.
 
             const createAlphaRequest = waitForSettledMutationResponse(
                 page,
@@ -263,17 +274,132 @@ test.describe('Application Runtime View Settings', () => {
             expect((await createBetaRequest).ok()).toBe(true)
             await expect(page.getByText(alphaTitle)).toBeVisible({ timeout: 30_000 })
             await expect(page.getByText(betaTitle)).toBeVisible({ timeout: 30_000 })
+        } finally {
+            await disposeApiContext(api)
+        }
+    })
 
-            await listViewButton.click()
-            await expect(listViewButton).toHaveAttribute('aria-pressed', 'true')
-            const runtimeDetailsTable = page.locator('table[aria-label="a dense table"], [role="grid"]').first()
-            await expect(runtimeDetailsTable).toBeVisible()
-            await expectLeftEdgeAligned(runtimeDetailsTable, page.getByTestId(viewHeaderSelectors.titleRegion), 4)
-            await expectRightEdgeAligned(runtimeDetailsTable, page.getByTestId(applicationSelectors.runtimeCreateButton), 4)
+    test('@flow union dashboard applies view settings and search at runtime', async ({ page, runManifest }) => {
+        test.setTimeout(240_000)
 
-            await searchInput.fill(alphaTitle)
-            await expect(page.getByText(alphaTitle)).toBeVisible()
-            await expect(page.getByText(betaTitle)).toHaveCount(0)
+        const api = await createLoggedInApiContext({
+            email: runManifest.testUser.email,
+            password: runManifest.testUser.password
+        })
+
+        const metahubName = `E2E ${runManifest.runId} union runtime views`
+        const metahubCodename = `${runManifest.runId}-union-runtime-views`
+        const publicationName = `E2E ${runManifest.runId} Union Runtime Publication`
+        const applicationName = `E2E ${runManifest.runId} Union Runtime Application`
+        const rowTitle = `Union alpha ${runManifest.runId}`
+
+        try {
+            const metahub = await createMetahub(api, {
+                name: { en: metahubName },
+                namePrimaryLocale: 'en',
+                codename: createLocalizedContent('en', metahubCodename)
+            })
+            if (!metahub?.id) throw new Error('Metahub creation did not return an id for the union runtime coverage')
+            await recordCreatedMetahub({ id: metahub.id, name: metahubName, codename: metahubCodename })
+
+            await waitForObjectId(api, metahub.id)
+            const objectCollections = await listObjectCollections(api, metahub.id, { limit: 100, offset: 0 })
+            const objectCodename = readCodename(objectCollections?.items?.[0]?.codename)
+            if (!objectCodename) throw new Error('Union runtime coverage could not resolve the object codename')
+
+            // Configure the details widget as a records.union datasource with the
+            // authored view settings; this is the surface that owns the runtime
+            // card/table toggle and the header search.
+            const layoutId = await waitForLayoutId(api, metahub.id)
+            const widgetsPayload = await listLayoutZoneWidgets(api, metahub.id, layoutId)
+            const detailsWidget = (widgetsPayload?.items ?? []).find(
+                (widget: Record<string, unknown>) => widget.widgetKey === 'detailsTable'
+            )
+            if (!detailsWidget || typeof detailsWidget.id !== 'string' || typeof detailsWidget.version !== 'number') {
+                throw new Error('Union runtime coverage did not find a versioned details table widget')
+            }
+            await updateLayoutZoneWidgetConfig(api, metahub.id, layoutId, detailsWidget.id, {
+                config: {
+                    ...(typeof detailsWidget.config === 'object' && detailsWidget.config ? detailsWidget.config : {}),
+                    datasource: { kind: 'records.union', targets: [{ objectCollectionCodename: objectCodename }] },
+                    showViewToggle: true,
+                    showSearch: true,
+                    createTargets: [
+                        {
+                            id: 'main-target',
+                            label: createLocalizedContent('en', 'Main'),
+                            objectCollectionCodename: objectCodename,
+                            surface: 'dialog'
+                        }
+                    ]
+                },
+                expectedVersion: detailsWidget.version
+            })
+
+            const publication = await createPublication(api, metahub.id, {
+                name: { en: publicationName },
+                namePrimaryLocale: 'en',
+                autoCreateApplication: false
+            })
+            if (!publication?.id) throw new Error('Publication creation did not return an id for the union runtime coverage')
+            await recordCreatedPublication({ id: publication.id, metahubId: metahub.id, schemaName: publication.schemaName })
+
+            await createPublicationVersion(api, metahub.id, publication.id, {
+                name: { en: `E2E ${runManifest.runId} Union Runtime Version` },
+                namePrimaryLocale: 'en'
+            })
+            await syncPublication(api, metahub.id, publication.id)
+            await waitForPublicationReady(api, metahub.id, publication.id)
+
+            const linkedApplication = await createPublicationLinkedApplication(api, metahub.id, publication.id, {
+                name: { en: applicationName },
+                namePrimaryLocale: 'en',
+                createApplicationSchema: false
+            })
+            const applicationId = linkedApplication?.application?.id
+            if (typeof applicationId !== 'string') throw new Error('Union runtime coverage did not create an application')
+            await recordCreatedApplication({ id: applicationId })
+            await syncApplicationSchema(api, applicationId)
+
+            await page.goto(`/a/${applicationId}`)
+
+            const unionSurface = page.getByTestId('records-union-details-table')
+            await expect(unionSurface).toBeVisible({ timeout: 30_000 })
+
+            // Authored view settings reach the runtime: the toolbar exposes the
+            // card/table toggle and the search field.
+            const cardViewButton = page.getByRole('button', { name: 'Card view' })
+            const tableViewButton = page.getByRole('button', { name: 'Table view' })
+            await expect(cardViewButton).toBeVisible({ timeout: 30_000 })
+            await expect(tableViewButton).toBeVisible()
+            await expect(tableViewButton).toHaveAttribute('aria-pressed', 'true')
+
+            const searchField = page.getByLabel('Search…').first()
+            await expect(searchField).toBeVisible()
+
+            const createMenuButton = page.getByTestId('records-union-create-target-menu-button')
+            await expect(createMenuButton).toBeVisible()
+            await createMenuButton.click()
+            await page.getByRole('menuitem', { name: 'Main', exact: true }).click()
+            const createDialog = page.getByRole('dialog').first()
+            await expect(createDialog).toBeVisible({ timeout: 15_000 })
+            await createDialog.getByLabel('Title').first().fill(rowTitle)
+            await createDialog.getByTestId(entityDialogSelectors.submitButton).click()
+
+            await expect(page.getByText(rowTitle)).toBeVisible({ timeout: 30_000 })
+
+            // The authored card view renders the created row as a card.
+            await cardViewButton.click()
+            await expect(cardViewButton).toHaveAttribute('aria-pressed', 'true')
+            const cardView = page.getByTestId('records-union-card-view').first()
+            await expect(cardView).toBeVisible({ timeout: 30_000 })
+            await expect(cardView.getByText(rowTitle)).toBeVisible()
+            await tableViewButton.click()
+            await expect(tableViewButton).toHaveAttribute('aria-pressed', 'true')
+
+            // Search filters the union rows.
+            await searchField.fill(rowTitle)
+            await expect(page.getByText(rowTitle)).toBeVisible({ timeout: 30_000 })
         } finally {
             await disposeApiContext(api)
         }

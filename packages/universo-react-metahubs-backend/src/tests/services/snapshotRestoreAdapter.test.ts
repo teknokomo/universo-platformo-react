@@ -56,7 +56,7 @@ describe('snapshot restore DDL adapter', () => {
         await expect(withSnapshotRestoreAdvisoryLock(transaction, 'playcanvas:metahub-lifecycle:10:metahub-1', work)).resolves.toBe('done')
 
         expect(work).toHaveBeenCalledTimes(1)
-        expect(builder.raw).toHaveBeenNthCalledWith(1, 'SELECT pg_advisory_xact_lock(hashtext(?))', [
+        expect(builder.raw).toHaveBeenNthCalledWith(1, 'SELECT pg_advisory_xact_lock(hashtextextended(?::text, 0))', [
             'playcanvas:metahub-lifecycle:10:metahub-1'
         ])
         expect(builder.raw).toHaveBeenNthCalledWith(2, 'SELECT 42', [])

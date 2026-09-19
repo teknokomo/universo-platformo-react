@@ -217,7 +217,7 @@ test('@flow metahub settings persist entity-scoped controls across managed metad
         const settingsMap = new Map((settingsResponse?.settings ?? []).map((setting: { key?: string }) => [setting.key, setting]))
 
         expect(extractWrappedValue(settingsMap.get('entity.hub.allowNesting'))).toBe(false)
-        expect(extractWrappedValue(settingsMap.get('entity.objectCollection.allowAttributeDelete'))).toBe(false)
+        expect(extractWrappedValue(settingsMap.get('entity.object.allowComponentDelete'))).toBe(false)
         expect(extractWrappedValue(settingsMap.get('entity.set.allowConstantDelete'))).toBe(false)
         expect(extractWrappedValue(settingsMap.get('entity.enumeration.allowDelete'))).toBe(false)
     } finally {

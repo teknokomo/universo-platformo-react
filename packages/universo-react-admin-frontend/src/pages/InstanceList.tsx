@@ -35,7 +35,6 @@ import {
     PaginationControls,
     FlowListTable,
     gridSpacing,
-    ConfirmDialog,
     useConfirm
 } from '@universo-react/template-mui'
 import { ViewHeaderMUI as ViewHeader, BaseEntityMenu } from '@universo-react/template-mui'
@@ -523,8 +522,6 @@ const InstanceList = () => {
                     )}
                 </Stack>
             )}
-
-            <ConfirmDialog />
         </MainCard>
     )
 }

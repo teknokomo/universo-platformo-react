@@ -61,6 +61,29 @@ function readLocalizedText(value: unknown, locale = 'en'): string | undefined {
         }
     }
 
+    const versionedLocales =
+        record.locales && typeof record.locales === 'object' ? (record.locales as Record<string, { content?: unknown }>) : null
+    if (versionedLocales) {
+        const normalizedLocale = locale.split(/[-_]/)[0]?.toLowerCase() || 'en'
+        const directValue = versionedLocales[normalizedLocale]?.content
+        if (typeof directValue === 'string' && directValue.length > 0) {
+            return directValue
+        }
+
+        const primaryLocale = typeof record._primary === 'string' ? record._primary : undefined
+        const primaryValue = primaryLocale ? versionedLocales[primaryLocale]?.content : undefined
+        if (typeof primaryValue === 'string' && primaryValue.length > 0) {
+            return primaryValue
+        }
+
+        const fallbackValue = Object.values(versionedLocales).find(
+            (entry) => typeof entry?.content === 'string' && entry.content.length > 0
+        )?.content
+        if (typeof fallbackValue === 'string') {
+            return fallbackValue
+        }
+    }
+
     const localized = record[locale]
     return typeof localized === 'string' ? localized : undefined
 }
@@ -162,10 +185,11 @@ async function ensureTitleComponent(
     objectCollectionId: string
 ) {
     const components = await listComponents(api, metahubId, objectCollectionId, { limit: 100, offset: 0, includeShared: true })
-    const hasTitleField = (components.items ?? []).some(
-        (item: { codename?: unknown; name?: unknown }) =>
-            readLocalizedText(item.codename, 'en') === 'title' || readLocalizedText(item.name, 'en') === 'Title'
-    )
+    const hasTitleField = (components.items ?? []).some((item: { codename?: unknown; name?: unknown }) => {
+        const codename = readLocalizedText(item.codename, 'en') ?? ''
+        const name = readLocalizedText(item.name, 'en') ?? ''
+        return codename.toLowerCase() === 'title' || name.toLowerCase() === 'title'
+    })
 
     if (hasTitleField) {
         return { id: 'existing-title-field' }
@@ -181,7 +205,10 @@ async function ensureTitleComponent(
         })
     } catch (error) {
         const message = error instanceof Error ? error.message : String(error)
-        if (message.includes('Field definition with this codename already exists')) {
+        if (
+            message.includes('Component with this codename already exists') ||
+            message.includes('Field definition with this codename already exists')
+        ) {
             return { id: 'existing-title-field' }
         }
         throw error
@@ -203,7 +230,7 @@ async function createRuntimeRowViaBrowser(page: Page, value: string) {
     await expect(page.getByText(value, { exact: true })).toBeVisible()
 }
 
-test('@flow application settings show an info state before schema creation and workspace-enabled apps isolate runtime rows by user', async ({
+test('@flow application settings gate workspace limits until schema creation and workspace-enabled apps isolate runtime rows by user', async ({
     browser,
     page,
     runManifest
@@ -238,14 +265,14 @@ test('@flow application settings show an info state before schema creation and w
         }
 
         await recordCreatedApplication({
-            id: preSchemaApplication.id,
-            slug: preSchemaApplication.slug
+            id: preSchemaApplication.id
         })
 
         await page.goto(`/a/${preSchemaApplication.id}/admin/settings`)
         await expect(page.getByRole('heading', { name: 'Application Settings' })).toBeVisible()
-        await page.getByRole('tab', { name: 'Limits' }).click()
-        await expect(page.getByText('Limits settings will become available after the application schema is created.')).toBeVisible()
+        // Workspace limits require a synced schema and workspace mode, so the tab
+        // must stay hidden for a pre-schema application instead of loading failing data.
+        await expect(page.getByRole('tab', { name: 'Limits' })).toHaveCount(0)
         await expect(page.getByText('Failed to load limits')).toHaveCount(0)
 
         const metahub = await createMetahub(ownerApi, {
@@ -307,8 +334,7 @@ test('@flow application settings show an info state before schema creation and w
         }
 
         await recordCreatedApplication({
-            id: applicationId,
-            slug: linkedApplication.application.slug
+            id: applicationId
         })
 
         await syncApplicationSchema(ownerApi, applicationId, {
@@ -319,6 +345,14 @@ test('@flow application settings show an info state before schema creation and w
         })
 
         const resolvedCatalogId = await waitForRuntimeCatalogId(ownerApi, applicationId, objectCollectionId)
+
+        // After the schema and workspace mode exist, the Limits tab becomes available.
+        await page.goto(`/a/${applicationId}/admin/settings`)
+        await expect(page.getByRole('heading', { name: 'Application Settings' })).toBeVisible()
+        const limitsTab = page.getByRole('tab', { name: 'Limits' })
+        await expect(limitsTab).toBeVisible()
+        await limitsTab.click()
+        await expect(page.getByText('Failed to load limits')).toHaveCount(0)
 
         const assignableRoles = await getAssignableRoles(bootstrapApi)
         const defaultRoleIds = resolveGlobalRoleIds(assignableRoles, defaultRoleCodenames)
@@ -339,7 +373,7 @@ test('@flow application settings show an info state before schema creation and w
 
         await addApplicationMember(ownerApi, applicationId, {
             email: memberEmail,
-            role: 'member'
+            role: 'editor'
         })
 
         let memberRecord: ListedMember | null = null
@@ -472,8 +506,7 @@ test('@flow application without workspaces shares runtime rows between applicati
         }
 
         await recordCreatedApplication({
-            id: applicationId,
-            slug: linkedApplication.application.slug
+            id: applicationId
         })
 
         await syncApplicationSchema(ownerApi, applicationId)

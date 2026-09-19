@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import type { VersionedLocalizedContent } from '@universo-react/types'
+import { ENTITY_RESOURCE_SURFACE_CAPABILITIES, type VersionedLocalizedContent } from '@universo-react/types'
 import type { createMetahubHandlerFactory } from '../../shared/createMetahubHandler'
 import { ListQuerySchema, paginateItems } from '../../shared/queryParams'
 import { getCodenameText } from '../../shared/codename'
@@ -50,15 +50,19 @@ const entityTypeUiSchema = z
                 z
                     .object({
                         key: z.string().trim().min(1).max(64),
-                        capability: z.enum(['dataSchema', 'fixedValues', 'optionValues']),
+                        capability: z.enum(ENTITY_RESOURCE_SURFACE_CAPABILITIES),
                         routeSegment: z.string().trim().min(1).max(64),
                         title: localizedTitleSchema.optional(),
                         titleKey: z.string().trim().min(1).optional(),
-                        fallbackTitle: z.string().trim().min(1).optional()
+                        fallbackTitle: z.string().trim().min(1).optional(),
+                        sharedTitle: localizedTitleSchema.optional(),
+                        sharedTitleKey: z.string().trim().min(1).optional(),
+                        fallbackSharedTitle: z.string().trim().min(1).optional()
                     })
                     .strict()
             )
-            .optional()
+            .optional(),
+        treeAssignmentLabels: z.record(z.string(), localizedTitleSchema).optional()
     })
     .strict()
 

@@ -8,6 +8,7 @@ import { expect, test } from '../../fixtures/test'
 import type { Page, Response, TestInfo } from '@playwright/test'
 import { createLoggedInApiContext, disposeApiContext } from '../../support/backend/api-session.mjs'
 import { recordCreatedMetahub } from '../../support/backend/run-manifest.mjs'
+import { switchRuntimeLocale } from '../../support/browser/preferences'
 import { waitForSettledMutationResponse } from '../../support/browser/network'
 import {
     expectLocalizedValidation,
@@ -149,11 +150,8 @@ test.describe('Interpretation Network imported snapshot child cell @flow @interp
             })
             await openStructures(page)
             await expectSingleSystemMatrix(page)
-            const toolbar = page.getByTestId('runtime-app-toolbar')
-            await toolbar.getByRole('button', { name: 'Language', exact: true }).click()
-            await page.getByRole('menuitem', { name: 'Russian', exact: true }).click()
+            await switchRuntimeLocale(page, 'ru')
             await expect(page.locator('html')).toHaveAttribute('lang', 'ru')
-            await page.reload()
             await expectRuSingleSystemMatrix(page)
 
             await expectRuHiddenPlacementChildCellCreate(page, imported.applicationId)

@@ -76,13 +76,14 @@ describe('applicationLayoutsStore', () => {
         const items = listApplicationLayoutWidgetObject()
         const marketingItems = items.filter((item) => item.templateKey === 'marketing-page')
 
-        expect(marketingItems).toHaveLength(7)
+        expect(marketingItems).toHaveLength(8)
         expect(marketingItems.every((item) => item.labelKey && item.defaultLabel)).toBe(true)
         expect(marketingItems.map((item) => item.labelKey)).toEqual([
             'layouts.widgets.marketing.brand',
             'layouts.widgets.marketing.navigation',
             'layouts.widgets.marketing.auth',
             'layouts.widgets.marketing.hero',
+            'layouts.widgets.marketing.image',
             'layouts.widgets.marketing.collection',
             'layouts.widgets.marketing.pricing',
             'layouts.widgets.marketing.footer'

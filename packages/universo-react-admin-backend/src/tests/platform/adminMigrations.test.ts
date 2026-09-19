@@ -96,6 +96,17 @@ describe('createAdminSchemaMigrationDefinition SQL contract', () => {
         expect(sql).toContain('authenticated_read_settings')
     })
 
+    it('keeps the strict RLS predicate and admits applicationAliases only through the shell predicate', () => {
+        const sql = upSql()
+        // The table-policy predicate must stay narrow.
+        expect(sql).toContain("rp.subject IN ('roles', 'instances', 'users'))")
+        // The shell predicate is the deliberate admission point for capabilities
+        // whose management surface lives inside the admin shell.
+        expect(sql).toContain('admin.has_admin_shell_permission')
+        expect(sql).toContain("rp.subject IN ('roles', 'instances', 'users', 'applicationAliases')")
+        expect(sql).toContain("rp.action = 'read' OR rp.action = '*' OR rp.action = 'manage'")
+    })
+
     it('codename columns use jsonb type', () => {
         const sql = upSql()
         expect(sql).toMatch(/codename\s+jsonb/i)

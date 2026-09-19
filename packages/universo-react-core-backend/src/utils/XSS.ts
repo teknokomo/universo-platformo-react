@@ -3,8 +3,16 @@ import type { CorsOptions } from 'cors'
 import sanitizeHtml from 'sanitize-html'
 
 export function sanitizeMiddleware(req: Request, res: Response, next: NextFunction): void {
-    // decoding is necessary as the url is encoded by the browser
-    const decodedURI = decodeURI(req.url)
+    // Decoding is necessary because the browser encodes the URL. Malformed
+    // percent-encoding must fail as a controlled 400 instead of an unhandled
+    // URIError turning into a 500.
+    let decodedURI: string
+    try {
+        decodedURI = decodeURI(req.url)
+    } catch {
+        res.status(400).json({ error: 'Malformed request URL' })
+        return
+    }
     req.url = sanitizeHtml(decodedURI)
     for (let p in req.query) {
         if (Array.isArray(req.query[p])) {

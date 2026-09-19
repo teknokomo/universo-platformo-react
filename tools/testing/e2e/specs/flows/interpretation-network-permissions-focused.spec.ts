@@ -1,4 +1,5 @@
 import { expect, test } from '../../fixtures/test'
+import { createLocalizedContent } from '@universo-react/utils'
 import {
     addApplicationMember,
     createAdminUser,
@@ -69,7 +70,7 @@ test.describe('Interpretation Network role boundaries @flow @permission @interpr
                 name: 'Interpretation Network permissions focused flow',
                 codename: `interpretation-network-permissions-${runManifest.runId}`
             })
-            await recordCreatedApplication({ id: imported.applicationId, slug: imported.applicationSlug })
+            await recordCreatedApplication({ id: imported.applicationId })
             const runtimeIds = await resolveRuntimeIds(ownerApi, imported.applicationId)
             const assignableRoles = await getAssignableRoles(bootstrapApi)
             const roleIds = resolveRoleIds(assignableRoles, ['User'])
@@ -193,7 +194,7 @@ test.describe('Interpretation Network role boundaries @flow @permission @interpr
                 name: 'Interpretation Network permissions isolation canary',
                 codename: `interpretation-network-permissions-unrelated-${runManifest.runId}`
             })
-            await recordCreatedApplication({ id: unrelated.applicationId, slug: unrelated.applicationSlug })
+            await recordCreatedApplication({ id: unrelated.applicationId })
             const unrelatedRuntimeIds = await resolveRuntimeIds(ownerApi, unrelated.applicationId)
 
             const matrixRowsBeforeDeniedCreate = await getMatrixRows(
@@ -245,7 +246,7 @@ test.describe('Interpretation Network role boundaries @flow @permission @interpr
                 ownerApi,
                 'POST',
                 `/api/v1/applications/${imported.applicationId}/runtime/workspaces`,
-                { name: `Permission isolation workspace ${runManifest.runId}` }
+                { name: createLocalizedContent('en', `Permission isolation workspace ${runManifest.runId}`) }
             )
             expect(secondWorkspaceResponse.status).toBe(201)
             const secondWorkspace = (await secondWorkspaceResponse.json()) as { id?: string }

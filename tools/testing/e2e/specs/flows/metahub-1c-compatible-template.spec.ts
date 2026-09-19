@@ -13,6 +13,7 @@ import {
     sendWithCsrf
 } from '../../support/backend/api-session.mjs'
 import { recordCreatedMetahub } from '../../support/backend/run-manifest.mjs'
+import { confirmDiscardIfPrompted } from '../../support/browser/dialogs'
 import { waitForSettledMutationResponse } from '../../support/browser/network'
 import { applyBrowserPreferences } from '../../support/browser/preferences'
 import {
@@ -315,6 +316,7 @@ async function expectCreatedOneCMetahubEntityTypeUi(
         await expect(dialog.getByRole('heading', { name: runtimePage.dialogTitle })).toBeVisible()
         await expect(dialog.getByText(/metahubs:|Create metahubs:|Создать сущность|entity-owned/i)).toHaveCount(0)
         await dialog.getByTestId(entityDialogSelectors.cancelButton).click()
+        await confirmDiscardIfPrompted(page)
         await expect(dialog).toHaveCount(0)
 
         await expectNoTechnicalLeakage(page.locator('body'), {
@@ -425,6 +427,7 @@ async function expectOneCRuntimeTypeLifecycle(
         label: `1C-Compatible ${config.kindKey} empty create dialog`
     })
     await validationDialog.getByTestId(entityDialogSelectors.cancelButton).click()
+    await confirmDiscardIfPrompted(page)
     await expect(validationDialog).toHaveCount(0)
 
     await page.getByTestId(toolbarSelectors.primaryAction).click()

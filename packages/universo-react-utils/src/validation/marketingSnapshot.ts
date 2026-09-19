@@ -439,7 +439,7 @@ const parseWidget = (snapshot: MarketingSnapshotLike, widget: MarketingSnapshotW
     const source = config.source === undefined ? undefined : readParsedSource(config.source, `widget:${widget.id}:source`)
     if (source) {
         assertObjectEntity(snapshot, source.entityCodename, `widget:${widget.id}:source`)
-    } else if (widgetKey !== 'marketing.auth') {
+    } else if (registryEntry.dataOwnership === 'entity') {
         fail('Marketing snapshot widget source is invalid', { scope: `widget:${widget.id}:source` })
     }
 

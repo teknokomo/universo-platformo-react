@@ -15,6 +15,8 @@ import { createApplicationLayoutsController } from '../controllers/applicationLa
 import { createRuntimePlayCanvasController } from '../controllers/runtimePlayCanvasController'
 import { createRuntimeMarketingPageController } from '../controllers/runtimeMarketingPageController'
 import { createEffectiveLayoutController } from '../controllers/effectiveLayoutController'
+import { createApplicationPublicEntryWorkspaceController } from '../controllers/applicationPublicEntryWorkspaceController'
+import { createApplicationRuntimeReferenceController } from '../controllers/applicationRuntimeReferenceController'
 
 export function createApplicationsRoutes(
     ensureAuth: RequestHandler,
@@ -39,8 +41,13 @@ export function createApplicationsRoutes(
     const playCanvasRuntime = createRuntimePlayCanvasController(getDbExecutor)
     const marketingPageRuntime = createRuntimeMarketingPageController(getDbExecutor)
     const effectiveLayoutRuntime = createEffectiveLayoutController()
+    const publicEntryWorkspace = createApplicationPublicEntryWorkspaceController(getDbExecutor)
+    const runtimeReference = createApplicationRuntimeReferenceController(getDbExecutor, getRequestDbExecutor)
 
     // ── Application CRUD ──
+    // Keep this before /:applicationId so a short reference cannot be treated
+    // as an application UUID by the generic detail route.
+    router.get('/runtime-reference/:applicationRef', readLimiter, asyncHandler(runtimeReference.resolve))
     router.get('/', readLimiter, asyncHandler(app.list))
     router.get('/:applicationId', readLimiter, asyncHandler(app.get))
     router.post('/', writeLimiter, asyncHandler(app.create))
@@ -55,6 +62,8 @@ export function createApplicationsRoutes(
     // ── Settings ──
     router.get('/:applicationId/settings/limits', readLimiter, asyncHandler(app.getLimits))
     router.put('/:applicationId/settings/limits', writeLimiter, asyncHandler(app.updateLimits))
+    router.get('/:applicationId/settings/public-entry-workspace', readLimiter, asyncHandler(publicEntryWorkspace.get))
+    router.patch('/:applicationId/settings/public-entry-workspace', writeLimiter, asyncHandler(publicEntryWorkspace.update))
 
     // ── Application layouts ──
     router.get('/:applicationId/layout-scopes', readLimiter, asyncHandler(layouts.listScopes))

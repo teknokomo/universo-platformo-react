@@ -83,7 +83,10 @@ jest.mock('@universo-react/database', () => ({
     __esModule: true,
     getKnex: jest.fn(() => ({})),
     getPoolExecutor: jest.fn(() => ({
-        query: jest.fn(async () => [])
+        query: jest.fn(async () => []),
+        transaction: jest.fn(async (callback: (tx: { query: jest.Mock }) => Promise<unknown>) =>
+            callback({ query: jest.fn(async () => []) })
+        )
     })),
     createKnexExecutor: jest.fn((knex: unknown) => knex),
     qSchema: jest.requireActual('@universo-react/database').qSchema,
@@ -367,7 +370,6 @@ describe('Publications Routes', () => {
                 id: 'application-1',
                 name: { en: 'Application' },
                 description: null,
-                slug: 'application-1',
                 schemaStatus: 'draft'
             },
             connector: { id: 'connector-1' },
@@ -434,7 +436,6 @@ describe('Publications Routes', () => {
                 id: 'application-1',
                 name: { en: 'Application' },
                 description: null,
-                slug: 'application-1',
                 schemaStatus: 'draft'
             },
             connector: { id: 'connector-1' },
@@ -496,8 +497,7 @@ describe('Publications Routes', () => {
             application: {
                 id: 'application-1',
                 name: { en: 'Application' },
-                description: null,
-                slug: 'application-1'
+                description: null
             },
             connector: { id: 'connector-1' },
             appSchemaName: TEST_APP_SCHEMA_NAME

@@ -2,7 +2,7 @@ import { qSchemaTable } from '@universo-react/database'
 import { type SharedObjectKind, SHARED_OBJECT_KINDS, SHARED_POOL_TO_ENTITY_KIND, SHARED_POOL_TO_TARGET_KIND } from '@universo-react/types'
 import { createCodenameVLC, createLocalizedContent } from '@universo-react/utils'
 import type { DbExecutor, SqlQueryable } from '@universo-react/utils/database'
-import { queryMany, queryOne, queryOneOrThrow } from '@universo-react/utils/database'
+import { queryMany, queryOne, queryOneOrThrow, acquireAdvisoryXactLock } from '@universo-react/utils/database'
 import { MetahubSchemaService } from '../../metahubs/services/MetahubSchemaService'
 
 const ACTIVE = '_upl_deleted = false AND _mhb_deleted = false'
@@ -44,7 +44,7 @@ export class SharedContainerService {
     }
 
     private async acquireContainerLock(db: SqlQueryable, schemaName: string, sharedKind: SharedObjectKind): Promise<void> {
-        await db.query('SELECT pg_advisory_xact_lock(hashtext($1))', [this.buildLockKey(schemaName, sharedKind)])
+        await acquireAdvisoryXactLock(db, this.buildLockKey(schemaName, sharedKind))
     }
 
     private async findExistingContainerId(schemaName: string, sharedKind: SharedObjectKind, db: SqlQueryable): Promise<string | null> {

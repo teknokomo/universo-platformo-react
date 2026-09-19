@@ -38,6 +38,7 @@ export type Subjects =
     | 'Setting'
     | 'Metahub'
     | 'Application'
+    | 'ApplicationAlias'
     | 'Profile'
     | 'Onboarding'
     | 'Metaverse'
@@ -87,6 +88,7 @@ export const ABILITY_MODULE_TO_SUBJECT: Record<string, Subjects> = {
     admin: 'Admin',
     metahubs: 'Metahub',
     applications: 'Application',
+    applicationAliases: 'ApplicationAlias',
     profile: 'Profile',
     profiles: 'Profile',
     onboarding: 'Onboarding',

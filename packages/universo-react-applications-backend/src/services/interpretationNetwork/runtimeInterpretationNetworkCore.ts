@@ -1,3 +1,5 @@
+import { acquireAdvisoryXactLock, acquireTwoKeyAdvisoryXactLock } from '@universo-react/utils/database'
+import { interpretationNetworkStructureModeLockKey } from '../../shared/interpretationNetworkStructureModeGuard'
 import { qSchemaTable } from '@universo-react/database'
 import { LocalizedStringAllowEmptySchema, LocalizedStringSchema, type InterpretationNetworkStructureMode } from '@universo-react/types'
 import type { DbExecutor } from '@universo-react/utils'
@@ -370,12 +372,12 @@ const lockKey = (surface: RuntimeSurfaceReady, command: string): [string, string
 
 export const acquireCommandLock = async (executor: DbExecutor, surface: RuntimeSurfaceReady, command: string): Promise<void> => {
     const [left, right] = lockKey(surface, command)
-    await executor.query('SELECT pg_advisory_xact_lock(hashtext($1), hashtext($2))', [left, right])
+    await acquireTwoKeyAdvisoryXactLock(executor, left, right)
 }
 
 /** Serializes structure-mode transitions with Structure aggregate mutations. */
 export const acquireStructureModeLock = async (executor: DbExecutor, surface: RuntimeSurfaceReady): Promise<void> => {
-    await executor.query('SELECT pg_advisory_xact_lock(hashtext($1))', [`${surface.schemaName}:interpretation-network:structure-mode`])
+    await acquireAdvisoryXactLock(executor, interpretationNetworkStructureModeLockKey(surface.schemaName))
 }
 
 export const selectActiveRowsByField = async (

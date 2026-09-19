@@ -30,10 +30,10 @@ import {
 import {
     normalizeApplicationCopyOptions,
     getVLCString,
-    extractAxiosError,
     isApiError,
     isHttpStatus,
-    isOptimisticLockConflict
+    isOptimisticLockConflict,
+    resolveApiErrorMessage
 } from '@universo-react/utils'
 import type { Application, ApplicationMember, Connector, ConnectorLocalizedPayload, SimpleLocalizedInput } from '../types'
 import { normalizeLocale } from '../utils/localizedInput'
@@ -105,7 +105,7 @@ export function useCreateApplication() {
         },
         onError: (error, _variables, context) => {
             rollbackOptimisticSnapshots(queryClient, context?.previousSnapshots)
-            enqueueSnackbar(error.message || t('createError', 'Failed to create application'), { variant: 'error' })
+            enqueueSnackbar(resolveApiErrorMessage(error, t('createError', 'Failed to create application')), { variant: 'error' })
         },
         onSuccess: (data, _variables, context) => {
             if (context?.optimisticId && data?.id) {
@@ -158,7 +158,7 @@ export function useUpdateApplication() {
             if (isOptimisticLockConflict(error)) {
                 return
             }
-            enqueueSnackbar(error.message || t('updateError', 'Failed to update application'), { variant: 'error' })
+            enqueueSnackbar(resolveApiErrorMessage(error, t('updateError', 'Failed to update application')), { variant: 'error' })
         },
         onSuccess: async (data, variables) => {
             await queryClient.cancelQueries({ queryKey: applicationsQueryKeys.lists() })
@@ -205,7 +205,7 @@ export function useDeleteApplication() {
         },
         onError: (error, _id, context) => {
             rollbackOptimisticSnapshots(queryClient, context?.previousSnapshots)
-            enqueueSnackbar(error.message || t('deleteError', 'Failed to delete application'), { variant: 'error' })
+            enqueueSnackbar(resolveApiErrorMessage(error, t('deleteError', 'Failed to delete application')), { variant: 'error' })
         },
         onSuccess: () => {
             enqueueSnackbar(t('deleteSuccess', 'Application deleted'), { variant: 'success' })
@@ -292,7 +292,7 @@ export function useCopyApplication() {
                 return
             }
             rollbackOptimisticSnapshots(queryClient, context?.previousSnapshots)
-            enqueueSnackbar(error.message || t('copyError', 'Failed to copy application'), { variant: 'error' })
+            enqueueSnackbar(resolveApiErrorMessage(error, t('copyError', 'Failed to copy application')), { variant: 'error' })
         },
         onSuccess: (data, _variables, context) => {
             if (context?.optimisticId && data?.id) {
@@ -327,7 +327,7 @@ export function useJoinApplication() {
             enqueueSnackbar(t('join.success', 'You joined the application'), { variant: 'success' })
         },
         onError: (error: Error) => {
-            enqueueSnackbar(error.message || t('join.error', 'Failed to join the application'), { variant: 'error' })
+            enqueueSnackbar(resolveApiErrorMessage(error, t('join.error', 'Failed to join the application')), { variant: 'error' })
         }
     })
 }
@@ -352,7 +352,7 @@ export function useLeaveApplication() {
             enqueueSnackbar(t('leave.success', 'You left the application'), { variant: 'success' })
         },
         onError: (error: Error) => {
-            enqueueSnackbar(error.message || t('leave.error', 'Failed to leave the application'), { variant: 'error' })
+            enqueueSnackbar(resolveApiErrorMessage(error, t('leave.error', 'Failed to leave the application')), { variant: 'error' })
         }
     })
 }
@@ -416,12 +416,7 @@ export function useInviteMember() {
             } else if (isHttpStatus(error, 409) && isApiError(error, 'APPLICATION_MEMBER_EXISTS')) {
                 message = t('members.userAlreadyMember', { email: variables.data.email })
             } else {
-                const apiError = extractAxiosError(error) as { message?: string } | undefined
-                if (apiError?.message) {
-                    message = apiError.message
-                } else if (error.message) {
-                    message = error.message
-                }
+                message = resolveApiErrorMessage(error, message)
             }
 
             enqueueSnackbar(message, { variant: 'error' })
@@ -472,7 +467,7 @@ export function useUpdateMemberRole() {
         },
         onError: (error: Error, _variables, context) => {
             rollbackOptimisticSnapshots(queryClient, context?.previousSnapshots)
-            enqueueSnackbar(error.message || t('members.updateError'), { variant: 'error' })
+            enqueueSnackbar(resolveApiErrorMessage(error, t('members.updateError')), { variant: 'error' })
         },
         onSettled: (_data, _error, variables) => {
             safeInvalidateQueriesInactive(
@@ -511,7 +506,7 @@ export function useRemoveMember() {
         },
         onError: (error: Error, _variables, context) => {
             rollbackOptimisticSnapshots(queryClient, context?.previousSnapshots)
-            enqueueSnackbar(error.message || t('members.removeError'), { variant: 'error' })
+            enqueueSnackbar(resolveApiErrorMessage(error, t('members.removeError')), { variant: 'error' })
         },
         onSettled: (_data, _error, variables) => {
             safeInvalidateQueries(
@@ -626,7 +621,7 @@ export function useCreateConnector() {
         },
         onError: (error: Error, _variables, context) => {
             rollbackOptimisticSnapshots(queryClient, context?.previousSnapshots)
-            enqueueSnackbar(error.message || t('connectors.createError', 'Failed to create connector'), { variant: 'error' })
+            enqueueSnackbar(resolveApiErrorMessage(error, t('connectors.createError', 'Failed to create connector')), { variant: 'error' })
         },
         onSettled: (_data, _error, variables) => {
             safeInvalidateQueriesInactive(
@@ -686,7 +681,7 @@ export function useUpdateConnector() {
             if (isOptimisticLockConflict(error)) {
                 return
             }
-            enqueueSnackbar(error.message || t('connectors.updateError', 'Failed to update connector'), { variant: 'error' })
+            enqueueSnackbar(resolveApiErrorMessage(error, t('connectors.updateError', 'Failed to update connector')), { variant: 'error' })
         },
         onSettled: (_data, _error, variables) => {
             safeInvalidateQueriesInactive(
@@ -727,7 +722,7 @@ export function useDeleteConnector() {
         },
         onError: (error: Error, _variables, context) => {
             rollbackOptimisticSnapshots(queryClient, context?.previousSnapshots)
-            enqueueSnackbar(error.message || t('connectors.deleteError', 'Failed to delete connector'), { variant: 'error' })
+            enqueueSnackbar(resolveApiErrorMessage(error, t('connectors.deleteError', 'Failed to delete connector')), { variant: 'error' })
         },
         onSettled: (_data, _error, variables) => {
             safeInvalidateQueries(
@@ -760,13 +755,15 @@ export function useSyncConnector() {
             queryClient.invalidateQueries({ queryKey: applicationsQueryKeys.connectors(variables.applicationId) })
 
             if (data.status === 'pending_confirmation') {
-                enqueueSnackbar(t('connectors.syncPending', 'Destructive changes detected. Confirm to proceed.'), { variant: 'warning' })
+                enqueueSnackbar(t('connectors.sync.confirmDestructive', 'Apply changes including destructive ones'), {
+                    variant: 'warning'
+                })
             } else {
-                enqueueSnackbar(t('connectors.syncSuccess', 'Schema synchronized'), { variant: 'success' })
+                enqueueSnackbar(t('connectors.sync.success', 'Schema synchronized successfully'), { variant: 'success' })
             }
         },
         onError: (error: Error) => {
-            enqueueSnackbar(error.message || t('connectors.syncError', 'Schema sync failed'), { variant: 'error' })
+            enqueueSnackbar(resolveApiErrorMessage(error, t('connectors.sync.error', 'Failed to sync schema')), { variant: 'error' })
         }
     })
 }

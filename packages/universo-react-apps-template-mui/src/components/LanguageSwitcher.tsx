@@ -105,6 +105,7 @@ export default function LanguageSwitcher() {
                         <IconButton
                             onClick={handleOpen}
                             size='small'
+                            data-testid='runtime-language-switcher'
                             aria-label={labels.tooltip}
                             aria-haspopup='menu'
                             aria-expanded={open ? 'true' : undefined}

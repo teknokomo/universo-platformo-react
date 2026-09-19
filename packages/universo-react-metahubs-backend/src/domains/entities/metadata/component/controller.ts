@@ -96,6 +96,7 @@ const validationRulesSchema = z
         format: z.literal('hexColor').nullable().optional(),
         versioned: z.boolean().nullable().optional(),
         localized: z.boolean().nullable().optional(),
+        unique: z.boolean().nullable().optional(),
         precision: z.number().int().min(1).max(15).nullable().optional(),
         scale: z.number().int().min(0).max(14).nullable().optional(),
         min: z.number().nullable().optional(),

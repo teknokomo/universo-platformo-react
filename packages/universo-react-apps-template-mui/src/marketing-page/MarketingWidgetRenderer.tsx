@@ -4,6 +4,7 @@ import FAQ from './components/FAQ'
 import Features from './components/Features'
 import Footer from './components/Footer'
 import Hero from './components/Hero'
+import { MarketingHeroImage } from './components/Hero'
 import Highlights from './components/Highlights'
 import LogoCollection from './components/LogoCollection'
 import Pricing from './components/Pricing'
@@ -36,7 +37,14 @@ const renderCollection = ({ widget, onAction }: RendererProps<'marketing.collect
                 />
             )
         case 'features':
-            return <Features instanceKey={widget.instanceKey} section={widget.content.section} items={widget.content.items} />
+            return (
+                <Features
+                    instanceKey={widget.instanceKey}
+                    section={widget.content.section}
+                    items={widget.content.items}
+                    settings={widget.content.config}
+                />
+            )
         case 'testimonials':
             return <Testimonials instanceKey={widget.instanceKey} section={widget.content.section} items={widget.content.items} />
         case 'highlights':
@@ -59,25 +67,40 @@ const marketingWidgetRenderers = {
             backgroundOwner={heroBackgroundOwner}
         />
     ),
+    'marketing.image': ({ widget }: RendererProps<'marketing.image'>) => <MarketingHeroImage media={widget.content.media} />,
     'marketing.collection': renderCollection,
     'marketing.pricing': ({ widget, onAction }: RendererProps<'marketing.pricing'>) => (
-        <Pricing instanceKey={widget.instanceKey} section={widget.content.section} tiers={widget.content.tiers} onAction={onAction} />
+        <Pricing
+            instanceKey={widget.instanceKey}
+            section={widget.content.section}
+            tiers={widget.content.tiers}
+            cardStyle={widget.content.config.cardStyle}
+            cardWidth={widget.content.config.cardWidth}
+            showBenefits={widget.content.config.showBenefits}
+            onAction={onAction}
+        />
     ),
     'marketing.footer': ({ widget, onAction, onLeadSubmit }: RendererProps<'marketing.footer'>) => (
         <Footer instanceKey={widget.instanceKey} data={widget.content} onAction={onAction} onLeadSubmit={onLeadSubmit} />
     )
 } satisfies MarketingWidgetRendererRegistry
 
-export const marketingWidgetLabel = (widget: MarketingPageWidget): string => {
+export const marketingWidgetLabel = (
+    widget: MarketingPageWidget,
+    t?: (key: string, options?: Record<string, unknown>) => string
+): string => {
+    const fallback = (key: string, literal: string): string => (t ? t(`marketingPage.sections.${key}`) : literal)
     switch (widget.widgetKey) {
         case 'marketing.brand':
             return widget.content.name
         case 'marketing.navigation':
-            return widget.content.navigation[0]?.label || 'Navigation'
+            return widget.content.navigation[0]?.label || fallback('navigation', 'Navigation')
         case 'marketing.auth':
-            return widget.content.signIn?.label || widget.content.signUp?.label || 'Authentication'
+            return widget.content.signIn?.label || widget.content.signUp?.label || fallback('authentication', 'Authentication')
         case 'marketing.hero':
             return widget.content.title
+        case 'marketing.image':
+            return widget.content.media.alt || fallback('image', 'Marketing image')
         case 'marketing.collection':
             return widget.content.section.title
         case 'marketing.pricing':

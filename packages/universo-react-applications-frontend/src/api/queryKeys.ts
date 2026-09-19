@@ -25,6 +25,12 @@ export const applicationsQueryKeys = {
 
     detail: (id: string) => [...applicationsQueryKeys.all, 'detail', id] as const,
 
+    runtimeReference: (applicationRef: string) =>
+        [...applicationsQueryKeys.all, 'runtime-reference', applicationRef.trim().toLowerCase()] as const,
+
+    /** Root prefix for invalidating every cached authenticated reference resolution. */
+    runtimeReferences: () => [...applicationsQueryKeys.all, 'runtime-reference'] as const,
+
     members: (id: string) => [...applicationsQueryKeys.detail(id), 'members'] as const,
 
     membersList: (id: string, params?: PaginationParams) => {
@@ -150,7 +156,9 @@ export const applicationsQueryKeys = {
         ] as const,
     settings: (applicationId: string) => [...applicationsQueryKeys.detail(applicationId), 'settings'] as const,
     settingsLimits: (applicationId: string, locale = 'en') =>
-        [...applicationsQueryKeys.settings(applicationId), 'limits', normalizeLocaleForKey(locale)] as const
+        [...applicationsQueryKeys.settings(applicationId), 'limits', normalizeLocaleForKey(locale)] as const,
+    publicEntryWorkspace: (applicationId: string) => [...applicationsQueryKeys.settings(applicationId), 'public-entry-workspace'] as const,
+    runtimeWorkspaces: (applicationId: string) => [...applicationsQueryKeys.detail(applicationId), 'runtime', 'workspaces'] as const
 }
 
 const normalizeLocaleForKey = (locale: string) => locale.split(/[-_]/)[0]?.toLowerCase() || 'en'

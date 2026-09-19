@@ -17,6 +17,7 @@ import {
     type PublicRuntimeObjectBinding,
     type PublicRuntimeSchemaContext
 } from '../shared/publicRuntimeAccess'
+import { acquireAdvisoryXactLock } from '@universo-react/utils/database'
 import {
     coerceRuntimeValue,
     UUID_REGEX,
@@ -299,7 +300,7 @@ const isPlainRecord = (value: unknown): value is Record<string, unknown> =>
 const readConfiguredString = (value: unknown): string | null => (typeof value === 'string' && value.trim().length > 0 ? value.trim() : null)
 
 const lockPublicGuestRuntimeKey = async (executor: DbExecutor, key: string): Promise<void> => {
-    await executor.query(`SELECT pg_advisory_xact_lock(hashtextextended($1::text, 0))`, [key])
+    await acquireAdvisoryXactLock(executor, key)
 }
 
 const readConfiguredStringMap = <K extends readonly string[]>(source: unknown, keys: K): Record<K[number], string> | null => {
@@ -1902,6 +1903,14 @@ export function createRuntimeGuestController(getDbExecutor: () => DbExecutor) {
 
     const getPublicClientBundle = async (req: Request, res: Response) => {
         const { applicationId, moduleId } = req.params
+        // Anonymous callers must never be able to reach PostgreSQL with an
+        // identifier the database cannot parse: malformed ids and missing
+        // modules share one generic not-found body so nothing internal leaks.
+        if (!UUID_REGEX.test(moduleId)) {
+            res.status(404).json({ error: 'Runtime module not found' })
+            return
+        }
+
         await withPublicRuntimeContext(applicationId, res, async (ctx) => {
             try {
                 const bundle = await modulesService.getClientModuleBundle({
@@ -1919,7 +1928,11 @@ export function createRuntimeGuestController(getDbExecutor: () => DbExecutor) {
                 res.setHeader('Cache-Control', 'private, max-age=0, must-revalidate')
                 res.status(200).send(bundle.bundle)
             } catch (error) {
-                res.status(404).json({ error: error instanceof Error ? error.message : String(error) })
+                console.error(
+                    `[runtimeGuestController] Failed to serve public client bundle for module ${moduleId} in application ${applicationId}`,
+                    error
+                )
+                res.status(404).json({ error: 'Runtime module not found' })
             }
         })
     }

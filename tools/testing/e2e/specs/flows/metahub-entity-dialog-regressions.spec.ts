@@ -434,7 +434,7 @@ test('@flow metahub entity dialogs cover constant edit, enumeration value edit-c
         await page.getByTestId(buildEntityMenuTriggerSelector('component', component.id)).click()
         await page.getByTestId(buildEntityMenuItemSelector('component', 'copy', component.id)).click()
 
-        const copyAttributeDialog = page.getByRole('dialog', { name: 'Copy Component' })
+        const copyAttributeDialog = page.getByRole('dialog', { name: 'Copying component' })
         await expect(copyAttributeDialog).toBeVisible()
         await expect(copyAttributeDialog.getByLabel('Name').first()).toBeVisible()
         await expect(copyAttributeDialog.getByLabel('Codename').first()).toBeVisible()

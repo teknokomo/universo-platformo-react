@@ -99,10 +99,9 @@ type PlayCanvasWidgetRuntimeOptions = {
 }
 type BrowserCreatedApplicationResponse = {
     id?: string
-    slug?: string
     connector?: { id?: string }
-    application?: { id?: string; slug?: string }
-    data?: { id?: string; slug?: string; connector?: { id?: string }; application?: { id?: string; slug?: string } }
+    application?: { id?: string }
+    data?: { id?: string; connector?: { id?: string }; application?: { id?: string } }
 }
 
 const FIXTURES_DIR = path.resolve(repoRoot, 'tools', 'fixtures')
@@ -831,7 +830,6 @@ const createPublicationLinkedApplicationThroughBrowser = async (
     await expect(dialog).toHaveCount(0, { timeout: 30_000 })
 
     let applicationId = created.application?.id ?? created.data?.application?.id ?? created.data?.id ?? created.id
-    let applicationSlug = created.application?.slug ?? created.data?.application?.slug ?? created.data?.slug ?? created.slug
     let connectorId = created.connector?.id ?? created.data?.connector?.id
 
     await expect
@@ -839,11 +837,10 @@ const createPublicationLinkedApplicationThroughBrowser = async (
             async () => {
                 const payload = await listPublicationApplications(api, metahubId, publicationId)
                 const application = (payload.items ?? []).find(
-                    (item: { id?: string; name?: { locales?: Record<string, { content?: string }> }; slug?: string }) =>
+                    (item: { id?: string; name?: { locales?: Record<string, { content?: string }> } }) =>
                         Object.values(item.name?.locales ?? {}).some((localeValue) => localeValue?.content === values.name.en)
                 )
                 applicationId = applicationId ?? application?.id
-                applicationSlug = applicationSlug ?? application?.slug
                 return typeof applicationId === 'string'
             },
             { timeout: 60_000 }
@@ -873,8 +870,8 @@ const createPublicationLinkedApplicationThroughBrowser = async (
     }
 
     await expect(page.getByText(values.name.en, { exact: true })).toBeVisible()
-    await recordCreatedApplication({ id: applicationId, slug: applicationSlug })
-    return { applicationId, applicationSlug, connectorId }
+    await recordCreatedApplication({ id: applicationId })
+    return { applicationId, connectorId }
 }
 
 const createApplicationSchemaThroughConnectorDialog = async (

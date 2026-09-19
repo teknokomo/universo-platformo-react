@@ -381,8 +381,7 @@ test('@flow @combined metahub global and entity-scoped layouts drive runtime wid
         }
 
         await recordCreatedApplication({
-            id: applicationId,
-            slug: linkedApplication.application.slug
+            id: applicationId
         })
 
         await syncApplicationSchema(api, applicationId)

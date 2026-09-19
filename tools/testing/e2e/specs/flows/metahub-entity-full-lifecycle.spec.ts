@@ -268,7 +268,7 @@ test('@flow @combined full entity lifecycle: create, author metadata, copy, publ
         const applicationId = linkedApp?.application?.id
         if (typeof applicationId !== 'string') throw new Error('Application creation failed')
 
-        await recordCreatedApplication({ id: applicationId, slug: linkedApp.application.slug })
+        await recordCreatedApplication({ id: applicationId })
 
         await syncApplicationSchema(api, applicationId)
 

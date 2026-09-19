@@ -76,8 +76,8 @@ function resolveRoleIds(roles: Array<{ id?: string; codename?: string }>, codena
     })
 }
 
-async function waitForLinkedApplication(api: ApiSession, metahubId: string, publicationId: string): Promise<{ id: string; slug?: string }> {
-    let application: { id?: string; slug?: string } | null = null
+async function waitForLinkedApplication(api: ApiSession, metahubId: string, publicationId: string): Promise<{ id: string }> {
+    let application: { id?: string } | null = null
 
     await expect
         .poll(async () => {
@@ -88,7 +88,7 @@ async function waitForLinkedApplication(api: ApiSession, metahubId: string, publ
         .toBe(true)
 
     if (!application?.id) throw new Error('Marketing publication did not create an application')
-    return { id: application.id, slug: application.slug }
+    return { id: application.id }
 }
 
 async function waitForUser(credentials: { email: string; password: string }): Promise<void> {
@@ -157,7 +157,7 @@ test('@flow @permission @marketing-page enforces runtime read and layout mutatio
         await waitForPublicationReady(ownerApi, metahub.id, publication.id)
 
         const application = await waitForLinkedApplication(ownerApi, metahub.id, publication.id)
-        await recordCreatedApplication({ id: application.id, slug: application.slug })
+        await recordCreatedApplication({ id: application.id })
         await syncApplicationSchema(ownerApi, application.id, {
             schemaOptions: {
                 workspaceModeRequested: 'enabled',
@@ -199,7 +199,7 @@ test('@flow @permission @marketing-page enforces runtime read and layout mutatio
         await syncPublication(ownerApi, crossApplicationMetahub.id, crossApplicationPublication.id)
         await waitForPublicationReady(ownerApi, crossApplicationMetahub.id, crossApplicationPublication.id)
         const unrelatedApplication = await waitForLinkedApplication(ownerApi, crossApplicationMetahub.id, crossApplicationPublication.id)
-        await recordCreatedApplication({ id: unrelatedApplication.id, slug: unrelatedApplication.slug })
+        await recordCreatedApplication({ id: unrelatedApplication.id })
         await syncApplicationSchema(ownerApi, unrelatedApplication.id, {
             schemaOptions: {
                 workspaceModeRequested: 'enabled',

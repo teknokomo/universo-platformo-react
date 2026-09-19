@@ -13,7 +13,7 @@ import {
     safeInvalidateQueries,
     confirmOptimisticUpdate
 } from '@universo-react/template-mui'
-import { getVLCString, makePendingMarkers } from '@universo-react/utils'
+import { getVLCString, makePendingMarkers, resolveApiErrorMessage } from '@universo-react/utils'
 import { metahubsQueryKeys } from '../../shared'
 import * as publicationsApi from '../api'
 import type { CreatePublicationParams, UpdatePublicationParams, SyncPublicationParams, DeletePublicationParams } from './mutationTypes'
@@ -67,11 +67,11 @@ export function useCreatePublication() {
                     serverEntity: data
                 })
             }
-            enqueueSnackbar(t('publications.messages.createSuccess', 'Information base created'), { variant: 'success' })
+            enqueueSnackbar(t('publications.messages.createSuccess', 'Publication created successfully'), { variant: 'success' })
         },
         onError: (error: Error, _variables, context) => {
             rollbackOptimisticSnapshots(queryClient, context?.previousSnapshots)
-            enqueueSnackbar(error.message || t('publications.messages.createError', 'Failed to create information base'), {
+            enqueueSnackbar(resolveApiErrorMessage(error, t('publications.messages.createError', 'Failed to create publication')), {
                 variant: 'error'
             })
         },
@@ -129,7 +129,9 @@ export function useUpdatePublication() {
         },
         onError: (error: Error, _variables, context) => {
             rollbackOptimisticSnapshots(queryClient, context?.previousSnapshots)
-            enqueueSnackbar(error.message || t('publications.messages.updateError', 'Failed to update publication'), { variant: 'error' })
+            enqueueSnackbar(resolveApiErrorMessage(error, t('publications.messages.updateError', 'Failed to update publication')), {
+                variant: 'error'
+            })
         },
         onSettled: (_data, _error, variables) => {
             safeInvalidateQueriesInactive(
@@ -163,11 +165,13 @@ export function useSyncPublication() {
                     variant: 'warning'
                 })
             } else {
-                enqueueSnackbar(t('publications.messages.syncSuccess', 'Schema synchronized'), { variant: 'success' })
+                enqueueSnackbar(t('publications.messages.syncSuccess', 'Schema synchronized successfully'), { variant: 'success' })
             }
         },
         onError: (error: Error) => {
-            enqueueSnackbar(error.message || t('publications.messages.syncError', 'Schema sync failed'), { variant: 'error' })
+            enqueueSnackbar(resolveApiErrorMessage(error, t('publications.messages.syncError', 'Schema synchronization failed')), {
+                variant: 'error'
+            })
         }
     })
 }
@@ -191,11 +195,11 @@ export function useDeletePublication() {
             })
         },
         onSuccess: () => {
-            enqueueSnackbar(t('publications.messages.deleteSuccess', 'Information base deleted'), { variant: 'success' })
+            enqueueSnackbar(t('publications.messages.deleteSuccess', 'Publication deleted'), { variant: 'success' })
         },
         onError: (error: Error, _variables, context) => {
             rollbackOptimisticSnapshots(queryClient, context?.previousSnapshots)
-            enqueueSnackbar(error.message || t('publications.messages.deleteError', 'Failed to delete information base'), {
+            enqueueSnackbar(resolveApiErrorMessage(error, t('publications.messages.deleteError', 'Failed to delete publication')), {
                 variant: 'error'
             })
         },

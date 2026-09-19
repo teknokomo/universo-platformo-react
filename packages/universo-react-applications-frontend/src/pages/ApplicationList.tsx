@@ -26,7 +26,6 @@ import {
     PaginationControls,
     FlowListTable,
     gridSpacing,
-    ConfirmDialog,
     useConfirm,
     RoleChip,
     useUserSettings,
@@ -53,6 +52,7 @@ import { Application, ApplicationDisplay, ApplicationLocalizedPayload, Paginatio
 import { isOptimisticLockConflict, extractConflictInfo, isPendingEntity, getPendingAction, type ConflictInfo } from '@universo-react/utils'
 import applicationActions from './ApplicationActions'
 import { extractLocalizedInput, hasPrimaryContent } from '../utils/localizedInput'
+import { canUseApplicationAliasAbility } from '../utils/applicationAliasAbility'
 
 export type ApplicationFormValues = {
     nameVlc?: VersionedLocalizedContent<string> | null
@@ -83,6 +83,7 @@ type ApplicationActionContext = ActionContext<ApplicationDisplay, ApplicationLoc
     navigate?: ReturnType<typeof useNavigate>
     applicationMap?: Map<string, Application>
     uiLocale?: string
+    canManageAliases?: boolean
     api?: ActionContext<ApplicationDisplay, ApplicationLocalizedPayload>['api'] & {
         copyEntity?: (
             id: string,
@@ -147,6 +148,7 @@ const ApplicationList = () => {
         ability?: AppAbility | null
     }
     const canCreateApplications = !accessLoading && (isSuperuser || canUseApplicationAbility(ability, 'create'))
+    const canManageAliases = !accessLoading && canUseApplicationAliasAbility(ability, isSuperuser, 'read')
 
     const [dialogError, setDialogError] = useState<string | null>(null)
     const pendingInteractionMessage = tc('pendingCreateBlocked', 'This item is still being created. Please wait a moment and try again.')
@@ -522,6 +524,7 @@ const ApplicationList = () => {
             navigate,
             applicationMap,
             uiLocale: i18n.language,
+            canManageAliases,
             api: {
                 updateEntity: (id: string, patch: ApplicationLocalizedPayload) => {
                     const application = applicationMap.get(id)
@@ -602,6 +605,7 @@ const ApplicationList = () => {
             enqueueSnackbar,
             i18n.language,
             applicationMap,
+            canManageAliases,
             navigate,
             queryClient,
             t,
@@ -926,8 +930,6 @@ const ApplicationList = () => {
                     }
                 }}
             />
-
-            <ConfirmDialog />
 
             <ConflictResolutionDialog
                 open={conflictState.open}

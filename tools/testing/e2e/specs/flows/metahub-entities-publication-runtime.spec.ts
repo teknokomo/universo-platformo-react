@@ -100,8 +100,8 @@ test('@flow @combined published custom entities survive publication sync and ope
         await createTypeDialog.getByLabel('Select template').click()
         await page.getByRole('option', { name: /^Objects\b/i }).click()
 
-        await expect.poll(async () => createTypeDialog.getByLabel('Kind key').inputValue()).toBe('object')
-        await createTypeDialog.getByLabel('Kind key').fill(customKindKey)
+        await expect.poll(async () => createTypeDialog.getByLabel('System type key').inputValue()).toBe('object')
+        await createTypeDialog.getByLabel('System type key').fill(customKindKey)
         await createTypeDialog.getByLabel('Name').first().fill(customTypeName)
 
         const createTypeRequest = waitForSettledMutationResponse(
@@ -123,7 +123,7 @@ test('@flow @combined published custom entities survive publication sync and ope
 
         await expect(page).toHaveURL(`/metahub/${metahub.id}/entities/${customKindKey}/instances`)
         await expect(page.getByRole('heading', { name: new RegExp(customTypeName) })).toBeVisible()
-        await expect(page.getByTestId(toolbarSelectors.primaryAction)).toContainText('Create entity')
+        await expect(page.getByTestId(toolbarSelectors.primaryAction)).toContainText('Create')
 
         await page.getByTestId(toolbarSelectors.primaryAction).click()
 
@@ -180,8 +180,7 @@ test('@flow @combined published custom entities survive publication sync and ope
         }
 
         await recordCreatedApplication({
-            id: applicationId,
-            slug: linkedApplication.application.slug
+            id: applicationId
         })
 
         await syncApplicationSchema(api, applicationId)

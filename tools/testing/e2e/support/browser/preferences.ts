@@ -30,6 +30,17 @@ export async function applyBrowserPreferences(page: Page, options: BrowserPrefer
     }, preferences)
 }
 
+/**
+ * Switches the locale of a published application runtime through the canonical
+ * `?locale=` query the in-app language switcher writes. Browser preferences
+ * alone cannot win once a runtime URL already carries a locale parameter.
+ */
+export async function switchRuntimeLocale(page: Page, locale: string): Promise<void> {
+    const url = new URL(page.url())
+    url.searchParams.set('locale', locale)
+    await page.goto(url.toString())
+}
+
 export function parseRgbColor(input: string): [number, number, number] | null {
     const match = input.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/i)
     if (!match) {

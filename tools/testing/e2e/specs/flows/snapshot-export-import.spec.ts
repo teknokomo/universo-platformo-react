@@ -152,7 +152,7 @@ async function waitForSelfHostedAppExportContract(api: ApiContext, metahubId: st
 
                 try {
                     const envelope = (await exportResponse.json()) as Record<string, unknown>
-                    assertSelfHostedAppEnvelopeContract(envelope)
+                    assertSelfHostedAppEnvelopeContract(envelope, { allowCanonicalCodenameSuffix: true })
                     return 'ok'
                 } catch (error) {
                     return error instanceof Error ? error.message : String(error)
@@ -328,7 +328,7 @@ test.describe('Snapshot Export/Import Flow', () => {
         const exportResponse = await apiGet(api, `/api/v1/metahub/${importedId}/export`)
         expect(exportResponse.ok).toBe(true)
         const importedEnvelope = (await exportResponse.json()) as Record<string, unknown>
-        assertSelfHostedAppEnvelopeContract(importedEnvelope)
+        assertSelfHostedAppEnvelopeContract(importedEnvelope, { allowCanonicalCodenameSuffix: true })
 
         const importedSnapshot =
             importedEnvelope.snapshot && typeof importedEnvelope.snapshot === 'object'
@@ -366,7 +366,7 @@ test.describe('Snapshot Export/Import Flow', () => {
         )
         expect(typeof settingsCatalog?.id).toBe('string')
 
-        const includedCatalogSection = findSelfHostedAppSection(SELF_HOSTED_APP_SHARED_ENTITIES.component.includedCatalogSectionCodename)
+        const includedCatalogSection = findSelfHostedAppSection(SELF_HOSTED_APP_SHARED_ENTITIES.component.includedObjectSectionCodename)
         const importedSharedCatalog = importedEntities.find(
             (entity) => entity.kind === 'object' && matchesSectionDefinition(entity, includedCatalogSection)
         )

@@ -5,6 +5,7 @@ import CircularProgress from '@mui/material/CircularProgress'
 import { useQuery } from '@tanstack/react-query'
 import type { ReactNode } from 'react'
 import { useContext, useEffect, useMemo } from 'react'
+import type { MarketingPageRendererViewModel } from '@universo-react/types'
 
 import { fetchMarketingPageRuntime } from '../api/api'
 import type { MarketingRuntimeTarget } from '../api/api'
@@ -30,6 +31,12 @@ export interface MarketingRuntimeContentProps {
     retryLabel: string
     onAction?: MarketingActionHandler
     onLayoutStale?: () => void
+    /**
+     * Server-authorized renderer payload for anonymous published runtime.
+     * When supplied, this component never calls the authenticated marketing
+     * runtime endpoint.
+     */
+    runtimePayload?: MarketingPageRendererViewModel
 }
 
 const readHttpStatus = (error: unknown): number | null => {
@@ -118,7 +125,8 @@ export default function MarketingRuntimeContent({
     retryLabel,
     layoutIdentity,
     onAction,
-    onLayoutStale
+    onLayoutStale,
+    runtimePayload
 }: MarketingRuntimeContentProps) {
     const normalizedWorkspaceId = workspaceId?.trim() || null
     const normalizedTarget = target
@@ -133,6 +141,7 @@ export default function MarketingRuntimeContent({
         ? { layoutVersion: layoutIdentity.layoutVersion, layoutHash: layoutIdentity.layoutHash.trim() }
         : null
     const hostLayout = useContext(AppMainLayoutContext)
+    const hasInjectedRuntime = runtimePayload !== undefined
     const runtimeQuery = useQuery({
         queryKey: [
             'marketing-page-runtime',
@@ -163,15 +172,16 @@ export default function MarketingRuntimeContent({
                 }
                 return response
             }),
-        enabled: Boolean(applicationId),
+        enabled: !hasInjectedRuntime && Boolean(applicationId),
         retry: shouldRetryMarketingRuntime,
         retryDelay: (attemptIndex) => Math.min(500 * 2 ** attemptIndex, 4_000)
     })
 
     let data: MarketingPageData | null = null
-    if (runtimeQuery.data) {
+    const runtimeData = hasInjectedRuntime ? runtimePayload : runtimeQuery.data
+    if (runtimeData) {
         try {
-            data = normalizeMarketingPageRuntime(runtimeQuery.data, locale)
+            data = normalizeMarketingPageRuntime(runtimeData, locale)
         } catch {
             data = null
         }
@@ -193,10 +203,10 @@ export default function MarketingRuntimeContent({
         return () => hostLayout.setAppearance(null)
     }, [appearance, hasData, hostLayout])
 
-    if (runtimeQuery.isLoading) {
+    if (!hasInjectedRuntime && runtimeQuery.isLoading) {
         return <RuntimeBoundary loading loadingLabel={loadingLabel} errorLabel={errorLabel} />
     }
-    if (runtimeQuery.isError || !runtimeQuery.data) {
+    if (!hasInjectedRuntime && (runtimeQuery.isError || !runtimeQuery.data)) {
         const retryStaleLayout = isMarketingRuntimeLayoutStale(runtimeQuery.error)
         return (
             <RuntimeBoundary
@@ -221,8 +231,8 @@ export default function MarketingRuntimeContent({
                 error
                 loadingLabel={loadingLabel}
                 errorLabel={errorLabel}
-                retryLabel={retryLabel}
-                onRetry={() => void runtimeQuery.refetch()}
+                retryLabel={hasInjectedRuntime ? undefined : retryLabel}
+                onRetry={hasInjectedRuntime ? undefined : () => void runtimeQuery.refetch()}
             />
         )
     }

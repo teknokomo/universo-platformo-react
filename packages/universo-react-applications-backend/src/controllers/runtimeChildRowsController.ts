@@ -34,6 +34,7 @@ import {
     validateTabularHierarchy
 } from './runtimeChildRowsValidation'
 import { createRuntimeChildRowCopyDeleteHandlers } from './runtimeChildRowCopyDeleteHandlers'
+import { createRuntimeVersionConflictFailure } from './runtimeVersionConflict'
 import { assertRuntimeRecordMutable } from '../services/runtimeRecordBehavior'
 
 // ---------------------------------------------------------------------------
@@ -511,11 +512,7 @@ export function createRuntimeChildRowsController(getDbExecutor: () => DbExecutor
                 if (expectedVersion !== undefined) {
                     const actualVersion = Number(childRows[0]._upl_version ?? 1)
                     if (actualVersion !== expectedVersion) {
-                        throw new UpdateFailure(409, {
-                            error: 'Version mismatch',
-                            expectedVersion,
-                            actualVersion
-                        })
+                        throw createRuntimeVersionConflictFailure(expectedVersion, actualVersion)
                     }
                 }
                 throw new UpdateFailure(404, { error: 'Child row not found' })
@@ -643,11 +640,8 @@ export function createRuntimeChildRowsController(getDbExecutor: () => DbExecutor
                     if (updateInput.expectedVersion === undefined) continue
                     const actualVersion = Number(childRowsById.get(updateInput.childRowId)?._upl_version ?? 1)
                     if (actualVersion !== updateInput.expectedVersion) {
-                        throw new UpdateFailure(409, {
-                            error: 'Version mismatch',
-                            childRowId: updateInput.childRowId,
-                            expectedVersion: updateInput.expectedVersion,
-                            actualVersion
+                        throw createRuntimeVersionConflictFailure(updateInput.expectedVersion, actualVersion, {
+                            childRowId: updateInput.childRowId
                         })
                     }
                 }
@@ -692,10 +686,11 @@ export function createRuntimeChildRowsController(getDbExecutor: () => DbExecutor
                     )) as Array<{ id: string }>
 
                     if (rows.length === 0) {
-                        throw new UpdateFailure(updateInput.expectedVersion === undefined ? 404 : 409, {
-                            error: updateInput.expectedVersion === undefined ? 'Child row not found' : 'Version mismatch',
-                            childRowId: updateInput.childRowId,
-                            ...(updateInput.expectedVersion === undefined ? {} : { expectedVersion: updateInput.expectedVersion })
+                        if (updateInput.expectedVersion === undefined) {
+                            throw new UpdateFailure(404, { error: 'Child row not found', childRowId: updateInput.childRowId })
+                        }
+                        throw createRuntimeVersionConflictFailure(updateInput.expectedVersion, undefined, {
+                            childRowId: updateInput.childRowId
                         })
                     }
                 }
@@ -729,7 +724,13 @@ export function createRuntimeChildRowsController(getDbExecutor: () => DbExecutor
                     )) as Array<{ id: string }>
 
                     if (updatedRows.length !== uniformUpdate.rows.length) {
-                        throw new UpdateFailure(409, { error: 'Version mismatch during uniform batch update' })
+                        const conflictRow = uniformUpdate.rows.find((row) => row.expectedVersion !== undefined)
+                        if (conflictRow === undefined) {
+                            throw new UpdateFailure(404, { error: 'Child row not found' })
+                        }
+                        throw createRuntimeVersionConflictFailure(conflictRow.expectedVersion, undefined, {
+                            childRowId: conflictRow.childRowId
+                        })
                     }
                 }
 
@@ -816,18 +817,18 @@ export function createRuntimeChildRowsController(getDbExecutor: () => DbExecutor
                             if (updateInput.expectedVersion !== undefined) {
                                 const actualVersion = Number(currentRow._upl_version ?? 1)
                                 if (actualVersion !== updateInput.expectedVersion) {
-                                    throw new UpdateFailure(409, {
-                                        error: 'Version mismatch',
-                                        childRowId: updateInput.childRowId,
-                                        expectedVersion: updateInput.expectedVersion,
-                                        actualVersion
+                                    throw createRuntimeVersionConflictFailure(updateInput.expectedVersion, actualVersion, {
+                                        childRowId: updateInput.childRowId
                                     })
                                 }
                             }
                         }
-                        const hasExpectedVersion = pendingSortOnlyUpdates.some((update) => update.expectedVersion !== undefined)
-                        throw new UpdateFailure(hasExpectedVersion ? 409 : 404, {
-                            error: hasExpectedVersion ? 'Version mismatch during reorder' : 'Child row not found during reorder'
+                        const conflictRow = pendingSortOnlyUpdates.find((update) => update.expectedVersion !== undefined)
+                        if (conflictRow === undefined) {
+                            throw new UpdateFailure(404, { error: 'Child row not found during reorder' })
+                        }
+                        throw createRuntimeVersionConflictFailure(conflictRow.expectedVersion, undefined, {
+                            childRowId: conflictRow.childRowId
                         })
                     }
                 }

@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import type { DbExecutor, SqlQueryable } from '@universo-react/utils/database'
-import { queryMany, queryOne, queryOneOrThrow } from '@universo-react/utils/database'
+import { queryMany, queryOne, queryOneOrThrow, acquireAdvisoryXactLock } from '@universo-react/utils/database'
 import { qSchemaTable } from '@universo-react/database'
 import {
     DASHBOARD_LAYOUT_WIDGETS,
@@ -686,9 +686,7 @@ export class MetahubLayoutsService {
         baseLayoutId: string,
         scopeEntityId: string
     ): Promise<void> {
-        await db.query('SELECT pg_advisory_xact_lock(hashtext($1))', [
-            this.buildScopedLayoutIdentityLockKey(schemaName, baseLayoutId, scopeEntityId)
-        ])
+        await acquireAdvisoryXactLock(db, this.buildScopedLayoutIdentityLockKey(schemaName, baseLayoutId, scopeEntityId))
     }
 
     private async getLayoutScopeRow(db: SqlQueryable, schemaName: string, layoutId: string): Promise<LayoutScopeRow | null> {

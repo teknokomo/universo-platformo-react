@@ -135,12 +135,20 @@ export function useMatrixWorkspaceActions({
             })
             if (!movePlan) return null
 
-            const systemFieldNames = new Set(
-                ['ParentCellId', 'RowKey', 'ColKey', '_tp_sort_order'].flatMap((codename) => [
-                    codename,
-                    matrixChildColumns?.find((column) => column.codename === codename)?.field
-                ])
+            const systemFieldNames = new Set<string>(
+                ['CellId', 'ParentCellId', 'RowKey', 'ColKey', 'MaterialRef']
+                    .flatMap((codename) => [codename, matrixChildColumns?.find((column) => column.codename === codename)?.field])
+                    .filter((value): value is string => typeof value === 'string' && value.length > 0)
             )
+            for (const column of matrixChildColumns ?? []) {
+                if (column.uiConfig?.serverOwned !== true) continue
+                for (const value of [column.codename, column.field]) {
+                    if (typeof value === 'string' && value.length > 0) {
+                        systemFieldNames.add(value)
+                    }
+                }
+            }
+            systemFieldNames.add('_tp_sort_order')
             const readSystemValue = (data: Record<string, unknown>, codename: string): unknown => {
                 const physicalField = matrixChildColumns?.find((column) => column.codename === codename)?.field
                 return data[codename] ?? (physicalField ? data[physicalField] : undefined)

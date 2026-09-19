@@ -7,7 +7,7 @@ import { useCommonTranslations } from '@universo-react/i18n'
 import { useSnackbar } from 'notistack'
 import { useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '@universo-react/auth-frontend'
-import { extractAxiosError, isHttpStatus, isApiError } from '@universo-react/utils'
+import { isHttpStatus, isApiError, resolveApiErrorMessage } from '@universo-react/utils'
 
 import { useViewPreference } from '../hooks/useViewPreference'
 import { STORAGE_KEYS } from '../constants/storage'
@@ -25,7 +25,6 @@ import {
     PaginationControls,
     FlowListTable,
     gridSpacing,
-    ConfirmDialog,
     useConfirm,
     RoleChip
 } from '@universo-react/template-mui'
@@ -172,9 +171,7 @@ const AdminAccess = () => {
             } else if (isHttpStatus(error, 409) && isApiError(error, 'GLOBAL_USER_EXISTS')) {
                 message = t('access.userAlreadyHasAccess', { email: data.email, defaultValue: 'User {{email}} already has global access' })
             } else {
-                // Extract generic error message
-                const apiError = extractAxiosError(error)
-                message = apiError.message || message
+                message = resolveApiErrorMessage(error, message)
             }
 
             // Error: show error message but DON'T close dialog
@@ -587,8 +584,6 @@ const AdminAccess = () => {
                     }
                 }}
             />
-
-            <ConfirmDialog />
         </MainCard>
     )
 }

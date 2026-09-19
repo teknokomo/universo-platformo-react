@@ -278,11 +278,11 @@ export const MetahubMembers = () => {
                         confirmButtonName:
                             spec.confirmKey && baseContext.t
                                 ? baseContext.t(spec.confirmKey)
-                                : spec.confirmButtonName || (baseContext.t ? baseContext.t('confirm.remove.confirm') : 'Confirm'),
+                                : spec.confirmButtonName || (baseContext.t ? baseContext.t('confirm:confirmButtonText') : 'Confirm'),
                         cancelButtonName:
                             spec.cancelKey && baseContext.t
                                 ? baseContext.t(spec.cancelKey)
-                                : spec.cancelButtonName || (baseContext.t ? baseContext.t('confirm.remove.cancel') : 'Cancel')
+                                : spec.cancelButtonName || (baseContext.t ? baseContext.t('confirm:cancelButtonText') : 'Cancel')
                     })
                     return confirmed
                 },

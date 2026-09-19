@@ -23,7 +23,6 @@ export type E2ERunManifest = {
     }>
     createdApplications?: Array<{
         id: string
-        slug?: string
     }>
     createdPublications?: Array<{
         id: string

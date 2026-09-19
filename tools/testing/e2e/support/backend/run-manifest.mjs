@@ -110,7 +110,7 @@ export async function recordCreatedLocale(resource) {
 }
 
 export async function recordCreatedApplication(resource) {
-    return updateRunManifest((manifest) => appendUniqueResource(manifest, 'createdApplications', resource, ['id', 'slug']))
+    return updateRunManifest((manifest) => appendUniqueResource(manifest, 'createdApplications', resource, ['id']))
 }
 
 export async function recordCreatedPublication(resource) {
