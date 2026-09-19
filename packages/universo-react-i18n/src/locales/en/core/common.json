@@ -181,6 +181,7 @@
                     "navigation": "Navigation",
                     "auth": "Authentication",
                     "hero": "Hero",
+                    "image": "Image",
                     "collection": "Collection",
                     "pricing": "Pricing",
                     "footer": "Footer"
@@ -250,7 +251,8 @@
                 "emailRequired": "Email is required",
                 "emailInvalid": "Invalid email format",
                 "roleRequired": "Role is required",
-                "commentCharacterCount": "{{count}}/{{max}} characters (after trimming)"
+                "commentCharacterCount": "{{count}}/{{max}} characters (after trimming)",
+                "commentTooLong": "Comment is too long"
             },
             "actions": {
                 "edit": "Edit Member",
@@ -274,6 +276,12 @@
                 "description": "This action cannot be undone. {{entity}} \"{{name}}\" and all its data will be permanently deleted.",
                 "confirm": "Delete"
             }
+        },
+        "unsavedChanges": {
+            "title": "Discard unsaved changes?",
+            "description": "You have unsaved changes. They will be lost if you close this dialog.",
+            "confirm": "Discard",
+            "cancel": "Keep editing"
         },
         "localizedField": {
             "loading": "Loading languages...",
@@ -310,6 +318,7 @@
         },
         "optimistic": {
             "rollbackNotice": "Action failed. Changes have been reverted."
-        }
+        },
+        "pendingCreateBlocked": "This item is still being created. Please wait a moment and try again."
     }
 }

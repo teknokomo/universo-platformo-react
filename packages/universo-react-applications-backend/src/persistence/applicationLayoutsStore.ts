@@ -12,7 +12,7 @@ import {
     type LayoutZoneSettings
 } from '@universo-react/types'
 import { type DbExecutor } from '@universo-react/utils'
-import { activeAppRowCondition, softDeleteSetClause } from '@universo-react/utils/database'
+import { acquireAdvisoryXactLock, activeAppRowCondition, softDeleteSetClause } from '@universo-react/utils/database'
 import { hashApplicationLayoutContent } from '../utils/applicationLayoutHash'
 import { runtimeObjectFilterSql } from '../shared/runtimeHelpers'
 import {
@@ -336,8 +336,8 @@ export async function createApplicationLayout(
     const layoutsTable = qSchemaTable(schemaName, '_app_layouts')
     const scopeId = data.scopeEntityId ?? null
     return runApplicationLayoutTransaction(executor, async (tx) => {
-        await tx.query('SELECT pg_advisory_xact_lock(hashtext($1))', [applicationLayoutMutationLockKey(schemaName)])
-        await tx.query('SELECT pg_advisory_xact_lock(hashtext($1))', [applicationLayoutScopeLockKey(schemaName, scopeId)])
+        await acquireAdvisoryXactLock(tx, applicationLayoutMutationLockKey(schemaName))
+        await acquireAdvisoryXactLock(tx, applicationLayoutScopeLockKey(schemaName, scopeId))
         if (scopeId) await assertApplicationLayoutScope(tx, schemaName, scopeId)
         const activeRows = await tx.query<{ count: string }>(
             `SELECT COUNT(*)::text AS count FROM ${layoutsTable} WHERE scope_entity_id IS NOT DISTINCT FROM $1 AND is_active = true AND _upl_deleted = false AND _app_deleted = false`,

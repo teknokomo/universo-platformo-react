@@ -1,3 +1,375 @@
+# Architecture debt closure (fifth pass) — IMPLEMENT (2026-09-18)
+
+> Closes the structural findings of the LQR3 maintainability review: unified 409 version-conflict contract (M2), shared field-map application in the marketing serialization module (M4), remaining advisory-lock hash-space families (M6), copyRow single-pass validation (M8), the missing guard/savepoint/ordering tests (M9), the `runtimeRowsController` helper extraction with a thin composition root and cycle-free imports (H1), and decomposition of the largest handler functions (H4). No schema/template version bump; disposable database.
+
+## Phase A — Contracts and consistency
+
+-   [x] LQR4-01 M2: every stale-version write returns the canonical `RUNTIME_RECORD_VERSION_CONFLICT` body via `createRuntimeVersionConflictFailure` (write handlers and child-rows controller), with tests updated.
+-   [x] LQR4-02 M4: one parameterized field-map application lives in `marketingRuntimeSerialization` and both serializers use it (public keeps its record-field allowlist), with selector tests.
+-   [x] LQR4-03 M6: the remaining advisory-lock families (application layout store, application alias store + its migration function, the two-key interpretation-network command lock) move to the shared `hashtextextended` helper space, with tests.
+-   [x] LQR4-04 M8: `copyRow` validates its source once (no duplicate pre-transaction/in-transaction pass) or documents the fail-fast duplicate explicitly.
+
+## Phase B — Missing tests (M9)
+
+-   [x] LQR4-05 Direct tests for `assertMarketingSeedRows` (row limit, case-insensitive unique collision) and for the workspace seed path.
+-   [x] LQR4-06 Contract tests that write/command handlers run inside `withTransactionSavepoint` (savepoint wiring) and that `afterCopy` dispatches before the 201 response.
+
+## Phase C — Controller helper extraction (H1)
+
+-   [x] LQR4-07 Extract the ~4.4k lines of module-level helpers from `runtimeRowsController.ts` into `controllers/runtimeRowSupport/*` (contracts, access, objects, union, validation, menu) with public re-exports for existing importers; the controller becomes a thin composition root and the handler modules no longer import from it (cycles removed).
+
+## Phase D — Handler decomposition (H4)
+
+-   [x] LQR4-08 Decompose the largest handlers (`getRuntime`, `bulkUpdateRow`, `createRow`, `copyRow`, `updateContentProgress`, `setLibraryRelation`) into named step functions with no behavior change.
+
+## Phase E — Verification
+
+-   [x] LQR4-09 Prettier, lint, build, focused unit/real-PG suites for every changed package.
+-   [x] LQR4-10 Minimal local Supabase: fixture untouched, Meridian runtime, chromium batch, matrix, docs gates; Supabase stopped.
+-   [x] LQR4-11 Independent verification subagents + Thermos review; memory bank updated, backlog empty for this scope.
+
+# Consortium footer contacts restore (seventh pass) — IMPLEMENT (2026-09-19)
+
+> Restores the approved Consortium footer content: the Communities group with the Telegram channel `t.me/meridian73omsk`, and the Contacts group with the verified email `igor_glushkov@mail.ru` and phone `+7-913-602-21-53`. The removed demo destinations (VK, MAX, 2GIS, the placeholder phone and the old Telegram handle) stay forbidden and are asserted as absent. Fixture, contract, provenance, browser proof and docs are updated together.
+
+## Phase A — Content and contract
+
+-   [x] LQR6-01 Re-add `MERIDIAN_73_FOOTER_LINKS` with the Communities (Telegram) and Contacts (email/phone) groups; generator seeds them again and clears nothing.
+-   [x] LQR6-02 Contract: positive assertions for the approved hrefs/labels and negative assertions for every removed demo destination; provenance records the verified destinations.
+
+## Phase B — Fixture and browser proof
+
+-   [x] LQR6-03 Regenerate the tracked fixture and the artifact copy; contract + drift gates green.
+-   [x] LQR6-04 Meridian browser spec asserts the footer links (href + label) and still rejects the removed demo destinations; targeted local-Supabase run green.
+
+## Phase C — Docs and verification
+
+-   [x] LQR6-05 EN/RU docs describe the restored footer groups; Prettier/lint/build/unit gates and the final memory-bank update.
+
+# QA remediation + full E2E refresh (sixth pass) — IMPLEMENT (2026-09-18)
+
+> Closes the QA findings: anonymous visitors of a closed/unknown `/a/<ref>` are redirected to the login page (uniform for every unavailable ref, so no resource enumeration); the unavailable copy becomes neutral; Consortium demo contacts are removed; the Features renderer stops falling back to MUI demo screenshots; the Slugs admin page and the shared SettingsDialog follow the canonical MUI primitives; brand logo gets validation, fallback and browser proof; guest error echo, marketing runtime row cap, alias integration CI wiring and the copy/update deadlock order are fixed; platform docs describe the new behavior; the stale full Chromium suite is refreshed.
+
+## Phase A — Product behavior
+
+-   [x] LQR5-01 Anonymous `/a/<ref>` for every unavailable reference redirects to `/auth` with the preserved `from` location; the public-unavailable page remains only for authenticated non-members and loses the misleading "public" wording (EN/RU) and the sign-in action.
+-   [x] LQR5-02 Update unit tests (`ApplicationRuntime.entry`, `ApplicationRuntime.public`) and the Meridian E2E: synthetic/closed refs now assert the login redirect; retryable network failures stay on the page; add a real public→closed browser scenario.
+-   [x] LQR5-03 Remove the unverified Consortium contact destinations (Telegram/VK/MAX/phone/2GIS) from the content module, fixture and contract; regenerate the fixture, refresh provenance, keep nav anchors consistent.
+-   [x] LQR5-04 Features without authored media render icon-only cards: remove the MUI demo-screenshot fallback and update the affected tests/baselines.
+
+## Phase B — Slugs admin UI (canonical primitives)
+
+-   [x] LQR5-05 Remove the Slugs page description; short primary action via common `addNew`; update E2E/unit expectations.
+-   [x] LQR5-06 Move the released-addresses filter into the gear settings dialog (usable by non-superusers with the alias ability) and fix the shared `SettingsDialog` footer inset to the canonical dialog footer.
+-   [x] LQR5-07 Reuse the canonical searchable-select pattern (popup icon, styled popper, density, option rendering) in the public-address dialog; add focused tests.
+
+## Phase C — Brand logo
+
+-   [x] LQR5-08 Brand-logo URL validation with a localized message, name fallback when the image fails, and footer accessible name.
+-   [x] LQR5-09 Browser proof: configured logo renders as an `<img>` in header and footer (authoring spec), plus unit coverage for validation and fallback.
+
+## Phase D — Security, data integrity, CI
+
+-   [x] LQR5-10 Guest client-bundle/module endpoints validate identifiers and stop echoing raw database errors to anonymous clients; add a redaction test.
+-   [x] LQR5-11 Enforce the published marketing row cap on runtime create/copy/restore for marketing objects (no content-DoS via the authenticated surface); tests.
+-   [x] LQR5-12 Run the application-alias real-PG integration suites in CI alongside the records integration; add the runner wiring.
+-   [x] LQR5-13 Copy takes the record-rule advisory lock before the source-row `FOR UPDATE`, removing the copy/update deadlock order; order test.
+
+## Phase E — Documentation
+
+-   [x] LQR5-14 Update EN/RU platform docs (public applications and aliases, marketing-page template) for the login-redirect behavior, brand logo setup and row caps.
+
+## Phase F — Full Chromium refresh
+
+-   [x] LQR5-15 Refresh the stale Chromium flow suite against the current UI: fix outdated contracts/selectors/locales, triage the suspicious failures, update visual baselines; full run green (or product bugs fixed).
+
+### LQR5-15 Batch B — stale Chromium specs against the current UI (2026-09-18)
+
+> Failure evidence: `/tmp/opencode/l5-chromium-full.log` (45 failed / 58 passed). Meridian and application-aliases specs are owned by other batches.
+
+-   [x] admin-rbac-management: strict `getByText('Local')` collision → assert the seeded local-instance description instead.
+-   [x] boards-overview: metahub board card id `hubs` → `treeEntities`; `entityCounts.objectCollection` → `entityCounts.object`.
+-   [x] codename-mode: confirm the shared discard-changes dialog after cancelling entity forms (2 tests).
+-   [x] metahub-basic-pages-ux: confirm the RU discard-changes dialog after cancelling the Page dialog.
+-   [x] metahub-1c-compatible-template: confirm the RU discard-changes dialog after cancelling 1C entity dialogs (2 helpers).
+-   [x] metahub-layouts: Resources defaults to Packages; click the Layouts tab before asserting selection.
+-   [x] metahub-settings: `entity.objectCollection.allowAttributeDelete` renamed to `entity.object.allowComponentDelete`.
+-   [x] metahub-shared-common: layout PATCH now requires `expectedVersion`; embedded-controls assertion only valid on shared tabs.
+-   [x] metahub-entity-dialog-regressions: component copy dialog title is now "Copying component".
+-   [x] metahub-packages-resources: scope the mutation error to the settings dialog (snackbar duplicate caused strict violation).
+-   [x] metahub-entity-resources: standard object preset `kindKey` is now `object`.
+-   [x] visual/metahub-entities-dialog: select the Objects preset by anchored name; Kind key `object`.
+-   [x] visual/metahub-create-dialog: report baseline regeneration (dialog height changed 596→622 px); no spec logic change.
+-   [x] Batch B verification: `npx prettier --write` on every edited file; no Playwright run (single-runner rule).
+-   [x] Batch B round 2 (full-suite re-run evidence `/tmp/opencode/l5-chromium-full2.log`): `metahub-basic-pages-ux` Page row menu now exposes the intentional "Open" action → assertion expects `[Open, Edit, Copy, Delete]` (matches `EntityInstanceList.test.tsx`); `metahub-entity-resources` edit dialog field label `Kind key` renamed to `System type key` (`entities.fields.kindKey`), disabled-state assertion updated; `metahub-shared-common` finished the optimistic-lock contract (zone-widget DELETE now sends `?expectedVersion=widget.version`) and the runtime side-menu helper now targets the rendered `link` items instead of buttons.
+-   [x] Batch B round 3 (re-run evidence `/tmp/opencode/l5-chromium-full3.log`): `metahub-basic-pages-ux` Page↔Object row-menu icon parity compares the shared CRUD tail (`slice(1)`) because Object rows have no "Open" content action (their data-schema surface replaces the content page); Page's exact four-item order stays pinned by `toHaveText` and the Object menu is still verified by deep equality.
+
+-   [x] LQR5-16 Verification: Prettier/lint/build, unit suites, real-PG (records + aliases), Meridian + aliases + authoring E2E, matrix, independent subagent reviews, memory bank updated.
+
+# Landing QA remediation (fourth pass) — IMPLEMENT (2026-09-18)
+
+> Closes the third QA report: pricing benefits data loss (`maxItems` slicing of child collections), the plan-required unavailable-state actions (localized Home + user-initiated Sign in, no auto-redirect), brand name/logo configuration end to end, localized and truthful discard-changes handling, record reorder that reaches the published runtime, plus data-integrity, CI and architecture follow-ups (shared marketing serialization, `runtimeRowsController` split, runtime rule i18n dictionary, unified advisory-lock helper, atomic workspace seed reset, degrade-instead-of-404 public runtime, SSRF regression test). No schema/template version bump; disposable database; fixture regenerated only through the authoring flow.
+
+## Phase A — Marketing serialization (R1) and pricing benefits
+
+-   [x] LQR3-01 Extract the duplicated marketing runtime serialization helpers into one shared service module used by the public serializer and the authenticated runtime controller (localized maps, numeric price, safe semantic keys, record limits) with one locale normalization.
+-   [x] LQR3-02 Pricing benefits are never sliced by the tier `maxItems`: benefits of the included tiers reach both payloads bound only by the marketing record limit, in both serializers; unit tests prove 3 tiers x 5 benefits with `maxItems: 3`, the runtime spec asserts five benefit labels per stage, and the authenticated controller suite joins the landing gate.
+-   [x] LQR3-03 The pricing/cluster `maxItems` semantics are explicit: dialog helper text (EN/RU) states the limit applies to the widget's own records, and the shared module documents the child-collection policy.
+
+## Phase B — Public unavailable state (plan parity)
+
+-   [x] LQR3-04 The unavailable public screen renders localized Home and user-initiated Sign in actions for every unavailable reference (unknown/private/deleted/unready) without auto-redirecting or disclosing existence; the pinning unit tests and the Meridian flow assertions are updated.
+
+## Phase C — Brand configuration
+
+-   [x] LQR3-05 The `marketing.brand` widget accepts optional `brandName` and `brandLogo` (media URL) in authoring/public schemas, config dialog, serializer override and renderer; when a brand is configured the demo Sitemark fallback is gone (logo media or brand name renders), and the footer uses the same projection.
+-   [x] LQR3-06 Brand configuration is proven end to end: widget dialog save, serializer override tests, component tests (configured logo vs name fallback), and a browser assertion on the Consortium page.
+
+## Phase D — Discard changes dialog
+
+-   [x] LQR3-07 `EntityFormDialog` uses the localized `common:unsavedChanges.*` defaults, treats pristine forms (including auto-initialized VLC/internal fields) as unchanged, and the auto-init `onChange` loops are memoized; tests cover pristine close, a real edit, and the RU rendering.
+-   [x] LQR3-08 The same discard contract is verified for the other shared dialogs (record/component/application editors) with focused component tests, and the i18n gate flags hardcoded discard defaults if feasible.
+
+## Phase E — Record reorder reaches the runtime
+
+-   [x] LQR3-09 Record reordering persists both the row order and the `SortOrder` component value (per locked object) so the published/runtime order follows the drag; real-PG and unit tests pin the contract.
+-   [x] LQR3-10 The record list surfaces the effective order and the widget/appearance surfaces link to the source records, so an author can find where content (directions, FAQ, tiers) is edited.
+
+## Phase F — Data integrity and resilience
+
+-   [x] LQR3-11 Workspace seed reset is atomic under request-scoped executors: a failed reset rolls back instead of leaving the workspace without seed content.
+-   [x] LQR3-12 The public serializer degrades on incomplete records (skip with diagnostics) instead of 404-ing the whole page; marketing runtime row limits are enforced/warned at write time so oversized collections cannot silently break publication.
+-   [x] LQR3-13 Seed/import paths enforce the unique-key contract, and the TABLE child-row identity policy is either made stable or explicitly documented with a regression test.
+
+## Phase G — Architecture (R2)
+
+-   [x] LQR3-14 `runtimeRowsController.ts` (~9.8k lines) is split into focused read/write/command modules with shared helper extraction, no behavior change, verified by builds and the full applications-backend suite.
+
+## Phase H — Hygiene and gates (R3, R4, R6)
+
+-   [x] LQR3-15 Runtime rule error messages live in the apps i18n bundles with an EN/RU parity test; the i18n gate understands shared dialog prop defaults.
+-   [x] LQR3-16 The advisory-lock helper is unified (`hashtextextended`) behind one shared utility with migrated call sites and tests.
+-   [x] LQR3-17 CI runs the Meridian runtime browser spec and the SSRF regression test on the local Supabase job; the React Router major migration and the flaky INW suite are tracked in the backlog; LOW hygiene items (decodeURI guard, dead dependencies) are closed.
+
+## Phase A (follow-up) — Pricing width
+
+-   [x] LQR3-21 The Consortium pricing section uses the base layout width (`cardWidth: 'auto'`) so the three cards stop wider than the header bar, while the `full` option stays available in the widget settings; generator/contract/flow/provenance and the regenerated fixture updated.
+
+## Phase I — Verification
+
+-   [x] LQR3-18 Prettier, `git diff --check`, lint, build and the full focused unit/real-PG suites for every changed package.
+-   [x] LQR3-19 Minimal local Supabase: fixture untouched/revalidated, contract/drift gates, Meridian runtime, marketing chromium batch and matrix with inspected screenshots; Supabase stopped.
+-   [x] LQR3-20 Independent verification subagents and Thermos review; memory bank updated without leaving debt.
+
+## Backlog (tracked follow-ups)
+
+-   [ ] Move the shared `SettingsDialog` onto `StandardDialog` and export one `dialogActionsSx` from `dialogPresentation` so every dialog footer keeps the canonical inset from a single source (unit test for the inset).
+-   [ ] Extract a reusable `SearchableSelect` into `template-mui` and reuse it in `ApplicationAliasDialog`, `TargetEntitySelector`, and `RecordList` instead of three copied Autocomplete stylings.
+-   [ ] Add `applicationAliasesQueryKeys.options(search, locale)` and replace the literal query key in `ApplicationAliases.tsx`.
+-   [ ] Guard `attachedToKind` in `runtimeGuestController` with an explicit enum check instead of `as never`.
+-   [ ] Split the remaining large files when touched next: `runtimeGuestController.ts` (~1.9k), `NavbarBreadcrumbs.tsx` segment parser, `PlayCanvasCanvasWidget.tsx` (~940), `QuizWidget.tsx` (~745).
+-   [ ] Add the `PlayCanvasCanvasWidget` scene-latch unit test (transient readiness must not recreate the scene/realtime session) and route-level marketing-cap assertions for create/copy/restore (helper and module API are covered).
+-   [ ] Add a concurrent real-PG test for the marketing row cap (two writers at the limit) and assert the `/auth` redirect `from` state in the entry test.
+-   [ ] One-off data repair for "with materials" templates saved before the matrix cellId fix (their `Material.CellId` no longer matches the template rows and instantiation fails closed with 409).
+-   [ ] Align RU plural `_other` keys with `_one/_few/_many` ordering in the applications bundle (cosmetic i18n hygiene).
+
+-   [ ] Refresh the stale full-suite Chromium specs
+-   [ ] Migrate the application-alias advisory-lock pair (`applicationAliasesStore` + the published `applications.create_application_alias` function) to the shared `hashtextextended` space through a new versioned migration instead of editing the immutable one.
+-   [ ] Copy/update deadlock ordering: `copyRow` takes the source row `FOR UPDATE` before the record-rule advisory lock while update paths take the advisory first; align the order or map deadlocks (`40P01`) to a retryable 409.
+-   [ ] Break the residual layer inversion `objects.ts -> menu.ts` (`resolveRuntimeObjectCollectionConfig` resolves an effective layout) and split `access.ts` (guards vs access/library) and `contracts.ts` (schemas vs behavior) when those modules grow again.
+-   [ ] Trim over-exported internals in `runtimeRowSupport/*` and add a dead-export gate (`knip` or `import/no-unused-modules`) once the module surface stabilizes. against the current UI (45 pre-existing failures, e.g. `application-runtime-rows.spec.ts` waited for POST `/runtime/rows` while the UI has called `/runtime/rows/{id}/copy` since HEAD; that one spec is fixed). The full-suite pass status predates LQR2/LQR3 UI changes and must be refreshed with an explicit local-Supabase full run; CI does not run the full suite.
+
+-   [x] Extract the remaining module-level helper block (~4.4k lines) from `runtimeRowsController.ts` into `controllers/runtimeRowSupport/*` and make the controller a thin composition root (<100 lines); add a cycle gate (`dependency-cruiser`/`madge`) to CI. The read/write/command handler split, the shared savepoint helper and the neutral seed guard are complete.
+-   [x] Decompose the largest handler functions (getRuntime ~1170, bulkUpdateRow ~620, createRow ~580, copyRow ~560, updateContentProgress ~345) into step functions/services.
+-   [x] Unify the 409 version-conflict body through `createRuntimeVersionConflictFailure` in copy/create/delete/restore and command handlers; remove the `copyRow` double validation pass or document it.
+-   [x] Share the field-map application between both serializers (public allowlist vs controller schema) in `marketingRuntimeSerialization`; add selector tests with fieldMap/recordKey combinations.
+-   [x] Migrate the remaining `hashtext` lock families (layout store, application-alias store, two-key INW command lock) to the shared hash space or document them as explicit exceptions with a grep gate.
+-   [ ] Remove the `backend exploded` test-literal pattern from production `INTERNAL_ERROR_PATTERNS`; replace test fixtures with realistic technical messages.
+-   [x] Add direct tests for `assertMarketingSeedRows` (workspace path, case-insensitive collision) and for the savepoint rollback of command handlers' partial ledger writes.
+
+-   [ ] Migrate the remaining subsystem-local advisory locks (`interpretationNetworkStructureModeGuard`, interpretation-network relation locks, application-alias store) to the shared `acquireAdvisoryXactLock` hash space; the two-key INW lock needs an extended helper.
+-   [ ] React Router major-version migration (plan 2026-09-15, deferred): currently on patched `react-router-dom@6.30.6` + `@remix-run/router@1.23.4`.
+-   [ ] Flaky interpretation-network workspace browser suite under load (known timeouts identical to HEAD); needs a stability pass (worker isolation or fake-timer cleanup).
+-   [ ] Split the remaining module-level helper block in `runtimeRowsController.ts` (~4.4k lines) into `runtimeRowAccess`/`runtimeRowObjects`/`runtimeRecordsUnion` modules; the read/write/command handler split is complete.
+
+# Landing QA remediation (third pass) — IMPLEMENT (2026-09-17)
+
+> Closes the third QA report: pricing width (missing upstream `width:'100%'` plus a new `cardWidth` setting with `full` for the Consortium and richer stage content), the theme switcher enabled in the Consortium configuration, the missing inheritance badge for shared widgets, the Features fixed-height card overlap, the FAQ answer width, runtime-path uniqueness/pattern enforcement, REF target validation, residual raw error surfaces, CI coverage and the related hygiene items. No schema/template version bump, disposable database, fixture regenerated only through the authoring flow.
+
+**Status (2026-09-17):** all phases complete and independently verified. Evidence: focus unit suites (utils 382, types 216, apps-template-mui marketing 75 incl. runtime errors/rows, template-mui dialog 13, applications-frontend 314, admin-frontend 14, metahubs-frontend 410, apps-backend 1007, metahubs-backend 1308), real-PostgreSQL records 13/13 (incl. the regression proving a 409 duplicate/dangling update persists nothing), browser: meridian runtime 2/2 (geometry + theme reload), marketing chromium batch 16/16, visual matrix 5/5 with inspected refreshed baselines, docs provenance/i18n/assets/links green with a refreshed EN screenshot asset. Independent subagents found and the round closed: a HIGH badge false-positive (`null` lineage vs `undefined`), a CRITICAL partial-commit in design-time updates (request-scoped executor reuses the middleware transaction), runtime `restore` bypassing unique rules, module Record API bypassing rules, non-UUID REF 500s, legacy dangling REFs blocking unrelated edits, and a lock-key mismatch between REST and module writers. Residual architectural follow-ups (recorded, not silently dropped): split `runtimeRowsController.ts` (≈9.8k lines) into read/write/command handlers, deduplicate the marketing runtime serialization helpers between `publicMarketingRuntime.ts` and `runtimeMarketingPageController.ts`, move the runtime rule message dictionary into the apps i18n bundles, and unify the advisory-lock hash function with the newer `hashtextextended` call sites.
+
+## Phase A — Renderer geometry and pricing width
+
+-   [x] LQR2-01 Features fixed-height overlap fixed (`flexShrink: 0` instead of `minHeight: 0`) with a browser geometry oracle (no content clipping, no overlap, real scroll).
+-   [x] LQR2-02 Pricing/Highlights/Testimonials grids fill the section width (restore upstream `width:'100%'`) and the pricing widget gains `cardWidth: 'auto' | 'full'` end to end (authoring/public schemas, types, normalize, renderer, dialog, i18n, backend serializer) with unit tests and a browser grid-fill oracle.
+-   [x] LQR2-03 FAQ answers use the full accordion width (root cause: upstream `maxWidth: { md: '70%' }`) with a width oracle.
+
+## Phase B — Consortium content and configuration
+
+-   [x] LQR2-04 The Consortium pricing config sets `cardWidth: 'full'`, keeps uniform cards and expands the stage content (up to five benefits and longer descriptions) with contract/flow assertions.
+-   [x] LQR2-05 The theme switcher is enabled in the Consortium configuration (generator, fixture contract, flow spec, regenerated fixture) and the anonymous page proves the theme switch; auth stays disabled.
+
+## Phase C — Layout provenance
+
+-   [x] LQR2-06 The inheritance badge is rendered for every inherited widget on metahub-derived layouts (shared switchers and dashboard widgets included) instead of the marketing-key allowlist, with component tests.
+
+## Phase D — Data and authorization hardening
+
+-   [x] LQR2-07 Application runtime write paths enforce the component `pattern` and `unique` rules (create/update/copy) with localized feedback, so an authoring role cannot break the published page.
+-   [x] LQR2-08 Design-time REF values are validated against live target records on create/update, closing the reference-to-nowhere path.
+-   [x] LQR2-09 Copy suffixing respects component `maxLength`, update ordering is unified (version conflict first), and the records integration suite is strengthened (service soft-delete path, production-like partial index, concurrency case).
+
+## Phase E — Localized errors and hygiene
+
+-   [x] LQR2-10 The remaining raw `extractAxiosError(...).message` surfaces use the localized helper (admin access pages, entity automation/modules tabs, migration hooks/guard).
+-   [x] LQR2-11 Marketing serializers normalize the numeric price text at the boundary (`1.00` → `1`) while the renderer keeps locale formatting; header widget configs get a precise schema with tests; the i18n gate refuses empty key sets.
+
+## Phase F — Gates and CI
+
+-   [x] LQR2-12 Browser geometry helpers (`expectGridFillsContainer`, `expectNoContentClipping`, anti-overlap, answer width) wired into the Consortium runtime spec; refreshed baselines inspected.
+-   [x] LQR2-13 CI runs the applications-backend marketing suites, the template-mui dialog tests, the layout-provenance tests and the real-PostgreSQL records suite on the local Supabase job; the unit gate is renamed to reflect its scope.
+
+## Phase G — Verification
+
+-   [x] LQR2-14 Prettier, `git diff --check`, lint and the full focused unit/real-PG suites for every changed package.
+-   [x] LQR2-15 Minimal local Supabase: rebuild, regenerate the fixture, pass the contract/drift/runtime gates and the browser suites with inspected screenshots; stop Supabase.
+-   [x] LQR2-16 Independent verification subagents (geometry/UX, provenance, data/security) and memory-bank update without leaving debt.
+
+# Landing QA remediation (second pass) — IMPLEMENT (2026-09-17)
+
+> Closes the findings of the comprehensive QA over the Consortium landing: data-integrity guards for referenced records and semantic keys, numeric pricing rendering, Russian stage names, layout-driven header widgets on the anonymous public runtime (language switcher on, auth/theme off via `isActive`), the features fixed-height setting enabled for the Consortium, the contacts block restructure (communities + contacts), localized error messages without server internals, CI/real-PG/Playwright coverage, and the P2 hygiene items. No schema/template version bump, disposable test database, fixture regenerated only through the real authoring/export flow.
+
+## Phase A — Data integrity and content (P0)
+
+-   [x] LQR-01 Deletes are guarded on both sides: a scoped `SELECT` + inline soft delete (`object_id` predicate) replaces the generic helper, and `assertElementNotReferenced` fail-closes with `RECORD_REFERENCED` for root and TABLE-child REF references (JSONB array guard, self-reference excluded). Unit tests cover the scoped predicate and the guard; a real-PostgreSQL suite (6/6) proves the tier-with-benefits lock, the TABLE-child case with a `null` table value, and the self-reference case. The generic `mhbSoftDelete` scope parameter was reverted after review because it broke tables without `object_id` (`_mhb_shared_entity_overrides`).
+-   [x] LQR-02 Semantic keys are unique per object: `keyComponent` in the marketing template publishes `validationRules.unique` plus the canonical semantic-key pattern, `assertUniqueComponentValues` runs inside the serialized transaction (advisory lock shared with create/delete, conflict detection first), and the copy flow re-suffixes taken keys via `suggestUniqueComponentValue`. The template baseline contract now asserts the unique rule for all ten key components. Duplicate `SectionKey` can no longer make the public page 404.
+-   [x] LQR-03 Prices render without fake precision: `formatMarketingPrice` formats the canonical NUMERIC shape through `Intl.NumberFormat` per locale and keeps authored text untouched; the Consortium tiers show `1/2/3 этап`, the template shows `0/15/30`, and the browser spec asserts the tier price/period text with no `1.00` anywhere.
+-   [x] LQR-04 Stage names are localized (RU «Предпосевная», «Посевная», «Масштабирование»; EN unchanged), the fixture was regenerated through the authoring flow and the contract/runtime specs assert the localized titles.
+
+## Phase B — Layout-driven header widgets on the public runtime (P0)
+
+-   [x] LQR-05 The anonymous runtime now receives layout-driven `headerWidgets` (brand/navigation/auth + language/color-mode switchers) with `isActive`, resolved instance keys and schema-level uniqueness; inactive rows are skipped explicitly, the public page feeds them to the marketing header (falling back to data widgets for legacy payloads), and unit tests cover the active/disabled projection plus the hero/image refine regression.
+-   [x] LQR-06 The generator authors the Consortium from the `marketing-page` template and then explicitly disables `marketing.auth` via `isActive` while keeping `languageSwitcher` enabled; the fixture contract asserts the states. (Superseded by LQR2-05: the color-mode switcher is enabled again and now proves the anonymous theme switch.)
+-   [x] LQR-07 The anonymous runtime exposes the language switcher: the browser spec clicks it, verifies the `?locale=ru` URL and the Russian hero, and asserts that the disabled auth/theme widgets are absent on every locale and viewport.
+
+## Phase C — Areas and contacts (P1)
+
+-   [x] LQR-08 The Consortium enables `fixedItemsHeight` (asserted by the contract and the runtime payload) and the card list scrolls inside the template-height area; the generic template keeps its media-based geometry.
+-   [x] LQR-09 Contacts are restructured as «Наши сообщества» (Telegram, VK, Max) and «Наши контакты» (demo phone with `tel:`, demo Omsk address linking to the Omsk map); footer groups are visible on mobile (previously `display: none` on xs), labels/groups are asserted in EN and RU, and the provenance manifest documents the approved demo values.
+
+## Phase D — Localized error messages (P1)
+
+-   [x] LQR-10 `resolveApiErrorMessage` never surfaces server payloads: axios errors always yield the localized fallback (English texts, legacy codes and Postgres internals cannot leak), plain frontend `Error` messages are preserved, and the member/record hooks map `RECORD_REFERENCED`/`RECORD_KEY_DUPLICATE` to dedicated localized messages. 26 utils tests document the contract.
+
+## Phase E — Tests and CI (P1)
+
+-   [x] LQR-11 `MetahubRecordsService.integration.test.ts` covers the record-integrity guards against real PostgreSQL (hermetic schema, TRUNCATE per test, 6/6) and is wired through the new `test:records-integration` package script with README instructions; the anonymous public runtime remains covered by the browser gate on the real database.
+-   [x] LQR-12 Playwright gaps closed: RU unavailable alert + retry absence, all footer labels/groups, tier price/period text, the strengthened `layout-runtime-settings-panel` oracle (was a conditional no-op), the matrix browser-issue collector documented for the expected `204` probe abort, and the focused unit gate `test:marketing-runtime-gate` (i18n self-test + utils + types + marketing renderer + notification/layout keys + records service) wired into CI.
+-   [x] LQR-13 The i18n gate is robust and testable: pure helpers live in `tools/lib/i18n-keys.mjs`, static template-literal callsites are scanned, duplicate keys compare through `JSON.parse` (escapes collide), the dead `keepRawLocales` option is gone, and `tools/check-i18n-coverage.test.mjs` (5 cases) covers the scanner. Widget-dialog labels are asserted in both authoring bundles.
+
+## Phase F — Hygiene (P2)
+
+-   [x] LQR-14 Hygiene: the triple `variant → record kind` map is now `MARKETING_COLLECTION_VARIANT_RECORD_KINDS`, the public marketing field allowlist has a drift guard against the authoring source fields, and `/a/...` public addresses are built by the shared `publicApplicationAddress` helpers (two duplicated `addressFor` copies removed).
+-   [x] LQR-15 The provenance manifest documents the approved demo contacts, the MUI demo fallback, the header-widget `isActive` plan, the uniform pricing stages and the fixed-height areas; README/README-RU of the metahubs backend describe the integration test prerequisite.
+
+## Phase G — Verification and closeout
+
+-   [x] LQR-16 Prettier, `git diff --check`, lint (9 packages) and the focused suites are green after all review fixes.
+-   [x] LQR-17 The generated fixture was refreshed twice (content and component validation rules) and the contract + drift + template-baseline gates pass; `build:e2e` succeeded and browser evidence on the final build is green: meridian runtime 2/2 (payload settings, language switch, live RU switch, disabled widgets, prices, contacts, RU unavailable), app-runtime-views 4/4, marketing matrix 5/5; Supabase stopped.
+-   [x] LQR-18 Two Thermos subagent reviews over the remediation scope; all accepted findings fixed (CRITICAL `mhbSoftDelete` regression, TABLE-child REF robustness, advisory lock + conflict-first ordering in `update`, hero/image refine misplacement, header-row filtering, price regex tightening, debug logs removed, baseline `unique` assertion, integration script) and the rejected ones documented with rationale (monolith splits, DTO naming parity, enterprise sizing).
+
+# Landing content & localization remediation — IMPLEMENT (2026-09-17)
+
+> Closes the five user-reported defects confirmed by the QA pass over the rebuilt Consortium landing: notification localization, Investment section built on the MUI Pricing block, one-word navigation label, Areas (features) layout/settings/demo media, and Contacts content. No legacy compatibility code, no schema/metahub-template version bump, disposable test database, fixture regenerated only through the real authoring/export flow.
+
+## Phase A — Localization (why notifications leaked English)
+
+-   [x] LCR-01 Notifications localized end to end: the missing success/error keys were added to the EN/RU bundles (`createSuccess/createError/updateSuccess/updateError/copyInProgress`, `connectors.createSuccess/updateSuccess/deleteSuccess/copyInProgress`, `publications.applications.createSuccess/createError`, version mutations, …), the connector sync snackbars now reuse the existing `connectors.sync.success/error/confirmDestructive` keys, every error snackbar goes through the new shared `resolveApiErrorMessage` (server payload message or localized fallback, never raw `transport text`), the dropped root `table` keys are restored in the metahubs namespace consolidation, and duplicated/unplaced keys were removed so only the runtime-resolvable locations remain.
+-   [x] LCR-02 The new `pnpm check:i18n-coverage` gate (`tools/check-i18n-coverage.mjs`) models the real consolidation exactly (subtree spread, merged vs replaced root keys, shared `common`/`header`/`spaces` fallback namespaces, explicit `namespace:key` references, `keyPrefix`/`useCommonTranslations` prefixes, multiline `t`/`tc`/`tl` callsites, plural-suffixed entries, duplicate JSON key detection), enforces EN/RU parity ignoring plural suffixes, and is wired into CI (`pnpm check:i18n-coverage`, `.github/workflows/main.yml`). Green targets: applications-frontend 932, apps-template-mui 657, metahubs-frontend 1922 literal keys — the stricter model also surfaced and closed 100+ pre-existing unresolved keys (member/generic/entity/component/publication/module screens, `metahubs:errors.*` root errors, apps `colorMode`/`workspace`/`app.*` keys) and the dead `recordKey` labels were removed.
+-   [x] LCR-03 New focused real-bundle tests `notificationMessages.test.ts` in both packages assert the fixed RU/EN notification texts (including the corrected Russian grammar of publication messages) and the consolidated `table.*` labels; member validation is asserted against the shared `common` bundle that the member hooks actually use; English-default pinning assertions in the mutation suites were updated; utils received 9 `resolveApiErrorMessage` tests (including legacy-code suppression); `useCreatePublicationApplication` gained success/error coverage.
+
+## Phase B — Investment section on the Pricing block
+
+-   [x] LCR-04 `marketing.pricing` now supports `cardStyle: 'featured' | 'uniform'` in both the authoring and public schemas; `Pricing` honours uniform cards (no featured gradient, no badge path, equal `sm:6` cards), `showBenefits` is a live setting that hides the benefit list, the dead `badge` field and the hardcoded `$` price prefix were removed, and tier descriptions (record `Subheader`) render under the price. Component tests cover featured/uniform/description/benefits and the public serializer test proves the settings reach the anonymous DTO.
+-   [x] LCR-05 `MarketingWidgetConfigDialog` exposes the pricing `cardStyle` select and the features-only `showItemDescriptions`/`fixedItemsHeight` switches with variant gating; EN/RU labels (5 keys) exist in all four authoring bundles; dialog tests cover saving uniform mode and hiding the features controls for other variants.
+-   [x] LCR-06 The three single-card highlights widgets are replaced by one `marketing.pricing` widget (`cardStyle: 'uniform'`, `maxItems: 3`) fed by three `MarketingPagePricing` rows and eleven relation-linked `MarketingPagePricingBenefit` rows (financing in the tier description, horizon/mandates in the benefits); the `Investment` anchor points at `#pricing`; the generator authoring flow, fixture contract and flow spec were inverted, the committed fixture was regenerated through the real authoring/export flow and the contract + drift + runtime gates pass.
+
+## Phase C — Navigation label and Areas (features)
+
+-   [x] LCR-07 The navigation label is one word (RU «Преимущества» / EN «Highlights»); the fixture row and the data-driven assertions were regenerated.
+-   [x] LCR-08 `Features` renders the original MUI template demo screenshots when a feature has no authored media (decorative, light/dark aware), supports titles-only and fixed-height scroll modes, and the config flows through normalize/renderer/types; component tests cover the demo fallback, authored-media priority, titles-only and scroll constraints.
+-   [x] LCR-09 `marketing.collection` gained `showItemDescriptions` (default true) and `fixedItemsHeight` (default false) in the authoring and public schemas with variant-gated dialog controls and EN/RU labels; schema defaults keep existing persisted configs valid.
+-   [x] LCR-10 The five activity descriptions were shortened in both locales (94–108 characters, down from ~140–170), the contract exact-text checks follow the content module and the regenerated fixture keeps the drift gate green.
+
+## Phase D — Contacts block
+
+-   [x] LCR-11 Contacts content is authored: six `MarketingPageFooterLink` rows for the `contacts` group (email/Telegram/VK demo destinations) and the `sections` group (anchor links); the “footer links must be absent” contract rule was replaced by exact key/label/group/href assertions and the fixture was regenerated.
+-   [x] LCR-12 The anonymous runtime spec asserts every footer link by exact href and the first localized label, the strengthened spec also asserts the served widget configs (`cardStyle`, `showBenefits`, features settings) and the demo feature image, and the existing no-leakage/no-overflow oracles still run over the footer.
+
+## Phase E — Verification and closeout
+
+-   [x] LCR-13 Prettier and `git diff --check` are clean; lint is green for applications-frontend, metahubs-frontend, apps-template-mui, template-mui, types, utils, i18n, applications-backend and migration-guard-shared; unit suites: applications-frontend 310/310, metahubs-frontend 409/409, types 207/207, template-mui 294/294, utils error-handler suite 28/28, apps-template-mui 753 passed + 15 known load-sensitive `InterpretationNetworkWorkspaceWidget` timeouts (pre-existing, identical on HEAD).
+-   [x] LCR-14 The fixture was regenerated through the generator spec on the minimal local Supabase profile; the full gate (generator → contract → drift → runtime spec) passed; the marketing-page visual baseline was legitimately refreshed after inspecting the diff (no hardcoded currency, tier description added) and re-checked green; browser evidence on the final build: meridian runtime 2/2 (payload + demo image + footer assertions), marketing-page-runtime 2/2, INW smoke 2/2, application-aliases 2/2, app-runtime-views 4/4, marketing-page authoring + widget lifecycle 4/4; Supabase stopped. A corrupted auth database left by an interrupted integration attempt was recovered by nuking and recreating the disposable E2E profile.
+-   [x] LCR-15 Two verification subagents (localization, marketing content/render) and two Thermos review subagents (correctness/security, maintainability) reviewed the scoped change. Accepted and fixed: the i18n gate namespace/override/keyPrefix/multiline/`tc`/`tl`/duplicate-key holes plus the surfaced missing keys, legacy error codes no longer surfacing as user text, the migration-guard and metahubs member error paths now use `resolveApiErrorMessage`, the members test now asserts the real shared bundle, dead `recordKey` labels removed, duplicate `darkMedia` whitelist entry removed, stable React keys for pricing benefits, benefit→tier linkage/order asserted in the fixture contract, and a focused `useCreatePublicationApplication` test added. Rejected as pre-existing/out-of-scope with rationale: monolith splits and shared mock factories (no behavior risk), hardcoded `enterprise` sizing (parity with the reference MUI template), and the strict persisted-schema rollback note (documented here instead of adding tolerant parsing).
+-   [x] LCR-16 `progress.md` updated with the final evidence; all verification/review subagents are completed; the worktree was not committed (the user has not requested a commit).
+
+# Consortium Marketing + Public Runtime + Application Aliases — QA REMEDIATION, THIRD PASS (2026-09-16)
+
+> This checklist closes every confirmed finding of the final QA pass (4 independent reviews). No legacy compatibility code, no schema/template version bumps, disposable test database.
+
+-   [x] QAR2-01 (HIGH) Fix the dropped Consortium `Investment` anchor: every rendered section id is now registered as its own alias key in `buildSectionAnchors`, so `<section>-<instanceKey>` anchors resolve for repeated widgets. Covered by the extended `MarketingPage` anchor unit test and a new browser step asserting that all six Consortium navigation anchors resolve to rendered sections (desktop/tablet/mobile screenshots inspected).
+-   [x] QAR2-02 (HIGH) CI now runs only the committed-fixture contract check; the drift check stays inside the local-Supabase gate that generates the artifact first (the artifact path is gitignored and cannot exist on a clean checkout).
+-   [x] QAR2-03 (MEDIUM) Removed the duplicate anonymous bootstrap request: the public runtime page reuses the route entry's shared query result (`refetchOnMount: false`), proven by a new component test that fails if a second fetch happens.
+-   [x] QAR2-04 (MEDIUM) Split the admin shell predicate from the RLS predicate: `admin.has_admin_permission` restored to its original subject set (management-table policies), new `admin.has_admin_shell_permission` (alias-aware, `manage`-aware, execute grants) used only for Admin-shell admission in `globalAccessService.canAccessAdmin`; migration test updated and the split proven against a real PostgreSQL database (strict=false, shell=true for an alias-read-only actor).
+-   [x] QAR2-05 (MEDIUM) Delegation ceiling now covers role assignment: new `assertRoleAssignmentWithinCeiling` (shared pure policy module, no circular imports) is enforced in `grantRole`/`setUserRoles` for human actors while system bootstrap (no actor) follows the existing skip rule; 6 new unit tests plus updated service/route suites are green.
+-   [x] QAR2-06 (MEDIUM) Real-PostgreSQL authorization coverage added (`applicationAliasesAuthorization.integration.test.ts`): actor binding rejection, create capability rejection, capability-granted creation, makePrimary without/with update capability, and the strict-vs-shell predicate split — 4/4 on the freshly recreated local database (12/12 together with the invariant suite).
+-   [x] QAR2-07 (LOW) Public media resources now reject remote plain-HTTP at the schema level (loopback preserved) with types tests; public widget instance keys are deterministically re-keyed on collision (unit test); text-only logo entries support actions.
+-   [x] QAR2-08 (LOW) Technical-address copy uses dedicated stable-link wording (EN/RU keys + tests); `common.unsavedChanges.description` is entity-neutral; the misleading Addresses panel test replaced by the real visible-technical-address contract; dead import removed; smoke navigation locator kept strict; alias functions received consistent EXECUTE grants; SQLSTATE 3F000/42703 covered; the admin alias resolver gained a Retry action.
+-   [x] QAR2-09 (LOW) Evidence gaps closed: released-alias filter exercised in the browser, picker disambiguator extracted into a pure helper with tests, image dialog invalid-URL/required-alt tests added, the Meridian anonymous landing page asserted at 1920/768/390 with inspected screenshots, and `app-runtime-views` regained its runtime view-settings contract through a new records.union dashboard test (toggle, search, card view, row creation).
+-   [x] QAR2-10 Re-ran focused suites and full gates: applications-backend 986/986 and 12/12 real-PostgreSQL integration tests, types 207/207, template-mui 292/292, applications-frontend 306/306, apps-template-mui 691/691, core routes 10/10; browser on the minimal local Supabase: `application-aliases` 2/2 (incl. released filter), `snapshot-import-73rd-meridian-public-runtime` 2/2 (nav anchors, funding stages, viewport matrix), `interpretation-network-app-smoke` 2/2, `marketing-page-runtime` 2/2, `app-runtime-views` 4/4 (incl. new union test); `pnpm build:e2e` 36/36; fixture contract check, Prettier, `git diff --check`, and package lint green. Screenshot inspection also caught and fixed a real defect: recordKey-filtered collection items (Consortium funding stages) did not resolve in the public runtime because the serializer keyed records by a missing `codename` column instead of their own `*Key` component.
+
+# Consortium Marketing + Public Runtime + Application Aliases — QA REMEDIATION (2026-09-16)
+
+> This checklist closes the confirmed findings of the second QA pass over the dirty implementation. No legacy compatibility code, no schema/template version bumps, disposable test database.
+
+-   [x] QAR-01 (CRITICAL) Restore the authenticated runtime path for closed applications: `/a/:applicationRef/*` must resolve the reference before auth, render the anonymous public runtime for ready public applications, and for the generic unavailable outcome with an authenticated session enter the existing `ApplicationGuard -> ApplicationMigrationGuard -> ApplicationRuntime` path via a separate authenticated ref-resolver; anonymous visitors keep the non-enumerating unavailable page. Implemented as `ApplicationRuntimeEntry` in `apps-frontend` (public bootstrap decision, authenticated alias resolver, guards with `applicationIdOverride`), mounted by `MainRoutes`; unit coverage `ApplicationRuntime.entry.test.tsx` 6/6. Browser proof: the previously red `interpretation-network-app-smoke` (private application) is green and shows the authenticated workspace.
+-   [x] QAR-02 (HIGH) Restore marketing navigation/section anchoring: preserve safe semantic widget instance keys in the public DTO (UUID-shaped identities still fall back to synthetic keys) and generalize the anchor contract (`MarketingSectionAnchors` with alias resolution) so emitted navigation anchors resolve to rendered section ids (`#logos`/`logoCollection`, repeated instances, auth and public runtime). Covered by `MarketingPage` anchor test, serializer instance-key test, and the green `marketing-page-runtime` spec asserting `#hero`, `#logoCollection`, … `#footer`.
+-   [x] QAR-03 (HIGH) Render the approved Consortium partner categories: logo records may be text-only (media optional in both record schemas), both materializers keep them, normalization/`LogoCollection` render the localized label; covered by serializer + component tests and the text-only partner contract.
+-   [x] QAR-04 (HIGH) Replace the `ConfirmDialog` single-renderer ownership hack: one authoritative mount in `MainLayoutMUI`, redundant page-level mounts removed (8 pages), ownership guard deleted, new `ConfirmDialog.test.tsx` covers accessible dialog + resolve/cancel + absence of resize/fullscreen controls.
+-   [x] QAR-05 (MEDIUM) Re-enable the existing marketing-page runtime E2E: the spec now designates a public-entry workspace through the supported API, uses the current section anchors, and the refreshed visual baseline (reviewed via image viewer) matches the restored navigation rendering.
+-   [x] QAR-06 (MEDIUM) Align alias release authorization with the database policy: the RLS UPDATE backstop accepts update/delete/manage for the delete-authorized soft release while the API controller still maps rename/setPrimary to `update` and release to `delete`.
+-   [x] QAR-07 (MEDIUM) Added real-PostgreSQL integration coverage `applicationAliasesIntegration.test.ts` (8/8 against the minimal local Supabase database): global unreleased-name uniqueness, reclaim only after release, reservation across soft-delete, reserved/UUID/malformed rejects, one active primary, released-never-primary, `ON DELETE RESTRICT`, concurrent claim and concurrent competing-primary arbitration through the unique indexes.
+-   [x] QAR-08 (MEDIUM) Slugs application picker disambiguator: options now carry the localized description as a human-readable secondary label, shown only when display names collide.
+-   [x] QAR-09 (MEDIUM) Released aliases reachable in the Slugs page through a localized `Show released addresses` switch wired to `includeReleased` with page reset and i18n parity coverage.
+-   [x] QAR-10 (MEDIUM) The Addresses tab now shows the labeled read-only `Technical address` value together with its copy action; the alias E2E asserts the UUID inside that explicitly labeled control instead of forbidding it.
+-   [x] QAR-11 (MEDIUM) Damaged/unready public runtime states collapse into the single unavailable outcome: unknown-schema/table/column SQL states and the final DTO parse are mapped to the non-enumerating 404 with a dedicated route test.
+-   [x] QAR-12 (LOW) Locale whitelist for the public runtime (`?locale=` unsupported values fall back to English), protocol-based plain-HTTP media checks, alias-mutation invalidation of cached authenticated runtime references, image i18n drift parity test (RU drift aligned), Meridian fixture gates wired into CI, and dead-code removal (`insertApplicationAlias`, unused query keys, unreachable `APPLICATION_ALIAS_PRIMARY_REQUIRED` branches).
+-   [x] QAR-13 Re-run focused unit/integration/browser suites, Prettier/lint/build, update progress evidence. Green: applications-backend 992 (with 8 integration skips without a DB; 8/8 with the local database), applications-frontend 302, template-mui 290, apps-template-mui 691, metahubs-frontend 403, core-frontend route/parity suites, types 206; browser: `application-aliases` 2/2, `snapshot-import-73rd-meridian-public-runtime` 2/2, `interpretation-network-app-smoke` 2/2, `marketing-page-runtime` 2/2, `app-runtime-views` 3/3, `cross-template-runtime` 2/2; full `pnpm build:e2e` 36/36; Prettier/`git diff --check`/lint green.
+
+# Consortium Marketing + Public Runtime + Application Aliases — IMPLEMENT (2026-09-15)
+
+> This is the authoritative checklist for the current implementation. It follows the approved brief, research, and final QA-reviewed plan. The database is disposable for this change: remove the legacy application-level slug contract cleanly, do not add compatibility shims, and do not bump the schema or metahub-template version.
+
+-   [x] CMPRA-01 Re-baseline the worktree, dependency state, content provenance, package READMEs, implementation/UI/security/Playwright skills, and OntoIndex impact for every existing symbol changed. Re-baselined against the brief, research, plan and package READMEs; runtime-ux-qa and thermos skills loaded; four independent read-only review subagents (alias RBAC/security, anonymous public runtime, marketing widget/fixture, runtime UX) completed over the dirty implementation.
+-   [x] CMPRA-02 Patch the React Router v6 dependency pair to the approved fixed line and verify the lockfile/overrides contain no vulnerable stale router pin. `react-router`/`react-router-dom` resolve to 6.30.6 via `pnpm-workspace.yaml` overrides and the forced `@remix-run/router@1.23.2` override is gone: the lockfile pins `@remix-run/router@1.23.4`.
+-   [x] CMPRA-03 Add shared typed alias, public-runtime, permission, and marketing static-widget contracts with strict normalization/validation and focused tests. `packages/universo-react-types` tests 206/206 and `@universo-react/utils` 372/372 pass, including `applicationAliases` grammar/reserved-words and marketing ownership-discriminator contracts.
+-   [x] CMPRA-04 Replace the legacy application slug persistence with the dedicated alias registry, routing policy, release/canonical invariants, UUID v7 IDs, RBAC capability, management API, and database-backed tests. `applications-backend` 982/982 tests pass; grep confirms no remaining application-level slug consumers in backend/frontend persistence, system definitions, sync identity, or frontend types.
+-   [x] CMPRA-05 Add the server-owned public runtime workspace designation and transaction-pinned anonymous published-read boundary with non-enumerating availability behavior and conservative caching. Public readiness classifier + single unavailable outcome verified by tests; `Cache-Control: no-store` asserted in route tests; transaction-pinned RLS covered by same-transaction tests. QA additions: route-schema `safeParse` and unsafe-physical-table failures now collapse into the shared unavailable outcome (no 503 channel), the published-row limit fails closed instead of silently truncating, and the public bootstrap uses its own stricter `applications-public-runtime` rate limiter.
+-   [x] CMPRA-06 Update frontend route precedence and public runtime transport so `/a/:applicationRef/*` resolves UUID/alias before auth, keeps `/a/:applicationId/admin/*` authenticated UUID-only, and never calls authenticated runtime endpoints anonymously. Route-precedence regression tests and anonymous-client network tests pass in applications-frontend (296/296) and core MainRoutes tests; browser network oracle in the 73rd Meridian spec proves no cookies/Authorization and only `/public/applications/:ref/runtime` calls.
+-   [x] CMPRA-07 Add the application Addresses tab and Instance Slugs administration page with capability-driven access, shared MUI primitives, TanStack Query, EN/RU i18n, responsive/a11y behavior, and focused UI tests. applications-frontend 296/296; metahubs i18n gained the six missing `layouts.marketing.widget.image*` keys (blocker fix). QA additions: application selector options now expose the `{id, name}` contract instead of leaking the internal `nameValue` store shape (empty option labels fixed), locale-aware application names for the Slugs table (`?locale=`), and copy-feedback keys moved from `aliases.actions.*` to the existing `aliases.dialog.*` keys so the snackbar no longer renders a raw i18n key.
+-   [x] CMPRA-08 Implement the first-class static `marketing.image` widget, explicit widget ownership modes, URL/HTTPS validation, Hero media ownership cleanup, and MUI-compatible responsive rendering with tests. Marketing renderer/normalizer/dialog suites pass (apps-template 690/690 outside the pre-existing flaky InterpretationNetwork suite; template-mui 289/289). QA additions: public boundary re-applies HTTPS/loopback for remote media (defense-in-depth), and the image dialog shows a URL-specific localized invalid-URL message instead of the generic one.
+-   [x] CMPRA-09 Generate and commit the 73rd Meridian product snapshot through the real authoring/export flow, using `.backup/Лендинг-для-Консорциума.md` as the Russian source, a faithful English translation, and the temporary MUI dashboard image URL only for the central image. `check:73rd-meridian-fixture-contract` and `check:73rd-meridian-fixture-drift` pass against the committed fixture and a freshly generated snapshot.
+-   [x] CMPRA-10 Add deep Jest/Vitest/PostgreSQL/Playwright/security/visual coverage for aliases, anonymous public runtime, route precedence, EN/RU, 1920×1080/768×1024/390×844, keyboard/focus, no overflow, and technical-leakage checks; inspect screenshots. Browser evidence on the minimal local Supabase stack: `application-aliases.spec.ts` 2/2 (EN/RU pass, viewport matrix 1920/768/390, keyboard alias creation via the application picker, set-primary and release confirmations, dirty-form discard regression, two-application deployment-global proof, technical-leakage oracles) and `snapshot-import-73rd-meridian-public-runtime.spec.ts` 2/2 (anonymous UUID/direct/canonical alias runtime plus new negative step proving localized non-retrying unavailable states and the distinct retryable network-failure state). Failure screenshots inspected via image viewer during debugging. Remaining known gap: the standalone marketing-page visual matrix projects were not rerun in this pass; the pre-existing load-sensitive `InterpretationNetworkWorkspaceWidget` suite still times out under load and was verified to fail identically on committed HEAD via a separate worktree.
+-   [x] CMPRA-11 Update affected package READMEs and GitBook-style `docs/` documentation, including alias lifecycle, public runtime trust boundaries, marketing image authoring, and fixture provenance. Paired EN/RU GitBook pages (`public-applications-and-aliases`), updated summaries, provenance manifest, and package READMEs are present in the worktree.
+-   [x] CMPRA-12 Run Prettier, `git diff --check`, affected lint/type/build/test suites, minimal-local-Supabase E2E, OntoIndex changed-scope verification, Thermos/autoreview, reconcile all findings, update progress evidence, and leave no unresolved product task. Prettier/`git diff --check`/lint pass for the changed surface; focused Jest/Vitest suites green; two browser suites green on the minimal local Supabase profile (Supabase left running for the user's next step and can be stopped with `pnpm supabase:e2e:stop`). QA additionally fixed three cross-cutting shared-primitive defects found during browser QA: (1) anonymous guest endpoints broke when the capability-gated alias router mounted `use(ensureAuth)` before the public guest router — fixed by mount-order plus a new composition test; (2) `ConfirmDialog` rendered into the static `#portal` div, which MUI marks `aria-hidden` while another modal is open, making confirmations invisible to assistive tech and duplicated by page-level mounts — fixed by MUI-default portal plus a single-renderer ownership guard and removal of the now-unused `#portal` element; (3) the workspace carried two notistack majors (`^2.0.4` in core-frontend vs catalog `^3.0.1` everywhere else), silently breaking every snackbar — unified on notistack 3.0.2 through the catalog with a regenerated lockfile. OntoIndex `gn_verify_diff` and the Thermos/autoreview bundle were not rerun in this pass (known oversized-diff limitations documented in earlier evidence); direct source review plus the focused/browser suites above stand in as the reconciliation evidence.
+
+## QA verification evidence (2026-09-16 QA/IMPLEMENT pass)
+
+-   Browser: `application-aliases.spec.ts` and `snapshot-import-73rd-meridian-public-runtime.spec.ts` both pass 2/2 on `pnpm supabase:e2e:start:minimal` with the canonical wrapper; the anonymous runtime requests carry no cookies/Authorization; unavailable states render the localized non-retrying alert and keep the URL.
+-   Suites: applications-backend 982/982, applications-frontend 296/296, template-mui 289/289, apps-template-mui 690/690 (excluding the documented pre-existing flaky INW file), admin-backend 152/154 (2 env skips), metahubs-backend 1292/1297 (5 env skips), metahubs-frontend 403/403, admin-frontend 14/14, types 206/206, utils 372/372.
+-   Fixture gates: `check:73rd-meridian-fixture-contract` and `check:73rd-meridian-fixture-drift` pass for both the committed fixture and a freshly generated snapshot.
+-   Cross-cutting fixes verified by tests: alias option projection `{id, name}` (+ UUID v7 fail-closed route test), route-composition guest-availability test, public-runtime safeParse/unavailable mapping test, HTTP-media fail-closed serialization test, metahubs EN/RU image i18n keys, ConfirmDialog ownership guard (template-mui 289/289 incl. nested-dialog tests), single notistack 3.0.2 lockfile.
+
 # Marketing header QA defect remediation — IMPLEMENT (2026-09-13)
 
 > This is the authoritative checklist for the current continuation. It closes the user-reported localization, dialog-spacing, and marketing-header visual regressions on top of the existing dirty implementation. Preserve unrelated worktree changes, keep the clean-break architecture, use shared primitives, and do not change schema or metahub-template versions.
@@ -278,66 +650,66 @@
 
 ## Preserved contract
 
-- [x] Clean-break implementation on disposable test DB; no legacy asset/runtime fallback, no schema/template-version bump, UUID v7 for persisted identities, EN/RU UI, Chromium browser proof.
-- [x] Keep Editor vendor protocol compatibility in Universo-owned backend/bridge layers; strict auth, CSRF, Origin, RBAC/IDOR, bounded payloads, safe paths, and redacted logging.
-- [x] Keep PlayCanvas runtime engine 2.21.4 staged through the import-map/prebuild flow; Editor package remains independently pinned to its upstream-compatible engine line.
+-   [x] Clean-break implementation on disposable test DB; no legacy asset/runtime fallback, no schema/template-version bump, UUID v7 for persisted identities, EN/RU UI, Chromium browser proof.
+-   [x] Keep Editor vendor protocol compatibility in Universo-owned backend/bridge layers; strict auth, CSRF, Origin, RBAC/IDOR, bounded payloads, safe paths, and redacted logging.
+-   [x] Keep PlayCanvas runtime engine 2.21.4 staged through the import-map/prebuild flow; Editor package remains independently pinned to its upstream-compatible engine line.
 
 ## Asset / realtime pipeline outcome
 
-- [x] Added Editor compatibility asset create/read/delete routes, fail-closed unsupported mutations, folder `virtual_path`, stable numeric Editor document ids, UUID v7 row ids, MIME/extension allowlists, ETag/checksum handling, and upstream `{id}` create response.
-- [x] Added realtime `fs` delete + `pipeline` script-attribute handlers, scoped dynamic asset grants, messenger socket registry, bounded ShareDB handshake buffering, and prototype-pollution-safe JSON0 paths.
-- [x] URL bridge preserves `Request` method/body/headers/abort signal, injects pre-warmed CSRF, rewrites only supported asset routes, and rejects unknown paths without leaking credentials or absolute storage paths.
-- [x] File operations validate project/root/provider/path ownership, reject traversal and symlink escape, use checksum/version preconditions, atomic no-clobber rename semantics, and rollback physical artifacts after failed DB work.
-- [x] Production shell CORS regression closed: generated local profile emits strict localhost + 127.0.0.1 origins; doctor rejects missing/wildcard/incomplete CORS; missing hashed assets return 404 instead of SPA HTML.
+-   [x] Added Editor compatibility asset create/read/delete routes, fail-closed unsupported mutations, folder `virtual_path`, stable numeric Editor document ids, UUID v7 row ids, MIME/extension allowlists, ETag/checksum handling, and upstream `{id}` create response.
+-   [x] Added realtime `fs` delete + `pipeline` script-attribute handlers, scoped dynamic asset grants, messenger socket registry, bounded ShareDB handshake buffering, and prototype-pollution-safe JSON0 paths.
+-   [x] URL bridge preserves `Request` method/body/headers/abort signal, injects pre-warmed CSRF, rewrites only supported asset routes, and rejects unknown paths without leaking credentials or absolute storage paths.
+-   [x] File operations validate project/root/provider/path ownership, reject traversal and symlink escape, use checksum/version preconditions, atomic no-clobber rename semantics, and rollback physical artifacts after failed DB work.
+-   [x] Production shell CORS regression closed: generated local profile emits strict localhost + 127.0.0.1 origins; doctor rejects missing/wildcard/incomplete CORS; missing hashed assets return 404 instead of SPA HTML.
 
 ## Script assets / publication / MMOOMM outcome
 
-- [x] `compileScriptAssetEsm` supports isolated ESM compilation and metahub `@shared/<codename>` libraries while rejecting relative/absolute filesystem imports.
-- [x] Runtime loader fetches data URL, verifies SHA-256 against `artifactHash`, blob-imports/registers scripts, attaches them to target entities, and records `scriptsLoaded` as `true|none|failed`.
-- [x] Publication mirrors Editor scripts into `_mhb_playcanvas_script_assets`, compiles generated artifacts under advisory locking, ignores stale artifacts, and emits canonical manifest `scripts[]`.
-- [x] Gameplay logic moved from the generic widget into Editor-authored `flight-control.mjs`, `follow-camera.mjs`, `remote-ships.mjs` plus shared `flight-math.ts`; widget retains generic engine/realtime/HUD/bridge orchestration.
-- [x] Canonical MMOOMM fixture is generated through real Editor authoring, validates script assets/bindings/generated artifacts, and passes imported-runtime plus movement/camera parity checks.
-- [x] Runtime script startup waits for realtime authorization and published script-artifact readiness; optimistic-version semantics are consistent across PlayCanvas upserts.
-- [x] Snapshot scene/asset/source/generated-artifact refs validate local provider, project namespace, root and traversal even when files are absent; runtime-manifest canonicalization/checksum logic is shared.
+-   [x] `compileScriptAssetEsm` supports isolated ESM compilation and metahub `@shared/<codename>` libraries while rejecting relative/absolute filesystem imports.
+-   [x] Runtime loader fetches data URL, verifies SHA-256 against `artifactHash`, blob-imports/registers scripts, attaches them to target entities, and records `scriptsLoaded` as `true|none|failed`.
+-   [x] Publication mirrors Editor scripts into `_mhb_playcanvas_script_assets`, compiles generated artifacts under advisory locking, ignores stale artifacts, and emits canonical manifest `scripts[]`.
+-   [x] Gameplay logic moved from the generic widget into Editor-authored `flight-control.mjs`, `follow-camera.mjs`, `remote-ships.mjs` plus shared `flight-math.ts`; widget retains generic engine/realtime/HUD/bridge orchestration.
+-   [x] Canonical MMOOMM fixture is generated through real Editor authoring, validates script assets/bindings/generated artifacts, and passes imported-runtime plus movement/camera parity checks.
+-   [x] Runtime script startup waits for realtime authorization and published script-artifact readiness; optimistic-version semantics are consistent across PlayCanvas upserts.
+-   [x] Snapshot scene/asset/source/generated-artifact refs validate local provider, project namespace, root and traversal even when files are absent; runtime-manifest canonicalization/checksum logic is shared.
 
 ## UI / maintainability / QA outcome
 
-- [x] Merged module authoring into `MetahubModulesSurface` / single Shared Modules surface; EN/RU labels and multiline content behavior are covered.
-- [x] Browser asset flow covers Folder/CSS/CubeMap/HTML/JSON/Material/Script/Shader/Text, nested folders, editing, 1920/768/390, RU/light/dark, keyboard/accessibility, leakage/overflow/error oracles.
-- [x] Copied source owners are demoted to admins while copier remains sole owner; browser tests cover create/read/rename/delete/file RBAC, cross-project IDOR and unauthorized realtime mutation.
-- [x] Project persistence, compatibility routes, and realtime runtime were split into focused modules; `PlayCanvasCanvasWidget.tsx` reduced to 888 lines; topology guards and public-contract JSDoc added.
-- [x] Full workspace build passed 36/36; editor-backend, metahubs-backend, modules-engine, apps-template, metahubs-frontend, Editor artifact, fixture/docs/drift, lint/Prettier and OntoIndex gates passed in final closure.
-- [x] Autoreview infrastructure was unavailable because environment-owned Codex state was read-only; no product finding was emitted and no clean automated verdict was claimed.
+-   [x] Merged module authoring into `MetahubModulesSurface` / single Shared Modules surface; EN/RU labels and multiline content behavior are covered.
+-   [x] Browser asset flow covers Folder/CSS/CubeMap/HTML/JSON/Material/Script/Shader/Text, nested folders, editing, 1920/768/390, RU/light/dark, keyboard/accessibility, leakage/overflow/error oracles.
+-   [x] Copied source owners are demoted to admins while copier remains sole owner; browser tests cover create/read/rename/delete/file RBAC, cross-project IDOR and unauthorized realtime mutation.
+-   [x] Project persistence, compatibility routes, and realtime runtime were split into focused modules; `PlayCanvasCanvasWidget.tsx` reduced to 888 lines; topology guards and public-contract JSDoc added.
+-   [x] Full workspace build passed 36/36; editor-backend, metahubs-backend, modules-engine, apps-template, metahubs-frontend, Editor artifact, fixture/docs/drift, lint/Prettier and OntoIndex gates passed in final closure.
+-   [x] Autoreview infrastructure was unavailable because environment-owned Codex state was read-only; no product finding was emitted and no clean automated verdict was claimed.
 
 ## Key decisions retained
 
-- Create route deliberately returns upstream `{id}`; folder document ids derive from stable project/path keys while persisted row PKs remain UUID v7.
-- Generated artifact reuse is checksum-aware and publication-lock guarded; runtime manifest selection must not consume stale artifacts.
-- Asset deletion/rename must preserve rollback safety and process-local realtime grant cleanup; DELETE payloads remain bounded, strict and unique.
-- Request-scoped RLS responses commit before exposing response bodies; ShareDB seed operations serialize per backend/document.
-- Fixture/script sources remain single-source-of-truth inputs to generators; do not restore built-in runtime fallback copies.
+-   Create route deliberately returns upstream `{id}`; folder document ids derive from stable project/path keys while persisted row PKs remain UUID v7.
+-   Generated artifact reuse is checksum-aware and publication-lock guarded; runtime manifest selection must not consume stale artifacts.
+-   Asset deletion/rename must preserve rollback safety and process-local realtime grant cleanup; DELETE payloads remain bounded, strict and unique.
+-   Request-scoped RLS responses commit before exposing response bodies; ShareDB seed operations serialize per backend/document.
+-   Fixture/script sources remain single-source-of-truth inputs to generators; do not restore built-in runtime fallback copies.
 
 ## Retained implementation details
 
-- Asset allowlists are enforced at shared types/Zod, MIME mapping, extension mapping, and backend service validation layers.
-- Editor mapper rows preserve real `path[]`, numeric `uniqueId`, creation time and folder semantics expected by the upstream UI.
-- Dynamic realtime grants are scoped by metahub/project; deleted asset ids are evicted from the process-local grant registry.
-- Messenger events preserve `asset.new`, `asset.delete`, and `scriptAttrsFinished:<guid>` compatibility semantics.
-- Folder ids derive from the deterministic `folder:<projectId>:<path>` document-key namespace; row ids remain UUID v7.
-- Script rows mirrored from Editor persistence use deterministic Editor-facing ids while persistent generated-artifact identities stay server-owned.
-- Import-map staging uses the workspace PlayCanvas runtime artifact and a version-marker cache; staged engine output remains generated/ignored.
-- `app.__universoHost` exposes the frozen generic host commands used by authored scripts and is removed during runtime cleanup.
-- Manifest script selection lets authored assets override built-ins by script name only during the migration path; production fallback sources were removed.
-- Generated-artifact compilation resolves shared libraries through `MetahubModulesService.listSharedLibraryCompilationInputs` and persists canonical manifest scripts.
-- `MetahubModulesSurface` remains the merged authoring boundary; do not restore the removed duplicate runtime-modules tab.
-- Browser compatibility tests must use public Editor actions rather than mutating internal Editor state to manufacture asset changes.
-- Cross-platform traversal checks normalize both POSIX and Windows-style separators before storage/package-artifact access.
-- CORS diagnostics must exercise real browser-origin requests; headerless curl is insufficient evidence for production static assets.
-- ShareDB static/dynamic asset seeding remains serialized per backend/document to avoid duplicate remote-document creation races.
-- Compatibility failures return sanitized domain errors and must not reveal PlayCanvas project/document identifiers to unauthorized clients.
-- Copied metahub membership normalization preserves one owner (the copier) and demotes copied source owners to admins.
-- Multi-worker realtime ownership has explicit single-worker/missing-worker/distinct-worker topology guards.
-- Final PlayCanvas asset/runtime closure intentionally kept schema and metahub-template versions unchanged because the affected storage contract required no DDL.
+-   Asset allowlists are enforced at shared types/Zod, MIME mapping, extension mapping, and backend service validation layers.
+-   Editor mapper rows preserve real `path[]`, numeric `uniqueId`, creation time and folder semantics expected by the upstream UI.
+-   Dynamic realtime grants are scoped by metahub/project; deleted asset ids are evicted from the process-local grant registry.
+-   Messenger events preserve `asset.new`, `asset.delete`, and `scriptAttrsFinished:<guid>` compatibility semantics.
+-   Folder ids derive from the deterministic `folder:<projectId>:<path>` document-key namespace; row ids remain UUID v7.
+-   Script rows mirrored from Editor persistence use deterministic Editor-facing ids while persistent generated-artifact identities stay server-owned.
+-   Import-map staging uses the workspace PlayCanvas runtime artifact and a version-marker cache; staged engine output remains generated/ignored.
+-   `app.__universoHost` exposes the frozen generic host commands used by authored scripts and is removed during runtime cleanup.
+-   Manifest script selection lets authored assets override built-ins by script name only during the migration path; production fallback sources were removed.
+-   Generated-artifact compilation resolves shared libraries through `MetahubModulesService.listSharedLibraryCompilationInputs` and persists canonical manifest scripts.
+-   `MetahubModulesSurface` remains the merged authoring boundary; do not restore the removed duplicate runtime-modules tab.
+-   Browser compatibility tests must use public Editor actions rather than mutating internal Editor state to manufacture asset changes.
+-   Cross-platform traversal checks normalize both POSIX and Windows-style separators before storage/package-artifact access.
+-   CORS diagnostics must exercise real browser-origin requests; headerless curl is insufficient evidence for production static assets.
+-   ShareDB static/dynamic asset seeding remains serialized per backend/document to avoid duplicate remote-document creation races.
+-   Compatibility failures return sanitized domain errors and must not reveal PlayCanvas project/document identifiers to unauthorized clients.
+-   Copied metahub membership normalization preserves one owner (the copier) and demotes copied source owners to admins.
+-   Multi-worker realtime ownership has explicit single-worker/missing-worker/distinct-worker topology guards.
+-   Final PlayCanvas asset/runtime closure intentionally kept schema and metahub-template versions unchanged because the affected storage contract required no DDL.
 
 # Marketing-page widgetized runtime implementation (2026-09-04)
 
@@ -579,3 +951,39 @@ The Interpretation Network baseline is now aligned at its ownership boundary: th
 -   Snapshot publication consistency is now protected by a shared PostgreSQL transaction advisory lock: layout, widgets, and overrides are captured in one transaction using the same `mhb-layout-graph:<schema>` lock as mutations. The real PostgreSQL concurrency integration test passed 1/1, and generated OpenAPI now constrains application zone-setting values to strings of 1–128 characters.
 -   Fresh authoring and EN/RU light/dark responsive screenshots from artifact `tools/testing/e2e/.artifacts/marketing-page/2026-09-13T14-16-38-395Z/` were inspected. Documentation provenance, 113 EN/RU GitBook page pairs, screenshot assets, local links, package lint/build checks, OpenAPI validation, and `git diff --check` passed. The standalone deployment test remains an explicit opt-in skip without configured external host credentials.
 -   Final isolated changed-surface suites passed: applications backend 378 tests, metahubs backend 120 tests plus 4 intentional skips and the PostgreSQL concurrency proof, apps-template marketing 27 tests, applications frontend 34 tests, metahubs frontend 8 tests, shared template 6 tests, types 199 tests, and utils 368 tests. An intentionally parallel broad frontend run also exposed load-sensitive timeouts/failures in unchanged legacy suites; those files are outside this feature's changed surface and were not used as acceptance evidence.
+
+# LQR5-15 batch A — stale Playwright Chromium flow suite refresh (2026-09-19)
+
+> Scope: metahub entity/resource flows, create/options flows, shared-common layout widget versioning, packages CSP host probe, connector board migrations, imported snapshot connector sync, workspace regressions, quiz layout helpers, and snapshot export/import. Other batches own INW/LMS/mmoomm and metahub-basic-pages.
+
+-   [x] LQR5-15A-01 `metahub-entity-resources.spec.ts`: exercise an editable custom entity type (empty template) instead of the template-managed `object` type; keep resource-label assertions strict.
+-   [x] LQR5-15A-02 `metahub-entities-workspace.spec.ts`: align heading/button/dialog expectations with the unified entity collection surface (`Create`, plain type name, `Create/Edit <type name>` dialogs).
+-   [x] LQR5-15A-03 `metahub-entities-publication-runtime.spec.ts`: align primary action label with `Create`.
+-   [x] LQR5-15A-04 `metahub-standard-preset-runtime.spec.ts`: select the tabular object collection explicitly instead of relying on default-first resolution over non-physical preset clones; report residual default-active product risk.
+-   [x] LQR5-15A-05 `metahub-create-options-codename.spec.ts`: assert default-entity create options through entity-type absence instead of listing instances of unseeded kinds (which return 400).
+-   [x] LQR5-15A-06 `metahub-create.spec.ts`: use the current `Resource tab address segment` label.
+-   [x] LQR5-15A-07 `metahub-shared-common.spec.ts`: verify the re-read + `expectedVersion` zone-widget delete helper already present in the worktree.
+-   [x] LQR5-15A-08 `metahub-packages-resources.spec.ts`: request the SPA host document with `Accept: text/html` so the intentional strict document fallback returns 200 with the PlayCanvas host CSP.
+-   [x] LQR5-15A-09 `application-connector-board-migrations.spec.ts`: scope the Migration History heading to the view header title region.
+-   [x] LQR5-15A-10 `application-connectors.spec.ts` + `snapshot-export-import.spec.ts` + fixture contract: fix the regenerated self-hosted fixture scoped layout `defaultViewMode` (`list` is no longer a valid dashboard view mode) and the stale `includedCatalogSectionCodename` property.
+-   [x] LQR5-15A-11 `application-workspace-regressions.spec.ts`: add the isolation member with the `editor` role, matching the sibling shared-rows test and the product role-permission model.
+-   [x] LQR5-15A-12 `application-runtime-modules-quiz*.spec.ts`: verify the re-read + `expectedVersion` zone-widget delete helpers already present in the worktree.
+-   [x] LQR5-15A-13 Run Prettier on every edited file, run focused package tests/lint for touched product-adjacent helpers, and run OntoIndex diff verification.
+
+# LQR5-15 batch A — round 4 follow-up (2026-09-19)
+
+-   [x] LQR5-15A-R4-01 `application-runtime-modules-quiz.spec.ts`: send `expectedVersion` from the freshly fetched layout on the API zone-widget assignment.
+-   [x] LQR5-15A-R4-02 `metahub-entities-workspace.spec.ts`: open entity-instance row actions through the `BaseEntityMenu` Options trigger and pick `edit`/`copy` menu items instead of removed inline row buttons.
+-   [x] LQR5-15A-R4-03 `metahub-entity-resources.spec.ts`: author both the entity resource tab title and the shared resources tab title (the shared Resources workspace resolves shared-title labels) and assert both persisted surfaces.
+-   [x] LQR5-15A-R4-04 `metahub-packages-resources.spec.ts`: scope the Russian package-operation error assertion to the attach dialog to avoid the snackbar strict-mode collision.
+-   [x] LQR5-15A-R4-05 `metahub-shared-common.spec.ts`: assert the real quiz completion result (Quiz complete!, Score: 1 / 1, explanation) produced by the shared library module instead of the removed missing-submit fallback message.
+-   [x] LQR5-15A-R4-06 `metahub-standard-preset-runtime.spec.ts`: address the runtime resolver with the persisted (style-normalized) object codename read from the create response; product default/menu selection fix re-verified as correct.
+
+# LQR5-15 batch A — final round (2026-09-19)
+
+-   [x] LQR5-15A-F-01 `metahub-entities-workspace.spec.ts` breadcrumb: scope the Objects crumb assertion to the non-current link (`a:not([aria-current])`) so the href check stays strict without matching the current-page instance crumb.
+-   [x] LQR5-15A-F-02 `metahub-entities-workspace.spec.ts` module authoring: close the entity dialog through the "Discard unsaved changes?" confirmation and assert zero DOM dialogs before reopening the row menu; replaces the aria-hidden-prone role-count assertion.
+
+# LQR5-15 batch A — records tab breadcrumb (2026-09-19)
+
+-   [x] LQR5-15A-F-03 `metahub-entities-workspace.spec.ts`: the Records/Elements tab is route-backed but adds no breadcrumb segment; replace the stale breadcrumb text assertion with strict assertions of the actual contract (selected tab + exact `/records` authoring pathname). Product gap reported: `NavbarBreadcrumbs.tsx` still matches the legacy `elements` route segment.

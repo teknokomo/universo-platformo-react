@@ -121,7 +121,7 @@ async function applyEnhancedLayoutConfig(api: ApiContext, metahubId: string) {
             {
                 config: {
                     ...(primaryMenuWidget.config && typeof primaryMenuWidget.config === 'object' ? primaryMenuWidget.config : {}),
-                    autoShowAllObjects: true,
+                    autoShowAllSections: true,
                     showTitle: true,
                     title: buildVLC(SELF_HOSTED_APP_LAYOUT.menuTitle.en, SELF_HOSTED_APP_LAYOUT.menuTitle.ru)
                 },
@@ -138,7 +138,7 @@ async function applyEnhancedLayoutConfig(api: ApiContext, metahubId: string) {
             zone: 'left',
             widgetKey: 'menuWidget',
             config: {
-                autoShowAllObjects: true,
+                autoShowAllSections: true,
                 showTitle: true,
                 title: buildVLC(SELF_HOSTED_APP_LAYOUT.menuTitle.en, SELF_HOSTED_APP_LAYOUT.menuTitle.ru)
             },

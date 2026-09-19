@@ -634,6 +634,151 @@ const resolveStartupEntityId = async (
     return null
 }
 
+type EffectiveLayoutWorkspaceResolver = (
+    executor: DbExecutor,
+    application: Awaited<ReturnType<typeof findEffectiveLayoutApplication>>,
+    target: RuntimeTarget
+) => Promise<void>
+
+/**
+ * Core resolver for callers that already own the database transaction and the
+ * authorization/workspace decision. Keeping transaction ownership outside this
+ * function lets anonymous published reads bind RLS state and load renderer data
+ * on the exact same connection without fabricating a user membership.
+ */
+const resolveEffectiveLayoutInTransaction = async (
+    tx: DbExecutor,
+    target: RuntimeTarget,
+    resolveWorkspaceContext: EffectiveLayoutWorkspaceResolver
+): Promise<EffectiveLayoutSuccess> => {
+    const application = await queryOrFail(() => findEffectiveLayoutApplication(tx, target.applicationId))
+    if (!application) return failEffectiveLayout('LAYOUT_TARGET_NOT_FOUND')
+    if (application.id !== target.applicationId || !isUuidV7(application.id)) {
+        return failEffectiveLayout('LAYOUT_PERSISTED_INVALID')
+    }
+    if (typeof application.schemaName !== 'string' || !isValidSchemaName(application.schemaName)) {
+        return failEffectiveLayout('LAYOUT_PERSISTED_INVALID')
+    }
+    const materialization = parseInstalledMaterialization(application)
+
+    // Workspace/RLS context must be established before any entity/layout read.
+    await resolveWorkspaceContext(tx, application, target)
+
+    let resolvedEntityTypeId: string | null = null
+    if (target.targetKind !== null) {
+        const selectorValue = target.entityTypeId ?? target.entityTypeCodename
+        if (!selectorValue) return failEffectiveLayout('LAYOUT_REQUEST_INVALID')
+        const selector = target.entityTypeId
+            ? { kind: 'id' as const, value: selectorValue }
+            : { kind: 'codename' as const, value: selectorValue }
+        const entities = await queryOrFail(() => findEffectiveLayoutEntity(tx, application.schemaName!, target.targetKind, selector))
+        if (entities.length === 0) return failEffectiveLayout('LAYOUT_TARGET_NOT_FOUND')
+        if (entities.length > 1) return failEffectiveLayout('LAYOUT_DEFAULT_INVALID')
+        const entity = entities[0] as EffectiveLayoutEntityRow
+        if (target.targetKind === 'page' && entity.kind !== 'page') return failEffectiveLayout('LAYOUT_TARGET_NOT_FOUND')
+        resolvedEntityTypeId = requireUuidV7(entity.id)
+    }
+
+    const tablesExist = await queryOrFail(() => effectiveLayoutTablesExist(tx, application.schemaName!))
+    if (!tablesExist) return failEffectiveLayout('LAYOUT_PERSISTED_INVALID')
+
+    let candidateRows = await queryOrFail(() => listEffectiveLayoutCandidates(tx, application.schemaName!, resolvedEntityTypeId))
+    const layouts = candidateRows.map(validateLayoutRow)
+    let selected = selectCanonicalLayoutCandidate(layouts, resolvedEntityTypeId)
+    if (!selected) return failEffectiveLayout('LAYOUT_DEFAULT_INVALID')
+
+    if (target.targetKind === null && selected.scope === 'global') {
+        const globalLayout = selected
+        const globalWidgetRows = await queryOrFail(() => listEffectiveLayoutWidgets(tx, application.schemaName!, globalLayout.layout.id))
+        const startupEntityId = await resolveStartupEntityId(tx, application.schemaName!, globalWidgetRows)
+        if (startupEntityId) {
+            resolvedEntityTypeId = startupEntityId
+            candidateRows = await queryOrFail(() => listEffectiveLayoutCandidates(tx, application.schemaName!, resolvedEntityTypeId))
+            const startupLayouts = candidateRows.map(validateLayoutRow)
+            selected = selectCanonicalLayoutCandidate(startupLayouts, resolvedEntityTypeId)
+            if (!selected) return failEffectiveLayout('LAYOUT_DEFAULT_INVALID')
+        }
+    }
+    if (!selected) return failEffectiveLayout('LAYOUT_DEFAULT_INVALID')
+
+    const widgetRows = await queryOrFail(() => listEffectiveLayoutWidgets(tx, application.schemaName!, selected.layout.id))
+    const widgets = widgetRows.map((row) => validateWidgetRow(row, selected.layout))
+    validateEffectiveWidgetMultiplicity(widgets)
+    const inheritedIds = widgets.map((widget) => widget.sourceBaseWidgetId).filter((id): id is string => typeof id === 'string')
+    const baseRows = await queryOrFail(() => findEffectiveLayoutBaseWidgets(tx, application.schemaName!, inheritedIds))
+    validateBaseLineage(widgets, baseRows, selected.layout, layouts)
+    const compositionMode = resolveCompositionMode(selected.layout, widgets)
+    const { publicationIdentity } = validateLineage(selected.layout, materialization)
+
+    const currentApplication = await queryOrFail(() => findEffectiveLayoutApplication(tx, target.applicationId))
+    if (!currentApplication || currentApplication.version !== application.version) {
+        return failEffectiveLayout('LAYOUT_CONFLICT')
+    }
+    const currentCandidateRows = await queryOrFail(() => listEffectiveLayoutCandidates(tx, application.schemaName!, resolvedEntityTypeId))
+    const currentLayouts = currentCandidateRows.map(validateLayoutRow)
+    const currentSelected = selectCanonicalLayoutCandidate(currentLayouts, resolvedEntityTypeId)
+    if (
+        !currentSelected ||
+        currentSelected.layout.id !== selected.layout.id ||
+        currentSelected.layout.version !== selected.layout.version ||
+        currentSelected.scope !== selected.scope
+    ) {
+        return failEffectiveLayout('LAYOUT_CONFLICT')
+    }
+    if (selected.layout.baseLayoutId) {
+        const currentBase = currentLayouts.find((layout) => layout.id === selected.layout.baseLayoutId)
+        const initialBase = layouts.find((layout) => layout.id === selected.layout.baseLayoutId)
+        if (!currentBase || !initialBase || currentBase.version !== initialBase.version) {
+            return failEffectiveLayout('LAYOUT_CONFLICT')
+        }
+    }
+
+    const baseLayout =
+        compositionMode === 'overlay' && selected.layout.baseLayoutId
+            ? layouts.find((candidate) => candidate.id === selected.layout.baseLayoutId) ?? null
+            : null
+    if (compositionMode === 'overlay' && !baseLayout) return failEffectiveLayout('LAYOUT_PERSISTED_INVALID')
+    const effectiveZoneSettings = resolveEffectiveZoneSettings(
+        selected.layout.templateKey,
+        baseLayout ? [baseLayout, selected.layout] : [selected.layout]
+    )
+    return buildResult(
+        target,
+        resolvedEntityTypeId,
+        selected,
+        widgets,
+        materialization,
+        publicationIdentity,
+        compositionMode,
+        effectiveZoneSettings
+    )
+}
+
+export async function resolveEffectiveLayoutForPublicTransaction(
+    executor: DbExecutor,
+    input: unknown,
+    publicWorkspaceId: string | null
+): Promise<EffectiveLayoutSuccess> {
+    const target = normalizeRuntimeTarget(input)
+    if (target.workspaceId) return failEffectiveLayout('LAYOUT_REQUEST_INVALID')
+
+    return resolveEffectiveLayoutInTransaction(executor, target, async (tx, application) => {
+        if (!application) return failEffectiveLayout('LAYOUT_TARGET_NOT_FOUND')
+        if (typeof application.workspacesEnabled !== 'boolean') return failEffectiveLayout('LAYOUT_PERSISTED_INVALID')
+
+        if (!application.workspacesEnabled) {
+            if (publicWorkspaceId !== null) return failEffectiveLayout('LAYOUT_PERSISTED_INVALID')
+            await queryOrFail(() => setRuntimeWorkspaceContext(tx, null))
+            return
+        }
+
+        if (!publicWorkspaceId || !isUuidV7(publicWorkspaceId)) {
+            return failEffectiveLayout('LAYOUT_TARGET_NOT_FOUND')
+        }
+        await queryOrFail(() => setRuntimeWorkspaceContext(tx, publicWorkspaceId))
+    })
+}
+
 export async function resolveEffectiveLayoutForRequest(
     executor: DbExecutor,
     authContext: EffectiveLayoutAuthContext,
@@ -643,120 +788,9 @@ export async function resolveEffectiveLayoutForRequest(
     if (!authContext.userId) return failEffectiveLayout('UNAUTHORIZED')
     if (authContext.applicationId !== target.applicationId) return failEffectiveLayout('LAYOUT_TARGET_FORBIDDEN')
 
-    return executor.transaction(async (tx) => {
-        const application = await queryOrFail(() => findEffectiveLayoutApplication(tx, target.applicationId))
-        if (!application) return failEffectiveLayout('LAYOUT_TARGET_NOT_FOUND')
-        if (application.id !== target.applicationId || !isUuidV7(application.id)) {
-            return failEffectiveLayout('LAYOUT_PERSISTED_INVALID')
-        }
-        if (typeof application.schemaName !== 'string' || !isValidSchemaName(application.schemaName)) {
-            return failEffectiveLayout('LAYOUT_PERSISTED_INVALID')
-        }
-        const materialization = parseInstalledMaterialization(application)
-
-        // Establish the request workspace context before resolving an entity.
-        // Entity metadata is RLS-scoped in deployments that enable workspaces;
-        // doing this after the entity lookup would turn a forbidden workspace
-        // into an existence oracle.
-        await resolveWorkspace(tx, application, authContext, target)
-
-        let resolvedEntityTypeId: string | null = null
-        if (target.targetKind !== null) {
-            const selectorValue = target.entityTypeId ?? target.entityTypeCodename
-            if (!selectorValue) return failEffectiveLayout('LAYOUT_REQUEST_INVALID')
-            const selector = target.entityTypeId
-                ? { kind: 'id' as const, value: selectorValue }
-                : { kind: 'codename' as const, value: selectorValue }
-            const entities = await queryOrFail(() => findEffectiveLayoutEntity(tx, application.schemaName!, target.targetKind, selector))
-            if (entities.length === 0) return failEffectiveLayout('LAYOUT_TARGET_NOT_FOUND')
-            if (entities.length > 1) return failEffectiveLayout('LAYOUT_DEFAULT_INVALID')
-            const entity = entities[0] as EffectiveLayoutEntityRow
-            if (target.targetKind === 'page' && entity.kind !== 'page') return failEffectiveLayout('LAYOUT_TARGET_NOT_FOUND')
-            resolvedEntityTypeId = requireUuidV7(entity.id)
-        }
-
-        const tablesExist = await queryOrFail(() => effectiveLayoutTablesExist(tx, application.schemaName!))
-        if (!tablesExist) return failEffectiveLayout('LAYOUT_PERSISTED_INVALID')
-
-        let candidateRows = await queryOrFail(() => listEffectiveLayoutCandidates(tx, application.schemaName!, resolvedEntityTypeId))
-        const layouts = candidateRows.map(validateLayoutRow)
-        let selected = selectCanonicalLayoutCandidate(layouts, resolvedEntityTypeId)
-        if (!selected) return failEffectiveLayout('LAYOUT_DEFAULT_INVALID')
-
-        // The root application route has no entity selector. Resolve its
-        // startup menu target so a page/object-specific layout is rendered
-        // before the first navigation click, matching the runtime data route.
-        if (target.targetKind === null && selected.scope === 'global') {
-            const globalLayout = selected
-            const globalWidgetRows = await queryOrFail(() =>
-                listEffectiveLayoutWidgets(tx, application.schemaName!, globalLayout.layout.id)
-            )
-            const startupEntityId = await resolveStartupEntityId(tx, application.schemaName!, globalWidgetRows)
-            if (startupEntityId) {
-                resolvedEntityTypeId = startupEntityId
-                candidateRows = await queryOrFail(() => listEffectiveLayoutCandidates(tx, application.schemaName!, resolvedEntityTypeId))
-                const startupLayouts = candidateRows.map(validateLayoutRow)
-                selected = selectCanonicalLayoutCandidate(startupLayouts, resolvedEntityTypeId)
-                if (!selected) return failEffectiveLayout('LAYOUT_DEFAULT_INVALID')
-            }
-        }
-        if (!selected) return failEffectiveLayout('LAYOUT_DEFAULT_INVALID')
-
-        const widgetRows = await queryOrFail(() => listEffectiveLayoutWidgets(tx, application.schemaName!, selected.layout.id))
-        const widgets = widgetRows.map((row) => validateWidgetRow(row, selected.layout))
-        validateEffectiveWidgetMultiplicity(widgets)
-        const inheritedIds = widgets.map((widget) => widget.sourceBaseWidgetId).filter((id): id is string => typeof id === 'string')
-        const baseRows = await queryOrFail(() => findEffectiveLayoutBaseWidgets(tx, application.schemaName!, inheritedIds))
-        validateBaseLineage(widgets, baseRows, selected.layout, layouts)
-        const compositionMode = resolveCompositionMode(selected.layout, widgets)
-        const { publicationIdentity } = validateLineage(selected.layout, materialization)
-
-        // Layout and widget mutations advance the layout version. Re-read the
-        // application and candidate set before returning so a READ COMMITTED
-        // transaction cannot publish a torn layout assembled across commits.
-        const currentApplication = await queryOrFail(() => findEffectiveLayoutApplication(tx, target.applicationId))
-        if (!currentApplication || currentApplication.version !== application.version) {
-            return failEffectiveLayout('LAYOUT_CONFLICT')
-        }
-        const currentCandidateRows = await queryOrFail(() =>
-            listEffectiveLayoutCandidates(tx, application.schemaName!, resolvedEntityTypeId)
+    return executor.transaction((tx) =>
+        resolveEffectiveLayoutInTransaction(tx, target, (innerTx, application, innerTarget) =>
+            resolveWorkspace(innerTx, application, authContext, innerTarget)
         )
-        const currentLayouts = currentCandidateRows.map(validateLayoutRow)
-        const currentSelected = selectCanonicalLayoutCandidate(currentLayouts, resolvedEntityTypeId)
-        if (
-            !currentSelected ||
-            currentSelected.layout.id !== selected.layout.id ||
-            currentSelected.layout.version !== selected.layout.version ||
-            currentSelected.scope !== selected.scope
-        ) {
-            return failEffectiveLayout('LAYOUT_CONFLICT')
-        }
-        if (selected.layout.baseLayoutId) {
-            const currentBase = currentLayouts.find((layout) => layout.id === selected.layout.baseLayoutId)
-            const initialBase = layouts.find((layout) => layout.id === selected.layout.baseLayoutId)
-            if (!currentBase || !initialBase || currentBase.version !== initialBase.version) {
-                return failEffectiveLayout('LAYOUT_CONFLICT')
-            }
-        }
-
-        const baseLayout =
-            compositionMode === 'overlay' && selected.layout.baseLayoutId
-                ? layouts.find((candidate) => candidate.id === selected.layout.baseLayoutId) ?? null
-                : null
-        if (compositionMode === 'overlay' && !baseLayout) return failEffectiveLayout('LAYOUT_PERSISTED_INVALID')
-        const effectiveZoneSettings = resolveEffectiveZoneSettings(
-            selected.layout.templateKey,
-            baseLayout ? [baseLayout, selected.layout] : [selected.layout]
-        )
-        return buildResult(
-            target,
-            resolvedEntityTypeId,
-            selected,
-            widgets,
-            materialization,
-            publicationIdentity,
-            compositionMode,
-            effectiveZoneSettings
-        )
-    })
+    )
 }

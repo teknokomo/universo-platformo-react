@@ -342,11 +342,10 @@ test.describe('PlayCanvas Editor upgrade release screenshots @generator', () => 
                     createApplicationSchema: false
                 })
                 const applicationId = linked?.application?.id ?? linked?.id
-                const applicationSlug = linked?.application?.slug ?? linked?.slug
                 if (typeof applicationId !== 'string') {
                     throw new Error('MMOOMM release linked application did not return an application id')
                 }
-                await recordCreatedApplication({ id: applicationId, slug: applicationSlug })
+                await recordCreatedApplication({ id: applicationId })
 
                 await syncApplicationSchema(api, applicationId)
                 await expect

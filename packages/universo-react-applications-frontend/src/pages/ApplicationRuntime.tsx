@@ -1,21 +1,132 @@
-import { useEffect } from 'react'
+import { useEffect, type ComponentProps } from 'react'
 import Box from '@mui/material/Box'
 import Button from '@mui/material/Button'
 import CircularProgress from '@mui/material/CircularProgress'
 import Alert from '@mui/material/Alert'
+import Stack from '@mui/material/Stack'
 import { useQuery } from '@tanstack/react-query'
-import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import { Navigate, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { AppMainLayout, getRuntimeLayoutErrorCode, MarketingRuntimeContent, RuntimeWorkspacesPage } from '@universo-react/apps-template-mui'
 import { getApplicationEffectiveLayout } from '../api/applications'
 import { applicationsQueryKeys } from '../api/queryKeys'
+import { buildCanonicalApplicationRuntimePath, isPublicApplicationUnavailableError } from '../api/publicApplicationRuntime'
 import type { ApplicationRuntimeTargetKind, ApplicationRuntimeThemeVariant } from '../types'
 import { DashboardApplicationRuntime } from './application-runtime/DashboardApplicationRuntime'
 import { normalizeRuntimeLocale, UUID_PATH_SEGMENT_REGEX } from './application-runtime/runtimeLayout'
+import { usePublicApplicationRuntimeQuery } from './application-runtime/usePublicApplicationRuntimeQuery'
 
-const ApplicationRuntime = () => {
+type MarketingRuntimeContentProps = ComponentProps<typeof MarketingRuntimeContent>
+
+const publicRuntimeRemainingPath = (pathname: string, applicationRef: string, wildcardPath?: string): string => {
+    const encodedPrefix = `/a/${encodeURIComponent(applicationRef)}`
+    const plainPrefix = `/a/${applicationRef}`
+    const prefix = pathname.startsWith(encodedPrefix) ? encodedPrefix : pathname.startsWith(plainPrefix) ? plainPrefix : null
+    if (prefix) return pathname.slice(prefix.length).replace(/^\/+|\/+$/g, '')
+    return (wildcardPath ?? '').replace(/^\/+|\/+$/g, '')
+}
+
+export const PublicApplicationRuntime = () => {
+    const routeParams = useParams<{ applicationRef?: string; applicationId?: string; '*': string }>()
+    const applicationRef = routeParams.applicationRef ?? routeParams.applicationId ?? ''
+    const location = useLocation()
+    const navigate = useNavigate()
+    const { t } = useTranslation('applications')
+    // The route entry performs the first anonymous bootstrap fetch; this page
+    // reuses that shared result instead of re-requesting the same payload.
+    const { requestedLocale, publicRuntimeQuery } = usePublicApplicationRuntimeQuery(applicationRef, { refetchOnMount: false })
+    const remainingPath = publicRuntimeRemainingPath(location.pathname, applicationRef, routeParams['*'])
+
+    if (!applicationRef) {
+        return <Alert severity='error'>{t('app.errors.missingApplicationId', 'Application ID is missing in URL')}</Alert>
+    }
+
+    if (publicRuntimeQuery.isLoading) {
+        return (
+            <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 240 }}>
+                <CircularProgress aria-label={t('app.runtime.loading', 'Loading application')} />
+            </Box>
+        )
+    }
+
+    if (publicRuntimeQuery.isError || !publicRuntimeQuery.data) {
+        const unavailable = isPublicApplicationUnavailableError(publicRuntimeQuery.error)
+        return (
+            <Alert
+                severity='error'
+                action={
+                    unavailable ? (
+                        <Stack
+                            direction='row'
+                            spacing={1}
+                            sx={{
+                                flexWrap: 'wrap'
+                            }}
+                        >
+                            <Button color='inherit' size='small' onClick={() => navigate('/')}>
+                                {t('app.errors.goHome', 'Go home')}
+                            </Button>
+                        </Stack>
+                    ) : (
+                        <Button color='inherit' size='small' onClick={() => void publicRuntimeQuery.refetch()}>
+                            {t('common.retry', 'Retry')}
+                        </Button>
+                    )
+                }
+            >
+                {t(unavailable ? 'app.errors.applicationUnavailable' : 'app.errors.loadFailed', 'Failed to load runtime data')}
+            </Alert>
+        )
+    }
+
+    const publicRuntime = publicRuntimeQuery.data
+    const canonicalPath = buildCanonicalApplicationRuntimePath({
+        applicationRef,
+        canonicalAlias: publicRuntime.route.canonicalAlias,
+        remainingPath,
+        search: location.search
+    })
+    if (canonicalPath) return <Navigate to={canonicalPath} replace />
+
+    const runtimePayload = {
+        templateKey: publicRuntime.templateKey,
+        marketingPage: publicRuntime.marketingPage
+    } as const
+
+    // The public bootstrap already contains the renderer-safe marketing widget
+    // placement. Header capabilities (including the language switcher) use the
+    // layout rows when present and fall back to the data widgets on payloads
+    // created before the header contract; no authenticated request is made.
+    const headerWidgets = publicRuntime.marketingPage.headerWidgets
+    const effectiveLayoutWidgets = (headerWidgets && headerWidgets.length > 0
+        ? headerWidgets
+        : publicRuntime.marketingPage.widgets) as unknown as MarketingRuntimeContentProps['effectiveLayoutWidgets']
+
+    return (
+        <MarketingRuntimeContent
+            applicationId={applicationRef}
+            locale={requestedLocale}
+            apiBaseUrl='/api/v1'
+            effectiveLayoutWidgets={effectiveLayoutWidgets}
+            loadingLabel={t('app.runtime.loading', 'Loading application')}
+            errorLabel={t('app.errors.loadFailed', 'Failed to load runtime data')}
+            retryLabel={t('common.retry', 'Retry')}
+            runtimePayload={runtimePayload}
+            onAction={(action) => {
+                if (action.actionKind === 'internal') navigate(action.href)
+            }}
+        />
+    )
+}
+
+export interface ApplicationRuntimeProps {
+    /** Trusted application id resolved from a human-readable runtime reference. */
+    applicationIdOverride?: string
+}
+
+const ApplicationRuntime = ({ applicationIdOverride }: ApplicationRuntimeProps = {}) => {
     const routeParams = useParams<{ applicationId: string; '*': string }>()
-    const applicationId = routeParams.applicationId
+    const applicationId = applicationIdOverride ?? routeParams.applicationId
     const navigate = useNavigate()
     const [runtimeSearchParams] = useSearchParams()
     const { t, i18n } = useTranslation('applications')
@@ -140,7 +251,7 @@ const ApplicationRuntime = () => {
                 onLayoutStale={() => void effectiveLayoutQuery.refetch()}
                 loadingLabel={t('app.runtime.loading', 'Loading application')}
                 errorLabel={runtimeLoadErrorMessage}
-                retryLabel={t('app.common.retry', 'Retry')}
+                retryLabel={t('common.retry', 'Retry')}
                 onAction={(action) => {
                     if (action.actionKind === 'internal') navigate(action.href)
                 }}

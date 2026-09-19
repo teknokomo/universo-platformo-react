@@ -92,8 +92,15 @@ const EXPECTED_WIDGET_COMPOSITION = [
     },
     {
         zone: 'marketing-main',
-        widgetKey: 'marketing.collection',
+        widgetKey: 'marketing.image',
         sortOrder: 1,
+        instanceKey: 'hero-image',
+        isActive: true
+    },
+    {
+        zone: 'marketing-main',
+        widgetKey: 'marketing.collection',
+        sortOrder: 2,
         instanceKey: 'logos',
         variant: 'logos',
         source: { entityCodename: 'MarketingPageLogo', entityKind: 'object' },
@@ -103,7 +110,7 @@ const EXPECTED_WIDGET_COMPOSITION = [
     {
         zone: 'marketing-main',
         widgetKey: 'marketing.collection',
-        sortOrder: 2,
+        sortOrder: 3,
         instanceKey: 'features',
         variant: 'features',
         source: { entityCodename: 'MarketingPageFeature', entityKind: 'object' },
@@ -113,7 +120,7 @@ const EXPECTED_WIDGET_COMPOSITION = [
     {
         zone: 'marketing-main',
         widgetKey: 'marketing.collection',
-        sortOrder: 3,
+        sortOrder: 4,
         instanceKey: 'testimonials',
         variant: 'testimonials',
         source: { entityCodename: 'MarketingPageTestimonial', entityKind: 'object' },
@@ -123,7 +130,7 @@ const EXPECTED_WIDGET_COMPOSITION = [
     {
         zone: 'marketing-main',
         widgetKey: 'marketing.collection',
-        sortOrder: 4,
+        sortOrder: 5,
         instanceKey: 'highlights',
         variant: 'highlights',
         source: { entityCodename: 'MarketingPageHighlight', entityKind: 'object' },
@@ -133,7 +140,7 @@ const EXPECTED_WIDGET_COMPOSITION = [
     {
         zone: 'marketing-main',
         widgetKey: 'marketing.pricing',
-        sortOrder: 5,
+        sortOrder: 6,
         instanceKey: 'pricing',
         source: { entityCodename: 'MarketingPagePricing', entityKind: 'object' },
         copySource: { entityCodename: 'MarketingPageSection', entityKind: 'object', recordKey: 'pricing' },
@@ -142,7 +149,7 @@ const EXPECTED_WIDGET_COMPOSITION = [
     {
         zone: 'marketing-main',
         widgetKey: 'marketing.collection',
-        sortOrder: 6,
+        sortOrder: 7,
         instanceKey: 'faq',
         variant: 'faq',
         source: { entityCodename: 'MarketingPageFaq', entityKind: 'object' },
@@ -665,6 +672,32 @@ export function assertMarketingPageTemplateBaseline(manifest: TemplateManifest):
         false,
         'pricing benefits must remain linked records, not a JSON/component array'
     )
+
+    // Semantic record keys stay unique per object: the records service refuses a
+    // duplicate value only when the component carries this validation rule, so
+    // the template must keep publishing it for every semantic key component.
+    const uniqueKeyComponents: ReadonlyArray<readonly [string, string]> = [
+        ['MarketingPageSection', 'SectionKey'],
+        ['MarketingPageLogo', 'LogoKey'],
+        ['MarketingPageFeature', 'FeatureKey'],
+        ['MarketingPageTestimonial', 'TestimonialKey'],
+        ['MarketingPageHighlight', 'HighlightKey'],
+        ['MarketingPagePricing', 'TierKey'],
+        ['MarketingPagePricingBenefit', 'BenefitKey'],
+        ['MarketingPageFaq', 'FaqKey'],
+        ['MarketingPageNavigation', 'NavKey'],
+        ['MarketingPageFooterLink', 'LinkKey']
+    ]
+    for (const [entityCodename, componentCodename] of uniqueKeyComponents) {
+        const entity = entities.find((candidate) => candidate.codename === entityCodename)
+        assert.ok(entity, `${entityCodename} entity is required`)
+        const component = ((entity.components ?? []) as Array<Record<string, unknown>>).find(
+            (candidate) => candidate.codename === componentCodename
+        )
+        assert.ok(component, `${entityCodename}.${componentCodename} component is required`)
+        const rules = (component.validationRules ?? {}) as Record<string, unknown>
+        assert.equal(rules.unique, true, `${entityCodename}.${componentCodename} must keep the unique validation rule`)
+    }
 }
 
 export const MARKETING_PAGE_EXPECTED_ELEMENT_COUNTS = EXPECTED_ELEMENT_COUNTS

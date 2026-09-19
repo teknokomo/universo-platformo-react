@@ -29,6 +29,12 @@ export interface ResourceGuardProps {
     resourceIdParam: string
 
     /**
+     * Optional trusted identifier supplied by a resolver when the URL uses a
+     * human-readable reference instead of the resource's internal id.
+     */
+    resourceId?: string
+
+    /**
      * Function to fetch the resource. Should throw on 403/404.
      */
     fetchResource: (id: string) => Promise<unknown>
@@ -87,6 +93,7 @@ export const ResourceGuard: React.FC<ResourceGuardProps> = ({
     children,
     resourceType,
     resourceIdParam,
+    resourceId: resourceIdOverride,
     fetchResource,
     queryKeyFn,
     authRedirectTo = '/auth',
@@ -97,7 +104,7 @@ export const ResourceGuard: React.FC<ResourceGuardProps> = ({
     const params = useParams()
 
     // Extract resource ID from URL params
-    const resourceId = params[resourceIdParam]
+    const resourceId = resourceIdOverride || params[resourceIdParam]
 
     // Fetch resource to verify access
     // Uses the same query key as child components to share cached data

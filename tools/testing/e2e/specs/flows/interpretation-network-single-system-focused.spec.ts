@@ -60,10 +60,12 @@ test.describe('Interpretation Network single-system navigation @flow @interpreta
             await page.reload()
             await expectSingleSystemMatrix(page)
 
-            const rootCell = page.getByRole('button', { name: /Universe/ }).first()
-            await expect(rootCell).toBeVisible()
-            await rootCell.click()
-            await expect(rootCell).toHaveAttribute('aria-pressed', 'true')
+            const rootButton = page.getByRole('button', { name: /Universe/ }).first()
+            await expect(rootButton).toBeVisible()
+            await rootButton.click()
+            await expect(rootButton).toHaveAttribute('aria-pressed', 'true')
+            const rootCell = rootButton.locator('xpath=ancestor::*[@data-cell-id][1]')
+            await expect(rootCell).toHaveAttribute('data-cell-id', /.+/)
             const rootCellId = await rootCell.getAttribute('data-cell-id')
             expect(rootCellId).toMatch(/^[0-9a-f-]{36}$/i)
             const addButton = page.getByTestId('interpretation-network-matrix-toolbar').getByRole('button', { name: 'Add', exact: true })
@@ -94,7 +96,7 @@ test.describe('Interpretation Network single-system navigation @flow @interpreta
             expect(createResult.status).toBe('created')
             expect(createResult.item).toBeTruthy()
             await expect(addDialog).toHaveCount(0)
-            const createdCell = page.getByTestId('interpretation-network-cell').filter({ hasText: 'Fresh system child' }).first()
+            const createdCell = page.getByRole('button', { name: /^(?:\d+\/\d+,\s*)?Fresh system child$/ }).first()
             await expect(createdCell).toBeVisible({ timeout: 30_000 })
             const persistedMatrixUrl = page.url()
             await expect(page.getByText('Failed to update matrix cells', { exact: true })).toHaveCount(0)
@@ -109,7 +111,7 @@ test.describe('Interpretation Network single-system navigation @flow @interpreta
             await page.reload()
             await expect(page).toHaveURL(persistedMatrixUrl)
             await expectSingleSystemMatrix(page)
-            await expect(page.getByTestId('interpretation-network-cell').filter({ hasText: 'Fresh system child' })).toBeVisible({
+            await expect(page.getByRole('button', { name: /^(?:\d+\/\d+,\s*)?Fresh system child$/ })).toBeVisible({
                 timeout: 30_000
             })
             await expect(page.getByText('Failed to update matrix cells', { exact: true })).toHaveCount(0)

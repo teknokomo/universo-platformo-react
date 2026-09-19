@@ -42,7 +42,7 @@ export default function Testimonials({ section, items, instanceKey }: Testimonia
             {visibleItems.length === 0 ? (
                 <MarketingEmptyState section={section.title} />
             ) : (
-                <Grid container spacing={2}>
+                <Grid container spacing={2} sx={{ width: '100%' }}>
                     {visibleItems.map((testimonial) => (
                         <Grid size={{ xs: 12, sm: 6, md: 4 }} key={testimonial.semanticKey} sx={{ display: 'flex' }}>
                             <Card

@@ -1,3 +1,4 @@
+import { acquireAdvisoryXactLock } from '@universo-react/utils/database'
 import type { Knex } from 'knex'
 import { createKnexExecutor } from '@universo-react/database'
 import type { ObjectSystemFieldState, PlatformSystemComponentsPolicy } from '@universo-react/types'
@@ -75,7 +76,7 @@ export async function withSnapshotRestoreAdvisoryLock<T>(
     work: (executor: DbExecutor) => Promise<T>
 ): Promise<T> {
     const executor = createSnapshotRestoreExecutor(transaction)
-    await executor.query('SELECT pg_advisory_xact_lock(hashtext($1))', [lockKey])
+    await acquireAdvisoryXactLock(executor, lockKey)
     return work(executor)
 }
 

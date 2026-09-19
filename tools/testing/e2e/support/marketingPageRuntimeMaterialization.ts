@@ -9,6 +9,7 @@ type SeedElement = {
 type SeedManifest = {
     seed?: {
         elements?: Record<string, SeedElement[]>
+        layoutZoneWidgets?: Record<string, Array<{ widgetKey?: unknown; config?: unknown }>>
     }
 }
 
@@ -23,6 +24,7 @@ type RuntimeWidget = {
     widgetKey?: unknown
     instanceKey?: unknown
     isActive?: unknown
+    config?: unknown
     data?: {
         records?: RuntimeRecord[]
     }
@@ -225,10 +227,23 @@ export function assertMarketingPageRuntimeMaterialization(payload: RuntimePayloa
             'marketing.collection',
             'marketing.footer',
             'marketing.hero',
+            'marketing.image',
             'marketing.navigation',
             'marketing.pricing'
         ],
         'Built-in marketing widget composition changed'
+    )
+
+    const imageSeedWidget = Object.values(manifest.seed?.layoutZoneWidgets ?? {})
+        .flat()
+        .find((widget) => widget.widgetKey === 'marketing.image')
+    const imageRuntimeWidget = widgets.find((widget) => widget.widgetKey === 'marketing.image')
+    assert.ok(imageSeedWidget, 'Built-in marketing image widget seed is required')
+    assert.ok(imageRuntimeWidget, 'Materialized marketing image widget is required')
+    assert.deepEqual(
+        mediaSignature(asRecord(imageRuntimeWidget.config).media),
+        mediaSignature(asRecord(imageSeedWidget.config).media),
+        'Materialized marketing image configuration differs from the metahub seed'
     )
     const records = flattenMarketingPageRecords(payload)
 
@@ -304,8 +319,6 @@ export function assertMarketingPageRuntimeMaterialization(payload: RuntimePayloa
                 return { label: readLocalized(action.label), action: actionSignature(action.action) }
             },
             heroTermsText: (value) => readLocalized(value),
-            heroLightPreview: mediaSignature,
-            heroDarkPreview: mediaSignature,
             copyright: (value) => readLocalized(value),
             copyrightLabel: (value) => readLocalized(value),
             copyrightAction: (value) => {
@@ -342,8 +355,6 @@ export function assertMarketingPageRuntimeMaterialization(payload: RuntimePayloa
                 action: actionSignatureFromHref(siteSettingsSeed.HeroTermsHref)
             },
             heroTermsText: readLocalized(siteSettingsSeed.HeroTermsText),
-            heroLightPreview: seedMediaSignature(siteSettingsSeed.HeroLightPreview, 'hero', siteSettingsSeed.HeroTitle),
-            heroDarkPreview: seedMediaSignature(siteSettingsSeed.HeroDarkPreview, 'hero', siteSettingsSeed.HeroTitle),
             copyright: readLocalized(siteSettingsSeed.CopyrightText),
             copyrightLabel: readLocalized(siteSettingsSeed.CopyrightLabel),
             copyrightAction: {

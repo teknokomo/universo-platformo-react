@@ -2011,7 +2011,7 @@ describe('SnapshotRestoreService', () => {
         expect(transactionRawCalls[0]).toEqual(
             expect.arrayContaining([
                 expect.objectContaining({
-                    sql: 'SELECT pg_advisory_xact_lock(hashtext(?))',
+                    sql: 'SELECT pg_advisory_xact_lock(hashtextextended(?::text, 0))',
                     params: ['playcanvas:metahub-lifecycle:9:metahub-1']
                 })
             ])
@@ -2019,7 +2019,7 @@ describe('SnapshotRestoreService', () => {
         expect(transactionRawCalls[1]).toEqual(
             expect.arrayContaining([
                 expect.objectContaining({
-                    sql: 'SELECT pg_advisory_xact_lock(hashtext(?))',
+                    sql: 'SELECT pg_advisory_xact_lock(hashtextextended(?::text, 0))',
                     params: ['playcanvas:metahub-lifecycle:9:metahub-1']
                 })
             ])

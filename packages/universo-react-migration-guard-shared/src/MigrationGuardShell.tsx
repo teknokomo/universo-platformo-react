@@ -22,7 +22,7 @@
 
 import { type ReactNode, useState } from 'react'
 import { Alert, Box, Button, CircularProgress, Dialog, DialogActions, DialogContent, Stack, Typography } from '@mui/material'
-import { extractAxiosError } from '@universo-react/utils'
+import { resolveApiErrorMessage } from '@universo-react/utils'
 import { UpdateSeverity } from '@universo-react/types'
 import type { UseQueryResult } from '@tanstack/react-query'
 import type { StructuredBlocker } from '@universo-react/types'
@@ -145,7 +145,7 @@ export function MigrationGuardShell<TStatus extends BaseMigrationStatus = BaseMi
                         </Button>
                     }
                 >
-                    {extractAxiosError(statusQuery.error).message || errorText}
+                    {resolveApiErrorMessage(statusQuery.error, errorText)}
                 </Alert>
             </Box>
         )

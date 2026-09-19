@@ -132,6 +132,7 @@ const PermissionSubjects = [
     'admin',
     'metahubs',
     'applications',
+    'applicationAliases',
     'profile',
     'onboarding',
     '*'
@@ -143,14 +144,41 @@ const PermissionSubjects = [
 const PermissionActions = ['create', 'read', 'update', 'delete', '*'] as const
 
 /**
+ * Upper bound for one role permission-set replacement. The platform has a
+ * bounded subject/action matrix, so anything beyond this is a malformed or
+ * abusive payload and must be rejected before transaction work begins.
+ */
+const MAX_ROLE_PERMISSIONS = 128
+
+/**
  * Schema for a single permission rule
  */
-const PermissionRuleSchema = z.object({
-    subject: z.enum(PermissionSubjects),
-    action: z.enum(PermissionActions),
-    conditions: z.record(z.unknown()).optional(),
-    fields: z.array(z.string()).optional()
-})
+const PermissionRuleSchema = z
+    .object({
+        subject: z.enum(PermissionSubjects),
+        action: z.enum(PermissionActions),
+        conditions: z.record(z.unknown()).optional(),
+        fields: z.array(z.string()).optional()
+    })
+    .superRefine((permission, ctx) => {
+        if (permission.subject !== 'applicationAliases' && permission.subject !== '*') return
+
+        if (permission.conditions && Object.keys(permission.conditions).length > 0) {
+            ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                path: ['conditions'],
+                message: 'Application alias permissions do not support conditions'
+            })
+        }
+
+        if (permission.fields && permission.fields.length > 0) {
+            ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                path: ['fields'],
+                message: 'Application alias permissions do not support field restrictions'
+            })
+        }
+    })
 
 /**
  * Schema for creating a new role
@@ -161,7 +189,7 @@ export const CreateRoleSchema = z.object({
     name: LocalizedStringSchema,
     color: z.string().regex(/^#[0-9A-Fa-f]{6}$/, 'Invalid hex color format'),
     isSuperuser: z.boolean(),
-    permissions: z.array(PermissionRuleSchema).default([])
+    permissions: z.array(PermissionRuleSchema).max(MAX_ROLE_PERMISSIONS).default([])
 })
 
 export type CreateRoleInput = z.infer<typeof CreateRoleSchema>
@@ -178,7 +206,7 @@ export const UpdateRoleSchema = z.object({
         .regex(/^#[0-9A-Fa-f]{6}$/, 'Invalid hex color format')
         .optional(),
     isSuperuser: z.boolean().optional(),
-    permissions: z.array(PermissionRuleSchema).optional()
+    permissions: z.array(PermissionRuleSchema).max(MAX_ROLE_PERMISSIONS).optional()
 })
 
 export type UpdateRoleInput = z.infer<typeof UpdateRoleSchema>

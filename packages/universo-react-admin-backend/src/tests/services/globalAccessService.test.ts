@@ -67,6 +67,19 @@ describe('createGlobalAccessService', () => {
             .fn()
             .mockResolvedValueOnce([{ is_super: false }])
             .mockResolvedValueOnce([])
+            // Role assignment envelope: actor check, actor permissions, role lock, role permissions.
+            .mockResolvedValueOnce([{ is_super: false }])
+            .mockResolvedValueOnce([])
+            .mockResolvedValueOnce([
+                {
+                    id: 'role-1',
+                    name: { _schema: '1', _primary: 'en', locales: {} },
+                    color: '#222222',
+                    is_superuser: false,
+                    is_system: false
+                }
+            ])
+            .mockResolvedValueOnce([])
             .mockResolvedValueOnce([])
             .mockResolvedValueOnce([{ id: 'assignment-1' }])
             .mockResolvedValueOnce([])
@@ -201,6 +214,8 @@ describe('createGlobalAccessService', () => {
                 }
             ])
             .mockResolvedValueOnce([{ is_super: true }])
+            // Role assignment envelope: the Superuser actor bypasses the envelope.
+            .mockResolvedValueOnce([{ is_super: true }])
             .mockResolvedValueOnce([])
             .mockResolvedValueOnce([])
             .mockResolvedValueOnce([
@@ -226,7 +241,7 @@ describe('createGlobalAccessService', () => {
         const result = await service.setUserRoles('user-1', ['role-super', 'role-editor'], 'admin-1', 'exclusive assignment')
 
         expect(result).toEqual([expect.objectContaining({ codename: 'Superuser', isSuperuser: true })])
-        expect(txQuery).toHaveBeenNthCalledWith(4, expect.stringContaining('INSERT INTO admin.rel_user_roles'), [
+        expect(txQuery).toHaveBeenNthCalledWith(5, expect.stringContaining('INSERT INTO admin.rel_user_roles'), [
             'user-1',
             ['role-super'],
             'admin-1',
@@ -341,6 +356,8 @@ describe('createGlobalAccessService', () => {
         const txQuery = jest
             .fn()
             .mockResolvedValueOnce([{ is_super: true }])
+            // Role assignment envelope: the Superuser actor bypasses the envelope.
+            .mockResolvedValueOnce([{ is_super: true }])
             .mockResolvedValueOnce([])
             .mockResolvedValueOnce([{ id: 'assignment-super' }])
 
@@ -376,8 +393,8 @@ describe('createGlobalAccessService', () => {
 
         expect(result.roleCodename).toBe('Superuser')
         expect(result.roles[0]).toEqual(expect.objectContaining({ isSuperuser: true, isSystem: true }))
-        expect(txQuery).toHaveBeenNthCalledWith(2, expect.stringContaining('UPDATE admin.rel_user_roles'), ['user-1', 'admin-1'])
-        expect(txQuery).toHaveBeenNthCalledWith(3, expect.stringContaining('INSERT INTO admin.rel_user_roles'), [
+        expect(txQuery).toHaveBeenNthCalledWith(3, expect.stringContaining('UPDATE admin.rel_user_roles'), ['user-1', 'admin-1'])
+        expect(txQuery).toHaveBeenNthCalledWith(4, expect.stringContaining('INSERT INTO admin.rel_user_roles'), [
             'user-1',
             'role-super',
             'admin-1',

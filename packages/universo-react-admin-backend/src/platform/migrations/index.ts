@@ -747,6 +747,37 @@ $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = admin, public, auth, pg_t
         },
         {
             sql: `
+CREATE OR REPLACE FUNCTION admin.has_admin_shell_permission(p_user_id UUID DEFAULT NULL)
+RETURNS BOOLEAN AS $$
+DECLARE
+    v_auth_user_id UUID;
+    v_user_id UUID;
+BEGIN
+    v_auth_user_id := auth.uid();
+    IF v_auth_user_id IS NOT NULL AND p_user_id IS NOT NULL AND p_user_id IS DISTINCT FROM v_auth_user_id THEN
+        RAISE EXCEPTION 'Authenticated sessions may inspect only their own admin access'
+            USING ERRCODE = '42501';
+    END IF;
+    v_user_id := COALESCE(p_user_id, v_auth_user_id);
+    IF v_user_id IS NULL THEN RETURN FALSE; END IF;
+    RETURN EXISTS (
+        SELECT 1
+        FROM admin.rel_user_roles ur
+        JOIN admin.obj_roles r ON ur.role_id = r.id
+        JOIN admin.rel_role_permissions rp ON r.id = rp.role_id
+        WHERE ur.user_id = v_user_id
+          AND ur._upl_deleted = false AND ur._app_deleted = false
+          AND r._upl_deleted = false AND r._app_deleted = false
+          AND rp._upl_deleted = false AND rp._app_deleted = false
+          AND (rp.subject = '*' OR rp.subject IN ('roles', 'instances', 'users', 'applicationAliases'))
+          AND (rp.action = 'read' OR rp.action = '*' OR rp.action = 'manage')
+    );
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = admin, public, auth, pg_temp STABLE
+        `
+        },
+        {
+            sql: `
 CREATE OR REPLACE FUNCTION admin.get_user_global_roles(p_user_id UUID)
 RETURNS TABLE (
     role_codename TEXT,
@@ -790,6 +821,7 @@ BEGIN
     REVOKE ALL ON FUNCTION admin.get_user_permissions(UUID) FROM PUBLIC;
     REVOKE ALL ON FUNCTION admin.is_superuser(UUID) FROM PUBLIC;
     REVOKE ALL ON FUNCTION admin.has_admin_permission(UUID) FROM PUBLIC;
+    REVOKE ALL ON FUNCTION admin.has_admin_shell_permission(UUID) FROM PUBLIC;
     REVOKE ALL ON FUNCTION admin.get_user_global_roles(UUID) FROM PUBLIC;
 
     IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'authenticated') THEN
@@ -797,6 +829,7 @@ BEGIN
         GRANT EXECUTE ON FUNCTION admin.get_user_permissions(UUID) TO authenticated;
         GRANT EXECUTE ON FUNCTION admin.is_superuser(UUID) TO authenticated;
         GRANT EXECUTE ON FUNCTION admin.has_admin_permission(UUID) TO authenticated;
+        GRANT EXECUTE ON FUNCTION admin.has_admin_shell_permission(UUID) TO authenticated;
         GRANT EXECUTE ON FUNCTION admin.get_user_global_roles(UUID) TO authenticated;
     END IF;
 
@@ -805,6 +838,7 @@ BEGIN
         GRANT EXECUTE ON FUNCTION admin.get_user_permissions(UUID) TO service_role;
         GRANT EXECUTE ON FUNCTION admin.is_superuser(UUID) TO service_role;
         GRANT EXECUTE ON FUNCTION admin.has_admin_permission(UUID) TO service_role;
+        GRANT EXECUTE ON FUNCTION admin.has_admin_shell_permission(UUID) TO service_role;
         GRANT EXECUTE ON FUNCTION admin.get_user_global_roles(UUID) TO service_role;
     END IF;
 END $$;

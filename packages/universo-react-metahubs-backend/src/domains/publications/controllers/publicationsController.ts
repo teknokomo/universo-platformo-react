@@ -962,11 +962,10 @@ export function createPublicationsController(getDbExecutor: () => DbExecutor) {
             id: string
             name: unknown
             description: unknown
-            slug: string
             createdAt: Date
         }>(
             `
-      SELECT DISTINCT a.id, a.name, a.description, a.slug, a._upl_created_at as "createdAt"
+      SELECT DISTINCT a.id, a.name, a.description, a._upl_created_at as "createdAt"
       FROM applications.obj_applications a
       JOIN applications.obj_connectors c ON c.application_id = a.id
       JOIN applications.rel_connector_publications cp ON cp.connector_id = c.id
@@ -1042,7 +1041,6 @@ export function createPublicationsController(getDbExecutor: () => DbExecutor) {
                 id: result.application.id,
                 name: result.application.name,
                 description: result.application.description,
-                slug: result.application.slug,
                 schemaName: result.appSchemaName
             },
             connector: {

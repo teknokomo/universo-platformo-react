@@ -78,8 +78,7 @@ test('@flow application list shows linked applications and navigates through exi
         }
 
         await recordCreatedApplication({
-            id: applicationId,
-            slug: linkedApplication.application.slug
+            id: applicationId
         })
 
         await expect

@@ -134,8 +134,7 @@ test('@flow @permission application admin access is enforced for invited members
         }
 
         await recordCreatedApplication({
-            id: application.id,
-            slug: application.slug
+            id: application.id
         })
 
         ownerSession = await createLoggedInBrowserContext(

@@ -696,14 +696,32 @@ async function applyCenteredQuizLayout(api: Awaited<ReturnType<typeof createLogg
             config: {
                 ...currentConfig,
                 ...QUIZ_CENTERED_LAYOUT_CONFIG
-            }
+            },
+            expectedVersion: layout?.version
         }),
         'Applying centered quiz layout config'
     )
 
-    const zoneWidgets = await listLayoutZoneWidgets(api, metahubId, layoutId)
-    for (const widget of zoneWidgets?.items?.filter((item) => removableWidgetKeys.has(String(item?.widgetKey ?? ''))) ?? []) {
-        const removeResponse = await sendWithCsrf(api, 'DELETE', `/api/v1/metahub/${metahubId}/layout/${layoutId}/zone-widget/${widget.id}`)
+    // Removing one widget re-normalizes zone sort orders, which bumps the
+    // optimistic-lock versions of the remaining widgets. Re-read the list on
+    // every iteration so each delete uses the current version.
+    let removableWidget = true
+    while (removableWidget) {
+        const zoneWidgets = await listLayoutZoneWidgets(api, metahubId, layoutId)
+        const widget = zoneWidgets?.items?.find((item) => removableWidgetKeys.has(String(item?.widgetKey ?? '')))
+        if (!widget) {
+            removableWidget = false
+            continue
+        }
+
+        if (!Number.isSafeInteger(widget?.version) || widget.version < 1) {
+            throw new Error(`Layout widget ${widget?.id ?? 'unknown'} did not return a valid optimistic-lock version`)
+        }
+        const removeResponse = await sendWithCsrf(
+            api,
+            'DELETE',
+            `/api/v1/metahub/${metahubId}/layout/${layoutId}/zone-widget/${widget.id}?expectedVersion=${widget.version}`
+        )
         expect(removeResponse.status).toBe(204)
     }
 }
@@ -762,6 +780,11 @@ test('@flow quiz widget modules publish into runtime and execute through the rea
             'Creating metahub module'
         )
 
+        const layoutBeforeQuizAssignment = await getLayout(api, metahub.id, layoutId)
+        if (!Number.isSafeInteger(layoutBeforeQuizAssignment?.version) || layoutBeforeQuizAssignment.version < 1) {
+            throw new Error(`Quiz layout ${layoutId} did not return a valid optimistic-lock version before widget assignment`)
+        }
+
         await expectJsonResponse(
             await sendWithCsrf(api, 'PUT', `/api/v1/metahub/${metahub.id}/layout/${layoutId}/zone-widget`, {
                 zone: 'center',
@@ -769,7 +792,8 @@ test('@flow quiz widget modules publish into runtime and execute through the rea
                 config: {
                     attachedToKind: 'metahub',
                     moduleCodename
-                }
+                },
+                expectedVersion: layoutBeforeQuizAssignment.version
             }),
             'Assigning quiz widget to layout'
         )
@@ -822,8 +846,7 @@ test('@flow quiz widget modules publish into runtime and execute through the rea
         }
 
         await recordCreatedApplication({
-            id: applicationId,
-            slug: linkedApplication.application.slug
+            id: applicationId
         })
 
         await syncApplicationSchema(api, applicationId)

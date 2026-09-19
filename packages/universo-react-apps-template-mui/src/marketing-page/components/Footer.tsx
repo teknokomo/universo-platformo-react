@@ -36,6 +36,17 @@ export default function Footer({ data, instanceKey, onAction, onLeadSubmit }: Fo
     const [invalidEmail, setInvalidEmail] = React.useState(false)
     const newsletter = data.newsletter
     const canSubmitNewsletter = Boolean(newsletter?.action && onLeadSubmit)
+    const brandFallback = data.brandName ? (
+        // A configured brand name must be visible even without a
+        // logo asset; the wordmark is only an unconfigured fallback.
+        <Typography variant='h6' sx={{ fontWeight: 700, color: 'text.primary' }}>
+            {data.brandName}
+        </Typography>
+    ) : (
+        <Box data-testid='marketing-brand-wordmark' component='span' sx={{ display: 'inline-flex' }}>
+            <Sitemark />
+        </Box>
+    )
 
     const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
         event.preventDefault()
@@ -75,7 +86,7 @@ export default function Footer({ data, instanceKey, onAction, onLeadSubmit }: Fo
                 sx={{
                     display: 'flex',
                     flexDirection: { xs: 'column', sm: 'row' },
-                    flexWrap: { xs: 'nowrap', sm: 'wrap' },
+                    flexWrap: 'wrap',
                     width: '100%',
                     minWidth: 0,
                     justifyContent: 'space-between',
@@ -91,16 +102,22 @@ export default function Footer({ data, instanceKey, onAction, onLeadSubmit }: Fo
                         minWidth: 0
                     }}
                 >
-                    {data.logo ? (
-                        <MarketingMediaView
-                            media={data.logo}
-                            sx={{ width: 120, height: 32, objectFit: 'contain', objectPosition: { xs: 'center', md: 'left' } }}
-                        />
-                    ) : (
-                        <Box component='span' role='img' aria-label={data.brandName} sx={{ display: 'inline-flex', width: 100 }}>
-                            <Sitemark />
-                        </Box>
-                    )}
+                    <Box
+                        component='span'
+                        role='img'
+                        aria-label={data.brandName || 'Marketing'}
+                        sx={{ display: 'inline-flex', alignItems: 'center' }}
+                    >
+                        {data.logo ? (
+                            <MarketingMediaView
+                                media={data.logo}
+                                fallback={brandFallback}
+                                sx={{ width: 120, height: 32, objectFit: 'contain', objectPosition: { xs: 'center', md: 'left' } }}
+                            />
+                        ) : (
+                            brandFallback
+                        )}
+                    </Box>
                     {data.description ? (
                         <Typography variant='body2' sx={{ color: 'text.secondary', maxWidth: 420 }}>
                             {data.description}
@@ -173,8 +190,8 @@ export default function Footer({ data, instanceKey, onAction, onLeadSubmit }: Fo
                         <Box
                             key={group.semanticKey}
                             sx={{
-                                display: { xs: 'none', sm: 'flex' },
-                                flex: '1 1 120px',
+                                display: 'flex',
+                                flex: { xs: '1 1 auto', sm: '1 1 140px' },
                                 minWidth: 0,
                                 flexDirection: 'column',
                                 gap: 1

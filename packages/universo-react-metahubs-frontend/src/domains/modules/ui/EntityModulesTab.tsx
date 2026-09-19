@@ -25,10 +25,10 @@ import {
     Typography
 } from '@mui/material'
 import { useTheme } from '@mui/material/styles'
+import { resolveApiErrorMessage } from '@universo-react/utils'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import CodeMirror from '@uiw/react-codemirror'
 import type { TabConfig } from '@universo-react/template-mui/components/dialogs'
-import { extractAxiosError } from '@universo-react/utils'
 import {
     MODULE_CAPABILITIES,
     resolveAllowedModuleCapabilities,
@@ -259,8 +259,8 @@ const resolveErrorMessage = (error: unknown, fallback: string, t: TranslationFn)
         }
     }
 
-    const message = extractAxiosError(error).message.trim()
-    return message.length > 0 ? resolveKnownModuleError(message, t) ?? fallback : fallback
+    const message = resolveApiErrorMessage(error, fallback)
+    return resolveKnownModuleError(message, t) ?? message
 }
 
 const DEFAULT_LIBRARY_SOURCE = `import { SharedLibraryModule } from '@universo-react/extension-sdk'

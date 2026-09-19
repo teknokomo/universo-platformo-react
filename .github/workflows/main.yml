@@ -37,6 +37,11 @@ jobs:
               run: pnpm check:zod-resolution
             - name: Check PlayCanvas Editor schema vocabulary
               run: pnpm check:playcanvas-editor-schema-vocabulary
+            - name: Check i18n key coverage
+              run: pnpm check:i18n-coverage
+            - run: pnpm check:runtime-support-cycles
+            - name: Check landing runtime unit, provenance and marketing gates
+              run: pnpm test:landing-runtime-unit-gate
             - name: Check flattened package layout
               run: pnpm check:no-package-base-paths
             - name: Check package naming convention
@@ -62,9 +67,20 @@ jobs:
                   pnpm run check:lms-fixture-contract
             - name: Check MMOOMM app runtime release gates
               run: pnpm run check:mmoomm-app-fixture-contract
+            - name: Check 73rd Meridian product fixture gate
+              run: pnpm run check:73rd-meridian-fixture-contract
             - run: pnpm build
             - name: Check MMOOMM app UI-first fixture generator gate
               run: pnpm run test:e2e:mmoomm-app-gate:local-supabase
+            - name: Check 73rd Meridian public runtime in a real browser
+              run: pnpm run test:e2e:73rd-meridian-fixture-runtime
+              env:
+                  UNIVERSO_ENV_FILE: .env.e2e.local-supabase
+                  UNIVERSO_FRONTEND_ENV_FILE: packages/universo-react-core-frontend/.env.e2e.local-supabase
+            - name: Check metahub records integrity against real PostgreSQL
+              run: pnpm run test:records-integration:local-supabase
+            - name: Check application alias integrity against real PostgreSQL
+              run: pnpm run test:applications-integration:local-supabase
             - name: Stop local E2E Supabase
               if: always()
               run: pnpm supabase:e2e:stop

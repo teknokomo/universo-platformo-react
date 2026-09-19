@@ -153,49 +153,20 @@ test.describe('Interpretation Network template lifecycle @flow @interpretation-n
             expect(structureTemplateDetail.materialCount).toBe(0)
             expect(await listTemplates(api, unrelated.applicationId, unrelatedRuntimeIds.workspaceId)).toEqual([])
 
-            await setInterpretationNetworkWidgetConfig(api, imported.applicationId, { structureMode: 'multiple' })
-            const createdFromStructureOnly = await instantiateTemplate(
-                api,
-                imported.applicationId,
-                runtimeIds.workspaceId,
-                structureOnlyTemplate!,
-                'From structure-only template'
-            )
-            const copiedStructureRows = await getRuntimeAppData(api, imported.applicationId, {
-                objectCollectionCodename: 'Structure',
-                workspaceId: runtimeIds.workspaceId,
-                locale: 'en',
-                limit: 100,
-                offset: 0
-            })
-            expect(JSON.stringify(copiedStructureRows)).toContain('From structure-only template')
-            const copiedStructureMatrixRows = await getMatrixRows(
-                api,
-                imported.applicationId,
-                runtimeIds,
-                createdFromStructureOnly.interpretationId
-            )
-            expect(copiedStructureMatrixRows.length).toBe(sourceMatrixRowsBefore.length)
-            const sourceStructureRowIds = new Set(sourceMatrixRowsBefore.map((row) => row.id))
-            const copiedStructureRowIds = copiedStructureMatrixRows.map((row) => row.id)
-            expect(new Set(copiedStructureRowIds).size).toBe(copiedStructureRowIds.length)
-            for (const copiedRowId of copiedStructureRowIds) {
-                expect(copiedRowId).toMatch(uuidV7Pattern)
-                expect(sourceStructureRowIds.has(copiedRowId)).toBe(false)
-            }
-
-            await setInterpretationNetworkWidgetConfig(api, imported.applicationId, { structureMode: 'singleSystem' })
             const sourceMaterialCell = findMatrixRowByTitle(sourceMatrixRowsBefore, 'Universe')
             const authoredMaterialBody = {
-                time: 0,
-                version: '2.30.8',
-                blocks: [
-                    {
-                        id: 'focused-material-paragraph',
-                        type: 'paragraph',
-                        data: { text: 'Authored body with an ordinary https://example.test/reference URL' }
-                    }
-                ]
+                format: 'editorjs' as const,
+                data: {
+                    time: 0,
+                    version: '2.30.8',
+                    blocks: [
+                        {
+                            id: 'focused-material-paragraph',
+                            type: 'paragraph',
+                            data: { text: 'Authored body with an ordinary https://example.test/reference URL' }
+                        }
+                    ]
+                }
             }
             const createdSourceMaterial = await createMaterialForCell(api, imported.applicationId, runtimeIds, {
                 interpretationId: system.interpretationId,
@@ -219,6 +190,8 @@ test.describe('Interpretation Network template lifecycle @flow @interpretation-n
             })
             expect(sourceMaterial?.body).toEqual(authoredMaterialBody)
             await page.goto(`/a/${imported.applicationId}`)
+            await expect(page.getByTestId('runtime-workspace-switcher')).toBeVisible({ timeout: 30_000 })
+            await openStructures(page)
             await expectSingleSystemMatrix(page)
             await page.getByTestId('interpretation-network-structure-pane').getByRole('button', { name: 'Save as template' }).click()
             const materialSaveDialog = page.getByRole('dialog', { name: 'Save structure as template' })
@@ -258,6 +231,36 @@ test.describe('Interpretation Network template lifecycle @flow @interpretation-n
             })
 
             await setInterpretationNetworkWidgetConfig(api, imported.applicationId, { structureMode: 'multiple' })
+            const createdFromStructureOnly = await instantiateTemplate(
+                api,
+                imported.applicationId,
+                runtimeIds.workspaceId,
+                structureOnlyTemplate!,
+                'From structure-only template'
+            )
+            const copiedStructureRows = await getRuntimeAppData(api, imported.applicationId, {
+                objectCollectionCodename: 'Structure',
+                workspaceId: runtimeIds.workspaceId,
+                locale: 'en',
+                limit: 100,
+                offset: 0
+            })
+            expect(JSON.stringify(copiedStructureRows)).toContain('From structure-only template')
+            const copiedStructureMatrixRows = await getMatrixRows(
+                api,
+                imported.applicationId,
+                runtimeIds,
+                createdFromStructureOnly.interpretationId
+            )
+            expect(copiedStructureMatrixRows.length).toBe(sourceMatrixRowsBefore.length)
+            const sourceStructureRowIds = new Set(sourceMatrixRowsBefore.map((row) => row.id))
+            const copiedStructureRowIds = copiedStructureMatrixRows.map((row) => row.id)
+            expect(new Set(copiedStructureRowIds).size).toBe(copiedStructureRowIds.length)
+            for (const copiedRowId of copiedStructureRowIds) {
+                expect(copiedRowId).toMatch(uuidV7Pattern)
+                expect(sourceStructureRowIds.has(copiedRowId)).toBe(false)
+            }
+
             const createdFromMaterials = await instantiateTemplate(
                 api,
                 imported.applicationId,

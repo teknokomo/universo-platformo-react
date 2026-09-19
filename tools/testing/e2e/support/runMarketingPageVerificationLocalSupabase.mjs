@@ -151,6 +151,7 @@ try {
         'node',
         'tools/testing/e2e/run-playwright-suite.mjs',
         'tools/testing/e2e/specs/flows/marketing-page-runtime.spec.ts',
+        'tools/testing/e2e/specs/flows/application-aliases.spec.ts',
         'tools/testing/e2e/specs/flows/cross-template-runtime.spec.ts',
         'tools/testing/e2e/specs/flows/cross-template-scoped-layout.spec.ts',
         'tools/testing/e2e/specs/flows/cross-template-concurrency.spec.ts',

@@ -180,8 +180,7 @@ test('@flow @combined application layout management exposes sourced layouts and 
         }
 
         await recordCreatedApplication({
-            id: applicationId,
-            slug: linkedApplication.application.slug
+            id: applicationId
         })
 
         await syncApplicationSchema(api, applicationId)

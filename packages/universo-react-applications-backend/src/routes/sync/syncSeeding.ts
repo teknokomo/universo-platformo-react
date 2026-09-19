@@ -38,6 +38,7 @@ import {
     resolveFieldDefaultEnumValueId,
     normalizeSnapshotCodenameValue
 } from './syncHelpers'
+import { assertMarketingSeedRows, isMarketingSeedObject } from '../../services/marketingSeedGuard'
 
 // --- Element seeding ---
 
@@ -78,6 +79,24 @@ export async function seedPredefinedElements(
                     throw new Error(`Duplicate predefined element id must be rejected before writing: ${element.id}`)
                 }
                 elementIds.add(element.id)
+            }
+
+            // Marketing content is read back through the anonymous public runtime,
+            // which caps each object and requires unique semantic keys: fail the
+            // sync at write time instead of breaking the published page later.
+            if (isMarketingSeedObject(entity.codename)) {
+                assertMarketingSeedRows({
+                    objectCodename: entity.codename,
+                    rows: elements,
+                    uniqueFieldCodenames: entity.fields
+                        .filter(
+                            (field: EntityField) =>
+                                !field.parentComponentId &&
+                                field.dataType !== ComponentDefinitionDataType.TABLE &&
+                                field.validationRules?.unique === true
+                        )
+                        .map((field: EntityField) => field.codename)
+                })
             }
 
             const tableName = resolveEntityTableName(entity)

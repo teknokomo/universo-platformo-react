@@ -1386,7 +1386,7 @@ describe('remaining metahubs optimistic mutation hooks', () => {
         deletePublicationRequest.resolve({ success: true, message: 'deleted' })
 
         await waitFor(() => {
-            expect(mocks.enqueueSnackbar).toHaveBeenCalledWith('Information base deleted', { variant: 'success' })
+            expect(mocks.enqueueSnackbar).toHaveBeenCalledWith('Publication deleted', { variant: 'success' })
         })
     })
 })

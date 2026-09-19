@@ -310,6 +310,7 @@ export type PermissionSubject =
     | 'admin'
     | 'metahubs'
     | 'applications'
+    | 'applicationAliases'
     | 'profile'
     | 'onboarding'
     | '*'
@@ -325,6 +326,7 @@ export const PERMISSION_SUBJECTS: PermissionSubject[] = [
     'admin',
     'metahubs',
     'applications',
+    'applicationAliases',
     'profile',
     'onboarding'
 ]
@@ -333,7 +335,7 @@ export const PERMISSION_SUBJECTS: PermissionSubject[] = [
  * Admin-related permission subjects that grant access to admin panel
  * If user has any permission (read or wildcard) on these subjects, they can access admin panel
  */
-export const ADMIN_PERMISSION_SUBJECTS: PermissionSubject[] = ['roles', 'instances', 'users']
+export const ADMIN_PERMISSION_SUBJECTS: PermissionSubject[] = ['roles', 'instances', 'users', 'applicationAliases']
 
 /**
  * All available permission actions (for UI iteration)

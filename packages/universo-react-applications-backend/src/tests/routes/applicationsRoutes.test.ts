@@ -282,7 +282,6 @@ describe('Applications Routes', () => {
             name: {},
             description: null,
             settings: null,
-            slug: null,
             isPublic: false,
             workspacesEnabled: false,
             schemaName: 'app_deadbeef',
@@ -333,7 +332,6 @@ describe('Applications Routes', () => {
                     id: 'application-1',
                     name: 'Test Application',
                     description: 'Test Description',
-                    slug: 'test-app',
                     isPublic: false,
                     schemaName: 'app_123',
                     schemaStatus: 'draft',
@@ -404,7 +402,6 @@ describe('Applications Routes', () => {
                     id: 'application-public',
                     name: 'Public Application',
                     description: 'Joinable application',
-                    slug: 'public-application',
                     isPublic: true,
                     workspacesEnabled: true,
                     schemaName: 'app_public',
@@ -3305,7 +3302,6 @@ describe('Applications Routes', () => {
                             _primary: 'en',
                             locales: { en: { content: 'Description' } }
                         },
-                        slug: 'new-application',
                         isPublic: false,
                         schemaName: 'app_newapplicationid',
                         schemaStatus: 'draft',
@@ -3325,8 +3321,7 @@ describe('Applications Routes', () => {
                 .post('/applications')
                 .send({
                     name: 'New Application',
-                    description: 'Description',
-                    slug: 'new-application'
+                    description: 'Description'
                 })
                 .expect(201)
 
@@ -3348,21 +3343,19 @@ describe('Applications Routes', () => {
             expect(response.body.error).toBeDefined()
         })
 
-        it('should reject duplicate slug', async () => {
+        it('should reject legacy application slug input', async () => {
             const { dataSource } = buildDataSource()
-            ;(dataSource.query as jest.Mock).mockResolvedValue([{ id: 'existing', slug: 'taken-slug' }])
-
             const app = buildApp(dataSource)
 
             const response = await request(app)
                 .post('/applications')
                 .send({
                     name: 'New Application',
-                    slug: 'taken-slug'
+                    slug: 'legacy-slug'
                 })
-                .expect(409)
+                .expect(400)
 
-            expect(response.body.error).toContain('slug')
+            expect(response.body.error).toBe('Invalid input')
         })
 
         it('should create public application shells without workspaces until connector schema sync enables them', async () => {
@@ -3379,7 +3372,6 @@ describe('Applications Routes', () => {
                             locales: { en: { content: 'Public Application' } }
                         },
                         description: null,
-                        slug: null,
                         isPublic: true,
                         workspacesEnabled: false,
                         schemaName: 'app_publicapplicationid',
@@ -3435,7 +3427,6 @@ describe('Applications Routes', () => {
                 locales: { en: { content: 'Source App (copy)' } }
             },
             description: null,
-            slug: 'source-app-copy',
             isPublic: false,
             workspacesEnabled: false,
             schemaName: `app_${id.replace(/-/g, '')}`,
@@ -3453,12 +3444,10 @@ describe('Applications Routes', () => {
             dataSource: TestDataSource,
             options: {
                 sourceApplication: Record<string, unknown>
-                slugChecks?: Record<string, Record<string, unknown> | null>
                 generatedId: string
                 copiedApplication?: Record<string, unknown>
             }
         ) => {
-            const slugChecks = options.slugChecks ?? {}
             const copiedApplication = options.copiedApplication ?? buildCopiedApplicationRow(options.generatedId)
 
             ;(dataSource.query as jest.Mock).mockImplementation(async (sql: string, params?: unknown[]) => {
@@ -3476,12 +3465,6 @@ describe('Applications Routes', () => {
 
                 if (sql.includes('SELECT') && sql.includes('FROM applications.obj_applications a') && sql.includes('schema_snapshot')) {
                     return [{ workspacesEnabled: false, ...options.sourceApplication }]
-                }
-
-                if (sql.includes('SELECT id, slug') && sql.includes('FROM applications.obj_applications')) {
-                    const slug = params?.[0] as string
-                    const result = slugChecks[slug]
-                    return result ? [result] : []
                 }
 
                 if (sql.includes('SELECT public.uuid_generate_v7() AS id')) {
@@ -3513,7 +3496,6 @@ describe('Applications Routes', () => {
                     _primary: 'en',
                     locales: { en: { content: 'Source desc' } }
                 },
-                slug: 'source-app',
                 isPublic: false,
                 schemaName: 'app_source001',
                 schemaStatus: 'synced',
@@ -3528,11 +3510,7 @@ describe('Applications Routes', () => {
             configureCopyQueries(dataSource, {
                 sourceApplication,
                 generatedId: '018f8a78-7b8f-7c1d-a111-222233334444',
-                slugChecks: {
-                    'source-app-copy': null
-                },
                 copiedApplication: buildCopiedApplicationRow('018f8a78-7b8f-7c1d-a111-222233334444', {
-                    slug: 'source-app-copy',
                     schemaStatus: 'outdated'
                 })
             })
@@ -3580,7 +3558,6 @@ describe('Applications Routes', () => {
                         locales: { en: { content: 'Source App' } }
                     },
                     description: null,
-                    slug: 'source-app',
                     isPublic: false,
                     schemaName: 'app_source001',
                     schemaStatus: 'synced',
@@ -3593,11 +3570,7 @@ describe('Applications Routes', () => {
                     _uplUpdatedAt: new Date()
                 },
                 generatedId: '018f8a78-7b8f-7c1d-a111-222233334445',
-                slugChecks: {
-                    'source-app-copy': null
-                },
                 copiedApplication: buildCopiedApplicationRow('018f8a78-7b8f-7c1d-a111-222233334445', {
-                    slug: 'source-app-copy',
                     schemaStatus: 'draft'
                 })
             })
@@ -3625,126 +3598,6 @@ describe('Applications Routes', () => {
             ).toBe(false)
         })
 
-        it('should auto-resolve slug collisions for repeated copies when slug is not provided explicitly', async () => {
-            const { dataSource } = buildDataSource()
-
-            configureCopyQueries(dataSource, {
-                sourceApplication: {
-                    id: 'application-1',
-                    name: {
-                        _schema: 'v1',
-                        _primary: 'en',
-                        locales: { en: { content: 'Source App' } }
-                    },
-                    description: null,
-                    slug: 'source-app',
-                    isPublic: false,
-                    schemaName: 'app_source001',
-                    schemaStatus: 'synced',
-                    _uplVersion: 1,
-                    _uplCreatedAt: new Date(),
-                    _uplUpdatedAt: new Date()
-                },
-                generatedId: '018f8a78-7b8f-7c1d-a111-222233334447',
-                slugChecks: {
-                    'source-app-copy': { id: 'existing-copy-1', slug: 'source-app-copy' },
-                    'source-app-copy-2': null
-                },
-                copiedApplication: buildCopiedApplicationRow('018f8a78-7b8f-7c1d-a111-222233334447', {
-                    slug: 'source-app-copy-2'
-                })
-            })
-
-            const app = buildApp(dataSource)
-
-            const response = await request(app)
-                .post('/applications/application-1/copy')
-                .send({
-                    name: { en: 'Source App (copy)' },
-                    copyConnector: false,
-                    copyAccess: false
-                })
-                .expect(201)
-
-            expect(response.body.id).toBe('018f8a78-7b8f-7c1d-a111-222233334447')
-            const insertApplicationCall = (dataSource.manager.query as jest.Mock).mock.calls.find(([sql]: [string]) =>
-                sql.includes('INSERT INTO applications.obj_applications (')
-            )
-            expect(insertApplicationCall?.[1]?.[4]).toBe('source-app-copy-2')
-        })
-
-        it('should retry with next generated slug when insert fails with concurrent slug conflict', async () => {
-            const { dataSource } = buildDataSource()
-
-            const slugRaceError = Object.assign(new Error('duplicate key value violates unique constraint "applications_slug_key"'), {
-                code: '23505',
-                constraint: 'applications_slug_key'
-            })
-
-            configureCopyQueries(dataSource, {
-                sourceApplication: {
-                    id: 'application-1',
-                    name: {
-                        _schema: 'v1',
-                        _primary: 'en',
-                        locales: { en: { content: 'Source App' } }
-                    },
-                    description: null,
-                    slug: 'source-app',
-                    isPublic: false,
-                    schemaName: 'app_source001',
-                    schemaStatus: 'synced',
-                    _uplVersion: 1,
-                    _uplCreatedAt: new Date(),
-                    _uplUpdatedAt: new Date()
-                },
-                generatedId: '018f8a78-7b8f-7c1d-a111-222233334448',
-                slugChecks: {
-                    'source-app-copy': null,
-                    'source-app-copy-2': null
-                },
-                copiedApplication: buildCopiedApplicationRow('018f8a78-7b8f-7c1d-a111-222233334448', {
-                    slug: 'source-app-copy-2'
-                })
-            })
-            ;(dataSource.manager.query as jest.Mock)
-                .mockImplementationOnce(async (sql: string) => {
-                    if (sql.includes('INSERT INTO applications.obj_applications (')) {
-                        throw slugRaceError
-                    }
-                    return []
-                })
-                .mockImplementation(async (sql: string) => {
-                    if (sql.includes('INSERT INTO applications.obj_applications (')) {
-                        return [
-                            buildCopiedApplicationRow('018f8a78-7b8f-7c1d-a111-222233334448', {
-                                slug: 'source-app-copy-2'
-                            })
-                        ]
-                    }
-                    return []
-                })
-
-            const app = buildApp(dataSource)
-
-            const response = await request(app)
-                .post('/applications/application-1/copy')
-                .send({
-                    name: { en: 'Source App (copy)' },
-                    copyConnector: false,
-                    copyAccess: false
-                })
-                .expect(201)
-
-            expect(response.body.id).toBe('018f8a78-7b8f-7c1d-a111-222233334448')
-            const insertCalls = (dataSource.manager.query as jest.Mock).mock.calls.filter(([sql]: [string]) =>
-                sql.includes('INSERT INTO applications.obj_applications (')
-            )
-            expect(insertCalls).toHaveLength(2)
-            expect(insertCalls[0][1][4]).toBe('source-app-copy')
-            expect(insertCalls[1][1][4]).toBe('source-app-copy-2')
-        })
-
         it('should reject legacy createSchema input on backend copy route', async () => {
             const { dataSource } = buildDataSource()
 
@@ -3757,17 +3610,11 @@ describe('Applications Routes', () => {
                         locales: { en: { content: 'Source App' } }
                     },
                     description: null,
-                    slug: 'source-app',
                     isPublic: false,
                     schemaName: 'app_source001'
                 },
                 generatedId: '018f8a78-7b8f-7c1d-a111-222233334449',
-                slugChecks: {
-                    'source-app-copy': null
-                },
-                copiedApplication: buildCopiedApplicationRow('018f8a78-7b8f-7c1d-a111-222233334449', {
-                    slug: 'source-app-copy'
-                })
+                copiedApplication: buildCopiedApplicationRow('018f8a78-7b8f-7c1d-a111-222233334449')
             })
 
             const app = buildApp(dataSource)
@@ -3827,7 +3674,6 @@ describe('Applications Routes', () => {
                     id: 'application-1',
                     name: 'Test Application',
                     description: 'Description',
-                    slug: 'test-app',
                     isPublic: false,
                     schemaName: 'app_123',
                     schemaStatus: 'draft',
@@ -3887,7 +3733,6 @@ describe('Applications Routes', () => {
                                 _primary: 'en',
                                 locales: { en: { content: 'Old Description' } }
                             },
-                            slug: 'test-app',
                             isPublic: false,
                             schemaName: 'app_123',
                             schemaStatus: 'draft',
@@ -3914,7 +3759,6 @@ describe('Applications Routes', () => {
                             _primary: 'en',
                             locales: { en: { content: 'Old Description' } }
                         },
-                        slug: 'test-app',
                         isPublic: false,
                         schemaName: 'app_123',
                         schemaStatus: 'draft',
@@ -3990,7 +3834,6 @@ describe('Applications Routes', () => {
                             },
                             description: null,
                             settings: savedSettings,
-                            slug: 'test-app',
                             isPublic: false,
                             workspacesEnabled: false,
                             schemaName: 'app_123',
@@ -4017,7 +3860,6 @@ describe('Applications Routes', () => {
                         settings: {
                             publicRuntime: existingPublicRuntime
                         },
-                        slug: 'test-app',
                         isPublic: false,
                         workspacesEnabled: false,
                         schemaName: 'app_123',
@@ -4104,7 +3946,6 @@ describe('Applications Routes', () => {
                             },
                             description: null,
                             settings: savedSettings,
-                            slug: 'learning-app',
                             isPublic: false,
                             workspacesEnabled: false,
                             schemaName: 'app_learning',
@@ -4129,7 +3970,6 @@ describe('Applications Routes', () => {
                         },
                         description: null,
                         settings: {},
-                        slug: 'learning-app',
                         isPublic: false,
                         workspacesEnabled: false,
                         schemaName: 'app_learning',
@@ -4204,7 +4044,6 @@ describe('Applications Routes', () => {
                             },
                             description: null,
                             settings: savedSettings,
-                            slug: 'test-app',
                             isPublic: false,
                             workspacesEnabled: false,
                             schemaName: 'app_123',
@@ -4229,7 +4068,6 @@ describe('Applications Routes', () => {
                         },
                         description: null,
                         settings: {},
-                        slug: 'test-app',
                         isPublic: false,
                         workspacesEnabled: false,
                         schemaName: 'app_123',
@@ -4332,7 +4170,6 @@ describe('Applications Routes', () => {
                             },
                             description: null,
                             settings: savedSettings,
-                            slug: 'test-app',
                             isPublic: false,
                             workspacesEnabled: true,
                             schemaName: 'app_123',
@@ -4357,7 +4194,6 @@ describe('Applications Routes', () => {
                         },
                         description: null,
                         settings: {},
-                        slug: 'test-app',
                         isPublic: false,
                         workspacesEnabled: true,
                         schemaName: 'app_123',
@@ -4424,7 +4260,6 @@ describe('Applications Routes', () => {
                                 locales: { en: { content: 'Existing App' } }
                             },
                             description: null,
-                            slug: 'test-app',
                             isPublic: true,
                             workspacesEnabled: false,
                             schemaName: 'app_123',
@@ -4448,7 +4283,6 @@ describe('Applications Routes', () => {
                             locales: { en: { content: 'Existing App' } }
                         },
                         isPublic: false,
-                        slug: 'test-app',
                         description: null,
                         version: 1,
                         updatedAt: new Date(),
@@ -4540,7 +4374,6 @@ describe('Applications Routes', () => {
                         id: 'application-1',
                         name: 'Test Application',
                         description: null,
-                        slug: 'test-app',
                         isPublic: false,
                         schemaName: 'app_1234567890abcdef1234567890abcdef',
                         schemaStatus: 'draft',
@@ -5017,7 +4850,6 @@ describe('Applications Routes', () => {
                             id: publicApplicationId,
                             name: 'Public App',
                             description: null,
-                            slug: 'public-app',
                             isPublic: true,
                             workspacesEnabled: false,
                             schemaName: null,
@@ -9340,6 +9172,10 @@ describe('Applications Routes', () => {
                     })
                 })
             )
+            // The copy runs inside a savepoint so a failure after partial child
+            // inserts cannot commit half a copied hierarchy.
+            expect(dataSource.transaction).toHaveBeenCalled()
+            expect(txExecutor.transaction).toHaveBeenCalledTimes(1)
         })
 
         it('copies through the runtime copy endpoint with optimistic version and data overrides', async () => {
@@ -9406,6 +9242,67 @@ describe('Applications Routes', () => {
             expect(insertCall?.[1]).toEqual(['Copied row', 'test-user-id'])
         })
 
+        it('takes the record-rule advisory lock before locking the copy source row', async () => {
+            const { dataSource, applicationRepo, applicationUserRepo } = buildDataSource()
+
+            applicationUserRepo.findOne.mockResolvedValue({
+                userId: 'test-user-id',
+                applicationId: runtimeApplicationId,
+                role: 'editor'
+            })
+            applicationRepo.findOne.mockResolvedValue({
+                id: runtimeApplicationId,
+                schemaName: 'app_deadbeef',
+                workspacesEnabled: false
+            })
+            ;(dataSource.manager.query as jest.Mock).mockImplementation(async (sql: string, params?: unknown[]) => {
+                if (sql.includes('FROM "app_deadbeef"._app_objects')) {
+                    return [{ id: runtimeLinkedCollectionId, codename: 'orders', table_name: 'orders', config: null }]
+                }
+                if (sql.includes('FROM "app_deadbeef"._app_components')) {
+                    return [
+                        {
+                            id: 'attr-title',
+                            codename: 'Title',
+                            column_name: 'title',
+                            data_type: 'STRING',
+                            is_required: true,
+                            validation_rules: { unique: true }
+                        }
+                    ]
+                }
+                if (sql.includes('SELECT COUNT(*)::text AS count') && sql.includes('"app_deadbeef"."orders"')) {
+                    return [{ count: '1' }]
+                }
+                if (sql.includes('FROM "app_deadbeef"."orders"')) {
+                    if (Array.isArray(params) && params[0] === runtimeRowId) {
+                        return [{ id: runtimeRowId, title: 'Source row', _upl_version: 1, _upl_locked: false }]
+                    }
+                    if (Array.isArray(params) && params[0] === copiedRowId) {
+                        return [{ id: copiedRowId, title: 'Copied row', _upl_version: 1, _upl_locked: false }]
+                    }
+                    return []
+                }
+                if (sql.includes('INSERT INTO "app_deadbeef"."orders"')) {
+                    return [{ id: copiedRowId }]
+                }
+                return []
+            })
+
+            const app = buildApp(dataSource)
+            await request(app)
+                .post(`/applications/${runtimeApplicationId}/runtime/rows/${runtimeRowId}/copy`)
+                .send({ objectCollectionId: runtimeLinkedCollectionId })
+                .expect(201)
+
+            const statements = (dataSource.manager.query as jest.Mock).mock.calls.map(([sql]) => String(sql))
+            const lockIndex = statements.findIndex((sql) => sql.includes('pg_advisory_xact_lock'))
+            const forUpdateIndex = statements.findIndex((sql) => sql.includes('FROM "app_deadbeef"."orders"') && sql.includes('FOR UPDATE'))
+            expect(lockIndex).toBeGreaterThanOrEqual(0)
+            expect(forUpdateIndex).toBeGreaterThanOrEqual(0)
+            expect(lockIndex).toBeLessThan(forUpdateIndex)
+        })
+
         it('rejects stale-version runtime copy before mutating the runtime table', async () => {
             const { dataSource, applicationRepo, applicationUserRepo } = buildDataSource()
 
@@ -9455,7 +9352,8 @@ describe('Applications Routes', () => {
                 .expect(409)
 
             expect(response.body).toEqual({
-                error: 'Version mismatch',
+                error: 'Record version conflict',
+                code: 'RUNTIME_RECORD_VERSION_CONFLICT',
                 expectedVersion: 4,
                 actualVersion: 5
             })
@@ -10970,7 +10868,7 @@ describe('Applications Routes', () => {
         })
 
         it('fails closed when declarative posting movements contain invalid ledger fields', async () => {
-            const { dataSource, applicationRepo, applicationUserRepo } = buildDataSource()
+            const { dataSource, txExecutor, applicationRepo, applicationUserRepo } = buildDataSource()
             const dispatchLifecycleEventSpy = jest
                 .spyOn(RuntimeModulesService.prototype, 'dispatchLifecycleEvent')
                 .mockImplementation(async (params) =>
@@ -11073,6 +10971,11 @@ describe('Applications Routes', () => {
                     String(call[0]).includes('INSERT INTO "app_deadbeef"."led_progress"')
                 )
             ).toBeUndefined()
+            // The failing command ran through the command savepoint, so the
+            // counter/state writes that preceded the validation error are inside
+            // the savepoint scope that rolls back on the failure.
+            expect(dataSource.transaction).toHaveBeenCalled()
+            expect(txExecutor.transaction).toHaveBeenCalled()
         })
 
         it.each([
@@ -14373,7 +14276,8 @@ describe('Applications Routes', () => {
 
             expect(response.status).toBe(409)
             expect(response.body).toEqual({
-                error: 'Version mismatch',
+                error: 'Record version conflict',
+                code: 'RUNTIME_RECORD_VERSION_CONFLICT',
                 childRowId: staleChildRowId,
                 expectedVersion: 1,
                 actualVersion: 2

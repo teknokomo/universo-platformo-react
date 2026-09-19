@@ -3,9 +3,11 @@ import { createLocale, updateLocale } from '../../persistence/localesStore'
 import {
     countUsersByRoleId,
     createRole,
+    findRoleByIdForUpdate,
     findRoleByCodename,
     listRoleUsers,
     listRoles,
+    lockRoleMutation,
     replacePermissions,
     updateRole
 } from '../../persistence/rolesStore'
@@ -58,8 +60,20 @@ describe('admin persistence explicit RETURNING regression', () => {
 
         await replacePermissions(exec as never, 'role-1', [{ subject: 'admin', action: 'read', fields: ['id'] }])
 
-        expect(String(exec.query.mock.calls[1][0])).toContain('RETURNING id, role_id, subject, action, conditions, fields, _upl_created_at')
-        expect(String(exec.query.mock.calls[1][0])).not.toContain('RETURNING *')
+        expect(String(exec.query.mock.calls[0][0])).toContain('FOR UPDATE')
+        expect(String(exec.query.mock.calls[2][0])).toContain('RETURNING id, role_id, subject, action, conditions, fields, _upl_created_at')
+        expect(String(exec.query.mock.calls[2][0])).not.toContain('RETURNING *')
+    })
+
+    it('uses the role mutation advisory lock and source row locks for copy reads', async () => {
+        const exec = createExec()
+
+        await lockRoleMutation(exec as never)
+        await findRoleByIdForUpdate(exec as never, 'role-1')
+
+        expect(exec.query.mock.calls[0]).toEqual(['SELECT pg_advisory_xact_lock(hashtextextended($1::text, 0))', ['admin:role-mutation']])
+        expect(String(exec.query.mock.calls[1][0])).toContain('FOR UPDATE')
+        expect(String(exec.query.mock.calls[2][0])).toContain('FOR SHARE')
     })
 
     it('uses explicit columns for locale create and update', async () => {

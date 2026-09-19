@@ -484,6 +484,52 @@ describe('runtime row API helpers', () => {
         expect(new Headers(updateRequest.headers).get('X-CSRF-Token')).toBe('csrf-token')
     })
 
+    it('preserves runtime rule violation codes on row writes', async () => {
+        const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+            const url = String(input)
+            if (url.endsWith('/auth/csrf')) {
+                return new Response(JSON.stringify({ csrfToken: 'csrf-token' }), {
+                    status: 200,
+                    headers: { 'Content-Type': 'application/json' }
+                })
+            }
+            return new Response(
+                JSON.stringify({
+                    error: 'A record with the same value already exists: sectionKey',
+                    code: 'RECORD_KEY_DUPLICATE',
+                    field: 'sectionKey'
+                }),
+                { status: 409, headers: { 'Content-Type': 'application/json' } }
+            )
+        })
+        vi.stubGlobal('fetch', fetchMock)
+
+        const updateCall = updateAppRow({
+            apiBaseUrl: '/api/v1',
+            applicationId: 'app-1',
+            rowId: 'row-1',
+            data: { sectionKey: 'programs' }
+        })
+        await expect(updateCall).rejects.toMatchObject({ name: 'AppsApiError', status: 409, code: 'RECORD_KEY_DUPLICATE' })
+
+        const createCall = createAppRow({
+            apiBaseUrl: '/api/v1',
+            applicationId: 'app-1',
+            objectCollectionId: 'collection-1',
+            data: { sectionKey: 'programs' }
+        })
+        await expect(createCall).rejects.toMatchObject({ name: 'AppsApiError', status: 409, code: 'RECORD_KEY_DUPLICATE' })
+
+        const copyCall = copyAppRow({
+            apiBaseUrl: '/api/v1',
+            applicationId: 'app-1',
+            rowId: 'row-1',
+            objectCollectionId: 'collection-1',
+            data: { sectionKey: 'programs' }
+        })
+        await expect(copyCall).rejects.toMatchObject({ name: 'AppsApiError', status: 409, code: 'RECORD_KEY_DUPLICATE' })
+    })
+
     it('passes workspace scope through runtime row deletes', async () => {
         const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
             const url = String(input)

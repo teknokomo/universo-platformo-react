@@ -113,10 +113,18 @@ export const GeneralSettingsPanel = ({
     effectiveVisibility,
     currentVisibility,
     workspacesEnabled,
+    publicEntryWorkspaceSupported,
+    publicEntryWorkspaceId,
+    publicEntryWorkspaceOptions,
+    publicEntryWorkspaceLoading,
+    publicEntryWorkspaceError,
+    publicEntryWorkspaceSaving,
     settings,
     hasChanges,
     isSaving,
     onVisibilityChange,
+    onPublicEntryWorkspaceChange,
+    onPublicEntryWorkspaceRetry,
     onSettingsChange,
     onSave
 }: {
@@ -124,10 +132,18 @@ export const GeneralSettingsPanel = ({
     effectiveVisibility: boolean
     currentVisibility: boolean | undefined
     workspacesEnabled: boolean | undefined
+    publicEntryWorkspaceSupported: boolean
+    publicEntryWorkspaceId: string | null | undefined
+    publicEntryWorkspaceOptions: Array<{ id: string; label: string }>
+    publicEntryWorkspaceLoading: boolean
+    publicEntryWorkspaceError: boolean
+    publicEntryWorkspaceSaving: boolean
     settings: ApplicationDialogSettings
     hasChanges: boolean
     isSaving: boolean
     onVisibilityChange: (value: boolean | undefined) => void
+    onPublicEntryWorkspaceChange: (value: string | null) => void
+    onPublicEntryWorkspaceRetry: () => void | Promise<void>
     onSettingsChange: SettingsChange
     onSave: SaveHandler
 }) => (
@@ -186,6 +202,63 @@ export const GeneralSettingsPanel = ({
                             'Workspace mode is selected during application creation and cannot be changed after the runtime structure is defined.'
                         )}
                     </Typography>
+                    {workspacesEnabled ? (
+                        <Box
+                            data-testid='application-setting-public-entry-workspace'
+                            sx={{
+                                mt: 2,
+                                display: 'grid',
+                                gridTemplateColumns: { xs: '1fr', md: 'minmax(0, 1fr) minmax(240px, 320px)' },
+                                gap: 2,
+                                alignItems: 'center'
+                            }}
+                        >
+                            <Box sx={{ minWidth: 0 }}>
+                                <Typography variant='subtitle2'>
+                                    {t('settings.publicEntryWorkspaceTitle', 'Public entry workspace')}
+                                </Typography>
+                                <Typography variant='body2' sx={{ color: 'text.secondary' }}>
+                                    {t(
+                                        'settings.publicEntryWorkspaceDescription',
+                                        'Anonymous visitors use this shared workspace when the application is public. The server selects it automatically.'
+                                    )}
+                                </Typography>
+                            </Box>
+                            {!publicEntryWorkspaceSupported ? (
+                                <Alert severity='info' data-testid='application-settings-public-entry-workspace-not-ready'>
+                                    {t('settings.publicEntryWorkspaceNotReady')}
+                                </Alert>
+                            ) : publicEntryWorkspaceError ? (
+                                <Alert
+                                    severity='error'
+                                    action={
+                                        <Button color='inherit' size='small' onClick={() => void onPublicEntryWorkspaceRetry()}>
+                                            {t('settings.publicEntryWorkspaceRetry')}
+                                        </Button>
+                                    }
+                                >
+                                    {t('settings.publicEntryWorkspaceLoadError')}
+                                </Alert>
+                            ) : (
+                                <FormControl size='small' fullWidth disabled={publicEntryWorkspaceLoading || publicEntryWorkspaceSaving}>
+                                    <InputLabel>{t('settings.publicEntryWorkspaceLabel')}</InputLabel>
+                                    <Select
+                                        label={t('settings.publicEntryWorkspaceLabel')}
+                                        value={publicEntryWorkspaceId ?? ''}
+                                        onChange={(event) => onPublicEntryWorkspaceChange(event.target.value || null)}
+                                        data-testid='application-settings-public-entry-workspace-select'
+                                    >
+                                        <MenuItem value=''>{t('settings.publicEntryWorkspaceNone')}</MenuItem>
+                                        {publicEntryWorkspaceOptions.map((workspace) => (
+                                            <MenuItem key={workspace.id} value={workspace.id}>
+                                                {workspace.label}
+                                            </MenuItem>
+                                        ))}
+                                    </Select>
+                                </FormControl>
+                            )}
+                        </Box>
+                    ) : null}
                 </Box>
                 <FormControlLabel
                     data-testid='application-settings-visibility-toggle'

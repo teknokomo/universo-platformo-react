@@ -295,13 +295,19 @@ export function useRecordListData() {
     // Only expose components explicitly intended for list display. Structured
     // resource-source fields stay available in forms but must not leak JSON or
     // storage descriptors into the authoring table.
-    const visibleComponentsForColumns = useMemo(
-        () =>
-            orderedComponents
-                .filter((component) => component.uiConfig?.hidden !== true && component.uiConfig?.gridHidden !== true)
-                .slice(0, 4),
-        [orderedComponents]
-    )
+    const visibleComponentsForColumns = useMemo(() => {
+        const eligible = orderedComponents.filter(
+            (component) => component.uiConfig?.hidden !== true && component.uiConfig?.gridHidden !== true
+        )
+        // The `SortOrder` component is the order the published runtime renders.
+        // Keep it visible even when it falls outside the four default columns so
+        // authors can see and edit the effective position directly.
+        const sortOrderComponent = eligible.find(
+            (component) => (getVLCString(component.codename, 'en') || component.codename) === 'SortOrder'
+        )
+        const primary = eligible.filter((component) => component !== sortOrderComponent).slice(0, 4)
+        return sortOrderComponent ? [...primary, sortOrderComponent] : primary
+    }, [orderedComponents])
 
     const visibleRefComponentsForColumns = useMemo(
         () =>

@@ -73,6 +73,7 @@
         "administration": "Администрирование",
         "roles": "Роли",
         "locales": "Языки",
+        "aliases": "Слаги",
         "adminboard": "Админборд",
         "instance": "Экземпляр",
         "instanceboard": "Панель экземпляра",

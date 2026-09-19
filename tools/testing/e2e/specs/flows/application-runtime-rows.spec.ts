@@ -312,8 +312,7 @@ test('@flow @combined application runtime rows support browser create, edit, cop
         }
 
         await recordCreatedApplication({
-            id: applicationId,
-            slug: linkedApplication.application.slug
+            id: applicationId
         })
 
         await syncApplicationSchema(api, applicationId)
@@ -387,7 +386,8 @@ test('@flow @combined application runtime rows support browser create, edit, cop
         const copyRequest = waitForSettledMutationResponse(
             page,
             (response) =>
-                response.request().method() === 'POST' && response.url().endsWith(`/api/v1/applications/${applicationId}/runtime/rows`),
+                response.request().method() === 'POST' &&
+                response.url().endsWith(`/api/v1/applications/${applicationId}/runtime/rows/${createdRow.id}/copy`),
             { label: 'Copying runtime row' }
         )
         await copyDialog.getByTestId(entityDialogSelectors.submitButton).click()

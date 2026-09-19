@@ -13,6 +13,7 @@ import {
 } from '../../support/backend/api-session.mjs'
 import { createBootstrapApiContext, disposeBootstrapApiContext } from '../../support/backend/bootstrap.mjs'
 import { recordCreatedLocale, recordCreatedMetahub } from '../../support/backend/run-manifest.mjs'
+import { confirmDiscardIfPrompted } from '../../support/browser/dialogs'
 import { waitForSettledMutationResponse } from '../../support/browser/network'
 import { applyBrowserPreferences } from '../../support/browser/preferences'
 import { confirmDeleteSelectors, entityDialogSelectors, toolbarSelectors } from '../../support/selectors/contracts'
@@ -364,6 +365,7 @@ test('@flow basic metahub exposes clean Pages UX and Sets-backed shared constant
         await captureProofScreenshot(page, testInfo, 'basic-pages-create-dialog-ru.png')
 
         await dialog.getByRole('button', { name: 'Отмена' }).click()
+        await confirmDiscardIfPrompted(page)
         await expect(dialog).toHaveCount(0)
 
         const pageTitle = `Учебная страница ${runManifest.runId}`
@@ -468,7 +470,7 @@ test('@flow basic metahub exposes clean Pages UX and Sets-backed shared constant
 
         await openRowActionsMenu(page, pageTitle)
         const pageMenuItems = page.getByRole('menuitem')
-        await expect(pageMenuItems).toHaveText([/Редактировать|Edit/i, /Копировать|Copy/i, /Удалить|Delete/i])
+        await expect(pageMenuItems).toHaveText([/^Открыть$|^Open$/i, /Редактировать|Edit/i, /Копировать|Copy/i, /Удалить|Delete/i])
         const pageActionIconSignatures = await readOpenMenuIconSignatures(page)
         await expect(page.getByRole('menuitem', { name: /Открыть контент|Open content/i })).toHaveCount(0)
         await expect(page.getByRole('menuitem', { name: /Редактировать свойства|Edit properties/i })).toHaveCount(0)
@@ -480,7 +482,10 @@ test('@flow basic metahub exposes clean Pages UX and Sets-backed shared constant
         const catalogMenuButton = page.getByRole('button', { name: /menu\.button|Опции|Другие действия|More actions/i }).first()
         await catalogMenuButton.click()
         const catalogActionIconSignatures = await readOpenMenuIconSignatures(page)
-        expect(pageActionIconSignatures).toEqual(catalogActionIconSignatures)
+        // Object rows expose CRUD only (their data-schema surface replaces a
+        // separate content page), while Page rows intentionally prepend the
+        // "Open" content action; parity applies to the shared CRUD tail.
+        expect(pageActionIconSignatures.slice(1)).toEqual(catalogActionIconSignatures)
         await page.keyboard.press('Escape')
         await page.getByText('Основной объект для хранения записей').click()
         await expect(page.getByRole('heading', { name: 'Компоненты' })).toBeVisible()

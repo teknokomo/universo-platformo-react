@@ -209,8 +209,7 @@ test('@flow @combined application connector can be created through the browser a
         }
 
         await recordCreatedApplication({
-            id: application.id,
-            slug: application.slug
+            id: application.id
         })
 
         await page.goto(`/a/${application.id}/admin/connectors`)
@@ -376,8 +375,7 @@ test('@flow imported snapshot publication creates schema on first connector atte
         }
 
         await recordCreatedApplication({
-            id: application.id,
-            slug: application.slug
+            id: application.id
         })
 
         await page.goto(`/a/${application.id}/admin/connectors`)

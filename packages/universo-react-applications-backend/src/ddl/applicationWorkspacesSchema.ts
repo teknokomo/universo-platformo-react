@@ -75,6 +75,7 @@ export async function ensureWorkspaceSupportTables(executor: DbExecutor, schemaN
             codename TEXT NULL,
             personal_user_id UUID NULL,
             status TEXT NOT NULL DEFAULT 'active',
+            is_public_entry BOOLEAN NOT NULL DEFAULT false,
             _upl_created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
             _upl_created_by UUID NULL,
             _upl_updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -236,6 +237,25 @@ export async function ensureWorkspaceSupportTables(executor: DbExecutor, schemaN
         ALTER TABLE ${workspacesQt}
         ADD COLUMN IF NOT EXISTS codename TEXT NULL;
 
+        ALTER TABLE ${workspacesQt}
+        ADD COLUMN IF NOT EXISTS is_public_entry BOOLEAN NOT NULL DEFAULT false;
+
+        ALTER TABLE ${workspacesQt}
+        DROP CONSTRAINT IF EXISTS ${qTable('_app_workspaces_public_entry_ck')};
+
+        ALTER TABLE ${workspacesQt}
+        ADD CONSTRAINT ${qTable('_app_workspaces_public_entry_ck')}
+        CHECK (
+            is_public_entry = false
+            OR (
+                workspace_type <> 'personal'
+                AND personal_user_id IS NULL
+                AND status = 'active'
+                AND _upl_deleted = false
+                AND _app_deleted = false
+            )
+        );
+
         ALTER TABLE ${workspaceUserRolesQt}
         DROP CONSTRAINT IF EXISTS ${qTable('_app_workspace_user_roles_workspace_fk')};
 
@@ -310,6 +330,10 @@ export async function ensureWorkspaceSupportTables(executor: DbExecutor, schemaN
         CREATE UNIQUE INDEX IF NOT EXISTS ${qTable(`${WORKSPACES_TABLE}_codename_active_uidx`)}
         ON ${workspacesQt}(codename)
         WHERE codename IS NOT NULL AND _upl_deleted = false AND _app_deleted = false;
+
+        CREATE UNIQUE INDEX IF NOT EXISTS ${qTable(`${WORKSPACES_TABLE}_public_entry_active_uidx`)}
+        ON ${workspacesQt}(is_public_entry)
+        WHERE is_public_entry = true AND _upl_deleted = false AND _app_deleted = false;
 
         CREATE UNIQUE INDEX IF NOT EXISTS ${qTable(`${WORKSPACE_USER_ROLES_TABLE}_default_active_uidx`)}
         ON ${workspaceUserRolesQt}(user_id)

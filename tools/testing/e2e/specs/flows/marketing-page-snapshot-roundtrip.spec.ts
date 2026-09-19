@@ -219,7 +219,7 @@ test('@flow @marketing-page @snapshot verifies marketing-page export/import roun
         })
         const importedApplicationId = linkedApplication?.application?.id
         expect(typeof importedApplicationId).toBe('string')
-        await recordCreatedApplication({ id: importedApplicationId, slug: linkedApplication.application.slug })
+        await recordCreatedApplication({ id: importedApplicationId })
 
         await syncApplicationSchema(api, importedApplicationId, {
             schemaOptions: {
@@ -262,7 +262,7 @@ test('@flow @marketing-page @snapshot verifies marketing-page export/import roun
         })
         const applicationId = sourceLinkedApplication?.application?.id
         expect(typeof applicationId).toBe('string')
-        await recordCreatedApplication({ id: applicationId, slug: sourceLinkedApplication.application.slug })
+        await recordCreatedApplication({ id: applicationId })
         await syncApplicationSchema(api, applicationId, {
             schemaOptions: {
                 workspaceModeRequested: 'enabled',

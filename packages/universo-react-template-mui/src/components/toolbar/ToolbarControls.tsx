@@ -5,7 +5,9 @@ import { useTheme } from '@mui/material/styles'
 import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown'
 import { IconLayoutGrid, IconList, IconSettings } from '@tabler/icons-react'
 import { useTranslation } from 'react-i18next'
+import { useCommonTranslations } from '@universo-react/i18n'
 import { SettingsDialog } from '../dialogs/SettingsDialog'
+import { StandardDialog } from '../dialogs/StandardDialog'
 import { useHasGlobalAccess } from '@universo-react/store'
 
 export type ViewMode = 'card' | 'list'
@@ -14,8 +16,16 @@ export interface ToolbarControlsProps {
     viewToggleEnabled?: boolean
     viewMode?: ViewMode
     onViewModeChange?: (mode: ViewMode) => void
-    /** Show settings button (only visible for superuser) */
+    /**
+     * Show the settings button. The shared user-settings dialog stays
+     * superuser-only; a page-scoped `settingsContent` makes the button
+     * available to every user who can use the page.
+     */
     settingsEnabled?: boolean
+    /** Optional page-scoped settings dialog title (requires `settingsContent`) */
+    settingsTitle?: string
+    /** Optional page-scoped settings dialog content rendered instead of the shared dialog */
+    settingsContent?: React.ReactNode
     primaryAction?: { label: string; onClick: () => void; disabled?: boolean; startIcon?: React.ReactNode }
     primaryActionMenuItems?: Array<{ label: string; onClick: () => void; disabled?: boolean; startIcon?: React.ReactNode }>
     primaryActionMenuAriaLabel?: string
@@ -37,6 +47,8 @@ const ToolbarControls: React.FC<ToolbarControlsProps> = ({
     viewMode,
     onViewModeChange,
     settingsEnabled,
+    settingsTitle,
+    settingsContent,
     primaryAction,
     primaryActionMenuItems,
     primaryActionMenuAriaLabel = 'action menu',
@@ -47,14 +59,17 @@ const ToolbarControls: React.FC<ToolbarControlsProps> = ({
 }) => {
     const theme = useTheme()
     const { t } = useTranslation()
-    // isSuperuser = user has is_superuser=true role (full bypass)
-    // hasAnyGlobalRole = user has any global role (metaeditor, etc.)
+    const { t: tc } = useCommonTranslations()
+    // The shared user-settings dialog stays superuser-only (matching its admin
+    // section); pages that need a settings surface for other roles pass
+    // `settingsContent` and get the page-scoped StandardDialog instead.
     const { isSuperuser } = useHasGlobalAccess()
     const [settingsOpen, setSettingsOpen] = useState(false)
     const [primaryActionMenuAnchor, setPrimaryActionMenuAnchor] = useState<null | HTMLElement>(null)
 
-    // Show settings button if enabled AND user is superuser
-    const showSettingsButton = settingsEnabled && isSuperuser
+    // The shared user-settings dialog is superuser-only; a page-scoped
+    // settings dialog is available to every user who can use the page.
+    const showSettingsButton = Boolean(settingsEnabled) && (isSuperuser || settingsContent !== undefined)
     const hasPrimaryActionMenuItems = Array.isArray(primaryActionMenuItems) && primaryActionMenuItems.length > 0
     const isPrimaryActionMenuOpen = Boolean(primaryActionMenuAnchor)
     const handleOpenPrimaryActionMenu = (event: React.MouseEvent<HTMLElement>) => {
@@ -209,7 +224,24 @@ const ToolbarControls: React.FC<ToolbarControlsProps> = ({
                     ))}
             </Box>
 
-            {showSettingsButton && <SettingsDialog open={settingsOpen} onClose={() => setSettingsOpen(false)} />}
+            {showSettingsButton &&
+                (settingsContent !== undefined ? (
+                    <StandardDialog
+                        open={settingsOpen}
+                        onClose={() => setSettingsOpen(false)}
+                        title={settingsTitle ?? t('settings:dialog.title', 'Settings')}
+                        dialogActionsTestId='page-settings-actions'
+                        actions={
+                            <Button variant='contained' onClick={() => setSettingsOpen(false)}>
+                                {tc('close')}
+                            </Button>
+                        }
+                    >
+                        {settingsContent}
+                    </StandardDialog>
+                ) : (
+                    <SettingsDialog open={settingsOpen} onClose={() => setSettingsOpen(false)} />
+                ))}
         </>
     )
 }

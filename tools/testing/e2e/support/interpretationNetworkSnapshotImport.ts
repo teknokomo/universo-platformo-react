@@ -53,9 +53,8 @@ export interface ImportInterpretationNetworkSnapshotOptions {
 export interface ImportInterpretationNetworkSnapshotResult {
     metahub: { id: string; codename?: string; name?: { en?: string } }
     publication: { id: string }
-    linkedApplication: { application: { id: string; slug: string } }
+    linkedApplication: { application: { id: string } }
     applicationId: string
-    applicationSlug: string
 }
 
 const readLocalizedLabel = (value: unknown): string => {
@@ -139,7 +138,6 @@ export async function importInterpretationNetworkSnapshot(
         metahub: metahub as { id: string; codename?: string; name?: { en?: string } },
         publication,
         linkedApplication,
-        applicationId,
-        applicationSlug: linkedApplication.application.slug
+        applicationId
     }
 }

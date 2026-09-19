@@ -25,11 +25,12 @@ describe('applicationQueriesStore dual-flag active-row predicates', () => {
 
     it('updateApplicationFields includes dual-flag predicate in WHERE', async () => {
         const exec = createExec()
-        await updateApplicationFields(exec as never, 'app-1', { slug: 'test-slug' })
+        await updateApplicationFields(exec as never, 'app-1', { schemaName: 'app_test' })
         const sql = String(exec.query.mock.calls[0][0])
         expect(sql).toContain('UPDATE applications.obj_applications')
         expect(sql).toContain('_upl_deleted = false')
         expect(sql).toContain('_app_deleted = false')
+        expect(sql).not.toContain('slug')
     })
 
     it('findApplicationUser includes dual-flag predicate', async () => {

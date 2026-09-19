@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useSnackbar } from 'notistack'
 import { useTranslation } from 'react-i18next'
+import { resolveApiErrorMessage } from '@universo-react/utils'
 import { metahubsQueryKeys } from '../../shared'
 import { createPublicationApplication } from '../api'
 import type { CreatePublicationApplicationPayload } from '../api'
@@ -39,7 +40,7 @@ export function useCreatePublicationApplication() {
             enqueueSnackbar(t('publications.applications.createSuccess', 'Application created'), { variant: 'success' })
         },
         onError: (error: Error) => {
-            enqueueSnackbar(error.message || t('publications.applications.createError', 'Failed to create application'), {
+            enqueueSnackbar(resolveApiErrorMessage(error, t('publications.applications.createError', 'Failed to create application')), {
                 variant: 'error'
             })
         }

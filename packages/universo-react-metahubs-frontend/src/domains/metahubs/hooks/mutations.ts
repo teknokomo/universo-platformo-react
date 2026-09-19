@@ -16,7 +16,7 @@ import {
     confirmOptimisticCreate,
     getCurrentLanguageKey
 } from '@universo-react/template-mui'
-import { makePendingMarkers, extractAxiosError, isApiError, isHttpStatus } from '@universo-react/utils'
+import { makePendingMarkers, isApiError, isHttpStatus, resolveApiErrorMessage } from '@universo-react/utils'
 import { getVLCString } from '@universo-react/utils/vlc'
 import type { SimpleLocalizedInput } from '../../../types'
 import { normalizeLocale } from '../../../utils/localizedInput'
@@ -403,12 +403,7 @@ export function useInviteMember() {
             } else if (isHttpStatus(error, 409) && isApiError(error, 'METAHUB_MEMBER_EXISTS')) {
                 message = t('members.userAlreadyMember', { email: variables.data.email })
             } else {
-                const apiError = extractAxiosError(error) as { message?: string } | undefined
-                if (apiError?.message) {
-                    message = apiError.message
-                } else if (error.message) {
-                    message = error.message
-                }
+                message = resolveApiErrorMessage(error, message)
             }
 
             enqueueSnackbar(message, { variant: 'error' })

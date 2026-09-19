@@ -678,10 +678,10 @@ export const OptionListContent = () => {
                         description: spec.descriptionKey ? baseContext.t(spec.descriptionKey, spec.interpolate) : spec.description,
                         confirmButtonName: spec.confirmKey
                             ? baseContext.t(spec.confirmKey)
-                            : spec.confirmButtonName || baseContext.t('confirm.delete.confirm'),
+                            : spec.confirmButtonName || baseContext.t('confirm:confirmButtonText'),
                         cancelButtonName: spec.cancelKey
                             ? baseContext.t(spec.cancelKey)
-                            : spec.cancelButtonName || baseContext.t('confirm.delete.cancel')
+                            : spec.cancelButtonName || baseContext.t('confirm:cancelButtonText')
                     })
                     return confirmed
                 },

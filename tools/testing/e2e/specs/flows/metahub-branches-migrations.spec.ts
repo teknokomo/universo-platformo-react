@@ -192,24 +192,6 @@ test('@flow @combined metahub branches support browser create copy default activ
         expect((await getMetahubBranch(api, metahub.id, createdBranch.id)).id).toBe(createdBranch.id)
 
         await page.getByTestId(buildEntityMenuTriggerSelector('branch', createdBranch.id)).click()
-        const setDefaultResponse = waitForSettledMutationResponse(
-            page,
-            (response) =>
-                response.request().method() === 'POST' &&
-                response.url().endsWith(`/api/v1/metahub/${metahub.id}/branch/${createdBranch.id}/default`),
-            { label: 'Setting default branch' }
-        )
-        await page.getByTestId(buildEntityMenuItemSelector('branch', 'setDefault', createdBranch.id)).click()
-        const setDefaultResult = await setDefaultResponse
-        expect(setDefaultResult.ok()).toBe(true)
-
-        await waitForBranchMeta(
-            () => listMetahubBranchOptions(api, metahub.id),
-            (meta) => meta.defaultBranchId === createdBranch.id,
-            'default branch update'
-        )
-
-        await page.getByTestId(buildEntityMenuTriggerSelector('branch', createdBranch.id)).click()
         const activateResponse = waitForSettledMutationResponse(
             page,
             (response) =>
@@ -225,6 +207,24 @@ test('@flow @combined metahub branches support browser create copy default activ
             () => listMetahubBranchOptions(api, metahub.id),
             (meta) => meta.activeBranchId === createdBranch.id,
             'active branch update'
+        )
+
+        await page.getByTestId(buildEntityMenuTriggerSelector('branch', createdBranch.id)).click()
+        const setDefaultResponse = waitForSettledMutationResponse(
+            page,
+            (response) =>
+                response.request().method() === 'POST' &&
+                response.url().endsWith(`/api/v1/metahub/${metahub.id}/branch/${createdBranch.id}/default`),
+            { label: 'Setting default branch' }
+        )
+        await page.getByTestId(buildEntityMenuItemSelector('branch', 'setDefault', createdBranch.id)).click()
+        const setDefaultResult = await setDefaultResponse
+        expect(setDefaultResult.ok()).toBe(true)
+
+        await waitForBranchMeta(
+            () => listMetahubBranchOptions(api, metahub.id),
+            (meta) => meta.defaultBranchId === createdBranch.id,
+            'default branch update'
         )
 
         const persistedBranch = await getMetahubBranch(api, metahub.id, createdBranch.id)

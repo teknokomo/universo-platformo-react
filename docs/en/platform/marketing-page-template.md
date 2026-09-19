@@ -79,7 +79,7 @@ The application layout carries the immutable `marketing-page` template key and a
 
 -   system, light, or dark theme mode;
 -   optional primary and accent hex colors;
--   optional brand logo media;
+-   optional brand logo media (configured through the `marketing.brand` widget as a brand name and/or decorative logo URL, rendered in the header and footer);
 -   email/telephone action policy and external-link target policy.
 
 Application layout settings change presentation only. Content remains owned by
@@ -121,3 +121,7 @@ At minimum, verify:
 
 The minimal Supabase profile verifies SQL/RLS and the safe handling of the seeded URL media references. The MUI/Webflow assets are external network resources, so visual runs still require network availability;
 deterministic local/Storage media and Storage API/imgproxy behavior require the separate full-stack media suite.
+
+## Published row cap
+
+Every marketing object is capped at 1000 active rows (`PUBLIC_MARKETING_ROW_LIMIT`) because the anonymous public runtime fails closed above the limit. Seeding and runtime create/copy/restore reject the write with `MARKETING_ROW_LIMIT_REACHED` once the object reaches the cap, so an authenticated author cannot break the published page for every visitor.

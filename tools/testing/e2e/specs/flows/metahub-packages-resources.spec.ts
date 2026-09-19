@@ -1703,7 +1703,7 @@ test('@flow @packages metahub resources packages tab is usable and localized', a
         )
         await devUrlDialog.getByRole('button', { name: 'Save' }).click()
         await rejectedDevUrlSave
-        await expect(page.getByText('Package operation failed. Please refresh and try again.')).toBeVisible()
+        await expect(devUrlDialog.getByText('Package operation failed. Please refresh and try again.')).toBeVisible()
         await devUrlDialog.getByRole('button', { name: 'Cancel' }).click()
         await expect(devUrlDialog).toHaveCount(0)
         await page.unroute(configEndpointPattern)
@@ -1798,7 +1798,9 @@ test('@flow @packages metahub resources packages tab is usable and localized', a
         await applyBrowserPreferences(embeddedHostPage, { language: 'en' })
         await expect(embeddedHostPage).toHaveURL(new RegExp(`/metahub/${metahub.id}/resources/packages/playcanvas-editor/editor$`))
         await expect(embeddedHostPage.getByRole('heading', { name: 'PlayCanvas Editor' })).toBeVisible()
-        const hostResponse = await embeddedHostPage.request.get(embeddedHostPage.url())
+        const hostResponse = await embeddedHostPage.request.get(embeddedHostPage.url(), {
+            headers: { accept: 'text/html' }
+        })
         expect(hostResponse.ok()).toBeTruthy()
         expect(hostResponse.headers()['content-security-policy']).toContain("frame-src 'self'")
         expect(hostResponse.headers()['content-security-policy']).toContain("child-src 'self'")
@@ -2161,7 +2163,9 @@ test('@flow @packages metahub resources packages tab is usable and localized', a
         )
         await failedAttachDialog.getByRole('button', { name: 'Подключить пакет' }).click()
         await failedAttachResponse
-        await expect(page.getByText('Не удалось выполнить операцию с пакетом. Обновите страницу и попробуйте ещё раз.')).toBeVisible()
+        await expect(
+            failedAttachDialog.getByText('Не удалось выполнить операцию с пакетом. Обновите страницу и попробуйте ещё раз.')
+        ).toBeVisible()
         await failedAttachDialog.getByRole('button', { name: 'Отмена' }).click()
         await page.unroute(packagesEndpointPattern)
 

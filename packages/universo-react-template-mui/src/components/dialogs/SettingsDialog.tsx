@@ -183,7 +183,7 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({ open, onClose })
                 )}
             </DialogContent>
 
-            <DialogActions>
+            <DialogActions sx={mergeDialogSx({ p: 3, pt: 2, gap: 1, justifyContent: 'flex-end' })}>
                 <Button onClick={handleCancel} disabled={saving}>
                     {t('common:cancel', 'Cancel')}
                 </Button>

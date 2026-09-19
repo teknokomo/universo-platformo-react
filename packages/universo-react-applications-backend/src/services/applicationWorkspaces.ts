@@ -3,6 +3,8 @@ import { qColumn, qSchema, qSchemaTable, qTable } from '@universo-react/database
 import { generateChildTableName, hasPhysicalRuntimeTable, resolveEntityTableName, type EntityDefinition } from '@universo-react/schema-ddl'
 import { ApplicationMembershipState, normalizeInterpretationNetworkHexColor, type VersionedLocalizedContent } from '@universo-react/types'
 import { WorkspaceSeedResetError, WORKSPACE_SEED_RESET_ERROR_CODES } from './runtimeWorkspaceErrors'
+import { assertMarketingSeedRows, isMarketingSeedObject } from './marketingSeedGuard'
+import { acquireAdvisoryXactLock, withTransactionSavepoint } from '@universo-react/utils/database'
 import {
     ensureLedgerIdempotencyIndex,
     ensureWorkspaceScopedColumn,
@@ -62,6 +64,20 @@ export interface RuntimeWorkspaceAccess {
     membershipState: ApplicationMembershipState
     defaultWorkspaceId: string | null
     allowedWorkspaceIds: string[]
+}
+
+export interface PublicEntryWorkspace {
+    workspaceId: string
+}
+
+export class PublicEntryWorkspaceError extends Error {
+    readonly code: 'PUBLIC_ENTRY_WORKSPACE_INVALID' | 'PUBLIC_ENTRY_WORKSPACE_NOT_FOUND' | 'PUBLIC_ENTRY_WORKSPACE_AMBIGUOUS'
+
+    constructor(code: PublicEntryWorkspaceError['code']) {
+        super(code)
+        this.name = 'PublicEntryWorkspaceError'
+        this.code = code
+    }
 }
 
 type WorkspaceRoleRow = {
@@ -1150,6 +1166,17 @@ export async function syncWorkspaceSeededElements(
             : Array.isArray(legacyRows)
             ? (legacyRows as unknown[])
             : []
+        // Workspace-scoped marketing content is published through the same
+        // anonymous runtime, so it must satisfy the same seed-time guards.
+        if (isMarketingSeedObject(object.codename)) {
+            assertMarketingSeedRows({
+                objectCodename: object.codename,
+                rows: entityRows,
+                uniqueFieldCodenames: topLevelComponents
+                    .filter((component) => component.validationRules?.unique === true)
+                    .map((component) => component.codename)
+            })
+        }
         const tableQt = qSchemaTable(input.schemaName, object.tableName)
         const existingRows = await executor.query<WorkspaceSeedExistingRow>(
             `
@@ -1275,7 +1302,13 @@ export async function resetWorkspaceSeededElements(
         currentUserId?: string | null
     }
 ): Promise<{ resetRows: number; operationId: string }> {
-    return executor.transaction(async (tx) => {
+    // Request-scoped RLS executors reuse the middleware transaction at depth 0,
+    // so a single transaction() call cannot roll back a failure. The nested
+    // call opens a SAVEPOINT that always rolls back, keeping the reset atomic
+    // (a failed re-seed must not leave the workspace without seeded content).
+    return withTransactionSavepoint(executor, async (tx) => runReset(tx))
+
+    async function runReset(tx: DbExecutor): Promise<{ resetRows: number; operationId: string }> {
         const workspaceRows = await tx.query<{ id: string }>(
             `
             SELECT id
@@ -1365,7 +1398,7 @@ export async function resetWorkspaceSeededElements(
         }
 
         return { resetRows, operationId }
-    })
+    }
 }
 
 export async function syncWorkspaceSeededElementsForAllActiveWorkspaces(
@@ -1743,6 +1776,122 @@ export async function archiveWorkspaceScopedBusinessRows(
     return archivedRows
 }
 
+/**
+ * Resolves the server-owned workspace used for anonymous public application
+ * reads. User membership/default-workspace state is deliberately ignored.
+ */
+export async function resolvePublicEntryWorkspace(executor: SqlQueryable, schemaName: string): Promise<PublicEntryWorkspace | null> {
+    const workspacesQt = qSchemaTable(schemaName, WORKSPACES_TABLE)
+    const rows = await executor.query<{ workspaceId: string }>(
+        `
+        SELECT id AS "workspaceId"
+        FROM ${workspacesQt}
+        WHERE is_public_entry = true
+          AND workspace_type <> 'personal'
+          AND personal_user_id IS NULL
+          AND status = 'active'
+          AND ${ACTIVE_ROW_SQL}
+        ORDER BY id ASC
+        LIMIT 2
+        `
+    )
+
+    if (rows.length > 1) {
+        throw new PublicEntryWorkspaceError('PUBLIC_ENTRY_WORKSPACE_AMBIGUOUS')
+    }
+    return rows[0] ?? null
+}
+
+/**
+ * Atomically changes the single public-entry workspace designation. The target
+ * must already be an active shared workspace. Passing null removes the marker.
+ */
+export async function setPublicEntryWorkspace(
+    executor: DbExecutor,
+    input: { schemaName: string; workspaceId: string | null; actorUserId?: string | null }
+): Promise<PublicEntryWorkspace | null> {
+    if (input.workspaceId !== null && !isUuidV7(input.workspaceId)) {
+        throw new PublicEntryWorkspaceError('PUBLIC_ENTRY_WORKSPACE_INVALID')
+    }
+
+    return executor.transaction(async (tx) => {
+        await acquireAdvisoryXactLock(tx, `public-entry-workspace:${input.schemaName}`)
+        const workspacesQt = qSchemaTable(input.schemaName, WORKSPACES_TABLE)
+        const lockRows = await tx.query<{ id: string }>(
+            `
+            SELECT id
+            FROM ${workspacesQt}
+            WHERE is_public_entry = true
+               OR ($1::uuid IS NOT NULL AND id = $1::uuid)
+            ORDER BY id ASC
+            FOR UPDATE
+            `,
+            [input.workspaceId]
+        )
+
+        if (input.workspaceId !== null) {
+            const target = lockRows.find((row) => row.id === input.workspaceId)
+            if (!target) {
+                throw new PublicEntryWorkspaceError('PUBLIC_ENTRY_WORKSPACE_NOT_FOUND')
+            }
+            const validRows = await tx.query<{ id: string }>(
+                `
+                SELECT id
+                FROM ${workspacesQt}
+                WHERE id = $1
+                  AND workspace_type <> 'personal'
+                  AND personal_user_id IS NULL
+                  AND status = 'active'
+                  AND ${ACTIVE_ROW_SQL}
+                LIMIT 1
+                `,
+                [input.workspaceId]
+            )
+            if (!validRows[0]) {
+                throw new PublicEntryWorkspaceError('PUBLIC_ENTRY_WORKSPACE_INVALID')
+            }
+        }
+
+        await tx.query(
+            `
+            UPDATE ${workspacesQt}
+            SET is_public_entry = false,
+                _upl_updated_at = NOW(),
+                _upl_updated_by = $1,
+                _upl_version = COALESCE(_upl_version, 1) + 1
+            WHERE is_public_entry = true
+              AND ($2::uuid IS NULL OR id <> $2::uuid)
+            `,
+            [input.actorUserId ?? null, input.workspaceId]
+        )
+
+        if (input.workspaceId === null) {
+            return null
+        }
+
+        const updatedRows = await tx.query<{ workspaceId: string }>(
+            `
+            UPDATE ${workspacesQt}
+            SET is_public_entry = true,
+                _upl_updated_at = NOW(),
+                _upl_updated_by = $2,
+                _upl_version = COALESCE(_upl_version, 1) + 1
+            WHERE id = $1
+              AND workspace_type <> 'personal'
+              AND personal_user_id IS NULL
+              AND status = 'active'
+              AND ${ACTIVE_ROW_SQL}
+            RETURNING id AS "workspaceId"
+            `,
+            [input.workspaceId, input.actorUserId ?? null]
+        )
+        if (!updatedRows[0]) {
+            throw new PublicEntryWorkspaceError('PUBLIC_ENTRY_WORKSPACE_INVALID')
+        }
+        return updatedRows[0]
+    })
+}
+
 export async function resolveRuntimeWorkspaceAccess(
     executor: DbExecutor,
     input: {
@@ -2040,9 +2189,7 @@ export async function enforceObjectWorkspaceLimit(
         return { maxRows, currentRows, canCreate: true }
     }
 
-    await executor.query(`SELECT pg_advisory_xact_lock(hashtextextended($1::text, 0))`, [
-        `workspace-limit:${input.schemaName}:${input.objectId}:${input.workspaceId}`
-    ])
+    await acquireAdvisoryXactLock(executor, `workspace-limit:${input.schemaName}:${input.objectId}:${input.workspaceId}`)
 
     const currentRows = await getObjectWorkspaceUsage(executor, {
         schemaName: input.schemaName,

@@ -22,6 +22,16 @@ export interface LogoCollectionProps {
 export default function LogoCollection({ section, items, instanceKey, onAction }: LogoCollectionProps) {
     const visibleItems = sortVisibleMarketingItems(items)
     const sectionId = marketingSectionId('logoCollection', instanceKey)
+    const hasMedia = (media?: MarketingLogo['media']): boolean =>
+        Boolean(
+            media?.src ||
+                media?.resource?.url ||
+                media?.resource?.storageKey ||
+                media?.darkSrc ||
+                media?.darkResource?.url ||
+                media?.darkResource?.storageKey
+        )
+
     return (
         <Box id={sectionId} sx={{ py: 4 }}>
             <Container>
@@ -42,7 +52,41 @@ export default function LogoCollection({ section, items, instanceKey, onAction }
                     <Grid container sx={{ justifyContent: 'center', mt: 0.5, opacity: 0.6 }}>
                         {visibleItems.map((item) => (
                             <Grid key={item.semanticKey} size={{ xs: 6, sm: 4, md: 2 }} sx={{ display: 'flex', justifyContent: 'center' }}>
-                                {item.action ? (
+                                {!hasMedia(item.media) ? (
+                                    item.action ? (
+                                        <MarketingActionLink action={item.action} onAction={onAction} sx={{ display: 'block' }}>
+                                            <Typography
+                                                variant='body2'
+                                                component='span'
+                                                sx={{
+                                                    width: 100,
+                                                    minHeight: 80,
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'center',
+                                                    textAlign: 'center'
+                                                }}
+                                            >
+                                                {item.name}
+                                            </Typography>
+                                        </MarketingActionLink>
+                                    ) : (
+                                        <Typography
+                                            variant='body2'
+                                            component='span'
+                                            sx={{
+                                                width: 100,
+                                                minHeight: 80,
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                                textAlign: 'center'
+                                            }}
+                                        >
+                                            {item.name}
+                                        </Typography>
+                                    )
+                                ) : item.action ? (
                                     <MarketingActionLink action={item.action} onAction={onAction} sx={{ display: 'block', lineHeight: 0 }}>
                                         <MarketingMediaView
                                             media={item.media}

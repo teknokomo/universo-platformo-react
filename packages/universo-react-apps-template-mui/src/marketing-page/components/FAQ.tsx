@@ -61,6 +61,7 @@ export default function FAQ({ section, items, instanceKey }: FAQProps) {
                         return (
                             <Accordion
                                 key={item.semanticKey}
+                                data-testid='marketing-faq-item'
                                 expanded={expanded.includes(panelId)}
                                 onChange={(_, isExpanded) =>
                                     setExpanded((current) =>
@@ -81,11 +82,12 @@ export default function FAQ({ section, items, instanceKey }: FAQProps) {
                                         {item.question}
                                     </Typography>
                                 </AccordionSummary>
-                                <AccordionDetails>
+                                <AccordionDetails id={`${panelId}-content`} aria-labelledby={`${panelId}-header`}>
                                     <Typography
+                                        data-testid='marketing-faq-answer'
                                         variant='body2'
                                         gutterBottom
-                                        sx={{ whiteSpace: 'pre-wrap', maxWidth: { sm: '100%', md: '70%' } }}
+                                        sx={{ whiteSpace: 'pre-wrap' }}
                                     >
                                         {renderAnswer(item.answer)}
                                     </Typography>

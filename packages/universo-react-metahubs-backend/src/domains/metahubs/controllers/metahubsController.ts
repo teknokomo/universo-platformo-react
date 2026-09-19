@@ -548,25 +548,39 @@ const resolveImportedMetahubCodename = async (
     fallbackPrimaryText: string,
     config: GlobalMetahubCodenameConfig
 ): Promise<VersionedLocalizedContent<string>> => {
-    for (let attempt = 0; attempt < 100; attempt += 1) {
-        const { localizedInput, primaryLocale } = buildImportedMetahubCodenameLocalizedInput(name, fallbackPrimaryText, attempt)
-        const primarySourceText = localizedInput[primaryLocale] ?? Object.values(localizedInput)[0] ?? fallbackPrimaryText
-        const normalizedPrimaryText = normalizeCodenameForStyle(primarySourceText, config.style, config.alphabet)
-
-        if (!normalizedPrimaryText || !isValidCodenameForStyle(normalizedPrimaryText, config.style, config.alphabet, config.allowMixed)) {
-            continue
+    const candidateNames = [name]
+    const sourceCodename = fallbackPrimaryText.trim()
+    if (sourceCodename.length > 0) {
+        const sourceCodenameCandidate = buildLocalizedContent({ en: sourceCodename }, 'en', 'en')
+        if (sourceCodenameCandidate) {
+            candidateNames.push(sourceCodenameCandidate)
         }
+    }
 
-        const existingCodename = await findMetahubByCodename(exec, normalizedPrimaryText)
-        if (existingCodename) {
-            continue
-        }
+    for (const candidateName of candidateNames) {
+        for (let attempt = 0; attempt < 100; attempt += 1) {
+            const { localizedInput, primaryLocale } = buildImportedMetahubCodenameLocalizedInput(candidateName, 'Imported', attempt)
+            const primarySourceText = localizedInput[primaryLocale] ?? Object.values(localizedInput)[0] ?? sourceCodename
+            const normalizedPrimaryText = normalizeCodenameForStyle(primarySourceText, config.style, config.alphabet)
 
-        const candidateSource = buildLocalizedContent(localizedInput, primaryLocale, 'en')
-        const codename = syncCodenamePayloadText(candidateSource, primaryLocale, normalizedPrimaryText, config.style, config.alphabet)
+            if (
+                !normalizedPrimaryText ||
+                !isValidCodenameForStyle(normalizedPrimaryText, config.style, config.alphabet, config.allowMixed)
+            ) {
+                continue
+            }
 
-        if (codename) {
-            return codename
+            const existingCodename = await findMetahubByCodename(exec, normalizedPrimaryText)
+            if (existingCodename) {
+                continue
+            }
+
+            const candidateSource = buildLocalizedContent(localizedInput, primaryLocale, 'en')
+            const codename = syncCodenamePayloadText(candidateSource, primaryLocale, normalizedPrimaryText, config.style, config.alphabet)
+
+            if (codename) {
+                return codename
+            }
         }
     }
 

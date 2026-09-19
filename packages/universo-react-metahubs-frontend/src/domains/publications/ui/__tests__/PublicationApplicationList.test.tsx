@@ -233,7 +233,6 @@ describe('PublicationApplicationList', () => {
                 items: [
                     {
                         id: 'app-1',
-                        slug: 'shopping-list',
                         name: {
                             _schema: 'v1',
                             _primary: 'en',

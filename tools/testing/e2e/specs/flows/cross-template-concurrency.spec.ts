@@ -145,7 +145,7 @@ test('@flow @combined @cross-template @concurrency commits one winner for two co
         const application = await waitForLinkedApplication(ownerApi, metahub.id, publication.id)
         const applicationId = application.id
         if (typeof applicationId !== 'string') throw new Error('Concurrency application did not return an id')
-        await recordCreatedApplication({ id: applicationId, slug: typeof application.slug === 'string' ? application.slug : undefined })
+        await recordCreatedApplication({ id: applicationId })
         await syncApplicationSchema(ownerApi, applicationId, {
             schemaOptions: { workspaceModeRequested: 'enabled', acknowledgeIrreversibleWorkspaceEnablement: true }
         })

@@ -54,7 +54,9 @@ const buildHierarchyMap = (
                 { cellId }
             )
         }
-        cellIdMap.set(cellId, generateUuidV7())
+        if (!cellIdMap.has(cellId)) {
+            cellIdMap.set(cellId, generateUuidV7())
+        }
         const parentId = parentColumn ? String(row[parentColumn] ?? '').trim() : ''
         parentByCellId.set(cellId, parentId || null)
     }

@@ -5,6 +5,7 @@ import { ABILITY_MODULE_TO_SUBJECT, PERMISSION_SUBJECTS, ROLE_MENU_VISIBILITY, d
 describe('shared ability and admin contracts', () => {
     it('maps new onboarding and product modules to canonical CASL subjects', () => {
         expect(ABILITY_MODULE_TO_SUBJECT.applications).toBe('Application')
+        expect(ABILITY_MODULE_TO_SUBJECT.applicationAliases).toBe('ApplicationAlias')
         expect(ABILITY_MODULE_TO_SUBJECT.metahubs).toBe('Metahub')
         expect(ABILITY_MODULE_TO_SUBJECT.profile).toBe('Profile')
         expect(ABILITY_MODULE_TO_SUBJECT.onboarding).toBe('Onboarding')
@@ -22,7 +23,9 @@ describe('shared ability and admin contracts', () => {
     })
 
     it('exposes permission subjects and menu visibility for registered and user roles', () => {
-        expect(PERMISSION_SUBJECTS).toEqual(expect.arrayContaining(['applications', 'metahubs', 'profile', 'onboarding']))
+        expect(PERMISSION_SUBJECTS).toEqual(
+            expect.arrayContaining(['applications', 'applicationAliases', 'metahubs', 'profile', 'onboarding'])
+        )
         expect(ROLE_MENU_VISIBILITY.Registered.rootMenuIds).toEqual([])
         expect(ROLE_MENU_VISIBILITY.User.rootMenuIds).toContain('metapanel')
     })

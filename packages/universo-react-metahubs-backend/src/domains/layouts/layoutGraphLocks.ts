@@ -1,4 +1,5 @@
 import type { SqlQueryable } from '@universo-react/utils/database'
+import { acquireAdvisoryXactLock } from '@universo-react/utils/database'
 
 /**
  * Every layout graph mutation and publication snapshot must use the same
@@ -7,5 +8,5 @@ import type { SqlQueryable } from '@universo-react/utils/database'
 export const buildMetahubLayoutGraphLockKey = (schemaName: string): string => `mhb-layout-graph:${schemaName}`
 
 export const acquireMetahubLayoutGraphLock = async (db: SqlQueryable, schemaName: string): Promise<void> => {
-    await db.query('SELECT pg_advisory_xact_lock(hashtext($1))', [buildMetahubLayoutGraphLockKey(schemaName)])
+    await acquireAdvisoryXactLock(db, buildMetahubLayoutGraphLockKey(schemaName))
 }

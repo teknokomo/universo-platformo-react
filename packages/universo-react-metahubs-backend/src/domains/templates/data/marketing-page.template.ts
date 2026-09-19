@@ -1,3 +1,4 @@
+import { MARKETING_DEFAULT_IMAGE_URL, MARKETING_SEMANTIC_KEY_PATTERN } from '@universo-react/types'
 import type {
     MetahubTemplateManifest,
     TemplateSeedComponent,
@@ -45,8 +46,19 @@ const plainComponent = (codename: string, nameEn: string, nameRu: string, maxLen
         validationRules: { maxLength }
     })
 
+/**
+ * Semantic record keys are duplicated by copy or by re-typing, so they carry
+ * both the canonical lowercase pattern and the uniqueness rule that the
+ * records service enforces inside the metahub.
+ */
+const keyComponent = (codename: string, nameEn: string, nameRu: string, maxLength = 64): TemplateSeedComponent =>
+    marketingComponent(codename, nameEn, nameRu, {
+        dataType: 'STRING',
+        validationRules: { maxLength, unique: true, pattern: MARKETING_SEMANTIC_KEY_PATTERN.source }
+    })
+
 const sectionComponents: TemplateSeedComponent[] = [
-    plainComponent('SectionKey', 'Section key', 'Ключ секции', 64),
+    keyComponent('SectionKey', 'Section key', 'Ключ секции', 64),
     localizedComponent('Title', 'Title', 'Заголовок', 255),
     localizedComponent('Description', 'Description', 'Описание', 2000)
 ]
@@ -142,7 +154,7 @@ const sectionElements: TemplateSeedElement[] = [
 ]
 
 const logoComponents: TemplateSeedComponent[] = [
-    plainComponent('LogoKey', 'Logo key', 'Ключ логотипа', 64),
+    keyComponent('LogoKey', 'Logo key', 'Ключ логотипа', 64),
     mediaComponent('ImageLight', 'Light logo', 'Логотип для светлой темы'),
     mediaComponent('ImageDark', 'Dark logo', 'Логотип для тёмной темы'),
     localizedComponent('AltText', 'Alternative text', 'Альтернативный текст', 255),
@@ -203,7 +215,7 @@ const logoElements: TemplateSeedElement[] = logoSources.map(([key, label, imageL
 }))
 
 const featureComponents: TemplateSeedComponent[] = [
-    plainComponent('FeatureKey', 'Feature key', 'Ключ возможности', 64),
+    keyComponent('FeatureKey', 'Feature key', 'Ключ возможности', 64),
     plainComponent('IconKey', 'Icon key', 'Ключ иконки', 64),
     localizedComponent('Title', 'Title', 'Заголовок', 255),
     localizedComponent('Description', 'Description', 'Описание', 1000),
@@ -268,7 +280,7 @@ const featureElements: TemplateSeedElement[] = [
 ]
 
 const testimonialComponents: TemplateSeedComponent[] = [
-    plainComponent('TestimonialKey', 'Testimonial key', 'Ключ отзыва', 64),
+    keyComponent('TestimonialKey', 'Testimonial key', 'Ключ отзыва', 64),
     localizedComponent('Name', 'Name', 'Имя', 255),
     localizedComponent('Occupation', 'Occupation', 'Должность', 255),
     localizedComponent('Quote', 'Quote', 'Отзыв', 2000),
@@ -363,7 +375,7 @@ const testimonialElements: TemplateSeedElement[] = testimonialSeed.map(([key, na
 })
 
 const highlightComponents: TemplateSeedComponent[] = [
-    plainComponent('HighlightKey', 'Highlight key', 'Ключ преимущества', 64),
+    keyComponent('HighlightKey', 'Highlight key', 'Ключ преимущества', 64),
     plainComponent('IconKey', 'Icon key', 'Ключ иконки', 64),
     localizedComponent('Title', 'Title', 'Заголовок', 255),
     localizedComponent('Description', 'Description', 'Описание', 1000),
@@ -436,7 +448,7 @@ const highlightElements: TemplateSeedElement[] = highlightSeed.map(([key, icon, 
 }))
 
 const pricingComponents: TemplateSeedComponent[] = [
-    plainComponent('TierKey', 'Tier key', 'Ключ тарифа', 64),
+    keyComponent('TierKey', 'Tier key', 'Ключ тарифа', 64),
     localizedComponent('Title', 'Title', 'Заголовок', 255),
     localizedComponent('Subheader', 'Subheader', 'Подзаголовок', 255),
     marketingComponent('Price', 'Price', 'Цена', {
@@ -452,7 +464,7 @@ const pricingComponents: TemplateSeedComponent[] = [
 ]
 
 const pricingBenefitComponents: TemplateSeedComponent[] = [
-    plainComponent('BenefitKey', 'Benefit key', 'Ключ преимущества', 128),
+    keyComponent('BenefitKey', 'Benefit key', 'Ключ преимущества', 128),
     marketingComponent('TierRef', 'Pricing tier', 'Тариф', {
         dataType: 'REF',
         isRequired: true,
@@ -561,7 +573,7 @@ const pricingBenefitElements: TemplateSeedElement[] = pricingSeed.flatMap(([tier
 )
 
 const faqComponents: TemplateSeedComponent[] = [
-    plainComponent('FaqKey', 'FAQ key', 'Ключ вопроса', 64),
+    keyComponent('FaqKey', 'FAQ key', 'Ключ вопроса', 64),
     localizedComponent('Question', 'Question', 'Вопрос', 500),
     localizedComponent('Answer', 'Answer', 'Ответ', 2000),
     marketingComponent('SortOrder', 'Order', 'Порядок', { dataType: 'NUMBER', validationRules: { min: 0, max: 100 } }),
@@ -626,7 +638,7 @@ const faqElements: TemplateSeedElement[] = faqSeed.map(([key, question, answer],
 })
 
 const navigationComponents: TemplateSeedComponent[] = [
-    plainComponent('NavKey', 'Navigation key', 'Ключ навигации', 64),
+    keyComponent('NavKey', 'Navigation key', 'Ключ навигации', 64),
     localizedComponent('Label', 'Label', 'Подпись', 120),
     plainComponent('Href', 'Target', 'Цель', 500),
     plainComponent('SectionKey', 'Section key', 'Ключ секции', 64),
@@ -655,7 +667,7 @@ const navigationSeed: TemplateSeedElement[] = [
 }))
 
 const footerLinkComponents: TemplateSeedComponent[] = [
-    plainComponent('LinkKey', 'Link key', 'Ключ ссылки', 128),
+    keyComponent('LinkKey', 'Link key', 'Ключ ссылки', 128),
     plainComponent('GroupKey', 'Group key', 'Ключ группы', 64),
     localizedComponent('GroupTitle', 'Group title', 'Название группы', 120),
     localizedComponent('Label', 'Label', 'Подпись', 120),
@@ -679,8 +691,6 @@ const siteSettingsComponents: TemplateSeedComponent[] = [
     localizedComponent('HeroTermsText', 'Hero terms text', 'Текст условий первого экрана', 500),
     localizedComponent('HeroTermsLinkLabel', 'Hero terms link label', 'Подпись ссылки условий первого экрана', 120),
     plainComponent('HeroTermsHref', 'Hero terms target', 'Цель условий первого экрана', 500),
-    mediaComponent('HeroLightPreview', 'Light hero preview', 'Предпросмотр первого экрана для светлой темы'),
-    mediaComponent('HeroDarkPreview', 'Dark hero preview', 'Предпросмотр первого экрана для тёмной темы'),
     localizedComponent('FooterDescription', 'Footer description', 'Описание подвала', 1000),
     localizedComponent('CopyrightText', 'Copyright text', 'Текст авторских прав', 500),
     localizedComponent('CopyrightLabel', 'Copyright brand label', 'Подпись бренда авторских прав', 255),
@@ -716,8 +726,6 @@ const siteSettingsElements: TemplateSeedElement[] = [
             HeroTermsText: vlc('By clicking "Start now" you agree to our', 'Нажимая «Начать», вы соглашаетесь с нашими'),
             HeroTermsLinkLabel: vlc('Terms & Conditions', 'Условиями использования'),
             HeroTermsHref: '/terms',
-            HeroLightPreview: resourceSource('https://mui.com/static/screenshots/material-ui/getting-started/templates/dashboard.jpg'),
-            HeroDarkPreview: resourceSource('https://mui.com/static/screenshots/material-ui/getting-started/templates/dashboard-dark.jpg'),
             CopyrightText: vlc('Copyright ©', 'Copyright ©'),
             CopyrightLabel: vlc('Sitemark', 'Sitemark'),
             CopyrightHref: 'https://mui.com/',
@@ -1001,8 +1009,26 @@ const marketingLayoutZoneWidgets: Record<string, TemplateSeedZoneWidget[]> = {
         },
         {
             zone: 'marketing-main',
-            widgetKey: 'marketing.collection',
+            widgetKey: 'marketing.image',
             sortOrder: 1,
+            config: {
+                instanceKey: 'hero-image',
+                media: {
+                    kind: 'hero',
+                    resource: resourceSource(MARKETING_DEFAULT_IMAGE_URL),
+                    alt: {
+                        en: 'Material UI dashboard preview',
+                        ru: 'Предпросмотр панели управления Material UI'
+                    },
+                    decorative: false
+                }
+            },
+            isActive: true
+        },
+        {
+            zone: 'marketing-main',
+            widgetKey: 'marketing.collection',
+            sortOrder: 2,
             config: {
                 instanceKey: 'logos',
                 variant: 'logos',
@@ -1017,7 +1043,7 @@ const marketingLayoutZoneWidgets: Record<string, TemplateSeedZoneWidget[]> = {
         {
             zone: 'marketing-main',
             widgetKey: 'marketing.collection',
-            sortOrder: 2,
+            sortOrder: 3,
             config: {
                 instanceKey: 'features',
                 variant: 'features',
@@ -1032,7 +1058,7 @@ const marketingLayoutZoneWidgets: Record<string, TemplateSeedZoneWidget[]> = {
         {
             zone: 'marketing-main',
             widgetKey: 'marketing.collection',
-            sortOrder: 3,
+            sortOrder: 4,
             config: {
                 instanceKey: 'testimonials',
                 variant: 'testimonials',
@@ -1047,7 +1073,7 @@ const marketingLayoutZoneWidgets: Record<string, TemplateSeedZoneWidget[]> = {
         {
             zone: 'marketing-main',
             widgetKey: 'marketing.collection',
-            sortOrder: 4,
+            sortOrder: 5,
             config: {
                 instanceKey: 'highlights',
                 variant: 'highlights',
@@ -1062,7 +1088,7 @@ const marketingLayoutZoneWidgets: Record<string, TemplateSeedZoneWidget[]> = {
         {
             zone: 'marketing-main',
             widgetKey: 'marketing.pricing',
-            sortOrder: 5,
+            sortOrder: 6,
             config: {
                 instanceKey: 'pricing',
                 source: { entityCodename: 'MarketingPagePricing', entityKind: 'object' },
@@ -1075,7 +1101,7 @@ const marketingLayoutZoneWidgets: Record<string, TemplateSeedZoneWidget[]> = {
         {
             zone: 'marketing-main',
             widgetKey: 'marketing.collection',
-            sortOrder: 6,
+            sortOrder: 7,
             config: {
                 instanceKey: 'faq',
                 variant: 'faq',

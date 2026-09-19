@@ -54,7 +54,6 @@ const application = {
     name: {},
     description: null,
     settings: null,
-    slug: null,
     isPublic: false,
     workspacesEnabled: false,
     schemaName,

@@ -7,7 +7,8 @@ const mocks = vi.hoisted(() => ({
     enqueueSnackbar: vi.fn(),
     t: (key: string, fallback?: string) => fallback ?? key,
     publicationsApi: {
-        syncPublication: vi.fn()
+        syncPublication: vi.fn(),
+        createPublicationApplication: vi.fn()
     },
     templateMui: {
         applyOptimisticCreate: vi.fn(),
@@ -23,7 +24,8 @@ const mocks = vi.hoisted(() => ({
     },
     utils: {
         getVLCString: vi.fn(),
-        makePendingMarkers: vi.fn(() => ({}))
+        makePendingMarkers: vi.fn(() => ({})),
+        resolveApiErrorMessage: (error: unknown, fallback: string) => (error instanceof Error && error.message ? error.message : fallback)
     }
 }))
 
@@ -45,6 +47,7 @@ vi.mock('@universo-react/utils', () => mocks.utils)
 
 vi.mock('../../api', () => mocks.publicationsApi)
 
+import { useCreatePublicationApplication } from '../applicationMutations'
 import * as hooks from '../mutations'
 
 const createTestQueryClient = () =>
@@ -62,6 +65,65 @@ const createTestQueryClient = () =>
 beforeEach(() => {
     vi.clearAllMocks()
     mocks.publicationsApi.syncPublication.mockReset()
+    mocks.publicationsApi.createPublicationApplication.mockReset()
+})
+
+describe('publication application creation', () => {
+    it('invalidates publication and application lists and shows the localized success message', async () => {
+        mocks.publicationsApi.createPublicationApplication.mockResolvedValue({ id: 'app-1' })
+
+        const queryClient = createTestQueryClient()
+        const invalidateSpy = vi.spyOn(queryClient, 'invalidateQueries')
+        let createApplication: ReturnType<typeof useCreatePublicationApplication> | undefined
+
+        function Probe() {
+            createApplication = useCreatePublicationApplication()
+            return null
+        }
+
+        render(
+            <QueryClientProvider client={queryClient}>
+                <Probe />
+            </QueryClientProvider>
+        )
+
+        await act(async () => {
+            await createApplication!.mutateAsync({ metahubId: 'mh-1', publicationId: 'pub-1', data: { name: 'App' } })
+        })
+
+        expect(mocks.publicationsApi.createPublicationApplication).toHaveBeenCalledWith('mh-1', 'pub-1', { name: 'App' })
+        expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: metahubsQueryKeys.publicationApplicationsList('mh-1', 'pub-1') })
+        expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: metahubsQueryKeys.publicationDetail('mh-1', 'pub-1') })
+        expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: metahubsQueryKeys.detail('mh-1') })
+        expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['applications', 'list'] })
+        expect(mocks.enqueueSnackbar).toHaveBeenCalledWith('Application created', { variant: 'success' })
+    })
+
+    it('falls back to the localized failure message for transport errors', async () => {
+        mocks.publicationsApi.createPublicationApplication.mockRejectedValue(new Error('create failed'))
+
+        const queryClient = createTestQueryClient()
+        let createApplication: ReturnType<typeof useCreatePublicationApplication> | undefined
+
+        function Probe() {
+            createApplication = useCreatePublicationApplication()
+            return null
+        }
+
+        render(
+            <QueryClientProvider client={queryClient}>
+                <Probe />
+            </QueryClientProvider>
+        )
+
+        await act(async () => {
+            await expect(
+                createApplication!.mutateAsync({ metahubId: 'mh-2', publicationId: 'pub-2', data: { name: 'App' } })
+            ).rejects.toThrow('create failed')
+        })
+
+        expect(mocks.enqueueSnackbar).toHaveBeenCalledWith('create failed', { variant: 'error' })
+    })
 })
 
 describe('publication sync mutations', () => {
@@ -118,7 +180,7 @@ describe('publication sync mutations', () => {
         })
 
         expect(mocks.publicationsApi.syncPublication).toHaveBeenCalledWith('mh-2', 'pub-2', true)
-        expect(mocks.enqueueSnackbar).toHaveBeenCalledWith('Schema synchronized', { variant: 'success' })
+        expect(mocks.enqueueSnackbar).toHaveBeenCalledWith('Schema synchronized successfully', { variant: 'success' })
     })
 
     it('shows error snackbar when publication sync fails', async () => {

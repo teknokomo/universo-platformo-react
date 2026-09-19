@@ -32,6 +32,43 @@ function buildUpdateAssignments(updateData: Record<string, unknown>): {
 }
 
 /**
+ * Locks the entity row and fails closed when the stored version differs from the
+ * expected one. Callers can run it before validation so a version conflict wins
+ * over rule errors, and so no write is issued before validation passes.
+ */
+export async function assertExpectedVersion(options: {
+    executor: DbExecutor | SqlQueryable
+    schemaName: string
+    tableName: string
+    entityId: string
+    entityType: EntityType
+    expectedVersion: number
+}): Promise<void> {
+    const { executor, schemaName, tableName, entityId, entityType, expectedVersion } = options
+    const qt = qSchemaTable(schemaName, tableName)
+    const current = await queryOneOrThrow<Record<string, unknown>>(
+        executor,
+        `SELECT * FROM ${qt} WHERE id = $1 FOR UPDATE`,
+        [entityId],
+        undefined,
+        `${entityType} not found`
+    )
+
+    const actualVersion = current._upl_version as number
+    if (actualVersion !== expectedVersion) {
+        const conflict: ConflictInfo = {
+            entityId,
+            entityType,
+            expectedVersion,
+            actualVersion,
+            updatedAt: new Date(current._upl_updated_at as string),
+            updatedBy: current._upl_updated_by as string
+        }
+        throw new OptimisticLockError(conflict)
+    }
+}
+
+/**
  * Performs a version-checked update with optimistic locking.
  *
  * 1. Acquires row-level lock (FOR UPDATE)
@@ -48,27 +85,7 @@ export async function updateWithVersionCheck(options: VersionedUpdateOptions): P
     const wrapInTransaction = options.wrapInTransaction !== false
 
     const runUpdate = async (tx: SqlQueryable): Promise<Record<string, unknown>> => {
-        const current = await queryOneOrThrow<Record<string, unknown>>(
-            tx,
-            `SELECT * FROM ${qt} WHERE id = $1 FOR UPDATE`,
-            [entityId],
-            undefined,
-            `${entityType} not found`
-        )
-
-        const actualVersion = current._upl_version as number
-
-        if (actualVersion !== expectedVersion) {
-            const conflict: ConflictInfo = {
-                entityId,
-                entityType,
-                expectedVersion,
-                actualVersion,
-                updatedAt: new Date(current._upl_updated_at as string),
-                updatedBy: current._upl_updated_by as string
-            }
-            throw new OptimisticLockError(conflict)
-        }
+        await assertExpectedVersion({ executor: tx, schemaName, tableName, entityId, entityType, expectedVersion })
 
         const assignments = buildUpdateAssignments(updateData)
         const setClauses: string[] = ['_upl_version = _upl_version + 1', ...assignments.setClauses]

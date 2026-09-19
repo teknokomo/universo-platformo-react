@@ -3,8 +3,10 @@ export { ApplicationSchemaStatus } from './persistence/contracts'
 
 // Route exports
 export { createApplicationsRoutes } from './routes/applicationsRoutes'
+export { createApplicationAliasesRoutes } from './routes/applicationAliasesRoutes'
 export { createConnectorsRoutes } from './routes/connectorsRoutes'
 export { createApplicationSyncRoutes } from './routes/applicationSyncRoutes'
+export { createPublicApplicationRuntimeRoutes } from './routes/publicApplicationRuntimeRoutes'
 export { runPublishedApplicationRuntimeSync, seedPredefinedElements } from './routes/applicationSyncRoutes'
 export { initializeRateLimiters, getRateLimiters, createApplicationsServiceRoutes } from './routes/index'
 export { attachApplicationsRealtimeRuntime } from './realtime/applicationsRealtimeRuntime'

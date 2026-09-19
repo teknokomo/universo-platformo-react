@@ -695,7 +695,7 @@ describe('MetahubModulesService', () => {
             sourceCode
         })
 
-        expect(executor.query).toHaveBeenCalledWith('SELECT pg_advisory_xact_lock(hashtext($1))', [
+        expect(executor.query).toHaveBeenCalledWith('SELECT pg_advisory_xact_lock(hashtextextended($1::text, 0))', [
             `metahub-module-source:metahub-1:${schemaName}:modules/metahub/quiz-widget.ts`
         ])
     })

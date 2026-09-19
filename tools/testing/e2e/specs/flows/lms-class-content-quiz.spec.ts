@@ -1,5 +1,6 @@
 import { expect, test } from '../../fixtures/test'
-import { createLoggedInApiContext, createRuntimeRow, disposeApiContext } from '../../support/backend/api-session.mjs'
+import { createLocalizedContent } from '@universo-react/utils'
+import { createLoggedInApiContext, createRuntimeRow, disposeApiContext, sendWithCsrf } from '../../support/backend/api-session.mjs'
 import { recordCreatedApplication, recordCreatedMetahub, recordCreatedPublication } from '../../support/backend/run-manifest.mjs'
 import {
     setupPublishedLmsApplication,
@@ -37,9 +38,19 @@ test('@flow lms public guest runtime completes a class learning resource quiz an
             schemaName: lms.publication.schemaName
         })
         await recordCreatedApplication({
-            id: lms.applicationId,
-            slug: lms.applicationSlug
+            id: lms.applicationId
         })
+
+        const workspaceResponse = await sendWithCsrf(api, 'POST', `/api/v1/applications/${lms.applicationId}/runtime/workspaces`, {
+            name: createLocalizedContent('en', `E2E ${runManifest.runId} Journey Public Workspace`)
+        })
+        if (!workspaceResponse.ok) {
+            throw new Error(`Creating LMS journey public workspace failed with ${workspaceResponse.status}`)
+        }
+        const workspaceId = ((await workspaceResponse.json()) as { id?: string }).id
+        if (typeof workspaceId !== 'string') {
+            throw new Error('LMS journey public workspace creation did not return an id')
+        }
 
         const classesObjectId = await waitForApplicationObjectId(api, lms.applicationId, 'Classes')
         const studentsObjectId = await waitForApplicationObjectId(api, lms.applicationId, 'Students')
@@ -65,15 +76,17 @@ test('@flow lms public guest runtime completes a class learning resource quiz an
         const singleChoiceValueId = await waitForOptionValueId(api, lms.metahub.id, questionTypeEnumerationId, 'SingleChoice')
 
         const classRow = await createRuntimeRow(api, lms.applicationId, {
+            workspaceId,
             objectCollectionId: classesObjectId,
             data: {
                 Name: `Biology Class ${runManifest.runId}`,
                 Description: 'Public LMS class for browser verification'
             }
         })
-        await waitForApplicationRuntimeRow(api, lms.applicationId, classesObjectId, classRow.id)
+        await waitForApplicationRuntimeRow(api, lms.applicationId, classesObjectId, classRow.id, { workspaceId })
 
         const quizRow = await createRuntimeRow(api, lms.applicationId, {
+            workspaceId,
             objectCollectionId: quizzesObjectId,
             data: {
                 Title: `Photosynthesis Quiz ${runManifest.runId}`,
@@ -108,10 +121,11 @@ test('@flow lms public guest runtime completes a class learning resource quiz an
                 ]
             }
         })
-        await waitForApplicationRuntimeRow(api, lms.applicationId, quizzesObjectId, quizRow.id)
+        await waitForApplicationRuntimeRow(api, lms.applicationId, quizzesObjectId, quizRow.id, { workspaceId })
 
         const contentSlug = `journey-content-${runManifest.runId}`
         const contentRow = await createRuntimeRow(api, lms.applicationId, {
+            workspaceId,
             objectCollectionId: learningResourcesObjectId,
             data: {
                 Title: `Photosynthesis Learning Resource ${runManifest.runId}`,
@@ -136,9 +150,10 @@ test('@flow lms public guest runtime completes a class learning resource quiz an
                 ]
             }
         })
-        await waitForApplicationRuntimeRow(api, lms.applicationId, learningResourcesObjectId, contentRow.id)
+        await waitForApplicationRuntimeRow(api, lms.applicationId, learningResourcesObjectId, contentRow.id, { workspaceId })
 
         const accessLinkRow = await createRuntimeRow(api, lms.applicationId, {
+            workspaceId,
             objectCollectionId: accessLinksObjectId,
             data: {
                 Slug: contentSlug,
@@ -152,7 +167,22 @@ test('@flow lms public guest runtime completes a class learning resource quiz an
                 LinkTitle: 'Photosynthesis journey'
             }
         })
-        await waitForApplicationRuntimeRow(api, lms.applicationId, accessLinksObjectId, accessLinkRow.id)
+        await waitForApplicationRuntimeRow(api, lms.applicationId, accessLinksObjectId, accessLinkRow.id, { workspaceId })
+
+        await expect
+            .poll(
+                async () => {
+                    const response = await page.request.get(`/api/v1/public/a/${lms.applicationId}/links/${contentSlug}`)
+                    if (response.status() !== 200) {
+                        return `${response.status()}:${await response.text()}`
+                    }
+
+                    const payload = await response.json()
+                    return typeof payload?.id === 'string' ? payload.id : 'missing-link-id'
+                },
+                { timeout: 30_000, intervals: [500, 1_000, 2_000] }
+            )
+            .toBe(accessLinkRow.id)
 
         const guestSessionResponsePromise = page.waitForResponse(
             (response) =>
@@ -188,13 +218,17 @@ test('@flow lms public guest runtime completes a class learning resource quiz an
         await page.getByRole('button', { name: 'Complete content' }).click()
         await expect(page.getByText('Content complete. Progress has been recorded for this session.')).toBeVisible({ timeout: 30_000 })
 
-        const studentRows = await waitForApplicationRuntimeRowCount(api, lms.applicationId, studentsObjectId, 1)
+        const studentRows = await waitForApplicationRuntimeRowCount(api, lms.applicationId, studentsObjectId, 1, { workspaceId })
         expect(studentRows).toHaveLength(1)
 
-        const quizResponseRows = await waitForApplicationRuntimeRowCount(api, lms.applicationId, quizResponsesObjectId, 2)
+        const quizResponseRows = await waitForApplicationRuntimeRowCount(api, lms.applicationId, quizResponsesObjectId, 2, {
+            workspaceId
+        })
         expect(quizResponseRows).toHaveLength(2)
 
-        const contentProgressRows = await waitForApplicationRuntimeRowCount(api, lms.applicationId, contentProgressObjectId, 1)
+        const contentProgressRows = await waitForApplicationRuntimeRowCount(api, lms.applicationId, contentProgressObjectId, 1, {
+            workspaceId
+        })
         expect(contentProgressRows).toHaveLength(1)
     } finally {
         await disposeApiContext(api)

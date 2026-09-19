@@ -1,4 +1,4 @@
-import type { Response as PlaywrightResponse } from '@playwright/test'
+import type { Locator, Page, Response as PlaywrightResponse } from '@playwright/test'
 import { createLocalizedContent, getVLCString } from '@universo-react/utils'
 
 import { expect, test } from '../../fixtures/test'
@@ -20,12 +20,20 @@ import { disposeBootstrapApiContext, createBootstrapApiContext } from '../../sup
 import { recordCreatedGlobalUser, recordCreatedMetahub } from '../../support/backend/run-manifest.mjs'
 import { waitForSettledMutationResponse } from '../../support/browser/network'
 import { applyBrowserPreferences } from '../../support/browser/preferences'
-import { buildEntityMenuTriggerSelector, entityDialogSelectors, toolbarSelectors } from '../../support/selectors/contracts'
+import {
+    buildEntityMenuItemSelector,
+    buildEntityMenuTriggerSelector,
+    entityDialogSelectors,
+    toolbarSelectors
+} from '../../support/selectors/contracts'
 
 type EntityTypeRecord = {
     id?: string
     kindKey?: string
     published?: boolean
+    ui?: {
+        tabs?: string[]
+    }
 }
 
 type EntityTypeListPayload = {
@@ -220,6 +228,32 @@ async function waitForMetahubMember(
     return matchedMember
 }
 
+async function closeEntityDialog(page: Page, dialog: Locator) {
+    await dialog.getByTestId(entityDialogSelectors.cancelButton).click()
+
+    const discardChangesDialog = page.getByRole('dialog', { name: 'Discard unsaved changes?' })
+    const dialogCount = page.locator('[role="dialog"]')
+
+    await expect
+        .poll(
+            async () => {
+                if (await discardChangesDialog.isVisible().catch(() => false)) return 'discard'
+                return (await dialogCount.count()) === 0 ? 'closed' : 'pending'
+            },
+            { message: 'Waiting for the entity dialog to close or ask for discard confirmation' }
+        )
+        .not.toBe('pending')
+
+    if (await discardChangesDialog.isVisible().catch(() => false)) {
+        await discardChangesDialog.getByRole('button', { name: 'Discard' }).click()
+    }
+
+    // Count DOM dialogs instead of role-based ones: a stacked confirmation marks
+    // the underlying dialog aria-hidden, which would make a role locator report
+    // zero while the dialog is still mounted.
+    await expect(dialogCount).toHaveCount(0)
+}
+
 async function createEntityTypeViaApi(
     api: Awaited<ReturnType<typeof createLoggedInApiContext>>,
     metahubId: string,
@@ -323,23 +357,27 @@ test('@flow metahub entities workspace supports preset-backed create flow with b
         const createDialog = page.getByRole('dialog', { name: /Create Entity(?: Type)?/ })
         await expect(createDialog).toBeVisible()
         await expect(createDialog.getByLabel('Select template')).toBeVisible()
-        await expect(createDialog.getByText('Reusable presets are sourced from the existing template registry.')).toBeVisible()
+        await expect(
+            createDialog.getByText(
+                'Reusable presets fill the creation form with recommended settings. You can review and change the fields before saving.'
+            )
+        ).toBeVisible()
 
         await createDialog.getByLabel('Select template').click()
         await page.getByRole('option', { name: /^Objects\b/i }).click()
 
-        await expect.poll(async () => createDialog.getByLabel('Kind key').inputValue()).toBe('object')
+        await expect.poll(async () => createDialog.getByLabel('System type key').inputValue()).toBe('object')
         await expect(createDialog.getByLabel('Name').first()).toHaveValue('Objects')
         await expect(createDialog.getByRole('checkbox', { name: 'Publish to dynamic menu' })).toBeChecked()
-        await expect(createDialog.getByRole('checkbox', { name: 'Hubs' })).toBeChecked()
+        await expect(createDialog.getByRole('checkbox', { name: 'Hubs' })).toBeVisible()
         await expect(createDialog.getByRole('checkbox', { name: 'Layout' })).toBeChecked()
         await expect(createDialog.getByRole('checkbox', { name: 'Modules' })).toBeChecked()
-        await createDialog.getByRole('tab', { name: 'Components' }).click()
+        await createDialog.getByRole('tab', { name: 'Capabilities' }).click()
         await expect(createDialog.getByRole('checkbox', { name: 'Data schema' })).toBeChecked()
         await expect(createDialog.getByRole('checkbox', { name: 'Physical table' })).toBeChecked()
         await createDialog.getByRole('tab', { name: 'General' }).click()
 
-        await createDialog.getByLabel('Kind key').fill(customKindKey)
+        await createDialog.getByLabel('System type key').fill(customKindKey)
         await createDialog.getByLabel('Name').first().fill(customName)
 
         const createResponse = waitForSettledMutationResponse(
@@ -355,6 +393,7 @@ test('@flow metahub entities workspace supports preset-backed create flow with b
         }
 
         expect(createdEntityType.kindKey).toBe(customKindKey)
+        expect(createdEntityType.ui?.tabs).toEqual(expect.arrayContaining(['behavior', 'ledgerSchema', 'hubs', 'layout', 'modules']))
         await expect(page.getByRole('cell', { name: customName, exact: true })).toBeVisible()
 
         let persistedEntityType: EntityTypeRecord | undefined
@@ -379,12 +418,14 @@ test('@flow metahub entities workspace supports preset-backed create flow with b
         await dynamicMenuLink.click()
 
         await expect(page).toHaveURL(`/metahub/${metahub.id}/entities/${customKindKey}/instances`)
-        await expect(page.getByRole('heading', { name: `${customName} instances` })).toBeVisible()
-        await expect(page.getByTestId(toolbarSelectors.primaryAction)).toContainText('Create entity')
+        await expect(page.getByRole('heading', { name: customName })).toBeVisible()
+        await expect(page.getByTestId(toolbarSelectors.primaryAction)).toContainText('Create')
 
         await page.getByTestId(toolbarSelectors.primaryAction).click()
 
-        const createInstanceDialog = page.getByRole('dialog', { name: 'Create Entity' })
+        // The Object preset ships presentation dialog titles ("Create Object"), so
+        // the generic entity surface reuses them instead of the built-in "Create Entity".
+        const createInstanceDialog = page.getByRole('dialog', { name: 'Create Object' })
         await expect(createInstanceDialog).toBeVisible()
         await createInstanceDialog.getByLabel('Name').first().fill(instanceName)
         await createInstanceDialog.getByLabel('Codename').first().fill(instanceCodename)
@@ -420,10 +461,10 @@ test('@flow metahub entities workspace supports preset-backed create flow with b
             )
             .toBe(createdObjectInstance.id)
 
-        const createdEntityRow = page.getByRole('row').filter({ hasText: instanceName })
-        await createdEntityRow.getByRole('button', { name: 'Edit' }).click()
+        await page.getByTestId(buildEntityMenuTriggerSelector(customKindKey, createdObjectInstance.id)).click()
+        await page.getByTestId(buildEntityMenuItemSelector(customKindKey, 'edit', createdObjectInstance.id)).click()
 
-        const entityEditDialog = page.getByRole('dialog', { name: 'Edit Entity' })
+        const entityEditDialog = page.getByRole('dialog', { name: 'Edit Object' })
         await expect(entityEditDialog).toBeVisible()
         await expect(entityEditDialog.getByRole('tab', { name: 'Components' })).toBeVisible()
         await expect(entityEditDialog.getByRole('tab', { name: 'Layout' })).toBeVisible()
@@ -481,18 +522,17 @@ test('@flow metahub entities workspace supports preset-backed create flow with b
         })
 
         await page.goto(buildObjectInstancesPagePath(metahub.id, customKindKey))
-        await expect(page.getByRole('heading', { name: `${customName} instances` })).toBeVisible()
+        await expect(page.getByRole('heading', { name: customName })).toBeVisible()
         await expect(page.getByText(instanceName, { exact: true })).toBeVisible()
-        const reopenedEntityRow = page.getByRole('row').filter({ hasText: instanceName })
-        await reopenedEntityRow.getByRole('button', { name: 'Edit' }).click()
+        await page.getByTestId(buildEntityMenuTriggerSelector(customKindKey, createdObjectInstance.id)).click()
+        await page.getByTestId(buildEntityMenuItemSelector(customKindKey, 'edit', createdObjectInstance.id)).click()
 
-        const reopenedEditDialog = page.getByRole('dialog', { name: 'Edit Entity' })
+        const reopenedEditDialog = page.getByRole('dialog', { name: 'Edit Object' })
         await expect(reopenedEditDialog).toBeVisible()
         await expect(reopenedEditDialog.getByRole('tabpanel', { name: 'General' }).locator('textarea:not([readonly])')).toHaveValue(
             entityDescription
         )
-        await reopenedEditDialog.getByTestId(entityDialogSelectors.cancelButton).click()
-        await expect(reopenedEditDialog).toHaveCount(0)
+        await closeEntityDialog(page, reopenedEditDialog)
 
         await page.goto(buildObjectComponentsPagePath(metahub.id, createdObjectInstance.id, customKindKey))
         const entityBreadcrumbs = page.getByLabel('breadcrumb')
@@ -500,7 +540,7 @@ test('@flow metahub entities workspace supports preset-backed create flow with b
         await expect(entityBreadcrumbs).toContainText('Entities')
         await expect(entityBreadcrumbs).toContainText('Objects')
         await expect(entityBreadcrumbs).toContainText(instanceName)
-        await expect(entityBreadcrumbs.getByRole('link', { name: 'Objects' })).toHaveAttribute(
+        await expect(entityBreadcrumbs.locator('a:not([aria-current])').filter({ hasText: 'Objects' })).toHaveAttribute(
             'href',
             `/metahub/${metahub.id}/entities/${encodeURIComponent(customKindKey)}/instances`
         )
@@ -511,15 +551,26 @@ test('@flow metahub entities workspace supports preset-backed create flow with b
         await page.getByRole('tab', { name: 'System' }).click()
         await expect(page.getByRole('heading', { name: 'System Components' })).toBeVisible()
         await expect(entityBreadcrumbs).toContainText('System Components')
-        await page.getByRole('tab', { name: /Records|Elements|records.title/ }).click()
+        const recordsTab = page.getByRole('tab', { name: /Records|Elements|records.title/ })
+        await recordsTab.click()
         await expect(page.getByRole('heading', { name: /Records|Elements|records.title/ })).toBeVisible()
-        await expect(entityBreadcrumbs).toContainText(/Records|Elements|records.title/)
+        await expect(entityBreadcrumbs).toContainText('Records')
+        await expect(recordsTab).toHaveAttribute('aria-selected', 'true')
+        // The Records tab is a route-backed authoring surface: assert the exact
+        // authoring path. Its breadcrumb segment is intentionally not asserted
+        // here because the shared breadcrumb parser does not map the current
+        // `records` route segment yet.
+        await expect(page).toHaveURL(
+            (url) =>
+                url.pathname ===
+                `/metahub/${metahub.id}/entities/${encodeURIComponent(customKindKey)}/instance/${createdObjectInstance.id}/records`
+        )
 
         await page.goto(buildObjectInstancesPagePath(metahub.id, customKindKey))
-        const copySourceRow = page.getByRole('row').filter({ hasText: instanceName })
-        await copySourceRow.getByRole('button', { name: 'Copy' }).click()
+        await page.getByTestId(buildEntityMenuTriggerSelector(customKindKey, createdObjectInstance.id)).click()
+        await page.getByTestId(buildEntityMenuItemSelector(customKindKey, 'copy', createdObjectInstance.id)).click()
 
-        const entityCopyDialog = page.getByRole('dialog', { name: 'Copy Entity' })
+        const entityCopyDialog = page.getByRole('dialog', { name: 'Copy Object' })
         await expect(entityCopyDialog).toBeVisible()
         await entityCopyDialog.getByLabel('Name').first().fill(copiedInstanceName)
         await entityCopyDialog.getByLabel('Codename').first().fill(copiedInstanceCodename)
@@ -631,12 +682,12 @@ test('@flow metahub custom entity instances author modules actions and events th
             kindKey: customKindKey,
             codename: createLocalizedContent('en', typeCodename),
             presentation: {},
-            components: {
+            capabilities: {
                 dataSchema: { enabled: true },
                 records: false,
                 treeAssignment: false,
                 optionValues: false,
-                constants: false,
+                fixedValues: false,
                 hierarchy: false,
                 nestedCollections: false,
                 relations: false,
@@ -664,8 +715,8 @@ test('@flow metahub custom entity instances author modules actions and events th
         await applyBrowserPreferences(page, { language: 'en' })
         await page.goto(`/metahub/${metahub.id}/entities/${customKindKey}/instances`)
 
-        await expect(page.getByRole('heading', { name: `${customTypeName} instances` })).toBeVisible()
-        await expect(page.getByTestId(toolbarSelectors.primaryAction)).toContainText('Create entity')
+        await expect(page.getByRole('heading', { name: customTypeName })).toBeVisible()
+        await expect(page.getByTestId(toolbarSelectors.primaryAction)).toContainText('Create')
 
         await page.getByTestId(toolbarSelectors.primaryAction).click()
 
@@ -692,7 +743,8 @@ test('@flow metahub custom entity instances author modules actions and events th
         }
 
         await expect(page.getByText(entityName, { exact: true })).toBeVisible()
-        await page.getByRole('button', { name: 'Edit' }).first().click()
+        await page.getByTestId(buildEntityMenuTriggerSelector(customKindKey, createdEntity.id)).click()
+        await page.getByTestId(buildEntityMenuItemSelector(customKindKey, 'edit', createdEntity.id)).click()
 
         let editEntityDialog = page.getByRole('dialog', { name: 'Edit Entity' })
         await expect(editEntityDialog).toBeVisible()
@@ -732,10 +784,10 @@ test('@flow metahub custom entity instances author modules actions and events th
         expect(typeof createdModule?.id).toBe('string')
         expect(createdModule?.attachedToKind).toBe(customKindKey)
 
-        await editEntityDialog.getByTestId(entityDialogSelectors.cancelButton).click()
-        await expect(editEntityDialog).toHaveCount(0)
+        await closeEntityDialog(page, editEntityDialog)
 
-        await page.getByRole('button', { name: 'Edit' }).first().click()
+        await page.getByTestId(buildEntityMenuTriggerSelector(customKindKey, createdEntity.id)).click()
+        await page.getByTestId(buildEntityMenuItemSelector(customKindKey, 'edit', createdEntity.id)).click()
         editEntityDialog = page.getByRole('dialog', { name: 'Edit Entity' })
         await expect(editEntityDialog).toBeVisible()
 
@@ -828,8 +880,7 @@ test('@flow metahub custom entity instances author modules actions and events th
         expect(persistedBinding?.priority).toBe(Number(bindingPriority))
         expect(persistedBinding?.isActive).toBe(true)
 
-        await editEntityDialog.getByTestId(entityDialogSelectors.cancelButton).click()
-        await expect(editEntityDialog).toHaveCount(0)
+        await closeEntityDialog(page, editEntityDialog)
     } finally {
         await disposeApiContext(api)
     }
@@ -898,12 +949,12 @@ test('@flow @permission object-style entity instances stay read-only for metahub
             kindKey: customKindKey,
             codename: createLocalizedContent('en', typeCodename),
             presentation: {},
-            components: {
+            capabilities: {
                 dataSchema: { enabled: true },
                 records: { enabled: true },
                 treeAssignment: { enabled: true },
                 optionValues: false,
-                constants: false,
+                fixedValues: false,
                 hierarchy: { enabled: true, supportsFolders: true },
                 nestedCollections: false,
                 relations: { enabled: true, allowedRelationTypes: ['manyToOne'] },

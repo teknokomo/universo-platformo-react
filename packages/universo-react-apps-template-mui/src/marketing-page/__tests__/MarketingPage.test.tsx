@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import userEvent from '@testing-library/user-event'
 
@@ -143,6 +143,7 @@ const data: MarketingPageData = {
             content: {
                 variant: 'features',
                 section: { title: 'Automation features' },
+                config: { showItemDescriptions: true, fixedItemsHeight: false },
                 items: [
                     {
                         semanticKey: 'automation',
@@ -184,6 +185,7 @@ const data: MarketingPageData = {
             content: {
                 variant: 'features',
                 section: { title: 'Product features', description: 'Feature description' },
+                config: { showItemDescriptions: true, fixedItemsHeight: false },
                 items: [
                     {
                         semanticKey: 'dashboard',
@@ -215,16 +217,39 @@ const data: MarketingPageData = {
     ]
 }
 
-const renderPage = (position: 'fixed' | 'flow' = 'fixed') =>
-    render(
+const renderPage = (input: 'fixed' | 'flow' | { position?: 'fixed' | 'flow'; data?: MarketingPageData } = 'fixed') => {
+    const options = typeof input === 'string' ? { position: input } : input
+    return render(
         <AppMainLayout>
             <MarketingPage
-                data={data}
+                data={options.data ?? data}
                 effectiveLayoutWidgets={effectiveLayoutWidgets}
-                effectiveLayoutConfig={{ templateKey: 'marketing-page', zoneSettings: { 'marketing-header': { position } } }}
+                effectiveLayoutConfig={{
+                    templateKey: 'marketing-page',
+                    zoneSettings: { 'marketing-header': { position: options.position ?? 'fixed' } }
+                }}
             />
         </AppMainLayout>
     )
+}
+
+const brandLogoMedia = {
+    resource: { type: 'url' as const, url: 'https://example.test/brand.png', launchMode: 'inline' as const },
+    src: 'https://example.test/brand.png',
+    alt: '',
+    decorative: true
+}
+
+const dataWithHeaderAndFooterLogos: MarketingPageData = {
+    ...data,
+    widgets: data.widgets.map((widget) =>
+        widget.widgetKey === 'marketing.brand'
+            ? { ...widget, content: { name: 'Acme', logo: brandLogoMedia } }
+            : widget.widgetKey === 'marketing.footer'
+            ? { ...widget, content: { ...widget.content, logo: brandLogoMedia } }
+            : widget
+    )
+}
 
 describe('MarketingPage', () => {
     beforeEach(() => {
@@ -249,6 +274,177 @@ describe('MarketingPage', () => {
             )
         ).toEqual(['hero', 'features-primary', 'features-secondary', 'logos-empty', 'footer'])
         expect(document.getElementById('marketing-widget-features-secondary')).toBeInTheDocument()
+    })
+
+    it('renders a configured brand name as visible text instead of the demo wordmark', () => {
+        renderPage()
+
+        // The brand name is the accessible and visible identity when no logo
+        // asset is configured; the template wordmark must not replace it.
+        const header = screen.getByTestId('marketing-header-shell')
+        expect(within(header).getByText('Acme')).toBeVisible()
+        expect(within(header).queryByTestId('marketing-brand-wordmark')).not.toBeInTheDocument()
+    })
+
+    it('renders a configured brand logo media instead of the brand name text', () => {
+        const branded: MarketingPageData = {
+            ...data,
+            widgets: data.widgets.map((widget) =>
+                widget.widgetKey === 'marketing.brand'
+                    ? {
+                          ...widget,
+                          content: {
+                              name: 'Acme',
+                              logo: {
+                                  resource: { type: 'url', url: 'https://example.test/brand.png', launchMode: 'inline' },
+                                  src: 'https://example.test/brand.png',
+                                  alt: '',
+                                  decorative: true
+                              }
+                          }
+                      }
+                    : widget
+            )
+        }
+
+        renderPage({ data: branded })
+
+        const header = screen.getByTestId('marketing-header-shell')
+        expect(header.querySelector('img')).toHaveAttribute('src', 'https://example.test/brand.png')
+        expect(within(header).queryByText('Acme')).not.toBeInTheDocument()
+        expect(within(header).queryByTestId('marketing-brand-wordmark')).not.toBeInTheDocument()
+    })
+
+    it('falls back to the configured brand name when the header logo image fails to load', async () => {
+        renderPage({ data: dataWithHeaderAndFooterLogos })
+
+        const header = screen.getByTestId('marketing-header-shell')
+        const logo = header.querySelector('img')
+        expect(logo).not.toBeNull()
+        fireEvent.error(logo!)
+
+        await waitFor(() => expect(within(header).getByText('Acme')).toBeVisible())
+        expect(header.querySelector('img')).not.toBeInTheDocument()
+        expect(within(header).getByRole('img', { name: 'Acme' })).toBeInTheDocument()
+    })
+
+    it('renders the configured footer logo with the brand name as its accessible name', () => {
+        renderPage({ data: dataWithHeaderAndFooterLogos })
+
+        const footer = screen.getByRole('contentinfo')
+        const logo = footer.querySelector('img')
+        expect(logo).toHaveAttribute('src', 'https://example.test/brand.png')
+        expect(logo).toHaveAttribute('alt', '')
+        expect(logo).toHaveAttribute('aria-hidden', 'true')
+        expect(within(footer).getByRole('img', { name: 'Acme' })).toBeInTheDocument()
+    })
+
+    it('falls back to the configured brand name when the footer logo image fails to load', async () => {
+        renderPage({ data: dataWithHeaderAndFooterLogos })
+
+        const footer = screen.getByRole('contentinfo')
+        const logo = footer.querySelector('img')
+        expect(logo).not.toBeNull()
+        fireEvent.error(logo!)
+
+        await waitFor(() => expect(within(footer).getByText('Acme')).toBeVisible())
+        expect(footer.querySelector('img')).not.toBeInTheDocument()
+        expect(within(footer).getByRole('img', { name: 'Acme' })).toBeInTheDocument()
+    })
+
+    it('resolves semantic navigation anchors to the rendered section ids and drops unknown anchors', () => {
+        const anchorData: MarketingPageData = {
+            ...data,
+            widgets: [
+                ...data.widgets.map((widget) =>
+                    widget.widgetKey === 'marketing.navigation'
+                        ? {
+                              ...widget,
+                              content: {
+                                  navigation: [
+                                      { ...action('#logos', 'Partners'), order: 1, visible: true },
+                                      { ...action('#features', 'Features'), order: 2, visible: true },
+                                      { ...action('#highlights', 'Why us'), order: 3, visible: true },
+                                      {
+                                          ...action('#highlights-development-stage-pre-seed', 'Investment'),
+                                          order: 4,
+                                          visible: true
+                                      },
+                                      { ...action('#unknown-section', 'Unknown'), order: 5, visible: true }
+                                  ]
+                              }
+                          }
+                        : widget
+                ),
+                {
+                    instanceKey: 'highlights',
+                    widgetKey: 'marketing.collection',
+                    zone: 'marketing-main',
+                    sortOrder: 4,
+                    isActive: true,
+                    content: {
+                        variant: 'highlights',
+                        section: { title: 'Why 73rd Meridian' },
+                        items: [
+                            {
+                                semanticKey: 'corridor',
+                                title: 'Corridor',
+                                description: 'Eurasian corridor.',
+                                icon: 'autoAwesome',
+                                order: 1,
+                                visible: true
+                            }
+                        ]
+                    }
+                },
+                {
+                    instanceKey: 'development-stage-pre-seed',
+                    widgetKey: 'marketing.collection',
+                    zone: 'marketing-main',
+                    sortOrder: 5,
+                    isActive: true,
+                    content: {
+                        variant: 'highlights',
+                        section: { title: 'Pre-seed' },
+                        items: [
+                            {
+                                semanticKey: 'pre-seed',
+                                title: 'Pre-seed',
+                                description: '30–90m RUB.',
+                                icon: 'autoAwesome',
+                                order: 1,
+                                visible: true
+                            }
+                        ]
+                    }
+                }
+            ] as MarketingPageData['widgets']
+        }
+
+        render(
+            <AppMainLayout>
+                <MarketingPage
+                    data={anchorData}
+                    effectiveLayoutWidgets={effectiveLayoutWidgets}
+                    effectiveLayoutConfig={{ templateKey: 'marketing-page' }}
+                />
+            </AppMainLayout>
+        )
+
+        // The persisted `logos` semantic key maps to the rendered collection id.
+        expect(screen.getByRole('link', { name: 'Partners' })).toHaveAttribute('href', '#logoCollection-logos-empty')
+        expect(document.getElementById('logoCollection-logos-empty')).toBeInTheDocument()
+        // Canonical-name anchors keep resolving to instance-derived section ids.
+        expect(screen.getByRole('link', { name: 'Features' })).toHaveAttribute('href', '#features-features-primary')
+        expect(document.getElementById('features-features-primary')).toBeInTheDocument()
+        // Repeated widget instances stay addressable through their emitted
+        // section ids (for example a repeated highlights instance anchor).
+        expect(screen.getByRole('link', { name: 'Why us' })).toHaveAttribute('href', '#highlights')
+        expect(document.getElementById('highlights')).toBeInTheDocument()
+        expect(screen.getByRole('link', { name: 'Investment' })).toHaveAttribute('href', '#highlights-development-stage-pre-seed')
+        expect(document.getElementById('highlights-development-stage-pre-seed')).toBeInTheDocument()
+        // Unknown anchors stay fail-closed.
+        expect(screen.queryByRole('link', { name: 'Unknown' })).not.toBeInTheDocument()
     })
 
     it('uses one zone-owned shell, one Drawer, and atomic persisted header projections', () => {
