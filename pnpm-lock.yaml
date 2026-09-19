@@ -3071,6 +3071,9 @@ importers:
       rate-limit-redis:
         specifier: 'catalog:'
         version: 4.3.1(express-rate-limit@8.5.2(express@4.22.1(supports-color@8.1.1)))
+      redos-detector:
+        specifier: 6.1.4
+        version: 6.1.4
       uuidv7:
         specifier: 'catalog:'
         version: 1.1.0
@@ -11438,6 +11441,11 @@ packages:
   redis-parser@3.0.0:
     resolution: {integrity: sha512-DJnGAeenTdpMEH6uAJRK/uiyEIH9WVsUmoLwzudwGJUwZPp80PDBWPHXSAGNPwNvIXAbe7MSUB1zQFugFml66A==}
     engines: {node: '>=4'}
+
+  redos-detector@6.1.4:
+    resolution: {integrity: sha512-lPlka1rEH6kK42gtgokvvxMmpAvyc28DcRjQbGxeP5RJsJWgAduBOdGedVCDPdSyCr4ay/JDxq3nGYsJZyt8tA==}
+    engines: {node: '>=16.0.0'}
+    hasBin: true
 
   redux-thunk@3.1.0:
     resolution: {integrity: sha512-NW2r5T6ksUKXCabzhL9z+h206HQw/NJkcLm1GPImRQ8IzfXwRGqjVhKJGauHirT0DAuyy6hjdnMZaRoAcy0Klw==}
@@ -23317,6 +23325,10 @@ snapshots:
   redis-parser@3.0.0:
     dependencies:
       redis-errors: 1.2.0
+
+  redos-detector@6.1.4:
+    dependencies:
+      regjsparser: 0.13.0
 
   redux-thunk@3.1.0(redux@5.0.1):
     dependencies:

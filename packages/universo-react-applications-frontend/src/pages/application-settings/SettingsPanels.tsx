@@ -108,6 +108,8 @@ export const SaveSettingsButton = ({
     </Box>
 )
 
+export const PUBLIC_ENTRY_WORKSPACE_LOAD_MORE_VALUE = '__load_more__'
+
 export const GeneralSettingsPanel = ({
     t,
     effectiveVisibility,
@@ -119,11 +121,14 @@ export const GeneralSettingsPanel = ({
     publicEntryWorkspaceLoading,
     publicEntryWorkspaceError,
     publicEntryWorkspaceSaving,
+    publicEntryWorkspaceHasMore,
+    publicEntryWorkspaceLoadingMore,
     settings,
     hasChanges,
     isSaving,
     onVisibilityChange,
     onPublicEntryWorkspaceChange,
+    onPublicEntryWorkspaceLoadMore,
     onPublicEntryWorkspaceRetry,
     onSettingsChange,
     onSave
@@ -138,11 +143,14 @@ export const GeneralSettingsPanel = ({
     publicEntryWorkspaceLoading: boolean
     publicEntryWorkspaceError: boolean
     publicEntryWorkspaceSaving: boolean
+    publicEntryWorkspaceHasMore: boolean
+    publicEntryWorkspaceLoadingMore: boolean
     settings: ApplicationDialogSettings
     hasChanges: boolean
     isSaving: boolean
     onVisibilityChange: (value: boolean | undefined) => void
     onPublicEntryWorkspaceChange: (value: string | null) => void
+    onPublicEntryWorkspaceLoadMore: () => void
     onPublicEntryWorkspaceRetry: () => void | Promise<void>
     onSettingsChange: SettingsChange
     onSave: SaveHandler
@@ -245,7 +253,14 @@ export const GeneralSettingsPanel = ({
                                     <Select
                                         label={t('settings.publicEntryWorkspaceLabel')}
                                         value={publicEntryWorkspaceId ?? ''}
-                                        onChange={(event) => onPublicEntryWorkspaceChange(event.target.value || null)}
+                                        onChange={(event) => {
+                                            const nextValue = event.target.value
+                                            if (nextValue === PUBLIC_ENTRY_WORKSPACE_LOAD_MORE_VALUE) {
+                                                onPublicEntryWorkspaceLoadMore()
+                                                return
+                                            }
+                                            onPublicEntryWorkspaceChange(nextValue || null)
+                                        }}
                                         data-testid='application-settings-public-entry-workspace-select'
                                     >
                                         <MenuItem value=''>{t('settings.publicEntryWorkspaceNone')}</MenuItem>
@@ -254,6 +269,17 @@ export const GeneralSettingsPanel = ({
                                                 {workspace.label}
                                             </MenuItem>
                                         ))}
+                                        {publicEntryWorkspaceHasMore ? (
+                                            <MenuItem
+                                                value={PUBLIC_ENTRY_WORKSPACE_LOAD_MORE_VALUE}
+                                                disabled={publicEntryWorkspaceLoadingMore}
+                                                data-testid='application-settings-public-entry-workspace-load-more'
+                                                sx={{ justifyContent: 'center', gap: 1, color: 'text.secondary' }}
+                                            >
+                                                {publicEntryWorkspaceLoadingMore ? <CircularProgress size={14} color='inherit' /> : null}
+                                                {t('settings.publicEntryWorkspaceLoadMore')}
+                                            </MenuItem>
+                                        ) : null}
                                     </Select>
                                 </FormControl>
                             )}

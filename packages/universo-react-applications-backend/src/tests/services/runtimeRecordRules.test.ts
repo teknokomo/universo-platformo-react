@@ -115,7 +115,7 @@ describe('evaluateRuntimeRecordRules', () => {
         expect(txExecutor.query).not.toHaveBeenCalled()
     })
 
-    it('skips patterns with nested quantifiers instead of risking catastrophic backtracking', async () => {
+    it('fails closed on patterns with nested quantifiers instead of risking catastrophic backtracking', async () => {
         const { txExecutor } = createMockDbExecutor()
 
         const violation = await evaluateRuntimeRecordRules({
@@ -124,7 +124,29 @@ describe('evaluateRuntimeRecordRules', () => {
             })
         })
 
-        expect(violation).toBeNull()
+        expect(violation).toMatchObject({
+            statusCode: 400,
+            code: RUNTIME_RECORD_RULE_CODES.patternMismatch,
+            field: 'sectionKey'
+        })
+        // The decision is read-free: it must not take the table lock.
+        expect(txExecutor.query).not.toHaveBeenCalled()
+    })
+
+    it('fails closed on overlapping alternations under an unbounded quantifier', async () => {
+        const { txExecutor } = createMockDbExecutor()
+
+        const violation = await evaluateRuntimeRecordRules({
+            ...baseParams(txExecutor.query, [stringAttr({ validation_rules: { pattern: '^(a|aa)+$' } })], {
+                section_key: 'a'.repeat(64) + 'b'
+            })
+        })
+
+        expect(violation).toMatchObject({
+            statusCode: 400,
+            code: RUNTIME_RECORD_RULE_CODES.patternMismatch,
+            field: 'sectionKey'
+        })
         expect(txExecutor.query).not.toHaveBeenCalled()
     })
 
@@ -141,20 +163,44 @@ describe('evaluateRuntimeRecordRules', () => {
         expect(txExecutor.query.mock.calls.some(([sql]) => String(sql).includes('SELECT id FROM'))).toBe(false)
     })
 
-    it('skips unreasonably long patterns and values instead of risking regex backtracking', async () => {
+    it('skips unreasonably long patterns instead of risking regex backtracking', async () => {
         const { txExecutor } = createMockDbExecutor()
 
-        const longPatternViolation = await evaluateRuntimeRecordRules({
+        const violation = await evaluateRuntimeRecordRules({
             ...baseParams(txExecutor.query, [stringAttr({ validation_rules: { pattern: 'a'.repeat(600) } })], { section_key: 'x' })
         })
-        expect(longPatternViolation).toBeNull()
 
-        const longValueViolation = await evaluateRuntimeRecordRules({
+        expect(violation).toBeNull()
+    })
+
+    it('accepts a matching value inside the safe regex window', async () => {
+        const { txExecutor } = createMockDbExecutor()
+
+        const violation = await evaluateRuntimeRecordRules({
+            ...baseParams(txExecutor.query, [stringAttr({ validation_rules: { pattern: '^x+$' } })], {
+                section_key: 'x'.repeat(4096)
+            })
+        })
+
+        expect(violation).toBeNull()
+    })
+
+    it('fails closed when the value is too long to check against the pattern', async () => {
+        const { txExecutor } = createMockDbExecutor()
+
+        const violation = await evaluateRuntimeRecordRules({
             ...baseParams(txExecutor.query, [stringAttr({ validation_rules: { pattern: '^x$' } })], {
                 section_key: 'y'.repeat(5000)
             })
         })
-        expect(longValueViolation).toBeNull()
+
+        expect(violation).toMatchObject({
+            statusCode: 400,
+            code: RUNTIME_RECORD_RULE_CODES.patternMismatch,
+            field: 'sectionKey'
+        })
+        // The decision is read-free: it must not take the table lock.
+        expect(txExecutor.query).not.toHaveBeenCalled()
     })
 
     it('ignores an unparsable pattern instead of failing the write', async () => {

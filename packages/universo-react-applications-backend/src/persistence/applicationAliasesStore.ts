@@ -242,27 +242,19 @@ export async function findApplicationAliasById(executor: SqlQueryable, aliasId: 
 
 /**
  * Resolve an active alias to its application without returning alias metadata.
- * The caller still has to run the normal application access guard afterwards.
+ * The SECURITY DEFINER resolver bypasses the alias SELECT policy (which is
+ * reserved for global alias managers), so a plain member can reach the normal
+ * application access guard for private and public applications alike.
  */
 export async function findApplicationIdByActiveAlias(executor: SqlQueryable, alias: string): Promise<string | null> {
-    const rows = await executor.query<{ applicationId: string }>(
+    const rows = await executor.query<{ applicationId: string | null }>(
         `
-        SELECT aa.application_id AS "applicationId"
-        FROM applications.obj_application_aliases aa
-        INNER JOIN applications.obj_applications a ON a.id = aa.application_id
-        WHERE aa.alias = $1
-          AND aa.released_at IS NULL
-          AND ${activeAliasPredicate('aa')}
-          AND a._upl_deleted = false
-          AND a._app_deleted = false
-          AND a._upl_archived = false
-          AND a._app_archived = false
-        LIMIT 2
+        SELECT applications.resolve_application_alias($1) AS "applicationId"
         `,
         [alias]
     )
 
-    return rows.length === 1 ? rows[0]?.applicationId ?? null : null
+    return rows[0]?.applicationId ?? null
 }
 
 export async function findApplicationAliasByIdForUpdate(executor: DbExecutor, aliasId: string): Promise<ApplicationAliasRow | null> {

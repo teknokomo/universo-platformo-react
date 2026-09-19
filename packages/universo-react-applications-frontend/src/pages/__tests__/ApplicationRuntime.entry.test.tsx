@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, render, screen } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { MemoryRouter, Route, Routes } from 'react-router-dom'
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import { PUBLIC_APPLICATION_RUNTIME_ERROR_CODE } from '@universo-react/types'
 import type { ReactNode } from 'react'
 
@@ -71,6 +71,12 @@ const OTHER_APP_ID = '018f8a78-7b8f-7c1d-a111-222233335555'
 
 const unavailableError = () => new PublicApplicationRuntimeError(404, PUBLIC_APPLICATION_RUNTIME_ERROR_CODE)
 
+const AuthPageProbe = () => {
+    const location = useLocation()
+    const from = (location.state as { from?: string } | null)?.from ?? ''
+    return <div data-testid='auth-page' data-from={from} />
+}
+
 const renderEntry = (route: string) => {
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false, retryDelay: 0 } } })
 
@@ -79,7 +85,7 @@ const renderEntry = (route: string) => {
             <MemoryRouter initialEntries={[route]} future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
                 <Routes>
                     <Route path='/a/:applicationId/*' element={<ApplicationRuntimeEntry />} />
-                    <Route path='/auth' element={<div data-testid='auth-page' />} />
+                    <Route path='/auth' element={<AuthPageProbe />} />
                 </Routes>
             </MemoryRouter>
         </QueryClientProvider>
@@ -125,6 +131,17 @@ describe('ApplicationRuntimeEntry', () => {
 
         expect(await screen.findByTestId('auth-page')).toBeInTheDocument()
         expect(screen.queryByTestId('public-runtime')).not.toBeInTheDocument()
+    })
+
+    it('keeps the deep-link path, query and anchor in the login redirect state', async () => {
+        entryMocks.getPublicApplicationRuntime.mockRejectedValue(unavailableError())
+
+        renderEntry('/a/private-app?locale=ru#pricing')
+
+        const authPage = await screen.findByTestId('auth-page')
+        // AuthPage navigates back to `state.from` after login; dropping the hash
+        // would land the authenticated member at the wrong page position.
+        expect(authPage).toHaveAttribute('data-from', '/a/private-app?locale=ru#pricing')
     })
 
     it('keeps the settled runtime branch during a background refetch', async () => {

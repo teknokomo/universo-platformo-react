@@ -84,7 +84,8 @@ export const PublicApplicationRuntime = () => {
         applicationRef,
         canonicalAlias: publicRuntime.route.canonicalAlias,
         remainingPath,
-        search: location.search
+        search: location.search,
+        hash: location.hash
     })
     if (canonicalPath) return <Navigate to={canonicalPath} replace />
 

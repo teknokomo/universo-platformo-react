@@ -1,4 +1,5 @@
 import {
+    addApplicationAliasesMigrationDefinition,
     createApplicationsSchemaMigrationDefinition,
     finalizeApplicationsSchemaSupportMigrationDefinition
 } from '../../platform/migrations'
@@ -13,7 +14,8 @@ describe('applications system-app definition', () => {
         ).toEqual([
             'PrepareApplicationsSchemaSupport1800000000000',
             'FinalizeApplicationsSchemaSupport1800000000001',
-            'AddApplicationSettings1800000000100'
+            'AddApplicationSettings1800000000100',
+            'AddApplicationAliases1800000000101'
         ])
     })
 
@@ -96,21 +98,33 @@ describe('applications system-app definition', () => {
         )
     })
 
-    it('describes the target fresh schema without the retired application slug', () => {
-        const createSql = normalizeSql(createApplicationsSchemaMigrationDefinition.up.map((statement) => statement.sql).join('\n'))
+    it('keeps the applied finalize baseline byte-stable while the manifest retains the legacy slug column', () => {
         const finalizeSql = normalizeSql(
             finalizeApplicationsSchemaSupportMigrationDefinition.up.map((statement) => statement.sql).join('\n')
         )
+        const slugField = applicationsSystemAppDefinition.targetBusinessTables
+            .find((table) => table.codename === 'applications')
+            ?.fields?.find((field) => field.codename === 'slug')
 
-        expect(createSql).not.toMatch(/\bslug\b/iu)
-        expect(finalizeSql).not.toMatch(/\bslug\b/iu)
+        // The frozen post-schema baseline still creates the slug indexes, so the
+        // manifest must keep the physical column until a future migration retires it.
+        expect(finalizeSql).toContain('applications.obj_applications (slug)')
+        expect(finalizeSql).not.toContain('obj_application_aliases')
+        expect(slugField).toEqual(
+            expect.objectContaining({
+                physicalColumnName: 'slug',
+                dataType: 'STRING',
+                uiConfig: expect.objectContaining({
+                    hidden: true,
+                    formHidden: true,
+                    readOnly: true
+                })
+            })
+        )
     })
 
-    it('creates application-like fixed-schema tables and alias support in the clean baseline', () => {
+    it('creates application-like fixed-schema tables in the clean baseline', () => {
         const createSql = normalizeSql(createApplicationsSchemaMigrationDefinition.up.map((statement) => statement.sql).join('\n'))
-        const finalizeSql = normalizeSql(
-            finalizeApplicationsSchemaSupportMigrationDefinition.up.map((statement) => statement.sql).join('\n')
-        )
 
         for (const fragment of [
             'CREATE TABLE IF NOT EXISTS applications.obj_applications',
@@ -123,13 +137,22 @@ describe('applications system-app definition', () => {
 
         expect(createSql).not.toMatch(/CREATE UNIQUE INDEX(?! IF NOT EXISTS)/)
         expect(createSql).not.toMatch(/CREATE INDEX(?! IF NOT EXISTS)/)
-        expect(createSql).toContain('CREATE TABLE IF NOT EXISTS applications.obj_application_aliases')
-        expect(createSql).toContain('alias_routing_mode VARCHAR(20) NOT NULL DEFAULT')
-        expect(createSql).toContain('ON DELETE RESTRICT')
-        expect(createSql).toContain('WHERE released_at IS NULL')
-        expect(finalizeSql).toContain('CREATE TABLE IF NOT EXISTS applications.obj_application_aliases')
-        expect(finalizeSql).toContain('applications_alias_routing_mode_ck')
-        expect(finalizeSql).not.toMatch(/\bslug\b/iu)
+    })
+
+    it('declares the alias support only through the dedicated post-schema alias migration', () => {
+        const finalizeSql = normalizeSql(
+            finalizeApplicationsSchemaSupportMigrationDefinition.up.map((statement) => statement.sql).join('\n')
+        )
+        const aliasSql = normalizeSql(addApplicationAliasesMigrationDefinition.up.map((statement) => statement.sql).join('\n'))
+
+        expect(finalizeSql).not.toContain('CREATE TABLE IF NOT EXISTS applications.obj_application_aliases')
+        expect(aliasSql).toContain('CREATE TABLE IF NOT EXISTS applications.obj_application_aliases')
+        expect(aliasSql).toContain('alias_routing_mode VARCHAR(20) NOT NULL DEFAULT')
+        expect(aliasSql).toContain('ON DELETE RESTRICT')
+        expect(aliasSql).toContain('WHERE released_at IS NULL')
+        expect(aliasSql).toContain('applications_alias_routing_mode_ck')
+        expect(aliasSql).toContain('CREATE OR REPLACE FUNCTION applications.resolve_application_alias')
+        expect(aliasSql).toContain('GRANT EXECUTE ON FUNCTION applications.resolve_application_alias(TEXT) TO authenticated')
     })
 
     it('keeps applications RLS policies decomposed by operation for public join and membership management', () => {
@@ -151,20 +174,20 @@ describe('applications system-app definition', () => {
     })
 
     it('keeps alias create-only access out of arbitrary alias UPDATE and uses an atomic primary transition function', () => {
-        const createSql = normalizeSql(createApplicationsSchemaMigrationDefinition.up.map((statement) => statement.sql).join('\n'))
-        const updatePolicyStart = createSql.indexOf('CREATE POLICY "Allow application alias managers to update aliases"')
-        const nextPolicyStart = createSql.indexOf('CREATE POLICY', updatePolicyStart + 1)
-        const updatePolicy = createSql.slice(updatePolicyStart, nextPolicyStart === -1 ? undefined : nextPolicyStart)
+        const aliasSql = normalizeSql(addApplicationAliasesMigrationDefinition.up.map((statement) => statement.sql).join('\n'))
+        const updatePolicyStart = aliasSql.indexOf('CREATE POLICY "Allow application alias managers to update aliases"')
+        const nextPolicyStart = aliasSql.indexOf('CREATE POLICY', updatePolicyStart + 1)
+        const updatePolicy = aliasSql.slice(updatePolicyStart, nextPolicyStart === -1 ? undefined : nextPolicyStart)
 
         expect(updatePolicyStart).toBeGreaterThanOrEqual(0)
         expect(updatePolicy).not.toContain("'create'")
         expect(updatePolicy).toContain("'update'")
-        expect(createSql).toContain('CREATE OR REPLACE FUNCTION applications.create_application_alias')
-        expect(createSql).toContain("admin.has_permission(p_user_id, 'applicationAliases', 'update', '{}'::jsonb)")
-        expect(createSql).toContain('Application alias primary permission denied')
-        expect(createSql).toContain('pg_advisory_xact_lock(hashtext')
-        expect(createSql).toContain('REVOKE ALL ON FUNCTION applications.create_application_alias(UUID, TEXT, BOOLEAN, UUID) FROM PUBLIC')
-        expect(normalizeSql(createApplicationsSchemaMigrationDefinition.down.map((statement) => statement.sql).join('\n'))).toContain(
+        expect(aliasSql).toContain('CREATE OR REPLACE FUNCTION applications.create_application_alias')
+        expect(aliasSql).toContain("admin.has_permission(p_user_id, 'applicationAliases', 'update', '{}'::jsonb)")
+        expect(aliasSql).toContain('Application alias primary permission denied')
+        expect(aliasSql).toContain('pg_advisory_xact_lock(hashtext')
+        expect(aliasSql).toContain('REVOKE ALL ON FUNCTION applications.create_application_alias(UUID, TEXT, BOOLEAN, UUID) FROM PUBLIC')
+        expect(normalizeSql(addApplicationAliasesMigrationDefinition.down.map((statement) => statement.sql).join('\n'))).toContain(
             'DROP FUNCTION IF EXISTS applications.create_application_alias(UUID, TEXT, BOOLEAN, UUID)'
         )
     })

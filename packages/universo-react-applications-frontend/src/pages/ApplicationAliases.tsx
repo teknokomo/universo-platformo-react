@@ -38,7 +38,7 @@ import { applicationAliasesQueryKeys, invalidateApplicationAliasQueries } from '
 import { buildApplicationAliasPickerOptions } from '../utils/applicationAliasOptions'
 import { buildPublicApplicationAddress } from '../utils/publicApplicationAddress'
 import ApplicationAliasDialog, { type ApplicationAliasOption } from '../components/ApplicationAliasDialog'
-import { canUseApplicationAliasAbility } from '../utils/applicationAliasAbility'
+import { canUseApplicationAliasAbility, resolveApplicationAliasPageAccess } from '../utils/applicationAliasAbility'
 
 const ApplicationAliases = () => {
     const { t, i18n } = useTranslation('applications')
@@ -52,6 +52,11 @@ const ApplicationAliases = () => {
     const canCreate = !loading && canUseApplicationAliasAbility(ability, isSuperuser, 'create')
     const canUpdate = !loading && canUseApplicationAliasAbility(ability, isSuperuser, 'update')
     const canDelete = !loading && canUseApplicationAliasAbility(ability, isSuperuser, 'delete')
+    // Alias capabilities are independently assignable: the page must not turn
+    // the `read` grant into a gate for create/update/delete holders, and the
+    // registry table itself must not render without the list capability.
+    const pageAccess = loading ? null : resolveApplicationAliasPageAccess({ canRead, canCreate, canUpdate, canDelete })
+    const showsRegistry = pageAccess !== 'read-required'
 
     const [dialogState, setDialogState] = useState<{ mode: 'create' | 'edit'; alias?: ApplicationAliasItem } | null>(null)
     const [dialogError, setDialogError] = useState<string | null>(null)
@@ -280,7 +285,7 @@ const ApplicationAliases = () => {
         [t]
     )
 
-    if (!loading && !canRead) {
+    if (pageAccess === 'denied') {
         return <Alert severity='warning'>{t('aliases.noPermission')}</Alert>
     }
 
@@ -289,12 +294,12 @@ const ApplicationAliases = () => {
             <Box sx={{ px: { xs: 0, md: 2 } }}>
                 <ViewHeader
                     title={t('aliases.page.title')}
-                    search
+                    search={showsRegistry}
                     searchPlaceholder={t('aliases.page.searchPlaceholder')}
                     onSearchChange={handleSearchChange}
                 >
                     <ToolbarControls
-                        settingsEnabled
+                        settingsEnabled={showsRegistry}
                         settingsTitle={t('aliases.settings.title')}
                         settingsContent={
                             <FormControlLabel
@@ -311,7 +316,12 @@ const ApplicationAliases = () => {
                             />
                         }
                         primaryAction={
-                            canCreate
+                            // The create dialog resolves its application through
+                            // the alias application-options endpoint, which
+                            // itself requires the alias read capability. Without
+                            // read the action cannot complete, so it stays hidden
+                            // instead of offering a flow that always fails.
+                            showsRegistry && canCreate
                                 ? {
                                       label: tc('addNew'),
                                       onClick: () => {
@@ -327,62 +337,68 @@ const ApplicationAliases = () => {
                 </ViewHeader>
             </Box>
 
-            {actionError ? <Alert severity='error'>{actionError}</Alert> : null}
-            {paginationResult.error ? (
-                <Alert
-                    severity='error'
-                    action={
-                        <Button color='inherit' size='small' onClick={() => void invalidate()}>
-                            {t('aliases.errors.retry')}
-                        </Button>
-                    }
-                >
-                    {t('aliases.errors.load')}
-                </Alert>
-            ) : null}
-            {!paginationResult.isLoading && paginationResult.data.length === 0 ? (
-                <EmptyListState image={APIEmptySVG} imageAlt={t('aliases.emptyImageAlt')} title={t('aliases.empty')} />
-            ) : (
-                <Box sx={{ maxWidth: '100%', overflowX: 'auto' }}>
-                    <FlowListTable<ApplicationAliasItem>
-                        data={paginationResult.data}
-                        isLoading={paginationResult.isLoading}
-                        customColumns={columns}
-                        tableAriaLabel={t('aliases.tableAriaLabel')}
-                        renderActions={(alias) => {
-                            const descriptors = rowActions(alias)
-                            if (!descriptors.length) return null
-                            return (
-                                <BaseEntityMenu<ApplicationAliasItem, never>
-                                    entity={alias}
-                                    entityKind='application-alias'
-                                    descriptors={descriptors}
-                                    namespace='applications'
-                                    menuButtonLabelKey='aliases.actions.openMenu'
-                                    i18nInstance={i18n}
-                                    createContext={(base) => ({
-                                        ...base,
-                                        entity: alias,
-                                        entityKind: 'application-alias',
-                                        t: base.t!
-                                    })}
-                                />
-                            )
-                        }}
-                    />
-                </Box>
-            )}
+            {!showsRegistry ? <Alert severity='info'>{t('aliases.readRequiredToView')}</Alert> : null}
 
-            {!paginationResult.isLoading && paginationResult.data.length > 0 ? (
-                <Box sx={{ mt: 2 }}>
-                    <PaginationControls
-                        pagination={paginationResult.pagination}
-                        actions={paginationResult.actions}
-                        isLoading={paginationResult.isLoading}
-                        rowsPerPageOptions={[10, 20, 50, 100]}
-                        namespace='common'
-                    />
-                </Box>
+            {showsRegistry ? (
+                <>
+                    {actionError ? <Alert severity='error'>{actionError}</Alert> : null}
+                    {paginationResult.error ? (
+                        <Alert
+                            severity='error'
+                            action={
+                                <Button color='inherit' size='small' onClick={() => void invalidate()}>
+                                    {t('aliases.errors.retry')}
+                                </Button>
+                            }
+                        >
+                            {t('aliases.errors.load')}
+                        </Alert>
+                    ) : null}
+                    {!paginationResult.isLoading && paginationResult.data.length === 0 ? (
+                        <EmptyListState image={APIEmptySVG} imageAlt={t('aliases.emptyImageAlt')} title={t('aliases.empty')} />
+                    ) : (
+                        <Box sx={{ maxWidth: '100%', overflowX: 'auto' }}>
+                            <FlowListTable<ApplicationAliasItem>
+                                data={paginationResult.data}
+                                isLoading={paginationResult.isLoading}
+                                customColumns={columns}
+                                tableAriaLabel={t('aliases.tableAriaLabel')}
+                                renderActions={(alias) => {
+                                    const descriptors = rowActions(alias)
+                                    if (!descriptors.length) return null
+                                    return (
+                                        <BaseEntityMenu<ApplicationAliasItem, never>
+                                            entity={alias}
+                                            entityKind='application-alias'
+                                            descriptors={descriptors}
+                                            namespace='applications'
+                                            menuButtonLabelKey='aliases.actions.openMenu'
+                                            i18nInstance={i18n}
+                                            createContext={(base) => ({
+                                                ...base,
+                                                entity: alias,
+                                                entityKind: 'application-alias',
+                                                t: base.t!
+                                            })}
+                                        />
+                                    )
+                                }}
+                            />
+                        </Box>
+                    )}
+
+                    {!paginationResult.isLoading && paginationResult.data.length > 0 ? (
+                        <Box sx={{ mt: 2 }}>
+                            <PaginationControls
+                                pagination={paginationResult.pagination}
+                                actions={paginationResult.actions}
+                                isLoading={paginationResult.isLoading}
+                                rowsPerPageOptions={[10, 20, 50, 100]}
+                                namespace='common'
+                            />
+                        </Box>
+                    ) : null}
+                </>
             ) : null}
 
             <ApplicationAliasDialog

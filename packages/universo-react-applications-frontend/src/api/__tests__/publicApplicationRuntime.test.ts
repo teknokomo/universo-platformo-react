@@ -98,6 +98,52 @@ describe('public application runtime transport', () => {
         ).toBeNull()
     })
 
+    it('preserves the visitor anchor alongside the path and query on the canonical alias redirect', () => {
+        expect(
+            buildCanonicalApplicationRuntimePath({
+                applicationRef: 'secondary',
+                canonicalAlias: 'primary',
+                remainingPath: '',
+                search: '',
+                hash: '#pricing'
+            })
+        ).toBe('/a/primary#pricing')
+        expect(
+            buildCanonicalApplicationRuntimePath({
+                applicationRef: 'secondary',
+                canonicalAlias: 'primary',
+                remainingPath: '/admin/section/',
+                search: '?locale=ru',
+                hash: '#pricing'
+            })
+        ).toBe('/a/primary/admin/section?locale=ru#pricing')
+    })
+
+    it('normalizes a hash without its marker and ignores empty hash fragments', () => {
+        expect(
+            buildCanonicalApplicationRuntimePath({
+                applicationRef: 'secondary',
+                canonicalAlias: 'primary',
+                hash: 'pricing'
+            })
+        ).toBe('/a/primary#pricing')
+        expect(
+            buildCanonicalApplicationRuntimePath({
+                applicationRef: 'secondary',
+                canonicalAlias: 'primary',
+                search: '?locale=en',
+                hash: ''
+            })
+        ).toBe('/a/primary?locale=en')
+        expect(
+            buildCanonicalApplicationRuntimePath({
+                applicationRef: 'secondary',
+                canonicalAlias: 'primary',
+                hash: '#'
+            })
+        ).toBe('/a/primary')
+    })
+
     it('keeps anonymous runtime cache keys separate from authenticated application queries', () => {
         expect(publicApplicationRuntimeQueryKeys.runtime(' North-Route ', 'RU_ru')).toEqual([
             'public-application-runtime',

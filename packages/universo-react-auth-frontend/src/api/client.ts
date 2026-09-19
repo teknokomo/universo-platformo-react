@@ -12,6 +12,21 @@ const CSRF_REQUIRED_METHODS = new Set(['post', 'put', 'patch', 'delete'])
 const MAX_CSRF_RETRY_ATTEMPTS = 1
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
+/**
+ * Only an attached session can expire: anonymous probes such as the auth
+ * bootstrap on a dual public/private runtime URL must not be bounced to the
+ * login page just because their 401 carries no Authorization header.
+ */
+const hasAttachedAuthorization = (config: unknown): boolean => {
+    const headers = (config as { headers?: unknown } | undefined)?.headers
+    if (!headers) return false
+    const readHeader = (name: string): unknown =>
+        typeof (headers as { get?: (header: string) => unknown }).get === 'function'
+            ? (headers as { get: (header: string) => unknown }).get(name)
+            : (headers as Record<string, unknown>)[name]
+    const value = readHeader('Authorization') ?? readHeader('authorization')
+    return typeof value === 'string' && value.trim().length > 0
+}
 
 const clearCsrfHeaders = (headers: unknown) => {
     if (!headers) return
@@ -183,8 +198,9 @@ export const createAuthClient = (options: AuthClientOptions): AxiosInstance => {
                     // Always redirect
                     shouldRedirect = true
                 } else if (mergedOptions.redirectOn401 === 'auto') {
-                    // Use isPublicRoute from @universo-react/utils
-                    shouldRedirect = !isPublicRoute(pathname)
+                    // Use isPublicRoute from @universo-react/utils; anonymous
+                    // requests without an attached session never redirect.
+                    shouldRedirect = !isPublicRoute(pathname) && hasAttachedAuthorization(config)
                 } else if (Array.isArray(mergedOptions.redirectOn401)) {
                     // Custom routes array
                     const customRoutes = mergedOptions.redirectOn401 as readonly string[]

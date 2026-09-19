@@ -987,3 +987,44 @@ The Interpretation Network baseline is now aligned at its ownership boundary: th
 # LQR5-15 batch A — records tab breadcrumb (2026-09-19)
 
 -   [x] LQR5-15A-F-03 `metahub-entities-workspace.spec.ts`: the Records/Elements tab is route-backed but adds no breadcrumb segment; replace the stale breadcrumb text assertion with strict assertions of the actual contract (selected tab + exact `/records` authoring pathname). Product gap reported: `NavbarBreadcrumbs.tsx` still matches the legacy `elements` route segment.
+
+# GH907 Codex review remediation — migration drift and alias resolution (2026-09-19)
+
+> Branch `fix/gh907-consortium-runtime-remediation`. Codex P1 findings: applied-migration mutation (admin + applications) and closed-application alias resolution under RLS.
+
+-   [x] R1-01 Restore `packages/universo-react-admin-backend/src/platform/migrations/index.ts` to base revision `af0109016` so `FinalizeAdminSchemaSupport1733400000001` keeps its applied checksum.
+-   [x] R1-02 Add a new `AddAdminShellPermission1733400000003` post-schema migration definition carrying `admin.has_admin_shell_permission` plus its revoke/grants; register it in `adminSystemAppDefinition` and barrel exports.
+-   [x] R1-03 Update admin migration/definition/platform ordering tests and add an immutability guard for the frozen finalize baseline.
+-   [x] R2-01 Restore `1800000000000-CreateApplicationsSchema.sql.ts` to base revision `af0109016` so `FinalizeApplicationsSchemaSupport1800000000001` keeps its applied checksum.
+-   [x] R2-02 Keep the legacy `slug` column in the applications business-table manifest so the frozen finalize baseline can still materialize on fresh installs (impossible to change an applied migration).
+-   [x] R2-03 Create `AddApplicationAliases1800000000101` with the alias table/indexes/functions/RLS/grants; register it after the admin shell migration (version ordering `1733400000003 < 1800000000101`).
+-   [x] R3-01 Add `applications.resolve_application_alias(TEXT)` SECURITY DEFINER resolver returning only the application id, with scoped grants.
+-   [x] R3-02 Switch `findApplicationIdByActiveAlias` to the SECURITY DEFINER resolver and keep the 404/non-member contract in `applicationRuntimeReferenceController`.
+-   [x] R3-03 Add controller/store unit tests and real-PG integration coverage for alias resolution of a closed application by a plain member.
+-   [x] R4-01 Update `MIGRATIONS.md` and migration ordering expectations in `platformMigrations.test.ts`.
+-   [x] R4-02 Verify: Prettier, both package builds, both package test suites, `migration:validate`, `migration:lint`.
+-   [x] R4-03 Residual risk recorded: PostgreSQL-backed integration suites stay opt-in/skipped without `DATABASE_TEST_URL`, and databases bootstrapped from the pre-fix branch revision carry the drifted checksum and must be reset before this definition set can boot.
+
+# GH907 Codex review remediation — five frontend/routing findings (2026-09-19)
+
+> Branch `fix/gh907-consortium-runtime-remediation`. Scope: applications frontend + shared routing utils. No Playwright, no lockfile changes, no commit.
+
+-   [x] F1-01 Preserve `location.hash` in the canonical alias redirect (`buildCanonicalApplicationRuntimePath` + `ApplicationRuntime.tsx` call site) and add hash/search/path preservation tests.
+-   [x] F2-01 Preserve `location.hash` in the anonymous `/auth` redirect `state.from` (`ApplicationRuntimeEntry.tsx`) and add a redirect-state test.
+-   [x] F3-01 Treat `/a/:applicationRef/*` as non-public for 401 handling in `isPublicRoute()` (the anonymous public bootstrap is fetch-based, not axios), update route tests, and add interceptor-decision tests.
+-   [x] F4-01 Make the public-entry workspace selector paginated + always render the current selection (`usePublicEntryWorkspaceSettings` infinite query, single-workspace fallback, MUI Select load-more) with focused hook tests.
+-   [x] F5-01 Allow the aliases page when the user holds any alias action, gate the table on `read`, show a localized read-required state otherwise, and keep create available to create-capable users.
+-   [x] F6-01 Verify: Prettier on edited files, `@universo-react/utils` + `@universo-react/applications-frontend` builds and test suites, focused workspace-selector tests.
+
+# GH907 Codex review remediation — ReDoS in pattern safety gate (2026-09-19)
+
+> Branch `fix/gh907-consortium-runtime-remediation`. Codex P1: `isUsableValidationPattern` missed overlapping-alternation exponential patterns such as `^(a|aa)+$`, so runtime/design-time write paths could execute them synchronously against values up to 4096 chars. No Playwright, no commit.
+
+-   [x] P1-01 Harden `patternSafety.ts` with a shared decision: keep the legacy single-atom nested-quantifier rule, extract repeated groups and analyze each unbounded (or large-bounded) repetition with `redos-detector` bounded by `maxSteps`/time budget, cache decisions.
+-   [x] P1-02 Export `isUnsafeValidationPattern` and make runtime `runtimeRecordRules.ts` fail closed with the existing localized `RECORD_PATTERN_MISMATCH` shape for unsafe patterns.
+-   [x] P1-03 Make design-time `MetahubRecordsService.validateRules` fail closed with the existing `does not match pattern` error for unsafe patterns.
+-   [x] P1-04 Guard `fixedValue/controller.ts` (`parseConstantValue`) with the shared decision and fail closed with the existing pattern error.
+-   [x] P1-05 Add dependency `redos-detector@6.1.4` to `@universo-react/utils` and refresh the lockfile with `pnpm install --lockfile-only`.
+-   [x] P1-06 Tests: `^(a|aa)+$`, nested quantifiers, safe template patterns, value/pattern boundary lengths at both surfaces.
+-   [x] P1-07 Verify: Prettier, utils build+test, metahubs/applications backend builds+tests, `check:zod-resolution`, `check:catalog-versions`.
+-   [x] P1-08 Residual risk: bounded quantifiers with upper bound below 16 repeat the legacy rule only, and authoring schemas still accept syntactically valid unsafe patterns (value paths fail closed instead).

@@ -5,20 +5,32 @@ import { join, relative, resolve, sep } from 'node:path'
 
 const IMPORT_PATTERN = /(?:from\s+|import\s*\()\s*'(\.[^']+)'/g
 
+const collectTsFiles = (dir) => {
+    const files = []
+    for (const entry of readdirSync(dir)) {
+        const full = join(dir, entry)
+        const stats = statSync(full)
+        if (stats.isDirectory()) {
+            files.push(...collectTsFiles(full))
+            continue
+        }
+        if (stats.isFile() && entry.endsWith('.ts') && !entry.endsWith('.d.ts')) files.push(full)
+    }
+    return files
+}
+
 const collectModules = (dir) => {
-    const files = readdirSync(dir)
-        .filter((entry) => entry.endsWith('.ts') && !entry.endsWith('.d.ts'))
-        .filter((entry) => statSync(join(dir, entry)).isFile())
     const modules = new Map()
-    for (const entry of files) {
-        const name = entry.slice(0, -3)
-        const source = readFileSync(join(dir, entry), 'utf8')
+    for (const file of collectTsFiles(dir)) {
+        const name = relative(dir, file).split(sep).join('/').replace(/\.ts$/, '')
+        const source = readFileSync(file, 'utf8')
         const deps = new Set()
         for (const match of source.matchAll(IMPORT_PATTERN)) {
             const specifier = match[1]
-            const target = resolve(dir, specifier)
-            const targetEntry = target.endsWith('.ts') ? target : `${target}.ts`
-            if (!statSync(targetEntry, { throwIfNoEntry: false })?.isFile()) continue
+            const target = resolve(file, '..', specifier)
+            const candidates = [target, `${target}.ts`, join(target, 'index.ts')]
+            const targetEntry = candidates.find((candidate) => statSync(candidate, { throwIfNoEntry: false })?.isFile())
+            if (!targetEntry) continue
             const targetName = relative(dir, targetEntry).split(sep).join('/').replace(/\.ts$/, '')
             if (!targetName.startsWith('..') && targetName !== name) deps.add(targetName)
         }

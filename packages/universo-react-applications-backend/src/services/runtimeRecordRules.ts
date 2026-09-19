@@ -1,5 +1,5 @@
 import type { DbExecutor } from '@universo-react/utils'
-import { isUsableValidationPattern, isUsableValidationPatternValue } from '@universo-react/utils'
+import { isUnsafeValidationPattern, isUsableValidationPattern, isUsableValidationPatternValue } from '@universo-react/utils'
 import { acquireAdvisoryXactLock } from '@universo-react/utils/database'
 import { IDENTIFIER_REGEX, UpdateFailure, quoteIdentifier } from '../shared/runtimeHelpers'
 
@@ -75,6 +75,13 @@ const collectRuleAttrs = (attrs: readonly RuntimeRecordRuleAttr[]): RuntimeRecor
         return rules.unique === true || readRuleString(rules, 'pattern') !== null
     })
 
+const buildPatternMismatchViolation = (field: string): RuntimeRecordRuleViolation => ({
+    statusCode: 400,
+    code: RUNTIME_RECORD_RULE_CODES.patternMismatch,
+    field,
+    message: `Field does not match the required format: ${field}`
+})
+
 /**
  * Serialize concurrent writers on the same runtime table before the conflict
  * probe runs, so two parallel creates cannot both pass the pre-check. The lock
@@ -132,27 +139,24 @@ export const evaluateRuntimeRecordRules = async (params: {
         const field = readRuntimeCodename(attr.codename) ?? attr.column_name
         const pattern = readRuleString(attr.validation_rules, 'pattern')
         // Design-time parity: the closed hexColor formatter owns its own
-        // format, so its pattern is not re-applied. Patterns with nested
-        // quantifiers or extreme values are treated as unusable and skipped on
-        // both surfaces instead of risking catastrophic backtracking.
-        const appliesPattern =
-            pattern !== null &&
-            attr.validation_rules?.format !== 'hexColor' &&
-            isUsableValidationPattern(pattern) &&
-            isUsableValidationPatternValue(value)
-        if (appliesPattern) {
-            let regex: RegExp | null = null
-            try {
-                regex = new RegExp(pattern)
-            } catch {
-                regex = null
+        // format, so its pattern is not re-applied. A pattern that can backtrack
+        // exponentially fails the write closed with the same localized mismatch
+        // code instead of being silently skipped, and values beyond the safe
+        // regex window fail closed because the pattern cannot be applied to them
+        // safely without risking catastrophic backtracking.
+        if (pattern !== null && attr.validation_rules?.format !== 'hexColor') {
+            if (isUnsafeValidationPattern(pattern)) {
+                return buildPatternMismatchViolation(field)
             }
-            if (regex && !regex.test(value)) {
-                return {
-                    statusCode: 400,
-                    code: RUNTIME_RECORD_RULE_CODES.patternMismatch,
-                    field,
-                    message: `Field does not match the required format: ${field}`
+            if (isUsableValidationPattern(pattern)) {
+                let regex: RegExp | null = null
+                try {
+                    regex = new RegExp(pattern)
+                } catch {
+                    regex = null
+                }
+                if (regex && (!isUsableValidationPatternValue(value) || !regex.test(value))) {
+                    return buildPatternMismatchViolation(field)
                 }
             }
         }

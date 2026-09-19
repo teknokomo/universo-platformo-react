@@ -1,4 +1,5 @@
 import {
+    addAdminShellPermissionMigrationDefinition,
     createAdminSchemaMigrationDefinition,
     prepareAdminSchemaSupportMigrationDefinition,
     finalizeAdminSchemaSupportMigrationDefinition,
@@ -12,7 +13,8 @@ const allDefinitions: SqlMigrationDefinition[] = [
     createAdminSchemaMigrationDefinition,
     prepareAdminSchemaSupportMigrationDefinition,
     finalizeAdminSchemaSupportMigrationDefinition,
-    seedAdminLifecycleRolesMigrationDefinition
+    seedAdminLifecycleRolesMigrationDefinition,
+    addAdminShellPermissionMigrationDefinition
 ]
 
 describe('admin migration definitions structural integrity', () => {
@@ -37,7 +39,8 @@ describe('admin migration definitions structural integrity', () => {
         const supportDefs = [
             prepareAdminSchemaSupportMigrationDefinition,
             finalizeAdminSchemaSupportMigrationDefinition,
-            seedAdminLifecycleRolesMigrationDefinition
+            seedAdminLifecycleRolesMigrationDefinition,
+            addAdminShellPermissionMigrationDefinition
         ]
         for (let i = 1; i < supportDefs.length; i++) {
             expect(Number(supportDefs[i].version)).toBeGreaterThan(Number(supportDefs[i - 1].version))
@@ -96,20 +99,38 @@ describe('createAdminSchemaMigrationDefinition SQL contract', () => {
         expect(sql).toContain('authenticated_read_settings')
     })
 
-    it('keeps the strict RLS predicate and admits applicationAliases only through the shell predicate', () => {
+    it('keeps the strict RLS predicate in the applied admin baseline', () => {
         const sql = upSql()
-        // The table-policy predicate must stay narrow.
         expect(sql).toContain("rp.subject IN ('roles', 'instances', 'users'))")
-        // The shell predicate is the deliberate admission point for capabilities
-        // whose management surface lives inside the admin shell.
-        expect(sql).toContain('admin.has_admin_shell_permission')
-        expect(sql).toContain("rp.subject IN ('roles', 'instances', 'users', 'applicationAliases')")
-        expect(sql).toContain("rp.action = 'read' OR rp.action = '*' OR rp.action = 'manage'")
+    })
+
+    it('keeps the applied baseline free of the later shell predicate migration', () => {
+        const sql = upSql()
+        expect(sql).not.toContain('admin.has_admin_shell_permission')
     })
 
     it('codename columns use jsonb type', () => {
         const sql = upSql()
         expect(sql).toMatch(/codename\s+jsonb/i)
+    })
+})
+
+describe('addAdminShellPermissionMigrationDefinition contract', () => {
+    const shellSql = () => normalizeSql(addAdminShellPermissionMigrationDefinition.up.map((statement) => statement.sql).join('\n'))
+
+    it('admits applicationAliases only through the dedicated shell predicate', () => {
+        const sql = shellSql()
+        expect(sql).toContain('CREATE OR REPLACE FUNCTION admin.has_admin_shell_permission')
+        expect(sql).toContain("rp.subject IN ('roles', 'instances', 'users', 'applicationAliases')")
+        expect(sql).toContain("rp.action = 'read' OR rp.action = '*' OR rp.action = 'manage'")
+        expect(sql).toContain('REVOKE ALL ON FUNCTION admin.has_admin_shell_permission(UUID) FROM PUBLIC')
+        expect(sql).toContain('GRANT EXECUTE ON FUNCTION admin.has_admin_shell_permission(UUID) TO authenticated')
+        expect(sql).toContain('GRANT EXECUTE ON FUNCTION admin.has_admin_shell_permission(UUID) TO service_role')
+    })
+
+    it('drops only the shell predicate on rollback', () => {
+        const downSql = normalizeSql(addAdminShellPermissionMigrationDefinition.down.map((statement) => statement.sql).join('\n'))
+        expect(downSql).toBe('DROP FUNCTION IF EXISTS admin.has_admin_shell_permission(UUID)')
     })
 })
 

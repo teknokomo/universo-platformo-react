@@ -74,18 +74,23 @@ export interface CanonicalApplicationRuntimePathInput {
     canonicalAlias: string | null
     remainingPath?: string | null
     search?: string | null
+    hash?: string | null
 }
 
 export const buildCanonicalApplicationRuntimePath = ({
     applicationRef,
     canonicalAlias,
     remainingPath,
-    search
+    search,
+    hash
 }: CanonicalApplicationRuntimePathInput): string | null => {
     if (!canonicalAlias || canonicalAlias === applicationRef) return null
 
     const normalizedRemainingPath = remainingPath?.replace(/^\/+|\/+$/g, '') ?? ''
     const suffix = normalizedRemainingPath ? `/${normalizedRemainingPath}` : ''
     const normalizedSearch = search && search !== '?' ? (search.startsWith('?') ? search : `?${search}`) : ''
-    return `/a/${canonicalAlias}${suffix}${normalizedSearch}`
+    // Anchors are part of the visitor-facing deep link: dropping the hash on the
+    // canonical alias redirect breaks in-page navigation on the marketing runtime.
+    const normalizedHash = hash && hash !== '#' ? (hash.startsWith('#') ? hash : `#${hash}`) : ''
+    return `/a/${canonicalAlias}${suffix}${normalizedSearch}${normalizedHash}`
 }

@@ -20,6 +20,7 @@ vi.mock('../../api/useApplicationDetails', () => ({
 
 vi.mock('../../api/applications', () => ({
     getApplicationPublicEntryWorkspace: vi.fn(),
+    getApplicationRuntimeWorkspace: vi.fn(),
     getApplicationWorkspaceLimits: vi.fn(),
     listApplicationRuntimeWorkspaces: vi.fn(),
     listApplicationLayoutScopes: vi.fn(),
@@ -575,6 +576,54 @@ describe('ApplicationSettings', () => {
         await waitFor(() => {
             expect(mockedUpdateApplicationPublicEntryWorkspace).toHaveBeenCalledWith('app-1', '018f8a78-7b8f-7c1d-a111-2222333344aa')
         })
+    })
+
+    it('offers the next workspace page from the public entry workspace selector', async () => {
+        const buildWorkspaceRow = (id: string, label: string) => ({
+            id,
+            name: {
+                _schema: 'v1',
+                _primary: 'en',
+                locales: { en: { content: label } }
+            },
+            description: null,
+            workspaceType: 'shared',
+            personalUserId: null,
+            status: 'active',
+            isDefault: false,
+            roleCodename: 'owner'
+        })
+
+        mockedListApplicationRuntimeWorkspaces
+            .mockResolvedValueOnce({
+                items: [
+                    buildWorkspaceRow('018f8a78-7b8f-7c1d-a111-2222333344aa', 'Public workspace'),
+                    buildWorkspaceRow('018f8a78-7b8f-7c1d-a111-2222333344ab', 'Second workspace')
+                ],
+                total: 150,
+                limit: 100,
+                offset: 0
+            })
+            .mockResolvedValueOnce({
+                items: [buildWorkspaceRow('018f8a78-7b8f-7c1d-a111-2222333344ac', 'Third workspace')],
+                total: 150,
+                limit: 100,
+                offset: 2
+            })
+
+        renderSettings()
+
+        const workspaceSetting = await screen.findByTestId('application-setting-public-entry-workspace')
+        await userEvent.click(within(workspaceSetting).getByRole('combobox'))
+
+        await userEvent.click(await screen.findByTestId('application-settings-public-entry-workspace-load-more'))
+
+        await waitFor(() => {
+            expect(mockedListApplicationRuntimeWorkspaces).toHaveBeenLastCalledWith('app-1', { limit: 100, offset: 2 })
+        })
+
+        await userEvent.click(within(workspaceSetting).getByRole('combobox'))
+        expect(await screen.findByRole('option', { name: 'Third workspace' })).toBeInTheDocument()
     })
 
     it('saves generic runtime policy settings through the general settings form', async () => {

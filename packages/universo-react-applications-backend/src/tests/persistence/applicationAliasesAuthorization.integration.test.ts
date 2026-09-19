@@ -31,6 +31,18 @@ describeIntegration('application alias SECURITY DEFINER authorization (requires 
     const callCreateAlias = (trx: Knex.Transaction, alias: string, makePrimary: boolean, userId: string) =>
         trx.raw(`SELECT * FROM applications.create_application_alias(?, ?, ?, ?)`, [applicationId, alias, makePrimary, userId])
 
+    const insertFixtureAlias = (alias: string, released?: boolean, deleted?: boolean) =>
+        knex.raw(
+            `
+            INSERT INTO applications.obj_application_aliases (application_id, alias, released_at, _upl_deleted, _app_deleted)
+            VALUES (?, ?, ?, ?, ?)
+            RETURNING id
+            `,
+            [applicationId, alias, released === true ? new Date() : null, deleted === true, deleted === true]
+        )
+
+    const resolveAlias = (alias: string) => knex.raw(`SELECT applications.resolve_application_alias(?) AS "applicationId"`, [alias])
+
     beforeAll(async () => {
         const knexModule = await import('knex')
         knex = knexModule.default({ client: 'pg', connection: DATABASE_TEST_URL, pool: { min: 1, max: 2 } })
@@ -132,5 +144,56 @@ describeIntegration('application alias SECURITY DEFINER authorization (requires 
         ])
 
         await expect(withClaims(otherActorId, (trx) => callCreateAlias(trx, primaryAlias, true, otherActorId))).resolves.toBeDefined()
+    })
+
+    it('resolves an active alias of a closed application through the SECURITY DEFINER resolver', async () => {
+        const alias = `alias-resolve-closed-${suffix}`
+        await insertFixtureAlias(alias)
+
+        const result = await resolveAlias(alias)
+
+        expect(result.rows).toHaveLength(1)
+        expect(result.rows[0]?.applicationId).toBe(applicationId)
+        expect(Object.keys(result.rows[0] ?? {})).toEqual(['applicationId'])
+    })
+
+    it('does not resolve released, soft-deleted or unknown aliases', async () => {
+        const released = `alias-resolve-released-${suffix}`
+        await insertFixtureAlias(released, true)
+        await expect(resolveAlias(released)).resolves.toMatchObject({ rows: [{ applicationId: null }] })
+
+        const deleted = `alias-resolve-deleted-${suffix}`
+        await insertFixtureAlias(deleted, false, true)
+        await expect(resolveAlias(deleted)).resolves.toMatchObject({ rows: [{ applicationId: null }] })
+
+        await expect(resolveAlias(`alias-resolve-unknown-${suffix}`)).resolves.toMatchObject({
+            rows: [{ applicationId: null }]
+        })
+    })
+
+    it('exposes the resolver as a SECURITY DEFINER function returning only the application id', async () => {
+        const definition = await knex.raw(
+            `
+            SELECT p.prosecdef AS "securityDefiner",
+                   p.prorettype = 'uuid'::regtype AS "returnsUuid"
+            FROM pg_proc p
+            JOIN pg_namespace n ON n.oid = p.pronamespace
+            WHERE n.nspname = 'applications'
+              AND p.proname = 'resolve_application_alias'
+              AND p.pronargs = 1
+            `
+        )
+
+        expect(definition.rows).toHaveLength(1)
+        expect(definition.rows[0]?.securityDefiner).toBe(true)
+        expect(definition.rows[0]?.returnsUuid).toBe(true)
+
+        const hasAuthenticatedRole = await knex.raw(`SELECT to_regrole('authenticated') AS role`)
+        if (hasAuthenticatedRole.rows[0]?.role) {
+            const privilege = await knex.raw(
+                `SELECT has_function_privilege('authenticated', 'applications.resolve_application_alias(text)', 'EXECUTE') AS allowed`
+            )
+            expect(privilege.rows[0]?.allowed).toBe(true)
+        }
     })
 })

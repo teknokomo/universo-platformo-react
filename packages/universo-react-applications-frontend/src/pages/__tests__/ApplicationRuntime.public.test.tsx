@@ -81,7 +81,7 @@ const publicPayload = (matchedAlias: string, canonicalAlias: string | null = nul
 
 const LocationProbe = () => {
     const location = useLocation()
-    return <div data-testid='location-probe'>{`${location.pathname}${location.search}`}</div>
+    return <div data-testid='location-probe'>{`${location.pathname}${location.search}${location.hash}`}</div>
 }
 
 const renderPublicRuntime = (route: string) => {
@@ -145,6 +145,19 @@ describe('PublicApplicationRuntime', () => {
 
         await waitFor(() => {
             expect(screen.getByTestId('location-probe')).toHaveTextContent('/a/primary/section/details?locale=ru&section=details')
+        })
+        expect(await screen.findByTestId('public-marketing-runtime')).toBeInTheDocument()
+    })
+
+    it('replaces a canonical secondary alias while preserving the visitor anchor', async () => {
+        publicRuntimeMocks.getPublicApplicationRuntime
+            .mockResolvedValueOnce(publicPayload('secondary', 'primary'))
+            .mockResolvedValueOnce(publicPayload('primary'))
+
+        renderPublicRuntime('/a/secondary/section/details?locale=ru#pricing')
+
+        await waitFor(() => {
+            expect(screen.getByTestId('location-probe')).toHaveTextContent('/a/primary/section/details?locale=ru#pricing')
         })
         expect(await screen.findByTestId('public-marketing-runtime')).toBeInTheDocument()
     })

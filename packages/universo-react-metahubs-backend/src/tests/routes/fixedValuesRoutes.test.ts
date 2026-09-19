@@ -421,6 +421,44 @@ describe('Fixed Value Routes', () => {
         expect(mockFixedValuesService.create).not.toHaveBeenCalled()
     })
 
+    it('POST /metahub/:metahubId/set/:valueGroupId/fixed-values rejects a ReDoS-unsafe STRING pattern', async () => {
+        const app = buildApp()
+        const response = await request(app)
+            .post('/metahub/metahub-1/entities/set/instance/set-1/fixed-values')
+            .send({
+                codename: testCodenameVlc('welcome-text'),
+                dataType: 'STRING',
+                name: 'Welcome Text',
+                validationRules: {
+                    pattern: '^(a|aa)+$'
+                },
+                value: `${'a'.repeat(64)}b`
+            })
+            .expect(400)
+
+        expect(response.body.error).toBe('STRING validation pattern is unsafe')
+        expect(mockFixedValuesService.create).not.toHaveBeenCalled()
+    })
+
+    it('POST /metahub/:metahubId/set/:valueGroupId/fixed-values fails closed for values beyond the pattern window', async () => {
+        const app = buildApp()
+        const response = await request(app)
+            .post('/metahub/metahub-1/entities/set/instance/set-1/fixed-values')
+            .send({
+                codename: testCodenameVlc('welcome-text'),
+                dataType: 'STRING',
+                name: 'Welcome Text',
+                validationRules: {
+                    pattern: '^x+$'
+                },
+                value: 'x'.repeat(4097)
+            })
+            .expect(400)
+
+        expect(response.body.error).toBe('STRING value does not match the pattern')
+        expect(mockFixedValuesService.create).not.toHaveBeenCalled()
+    })
+
     it('PATCH /metahub/:metahubId/set/:valueGroupId/fixed-values/reorder calls reorder service for valid payload', async () => {
         const app = buildApp()
         await request(app)

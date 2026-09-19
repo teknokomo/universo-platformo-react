@@ -1,6 +1,7 @@
 import { createSystemAppManifestPresentation, type SystemAppDefinition } from '@universo-react/migrations-core'
 import { ComponentDefinitionDataType } from '@universo-react/types'
 import {
+    addAdminShellPermissionMigrationDefinition,
     finalizeAdminSchemaSupportMigrationDefinition,
     prepareAdminSchemaSupportMigrationDefinition,
     seedAdminLifecycleRolesMigrationDefinition
@@ -320,6 +321,11 @@ export const adminSystemAppDefinition: SystemAppDefinition = {
         {
             kind: 'sql',
             definition: seedAdminLifecycleRolesMigrationDefinition,
+            bootstrapPhase: 'post_schema_generation'
+        },
+        {
+            kind: 'sql',
+            definition: addAdminShellPermissionMigrationDefinition,
             bootstrapPhase: 'post_schema_generation'
         }
     ],

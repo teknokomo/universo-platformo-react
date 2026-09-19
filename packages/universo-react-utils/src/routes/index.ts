@@ -73,15 +73,15 @@ export const PUBLIC_UI_ROUTES = [
 ] as const
 
 /**
- * Published application runtime paths are public at the UI layer. The
- * application admin branch remains protected even though it shares the
- * `/a/:applicationRef/*` prefix with the runtime route.
- */
-const PUBLIC_APPLICATION_RUNTIME_PATH_RE = /^\/a\/[^/]+(?:\/(?!admin(?:\/|$)).*)?\/?$/
-
-/**
  * Check if a pathname matches any public UI route.
  * Used by API clients to determine if 401 should trigger auth redirect.
+ *
+ * `/a/:applicationRef/*` is intentionally NOT public here. The same URL first
+ * runs the anonymous public probe (a credentials-omitting `fetch` that never
+ * flows through the axios interceptor) and then falls back to the
+ * authenticated guard/runtime path for signed-in members. Suppressing the 401
+ * redirect for that prefix would hide an expired session behind broken
+ * runtime screens instead of asking the member to sign in again.
  *
  * @param pathname - Current window.location.pathname
  * @returns true if the route is public (no auth redirect needed)
@@ -94,8 +94,6 @@ const PUBLIC_APPLICATION_RUNTIME_PATH_RE = /^\/a\/[^/]+(?:\/(?!admin(?:\/|$)).*)
  * ```
  */
 export function isPublicRoute(pathname: string): boolean {
-    if (PUBLIC_APPLICATION_RUNTIME_PATH_RE.test(pathname)) return true
-
     return PUBLIC_UI_ROUTES.some((route) => {
         // Exact match for root
         if (route === '/') return pathname === '/'

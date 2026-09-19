@@ -274,6 +274,9 @@ describe('MetahubRecordsService design-time record integrity', () => {
 
             const probe = (executor.query as jest.Mock).mock.calls.find(([sql]) => String(sql).includes('id = ANY('))
             expect(probe?.[1]).toEqual([targetEntityId, [recordId]])
+            // The existence probe holds the referenced rows with FOR KEY SHARE
+            // so a concurrent delete of a target serializes against this write.
+            expect(String(probe?.[0])).toContain('FOR KEY SHARE')
         })
 
         it('rejects updating a record when the REF target disappeared', async () => {
@@ -418,11 +421,15 @@ describe('MetahubRecordsService design-time record integrity', () => {
             for (const [sql] of syncCalls) {
                 expect(String(sql)).toContain("jsonb_exists(data, 'SortOrder')")
                 expect(String(sql)).toContain('object_id = $1')
+                // Rewriting the SortOrder JSON must invalidate optimistic
+                // readers that still hold the pre-reorder version.
+                expect(String(sql)).toContain('_upl_version = COALESCE(_upl_version, 1) + 1')
             }
         })
     })
 
     describe('referenced record delete guard', () => {
+        const owningObjectId = '018f8a78-7b8f-7c1d-a111-222233334590'
         const referencingComponents = [
             {
                 id: 'benefit-tier-ref-component',
@@ -430,6 +437,7 @@ describe('MetahubRecordsService design-time record integrity', () => {
                 dataType: ComponentDefinitionDataType.REF,
                 isRequired: true,
                 parentComponentId: null,
+                objectCollectionId: owningObjectId,
                 targetEntityId: objectCollectionId,
                 validationRules: {}
             }
@@ -474,6 +482,124 @@ describe('MetahubRecordsService design-time record integrity', () => {
                 statusCode: 404
             })
             expect((executor.query as jest.Mock).mock.calls.some(([sql]) => String(sql).includes('SET _upl_deleted = true'))).toBe(false)
+        })
+
+        it('scopes the reference scan to the object that declares the field', async () => {
+            const { executor, service } = createService({ allComponents: referencingComponents })
+            ;(executor.query as jest.Mock).mockImplementation(async (sql: string, params: unknown[]) => {
+                if (sql.includes('e.data ->>')) {
+                    // Simulate the object scope: the foreign object's same-named
+                    // field only matches when the scan is not scoped.
+                    return params[3] === owningObjectId ? [] : [{ id: 'foreign-record' }]
+                }
+                if (sql.includes('SELECT id FROM') && sql.includes('_mhb_elements')) return [{ id: recordId }]
+                if (sql.includes('SET _upl_deleted = true')) return [{ id: recordId }]
+                if (sql.includes('SELECT id, sort_order')) return []
+                return []
+            })
+
+            await expect(service.delete(metahubId, objectCollectionId, recordId, 'user-1')).resolves.toBeUndefined()
+            const scan = (executor.query as jest.Mock).mock.calls.find(([sql]) => String(sql).includes('e.data ->>'))
+            expect(String(scan?.[0])).toContain('($4::uuid IS NULL OR e.object_id = $4::uuid)')
+            expect(scan?.[1]?.[3]).toBe(owningObjectId)
+            expect((executor.query as jest.Mock).mock.calls.some(([sql]) => String(sql).includes('SET _upl_deleted = true'))).toBe(true)
+        })
+
+        it('locks the target row FOR UPDATE before scanning references', async () => {
+            const { executor, service } = createService({ allComponents: [] })
+            ;(executor.query as jest.Mock).mockImplementation(async (sql: string) => {
+                if (sql.includes('SELECT id FROM') && sql.includes('_mhb_elements')) return [{ id: recordId }]
+                if (sql.includes('SET _upl_deleted = true')) return [{ id: recordId }]
+                if (sql.includes('SELECT id, sort_order')) return []
+                return []
+            })
+
+            await expect(service.delete(metahubId, objectCollectionId, recordId, 'user-1')).resolves.toBeUndefined()
+            const lockCall = (executor.query as jest.Mock).mock.calls.find(
+                ([sql]) => String(sql).includes('SELECT id FROM') && String(sql).includes('_mhb_elements')
+            )
+            expect(String(lockCall?.[0])).toContain('FOR UPDATE')
+        })
+    })
+
+    describe('pattern validation value bounds', () => {
+        const patternComponents = [
+            {
+                id: 'tier-key-component',
+                codename: 'TierKey',
+                dataType: ComponentDefinitionDataType.STRING,
+                isRequired: false,
+                parentComponentId: null,
+                validationRules: { pattern: '^x+$' }
+            }
+        ]
+
+        it('accepts a matching value inside the safe regex window', async () => {
+            const { executor, service } = createService({ components: patternComponents })
+            ;(executor.query as jest.Mock).mockImplementation(async (sql: string) => {
+                if (sql.includes('SELECT MAX(sort_order)')) return [{ max: 0 }]
+                if (sql.includes('INSERT INTO'))
+                    return [{ id: 'record-1', object_id: objectCollectionId, data: {}, sort_order: 1, _upl_version: 1 }]
+                if (sql.includes('SELECT * FROM')) {
+                    return [{ id: 'record-1', object_id: objectCollectionId, data: {}, sort_order: 1, _upl_version: 1 }]
+                }
+                return []
+            })
+
+            await expect(
+                service.create(metahubId, objectCollectionId, { data: { TierKey: 'x'.repeat(4096) } }, 'user-1')
+            ).resolves.toBeDefined()
+        })
+
+        it('fails closed when the value is too long to check against the pattern', async () => {
+            const { executor, service } = createService({ components: patternComponents })
+
+            await expect(
+                service.create(metahubId, objectCollectionId, { data: { TierKey: 'x'.repeat(4097) } }, 'user-1')
+            ).rejects.toMatchObject({
+                code: 'VALIDATION_ERROR',
+                statusCode: 400,
+                message: expect.stringContaining('does not match pattern')
+            })
+            expect((executor.query as jest.Mock).mock.calls.some(([sql]) => String(sql).includes('INSERT INTO'))).toBe(false)
+        })
+
+        it('fails closed on patterns that are unsafe to execute regardless of value length', async () => {
+            const unsafePatternComponents = [
+                {
+                    ...patternComponents[0],
+                    validationRules: { pattern: '^(a+)+$' }
+                }
+            ]
+            const { executor, service } = createService({ components: unsafePatternComponents })
+
+            await expect(
+                service.create(metahubId, objectCollectionId, { data: { TierKey: `${'a'.repeat(5000)}b` } }, 'user-1')
+            ).rejects.toMatchObject({
+                code: 'VALIDATION_ERROR',
+                statusCode: 400,
+                message: expect.stringContaining('does not match pattern')
+            })
+            expect((executor.query as jest.Mock).mock.calls.some(([sql]) => String(sql).includes('INSERT INTO'))).toBe(false)
+        })
+
+        it('fails closed on overlapping alternations under an unbounded quantifier', async () => {
+            const unsafePatternComponents = [
+                {
+                    ...patternComponents[0],
+                    validationRules: { pattern: '^(a|aa)+$' }
+                }
+            ]
+            const { executor, service } = createService({ components: unsafePatternComponents })
+
+            await expect(
+                service.create(metahubId, objectCollectionId, { data: { TierKey: `${'a'.repeat(64)}b` } }, 'user-1')
+            ).rejects.toMatchObject({
+                code: 'VALIDATION_ERROR',
+                statusCode: 400,
+                message: expect.stringContaining('does not match pattern')
+            })
+            expect((executor.query as jest.Mock).mock.calls.some(([sql]) => String(sql).includes('INSERT INTO'))).toBe(false)
         })
     })
 })

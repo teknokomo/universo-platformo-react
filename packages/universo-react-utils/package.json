@@ -123,6 +123,7 @@
         "express-rate-limit": "catalog:",
         "rate-limit-redis": "catalog:",
         "ioredis": "catalog:",
+        "redos-detector": "6.1.4",
         "async-mutex": "catalog:",
         "json-stable-stringify": "catalog:",
         "zod": "3.25.76",

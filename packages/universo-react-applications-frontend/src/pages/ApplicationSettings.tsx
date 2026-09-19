@@ -853,11 +853,14 @@ const ApplicationSettings = () => {
                         publicEntryWorkspaceLoading={publicEntryWorkspace.isLoading}
                         publicEntryWorkspaceError={publicEntryWorkspace.isError}
                         publicEntryWorkspaceSaving={publicEntryWorkspace.isSaving}
+                        publicEntryWorkspaceHasMore={publicEntryWorkspace.hasMore}
+                        publicEntryWorkspaceLoadingMore={publicEntryWorkspace.isLoadingMore}
                         settings={effectiveGeneralSettings}
                         hasChanges={hasGeneralChanges}
                         isSaving={saveGeneralMutation.isPending}
                         onVisibilityChange={setVisibilityChange}
                         onPublicEntryWorkspaceChange={publicEntryWorkspace.onChange}
+                        onPublicEntryWorkspaceLoadMore={publicEntryWorkspace.loadMore}
                         onPublicEntryWorkspaceRetry={publicEntryWorkspace.retry}
                         onSettingsChange={(patch) => setGeneralChanges((prev) => ({ ...prev, ...patch }))}
                         onSave={() =>

@@ -253,6 +253,7 @@ export {
 export {
     MAX_VALIDATION_PATTERN_LENGTH,
     MAX_VALIDATION_PATTERN_VALUE_LENGTH,
+    isUnsafeValidationPattern,
     isUsableValidationPattern,
     isUsableValidationPatternValue
 } from './validation/patternSafety'

@@ -8,6 +8,7 @@ import { MetahubComponentsService } from './MetahubComponentsService'
 import {
     filterLocalizedContent,
     isLocalizedContent,
+    isUnsafeValidationPattern,
     isUsableValidationPattern,
     isUsableValidationPatternValue,
     isValidUuid,
@@ -32,6 +33,8 @@ type RecordComponent = {
     dataType: ComponentDefinitionDataType
     isRequired: boolean
     parentComponentId: string | null
+    /** Object that owns the component; scopes scans to the declaring object. */
+    objectCollectionId?: string
     targetEntityId?: string | null
     validationRules?: Record<string, unknown>
 }
@@ -39,6 +42,8 @@ type RecordComponent = {
 /** A REF component of any object in the metahub that points at the deleted object. */
 type ReferencingComponent = {
     component: RecordComponent
+    /** Object that owns the REF (or its TABLE parent); scopes the reference scan. */
+    owningObjectId?: string
     /** Codename of the TABLE parent when the REF lives inside table rows. */
     parentCodename?: string
 }
@@ -100,6 +105,10 @@ export class MetahubRecordsService {
      * component column, while drag/move only rewrites the internal sort_order.
      * Keeping both in step makes authoring reorder observable in the published
      * application. Objects without a `SortOrder` component are left untouched.
+     *
+     * The reorder also bumps `_upl_version`: the JSON payload changed, so a
+     * stale editor that read the pre-reorder JSON must lose the optimistic
+     * version check instead of writing the old SortOrder back.
      */
     private async syncSortOrderComponentValues(
         db: SqlQueryable,
@@ -112,7 +121,8 @@ export class MetahubRecordsService {
             `UPDATE ${qt}
              SET data = jsonb_set(data, ARRAY['SortOrder'], to_jsonb(sort_order), true),
                  _upl_updated_at = NOW(),
-                 _upl_updated_by = $2
+                 _upl_updated_by = $2,
+                 _upl_version = COALESCE(_upl_version, 1) + 1
              WHERE object_id = $1
                AND ${ACTIVE}
                AND jsonb_exists(data, 'SortOrder')
@@ -568,11 +578,17 @@ export class MetahubRecordsService {
         for (const component of components) {
             if (component.dataType !== ComponentDefinitionDataType.REF || component.targetEntityId !== targetObjectId) continue
             if (!component.parentComponentId) {
-                referencing.push({ component })
+                referencing.push({ component, owningObjectId: component.objectCollectionId })
                 continue
             }
             const parent = byId.get(component.parentComponentId)
-            if (parent) referencing.push({ component, parentCodename: parent.codename })
+            if (parent) {
+                referencing.push({
+                    component,
+                    owningObjectId: parent.objectCollectionId ?? component.objectCollectionId,
+                    parentCodename: parent.codename
+                })
+            }
         }
 
         return referencing
@@ -591,9 +607,12 @@ export class MetahubRecordsService {
         if (references.length === 0) return
 
         const qt = qSchemaTable(schemaName, '_mhb_elements')
-        for (const { component, parentCodename } of references) {
+        for (const { component, parentCodename, owningObjectId } of references) {
             // `e.id <> $4` keeps self-referencing records deletable, and the
             // jsonb_typeof guard keeps null/object values from failing the query.
+            // The owning-object scope is required: another object may declare a
+            // field with the same codename, and its values must not be mistaken
+            // for a reference to this element.
             const referencing = parentCodename
                 ? await queryOne<{ id: string }>(
                       db,
@@ -601,14 +620,20 @@ export class MetahubRecordsService {
                        CROSS JOIN LATERAL jsonb_array_elements(
                            CASE WHEN jsonb_typeof(e.data -> $1::text) = 'array' THEN e.data -> $1::text ELSE '[]'::jsonb END
                        ) AS item
-                       WHERE ${ACTIVE} AND item ->> $2::text = $3 AND e.id <> $4
+                       WHERE ${ACTIVE}
+                         AND ($5::uuid IS NULL OR e.object_id = $5::uuid)
+                         AND item ->> $2::text = $3 AND e.id <> $4
                        LIMIT 1`,
-                      [parentCodename, component.codename, elementId, elementId]
+                      [parentCodename, component.codename, elementId, elementId, owningObjectId ?? null]
                   )
                 : await queryOne<{ id: string }>(
                       db,
-                      `SELECT e.id FROM ${qt} e WHERE ${ACTIVE} AND e.data ->> $1::text = $2 AND e.id <> $3 LIMIT 1`,
-                      [component.codename, elementId, elementId]
+                      `SELECT e.id FROM ${qt} e
+                       WHERE ${ACTIVE}
+                         AND ($4::uuid IS NULL OR e.object_id = $4::uuid)
+                         AND e.data ->> $1::text = $2 AND e.id <> $3
+                       LIMIT 1`,
+                      [component.codename, elementId, elementId, owningObjectId ?? null]
                   )
 
             if (referencing) {
@@ -714,12 +739,16 @@ export class MetahubRecordsService {
 
         const qt = qSchemaTable(schemaName, '_mhb_elements')
         for (const [targetEntityId, byValue] of targets) {
+            // FOR KEY SHARE holds the referenced rows stable until this write
+            // commits, so a concurrent delete of a target cannot verify and
+            // soft-delete it between this existence check and the insert.
             const existing = await queryMany<{ id: string }>(
                 db,
                 `SELECT id FROM ${qt}
                  WHERE object_id = $1
                    AND id = ANY($2::uuid[])
-                   AND ${ACTIVE}`,
+                   AND ${ACTIVE}
+                 FOR KEY SHARE`,
                 [targetEntityId, [...byValue.keys()]]
             )
             const existingIds = new Set(existing.map((row) => row.id))
@@ -800,9 +829,14 @@ export class MetahubRecordsService {
             await this.acquireSortOrderLockInTransaction(tx, schemaName, objectCollectionId)
 
             const qt = qSchemaTable(schemaName, '_mhb_elements')
+            // FOR UPDATE takes the target row lock before the reference scan.
+            // A concurrent REF writer takes FOR KEY SHARE on the same row in
+            // assertRefTargetsExist, so either the writer commits first and this
+            // scan sees the new reference, or this delete commits first and the
+            // writer fails closed on the now soft-deleted target.
             const existing = await queryOne<{ id: string }>(
                 tx,
-                `SELECT id FROM ${qt} WHERE id = $1 AND object_id = $2 AND ${ACTIVE} LIMIT 1`,
+                `SELECT id FROM ${qt} WHERE id = $1 AND object_id = $2 AND ${ACTIVE} LIMIT 1 FOR UPDATE`,
                 [id, objectCollectionId]
             )
             if (!existing) {
@@ -1191,10 +1225,18 @@ export class MetahubRecordsService {
             if (maxLength !== undefined && stringValue.length > maxLength) {
                 errors.push(`Field "${fieldName}": maximum length is ${maxLength}`)
             }
-            if (rules.format !== 'hexColor' && isUsableValidationPattern(rules.pattern) && isUsableValidationPatternValue(stringValue)) {
+            if (rules.format !== 'hexColor' && isUnsafeValidationPattern(rules.pattern)) {
+                // Patterns that can backtrack exponentially are never executed:
+                // the value fails closed with the same mismatch error instead of
+                // silently bypassing the author's rule.
+                errors.push(`Field "${fieldName}": does not match pattern`)
+            } else if (rules.format !== 'hexColor' && isUsableValidationPattern(rules.pattern)) {
                 try {
                     const regex = new RegExp(rules.pattern)
-                    if (!regex.test(stringValue)) {
+                    // Values beyond the safe regex window cannot be matched
+                    // without risking catastrophic backtracking, so they fail
+                    // closed instead of silently bypassing the pattern.
+                    if (!isUsableValidationPatternValue(stringValue) || !regex.test(stringValue)) {
                         errors.push(`Field "${fieldName}": does not match pattern`)
                     }
                 } catch {

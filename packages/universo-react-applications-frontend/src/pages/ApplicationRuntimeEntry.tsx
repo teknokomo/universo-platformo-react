@@ -106,7 +106,9 @@ export const ApplicationRuntimeEntry = () => {
     // authenticated runtime.
     if (authLoading) return <RuntimeEntryLoader />
     if (!isAuthenticated) {
-        return <Navigate to='/auth' state={{ from: `${location.pathname}${location.search}` }} replace />
+        // The hash belongs to the deep link: AuthPage navigates back through
+        // `state.from`, so dropping it loses anchor navigation after login.
+        return <Navigate to='/auth' state={{ from: `${location.pathname}${location.search}${location.hash}` }} replace />
     }
 
     return <AuthenticatedApplicationRuntime applicationRef={applicationRef} />

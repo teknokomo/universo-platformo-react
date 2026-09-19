@@ -55,6 +55,7 @@
             "emptyImageAlt": "No public addresses",
             "unknownApplication": "Unknown application",
             "noPermission": "You do not have permission to manage application addresses.",
+            "readRequiredToView": "Viewing the public address registry requires the read permission for application addresses. Ask an administrator to grant it before managing addresses.",
             "columns": {
                 "address": "Address",
                 "application": "Application",
@@ -207,6 +208,7 @@
             "publicEntryWorkspaceNone": "Not selected",
             "publicEntryWorkspaceNotReady": "Public entry workspace settings become available after the application runtime workspace schema is ready.",
             "publicEntryWorkspaceLoadError": "Public entry workspace settings could not be loaded.",
+            "publicEntryWorkspaceLoadMore": "Load more workspaces",
             "publicEntryWorkspaceRetry": "Retry",
             "publicEntryWorkspaceSaved": "Public entry workspace saved.",
             "publicEntryWorkspaceSaveError": "Public entry workspace could not be saved.",

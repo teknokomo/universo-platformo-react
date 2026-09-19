@@ -799,6 +799,13 @@ export const listApplicationRuntimeWorkspaces = async (
     }
 }
 
+export const getApplicationRuntimeWorkspace = async (applicationId: string, workspaceId: string): Promise<RuntimeWorkspace> => {
+    const response = await apiClient.get<RuntimeWorkspace>(
+        `/applications/${applicationId}/runtime/workspaces/${encodeURIComponent(workspaceId)}`
+    )
+    return response.data
+}
+
 export const getApplicationPublicEntryWorkspace = async (applicationId: string): Promise<{ workspaceId: string | null }> => {
     const response = await apiClient.get<{ workspaceId: string | null }>(`/applications/${applicationId}/settings/public-entry-workspace`)
     return response.data

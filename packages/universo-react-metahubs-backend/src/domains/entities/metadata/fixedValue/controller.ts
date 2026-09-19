@@ -1,6 +1,12 @@
 import { z } from 'zod'
 import type { DbExecutor } from '@universo-react/utils'
-import { localizedContent, toNumberRules, validateNumber } from '@universo-react/utils'
+import {
+    isUnsafeValidationPattern,
+    isUsableValidationPatternValue,
+    localizedContent,
+    toNumberRules,
+    validateNumber
+} from '@universo-react/utils'
 import { normalizeCodenameForStyle, isValidCodenameForStyle } from '@universo-react/utils/validation/codename'
 import {
     FixedValueDataType,
@@ -360,6 +366,10 @@ const parseConstantValue = (
         const maxLength = typeof rules.maxLength === 'number' ? rules.maxLength : null
         let pattern: RegExp | null = null
         if (rules.format !== 'hexColor' && typeof rules.pattern === 'string' && rules.pattern.length > 0) {
+            if (isUnsafeValidationPattern(rules.pattern)) {
+                // Patterns that can backtrack exponentially are never executed.
+                return { ok: false, error: 'STRING validation pattern is unsafe' }
+            }
             try {
                 pattern = new RegExp(rules.pattern)
             } catch {
@@ -381,8 +391,12 @@ const parseConstantValue = (
             if (maxLength !== null && entry.length > maxLength) {
                 return { ok: false, error: `STRING value length must be <= ${maxLength}` }
             }
-            if (pattern && !pattern.test(entry)) {
-                return { ok: false, error: 'STRING value does not match the pattern' }
+            if (pattern) {
+                // Values beyond the shared safe window fail closed instead of
+                // being matched without a bound.
+                if (!isUsableValidationPatternValue(entry) || !pattern.test(entry)) {
+                    return { ok: false, error: 'STRING value does not match the pattern' }
+                }
             }
         }
 

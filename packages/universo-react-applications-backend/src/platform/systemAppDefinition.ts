@@ -5,6 +5,7 @@ import {
 } from '@universo-react/migrations-core'
 import { ComponentDefinitionDataType } from '@universo-react/types'
 import {
+    addApplicationAliasesMigrationDefinition,
     addApplicationSettingsMigrationDefinition,
     finalizeApplicationsSchemaSupportMigrationDefinition,
     prepareApplicationsSchemaSupportMigrationDefinition
@@ -41,6 +42,17 @@ const applicationBusinessTables: readonly SystemAppBusinessTableDefinition[] = [
                 isRequired: true,
                 defaultSqlExpression: `'{}'::jsonb`,
                 presentation: p('Application Settings', 'Persisted UI and behavior settings for the application control panel')
+            },
+            {
+                codename: 'slug',
+                physicalColumnName: 'slug',
+                dataType: ComponentDefinitionDataType.STRING,
+                physicalDataType: 'VARCHAR(100)',
+                uiConfig: {
+                    hidden: true,
+                    formHidden: true,
+                    readOnly: true
+                }
             },
             {
                 codename: 'is_public',
@@ -283,6 +295,11 @@ export const applicationsSystemAppDefinition: SystemAppDefinition = {
         {
             kind: 'sql',
             definition: addApplicationSettingsMigrationDefinition,
+            bootstrapPhase: 'post_schema_generation'
+        },
+        {
+            kind: 'sql',
+            definition: addApplicationAliasesMigrationDefinition,
             bootstrapPhase: 'post_schema_generation'
         }
     ],

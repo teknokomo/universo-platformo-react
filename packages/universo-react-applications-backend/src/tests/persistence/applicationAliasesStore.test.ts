@@ -1,6 +1,7 @@
 import { createMockDbExecutor } from '../utils/dbMocks'
 import {
     createApplicationAliasAtomically,
+    findApplicationIdByActiveAlias,
     listApplicationAliases,
     lockApplicationAliasTransitions,
     releaseApplicationAlias,
@@ -96,5 +97,26 @@ describe('applicationAliasesStore', () => {
         expect(String(sql)).toContain('FROM applications.update_application_alias_routing_mode($1, $2, $3)')
         expect(String(sql)).not.toContain('UPDATE applications.obj_applications')
         expect(parameters).toEqual([applicationId, 'canonical', userId])
+    })
+
+    it('resolves an alias without reading the RLS-protected alias table directly', async () => {
+        const { executor } = createMockDbExecutor()
+        executor.query.mockResolvedValueOnce([{ applicationId }])
+
+        await expect(findApplicationIdByActiveAlias(executor, 'meridian-73')).resolves.toBe(applicationId)
+
+        const [sql, parameters] = executor.query.mock.calls[0]
+        expect(String(sql)).toContain('applications.resolve_application_alias($1)')
+        expect(String(sql)).not.toContain('applications.obj_application_aliases')
+        expect(parameters).toEqual(['meridian-73'])
+    })
+
+    it('returns null when the resolver reports an unknown or inactive alias', async () => {
+        const { executor } = createMockDbExecutor()
+        executor.query.mockResolvedValueOnce([{ applicationId: null }])
+        await expect(findApplicationIdByActiveAlias(executor, 'unknown-app')).resolves.toBeNull()
+
+        executor.query.mockResolvedValueOnce([])
+        await expect(findApplicationIdByActiveAlias(executor, 'unknown-app')).resolves.toBeNull()
     })
 })

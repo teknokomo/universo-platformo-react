@@ -41,6 +41,7 @@ describeIntegration('Metahub records integrity integration (requires PostgreSQL)
         dataType: 'REF',
         isRequired: true,
         parentComponentId: null,
+        objectCollectionId: benefitObjectId,
         targetEntityId: pricingObjectId,
         validationRules: {}
     }
@@ -50,6 +51,7 @@ describeIntegration('Metahub records integrity integration (requires PostgreSQL)
         dataType: 'TABLE',
         isRequired: false,
         parentComponentId: null,
+        objectCollectionId: benefitObjectId,
         validationRules: {}
     }
     const tableChildTierRefComponent = {
@@ -58,6 +60,7 @@ describeIntegration('Metahub records integrity integration (requires PostgreSQL)
         dataType: 'REF',
         isRequired: false,
         parentComponentId: 'related-rows-component',
+        objectCollectionId: benefitObjectId,
         targetEntityId: pricingObjectId,
         validationRules: {}
     }
@@ -182,6 +185,18 @@ describeIntegration('Metahub records integrity integration (requires PostgreSQL)
         expect(created).toMatchObject({ data: { TierKey: 'pre-seed-copy' } })
     })
 
+    it('ignores a same-named field in another object when checking root references', async () => {
+        const foreignObjectId = uuid('20')
+        const service = createService()
+        // The only active row whose TierRef equals the tier id belongs to an
+        // object that does not declare the TierRef component.
+        await knex.raw(`DELETE FROM ${qSchemaTable(schemaName, '_mhb_elements')} WHERE id = ?`, [benefitId])
+        await insertElement(uuid('21'), foreignObjectId, { TierRef: tierId }, 1)
+
+        await expect(service.delete(metahubId, pricingObjectId, tierId, userId)).resolves.toBeUndefined()
+        await expect(activeTier()).resolves.toBe(false)
+    })
+
     it('blocks deletion when a TABLE child row references the tier and tolerates non-array table values', async () => {
         const service = createService(
             [tierKeyComponent, tableParentComponent, tableChildTierRefComponent],
@@ -192,6 +207,19 @@ describeIntegration('Metahub records integrity integration (requires PostgreSQL)
 
         await expect(service.delete(metahubId, pricingObjectId, tierId, userId)).rejects.toBeInstanceOf(MetahubRecordReferencedError)
         await expect(activeTier()).resolves.toBe(true)
+    })
+
+    it('ignores same-named TABLE child rows in objects that do not declare the component', async () => {
+        const foreignObjectId = uuid('20')
+        const service = createService(
+            [tierKeyComponent, tableParentComponent, tableChildTierRefComponent],
+            [tableParentComponent, tableChildTierRefComponent]
+        )
+        await knex.raw(`DELETE FROM ${qSchemaTable(schemaName, '_mhb_elements')} WHERE id = ?`, [benefitId])
+        await insertElement(uuid('21'), foreignObjectId, { RelatedRows: [{ TierRef: tierId }] }, 1)
+
+        await expect(service.delete(metahubId, pricingObjectId, tierId, userId)).resolves.toBeUndefined()
+        await expect(activeTier()).resolves.toBe(false)
     })
 
     it('reordering a record mirrors the new position into data.SortOrder', async () => {
@@ -212,13 +240,18 @@ describeIntegration('Metahub records integrity integration (requires PostgreSQL)
         await service.reorderRecord(metahubId, pricingObjectId, tierId, 2, userId)
 
         const rows = (await knex.raw(
-            `SELECT data, sort_order FROM ${qSchemaTable(schemaName, '_mhb_elements')} WHERE object_id = ? ORDER BY sort_order ASC`,
+            `SELECT data, sort_order, _upl_version FROM ${qSchemaTable(
+                schemaName,
+                '_mhb_elements'
+            )} WHERE object_id = ? ORDER BY sort_order ASC`,
             [pricingObjectId]
-        )) as { rows: Array<{ data: Record<string, unknown>; sort_order: number }> }
+        )) as { rows: Array<{ data: Record<string, unknown>; sort_order: number; _upl_version: number }> }
         const movedRow = rows.rows.find((row) => row.data.TierKey === 'pre-seed')
         const otherRow = rows.rows.find((row) => row.data.TierKey === 'seed')
-        expect(movedRow).toMatchObject({ sort_order: 2, data: { SortOrder: 2 } })
-        expect(otherRow).toMatchObject({ sort_order: 1, data: { SortOrder: 1 } })
+        // The mirrored SortOrder JSON must bump the optimistic version so a
+        // stale editor holding the pre-reorder snapshot loses its write.
+        expect(movedRow).toMatchObject({ sort_order: 2, data: { SortOrder: 2 }, _upl_version: 2 })
+        expect(otherRow).toMatchObject({ sort_order: 1, data: { SortOrder: 1 }, _upl_version: 2 })
     })
 
     it('soft-deletes the row and frees its unique key for reuse', async () => {
@@ -257,6 +290,57 @@ describeIntegration('Metahub records integrity integration (requires PostgreSQL)
             [pricingObjectId]
         )) as { rows: Array<{ count: number }> }
         expect(rows.rows[0].count).toBe(1)
+    })
+
+    it('serializes a REF writer against deletion of its target so no dangling REF is inserted', async () => {
+        const service = createService([tierKeyComponent, rootTierRefComponent], [rootTierRefComponent])
+        const deleteTx = await knex.transaction()
+        let outcome: unknown = 'pending'
+        try {
+            // Mirror the delete lock acquisition: the target row is locked FOR
+            // UPDATE before the reference scan.
+            await deleteTx.raw(
+                `SELECT id FROM ${qSchemaTable(schemaName, '_mhb_elements')}
+                 WHERE id = ? AND _upl_deleted = false AND _mhb_deleted = false
+                 FOR UPDATE`,
+                [tierId]
+            )
+
+            const createPromise = service
+                .create(metahubId, pricingObjectId, { data: { TierKey: 'blocked', TierRef: tierId } }, userId)
+                .then(
+                    (value) => {
+                        outcome = value
+                    },
+                    (error) => {
+                        outcome = error
+                    }
+                )
+
+            await new Promise((resolve) => setTimeout(resolve, 250))
+            // The writer waits on the shared target row; without FOR KEY SHARE
+            // on the existence probe it would already have inserted a dangling REF.
+            expect(outcome).toBe('pending')
+
+            await deleteTx.raw(
+                `UPDATE ${qSchemaTable(schemaName, '_mhb_elements')}
+                 SET _upl_deleted = true, _mhb_deleted = true
+                 WHERE id = ?`,
+                [tierId]
+            )
+            await deleteTx.commit()
+
+            await createPromise
+            expect(outcome).toBeInstanceOf(MetahubRecordReferenceMissingError)
+
+            const rows = (await knex.raw(
+                `SELECT count(*)::int AS count FROM ${qSchemaTable(schemaName, '_mhb_elements')} WHERE object_id = ?`,
+                [pricingObjectId]
+            )) as { rows: Array<{ count: number }> }
+            expect(rows.rows[0].count).toBe(1)
+        } finally {
+            if (!deleteTx.isCompleted()) await deleteTx.rollback()
+        }
     })
 
     it('serializes concurrent creates of the same unique key so exactly one wins', async () => {
