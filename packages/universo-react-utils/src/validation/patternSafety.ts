@@ -122,8 +122,89 @@ const collectRepetitionProbes = (pattern: string): string[] => {
     return probes
 }
 
+const findCharacterClassEnd = (pattern: string, start: number): number => {
+    for (let index = start + 1; index < pattern.length; index += 1) {
+        if (pattern[index] === '\\') {
+            index += 1
+            continue
+        }
+        if (pattern[index] === ']') return index
+    }
+    return pattern.length - 1
+}
+
+const readQuantifierLength = (pattern: string, start: number): number => {
+    if (pattern[start] !== '{') return 1
+    const match = /^\{\d+(?:,\d*)?\}/.exec(pattern.slice(start))
+    return match ? match[0].length : 1
+}
+
+/**
+ * Rejects the polynomial class of repeated unbounded quantifiers over the same
+ * atom (for example `^a*a*a*a*a*b$`), which the repeated-group probes cannot
+ * see because it contains no quantified group. Atoms with different spellings
+ * (such as the two character classes in an email pattern) stay allowed.
+ */
+const hasRepeatedUnboundedAtom = (pattern: string): boolean => {
+    // Each group and alternation branch owns its atom scope: the same class in
+    // different scopes (for example inside and outside a repeated group) does
+    // not create the polynomial ambiguity this check targets.
+    const scopes: Array<Set<string>> = [new Set<string>()]
+    let atom: string | null = null
+
+    for (let index = 0; index < pattern.length; index += 1) {
+        const char = pattern[index]
+        if (char === '\\') {
+            atom = pattern.slice(index, index + 2)
+            index += 1
+            continue
+        }
+        if (char === '[') {
+            const classEnd = findCharacterClassEnd(pattern, index)
+            atom = pattern.slice(index, classEnd + 1)
+            index = classEnd
+            continue
+        }
+        if (char === '(') {
+            scopes.push(new Set<string>())
+            atom = null
+            continue
+        }
+        if (char === ')') {
+            if (scopes.length > 1) scopes.pop()
+            atom = null
+            continue
+        }
+        if (char === '|') {
+            scopes[scopes.length - 1].clear()
+            atom = null
+            continue
+        }
+        if (char === '^' || char === '$') {
+            atom = null
+            continue
+        }
+
+        const bounds = readRepetitionBounds(pattern, index)
+        if (bounds) {
+            if (bounds.unbounded && atom !== null) {
+                const scope = scopes[scopes.length - 1]
+                if (scope.has(atom)) return true
+                scope.add(atom)
+            }
+            index += readQuantifierLength(pattern, index) - 1
+            continue
+        }
+
+        atom = char
+    }
+
+    return false
+}
+
 const analyzePatternSafety = (pattern: string): boolean => {
     if (SINGLE_ATOM_GROUP_RE.test(pattern)) return false
+    if (hasRepeatedUnboundedAtom(pattern)) return false
 
     const probes = collectRepetitionProbes(pattern)
     if (probes.length === 0) return true

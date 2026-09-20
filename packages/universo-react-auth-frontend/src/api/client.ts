@@ -13,19 +13,17 @@ const MAX_CSRF_RETRY_ATTEMPTS = 1
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 /**
- * Only an attached session can expire: anonymous probes such as the auth
- * bootstrap on a dual public/private runtime URL must not be bounced to the
- * login page just because their 401 carries no Authorization header.
+ * The auth bootstrap asks `/auth/me` and `/auth/permissions` whether a session
+ * exists; a 401 there is the expected answer for anonymous visitors and must
+ * not bounce a public runtime page to the login screen. Every other 401 on a
+ * non-public route still redirects, so expired cookie sessions recover.
  */
-const hasAttachedAuthorization = (config: unknown): boolean => {
-    const headers = (config as { headers?: unknown } | undefined)?.headers
-    if (!headers) return false
-    const readHeader = (name: string): unknown =>
-        typeof (headers as { get?: (header: string) => unknown }).get === 'function'
-            ? (headers as { get: (header: string) => unknown }).get(name)
-            : (headers as Record<string, unknown>)[name]
-    const value = readHeader('Authorization') ?? readHeader('authorization')
-    return typeof value === 'string' && value.trim().length > 0
+const AUTH_SESSION_PROBE_SUFFIXES = ['/auth/me', '/auth/permissions']
+const isAuthSessionProbeRequest = (config: unknown): boolean => {
+    const url = (config as { url?: unknown } | undefined)?.url
+    if (typeof url !== 'string') return false
+    const path = url.split('?')[0]
+    return AUTH_SESSION_PROBE_SUFFIXES.some((suffix) => path.endsWith(suffix))
 }
 
 const clearCsrfHeaders = (headers: unknown) => {
@@ -198,9 +196,9 @@ export const createAuthClient = (options: AuthClientOptions): AxiosInstance => {
                     // Always redirect
                     shouldRedirect = true
                 } else if (mergedOptions.redirectOn401 === 'auto') {
-                    // Use isPublicRoute from @universo-react/utils; anonymous
-                    // requests without an attached session never redirect.
-                    shouldRedirect = !isPublicRoute(pathname) && hasAttachedAuthorization(config)
+                    // Use isPublicRoute from @universo-react/utils; the session
+                    // probes answer 401 for anonymous visitors by design.
+                    shouldRedirect = !isPublicRoute(pathname) && !isAuthSessionProbeRequest(config)
                 } else if (Array.isArray(mergedOptions.redirectOn401)) {
                     // Custom routes array
                     const customRoutes = mergedOptions.redirectOn401 as readonly string[]

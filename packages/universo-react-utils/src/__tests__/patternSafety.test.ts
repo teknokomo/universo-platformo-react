@@ -37,6 +37,21 @@ describe('patternSafety', () => {
         }
     })
 
+    it('rejects repeated unbounded quantifiers over the same atom without a group', () => {
+        const attackPatterns = ['^a*a*a*a*a*b$', '^\\d*\\d*\\d*x$', '^.*.*$', '^[a-z]*[a-z]*z$']
+
+        for (const pattern of attackPatterns) {
+            expect(isUsableValidationPattern(pattern)).toBe(false)
+            expect(isUnsafeValidationPattern(pattern)).toBe(true)
+        }
+    })
+
+    it('keeps legitimate multi-class patterns without quantified groups usable', () => {
+        expect(isUsableValidationPattern('^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$')).toBe(true)
+        expect(isUsableValidationPattern('^\\+?[0-9 ()-]{7,20}$')).toBe(true)
+        expect(isUsableValidationPattern('^https?://[^\\s/$.?#].[^\\s]*$')).toBe(true)
+    })
+
     it('classifies only executable exponential patterns as unsafe', () => {
         expect(isUnsafeValidationPattern('^[a-z][a-z0-9]*(?:[._-][a-z0-9]+)*$')).toBe(false)
         expect(isUnsafeValidationPattern('(')).toBe(false)

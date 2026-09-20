@@ -161,7 +161,7 @@ describe('createAuthClient', () => {
         expect(window.sessionStorage.getItem(AUTH_CSRF_STORAGE_KEY)).toBeNull()
     })
 
-    it('redirects an expired session on the dual public/private application runtime URL', async () => {
+    it('redirects an expired cookie session on the dual public/private application runtime URL', async () => {
         const locationStub = { pathname: '/a/private-app', href: '' }
         vi.stubGlobal('location', locationStub)
         utilsMock.isPublicRoute.mockReturnValue(false)
@@ -169,7 +169,7 @@ describe('createAuthClient', () => {
         const { responseInterceptor } = createInterceptedClient()
         await responseInterceptor({
             response: { status: 401 },
-            config: { method: 'get', headers: { Authorization: 'Bearer expired-token' } }
+            config: { method: 'get', url: 'applications/018f8a78-7b8f-7c1d-a111-222233334444' }
         }).catch(() => undefined)
 
         expect(utilsMock.isPublicRoute).toHaveBeenCalledWith('/a/private-app')
@@ -179,13 +179,16 @@ describe('createAuthClient', () => {
         expect(locationStub.href).toBe('/auth')
     })
 
-    it('keeps anonymous visitors on the public runtime when a session-less request returns 401', async () => {
+    it('keeps anonymous visitors on the public runtime when the session probe returns 401', async () => {
         const locationStub = { pathname: '/a/public-app', href: '' }
         vi.stubGlobal('location', locationStub)
         utilsMock.isPublicRoute.mockReturnValue(false)
 
         const { responseInterceptor } = createInterceptedClient()
-        await responseInterceptor({ response: { status: 401 }, config: { method: 'get', headers: {} } }).catch(() => undefined)
+        await responseInterceptor({
+            response: { status: 401 },
+            config: { method: 'get', url: '/api/v1/auth/me' }
+        }).catch(() => undefined)
 
         // The auth bootstrap 401 for an anonymous visitor must not bounce the
         // public runtime page to the login screen before its probe runs.

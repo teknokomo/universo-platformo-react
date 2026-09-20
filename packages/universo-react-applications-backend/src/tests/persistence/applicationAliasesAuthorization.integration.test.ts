@@ -110,6 +110,27 @@ describeIntegration('application alias SECURITY DEFINER authorization (requires 
         expect(shell.rows[0]?.allowed).toBe(true)
     })
 
+    it('admits a write-only alias role into the admin shell without granting read', async () => {
+        await knex.raw(`INSERT INTO admin.rel_role_permissions (role_id, subject, action) VALUES (?, 'applicationAliases', 'update')`, [
+            aliasRoleId
+        ])
+
+        try {
+            const strict = await knex.raw(`SELECT admin.has_admin_permission(?) AS allowed`, [otherActorId])
+            const shell = await knex.raw(`SELECT admin.has_admin_shell_permission(?) AS allowed`, [otherActorId])
+
+            expect(strict.rows[0]?.allowed).toBe(false)
+            expect(shell.rows[0]?.allowed).toBe(true)
+        } finally {
+            // Later cases in this suite reuse the shared alias role; remove the
+            // write-only grant so their capability matrix stays isolated.
+            await knex.raw(
+                `DELETE FROM admin.rel_role_permissions WHERE role_id = ? AND subject = 'applicationAliases' AND action = 'update'`,
+                [aliasRoleId]
+            )
+        }
+    })
+
     it('rejects an actor mismatch before any alias write', async () => {
         const alias = `alias-auth-mismatch-${suffix}`
 

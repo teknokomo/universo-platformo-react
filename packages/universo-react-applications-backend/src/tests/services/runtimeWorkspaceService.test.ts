@@ -241,6 +241,33 @@ describe('runtimeWorkspaceService', () => {
         ).rejects.toThrow('Personal workspace cannot be deleted')
     })
 
+    it('clears the public-entry marker when a shared workspace is deleted', async () => {
+        const { executor, txExecutor } = createMockDbExecutor()
+
+        txExecutor.query.mockImplementation(async (sql: string) => {
+            if (sql.includes('SELECT id, workspace_type')) {
+                return [{ id: 'workspace-shared', workspace_type: 'shared' }]
+            }
+            if (sql.includes('UPDATE') && sql.includes('RETURNING id')) {
+                return [{ id: 'workspace-shared' }]
+            }
+            return []
+        })
+
+        await deleteSharedWorkspace(executor, {
+            schemaName,
+            workspaceId: 'workspace-shared',
+            actorUserId: 'user-1'
+        })
+
+        const workspaceUpdate = txExecutor.query.mock.calls
+            .map(([sql]) => String(sql))
+            .find((sql) => sql.includes("SET status = 'archived'"))
+        expect(workspaceUpdate).toBeDefined()
+        expect(workspaceUpdate).toContain('is_public_entry')
+        expect(workspaceUpdate).toContain('= false')
+    })
+
     it('copies workspace rows with a temporary id mapping and remaps uuid references after insert', async () => {
         const { executor, txExecutor } = createMockDbExecutor()
         const generatedIds = ['workspace-copy', 'relation-copy', 'setting-copy']

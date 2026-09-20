@@ -770,7 +770,12 @@ BEGIN
           AND r._upl_deleted = false AND r._app_deleted = false
           AND rp._upl_deleted = false AND rp._app_deleted = false
           AND (rp.subject = '*' OR rp.subject IN ('roles', 'instances', 'users', 'applicationAliases'))
-          AND (rp.action = 'read' OR rp.action = '*' OR rp.action = 'manage')
+          AND (
+              rp.action = 'read'
+              OR rp.action = '*'
+              OR rp.action = 'manage'
+              OR (rp.subject = 'applicationAliases' AND rp.action IN ('create', 'update', 'delete'))
+          )
     );
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = admin, public, auth, pg_temp STABLE

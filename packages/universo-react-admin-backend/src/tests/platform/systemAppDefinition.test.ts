@@ -1,4 +1,4 @@
-import { createAdminSchemaMigrationDefinition } from '../../platform/migrations'
+import { createAdminSchemaMigrationDefinition, finalizeAdminSchemaSupportMigrationDefinition } from '../../platform/migrations'
 import { adminSystemAppDefinition } from '../../platform/systemAppDefinition'
 
 const normalizeSql = (value: string): string => value.replace(/\s+/g, ' ').trim()
@@ -47,6 +47,13 @@ describe('admin system-app definition', () => {
                 })
             })
         )
+    })
+
+    it('admits write-only application alias roles into the admin shell', () => {
+        const finalizeSql = normalizeSql(finalizeAdminSchemaSupportMigrationDefinition.up.map((statement) => statement.sql).join('\n'))
+
+        expect(finalizeSql).toContain(normalizeSql("(rp.subject = 'applicationAliases' AND rp.action IN ('create', 'update', 'delete'))"))
+        expect(finalizeSql).toContain(normalizeSql("rp.subject IN ('roles', 'instances', 'users', 'applicationAliases')"))
     })
 
     it('keeps the reference admin SQL contract for fresh-schema parity checks', () => {
