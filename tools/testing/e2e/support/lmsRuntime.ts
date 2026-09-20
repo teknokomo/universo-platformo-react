@@ -367,7 +367,6 @@ export async function setupPublishedLmsApplication(
         publication,
         linkedApplication,
         applicationId,
-        applicationSlug: linkedApplication.application.slug,
         layoutId: await waitForDefaultLayoutId(api, metahub.id)
     }
 }

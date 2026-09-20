@@ -35,6 +35,8 @@ It exposes authenticated CRUD routes, application membership guards, connector f
 -   Expose `ctx.ledger` to runtime modules only when `ledger.read` or `ledger.write` capabilities are declared.
 -   Persist schema sync state in `applications.obj_applications` through SQL-first stores.
 -   Keep runtime release metadata in the same central sync-state surface.
+-   Resolve anonymous published marketing runtimes through a dedicated `/public/applications/:applicationRef/runtime` boundary. The boundary accepts a UUID v7 or a validated application alias, never trusts a client workspace id, and returns only a renderer allowlist after public/readiness checks.
+-   Own deployment-wide application aliases in `applications.obj_application_aliases`, including direct/canonical routing policy, UUID v7 alias identities, reserved-name lifecycle, and transactional primary-alias invariants.
 -   Reuse shared guards, identifier helpers, and query helpers from the database standard packages.
 
 ## Workspaces, Public Access, and Limits
@@ -72,6 +74,8 @@ It exposes authenticated CRUD routes, application membership guards, connector f
 
 -   `createApplicationsRoutes(...)` mounts CRUD, connector, membership, and runtime-sync routes.
 -   The route surface now includes public join/leave flows, settings endpoints for per-workspace object limits, and runtime workspace settings endpoints under `/applications/:applicationId/runtime/workspaces/:workspaceId/settings`.
+-   Alias administration is mounted separately from application CRUD: `GET /application-aliases`, `POST /application-aliases`, `PATCH /application-aliases/:id`, primary/release mutations, and per-application `/applications/:applicationId/aliases` policy routes require the `applicationAliases` capability or the existing root `Superuser` bypass.
+-   Anonymous marketing runtime is exposed at `GET /public/applications/:applicationRef/runtime?locale=en|ru`; private, unavailable, and malformed references share a non-enumerating not-found response.
 -   Runtime Ledger endpoints are mounted under `/applications/:applicationId/runtime/ledgers` and keep append/reverse/query behavior separate from generic Object row CRUD.
 -   Application layout endpoints are mounted under `/applications/:applicationId/layouts` and `/applications/:applicationId/layout-scopes`.
 -   Application layout mutations, including `POST /applications/:applicationId/layouts/:layoutId/copy`, require the current positive `expectedVersion`; copy reads the layout and widget composition under one optimistic snapshot and returns `409` for stale callers.

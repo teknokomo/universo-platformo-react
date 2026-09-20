@@ -306,8 +306,7 @@ test.describe('Quiz Snapshot Import Runtime Flow', () => {
         }
 
         await recordCreatedApplication({
-            id: applicationId,
-            slug: linkedApplication.application.slug
+            id: applicationId
         })
 
         await syncApplicationSchema(api, applicationId)

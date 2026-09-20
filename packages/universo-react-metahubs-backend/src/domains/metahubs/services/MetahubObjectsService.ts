@@ -1,5 +1,5 @@
 import type { DbExecutor, SqlQueryable } from '@universo-react/utils/database'
-import { queryMany, queryOne, queryOneOrThrow } from '@universo-react/utils/database'
+import { queryMany, queryOne, queryOneOrThrow, acquireAdvisoryXactLock } from '@universo-react/utils/database'
 import { qSchemaTable } from '@universo-react/database'
 import {
     SHARED_OBJECT_KINDS,
@@ -122,7 +122,7 @@ export class MetahubObjectsService {
      */
     private async acquireSortOrderLock(db: SqlQueryable, schemaName: string, kind: string): Promise<void> {
         const lockKey = this.buildSortOrderLockKey(schemaName, kind)
-        await db.query('SELECT pg_advisory_xact_lock(hashtext($1))', [lockKey])
+        await acquireAdvisoryXactLock(db, lockKey)
     }
 
     private async getNextSortOrder(schemaName: string, kind: string, db?: SqlQueryable): Promise<number> {

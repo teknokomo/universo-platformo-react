@@ -2,7 +2,9 @@
     "table": {
         "type": "Type",
         "name": "Name",
-        "codename": "Codename"
+        "codename": "Codename",
+        "email": "Email",
+        "treeEntities": "Hubs"
     },
     "resourceSource": {
         "type": "Resource type",
@@ -51,10 +53,6 @@
             "copyDefaultBranchOnly": "Copy only default branch",
             "copyAccess": "Copy access permissions"
         },
-        "errors": {
-            "invalidMetahub": "Invalid metahub",
-            "pleaseSelectMetahub": "Please select a metahub from the list"
-        },
         "actions": {
             "edit": "Edit",
             "delete": "Delete",
@@ -87,7 +85,11 @@
             "nonNegativeOnly": "Non-negative only",
             "tableRequiredPrefix": "Required",
             "tableMinRows": "min. rows: {{count}}",
-            "tableMaxRows": "max. rows: {{count}}"
+            "tableMaxRows": "max. rows: {{count}}",
+            "codenameDuplicate": "An entity with this codename already exists",
+            "codenameInvalid": "Use lowercase Latin letters, numbers, and hyphens only",
+            "nonNegative": "Must be a non-negative value",
+            "numberLength": "Length: {{integer}}"
         },
         "number": {
             "increment": "Increment",
@@ -312,7 +314,15 @@
                 "sourcePathUnreadable": "The selected source file cannot be read.",
                 "invalidInput": "Check the module fields and try again."
             }
-        }
+        },
+        "codenameHelper": "Unique URL identifier (lowercase Latin letters, numbers, hyphens). Generated automatically from the name with transliteration. Can be edited manually.",
+        "codenameHelperPascal": "Unique identifier (PascalCase: starts with an uppercase letter, letters, numbers, underscores). Generated automatically from the name. Can be edited manually.",
+        "codenameHelperPascalEn": "Unique identifier (PascalCase: starts with an uppercase letter, English letters, numbers, underscores only). Generated automatically from the name. Can be edited manually.",
+        "createSuccess": "Metahub created",
+        "createError": "Failed to create metahub",
+        "updateSuccess": "Metahub updated",
+        "updateError": "Failed to update metahub",
+        "copyInProgress": "Copying…"
     },
     "layouts": {
         "title": "Layouts",
@@ -433,7 +443,9 @@
                     "compact": "Compact icons",
                     "overlay": "Overlay drawer"
                 }
-            }
+            },
+            "versionUnavailable": "The latest layout version is unavailable. Refresh and try again.",
+            "widgetObjectsTitle": "Available widgets"
         },
         "marketing": {
             "appearanceTitle": "Marketing page appearance",
@@ -451,14 +463,14 @@
             "allowEmailActions": "Allow email actions",
             "allowTelephoneActions": "Allow telephone actions",
             "externalLinkTarget": "External link target",
-            "linkTarget": { "sameTab": "Same tab", "newTab": "New tab" },
+            "linkTarget": {
+                "sameTab": "Same tab",
+                "newTab": "New tab"
+            },
             "widget": {
                 "sourceHelper": "Choose a standard entity source. The runtime resolves records through published metadata and never accepts a table name.",
                 "source": "Content source",
                 "unknownSource": "Marketing content source",
-                "sourceCodenameHelper": "Enter the stable entity codename, for example MarketingPageFeature.",
-                "recordKey": "Record key (optional)",
-                "recordKeyHelper": "Limit a singleton source to a semantic record key when needed.",
                 "recordSelection": "Record selection",
                 "recordSelectionManaged": "The published source manages the selected record.",
                 "recordSelectionDefault": "The published source determines which records are shown.",
@@ -477,12 +489,34 @@
                 "showLeadForm": "Show lead form",
                 "showBenefits": "Show plan benefits",
                 "showNewsletter": "Show newsletter block",
+                "imageGuidance": "Use a wide image, preferably 16:9 and about 1600×900 or larger. WebP, JPEG, and PNG work well. Use an optimized file at a publicly reachable HTTPS URL.",
+                "imageUrl": "Image URL",
+                "imageUrlHelper": "The image is loaded directly by the visitor browser. Remote URLs must use HTTPS.",
+                "imageUrlInvalid": "Enter a valid absolute HTTPS image address (or a loopback HTTP address during local development).",
+                "imageDecorative": "Decorative image",
+                "imageAlt": "Alternative text",
+                "imagePreviewWarning": "The image preview could not be loaded. Check that the HTTPS URL is publicly reachable and points directly to an image.",
                 "instanceKeyHelper": "Widget identity is assigned by the server when this widget is created and preserved when settings are edited.",
                 "invalidConfig": "Review the widget source and settings before saving.",
                 "noCompatibleSources": "No compatible Object entity source is available for this widget. Create or publish the matching entity type first.",
                 "saveError": "The widget settings could not be saved. Try again.",
-                "sourceUnavailable": "The previously selected content source is no longer available. Choose a published Object entity source."
-            }
+                "sourceUnavailable": "The previously selected content source is no longer available. Choose a published Object entity source.",
+                "cardStyle": "Pricing card style",
+                "cardStyleFeatured": "Highlight one card (Recommended)",
+                "cardStyleUniform": "Equal cards without highlight",
+                "showItemDescriptions": "Show item descriptions",
+                "fixedItemsHeight": "Scroll cards in a fixed area",
+                "cardWidth": "Card area width",
+                "cardWidthAuto": "Standard container",
+                "cardWidthFull": "Wide container",
+                "maxItemsHelper": "Limits the records of this widget. Related child records (for example pricing benefits) are not cut by this limit.",
+                "brandName": "Brand name",
+                "brandNameHelper": "Shown in the header and footer when no logo is configured.",
+                "brandLogoUrl": "Brand logo URL",
+                "brandLogoHelper": "Optional HTTPS image. The logo is decorative; the brand name stays the accessible label in the header.",
+                "recordSelectionEditHint": "Edit the linked records in the metahub: Entities -> Objects -> the selected object -> Records."
+            },
+            "invalidColor": "Enter a valid contrast-safe hex color."
         },
         "menuEditor": {
             "title": "Menu configuration",
@@ -549,9 +583,14 @@
                 "hrefUnsafeScheme": "This link type is not allowed. Use https, mailto, tel, #, or an internal path."
             },
             "saveSuccess": "Menu configuration saved",
-            "saveError": "Failed to save menu configuration"
+            "saveError": "Failed to save menu configuration",
+            "itemIconPlaceholder": "database, link, shopping_cart...",
+            "itemHrefPlaceholder": "https://...",
+            "defaultTitle": "Main",
+            "defaultTitleRu": "Основное",
+            "unresolvedStartPage": "Unavailable configured section",
+            "startPageDefault": "Layout default"
         },
-
         "sharedBehavior": {
             "title": "Shared behavior",
             "description": "Controls whether inherited layouts can deactivate, exclude, or move this widget.",
@@ -625,7 +664,11 @@
                 "table": "Table view",
                 "horizontalRows": "Horizontal rows",
                 "verticalTree": "Vertical tree"
-            }
+            },
+            "templatePanel": "Template panels",
+            "templatePanelStructureList": "Show next to Structures",
+            "templatePanelMatrix": "Show next to Matrix",
+            "templatePanelHelp": "Choose where saved table templates are visible in published workspaces."
         },
         "widgetScopeVisibility": {
             "title": "Visibility by entity",
@@ -734,7 +777,9 @@
                 "showRightSideMenu": "Right side panel",
                 "showFooter": "Footer"
             }
-        }
+        },
+        "copyInProgress": "Copying…",
+        "moveToZone": "Move to {{zone}}"
     },
     "branches": {
         "title": "Branches",
@@ -1190,7 +1235,8 @@
             },
             "layouts": {
                 "emptyTitle": "No layouts",
-                "createHint": "Individual layouts can be configured after this entity is created."
+                "createHint": "Individual layouts can be configured after this entity is created.",
+                "emptyDescription": "Create the first layout to override the default runtime arrangement for this custom entity kind."
             },
             "components": {
                 "emptyTitle": "No components yet",
@@ -1302,7 +1348,9 @@
             },
             "validation": {
                 "hubRequired": "At least one hub is required",
-                "singleHubInvalid": "Single hub entities cannot be linked to multiple hubs"
+                "singleHubInvalid": "Single hub entities cannot be linked to multiple hubs",
+                "containerRequired": "At least one container is required",
+                "singleContainerInvalid": "Single-container entities cannot be linked to multiple containers"
             },
             "content": {
                 "description": "{{entityType}} content",
@@ -1319,7 +1367,26 @@
                 "saveError": "Failed to save content",
                 "saving": "Saving...",
                 "validationInvalid": "The editor content is not valid."
-            }
+            },
+            "createSuccess": "Entity created",
+            "createError": "Failed to create entity",
+            "updateSuccess": "Entity updated",
+            "updateError": "Failed to update entity",
+            "deleteSuccess": "Entity deleted",
+            "deleteError": "Failed to delete entity",
+            "restoreSuccess": "Entity restored",
+            "restoreError": "Failed to restore entity",
+            "deletePermanentSuccess": "Entity permanently deleted",
+            "deletePermanentError": "Failed to permanently delete entity",
+            "copySuccess": "Entity copied",
+            "copyError": "Failed to copy entity",
+            "reorderSuccess": "Entity order updated",
+            "reorderError": "Failed to reorder entities",
+            "fields": {
+                "blockContent": "Editor.js blocks JSON",
+                "codenameHelper": "Stable codename used by generic entity instances and references"
+            },
+            "loadingTitle": "Loading..."
         },
         "ledgerSchema": {
             "enabled": "Use this entity as a ledger",
@@ -1421,6 +1488,18 @@
                 "projectionsInvalid": "Projections must reference existing fields configured as dimensions or resources.",
                 "idempotencyInvalid": "Idempotency fields must reference existing fields.",
                 "effectiveDateInvalid": "Effective date field must reference an existing field."
+            }
+        },
+        "createSuccess": "Entity type created",
+        "createError": "Failed to create entity type",
+        "updateSuccess": "Entity type updated",
+        "updateError": "Failed to update entity type",
+        "deleteSuccess": "Entity type deleted",
+        "deleteError": "Failed to delete entity type",
+        "copy": {
+            "options": {
+                "copyComponents": "Copy components",
+                "copyRecords": "Copy records"
             }
         }
     },
@@ -1556,7 +1635,11 @@
         "reorderError": "Failed to reorder hub",
         "dnd": {
             "dragHandle": "Drag to reorder"
-        }
+        },
+        "createSuccess": "Hub created",
+        "updateSuccess": "Hub updated",
+        "deleteSuccess": "Hub deleted",
+        "copyInProgress": "Copying…"
     },
     "general": {
         "title": "Resources",
@@ -1911,7 +1994,10 @@
             "success": "Added {{count}} set(s).",
             "partialSuccess": "Added {{successCount}} set(s). {{failCount}} set(s) could not be linked.",
             "failedAll": "Selected sets could not be linked to this hub. Please review restrictions and try again."
-        }
+        },
+        "createSuccess": "Object created",
+        "updateSuccess": "Object updated",
+        "deleteSuccess": "Object deleted"
     },
     "projects": {
         "title": "Projects",
@@ -2268,6 +2354,24 @@
         "reorderError": "Failed to reorder enumeration",
         "dnd": {
             "dragHandle": "Drag to reorder"
+        },
+        "detachedConfirm": {
+            "title": "Create enumeration without current hub?",
+            "editTitle": "Save enumeration without current hub?",
+            "copyTitle": "Create enumeration copy without current hub?",
+            "description": "This enumeration is not linked to the current hub and will not appear in this hub after saving."
+        },
+        "attachExisting": {
+            "selectionTitle": "Enumerations",
+            "selectDialogTitle": "Select enumerations",
+            "dialogTitle": "Add existing enumerations",
+            "emptySelection": "No enumerations selected",
+            "noAvailable": "No enumerations available to add",
+            "requiredSelection": "Select at least one enumeration to add.",
+            "partialSuccess": "Added {{successCount}} enumeration(s). {{failCount}} enumeration(s) could not be linked.",
+            "failedAll": "Selected enumerations could not be linked to this hub. Please review restrictions and try again.",
+            "success_one": "Added {{count}} enumeration.",
+            "success_other": "Added {{count}} enumerations."
         }
     },
     "optionValues": {
@@ -2301,7 +2405,8 @@
         "deleteBlockedReason": "Deletion is blocked because this value is used in defaults or predefined elements.",
         "copy": {
             "action": "Copy",
-            "actionLoading": "Copying..."
+            "actionLoading": "Copying...",
+            "generalHint": "A copy of the value will be created with duplicated content."
         },
         "tabs": {
             "general": "General",
@@ -2364,7 +2469,15 @@
             "set": "Set",
             "hub": "Hub",
             "page": "Page"
-        }
+        },
+        "unnamedConstant": "Unnamed constant",
+        "unnamedEntity": "Unnamed entity",
+        "targetEntity": "Target Entity",
+        "selectEntity": "Select entity...",
+        "entityRequired": "Please select an entity",
+        "noEntitiesAvailable": "No entities available",
+        "unknownEntity": "Entity {{id}}",
+        "loadingEntities": "Loading entities..."
     },
     "members": {
         "title": "Members",
@@ -2391,10 +2504,13 @@
         "validation": {
             "commentCharacterCount": "{{count}}/{{max}} characters (after trim)",
             "commentTooLong": "Comment must be 500 characters or less"
-        }
+        },
+        "userNotFound": "User {{email}} not found",
+        "userAlreadyMember": "User {{email}} is already a member"
     },
     "publications": {
         "title": "Publications",
+        "copyInProgress": "Creating…",
         "editTitle": "Edit Publication",
         "description": "Runtime instances of this metahub configuration with real database tables",
         "searchPlaceholder": "Search publications...",
@@ -2429,7 +2545,8 @@
             "createApplication": "Create application",
             "createApplicationSchema": "Create application schema",
             "applicationWillBeCreated": "An application and a connector linked to this Metahub will be created.",
-            "applicationSchemaWorkspacePolicyHint": "The application schema will use the active publication version workspace policy."
+            "applicationSchemaWorkspacePolicyHint": "The application schema will use the active publication version workspace policy.",
+            "applicationSchemaConnectorHint": "After the application and connector are created, create the application schema from the connector schema changes dialog."
         },
         "applicationParameters": {
             "visibility": {
@@ -2473,8 +2590,9 @@
             "openApp": "Open application",
             "appDashboard": "Application dashboard",
             "searchPlaceholder": "Search applications...",
-            "slug": "Identifier",
-            "createdAt": "Created"
+            "createdAt": "Created",
+            "createSuccess": "Application created",
+            "createError": "Failed to create application"
         },
         "sync": "Sync Schema",
         "syncDescription": "Update database schema to match current configuration",
@@ -2540,6 +2658,9 @@
             "create": "Create Version",
             "addButton": "Add",
             "createSuccess": "Version created successfully",
+            "createError": "Failed to create version",
+            "updateSuccess": "Version updated successfully",
+            "updateError": "Failed to update version",
             "createFirstDescription": "When creating a publication, the first version will be created. Provide its name and description.",
             "versionName": "Version name",
             "versionDescription": "Version description",
@@ -2551,6 +2672,7 @@
             "activate": "Activate",
             "activateConfirm": "Are you sure you want to activate this version? It will be used for all future syncs.",
             "activateSuccess": "Version activated successfully",
+            "activateError": "Failed to activate version",
             "active": "Active",
             "edit": "Edit version",
             "list": {
@@ -2574,7 +2696,8 @@
                 "helper": "The selected policy is stored in the publication version snapshot and controls application schema sync.",
                 "requiredAck": "I understand that after workspaces are required, later versions cannot turn off this requirement.",
                 "requiredAckRequired": "Confirm the irreversible workspace requirement before creating the version."
-            }
+            },
+            "emptyDescription": "Create a version to get started"
         }
     },
     "migrations": {
@@ -2650,15 +2773,28 @@
         "delete": "Delete",
         "actions": "Actions",
         "details": "Details",
-        "updated": "Updated"
+        "updated": "Updated",
+        "noSearchResults": "No results match your search",
+        "add": "Add",
+        "search": "Search...",
+        "remove": "Remove"
     },
     "actions": {
-        "backToList": "Back to List"
+        "backToList": "Back to List",
+        "retry": "Retry"
     },
     "errors": {
         "connectionFailed": "Connection Failed",
         "checkConnection": "Please check your network connection and try again",
-        "pleaseTryLater": "Please try again later"
+        "pleaseTryLater": "Please try again later",
+        "generic": "Failed to save settings",
+        "notFound": "Not found",
+        "loadingError": "Failed to load object",
+        "noTreeEntityId": "No hub ID provided",
+        "pleaseSelectHub": "Please select a hub",
+        "invalidMetahub": "Invalid metahub",
+        "pleaseSelectMetahub": "Please select a metahub from the list",
+        "invalidHub": "Hub not found"
     },
     "templates": {
         "title": "Templates",
@@ -2677,7 +2813,8 @@
             "codename": "Codename",
             "version": "Version",
             "icon": "Icon"
-        }
+        },
+        "noTemplate": "No template"
     },
     "createOptions": {
         "tab": "Options",
@@ -3192,6 +3329,23 @@
             "firstChildComponentTitle": "First child component",
             "firstChildComponentDescription": "This will be the first component in the table. It will automatically become the display component and required. After that, it cannot be moved out until another component is set as the display.",
             "tableChildLimitTitle": "Cannot move component"
+        },
+        "term": {
+            "singular": "component",
+            "plural": "components"
+        },
+        "createSuccess": "Component created",
+        "updateSuccess": "Component updated",
+        "deleteSuccess": "Component deleted",
+        "copySuccess": "Component copied",
+        "copyError": "Failed to copy component",
+        "copyTitle": "Copying component",
+        "copy": {
+            "action": "Copy",
+            "actionLoading": "Copying...",
+            "generalTab": "General",
+            "optionsTab": "Options",
+            "copyChildComponents": "Copy child components"
         }
     },
     "records": {
@@ -3209,7 +3363,8 @@
         },
         "copyTitle": "Copy Record",
         "deleteDialog": {
-            "title": "Delete Record"
+            "title": "Delete Record",
+            "message": "Are you sure you want to delete this record? This action cannot be undone."
         },
         "createSuccess": "Record created",
         "createError": "Failed to create record",
@@ -3255,7 +3410,10 @@
         "actions": {
             "moveUp": "Move up",
             "moveDown": "Move down"
-        }
+        },
+        "keyDuplicate": "A record with the same key already exists. Change the key and try again.",
+        "deleteReferenced": "This record is used by other records. Remove those references first.",
+        "refTargetMissing": "The selected related record no longer exists. Refresh the form and choose it again."
     },
     "modules": {
         "scopes": {

@@ -80,7 +80,6 @@ interface ApplicationTableRow extends FlowListTableData {
     id: string
     name: string
     description: string | null
-    slug: string
     createdAt: string
 }
 
@@ -147,9 +146,8 @@ export const PublicationApplicationList: React.FC = () => {
         () =>
             rawApps.map((app) => ({
                 id: app.id,
-                name: getVLCString(app.name, i18n.language) || app.slug || app.id,
+                name: getVLCString(app.name, i18n.language) || app.id,
                 description: app.description ? getVLCString(app.description, i18n.language) || null : null,
-                slug: app.slug,
                 createdAt: app.createdAt
             })),
         [rawApps, i18n.language]
@@ -164,8 +162,7 @@ export const PublicationApplicationList: React.FC = () => {
         if (!query) return applications
         return applications.filter((app) => {
             const name = (app.name || '').toLowerCase()
-            const slug = (app.slug || '').toLowerCase()
-            return name.includes(query) || slug.includes(query)
+            return name.includes(query)
         })
     }, [applications, searchQuery])
 
@@ -191,7 +188,7 @@ export const PublicationApplicationList: React.FC = () => {
             {
                 id: 'name' as const,
                 label: tc('table.name'),
-                width: '30%',
+                width: '35%',
                 render: (row: ApplicationTableRow) => (
                     <Typography
                         component='a'
@@ -216,19 +213,13 @@ export const PublicationApplicationList: React.FC = () => {
             {
                 id: 'description' as const,
                 label: tc('table.description'),
-                width: '30%',
+                width: '40%',
                 render: (row: ApplicationTableRow) => row.description || '—'
-            },
-            {
-                id: 'slug' as const,
-                label: t('metahubs:publications.applications.slug', 'Identifier'),
-                width: '20%',
-                render: (row: ApplicationTableRow) => row.slug || '—'
             },
             {
                 id: 'createdAt' as const,
                 label: t('metahubs:publications.applications.createdAt', 'Created'),
-                width: '20%',
+                width: '25%',
                 render: (row: ApplicationTableRow) => new Date(row.createdAt).toLocaleDateString()
             }
         ],

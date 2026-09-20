@@ -3,18 +3,23 @@ import AxeBuilder from '@axe-core/playwright'
 import { marketingPageTemplate } from '../../../../../packages/universo-react-metahubs-backend/dist/domains/templates/data/marketing-page.template.js'
 import { expect, test } from '../../fixtures/test'
 import {
+    createApplicationWorkspace,
     createLoggedInApiContext,
     createMetahub,
     createPublication,
     disposeApiContext,
     getApplication,
     getMarketingPageRuntime,
+    listApplicationWorkspaces,
     listEntityInstances,
     listPublicationApplications,
+    sendWithCsrf,
+    setApplicationPublicEntryWorkspace,
     syncApplicationSchema,
     syncPublication,
     waitForPublicationReady
 } from '../../support/backend/api-session.mjs'
+import { createBootstrapApiContext, disposeBootstrapApiContext } from '../../support/backend/bootstrap.mjs'
 import { recordCreatedApplication, recordCreatedMetahub, recordCreatedPublication } from '../../support/backend/run-manifest.mjs'
 import { assertMarketingPageRuntimeMaterialization } from '../../support/marketingPageRuntimeMaterialization.ts'
 import { installMarketingPageLocalMedia } from '../../support/marketingPageMedia'
@@ -103,6 +108,7 @@ test('@flow @marketing-page publishes the data-driven MUI marketing page without
             autoCreateApplication: true,
             applicationName: { en: `E2E ${runManifest.runId} Marketing Application` },
             applicationNamePrimaryLocale: 'en',
+            applicationIsPublic: true,
             runtimePolicy: {
                 workspaceMode: 'required',
                 requiredWorkspaceModeAcknowledged: true
@@ -117,8 +123,7 @@ test('@flow @marketing-page publishes the data-driven MUI marketing page without
         const applicationId = typeof linkedApplication?.id === 'string' ? linkedApplication.id : undefined
         if (!applicationId) throw new Error('Marketing-page publication did not create a linked application')
         await recordCreatedApplication({
-            id: applicationId,
-            slug: typeof linkedApplication.slug === 'string' ? linkedApplication.slug : undefined
+            id: applicationId
         })
 
         await syncApplicationSchema(api, applicationId, {
@@ -129,8 +134,52 @@ test('@flow @marketing-page publishes the data-driven MUI marketing page without
         })
         await expect.poll(async () => (await getApplication(api, applicationId))?.schemaStatus).toBe('synced')
 
+        // Public readiness for a workspace-enabled application requires one
+        // explicit server-owned public-entry workspace: the anonymous resolver
+        // never infers it from creation order or the first shared workspace.
+        const workspaceList = await listApplicationWorkspaces(api, applicationId)
+        const sharedWorkspace = (workspaceList?.items ?? []).find(
+            (workspace: Record<string, unknown>) => workspace?.workspaceType !== 'personal' && !workspace?.personalUserId
+        )
+        const publicEntryWorkspaceId =
+            (sharedWorkspace as { id?: string } | undefined)?.id ??
+            (
+                await createApplicationWorkspace(api, applicationId, {
+                    name: createLocalizedContent('en', 'Public entry workspace'),
+                    description: createLocalizedContent('en', 'Workspace used for anonymous public rendering')
+                })
+            )?.id
+        if (typeof publicEntryWorkspaceId !== 'string') {
+            throw new Error('Marketing-page runtime spec could not prepare a public entry workspace')
+        }
+        await setApplicationPublicEntryWorkspace(api, applicationId, publicEntryWorkspaceId)
+
         const runtimePayload = await getMarketingPageRuntime(api, applicationId, 'en')
         assertMarketingPageRuntimeMaterialization(runtimePayload, marketingPageTemplate)
+
+        const bootstrapApi = await createBootstrapApiContext()
+        const aliasToken =
+            runManifest.runId
+                .toLowerCase()
+                .replace(/[^a-z0-9]+/g, '-')
+                .replace(/^-+|-+$/g, '')
+                .slice(-40) || 'playwright'
+        const alias = `marketing-${aliasToken}`
+        try {
+            const aliasResponse = await sendWithCsrf(bootstrapApi, 'POST', '/api/v1/application-aliases', {
+                applicationId,
+                alias,
+                makePrimary: true
+            })
+            expect(aliasResponse.ok, `Creating public marketing alias failed with ${aliasResponse.status}`).toBe(true)
+        } finally {
+            await disposeBootstrapApiContext(bootstrapApi)
+        }
+
+        const publicAliasRuntimeResponse = await page.request.get(`/api/v1/public/applications/${alias}/runtime?locale=en`)
+        expect(publicAliasRuntimeResponse.ok()).toBe(true)
+        const publicAliasRuntimePayload = await publicAliasRuntimeResponse.json()
+        expect(JSON.stringify(publicAliasRuntimePayload)).not.toContain(applicationId)
 
         const localMedia = await installMarketingPageLocalMedia(page)
         await page.goto(`/a/${applicationId}`)
@@ -220,6 +269,17 @@ test('@flow @marketing-page publishes the data-driven MUI marketing page without
 
         await page.screenshot({
             path: testInfo.outputPath('marketing-page-en-light.png'),
+            fullPage: true,
+            animations: 'disabled'
+        })
+
+        await page.goto(`/a/${alias}`)
+        await expect(page.locator('#marketing-page-main')).toBeVisible()
+        await expect(page).not.toHaveURL(/\/auth(?:\/|$)/)
+        await expect(page.locator('#hero')).toBeVisible()
+        await expect(page.getByRole('heading', { name: 'Our latest products' })).toBeVisible()
+        await page.screenshot({
+            path: testInfo.outputPath('marketing-page-public-alias-en.png'),
             fullPage: true,
             animations: 'disabled'
         })

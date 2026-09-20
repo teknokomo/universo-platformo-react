@@ -11,7 +11,8 @@ const SNAPSHOT_FIXTURES = [
     'metahubs-lms-app-snapshot.json',
     'metahubs-quiz-app-snapshot.json',
     'metahubs-self-hosted-app-snapshot.json',
-    'metahubs-interpretation-network-app-snapshot.json'
+    'metahubs-interpretation-network-app-snapshot.json',
+    'metahubs-73rd-meridian-app-snapshot.json'
 ]
 const LMS_FIXTURE = 'metahubs-lms-app-snapshot.json'
 

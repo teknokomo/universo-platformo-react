@@ -66,7 +66,13 @@ const widget = ({
     zone,
     sortOrder,
     isActive,
-    config: { instanceKey, source: sourceForWidget(widgetKey, typeof config.variant === 'string' ? config.variant : undefined), ...config },
+    config: {
+        instanceKey,
+        ...(widgetKey === 'marketing.image'
+            ? {}
+            : { source: sourceForWidget(widgetKey, typeof config.variant === 'string' ? config.variant : undefined) }),
+        ...config
+    },
     data: { records: items }
 })
 
@@ -223,6 +229,102 @@ describe('normalizeMarketingPageRuntime', () => {
         expect(normalized.config).toMatchObject({ themeMode: 'system', allowEmailActions: true, allowTelephoneActions: true })
     })
 
+    it('formats scaled numeric prices per locale and keeps authored text prices', () => {
+        const viewModel = envelope([
+            widget({
+                instanceKey: 'pricing',
+                widgetKey: 'marketing.pricing',
+                zone: 'marketing-main',
+                sortOrder: 1,
+                items: [
+                    record('12', 'pre-seed', 'pricingTier', {
+                        title: localized('Pre-seed', 'Предпосевная'),
+                        price: localized('1.00'),
+                        period: localized('stage', 'этап'),
+                        benefitKeys: [],
+                        benefits: []
+                    }),
+                    record('13', 'seed', 'pricingTier', {
+                        title: localized('Seed', 'Посевная'),
+                        price: localized('15.50'),
+                        period: localized('stage', 'этап'),
+                        benefitKeys: [],
+                        benefits: []
+                    }),
+                    record('14', 'growth', 'pricingTier', {
+                        title: localized('Growth', 'Масштабирование'),
+                        price: localized('RUB 150–500 million', '150–500 млн ₽'),
+                        period: localized('stage', 'этап'),
+                        benefitKeys: [],
+                        benefits: []
+                    })
+                ]
+            })
+        ])
+
+        const normalized = normalizeMarketingPageRuntime(viewModel, 'ru')
+        const pricing = normalized.widgets.find((item) => item.widgetKey === 'marketing.pricing')
+        const tiers = (pricing?.content as { tiers: Array<{ price: string; title: string }> }).tiers
+
+        expect(tiers.map((tier) => [tier.title, tier.price])).toEqual([
+            ['Предпосевная', '1'],
+            ['Посевная', '15,5'],
+            ['Масштабирование', '150–500 млн ₽']
+        ])
+    })
+
+    it('forwards the pricing card width setting into the render model', () => {
+        const viewModel = envelope([
+            widget({
+                instanceKey: 'pricing',
+                widgetKey: 'marketing.pricing',
+                zone: 'marketing-main',
+                sortOrder: 1,
+                config: { cardWidth: 'full' },
+                items: [
+                    record('12', 'pre-seed', 'pricingTier', {
+                        title: localized('Pre-seed', 'Предпосевная'),
+                        price: localized('1.00'),
+                        period: localized('stage', 'этап'),
+                        benefitKeys: [],
+                        benefits: []
+                    })
+                ]
+            })
+        ])
+
+        const normalized = normalizeMarketingPageRuntime(viewModel, 'en')
+        const pricing = normalized.widgets.find((item) => item.widgetKey === 'marketing.pricing')
+
+        expect(pricing).toMatchObject({ content: { config: { cardWidth: 'full' } } })
+    })
+
+    it('defaults the pricing card width to the standard container when the config omits it', () => {
+        const viewModel = envelope([
+            widget({
+                instanceKey: 'pricing',
+                widgetKey: 'marketing.pricing',
+                zone: 'marketing-main',
+                sortOrder: 1,
+                config: {},
+                items: [
+                    record('12', 'pre-seed', 'pricingTier', {
+                        title: localized('Pre-seed', 'Предпосевная'),
+                        price: localized('1.00'),
+                        period: localized('stage', 'этап'),
+                        benefitKeys: [],
+                        benefits: []
+                    })
+                ]
+            })
+        ])
+
+        const normalized = normalizeMarketingPageRuntime(viewModel, 'en')
+        const pricing = normalized.widgets.find((item) => item.widgetKey === 'marketing.pricing')
+
+        expect(pricing).toMatchObject({ content: { config: { cardWidth: 'auto', cardStyle: 'featured' } } })
+    })
+
     it('honors widget presentation flags during normalization', () => {
         const viewModel = envelope([
             widget({
@@ -350,7 +452,7 @@ describe('normalizeMarketingPageRuntime', () => {
         ).toThrow()
     })
 
-    it('keeps safe storage-backed media descriptors without exposing their locator as text', () => {
+    it('normalizes the static marketing image widget independently from hero content', () => {
         const viewModel = envelope([
             widget({
                 instanceKey: 'hero',
@@ -361,23 +463,32 @@ describe('normalizeMarketingPageRuntime', () => {
                     record('20', 'site-settings', 'siteSettings', {
                         brandName: localized('Acme'),
                         heroTitle: localized('Our latest'),
-                        heroSubtitle: localized('A typed marketing page.'),
-                        heroLightPreview: {
-                            kind: 'hero',
-                            resource: { type: 'file', storageKey: 'marketing/hero.webp' },
-                            alt: localized('Hero preview')
-                        }
+                        heroSubtitle: localized('A typed marketing page.')
                     })
                 ]
+            }),
+            widget({
+                instanceKey: 'hero-image',
+                widgetKey: 'marketing.image',
+                zone: 'marketing-main',
+                sortOrder: 1,
+                config: {
+                    media: {
+                        kind: 'hero',
+                        resource: { type: 'url', url: 'https://cdn.example.test/hero.webp', launchMode: 'inline' },
+                        alt: localized('Hero preview')
+                    }
+                },
+                items: []
             })
         ])
 
         const normalized = normalizeMarketingPageRuntime(viewModel, 'en')
         const hero = normalized.widgets.find((item) => item.widgetKey === 'marketing.hero')
+        const image = normalized.widgets.find((item) => item.widgetKey === 'marketing.image')
 
-        expect(hero).toMatchObject({
-            content: { media: { resource: { type: 'file', storageKey: 'marketing/hero.webp' }, src: '' } }
-        })
+        expect(hero?.content).not.toHaveProperty('media')
+        expect(image).toMatchObject({ content: { media: { resource: { url: 'https://cdn.example.test/hero.webp' } } } })
     })
 
     it('fails closed for the legacy page-level record envelope', () => {

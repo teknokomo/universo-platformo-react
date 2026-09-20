@@ -132,18 +132,15 @@ test('@flow empty metahub template supports manual entity-type authoring from th
         await page.getByTestId(toolbarSelectors.primaryAction).click()
 
         const createTypeDialog = page.getByRole('dialog', { name: /Create Entity/i })
-        await createTypeDialog.getByLabel('Kind key').fill(entityTypeKindKey)
+        await createTypeDialog.getByLabel('System type key').fill(entityTypeKindKey)
         await createTypeDialog.getByLabel('Name').first().fill(entityTypeName)
         await createTypeDialog.getByLabel('Codename').first().fill(entityTypeKindKey)
 
         const resourceSurfaceKeyInput = createTypeDialog.getByLabel('Resource tab key')
-        if ((await resourceSurfaceKeyInput.count()) > 0) {
-            await resourceSurfaceKeyInput.fill('components')
-            await createTypeDialog.getByLabel('Resource tab route segment').fill('components')
-            await createTypeDialog.getByLabel('Resource tab title').fill('Components')
-        } else {
-            await createTypeDialog.getByLabel('Components').fill('Components')
-        }
+        await expect(resourceSurfaceKeyInput).toBeVisible()
+        await resourceSurfaceKeyInput.fill('components')
+        await createTypeDialog.getByLabel('Resource tab address segment').fill('components')
+        await createTypeDialog.getByLabel('Resource tab title').fill('Components')
 
         await createTypeDialog.getByTestId(entityDialogSelectors.submitButton).click()
         await expect(createTypeDialog).toHaveCount(0)

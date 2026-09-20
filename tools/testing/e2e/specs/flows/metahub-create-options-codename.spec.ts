@@ -4,6 +4,7 @@ import {
     disposeApiContext,
     listLayouts,
     listMetahubBranches,
+    listMetahubEntityTypes,
     listObjectCollections,
     listOptionLists,
     listTreeEntities,
@@ -104,12 +105,12 @@ async function createMetahubViaDialog(
 
     if (values.optionalDefaultsDisabled) {
         await dialog.getByRole('tab', { name: 'Options' }).click()
-        const branchCheckbox = dialog.getByLabel('Branch')
-        const layoutCheckbox = dialog.getByLabel('Layout')
-        const hubCheckbox = dialog.getByLabel('Hub')
-        const catalogCheckbox = dialog.getByLabel('Object')
-        const setCheckbox = dialog.getByLabel('Set')
-        const enumerationCheckbox = dialog.getByLabel('Enumeration')
+        const branchCheckbox = dialog.getByRole('checkbox', { name: /^Branch\b/ })
+        const layoutCheckbox = dialog.getByRole('checkbox', { name: /^Layout\b/ })
+        const hubCheckbox = dialog.getByRole('checkbox', { name: 'Hubs', exact: true })
+        const catalogCheckbox = dialog.getByRole('checkbox', { name: 'Objects', exact: true })
+        const setCheckbox = dialog.getByRole('checkbox', { name: 'Sets', exact: true })
+        const enumerationCheckbox = dialog.getByRole('checkbox', { name: 'Enumerations', exact: true })
 
         await expect(branchCheckbox).toBeDisabled()
         await expect(layoutCheckbox).toBeDisabled()
@@ -186,21 +187,23 @@ test('@flow metahub create dialog preserves codename auto-fill UX and supports d
         }
         await recordCreatedMetahub(defaultsOffMetahub)
 
-        const [disabledBranches, disabledLayouts, disabledHubs, disabledCatalogs, disabledSets, disabledEnumerations] = await Promise.all([
+        const [disabledBranches, disabledLayouts, disabledEntityTypes] = await Promise.all([
             listMetahubBranches(api, defaultsOffMetahub.id, { limit: 100, offset: 0 }),
             listLayouts(api, defaultsOffMetahub.id, { limit: 100, offset: 0 }),
-            listTreeEntities(api, defaultsOffMetahub.id, { limit: 100, offset: 0 }),
-            listObjectCollections(api, defaultsOffMetahub.id, { limit: 100, offset: 0 }),
-            listValueGroups(api, defaultsOffMetahub.id, { limit: 100, offset: 0 }),
-            listOptionLists(api, defaultsOffMetahub.id, { limit: 100, offset: 0 })
+            listMetahubEntityTypes(api, defaultsOffMetahub.id, { limit: 100, offset: 0 })
         ])
 
         expect((disabledBranches.items ?? []).length).toBeGreaterThan(0)
         expect((disabledLayouts.items ?? []).length).toBeGreaterThan(0)
-        expect((disabledHubs.items ?? []).length).toBe(0)
-        expect((disabledCatalogs.items ?? []).length).toBe(0)
-        expect((disabledSets.items ?? []).length).toBe(0)
-        expect((disabledEnumerations.items ?? []).length).toBe(0)
+
+        // Disabled optional presets must not seed their entity types at all.
+        // Listing instances of an unseeded kind fails closed with 400, so the
+        // create-options contract is asserted through the entity-type registry.
+        const disabledKindKeys = new Set((disabledEntityTypes.items ?? []).map((item: { kindKey?: string }) => item.kindKey))
+        expect(disabledKindKeys.has('page')).toBe(true)
+        for (const disabledKindKey of ['hub', 'object', 'set', 'enumeration']) {
+            expect(disabledKindKeys.has(disabledKindKey)).toBe(false)
+        }
     } finally {
         await disposeApiContext(api)
     }

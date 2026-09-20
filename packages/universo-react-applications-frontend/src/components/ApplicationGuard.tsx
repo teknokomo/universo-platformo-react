@@ -17,6 +17,9 @@ export interface ApplicationGuardProps {
      * @default '/'
      */
     accessDeniedRedirectTo?: string
+
+    /** Trusted application id resolved from a human-readable runtime reference. */
+    applicationIdOverride?: string
 }
 
 /**
@@ -39,11 +42,12 @@ export interface ApplicationGuardProps {
  * />
  * ```
  */
-export const ApplicationGuard: React.FC<ApplicationGuardProps> = ({ children, accessDeniedRedirectTo = '/' }) => {
+export const ApplicationGuard: React.FC<ApplicationGuardProps> = ({ children, accessDeniedRedirectTo = '/', applicationIdOverride }) => {
     return (
         <ResourceGuard
             resourceType='application'
             resourceIdParam='applicationId'
+            resourceId={applicationIdOverride}
             fetchResource={async (id: string) => {
                 const response = await getApplication(id)
                 return response.data

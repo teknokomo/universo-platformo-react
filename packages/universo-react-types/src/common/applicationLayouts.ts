@@ -23,6 +23,7 @@ import {
     marketingCollectionWidgetConfigSchema,
     marketingFooterWidgetConfigSchema,
     marketingHeroWidgetConfigSchema,
+    marketingImageWidgetConfigSchema,
     marketingLayoutZoneSchema,
     marketingNavigationWidgetConfigSchema,
     marketingPageConfigSchema,
@@ -875,6 +876,7 @@ const widgetConfigSchemaByKey = {
     'marketing.navigation': marketingNavigationWidgetConfigSchema,
     'marketing.auth': marketingAuthWidgetConfigSchema,
     'marketing.hero': marketingHeroWidgetConfigSchema,
+    'marketing.image': marketingImageWidgetConfigSchema,
     'marketing.collection': marketingCollectionWidgetConfigSchema,
     'marketing.pricing': marketingPricingWidgetConfigSchema,
     'marketing.footer': marketingFooterWidgetConfigSchema

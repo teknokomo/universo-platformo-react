@@ -196,8 +196,7 @@ test('@flow public lms guest links enforce the guest journey through the browser
         }
 
         await recordCreatedApplication({
-            id: applicationId,
-            slug: linkedApplication.application.slug
+            id: applicationId
         })
 
         await syncApplicationSchema(api, applicationId, {

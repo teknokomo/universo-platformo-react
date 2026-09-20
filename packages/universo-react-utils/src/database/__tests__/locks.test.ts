@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { withAdvisoryLock, tryWithAdvisoryLock } from '../locks'
+import { acquireTwoKeyAdvisoryXactLock, tryWithAdvisoryLock, withAdvisoryLock, withTransactionSavepoint } from '../locks'
 import type { DbExecutor } from '../manager'
 
 function mockExecutor(): DbExecutor {
@@ -38,11 +38,30 @@ describe('withAdvisoryLock', () => {
         expect(txExec.query).toHaveBeenNthCalledWith(1, "SET LOCAL lock_timeout TO '5000ms'")
     })
 
-    it('calls pg_advisory_xact_lock with hashtext', async () => {
+    it('calls pg_advisory_xact_lock with the shared hashtextextended space', async () => {
         const exec = mockExecutor()
         const txExec = (exec as any)._txExecutor
         await withAdvisoryLock(exec, 'my-key', async () => 1)
-        expect(txExec.query).toHaveBeenCalledWith('SELECT pg_advisory_xact_lock(hashtext($1))', ['my-key'])
+        expect(txExec.query).toHaveBeenCalledWith('SELECT pg_advisory_xact_lock(hashtextextended($1::text, 0))', ['my-key'])
+    })
+})
+
+describe('acquireTwoKeyAdvisoryXactLock', () => {
+    it('hashes one unambiguous pair key into the shared hashtextextended space', async () => {
+        const exec = mockExecutor()
+        await acquireTwoKeyAdvisoryXactLock(exec, 'interpretation-network:reorder', 'app:workspace:widget')
+        expect(exec.query).toHaveBeenCalledWith('SELECT pg_advisory_xact_lock(hashtextextended($1::text, 0))', [
+            JSON.stringify(['interpretation-network:reorder', 'app:workspace:widget'])
+        ])
+    })
+
+    it('does not collide swapped or concatenated-looking pairs', async () => {
+        const exec = mockExecutor()
+        await acquireTwoKeyAdvisoryXactLock(exec, 'a', 'bc')
+        await acquireTwoKeyAdvisoryXactLock(exec, 'ab', 'c')
+        await acquireTwoKeyAdvisoryXactLock(exec, 'bc', 'a')
+        const keys = vi.mocked(exec.query).mock.calls.map(([, params]) => (params as string[])[0])
+        expect(new Set(keys).size).toBe(3)
     })
 })
 
@@ -79,5 +98,41 @@ describe('lock timeout validation', () => {
     it('rejects timeout exceeding 300000ms', async () => {
         const exec = mockExecutor()
         await expect(withAdvisoryLock(exec, 'key', async () => 1, { timeoutMs: 300001 })).rejects.toThrow('Invalid lock_timeout')
+    })
+})
+
+describe('withTransactionSavepoint', () => {
+    it('opens a nested transaction so failures roll back inside a reused outer transaction', async () => {
+        const outerQueries: string[] = []
+        const innerExecutor = {
+            query: vi.fn(async () => []),
+            transaction: vi.fn(async (cb: (exec: unknown) => Promise<unknown>) => cb({ query: vi.fn(async () => []) })),
+            isReleased: () => false
+        }
+        const outerExecutor = {
+            transaction: vi.fn(async (cb: (exec: unknown) => Promise<unknown>) => {
+                outerQueries.push('outer')
+                return cb(innerExecutor)
+            }),
+            query: vi.fn(async () => []),
+            isReleased: () => false
+        }
+
+        let received: unknown
+        const result = await withTransactionSavepoint(outerExecutor as never, async (executor) => {
+            received = executor
+            return 'ok'
+        })
+
+        expect(result).toBe('ok')
+        expect(received).toBeDefined()
+        expect(received).not.toBe(innerExecutor)
+        expect(outerExecutor.transaction).toHaveBeenCalledTimes(1)
+        expect(innerExecutor.transaction).toHaveBeenCalledTimes(1)
+        await expect(
+            withTransactionSavepoint(outerExecutor as never, async () => {
+                throw new Error('boom')
+            })
+        ).rejects.toThrow('boom')
     })
 })

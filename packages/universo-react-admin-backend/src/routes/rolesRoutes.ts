@@ -1,5 +1,5 @@
 import { Router, Request, Response, RequestHandler } from 'express'
-import { activeAppRowCondition, getCodenamePrimary, getRequestDbExecutor, uuid, type DbExecutor } from '@universo-react/utils'
+import { getCodenamePrimary, getRequestDbExecutor, uuid, type DbExecutor } from '@universo-react/utils'
 import { enforceSingleLocaleCodename } from '@universo-react/utils/vlc'
 import { isValidCodenameForStyle } from '@universo-react/utils/validation/codename'
 import { isUniqueViolation } from '@universo-react/utils/database'
@@ -15,10 +15,14 @@ import {
     createRole,
     updateRole,
     deleteRole,
-    replacePermissions,
+    findRoleByIdForUpdate,
+    lockRoleMutation,
+    lockRoleForPermissionUpdate,
     countUsersByRoleId,
     listRoleUsers
 } from '../persistence/rolesStore'
+import { assertRoleDelegationCeiling, replaceRolePermissionsWithDelegationCeiling } from '../services/rolePermissionDelegationService'
+import { RoleDelegationError } from '../services/roleDelegationPolicy'
 import { findSetting } from '../persistence/settingsStore'
 import { CreateRoleSchema, RoleCodenameSchema, UpdateRoleSchema, isLegacyRoleCodename } from '../schemas'
 import { z } from 'zod'
@@ -146,6 +150,27 @@ export function createRolesRoutes({ globalAccessService, permissionService, getD
         return val !== false
     }
 
+    const toPermissionInputs = (permissions: Array<{ subject?: string; action?: string; conditions?: unknown; fields?: string[] }>) =>
+        permissions.map((permission) => {
+            if (!permission.subject || !permission.action) {
+                throw Object.assign(new Error('Permission subject and action are required'), { statusCode: 400 })
+            }
+
+            return {
+                subject: permission.subject,
+                action: permission.action,
+                conditions: permission.conditions,
+                fields: permission.fields
+            }
+        })
+
+    const sendDelegationError = (res: Response, error: unknown): boolean => {
+        if (!(error instanceof RoleDelegationError)) return false
+
+        res.status(error.statusCode).json({ success: false, error: error.message })
+        return true
+    }
+
     router.get(
         '/assignable',
         ensureGlobalAccess('roles', 'read'),
@@ -271,32 +296,40 @@ export function createRolesRoutes({ globalAccessService, permissionService, getD
             let roleWithPermissions
             try {
                 roleWithPermissions = await exec.transaction(async (trx) => {
+                    await lockRoleMutation(trx)
+
+                    const actorUserId = (req as RequestWithGlobalRole).user?.id
+                    const requestedPermissions = toPermissionInputs(permissions)
+
+                    await assertRoleDelegationCeiling(trx, {
+                        actorUserId,
+                        requestedPermissions,
+                        requestedIsSuperuser: isSuperuser
+                    })
+
                     const savedRole = await createRole(trx, {
                         codename,
                         name,
                         description,
                         color,
                         is_superuser: isSuperuser,
-                        created_by: (req as RequestWithGlobalRole).user?.id ?? null
+                        created_by: actorUserId ?? null
                     })
 
-                    if (permissions && permissions.length > 0) {
-                        await replacePermissions(
-                            trx,
-                            savedRole.id,
-                            permissions.map((p) => ({
-                                subject: p.subject!,
-                                action: p.action!,
-                                conditions: p.conditions,
-                                fields: p.fields
-                            })),
-                            (req as RequestWithGlobalRole).user?.id
-                        )
+                    if (requestedPermissions.length > 0) {
+                        await replaceRolePermissionsWithDelegationCeiling(trx, {
+                            roleId: savedRole.id,
+                            actorUserId,
+                            permissions: requestedPermissions,
+                            deletedBy: actorUserId
+                        })
                     }
 
                     return findRoleById(trx, savedRole.id)
                 })
             } catch (error) {
+                if (sendDelegationError(res, error)) return
+
                 if (isUniqueViolation(error)) {
                     res.status(409).json({
                         success: false,
@@ -356,12 +389,6 @@ export function createRolesRoutes({ globalAccessService, permissionService, getD
                 return
             }
 
-            const sourceRole = await findRoleById(exec, sourceRoleId)
-            if (!sourceRole) {
-                res.status(404).json({ success: false, error: 'Source role not found' })
-                return
-            }
-
             const existing = await findRoleByCodename(exec, requestedCodename)
             if (existing) {
                 res.status(409).json({
@@ -371,31 +398,46 @@ export function createRolesRoutes({ globalAccessService, permissionService, getD
                 return
             }
 
-            let copiedRoleId: string
+            let copiedRoleId: string | null
             try {
                 copiedRoleId = await exec.transaction(async (trx) => {
+                    await lockRoleMutation(trx)
+
+                    const sourceRole = await findRoleByIdForUpdate(trx, sourceRoleId)
+                    if (!sourceRole) return null
+
+                    const actorUserId = (req as RequestWithGlobalRole).user?.id
+                    const copiedPermissions = parsed.data.copyPermissions ? toPermissionInputs(sourceRole.permissions ?? []) : []
+
+                    await assertRoleDelegationCeiling(trx, {
+                        actorUserId,
+                        requestedPermissions: copiedPermissions,
+                        requestedIsSuperuser: false
+                    })
+
                     const savedRole = await createRole(trx, {
                         codename: enforcedCopyCodename,
                         name: parsed.data.name,
                         description: parsed.data.description,
                         color: parsed.data.color,
                         is_superuser: false,
-                        created_by: (req as RequestWithGlobalRole).user?.id ?? null
+                        created_by: actorUserId ?? null
                     })
 
-                    if (parsed.data.copyPermissions) {
-                        await trx.query(
-                            `INSERT INTO admin.rel_role_permissions (role_id, subject, action, conditions, fields)
-                             SELECT $1, subject, action, conditions, fields
-                             FROM admin.rel_role_permissions
-                             WHERE role_id = $2 AND ${activeAppRowCondition()}`,
-                            [savedRole.id, sourceRoleId]
-                        )
+                    if (copiedPermissions.length > 0) {
+                        await replaceRolePermissionsWithDelegationCeiling(trx, {
+                            roleId: savedRole.id,
+                            actorUserId,
+                            permissions: copiedPermissions,
+                            deletedBy: actorUserId
+                        })
                     }
 
                     return savedRole.id
                 })
             } catch (error) {
+                if (sendDelegationError(res, error)) return
+
                 if (isUniqueViolation(error)) {
                     res.status(409).json({
                         success: false,
@@ -405,6 +447,11 @@ export function createRolesRoutes({ globalAccessService, permissionService, getD
                 }
 
                 throw error
+            }
+
+            if (!copiedRoleId) {
+                res.status(404).json({ success: false, error: 'Source role not found' })
+                return
             }
 
             const copiedRole = await findRoleById(exec, copiedRoleId)
@@ -471,13 +518,21 @@ export function createRolesRoutes({ globalAccessService, permissionService, getD
                 }
             }
 
-            // Protect system roles from critical changes
+            // Protect system role identity. Non-superuser system role permissions
+            // remain editable through the same generic RBAC matrix.
             if (role.is_system) {
+                if (role.is_superuser && Object.keys(parsed.data).length > 0) {
+                    res.status(403).json({
+                        success: false,
+                        error: `Cannot modify immutable Superuser system role "${getCodenamePrimary(role.codename)}"`
+                    })
+                    return
+                }
+
                 const forbiddenFields: string[] = []
                 if (nextCodenameText !== undefined && nextCodenameText !== getCodenamePrimary(role.codename))
                     forbiddenFields.push('codename')
                 if (isSuperuser !== undefined && isSuperuser !== role.is_superuser) forbiddenFields.push('isSuperuser')
-                if (permissions !== undefined) forbiddenFields.push('permissions')
 
                 if (forbiddenFields.length > 0) {
                     res.status(403).json({
@@ -499,18 +554,40 @@ export function createRolesRoutes({ globalAccessService, permissionService, getD
                 }
             }
 
-            await exec.transaction(async (trx) => {
-                await updateRole(trx, id, { codename, name, description, color, is_superuser: isSuperuser })
+            try {
+                await exec.transaction(async (trx) => {
+                    await lockRoleMutation(trx)
 
-                if (permissions !== undefined && !role.is_system) {
-                    await replacePermissions(
-                        trx,
-                        id,
-                        permissions.map((p) => ({ subject: p.subject!, action: p.action!, conditions: p.conditions, fields: p.fields })),
-                        (req as RequestWithGlobalRole).user?.id
-                    )
-                }
-            })
+                    const actorUserId = (req as RequestWithGlobalRole).user?.id
+                    const requestedPermissions = permissions !== undefined ? toPermissionInputs(permissions) : undefined
+                    const lockedRole = await lockRoleForPermissionUpdate(trx, id)
+
+                    if (!lockedRole) {
+                        throw Object.assign(new Error('Role not found'), { statusCode: 404 })
+                    }
+
+                    await assertRoleDelegationCeiling(trx, {
+                        actorUserId,
+                        requestedPermissions,
+                        requestedIsSuperuser: isSuperuser,
+                        targetRole: lockedRole
+                    })
+
+                    await updateRole(trx, id, { codename, name, description, color, is_superuser: isSuperuser })
+
+                    if (requestedPermissions !== undefined) {
+                        await replaceRolePermissionsWithDelegationCeiling(trx, {
+                            roleId: id,
+                            actorUserId,
+                            permissions: requestedPermissions,
+                            deletedBy: actorUserId
+                        })
+                    }
+                })
+            } catch (error) {
+                if (sendDelegationError(res, error)) return
+                throw error
+            }
 
             const updatedRole = await findRoleById(exec, id)
             res.json({ success: true, data: updatedRole })

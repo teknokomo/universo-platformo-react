@@ -1,5 +1,9 @@
 import { lazy } from 'react'
-import { Navigate, Outlet, useParams } from 'react-router-dom'
+import { Navigate, Outlet, useLocation, useParams } from 'react-router-dom'
+import Alert from '@mui/material/Alert'
+import Button from '@mui/material/Button'
+import { useQuery } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 
 import '@universo-react/admin-frontend/i18n'
 import '@universo-react/start-frontend/i18n'
@@ -16,13 +20,19 @@ import {
     MinimalLayout,
     RegisteredUserGuard,
     StartAccessGuard,
-    StartLayoutMUI
+    StartLayoutMUI,
+    Loader
 } from '@universo-react/template-mui'
 
 import { createAppRuntimeRoute, createPublicAppRuntimeRoute } from '@universo-react/apps-template-mui'
 import { AdminDialogSettingsProvider } from '@universo-react/admin-frontend'
-import { ApplicationDialogSettingsProvider } from '@universo-react/applications-frontend'
+import {
+    ApplicationDialogSettingsProvider,
+    applicationsQueryKeys,
+    resolveApplicationRuntimeReference
+} from '@universo-react/applications-frontend'
 import { resolvePublicGuestRuntimeLocale } from './publicGuestRuntimeLocale'
+import { isUuidV7 } from '@universo-react/utils'
 
 const StartPage = Loadable(lazy(() => import('@universo-react/start-frontend/views/StartPage')))
 const TermsPage = Loadable(lazy(() => import('@universo-react/start-frontend/views/LegalPage').then((m) => ({ default: m.TermsPage }))))
@@ -34,17 +44,15 @@ const ApplicationsApplicationBoard = Loadable(lazy(() => import('@universo-react
 const ApplicationsApplicationMembers = Loadable(lazy(() => import('@universo-react/applications-frontend/pages/ApplicationMembers')))
 const ApplicationsApplicationMigrations = Loadable(lazy(() => import('@universo-react/applications-frontend/pages/ApplicationMigrations')))
 const ApplicationsApplicationLayouts = Loadable(lazy(() => import('@universo-react/applications-frontend/pages/ApplicationLayouts')))
-const ApplicationsApplicationRuntime = Loadable(lazy(() => import('@universo-react/applications-frontend/pages/ApplicationRuntime')))
+const ApplicationsApplicationRuntimeEntry = Loadable(
+    lazy(() => import('@universo-react/applications-frontend/pages/ApplicationRuntimeEntry'))
+)
 const ApplicationsApplicationSettings = Loadable(lazy(() => import('@universo-react/applications-frontend/pages/ApplicationSettings')))
-const ApplicationsApplicationGuard = Loadable(lazy(() => import('@universo-react/applications-frontend/components/ApplicationGuard')))
 const ApplicationsApplicationAdminGuard = Loadable(
     lazy(() => import('@universo-react/applications-frontend/components/ApplicationAdminGuard'))
 )
 const ApplicationsConnectorList = Loadable(lazy(() => import('@universo-react/applications-frontend/pages/ConnectorList')))
 const ApplicationsConnectorBoard = Loadable(lazy(() => import('@universo-react/applications-frontend/pages/ConnectorBoard')))
-const ApplicationsMigrationGuard = Loadable(
-    lazy(() => import('@universo-react/applications-frontend/components/ApplicationMigrationGuard'))
-)
 const PublicGuestRuntimePage = Loadable(lazy(() => import('@universo-react/apps-template-mui').then((m) => ({ default: m.GuestApp }))))
 
 const MetahubList = Loadable(lazy(() => import('@universo-react/metahubs-frontend').then((m) => ({ default: m.MetahubList }))))
@@ -99,16 +107,35 @@ const RoleEdit = Loadable(lazy(() => import('@universo-react/admin-frontend/page
 const RoleUsers = Loadable(lazy(() => import('@universo-react/admin-frontend/pages/RoleUsers')))
 const LocalesList = Loadable(lazy(() => import('@universo-react/admin-frontend/pages/LocalesList')))
 const AdminSettings = Loadable(lazy(() => import('@universo-react/admin-frontend/pages/AdminSettings')))
+const ApplicationAliases = Loadable(lazy(() => import('@universo-react/applications-frontend/pages/ApplicationAliases')))
 
 const ProfilePage = Loadable(lazy(() => import('@universo-react/profile-frontend/pages/Profile.jsx')))
 
-const GuardedApplicationRuntime = () => (
-    <ApplicationsApplicationGuard>
-        <ApplicationsMigrationGuard>
-            <ApplicationsApplicationRuntime />
-        </ApplicationsMigrationGuard>
-    </ApplicationsApplicationGuard>
-)
+const ApplicationAdminResolver = () => {
+    return <MainLayoutMUI />
+}
+
+const PublicAwareApplicationRuntime = () => {
+    return <ApplicationsApplicationRuntimeEntry />
+}
+
+const ApplicationAdminEntry = () => {
+    const { applicationId = '' } = useParams<{ applicationId: string }>()
+
+    if (!isUuidV7(applicationId)) {
+        // Aliases address the application runtime only: `/a/<alias>/admin`
+        // stays a runtime suffix instead of entering the management shell.
+        return <ApplicationsApplicationRuntimeEntry />
+    }
+
+    return (
+        <AuthGuard>
+            <RegisteredUserGuard>
+                <ApplicationAdminResolver />
+            </RegisteredUserGuard>
+        </AuthGuard>
+    )
+}
 
 const PublicGuestRuntime = () => {
     const { applicationId = '', slug = '' } = useParams<{ applicationId: string; slug: string }>()
@@ -206,9 +233,37 @@ const MinimalRoutes = {
             )
         },
         createAppRuntimeRoute({
-            component: GuardedApplicationRuntime,
-            guard: AuthGuard
+            path: 'a/:applicationId/*',
+            component: PublicAwareApplicationRuntime
         })
+    ]
+}
+
+const ApplicationAdminRoute = {
+    path: 'a/:applicationId/admin',
+    element: (
+        <ErrorBoundary>
+            <ApplicationAdminEntry />
+        </ErrorBoundary>
+    ),
+    children: [
+        {
+            element: (
+                <ApplicationsApplicationAdminGuard>
+                    <ApplicationDialogScope />
+                </ApplicationsApplicationAdminGuard>
+            ),
+            children: [
+                { index: true, element: <ApplicationsApplicationBoard /> },
+                { path: 'connectors', element: <ApplicationsConnectorList /> },
+                { path: 'connector/:connectorId', element: <ApplicationsConnectorBoard /> },
+                { path: 'migrations', element: <ApplicationsApplicationMigrations /> },
+                { path: 'layouts', element: <ApplicationsApplicationLayouts /> },
+                { path: 'layouts/:layoutId', element: <ApplicationsApplicationLayouts /> },
+                { path: 'access', element: <ApplicationsApplicationMembers /> },
+                { path: 'settings', element: <ApplicationsApplicationSettings /> }
+            ]
+        }
     ]
 }
 
@@ -250,24 +305,6 @@ const MainRoutes = {
             path: 'applications',
             element: <Outlet />,
             children: [{ index: true, element: <ApplicationsApplicationList /> }]
-        },
-        {
-            path: 'a/:applicationId/admin',
-            element: (
-                <ApplicationsApplicationAdminGuard>
-                    <ApplicationDialogScope />
-                </ApplicationsApplicationAdminGuard>
-            ),
-            children: [
-                { index: true, element: <ApplicationsApplicationBoard /> },
-                { path: 'connectors', element: <ApplicationsConnectorList /> },
-                { path: 'connector/:connectorId', element: <ApplicationsConnectorBoard /> },
-                { path: 'migrations', element: <ApplicationsApplicationMigrations /> },
-                { path: 'layouts', element: <ApplicationsApplicationLayouts /> },
-                { path: 'layouts/:layoutId', element: <ApplicationsApplicationLayouts /> },
-                { path: 'access', element: <ApplicationsApplicationMembers /> },
-                { path: 'settings', element: <ApplicationsApplicationSettings /> }
-            ]
         },
         {
             path: 'metahubs',
@@ -350,6 +387,7 @@ const MainRoutes = {
                         },
                         { path: 'users', element: <InstanceUsers /> },
                         { path: 'locales', element: <LocalesList /> },
+                        { path: 'aliases', element: <ApplicationAliases /> },
                         { path: 'settings', element: <AdminSettings /> }
                     ]
                 },
@@ -360,4 +398,4 @@ const MainRoutes = {
     ]
 }
 
-export default [HomeRoute, StartRoute, TermsRoute, PrivacyRoute, PublicRuntimeRoutes, MinimalRoutes, MainRoutes]
+export default [HomeRoute, StartRoute, TermsRoute, PrivacyRoute, ApplicationAdminRoute, PublicRuntimeRoutes, MinimalRoutes, MainRoutes]

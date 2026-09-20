@@ -52,7 +52,6 @@ const extractLocalizedString = (value: unknown): string | null => {
 
 type ApplicationShellDetail = Record<string, unknown> & {
     name?: unknown
-    slug?: string | null
     schemaName?: string | null
 }
 
@@ -349,7 +348,7 @@ export default function NavbarBreadcrumbs() {
             const response = await client.get<ApplicationShellDetail>(`/applications/${applicationId}`)
             return response.data
         },
-        select: (data) => extractLocalizedString(data?.name) || data?.slug || null,
+        select: (data) => extractLocalizedString(data?.name),
         enabled: Boolean(applicationId) && !authLoading,
         staleTime: 5 * 60 * 1000,
         retry: 2,
@@ -504,8 +503,11 @@ export default function NavbarBreadcrumbs() {
                                             label: i18n.t('metahubs:components.system.title', { defaultValue: 'System Components' }),
                                             to: location.pathname
                                         })
-                                    } else if (segments[8] === 'elements') {
-                                        items.push({ label: t('elements'), to: location.pathname })
+                                    } else if (segments[8] === 'records' || segments[8] === 'elements') {
+                                        items.push({
+                                            label: i18n.t('metahubs:records.title', { defaultValue: 'Records' }),
+                                            to: location.pathname
+                                        })
                                     }
                                 } else if (segments[6] === 'set' && segments[7]) {
                                     items.push({
@@ -562,8 +564,11 @@ export default function NavbarBreadcrumbs() {
                                     label: i18n.t('metahubs:components.system.title', { defaultValue: 'System Components' }),
                                     to: location.pathname
                                 })
-                            } else if (segments[6] === 'elements') {
-                                items.push({ label: t('elements'), to: location.pathname })
+                            } else if (segments[6] === 'records' || segments[6] === 'elements') {
+                                items.push({
+                                    label: i18n.t('metahubs:records.title', { defaultValue: 'Records' }),
+                                    to: location.pathname
+                                })
                             } else if (segments[6] === 'layout' && segments[7]) {
                                 items.push({
                                     label: layoutName ? truncateLayoutName(layoutName) : t('layouts'),
@@ -694,6 +699,8 @@ export default function NavbarBreadcrumbs() {
                     }
                 } else if (segments[3] === 'locales') {
                     items.push({ label: t('locales'), to: `/admin/instance/${instanceIdFromUrl}/locales` })
+                } else if (segments[3] === 'aliases') {
+                    items.push({ label: t('aliases'), to: `/admin/instance/${instanceIdFromUrl}/aliases` })
                 } else if (segments[3] === 'settings') {
                     items.push({ label: t('settings'), to: `/admin/instance/${instanceIdFromUrl}/settings` })
                 }

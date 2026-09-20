@@ -51,12 +51,34 @@ import {
     type EffectiveLayoutSuccess
 } from '../services/effectiveLayoutContract'
 import { resolveEffectiveLayoutForRequest } from '../services/effectiveLayoutResolver'
+import {
+    MARKETING_CHILD_RECORD_LIMIT,
+    MARKETING_COLLECTION_ROW_LIMIT,
+    asMarketingBoolean,
+    asMarketingNumber,
+    asMarketingRecord,
+    asMarketingString,
+    selectPricingBenefitSemanticKeysForTiers,
+    toMarketingLocalizedMap,
+    toMarketingLocalizedNumericMap,
+    toMarketingLocalizedOptionalLabel,
+    toMarketingLocalizedOptionalMap,
+    toMarketingSemanticKey,
+    applyMarketingFieldMap,
+    type MarketingSerializableRecord
+} from '../services/marketingRuntimeSerialization'
 
 type RawRecord = Record<string, unknown>
 
-const MARKETING_OBJECTS = MARKETING_SOURCE_CODENAMES
+const parseMarketingPageRecord = (record: MarketingSerializableRecord): MarketingPageRecord | null => {
+    const parsed = marketingPageRecordSchema.safeParse(record)
+    return parsed.success ? (parsed.data as MarketingPageRecord) : null
+}
 
-const MARKETING_COLLECTION_ROW_LIMIT = 1000
+const applyPageFieldMap = (records: MarketingPageRecord[], fieldMap: Record<string, string>): MarketingPageRecord[] | null =>
+    applyMarketingFieldMap(records, fieldMap, { parseRecord: parseMarketingPageRecord })
+
+const MARKETING_OBJECTS = MARKETING_SOURCE_CODENAMES
 
 const MARKETING_RUNTIME_ENTITY_CODENAME_PATTERN = /^[A-Za-z][A-Za-z0-9._-]*$/u
 
@@ -81,65 +103,49 @@ type ValidatedMarketingWidgetConfig = {
     copySource?: MarketingWidgetSource
 }
 
-const asRecord = (value: unknown): RawRecord => (value && typeof value === 'object' && !Array.isArray(value) ? (value as RawRecord) : {})
-
-const asString = (value: unknown): string => (typeof value === 'string' ? value.trim() : '')
-
-const asNumber = (value: unknown, fallback: number): number => {
-    const parsed = typeof value === 'number' ? value : Number(value)
-    return Number.isFinite(parsed) ? parsed : fallback
+export interface MarketingRuntimeContext {
+    applicationId?: string
+    schemaIdent: string
+    manager: DbExecutor
+    currentWorkspaceId: string | null
+    userId?: string
+    role?: 'owner' | 'admin' | 'editor' | 'member'
 }
 
-const asBoolean = (value: unknown, fallback = true): boolean => (typeof value === 'boolean' ? value : fallback)
-
-const readLocalizedMap = (value: unknown, fallback: string): Record<string, string> => {
-    const record = asRecord(value)
-    const locales =
-        record.locales && typeof record.locales === 'object' && !Array.isArray(record.locales) ? (record.locales as RawRecord) : record
-    const result: Record<string, string> = {}
-    for (const [locale, entry] of Object.entries(locales)) {
-        if (locale.startsWith('_')) continue
-        const content = typeof entry === 'string' ? entry.trim() : asString(asRecord(entry).content)
-        if (content) result[locale.toLowerCase().replace(/_/g, '-')] = content
-    }
-    if (Object.keys(result).length > 0) return result
-    const direct = typeof value === 'number' && Number.isFinite(value) ? String(value) : asString(value)
-    return { en: direct || fallback }
+export interface RuntimeMarketingPageControllerOptions {
+    resolveRuntimeContext?: (req: Request, res: Response) => Promise<MarketingRuntimeContext | null>
+    resolveEffectiveLayout?: (
+        ctx: MarketingRuntimeContext,
+        applicationId: string,
+        target: ReturnType<typeof parseRuntimeTarget>
+    ) => Promise<EffectiveLayoutSuccess>
 }
 
-const localized = (value: unknown, locale: string, fallback: string): Record<string, string> => {
-    const map = readLocalizedMap(value, fallback)
-    const selected = resolveLocalizedContent(value, locale, fallback)
-    const normalizedLocale = normalizeLocale(locale)
-    if (!map[normalizedLocale]) map[normalizedLocale] = selected
-    return map
-}
-
-const hasLocalizedContent = (value: unknown): boolean =>
-    Object.values(readLocalizedMap(value, '')).some((content) => content.trim().length > 0)
+const asRecord = asMarketingRecord
+const asString = asMarketingString
+const asNumber = asMarketingNumber
+const asBoolean = (value: unknown, fallback = true): boolean => asMarketingBoolean(value, fallback)
+const localized = toMarketingLocalizedMap
+const localizedNumeric = toMarketingLocalizedNumericMap
+const localizedOptional = toMarketingLocalizedOptionalMap
+const localizedLabelOptional = toMarketingLocalizedOptionalLabel
+const safeSemanticKey = toMarketingSemanticKey
 
 const readSingleQueryValue = (value: unknown): { valid: true; value?: string } | { valid: false } => {
     if (value === undefined) return { valid: true }
     return typeof value === 'string' ? { valid: true, value: value.trim() } : { valid: false }
 }
 
-const localizedOptional = (value: unknown, locale: string): Record<string, string> | undefined =>
-    hasLocalizedContent(value) ? localized(value, locale, '') : undefined
-
-const localizedLabelOptional = (value: unknown, locale: string): string | undefined =>
-    hasLocalizedContent(value) ? resolveLocalizedContent(value, locale, '') : undefined
-
-const safeSemanticKey = (value: unknown, fallback: string): string => {
-    const raw = resolveRuntimeCodenameText(value).trim().toLowerCase()
-    const normalized = raw.replace(/[^a-z0-9._-]+/g, '-').replace(/^[^a-z]+/, '')
-    return normalized || fallback
-}
-
 export const safeAction = (value: unknown): MarketingAction | null => {
     return parseMarketingActionHref(value)
 }
 
-export const safeMedia = (value: unknown, kind: 'logo' | 'hero' | 'avatar' | 'feature' | 'highlight', alt: Record<string, string>) => {
+export const safeMedia = (
+    value: unknown,
+    kind: 'logo' | 'hero' | 'avatar' | 'feature' | 'highlight',
+    alt: Record<string, string>,
+    options?: { decorative?: boolean }
+) => {
     const resource: ResourceSource | undefined =
         typeof value === 'string'
             ? asString(value)
@@ -153,8 +159,7 @@ export const safeMedia = (value: unknown, kind: 'logo' | 'hero' | 'avatar' | 'fe
         return normalizeMarketingMedia({
             kind,
             resource,
-            alt,
-            decorative: false
+            ...(options?.decorative ? { decorative: true } : { alt, decorative: false })
         })
     } catch {
         return undefined
@@ -248,23 +253,6 @@ const loadObjectRows = async (
 
 const firstRow = (rows: RawRecord[]): RawRecord => rows[0] ?? {}
 
-const applyMarketingFieldMap = (records: MarketingPageRecord[], fieldMap: Record<string, string>): MarketingPageRecord[] | null => {
-    if (Object.keys(fieldMap).length === 0 || records.length === 0) return records
-    const mapped = records.map((record) => {
-        const next = { ...record } as Record<string, unknown>
-        for (const [alias, field] of Object.entries(fieldMap)) {
-            const logicalField = field.length > 0 ? `${field[0].toLowerCase()}${field.slice(1)}` : field
-            const value = record[field as keyof MarketingPageRecord] ?? record[logicalField as keyof MarketingPageRecord]
-            if (value === undefined) return null
-            next[alias] = value
-        }
-        return next
-    })
-    if (mapped.some((record) => record === null)) return null
-    const parsed = marketingPageRecordSchema.array().safeParse(mapped)
-    return parsed.success ? parsed.data : null
-}
-
 export const toConfig = (value: unknown): MarketingPageConfig => {
     const parsed = marketingPageConfigSchema.safeParse(value ?? {})
     if (!parsed.success) throw new Error('Marketing runtime configuration is invalid')
@@ -276,51 +264,58 @@ type MarketingRuntimeTarget = {
     recordKey: string | null
 }
 
+export class MarketingRuntimeRequestError extends Error {
+    readonly httpStatus: number
+    readonly code: string
+
+    constructor(httpStatus: number, code: string, message: string) {
+        super(message)
+        this.name = 'MarketingRuntimeRequestError'
+        this.httpStatus = httpStatus
+        this.code = code
+    }
+}
+
+const failMarketingRuntime = (httpStatus: number, code: string, message: string): never => {
+    throw new MarketingRuntimeRequestError(httpStatus, code, message)
+}
+
 const resolveMarketingRuntimeTarget = async (
     manager: DbExecutor,
     schemaIdent: string,
     req: Request,
-    res: Response,
     targetKind: string | undefined
-): Promise<MarketingRuntimeTarget | null> => {
+): Promise<MarketingRuntimeTarget> => {
     const entityTypeId = readSingleQueryValue(req.query.entityTypeId)
     const entityTypeCodename = readSingleQueryValue(req.query.entityTypeCodename)
     const recordKey = readSingleQueryValue(req.query.recordKey)
     if (!entityTypeId.valid || !entityTypeCodename.valid || !recordKey.valid) {
-        res.status(400).json({ code: 'MARKETING_RUNTIME_QUERY_INVALID', error: 'Marketing runtime query parameters are invalid.' })
-        return null
+        return failMarketingRuntime(400, 'MARKETING_RUNTIME_QUERY_INVALID', 'Marketing runtime query parameters are invalid.')
     }
     const requestedEntityTypeId = entityTypeId.value ?? ''
     const requestedEntityTypeCodename = entityTypeCodename.value ?? ''
     const requestedRecordKey = recordKey.value ?? ''
 
     if (requestedEntityTypeId && requestedEntityTypeCodename) {
-        res.status(400).json({ code: 'MARKETING_RUNTIME_TARGET_AMBIGUOUS', error: 'Choose an entity type id or codename, not both.' })
-        return null
+        return failMarketingRuntime(400, 'MARKETING_RUNTIME_TARGET_AMBIGUOUS', 'Choose an entity type id or codename, not both.')
     }
     if (targetKind !== undefined && targetKind !== 'page' && targetKind !== 'object') {
-        res.status(400).json({ code: 'MARKETING_RUNTIME_TARGET_INVALID', error: 'The marketing target kind is invalid.' })
-        return null
+        return failMarketingRuntime(400, 'MARKETING_RUNTIME_TARGET_INVALID', 'The marketing target kind is invalid.')
     }
     if ((requestedEntityTypeId || requestedEntityTypeCodename) && !targetKind) {
-        res.status(400).json({ code: 'MARKETING_RUNTIME_TARGET_INVALID', error: 'The marketing target kind is required.' })
-        return null
+        return failMarketingRuntime(400, 'MARKETING_RUNTIME_TARGET_INVALID', 'The marketing target kind is required.')
     }
     if (!requestedEntityTypeId && !requestedEntityTypeCodename && targetKind) {
-        res.status(400).json({ code: 'MARKETING_RUNTIME_TARGET_INVALID', error: 'An entity selector is required for the target kind.' })
-        return null
+        return failMarketingRuntime(400, 'MARKETING_RUNTIME_TARGET_INVALID', 'An entity selector is required for the target kind.')
     }
     if (requestedEntityTypeId && !marketingPersistedIdSchema.safeParse(requestedEntityTypeId).success) {
-        res.status(400).json({ code: 'MARKETING_RUNTIME_TARGET_INVALID', error: 'The marketing entity type identifier is invalid.' })
-        return null
+        return failMarketingRuntime(400, 'MARKETING_RUNTIME_TARGET_INVALID', 'The marketing entity type identifier is invalid.')
     }
     if (requestedEntityTypeCodename && !MARKETING_RUNTIME_ENTITY_CODENAME_PATTERN.test(requestedEntityTypeCodename)) {
-        res.status(400).json({ code: 'MARKETING_RUNTIME_TARGET_INVALID', error: 'The marketing entity type codename is invalid.' })
-        return null
+        return failMarketingRuntime(400, 'MARKETING_RUNTIME_TARGET_INVALID', 'The marketing entity type codename is invalid.')
     }
     if (requestedRecordKey && !marketingSemanticKeySchema.safeParse(requestedRecordKey).success) {
-        res.status(400).json({ code: 'MARKETING_RUNTIME_RECORD_TARGET_INVALID', error: 'The marketing record key is invalid.' })
-        return null
+        return failMarketingRuntime(400, 'MARKETING_RUNTIME_RECORD_TARGET_INVALID', 'The marketing record key is invalid.')
     }
 
     if (!requestedEntityTypeId && !requestedEntityTypeCodename) {
@@ -339,22 +334,33 @@ const resolveMarketingRuntimeTarget = async (
         [targetKind, requestedEntityTypeId || requestedEntityTypeCodename]
     )
     if (rows.length === 0) {
-        res.status(404).json({ code: 'MARKETING_RUNTIME_TARGET_NOT_FOUND', error: 'The selected marketing entity type was not found.' })
-        return null
+        return failMarketingRuntime(404, 'MARKETING_RUNTIME_TARGET_NOT_FOUND', 'The selected marketing entity type was not found.')
     }
     if (rows.length > 1) {
-        res.status(409).json({ code: 'MARKETING_RUNTIME_TARGET_AMBIGUOUS', error: 'The selected marketing entity type is ambiguous.' })
-        return null
+        return failMarketingRuntime(409, 'MARKETING_RUNTIME_TARGET_AMBIGUOUS', 'The selected marketing entity type is ambiguous.')
     }
     return { entityTypeId: rows[0].id, recordKey: requestedRecordKey || null }
 }
 
-export function createRuntimeMarketingPageController(getDbExecutor: () => DbExecutor) {
+export function createRuntimeMarketingPageController(getDbExecutor: () => DbExecutor, options: RuntimeMarketingPageControllerOptions = {}) {
     const query = createQueryHelper(getDbExecutor)
+    const resolveContext: NonNullable<RuntimeMarketingPageControllerOptions['resolveRuntimeContext']> =
+        options.resolveRuntimeContext ??
+        (async (req: Request, res: Response) => {
+            const context = await resolveRuntimeSchema(getDbExecutor, query, req, res, req.params.applicationId)
+            return context ? { ...context, applicationId: req.params.applicationId } : null
+        })
+    const resolveLayout =
+        options.resolveEffectiveLayout ??
+        ((ctx: MarketingRuntimeContext, applicationId: string, target: ReturnType<typeof parseRuntimeTarget>) => {
+            if (!ctx.userId || !ctx.role) throw new EffectiveLayoutError('UNAUTHORIZED')
+            return resolveEffectiveLayoutForRequest(ctx.manager, { applicationId, userId: ctx.userId, role: ctx.role }, target)
+        })
 
     const getMarketingPage = async (req: Request, res: Response) => {
-        const ctx = await resolveRuntimeSchema(getDbExecutor, query, req, res, req.params.applicationId)
+        const ctx = await resolveContext(req, res)
         if (!ctx) return
+        const applicationId = ctx.applicationId ?? req.params.applicationId
         const locale = readSingleQueryValue(req.query.locale)
         if (!locale.valid) {
             return res
@@ -377,22 +383,25 @@ export function createRuntimeMarketingPageController(getDbExecutor: () => DbExec
                 .status(400)
                 .json({ code: 'MARKETING_RUNTIME_QUERY_INVALID', error: 'Marketing runtime query parameters are invalid.' })
         }
-        const target = await resolveMarketingRuntimeTarget(ctx.manager, ctx.schemaIdent, req, res, targetKind.value)
-        if (!target) return
+        let target: MarketingRuntimeTarget
+        try {
+            target = await resolveMarketingRuntimeTarget(ctx.manager, ctx.schemaIdent, req, targetKind.value)
+        } catch (error) {
+            if (error instanceof MarketingRuntimeRequestError) {
+                return res.status(error.httpStatus).json({ code: error.code, error: error.message })
+            }
+            throw error
+        }
 
         let effectiveLayout: EffectiveLayoutSuccess
         try {
-            const effectiveTarget = parseRuntimeTarget(req.params.applicationId, {
+            const effectiveTarget = parseRuntimeTarget(applicationId, {
                 ...(target.entityTypeId ? { targetKind: targetKind.value, entityTypeId: target.entityTypeId } : {}),
                 ...(workspaceId.value ? { workspaceId: workspaceId.value } : {}),
                 locale: requestedLocale,
                 ...(themeVariant.value ? { themeVariant: themeVariant.value } : {})
             })
-            effectiveLayout = await resolveEffectiveLayoutForRequest(
-                ctx.manager,
-                { applicationId: req.params.applicationId, userId: ctx.userId, role: ctx.role },
-                effectiveTarget
-            )
+            effectiveLayout = await resolveLayout(ctx, applicationId, effectiveTarget)
         } catch (error) {
             if (error instanceof EffectiveLayoutError) {
                 return res.status(error.httpStatus).json(effectiveLayoutErrorBody(error))
@@ -452,9 +461,8 @@ export function createRuntimeMarketingPageController(getDbExecutor: () => DbExec
             } catch {
                 return invalidLayout('Marketing widget configuration is invalid.')
             }
-            const isAuthWidget = widgetRow.widget_key === 'marketing.auth'
             let source: MarketingWidgetSource | undefined
-            if (!isAuthWidget) {
+            if (registryEntry.dataOwnership === 'entity') {
                 const parsedSource = marketingWidgetSourceSchema.safeParse(config.source)
                 if (!parsedSource.success) return invalidLayout('Marketing widget data source is invalid.')
                 const allowedSources = marketingWidgetSourceCodenames(
@@ -546,14 +554,27 @@ export function createRuntimeMarketingPageController(getDbExecutor: () => DbExec
             baseRecord(row, locale, fallbackKey, semanticKeyValue, runtimeScope)
         const recordsByObject = new Map<MarketingObjectName, MarketingPageRecord[]>()
         const sectionCopiesByKey = new Map<string, Extract<MarketingPageRecord, { kind: 'sectionCopy' }>>()
-        const brandName = localized(siteSettings.BrandName, requestedLocale, '')
+        const brandWidgetConfig = asRecord(widgetRows.find((widget) => widget.widget_key === 'marketing.brand')?.config ?? null)
+        const configuredBrandName = asString(brandWidgetConfig.brandName)
+        const configuredBrandMedia = asMarketingRecord(brandWidgetConfig.brandLogo)
+        const configuredBrandLogo = configuredBrandMedia.resource
+            ? safeMedia(
+                  configuredBrandMedia.resource,
+                  'logo',
+                  toMarketingLocalizedOptionalMap(configuredBrandMedia.alt, requestedLocale) ?? {},
+                  { decorative: configuredBrandMedia.decorative === true }
+              )
+            : undefined
+        const brandName = configuredBrandName
+            ? { en: configuredBrandName, ru: configuredBrandName }
+            : localized(siteSettings.BrandName, requestedLocale, '')
         const heroTitle = localized(siteSettings.HeroTitle, requestedLocale, '')
         const siteSettingsRecord = {
             ...runtimeBaseRecord(siteSettings, requestedLocale, 'site-settings', 'site-settings'),
             semanticKey: 'site-settings',
             kind: 'siteSettings' as const,
             brandName,
-            brandLogo: safeMedia(siteSettings.BrandLogo, 'logo', brandName),
+            brandLogo: configuredBrandLogo ?? safeMedia(siteSettings.BrandLogo, 'logo', brandName),
             heroTitle,
             heroSubtitle: localized(siteSettings.HeroSubtitle, requestedLocale, ''),
             heroAccent: localizedOptional(siteSettings.HeroAccent, requestedLocale),
@@ -572,8 +593,6 @@ export function createRuntimeMarketingPageController(getDbExecutor: () => DbExec
                       action: safeRuntimeAction(siteSettings.HeroTermsHref)!
                   }
                 : undefined,
-            heroLightPreview: safeMedia(siteSettings.HeroLightPreview, 'hero', heroTitle),
-            heroDarkPreview: safeMedia(siteSettings.HeroDarkPreview, 'hero', heroTitle),
             footerDescription: localizedOptional(siteSettings.FooterDescription, requestedLocale),
             copyright: localizedOptional(siteSettings.CopyrightText, requestedLocale),
             copyrightLabel: localizedOptional(siteSettings.CopyrightLabel, requestedLocale),
@@ -654,16 +673,15 @@ export function createRuntimeMarketingPageController(getDbExecutor: () => DbExec
             const alt = localized(row.AltText, requestedLocale, '')
             const media = safeMedia(row.ImageLight, 'logo', alt)
             const darkMedia = safeMedia(row.ImageDark, 'logo', alt)
-            const primaryMedia = media ?? darkMedia
-            return primaryMedia
-                ? ({
-                      ...runtimeBaseRecord(row, requestedLocale, `logo-${index + 1}`, row.LogoKey),
-                      kind: 'logo',
-                      name: alt,
-                      media: primaryMedia,
-                      darkMedia: darkMedia && darkMedia !== primaryMedia ? darkMedia : undefined
-                  } as MarketingPageRecord)
-                : null
+            // Partner/ecosystem entries may intentionally be text-only; keep
+            // the localized label available to the renderer.
+            return {
+                ...runtimeBaseRecord(row, requestedLocale, `logo-${index + 1}`, row.LogoKey),
+                kind: 'logo',
+                name: alt,
+                ...(media ? { media } : {}),
+                ...(darkMedia && darkMedia !== media ? { darkMedia } : {})
+            } as MarketingPageRecord
         })
         await addRecords(
             'MarketingPageFeature',
@@ -672,7 +690,11 @@ export function createRuntimeMarketingPageController(getDbExecutor: () => DbExec
                     ...runtimeBaseRecord(row, requestedLocale, `feature-${index + 1}`, row.FeatureKey),
                     kind: 'feature',
                     title: localized(row.Title, requestedLocale, ''),
-                    description: localized(row.Description, requestedLocale, ''),
+                    // Description is optional content: an empty localized map is
+                    // invalid and must be omitted instead of failing the runtime.
+                    ...(localizedOptional(row.Description, requestedLocale)
+                        ? { description: localizedOptional(row.Description, requestedLocale) }
+                        : {}),
                     ...(safeSemanticKey(row.IconKey, '') ? { iconKey: safeSemanticKey(row.IconKey, '') } : {}),
                     lightMedia: safeMedia(row.ImageLight, 'feature', localized(row.Title, requestedLocale, '')),
                     darkMedia: safeMedia(row.ImageDark, 'feature', localized(row.Title, requestedLocale, ''))
@@ -733,13 +755,15 @@ export function createRuntimeMarketingPageController(getDbExecutor: () => DbExec
             const linkedBenefits = [
                 ...(pricingBenefitsByTier.get(asString(row.id)) ?? []),
                 ...(pricingBenefitsByTier.get(tierKey) ?? [])
-            ].filter((benefit, benefitIndex, all) => all.findIndex((candidate) => candidate.id === benefit.id) === benefitIndex)
+            ].filter(
+                (benefit, benefitIndex, all) => all.findIndex((candidate) => candidate.semanticKey === benefit.semanticKey) === benefitIndex
+            )
             return {
                 ...runtimeBaseRecord(row, requestedLocale, `pricing-${index + 1}`, row.TierKey),
                 kind: 'pricingTier' as const,
                 title: localized(row.Title, requestedLocale, ''),
                 ...(description ? { description } : {}),
-                price: localized(row.Price, requestedLocale, ''),
+                price: localizedNumeric(row.Price, requestedLocale, ''),
                 ...(localizedOptional(row.Period, requestedLocale) ? { period: localizedOptional(row.Period, requestedLocale) } : {}),
                 action: action ? { label, action } : undefined,
                 benefitKeys: linkedBenefits.map((benefit) => benefit.semanticKey),
@@ -786,9 +810,9 @@ export function createRuntimeMarketingPageController(getDbExecutor: () => DbExec
             const recordKey =
                 parsedSource.data.recordKey ??
                 (target.recordKey && parsedSource.data.entityCodename === 'MarketingPageSiteSettings' ? target.recordKey : undefined)
-            if (!recordKey) return applyMarketingFieldMap(available, parsedSource.data.fieldMap)
+            if (!recordKey) return applyPageFieldMap(available, parsedSource.data.fieldMap)
             const selected = available.filter((record) => record.semanticKey === recordKey)
-            return selected.length > 0 ? applyMarketingFieldMap(selected, parsedSource.data.fieldMap) : null
+            return selected.length > 0 ? applyPageFieldMap(selected, parsedSource.data.fieldMap) : null
         }
 
         const sourceCopy = (source: MarketingWidgetSource | undefined): MarketingPageRecord[] | null => {
@@ -804,7 +828,7 @@ export function createRuntimeMarketingPageController(getDbExecutor: () => DbExec
             const key = parsedSource.data.recordKey
             if (!key) return null
             const copy = sectionCopiesByKey.get(key)
-            return copy ? applyMarketingFieldMap([copy], parsedSource.data.fieldMap) : null
+            return copy ? applyPageFieldMap([copy], parsedSource.data.fieldMap) : null
         }
 
         const runtimeWidgets = []
@@ -812,8 +836,10 @@ export function createRuntimeMarketingPageController(getDbExecutor: () => DbExec
             const validated = validatedWidgetConfigs.get(widgetRow.id)
             if (!validated) return invalidLayout('Marketing widget configuration is unavailable.')
             const { config, source, copySource } = validated
+            const registryEntry = MARKETING_WIDGET_REGISTRY[widgetRow.widget_key as keyof typeof MARKETING_WIDGET_REGISTRY]
+            if (!registryEntry) return invalidLayout('Marketing widget configuration is unavailable.')
             const contentRecords = source ? sourceRecords(source) : []
-            if (!source && widgetRow.widget_key !== 'marketing.auth') {
+            if (registryEntry.dataOwnership === 'entity' && !source) {
                 return invalidLayout('Marketing widget data source is unavailable.')
             }
             if (source && !contentRecords && widgetRow.is_active) return unavailableSource('Marketing widget data source is unavailable.')
@@ -851,7 +877,23 @@ export function createRuntimeMarketingPageController(getDbExecutor: () => DbExec
             } else if (widgetRow.widget_key === 'marketing.pricing') {
                 appendRecords(copyRecords ?? [])
                 appendRecords(contentRecords ?? [])
-                if (config.showBenefits !== false) appendRecords(recordsByObject.get('MarketingPagePricingBenefit') ?? [])
+                if (config.showBenefits !== false) {
+                    // Child collections must not share the tier `maxItems` budget:
+                    // benefits are bounded by the aggregate record limit and the
+                    // tiers that actually reached the payload. Raw persisted rows
+                    // are matched so semantic-key sanitization cannot desync them.
+                    const includedTierRows = (loaded.get('MarketingPagePricing') ?? []).slice(0, maxItems)
+                    const includedBenefitKeys = selectPricingBenefitSemanticKeysForTiers(
+                        loaded.get('MarketingPagePricingBenefit') ?? [],
+                        includedTierRows
+                    )
+                    appendRecords(
+                        (recordsByObject.get('MarketingPagePricingBenefit') ?? []).filter((record) =>
+                            includedBenefitKeys.has(asString(record.semanticKey))
+                        ),
+                        MARKETING_CHILD_RECORD_LIMIT
+                    )
+                }
             } else if (widgetRow.widget_key === 'marketing.footer') {
                 appendRecords(recordsByObject.get('MarketingPageSiteSettings') ?? [], 1)
                 appendRecords(copyRecords ?? [])

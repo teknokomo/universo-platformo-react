@@ -17,7 +17,9 @@ import {
     UpdateFailure
 } from '../shared/runtimeHelpers'
 import { RuntimeReportsService, serializeRuntimeReportCsv, type RuntimeReportFieldMetadata } from '../services/runtimeReportsService'
-import { buildRuntimeRecordAccessClause, executeRuntimeRecordsUnionDatasource, loadRuntimeObjectAttrs } from './runtimeRowsController'
+import { loadRuntimeObjectAttrs } from './runtimeRowSupport/objects'
+import { buildRuntimeRecordAccessClause } from './runtimeRowSupport/access'
+import { executeRuntimeRecordsUnionDatasource } from './runtimeRowSupport/union'
 import type { RolePermission } from '../routes/guards'
 
 const reportRunBodySchema = z

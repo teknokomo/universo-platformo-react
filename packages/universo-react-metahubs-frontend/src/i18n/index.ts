@@ -37,6 +37,7 @@ interface MetahubsBundle {
     oneCCompatible?: Record<string, unknown>
     ref?: Record<string, unknown>
     common?: Record<string, unknown>
+    table?: Record<string, unknown>
     actions?: Record<string, unknown>
     errors?: Record<string, unknown>
     projects?: Record<string, unknown>
@@ -92,6 +93,10 @@ const consolidateMetahubsNamespace = (bundle: MetahubsBundle) => {
         oneCCompatible: bundle?.oneCCompatible ?? {},
         ref: bundle?.ref ?? {},
         common: bundle?.common ?? {},
+        table: {
+            ...((metahubsRoot.table && typeof metahubsRoot.table === 'object' ? metahubsRoot.table : {}) as Record<string, unknown>),
+            ...(bundle?.table ?? {})
+        },
         errors: bundle?.errors ?? {},
         projects: bundle?.projects ?? {}
     }

@@ -114,6 +114,18 @@ const routeSources = [
         security: bearerSecurity
     },
     {
+        file: 'packages/universo-react-applications-backend/src/routes/applicationAliasesRoutes.ts',
+        mountPrefix: '',
+        tag: 'Applications',
+        security: bearerSecurity
+    },
+    {
+        file: 'packages/universo-react-applications-backend/src/routes/publicApplicationRuntimeRoutes.ts',
+        mountPrefix: '',
+        tag: 'Applications',
+        security: publicSecurity
+    },
+    {
         file: 'packages/universo-react-applications-backend/src/routes/connectorsRoutes.ts',
         mountPrefix: '',
         tag: 'Connectors',

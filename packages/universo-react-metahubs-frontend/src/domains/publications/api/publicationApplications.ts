@@ -29,7 +29,7 @@ export const createPublicationApplication = async (
     metahubId: string,
     publicationId: string,
     payload: CreatePublicationApplicationPayload
-): Promise<{ application: { id: string; name: unknown; slug: string; schemaName: string }; connector: { id: string } }> => {
+): Promise<{ application: { id: string; name: unknown; schemaName: string; alias: string }; connector: { id: string } }> => {
     const response = await apiClient.post(`/metahub/${metahubId}/publication/${publicationId}/applications`, payload)
     return response.data
 }

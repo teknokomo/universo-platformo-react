@@ -6,7 +6,7 @@ jest.mock('html-react-parser', () => ({
     __esModule: true,
     default: (html: string) => {
         // Simulate XSS protection: strip <script> tags
-        const sanitized = html.replace(/<script\b[^<]*(?:(?!<\/module>)<[^<]*)*<\/module>/gi, '')
+        const sanitized = html.replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, '')
         return sanitized
     }
 }))

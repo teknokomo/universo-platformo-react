@@ -250,6 +250,13 @@ export {
     type NumberValidationResult,
     type NumberValidationRules
 } from './validation/numberValidation'
+export {
+    MAX_VALIDATION_PATTERN_LENGTH,
+    MAX_VALIDATION_PATTERN_VALUE_LENGTH,
+    isUnsafeValidationPattern,
+    isUsableValidationPattern,
+    isUsableValidationPatternValue
+} from './validation/patternSafety'
 
 // Table constraint text builder
 export {

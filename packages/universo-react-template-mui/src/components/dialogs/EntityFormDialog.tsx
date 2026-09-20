@@ -16,7 +16,10 @@ import {
     useTheme
 } from '@mui/material'
 import DeleteIcon from '@mui/icons-material/Delete'
+import { useTranslation } from 'react-i18next'
+import i18n from '@universo-react/i18n'
 import { mergeDialogPaperProps, useDialogPresentation } from './dialogPresentation'
+import { useConfirm } from '../../hooks/useConfirm'
 
 /**
  * Configuration for a single tab in the EntityFormDialog.
@@ -29,6 +32,8 @@ export interface TabConfig {
     label: string
     /** Content to render when this tab is active */
     content: React.ReactNode
+    /** Independent tabs own their mutations and expose only a close action. */
+    actionMode?: 'form' | 'independent'
 }
 
 /**
@@ -84,6 +89,21 @@ const isBlankLocalizedScaffold = (value: unknown): boolean => {
     })
 }
 
+/**
+ * Dirty comparison must ignore internal/hydration fields (`_*`) and blank
+ * localized scaffolds that children write during their mount auto-init: those
+ * are not user edits and previously raised the discard confirmation on a
+ * pristine form.
+ */
+const buildExtraValuesSignature = (values: EntityDialogExtraValues): string => {
+    const comparable: Record<string, unknown> = {}
+    for (const [key, value] of Object.entries(values)) {
+        if (key.startsWith('_') || isBlankLocalizedScaffold(value)) continue
+        comparable[key] = value
+    }
+    return JSON.stringify(Object.fromEntries(Object.entries(comparable).sort(([left], [right]) => left.localeCompare(right))))
+}
+
 const shouldPreserveAsyncHydration = (fieldName: string, previousValue: unknown, nextValue: unknown): boolean => {
     if (fieldName.startsWith('_')) {
         return true
@@ -101,6 +121,13 @@ export interface EntityFormDialogProps {
     /** Text shown on save button while loading (e.g., "Saving...") */
     savingButtonText?: string
     cancelButtonText?: string
+    /** Text for the close-only footer on independent tabs. */
+    closeButtonText?: string
+    /** Confirmation copy used before discarding unsaved form values. */
+    discardChangesTitle?: string
+    discardChangesDescription?: string
+    discardChangesConfirmButtonText?: string
+    discardChangesCancelButtonText?: string
     /** Text for the delete button (only shown in 'edit' mode when showDeleteButton is true) */
     deleteButtonText?: string
     nameLabel: string
@@ -161,6 +188,11 @@ export const EntityFormDialog: React.FC<EntityFormDialogProps> = ({
     saveButtonText = 'Save',
     savingButtonText,
     cancelButtonText = 'Cancel',
+    closeButtonText = 'Close',
+    discardChangesTitle,
+    discardChangesDescription,
+    discardChangesConfirmButtonText,
+    discardChangesCancelButtonText,
     deleteButtonText = 'Delete',
     nameLabel,
     descriptionLabel,
@@ -189,6 +221,7 @@ export const EntityFormDialog: React.FC<EntityFormDialogProps> = ({
     const normalizedInitialExtraValues = useMemo(() => initialExtraValues || {}, [initialExtraValues])
     const theme = useTheme()
     const isMobile = useMediaQuery(theme.breakpoints.down('sm'))
+    const { t } = useTranslation('common', { i18n })
     const [name, setName] = useState(initialName)
     const [description, setDescription] = useState(initialDescription)
     const [extraValues, setExtraValues] = useState<EntityDialogExtraValues>(normalizedInitialExtraValues)
@@ -199,12 +232,19 @@ export const EntityFormDialog: React.FC<EntityFormDialogProps> = ({
     const nameInputRef = useRef<HTMLInputElement>(null)
     const extraValuesRef = useRef<EntityDialogExtraValues>(normalizedInitialExtraValues)
     const wasOpenRef = useRef(false)
+    const initialFormSnapshotRef = useRef({ name: initialName, description: initialDescription, extraValues: normalizedInitialExtraValues })
+    const { confirm } = useConfirm()
 
     const syncFormStateToInitials = useCallback(() => {
         setName(initialName)
         setDescription(initialDescription)
         setExtraValues(normalizedInitialExtraValues)
         extraValuesRef.current = normalizedInitialExtraValues
+        initialFormSnapshotRef.current = {
+            name: initialName,
+            description: initialDescription,
+            extraValues: normalizedInitialExtraValues
+        }
         setHasTouchedExtraValues(false)
         setFieldErrors({})
         setActiveTab(initialTabIndex)
@@ -238,6 +278,10 @@ export const EntityFormDialog: React.FC<EntityFormDialogProps> = ({
     useEffect(() => {
         if (open && !hasTouchedExtraValues) {
             setExtraValues(normalizedInitialExtraValues)
+            initialFormSnapshotRef.current = {
+                ...initialFormSnapshotRef.current,
+                extraValues: normalizedInitialExtraValues
+            }
         }
     }, [open, normalizedInitialExtraValues, hasTouchedExtraValues])
 
@@ -254,7 +298,7 @@ export const EntityFormDialog: React.FC<EntityFormDialogProps> = ({
         const trimmedDescription = description.trim()
 
         if (!hideDefaultFields && !trimmedName) {
-            setFieldErrors({ name: 'Name is required' })
+            setFieldErrors({ name: t('common:crud.nameRequired', { defaultValue: 'Name is required' }) })
             return
         }
 
@@ -303,8 +347,32 @@ export const EntityFormDialog: React.FC<EntityFormDialogProps> = ({
         ? !canSave({ name: name.trim(), description: description.trim(), ...extraValues })
         : !hideDefaultFields && !name.trim()
 
+    const formIsDirty =
+        open &&
+        (name !== initialFormSnapshotRef.current.name ||
+            description !== initialFormSnapshotRef.current.description ||
+            buildExtraValuesSignature(extraValues) !== buildExtraValuesSignature(initialFormSnapshotRef.current.extraValues))
+
     const handleClose = () => {
-        if (!isLoading) onClose()
+        if (isLoading) return
+        if (!formIsDirty) {
+            onClose()
+            return
+        }
+
+        void confirm({
+            // The component is scoped to the shared `common` namespace, which
+            // already ships localized discard copy; callers may
+            // still override it, but the default must never fall back to English
+            // literals in a localized UI.
+            title: discardChangesTitle ?? t('unsavedChanges.title', { defaultValue: 'Discard unsaved changes?' }),
+            description:
+                discardChangesDescription ?? t('unsavedChanges.description', { defaultValue: 'Your unsaved changes will be lost.' }),
+            confirmButtonName: discardChangesConfirmButtonText ?? t('unsavedChanges.confirm', { defaultValue: 'Discard' }),
+            cancelButtonName: discardChangesCancelButtonText ?? t('unsavedChanges.cancel', { defaultValue: 'Keep editing' })
+        }).then((accepted) => {
+            if (accepted) onClose()
+        })
     }
 
     const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
@@ -330,35 +398,35 @@ export const EntityFormDialog: React.FC<EntityFormDialogProps> = ({
         isLoading,
         errors: fieldErrors
     }
+    const tabConfigs = tabs ? tabs(formHelpers) : []
+    const activeTabConfig = tabConfigs[activeTab] ?? tabConfigs[0]
+    const isIndependentTab = activeTabConfig?.actionMode === 'independent'
 
     // Render content based on whether tabs are provided
     const renderContent = () => {
         // Tabbed layout - call tabs function with helpers
-        if (tabs) {
-            const tabConfigs = tabs(formHelpers)
-            if (tabConfigs.length > 0) {
-                return (
-                    <>
-                        <Box sx={{ borderBottom: 1, borderColor: 'divider', mx: -3, px: 3 }}>
-                            <Tabs value={activeTab} onChange={handleTabChange} aria-label='entity form tabs'>
-                                {tabConfigs.map((tab, index) => (
-                                    <Tab key={tab.id} label={tab.label} {...a11yProps(index)} />
-                                ))}
-                            </Tabs>
-                        </Box>
-                        {tabConfigs.map((tab, index) => (
-                            <TabPanel key={tab.id} value={activeTab} index={index}>
-                                {tab.content}
-                            </TabPanel>
-                        ))}
-                        {error && (
-                            <Typography color='error' variant='body2' sx={{ mt: 2 }}>
-                                {error}
-                            </Typography>
-                        )}
-                    </>
-                )
-            }
+        if (tabs && tabConfigs.length > 0) {
+            return (
+                <>
+                    <Box sx={{ borderBottom: 1, borderColor: 'divider', mx: -3, px: 3 }}>
+                        <Tabs value={activeTab} onChange={handleTabChange} aria-label={title}>
+                            {tabConfigs.map((tab, index) => (
+                                <Tab key={tab.id} label={tab.label} {...a11yProps(index)} />
+                            ))}
+                        </Tabs>
+                    </Box>
+                    {tabConfigs.map((tab, index) => (
+                        <TabPanel key={tab.id} value={activeTab} index={index}>
+                            {tab.content}
+                        </TabPanel>
+                    ))}
+                    {error && (
+                        <Typography color='error' variant='body2' sx={{ mt: 2 }}>
+                            {error}
+                        </Typography>
+                    )}
+                </>
+            )
         }
 
         // Default flat layout (backward compatible)
@@ -414,7 +482,7 @@ export const EntityFormDialog: React.FC<EntityFormDialogProps> = ({
             <DialogContent sx={presentation.contentSx}>{renderContent()}</DialogContent>
             <DialogActions sx={{ p: 3, pt: 2, justifyContent: 'space-between' }}>
                 {/* Delete button - shown in edit/copy mode when showDeleteButton is true */}
-                {(mode === 'edit' || mode === 'copy') && showDeleteButton ? (
+                {!isIndependentTab && (mode === 'edit' || mode === 'copy') && showDeleteButton ? (
                     <Tooltip
                         title={
                             deleteButtonDisabled && deleteButtonDisabledReason
@@ -460,23 +528,25 @@ export const EntityFormDialog: React.FC<EntityFormDialogProps> = ({
                 {/* Action buttons */}
                 <Box sx={{ display: 'flex', gap: 1 }}>
                     <Button onClick={handleClose} disabled={isLoading} data-testid='entity-form-cancel' sx={{ borderRadius: 1 }}>
-                        {cancelButtonText}
+                        {isIndependentTab ? closeButtonText : cancelButtonText}
                     </Button>
-                    <Button
-                        onClick={handleSave}
-                        variant='contained'
-                        data-testid='entity-form-submit'
-                        disabled={isLoading || isSubmitDisabled}
-                        sx={{
-                            borderRadius: 1,
-                            minWidth: '100px', // Ensure button doesn't shrink too much
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            whiteSpace: 'nowrap'
-                        }}
-                    >
-                        {isLoading ? savingButtonText || saveButtonText || 'Saving...' : saveButtonText}
-                    </Button>
+                    {!isIndependentTab ? (
+                        <Button
+                            onClick={handleSave}
+                            variant='contained'
+                            data-testid='entity-form-submit'
+                            disabled={isLoading || isSubmitDisabled}
+                            sx={{
+                                borderRadius: 1,
+                                minWidth: '100px', // Ensure button doesn't shrink too much
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap'
+                            }}
+                        >
+                            {isLoading ? savingButtonText || saveButtonText || 'Saving...' : saveButtonText}
+                        </Button>
+                    ) : null}
                 </Box>
             </DialogActions>
             {presentation.resizeHandle}

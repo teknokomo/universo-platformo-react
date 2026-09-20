@@ -30,7 +30,7 @@ export default function Highlights({ section, items, instanceKey }: HighlightsPr
                 {visibleItems.length === 0 ? (
                     <MarketingEmptyState section={section.title} />
                 ) : (
-                    <Grid container spacing={2}>
+                    <Grid container spacing={2} sx={{ width: '100%' }}>
                         {visibleItems.map((item) => (
                             <Grid size={{ xs: 12, sm: 6, md: 4 }} key={item.semanticKey}>
                                 <Stack

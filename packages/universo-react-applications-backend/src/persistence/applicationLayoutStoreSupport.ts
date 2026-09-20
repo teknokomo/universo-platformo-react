@@ -22,6 +22,7 @@ import {
     type LayoutWidgetDefinition
 } from '@universo-react/types'
 import { generateUuidV7, type DbExecutor } from '@universo-react/utils'
+import { acquireAdvisoryXactLock } from '@universo-react/utils/database'
 
 export const GLOBAL_SCOPE_ID = 'global'
 
@@ -476,19 +477,19 @@ export const runApplicationLayoutTransaction = async <T>(
  * different order.
  */
 export const lockApplicationLayoutMutationFamily = async (executor: DbExecutor, schemaName: string): Promise<void> => {
-    await executor.query('SELECT pg_advisory_xact_lock(hashtext($1))', [applicationLayoutMutationLockKey(schemaName)])
+    await acquireAdvisoryXactLock(executor, applicationLayoutMutationLockKey(schemaName))
 }
 
 export const lockApplicationLayoutScope = async (executor: DbExecutor, schemaName: string, scopeEntityId: string | null): Promise<void> => {
-    await executor.query('SELECT pg_advisory_xact_lock(hashtext($1))', [applicationLayoutScopeLockKey(schemaName, scopeEntityId)])
+    await acquireAdvisoryXactLock(executor, applicationLayoutScopeLockKey(schemaName, scopeEntityId))
 }
 
 export const lockApplicationLayoutRow = async (executor: DbExecutor, schemaName: string, layoutId: string): Promise<void> => {
-    await executor.query('SELECT pg_advisory_xact_lock(hashtext($1))', [applicationLayoutLockKey(schemaName, layoutId)])
+    await acquireAdvisoryXactLock(executor, applicationLayoutLockKey(schemaName, layoutId))
 }
 
 export const lockApplicationLayoutWidgetSet = async (executor: DbExecutor, schemaName: string, layoutId: string): Promise<void> => {
-    await executor.query('SELECT pg_advisory_xact_lock(hashtext($1))', [applicationLayoutWidgetsLockKey(schemaName, layoutId)])
+    await acquireAdvisoryXactLock(executor, applicationLayoutWidgetsLockKey(schemaName, layoutId))
 }
 
 /**

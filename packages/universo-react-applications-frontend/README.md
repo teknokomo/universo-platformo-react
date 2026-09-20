@@ -23,6 +23,8 @@ Frontend application for managing applications and connectors in the Universo Pl
 -   **Context-Aware Navigation**: Application-aware routing with breadcrumbs and sidebar preservation
 -   **Mutable Visibility**: Application owners/admins can switch applications between closed and public after creation
 -   **Public Discovery + Join**: Public applications are visible to regular users and support explicit join / leave flows
+-   **Anonymous Published Runtime**: Public, ready applications can render through a credential-free UUID or alias URL without exposing control-plane APIs
+-   **Application Addresses**: Superusers and users with the assignable `applicationAliases` capability can manage multiple deployment-wide aliases, primary routing, and direct/canonical behavior
 -   **Workspace Isolation**: Workspace-enabled applications isolate runtime object rows per user workspace
 -   **Workspace Limits**: Admin settings expose per-object row limits at the workspace boundary
 
@@ -49,6 +51,7 @@ Frontend application for managing applications and connectors in the Universo Pl
 -   **Dialog Forms**: Modal forms for creating and editing entities
 -   **Tabbed Application Forms**: Create, edit, and copy dialogs reuse the shared `General / Parameters` pattern
 -   **Settings Surface**: Applications with runtime schema expose `General` and `Limits` settings tabs, plus feature-specific tabs derived from active materialized layout widgets. Interpretation Network Structure/Matrix settings are saved to the `interpretationNetworkWorkspace` widget config; LMS Learning Content is not shown or saved for unrelated configurations.
+-   **Addresses Tab**: The application editor reuses the standard tab/dialog/table primitives for the immutable UUID address and alias lifecycle actions. The central Instance addresses page uses the same API with localized application selection.
 -   **Layout Widget Customization**: Supported materialized widgets can be customized from the Application Layouts screen with typed editors and an inherited/customized status label instead of raw JSON.
 
 ### 🧭 Interpretation Network Matrix Settings

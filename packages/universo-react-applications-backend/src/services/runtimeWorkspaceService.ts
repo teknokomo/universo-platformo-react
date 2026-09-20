@@ -551,6 +551,7 @@ export async function deleteSharedWorkspace(
             `
             UPDATE ${workspacesQt}
             SET status = 'archived',
+                ${qColumn('is_public_entry')} = false,
                 ${qColumn('_upl_deleted')} = true,
                 ${qColumn('_upl_deleted_at')} = NOW(),
                 ${qColumn('_upl_deleted_by')} = $2,

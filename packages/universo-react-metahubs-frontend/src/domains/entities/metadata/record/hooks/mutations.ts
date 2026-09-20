@@ -11,7 +11,7 @@ import {
     confirmOptimisticUpdate,
     confirmOptimisticCreate
 } from '@universo-react/template-mui'
-import { makePendingMarkers } from '@universo-react/utils'
+import { isApiError, makePendingMarkers, resolveApiErrorMessage } from '@universo-react/utils'
 import { applyOptimisticReorder, metahubsQueryKeys, rollbackReorderSnapshots } from '../../../../shared'
 import * as recordsApi from '../api'
 import type {
@@ -97,7 +97,12 @@ export function useCreateRecord() {
         },
         onError: (error: Error, _variables, context) => {
             rollbackOptimisticSnapshots(queryClient, context?.previousSnapshots)
-            enqueueSnackbar(error.message || t('records.createError', 'Failed to create element'), { variant: 'error' })
+            const message = isApiError(error, 'RECORD_KEY_DUPLICATE')
+                ? t('records.keyDuplicate', 'A record with the same key already exists. Change the key and try again.')
+                : isApiError(error, 'RECORD_REF_TARGET_MISSING')
+                ? t('records.refTargetMissing', 'The selected related record no longer exists. Refresh the form and choose it again.')
+                : resolveApiErrorMessage(error, t('records.createError', 'Failed to create element'))
+            enqueueSnackbar(message, { variant: 'error' })
         },
         onSettled: async (_data, _error, variables) => {
             if (queryClient.isMutating({ mutationKey: ['records'] }) <= 1) {
@@ -144,7 +149,12 @@ export function useUpdateRecord() {
         },
         onError: (error: Error, _variables, context) => {
             rollbackOptimisticSnapshots(queryClient, context?.previousSnapshots)
-            enqueueSnackbar(error.message || t('records.updateError', 'Failed to update element'), { variant: 'error' })
+            const message = isApiError(error, 'RECORD_KEY_DUPLICATE')
+                ? t('records.keyDuplicate', 'A record with the same key already exists. Change the key and try again.')
+                : isApiError(error, 'RECORD_REF_TARGET_MISSING')
+                ? t('records.refTargetMissing', 'The selected related record no longer exists. Refresh the form and choose it again.')
+                : resolveApiErrorMessage(error, t('records.updateError', 'Failed to update element'))
+            enqueueSnackbar(message, { variant: 'error' })
         },
         onSettled: async (_data, _error, variables) => {
             if (queryClient.isMutating({ mutationKey: ['records'] }) <= 1) {
@@ -181,7 +191,10 @@ export function useDeleteRecord() {
         },
         onError: (error: Error, _variables, context) => {
             rollbackOptimisticSnapshots(queryClient, context?.previousSnapshots)
-            enqueueSnackbar(error.message || t('records.deleteError', 'Failed to delete element'), { variant: 'error' })
+            const message = isApiError(error, 'RECORD_REFERENCED')
+                ? t('records.deleteReferenced', 'This record is used by other records. Remove those references first.')
+                : resolveApiErrorMessage(error, t('records.deleteError', 'Failed to delete element'))
+            enqueueSnackbar(message, { variant: 'error' })
         },
         onSettled: async (_data, _error, variables) => {
             if (queryClient.isMutating({ mutationKey: ['records'] }) <= 1) {
@@ -296,29 +309,16 @@ export function useCopyRecord() {
                     serverEntity: data
                 })
             }
-            console.info('[optimistic-copy:records] onSuccess', {
-                metahubId: _variables.metahubId,
-                objectCollectionId: _variables.objectCollectionId,
-                recordId: _variables.recordId,
-                optimisticId: context?.optimisticId,
-                realId: data?.id ?? null
-            })
             enqueueSnackbar(t('records.copySuccess', 'Element copied'), { variant: 'success' })
         },
         onError: (error: Error, _variables, context) => {
             rollbackOptimisticSnapshots(queryClient, context?.previousSnapshots)
-            enqueueSnackbar(error.message || t('records.copyError', 'Failed to copy element'), { variant: 'error' })
+            enqueueSnackbar(resolveApiErrorMessage(error, t('records.copyError', 'Failed to copy element')), { variant: 'error' })
         },
         onSettled: async (_data, _error, variables) => {
             if (queryClient.isMutating({ mutationKey: ['records'] }) <= 1) {
                 await invalidateElementScopes(queryClient, variables)
             }
-            console.info('[optimistic-copy:records] onSettled', {
-                metahubId: variables.metahubId,
-                objectCollectionId: variables.objectCollectionId,
-                recordId: variables.recordId,
-                hasError: Boolean(_error)
-            })
         }
     })
 }

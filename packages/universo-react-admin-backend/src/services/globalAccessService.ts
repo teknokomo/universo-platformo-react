@@ -16,6 +16,7 @@ import {
     softDeleteSetClause
 } from '@universo-react/utils'
 import { escapeLikeWildcards } from '@universo-react/utils/database'
+import { assertRoleAssignmentWithinCeiling } from './roleAssignmentDelegationService'
 
 /**
  * Raw role row from database
@@ -303,12 +304,17 @@ export function createGlobalAccessService({ getDbExecutor }: GlobalAccessService
     }
 
     /**
-     * Check if user can access admin panel (has admin-related permissions)
+     * Check if user can access admin panel (has admin-related permissions).
+     *
+     * Uses the dedicated shell predicate: it also admits capabilities whose
+     * management surface lives inside the admin/instance shell (for example
+     * `applicationAliases`) without widening the stricter RLS predicate used
+     * by table policies.
      */
     async function canAccessAdmin(userId: string, dbSession?: DbSession): Promise<boolean> {
         const result = await runQuery<{ can_access: boolean }>(
             `
-            SELECT admin.has_admin_permission($1::uuid) as can_access
+            SELECT admin.has_admin_shell_permission($1::uuid) as can_access
         `,
             [userId],
             dbSession
@@ -694,6 +700,12 @@ export function createGlobalAccessService({ getDbExecutor }: GlobalAccessService
                 if (superuserRole) {
                     normalizedRoleIds = [superuserRole.id]
                 }
+
+                // System-initiated assignments (bootstrap provisioning) carry no
+                // actor and follow the same skip rule as the protected-role guard.
+                if (grantedBy) {
+                    await assertRoleAssignmentWithinCeiling(trx, { actorUserId: grantedBy, roleIds: normalizedRoleIds })
+                }
             } else {
                 await assertCanMutateProtectedRoles(trx, {
                     actorUserId: grantedBy,
@@ -774,6 +786,10 @@ export function createGlobalAccessService({ getDbExecutor }: GlobalAccessService
                 targetUserId: userId,
                 requestedRoles: [{ is_superuser: roleResult[0].is_superuser, is_system: roleResult[0].is_system }]
             })
+
+            if (grantedBy) {
+                await assertRoleAssignmentWithinCeiling(trx, { actorUserId: grantedBy, roleIds: [roleId] })
+            }
 
             if (roleResult[0].is_superuser) {
                 await trx.query(

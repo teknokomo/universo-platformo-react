@@ -1,5 +1,12 @@
 import { expect, test } from '../../fixtures/test'
-import { createLoggedInApiContext, createRuntimeRow, disposeApiContext, listLayoutZoneWidgets } from '../../support/backend/api-session.mjs'
+import { createLocalizedContent } from '@universo-react/utils'
+import {
+    createLoggedInApiContext,
+    createRuntimeRow,
+    disposeApiContext,
+    listLayoutZoneWidgets,
+    sendWithCsrf
+} from '../../support/backend/api-session.mjs'
 import { recordCreatedApplication, recordCreatedMetahub, recordCreatedPublication } from '../../support/backend/run-manifest.mjs'
 import {
     setupPublishedLmsApplication,
@@ -36,9 +43,19 @@ test('@flow lms contextual access link enables guest journey without legacy QR w
             schemaName: lms.publication.schemaName
         })
         await recordCreatedApplication({
-            id: lms.applicationId,
-            slug: lms.applicationSlug
+            id: lms.applicationId
         })
+
+        const workspaceResponse = await sendWithCsrf(api, 'POST', `/api/v1/applications/${lms.applicationId}/runtime/workspaces`, {
+            name: createLocalizedContent('en', `E2E ${runManifest.runId} Access Public Workspace`)
+        })
+        if (!workspaceResponse.ok) {
+            throw new Error(`Creating LMS access-link public workspace failed with ${workspaceResponse.status}`)
+        }
+        const workspaceId = ((await workspaceResponse.json()) as { id?: string }).id
+        if (typeof workspaceId !== 'string') {
+            throw new Error('LMS access-link public workspace creation did not return an id')
+        }
 
         const learningResourcesObjectId = await waitForApplicationObjectId(api, lms.applicationId, 'Learning Resources')
         const accessLinksObjectId = await waitForApplicationObjectId(api, lms.applicationId, 'Access Links')
@@ -56,6 +73,7 @@ test('@flow lms contextual access link enables guest journey without legacy QR w
 
         const accessSlug = `access-${runManifest.runId}`
         const contentRow = await createRuntimeRow(api, lms.applicationId, {
+            workspaceId,
             objectCollectionId: learningResourcesObjectId,
             data: {
                 Title: `Access Link Learning Resource ${runManifest.runId}`,
@@ -73,9 +91,10 @@ test('@flow lms contextual access link enables guest journey without legacy QR w
                 ]
             }
         })
-        await waitForApplicationRuntimeRow(api, lms.applicationId, learningResourcesObjectId, contentRow.id)
+        await waitForApplicationRuntimeRow(api, lms.applicationId, learningResourcesObjectId, contentRow.id, { workspaceId })
 
         const accessLinkRow = await createRuntimeRow(api, lms.applicationId, {
+            workspaceId,
             objectCollectionId: accessLinksObjectId,
             data: {
                 Slug: accessSlug,
@@ -88,7 +107,22 @@ test('@flow lms contextual access link enables guest journey without legacy QR w
                 LinkTitle: 'Access link content test'
             }
         })
-        await waitForApplicationRuntimeRow(api, lms.applicationId, accessLinksObjectId, accessLinkRow.id)
+        await waitForApplicationRuntimeRow(api, lms.applicationId, accessLinksObjectId, accessLinkRow.id, { workspaceId })
+
+        await expect
+            .poll(
+                async () => {
+                    const response = await page.request.get(`/api/v1/public/a/${lms.applicationId}/links/${accessSlug}`)
+                    if (response.status() !== 200) {
+                        return `${response.status()}:${await response.text()}`
+                    }
+
+                    const payload = await response.json()
+                    return typeof payload?.id === 'string' ? payload.id : 'missing-link-id'
+                },
+                { timeout: 30_000, intervals: [500, 1_000, 2_000] }
+            )
+            .toBe(accessLinkRow.id)
 
         const widgetPayload = await listLayoutZoneWidgets(api, lms.metahub.id, lms.layoutId)
         const widgetKeys = (widgetPayload.items ?? []).map((item: { widgetKey?: string }) => item.widgetKey)

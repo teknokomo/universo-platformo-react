@@ -103,3 +103,17 @@ export function isApiError(error: unknown, code?: string): boolean {
 export function isHttpStatus(error: unknown, status: number): boolean {
     return axios.isAxiosError(error) && error.response?.status === status
 }
+
+/**
+ * Resolves the message shown to users for a failed request.
+ *
+ * The API does not localize its `message`/`detail`/`error` payloads, so they are
+ * never surfaced: they would leak English strings, machine-readable codes or
+ * internal database text into a localized UI. Callers always pass a localized
+ * fallback from their translation bundle; only errors thrown by frontend code
+ * keep their authored message.
+ */
+export function resolveApiErrorMessage(error: unknown, fallback: string): string {
+    if (!axios.isAxiosError(error) && error instanceof Error && error.message.trim()) return error.message
+    return fallback
+}

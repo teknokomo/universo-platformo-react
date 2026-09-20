@@ -4,6 +4,7 @@ import type {
     MarketingLocaleCode,
     MarketingPageConfig,
     MarketingPageRuntimeViewModel,
+    MarketingPricingCardWidth as SharedMarketingPricingCardWidth,
     MarketingProvenance,
     MarketingRuntimeIdentity,
     MarketingWidgetInstanceKey,
@@ -65,7 +66,6 @@ export interface MarketingHeroData {
     title: string
     accent?: string
     description: string
-    media?: MarketingMedia
     lead?: {
         label: string
         placeholder: string
@@ -76,10 +76,18 @@ export interface MarketingHeroData {
     }
 }
 
+export interface MarketingImageWidget extends MarketingWidgetFrame {
+    widgetKey: 'marketing.image'
+    content: {
+        media: MarketingMedia
+    }
+}
+
 export interface MarketingLogo {
     semanticKey: string
     name: string
-    media: MarketingMedia
+    /** Partner/ecosystem entries may be text-only; media is optional. */
+    media?: MarketingMedia
     action?: MarketingAction
     order?: number
     visible?: boolean
@@ -122,7 +130,6 @@ export interface MarketingPricingTier {
     period: string
     benefits: string[]
     description?: string
-    badge?: string
     featured?: boolean
     action?: MarketingAction
     order?: number
@@ -206,9 +213,18 @@ export interface MarketingHeroWidget extends MarketingWidgetFrame {
     content: MarketingHeroData
 }
 
+export type MarketingPricingCardStyle = 'featured' | 'uniform'
+export type MarketingPricingCardWidth = 'auto' | 'full'
+
+/** Render settings shared by the features collection layout. */
+export interface MarketingCollectionWidgetSettings {
+    showItemDescriptions: boolean
+    fixedItemsHeight: boolean
+}
+
 export type MarketingCollectionWidgetContent =
     | { variant: 'logos'; section: MarketingSectionCopy; items: MarketingLogo[] }
-    | { variant: 'features'; section: MarketingSectionCopy; items: MarketingFeature[] }
+    | { variant: 'features'; section: MarketingSectionCopy; items: MarketingFeature[]; config: MarketingCollectionWidgetSettings }
     | { variant: 'testimonials'; section: MarketingSectionCopy; items: MarketingTestimonial[] }
     | { variant: 'highlights'; section: MarketingSectionCopy; items: MarketingHighlight[] }
     | { variant: 'faq'; section: MarketingSectionCopy; items: MarketingFaqItem[] }
@@ -223,6 +239,11 @@ export interface MarketingPricingWidget extends MarketingWidgetFrame {
     content: {
         section: MarketingSectionCopy
         tiers: MarketingPricingTier[]
+        config: {
+            cardStyle: MarketingPricingCardStyle
+            cardWidth: MarketingPricingCardWidth
+            showBenefits: boolean
+        }
     }
 }
 
@@ -236,6 +257,7 @@ export type MarketingPageWidget =
     | MarketingNavigationWidget
     | MarketingAuthWidget
     | MarketingHeroWidget
+    | MarketingImageWidget
     | MarketingCollectionWidget
     | MarketingPricingWidget
     | MarketingFooterWidget
@@ -251,7 +273,7 @@ export interface MarketingPageData {
     locale: MarketingLocaleCode
     config: MarketingPageConfig
     widgets: MarketingPageWidget[]
-    runtime: MarketingRuntimeIdentity
+    runtime?: MarketingRuntimeIdentity
     provenance?: MarketingProvenance
     richContent?: MarketingPageRuntimeViewModel['marketingPage']['richContent']
 }

@@ -128,6 +128,33 @@ async function seedSharedPublicGuestContent(options: {
     const quizRowsByKey = new Map<string, { id: string }>()
     const publicContentNodes = LMS_DEMO_CONTENT_NODES.filter((content) => typeof content.accessLinkSlug === 'string')
 
+    // Creating a shared workspace re-seeds the snapshot demo content, including
+    // Access Links whose slugs collide with the deterministic links created
+    // below. The public slug resolver fails closed on duplicate slugs inside one
+    // workspace, so this dedicated public workspace starts from a clean link set.
+    const seededAccessLinks = (await getApplicationRuntime(options.api, options.applicationId, {
+        objectId: options.accessLinksObjectId,
+        workspaceId: options.workspaceId,
+        limit: 100,
+        offset: 0
+    })) as { rows?: Array<{ id?: string }> }
+    for (const seededLink of seededAccessLinks.rows ?? []) {
+        if (typeof seededLink.id !== 'string' || seededLink.id.length === 0) {
+            continue
+        }
+        const deleteResponse = await sendWithCsrf(
+            options.api,
+            'DELETE',
+            `/api/v1/applications/${options.applicationId}/runtime/rows/${seededLink.id}?workspaceId=${encodeURIComponent(
+                options.workspaceId
+            )}`,
+            {}
+        )
+        if (!deleteResponse.ok) {
+            throw new Error(`Deleting seeded LMS access link ${seededLink.id} failed with ${deleteResponse.status}`)
+        }
+    }
+
     for (const seededQuiz of LMS_DEMO_QUIZZES.filter((quiz) => publicContentNodes.some((content) => content.linkedQuizKey === quiz.key))) {
         const quizRow = await createRuntimeRow(options.api, options.applicationId, {
             workspaceId: options.workspaceId,
@@ -484,6 +511,15 @@ function expectNoBrowserRuntimeIssues(issues: BrowserRuntimeIssue[], label: stri
     ).toEqual([])
 }
 
+function buildPublishedRuntimeObjectHref(applicationId: string, objectCollectionId: string): string {
+    const targetQuery = new URLSearchParams({
+        targetKind: 'object',
+        entityTypeId: objectCollectionId,
+        locale: 'en'
+    }).toString()
+    return `/a/${applicationId}/${encodeURIComponent(objectCollectionId)}?${targetQuery}`
+}
+
 async function getRuntimeRecordCommandMenuItem(page: Page, rowId: string, command: 'post' | 'unpost'): Promise<Locator> {
     const commandItemByTestId = page.getByTestId(`runtime-record-command-${command}`).first()
     const commandItemByLabel = page
@@ -596,6 +632,26 @@ async function submitSnapshotImportDialog(page: Page, dialog: Locator): Promise<
     }
 
     throw new Error('Snapshot import did not return HTTP 201 after CSRF retry')
+}
+
+async function cancelEntityDialog(page: Page, dialog: Locator): Promise<void> {
+    await dialog.getByTestId(entityDialogSelectors.cancelButton).click()
+    const discardDialog = page.getByRole('dialog', { name: /Отменить несохранённые изменения|Discard unsaved changes/i })
+    await expect
+        .poll(
+            async () => {
+                if ((await discardDialog.count()) > 0) {
+                    return 'discard'
+                }
+                return (await dialog.count()) === 0 ? 'closed' : 'pending'
+            },
+            { timeout: 15_000, message: 'Entity dialog must either close or ask to discard unsaved changes' }
+        )
+        .not.toBe('pending')
+    if ((await discardDialog.count()) > 0) {
+        await discardDialog.getByRole('button', { name: /Отменить изменения|Discard/i }).click()
+    }
+    await expect(dialog).toHaveCount(0)
 }
 
 async function loadLmsFixture(): Promise<{ fixturePath: string; metahubName: string }> {
@@ -894,7 +950,7 @@ async function expectPublishedOutlineReorder(options: {
     expect(beforeOrder.length, `${label} must have at least two rows for ordering proof`).toBeGreaterThanOrEqual(2)
     const firstRowLabel = readRuntimeRowLabel(beforeRows[0], label)
 
-    await page.goto(`/a/${applicationId}/${encodeURIComponent(objectId)}`)
+    await page.goto(buildPublishedRuntimeObjectHref(applicationId, objectId))
     const surface = page.getByTestId('runtime-list-surface').first()
     await expect(surface, `${label} ordering table must use the generic runtime list surface`).toBeVisible({ timeout: 30_000 })
     await expect
@@ -1302,12 +1358,12 @@ async function expectPublishedLearningContentView(options: {
                 `${label} create menu must include ${targetLabel}`
             ).toBeVisible()
         }
-        await expect(page.getByRole('menuitem', { name: /Quiz-lite/i })).toBeDisabled()
+        await expect(page.getByRole('menuitem', { name: /Quiz \(planned\)/i })).toBeDisabled()
         await expect(page.getByText('Quiz authoring is planned for a later Learning Content phase.')).toBeVisible()
-        await expect(page.getByRole('menuitem', { name: /Assignment-lite/i })).toBeDisabled()
+        await expect(page.getByRole('menuitem', { name: /Assignment \(planned\)/i })).toBeDisabled()
         await expect(page.getByText('Assignment authoring is planned for a later Learning Content phase.')).toBeVisible()
-        await expect(page.getByRole('menuitem', { name: /Import package/i })).toBeDisabled()
-        await expect(page.getByText('File import and SCORM/xAPI support are planned for a later phase.')).toBeVisible()
+        await expect(page.getByRole('menuitem', { name: /Import package \(planned\)/i })).toBeDisabled()
+        await expect(page.getByText('File import support is planned for a later phase.')).toBeVisible()
         await page.keyboard.press('Escape')
         await expect(page.getByRole('menu')).toHaveCount(0)
 
@@ -2243,7 +2299,7 @@ async function runLmsWorkflowActionThroughUi(
     const rowId = requireRuntimeRowId(row, `Browser workflow action ${actionCodename}`)
     const expectedVersion = requireRuntimeRowVersion(row, `${objectCollectionId}/${rowId}`)
 
-    await page.goto(`/a/${applicationId}/${encodeURIComponent(objectCollectionId)}`)
+    await page.goto(buildPublishedRuntimeObjectHref(applicationId, objectCollectionId))
     const rowActions = await getVisibleRuntimeRowActions(page, rowId)
     await rowActions.click()
 
@@ -2432,7 +2488,7 @@ test.describe('LMS Snapshot Import Runtime Flow', () => {
         await page.getByTestId(buildEntityMenuTriggerSelector('entity-type', objectTypeId)).click()
         await page.getByTestId(buildEntityMenuItemSelector('entity-type', 'edit', objectTypeId)).click()
 
-        const objectTypeDialog = page.getByRole('dialog', { name: /Редактировать сущность|Edit Entity/i })
+        const objectTypeDialog = page.getByRole('dialog', { name: /Редактировать тип сущности|Edit Entity/i })
         await expect(objectTypeDialog).toBeVisible({ timeout: 30_000 })
         await expect(objectTypeDialog.getByRole('checkbox', { name: 'Поведение' })).toBeChecked()
         await expect(objectTypeDialog.getByLabel('Дополнительные вкладки')).toHaveValue(/hubs/)
@@ -2442,7 +2498,7 @@ test.describe('LMS Snapshot Import Runtime Flow', () => {
         await expect(objectTypeDialog.getByLabel('Runtime-поведение')).toBeChecked()
         await expect(objectTypeDialog.getByLabel('Физическая таблица')).toBeChecked()
         await objectTypeDialog.screenshot({ path: testInfo.outputPath('metahub-object-type-behavior-components-ru.png') })
-        await objectTypeDialog.getByTestId(entityDialogSelectors.cancelButton).click()
+        await cancelEntityDialog(page, objectTypeDialog)
         await expect(objectTypeDialog).toHaveCount(0)
 
         const enrollmentObjectId = await findObjectIdByCodename(api, importedId, 'Enrollments')
@@ -2471,7 +2527,7 @@ test.describe('LMS Snapshot Import Runtime Flow', () => {
         await expect(createObjectDialog.getByLabel('Включить дату действия')).not.toBeChecked()
         await expect(createObjectDialog.getByLabel('Префикс')).toHaveCount(0)
         await createObjectDialog.screenshot({ path: testInfo.outputPath('metahub-object-create-behavior-defaults-ru.png') })
-        await createObjectDialog.getByTestId(entityDialogSelectors.cancelButton).click()
+        await cancelEntityDialog(page, createObjectDialog)
         await expect(createObjectDialog).toHaveCount(0)
 
         let enrollmentDialog = await openEnrollmentObjectDialog()
@@ -2527,8 +2583,7 @@ test.describe('LMS Snapshot Import Runtime Flow', () => {
         }
 
         await recordCreatedApplication({
-            id: applicationId,
-            slug: linkedApplication.application.slug
+            id: applicationId
         })
 
         await applyBrowserPreferences(page, { language: 'en' })
@@ -3126,7 +3181,7 @@ test.describe('LMS Snapshot Import Runtime Flow', () => {
         await expectLocalizedValidation(ruLinkDialog, 'ru', { label: 'RU Learning Content link validation' })
         await expectNoRussianLmsFallbackText(ruLinkDialog, 'RU Learning Content link validation')
         await ruLinkDialog.screenshot({ path: testInfo.outputPath('lms-learning-content-link-validation-ru.png') })
-        await ruLinkDialog.getByTestId(entityDialogSelectors.cancelButton).click()
+        await cancelEntityDialog(page, ruLinkDialog)
         await expect(ruLinkDialog).toHaveCount(0)
 
         await applyBrowserPreferences(page, { language: 'en' })
@@ -3223,7 +3278,7 @@ test.describe('LMS Snapshot Import Runtime Flow', () => {
             throw new Error('LMS posting proof could not find an enrollment runtime row')
         }
 
-        await page.goto(`/a/${applicationId}/${encodeURIComponent(enrollmentsObjectId)}`)
+        await page.goto(buildPublishedRuntimeObjectHref(applicationId, enrollmentsObjectId))
         await runRuntimeRecordCommandFromRow(page, enrollmentToPost.id, 'post')
 
         const progressFacts = await waitForApplicationLedgerFactCount(api, applicationId, progressLedgerId, 1, {
@@ -3259,6 +3314,15 @@ test.describe('LMS Snapshot Import Runtime Flow', () => {
             2 + // track step progress plus track aggregate
             1 // learner-player preview view progress before explicit completion
 
+        // Creating the shared public guest workspace re-seeds the published snapshot
+        // demo elements (students, quiz responses, content progress) into it, exactly
+        // like the default workspace. The public guest journey adds one student per
+        // locale run, two quiz answers per run, and one completed content progress row
+        // per run on top of the seeded demo rows.
+        const expectedPublicGuestStudentRows = LMS_DEMO_STUDENTS.length + 2
+        const expectedPublicGuestQuizResponseRows = LMS_DEMO_QUIZ_RESPONSES.length + 4
+        const expectedPublicGuestContentProgressRows = LMS_DEMO_CONTENT_PROGRESS.length + 2
+
         const [
             studentRows,
             quizResponseRows,
@@ -3276,13 +3340,13 @@ test.describe('LMS Snapshot Import Runtime Flow', () => {
             waitForApplicationRuntimeRowCount(api, applicationId, contentProgressObjectId, expectedContentProgressRuntimeRows, {
                 workspaceId: mainWorkspaceId
             }),
-            waitForApplicationRuntimeRowCount(api, applicationId, studentsObjectId, 2, {
+            waitForApplicationRuntimeRowCount(api, applicationId, studentsObjectId, expectedPublicGuestStudentRows, {
                 workspaceId: publicGuestWorkspaceId
             }),
-            waitForApplicationRuntimeRowCount(api, applicationId, quizResponsesObjectId, 4, {
+            waitForApplicationRuntimeRowCount(api, applicationId, quizResponsesObjectId, expectedPublicGuestQuizResponseRows, {
                 workspaceId: publicGuestWorkspaceId
             }),
-            waitForApplicationRuntimeRowCount(api, applicationId, contentProgressObjectId, 2, {
+            waitForApplicationRuntimeRowCount(api, applicationId, contentProgressObjectId, expectedPublicGuestContentProgressRows, {
                 workspaceId: publicGuestWorkspaceId
             })
         ])
@@ -3291,9 +3355,9 @@ test.describe('LMS Snapshot Import Runtime Flow', () => {
         expect(quizResponseRows).toHaveLength(LMS_DEMO_QUIZ_RESPONSES.length)
         expect(contentProgressRows).toHaveLength(expectedContentProgressRuntimeRows)
         expect(new Set(contentProgressRows.map((row) => requireRuntimeRowId(row, 'ContentProgress'))).size).toBe(contentProgressRows.length)
-        expect(publicGuestStudentRows).toHaveLength(2)
-        expect(publicGuestQuizResponseRows).toHaveLength(4)
-        expect(publicGuestContentProgressRows).toHaveLength(2)
+        expect(publicGuestStudentRows).toHaveLength(expectedPublicGuestStudentRows)
+        expect(publicGuestQuizResponseRows).toHaveLength(expectedPublicGuestQuizResponseRows)
+        expect(publicGuestContentProgressRows).toHaveLength(expectedPublicGuestContentProgressRows)
         expect(new Set(publicGuestContentProgressRows.map((row) => requireRuntimeRowId(row, 'Public ContentProgress'))).size).toBe(
             publicGuestContentProgressRows.length
         )
@@ -3339,7 +3403,7 @@ test.describe('LMS Snapshot Import Runtime Flow', () => {
         const browserGatedSubmissionRowId = requireRuntimeRowId(browserGatedSubmissionRow, 'Browser-gated workflow submission')
         const browserGatedSubmissionVersion = requireRuntimeRowVersion(browserGatedSubmissionRow, 'Browser-gated workflow submission')
 
-        await page.goto(`/a/${applicationId}/${encodeURIComponent(assignmentSubmissionsObjectId)}`)
+        await page.goto(buildPublishedRuntimeObjectHref(applicationId, assignmentSubmissionsObjectId))
         const hiddenCapabilityRowActions = await getVisibleRuntimeRowActions(page, browserGatedSubmissionRowId)
         await hiddenCapabilityRowActions.click()
         await expect(page.getByTestId('runtime-workflow-action-StartSubmissionReview')).toHaveCount(0)
@@ -3365,7 +3429,7 @@ test.describe('LMS Snapshot Import Runtime Flow', () => {
         })
 
         await grantLmsOwnerWorkflowCapabilities(api, applicationId)
-        await page.goto(`/a/${applicationId}/${encodeURIComponent(assignmentSubmissionsObjectId)}`)
+        await page.goto(buildPublishedRuntimeObjectHref(applicationId, assignmentSubmissionsObjectId))
         const visibleCapabilityRowActions = await getVisibleRuntimeRowActions(page, browserGatedSubmissionRowId)
         await visibleCapabilityRowActions.click()
         const startReviewAction = page.getByTestId('runtime-workflow-action-StartSubmissionReview').first()

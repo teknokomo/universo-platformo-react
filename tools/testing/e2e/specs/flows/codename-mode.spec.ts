@@ -14,6 +14,7 @@ import {
 } from '../../support/backend/api-session.mjs'
 import { createBootstrapApiContext, disposeBootstrapApiContext } from '../../support/backend/bootstrap.mjs'
 import { recordCreatedMetahub } from '../../support/backend/run-manifest.mjs'
+import { confirmDiscardIfPrompted } from '../../support/browser/dialogs'
 import { entityDialogSelectors, toolbarSelectors } from '../../support/selectors/contracts'
 
 const METAHUB_MIGRATION_GUARD_LOADING_TEXT = 'Checking metahub migration status...'
@@ -197,6 +198,7 @@ test('@flow codename platform defaults switch metahub create dialog UI mode whil
         await expect(russianLocaleOption).not.toBeVisible()
 
         await localizedDialog.getByTestId(entityDialogSelectors.cancelButton).click()
+        await confirmDiscardIfPrompted(page)
         await expect(localizedDialog).toHaveCount(0)
     } finally {
         if (originalLocalizedEnabled === undefined) {
@@ -256,6 +258,7 @@ test('@flow metahub codename settings switch child entity forms between versione
         await expect(versionedCodenameField.getByRole('button', { name: 'EN' })).toHaveCount(0)
 
         await versionedDialog.getByTestId(entityDialogSelectors.cancelButton).click()
+        await confirmDiscardIfPrompted(page)
         await expect(versionedDialog).toHaveCount(0)
 
         await updateMetahubSettings(userApi, metahub.id, [
@@ -284,6 +287,7 @@ test('@flow metahub codename settings switch child entity forms between versione
         expect(resolveSettingValue(settingsResponse.settings ?? [], 'general.codenameLocalizedEnabled')).toBe(true)
 
         await localizedDialog.getByTestId(entityDialogSelectors.cancelButton).click()
+        await confirmDiscardIfPrompted(page)
         await expect(localizedDialog).toHaveCount(0)
     } finally {
         await disposeApiContext(userApi)

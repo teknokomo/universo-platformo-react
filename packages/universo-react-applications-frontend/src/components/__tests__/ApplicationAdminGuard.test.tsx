@@ -40,7 +40,6 @@ describe('ApplicationAdminGuard', () => {
         const queryClient = createQueryClient()
         queryClient.setQueryData(['applications', 'detail', 'app-1'], {
             name: 'Shell app',
-            slug: 'shell-app',
             schemaName: 'app_shell'
         })
 
@@ -48,7 +47,6 @@ describe('ApplicationAdminGuard', () => {
             data: {
                 id: 'app-1',
                 name: 'Shell app',
-                slug: 'shell-app',
                 schemaName: 'app_shell',
                 role: 'owner',
                 permissions: {

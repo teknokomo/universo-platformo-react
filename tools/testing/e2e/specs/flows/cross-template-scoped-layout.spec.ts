@@ -161,8 +161,7 @@ const createRuntimeFixture = async (runManifest: {
     const linkedApplication = await waitForLinkedApplication(api, metahub.id, publication.id)
     if (typeof linkedApplication.id !== 'string') throw new Error('Scoped-layout publication did not create an application')
     await recordCreatedApplication({
-        id: linkedApplication.id,
-        slug: typeof linkedApplication.slug === 'string' ? linkedApplication.slug : undefined
+        id: linkedApplication.id
     })
     await syncApplicationSchema(api, linkedApplication.id, {
         schemaOptions: {

@@ -56,7 +56,10 @@
         "workflowConfirmationMessage": "Run this action?",
         "confirm": "Confirm",
         "localSearchScope": "Search applies to loaded rows only.",
-        "reorderRequiresCompleteDataset": "Row reordering is available only when all rows are loaded and search is cleared."
+        "reorderRequiresCompleteDataset": "Row reordering is available only when all rows are loaded and search is cleared.",
+        "pendingCreateBlocked": "This item is still being created. Please wait a moment and try again.",
+        "workspaceLimitReached": "The workspace limit for this section has been reached ({{current}} / {{max}}).",
+        "reorderUnavailable": "Row reordering is not available for this table."
     },
     "tabular": {
         "addRow": "Add Row",
@@ -630,6 +633,11 @@
             "authSignIn": "Sign in",
             "authSignUp": "Sign up"
         },
+        "sections": {
+            "navigation": "Navigation",
+            "authentication": "Authentication",
+            "image": "Marketing image"
+        },
         "actions": {
             "signIn": "Sign in",
             "signUp": "Sign up"
@@ -637,7 +645,8 @@
         "navigation": {
             "openMenu": "Open menu",
             "closeMenu": "Close menu",
-            "landmark": "{{brand}} navigation {{index}}"
+            "landmark": "{{brand}} navigation {{index}}",
+            "landmarkFallback": "Marketing"
         },
         "form": {
             "invalidEmail": "Enter a valid email address.",
@@ -682,5 +691,12 @@
             "runtimeLoad": "Failed to load public learning content.",
             "quizSubmit": "Failed to submit the quiz."
         }
+    },
+    "colorMode": {
+        "label": "Color mode"
+    },
+    "errors": {
+        "recordKeyDuplicate": "A record with the same value already exists. Change the duplicate value and try again.",
+        "recordPatternMismatch": "The value does not match the required field format. Check the value and try again."
     }
 }

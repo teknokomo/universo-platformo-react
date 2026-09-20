@@ -2,9 +2,9 @@
     "version": 1,
     "generatedAt": "2026-09-12",
     "generator": "tools/testing/e2e/specs/flows/marketing-page-runtime.spec.ts",
-    "generatorSha256": "e3a72802fc935cfbfdaa9a688f7db9459908719fc246bb7a4162cd5a73cf8427",
+    "generatorSha256": "48eca32c7d2884fb0e2dad399e3e894f93faddf9d97ba5ff6785a6ac829b6e86",
     "sourceTemplate": "packages/universo-react-metahubs-backend/src/domains/templates/data/marketing-page.template.ts",
-    "sourceTemplateSha256": "6e332a9245ffe1167673445ef0bc9dba1536ccd1a44f8cb7b645182383cbdc8d",
+    "sourceTemplateSha256": "44d9e23a1ea60f98b8894acab8212122c0f31290d92663477e5c3fc066ea8731",
     "route": "/a/:applicationId",
     "locale": "en",
     "theme": "light",
@@ -16,10 +16,10 @@
     "assets": [
         {
             "path": "docs/en/.gitbook/assets/marketing-page/marketing-page-runtime-en-light.png",
-            "sha256": "62c3c3aeaf4b68fae602200da8c4163a2b59c4bc1bd611d2fa1f17f983c0a6f2",
+            "sha256": "4a1304040e61929a2a345bd33d7cedfd99fb82ee9ace5eb515d9420d12120623",
             "dimensions": {
                 "width": 1440,
-                "height": 5775
+                "height": 5749
             }
         }
     ],

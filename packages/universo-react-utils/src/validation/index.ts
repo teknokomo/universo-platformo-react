@@ -97,6 +97,13 @@ export {
     type NumberValidationResult,
     type NumberValidationRules
 } from './numberValidation'
+export {
+    MAX_VALIDATION_PATTERN_LENGTH,
+    MAX_VALIDATION_PATTERN_VALUE_LENGTH,
+    isUnsafeValidationPattern,
+    isUsableValidationPattern,
+    isUsableValidationPatternValue
+} from './patternSafety'
 export { buildTableConstraintText, type TranslateFn, type TableConstraintParams, type TableConstraintResult } from './tableConstraints'
 export {
     WorkspacePolicyError,

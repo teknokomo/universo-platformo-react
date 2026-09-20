@@ -25,8 +25,7 @@ type ApiContext = Awaited<ReturnType<typeof createLoggedInApiContext>>
 const getVisibleWorkspaceSwitcher = (page: Page): Locator =>
     page.getByTestId('runtime-workspace-switcher').filter({ visible: true }).first()
 
-const getDockedRuntimeNavigation = (page: Page): Locator =>
-    page.getByTestId('runtime-side-menu-docked').locator('nav[aria-label="Interpretation Network"]')
+const getDockedRuntimeNavigation = (page: Page): Locator => page.getByTestId('runtime-side-menu-docked').getByRole('navigation').first()
 
 test.describe('Interpretation Network published application @smoke', () => {
     let api: ApiContext

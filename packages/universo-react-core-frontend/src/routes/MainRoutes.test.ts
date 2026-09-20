@@ -25,4 +25,38 @@ describe('MainRoutes route ordering', () => {
         expect(resourcesRouteIndex).toBeGreaterThanOrEqual(0)
         expect(fullscreenRouteIndex).toBeLessThan(resourcesRouteIndex)
     })
+
+    it('keeps the UUID-only protected application admin branch ahead of the public runtime wildcard', () => {
+        const source = readMainRoutesSource()
+        const routeExport = source.match(/export default \[([^\]]+)\]/)?.[1] ?? ''
+        const adminRouteIndex = routeExport.indexOf('ApplicationAdminRoute')
+        const minimalRoutesIndex = routeExport.indexOf('MinimalRoutes')
+
+        expect(source).toContain("path: 'a/:applicationId/admin'")
+        expect(source).toContain("path: 'a/:applicationId/*'")
+        expect(source).toContain('<AuthGuard>')
+        expect(source).toContain('<ApplicationAdminResolver />')
+        // Aliases address the runtime only: the admin branch must hand every
+        // non-UUID reference back to the runtime entry instead of resolving the
+        // alias into the management shell.
+        expect(source).toContain('if (!isUuidV7(applicationId))')
+        expect(source).toContain('return <ApplicationsApplicationRuntimeEntry />')
+        expect(source).not.toContain('resolveApplicationRuntimeReference(applicationId)')
+        expect(adminRouteIndex).toBeGreaterThanOrEqual(0)
+        expect(minimalRoutesIndex).toBeGreaterThanOrEqual(0)
+        expect(adminRouteIndex).toBeLessThan(minimalRoutesIndex)
+    })
+
+    it('mounts the deterministic runtime entry outside AuthGuard so public and anonymous refs resolve before authorization', () => {
+        const source = readMainRoutesSource()
+        // The single entry decides between the anonymous published-read
+        // runtime and the authenticated guard/runtime fallback internally; the
+        // wildcard route itself must stay outside AuthGuard.
+        expect(source).toContain('ApplicationsApplicationRuntimeEntry')
+
+        const runtimeRouteStart = source.indexOf("path: 'a/:applicationId/*'")
+        const runtimeRouteSource = source.slice(runtimeRouteStart, runtimeRouteStart + 200)
+        expect(runtimeRouteSource).toContain('component: PublicAwareApplicationRuntime')
+        expect(runtimeRouteSource).not.toContain('guard: AuthGuard')
+    })
 })

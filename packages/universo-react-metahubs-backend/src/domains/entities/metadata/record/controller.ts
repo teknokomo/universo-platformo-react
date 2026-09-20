@@ -224,6 +224,28 @@ export function createRecordsController(createHandler: ReturnType<typeof createM
                 }
             }
 
+            // Records are copied with their data intact; unique semantic keys must
+            // be re-suffixed or the copy would collide with the source record.
+            const uniqueRootComponents = attrs.filter((cmp) => !cmp.parentComponentId && cmp.validationRules?.unique === true)
+            for (const component of uniqueRootComponents) {
+                const value = copiedData[component.codename]
+                if (typeof value !== 'string' || value.trim().length === 0) continue
+                const maxLength = typeof component.validationRules?.maxLength === 'number' ? component.validationRules.maxLength : null
+                const pattern = typeof component.validationRules?.pattern === 'string' ? component.validationRules.pattern : null
+                copiedData[component.codename] = await recordsService.suggestUniqueComponentValue(
+                    metahubId,
+                    objectCollectionId,
+                    component.codename,
+                    value,
+                    userId,
+                    {
+                        maxLength,
+                        pattern,
+                        format: typeof component.validationRules?.format === 'string' ? component.validationRules.format : null
+                    }
+                )
+            }
+
             const copied = await recordsService.create(metahubId, objectCollectionId, { data: copiedData, createdBy: userId }, userId)
 
             return res.status(201).json({

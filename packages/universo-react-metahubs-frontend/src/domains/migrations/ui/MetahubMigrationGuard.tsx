@@ -15,7 +15,7 @@ import { type ReactNode, useCallback, useState } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import { Alert, Button, Chip, DialogTitle, Stack, Typography } from '@mui/material'
 import { useTranslation } from 'react-i18next'
-import { extractAxiosError } from '@universo-react/utils'
+import { resolveApiErrorMessage } from '@universo-react/utils'
 import { MigrationGuardShell, type GuardRenderContext } from '@universo-react/migration-guard-shared'
 import type { MetahubMigrationStatusResponse } from '@universo-react/types'
 import { useMetahubMigrationsStatus } from '../hooks'
@@ -49,7 +49,7 @@ const MetahubMigrationGuard = ({ children }: MetahubMigrationGuardProps) => {
         try {
             await applyMetahubMigrations(metahubId, { cleanupMode: 'keep' })
         } catch (err) {
-            setApplyError(extractAxiosError(err).message || t('migrations.messages.applyError', 'Failed to apply migrations'))
+            setApplyError(resolveApiErrorMessage(err, t('migrations.messages.applyError', 'Failed to apply migrations')))
             setApplying(false)
             return
         }

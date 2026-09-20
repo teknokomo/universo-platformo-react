@@ -3,13 +3,16 @@ import { useTranslation } from 'react-i18next'
 import { useConfirm } from '../../hooks/useConfirm'
 
 /**
- * ConfirmDialog - Imperative confirmation dialog that renders via Portal
- * Works with useConfirm hook for Promise-based confirmations
+ * ConfirmDialog - Imperative confirmation dialog rendered through MUI's own
+ * modal portal so stacking over other open dialogs keeps the topmost dialog
+ * accessible. Works with useConfirm hook for Promise-based confirmations.
  *
- * This component should be rendered once at the root level of the application
- * and requires:
+ * The shared shell mounts exactly one instance (MainLayoutMUI). Pages inside
+ * that shell must not add their own copies: MUI marks other open modals
+ * `aria-hidden`, so stacking duplicates are both redundant and harmful.
+ *
+ * This component requires:
  * - ConfirmContextProvider in the component tree
- * - A DOM element with id="portal" in index.html
  *
  * Usage pattern:
  * ```tsx
@@ -33,8 +36,6 @@ export const ConfirmDialog = () => {
     const { onConfirm, onCancel, confirmState } = useConfirm()
     const { t } = useTranslation()
 
-    const portalElement = typeof document !== 'undefined' ? document.getElementById('portal') : null
-
     if (!confirmState.show) {
         return null
     }
@@ -47,8 +48,6 @@ export const ConfirmDialog = () => {
             onClose={onCancel}
             aria-labelledby='confirm-dialog-title'
             aria-describedby='confirm-dialog-description'
-            container={portalElement ?? undefined}
-            disablePortal={!portalElement}
             sx={{
                 zIndex: (theme) => theme.zIndex.modal + 20,
                 '& .MuiBackdrop-root': {

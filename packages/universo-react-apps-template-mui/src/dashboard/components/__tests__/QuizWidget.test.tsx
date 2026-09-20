@@ -228,6 +228,75 @@ describe('QuizWidget', () => {
         )
     })
 
+    it('submits through the client bundle when the server sanitizes the submit method out of the manifest', async () => {
+        vi.mocked(fetch).mockImplementation(async (input: string | URL) => {
+            const url = String(input)
+
+            if (url.includes('/runtime/modules?attachedToKind=object&attachedToId=object-1')) {
+                return {
+                    ok: true,
+                    json: async () => ({
+                        items: [
+                            {
+                                id: 'module-1',
+                                codename: 'quiz-widget',
+                                attachedToKind: 'object',
+                                attachedToId: 'object-1',
+                                moduleRole: 'widget',
+                                sourceKind: 'embedded',
+                                sdkApiVersion: '1.0.0',
+                                isActive: true,
+                                checksum: 'checksum-1',
+                                presentation: {
+                                    name: {
+                                        _schema: 'v1',
+                                        _primary: 'en',
+                                        locales: { en: { content: 'Quiz widget' } }
+                                    }
+                                },
+                                manifest: {
+                                    moduleRole: 'widget',
+                                    capabilities: ['metadata.read', 'rpc.client'],
+                                    methods: [{ name: 'mount', target: 'client' }]
+                                }
+                            }
+                        ]
+                    })
+                } as Response
+            }
+
+            if (url.endsWith('/runtime/modules/module-1/client')) {
+                return {
+                    ok: true,
+                    text: async () => 'module.exports = class QuizWidgetRuntime {}'
+                } as Response
+            }
+
+            throw new Error(`Unexpected fetch request: ${url}`)
+        })
+
+        renderWidget({
+            applicationId: 'app-1',
+            objectCollectionId: 'object-1',
+            apiBaseUrl: '/api/v1'
+        })
+
+        expect(await screen.findByText((content) => content.includes('Which planet is known as the Red Planet?'))).toBeInTheDocument()
+        fireEvent.click(screen.getByLabelText('Mars'))
+        fireEvent.click(screen.getByRole('button', { name: 'Check answer' }))
+
+        await waitFor(() => {
+            expect(screen.getByText('Quiz complete!')).toBeInTheDocument()
+            expect(screen.getByText('Score: 1 / 1')).toBeInTheDocument()
+        })
+
+        expect(mocks.executeClientModuleMethod).toHaveBeenCalledWith(
+            expect.objectContaining({
+                methodName: 'submit'
+            })
+        )
+    })
+
     it('shows a manual next action after an incorrect answer', async () => {
         mocks.executeClientModuleMethod.mockImplementation(async ({ methodName }: { methodName: string; args?: unknown[] }) => {
             if (methodName === 'mount') {

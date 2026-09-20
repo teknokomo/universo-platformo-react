@@ -62,7 +62,7 @@ export const SELF_HOSTED_APP_SETTINGS_LAYOUT = {
     runtimeConfig: {
         showDetailsTitle: false,
         showViewToggle: false,
-        defaultViewMode: 'list',
+        defaultViewMode: 'table',
         showFilterBar: false
     },
     objectBehavior: {
@@ -685,7 +685,24 @@ const assertSelfHostedAppEntityTypeDefinition = (entityTypeDefinitions, expected
     }
 }
 
-export function assertSelfHostedAppEnvelopeContract(envelope) {
+const matchesCanonicalCodename = (value, canonical, allowCanonicalCodenameSuffix) => {
+    if (value === canonical) {
+        return true
+    }
+
+    if (!allowCanonicalCodenameSuffix || typeof value !== 'string') {
+        return false
+    }
+
+    // The import endpoint de-duplicates metahub codenames by appending a localized
+    // "Imported"/"Импорт" suffix, so an imported copy of the fixture keeps the
+    // canonical identity prefix while the file fixture itself stays exact.
+    const escapedCanonical = canonical.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    return new RegExp(`^${escapedCanonical}(?:Imported|Импорт)\\d*$`).test(value)
+}
+
+export function assertSelfHostedAppEnvelopeContract(envelope, options = {}) {
+    const { allowCanonicalCodenameSuffix = false } = options ?? {}
     const errors = []
     const metahubNameEn = readLocalizedText(envelope?.metahub?.name, 'en')
     const metahubNameRu = readLocalizedText(envelope?.metahub?.name, 'ru')
@@ -706,10 +723,10 @@ export function assertSelfHostedAppEnvelopeContract(envelope) {
     if (metahubDescriptionRu !== SELF_HOSTED_APP_CANONICAL_METAHUB.description.ru) {
         errors.push('Self-hosted app fixture is missing the canonical Russian metahub description')
     }
-    if (metahubCodename !== SELF_HOSTED_APP_CANONICAL_METAHUB.codename.en) {
+    if (!matchesCanonicalCodename(metahubCodename, SELF_HOSTED_APP_CANONICAL_METAHUB.codename.en, allowCanonicalCodenameSuffix)) {
         errors.push(`Unexpected self-hosted app fixture codename: ${metahubCodename || '<missing>'}`)
     }
-    if (metahubCodenameRu !== SELF_HOSTED_APP_CANONICAL_METAHUB.codename.ru) {
+    if (!matchesCanonicalCodename(metahubCodenameRu, SELF_HOSTED_APP_CANONICAL_METAHUB.codename.ru, allowCanonicalCodenameSuffix)) {
         errors.push(`Unexpected Russian self-hosted app fixture codename: ${metahubCodenameRu || '<missing>'}`)
     }
     if (!isLocalizedCodenameObject(envelope?.metahub?.codename)) {

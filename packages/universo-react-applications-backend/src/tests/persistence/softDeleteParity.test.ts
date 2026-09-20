@@ -29,7 +29,6 @@ describe('Applications backend soft-delete parity', () => {
                               id: 'application-1',
                               name: { en: 'Deleted app', _primary: 'en' },
                               description: null,
-                              slug: 'deleted-app',
                               isPublic: false,
                               schemaName: 'app_deleted',
                               schemaStatus: 'draft',

@@ -37,7 +37,8 @@
         "dev": "tsc -w",
         "lint": "eslint --ext .ts src/",
         "test": "node ../../tools/testing/backend/run-jest.cjs --config ./jest.config.js",
-        "test:watch": "jest --config ./jest.config.js --watch"
+        "test:watch": "jest --config ./jest.config.js --watch",
+        "test:records-integration": "node ../../tools/testing/backend/run-jest.cjs --config ./jest.config.js src/tests/services/MetahubRecordsService.integration.test.ts"
     },
     "keywords": [
         "universo",

@@ -830,15 +830,6 @@ export const buildDefaultCopyNameInput = (name: unknown): Record<string, string>
     return result
 }
 
-export const buildCopiedApplicationSlugCandidate = (sourceSlug: string, attempt: number): string => {
-    const copySuffix = '-copy'
-    const maxBaseLength = Math.max(1, 100 - copySuffix.length)
-    const baseSlug = `${sourceSlug.slice(0, maxBaseLength)}${copySuffix}`
-    const attemptSuffix = attempt <= 1 ? '' : `-${attempt}`
-    const maxSlugLength = Math.max(1, 100 - attemptSuffix.length)
-    return `${baseSlug.slice(0, maxSlugLength)}${attemptSuffix}`
-}
-
 // ---------------------------------------------------------------------------
 // Tabular context resolution
 // ---------------------------------------------------------------------------

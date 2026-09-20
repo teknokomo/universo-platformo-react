@@ -16,7 +16,7 @@ import {
     isPlayCanvasSourceFileReference
 } from '@universo-react/types'
 
-import { withAdvisoryLock, type DbExecutor } from '@universo-react/utils/database'
+import { withAdvisoryLock, type DbExecutor, acquireAdvisoryXactLock } from '@universo-react/utils/database'
 import { OptimisticLockError } from '@universo-react/utils'
 import type { MetahubSchemaService } from '../../metahubs/services/MetahubSchemaService'
 import { MetahubConflictError, MetahubValidationError } from '../../shared/domainErrors'
@@ -227,9 +227,7 @@ export class PlayCanvasProjectsServiceBase {
             return work(this.exec)
         }
         return withAdvisoryLock(this.exec, buildPlayCanvasMetahubLifecycleLockKey(metahubId), async (metahubExecutor) => {
-            await metahubExecutor.query('SELECT pg_advisory_xact_lock(hashtext($1))', [
-                buildPlayCanvasProjectLifecycleLockKey(metahubId, projectId)
-            ])
+            await acquireAdvisoryXactLock(metahubExecutor, buildPlayCanvasProjectLifecycleLockKey(metahubId, projectId))
             return work(metahubExecutor)
         })
     }

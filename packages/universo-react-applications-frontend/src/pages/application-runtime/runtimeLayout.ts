@@ -24,6 +24,18 @@ export const normalizeRuntimeLocale = (value: string | null | undefined): string
     return /^[a-z]{2}$/.test(normalized) ? normalized : 'en'
 }
 
+export const PUBLIC_RUNTIME_LOCALES = ['en', 'ru'] as const
+export type PublicRuntimeLocale = (typeof PUBLIC_RUNTIME_LOCALES)[number]
+
+/**
+ * The anonymous published-read boundary serves only the platform locales it
+ * can actually localize. An unsupported `?locale=` value falls back to the
+ * default English runtime instead of turning a valid public application into
+ * an unavailable outcome.
+ */
+export const normalizePublicRuntimeLocale = (value: string | null | undefined): PublicRuntimeLocale =>
+    value?.trim().split(/[-_]/)[0]?.toLowerCase() === 'ru' ? 'ru' : 'en'
+
 export const withRuntimeLocale = (href: string, locale: string): string => {
     const url = new URL(href, 'http://universo-runtime.local')
     url.searchParams.set('locale', normalizeRuntimeLocale(locale))

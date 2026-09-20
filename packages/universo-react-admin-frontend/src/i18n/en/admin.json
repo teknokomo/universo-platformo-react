@@ -248,7 +248,8 @@
         "loadingRole": "Loading role...",
         "errorLoadingRole": "Failed to load role",
         "backToList": "Back to Roles",
-        "systemRoleWarning": "This is a system role. Only description, display name, and color can be modified.",
+        "systemRoleWarning": "This system role keeps its protected identity, while its permissions and presentation can be managed.",
+        "superuserRoleWarning": "The Superuser system role is immutable. Its full-access bypass cannot be changed.",
         "section": {
             "basicInfo": "Basic Information",
             "accessSettings": "Access Settings",
@@ -296,7 +297,7 @@
             "isSuperuserHint": "Full platform access with permission bypass - root user. System roles have this enabled permanently",
             "canAccessAdmin": "Admin Panel Access",
             "canAccessAdminHint": "Allow users with this role to access the admin panel and manage platform-wide settings",
-            "adminAccessInfo": "Admin panel access is automatically granted when users have permissions for roles, instances, or users subjects (with read or wildcard action).",
+            "adminAccessInfo": "Admin panel access is automatically granted when users have qualifying read or wildcard permissions, including application address administration.",
             "adminAccessInfoShort": "Automatic admin access from permissions"
         },
         "section": {
@@ -337,6 +338,8 @@
                 "settings": "Settings",
                 "metahubs": "Metahubs",
                 "applications": "Applications",
+                "applicationAliases": "Slugs",
+                "applicationAliasesDesc": "Manage deployment-wide public slugs and routing policy for applications.",
                 "profile": "Profile",
                 "onboarding": "Onboarding"
             },

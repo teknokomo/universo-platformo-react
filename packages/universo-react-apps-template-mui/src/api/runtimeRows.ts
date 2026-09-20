@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import type { RuntimeRecordCommand, RuntimeRestoreTarget } from './types'
-import { buildRuntimeApiUrl, extractErrorMessage, fetchWithCsrf } from './client'
+import { buildRuntimeApiUrl, extractErrorMessage, fetchWithCsrf, throwAppsApiError } from './client'
 
 const appendWorkspaceId = (url: string, workspaceId?: string | null): string => {
     if (!workspaceId?.trim()) return url
@@ -59,7 +59,7 @@ export async function createAppRow(options: {
         body: JSON.stringify(body)
     })
     if (!res.ok) {
-        throw new Error(await extractErrorMessage(res, 'Create row failed'))
+        await throwAppsApiError(res, 'Create row failed')
     }
     return res.json()
 }
@@ -89,7 +89,7 @@ export async function updateAppRow(options: {
         body: JSON.stringify(body)
     })
     if (!res.ok) {
-        throw new Error(await extractErrorMessage(res, 'Update row failed'))
+        await throwAppsApiError(res, 'Update row failed')
     }
     return res.json()
 }
@@ -221,7 +221,7 @@ export async function copyAppRow(options: {
         body: JSON.stringify(body)
     })
     if (!res.ok) {
-        throw new Error(await extractErrorMessage(res, 'Copy row failed'))
+        await throwAppsApiError(res, 'Copy row failed')
     }
     return res.json()
 }

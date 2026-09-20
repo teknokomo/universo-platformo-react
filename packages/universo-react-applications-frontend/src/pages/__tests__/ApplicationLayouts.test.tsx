@@ -614,10 +614,10 @@ describe('ApplicationLayouts', () => {
                     widgetKey: 'marketing.hero',
                     sortOrder: 0,
                     config: {},
-                    sourceConfig: null,
-                    sourceWidgetId: null,
-                    sourceBaseWidgetId: null,
-                    isCustomized: false,
+                    sourceConfig: { source: 'metahub', headline: 'edited' },
+                    sourceWidgetId: 'source-widget-1',
+                    sourceBaseWidgetId: 'source-widget-1',
+                    isCustomized: true,
                     isActive: true,
                     version: 1
                 },
@@ -644,6 +644,171 @@ describe('ApplicationLayouts', () => {
         expect(screen.getByText(applicationLabel)).toBeInTheDocument()
         expect(screen.getByText(inheritedLabel)).toBeInTheDocument()
         expect(screen.queryByText('source-widget-1')).not.toBeInTheDocument()
+    })
+
+    it('labels dashboard widgets inherited from a metahub layout instead of hiding their provenance', async () => {
+        const metahubLayout = {
+            id: 'layout-1',
+            scopeId: 'global',
+            scopeKind: 'global',
+            scopeEntityId: null,
+            templateKey: 'dashboard',
+            name: { en: 'Homepage' },
+            description: null,
+            config: {},
+            isActive: true,
+            isDefault: true,
+            sortOrder: 0,
+            sourceKind: 'metahub',
+            sourceLayoutId: 'source-layout-1',
+            sourceSnapshotHash: null,
+            sourceContentHash: null,
+            localContentHash: null,
+            syncState: 'clean',
+            isSourceExcluded: false,
+            version: 1
+        }
+        apiMocks.listApplicationLayouts.mockResolvedValue({
+            items: [metahubLayout],
+            pagination: { total: 1, limit: 100, offset: 0, count: 1, hasMore: false }
+        })
+        apiMocks.getApplicationLayout.mockResolvedValue({
+            item: metahubLayout,
+            widgets: [
+                {
+                    id: 'widget-inherited-dashboard',
+                    layoutId: 'layout-1',
+                    zone: 'top',
+                    widgetKey: 'overviewCards',
+                    sortOrder: 0,
+                    config: {},
+                    sourceConfig: null,
+                    sourceWidgetId: null,
+                    sourceBaseWidgetId: null,
+                    isCustomized: false,
+                    isActive: true,
+                    version: 1
+                },
+                {
+                    id: 'widget-customized-dashboard',
+                    layoutId: 'layout-1',
+                    zone: 'center',
+                    widgetKey: 'notes',
+                    sortOrder: 0,
+                    config: {},
+                    sourceConfig: { text: 'custom' },
+                    isCustomized: true,
+                    isActive: true,
+                    version: 2
+                }
+            ]
+        })
+
+        renderPage()
+
+        await waitFor(() => expect(screen.getByText('Homepage')).toBeInTheDocument())
+        expect(screen.getByText('Inherited from metahub')).toBeInTheDocument()
+        expect(screen.getByText('Customized in application')).toBeInTheDocument()
+    })
+
+    it('does not label application-authored widgets whose lineage columns are null', async () => {
+        apiMocks.getApplicationLayout.mockResolvedValue({
+            item: {
+                id: 'layout-1',
+                scopeId: 'global',
+                scopeKind: 'global',
+                scopeEntityId: null,
+                templateKey: 'dashboard',
+                name: { en: 'Homepage' },
+                description: null,
+                config: {},
+                isActive: true,
+                isDefault: true,
+                sortOrder: 0,
+                sourceKind: 'application',
+                sourceLayoutId: null,
+                sourceSnapshotHash: null,
+                sourceContentHash: null,
+                localContentHash: null,
+                syncState: 'clean',
+                isSourceExcluded: false,
+                version: 1
+            },
+            widgets: [
+                {
+                    id: 'widget-app-authored',
+                    layoutId: 'layout-1',
+                    zone: 'center',
+                    widgetKey: 'overviewCards',
+                    sortOrder: 0,
+                    config: {},
+                    sourceConfig: null,
+                    sourceWidgetId: null,
+                    sourceBaseWidgetId: null,
+                    isCustomized: false,
+                    isActive: true,
+                    version: 1
+                }
+            ]
+        })
+
+        renderPage()
+
+        await waitFor(() => expect(screen.getByText('Homepage')).toBeInTheDocument())
+        expect(screen.queryByText('Inherited from metahub')).not.toBeInTheDocument()
+        expect(screen.queryByText('Customized in application')).not.toBeInTheDocument()
+    })
+
+    it('labels shared switcher rows inherited from a metahub layout', async () => {
+        const metahubLayout = {
+            id: 'layout-1',
+            scopeId: 'global',
+            scopeKind: 'global',
+            scopeEntityId: null,
+            templateKey: 'marketing-page',
+            name: { en: 'Marketing' },
+            description: null,
+            config: {},
+            isActive: true,
+            isDefault: true,
+            sortOrder: 0,
+            sourceKind: 'metahub',
+            sourceLayoutId: 'source-layout-1',
+            sourceSnapshotHash: null,
+            sourceContentHash: null,
+            localContentHash: null,
+            syncState: 'clean',
+            isSourceExcluded: false,
+            version: 1
+        }
+        apiMocks.listApplicationLayouts.mockResolvedValue({
+            items: [metahubLayout],
+            pagination: { total: 1, limit: 100, offset: 0, count: 1, hasMore: false }
+        })
+        apiMocks.getApplicationLayout.mockResolvedValue({
+            item: metahubLayout,
+            widgets: [
+                {
+                    id: 'widget-language-switcher',
+                    layoutId: 'layout-1',
+                    zone: 'marketing-header',
+                    widgetKey: 'languageSwitcher',
+                    sortOrder: 0,
+                    config: {},
+                    sourceConfig: null,
+                    sourceWidgetId: null,
+                    sourceBaseWidgetId: null,
+                    isCustomized: false,
+                    isActive: true,
+                    version: 1
+                }
+            ]
+        })
+
+        renderPage()
+
+        await waitFor(() => expect(screen.getByText('Marketing')).toBeInTheDocument())
+        expect(screen.getByText('Inherited from metahub')).toBeInTheDocument()
     })
 
     it('renders application layouts in list view when the preference is stored', async () => {

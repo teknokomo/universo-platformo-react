@@ -4,6 +4,7 @@ import type { DbExecutor } from '@universo-react/utils'
 import { isModuleAttachmentKind, type ModuleAttachmentKind } from '@universo-react/types'
 import { createQueryHelper, resolveRuntimeSchema } from '../shared/runtimeHelpers'
 import { RuntimeModulesService } from '../services/runtimeModulesService'
+import { RUNTIME_RECORD_RULE_CODES } from '../services/runtimeRecordRules'
 
 const moduleAttachmentKindSchema = z
     .string()
@@ -37,6 +38,33 @@ export function createRuntimeModulesController(getDbExecutor: () => DbExecutor) 
         if (message.includes('circuit breaker')) return 503
         if (message.includes('timed out')) return 504
         return 400
+    }
+
+    /** Stable rule codes that may be surfaced to callers; SQLSTATE or other
+     * database codes must stay behind the generic response body. */
+    const FORWARDABLE_MODULE_ERROR_CODES = new Set<string>(Object.values(RUNTIME_RECORD_RULE_CODES))
+
+    /**
+     * Record rule failures raised by module writes carry stable codes; forward
+     * only that allowlist instead of collapsing everything or leaking raw
+     * database errors whose `code` is a SQLSTATE.
+     */
+    const resolveRuntimeModuleErrorResponse = (error: unknown): { status: number; body: Record<string, unknown> } => {
+        const record = error && typeof error === 'object' ? (error as Record<string, unknown>) : null
+        const explicitStatus = typeof record?.statusCode === 'number' ? record.statusCode : null
+        const code = typeof record?.code === 'string' && FORWARDABLE_MODULE_ERROR_CODES.has(record.code) ? record.code : null
+        if (code) {
+            const message = error instanceof Error ? error.message : String(error)
+            return {
+                status: explicitStatus ?? resolveRuntimeModuleErrorStatus(error),
+                body: {
+                    error: message,
+                    code,
+                    ...(typeof record?.field === 'string' ? { field: record.field } : {})
+                }
+            }
+        }
+        return { status: resolveRuntimeModuleErrorStatus(error), body: { error: 'Runtime module call failed' } }
     }
 
     const listModules = async (req: Request, res: Response) => {
@@ -89,7 +117,9 @@ export function createRuntimeModulesController(getDbExecutor: () => DbExecutor) 
             res.setHeader('Vary', 'Cookie')
             return res.status(200).send(bundle.bundle)
         } catch (error) {
-            return res.status(resolveRuntimeModuleErrorStatus(error)).json({
+            const failure = resolveRuntimeModuleErrorResponse(error)
+            if (failure.body.code) return res.status(failure.status).json(failure.body)
+            return res.status(failure.status).json({
                 error: 'Runtime module bundle is unavailable'
             })
         }
@@ -119,7 +149,8 @@ export function createRuntimeModulesController(getDbExecutor: () => DbExecutor) 
 
             return res.json({ result })
         } catch (error) {
-            return res.status(resolveRuntimeModuleErrorStatus(error)).json({ error: 'Runtime module call failed' })
+            const failure = resolveRuntimeModuleErrorResponse(error)
+            return res.status(failure.status).json(failure.body)
         }
     }
 

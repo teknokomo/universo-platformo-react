@@ -1,10 +1,12 @@
 import React from 'react'
 import { Dialog, DialogTitle } from '@mui/material'
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 
 import { EntityFormDialog } from '../EntityFormDialog'
 import { DialogPresentationProvider, mergeDialogPaperProps, useDialogPresentation } from '../dialogPresentation'
+import { ConfirmDialog } from '../ConfirmDialog'
+import { ConfirmContextProvider } from '../../../contexts'
 
 const DialogPresentationHarness = ({ onClose = () => undefined }: { onClose?: () => void }) => {
     const presentation = useDialogPresentation({ open: true, onClose })
@@ -44,6 +46,82 @@ const DialogPresentationCapture = ({
 
     return presentation.resizeHandle ? <>{presentation.resizeHandle}</> : null
 }
+
+describe('EntityFormDialog discard contract', () => {
+    it('closes a pristine form without asking about unsaved changes', async () => {
+        const user = userEvent.setup()
+        const onClose = jest.fn()
+
+        render(
+            <ConfirmContextProvider>
+                <EntityFormDialog
+                    open
+                    mode='edit'
+                    title='Edit application'
+                    nameLabel='Name'
+                    descriptionLabel='Description'
+                    initialExtraValues={{ value: 'initial' }}
+                    onClose={onClose}
+                    onSave={() => undefined}
+                />
+                <ConfirmDialog />
+            </ConfirmContextProvider>
+        )
+
+        await user.click(screen.getByTestId('entity-form-cancel'))
+
+        expect(onClose).toHaveBeenCalledTimes(1)
+        expect(screen.queryByRole('dialog', { name: 'common.unsavedChanges.title' })).not.toBeInTheDocument()
+    })
+
+    it('ignores internal and blank localized auto-init fields when checking dirtiness', async () => {
+        const user = userEvent.setup()
+        const onClose = jest.fn()
+
+        const AutoInitHost = () => {
+            const [initial, setInitial] = React.useState<Record<string, unknown>>({})
+            React.useEffect(() => {
+                setInitial({ value: 'initial' })
+            }, [])
+
+            return (
+                <EntityFormDialog
+                    open
+                    mode='edit'
+                    title='Edit application'
+                    nameLabel='Name'
+                    descriptionLabel='Description'
+                    initialExtraValues={initial}
+                    onClose={onClose}
+                    onSave={() => undefined}
+                    extraFields={({ setValue }) => <AutoInitFields setValue={setValue} />}
+                />
+            )
+        }
+
+        const AutoInitFields = ({ setValue }: { setValue: (field: string, value: unknown) => void }) => {
+            React.useEffect(() => {
+                // Mirror what localized/internal inputs write on mount.
+                setValue('_internal', 1)
+                setValue('nameVlc', { _schema: '1', _primary: 'en', locales: { en: { content: '', version: 1, isActive: true } } })
+            }, [setValue])
+            return <div>Auto fields</div>
+        }
+
+        render(
+            <ConfirmContextProvider>
+                <AutoInitHost />
+                <ConfirmDialog />
+            </ConfirmContextProvider>
+        )
+
+        await waitFor(() => expect(screen.getByText('Auto fields')).toBeInTheDocument())
+        await user.click(screen.getByTestId('entity-form-cancel'))
+
+        expect(onClose).toHaveBeenCalledTimes(1)
+        expect(screen.queryByRole('dialog', { name: 'Discard unsaved changes?' })).not.toBeInTheDocument()
+    })
+})
 
 describe('EntityFormDialog', () => {
     afterEach(() => {
@@ -639,5 +717,99 @@ describe('EntityFormDialog', () => {
 
         expect(document.body.style.cursor).toBe('')
         expect(document.body.style.userSelect).toBe('')
+    })
+
+    it('hides form actions on an independent tab while keeping the shared dialog shell', async () => {
+        const user = userEvent.setup()
+
+        render(
+            <EntityFormDialog
+                open
+                mode='edit'
+                title='Edit application'
+                nameLabel='Name'
+                descriptionLabel='Description'
+                cancelButtonText='Cancel'
+                closeButtonText='Close'
+                showDeleteButton
+                onClose={() => undefined}
+                onDelete={() => undefined}
+                onSave={() => undefined}
+                tabs={() => [
+                    { id: 'general', label: 'General', content: <div>General content</div> },
+                    { id: 'addresses', label: 'Addresses', content: <div>Addresses content</div>, actionMode: 'independent' }
+                ]}
+            />
+        )
+
+        expect(screen.getByTestId('entity-form-submit')).toBeInTheDocument()
+        expect(screen.getByTestId('entity-form-delete')).toBeInTheDocument()
+
+        await user.click(screen.getByRole('tab', { name: 'Addresses' }))
+
+        expect(screen.queryByTestId('entity-form-submit')).not.toBeInTheDocument()
+        expect(screen.queryByTestId('entity-form-delete')).not.toBeInTheDocument()
+        expect(screen.getByTestId('entity-form-cancel')).toHaveTextContent('Close')
+    })
+
+    it('uses the shared confirmation before closing a dirty form from an independent tab', async () => {
+        const user = userEvent.setup()
+        const onClose = jest.fn()
+
+        render(
+            <ConfirmContextProvider>
+                <EntityFormDialog
+                    open
+                    mode='edit'
+                    title='Edit application'
+                    nameLabel='Name'
+                    descriptionLabel='Description'
+                    initialExtraValues={{ value: 'initial' }}
+                    showDeleteButton
+                    onClose={onClose}
+                    onDelete={() => undefined}
+                    onSave={() => undefined}
+                    tabs={({ values, setValue }) => [
+                        {
+                            id: 'general',
+                            label: 'General',
+                            content: (
+                                <>
+                                    <div data-testid='value'>{String(values.value)}</div>
+                                    <button type='button' onClick={() => setValue('value', 'edited')}>
+                                        Change value
+                                    </button>
+                                </>
+                            )
+                        },
+                        { id: 'addresses', label: 'Addresses', content: <div>Addresses content</div>, actionMode: 'independent' }
+                    ]}
+                />
+                <ConfirmDialog />
+            </ConfirmContextProvider>
+        )
+
+        await user.click(screen.getByRole('button', { name: 'Change value' }))
+        await user.click(screen.getByRole('tab', { name: 'Addresses' }))
+        await user.click(screen.getByTestId('entity-form-cancel'))
+
+        // Nested confirmation is queried through accessible roles so the
+        // aria-labelledby/description contract is exercised, not only text.
+        // The primitive must request the shared localized `common.unsavedChanges`
+        // keys; the harness returns the namespaced key, which proves the source.
+        const discardDialog = screen.getByRole('dialog', { name: 'common.unsavedChanges.title' })
+        expect(discardDialog).toBeInTheDocument()
+        expect(discardDialog).toHaveAccessibleDescription('common.unsavedChanges.description')
+        await user.click(within(discardDialog).getByRole('button', { name: 'common.unsavedChanges.cancel' }))
+        expect(onClose).not.toHaveBeenCalled()
+
+        await user.click(screen.getByTestId('entity-form-cancel'))
+        await user.click(
+            within(screen.getByRole('dialog', { name: 'common.unsavedChanges.title' })).getByRole('button', {
+                name: 'common.unsavedChanges.confirm'
+            })
+        )
+
+        expect(onClose).toHaveBeenCalledTimes(1)
     })
 })

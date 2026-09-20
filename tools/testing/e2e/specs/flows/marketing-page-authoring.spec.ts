@@ -36,6 +36,7 @@ import {
 import { entityDialogSelectors, toolbarSelectors } from '../../support/selectors/contracts'
 import { parseJsonResponse, readLocalizedText } from './entity-runtime-helpers'
 import { flattenMarketingPageRecords, type RuntimePayload } from '../../support/marketingPageRuntimeMaterialization'
+import { installMarketingPageLocalMedia } from '../../support/marketingPageMedia'
 
 type ApiSession = Awaited<ReturnType<typeof createLoggedInApiContext>>
 
@@ -48,7 +49,6 @@ type EntityResponse = {
 
 type PublicationApplication = {
     id?: string
-    slug?: string
 }
 
 type PublicationApplicationsResponse = {
@@ -298,6 +298,7 @@ test('@flow @combined @marketing-page browser authoring publishes edited content
     const metahubCodename = `${executionRunId}-marketing-authoring`
     const publicationName = `E2E ${executionRunId} Marketing Publication`
     const updatedHeroTitle = `Our latest ${executionRunId}`
+    const brandLogoUrl = 'https://mui.com/static/screenshots/material-ui/getting-started/templates/dashboard.jpg'
 
     const api = await createLoggedInApiContext({
         email: runManifest.testUser.email,
@@ -612,7 +613,7 @@ test('@flow @combined @marketing-page browser authoring publishes edited content
         if (!application.id) {
             throw new Error('The linked marketing application did not return an id')
         }
-        await recordCreatedApplication({ id: application.id, slug: application.slug })
+        await recordCreatedApplication({ id: application.id })
         const connector = await waitForApplicationConnector(api, application.id)
         const connectorName = readLocalizedText(connector.name)
         if (!connectorName) {
@@ -745,6 +746,32 @@ test('@flow @combined @marketing-page browser authoring publishes edited content
         await applicationWidgetDialog.getByRole('button', { name: 'Отмена', exact: true }).click()
         await expect(applicationWidgetDialog).toHaveCount(0)
 
+        const brandWidget = marketingWidgets.widgets?.find((item) => readLayoutWidgetConfig(item).instanceKey === 'brand')
+        if (!brandWidget?.id) throw new Error('The application marketing layout did not expose the brand widget')
+        await page
+            .getByTestId(`layout-widget-${brandWidget.id}`)
+            .getByRole('button', { name: 'Редактировать виджет: Бренд', exact: true })
+            .click()
+        const brandWidgetDialog = page.getByRole('dialog').filter({ has: page.getByTestId('marketing-widget-config-dialog') })
+        await expect(brandWidgetDialog).toBeVisible()
+        await expect(brandWidgetDialog.getByRole('alert')).toHaveCount(0)
+        await brandWidgetDialog.getByLabel('URL логотипа бренда', { exact: true }).fill(brandLogoUrl)
+        const brandLogoResponse = waitForSettledMutationResponse(
+            page,
+            (response) =>
+                responseIsMutation(
+                    response,
+                    'PATCH',
+                    new RegExp(
+                        `/api/v1/applications/${application.id}/layouts/${applicationMarketingLayout.id}/zone-widget/${brandWidget.id}/config$`
+                    )
+                ),
+            { label: 'Saving the marketing brand logo through the widget dialog', timeout: 90_000 }
+        )
+        await brandWidgetDialog.getByRole('button', { name: 'Сохранить', exact: true }).click()
+        expect((await brandLogoResponse).ok()).toBe(true)
+        await expect(brandWidgetDialog).toHaveCount(0)
+
         const heroWidget = marketingWidgets.widgets?.find((item) => readLayoutWidgetConfig(item).instanceKey === 'hero')
         if (!heroWidget?.id) throw new Error('The application marketing layout did not expose the hero widget')
         const applicationHeroSurface = page.getByTestId(`layout-widget-${heroWidget.id}`)
@@ -815,12 +842,30 @@ test('@flow @combined @marketing-page browser authoring publishes edited content
 
         // Reload the published app and assert the semantic value rendered by
         // the MUI marketing template, not an implementation detail or ID.
+        await installMarketingPageLocalMedia(page)
         await page.goto(`/a/${application.id}`)
         await expect(page.locator('#marketing-page-main')).toBeVisible({ timeout: 120_000 })
         const publishedHeroHeadings = page.getByRole('heading', { name: new RegExp(`${escapeRegExp(updatedHeroTitle)}\\s+products`) })
         await expect(publishedHeroHeadings).toHaveCount(2)
         await expect(publishedHeroHeadings.first()).toBeVisible()
         await expect(page.locator('#marketing-widget-faq')).toHaveCount(0)
+
+        const expectPublishedBrandLogo = async (logo: Locator, label: string): Promise<void> => {
+            await expect(logo, `${label} must render the configured brand logo image`).toHaveCount(1)
+            await expect
+                .poll(async () => logo.evaluate((element) => (element as HTMLImageElement).naturalWidth), {
+                    message: `Waiting for ${label} to decode the configured brand logo`,
+                    timeout: 30_000
+                })
+                .toBeGreaterThan(0)
+            await expect(logo, `${label} must be visible`).toBeVisible()
+        }
+        await expectPublishedBrandLogo(
+            page.locator(`[data-testid="marketing-header-shell"] img[src="${brandLogoUrl}"]`),
+            'Published marketing header'
+        )
+        await expectPublishedBrandLogo(page.locator(`#footer img[src="${brandLogoUrl}"]`), 'Published marketing footer')
+
         await page.reload()
         await expect(publishedHeroHeadings).toHaveCount(2, {
             timeout: 120_000

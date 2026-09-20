@@ -17,7 +17,7 @@ import {
 import { recordCreatedApplication, recordCreatedMetahub, recordCreatedPublication } from '../../support/backend/run-manifest.mjs'
 import { applyBrowserPreferences } from '../../support/browser/preferences'
 import { applicationSelectors } from '../../support/selectors/contracts'
-import { buildKindSuffix, createPresetEntityTypeViaApi, type ApiContext } from './entity-runtime-helpers'
+import { buildKindSuffix, createPresetEntityTypeViaApi, readLocalizedText, type ApiContext } from './entity-runtime-helpers'
 
 type RuntimeSectionRecord = {
     id?: string
@@ -85,7 +85,7 @@ async function createLegacyCompatibleObjectViaApi(
         )
     }
 
-    const body = (await response.json()) as { data?: { id?: string } } & { id?: string }
+    const body = (await response.json()) as { data?: { id?: string; codename?: unknown } } & { id?: string; codename?: unknown }
     return body.data ?? body
 }
 
@@ -144,9 +144,16 @@ test('@flow @combined published standard preset instances surface as runtime sec
         })
         expect(createObjectResponse.ok).toBe(true)
 
-        const createdObjectPayload = (await createObjectResponse.json()) as { id?: string }
+        const createdObjectPayload = (await createObjectResponse.json()) as { id?: string; codename?: unknown }
         if (!createdObjectPayload?.id) {
             throw new Error('Object runtime control entity did not return an id')
+        }
+
+        // The metahub codename style normalizes the requested codename, so the
+        // runtime resolver must be addressed with the persisted codename text.
+        const objectRuntimeCodename = readLocalizedText(createdObjectPayload.codename)
+        if (!objectRuntimeCodename) {
+            throw new Error('Object runtime control entity did not expose a normalized codename')
         }
 
         const publishedInstanceNames: string[] = [objectName]
@@ -212,8 +219,7 @@ test('@flow @combined published standard preset instances surface as runtime sec
         }
 
         await recordCreatedApplication({
-            id: applicationId,
-            slug: linkedApplication.application.slug
+            id: applicationId
         })
 
         await syncApplicationSchema(api, applicationId)
@@ -223,7 +229,9 @@ test('@flow @combined published standard preset instances surface as runtime sec
         await expect
             .poll(
                 async () => {
-                    runtimeState = (await getApplicationRuntime(api, applicationId)) as RuntimeState
+                    runtimeState = (await getApplicationRuntime(api, applicationId, {
+                        objectCollectionCodename: objectRuntimeCodename
+                    })) as RuntimeState
                     objectSection = runtimeState.sections?.find((section) => section.name === objectName)
                     return typeof objectSection?.id === 'string'
                 },

@@ -67,8 +67,8 @@ async function waitForUser(credentials: { email: string; password: string }): Pr
         .toBe(true)
 }
 
-async function waitForApplication(api: ApiSession, metahubId: string, publicationId: string): Promise<{ id: string; slug?: string }> {
-    let application: { id?: string; slug?: string } | null = null
+async function waitForApplication(api: ApiSession, metahubId: string, publicationId: string): Promise<{ id: string }> {
+    let application: { id?: string } | null = null
     await expect
         .poll(async () => {
             const payload = await listPublicationApplications(api, metahubId, publicationId)
@@ -77,7 +77,7 @@ async function waitForApplication(api: ApiSession, metahubId: string, publicatio
         })
         .toBe(true)
     if (!application?.id) throw new Error('Marketing workspace fixture application was not created')
-    return { id: application.id, slug: application.slug }
+    return { id: application.id }
 }
 
 function workspacePath(applicationId: string, workspaceId?: string): string {
@@ -137,7 +137,7 @@ test('@flow @permission @marketing-page verifies workspace lifecycle, seed isola
 
         const application = await waitForApplication(ownerApi, metahub.id, publication.id)
         applicationId = application.id
-        await recordCreatedApplication({ id: application.id, slug: application.slug })
+        await recordCreatedApplication({ id: application.id })
         await syncApplicationSchema(ownerApi, application.id, {
             schemaOptions: { workspaceModeRequested: 'enabled', acknowledgeIrreversibleWorkspaceEnablement: true }
         })

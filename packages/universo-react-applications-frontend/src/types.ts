@@ -81,7 +81,6 @@ export interface Application {
     name: VersatileLocalizedContent
     description?: VersatileLocalizedContent
     settings?: ApplicationDialogSettings | null
-    slug?: string
     isPublic: boolean
     workspacesEnabled: boolean
     createdAt: string
@@ -110,7 +109,6 @@ export interface ApplicationDisplay {
     name: string
     description: string
     settings?: ApplicationDialogSettings | null
-    slug?: string
     isPublic: boolean
     workspacesEnabled: boolean
     createdAt: string
@@ -131,7 +129,6 @@ export interface ApplicationLocalizedPayload {
     settings?: Partial<ApplicationDialogSettings>
     namePrimaryLocale?: string
     descriptionPrimaryLocale?: string
-    slug?: string
     expectedVersion?: number
     isPublic?: boolean
     workspacesEnabled?: boolean
@@ -369,7 +366,6 @@ export function toApplicationDisplay(application: Application, locale = 'en'): A
         id: application.id,
         name: getVLCString(application.name, normalizeLocale(locale)),
         description: getVLCString(application.description, normalizeLocale(locale)),
-        slug: application.slug,
         isPublic: application.isPublic,
         workspacesEnabled: application.workspacesEnabled,
         createdAt: application.createdAt,

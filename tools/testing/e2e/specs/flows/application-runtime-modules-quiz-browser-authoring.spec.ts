@@ -233,13 +233,31 @@ async function applyCenteredQuizLayout(api: LoggedInApiContext, metahubId: strin
         config: {
             ...currentConfig,
             ...QUIZ_CENTERED_LAYOUT_CONFIG
-        }
+        },
+        expectedVersion: layout?.version
     })
     expect(response.ok).toBe(true)
 
-    const zoneWidgets = await listLayoutZoneWidgets(api, metahubId, layoutId)
-    for (const widget of zoneWidgets?.items?.filter((item) => removableWidgetKeys.has(String(item?.widgetKey ?? ''))) ?? []) {
-        const removeResponse = await sendWithCsrf(api, 'DELETE', `/api/v1/metahub/${metahubId}/layout/${layoutId}/zone-widget/${widget.id}`)
+    // Removing one widget re-normalizes zone sort orders, which bumps the
+    // optimistic-lock versions of the remaining widgets. Re-read the list on
+    // every iteration so each delete uses the current version.
+    let removableWidget = true
+    while (removableWidget) {
+        const zoneWidgets = await listLayoutZoneWidgets(api, metahubId, layoutId)
+        const widget = zoneWidgets?.items?.find((item) => removableWidgetKeys.has(String(item?.widgetKey ?? '')))
+        if (!widget) {
+            removableWidget = false
+            continue
+        }
+
+        if (!Number.isSafeInteger(widget?.version) || widget.version < 1) {
+            throw new Error(`Layout widget ${widget?.id ?? 'unknown'} did not return a valid optimistic-lock version`)
+        }
+        const removeResponse = await sendWithCsrf(
+            api,
+            'DELETE',
+            `/api/v1/metahub/${metahubId}/layout/${layoutId}/zone-widget/${widget.id}?expectedVersion=${widget.version}`
+        )
         expect(removeResponse.status).toBe(204)
     }
 }
@@ -543,8 +561,7 @@ test('@flow quiz widget modules authoring can be completed through browser surfa
 
         const application = await createApplicationThroughBrowser(page, api, metahub.id, publicationId, applicationName)
         await recordCreatedApplication({
-            id: application.id,
-            slug: application.slug
+            id: application.id
         })
 
         const runtimeModulesResponse = page.waitForResponse(

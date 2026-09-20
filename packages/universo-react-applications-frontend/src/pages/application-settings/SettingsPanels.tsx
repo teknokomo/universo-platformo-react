@@ -108,15 +108,28 @@ export const SaveSettingsButton = ({
     </Box>
 )
 
+export const PUBLIC_ENTRY_WORKSPACE_LOAD_MORE_VALUE = '__load_more__'
+
 export const GeneralSettingsPanel = ({
     t,
     effectiveVisibility,
     currentVisibility,
     workspacesEnabled,
+    publicEntryWorkspaceSupported,
+    publicEntryWorkspaceId,
+    publicEntryWorkspaceOptions,
+    publicEntryWorkspaceLoading,
+    publicEntryWorkspaceError,
+    publicEntryWorkspaceSaving,
+    publicEntryWorkspaceHasMore,
+    publicEntryWorkspaceLoadingMore,
     settings,
     hasChanges,
     isSaving,
     onVisibilityChange,
+    onPublicEntryWorkspaceChange,
+    onPublicEntryWorkspaceLoadMore,
+    onPublicEntryWorkspaceRetry,
     onSettingsChange,
     onSave
 }: {
@@ -124,10 +137,21 @@ export const GeneralSettingsPanel = ({
     effectiveVisibility: boolean
     currentVisibility: boolean | undefined
     workspacesEnabled: boolean | undefined
+    publicEntryWorkspaceSupported: boolean
+    publicEntryWorkspaceId: string | null | undefined
+    publicEntryWorkspaceOptions: Array<{ id: string; label: string }>
+    publicEntryWorkspaceLoading: boolean
+    publicEntryWorkspaceError: boolean
+    publicEntryWorkspaceSaving: boolean
+    publicEntryWorkspaceHasMore: boolean
+    publicEntryWorkspaceLoadingMore: boolean
     settings: ApplicationDialogSettings
     hasChanges: boolean
     isSaving: boolean
     onVisibilityChange: (value: boolean | undefined) => void
+    onPublicEntryWorkspaceChange: (value: string | null) => void
+    onPublicEntryWorkspaceLoadMore: () => void
+    onPublicEntryWorkspaceRetry: () => void | Promise<void>
     onSettingsChange: SettingsChange
     onSave: SaveHandler
 }) => (
@@ -186,6 +210,81 @@ export const GeneralSettingsPanel = ({
                             'Workspace mode is selected during application creation and cannot be changed after the runtime structure is defined.'
                         )}
                     </Typography>
+                    {workspacesEnabled ? (
+                        <Box
+                            data-testid='application-setting-public-entry-workspace'
+                            sx={{
+                                mt: 2,
+                                display: 'grid',
+                                gridTemplateColumns: { xs: '1fr', md: 'minmax(0, 1fr) minmax(240px, 320px)' },
+                                gap: 2,
+                                alignItems: 'center'
+                            }}
+                        >
+                            <Box sx={{ minWidth: 0 }}>
+                                <Typography variant='subtitle2'>
+                                    {t('settings.publicEntryWorkspaceTitle', 'Public entry workspace')}
+                                </Typography>
+                                <Typography variant='body2' sx={{ color: 'text.secondary' }}>
+                                    {t(
+                                        'settings.publicEntryWorkspaceDescription',
+                                        'Anonymous visitors use this shared workspace when the application is public. The server selects it automatically.'
+                                    )}
+                                </Typography>
+                            </Box>
+                            {!publicEntryWorkspaceSupported ? (
+                                <Alert severity='info' data-testid='application-settings-public-entry-workspace-not-ready'>
+                                    {t('settings.publicEntryWorkspaceNotReady')}
+                                </Alert>
+                            ) : publicEntryWorkspaceError ? (
+                                <Alert
+                                    severity='error'
+                                    action={
+                                        <Button color='inherit' size='small' onClick={() => void onPublicEntryWorkspaceRetry()}>
+                                            {t('settings.publicEntryWorkspaceRetry')}
+                                        </Button>
+                                    }
+                                >
+                                    {t('settings.publicEntryWorkspaceLoadError')}
+                                </Alert>
+                            ) : (
+                                <FormControl size='small' fullWidth disabled={publicEntryWorkspaceLoading || publicEntryWorkspaceSaving}>
+                                    <InputLabel>{t('settings.publicEntryWorkspaceLabel')}</InputLabel>
+                                    <Select
+                                        label={t('settings.publicEntryWorkspaceLabel')}
+                                        value={publicEntryWorkspaceId ?? ''}
+                                        onChange={(event) => {
+                                            const nextValue = event.target.value
+                                            if (nextValue === PUBLIC_ENTRY_WORKSPACE_LOAD_MORE_VALUE) {
+                                                onPublicEntryWorkspaceLoadMore()
+                                                return
+                                            }
+                                            onPublicEntryWorkspaceChange(nextValue || null)
+                                        }}
+                                        data-testid='application-settings-public-entry-workspace-select'
+                                    >
+                                        <MenuItem value=''>{t('settings.publicEntryWorkspaceNone')}</MenuItem>
+                                        {publicEntryWorkspaceOptions.map((workspace) => (
+                                            <MenuItem key={workspace.id} value={workspace.id}>
+                                                {workspace.label}
+                                            </MenuItem>
+                                        ))}
+                                        {publicEntryWorkspaceHasMore ? (
+                                            <MenuItem
+                                                value={PUBLIC_ENTRY_WORKSPACE_LOAD_MORE_VALUE}
+                                                disabled={publicEntryWorkspaceLoadingMore}
+                                                data-testid='application-settings-public-entry-workspace-load-more'
+                                                sx={{ justifyContent: 'center', gap: 1, color: 'text.secondary' }}
+                                            >
+                                                {publicEntryWorkspaceLoadingMore ? <CircularProgress size={14} color='inherit' /> : null}
+                                                {t('settings.publicEntryWorkspaceLoadMore')}
+                                            </MenuItem>
+                                        ) : null}
+                                    </Select>
+                                </FormControl>
+                            )}
+                        </Box>
+                    ) : null}
                 </Box>
                 <FormControlLabel
                     data-testid='application-settings-visibility-toggle'

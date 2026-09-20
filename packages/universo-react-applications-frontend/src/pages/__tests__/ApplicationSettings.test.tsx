@@ -19,12 +19,16 @@ vi.mock('../../api/useApplicationDetails', () => ({
 }))
 
 vi.mock('../../api/applications', () => ({
+    getApplicationPublicEntryWorkspace: vi.fn(),
+    getApplicationRuntimeWorkspace: vi.fn(),
     getApplicationWorkspaceLimits: vi.fn(),
+    listApplicationRuntimeWorkspaces: vi.fn(),
     listApplicationLayoutScopes: vi.fn(),
     listApplicationLayouts: vi.fn(),
     listApplicationLayoutWidgets: vi.fn(),
     resetApplicationLayoutWidgetConfigsBatch: vi.fn(),
     updateApplicationLayoutWidgetConfigsBatch: vi.fn(),
+    updateApplicationPublicEntryWorkspace: vi.fn(),
     updateApplicationWorkspaceLimits: vi.fn(),
     updateApplication: vi.fn()
 }))
@@ -42,27 +46,34 @@ import commonEn from '@universo-react/i18n/locales/en/common.json'
 import commonRu from '@universo-react/i18n/locales/ru/common.json'
 import applicationsEn from '../../i18n/locales/en/applications.json'
 import applicationsRu from '../../i18n/locales/ru/applications.json'
+import { getApplicationsTranslations } from '../../i18n'
 import ApplicationSettings from '../ApplicationSettings'
 import { useApplicationDetails } from '../../api/useApplicationDetails'
 import {
+    getApplicationPublicEntryWorkspace,
     getApplicationWorkspaceLimits,
+    listApplicationRuntimeWorkspaces,
     listApplicationLayoutScopes,
     listApplicationLayouts,
     listApplicationLayoutWidgets,
     resetApplicationLayoutWidgetConfigsBatch,
     updateApplication,
     updateApplicationLayoutWidgetConfigsBatch,
+    updateApplicationPublicEntryWorkspace,
     updateApplicationWorkspaceLimits
 } from '../../api/applications'
 
 const mockedUseApplicationDetails = vi.mocked(useApplicationDetails)
+const mockedGetApplicationPublicEntryWorkspace = vi.mocked(getApplicationPublicEntryWorkspace)
 const mockedGetApplicationWorkspaceLimits = vi.mocked(getApplicationWorkspaceLimits)
+const mockedListApplicationRuntimeWorkspaces = vi.mocked(listApplicationRuntimeWorkspaces)
 const mockedListApplicationLayoutScopes = vi.mocked(listApplicationLayoutScopes)
 const mockedListApplicationLayouts = vi.mocked(listApplicationLayouts)
 const mockedListApplicationLayoutWidgets = vi.mocked(listApplicationLayoutWidgets)
 const mockedResetApplicationLayoutWidgetConfigsBatch = vi.mocked(resetApplicationLayoutWidgetConfigsBatch)
 const mockedUpdateApplication = vi.mocked(updateApplication)
 const mockedUpdateApplicationLayoutWidgetConfigsBatch = vi.mocked(updateApplicationLayoutWidgetConfigsBatch)
+const mockedUpdateApplicationPublicEntryWorkspace = vi.mocked(updateApplicationPublicEntryWorkspace)
 const mockedUpdateApplicationWorkspaceLimits = vi.mocked(updateApplicationWorkspaceLimits)
 
 const mockSavedBatchWidgets = (
@@ -100,7 +111,6 @@ const createRuntimeReadyApplication = (overrides: Record<string, unknown> = {}) 
             }
         },
         description: null,
-        slug: 'workspace-demo',
         isPublic: false,
         workspacesEnabled: true,
         schemaName: 'app_workspace_demo',
@@ -147,7 +157,7 @@ describe('ApplicationSettings', () => {
 
         const i18n = getI18nInstance()
         registerNamespace('common', { en: commonEn, ru: commonRu })
-        registerNamespace('applications', { en: applicationsEn, ru: applicationsRu })
+        registerNamespace('applications', { en: getApplicationsTranslations('en'), ru: getApplicationsTranslations('ru') })
         await i18n.changeLanguage('en')
 
         mockedUseApplicationDetails.mockReturnValue({
@@ -166,6 +176,28 @@ describe('ApplicationSettings', () => {
                 maxRows: 3
             }
         ])
+        mockedGetApplicationPublicEntryWorkspace.mockResolvedValue({ workspaceId: null })
+        mockedListApplicationRuntimeWorkspaces.mockResolvedValue({
+            items: [
+                {
+                    id: '018f8a78-7b8f-7c1d-a111-2222333344aa',
+                    name: {
+                        _schema: 'v1',
+                        _primary: 'en',
+                        locales: { en: { content: 'Public workspace' } }
+                    },
+                    description: null,
+                    workspaceType: 'shared',
+                    personalUserId: null,
+                    status: 'active',
+                    isDefault: false,
+                    roleCodename: 'owner'
+                }
+            ],
+            total: 1,
+            limit: 100,
+            offset: 0
+        })
         mockedUpdateApplication.mockResolvedValue({
             data: {
                 id: 'app-1',
@@ -183,7 +215,6 @@ describe('ApplicationSettings', () => {
                     dialogAllowResize: true,
                     dialogCloseBehavior: 'strict-modal'
                 },
-                slug: 'workspace-demo',
                 isPublic: false,
                 workspacesEnabled: true,
                 schemaName: 'app_workspace_demo',
@@ -211,6 +242,9 @@ describe('ApplicationSettings', () => {
         mockedListApplicationLayoutWidgets.mockResolvedValue([])
         mockedUpdateApplicationLayoutWidgetConfigsBatch.mockResolvedValue([] as never)
         mockedResetApplicationLayoutWidgetConfigsBatch.mockResolvedValue([] as never)
+        mockedUpdateApplicationPublicEntryWorkspace.mockResolvedValue({
+            workspaceId: '018f8a78-7b8f-7c1d-a111-2222333344aa'
+        })
         mockedUpdateApplicationWorkspaceLimits.mockResolvedValue([])
     })
 
@@ -298,7 +332,6 @@ describe('ApplicationSettings', () => {
                     }
                 },
                 description: null,
-                slug: 'draft-app',
                 isPublic: false,
                 workspacesEnabled: false,
                 schemaName: 'app_draft_app',
@@ -341,6 +374,54 @@ describe('ApplicationSettings', () => {
         expect(screen.queryByRole('tab', { name: 'Limits' })).not.toBeInTheDocument()
         expect(screen.queryByText('Limits settings will become available after the application schema is created.')).not.toBeInTheDocument()
         expect(mockedGetApplicationWorkspaceLimits).not.toHaveBeenCalled()
+    })
+
+    it('keeps public entry workspace controls behind runtime schema readiness', async () => {
+        mockedUseApplicationDetails.mockReturnValue({
+            data: createRuntimeReadyApplication({
+                schemaStatus: 'pending'
+            }),
+            isLoading: false,
+            isError: false
+        } as never)
+
+        renderSettings()
+
+        expect(await screen.findByTestId('application-settings-public-entry-workspace-not-ready')).toHaveTextContent(
+            'Public entry workspace settings become available after the application runtime workspace schema is ready.'
+        )
+        expect(screen.queryByTestId('application-settings-public-entry-workspace-select')).not.toBeInTheDocument()
+        expect(mockedGetApplicationPublicEntryWorkspace).not.toHaveBeenCalled()
+        expect(mockedListApplicationRuntimeWorkspaces).not.toHaveBeenCalled()
+    })
+
+    it('shows a localized retry state when public entry workspace data cannot be loaded', async () => {
+        mockedGetApplicationPublicEntryWorkspace.mockRejectedValueOnce(new Error('internal workspace details'))
+
+        renderSettings()
+
+        const errorAlert = await screen.findByRole('alert')
+        expect(errorAlert).toHaveTextContent('Public entry workspace settings could not be loaded.')
+        expect(errorAlert).not.toHaveTextContent('internal workspace details')
+
+        mockedGetApplicationPublicEntryWorkspace.mockResolvedValue({ workspaceId: null })
+        await userEvent.click(within(errorAlert).getByRole('button', { name: 'Retry' }))
+
+        expect(await screen.findByTestId('application-settings-public-entry-workspace-select')).toBeInTheDocument()
+    })
+
+    it('maps public entry workspace save failures to localized copy', async () => {
+        mockedUpdateApplicationPublicEntryWorkspace.mockRejectedValueOnce(new Error('internal save details'))
+
+        renderSettings()
+
+        const workspaceSetting = await screen.findByTestId('application-setting-public-entry-workspace')
+        await userEvent.click(within(workspaceSetting).getByRole('combobox'))
+        await userEvent.click(screen.getByRole('option', { name: 'Public workspace' }))
+
+        const errorMessage = await screen.findByText('Public entry workspace could not be saved.')
+        expect(errorMessage).toBeInTheDocument()
+        expect(screen.queryByText('internal save details')).not.toBeInTheDocument()
     })
 
     it('strips stale Learning Content settings from generic saves when no LMS widget is materialized', async () => {
@@ -426,7 +507,6 @@ describe('ApplicationSettings', () => {
                     }
                 },
                 description: null,
-                slug: 'workspace-demo',
                 isPublic: true,
                 workspacesEnabled: true,
                 schemaName: 'app_workspace_demo',
@@ -484,6 +564,66 @@ describe('ApplicationSettings', () => {
                 })
             )
         })
+    })
+
+    it('updates the server-selected public workspace through the standard settings control', async () => {
+        renderSettings()
+
+        const workspaceSetting = await screen.findByTestId('application-setting-public-entry-workspace')
+        await userEvent.click(within(workspaceSetting).getByRole('combobox'))
+        await userEvent.click(screen.getByRole('option', { name: 'Public workspace' }))
+
+        await waitFor(() => {
+            expect(mockedUpdateApplicationPublicEntryWorkspace).toHaveBeenCalledWith('app-1', '018f8a78-7b8f-7c1d-a111-2222333344aa')
+        })
+    })
+
+    it('offers the next workspace page from the public entry workspace selector', async () => {
+        const buildWorkspaceRow = (id: string, label: string) => ({
+            id,
+            name: {
+                _schema: 'v1',
+                _primary: 'en',
+                locales: { en: { content: label } }
+            },
+            description: null,
+            workspaceType: 'shared',
+            personalUserId: null,
+            status: 'active',
+            isDefault: false,
+            roleCodename: 'owner'
+        })
+
+        mockedListApplicationRuntimeWorkspaces
+            .mockResolvedValueOnce({
+                items: [
+                    buildWorkspaceRow('018f8a78-7b8f-7c1d-a111-2222333344aa', 'Public workspace'),
+                    buildWorkspaceRow('018f8a78-7b8f-7c1d-a111-2222333344ab', 'Second workspace')
+                ],
+                total: 150,
+                limit: 100,
+                offset: 0
+            })
+            .mockResolvedValueOnce({
+                items: [buildWorkspaceRow('018f8a78-7b8f-7c1d-a111-2222333344ac', 'Third workspace')],
+                total: 150,
+                limit: 100,
+                offset: 2
+            })
+
+        renderSettings()
+
+        const workspaceSetting = await screen.findByTestId('application-setting-public-entry-workspace')
+        await userEvent.click(within(workspaceSetting).getByRole('combobox'))
+
+        await userEvent.click(await screen.findByTestId('application-settings-public-entry-workspace-load-more'))
+
+        await waitFor(() => {
+            expect(mockedListApplicationRuntimeWorkspaces).toHaveBeenLastCalledWith('app-1', { limit: 100, offset: 2 })
+        })
+
+        await userEvent.click(within(workspaceSetting).getByRole('combobox'))
+        expect(await screen.findByRole('option', { name: 'Third workspace' })).toBeInTheDocument()
     })
 
     it('saves generic runtime policy settings through the general settings form', async () => {
@@ -637,7 +777,6 @@ describe('ApplicationSettings', () => {
                     }
                 },
                 description: null,
-                slug: 'workspace-demo',
                 isPublic: false,
                 workspacesEnabled: true,
                 schemaName: 'app_workspace_demo',
@@ -738,7 +877,6 @@ describe('ApplicationSettings', () => {
                     }
                 },
                 description: null,
-                slug: 'workspace-demo',
                 isPublic: false,
                 workspacesEnabled: true,
                 schemaName: 'app_workspace_demo',
@@ -2933,7 +3071,6 @@ describe('ApplicationSettings', () => {
                     }
                 },
                 description: null,
-                slug: 'pending-app',
                 isPublic: false,
                 workspacesEnabled: true,
                 schemaName: 'app_pending_app',

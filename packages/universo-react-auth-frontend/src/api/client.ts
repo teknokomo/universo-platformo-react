@@ -12,6 +12,19 @@ const CSRF_REQUIRED_METHODS = new Set(['post', 'put', 'patch', 'delete'])
 const MAX_CSRF_RETRY_ATTEMPTS = 1
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
+/**
+ * The auth bootstrap asks `/auth/me` and `/auth/permissions` whether a session
+ * exists; a 401 there is the expected answer for anonymous visitors and must
+ * not bounce a public runtime page to the login screen. Every other 401 on a
+ * non-public route still redirects, so expired cookie sessions recover.
+ */
+const AUTH_SESSION_PROBE_SUFFIXES = ['/auth/me', '/auth/permissions']
+const isAuthSessionProbeRequest = (config: unknown): boolean => {
+    const url = (config as { url?: unknown } | undefined)?.url
+    if (typeof url !== 'string') return false
+    const path = url.split('?')[0]
+    return AUTH_SESSION_PROBE_SUFFIXES.some((suffix) => path.endsWith(suffix))
+}
 
 const clearCsrfHeaders = (headers: unknown) => {
     if (!headers) return
@@ -183,8 +196,9 @@ export const createAuthClient = (options: AuthClientOptions): AxiosInstance => {
                     // Always redirect
                     shouldRedirect = true
                 } else if (mergedOptions.redirectOn401 === 'auto') {
-                    // Use isPublicRoute from @universo-react/utils
-                    shouldRedirect = !isPublicRoute(pathname)
+                    // Use isPublicRoute from @universo-react/utils; the session
+                    // probes answer 401 for anonymous visitors by design.
+                    shouldRedirect = !isPublicRoute(pathname) && !isAuthSessionProbeRequest(config)
                 } else if (Array.isArray(mergedOptions.redirectOn401)) {
                     // Custom routes array
                     const customRoutes = mergedOptions.redirectOn401 as readonly string[]

@@ -49,7 +49,7 @@ describe('MetahubLayoutsService', () => {
             _upl_updated_at: '2026-04-01T00:00:00.000Z'
         }
         const query = jest.fn(async (sql: string) => {
-            if (sql.includes('pg_advisory_xact_lock(hashtext($1))')) return []
+            if (sql.includes('pg_advisory_xact_lock(hashtextextended($1::text, 0))')) return []
             if (sql.includes('SELECT id, scope_entity_id, base_layout_id') && sql.includes('_mhb_layouts')) return [layoutRow]
             if (sql.includes('SELECT id, widget_key, zone, is_active') && sql.includes('_mhb_widgets')) return [widgetRow]
             if (sql.includes('SELECT * FROM') && sql.includes('_mhb_widgets')) return [widgetRow]
@@ -125,7 +125,7 @@ describe('MetahubLayoutsService', () => {
             _upl_updated_at: '2026-04-01T00:00:00.000Z'
         }
         const query = jest.fn(async (sql: string) => {
-            if (sql.includes('pg_advisory_xact_lock(hashtext($1))')) return []
+            if (sql.includes('pg_advisory_xact_lock(hashtextextended($1::text, 0))')) return []
             if (sql.includes('SELECT id, scope_entity_id, base_layout_id') && sql.includes('_mhb_layouts')) {
                 return [
                     {
@@ -172,7 +172,7 @@ describe('MetahubLayoutsService', () => {
     it('reuses the active transaction runner for optimistic-lock layout updates', async () => {
         const tx = {
             query: jest.fn(async (sql: string, _params?: unknown[]) => {
-                if (sql.includes('pg_advisory_xact_lock(hashtext($1))')) return []
+                if (sql.includes('pg_advisory_xact_lock(hashtextextended($1::text, 0))')) return []
                 if (sql.includes('SELECT * FROM') && sql.includes('_mhb_layouts') && sql.includes('FOR UPDATE')) {
                     return [
                         {
@@ -355,7 +355,11 @@ describe('MetahubLayoutsService', () => {
         ]
         let persistedRows = initialRows.map((row) => ({ ...row }))
         const query = jest.fn(async (sql: string, params?: unknown[]) => {
-            if (sql.includes('pg_advisory_xact_lock(hashtext($1))') && String(params?.[0] ?? '').startsWith('mhb-layout-graph:')) return []
+            if (
+                sql.includes('pg_advisory_xact_lock(hashtextextended($1::text, 0))') &&
+                String(params?.[0] ?? '').startsWith('mhb-layout-graph:')
+            )
+                return []
             if (sql.includes('_mhb_layouts')) return [layoutRow]
 
             if (sql.includes('sort_order = sort_order +')) {
@@ -445,7 +449,11 @@ describe('MetahubLayoutsService', () => {
         }
 
         const query = jest.fn(async (sql: string, params?: unknown[]) => {
-            if (sql.includes('pg_advisory_xact_lock(hashtext($1))') && String(params?.[0] ?? '').startsWith('mhb-layout-graph:')) return []
+            if (
+                sql.includes('pg_advisory_xact_lock(hashtextextended($1::text, 0))') &&
+                String(params?.[0] ?? '').startsWith('mhb-layout-graph:')
+            )
+                return []
             if (sql.includes('SELECT id, scope_entity_id, base_layout_id') && sql.includes('_mhb_layouts')) {
                 return [baseLayoutScopeRow]
             }
@@ -650,7 +658,7 @@ describe('MetahubLayoutsService', () => {
         }
 
         const query = jest.fn(async (sql: string, params?: unknown[]) => {
-            if (sql.includes('pg_advisory_xact_lock(hashtext($1))')) return []
+            if (sql.includes('pg_advisory_xact_lock(hashtextextended($1::text, 0))')) return []
             if (sql.includes('_mhb_objects') && sql.includes('_mhb_entity_type_definitions')) {
                 expect(params).toEqual([scopeEntityId])
                 expect(sql).not.toContain('t.is_active')
@@ -792,7 +800,7 @@ describe('MetahubLayoutsService', () => {
         }
 
         const query = jest.fn(async (sql: string, params?: unknown[]) => {
-            if (sql.includes('pg_advisory_xact_lock(hashtext($1))')) return []
+            if (sql.includes('pg_advisory_xact_lock(hashtextextended($1::text, 0))')) return []
             if (sql.includes('INSERT INTO') && sql.includes('_mhb_layouts') && sql.includes('RETURNING *')) {
                 const config = JSON.parse(String(params?.[5] ?? '{}'))
                 expect(params?.[0]).toBeNull()
@@ -857,7 +865,7 @@ describe('MetahubLayoutsService', () => {
 
     it('rejects scoped layout creation when scopeEntityId points to an entity without layoutConfig support', async () => {
         const query = jest.fn(async (sql: string) => {
-            if (sql.includes('pg_advisory_xact_lock(hashtext($1))')) return []
+            if (sql.includes('pg_advisory_xact_lock(hashtextextended($1::text, 0))')) return []
             if (sql.includes('_mhb_objects') && sql.includes('_mhb_entity_type_definitions')) {
                 return [{ id: 'object-1', kind: 'set', capabilities: { layoutConfig: false } }]
             }
@@ -929,7 +937,11 @@ describe('MetahubLayoutsService', () => {
         }
 
         const query = jest.fn(async (sql: string, params?: unknown[]) => {
-            if (sql.includes('pg_advisory_xact_lock(hashtext($1))') && String(params?.[0] ?? '').startsWith('mhb-layout-graph:')) return []
+            if (
+                sql.includes('pg_advisory_xact_lock(hashtextextended($1::text, 0))') &&
+                String(params?.[0] ?? '').startsWith('mhb-layout-graph:')
+            )
+                return []
             if (
                 sql.includes('_mhb_layouts') &&
                 (sql.includes('SELECT id, scope_entity_id, base_layout_id') || sql.includes('SELECT * FROM'))
@@ -1012,7 +1024,11 @@ describe('MetahubLayoutsService', () => {
         const baseWidgetId = 'base-widget-1'
 
         const query = jest.fn(async (sql: string, params?: unknown[]) => {
-            if (sql.includes('pg_advisory_xact_lock(hashtext($1))') && String(params?.[0] ?? '').startsWith('mhb-layout-graph:')) return []
+            if (
+                sql.includes('pg_advisory_xact_lock(hashtextextended($1::text, 0))') &&
+                String(params?.[0] ?? '').startsWith('mhb-layout-graph:')
+            )
+                return []
             if (
                 sql.includes('_mhb_layouts') &&
                 (sql.includes('SELECT id, scope_entity_id, base_layout_id') || sql.includes('SELECT * FROM'))
@@ -1086,7 +1102,11 @@ describe('MetahubLayoutsService', () => {
         const baseWidgetId = 'base-widget-1'
 
         const query = jest.fn(async (sql: string, params?: unknown[]) => {
-            if (sql.includes('pg_advisory_xact_lock(hashtext($1))') && String(params?.[0] ?? '').startsWith('mhb-layout-graph:')) return []
+            if (
+                sql.includes('pg_advisory_xact_lock(hashtextextended($1::text, 0))') &&
+                String(params?.[0] ?? '').startsWith('mhb-layout-graph:')
+            )
+                return []
             if (
                 sql.includes('_mhb_layouts') &&
                 (sql.includes('SELECT id, scope_entity_id, base_layout_id') || sql.includes('SELECT * FROM'))
@@ -1162,7 +1182,11 @@ describe('MetahubLayoutsService', () => {
         const overrideRows: Array<Record<string, unknown>> = []
 
         const query = jest.fn(async (sql: string, params?: unknown[]) => {
-            if (sql.includes('pg_advisory_xact_lock(hashtext($1))') && String(params?.[0] ?? '').startsWith('mhb-layout-graph:')) return []
+            if (
+                sql.includes('pg_advisory_xact_lock(hashtextextended($1::text, 0))') &&
+                String(params?.[0] ?? '').startsWith('mhb-layout-graph:')
+            )
+                return []
             if (
                 sql.includes('_mhb_layouts') &&
                 (sql.includes('SELECT id, scope_entity_id, base_layout_id') || sql.includes('SELECT * FROM'))
@@ -1262,7 +1286,11 @@ describe('MetahubLayoutsService', () => {
         const baseWidgetId = 'base-widget-1'
 
         const query = jest.fn(async (sql: string, params?: unknown[]) => {
-            if (sql.includes('pg_advisory_xact_lock(hashtext($1))') && String(params?.[0] ?? '').startsWith('mhb-layout-graph:')) return []
+            if (
+                sql.includes('pg_advisory_xact_lock(hashtextextended($1::text, 0))') &&
+                String(params?.[0] ?? '').startsWith('mhb-layout-graph:')
+            )
+                return []
             if (sql.includes('SELECT id, scope_entity_id, base_layout_id') && sql.includes('_mhb_layouts')) {
                 return [
                     {
@@ -1330,7 +1358,11 @@ describe('MetahubLayoutsService', () => {
         const baseWidgetId = 'base-widget-1'
 
         const query = jest.fn(async (sql: string, params?: unknown[]) => {
-            if (sql.includes('pg_advisory_xact_lock(hashtext($1))') && String(params?.[0] ?? '').startsWith('mhb-layout-graph:')) return []
+            if (
+                sql.includes('pg_advisory_xact_lock(hashtextextended($1::text, 0))') &&
+                String(params?.[0] ?? '').startsWith('mhb-layout-graph:')
+            )
+                return []
             if (
                 sql.includes('_mhb_layouts') &&
                 (sql.includes('SELECT id, scope_entity_id, base_layout_id') || sql.includes('SELECT * FROM'))
@@ -1397,7 +1429,7 @@ describe('MetahubLayoutsService', () => {
         const layoutId = globalLayoutIdV7
 
         const query = jest.fn(async (sql: string, params?: unknown[]) => {
-            if (sql.includes('pg_advisory_xact_lock(hashtext($1))')) return []
+            if (sql.includes('pg_advisory_xact_lock(hashtextextended($1::text, 0))')) return []
             if (sql.includes('SELECT * FROM') && sql.includes('_mhb_layouts') && sql.includes('FOR UPDATE')) {
                 return [
                     {
@@ -1439,7 +1471,11 @@ describe('MetahubLayoutsService', () => {
 
     it('lists global widget visibility for every layout-capable entity scope', async () => {
         const query = jest.fn(async (sql: string, params?: unknown[]) => {
-            if (sql.includes('pg_advisory_xact_lock(hashtext($1))') && String(params?.[0] ?? '').startsWith('mhb-layout-graph:')) return []
+            if (
+                sql.includes('pg_advisory_xact_lock(hashtextextended($1::text, 0))') &&
+                String(params?.[0] ?? '').startsWith('mhb-layout-graph:')
+            )
+                return []
             if (
                 sql.includes('FROM') &&
                 sql.includes('_mhb_layouts') &&
@@ -1580,7 +1616,11 @@ describe('MetahubLayoutsService', () => {
         }
         let overrideActive = true
         const query = jest.fn(async (sql: string, params?: unknown[]) => {
-            if (sql.includes('pg_advisory_xact_lock(hashtext($1))') && String(params?.[0] ?? '').startsWith('mhb-layout-graph:')) return []
+            if (
+                sql.includes('pg_advisory_xact_lock(hashtextextended($1::text, 0))') &&
+                String(params?.[0] ?? '').startsWith('mhb-layout-graph:')
+            )
+                return []
             if (sql.includes('_mhb_layouts') && sql.includes('FOR UPDATE')) return [layoutScope]
             if (sql.includes('_mhb_widgets') && sql.includes('WHERE id = $1')) return [baseWidget]
             if (sql.includes('_mhb_layout_widget_overrides') && sql.includes('base_widget_id = $2')) return overrideActive ? [override] : []
@@ -1628,13 +1668,17 @@ describe('MetahubLayoutsService', () => {
         let insertedOverride = false
 
         const query = jest.fn(async (sql: string, params?: unknown[]) => {
-            if (sql.includes('pg_advisory_xact_lock(hashtext($1))') && String(params?.[0] ?? '').startsWith('mhb-layout-graph:')) return []
+            if (
+                sql.includes('pg_advisory_xact_lock(hashtextextended($1::text, 0))') &&
+                String(params?.[0] ?? '').startsWith('mhb-layout-graph:')
+            )
+                return []
             if (sql.includes('_mhb_objects') && sql.includes('_mhb_entity_type_definitions') && sql.includes('WHERE o.id = $1')) {
                 expect(params).toEqual(['page-1'])
                 return [{ id: 'page-1', kind: 'page', capabilities: { layoutConfig: { enabled: true } } }]
             }
 
-            if (sql.includes('pg_advisory_xact_lock(hashtext($1))')) {
+            if (sql.includes('pg_advisory_xact_lock(hashtextextended($1::text, 0))')) {
                 expect(params).toEqual([`mhb-layout-scope:mhb_a1b2c3d4e5f67890abcdef1234567890_b1:${globalLayoutIdV7}:page-1`])
                 return []
             }
@@ -1816,7 +1860,7 @@ describe('MetahubLayoutsService', () => {
         let insertCount = 0
 
         const query = jest.fn(async (sql: string, params?: unknown[]) => {
-            if (sql.includes('pg_advisory_xact_lock(hashtext($1))')) {
+            if (sql.includes('pg_advisory_xact_lock(hashtextextended($1::text, 0))')) {
                 expect(params).toEqual([`mhb-layout-scope:${schemaName}:${baseLayoutId}:${scopeEntityId}`])
                 return []
             }
@@ -1870,7 +1914,7 @@ describe('MetahubLayoutsService', () => {
         expect(first.id).toBe('page-layout-1')
         expect(second.id).toBe(first.id)
         expect(insertCount).toBe(1)
-        expect(query.mock.calls.filter(([sql]) => sql.includes('pg_advisory_xact_lock(hashtext($1))'))).toHaveLength(2)
+        expect(query.mock.calls.filter(([sql]) => sql.includes('pg_advisory_xact_lock(hashtextextended($1::text, 0))'))).toHaveLength(2)
     })
 
     it('serializes concurrent scoped resolution and creates no duplicate logical layout', async () => {
@@ -1893,7 +1937,7 @@ describe('MetahubLayoutsService', () => {
             const query = jest.fn(async (sql: string, params?: unknown[]) => {
                 queryCalls.push([sql, params])
 
-                if (sql.includes('pg_advisory_xact_lock(hashtext($1))')) {
+                if (sql.includes('pg_advisory_xact_lock(hashtextextended($1::text, 0))')) {
                     const lockKey = String(params?.[0])
                     const previous = lockTails.get(lockKey) ?? Promise.resolve()
                     let releaseCurrent = () => undefined
@@ -1982,8 +2026,8 @@ describe('MetahubLayoutsService', () => {
         expect(second.id).toBe(first.id)
         expect(insertCount).toBe(1)
         expect(persistedLayouts).toHaveLength(1)
-        expect(queryCalls.filter(([sql]) => sql.includes('pg_advisory_xact_lock(hashtext($1))'))).toHaveLength(2)
-        expect(queryCalls[0]?.[0]).toContain('pg_advisory_xact_lock(hashtext($1))')
+        expect(queryCalls.filter(([sql]) => sql.includes('pg_advisory_xact_lock(hashtextextended($1::text, 0))'))).toHaveLength(2)
+        expect(queryCalls[0]?.[0]).toContain('pg_advisory_xact_lock(hashtextextended($1::text, 0))')
         expect(queryCalls[0]?.[1]).toEqual([`mhb-layout-scope:${schemaName}:${baseLayoutId}:${scopeEntityId}`])
     })
 })

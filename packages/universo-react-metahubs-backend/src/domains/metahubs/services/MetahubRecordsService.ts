@@ -1,15 +1,29 @@
 import type { DbExecutor, SqlQueryable } from '@universo-react/utils/database'
 import { queryMany, queryOne, queryOneOrThrow } from '@universo-react/utils/database'
 import { qSchemaTable } from '@universo-react/database'
+import { acquireAdvisoryXactLock } from '@universo-react/utils/database'
 import { MetahubSchemaService } from './MetahubSchemaService'
 import { MetahubObjectsService } from './MetahubObjectsService'
 import { MetahubComponentsService } from './MetahubComponentsService'
-import { isLocalizedContent, filterLocalizedContent, validateNumber } from '@universo-react/utils'
+import {
+    filterLocalizedContent,
+    isLocalizedContent,
+    isUnsafeValidationPattern,
+    isUsableValidationPattern,
+    isUsableValidationPatternValue,
+    isValidUuid,
+    validateNumber
+} from '@universo-react/utils'
 import { ComponentDefinitionDataType, normalizeInterpretationNetworkHexColor, VersionedLocalizedContent } from '@universo-react/types'
 import { escapeLikeWildcards } from '../../../utils'
-import { updateWithVersionCheck, incrementVersion } from '../../../utils/optimisticLock'
-import { MetahubNotFoundError, MetahubValidationError } from '../../shared/domainErrors'
-import { mhbSoftDelete } from '../../../persistence/metahubsQueryHelpers'
+import { assertExpectedVersion, updateWithVersionCheck } from '../../../utils/optimisticLock'
+import {
+    MetahubNotFoundError,
+    MetahubRecordKeyDuplicateError,
+    MetahubRecordReferencedError,
+    MetahubRecordReferenceMissingError,
+    MetahubValidationError
+} from '../../shared/domainErrors'
 
 const ACTIVE = '_upl_deleted = false AND _mhb_deleted = false'
 
@@ -19,7 +33,19 @@ type RecordComponent = {
     dataType: ComponentDefinitionDataType
     isRequired: boolean
     parentComponentId: string | null
+    /** Object that owns the component; scopes scans to the declaring object. */
+    objectCollectionId?: string
+    targetEntityId?: string | null
     validationRules?: Record<string, unknown>
+}
+
+/** A REF component of any object in the metahub that points at the deleted object. */
+type ReferencingComponent = {
+    component: RecordComponent
+    /** Object that owns the REF (or its TABLE parent); scopes the reference scan. */
+    owningObjectId?: string
+    /** Codename of the TABLE parent when the REF lives inside table rows. */
+    parentCodename?: string
 }
 
 type MetahubRecordDto = {
@@ -69,7 +95,41 @@ export class MetahubRecordsService {
      */
     private async acquireSortOrderLockInTransaction(db: SqlQueryable, schemaName: string, objectCollectionId: string): Promise<void> {
         const lockKey = this.buildSortOrderLockKey(schemaName, objectCollectionId)
-        await db.query('SELECT pg_advisory_xact_lock(hashtext($1))', [lockKey])
+        await acquireAdvisoryXactLock(db, lockKey)
+    }
+
+    /**
+     * Mirror the persisted row order into the `SortOrder` component value.
+     *
+     * Runtime surfaces (published marketing pages, widget ordering) sort by the
+     * component column, while drag/move only rewrites the internal sort_order.
+     * Keeping both in step makes authoring reorder observable in the published
+     * application. Objects without a `SortOrder` component are left untouched.
+     *
+     * The reorder also bumps `_upl_version`: the JSON payload changed, so a
+     * stale editor that read the pre-reorder JSON must lose the optimistic
+     * version check instead of writing the old SortOrder back.
+     */
+    private async syncSortOrderComponentValues(
+        db: SqlQueryable,
+        schemaName: string,
+        objectCollectionId: string,
+        userId?: string
+    ): Promise<void> {
+        const qt = qSchemaTable(schemaName, '_mhb_elements')
+        await db.query(
+            `UPDATE ${qt}
+             SET data = jsonb_set(data, ARRAY['SortOrder'], to_jsonb(sort_order), true),
+                 _upl_updated_at = NOW(),
+                 _upl_updated_by = $2,
+                 _upl_version = COALESCE(_upl_version, 1) + 1
+             WHERE object_id = $1
+               AND ${ACTIVE}
+               AND jsonb_exists(data, 'SortOrder')
+               AND jsonb_typeof(data -> 'SortOrder') = 'number'
+               AND (data ->> 'SortOrder')::numeric IS DISTINCT FROM sort_order::numeric`,
+            [objectCollectionId, userId ?? null]
+        )
     }
 
     private async getNextSortOrder(schemaName: string, objectCollectionId: string, db: SqlQueryable): Promise<number> {
@@ -370,6 +430,9 @@ export class MetahubRecordsService {
         return this.exec.transaction(async (tx: SqlQueryable) => {
             await this.acquireSortOrderLockInTransaction(tx, schemaName, objectCollectionId)
 
+            await this.assertUniqueComponentValues(tx, schemaName, objectCollectionId, components, normalizedData)
+            await this.assertRefTargetsExist(tx, schemaName, components, normalizedData)
+
             const sortOrder =
                 typeof input.sortOrder === 'number' && Number.isFinite(input.sortOrder)
                     ? input.sortOrder
@@ -430,6 +493,7 @@ export class MetahubRecordsService {
             _upl_updated_by: input.updatedBy ?? null
         }
 
+        let ruleComponents: RecordComponent[] = []
         if (input.data) {
             const mergedData = { ...(existing.data as Record<string, unknown>), ...input.data }
             // Use findAllFlat to include child attrs for TABLE validation
@@ -438,6 +502,7 @@ export class MetahubRecordsService {
             if (!validation.valid) {
                 throw new MetahubValidationError(`Validation failed: ${validation.errors.join(', ')}`)
             }
+            ruleComponents = components
             updateData.data = this.normalizeHexColorFields(mergedData, components)
         }
 
@@ -445,23 +510,308 @@ export class MetahubRecordsService {
             updateData.sort_order = input.sortOrder
         }
 
-        // If expectedVersion is provided, use version-checked update
-        if (input.expectedVersion !== undefined) {
-            const updated = await updateWithVersionCheck({
-                executor: this.exec,
+        return this.exec.transaction(async (tx: SqlQueryable) => {
+            // Serialize with create/delete so two concurrent updates cannot both
+            // pass the uniqueness check and commit duplicated keys.
+            await this.acquireSortOrderLockInTransaction(tx, schemaName, objectCollectionId)
+
+            // Conflict detection runs first and wins over key/reference
+            // validation, so a stale editor receives the conflict-resolution
+            // flow instead of a misleading validation error. It only locks and
+            // compares the version: no write happens before validation passes,
+            // because request-scoped executors reuse the middleware transaction
+            // and a late throw would not roll the update back.
+            const effectiveExpectedVersion =
+                input.expectedVersion !== undefined
+                    ? input.expectedVersion
+                    : typeof existing._upl_version === 'number'
+                    ? existing._upl_version
+                    : 1
+            await assertExpectedVersion({
+                executor: tx,
                 schemaName,
                 tableName: '_mhb_elements',
                 entityId: id,
                 entityType: 'element',
-                expectedVersion: input.expectedVersion,
-                updateData
+                expectedVersion: effectiveExpectedVersion
             })
-            return this.mapRowToRecord(updated)
+
+            if (updateData.data) {
+                await this.assertUniqueComponentValues(
+                    tx,
+                    schemaName,
+                    objectCollectionId,
+                    ruleComponents,
+                    updateData.data as Record<string, unknown>,
+                    id
+                )
+                await this.assertRefTargetsExist(tx, schemaName, ruleComponents, updateData.data as Record<string, unknown>, input.data)
+            }
+
+            const updated = await updateWithVersionCheck({
+                executor: tx,
+                schemaName,
+                tableName: '_mhb_elements',
+                entityId: id,
+                entityType: 'element',
+                expectedVersion: effectiveExpectedVersion,
+                updateData,
+                // The version was just asserted on this executor; never open a
+                // nested savepoint inside the caller's transaction.
+                wrapInTransaction: false
+            })
+
+            return updated ? this.mapRowToRecord(updated) : null
+        })
+    }
+
+    /**
+     * Collect every REF component in the metahub that targets the deleted
+     * object. Root REF components and REF components nested in TABLE rows are
+     * both covered, because both can detach content after a delete.
+     */
+    private async findReferencingComponents(metahubId: string, targetObjectId: string, userId?: string): Promise<ReferencingComponent[]> {
+        const components = (await this.componentsService.getAllComponents(metahubId, userId)) as unknown as RecordComponent[]
+        const byId = new Map(components.map((component) => [component.id, component]))
+        const referencing: ReferencingComponent[] = []
+
+        for (const component of components) {
+            if (component.dataType !== ComponentDefinitionDataType.REF || component.targetEntityId !== targetObjectId) continue
+            if (!component.parentComponentId) {
+                referencing.push({ component, owningObjectId: component.objectCollectionId })
+                continue
+            }
+            const parent = byId.get(component.parentComponentId)
+            if (parent) {
+                referencing.push({
+                    component,
+                    owningObjectId: parent.objectCollectionId ?? component.objectCollectionId,
+                    parentCodename: parent.codename
+                })
+            }
         }
 
-        // Fallback: increment version without check (backwards compatibility)
-        const updated = await incrementVersion(this.exec, schemaName, '_mhb_elements', id, updateData)
-        return updated ? this.mapRowToRecord(updated) : null
+        return referencing
+    }
+
+    /**
+     * Fail closed when any active record still references the deleted element,
+     * so a delete cannot silently detach benefits or break the next sync.
+     */
+    private async assertElementNotReferenced(
+        db: SqlQueryable,
+        schemaName: string,
+        elementId: string,
+        references: readonly ReferencingComponent[]
+    ): Promise<void> {
+        if (references.length === 0) return
+
+        const qt = qSchemaTable(schemaName, '_mhb_elements')
+        for (const { component, parentCodename, owningObjectId } of references) {
+            // `e.id <> $4` keeps self-referencing records deletable, and the
+            // jsonb_typeof guard keeps null/object values from failing the query.
+            // The owning-object scope is required: another object may declare a
+            // field with the same codename, and its values must not be mistaken
+            // for a reference to this element.
+            const referencing = parentCodename
+                ? await queryOne<{ id: string }>(
+                      db,
+                      `SELECT e.id FROM ${qt} e
+                       CROSS JOIN LATERAL jsonb_array_elements(
+                           CASE WHEN jsonb_typeof(e.data -> $1::text) = 'array' THEN e.data -> $1::text ELSE '[]'::jsonb END
+                       ) AS item
+                       WHERE ${ACTIVE}
+                         AND ($5::uuid IS NULL OR e.object_id = $5::uuid)
+                         AND item ->> $2::text = $3 AND e.id <> $4
+                       LIMIT 1`,
+                      [parentCodename, component.codename, elementId, elementId, owningObjectId ?? null]
+                  )
+                : await queryOne<{ id: string }>(
+                      db,
+                      `SELECT e.id FROM ${qt} e
+                       WHERE ${ACTIVE}
+                         AND ($4::uuid IS NULL OR e.object_id = $4::uuid)
+                         AND e.data ->> $1::text = $2 AND e.id <> $3
+                       LIMIT 1`,
+                      [component.codename, elementId, elementId, owningObjectId ?? null]
+                  )
+
+            if (referencing) {
+                throw new MetahubRecordReferencedError('Record', { componentCodename: component.codename })
+            }
+        }
+    }
+
+    private uniqueRootComponents(components: readonly RecordComponent[]): RecordComponent[] {
+        return components.filter((component) => !component.parentComponentId && component.validationRules?.unique === true)
+    }
+
+    /**
+     * Fail closed when a unique component (semantic key) value already exists in
+     * the same object; duplicated keys silently merge or drop public content.
+     */
+    private async assertUniqueComponentValues(
+        db: SqlQueryable,
+        schemaName: string,
+        objectCollectionId: string,
+        components: readonly RecordComponent[],
+        data: Record<string, unknown>,
+        excludeId?: string
+    ): Promise<void> {
+        const uniqueComponents = this.uniqueRootComponents(components)
+        if (uniqueComponents.length === 0) return
+
+        const qt = qSchemaTable(schemaName, '_mhb_elements')
+        for (const component of uniqueComponents) {
+            const value = data[component.codename]
+            if (typeof value !== 'string' || value.trim().length === 0) continue
+
+            const conflict = await queryOne<{ id: string }>(
+                db,
+                `SELECT e.id FROM ${qt} e
+                 WHERE ${ACTIVE}
+                   AND e.object_id = $1
+                   AND e.data ->> $2::text = $3
+                   AND ($4::uuid IS NULL OR e.id <> $4::uuid)
+                 LIMIT 1`,
+                [objectCollectionId, component.codename, value, excludeId ?? null]
+            )
+            if (conflict) {
+                throw new MetahubRecordKeyDuplicateError('Record', component.codename, value)
+            }
+        }
+    }
+
+    /**
+     * Fail closed when a REF component points at a record that does not exist
+     * (or is soft-deleted) in its target object. Root REF components and REF
+     * components nested in TABLE rows are both covered, because either can
+     * persist a reference-to-nowhere that only breaks during publication sync.
+     * Values are grouped per target object so each target costs one probe.
+     */
+    private async assertRefTargetsExist(
+        db: SqlQueryable,
+        schemaName: string,
+        components: readonly RecordComponent[],
+        data: Record<string, unknown>,
+        patch?: Record<string, unknown>
+    ): Promise<void> {
+        const refComponents = components.filter(
+            (component) =>
+                component.dataType === ComponentDefinitionDataType.REF &&
+                typeof component.targetEntityId === 'string' &&
+                component.targetEntityId.length > 0
+        )
+        if (refComponents.length === 0) return
+
+        const componentsById = new Map(components.map((component) => [component.id, component]))
+        /** target entity id -> referenced value -> offending component codename */
+        const targets = new Map<string, Map<string, string>>()
+        const register = (targetEntityId: string, value: unknown, codename: string): void => {
+            if (typeof value !== 'string' || value.trim().length === 0) return
+            const byValue = targets.get(targetEntityId) ?? new Map<string, string>()
+            if (!byValue.has(value)) byValue.set(value, codename)
+            targets.set(targetEntityId, byValue)
+        }
+        const isPatched = (codename: string): boolean => !patch || Object.prototype.hasOwnProperty.call(patch, codename)
+
+        for (const component of refComponents) {
+            const targetEntityId = component.targetEntityId as string
+            if (!component.parentComponentId) {
+                if (!isPatched(component.codename)) continue
+                register(targetEntityId, data[component.codename], component.codename)
+                continue
+            }
+            const parent = componentsById.get(component.parentComponentId)
+            if (!parent) continue
+            // A table row only changes when the parent TABLE value is patched;
+            // otherwise legacy rows stay untouched by unrelated edits.
+            if (!isPatched(parent.codename)) continue
+            const rows = data[parent.codename]
+            if (!Array.isArray(rows)) continue
+            for (const row of rows) {
+                if (!row || typeof row !== 'object' || Array.isArray(row)) continue
+                register(targetEntityId, (row as Record<string, unknown>)[component.codename], component.codename)
+            }
+        }
+
+        if (targets.size === 0) return
+
+        const qt = qSchemaTable(schemaName, '_mhb_elements')
+        for (const [targetEntityId, byValue] of targets) {
+            // FOR KEY SHARE holds the referenced rows stable until this write
+            // commits, so a concurrent delete of a target cannot verify and
+            // soft-delete it between this existence check and the insert.
+            const existing = await queryMany<{ id: string }>(
+                db,
+                `SELECT id FROM ${qt}
+                 WHERE object_id = $1
+                   AND id = ANY($2::uuid[])
+                   AND ${ACTIVE}
+                 FOR KEY SHARE`,
+                [targetEntityId, [...byValue.keys()]]
+            )
+            const existingIds = new Set(existing.map((row) => row.id))
+            for (const [value, codename] of byValue) {
+                if (!existingIds.has(value)) {
+                    throw new MetahubRecordReferenceMissingError(codename, value)
+                }
+            }
+        }
+    }
+
+    /**
+     * Suggest a free value for a unique component, used by record copy flows so
+     * duplicated records keep working without manual key editing.
+     */
+    async suggestUniqueComponentValue(
+        metahubId: string,
+        objectCollectionId: string,
+        componentCodename: string,
+        baseValue: string,
+        userId?: string,
+        limits?: { maxLength?: number | null; pattern?: string | null; format?: string | null }
+    ): Promise<string> {
+        const maxLength = limits?.maxLength ?? null
+        const pattern = limits?.pattern ?? null
+        const format = limits?.format ?? null
+        const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
+        const qt = qSchemaTable(schemaName, '_mhb_elements')
+        const rows = await queryMany<{ value: string | null }>(
+            this.exec,
+            `SELECT data ->> $1::text AS value FROM ${qt} WHERE object_id = $2 AND ${ACTIVE}`,
+            [componentCodename, objectCollectionId]
+        )
+        const used = new Set(rows.map((row) => row.value).filter((value): value is string => typeof value === 'string' && value.length > 0))
+
+        if (!used.has(baseValue)) return baseValue
+
+        const limit = typeof maxLength === 'number' && Number.isFinite(maxLength) && maxLength > 0 ? Math.floor(maxLength) : null
+        // Keep the suffixed key inside the component maxLength so a copied
+        // record still passes the same validation as a manually authored one.
+        const fitSuffix = (suffix: string): string => {
+            if (limit === null || baseValue.length + suffix.length <= limit) return `${baseValue}${suffix}`
+            // Trim the base on a separator boundary so the truncated key still
+            // matches the semantic-key pattern (no doubled or trailing separators).
+            const head = suffix.length >= limit ? '' : baseValue.slice(0, limit - suffix.length).replace(/[._-]+$/, '')
+            if (head.length === 0) return suffix.replace(/^[._-]+/, '').slice(0, limit)
+            return `${head}${suffix}`
+        }
+
+        const matchesPattern = (candidate: string): boolean => {
+            if (format === 'hexColor' || !pattern || !isUsableValidationPattern(pattern)) return true
+            try {
+                return new RegExp(pattern).test(candidate)
+            } catch {
+                return true
+            }
+        }
+
+        for (let index = 1; index <= 999; index += 1) {
+            const candidate = fitSuffix(index === 1 ? '-copy' : `-copy-${index}`)
+            if (!used.has(candidate) && matchesPattern(candidate)) return candidate
+        }
+        throw new MetahubValidationError(`Unable to suggest a unique value for ${componentCodename}`)
     }
 
     /**
@@ -472,13 +822,47 @@ export class MetahubRecordsService {
         const object = await this.objectsService.findById(metahubId, objectCollectionId, userId)
         if (!object) throw new MetahubNotFoundError('Object')
 
+        const referencingComponents = await this.findReferencingComponents(metahubId, objectCollectionId, userId)
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
+
         await this.exec.transaction(async (tx: SqlQueryable) => {
             await this.acquireSortOrderLockInTransaction(tx, schemaName, objectCollectionId)
 
-            const deleted = await mhbSoftDelete(tx, schemaName, '_mhb_elements', id, userId)
+            const qt = qSchemaTable(schemaName, '_mhb_elements')
+            // FOR UPDATE takes the target row lock before the reference scan.
+            // A concurrent REF writer takes FOR KEY SHARE on the same row in
+            // assertRefTargetsExist, so either the writer commits first and this
+            // scan sees the new reference, or this delete commits first and the
+            // writer fails closed on the now soft-deleted target.
+            const existing = await queryOne<{ id: string }>(
+                tx,
+                `SELECT id FROM ${qt} WHERE id = $1 AND object_id = $2 AND ${ACTIVE} LIMIT 1 FOR UPDATE`,
+                [id, objectCollectionId]
+            )
+            if (!existing) {
+                throw new MetahubNotFoundError('Element')
+            }
 
-            if (!deleted) {
+            await this.assertElementNotReferenced(tx, schemaName, id, referencingComponents)
+
+            const deleted = await tx.query<{ id: string }>(
+                `UPDATE ${qt}
+                 SET _upl_deleted = true,
+                     _upl_deleted_at = NOW(),
+                     _upl_deleted_by = $3,
+                     _mhb_deleted = true,
+                     _mhb_deleted_at = NOW(),
+                     _mhb_deleted_by = $3,
+                     _upl_updated_at = NOW(),
+                     _upl_version = _upl_version + 1
+                 WHERE id = $1
+                   AND object_id = $2
+                   AND ${ACTIVE}
+                 RETURNING id`,
+                [id, objectCollectionId, userId ?? null]
+            )
+
+            if (deleted.length === 0) {
                 throw new MetahubNotFoundError('Element')
             }
 
@@ -542,6 +926,7 @@ export class MetahubRecordsService {
             }
 
             await this.ensureSequentialSortOrderInTransaction(schemaName, objectCollectionId, tx)
+            await this.syncSortOrderComponentValues(tx, schemaName, objectCollectionId, userId)
 
             const updated = await queryOne<Record<string, unknown>>(
                 tx,
@@ -618,6 +1003,7 @@ export class MetahubRecordsService {
             }
 
             await this.ensureSequentialSortOrderInTransaction(schemaName, objectCollectionId, tx)
+            await this.syncSortOrderComponentValues(tx, schemaName, objectCollectionId, userId)
 
             const updated = await queryOne<Record<string, unknown>>(
                 tx,
@@ -787,7 +1173,7 @@ export class MetahubRecordsService {
             case ComponentDefinitionDataType.DATE:
                 return this.validateDateValue(value, rules)
             case ComponentDefinitionDataType.REF:
-                if (typeof value !== 'string') return 'Expected UUID string'
+                if (typeof value !== 'string' || !isValidUuid(value)) return 'Expected UUID string'
                 break
         }
         return null
@@ -839,10 +1225,18 @@ export class MetahubRecordsService {
             if (maxLength !== undefined && stringValue.length > maxLength) {
                 errors.push(`Field "${fieldName}": maximum length is ${maxLength}`)
             }
-            if (rules.format !== 'hexColor' && typeof rules.pattern === 'string' && rules.pattern.length > 0) {
+            if (rules.format !== 'hexColor' && isUnsafeValidationPattern(rules.pattern)) {
+                // Patterns that can backtrack exponentially are never executed:
+                // the value fails closed with the same mismatch error instead of
+                // silently bypassing the author's rule.
+                errors.push(`Field "${fieldName}": does not match pattern`)
+            } else if (rules.format !== 'hexColor' && isUsableValidationPattern(rules.pattern)) {
                 try {
                     const regex = new RegExp(rules.pattern)
-                    if (!regex.test(stringValue)) {
+                    // Values beyond the safe regex window cannot be matched
+                    // without risking catastrophic backtracking, so they fail
+                    // closed instead of silently bypassing the pattern.
+                    if (!isUsableValidationPatternValue(stringValue) || !regex.test(stringValue)) {
                         errors.push(`Field "${fieldName}": does not match pattern`)
                     }
                 } catch {

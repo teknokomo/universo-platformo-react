@@ -48,6 +48,14 @@ const languageMenuLabel = (menuLocale: string, targetLocale: string) => {
     return normalizedTargetLocale === 'ru' ? /russian/i : /english/i
 }
 
+/**
+ * The private-application probe answers `204 No Content` and Chromium reports a
+ * spurious `net::ERR_ABORTED` for that probe; the authenticated runtime then
+ * loads normally. Only that exact, expected abort is ignored.
+ */
+const isExpectedPublicProbeAbort = (url: string, errorText: string | undefined): boolean =>
+    errorText === 'net::ERR_ABORTED' && /\/api\/v1\/public\/applications\/[^/]+\/runtime(?:\?|$)/u.test(url)
+
 function watchBrowserIssues(page: Page): BrowserIssue[] {
     const issues: BrowserIssue[] = []
 
@@ -60,9 +68,11 @@ function watchBrowserIssues(page: Page): BrowserIssue[] {
         issues.push({ source: 'pageerror', text: error.message })
     })
     page.on('requestfailed', (request) => {
+        const errorText = request.failure()?.errorText
+        if (isExpectedPublicProbeAbort(request.url(), errorText)) return
         issues.push({
             source: 'requestfailed',
-            text: request.failure()?.errorText ?? 'Request failed',
+            text: errorText ?? 'Request failed',
             url: request.url()
         })
     })
@@ -127,8 +137,7 @@ async function provisionMarketingApplication(api: ApiContext, runId: string, att
     const applicationId = typeof linkedApplication?.id === 'string' ? linkedApplication.id : undefined
     if (!applicationId) throw new Error('Marketing matrix publication did not create an application')
     await recordCreatedApplication({
-        id: applicationId,
-        slug: typeof linkedApplication.slug === 'string' ? linkedApplication.slug : undefined
+        id: applicationId
     })
 
     await syncApplicationSchema(api, applicationId, {

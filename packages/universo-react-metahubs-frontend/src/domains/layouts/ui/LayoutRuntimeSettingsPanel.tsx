@@ -241,7 +241,7 @@ export function LayoutRuntimeSettingsPanel({
 
     return (
         <>
-            <Paper variant='outlined' sx={{ p: 2 }}>
+            <Paper variant='outlined' sx={{ p: 2 }} data-testid='layout-runtime-settings-panel'>
                 <Typography variant='subtitle1' sx={{ mb: 1.5 }}>
                     {isScopedLayout
                         ? t('layouts.details.objectBehaviorTitleObject', 'Entity runtime behavior')

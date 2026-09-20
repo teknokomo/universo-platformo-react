@@ -31,7 +31,7 @@ const createLayoutRow = (config: Record<string, unknown>, version = 3): Record<s
 
 const createService = (lockedRow: Record<string, unknown>) => {
     const query = jest.fn(async (sql: string, params?: unknown[]) => {
-        if (sql.includes('pg_advisory_xact_lock(hashtext($1))')) return []
+        if (sql.includes('pg_advisory_xact_lock(hashtextextended($1::text, 0))')) return []
         if (sql.includes('SELECT id, scope_entity_id, base_layout_id') && sql.includes('FOR UPDATE')) {
             return [lockedRow]
         }

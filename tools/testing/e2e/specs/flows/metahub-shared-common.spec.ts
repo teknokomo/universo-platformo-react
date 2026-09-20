@@ -397,6 +397,9 @@ async function waitForLayoutId(api: ApiContext, metahubId: string) {
 
 async function applyCenteredQuizLayout(api: ApiContext, metahubId: string, layoutId: string) {
     const layout = await getLayout(api, metahubId, layoutId)
+    if (!Number.isInteger(layout?.version) || layout.version < 1) {
+        throw new Error(`Layout ${layoutId} did not return an optimistic-lock version for quiz layout coverage`)
+    }
     const currentConfig = layout?.config && typeof layout.config === 'object' ? layout.config : {}
     const removableWidgetKeys = new Set<string>(QUIZ_REMOVED_LAYOUT_WIDGET_KEYS)
 
@@ -408,13 +411,31 @@ async function applyCenteredQuizLayout(api: ApiContext, metahubId: string, layou
         config: {
             ...currentConfig,
             ...QUIZ_CENTERED_LAYOUT_CONFIG
-        }
+        },
+        expectedVersion: layout.version
     })
     expect(response.ok).toBe(true)
 
-    const zoneWidgets = await listLayoutZoneWidgets(api, metahubId, layoutId)
-    for (const widget of zoneWidgets?.items?.filter((item) => removableWidgetKeys.has(String(item?.widgetKey ?? ''))) ?? []) {
-        const removeResponse = await sendWithCsrf(api, 'DELETE', `/api/v1/metahub/${metahubId}/layout/${layoutId}/zone-widget/${widget.id}`)
+    // Removing one widget re-normalizes zone sort orders, which bumps the
+    // optimistic-lock versions of the remaining widgets. Re-read the list on
+    // every iteration so each delete uses the current version.
+    let removableWidget = true
+    while (removableWidget) {
+        const zoneWidgets = await listLayoutZoneWidgets(api, metahubId, layoutId)
+        const widget = zoneWidgets?.items?.find((item) => removableWidgetKeys.has(String(item?.widgetKey ?? '')))
+        if (!widget) {
+            removableWidget = false
+            continue
+        }
+
+        if (!Number.isSafeInteger(widget?.version) || widget.version < 1) {
+            throw new Error(`Layout widget ${widget?.id ?? 'unknown'} did not return a valid optimistic-lock version`)
+        }
+        const removeResponse = await sendWithCsrf(
+            api,
+            'DELETE',
+            `/api/v1/metahub/${metahubId}/layout/${layoutId}/zone-widget/${widget.id}?expectedVersion=${widget.version}`
+        )
         expect(removeResponse.status).toBe(204)
     }
 }
@@ -458,11 +479,11 @@ async function clickCatalogMenuItem(page: Page, catalogName: string, fallbackNam
     const candidateNames = [catalogName, ...fallbackNames]
 
     for (const candidateName of candidateNames) {
-        const catalogButton = page.getByRole('button', { name: candidateName, exact: true })
+        const catalogItem = page.getByRole('link', { name: candidateName, exact: true })
 
         try {
-            await expect(catalogButton).toBeVisible({ timeout: 5_000 })
-            await catalogButton.click()
+            await expect(catalogItem).toBeVisible({ timeout: 5_000 })
+            await catalogItem.click()
             return
         } catch {
             // Try the next localized fallback.
@@ -747,7 +768,6 @@ test('@flow Common shared entities merge, exclusion, publication, and runtime st
         await page.goto(`/metahub/${metahub.id}/resources`)
         await expect(page.getByRole('heading', { name: /Resources|Ресурсы/ })).toBeVisible()
         await expect(page.getByTestId(pageSpacingSelectors.metahubResourcesTabs)).toBeVisible()
-        await expectEmbeddedCommonControlsAlignedEnd(page)
 
         await page.getByRole('tab', { name: 'Components', exact: true }).click()
         await expectEmbeddedCommonControlsAlignedEnd(page)
@@ -939,8 +959,7 @@ test('@flow Common shared entities merge, exclusion, publication, and runtime st
         }
 
         await recordCreatedApplication({
-            id: applicationId,
-            slug: linkedApplication.application.slug
+            id: applicationId
         })
 
         await syncApplicationSchema(api, applicationId)
@@ -1224,8 +1243,7 @@ test('@flow Common shared library modules publish into runtime consumers without
         }
 
         await recordCreatedApplication({
-            id: applicationId,
-            slug: linkedApplication.application.slug
+            id: applicationId
         })
 
         await syncApplicationSchema(api, applicationId)
@@ -1254,7 +1272,9 @@ test('@flow Common shared library modules publish into runtime consumers without
 
         await page.getByLabel('Mars', { exact: true }).click()
         await page.getByRole('button', { name: 'Check answer', exact: true }).click()
-        await expect(page.getByText('Answers saved locally. Add answer checking before publishing to show feedback here.')).toBeVisible()
+        await expect(page.getByText('Quiz complete!', { exact: true })).toBeVisible()
+        await expect(page.getByText('Score: 1 / 1', { exact: true })).toBeVisible()
+        await expect(page.getByText('Excellent! You really know your space.', { exact: true })).toBeVisible()
     } finally {
         await disposeApiContext(api)
     }

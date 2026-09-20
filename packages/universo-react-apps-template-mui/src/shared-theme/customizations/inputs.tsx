@@ -442,12 +442,10 @@ export const inputsCustomizations: Components<Theme> = {
                     }
                 })
             }),
-            input: {
+            input: ({ ownerState }) => ({
                 ...sharedInputSpacing,
-                '&.MuiInputBase-inputSizeSmall': {
-                    ...sharedInputSpacingSmall
-                }
-            }
+                ...(ownerState.size === 'small' ? sharedInputSpacingSmall : {})
+            })
         }
     },
     MuiInputAdornment: {

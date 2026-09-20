@@ -1,5 +1,11 @@
 import { expect, type Locator, type Page, type TestInfo } from '@playwright/test'
-import { getApplicationRuntime, getRuntimeAppData, listApplicationWorkspaces, sendWithCsrf } from './backend/api-session.mjs'
+import {
+    getApplicationRuntime,
+    getRuntimeAppData,
+    listApplicationLayoutWidgets,
+    listApplicationWorkspaces,
+    sendWithCsrf
+} from './backend/api-session.mjs'
 import { expectNoPageHorizontalOverflow } from './browser/runtimeUx'
 
 export type InterpretationNetworkApi = Awaited<ReturnType<typeof import('./backend/api-session.mjs').createLoggedInApiContext>>
@@ -97,6 +103,38 @@ const requireString = (value: unknown, label: string): string => {
 const findColumn = (data: RuntimeRowsResponse, codename: string) =>
     data.columns?.find((column) => column.codename === codename || column.field === codename)
 
+/**
+ * Runtime row payloads are keyed by physical `column_name` while the matrix
+ * helpers speak in component codenames. Build the field→codename map from the
+ * runtime column metadata so both key styles are available on every row.
+ */
+const buildColumnAliases = (columns: RuntimeRowsResponse['columns']): Record<string, string> => {
+    const aliases: Record<string, string> = {}
+    const collect = (column?: { field?: string; codename?: string }) => {
+        if (!column) return
+        if (typeof column.field === 'string' && typeof column.codename === 'string' && column.field !== column.codename) {
+            aliases[column.field] = column.codename
+        }
+    }
+    for (const column of columns ?? []) {
+        collect(column)
+        for (const child of column.childColumns ?? []) {
+            collect(child)
+        }
+    }
+    return aliases
+}
+
+const withColumnAliases = (row: Record<string, unknown>, aliases: Record<string, string>): Record<string, unknown> => {
+    const mapped = { ...row }
+    for (const [field, codename] of Object.entries(aliases)) {
+        if (!Object.prototype.hasOwnProperty.call(mapped, codename) && Object.prototype.hasOwnProperty.call(row, field)) {
+            mapped[codename] = row[field]
+        }
+    }
+    return mapped
+}
+
 export const resolveRuntimeIds = async (api: InterpretationNetworkApi, applicationId: string): Promise<InterpretationNetworkRuntimeIds> => {
     const workspaces = (await listApplicationWorkspaces(api, applicationId)) as {
         items?: Array<{ id?: string; isDefault?: boolean }>
@@ -138,15 +176,38 @@ export const setInterpretationNetworkWidgetConfig = async (
     const runtime = (await getApplicationRuntime(api, applicationId)) as {
         zoneWidgets?: Record<string, Array<{ id?: string; widgetKey?: string; config?: Record<string, unknown>; layoutId?: string }>>
     }
-    const updates = Object.values(runtime.zoneWidgets ?? {})
+    const targetWidgets = Object.values(runtime.zoneWidgets ?? {})
         .flat()
-        .filter((widget) => widget.widgetKey === 'interpretationNetworkWorkspace' && typeof widget.id === 'string')
-        .map((widget) => ({
+        .filter(
+            (widget) =>
+                widget.widgetKey === 'interpretationNetworkWorkspace' &&
+                typeof widget.id === 'string' &&
+                typeof widget.layoutId === 'string'
+        )
+    expect(targetWidgets.length, 'Interpretation Network widget config updates').toBeGreaterThan(0)
+
+    const versionByWidgetId = new Map<string, number>()
+    for (const layoutId of new Set(targetWidgets.map((widget) => String(widget.layoutId)))) {
+        const layoutWidgets = await listApplicationLayoutWidgets(api, applicationId, layoutId)
+        for (const widget of layoutWidgets?.items ?? []) {
+            if (typeof widget?.id !== 'string' || !Number.isInteger(widget?.version)) {
+                continue
+            }
+            versionByWidgetId.set(widget.id, widget.version)
+        }
+    }
+
+    const updates = targetWidgets.map((widget) => {
+        const expectedVersion = versionByWidgetId.get(String(widget.id))
+        expect(expectedVersion, `Widget ${widget.id} exposes a persisted version`).toBeGreaterThan(0)
+        return {
             layoutId: widget.layoutId,
             widgetId: widget.id,
-            config: { ...(widget.config ?? {}), ...patch }
-        }))
-    expect(updates.length, 'Interpretation Network widget config updates').toBeGreaterThan(0)
+            config: { ...(widget.config ?? {}), ...patch },
+            expectedVersion
+        }
+    })
+
     const response = await sendWithCsrf(api, 'PATCH', `/api/v1/applications/${applicationId}/layouts/zone-widgets/config/batch`, {
         updates
     })
@@ -286,8 +347,16 @@ export const getMatrixRows = async (
         `/api/v1/applications/${applicationId}/runtime/rows/${interpretationId}/tabular/${runtimeIds.matrixComponentId}?${params}`
     )
     await assertApiOk(response, 'matrix rows read')
+    const columns = (await getRuntimeAppData(api, applicationId, {
+        objectCollectionCodename: 'Interpretation',
+        workspaceId: runtimeIds.workspaceId,
+        locale: 'en',
+        limit: 1,
+        offset: 0
+    })) as RuntimeRowsResponse
+    const aliases = buildColumnAliases(columns.columns)
     const body = (await response.json()) as { items?: Array<Record<string, unknown>> }
-    return body.items ?? []
+    return (body.items ?? []).map((row) => withColumnAliases(row, aliases))
 }
 
 const readRuntimeRowValue = (row: Record<string, unknown>, key: string): unknown => {
@@ -332,8 +401,16 @@ export const getTemplateMatrixRows = async (
         `/api/v1/applications/${applicationId}/runtime/rows/${templateId}/tabular/${runtimeIds.templateMatrixComponentId}?${params}`
     )
     await assertApiOk(response, 'template matrix rows read')
+    const columns = (await getRuntimeAppData(api, applicationId, {
+        objectCollectionCodename: 'TableTemplate',
+        workspaceId: runtimeIds.workspaceId,
+        locale: 'en',
+        limit: 1,
+        offset: 0
+    })) as RuntimeRowsResponse
+    const aliases = buildColumnAliases(columns.columns)
     const body = (await response.json()) as { items?: Array<Record<string, unknown>> }
-    return body.items ?? []
+    return (body.items ?? []).map((row) => withColumnAliases(row, aliases))
 }
 
 export const getMaterialRows = async (
@@ -348,15 +425,19 @@ export const getMaterialRows = async (
         limit: 100,
         offset: 0
     })) as RuntimeRowsResponse
-    return (data.rows ?? []).map((row) => ({
-        rowId: requireString(row.id, 'Material row id'),
-        cellId: requireString(readRuntimeRowValue(row, 'CellId'), 'Material CellId'),
-        templateOwnerId: readReferenceId(readRuntimeRowValue(row, 'TemplateOwnerId')),
-        title: readLocalizedText(readRuntimeRowValue(row, 'Title')),
-        description: readLocalizedText(readRuntimeRowValue(row, 'Description')),
-        body: readRuntimeRowValue(row, 'Body'),
-        row
-    }))
+    const aliases = buildColumnAliases(data.columns)
+    return (data.rows ?? []).map((row) => {
+        const mappedRow = withColumnAliases(row, aliases)
+        return {
+            rowId: requireString(mappedRow.id, 'Material row id'),
+            cellId: requireString(readRuntimeRowValue(mappedRow, 'CellId'), 'Material CellId'),
+            templateOwnerId: readReferenceId(readRuntimeRowValue(mappedRow, 'TemplateOwnerId')),
+            title: readLocalizedText(readRuntimeRowValue(mappedRow, 'Title')),
+            description: readLocalizedText(readRuntimeRowValue(mappedRow, 'Description')),
+            body: readRuntimeRowValue(mappedRow, 'Body'),
+            row: mappedRow
+        }
+    })
 }
 
 export const createMaterialForCell = async (

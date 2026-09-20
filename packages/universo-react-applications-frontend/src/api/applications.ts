@@ -23,6 +23,7 @@ import type {
     RuntimeDatasourceSort
 } from '@universo-react/types'
 import {
+    authenticatedApplicationRuntimeReferenceSchema,
     applicationLayoutDetailResponseSchema,
     applicationLayoutWidgetSchema,
     applicationLayoutsListResponseSchema,
@@ -31,6 +32,7 @@ import {
 } from '@universo-react/types'
 import type { RuntimeRecordCommand } from '@universo-react/apps-template-mui'
 import type { RuntimeRestoreTarget } from '@universo-react/apps-template-mui'
+import type { RuntimeWorkspace } from '@universo-react/apps-template-mui'
 import {
     Application,
     ApplicationDialogSettings,
@@ -48,7 +50,6 @@ import type { SimpleLocalizedInput } from '../types'
 
 // Input type for updating applications with localized content
 export interface ApplicationInput extends ApplicationLocalizedPayload {
-    slug?: string
     isPublic?: boolean
     settings?: ApplicationDialogSettings
     expectedVersion?: number
@@ -60,7 +61,6 @@ export interface ApplicationCreateInput {
     description?: SimpleLocalizedInput
     namePrimaryLocale?: string
     descriptionPrimaryLocale?: string
-    slug?: string
     isPublic?: boolean
 }
 
@@ -149,6 +149,16 @@ export const listApplications = async (params?: ApplicationPaginationParams): Pr
 }
 
 export const getApplication = (id: string) => apiClient.get<Application>(`/applications/${id}`)
+
+export const resolveApplicationRuntimeReference = async (applicationRef: string): Promise<{ applicationId: string }> => {
+    const normalizedRef = applicationRef.trim()
+    if (!normalizedRef) throw new Error('APPLICATION_RUNTIME_REFERENCE_REQUIRED')
+
+    const response = await apiClient.get<unknown>(`/applications/runtime-reference/${encodeURIComponent(normalizedRef)}`)
+    const parsed = authenticatedApplicationRuntimeReferenceSchema.safeParse(response.data)
+    if (!parsed.success) throw new Error('APPLICATION_RUNTIME_REFERENCE_RESPONSE_INVALID')
+    return parsed.data
+}
 
 export const createApplication = (data: ApplicationCreateInput) => apiClient.post<Application>('/applications', data)
 
@@ -760,4 +770,54 @@ export const updateApplicationWorkspaceLimits = async (
         limits
     })
     return response.data.items ?? []
+}
+
+export type ApplicationRuntimeWorkspaceList = {
+    items: RuntimeWorkspace[]
+    total: number
+    limit: number
+    offset: number
+}
+
+export const listApplicationRuntimeWorkspaces = async (
+    applicationId: string,
+    params?: { limit?: number; offset?: number; search?: string }
+): Promise<ApplicationRuntimeWorkspaceList> => {
+    const response = await apiClient.get<ApplicationRuntimeWorkspaceList>(`/applications/${applicationId}/runtime/workspaces`, {
+        params: {
+            limit: params?.limit ?? 100,
+            offset: params?.offset ?? 0,
+            ...(params?.search?.trim() ? { search: params.search.trim() } : {})
+        }
+    })
+
+    return {
+        items: response.data.items ?? [],
+        total: response.data.total ?? 0,
+        limit: response.data.limit ?? params?.limit ?? 100,
+        offset: response.data.offset ?? params?.offset ?? 0
+    }
+}
+
+export const getApplicationRuntimeWorkspace = async (applicationId: string, workspaceId: string): Promise<RuntimeWorkspace> => {
+    const response = await apiClient.get<RuntimeWorkspace>(
+        `/applications/${applicationId}/runtime/workspaces/${encodeURIComponent(workspaceId)}`
+    )
+    return response.data
+}
+
+export const getApplicationPublicEntryWorkspace = async (applicationId: string): Promise<{ workspaceId: string | null }> => {
+    const response = await apiClient.get<{ workspaceId: string | null }>(`/applications/${applicationId}/settings/public-entry-workspace`)
+    return response.data
+}
+
+export const updateApplicationPublicEntryWorkspace = async (
+    applicationId: string,
+    workspaceId: string | null
+): Promise<{ workspaceId: string | null }> => {
+    const response = await apiClient.patch<{ workspaceId: string | null }>(
+        `/applications/${applicationId}/settings/public-entry-workspace`,
+        { workspaceId }
+    )
+    return response.data
 }

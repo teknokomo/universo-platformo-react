@@ -21,7 +21,6 @@ import {
     PaginationControls,
     FlowListTable,
     gridSpacing,
-    ConfirmDialog,
     useConfirm,
     LocalizedInlineField,
     revealPendingEntityFeedback
@@ -414,10 +413,10 @@ const ConnectorList = () => {
                         description: spec.descriptionKey ? baseContext.t(spec.descriptionKey, spec.interpolate) : spec.description,
                         confirmButtonName: spec.confirmKey
                             ? baseContext.t(spec.confirmKey)
-                            : spec.confirmButtonName || baseContext.t('confirm.delete.confirm'),
+                            : spec.confirmButtonName || baseContext.t('confirm:confirmButtonText'),
                         cancelButtonName: spec.cancelKey
                             ? baseContext.t(spec.cancelKey)
-                            : spec.cancelButtonName || baseContext.t('confirm.delete.cancel')
+                            : spec.cancelButtonName || baseContext.t('confirm:cancelButtonText')
                     })
                     return confirmed
                 },
@@ -738,8 +737,6 @@ const ConnectorList = () => {
                 isDeleting={deleteConnectorMutation.isPending}
                 uiLocale={i18n.language}
             />
-
-            <ConfirmDialog />
 
             <ConflictResolutionDialog
                 open={conflictState.open}

@@ -145,20 +145,29 @@ const STRUCTURED_BEHAVIOR_WIDGET_KEYS = new Set([
 const isApplicationCustomizedLayoutWidget = (layout: ApplicationLayout): boolean =>
     layout.sourceKind === 'application' || layout.syncState === 'local_modified'
 
+/**
+ * The API materializes lineage columns as `null` for both inherited and
+ * application-authored widgets, so only a non-null lineage value proves a sync
+ * source; the absence of one falls back to the layout provenance.
+ */
+const widgetHasSourceLineage = (widget: ApplicationLayoutWidget): boolean =>
+    widget.sourceConfig != null || widget.sourceWidgetId != null || widget.sourceBaseWidgetId != null
+
 const isApplicationOwnedWidget = (layout: ApplicationLayout, widget: ApplicationLayoutWidget): boolean => {
     if (widget.isCustomized === true) return true
-
-    const hasExplicitLineage =
-        widget.sourceConfig !== undefined || widget.sourceWidgetId !== undefined || widget.sourceBaseWidgetId !== undefined
-    if (!hasExplicitLineage) return isApplicationCustomizedLayoutWidget(layout)
-
-    const hasSourceLineage =
-        (widget.sourceConfig !== undefined && widget.sourceConfig !== null) ||
-        widget.sourceWidgetId != null ||
-        widget.sourceBaseWidgetId != null
-
-    return !hasSourceLineage
+    if (widgetHasSourceLineage(widget)) return false
+    return isApplicationCustomizedLayoutWidget(layout)
 }
+
+/**
+ * Widgets only carry a lineage badge when there is an actual provenance signal:
+ * a metahub-derived layout, a real sync lineage value on the widget, or an
+ * explicit customization marker. The API materializes lineage columns as
+ * `null` for application-authored widgets, so nullish checks are required;
+ * `undefined` checks would badge every widget.
+ */
+const hasWidgetProvenance = (layout: ApplicationLayout, widget: ApplicationLayoutWidget): boolean =>
+    layout.sourceKind === 'metahub' || widget.isCustomized === true || widgetHasSourceLineage(widget)
 
 const LAYOUT_ZONES_BY_TEMPLATE: Readonly<Record<ApplicationTemplateKey, readonly ApplicationLayoutZone[]>> = {
     dashboard: DASHBOARD_LAYOUT_ZONES,
@@ -1271,12 +1280,11 @@ const ApplicationLayouts = () => {
                 toggleActiveAriaLabel: widget.isActive
                     ? t('layouts.deactivateWidgetNamed', 'Deactivate widget: {{label}}', { label })
                     : t('layouts.activateWidgetNamed', 'Activate widget: {{label}}', { label }),
-                inheritedLabel:
-                    isMarketingWidgetKey(widget.widgetKey) || widget.widgetKey === 'interpretationNetworkWorkspace'
-                        ? isApplicationOwnedWidget(layout, widget)
-                            ? t('layouts.widgetCustomization.application', 'Customized in application')
-                            : t('layouts.widgetCustomization.metahub', 'Inherited from metahub')
-                        : undefined
+                inheritedLabel: hasWidgetProvenance(layout, widget)
+                    ? isApplicationOwnedWidget(layout, widget)
+                        ? t('layouts.widgetCustomization.application', 'Customized in application')
+                        : t('layouts.widgetCustomization.metahub', 'Inherited from metahub')
+                    : undefined
             }
         }
 

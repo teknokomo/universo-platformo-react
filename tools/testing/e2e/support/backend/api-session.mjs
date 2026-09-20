@@ -1441,6 +1441,20 @@ export async function assignLayoutZoneWidget(api, metahubId, layoutId, payload) 
     return response.json()
 }
 
+export async function updateLayoutZoneWidgetConfig(api, metahubId, layoutId, widgetId, payload) {
+    const response = await sendWithCsrf(
+        api,
+        'PATCH',
+        `/api/v1/metahub/${metahubId}/layout/${layoutId}/zone-widget/${widgetId}/config`,
+        payload
+    )
+    if (!response.ok) {
+        throw await buildError(response, `Updating widget ${widgetId} config in layout ${layoutId} for metahub ${metahubId}`)
+    }
+
+    return response.json()
+}
+
 export async function moveLayoutZoneWidget(api, metahubId, layoutId, payload) {
     const response = await sendWithCsrf(api, 'PATCH', `/api/v1/metahub/${metahubId}/layout/${layoutId}/zone-widgets/move`, payload)
     if (!response.ok) {
@@ -1771,6 +1785,17 @@ export async function updateApplicationWorkspace(api, applicationId, workspaceId
     const response = await sendWithCsrf(api, 'PATCH', `/api/v1/applications/${applicationId}/runtime/workspaces/${workspaceId}`, payload)
     if (!response.ok) {
         throw await buildError(response, `Updating application workspace ${workspaceId}`)
+    }
+
+    return response.json()
+}
+
+export async function setApplicationPublicEntryWorkspace(api, applicationId, workspaceId) {
+    const response = await sendWithCsrf(api, 'PATCH', `/api/v1/applications/${applicationId}/settings/public-entry-workspace`, {
+        workspaceId
+    })
+    if (!response.ok) {
+        throw await buildError(response, `Setting public entry workspace for ${applicationId}`)
     }
 
     return response.json()

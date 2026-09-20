@@ -41,6 +41,7 @@ import {
 import { MatrixSettingsPanel, type InterpretationNetworkMatrixSettings } from './application-settings/MatrixSettingsPanel'
 import { areInterpretationNetworkMatrixSettingsEqual } from './application-layouts/interpretationNetworkWidgetSettings'
 import { ContentSettingsPanel } from './application-settings/ContentSettingsPanel'
+import { usePublicEntryWorkspaceSettings } from './application-settings/usePublicEntryWorkspaceSettings'
 import { useApplicationDetails } from '../api/useApplicationDetails'
 import { applicationsQueryKeys } from '../api/queryKeys'
 import {
@@ -402,6 +403,12 @@ const ApplicationSettings = () => {
     const applicationDisplay = applicationQuery.data ? toApplicationDisplay(applicationQuery.data, i18n.language) : null
     const runtimeSchemaReady = hasInitializedRuntimeSchema(applicationQuery.data?.schemaName, applicationQuery.data?.schemaStatus)
     const supportsWorkspaceLimits = runtimeSchemaReady && applicationQuery.data?.workspacesEnabled === true
+    const supportsPublicEntryWorkspace = runtimeSchemaReady && applicationQuery.data?.workspacesEnabled === true
+    const publicEntryWorkspace = usePublicEntryWorkspaceSettings({
+        applicationId,
+        enabled: supportsPublicEntryWorkspace,
+        locale: i18n.language
+    })
 
     const materializedLayoutsQuery = useQuery({
         queryKey: applicationId
@@ -840,10 +847,21 @@ const ApplicationSettings = () => {
                         effectiveVisibility={effectiveVisibility}
                         currentVisibility={applicationQuery.data?.isPublic}
                         workspacesEnabled={applicationQuery.data?.workspacesEnabled}
+                        publicEntryWorkspaceSupported={supportsPublicEntryWorkspace}
+                        publicEntryWorkspaceId={publicEntryWorkspace.workspaceId}
+                        publicEntryWorkspaceOptions={publicEntryWorkspace.workspaceOptions}
+                        publicEntryWorkspaceLoading={publicEntryWorkspace.isLoading}
+                        publicEntryWorkspaceError={publicEntryWorkspace.isError}
+                        publicEntryWorkspaceSaving={publicEntryWorkspace.isSaving}
+                        publicEntryWorkspaceHasMore={publicEntryWorkspace.hasMore}
+                        publicEntryWorkspaceLoadingMore={publicEntryWorkspace.isLoadingMore}
                         settings={effectiveGeneralSettings}
                         hasChanges={hasGeneralChanges}
                         isSaving={saveGeneralMutation.isPending}
                         onVisibilityChange={setVisibilityChange}
+                        onPublicEntryWorkspaceChange={publicEntryWorkspace.onChange}
+                        onPublicEntryWorkspaceLoadMore={publicEntryWorkspace.loadMore}
+                        onPublicEntryWorkspaceRetry={publicEntryWorkspace.retry}
                         onSettingsChange={(patch) => setGeneralChanges((prev) => ({ ...prev, ...patch }))}
                         onSave={() =>
                             saveGeneralMutation.mutate({

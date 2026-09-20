@@ -294,13 +294,14 @@ export default function PlayCanvasCanvasWidget({ widgetId, config }: PlayCanvasC
         configuredTargetObjectId && sceneObjects.some((item) => item.id === configuredTargetObjectId && item.id !== controlledObjectId)
             ? configuredTargetObjectId
             : sceneObjects.find((item) => item.id !== controlledObjectId)?.id
+    const manifestBindingHasData = Boolean(runtimeManifestQuery.data)
     const manifestBindingLoading = Boolean(runtimeManifestBinding && runtimeManifestQuery.isLoading)
-    const manifestBindingError = Boolean(runtimeManifestBinding && runtimeManifestQuery.isError)
+    const manifestBindingError = Boolean(runtimeManifestBinding && runtimeManifestQuery.isError && !manifestBindingHasData)
     const manifestBindingMissing = Boolean(
-        runtimeManifestBinding && !manifestBindingLoading && !manifestBindingError && !runtimeManifestQuery.data
+        runtimeManifestBinding && !manifestBindingLoading && !manifestBindingError && !manifestBindingHasData
     )
     const manifestBindingSceneMissing = Boolean(
-        runtimeManifestBinding && runtimeManifestQuery.data && !publishedManifestScene.scene?.objects?.length && !isVisualLabScene
+        runtimeManifestBinding && manifestBindingHasData && !publishedManifestScene.scene?.objects?.length && !isVisualLabScene
     )
     const manifestBindingReady =
         !runtimeManifestBinding ||
@@ -324,7 +325,9 @@ export default function PlayCanvasCanvasWidget({ widgetId, config }: PlayCanvasC
             (runtimeModuleHasMountMethod && runtimeModuleMountQuery.isLoading))
     const runtimeModuleError =
         requiresRuntimeModule &&
-        (runtimeClientModule.modulesQuery.isError || runtimeClientModule.clientBundleQuery.isError || runtimeModuleMountQuery.isError)
+        ((runtimeClientModule.modulesQuery.isError && !runtimeClientModule.modulesQuery.data) ||
+            (runtimeClientModule.clientBundleQuery.isError && !runtimeClientModule.clientBundleQuery.data) ||
+            (runtimeModuleMountQuery.isError && !runtimeModuleMountQuery.data))
     const runtimeModuleMissing =
         requiresRuntimeModule &&
         !runtimeModuleLoading &&
@@ -333,8 +336,28 @@ export default function PlayCanvasCanvasWidget({ widgetId, config }: PlayCanvasC
     const runtimeModuleReady =
         isVisualLabScene ||
         !requiresRuntimeModule ||
-        (!runtimeModuleLoading && !runtimeModuleError && !runtimeModuleMissing && runtimeModuleMountQuery.isSuccess)
-    const sceneReady = runtimeModuleReady && manifestBindingReady
+        (!runtimeModuleLoading &&
+            !runtimeModuleError &&
+            !runtimeModuleMissing &&
+            (runtimeModuleMountQuery.isSuccess || runtimeModuleMountQuery.data !== undefined))
+    const sceneIdentity = [
+        applicationId ?? '',
+        widgetId,
+        moduleCodename ?? '',
+        runtimeManifestBinding?.projectId ?? '',
+        runtimeManifestBinding?.sceneId ?? '',
+        runtimeManifestBinding?.checksum ?? ''
+    ].join(':')
+    const computedSceneReady = runtimeModuleReady && manifestBindingReady
+    const readySceneIdentityRef = useRef<string | null>(null)
+    if (computedSceneReady) {
+        readySceneIdentityRef.current = sceneIdentity
+    }
+    // Once a scene is live for the current identity, transient readiness
+    // recalculations (background refetches, reconnect probes) must not tear the
+    // canvas and its realtime session down. A different application, widget,
+    // module or manifest checksum still requires a fresh ready computation.
+    const sceneReady = computedSceneReady || readySceneIdentityRef.current === sceneIdentity
 
     useEffect(() => {
         if (!isVisualLabScene || visualLabVariantSlugs.length === 0) {

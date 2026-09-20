@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { AxiosError } from 'axios'
-import { extractAxiosError, isApiError, isHttpStatus } from '../error-handlers'
+import { extractAxiosError, isApiError, isHttpStatus, resolveApiErrorMessage } from '../error-handlers'
 
 describe('extractAxiosError', () => {
     it('should extract error information from AxiosError with response', () => {
@@ -183,6 +183,70 @@ describe('isApiError', () => {
         const result = isApiError(axiosError, 'USER_NOT_FOUND')
 
         expect(result).toBe(false)
+    })
+})
+
+describe('resolveApiErrorMessage', () => {
+    it('never surfaces English or machine-readable server payloads', () => {
+        const axiosError = {
+            isAxiosError: true,
+            response: { status: 409, data: { message: 'Publication name already exists', code: 'PUBLICATION_EXISTS' } },
+            message: 'Request failed with status code 409'
+        } as AxiosError
+
+        expect(resolveApiErrorMessage(axiosError, 'Не удалось создать публикацию')).toBe('Не удалось создать публикацию')
+    })
+
+    it('never surfaces a human-readable legacy error string from the server', () => {
+        const axiosError = {
+            isAxiosError: true,
+            response: { status: 403, data: { error: 'Editing is not allowed for this application' } },
+            message: 'Request failed with status code 403'
+        } as AxiosError
+
+        expect(resolveApiErrorMessage(axiosError, 'Нет доступа')).toBe('Нет доступа')
+    })
+
+    it('never surfaces machine-readable legacy error codes or internal details', () => {
+        const axiosError = {
+            isAxiosError: true,
+            response: {
+                status: 500,
+                data: { error: 'APPLICATION_LAYOUT_VERSION_CONFLICT', message: 'duplicate key value violates unique constraint "x"' }
+            },
+            message: 'Request failed with status code 500'
+        } as AxiosError
+
+        expect(resolveApiErrorMessage(axiosError, 'Не удалось сохранить макет')).toBe('Не удалось сохранить макет')
+    })
+
+    it('falls back to the localized message for transport errors', () => {
+        const axiosError = {
+            isAxiosError: true,
+            message: 'Request failed with status code 500'
+        } as AxiosError
+
+        expect(resolveApiErrorMessage(axiosError, 'Не удалось выполнить операцию')).toBe('Не удалось выполнить операцию')
+    })
+
+    it('falls back to the localized message for network errors', () => {
+        const axiosError = {
+            isAxiosError: true,
+            message: 'Network Error'
+        } as AxiosError
+
+        expect(resolveApiErrorMessage(axiosError, 'Ошибка сети')).toBe('Ошибка сети')
+    })
+
+    it('keeps messages from plain Error instances (frontend-authored errors)', () => {
+        expect(resolveApiErrorMessage(new Error('boom'), 'fallback')).toBe('boom')
+    })
+
+    it('falls back for blank or unknown error shapes', () => {
+        expect(resolveApiErrorMessage(new Error('   '), 'fallback')).toBe('fallback')
+        expect(resolveApiErrorMessage({ foo: 'bar' }, 'fallback')).toBe('fallback')
+        expect(resolveApiErrorMessage(null, 'fallback')).toBe('fallback')
+        expect(resolveApiErrorMessage(undefined, 'fallback')).toBe('fallback')
     })
 })
 

@@ -28,6 +28,7 @@ vi.mock('../components/MarketingPrimitives', () => ({
         action,
         children,
         onAction: _onAction,
+        sectionAnchors: _sectionAnchors,
         fullWidth: _fullWidth,
         color: _color,
         variant: _variant,
@@ -38,6 +39,7 @@ vi.mock('../components/MarketingPrimitives', () => ({
         action?: { href: string; label: string; target?: string; rel?: string }
         children?: ReactNode
         onAction?: unknown
+        sectionAnchors?: unknown
         fullWidth?: boolean
         color?: string
         variant?: string

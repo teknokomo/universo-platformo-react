@@ -222,11 +222,10 @@ test.describe('MMOOMM PlayCanvas Editor snapshot import runtime', () => {
             createApplicationSchema: false
         })
         const applicationId = linked?.application?.id ?? linked?.id
-        const applicationSlug = linked?.application?.slug ?? linked?.slug
         if (typeof applicationId !== 'string') {
             throw new Error('MMOOMM app snapshot linked application did not return an application id')
         }
-        await recordCreatedApplication({ id: applicationId, slug: applicationSlug })
+        await recordCreatedApplication({ id: applicationId })
 
         await syncApplicationSchema(api, applicationId)
         await expect

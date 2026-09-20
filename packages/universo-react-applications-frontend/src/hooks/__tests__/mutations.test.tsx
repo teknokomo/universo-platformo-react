@@ -472,7 +472,7 @@ describe('applications mutation hooks', () => {
         expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['applications', 'detail', 'app-1'] })
         expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['applications', 'detail', 'app-1', 'diff'] })
         expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['applications', 'detail', 'app-1', 'connectors'] })
-        expect(enqueueSnackbar).toHaveBeenCalledWith('Destructive changes detected. Confirm to proceed.', { variant: 'warning' })
+        expect(enqueueSnackbar).toHaveBeenCalledWith('Apply changes including destructive ones', { variant: 'warning' })
     })
 
     it('shows success snackbar when connector sync completes without confirmation step', async () => {
@@ -538,7 +538,7 @@ describe('applications mutation hooks', () => {
         })
 
         expect(connectorsApi.syncApplication).toHaveBeenCalledWith('app-2', true, undefined, undefined)
-        expect(enqueueSnackbar).toHaveBeenCalledWith('Schema synchronized', { variant: 'success' })
+        expect(enqueueSnackbar).toHaveBeenCalledWith('Schema synchronized successfully', { variant: 'success' })
     })
 
     it('shows sync error snackbar when connector sync fails', async () => {

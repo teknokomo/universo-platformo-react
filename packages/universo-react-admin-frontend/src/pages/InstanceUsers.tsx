@@ -26,7 +26,6 @@ import {
     PaginationControls,
     FlowListTable,
     gridSpacing,
-    ConfirmDialog,
     useConfirm,
     RoleChip,
     FilterToolbar,
@@ -700,8 +699,6 @@ const InstanceUsers = () => {
                     onClose={closeDialog}
                     onSubmit={handleDialogSubmit}
                 />
-
-                <ConfirmDialog />
             </MainCard>
         </>
     )

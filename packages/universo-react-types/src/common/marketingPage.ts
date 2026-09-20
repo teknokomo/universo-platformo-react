@@ -33,6 +33,7 @@ export const metahubTemplateCodenameSchema = z.enum(METAHUB_TEMPLATE_CODENAMES)
 
 export const MARKETING_PAGE_TEMPLATE_KEY = 'marketing-page' as const
 export const MARKETING_PAGE_SEED_POLICY = 'initial-only' as const
+export const MARKETING_DEFAULT_IMAGE_URL = 'https://mui.com/static/screenshots/material-ui/getting-started/templates/dashboard.jpg' as const
 
 /** Persisted placements owned by the marketing template adapter. */
 export const MARKETING_LAYOUT_ZONES = ['marketing-header', 'marketing-main', 'marketing-footer'] as const
@@ -52,6 +53,7 @@ export const MARKETING_WIDGET_KEYS = [
     'marketing.navigation',
     'marketing.auth',
     'marketing.hero',
+    'marketing.image',
     'marketing.collection',
     'marketing.pricing',
     'marketing.footer'
@@ -63,11 +65,28 @@ export const MARKETING_COLLECTION_VARIANTS = ['logos', 'features', 'testimonials
 export type MarketingCollectionVariant = (typeof MARKETING_COLLECTION_VARIANTS)[number]
 export const marketingCollectionVariantSchema = z.enum(MARKETING_COLLECTION_VARIANTS)
 
+/** `featured` keeps one highlighted pricing tier; `uniform` renders equal cards without the highlight. */
+export const MARKETING_PRICING_CARD_STYLES = ['featured', 'uniform'] as const
+export type MarketingPricingCardStyle = (typeof MARKETING_PRICING_CARD_STYLES)[number]
+export const marketingPricingCardStyleSchema = z.enum(MARKETING_PRICING_CARD_STYLES)
+
+/** `auto` keeps the standard section container; `full` widens it so cards fill the viewport. */
+export const MARKETING_PRICING_CARD_WIDTHS = ['auto', 'full'] as const
+export type MarketingPricingCardWidth = (typeof MARKETING_PRICING_CARD_WIDTHS)[number]
+export const marketingPricingCardWidthSchema = z.enum(MARKETING_PRICING_CARD_WIDTHS)
+
+export const MARKETING_WIDGET_DATA_OWNERSHIP = ['entity', 'static', 'none'] as const
+export type MarketingWidgetDataOwnership = (typeof MARKETING_WIDGET_DATA_OWNERSHIP)[number]
+export const marketingWidgetDataOwnershipSchema = z.enum(MARKETING_WIDGET_DATA_OWNERSHIP)
+
 export interface MarketingWidgetRegistryEntry {
     readonly key: MarketingWidgetKey
+    readonly dataOwnership: MarketingWidgetDataOwnership
     /** Header capabilities may be singleton; content widgets can remain repeatable. */
     readonly repeatable: boolean
     readonly allowedZones: readonly MarketingLayoutZone[]
+    /** Optional predecessors that visually compose with this widget without the default section divider. */
+    readonly seamlessAfter?: readonly MarketingWidgetKey[]
     /** Default logical group for persisted header capabilities. */
     readonly defaultPlacement?: LayoutLogicalPlacement
     /** Responsive projection owned by the marketing header shell. */
@@ -78,8 +97,10 @@ export interface MarketingWidgetRegistryEntry {
 export const marketingWidgetRegistryEntrySchema = z
     .object({
         key: marketingWidgetKeySchema,
+        dataOwnership: marketingWidgetDataOwnershipSchema,
         repeatable: z.boolean(),
         allowedZones: z.array(marketingLayoutZoneSchema).min(1),
+        seamlessAfter: z.array(marketingWidgetKeySchema).optional(),
         defaultPlacement: z.enum(['start', 'end']).optional(),
         mobileProjection: z.enum(['compact-header', 'drawer']).optional()
     })
@@ -104,6 +125,7 @@ export type MarketingWidgetRegistry = z.infer<typeof marketingWidgetRegistrySche
 export const MARKETING_WIDGET_REGISTRY: Readonly<Record<MarketingWidgetKey, MarketingWidgetRegistryEntry>> = {
     'marketing.brand': {
         key: 'marketing.brand',
+        dataOwnership: 'entity',
         repeatable: false,
         allowedZones: ['marketing-header'],
         defaultPlacement: 'start',
@@ -111,6 +133,7 @@ export const MARKETING_WIDGET_REGISTRY: Readonly<Record<MarketingWidgetKey, Mark
     },
     'marketing.navigation': {
         key: 'marketing.navigation',
+        dataOwnership: 'entity',
         repeatable: true,
         allowedZones: ['marketing-header'],
         defaultPlacement: 'start',
@@ -118,6 +141,7 @@ export const MARKETING_WIDGET_REGISTRY: Readonly<Record<MarketingWidgetKey, Mark
     },
     'marketing.auth': {
         key: 'marketing.auth',
+        dataOwnership: 'none',
         repeatable: false,
         allowedZones: ['marketing-header'],
         defaultPlacement: 'end',
@@ -125,21 +149,32 @@ export const MARKETING_WIDGET_REGISTRY: Readonly<Record<MarketingWidgetKey, Mark
     },
     'marketing.hero': {
         key: 'marketing.hero',
+        dataOwnership: 'entity',
         repeatable: true,
         allowedZones: ['marketing-main']
     },
+    'marketing.image': {
+        key: 'marketing.image',
+        dataOwnership: 'static',
+        repeatable: true,
+        allowedZones: ['marketing-main'],
+        seamlessAfter: ['marketing.hero']
+    },
     'marketing.collection': {
         key: 'marketing.collection',
+        dataOwnership: 'entity',
         repeatable: true,
         allowedZones: ['marketing-main']
     },
     'marketing.pricing': {
         key: 'marketing.pricing',
+        dataOwnership: 'entity',
         repeatable: true,
         allowedZones: ['marketing-main']
     },
     'marketing.footer': {
         key: 'marketing.footer',
+        dataOwnership: 'entity',
         repeatable: true,
         allowedZones: ['marketing-footer']
     }
@@ -172,6 +207,7 @@ export const MARKETING_WIDGET_SOURCE_CODENAMES: Readonly<Record<MarketingWidgetK
     'marketing.navigation': ['MarketingPageNavigation'],
     'marketing.auth': [],
     'marketing.hero': ['MarketingPageSiteSettings'],
+    'marketing.image': [],
     'marketing.collection': [
         'MarketingPageLogo',
         'MarketingPageFeature',
@@ -182,6 +218,18 @@ export const MARKETING_WIDGET_SOURCE_CODENAMES: Readonly<Record<MarketingWidgetK
     'marketing.pricing': ['MarketingPagePricing'],
     'marketing.footer': ['MarketingPageFooterLink']
 }
+
+/**
+ * Canonical record kind produced by each collection variant. Kept in one place
+ * so the authoring schema, the public schema and the renderer cannot drift.
+ */
+export const MARKETING_COLLECTION_VARIANT_RECORD_KINDS = {
+    logos: ['logo'],
+    features: ['feature'],
+    testimonials: ['testimonial'],
+    highlights: ['highlight'],
+    faq: ['faq']
+} as const satisfies Record<MarketingCollectionVariant, readonly string[]>
 
 export const marketingWidgetSourceCodenames = (
     widgetKey: MarketingWidgetKey,
@@ -216,8 +264,6 @@ export const MARKETING_SOURCE_FIELD_KEYS: Readonly<Record<MarketingSourceCodenam
         'heroTermsText',
         'heroPrimaryAction',
         'heroSecondaryAction',
-        'heroLightPreview',
-        'heroDarkPreview',
         'footerDescription',
         'copyright',
         'copyrightLabel',
@@ -262,6 +308,31 @@ export const marketingSemanticKeySchema = z
     .max(128)
     .regex(MARKETING_SEMANTIC_KEY_PATTERN, 'Semantic keys must use lowercase stable identifiers.')
 export type MarketingSemanticKey = z.infer<typeof marketingSemanticKeySchema>
+
+/**
+ * PostgreSQL returns NUMERIC values as scaled strings ("1.00"). The canonical
+ * shape is the only one treated as a number: strings with thousands
+ * separators, units or long fractions stay authored text on every surface.
+ */
+export const MARKETING_NUMERIC_TEXT_PATTERN = /^-?\d{1,15}(?:[.,]\d{1,2})?$/
+
+/**
+ * Canonicalizes a scaled NUMERIC text ("1.00" → "1", "15.50" → "15.5") so the
+ * API never ships fake precision. Non-numeric authored text passes through.
+ */
+export const normalizeMarketingNumericText = (value: string): string => {
+    const trimmed = value.trim()
+    // Authored text (units, ranges, prose) is preserved verbatim.
+    if (!MARKETING_NUMERIC_TEXT_PATTERN.test(trimmed)) return value
+    const normalized = trimmed.replace(',', '.')
+    const [whole, fraction] = normalized.split('.')
+    const trimmedFraction = fraction ? fraction.replace(/0+$/, '') : ''
+    // Collapse signed negative zero to a plain zero, but keep the sign for
+    // genuine negative fractions such as "-0.10".
+    if ((whole === '0' || whole === '-0') && trimmedFraction.length === 0) return '0'
+    if (!fraction) return whole
+    return trimmedFraction.length > 0 ? `${whole}.${trimmedFraction}` : whole
+}
 
 /** Dynamic BCP-47-like locale keys are normalized by the shared utility layer. */
 export const MARKETING_LOCALE_PATTERN = /^[a-z]{2,8}(?:[-_][a-z0-9]{2,8})*$/i
@@ -515,6 +586,78 @@ export const marketingMediaSchema = z
     })
 export type MarketingMedia = z.infer<typeof marketingMediaSchema>
 
+/**
+ * Public media is deliberately URL-only. Storage keys and package
+ * descriptors are server-side locators and must never cross the anonymous
+ * runtime boundary.
+ */
+/** Remote publishable marketing media must use HTTPS; loopback HTTP is the only local-development exception. */
+export const isLoopbackMarketingUrl = (value: string): boolean => {
+    let url: URL
+    try {
+        url = new URL(value)
+    } catch {
+        return false
+    }
+    const hostname = url.hostname.toLowerCase()
+    return url.protocol === 'http:' && (hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '[::1]' || hostname === '::1')
+}
+
+const publicMarketingMediaResourceSchema = z
+    .object({
+        type: z.literal('url'),
+        url: safeExternalUrlSchema,
+        launchMode: z.enum(['inline', 'newTab', 'download']).default('inline')
+    })
+    .strict()
+    .superRefine((value, context) => {
+        // Defense-in-depth for the anonymous boundary: remote plain-HTTP media
+        // must never be representable in a public DTO. Loopback HTTP stays
+        // allowed as the explicit local-development exception.
+        let parsed: URL
+        try {
+            parsed = new URL(value.url)
+        } catch {
+            return
+        }
+        if (parsed.protocol !== 'http:') return
+        if (!isLoopbackMarketingUrl(value.url)) {
+            context.addIssue({
+                code: z.ZodIssueCode.custom,
+                path: ['url'],
+                message: 'Public remote media must use HTTPS.'
+            })
+        }
+    })
+
+export const publicMarketingMediaSchema = z
+    .object({
+        kind: z.enum(MARKETING_MEDIA_KINDS),
+        resource: publicMarketingMediaResourceSchema,
+        alt: marketingLocalizedTextSchema.optional(),
+        decorative: z.boolean().default(false),
+        width: z.number().int().positive().max(10000).optional(),
+        height: z.number().int().positive().max(10000).optional()
+    })
+    .strict()
+    .superRefine((value, context) => {
+        if (!value.decorative && !value.alt) {
+            context.addIssue({
+                code: z.ZodIssueCode.custom,
+                path: ['alt'],
+                message: 'Non-decorative public marketing media must include localized alt text.'
+            })
+        }
+        if (value.decorative && value.alt) {
+            context.addIssue({
+                code: z.ZodIssueCode.custom,
+                path: ['alt'],
+                message: 'Decorative public marketing media must not include alternative text.'
+            })
+        }
+    })
+export type PublicMarketingMedia = z.infer<typeof publicMarketingMediaSchema>
+
 const marketingRecordBaseSchema = z.object({
     id: marketingPersistedIdSchema,
     semanticKey: marketingSemanticKeySchema,
@@ -558,8 +701,6 @@ export const marketingSiteSettingsRecordSchema = marketingRecordBaseSchema
         heroTermsText: marketingLocalizedTextSchema.optional(),
         heroPrimaryAction: marketingActionButtonSchema.optional(),
         heroSecondaryAction: marketingActionButtonSchema.optional(),
-        heroLightPreview: marketingMediaSchema.optional(),
-        heroDarkPreview: marketingMediaSchema.optional(),
         footerDescription: marketingLocalizedTextSchema.optional(),
         copyright: marketingLocalizedTextSchema.optional(),
         copyrightLabel: marketingLocalizedTextSchema.optional(),
@@ -583,7 +724,8 @@ export const marketingLogoRecordSchema = marketingRecordBaseSchema
     .extend({
         kind: z.literal('logo'),
         name: marketingLocalizedTextSchema,
-        media: marketingMediaSchema,
+        /** Partner/ecosystem entries may be text-only; media is optional. */
+        media: marketingMediaSchema.optional(),
         darkMedia: marketingMediaSchema.optional()
     })
     .strict()
@@ -593,7 +735,8 @@ export const marketingFeatureRecordSchema = marketingRecordBaseSchema
     .extend({
         kind: z.literal('feature'),
         title: marketingLocalizedTextSchema,
-        description: marketingLocalizedTextSchema,
+        /** Feature descriptions are optional content; empty ones are omitted. */
+        description: marketingLocalizedTextSchema.optional(),
         iconKey: marketingSemanticKeySchema.optional(),
         lightMedia: marketingMediaSchema.optional(),
         darkMedia: marketingMediaSchema.optional()
@@ -710,6 +853,172 @@ export const marketingPageRecordSchema = z
     })
 export type MarketingPageRecord = z.infer<typeof marketingPageRecordSchema>
 
+const publicMarketingRecordBaseSchema = z.object({
+    semanticKey: marketingSemanticKeySchema,
+    order: z.number().int().min(0).max(10000),
+    isVisible: z.boolean().default(true)
+})
+
+export const publicMarketingSiteSettingsRecordSchema = publicMarketingRecordBaseSchema
+    .extend({
+        kind: z.literal('siteSettings'),
+        brandName: marketingLocalizedTextSchema,
+        brandLogo: publicMarketingMediaSchema.optional(),
+        heroTitle: marketingLocalizedTextSchema,
+        heroSubtitle: marketingLocalizedTextSchema,
+        heroAccent: marketingLocalizedTextSchema.optional(),
+        heroEmailLabel: marketingLocalizedLabelSchema.optional(),
+        heroEmailPlaceholder: marketingLocalizedLabelSchema.optional(),
+        heroTermsText: marketingLocalizedTextSchema.optional(),
+        heroPrimaryAction: marketingActionButtonSchema.optional(),
+        heroSecondaryAction: marketingActionButtonSchema.optional(),
+        footerDescription: marketingLocalizedTextSchema.optional(),
+        copyright: marketingLocalizedTextSchema.optional(),
+        copyrightLabel: marketingLocalizedTextSchema.optional(),
+        copyrightAction: marketingActionButtonSchema.optional(),
+        newsletter: marketingNewsletterSchema.optional()
+    })
+    .strict()
+export type PublicMarketingSiteSettingsRecord = z.infer<typeof publicMarketingSiteSettingsRecordSchema>
+
+export const publicMarketingNavigationLinkRecordSchema = publicMarketingRecordBaseSchema
+    .extend({
+        kind: z.literal('navigationLink'),
+        label: marketingLocalizedTextSchema,
+        action: marketingActionSchema,
+        iconKey: marketingSemanticKeySchema.optional()
+    })
+    .strict()
+export type PublicMarketingNavigationLinkRecord = z.infer<typeof publicMarketingNavigationLinkRecordSchema>
+
+export const publicMarketingLogoRecordSchema = publicMarketingRecordBaseSchema
+    .extend({
+        kind: z.literal('logo'),
+        name: marketingLocalizedTextSchema,
+        /** Partner/ecosystem entries may be text-only; media is optional. */
+        media: publicMarketingMediaSchema.optional(),
+        darkMedia: publicMarketingMediaSchema.optional()
+    })
+    .strict()
+export type PublicMarketingLogoRecord = z.infer<typeof publicMarketingLogoRecordSchema>
+
+export const publicMarketingFeatureRecordSchema = publicMarketingRecordBaseSchema
+    .extend({
+        kind: z.literal('feature'),
+        title: marketingLocalizedTextSchema,
+        /** Feature descriptions are optional content; empty ones are omitted. */
+        description: marketingLocalizedTextSchema.optional(),
+        iconKey: marketingSemanticKeySchema.optional(),
+        lightMedia: publicMarketingMediaSchema.optional(),
+        darkMedia: publicMarketingMediaSchema.optional()
+    })
+    .strict()
+export type PublicMarketingFeatureRecord = z.infer<typeof publicMarketingFeatureRecordSchema>
+
+export const publicMarketingTestimonialRecordSchema = publicMarketingRecordBaseSchema
+    .extend({
+        kind: z.literal('testimonial'),
+        quote: marketingLocalizedTextSchema,
+        author: marketingLocalizedTextSchema,
+        company: marketingLocalizedTextSchema.optional(),
+        avatar: publicMarketingMediaSchema.optional(),
+        logo: publicMarketingMediaSchema.optional(),
+        darkLogo: publicMarketingMediaSchema.optional()
+    })
+    .strict()
+export type PublicMarketingTestimonialRecord = z.infer<typeof publicMarketingTestimonialRecordSchema>
+
+export const publicMarketingHighlightRecordSchema = publicMarketingRecordBaseSchema
+    .extend({
+        kind: z.literal('highlight'),
+        title: marketingLocalizedTextSchema,
+        description: marketingLocalizedTextSchema,
+        iconKey: marketingSemanticKeySchema.optional(),
+        media: publicMarketingMediaSchema.optional()
+    })
+    .strict()
+export type PublicMarketingHighlightRecord = z.infer<typeof publicMarketingHighlightRecordSchema>
+
+export const publicMarketingPricingBenefitRecordSchema = publicMarketingRecordBaseSchema
+    .extend({
+        kind: z.literal('pricingBenefit'),
+        label: marketingLocalizedTextSchema
+    })
+    .strict()
+export type PublicMarketingPricingBenefitRecord = z.infer<typeof publicMarketingPricingBenefitRecordSchema>
+
+export const publicMarketingPricingTierRecordSchema = publicMarketingRecordBaseSchema
+    .extend({
+        kind: z.literal('pricingTier'),
+        title: marketingLocalizedTextSchema,
+        description: marketingLocalizedTextSchema.optional(),
+        price: marketingLocalizedTextSchema,
+        period: marketingLocalizedTextSchema.optional(),
+        action: marketingActionButtonSchema.optional(),
+        benefitKeys: z.array(marketingSemanticKeySchema).max(64).default([]),
+        benefits: z.array(marketingLocalizedTextSchema).max(64).default([]),
+        featured: z.boolean().default(false)
+    })
+    .strict()
+export type PublicMarketingPricingTierRecord = z.infer<typeof publicMarketingPricingTierRecordSchema>
+
+export const publicMarketingFaqRecordSchema = publicMarketingRecordBaseSchema
+    .extend({
+        kind: z.literal('faq'),
+        question: marketingLocalizedTextSchema,
+        answer: marketingLocalizedTextSchema
+    })
+    .strict()
+export type PublicMarketingFaqRecord = z.infer<typeof publicMarketingFaqRecordSchema>
+
+export const publicMarketingFooterLinkRecordSchema = publicMarketingRecordBaseSchema
+    .extend({
+        kind: z.literal('footerLink'),
+        groupKey: marketingSemanticKeySchema,
+        groupTitle: marketingLocalizedTextSchema.optional(),
+        label: marketingLocalizedTextSchema,
+        secondaryLabel: marketingLocalizedTextSchema.optional(),
+        action: marketingActionSchema,
+        iconKey: marketingSemanticKeySchema.optional()
+    })
+    .strict()
+export type PublicMarketingFooterLinkRecord = z.infer<typeof publicMarketingFooterLinkRecordSchema>
+
+export const publicMarketingSectionCopyRecordSchema = publicMarketingRecordBaseSchema
+    .extend({
+        kind: z.literal('sectionCopy'),
+        sectionKey: marketingSemanticKeySchema,
+        title: marketingLocalizedTextSchema,
+        description: marketingLocalizedTextSchema.optional()
+    })
+    .strict()
+export type PublicMarketingSectionCopyRecord = z.infer<typeof publicMarketingSectionCopyRecordSchema>
+
+export const publicMarketingPageRecordSchema = z
+    .discriminatedUnion('kind', [
+        publicMarketingSiteSettingsRecordSchema,
+        publicMarketingNavigationLinkRecordSchema,
+        publicMarketingLogoRecordSchema,
+        publicMarketingFeatureRecordSchema,
+        publicMarketingTestimonialRecordSchema,
+        publicMarketingHighlightRecordSchema,
+        publicMarketingPricingBenefitRecordSchema,
+        publicMarketingPricingTierRecordSchema,
+        publicMarketingFaqRecordSchema,
+        publicMarketingFooterLinkRecordSchema,
+        publicMarketingSectionCopyRecordSchema
+    ])
+    .superRefine((value, context) => {
+        if (value.kind === 'pricingTier' && new Set(value.benefitKeys).size !== value.benefitKeys.length) {
+            context.addIssue({
+                code: z.ZodIssueCode.custom,
+                path: ['benefitKeys'],
+                message: 'Pricing benefit keys must be unique within a tier.'
+            })
+        }
+    })
+export type PublicMarketingPageRecord = z.infer<typeof publicMarketingPageRecordSchema>
+
 const marketingThemeModeSchema = z.enum(['system', 'light', 'dark']).default('system')
 
 const marketingHexColorSchema = /^#(?:[0-9a-f]{3}|[0-9a-f]{6}|[0-9a-f]{8})$/i
@@ -755,7 +1064,7 @@ export const marketingPageConfigSchema = z
     .strict()
 export type MarketingPageConfig = z.infer<typeof marketingPageConfigSchema>
 
-const marketingWidgetConfigBaseSchema = z.object({
+const marketingEntityWidgetConfigBaseSchema = z.object({
     instanceKey: marketingWidgetInstanceKeySchema,
     source: marketingWidgetSourceSchema,
     copySource: marketingWidgetSourceSchema.optional()
@@ -819,7 +1128,7 @@ const refineMarketingWidgetSources = (
     }
 }
 
-export const marketingNavigationWidgetConfigSchema = marketingWidgetConfigBaseSchema
+export const marketingNavigationWidgetConfigSchema = marketingEntityWidgetConfigBaseSchema
     .extend({
         maxItems: z.number().int().min(1).max(100).default(24),
         showAuthActions: z.boolean().default(true)
@@ -827,32 +1136,38 @@ export const marketingNavigationWidgetConfigSchema = marketingWidgetConfigBaseSc
     .strict()
     .superRefine((value, context) => refineMarketingWidgetSources(value, context, 'marketing.navigation'))
 
-export const marketingHeroWidgetConfigSchema = marketingWidgetConfigBaseSchema
+export const marketingHeroWidgetConfigSchema = marketingEntityWidgetConfigBaseSchema
     .extend({
         showLeadForm: z.boolean().default(true)
     })
     .strict()
     .superRefine((value, context) => refineMarketingWidgetSources(value, context, 'marketing.hero'))
 
-export const marketingCollectionWidgetConfigSchema = marketingWidgetConfigBaseSchema
+export const marketingCollectionWidgetConfigSchema = marketingEntityWidgetConfigBaseSchema
     .extend({
         variant: marketingCollectionVariantSchema,
         maxItems: z.number().int().min(1).max(1000).default(100),
         showTitle: z.boolean().default(true),
-        showDescription: z.boolean().default(true)
+        showDescription: z.boolean().default(true),
+        /** Features-only: hide item descriptions so the cards show titles only. */
+        showItemDescriptions: z.boolean().default(true),
+        /** Features-only: constrain the item list to the media area height with vertical scrolling. */
+        fixedItemsHeight: z.boolean().default(false)
     })
     .strict()
     .superRefine((value, context) => refineMarketingWidgetSources(value, context, 'marketing.collection', value.variant))
 
-export const marketingPricingWidgetConfigSchema = marketingWidgetConfigBaseSchema
+export const marketingPricingWidgetConfigSchema = marketingEntityWidgetConfigBaseSchema
     .extend({
         maxItems: z.number().int().min(1).max(100).default(24),
-        showBenefits: z.boolean().default(true)
+        showBenefits: z.boolean().default(true),
+        cardStyle: marketingPricingCardStyleSchema.default('featured'),
+        cardWidth: marketingPricingCardWidthSchema.default('auto')
     })
     .strict()
     .superRefine((value, context) => refineMarketingWidgetSources(value, context, 'marketing.pricing'))
 
-export const marketingFooterWidgetConfigSchema = marketingWidgetConfigBaseSchema
+export const marketingFooterWidgetConfigSchema = marketingEntityWidgetConfigBaseSchema
     .extend({
         maxItems: z.number().int().min(1).max(100).default(100),
         showNewsletter: z.boolean().default(true)
@@ -861,9 +1176,52 @@ export const marketingFooterWidgetConfigSchema = marketingWidgetConfigBaseSchema
     .superRefine((value, context) => refineMarketingWidgetSources(value, context, 'marketing.footer'))
 
 /** Header-only content capabilities are persisted separately from navigation. */
-export const marketingBrandWidgetConfigSchema = marketingWidgetConfigBaseSchema
+export const marketingBrandWidgetConfigSchema = marketingEntityWidgetConfigBaseSchema
+    .extend({
+        /** Optional layout-level brand name override; a plain value applies to every locale. */
+        brandName: z.string().trim().min(1).max(120).optional(),
+        /** Optional layout-level brand logo override; otherwise the site settings record is used. */
+        brandLogo: marketingMediaSchema.optional()
+    })
+    .strict()
     .strict()
     .superRefine((value, context) => refineMarketingWidgetSources(value, context, 'marketing.brand'))
+
+export const marketingImageMediaSchema = marketingMediaSchema.superRefine((value, context) => {
+    if (value.kind !== 'hero') {
+        context.addIssue({ code: z.ZodIssueCode.custom, path: ['kind'], message: 'Marketing image widgets must use hero media.' })
+    }
+    if (value.resource.type !== 'url' || !value.resource.url) {
+        context.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ['resource', 'type'],
+            message: 'Marketing image widgets must use an external URL resource.'
+        })
+        return
+    }
+    if (value.resource.launchMode !== 'inline') {
+        context.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ['resource', 'launchMode'],
+            message: 'Marketing image widgets render inline.'
+        })
+    }
+    const parsed = new URL(value.resource.url)
+    if (parsed.protocol !== 'https:' && !isLoopbackMarketingUrl(value.resource.url)) {
+        context.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ['resource', 'url'],
+            message: 'Remote marketing images must use HTTPS.'
+        })
+    }
+})
+
+export const marketingImageWidgetConfigSchema = z
+    .object({
+        instanceKey: marketingWidgetInstanceKeySchema,
+        media: marketingImageMediaSchema
+    })
+    .strict()
 
 export const marketingAuthWidgetConfigSchema = z
     .object({
@@ -935,6 +1293,24 @@ export const marketingHeroWidgetSchema = marketingRuntimeWidgetBaseSchema
         }
     })
 
+export const marketingImageWidgetSchema = marketingRuntimeWidgetBaseSchema
+    .extend({
+        widgetKey: z.literal('marketing.image'),
+        config: marketingImageWidgetConfigSchema
+    })
+    .superRefine((value, context) => {
+        if (value.zone !== 'marketing-main') {
+            context.addIssue({ code: z.ZodIssueCode.custom, path: ['zone'], message: 'Image widgets must use the main zone.' })
+        }
+        if (value.data.records.length > 0) {
+            context.addIssue({
+                code: z.ZodIssueCode.custom,
+                path: ['data'],
+                message: 'Static image widgets must not contain entity records.'
+            })
+        }
+    })
+
 export const marketingCollectionWidgetSchema = marketingRuntimeWidgetBaseSchema
     .extend({
         widgetKey: z.literal('marketing.collection'),
@@ -944,15 +1320,8 @@ export const marketingCollectionWidgetSchema = marketingRuntimeWidgetBaseSchema
         if (value.zone !== 'marketing-main') {
             context.addIssue({ code: z.ZodIssueCode.custom, path: ['zone'], message: 'Collection widgets must use the main zone.' })
         }
-        const allowedKinds: Record<MarketingCollectionVariant, readonly MarketingPageRecord['kind'][]> = {
-            logos: ['logo'],
-            features: ['feature'],
-            testimonials: ['testimonial'],
-            highlights: ['highlight'],
-            faq: ['faq']
-        }
-        const kinds = allowedKinds[value.config.variant]
-        if (value.data.records.some((record) => record.kind !== 'sectionCopy' && !kinds.includes(record.kind))) {
+        const kinds = MARKETING_COLLECTION_VARIANT_RECORD_KINDS[value.config.variant]
+        if (value.data.records.some((record) => record.kind !== 'sectionCopy' && !(kinds as readonly string[]).includes(record.kind))) {
             context.addIssue({
                 code: z.ZodIssueCode.custom,
                 path: ['data'],
@@ -995,6 +1364,7 @@ export const marketingFooterWidgetSchema = marketingRuntimeWidgetBaseSchema
 export type MarketingRuntimeWidget =
     | z.infer<typeof marketingNavigationWidgetSchema>
     | z.infer<typeof marketingHeroWidgetSchema>
+    | z.infer<typeof marketingImageWidgetSchema>
     | z.infer<typeof marketingCollectionWidgetSchema>
     | z.infer<typeof marketingPricingWidgetSchema>
     | z.infer<typeof marketingFooterWidgetSchema>
@@ -1002,6 +1372,7 @@ export type MarketingRuntimeWidget =
 export const marketingRuntimeWidgetSchema: z.ZodType<MarketingRuntimeWidget> = z.union([
     marketingNavigationWidgetSchema,
     marketingHeroWidgetSchema,
+    marketingImageWidgetSchema,
     marketingCollectionWidgetSchema,
     marketingPricingWidgetSchema,
     marketingFooterWidgetSchema
@@ -1103,6 +1474,373 @@ export const marketingPageRuntimeViewModelSchema: z.ZodType<MarketingPageRuntime
         marketingPage: marketingPageDataSchema
     })
     .strict()
+
+/**
+ * Public widget identities are either the persisted semantic instance key
+ * (kept so rendered section anchors stay resolvable) or a deterministic
+ * synthetic key that never exposes opaque internal identifiers.
+ */
+const publicMarketingWidgetInstanceKeySchema = z.union([
+    z
+        .string()
+        .trim()
+        .regex(/^marketing-[a-z]+-[0-9]+$/u, 'Public widget instance keys must use semantic renderer identities.'),
+    marketingSemanticKeySchema
+])
+
+const publicMarketingWidgetDataSchema = z
+    .object({ records: z.array(publicMarketingPageRecordSchema).max(MARKETING_MAX_RUNTIME_RECORDS) })
+    .strict()
+
+const publicMarketingRuntimeWidgetBaseSchema = z.object({
+    instanceKey: publicMarketingWidgetInstanceKeySchema,
+    zone: marketingLayoutZoneSchema,
+    sortOrder: z.number().int().min(0).max(100_000),
+    isActive: z.boolean(),
+    data: publicMarketingWidgetDataSchema
+})
+
+const publicMarketingEntityWidgetConfigBaseSchema = z.object({
+    instanceKey: publicMarketingWidgetInstanceKeySchema
+})
+
+export const publicMarketingNavigationWidgetSchema = publicMarketingRuntimeWidgetBaseSchema
+    .extend({
+        widgetKey: z.literal('marketing.navigation'),
+        config: publicMarketingEntityWidgetConfigBaseSchema.extend({
+            maxItems: z.number().int().min(1).max(100).default(24),
+            showAuthActions: z.boolean().default(true)
+        })
+    })
+    .superRefine((value, context) => {
+        if (value.zone !== 'marketing-header') {
+            context.addIssue({ code: z.ZodIssueCode.custom, path: ['zone'], message: 'Navigation widgets must use the header zone.' })
+        }
+        if (value.data.records.some((record) => !['siteSettings', 'navigationLink'].includes(record.kind))) {
+            context.addIssue({
+                code: z.ZodIssueCode.custom,
+                path: ['data'],
+                message: 'Navigation data contains an unsupported record kind.'
+            })
+        }
+    })
+
+export const publicMarketingHeroWidgetSchema = publicMarketingRuntimeWidgetBaseSchema
+    .extend({
+        widgetKey: z.literal('marketing.hero'),
+        config: publicMarketingEntityWidgetConfigBaseSchema.extend({ showLeadForm: z.boolean().default(true) })
+    })
+    .superRefine((value, context) => {
+        if (value.zone !== 'marketing-main') {
+            context.addIssue({ code: z.ZodIssueCode.custom, path: ['zone'], message: 'Hero widgets must use the main zone.' })
+        }
+    })
+
+export const publicMarketingImageWidgetSchema = publicMarketingRuntimeWidgetBaseSchema
+    .extend({
+        widgetKey: z.literal('marketing.image'),
+        config: z.object({ instanceKey: publicMarketingWidgetInstanceKeySchema, media: publicMarketingMediaSchema }).strict()
+    })
+    .superRefine((value, context) => {
+        if (value.zone !== 'marketing-main') {
+            context.addIssue({ code: z.ZodIssueCode.custom, path: ['zone'], message: 'Image widgets must use the main zone.' })
+        }
+        if (value.data.records.length > 0) {
+            context.addIssue({
+                code: z.ZodIssueCode.custom,
+                path: ['data'],
+                message: 'Static image widgets must not contain entity records.'
+            })
+        }
+    })
+
+export const publicMarketingCollectionWidgetSchema = publicMarketingRuntimeWidgetBaseSchema
+    .extend({
+        widgetKey: z.literal('marketing.collection'),
+        config: publicMarketingEntityWidgetConfigBaseSchema.extend({
+            variant: marketingCollectionVariantSchema,
+            maxItems: z.number().int().min(1).max(1000).default(100),
+            showTitle: z.boolean().default(true),
+            showDescription: z.boolean().default(true),
+            showItemDescriptions: z.boolean().default(true),
+            fixedItemsHeight: z.boolean().default(false)
+        })
+    })
+    .superRefine((value, context) => {
+        if (value.zone !== 'marketing-main') {
+            context.addIssue({ code: z.ZodIssueCode.custom, path: ['zone'], message: 'Collection widgets must use the main zone.' })
+        }
+        const kinds = MARKETING_COLLECTION_VARIANT_RECORD_KINDS[value.config.variant]
+        if (value.data.records.some((record) => record.kind !== 'sectionCopy' && !(kinds as readonly string[]).includes(record.kind))) {
+            context.addIssue({ code: z.ZodIssueCode.custom, path: ['data'], message: 'Collection data does not match its variant.' })
+        }
+    })
+
+export const publicMarketingPricingWidgetSchema = publicMarketingRuntimeWidgetBaseSchema
+    .extend({
+        widgetKey: z.literal('marketing.pricing'),
+        config: publicMarketingEntityWidgetConfigBaseSchema.extend({
+            maxItems: z.number().int().min(1).max(100).default(24),
+            showBenefits: z.boolean().default(true),
+            cardStyle: marketingPricingCardStyleSchema.default('featured'),
+            cardWidth: marketingPricingCardWidthSchema.default('auto')
+        })
+    })
+    .superRefine((value, context) => {
+        if (value.zone !== 'marketing-main') {
+            context.addIssue({ code: z.ZodIssueCode.custom, path: ['zone'], message: 'Pricing widgets must use the main zone.' })
+        }
+        if (value.data.records.some((record) => !['pricingTier', 'pricingBenefit', 'sectionCopy'].includes(record.kind))) {
+            context.addIssue({ code: z.ZodIssueCode.custom, path: ['data'], message: 'Pricing data contains an unsupported record kind.' })
+        }
+    })
+
+export const publicMarketingFooterWidgetSchema = publicMarketingRuntimeWidgetBaseSchema
+    .extend({
+        widgetKey: z.literal('marketing.footer'),
+        config: publicMarketingEntityWidgetConfigBaseSchema.extend({
+            maxItems: z.number().int().min(1).max(100).default(100),
+            showNewsletter: z.boolean().default(true)
+        })
+    })
+    .superRefine((value, context) => {
+        if (value.zone !== 'marketing-footer') {
+            context.addIssue({ code: z.ZodIssueCode.custom, path: ['zone'], message: 'Footer widgets must use the footer zone.' })
+        }
+        if (value.data.records.some((record) => !['siteSettings', 'footerLink', 'sectionCopy'].includes(record.kind))) {
+            context.addIssue({ code: z.ZodIssueCode.custom, path: ['data'], message: 'Footer data contains an unsupported record kind.' })
+        }
+    })
+
+export type PublicMarketingRuntimeWidget =
+    | z.infer<typeof publicMarketingNavigationWidgetSchema>
+    | z.infer<typeof publicMarketingHeroWidgetSchema>
+    | z.infer<typeof publicMarketingImageWidgetSchema>
+    | z.infer<typeof publicMarketingCollectionWidgetSchema>
+    | z.infer<typeof publicMarketingPricingWidgetSchema>
+    | z.infer<typeof publicMarketingFooterWidgetSchema>
+
+export const publicMarketingRuntimeWidgetSchema: z.ZodType<PublicMarketingRuntimeWidget> = z.union([
+    publicMarketingNavigationWidgetSchema,
+    publicMarketingHeroWidgetSchema,
+    publicMarketingImageWidgetSchema,
+    publicMarketingCollectionWidgetSchema,
+    publicMarketingPricingWidgetSchema,
+    publicMarketingFooterWidgetSchema
+])
+
+const publicMarketingAtomicHeaderWidgetBaseSchema = z.object({
+    instanceKey: publicMarketingWidgetInstanceKeySchema,
+    zone: z.literal('marketing-header'),
+    sortOrder: z.number().int().min(0).max(100_000),
+    isActive: z.boolean(),
+    data: publicMarketingWidgetDataSchema
+})
+
+export const publicMarketingBrandWidgetSchema = publicMarketingAtomicHeaderWidgetBaseSchema
+    .extend({
+        widgetKey: z.literal('marketing.brand'),
+        config: z.object({ instanceKey: publicMarketingWidgetInstanceKeySchema }).strict()
+    })
+    .superRefine((value, context) => {
+        if (value.data.records.some((record) => record.kind !== 'siteSettings')) {
+            context.addIssue({ code: z.ZodIssueCode.custom, path: ['data'], message: 'Brand data must contain site settings only.' })
+        }
+    })
+
+export const publicMarketingAuthWidgetSchema = publicMarketingAtomicHeaderWidgetBaseSchema
+    .extend({
+        widgetKey: z.literal('marketing.auth'),
+        config: z.object({ instanceKey: publicMarketingWidgetInstanceKeySchema, showAuthActions: z.boolean().default(true) }).strict()
+    })
+    .superRefine((value, context) => {
+        if (value.data.records.length > 0) {
+            context.addIssue({
+                code: z.ZodIssueCode.custom,
+                path: ['data'],
+                message: 'Authentication data must not contain content records.'
+            })
+        }
+    })
+
+export type PublicMarketingAtomicHeaderWidget =
+    | z.infer<typeof publicMarketingBrandWidgetSchema>
+    | z.infer<typeof publicMarketingAuthWidgetSchema>
+
+export const publicMarketingAtomicHeaderWidgetSchema: z.ZodType<PublicMarketingAtomicHeaderWidget> = z.union([
+    publicMarketingBrandWidgetSchema,
+    publicMarketingAuthWidgetSchema
+])
+
+export const publicMarketingPageWidgetSchema: z.ZodType<PublicMarketingRuntimeWidget | PublicMarketingAtomicHeaderWidget> = z.union([
+    publicMarketingRuntimeWidgetSchema,
+    publicMarketingAtomicHeaderWidgetSchema
+])
+
+/**
+ * Header capabilities whose presence, order and visibility are decided by the
+ * persisted layout rows, including the shared language/color-mode switchers.
+ */
+export const MARKETING_HEADER_WIDGET_KEYS = [
+    'marketing.brand',
+    'marketing.navigation',
+    'marketing.auth',
+    'languageSwitcher',
+    'colorModeSwitcher'
+] as const
+export type MarketingHeaderWidgetKey = (typeof MARKETING_HEADER_WIDGET_KEYS)[number]
+export const marketingHeaderWidgetKeySchema = z.enum(MARKETING_HEADER_WIDGET_KEYS)
+
+/**
+ * Renderer-safe projection of one header layout row. Shared widgets have no
+ * content records, so the row carries placement plus a minimal config only.
+ */
+/** Physical header slots the shared widgets can occupy within the header zone. */
+export const MARKETING_HEADER_PLACEMENTS = ['start', 'end'] as const
+export const marketingHeaderPlacementSchema = z.enum(MARKETING_HEADER_PLACEMENTS)
+export type MarketingHeaderPlacement = (typeof MARKETING_HEADER_PLACEMENTS)[number]
+
+const publicMarketingHeaderWidgetBaseShape = {
+    instanceKey: publicMarketingWidgetInstanceKeySchema,
+    zone: z.literal('marketing-header'),
+    sortOrder: z.number().int().min(0).max(100_000),
+    isActive: z.boolean(),
+    placement: marketingHeaderPlacementSchema.optional()
+} as const
+
+const publicMarketingHeaderWidgetConfigShape = {
+    instanceKey: publicMarketingWidgetInstanceKeySchema
+} as const
+
+/**
+ * Each header row carries exactly the config its renderer consumes: the shared
+ * switchers and the brand/navigation rows have no settings beyond the instance
+ * key, while the auth row may hide its actions. A per-widget schema keeps the
+ * payload from silently shipping renderer-unknown configuration.
+ */
+/**
+ * Exhaustiveness guard for the header projection: every header key declares its
+ * config schema in the union below, so a new key either gets an entry here or
+ * the build fails instead of shipping a projection the renderer cannot parse.
+ */
+export const PUBLIC_HEADER_WIDGET_CONFIG_COVERAGE = {
+    'marketing.brand': true,
+    'marketing.navigation': true,
+    'marketing.auth': true,
+    languageSwitcher: true,
+    colorModeSwitcher: true
+} as const satisfies Record<MarketingHeaderWidgetKey, true>
+
+export const publicMarketingHeaderWidgetSchema = z
+    .discriminatedUnion('widgetKey', [
+        z
+            .object({
+                widgetKey: z.literal('marketing.auth'),
+                ...publicMarketingHeaderWidgetBaseShape,
+                config: z.object({ ...publicMarketingHeaderWidgetConfigShape, showAuthActions: z.boolean() }).strict()
+            })
+            .strict(),
+        z
+            .object({
+                widgetKey: z.literal('marketing.brand'),
+                ...publicMarketingHeaderWidgetBaseShape,
+                config: z.object(publicMarketingHeaderWidgetConfigShape).strict()
+            })
+            .strict(),
+        z
+            .object({
+                widgetKey: z.literal('marketing.navigation'),
+                ...publicMarketingHeaderWidgetBaseShape,
+                config: z.object(publicMarketingHeaderWidgetConfigShape).strict()
+            })
+            .strict(),
+        z
+            .object({
+                widgetKey: z.literal('languageSwitcher'),
+                ...publicMarketingHeaderWidgetBaseShape,
+                config: z.object(publicMarketingHeaderWidgetConfigShape).strict()
+            })
+            .strict(),
+        z
+            .object({
+                widgetKey: z.literal('colorModeSwitcher'),
+                ...publicMarketingHeaderWidgetBaseShape,
+                config: z.object(publicMarketingHeaderWidgetConfigShape).strict()
+            })
+            .strict()
+    ])
+    .superRefine((value, context) => {
+        if (value.config.instanceKey !== value.instanceKey) {
+            context.addIssue({
+                code: z.ZodIssueCode.custom,
+                path: ['config', 'instanceKey'],
+                message: 'Header widget config must repeat the row instance key.'
+            })
+        }
+    })
+export type PublicMarketingHeaderWidget = z.infer<typeof publicMarketingHeaderWidgetSchema>
+
+/** Anonymous payload with only renderer inputs; internal IDs, provenance and source locators are excluded. */
+export type PublicMarketingPageData = {
+    templateKey: typeof MARKETING_PAGE_TEMPLATE_KEY
+    locale: MarketingLocaleCode
+    config: MarketingPageConfig
+    widgets: Array<PublicMarketingRuntimeWidget | PublicMarketingAtomicHeaderWidget>
+    /** Layout-driven header rows; absent on payloads created before this contract. */
+    headerWidgets?: PublicMarketingHeaderWidget[]
+}
+
+export const publicMarketingPageDataSchema: z.ZodType<PublicMarketingPageData> = z
+    .object({
+        templateKey: z.literal(MARKETING_PAGE_TEMPLATE_KEY),
+        locale: marketingLocaleCodeSchema,
+        config: marketingPageConfigSchema,
+        widgets: z.array(publicMarketingPageWidgetSchema).min(1).max(64),
+        headerWidgets: z.array(publicMarketingHeaderWidgetSchema).max(24).optional()
+    })
+    .strict()
+    .superRefine((value, context) => {
+        const instanceKeys = new Set<string>()
+        for (const [index, widget] of value.widgets.entries()) {
+            if (instanceKeys.has(widget.instanceKey)) {
+                context.addIssue({
+                    code: z.ZodIssueCode.custom,
+                    path: ['widgets', index, 'instanceKey'],
+                    message: 'Marketing widget instance keys must be unique within a layout.'
+                })
+            }
+            instanceKeys.add(widget.instanceKey)
+        }
+        if (!value.widgets.some((widget) => widget.isActive)) {
+            context.addIssue({ code: z.ZodIssueCode.custom, path: ['widgets'], message: 'Marketing layout must contain an active widget.' })
+        }
+
+        const headerKeys = new Set<string>()
+        for (const [index, widget] of (value.headerWidgets ?? []).entries()) {
+            if (headerKeys.has(widget.instanceKey)) {
+                context.addIssue({
+                    code: z.ZodIssueCode.custom,
+                    path: ['headerWidgets', index, 'instanceKey'],
+                    message: 'Marketing header widget instance keys must be unique within a layout.'
+                })
+            }
+            headerKeys.add(widget.instanceKey)
+        }
+    })
+
+export type PublicMarketingPageRuntimeViewModel = {
+    templateKey: typeof MARKETING_PAGE_TEMPLATE_KEY
+    marketingPage: PublicMarketingPageData
+}
+
+export const publicMarketingPageRuntimeViewModelSchema: z.ZodType<PublicMarketingPageRuntimeViewModel> = z
+    .object({
+        templateKey: z.literal(MARKETING_PAGE_TEMPLATE_KEY),
+        marketingPage: publicMarketingPageDataSchema
+    })
+    .strict()
+
+export type MarketingPageRendererViewModel = MarketingPageRuntimeViewModel | PublicMarketingPageRuntimeViewModel
 
 /**
  * Build the complete runtime envelope without importing the dashboard package.

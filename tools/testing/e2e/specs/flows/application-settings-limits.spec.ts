@@ -119,8 +119,7 @@ test('@flow @combined application settings persist workspace limits and runtime 
         }
 
         await recordCreatedApplication({
-            id: applicationId,
-            slug: linkedApplication.application.slug
+            id: applicationId
         })
 
         await syncApplicationSchema(api, applicationId, {

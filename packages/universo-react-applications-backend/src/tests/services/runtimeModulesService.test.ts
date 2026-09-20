@@ -36,6 +36,7 @@ const createRecordBinding = (overrides: Record<string, unknown> = {}) => ({
         }
     ],
     tableIdent: '"app_018f8a787b8f7c1da1112222333346aa"."orders"',
+    tableName: 'orders',
     activeRowCondition: '_upl_deleted = false AND _app_deleted = false',
     ...overrides
 })
@@ -768,6 +769,93 @@ describe('RuntimeModulesService', () => {
                 })
             })
         )
+    })
+
+    it('enforces component unique rules on module record creates before inserting', async () => {
+        const { executor, txExecutor } = createMockDbExecutor()
+        const service = new RuntimeModulesService(engine as never)
+        const binding = createRecordBinding({
+            attrs: [
+                {
+                    id: 'attr-1',
+                    codename: 'codename',
+                    column_name: 'codename',
+                    data_type: 'STRING',
+                    is_required: false,
+                    validation_rules: { unique: true }
+                }
+            ]
+        })
+
+        jest.spyOn(service as never as { resolveRecordBinding: () => Promise<unknown> }, 'resolveRecordBinding').mockResolvedValue(binding)
+        jest.spyOn(
+            service as never as { buildWritableColumnValues: () => Promise<unknown> },
+            'buildWritableColumnValues'
+        ).mockResolvedValue([{ column: 'codename', value: 'taken-key' }])
+
+        txExecutor.query.mockImplementation(async (sql: string) => {
+            if (String(sql).includes('pg_advisory_xact_lock')) return []
+            if (String(sql).includes('SELECT id FROM')) return [{ id: 'existing-row' }]
+            return []
+        })
+
+        await expect(
+            (
+                service as never as {
+                    createRecord: (params: Record<string, unknown>) => Promise<Record<string, unknown>>
+                }
+            ).createRecord({
+                executor,
+                applicationId: 'application-1',
+                schemaName: 'app_018f8a787b8f7c1da1112222333346aa',
+                currentWorkspaceId: null,
+                currentUserId: 'user-1',
+                permissions: { createContent: true },
+                entityCodename: 'orders',
+                data: { codename: 'taken-key' }
+            })
+        ).rejects.toMatchObject({ code: 'RECORD_KEY_DUPLICATE', statusCode: 409 })
+        expect(txExecutor.query.mock.calls.some(([sql]) => String(sql).includes('INSERT INTO'))).toBe(false)
+    })
+
+    it('enforces the published marketing row cap for module record creates', async () => {
+        const { executor, txExecutor } = createMockDbExecutor()
+        const service = new RuntimeModulesService(engine as never)
+        const binding = createRecordBinding({
+            object: { codename: 'MarketingPageFaq', table_name: 'marketing_faq' },
+            tableIdent: '"app_018f8a787b8f7c1da1112222333346aa"."marketing_faq"',
+            tableName: 'marketing_faq'
+        })
+
+        jest.spyOn(service as never as { resolveRecordBinding: () => Promise<unknown> }, 'resolveRecordBinding').mockResolvedValue(binding)
+        jest.spyOn(
+            service as never as { buildWritableColumnValues: () => Promise<unknown> },
+            'buildWritableColumnValues'
+        ).mockResolvedValue([{ column: 'name', value: 'Blocked FAQ' }])
+
+        txExecutor.query.mockImplementation(async (sql: string) => {
+            if (String(sql).includes('pg_advisory_xact_lock')) return []
+            if (String(sql).includes('COUNT(*)')) return [{ count: '1000' }]
+            return []
+        })
+
+        await expect(
+            (
+                service as never as {
+                    createRecord: (params: Record<string, unknown>) => Promise<Record<string, unknown>>
+                }
+            ).createRecord({
+                executor,
+                applicationId: 'application-1',
+                schemaName: 'app_018f8a787b8f7c1da1112222333346aa',
+                currentWorkspaceId: null,
+                currentUserId: 'user-1',
+                permissions: { createContent: true },
+                entityCodename: 'MarketingPageFaq',
+                data: { name: 'Blocked FAQ' }
+            })
+        ).rejects.toMatchObject({ statusCode: 409, body: expect.objectContaining({ code: 'MARKETING_ROW_LIMIT_REACHED' }) })
+        expect(txExecutor.query.mock.calls.some(([sql]) => String(sql).includes('INSERT INTO'))).toBe(false)
     })
 
     it('preserves custom attachment kinds for runtime lifecycle dispatch', async () => {

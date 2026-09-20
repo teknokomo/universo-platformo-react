@@ -14,14 +14,14 @@ describe('ViewHeader mobile search', () => {
         const user = userEvent.setup()
         renderWithTheme(<ViewHeader title='Versions' search searchPlaceholder='Search versions' />)
 
-        await user.click(screen.getByRole('button', { name: 'Open search' }))
+        await user.click(screen.getByRole('button', { name: 'Search versions' }))
         const mobileSearchInput = screen.getAllByRole('searchbox').at(-1)
 
         expect(mobileSearchInput).toBeDefined()
         await user.type(mobileSearchInput!, 'draft')
         await user.click(document.body)
 
-        await user.click(screen.getByRole('button', { name: 'Open search' }))
+        await user.click(screen.getByRole('button', { name: 'Search versions' }))
 
         expect(screen.getAllByRole('searchbox').at(-1)).toHaveValue('draft')
     })
@@ -51,14 +51,14 @@ describe('ViewHeader mobile search', () => {
 
         renderWithTheme(<ControlledHarness />)
 
-        await user.click(screen.getByRole('button', { name: 'Open search' }))
+        await user.click(screen.getByRole('button', { name: 'Search versions' }))
         await user.type(screen.getAllByRole('searchbox').at(-1)!, ' ready')
 
         expect(screen.getByTestId('search-value')).toHaveTextContent('published ready')
 
         await user.click(document.body)
         await user.click(screen.getByRole('button', { name: 'Set archived' }))
-        await user.click(screen.getByRole('button', { name: 'Open search' }))
+        await user.click(screen.getByRole('button', { name: 'Search versions' }))
 
         const searchInputs = screen.getAllByRole('searchbox')
         expect(searchInputs[0]).toHaveValue('archived')

@@ -163,6 +163,20 @@ export async function getPresetEntityType(api: ApiContext, templateCodename: str
     return entityType
 }
 
+const ENTITY_TYPE_UI_CREATE_KEYS = [
+    'iconName',
+    'tabs',
+    'sidebarSection',
+    'sidebarOrder',
+    'nameKey',
+    'descriptionKey',
+    'resourceSurfaces',
+    'treeAssignmentLabels'
+] as const
+
+const pickEntityTypeUiCreateFields = (ui: Record<string, unknown>): Record<string, unknown> =>
+    Object.fromEntries(ENTITY_TYPE_UI_CREATE_KEYS.filter((key) => ui[key] !== undefined).map((key) => [key, ui[key]]))
+
 export async function createPresetEntityTypeViaApi(api: ApiContext, metahubId: string, options: PresetEntityTypeCreateOptions) {
     const entityType = await getPresetEntityType(api, options.templateCodename, options.expectedKindKey)
     const presentation = isRecord(entityType?.presentation) ? { ...entityType.presentation } : {}
@@ -177,8 +191,8 @@ export async function createPresetEntityTypeViaApi(api: ApiContext, metahubId: s
         kindKey: options.customKindKey,
         codename: options.customCodename ? createLocalizedContent('en', options.customCodename) : entityType?.codename,
         presentation,
-        components: isRecord(entityType?.components) ? entityType.components : {},
-        ui,
+        capabilities: isRecord(entityType?.capabilities) ? entityType.capabilities : {},
+        ui: pickEntityTypeUiCreateFields(ui),
         config: isRecord(entityType?.config) ? entityType.config : {},
         published: options.published ?? true
     })

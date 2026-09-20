@@ -12,6 +12,11 @@
         "deleteError": "Failed to delete application",
         "copySuccess": "Application successfully copied",
         "copyError": "Failed to copy application",
+        "createSuccess": "Application created",
+        "createError": "Failed to create application",
+        "updateSuccess": "Application updated",
+        "updateError": "Failed to update application",
+        "copyInProgress": "Copying…",
         "saveError": "Failed to save application",
         "copy": {
             "action": "Copy",
@@ -36,6 +41,104 @@
             "workspacesLocked": "Workspace mode is fixed after creation and cannot be changed.",
             "publicRequiresWorkspaces": "Workspaces are recommended for public applications to isolate data for each participant.",
             "publicWorkspacesRecommended": "Workspaces are recommended for public applications to isolate data for each participant."
+        },
+        "aliases": {
+            "page": {
+                "title": "Slugs",
+                "searchPlaceholder": "Search addresses or applications..."
+            },
+            "technicalAddress": "Technical address",
+            "technicalAddressHelp": "The application keeps this stable link when public addresses change. Copy it when a system needs the application address.",
+            "listTitle": "Public addresses",
+            "tableAriaLabel": "Application public addresses",
+            "empty": "No public addresses found",
+            "emptyImageAlt": "No public addresses",
+            "unknownApplication": "Unknown application",
+            "noPermission": "You do not have permission to manage application addresses.",
+            "readRequiredToView": "Viewing the public address registry requires the read permission for application addresses. Ask an administrator to grant it before managing addresses.",
+            "columns": {
+                "address": "Address",
+                "application": "Application",
+                "primary": "Primary",
+                "routing": "Routing behavior",
+                "status": "Status",
+                "actions": "Actions"
+            },
+            "states": {
+                "primary": "Primary",
+                "secondary": "Secondary",
+                "active": "Active",
+                "inactive": "Inactive",
+                "released": "Released"
+            },
+            "settings": {
+                "title": "Settings"
+            },
+            "filters": {
+                "showReleased": "Show released addresses"
+            },
+            "routing": {
+                "title": "Address routing",
+                "loading": "Loading routing policy...",
+                "loadError": "The routing policy could not be loaded.",
+                "retry": "Retry",
+                "direct": "Open the application at every address",
+                "canonical": "Redirect secondary addresses to the primary address",
+                "directShort": "Open at every address",
+                "canonicalShort": "Redirect to primary",
+                "help": "The routing policy controls what happens when a visitor opens a secondary public address."
+            },
+            "actions": {
+                "save": "Save",
+                "cancel": "Cancel",
+                "copy": "Copy",
+                "copyStableAddress": "Copy stable application link",
+                "rename": "Rename",
+                "setPrimary": "Set as primary",
+                "release": "Release address",
+                "openMenu": "Open address actions",
+                "copyAddress": "Copy address {{address}}",
+                "renameAddress": "Rename address {{address}}",
+                "setPrimaryAddress": "Set {{address}} as primary",
+                "releaseAddress": "Release address {{address}}",
+                "copyStableSuccess": "Stable application link copied",
+                "copyStableError": "Could not copy the stable application link"
+            },
+            "dialog": {
+                "createTitle": "Add public address",
+                "editTitle": "Rename public address",
+                "application": "Application",
+                "applicationHelp": "Select the application that will receive this address.",
+                "applicationLoading": "Loading applications...",
+                "applicationEmpty": "No active applications found",
+                "applicationLoadError": "Applications could not be loaded.",
+                "retryApplications": "Retry",
+                "alias": "Address name",
+                "aliasHelp": "Use a short Latin slug. The saved value is normalized and must be unique across the deployment.",
+                "preview": "Resulting address",
+                "makePrimary": "Make this the primary address",
+                "copySuccess": "Public address copied",
+                "copyError": "Could not copy the public address"
+            },
+            "primary": {
+                "confirmTitle": "Change primary address?",
+                "confirmDescription": "The primary address will change from {{oldAddress}} to {{newAddress}}. Secondary addresses in redirect mode will use the new destination.",
+                "centralConfirmDescription": "Set {{address}} as the primary address for {{application}}? Secondary addresses in redirect mode will use this destination.",
+                "none": "No current primary address"
+            },
+            "release": {
+                "confirmTitle": "Release public address?",
+                "confirmDescription": "{{address}} will stop routing when the release completes, and the name can later be claimed by another application."
+            },
+            "errors": {
+                "load": "Failed to load application addresses.",
+                "retry": "Retry",
+                "save": "Failed to save the application address.",
+                "format": "Use a valid lowercase Latin slug with letters, numbers, and hyphens.",
+                "reserved": "This address name is reserved by the platform.",
+                "uuid": "UUID-shaped values cannot be used as public aliases.",
+                "conflict": "This public address is already claimed by another application."
+            }
         },
         "join": {
             "action": "Join",
@@ -99,6 +202,20 @@
             "workspaceModeEnabled": "Enabled",
             "workspaceModeDisabled": "Disabled",
             "workspaceModeReadOnly": "Workspace mode is selected during connector schema sync according to the publication version policy and cannot be turned off after runtime workspaces are enabled.",
+            "publicEntryWorkspaceTitle": "Public entry workspace",
+            "publicEntryWorkspaceDescription": "Anonymous visitors use this shared workspace when the application is public. The server selects it automatically.",
+            "publicEntryWorkspaceLabel": "Workspace",
+            "publicEntryWorkspaceNone": "Not selected",
+            "publicEntryWorkspaceNotReady": "Public entry workspace settings become available after the application runtime workspace schema is ready.",
+            "publicEntryWorkspaceLoadError": "Public entry workspace settings could not be loaded.",
+            "publicEntryWorkspaceLoadMore": "Load more workspaces",
+            "publicEntryWorkspaceRetry": "Retry",
+            "publicEntryWorkspaceSaved": "Public entry workspace saved.",
+            "publicEntryWorkspaceSaveError": "Public entry workspace could not be saved.",
+            "publicEntryWorkspaceConflict": "Another administrator changed the public entry workspace. Reload the settings and try again.",
+            "publicEntryWorkspaceNotFound": "The selected workspace is no longer available.",
+            "publicEntryWorkspaceInvalid": "Select an active shared workspace.",
+            "unnamedWorkspace": "Unnamed workspace",
             "sectionLinksEnabled": "Section-specific links",
             "sectionLinksEnabledDescription": "Give every application menu section its own browser URL based on the section identifier.",
             "dashboardDefaultMode": "Runtime dashboard default",
@@ -469,7 +586,11 @@
                 "resetError": "Failed to restore marketing appearance defaults.",
                 "saveError": "Failed to save marketing appearance settings",
                 "themeMode": "Theme mode",
-                "theme": { "system": "System", "light": "Light", "dark": "Dark" },
+                "theme": {
+                    "system": "System",
+                    "light": "Light",
+                    "dark": "Dark"
+                },
                 "primaryColor": "Primary color",
                 "accentColor": "Accent color",
                 "colorHelper": "Use a hex color such as #1976d2.",
@@ -478,7 +599,10 @@
                 "allowEmailActions": "Allow email actions",
                 "allowTelephoneActions": "Allow telephone actions",
                 "externalLinkTarget": "External link target",
-                "linkTarget": { "sameTab": "Same tab", "newTab": "New tab" },
+                "linkTarget": {
+                    "sameTab": "Same tab",
+                    "newTab": "New tab"
+                },
                 "sourceBadge": "Source: {{source}}",
                 "brandAsset": "Brand asset",
                 "brandAssetConfigured": "Application logo and alternative text are configured.",
@@ -487,9 +611,6 @@
                     "sourceHelper": "Choose a standard entity source. The runtime resolves records through published metadata and never accepts a table name.",
                     "source": "Content source",
                     "collection": "Collection",
-                    "sourceCodenameHelper": "Enter the stable entity codename, for example MarketingPageFeature.",
-                    "recordKey": "Record key (optional)",
-                    "recordKeyHelper": "Limit a singleton source to a semantic record key when needed.",
                     "recordSelection": "Record selection",
                     "recordSelectionManaged": "The published source manages the selected record.",
                     "recordSelectionDefault": "The published source determines which records are shown.",
@@ -508,11 +629,32 @@
                     "showLeadForm": "Show lead form",
                     "showBenefits": "Show plan benefits",
                     "showNewsletter": "Show newsletter block",
+                    "imageGuidance": "Use a wide image, preferably 16:9 and about 1600×900 or larger. WebP, JPEG, and PNG work well. Use an optimized file at a publicly reachable HTTPS URL.",
+                    "imageUrl": "Image URL",
+                    "imageUrlHelper": "The image is loaded directly by the visitor browser. Remote URLs must use HTTPS.",
+                    "imageUrlInvalid": "Enter a valid absolute HTTPS image address (or a loopback HTTP address during local development).",
+                    "imageDecorative": "Decorative image",
+                    "imageAlt": "Alternative text",
+                    "imagePreviewWarning": "The image preview could not be loaded. Check that the HTTPS URL is publicly reachable and points directly to an image.",
                     "instanceKeyHelper": "Widget identity is assigned by the server when this widget is created and preserved when settings are edited.",
                     "invalidConfig": "Review the widget source and settings before saving.",
                     "noCompatibleSources": "No compatible Object entity source is available for this widget. Create or publish the matching entity type first.",
                     "saveError": "The widget settings could not be saved. Try again.",
-                    "sourceUnavailable": "The previously selected content source is no longer available. Choose a published Object entity source."
+                    "sourceUnavailable": "The previously selected content source is no longer available. Choose a published Object entity source.",
+                    "cardStyle": "Pricing card style",
+                    "cardStyleFeatured": "Highlight one card (Recommended)",
+                    "cardStyleUniform": "Equal cards without highlight",
+                    "showItemDescriptions": "Show item descriptions",
+                    "fixedItemsHeight": "Scroll cards in a fixed area",
+                    "cardWidth": "Card area width",
+                    "cardWidthAuto": "Standard container",
+                    "cardWidthFull": "Wide container",
+                    "maxItemsHelper": "Limits the records of this widget. Related child records (for example pricing benefits) are not cut by this limit.",
+                    "brandName": "Brand name",
+                    "brandNameHelper": "Shown in the header and footer when no logo is configured.",
+                    "brandLogoUrl": "Brand logo URL",
+                    "brandLogoHelper": "Optional HTTPS image. The logo is decorative; the brand name stays the accessible label in the header.",
+                    "recordSelectionEditHint": "Edit the linked records in the metahub: Entities -> Objects -> the selected object -> Records."
                 }
             },
             "makeDefault": "Make default",
@@ -738,7 +880,10 @@
                     "chartSeriesField": "Chart datasource needs a series field.",
                     "reportAggregationMetric": "Report aggregation metrics need a report reference and aggregation alias.",
                     "unsupportedOverviewMetric": "Unsupported overview card metrics will be removed when saved."
-                }
+                },
+                "sectionPicker": "Section",
+                "sectionManual": "Manual section reference",
+                "cardSectionPicker": "Metric section"
             },
             "columnsEditor": {
                 "title": "Columns container",
@@ -799,8 +944,10 @@
                     "titleRequired": "Name is required.",
                     "sectionRequired": "Select an entity section for this menu item.",
                     "hrefRequired": "Link URL is required for link items.",
-                    "hrefUnsafeScheme": "This link type is not allowed. Use https, mailto, tel, #, or an internal path."
-                }
+                    "hrefUnsafeScheme": "This link type is not allowed. Use https, mailto, tel, #, or an internal path.",
+                    "unsupportedKind": "This menu item type is read-only."
+                },
+                "unavailableStartPage": "Unavailable section"
             },
             "objectBehaviorTitleGlobal": "Default entity runtime behavior",
             "objectBehaviorTitleObject": "Entity runtime behavior",
@@ -849,7 +996,6 @@
                 "metahub": "Inherited from metahub",
                 "application": "Customized in application"
             },
-
             "source": {
                 "metahub": "Metahub",
                 "application": "Application"
@@ -927,6 +1073,7 @@
             "errors": {
                 "missingApplicationId": "Application ID is missing in URL",
                 "loadFailed": "Failed to load runtime data",
+                "applicationUnavailable": "This application is currently unavailable.",
                 "invalidRuntimeTarget": "The runtime target in this URL is invalid",
                 "layout": {
                     "LAYOUT_REQUEST_INVALID": "The selected runtime target is invalid.",
@@ -939,7 +1086,8 @@
                     "LAYOUT_PERSISTED_INVALID": "The saved application layout is invalid.",
                     "LAYOUT_CONFLICT": "The application layout changed. Reload and try again.",
                     "LAYOUT_RUNTIME_QUERY_FAILED": "The application layout could not be loaded right now."
-                }
+                },
+                "goHome": "Go home"
             },
             "actions": "Actions",
             "edit": "Edit",
@@ -979,7 +1127,10 @@
             "errorCopy": "Copy failed: {{message}}",
             "errorRecordCommand": "Record command failed: {{message}}",
             "errorSchemaChanged": "Schema has changed since this form was opened. Please close and try again.",
-            "workspaceLimitReached": "The workspace limit for this section has been reached ({{current}} / {{max}})."
+            "workspaceLimitReached": "The workspace limit for this section has been reached ({{current}} / {{max}}).",
+            "runtime": {
+                "loading": "Loading application"
+            }
         }
     },
     "connectors": {
@@ -1007,9 +1158,13 @@
         "nameEn": "Name (English)",
         "nameRu": "Name (Russian)",
         "descriptionEn": "Description (English)",
+        "createSuccess": "Connector created",
         "createError": "Failed to create connector",
+        "updateSuccess": "Connector updated",
         "updateError": "Failed to update connector",
+        "deleteSuccess": "Connector deleted",
         "deleteError": "Failed to delete connector",
+        "copyInProgress": "Creating…",
         "tabs": {
             "general": "General",
             "metahubs": "Metahubs",
@@ -1113,7 +1268,8 @@
                 "choosePolicy": "Choose a bulk policy for required layout conflicts",
                 "perLayoutLabel": "Resolution for this layout",
                 "useBulkPolicy": "Use the selected bulk policy",
-                "noOverride": "No per-layout override"
+                "noOverride": "No per-layout override",
+                "stale": "The layout diff changed. Review the refreshed conflict list and choose resolutions again."
             },
             "layoutChangeTypes": {
                 "conflict": "Local and source changes diverged",
@@ -1202,7 +1358,8 @@
             "createSchema": "Create Schema",
             "confirmDestructive": "Apply Including Destructive",
             "applySafeChanges": "Apply Safe Changes Only",
-            "cancel": "Cancel"
+            "cancel": "Cancel",
+            "destructiveChanges": "Destructive Changes (require confirmation)"
         },
         "board": {
             "title": "Connector Details",
@@ -1231,7 +1388,20 @@
             "linkError": "Failed to link metahub",
             "unlinkSuccess": "Metahub unlinked successfully",
             "unlinkError": "Failed to unlink metahub",
-            "loadError": "Failed to load metahubs"
+            "loadError": "Failed to load metahubs",
+            "panelTitle": "Metahubs",
+            "addButton": "Add",
+            "selectDialog": "Select a metahub",
+            "noSelected": "No metahubs selected",
+            "noAvailable": "No metahubs available",
+            "addSelected": "Add",
+            "isRequired": "Required",
+            "isRequiredEnabled": "The source must have at least one linked metahub",
+            "isRequiredDisabled": "The source may exist without metahubs",
+            "isSingle": "Single metahub",
+            "isSingleEnabled": "The source can be linked to a single metahub only",
+            "isSingleDisabled": "The source can appear in multiple metahubs",
+            "isSingleWarning": "Cannot be enabled while multiple metahubs are selected"
         },
         "metahubInfo": {
             "locked": "Changing metahub links and settings is currently locked. This will be available in future versions.",
@@ -1411,5 +1581,14 @@
         "description": "The application is currently being updated. Please try again in a few minutes.",
         "backToApp": "Back to application",
         "backToList": "Back to applications"
+    },
+    "layouts": {
+        "menuEditor": {
+            "validation": {}
+        },
+        "datasource": {}
+    },
+    "app": {
+        "runtime": {}
     }
 }

@@ -1,14 +1,20 @@
 import {
+    MARKETING_NUMERIC_TEXT_PATTERN,
     marketingPageRuntimeViewModelSchema,
-    marketingPageRecordSchema,
+    publicMarketingPageRuntimeViewModelSchema,
     type MarketingAction as SharedMarketingAction,
     type MarketingAtomicHeaderWidget,
     type MarketingCollectionVariant,
     type MarketingMedia as SharedMarketingMedia,
     type MarketingPageRecord,
     type MarketingPageRuntimeViewModel,
+    type MarketingPageRendererViewModel,
     type MarketingRuntimeWidget,
-    type MarketingSiteSettingsRecord
+    type MarketingSiteSettingsRecord,
+    type PublicMarketingAtomicHeaderWidget,
+    type PublicMarketingPageRecord,
+    type PublicMarketingRuntimeWidget,
+    type PublicMarketingSiteSettingsRecord
 } from '@universo-react/types'
 import { resolveMarketingLocalizedText, toMarketingActionHref, toMarketingActionLinkAttributes } from '@universo-react/utils'
 import i18n from '@universo-react/i18n'
@@ -153,9 +159,15 @@ const internalAction = (semanticKey: string, label: string, href: string): Marke
     target: '_self'
 })
 
-type RecordOfKind<T extends MarketingPageRecord['kind']> = Extract<MarketingPageRecord, { kind: T }>
+type RuntimeRecord = MarketingPageRecord | PublicMarketingPageRecord
+type RuntimeWidget = MarketingRuntimeWidget | PublicMarketingRuntimeWidget
+type AtomicHeaderWidget = MarketingAtomicHeaderWidget | PublicMarketingAtomicHeaderWidget
+type SiteSettingsRecord =
+    | (Omit<MarketingSiteSettingsRecord, 'brandLogo'> & { brandLogo?: SharedMarketingMedia })
+    | (Omit<PublicMarketingSiteSettingsRecord, 'brandLogo'> & { brandLogo?: SharedMarketingMedia })
+type RecordOfKind<T extends RuntimeRecord['kind']> = Extract<RuntimeRecord, { kind: T }>
 
-const recordsOfKind = <T extends MarketingPageRecord['kind']>(items: readonly MarketingPageRecord[], kind: T): RecordOfKind<T>[] =>
+const recordsOfKind = <T extends RuntimeRecord['kind']>(items: readonly RuntimeRecord[], kind: T): RecordOfKind<T>[] =>
     items.filter((item): item is RecordOfKind<T> => item.kind === kind)
 
 const visibleInContent = <T extends { visible?: boolean; order?: number }>(items: T[]): T[] =>
@@ -168,33 +180,28 @@ const visibleInContent = <T extends { visible?: boolean; order?: number }>(items
         )
         .map(({ item }) => item)
 
-const widgetItems = (widget: MarketingRuntimeWidget): MarketingPageRecord[] => widget.data.records
+const widgetItems = (widget: RuntimeWidget): RuntimeRecord[] => widget.data.records
 
-const isAtomicHeaderWidget = (
-    value: MarketingPageRuntimeViewModel['marketingPage']['widgets'][number]
-): value is MarketingAtomicHeaderWidget => {
+const isAtomicHeaderWidget = (value: MarketingPageRendererViewModel['marketingPage']['widgets'][number]): value is AtomicHeaderWidget => {
     return value.widgetKey === 'marketing.brand' || value.widgetKey === 'marketing.auth'
 }
 
-const runtimeRecords = (widget: MarketingAtomicHeaderWidget): MarketingPageRecord[] =>
-    widget.data.records
-        .map((record) => marketingPageRecordSchema.safeParse(record))
-        .filter((result): result is { success: true; data: MarketingPageRecord } => result.success)
-        .map((result) => result.data)
+const runtimeRecords = (widget: AtomicHeaderWidget): RuntimeRecord[] => widget.data.records
 
-type MarketingRuntimePage = Omit<MarketingPageRuntimeViewModel['marketingPage'], 'widgets'> & {
-    widgets: MarketingRuntimeWidget[]
+type MarketingRuntimePage = Omit<MarketingPageRendererViewModel['marketingPage'], 'widgets'> & {
+    widgets: RuntimeWidget[]
 }
 
 interface ParsedMarketingRuntimeEnvelope {
     page: MarketingRuntimePage
-    atomicHeaderWidgets: MarketingAtomicHeaderWidget[]
+    atomicHeaderWidgets: AtomicHeaderWidget[]
 }
 
 const parseMarketingRuntimeEnvelope = (viewModel: unknown): ParsedMarketingRuntimeEnvelope => {
-    const parsed = marketingPageRuntimeViewModelSchema.parse(viewModel)
+    const authenticated = marketingPageRuntimeViewModelSchema.safeParse(viewModel)
+    const parsed = authenticated.success ? authenticated.data : publicMarketingPageRuntimeViewModelSchema.parse(viewModel)
     const atomicHeaderWidgets = parsed.marketingPage.widgets.filter(isAtomicHeaderWidget)
-    const coreWidgets = parsed.marketingPage.widgets.filter((widget): widget is MarketingRuntimeWidget => !isAtomicHeaderWidget(widget))
+    const coreWidgets = parsed.marketingPage.widgets.filter((widget): widget is RuntimeWidget => !isAtomicHeaderWidget(widget))
     return {
         page: {
             ...parsed.marketingPage,
@@ -204,13 +211,11 @@ const parseMarketingRuntimeEnvelope = (viewModel: unknown): ParsedMarketingRunti
     }
 }
 
-const firstSettings = (
-    items: readonly MarketingPageRecord[],
-    fallback?: MarketingSiteSettingsRecord
-): MarketingSiteSettingsRecord | undefined => recordsOfKind(items, 'siteSettings')[0] ?? fallback
+const firstSettings = (items: readonly RuntimeRecord[], fallback?: SiteSettingsRecord): SiteSettingsRecord | undefined =>
+    recordsOfKind(items, 'siteSettings')[0] ?? fallback
 
 const sectionCopy = (
-    items: readonly MarketingPageRecord[],
+    items: readonly RuntimeRecord[],
     variant: MarketingCollectionVariant | 'pricing',
     locale: string,
     fallbackKey: MarketingFallbackKey,
@@ -227,7 +232,7 @@ const sectionCopy = (
     }
 }
 
-const normalizeNavigation = (items: readonly MarketingPageRecord[], locale: string): MarketingNavigationWidget['content'] => {
+const normalizeNavigation = (items: readonly RuntimeRecord[], locale: string): MarketingNavigationWidget['content'] => {
     const navigation = visibleInContent(
         recordsOfKind(items, 'navigationLink').map(
             (record): MarketingNavigationItem => ({
@@ -252,16 +257,13 @@ const normalizeNavigation = (items: readonly MarketingPageRecord[], locale: stri
     return { navigation }
 }
 
-const normalizeHero = (settings: MarketingSiteSettingsRecord | undefined, locale: string, showLeadForm = true): MarketingHeroData => {
-    const light = media(settings?.heroLightPreview, locale)
-    const dark = media(settings?.heroDarkPreview, locale)
+const normalizeHero = (settings: SiteSettingsRecord | undefined, locale: string, showLeadForm = true): MarketingHeroData => {
     const primaryAction = settings?.heroPrimaryAction
     const secondaryAction = settings?.heroSecondaryAction
     return {
         title: text(settings?.heroTitle, locale, 'heroTitle'),
         accent: settings?.heroAccent ? text(settings.heroAccent, locale, 'heroAccent') : undefined,
         description: text(settings?.heroSubtitle, locale),
-        media: mergeMedia(light, dark),
         lead:
             showLeadForm && settings?.heroEmailLabel && settings.heroEmailPlaceholder
                 ? {
@@ -276,22 +278,25 @@ const normalizeHero = (settings: MarketingSiteSettingsRecord | undefined, locale
     }
 }
 
-const normalizeLogos = (items: readonly MarketingPageRecord[], locale: string): MarketingLogo[] =>
+const normalizeLogos = (items: readonly RuntimeRecord[], locale: string): MarketingLogo[] =>
     visibleInContent(
         recordsOfKind(items, 'logo').map((record) => {
             const light = media(record.media, locale)
             const dark = media(record.darkMedia, locale)
+            const merged = mergeMedia(light, dark)
             return {
                 semanticKey: record.semanticKey,
                 name: text(record.name, locale, 'logoName'),
-                media: mergeMedia(light, dark) ?? { src: '', alt: '' },
+                // Partner/ecosystem entries may be text-only: keep the record
+                // and let the renderer use its localized label.
+                ...(merged ? { media: merged } : {}),
                 order: record.order,
                 visible: record.isVisible
             }
         })
     )
 
-const normalizeFeatures = (items: readonly MarketingPageRecord[], locale: string): MarketingFeature[] =>
+const normalizeFeatures = (items: readonly RuntimeRecord[], locale: string): MarketingFeature[] =>
     visibleInContent(
         recordsOfKind(items, 'feature').map((record) => ({
             semanticKey: record.semanticKey,
@@ -304,7 +309,7 @@ const normalizeFeatures = (items: readonly MarketingPageRecord[], locale: string
         }))
     )
 
-const normalizeTestimonials = (items: readonly MarketingPageRecord[], locale: string): MarketingTestimonial[] =>
+const normalizeTestimonials = (items: readonly RuntimeRecord[], locale: string): MarketingTestimonial[] =>
     visibleInContent(
         recordsOfKind(items, 'testimonial').map((record) => ({
             semanticKey: record.semanticKey,
@@ -318,7 +323,7 @@ const normalizeTestimonials = (items: readonly MarketingPageRecord[], locale: st
         }))
     )
 
-const normalizeHighlights = (items: readonly MarketingPageRecord[], locale: string) =>
+const normalizeHighlights = (items: readonly RuntimeRecord[], locale: string) =>
     visibleInContent(
         recordsOfKind(items, 'highlight').map((record) => ({
             semanticKey: record.semanticKey,
@@ -330,7 +335,27 @@ const normalizeHighlights = (items: readonly MarketingPageRecord[], locale: stri
         }))
     )
 
-const normalizePricing = (items: readonly MarketingPageRecord[], locale: string): MarketingPricingTier[] => {
+/**
+ * Numeric `Price` values arrive from PostgreSQL as scaled strings ("1.00").
+ * Render them through `Intl.NumberFormat` so whole numbers lose the fake
+ * precision and fractions follow the locale decimal separator, while authored
+ * text prices ("RUB 30–90 million") pass through unchanged.
+ */
+const formatMarketingPrice = (raw: string, locale: string): string => {
+    const trimmed = raw.trim()
+    // Only the canonical NUMERIC(10,2) shape is treated as a number; strings with
+    // thousands separators or long fractions stay authored text.
+    if (!MARKETING_NUMERIC_TEXT_PATTERN.test(trimmed)) return trimmed
+    const parsed = Number(trimmed.replace(',', '.'))
+    if (!Number.isFinite(parsed)) return trimmed
+    try {
+        return new Intl.NumberFormat(locale, { maximumFractionDigits: 2 }).format(parsed)
+    } catch {
+        return trimmed
+    }
+}
+
+const normalizePricing = (items: readonly RuntimeRecord[], locale: string): MarketingPricingTier[] => {
     const benefits = new Map(
         recordsOfKind(items, 'pricingBenefit')
             .filter((record) => record.isVisible)
@@ -345,7 +370,7 @@ const normalizePricing = (items: readonly MarketingPageRecord[], locale: string)
             return {
                 semanticKey: record.semanticKey,
                 title: text(record.title, locale, 'pricingTitle'),
-                price: text(record.price, locale),
+                price: formatMarketingPrice(text(record.price, locale), locale),
                 period: text(record.period, locale, 'pricingPeriod'),
                 benefits:
                     linkedBenefits.length > 0
@@ -361,7 +386,7 @@ const normalizePricing = (items: readonly MarketingPageRecord[], locale: string)
     )
 }
 
-const normalizeFaq = (items: readonly MarketingPageRecord[], locale: string) =>
+const normalizeFaq = (items: readonly RuntimeRecord[], locale: string) =>
     visibleInContent(
         recordsOfKind(items, 'faq').map((record) => ({
             semanticKey: record.semanticKey,
@@ -373,8 +398,8 @@ const normalizeFaq = (items: readonly MarketingPageRecord[], locale: string) =>
     )
 
 const normalizeFooter = (
-    items: readonly MarketingPageRecord[],
-    settings: MarketingSiteSettingsRecord | undefined,
+    items: readonly RuntimeRecord[],
+    settings: SiteSettingsRecord | undefined,
     locale: string,
     showNewsletter = true
 ): MarketingFooterData => {
@@ -414,7 +439,7 @@ const normalizeFooter = (
 
     const newsletter = settings?.newsletter
     return {
-        brandName: text(settings?.brandName, locale, 'brandName'),
+        brandName: text(settings?.brandName, locale),
         logo: media(settings?.brandLogo, locale),
         description: settings?.footerDescription ? text(settings.footerDescription, locale) : undefined,
         newsletter:
@@ -442,7 +467,7 @@ const normalizeFooter = (
     }
 }
 
-const frame = (widget: MarketingRuntimeWidget) => ({
+const frame = (widget: RuntimeWidget) => ({
     instanceKey: widget.instanceKey,
     zone: widget.zone,
     sortOrder: widget.sortOrder,
@@ -450,7 +475,7 @@ const frame = (widget: MarketingRuntimeWidget) => ({
 })
 
 const atomicFrame = (
-    widget: MarketingAtomicHeaderWidget
+    widget: AtomicHeaderWidget
 ): {
     instanceKey: MarketingBrandWidget['instanceKey']
     zone: 'marketing-header'
@@ -472,9 +497,9 @@ const atomicFrame = (
 }
 
 const normalizeAtomicHeaderWidget = (
-    widget: MarketingAtomicHeaderWidget,
+    widget: AtomicHeaderWidget,
     locale: string,
-    globalSettings: MarketingSiteSettingsRecord | undefined
+    globalSettings: SiteSettingsRecord | undefined
 ): MarketingBrandWidget | MarketingAuthWidget | undefined => {
     const frameData = atomicFrame(widget)
     const settings = firstSettings(runtimeRecords(widget), globalSettings)
@@ -483,7 +508,7 @@ const normalizeAtomicHeaderWidget = (
             ...frameData,
             widgetKey: 'marketing.brand',
             content: {
-                name: text(settings?.brandName, locale, 'brandName'),
+                name: text(settings?.brandName, locale),
                 logo: media(settings?.brandLogo, locale)
             }
         }
@@ -503,7 +528,7 @@ const normalizeAtomicHeaderWidget = (
 }
 
 const normalizeCollection = (
-    widget: Extract<MarketingRuntimeWidget, { widgetKey: 'marketing.collection' }>,
+    widget: Extract<RuntimeWidget, { widgetKey: 'marketing.collection' }>,
     locale: string
 ): MarketingCollectionWidget => {
     const items = widgetItems(widget)
@@ -521,7 +546,11 @@ const normalizeCollection = (
             content = {
                 variant,
                 section: sectionCopy(items, variant, locale, 'featuresTitle', widget.config),
-                items: normalizeFeatures(items, locale)
+                items: normalizeFeatures(items, locale),
+                config: {
+                    showItemDescriptions: widget.config.showItemDescriptions,
+                    fixedItemsHeight: widget.config.fixedItemsHeight
+                }
             }
             break
         case 'testimonials':
@@ -549,11 +578,7 @@ const normalizeCollection = (
     return { ...frame(widget), widgetKey: 'marketing.collection', content }
 }
 
-const normalizeWidget = (
-    widget: MarketingRuntimeWidget,
-    locale: string,
-    globalSettings: MarketingSiteSettingsRecord | undefined
-): MarketingPageWidget => {
+const normalizeWidget = (widget: RuntimeWidget, locale: string, globalSettings: SiteSettingsRecord | undefined): MarketingPageWidget => {
     const items = widgetItems(widget)
     switch (widget.widgetKey) {
         case 'marketing.navigation':
@@ -568,6 +593,15 @@ const normalizeWidget = (
                 widgetKey: widget.widgetKey,
                 content: normalizeHero(firstSettings(items, globalSettings), locale, widget.config.showLeadForm)
             }
+        case 'marketing.image': {
+            const normalizedMedia = media(widget.config.media, locale)
+            if (!normalizedMedia) throw new Error('Marketing image widget media could not be normalized')
+            return {
+                ...frame(widget),
+                widgetKey: widget.widgetKey,
+                content: { media: normalizedMedia }
+            }
+        }
         case 'marketing.collection':
             return normalizeCollection(widget, locale)
         case 'marketing.pricing':
@@ -576,7 +610,12 @@ const normalizeWidget = (
                 widgetKey: widget.widgetKey,
                 content: {
                     section: sectionCopy(items, 'pricing', locale, 'pricingSectionTitle'),
-                    tiers: normalizePricing(items, locale)
+                    tiers: normalizePricing(items, locale),
+                    config: {
+                        cardStyle: widget.config.cardStyle,
+                        cardWidth: widget.config.cardWidth,
+                        showBenefits: widget.config.showBenefits
+                    }
                 }
             } satisfies MarketingPricingWidget
         case 'marketing.footer':
@@ -615,8 +654,8 @@ export function normalizeMarketingPageRuntime(viewModel: unknown, locale: string
         locale: page.locale,
         config: page.config,
         widgets: [...page.widgets.map((widget) => normalizeWidget(widget, requestedLocale, globalSettings)), ...normalizedAtomicWidgets],
-        runtime: page.runtime,
-        provenance: page.provenance,
-        richContent: page.richContent
+        runtime: 'runtime' in page ? (page as MarketingPageRuntimeViewModel['marketingPage']).runtime : undefined,
+        provenance: 'provenance' in page ? (page as MarketingPageRuntimeViewModel['marketingPage']).provenance : undefined,
+        richContent: 'richContent' in page ? (page as MarketingPageRuntimeViewModel['marketingPage']).richContent : undefined
     }
 }

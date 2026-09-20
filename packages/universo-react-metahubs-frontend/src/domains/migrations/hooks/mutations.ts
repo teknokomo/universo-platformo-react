@@ -1,7 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useSnackbar } from 'notistack'
 import { useTranslation } from 'react-i18next'
-import { extractAxiosError } from '@universo-react/utils'
+import { resolveApiErrorMessage } from '@universo-react/utils'
 import * as migrationsApi from '../api'
 import { metahubsQueryKeys } from '../../shared'
 import type { TemplateCleanupMode } from '../api'
@@ -39,7 +39,7 @@ export function useApplyMetahubMigrations() {
                     context.previousPlan
                 )
             }
-            enqueueSnackbar(extractAxiosError(error).message || t('migrations.messages.applyError', 'Failed to apply migrations'), {
+            enqueueSnackbar(resolveApiErrorMessage(error, t('migrations.messages.applyError', 'Failed to apply migrations')), {
                 variant: 'error'
             })
         },

@@ -109,10 +109,12 @@ test('@flow @combined @slow combined and split publication setup both create usa
             name: { en: combinedPublicationName },
             namePrimaryLocale: 'en',
             autoCreateApplication: true,
-            createApplicationSchema: true,
             applicationName: { en: `E2E ${runManifest.runId} Combined App` },
             applicationNamePrimaryLocale: 'en',
-            applicationWorkspacesEnabled: true
+            runtimePolicy: {
+                workspaceMode: 'required',
+                requiredWorkspaceModeAcknowledged: true
+            }
         })
 
         if (!combinedPublication?.id) {
@@ -131,10 +133,10 @@ test('@flow @combined @slow combined and split publication setup both create usa
         }
 
         await recordCreatedApplication({
-            id: String(combinedLinkedApplication.id),
-            slug: typeof combinedLinkedApplication.slug === 'string' ? combinedLinkedApplication.slug : undefined
+            id: String(combinedLinkedApplication.id)
         })
 
+        await syncApplicationSchema(api, String(combinedLinkedApplication.id))
         const combinedPersistedApplication = await waitForApplicationReady(api, String(combinedLinkedApplication.id))
         expect(combinedPersistedApplication?.schemaStatus).toBe('synced')
         await waitForConnectors(api, String(combinedLinkedApplication.id))
@@ -181,8 +183,7 @@ test('@flow @combined @slow combined and split publication setup both create usa
         }
 
         await recordCreatedApplication({
-            id: splitLinkedResult.application.id,
-            slug: splitLinkedResult.application.slug
+            id: splitLinkedResult.application.id
         })
 
         await syncApplicationSchema(api, splitLinkedResult.application.id, {

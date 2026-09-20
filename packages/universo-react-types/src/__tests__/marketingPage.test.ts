@@ -8,13 +8,22 @@ import {
     createRuntimeViewModelSchema,
     marketingActionSchema,
     marketingCollectionWidgetConfigSchema,
+    marketingHeroWidgetSchema,
+    marketingImageWidgetSchema,
+    marketingImageWidgetConfigSchema,
     marketingNavigationWidgetConfigSchema,
     marketingMediaSchema,
     marketingPageConfigSchema,
+    publicMarketingHeroWidgetSchema,
+    publicMarketingMediaSchema,
     marketingPageDataSchema,
     marketingPersistedIdSchema,
     marketingProvenanceSchema,
-    marketingThemeColorSchema
+    marketingThemeColorSchema,
+    MARKETING_WIDGET_REGISTRY,
+    normalizeMarketingNumericText,
+    publicMarketingHeaderWidgetSchema,
+    marketingBrandWidgetConfigSchema
 } from '../common/marketingPage'
 import { applicationLayoutConfigSchema, parseApplicationLayoutConfig } from '../common/applicationLayouts'
 
@@ -84,6 +93,7 @@ describe('marketing page contracts', () => {
             seedPolicyKey: 'initial-only'
         })
         expect(APPLICATION_TEMPLATE_REGISTRY.dashboard.supportsDashboardWidgets).toBe(true)
+        expect(MARKETING_WIDGET_REGISTRY['marketing.image'].seamlessAfter).toEqual(['marketing.hero'])
     })
 
     it('requires UUID v7 for persisted marketing identifiers', () => {
@@ -183,6 +193,28 @@ describe('marketing page contracts', () => {
                 copySource: { entityCodename: 'MarketingPageSection', entityKind: 'object' }
             }).success
         ).toBe(false)
+    })
+
+    it('keeps static marketing image settings separate from entity-backed widget sources', () => {
+        const media = {
+            kind: 'hero' as const,
+            resource: { type: 'url' as const, url: 'https://example.test/hero.webp', launchMode: 'inline' as const },
+            decorative: true
+        }
+        expect(marketingImageWidgetConfigSchema.safeParse({ instanceKey: 'hero-image', media }).success).toBe(true)
+        expect(
+            marketingImageWidgetConfigSchema.safeParse({
+                instanceKey: 'hero-image',
+                media: { ...media, resource: { ...media.resource, url: 'http://example.test/hero.webp' } }
+            }).success
+        ).toBe(false)
+        expect(
+            marketingImageWidgetConfigSchema.safeParse({
+                instanceKey: 'hero-image',
+                media: { ...media, resource: { ...media.resource, url: 'http://localhost:3000/hero.webp' } }
+            }).success
+        ).toBe(true)
+        expect(marketingImageWidgetConfigSchema.safeParse({ instanceKey: 'hero-image', media, source: {} }).success).toBe(false)
     })
 
     it('accepts only opaque theme colors with an accessible foreground choice', () => {
@@ -298,5 +330,216 @@ describe('marketing page contracts', () => {
         expect(runtimeSchema.safeParse({ templateKey: 'dashboard', dashboard: { status: 'not-ready' } }).success).toBe(false)
         expect(runtimeSchema.safeParse({ templateKey: 'marketing-page', dashboard: {} }).success).toBe(false)
         expect(runtimeSchema.safeParse({ templateKey: 'unknown', marketingPage: {} }).success).toBe(false)
+    })
+
+    it('keeps remote plain-HTTP media out of the public DTO while allowing the loopback development exception', () => {
+        const buildMedia = (url: string) => ({
+            kind: 'hero' as const,
+            resource: { type: 'url' as const, url, launchMode: 'inline' as const },
+            decorative: false,
+            alt: { en: 'Alt' }
+        })
+
+        expect(publicMarketingMediaSchema.safeParse(buildMedia('https://example.com/image.png')).success).toBe(true)
+        expect(publicMarketingMediaSchema.safeParse(buildMedia('http://localhost:3000/image.png')).success).toBe(true)
+        expect(publicMarketingMediaSchema.safeParse(buildMedia('http://insecure.example.com/image.png')).success).toBe(false)
+        expect(publicMarketingMediaSchema.safeParse(buildMedia('HTTP://INSECURE.EXAMPLE.COM/image.png')).success).toBe(false)
+    })
+})
+
+describe('marketing hero and image widget contracts', () => {
+    const heroConfig = {
+        instanceKey: 'hero',
+        source: { entityCodename: 'MarketingPageSiteSettings', entityKind: 'object' }
+    }
+
+    const heroEnvelope = (zone: string, records: unknown[]) => ({
+        instanceKey: 'hero',
+        zone,
+        widgetKey: 'marketing.hero',
+        sortOrder: 0,
+        isActive: true,
+        config: heroConfig,
+        data: { records }
+    })
+
+    it('rejects a hero widget outside the main zone with the hero-specific reason', () => {
+        const result = marketingHeroWidgetSchema.safeParse(heroEnvelope('marketing-footer', [siteSettingsRecord]))
+
+        expect(result.success).toBe(false)
+        expect(result.success ? [] : result.error.issues.map((issue) => issue.message)).toContain('Hero widgets must use the main zone.')
+    })
+
+    it('rejects hero records that are not site settings', () => {
+        const featureRecord = {
+            ...baseRecord,
+            kind: 'feature' as const,
+            title: text,
+            description: text,
+            iconKey: 'viewQuilt'
+        }
+        const result = marketingHeroWidgetSchema.safeParse(heroEnvelope('marketing-main', [featureRecord]))
+
+        expect(result.success).toBe(false)
+        expect(result.success ? [] : result.error.issues.map((issue) => issue.message)).toContain(
+            'Hero data must contain site settings only.'
+        )
+    })
+
+    it('accepts a hero widget with site settings in the main zone and keeps image records empty-only', () => {
+        expect(marketingHeroWidgetSchema.safeParse(heroEnvelope('marketing-main', [siteSettingsRecord])).success).toBe(true)
+
+        const imageEnvelope = {
+            instanceKey: 'hero-image',
+            zone: 'marketing-main',
+            widgetKey: 'marketing.image',
+            sortOrder: 1,
+            isActive: true,
+            config: {
+                instanceKey: 'hero-image',
+                media: {
+                    kind: 'hero',
+                    resource: { type: 'url', url: 'https://cdn.example.test/hero.png' },
+                    alt: text
+                }
+            },
+            data: { records: [] }
+        }
+        expect(marketingImageWidgetSchema.safeParse(imageEnvelope).success).toBe(true)
+    })
+
+    it('keeps the public hero projection main-zone only', () => {
+        const publicHero = {
+            instanceKey: 'hero',
+            zone: 'marketing-header',
+            widgetKey: 'marketing.hero',
+            sortOrder: 0,
+            isActive: true,
+            config: { instanceKey: 'hero', showLeadForm: true },
+            data: { records: [] }
+        }
+
+        expect(publicMarketingHeroWidgetSchema.safeParse(publicHero).success).toBe(false)
+        expect(publicMarketingHeroWidgetSchema.safeParse({ ...publicHero, zone: 'marketing-main' }).success).toBe(true)
+    })
+})
+
+describe('normalizeMarketingNumericText', () => {
+    it('strips scaled NUMERIC precision while keeping authored text intact', () => {
+        expect(normalizeMarketingNumericText('1.00')).toBe('1')
+        expect(normalizeMarketingNumericText('15.50')).toBe('15.5')
+        expect(normalizeMarketingNumericText('150,25')).toBe('150.25')
+        expect(normalizeMarketingNumericText('-0.10')).toBe('-0.1')
+        expect(normalizeMarketingNumericText('0.00')).toBe('0')
+        expect(normalizeMarketingNumericText('-0.00')).toBe('0')
+        expect(normalizeMarketingNumericText('150–500 млн ₽')).toBe('150–500 млн ₽')
+        expect(normalizeMarketingNumericText('RUB 30–90 million')).toBe('RUB 30–90 million')
+        expect(normalizeMarketingNumericText('')).toBe('')
+    })
+})
+
+describe('marketingBrandWidgetConfigSchema', () => {
+    const base = {
+        instanceKey: 'brand',
+        source: { entityCodename: 'MarketingPageSiteSettings', entityKind: 'object' as const, recordKey: 'site-settings' }
+    }
+
+    it('accepts optional brand name and decorative logo overrides', () => {
+        const parsed = marketingBrandWidgetConfigSchema.safeParse({
+            ...base,
+            brandName: 'Consortium',
+            brandLogo: {
+                kind: 'logo',
+                resource: { type: 'url', url: 'https://example.test/logo.png', launchMode: 'inline' },
+                decorative: true
+            }
+        })
+        expect(parsed.success).toBe(true)
+    })
+
+    it('rejects unknown keys and non-decorative logos without alt text', () => {
+        expect(marketingBrandWidgetConfigSchema.safeParse({ ...base, unexpected: true }).success).toBe(false)
+        expect(
+            marketingBrandWidgetConfigSchema.safeParse({
+                ...base,
+                brandLogo: {
+                    kind: 'logo',
+                    resource: { type: 'url', url: 'https://example.test/logo.png', launchMode: 'inline' },
+                    decorative: false
+                }
+            }).success
+        ).toBe(false)
+    })
+})
+
+describe('publicMarketingHeaderWidgetSchema', () => {
+    const base = {
+        instanceKey: 'language-switcher-1',
+        zone: 'marketing-header',
+        sortOrder: 1,
+        isActive: true
+    } as const
+
+    it('accepts a shared switcher with the matching instance key config', () => {
+        expect(
+            publicMarketingHeaderWidgetSchema.safeParse({
+                ...base,
+                widgetKey: 'languageSwitcher',
+                config: { instanceKey: 'language-switcher-1' }
+            }).success
+        ).toBe(true)
+    })
+
+    it('requires the auth row to declare whether auth actions render', () => {
+        expect(
+            publicMarketingHeaderWidgetSchema.safeParse({
+                ...base,
+                widgetKey: 'marketing.auth',
+                config: { instanceKey: 'language-switcher-1' }
+            }).success
+        ).toBe(false)
+        expect(
+            publicMarketingHeaderWidgetSchema.safeParse({
+                ...base,
+                widgetKey: 'marketing.auth',
+                config: { instanceKey: 'language-switcher-1', showAuthActions: false }
+            }).success
+        ).toBe(true)
+    })
+
+    it('accepts an optional header placement and rejects unknown slots', () => {
+        expect(
+            publicMarketingHeaderWidgetSchema.safeParse({
+                ...base,
+                widgetKey: 'languageSwitcher',
+                placement: 'start',
+                config: { instanceKey: 'language-switcher-1' }
+            }).success
+        ).toBe(true)
+        expect(
+            publicMarketingHeaderWidgetSchema.safeParse({
+                ...base,
+                widgetKey: 'languageSwitcher',
+                placement: 'middle',
+                config: { instanceKey: 'language-switcher-1' }
+            }).success
+        ).toBe(false)
+    })
+
+    it('rejects unknown configuration keys and mismatched instance keys', () => {
+        expect(
+            publicMarketingHeaderWidgetSchema.safeParse({
+                ...base,
+                widgetKey: 'colorModeSwitcher',
+                config: { instanceKey: 'language-switcher-1', theme: 'dark' }
+            }).success
+        ).toBe(false)
+        expect(
+            publicMarketingHeaderWidgetSchema.safeParse({
+                ...base,
+                widgetKey: 'colorModeSwitcher',
+                config: { instanceKey: 'other-widget-2' }
+            }).success
+        ).toBe(false)
     })
 })

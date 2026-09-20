@@ -40,6 +40,7 @@ describe('application layout widget config contracts', () => {
             'marketing.navigation',
             'marketing.auth',
             'marketing.hero',
+            'marketing.image',
             'marketing.collection',
             'marketing.pricing',
             'marketing.footer'
@@ -89,6 +90,23 @@ describe('application layout widget config contracts', () => {
             showAuthActions: true
         })
         expect(() => parseApplicationLayoutWidgetConfig('marketing.auth', { instanceKey: 'marketing-auth', unexpected: true })).toThrow()
+
+        expect(
+            parseApplicationLayoutWidgetConfig('marketing.image', {
+                instanceKey: 'hero-image',
+                media: {
+                    kind: 'hero',
+                    resource: { type: 'url', url: 'https://example.test/hero.webp', launchMode: 'inline' },
+                    decorative: true
+                }
+            })
+        ).toMatchObject({ instanceKey: 'hero-image', media: { kind: 'hero', decorative: true } })
+        expect(() =>
+            parseApplicationLayoutWidgetConfig('marketing.image', {
+                instanceKey: 'hero-image',
+                source: { entityCodename: 'MarketingPageSiteSettings', entityKind: 'object' }
+            })
+        ).toThrow()
     })
 
     it('validates the complete widget metadata transport envelope', () => {

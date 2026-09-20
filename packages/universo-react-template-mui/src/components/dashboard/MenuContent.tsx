@@ -26,7 +26,6 @@ import {
 
 type ApplicationShellDetail = Record<string, unknown> & {
     name?: unknown
-    slug?: string | null
     schemaName?: string | null
 }
 
@@ -88,6 +87,8 @@ export default function MenuContent() {
     const { isSuperuser, canAccessAdminPanel, globalRoles, ability } = useHasGlobalAccess() as ReturnType<typeof useHasGlobalAccess> & {
         ability?: { can(action: string, subject: string): boolean } | null
     }
+    const canManageApplicationAliases =
+        isSuperuser === true || ability?.can('manage', 'ApplicationAlias') === true || ability?.can('read', 'ApplicationAlias') === true
     const shellAccess = resolveShellAccess({
         globalRoles,
         isSuperuser,
@@ -167,7 +168,7 @@ export default function MenuContent() {
               menuEntityTypes
           })
         : instanceId
-        ? getInstanceMenuItems(instanceId)
+        ? getInstanceMenuItems(instanceId, { canManageAliases: canManageApplicationAliases })
         : rootMenuItems.filter((item) => shellAccess.visibility.rootMenuIds.includes(item.id))
 
     return (

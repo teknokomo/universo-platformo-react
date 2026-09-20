@@ -48,7 +48,10 @@ export const API_WHITELIST_URLS = [
  * Use only for public routes with dynamic path segments and route-local
  * validation, such as short-lived signed asset URLs.
  */
-export const API_WHITELIST_PATH_PATTERNS = [/^\/api\/v1\/metahub\/[^/]+\/packages\/[^/]+\/editor-artifact-token\/[^/]+\//] as const
+export const API_WHITELIST_PATH_PATTERNS = [
+    /^\/api\/v1\/metahub\/[^/]+\/packages\/[^/]+\/editor-artifact-token\/[^/]+\//,
+    /^\/api\/v1\/public\/applications\/[^/]+\/runtime$/
+] as const
 
 /**
  * Frontend UI routes where 401 response should NOT trigger redirect to /auth.
@@ -72,6 +75,13 @@ export const PUBLIC_UI_ROUTES = [
 /**
  * Check if a pathname matches any public UI route.
  * Used by API clients to determine if 401 should trigger auth redirect.
+ *
+ * `/a/:applicationRef/*` is intentionally NOT public here. The same URL first
+ * runs the anonymous public probe (a credentials-omitting `fetch` that never
+ * flows through the axios interceptor) and then falls back to the
+ * authenticated guard/runtime path for signed-in members. Suppressing the 401
+ * redirect for that prefix would hide an expired session behind broken
+ * runtime screens instead of asking the member to sign in again.
  *
  * @param pathname - Current window.location.pathname
  * @returns true if the route is public (no auth redirect needed)

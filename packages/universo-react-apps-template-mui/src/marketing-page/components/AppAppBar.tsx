@@ -12,6 +12,7 @@ import ListItemButton from '@mui/material/ListItemButton'
 import MenuIcon from '@mui/icons-material/Menu'
 import CloseRoundedIcon from '@mui/icons-material/CloseRounded'
 import Toolbar from '@mui/material/Toolbar'
+import Typography from '@mui/material/Typography'
 import { useTranslation } from 'react-i18next'
 import { getLayoutWidgetDefinition } from '@universo-react/types'
 
@@ -22,7 +23,8 @@ import {
     MarketingMediaView,
     invokeMarketingAction,
     resolveMarketingAction,
-    sortVisibleMarketingItems
+    sortVisibleMarketingItems,
+    type MarketingSectionAnchors
 } from './MarketingPrimitives'
 import Sitemark from './SitemarkIcon'
 import {
@@ -44,9 +46,12 @@ const StyledToolbar = styled(Toolbar)(({ theme }) => ({
     backdropFilter: 'blur(24px)',
     border: '1px solid',
     borderColor: (theme.vars || theme).palette.divider,
+    // The bar floats over light and dark sections. A mostly-opaque theme
+    // background keeps the inherited text (including a configured brand name)
+    // contrast-safe on every section while still reading as a translucent bar.
     backgroundColor: theme.vars
-        ? `rgba(${theme.vars.palette.background.defaultChannel} / 0.4)`
-        : alpha(theme.palette.background.default, 0.4),
+        ? `rgba(${theme.vars.palette.background.defaultChannel} / 0.88)`
+        : alpha(theme.palette.background.default, 0.88),
     boxShadow: (theme.vars || theme).shadows[1],
     padding: '8px 12px'
 }))
@@ -61,35 +66,30 @@ export interface MarketingHeaderShellProps {
     position?: MarketingHeaderPosition
     frameOffsetPx?: number
     onAction?: MarketingActionHandler
+    sectionAnchors?: MarketingSectionAnchors
 }
 
 const Brand = ({ brand, onAction }: { brand: MarketingBrandData; onAction?: MarketingActionHandler }) => {
+    const brandFallback = brand.name ? (
+        // A configured brand name must be visible even without a logo asset;
+        // the template wordmark is only a fallback for unconfigured demos.
+        <Typography component='span' variant='h6' noWrap sx={{ fontWeight: 700, color: 'text.primary' }}>
+            {brand.name}
+        </Typography>
+    ) : (
+        <Box data-testid='marketing-brand-wordmark' component='span' sx={{ display: 'inline-flex' }}>
+            <Sitemark />
+        </Box>
+    )
     const content = brand.logo ? (
         <MarketingMediaView
             media={brand.logo}
             loading='eager'
+            fallback={brandFallback}
             sx={{ display: 'block', maxWidth: 100, maxHeight: 24, width: 'auto', height: 'auto', objectFit: 'contain' }}
         />
     ) : (
-        <>
-            <Sitemark />
-            <Box
-                component='span'
-                sx={{
-                    position: 'absolute',
-                    width: '1px',
-                    height: '1px',
-                    padding: 0,
-                    margin: '-1px',
-                    overflow: 'hidden',
-                    clip: 'rect(0 0 0 0)',
-                    whiteSpace: 'nowrap',
-                    border: 0
-                }}
-            >
-                {brand.name}
-            </Box>
-        </>
+        brandFallback
     )
     const resolved = resolveMarketingAction(brand.homeAction)
 
@@ -125,12 +125,14 @@ const NavigationLandmark = ({
     navigation,
     label,
     onAction,
+    sectionAnchors,
     mobile = false,
     onClose
 }: {
     navigation: MarketingNavigationItem[]
     label: string
     onAction?: MarketingActionHandler
+    sectionAnchors?: MarketingSectionAnchors
     mobile?: boolean
     onClose?: () => void
 }) => {
@@ -141,7 +143,7 @@ const NavigationLandmark = ({
             <Box component='nav' aria-label={label} data-testid='marketing-header-drawer-navigation'>
                 <List disablePadding>
                     {actions.map((item) => {
-                        const resolved = resolveMarketingAction(item)
+                        const resolved = resolveMarketingAction(item, sectionAnchors)
                         if (!resolved) return null
                         return (
                             <ListItem key={item.semanticKey} disablePadding>
@@ -173,7 +175,15 @@ const NavigationLandmark = ({
             sx={{ display: 'flex', alignItems: 'center', minWidth: 0 }}
         >
             {actions.map((item) => (
-                <MarketingActionButton key={item.semanticKey} action={item} onAction={onAction} variant='text' color='info' size='small'>
+                <MarketingActionButton
+                    key={item.semanticKey}
+                    action={item}
+                    onAction={onAction}
+                    sectionAnchors={sectionAnchors}
+                    variant='text'
+                    color='info'
+                    size='small'
+                >
                     {item.label}
                 </MarketingActionButton>
             ))}
@@ -295,6 +305,7 @@ const HeaderDrawer = ({
     brandName,
     onClose,
     onAction,
+    sectionAnchors,
     t
 }: {
     open: boolean
@@ -302,6 +313,7 @@ const HeaderDrawer = ({
     brandName: string
     onClose: () => void
     onAction?: MarketingActionHandler
+    sectionAnchors?: MarketingSectionAnchors
     t: ReturnType<typeof useTranslation>['t']
 }) => {
     const navigationProjections = projections.filter(
@@ -336,6 +348,7 @@ const HeaderDrawer = ({
                             navigation={projection.content.navigation}
                             label={navigationLabel(brandName, index, t)}
                             onAction={onAction}
+                            sectionAnchors={sectionAnchors}
                             mobile
                             onClose={onClose}
                         />
@@ -353,7 +366,7 @@ const HeaderDrawer = ({
     )
 }
 
-export function MarketingHeaderShell({ widgets, position = 'fixed', frameOffsetPx, onAction }: MarketingHeaderShellProps) {
+export function MarketingHeaderShell({ widgets, position = 'fixed', frameOffsetPx, onAction, sectionAnchors }: MarketingHeaderShellProps) {
     const headerRef = React.useRef<HTMLElement | null>(null)
     const menuButtonRef = React.useRef<HTMLButtonElement | null>(null)
     const wasOpen = React.useRef(false)
@@ -405,6 +418,7 @@ export function MarketingHeaderShell({ widgets, position = 'fixed', frameOffsetP
                         navigation={projection.content.navigation}
                         label={navigationLabel(brandName, index, t)}
                         onAction={onAction}
+                        sectionAnchors={sectionAnchors}
                     />
                 )
             }
@@ -488,6 +502,7 @@ export function MarketingHeaderShell({ widgets, position = 'fixed', frameOffsetP
                     brandName={brandName}
                     onClose={() => setOpen(false)}
                     onAction={onAction}
+                    sectionAnchors={sectionAnchors}
                     t={t}
                 />
             ) : null}

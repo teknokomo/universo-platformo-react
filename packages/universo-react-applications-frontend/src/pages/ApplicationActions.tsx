@@ -9,6 +9,7 @@ import { createLocalizedContent, normalizeApplicationCopyOptions, updateLocalize
 import type { Application, ApplicationDisplay, ApplicationLocalizedPayload } from '../types'
 import type { ApplicationFormValues } from './ApplicationList'
 import { extractLocalizedInput, ensureLocalizedContent, hasPrimaryContent, normalizeLocale } from '../utils/localizedInput'
+import ApplicationAddressesPanel from '../components/ApplicationAddressesPanel'
 
 type ApplicationDialogValues = ApplicationFormValues &
     Partial<ApplicationCopyOptions> & {
@@ -25,6 +26,7 @@ type ApplicationDialogRenderProps = {
 type ApplicationActionContext = ActionContext<ApplicationDisplay, ApplicationLocalizedPayload> & {
     applicationMap?: Map<string, Application>
     uiLocale?: string
+    canManageAliases?: boolean
     api?: ActionContext<ApplicationDisplay, ApplicationLocalizedPayload>['api'] & {
         copyEntity?: (id: string, data: ApplicationLocalizedPayload & Partial<ApplicationCopyOptions>) => Promise<void>
     }
@@ -195,6 +197,11 @@ const applicationActions: readonly ActionDescriptor<ApplicationDisplay, Applicat
                     saveButtonText: ctx.t('common:actions.save'),
                     savingButtonText: ctx.t('common:actions.saving'),
                     cancelButtonText: ctx.t('common:actions.cancel'),
+                    closeButtonText: ctx.t('common:actions.close'),
+                    discardChangesTitle: ctx.t('common:unsavedChanges.title'),
+                    discardChangesDescription: ctx.t('common:unsavedChanges.description'),
+                    discardChangesConfirmButtonText: ctx.t('common:unsavedChanges.confirm'),
+                    discardChangesCancelButtonText: ctx.t('common:unsavedChanges.cancel'),
                     hideDefaultFields: true,
                     initialExtraValues: initial,
                     tabs: ({ values, setValue, isLoading, errors }: ApplicationDialogRenderProps): TabConfig[] => {
@@ -234,7 +241,17 @@ const applicationActions: readonly ActionDescriptor<ApplicationDisplay, Applicat
                                 id: 'parameters',
                                 label: ctx.t('parameters.tab', 'Parameters'),
                                 content: renderParametersTab(ctx, values, setValue, isLoading, 'edit')
-                            }
+                            },
+                            ...(ctx.canManageAliases
+                                ? [
+                                      {
+                                          id: 'addresses',
+                                          label: ctx.t('aliases.listTitle', 'Public addresses'),
+                                          content: <ApplicationAddressesPanel applicationId={ctx.entity.id} />,
+                                          actionMode: 'independent'
+                                      } satisfies TabConfig
+                                  ]
+                                : [])
                         ]
                     },
                     validate: (values: ApplicationDialogValues) => validateApplicationForm(ctx, values),

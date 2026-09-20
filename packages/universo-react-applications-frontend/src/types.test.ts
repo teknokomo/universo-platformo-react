@@ -21,7 +21,6 @@ describe('types helpers', () => {
                     en: { content: 'Desc EN' }
                 }
             } as any,
-            slug: 'app',
             isPublic: true,
             createdAt: '2026-01-01T00:00:00.000Z',
             updatedAt: '2026-01-02T00:00:00.000Z',
@@ -34,7 +33,6 @@ describe('types helpers', () => {
         expect(displayRu.name).toBe('App RU')
         // description falls back to primary locale when requested locale is missing
         expect(displayRu.description).toBe('Desc EN')
-        expect(displayRu.slug).toBe('app')
         expect(displayRu.isPublic).toBe(true)
         expect(displayRu.connectorsCount).toBe(3)
         expect(displayRu.membersCount).toBe(2)
