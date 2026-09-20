@@ -75,6 +75,10 @@ export const loadPublicMarketingRuntime = async ({
         )
     } catch (error) {
         if (error instanceof EffectiveLayoutError) {
+            // Transient query failures (5xx) must stay retryable: turning them
+            // into the generic unavailable outcome would tell every visitor the
+            // application is not public and skip the frontend retry path.
+            if (error.httpStatus >= 500) throw error
             throw new PublicMarketingMaterializationError('Public marketing effective layout is unavailable')
         }
         throw error

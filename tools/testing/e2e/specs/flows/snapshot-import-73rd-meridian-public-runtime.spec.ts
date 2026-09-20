@@ -396,6 +396,24 @@ test('@flow @marketing-page @snapshot imports the committed 73rd Meridian fixtur
             )
         })
 
+        await test.step('an alias admin suffix stays in the public runtime instead of the management shell', async () => {
+            await setAliasRoutingMode(bootstrapApi, applicationId, 'direct')
+            const search = '?locale=en&step=alias-admin'
+            const payload = await gotoPublicRuntime(anonymousPage, '/a/' + primaryAlias + '/admin' + search)
+            await assertRuntimeLocation(anonymousPage, '/a/' + primaryAlias + '/admin', search)
+            await expect(anonymousPage.getByRole('heading', { name: MERIDIAN_73_SITE_SETTINGS.heroTitle.en, exact: true })).toBeVisible({
+                timeout: 30_000
+            })
+            await assertPublicMarketingContent(
+                anonymousPage,
+                MERIDIAN_73_SITE_SETTINGS.heroTitle.en,
+                MERIDIAN_73_ACTIVITIES[0].title.en,
+                MERIDIAN_73_FAQ[0].question.en,
+                '73rd Meridian alias admin-suffix public runtime',
+                payload
+            )
+        })
+
         await test.step('secondary alias redirects canonically while preserving the suffix, query, and Russian content', async () => {
             await setAliasRoutingMode(bootstrapApi, applicationId, 'canonical')
             const suffix = '/campaign/overview'

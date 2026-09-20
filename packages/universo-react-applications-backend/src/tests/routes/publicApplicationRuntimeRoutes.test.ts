@@ -47,6 +47,7 @@ jest.mock('../../services/publicMarketingRuntime', () => ({
 
 import { createPublicApplicationRuntimeRoutes } from '../../routes/publicApplicationRuntimeRoutes'
 import { PublicApplicationUnavailableError } from '../../services/publicApplicationRuntime'
+import { EffectiveLayoutError } from '../../services/effectiveLayoutContract'
 
 const applicationId = '0190a9b5-3cde-7abc-8def-0123456789ab'
 const layoutId = '0190a9b5-3cde-7abc-8def-0123456789ac'
@@ -222,6 +223,23 @@ describe('public application runtime routes', () => {
             expect(damaged.body).toEqual({ code: 'PUBLIC_APPLICATION_NOT_AVAILABLE' })
             expect(damaged.headers['cache-control']).toBe('no-store')
         }
+    })
+
+    it('keeps transient layout query failures retryable as 503', async () => {
+        const { executor } = createExecutor()
+        mockResolveEffectiveLayout.mockRejectedValue(new EffectiveLayoutError('LAYOUT_RUNTIME_QUERY_FAILED'))
+        const app = express()
+        app.use(createPublicApplicationRuntimeRoutes(() => executor, readLimiter))
+
+        const failure = await request(app).get(`/public/applications/${applicationId}/runtime?locale=en`).expect(503)
+        expect(failure.body).toEqual({ code: 'PUBLIC_APPLICATION_RUNTIME_FAILED' })
+        expect(failure.headers['cache-control']).toBe('no-store')
+
+        const probe = await request(app)
+            .get(`/public/applications/${applicationId}/runtime?locale=en`)
+            .set('Accept', 'application/vnd.universo.public-runtime-probe+json')
+            .expect(503)
+        expect(probe.body).toEqual({ code: 'PUBLIC_APPLICATION_RUNTIME_FAILED' })
     })
 
     it('uses no-content for the browser UI probe without changing the direct API 404 contract', async () => {

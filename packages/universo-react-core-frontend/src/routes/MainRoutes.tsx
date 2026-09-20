@@ -112,50 +112,7 @@ const ApplicationAliases = Loadable(lazy(() => import('@universo-react/applicati
 const ProfilePage = Loadable(lazy(() => import('@universo-react/profile-frontend/pages/Profile.jsx')))
 
 const ApplicationAdminResolver = () => {
-    const { applicationId = '' } = useParams<{ applicationId: string }>()
-    const location = useLocation()
-    const { t } = useTranslation('applications')
-    const isUuidReference = isUuidV7(applicationId)
-    const runtimeReferenceQuery = useQuery({
-        queryKey: applicationsQueryKeys.runtimeReference(applicationId),
-        queryFn: () => resolveApplicationRuntimeReference(applicationId),
-        enabled: !isUuidReference,
-        retry: false,
-        staleTime: 5 * 60 * 1000
-    })
-
-    if (isUuidReference) {
-        return <MainLayoutMUI />
-    }
-
-    if (runtimeReferenceQuery.isLoading) return <Loader />
-    if (runtimeReferenceQuery.isError || !runtimeReferenceQuery.data) {
-        return (
-            <Alert
-                severity='error'
-                action={
-                    <Button color='inherit' size='small' onClick={() => void runtimeReferenceQuery.refetch()}>
-                        {t('common.retry', 'Retry')}
-                    </Button>
-                }
-            >
-                {t('app.errors.loadFailed', 'Failed to load runtime data')}
-            </Alert>
-        )
-    }
-
-    const encodedPrefix = `/a/${encodeURIComponent(applicationId)}`
-    const plainPrefix = `/a/${applicationId}`
-    const prefix = location.pathname.startsWith(encodedPrefix)
-        ? encodedPrefix
-        : location.pathname.startsWith(plainPrefix)
-        ? plainPrefix
-        : null
-    const suffix = prefix ? location.pathname.slice(prefix.length) : '/admin'
-    const adminSuffix = suffix === '/admin' || suffix.startsWith('/admin/') ? suffix : '/admin'
-    const target = `/a/${runtimeReferenceQuery.data.applicationId}${adminSuffix}${location.search}${location.hash}`
-
-    return <Navigate to={target} replace />
+    return <MainLayoutMUI />
 }
 
 const PublicAwareApplicationRuntime = () => {
@@ -163,6 +120,14 @@ const PublicAwareApplicationRuntime = () => {
 }
 
 const ApplicationAdminEntry = () => {
+    const { applicationId = '' } = useParams<{ applicationId: string }>()
+
+    if (!isUuidV7(applicationId)) {
+        // Aliases address the application runtime only: `/a/<alias>/admin`
+        // stays a runtime suffix instead of entering the management shell.
+        return <ApplicationsApplicationRuntimeEntry />
+    }
+
     return (
         <AuthGuard>
             <RegisteredUserGuard>

@@ -26,7 +26,7 @@ describe('MainRoutes route ordering', () => {
         expect(fullscreenRouteIndex).toBeLessThan(resourcesRouteIndex)
     })
 
-    it('keeps the protected application admin branch ahead of the public runtime wildcard', () => {
+    it('keeps the UUID-only protected application admin branch ahead of the public runtime wildcard', () => {
         const source = readMainRoutesSource()
         const routeExport = source.match(/export default \[([^\]]+)\]/)?.[1] ?? ''
         const adminRouteIndex = routeExport.indexOf('ApplicationAdminRoute')
@@ -36,8 +36,12 @@ describe('MainRoutes route ordering', () => {
         expect(source).toContain("path: 'a/:applicationId/*'")
         expect(source).toContain('<AuthGuard>')
         expect(source).toContain('<ApplicationAdminResolver />')
-        expect(source).toContain('resolveApplicationRuntimeReference(applicationId)')
-        expect(source).toContain('return <Navigate to={target} replace />')
+        // Aliases address the runtime only: the admin branch must hand every
+        // non-UUID reference back to the runtime entry instead of resolving the
+        // alias into the management shell.
+        expect(source).toContain('if (!isUuidV7(applicationId))')
+        expect(source).toContain('return <ApplicationsApplicationRuntimeEntry />')
+        expect(source).not.toContain('resolveApplicationRuntimeReference(applicationId)')
         expect(adminRouteIndex).toBeGreaterThanOrEqual(0)
         expect(minimalRoutesIndex).toBeGreaterThanOrEqual(0)
         expect(adminRouteIndex).toBeLessThan(minimalRoutesIndex)
