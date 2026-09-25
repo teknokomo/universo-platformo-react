@@ -6,6 +6,15 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom'
 
 const createElementMutateAsyncMock = vi.fn()
 const enqueueSnackbarMock = vi.fn()
+const recordsFixture: Array<{
+    id: string
+    objectCollectionId: string
+    data: Record<string, unknown>
+    ownerId: string | null
+    sortOrder: number
+    createdAt: string
+    updatedAt: string
+}> = []
 
 const currentObject = {
     id: 'object-1',
@@ -37,6 +46,19 @@ const objectComponents = [
         targetEntityKind: null,
         targetConstantId: null,
         uiConfig: {}
+    },
+    {
+        id: 'cmp-action',
+        codename: 'PrimaryAction',
+        name: 'Primary action',
+        dataType: 'JSON',
+        sortOrder: 2,
+        isRequired: true,
+        validationRules: { format: 'marketingAction' },
+        targetEntityId: null,
+        targetEntityKind: null,
+        targetConstantId: null,
+        uiConfig: {}
     }
 ]
 
@@ -51,7 +73,19 @@ vi.mock('react-i18next', () => ({
 
 vi.mock('@universo-react/i18n', () => ({
     useCommonTranslations: () => ({
-        t: (_key: string, fallback?: string) => fallback ?? _key
+        t: (key: string, options?: string | { defaultValue?: string; kind?: string; target?: string }) => {
+            const translatedLabels: Record<string, string> = {
+                'layouts.marketing.heroAuthoring.actionKinds.internal': 'Application page',
+                'layouts.marketing.heroAuthoring.actionKinds.external': 'Website',
+                'layouts.marketing.heroAuthoring.actionKinds.anchor': 'Page section',
+                'layouts.marketing.heroAuthoring.actionKinds.email': 'Email',
+                'layouts.marketing.heroAuthoring.actionKinds.tel': 'Phone'
+            }
+            const template = translatedLabels[key] ?? (typeof options === 'string' ? options : options?.defaultValue ?? key)
+            return template
+                .replace('{{kind}}', options && typeof options === 'object' ? options.kind ?? '' : '')
+                .replace('{{target}}', options && typeof options === 'object' ? options.target ?? '' : '')
+        }
     })
 }))
 
@@ -165,7 +199,28 @@ vi.mock('@universo-react/template-mui', () => {
         }),
         useDebouncedSearch: () => ({ searchValue: '', handleSearchChange: vi.fn() }),
         PaginationControls: () => null,
-        FlowListTable: () => <div data-testid='records-table' />,
+        FlowListTable: ({
+            data = [],
+            customColumns = [],
+            renderActions
+        }: {
+            data?: Array<{ id: string; data: Record<string, unknown> }>
+            customColumns?: Array<{ id: string; render: (row: { id: string; data: Record<string, unknown> }) => React.ReactNode }>
+            renderActions?: (row: { id: string; data: Record<string, unknown> }) => React.ReactNode
+        }) => (
+            <div data-testid='records-table'>
+                {data.map((row) => (
+                    <div key={row.id}>
+                        {customColumns.map((column) => (
+                            <div key={column.id} data-testid={`record-cell-${column.id}`}>
+                                {column.render(row)}
+                            </div>
+                        ))}
+                        {renderActions?.(row)}
+                    </div>
+                ))}
+            </div>
+        ),
         useConfirm: () => ({ confirm: vi.fn() }),
         revealPendingEntityFeedback: vi.fn(),
         ViewHeaderMUI: ({ title, children }: { title: string; children?: React.ReactNode }) => (
@@ -174,7 +229,31 @@ vi.mock('@universo-react/template-mui', () => {
                 {children}
             </div>
         ),
-        BaseEntityMenu: () => null,
+        BaseEntityMenu: ({
+            entity,
+            descriptors,
+            createContext,
+            contextExtras
+        }: {
+            entity: { id: string; data: Record<string, unknown> }
+            descriptors: Array<{
+                id: string
+                onSelect: (context: { entity: { id: string; data: Record<string, unknown> }; helpers?: Record<string, unknown> }) => unknown
+            }>
+            createContext: (context: Record<string, unknown>) => {
+                entity: { id: string; data: Record<string, unknown> }
+                helpers?: Record<string, unknown>
+            }
+            contextExtras?: Record<string, unknown>
+        }) => {
+            const editAction = descriptors.find((descriptor) => descriptor.id === 'edit')
+            const context = createContext({ entity, ...contextExtras })
+            return (
+                <button type='button' onClick={() => void editAction?.onSelect(context)}>
+                    Edit record
+                </button>
+            )
+        },
         gridSpacing: 2
     }
 })
@@ -187,17 +266,42 @@ vi.mock('@universo-react/template-mui/components/dialogs', () => ({
         open,
         title,
         error,
-        onSubmit
+        onSubmit,
+        fields = [],
+        initialData,
+        renderField
     }: {
         open: boolean
         title: string
         error?: string | null
         onSubmit: (data: Record<string, unknown>) => Promise<void>
+        fields?: Array<{ id: string; label: string; type: string; required?: boolean; validationRules?: Record<string, unknown> }>
+        initialData?: Record<string, unknown>
+        renderField?: (params: {
+            field: { id: string; label: string; type: string; required?: boolean; validationRules?: Record<string, unknown> }
+            value: unknown
+            onChange: (value: unknown) => void
+            disabled: boolean
+            error: string | null
+            locale: string
+        }) => React.ReactNode
     }) =>
         open ? (
             <div role='dialog' aria-label={title}>
                 <div>{title}</div>
                 {error ? <div>{error}</div> : null}
+                {fields.map((field) => (
+                    <React.Fragment key={field.id}>
+                        {renderField?.({
+                            field,
+                            value: initialData?.[field.id],
+                            onChange: () => undefined,
+                            disabled: false,
+                            error: null,
+                            locale: 'en'
+                        })}
+                    </React.Fragment>
+                ))}
                 <button type='button' onClick={() => void onSubmit({ Name: 'Lemonade' })}>
                     Submit dialog
                 </button>
@@ -288,7 +392,7 @@ vi.mock('../../hooks/useRecordListData', () => ({
         allowElementCopy: true,
         allowElementDelete: true,
         paginationResult: {
-            data: [],
+            data: recordsFixture,
             isLoading: false,
             error: null,
             pagination: { total: 0, limit: 20, offset: 0, count: 0, hasMore: false },
@@ -297,9 +401,9 @@ vi.mock('../../hooks/useRecordListData', () => ({
         isLoading: false,
         error: null,
         handleSearchChange: vi.fn(),
-        sortedElements: [],
+        sortedElements: recordsFixture,
         images: new Map(),
-        elementMap: new Map(),
+        elementMap: new Map(recordsFixture.map((record) => [record.id, record])),
         elementOrderMap: new Map(),
         visibleComponentsForColumns: objectComponents,
         refTargetByComponent: new Map(),
@@ -310,7 +414,16 @@ vi.mock('../../hooks/useRecordListData', () => ({
 
 vi.mock('../RecordActions', () => ({
     __esModule: true,
-    default: []
+    default: [
+        {
+            id: 'edit',
+            onSelect: async (context: {
+                entity: { id: string; data: Record<string, unknown> }
+                helpers?: { openEditDialog?: (record: unknown) => Promise<void> }
+                rawElement?: unknown
+            }) => context.helpers?.openEditDialog?.(context.rawElement ?? context.entity)
+        }
+    ]
 }))
 
 vi.mock('../InlineTableEditor', () => ({
@@ -352,7 +465,7 @@ vi.mock('@universo-react/utils', () => ({
     filterLocalizedContent: (value: unknown) => value ?? null,
     updateLocalizedContentLocale: (content: unknown) => content,
     normalizeObjectCollectionCopyOptions: (opts: unknown) => opts ?? {},
-    getVLCString: () => '',
+    getVLCString: (value: unknown) => (typeof value === 'string' ? value : ''),
     getVLCPrimaryString: () => '',
     buildVLC: (locale: string, content: unknown) => ({
         _schema: '1',
@@ -364,7 +477,7 @@ vi.mock('@universo-react/utils', () => ({
 vi.mock('@universo-react/utils/vlc', () => ({
     normalizeLocale: (locale?: string) => (locale || 'en').toLowerCase().slice(0, 2),
     getSimpleLocalizedValue: () => '',
-    getVLCString: () => '',
+    getVLCString: (value: unknown) => (typeof value === 'string' ? value : ''),
     getVLCPrimaryString: () => '',
     isLocalizedContent: () => false,
     createLocalizedContent: (locale = 'en', content: unknown = '') => ({
@@ -402,9 +515,10 @@ vi.mock('@universo-react/utils/vlc', () => ({
 
 import RecordList from '../RecordList'
 
-describe('RecordList create error flow', () => {
+describe('RecordList record editor', () => {
     beforeEach(() => {
         vi.clearAllMocks()
+        recordsFixture.splice(0, recordsFixture.length)
     })
 
     it('keeps the create dialog open and surfaces the API message when creation fails', async () => {
@@ -432,5 +546,36 @@ describe('RecordList create error flow', () => {
             expect(screen.getByRole('dialog', { name: 'Add Record' })).toBeInTheDocument()
             expect(screen.getByText('Validation failed: child localized content is invalid')).toBeInTheDocument()
         })
+    })
+
+    it('opens the shared action editor for an Object record and formats its table cell as friendly text', async () => {
+        const user = userEvent.setup()
+        recordsFixture.push({
+            id: 'record-1',
+            objectCollectionId: 'object-1',
+            data: { PrimaryAction: { kind: 'internal', path: '/auth', target: 'same-tab' } },
+            ownerId: null,
+            sortOrder: 1,
+            createdAt: '2026-09-24T00:00:00.000Z',
+            updatedAt: '2026-09-24T00:00:00.000Z'
+        })
+
+        render(
+            <MemoryRouter initialEntries={['/metahub/metahub-1/entities/object/instance/object-1/records']}>
+                <Routes>
+                    <Route path='/metahub/:metahubId/entities/:kindKey/instance/:objectCollectionId/records' element={<RecordList />} />
+                </Routes>
+            </MemoryRouter>
+        )
+
+        const actionCell = await screen.findByTestId('record-cell-PrimaryAction')
+        expect(actionCell).toHaveTextContent('Application page — Sign in or create an account')
+        expect(actionCell).not.toHaveTextContent(/\{"kind"/)
+
+        await user.click(screen.getByRole('button', { name: 'Edit record' }))
+
+        expect(await screen.findByRole('dialog', { name: 'Edit Element' })).toBeInTheDocument()
+        expect(screen.getByRole('group', { name: 'Primary action' })).toBeInTheDocument()
+        expect(screen.getByRole('combobox', { name: 'Application page' })).toBeInTheDocument()
     })
 })

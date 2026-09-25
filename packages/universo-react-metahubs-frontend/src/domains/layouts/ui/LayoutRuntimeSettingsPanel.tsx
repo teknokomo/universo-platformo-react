@@ -1,16 +1,4 @@
-import {
-    Box,
-    FormControl,
-    FormControlLabel,
-    InputLabel,
-    MenuItem,
-    Paper,
-    Select,
-    Stack,
-    Switch,
-    TextField,
-    Typography
-} from '@mui/material'
+import { Box, FormControl, FormControlLabel, InputLabel, MenuItem, Paper, Stack, Switch, TextField, Typography } from '@mui/material'
 import { useEffect, useState } from 'react'
 import type {
     ApplicationTemplateKey,
@@ -22,6 +10,7 @@ import type {
 import { defaultDashboardLayoutConfig, marketingPageConfigSchema } from '@universo-react/types'
 import { EDITABLE_SIDE_MENU_MODES } from '@universo-react/template-mui'
 import type { TFunction } from 'i18next'
+import { DropdownSelect as Select } from '@universo-react/template-mui/dropdowns'
 
 const DASHBOARD_CHROME_SETTING_KEYS = [
     'showBreadcrumbs',

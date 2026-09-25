@@ -193,6 +193,7 @@ export function LayoutAuthoringList({
                             key={item.id}
                             data={{ id: item.id, name: item.title, description: item.description ?? '' }}
                             onClick={item.onClick}
+                            actionLabel={item.onClick ? item.title : undefined}
                             pending={item.pending}
                             pendingAction={item.pendingAction ?? undefined}
                             onPendingInteractionAttempt={item.onPendingInteractionAttempt}

@@ -6,11 +6,17 @@ import {
     listEffectiveLayoutCandidates,
     listEffectiveLayoutWidgets
 } from '../../persistence/effectiveLayoutStore'
-import { effectiveLayoutResultSchema } from '@universo-react/types'
+import {
+    buildSingleTargetWidgetBinding,
+    effectiveLayoutResultSchema,
+    encodeLayoutWidgetConfigEnvelope,
+    LAYOUT_WIDGET_DEFINITIONS
+} from '@universo-react/types'
 import { resolveEffectiveLayoutForRequest } from '../../services/effectiveLayoutResolver'
 import { EffectiveLayoutError } from '../../services/effectiveLayoutContract'
 import { createMockDbExecutor } from '../utils/dbMocks'
 import { resolveRuntimeWorkspaceAccess, setRuntimeWorkspaceContext } from '../../services/applicationWorkspaces'
+import { getApplicationLayoutWidgetSourceBindingState } from '../../persistence/applicationLayoutStoreSupport'
 
 jest.mock('../../services/applicationWorkspaces', () => ({
     __esModule: true,
@@ -130,6 +136,25 @@ const resolverInput = (targetKind: 'page' | 'object' = 'object') => ({
     locale: 'en'
 })
 
+const heroDefinition = LAYOUT_WIDGET_DEFINITIONS.find(({ key }) => key === 'marketing.hero')
+if (!heroDefinition) throw new Error('The marketing hero widget must be registered')
+
+const heroBinding = (semanticKey: string) =>
+    buildSingleTargetWidgetBinding(heroDefinition, 'content', {
+        entityKind: 'object',
+        entityCodename: 'MarketingPageHero',
+        semanticKey
+    })
+
+const heroSourceConfig = (semanticKey: string) =>
+    encodeLayoutWidgetConfigEnvelope(
+        {
+            rendererConfig: { instanceKey: 'page-hero', showLeadForm: true },
+            neutral: { bindings: heroBinding(semanticKey) }
+        },
+        { templateKey: 'marketing-page', widgetKey: 'marketing.hero', zone: 'marketing-main' }
+    )
+
 beforeEach(() => {
     jest.clearAllMocks()
     mockFindApplication.mockResolvedValue(application as never)
@@ -191,11 +216,7 @@ describe('effectiveLayoutResolver', () => {
                           layout_id: scopedLayoutId,
                           zone: 'marketing-main',
                           widget_key: 'marketing.hero',
-                          config: {
-                              instanceKey: 'hero',
-                              source: { entityKind: 'object', entityCodename: 'MarketingPageSiteSettings' },
-                              showLeadForm: true
-                          },
+                          config: { instanceKey: 'hero', showLeadForm: true },
                           source_widget_id: scopedWidgetId
                       })
                   ]
@@ -248,10 +269,7 @@ describe('effectiveLayoutResolver', () => {
             widgetRow({
                 zone: 'marketing-main',
                 widget_key: 'marketing.hero',
-                config: {
-                    instanceKey: 'hero',
-                    source: { entityKind: 'object', entityCodename: 'MarketingPageSiteSettings' }
-                },
+                config: { instanceKey: 'hero', showLeadForm: true },
                 source_config: { unexpected: true }
             })
         ])
@@ -403,11 +421,7 @@ describe('effectiveLayoutResolver', () => {
                           layout_id: scopedLayoutId,
                           zone: 'marketing-main',
                           widget_key: 'marketing.hero',
-                          config: {
-                              instanceKey: 'page-hero',
-                              source: { entityKind: 'object', entityCodename: 'MarketingPageSiteSettings', fieldMap: {} },
-                              showLeadForm: false
-                          },
+                          config: { instanceKey: 'page-hero', showLeadForm: false },
                           source_widget_id: null
                       })
                   ]
@@ -424,6 +438,49 @@ describe('effectiveLayoutResolver', () => {
         expect(result.resolvedEntityTypeId).toBe(entityId)
         expect(result.layout.templateKey).toBe('marketing-page')
         expect(result.scope).toBe('entity')
+    })
+
+    it('retains the trusted source binding through local presentation overrides without exposing binding metadata', async () => {
+        const resolveBoundHero = async (semanticKey: string) => {
+            mockListCandidates.mockResolvedValue([
+                layoutRow({
+                    template_key: 'marketing-page',
+                    config: {
+                        themeMode: 'system',
+                        __layout: { composition: { mode: 'independent', baseLayoutId: null } }
+                    }
+                })
+            ] as never)
+            mockListWidgets.mockResolvedValue([
+                widgetRow({
+                    zone: 'marketing-main',
+                    widget_key: 'marketing.hero',
+                    config: { instanceKey: 'page-hero', showLeadForm: false },
+                    source_config: heroSourceConfig(semanticKey),
+                    source_widget_id: null
+                })
+            ] as never)
+
+            return resolveEffectiveLayoutForRequest(
+                executor,
+                { applicationId, userId: 'user-1', role: 'member' },
+                { applicationId, targetKind: null, locale: 'en' }
+            )
+        }
+
+        const first = await resolveBoundHero('default')
+        const second = await resolveBoundHero('campaign')
+        const firstHero = first.widgets.find(({ widgetKey }) => widgetKey === 'marketing.hero')
+
+        expect(firstHero?.config).toEqual({ instanceKey: 'page-hero', showLeadForm: false })
+        expect(firstHero?.sourceConfig).toEqual({ instanceKey: 'page-hero', showLeadForm: true })
+        expect(firstHero && getApplicationLayoutWidgetSourceBindingState(firstHero)).toEqual({
+            persistedApplicationRow: true,
+            bindings: heroBinding('default')
+        })
+        expect(JSON.stringify(first)).not.toContain('bindings')
+        expect(first.effectiveHash).not.toBe(second.effectiveHash)
+        expect(effectiveLayoutResultSchema.safeParse(first).success).toBe(true)
     })
 
     it('resolves a custom layout-capable object kind as an object target', async () => {

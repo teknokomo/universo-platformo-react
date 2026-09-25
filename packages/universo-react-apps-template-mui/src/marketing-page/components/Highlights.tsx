@@ -38,6 +38,7 @@ export default function Highlights({ section, items, instanceKey }: HighlightsPr
                                     component={Card}
                                     spacing={1}
                                     useFlexGap
+                                    data-testid='marketing-highlight-card'
                                     sx={{
                                         color: 'inherit',
                                         p: 3,

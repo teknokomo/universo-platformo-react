@@ -10,6 +10,7 @@ import {
 import { DASHBOARD_LAYOUT_WIDGETS } from '../common/metahubs'
 import { MARKETING_WIDGET_REGISTRY, marketingPageConfigSchema, marketingWidgetRegistrySchema } from '../common/marketingPage'
 import {
+    MissingRequiredWidgetBindingsError,
     RESERVED_LAYOUT_METADATA_KEY,
     decodeLayoutConfigEnvelope,
     decodeWidgetConfigEnvelope,
@@ -32,6 +33,35 @@ const marketingWidgetContext = {
     widgetKey: 'marketing.navigation',
     zone: 'marketing-header'
 } as const
+
+const heroBinding = {
+    version: 1 as const,
+    slots: [
+        {
+            slot: 'content',
+            targets: [
+                {
+                    entityKind: 'object' as const,
+                    entityCodename: 'MarketingPageHero',
+                    selector: { kind: 'semantic-key' as const, field: 'key', value: 'default' },
+                    projection: [
+                        { field: 'key', componentCodename: 'HeroKey' },
+                        { field: 'title', componentCodename: 'Title' },
+                        { field: 'accent', componentCodename: 'Accent' },
+                        { field: 'description', componentCodename: 'Description' },
+                        { field: 'emailLabel', componentCodename: 'EmailLabel' },
+                        { field: 'emailPlaceholder', componentCodename: 'EmailPlaceholder' },
+                        { field: 'primaryActionLabel', componentCodename: 'PrimaryActionLabel' },
+                        { field: 'primaryAction', componentCodename: 'PrimaryAction' },
+                        { field: 'termsText', componentCodename: 'TermsText' },
+                        { field: 'termsLinkLabel', componentCodename: 'TermsLinkLabel' },
+                        { field: 'termsAction', componentCodename: 'TermsAction' }
+                    ]
+                }
+            ]
+        }
+    ]
+}
 
 describe('neutral layout and widget envelopes', () => {
     it('round-trips neutral layout metadata and strips it before renderer parsing', () => {
@@ -183,6 +213,36 @@ describe('neutral layout and widget envelopes', () => {
             mobileProjection: 'drawer'
         })
 
+        const heroDefinition = LAYOUT_WIDGET_DEFINITIONS.find((widget) => widget.key === 'marketing.hero')
+        expect(heroDefinition).toMatchObject({
+            multiInstance: true,
+            bindingSlots: [
+                {
+                    key: 'content',
+                    authoring: {
+                        labelKey: 'layouts.widgetBindings.recordLabel',
+                        defaultLabel: 'Content record',
+                        placeholderKey: 'layouts.widgetBindings.recordPlaceholder',
+                        defaultPlaceholder: 'Search by content title',
+                        helperTextKey: 'layouts.widgetBindings.recordHelperText',
+                        defaultHelperText: 'Choose the Entity record displayed by this widget.',
+                        emptyOptionsKey: 'layouts.widgetBindings.noRecords',
+                        defaultEmptyOptions: 'No compatible content records found.',
+                        loadingOptionsKey: 'layouts.widgetBindings.loadingRecords',
+                        defaultLoadingOptions: 'Loading content records…'
+                    },
+                    cardinality: { min: 1, max: 1 }
+                }
+            ],
+            presentationFields: [{ key: 'showLeadForm', kind: 'switch', defaultValue: true }]
+        })
+        expect(
+            layoutWidgetDefinitionSchema.safeParse({
+                ...heroDefinition,
+                presentationFields: [...(heroDefinition?.presentationFields ?? []), ...(heroDefinition?.presentationFields ?? [])]
+            }).success
+        ).toBe(false)
+
         const languageSwitcher = LAYOUT_WIDGET_DEFINITIONS.find((widget) => widget.key === 'languageSwitcher')
         const colorModeSwitcher = LAYOUT_WIDGET_DEFINITIONS.find((widget) => widget.key === 'colorModeSwitcher')
         expect(languageSwitcher).toMatchObject({ shared: true, multiInstance: false, defaultPlacement: 'end' })
@@ -216,6 +276,68 @@ describe('neutral layout and widget envelopes', () => {
         expect(() => encodeWidgetConfigEnvelope({ rendererConfig: { [RESERVED_LAYOUT_METADATA_KEY]: {} } })).toThrow(
             'reserved layout metadata'
         )
+    })
+
+    it('round-trips semantic bindings as neutral metadata when replacing renderer config', () => {
+        const heroContext = { ...marketingContext, widgetKey: 'marketing.hero', zone: 'marketing-main' } as const
+        const rawConfig = {
+            instanceKey: 'hero',
+            showLeadForm: true,
+            [RESERVED_LAYOUT_METADATA_KEY]: { bindings: heroBinding }
+        }
+
+        const decoded = decodeWidgetConfigEnvelope(rawConfig, heroContext)
+        expect(decoded.rendererConfig).toEqual({ instanceKey: 'hero', showLeadForm: true })
+        expect(decoded.neutral.bindings?.slots[0]?.targets[0]?.selector).toEqual({
+            kind: 'semantic-key',
+            field: 'key',
+            value: 'default'
+        })
+        expect(encodeWidgetConfigEnvelope(decoded, heroContext)).toEqual({
+            ...rawConfig,
+            [RESERVED_LAYOUT_METADATA_KEY]: { bindings: decoded.neutral.bindings }
+        })
+        expect(replaceWidgetRendererConfig(rawConfig, { instanceKey: 'hero-secondary', showLeadForm: false }, heroContext)).toEqual({
+            instanceKey: 'hero-secondary',
+            showLeadForm: false,
+            [RESERVED_LAYOUT_METADATA_KEY]: { bindings: decoded.neutral.bindings }
+        })
+        expect(() => encodeWidgetConfigEnvelope({ rendererConfig: {}, neutral: { bindings: heroBinding } })).toThrow(
+            'Binding validation context is required.'
+        )
+    })
+
+    it('rejects contextual Hero configs that omit the required content binding', () => {
+        const heroContext = {
+            ...marketingContext,
+            widgetKey: 'marketing.hero',
+            zone: 'marketing-main',
+            requireBindings: true
+        } as const
+
+        expect(() => decodeWidgetConfigEnvelope({ instanceKey: 'hero' }, heroContext)).toThrow(MissingRequiredWidgetBindingsError)
+        expect(() => encodeWidgetConfigEnvelope({ rendererConfig: { instanceKey: 'hero' } }, heroContext)).toThrow(
+            MissingRequiredWidgetBindingsError
+        )
+    })
+
+    it('rejects strict binding validation when the widget placement context is missing', () => {
+        const incompleteContext = { requireBindings: true } as const
+
+        expect(() => decodeWidgetConfigEnvelope({ instanceKey: 'hero' }, incompleteContext)).toThrow(
+            'Widget placement validation context is incomplete.'
+        )
+        expect(() => encodeWidgetConfigEnvelope({ rendererConfig: { instanceKey: 'hero' } }, incompleteContext)).toThrow(
+            'Widget placement validation context is incomplete.'
+        )
+    })
+
+    it('allows renderer-only Hero projections when the caller does not own binding metadata', () => {
+        const heroContext = { ...marketingContext, widgetKey: 'marketing.hero', zone: 'marketing-main' } as const
+        const rendererConfig = { instanceKey: 'hero', showLeadForm: true }
+
+        expect(decodeWidgetConfigEnvelope(rendererConfig, heroContext).rendererConfig).toEqual(rendererConfig)
+        expect(encodeWidgetConfigEnvelope({ rendererConfig }, heroContext)).toEqual(rendererConfig)
     })
 
     it('does not add parallel snapshot composition or executable metadata validators', () => {

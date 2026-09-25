@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useCommonTranslations } from '@universo-react/i18n'
-import { Box, Button, FormControl, IconButton, InputLabel, MenuItem, Paper, Select, Slider, Stack, Typography } from '@mui/material'
+import { Box, Button, FormControl, IconButton, InputLabel, MenuItem, Paper, Slider, Stack, Typography } from '@mui/material'
 import AddRoundedIcon from '@mui/icons-material/AddRounded'
 import DeleteRoundedIcon from '@mui/icons-material/DeleteRounded'
 import DragIndicatorRoundedIcon from '@mui/icons-material/DragIndicatorRounded'
@@ -17,6 +17,7 @@ import LayoutWidgetSharedBehaviorFields, {
     setSharedBehaviorInWidgetConfig
 } from './LayoutWidgetSharedBehaviorFields'
 import WidgetScopeVisibilityPanel from './WidgetScopeVisibilityPanel'
+import { DropdownSelect as Select } from '@universo-react/template-mui/dropdowns'
 
 // ---------------------------------------------------------------------------
 // Props

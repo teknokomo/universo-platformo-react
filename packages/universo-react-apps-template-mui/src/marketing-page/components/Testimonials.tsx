@@ -46,6 +46,7 @@ export default function Testimonials({ section, items, instanceKey }: Testimonia
                     {visibleItems.map((testimonial) => (
                         <Grid size={{ xs: 12, sm: 6, md: 4 }} key={testimonial.semanticKey} sx={{ display: 'flex' }}>
                             <Card
+                                data-testid='marketing-testimonial-card'
                                 variant='outlined'
                                 sx={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', flexGrow: 1 }}
                             >

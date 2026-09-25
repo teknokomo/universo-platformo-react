@@ -2,6 +2,7 @@ import { createLocalizedContent, isUuidV7 } from '@universo-react/utils'
 import AxeBuilder from '@axe-core/playwright'
 import type { Locator, Page, Response } from '@playwright/test'
 import { expect, test } from '../../fixtures/test'
+import { applyBrowserPreferences } from '../../support/browser/preferences'
 import {
     expectDataGridHorizontalScrollConstrained,
     expectLocalizedValidation,
@@ -66,6 +67,21 @@ const readLayoutWidgetPlacement = (widget: LayoutWidget | undefined): 'start' | 
     return placement === 'start' || placement === 'end' ? placement : undefined
 }
 
+const expectDescriptionToWrap = async (description: Locator, label: string) => {
+    const lineCount = await description.evaluate((element) => {
+        const range = document.createRange()
+        range.selectNodeContents(element)
+        const renderedLines = new Set(
+            Array.from(range.getClientRects())
+                .filter((rect) => rect.width > 0 && rect.height > 0)
+                .map((rect) => Math.round(rect.top))
+        )
+        return renderedLines.size
+    })
+
+    expect(lineCount, `${label} should wrap over multiple rendered lines`).toBeGreaterThan(1)
+}
+
 type LayoutScope = {
     id?: string
     name?: string
@@ -94,6 +110,7 @@ type ExpectedRuntime = {
     locale?: 'en' | 'ru'
     themeVariant?: 'light' | 'dark'
     target?: RuntimeTarget
+    heroContent?: boolean
 }
 
 const readLayoutItem = (payload: unknown): LayoutRecord => {
@@ -263,15 +280,34 @@ const addWidget = async (api: ApiContext, applicationId: string, layoutId: strin
         .toBe(true)
 }
 
+const expectApplicationHeroBindingWriteDenied = async (
+    api: ApiContext,
+    applicationId: string,
+    layoutId: string,
+    payload: Omit<LayoutWidget, 'id'>
+): Promise<void> => {
+    const detail = await getApplicationLayout(api, applicationId, layoutId)
+    const version = detail?.item?.version
+    if (!Number.isInteger(version) || version < 1) throw new Error(`Layout ${layoutId} did not expose a writable version`)
+    await expect(upsertApplicationLayoutWidget(api, applicationId, layoutId, { ...payload, expectedVersion: version })).rejects.toThrow(
+        'APPLICATION_LAYOUT_ENTITY_BACKED_WIDGET_COPY_CONFLICT'
+    )
+}
+
 const copyWidgets = async (fixture: RuntimeFixture, layoutId: string): Promise<void> => {
     for (const widget of fixture.sourceWidgets) {
         if (!widget.widgetKey || !widget.zone) continue
-        await addWidget(fixture.api, fixture.applicationId, layoutId, {
+        const payload = {
             widgetKey: widget.widgetKey,
             zone: widget.zone,
             sortOrder: widget.sortOrder ?? 0,
             config: widget.config && typeof widget.config === 'object' && !Array.isArray(widget.config) ? widget.config : {}
-        })
+        }
+        if (widget.widgetKey === 'marketing.hero') {
+            await expectApplicationHeroBindingWriteDenied(fixture.api, fixture.applicationId, layoutId, payload)
+            continue
+        }
+        await addWidget(fixture.api, fixture.applicationId, layoutId, payload)
     }
 }
 
@@ -374,10 +410,18 @@ const assertSurface = async (page: Page, expected: ExpectedRuntime, label: strin
     const locale = expected.locale ?? 'en'
     if (expected.templateKey === 'marketing-page') {
         await expect(page.locator('#marketing-page-main'), `${label} marketing main`).toBeVisible()
-        await expect(
-            page.getByRole('heading', { name: locale === 'ru' ? 'Наши новые продукты' : 'Our latest products', exact: true }),
-            `${label} marketing heading`
-        ).toBeVisible()
+        if (expected.heroContent === false) {
+            await expect(
+                page.locator('[data-marketing-widget-instance="hero"]'),
+                `${label} independent scope has no inherited Hero`
+            ).toHaveCount(0)
+        } else {
+            await expect(
+                page.getByRole('heading', { name: locale === 'ru' ? 'Наши новые продукты' : 'Our latest products', exact: true }),
+                `${label} marketing heading`
+            ).toBeVisible()
+            await expect(page.locator('[data-marketing-widget-instance="hero"]'), `${label} bound Hero`).toBeVisible()
+        }
         await expect(page.getByTestId('runtime-main-content')).toHaveCount(0)
     } else {
         await expect(page.getByTestId('runtime-main-content'), `${label} dashboard main`).toBeVisible()
@@ -458,12 +502,16 @@ const assertDashboardMobileDrawer = async (page: Page, locale: 'en' | 'ru' = 'en
             ? { openMenu: 'Открыть меню', navigation: 'Навигация приложения' }
             : { openMenu: 'Open menu', navigation: 'Application navigation' }
     const openButton = page.getByRole('button', { name: accessibleNames.openMenu, exact: true }).last()
+    const navigation = page.getByRole('navigation', { name: accessibleNames.navigation, exact: true })
     await expect(openButton).toBeVisible()
     await openButton.focus()
     await page.keyboard.press('Enter')
-    await expect(page.getByRole('navigation', { name: accessibleNames.navigation, exact: true })).toBeVisible()
+    await expect(navigation).toBeVisible()
+    await expectNoPageHorizontalOverflow(page, `Dashboard mobile navigation open (${locale})`)
     await page.keyboard.press('Escape')
+    await expect(navigation).toBeHidden()
     await expect(openButton).toBeFocused()
+    await expectNoPageHorizontalOverflow(page, `Dashboard mobile navigation closed (${locale})`)
 }
 
 const escapeRegExp = (value: string): string => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
@@ -487,6 +535,7 @@ test('@flow @combined @cross-template @scoped-layout covers Page/Object preceden
     const marketingRequestKeys = new Set<string>()
     const objectTarget: RuntimeTarget = { kind: 'object', entityTypeId: fixture.objectScope.scopeEntityId }
     const pageTarget: RuntimeTarget = { kind: 'page', entityTypeId: fixture.pageScope.scopeEntityId }
+    const globalDashboardExpected = { templateKey: 'dashboard' as const }
 
     try {
         const globalDashboard = await createLayout(fixture, 'dashboard', null, `Global dashboard ${runManifest.runId}`, true)
@@ -535,16 +584,28 @@ test('@flow @combined @cross-template @scoped-layout covers Page/Object preceden
             page,
             fixture,
             null,
-            { templateKey: 'dashboard' },
+            globalDashboardExpected,
             'Direction one global Dashboard',
             effectiveRequestKeys,
             marketingRequestKeys
         )
+        await expectRuntimeUxViewportMatrix(page, 'Direction one global Dashboard responsive', {
+            beforeEachViewport: async (viewport) => {
+                const label = `Direction one global Dashboard at ${viewport.name}`
+                await expect(page.locator('.MuiDataGrid-root:visible').first(), `${label} details DataGrid`).toBeVisible()
+                await assertSurface(page, globalDashboardExpected, label)
+                await page.screenshot({
+                    path: testInfo.outputPath(`cross-template-global-dashboard-${viewport.name}.png`),
+                    fullPage: true,
+                    animations: 'disabled'
+                })
+            }
+        })
         await visitRuntime(
             page,
             fixture,
             pageTarget,
-            { templateKey: 'marketing-page' },
+            { templateKey: 'marketing-page', heroContent: false },
             'Direction one Page Marketing',
             effectiveRequestKeys,
             marketingRequestKeys
@@ -558,7 +619,7 @@ test('@flow @combined @cross-template @scoped-layout covers Page/Object preceden
             page,
             fixture,
             objectTarget,
-            { templateKey: 'marketing-page' },
+            { templateKey: 'marketing-page', heroContent: false },
             'Direction one Object Marketing',
             effectiveRequestKeys,
             marketingRequestKeys
@@ -603,7 +664,7 @@ test('@flow @combined @cross-template @scoped-layout covers Page/Object preceden
             page,
             fixture,
             null,
-            { templateKey: 'marketing-page' },
+            { templateKey: 'marketing-page', heroContent: false },
             'Direction two global Marketing',
             effectiveRequestKeys,
             marketingRequestKeys
@@ -617,7 +678,7 @@ test('@flow @combined @cross-template @scoped-layout covers Page/Object preceden
             page,
             fixture,
             null,
-            { templateKey: 'marketing-page', themeVariant: 'dark' },
+            { templateKey: 'marketing-page', themeVariant: 'dark', heroContent: false },
             'Direction two global Marketing dark theme',
             effectiveRequestKeys,
             marketingRequestKeys
@@ -685,6 +746,9 @@ test('@flow @combined @cross-template @authoring covers localized layout CRUD, r
     const applicationId = fixture.applicationId
     const createdName = `Authoring Object ${runManifest.runId}`
     const updatedName = `Authoring Updated ${runManifest.runId}`
+    const updatedNameRu = `Обновлённый layout ${runManifest.runId}`
+    const updatedDescriptionEn = `A multiline authoring description for ${runManifest.runId}. `.repeat(12).trim()
+    const updatedDescriptionRu = `Многострочное описание макета ${runManifest.runId}. `.repeat(12).trim()
 
     try {
         await page.goto(`/a/${applicationId}/admin/layouts`)
@@ -704,13 +768,39 @@ test('@flow @combined @cross-template @authoring covers localized layout CRUD, r
         })
 
         await page.getByRole('button', { name: 'Create layout', exact: true }).click()
+        const initialCreateDialog = page.getByRole('dialog', { name: 'Create layout', exact: true })
+        await expect(initialCreateDialog).toBeVisible()
+        await expectNoTechnicalLeakage(initialCreateDialog, { label: 'Initial create layout dialog', checkUuidSubstrings: true })
+        await initialCreateDialog.getByRole('button', { name: 'Create layout', exact: true }).click()
+        await expect(initialCreateDialog.getByText('Enter a layout name.', { exact: true })).toBeVisible()
+        await expectLocalizedValidation(initialCreateDialog, 'en', { label: 'Create layout validation' })
+
+        await applyBrowserPreferences(page, { language: 'ru' })
+        await page.reload()
+        await expect(page.getByRole('heading', { name: 'Макеты', exact: true })).toBeVisible()
+        await page.getByRole('button', { name: 'Создать макет', exact: true }).click()
+        const russianCreateDialog = page.getByRole('dialog', { name: 'Создать макет', exact: true })
+        await expectNoTechnicalLeakage(russianCreateDialog, {
+            label: 'Russian create layout dialog',
+            checkUuidSubstrings: true
+        })
+        await russianCreateDialog.getByRole('button', { name: 'Создать макет', exact: true }).click()
+        await expect(russianCreateDialog.getByText('Введите название макета.', { exact: true })).toBeVisible()
+        await expectLocalizedValidation(russianCreateDialog, 'ru', { label: 'Russian create layout validation' })
+        await page.screenshot({
+            path: testInfo.outputPath('application-layout-create-validation-ru.png'),
+            animations: 'disabled'
+        })
+
+        await applyBrowserPreferences(page, { language: 'en' })
+        await page.reload()
+        await expect(page.getByRole('heading', { name: 'Layouts', exact: true })).toBeVisible()
+        await page.getByRole('button', { name: 'Create layout', exact: true }).click()
         const createDialog = page.getByRole('dialog', { name: 'Create layout', exact: true })
+        await expectNoTechnicalLeakage(createDialog, { label: 'Create layout dialog', checkUuidSubstrings: true })
         const createName = createDialog.getByRole('textbox', { name: /^Name/ }).first()
         await expect(createDialog).toBeVisible()
-        await createDialog.getByRole('button', { name: 'Create layout', exact: true }).click()
-        await expect(createDialog.getByText('Enter a layout name.', { exact: true })).toBeVisible()
         await expect(createName).toHaveValue('')
-        await expectLocalizedValidation(createDialog, 'en', { label: 'Create layout validation' })
 
         await createName.fill(createdName)
         await chooseOption(page, createDialog, 'Layout target', 'Specific entity')
@@ -737,6 +827,7 @@ test('@flow @combined @cross-template @authoring covers localized layout CRUD, r
         await page.getByRole('menuitem', { name: 'Edit', exact: true }).click()
         const editDialog = page.getByRole('dialog', { name: 'Edit', exact: true })
         await expect(editDialog).toBeVisible()
+        await expectNoTechnicalLeakage(editDialog, { label: 'Edit layout dialog', checkUuidSubstrings: true })
         await page.keyboard.press('Escape')
         await expect(editDialog).not.toBeVisible()
         await expect(createdAction).toBeFocused()
@@ -744,6 +835,10 @@ test('@flow @combined @cross-template @authoring covers localized layout CRUD, r
         await createdAction.click()
         await page.getByRole('menuitem', { name: 'Edit', exact: true }).click()
         const reopenedEditDialog = page.getByRole('dialog', { name: 'Edit', exact: true })
+        await expectNoTechnicalLeakage(reopenedEditDialog, {
+            label: 'Reopened edit layout dialog',
+            checkUuidSubstrings: true
+        })
         const nameEn = reopenedEditDialog.getByLabel('Name (English)', { exact: true })
         const nameRu = reopenedEditDialog.getByLabel('Name (Russian)', { exact: true })
         await nameEn.fill('')
@@ -757,13 +852,9 @@ test('@flow @combined @cross-template @authoring covers localized layout CRUD, r
             longTextLabels: ['Description (English)', 'Description (Russian)']
         })
         await nameEn.fill(updatedName)
-        await nameRu.fill(`Обновлённый layout ${runManifest.runId}`)
-        await reopenedEditDialog
-            .getByLabel('Description (English)', { exact: true })
-            .fill(`A multiline authoring description for ${runManifest.runId}.`)
-        await reopenedEditDialog
-            .getByLabel('Description (Russian)', { exact: true })
-            .fill(`Многострочное описание layout ${runManifest.runId}.`)
+        await nameRu.fill(updatedNameRu)
+        await reopenedEditDialog.getByLabel('Description (English)', { exact: true }).fill(updatedDescriptionEn)
+        await reopenedEditDialog.getByLabel('Description (Russian)', { exact: true }).fill(updatedDescriptionRu)
         const updateResponsePromise = page.waitForResponse(
             (response) =>
                 response.request().method() === 'PATCH' &&
@@ -777,6 +868,7 @@ test('@flow @combined @cross-template @authoring covers localized layout CRUD, r
         expect(editedLayout.id).toBe(createdId)
         expect(editedLayout.version).toBeGreaterThan(createdLayout.version)
         expect(readLocalizedText(editedLayout.name, 'en')).toBe(updatedName)
+        expect(readLocalizedText(editedLayout.description, 'en')).toBe(updatedDescriptionEn)
         await expect(reopenedEditDialog).not.toBeVisible()
         await expect(page.getByRole('row').filter({ hasText: updatedName }).first()).toBeVisible()
 
@@ -841,6 +933,64 @@ test('@flow @combined @cross-template @authoring covers localized layout CRUD, r
             .toBe(false)
         await expect(page.getByRole('row').filter({ hasText: updatedName })).toHaveCount(1)
 
+        const cardViewButton = page.getByTitle('Card View', { exact: true })
+        await expect(cardViewButton).toBeVisible()
+        await cardViewButton.click()
+        await expect(cardViewButton).toHaveAttribute('aria-pressed', 'true')
+        await expect(listSurface.getByRole('table')).toHaveCount(0)
+        await expect(listSurface.getByText(updatedName, { exact: true })).toBeVisible()
+        await expect(listSurface.getByText(updatedDescriptionEn, { exact: true })).toBeVisible()
+        await expect(listSurface.getByRole('button', { name: `Actions for ${updatedName}`, exact: true })).toBeVisible()
+        await expectNoTechnicalLeakage(listSurface, { label: 'Application layout cards', checkUuidSubstrings: true })
+        await expectRuntimeUxViewportMatrix(page, 'Application layout card authoring responsive', {
+            beforeEachViewport: async (viewport) => {
+                await expect(listSurface.getByText(updatedName, { exact: true })).toBeVisible()
+                const description = listSurface.getByText(updatedDescriptionEn, { exact: true })
+                await expect(description).toBeVisible()
+                await expectDescriptionToWrap(description, `English layout description at ${viewport.name}`)
+                await expectNoTechnicalLeakage(listSurface, {
+                    label: `Application layout cards at ${viewport.name}`,
+                    checkUuidSubstrings: true
+                })
+                await page.screenshot({
+                    path: testInfo.outputPath(`application-layout-cards-${viewport.name}.png`),
+                    fullPage: true,
+                    animations: 'disabled'
+                })
+            }
+        })
+
+        await applyBrowserPreferences(page, { language: 'ru' })
+        await page.reload()
+        await expect(page.getByRole('heading', { name: 'Макеты', exact: true })).toBeVisible()
+        const russianCardViewButton = page.getByTitle('Карточками', { exact: true })
+        await expect(russianCardViewButton).toBeVisible()
+        if ((await russianCardViewButton.getAttribute('aria-pressed')) !== 'true') await russianCardViewButton.click()
+        await expect(russianCardViewButton).toHaveAttribute('aria-pressed', 'true')
+        await expect(listSurface.getByRole('table')).toHaveCount(0)
+        await expect(listSurface.getByText(updatedNameRu, { exact: true })).toBeVisible()
+        await expect(listSurface.getByText(updatedDescriptionRu, { exact: true })).toBeVisible()
+        await expectNoTechnicalLeakage(listSurface, { label: 'Russian application layout cards', checkUuidSubstrings: true })
+        await expectRuntimeUxViewportMatrix(page, 'Russian application layout card authoring responsive', {
+            beforeEachViewport: async (viewport) => {
+                await expect(listSurface.getByText(updatedNameRu, { exact: true })).toBeVisible()
+                const description = listSurface.getByText(updatedDescriptionRu, { exact: true })
+                await expect(description).toBeVisible()
+                await expectDescriptionToWrap(description, `Russian layout description at ${viewport.name}`)
+                await expectNoTechnicalLeakage(listSurface, {
+                    label: `Russian application layout cards at ${viewport.name}`,
+                    checkUuidSubstrings: true
+                })
+                await page.screenshot({
+                    path: testInfo.outputPath(`application-layout-cards-ru-${viewport.name}.png`),
+                    fullPage: true,
+                    animations: 'disabled'
+                })
+            }
+        })
+
+        await applyBrowserPreferences(page, { language: 'en' })
+        await page.reload()
         await page.goto(`/a/${applicationId}/admin/layouts/${fixture.globalLayout.id}`)
         const globalMarketingDetail = await getApplicationLayout(fixture.api, applicationId, fixture.globalLayout.id)
         const navigationWidget = (globalMarketingDetail.widgets ?? []).find(

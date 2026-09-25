@@ -64,6 +64,8 @@ import InterpretationNetworkWorkspaceWidgetEditorDialog from './InterpretationNe
 import WidgetBehaviorEditorDialog from './WidgetBehaviorEditorDialog'
 import { getSharedBehaviorFromWidgetConfig } from './LayoutWidgetSharedBehaviorFields'
 import LayoutRuntimeSettingsPanel from './LayoutRuntimeSettingsPanel'
+import MarketingHeroBindingDialog from './MarketingHeroBindingDialog'
+import { MARKETING_HERO_ENTITY_CODENAME } from './marketingHeroAuthoring'
 
 type MenuEditorState = {
     open: boolean
@@ -113,6 +115,14 @@ type MarketingWidgetEditorState = {
     zone: ApplicationLayoutZone | null
     widgetId: string | null
     widgetKey: MarketingWidgetKey | null
+    config: Record<string, unknown> | null
+    heroRecordId?: string | null
+}
+
+type MarketingHeroBindingEditorState = {
+    open: boolean
+    zone: ApplicationLayoutZone | null
+    widgetId: string | null
     config: Record<string, unknown> | null
 }
 
@@ -218,6 +228,7 @@ export default function LayoutDetails() {
         open: false,
         zone: null,
         widgetId: null,
+        widgetVersion: null,
         config: null
     })
     const [interpretationNetworkEditor, setInterpretationNetworkEditor] = useState<InterpretationNetworkEditorState>({
@@ -236,6 +247,12 @@ export default function LayoutDetails() {
         zone: null,
         widgetId: null,
         widgetKey: null,
+        config: null
+    })
+    const [marketingHeroBindingEditor, setMarketingHeroBindingEditor] = useState<MarketingHeroBindingEditorState>({
+        open: false,
+        zone: null,
+        widgetId: null,
         config: null
     })
     const [viewSettingsSaving, setViewSettingsSaving] = useState(false)
@@ -281,7 +298,9 @@ export default function LayoutDetails() {
     )
 
     const cachedMetahub = metahubId ? queryClient.getQueryData<Metahub>(metahubsQueryKeys.detail(metahubId)) : undefined
-    const canManageLayouts = (metahubDetailsQuery.data?.permissions ?? cachedMetahub?.permissions)?.manageMetahub === true
+    const metahubPermissions = metahubDetailsQuery.data?.permissions ?? cachedMetahub?.permissions
+    const canManageLayouts = metahubPermissions?.manageMetahub === true
+    const canEditContent = metahubPermissions?.editContent === true
     const layout = layoutQuery.data as MetahubLayout | undefined
     const baseLayoutQuery = useQuery({
         queryKey:
@@ -383,10 +402,32 @@ export default function LayoutDetails() {
                 .sort((left, right) => left.label.localeCompare(right.label)),
         [marketingContentQuery.data?.items, uiLocale]
     )
+    const marketingHeroObjectId = useMemo(
+        () =>
+            (marketingContentQuery.data?.items ?? []).find(
+                (entity) => getCodenamePrimary(entity.codename) === MARKETING_HERO_ENTITY_CODENAME
+            )?.id ?? null,
+        [marketingContentQuery.data?.items]
+    )
+    const marketingHeroWidgetVersion = marketingHeroBindingEditor.widgetId
+        ? zoneWidgets.find((widget) => widget.id === marketingHeroBindingEditor.widgetId)?.version ?? null
+        : null
 
     const openWidgetEditor = useCallback(
         (zone: ApplicationLayoutZone, item: MetahubLayoutZoneWidget) => {
             if (isMarketingWidgetKey(item.widgetKey)) {
+                if (item.widgetKey === 'marketing.hero') {
+                    setMarketingHeroBindingEditor({
+                        open: true,
+                        zone,
+                        widgetId: item.id,
+                        config:
+                            item.config && typeof item.config === 'object' && !Array.isArray(item.config)
+                                ? { ...(item.config as Record<string, unknown>) }
+                                : {}
+                    })
+                    return
+                }
                 setMarketingWidgetEditor({
                     open: true,
                     zone,
@@ -510,10 +551,16 @@ export default function LayoutDetails() {
                     widgetItem.allowedZonesByTemplate && typeof widgetItem.allowedZonesByTemplate === 'object'
                         ? widgetItem.allowedZonesByTemplate[templateKey]
                         : undefined
-                return supportedTemplates.includes(templateKey) && Array.isArray(allowedZones) && allowedZones.includes(zone)
+                return (
+                    supportedTemplates.includes(templateKey) &&
+                    Array.isArray(allowedZones) &&
+                    allowedZones.includes(zone) &&
+                    (widgetItem.key !== 'marketing.hero' || isGlobalLayout) &&
+                    (widgetItem.key !== 'marketing.hero' || canEditContent)
+                )
             })
         },
-        [layout?.templateKey, widgetObjects]
+        [canEditContent, isGlobalLayout, layout?.templateKey, widgetObjects]
     )
 
     const persistAndRefresh = useCallback(async () => {
@@ -827,10 +874,28 @@ export default function LayoutDetails() {
                 return
             }
             if (!layout) return
+            if (widgetKey === 'marketing.hero' && !isGlobalLayout) return
             const definition = getLayoutWidgetDefinition(widgetKey)
             if (!definition || !definition.supportedTemplates.includes(layout.templateKey)) return
             if (!getLayoutWidgetAllowedZones(widgetKey, layout.templateKey)?.includes(zone)) return
             if (isMarketingWidgetKey(widgetKey)) {
+                if (widgetKey === 'marketing.hero') {
+                    if (!canEditContent) return
+                    void (async () => {
+                        try {
+                            await layoutsApi.assignLayoutZoneWidget(metahubId!, layoutId!, {
+                                zone,
+                                widgetKey,
+                                heroContent: { mode: 'auto' },
+                                expectedVersion: getExpectedLayoutVersion()
+                            })
+                            await persistAndRefresh()
+                        } catch (error: unknown) {
+                            notifyError(t, enqueueSnackbar, error)
+                        }
+                    })()
+                    return
+                }
                 setMarketingWidgetEditor({ open: true, zone, widgetId: null, widgetKey, config: null })
                 return
             }
@@ -860,15 +925,44 @@ export default function LayoutDetails() {
             }
             void handleAddWidget(dashboardZone, widgetKey)
         },
-        [canManageLayouts, handleAddWidget, layout]
+        [
+            canEditContent,
+            canManageLayouts,
+            enqueueSnackbar,
+            getExpectedLayoutVersion,
+            handleAddWidget,
+            isGlobalLayout,
+            layout,
+            layoutId,
+            metahubId,
+            persistAndRefresh,
+            t
+        ]
     )
 
     const handleDuplicateWidget = useCallback(
         async (item: MetahubLayoutZoneWidget) => {
             if (!metahubId || !layoutId || !layout || !canManageLayouts) return
+            if (item.widgetKey === 'marketing.hero' && !isGlobalLayout) return
 
             const config = { ...item.config }
             if (isMarketingWidgetKey(item.widgetKey)) delete config.instanceKey
+            if (item.widgetKey === 'marketing.hero') {
+                if (!canEditContent) return
+                try {
+                    await layoutsApi.assignLayoutZoneWidget(metahubId, layoutId, {
+                        zone: item.zone,
+                        widgetKey: 'marketing.hero',
+                        config,
+                        heroContent: { mode: 'auto', sourceWidgetId: item.id },
+                        expectedVersion: getExpectedLayoutVersion()
+                    })
+                    await persistAndRefresh()
+                } catch (error: unknown) {
+                    notifyError(t, enqueueSnackbar, error)
+                }
+                return
+            }
             try {
                 await layoutsApi.assignLayoutZoneWidget(metahubId, layoutId, {
                     zone: item.zone,
@@ -881,7 +975,18 @@ export default function LayoutDetails() {
                 notifyError(t, enqueueSnackbar, e)
             }
         },
-        [canManageLayouts, enqueueSnackbar, getExpectedLayoutVersion, layout, layoutId, metahubId, persistAndRefresh, t]
+        [
+            canEditContent,
+            canManageLayouts,
+            enqueueSnackbar,
+            getExpectedLayoutVersion,
+            isGlobalLayout,
+            layout,
+            layoutId,
+            metahubId,
+            persistAndRefresh,
+            t
+        ]
     )
 
     const handleResetWidgetOverride = useCallback(
@@ -941,126 +1046,134 @@ export default function LayoutDetails() {
 
     const authoringZones = useMemo(
         () =>
-            layoutZones.map((zone) => ({
-                zone,
-                title: zoneLabels[zone],
-                addDisabled: !canManageLayouts,
-                availableWidgets: getAvailableWidgetsForZone(zone).map((widgetItem) => ({
-                    key: widgetItem.key,
-                    label: widgetLabelByKey[widgetItem.key] || tc('layouts.widgets.unknown', 'Widget')
-                })),
-                items: zoneToItems[zone].map((item) => {
-                    const isInheritedWidget = item.isInherited === true
-                    const sharedBehavior = getSharedBehaviorFromWidgetConfig(item.config)
-                    const canDragWidget = canManageLayouts && (!isInheritedWidget || !sharedBehavior.positionLocked)
-                    const canToggleWidget = canManageLayouts && (!isInheritedWidget || sharedBehavior.canDeactivate)
-                    const canRemoveWidget = canManageLayouts && (!isInheritedWidget || sharedBehavior.canExclude)
-                    const canDuplicateWidget = canManageLayouts
-                    const canResetWidget = canManageLayouts && !isGlobalLayout && isInheritedWidget && item.isOverridden === true
-                    const canEditWidget =
-                        canManageLayouts &&
-                        (isMarketingWidgetKey(item.widgetKey) ? true : !isInheritedWidget) &&
-                        (isMarketingWidgetKey(item.widgetKey) ||
-                            item.widgetKey === 'menuWidget' ||
-                            item.widgetKey === 'columnsContainer' ||
-                            item.widgetKey === 'quizWidget' ||
-                            item.widgetKey === 'playcanvasCanvas' ||
-                            item.widgetKey === 'interpretationNetworkWorkspace' ||
-                            isGlobalLayout)
+            layout
+                ? layoutZones.map((zone) => ({
+                      zone,
+                      title: zoneLabels[zone],
+                      addDisabled: !canManageLayouts,
+                      availableWidgets: getAvailableWidgetsForZone(zone).map((widgetItem) => ({
+                          key: widgetItem.key,
+                          label: widgetLabelByKey[widgetItem.key] || tc('layouts.widgets.unknown', 'Widget')
+                      })),
+                      items: zoneToItems[zone].map((item) => {
+                          const isInheritedWidget = item.isInherited === true
+                          const sharedBehavior = getSharedBehaviorFromWidgetConfig(item.config)
+                          const canDragWidget = canManageLayouts && (!isInheritedWidget || !sharedBehavior.positionLocked)
+                          const canToggleWidget = canManageLayouts && (!isInheritedWidget || sharedBehavior.canDeactivate)
+                          const canRemoveWidget = canManageLayouts && (!isInheritedWidget || sharedBehavior.canExclude)
+                          const canDuplicateWidget =
+                              canManageLayouts && (item.widgetKey !== 'marketing.hero' || (isGlobalLayout && canEditContent))
+                          const canResetWidget = canManageLayouts && !isGlobalLayout && isInheritedWidget && item.isOverridden === true
+                          const canEditWidget =
+                              (canManageLayouts &&
+                                  (item.widgetKey !== 'marketing.hero' || isGlobalLayout) &&
+                                  (isMarketingWidgetKey(item.widgetKey) ? true : !isInheritedWidget) &&
+                                  (isMarketingWidgetKey(item.widgetKey) ||
+                                      item.widgetKey === 'menuWidget' ||
+                                      item.widgetKey === 'columnsContainer' ||
+                                      item.widgetKey === 'quizWidget' ||
+                                      item.widgetKey === 'playcanvasCanvas' ||
+                                      item.widgetKey === 'interpretationNetworkWorkspace' ||
+                                      isGlobalLayout)) ||
+                              (item.widgetKey === 'marketing.hero' && isGlobalLayout && canEditContent)
 
-                    return {
-                        id: item.id,
-                        label: getWidgetChipLabel(item),
-                        isActive: item.isActive,
-                        draggable: canDragWidget,
-                        moveActions: canManageLayouts
-                            ? [
-                                  ...(item.zone === 'marketing-header'
-                                      ? (['start', 'end'] as const)
-                                            .filter((targetPlacement) => targetPlacement !== readWidgetPlacement(item))
-                                            .map((targetPlacement) => ({
-                                                key: `${item.id}-placement-${targetPlacement}`,
-                                                testId: `layout-widget-placement-${item.id}-${targetPlacement}`,
-                                                label: t(
-                                                    targetPlacement === 'start' ? 'layouts.moveToStart' : 'layouts.moveToEnd',
-                                                    targetPlacement === 'start' ? 'Move to Start' : 'Move to End'
-                                                ),
+                          return {
+                              id: item.id,
+                              label: getWidgetChipLabel(item),
+                              isActive: item.isActive,
+                              draggable: canDragWidget,
+                              moveActions: canManageLayouts
+                                  ? [
+                                        ...(item.zone === 'marketing-header'
+                                            ? (['start', 'end'] as const)
+                                                  .filter((targetPlacement) => targetPlacement !== readWidgetPlacement(item))
+                                                  .map((targetPlacement) => ({
+                                                      key: `${item.id}-placement-${targetPlacement}`,
+                                                      testId: `layout-widget-placement-${item.id}-${targetPlacement}`,
+                                                      label: t(
+                                                          targetPlacement === 'start' ? 'layouts.moveToStart' : 'layouts.moveToEnd',
+                                                          targetPlacement === 'start' ? 'Move to Start' : 'Move to End'
+                                                      ),
+                                                      onClick: () =>
+                                                          void layoutsApi
+                                                              .moveLayoutZoneWidget(metahubId, layoutId, {
+                                                                  widgetId: item.id,
+                                                                  targetZone: item.zone,
+                                                                  targetIndex: getWidgetDropIndex(
+                                                                      zoneToItems[item.zone],
+                                                                      item.id,
+                                                                      targetPlacement
+                                                                  ),
+                                                                  targetPlacement,
+                                                                  expectedVersion: item.version
+                                                              })
+                                                              .then(persistAndRefresh)
+                                                              .catch((e: unknown) => notifyError(t, enqueueSnackbar, e))
+                                                  }))
+                                            : []),
+                                        ...layoutZones
+                                            .filter(
+                                                (targetZone) =>
+                                                    targetZone !== item.zone &&
+                                                    getLayoutWidgetAllowedZones(item.widgetKey, layout.templateKey)?.includes(targetZone)
+                                            )
+                                            .map((targetZone) => ({
+                                                key: `${item.id}-${targetZone}`,
+                                                testId: `layout-widget-move-${item.id}-${targetZone}`,
+                                                label: t('layouts.moveToZone', 'Move to {{zone}}', { zone: zoneLabels[targetZone] }),
                                                 onClick: () =>
                                                     void layoutsApi
                                                         .moveLayoutZoneWidget(metahubId, layoutId, {
                                                             widgetId: item.id,
-                                                            targetZone: item.zone,
-                                                            targetIndex: getWidgetDropIndex(
-                                                                zoneToItems[item.zone],
-                                                                item.id,
-                                                                targetPlacement
-                                                            ),
-                                                            targetPlacement,
+                                                            targetZone,
+                                                            targetIndex: getWidgetDropIndex(zoneToItems[targetZone], item.id),
                                                             expectedVersion: item.version
                                                         })
                                                         .then(persistAndRefresh)
                                                         .catch((e: unknown) => notifyError(t, enqueueSnackbar, e))
                                             }))
-                                      : []),
-                                  ...layoutZones
-                                      .filter(
-                                          (targetZone) =>
-                                              targetZone !== item.zone &&
-                                              getLayoutWidgetAllowedZones(item.widgetKey, layout.templateKey)?.includes(targetZone)
-                                      )
-                                      .map((targetZone) => ({
-                                          key: `${item.id}-${targetZone}`,
-                                          testId: `layout-widget-move-${item.id}-${targetZone}`,
-                                          label: t('layouts.moveToZone', 'Move to {{zone}}', { zone: zoneLabels[targetZone] }),
-                                          onClick: () =>
-                                              void layoutsApi
-                                                  .moveLayoutZoneWidget(metahubId, layoutId, {
-                                                      widgetId: item.id,
-                                                      targetZone,
-                                                      targetIndex: getWidgetDropIndex(zoneToItems[targetZone], item.id),
-                                                      expectedVersion: item.version
-                                                  })
-                                                  .then(persistAndRefresh)
-                                                  .catch((e: unknown) => notifyError(t, enqueueSnackbar, e))
-                                      }))
-                              ]
-                            : undefined,
-                        onRemove: canRemoveWidget ? () => requestRemoveWidget(item.id) : undefined,
-                        onDuplicate: canDuplicateWidget ? () => void handleDuplicateWidget(item) : undefined,
-                        onReset: canResetWidget ? () => void handleResetWidgetOverride(item) : undefined,
-                        onClick: canEditWidget ? () => openWidgetEditor(zone, item) : undefined,
-                        onEdit: canEditWidget ? () => openWidgetEditor(zone, item) : undefined,
-                        onToggleActive: canToggleWidget ? (active: boolean) => void handleToggleWidgetActive(item.id, active) : undefined,
-                        inheritedLabel: isInheritedWidget ? t('layouts.details.inheritedBadge', 'Inherited') : undefined,
-                        editTooltip: canEditWidget ? t('common:actions.edit') : undefined,
-                        duplicateTooltip: canDuplicateWidget ? t('layouts.actions.duplicate', 'Duplicate') : undefined,
-                        duplicateAriaLabel: canDuplicateWidget
-                            ? t('layouts.actions.duplicateWidgetNamed', 'Duplicate widget: {{label}}', {
-                                  label: getWidgetChipLabel(item)
-                              })
-                            : undefined,
-                        resetTooltip: canResetWidget ? t('layouts.actions.resetOverride', 'Reset override') : undefined,
-                        resetAriaLabel: canResetWidget
-                            ? t('layouts.actions.resetOverrideWidgetNamed', 'Reset override: {{label}}', {
-                                  label: getWidgetChipLabel(item)
-                              })
-                            : undefined,
-                        removeTooltip: canRemoveWidget
-                            ? isInheritedWidget
-                                ? t('layouts.actions.exclude', 'Exclude')
-                                : t('common:actions.delete')
-                            : undefined,
-                        toggleActiveTooltip:
-                            canToggleWidget && item.isActive
-                                ? t('layouts.actions.deactivate', 'Deactivate')
-                                : canToggleWidget
-                                ? t('layouts.actions.activate', 'Activate')
-                                : undefined
-                    }
-                })
-            })),
+                                    ]
+                                  : undefined,
+                              onRemove: canRemoveWidget ? () => requestRemoveWidget(item.id) : undefined,
+                              onDuplicate: canDuplicateWidget ? () => void handleDuplicateWidget(item) : undefined,
+                              onReset: canResetWidget ? () => void handleResetWidgetOverride(item) : undefined,
+                              onClick: canEditWidget ? () => openWidgetEditor(zone, item) : undefined,
+                              onEdit: canEditWidget ? () => openWidgetEditor(zone, item) : undefined,
+                              onToggleActive: canToggleWidget
+                                  ? (active: boolean) => void handleToggleWidgetActive(item.id, active)
+                                  : undefined,
+                              inheritedLabel: isInheritedWidget ? t('layouts.details.inheritedBadge', 'Inherited') : undefined,
+                              editTooltip: canEditWidget ? t('common:actions.edit') : undefined,
+                              duplicateTooltip: canDuplicateWidget ? t('layouts.actions.duplicate', 'Duplicate') : undefined,
+                              duplicateAriaLabel: canDuplicateWidget
+                                  ? t('layouts.actions.duplicateWidgetNamed', 'Duplicate widget: {{label}}', {
+                                        label: getWidgetChipLabel(item)
+                                    })
+                                  : undefined,
+                              resetTooltip: canResetWidget ? t('layouts.actions.resetOverride', 'Reset override') : undefined,
+                              resetAriaLabel: canResetWidget
+                                  ? t('layouts.actions.resetOverrideWidgetNamed', 'Reset override: {{label}}', {
+                                        label: getWidgetChipLabel(item)
+                                    })
+                                  : undefined,
+                              removeTooltip: canRemoveWidget
+                                  ? isInheritedWidget
+                                      ? t('layouts.actions.exclude', 'Exclude')
+                                      : t('common:actions.delete')
+                                  : undefined,
+                              toggleActiveTooltip:
+                                  canToggleWidget && item.isActive
+                                      ? t('layouts.actions.deactivate', 'Deactivate')
+                                      : canToggleWidget
+                                      ? t('layouts.actions.activate', 'Activate')
+                                      : undefined
+                          }
+                      })
+                  }))
+                : [],
         [
             canManageLayouts,
+            canEditContent,
             getAvailableWidgetsForZone,
             getWidgetChipLabel,
             handleDuplicateWidget,
@@ -1140,9 +1253,9 @@ export default function LayoutDetails() {
                     title={layoutName || t('layouts.details.title', 'Layout')}
                     description={
                         layout?.templateKey === 'marketing-page'
-                            ? t(
-                                  'layouts.marketing.appearanceDescription',
-                                  'Configure the published marketing page without editing its content records.'
+                            ? tc(
+                                  'layouts.marketing.heroAuthoring.pageDescription',
+                                  'Manage Hero content as Entity records, then adjust its presentation separately.'
                               )
                             : t('layouts.details.description', 'Configure dashboard zones and widgets.')
                     }
@@ -1443,6 +1556,34 @@ export default function LayoutDetails() {
                 onCancel={() => setWidgetBehaviorEditor({ open: false, widgetId: null, widgetLabel: null, config: null })}
             />
 
+            <MarketingHeroBindingDialog
+                open={marketingHeroBindingEditor.open}
+                metahubId={metahubId}
+                layoutId={layoutId}
+                widgetId={marketingHeroBindingEditor.widgetId}
+                widgetVersion={marketingHeroWidgetVersion}
+                heroObjectId={marketingHeroObjectId}
+                locale={uiLocale}
+                canManageLayouts={canManageLayouts}
+                canEditContent={canEditContent}
+                initialConfig={marketingHeroBindingEditor.config}
+                onClose={() => setMarketingHeroBindingEditor({ open: false, zone: null, widgetId: null, config: null })}
+                onBindingSaved={persistAndRefresh}
+                onConfigurePresentation={(recordId, config) => {
+                    const { zone, widgetId } = marketingHeroBindingEditor
+                    if (!zone) return
+                    setMarketingHeroBindingEditor({ open: false, zone: null, widgetId: null, config: null })
+                    setMarketingWidgetEditor({
+                        open: true,
+                        zone,
+                        widgetId,
+                        widgetKey: 'marketing.hero',
+                        config,
+                        heroRecordId: widgetId ? null : recordId
+                    })
+                }}
+            />
+
             {marketingWidgetEditor.open && marketingWidgetEditor.widgetKey ? (
                 <MarketingWidgetConfigDialog
                     open={marketingWidgetEditor.open}
@@ -1465,10 +1606,23 @@ export default function LayoutDetails() {
                                 )
                                 upsertZoneWidgetInCache(response.data.item)
                             } else {
+                                if (widgetKey === 'marketing.hero' && !marketingWidgetEditor.heroRecordId) {
+                                    enqueueSnackbar(
+                                        tc(
+                                            'layouts.marketing.heroAuthoring.selectContentFirst',
+                                            'Choose a Hero content record before adding this widget.'
+                                        ),
+                                        { variant: 'error' }
+                                    )
+                                    return
+                                }
                                 const response = await layoutsApi.assignLayoutZoneWidget(metahubId, layoutId, {
                                     zone,
                                     widgetKey,
                                     config,
+                                    ...(widgetKey === 'marketing.hero' && marketingWidgetEditor.heroRecordId
+                                        ? { heroContent: { mode: 'existing' as const, recordId: marketingWidgetEditor.heroRecordId } }
+                                        : {}),
                                     expectedVersion: getExpectedLayoutVersion()
                                 })
                                 upsertZoneWidgetInCache(response.data)

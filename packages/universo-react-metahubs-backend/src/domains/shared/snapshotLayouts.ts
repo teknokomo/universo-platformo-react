@@ -477,7 +477,8 @@ const attachLayoutsToSnapshotInTransaction = async (options: {
             const decoded = decodeWidgetConfigEnvelope(widgetConfig, {
                 templateKey: layout.templateKey,
                 widgetKey,
-                zone
+                zone,
+                requireBindings: true
             })
             return {
                 id: readStoredString(row.id, 'widget id'),
@@ -490,7 +491,8 @@ const attachLayoutsToSnapshotInTransaction = async (options: {
                     {
                         templateKey: layout.templateKey,
                         widgetKey,
-                        zone
+                        zone,
+                        requireBindings: true
                     }
                 ),
                 isActive: readStoredBoolean(row.is_active, 'widget active state')
@@ -548,7 +550,8 @@ const attachLayoutsToSnapshotInTransaction = async (options: {
                         : decodeWidgetConfigEnvelope(rawConfig, {
                               templateKey: layout.templateKey,
                               widgetKey: baseWidget.widgetKey,
-                              zone
+                              zone,
+                              requireBindings: true
                           })
                 return {
                     id: readStoredString(row.id, 'widget override id'),
@@ -561,7 +564,7 @@ const attachLayoutsToSnapshotInTransaction = async (options: {
                             ? rawConfig
                             : encodeWidgetConfigEnvelope(
                                   { rendererConfig: decoded.rendererConfig, neutral: decoded.neutral },
-                                  { templateKey: layout.templateKey, widgetKey: baseWidget.widgetKey, zone }
+                                  { templateKey: layout.templateKey, widgetKey: baseWidget.widgetKey, zone, requireBindings: true }
                               ),
                     isActive: row.is_active === null ? null : readStoredBoolean(row.is_active, 'widget override active state'),
                     isDeletedOverride: readStoredBoolean(row.is_deleted_override, 'widget override deletion state')

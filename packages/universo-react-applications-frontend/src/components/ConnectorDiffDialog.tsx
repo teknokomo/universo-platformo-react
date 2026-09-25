@@ -33,12 +33,12 @@ import {
     FormControlLabel,
     InputLabel,
     MenuItem,
-    Select,
     Radio,
     RadioGroup,
     Checkbox,
     Switch
 } from '@mui/material'
+
 import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutlineOutlined'
 import RemoveCircleOutlineIcon from '@mui/icons-material/RemoveCircleOutlineOutlined'
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutlineOutlined'
@@ -53,6 +53,7 @@ import type {
 import { useApplicationDiff } from '../hooks/useConnectorSync'
 import type { Connector, SchemaStatus } from '../types'
 import { getVLCString } from '../types'
+import { DropdownSelect as Select } from '@universo-react/template-mui/dropdowns'
 
 const isLocalizedContent = (value: unknown): value is Record<string, unknown> =>
     Boolean(value && typeof value === 'object' && !Array.isArray(value) && 'locales' in value)
@@ -469,6 +470,14 @@ export function ConnectorDiffDialog({
         const sourceLayoutId = change.sourceLayoutId ?? ''
         return !layoutOverrides[sourceLayoutId] && !bulkLayoutResolution
     })
+    const hasBlockedCopyResolution = requiredLayoutChanges.some((change) => {
+        if (change.copySourceAsApplicationUnavailable !== true) return false
+        const selectedResolution = layoutOverrides[change.sourceLayoutId ?? ''] ?? bulkLayoutResolution
+        return selectedResolution === 'copy_source_as_application'
+    })
+    const bulkLayoutResolutionOptions = requiredLayoutChanges.some((change) => change.copySourceAsApplicationUnavailable === true)
+        ? BULK_LAYOUT_RESOLUTION_OPTIONS.filter((resolution) => resolution !== 'copy_source_as_application')
+        : BULK_LAYOUT_RESOLUTION_OPTIONS
 
     const buildLayoutResolutionPolicy = (): ApplicationLayoutSyncPolicy | undefined => {
         if (!hasStructuredLayoutChanges) {
@@ -576,6 +585,19 @@ export function ConnectorDiffDialog({
                             'connectors.diffDialog.layoutResolution.stale',
                             'The layout diff changed. Review the refreshed conflict list and choose resolutions again.'
                         )
+                )
+                await refetchDiff()
+                return
+            }
+
+            if (errorCode === 'APPLICATION_LAYOUT_ENTITY_BACKED_WIDGET_COPY_CONFLICT') {
+                setBulkLayoutResolution('')
+                setLayoutOverrides({})
+                setSyncErrorMessage(
+                    t(
+                        'connectors.diffDialog.layoutResolution.copySourceUnavailable',
+                        'This layout contains an Entity-backed Hero placement that cannot be copied into an application layout. Keep the application layout or skip this source update.'
+                    )
                 )
                 await refetchDiff()
                 return
@@ -1122,7 +1144,10 @@ export function ConnectorDiffDialog({
                         )}
 
                         {hasLayoutChanges && (
-                            <Alert severity={hasUnresolvedRequiredLayoutChanges ? 'warning' : 'info'} sx={{ mb: 2 }}>
+                            <Alert
+                                severity={hasUnresolvedRequiredLayoutChanges || hasBlockedCopyResolution ? 'warning' : 'info'}
+                                sx={{ mb: 2 }}
+                            >
                                 <Box sx={{ display: 'grid', gap: 2 }}>
                                     <Box>
                                         <Typography variant='body2' sx={{ fontWeight: 600, mb: 0.5 }}>
@@ -1137,7 +1162,12 @@ export function ConnectorDiffDialog({
                                                 color: 'text.secondary'
                                             }}
                                         >
-                                            {hasUnresolvedRequiredLayoutChanges
+                                            {hasBlockedCopyResolution
+                                                ? t(
+                                                      'connectors.diffDialog.layoutResolution.copySourceUnavailable',
+                                                      'This layout contains an Entity-backed Hero placement that cannot be copied into an application layout. Keep the application layout or skip this source update.'
+                                                  )
+                                                : hasUnresolvedRequiredLayoutChanges
                                                 ? t(
                                                       'connectors.diffDialog.layoutResolution.required',
                                                       'Choose a bulk policy or set explicit per-layout resolutions before sync is enabled.'
@@ -1171,7 +1201,7 @@ export function ConnectorDiffDialog({
                                                         'Choose a bulk policy for required layout conflicts'
                                                     )}
                                                 </MenuItem>
-                                                {BULK_LAYOUT_RESOLUTION_OPTIONS.map((resolution) => (
+                                                {bulkLayoutResolutionOptions.map((resolution) => (
                                                     <MenuItem key={resolution} value={resolution}>
                                                         {formatLayoutResolution(resolution)}
                                                     </MenuItem>
@@ -1230,6 +1260,14 @@ export function ConnectorDiffDialog({
                                                                         {change.message}
                                                                     </Typography>
                                                                 )}
+                                                                {change.copySourceAsApplicationUnavailable === true && (
+                                                                    <Typography variant='body2' color='warning.main' sx={{ mb: 1 }}>
+                                                                        {t(
+                                                                            'connectors.diffDialog.layoutResolution.copySourceUnavailable',
+                                                                            'This layout contains an Entity-backed Hero placement that cannot be copied into an application layout. Keep the application layout or skip this source update.'
+                                                                        )}
+                                                                    </Typography>
+                                                                )}
                                                                 {sourceLayoutId && (
                                                                     <FormControl size='small' sx={{ minWidth: 320, maxWidth: 520 }}>
                                                                         <InputLabel
@@ -1280,7 +1318,13 @@ export function ConnectorDiffDialog({
                                                                                           'No per-layout override'
                                                                                       )}
                                                                             </MenuItem>
-                                                                            {ITEM_LAYOUT_RESOLUTION_OPTIONS.map((resolution) => (
+                                                                            {ITEM_LAYOUT_RESOLUTION_OPTIONS.filter(
+                                                                                (resolution) =>
+                                                                                    !(
+                                                                                        resolution === 'copy_source_as_application' &&
+                                                                                        change.copySourceAsApplicationUnavailable === true
+                                                                                    )
+                                                                            ).map((resolution) => (
                                                                                 <MenuItem key={resolution} value={resolution}>
                                                                                     {formatLayoutResolution(resolution)}
                                                                                 </MenuItem>
@@ -1491,7 +1535,13 @@ export function ConnectorDiffDialog({
                         variant='contained'
                         color='primary'
                         onClick={() => handleSync(false)}
-                        disabled={isSyncing || isDiffLoading || hasUnresolvedRequiredLayoutChanges || workspaceSyncDisabled}
+                        disabled={
+                            isSyncing ||
+                            isDiffLoading ||
+                            hasUnresolvedRequiredLayoutChanges ||
+                            hasBlockedCopyResolution ||
+                            workspaceSyncDisabled
+                        }
                         startIcon={isSyncing ? <CircularProgress size={16} /> : null}
                     >
                         {isSyncing
@@ -1508,7 +1558,13 @@ export function ConnectorDiffDialog({
                                 variant='outlined'
                                 color='primary'
                                 onClick={() => handleSync(false)}
-                                disabled={isSyncing || isDiffLoading || hasUnresolvedRequiredLayoutChanges || workspaceSyncDisabled}
+                                disabled={
+                                    isSyncing ||
+                                    isDiffLoading ||
+                                    hasUnresolvedRequiredLayoutChanges ||
+                                    hasBlockedCopyResolution ||
+                                    workspaceSyncDisabled
+                                }
                             >
                                 {t('connectors.diffDialog.applySafeChanges', 'Apply Safe Changes Only')}
                             </Button>
@@ -1517,7 +1573,13 @@ export function ConnectorDiffDialog({
                             variant='contained'
                             color='error'
                             onClick={() => handleSync(true)}
-                            disabled={isSyncing || isDiffLoading || hasUnresolvedRequiredLayoutChanges || workspaceSyncDisabled}
+                            disabled={
+                                isSyncing ||
+                                isDiffLoading ||
+                                hasUnresolvedRequiredLayoutChanges ||
+                                hasBlockedCopyResolution ||
+                                workspaceSyncDisabled
+                            }
                             startIcon={isSyncing ? <CircularProgress size={16} color='inherit' /> : null}
                         >
                             {isSyncing

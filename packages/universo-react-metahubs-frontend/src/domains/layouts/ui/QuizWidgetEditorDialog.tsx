@@ -1,19 +1,7 @@
 import { useEffect, useId, useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import {
-    Alert,
-    Button,
-    Collapse,
-    FormControl,
-    FormHelperText,
-    InputLabel,
-    MenuItem,
-    Select,
-    Stack,
-    TextField,
-    Typography
-} from '@mui/material'
+import { Alert, Button, Collapse, FormControl, FormHelperText, InputLabel, MenuItem, Stack, TextField, Typography } from '@mui/material'
 import type { MetahubModuleRecord, QuizWidgetConfig, VersionedLocalizedContent } from '@universo-react/types'
 import { isClientModuleMethodTarget } from '@universo-react/types'
 import { EntityFormDialog } from '@universo-react/template-mui'
@@ -25,6 +13,7 @@ import LayoutWidgetSharedBehaviorFields, {
     setSharedBehaviorInWidgetConfig
 } from './LayoutWidgetSharedBehaviorFields'
 import WidgetScopeVisibilityPanel from './WidgetScopeVisibilityPanel'
+import { DropdownSelect as Select } from '@universo-react/template-mui/dropdowns'
 
 export interface QuizWidgetEditorDialogProps {
     open: boolean

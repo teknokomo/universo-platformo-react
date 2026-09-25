@@ -2,19 +2,7 @@ import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { useSnackbar } from 'notistack'
-import {
-    Alert,
-    Autocomplete,
-    Box,
-    Button,
-    Chip,
-    CircularProgress,
-    FormControlLabel,
-    Stack,
-    Switch,
-    TextField,
-    Typography
-} from '@mui/material'
+import { Alert, Box, Button, Chip, CircularProgress, FormControlLabel, Stack, Switch, TextField, Typography } from '@mui/material'
 import AddRoundedIcon from '@mui/icons-material/AddRounded'
 import LinkRoundedIcon from '@mui/icons-material/LinkRounded'
 import OpenInNewRoundedIcon from '@mui/icons-material/OpenInNewRounded'
@@ -29,6 +17,7 @@ import { getLocalizedContentText, normalizeLocale } from '../../../utils/localiz
 import { openPlayCanvasEditor, playcanvasProjectsApi, resolveEditorDisplayMode, usePlayCanvasEditorHostQuery } from '../../packages/api'
 import { listEntityInstances, updateEntityInstance, type MetahubEntityInstance } from '../api/entityInstances'
 import { useEntityInstanceQuery } from '../hooks/queries'
+import { DropdownAutocomplete as Autocomplete } from '@universo-react/template-mui/dropdowns'
 
 type ProjectBinding = NonNullable<ProjectBindingInstanceConfig['projectBinding']>
 

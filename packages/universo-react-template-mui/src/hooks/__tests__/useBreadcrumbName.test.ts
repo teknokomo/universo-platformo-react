@@ -12,7 +12,11 @@ import {
     useMetahubPublicationName,
     useValueGroupNameStandalone,
     useMetaverseName,
-    truncateMetaverseName
+    truncateMetaverseName,
+    useInstanceName,
+    useRoleName,
+    truncateInstanceName,
+    truncateRoleName
 } from '../useBreadcrumbName'
 
 jest.mock('@universo-react/auth-frontend', () => ({
@@ -102,6 +106,26 @@ describe('useBreadcrumbName', () => {
             await waitFor(() => {
                 expect(result.current).toBe('Custom Field Value')
             })
+        })
+
+        it('reads localized names and codenames from admin API data envelopes', async () => {
+            mockClientGet.mockResolvedValueOnce({ data: { data: { name: '', codename: 'instance-main' } } })
+            const { result } = renderHook(() => useInstanceName('instance-1'), { wrapper })
+
+            await waitFor(() => {
+                expect(result.current).toBe('instance-main')
+            })
+            expect(mockClientGet).toHaveBeenCalledWith('/admin/instances/instance-1')
+
+            mockClientGet.mockResolvedValueOnce({ data: { data: { name: 'Administrator' } } })
+            const roleResult = renderHook(() => useRoleName('role-1'), { wrapper })
+            await waitFor(() => {
+                expect(roleResult.result.current).toBe('Administrator')
+            })
+            expect(mockClientGet).toHaveBeenCalledWith('/admin/roles/role-1')
+            expect(truncateInstanceName('abcdefghijklmnopqrstuvwxyz')).toBe('abcdefghijklmnopqrstuv...')
+            expect(truncateRoleName('abcdefghijklmnopqrstuvwxyz')).toBe('abcdefghijklmnopqrstuv...')
+            roleResult.unmount()
         })
 
         it('should fall back to any available locale from VLC content', async () => {

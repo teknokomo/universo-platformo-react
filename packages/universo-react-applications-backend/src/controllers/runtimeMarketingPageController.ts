@@ -27,7 +27,8 @@ import {
     type MarketingPageRecord,
     type MarketingWidgetKey,
     type MarketingWidgetSource,
-    type ResourceSource
+    type ResourceSource,
+    type WidgetEntityBindingEnvelope
 } from '@universo-react/types'
 import { normalizeMarketingMedia, parseMarketingActionHref } from '@universo-react/utils'
 import type { DbExecutor } from '@universo-react/utils'
@@ -51,6 +52,8 @@ import {
     type EffectiveLayoutSuccess
 } from '../services/effectiveLayoutContract'
 import { resolveEffectiveLayoutForRequest } from '../services/effectiveLayoutResolver'
+import { getApplicationLayoutWidgetSourceBindingState } from '../persistence/applicationLayoutStoreSupport'
+import { isCompatibleMarketingHeroObject, projectMarketingWidgetBindingData } from '../services/marketingHeroEntityBinding'
 import {
     MARKETING_CHILD_RECORD_LIMIT,
     MARKETING_COLLECTION_ROW_LIMIT,
@@ -61,7 +64,6 @@ import {
     selectPricingBenefitSemanticKeysForTiers,
     toMarketingLocalizedMap,
     toMarketingLocalizedNumericMap,
-    toMarketingLocalizedOptionalLabel,
     toMarketingLocalizedOptionalMap,
     toMarketingSemanticKey,
     applyMarketingFieldMap,
@@ -95,12 +97,14 @@ type RuntimeWidgetRow = {
     source_widget_id?: string | null
     source_base_widget_id?: string | null
     version?: number
+    bindings?: WidgetEntityBindingEnvelope
 }
 
 type ValidatedMarketingWidgetConfig = {
     config: Record<string, unknown>
     source?: MarketingWidgetSource
     copySource?: MarketingWidgetSource
+    bindings?: WidgetEntityBindingEnvelope
 }
 
 export interface MarketingRuntimeContext {
@@ -128,7 +132,6 @@ const asBoolean = (value: unknown, fallback = true): boolean => asMarketingBoole
 const localized = toMarketingLocalizedMap
 const localizedNumeric = toMarketingLocalizedNumericMap
 const localizedOptional = toMarketingLocalizedOptionalMap
-const localizedLabelOptional = toMarketingLocalizedOptionalLabel
 const safeSemanticKey = toMarketingSemanticKey
 
 const readSingleQueryValue = (value: unknown): { valid: true; value?: string } | { valid: false } => {
@@ -201,11 +204,14 @@ const objectQuery = (schemaIdent: string) => `
       AND ${runtimeCodenameTextSql('codename')} = ANY($1::text[])
       AND _upl_deleted = false
       AND _app_deleted = false
+      AND _upl_archived = false
+      AND _app_archived = false
+      AND _app_published = true
     ORDER BY id ASC
 `
 
 const componentQuery = (schemaIdent: string) => `
-    SELECT id, object_id, codename, column_name, data_type
+    SELECT id, object_id, codename, column_name, data_type, is_required, validation_rules
     FROM ${schemaIdent}._app_components
     WHERE object_id = ANY($1::uuid[])
       AND parent_component_id IS NULL
@@ -440,7 +446,8 @@ export function createRuntimeMarketingPageController(getDbExecutor: () => DbExec
                 is_active: widget.isActive,
                 source_widget_id: widget.sourceWidgetId,
                 source_base_widget_id: widget.sourceBaseWidgetId,
-                version: widget.version
+                version: widget.version,
+                bindings: getApplicationLayoutWidgetSourceBindingState(widget)?.bindings
             }))
         if (!widgetRows.some((widget) => widget.is_active)) {
             return res.status(409).json({ code: 'MARKETING_LAYOUT_INCOMPLETE', error: 'Marketing page has no active widget composition.' })
@@ -462,7 +469,8 @@ export function createRuntimeMarketingPageController(getDbExecutor: () => DbExec
                 return invalidLayout('Marketing widget configuration is invalid.')
             }
             let source: MarketingWidgetSource | undefined
-            if (registryEntry.dataOwnership === 'entity') {
+            const hasBindingSlot = Boolean(getLayoutWidgetDefinition(widgetRow.widget_key)?.bindingSlots?.length)
+            if (registryEntry.dataOwnership === 'entity' && !hasBindingSlot) {
                 const parsedSource = marketingWidgetSourceSchema.safeParse(config.source)
                 if (!parsedSource.success) return invalidLayout('Marketing widget data source is invalid.')
                 const allowedSources = marketingWidgetSourceCodenames(
@@ -474,10 +482,13 @@ export function createRuntimeMarketingPageController(getDbExecutor: () => DbExec
                 }
                 source = parsedSource.data
             }
+            if (hasBindingSlot && (config.source !== undefined || config.copySource !== undefined)) {
+                return invalidLayout('Marketing widgets with binding slots must use their registered Entity binding.')
+            }
 
             let copySource: MarketingWidgetSource | undefined
             if (config.copySource !== undefined) {
-                if (!['marketing.hero', 'marketing.collection', 'marketing.pricing', 'marketing.footer'].includes(widgetRow.widget_key)) {
+                if (!['marketing.collection', 'marketing.pricing', 'marketing.footer'].includes(widgetRow.widget_key)) {
                     return invalidLayout('This marketing widget does not support a copy source.')
                 }
                 const parsedCopySource = marketingWidgetSourceSchema.safeParse(config.copySource)
@@ -489,7 +500,12 @@ export function createRuntimeMarketingPageController(getDbExecutor: () => DbExec
             if (instanceKeys.has(instanceKey)) return invalidLayout('Marketing widget instance keys must be unique within a layout.')
             instanceKeys.add(instanceKey)
 
-            validatedWidgetConfigs.set(widgetRow.id, { config, ...(source ? { source } : {}), ...(copySource ? { copySource } : {}) })
+            validatedWidgetConfigs.set(widgetRow.id, {
+                config,
+                ...(source ? { source } : {}),
+                ...(copySource ? { copySource } : {}),
+                ...(widgetRow.bindings === undefined ? {} : { bindings: widgetRow.bindings })
+            })
         }
         const safeRuntimeAction = (value: unknown): MarketingAction | null => {
             const action = safeAction(value)
@@ -500,7 +516,17 @@ export function createRuntimeMarketingPageController(getDbExecutor: () => DbExec
             return action
         }
 
-        const objectRows = await ctx.manager.query<RawRecord>(objectQuery(ctx.schemaIdent), [MARKETING_OBJECTS])
+        const bindingObjectNames = [
+            ...new Set(
+                widgetRows.flatMap((widget) => {
+                    const definition = getLayoutWidgetDefinition(widget.widget_key)
+                    if (!definition?.bindingSlots?.length || !widget.bindings) return []
+                    return widget.bindings.slots.flatMap((slot) => slot.targets.map(({ entityCodename }) => entityCodename))
+                })
+            )
+        ]
+        const queriedObjectNames = [...new Set([...MARKETING_OBJECTS, ...bindingObjectNames])]
+        const objectRows = await ctx.manager.query<RawRecord>(objectQuery(ctx.schemaIdent), [queriedObjectNames])
         const objectsByName = new Map(objectRows.map((row) => [resolveRuntimeCodenameText(row.codename), row]))
         const objectIds = objectRows.map((row) => asString(row.id)).filter((id) => UUID_REGEX.test(id))
         const componentRows = objectIds.length > 0 ? await ctx.manager.query<RawRecord>(componentQuery(ctx.schemaIdent), [objectIds]) : []
@@ -511,8 +537,22 @@ export function createRuntimeMarketingPageController(getDbExecutor: () => DbExec
             componentsByObject.set(asString(component.object_id), list)
         }
 
+        const heroBindingObjectNames = [
+            ...new Set(
+                widgetRows.flatMap((widget) => {
+                    if (widget.widget_key !== 'marketing.hero' || !widget.bindings) return []
+                    return widget.bindings.slots.flatMap((slot) => slot.targets.map(({ entityCodename }) => entityCodename))
+                })
+            )
+        ].filter((objectName) => {
+            const matchingObjects = objectRows.filter((row) => resolveRuntimeCodenameText(row.codename) === objectName)
+            if (matchingObjects.length !== 1) return false
+            const object = matchingObjects[0]
+            return isCompatibleMarketingHeroObject(object, componentsByObject.get(asString(object.id)) ?? [])
+        })
+        const objectNamesToLoad = [...new Set([...MARKETING_OBJECTS, ...heroBindingObjectNames])]
         const loadedEntries = await Promise.all(
-            MARKETING_OBJECTS.map(async (objectName) => {
+            objectNamesToLoad.map(async (objectName) => {
                 const object = objectsByName.get(objectName)
                 if (!object) return null
                 const rows = await loadObjectRows(
@@ -568,31 +608,12 @@ export function createRuntimeMarketingPageController(getDbExecutor: () => DbExec
         const brandName = configuredBrandName
             ? { en: configuredBrandName, ru: configuredBrandName }
             : localized(siteSettings.BrandName, requestedLocale, '')
-        const heroTitle = localized(siteSettings.HeroTitle, requestedLocale, '')
         const siteSettingsRecord = {
             ...runtimeBaseRecord(siteSettings, requestedLocale, 'site-settings', 'site-settings'),
             semanticKey: 'site-settings',
             kind: 'siteSettings' as const,
             brandName,
             brandLogo: configuredBrandLogo ?? safeMedia(siteSettings.BrandLogo, 'logo', brandName),
-            heroTitle,
-            heroSubtitle: localized(siteSettings.HeroSubtitle, requestedLocale, ''),
-            heroAccent: localizedOptional(siteSettings.HeroAccent, requestedLocale),
-            heroEmailLabel: localizedLabelOptional(siteSettings.HeroEmailLabel, requestedLocale),
-            heroEmailPlaceholder: localizedLabelOptional(siteSettings.HeroEmailPlaceholder, requestedLocale),
-            heroTermsText: localizedOptional(siteSettings.HeroTermsText, requestedLocale),
-            heroPrimaryAction: safeRuntimeAction(siteSettings.HeroPrimaryActionHref)
-                ? {
-                      label: localized(siteSettings.HeroPrimaryActionLabel, requestedLocale, ''),
-                      action: safeRuntimeAction(siteSettings.HeroPrimaryActionHref)!
-                  }
-                : undefined,
-            heroSecondaryAction: safeRuntimeAction(siteSettings.HeroTermsHref)
-                ? {
-                      label: localized(siteSettings.HeroTermsLinkLabel, requestedLocale, ''),
-                      action: safeRuntimeAction(siteSettings.HeroTermsHref)!
-                  }
-                : undefined,
             footerDescription: localizedOptional(siteSettings.FooterDescription, requestedLocale),
             copyright: localizedOptional(siteSettings.CopyrightText, requestedLocale),
             copyrightLabel: localizedOptional(siteSettings.CopyrightLabel, requestedLocale),
@@ -835,16 +856,39 @@ export function createRuntimeMarketingPageController(getDbExecutor: () => DbExec
         for (const widgetRow of widgetRows) {
             const validated = validatedWidgetConfigs.get(widgetRow.id)
             if (!validated) return invalidLayout('Marketing widget configuration is unavailable.')
-            const { config, source, copySource } = validated
+            const { config, source, copySource, bindings } = validated
             const registryEntry = MARKETING_WIDGET_REGISTRY[widgetRow.widget_key as keyof typeof MARKETING_WIDGET_REGISTRY]
             if (!registryEntry) return invalidLayout('Marketing widget configuration is unavailable.')
             const contentRecords = source ? sourceRecords(source) : []
-            if (registryEntry.dataOwnership === 'entity' && !source) {
+            const definition = getLayoutWidgetDefinition(widgetRow.widget_key)
+            const hasBindingSlot = Boolean(definition?.bindingSlots?.length)
+            if (registryEntry.dataOwnership === 'entity' && !hasBindingSlot && !source) {
                 return invalidLayout('Marketing widget data source is unavailable.')
             }
             if (source && !contentRecords && widgetRow.is_active) return unavailableSource('Marketing widget data source is unavailable.')
             const copyRecords = sourceCopy(copySource)
             if (copyRecords === null && widgetRow.is_active) return unavailableSource('Marketing widget copy source is unavailable.')
+            let bindingData: ReturnType<typeof projectMarketingWidgetBindingData>
+            try {
+                bindingData = projectMarketingWidgetBindingData({
+                    widgetKey: widgetRow.widget_key,
+                    bindings,
+                    loadRecords: (target) => {
+                        if (target.entityKind !== 'object') return []
+                        const matchingObjects = objectRows.filter(
+                            (row) => resolveRuntimeCodenameText(row.codename) === target.entityCodename
+                        )
+                        if (matchingObjects.length !== 1) return []
+                        const object = objectsByName.get(target.entityCodename)
+                        const components = object ? componentsByObject.get(asString(object.id)) ?? [] : []
+                        if (!object || !isCompatibleMarketingHeroObject(object, components)) return []
+                        return loaded.get(target.entityCodename) ?? []
+                    },
+                    config: runtimeConfig
+                })
+            } catch {
+                return unavailableSource('Marketing widget Entity binding is unavailable.')
+            }
 
             if (
                 widgetRow.is_active &&
@@ -868,9 +912,6 @@ export function createRuntimeMarketingPageController(getDbExecutor: () => DbExec
             } else if (widgetRow.widget_key === 'marketing.navigation') {
                 appendRecords(recordsByObject.get('MarketingPageSiteSettings') ?? [], 1)
                 appendRecords(contentRecords ?? [])
-            } else if (widgetRow.widget_key === 'marketing.hero') {
-                appendRecords(copyRecords ?? [])
-                appendRecords(contentRecords ?? [], 1)
             } else if (widgetRow.widget_key === 'marketing.collection') {
                 appendRecords(copyRecords ?? [])
                 appendRecords(contentRecords ?? [])
@@ -907,7 +948,7 @@ export function createRuntimeMarketingPageController(getDbExecutor: () => DbExec
                 sortOrder: widgetRow.sort_order,
                 isActive: widgetRow.is_active,
                 config,
-                data: { records: recordsForWidget }
+                data: bindingData ?? { records: recordsForWidget }
             }
             const parsedWidget =
                 widgetRow.widget_key === 'marketing.brand' || widgetRow.widget_key === 'marketing.auth'

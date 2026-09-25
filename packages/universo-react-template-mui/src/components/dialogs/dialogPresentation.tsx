@@ -471,7 +471,13 @@ export function useDialogPresentation({
                 {allowResize && hasCustomSize ? (
                     <Tooltip title={titleActionLabels.resetSize}>
                         <span>
-                            <IconButton size='small' onClick={clearCustomSize} data-testid='dialog-reset-size' disabled={isBusy}>
+                            <IconButton
+                                size='small'
+                                onClick={clearCustomSize}
+                                data-testid='dialog-reset-size'
+                                aria-label={titleActionLabels.resetSize}
+                                disabled={isBusy}
+                            >
                                 <RestartAltIcon fontSize='small' />
                             </IconButton>
                         </span>
@@ -484,6 +490,7 @@ export function useDialogPresentation({
                                 size='small'
                                 onClick={() => setIsFullscreen((prev) => !prev)}
                                 data-testid='dialog-toggle-fullscreen'
+                                aria-label={isFullscreen ? titleActionLabels.restoreSize : titleActionLabels.expand}
                                 disabled={isBusy}
                             >
                                 {isFullscreen ? <CloseFullscreenIcon fontSize='small' /> : <OpenInFullIcon fontSize='small' />}

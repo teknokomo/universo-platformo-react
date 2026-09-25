@@ -11,6 +11,7 @@ import {
 } from '../../shared/runtimeHelpers'
 import { runtimeWorkflowActionBodySchema, runtimeWorkflowActionParamSchema } from '../runtimeRowSupport/contracts'
 import { resolveRuntimeObjectCollection } from '../runtimeRowSupport/objects'
+import { denyRuntimeEntityMutation } from '../../shared/entityMutationPolicy'
 import {
     buildWorkflowEnumStatusValueMap,
     ensureWorkflowEnumStatusesConfigured,
@@ -46,6 +47,7 @@ export const createWorkflowActionHandler = ({ getDbExecutor, query }: RuntimeRow
             error: objectCollectionError
         } = await resolveRuntimeObjectCollection(ctx.manager, ctx.schemaIdent, parsedBody.data.objectCollectionId)
         if (!objectCollection) return res.status(404).json({ error: objectCollectionError })
+        if (denyRuntimeEntityMutation(res, objectCollection.config)) return
 
         const action = readConfiguredWorkflowActions(objectCollection.config).find(
             (candidate) => candidate.codename === parsedActionCodename.data

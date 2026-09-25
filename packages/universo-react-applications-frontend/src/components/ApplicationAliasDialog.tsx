@@ -1,24 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
-import {
-    Alert,
-    Autocomplete,
-    Box,
-    Button,
-    Checkbox,
-    CircularProgress,
-    FormControlLabel,
-    Popper,
-    Stack,
-    TextField,
-    Typography
-} from '@mui/material'
-import { autocompleteClasses } from '@mui/material/Autocomplete'
-import { styled } from '@mui/material/styles'
-import UnfoldMoreRoundedIcon from '@mui/icons-material/UnfoldMoreRounded'
+import { Alert, Box, Button, Checkbox, CircularProgress, FormControlLabel, Stack, TextField, Typography } from '@mui/material'
+
 import { useTranslation } from 'react-i18next'
 import { useCommonTranslations } from '@universo-react/i18n'
 import { StandardDialog } from '@universo-react/template-mui/components/dialogs'
 import { buildPublicApplicationAddressPath } from '../utils/publicApplicationAddress'
+import { DropdownAutocomplete as Autocomplete } from '@universo-react/template-mui/dropdowns'
 
 export interface ApplicationAliasOption {
     id: string
@@ -48,20 +35,6 @@ export interface ApplicationAliasDialogProps {
     onClose: () => void
     onSubmit: (value: ApplicationAliasDialogSubmit) => void | Promise<void>
 }
-
-const StyledPopper = styled(Popper)(({ theme }) => ({
-    boxShadow: theme.shadows[4],
-    borderRadius: 10,
-    [`& .${autocompleteClasses.paper}`]: {
-        borderRadius: 10,
-        border: `1px solid ${theme.palette.divider}`,
-        backgroundColor: theme.palette.background.paper
-    },
-    [`& .${autocompleteClasses.listbox}`]: {
-        boxSizing: 'border-box',
-        padding: 6
-    }
-}))
 
 const normalizePreviewAlias = (value: string) => value.trim().toLowerCase()
 
@@ -158,32 +131,7 @@ export function ApplicationAliasDialog({
                             }}
                             getOptionLabel={(option) => option.label}
                             isOptionEqualToValue={(option, value) => option.id === value.id}
-                            popupIcon={<UnfoldMoreRoundedIcon fontSize='small' />}
-                            slots={{ popper: StyledPopper }}
-                            slotProps={{
-                                popupIndicator: {
-                                    disableRipple: true,
-                                    sx: {
-                                        backgroundColor: 'transparent',
-                                        border: 'none',
-                                        boxShadow: 'none',
-                                        padding: 0.5,
-                                        '&:hover': { backgroundColor: 'transparent' }
-                                    }
-                                }
-                            }}
-                            sx={{
-                                '& .MuiInputBase-root': { minHeight: 40 },
-                                '& .MuiAutocomplete-endAdornment': {
-                                    top: '50%',
-                                    transform: 'translateY(-50%)'
-                                },
-                                '& .MuiAutocomplete-popupIndicator': {
-                                    backgroundColor: 'transparent',
-                                    border: 'none',
-                                    boxShadow: 'none'
-                                }
-                            }}
+                            sx={{ '& .MuiInputBase-root': { minHeight: 40 } }}
                             renderOption={(props, option) => (
                                 <Box component='li' {...props} key={option.id}>
                                     <Stack spacing={0.25} sx={{ minWidth: 0 }}>

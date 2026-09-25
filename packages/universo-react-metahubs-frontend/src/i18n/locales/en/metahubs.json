@@ -387,7 +387,14 @@
             "actionLoading": "Copying...",
             "options": {
                 "copyWidgets": "Copy widgets",
-                "deactivateAllWidgets": "Deactivate all widgets"
+                "deactivateAllWidgets": "Deactivate all widgets",
+                "heroBindingMode": "Bound Hero placements",
+                "reuseHeroRecords": "Reuse the same Hero records",
+                "reuseHeroRecordsHelp": "Both layouts will use the same Entity records.",
+                "skipBoundHero": "Skip bound Hero placements",
+                "skipBoundHeroHelp": "Add Hero placements later and select or create their Entity records.",
+                "heroBindingModeHelp": "Choose explicitly whether copied layouts share Hero content.",
+                "heroBindingModeRequired": "Choose whether to reuse or skip bound Hero placements before copying this layout."
             }
         },
         "createDialog": {
@@ -3289,6 +3296,7 @@
         "createError": "Failed to create component",
         "updateError": "Failed to update component",
         "deleteError": "Failed to delete component",
+        "bindingSchemaProtected": "This field is used by a widget binding. Its data type and validation settings are managed by the template.",
         "deleteDisplayComponentBlocked": "Display component cannot be deleted. Set another component as display first.",
         "deleteBlockedBySettings": "Component deletion is disabled in metahub settings.",
         "deleteLastDisplayComponentBlocked": "Cannot delete the last display component while this setting is disabled.",
@@ -3412,6 +3420,7 @@
             "moveDown": "Move down"
         },
         "keyDuplicate": "A record with the same key already exists. Change the key and try again.",
+        "deleteBound": "This record is used by a Hero placement. Open Layouts, select the placement, then choose another content record or remove it before deleting this record.",
         "deleteReferenced": "This record is used by other records. Remove those references first.",
         "refTargetMissing": "The selected related record no longer exists. Refresh the form and choose it again."
     },

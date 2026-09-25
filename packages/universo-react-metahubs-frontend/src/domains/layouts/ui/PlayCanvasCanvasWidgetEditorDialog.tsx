@@ -7,7 +7,6 @@ import {
     FormHelperText,
     InputLabel,
     MenuItem,
-    Select,
     Stack,
     Switch,
     TextField,
@@ -34,6 +33,7 @@ import { getVLCString } from '../../../types'
 import { packagesApi, playcanvasProjectsApi } from '../../packages/api'
 import LayoutWidgetSharedBehaviorFields from './LayoutWidgetSharedBehaviorFields'
 import WidgetScopeVisibilityPanel from './WidgetScopeVisibilityPanel'
+import { DropdownSelect as Select } from '@universo-react/template-mui/dropdowns'
 
 type PlayCanvasCanvasWidgetConfig = z.infer<typeof playcanvasCanvasWidgetConfigSchema>
 

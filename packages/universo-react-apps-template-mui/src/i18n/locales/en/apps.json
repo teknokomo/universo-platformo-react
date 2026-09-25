@@ -301,7 +301,7 @@
         "settingsStructuredReadonly": "This structured setting is managed in application settings.",
         "resetSeededContent": "Reset seeded content",
         "resetSeededContentTitle": "Reset seeded content?",
-        "resetSeededContentConfirm": "This restores records that are still owned by the published template source. Authored records remain unchanged.",
+        "resetSeededContentConfirm": "This restores editable records still owned by the published template source. Read-only Entity content and authored records remain unchanged.",
         "resetSeededContentAction": "Reset content",
         "resettingSeededContent": "Resetting…",
         "settingSources": {

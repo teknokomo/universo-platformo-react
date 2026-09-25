@@ -1,6 +1,6 @@
 import React from 'react'
 import { styled } from '@mui/material/styles'
-import { Box, Grid, Typography, useTheme, Card } from '@mui/material'
+import { Box, ButtonBase, Grid, Typography, useTheme, Card } from '@mui/material'
 import { Link } from 'react-router-dom'
 import type { SxProps, Theme } from '@mui/material'
 import type { PendingAction } from '@universo-react/utils'
@@ -21,6 +21,8 @@ export interface ItemCardProps<T extends ItemCardData = ItemCardData> {
     data: T
     images?: string[]
     onClick?: () => void
+    /** Accessible name for a full-card action button, kept separate from header controls. */
+    actionLabel?: string
     href?: string
     allowStretch?: boolean
     /** Content to display at the start (left) of the footer */
@@ -69,6 +71,7 @@ export const ItemCard = <T extends ItemCardData = ItemCardData>({
     data,
     images,
     onClick,
+    actionLabel,
     href,
     allowStretch = false,
     footerStartContent = null,
@@ -88,6 +91,7 @@ export const ItemCard = <T extends ItemCardData = ItemCardData>({
     const hasFooterEndContent = Boolean(footerEndContent)
     const showFooter = hasImages || hasFooterStartContent || hasFooterEndContent
     const interactionBlocked = pending && isPendingInteractionBlocked(data)
+    const hasActionButton = Boolean(actionLabel && onClick && !href)
     // Deferred feedback: spinner + pulsating glow only after user clicks a pending entity
     const showPendingSpinner = pending && shouldShowPendingFeedback(data) && (pendingAction === 'create' || pendingAction === 'copy')
 
@@ -105,7 +109,7 @@ export const ItemCard = <T extends ItemCardData = ItemCardData>({
     const cardContent = (
         <CardWrapper
             allowStretch={allowStretch}
-            onClick={!href ? handleCardClick : undefined}
+            onClick={!href && !hasActionButton ? handleCardClick : undefined}
             sx={{
                 border: 1,
                 borderColor: theme.palette.grey[300],
@@ -116,6 +120,33 @@ export const ItemCard = <T extends ItemCardData = ItemCardData>({
                 ...(showPendingSpinner ? pendingCardSx : {})
             }}
         >
+            {hasActionButton && (
+                <ButtonBase
+                    type='button'
+                    disableRipple
+                    aria-label={actionLabel}
+                    aria-disabled={pending || undefined}
+                    onClick={handleCardClick}
+                    sx={{
+                        position: 'absolute',
+                        inset: 0,
+                        zIndex: 1,
+                        display: 'block',
+                        width: '100%',
+                        height: '100%',
+                        border: 0,
+                        borderRadius: 'inherit',
+                        p: 0,
+                        color: 'inherit',
+                        backgroundColor: 'transparent',
+                        cursor: interactionBlocked ? 'wait' : pending ? 'default' : 'pointer',
+                        '&:focus-visible': {
+                            outline: `3px solid ${theme.palette.primary.main}`,
+                            outlineOffset: '-3px'
+                        }
+                    }}
+                />
+            )}
             <Box sx={{ height: '100%', p: 2, position: 'relative' }}>
                 {/* Spinner for pending create/copy cards */}
                 {showPendingSpinner && pendingAction && <PendingCardOverlay action={pendingAction} />}

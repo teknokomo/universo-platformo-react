@@ -221,6 +221,8 @@ export const metahubsQueryKeys = {
     layoutDetail: (metahubId: string, layoutId: string) => [...metahubsQueryKeys.layouts(metahubId), 'detail', layoutId] as const,
     layoutZoneWidgets: (metahubId: string, layoutId: string) =>
         [...metahubsQueryKeys.layoutDetail(metahubId, layoutId), 'zoneWidgets'] as const,
+    layoutZoneWidgetBinding: (metahubId: string, layoutId: string, widgetId: string, locale: string) =>
+        [...metahubsQueryKeys.layoutZoneWidgets(metahubId, layoutId), widgetId, 'binding', locale] as const,
     layoutZoneWidgetObjects: (metahubId: string, layoutId: string) =>
         [...metahubsQueryKeys.layoutDetail(metahubId, layoutId), 'zoneWidgetObjects'] as const,
 

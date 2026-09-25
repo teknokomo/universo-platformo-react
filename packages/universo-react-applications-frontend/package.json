@@ -75,7 +75,8 @@
     "peerDependencies": {
         "react": ">=18",
         "react-dom": ">=18",
-        "react-router-dom": "^6.0.0"
+        "react-router-dom": "^6.0.0",
+        "notistack": "^3.0.1"
     },
     "devDependencies": {
         "@types/node": "catalog:",

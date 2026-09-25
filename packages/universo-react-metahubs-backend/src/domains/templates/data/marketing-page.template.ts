@@ -1,62 +1,28 @@
-import { MARKETING_DEFAULT_IMAGE_URL, MARKETING_SEMANTIC_KEY_PATTERN } from '@universo-react/types'
-import type {
-    MetahubTemplateManifest,
-    TemplateSeedComponent,
-    TemplateSeedElement,
-    TemplateSeedEntity,
-    TemplateSeedZoneWidget,
-    VersionedLocalizedContent
+import {
+    MARKETING_HERO_ENTITY_CODENAME,
+    type MetahubTemplateManifest,
+    type TemplateSeedComponent,
+    type TemplateSeedElement,
+    type TemplateSeedEntity,
+    type VersionedLocalizedContent
 } from '@universo-react/types'
 import { enrichConfigWithVlcTimestamps, vlc } from './basic.template'
+import { marketingPageHeroElements, marketingPageHeroEntity } from './marketing-page.hero'
+import { marketingLayoutZoneWidgets } from './marketing-page.layouts'
+import {
+    keyComponent,
+    localizedComponent,
+    mediaComponent,
+    marketingComponent,
+    plainComponent,
+    resourceSource
+} from './marketing-page.seed-helpers'
 
 /**
  * Store media as the canonical ResourceSource payload.  The runtime resolves
  * the source into a safe MarketingMedia record and the generic authoring form
  * can therefore render the resource-source picker instead of a raw URL field.
  */
-const resourceSource = (url: string) => ({ type: 'url' as const, url, launchMode: 'inline' as const })
-
-const marketingComponent = (
-    codename: string,
-    nameEn: string,
-    nameRu: string,
-    options: Partial<Omit<TemplateSeedComponent, 'codename' | 'name'>> = {}
-): TemplateSeedComponent => ({
-    codename,
-    name: vlc(nameEn, nameRu),
-    dataType: 'STRING',
-    ...options
-})
-
-const mediaComponent = (codename: string, nameEn: string, nameRu: string): TemplateSeedComponent =>
-    marketingComponent(codename, nameEn, nameRu, {
-        dataType: 'JSON',
-        uiConfig: { widget: 'resourceSource', gridHidden: true }
-    })
-
-const localizedComponent = (codename: string, nameEn: string, nameRu: string, maxLength = 500): TemplateSeedComponent =>
-    marketingComponent(codename, nameEn, nameRu, {
-        dataType: 'STRING',
-        validationRules: { maxLength, localized: true, versioned: true }
-    })
-
-const plainComponent = (codename: string, nameEn: string, nameRu: string, maxLength = 500): TemplateSeedComponent =>
-    marketingComponent(codename, nameEn, nameRu, {
-        dataType: 'STRING',
-        validationRules: { maxLength }
-    })
-
-/**
- * Semantic record keys are duplicated by copy or by re-typing, so they carry
- * both the canonical lowercase pattern and the uniqueness rule that the
- * records service enforces inside the metahub.
- */
-const keyComponent = (codename: string, nameEn: string, nameRu: string, maxLength = 64): TemplateSeedComponent =>
-    marketingComponent(codename, nameEn, nameRu, {
-        dataType: 'STRING',
-        validationRules: { maxLength, unique: true, pattern: MARKETING_SEMANTIC_KEY_PATTERN.source }
-    })
-
 const sectionComponents: TemplateSeedComponent[] = [
     keyComponent('SectionKey', 'Section key', 'Ключ секции', 64),
     localizedComponent('Title', 'Title', 'Заголовок', 255),
@@ -65,20 +31,8 @@ const sectionComponents: TemplateSeedComponent[] = [
 
 const sectionElements: TemplateSeedElement[] = [
     {
-        codename: 'hero',
-        sortOrder: 1,
-        data: {
-            SectionKey: 'hero',
-            Title: vlc('Our latest products', 'Наши новые продукты'),
-            Description: vlc(
-                'Primary hero content is managed by the marketing hero object.',
-                'Основное содержимое первого экрана управляется объектом первого экрана.'
-            )
-        }
-    },
-    {
         codename: 'logos',
-        sortOrder: 2,
+        sortOrder: 1,
         data: {
             SectionKey: 'logos',
             Title: vlc('Trusted by the best companies', 'Нам доверяют лучшие компании'),
@@ -87,7 +41,7 @@ const sectionElements: TemplateSeedElement[] = [
     },
     {
         codename: 'features',
-        sortOrder: 3,
+        sortOrder: 2,
         data: {
             SectionKey: 'features',
             Title: vlc('Product features', 'Возможности продукта'),
@@ -99,7 +53,7 @@ const sectionElements: TemplateSeedElement[] = [
     },
     {
         codename: 'testimonials',
-        sortOrder: 4,
+        sortOrder: 3,
         data: {
             SectionKey: 'testimonials',
             Title: vlc('Testimonials', 'Отзывы'),
@@ -111,7 +65,7 @@ const sectionElements: TemplateSeedElement[] = [
     },
     {
         codename: 'highlights',
-        sortOrder: 5,
+        sortOrder: 4,
         data: {
             SectionKey: 'highlights',
             Title: vlc('Highlights', 'Преимущества'),
@@ -123,7 +77,7 @@ const sectionElements: TemplateSeedElement[] = [
     },
     {
         codename: 'pricing',
-        sortOrder: 6,
+        sortOrder: 5,
         data: {
             SectionKey: 'pricing',
             Title: vlc('Pricing', 'Тарифы'),
@@ -135,7 +89,7 @@ const sectionElements: TemplateSeedElement[] = [
     },
     {
         codename: 'faq',
-        sortOrder: 7,
+        sortOrder: 6,
         data: {
             SectionKey: 'faq',
             Title: vlc('Frequently asked questions', 'Часто задаваемые вопросы'),
@@ -144,7 +98,7 @@ const sectionElements: TemplateSeedElement[] = [
     },
     {
         codename: 'footer',
-        sortOrder: 8,
+        sortOrder: 7,
         data: {
             SectionKey: 'footer',
             Title: vlc('Footer', 'Подвал'),
@@ -681,16 +635,6 @@ const footerLinkComponents: TemplateSeedComponent[] = [
 const siteSettingsComponents: TemplateSeedComponent[] = [
     localizedComponent('BrandName', 'Brand name', 'Название бренда', 255),
     mediaComponent('BrandLogo', 'Brand logo', 'Логотип бренда'),
-    localizedComponent('HeroTitle', 'Hero title', 'Заголовок первого экрана', 255),
-    localizedComponent('HeroAccent', 'Hero accent', 'Акцент первого экрана', 120),
-    localizedComponent('HeroSubtitle', 'Hero subtitle', 'Подзаголовок первого экрана', 2000),
-    localizedComponent('HeroEmailLabel', 'Hero email label', 'Подпись email первого экрана', 120),
-    localizedComponent('HeroEmailPlaceholder', 'Hero email placeholder', 'Подсказка email первого экрана', 120),
-    localizedComponent('HeroPrimaryActionLabel', 'Hero primary action label', 'Подпись основной кнопки первого экрана', 120),
-    plainComponent('HeroPrimaryActionHref', 'Hero primary action target', 'Цель основной кнопки первого экрана', 500),
-    localizedComponent('HeroTermsText', 'Hero terms text', 'Текст условий первого экрана', 500),
-    localizedComponent('HeroTermsLinkLabel', 'Hero terms link label', 'Подпись ссылки условий первого экрана', 120),
-    plainComponent('HeroTermsHref', 'Hero terms target', 'Цель условий первого экрана', 500),
     localizedComponent('FooterDescription', 'Footer description', 'Описание подвала', 1000),
     localizedComponent('CopyrightText', 'Copyright text', 'Текст авторских прав', 500),
     localizedComponent('CopyrightLabel', 'Copyright brand label', 'Подпись бренда авторских прав', 255),
@@ -713,19 +657,6 @@ const siteSettingsElements: TemplateSeedElement[] = [
         sortOrder: 1,
         data: {
             BrandName: vlc('Material UI', 'Material UI'),
-            HeroTitle: vlc('Our latest', 'Наши новые'),
-            HeroAccent: vlc('products', 'продукты'),
-            HeroSubtitle: vlc(
-                'Explore our cutting-edge dashboard, delivering high-quality solutions tailored to your needs. Elevate your experience with top-tier features and services.',
-                'Изучите современную панель управления с качественными решениями, адаптированными под ваши задачи.'
-            ),
-            HeroEmailLabel: vlc('Email', 'Электронная почта'),
-            HeroEmailPlaceholder: vlc('Your email address', 'Ваш адрес электронной почты'),
-            HeroPrimaryActionLabel: vlc('Start now', 'Начать'),
-            HeroPrimaryActionHref: '/sign-up',
-            HeroTermsText: vlc('By clicking "Start now" you agree to our', 'Нажимая «Начать», вы соглашаетесь с нашими'),
-            HeroTermsLinkLabel: vlc('Terms & Conditions', 'Условиями использования'),
-            HeroTermsHref: '/terms',
             CopyrightText: vlc('Copyright ©', 'Copyright ©'),
             CopyrightLabel: vlc('Sitemark', 'Sitemark'),
             CopyrightHref: 'https://mui.com/',
@@ -797,13 +728,14 @@ const entities: TemplateSeedEntity[] = [
         localizeCodenameFromName: false,
         name: vlc('Marketing site settings', 'Настройки маркетинговой страницы'),
         description: vlc(
-            'Singleton branding, hero, newsletter, and legal settings for the published marketing page.',
-            'Единичная запись с брендингом, первым экраном, рассылкой и правовыми настройками опубликованной маркетинговой страницы.'
+            'Singleton branding, newsletter, and legal settings for the published marketing page.',
+            'Единичная запись с брендингом, рассылкой и правовыми настройками опубликованной маркетинговой страницы.'
         ),
         hubs: ['MarketingPage'],
         config: { recordBehavior: 'reference', marketingRole: 'siteSettings' },
         components: siteSettingsComponents
     },
+    marketingPageHeroEntity,
     {
         codename: 'MarketingPageSection',
         kind: 'object',
@@ -930,205 +862,6 @@ const settings = [
     { key: 'application.templateKey', value: { _value: 'marketing-page' } }
 ]
 
-/**
- * The marketing page is composed exclusively from persisted widget instances.
- * Section rows are bound to the widget that consumes their localized copy;
- * they do not control top-level order or visibility.
- */
-const marketingLayoutZoneWidgets: Record<string, TemplateSeedZoneWidget[]> = {
-    'marketing-main': [
-        {
-            zone: 'marketing-header',
-            widgetKey: 'marketing.brand',
-            sortOrder: 0,
-            config: {
-                instanceKey: 'brand',
-                source: { entityCodename: 'MarketingPageSiteSettings', entityKind: 'object', recordKey: 'site-settings' }
-            },
-            isActive: true
-        },
-        {
-            zone: 'marketing-header',
-            widgetKey: 'marketing.navigation',
-            sortOrder: 1,
-            config: {
-                instanceKey: 'navigation',
-                source: { entityCodename: 'MarketingPageNavigation', entityKind: 'object' },
-                maxItems: 24,
-                showAuthActions: false
-            },
-            isActive: true
-        },
-        {
-            zone: 'marketing-header',
-            widgetKey: 'marketing.auth',
-            sortOrder: 2,
-            config: {
-                instanceKey: 'auth',
-                showAuthActions: true
-            },
-            isActive: true
-        },
-        {
-            zone: 'marketing-header',
-            widgetKey: 'languageSwitcher',
-            sortOrder: 3,
-            config: {
-                __layout: { placement: 'end' }
-            },
-            isActive: true
-        },
-        {
-            zone: 'marketing-header',
-            widgetKey: 'colorModeSwitcher',
-            sortOrder: 4,
-            config: {
-                __layout: { placement: 'end' }
-            },
-            isActive: true
-        },
-        {
-            zone: 'marketing-main',
-            widgetKey: 'marketing.hero',
-            sortOrder: 0,
-            config: {
-                instanceKey: 'hero',
-                source: {
-                    entityCodename: 'MarketingPageSiteSettings',
-                    entityKind: 'object',
-                    recordKey: 'site-settings'
-                },
-                copySource: {
-                    entityCodename: 'MarketingPageSection',
-                    entityKind: 'object',
-                    recordKey: 'hero'
-                },
-                showLeadForm: true
-            },
-            isActive: true
-        },
-        {
-            zone: 'marketing-main',
-            widgetKey: 'marketing.image',
-            sortOrder: 1,
-            config: {
-                instanceKey: 'hero-image',
-                media: {
-                    kind: 'hero',
-                    resource: resourceSource(MARKETING_DEFAULT_IMAGE_URL),
-                    alt: {
-                        en: 'Material UI dashboard preview',
-                        ru: 'Предпросмотр панели управления Material UI'
-                    },
-                    decorative: false
-                }
-            },
-            isActive: true
-        },
-        {
-            zone: 'marketing-main',
-            widgetKey: 'marketing.collection',
-            sortOrder: 2,
-            config: {
-                instanceKey: 'logos',
-                variant: 'logos',
-                source: { entityCodename: 'MarketingPageLogo', entityKind: 'object' },
-                copySource: { entityCodename: 'MarketingPageSection', entityKind: 'object', recordKey: 'logos' },
-                maxItems: 100,
-                showTitle: true,
-                showDescription: true
-            },
-            isActive: true
-        },
-        {
-            zone: 'marketing-main',
-            widgetKey: 'marketing.collection',
-            sortOrder: 3,
-            config: {
-                instanceKey: 'features',
-                variant: 'features',
-                source: { entityCodename: 'MarketingPageFeature', entityKind: 'object' },
-                copySource: { entityCodename: 'MarketingPageSection', entityKind: 'object', recordKey: 'features' },
-                maxItems: 100,
-                showTitle: true,
-                showDescription: true
-            },
-            isActive: true
-        },
-        {
-            zone: 'marketing-main',
-            widgetKey: 'marketing.collection',
-            sortOrder: 4,
-            config: {
-                instanceKey: 'testimonials',
-                variant: 'testimonials',
-                source: { entityCodename: 'MarketingPageTestimonial', entityKind: 'object' },
-                copySource: { entityCodename: 'MarketingPageSection', entityKind: 'object', recordKey: 'testimonials' },
-                maxItems: 100,
-                showTitle: true,
-                showDescription: true
-            },
-            isActive: true
-        },
-        {
-            zone: 'marketing-main',
-            widgetKey: 'marketing.collection',
-            sortOrder: 5,
-            config: {
-                instanceKey: 'highlights',
-                variant: 'highlights',
-                source: { entityCodename: 'MarketingPageHighlight', entityKind: 'object' },
-                copySource: { entityCodename: 'MarketingPageSection', entityKind: 'object', recordKey: 'highlights' },
-                maxItems: 100,
-                showTitle: true,
-                showDescription: true
-            },
-            isActive: true
-        },
-        {
-            zone: 'marketing-main',
-            widgetKey: 'marketing.pricing',
-            sortOrder: 6,
-            config: {
-                instanceKey: 'pricing',
-                source: { entityCodename: 'MarketingPagePricing', entityKind: 'object' },
-                copySource: { entityCodename: 'MarketingPageSection', entityKind: 'object', recordKey: 'pricing' },
-                maxItems: 24,
-                showBenefits: true
-            },
-            isActive: true
-        },
-        {
-            zone: 'marketing-main',
-            widgetKey: 'marketing.collection',
-            sortOrder: 7,
-            config: {
-                instanceKey: 'faq',
-                variant: 'faq',
-                source: { entityCodename: 'MarketingPageFaq', entityKind: 'object' },
-                copySource: { entityCodename: 'MarketingPageSection', entityKind: 'object', recordKey: 'faq' },
-                maxItems: 100,
-                showTitle: true,
-                showDescription: true
-            },
-            isActive: true
-        },
-        {
-            zone: 'marketing-footer',
-            widgetKey: 'marketing.footer',
-            sortOrder: 0,
-            config: {
-                instanceKey: 'footer',
-                source: { entityCodename: 'MarketingPageFooterLink', entityKind: 'object' },
-                copySource: { entityCodename: 'MarketingPageSection', entityKind: 'object', recordKey: 'footer' },
-                maxItems: 100,
-                showNewsletter: true
-            },
-            isActive: true
-        }
-    ]
-}
-
 export const marketingPageTemplate: MetahubTemplateManifest = {
     $schema: 'metahub-template/v1',
     codename: 'marketing-page',
@@ -1172,6 +905,7 @@ export const marketingPageTemplate: MetahubTemplateManifest = {
         elements: {
             MarketingPageSection: sectionElements,
             MarketingPageSiteSettings: siteSettingsElements,
+            [MARKETING_HERO_ENTITY_CODENAME]: marketingPageHeroElements,
             MarketingPageLogo: logoElements,
             MarketingPageFeature: featureElements,
             MarketingPageTestimonial: testimonialElements,

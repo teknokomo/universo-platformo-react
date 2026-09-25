@@ -22,6 +22,14 @@ Backend-пакет для design-time ресурсов metahub, metadata publica
 -   Template presets и default instances остаются на прямых standard kind keys вместо алиасов `custom.*-v2`.
 -   Publication, runtime и schema seams классифицируют standard metadata по сохранённым entity definitions вместо V2-specific compatibility aliases.
 
+## Контракт Marketing Hero на основе Сущностей
+
+-   Размещения `marketing.hero` хранят представление и ссылаются на запись Объекта `MarketingPageHero` через проверяемый семантический слот `content`; тексты и действия остаются данными Сущности.
+-   Добавление и дублирование Hero атомарно создают новую запись с отдельным UUID v7 семантическим ключом. Расширенный authoring позволяет выбрать совместимый существующий Объект/запись или создать совместимый Объект с теми же Компонентами.
+-   Endpoint источников проверяет policy записи, типы, обязательность и validation rules Компонентов; endpoint использования показывает остальные размещения до перепривязки или редактирования общей записи.
+-   Обычное удаление размещения не удаляет запись. Серверная policy блокирует удаление записи, пока она привязана, и сохраняет source binding при изменении только настроек представления в приложении.
+-   Публичный runtime выбирает только опубликованные записи, ограниченные семантическими ключами используемых размещений, и сериализует проверенную проекцию без UUID записи или SQL-метаданных.
+
 ## LMS Template Contract
 
 -   Встроенный `lms` template остаётся entity-first: classes, students, content projects, resources, courses, course sections, course items, learning tracks, track stages, track steps, modules, quizzes, assignments, events, certificates, reports, knowledge spaces, development plans, access links, progress, enrollments, sharing/star/recent/trash projections, supporting enumerations и Object-backed ledgers являются обычными metadata entities.

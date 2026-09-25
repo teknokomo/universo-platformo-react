@@ -100,7 +100,7 @@ const validationRulesSchema = z
         maxLength: z.number().int().min(1).max(10_000).nullable().optional(),
         pattern: z.string().max(500).nullable().optional(),
         options: z.array(z.string().max(200)).max(100).nullable().optional(),
-        format: z.literal('hexColor').nullable().optional(),
+        format: z.enum(['hexColor', 'marketingAction']).nullable().optional(),
         versioned: z.boolean().nullable().optional(),
         localized: z.boolean().nullable().optional(),
         /** Records of this object must keep this component value unique. */
@@ -606,7 +606,8 @@ export const templateManifestSchema = baseTemplateManifestSchema.superRefine((ma
                         decodeWidgetConfigEnvelope(widget.config ?? {}, {
                             templateKey: 'marketing-page',
                             widgetKey: widget.widgetKey,
-                            zone: widget.zone
+                            zone: widget.zone,
+                            requireBindings: true
                         })
                     } catch {
                         ctx.addIssue({
@@ -646,7 +647,24 @@ export const templateManifestSchema = baseTemplateManifestSchema.superRefine((ma
                     'marketing.pricing': marketingPricingWidgetConfigSchema,
                     'marketing.footer': marketingFooterWidgetConfigSchema
                 } as const
-                const parsedConfig = configSchemas[widget.widgetKey as keyof typeof configSchemas].safeParse(widget.config ?? {})
+                let rendererConfig: Record<string, unknown>
+                try {
+                    rendererConfig = decodeWidgetConfigEnvelope(widget.config ?? {}, {
+                        templateKey: 'marketing-page',
+                        widgetKey: widget.widgetKey,
+                        zone: widget.zone,
+                        requireBindings: true
+                    }).rendererConfig
+                } catch {
+                    ctx.addIssue({
+                        code: z.ZodIssueCode.custom,
+                        path: ['seed', 'layoutZoneWidgets', layoutCodename, widgetIndex, 'config'],
+                        message: 'Marketing widget configuration is invalid.'
+                    })
+                    continue
+                }
+
+                const parsedConfig = configSchemas[widget.widgetKey as keyof typeof configSchemas].safeParse(rendererConfig)
                 if (!parsedConfig.success) {
                     ctx.addIssue({
                         code: z.ZodIssueCode.custom,

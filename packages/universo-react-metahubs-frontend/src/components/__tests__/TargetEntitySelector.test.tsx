@@ -65,6 +65,27 @@ const createVlc = (value: string) => ({
     }
 })
 
+const createLocalizedVlc = (enValue: string, ruValue: string) => ({
+    _schema: '1',
+    _primary: 'en',
+    locales: {
+        en: {
+            content: enValue,
+            version: 1,
+            isActive: true,
+            createdAt: '1970-01-01T00:00:00.000Z',
+            updatedAt: '1970-01-01T00:00:00.000Z'
+        },
+        ru: {
+            content: ruValue,
+            version: 1,
+            isActive: true,
+            createdAt: '1970-01-01T00:00:00.000Z',
+            updatedAt: '1970-01-01T00:00:00.000Z'
+        }
+    }
+})
+
 const mockAnchorLayout = () =>
     vi.spyOn(Element.prototype, 'getBoundingClientRect').mockReturnValue({
         x: 16,
@@ -236,5 +257,43 @@ describe('TargetEntitySelector', () => {
         })
 
         expect(screen.getByLabelText('Target Entity')).toBeInTheDocument()
+    })
+
+    it('shows localized entity codenames without object text or internal IDs', async () => {
+        const entityId = '123e4567-e89b-12d3-a456-426614174000'
+        const user = userEvent.setup()
+        vi.mocked(listEntityInstances).mockResolvedValueOnce({
+            items: [
+                {
+                    id: entityId,
+                    kind: 'custom.invoice',
+                    codename: createLocalizedVlc('owner-invoice', 'schet-vladeltsa'),
+                    name: createLocalizedVlc('Owner invoice', 'Счёт владельца')
+                }
+            ],
+            pagination: { limit: 100, offset: 0, total: 1, count: 1, hasMore: false }
+        })
+
+        render(
+            <QueryClientProvider client={createQueryClient()}>
+                <TargetEntitySelector
+                    metahubId='metahub-1'
+                    targetEntityKind='custom.invoice'
+                    targetEntityId={entityId}
+                    onEntityKindChange={() => undefined}
+                    onEntityIdChange={() => undefined}
+                    uiLocale='ru'
+                />
+            </QueryClientProvider>
+        )
+
+        const entityInput = screen.getByRole('combobox', { name: 'Target Entity' })
+        await user.click(entityInput)
+
+        const option = await screen.findByRole('option', { name: /Счёт владельца/u })
+        expect(option).toHaveTextContent('Счёт владельца')
+        expect(option).toHaveTextContent('schet-vladeltsa')
+        expect(option).not.toHaveTextContent(entityId)
+        expect(option).not.toHaveTextContent('[object Object]')
     })
 })

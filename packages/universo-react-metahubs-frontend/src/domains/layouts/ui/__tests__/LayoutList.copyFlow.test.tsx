@@ -3,9 +3,10 @@ import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
-import type { ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 
 const createLayoutMutate = vi.fn()
+const copyLayoutMutate = vi.fn()
 const updateLayoutMutate = vi.fn()
 const updateLayoutMutateAsync = vi.fn()
 const mockUseMetahubDetails = vi.fn()
@@ -34,7 +35,7 @@ vi.mock('../../hooks/mutations', () => ({
     useCreateLayout: () => ({ mutate: createLayoutMutate, mutateAsync: vi.fn(), isPending: false }),
     useUpdateLayout: () => ({ mutate: updateLayoutMutate, mutateAsync: updateLayoutMutateAsync, isPending: false }),
     useDeleteLayout: () => ({ mutateAsync: vi.fn(), isPending: false }),
-    useCopyLayout: () => ({ mutateAsync: vi.fn(), isPending: false })
+    useCopyLayout: () => ({ mutate: copyLayoutMutate, mutateAsync: vi.fn(), isPending: false })
 }))
 
 vi.mock('../../../metahubs/hooks', () => ({
@@ -215,22 +216,44 @@ vi.mock('@universo-react/template-mui/components/dialogs', () => ({
         open,
         title,
         onSave,
-        initialExtraValues
+        initialExtraValues,
+        tabs
     }: {
         open: boolean
         title: string
         onSave?: (data: Record<string, unknown>) => Promise<void>
         initialExtraValues?: Record<string, unknown>
+        tabs?: (args: {
+            values: Record<string, unknown>
+            setValue: (name: string, value: unknown) => void
+            isLoading: boolean
+            errors: Record<string, string>
+        }) => Array<{ id: string; label: string; content: ReactNode }>
     }) => {
+        const [values, setValues] = useState<Record<string, unknown>>({})
+
+        useEffect(() => {
+            if (open) setValues({ ...(initialExtraValues ?? {}) })
+        }, [open, initialExtraValues])
+
         if (!open) return null
 
-        const values = {
-            ...(initialExtraValues ?? {})
-        }
+        const dialogTabs =
+            tabs?.({
+                values,
+                setValue: (name, value) => setValues((current) => ({ ...current, [name]: value })),
+                isLoading: false,
+                errors: {}
+            }) ?? []
 
         return (
             <div>
                 <div>{title}</div>
+                {dialogTabs.map((tab) => (
+                    <section key={tab.id} aria-label={tab.label}>
+                        {tab.content}
+                    </section>
+                ))}
                 {title === 'Create layout' ? (
                     <button onClick={() => void onSave?.(values)} type='button'>
                         submit-layout-create
@@ -239,6 +262,11 @@ vi.mock('@universo-react/template-mui/components/dialogs', () => ({
                 {title === 'Edit layout' ? (
                     <button onClick={() => void onSave?.(values)} type='button'>
                         submit-layout-edit
+                    </button>
+                ) : null}
+                {title === 'Copying layout' ? (
+                    <button onClick={() => void onSave?.(values)} type='button'>
+                        submit-layout-copy
                     </button>
                 ) : null}
             </div>
@@ -394,6 +422,74 @@ describe('LayoutList copy flow entry', () => {
 
         await waitFor(() => {
             expect(screen.getByText('Copying layout')).toBeInTheDocument()
+        })
+    })
+
+    it('requires a visible Hero binding choice before copying a marketing layout', async () => {
+        mockUsePaginated.mockReturnValue({
+            data: [
+                {
+                    id: 'marketing-layout-1',
+                    templateKey: 'marketing-page',
+                    name: {
+                        _schema: 'v1',
+                        _primary: 'en',
+                        locales: { en: { content: 'Marketing page' } }
+                    },
+                    description: null,
+                    config: {},
+                    isActive: true,
+                    isDefault: false,
+                    sortOrder: 0,
+                    version: 1,
+                    createdAt: '2026-02-26T00:00:00.000Z',
+                    updatedAt: '2026-02-26T00:00:00.000Z'
+                }
+            ],
+            isLoading: false,
+            error: null,
+            pagination: { total: 1, limit: 20, offset: 0, count: 1, hasMore: false },
+            actions: { setSearch: vi.fn(), goToPage: vi.fn() }
+        })
+        const queryClient = new QueryClient({
+            defaultOptions: {
+                queries: { retry: false },
+                mutations: { retry: false }
+            }
+        })
+        const user = userEvent.setup()
+
+        render(
+            <QueryClientProvider client={queryClient}>
+                <MemoryRouter initialEntries={['/metahub/metahub-1/layouts']}>
+                    <Routes>
+                        <Route path='/metahub/:metahubId/layouts' element={<LayoutList />} />
+                    </Routes>
+                </MemoryRouter>
+            </QueryClientProvider>
+        )
+
+        await user.click(screen.getByTestId('layout-more-icon').closest('button') as HTMLButtonElement)
+        await user.click(await screen.findByText('Copy'))
+
+        const reuseRadio = screen.getByRole('radio', { name: /reuse the same hero records/i })
+        const omitRadio = screen.getByRole('radio', { name: /skip bound hero placements/i })
+        expect(reuseRadio).not.toBeChecked()
+        expect(omitRadio).not.toBeChecked()
+        expect(screen.getByText('Add Hero placements later and select or create their Entity records.')).toBeInTheDocument()
+
+        await user.click(reuseRadio)
+        expect(reuseRadio).toBeChecked()
+        await user.click(screen.getByRole('button', { name: 'submit-layout-copy' }))
+        await waitFor(() => {
+            expect(copyLayoutMutate).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    data: expect.objectContaining({
+                        copyWidgets: true,
+                        heroBindingCopyMode: 'reuse'
+                    })
+                })
+            )
         })
     })
 

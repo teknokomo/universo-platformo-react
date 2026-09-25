@@ -47,6 +47,7 @@ export function StandardDialog({
 }: StandardDialogProps) {
     const generatedTitleId = `standard-dialog-title-${useId().replace(/:/g, '')}`
     const titleId = dialogTitleProps?.id ?? generatedTitleId
+    const titleLabelId = `${titleId}-label`
     const presentation = useDialogPresentation({
         open,
         onClose: onClose ?? (() => undefined),
@@ -54,15 +55,18 @@ export function StandardDialog({
         isBusy,
         disablePresentationControls
     })
+    const titleLabel = (
+        <Box component='span' id={titleLabelId} sx={{ minWidth: 0 }}>
+            {title}
+        </Box>
+    )
     const titleNode = presentation.titleActions ? (
         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2 }}>
-            <Box component='span' sx={{ minWidth: 0 }}>
-                {title}
-            </Box>
+            {titleLabel}
             {presentation.titleActions}
         </Box>
     ) : (
-        title
+        titleLabel
     )
     const mergedPaperProps = mergeDialogPaperProps(
         { sx: { borderRadius: 1 } },
@@ -73,7 +77,7 @@ export function StandardDialog({
         <Dialog
             open={open}
             onClose={presentation.dialogProps.onClose}
-            aria-labelledby={titleId}
+            aria-labelledby={titleLabelId}
             maxWidth={presentation.dialogProps.maxWidth ?? maxWidth}
             fullWidth={presentation.dialogProps.fullWidth ?? fullWidth}
             slotProps={{ paper: mergedPaperProps }}

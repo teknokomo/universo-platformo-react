@@ -1,5 +1,6 @@
 import React from 'react'
-import { Box, FormControl, InputLabel, Select, MenuItem, Chip, ToggleButton, Tooltip, Skeleton } from '@mui/material'
+import { Box, FormControl, InputLabel, MenuItem, Chip, ToggleButton, Tooltip, Skeleton } from '@mui/material'
+import { DropdownSelect as Select } from '../dropdowns'
 import type { SelectChangeEvent } from '@mui/material'
 import { IconFilter } from '@tabler/icons-react'
 import type { FilterToolbarProps, FilterConfig } from '../../types/filters'

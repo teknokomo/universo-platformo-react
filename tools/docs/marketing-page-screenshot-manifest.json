@@ -1,0 +1,28 @@
+{
+    "version": 1,
+    "routePattern": "/a/{applicationId}?locale={locale}&themeVariant=light",
+    "scope": "public-published-application",
+    "browser": "chromium",
+    "theme": "light",
+    "viewport": {
+        "width": 1440,
+        "height": 900
+    },
+    "fullPage": true,
+    "screenshots": [
+        {
+            "id": "marketing-page-runtime-en-light",
+            "locale": "en",
+            "path": "docs/en/.gitbook/assets/marketing-page/marketing-page-runtime-en-light.png",
+            "requiredVisibleText": "Our latest products",
+            "forbiddenVisibleText": "Наши новые продукты"
+        },
+        {
+            "id": "marketing-page-runtime-ru-light",
+            "locale": "ru",
+            "path": "docs/ru/.gitbook/assets/marketing-page/marketing-page-runtime-ru-light.png",
+            "requiredVisibleText": "Наши новые продукты",
+            "forbiddenVisibleText": "Our latest products"
+        }
+    ]
+}

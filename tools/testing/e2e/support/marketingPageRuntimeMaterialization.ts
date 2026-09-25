@@ -25,9 +25,7 @@ type RuntimeWidget = {
     instanceKey?: unknown
     isActive?: unknown
     config?: unknown
-    data?: {
-        records?: RuntimeRecord[]
-    }
+    data?: Record<string, unknown> & { records?: RuntimeRecord[] }
 }
 
 export type RuntimePayload = {
@@ -245,6 +243,38 @@ export function assertMarketingPageRuntimeMaterialization(payload: RuntimePayloa
         mediaSignature(asRecord(imageSeedWidget.config).media),
         'Materialized marketing image configuration differs from the metahub seed'
     )
+    const heroWidget = widgets.find((widget) => widget.widgetKey === 'marketing.hero')
+    assert.ok(heroWidget, 'Materialized marketing Hero widget is required')
+    assert.equal(heroWidget.data?.records?.length, 1, 'The default Hero placement must project exactly one bound Entity record')
+    const heroSeed = readData(seedElement(manifest, 'MarketingPageHero'))
+    const heroContent = asRecord(heroWidget.data?.records?.[0]?.content)
+    assert.deepEqual(
+        canonicalRecord(heroContent, {
+            title: (value) => readLocalized(value),
+            accent: (value) => readLocalized(value),
+            description: (value) => readLocalized(value),
+            emailLabel: (value) => readLocalized(value),
+            emailPlaceholder: (value) => readLocalized(value),
+            primaryActionLabel: (value) => readLocalized(value),
+            primaryAction: actionSignature,
+            termsText: (value) => readLocalized(value),
+            termsLinkLabel: (value) => readLocalized(value),
+            termsAction: actionSignature
+        }),
+        {
+            title: readLocalized(heroSeed.Title),
+            accent: readLocalized(heroSeed.Accent),
+            description: readLocalized(heroSeed.Description),
+            emailLabel: readLocalized(heroSeed.EmailLabel),
+            emailPlaceholder: readLocalized(heroSeed.EmailPlaceholder),
+            primaryActionLabel: readLocalized(heroSeed.PrimaryActionLabel),
+            primaryAction: actionSignature(heroSeed.PrimaryAction),
+            termsText: readLocalized(heroSeed.TermsText),
+            termsLinkLabel: readLocalized(heroSeed.TermsLinkLabel),
+            termsAction: actionSignature(heroSeed.TermsAction)
+        },
+        'Materialized marketing Hero content differs from the bound Entity seed'
+    )
     const records = flattenMarketingPageRecords(payload)
 
     assert.deepEqual(
@@ -305,20 +335,6 @@ export function assertMarketingPageRuntimeMaterialization(payload: RuntimePayloa
     assert.deepEqual(
         canonicalRecord(settings, {
             brandName: (value) => readLocalized(value),
-            heroTitle: (value) => readLocalized(value),
-            heroAccent: (value) => readLocalized(value),
-            heroSubtitle: (value) => readLocalized(value),
-            heroEmailLabel: localizedLabel,
-            heroEmailPlaceholder: localizedLabel,
-            heroPrimaryAction: (value) => {
-                const action = asRecord(value)
-                return { label: readLocalized(action.label), action: actionSignature(action.action) }
-            },
-            heroSecondaryAction: (value) => {
-                const action = asRecord(value)
-                return { label: readLocalized(action.label), action: actionSignature(action.action) }
-            },
-            heroTermsText: (value) => readLocalized(value),
             copyright: (value) => readLocalized(value),
             copyrightLabel: (value) => readLocalized(value),
             copyrightAction: (value) => {
@@ -341,20 +357,6 @@ export function assertMarketingPageRuntimeMaterialization(payload: RuntimePayloa
         }),
         {
             brandName: readLocalized(siteSettingsSeed.BrandName),
-            heroTitle: readLocalized(siteSettingsSeed.HeroTitle),
-            heroAccent: readLocalized(siteSettingsSeed.HeroAccent),
-            heroSubtitle: readLocalized(siteSettingsSeed.HeroSubtitle),
-            heroEmailLabel: localizedLabel(siteSettingsSeed.HeroEmailLabel),
-            heroEmailPlaceholder: localizedLabel(siteSettingsSeed.HeroEmailPlaceholder),
-            heroPrimaryAction: {
-                label: readLocalized(siteSettingsSeed.HeroPrimaryActionLabel),
-                action: actionSignatureFromHref(siteSettingsSeed.HeroPrimaryActionHref)
-            },
-            heroSecondaryAction: {
-                label: readLocalized(siteSettingsSeed.HeroTermsLinkLabel),
-                action: actionSignatureFromHref(siteSettingsSeed.HeroTermsHref)
-            },
-            heroTermsText: readLocalized(siteSettingsSeed.HeroTermsText),
             copyright: readLocalized(siteSettingsSeed.CopyrightText),
             copyrightLabel: readLocalized(siteSettingsSeed.CopyrightLabel),
             copyrightAction: {
@@ -374,6 +376,10 @@ export function assertMarketingPageRuntimeMaterialization(payload: RuntimePayloa
         },
         'Materialized marketing site settings differ from the metahub seed'
     )
+    for (const field of ['HeroTitle', 'HeroAccent', 'HeroSubtitle']) {
+        assert.ok(!Object.prototype.hasOwnProperty.call(siteSettingsSeed, field), `Site settings seed must not contain ${field}`)
+        assert.ok(!Object.prototype.hasOwnProperty.call(settings, field), `Materialized site settings must not contain ${field}`)
+    }
 
     const navigationExpected = seedElements(manifest, 'MarketingPageNavigation').map((element) => {
         const data = readData(element)

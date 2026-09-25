@@ -1,27 +1,45 @@
-import { describe, expect, it, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { ConnectorDiffDialog } from '../ConnectorDiffDialog'
 import { useApplicationDiff } from '../../hooks/useConnectorSync'
+
+const { activeApplicationLocale } = vi.hoisted(() => ({ activeApplicationLocale: { value: 'en' } }))
 
 vi.mock('../../hooks/useConnectorSync', () => ({
     useApplicationDiff: vi.fn()
 }))
 
-vi.mock('react-i18next', () => ({
-    initReactI18next: { type: '3rdParty', init: vi.fn() },
-    useTranslation: () => ({
-        t: (_key: string, fallback?: string, params?: Record<string, unknown>) => {
-            if (params && fallback) {
+vi.mock('react-i18next', async () => {
+    const [enModule, ruModule] = await Promise.all([
+        import('../../i18n/locales/en/applications.json'),
+        import('../../i18n/locales/ru/applications.json')
+    ])
+    const copyConflictKey = 'connectors.diffDialog.layoutResolution.copySourceUnavailable'
+    const copyConflictMessages = {
+        en: enModule.default.connectors.diffDialog.layoutResolution.copySourceUnavailable,
+        ru: ruModule.default.connectors.diffDialog.layoutResolution.copySourceUnavailable
+    }
+
+    return {
+        initReactI18next: { type: '3rdParty', init: vi.fn() },
+        useTranslation: () => ({
+            t: (key: string, fallback?: string, params?: Record<string, unknown>) => {
+                const localized = key === copyConflictKey ? copyConflictMessages[activeApplicationLocale.value as 'en' | 'ru'] : undefined
+                const message = localized ?? fallback ?? key
+                if (!params) return message
                 return Object.entries(params).reduce(
-                    (message, [paramKey, value]) => message.replace(`{{${paramKey}}}`, String(value)),
-                    fallback
+                    (currentMessage, [paramKey, value]) => currentMessage.replace(`{{${paramKey}}}`, String(value)),
+                    message
                 )
             }
-            return fallback ?? _key
-        }
-    })
-}))
+        })
+    }
+})
+
+afterEach(() => {
+    activeApplicationLocale.value = 'en'
+})
 
 const baseConnector = {
     id: 'connector-1',
@@ -219,6 +237,129 @@ describe('ConnectorDiffDialog', () => {
         expect(onSync).toHaveBeenCalledWith(false, {
             default: 'keep_local'
         })
+    })
+
+    it('explains when an entity-backed Hero conflict cannot be copied and only offers safe resolutions', async () => {
+        const onSync = vi.fn().mockResolvedValue(undefined)
+        vi.mocked(useApplicationDiff).mockReturnValue(
+            createDiffQuery({
+                data: {
+                    schemaExists: true,
+                    diff: {
+                        hasChanges: true,
+                        additive: [],
+                        destructive: [],
+                        details: {
+                            layoutChanges: [
+                                {
+                                    type: 'LAYOUT_CONFLICT',
+                                    scope: 'global',
+                                    sourceLayoutId: 'layout-source-hero',
+                                    applicationLayoutId: 'layout-app-hero',
+                                    title: { en: 'Homepage' },
+                                    message: 'Both layout versions changed.',
+                                    recommendedResolution: 'keep_local',
+                                    copySourceAsApplicationUnavailable: true
+                                }
+                            ]
+                        }
+                    }
+                }
+            })
+        )
+
+        render(
+            <ConnectorDiffDialog
+                open
+                connector={baseConnector}
+                applicationId='app-1'
+                onClose={vi.fn()}
+                onSync={onSync}
+                isSyncing={false}
+                uiLocale='en'
+            />
+        )
+
+        expect(
+            screen.getByText(
+                'This layout contains an Entity-backed Hero placement that cannot be copied into an application layout. Keep the application layout or skip this source update.'
+            )
+        ).toBeInTheDocument()
+
+        await userEvent.click(screen.getAllByRole('combobox')[0]!)
+        expect(screen.queryByRole('option', { name: 'Copy metahub source as a new application layout' })).not.toBeInTheDocument()
+        await userEvent.click(screen.getByRole('option', { name: 'Keep the application layout' }))
+
+        const applyButton = screen.getByRole('button', { name: 'Apply Changes' })
+        expect(applyButton).toBeEnabled()
+        await userEvent.click(applyButton)
+        expect(onSync).toHaveBeenCalledWith(false, { default: 'keep_local' })
+    })
+
+    it.each(['en', 'ru'] as const)('shows the localized copy conflict and refreshes the diff after a %s sync rejection', async (locale) => {
+        activeApplicationLocale.value = locale
+        const refetch = vi.fn().mockResolvedValue(undefined)
+        const onSync = vi.fn().mockRejectedValue({
+            response: {
+                data: {
+                    error: 'APPLICATION_LAYOUT_ENTITY_BACKED_WIDGET_COPY_CONFLICT',
+                    message: 'This layout contains entity-backed data and cannot be copied.'
+                }
+            }
+        })
+        vi.mocked(useApplicationDiff).mockReturnValue(
+            createDiffQuery({
+                refetch,
+                data: {
+                    schemaExists: true,
+                    diff: {
+                        hasChanges: true,
+                        additive: [],
+                        destructive: [],
+                        details: {
+                            layoutChanges: [
+                                {
+                                    type: 'LAYOUT_CONFLICT',
+                                    scope: 'global',
+                                    sourceLayoutId: 'layout-source-hero',
+                                    applicationLayoutId: 'layout-app-hero',
+                                    title: { en: 'Homepage' },
+                                    message: 'Both layout versions changed.',
+                                    recommendedResolution: 'keep_local',
+                                    copySourceAsApplicationUnavailable: true
+                                }
+                            ]
+                        }
+                    }
+                }
+            })
+        )
+
+        render(
+            <ConnectorDiffDialog
+                open
+                connector={baseConnector}
+                applicationId='app-1'
+                onClose={vi.fn()}
+                onSync={onSync}
+                isSyncing={false}
+                uiLocale={locale}
+            />
+        )
+
+        await waitFor(() => expect(refetch).toHaveBeenCalledTimes(1))
+        await userEvent.click(screen.getAllByRole('combobox')[0]!)
+        await userEvent.click(screen.getByRole('option', { name: 'Keep the application layout' }))
+        await userEvent.click(screen.getByRole('button', { name: 'Apply Changes' }))
+
+        expect(onSync).toHaveBeenCalledWith(false, { default: 'keep_local' })
+        const expectedMessage =
+            locale === 'ru'
+                ? 'Этот макет содержит размещение Hero с привязкой к Сущности, которое нельзя скопировать в макет приложения. Сохраните макет приложения или пропустите это обновление источника.'
+                : 'This layout contains an Entity-backed Hero placement that cannot be copied into an application layout. Keep the application layout or skip this source update.'
+        await waitFor(() => expect(screen.getAllByText(expectedMessage, { exact: true }).length).toBeGreaterThanOrEqual(2))
+        expect(screen.queryByText('This layout contains entity-backed data and cannot be copied.')).not.toBeInTheDocument()
+        await waitFor(() => expect(refetch).toHaveBeenCalledTimes(2))
     })
 
     it('uses a human-readable fallback when a layout diff has no title', () => {

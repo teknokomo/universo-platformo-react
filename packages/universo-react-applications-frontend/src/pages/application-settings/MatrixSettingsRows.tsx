@@ -1,16 +1,5 @@
-import {
-    Box,
-    Checkbox,
-    FormControl,
-    FormControlLabel,
-    InputLabel,
-    MenuItem,
-    Select,
-    Stack,
-    Switch,
-    TextField,
-    Typography
-} from '@mui/material'
+import { Box, Checkbox, FormControl, FormControlLabel, InputLabel, MenuItem, Stack, Switch, TextField, Typography } from '@mui/material'
+
 import type { ReactNode, Dispatch, SetStateAction } from 'react'
 import type { TFunction } from 'i18next'
 import {
@@ -27,6 +16,7 @@ import {
 } from '@universo-react/types'
 import { testIdInputProps } from './SettingsPanels'
 import type { InterpretationNetworkMatrixSettings } from './MatrixSettingsPanel'
+import { DropdownSelect as Select } from '@universo-react/template-mui/dropdowns'
 
 type Translate = TFunction<'applications'>
 

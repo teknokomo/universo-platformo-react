@@ -3,6 +3,7 @@ import { spawn } from 'child_process'
 import { cleanupE2eRun } from './support/backend/e2eCleanup.mjs'
 import { fullResetE2eProject } from './support/backend/e2eFullReset.mjs'
 import { artifactsDir, ensureE2eDirectories, loadE2eEnvironment, repoRoot } from './support/env/load-e2e-env.mjs'
+import { acquireE2eRunLock, borrowE2eRunLock, releaseE2eRunLock } from './support/e2eRunLock.mjs'
 
 const env = loadE2eEnvironment()
 ensureE2eDirectories()
@@ -23,8 +24,9 @@ const baseCommandEnv = {
 }
 
 let serverProcess = null
+let serverProcessDetached = false
 let runnerStopping = false
-let lockHandle = null
+let runLockLease = null
 const lockPath = `${artifactsDir}/run.lock`
 const testResultsDir = `${repoRoot}/test-results`
 const playwrightReportDir = `${repoRoot}/playwright-report`
@@ -80,62 +82,24 @@ function pipeChildStream(stream, target) {
     })
 }
 
-const isProcessAlive = (pid) => {
-    if (!Number.isInteger(pid) || pid <= 0) {
-        return false
-    }
-
-    try {
-        process.kill(pid, 0)
-        return true
-    } catch (error) {
-        return !(error && typeof error === 'object' && 'code' in error && error.code === 'ESRCH')
-    }
-}
-
-async function readLockMetadata() {
-    try {
-        const raw = await fs.readFile(lockPath, 'utf8')
-        return JSON.parse(raw)
-    } catch {
-        return null
-    }
-}
-
 async function acquireRunLock() {
-    for (let attempt = 0; attempt < 2; attempt += 1) {
-        try {
-            lockHandle = await fs.open(lockPath, 'wx')
-            await lockHandle.writeFile(
-                JSON.stringify(
-                    {
-                        pid: process.pid,
-                        startedAt: new Date().toISOString(),
-                        baseURL: env.baseURL,
-                        args: playwrightArgs
-                    },
-                    null,
-                    2
-                )
-            )
-            return
-        } catch (error) {
-            if (!(error && typeof error === 'object' && 'code' in error && error.code === 'EEXIST')) {
-                throw error
-            }
-
-            const existingLock = await readLockMetadata()
-            if (existingLock?.pid && !isProcessAlive(existingLock.pid)) {
-                await fs.rm(lockPath, { force: true })
-                continue
-            }
-
-            const holder = existingLock?.pid ? `pid=${existingLock.pid}` : 'unknown holder'
-            throw new Error(
-                `Another e2e runner is already active (${holder}). Wait for it to finish or run 'pnpm run test:e2e:cleanup' after a crash.`
-            )
-        }
+    const delegatedToken = process.env.UNIVERSO_E2E_RUN_LOCK_TOKEN
+    if (delegatedToken) {
+        runLockLease = await borrowE2eRunLock({
+            lockPath,
+            ownerPid: Number(process.env.UNIVERSO_E2E_RUN_LOCK_OWNER_PID),
+            token: delegatedToken
+        })
+        return
     }
+
+    runLockLease = await acquireE2eRunLock({
+        lockPath,
+        metadata: {
+            baseURL: env.baseURL,
+            args: playwrightArgs
+        }
+    })
 }
 
 async function resetPlaywrightArtifacts() {
@@ -144,12 +108,10 @@ async function resetPlaywrightArtifacts() {
 }
 
 async function releaseRunLock() {
-    if (lockHandle) {
-        await lockHandle.close()
-        lockHandle = null
-    }
-
-    await fs.rm(lockPath, { force: true })
+    if (!runLockLease) return
+    const lease = runLockLease
+    runLockLease = null
+    await releaseE2eRunLock(lease)
 }
 
 async function isServerReachable() {
@@ -196,8 +158,15 @@ function terminateServerProcess(signal) {
         return
     }
 
-    if (process.platform !== 'win32' && Number.isInteger(serverProcess.pid) && serverProcess.pid > 0) {
-        process.kill(-serverProcess.pid, signal)
+    if (serverProcessDetached && process.platform !== 'win32' && Number.isInteger(serverProcess.pid) && serverProcess.pid > 0) {
+        try {
+            process.kill(-serverProcess.pid, signal)
+        } catch (error) {
+            if (error && typeof error === 'object' && 'code' in error && error.code === 'ESRCH') {
+                return
+            }
+            throw error
+        }
         return
     }
 
@@ -221,11 +190,15 @@ async function startServerIfNeeded() {
         )
     }
 
+    // Keep the server in an isolated process group even when this runner
+    // borrows its parent's E2E run lock. The lock is shared; server ownership
+    // is still local to this runner and must include pnpm's descendants.
+    serverProcessDetached = process.platform !== 'win32'
     serverProcess = spawn('pnpm', ['start'], {
         cwd: repoRoot,
         env: baseCommandEnv,
         stdio: ['ignore', 'pipe', 'pipe'],
-        detached: process.platform !== 'win32'
+        detached: serverProcessDetached
     })
 
     pipeChildStream(serverProcess.stdout, process.stdout)
@@ -258,22 +231,54 @@ async function stopServerIfOwned() {
 
     runnerStopping = true
 
+    let exited = serverProcess.exitCode !== null || serverProcess.signalCode !== null
     const exitPromise = new Promise((resolve) => {
-        serverProcess.once('exit', () => resolve())
+        if (exited) {
+            resolve()
+            return
+        }
+        serverProcess.once('exit', () => {
+            exited = true
+            resolve()
+        })
     })
+    const waitForExit = (timeoutMs) =>
+        new Promise((resolve) => {
+            if (exited) {
+                resolve(true)
+                return
+            }
+            const timeout = setTimeout(() => resolve(false), timeoutMs)
+            exitPromise.then(() => {
+                clearTimeout(timeout)
+                resolve(true)
+            })
+        })
 
     terminateServerProcess('SIGTERM')
 
-    const forcedKillTimer = setTimeout(() => {
-        if (serverProcess && !serverProcess.killed) {
-            terminateServerProcess('SIGKILL')
-        }
-    }, 15_000)
+    let serverStopped = false
+    try {
+        await waitForServerStopped(15_000)
+        serverStopped = true
+    } catch {
+        terminateServerProcess('SIGKILL')
+        await waitForServerStopped(env.serverStopTimeoutMs)
+        serverStopped = true
+    }
 
-    await exitPromise
-    clearTimeout(forcedKillTimer)
-    await waitForServerStopped(env.serverStopTimeoutMs)
+    if (serverStopped && !exited) {
+        terminateServerProcess('SIGKILL')
+    }
+    if (!(await waitForExit(15_000))) {
+        terminateServerProcess('SIGKILL')
+        if (!(await waitForExit(15_000))) {
+            throw new Error('E2E server process did not exit after SIGKILL')
+        }
+    }
+
     serverProcess = null
+    serverProcessDetached = false
 }
 
 async function runPlaywrightTests(args) {
@@ -297,6 +302,10 @@ async function runPlaywrightTests(args) {
 }
 
 async function finalizeAndExit(code) {
+    if (!runLockLease) {
+        process.exit(1)
+    }
+
     let cleanupFailed = false
     let manifestCleanupError = null
     let fullResetError = null

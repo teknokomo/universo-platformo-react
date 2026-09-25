@@ -2,16 +2,22 @@ import * as React from 'react'
 import DarkModeIcon from '@mui/icons-material/DarkModeRounded'
 import LightModeIcon from '@mui/icons-material/LightModeRounded'
 import Box from '@mui/material/Box'
-import IconButton, { IconButtonOwnProps } from '@mui/material/IconButton'
+import IconButton, { IconButtonProps } from '@mui/material/IconButton'
 import Menu from '@mui/material/Menu'
 import MenuItem from '@mui/material/MenuItem'
 import { useColorScheme } from '@mui/material/styles'
+import { useTranslation } from 'react-i18next'
 
-export default function ColorModeIconDropdown(props: IconButtonOwnProps) {
+type ColorModeIconDropdownProps = Omit<IconButtonProps, 'component'> & { 'aria-label'?: string }
+
+export default function ColorModeIconDropdown(props: ColorModeIconDropdownProps) {
+    const { t } = useTranslation('common')
     const { mode, systemMode, setMode } = useColorScheme()
     const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null)
+    const menuId = React.useId()
     const open = Boolean(anchorEl)
-    const handleClick = (event: React.MouseEvent<HTMLElement>) => {
+    const handleClick = (event: React.MouseEvent<HTMLButtonElement>) => {
+        props.onClick?.(event)
         setAnchorEl(event.currentTarget)
     }
     const handleClose = () => {
@@ -45,20 +51,21 @@ export default function ColorModeIconDropdown(props: IconButtonOwnProps) {
     return (
         <React.Fragment>
             <IconButton
+                {...props}
                 data-screenshot='toggle-mode'
                 onClick={handleClick}
                 disableRipple
                 size='small'
-                aria-controls={open ? 'color-scheme-menu' : undefined}
-                aria-haspopup='true'
-                aria-expanded={open ? 'true' : undefined}
-                {...props}
+                aria-label={props['aria-label'] ?? t('layouts.widgets.colorModeSwitcher', 'Color mode switcher')}
+                aria-controls={open ? menuId : undefined}
+                aria-haspopup='menu'
+                aria-expanded={open}
             >
                 {icon}
             </IconButton>
             <Menu
                 anchorEl={anchorEl}
-                id='account-menu'
+                id={menuId}
                 open={open}
                 onClose={handleClose}
                 onClick={handleClose}
@@ -75,13 +82,13 @@ export default function ColorModeIconDropdown(props: IconButtonOwnProps) {
                 anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
             >
                 <MenuItem selected={mode === 'system'} onClick={handleMode('system')}>
-                    System
+                    {t('colorModes.system', 'System')}
                 </MenuItem>
                 <MenuItem selected={mode === 'light'} onClick={handleMode('light')}>
-                    Light
+                    {t('colorModes.light', 'Light')}
                 </MenuItem>
                 <MenuItem selected={mode === 'dark'} onClick={handleMode('dark')}>
-                    Dark
+                    {t('colorModes.dark', 'Dark')}
                 </MenuItem>
             </Menu>
         </React.Fragment>

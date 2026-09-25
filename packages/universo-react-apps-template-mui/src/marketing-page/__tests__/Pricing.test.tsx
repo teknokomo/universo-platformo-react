@@ -36,13 +36,18 @@ const tiers: MarketingPricingTier[] = [
 ]
 
 const backgroundImageOf = (element: HTMLElement): string => window.getComputedStyle(element).backgroundImage
+const cardForTier = (title: string): HTMLElement => {
+    const card = screen.getByRole('heading', { name: title }).closest('[data-testid="marketing-pricing-card"]')
+    if (!card) throw new Error(`Pricing card for "${title}" was not rendered`)
+    return card
+}
 
 describe('Pricing', () => {
     it('highlights the featured tier in the default card style', () => {
         render(<Pricing section={section} tiers={tiers} />)
 
-        const featuredCard = screen.getByText('Seed').closest('.MuiCard-root') as HTMLElement
-        const regularCard = screen.getByText('Pre-seed').closest('.MuiCard-root') as HTMLElement
+        const featuredCard = cardForTier('Seed')
+        const regularCard = cardForTier('Pre-seed')
 
         expect(backgroundImageOf(featuredCard)).toContain('radial-gradient')
         expect(backgroundImageOf(regularCard)).not.toContain('radial-gradient')
@@ -52,8 +57,7 @@ describe('Pricing', () => {
         render(<Pricing section={section} tiers={tiers} cardStyle='uniform' />)
 
         for (const title of ['Pre-seed', 'Seed', 'Growth']) {
-            const card = screen.getByText(title).closest('.MuiCard-root') as HTMLElement
-            expect(backgroundImageOf(card)).not.toContain('radial-gradient')
+            expect(backgroundImageOf(cardForTier(title))).not.toContain('radial-gradient')
         }
         expect(screen.queryByText('Recommended')).not.toBeInTheDocument()
     })

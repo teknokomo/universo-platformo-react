@@ -3,7 +3,7 @@ import {
     createInterpretationNetworkMatrixCell,
     moveInterpretationNetworkMatrixCells
 } from '../../services/interpretationNetwork/runtimeInterpretationNetworkMatrixCommands'
-import type { RuntimeSurfaceReady } from '../../services/interpretationNetwork/runtimeInterpretationNetworkCore'
+import { insertRow, type RuntimeSurfaceReady } from '../../services/interpretationNetwork/runtimeInterpretationNetworkCore'
 import { InterpretationNetworkCommandError } from '../../services/interpretationNetwork/runtimeInterpretationNetworkCore'
 import { createMockDbExecutor } from '../utils/dbMocks'
 
@@ -102,6 +102,86 @@ const makeContext = (permissions = { createContent: true, editContent: true, del
 }
 
 describe('runtimeInterpretationNetworkMatrixCommands', () => {
+    it('rejects core Entity row inserts for a denied policy before issuing SQL', async () => {
+        const { executor } = makeContext()
+        const deniedContract = {
+            ...interpretationContract,
+            object: {
+                ...interpretationContract.object,
+                config: {
+                    recordPolicy: {
+                        version: 1,
+                        denyDeleteWhenBound: false,
+                        immutableSemanticKeyWhenBound: false,
+                        runtimeMutation: 'deny'
+                    }
+                }
+            }
+        }
+
+        await expect(
+            insertRow(executor, {
+                schemaName,
+                contract: deniedContract as never,
+                values: {},
+                workspaceId: null,
+                userId
+            })
+        ).rejects.toMatchObject({ statusCode: 403, code: 'RUNTIME_ENTITY_MUTATION_DENIED' })
+        expect(executor.query).not.toHaveBeenCalled()
+    })
+
+    it.each([
+        ['create Matrix cell', createInterpretationNetworkMatrixCell],
+        ['move Matrix cells', moveInterpretationNetworkMatrixCells]
+    ])('rejects %s before opening a transaction for a denied Entity', async (label, command) => {
+        const { ctx, executor } = makeContext()
+        const deniedSurface = {
+            ...surface,
+            contracts: {
+                ...surface.contracts,
+                Interpretation: {
+                    ...interpretationContract,
+                    object: {
+                        ...interpretationContract.object,
+                        config: {
+                            recordPolicy: {
+                                version: 1,
+                                denyDeleteWhenBound: false,
+                                immutableSemanticKeyWhenBound: false,
+                                runtimeMutation: 'deny'
+                            }
+                        }
+                    }
+                }
+            }
+        } as unknown as RuntimeSurfaceReady
+        const input =
+            label === 'create Matrix cell'
+                ? {
+                      interpretationId,
+                      data: { CellValue: 'new value' },
+                      placement: { rowKey: 'row-1', colKey: 'column-1' }
+                  }
+                : {
+                      interpretationId,
+                      updates: [
+                          {
+                              matrixRowId,
+                              data: { CellValue: 'changed value' },
+                              placement: { rowKey: 'row-1', colKey: 'column-1' }
+                          }
+                      ]
+                  }
+
+        await expect(command(ctx, deniedSurface, input as never)).rejects.toMatchObject({
+            statusCode: 403,
+            code: 'RUNTIME_ENTITY_MUTATION_DENIED'
+        })
+        expect(executor.transaction).not.toHaveBeenCalled()
+        expect(executor.query).not.toHaveBeenCalled()
+    })
+
     it('generates server-owned cell identity and inserts the Matrix cell atomically', async () => {
         const { ctx, txExecutor } = makeContext()
         txExecutor.query.mockImplementation(async (sql: string) => {

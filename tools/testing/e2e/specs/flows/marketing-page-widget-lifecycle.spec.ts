@@ -6,13 +6,16 @@ import {
     createLoggedInApiContext,
     createMetahub,
     disposeApiContext,
+    listMetahubEntityTypes,
     listLayoutZoneWidgets,
+    listRecords,
     listLayouts
 } from '../../support/backend/api-session.mjs'
 import { recordCreatedMetahub } from '../../support/backend/run-manifest.mjs'
 import { waitForSettledMutationResponse } from '../../support/browser/network'
 import { applyBrowserPreferences } from '../../support/browser/preferences'
 import { expectNoPageHorizontalOverflow, expectNoTechnicalLeakage, expectRuntimeUxViewportMatrix } from '../../support/browser/runtimeUx'
+import { readLocalizedText } from './entity-runtime-helpers'
 
 type ApiSession = Awaited<ReturnType<typeof createLoggedInApiContext>>
 
@@ -224,17 +227,28 @@ test('@flow @combined @marketing-page browser widget lifecycle persists semantic
         await expect(page.getByTestId('metahub-layout-details-content')).toBeVisible()
         await expect(widgetSurface(page, duplicatedFaq)).toBeVisible()
 
-        // The same non-collection widget type is also a normal repeatable
-        // instance. Its generated instance identity must remain distinct after
-        // the browser creates a second hero placement.
+        // A single Duplicate action creates both a new placement and its own
+        // Hero Entity record. It should not send the author through a chooser.
         const heroSurface = widgetSurface(page, heroWidget)
         await expect(heroSurface).toBeVisible()
+        const heroEntities = await listMetahubEntityTypes(api, metahub.id, { limit: 100, offset: 0 })
+        const heroEntity = heroEntities.items?.find((entity: { codename?: unknown }) => readString(entity.codename) === 'MarketingPageHero')
+        if (!heroEntity?.id) throw new Error('The marketing-page fixture did not expose the Hero Entity')
+        const recordsBeforeDuplicate = (await listRecords(api, metahub.id, heroEntity.id, { limit: 100, offset: 0 })) as {
+            items?: Array<{ id?: string; data?: Record<string, unknown> }>
+        }
+        const sourceHeroRecord = recordsBeforeDuplicate.items?.find((record) => readString(readRecord(record.data).HeroKey) === 'default')
+        if (!sourceHeroRecord?.id) throw new Error('The seeded marketing Hero Entity record was not available before duplication')
+        const sourceHeroKey = readString(readRecord(sourceHeroRecord.data).HeroKey)
+
         const duplicateHeroResponsePromise = waitForSettledMutationResponse(
             page,
             (response) => responseIsMutation(response, 'PUT', /\/zone-widget$/),
-            { label: 'Duplicating the marketing hero widget' }
+            { label: 'Duplicating the Hero placement and its bound Entity record', timeout: 90_000 }
         )
         await heroSurface.getByRole('button', { name: /^Duplicate widget:/ }).click()
+        await expect(page.getByRole('dialog', { name: 'Hero content', exact: true })).toHaveCount(0)
+        await expect(page.getByRole('dialog').filter({ has: page.getByTestId('marketing-widget-config-dialog') })).toHaveCount(0)
         const duplicateHeroResponse = await duplicateHeroResponsePromise
         expect(duplicateHeroResponse.ok()).toBe(true)
         const duplicatedHero = await waitForWidgetState(
@@ -253,7 +267,62 @@ test('@flow @combined @marketing-page browser widget lifecycle persists semantic
             'The duplicated marketing hero widget was not persisted with a new instance identity'
         )
         expect(readString(readConfig(duplicatedHero).instanceKey)).not.toBe(readString(readConfig(heroWidget).instanceKey))
-        await expect(widgetSurface(page, duplicatedHero)).toBeVisible()
+        const duplicatedHeroKey = readString(readConfig(duplicatedHero).instanceKey)
+        expect(duplicatedHeroKey).not.toBe('')
+        expect(readString(duplicatedHero.id)).not.toBe(readString(heroWidget.id))
+        await expect
+            .poll(
+                async () => {
+                    const response = (await listRecords(api, metahub.id, heroEntity.id, { limit: 100, offset: 0 })) as {
+                        items?: Array<{ id?: string; data?: Record<string, unknown> }>
+                    }
+                    return response.items?.length ?? 0
+                },
+                { timeout: 60_000, message: 'The Duplicate action should create a separate Hero Entity record' }
+            )
+            .toBe((recordsBeforeDuplicate.items?.length ?? 0) + 1)
+        const recordsAfterDuplicate = (await listRecords(api, metahub.id, heroEntity.id, { limit: 100, offset: 0 })) as {
+            items?: Array<{ id?: string; data?: Record<string, unknown> }>
+        }
+        const newHeroRecords = (recordsAfterDuplicate.items ?? []).filter(
+            (record) => !recordsBeforeDuplicate.items?.some((previous) => previous.id === record.id)
+        )
+        expect(newHeroRecords).toHaveLength(1)
+        const duplicatedHeroRecord = newHeroRecords[0]
+        expect(duplicatedHeroRecord.id).toBeTruthy()
+        const duplicatedHeroKey = readString(readRecord(duplicatedHeroRecord.data).HeroKey)
+        expect(duplicatedHeroKey).not.toBe('')
+        expect(duplicatedHeroKey).not.toBe(sourceHeroKey)
+        expect(duplicatedHeroRecord.id).not.toBe(sourceHeroRecord.id)
+
+        const duplicatedHeroSurface = widgetSurface(page, duplicatedHero)
+        await expect(duplicatedHeroSurface).toBeVisible()
+        await duplicatedHeroSurface.getByRole('button', { name: /Редактировать|Edit/ }).click()
+        const duplicatedHeroRecordForm = page.getByRole('dialog', { name: /Edit Hero content/ })
+        await expect(duplicatedHeroRecordForm).toBeVisible()
+        const copiedEnglishTitle = duplicatedHeroRecordForm
+            .getByTestId('localized-inline-row-en')
+            .getByRole('textbox', { name: 'Title', exact: true })
+        await expect(copiedEnglishTitle).toHaveValue('Our latest')
+        await copiedEnglishTitle.fill('Lifecycle copy edited independently')
+        const copiedRecordSavePromise = waitForSettledMutationResponse(
+            page,
+            (response) => responseIsMutation(response, 'PATCH', /\/api\/v1\/metahub\/[^/]+\/entities\/.*\/record\/[^/]+$/),
+            { label: 'Editing the duplicated Hero Entity record independently', timeout: 90_000 }
+        )
+        await duplicatedHeroRecordForm.getByRole('button', { name: 'Save', exact: true }).click()
+        const copiedRecordSave = await copiedRecordSavePromise
+        expect(copiedRecordSave.ok()).toBe(true)
+        await expect(duplicatedHeroRecordForm).toHaveCount(0)
+        const recordsAfterCopiedEdit = (await listRecords(api, metahub.id, heroEntity.id, { limit: 100, offset: 0 })) as {
+            items?: Array<{ id?: string; data?: Record<string, unknown> }>
+        }
+        const savedCopy = recordsAfterCopiedEdit.items?.find((record) => record.id === duplicatedHeroRecord.id)
+        const savedSource = recordsAfterCopiedEdit.items?.find((record) => record.id === sourceHeroRecord.id)
+        expect(readString(readRecord(savedCopy?.data).HeroKey)).toBe(duplicatedHeroKey)
+        expect(readString(readRecord(savedSource?.data).HeroKey)).toBe(sourceHeroKey)
+        expect(readLocalizedText(readRecord(savedCopy?.data).Title, 'en')).toBe('Lifecycle copy edited independently')
+        expect(readLocalizedText(readRecord(savedSource?.data).Title, 'en')).toBe('Our latest')
 
         // Add a collection via the real widget menu and choose an available entity source.
         const mainZone = page.getByTestId('layout-zone-marketing-main')
@@ -351,10 +420,19 @@ test('@flow @combined @marketing-page browser widget lifecycle persists semantic
         const pricingIndex = beforeReorder.findIndex((widget) => readString(widget.id) === readString(pricingWidget.id))
         expect(pricingIndex).toBeGreaterThan(0)
         const dragHandle = pricingSurface.getByRole('button', { name: /^Reorder widget:/ })
+        const moveResponsePromise = waitForSettledMutationResponse(
+            page,
+            (response) => responseIsMutation(response, 'PATCH', /\/zone-widgets\/move$/),
+            { label: 'Keyboard-reordering the marketing pricing widget' }
+        )
         await dragHandle.focus()
-        await dragHandle.press('Space')
-        await dragHandle.press('ArrowUp')
-        await dragHandle.press('Space')
+        await page.keyboard.press('Space')
+        await expect(dragHandle).toHaveAttribute('aria-pressed', 'true')
+        await page.keyboard.press('ArrowUp')
+        await expect(page.getByRole('status')).toContainText('Collection: Highlights')
+        await page.keyboard.press('Space')
+        const moveResponse = await moveResponsePromise
+        expect(moveResponse.ok(), `Keyboard widget reorder returned HTTP ${moveResponse.status()}`).toBe(true)
         await expect
             .poll(async () => {
                 const response = (await listLayoutZoneWidgets(api, metahub.id, layoutId)) as LayoutZoneWidgetsResponse
@@ -380,7 +458,7 @@ test('@flow @combined @marketing-page browser widget lifecycle persists semantic
     }
 })
 
-test('@flow @combined @marketing-page @i18n RU authoring keeps source selectors and widget labels usable', async ({
+test('@flow @combined @marketing-page @i18n RU authoring localizes content sources and Hero binding/presentation dialogs', async ({
     page,
     runManifest
 }, testInfo: TestInfo) => {
@@ -411,7 +489,6 @@ test('@flow @combined @marketing-page @i18n RU authoring keeps source selectors 
         const widgets = readWidgets(response)
         const expectedLabels: Record<string, { label: string; source: string }> = {
             navigation: { label: 'Навигация', source: 'Навигация маркетинговой страницы' },
-            hero: { label: 'Главный экран', source: 'Настройки маркетинговой страницы' },
             logos: { label: 'Коллекция: Логотипы', source: 'Логотипы клиентов' },
             features: { label: 'Коллекция: Возможности', source: 'Возможности продукта' },
             testimonials: { label: 'Коллекция: Отзывы', source: 'Отзывы' },
@@ -462,6 +539,47 @@ test('@flow @combined @marketing-page @i18n RU authoring keeps source selectors 
             await dialog.getByRole('button', { name: 'Отмена', exact: true }).click()
             await expect(dialog).toHaveCount(0)
         }
+
+        const heroWidget = getWidgetByInstanceKey(widgets, 'hero')
+        if (!heroWidget) throw new Error('The marketing seed did not expose the Hero widget in RU coverage')
+        const heroSurface = widgetSurface(page, heroWidget)
+        await expect(heroSurface.getByRole('button', { name: 'Главный экран', exact: true })).toBeVisible()
+        await heroSurface.getByRole('button', { name: /Редактировать|Edit/ }).click()
+
+        const heroBindingDialog = page.getByRole('dialog', { name: 'Содержимое первого экрана', exact: true })
+        await expect(heroBindingDialog).toBeVisible()
+        await expect(heroBindingDialog).toContainText(
+            'Выберите запись Сущности для этого блока. Содержимое и настройки отображения сохраняются отдельно.'
+        )
+        await expectNoTechnicalLeakage(heroBindingDialog, {
+            label: 'RU Hero content binding dialog',
+            checkUuidSubstrings: true
+        })
+        const heroRecordSelect = heroBindingDialog.getByRole('combobox', { name: 'Запись для первого экрана', exact: true })
+        await expect(heroRecordSelect).toBeEnabled()
+        await expect(heroRecordSelect).toHaveValue('Наши новые')
+        await heroRecordSelect.click()
+        const localizedHeroRecord = page.getByRole('option', { name: 'Наши новые', exact: true })
+        await expect(localizedHeroRecord).toBeVisible()
+        await localizedHeroRecord.click()
+        await heroBindingDialog.getByRole('button', { name: 'Настроить отображение', exact: true }).click()
+        await expect(heroBindingDialog).toHaveCount(0)
+
+        const heroPresentationDialog = page.getByRole('dialog').filter({ has: page.getByTestId('marketing-widget-config-dialog') })
+        await expect(heroPresentationDialog).toBeVisible()
+        await expect(heroPresentationDialog).toContainText(
+            'Редактируйте связанные записи в метахабе: Сущности -> Объекты -> выбранный объект -> Записи.'
+        )
+        await expect(heroPresentationDialog.getByRole('combobox', { name: 'Источник контента', exact: true })).toHaveCount(0)
+        await expect(heroPresentationDialog.getByRole('switch')).toHaveCount(1)
+        await expect(heroPresentationDialog.getByRole('button', { name: 'Отмена', exact: true })).toBeVisible()
+        await expect(heroPresentationDialog.getByRole('button', { name: 'Сохранить', exact: true })).toBeVisible()
+        await expectNoTechnicalLeakage(heroPresentationDialog, {
+            label: 'RU Hero presentation dialog',
+            checkUuidSubstrings: true
+        })
+        await heroPresentationDialog.getByRole('button', { name: 'Отмена', exact: true }).click()
+        await expect(heroPresentationDialog).toHaveCount(0)
 
         await expectNoTechnicalLeakage(details, {
             label: 'RU marketing widget authoring surface',

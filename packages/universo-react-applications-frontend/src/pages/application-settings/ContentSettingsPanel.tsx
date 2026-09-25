@@ -1,4 +1,5 @@
-import { Alert, Box, Divider, FormControl, FormControlLabel, InputLabel, MenuItem, Select, Stack, Switch, Typography } from '@mui/material'
+import { Alert, Box, Divider, FormControl, FormControlLabel, InputLabel, MenuItem, Stack, Switch, Typography } from '@mui/material'
+
 import {
     COURSE_COMPLETION_CONDITIONS,
     COURSE_NAVIGATION_MODES,
@@ -9,6 +10,7 @@ import {
 import type { ApplicationLearningContentSettings, ResourceType } from '@universo-react/types'
 import type { TFunction } from 'i18next'
 import { SaveSettingsButton, testIdInputProps } from './SettingsPanels'
+import { DropdownSelect as Select } from '@universo-react/template-mui/dropdowns'
 
 const LEARNING_CONTENT_COLUMN_FIELDS = [
     'Title',

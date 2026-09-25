@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Alert, FormControl, InputLabel, MenuItem, Select, Stack, TextField, Typography } from '@mui/material'
+import { Alert, FormControl, InputLabel, MenuItem, Stack, TextField, Typography } from '@mui/material'
 import { EntityFormDialog } from '@universo-react/template-mui'
 import {
     RESOURCE_LAUNCH_MODES,
@@ -28,6 +28,7 @@ import {
 import { useTranslation } from 'react-i18next'
 
 import ApplicationLayoutSharedBehaviorFields from './ApplicationLayoutSharedBehaviorFields'
+import { DropdownSelect as Select } from '@universo-react/template-mui/dropdowns'
 
 const normalizeConfig = (value: unknown): Record<string, unknown> =>
     value && typeof value === 'object' && !Array.isArray(value) ? { ...(value as Record<string, unknown>) } : {}

@@ -90,6 +90,7 @@ export interface PublicRuntimeObjectBinding {
     codename: unknown
     kind: string
     tableName: string
+    config?: Record<string, unknown> | null
     attrs: PublicRuntimeObjectComponent[]
 }
 
@@ -184,9 +185,10 @@ export const resolvePublicRuntimeObject = async (
         codename: unknown
         kind: string
         table_name: string
+        config?: Record<string, unknown> | null
     }>(
         `
-        SELECT id, codename, kind, table_name
+        SELECT id, codename, kind, table_name, config
         FROM ${objectsQt}
         WHERE ${runtimeCodenameTextSql('codename')} = $1
           AND ${ACTIVE_ROW_SQL}
@@ -216,6 +218,7 @@ export const resolvePublicRuntimeObject = async (
         codename: object.codename,
         kind: object.kind,
         tableName: object.table_name,
+        config: object.config,
         attrs
     }
 }

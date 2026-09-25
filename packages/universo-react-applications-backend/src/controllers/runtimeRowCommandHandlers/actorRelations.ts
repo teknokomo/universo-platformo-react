@@ -3,6 +3,7 @@ import type { DbExecutor } from '@universo-react/utils'
 import { quoteIdentifier, UpdateFailure, buildRuntimeSoftDeleteSetClause } from '../../shared/runtimeHelpers'
 import type { RuntimeLibraryRelationKey, RuntimeRelationBinding } from '../runtimeRowSupport/contracts'
 import { readRuntimeLibraryConfig, resolveRuntimeRelationBinding } from '../runtimeRowSupport/access'
+import { assertRuntimeEntityMutationAllowed } from '../../shared/entityMutationPolicy'
 
 import type { RuntimeLibraryRelationColumns } from './types'
 
@@ -169,6 +170,7 @@ export const persistRuntimeActorLibraryRelation = async (params: {
     active: boolean
     refreshTimestampOnActive?: boolean
 }): Promise<{ active: boolean; changed: boolean } | null> => {
+    assertRuntimeEntityMutationAllowed(params.objectConfig)
     const libraryConfig = readRuntimeLibraryConfig(params.objectConfig)
     const relation = libraryConfig?.[params.relationKey]
     if (!relation?.actorFieldCodename) return null
@@ -180,6 +182,7 @@ export const persistRuntimeActorLibraryRelation = async (params: {
         relation
     })
     if (!binding?.actorColumnName) return null
+    assertRuntimeEntityMutationAllowed(binding.config)
 
     const targetObjectColumn = quoteIdentifier(binding.targetObjectColumnName)
     const targetRecordColumn = quoteIdentifier(binding.targetRecordColumnName)

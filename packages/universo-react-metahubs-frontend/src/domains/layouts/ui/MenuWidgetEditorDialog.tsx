@@ -13,7 +13,6 @@ import {
     InputLabel,
     MenuItem,
     Paper,
-    Select,
     Stack,
     Switch,
     TextField,
@@ -26,7 +25,7 @@ import EditRoundedIcon from '@mui/icons-material/EditRounded'
 import { DndContext, DragEndEvent, KeyboardSensor, PointerSensor, closestCenter, useSensor, useSensors } from '@dnd-kit/core'
 import { SortableContext, arrayMove, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import Autocomplete from '@mui/material/Autocomplete'
+
 import {
     defaultDashboardSideMenuConfig,
     type MenuWidgetConfig,
@@ -53,6 +52,7 @@ import LayoutWidgetSharedBehaviorFields from './LayoutWidgetSharedBehaviorFields
 import MenuWidgetSideMenuSettings from './MenuWidgetSideMenuSettings'
 import WidgetScopeVisibilityPanel from './WidgetScopeVisibilityPanel'
 import { normalizeSideMenuConfig } from './menuWidgetSideMenuConfig'
+import { DropdownSelect as Select, DropdownAutocomplete as Autocomplete } from '@universo-react/template-mui/dropdowns'
 
 export { applySideMenuPatch, normalizeSideMenuConfig } from './menuWidgetSideMenuConfig'
 

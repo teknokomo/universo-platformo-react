@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useParams } from 'react-router-dom'
-import { Alert, Box, Button, Chip, CircularProgress, FormControl, InputLabel, MenuItem, Select, Stack, Typography } from '@mui/material'
+import { Alert, Box, Button, Chip, CircularProgress, FormControl, InputLabel, MenuItem, Stack, Typography } from '@mui/material'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import {
@@ -15,6 +15,7 @@ import type { PaginationActions, PaginationState } from '@universo-react/templat
 import { useMetahubMigrationsList, useMetahubMigrationsPlan, useApplyMetahubMigrations } from '../hooks'
 import { listBranchOptions } from '../../branches/api/branches'
 import { getVLCString } from '../../../types'
+import { DropdownSelect as Select } from '@universo-react/template-mui/dropdowns'
 
 const METAHUB_MIGRATIONS_BRANCH_SELECT_TEST_ID = 'metahub-migrations-branch-select'
 

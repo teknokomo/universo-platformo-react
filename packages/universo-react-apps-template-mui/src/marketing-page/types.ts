@@ -4,7 +4,6 @@ import type {
     MarketingLocaleCode,
     MarketingPageConfig,
     MarketingPageRuntimeViewModel,
-    MarketingPricingCardWidth as SharedMarketingPricingCardWidth,
     MarketingProvenance,
     MarketingRuntimeIdentity,
     MarketingWidgetInstanceKey,
@@ -284,6 +283,13 @@ export type MarketingEffectiveLayoutConfig = Pick<EffectiveLayoutMetadata, 'temp
 
 export interface MarketingRenderOptions {
     heroBackgroundOwner?: 'widget' | 'page'
+    sectionAnchors?: MarketingSectionAnchorResolver
+}
+
+/** Maps semantic marketing section references to the active rendered section ids. */
+export interface MarketingSectionAnchorResolver {
+    has(anchor: string): boolean
+    resolve(anchor: string): string
 }
 
 export type MarketingFormSource = 'hero' | 'footer'

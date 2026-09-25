@@ -1,10 +1,11 @@
 import type { Request, Response } from 'express'
 import { z } from 'zod'
 import { generateSchemaName, uuidToLockKey, type SchemaChange, type SchemaSnapshot } from '@universo-react/schema-ddl'
-import type { ApplicationLayoutChange, ApplicationLayoutSyncResolution } from '@universo-react/types'
+import type { ApplicationLayoutChange, ApplicationLayoutSyncPolicy, ApplicationLayoutSyncResolution } from '@universo-react/types'
 import { parseWorkspaceModePolicy, resolveWorkspaceModeDecision, WorkspacePolicyError, type DbExecutor } from '@universo-react/utils'
 import { ensureApplicationAccess, type ApplicationRole } from '../routes/guards'
 import { findApplicationCopySource } from '../persistence/applicationsStore'
+import { APPLICATION_LAYOUT_ENTITY_BACKED_WIDGET_COPY_CONFLICT } from '../persistence/applicationLayoutSyncStore'
 import {
     findFirstConnectorByApplicationId,
     findFirstConnectorPublicationLinkByConnectorId,
@@ -42,6 +43,18 @@ const WORKSPACE_INSTALLED_SCHEMA_STATUSES = new Set<string>(['synced', 'outdated
 
 const requiresExplicitLayoutResolution = (change: ApplicationLayoutChange): boolean =>
     change.type === 'LAYOUT_CONFLICT' || change.type === 'LAYOUT_DEFAULT_COLLISION' || change.type === 'LAYOUT_SOURCE_REMOVED'
+
+export const findBlockedEntityBackedCopyResolution = (
+    changes: readonly ApplicationLayoutChange[],
+    policy?: ApplicationLayoutSyncPolicy
+): ApplicationLayoutChange | undefined => {
+    const perLayout = policy?.bySourceLayoutId ?? {}
+    return changes.find((change) => {
+        if (!requiresExplicitLayoutResolution(change) || change.copySourceAsApplicationUnavailable !== true) return false
+        const selectedResolution = (change.sourceLayoutId ? perLayout[change.sourceLayoutId] : undefined) ?? policy?.default
+        return selectedResolution === 'copy_source_as_application'
+    })
+}
 
 const buildLayoutResolutionResponse = (layoutChanges: ApplicationLayoutChange[]) => ({
     error: 'APPLICATION_LAYOUT_RESOLUTION_REQUIRED',
@@ -268,6 +281,18 @@ export function createSyncController(
                     const requiredLayoutChanges = layoutChanges.filter(requiresExplicitLayoutResolution)
                     const defaultResolution = parsed.data.layoutResolutionPolicy?.default
                     const perLayoutResolution = parsed.data.layoutResolutionPolicy?.bySourceLayoutId ?? {}
+
+                    const blockedCopyResolution = findBlockedEntityBackedCopyResolution(layoutChanges, parsed.data.layoutResolutionPolicy)
+                    if (blockedCopyResolution) {
+                        return res.status(409).json({
+                            error: APPLICATION_LAYOUT_ENTITY_BACKED_WIDGET_COPY_CONFLICT,
+                            code: APPLICATION_LAYOUT_ENTITY_BACKED_WIDGET_COPY_CONFLICT,
+                            message: 'This layout contains entity-backed content that cannot be copied into application-owned storage.',
+                            diff: {
+                                layoutChanges
+                            }
+                        })
+                    }
 
                     if (requiredLayoutChanges.length > 0) {
                         if (defaultResolution === 'overwrite_local') {

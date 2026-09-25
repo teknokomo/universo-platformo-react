@@ -29,6 +29,7 @@ import { type ApplicationSyncTransaction, getApplicationSyncDdlServices } from '
 import { hashApplicationLayoutContent } from '../../utils/applicationLayoutHash'
 import {
     applicationLayoutsTableExists,
+    containsEntityBackedWidgetCopyConflict,
     getPersistedDashboardLayoutConfig as readPersistedDashboardLayoutConfig,
     getPersistedPublishedLayouts as readPersistedPublishedLayouts,
     getPersistedPublishedWidgets as readPersistedPublishedWidgets,
@@ -238,6 +239,10 @@ export async function buildApplicationLayoutChanges(options: {
         const sourceHash = hashApplicationLayoutContent({ layout: row, widgets: widgetsBySourceLayoutId.get(row.id) ?? [] })
         const scope = resolveLayoutScope(row.scopeEntityId)
         const existing = existingBySourceId.get(row.id)
+        const entityBackedWidgetCopyUnavailable = containsEntityBackedWidgetCopyConflict(
+            row.templateKey,
+            widgetsBySourceLayoutId.get(row.id) ?? []
+        )
 
         if (row.isDefault) {
             const competingDefault = (defaultsByScope.get(scope) ?? []).find((candidate) => {
@@ -252,7 +257,8 @@ export async function buildApplicationLayoutChanges(options: {
                     applicationLayoutId: competingDefault.id,
                     sourceKind: 'metahub',
                     currentSyncState: isLocallyModifiedLayout(competingDefault) ? 'local_modified' : undefined,
-                    recommendedResolution: 'copy_source_as_application',
+                    recommendedResolution: entityBackedWidgetCopyUnavailable ? 'keep_local' : 'copy_source_as_application',
+                    ...(entityBackedWidgetCopyUnavailable ? { copySourceAsApplicationUnavailable: true } : {}),
                     title: toLocalizedTitle(row.name),
                     message: 'Source default conflicts with an application-selected default in the same scope.'
                 })
@@ -298,7 +304,8 @@ export async function buildApplicationLayoutChanges(options: {
                 applicationLayoutId: existing.id,
                 sourceKind: 'metahub',
                 currentSyncState: 'local_modified',
-                recommendedResolution: 'copy_source_as_application',
+                recommendedResolution: entityBackedWidgetCopyUnavailable ? 'keep_local' : 'copy_source_as_application',
+                ...(entityBackedWidgetCopyUnavailable ? { copySourceAsApplicationUnavailable: true } : {}),
                 title: toLocalizedTitle(row.name),
                 message: 'Both the metahub source and the application copy changed since the last sync.'
             })

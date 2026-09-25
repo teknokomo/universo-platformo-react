@@ -47,6 +47,24 @@ vi.mock('react-i18next', () => ({
 import { ApplicationRuntimeEntry } from '../ApplicationRuntimeEntry'
 
 const APP_ID = '018f8a78-7b8f-7c1d-a111-222233334444'
+const heroData = {
+    records: [
+        {
+            kind: 'heroContent',
+            semanticKey: 'content',
+            order: 0,
+            isVisible: true,
+            content: {
+                title: { en: 'Welcome' },
+                description: { en: 'A typed marketing page.' },
+                emailLabel: { en: 'Email' },
+                emailPlaceholder: { en: 'you@example.test' },
+                primaryActionLabel: { en: 'Join' },
+                primaryAction: { kind: 'internal', path: '/join' }
+            }
+        }
+    ]
+}
 
 const publicPayload = () => ({
     route: {
@@ -67,7 +85,7 @@ const publicPayload = () => ({
                 isActive: true,
                 widgetKey: 'marketing.hero',
                 config: {},
-                data: { records: [] }
+                data: heroData
             }
         ]
     }

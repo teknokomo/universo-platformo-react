@@ -347,3 +347,80 @@ describe('runtimeChildRowsController server-owned field enforcement', () => {
         expect(String(deleteCall?.[0])).toContain('_seed_source_owned = false')
     })
 })
+
+describe('runtimeChildRowsController Entity runtime mutation policy', () => {
+    it.each([
+        {
+            label: 'create child row',
+            invoke: (controller: ReturnType<typeof createRuntimeChildRowsController>, req: Request, res: Response) =>
+                controller.createChildRow(req, res)
+        },
+        {
+            label: 'update child row',
+            invoke: (controller: ReturnType<typeof createRuntimeChildRowsController>, req: Request, res: Response) =>
+                controller.updateChildRow(req, res)
+        },
+        {
+            label: 'batch update child rows',
+            invoke: (controller: ReturnType<typeof createRuntimeChildRowsController>, req: Request, res: Response) =>
+                controller.batchUpdateChildRows(req, res)
+        },
+        {
+            label: 'copy child row',
+            invoke: (controller: ReturnType<typeof createRuntimeChildRowsController>, req: Request, res: Response) =>
+                controller.copyChildRow(req, res)
+        },
+        {
+            label: 'delete child row',
+            invoke: (controller: ReturnType<typeof createRuntimeChildRowsController>, req: Request, res: Response) =>
+                controller.deleteChildRow(req, res)
+        }
+    ])('denies $label before a transaction or write for a protected parent Entity', async ({ label, invoke }) => {
+        const { executor } = createMockDbExecutor()
+        executor.query.mockReset()
+        executor.transaction.mockReset()
+        mockResolveRuntimeSchema.mockResolvedValue({
+            schemaName: 'runtime_schema',
+            schemaIdent: 'runtime_schema',
+            manager: executor,
+            userId: 'user-1',
+            permissions: { createContent: true, editContent: true, deleteContent: true },
+            currentWorkspaceId: null,
+            workspacesEnabled: false
+        })
+        mockResolveTabularContext.mockResolvedValue({
+            ...tabularContext,
+            object: {
+                ...tabularContext.object,
+                config: {
+                    recordPolicy: {
+                        version: 1,
+                        denyDeleteWhenBound: false,
+                        immutableSemanticKeyWhenBound: false,
+                        runtimeMutation: 'deny'
+                    }
+                }
+            }
+        })
+        const controller = createRuntimeChildRowsController(() => executor)
+        const body =
+            label === 'create child row'
+                ? { data: { CellValue: 'new' } }
+                : label === 'update child row'
+                ? { data: { CellValue: 'changed' }, expectedVersion: 1 }
+                : label === 'batch update child rows'
+                ? { updates: [{ childRowId, data: { CellValue: 'changed' }, expectedVersion: 1 }] }
+                : {}
+        const res = createResponse()
+
+        await invoke(controller, createRequest(body), res)
+
+        expect(res.status).toHaveBeenCalledWith(403)
+        expect(res.status.mock.results[0]?.value.json).toHaveBeenCalledWith({
+            error: 'Runtime mutation is disabled for this Entity.',
+            code: 'RUNTIME_ENTITY_MUTATION_DENIED'
+        })
+        expect(executor.transaction).not.toHaveBeenCalled()
+        expect(executor.query).not.toHaveBeenCalled()
+    })
+})

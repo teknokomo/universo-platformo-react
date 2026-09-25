@@ -12,12 +12,12 @@ import {
     ListItemButton,
     ListItemText,
     MenuItem,
-    Select,
     Stack,
     Switch,
     TextField,
     Typography
 } from '@mui/material'
+
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useSnackbar } from 'notistack'
 import { MODULE_LIFECYCLE_EVENTS, type MetahubModuleRecord, type ModuleAttachmentKind } from '@universo-react/types'
@@ -38,6 +38,7 @@ import {
     type MetahubEntityAction,
     type MetahubEventBinding
 } from '../api/entityAutomation'
+import { DropdownSelect as Select } from '@universo-react/template-mui/dropdowns'
 
 type TranslationFn = (key: string, defaultValue?: string) => string
 

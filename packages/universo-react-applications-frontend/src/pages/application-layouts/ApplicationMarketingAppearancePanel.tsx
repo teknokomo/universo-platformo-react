@@ -8,16 +8,17 @@ import {
     InputLabel,
     MenuItem,
     Paper,
-    Select,
     Stack,
     Switch,
     TextField,
     Typography
 } from '@mui/material'
+
 import RestartAltRoundedIcon from '@mui/icons-material/RestartAltRounded'
 import { useEffect, useState } from 'react'
 import type { TFunction } from 'i18next'
 import { marketingPageConfigSchema, type ApplicationLayout } from '@universo-react/types'
+import { DropdownSelect as Select } from '@universo-react/template-mui/dropdowns'
 
 interface ApplicationMarketingAppearancePanelProps {
     t: TFunction<'applications'>

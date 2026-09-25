@@ -38,6 +38,7 @@ import {
     type RuntimeObjectCollectionAttr
 } from '../runtimeRowSupport/contracts'
 import { getNextRuntimeSortValue, resolveRuntimeObjectCollection, resolveRuntimeObjectCollectionConfig } from '../runtimeRowSupport/objects'
+import { denyRuntimeEntityMutation } from '../../shared/entityMutationPolicy'
 import {
     applyRuntimeDateOffsetDerivations,
     validateRuntimeDateOrderRules,
@@ -512,6 +513,7 @@ export const createCopyRowHandler = ({ getDbExecutor, query }: RuntimeRowWriteDe
             error: objectCollectionError
         } = await resolveRuntimeObjectCollection(ctx.manager, ctx.schemaIdent, parsedBody.data.objectCollectionId)
         if (!objectCollection) return res.status(404).json({ error: objectCollectionError })
+        if (denyRuntimeEntityMutation(res, objectCollection.config)) return
 
         const safeAttrs = attrs.filter((a) => IDENTIFIER_REGEX.test(a.column_name))
         const nonTableAttrs = safeAttrs.filter((a) => a.data_type !== 'TABLE')

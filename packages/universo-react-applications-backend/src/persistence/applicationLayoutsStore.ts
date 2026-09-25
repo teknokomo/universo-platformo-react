@@ -34,6 +34,7 @@ import {
     encodeLayoutConfigForStorage,
     getApplicationLayoutDetail,
     getApplicationLayoutRawConfig,
+    getApplicationLayoutWidgetSourceBindingState,
     isRecord,
     layoutCompositionToNeutral,
     layoutSelect,
@@ -733,6 +734,14 @@ export async function copyApplicationLayout(
         }
         const currentEnvelope = readCurrentLayoutEnvelope(current)
         if (!currentEnvelope) return null
+        if (
+            current.widgets.some(
+                (widget) =>
+                    widget.widgetKey === 'marketing.hero' || getApplicationLayoutWidgetSourceBindingState(widget)?.bindings !== undefined
+            )
+        ) {
+            throw new Error('APPLICATION_LAYOUT_ENTITY_BACKED_WIDGET_COPY_CONFLICT')
+        }
         const copiedNeutral = {
             ...currentEnvelope.neutral,
             composition: layoutCompositionToNeutral({ compositionMode: 'independent', baseLayoutId: null })

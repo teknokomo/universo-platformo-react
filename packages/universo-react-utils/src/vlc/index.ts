@@ -1,6 +1,37 @@
 import type { CodenameVLC, VersionedLocalizedContent, LocalizedContentEntry, LocaleCode } from '@universo-react/types'
 import { DEFAULT_LOCALE } from '@universo-react/types'
 
+type LocalizedMapRecord = Record<string, unknown>
+
+const asLocalizedMapRecord = (value: unknown): LocalizedMapRecord | undefined =>
+    value && typeof value === 'object' && !Array.isArray(value) ? (value as LocalizedMapRecord) : undefined
+
+/** Convert simple locale maps and versioned localized values into active string entries. */
+export const toLocalizedStringMap = (value: unknown): Record<string, string> | undefined => {
+    const record = asLocalizedMapRecord(value)
+    if (!record) return undefined
+
+    const hasLocales = Object.prototype.hasOwnProperty.call(record, 'locales')
+    const locales = asLocalizedMapRecord(record.locales)
+    const source = hasLocales ? locales : record
+    if (!source) return undefined
+
+    const result: Record<string, string> = {}
+    for (const [locale, rawEntry] of Object.entries(source)) {
+        if (locale.startsWith('_') || locale === 'locales') continue
+
+        if (hasLocales) {
+            const entry = asLocalizedMapRecord(rawEntry)
+            if (!entry || entry.isActive === false || typeof entry.content !== 'string') continue
+            result[locale] = entry.content
+        } else if (typeof rawEntry === 'string') {
+            result[locale] = rawEntry
+        }
+    }
+
+    return Object.keys(result).length > 0 ? result : undefined
+}
+
 /**
  * Create a new localized content object with initial content
  */

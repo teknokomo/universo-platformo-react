@@ -1,3 +1,4 @@
+import { buildSingleTargetWidgetBinding, encodeWidgetConfigEnvelope, getLayoutWidgetDefinition } from '@universo-react/types'
 import { validateMarketingSnapshotLayouts } from '../../domains/publications/services/marketingSnapshotValidation'
 import type { MetahubSnapshot } from '../../domains/publications/services/SnapshotSerializer'
 
@@ -12,8 +13,24 @@ const ids = {
     overrideTwo: '0190a9b5-3cde-7abc-8def-0123456789a8',
     siteSettings: '0190a9b5-3cde-7abc-8def-0123456789b1',
     logos: '0190a9b5-3cde-7abc-8def-0123456789b2',
-    features: '0190a9b5-3cde-7abc-8def-0123456789b3'
+    features: '0190a9b5-3cde-7abc-8def-0123456789b3',
+    heroEntity: '0190a9b5-3cde-7abc-8def-0123456789b4'
 } as const
+
+const heroDefinition = getLayoutWidgetDefinition('marketing.hero')
+const heroBindingSlot = heroDefinition?.bindingSlots?.[0]
+if (!heroDefinition || !heroBindingSlot) throw new Error('Expected Hero binding slot definition')
+const heroComponents = heroBindingSlot.requirements.components.map((component) => ({
+    codename: component.componentCodename,
+    dataType: component.valueType.toUpperCase(),
+    isRequired: component.required,
+    validationRules: {
+        ...(component.localized ? { localized: true } : {}),
+        ...(component.maxLength !== undefined ? { maxLength: component.maxLength } : {}),
+        ...(component.semanticKey ? { unique: true } : {}),
+        ...(component.format !== undefined ? { format: component.format } : {})
+    }
+}))
 
 const objectEntity = (codename: string) => ({
     kind: 'object',
@@ -22,6 +39,24 @@ const objectEntity = (codename: string) => ({
     fields: [],
     hubs: [],
     config: {}
+})
+
+const localizedHeroText = (en: string, ru: string) => ({
+    locales: {
+        en: { content: en, isActive: true },
+        ru: { content: ru, isActive: true }
+    }
+})
+
+const heroRecordData = () => ({
+    HeroKey: 'default',
+    Title: localizedHeroText('Our latest', 'Наши новые'),
+    Accent: localizedHeroText('products', 'продукты'),
+    Description: localizedHeroText('Explore the product.', 'Изучите продукт.'),
+    EmailLabel: localizedHeroText('Email', 'Электронная почта'),
+    EmailPlaceholder: localizedHeroText('you@example.test', 'name@example.test'),
+    PrimaryActionLabel: localizedHeroText('Start now', 'Начать'),
+    PrimaryAction: { kind: 'internal', path: '/auth', target: 'same-tab' }
 })
 
 const collectionWidget = (id: string, instanceKey: string, sourceCodename: string, variant: 'logos' | 'features', sortOrder: number) => ({
@@ -50,11 +85,19 @@ const makeSnapshot = (widgets: unknown[]): MetahubSnapshot =>
         entities: {
             [ids.siteSettings]: objectEntity('MarketingPageSiteSettings'),
             [ids.logos]: objectEntity('MarketingPageLogo'),
-            [ids.features]: objectEntity('MarketingPageFeature')
+            [ids.features]: objectEntity('MarketingPageFeature'),
+            [ids.heroEntity]: {
+                ...objectEntity('MarketingPageHero'),
+                config: {
+                    capabilities: { dataSchema: { enabled: true }, records: { enabled: true } },
+                    recordPolicy: { version: 1, ...heroBindingSlot.requirements.recordPolicy }
+                },
+                fields: heroComponents
+            }
         },
         fixedValues: {},
         optionValues: {},
-        elements: {},
+        elements: { [ids.heroEntity]: [{ data: heroRecordData() }] },
         systemFields: {},
         layouts: [
             {
@@ -105,11 +148,19 @@ describe('validateMarketingSnapshotLayouts', () => {
             zone: 'marketing-main',
             widgetKey: 'marketing.hero',
             sortOrder: 0,
-            config: {
-                instanceKey,
-                source: { entityCodename: 'MarketingPageSiteSettings', entityKind: 'object' },
-                showLeadForm: false
-            },
+            config: encodeWidgetConfigEnvelope(
+                {
+                    rendererConfig: { instanceKey, showLeadForm: false },
+                    neutral: {
+                        bindings: buildSingleTargetWidgetBinding(heroDefinition, 'content', {
+                            entityKind: 'object',
+                            entityCodename: 'MarketingPageHero',
+                            semanticKey: 'default'
+                        })
+                    }
+                },
+                { templateKey: 'marketing-page', widgetKey: 'marketing.hero', zone: 'marketing-main' }
+            ),
             isActive: true
         })
 

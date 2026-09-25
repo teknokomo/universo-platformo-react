@@ -1,22 +1,17 @@
 import AxeBuilder from '@axe-core/playwright'
 import type { Locator } from '@playwright/test'
 import { expect, test } from '../../fixtures/test'
-import { createLoggedInBrowserContext } from '../../support/browser/auth'
 import {
-    addMetahubMember,
-    createAdminUser,
     createLoggedInApiContext,
     disposeApiContext,
-    getAssignableRoles,
     getApplication,
     getLayout,
+    getLayoutZoneWidgetBinding,
     listLayoutZoneWidgets,
-    listMetahubMembers,
     listRecords,
     sendWithCsrf
 } from '../../support/backend/api-session.mjs'
-import { createBootstrapApiContext, disposeBootstrapApiContext } from '../../support/backend/bootstrap.mjs'
-import { recordCreatedGlobalUser, recordCreatedMetahub } from '../../support/backend/run-manifest.mjs'
+import { recordCreatedMetahub } from '../../support/backend/run-manifest.mjs'
 import { waitForSettledMutationResponse } from '../../support/browser/network'
 import { applyBrowserPreferences } from '../../support/browser/preferences'
 import {
@@ -28,6 +23,7 @@ import {
     expectRuntimeUxViewportMatrix,
     expectSemanticFieldControls,
     expectTableHorizontalScrollConstrained,
+    expectTextOnSingleLine,
     watchBrowserRuntimeIssues
 } from '../../support/browser/runtimeUx'
 import { entityDialogSelectors } from '../../support/selectors/contracts'
@@ -51,6 +47,9 @@ import { publishMarketingHeroApplication } from '../../support/marketingPageAuth
 import { removeHeroPlacementAndDeleteEntityRecord } from '../../support/marketingPageAuthoring/removeHeroPlacementAndDeleteEntityRecord'
 import { verifyMarketingApplicationAuthoring } from '../../support/marketingPageAuthoring/verifyMarketingApplicationAuthoring'
 import { verifyPublishedMarketingHeroJourney } from '../../support/marketingPageAuthoring/verifyPublishedMarketingHeroJourney'
+import { enablePublicApplicationAndVerifySettings } from '../../support/marketingPageAuthoring/enablePublicApplicationAndVerifySettings'
+import { verifyMarketingHeroMemberPermissions } from '../../support/marketingPageAuthoring/verifyMarketingHeroMemberPermissions'
+import { verifyAnonymousMarketingHeroRuntime } from '../../support/marketingPageAuthoring/verifyAnonymousMarketingHeroRuntime'
 
 type EntityResponse = {
     id?: string
@@ -65,6 +64,24 @@ type RecordResponse = {
 }
 
 const unwrapEntity = <T extends EntityResponse>(payload: T): { id?: string } => payload.data ?? payload
+
+const expectHeroDialogButtonTextOnOneLine = async (dialog: Locator, label: string): Promise<void> => {
+    const buttons = dialog.getByRole('button')
+    let measuredButtons = 0
+
+    for (let index = 0; index < (await buttons.count()); index += 1) {
+        const button = buttons.nth(index)
+        if (!(await button.isVisible())) continue
+
+        const text = (await button.innerText()).replace(/\s+/g, ' ').trim()
+        if (!text) continue
+
+        await expectTextOnSingleLine(button, `${label} button “${text}”`)
+        measuredButtons += 1
+    }
+
+    expect(measuredButtons, `${label} must expose visible Hero action button text`).toBeGreaterThan(0)
+}
 
 const expectMultilineEditorGeometry = async (field: Locator, label: string): Promise<void> => {
     const geometry = await field.evaluate((element) => {
@@ -101,6 +118,9 @@ test('@flow @combined @marketing-page browser authoring publishes edited content
     runManifest
 }, testInfo) => {
     test.setTimeout(420_000)
+    await page.route('https://fonts.googleapis.com/**', (route) =>
+        route.fulfill({ status: 200, contentType: 'text/css; charset=utf-8', body: '' })
+    )
     const browserIssues = watchBrowserRuntimeIssues(page)
 
     const executionRunId = buildExecutionRunId(runManifest.runId, testInfo)
@@ -112,11 +132,6 @@ test('@flow @combined @marketing-page browser authoring publishes edited content
     const updatedHeroTitleRu = 'Создайте понятную историю продукта для каждого посетителя нового сайта'
     const updatedHeroAccentRu = 'и помогите каждой команде уверенно сделать следующий шаг'
     const brandLogoUrl = 'https://mui.com/static/screenshots/material-ui/getting-started/templates/dashboard.jpg'
-    let anonymousContext: Awaited<ReturnType<typeof browser.newContext>> | null = null
-    let noEditContentBrowser: Awaited<ReturnType<typeof createLoggedInBrowserContext>> | null = null
-    let noEditContentApi: Awaited<ReturnType<typeof createLoggedInApiContext>> | null = null
-    let bootstrapApi: Awaited<ReturnType<typeof createBootstrapApiContext>> | null = null
-
     const api = await createLoggedInApiContext({
         email: runManifest.testUser.email,
         password: runManifest.testUser.password
@@ -312,6 +327,29 @@ test('@flow @combined @marketing-page browser authoring publishes edited content
                 await expect(recordForm).toBeVisible()
                 await expect(page.getByRole('dialog', { name: 'Hero content', exact: true })).toHaveCount(0)
                 await expect.poll(() => recordForm.evaluate((dialog) => dialog.contains(document.activeElement))).toBe(true)
+                const chooseAnotherRecord = recordForm.getByRole('button', {
+                    name: 'Choose another record and discard unsaved changes',
+                    exact: true
+                })
+                for (const viewport of [
+                    { name: 'desktop', width: 1920, height: 1080 },
+                    { name: 'tablet', width: 768, height: 1024 },
+                    { name: 'mobile', width: 390, height: 844 }
+                ]) {
+                    await page.setViewportSize({ width: viewport.width, height: viewport.height })
+                    await expect(chooseAnotherRecord).toBeVisible()
+                    await expectHeroDialogButtonTextOnOneLine(recordForm, `Direct Hero edit dialog at ${viewport.name}`)
+                    await expectLocatorFullyFitsViewport(recordForm, `Direct Hero edit dialog at ${viewport.name}`)
+                    await expectLocatorFullyFitsViewport(chooseAnotherRecord, `Direct Hero rebind action at ${viewport.name}`)
+                    await expectStandardDialogActionFooter(recordForm, `Direct Hero edit form at ${viewport.name}`)
+                    await expectNoPageHorizontalOverflow(page, `Direct Hero edit form at ${viewport.name}`)
+                    await page.screenshot({
+                        path: testInfo.outputPath(`marketing-hero-direct-edit-${viewport.name}.png`),
+                        fullPage: true,
+                        animations: 'disabled'
+                    })
+                }
+                await page.setViewportSize({ width: 1920, height: 1080 })
 
                 const englishTitle = recordForm.getByTestId('localized-inline-row-en').getByRole('textbox', { name: 'Title', exact: true })
                 const russianTitle = recordForm.getByTestId('localized-inline-row-ru').getByRole('textbox', { name: 'Title', exact: true })
@@ -349,9 +387,7 @@ test('@flow @combined @marketing-page browser authoring publishes edited content
                 const bindingDialog = page.getByRole('dialog', { name: 'Hero content', exact: true })
                 await expect(bindingDialog).toBeVisible()
                 await expect.poll(() => bindingDialog.evaluate((dialog) => dialog.contains(document.activeElement))).toBe(true)
-                await expect(bindingDialog.getByRole('combobox', { name: 'Hero content record', exact: true })).toHaveValue(
-                    updatedHeroTitle
-                )
+                await expect(bindingDialog.getByRole('combobox', { name: 'Content record', exact: true })).toHaveValue(updatedHeroTitle)
                 await tabTo(bindingDialog.getByRole('button', { name: 'Cancel', exact: true }), 'the Hero binding Cancel action')
                 await page.keyboard.press('Enter')
                 await expect(bindingDialog).toHaveCount(0)
@@ -390,20 +426,76 @@ test('@flow @combined @marketing-page browser authoring publishes edited content
                 await applyBrowserPreferences(page, { language: 'ru' })
                 await page.goto(`/metahub/${metahub.id}/resources/layouts/${marketingLayoutId}`)
                 const russianHeroSurface = page.getByTestId(`layout-widget-${sourceHeroWidget.id}`)
-                const russianDuplicateHeroButton = russianHeroSurface.getByRole('button', { name: /^Дублировать виджет:/ })
-                await russianDuplicateHeroButton.click()
+                const russianHeroEditButton = russianHeroSurface.getByRole('button', { name: /Редактировать|Edit/ })
+                await russianHeroEditButton.click()
+                const russianBoundHeroForm = page.getByRole('dialog', { name: /^Изменить содержимое первого экрана/ })
+                await expect(russianBoundHeroForm).toBeVisible()
+                for (const viewport of [
+                    { name: 'desktop', width: 1920, height: 1080 },
+                    { name: 'tablet', width: 768, height: 1024 },
+                    { name: 'mobile', width: 390, height: 844 }
+                ]) {
+                    await page.setViewportSize({ width: viewport.width, height: viewport.height })
+                    await expectHeroDialogButtonTextOnOneLine(russianBoundHeroForm, `Russian Hero edit dialog at ${viewport.name}`)
+                    await expectLocatorFullyFitsViewport(russianBoundHeroForm, `Russian Hero edit dialog at ${viewport.name}`)
+                    await expectStandardDialogActionFooter(russianBoundHeroForm, `Russian Hero edit dialog at ${viewport.name}`)
+                    await expectNoPageHorizontalOverflow(page, `Russian Hero edit dialog at ${viewport.name}`)
+                    await page.screenshot({
+                        path: testInfo.outputPath(`marketing-hero-russian-direct-edit-${viewport.name}.png`),
+                        fullPage: true,
+                        animations: 'disabled'
+                    })
+                }
+                await page.setViewportSize({ width: 1920, height: 1080 })
+                await russianBoundHeroForm
+                    .getByRole('button', { name: 'Выбрать другую запись и отменить несохранённые изменения', exact: true })
+                    .click()
                 const russianHeroBindingDialog = page.getByRole('dialog', { name: 'Содержимое первого экрана', exact: true })
                 await expect(russianHeroBindingDialog).toBeVisible()
+                for (const viewport of [
+                    { name: 'desktop', width: 1920, height: 1080 },
+                    { name: 'tablet', width: 768, height: 1024 },
+                    { name: 'mobile', width: 390, height: 844 }
+                ]) {
+                    await page.setViewportSize({ width: viewport.width, height: viewport.height })
+                    await expectHeroDialogButtonTextOnOneLine(russianHeroBindingDialog, `Russian Hero chooser at ${viewport.name}`)
+                    await expectLocatorFullyFitsViewport(russianHeroBindingDialog, `Russian Hero chooser at ${viewport.name}`)
+                    await expectStandardDialogActionFooter(russianHeroBindingDialog, `Russian Hero chooser at ${viewport.name}`)
+                    await expectNoPageHorizontalOverflow(page, `Russian Hero chooser at ${viewport.name}`)
+                    await page.screenshot({
+                        path: testInfo.outputPath(`marketing-hero-russian-chooser-${viewport.name}.png`),
+                        fullPage: true,
+                        animations: 'disabled'
+                    })
+                }
+                await page.setViewportSize({ width: 1920, height: 1080 })
                 await expectStandardDialogActionFooter(russianHeroBindingDialog, 'Russian Hero content dialog')
                 await expectNoTechnicalLeakage(russianHeroBindingDialog, {
                     label: 'Russian Hero content dialog',
                     checkUuidSubstrings: true
                 })
                 await expect.poll(() => russianHeroBindingDialog.evaluate((dialog) => dialog.contains(document.activeElement))).toBe(true)
-                await russianHeroBindingDialog.getByRole('button', { name: 'Создать запись содержимого', exact: true }).click()
+                await russianHeroBindingDialog.getByRole('button', { name: 'Создать запись', exact: true }).click()
                 const russianHeroRecordForm = page.getByRole('dialog', { name: /^Создать содержимое первого экрана/ })
                 await expect(russianHeroRecordForm).toBeVisible()
                 await expectSemanticFieldControls(russianHeroRecordForm, { longTextLabels: ['Описание'] })
+                for (const viewport of [
+                    { name: 'desktop', width: 1920, height: 1080 },
+                    { name: 'tablet', width: 768, height: 1024 },
+                    { name: 'mobile', width: 390, height: 844 }
+                ]) {
+                    await page.setViewportSize({ width: viewport.width, height: viewport.height })
+                    await expectHeroDialogButtonTextOnOneLine(russianHeroRecordForm, `Russian Hero create form at ${viewport.name}`)
+                    await expectLocatorFullyFitsViewport(russianHeroRecordForm, `Russian Hero create form at ${viewport.name}`)
+                    await expectStandardDialogActionFooter(russianHeroRecordForm, `Russian Hero create form at ${viewport.name}`)
+                    await expectNoPageHorizontalOverflow(page, `Russian Hero create form at ${viewport.name}`)
+                    await page.screenshot({
+                        path: testInfo.outputPath(`marketing-hero-russian-create-form-${viewport.name}.png`),
+                        fullPage: true,
+                        animations: 'disabled'
+                    })
+                }
+                await page.setViewportSize({ width: 1920, height: 1080 })
                 await russianHeroRecordForm.getByRole('textbox', { name: 'Заголовок', exact: true }).fill('Новая запись')
                 await russianHeroRecordForm.getByRole('textbox', { name: 'Описание', exact: true }).fill('Описание записи')
                 await russianHeroRecordForm.getByRole('textbox', { name: 'Подпись email', exact: true }).fill('Электронная почта')
@@ -437,200 +529,165 @@ test('@flow @combined @marketing-page browser authoring publishes edited content
                 await expect(russianHeroBindingDialog).toBeVisible()
                 await russianHeroBindingDialog.getByRole('button', { name: 'Отмена', exact: true }).click()
                 await expect(russianHeroBindingDialog).toHaveCount(0)
-                await expect(russianDuplicateHeroButton).toBeFocused()
+                await expect(russianHeroEditButton).toBeFocused()
             })
 
-            const independentHeroAuthoring = await test.step('Create and bind a second localized Hero record', async () => {
+            const independentHeroAuthoring = await test.step('Duplicate Hero and edit its independent Entity record', async () => {
                 await applyBrowserPreferences(page, { language: 'en' })
                 await page.goto(`/metahub/${metahub.id}/resources/layouts/${marketingLayoutId}`)
-                const sourceHeroSurface = page.getByTestId(`layout-widget-${sourceHeroWidget.id}`)
-                await sourceHeroSurface.getByRole('button', { name: /^Duplicate widget:/ }).click()
-                const heroBindingDialog = page.getByRole('dialog', { name: 'Hero content', exact: true })
-                await expect(heroBindingDialog).toBeVisible()
-                await expectNoTechnicalLeakage(heroBindingDialog, {
-                    label: 'English Hero content dialog',
-                    checkUuidSubstrings: true
-                })
-                for (const viewport of [
-                    { name: 'desktop-1920', width: 1920, height: 1080 },
-                    { name: 'tablet-768', width: 768, height: 1024 },
-                    { name: 'mobile-390', width: 390, height: 844 }
-                ]) {
-                    await page.setViewportSize({ width: viewport.width, height: viewport.height })
-                    await expectLocatorFullyFitsViewport(heroBindingDialog, `Marketing Hero binding dialog at ${viewport.name}`)
-                    await expectStandardDialogActionFooter(heroBindingDialog, `Marketing Hero binding dialog at ${viewport.name}`)
-                    await expectNoPageHorizontalOverflow(page, `Marketing Hero binding dialog at ${viewport.name}`)
-                    await page.screenshot({
-                        path: testInfo.outputPath(`marketing-hero-binding-dialog-${viewport.name}.png`),
-                        fullPage: true,
-                        animations: 'disabled'
-                    })
+                const sourceBinding = (await getLayoutZoneWidgetBinding(api, metahub.id, marketingLayoutId, sourceHeroWidget.id, 'en')) as {
+                    recordId?: string
                 }
-                await page.setViewportSize({ width: 390, height: 844 })
-                await heroBindingDialog.getByRole('button', { name: 'Create content record', exact: true }).click()
-                const heroRecordForm = page.getByRole('dialog', { name: /Create Hero content/ })
-                await expect(heroRecordForm).toBeVisible()
-                const heroRecordFormAccessibility = await new AxeBuilder({ page })
-                    .include('[role="dialog"]')
-                    .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
-                    .analyze()
-                expect(heroRecordFormAccessibility.violations, JSON.stringify(heroRecordFormAccessibility.violations)).toEqual([])
-                await expectSemanticFieldControls(heroRecordForm, { longTextLabels: ['Description'] })
+                if (!sourceBinding.recordId) throw new Error('The seeded Hero placement had no Entity record binding')
+                const recordsBeforeDuplicate = (await listRecords(api, metahub.id, heroEntity.id, { limit: 100, offset: 0 })) as {
+                    items?: Array<{ id?: string; data?: Record<string, unknown> }>
+                }
+                const sourceRecord = recordsBeforeDuplicate.items?.find((record) => record.id === sourceBinding.recordId)
+                if (!sourceRecord?.id) throw new Error('The seeded Hero record was not available before duplication')
+                const sourceHeroKey = String(sourceRecord.data?.HeroKey ?? '')
+                const sourceTitleBeforeEdit = readLocalizedText(sourceRecord.data?.Title, 'en')
+                const widgetsBeforeDuplicate = (await listLayoutZoneWidgets(api, metahub.id, marketingLayoutId)) as LayoutWidgetsResponse
+                const widgetIdsBeforeDuplicate = new Set(widgetsBeforeDuplicate.items?.map((widget) => widget.id))
+                const sourceHeroSurface = page.getByTestId(`layout-widget-${sourceHeroWidget.id}`)
+
+                const duplicateResponsePromise = waitForSettledMutationResponse(
+                    page,
+                    (response) => responseIsMutation(response, 'PUT', /\/zone-widget$/),
+                    { label: 'Creating an independent Hero placement and Entity record', timeout: 90_000 }
+                )
+                await sourceHeroSurface.getByRole('button', { name: /^Duplicate widget:/ }).click()
+                const duplicateResponse = await duplicateResponsePromise
+                expect(duplicateResponse.ok()).toBe(true)
+                await expect(page.getByRole('dialog', { name: 'Hero content', exact: true })).toHaveCount(0)
+                await expect(page.getByRole('dialog').filter({ has: page.getByTestId('marketing-widget-config-dialog') })).toHaveCount(0)
+
+                const addedHeroWidgets = (await listLayoutZoneWidgets(api, metahub.id, marketingLayoutId)) as LayoutWidgetsResponse
+                const addedHeroWidget = addedHeroWidgets.items?.find(
+                    (widget) => widget.widgetKey === 'marketing.hero' && !widgetIdsBeforeDuplicate.has(widget.id)
+                )
+                if (!addedHeroWidget?.id) throw new Error('The duplicated Hero placement was not persisted')
+                await expect
+                    .poll(
+                        async () => {
+                            const binding = (await getLayoutZoneWidgetBinding(
+                                api,
+                                metahub.id,
+                                marketingLayoutId,
+                                addedHeroWidget.id,
+                                'en'
+                            )) as {
+                                recordId?: string
+                            }
+                            return binding.recordId ?? null
+                        },
+                        { timeout: 60_000, message: 'The new Hero placement must receive an Entity binding automatically' }
+                    )
+                    .not.toBeNull()
+                const createdHeroBinding = (await getLayoutZoneWidgetBinding(
+                    api,
+                    metahub.id,
+                    marketingLayoutId,
+                    addedHeroWidget.id,
+                    'en'
+                )) as { recordId?: string }
+                if (!createdHeroBinding.recordId) throw new Error('The duplicated Hero placement was not bound to a record')
+                await expect
+                    .poll(
+                        async () => {
+                            const records = (await listRecords(api, metahub.id, heroEntity.id, { limit: 100, offset: 0 })) as {
+                                items?: Array<{ id?: string; data?: Record<string, unknown> }>
+                            }
+                            return records.items?.length ?? 0
+                        },
+                        { timeout: 60_000, message: 'Duplicating Hero must create a separate Entity record' }
+                    )
+                    .toBe((recordsBeforeDuplicate.items?.length ?? 0) + 1)
+                const recordsAfterDuplicate = (await listRecords(api, metahub.id, heroEntity.id, { limit: 100, offset: 0 })) as {
+                    items?: Array<{ id?: string; data?: Record<string, unknown> }>
+                }
+                const createdHeroRecord = recordsAfterDuplicate.items?.find((record) => record.id === createdHeroBinding.recordId)
+                if (!createdHeroRecord?.id) throw new Error('The duplicate Hero binding did not resolve to its new Entity record')
+                expect(String(createdHeroRecord.data?.HeroKey ?? '')).not.toBe('')
+                expect(createdHeroRecord.data?.HeroKey).not.toBe('default')
+                expect(createdHeroRecord.data?.HeroKey).not.toBe(sourceHeroKey)
+                expect(createdHeroRecord.id).not.toBe(sourceRecord.id)
+                const createdHeroKey = String(createdHeroRecord.data?.HeroKey ?? '')
+
+                const duplicateSurface = page.getByTestId(`layout-widget-${addedHeroWidget.id}`)
+                await expect(duplicateSurface).toBeVisible()
+                await page.mouse.move(0, 0)
+                await expect(page.getByRole('tooltip')).toHaveCount(0)
                 for (const viewport of [
-                    { name: 'wide-desktop', width: 1920, height: 1080 },
-                    { name: 'desktop', width: 1440, height: 1000 },
+                    { name: 'desktop', width: 1920, height: 1080 },
                     { name: 'tablet', width: 768, height: 1024 },
                     { name: 'mobile', width: 390, height: 844 }
                 ]) {
                     await page.setViewportSize({ width: viewport.width, height: viewport.height })
-                    await expectLocatorFitsViewport(heroRecordForm, `Marketing Hero record form at ${viewport.name}`)
-                    await expectNoPageHorizontalOverflow(page, `Marketing Hero record form at ${viewport.name}`)
-                    await page.screenshot({ path: testInfo.outputPath(`marketing-hero-record-form-${viewport.name}.png`), fullPage: true })
+                    await expectNoPageHorizontalOverflow(page, `Automatically duplicated Hero at ${viewport.name}`)
+                    await page.screenshot({
+                        path: testInfo.outputPath(`marketing-hero-auto-duplicate-${viewport.name}.png`),
+                        fullPage: true,
+                        animations: 'disabled'
+                    })
                 }
+                await page.setViewportSize({ width: 1920, height: 1080 })
+                await duplicateSurface.getByRole('button', { name: /Edit|Редактировать/ }).click()
+                const heroRecordForm = page.getByRole('dialog', { name: /Edit Hero content/ })
+                await expect(heroRecordForm).toBeVisible()
+                await expectNoTechnicalLeakage(heroRecordForm, { label: 'Duplicated Hero record editor', checkUuidSubstrings: true })
+                const accessibility = await new AxeBuilder({ page })
+                    .include('[role="dialog"]')
+                    .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
+                    .analyze()
+                expect(accessibility.violations, JSON.stringify(accessibility.violations)).toEqual([])
                 await expectSemanticFieldControls(heroRecordForm, { longTextLabels: ['Description'] })
-                await expectNoTechnicalLeakage(heroRecordForm, {
-                    label: 'Marketing Hero record creation form',
-                    checkUuidSubstrings: true,
-                    forbiddenVisibleTextPatterns: [/^\s*(?:Published(?: at| by)?|Archived(?: at| by)?|Deleted(?: at| by)?)\s*$/imu]
+                await fillLocalizedFieldValues(page, heroRecordForm, 'Title', {
+                    en: independentHeroTitle,
+                    ru: independentHeroTitleRu
                 })
-                const englishTitleRow = heroRecordForm.getByTestId('localized-inline-row-en')
-                const englishTitle = englishTitleRow.getByRole('textbox', { name: 'Title', exact: true })
-                await englishTitle.fill(independentHeroTitle)
-                await englishTitleRow.getByRole('button', { name: 'EN', exact: true }).click()
-                await page.getByRole('menuitem', { name: 'Add language', exact: true }).click()
-                await page.getByRole('menuitem', { name: 'Русский', exact: true }).click()
-                const russianTitle = heroRecordForm
-                    .getByTestId('localized-inline-row-ru')
-                    .getByRole('textbox', { name: 'Title', exact: true })
-                await expect(englishTitle).toHaveValue(independentHeroTitle)
-                await russianTitle.fill(independentHeroTitleRu)
-                await expect(englishTitle).toHaveValue(independentHeroTitle)
-                await expect(russianTitle).toHaveValue(independentHeroTitleRu)
                 await fillLocalizedFieldValues(page, heroRecordForm, 'Accent', {
                     en: independentHeroAccent,
                     ru: independentHeroAccentRu
                 })
-                await fillLocalizedFieldValues(page, heroRecordForm, 'Description', {
-                    en: 'A second independently authored Hero story.',
-                    ru: 'Вторая независимо созданная история главного экрана.'
-                })
-                await fillLocalizedFieldValues(page, heroRecordForm, 'Email label', {
-                    en: 'Work email',
-                    ru: 'Рабочая почта'
-                })
-                await fillLocalizedFieldValues(page, heroRecordForm, 'Email placeholder', {
-                    en: 'name@example.com',
-                    ru: 'name@example.com'
-                })
-                await fillLocalizedFieldValues(page, heroRecordForm, 'Primary action label', {
-                    en: 'Explore the platform',
-                    ru: 'Изучить платформу'
-                })
-                const mobileDescriptionInput = heroRecordForm
+                const titleInput = heroRecordForm
                     .getByTestId('localized-inline-row-en')
-                    .getByRole('textbox', { name: 'Description', exact: true })
-                await mobileDescriptionInput.scrollIntoViewIfNeeded()
-                await expectLocatorFullyFitsViewport(mobileDescriptionInput, 'Marketing Hero long description field at mobile width')
-                await expect(mobileDescriptionInput).toHaveAttribute('rows')
-                await expectMultilineEditorGeometry(mobileDescriptionInput, 'English Hero Description editor at mobile width')
-                const mobileDescriptionInputRu = heroRecordForm
-                    .getByTestId('localized-inline-row-ru')
-                    .getByRole('textbox', { name: 'Description', exact: true })
-                await mobileDescriptionInputRu.scrollIntoViewIfNeeded()
-                await expectLocatorFullyFitsViewport(
-                    mobileDescriptionInputRu,
-                    'Russian Marketing Hero long description field at mobile width'
-                )
-                await expect(mobileDescriptionInputRu).toHaveAttribute('rows')
-                await expectMultilineEditorGeometry(mobileDescriptionInputRu, 'Russian Hero Description editor at mobile width')
-                const primaryActionKind = heroRecordForm.getByRole('combobox', { name: 'Action type', exact: true }).first()
-                await expect(primaryActionKind).toBeVisible()
-                await primaryActionKind.focus()
-                await page.keyboard.press('Enter')
-                await page.getByRole('option', { name: 'Page section', exact: true }).click()
-                const primaryActionTarget = heroRecordForm.getByRole('combobox', { name: 'Page section', exact: true }).first()
-                await expect(primaryActionTarget).toBeVisible()
-                await primaryActionTarget.focus()
-                await page.keyboard.press('Enter')
-                await expect(page.getByRole('option', { name: 'Features', exact: true })).toBeVisible()
-                await page.getByRole('option', { name: 'Features', exact: true }).click()
-                await expect(primaryActionTarget).toHaveText('Features')
-                const mobileSaveButton = heroRecordForm.getByRole('button', { name: 'Save', exact: true })
-                await mobileSaveButton.scrollIntoViewIfNeeded()
-                await expectLocatorFullyFitsViewport(mobileSaveButton, 'Marketing Hero save action at mobile width')
-                await expectStandardDialogActionFooter(heroRecordForm, 'Marketing Hero record form at mobile width')
-                await expectNoPageHorizontalOverflow(page, 'Completed Marketing Hero record form at mobile width')
-                await page.screenshot({
-                    path: testInfo.outputPath('marketing-hero-record-form-mobile-ready-to-save.png'),
-                    fullPage: true,
-                    animations: 'disabled'
-                })
-
-                const heroCreateResponsePromise = waitForSettledMutationResponse(
+                    .getByRole('textbox', { name: 'Title', exact: true })
+                await expect(titleInput).toHaveValue(independentHeroTitle)
+                for (const viewport of [
+                    { name: 'desktop', width: 1920, height: 1080 },
+                    { name: 'tablet', width: 768, height: 1024 },
+                    { name: 'mobile', width: 390, height: 844 }
+                ]) {
+                    await page.setViewportSize({ width: viewport.width, height: viewport.height })
+                    await expectHeroDialogButtonTextOnOneLine(heroRecordForm, `Duplicated Hero editor at ${viewport.name}`)
+                    await expectLocatorFitsViewport(heroRecordForm, `Duplicated Hero editor at ${viewport.name}`)
+                    await expectStandardDialogActionFooter(heroRecordForm, `Duplicated Hero editor at ${viewport.name}`)
+                    await expectNoPageHorizontalOverflow(page, `Duplicated Hero editor at ${viewport.name}`)
+                    await page.screenshot({
+                        path: testInfo.outputPath(`marketing-hero-duplicate-editor-${viewport.name}.png`),
+                        fullPage: true,
+                        animations: 'disabled'
+                    })
+                }
+                await page.setViewportSize({ width: 1920, height: 1080 })
+                const editResponsePromise = waitForSettledMutationResponse(
                     page,
-                    (response) => responseIsMutation(response, 'POST', /\/entities\/object\/instance\/[^/]+\/instance\/[^/]+\/records$/),
-                    { label: 'Creating a second Hero Entity record through the Hero authoring form', timeout: 90_000 }
+                    (response) => responseIsMutation(response, 'PATCH', /\/entities\/.*\/record\/[^/]+$/),
+                    { label: 'Saving independent Hero record edits', timeout: 90_000 }
                 )
                 await heroRecordForm.getByRole('button', { name: 'Save', exact: true }).click()
-                const heroCreateResponse = await heroCreateResponsePromise
-                expect(
-                    heroCreateResponse.ok(),
-                    `Hero Entity creation failed with ${heroCreateResponse.status()}: ${await heroCreateResponse.text()}`
-                ).toBe(true)
-                const createdHeroRecord = await parseJsonResponse<RecordResponse>(
-                    heroCreateResponse,
-                    'Creating the second Hero Entity record'
-                )
-                if (typeof createdHeroRecord.id !== 'string') {
-                    throw new Error('The Hero authoring form did not return the created Entity record id')
-                }
+                const editResponse = await editResponsePromise
+                expect(editResponse.ok()).toBe(true)
                 await expect(heroRecordForm).toHaveCount(0)
-                await page.setViewportSize({ width: 1440, height: 1000 })
 
-                const createdHeroRecords = (await listRecords(api, metahub.id, heroEntity.id, { limit: 100, offset: 0 })) as {
+                const persistedRecords = (await listRecords(api, metahub.id, heroEntity.id, { limit: 100, offset: 0 })) as {
                     items?: Array<{ id?: string; data?: Record<string, unknown> }>
                 }
-                const createdIndependentHero = createdHeroRecords.items?.find((record) => record.id === createdHeroRecord.id)
-                expect(createdIndependentHero?.data?.HeroKey).toEqual(expect.any(String))
-                expect(createdIndependentHero?.data?.HeroKey).not.toBe('default')
-
-                await heroBindingDialog.getByRole('button', { name: 'Edit selected content', exact: true }).click()
-                const persistedHeroRecordForm = page.getByRole('dialog', { name: /Edit Hero content/ })
-                await expect(persistedHeroRecordForm).toBeVisible()
-                await expect(
-                    persistedHeroRecordForm.getByTestId('localized-inline-row-en').getByRole('textbox', { name: 'Title', exact: true })
-                ).toHaveValue(independentHeroTitle)
-                await expect(
-                    persistedHeroRecordForm.getByTestId('localized-inline-row-ru').getByRole('textbox', { name: 'Title', exact: true })
-                ).toHaveValue(independentHeroTitleRu)
-                await persistedHeroRecordForm.getByRole('button', { name: 'Cancel', exact: true }).click()
-                await expect(persistedHeroRecordForm).toHaveCount(0)
-
-                const heroRecordSelect = heroBindingDialog.getByRole('combobox', { name: 'Hero content record', exact: true })
-                await expect(heroRecordSelect).toHaveValue(independentHeroTitle)
-                await heroBindingDialog.getByRole('button', { name: 'Configure presentation and add Hero', exact: true }).click()
-
-                const heroPresentationDialog = page.getByRole('dialog').filter({ has: page.getByTestId('marketing-widget-config-dialog') })
-                await expect(heroPresentationDialog).toBeVisible()
-                await expectNoTechnicalLeakage(heroPresentationDialog, {
-                    label: 'Hero presentation dialog',
-                    checkUuidSubstrings: true
-                })
-                const duplicateHeroResponsePromise = waitForSettledMutationResponse(
-                    page,
-                    (response) => responseIsMutation(response, 'PUT', /\/zone-widget$/),
-                    { label: 'Adding an independent Hero Entity binding before publication', timeout: 90_000 }
-                )
-                await heroPresentationDialog.getByRole('button', { name: 'Save', exact: true }).click()
-                const duplicateHeroResponse = await duplicateHeroResponsePromise
-                expect(duplicateHeroResponse.ok()).toBe(true)
-                await expect(heroPresentationDialog).toHaveCount(0)
-
-                const addedHeroWidgets = (await listLayoutZoneWidgets(api, metahub.id, marketingLayoutId)) as LayoutWidgetsResponse
-                const addedHeroWidget = addedHeroWidgets.items?.find(
-                    (widget) => widget.widgetKey === 'marketing.hero' && widget.id !== sourceHeroWidget.id
-                )
-                if (!addedHeroWidget?.id) throw new Error('The second Hero placement was not persisted')
+                const persistedCopy = persistedRecords.items?.find((record) => record.id === createdHeroRecord.id)
+                const persistedSource = persistedRecords.items?.find((record) => record.id === sourceRecord.id)
+                expect(readLocalizedText(persistedCopy?.data?.Title, 'en')).toBe(independentHeroTitle)
+                expect(readLocalizedText(persistedCopy?.data?.Title, 'ru')).toBe(independentHeroTitleRu)
+                expect(readLocalizedText(persistedSource?.data?.Title, 'en')).toBe(sourceTitleBeforeEdit)
 
                 const sourceLayoutDetails = await getLayout(api, metahub.id, marketingLayoutId)
                 const sourceLayoutName = readLocalizedText(sourceLayoutDetails.name, 'en')
@@ -642,10 +699,13 @@ test('@flow @combined @marketing-page browser authoring publishes edited content
                     addedHeroWidget,
                     sourceHeroWidgetIds,
                     sourceLayoutName,
-                    sourceHeroWidgetId: String(sourceHeroWidget.id)
+                    sourceHeroWidgetId: String(sourceHeroWidget.id),
+                    sourceHeroKey,
+                    createdHeroKey
                 }
             })
-            const { createdHeroRecord, addedHeroWidget, sourceHeroWidgetIds, sourceLayoutName } = independentHeroAuthoring
+            const { createdHeroRecord, addedHeroWidget, sourceHeroWidgetIds, sourceLayoutName, sourceHeroKey, createdHeroKey } =
+                independentHeroAuthoring
 
             await test.step('Inspect layout list and card views across desktop, tablet, and mobile', () =>
                 verifyMarketingLayoutAuthoringViews({
@@ -679,9 +739,95 @@ test('@flow @combined @marketing-page browser authoring publishes edited content
                             .click()
 
                         const dialog = page.getByRole('dialog', { name: 'Hero content', exact: true })
-                        const select = dialog.getByRole('combobox', { name: 'Hero content record', exact: true })
+                        const select = dialog.getByRole('combobox', { name: 'Content record', exact: true })
                         await expect(dialog).toBeVisible()
                         await expectNoTechnicalLeakage(dialog, { label: 'Hero content rebind chooser', checkUuidSubstrings: true })
+                        await dialog.getByRole('button', { name: 'Source settings', exact: true }).click()
+                        const sourceSelect = dialog.getByRole('combobox', { name: 'Content source', exact: true })
+                        await expect(sourceSelect).toBeVisible()
+                        await expect(dialog.getByText(/This Object source is used by \d+ other Hero placements/)).toBeVisible()
+                        for (const viewport of [
+                            { name: 'desktop', width: 1920, height: 1080 },
+                            { name: 'tablet', width: 768, height: 1024 },
+                            { name: 'mobile', width: 390, height: 844 }
+                        ]) {
+                            await page.setViewportSize({ width: viewport.width, height: viewport.height })
+                            await expectHeroDialogButtonTextOnOneLine(dialog, `Hero content chooser at ${viewport.name}`)
+                            await expectTextOnSingleLine(
+                                dialog.getByRole('button', { name: 'Source settings', exact: true }),
+                                `Hero source settings disclosure at ${viewport.name}`
+                            )
+                            await expectLocatorFitsViewport(dialog, `Advanced Hero source settings at ${viewport.name}`)
+                            await expectStandardDialogActionFooter(dialog, `Advanced Hero source settings at ${viewport.name}`)
+                            await expectNoPageHorizontalOverflow(page, `Advanced Hero source settings at ${viewport.name}`)
+                            await page.screenshot({
+                                path: testInfo.outputPath(`marketing-hero-advanced-source-${viewport.name}.png`),
+                                fullPage: true,
+                                animations: 'disabled'
+                            })
+                        }
+                        await page.setViewportSize({ width: 1920, height: 1080 })
+                        await sourceSelect.click()
+                        const listbox = page.getByRole('listbox')
+                        await expect(listbox).toBeVisible()
+                        const menuPaper = page.locator('.MuiAutocomplete-paper:visible').last()
+                        const firstOption = listbox.getByRole('option').first()
+                        await expect(firstOption).toBeVisible()
+                        await expect(firstOption).toContainText(/\S/u)
+                        await expectNoTechnicalLeakage(firstOption, {
+                            label: 'Hero source dropdown option',
+                            checkUuidSubstrings: true
+                        })
+                        const menuStyle = await menuPaper.evaluate((paper) => {
+                            const paperStyle = window.getComputedStyle(paper)
+                            const list = paper.querySelector('.MuiAutocomplete-listbox') as HTMLElement | null
+                            const option = list?.querySelector('.MuiAutocomplete-option') as HTMLElement | null
+                            if (!list || !option) return null
+                            const listStyle = window.getComputedStyle(list)
+                            const optionStyle = window.getComputedStyle(option)
+                            return {
+                                borderRadius: Number.parseFloat(paperStyle.borderRadius),
+                                boxShadow: paperStyle.boxShadow,
+                                listPadding: Number.parseFloat(listStyle.paddingTop),
+                                optionMinHeight: Number.parseFloat(optionStyle.minHeight),
+                                optionBorderRadius: Number.parseFloat(optionStyle.borderRadius)
+                            }
+                        })
+                        if (!menuStyle) throw new Error('Shared dropdown did not render its paper, listbox, and option')
+                        expect(menuStyle.borderRadius).toBeGreaterThan(0)
+                        expect(menuStyle.boxShadow).not.toBe('none')
+                        expect(menuStyle.listPadding).toBeGreaterThan(0)
+                        expect(menuStyle.optionMinHeight).toBeGreaterThan(0)
+                        expect(menuStyle.optionBorderRadius).toBeGreaterThan(0)
+                        await expectNoPageHorizontalOverflow(page, 'Open shared Hero source dropdown at desktop')
+                        await page.screenshot({
+                            path: testInfo.outputPath('marketing-hero-source-dropdown-desktop-open.png'),
+                            fullPage: true,
+                            animations: 'disabled'
+                        })
+                        await sourceSelect.press('Escape')
+                        await expect(listbox).toBeHidden()
+                        await expect(sourceSelect).toBeFocused()
+
+                        await page.setViewportSize({ width: 390, height: 844 })
+                        await sourceSelect.click()
+                        await expect(listbox).toBeVisible()
+                        await expect(firstOption).toBeVisible()
+                        await expect(firstOption).toContainText(/\S/u)
+                        await expectNoTechnicalLeakage(firstOption, {
+                            label: 'Hero source dropdown option at mobile',
+                            checkUuidSubstrings: true
+                        })
+                        await expectLocatorFullyFitsViewport(firstOption, 'Hero source dropdown option at mobile')
+                        await expectNoPageHorizontalOverflow(page, 'Open shared Hero source dropdown at mobile')
+                        await page.screenshot({
+                            path: testInfo.outputPath('marketing-hero-source-dropdown-mobile-open.png'),
+                            fullPage: true,
+                            animations: 'disabled'
+                        })
+                        await sourceSelect.press('Escape')
+                        await expect(listbox).toBeHidden()
+                        await page.setViewportSize({ width: 1920, height: 1080 })
                         return { dialog, select }
                     }
 
@@ -690,13 +836,21 @@ test('@flow @combined @marketing-page browser authoring publishes edited content
                     let reopenedBinding = await openAddedHeroBindingChooser()
                     await expect(reopenedBinding.select).toHaveValue(independentHeroTitle)
                     await reopenedBinding.select.click()
-                    await page.getByRole('option', { name: updatedHeroTitle, exact: true }).click()
+                    await page
+                        .getByRole('option')
+                        .filter({ hasText: `Content key: ${sourceHeroKey}` })
+                        .click()
+                    await expect(
+                        reopenedBinding.dialog.getByText(
+                            /^This record is used by \d+ other Hero placements\. Changes will appear there too\.$/
+                        )
+                    ).toBeVisible()
                     const firstRebindResponsePromise = waitForSettledMutationResponse(
                         page,
                         (response) => responseIsMutation(response, 'PATCH', /\/zone-widget\/[^/]+\/binding$/),
                         { label: 'Rebinding the second Hero placement to the first Entity record', timeout: 90_000 }
                     )
-                    await reopenedBinding.dialog.getByRole('button', { name: 'Save content selection', exact: true }).click()
+                    await reopenedBinding.dialog.getByRole('button', { name: 'Save', exact: true }).click()
                     const firstRebindResponse = await firstRebindResponsePromise
                     expect(firstRebindResponse.ok()).toBe(true)
                     await expect(reopenedBinding.select).toHaveValue(updatedHeroTitle)
@@ -704,20 +858,23 @@ test('@flow @combined @marketing-page browser authoring publishes edited content
                     reopenedBinding = await openAddedHeroBindingChooser()
                     await expect(reopenedBinding.select).toHaveValue(updatedHeroTitle)
                     await reopenedBinding.select.click()
-                    await page.getByRole('option', { name: independentHeroTitle, exact: true }).click()
+                    await page
+                        .getByRole('option')
+                        .filter({ hasText: `Content key: ${createdHeroKey}` })
+                        .click()
                     const restoreRebindResponsePromise = waitForSettledMutationResponse(
                         page,
                         (response) => responseIsMutation(response, 'PATCH', /\/zone-widget\/[^/]+\/binding$/),
                         { label: 'Restoring the second Hero placement to its independent Entity record', timeout: 90_000 }
                     )
-                    await reopenedBinding.dialog.getByRole('button', { name: 'Save content selection', exact: true }).click()
+                    await reopenedBinding.dialog.getByRole('button', { name: 'Save', exact: true }).click()
                     const restoreRebindResponse = await restoreRebindResponsePromise
                     expect(restoreRebindResponse.ok()).toBe(true)
                     await expect(reopenedBinding.select).toHaveValue(independentHeroTitle)
 
                     reopenedBinding = await openAddedHeroBindingChooser()
                     await expect(reopenedBinding.select).toHaveValue(independentHeroTitle)
-                    await reopenedBinding.dialog.getByRole('button', { name: 'Edit selected content', exact: true }).click()
+                    await reopenedBinding.dialog.getByRole('button', { name: 'Edit record', exact: true }).click()
                     const editHeroRecordForm = page.getByRole('dialog', { name: /Edit Hero content/ })
                     await expect(editHeroRecordForm).toBeVisible()
                     await expectNoTechnicalLeakage(editHeroRecordForm, { label: 'Edit Hero content form', checkUuidSubstrings: true })
@@ -865,55 +1022,23 @@ test('@flow @combined @marketing-page browser authoring publishes edited content
                 .toBe('synced')
         })
 
-        await test.step('Verify a metahub member without editContent cannot open Hero create or edit controls', async () => {
-            bootstrapApi = await createBootstrapApiContext()
-            const assignableRoles = await getAssignableRoles(bootstrapApi)
-            const userRole = assignableRoles.find((role: { codename?: string }) => role.codename?.toLowerCase() === 'user')
-            if (typeof userRole?.id !== 'string') {
-                throw new Error('The assignable User role was not available for the Hero permission fixture')
-            }
+        await test.step('Enable anonymous published runtime through Application Settings', () =>
+            enablePublicApplicationAndVerifySettings({
+                page,
+                testInfo,
+                applicationId: publishedApplication.applicationId
+            }))
 
-            const memberEmail = `e2e+${executionRunId}.marketing-content-member@example.test`
-            const memberPassword = runManifest.testUser.password
-            const createdMember = await createAdminUser(bootstrapApi, {
-                email: memberEmail,
-                password: memberPassword,
-                roleIds: [userRole.id],
-                comment: `Marketing Hero editContent browser coverage ${executionRunId}`
-            })
-            if (typeof createdMember?.userId !== 'string') throw new Error('The no-editContent Hero member account was not created')
-            await recordCreatedGlobalUser({ userId: createdMember.userId, email: memberEmail })
-            await expect
-                .poll(
-                    async () => {
-                        try {
-                            const readinessApi = await createLoggedInApiContext({ email: memberEmail, password: memberPassword })
-                            await disposeApiContext(readinessApi)
-                            return true
-                        } catch {
-                            return false
-                        }
-                    },
-                    { timeout: 30_000, message: 'Waiting for the no-editContent member account to become available' }
-                )
-                .toBe(true)
-            await addMetahubMember(api, metahub.id!, { email: memberEmail, role: 'member' })
-
-            noEditContentApi = await createLoggedInApiContext({ email: memberEmail, password: memberPassword })
-            const memberAccess = await listMetahubMembers(noEditContentApi, metahub.id!)
-            expect(memberAccess).toMatchObject({ role: 'member', permissions: { editContent: false } })
-
-            noEditContentBrowser = await createLoggedInBrowserContext(browser, { email: memberEmail, password: memberPassword })
-            await applyBrowserPreferences(noEditContentBrowser.page, { language: 'en' })
-            await noEditContentBrowser.page.goto(`/metahub/${metahub.id}/resources/layouts/${marketingLayoutId}`)
-            await expect(noEditContentBrowser.page.getByTestId('metahub-layout-details-content')).toBeVisible()
-            const readOnlyHeroSurface = noEditContentBrowser.page.getByTestId(`layout-widget-${sourceHeroWidgetId}`)
-            await expect(readOnlyHeroSurface).toBeVisible()
-            await expect(readOnlyHeroSurface.getByRole('button', { name: 'Edit', exact: true })).toHaveCount(0)
-            await expect(noEditContentBrowser.page.getByRole('button', { name: 'Create content record', exact: true })).toHaveCount(0)
-            await expect(noEditContentBrowser.page.getByRole('button', { name: 'Edit selected content', exact: true })).toHaveCount(0)
-            await expect(noEditContentBrowser.page.getByRole('dialog', { name: 'Hero content', exact: true })).toHaveCount(0)
-        })
+        await test.step('Verify a metahub member without editContent cannot open Hero create or edit controls', () =>
+            verifyMarketingHeroMemberPermissions({
+                browser,
+                api,
+                executionRunId,
+                memberPassword: runManifest.testUser.password,
+                metahubId: metahub.id!,
+                marketingLayoutId,
+                sourceHeroWidgetId
+            }))
 
         const actionIntegrityConflictUrl = await test.step('Verify the materialized application layout and its Hero action integrity', () =>
             verifyMarketingApplicationAuthoring({
@@ -947,30 +1072,15 @@ test('@flow @combined @marketing-page browser authoring publishes edited content
                 }
             }))
 
-        await test.step('Verify both published Hero records in a fresh anonymous browser context', async () => {
-            anonymousContext = await browser.newContext({
-                storageState: { cookies: [], origins: [] },
-                locale: 'en-US',
-                colorScheme: 'light'
-            })
-            const anonymousStorage = await anonymousContext.storageState()
-            expect(anonymousStorage.cookies).toHaveLength(0)
-            expect(anonymousStorage.origins).toHaveLength(0)
-
-            const anonymousPage = await anonymousContext.newPage()
-            const publishedUrl = new URL(`/a/${publishedApplication.applicationId}?locale=en`, page.url())
-            await anonymousPage.goto(publishedUrl.toString())
-            await expect(anonymousPage.locator('#marketing-page-main')).toBeVisible({ timeout: 120_000 })
-
-            for (const hero of [
-                { title: updatedHeroTitle, accent: updatedHeroAccent },
-                { title: independentHeroTitle, accent: independentHeroAccent }
-            ]) {
-                const heading = anonymousPage.getByRole('heading', { name: `${hero.title} ${hero.accent}`, exact: true })
-                await expect(heading, `Anonymous runtime must render Hero “${hero.title}”`).toHaveCount(1)
-                await expect(heading).toBeVisible()
-            }
-        })
+        await test.step('Verify both published Hero records in a fresh anonymous browser context', () =>
+            verifyAnonymousMarketingHeroRuntime({
+                browser,
+                page,
+                testInfo,
+                applicationId: publishedApplication.applicationId,
+                firstHero: { title: updatedHeroTitle, accent: updatedHeroAccent },
+                secondHero: { title: independentHeroTitle, accent: independentHeroAccent }
+            }))
 
         await test.step('Remove the placement and copied layout before deleting its Hero record', () =>
             removeHeroPlacementAndDeleteEntityRecord({
@@ -986,10 +1096,6 @@ test('@flow @combined @marketing-page browser authoring publishes edited content
                 heroRecordTitleRu: independentHeroTitleRu
             }))
     } finally {
-        await anonymousContext?.close().catch(() => undefined)
-        await noEditContentBrowser?.context.close().catch(() => undefined)
-        if (noEditContentApi) await disposeApiContext(noEditContentApi)
-        if (bootstrapApi) await disposeBootstrapApiContext(bootstrapApi)
         await disposeApiContext(api)
     }
 })
