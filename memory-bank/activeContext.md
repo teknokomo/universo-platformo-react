@@ -2,12 +2,11 @@
 
 > Current-focus memory only. Completed implementation history lives in [progress.md](progress.md); actionable checklists live in [tasks.md](tasks.md).
 
-## Current Focus: shared MUI dropdown controls (2026-09-25)
+## Current Focus: PR #910 delivery closeout (2026-09-26)
 
--   Implement and adopt shared selection/dropdown controls in the template MUI package across metahub, application administration and admin interfaces; keep published apps in `apps-template-mui` isolated.
--   Make dropdown options and action affordances follow the established Objects/Components MUI patterns, with optional reset/actions, keyboard/accessibility support and localized accessible names.
--   Shorten Hero binding dialog action labels and prove they remain on one line at desktop, tablet and mobile viewports through browser geometry assertions and inspected screenshots.
--   Preserve the existing dirty worktree; avoid unrelated edits, schema/template version bumps, and launching `pnpm dev`.
+-   Stabilize the existing Entity-backed Marketing Hero/shared-dropdown PR after implementation and QA; fix only confirmed CI/reviewer findings and preserve established architecture.
+-   Keep the regenerated 73rd Meridian fixture aligned with the current Marketing Page contract: Hero values live in `MarketingPageHero`, not `MarketingPageSiteSettings`.
+-   Preserve the existing feature branch/PR, avoid unrelated refactors or schema/template version bumps, and do not launch `pnpm dev`.
 
 ## Preserved platform/runtime baseline
 
@@ -64,7 +63,7 @@
 
 ## Current Platform Baseline
 
--   Repository version: `0.82.0-alpha`; latest published GitHub release in the Memory Bank table is `0.81.0-alpha` (2026-09-14).
+-   Repository version: `0.83.0-alpha`; latest published GitHub release in the Memory Bank table is `0.81.0-alpha` (2026-09-14).
 -   Package manager: `pnpm@12.4.1`; Turbo: `2.10.12`; Node root requirement: `>=22.6.0`.
 -   UI baseline: React 18.3.1, Material UI Core 9.2.0, MUI X 9.8.0.
 -   Built-in templates: `basic`, `basic-demo`, `empty`, `lms`, `1c-compatible`, `playcanvas`, `interpretation-network`, `marketing-page`.
@@ -128,7 +127,7 @@
 -   Read `tasks.md` first for the single current open item; do not treat completed September checklists as new work.
 -   Use `progress.md` for historical evidence instead of copying completed verification logs back into active context.
 -   Reusable technical rules belong in `systemPatterns.md`; preserve every heading tagged `CRITICAL` during future Memory Bank maintenance.
--   Canon files were refreshed on 2026-09-14; re-run Canon Refresh after repository version, package inventory, core terminology, or architecture changes.
+-   Canon files were refreshed on 2026-09-26 for repository `0.83.0-alpha`, Entity-backed Marketing Hero authoring, and the shared non-published dropdown baseline; re-run Canon Refresh after repository version, package inventory, core terminology, or architecture changes.
 -   Latest GitHub release table is authoritative for published releases; root `package.json` may legitimately be ahead during unreleased development.
 -   Preserve clean-break decisions where the test DB is disposable; do not add migration/compatibility debt unless the user explicitly needs old persisted state supported.
 -   When resuming interrupted work, inspect live processes, current diff, and actual test state before rerunning long gates.
@@ -139,9 +138,9 @@
 -   [tasks.md](tasks.md) — active/open checklist plus recent completions.
 -   [progress.md](progress.md) — permanent chronological completion record and GitHub release table.
 -   [systemPatterns.md](systemPatterns.md) — reusable architecture patterns; CRITICAL sections must survive compression unchanged in substance.
--   [techContext.md](techContext.md) — refreshed 2026-09-14 technical baseline.
--   [projectbrief.md](projectbrief.md) — refreshed 2026-09-14 mission/configuration/package inventory.
--   [productContext.md](productContext.md) — refreshed 2026-09-14 product rationale and active configurations.
+-   [techContext.md](techContext.md) — refreshed 2026-09-26 technical baseline.
+-   [projectbrief.md](projectbrief.md) — refreshed 2026-09-26 mission/configuration/package inventory.
+-   [productContext.md](productContext.md) — refreshed 2026-09-26 product rationale and active configurations.
 -   [plan/unified-application-template-widgets-scoped-layouts-plan-2026-09-07.md](plan/unified-application-template-widgets-scoped-layouts-plan-2026-09-07.md) — unified widget/layout plan.
 -   [plan/marketing-header-widget-zone-settings-plan-2026-09-12.md](plan/marketing-header-widget-zone-settings-plan-2026-09-12.md) — current marketing-header contract/evidence plan.
 -   [plan/playcanvas-editor-assets-and-mmoomm-script-assets-plan-2026-08-25.md](plan/playcanvas-editor-assets-and-mmoomm-script-assets-plan-2026-08-25.md) — PlayCanvas asset/script implementation detail.
