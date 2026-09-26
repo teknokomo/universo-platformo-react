@@ -264,7 +264,7 @@ export function useCopyLayout() {
             }
             const message = isApiError(error, 'MARKETING_HERO_COPY_MODE_REQUIRED')
                 ? t(
-                      'layouts.copy.heroBindingModeRequired',
+                      'layouts.copy.options.heroBindingModeRequired',
                       'Choose whether to reuse or skip bound Hero placements before copying this layout.'
                   )
                 : resolveApiErrorMessage(error, t('layouts.copyError', 'Failed to copy layout'))
