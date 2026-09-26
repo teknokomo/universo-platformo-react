@@ -273,9 +273,9 @@ test('@visual @marketing-page matrix preserves localized responsive visual contr
                 await expect(page.getByRole('heading', { name: isRussian ? 'Наши новые продукты' : 'Our latest products' })).toBeVisible()
                 await expect(page.locator('#logoCollection img')).toHaveCount(6)
                 await expect(page.locator('#features [aria-pressed]:visible')).toHaveCount(3)
-                await expect(page.locator('#testimonials .MuiCard-root')).toHaveCount(6)
-                await expect(page.locator('#highlights .MuiCard-root')).toHaveCount(6)
-                await expect(page.locator('#pricing .MuiCard-root')).toHaveCount(3)
+                await expect(page.getByTestId('marketing-testimonial-card')).toHaveCount(6)
+                await expect(page.getByTestId('marketing-highlight-card')).toHaveCount(6)
+                await expect(page.getByTestId('marketing-pricing-card')).toHaveCount(3)
                 await expect(page.locator('#faq .MuiAccordion-root')).toHaveCount(4)
                 await localMedia.assertLoaded(page)
 

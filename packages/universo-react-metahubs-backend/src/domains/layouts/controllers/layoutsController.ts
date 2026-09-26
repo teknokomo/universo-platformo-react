@@ -21,7 +21,7 @@ import {
 } from '@universo-react/types'
 import type { createMetahubHandlerFactory } from '../../shared/createMetahubHandler'
 import type { SqlQueryable } from '../../../utils'
-import { queryMany, queryOne } from '@universo-react/utils/database'
+import { queryMany, queryOne, withTransactionSavepoint } from '@universo-react/utils/database'
 import { qSchemaTable } from '@universo-react/database'
 import {
     MetahubLayoutsService,
@@ -31,6 +31,7 @@ import {
     updateLayoutZoneSettingSchema,
     resetLayoutZoneSettingSchema,
     assignLayoutZoneWidgetSchema,
+    updateLayoutZoneWidgetBindingSchema,
     moveLayoutZoneWidgetSchema,
     updateLayoutZoneWidgetConfigSchema,
     toggleLayoutZoneWidgetActiveSchema
@@ -39,6 +40,9 @@ import { OptimisticLockError, generateUuidV7, localizedContent, uuidV7Schema, va
 import { buildDashboardLayoutConfig } from '../../shared'
 import { MetahubDomainError } from '../../shared/domainErrors'
 import { findDuplicateActiveSingleInstanceWidgetKey } from '../widgetInvariants'
+import { acquireMetahubLayoutGraphLock } from '../layoutGraphLocks'
+import { resolveLayoutCopyBindings } from '../services/layoutCopyBindings'
+import { ensureMetahubAccess } from '../../shared/guards'
 
 const { sanitizeLocalizedInput, buildLocalizedContent } = localizedContent
 const { normalizeLayoutCopyOptions } = validation
@@ -68,6 +72,8 @@ type SourceLayoutWidgetOverrideRow = {
     is_deleted_override?: boolean
 }
 
+type SourceBaseWidgetRow = SourceWidgetRow & { id: string }
+
 const isRecord = (value: unknown): value is Record<string, unknown> => Boolean(value && typeof value === 'object' && !Array.isArray(value))
 
 const prepareCopiedWidgetConfig = (
@@ -86,14 +92,14 @@ const prepareCopiedWidgetConfig = (
         })
     }
 
-    const decoded = decodeWidgetConfigEnvelope(config ?? {}, {
-        templateKey,
-        widgetKey: String(widgetKey),
-        zone: String(zone)
-    })
-    const rawConfig = decoded.rendererConfig
-
     try {
+        const decoded = decodeWidgetConfigEnvelope(config ?? {}, {
+            templateKey,
+            widgetKey: String(widgetKey),
+            zone: String(zone),
+            requireBindings: true
+        })
+        const rawConfig = decoded.rendererConfig
         const isMarketingWidget =
             typeof widgetKey === 'string' && Object.prototype.hasOwnProperty.call(MARKETING_WIDGET_REGISTRY, widgetKey)
         const parsed =
@@ -101,15 +107,15 @@ const prepareCopiedWidgetConfig = (
                 ? rawConfig
                 : parseApplicationLayoutWidgetConfig(
                       widgetKey as ApplicationLayoutWidgetKey,
-                      isMarketingWidget ? { ...rawConfig, instanceKey: generateUuidV7() } : rawConfig
+                      isMarketingWidget && rawConfig.instanceKey === undefined ? { ...rawConfig, instanceKey: generateUuidV7() } : rawConfig
                   )
         return encodeWidgetConfigEnvelope(
             { rendererConfig: parsed, neutral: decoded.neutral },
-            { templateKey, widgetKey: String(widgetKey), zone: String(zone) }
+            { templateKey, widgetKey: String(widgetKey), zone: String(zone), requireBindings: true }
         )
     } catch {
         throw new MetahubDomainError({
-            message: 'Marketing widget configuration is invalid',
+            message: 'Layout widget configuration is invalid',
             statusCode: 409,
             code: 'VALIDATION_ERROR'
         })
@@ -128,13 +134,14 @@ const prepareCopiedOverrideConfig = (
     const decoded = decodeWidgetConfigEnvelope(config, {
         templateKey,
         widgetKey: parsedWidgetKey,
-        zone: parsedZone
+        zone: parsedZone,
+        requireBindings: true
     })
     const rendererConfig =
         templateKey === 'dashboard' ? decoded.rendererConfig : parseApplicationLayoutWidgetConfig(parsedWidgetKey, decoded.rendererConfig)
     return encodeWidgetConfigEnvelope(
         { rendererConfig, neutral: decoded.neutral },
-        { templateKey, widgetKey: parsedWidgetKey, zone: parsedZone }
+        { templateKey, widgetKey: parsedWidgetKey, zone: parsedZone, requireBindings: true }
     )
 }
 
@@ -209,6 +216,7 @@ const copyLayoutSchema = z
         descriptionPrimaryLocale: z.string().optional(),
         copyWidgets: z.boolean().optional(),
         deactivateAllWidgets: z.boolean().optional(),
+        heroBindingCopyMode: z.enum(['reuse', 'omit']).optional(),
         expectedVersion: z.number().int().positive().optional()
     })
     .strict()
@@ -264,6 +272,14 @@ const updateWidgetScopeVisibilitySchema = z
     .object({
         isVisible: z.boolean(),
         expectedVersion: z.number().int().positive()
+    })
+    .strict()
+
+const heroBindingSourceSchema = z
+    .object({
+        codename: z.string().regex(/^[a-z][a-z0-9_]{1,63}$/u),
+        name: z.union([z.string().min(1), z.record(z.string())]),
+        description: z.union([z.string(), z.record(z.string())]).optional()
     })
     .strict()
 
@@ -338,7 +354,6 @@ export function createLayoutsController(createHandler: ReturnType<typeof createM
         async ({ req, res, metahubId, userId, exec, schemaService }) => {
             const layoutId = parseUuidV7Param(req.params.layoutId)
             if (!layoutId) return res.status(400).json({ error: 'Invalid layout ID' })
-
             const parsed = copyLayoutSchema.safeParse(req.body ?? {})
             if (!parsed.success) {
                 return res.status(400).json({ error: 'Invalid input', details: parsed.error.flatten() })
@@ -356,7 +371,8 @@ export function createLayoutsController(createHandler: ReturnType<typeof createM
             const widgetsQt = qSchemaTable(schemaName, '_mhb_widgets')
             const overridesQt = qSchemaTable(schemaName, '_mhb_layout_widget_overrides')
 
-            const created = await exec.transaction(async (trx: SqlQueryable) => {
+            const created = await withTransactionSavepoint(exec, async (trx: SqlQueryable) => {
+                await acquireMetahubLayoutGraphLock(trx, schemaName)
                 const sourceLayout = await queryOne<Record<string, unknown>>(
                     trx,
                     `SELECT * FROM ${layoutsQt}
@@ -405,6 +421,60 @@ export function createLayoutsController(createHandler: ReturnType<typeof createM
                         })
                     }
                 }
+
+                const sourceWidgets = copyOptions.copyWidgets
+                    ? await queryMany<SourceWidgetRow>(
+                          trx,
+                          `SELECT id, zone, widget_key, sort_order, config, is_active
+                             FROM ${widgetsQt}
+                            WHERE layout_id = $1 AND _upl_deleted = false AND _mhb_deleted = false
+                            ORDER BY zone ASC, sort_order ASC, _upl_created_at ASC
+                            FOR UPDATE`,
+                          [layoutId]
+                      )
+                    : []
+                const sourceOverrides = isOverlayLayout
+                    ? await queryMany<SourceLayoutWidgetOverrideRow>(
+                          trx,
+                          `SELECT base_widget_id, zone, sort_order, config, is_active, is_deleted_override
+                             FROM ${overridesQt}
+                             WHERE layout_id = $1 AND _upl_deleted = false AND _mhb_deleted = false
+                             ORDER BY _upl_created_at ASC
+                             FOR UPDATE`,
+                          [layoutId]
+                      )
+                    : []
+                const baseWidgets = isOverlayLayout
+                    ? await queryMany<SourceBaseWidgetRow>(
+                          trx,
+                          `SELECT id, widget_key, zone, sort_order, config, is_active FROM ${widgetsQt}
+                             WHERE layout_id = $1 AND _upl_deleted = false AND _mhb_deleted = false
+                             ORDER BY zone ASC, sort_order ASC, _upl_created_at ASC
+                             FOR UPDATE`,
+                          [baseLayoutId]
+                      )
+                    : []
+                const preparedSourceWidgetsWithBindings = sourceWidgets.map((widget) => ({
+                    widget,
+                    config: prepareCopiedWidgetConfig(sourceTemplateKey, widget.widget_key, widget.zone, widget.config),
+                    isActive: shouldDeactivateWidgets ? false : widget.is_active !== false
+                }))
+                const {
+                    sourceOverrideByWidgetId,
+                    boundInheritedHeroWidgets,
+                    preparedWidgets: preparedSourceWidgets
+                } = resolveLayoutCopyBindings({
+                    templateKey: sourceTemplateKey,
+                    preparedWidgets: preparedSourceWidgetsWithBindings,
+                    baseWidgets,
+                    sourceOverrides,
+                    copyMode: parsed.data.heroBindingCopyMode
+                })
+                const copiedWidgetRows = preparedSourceWidgets.map(({ widget, isActive }) => ({
+                    widgetKey: widget.widget_key,
+                    isActive
+                }))
+                assertNoDuplicateActiveSingleInstanceWidgets(copiedWidgetRows)
 
                 const sourceName = isRecord(sourceLayout.name) ? sourceLayout.name : {}
                 const requestedName = parsed.data.name
@@ -568,55 +638,170 @@ export function createLayoutsController(createHandler: ReturnType<typeof createM
                     })
                 }
 
-                if (copyOptions.copyWidgets) {
-                    const sourceWidgets = await queryMany<SourceWidgetRow>(
-                        trx,
-                        `SELECT id, zone, widget_key, sort_order, config, is_active
-           FROM ${widgetsQt}
-           WHERE layout_id = $1 AND _upl_deleted = false AND _mhb_deleted = false
-           ORDER BY zone ASC, sort_order ASC, _upl_created_at ASC
-           FOR UPDATE`,
-                        [layoutId]
+                if (copyOptions.copyWidgets && preparedSourceWidgets.length > 0) {
+                    const placeholders: string[] = []
+                    const params: unknown[] = []
+                    let idx = 1
+                    for (const { widget, config: copiedWidgetConfig, isActive } of preparedSourceWidgets) {
+                        placeholders.push(
+                            `($${idx}, $${idx + 1}, $${idx + 2}, $${idx + 3}, $${idx + 4}, $${idx + 5}, $${idx + 6}, $${idx + 7}, $${
+                                idx + 6
+                            }, $${idx + 7}, $${idx + 8}, $${idx + 9}, $${idx + 9}, $${idx + 9}, $${idx + 10}, $${idx + 9}, $${idx + 9})`
+                        )
+                        params.push(
+                            createdLayout.id,
+                            widget.zone,
+                            widget.widget_key,
+                            widget.sort_order ?? 1,
+                            JSON.stringify(copiedWidgetConfig),
+                            isActive,
+                            now,
+                            userId ?? null,
+                            1,
+                            false,
+                            true
+                        )
+                        idx += 11
+                    }
+                    assertNoDuplicateActiveSingleInstanceWidgets(copiedWidgetRows)
+                    const insertedWidgetRows = await trx.query<{ id: string }>(
+                        `INSERT INTO ${widgetsQt} (
+                layout_id, zone, widget_key, sort_order, config, is_active,
+                _upl_created_at, _upl_created_by, _upl_updated_at, _upl_updated_by, _upl_version,
+                _upl_archived, _upl_deleted, _upl_locked,
+                _mhb_published, _mhb_archived, _mhb_deleted
+            ) VALUES ${placeholders.join(', ')}
+            RETURNING id`,
+                        params
                     )
+                    if (insertedWidgetRows.length !== preparedSourceWidgets.length) {
+                        throw new MetahubDomainError({
+                            message: 'Failed to create copied layout widgets',
+                            statusCode: 500,
+                            code: 'SCHEMA_SYNC_FAILED',
+                            details: { operation: 'copy-layout' }
+                        })
+                    }
+                }
 
-                    const copiedWidgetRows: Array<{ widgetKey: unknown; isActive: boolean }> = []
-                    if (sourceWidgets.length > 0) {
+                if (isOverlayLayout) {
+                    let overridesToCopy = !copyOptions.copyWidgets
+                        ? []
+                        : shouldDeactivateWidgets
+                        ? baseWidgets.map((baseWidget) => {
+                              const sourceOverride = sourceOverrideByWidgetId.get(baseWidget.id)
+                              if (sourceOverride?.is_deleted_override === true) {
+                                  return {
+                                      baseWidgetId: baseWidget.id,
+                                      zone: sourceOverride.zone ?? null,
+                                      sortOrder: sourceOverride.sort_order ?? null,
+                                      config: prepareCopiedOverrideConfig(
+                                          sourceTemplateKey,
+                                          baseWidget.widget_key,
+                                          sourceOverride.zone ?? baseWidget.zone,
+                                          sourceOverride.config
+                                      ),
+                                      isActive: null,
+                                      isDeletedOverride: true
+                                  }
+                              }
+
+                              return {
+                                  baseWidgetId: baseWidget.id,
+                                  zone: sourceOverride?.zone ?? null,
+                                  sortOrder: sourceOverride?.sort_order ?? null,
+                                  config: prepareCopiedOverrideConfig(
+                                      sourceTemplateKey,
+                                      baseWidget.widget_key,
+                                      sourceOverride?.zone ?? baseWidget.zone,
+                                      sourceOverride?.config
+                                  ),
+                                  isActive: false,
+                                  isDeletedOverride: false
+                              }
+                          })
+                        : sourceOverrides
+                              .filter((row) => typeof row.base_widget_id === 'string' && row.base_widget_id.length > 0)
+                              .map((row) => ({
+                                  baseWidgetId: String(row.base_widget_id),
+                                  zone: row.zone ?? null,
+                                  sortOrder: row.sort_order ?? null,
+                                  config: prepareCopiedOverrideConfig(
+                                      sourceTemplateKey,
+                                      baseWidgets.find((baseWidget) => baseWidget.id === String(row.base_widget_id))?.widget_key,
+                                      row.zone ?? baseWidgets.find((baseWidget) => baseWidget.id === String(row.base_widget_id))?.zone,
+                                      row.config
+                                  ),
+                                  isActive: typeof row.is_active === 'boolean' ? row.is_active : null,
+                                  isDeletedOverride: row.is_deleted_override === true
+                              }))
+
+                    assertNoDuplicateActiveSingleInstanceWidgets([
+                        ...copiedWidgetRows,
+                        ...baseWidgets.map((baseWidget) => {
+                            const sourceOverride = sourceOverrideByWidgetId.get(baseWidget.id)
+                            return {
+                                widgetKey: baseWidget.widget_key,
+                                isActive: shouldDeactivateWidgets
+                                    ? false
+                                    : sourceOverride?.is_deleted_override === true
+                                    ? false
+                                    : typeof sourceOverride?.is_active === 'boolean'
+                                    ? sourceOverride.is_active
+                                    : baseWidget.is_active !== false
+                            }
+                        })
+                    ])
+
+                    if (parsed.data.heroBindingCopyMode === 'omit' && boundInheritedHeroWidgets.size > 0) {
+                        const copiedOverridesByWidgetId = new Map(overridesToCopy.map((override) => [override.baseWidgetId, override]))
+                        for (const baseWidget of baseWidgets) {
+                            if (!boundInheritedHeroWidgets.has(baseWidget.id)) continue
+                            copiedOverridesByWidgetId.set(baseWidget.id, {
+                                baseWidgetId: baseWidget.id,
+                                zone: null,
+                                sortOrder: null,
+                                config: null,
+                                isActive: null,
+                                isDeletedOverride: true
+                            })
+                        }
+                        overridesToCopy = [...copiedOverridesByWidgetId.values()]
+                    }
+
+                    if (overridesToCopy.length > 0) {
                         const placeholders: string[] = []
                         const params: unknown[] = []
                         let idx = 1
-                        for (const widget of sourceWidgets) {
-                            const copiedWidgetConfig = prepareCopiedWidgetConfig(
-                                sourceTemplateKey,
-                                widget.widget_key,
-                                widget.zone,
-                                widget.config
-                            )
+
+                        for (const override of overridesToCopy) {
                             placeholders.push(
                                 `($${idx}, $${idx + 1}, $${idx + 2}, $${idx + 3}, $${idx + 4}, $${idx + 5}, $${idx + 6}, $${idx + 7}, $${
-                                    idx + 6
-                                }, $${idx + 7}, $${idx + 8}, $${idx + 9}, $${idx + 9}, $${idx + 9}, $${idx + 10}, $${idx + 9}, $${idx + 9})`
+                                    idx + 8
+                                }, $${idx + 7}, $${idx + 8}, $${idx + 9}, $${idx + 10}, $${idx + 10}, $${idx + 10}, $${idx + 11}, $${
+                                    idx + 10
+                                }, $${idx + 10})`
                             )
-                            const isActive = shouldDeactivateWidgets ? false : widget.is_active !== false
-                            copiedWidgetRows.push({ widgetKey: widget.widget_key, isActive })
                             params.push(
                                 createdLayout.id,
-                                widget.zone,
-                                widget.widget_key,
-                                widget.sort_order ?? 1,
-                                JSON.stringify(copiedWidgetConfig),
-                                isActive,
+                                override.baseWidgetId,
+                                override.zone,
+                                override.sortOrder,
+                                override.config ? JSON.stringify(override.config) : null,
+                                override.isActive,
+                                override.isDeletedOverride,
                                 now,
                                 userId ?? null,
                                 1,
                                 false,
                                 true
                             )
-                            idx += 11
+                            idx += 12
                         }
-                        assertNoDuplicateActiveSingleInstanceWidgets(copiedWidgetRows)
-                        const insertedWidgetRows = await trx.query<{ id: string }>(
-                            `INSERT INTO ${widgetsQt} (
-                layout_id, zone, widget_key, sort_order, config, is_active,
+
+                        const insertedOverrideRows = await trx.query<{ id: string }>(
+                            `INSERT INTO ${overridesQt} (
+                layout_id, base_widget_id, zone, sort_order, config, is_active, is_deleted_override,
                 _upl_created_at, _upl_created_by, _upl_updated_at, _upl_updated_by, _upl_version,
                 _upl_archived, _upl_deleted, _upl_locked,
                 _mhb_published, _mhb_archived, _mhb_deleted
@@ -624,156 +809,13 @@ export function createLayoutsController(createHandler: ReturnType<typeof createM
             RETURNING id`,
                             params
                         )
-                        if (insertedWidgetRows.length !== sourceWidgets.length) {
+                        if (insertedOverrideRows.length !== overridesToCopy.length) {
                             throw new MetahubDomainError({
-                                message: 'Failed to create copied layout widgets',
+                                message: 'Failed to create copied layout overrides',
                                 statusCode: 500,
                                 code: 'SCHEMA_SYNC_FAILED',
                                 details: { operation: 'copy-layout' }
                             })
-                        }
-                    }
-
-                    if (isOverlayLayout) {
-                        const sourceOverrides = await queryMany<SourceLayoutWidgetOverrideRow>(
-                            trx,
-                            `SELECT base_widget_id, zone, sort_order, config, is_active, is_deleted_override
-                             FROM ${overridesQt}
-                             WHERE layout_id = $1 AND _upl_deleted = false AND _mhb_deleted = false
-                             ORDER BY _upl_created_at ASC
-                             FOR UPDATE`,
-                            [layoutId]
-                        )
-
-                        const overrideMap = new Map(
-                            sourceOverrides
-                                .filter((row) => typeof row.base_widget_id === 'string' && row.base_widget_id.length > 0)
-                                .map((row) => [String(row.base_widget_id), row])
-                        )
-
-                        const baseWidgets = await queryMany<{ id: string; widget_key?: string; zone?: string; is_active?: boolean }>(
-                            trx,
-                            `SELECT id, widget_key, zone, is_active FROM ${widgetsQt}
-                             WHERE layout_id = $1 AND _upl_deleted = false AND _mhb_deleted = false
-                             ORDER BY zone ASC, sort_order ASC, _upl_created_at ASC
-                             FOR UPDATE`,
-                            [baseLayoutId]
-                        )
-
-                        const overridesToCopy = shouldDeactivateWidgets
-                            ? baseWidgets.map((baseWidget) => {
-                                  const sourceOverride = overrideMap.get(baseWidget.id)
-                                  if (sourceOverride?.is_deleted_override === true) {
-                                      return {
-                                          baseWidgetId: baseWidget.id,
-                                          zone: sourceOverride.zone ?? null,
-                                          sortOrder: sourceOverride.sort_order ?? null,
-                                          config: prepareCopiedOverrideConfig(
-                                              sourceTemplateKey,
-                                              baseWidget.widget_key,
-                                              sourceOverride.zone ?? baseWidget.zone,
-                                              sourceOverride.config
-                                          ),
-                                          isActive: null,
-                                          isDeletedOverride: true
-                                      }
-                                  }
-
-                                  return {
-                                      baseWidgetId: baseWidget.id,
-                                      zone: sourceOverride?.zone ?? null,
-                                      sortOrder: sourceOverride?.sort_order ?? null,
-                                      config: prepareCopiedOverrideConfig(
-                                          sourceTemplateKey,
-                                          baseWidget.widget_key,
-                                          sourceOverride?.zone ?? baseWidget.zone,
-                                          sourceOverride?.config
-                                      ),
-                                      isActive: false,
-                                      isDeletedOverride: false
-                                  }
-                              })
-                            : sourceOverrides
-                                  .filter((row) => typeof row.base_widget_id === 'string' && row.base_widget_id.length > 0)
-                                  .map((row) => ({
-                                      baseWidgetId: String(row.base_widget_id),
-                                      zone: row.zone ?? null,
-                                      sortOrder: row.sort_order ?? null,
-                                      config: prepareCopiedOverrideConfig(
-                                          sourceTemplateKey,
-                                          baseWidgets.find((baseWidget) => baseWidget.id === String(row.base_widget_id))?.widget_key,
-                                          row.zone ?? baseWidgets.find((baseWidget) => baseWidget.id === String(row.base_widget_id))?.zone,
-                                          row.config
-                                      ),
-                                      isActive: typeof row.is_active === 'boolean' ? row.is_active : null,
-                                      isDeletedOverride: row.is_deleted_override === true
-                                  }))
-
-                        assertNoDuplicateActiveSingleInstanceWidgets([
-                            ...copiedWidgetRows,
-                            ...baseWidgets.map((baseWidget) => {
-                                const sourceOverride = overrideMap.get(baseWidget.id)
-                                return {
-                                    widgetKey: baseWidget.widget_key,
-                                    isActive: shouldDeactivateWidgets
-                                        ? false
-                                        : sourceOverride?.is_deleted_override === true
-                                        ? false
-                                        : typeof sourceOverride?.is_active === 'boolean'
-                                        ? sourceOverride.is_active
-                                        : baseWidget.is_active !== false
-                                }
-                            })
-                        ])
-
-                        if (overridesToCopy.length > 0) {
-                            const placeholders: string[] = []
-                            const params: unknown[] = []
-                            let idx = 1
-
-                            for (const override of overridesToCopy) {
-                                placeholders.push(
-                                    `($${idx}, $${idx + 1}, $${idx + 2}, $${idx + 3}, $${idx + 4}, $${idx + 5}, $${idx + 6}, $${
-                                        idx + 7
-                                    }, $${idx + 8}, $${idx + 7}, $${idx + 8}, $${idx + 9}, $${idx + 10}, $${idx + 10}, $${idx + 10}, $${
-                                        idx + 11
-                                    }, $${idx + 10}, $${idx + 10})`
-                                )
-                                params.push(
-                                    createdLayout.id,
-                                    override.baseWidgetId,
-                                    override.zone,
-                                    override.sortOrder,
-                                    override.config ? JSON.stringify(override.config) : null,
-                                    override.isActive,
-                                    override.isDeletedOverride,
-                                    now,
-                                    userId ?? null,
-                                    1,
-                                    false,
-                                    true
-                                )
-                                idx += 12
-                            }
-
-                            const insertedOverrideRows = await trx.query<{ id: string }>(
-                                `INSERT INTO ${overridesQt} (
-                layout_id, base_widget_id, zone, sort_order, config, is_active, is_deleted_override,
-                _upl_created_at, _upl_created_by, _upl_updated_at, _upl_updated_by, _upl_version,
-                _upl_archived, _upl_deleted, _upl_locked,
-                _mhb_published, _mhb_archived, _mhb_deleted
-            ) VALUES ${placeholders.join(', ')}
-            RETURNING id`,
-                                params
-                            )
-                            if (insertedOverrideRows.length !== overridesToCopy.length) {
-                                throw new MetahubDomainError({
-                                    message: 'Failed to create copied layout overrides',
-                                    statusCode: 500,
-                                    code: 'SCHEMA_SYNC_FAILED',
-                                    details: { operation: 'copy-layout' }
-                                })
-                            }
                         }
                     }
                 }
@@ -985,6 +1027,92 @@ export function createLayoutsController(createHandler: ReturnType<typeof createM
         return res.json({ items })
     })
 
+    const getZoneWidgetBinding = createHandler(
+        async ({ req, res, metahubId, userId, exec, schemaService }) => {
+            const layoutId = parseUuidV7Param(req.params.layoutId)
+            const widgetId = parseUuidV7Param(req.params.widgetId)
+            if (!layoutId) return res.status(400).json({ error: 'Invalid layout ID' })
+            if (!widgetId) return res.status(400).json({ error: 'Invalid widget ID' })
+
+            const requestedLocale = typeof req.query.locale === 'string' ? req.query.locale : 'en'
+            const locale = /^[a-z]{2}(?:-[A-Z]{2})?$/u.test(requestedLocale) ? requestedLocale : 'en'
+            const layoutsService = new MetahubLayoutsService(exec, schemaService)
+            const target = await layoutsService.getLayoutZoneWidgetBindingTarget(metahubId, layoutId, widgetId, locale, userId)
+            return res.json(target)
+        },
+        { permission: 'editContent' }
+    )
+
+    const getWidgetBindingSources = createHandler(
+        async ({ req, res, metahubId, userId, exec, schemaService }) => {
+            const layoutId = parseUuidV7Param(req.params.layoutId)
+            if (!layoutId) return res.status(400).json({ error: 'Invalid layout ID' })
+            const excludeWidgetId = req.query.excludeWidgetId === undefined ? undefined : parseUuidV7Param(req.query.excludeWidgetId)
+            if (req.query.excludeWidgetId !== undefined && !excludeWidgetId) {
+                return res.status(400).json({ error: 'Invalid excluded widget ID' })
+            }
+            if (req.params.widgetKey !== 'marketing.hero' || req.params.slotKey !== 'content') {
+                return res.status(404).json({ error: 'Binding source slot not found' })
+            }
+            const rawLocale = typeof req.query.locale === 'string' ? req.query.locale : 'en'
+            const locale = /^[a-z]{2}(?:-[A-Z]{2})?$/u.test(rawLocale) ? rawLocale : 'en'
+            const service = new MetahubLayoutsService(exec, schemaService)
+            return res.json(
+                await service.listMarketingHeroBindingSources(metahubId, layoutId, locale, userId, excludeWidgetId ?? undefined)
+            )
+        },
+        { permission: 'manageMetahub' }
+    )
+
+    const provisionWidgetBindingSource = createHandler(
+        async ({ req, res, metahubId, userId, exec, schemaService }) => {
+            const layoutId = parseUuidV7Param(req.params.layoutId)
+            if (!layoutId) return res.status(400).json({ error: 'Invalid layout ID' })
+            if (req.params.widgetKey !== 'marketing.hero' || req.params.slotKey !== 'content') {
+                return res.status(404).json({ error: 'Binding source slot not found' })
+            }
+            const parsed = heroBindingSourceSchema.safeParse(req.body)
+            if (!parsed.success) return res.status(400).json({ error: 'Invalid input', details: parsed.error.flatten() })
+            await ensureMetahubAccess(exec, userId, metahubId, 'editContent')
+            const service = new MetahubLayoutsService(exec, schemaService)
+            const result = await service.provisionMarketingHeroBindingSource(metahubId, layoutId, parsed.data, userId)
+            return res.status(201).json(result)
+        },
+        { permission: 'manageMetahub' }
+    )
+
+    const getWidgetBindingUsage = createHandler(
+        async ({ req, res, metahubId, userId, exec, schemaService }) => {
+            const recordId = parseUuidV7Param(req.query.recordId)
+            const excludeWidgetId = req.query.excludeWidgetId === undefined ? undefined : parseUuidV7Param(req.query.excludeWidgetId)
+            if (!recordId) return res.status(400).json({ error: 'Invalid record ID' })
+            if (req.query.excludeWidgetId !== undefined && !excludeWidgetId)
+                return res.status(400).json({ error: 'Invalid excluded widget ID' })
+            const service = new MetahubLayoutsService(exec, schemaService)
+            return res.json(await service.getMarketingHeroBindingUsage(metahubId, recordId, excludeWidgetId ?? undefined, userId))
+        },
+        { permission: 'editContent' }
+    )
+
+    const updateZoneWidgetBinding = createHandler(
+        async ({ req, res, metahubId, userId, exec, schemaService }) => {
+            const layoutId = parseUuidV7Param(req.params.layoutId)
+            const widgetId = parseUuidV7Param(req.params.widgetId)
+            if (!layoutId) return res.status(400).json({ error: 'Invalid layout ID' })
+            if (!widgetId) return res.status(400).json({ error: 'Invalid widget ID' })
+
+            const parsed = updateLayoutZoneWidgetBindingSchema.safeParse(req.body)
+            if (!parsed.success) {
+                return res.status(400).json({ error: 'Invalid input', details: parsed.error.flatten() })
+            }
+
+            const layoutsService = new MetahubLayoutsService(exec, schemaService)
+            const item = await layoutsService.updateLayoutZoneWidgetBinding(metahubId, layoutId, widgetId, parsed.data, userId)
+            return res.json(item)
+        },
+        { permission: 'manageMetahub' }
+    )
+
     const assignZoneWidget = createHandler(
         async ({ req, res, metahubId, userId, exec, schemaService }) => {
             const layoutId = parseUuidV7Param(req.params.layoutId)
@@ -993,6 +1121,10 @@ export function createLayoutsController(createHandler: ReturnType<typeof createM
             const parsed = assignLayoutZoneWidgetSchema.safeParse(req.body)
             if (!parsed.success) {
                 return res.status(400).json({ error: 'Invalid input', details: parsed.error.flatten() })
+            }
+
+            if (parsed.data.heroContent?.mode === 'auto') {
+                await ensureMetahubAccess(exec, userId, metahubId, 'editContent')
             }
 
             const layoutsService = new MetahubLayoutsService(exec, schemaService)
@@ -1163,6 +1295,11 @@ export function createLayoutsController(createHandler: ReturnType<typeof createM
         resetZoneSetting,
         widgetsObject,
         listZoneWidgets,
+        getZoneWidgetBinding,
+        getWidgetBindingSources,
+        provisionWidgetBindingSource,
+        getWidgetBindingUsage,
+        updateZoneWidgetBinding,
         assignZoneWidget,
         moveZoneWidget,
         removeZoneWidget,

@@ -17,11 +17,13 @@ import {
     type ApplicationTemplateKey,
     type EffectiveWidget,
     type LayoutZoneSettings,
-    type PersistedLayoutNeutralMetadata
+    type PersistedLayoutNeutralMetadata,
+    type PersistedWidgetNeutralMetadata
 } from '@universo-react/types'
 import { isValidSchemaName } from '@universo-react/schema-ddl'
 import { isUuidV7, type DbExecutor } from '@universo-react/utils'
 import { hashApplicationLayoutContent } from '../utils/applicationLayoutHash'
+import { attachApplicationLayoutWidgetSourceBindingState } from '../persistence/applicationLayoutStoreSupport'
 import { resolveEffectiveRolePermissions, type ApplicationRole } from '../routes/guards'
 import { resolveRuntimeWorkspaceAccess, setRuntimeWorkspaceContext } from './applicationWorkspaces'
 import {
@@ -281,15 +283,18 @@ const validateWidgetRow = (row: EffectiveLayoutWidgetRow, layout: ValidatedLayou
     }
 
     let sourceConfig: RecordValue | null = null
+    let sourceBindings: PersistedWidgetNeutralMetadata['bindings']
     if (row.source_config !== undefined && row.source_config !== null) {
         try {
             const rawSourceConfig = readRecord(row.source_config)
             const decoded = decodeLayoutWidgetConfigEnvelope(rawSourceConfig, {
                 templateKey: layout.templateKey,
                 widgetKey: row.widget_key,
-                zone: row.zone
+                zone: row.zone,
+                requireBindings: true
             })
             sourceConfig = parseApplicationLayoutWidgetConfig(row.widget_key, decoded.rendererConfig)
+            sourceBindings = decoded.neutral.bindings
         } catch {
             return failEffectiveLayout('LAYOUT_PERSISTED_INVALID')
         }
@@ -301,7 +306,7 @@ const validateWidgetRow = (row: EffectiveLayoutWidgetRow, layout: ValidatedLayou
         return failEffectiveLayout('LAYOUT_PERSISTED_INVALID')
     }
 
-    return {
+    const widget = {
         id,
         layoutId,
         zone: row.zone as EffectiveLayoutWidget['zone'],
@@ -318,6 +323,10 @@ const validateWidgetRow = (row: EffectiveLayoutWidgetRow, layout: ValidatedLayou
         version: readPositiveInteger(row.version),
         ...(placement === undefined ? {} : { placement })
     } as EffectiveWidgetWithPlacement
+    return attachApplicationLayoutWidgetSourceBindingState(widget, {
+        persistedApplicationRow: true,
+        ...(sourceBindings === undefined ? {} : { bindings: sourceBindings })
+    })
 }
 
 const validateEffectiveWidgetMultiplicity = (widgets: readonly EffectiveLayoutWidget[]): void => {

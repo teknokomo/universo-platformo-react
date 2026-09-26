@@ -98,6 +98,54 @@ describe('RuntimeModulesService', () => {
         jest.clearAllMocks()
     })
 
+    it.each(['createRecord', 'updateRecord', 'deleteRecord'] as const)(
+        'rejects %s for a denied Entity before any SQL write or lifecycle callback',
+        async (method) => {
+            const { executor, txExecutor } = createMockDbExecutor()
+            const service = new RuntimeModulesService(engine as never)
+            const binding = createRecordBinding({
+                object: {
+                    config: {
+                        recordPolicy: {
+                            version: 1,
+                            denyDeleteWhenBound: false,
+                            immutableSemanticKeyWhenBound: false,
+                            runtimeMutation: 'deny'
+                        }
+                    }
+                }
+            })
+            jest.spyOn(service as never as { resolveRecordBinding: () => Promise<unknown> }, 'resolveRecordBinding').mockResolvedValue(
+                binding
+            )
+            const dispatchLifecycleEventSpy = jest.spyOn(service, 'dispatchLifecycleEvent').mockResolvedValue()
+            const params: Record<string, unknown> = {
+                executor,
+                applicationId: 'application-1',
+                schemaName: 'app_018f8a787b8f7c1da1112222333346aa',
+                currentWorkspaceId: null,
+                currentUserId: 'user-1',
+                permissions: { createContent: true, editContent: true, deleteContent: true },
+                entityCodename: 'orders',
+                data: { name: 'Draft' },
+                patch: { name: 'Updated' },
+                recordId: 'row-1'
+            }
+            const recordService = service as unknown as Record<
+                typeof method,
+                (input: Record<string, unknown>) => Promise<Record<string, unknown> | void>
+            >
+
+            await expect(recordService[method](params)).rejects.toMatchObject({
+                statusCode: 403,
+                code: 'RUNTIME_ENTITY_MUTATION_DENIED'
+            })
+
+            expect(txExecutor.query).not.toHaveBeenCalled()
+            expect(dispatchLifecycleEventSpy).not.toHaveBeenCalled()
+        }
+    )
+
     it('redacts bundles, private config, and server-only metadata from listed runtime modules', async () => {
         const { executor } = createMockDbExecutor()
         const service = new RuntimeModulesService(engine as never)

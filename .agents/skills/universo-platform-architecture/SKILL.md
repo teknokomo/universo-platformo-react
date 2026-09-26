@@ -224,6 +224,11 @@ from authoring decisions (such as `config.recordBehavior` on Object).
 
 ## References
 
+-   Read the GitBook contract at `docs/en/architecture/entity-backed-widgets.md`
+    (`docs/ru/architecture/entity-backed-widgets.md`) when widgets expose
+    authoring for Entity-backed records, persisted semantic bindings, or a
+    published runtime projection. Layout instances own composition and
+    presentation; Entity records own content.
 -   Read `references/entity-types-mapping.md` when scoping a domain model
     or drafting a brief that needs to map domain concepts onto presets and
     capabilities, including the 1C analogy via `recordBehavior` modes.

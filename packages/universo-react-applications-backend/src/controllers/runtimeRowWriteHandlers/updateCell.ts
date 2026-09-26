@@ -34,6 +34,7 @@ import {
     isRuntimeServerOwnedAttr
 } from '../runtimeRowSupport/contracts'
 import { resolveRuntimeObjectCollection } from '../runtimeRowSupport/objects'
+import { denyRuntimeEntityMutation } from '../../shared/entityMutationPolicy'
 import {
     validateRuntimeDateOrderRules,
     validateRuntimeParentRecordAccessReferences,
@@ -75,6 +76,7 @@ export const createUpdateCellHandler = ({ getDbExecutor, query }: RuntimeRowWrit
             error: objectCollectionError
         } = await resolveRuntimeObjectCollection(ctx.manager, ctx.schemaIdent, requestedObjectCollectionId)
         if (!objectCollection) return res.status(404).json({ error: objectCollectionError })
+        if (denyRuntimeEntityMutation(res, objectCollection.config)) return
         const runtimeRowCondition = buildRuntimeActiveRowCondition(
             objectCollection.lifecycleContract,
             objectCollection.config,

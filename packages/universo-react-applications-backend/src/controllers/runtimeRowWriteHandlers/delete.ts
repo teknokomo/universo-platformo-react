@@ -23,6 +23,7 @@ import {
 import { createRuntimeVersionConflictFailure } from '../runtimeVersionConflict'
 import { buildRuntimeExpectedVersionPredicate, runtimeCompensateCreateBodySchema } from '../runtimeRowSupport/contracts'
 import { resolveRuntimeObjectCollection } from '../runtimeRowSupport/objects'
+import { denyRuntimeEntityMutation } from '../../shared/entityMutationPolicy'
 import { assertNotProtectedSystemStructureRuntimeRow, buildRuntimeRecordAccessClause } from '../runtimeRowSupport/access'
 import { loadRuntimeRowById } from '../runtimeRowSupport/rows'
 
@@ -67,6 +68,7 @@ export const createDeleteRowHandler = ({ getDbExecutor, query }: RuntimeRowWrite
             error: objectCollectionError
         } = await resolveRuntimeObjectCollection(ctx.manager, ctx.schemaIdent, objectCollectionId)
         if (!objectCollection) return res.status(404).json({ error: objectCollectionError })
+        if (denyRuntimeEntityMutation(res, objectCollection.config)) return
 
         const dataTableIdent = `${ctx.schemaIdent}.${quoteIdentifier(objectCollection.table_name)}`
         const runtimeRowCondition = buildRuntimeActiveRowCondition(

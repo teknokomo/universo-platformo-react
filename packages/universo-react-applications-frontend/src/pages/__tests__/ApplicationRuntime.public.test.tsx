@@ -53,6 +53,24 @@ import { PublicApplicationRuntimeError } from '../../api/publicApplicationRuntim
 import { PublicApplicationRuntime } from '../ApplicationRuntime'
 
 const APP_ID = '018f8a78-7b8f-7c1d-a111-222233334444'
+const heroData = {
+    records: [
+        {
+            kind: 'heroContent',
+            semanticKey: 'content',
+            order: 0,
+            isVisible: true,
+            content: {
+                title: { en: 'Welcome' },
+                description: { en: 'A typed marketing page.' },
+                emailLabel: { en: 'Email' },
+                emailPlaceholder: { en: 'you@example.test' },
+                primaryActionLabel: { en: 'Join' },
+                primaryAction: { kind: 'internal', path: '/join' }
+            }
+        }
+    ]
+}
 
 const publicPayload = (matchedAlias: string, canonicalAlias: string | null = null) => ({
     route: {
@@ -73,7 +91,7 @@ const publicPayload = (matchedAlias: string, canonicalAlias: string | null = nul
                 isActive: true,
                 widgetKey: 'marketing.hero',
                 config: {},
-                data: { records: [] }
+                data: heroData
             }
         ]
     }

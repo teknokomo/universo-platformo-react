@@ -143,6 +143,14 @@ const handleKnownError = (res: Response, error: unknown): boolean => {
         res.status(409).json({ error: message })
         return true
     }
+    if (message === 'APPLICATION_LAYOUT_ENTITY_BACKED_WIDGET_COPY_CONFLICT') {
+        res.status(409).json({ error: message, code: message })
+        return true
+    }
+    if (message === 'APPLICATION_LAYOUT_MARKETING_HERO_ACTION_INTEGRITY_CONFLICT') {
+        res.status(409).json({ error: message, code: message })
+        return true
+    }
     if (message === 'APPLICATION_LAYOUT_MARKETING_RESET_NOT_SUPPORTED') {
         res.status(409).json({ error: message })
         return true

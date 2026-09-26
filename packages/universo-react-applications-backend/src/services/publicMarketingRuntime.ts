@@ -5,6 +5,7 @@ import {
     MARKETING_MAX_RUNTIME_RECORDS,
     MARKETING_SOURCE_CODENAMES,
     MARKETING_WIDGET_REGISTRY,
+    getMarketingSectionAnchorEntries,
     isLoopbackMarketingUrl,
     marketingPageConfigSchema,
     marketingPersistedIdSchema,
@@ -35,12 +36,13 @@ import {
     selectPricingBenefitSemanticKeysForTiers,
     toMarketingLocalizedMap,
     toMarketingLocalizedNumericMap,
-    toMarketingLocalizedOptionalLabel,
     toMarketingLocalizedOptionalMap,
     toMarketingSemanticKey,
     applyMarketingFieldMap
 } from './marketingRuntimeSerialization'
 import type { EffectiveLayoutSuccess } from './effectiveLayoutContract'
+import { getApplicationLayoutWidgetSourceBindingState } from '../persistence/applicationLayoutStoreSupport'
+import { projectMarketingWidgetBindingData } from './marketingHeroEntityBinding'
 import {
     PublicMarketingMaterializationError,
     type PublicMarketingRuntimeRow,
@@ -56,14 +58,6 @@ export const PUBLIC_MARKETING_RECORD_FIELDS = new Set([
     'isVisible',
     'brandName',
     'brandLogo',
-    'heroTitle',
-    'heroSubtitle',
-    'heroAccent',
-    'heroEmailLabel',
-    'heroEmailPlaceholder',
-    'heroTermsText',
-    'heroPrimaryAction',
-    'heroSecondaryAction',
     'footerDescription',
     'copyright',
     'copyrightLabel',
@@ -106,7 +100,6 @@ const asBoolean = asMarketingBoolean
 const localized = toMarketingLocalizedMap
 const localizedNumeric = toMarketingLocalizedNumericMap
 const localizedOptional = toMarketingLocalizedOptionalMap
-const localizedLabelOptional = toMarketingLocalizedOptionalLabel
 const safeSemanticKey = toMarketingSemanticKey
 
 const toPublicMedia = (
@@ -197,6 +190,7 @@ const publicWidgetInstanceKey = (widgetKey: string, index: number): string =>
     `marketing-${widgetKey.replace(/^marketing\./u, '').toLowerCase()}-${index}`
 
 const PERSISTED_WIDGET_UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/iu
+const UUID_SUBSTRING_PATTERN = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/iu
 
 /**
  * Public widget identity prefers the persisted semantic instance key so the
@@ -214,7 +208,10 @@ const resolvePublicWidgetInstanceKey = (
 ): string => {
     const persisted = typeof config.instanceKey === 'string' ? config.instanceKey.trim() : ''
     const persistedIsSemantic =
-        Boolean(persisted) && !PERSISTED_WIDGET_UUID_PATTERN.test(persisted) && marketingSemanticKeySchema.safeParse(persisted).success
+        Boolean(persisted) &&
+        !PERSISTED_WIDGET_UUID_PATTERN.test(persisted) &&
+        !UUID_SUBSTRING_PATTERN.test(persisted) &&
+        marketingSemanticKeySchema.safeParse(persisted).success
 
     let candidate = persistedIsSemantic ? persisted : publicWidgetInstanceKey(widgetKey, index)
     if (usedInstanceKeys.has(candidate)) {
@@ -227,6 +224,31 @@ const resolvePublicWidgetInstanceKey = (
 
     usedInstanceKeys.add(candidate)
     return candidate
+}
+
+const remapPublicActionAnchors = (
+    value: unknown,
+    publicHrefBySourceAnchor: ReadonlyMap<string, string>,
+    unavailablePublicAnchorHref: string
+): unknown => {
+    if (Array.isArray(value)) {
+        return value.map((item) => remapPublicActionAnchors(item, publicHrefBySourceAnchor, unavailablePublicAnchorHref))
+    }
+    if (!isRecord(value)) return value
+
+    if (value.kind === 'anchor' && typeof value.href === 'string' && value.href.startsWith('#')) {
+        const sourceAnchor = value.href.slice(1)
+        const publicHref = publicHrefBySourceAnchor.get(sourceAnchor)
+        if (publicHref) return { ...value, href: publicHref }
+        if (UUID_SUBSTRING_PATTERN.test(sourceAnchor)) return { ...value, href: unavailablePublicAnchorHref }
+    }
+
+    return Object.fromEntries(
+        Object.entries(value).map(([key, nested]) => [
+            key,
+            remapPublicActionAnchors(nested, publicHrefBySourceAnchor, unavailablePublicAnchorHref)
+        ])
+    )
 }
 
 const readMaxItems = (value: unknown, fallback: number, maximum: number): number => {
@@ -269,7 +291,7 @@ const parseSource = (widgetKey: MarketingWidgetKey, config: PublicRecord): Marke
 
 const parseCopySource = (widgetKey: MarketingWidgetKey, config: PublicRecord): MarketingWidgetSource | undefined => {
     if (config.copySource === undefined) return undefined
-    if (!['marketing.hero', 'marketing.collection', 'marketing.pricing', 'marketing.footer'].includes(widgetKey)) return undefined
+    if (!['marketing.collection', 'marketing.pricing', 'marketing.footer'].includes(widgetKey)) return undefined
     const parsed = marketingWidgetSourceSchema.safeParse(config.copySource)
     if (!parsed.success || parsed.data.entityCodename !== MARKETING_COPY_SOURCE_CODENAME || !parsed.data.recordKey) return undefined
     return parsed.data
@@ -309,6 +331,64 @@ export const serializePublicMarketingRuntime = ({
     }
 
     const runtimeConfig = toPublicConfig(effectiveLayout.layout.config)
+    const publicInstanceKeyByWidget = new Map<EffectiveLayoutSuccess['widgets'][number], string>()
+    const usedPublicInstanceKeys = new Set<string>()
+    const publicWidgetIdentities: Array<{ widget: EffectiveLayoutSuccess['widgets'][number]; instanceKey: string }> = []
+    let publicWidgetIndex = 0
+    for (const widget of effectiveLayout.widgets) {
+        const definition = getLayoutWidgetDefinition(widget.widgetKey)
+        if (definition?.shared || !widget.isActive) continue
+        const instanceKey = resolvePublicWidgetInstanceKey(
+            widget.widgetKey,
+            asRecord(widget.config),
+            publicWidgetIndex,
+            usedPublicInstanceKeys
+        )
+        publicWidgetIndex += 1
+        publicInstanceKeyByWidget.set(widget, instanceKey)
+        publicWidgetIdentities.push({ widget, instanceKey })
+    }
+
+    const sourceAnchorEntries = getMarketingSectionAnchorEntries(
+        publicWidgetIdentities.map(({ widget, instanceKey }) => {
+            const config = asRecord(widget.config)
+            const sourceInstanceKey = typeof config.instanceKey === 'string' && config.instanceKey.trim() ? config.instanceKey : instanceKey
+            return {
+                widgetKey: widget.widgetKey,
+                isActive: true,
+                // Missing or blank persisted keys still need a one-to-one
+                // entry shape for the public fallback identity.
+                config: { ...config, instanceKey: sourceInstanceKey }
+            }
+        })
+    )
+    const publicAnchorEntries = getMarketingSectionAnchorEntries(
+        publicWidgetIdentities.map(({ widget, instanceKey }) => ({
+            widgetKey: widget.widgetKey,
+            isActive: true,
+            config: { ...asRecord(widget.config), instanceKey }
+        }))
+    )
+    if (sourceAnchorEntries.length !== publicAnchorEntries.length) {
+        throw new PublicMarketingMaterializationError('Public marketing section anchors could not be resolved')
+    }
+    const publicHrefBySourceAnchor = new Map<string, string>()
+    for (let index = 0; index < sourceAnchorEntries.length; index += 1) {
+        const sourceEntry = sourceAnchorEntries[index]
+        const publicEntry = publicAnchorEntries[index]
+        if (sourceEntry && publicEntry && !publicHrefBySourceAnchor.has(sourceEntry[0])) {
+            // Renderers validate the fragment against public resolver keys;
+            // preserve the alias instead of emitting its DOM target value.
+            publicHrefBySourceAnchor.set(sourceEntry[0], `#${publicEntry[0]}`)
+        }
+    }
+    const publicAnchorNames = new Set(publicAnchorEntries.map(([anchor]) => anchor))
+    let unavailablePublicAnchorIndex = 0
+    while (publicAnchorNames.has(`unavailable-public-section-${unavailablePublicAnchorIndex}`)) {
+        unavailablePublicAnchorIndex += 1
+    }
+    const unavailablePublicAnchorHref = `#unavailable-public-section-${unavailablePublicAnchorIndex}`
+
     const recordsByObject = new Map<MarketingSourceCodename, PublicRecord[]>()
     const sectionCopiesByKey = new Map<string, PublicRecord>()
     const siteSettingsRows = rows.get('MarketingPageSiteSettings') ?? []
@@ -323,8 +403,6 @@ export const serializePublicMarketingRuntime = ({
     const brandName = configuredBrandName
         ? { en: configuredBrandName, ru: configuredBrandName }
         : localized(siteSettings.BrandName, locale, '')
-    const heroPrimaryAction = safeAction(siteSettings.HeroPrimaryActionHref, runtimeConfig)
-    const heroSecondaryAction = safeAction(siteSettings.HeroTermsHref, runtimeConfig)
     const copyrightAction = safeAction(siteSettings.CopyrightHref, runtimeConfig)
     const newsletterAction = safeAction(siteSettings.NewsletterActionHref, runtimeConfig)
     const siteSettingsRecord: PublicRecord = {
@@ -334,34 +412,6 @@ export const serializePublicMarketingRuntime = ({
         brandName,
         ...(configuredBrandLogo || toPublicMedia(siteSettings.BrandLogo, 'logo')
             ? { brandLogo: configuredBrandLogo ?? toPublicMedia(siteSettings.BrandLogo, 'logo') }
-            : {}),
-        heroTitle: localized(siteSettings.HeroTitle, locale, ''),
-        heroSubtitle: localized(siteSettings.HeroSubtitle, locale, ''),
-        ...(localizedOptional(siteSettings.HeroAccent, locale) ? { heroAccent: localizedOptional(siteSettings.HeroAccent, locale) } : {}),
-        ...(localizedLabelOptional(siteSettings.HeroEmailLabel, locale)
-            ? { heroEmailLabel: localizedLabelOptional(siteSettings.HeroEmailLabel, locale) }
-            : {}),
-        ...(localizedLabelOptional(siteSettings.HeroEmailPlaceholder, locale)
-            ? { heroEmailPlaceholder: localizedLabelOptional(siteSettings.HeroEmailPlaceholder, locale) }
-            : {}),
-        ...(localizedOptional(siteSettings.HeroTermsText, locale)
-            ? { heroTermsText: localizedOptional(siteSettings.HeroTermsText, locale) }
-            : {}),
-        ...(heroPrimaryAction
-            ? {
-                  heroPrimaryAction: {
-                      label: localized(siteSettings.HeroPrimaryActionLabel, locale, ''),
-                      action: heroPrimaryAction
-                  }
-              }
-            : {}),
-        ...(heroSecondaryAction
-            ? {
-                  heroSecondaryAction: {
-                      label: localized(siteSettings.HeroTermsLinkLabel, locale, ''),
-                      action: heroSecondaryAction
-                  }
-              }
             : {}),
         ...(localizedOptional(siteSettings.FooterDescription, locale)
             ? { footerDescription: localizedOptional(siteSettings.FooterDescription, locale) }
@@ -542,7 +592,6 @@ export const serializePublicMarketingRuntime = ({
     })
 
     const publicWidgets: PublicRecord[] = []
-    const usedPublicInstanceKeys = new Set<string>()
     // Data widgets are resolved first so the header rows can reuse their exact
     // public instance keys; otherwise a layout without persisted keys would
     // project a header row that no data widget matches.
@@ -558,9 +607,18 @@ export const serializePublicMarketingRuntime = ({
         }
 
         const config = asRecord(widget.config)
-        const source = registryEntry.dataOwnership === 'entity' ? parseSource(widget.widgetKey as MarketingWidgetKey, config) : undefined
-        if (registryEntry.dataOwnership === 'entity' && !source) {
+        const hasBindingSlot = Boolean(definition?.bindingSlots?.length)
+        const source =
+            registryEntry.dataOwnership === 'entity' && !hasBindingSlot
+                ? parseSource(widget.widgetKey as MarketingWidgetKey, config)
+                : undefined
+        if (registryEntry.dataOwnership === 'entity' && !hasBindingSlot && !source) {
             throw new PublicMarketingMaterializationError('Public marketing widget source is invalid')
+        }
+        if (hasBindingSlot && (config.source !== undefined || config.copySource !== undefined)) {
+            throw new PublicMarketingMaterializationError(
+                'Public marketing widgets with binding slots must use their registered Entity binding'
+            )
         }
         const copySource = parseCopySource(widget.widgetKey as MarketingWidgetKey, config)
         if (config.copySource !== undefined && !copySource) {
@@ -571,6 +629,17 @@ export const serializePublicMarketingRuntime = ({
         if (source && !contentRecords) throw new PublicMarketingMaterializationError('Public marketing widget source is unavailable')
         const copyRecords = copySource ? sourceRecords(rows, recordsByObject, copySource) : []
         if (copySource && !copyRecords) throw new PublicMarketingMaterializationError('Public marketing widget copy source is unavailable')
+        let bindingData: ReturnType<typeof projectMarketingWidgetBindingData>
+        try {
+            bindingData = projectMarketingWidgetBindingData({
+                widgetKey: widget.widgetKey,
+                bindings: getApplicationLayoutWidgetSourceBindingState(widget)?.bindings,
+                loadRecords: (target) => rows.get(target.entityCodename as MarketingSourceCodename) ?? [],
+                config: runtimeConfig
+            })
+        } catch {
+            throw new PublicMarketingMaterializationError('Public marketing widget Entity binding is unavailable')
+        }
         if (widget.widgetKey === 'marketing.pricing' && config.showBenefits !== false && !rows.has('MarketingPagePricingBenefit')) {
             throw new PublicMarketingMaterializationError('Public marketing pricing benefits are unavailable')
         }
@@ -595,10 +664,6 @@ export const serializePublicMarketingRuntime = ({
             case 'marketing.navigation':
                 append(recordsByObject.get('MarketingPageSiteSettings') ?? [], 1)
                 append(contentRecords ?? [])
-                break
-            case 'marketing.hero':
-                append(copyRecords ?? [])
-                append(contentRecords ?? [], 1)
                 break
             case 'marketing.collection':
                 append(copyRecords ?? [])
@@ -636,7 +701,8 @@ export const serializePublicMarketingRuntime = ({
             case 'marketing.image': {
                 const media = toPublicMedia(config.media, 'hero')
                 if (!media) throw new PublicMarketingMaterializationError('Public marketing image media is invalid')
-                const instanceKey = resolvePublicWidgetInstanceKey(widget.widgetKey, config, publicWidgets.length, usedPublicInstanceKeys)
+                const instanceKey = publicInstanceKeyByWidget.get(widget)
+                if (!instanceKey) throw new PublicMarketingMaterializationError('Public marketing widget identity is invalid')
                 resolvedKeysByWidgetKey.set(widget.widgetKey, [...(resolvedKeysByWidgetKey.get(widget.widgetKey) ?? []), instanceKey])
                 publicWidgets.push({
                     instanceKey,
@@ -651,7 +717,8 @@ export const serializePublicMarketingRuntime = ({
             }
         }
 
-        const instanceKey = resolvePublicWidgetInstanceKey(widget.widgetKey, config, publicWidgets.length, usedPublicInstanceKeys)
+        const instanceKey = publicInstanceKeyByWidget.get(widget)
+        if (!instanceKey) throw new PublicMarketingMaterializationError('Public marketing widget identity is invalid')
         resolvedKeysByWidgetKey.set(widget.widgetKey, [...(resolvedKeysByWidgetKey.get(widget.widgetKey) ?? []), instanceKey])
         let publicConfig: PublicRecord
         switch (widget.widgetKey) {
@@ -703,7 +770,11 @@ export const serializePublicMarketingRuntime = ({
             sortOrder: widget.sortOrder,
             isActive: true,
             config: publicConfig,
-            data: { records: recordsForWidget }
+            data: remapPublicActionAnchors(
+                bindingData ?? { records: recordsForWidget },
+                publicHrefBySourceAnchor,
+                unavailablePublicAnchorHref
+            ) as PublicRecord
         })
     }
 

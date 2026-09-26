@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState, type Dispatch, type SetStateAction } from 'react'
-import { Button, FormControl, FormHelperText, InputLabel, MenuItem, Select, Stack, TextField } from '@mui/material'
+import { Button, FormControl, FormHelperText, InputLabel, MenuItem, Stack, TextField } from '@mui/material'
 import type { TFunction } from 'i18next'
 import { StandardDialog } from '@universo-react/template-mui'
 import type { ApplicationLayout, ApplicationLayoutScope, ApplicationTemplateKey } from '@universo-react/types'
+import { DropdownSelect as Select } from '@universo-react/template-mui/dropdowns'
 
 type Translate = TFunction
 

@@ -404,7 +404,8 @@ export class TemplateSeedExecutor {
                 const widgetEnvelope = decodeWidgetConfigEnvelope(w.config ?? {}, {
                     templateKey: layoutRow?.template_key ?? 'dashboard',
                     widgetKey,
-                    zone: w.zone
+                    zone: w.zone,
+                    requireBindings: true
                 })
                 let config = widgetEnvelope.rendererConfig
                 if (isMarketingLayout) {
@@ -416,7 +417,7 @@ export class TemplateSeedExecutor {
                 }
                 config = encodeWidgetConfigEnvelope(
                     { rendererConfig: config, neutral: widgetEnvelope.neutral },
-                    { templateKey: layoutRow?.template_key ?? 'dashboard', widgetKey, zone: w.zone }
+                    { templateKey: layoutRow?.template_key ?? 'dashboard', widgetKey, zone: w.zone, requireBindings: true }
                 )
                 const existsQuery = qb.withSchema(this.schemaName).from(widgetTableName).where({
                     layout_id: layoutId,

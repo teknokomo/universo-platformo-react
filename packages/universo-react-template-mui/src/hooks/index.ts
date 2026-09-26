@@ -40,6 +40,10 @@ export {
     truncateValueGroupName,
     truncateOptionListName,
     truncateConnectorName,
-    truncateLayoutName
+    truncateLayoutName,
+    useInstanceName,
+    truncateInstanceName,
+    useRoleName,
+    truncateRoleName
 } from './useBreadcrumbName'
 export type { EntityNameHookConfig, EntityNameFetcher } from './useBreadcrumbName'

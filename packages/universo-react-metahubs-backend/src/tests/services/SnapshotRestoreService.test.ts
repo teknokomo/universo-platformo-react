@@ -28,8 +28,11 @@ jest.mock('../../persistence', () => ({
 import { SnapshotRestoreService } from '../../domains/metahubs/services/SnapshotRestoreService'
 import { computeModuleSourceChecksum } from '../../domains/modules/services/ModuleSourceFileService'
 import type { MetahubSnapshot } from '../../domains/publications/services/SnapshotSerializer'
-import { createLocalizedContent } from '@universo-react/utils'
+import { createLocalizedContent, updateLocalizedContentLocale } from '@universo-react/utils'
 import {
+    buildSingleTargetWidgetBinding,
+    encodeWidgetConfigEnvelope,
+    getLayoutWidgetDefinition,
     PLAYCANVAS_EDITOR_PACKAGE_NAME,
     PLAYCANVAS_PROJECT_SCHEMA_VERSION,
     PLAYCANVAS_PROJECT_SNAPSHOT_SCHEMA_VERSION,
@@ -183,6 +186,67 @@ describe('SnapshotRestoreService', () => {
         override: '019e8afa-0000-7000-8000-000000000019',
         scopedEntity: '019e8afa-0000-7000-8000-00000000001a'
     } as const
+    const marketingHeroDefinition = getLayoutWidgetDefinition('marketing.hero')
+    const marketingHeroBindingSlot = marketingHeroDefinition?.bindingSlots?.[0]
+    if (!marketingHeroDefinition || !marketingHeroBindingSlot) throw new Error('Marketing Hero binding contract is not registered')
+
+    const marketingHeroEntity = () => ({
+        kind: 'object',
+        codename: 'MarketingPageHero',
+        presentation: { name: { en: 'Marketing hero' }, description: {} },
+        config: {
+            capabilities: { dataSchema: { enabled: true }, records: { enabled: true } },
+            recordPolicy: { version: 1, ...marketingHeroBindingSlot.requirements.recordPolicy }
+        },
+        fields: marketingHeroBindingSlot.requirements.components.map((component) => ({
+            codename: component.componentCodename,
+            dataType: component.valueType.toUpperCase(),
+            isRequired: component.required,
+            validationRules: {
+                ...(component.localized ? { localized: true } : {}),
+                ...(component.maxLength !== undefined ? { maxLength: component.maxLength } : {}),
+                ...(component.semanticKey ? { unique: true } : {}),
+                ...(component.format !== undefined ? { format: component.format } : {})
+            }
+        }))
+    })
+
+    const marketingHeroRecordData = () => {
+        const localized = (en: string, ru: string) => updateLocalizedContentLocale(createLocalizedContent('en', en), 'ru', ru)
+        return {
+            HeroKey: 'default',
+            Title: localized('Our latest', 'Наши новые'),
+            Accent: localized('products', 'продукты'),
+            Description: localized('Explore the product.', 'Изучите продукт.'),
+            EmailLabel: localized('Email', 'Электронная почта'),
+            EmailPlaceholder: localized('you@example.test', 'name@example.test'),
+            PrimaryActionLabel: localized('Start now', 'Начать'),
+            PrimaryAction: { kind: 'internal', path: '/auth', target: 'same-tab' }
+        }
+    }
+
+    const marketingHeroWidget = (layoutId: string, id: string, instanceKey = 'hero') => ({
+        id,
+        layoutId,
+        zone: 'marketing-main',
+        widgetKey: 'marketing.hero',
+        sortOrder: 0,
+        config: encodeWidgetConfigEnvelope(
+            {
+                rendererConfig: { instanceKey, showLeadForm: false },
+                neutral: {
+                    bindings: buildSingleTargetWidgetBinding(marketingHeroDefinition, 'content', {
+                        entityKind: 'object',
+                        entityCodename: 'MarketingPageHero',
+                        semanticKey: 'default'
+                    })
+                }
+            },
+            { templateKey: 'marketing-page', widgetKey: 'marketing.hero', zone: 'marketing-main' }
+        ),
+        isActive: true
+    })
+
     const getCodenameText = (row: Record<string, unknown>): string => {
         const codename = row.codename
         if (typeof codename === 'string') return codename
@@ -1124,7 +1188,7 @@ describe('SnapshotRestoreService', () => {
 
     it('rejects a cross-template scoped overlay during snapshot restore', async () => {
         const sourceScopeEntityId = '019e8afa-0000-7000-8000-000000000020'
-        const siteSettingsEntityId = '019e8afa-0000-7000-8000-000000000021'
+        const heroEntityId = '019e8afa-0000-7000-8000-000000000022'
         const snapshot = makeMinimalSnapshot({
             entities: {
                 [sourceScopeEntityId]: {
@@ -1134,14 +1198,9 @@ describe('SnapshotRestoreService', () => {
                     config: {},
                     fields: []
                 },
-                [siteSettingsEntityId]: {
-                    kind: 'object',
-                    codename: 'MarketingPageSiteSettings',
-                    presentation: { name: { en: 'Site settings' }, description: {} },
-                    config: {},
-                    fields: []
-                }
+                [heroEntityId]: marketingHeroEntity()
             },
+            elements: { [heroEntityId]: [{ codename: 'default', sortOrder: 1, data: marketingHeroRecordData() }] },
             layouts: [
                 {
                     id: validLayoutIds.global,
@@ -1178,11 +1237,7 @@ describe('SnapshotRestoreService', () => {
                     zone: 'marketing-main',
                     widgetKey: 'marketing.hero',
                     sortOrder: 0,
-                    config: {
-                        instanceKey: 'hero',
-                        source: { entityCodename: 'MarketingPageSiteSettings', entityKind: 'object' },
-                        showLeadForm: false
-                    },
+                    config: marketingHeroWidget(validLayoutIds.global, validLayoutIds.globalWidget).config,
                     isActive: true
                 }
             ]
@@ -1696,18 +1751,10 @@ describe('SnapshotRestoreService', () => {
     it('rejects malformed marketing layout data before destructive restore writes', async () => {
         const layoutId = '018f3f98-7a63-7b4a-9a5a-20c9a5b2d104'
         const widgetId = '018f3f98-7a63-7b4a-9a5a-20c9a5b2d105'
-        const siteSettingsId = '018f3f98-7a63-7b4a-9a5a-20c9a5b2d201'
+        const heroEntityId = '018f3f98-7a63-7b4a-9a5a-20c9a5b2d201'
         const snapshot = makeMinimalSnapshot({
-            entities: {
-                [siteSettingsId]: {
-                    kind: 'object',
-                    codename: 'MarketingPageSiteSettings',
-                    presentation: { name: { en: 'Site settings' }, description: {} },
-                    fields: [],
-                    hubs: [],
-                    config: {}
-                }
-            },
+            entities: { [heroEntityId]: marketingHeroEntity() },
+            elements: { [heroEntityId]: [{ codename: 'default', data: marketingHeroRecordData() }] },
             layouts: [
                 {
                     id: layoutId,
@@ -1731,12 +1778,70 @@ describe('SnapshotRestoreService', () => {
                     zone: 'marketing-main',
                     widgetKey: 'marketing.hero',
                     sortOrder: 0,
-                    config: {
-                        instanceKey: 'hero',
-                        source: { entityCodename: 'MarketingPageSiteSettings', entityKind: 'object' },
-                        showLeadForm: false,
-                        unexpected: true
-                    },
+                    config: encodeWidgetConfigEnvelope(
+                        {
+                            rendererConfig: { instanceKey: 'hero', showLeadForm: false, unexpected: true },
+                            neutral: {
+                                bindings: buildSingleTargetWidgetBinding(marketingHeroDefinition, 'content', {
+                                    entityKind: 'object',
+                                    entityCodename: 'MarketingPageHero',
+                                    semanticKey: 'default'
+                                })
+                            }
+                        },
+                        { templateKey: 'marketing-page', widgetKey: 'marketing.hero', zone: 'marketing-main' }
+                    ),
+                    isActive: true
+                }
+            ]
+        } as unknown as Partial<MetahubSnapshot>)
+        const { knex, deletedTables, trxFn } = createMockKnex()
+        const service = new SnapshotRestoreService(knex as any, 'mhb_a1b2c3d4e5f67890abcdef1234567890_b1')
+
+        await expect(service.restoreFromSnapshot('metahub-1', snapshot, 'user-1')).rejects.toMatchObject({
+            code: 'VALIDATION_ERROR',
+            statusCode: 400
+        })
+        expect(deletedTables).toEqual([])
+        expect(trxFn).not.toHaveBeenCalled()
+    })
+
+    it('rejects a nested bound Hero Component before destructive restore writes', async () => {
+        const layoutId = '019e8afa-0000-7000-8000-000000000031'
+        const widgetId = '019e8afa-0000-7000-8000-000000000032'
+        const heroEntityId = '019e8afa-0000-7000-8000-000000000033'
+        const heroEntity = marketingHeroEntity() as { fields: Array<Record<string, unknown>> }
+        const primaryActionComponent = heroEntity.fields.find(({ codename }) => codename === 'PrimaryAction')
+        if (!primaryActionComponent) throw new Error('Marketing Hero action Component is missing')
+        primaryActionComponent.parentComponentId = '019e8afa-0000-7000-8000-000000000034'
+
+        const snapshot = makeMinimalSnapshot({
+            entities: { [heroEntityId]: heroEntity },
+            elements: { [heroEntityId]: [{ codename: 'default', data: marketingHeroRecordData() }] },
+            layouts: [
+                {
+                    id: layoutId,
+                    templateKey: 'marketing-page',
+                    name: { en: 'Marketing page' },
+                    description: null,
+                    config: {},
+                    isDefault: true,
+                    isActive: true,
+                    sortOrder: 0,
+                    compositionMode: 'independent',
+                    baseLayoutId: null
+                }
+            ],
+            defaultLayoutId: layoutId,
+            layoutConfig: {},
+            layoutZoneWidgets: [
+                {
+                    id: widgetId,
+                    layoutId,
+                    zone: 'marketing-main',
+                    widgetKey: 'marketing.hero',
+                    sortOrder: 0,
+                    config: marketingHeroWidget(layoutId, widgetId).config,
                     isActive: true
                 }
             ]
@@ -1792,16 +1897,10 @@ describe('SnapshotRestoreService', () => {
 
     it('consumes snapshot composition transport fields without persisting them as renderer config', async () => {
         const layoutId = '019e8afa-0000-7000-8000-000000000020'
+        const heroEntityId = '019e8afa-0000-7000-8000-000000000022'
         const snapshot = makeMinimalSnapshot({
-            entities: {
-                'marketing-site-settings': {
-                    kind: 'object',
-                    codename: 'MarketingPageSiteSettings',
-                    presentation: { name: { en: 'Marketing site settings' }, description: {} },
-                    config: {},
-                    fields: []
-                }
-            },
+            entities: { [heroEntityId]: marketingHeroEntity() },
+            elements: { [heroEntityId]: [{ codename: 'default', sortOrder: 1, data: marketingHeroRecordData() }] },
             layouts: [
                 {
                     id: layoutId,
@@ -1827,11 +1926,7 @@ describe('SnapshotRestoreService', () => {
                     zone: 'marketing-main',
                     widgetKey: 'marketing.hero',
                     sortOrder: 0,
-                    config: {
-                        instanceKey: 'hero',
-                        source: { entityCodename: 'MarketingPageSiteSettings', entityKind: 'object' },
-                        showLeadForm: false
-                    },
+                    config: marketingHeroWidget(layoutId, '019e8afa-0000-7000-8000-000000000021').config,
                     isActive: true
                 }
             ]

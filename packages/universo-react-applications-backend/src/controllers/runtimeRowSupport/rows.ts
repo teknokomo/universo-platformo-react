@@ -11,6 +11,7 @@ import {
 } from '../../shared/runtimeHelpers'
 import { type RuntimeCopyRelation } from './contracts'
 import { buildRuntimeAttrLookup, loadRuntimeObjectAttrs, resolveRuntimeObjectByCodename } from './objects'
+import { assertRuntimeEntityMutationAllowed } from '../../shared/entityMutationPolicy'
 import { PUBLIC_MARKETING_ROW_LIMIT } from '../../persistence/publicApplicationRuntimeStore'
 import { isMarketingSeedObject } from '../../services/marketingSeedGuard'
 import { buildRuntimeRecordRuleLockKey } from '../../services/runtimeRecordRules'
@@ -111,6 +112,7 @@ export const copyRuntimeConfiguredRelations = async ({
                 code: 'RUNTIME_COPY_RELATION_INVALID'
             })
         }
+        assertRuntimeEntityMutationAllowed(relationObject.config)
 
         const attrs = await loadRuntimeObjectAttrs(manager, schemaIdent, relationObject.id)
         const attrsByKey = buildRuntimeAttrLookup(attrs)

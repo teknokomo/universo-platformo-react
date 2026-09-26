@@ -9,22 +9,21 @@ import {
     Tab,
     TextField,
     CircularProgress,
-    Popper,
     FormControl,
     FormControlLabel,
     FormHelperText,
     Radio,
     RadioGroup
 } from '@mui/material'
-import Autocomplete, { autocompleteClasses } from '@mui/material/Autocomplete'
-import { styled } from '@mui/material/styles'
 import AddRoundedIcon from '@mui/icons-material/AddRounded'
-import UnfoldMoreRoundedIcon from '@mui/icons-material/UnfoldMoreRounded'
 import { useTranslation } from 'react-i18next'
 import { useCommonTranslations } from '@universo-react/i18n'
 import { useSnackbar } from 'notistack'
 import { useQueryClient, useQuery } from '@tanstack/react-query'
 
+// project imports
+// project imports
+// project imports
 // project imports
 import {
     TemplateMainCard as MainCard,
@@ -64,6 +63,7 @@ import {
 } from '../../../../../types'
 import { hasAxiosResponse, isOptimisticLockConflict, extractConflictInfo, type ConflictInfo } from '@universo-react/utils'
 import { useMetahubPrimaryLocale } from '../../../../settings/hooks/useMetahubPrimaryLocale'
+import { MARKETING_ACTION_INTERNAL_ROUTES } from '@universo-react/types'
 import recordActions from './RecordActions'
 import InlineTableEditor from './InlineTableEditor'
 import type { DynamicFieldConfig, DynamicFieldValidationRules } from '@universo-react/template-mui/components/dialogs'
@@ -75,6 +75,8 @@ import {
     toPayload as objectToPayload
 } from '../../../presets/ui/ObjectCollectionActions'
 import type { ObjectCollectionDisplayWithContainer } from '../../../presets/ui/ObjectCollectionActions'
+import MarketingActionField from './fields/MarketingActionField'
+import { formatMarketingActionSummary, type MarketingActionSummaryLabels } from './fields/marketingAction'
 import { useUpdateObjectCollectionAtMetahub } from '../../../presets/hooks/objectCollectionMutations'
 import {
     type ElementMenuContext,
@@ -88,20 +90,7 @@ import {
     applyCopySuffixToFirstStringComponent
 } from './recordListUtils'
 import { buildObjectCollectionAuthoringPath } from '../../../../shared/entityMetadataRoutePaths'
-
-const StyledPopper = styled(Popper)(({ theme }) => ({
-    boxShadow: theme.shadows[4],
-    borderRadius: 10,
-    [`& .${autocompleteClasses.paper}`]: {
-        borderRadius: 10,
-        border: `1px solid ${theme.palette.divider}`,
-        backgroundColor: theme.palette.background.paper
-    },
-    [`& .${autocompleteClasses.listbox}`]: {
-        boxSizing: 'border-box',
-        padding: 6
-    }
-}))
+import { DropdownAutocomplete as Autocomplete } from '@universo-react/template-mui/dropdowns'
 
 const getLocalizedCodenameString = (codename: unknown, locale: string, fallback: string): string => {
     if (typeof codename === 'string' && codename.trim().length > 0) {
@@ -231,20 +220,6 @@ const ReferenceFieldAutocomplete = ({
             onChange={(_event, newValue) => onChange(newValue?.id ?? null)}
             getOptionLabel={(option) => option.name}
             isOptionEqualToValue={(option, optionValue) => option.id === optionValue.id}
-            popupIcon={<UnfoldMoreRoundedIcon fontSize='small' />}
-            slots={{ popper: StyledPopper }}
-            slotProps={{
-                popupIndicator: {
-                    disableRipple: true,
-                    sx: {
-                        backgroundColor: 'transparent',
-                        border: 'none',
-                        boxShadow: 'none',
-                        padding: 0.5,
-                        '&:hover': { backgroundColor: 'transparent' }
-                    }
-                }
-            }}
             loading={isObjectTarget ? isLoadingElements || isLoadingComponents : isLoadingEntities}
             loadingText={isObjectTarget ? t('ref.loadingElements', 'Loading records...') : t('ref.loadingEntities', 'Loading entities...')}
             noOptionsText={
@@ -252,17 +227,6 @@ const ReferenceFieldAutocomplete = ({
                     ? t('ref.noElementsAvailable', 'No records available')
                     : t('ref.noEntitiesAvailable', 'No entities available')
             }
-            sx={{
-                '& .MuiAutocomplete-endAdornment': {
-                    top: '50%',
-                    transform: 'translateY(-50%)'
-                },
-                '& .MuiAutocomplete-popupIndicator': {
-                    backgroundColor: 'transparent',
-                    border: 'none',
-                    boxShadow: 'none'
-                }
-            }}
             renderInput={(params) => (
                 <TextField
                     {...params}
@@ -459,20 +423,6 @@ const EnumerationFieldAutocomplete = ({
             onChange={(_event, newValue) => onChange(newValue?.id ? newValue.id : null)}
             getOptionLabel={(option) => option.label}
             isOptionEqualToValue={(option, optionValue) => option.id === optionValue.id}
-            popupIcon={<UnfoldMoreRoundedIcon fontSize='small' />}
-            slots={{ popper: StyledPopper }}
-            slotProps={{
-                popupIndicator: {
-                    disableRipple: true,
-                    sx: {
-                        backgroundColor: 'transparent',
-                        border: 'none',
-                        boxShadow: 'none',
-                        padding: 0.5,
-                        '&:hover': { backgroundColor: 'transparent' }
-                    }
-                }
-            }}
             loading={isLoading}
             loadingText={t('common.loading', 'Loading...')}
             noOptionsText={t('ref.noOptionValuesAvailable', 'No values available')}
@@ -481,17 +431,6 @@ const EnumerationFieldAutocomplete = ({
                     {option.label || '\u00A0'}
                 </li>
             )}
-            sx={{
-                '& .MuiAutocomplete-endAdornment': {
-                    top: '50%',
-                    transform: 'translateY(-50%)'
-                },
-                '& .MuiAutocomplete-popupIndicator': {
-                    backgroundColor: 'transparent',
-                    border: 'none',
-                    boxShadow: 'none'
-                }
-            }}
             renderInput={(params) => (
                 <TextField
                     {...params}
@@ -523,6 +462,34 @@ const RecordList = () => {
     const { kindKey } = useParams<{ kindKey?: string }>()
     const { t, i18n } = useTranslation(['metahubs', 'common', 'flowList'])
     const { t: tc } = useCommonTranslations()
+
+    const marketingActionSummaryLabels = useMemo<MarketingActionSummaryLabels>(
+        () => ({
+            unavailable: tc('layouts.marketing.heroAuthoring.actionSummary.unavailable', {
+                defaultValue: 'Action destination unavailable'
+            }),
+            actionKinds: {
+                internal: tc('layouts.marketing.heroAuthoring.actionKinds.internal', { defaultValue: 'Application page' }),
+                external: tc('layouts.marketing.heroAuthoring.actionKinds.external', { defaultValue: 'Website' }),
+                anchor: tc('layouts.marketing.heroAuthoring.actionKinds.anchor', { defaultValue: 'Page section' }),
+                email: tc('layouts.marketing.heroAuthoring.actionKinds.email', { defaultValue: 'Email' }),
+                tel: tc('layouts.marketing.heroAuthoring.actionKinds.tel', { defaultValue: 'Phone' })
+            },
+            internalRoutes: Object.fromEntries(
+                MARKETING_ACTION_INTERNAL_ROUTES.map(({ path, labelKey, defaultLabel }) => [
+                    path,
+                    tc(labelKey, { defaultValue: defaultLabel })
+                ])
+            ),
+            withTarget: (kind, target) =>
+                tc('layouts.marketing.heroAuthoring.actionSummary.withTarget', {
+                    kind,
+                    target,
+                    defaultValue: '{{kind}} — {{target}}'
+                })
+        }),
+        [tc]
+    )
 
     const { enqueueSnackbar } = useSnackbar()
     const queryClient = useQueryClient()
@@ -790,6 +757,19 @@ const RecordList = () => {
         }) => {
             const { field, value, onChange, disabled, error, helperText, locale } = params
 
+            if (field.validationRules?.format === 'marketingAction') {
+                return (
+                    <MarketingActionField
+                        field={field}
+                        value={value}
+                        onChange={onChange}
+                        disabled={disabled}
+                        error={error}
+                        helperText={helperText}
+                    />
+                )
+            }
+
             // Handle TABLE type with inline table editor
             if (field.type === 'TABLE' && field.childFields && field.childFields.length > 0) {
                 const tableRows = Array.isArray(value) ? (value as Record<string, unknown>[]) : []
@@ -971,6 +951,15 @@ const RecordList = () => {
                     const value = row.data?.[componentKey]
                     if (value === undefined || value === null) return '—'
 
+                    if (cmp.dataType === 'JSON' && cmp.validationRules?.format === 'marketingAction') {
+                        const summary = formatMarketingActionSummary(value, marketingActionSummaryLabels)
+                        return (
+                            <Typography sx={{ fontSize: 13, color: 'text.secondary' }} title={summary} noWrap>
+                                {summary}
+                            </Typography>
+                        )
+                    }
+
                     switch (cmp.dataType) {
                         case 'STRING': {
                             const localizedValue = isVersionedLocalizedContent(value) ? getVLCString(value, i18n.language) : String(value)
@@ -1040,7 +1029,16 @@ const RecordList = () => {
         })
 
         return cols
-    }, [i18n.language, visibleComponentsForColumns, refDisplayMap, refTargetByComponent, isFetchingRefDisplayMap, resolveFieldKey, t])
+    }, [
+        i18n.language,
+        visibleComponentsForColumns,
+        refDisplayMap,
+        refTargetByComponent,
+        isFetchingRefDisplayMap,
+        resolveFieldKey,
+        t,
+        marketingActionSummaryLabels
+    ])
 
     const handleMoveElement = useCallback(
         async (recordId: string, direction: 'up' | 'down') => {
@@ -1710,28 +1708,12 @@ const RecordList = () => {
                 onConfirm={() => {
                     if (!dialogs.delete.item) return
 
-                    deleteElementMutation.mutate(
-                        {
-                            metahubId,
-                            treeEntityId: effectiveTreeEntityId,
-                            objectCollectionId,
-                            recordId: dialogs.delete.item.id
-                        },
-                        {
-                            onError: (err: unknown) => {
-                                const responseMessage = extractResponseMessage(err)
-                                const message =
-                                    typeof responseMessage === 'string'
-                                        ? responseMessage
-                                        : err instanceof Error
-                                        ? err.message
-                                        : typeof err === 'string'
-                                        ? err
-                                        : t('records.deleteError')
-                                enqueueSnackbar(message, { variant: 'error' })
-                            }
-                        }
-                    )
+                    deleteElementMutation.mutate({
+                        metahubId,
+                        treeEntityId: effectiveTreeEntityId,
+                        objectCollectionId,
+                        recordId: dialogs.delete.item.id
+                    })
                 }}
             />
             <ConflictResolutionDialog

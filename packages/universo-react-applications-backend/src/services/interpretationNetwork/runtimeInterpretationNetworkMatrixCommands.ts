@@ -16,6 +16,7 @@ import {
     activeWorkspaceWhere,
     assertColumn,
     assertReadySurface,
+    assertInterpretationNetworkEntityMutationAllowed,
     assertRuntimePermissions,
     childTableIdent,
     getChildField,
@@ -203,6 +204,7 @@ export const createInterpretationNetworkMatrixCell = async (
     const surface = assertReadySurface(runtimeSurface, 'createMatrixCell')
     assertRuntimePermissions(ctx, 'createContent', 'editContent')
     const contract = surface.contracts.Interpretation
+    assertInterpretationNetworkEntityMutationAllowed(contract.object.config)
     const columns = resolveMatrixColumns(contract)
     const clientValues = prepareClientChildValues(contract, input.data)
 
@@ -291,6 +293,7 @@ export const moveInterpretationNetworkMatrixCells = async (
     const surface = assertReadySurface(runtimeSurface, 'moveMatrixCells')
     assertRuntimePermissions(ctx, 'editContent')
     const contract = surface.contracts.Interpretation
+    assertInterpretationNetworkEntityMutationAllowed(contract.object.config)
     const columns = resolveMatrixColumns(contract)
     const duplicateId = input.updates.find(
         (update, index) => input.updates.findIndex((candidate) => candidate.matrixRowId === update.matrixRowId) !== index

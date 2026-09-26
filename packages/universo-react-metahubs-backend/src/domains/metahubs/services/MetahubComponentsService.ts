@@ -36,6 +36,11 @@ import { buildMergedSharedEntityList, planMergedSharedEntityOrder, type SharedEn
 import { SharedEntityOverridesService } from '../../shared/services/SharedEntityOverridesService'
 import { SharedContainerService } from '../../shared/services/SharedContainerService'
 import { mhbSoftDelete } from '../../../persistence/metahubsQueryHelpers'
+import {
+    assertMarketingHeroComponentMutation,
+    isMarketingHeroBindingComponentCodename,
+    isMarketingHeroEntityMetadata
+} from '../../shared/entityMetadataMutationPolicy'
 
 const ACTIVE = '_upl_deleted = false AND _mhb_deleted = false'
 type ComponentScope = 'business' | 'system' | 'all'
@@ -173,6 +178,89 @@ export class MetahubComponentsService {
                 code: 'SYSTEM_COMPONENT_PROTECTED'
             })
         }
+    }
+
+    private async assertMarketingHeroComponentMutationAllowed({
+        schemaName,
+        objectCollectionId,
+        componentId,
+        runner,
+        operation,
+        patch
+    }: {
+        schemaName: string
+        objectCollectionId: string
+        componentId: string
+        runner: SqlQueryable
+        operation: 'update' | 'delete' | 'set-display' | 'move'
+        patch?: {
+            codename?: unknown
+            dataType?: string
+            isRequired?: boolean
+            isDisplayComponent?: boolean
+            validationRules?: unknown
+            parentComponentId?: string | null
+        }
+    }): Promise<void> {
+        const objectsTable = qSchemaTable(schemaName, '_mhb_objects')
+        const componentsTable = qSchemaTable(schemaName, '_mhb_components')
+        const object = await queryOne<{ codename: unknown; config: unknown }>(
+            runner,
+            `SELECT codename, config FROM ${objectsTable}
+             WHERE id = $1 AND kind = $2 AND ${ACTIVE}
+             LIMIT 1 FOR SHARE`,
+            [objectCollectionId, 'object']
+        )
+        if (!object) return
+        const entityCodename = getCodenameText(object.codename)
+        if (!isMarketingHeroEntityMetadata(entityCodename, object.config)) return
+
+        const componentRow = await queryOne<Record<string, unknown>>(
+            runner,
+            `SELECT * FROM ${componentsTable}
+             WHERE id = $1 AND object_id = $2 AND ${ACTIVE}
+             LIMIT 1 FOR UPDATE`,
+            [componentId, objectCollectionId]
+        )
+        if (!componentRow) return
+
+        const current = this.mapRowToComponent(componentRow)
+        const nextCodename = patch?.codename === undefined ? current.codename : getCodenameText(patch.codename)
+        const next =
+            operation === 'delete'
+                ? undefined
+                : {
+                      codename: nextCodename,
+                      dataType: patch?.dataType ?? current.dataType,
+                      isRequired:
+                          operation === 'set-display' || patch?.isDisplayComponent === true
+                              ? true
+                              : patch?.isRequired ?? current.isRequired,
+                      validationRules: patch?.validationRules ?? current.validationRules,
+                      parentComponentId: patch?.parentComponentId === undefined ? current.parentComponentId : patch.parentComponentId
+                  }
+
+        assertMarketingHeroComponentMutation({
+            entityCodename,
+            entityConfig: object.config,
+            current,
+            next,
+            operation
+        })
+    }
+
+    private async acquireObjectSchemaMutationLock(schemaName: string, objectId: string, runner: SqlQueryable): Promise<void> {
+        const object = await queryOne<{ id: string }>(
+            runner,
+            `SELECT id
+               FROM ${qSchemaTable(schemaName, '_mhb_objects')}
+              WHERE id = $1
+                AND ${ACTIVE}
+              LIMIT 1
+              FOR SHARE`,
+            [objectId]
+        )
+        if (!object) throw new MetahubNotFoundError('Object', objectId)
     }
 
     private assertReservedBusinessCodenameAllowed(
@@ -395,11 +483,11 @@ export class MetahubComponentsService {
     /**
      * Returns ALL components (root + child) for snapshot/sync purposes.
      */
-    async findAllFlat(metahubId: string, objectId: string, userId?: string, scope: ComponentScope = 'business') {
+    async findAllFlat(metahubId: string, objectId: string, userId?: string, scope: ComponentScope = 'business', db?: SqlQueryable) {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
         const qt = qSchemaTable(schemaName, '_mhb_components')
         const rows = await queryMany<Record<string, unknown>>(
-            this.exec,
+            db ?? this.exec,
             `SELECT * FROM ${qt}
              WHERE object_id = $1 AND ${this.getScopeCondition(scope)} AND ${ACTIVE}
              ORDER BY sort_order ASC, _upl_created_at ASC`,
@@ -881,12 +969,13 @@ export class MetahubComponentsService {
         }))
     }
 
-    async create(metahubId: string, data: ComponentCreateInput, userId?: string, db?: SqlQueryable) {
+    async create(metahubId: string, data: ComponentCreateInput, userId?: string, db?: SqlQueryable): Promise<MetahubComponentRecord> {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
+        if (!db) return this.exec.transaction((tx) => this.create(metahubId, data, userId, tx))
+        this.assertReservedBusinessCodenameAllowed(data.codename)
+        if (data.system?.isSystem !== true) await this.acquireObjectSchemaMutationLock(schemaName, data.objectCollectionId, db)
         const qt = qSchemaTable(schemaName, '_mhb_components')
         let explicitComponentId: string | undefined
-
-        this.assertReservedBusinessCodenameAllowed(data.codename)
 
         // TABLE component limits validation
         if (data.parentComponentId) {
@@ -975,9 +1064,8 @@ export class MetahubComponentsService {
         ]
         const placeholders = values.map((_, i) => `$${i + 1}`).join(', ')
 
-        const runner = db ?? this.exec
         const created = await queryOneOrThrow<Record<string, unknown>>(
-            runner,
+            db,
             `INSERT INTO ${qt} (${columns.join(', ')}) VALUES (${placeholders}) RETURNING *`,
             values
         )
@@ -985,13 +1073,38 @@ export class MetahubComponentsService {
         return this.mapRowToComponent(created)
     }
 
-    async update(metahubId: string, id: string, data: ComponentMutationInput, userId?: string, db?: DbExecutor | SqlQueryable) {
+    async update(
+        metahubId: string,
+        id: string,
+        data: ComponentMutationInput,
+        userId?: string,
+        db?: DbExecutor | SqlQueryable
+    ): Promise<MetahubComponentRecord | null> {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
+        if (!db) return this.exec.transaction((tx) => this.update(metahubId, id, data, userId, tx))
         const qt = qSchemaTable(schemaName, '_mhb_components')
-        const runner = db ?? this.exec
-        const current = await this.findById(metahubId, id, userId, runner)
+        const runner = db
+        let current = await this.findById(metahubId, id, userId, runner)
+        if (current && !current.system?.isSystem) {
+            await this.acquireObjectSchemaMutationLock(schemaName, current.objectCollectionId, runner)
+            current = await this.findById(metahubId, id, userId, runner)
+        }
         this.assertReservedBusinessCodenameAllowed(data.codename, current)
         this.assertSystemMutationAllowed(current, data)
+
+        const nextCodename = data.codename === undefined ? current?.codename : getCodenameText(data.codename)
+        const needsMarketingHeroGuard =
+            isMarketingHeroBindingComponentCodename(current?.codename ?? '') || isMarketingHeroBindingComponentCodename(nextCodename ?? '')
+        if (needsMarketingHeroGuard && current) {
+            await this.assertMarketingHeroComponentMutationAllowed({
+                schemaName,
+                objectCollectionId: current.objectCollectionId,
+                componentId: id,
+                runner,
+                operation: 'update',
+                patch: data
+            })
+        }
 
         const updateData: Record<string, unknown> = {
             _upl_updated_at: new Date(),
@@ -1155,11 +1268,16 @@ export class MetahubComponentsService {
         return updated ? this.mapRowToComponent(updated) : null
     }
 
-    async delete(metahubId: string, id: string, userId?: string, db?: DbExecutor | SqlQueryable) {
+    async delete(metahubId: string, id: string, userId?: string, db?: DbExecutor | SqlQueryable): Promise<void> {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
+        if (!db) return this.exec.transaction((tx) => this.delete(metahubId, id, userId, tx))
         const qt = qSchemaTable(schemaName, '_mhb_components')
-        const runner = db ?? this.exec
-        const component = await this.findById(metahubId, id, userId, runner)
+        const runner = db
+        let component = await this.findById(metahubId, id, userId, runner)
+        if (component && !component.system?.isSystem) {
+            await this.acquireObjectSchemaMutationLock(schemaName, component.objectCollectionId, runner)
+            component = await this.findById(metahubId, id, userId, runner)
+        }
 
         if (component?.system?.isSystem) {
             throw new MetahubDomainError({
@@ -1169,7 +1287,19 @@ export class MetahubComponentsService {
             })
         }
 
+        const needsMarketingHeroGuard = isMarketingHeroBindingComponentCodename(component?.codename ?? '')
+
         const runDelete = async (tx: SqlQueryable) => {
+            if (needsMarketingHeroGuard && component) {
+                await this.assertMarketingHeroComponentMutationAllowed({
+                    schemaName,
+                    objectCollectionId: component.objectCollectionId,
+                    componentId: id,
+                    runner: tx,
+                    operation: 'delete'
+                })
+            }
+
             // If TABLE type, soft-delete children before parent
             const [componentData] = await tx.query<Record<string, unknown>>(`SELECT data_type FROM ${qt} WHERE id = $1`, [id])
             if (componentData?.data_type === ComponentDefinitionDataType.TABLE) {
@@ -1197,12 +1327,7 @@ export class MetahubComponentsService {
             }
         }
 
-        if (db) {
-            await runDelete(runner)
-            return
-        }
-
-        await this.exec.transaction(async (tx) => runDelete(tx))
+        await runDelete(runner)
     }
 
     async moveComponent(metahubId: string, objectId: string, componentId: string, direction: 'up' | 'down', userId?: string) {
@@ -1289,6 +1414,7 @@ export class MetahubComponentsService {
         const qt = qSchemaTable(schemaName, '_mhb_components')
 
         return this.exec.transaction(async (tx: SqlQueryable) => {
+            await this.acquireObjectSchemaMutationLock(schemaName, objectId, tx)
             // 1. Fetch current component
             const current = await queryOne<Record<string, unknown>>(
                 tx,
@@ -1308,6 +1434,17 @@ export class MetahubComponentsService {
             const isCrossList = targetParent !== currentParent
 
             if (isCrossList) {
+                if (isMarketingHeroBindingComponentCodename(getCodenameText(current.codename))) {
+                    await this.assertMarketingHeroComponentMutationAllowed({
+                        schemaName,
+                        objectCollectionId: objectId,
+                        componentId,
+                        runner: tx,
+                        operation: 'move',
+                        patch: { parentComponentId: targetParent }
+                    })
+                }
+
                 // ── Cross-list transfer validation ──
                 await this._validateCrossListTransfer(
                     tx,
@@ -1661,13 +1798,18 @@ export class MetahubComponentsService {
         db?: DbExecutor | SqlQueryable
     ): Promise<void> {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
+        if (!db) return this.exec.transaction((tx) => this.setDisplayComponent(metahubId, objectCollectionId, componentId, userId, tx))
         const qt = qSchemaTable(schemaName, '_mhb_components')
-        const runner = db ?? this.exec
+        const runner = db
 
-        const component = await this.findById(metahubId, componentId, userId, runner)
+        let component = await this.findById(metahubId, componentId, userId, runner)
         if (!component) {
             throw new MetahubNotFoundError('Component', componentId)
         }
+        if (component.objectCollectionId !== objectCollectionId) throw new MetahubNotFoundError('Component', componentId)
+        await this.acquireObjectSchemaMutationLock(schemaName, objectCollectionId, runner)
+        component = await this.findById(metahubId, componentId, userId, runner)
+        if (!component || component.objectCollectionId !== objectCollectionId) throw new MetahubNotFoundError('Component', componentId)
         if (component.system?.isSystem) {
             throw new MetahubDomainError({
                 message: 'System components cannot be used as display components',
@@ -1683,6 +1825,16 @@ export class MetahubComponentsService {
 
         const now = new Date()
         const applyDisplayComponent = async (tx: SqlQueryable) => {
+            if (isMarketingHeroBindingComponentCodename(component.codename)) {
+                await this.assertMarketingHeroComponentMutationAllowed({
+                    schemaName,
+                    objectCollectionId,
+                    componentId,
+                    runner: tx,
+                    operation: 'set-display'
+                })
+            }
+
             if (component.parentComponentId) {
                 // Child component: reset only siblings (children of the same parent)
                 await tx.query(
@@ -1707,12 +1859,7 @@ export class MetahubComponentsService {
             )
         }
 
-        if (db) {
-            await applyDisplayComponent(runner)
-            return
-        }
-
-        await this.exec.transaction(async (tx) => applyDisplayComponent(tx))
+        await applyDisplayComponent(runner)
     }
 
     /**
@@ -1720,13 +1867,18 @@ export class MetahubComponentsService {
      */
     async clearDisplayComponent(metahubId: string, componentId: string, userId?: string, db?: DbExecutor | SqlQueryable): Promise<void> {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
+        if (!db) return this.exec.transaction((tx) => this.clearDisplayComponent(metahubId, componentId, userId, tx))
         const qt = qSchemaTable(schemaName, '_mhb_components')
-        const runner = db ?? this.exec
+        const runner = db
 
-        const component = await queryOne<Record<string, unknown>>(runner, `SELECT * FROM ${qt} WHERE id = $1`, [componentId])
+        let component = await queryOne<Record<string, unknown>>(runner, `SELECT * FROM ${qt} WHERE id = $1`, [componentId])
         if (!component) {
             throw new MetahubNotFoundError('Component', componentId)
         }
+        const objectId = String(component.object_id)
+        await this.acquireObjectSchemaMutationLock(schemaName, objectId, runner)
+        component = await queryOne<Record<string, unknown>>(runner, `SELECT * FROM ${qt} WHERE id = $1`, [componentId])
+        if (!component || String(component.object_id) !== objectId) throw new MetahubNotFoundError('Component', componentId)
         if (component.is_system === true) {
             throw new MetahubDomainError({
                 message: 'System components cannot be used as display components',

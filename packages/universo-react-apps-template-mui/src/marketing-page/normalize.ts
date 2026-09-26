@@ -5,6 +5,7 @@ import {
     type MarketingAction as SharedMarketingAction,
     type MarketingAtomicHeaderWidget,
     type MarketingCollectionVariant,
+    type MarketingHeroEntityContent,
     type MarketingMedia as SharedMarketingMedia,
     type MarketingPageRecord,
     type MarketingPageRuntimeViewModel,
@@ -180,7 +181,7 @@ const visibleInContent = <T extends { visible?: boolean; order?: number }>(items
         )
         .map(({ item }) => item)
 
-const widgetItems = (widget: RuntimeWidget): RuntimeRecord[] => widget.data.records
+const widgetItems = (widget: RuntimeWidget): RuntimeRecord[] => ('records' in widget.data ? widget.data.records : []) as RuntimeRecord[]
 
 const isAtomicHeaderWidget = (value: MarketingPageRendererViewModel['marketingPage']['widgets'][number]): value is AtomicHeaderWidget => {
     return value.widgetKey === 'marketing.brand' || value.widgetKey === 'marketing.auth'
@@ -257,24 +258,24 @@ const normalizeNavigation = (items: readonly RuntimeRecord[], locale: string): M
     return { navigation }
 }
 
-const normalizeHero = (settings: SiteSettingsRecord | undefined, locale: string, showLeadForm = true): MarketingHeroData => {
-    const primaryAction = settings?.heroPrimaryAction
-    const secondaryAction = settings?.heroSecondaryAction
+const normalizeHero = (content: MarketingHeroEntityContent, locale: string, showLeadForm = true): MarketingHeroData => {
+    const submitLabel = text(content.primaryActionLabel, locale, 'heroSubmit')
+    const termsLabel = content.termsLinkLabel ? text(content.termsLinkLabel, locale, 'heroTerms') : undefined
+    const termsAction = content.termsAction && termsLabel ? action(content.termsAction, termsLabel, 'hero-secondary') : undefined
     return {
-        title: text(settings?.heroTitle, locale, 'heroTitle'),
-        accent: settings?.heroAccent ? text(settings.heroAccent, locale, 'heroAccent') : undefined,
-        description: text(settings?.heroSubtitle, locale),
-        lead:
-            showLeadForm && settings?.heroEmailLabel && settings.heroEmailPlaceholder
-                ? {
-                      label: text(settings.heroEmailLabel, locale, 'emailLabel'),
-                      placeholder: text(settings.heroEmailPlaceholder, locale, 'emailPlaceholder'),
-                      submitLabel: text(primaryAction?.label, locale, 'heroSubmit'),
-                      action: action(primaryAction?.action, text(primaryAction?.label, locale, 'heroSubmit'), 'hero-primary'),
-                      termsText: settings.heroTermsText ? text(settings.heroTermsText, locale) : undefined,
-                      termsAction: action(secondaryAction?.action, text(secondaryAction?.label, locale, 'heroTerms'), 'hero-secondary')
-                  }
-                : undefined
+        title: text(content.title, locale, 'heroTitle'),
+        accent: content.accent ? text(content.accent, locale, 'heroAccent') : undefined,
+        description: text(content.description, locale),
+        lead: showLeadForm
+            ? {
+                  label: text(content.emailLabel, locale, 'emailLabel'),
+                  placeholder: text(content.emailPlaceholder, locale, 'emailPlaceholder'),
+                  submitLabel,
+                  action: action(content.primaryAction, submitLabel, 'hero-primary'),
+                  termsText: content.termsText ? text(content.termsText, locale) : undefined,
+                  termsAction
+              }
+            : undefined
     }
 }
 
@@ -591,7 +592,7 @@ const normalizeWidget = (widget: RuntimeWidget, locale: string, globalSettings: 
             return {
                 ...frame(widget),
                 widgetKey: widget.widgetKey,
-                content: normalizeHero(firstSettings(items, globalSettings), locale, widget.config.showLeadForm)
+                content: normalizeHero(widget.data.records[0].content, locale, widget.config.showLeadForm)
             }
         case 'marketing.image': {
             const normalizedMedia = media(widget.config.media, locale)

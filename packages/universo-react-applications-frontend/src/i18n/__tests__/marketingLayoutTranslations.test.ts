@@ -43,6 +43,15 @@ const readWidgetLabel = (bundle: unknown, key: string): string => {
     return typeof value === 'string' ? value.trim() : ''
 }
 
+const readMarketingLayoutMessage = (bundle: unknown, key: string): string => {
+    if (!bundle || typeof bundle !== 'object' || Array.isArray(bundle)) return ''
+    const applications = (bundle as { applications?: { layouts?: { marketing?: unknown } } }).applications
+    const marketing = applications?.layouts?.marketing
+    if (!marketing || typeof marketing !== 'object' || Array.isArray(marketing)) return ''
+    const value = (marketing as Record<string, unknown>)[key]
+    return typeof value === 'string' ? value.trim() : ''
+}
+
 const MARKETING_ZONE_KEYS = ['marketingHeader', 'marketingMain', 'marketingFooter'] as const
 
 const readZoneLabel = (locale: unknown, key: string): string => {
@@ -76,5 +85,14 @@ describe('application marketing layout translations', () => {
             expect(english, `applications layouts.marketing.widget.${key} (EN)`).not.toBe('')
             expect(russian, `applications layouts.marketing.widget.${key} (RU)`).not.toBe('')
         }
+    })
+
+    it('keeps the Hero action integrity conflict message in the namespace used by the runtime UI', () => {
+        const english = readMarketingLayoutMessage(enApplications, 'heroActionIntegrityConflict')
+        const russian = readMarketingLayoutMessage(ruApplications, 'heroActionIntegrityConflict')
+
+        expect(english).not.toBe('')
+        expect(russian).not.toBe('')
+        expect(russian).not.toBe(english)
     })
 })

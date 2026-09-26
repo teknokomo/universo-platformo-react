@@ -13,6 +13,8 @@ export type MetahubErrorCode =
     | 'PUBLICATION_COMPENSATION_FAILED'
     | 'APPLICATION_COMPENSATION_FAILED'
     | 'RECORD_REFERENCED'
+    | 'RECORD_BOUND'
+    | 'RECORD_PROTECTED'
     | 'RECORD_KEY_DUPLICATE'
     | 'RECORD_REF_TARGET_MISSING'
     | 'TRANSFER_NOT_ALLOWED'
@@ -20,8 +22,10 @@ export type MetahubErrorCode =
     | 'TABLE_CHILD_LIMIT_REACHED'
     | 'TABLE_COMPONENT_LIMIT_REACHED'
     | 'TABLE_DISPLAY_COMPONENT_FORBIDDEN'
+    | 'MARKETING_HERO_COPY_MODE_REQUIRED'
     | 'SYSTEM_COMPONENT_PROTECTED'
     | 'DISPLAY_COMPONENT_TRANSFER_BLOCKED'
+    | 'ENTITY_COMPONENT_SCHEMA_PROTECTED'
     | 'BRANCH_CREATION_IN_PROGRESS'
     | 'BRANCH_DELETION_IN_PROGRESS'
     | 'BRANCH_CODENAME_EXISTS'
@@ -160,6 +164,30 @@ export class MetahubRecordReferencedError extends MetahubDomainError {
             details: { entity, ...details }
         })
         this.name = 'MetahubRecordReferencedError'
+    }
+}
+
+/** Raised when a layout binding still targets a design-time Entity record. */
+export class MetahubRecordBoundError extends MetahubDomainError {
+    constructor() {
+        super({
+            message: 'The record is still used by a layout. Remove or rebind the placement before deleting it.',
+            statusCode: 409,
+            code: 'RECORD_BOUND'
+        })
+        this.name = 'MetahubRecordBoundError'
+    }
+}
+
+/** Raised when a policy marks an Entity record as system-protected. */
+export class MetahubRecordProtectedError extends MetahubDomainError {
+    constructor() {
+        super({
+            message: 'This system-managed record cannot be deleted or have its semantic key changed.',
+            statusCode: 409,
+            code: 'RECORD_PROTECTED'
+        })
+        this.name = 'MetahubRecordProtectedError'
     }
 }
 

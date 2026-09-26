@@ -15,7 +15,6 @@ import {
     Button,
     FormControl,
     InputLabel,
-    Select,
     MenuItem,
     FormHelperText,
     FormControlLabel,
@@ -41,6 +40,9 @@ import { useCommonTranslations } from '@universo-react/i18n'
 import { useQueryClient } from '@tanstack/react-query'
 import { useSnackbar } from 'notistack'
 
+// project imports
+// project imports
+// project imports
 // project imports
 import {
     TemplateMainCard as MainCard,
@@ -89,6 +91,7 @@ import type { PublicationLocalizedPayload } from './PublicationActions'
 import { useMetahubPrimaryLocale } from '../../settings/hooks/useMetahubPrimaryLocale'
 import { invalidatePublicationSettingsQueries } from './publicationSettingsQueries'
 import { ImportSnapshotDialog } from './ImportSnapshotDialog'
+import { DropdownSelect as Select } from '@universo-react/template-mui/dropdowns'
 
 // ────────────────────────────────────────────────────────────────────────────
 // Component

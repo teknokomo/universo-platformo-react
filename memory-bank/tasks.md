@@ -1,3 +1,66 @@
+# Unified Entity-backed Marketing Hero — IMPLEMENT (2026-09-23)
+
+> Authoritative checklist for the QA-corrected plan at `memory-bank/plan/unified-entity-backed-widget-authoring-hero-pilot-plan-2026-09-22.md`. Preserve unrelated worktree changes. Clean break: no legacy Hero reads, DB migration, schema/template version bump, or `pnpm dev`.
+
+-   [x] MHP-01 Preflight: preserved the pre-existing dirty tree, checked OntoIndex and direct source (including skipped large files), reviewed package runners/UX contracts/runtime write surfaces, and confirmed the E2E Supabase container is stopped.
+-   [x] MHP-02 Added strict shared binding/slot contracts, bounded canonicalization, envelope preservation, registry presentation metadata and contract tests; targeted Vitest, types build, lint and Prettier pass.
+-   [x] MHP-03 Fresh template seed: Hero Object/Components/default record; fixture contracts updated without changing schema/template versions.
+-   [x] MHP-04 Trusted metahub placement select/create/rebind flows, live-binding policy and deadlock-safe transaction ordering.
+-   [x] MHP-05 Application binding baseline, source sync/reset/hash/effective-layout/snapshot/copy restrictions.
+-   [x] MHP-06 Bounded authenticated/public resolver using existing SQL-first stores and publication/read scopes.
+-   [x] MHP-07 Generic runtime write denial for source-owned Hero; direct API bypasses covered.
+-   [x] MHP-08 Reused existing metahub RecordList/DynamicEntityFormDialog and layout primitives for localized repeatable Hero authoring.
+-   [x] MHP-09 Query invalidation, EN/RU resources and error mapping.
+-   [x] MHP-10 Jest/Vitest and real-PostgreSQL coverage: types 230, utils 413, metahubs backend 1359, applications backend 1203, template-mui 303, metahubs frontend 429, applications frontend 332 tests; focused apps-template full suite 783/783.
+-   [x] MHP-11 Minimum-Supabase Playwright flows: 17 passed, 1 expected standalone-runtime skip; locale/theme visual matrix 5 passed, with screenshots, responsive sizes, keyboard/a11y and overflow assertions.
+-   [x] MHP-12 Updated fixtures, package READMEs, EN/RU GitBook docs and architecture contract; i18n, screenshot assets, local links and provenance gates pass.
+-   [x] MHP-13 Targeted lint/build/Prettier pass; UI and focused snapshot Thermos reviews pass; both correctness and maintainability subagents report no findings. OntoIndex matched all 217 changed paths but its symbol check is inconclusive (694 symbols flagged because no explicit expected-symbol inventory was supplied; impact scan capped at 25). Full-tree Thermos timed out on the 1.08M-character dirty-worktree bundle. E2E Supabase stopped; ordinary local Supabase remains healthy.
+
+# QA remediation — Unified Entity-backed Marketing Hero — IMPLEMENT (2026-09-24)
+
+> Close the confirmed gaps from `memory-bank/plan/unified-entity-backed-widget-authoring-hero-pilot-qa-2026-09-23.md` while preserving the pre-existing dirty worktree. No schema/template version bump, legacy reader, `pnpm dev`, or unrelated cleanup.
+
+## Current continuation action plan
+
+-   [x] Revalidate the Hero text-layout correction with package typecheck, build, lint, and browser geometry assertions.
+-   [x] Run the complete minimal-Supabase browser and documentation gates; inspect the generated EN/RU screenshots and record browser-visible evidence.
+-   [x] Complete independent security, test-oracle, and maintainability reviews; apply and verify all reported findings; run available Thermos and OntoIndex checks; record the full-worktree Autoreview timeout and OntoIndex dirty-tree limits in progress.
+
+-   [x] MHR-01 Fix long Hero title/accent flex behavior at tablet/mobile widths; add a real browser geometry and screenshot oracle for two long independently bound records.
+-   [x] MHR-02 Reuse one typed, localized MarketingAction editor in both the specialized Hero dialog and generic Object record editor; ensure normal tables do not expose action JSON and test both edit paths.
+-   [x] MHR-03 Replace manual internal route and anchor key entry with human-labelled, bounded choices from the host's current route/layout metadata; validate targets server-side and localize loading/empty/unavailable states.
+-   [x] MHR-04 Make binding conflict recovery refresh authoritative widget/binding state, tell the user what changed, and allow a fresh save; test success/conflict/retry and query invalidation.
+-   [x] MHR-05 Extend Playwright authoring to create a valid Hero record through the UI, bind it, publish and observe it; exercise rebind persistence and deletion denial/rebind flow, permissions, EN/RU, keyboard, and structured field display.
+-   [x] MHR-06 Remove the extra marketing.hero-specific resolver/DTO branch from authenticated and public serialization by routing through the shared binding projection contract; keep typed renderer output and public field allowlists.
+-   [x] MHR-07 Complete scalable, paginated/searchable Hero record selection and retain the selected record when it falls outside the current page.
+-   [x] MHR-08 Finish EN/RU screenshot documentation, provenance validation, focused commands and CI wiring from Plan Phase 11; no shared EN screenshot on the RU page.
+-   [x] MHR-09 Run focused package Jest/Vitest suites, package lint, Prettier, workspace builds, fresh minimal-Supabase Playwright and visual inspection; run Thermos reviewers and OntoIndex diff verification; update progress and this checklist with observed results. The full-worktree Autoreview timed out and is explicitly not counted as a pass.
+-   [x] MHR-10 Require Entity bindings at complete metahub, template, snapshot, and application-source boundaries while allowing application-local renderer-only configs; cover strict and projection-only codec behavior plus valid service fixtures.
+
+# Unified Entity-backed Marketing Hero — QA findings remediation (2026-09-24)
+
+> Close the follow-up QA findings in the current dirty worktree. Preserve the established package boundaries, shared MUI primitives, Entity content ownership, and clean-break constraints; do not bump schema/template versions or add legacy readers.
+
+## Phase A — Authoring contract and usability
+
+-   [ ] MHR-QA-01 Open the selected Entity record form directly when editing an existing Hero placement; keep explicit select/create/rebind actions available and localized.
+-   [ ] MHR-QA-02 Complete the neutral binding-slot metadata contract with serializable, localized selector labels/helper text and consume it in the authoring UI; centralize shared Hero entity identity and use the existing localized-value utility.
+
+## Phase B — Public runtime and UX-oracle correctness
+
+-   [ ] MHR-QA-03 Prevent unbound Hero records from exhausting the public runtime materialization cap while retaining bounded, allowlisted, published-only reads and fail-closed validation of each active binding.
+-   [ ] MHR-QA-04 Make DataGrid technical-leakage assertions fail on unreadable grid content and add a regression test for read failures.
+
+## Phase C — Browser acceptance
+
+-   [ ] MHR-QA-05 Prove anonymous rendering of both authored Hero records after publish, verify a member without editContent cannot create/edit Hero content, exercise the complete edit/save/cancel/error path by keyboard, and assert visual output for edited Hero records.
+-   [ ] MHR-QA-06 Verify successful EN/RU edits after switching locale in the same open form, with web-first assertions and isolated user-visible interactions.
+
+## Phase D — Maintainability and closeout
+
+-   [ ] MHR-QA-07 Extract newly added layout-copy controller logic and remove fragile AST-count assertions where behavior-level tests or a focused static contract provide stronger evidence.
+-   [ ] MHR-QA-08 Run focused Jest/Vitest and ESLint, formatting, affected builds, minimal-Supabase Playwright and real-browser screenshot review; run Thermos and OntoIndex verification, then update progress with observed results and limitations.
+
 # Architecture debt closure (fifth pass) — IMPLEMENT (2026-09-18)
 
 > Closes the structural findings of the LQR3 maintainability review: unified 409 version-conflict contract (M2), shared field-map application in the marketing serialization module (M4), remaining advisory-lock hash-space families (M6), copyRow single-pass validation (M8), the missing guard/savepoint/ordering tests (M9), the `runtimeRowsController` helper extraction with a thin composition root and cycle-free imports (H1), and decomposition of the largest handler functions (H4). No schema/template version bump; disposable database.
@@ -1028,3 +1091,52 @@ The Interpretation Network baseline is now aligned at its ownership boundary: th
 -   [x] P1-06 Tests: `^(a|aa)+$`, nested quantifiers, safe template patterns, value/pattern boundary lengths at both surfaces.
 -   [x] P1-07 Verify: Prettier, utils build+test, metahubs/applications backend builds+tests, `check:zod-resolution`, `check:catalog-versions`.
 -   [x] P1-08 Residual risk: bounded quantifiers with upper bound below 16 repeat the legacy rule only, and authoring schemas still accept syntactically valid unsafe patterns (value paths fail closed instead).
+
+# Unified entity-backed Hero implementation — QA remediation (2026-09-24)
+
+> Current continuation checklist. Preserve the existing clean-break contract, entity-owned Hero content, transaction/RLS boundaries, UUID v7, bilingual UX, and no schema or metahub-template version bump.
+
+-   [x] UEH-IMPL-QA-01 Exclude system lifecycle fields from Hero authoring and strengthen browser UX oracles for visible control values and compact structured data.
+-   [x] UEH-IMPL-QA-02 Make scoped-layout copy `omit` account for inherited bound Hero placements and prove failure atomicity.
+-   [x] UEH-IMPL-QA-03 Treat application-sync Hero copy restrictions as a localized, preflighted conflict that preserves application schema health.
+-   [x] UEH-IMPL-QA-04 Add responsive proof for Hero records and both layout list/card modes; assert multiline layout descriptions and localized validation.
+-   [x] UEH-IMPL-QA-05 Decompose oversized authoring E2E coverage into focused helpers without weakening the human-use workflow.
+-   [x] UEH-IMPL-QA-06 Strengthen transaction, binding-policy, null-projection, and copy rollback tests; run focused suites and required local-Supabase verification.
+-   [x] UEH-IMPL-QA-07 Run formatting, lint/build, docs and diff checks, OntoIndex diff verification, and Thermos review; record only fresh evidence in progress/docs. OntoIndex path verification passed in explicit batches, with its dirty-tree/symbol-scan limits documented; full-worktree Autoreview timed out.
+-   [x] UEH-IMPL-QA-08 Validate Hero actions before reactivating a previously disabled bound Hero placement; assert pre-write fail-closed rejection for a hidden target and for resetting an inactive Hero whose target is no longer valid.
+-   [x] UEH-IMPL-QA-09 Reject snapshots whose bound Hero Components are nested, matching the root-Component contract enforced by binding persistence.
+-   [x] UEH-IMPL-QA-10 Assert the shared layout list is rendered once in each `error`/data branch, extract copy-dialog viewport evidence into a focused helper, and rerun the Hero unit gate plus minimal-Supabase authoring E2E.
+-   [x] UEH-IMPL-QA-11 Enable public application visibility through the existing settings UI before anonymous published-runtime verification; keep the anonymous browser assertion strict and verify the full local-Supabase journey.
+-   [x] UEH-IMPL-QA-12 Remap active public section-action targets after opaque widget-key redaction, sanitize UUID references to unavailable sections, and make shared section/widget anchors injective for punctuation-distinct keys.
+-   [x] UEH-IMPL-QA-13 Verify UUID-free anonymous runtime DTOs, real touch CTA navigation, and responsive/overflow behavior for Settings and the anonymous published runtime with inspected screenshots.
+-   [x] UEH-IMPL-QA-14 Route the published-runtime failure/retry E2E fault through the exact anonymous GET endpoint; verify three 5xx attempts, localized error and recovery, and wait for auth permission responses before locale navigation.
+-   [x] UEH-IMPL-QA-15 Preserve public anchor-map alignment when active widgets lack persisted instance keys, including empty and whitespace values; prove deterministic public fallback identities.
+-   [x] UEH-IMPL-QA-16 Make retry failure counts and allowed browser errors precise, and cover direct Hero editing at 1920×1080.
+-   [x] UEH-IMPL-QA-17 Improve narrow-screen Application Settings control layout and associate select labels for accessible names, based on inspected screenshots and browser semantics.
+-   [x] UEH-IMPL-QA-18 Keep the authoring E2E spec below 1,000 lines by extracting settings, member-permission, and anonymous-runtime steps into focused helpers with local resource cleanup.
+-   [x] UEH-IMPL-QA-19 Add unit-level usage contracts for the shared `StandardDialog` in both Hero binding and widget configuration surfaces.
+
+## 2026-09-25 — Entity-backed Hero automatic provisioning and advanced source customization
+
+-   [x] Define the UI/architecture contract for one-click Hero creation, advanced source customization, and shared-source warnings.
+-   [x] Implement backend transactional auto-provisioning for a new Hero placement with a fresh Entity record and unique semantic key.
+-   [x] Add advanced source-selection/customization flow using existing MUI/StandardDialog patterns, including existing-record selection and shared-source warning.
+-   [x] Preserve permissions, optimistic concurrency, binding integrity, delete protection, publication/snapshot/application lifecycle, i18n, and no raw IDs/JSON.
+-   [x] Add/adjust focused unit and integration tests for auto-create, atomic rollback, uniqueness, reuse/shared-source detection, permissions, and conflicts.
+-   [x] Extend Playwright authoring coverage for the default one-click flow and advanced flow in EN/RU, keyboard, responsive, and screenshot evidence using local minimal Supabase.
+-   [x] Update relevant README/GitBook architecture documentation and memory-bank progress.
+-   [x] Run Prettier/lint/type/build/targeted gates and final Thermos/runtime UX reviews. The broad Autoreview reached `INCOMPLETE/ENGINE_TIMEOUT`; bounded Thermos reviews found one custom-source runtime defect, which was fixed and verified. OntoIndex could not verify the accumulated dirty tree because the index excludes it and the expected-file list covered only the latest narrow fix.
+
+## Shared MUI dropdown controls — IMPLEMENT (2026-09-25)
+
+> Preserve the pre-existing dirty worktree. Build reusable dropdown/select controls in `@universo-react/template-mui`, apply them throughout non-published authoring/admin interfaces, exclude `apps-template-mui`, shorten the Hero binding actions, and add unit/browser regression coverage.
+
+-   [x] DD-01 Inventory current Select/Autocomplete patterns and inspect existing shared field/menu conventions; define an API that supports select, searchable selection, optional reset and trailing actions.
+-   [x] DD-02 Implement and export typed shared controls with consistent MUI styling, accessibility, localization-friendly action labels and tests.
+-   [x] DD-03 Migrate non-published template, metahub, applications-control-panel and admin dropdowns to the shared controls; preserve specialized option/render behavior and keep `apps-template-mui` isolated.
+-   [x] DD-04 Shorten Hero binding dialog labels and assert each visible button and public Hero CTA remains single-line and unclipped at desktop, tablet and mobile widths.
+-   [x] DD-05 Verify shared popup geometry, keyboard dismissal, responsive overflow and inspected browser screenshots; run focused unit/type/lint/build and applicable docs checks.
+-   [x] DD-06 Complete focused Thermos reviews and OntoIndex post-edit verification, update this checklist and `progress.md`, and record that the broad Autoreview timed out and the graph index does not contain the dirty worktree.
+-   [x] DD-07 Replace fallback-only dropdown localization mocks with real English/Russian i18n-resource assertions.
+-   [x] DD-08 Add an AST architecture guard for direct MUI Select/Autocomplete imports outside the shared controls, including JS/JSX sources and excluding the isolated published-app template.
+-   [x] DD-09 Require visible source-option text and UUID-free labels in Playwright; resolve empty localized source names, and give the shared theme-menu trigger localized accessible semantics with a matching controls target.

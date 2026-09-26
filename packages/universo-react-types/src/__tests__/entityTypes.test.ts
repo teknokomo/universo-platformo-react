@@ -36,7 +36,7 @@ describe('entity type contracts', () => {
         expect(Object.values(BuiltinEntityKinds)).not.toContain('document')
     })
 
-    it('widens metahub snapshot format version to v3', () => {
+    it('preserves metahub snapshot format version through v3', () => {
         const version: MetahubSnapshotFormatVersion = 3
 
         expect(version).toBe(3)

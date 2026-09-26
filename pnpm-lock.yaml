@@ -696,6 +696,9 @@ importers:
       '@universo-react/store':
         specifier: workspace:*
         version: link:../universo-react-store
+      '@universo-react/template-mui':
+        specifier: workspace:*
+        version: link:../universo-react-template-mui
       '@universo-react/types':
         specifier: workspace:*
         version: link:../universo-react-types
@@ -2785,6 +2788,9 @@ importers:
       '@universo-react/store':
         specifier: workspace:*
         version: link:../universo-react-store
+      '@universo-react/template-mui':
+        specifier: workspace:*
+        version: link:../universo-react-template-mui
       '@universo-react/types':
         specifier: workspace:*
         version: link:../universo-react-types
@@ -2916,9 +2922,6 @@ importers:
       '@tanstack/react-query':
         specifier: 'catalog:'
         version: 5.90.21(react@18.3.1)
-      '@universo-react/admin-frontend':
-        specifier: workspace:*
-        version: link:../universo-react-admin-frontend
       '@universo-react/auth-frontend':
         specifier: workspace:*
         version: link:../universo-react-auth-frontend
@@ -2928,9 +2931,6 @@ importers:
       '@universo-react/i18n':
         specifier: workspace:*
         version: link:../universo-react-i18n
-      '@universo-react/start-frontend':
-        specifier: workspace:*
-        version: link:../universo-react-start-frontend
       '@universo-react/store':
         specifier: workspace:*
         version: link:../universo-react-store
@@ -2958,6 +2958,9 @@ importers:
       react-hook-form:
         specifier: 'catalog:'
         version: 7.71.2(react@18.3.1)
+      react-i18next:
+        specifier: 'catalog:'
+        version: 15.5.3(i18next@23.16.8)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(typescript@5.9.3)
       react-redux:
         specifier: 'catalog:'
         version: 9.2.0(@types/react@18.3.28)(react@18.3.1)(redux@5.0.1)

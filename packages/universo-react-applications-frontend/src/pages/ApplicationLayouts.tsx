@@ -1,19 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import {
-    Alert,
-    Box,
-    Button,
-    CircularProgress,
-    FormControl,
-    IconButton,
-    InputLabel,
-    MenuItem,
-    Select,
-    Stack,
-    Typography
-} from '@mui/material'
+import { Alert, Box, Button, CircularProgress, FormControl, IconButton, InputLabel, MenuItem, Stack, Typography } from '@mui/material'
 import MoreVertRoundedIcon from '@mui/icons-material/MoreVertRounded'
 import type { DragEndEvent } from '@dnd-kit/core'
 import { useTranslation } from 'react-i18next'
@@ -99,6 +87,7 @@ import {
     parseInterpretationNetworkMatrixSettings
 } from './application-layouts/interpretationNetworkWidgetSettings'
 import type { ApplicationLayoutWidgetDefinition } from '../api/applications'
+import { DropdownSelect as Select } from '@universo-react/template-mui/dropdowns'
 
 const resolveLocalizedText = (value: unknown, locale: string, fallback: string): string => {
     if (!value || typeof value !== 'object') return fallback
@@ -348,6 +337,8 @@ const ApplicationLayouts = () => {
     })
     const [zoneSettingsOpen, setZoneSettingsOpen] = useState(false)
     const [zoneSettingsError, setZoneSettingsError] = useState<string | null>(null)
+    const [widgetMutationError, setWidgetMutationError] = useState<{ scope: string; message: string } | null>(null)
+    const layoutScopeKey = `${applicationId ?? ''}:${layoutId ?? ''}`
     const layoutDetailQueryKey =
         applicationId && layoutId ? applicationsQueryKeys.layoutDetail(applicationId, layoutId) : ['application-layout-detail-empty']
 
@@ -418,6 +409,19 @@ const ApplicationLayouts = () => {
 
     const notifyWidgetMutationError = (error: unknown, fallbackKey: string, fallbackMessage: string) => {
         const apiError = extractAxiosError(error)
+        if (
+            apiError.code === 'APPLICATION_LAYOUT_MARKETING_HERO_ACTION_INTEGRITY_CONFLICT' ||
+            apiError.message === 'APPLICATION_LAYOUT_MARKETING_HERO_ACTION_INTEGRITY_CONFLICT'
+        ) {
+            setWidgetMutationError({
+                scope: layoutScopeKey,
+                message: t(
+                    'layouts.marketing.heroActionIntegrityConflict',
+                    'This section is used by a Hero action. Change that action or keep the section active.'
+                )
+            })
+            return
+        }
         const message =
             apiError.code === 'APPLICATION_LAYOUT_WIDGET_VERSION_CONFLICT' ||
             apiError.message === 'APPLICATION_LAYOUT_WIDGET_BATCH_CONFLICT'
@@ -1076,7 +1080,9 @@ const ApplicationLayouts = () => {
         const getAvailableWidgetsForZone = (zone: ApplicationLayoutZone) =>
             widgetObject.filter(
                 (item) =>
-                    item.supportedTemplates.includes(layout.templateKey) && item.allowedZonesByTemplate[layout.templateKey]?.includes(zone)
+                    item.supportedTemplates.includes(layout.templateKey) &&
+                    item.allowedZonesByTemplate[layout.templateKey]?.includes(zone) &&
+                    !(layout.templateKey === 'marketing-page' && item.key === 'marketing.hero')
             )
 
         const getWidgetChipLabel = (widget: ApplicationLayoutWidget): string => {
@@ -1214,7 +1220,7 @@ const ApplicationLayouts = () => {
 
         const buildWidgetRow = (widget: ApplicationLayoutWidget) => {
             const label = getWidgetChipLabel(widget)
-            const canDuplicate = true
+            const canDuplicate = !(layout.templateKey === 'marketing-page' && widget.widgetKey === 'marketing.hero')
             const isHeaderWidget = layout.templateKey === 'marketing-page' && widget.zone === 'marketing-header'
             const placement = readWidgetPlacement(widget)
             const placementActions = isHeaderWidget
@@ -1372,6 +1378,8 @@ const ApplicationLayouts = () => {
                         ) : null}
                     </Stack>
                 </Alert>
+
+                {widgetMutationError?.scope === layoutScopeKey ? <Alert severity='warning'>{widgetMutationError.message}</Alert> : null}
 
                 <Box data-testid='application-layout-details-content' sx={{ pb: 2, width: '100%' }}>
                     <LayoutAuthoringDetails

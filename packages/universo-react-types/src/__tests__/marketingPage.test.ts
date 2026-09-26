@@ -53,22 +53,18 @@ const baseRecord = {
     provenance
 }
 
-const siteSettingsRecord = {
-    ...baseRecord,
-    kind: 'siteSettings' as const,
-    brandName: text,
-    brandLogo: logo,
-    heroTitle: { en: 'Build better products', ru: 'Создавайте лучшие продукты' },
-    heroSubtitle: { en: 'A data-driven landing page.', ru: 'Маркетинговая страница на данных.' },
-    heroPrimaryAction: {
-        label: { en: 'Start now', ru: 'Начать' },
-        action: { kind: 'internal' as const, path: '/signup' }
-    },
-    copyrightLabel: text,
-    copyrightAction: {
-        label: { en: 'Sitemark', ru: 'Sitemark' },
-        action: { kind: 'external' as const, url: 'https://mui.com/' }
-    }
+const heroContent = {
+    title: text,
+    description: text,
+    emailLabel: { en: 'Email', ru: 'Электронная почта' },
+    emailPlaceholder: { en: 'you@example.com', ru: 'you@example.com' },
+    primaryActionLabel: { en: 'Start now', ru: 'Начать' },
+    primaryAction: { kind: 'internal' as const, path: '/signup' }
+}
+const heroData = {
+    records: [
+        { kind: 'heroContent' as const, semanticKey: 'content' as const, order: 0 as const, isVisible: true as const, content: heroContent }
+    ]
 }
 
 describe('marketing page contracts', () => {
@@ -246,9 +242,9 @@ describe('marketing page contracts', () => {
             widgetKey: 'marketing.hero' as const,
             config: {
                 instanceKey: 'hero',
-                source: { entityCodename: 'MarketingPageSiteSettings', entityKind: 'object' as const }
+                showLeadForm: true
             },
-            data: { records: [siteSettingsRecord] }
+            data: heroData
         }
         const parsed = marketingPageDataSchema.safeParse({
             templateKey: 'marketing-page',
@@ -316,9 +312,9 @@ describe('marketing page contracts', () => {
                                 widgetKey: 'marketing.hero',
                                 config: {
                                     instanceKey: 'hero',
-                                    source: { entityCodename: 'MarketingPageSiteSettings', entityKind: 'object' }
+                                    showLeadForm: true
                                 },
-                                data: { records: [siteSettingsRecord] }
+                                data: heroData
                             }
                         }
                     ],
@@ -350,44 +346,54 @@ describe('marketing page contracts', () => {
 describe('marketing hero and image widget contracts', () => {
     const heroConfig = {
         instanceKey: 'hero',
-        source: { entityCodename: 'MarketingPageSiteSettings', entityKind: 'object' }
+        showLeadForm: true
     }
 
-    const heroEnvelope = (zone: string, records: unknown[]) => ({
+    const heroEnvelope = (zone: string, data: unknown = heroData) => ({
         instanceKey: 'hero',
         zone,
         widgetKey: 'marketing.hero',
         sortOrder: 0,
         isActive: true,
         config: heroConfig,
-        data: { records }
+        data
     })
 
     it('rejects a hero widget outside the main zone with the hero-specific reason', () => {
-        const result = marketingHeroWidgetSchema.safeParse(heroEnvelope('marketing-footer', [siteSettingsRecord]))
+        const result = marketingHeroWidgetSchema.safeParse(heroEnvelope('marketing-footer'))
 
         expect(result.success).toBe(false)
         expect(result.success ? [] : result.error.issues.map((issue) => issue.message)).toContain('Hero widgets must use the main zone.')
     })
 
-    it('rejects hero records that are not site settings', () => {
-        const featureRecord = {
-            ...baseRecord,
-            kind: 'feature' as const,
-            title: text,
-            description: text,
-            iconKey: 'viewQuilt'
-        }
-        const result = marketingHeroWidgetSchema.safeParse(heroEnvelope('marketing-main', [featureRecord]))
-
-        expect(result.success).toBe(false)
-        expect(result.success ? [] : result.error.issues.map((issue) => issue.message)).toContain(
-            'Hero data must contain site settings only.'
-        )
+    it('rejects an incomplete Entity projection and renderer-owned source fields', () => {
+        expect(marketingHeroWidgetSchema.safeParse(heroEnvelope('marketing-main', { title: heroContent.title })).success).toBe(false)
+        expect(
+            marketingHeroWidgetSchema.safeParse({
+                ...heroEnvelope('marketing-main'),
+                config: { ...heroConfig, source: { entityCodename: 'MarketingPageSiteSettings' } }
+            }).success
+        ).toBe(false)
     })
 
-    it('accepts a hero widget with site settings in the main zone and keeps image records empty-only', () => {
-        expect(marketingHeroWidgetSchema.safeParse(heroEnvelope('marketing-main', [siteSettingsRecord])).success).toBe(true)
+    it('accepts an Entity-backed Hero in the main zone and keeps image records empty-only', () => {
+        expect(marketingHeroWidgetSchema.safeParse(heroEnvelope('marketing-main')).success).toBe(true)
+        expect(
+            marketingHeroWidgetSchema.safeParse(
+                heroEnvelope('marketing-main', {
+                    records: [
+                        {
+                            ...heroData.records[0],
+                            content: {
+                                ...heroContent,
+                                termsText: { en: 'Terms' },
+                                termsLinkLabel: { en: 'Read terms' }
+                            }
+                        }
+                    ]
+                })
+            ).success
+        ).toBe(false)
 
         const imageEnvelope = {
             instanceKey: 'hero-image',
@@ -416,7 +422,7 @@ describe('marketing hero and image widget contracts', () => {
             sortOrder: 0,
             isActive: true,
             config: { instanceKey: 'hero', showLeadForm: true },
-            data: { records: [] }
+            data: heroData
         }
 
         expect(publicMarketingHeroWidgetSchema.safeParse(publicHero).success).toBe(false)

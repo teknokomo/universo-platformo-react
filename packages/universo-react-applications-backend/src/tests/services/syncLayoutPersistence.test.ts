@@ -1,6 +1,7 @@
 import type { PublishedApplicationSnapshot, SnapshotEntityDefinition } from '../../services/applicationSyncContracts'
 import { isUuidV7, type DbExecutor } from '@universo-react/utils'
-import { insertApplicationLayoutSyncWidget } from '../../persistence/applicationLayoutSyncStore'
+import { buildSingleTargetWidgetBinding, encodeLayoutWidgetConfigEnvelope, LAYOUT_WIDGET_DEFINITIONS } from '@universo-react/types'
+import { insertApplicationLayoutSyncWidget, type SyncWidgetInput } from '../../persistence/applicationLayoutSyncStore'
 
 type StoredRow = Record<string, unknown>
 
@@ -387,8 +388,48 @@ const marketingIds = {
     widget: '0190a9b5-3cde-7abc-8def-0123456789a2',
     siteSettings: '0190a9b5-3cde-7abc-8def-0123456789a3',
     logos: '0190a9b5-3cde-7abc-8def-0123456789a4',
-    sharedWidget: '0190a9b5-3cde-7abc-8def-0123456789a5'
+    sharedWidget: '0190a9b5-3cde-7abc-8def-0123456789a5',
+    hero: '0190a9b5-3cde-7abc-8def-0123456789a6'
 } as const
+
+const marketingHeroDefinition = LAYOUT_WIDGET_DEFINITIONS.find(({ key }) => key === 'marketing.hero')
+const marketingHeroContentSlot = marketingHeroDefinition?.bindingSlots?.find(({ key }) => key === 'content')
+if (!marketingHeroContentSlot) throw new Error('Expected marketing.hero content binding slot')
+
+const marketingHeroComponents = marketingHeroContentSlot.requirements.components.map((component) => ({
+    codename: component.componentCodename,
+    dataType: component.valueType.toUpperCase(),
+    isRequired: component.required,
+    validationRules: {
+        ...(component.localized ? { localized: true } : {}),
+        ...(component.maxLength !== undefined ? { maxLength: component.maxLength } : {}),
+        ...(component.semanticKey ? { unique: true } : {}),
+        ...(component.format !== undefined ? { format: component.format } : {})
+    }
+}))
+
+const localizedHeroValue = (en: string, ru: string) => ({
+    _schema: '1',
+    _primary: 'en',
+    locales: {
+        en: { content: en, version: 1, isActive: true },
+        ru: { content: ru, version: 1, isActive: true }
+    }
+})
+
+const marketingHeroRecordData = () => ({
+    HeroKey: 'default',
+    Title: localizedHeroValue('Build with confidence', 'Создавайте с уверенностью'),
+    Accent: localizedHeroValue('A better way', 'Лучший подход'),
+    Description: localizedHeroValue('A complete platform for your team.', 'Полная платформа для вашей команды.'),
+    EmailLabel: localizedHeroValue('Email', 'Электронная почта'),
+    EmailPlaceholder: localizedHeroValue('you@example.com', 'you@example.com'),
+    PrimaryActionLabel: localizedHeroValue('Get started', 'Начать'),
+    PrimaryAction: { kind: 'internal', path: '/sign-up', target: 'same-tab' },
+    TermsText: localizedHeroValue('By continuing, you agree to our', 'Продолжая, вы соглашаетесь с'),
+    TermsLinkLabel: localizedHeroValue('Terms of Service', 'Условиями использования'),
+    TermsAction: { kind: 'anchor', href: '#terms' }
+})
 
 const createMarketingSnapshot = (): PublishedApplicationSnapshot =>
     ({
@@ -428,6 +469,97 @@ const createMarketingSnapshot = (): PublishedApplicationSnapshot =>
         defaultLayoutId: marketingIds.layout,
         layoutConfig: {}
     } as unknown as PublishedApplicationSnapshot)
+
+const createMarketingHeroSnapshot = (): PublishedApplicationSnapshot =>
+    ({
+        entities: {
+            [marketingIds.hero]: {
+                kind: 'object',
+                codename: 'MarketingPageHero',
+                config: {
+                    capabilities: { dataSchema: { enabled: true }, records: { enabled: true } },
+                    recordPolicy: {
+                        version: 1,
+                        semanticKey: { componentCodename: 'HeroKey', creationPrefix: 'hero', protectedValues: ['default'] },
+                        denyDeleteWhenBound: true,
+                        immutableSemanticKeyWhenBound: true,
+                        runtimeMutation: 'deny',
+                        requiredLocales: ['en', 'ru'],
+                        validatorKey: 'marketing.hero.v1'
+                    }
+                },
+                fields: marketingHeroComponents
+            }
+        },
+        elements: { [marketingIds.hero]: [{ codename: 'default', data: marketingHeroRecordData() }] },
+        layouts: [
+            {
+                id: marketingIds.layout,
+                scopeEntityId: null,
+                templateKey: 'marketing-page',
+                compositionMode: 'independent',
+                baseLayoutId: null,
+                name: { en: 'Marketing page' },
+                description: null,
+                config: {},
+                isActive: true,
+                isDefault: true,
+                sortOrder: 0
+            }
+        ],
+        layoutZoneWidgets: [createBoundHeroSyncWidget()],
+        defaultLayoutId: marketingIds.layout
+    } as unknown as PublishedApplicationSnapshot)
+
+const createBoundHeroSyncWidget = (): SyncWidgetInput => {
+    const heroDefinition = LAYOUT_WIDGET_DEFINITIONS.find(({ key }) => key === 'marketing.hero')
+    if (!heroDefinition) throw new Error('Expected marketing.hero to be registered')
+
+    return {
+        id: marketingIds.widget,
+        layoutId: marketingIds.layout,
+        zone: 'marketing-main',
+        widgetKey: 'marketing.hero',
+        sortOrder: 0,
+        config: encodeLayoutWidgetConfigEnvelope(
+            {
+                rendererConfig: { instanceKey: 'hero', showLeadForm: true },
+                neutral: {
+                    bindings: buildSingleTargetWidgetBinding(heroDefinition, 'content', {
+                        entityKind: 'object',
+                        entityCodename: 'MarketingPageHero',
+                        semanticKey: 'default'
+                    })
+                }
+            },
+            { templateKey: 'marketing-page', widgetKey: 'marketing.hero', zone: 'marketing-main' }
+        ),
+        isActive: true,
+        sourceContentHash: 'hero-widget-current'
+    }
+}
+
+const modifiedSourceLayoutRow = (layoutId: string, templateKey: string, isDefault: boolean): StoredRow => ({
+    id: layoutId,
+    scope_entity_id: null,
+    template_key: templateKey,
+    name: { en: 'Locally modified layout' },
+    description: null,
+    config: { __layout: { composition: { mode: 'independent', baseLayoutId: null } } },
+    is_active: true,
+    is_default: isDefault,
+    sort_order: 0,
+    source_kind: 'metahub',
+    source_layout_id: layoutId,
+    source_snapshot_hash: 'snapshot-old',
+    source_content_hash: 'source-old',
+    local_content_hash: 'local-custom',
+    sync_state: 'local_modified',
+    is_source_excluded: false,
+    _upl_deleted: false,
+    _app_deleted: false,
+    _upl_version: 2
+})
 
 const createMockSyncKnex = (overrides?: { layoutRows?: StoredRow[]; widgetRows?: StoredRow[] }): MockSyncKnex => {
     const normalizeLayoutFixture = (row: StoredRow): StoredRow => ({
@@ -617,6 +749,29 @@ describe('syncLayoutPersistence', () => {
                     type: 'LAYOUT_SOURCE_UPDATED',
                     sourceLayoutId: dashboardIds.layout,
                     currentSyncState: 'source_updated'
+                })
+            ])
+        )
+    })
+
+    it('marks application copy unavailable for a locally modified entity-backed Hero conflict', async () => {
+        currentKnex = createMockSyncKnex({
+            layoutRows: [modifiedSourceLayoutRow(marketingIds.layout, 'marketing-page', true)]
+        })
+
+        const changes = await buildApplicationLayoutChanges({
+            schemaName: 'app_018f8a787b8f7c1da111222233334444',
+            snapshot: createMarketingHeroSnapshot(),
+            executor: mockSyncExecutor
+        })
+
+        expect(changes).toEqual(
+            expect.arrayContaining([
+                expect.objectContaining({
+                    type: 'LAYOUT_CONFLICT',
+                    sourceLayoutId: marketingIds.layout,
+                    recommendedResolution: 'keep_local',
+                    copySourceAsApplicationUnavailable: true
                 })
             ])
         )
@@ -1276,6 +1431,96 @@ describe('syncLayoutPersistence', () => {
             source_content_hash: expect.any(String),
             sync_state: 'clean'
         })
+    })
+
+    it('rejects copy_source_as_application for a bound hero before any layout rows are written', async () => {
+        const dashboardSnapshot = createSnapshot()
+        const marketingSnapshot = createMarketingHeroSnapshot()
+        const snapshot: PublishedApplicationSnapshot = {
+            ...dashboardSnapshot,
+            entities: { ...dashboardSnapshot.entities, ...marketingSnapshot.entities },
+            elements: { ...(dashboardSnapshot.elements ?? {}), ...(marketingSnapshot.elements ?? {}) },
+            layouts: [...dashboardSnapshot.layouts, { ...marketingSnapshot.layouts[0]!, isDefault: false }],
+            layoutZoneWidgets: [...dashboardSnapshot.layoutZoneWidgets, ...marketingSnapshot.layoutZoneWidgets]
+        }
+        const priorRows = [
+            modifiedSourceLayoutRow(dashboardIds.layout, 'dashboard', true),
+            modifiedSourceLayoutRow(marketingIds.layout, 'marketing-page', false)
+        ]
+        currentKnex = createMockSyncKnex({ layoutRows: priorRows })
+
+        await expect(
+            persistPublishedLayouts({
+                schemaName: 'app_018f8a787b8f7c1da111222233334444',
+                snapshot,
+                snapshotHash: 'snapshot-new',
+                userId: 'user-1',
+                layoutResolutionPolicy: { default: 'copy_source_as_application' }
+            })
+        ).rejects.toThrow('APPLICATION_LAYOUT_ENTITY_BACKED_WIDGET_COPY_CONFLICT')
+
+        const writes = (mockSyncExecutor.query as jest.Mock).mock.calls.filter(([sql]) =>
+            /^\s*(?:INSERT|UPDATE|DELETE)\b/iu.test(String(sql))
+        )
+        expect(writes).toHaveLength(0)
+        expect(currentKnex.layoutRows).toEqual(expect.arrayContaining(priorRows))
+        expect(currentKnex.widgetRows).toHaveLength(0)
+    })
+
+    it.each(['keep_local', 'overwrite_local'] as const)(
+        'keeps the %s resolution available for a bound hero source layout',
+        async (resolution) => {
+            currentKnex = createMockSyncKnex({
+                layoutRows: [modifiedSourceLayoutRow(marketingIds.layout, 'marketing-page', true)]
+            })
+
+            await expect(
+                persistPublishedLayouts({
+                    schemaName: 'app_018f8a787b8f7c1da111222233334444',
+                    snapshot: createMarketingHeroSnapshot(),
+                    snapshotHash: 'snapshot-new',
+                    userId: 'user-1',
+                    layoutResolutionPolicy: { default: resolution }
+                })
+            ).resolves.toBeUndefined()
+
+            expect(currentKnex.layoutRows[0]).toMatchObject({
+                source_kind: 'metahub',
+                sync_state: resolution === 'keep_local' ? 'local_modified' : 'clean'
+            })
+        }
+    )
+
+    it('continues ordinary materialization and widget sync for a bound hero', async () => {
+        const snapshot = createMarketingHeroSnapshot()
+        currentKnex = createMockSyncKnex()
+
+        await persistPublishedLayouts({
+            schemaName: 'app_018f8a787b8f7c1da111222233334444',
+            snapshot,
+            snapshotHash: 'snapshot-new',
+            userId: 'user-1'
+        })
+        await persistPublishedWidgets({
+            schemaName: 'app_018f8a787b8f7c1da111222233334444',
+            snapshot,
+            userId: 'user-1'
+        })
+
+        const materializedLayout = currentKnex.layoutRows.find((row) => row.source_layout_id === marketingIds.layout)
+        expect(materializedLayout).toMatchObject({ source_kind: 'metahub', template_key: 'marketing-page' })
+        expect(currentKnex.widgetRows).toEqual(
+            expect.arrayContaining([
+                expect.objectContaining({
+                    widget_key: 'marketing.hero',
+                    layout_id: materializedLayout?.id,
+                    source_widget_id: marketingIds.widget,
+                    source_config: expect.objectContaining({
+                        __layout: expect.objectContaining({ bindings: expect.any(Object) })
+                    })
+                })
+            ])
+        )
     })
 
     it('keeps local widget configuration untouched when keep_local preserves a locally modified layout', async () => {

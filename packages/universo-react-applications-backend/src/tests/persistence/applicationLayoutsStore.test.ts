@@ -16,6 +16,7 @@ import {
     updateApplicationLayoutZoneSetting,
     upsertApplicationLayoutWidget
 } from '../../persistence/applicationLayoutsStore'
+import { buildSingleTargetWidgetBinding, encodeLayoutWidgetConfigEnvelope, LAYOUT_WIDGET_DEFINITIONS } from '@universo-react/types'
 import { createMockDbExecutor } from '../utils/dbMocks'
 
 describe('applicationLayoutsStore', () => {
@@ -347,6 +348,57 @@ describe('applicationLayoutsStore', () => {
             copyApplicationLayout(executor, 'app_018f8a787b8f7c1da111222233334444', sourceLayoutId, { expectedVersion: 1 }, 'user-1')
         ).rejects.toThrow('APPLICATION_LAYOUT_COPY_CONFIG_UPDATE_FAILED')
     })
+
+    it.each(['widget-key', 'entity-binding'] as const)(
+        'rejects generic layout copies containing marketing.hero by %s before any row write',
+        async (contentKind) => {
+            const { executor, txExecutor } = createMockDbExecutor()
+            const layoutId = '0190a9b5-3cde-7abc-8def-2123456789d8'
+            const heroDefinition = LAYOUT_WIDGET_DEFINITIONS.find(({ key }) => key === 'marketing.hero')
+            if (!heroDefinition) throw new Error('Expected marketing.hero to be registered')
+            const bindingConfig = encodeLayoutWidgetConfigEnvelope(
+                {
+                    rendererConfig: { instanceKey: 'hero', showLeadForm: true },
+                    neutral: {
+                        bindings: buildSingleTargetWidgetBinding(heroDefinition, 'content', {
+                            entityKind: 'object',
+                            entityCodename: 'MarketingPageHero',
+                            semanticKey: 'default'
+                        })
+                    }
+                },
+                { templateKey: 'marketing-page', widgetKey: 'marketing.hero', zone: 'marketing-main' }
+            )
+
+            primeLockedLayout(txExecutor, {
+                layoutId,
+                templateKey: 'marketing-page',
+                includeStructureLock: false,
+                widgets: [
+                    {
+                        id: '0190a9b5-3cde-7abc-8def-2123456789d9',
+                        layout_id: layoutId,
+                        zone: 'marketing-main',
+                        widget_key: 'marketing.hero',
+                        sort_order: 0,
+                        config: { instanceKey: 'hero', showLeadForm: true },
+                        source_config: contentKind === 'entity-binding' ? bindingConfig : null,
+                        source_widget_id: null,
+                        source_base_widget_id: null,
+                        is_customized: false,
+                        is_active: true,
+                        version: 1
+                    }
+                ]
+            })
+
+            await expect(
+                copyApplicationLayout(executor, 'app_018f8a787b8f7c1da111222233334444', layoutId, { expectedVersion: 1 }, 'user-1')
+            ).rejects.toThrow('APPLICATION_LAYOUT_ENTITY_BACKED_WIDGET_COPY_CONFLICT')
+
+            expect(txExecutor.query.mock.calls.some(([sql]) => /^\s*(?:INSERT|UPDATE|DELETE)\b/iu.test(String(sql)))).toBe(false)
+        }
+    )
 
     it('updates and resets a marketing zone setting while preserving the neutral envelope', async () => {
         const { executor, txExecutor } = createMockDbExecutor()
@@ -848,12 +900,12 @@ describe('applicationLayoutsStore', () => {
                     id: '0190a9b5-3cde-7abc-8def-2123456789d6',
                     layout_id: '0190a9b5-3cde-7abc-8def-2123456789d8',
                     zone: 'marketing-main',
-                    widget_key: 'marketing.hero',
+                    widget_key: 'marketing.collection',
                     sort_order: 0,
                     config: {
                         instanceKey: 'hero',
-                        source: { entityCodename: 'MarketingPageSiteSettings', entityKind: 'object' },
-                        showLeadForm: true
+                        variant: 'features',
+                        source: { entityCodename: 'MarketingPageFeature', entityKind: 'object' }
                     },
                     source_config: null,
                     source_widget_id: null,
@@ -872,12 +924,12 @@ describe('applicationLayoutsStore', () => {
                 '0190a9b5-3cde-7abc-8def-2123456789d8',
                 {
                     zone: 'marketing-main',
-                    widgetKey: 'marketing.hero',
+                    widgetKey: 'marketing.collection',
                     expectedVersion: 1,
                     config: {
                         instanceKey: 'hero',
-                        source: { entityCodename: 'MarketingPageSiteSettings', entityKind: 'object' },
-                        showLeadForm: false
+                        variant: 'features',
+                        source: { entityCodename: 'MarketingPageFeature', entityKind: 'object' }
                     }
                 },
                 'user-1'
@@ -892,12 +944,12 @@ describe('applicationLayoutsStore', () => {
             id: '0190a9b5-3cde-7abc-8def-2123456789d6',
             layout_id: '0190a9b5-3cde-7abc-8def-2123456789d8',
             zone: 'marketing-main',
-            widget_key: 'marketing.hero',
+            widget_key: 'marketing.collection',
             sort_order: 0,
             config: {
                 instanceKey: 'hero',
-                source: { entityCodename: 'MarketingPageSiteSettings', entityKind: 'object' },
-                showLeadForm: true
+                variant: 'features',
+                source: { entityCodename: 'MarketingPageFeature', entityKind: 'object' }
             },
             source_config: null,
             source_widget_id: null,
@@ -918,7 +970,7 @@ describe('applicationLayoutsStore', () => {
             config: {
                 ...existingWidget.config,
                 instanceKey: '0190a9b5-3cde-7abc-8def-2123456789d7',
-                showLeadForm: false
+                variant: 'features'
             },
             version: 1
         }
@@ -934,18 +986,18 @@ describe('applicationLayoutsStore', () => {
             '0190a9b5-3cde-7abc-8def-2123456789d8',
             {
                 zone: 'marketing-main',
-                widgetKey: 'marketing.hero',
+                widgetKey: 'marketing.collection',
                 expectedVersion: 1,
                 config: {
-                    source: { entityCodename: 'MarketingPageSiteSettings', entityKind: 'object' },
-                    showLeadForm: false
+                    variant: 'features',
+                    source: { entityCodename: 'MarketingPageFeature', entityKind: 'object' }
                 }
             },
             'user-1'
         )
 
         expect(result.id).toBe('0190a9b5-3cde-7abc-8def-2123456789d7')
-        expect(result.widgetKey).toBe('marketing.hero')
+        expect(result.widgetKey).toBe('marketing.collection')
         expect(result.instanceKey).toBe('0190a9b5-3cde-7abc-8def-2123456789d7')
         const insertCalls = txExecutor.query.mock.calls.filter(([sql]) => String(sql).includes('INSERT INTO'))
         expect(insertCalls).toHaveLength(1)
@@ -1167,11 +1219,12 @@ describe('applicationLayoutsStore', () => {
             id: '018f8a78-7b8f-7c1d-a111-2222333344a4',
             layout_id: '018f8a78-7b8f-7c1d-a111-2222333344a1',
             zone: 'marketing-main',
-            widget_key: 'marketing.hero',
+            widget_key: 'marketing.collection',
             sort_order: 0,
             config: {
                 instanceKey: 'hero',
-                source: { entityCodename: 'MarketingPageSiteSettings', entityKind: 'object' }
+                variant: 'features',
+                source: { entityCodename: 'MarketingPageFeature', entityKind: 'object' }
             },
             source_config: null,
             source_widget_id: null,
@@ -1217,8 +1270,8 @@ describe('applicationLayoutsStore', () => {
         const insertWidgetCall = txExecutor.query.mock.calls.find(
             ([sql]) => String(sql).includes('INSERT INTO') && String(sql).includes('_app_widgets')
         )
-        const insertedConfig = JSON.parse(String(insertWidgetCall?.[1]?.[4])) as { instanceKey?: string; showLeadForm?: boolean }
-        expect(insertedConfig).toMatchObject({ showLeadForm: true })
+        const insertedConfig = JSON.parse(String(insertWidgetCall?.[1]?.[4])) as { instanceKey?: string; variant?: string }
+        expect(insertedConfig).toMatchObject({ variant: 'features' })
         expect(insertedConfig.instanceKey).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i)
     })
 
@@ -1270,6 +1323,13 @@ describe('applicationLayoutsStore', () => {
 
     it('does not copy a marketing layout containing an invalid widget placement', async () => {
         const { executor, txExecutor } = createMockDbExecutor()
+        const heroDefinition = LAYOUT_WIDGET_DEFINITIONS.find(({ key }) => key === 'marketing.hero')
+        if (!heroDefinition) throw new Error('Expected marketing.hero to be registered')
+        const heroBindings = buildSingleTargetWidgetBinding(heroDefinition, 'content', {
+            entityKind: 'object',
+            entityCodename: 'MarketingPageHero',
+            semanticKey: 'default'
+        })
         txExecutor.query
             .mockResolvedValueOnce([{ scope_entity_id: null }])
             .mockResolvedValueOnce([])
@@ -1306,10 +1366,13 @@ describe('applicationLayoutsStore', () => {
                     zone: 'center',
                     widget_key: 'marketing.hero',
                     sort_order: 0,
-                    config: {
-                        instanceKey: 'hero',
-                        source: { entityCodename: 'MarketingPageSiteSettings', entityKind: 'object' }
-                    },
+                    config: encodeLayoutWidgetConfigEnvelope(
+                        {
+                            rendererConfig: { instanceKey: 'hero', showLeadForm: true },
+                            neutral: { bindings: heroBindings }
+                        },
+                        { templateKey: 'marketing-page', widgetKey: 'marketing.hero', zone: 'marketing-main' }
+                    ),
                     source_config: null,
                     source_widget_id: null,
                     source_base_widget_id: null,

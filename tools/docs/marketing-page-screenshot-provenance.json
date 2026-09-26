@@ -1,31 +1,99 @@
 {
-    "version": 1,
-    "generatedAt": "2026-09-12",
-    "generator": "tools/testing/e2e/specs/flows/marketing-page-runtime.spec.ts",
-    "generatorSha256": "48eca32c7d2884fb0e2dad399e3e894f93faddf9d97ba5ff6785a6ac829b6e86",
+    "version": 3,
+    "generatedAt": "2026-09-26T00:26:24.518Z",
+    "generator": "tools/testing/e2e/specs/generators/docs-marketing-page-screenshots.spec.ts",
+    "generatorSha256": "274f47ecbf3b63a73fc320f093e05c4569403300f328360c0b70836209330a98",
+    "manifest": "tools/docs/marketing-page-screenshot-manifest.json",
+    "manifestSha256": "9fa4f74e7a653423a124ad2dcf6eec1ec731b02c6e8a83d33270e66ce19ced75",
     "sourceTemplate": "packages/universo-react-metahubs-backend/src/domains/templates/data/marketing-page.template.ts",
-    "sourceTemplateSha256": "44d9e23a1ea60f98b8894acab8212122c0f31290d92663477e5c3fc066ea8731",
-    "route": "/a/:applicationId",
-    "locale": "en",
+    "sourceTemplateSha256": "a2fd28bc816f16009e00ea56dfffc61ea644bfb92d3ffbe0aa1d7e5cb1219553",
+    "seedInputs": [
+        {
+            "path": "packages/universo-react-metahubs-backend/src/domains/templates/data/basic.template.ts",
+            "sha256": "868f3e3a7bd4ad6c5c14f705ec0c49ddf769b01ef013c324234244c2e721be22"
+        },
+        {
+            "path": "packages/universo-react-metahubs-backend/src/domains/templates/data/marketing-page.hero.ts",
+            "sha256": "93a678e1b365763b70b04f0ce38aa26623ad1336404d124ba9054a02329bd7f5"
+        },
+        {
+            "path": "packages/universo-react-metahubs-backend/src/domains/templates/data/marketing-page.layouts.ts",
+            "sha256": "14e92f00becb40df045f9d98a6773d3d966530f59dd2e4239debf43ec22a7578"
+        },
+        {
+            "path": "packages/universo-react-metahubs-backend/src/domains/templates/data/marketing-page.seed-helpers.ts",
+            "sha256": "36a4e6df98838dca78e41745b062993eae8ed0a1ee3ad1d1abb2cf5ee78c5705"
+        }
+    ],
+    "routePattern": "/a/{applicationId}?locale={locale}&themeVariant=light",
+    "scope": "public-published-application",
+    "browser": "chromium",
     "theme": "light",
-    "project": "chromium",
     "viewport": {
         "width": 1440,
         "height": 900
     },
-    "assets": [
+    "captureMethod": "playwright.page.screenshot",
+    "captures": [
         {
+            "id": "marketing-page-runtime-en-light",
+            "locale": "en",
+            "route": "/a/{applicationId}?locale={locale}&themeVariant=light",
+            "scope": "public-published-application",
+            "browser": "chromium",
+            "theme": "light",
+            "captureMethod": "playwright.page.screenshot",
+            "viewport": {
+                "width": 1440,
+                "height": 900
+            },
             "path": "docs/en/.gitbook/assets/marketing-page/marketing-page-runtime-en-light.png",
-            "sha256": "4a1304040e61929a2a345bd33d7cedfd99fb82ee9ace5eb515d9420d12120623",
+            "sha256": "27f416fd4c775d185eea367565f22dd102559122f17a006c76150bc4cb745701",
             "dimensions": {
                 "width": 1440,
                 "height": 5749
             }
+        },
+        {
+            "id": "marketing-page-runtime-ru-light",
+            "locale": "ru",
+            "route": "/a/{applicationId}?locale={locale}&themeVariant=light",
+            "scope": "public-published-application",
+            "browser": "chromium",
+            "theme": "light",
+            "captureMethod": "playwright.page.screenshot",
+            "viewport": {
+                "width": 1440,
+                "height": 900
+            },
+            "path": "docs/ru/.gitbook/assets/marketing-page/marketing-page-runtime-ru-light.png",
+            "sha256": "87d644581f4f98d0040a417af9968f4d9b841a685424e9fcf89510fc2dfd1530",
+            "dimensions": {
+                "width": 1440,
+                "height": 5685
+            }
         }
     ],
-    "limitations": [
-        "This committed evidence covers the Chromium English/light desktop flow only.",
-        "Russian, dark-theme, tablet, and mobile Playwright baselines are tracked in tools/testing/e2e/specs/matrix; they are not duplicated as GitBook assets.",
-        "Full-stack Supabase Storage/imgproxy behavior requires the full-stack media suite."
+    "assets": [
+        {
+            "id": "marketing-page-runtime-en-light",
+            "locale": "en",
+            "path": "docs/en/.gitbook/assets/marketing-page/marketing-page-runtime-en-light.png",
+            "sha256": "27f416fd4c775d185eea367565f22dd102559122f17a006c76150bc4cb745701",
+            "dimensions": {
+                "width": 1440,
+                "height": 5749
+            }
+        },
+        {
+            "id": "marketing-page-runtime-ru-light",
+            "locale": "ru",
+            "path": "docs/ru/.gitbook/assets/marketing-page/marketing-page-runtime-ru-light.png",
+            "sha256": "87d644581f4f98d0040a417af9968f4d9b841a685424e9fcf89510fc2dfd1530",
+            "dimensions": {
+                "width": 1440,
+                "height": 5685
+            }
+        }
     ]
 }

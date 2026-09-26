@@ -1463,6 +1463,7 @@ export const applicationLayoutChangeSchema = z.object({
     sourceKind: applicationLayoutSourceKindSchema.optional(),
     currentSyncState: applicationLayoutSyncStateSchema.optional(),
     recommendedResolution: applicationLayoutSyncResolutionSchema.optional(),
+    copySourceAsApplicationUnavailable: z.boolean().optional(),
     title: applicationLayoutLocalizedContentSchema.optional(),
     message: z.string().optional()
 })

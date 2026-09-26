@@ -1,4 +1,4 @@
-> **Last Reviewed**: 2026-09-14 (refreshed: repository 0.82.0-alpha; complete workspace package inventory; eight built-in templates; MUI 9 widgetized/scoped runtime, Interpretation Network, and PlayCanvas/MMOOMM status)
+> **Last Reviewed**: 2026-09-26 (refreshed: repository 0.83.0-alpha; entity-backed Marketing Hero authoring and shared non-published MUI dropdown baseline; package/template inventory rechecked)
 
 # Project Brief - Universo Platformo
 
@@ -45,13 +45,13 @@ The platform is also the foundation for two larger initiatives:
 
 ## Current Status
 
--   **Repository version**: `0.82.0-alpha`.
+-   **Repository version**: `0.83.0-alpha`.
 -   **Architecture status**: in active transition from a "feature packages
     on `universo-template-mui`" layout to an "everything is an Application
     on `apps-template-mui`" layout. Legacy packages remain functional and
     receive new work; they will be removed only after the corresponding
     application replaces them.
--   **Recent platform focus**: MUI 9 application templates, data-driven widget composition, scoped layouts, and marketing-header zone settings; Interpretation Network, PlayCanvas/MMOOMM, LMS, and 1C-compatible configurations remain active platform workloads.
+-   **Recent platform focus**: MUI 9 application templates, entity-backed widget authoring, data-driven widget composition, scoped layouts, and shared non-published authoring controls; Interpretation Network, PlayCanvas/MMOOMM, LMS, and 1C-compatible configurations remain active platform workloads.
 -   **DB layer**: TypeORM was removed. Current path is Knex (connection
     management, transactions) plus raw SQL through `DbExecutor.query()`,
     with `@universo-react/schema-ddl` for runtime schema generation. The team
@@ -83,16 +83,16 @@ applications** (multi-tenant runtime isolation).
 
 ### Built-in metahub templates (8)
 
-| Template | Codename | Role |
-| --- | --- | --- |
-| Basic | `basic` | Default hub/page/object/set/enumeration starter |
-| Basic Demo | `basic-demo` | Basic presets + demo data/widgets |
-| Empty | `empty` | No preset selected by default |
-| LMS | `lms` | Seeded learning-content configuration on generic presets |
-| 1C-Compatible | `1c-compatible` | 1C-style metadata presets for transactional/accounting domains |
-| PlayCanvas | `playcanvas` | Project binding + generic presets for Editor/3D authoring |
-| Interpretation Network | `interpretation-network` | Structures, interpretations, cells, relations, materials, reusable matrix/table models |
-| Marketing Page | `marketing-page` | Data-driven MUI marketing application with persisted widget/layout composition |
+| Template               | Codename                 | Role                                                                                                               |
+| ---------------------- | ------------------------ | ------------------------------------------------------------------------------------------------------------------ |
+| Basic                  | `basic`                  | Default hub/page/object/set/enumeration starter                                                                    |
+| Basic Demo             | `basic-demo`             | Basic presets + demo data/widgets                                                                                  |
+| Empty                  | `empty`                  | No preset selected by default                                                                                      |
+| LMS                    | `lms`                    | Seeded learning-content configuration on generic presets                                                           |
+| 1C-Compatible          | `1c-compatible`          | 1C-style metadata presets for transactional/accounting domains                                                     |
+| PlayCanvas             | `playcanvas`             | Project binding + generic presets for Editor/3D authoring                                                          |
+| Interpretation Network | `interpretation-network` | Structures, interpretations, cells, relations, materials, reusable matrix/table models                             |
+| Marketing Page         | `marketing-page`         | Data-driven MUI marketing application with persisted widget/layout composition and Entity-backed content authoring |
 
 The registry also exposes the eight core presets above plus specialized
 1C-compatible preset manifests. Source of truth:

@@ -29,6 +29,7 @@ import {
     MERIDIAN_73_EXPERT_VISION,
     MERIDIAN_73_FAQ,
     MERIDIAN_73_FOOTER_LINKS,
+    MERIDIAN_73_HERO,
     MERIDIAN_73_IMAGE_URL,
     MERIDIAN_73_METAHUB,
     MERIDIAN_73_NAVIGATION,
@@ -169,8 +170,6 @@ const buildSiteSettingsSeeds = (): RecordSeed[] => [
         sortOrder: 1,
         data: {
             BrandName: localized(MERIDIAN_73_SITE_SETTINGS.brandName),
-            HeroTitle: localized(MERIDIAN_73_SITE_SETTINGS.heroTitle),
-            HeroSubtitle: localized(MERIDIAN_73_SITE_SETTINGS.heroSubtitle),
             FooterDescription: localized(MERIDIAN_73_SITE_SETTINGS.footerDescription),
             CopyrightText: localized(MERIDIAN_73_SITE_SETTINGS.copyright),
             NewsletterEnabled: false,
@@ -178,6 +177,39 @@ const buildSiteSettingsSeeds = (): RecordSeed[] => [
         }
     }
 ]
+
+const authorHeroRecord = async (api: ApiContext, metahubId: string, objectsByCodename: Map<string, ObjectEntity>): Promise<void> => {
+    const heroObject = objectsByCodename.get('MarketingPageHero')
+    if (!heroObject?.id) throw new Error('73rd Meridian generator could not find Object MarketingPageHero')
+
+    const payload = await listRecords(api, metahubId, heroObject.id, { limit: 100, offset: 0 })
+    const records = Array.isArray(payload?.items)
+        ? (payload.items as Array<{ id?: unknown; version?: unknown; data?: Record<string, unknown> }>)
+        : []
+    const defaultRecord = records.find((record) => record.data?.HeroKey === 'default')
+    if (typeof defaultRecord?.id !== 'string') {
+        throw new Error('73rd Meridian generator requires the protected default MarketingPageHero record seeded by the template')
+    }
+    const expectedVersion = Number(defaultRecord.version)
+    if (!Number.isInteger(expectedVersion) || expectedVersion < 1) {
+        throw new Error('73rd Meridian generator requires a versioned default MarketingPageHero record')
+    }
+
+    const response = await sendWithCsrf(
+        api,
+        'PATCH',
+        `/api/v1/metahub/${metahubId}/entities/object/instance/${heroObject.id}/record/${defaultRecord.id}`,
+        {
+            expectedVersion,
+            data: {
+                Title: localized(MERIDIAN_73_HERO.title),
+                Accent: localized(MERIDIAN_73_HERO.accent),
+                Description: localized(MERIDIAN_73_HERO.description)
+            }
+        }
+    )
+    expect(response.ok).toBe(true)
+}
 
 const buildPartnerSeeds = (): RecordSeed[] =>
     MERIDIAN_73_PARTNER_CATEGORIES.map((partner, index) => ({
@@ -282,6 +314,7 @@ const authorProductRecords = async (api: ApiContext, metahubId: string): Promise
     await authorPricingRecords(api, metahubId, objects)
     await replaceRecords(api, metahubId, objects, 'MarketingPageSection', buildSectionSeeds())
     await replaceRecords(api, metahubId, objects, 'MarketingPageSiteSettings', buildSiteSettingsSeeds())
+    await authorHeroRecord(api, metahubId, objects)
     await replaceRecords(api, metahubId, objects, 'MarketingPageLogo', buildPartnerSeeds())
     await replaceRecords(api, metahubId, objects, 'MarketingPageFeature', buildActivitySeeds())
     await replaceRecords(api, metahubId, objects, 'MarketingPageTestimonial', buildExpertVisionSeeds())

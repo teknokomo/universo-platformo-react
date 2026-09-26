@@ -78,6 +78,14 @@ and permission contracts, and use package-local English/Russian translations.
 -   Matrix data semantics stay in `matrixMode`. View availability stays in `allowedMatrixViews`, and the opened view comes from `defaultMatrixView`.
 -   The shared contract from `@universo-react/types` treats `table`, `horizontalRows`, and `verticalTree` as peer Matrix views, requires at least one, and limits `verticalTree` to hierarchical cells.
 -   These settings belong to the metahub because they are shipped with every publication. Deployment-specific overrides belong to the Application control panel, and user-authored Structures, cells, Materials, Relations, and table templates belong to the published workspace.
+
+### Entity-backed Marketing Hero authoring
+
+-   Adding a repeatable Hero automatically creates and binds a fresh Entity record; duplicating a Hero clones its bound record into a fresh record so the default flow stays independent and one-click.
+-   The binding editor is the advanced path: authors can select a human-readable record from any compatible Hero Object or provision a separate compatible Object model, then continue managing its Components through the standard Entity UI.
+-   Selecting a record that is already used by another Hero shows a localized shared-source notice before rebinding/editing because record changes affect every consumer.
+-   Content and layout presentation are saved separately. Rebinding uses the optimistic `expectedVersion` contract, while presentation controls reuse the shared layout widget dialog.
+-   The binding picker, action fields, English/Russian validation and conflicts are localized; normal authoring surfaces do not expose record UUIDs or binding JSON.
 -   UI labels and validation are localized in English and Russian and must not expose widget IDs, config keys, UUIDs, or product-specific legacy terminology.
 
 ## Installation & Setup

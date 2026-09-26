@@ -3,6 +3,45 @@ const mockEnsureSchema = jest.fn()
 import { MetahubComponentsService } from '../../domains/metahubs/services/MetahubComponentsService'
 import { codenamePrimaryTextSql } from '../../domains/shared/codename'
 
+const marketingHeroRecordPolicy = {
+    version: 1,
+    semanticKey: { componentCodename: 'HeroKey', creationPrefix: 'hero', protectedValues: ['default'] },
+    denyDeleteWhenBound: true,
+    immutableSemanticKeyWhenBound: true,
+    runtimeMutation: 'deny',
+    requiredLocales: ['en', 'ru'],
+    validatorKey: 'marketing.hero.v1'
+}
+
+const marketingHeroMetadata = {
+    codename: 'MarketingPageHero',
+    config: { marketingRole: 'hero', recordPolicy: marketingHeroRecordPolicy }
+}
+
+const marketingHeroComponentRow = (codename: string, isRequired: boolean, validationRules: Record<string, unknown>) => ({
+    id: `component-${codename}`,
+    object_id: 'hero-object',
+    codename,
+    presentation: { name: { en: codename } },
+    data_type: 'STRING',
+    is_required: isRequired,
+    is_display_component: false,
+    target_object_id: null,
+    target_object_kind: null,
+    target_constant_id: null,
+    parent_component_id: null,
+    sort_order: 1,
+    validation_rules: validationRules,
+    ui_config: {},
+    is_system: false,
+    system_key: null,
+    is_system_managed: true,
+    is_system_enabled: true,
+    _upl_version: 1,
+    _upl_created_at: '2026-09-20T00:00:00.000Z',
+    _upl_updated_at: '2026-09-20T00:00:00.000Z'
+})
+
 describe('MetahubComponentsService active-row filtering', () => {
     const schemaService = {
         ensureSchema: mockEnsureSchema
@@ -93,6 +132,54 @@ describe('MetahubComponentsService active-row filtering', () => {
 
         expect(mockExecQuery).toHaveBeenCalledWith(expect.stringContaining('WHERE id = $1'), ['attr-1'])
         expect(mockExecQuery.mock.calls[0][0]).toContain('AND _upl_deleted = false AND _mhb_deleted = false')
+    })
+
+    it('serializes Entity Component mutations with policy-protected record writes', async () => {
+        const component = marketingHeroComponentRow('Title', true, { localized: true })
+        mockExecQuery.mockImplementation(async (sql: string) => {
+            if (sql.includes('_mhb_objects') && sql.includes('FOR SHARE')) return [{ id: 'hero-object' }]
+            if (sql.includes('_mhb_components') && sql.trimStart().startsWith('UPDATE')) return [component]
+            if (sql.includes('_mhb_components') && sql.includes('WHERE id = $1')) return [component]
+            return []
+        })
+
+        await service.update('metahub-1', component.id, { isRequired: true }, 'user-1')
+
+        const calls = mockExecQuery.mock.calls.map(([sql]) => String(sql))
+        const parentLockIndex = calls.findIndex((sql) => sql.includes('_mhb_objects') && sql.includes('FOR SHARE'))
+        const componentWriteIndex = calls.findIndex((sql) => sql.trimStart().startsWith('UPDATE'))
+        expect(parentLockIndex).toBeGreaterThanOrEqual(0)
+        expect(componentWriteIndex).toBeGreaterThan(parentLockIndex)
+        expect(mockExec.transaction).toHaveBeenCalled()
+    })
+
+    it('avoids locking a common-named Component when its Object has no Hero policy', async () => {
+        const title = marketingHeroComponentRow('Title', true, { localized: true })
+        mockExecQuery.mockImplementation(async (sql: string) => {
+            if (sql.includes('SELECT codename, config')) return [{ codename: 'Products', config: {} }]
+            if (sql.includes('_mhb_objects')) return [{ id: 'hero-object' }]
+            if (sql.includes('_mhb_components') && sql.trimStart().startsWith('UPDATE')) return [title]
+            if (sql.includes('_mhb_components')) return [title]
+            return []
+        })
+
+        await service.update('metahub-1', title.id, { isRequired: true }, 'user-1')
+
+        expect(
+            mockExecQuery.mock.calls.some(([sql]) => String(sql).includes('_mhb_components') && String(sql).includes('FOR UPDATE'))
+        ).toBe(false)
+    })
+
+    it('uses the supplied transaction when rereading flattened Components', async () => {
+        const txQuery = jest.fn().mockResolvedValue([])
+        const transaction = { query: txQuery } as any
+
+        await service.findAllFlat('metahub-1', 'object-1', 'user-1', 'business', transaction)
+
+        expect(txQuery).toHaveBeenCalledWith(expect.stringContaining('FROM "mhb_a1b2c3d4e5f67890abcdef1234567890_b1"."_mhb_components"'), [
+            'object-1'
+        ])
+        expect(mockExecQuery).not.toHaveBeenCalled()
     })
 
     it('uses primary codename text when matching enum value blockers against element data keys', async () => {
@@ -680,5 +767,49 @@ describe('MetahubComponentsService active-row filtering', () => {
             delete: expect.objectContaining({ mode: 'soft' })
         })
         expect(mockExecQuery).toHaveBeenCalledWith(expect.stringContaining('parent_component_id IS NULL'), ['object-1'])
+    })
+
+    it('rejects Hero binding schema mutations in the service before issuing component writes', async () => {
+        const description = marketingHeroComponentRow('Description', true, { maxLength: 2000, localized: true, versioned: true })
+        mockExecQuery.mockImplementation(async (sql: string) => {
+            if (sql.includes('_mhb_objects')) return [marketingHeroMetadata]
+            if (sql.includes('_mhb_components') && sql.includes('SELECT *')) return [description]
+            return []
+        })
+
+        await expect(service.update('metahub-1', 'component-Description', { isRequired: false }, 'user-1')).rejects.toMatchObject({
+            code: 'ENTITY_COMPONENT_SCHEMA_PROTECTED',
+            statusCode: 409
+        })
+
+        expect(mockExecQuery.mock.calls.some(([sql]) => /^\s*UPDATE\b/i.test(String(sql)))).toBe(false)
+        expect(mockExecQuery).toHaveBeenCalledWith(expect.stringContaining('FOR SHARE'), ['hero-object', 'object'])
+        expect(mockExecQuery).toHaveBeenCalledWith(expect.stringContaining('FOR UPDATE'), ['component-Description', 'hero-object'])
+    })
+
+    it('rejects deleting or displaying optional Hero binding fields in the service', async () => {
+        const accent = marketingHeroComponentRow('Accent', false, { maxLength: 120, localized: true, versioned: true })
+        mockExecQuery.mockImplementation(async (sql: string) => {
+            if (sql.includes('_mhb_objects')) return [marketingHeroMetadata]
+            if (sql.includes('_mhb_components') && sql.includes('SELECT *')) return [accent]
+            return []
+        })
+
+        await expect(service.delete('metahub-1', 'component-Accent', 'user-1')).rejects.toMatchObject({
+            code: 'ENTITY_COMPONENT_SCHEMA_PROTECTED'
+        })
+        expect(mockExecQuery.mock.calls.some(([sql]) => /^\s*(UPDATE|DELETE)\b/i.test(String(sql)))).toBe(false)
+
+        mockExecQuery.mockClear()
+        mockExecQuery.mockImplementation(async (sql: string) => {
+            if (sql.includes('_mhb_objects')) return [marketingHeroMetadata]
+            if (sql.includes('_mhb_components') && sql.includes('SELECT *')) return [accent]
+            return []
+        })
+
+        await expect(service.setDisplayComponent('metahub-1', 'hero-object', 'component-Accent', 'user-1')).rejects.toMatchObject({
+            code: 'ENTITY_COMPONENT_SCHEMA_PROTECTED'
+        })
+        expect(mockExecQuery.mock.calls.some(([sql]) => /^\s*UPDATE\b/i.test(String(sql)))).toBe(false)
     })
 })

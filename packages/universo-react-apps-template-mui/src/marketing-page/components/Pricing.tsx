@@ -79,6 +79,7 @@ export default function Pricing({
                         return (
                             <Grid size={sizeForTier(tier)} key={tier.semanticKey}>
                                 <Card
+                                    data-testid='marketing-pricing-card'
                                     sx={[
                                         { p: 2, display: 'flex', flexDirection: 'column', gap: 4, height: '100%' },
                                         featured

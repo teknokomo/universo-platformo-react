@@ -2033,10 +2033,13 @@ export class SnapshotRestoreService {
         zone: string,
         rawConfig: unknown
     ): Record<string, unknown> {
-        const decoded = decodeWidgetConfigEnvelope(rawConfig ?? {}, { templateKey, widgetKey, zone })
+        const decoded = decodeWidgetConfigEnvelope(rawConfig ?? {}, { templateKey, widgetKey, zone, requireBindings: true })
         const rendererConfig =
             templateKey === 'dashboard' ? decoded.rendererConfig : parseApplicationLayoutWidgetConfig(widgetKey, decoded.rendererConfig)
-        return encodeWidgetConfigEnvelope({ rendererConfig, neutral: decoded.neutral }, { templateKey, widgetKey, zone })
+        return encodeWidgetConfigEnvelope(
+            { rendererConfig, neutral: decoded.neutral },
+            { templateKey, widgetKey, zone, requireBindings: true }
+        )
     }
 
     private async restoreLayouts(

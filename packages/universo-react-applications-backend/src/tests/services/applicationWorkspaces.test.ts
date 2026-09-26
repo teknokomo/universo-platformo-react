@@ -1,3 +1,4 @@
+import { generateChildTableName } from '@universo-react/schema-ddl'
 import {
     archivePersonalWorkspaceForUser,
     ensureApplicationRuntimeWorkspaceSchema,
@@ -11,6 +12,94 @@ import { WORKSPACE_SEED_RESET_ERROR_CODES, WorkspaceSeedResetError } from '../..
 import { createMockDbExecutor } from '../utils/dbMocks'
 
 describe('applicationWorkspaces service', () => {
+    it('keeps read-only Entity tables and their TABLE children untouched during an owner seed reset', async () => {
+        const { executor, txExecutor } = createMockDbExecutor()
+        const schemaName = 'app_018f8a787b8f7c1da111222233334480'
+        const workspaceId = '018f8a78-7b8f-7c1d-a111-222233334481'
+        const entityId = '018f8a78-7b8f-7c1d-a111-222233334482'
+        const tableComponentId = '018f8a78-7b8f-7c1d-a111-222233334483'
+        const childTableName = generateChildTableName(tableComponentId)
+        txExecutor.query.mockImplementation(async (sql: string) => {
+            if (sql.includes(`INSERT INTO "${schemaName}"."_app_workspace_operation_audit"`)) {
+                return [{ id: '018f8a78-7b8f-7c1d-a111-222233334484' }]
+            }
+            if (sql.includes(`FROM "${schemaName}"."_app_workspaces"`)) return [{ id: workspaceId }]
+            if (sql.includes('FROM information_schema.columns c')) return [{ tableName: 'obj_records', objectId: entityId }]
+            if (sql.includes('SELECT DISTINCT c.id AS "componentId"')) return [{ componentId: tableComponentId }]
+            if (sql.includes('FROM information_schema.tables')) return [{ tableName: 'obj_records' }, { tableName: childTableName }]
+            if (sql.includes('SELECT id AS "entityId"') && sql.includes(`FROM "${schemaName}"."_app_objects"`)) {
+                return [
+                    {
+                        entityId,
+                        tableName: 'obj_records',
+                        config: {
+                            recordPolicy: {
+                                version: 1,
+                                denyDeleteWhenBound: false,
+                                immutableSemanticKeyWhenBound: false,
+                                runtimeMutation: 'deny'
+                            }
+                        }
+                    }
+                ]
+            }
+            if (sql.includes(`FROM "${schemaName}"."_app_settings"`)) return [{ value: { version: 1, elements: {} } }]
+            if (sql.includes(`FROM "${schemaName}"."_app_objects"`)) {
+                return [{ objectId: entityId, codename: 'MarketingPageHero', tableName: 'obj_records' }]
+            }
+            if (sql.includes('SELECT id AS "componentId"') && sql.includes(`FROM "${schemaName}"."_app_components"`)) {
+                return [
+                    {
+                        objectId: entityId,
+                        componentId: tableComponentId,
+                        parentComponentId: null,
+                        codename: 'Children',
+                        columnName: 'children',
+                        dataType: 'TABLE',
+                        uiConfig: null,
+                        validationRules: null,
+                        targetObjectId: null,
+                        targetObjectKind: null
+                    }
+                ]
+            }
+            if (sql.includes(`FROM "${schemaName}"."_app_components"`)) {
+                return [
+                    {
+                        objectId: entityId,
+                        componentId: tableComponentId,
+                        parentComponentId: null,
+                        codename: 'Children',
+                        columnName: 'children',
+                        dataType: 'TABLE',
+                        uiConfig: null,
+                        validationRules: null,
+                        targetObjectId: null,
+                        targetObjectKind: null
+                    }
+                ]
+            }
+            return []
+        })
+
+        await expect(
+            resetWorkspaceSeededElements(executor, {
+                schemaName,
+                workspaceId,
+                actorUserId: '018f8a78-7b8f-7c1d-a111-222233334485',
+                currentUserId: '018f8a78-7b8f-7c1d-a111-222233334485'
+            })
+        ).resolves.toEqual({ resetRows: 0, operationId: '018f8a78-7b8f-7c1d-a111-222233334484' })
+
+        const attemptedSql = txExecutor.query.mock.calls.map(([sql]) => String(sql)).join('\n')
+        expect(attemptedSql).toContain('_app_workspace_operation_audit')
+        expect(attemptedSql).toContain('FOR SHARE')
+        expect(attemptedSql).toContain("AND jsonb_exists(config, 'recordPolicy')")
+        expect(attemptedSql).not.toMatch(
+            new RegExp(`\\b(?:UPDATE|INSERT INTO|FROM)\\s+"${schemaName}"\\."(?:obj_records|${childTableName})"`, 'i')
+        )
+    })
+
     it('can resolve runtime workspace access without creating personal workspace rows', async () => {
         const { executor } = createMockDbExecutor()
         const schemaName = 'app_018f8a787b8f7c1da111222233334480'

@@ -14,12 +14,6 @@ import {
 
 const uuidV7 = '0190a9b5-3cde-7abc-8def-0123456789ab'
 const localized = { en: 'English', ru: 'Русский' }
-const provenance = {
-    layer: 'application' as const,
-    sourceId: uuidV7,
-    isSeeded: false,
-    isAuthored: true
-}
 
 describe('marketing page validation utilities', () => {
     it('normalizes plain strings and canonical versioned localized content', () => {
@@ -118,24 +112,22 @@ describe('marketing page validation utilities', () => {
                         sortOrder: 0,
                         isActive: true,
                         widgetKey: 'marketing.hero',
-                        config: {
-                            instanceKey: 'hero',
-                            source: { entityCodename: 'MarketingPageSiteSettings', entityKind: 'object' }
-                        },
+                        config: { instanceKey: 'hero', showLeadForm: true },
                         data: {
                             records: [
                                 {
-                                    id: uuidV7,
-                                    semanticKey: 'site-settings',
-                                    locale: 'en',
+                                    kind: 'heroContent',
+                                    semanticKey: 'content',
                                     order: 0,
                                     isVisible: true,
-                                    scope: 'application',
-                                    provenance,
-                                    kind: 'siteSettings',
-                                    brandName: localized,
-                                    heroTitle: localized,
-                                    heroSubtitle: localized
+                                    content: {
+                                        title: localized,
+                                        description: localized,
+                                        emailLabel: localized,
+                                        emailPlaceholder: localized,
+                                        primaryActionLabel: localized,
+                                        primaryAction: { kind: 'internal', path: '/sign-up' }
+                                    }
                                 }
                             ]
                         }

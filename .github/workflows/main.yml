@@ -70,6 +70,8 @@ jobs:
             - run: pnpm build
             - name: Check landing runtime unit, provenance and marketing gates
               run: pnpm test:landing-runtime-unit-gate
+            - name: Check Marketing Hero contracts and authoring/runtime unit gates
+              run: pnpm test:marketing-hero-unit-gate
             - name: Check MMOOMM app UI-first fixture generator gate
               run: pnpm run test:e2e:mmoomm-app-gate:local-supabase
             - name: Check 73rd Meridian public runtime in a real browser
@@ -77,10 +79,34 @@ jobs:
               env:
                   UNIVERSO_ENV_FILE: .env.e2e.local-supabase
                   UNIVERSO_FRONTEND_ENV_FILE: packages/universo-react-core-frontend/.env.e2e.local-supabase
+            - name: Check Marketing Hero full browser and visual verification
+              run: pnpm run test:e2e:marketing-page:verify:local-supabase
+            - name: Upload Marketing Hero verification evidence
+              if: success()
+              uses: actions/upload-artifact@v4
+              with:
+                  name: marketing-hero-verification-evidence
+                  path: tools/testing/e2e/.artifacts/marketing-page/
+                  if-no-files-found: error
+                  retention-days: 7
             - name: Check metahub records integrity against real PostgreSQL
               run: pnpm run test:records-integration:local-supabase
             - name: Check application alias integrity against real PostgreSQL
               run: pnpm run test:applications-integration:local-supabase
+            - name: Check Marketing Hero binding races in Chromium against real PostgreSQL
+              run: pnpm run test:marketing-hero-integration:local-supabase
             - name: Stop local E2E Supabase
               if: always()
-              run: pnpm supabase:e2e:stop
+              run: node tools/testing/e2e/support/stopLocalSupabaseWithRunLock.mjs
+            - name: Upload browser reports, traces, and screenshots
+              if: always()
+              uses: actions/upload-artifact@v4
+              with:
+                  name: marketing-hero-browser-evidence
+                  path: |
+                      test-results/
+                      playwright-report/
+                      tools/testing/e2e/.artifacts/marketing-page-authoring/
+                      tools/testing/e2e/.artifacts/marketing-hero-integration/
+                  if-no-files-found: ignore
+                  retention-days: 7

@@ -28,6 +28,43 @@
 
 **Why**: the 2026-05-16 research workflow separates external truth-finding from implementation changes while still allowing PLAN to complete user requests when the user skipped standalone RESEARCH.
 
+## Entity-Backed Widget Content Ownership Pattern (IMPORTANT)
+
+**Rule**: source-backed widgets are authoring and presentation adapters over ordinary Entity data. Business/content values belong to Entity records; widget/layout persistence owns presentation configuration plus a declarative semantic binding, never a parallel widget-specific content model.
+
+**Required**:
+
+-   Declare source requirements through serializable widget-registry `bindingSlots`; the backend validates persisted bindings against that registry contract.
+-   Persist placement bindings as reserved neutral metadata (`__layout.bindings`) and keep renderer-owned config separate. Replacing renderer config must preserve system-owned neutral metadata.
+-   Bind through semantic identity (`entityKind`, `entityCodename`, semantic-key selector, allowed projection). Do not persist physical record/component UUIDs, table names, or query fragments as the cross-boundary binding contract.
+-   Treat widget `instanceKey` and Entity-record identity as independent identities; copying or reconfiguring presentation must not silently redefine content identity.
+-   Default authoring should create a usable semantic binding in the same mutation that creates a source-backed placement. Advanced settings may intentionally select an existing compatible source/record or provision a compatible source with customized presentation names.
+-   When more than one placement targets the same record or source, surface that shared ownership in authoring UI so users understand that edits affect every bound placement.
+-   Preserve and validate bindings through snapshot/publication, restore, application sync/reset, effective-layout resolution, semantic hashing, copy/duplicate, toggle, and delete-integrity paths. Application overrides may change presentation while the source-owned binding remains the trusted baseline.
+-   Treat the live binding graph as referential integrity for Entity records: deletion guards and concurrent binding mutations must use the shared transaction/locking contract rather than widget-local checks.
+-   Published runtime resolves only an allowlisted typed projection/view model from the validated binding; renderers never receive reserved `__layout` metadata or direct persistence authority.
+
+**Detection**: `rg 'bindingSlots|replaceWidgetRendererConfig|marketingHeroBindingService|widgetBindingResolver|collectActivePublicHeroSelections' packages`
+
+**Why**: the Entity-backed Marketing Hero pilot established the reusable boundary that prevents widgets from becoming a second data model while preserving no-code authoring, secure semantic references, and deterministic publication/runtime behavior.
+
+## Shared Management Dropdown Boundary Pattern (IMPORTANT)
+
+**Rule**: non-published management, authoring, and admin surfaces should reuse the shared dropdown primitives from `@universo-react/template-mui/dropdowns`; the published `@universo-react/apps-template-mui` package remains isolated and owns its own runtime UI.
+
+**Required**:
+
+-   Use `DropdownSelect` for closed option sets and `DropdownAutocomplete` for searchable/async selection instead of adding local Select/Autocomplete wrappers.
+-   Reuse `DropdownActionButtons`/`endActions` for clear, reset, or related actions instead of rebuilding local icon-button clusters.
+-   Preserve standard MUI behaviors required by callers, including `MenuItem` children, multiple selection, `renderValue`, clear/open controls, caller-owned empty/reset options, loading states, and localized action labels.
+-   Keep the focused shared entry point domain-neutral; business labels, permissions, options, queries, routing, and mutation semantics stay in consumer packages.
+-   Guard non-published consumers with the shared dropdown import architecture test so direct MUI `Select`/`Autocomplete` usage does not drift back into host/admin packages.
+-   Do not import `@universo-react/template-mui` into `@universo-react/apps-template-mui`; preserve the published-runtime package boundary with its dedicated package-boundary/isolation checks.
+
+**Detection**: `rg '@universo-react/template-mui/dropdowns|DropdownSelect|DropdownAutocomplete|DropdownActionButtons' packages && pnpm --filter @universo-react/apps-template-mui test -- packageBoundary.test.ts`
+
+**Why**: the shared dropdown refactor removes repeated selection/control implementations across metahub, application-control-panel, and admin UI while preserving one host-side interaction standard and the independent published-runtime boundary.
+
 ## Shared Runtime Widget Module Hook Pattern (IMPORTANT)
 
 **Rule**: dashboard runtime widgets that load client-capable modules from application runtime metadata must reuse the shared module-selection + client-bundle hook instead of duplicating the entity/metahub fetch logic per widget.

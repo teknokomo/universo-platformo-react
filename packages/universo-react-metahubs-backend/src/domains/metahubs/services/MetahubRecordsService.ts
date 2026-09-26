@@ -14,16 +14,27 @@ import {
     isValidUuid,
     validateNumber
 } from '@universo-react/utils'
-import { ComponentDefinitionDataType, normalizeInterpretationNetworkHexColor, VersionedLocalizedContent } from '@universo-react/types'
+import {
+    ComponentDefinitionDataType,
+    normalizeInterpretationNetworkHexColor,
+    VersionedLocalizedContent,
+    type EntityRecordPolicy
+} from '@universo-react/types'
 import { escapeLikeWildcards } from '../../../utils'
 import { assertExpectedVersion, updateWithVersionCheck } from '../../../utils/optimisticLock'
 import {
     MetahubNotFoundError,
     MetahubRecordKeyDuplicateError,
+    MetahubRecordBoundError,
+    MetahubRecordProtectedError,
     MetahubRecordReferencedError,
     MetahubRecordReferenceMissingError,
     MetahubValidationError
 } from '../../shared/domainErrors'
+import { isEntityRecordBoundBySemanticKey } from '../../layouts/widgetBindingPolicyStore'
+import { prepareEntityRecordCreationData, readEntityRecordPolicy, validateEntityRecordPolicyData } from '../../shared/entityRecordPolicy'
+import { assertMarketingHeroUpdateActionsRemainValid } from './marketingHeroUpdatePolicy'
+import { lockEntityRecordPolicyForWrite } from './entityRecordPolicyWriteStore'
 
 const ACTIVE = '_upl_deleted = false AND _mhb_deleted = false'
 
@@ -70,6 +81,20 @@ const coerceNumber = (value: unknown, fallback: number): number => {
     const parsed = Number(value)
     return Number.isFinite(parsed) ? parsed : fallback
 }
+
+const assertEntityRecordPolicyData = (
+    policy: EntityRecordPolicy | undefined,
+    data: Record<string, unknown>,
+    components: readonly RecordComponent[]
+): void => {
+    const result = validateEntityRecordPolicyData(policy, data, components)
+    if (!result.valid) {
+        throw new MetahubValidationError('Entity record policy validation failed', { fields: result.errors })
+    }
+}
+
+const readRecordData = (value: unknown): Record<string, unknown> =>
+    value && typeof value === 'object' && !Array.isArray(value) ? (value as Record<string, unknown>) : {}
 
 /**
  * MetahubRecordsService manages design-time records stored in `_mhb_elements`.
@@ -410,28 +435,50 @@ export class MetahubRecordsService {
             sortOrder?: number
             createdBy?: string | null
         },
-        userId?: string
+        userId?: string,
+        db?: SqlQueryable
     ) {
         // Verify object exists
-        const object = await this.objectsService.findById(metahubId, objectCollectionId, userId)
+        const object = await this.objectsService.findById(metahubId, objectCollectionId, userId, {}, db)
         if (!object) throw new MetahubNotFoundError('Object')
 
+        const recordPolicy = readEntityRecordPolicy(object.config)
+        const inputData = prepareEntityRecordCreationData(recordPolicy, input.data)
+
         // Validate element data against object components (use findAllFlat to include child attrs for TABLE validation)
-        const components = await this.componentsService.findAllFlat(metahubId, objectCollectionId, userId)
-        const validation = this.validateRecordData(input.data, components)
+        const components = await this.componentsService.findAllFlat(metahubId, objectCollectionId, userId, 'business', db)
+        const validation = this.validateRecordData(inputData, components)
         if (!validation.valid) {
             throw new MetahubValidationError(`Validation failed: ${validation.errors.join(', ')}`)
         }
-        const normalizedData = this.normalizeHexColorFields(input.data, components)
+        assertEntityRecordPolicyData(recordPolicy, inputData, components)
+        const normalizedData = this.normalizeHexColorFields(inputData, components)
 
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
         const qt = qSchemaTable(schemaName, '_mhb_elements')
 
-        return this.exec.transaction(async (tx: SqlQueryable) => {
+        const createWithRunner = async (tx: SqlQueryable) => {
+            let authoritativePolicy = recordPolicy
+            let writeComponents = components
+            let writeData = normalizedData
+            if (recordPolicy) {
+                const locked = await lockEntityRecordPolicyForWrite(tx, schemaName, objectCollectionId)
+                if (locked.object.kind !== 'object') throw new MetahubNotFoundError('Object')
+                authoritativePolicy = locked.policy
+                if (!authoritativePolicy) throw new MetahubValidationError('Entity record policy changed during the write')
+                const authoritativeInputData = prepareEntityRecordCreationData(authoritativePolicy, input.data)
+                writeComponents = await this.componentsService.findAllFlat(metahubId, objectCollectionId, userId, 'business', tx)
+                const authoritativeValidation = this.validateRecordData(authoritativeInputData, writeComponents)
+                if (!authoritativeValidation.valid) {
+                    throw new MetahubValidationError(`Validation failed: ${authoritativeValidation.errors.join(', ')}`)
+                }
+                assertEntityRecordPolicyData(authoritativePolicy, authoritativeInputData, writeComponents)
+                writeData = this.normalizeHexColorFields(authoritativeInputData, writeComponents)
+            }
             await this.acquireSortOrderLockInTransaction(tx, schemaName, objectCollectionId)
 
-            await this.assertUniqueComponentValues(tx, schemaName, objectCollectionId, components, normalizedData)
-            await this.assertRefTargetsExist(tx, schemaName, components, normalizedData)
+            await this.assertUniqueComponentValues(tx, schemaName, objectCollectionId, writeComponents, writeData)
+            await this.assertRefTargetsExist(tx, schemaName, writeComponents, writeData)
 
             const sortOrder =
                 typeof input.sortOrder === 'number' && Number.isFinite(input.sortOrder)
@@ -447,14 +494,17 @@ export class MetahubRecordsService {
                      _upl_created_at, _upl_created_by, _upl_updated_at, _upl_updated_by)
                  VALUES ($1, $2::jsonb, $3, NULL, $4, $5, $4, $5)
                  RETURNING *`,
-                [objectCollectionId, JSON.stringify(normalizedData), sortOrder, now, input.createdBy ?? null]
+                [objectCollectionId, JSON.stringify(writeData), sortOrder, now, input.createdBy ?? null]
             )
 
             await this.ensureSequentialSortOrderInTransaction(schemaName, objectCollectionId, tx)
 
             const normalized = await queryOne<Record<string, unknown>>(tx, `SELECT * FROM ${qt} WHERE id = $1 LIMIT 1`, [created.id])
             return this.mapRowToRecord(normalized ?? created)
-        })
+        }
+
+        if (db) return createWithRunner(db)
+        return this.exec.transaction((tx: SqlQueryable) => createWithRunner(tx))
     }
 
     /**
@@ -475,6 +525,7 @@ export class MetahubRecordsService {
         // Verify object exists
         const object = await this.objectsService.findById(metahubId, objectCollectionId, userId)
         if (!object) throw new MetahubNotFoundError('Object')
+        const recordPolicy = readEntityRecordPolicy(object.config)
 
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
         const qt = qSchemaTable(schemaName, '_mhb_elements')
@@ -495,13 +546,19 @@ export class MetahubRecordsService {
 
         let ruleComponents: RecordComponent[] = []
         if (input.data) {
-            const mergedData = { ...(existing.data as Record<string, unknown>), ...input.data }
+            const existingData = readRecordData(existing.data)
+            const mergedData = { ...existingData, ...input.data }
             // Use findAllFlat to include child attrs for TABLE validation
             const components = await this.componentsService.findAllFlat(metahubId, objectCollectionId, userId)
+            const keyComponent = recordPolicy?.semanticKey?.componentCodename
+            if (keyComponent && input.data[keyComponent] !== undefined && input.data[keyComponent] !== existingData[keyComponent]) {
+                throw new MetahubRecordProtectedError()
+            }
             const validation = this.validateRecordData(mergedData, components)
             if (!validation.valid) {
                 throw new MetahubValidationError(`Validation failed: ${validation.errors.join(', ')}`)
             }
+            assertEntityRecordPolicyData(recordPolicy, mergedData, components)
             ruleComponents = components
             updateData.data = this.normalizeHexColorFields(mergedData, components)
         }
@@ -511,6 +568,17 @@ export class MetahubRecordsService {
         }
 
         return this.exec.transaction(async (tx: SqlQueryable) => {
+            let authoritativePolicy = recordPolicy
+            let lockedObject: Awaited<ReturnType<typeof lockEntityRecordPolicyForWrite>>['object'] | null = null
+            if (recordPolicy) {
+                const locked = await lockEntityRecordPolicyForWrite(tx, schemaName, objectCollectionId)
+                lockedObject = locked.object
+                if (locked.object.kind !== 'object') {
+                    throw new MetahubValidationError('Entity record policy changed during the write')
+                }
+                authoritativePolicy = locked.policy
+                if (!authoritativePolicy) throw new MetahubValidationError('Entity record policy changed during the write')
+            }
             // Serialize with create/delete so two concurrent updates cannot both
             // pass the uniqueness check and commit duplicated keys.
             await this.acquireSortOrderLockInTransaction(tx, schemaName, objectCollectionId)
@@ -535,6 +603,33 @@ export class MetahubRecordsService {
                 entityType: 'element',
                 expectedVersion: effectiveExpectedVersion
             })
+
+            if (updateData.data && authoritativePolicy) {
+                const mergedData = {
+                    ...readRecordData(existing.data),
+                    ...(input.data ?? {})
+                }
+                ruleComponents = await this.componentsService.findAllFlat(metahubId, objectCollectionId, userId, 'business', tx)
+                const validation = this.validateRecordData(mergedData, ruleComponents)
+                if (!validation.valid) {
+                    throw new MetahubValidationError(`Validation failed: ${validation.errors.join(', ')}`)
+                }
+                const semanticKeyComponent = authoritativePolicy.semanticKey?.componentCodename
+                if (semanticKeyComponent && mergedData[semanticKeyComponent] !== readRecordData(existing.data)[semanticKeyComponent]) {
+                    throw new MetahubRecordProtectedError()
+                }
+                assertEntityRecordPolicyData(authoritativePolicy, mergedData, ruleComponents)
+                const normalizedRecordData = this.normalizeHexColorFields(mergedData, ruleComponents)
+                updateData.data = normalizedRecordData
+                await assertMarketingHeroUpdateActionsRemainValid({
+                    db: tx,
+                    schemaName,
+                    objectCodename: lockedObject?.codename,
+                    semanticKey: authoritativePolicy.semanticKey,
+                    recordData: mergedData,
+                    normalizedRecordData
+                })
+            }
 
             if (updateData.data) {
                 await this.assertUniqueComponentValues(
@@ -821,11 +916,21 @@ export class MetahubRecordsService {
         // Verify object exists
         const object = await this.objectsService.findById(metahubId, objectCollectionId, userId)
         if (!object) throw new MetahubNotFoundError('Object')
+        const recordPolicy = readEntityRecordPolicy(object.config)
 
         const referencingComponents = await this.findReferencingComponents(metahubId, objectCollectionId, userId)
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
 
         await this.exec.transaction(async (tx: SqlQueryable) => {
+            let authoritativePolicy = recordPolicy
+            let lockedObject: Awaited<ReturnType<typeof lockEntityRecordPolicyForWrite>>['object'] | undefined
+            if (recordPolicy) {
+                const locked = await lockEntityRecordPolicyForWrite(tx, schemaName, objectCollectionId)
+                lockedObject = locked.object
+                if (lockedObject.kind !== 'object') throw new MetahubNotFoundError('Object')
+                authoritativePolicy = locked.policy
+                if (!authoritativePolicy) throw new MetahubValidationError('Entity record policy changed during the write')
+            }
             await this.acquireSortOrderLockInTransaction(tx, schemaName, objectCollectionId)
 
             const qt = qSchemaTable(schemaName, '_mhb_elements')
@@ -834,13 +939,23 @@ export class MetahubRecordsService {
             // assertRefTargetsExist, so either the writer commits first and this
             // scan sees the new reference, or this delete commits first and the
             // writer fails closed on the now soft-deleted target.
-            const existing = await queryOne<{ id: string }>(
+            const existing = await queryOne<{ id: string; data: unknown }>(
                 tx,
-                `SELECT id FROM ${qt} WHERE id = $1 AND object_id = $2 AND ${ACTIVE} LIMIT 1 FOR UPDATE`,
+                `SELECT id, data FROM ${qt} WHERE id = $1 AND object_id = $2 AND ${ACTIVE} LIMIT 1 FOR UPDATE`,
                 [id, objectCollectionId]
             )
             if (!existing) {
                 throw new MetahubNotFoundError('Element')
+            }
+
+            if (authoritativePolicy?.semanticKey && lockedObject) {
+                const semanticKey = readRecordData(existing.data)[authoritativePolicy.semanticKey.componentCodename]
+                if (typeof semanticKey !== 'string') throw new MetahubValidationError('Protected Entity record has no semantic key')
+                if (authoritativePolicy.semanticKey.protectedValues.includes(semanticKey)) throw new MetahubRecordProtectedError()
+                if (authoritativePolicy.denyDeleteWhenBound) {
+                    const isBound = await isEntityRecordBoundBySemanticKey(tx, schemaName, lockedObject.codename, semanticKey)
+                    if (isBound) throw new MetahubRecordBoundError()
+                }
             }
 
             await this.assertElementNotReferenced(tx, schemaName, id, referencingComponents)

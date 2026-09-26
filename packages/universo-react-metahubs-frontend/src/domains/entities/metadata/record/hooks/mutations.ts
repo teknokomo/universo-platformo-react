@@ -191,7 +191,12 @@ export function useDeleteRecord() {
         },
         onError: (error: Error, _variables, context) => {
             rollbackOptimisticSnapshots(queryClient, context?.previousSnapshots)
-            const message = isApiError(error, 'RECORD_REFERENCED')
+            const message = isApiError(error, 'RECORD_BOUND')
+                ? t(
+                      'records.deleteBound',
+                      'This record is used by a Hero placement. Open Layouts, select the placement, then choose another content record or remove it before deleting this record.'
+                  )
+                : isApiError(error, 'RECORD_REFERENCED')
                 ? t('records.deleteReferenced', 'This record is used by other records. Remove those references first.')
                 : resolveApiErrorMessage(error, t('records.deleteError', 'Failed to delete element'))
             enqueueSnackbar(message, { variant: 'error' })

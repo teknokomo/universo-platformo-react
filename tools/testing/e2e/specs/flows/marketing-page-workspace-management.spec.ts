@@ -94,6 +94,30 @@ function readEnglishLocalizedValue(value: unknown): unknown {
     return value && typeof value === 'object' && !Array.isArray(value) ? (value as { en?: unknown }).en : undefined
 }
 
+function readBoundHeroContent(payload: unknown): Record<string, unknown> {
+    if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
+        throw new Error('Marketing workspace runtime payload is invalid')
+    }
+    const marketingPage = (payload as { marketingPage?: unknown }).marketingPage
+    if (!marketingPage || typeof marketingPage !== 'object' || Array.isArray(marketingPage)) {
+        throw new Error('Marketing workspace runtime did not expose its page')
+    }
+    const widgets = (marketingPage as { widgets?: unknown }).widgets
+    if (!Array.isArray(widgets)) throw new Error('Marketing workspace runtime did not expose its widget placements')
+    const heroWidget = widgets.find(
+        (widget) => widget && typeof widget === 'object' && (widget as { widgetKey?: unknown }).widgetKey === 'marketing.hero'
+    ) as { data?: { records?: unknown } } | undefined
+    const records = heroWidget?.data?.records
+    if (!Array.isArray(records) || records.length !== 1) {
+        throw new Error('Marketing workspace runtime must expose one bound default Hero Entity record')
+    }
+    const content = (records[0] as { content?: unknown })?.content
+    if (!content || typeof content !== 'object' || Array.isArray(content)) {
+        throw new Error('Marketing workspace runtime did not expose semantic Hero Entity content')
+    }
+    return content as Record<string, unknown>
+}
+
 test('@flow @permission @marketing-page verifies workspace lifecycle, seed isolation, and member denial', async ({
     browser,
     runManifest
@@ -180,6 +204,7 @@ test('@flow @permission @marketing-page verifies workspace lifecycle, seed isola
         const sharedRuntime = await getApiResponse(ownerApi, runtimePath(application.id, sharedWorkspace.id))
         expect(sharedRuntime.status).toBe(200)
         const sharedRuntimePayload = await sharedRuntime.json()
+        const pristineHeroContent = readBoundHeroContent(sharedRuntimePayload)
         expect(flattenMarketingPageRecords(sharedRuntimePayload)).toEqual(
             expect.arrayContaining([expect.objectContaining({ kind: 'siteSettings' })])
         )
@@ -191,6 +216,7 @@ test('@flow @permission @marketing-page verifies workspace lifecycle, seed isola
         await ownerBrowser.page.getByRole('button', { name: 'Reset seeded content', exact: true }).click()
         const pristineResetDialog = ownerBrowser.page.getByRole('dialog')
         await expect(pristineResetDialog).toContainText('Reset seeded content?')
+        await expect(pristineResetDialog).toContainText('Read-only Entity content and authored records remain unchanged.')
         const pristineResetResponsePromise = ownerBrowser.page.waitForResponse(
             (response) =>
                 response.url().includes(`/runtime/workspaces/${sharedWorkspace.id}/seed/reset`) && response.request().method() === 'POST'
@@ -201,6 +227,9 @@ test('@flow @permission @marketing-page verifies workspace lifecycle, seed isola
         const pristineResetPayload = await pristineResetResponse.json()
         expect(pristineResetPayload.resetRows).toBeGreaterThan(0)
         expect(isUuidV7(pristineResetPayload.operationId)).toBe(true)
+        const sharedRuntimeAfterReset = await getApiResponse(ownerApi, runtimePath(application.id, sharedWorkspace.id))
+        expect(sharedRuntimeAfterReset.status).toBe(200)
+        expect(readBoundHeroContent(await sharedRuntimeAfterReset.json())).toEqual(pristineHeroContent)
 
         const schemaName = `app_${application.id.replace(/-/g, '')}`
         expect(schemaName).toMatch(/^app_[0-9a-f]{32}$/i)
@@ -231,8 +260,10 @@ test('@flow @permission @marketing-page verifies workspace lifecycle, seed isola
         expect(createdCopiedWorkspace.id).not.toBe(sharedWorkspace.id)
 
         const copiedRuntime = await getApiResponse(ownerApi, runtimePath(application.id, createdCopiedWorkspace.id))
-        expect(copiedRuntime.status).toBe(200)
-        const copiedRuntimePayload = await copiedRuntime.json()
+        const copiedRuntimeBody = await copiedRuntime.text()
+        expect(copiedRuntime.status, copiedRuntimeBody).toBe(200)
+        const copiedRuntimePayload: unknown = JSON.parse(copiedRuntimeBody)
+        const copiedHeroContent = readBoundHeroContent(copiedRuntimePayload)
         expect(flattenMarketingPageRecords(copiedRuntimePayload)).toEqual(
             expect.arrayContaining([expect.objectContaining({ kind: 'siteSettings' })])
         )
@@ -274,13 +305,7 @@ test('@flow @permission @marketing-page verifies workspace lifecycle, seed isola
             {
                 objectCollectionId: siteSettingsCollection!.id,
                 data: {
-                    HeroTitle: {
-                        _schema: '1',
-                        _primary: 'en',
-                        locales: {
-                            en: { content: 'Cross-scope probe', version: 1, isActive: true }
-                        }
-                    }
+                    BrandName: createLocalizedContent('en', 'Cross-scope probe')
                 }
             }
         )
@@ -292,7 +317,7 @@ test('@flow @permission @marketing-page verifies workspace lifecycle, seed isola
             })
         ).toBeNull()
 
-        const authoredHeroTitle = `Authored workspace content ${runManifest.runId}`
+        const authoredBrandName = `Authored workspace content ${runManifest.runId}`
         const copiedSiteSettingsRow = await getRuntimeRow(ownerApi, application.id, copiedSiteSettingsId, {
             objectCollectionId: siteSettingsCollection!.id,
             workspaceId: createdCopiedWorkspace.id
@@ -307,15 +332,7 @@ test('@flow @permission @marketing-page verifies workspace lifecycle, seed isola
             {
                 objectCollectionId: siteSettingsCollection!.id,
                 expectedVersion: Number.isInteger(copiedRowVersion) && copiedRowVersion > 0 ? copiedRowVersion : 1,
-                data: {
-                    HeroTitle: {
-                        _schema: '1',
-                        _primary: 'en',
-                        locales: {
-                            en: { content: authoredHeroTitle, version: 1, isActive: true }
-                        }
-                    }
-                }
+                data: { BrandName: createLocalizedContent('en', authoredBrandName) }
             }
         )
         expect(authoredMutation.ok).toBe(true)
@@ -324,9 +341,9 @@ test('@flow @permission @marketing-page verifies workspace lifecycle, seed isola
         const authoredRuntimePayload = await authoredRuntime.json()
         expect(
             readEnglishLocalizedValue(
-                flattenMarketingPageRecords(authoredRuntimePayload).find((record) => record.kind === 'siteSettings')?.heroTitle
+                flattenMarketingPageRecords(authoredRuntimePayload).find((record) => record.kind === 'siteSettings')?.brandName
             )
-        ).toBe(authoredHeroTitle)
+        ).toBe(authoredBrandName)
 
         await ownerBrowser.page.goto(new URL(`/a/${application.id}/workspaces`, ownerBrowser.page.url()).toString())
         await expect(ownerBrowser.page.getByTestId('runtime-workspaces-page')).toBeVisible({ timeout: 60_000 })
@@ -419,9 +436,10 @@ test('@flow @permission @marketing-page verifies workspace lifecycle, seed isola
         const authoredAfterResetPayload = await authoredAfterResetRuntime.json()
         expect(
             readEnglishLocalizedValue(
-                flattenMarketingPageRecords(authoredAfterResetPayload).find((record) => record.kind === 'siteSettings')?.heroTitle
+                flattenMarketingPageRecords(authoredAfterResetPayload).find((record) => record.kind === 'siteSettings')?.brandName
             )
-        ).toBe(authoredHeroTitle)
+        ).toBe(authoredBrandName)
+        expect(readBoundHeroContent(authoredAfterResetPayload)).toEqual(copiedHeroContent)
 
         const memberResetResponse = await sendWithCsrf(
             memberApi!,

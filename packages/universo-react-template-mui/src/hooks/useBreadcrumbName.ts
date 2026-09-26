@@ -48,6 +48,7 @@ export interface EntityNameHookConfig {
     apiPath?: string
     /** Field to extract from response (default: 'name') - used with default fetcher */
     nameField?: string
+    responseDataField?: string
     /** Custom fetcher function - allows integration with any API client */
     fetcher?: EntityNameFetcher
 }
@@ -67,11 +68,13 @@ async function loadBreadcrumbEntity(client: AuthClient, path: string): Promise<R
     }
 }
 
-function createDefaultFetcher(client: AuthClient, apiPath: string, nameField: string): EntityNameFetcher {
+function createDefaultFetcher(client: AuthClient, apiPath: string, nameField: string, responseDataField?: string): EntityNameFetcher {
     return async (entityId: string): Promise<string> => {
         const language = getCurrentLanguageKey()
-        const data = await loadBreadcrumbEntity(client, `/${apiPath}/${entityId}`)
-        return extractLocalizedString(data?.[nameField], language)
+        const response = await loadBreadcrumbEntity(client, `/${apiPath}/${entityId}`)
+        const nestedEntity = responseDataField ? response[responseDataField] : undefined
+        const entity = nestedEntity && typeof nestedEntity === 'object' ? (nestedEntity as Record<string, unknown>) : response
+        return extractLocalizedString(entity?.[nameField], language) || extractLocalizedString(entity?.codename, language)
     }
 }
 
@@ -107,12 +110,12 @@ function createDefaultFetcher(client: AuthClient, apiPath: string, nameField: st
  * ```
  */
 export function createEntityNameHook(config: EntityNameHookConfig) {
-    const { entityType, apiPath, nameField = 'name', fetcher } = config
+    const { entityType, apiPath, nameField = 'name', responseDataField, fetcher } = config
 
     return function useEntityName(entityId: string | null): string | null {
         const { client, loading: authLoading } = useAuth()
         const language = getCurrentLanguageKey()
-        const fetchEntityName = fetcher ?? createDefaultFetcher(client, apiPath ?? entityType + 's', nameField)
+        const fetchEntityName = fetcher ?? createDefaultFetcher(client, apiPath ?? entityType + 's', nameField, responseDataField)
         const query = useQuery({
             queryKey: ['breadcrumb', entityType, entityId, language],
             queryFn: () => fetchEntityName(entityId!),
@@ -152,6 +155,14 @@ export function createTruncateFunction(defaultMaxLength = 30) {
         return safeName.slice(0, maxLength - 1) + '…'
     }
 }
+
+function truncateAdminBreadcrumbName(name: string, maxLength = 25): string {
+    if (name.length <= maxLength) return name
+    return name.substring(0, maxLength - 3) + '...'
+}
+
+export const truncateInstanceName = truncateAdminBreadcrumbName
+export const truncateRoleName = truncateAdminBreadcrumbName
 
 // ============================================================
 // Pre-configured hooks for all entity types
@@ -213,6 +224,20 @@ export const useMetaverseName = createEntityNameHook({
 export const useApplicationName = createEntityNameHook({
     entityType: 'application',
     apiPath: 'applications'
+})
+
+/** Resolve admin instance names without coupling this shared UI package to admin-frontend. */
+export const useInstanceName = createEntityNameHook({
+    entityType: 'admin-instance',
+    apiPath: 'admin/instances',
+    responseDataField: 'data'
+})
+
+/** Resolve admin role names without coupling this shared UI package to admin-frontend. */
+export const useRoleName = createEntityNameHook({
+    entityType: 'admin-role',
+    apiPath: 'admin/roles',
+    responseDataField: 'data'
 })
 
 /**

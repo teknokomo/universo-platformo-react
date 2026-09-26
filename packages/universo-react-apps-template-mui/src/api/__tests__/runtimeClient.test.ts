@@ -20,6 +20,24 @@ const target = {
 
 const applicationId = '0190a9b5-3cde-7abc-8def-0123456789a1'
 const layoutId = '0190a9b5-3cde-7abc-8def-0123456789a2'
+const heroData = {
+    records: [
+        {
+            kind: 'heroContent' as const,
+            semanticKey: 'content' as const,
+            order: 0 as const,
+            isVisible: true as const,
+            content: {
+                title: { en: 'Welcome' },
+                description: { en: 'A typed marketing page.' },
+                emailLabel: { en: 'Email' },
+                emailPlaceholder: { en: 'you@example.test' },
+                primaryActionLabel: { en: 'Join' },
+                primaryAction: { kind: 'internal' as const, path: '/join' }
+            }
+        }
+    ]
+}
 const runtimeTemplate = {
     status: 'ok' as const,
     target: {
@@ -117,11 +135,8 @@ const marketingRuntimeTemplate = {
                 sortOrder: 0,
                 isActive: true,
                 widgetKey: 'marketing.hero' as const,
-                config: {
-                    instanceKey: 'hero',
-                    source: { entityCodename: 'MarketingPageSiteSettings', entityKind: 'object' as const }
-                },
-                data: { records: [] }
+                config: { instanceKey: 'hero', showLeadForm: true },
+                data: heroData
             }
         ]
     }

@@ -18,6 +18,7 @@ import {
 import { ApplicationSchemaStatus, ComponentDefinitionDataType, type ApplicationLayoutSyncResolution } from '@universo-react/types'
 import type { DbExecutor } from '@universo-react/utils'
 import { updateApplicationSyncFields } from '../../persistence/applicationsStore'
+import { APPLICATION_LAYOUT_ENTITY_BACKED_WIDGET_COPY_CONFLICT } from '../../persistence/applicationLayoutSyncStore'
 import type { PublishedApplicationSnapshot } from '../../services/applicationSyncContracts'
 import { buildInstalledReleaseMetadataFromBundle } from '../../services/applicationReleaseBundle'
 import { persistApplicationSchemaSyncState } from '../../services/ApplicationSchemaSyncStateStore'
@@ -112,6 +113,13 @@ export async function syncApplicationSchemaFromSource(options: {
     const { application, exec, userId, confirmDestructive, connectorId, source, layoutResolutionPolicy } = options
     const { generator, migrator, migrationManager } = getApplicationSyncDdlServices()
     const knex = getApplicationSyncKnex()
+
+    const isEntityBackedWidgetCopyConflict = (value: unknown): boolean => {
+        if (typeof value === 'string') return value.includes(APPLICATION_LAYOUT_ENTITY_BACKED_WIDGET_COPY_CONFLICT)
+        if (value instanceof Error) return value.message.includes(APPLICATION_LAYOUT_ENTITY_BACKED_WIDGET_COPY_CONFLICT)
+        if (Array.isArray(value)) return value.some(isEntityBackedWidgetCopyConflict)
+        return false
+    }
 
     if (!application.schemaName) {
         application.schemaName = generateSchemaName(application.id)
@@ -256,6 +264,29 @@ export async function syncApplicationSchemaFromSource(options: {
         }
     }
 
+    const previousSchemaStatus = application.schemaStatus ?? ApplicationSchemaStatus.DRAFT
+    const previousSchemaError = application.schemaError ?? null
+    const restoreEntityBackedCopyConflict = async () => {
+        application.schemaStatus = previousSchemaStatus
+        application.schemaError = previousSchemaError
+        await updateApplicationSyncFields(exec, {
+            applicationId: application.id,
+            schemaStatus: previousSchemaStatus,
+            schemaError: previousSchemaError,
+            userId
+        })
+
+        return {
+            statusCode: 409,
+            body: {
+                status: 'conflict',
+                error: APPLICATION_LAYOUT_ENTITY_BACKED_WIDGET_COPY_CONFLICT,
+                code: APPLICATION_LAYOUT_ENTITY_BACKED_WIDGET_COPY_CONFLICT,
+                message: 'This layout contains entity-backed content that cannot be copied into application-owned storage.'
+            }
+        }
+    }
+
     application.schemaStatus = ApplicationSchemaStatus.MAINTENANCE
     await updateApplicationSyncFields(exec, {
         applicationId: application.id,
@@ -322,6 +353,10 @@ export async function syncApplicationSchemaFromSource(options: {
             })
 
             if (!result.success) {
+                if (isEntityBackedWidgetCopyConflict(result.errors)) {
+                    return restoreEntityBackedCopyConflict()
+                }
+
                 application.schemaStatus = ApplicationSchemaStatus.ERROR
                 application.schemaError = result.errors.join('; ')
                 await updateApplicationSyncFields(exec, {
@@ -639,6 +674,10 @@ export async function syncApplicationSchemaFromSource(options: {
         )
 
         if (!migrationResult.success) {
+            if (isEntityBackedWidgetCopyConflict(migrationResult.errors)) {
+                return restoreEntityBackedCopyConflict()
+            }
+
             application.schemaStatus = ApplicationSchemaStatus.ERROR
             application.schemaError = migrationResult.errors.join('; ')
             await updateApplicationSyncFields(exec, {
@@ -685,6 +724,10 @@ export async function syncApplicationSchemaFromSource(options: {
             }
         }
     } catch (error) {
+        if (isEntityBackedWidgetCopyConflict(error)) {
+            return restoreEntityBackedCopyConflict()
+        }
+
         application.schemaStatus = ApplicationSchemaStatus.ERROR
         application.schemaError = error instanceof Error ? error.message : 'Unknown error'
         await updateApplicationSyncFields(exec, {

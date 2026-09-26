@@ -25,6 +25,7 @@ import {
 } from '@universo-react/template-mui'
 
 import { createAppRuntimeRoute, createPublicAppRuntimeRoute } from '@universo-react/apps-template-mui'
+import { APPLICATION_HOST_ROUTE_PATHS } from '@universo-react/types'
 import { AdminDialogSettingsProvider } from '@universo-react/admin-frontend'
 import {
     ApplicationDialogSettingsProvider,
@@ -158,7 +159,7 @@ const ApplicationDialogScope = () => (
 )
 
 const HomeRoute = {
-    path: '/',
+    path: APPLICATION_HOST_ROUTE_PATHS.home,
     element: (
         <ErrorBoundary>
             <HomeRouteResolver
@@ -178,7 +179,7 @@ const HomeRoute = {
 }
 
 const StartRoute = {
-    path: '/start',
+    path: APPLICATION_HOST_ROUTE_PATHS.start,
     element: (
         <ErrorBoundary>
             <StartAccessGuard>
@@ -191,7 +192,7 @@ const StartRoute = {
 }
 
 const TermsRoute = {
-    path: '/terms',
+    path: APPLICATION_HOST_ROUTE_PATHS.terms,
     element: (
         <ErrorBoundary>
             <StartLayoutMUI>
@@ -202,7 +203,7 @@ const TermsRoute = {
 }
 
 const PrivacyRoute = {
-    path: '/privacy',
+    path: APPLICATION_HOST_ROUTE_PATHS.privacy,
     element: (
         <ErrorBoundary>
             <StartLayoutMUI>

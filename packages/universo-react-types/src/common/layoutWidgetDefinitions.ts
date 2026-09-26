@@ -17,6 +17,12 @@ import {
     type ApplicationTemplateHostCapability,
     type LayoutSemanticRegion
 } from './applicationTemplates'
+import {
+    layoutWidgetPresentationFieldSchema,
+    widgetBindingSlotDefinitionSchema,
+    type LayoutWidgetPresentationField,
+    type WidgetBindingSlotDefinition
+} from './widgetBindings'
 
 /** Serializable setting descriptor exposed through layout metadata responses. */
 export interface LayoutZoneSettingDefinition<TKey extends string = string, TOption extends string = string> {
@@ -128,6 +134,10 @@ export interface LayoutWidgetDefinition {
     readonly defaultPlacement?: LayoutLogicalPlacement
     /** Compact/mobile projection owned by the zone shell. */
     readonly mobileProjection?: LayoutWidgetMobileProjection
+    /** Semantic Entity bindings declared for this renderer. */
+    readonly bindingSlots?: readonly WidgetBindingSlotDefinition[]
+    /** Serializable presentation-only fields shared by the authoring hosts. */
+    readonly presentationFields?: readonly LayoutWidgetPresentationField[]
 }
 
 const layoutWidgetKeySchema = z.string().trim().min(1).max(128)
@@ -163,7 +173,9 @@ export const layoutWidgetDefinitionSchema = z
         labelKey: z.string().trim().min(1),
         defaultLabel: z.string().trim().min(1),
         defaultPlacement: z.enum(['start', 'end']).optional(),
-        mobileProjection: z.enum(['compact-header', 'drawer']).optional()
+        mobileProjection: z.enum(['compact-header', 'drawer']).optional(),
+        bindingSlots: z.array(widgetBindingSlotDefinitionSchema).max(16).optional(),
+        presentationFields: z.array(layoutWidgetPresentationFieldSchema).max(32).optional()
     })
     .strict()
     .superRefine((value, context) => {
@@ -175,6 +187,22 @@ export const layoutWidgetDefinitionSchema = z
                     message: 'Every supported template must declare allowed zones.'
                 })
             }
+        }
+        const slotKeys = (value.bindingSlots ?? []).map(({ key }) => key)
+        if (new Set(slotKeys).size !== slotKeys.length) {
+            context.addIssue({
+                code: z.ZodIssueCode.custom,
+                path: ['bindingSlots'],
+                message: 'Widget binding slot keys must be unique.'
+            })
+        }
+        const presentationKeys = (value.presentationFields ?? []).map(({ key }) => key)
+        if (new Set(presentationKeys).size !== presentationKeys.length) {
+            context.addIssue({
+                code: z.ZodIssueCode.custom,
+                path: ['presentationFields'],
+                message: 'Widget presentation field keys must be unique.'
+            })
         }
     })
 
@@ -244,6 +272,142 @@ const MARKETING_WIDGET_DEFINITIONS: readonly LayoutWidgetDefinition[] = Object.v
     shared: false,
     labelKey: `layouts.widgets.${widget.key}`,
     defaultLabel: toDefaultLabel(widget.key),
+    ...(widget.key === 'marketing.hero'
+        ? {
+              bindingSlots: [
+                  {
+                      key: 'content',
+                      authoring: {
+                          labelKey: 'layouts.widgetBindings.recordLabel',
+                          defaultLabel: 'Content record',
+                          placeholderKey: 'layouts.widgetBindings.recordPlaceholder',
+                          defaultPlaceholder: 'Search by content title',
+                          helperTextKey: 'layouts.widgetBindings.recordHelperText',
+                          defaultHelperText: 'Choose the Entity record displayed by this widget.',
+                          emptyOptionsKey: 'layouts.widgetBindings.noRecords',
+                          defaultEmptyOptions: 'No compatible content records found.',
+                          loadingOptionsKey: 'layouts.widgetBindings.loadingRecords',
+                          defaultLoadingOptions: 'Loading content records…'
+                      },
+                      cardinality: { min: 1, max: 1 },
+                      requirements: {
+                          entityCapabilities: ['dataSchema', 'records'],
+                          entityKinds: ['object'],
+                          recordPolicy: {
+                              runtimeMutation: 'deny',
+                              denyDeleteWhenBound: true,
+                              immutableSemanticKeyWhenBound: true,
+                              semanticKey: { componentCodename: 'HeroKey', creationPrefix: 'hero', protectedValues: ['default'] },
+                              requiredLocales: ['en', 'ru'],
+                              validatorKey: 'marketing.hero.v1'
+                          },
+                          components: [
+                              {
+                                  field: 'key',
+                                  componentCodename: 'HeroKey',
+                                  valueType: 'string',
+                                  localized: false,
+                                  required: true,
+                                  semanticKey: true,
+                                  maxLength: 64
+                              },
+                              {
+                                  field: 'title',
+                                  componentCodename: 'Title',
+                                  valueType: 'string',
+                                  localized: true,
+                                  required: true,
+                                  maxLength: 255
+                              },
+                              {
+                                  field: 'accent',
+                                  componentCodename: 'Accent',
+                                  valueType: 'string',
+                                  localized: true,
+                                  required: false,
+                                  maxLength: 120
+                              },
+                              {
+                                  field: 'description',
+                                  componentCodename: 'Description',
+                                  valueType: 'string',
+                                  localized: true,
+                                  required: true,
+                                  maxLength: 2000
+                              },
+                              {
+                                  field: 'emailLabel',
+                                  componentCodename: 'EmailLabel',
+                                  valueType: 'string',
+                                  localized: true,
+                                  required: true,
+                                  maxLength: 120
+                              },
+                              {
+                                  field: 'emailPlaceholder',
+                                  componentCodename: 'EmailPlaceholder',
+                                  valueType: 'string',
+                                  localized: true,
+                                  required: true,
+                                  maxLength: 120
+                              },
+                              {
+                                  field: 'primaryActionLabel',
+                                  componentCodename: 'PrimaryActionLabel',
+                                  valueType: 'string',
+                                  localized: true,
+                                  required: true,
+                                  maxLength: 120
+                              },
+                              {
+                                  field: 'primaryAction',
+                                  componentCodename: 'PrimaryAction',
+                                  valueType: 'json',
+                                  localized: false,
+                                  required: true,
+                                  format: 'marketingAction'
+                              },
+                              {
+                                  field: 'termsText',
+                                  componentCodename: 'TermsText',
+                                  valueType: 'string',
+                                  localized: true,
+                                  required: false,
+                                  maxLength: 500
+                              },
+                              {
+                                  field: 'termsLinkLabel',
+                                  componentCodename: 'TermsLinkLabel',
+                                  valueType: 'string',
+                                  localized: true,
+                                  required: false,
+                                  maxLength: 120
+                              },
+                              {
+                                  field: 'termsAction',
+                                  componentCodename: 'TermsAction',
+                                  valueType: 'json',
+                                  localized: false,
+                                  required: false,
+                                  format: 'marketingAction'
+                              }
+                          ]
+                      }
+                  }
+              ],
+              presentationFields: [
+                  {
+                      key: 'showLeadForm',
+                      kind: 'switch',
+                      labelKey: 'layouts.marketingHero.showLeadForm',
+                      defaultLabel: 'Show lead form',
+                      helperTextKey: 'layouts.marketingHero.showLeadFormHelp',
+                      defaultHelperText: 'Show the email signup form in this Hero placement.',
+                      defaultValue: true
+                  }
+              ]
+          }
+        : {}),
     ...(widget.defaultPlacement ? { defaultPlacement: widget.defaultPlacement } : {}),
     ...(widget.mobileProjection ? { mobileProjection: widget.mobileProjection } : {})
 }))

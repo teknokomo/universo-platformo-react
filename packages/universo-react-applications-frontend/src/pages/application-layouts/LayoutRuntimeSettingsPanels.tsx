@@ -8,7 +8,6 @@ import {
     FormControlLabel,
     InputLabel,
     MenuItem,
-    Select,
     Stack,
     Switch,
     Typography
@@ -21,6 +20,7 @@ import type {
     DashboardSideMenuMode,
     ObjectCollectionRuntimeViewConfig
 } from '@universo-react/types'
+import { DropdownSelect as Select } from '@universo-react/template-mui/dropdowns'
 
 type Translate = TFunction<'applications'>
 

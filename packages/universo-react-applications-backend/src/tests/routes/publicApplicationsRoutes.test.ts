@@ -27,7 +27,9 @@ const errorHandler = (err: Error & { statusCode?: number; status?: number }, _re
 const buildDataSource = (handler?: QueryHandler) => {
     const { executor, txExecutor } = createMockDbExecutor()
     let generatedUuidIndex = 0
+    const transactionSql: string[] = []
     const respond = async (sql: string, params: unknown[] = [], scope: QueryScope) => {
+        if (scope === 'tx') transactionSql.push(sql)
         if (sql.includes('SELECT public.uuid_generate_v7() AS id')) {
             generatedUuidIndex += 1
             return [{ id: `018f8a78-7b8f-7c1d-a111-22223333${String(4000 + generatedUuidIndex).padStart(4, '0')}` }]
@@ -45,7 +47,7 @@ const buildDataSource = (handler?: QueryHandler) => {
         callback(txExecutor)
     )
 
-    return executor
+    return Object.assign(executor, { transactionSql })
 }
 
 const buildApp = (dataSource: ReturnType<typeof buildDataSource>) => {
@@ -597,7 +599,22 @@ describe('Public Applications Routes', () => {
         const dataSource = buildDataSource(
             withPublicApplication((sql) => {
                 if (sql.includes(`FROM "${schemaName}"."_app_objects"`)) {
-                    return [{ id: 'object-1', codename: codenameVlc('AccessLinks'), kind: 'object', table_name: 'access_links_table' }]
+                    return [
+                        {
+                            id: 'object-1',
+                            codename: codenameVlc('AccessLinks'),
+                            kind: 'object',
+                            table_name: 'access_links_table',
+                            config: {
+                                recordPolicy: {
+                                    version: 1,
+                                    denyDeleteWhenBound: false,
+                                    immutableSemanticKeyWhenBound: false,
+                                    runtimeMutation: 'deny'
+                                }
+                            }
+                        }
+                    ]
                 }
 
                 if (sql.includes(`FROM "${schemaName}"."_app_components"`)) {
@@ -869,6 +886,72 @@ describe('Public Applications Routes', () => {
 
         const app = buildApp(dataSource)
         await request(app).post(`/public/a/${applicationId}/guest-session`).send({ displayName: 'Guest Learner', accessLinkId }).expect(403)
+    })
+
+    it('rejects a guest-session mutation on a denied AccessLink Entity before consuming quota or creating a participant', async () => {
+        const dataSource = buildDataSource(
+            withPublicApplication((sql) => {
+                if (sql.includes(`FROM "${schemaName}"."_app_objects"`)) {
+                    return [
+                        {
+                            id: 'object-links',
+                            codename: 'AccessLinks',
+                            kind: 'object',
+                            table_name: 'access_links_table',
+                            config: {
+                                recordPolicy: {
+                                    version: 1,
+                                    denyDeleteWhenBound: false,
+                                    immutableSemanticKeyWhenBound: false,
+                                    runtimeMutation: 'deny'
+                                }
+                            }
+                        }
+                    ]
+                }
+                if (sql.includes(`FROM "${schemaName}"."_app_components"`)) {
+                    return [
+                        { id: 'slug', codename: 'Slug', column_name: 'slug', data_type: 'STRING', parent_component_id: null },
+                        {
+                            id: 'target-type',
+                            codename: 'TargetType',
+                            column_name: 'target_type',
+                            data_type: 'STRING',
+                            parent_component_id: null
+                        },
+                        { id: 'target-id', codename: 'TargetId', column_name: 'target_id', data_type: 'STRING', parent_component_id: null },
+                        { id: 'active', codename: 'IsActive', column_name: 'is_active', data_type: 'BOOLEAN', parent_component_id: null },
+                        { id: 'max-uses', codename: 'MaxUses', column_name: 'max_uses', data_type: 'NUMBER', parent_component_id: null },
+                        { id: 'use-count', codename: 'UseCount', column_name: 'use_count', data_type: 'NUMBER', parent_component_id: null }
+                    ]
+                }
+                if (sql.includes(`FROM "${schemaName}"."access_links_table"`)) {
+                    return [
+                        {
+                            id: accessLinkId,
+                            slug: 'protected-link',
+                            target_type: 'content',
+                            target_id: contentNodeId,
+                            is_active: true,
+                            max_uses: 5,
+                            use_count: 0
+                        }
+                    ]
+                }
+                return undefined
+            })
+        )
+
+        const app = buildApp(dataSource)
+        const response = await request(app)
+            .post(`/public/a/${applicationId}/guest-session`)
+            .send({ displayName: 'Guest Learner', accessLinkId })
+            .expect(403)
+
+        expect(response.body.code).toBe('RUNTIME_ENTITY_MUTATION_DENIED')
+        const transactionSql = (dataSource as typeof dataSource & { transactionSql: string[] }).transactionSql.join('\n')
+        expect(transactionSql).not.toContain(`UPDATE "${schemaName}"."access_links_table"`)
+        expect(transactionSql).not.toContain('INSERT INTO')
     })
 
     it('requires an accessLinkId to create a guest session', async () => {

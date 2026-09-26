@@ -1,12 +1,13 @@
 import { useColorScheme } from '@mui/material/styles'
 import MenuItem from '@mui/material/MenuItem'
-import Select, { SelectProps } from '@mui/material/Select'
+import { SelectProps } from '@mui/material/Select'
+import { DropdownSelect as Select } from '../dropdowns'
 
 const selectDisplayProps = {
     'data-screenshot': 'toggle-mode'
 } as SelectProps['SelectDisplayProps']
 
-export default function ColorModeSelect(props: SelectProps) {
+export default function ColorModeSelect(props: Omit<SelectProps, 'ref'>) {
     const { mode, setMode } = useColorScheme()
     if (!mode) {
         return null

@@ -10935,6 +10935,162 @@ paths:
             schema:
               $ref: "#/components/schemas/GenericObject"
       security: *a1
+  /metahub/{metahubId}/layout/{layoutId}/widget-binding-sources/{widgetKey}/{slotKey}:
+    get:
+      tags:
+        - Layouts
+      summary: GET
+        /metahub/{metahubId}/layout/{layoutId}/widget-binding-sources/{widgetKey}/{slotKey}
+      description: Auto-generated from
+        packages/universo-react-metahubs-backend/src/domains/layouts/routes/layoutsRoutes.ts.
+        This operation is mounted on the live backend route surface and should
+        be treated as current repository truth.
+      operationId: Layouts_get_metahub_metahubId_layout_layoutId_widget_binding_sources_widgetKey_slotKey
+      parameters:
+        - name: metahubId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: metahubId path parameter.
+        - name: layoutId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: layoutId path parameter.
+        - name: widgetKey
+          in: path
+          required: true
+          schema:
+            type: string
+          description: widgetKey path parameter.
+        - name: slotKey
+          in: path
+          required: true
+          schema:
+            type: string
+          description: slotKey path parameter.
+      responses:
+        "200":
+          $ref: "#/components/responses/GenericSuccess"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      security: *a1
+    post:
+      tags:
+        - Layouts
+      summary: POST
+        /metahub/{metahubId}/layout/{layoutId}/widget-binding-sources/{widgetKey}/{slotKey}
+      description: Auto-generated from
+        packages/universo-react-metahubs-backend/src/domains/layouts/routes/layoutsRoutes.ts.
+        This operation is mounted on the live backend route surface and should
+        be treated as current repository truth.
+      operationId: Layouts_post_metahub_metahubId_layout_layoutId_widget_binding_sources_widgetKey_slotKey
+      parameters:
+        - name: metahubId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: metahubId path parameter.
+        - name: layoutId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: layoutId path parameter.
+        - name: widgetKey
+          in: path
+          required: true
+          schema:
+            type: string
+          description: widgetKey path parameter.
+        - name: slotKey
+          in: path
+          required: true
+          schema:
+            type: string
+          description: slotKey path parameter.
+      responses:
+        "200":
+          $ref: "#/components/responses/GenericSuccess"
+        "201":
+          $ref: "#/components/responses/CreatedSuccess"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GenericObject"
+      security: *a1
+  /metahub/{metahubId}/layout/{layoutId}/widget-binding-usage:
+    get:
+      tags:
+        - Layouts
+      summary: GET /metahub/{metahubId}/layout/{layoutId}/widget-binding-usage
+      description: Auto-generated from
+        packages/universo-react-metahubs-backend/src/domains/layouts/routes/layoutsRoutes.ts.
+        This operation is mounted on the live backend route surface and should
+        be treated as current repository truth.
+      operationId: Layouts_get_metahub_metahubId_layout_layoutId_widget_binding_usage
+      parameters:
+        - name: metahubId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: metahubId path parameter.
+        - name: layoutId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: layoutId path parameter.
+      responses:
+        "200":
+          $ref: "#/components/responses/GenericSuccess"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      security: *a1
   /metahub/{metahubId}/layout/{layoutId}/zone-settings/{zone}/{settingKey}:
     patch:
       tags:
@@ -11148,6 +11304,118 @@ paths:
           $ref: "#/components/responses/TooManyRequests"
         "500":
           $ref: "#/components/responses/InternalError"
+      security: *a1
+  /metahub/{metahubId}/layout/{layoutId}/zone-widget/{widgetId}/binding:
+    get:
+      tags:
+        - Layouts
+      summary: GET /metahub/{metahubId}/layout/{layoutId}/zone-widget/{widgetId}/binding
+      description: Returns the semantic Entity record currently bound to a marketing
+        Hero placement.
+      operationId: Layouts_get_metahub_metahubId_layout_layoutId_zone_widget_widgetId_binding
+      parameters:
+        - name: metahubId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: metahubId path parameter.
+        - name: layoutId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: layoutId path parameter.
+        - name: widgetId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: widgetId path parameter.
+        - name: locale
+          in: query
+          required: false
+          schema:
+            type: string
+            minLength: 2
+            maxLength: 32
+          description: Locale used to resolve the selected record display label.
+      responses:
+        "200":
+          description: Successful response.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MarketingHeroBindingTarget"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      security: *a1
+    patch:
+      tags:
+        - Layouts
+      summary: PATCH
+        /metahub/{metahubId}/layout/{layoutId}/zone-widget/{widgetId}/binding
+      description: Binds a marketing Hero placement to an Object record using
+        optimistic concurrency.
+      operationId: Layouts_patch_metahub_metahubId_layout_layoutId_zone_widget_widgetId_binding
+      parameters:
+        - name: metahubId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: metahubId path parameter.
+        - name: layoutId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: layoutId path parameter.
+        - name: widgetId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: widgetId path parameter.
+      responses:
+        "200":
+          description: Successful response.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MarketingHeroBindingResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalError"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MarketingHeroBindingUpdateRequest"
       security: *a1
   /metahub/{metahubId}/layout/{layoutId}/zone-widget/{widgetId}/config:
     patch:
@@ -16423,6 +16691,86 @@ components:
       additionalProperties: true
       description: Generic JSON object used where the route inventory is current but
         payload-specific schemas remain handler-defined.
+    MarketingHeroBindingTarget:
+      type: object
+      additionalProperties: false
+      properties:
+        recordId:
+          $ref: "#/components/schemas/UuidV7"
+        recordVersion:
+          type: integer
+          minimum: 1
+        widgetVersion:
+          type: integer
+          minimum: 1
+        label:
+          type: string
+      required:
+        - recordId
+        - recordVersion
+        - widgetVersion
+        - label
+    MarketingHeroBindingUpdateRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        recordId:
+          $ref: "#/components/schemas/UuidV7"
+        expectedVersion:
+          type: integer
+          minimum: 1
+      required:
+        - recordId
+        - expectedVersion
+    MarketingHeroBindingResponse:
+      type: object
+      additionalProperties: false
+      properties:
+        id:
+          $ref: "#/components/schemas/UuidV7"
+        layoutId:
+          $ref: "#/components/schemas/UuidV7"
+        zone:
+          type: string
+          const: marketing-main
+        widgetKey:
+          type: string
+          const: marketing.hero
+        instanceKey:
+          type: string
+        sortOrder:
+          type: integer
+          minimum: 0
+        config:
+          type: object
+          additionalProperties: true
+        placement:
+          type: string
+          enum:
+            - start
+            - end
+        isActive:
+          type: boolean
+        version:
+          type: integer
+          minimum: 1
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - layoutId
+        - zone
+        - widgetKey
+        - sortOrder
+        - config
+        - isActive
+        - version
+        - createdAt
+        - updatedAt
     UuidV7:
       type: string
       format: uuid

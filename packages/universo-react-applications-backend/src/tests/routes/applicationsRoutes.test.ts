@@ -5229,6 +5229,84 @@ describe('Applications Routes', () => {
             ])
         })
 
+        it('denies progress persistence before DML when the configured progress Entity is protected', async () => {
+            const { dataSource, applicationRepo, applicationUserRepo } = buildDataSource()
+            applicationUserRepo.findOne.mockResolvedValue({
+                userId: 'test-user-id',
+                applicationId: runtimeApplicationId,
+                role: 'member'
+            })
+            applicationRepo.findOne.mockResolvedValue({
+                id: runtimeApplicationId,
+                schemaName: 'app_deadbeef',
+                settings: {
+                    learningContent: {
+                        progressStore: { enabled: true, objectCodename: 'ContentProgress' }
+                    }
+                }
+            })
+            ;(dataSource.manager.query as jest.Mock).mockImplementation(async (sql: string, params?: unknown[]) => {
+                if (sql.includes('FROM "app_deadbeef"._app_objects') && params?.[0] === 'LearnerHome') {
+                    return [
+                        {
+                            id: '018f8a78-7b8f-7c1d-a111-222233334498',
+                            codename: 'LearnerHome',
+                            kind: 'page',
+                            table_name: null,
+                            config: null
+                        }
+                    ]
+                }
+                if (sql.includes('FROM "app_deadbeef"._app_objects') && params?.[0] === 'ContentProgress') {
+                    return [
+                        {
+                            id: 'progress-object-id',
+                            codename: 'ContentProgress',
+                            kind: 'object',
+                            table_name: 'content_progress',
+                            config: {
+                                recordPolicy: {
+                                    version: 1,
+                                    denyDeleteWhenBound: false,
+                                    immutableSemanticKeyWhenBound: false,
+                                    runtimeMutation: 'deny'
+                                }
+                            }
+                        }
+                    ]
+                }
+                if (sql.includes('FROM "app_deadbeef"._app_components')) {
+                    return [
+                        { codename: 'TargetObjectCodename', column_name: 'target_object_codename' },
+                        { codename: 'TargetRecordId', column_name: 'target_record_id' },
+                        { codename: 'UserId', column_name: 'user_id' },
+                        { codename: 'ProgressStatus', column_name: 'progress_status' },
+                        { codename: 'ProgressPercent', column_name: 'progress_percent' },
+                        { codename: 'StartedAt', column_name: 'started_at' },
+                        { codename: 'CompletedAt', column_name: 'completed_at' },
+                        { codename: 'LastViewedAt', column_name: 'last_viewed_at' }
+                    ]
+                }
+                return []
+            })
+
+            const app = buildApp(dataSource)
+            const response = await request(app)
+                .post(`/applications/${runtimeApplicationId}/runtime/progress/content`)
+                .send({
+                    targetObjectCodename: 'LearnerHome',
+                    targetRecordId: '018f8a78-7b8f-7c1d-a111-222233334498',
+                    action: 'complete'
+                })
+                .expect(403)
+
+            expect(response.body.code).toBe('RUNTIME_ENTITY_MUTATION_DENIED')
+            const executedSql = (dataSource.manager.query as jest.Mock).mock.calls.map(([sql]) => String(sql)).join('\n')
+            expect(executedSql).not.toMatch(/\bINSERT\b/i)
+            expect(executedSql).not.toMatch(/\bUPDATE\b/i)
+            expect(executedSql).not.toMatch(/\bDELETE\b/i)
+        })
+
         it('returns persisted completion status when a viewed Learning Content target already has progress', async () => {
             const { dataSource, applicationRepo, applicationUserRepo } = buildDataSource()
 

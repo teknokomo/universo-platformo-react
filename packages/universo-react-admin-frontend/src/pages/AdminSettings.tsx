@@ -19,7 +19,6 @@ import {
     Chip,
     FormControl,
     InputLabel,
-    Select,
     MenuItem,
     Switch,
     FormControlLabel
@@ -44,6 +43,7 @@ import * as settingsApi from '../api/settingsApi'
 import type { AdminSettingItem } from '../api/settingsApi'
 import { settingsQueryKeys } from '../api/queryKeys'
 import { DEFAULT_ADMIN_DIALOG_SETTINGS, type AdminDialogSettings } from '../settings/dialogSettings'
+import { DropdownSelect as Select } from '@universo-react/template-mui/dropdowns'
 
 type SettingTab = 'general' | 'metahubs' | 'applications'
 type CodenameStyle = 'pascal-case' | 'kebab-case'

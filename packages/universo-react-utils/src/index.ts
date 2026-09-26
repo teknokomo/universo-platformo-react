@@ -107,7 +107,8 @@ export {
     getCodenamePrimary,
     getVLCStringWithFallback,
     getSimpleLocalizedValue,
-    normalizeLocale
+    normalizeLocale,
+    toLocalizedStringMap
 } from './vlc'
 
 // Database utilities

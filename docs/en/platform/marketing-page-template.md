@@ -25,7 +25,8 @@ The template uses standard Object entities rather than a marketing-specific enti
 | Object                    | Content                                                    |
 | ------------------------- | ---------------------------------------------------------- |
 | MarketingPageSection      | Localized copy for widget headings and descriptions        |
-| MarketingPageSiteSettings | Singleton brand, hero, footer, newsletter, and legal copy  |
+| MarketingPageSiteSettings | Singleton brand, footer, newsletter, and legal copy        |
+| MarketingPageHero         | Repeatable localized Hero copy and lead actions            |
 | MarketingPageLogo         | Six ordered customer logos and accessible alternative text |
 | MarketingPageFeature      | Three features, icons, descriptions, and previews          |
 | MarketingPageTestimonial  | Six localized quotes, authors, occupations, and avatars    |
@@ -73,6 +74,40 @@ Each placement is stored as its own row with a server-generated UUID v7;
 marketing placements also have their own unique `instanceKey`. Deleting one
 placement leaves sibling instances and their content records intact.
 
+Adding a Hero automatically creates a fresh Entity record and binds the new
+placement in the same transaction. Duplicating a bound Hero automatically
+clones the source record into a fresh record in the same compatible Object, so
+the copy can be edited independently without another setup dialog. The advanced
+source settings remain available when intentional reuse is wanted: an author
+can bind an existing compatible record or provision a separate compatible
+Object model. Reusing one record displays a shared-source notice because edits
+affect every bound Hero. Copying a whole marketing layout still makes binding
+ownership explicit: **Reuse the same Hero records** deliberately shares content
+between layouts, while **Skip bound Hero placements** copies the other widgets
+and leaves those placements out. Deleting a bound record is rejected until its
+placement is rebound or removed.
+
+## Edit and republish Entity content
+
+1. In the metahub, open the `MarketingPageHero` Object and its **Records** view.
+2. Edit an existing record or use the normal record create/copy actions. Record
+   fields own the localized Hero title, accent, description, and actions; a
+   widget placement stores only its presentation and Entity binding.
+3. In the metahub layout, add or duplicate a Hero placement. The normal flow
+   creates an independent record automatically. Use **Hero content → Advanced
+   source settings** only when you want to select an existing compatible
+   record/Object or provision a separate compatible Object model. Selecting a
+   record already in use intentionally shares content and shows a usage notice.
+4. Save the record and layout, then publish a new ready version of the
+   metahub publication.
+5. In the already linked application, open **Connectors**, synchronize the
+   published schema/content, and refresh the application runtime to verify the
+   new values. Do not create another application for an update.
+6. To discard application-only presentation changes, reset that layout/widget
+   override to its source. This reset does not change Entity records. To revert
+   canonical content, edit or restore the source record, publish another ready
+   version, synchronize the same application, and refresh it.
+
 ## Runtime and application settings
 
 The application layout carries the immutable `marketing-page` template key and a typed appearance configuration:
@@ -88,7 +123,9 @@ as template-aware application rows rather than dashboard widgets. Unknown
 keys, invalid source/variant combinations, unsafe URLs, and malformed media
 fail closed instead of falling back to the dashboard.
 
-The hosted route selects the template before initializing dashboard CRUD state. The application runtime owns an application-level `AppMainLayout` so the saved appearance overrides are applied; the renderer itself does not create another theme provider. The standalone shell owns the equivalent provider for direct template previews.
+The hosted route selects the template before initializing dashboard CRUD state.
+The application runtime owns an application-level `AppMainLayout` so the saved appearance overrides are applied;
+the renderer itself does not create another theme provider. The standalone shell owns the equivalent provider for direct template previews.
 
 An entity-scoped application layout can independently select the Dashboard
 template for a Page/Object target even when the global layout is
@@ -98,7 +135,8 @@ error and never silently falls back to the marketing global layout.
 
 ## Actions and media
 
-Actions are typed as internal paths, named anchors, external HTTP(S) URLs, email, or telephone actions. Placeholder `#`, `javascript:`, `data:`, protocol-relative, credential-bearing, and arbitrary endpoint values are rejected. External new-tab links receive `noopener noreferrer`. Missing or blocked media renders a localized fallback instead of exposing a raw URL or object value.
+Actions are typed as internal paths, named anchors, external HTTP(S) URLs, email, or telephone actions. Placeholder `#`, `javascript:`, `data:`, protocol-relative, credential-bearing, and arbitrary endpoint values are rejected.
+External new-tab links receive `noopener noreferrer`. Missing or blocked media renders a localized fallback instead of exposing a raw URL or object value.
 
 The seeded newsletter uses the existing sign-up action. It does not create a
 new lead-storage API: the published runtime renders a navigation CTA and no

@@ -16,6 +16,7 @@ import {
     parseApplicationLayoutWidgetConfig,
     type LayoutLogicalPlacement,
     type PersistedLayoutNeutralMetadata,
+    type PersistedWidgetNeutralMetadata,
     type ApplicationLayout,
     type ApplicationLayoutDetailResponse,
     type ApplicationLayoutWidget,
@@ -67,6 +68,43 @@ export type LayoutComposition = { compositionMode: 'overlay' | 'independent'; ba
 
 export type ApplicationLayoutWidgetWithPlacement = ApplicationLayoutWidget & { placement?: LayoutLogicalPlacement }
 
+export type ApplicationLayoutWidgetSourceBindingState = {
+    readonly persistedApplicationRow: true
+    readonly bindings?: PersistedWidgetNeutralMetadata['bindings']
+}
+
+const applicationLayoutWidgetSourceBindingStateSymbol: unique symbol = Symbol('application-layout-widget-source-bindings')
+
+type WidgetWithSourceBindingState = object & {
+    [applicationLayoutWidgetSourceBindingStateSymbol]?: ApplicationLayoutWidgetSourceBindingState
+}
+
+/** Attach trusted source metadata for in-process resolution without adding it to API DTOs. */
+export const attachApplicationLayoutWidgetSourceBindingState = <T extends object>(
+    widget: T,
+    state: ApplicationLayoutWidgetSourceBindingState
+): T => {
+    Object.defineProperty(widget, applicationLayoutWidgetSourceBindingStateSymbol, {
+        configurable: false,
+        enumerable: false,
+        value: state,
+        writable: false
+    })
+    return widget
+}
+
+/** Read trusted source bindings attached while mapping an application persistence row. */
+export const getApplicationLayoutWidgetSourceBindingState = (widget: unknown): ApplicationLayoutWidgetSourceBindingState | undefined => {
+    if (!widget || typeof widget !== 'object') return undefined
+    return (widget as WidgetWithSourceBindingState)[applicationLayoutWidgetSourceBindingStateSymbol]
+}
+
+/** Copy in-process source metadata when an operation creates a new DTO object. */
+export const copyApplicationLayoutWidgetSourceBindingState = <T extends object>(source: unknown, target: T): T => {
+    const state = getApplicationLayoutWidgetSourceBindingState(source)
+    return state ? attachApplicationLayoutWidgetSourceBindingState(target, state) : target
+}
+
 export type LayoutConfigEnvelope = {
     rendererConfig: Record<string, unknown>
     neutral: PersistedLayoutNeutralMetadata
@@ -90,6 +128,21 @@ const attachRawLayoutConfig = (
 ): ApplicationLayoutDetailResponse => {
     Object.defineProperty(detail, rawLayoutConfigSymbol, { configurable: false, enumerable: false, value: rawConfig })
     return detail
+}
+
+const parseApplicationLayoutDetailWithSourceBindings = (
+    item: ApplicationLayout,
+    sourceWidgets: ApplicationLayoutWidgetWithPlacement[],
+    rawConfig: Record<string, unknown>
+): ApplicationLayoutDetailResponse => {
+    const parsed = applicationLayoutDetailResponseSchema.parse({ item, widgets: sourceWidgets })
+    if (parsed.widgets.length !== sourceWidgets.length) throw new Error('APPLICATION_LAYOUT_RESPONSE_INVALID')
+    const widgets = parsed.widgets.map((widget, index) => {
+        const sourceWidget = sourceWidgets[index]
+        if (!sourceWidget) throw new Error('APPLICATION_LAYOUT_RESPONSE_INVALID')
+        return copyApplicationLayoutWidgetSourceBindingState(sourceWidget, widget)
+    })
+    return attachRawLayoutConfig({ ...parsed, widgets }, rawConfig)
 }
 
 export const isRecord = (value: unknown): value is Record<string, unknown> =>
@@ -234,14 +287,25 @@ export const readWidgetConfigEnvelope = (
     templateKey: ApplicationLayout['templateKey'],
     widgetKey: string,
     zone: string,
-    value: unknown
-): { rendererConfig: Record<string, unknown>; placement?: LayoutLogicalPlacement } => {
-    const decoded = decodeLayoutWidgetConfigEnvelope(value, { templateKey, widgetKey, zone })
+    value: unknown,
+    options: { requireBindings?: boolean } = {}
+): {
+    rendererConfig: Record<string, unknown>
+    placement?: LayoutLogicalPlacement
+    bindings?: PersistedWidgetNeutralMetadata['bindings']
+} => {
+    const decoded = decodeLayoutWidgetConfigEnvelope(value, {
+        templateKey,
+        widgetKey,
+        zone,
+        requireBindings: options.requireBindings === true
+    })
     const parsedConfig = parseApplicationLayoutWidgetConfig(widgetKey, decoded.rendererConfig)
     const defaultPlacement = getLayoutWidgetDefaultPlacement({ templateKey, widgetKey, zone })
     return {
         rendererConfig: parsedConfig,
-        ...(decoded.neutral.placement ?? defaultPlacement ? { placement: decoded.neutral.placement ?? defaultPlacement } : {})
+        ...(decoded.neutral.placement ?? defaultPlacement ? { placement: decoded.neutral.placement ?? defaultPlacement } : {}),
+        ...(decoded.neutral.bindings === undefined ? {} : { bindings: decoded.neutral.bindings })
     }
 }
 
@@ -280,14 +344,19 @@ export const mapWidget = (row: WidgetRow, templateKey: ApplicationLayout['templa
         throw new Error('APPLICATION_LAYOUT_WIDGET_INVALID')
     }
     let sourceConfig: Record<string, unknown> | null = null
+    let sourceBindings: PersistedWidgetNeutralMetadata['bindings']
     if (row.source_config !== null && row.source_config !== undefined) {
         try {
-            sourceConfig = readWidgetConfigEnvelope(templateKey, row.widget_key, row.zone, row.source_config).rendererConfig
+            const decodedSource = readWidgetConfigEnvelope(templateKey, row.widget_key, row.zone, row.source_config, {
+                requireBindings: true
+            })
+            sourceConfig = decodedSource.rendererConfig
+            sourceBindings = decodedSource.bindings
         } catch {
             throw new Error('APPLICATION_LAYOUT_WIDGET_INVALID')
         }
     }
-    return applicationLayoutWidgetSchema.parse({
+    const widget = applicationLayoutWidgetSchema.parse({
         id: row.id,
         layoutId: row.layout_id,
         zone: row.zone as ApplicationLayoutWidget['zone'],
@@ -302,6 +371,10 @@ export const mapWidget = (row: WidgetRow, templateKey: ApplicationLayout['templa
         isActive: row.is_active,
         version: row.version,
         ...(placement === undefined ? {} : { placement })
+    })
+    return attachApplicationLayoutWidgetSourceBindingState(widget, {
+        persistedApplicationRow: true,
+        ...(sourceBindings === undefined ? {} : { bindings: sourceBindings })
     })
 }
 
@@ -408,6 +481,9 @@ export const prepareCopiedWidgetConfigs = (
     widgets: ApplicationLayoutWidget[]
 ): Map<string, Record<string, unknown>> => {
     assertApplicationLayoutWidgetMultiplicity(templateKey, widgets)
+    if (widgets.some((widget) => getApplicationLayoutWidgetSourceBindingState(widget)?.bindings !== undefined)) {
+        throw new Error('APPLICATION_LAYOUT_WIDGET_BINDING_COPY_UNSUPPORTED')
+    }
     const instanceKeys = new Set<string>()
     const copiedConfigs = new Map<string, Record<string, unknown>>()
 
@@ -541,10 +617,7 @@ export const lockApplicationLayoutMutation = async (
     const mappedLayout = mapLayout(layoutRows[0])
     const mappedWidgets = widgets.map((widget) => mapWidget(widget, mappedLayout.templateKey))
     assertApplicationLayoutWidgetMultiplicity(mappedLayout.templateKey, mappedWidgets)
-    return attachRawLayoutConfig(
-        applicationLayoutDetailResponseSchema.parse({ item: mappedLayout, widgets: mappedWidgets }),
-        layoutRows[0].config
-    )
+    return parseApplicationLayoutDetailWithSourceBindings(mappedLayout, mappedWidgets, layoutRows[0].config)
 }
 
 export const getApplicationLayoutDetail = async (
@@ -568,11 +641,9 @@ export const getApplicationLayoutDetail = async (
         [layoutId]
     )
     const mappedLayout = mapLayout(rows[0])
-    return attachRawLayoutConfig(
-        applicationLayoutDetailResponseSchema.parse({
-            item: mappedLayout,
-            widgets: widgets.map((widget) => mapWidget(widget, mappedLayout.templateKey))
-        }),
+    return parseApplicationLayoutDetailWithSourceBindings(
+        mappedLayout,
+        widgets.map((widget) => mapWidget(widget, mappedLayout.templateKey)),
         rows[0].config
     )
 }
