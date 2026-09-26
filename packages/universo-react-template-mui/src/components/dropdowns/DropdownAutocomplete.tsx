@@ -1,6 +1,7 @@
 import { cloneElement, forwardRef, isValidElement, type ComponentType, type ReactElement, type ReactNode, type RefAttributes } from 'react'
 import Autocomplete from '@mui/material/Autocomplete'
 import type { AutocompleteProps, AutocompleteRenderInputParams } from '@mui/material/Autocomplete'
+import IconButton from '@mui/material/IconButton'
 import Paper from '@mui/material/Paper'
 import { styled, useTheme } from '@mui/material/styles'
 import type { SxProps, Theme } from '@mui/material/styles'
@@ -39,6 +40,34 @@ const DropdownAutocompleteListbox = styled('ul', { name: 'UniversoDropdownAutoco
     }
 }))
 
+const DropdownAutocompleteIndicator = styled(IconButton, { name: 'UniversoDropdownAutocomplete', slot: 'Indicator' })<{
+    ownerState?: { focused?: boolean; popupOpen?: boolean }
+}>(({ theme, ownerState }) => ({
+    width: 28,
+    height: 28,
+    minWidth: 28,
+    padding: theme.spacing(0.5),
+    border: 0,
+    borderRadius: '50%',
+    boxShadow: 'none',
+    color: theme.palette.text.secondary,
+    backgroundColor: 'transparent',
+    '&.MuiAutocomplete-clearIndicator': {
+        marginRight: -2,
+        visibility: ownerState?.focused ? 'visible' : 'hidden'
+    },
+    '&.MuiAutocomplete-popupIndicator': {
+        marginRight: -2,
+        padding: theme.spacing(0.25),
+        transform: ownerState?.popupOpen ? 'rotate(180deg)' : undefined
+    },
+    '&:hover': {
+        color: theme.palette.text.primary,
+        borderColor: 'transparent',
+        backgroundColor: theme.palette.action.hover
+    }
+}))
+
 function mergeAutocompleteSx(sx: SxProps<Theme> | undefined, theme: Theme, endActionsCount: number): SxProps<Theme> {
     const adornmentGap = theme.spacing(0.5)
     const addedActionSpace =
@@ -67,19 +96,6 @@ function mergeAutocompleteSx(sx: SxProps<Theme> | undefined, theme: Theme, endAc
             },
         '&.MuiAutocomplete-hasPopupIcon.MuiAutocomplete-hasClearIcon .MuiAutocomplete-inputRoot.MuiInput-root': {
             paddingRight: getInputPadding(68)
-        },
-        '& .MuiAutocomplete-clearIndicator, & .MuiAutocomplete-popupIndicator': {
-            width: 32,
-            height: 32,
-            padding: theme.spacing(0.5),
-            border: `1px solid ${theme.palette.divider}`,
-            borderRadius: `${theme.shape.borderRadius}px`,
-            color: theme.palette.text.secondary,
-            backgroundColor: theme.palette.background.paper,
-            '&:hover': {
-                color: theme.palette.text.primary,
-                backgroundColor: theme.palette.action.hover
-            }
         },
         '& .MuiAutocomplete-clearIndicator': { marginRight: 0 },
         '& .MuiAutocomplete-popupIndicator': { marginLeft: 0 }
@@ -117,9 +133,10 @@ function prependEndActions(params: AutocompleteRenderInputParams, actions: reado
 }
 
 /**
- * Searchable MUI dropdown using the shared outlined action buttons and option
- * menu styling. Search, async loading, custom options and MUI's clear behavior
- * remain controlled by the consumer through the standard Autocomplete props.
+ * Searchable MUI dropdown using the same understated field affordances as the
+ * shared Select control, plus shared option-menu styling. Search, async loading,
+ * custom options and MUI's clear behavior remain controlled by the consumer
+ * through the standard Autocomplete props.
  */
 type DropdownAutocompletePublicComponent = <
     Value,
@@ -158,7 +175,13 @@ const DropdownAutocompleteWithRef = forwardRef<HTMLDivElement, DropdownAutocompl
             closeText={closeText ?? t('close', 'Close')}
             popupIcon={popupIcon === undefined ? <UnfoldMoreRoundedIcon fontSize='small' /> : popupIcon}
             renderInput={renderInputWithActions}
-            slots={{ paper: DropdownAutocompletePaper, listbox: DropdownAutocompleteListbox, ...slots }}
+            slots={{
+                clearIndicator: DropdownAutocompleteIndicator,
+                popupIndicator: DropdownAutocompleteIndicator,
+                paper: DropdownAutocompletePaper,
+                listbox: DropdownAutocompleteListbox,
+                ...slots
+            }}
             sx={mergeAutocompleteSx(sx, theme, endActions.length)}
             ref={ref}
         />

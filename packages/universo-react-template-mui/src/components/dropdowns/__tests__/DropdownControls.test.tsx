@@ -75,25 +75,54 @@ describe('shared dropdown controls', () => {
     it('renders localized clear/open labels and optional accessible action buttons', async () => {
         const user = userEvent.setup()
         const onReset = jest.fn()
+        const indicatorTheme = createTheme({
+            components: {
+                MuiIconButton: {
+                    styleOverrides: {
+                        root: {
+                            border: '1px solid red',
+                            backgroundColor: 'rgb(255, 0, 0)'
+                        }
+                    }
+                }
+            }
+        })
 
         const { container } = renderWithI18n(
-            <DropdownAutocomplete<string>
-                options={['Hero', 'Image']}
-                value='Hero'
-                onChange={jest.fn()}
-                getOptionLabel={(option) => option}
-                renderInput={(params) => <TextField {...params} label='Widget' />}
-                endActions={[{ key: 'reset', label: 'Reset source', icon: '×', onClick: onReset }]}
-            />
+            <ThemeProvider theme={indicatorTheme}>
+                <DropdownAutocomplete<string>
+                    options={['Hero', 'Image']}
+                    value='Hero'
+                    onChange={jest.fn()}
+                    getOptionLabel={(option) => option}
+                    renderInput={(params) => <TextField {...params} label='Widget' />}
+                    endActions={[{ key: 'reset', label: 'Reset source', icon: '×', onClick: onReset }]}
+                />
+            </ThemeProvider>
         )
 
         expect(screen.getByRole('button', { name: 'Reset source' })).toBeInTheDocument()
         expect(screen.getByRole('button', { name: 'Expand' })).toBeInTheDocument()
         expect(screen.getByTitle('Clear')).toBeInTheDocument()
-        expect(container.querySelector('.MuiAutocomplete-clearIndicator')).toBeInTheDocument()
+        const clearIndicator = container.querySelector<HTMLElement>('.MuiAutocomplete-clearIndicator')
+        const popupIndicator = container.querySelector<HTMLElement>('.MuiAutocomplete-popupIndicator')
+        expect(clearIndicator).toBeInTheDocument()
+        expect(popupIndicator).toBeInTheDocument()
+        expect(window.getComputedStyle(clearIndicator!).borderTopWidth).toBe('0px')
+        expect(window.getComputedStyle(popupIndicator!).borderTopWidth).toBe('0px')
+        expect(window.getComputedStyle(clearIndicator!).width).toBe('28px')
+        expect(window.getComputedStyle(popupIndicator!).width).toBe('28px')
+        expect(window.getComputedStyle(clearIndicator!).backgroundColor).toBe('transparent')
+        expect(window.getComputedStyle(popupIndicator!).backgroundColor).toBe('transparent')
         expect(container.querySelector('.MuiAutocomplete-inputRoot')).toHaveStyle({
             paddingRight: 'calc(77px + 32px + 4px + 4px)'
         })
+
+        expect(window.getComputedStyle(clearIndicator!).visibility).toBe('hidden')
+        await user.click(screen.getByRole('combobox', { name: 'Widget' }))
+        expect(window.getComputedStyle(clearIndicator!).visibility).toBe('visible')
+        expect(screen.getByRole('listbox')).toBeVisible()
+        expect(window.getComputedStyle(popupIndicator!).transform).toBe('rotate(180deg)')
 
         await user.click(screen.getByRole('button', { name: 'Reset source' }))
 

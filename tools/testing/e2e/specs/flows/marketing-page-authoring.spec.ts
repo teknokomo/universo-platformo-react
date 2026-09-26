@@ -58,11 +58,6 @@ type EntityResponse = {
     }
 }
 
-type RecordResponse = {
-    id?: string
-    data?: Record<string, unknown>
-}
-
 const unwrapEntity = <T extends EntityResponse>(payload: T): { id?: string } => payload.data ?? payload
 
 const expectHeroDialogButtonTextOnOneLine = async (dialog: Locator, label: string): Promise<void> => {
@@ -81,35 +76,6 @@ const expectHeroDialogButtonTextOnOneLine = async (dialog: Locator, label: strin
     }
 
     expect(measuredButtons, `${label} must expose visible Hero action button text`).toBeGreaterThan(0)
-}
-
-const expectMultilineEditorGeometry = async (field: Locator, label: string): Promise<void> => {
-    const geometry = await field.evaluate((element) => {
-        const style = window.getComputedStyle(element)
-        const cssPixels = (value: string): number => Number.parseFloat(value) || 0
-        const fontSize = cssPixels(style.fontSize) || 16
-        const declaredLineHeight = Number.parseFloat(style.lineHeight)
-        const lineHeight = style.lineHeight.endsWith('px')
-            ? declaredLineHeight
-            : Number.isFinite(declaredLineHeight)
-            ? declaredLineHeight * fontSize
-            : fontSize * 1.2
-        const minimumTwoRowHeight =
-            lineHeight * 2 +
-            cssPixels(style.paddingTop) +
-            cssPixels(style.paddingBottom) +
-            cssPixels(style.borderTopWidth) +
-            cssPixels(style.borderBottomWidth)
-
-        return {
-            rows: Number(element.getAttribute('rows')),
-            height: element.getBoundingClientRect().height,
-            minimumTwoRowHeight
-        }
-    })
-
-    expect(geometry.rows, `${label} must expose at least two editable rows`).toBeGreaterThanOrEqual(2)
-    expect(geometry.height, `${label} must render enough height for two text rows`).toBeGreaterThanOrEqual(geometry.minimumTwoRowHeight - 1)
 }
 
 test('@flow @combined @marketing-page browser authoring publishes edited content into the runtime', async ({
@@ -283,12 +249,15 @@ test('@flow @combined @marketing-page browser authoring publishes edited content
                     .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
                     .analyze()
                 expect(seededHeroDialogAccessibility.violations, JSON.stringify(seededHeroDialogAccessibility.violations)).toEqual([])
-                const seededHeroActionKind = seededHeroRecordForm.getByRole('combobox', { name: 'Action type', exact: true }).first()
+                const seededHeroPrimaryAction = seededHeroRecordForm.getByRole('group', { name: 'Primary action', exact: true })
+                const seededHeroActionKind = seededHeroPrimaryAction.getByRole('combobox', { name: 'Action type', exact: true })
                 await seededHeroActionKind.click()
                 await page.getByRole('option', { name: 'Page section', exact: true }).click()
-                const seededHeroActionTarget = seededHeroRecordForm.getByRole('combobox', { name: 'Page section', exact: true }).first()
+                const seededHeroActionTarget = seededHeroPrimaryAction.getByRole('combobox', { name: 'Page section', exact: true })
                 await seededHeroActionTarget.click()
                 await page.getByRole('option', { name: 'Features', exact: true }).click()
+                await expect(seededHeroActionKind).toHaveText('Page section')
+                await expect(seededHeroActionTarget).toHaveText('Features')
                 const seededHeroActionSavePromise = waitForSettledMutationResponse(
                     page,
                     (response) => responseIsMutation(response, 'PATCH', /\/api\/v1\/metahub\/[^/]+\/entities\/.*\/record\/[^/]+$/),
@@ -878,7 +847,8 @@ test('@flow @combined @marketing-page browser authoring publishes edited content
                     const editHeroRecordForm = page.getByRole('dialog', { name: /Edit Hero content/ })
                     await expect(editHeroRecordForm).toBeVisible()
                     await expectNoTechnicalLeakage(editHeroRecordForm, { label: 'Edit Hero content form', checkUuidSubstrings: true })
-                    const editHeroActionTarget = editHeroRecordForm.getByRole('combobox', { name: 'Page section', exact: true }).first()
+                    const editHeroPrimaryAction = editHeroRecordForm.getByRole('group', { name: 'Primary action', exact: true })
+                    const editHeroActionTarget = editHeroPrimaryAction.getByRole('combobox', { name: 'Page section', exact: true })
                     await editHeroActionTarget.focus()
                     await page.keyboard.press('Enter')
                     await expect(page.getByRole('option', { name: 'Hero — 2', exact: true })).toBeVisible()

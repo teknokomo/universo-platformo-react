@@ -6,7 +6,7 @@ import {
     createLoggedInApiContext,
     createMetahub,
     disposeApiContext,
-    listMetahubEntityTypes,
+    listEntityInstances,
     listLayoutZoneWidgets,
     listRecords,
     listLayouts
@@ -231,8 +231,10 @@ test('@flow @combined @marketing-page browser widget lifecycle persists semantic
         // Hero Entity record. It should not send the author through a chooser.
         const heroSurface = widgetSurface(page, heroWidget)
         await expect(heroSurface).toBeVisible()
-        const heroEntities = await listMetahubEntityTypes(api, metahub.id, { limit: 100, offset: 0 })
-        const heroEntity = heroEntities.items?.find((entity: { codename?: unknown }) => readString(entity.codename) === 'MarketingPageHero')
+        const heroEntities = await listEntityInstances(api, metahub.id, { kind: 'object', limit: 100, offset: 0 })
+        const heroEntity = heroEntities.items?.find(
+            (entity: { codename?: unknown }) => readLocalizedText(entity.codename, 'en') === 'MarketingPageHero'
+        )
         if (!heroEntity?.id) throw new Error('The marketing-page fixture did not expose the Hero Entity')
         const recordsBeforeDuplicate = (await listRecords(api, metahub.id, heroEntity.id, { limit: 100, offset: 0 })) as {
             items?: Array<{ id?: string; data?: Record<string, unknown> }>
@@ -323,6 +325,14 @@ test('@flow @combined @marketing-page browser widget lifecycle persists semantic
         expect(readString(readRecord(savedSource?.data).HeroKey)).toBe(sourceHeroKey)
         expect(readLocalizedText(readRecord(savedCopy?.data).Title, 'en')).toBe('Lifecycle copy edited independently')
         expect(readLocalizedText(readRecord(savedSource?.data).Title, 'en')).toBe('Our latest')
+
+        const duplicatedHeroBindingDialog = page.getByRole('dialog', { name: 'Hero content', exact: true })
+        await expect(duplicatedHeroBindingDialog).toBeVisible()
+        await expect(duplicatedHeroBindingDialog.getByRole('combobox', { name: 'Content record', exact: true })).toHaveValue(
+            'Lifecycle copy edited independently'
+        )
+        await duplicatedHeroBindingDialog.getByRole('button', { name: 'Cancel', exact: true }).click()
+        await expect(duplicatedHeroBindingDialog).toHaveCount(0)
 
         // Add a collection via the real widget menu and choose an available entity source.
         const mainZone = page.getByTestId('layout-zone-marketing-main')
@@ -546,6 +556,12 @@ test('@flow @combined @marketing-page @i18n RU authoring localizes content sourc
         await expect(heroSurface.getByRole('button', { name: 'Главный экран', exact: true })).toBeVisible()
         await heroSurface.getByRole('button', { name: /Редактировать|Edit/ }).click()
 
+        const boundHeroRecordForm = page.getByRole('dialog', { name: /^Изменить содержимое первого экрана/ })
+        await expect(boundHeroRecordForm).toBeVisible()
+        await boundHeroRecordForm
+            .getByRole('button', { name: 'Выбрать другую запись и отменить несохранённые изменения', exact: true })
+            .click()
+
         const heroBindingDialog = page.getByRole('dialog', { name: 'Содержимое первого экрана', exact: true })
         await expect(heroBindingDialog).toBeVisible()
         await expect(heroBindingDialog).toContainText(
@@ -555,14 +571,14 @@ test('@flow @combined @marketing-page @i18n RU authoring localizes content sourc
             label: 'RU Hero content binding dialog',
             checkUuidSubstrings: true
         })
-        const heroRecordSelect = heroBindingDialog.getByRole('combobox', { name: 'Запись для первого экрана', exact: true })
+        const heroRecordSelect = heroBindingDialog.getByRole('combobox', { name: 'Запись содержимого', exact: true })
         await expect(heroRecordSelect).toBeEnabled()
         await expect(heroRecordSelect).toHaveValue('Наши новые')
         await heroRecordSelect.click()
-        const localizedHeroRecord = page.getByRole('option', { name: 'Наши новые', exact: true })
+        const localizedHeroRecord = page.getByRole('option', { name: /^Наши новые(?:\s|$)/ })
         await expect(localizedHeroRecord).toBeVisible()
         await localizedHeroRecord.click()
-        await heroBindingDialog.getByRole('button', { name: 'Настроить отображение', exact: true }).click()
+        await heroBindingDialog.getByRole('button', { name: 'Оформление', exact: true }).click()
         await expect(heroBindingDialog).toHaveCount(0)
 
         const heroPresentationDialog = page.getByRole('dialog').filter({ has: page.getByTestId('marketing-widget-config-dialog') })
