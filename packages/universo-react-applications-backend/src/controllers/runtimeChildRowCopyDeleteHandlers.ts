@@ -19,6 +19,7 @@ import {
     type RuntimeTableChildComponentMeta
 } from '../shared/runtimeHelpers'
 import { assertRuntimeRecordMutable } from '../services/runtimeRecordBehavior'
+import { denyRuntimeEntityMutation } from '../shared/entityMutationPolicy'
 import { assertCanonicalMatrixChildMutation } from './runtimeChildRowsInterpretationNetworkGuard'
 import {
     resolveHierarchyAttrs,
@@ -52,6 +53,7 @@ export const createRuntimeChildRowCopyDeleteHandlers = (
 
         const tc = await resolveTabularContext(ctx.manager, ctx.schemaIdent, objectCollectionId, componentId)
         if (tc.error !== null) return res.status(400).json({ error: tc.error })
+        if (denyRuntimeEntityMutation(res, tc.object.config)) return
         try {
             await assertCanonicalMatrixChildMutation(ctx, applicationId, tc, recordId, 'copy')
         } catch (error) {
@@ -256,6 +258,7 @@ export const createRuntimeChildRowCopyDeleteHandlers = (
 
         const tc = await resolveTabularContext(ctx.manager, ctx.schemaIdent, objectCollectionId, componentId)
         if (tc.error !== null) return res.status(400).json({ error: tc.error })
+        if (denyRuntimeEntityMutation(res, tc.object.config)) return
         try {
             await assertCanonicalMatrixChildMutation(ctx, applicationId, tc, recordId, 'delete')
         } catch (error) {

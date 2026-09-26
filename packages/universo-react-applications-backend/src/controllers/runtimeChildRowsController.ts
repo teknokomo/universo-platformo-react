@@ -35,6 +35,7 @@ import {
 } from './runtimeChildRowsValidation'
 import { createRuntimeChildRowCopyDeleteHandlers } from './runtimeChildRowCopyDeleteHandlers'
 import { createRuntimeVersionConflictFailure } from './runtimeVersionConflict'
+import { denyRuntimeEntityMutation } from '../shared/entityMutationPolicy'
 import { assertRuntimeRecordMutable } from '../services/runtimeRecordBehavior'
 
 // ---------------------------------------------------------------------------
@@ -185,6 +186,7 @@ export function createRuntimeChildRowsController(getDbExecutor: () => DbExecutor
 
         const tc = await resolveTabularContext(ctx.manager, ctx.schemaIdent, objectCollectionId, componentId)
         if (tc.error !== null) return res.status(400).json({ error: tc.error })
+        if (denyRuntimeEntityMutation(res, tc.object.config)) return
         const runtimeRowCondition = buildRuntimeActiveRowCondition(
             tc.lifecycleContract,
             tc.object.config,
@@ -419,6 +421,7 @@ export function createRuntimeChildRowsController(getDbExecutor: () => DbExecutor
 
         const tc = await resolveTabularContext(ctx.manager, ctx.schemaIdent, objectCollectionId, componentId)
         if (tc.error !== null) return res.status(400).json({ error: tc.error })
+        if (denyRuntimeEntityMutation(res, tc.object.config)) return
         const runtimeRowCondition = buildRuntimeActiveRowCondition(
             tc.lifecycleContract,
             tc.object.config,
@@ -562,6 +565,7 @@ export function createRuntimeChildRowsController(getDbExecutor: () => DbExecutor
 
         const tc = await resolveTabularContext(ctx.manager, ctx.schemaIdent, objectCollectionId, componentId)
         if (tc.error !== null) return res.status(400).json({ error: tc.error })
+        if (denyRuntimeEntityMutation(res, tc.object.config)) return
         try {
             for (const update of parsedBody.data.updates) {
                 assertNoClientSuppliedServerOwnedChildFields(tc, update.data)

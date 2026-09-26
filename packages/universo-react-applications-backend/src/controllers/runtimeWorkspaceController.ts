@@ -30,6 +30,7 @@ import {
 } from '../services/workspaceSettingsService'
 import { resetWorkspaceSeededElements } from '../services/applicationWorkspaces'
 import { WorkspaceSeedResetError, WORKSPACE_SEED_RESET_ERROR_CODES } from '../services/runtimeWorkspaceErrors'
+import { sendRuntimeEntityMutationPolicyError } from '../shared/entityMutationPolicy'
 
 const RUNTIME_WORKSPACE_API_ERROR_CODES = {
     invalidRouteParameters: 'INVALID_ROUTE_PARAMETERS',
@@ -433,6 +434,7 @@ export function createRuntimeWorkspaceController(getDbExecutor: () => DbExecutor
                 actorUserId: ctx.userId
             })
         } catch (error) {
+            if (sendRuntimeEntityMutationPolicyError(res, error)) return
             if (sendWorkspaceMutationError(res, error)) return
             throw error
         }
@@ -781,6 +783,7 @@ export function createRuntimeWorkspaceController(getDbExecutor: () => DbExecutor
             })
             return res.json({ ...result, canManage: true })
         } catch (error) {
+            if (sendRuntimeEntityMutationPolicyError(res, error)) return
             if (sendWorkspaceSeedResetError(res, error)) return
             throw error
         }

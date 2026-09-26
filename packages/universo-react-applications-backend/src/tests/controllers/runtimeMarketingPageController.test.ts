@@ -21,6 +21,8 @@ import {
     safeMedia,
     toConfig
 } from '../../controllers/runtimeMarketingPageController'
+import { buildSingleTargetWidgetBinding, getLayoutWidgetDefinition, marketingHeroWidgetDataSchema } from '@universo-react/types'
+import { attachApplicationLayoutWidgetSourceBindingState } from '../../persistence/applicationLayoutStoreSupport'
 
 const applicationId = '018f8a78-7b8f-7c1d-a111-222233334444'
 const uuidV7 = '0190a9b5-3cde-7abc-8def-0123456789ab'
@@ -29,6 +31,13 @@ const scopedMarketingLayoutId = '0190a9b5-3cde-7abc-8def-0123456789ac'
 const scopedEntityTypeId = '0190a9b5-3cde-7abc-8def-0123456789ad'
 const siteSettingsObjectId = '0190a9b5-3cde-7abc-8def-0123456789a1'
 const siteSettingsRecordId = '0190a9b5-3cde-7abc-8def-0123456789a2'
+const heroRecordId = '0190a9b5-3cde-7abc-8def-0123456789a3'
+const marketingHeroObjectId = '0190a9b5-3cde-7abc-8def-0123456789b2'
+const heroBinding = buildSingleTargetWidgetBinding(getLayoutWidgetDefinition('marketing.hero')!, 'content', {
+    entityKind: 'object',
+    entityCodename: 'MarketingPageHero',
+    semanticKey: 'default'
+})
 
 const runtimeContext = (manager: { query: jest.Mock }, overrides: Record<string, unknown> = {}) => ({
     schemaName: 'app_schema',
@@ -53,18 +62,6 @@ const siteSettingsRow = {
     _seed_source_key: 'site-settings',
     _seed_source_owned: true,
     BrandName: { en: 'Acme', ru: 'Акме' },
-    HeroTitle: { en: 'Our latest', ru: 'Наши новые' },
-    HeroAccent: { en: 'products', ru: 'продукты' },
-    HeroSubtitle: { en: 'Description', ru: 'Описание' },
-    HeroEmailLabel: { en: 'Email', ru: 'Почта' },
-    HeroEmailPlaceholder: { en: 'Your email', ru: 'Ваш email' },
-    HeroPrimaryActionLabel: { en: 'Start now', ru: 'Начать' },
-    HeroPrimaryActionHref: '/sign-up',
-    HeroTermsText: { en: 'Terms', ru: 'Условия' },
-    HeroTermsLinkLabel: { en: 'Terms & Conditions', ru: 'Условиями использования' },
-    HeroTermsHref: '/terms',
-    HeroLightPreview: { kind: 'hero', resource: { type: 'url', url: 'https://example.test/legacy-light.webp', launchMode: 'inline' } },
-    HeroDarkPreview: { kind: 'hero', resource: { type: 'url', url: 'https://example.test/legacy-dark.webp', launchMode: 'inline' } },
     CopyrightText: { en: 'Copyright', ru: 'Авторские права' },
     CopyrightLabel: { en: 'Sitemark', ru: 'Sitemark' },
     CopyrightHref: 'https://mui.com/',
@@ -73,6 +70,23 @@ const siteSettingsRow = {
 
 const marketingObjectRows = () => [
     siteSettingsObject,
+    {
+        id: '0190a9b5-3cde-7abc-8def-0123456789b2',
+        kind: 'object',
+        codename: 'MarketingPageHero',
+        table_name: 'marketing_page_hero',
+        config: {
+            recordPolicy: {
+                version: 1,
+                runtimeMutation: 'deny',
+                denyDeleteWhenBound: true,
+                immutableSemanticKeyWhenBound: true,
+                semanticKey: { componentCodename: 'HeroKey', creationPrefix: 'hero', protectedValues: ['default'] },
+                requiredLocales: ['en', 'ru'],
+                validatorKey: 'marketing.hero.v1'
+            }
+        }
+    },
     { id: '0190a9b5-3cde-7abc-8def-0123456789b0', codename: 'MarketingPageSection', table_name: 'marketing_section', config: {} },
     { id: '0190a9b5-3cde-7abc-8def-0123456789b3', codename: 'MarketingPageLogo', table_name: 'marketing_logo', config: {} },
     { id: '0190a9b5-3cde-7abc-8def-0123456789b4', codename: 'MarketingPageFeature', table_name: 'marketing_feature', config: {} },
@@ -88,6 +102,42 @@ const marketingObjectRows = () => [
     { id: '0190a9b5-3cde-7abc-8def-0123456789b9', codename: 'MarketingPageFaq', table_name: 'marketing_faq', config: {} },
     { id: '0190a9b5-3cde-7abc-8def-0123456789ba', codename: 'MarketingPageNavigation', table_name: 'marketing_navigation', config: {} },
     { id: '0190a9b5-3cde-7abc-8def-0123456789bb', codename: 'MarketingPageFooterLink', table_name: 'marketing_footer_link', config: {} }
+]
+
+const marketingHeroComponentRows = (objectId = marketingHeroObjectId, idOffset = 0) => {
+    const requirements = getLayoutWidgetDefinition('marketing.hero')!.bindingSlots![0]!.requirements.components
+    return requirements.map((requirement, index) => ({
+        id: `0190a9b5-3cde-7abc-8def-0123456789${String(20 + idOffset + index).padStart(2, '0')}`,
+        object_id: objectId,
+        codename: requirement.componentCodename,
+        column_name: requirement.componentCodename,
+        data_type: requirement.valueType === 'json' ? 'jsonb' : 'text',
+        is_required: requirement.required,
+        validation_rules: {
+            ...(requirement.localized ? { localized: true } : {}),
+            ...(requirement.maxLength !== undefined ? { maxLength: requirement.maxLength } : {}),
+            ...(requirement.semanticKey ? { unique: true } : {}),
+            ...(requirement.format ? { format: requirement.format } : {})
+        }
+    }))
+}
+
+const marketingHeroRows = () => [
+    {
+        id: heroRecordId,
+        codename: 'default',
+        HeroKey: 'default',
+        Title: { en: 'Our latest', ru: 'Наши новые' },
+        Accent: { en: 'products', ru: 'продукты' },
+        Description: { en: 'Description', ru: 'Описание' },
+        EmailLabel: { en: 'Email', ru: 'Почта' },
+        EmailPlaceholder: { en: 'Your email', ru: 'Ваш email' },
+        PrimaryActionLabel: { en: 'Start now', ru: 'Начать' },
+        PrimaryAction: { kind: 'internal', path: '/sign-up' },
+        TermsText: { en: 'Terms', ru: 'Условия' },
+        TermsLinkLabel: { en: 'Terms & Conditions', ru: 'Условиями использования' },
+        TermsAction: { kind: 'internal', path: '/terms' }
+    }
 ]
 
 const marketingSectionRows = () => [
@@ -148,9 +198,9 @@ const defaultMarketingWidgetRows = () => [
         sort_order: 0,
         config: {
             instanceKey: 'hero',
-            source: { entityCodename: 'MarketingPageSiteSettings', entityKind: 'object' },
             showLeadForm: true
         },
+        bindings: heroBinding,
         is_active: true,
         version: 1
     },
@@ -283,7 +333,7 @@ describe('runtime marketing page controller', () => {
                     },
                     widgets: widgetRows.map((row) => {
                         const config = asMockRecord(row.config)
-                        return {
+                        const widget = {
                             id: row.id,
                             layoutId: row.layout_id,
                             zone: row.zone,
@@ -298,6 +348,10 @@ describe('runtime marketing page controller', () => {
                             isActive: row.is_active,
                             version: row.version ?? 1
                         }
+                        return attachApplicationLayoutWidgetSourceBindingState(widget, {
+                            persistedApplicationRow: true,
+                            ...(row.bindings === undefined ? {} : { bindings: row.bindings as never })
+                        })
                     }),
                     precedence: [selectedScopeEntityId ? 'application-entity' : 'application-global'],
                     publicationIdentity: null,
@@ -494,8 +548,9 @@ describe('runtime marketing page controller', () => {
                 ]
             if (sql.includes('_app_widgets')) return defaultMarketingWidgetRows()
             if (sql.includes('_app_objects')) return [siteSettingsObject]
-            if (sql.includes('_app_components')) return []
+            if (sql.includes('_app_components')) return marketingHeroComponentRows()
             if (sql.includes('marketing_site_settings')) return [siteSettingsRow]
+            if (sql.includes('marketing_page_hero')) return marketingHeroRows()
             throw new Error(`Unexpected runtime query: ${sql}`)
         })
         const controller = createRuntimeMarketingPageController(() => manager as never)
@@ -544,7 +599,61 @@ describe('runtime marketing page controller', () => {
         expect(manager.query.mock.calls.some(([sql]) => String(sql).includes('_app_objects'))).toBe(false)
     })
 
-    it('assembles a validated marketing payload from bounded metadata-backed rows', async () => {
+    it('rejects legacy copySource configuration on a binding-slot Hero widget', async () => {
+        const manager = { query: jest.fn() }
+        mockResolveRuntimeSchema.mockResolvedValue(runtimeContext(manager))
+        manager.query.mockImplementation(async (sql: string) => {
+            if (sql.includes('_app_layouts'))
+                return [
+                    {
+                        id: marketingLayoutId,
+                        scope_entity_id: null,
+                        template_key: 'marketing-page',
+                        config: {},
+                        is_active: true,
+                        is_default: true
+                    }
+                ]
+            if (sql.includes('_app_widgets'))
+                return defaultMarketingWidgetRows().map((row) =>
+                    row.widget_key === 'marketing.hero'
+                        ? {
+                              ...row,
+                              config: {
+                                  ...row.config,
+                                  copySource: { entityCodename: 'MarketingPageSection', entityKind: 'object', recordKey: 'hero' }
+                              }
+                          }
+                        : row
+                )
+            throw new Error(`Unexpected runtime query: ${sql}`)
+        })
+        const controller = createRuntimeMarketingPageController(() => manager as never)
+        const res = createResponse()
+
+        await controller.getMarketingPage({ params: { applicationId }, query: { locale: 'en' } } as unknown as Request, res)
+
+        expect(res.status).toHaveBeenCalledWith(409)
+        expect(res.status.mock.results[0]?.value.json).toHaveBeenCalledWith({
+            code: 'MARKETING_LAYOUT_INVALID',
+            error: 'Marketing widget configuration is invalid.'
+        })
+        expect(manager.query.mock.calls.some(([sql]) => String(sql).includes('_app_objects'))).toBe(false)
+    })
+
+    it('assembles a validated marketing payload through the shared Entity binding projection', async () => {
+        const customHeroObjectId = '0190a9b5-3cde-7abc-8def-0123456789d1'
+        const customHeroBinding = buildSingleTargetWidgetBinding(getLayoutWidgetDefinition('marketing.hero')!, 'content', {
+            entityKind: 'object',
+            entityCodename: 'CustomMarketingHero',
+            semanticKey: 'default'
+        })
+        const customHeroObject = {
+            ...marketingObjectRows().find((row) => row.codename === 'MarketingPageHero')!,
+            id: customHeroObjectId,
+            codename: 'CustomMarketingHero',
+            table_name: 'marketing_custom_hero'
+        }
         const manager = { query: jest.fn() }
         mockResolveRuntimeSchema.mockResolvedValue(runtimeContext(manager))
         manager.query.mockImplementation(async (sql: string) => {
@@ -562,7 +671,9 @@ describe('runtime marketing page controller', () => {
             if (sql.includes('_app_widgets')) {
                 const rows = defaultMarketingWidgetRows()
                 return [
-                    ...rows,
+                    ...rows.map((row) =>
+                        row.widget_key === 'marketing.hero' && row.is_active ? { ...row, bindings: customHeroBinding } : row
+                    ),
                     {
                         ...rows[2],
                         id: '0190a9b5-3cde-7abc-8def-0123456789ca',
@@ -572,10 +683,14 @@ describe('runtime marketing page controller', () => {
                 ]
             }
             if (sql.includes('_app_objects')) {
-                return marketingObjectRows()
+                return [...marketingObjectRows(), customHeroObject]
             }
-            if (sql.includes('_app_components')) return []
+            if (sql.includes('_app_components')) {
+                return [...marketingHeroComponentRows(), ...marketingHeroComponentRows(customHeroObjectId, 30)]
+            }
             if (sql.includes('marketing_site_settings')) return [siteSettingsRow]
+            if (sql.includes('marketing_page_hero')) return marketingHeroRows()
+            if (sql.includes('marketing_custom_hero')) return marketingHeroRows()
             if (sql.includes('marketing_section')) {
                 return [
                     {
@@ -586,15 +701,6 @@ describe('runtime marketing page controller', () => {
                         Description: { en: 'Features description' },
                         SortOrder: 1,
                         IsVisible: true
-                    },
-                    {
-                        id: '0190a9b5-3cde-7abc-8def-0123456789b2',
-                        codename: 'hero',
-                        SectionKey: 'hero',
-                        Title: { en: 'Hero' },
-                        Description: { en: 'Hero description' },
-                        SortOrder: 2,
-                        IsVisible: false
                     },
                     ...marketingSectionRows().filter((row) => row.SectionKey === 'pricing' || row.SectionKey === 'footer')
                 ]
@@ -621,6 +727,11 @@ describe('runtime marketing page controller', () => {
 
         await controller.getMarketingPage({ params: { applicationId }, query: { locale: 'en' } } as unknown as Request, res)
 
+        const componentMetadataQuery = String(manager.query.mock.calls.find(([sql]) => String(sql).includes('_app_components'))?.[0])
+        expect(componentMetadataQuery).toContain('is_required')
+        expect(componentMetadataQuery).toContain('validation_rules')
+        expect(componentMetadataQuery).not.toContain('_app_published')
+
         expect(res.json).toHaveBeenCalledWith(
             expect.objectContaining({
                 templateKey: 'marketing-page',
@@ -643,18 +754,35 @@ describe('runtime marketing page controller', () => {
                     widgetKey?: string
                     instanceKey?: string
                     config?: Record<string, unknown>
-                    data?: { records?: Array<{ kind?: string; provenance?: Record<string, unknown> }> }
+                    data?: Record<string, unknown> & { records?: Array<{ kind?: string; provenance?: Record<string, unknown> }> }
                 }>
             }
         }
-        const heroRecords =
-            responsePayload.marketingPage?.widgets?.find((widget) => widget.widgetKey === 'marketing.hero')?.data?.records ?? []
-        expect(heroRecords.find((record) => record.kind === 'siteSettings')?.provenance).toEqual(
+        const heroWidget = responsePayload.marketingPage?.widgets?.find((widget) => widget.widgetKey === 'marketing.hero')
+        const typedHeroData = marketingHeroWidgetDataSchema.parse(heroWidget?.data)
+        expect(heroWidget?.data).toEqual(typedHeroData)
+        expect(heroWidget?.data).toMatchObject({
+            records: [
+                {
+                    kind: 'heroContent',
+                    semanticKey: 'content',
+                    content: {
+                        title: { en: 'Our latest', ru: 'Наши новые' },
+                        description: { en: 'Description', ru: 'Описание' },
+                        primaryAction: { kind: 'internal', path: '/sign-up', target: 'same-tab' }
+                    }
+                }
+            ]
+        })
+        expect(JSON.stringify(heroWidget?.data)).not.toContain(heroRecordId)
+        const runtimeRecords = responsePayload.marketingPage?.widgets?.flatMap((widget) => widget.data?.records ?? []) ?? []
+        expect(runtimeRecords.find((record) => record.kind === 'siteSettings')?.provenance).toEqual(
             expect.objectContaining({ isSeeded: true, isAuthored: false, seedKey: 'site-settings' })
         )
-        const siteSettingsRuntimeRecord = heroRecords.find((record) => record.kind === 'siteSettings')
+        const siteSettingsRuntimeRecord = runtimeRecords.find((record) => record.kind === 'siteSettings')
         expect(siteSettingsRuntimeRecord).not.toHaveProperty('heroLightPreview')
         expect(siteSettingsRuntimeRecord).not.toHaveProperty('heroDarkPreview')
+        expect(siteSettingsRuntimeRecord).not.toHaveProperty('heroTitle')
         const imageWidget = responsePayload.marketingPage?.widgets?.find((widget) => widget.widgetKey === 'marketing.image')
         expect(imageWidget?.data?.records).toEqual([])
         expect(imageWidget?.config).toEqual(
@@ -663,7 +791,7 @@ describe('runtime marketing page controller', () => {
                 media: expect.objectContaining({ kind: 'hero', decorative: true })
             })
         )
-        expect(heroRecords).toEqual(
+        expect(runtimeRecords).toEqual(
             expect.arrayContaining([
                 expect.objectContaining({
                     kind: 'siteSettings',
@@ -675,7 +803,7 @@ describe('runtime marketing page controller', () => {
                 })
             ])
         )
-        expect(manager.query.mock.calls.filter(([sql]) => String(sql).includes('LIMIT 1000')).length).toBe(marketingObjectRows().length)
+        expect(manager.query.mock.calls.filter(([sql]) => String(sql).includes('LIMIT 1000')).length).toBe(marketingObjectRows().length + 1)
         const featureWidget = responsePayload.marketingPage?.widgets?.find((widget) => widget.widgetKey === 'marketing.collection')
         expect(responsePayload.marketingPage?.widgets?.some((widget) => widget.instanceKey === 'inactive-hero')).toBe(false)
         expect(responsePayload.marketingPage?.widgets?.some((widget) => widget.widgetKey === 'languageSwitcher')).toBe(false)
@@ -741,9 +869,10 @@ describe('runtime marketing page controller', () => {
                 ]
             if (sql.includes('_app_widgets')) return scopedWidgets
             if (sql.includes('_app_objects')) return marketingObjectRows()
-            if (sql.includes('_app_components')) return []
+            if (sql.includes('_app_components')) return marketingHeroComponentRows()
             if (sql.includes('marketing_site_settings')) return [siteSettingsRow]
             if (sql.includes('marketing_section')) return marketingSectionRows()
+            if (sql.includes('marketing_page_hero')) return marketingHeroRows()
             if (sql.includes('LIMIT 1000')) return []
             throw new Error(`Unexpected runtime query: ${sql}`)
         })
@@ -802,9 +931,10 @@ describe('runtime marketing page controller', () => {
             if (sql.includes('_app_objects')) {
                 return marketingObjectRows()
             }
-            if (sql.includes('_app_components')) return []
+            if (sql.includes('_app_components')) return marketingHeroComponentRows()
             if (sql.includes('marketing_site_settings')) return [siteSettingsRow]
             if (sql.includes('marketing_section')) return marketingSectionRows()
+            if (sql.includes('marketing_page_hero')) return marketingHeroRows()
             if (sql.includes('LIMIT 1000')) return []
             throw new Error(`Unexpected runtime query: ${sql}`)
         })
@@ -850,9 +980,10 @@ describe('runtime marketing page controller', () => {
                     object.codename === 'MarketingPagePricing' ? { ...object, id: pricingId } : object
                 )
             }
-            if (sql.includes('_app_components')) return []
+            if (sql.includes('_app_components')) return marketingHeroComponentRows()
             if (sql.includes('marketing_site_settings')) return [siteSettingsRow]
             if (sql.includes('marketing_section')) return marketingSectionRows()
+            if (sql.includes('marketing_page_hero')) return marketingHeroRows()
             if (sql.includes('marketing_pricing_benefit')) {
                 return [
                     {
@@ -946,9 +1077,10 @@ describe('runtime marketing page controller', () => {
                 ]
             }
             if (sql.includes('_app_objects')) return marketingObjectRows()
-            if (sql.includes('_app_components')) return []
+            if (sql.includes('_app_components')) return marketingHeroComponentRows()
             if (sql.includes('marketing_site_settings')) return [siteSettingsRow]
             if (sql.includes('marketing_section')) return marketingSectionRows()
+            if (sql.includes('marketing_page_hero')) return marketingHeroRows()
             if (sql.includes('LIMIT 1000')) return []
             return []
         })
@@ -997,9 +1129,10 @@ describe('runtime marketing page controller', () => {
                 )
             }
             if (sql.includes('_app_objects')) return marketingObjectRows()
-            if (sql.includes('_app_components')) return []
+            if (sql.includes('_app_components')) return marketingHeroComponentRows()
             if (sql.includes('marketing_site_settings')) return [siteSettingsRow]
             if (sql.includes('marketing_section')) return marketingSectionRows()
+            if (sql.includes('marketing_page_hero')) return marketingHeroRows()
             if (sql.includes('marketing_pricing_benefit')) {
                 return tiers.flatMap((key, tierIndex) =>
                     Array.from({ length: 5 }, (_unused, benefitIndex) => ({
@@ -1070,7 +1203,7 @@ describe('runtime marketing page controller', () => {
             if (sql.includes('_app_objects')) {
                 return [siteSettingsObject]
             }
-            if (sql.includes('_app_components')) return []
+            if (sql.includes('_app_components')) return marketingHeroComponentRows()
             if (sql.includes('marketing_site_settings')) return siteSettingsRows
             throw new Error(`Unexpected runtime query: ${sql}`)
         })
@@ -1113,7 +1246,7 @@ describe('runtime marketing page controller', () => {
                     }
                 ]
             }
-            if (sql.includes('_app_components')) return []
+            if (sql.includes('_app_components')) return marketingHeroComponentRows()
             if (sql.includes('marketing_site_settings')) return [siteSettingsRow]
             if (sql.includes('marketing_logo')) return [{ id: 'not-a-uuid-v7', codename: 'logo' }]
             throw new Error(`Unexpected runtime query: ${sql}`)
@@ -1130,7 +1263,7 @@ describe('runtime marketing page controller', () => {
         })
     })
 
-    it('fails closed instead of injecting stock copy when required site content is missing', async () => {
+    it('fails closed when the bound Hero Entity is missing required content', async () => {
         const manager = { query: jest.fn() }
         mockResolveRuntimeSchema.mockResolvedValue(runtimeContext(manager))
         manager.query.mockImplementation(async (sql: string) => {
@@ -1146,9 +1279,17 @@ describe('runtime marketing page controller', () => {
                     }
                 ]
             if (sql.includes('_app_widgets')) return defaultMarketingWidgetRows()
-            if (sql.includes('_app_objects')) return [siteSettingsObject]
-            if (sql.includes('_app_components')) return []
-            if (sql.includes('marketing_site_settings')) return [{ ...siteSettingsRow, HeroTitle: undefined }]
+            if (sql.includes('_app_objects')) {
+                return [
+                    siteSettingsObject,
+                    marketingObjectRows().find((row) => row.codename === 'MarketingPageHero')!,
+                    marketingObjectRows().find((row) => row.codename === 'MarketingPageNavigation')!
+                ]
+            }
+            if (sql.includes('_app_components')) return marketingHeroComponentRows()
+            if (sql.includes('marketing_site_settings')) return [siteSettingsRow]
+            if (sql.includes('marketing_page_hero')) return [{ ...marketingHeroRows()[0], Title: undefined }]
+            if (sql.includes('marketing_navigation')) return []
             throw new Error(`Unexpected runtime query: ${sql}`)
         })
         const controller = createRuntimeMarketingPageController(() => manager as never)
@@ -1158,8 +1299,8 @@ describe('runtime marketing page controller', () => {
 
         expect(res.status).toHaveBeenCalledWith(409)
         expect(res.status.mock.results[0]?.value.json).toHaveBeenCalledWith({
-            code: 'MARKETING_RUNTIME_DATA_INVALID',
-            error: 'Marketing page data is invalid.'
+            code: 'MARKETING_SOURCE_UNAVAILABLE',
+            error: 'Marketing widget Entity binding is unavailable.'
         })
     })
 
@@ -1190,7 +1331,7 @@ describe('runtime marketing page controller', () => {
                     }
                 ]
             }
-            if (sql.includes('_app_components')) return []
+            if (sql.includes('_app_components')) return marketingHeroComponentRows()
             if (sql.includes('marketing_site_settings')) return [siteSettingsRow]
             if (sql.includes('marketing_section')) {
                 return [

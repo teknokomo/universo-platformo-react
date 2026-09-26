@@ -3,6 +3,7 @@ import { z } from 'zod'
 import { getLayoutWidgetDefinition, getLayoutZoneDefinition, LAYOUT_ZONE_DEFINITIONS } from './layoutWidgetDefinitions'
 import { applicationTemplateKeySchema, type ApplicationTemplateKey } from './marketingPage'
 import type { ApplicationLayoutZone } from './applicationLayouts'
+import { validateWidgetBindings, widgetEntityBindingEnvelopeSchema } from './widgetBindings'
 
 /** The one system-owned namespace inside persisted layout/widget config objects. */
 export const RESERVED_LAYOUT_METADATA_KEY = '__layout' as const
@@ -88,7 +89,8 @@ export const layoutNeutralMetadataSchema = persistedLayoutNeutralMetadataSchema
 /** Neutral metadata persisted in a widget config object. */
 export const persistedWidgetNeutralMetadataSchema = z
     .object({
-        placement: layoutLogicalPlacementSchema.optional()
+        placement: layoutLogicalPlacementSchema.optional(),
+        bindings: widgetEntityBindingEnvelopeSchema.optional()
     })
     .strict()
 export type PersistedWidgetNeutralMetadata = z.infer<typeof persistedWidgetNeutralMetadataSchema>
@@ -107,6 +109,17 @@ export interface LayoutWidgetEnvelopeContext {
     readonly templateKey?: ApplicationTemplateKey | string
     readonly widgetKey?: string
     readonly zone?: string
+    /** Require all declared slots when validating a complete source-owned widget envelope. */
+    readonly requireBindings?: boolean
+}
+
+export class MissingRequiredWidgetBindingsError extends Error {
+    readonly code = 'LAYOUT_WIDGET_BINDING_REQUIRED'
+
+    constructor(widgetKey: string) {
+        super(`Widget is missing required Entity bindings: ${widgetKey}`)
+        this.name = 'MissingRequiredWidgetBindingsError'
+    }
 }
 
 export interface DecodedLayoutConfigEnvelope {
@@ -305,8 +318,14 @@ export const replaceLayoutRendererConfig = (
         { ...options, templateKey: context.templateKey }
     )
 
+type CompleteLayoutWidgetEnvelopeContext = {
+    readonly templateKey: ApplicationTemplateKey | string
+    readonly widgetKey: string
+    readonly zone: string
+} & Pick<LayoutWidgetEnvelopeContext, 'requireBindings'>
+
 const assertWidgetContext = (
-    context: Required<LayoutWidgetEnvelopeContext>
+    context: CompleteLayoutWidgetEnvelopeContext
 ): { templateKey: ApplicationTemplateKey; defaultPlacement?: LayoutLogicalPlacement } => {
     const templateKey = parseTemplateKey(context.templateKey)
     const definition = getLayoutWidgetDefinition(context.widgetKey)
@@ -319,17 +338,39 @@ const assertWidgetContext = (
     return { templateKey, defaultPlacement: definition.defaultPlacement }
 }
 
-const assertSupportedWidgetMetadata = (neutral: PersistedWidgetNeutralMetadata, context: LayoutWidgetEnvelopeContext | undefined): void => {
-    if (context === undefined) return
+const assertSupportedWidgetMetadata = (
+    neutral: PersistedWidgetNeutralMetadata,
+    context: LayoutWidgetEnvelopeContext | undefined
+): PersistedWidgetNeutralMetadata => {
+    if (context === undefined) {
+        if (neutral.bindings !== undefined) throw new Error('Binding validation context is required.')
+        return neutral
+    }
     const hasAnyContext = context.templateKey !== undefined || context.widgetKey !== undefined || context.zone !== undefined
-    if (!hasAnyContext) return
+    if (!hasAnyContext) {
+        if (context.requireBindings === true) throw new Error('Widget placement validation context is incomplete.')
+        if (neutral.bindings !== undefined) throw new Error('Binding validation context is required.')
+        return neutral
+    }
     if (context.templateKey === undefined || context.widgetKey === undefined || context.zone === undefined) {
         throw new Error('Widget placement validation context is incomplete.')
     }
-    const { defaultPlacement } = assertWidgetContext(context as Required<LayoutWidgetEnvelopeContext>)
+    const { defaultPlacement } = assertWidgetContext(context as CompleteLayoutWidgetEnvelopeContext)
     if (neutral.placement !== undefined && defaultPlacement === undefined) {
         throw new Error(`Widget does not support logical placement: ${context.widgetKey}`)
     }
+    const definition = getLayoutWidgetDefinition(context.widgetKey)
+    const bindingSlots = definition?.bindingSlots ?? []
+    if (neutral.bindings === undefined) {
+        if (context.requireBindings === true && bindingSlots.some(({ cardinality }) => cardinality.min > 0)) {
+            throw new MissingRequiredWidgetBindingsError(context.widgetKey)
+        }
+        return neutral
+    }
+    if (bindingSlots.length === 0) {
+        throw new Error(`Widget does not declare Entity binding slots: ${context.widgetKey}`)
+    }
+    return { ...neutral, bindings: validateWidgetBindings(definition, neutral.bindings) }
 }
 
 /** Decode a widget config and validate logical placement against the registry. */
@@ -341,8 +382,8 @@ export const decodeWidgetConfigEnvelope = (rawConfig: unknown, context: LayoutWi
     delete rendererConfig[RESERVED_LAYOUT_METADATA_KEY]
 
     assertRendererConfig(rendererConfig)
-    const neutral = persistedWidgetNeutralMetadataSchema.parse(hasNeutralMetadata ? rawNeutral : {})
-    assertSupportedWidgetMetadata(neutral, context)
+    const parsedNeutral = persistedWidgetNeutralMetadataSchema.parse(hasNeutralMetadata ? rawNeutral : {})
+    const neutral = assertSupportedWidgetMetadata(parsedNeutral, context)
 
     return { rendererConfig, neutral }
 }
@@ -356,8 +397,8 @@ export const encodeWidgetConfigEnvelope = (
     context?: LayoutWidgetEnvelopeContext
 ): Record<string, unknown> => {
     const rendererConfig = assertRendererConfig(input.rendererConfig)
-    const neutral = persistedWidgetNeutralMetadataSchema.parse(input.neutral ?? {})
-    assertSupportedWidgetMetadata(neutral, context)
+    const parsedNeutral = persistedWidgetNeutralMetadataSchema.parse(input.neutral ?? {})
+    const neutral = assertSupportedWidgetMetadata(parsedNeutral, context)
 
     if (Object.keys(neutral).length === 0) return rendererConfig
     return {
@@ -384,7 +425,7 @@ export const replaceWidgetRendererConfig = (
     )
 
 /** Resolve a registered widget's default logical placement for a concrete zone. */
-export const getLayoutWidgetDefaultPlacement = (context: Required<LayoutWidgetEnvelopeContext>): LayoutLogicalPlacement | undefined =>
+export const getLayoutWidgetDefaultPlacement = (context: CompleteLayoutWidgetEnvelopeContext): LayoutLogicalPlacement | undefined =>
     assertWidgetContext(context).defaultPlacement
 
 /** Return the registry default for a supported setting without exposing a validator. */
@@ -413,7 +454,7 @@ export const resolveLayoutZoneSettingValue = (
 
 /** Resolve an explicit or registry-default logical placement. */
 export const resolveLayoutWidgetPlacement = (
-    context: Required<LayoutWidgetEnvelopeContext>,
+    context: CompleteLayoutWidgetEnvelopeContext,
     placement?: LayoutLogicalPlacement
 ): LayoutLogicalPlacement => {
     const { defaultPlacement } = assertWidgetContext(context)

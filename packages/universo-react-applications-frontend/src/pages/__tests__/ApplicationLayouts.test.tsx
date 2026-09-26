@@ -74,6 +74,10 @@ vi.mock('react-i18next', () => ({
                 'layouts.marketing.resetDescription':
                     'This restores the theme, colors, and action policy for this application layout. Widget composition and content records will not change.',
                 'layouts.marketing.resetConfirm': 'Restore defaults',
+                'layouts.marketing.heroActionIntegrityConflict':
+                    localeMocks.language === 'ru'
+                        ? 'Этот раздел используется в действии первого экрана. Измените действие или оставьте раздел включённым.'
+                        : 'This section is used by a Hero action. Change that action or keep the section active.',
                 'layouts.marketing.resetSuccess': 'Marketing appearance restored to template defaults.'
             }
             if (localeMocks.language === 'ru') {
@@ -181,6 +185,15 @@ vi.mock('@universo-react/template-mui', async () => {
                                       <button type='button' onClick={item.onClick}>
                                           {item.label}
                                       </button>
+                                      {item.toggleActiveAriaLabel ? (
+                                          <button
+                                              type='button'
+                                              aria-label={item.toggleActiveAriaLabel}
+                                              onClick={() => item.onToggleActive?.(!item.isActive)}
+                                          >
+                                              toggle-{item.label}
+                                          </button>
+                                      ) : null}
                                       {item.inheritedLabel ? <span>{item.inheritedLabel}</span> : null}
                                       {(item.moveActions ?? []).map((action: any) => (
                                           <button key={action.key} type='button' onClick={action.onClick}>
@@ -198,7 +211,7 @@ vi.mock('@universo-react/template-mui', async () => {
             </div>
         ),
         LayoutZoneSettingsDialog: actual.LayoutZoneSettingsDialog,
-        MarketingWidgetConfigDialog: ({ open, title, onSave, onCancel }: any) =>
+        MarketingWidgetConfigDialog: ({ open, title, widgetKey, onSave, onCancel }: any) =>
             open ? (
                 <div role='dialog' aria-label={title} data-testid='marketing-widget-config-dialog-mock'>
                     <h2>{title}</h2>
@@ -207,7 +220,10 @@ vi.mock('@universo-react/template-mui', async () => {
                         onClick={() =>
                             onSave({
                                 instanceKey: '018f8a78-7b8f-7c1d-a111-2222333344a2',
-                                source: { entityCodename: 'marketingContent', entityKind: 'object' },
+                                ...(widgetKey === 'marketing.hero' ? { showLeadForm: false } : {}),
+                                ...(widgetKey === 'marketing.hero'
+                                    ? {}
+                                    : { source: { entityCodename: 'marketingContent', entityKind: 'object' } }),
                                 ...(title.includes('Collection') ? { variant: 'features' } : {})
                             })
                         }
@@ -587,6 +603,53 @@ describe('ApplicationLayouts', () => {
                 expectedVersion: 1
             })
         })
+    })
+
+    it.each([
+        ['en', 'This section is used by a Hero action. Change that action or keep the section active.'],
+        ['ru', 'Этот раздел используется в действии первого экрана. Измените действие или оставьте раздел включённым.']
+    ])('localizes the explanation when hiding a section would break a Hero action (%s)', async (language, message) => {
+        const user = userEvent.setup()
+        localeMocks.language = language as 'en' | 'ru'
+        apiMocks.toggleApplicationLayoutWidget.mockRejectedValue({
+            isAxiosError: true,
+            response: {
+                status: 409,
+                data: { code: 'APPLICATION_LAYOUT_MARKETING_HERO_ACTION_INTEGRITY_CONFLICT' }
+            }
+        })
+
+        renderPage()
+
+        const deactivateButton = await screen.findByRole('button', { name: 'Deactivate widget: Menu: Training' })
+        await user.click(deactivateButton)
+
+        const conflictMessage = await screen.findByText(message)
+        expect(conflictMessage.closest('[role="alert"]')).not.toBeNull()
+        expect(snackbarMocks.enqueueSnackbar).not.toHaveBeenCalledWith(message, { variant: 'error' })
+        expect(screen.getByRole('button', { name: 'Deactivate widget: Menu: Training' })).toBeInTheDocument()
+        expect(snackbarMocks.enqueueSnackbar.mock.calls.flat().join(' ')).not.toContain('APPLICATION_LAYOUT_MARKETING_HERO_ACTION')
+    })
+
+    it('shows the persistent localized conflict alert when the API client exposes the conflict code as its message', async () => {
+        const user = userEvent.setup()
+        localeMocks.language = 'ru'
+        apiMocks.toggleApplicationLayoutWidget.mockRejectedValue({
+            isAxiosError: true,
+            response: {
+                status: 409,
+                data: { message: 'APPLICATION_LAYOUT_MARKETING_HERO_ACTION_INTEGRITY_CONFLICT' }
+            }
+        })
+
+        renderPage()
+
+        await user.click(await screen.findByRole('button', { name: 'Deactivate widget: Menu: Training' }))
+
+        const conflictMessage = await screen.findByText(
+            'Этот раздел используется в действии первого экрана. Измените действие или оставьте раздел включённым.'
+        )
+        expect(conflictMessage.closest('[role="alert"]')).not.toBeNull()
     })
 
     it.each([
@@ -1162,7 +1225,7 @@ describe('ApplicationLayouts', () => {
         expect(apiMocks.resetApplicationLayoutConfig).not.toHaveBeenCalled()
     })
 
-    it('edits marketing widget composition through the shared widget configuration dialog', async () => {
+    it('keeps application Hero presentation editable while preventing new entity-backed placements', async () => {
         const user = userEvent.setup()
         const marketingLayout = createMarketingLayout()
         apiMocks.listApplicationLayouts.mockResolvedValue({
@@ -1181,7 +1244,6 @@ describe('ApplicationLayouts', () => {
                     sortOrder: 0,
                     config: {
                         instanceKey: '018f8a78-7b8f-7c1d-a111-2222333344a2',
-                        source: { entityCodename: 'MarketingPageSiteSettings', entityKind: 'object' },
                         showLeadForm: true
                     },
                     isActive: true,
@@ -1232,6 +1294,7 @@ describe('ApplicationLayouts', () => {
         expect(screen.getByText('Marketing content')).toBeInTheDocument()
         expect(screen.getByText('Marketing footer')).toBeInTheDocument()
         expect(screen.getByText('Hero')).toBeInTheDocument()
+        expect(screen.queryByRole('button', { name: 'add-Hero', exact: true })).not.toBeInTheDocument()
 
         await user.click(screen.getByRole('button', { name: 'add-Language switcher' }))
         await waitFor(() => {
@@ -1273,7 +1336,7 @@ describe('ApplicationLayouts', () => {
                     expectedVersion: 2,
                     config: expect.objectContaining({
                         instanceKey: '018f8a78-7b8f-7c1d-a111-2222333344a2',
-                        source: { entityCodename: 'marketingContent', entityKind: 'object' }
+                        showLeadForm: false
                     })
                 })
             )

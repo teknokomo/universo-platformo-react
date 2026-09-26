@@ -1432,6 +1432,20 @@ export async function listLayoutZoneWidgets(api, metahubId, layoutId) {
     return response.json()
 }
 
+export async function getLayoutZoneWidgetBinding(api, metahubId, layoutId, widgetId, locale = 'en') {
+    const query = new URLSearchParams({ locale })
+    const response = await fetchFromApi(
+        api,
+        `/api/v1/metahub/${metahubId}/layout/${layoutId}/zone-widget/${widgetId}/binding?${query.toString()}`,
+        { method: 'GET' }
+    )
+    if (!response.ok) {
+        throw await buildError(response, `Fetching Hero binding for widget ${widgetId} in layout ${layoutId}`)
+    }
+
+    return response.json()
+}
+
 export async function assignLayoutZoneWidget(api, metahubId, layoutId, payload) {
     const response = await sendWithCsrf(api, 'PUT', `/api/v1/metahub/${metahubId}/layout/${layoutId}/zone-widget`, payload)
     if (!response.ok) {

@@ -15,6 +15,7 @@ type TemplateManifest = {
 const EXPECTED_ENTITY_CODENAMES = [
     'MarketingPage',
     'MarketingPageSiteSettings',
+    'MarketingPageHero',
     'MarketingPageSection',
     'MarketingPageLogo',
     'MarketingPageFeature',
@@ -29,7 +30,8 @@ const EXPECTED_ENTITY_CODENAMES = [
 
 const EXPECTED_ELEMENT_COUNTS: Record<string, number> = {
     MarketingPageSiteSettings: 1,
-    MarketingPageSection: 8,
+    MarketingPageHero: 1,
+    MarketingPageSection: 7,
     MarketingPageLogo: 6,
     MarketingPageFeature: 3,
     MarketingPageTestimonial: 6,
@@ -86,8 +88,35 @@ const EXPECTED_WIDGET_COMPOSITION = [
         widgetKey: 'marketing.hero',
         sortOrder: 0,
         instanceKey: 'hero',
-        source: { entityCodename: 'MarketingPageSiteSettings', entityKind: 'object', recordKey: 'site-settings' },
-        copySource: { entityCodename: 'MarketingPageSection', entityKind: 'object', recordKey: 'hero' },
+        showLeadForm: true,
+        bindings: {
+            version: 1,
+            slots: [
+                {
+                    slot: 'content',
+                    targets: [
+                        {
+                            entityKind: 'object',
+                            entityCodename: 'MarketingPageHero',
+                            selector: { kind: 'semantic-key', field: 'key', value: 'default' },
+                            projection: [
+                                { field: 'accent', componentCodename: 'Accent' },
+                                { field: 'description', componentCodename: 'Description' },
+                                { field: 'emailLabel', componentCodename: 'EmailLabel' },
+                                { field: 'emailPlaceholder', componentCodename: 'EmailPlaceholder' },
+                                { field: 'key', componentCodename: 'HeroKey' },
+                                { field: 'primaryAction', componentCodename: 'PrimaryAction' },
+                                { field: 'primaryActionLabel', componentCodename: 'PrimaryActionLabel' },
+                                { field: 'termsAction', componentCodename: 'TermsAction' },
+                                { field: 'termsLinkLabel', componentCodename: 'TermsLinkLabel' },
+                                { field: 'termsText', componentCodename: 'TermsText' },
+                                { field: 'title', componentCodename: 'Title' }
+                            ]
+                        }
+                    ]
+                }
+            ]
+        },
         isActive: true
     },
     {
@@ -242,6 +271,7 @@ export function assertMarketingPageTemplateBaseline(manifest: TemplateManifest):
             const source = config.source === undefined ? undefined : readRecord(config.source, 'marketing widget source')
             const copySource = config.copySource === undefined ? undefined : readRecord(config.copySource, 'marketing widget copy source')
             const layoutMetadata = config.__layout === undefined ? undefined : readRecord(config.__layout, 'layout widget metadata')
+            const bindings = layoutMetadata?.bindings === undefined ? undefined : readRecord(layoutMetadata.bindings, 'widget bindings')
             const instanceKey =
                 config.instanceKey === undefined ? undefined : readString(config.instanceKey, 'marketing widget instanceKey')
             const placement = layoutMetadata?.placement === undefined ? undefined : readString(layoutMetadata.placement, 'widget placement')
@@ -254,7 +284,9 @@ export function assertMarketingPageTemplateBaseline(manifest: TemplateManifest):
                 ...(config.variant === undefined ? {} : { variant: readString(config.variant, 'marketing collection variant') }),
                 ...(source === undefined ? {} : { source }),
                 ...(copySource === undefined ? {} : { copySource }),
+                ...(config.showLeadForm === undefined ? {} : { showLeadForm: config.showLeadForm }),
                 ...(config.showAuthActions === undefined ? {} : { showAuthActions: config.showAuthActions }),
+                ...(bindings === undefined ? {} : { bindings }),
                 ...(placement === undefined ? {} : { placement }),
                 isActive: assignment.isActive
             }
@@ -266,13 +298,28 @@ export function assertMarketingPageTemplateBaseline(manifest: TemplateManifest):
     const siteSettings = seed.elements?.MarketingPageSiteSettings?.[0]
     assert.ok(siteSettings, 'site settings seed is required')
     const siteSettingsData = readData(siteSettings)
-    assert.deepEqual(readLocalized(siteSettingsData.HeroTitle), { en: 'Our latest', ru: 'Наши новые' })
-    assert.deepEqual(readLocalized(siteSettingsData.HeroAccent), { en: 'products', ru: 'продукты' })
-    assert.deepEqual(readLocalized(siteSettingsData.HeroTermsLinkLabel), { en: 'Terms & Conditions', ru: 'Условиями использования' })
-    assert.equal(siteSettingsData.HeroPrimaryActionHref, '/sign-up')
+    assert.equal(
+        Object.keys(siteSettingsData).some((key) => key.startsWith('Hero')),
+        false,
+        'Hero content must not remain in site settings'
+    )
     assert.deepEqual(readLocalized(siteSettingsData.CopyrightText), { en: 'Copyright ©', ru: 'Copyright ©' })
     assert.deepEqual(readLocalized(siteSettingsData.CopyrightLabel), { en: 'Sitemark', ru: 'Sitemark' })
     assert.equal(siteSettingsData.CopyrightHref, 'https://mui.com/')
+
+    const heroRecords = seed.elements?.MarketingPageHero ?? []
+    assert.equal(heroRecords.length, 1, 'one default Hero record is required')
+    const heroRecord = heroRecords[0]
+    assert.ok(heroRecord, 'default Hero record is required')
+    assert.equal(readString(heroRecord.codename, 'Hero record codename'), 'default')
+    const heroData = readData(heroRecord)
+    assert.equal(heroData.HeroKey, 'default')
+    assert.deepEqual(readLocalized(heroData.Title), { en: 'Our latest', ru: 'Наши новые' })
+    assert.deepEqual(readLocalized(heroData.Accent), { en: 'products', ru: 'продукты' })
+    assert.deepEqual(readLocalized(heroData.EmailLabel), { en: 'Email', ru: 'Электронная почта' })
+    assert.deepEqual(readLocalized(heroData.PrimaryActionLabel), { en: 'Start now', ru: 'Начать' })
+    assert.deepEqual(heroData.PrimaryAction, { kind: 'internal', path: '/auth', target: 'same-tab' })
+    assert.deepEqual(heroData.TermsAction, { kind: 'internal', path: '/terms', target: 'same-tab' })
 
     const navigation = seed.elements?.MarketingPageNavigation ?? []
     assert.deepEqual(
@@ -299,14 +346,6 @@ export function assertMarketingPageTemplateBaseline(manifest: TemplateManifest):
             }
         }),
         [
-            {
-                key: 'hero',
-                title: { en: 'Our latest products', ru: 'Наши новые продукты' },
-                description: {
-                    en: 'Primary hero content is managed by the marketing hero object.',
-                    ru: 'Основное содержимое первого экрана управляется объектом первого экрана.'
-                }
-            },
             {
                 key: 'logos',
                 title: { en: 'Trusted by the best companies', ru: 'Нам доверяют лучшие компании' },
@@ -677,6 +716,7 @@ export function assertMarketingPageTemplateBaseline(manifest: TemplateManifest):
     // duplicate value only when the component carries this validation rule, so
     // the template must keep publishing it for every semantic key component.
     const uniqueKeyComponents: ReadonlyArray<readonly [string, string]> = [
+        ['MarketingPageHero', 'HeroKey'],
         ['MarketingPageSection', 'SectionKey'],
         ['MarketingPageLogo', 'LogoKey'],
         ['MarketingPageFeature', 'FeatureKey'],

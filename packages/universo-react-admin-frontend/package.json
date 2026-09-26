@@ -53,6 +53,7 @@
         "@universo-react/auth-frontend": "workspace:*",
         "@universo-react/i18n": "workspace:*",
         "@universo-react/store": "workspace:*",
+        "@universo-react/template-mui": "workspace:*",
         "@universo-react/types": "workspace:*",
         "@universo-react/utils": "workspace:*",
         "react-i18next": "catalog:",

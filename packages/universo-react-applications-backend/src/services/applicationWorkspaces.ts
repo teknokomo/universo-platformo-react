@@ -5,6 +5,7 @@ import { ApplicationMembershipState, normalizeInterpretationNetworkHexColor, typ
 import { WorkspaceSeedResetError, WORKSPACE_SEED_RESET_ERROR_CODES } from './runtimeWorkspaceErrors'
 import { assertMarketingSeedRows, isMarketingSeedObject } from './marketingSeedGuard'
 import { acquireAdvisoryXactLock, withTransactionSavepoint } from '@universo-react/utils/database'
+import { resolveValidatedRuntimeEntityRecordPolicy } from '../shared/entityMutationPolicy'
 import {
     ensureLedgerIdempotencyIndex,
     ensureWorkspaceScopedColumn,
@@ -429,6 +430,54 @@ export async function listWorkspaceScopedBusinessTables(
     )
     const existingNames = new Set(existingRows.map((row) => row.tableName))
     return candidateNames.filter((tableName) => existingNames.has(tableName))
+}
+
+async function resolveWorkspaceSeedMutationExclusions(
+    executor: SqlQueryable,
+    schemaName: string,
+    workspaceTableNames: readonly string[]
+): Promise<{ entityIds: string[]; tableNames: string[] }> {
+    const objectRows = await executor.query<{ entityId: string; tableName: string; config: unknown }>(
+        `
+        SELECT id AS "entityId", table_name AS "tableName", config
+        FROM ${qSchemaTable(schemaName, '_app_objects')}
+        WHERE table_name IS NOT NULL
+          AND _upl_deleted = false
+          AND _app_deleted = false
+          AND jsonb_exists(config, 'recordPolicy')
+        ORDER BY id ASC
+        FOR SHARE
+        `
+    )
+
+    const protectedEntities = objectRows.filter((row) => resolveValidatedRuntimeEntityRecordPolicy(row.config)?.runtimeMutation === 'deny')
+    if (protectedEntities.length === 0) return { entityIds: [], tableNames: [] }
+
+    const entityIds = protectedEntities.map((row) => row.entityId)
+    const protectedTableNames = new Set(protectedEntities.map((row) => row.tableName))
+    const tableComponents = await executor.query<{ componentId: string }>(
+        `
+        SELECT id AS "componentId"
+        FROM ${qSchemaTable(schemaName, '_app_components')}
+        WHERE object_id = ANY($1::uuid[])
+          AND parent_component_id IS NULL
+          AND data_type = 'TABLE'
+          AND _upl_deleted = false
+          AND _app_deleted = false
+        ORDER BY id ASC
+        FOR SHARE
+        `,
+        [entityIds]
+    )
+    for (const component of tableComponents) {
+        protectedTableNames.add(generateChildTableName(component.componentId))
+    }
+
+    const workspaceTableNameSet = new Set(workspaceTableNames)
+    return {
+        entityIds,
+        tableNames: [...protectedTableNames].filter((tableName) => workspaceTableNameSet.has(tableName))
+    }
 }
 
 const qWorkspaceColumn = () => qColumn('workspace_id')
@@ -1126,6 +1175,7 @@ export async function syncWorkspaceSeededElements(
         actorUserId?: string | null
         currentUserId?: string | null
         overwriteExisting?: boolean
+        excludedEntityIds?: readonly string[]
     }
 ): Promise<void> {
     const template = await loadWorkspaceSeedTemplate(executor, input.schemaName)
@@ -1133,6 +1183,7 @@ export async function syncWorkspaceSeededElements(
     const seedRowIdByObjectAndSourceKey = new Map<string, Map<string, string>>()
     const seedRowIdBySourceKey = new Map<string, string>()
     const duplicateSeedSourceKeys = new Set<string>()
+    const excludedEntityIds = new Set(input.excludedEntityIds ?? [])
 
     const rememberSeedRowId = (objectId: string, seedSourceKey: string, rowId: string): void => {
         const objectSeedRows = seedRowIdByObjectAndSourceKey.get(objectId) ?? new Map<string, string>()
@@ -1152,6 +1203,8 @@ export async function syncWorkspaceSeededElements(
     }
 
     const syncObjectSeededElements = async (object: RuntimeObjectSeedObjectRow): Promise<void> => {
+        if (excludedEntityIds.has(object.objectId)) return
+
         const topLevelComponents = components.filter(
             (component) => component.objectId === object.objectId && component.parentComponentId === null && component.dataType !== 'TABLE'
         )
@@ -1327,9 +1380,13 @@ export async function resetWorkspaceSeededElements(
         // TABLE component before its physical table exists; issuing dynamic SQL
         // against that stale name would make an otherwise safe reset fail.
         const tableNames = await listWorkspaceScopedBusinessTables(tx, input.schemaName)
+        const exclusions = await resolveWorkspaceSeedMutationExclusions(tx, input.schemaName, tableNames)
+        const excludedTableNames = new Set(exclusions.tableNames)
 
         let resetRows = 0
         for (const tableName of tableNames) {
+            if (excludedTableNames.has(tableName)) continue
+
             const reset = await tx.query<{ id: string }>(
                 `
                 UPDATE ${qSchemaTable(input.schemaName, tableName)}
@@ -1359,7 +1416,8 @@ export async function resetWorkspaceSeededElements(
                 workspaceId: input.workspaceId,
                 actorUserId: input.actorUserId,
                 currentUserId: input.currentUserId,
-                overwriteExisting: true
+                overwriteExisting: true,
+                excludedEntityIds: exclusions.entityIds
             })
         } catch (error) {
             if (error instanceof WorkspaceSeedReferenceResolutionError) {

@@ -25,6 +25,7 @@ import { assertRuntimeRecordRules } from '../../services/runtimeRecordRules'
 import { createRuntimeVersionConflictFailure } from '../runtimeVersionConflict'
 import { buildRuntimeExpectedVersionPredicate, runtimeRestoreBodySchema } from '../runtimeRowSupport/contracts'
 import { resolveRuntimeObjectCollection } from '../runtimeRowSupport/objects'
+import { denyRuntimeEntityMutation, assertRuntimeEntityMutationAllowed } from '../../shared/entityMutationPolicy'
 import { validateRuntimeParentRecordAccessReferences } from '../runtimeRowSupport/validation'
 import {
     assertInterpretationNetworkGenericCreateAllowed,
@@ -56,6 +57,7 @@ export const createRestoreRowHandler = ({ getDbExecutor, query }: RuntimeRowWrit
             error: objectCollectionError
         } = await resolveRuntimeObjectCollection(ctx.manager, ctx.schemaIdent, parsedBody.data.objectCollectionId)
         if (!objectCollection) return res.status(404).json({ error: objectCollectionError })
+        if (denyRuntimeEntityMutation(res, objectCollection.config)) return
         if (!isSoftDeleteLifecycle(objectCollection.lifecycleContract)) {
             return res.status(409).json({
                 error: 'Restore is not available for hard-delete runtime objects',
@@ -165,6 +167,7 @@ export const createRestoreRowHandler = ({ getDbExecutor, query }: RuntimeRowWrit
                             code: 'RUNTIME_RESTORE_TARGET_NOT_FOUND'
                         })
                     }
+                    assertRuntimeEntityMutationAllowed(targetCollectionResult.objectCollection.config)
 
                     const targetTableIdent = `${ctx.schemaIdent}.${quoteIdentifier(targetCollectionResult.objectCollection.table_name)}`
                     const targetActiveCondition = buildRuntimeActiveRowCondition(

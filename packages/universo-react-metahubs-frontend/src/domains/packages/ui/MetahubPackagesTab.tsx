@@ -24,7 +24,6 @@ import {
     ListItemText,
     Menu,
     MenuItem,
-    Select,
     Stack,
     Switch,
     TextField,
@@ -48,6 +47,7 @@ import { getLocalizedContentText, normalizeLocale } from '../../../utils/localiz
 import { useMetahubDetails } from '../../metahubs/hooks'
 import { metahubsQueryKeys } from '../../shared'
 import { packagesApi, playcanvasProjectsApi } from '../api'
+import { DropdownSelect as Select } from '@universo-react/template-mui/dropdowns'
 
 interface PackageTableRow extends FlowListTableData {
     packageName: string

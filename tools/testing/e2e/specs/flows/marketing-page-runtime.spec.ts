@@ -27,6 +27,7 @@ import { installMarketingPageLocalMedia } from '../../support/marketingPageMedia
 const EXPECTED_ENTITY_CODENAMES = [
     'MarketingPage',
     'MarketingPageSiteSettings',
+    'MarketingPageHero',
     'MarketingPageSection',
     'MarketingPageLogo',
     'MarketingPageFeature',
@@ -201,9 +202,9 @@ test('@flow @marketing-page publishes the data-driven MUI marketing page without
         await expect(page.locator('#email-hero')).toHaveCount(0)
         await expect(page.locator('#logoCollection img')).toHaveCount(6)
         await expect(page.locator('#features [aria-pressed]:visible')).toHaveCount(3)
-        await expect(page.locator('#testimonials .MuiCard-root')).toHaveCount(6)
-        await expect(page.locator('#highlights .MuiCard-root')).toHaveCount(6)
-        await expect(page.locator('#pricing .MuiCard-root')).toHaveCount(3)
+        await expect(page.getByTestId('marketing-testimonial-card')).toHaveCount(6)
+        await expect(page.getByTestId('marketing-highlight-card')).toHaveCount(6)
+        await expect(page.getByTestId('marketing-pricing-card')).toHaveCount(3)
         await expect(page.locator('#faq .MuiAccordion-root')).toHaveCount(4)
         await localMedia.assertLoaded(page)
 

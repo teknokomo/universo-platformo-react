@@ -12,6 +12,7 @@ import {
 } from '../../support/browser/runtimeUx'
 import {
     createAdminUser,
+    createApplicationLayout,
     createLoggedInApiContext,
     createMetahub,
     createPublication,
@@ -39,6 +40,7 @@ import {
     updateApplicationLayoutZoneSetting,
     updateLayoutZoneSetting,
     resetLayoutZoneSetting,
+    upsertApplicationLayoutWidget,
     updateApplicationLayoutWidgetConfig,
     waitForPublicationReady
 } from '../../support/backend/api-session.mjs'
@@ -371,6 +373,10 @@ test('@flow @permission @marketing-page enforces runtime read and layout mutatio
             objectCollectionCodename: 'MarketingPageSiteSettings',
             locale: 'en'
         })
+        const brandColumn = editorRuntimeData.columns?.find(
+            (column: { codename?: string; field?: string }) => column.codename === 'BrandName'
+        )
+        if (!brandColumn?.field) throw new Error('Permission fixture did not expose the physical BrandName component field')
         const editorWorkspaceId = editorRuntimeData.currentWorkspaceId
         if (!isUuidV7(editorWorkspaceId)) throw new Error('Permission fixture editor personal workspace was not materialized')
         const editorSiteSettingsCollection = (editorRuntimeData.objectCollections ?? []).find(
@@ -382,14 +388,9 @@ test('@flow @permission @marketing-page enforces runtime read and layout mutatio
             workspaceId: editorWorkspaceId
         })
         expect(editorRuntimeData.permissions).toMatchObject({ createContent: true, editContent: true, deleteContent: false })
-        const heroTitleColumn = (editorRuntimeData.columns ?? []).find(
-            (column: { codename?: string; field?: string }) =>
-                String(column.codename ?? '').toLowerCase() === 'herotitle' || String(column.field ?? '').toLowerCase() === 'herotitle'
-        )
-        const editorHeroTitle = editorRowBefore?.data?.HeroTitle ?? editorRowBefore?.data?.[heroTitleColumn?.field ?? 'HeroTitle']
         expect(editorRowBefore).toBeTruthy()
-        expect(heroTitleColumn?.field).toBeTruthy()
-        expect(editorHeroTitle).toBeDefined()
+        const editorBrandName = editorRowBefore?.data?.[brandColumn.field]
+        expect(editorBrandName).toBeDefined()
         const editorMutation = await sendWithCsrf(
             editorApi,
             'PATCH',
@@ -397,7 +398,7 @@ test('@flow @permission @marketing-page enforces runtime read and layout mutatio
             {
                 objectCollectionId: editorSiteSettingsCollection.id,
                 expectedVersion: Number(editorRowBefore?.version ?? editorRowBefore?._upl_version ?? 1),
-                data: { [heroTitleColumn?.field ?? 'HeroTitle']: editorHeroTitle }
+                data: { BrandName: editorBrandName }
             }
         )
         expect(editorMutation.status).toBe(200)
@@ -408,10 +409,57 @@ test('@flow @permission @marketing-page enforces runtime read and layout mutatio
             `/api/v1/applications/${application.id}/runtime/rows/${editorSiteSettingsRecord.id}?objectCollectionId=${editorSiteSettingsCollection.id}&workspaceId=${ownerPersonalWorkspace.id}`,
             {
                 objectCollectionId: editorSiteSettingsCollection.id,
-                data: { [heroTitleColumn?.field ?? 'HeroTitle']: editorHeroTitle }
+                data: { BrandName: editorBrandName }
             }
         )
         expect(editorOwnerWorkspaceMutation.status).toBe(403)
+
+        const editorHeroRuntimeData = await getRuntimeAppData(editorApi, application.id, {
+            objectCollectionCodename: 'MarketingPageHero',
+            locale: 'en'
+        })
+        const editorHeroWorkspaceId = editorHeroRuntimeData.currentWorkspaceId
+        if (!isUuidV7(editorHeroWorkspaceId)) throw new Error('Permission fixture editor Hero workspace was not materialized')
+        const editorHeroCollection = (editorHeroRuntimeData.objectCollections ?? []).find(
+            (collection: { codename?: string; id?: string }) => collection.codename === 'MarketingPageHero'
+        )
+        const heroKeyColumn = editorHeroRuntimeData.columns?.find((column: { codename?: string }) => column.codename === 'HeroKey')
+        const titleColumn = editorHeroRuntimeData.columns?.find((column: { codename?: string }) => column.codename === 'Title')
+        if (!heroKeyColumn?.field || !titleColumn?.field) {
+            throw new Error('Permission fixture editor Hero runtime did not expose its semantic data columns')
+        }
+        const editorHeroListingRow = (editorHeroRuntimeData.rows ?? []).find(
+            (row: Record<string, unknown>) => row[heroKeyColumn.field] === 'default'
+        ) as { id?: string } | undefined
+        if (!editorHeroCollection?.id || !editorHeroListingRow?.id) {
+            throw new Error('Permission fixture editor runtime did not expose its Hero record for the policy probe')
+        }
+        const editorHeroRow = (await getRuntimeRow(editorApi, application.id, editorHeroListingRow.id, {
+            objectCollectionId: editorHeroCollection.id,
+            workspaceId: editorHeroWorkspaceId
+        })) as { id?: string; data?: Record<string, unknown>; version?: number; _upl_version?: number } | null
+        if (!editorHeroRow?.id) {
+            throw new Error('Permission fixture editor Hero record was not readable through its runtime detail endpoint')
+        }
+        expect(editorHeroRuntimeData.permissions).toMatchObject({ createContent: true, editContent: true })
+        const deniedHeroMutation = await sendWithCsrf(
+            editorApi,
+            'PATCH',
+            `/api/v1/applications/${application.id}/runtime/rows/${editorHeroRow.id}?objectCollectionId=${editorHeroCollection.id}&workspaceId=${editorHeroWorkspaceId}`,
+            {
+                objectCollectionId: editorHeroCollection.id,
+                expectedVersion: Number(editorHeroRow.version ?? editorHeroRow._upl_version ?? 1),
+                data: { [titleColumn.field]: editorHeroRow.data?.[titleColumn.field] }
+            }
+        )
+        expect(deniedHeroMutation.status).toBe(403)
+        expect(await deniedHeroMutation.json()).toMatchObject({ code: 'RUNTIME_ENTITY_MUTATION_DENIED' })
+        expect(
+            await getRuntimeRow(editorApi, application.id, editorHeroRow.id, {
+                objectCollectionId: editorHeroCollection.id,
+                workspaceId: editorHeroWorkspaceId
+            })
+        ).toEqual(editorHeroRow)
 
         const memberLayouts = await getApiResponse(memberApi, `/api/v1/applications/${application.id}/layouts`)
         expect(memberLayouts.status).toBe(403)
@@ -761,18 +809,18 @@ test('@flow @permission @marketing-page enforces runtime read and layout mutatio
             isActive: faqWidget.isActive
         })
 
-        // Copy/delete/reset must preserve target identity and never reuse a source instance id.
+        // Copying an Entity-bound layout must fail closed; ordinary presentation widgets remain copyable.
         const sourceForCopy = await getApplicationLayout(ownerApi, application.id, marketingLayout.id)
-        const copiedLayoutResponse = await copyApplicationLayout(ownerApi, application.id, marketingLayout.id, sourceForCopy.item.version)
-        const copiedLayoutId = copiedLayoutResponse.item?.id
-        if (!copiedLayoutId || copiedLayoutId === marketingLayout.id) throw new Error('Marketing layout copy reused the source layout id')
-        expect(isUuidV7(copiedLayoutId)).toBe(true)
-        const copiedDetail = await getApplicationLayout(ownerApi, application.id, copiedLayoutId)
-        const copiedFaq = copiedDetail.widgets?.find((widget: { widgetKey?: string }) => widget.widgetKey === 'marketing.collection')
-        expect(copiedFaq?.id).toBeTruthy()
-        expect(isUuidV7(copiedFaq?.id)).toBe(true)
-        expect(copiedFaq?.id).not.toBe(faqWidget.id)
-        expect(copiedFaq?.config?.instanceKey).not.toBe(faqWidget.config.instanceKey)
+        const blockedEntityLayoutCopy = await sendWithCsrf(
+            ownerApi,
+            'POST',
+            `/api/v1/applications/${application.id}/layouts/${marketingLayout.id}/copy`,
+            { expectedVersion: sourceForCopy.item.version }
+        )
+        expect(blockedEntityLayoutCopy.status).toBe(409)
+        expect(await blockedEntityLayoutCopy.json()).toMatchObject({
+            code: 'APPLICATION_LAYOUT_ENTITY_BACKED_WIDGET_COPY_CONFLICT'
+        })
 
         const resetSourceWidget = sourceForCopy.widgets?.find((widget: { id?: string }) => widget.id === faqWidget.id)
         if (!resetSourceWidget?.id || typeof resetSourceWidget.version !== 'number') {
@@ -788,6 +836,43 @@ test('@flow @permission @marketing-page enforces runtime read and layout mutatio
         ])
         expect(resetResult.items?.[0]).toMatchObject({ id: resetSourceWidget.id, layoutId: marketingLayout.id, isCustomized: false })
         expect(resetResult.items?.[0].config).toEqual(resetResult.items?.[0].sourceConfig)
+
+        const safeCopySourceResult = await createApplicationLayout(ownerApi, application.id, {
+            templateKey: 'marketing-page',
+            scopeEntityId: null,
+            name: { en: `E2E ${runManifest.runId} presentation-only copy source`, ru: `Источник копирования ${runManifest.runId}` },
+            isActive: true,
+            isDefault: false,
+            sortOrder: 100,
+            config: {}
+        })
+        const safeCopySource = safeCopySourceResult?.item
+        if (typeof safeCopySource?.id !== 'string' || typeof safeCopySource.version !== 'number') {
+            throw new Error('The presentation-only layout did not return a versioned identity')
+        }
+        await upsertApplicationLayoutWidget(ownerApi, application.id, safeCopySource.id, {
+            widgetKey: 'marketing.auth',
+            zone: 'marketing-header',
+            sortOrder: 0,
+            config: {},
+            expectedVersion: safeCopySource.version
+        })
+        const safeSourceDetail = await getApplicationLayout(ownerApi, application.id, safeCopySource.id)
+        const sourceAuthWidget = safeSourceDetail.widgets?.find((widget: { widgetKey?: string }) => widget.widgetKey === 'marketing.auth')
+        if (!sourceAuthWidget?.id || typeof safeSourceDetail.item?.version !== 'number') {
+            throw new Error('The presentation-only source layout did not persist its Authentication widget')
+        }
+        const copiedLayoutResponse = await copyApplicationLayout(ownerApi, application.id, safeCopySource.id, safeSourceDetail.item.version)
+        const copiedLayoutId = copiedLayoutResponse.item?.id
+        if (!copiedLayoutId || copiedLayoutId === safeCopySource.id) {
+            throw new Error('Presentation-only layout copy reused the source layout id')
+        }
+        expect(isUuidV7(copiedLayoutId)).toBe(true)
+        const copiedDetail = await getApplicationLayout(ownerApi, application.id, copiedLayoutId)
+        const copiedAuthWidget = copiedDetail.widgets?.find((widget: { widgetKey?: string }) => widget.widgetKey === 'marketing.auth')
+        expect(copiedAuthWidget?.id).toBeTruthy()
+        expect(isUuidV7(copiedAuthWidget?.id)).toBe(true)
+        expect(copiedAuthWidget?.id).not.toBe(sourceAuthWidget.id)
 
         await deleteApplicationLayout(ownerApi, application.id, copiedLayoutId, copiedDetail.item.version)
         const deletedCopyResponse = await requestApi(ownerApi, `/api/v1/applications/${application.id}/layouts/${copiedLayoutId}`, {

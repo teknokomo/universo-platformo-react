@@ -21,10 +21,17 @@ import XIcon from '@mui/icons-material/X'
 import { useColorScheme } from '@mui/material/styles'
 import type { SxProps, Theme } from '@mui/material/styles'
 import { useTranslation } from 'react-i18next'
-import { parseSafeExternalUrl } from '@universo-react/types'
+import { getMarketingSectionId, parseSafeExternalUrl } from '@universo-react/types'
 import { parseMarketingActionHref, toMarketingActionLinkAttributes } from '@universo-react/utils'
 
-import type { MarketingAction, MarketingActionHandler, MarketingIconKey, MarketingMedia, MarketingSectionCopy } from '../types'
+import type {
+    MarketingAction,
+    MarketingActionHandler,
+    MarketingIconKey,
+    MarketingMedia,
+    MarketingSectionAnchorResolver,
+    MarketingSectionCopy
+} from '../types'
 import ColorModeIconDropdown from '../../shared-theme/ColorModeIconDropdown'
 
 export const MARKETING_SECTION_ANCHORS = {
@@ -38,17 +45,6 @@ export const MARKETING_SECTION_ANCHORS = {
     footer: 'footer'
 } as const
 
-const MARKETING_CANONICAL_INSTANCE_KEYS: Readonly<Record<keyof typeof MARKETING_SECTION_ANCHORS, string>> = {
-    hero: 'hero',
-    logoCollection: 'logos',
-    features: 'features',
-    testimonials: 'testimonials',
-    highlights: 'highlights',
-    pricing: 'pricing',
-    faq: 'faq',
-    footer: 'footer'
-}
-
 const marketingIdPart = (value: string): string => value.replace(/[^A-Za-z0-9_-]/g, '-').replace(/^-+|-+$/g, '') || 'widget'
 
 /**
@@ -56,11 +52,7 @@ const marketingIdPart = (value: string): string => value.replace(/[^A-Za-z0-9_-]
  * repeated widget instances addressable and collision-free.
  */
 export const marketingSectionId = (anchor: keyof typeof MARKETING_SECTION_ANCHORS, instanceKey?: string): string => {
-    const normalizedInstanceKey = instanceKey?.trim()
-    if (!normalizedInstanceKey || MARKETING_CANONICAL_INSTANCE_KEYS[anchor] === normalizedInstanceKey) {
-        return MARKETING_SECTION_ANCHORS[anchor]
-    }
-    return `${MARKETING_SECTION_ANCHORS[anchor]}-${marketingIdPart(normalizedInstanceKey)}`
+    return getMarketingSectionId(anchor, instanceKey)
 }
 
 export const marketingFieldId = (field: string, instanceKey?: string): string =>
@@ -106,10 +98,7 @@ const isSafeRelativePath = (value: string): boolean => {
  * validation fail-closed while translating canonical keys to the real rendered
  * ids so anchors stay addressable for canonical and repeated widget instances.
  */
-export interface MarketingSectionAnchors {
-    has(anchor: string): boolean
-    resolve(anchor: string): string
-}
+export type MarketingSectionAnchors = MarketingSectionAnchorResolver
 
 export const createMarketingSectionAnchors = (entries: Iterable<readonly [string, string]>): MarketingSectionAnchors => {
     const anchors = new Map<string, string>()

@@ -16,7 +16,13 @@ import { pageEntityPreset } from '../../domains/templates/data/page.entity-prese
 import { ledgerEntityPreset } from '../../domains/templates/data/ledger.entity-preset'
 import { hubEntityPreset } from '../../domains/templates/data/tree-entity.entity-preset'
 import { setEntityPreset } from '../../domains/templates/data/value-group.entity-preset'
-import { parseApplicationLayoutWidgetConfig, workflowActionSchema } from '@universo-react/types'
+import {
+    decodeWidgetConfigEnvelope,
+    entityRecordPolicySchema,
+    getLayoutWidgetDefinition,
+    parseApplicationLayoutWidgetConfig,
+    workflowActionSchema
+} from '@universo-react/types'
 import {
     validateEntityTypePresetManifest,
     validateTemplateManifest,
@@ -48,8 +54,9 @@ describe('TemplateManifestValidator', () => {
         expect(() => validateTemplateManifest(cloneTemplate(lmsTemplate))).not.toThrow()
     })
 
-    it('accepts canonical hexColor metadata and rejects unknown semantic formats', () => {
+    it('accepts registered marketingAction and hexColor metadata and rejects unknown semantic formats', () => {
         expect(() => validateTemplateManifest(cloneTemplate(interpretationNetworkTemplate))).not.toThrow()
+        expect(() => validateTemplateManifest(cloneTemplate(marketingPageTemplate))).not.toThrow()
 
         const invalidFormat = cloneTemplate(interpretationNetworkTemplate)
         const matrix = invalidFormat.seed.entities
@@ -65,7 +72,6 @@ describe('TemplateManifestValidator', () => {
     })
 
     it('accepts the user-facing marketing page template without a version bump', () => {
-        expect(() => validateTemplateManifest(cloneTemplate(marketingPageTemplate))).not.toThrow()
         expect(marketingPageTemplate.version).toBe('0.1.0')
         expect(marketingPageTemplate.minStructureVersion).toBe('0.1.0')
         expect(readVlcContent(marketingPageTemplate.description, 'en')).toBe(
@@ -77,7 +83,6 @@ describe('TemplateManifestValidator', () => {
         expect(marketingPageTemplate.meta?.tags).toEqual(['marketing', 'landing-page'])
         expect(marketingPageTemplate.seed.layouts[0]?.templateKey).toBe('marketing-page')
         expect(marketingPageTemplate.seed.elements?.MarketingPageSection?.map((element) => element.data.SectionKey)).toEqual([
-            'hero',
             'logos',
             'features',
             'testimonials',
@@ -107,10 +112,179 @@ describe('TemplateManifestValidator', () => {
                 ?.filter((entity) => entity.codename.startsWith('MarketingPage'))
                 .every((entity) => entity.localizeCodenameFromName === false)
         ).toBe(true)
+        expect(() => validateTemplateManifest(cloneTemplate(marketingPageTemplate))).not.toThrow()
+    })
+
+    it('rejects malformed Hero binding envelopes in marketing template seeds', () => {
+        const manifest = cloneTemplate(marketingPageTemplate)
+        const heroWidget = manifest.seed.layoutZoneWidgets['marketing-main']?.find((widget) => widget.widgetKey === 'marketing.hero')
+        expect(heroWidget).toBeDefined()
+        if (!heroWidget) return
+
+        heroWidget.config = {
+            ...(heroWidget.config ?? {}),
+            __layout: {
+                bindings: {
+                    version: 1,
+                    slots: [{ slot: 'content', targets: [] }]
+                }
+            }
+        }
+
+        expect(() => validateTemplateManifest(manifest)).toThrow()
+    })
+
+    it('rejects Hero binding projections that do not match the widget registry', () => {
+        const manifest = cloneTemplate(marketingPageTemplate)
+        const heroWidget = manifest.seed.layoutZoneWidgets['marketing-main']?.find((widget) => widget.widgetKey === 'marketing.hero')
+        expect(heroWidget).toBeDefined()
+        if (!heroWidget) return
+
+        const context = { templateKey: 'marketing-page', widgetKey: 'marketing.hero', zone: 'marketing-main' }
+        const decoded = decodeWidgetConfigEnvelope(heroWidget.config, context)
+        const bindings = JSON.parse(JSON.stringify(decoded.neutral.bindings)) as NonNullable<typeof decoded.neutral.bindings>
+        const titleProjection = bindings.slots[0]?.targets[0]?.projection.find((projection) => projection.field === 'title')
+        expect(titleProjection).toBeDefined()
+        if (!titleProjection) return
+        titleProjection.componentCodename = 'UnregisteredHeroTitle'
+
+        heroWidget.config = {
+            ...decoded.rendererConfig,
+            __layout: { ...decoded.neutral, bindings }
+        }
+
+        expect(() => validateTemplateManifest(manifest)).toThrow()
+    })
+
+    it('continues rejecting trusted seed envelopes on untrusted renderer-config inputs', () => {
+        const heroWidget = marketingPageTemplate.seed.layoutZoneWidgets['marketing-main']?.find(
+            (widget) => widget.widgetKey === 'marketing.hero'
+        )
+        expect(heroWidget).toBeDefined()
+        if (!heroWidget) return
+
+        expect(() => parseApplicationLayoutWidgetConfig('marketing.hero', heroWidget.config ?? {})).toThrow()
+    })
+
+    it('seeds a repeatable, record-bound Hero with the MHP-03 record policy', () => {
+        expect(marketingPageTemplate.seed.elements?.MarketingPageSection?.map((element) => element.data.SectionKey)).toEqual([
+            'logos',
+            'features',
+            'testimonials',
+            'highlights',
+            'pricing',
+            'faq',
+            'footer'
+        ])
+
+        const siteSettings = marketingPageTemplate.seed.entities?.find((entity) => entity.codename === 'MarketingPageSiteSettings')
+        expect(siteSettings?.components?.some((component) => component.codename.startsWith('Hero'))).toBe(false)
+        expect(
+            Object.keys(marketingPageTemplate.seed.elements?.MarketingPageSiteSettings?.[0]?.data ?? {}).some((key) =>
+                key.startsWith('Hero')
+            )
+        ).toBe(false)
+
+        const heroEntity = marketingPageTemplate.seed.entities?.find((entity) => entity.codename === 'MarketingPageHero')
+        expect(heroEntity).toMatchObject({
+            kind: 'object',
+            config: { recordBehavior: 'reference', marketingRole: 'hero' }
+        })
+        expect(
+            marketingPageTemplate.seed.entities
+                ?.filter((entity) => entity.codename !== 'MarketingPageHero')
+                .every((entity) => !Object.hasOwn(entity.config ?? {}, 'recordPolicy'))
+        ).toBe(true)
+        expect(entityRecordPolicySchema.parse(heroEntity?.config?.recordPolicy)).toEqual({
+            version: 1,
+            semanticKey: { componentCodename: 'HeroKey', creationPrefix: 'hero', protectedValues: ['default'] },
+            denyDeleteWhenBound: true,
+            immutableSemanticKeyWhenBound: true,
+            runtimeMutation: 'deny',
+            requiredLocales: ['en', 'ru'],
+            validatorKey: 'marketing.hero.v1'
+        })
+
+        const heroComponents = new Map(heroEntity?.components?.map((component) => [component.codename, component]))
+        expect(heroComponents.get('HeroKey')).toMatchObject({
+            isRequired: true,
+            validationRules: { unique: true },
+            uiConfig: { hidden: true, gridHidden: true }
+        })
+        expect(heroComponents.get('Title')).toMatchObject({ isRequired: true, isDisplayComponent: true, uiConfig: { isDisplay: true } })
+        expect(heroComponents.get('Description')).toMatchObject({ isRequired: true, uiConfig: { widget: 'textarea', rows: 4 } })
+        expect(heroComponents.get('PrimaryAction')).toMatchObject({
+            dataType: 'JSON',
+            isRequired: true,
+            validationRules: { format: 'marketingAction' },
+            uiConfig: { gridHidden: true }
+        })
+        expect(heroComponents.get('TermsAction')).toMatchObject({
+            dataType: 'JSON',
+            validationRules: { format: 'marketingAction' },
+            uiConfig: { gridHidden: true }
+        })
+
+        const heroRecords = marketingPageTemplate.seed.elements?.MarketingPageHero ?? []
+        expect(heroRecords).toHaveLength(1)
+        expect(heroRecords[0]).toMatchObject({
+            codename: 'default',
+            data: {
+                HeroKey: 'default',
+                PrimaryAction: { kind: 'internal', path: '/auth', target: 'same-tab' },
+                TermsAction: { kind: 'internal', path: '/terms', target: 'same-tab' }
+            }
+        })
+
+        const heroWidget = marketingPageTemplate.seed.layoutZoneWidgets['marketing-main']?.find(
+            (widget) => widget.widgetKey === 'marketing.hero'
+        )
+        expect(heroWidget?.config).not.toHaveProperty('source')
+        expect(heroWidget?.config).not.toHaveProperty('copySource')
+        expect(getLayoutWidgetDefinition('marketing.hero')?.multiInstance).toBe(true)
+        expect(
+            decodeWidgetConfigEnvelope(heroWidget?.config, {
+                templateKey: 'marketing-page',
+                widgetKey: 'marketing.hero',
+                zone: 'marketing-main'
+            })
+        ).toEqual({
+            rendererConfig: { instanceKey: 'hero', showLeadForm: true },
+            neutral: {
+                bindings: {
+                    version: 1,
+                    slots: [
+                        {
+                            slot: 'content',
+                            targets: [
+                                {
+                                    entityKind: 'object',
+                                    entityCodename: 'MarketingPageHero',
+                                    selector: { kind: 'semantic-key', field: 'key', value: 'default' },
+                                    projection: [
+                                        { field: 'accent', componentCodename: 'Accent' },
+                                        { field: 'description', componentCodename: 'Description' },
+                                        { field: 'emailLabel', componentCodename: 'EmailLabel' },
+                                        { field: 'emailPlaceholder', componentCodename: 'EmailPlaceholder' },
+                                        { field: 'key', componentCodename: 'HeroKey' },
+                                        { field: 'primaryAction', componentCodename: 'PrimaryAction' },
+                                        { field: 'primaryActionLabel', componentCodename: 'PrimaryActionLabel' },
+                                        { field: 'termsAction', componentCodename: 'TermsAction' },
+                                        { field: 'termsLinkLabel', componentCodename: 'TermsLinkLabel' },
+                                        { field: 'termsText', componentCodename: 'TermsText' },
+                                        { field: 'title', componentCodename: 'Title' }
+                                    ]
+                                }
+                            ]
+                        }
+                    ]
+                }
+            }
+        })
     })
 
     it('rejects application-only source zone settings in metahub seed layouts', () => {
-        const manifest = cloneTemplate(marketingPageTemplate)
+        const manifest = cloneTemplate(basicTemplate)
         const layout = manifest.seed.layouts[0]
         expect(layout).toBeDefined()
         if (layout) {

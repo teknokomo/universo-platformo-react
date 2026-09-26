@@ -19,11 +19,11 @@ import {
     ListItemButton,
     ListItemText,
     MenuItem,
-    Select,
     Stack,
     TextField,
     Typography
 } from '@mui/material'
+
 import { useTheme } from '@mui/material/styles'
 import { resolveApiErrorMessage } from '@universo-react/utils'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
@@ -46,6 +46,7 @@ import { useMetahubDetails } from '../../metahubs/hooks'
 import { metahubsQueryKeys } from '../../shared'
 import { modulesApi, type ModuleUpsertPayload } from '../api/modulesApi'
 import { buildModuleEditorExtensions, getModuleEditorTheme, getModuleRoleGuidance } from '../utils/moduleEditor'
+import { DropdownSelect as Select } from '@universo-react/template-mui/dropdowns'
 
 type TranslationFn = (key: string, fallback?: string) => string
 

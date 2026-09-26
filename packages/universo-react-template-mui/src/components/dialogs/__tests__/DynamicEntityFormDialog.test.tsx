@@ -1,4 +1,5 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 
 jest.mock('react-i18next', () => ({
     useTranslation: () => ({
@@ -6,9 +7,54 @@ jest.mock('react-i18next', () => ({
     })
 }))
 
+jest.mock('@universo-react/i18n', () => ({
+    useCommonTranslations: () => ({
+        t: (_key: string, fallback?: string) => fallback ?? _key
+    })
+}))
+
 import { DynamicEntityFormDialog } from '../DynamicEntityFormDialog'
 
 describe('DynamicEntityFormDialog', () => {
+    it('associates server validation with the requested locale and focuses that localized field', async () => {
+        const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+        const clearFieldError = jest.fn()
+        render(
+            <QueryClientProvider client={queryClient}>
+                <DynamicEntityFormDialog
+                    open
+                    title='Create Hero content'
+                    locale='ru'
+                    fields={[{ id: 'Title', label: 'Title', type: 'STRING', validationRules: { localized: true } }]}
+                    initialData={{
+                        Title: {
+                            _schema: 'v1',
+                            _primary: 'ru',
+                            locales: { ru: { content: 'Заголовок', isActive: true } }
+                        }
+                    }}
+                    fieldValidationError={{ fieldId: 'Title', locale: 'en', message: 'Add Title in English before saving.' }}
+                    onFieldErrorClear={clearFieldError}
+                    onClose={() => undefined}
+                    onSubmit={async () => undefined}
+                />
+            </QueryClientProvider>
+        )
+
+        const englishRow = await screen.findByTestId('localized-inline-row-en')
+        const titleInput = within(englishRow).getByRole('textbox', { name: 'Title', exact: true })
+        expect(clearFieldError).not.toHaveBeenCalled()
+        await waitFor(() => expect(titleInput).toHaveFocus())
+        expect(titleInput).toHaveAttribute('aria-invalid', 'true')
+        const describedBy = titleInput.getAttribute('aria-describedby')
+        expect(describedBy).toBeTruthy()
+        expect(document.getElementById(describedBy as string)).toHaveTextContent('Add Title in English before saving.')
+        expect(englishRow).toContainElement(titleInput)
+
+        fireEvent.change(titleInput, { target: { value: 'English title' } })
+        expect(clearFieldError).toHaveBeenCalledWith('Title')
+    })
+
     it('renders semantic long-text string fields as multiline controls', () => {
         render(
             <DynamicEntityFormDialog

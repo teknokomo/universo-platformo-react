@@ -11,9 +11,10 @@ import { generateTableName } from '../../ddl'
 import { MetahubSchemaService } from './MetahubSchemaService'
 import { updateWithVersionCheck, incrementVersion, type EntityType } from '../../../utils/optimisticLock'
 import { codenamePrimaryTextSql, ensureCodenameValue } from '../../shared/codename'
-import { MetahubNotFoundError } from '../../shared/domainErrors'
+import { MetahubConflictError, MetahubNotFoundError } from '../../shared/domainErrors'
 import { SharedEntityOverridesService } from '../../shared/services/SharedEntityOverridesService'
 import { getEntityBehaviorService } from '../../entities/services/builtinKindBehaviorRegistry'
+import { acquireWidgetBindingObjectLock, isEntityBoundByCodename } from '../../layouts/widgetBindingPolicyStore'
 
 /**
  * Options for querying objects
@@ -498,30 +499,44 @@ export class MetahubObjectsService {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
         const qt = qSchemaTable(schemaName, '_mhb_objects')
         const now = new Date()
-        const runner = db ?? this.exec
+        const deleteWithinTransaction = async (runner: SqlQueryable) => {
+            const existing = await queryOne<{ id: string; kind: string }>(
+                runner,
+                `SELECT id, kind FROM ${qt} WHERE id = $1 AND _upl_deleted = false AND _mhb_deleted = false LIMIT 1`,
+                [id]
+            )
+            if (!existing) throw new MetahubNotFoundError('Object', id)
 
-        const existing = await queryOne<{ id: string; kind: string }>(runner, `SELECT id, kind FROM ${qt} WHERE id = $1 LIMIT 1`, [id])
+            const lockedEntity = await acquireWidgetBindingObjectLock(runner, schemaName, id)
+            const isBound = await isEntityBoundByCodename(runner, schemaName, lockedEntity.kind, lockedEntity.codename)
+            if (isBound) {
+                throw new MetahubConflictError('Entity is used by a layout binding and cannot be deleted.', {
+                    entityKind: lockedEntity.kind,
+                    entityCodename: lockedEntity.codename
+                })
+            }
 
-        const rows = await runner.query<{ id: string }>(
-            `UPDATE ${qt}
-             SET _mhb_deleted = TRUE,
-                 _mhb_deleted_at = $1,
-                 _mhb_deleted_by = $2,
-                 _upl_updated_at = $1,
-                 _upl_updated_by = $2
-             WHERE id = $3 AND _upl_deleted = false AND _mhb_deleted = false
-             RETURNING id`,
-            [now, userId ?? null, id]
-        )
+            const rows = await runner.query<{ id: string }>(
+                `UPDATE ${qt}
+                 SET _mhb_deleted = TRUE,
+                     _mhb_deleted_at = $1,
+                     _mhb_deleted_by = $2,
+                     _upl_updated_at = $1,
+                     _upl_updated_by = $2
+                 WHERE id = $3 AND _upl_deleted = false AND _mhb_deleted = false
+                 RETURNING id`,
+                [now, userId ?? null, id]
+            )
+            if (rows.length < 1) throw new MetahubNotFoundError('Object', id)
 
-        if (rows.length < 1) {
-            throw new MetahubNotFoundError('Object', id)
+            if (shouldCleanupSharedOverridesForKind(existing.kind)) {
+                const sharedOverridesService = new SharedEntityOverridesService(this.exec, this.schemaService)
+                await sharedOverridesService.cleanupForDeletedTargetObject(metahubId, id, userId, runner)
+            }
         }
 
-        if (shouldCleanupSharedOverridesForKind(existing?.kind)) {
-            const sharedOverridesService = new SharedEntityOverridesService(this.exec, this.schemaService)
-            await sharedOverridesService.cleanupForDeletedTargetObject(metahubId, id, userId, runner)
-        }
+        if (db) return deleteWithinTransaction(db)
+        return this.exec.transaction(deleteWithinTransaction)
     }
 
     /**

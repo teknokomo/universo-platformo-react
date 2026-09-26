@@ -33,7 +33,7 @@ import { toolbarSelectors } from '../../support/selectors/contracts'
 
 type ApiContext = Awaited<ReturnType<typeof createLoggedInApiContext>>
 
-const readLocalizedText = (value: unknown): string => {
+const readLocalizedText = (value: unknown, locale?: string): string => {
     if (typeof value === 'string') return value
     if (!value || typeof value !== 'object' || Array.isArray(value)) return ''
 
@@ -41,6 +41,12 @@ const readLocalizedText = (value: unknown): string => {
         locales?: Record<string, { content?: unknown }>
         _primary?: unknown
         [locale: string]: unknown
+    }
+    if (locale) {
+        const content = localized.locales?.[locale]?.content
+        if (typeof content === 'string' && content.length > 0) return content
+        const flatLocale = localized[locale]
+        return typeof flatLocale === 'string' ? flatLocale : ''
     }
     const primaryLocale = typeof localized._primary === 'string' ? localized._primary : 'en'
     const primary = localized.locales?.[primaryLocale]?.content
@@ -88,6 +94,39 @@ function readSnapshotEntityCodenames(snapshot: Record<string, unknown>): string[
         .sort()
 }
 
+function readMarketingHeroCopy(snapshot: Record<string, unknown>) {
+    const entities = snapshot.entities
+    if (!entities || typeof entities !== 'object' || Array.isArray(entities)) {
+        throw new Error('Marketing snapshot does not contain its Entity definitions')
+    }
+
+    const heroEntity = Object.entries(entities as Record<string, { codename?: unknown }>).find(
+        ([, entity]) => readLocalizedText(entity.codename, 'en') === 'MarketingPageHero'
+    )
+    if (!heroEntity) throw new Error('Marketing snapshot does not contain the MarketingPageHero Entity')
+
+    const elements = snapshot.elements
+    const heroRecords =
+        elements && typeof elements === 'object' && !Array.isArray(elements)
+            ? (elements as Record<string, unknown>)[heroEntity[0]]
+            : undefined
+    if (!Array.isArray(heroRecords)) throw new Error('Marketing snapshot does not contain MarketingPageHero records')
+
+    const defaultHero = heroRecords.find((record) => {
+        if (!record || typeof record !== 'object' || Array.isArray(record)) return false
+        const data = (record as { data?: unknown }).data
+        return Boolean(data && typeof data === 'object' && !Array.isArray(data) && (data as Record<string, unknown>).HeroKey === 'default')
+    }) as { data?: Record<string, unknown> } | undefined
+    if (!defaultHero?.data) throw new Error('Marketing snapshot does not contain the default Hero Entity record')
+
+    return {
+        titleEn: readLocalizedText(defaultHero.data.Title, 'en'),
+        titleRu: readLocalizedText(defaultHero.data.Title, 'ru'),
+        accentEn: readLocalizedText(defaultHero.data.Accent, 'en'),
+        accentRu: readLocalizedText(defaultHero.data.Accent, 'ru')
+    }
+}
+
 function assertMarketingSnapshotRoundtrip(source: Record<string, unknown>, imported: Record<string, unknown>) {
     const sourceSnapshot = readSnapshot(source)
     const importedSnapshot = readSnapshot(imported)
@@ -99,8 +138,17 @@ function assertMarketingSnapshotRoundtrip(source: Record<string, unknown>, impor
     expect(importedSnapshot.versionEnvelope).toEqual(sourceSnapshot.versionEnvelope)
     expect(readSnapshotEntityCodenames(importedSnapshot)).toEqual(readSnapshotEntityCodenames(sourceSnapshot))
 
+    const sourceHeroCopy = readMarketingHeroCopy(sourceSnapshot)
+    expect(readMarketingHeroCopy(importedSnapshot)).toEqual(sourceHeroCopy)
+    expect(sourceHeroCopy).toEqual({
+        titleEn: 'Our latest',
+        titleRu: 'Наши новые',
+        accentEn: 'products',
+        accentRu: 'продукты'
+    })
+
     const importedSerialized = JSON.stringify(importedSnapshot)
-    for (const expectedCopy of ['Our latest products', 'Trusted by the best companies', 'Frequently asked questions', 'Material UI']) {
+    for (const expectedCopy of ['Trusted by the best companies', 'Frequently asked questions', 'Material UI']) {
         expect(importedSerialized, `Imported marketing snapshot is missing ${expectedCopy}`).toContain(expectedCopy)
     }
 }
@@ -367,7 +415,7 @@ test('@flow @marketing-page @snapshot verifies marketing-page export/import roun
         })
         await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' }))
         await page.waitForFunction(() => window.scrollY === 0)
-        await expect(page.locator('#pricing .MuiCard-root')).toHaveCount(3)
+        await expect(page.getByTestId('marketing-pricing-card')).toHaveCount(3)
         await expect(page.locator('#faq .MuiAccordion-root')).toHaveCount(4)
         await localMedia.assertLoaded(page)
 

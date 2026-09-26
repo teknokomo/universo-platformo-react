@@ -5,18 +5,20 @@ import {
     Button,
     FormControl,
     FormControlLabel,
+    FormHelperText,
     InputLabel,
     MenuItem,
-    Select,
     Stack,
     Switch,
     TextField,
     Typography
 } from '@mui/material'
+import { DropdownSelect as Select } from '../dropdowns'
 import {
     MARKETING_COLLECTION_VARIANTS,
     MARKETING_DEFAULT_IMAGE_URL,
     MARKETING_WIDGET_REGISTRY,
+    LAYOUT_WIDGET_DEFINITIONS,
     isLoopbackMarketingUrl,
     marketingWidgetSourceCodenames,
     parseApplicationLayoutWidgetConfig,
@@ -25,6 +27,7 @@ import {
     type MarketingSourceCodename,
     type MarketingWidgetDataOwnership,
     type MarketingWidgetKey,
+    type LayoutWidgetPresentationField,
     MARKETING_PRICING_CARD_WIDTHS
 } from '@universo-react/types'
 import { StandardDialog } from '../dialogs/StandardDialog'
@@ -110,10 +113,31 @@ const readBrandLogoUrl = (config: Record<string, unknown> | null | undefined): s
     return typeof resource.url === 'string' ? resource.url : ''
 }
 
+const getWidgetPresentationFields = (widgetKey: MarketingWidgetKey): readonly LayoutWidgetPresentationField[] =>
+    LAYOUT_WIDGET_DEFINITIONS.find((definition) => definition.key === widgetKey)?.presentationFields ?? []
+
+const normalizePresentationFieldValue = (field: LayoutWidgetPresentationField, value: unknown): unknown => {
+    if (field.kind === 'switch') return typeof value === 'boolean' ? value : field.defaultValue
+    if (field.kind === 'text') return typeof value === 'string' ? value : field.defaultValue
+    return typeof value === 'string' && field.options.some((option) => option.value === value) ? value : field.defaultValue
+}
+
 const buildInitialConfig = (widgetKey: MarketingWidgetKey, config?: Record<string, unknown> | null): Record<string, unknown> => {
     const rawConfig = isRecord(config) ? { ...config } : {}
     const existingInstanceKey = typeof rawConfig.instanceKey === 'string' && rawConfig.instanceKey.trim() ? rawConfig.instanceKey : null
     delete rawConfig.instanceKey
+
+    if (widgetKey === 'marketing.hero') {
+        return {
+            ...(existingInstanceKey ? { instanceKey: existingInstanceKey } : {}),
+            ...Object.fromEntries(
+                getWidgetPresentationFields(widgetKey).map((field) => [
+                    field.key,
+                    normalizePresentationFieldValue(field, config?.[field.key])
+                ])
+            )
+        }
+    }
 
     const ownership = MARKETING_WIDGET_REGISTRY[widgetKey].dataOwnership
     const result: Record<string, unknown> = {
@@ -132,7 +156,6 @@ const getNumericValue = (value: unknown, fallback: number): number => {
 
 const widgetHasField = (widgetKey: MarketingWidgetKey, field: string): boolean => {
     if (widgetKey === 'marketing.navigation') return field === 'showAuthActions' || field === 'maxItems'
-    if (widgetKey === 'marketing.hero') return field === 'showLeadForm'
     if (widgetKey === 'marketing.collection')
         return ['variant', 'maxItems', 'showTitle', 'showDescription', 'showItemDescriptions', 'fixedItemsHeight'].includes(field)
     if (widgetKey === 'marketing.pricing') return ['maxItems', 'showBenefits', 'cardStyle', 'cardWidth'].includes(field)
@@ -173,15 +196,17 @@ export function MarketingWidgetConfigDialog({
     }, [initialConfig, open, widgetKey])
 
     const dataOwnership: MarketingWidgetDataOwnership = MARKETING_WIDGET_REGISTRY[widgetKey].dataOwnership
+    const usesEntitySourceSelection = dataOwnership === 'entity' && widgetKey !== 'marketing.hero'
+    const heroPresentationFields = widgetKey === 'marketing.hero' ? getWidgetPresentationFields(widgetKey) : []
     const availableSources = useMemo(() => {
-        if (dataOwnership !== 'entity') return []
+        if (!usesEntitySourceSelection) return []
         const variant = MARKETING_COLLECTION_VARIANTS.find((item) => item === draft.variant) as MarketingCollectionVariant | undefined
         const allowedCodenames = new Set(marketingWidgetSourceCodenames(widgetKey, variant))
         const values = sourceOptions.filter(
             (option) => option.entityKind === 'object' && allowedCodenames.has(option.value as MarketingSourceCodename)
         )
         return values
-    }, [dataOwnership, draft.variant, sourceOptions, widgetKey])
+    }, [draft.variant, sourceOptions, usesEntitySourceSelection, widgetKey])
 
     const updateDraft = (key: string, value: unknown) => {
         setDraft((current) => ({ ...current, [key]: value }))
@@ -211,7 +236,7 @@ export function MarketingWidgetConfigDialog({
     const handleSave = async () => {
         if (isSaving) return
         const candidate: Record<string, unknown> = { ...draft }
-        if (dataOwnership === 'entity') {
+        if (usesEntitySourceSelection) {
             const sourceCodename = sourceDraft.entityCodename.trim()
             if (!sourceCodename || !availableSources.some((option) => option.value === sourceCodename)) return
             const source: Record<string, unknown> = {
@@ -266,12 +291,16 @@ export function MarketingWidgetConfigDialog({
         let config: Record<string, unknown>
         try {
             const hasPersistedInstanceKey = typeof candidate.instanceKey === 'string' && candidate.instanceKey.trim().length > 0
-            const parsed = parseApplicationLayoutWidgetConfig(widgetKey, {
-                ...candidate,
-                instanceKey: hasPersistedInstanceKey ? candidate.instanceKey : 'draft'
-            })
-            if (!hasPersistedInstanceKey) delete parsed.instanceKey
-            config = parsed
+            if (widgetKey === 'marketing.hero') {
+                config = buildInitialConfig(widgetKey, candidate)
+            } else {
+                const parsed = parseApplicationLayoutWidgetConfig(widgetKey, {
+                    ...candidate,
+                    instanceKey: hasPersistedInstanceKey ? candidate.instanceKey : 'draft'
+                })
+                if (!hasPersistedInstanceKey) delete parsed.instanceKey
+                config = parsed
+            }
         } catch {
             if (dataOwnership === 'static') {
                 // Give a URL-specific localized reason when the persisted media
@@ -314,7 +343,7 @@ export function MarketingWidgetConfigDialog({
     const imageIsRequired =
         dataOwnership === 'static' &&
         (!imageDraft.url.trim() || (!imageDraft.decorative && !Object.values(imageDraft.alt).some((value) => value.trim())))
-    const saveDisabled = isSaving || (dataOwnership === 'entity' && sourceIsRequired) || imageIsRequired
+    const saveDisabled = isSaving || (usesEntitySourceSelection && sourceIsRequired) || imageIsRequired
 
     return (
         <StandardDialog
@@ -336,7 +365,7 @@ export function MarketingWidgetConfigDialog({
         >
             <Stack spacing={2} data-testid='marketing-widget-config-dialog'>
                 {submitError ? <Alert severity='error'>{submitError}</Alert> : null}
-                {dataOwnership === 'entity' && sourceIsUnavailable ? (
+                {usesEntitySourceSelection && sourceIsUnavailable ? (
                     <Alert severity='warning'>
                         {t(
                             'layouts.marketing.widget.sourceUnavailable',
@@ -344,7 +373,15 @@ export function MarketingWidgetConfigDialog({
                         )}
                     </Alert>
                 ) : null}
-                {dataOwnership === 'entity' ? (
+                {widgetKey === 'marketing.hero' ? (
+                    <Alert severity='info'>
+                        {t(
+                            'layouts.marketing.widget.recordSelectionEditHint',
+                            'Hero content is edited separately in the bound Object record.'
+                        )}
+                    </Alert>
+                ) : null}
+                {usesEntitySourceSelection ? (
                     <>
                         <Typography variant='body2' sx={{ color: 'text.secondary' }}>
                             {t(
@@ -603,14 +640,26 @@ export function MarketingWidgetConfigDialog({
                         label={t('layouts.marketing.widget.showAuthActions', 'Show authentication actions')}
                     />
                 ) : null}
-                {widgetHasField(widgetKey, 'showLeadForm') ? (
-                    <FormControlLabel
-                        control={
-                            <Switch checked={draft.showLeadForm !== false} onChange={(_, value) => updateDraft('showLeadForm', value)} />
-                        }
-                        label={t('layouts.marketing.widget.showLeadForm', 'Show lead form')}
-                    />
-                ) : null}
+                {heroPresentationFields.map((field) => {
+                    if (field.kind !== 'switch') return null
+                    const helperId = `marketing-widget-presentation-${field.key}-helper`
+                    const value = draft[field.key]
+                    return (
+                        <FormControl key={field.key} component='fieldset'>
+                            <FormControlLabel
+                                control={
+                                    <Switch
+                                        checked={typeof value === 'boolean' ? value : field.defaultValue}
+                                        onChange={(_, checked) => updateDraft(field.key, checked)}
+                                        slotProps={{ input: { 'aria-describedby': helperId } }}
+                                    />
+                                }
+                                label={t(field.labelKey, field.defaultLabel)}
+                            />
+                            <FormHelperText id={helperId}>{t(field.helperTextKey, field.defaultHelperText)}</FormHelperText>
+                        </FormControl>
+                    )
+                })}
                 {widgetHasField(widgetKey, 'showBenefits') ? (
                     <FormControlLabel
                         control={

@@ -30,6 +30,12 @@
             "require": "./dist/index.js",
             "default": "./dist/index.mjs"
         },
+        "./dropdowns": {
+            "types": "./dist/components/dropdowns/index.d.ts",
+            "import": "./dist/components/dropdowns/index.mjs",
+            "require": "./dist/components/dropdowns/index.js",
+            "default": "./dist/components/dropdowns/index.mjs"
+        },
         "./navigation": {
             "types": "./dist/navigation/index.d.ts",
             "import": "./dist/navigation/index.mjs",
@@ -89,9 +95,8 @@
         "@universo-react/i18n": "workspace:*",
         "@universo-react/types": "workspace:*",
         "@universo-react/utils": "workspace:*",
-        "@universo-react/admin-frontend": "workspace:*",
         "@universo-react/auth-frontend": "workspace:*",
-        "@universo-react/start-frontend": "workspace:*",
+        "react-i18next": "catalog:",
         "@emotion/react": "catalog:",
         "@emotion/styled": "catalog:",
         "dayjs": "catalog:",
@@ -127,6 +132,9 @@
             ],
             "components/dialogs/EntityFormDialog": [
                 "dist/components/dialogs/EntityFormDialog.d.ts"
+            ],
+            "dropdowns": [
+                "dist/components/dropdowns/index.d.ts"
             ],
             "*": [
                 "dist/index.d.ts"

@@ -1,23 +1,8 @@
 import { useMemo, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useQuery } from '@tanstack/react-query'
-import {
-    Box,
-    FormControl,
-    InputLabel,
-    Select,
-    MenuItem,
-    FormHelperText,
-    Stack,
-    Typography,
-    TextField,
-    Chip,
-    CircularProgress,
-    Popper
-} from '@mui/material'
-import Autocomplete, { autocompleteClasses } from '@mui/material/Autocomplete'
-import { styled } from '@mui/material/styles'
-import UnfoldMoreRoundedIcon from '@mui/icons-material/UnfoldMoreRounded'
+import { Box, FormControl, InputLabel, MenuItem, FormHelperText, Stack, Typography, TextField, Chip, CircularProgress } from '@mui/material'
+
 import { isBuiltinEntityKind, isEnabledCapabilityConfig, type EntityKind } from '@universo-react/types'
 import { getVLCString } from '../types'
 import type { FixedValue } from '../types'
@@ -25,25 +10,12 @@ import { listFixedValuesDirect } from '../domains/entities/metadata/fixedValue/a
 import { listEntityInstances, type MetahubEntityInstance } from '../domains/entities/api/entityInstances'
 import { listEntityTypes, type MetahubEntityType } from '../domains/entities/api/entityTypes'
 import { metahubsQueryKeys } from '../domains/shared'
+import { DropdownSelect as Select, DropdownAutocomplete as Autocomplete } from '@universo-react/template-mui/dropdowns'
 
 const isReferenceableEntityType = (entityType: MetahubEntityType) =>
     entityType.kindKey === 'enumeration' || isEnabledCapabilityConfig(entityType.capabilities.dataSchema)
 
 const shouldTranslateEntityTypeUiText = (kindKey: string) => isBuiltinEntityKind(kindKey)
-
-const StyledPopper = styled(Popper)(({ theme }) => ({
-    boxShadow: theme.shadows[4],
-    borderRadius: 10,
-    [`& .${autocompleteClasses.paper}`]: {
-        borderRadius: 10,
-        border: `1px solid ${theme.palette.divider}`,
-        backgroundColor: theme.palette.background.paper
-    },
-    [`& .${autocompleteClasses.listbox}`]: {
-        boxSizing: 'border-box',
-        padding: 6
-    }
-}))
 
 export interface TargetEntitySelectorProps {
     /** Metahub ID for loading available entities */
@@ -332,31 +304,8 @@ export const TargetEntitySelector = ({
                     onChange={handleTargetEntityChange}
                     getOptionLabel={(entity) => getTargetEntityDisplayName(entity)}
                     isOptionEqualToValue={(option, value) => option.id === value.id}
-                    popupIcon={<UnfoldMoreRoundedIcon fontSize='small' />}
-                    slots={{ popper: StyledPopper }}
-                    slotProps={{
-                        popupIndicator: {
-                            disableRipple: true,
-                            sx: {
-                                backgroundColor: 'transparent',
-                                border: 'none',
-                                boxShadow: 'none',
-                                padding: 0.5,
-                                '&:hover': { backgroundColor: 'transparent' }
-                            }
-                        }
-                    }}
                     sx={{
-                        '& .MuiInputBase-root': { minHeight: 40 },
-                        '& .MuiAutocomplete-endAdornment': {
-                            top: '50%',
-                            transform: 'translateY(-50%)'
-                        },
-                        '& .MuiAutocomplete-popupIndicator': {
-                            backgroundColor: 'transparent',
-                            border: 'none',
-                            boxShadow: 'none'
-                        }
+                        '& .MuiInputBase-root': { minHeight: 40 }
                     }}
                     renderInput={(params) => (
                         <TextField
@@ -380,14 +329,21 @@ export const TargetEntitySelector = ({
                             }}
                         />
                     )}
-                    renderOption={(props, entity) => (
-                        <Box component='li' {...props} key={entity.id}>
-                            <Stack direction='row' spacing={1} sx={{ alignItems: 'center' }}>
-                                <Typography variant='body2'>{getTargetEntityDisplayName(entity)}</Typography>
-                                <Chip label={String(entity.codename ?? entity.id)} size='small' variant='outlined' sx={{ fontSize: 11 }} />
-                            </Stack>
-                        </Box>
-                    )}
+                    renderOption={(props, entity) => {
+                        const displayName = getTargetEntityDisplayName(entity)
+                        const codename = getVLCString(entity.codename, uiLocale) || getVLCString(entity.codename, 'en')
+
+                        return (
+                            <Box component='li' {...props} key={entity.id}>
+                                <Stack direction='row' spacing={1} sx={{ alignItems: 'center' }}>
+                                    <Typography variant='body2'>{displayName}</Typography>
+                                    {codename && codename !== displayName ? (
+                                        <Chip label={codename} size='small' variant='outlined' sx={{ fontSize: 11 }} />
+                                    ) : null}
+                                </Stack>
+                            </Box>
+                        )
+                    }}
                     noOptionsText={targetEntityNoOptionsText}
                     loading={isLoadingTargetEntities}
                     loadingText={t('common.loading', 'Loading...')}
@@ -404,31 +360,8 @@ export const TargetEntitySelector = ({
                     onChange={handleConstantChange}
                     getOptionLabel={(constant) => getConstantDisplayName(constant)}
                     isOptionEqualToValue={(option, value) => option.id === value.id}
-                    popupIcon={<UnfoldMoreRoundedIcon fontSize='small' />}
-                    slots={{ popper: StyledPopper }}
-                    slotProps={{
-                        popupIndicator: {
-                            disableRipple: true,
-                            sx: {
-                                backgroundColor: 'transparent',
-                                border: 'none',
-                                boxShadow: 'none',
-                                padding: 0.5,
-                                '&:hover': { backgroundColor: 'transparent' }
-                            }
-                        }
-                    }}
                     sx={{
-                        '& .MuiInputBase-root': { minHeight: 40 },
-                        '& .MuiAutocomplete-endAdornment': {
-                            top: '50%',
-                            transform: 'translateY(-50%)'
-                        },
-                        '& .MuiAutocomplete-popupIndicator': {
-                            backgroundColor: 'transparent',
-                            border: 'none',
-                            boxShadow: 'none'
-                        }
+                        '& .MuiInputBase-root': { minHeight: 40 }
                     }}
                     renderInput={(params) => (
                         <TextField

@@ -9,10 +9,15 @@ import {
     ButtonBase,
     Checkbox,
     Divider,
+    FormControl,
     FormControlLabel,
+    FormHelperText,
+    FormLabel,
     IconButton,
     Menu,
     MenuItem,
+    Radio,
+    RadioGroup,
     Stack,
     Switch,
     TextField,
@@ -64,6 +69,7 @@ type LayoutFormValues = {
     isDefault: boolean
     copyWidgets?: boolean
     deactivateAllWidgets?: boolean
+    heroBindingCopyMode?: 'reuse' | 'omit'
 }
 
 type LayoutDialogValues = Partial<LayoutFormValues> & Record<string, unknown>
@@ -337,9 +343,21 @@ export const LayoutListContent = ({
             if (isDefault && !isActive) {
                 errors.isDefault = t('layouts.validation.defaultMustBeActive', 'Default layout must be active')
             }
+            if (
+                dialogs.copy.open &&
+                _values.templateKey === 'marketing-page' &&
+                _values.copyWidgets !== false &&
+                _values.heroBindingCopyMode !== 'reuse' &&
+                _values.heroBindingCopyMode !== 'omit'
+            ) {
+                errors.heroBindingCopyMode = t(
+                    'layouts.copy.options.heroBindingModeRequired',
+                    'Choose whether to reuse or skip bound Hero placements before copying this layout.'
+                )
+            }
             return Object.keys(errors).length > 0 ? errors : null
         },
-        [t]
+        [dialogs.copy.open, t]
     )
 
     const canSaveLayoutForm = useCallback((_values: LayoutDialogValues) => {
@@ -402,7 +420,9 @@ export const LayoutListContent = ({
                 namePrimaryLocale,
                 descriptionPrimaryLocale,
                 copyWidgets: copyOptions.copyWidgets,
-                deactivateAllWidgets: copyOptions.deactivateAllWidgets
+                deactivateAllWidgets: copyOptions.deactivateAllWidgets,
+                heroBindingCopyMode:
+                    values.templateKey === 'marketing-page' && copyOptions.copyWidgets ? values.heroBindingCopyMode : undefined
             }
         },
         [t]
@@ -961,6 +981,7 @@ export const LayoutListContent = ({
                 error={copyDialogError || undefined}
                 onClose={() => close('copy')}
                 onSave={handleCopyLayout}
+                initialTabIndex={dialogs.copy.item?.templateKey === 'marketing-page' ? 1 : 0}
                 hideDefaultFields
                 initialExtraValues={copyInitialValues}
                 tabs={({ values, setValue, isLoading, errors }: LayoutDialogArgs) => [
@@ -1000,6 +1021,66 @@ export const LayoutListContent = ({
                                     }
                                     label={t('layouts.copy.options.deactivateAllWidgets', 'Deactivate all widgets')}
                                 />
+                                {values.templateKey === 'marketing-page' && (
+                                    <FormControl
+                                        component='fieldset'
+                                        disabled={isLoading || !(values.copyWidgets ?? true)}
+                                        error={Boolean(errors.heroBindingCopyMode)}
+                                        required
+                                    >
+                                        <FormLabel component='legend' id='layout-copy-hero-binding-mode-label'>
+                                            {t('layouts.copy.options.heroBindingMode', 'Bound Hero placements')}
+                                        </FormLabel>
+                                        <RadioGroup
+                                            aria-labelledby='layout-copy-hero-binding-mode-label'
+                                            name='heroBindingCopyMode'
+                                            value={values.heroBindingCopyMode ?? ''}
+                                            onChange={(event) => setValue('heroBindingCopyMode', event.target.value)}
+                                        >
+                                            <FormControlLabel
+                                                value='reuse'
+                                                control={<Radio />}
+                                                label={
+                                                    <Stack spacing={0.25}>
+                                                        <Typography variant='body2'>
+                                                            {t('layouts.copy.options.reuseHeroRecords', 'Reuse the same Hero records')}
+                                                        </Typography>
+                                                        <Typography variant='caption' color='text.secondary'>
+                                                            {t(
+                                                                'layouts.copy.options.reuseHeroRecordsHelp',
+                                                                'Both layouts will use the same Entity records.'
+                                                            )}
+                                                        </Typography>
+                                                    </Stack>
+                                                }
+                                            />
+                                            <FormControlLabel
+                                                value='omit'
+                                                control={<Radio />}
+                                                label={
+                                                    <Stack spacing={0.25}>
+                                                        <Typography variant='body2'>
+                                                            {t('layouts.copy.options.skipBoundHero', 'Skip bound Hero placements')}
+                                                        </Typography>
+                                                        <Typography variant='caption' color='text.secondary'>
+                                                            {t(
+                                                                'layouts.copy.options.skipBoundHeroHelp',
+                                                                'Add Hero placements later and select or create their Entity records.'
+                                                            )}
+                                                        </Typography>
+                                                    </Stack>
+                                                }
+                                            />
+                                        </RadioGroup>
+                                        <FormHelperText error={Boolean(errors.heroBindingCopyMode)}>
+                                            {errors.heroBindingCopyMode ??
+                                                t(
+                                                    'layouts.copy.options.heroBindingModeHelp',
+                                                    'Choose explicitly whether copied layouts share Hero content.'
+                                                )}
+                                        </FormHelperText>
+                                    </FormControl>
+                                )}
                             </Stack>
                         )
                     }

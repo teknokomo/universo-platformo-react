@@ -11,11 +11,11 @@ import {
     InputLabel,
     MenuItem,
     OutlinedInput,
-    Select,
     Stack,
     TextField,
     Typography
 } from '@mui/material'
+
 import AddRoundedIcon from '@mui/icons-material/AddRounded'
 import DeleteRoundedIcon from '@mui/icons-material/DeleteRounded'
 import { useTranslation } from 'react-i18next'
@@ -30,6 +30,7 @@ import {
     type EntityTypeCapabilities,
     type RecordLifecycleState
 } from '@universo-react/types'
+import { DropdownSelect as Select } from '@universo-react/template-mui/dropdowns'
 
 export interface RecordBehaviorOption {
     codename: string

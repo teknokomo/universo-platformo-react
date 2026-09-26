@@ -36,8 +36,6 @@ describe('public marketing runtime serialization', () => {
                         id: '019ccefc-2f7b-7b36-82f4-85cdb1312286',
                         codename: 'site-settings',
                         BrandName: { en: 'Public brand' },
-                        HeroTitle: { en: 'Public title' },
-                        HeroSubtitle: { en: 'Public subtitle' },
                         IsVisible: true
                     }
                 ]
@@ -145,8 +143,6 @@ describe('public marketing runtime serialization', () => {
                         id: '019ccefc-2f7b-7b36-82f4-85cdb1312256',
                         codename: 'site-settings',
                         BrandName: { en: 'Public brand' },
-                        HeroTitle: { en: 'Public title' },
-                        HeroSubtitle: { en: 'Public subtitle' },
                         IsVisible: true
                     }
                 ]
@@ -250,8 +246,6 @@ describe('public marketing runtime serialization', () => {
                         id: '019ccefc-2f7b-7b36-82f4-85cdb1312266',
                         codename: 'site-settings',
                         BrandName: { en: 'Record brand' },
-                        HeroTitle: { en: 'Public title' },
-                        HeroSubtitle: { en: 'Public subtitle' },
                         BrandLogo: null,
                         IsVisible: true
                     }
@@ -348,8 +342,6 @@ describe('public marketing runtime serialization', () => {
                                 resource: { type: 'url', url: 'https://attacker.test/track.png', launchMode: 'inline' },
                                 decorative: true
                             },
-                            HeroTitle: { en: 'Public title' },
-                            HeroSubtitle: { en: 'Public subtitle' },
                             IsVisible: true
                         }
                     ]
@@ -434,8 +426,6 @@ describe('public marketing runtime serialization', () => {
                         id: '019ccefc-2f7b-7b36-82f4-85cdb1312272',
                         codename: 'site-settings',
                         BrandName: { en: 'Public brand' },
-                        HeroTitle: { en: 'Public title' },
-                        HeroSubtitle: { en: 'Public subtitle' },
                         IsVisible: true
                     }
                 ]

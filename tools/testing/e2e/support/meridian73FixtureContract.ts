@@ -1,10 +1,11 @@
 import { expect } from '@playwright/test'
-import type { MetahubSnapshotTransportEnvelope } from '@universo-react/types'
+import { decodeWidgetConfigEnvelope, type MetahubSnapshotTransportEnvelope } from '@universo-react/types'
 import {
     MERIDIAN_73_ACTIVITIES,
     MERIDIAN_73_EXPERT_VISION,
     MERIDIAN_73_FAQ,
     MERIDIAN_73_FOOTER_LINKS,
+    MERIDIAN_73_HERO,
     MERIDIAN_73_IMAGE_URL,
     MERIDIAN_73_METAHUB,
     MERIDIAN_73_NAVIGATION,
@@ -155,12 +156,40 @@ export const assertMeridian73FixtureEnvelopeContract = (fixture: MetahubSnapshot
     const siteSettings = rowsFor(fixture, 'MarketingPageSiteSettings')
     if (siteSettings.length !== 1) fail(`expected one site-settings row, received ${siteSettings.length}`)
     assertLocalizedEquals(siteSettings[0]?.data?.BrandName, MERIDIAN_73_SITE_SETTINGS.brandName, 'brand name')
-    assertLocalizedEquals(siteSettings[0]?.data?.HeroTitle, MERIDIAN_73_SITE_SETTINGS.heroTitle, 'Hero title')
-    assertLocalizedEquals(siteSettings[0]?.data?.HeroSubtitle, MERIDIAN_73_SITE_SETTINGS.heroSubtitle, 'Hero subtitle')
+    if (Object.keys(siteSettings[0]?.data ?? {}).some((key) => key.startsWith('Hero'))) {
+        fail('Hero content must not be duplicated in MarketingPageSiteSettings')
+    }
     assertLocalizedEquals(siteSettings[0]?.data?.FooterDescription, MERIDIAN_73_SITE_SETTINGS.footerDescription, 'footer description')
     assertLocalizedEquals(siteSettings[0]?.data?.CopyrightText, MERIDIAN_73_SITE_SETTINGS.copyright, 'copyright')
     assertScalarEquals(siteSettings[0]?.data?.IsVisible, true, 'site settings IsVisible')
     if (siteSettings[0]?.data?.NewsletterEnabled !== false) fail('newsletter must be disabled until a real destination exists')
+
+    const heroRows = rowsFor(fixture, 'MarketingPageHero')
+    assertSameStrings(recordKeyValues(heroRows, 'HeroKey'), ['default'], 'Hero semantic keys')
+    assertLocalizedEquals(heroRows[0]?.data?.Title, MERIDIAN_73_HERO.title, 'Hero title')
+    assertLocalizedEquals(heroRows[0]?.data?.Accent, MERIDIAN_73_HERO.accent, 'Hero accent')
+    assertLocalizedEquals(heroRows[0]?.data?.Description, MERIDIAN_73_HERO.description, 'Hero description')
+    const heroWidget = findWidgetByKey(fixture, 'marketing.hero')
+    const heroConfig = decodeWidgetConfigEnvelope(widgetConfig(heroWidget), {
+        templateKey: 'marketing-page',
+        widgetKey: 'marketing.hero',
+        zone: 'marketing-main'
+    })
+    if (heroConfig.rendererConfig.source !== undefined || heroConfig.rendererConfig.copySource !== undefined) {
+        fail('Hero renderer configuration must not own an Entity source or copy source')
+    }
+    const heroBinding = heroConfig.neutral.bindings?.slots[0]?.targets[0]
+    if (
+        heroConfig.neutral.bindings?.slots.length !== 1 ||
+        heroConfig.neutral.bindings.slots[0]?.slot !== 'content' ||
+        heroBinding?.entityKind !== 'object' ||
+        heroBinding.entityCodename !== 'MarketingPageHero' ||
+        heroBinding.selector.kind !== 'semantic-key' ||
+        heroBinding.selector.field !== 'key' ||
+        heroBinding.selector.value !== 'default'
+    ) {
+        fail('Hero placement must carry exactly one semantic binding to MarketingPageHero/default')
+    }
 
     assertLocalizedRecordSet(
         rowsFor(fixture, 'MarketingPageSection'),

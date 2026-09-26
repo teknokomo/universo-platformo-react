@@ -7,7 +7,6 @@ import {
     Divider,
     FormControl,
     InputLabel,
-    Select,
     MenuItem,
     FormControlLabel,
     Switch,
@@ -24,6 +23,7 @@ import { useCodenameConfig } from '../../../../settings/hooks/useCodenameConfig'
 import { CodenameField, TargetEntitySelector } from '../../../../../components'
 import { listOptionValues } from '../../../presets/api/optionLists'
 import { metahubsQueryKeys } from '../../../../shared'
+import { DropdownSelect as Select } from '@universo-react/template-mui/dropdowns'
 
 const STRING_DEFAULT_MAX_LENGTH = 10
 

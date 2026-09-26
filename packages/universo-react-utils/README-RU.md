@@ -7,6 +7,10 @@
 Этот пакет предоставляет cross-environment helper-ы, которые backend и frontend пакеты могут использовать без прямой зависимости от framework-specific runtime кода.
 Он также владеет executor и query helper контрактами, определяющими SQL-first стандарт репозитория.
 
+## Нормализация локализованных строк
+
+`toLocalizedStringMap(value)` принимает обычный объект «локаль → строка» или versioned localized-content объект, где в записях `locales` находится строковое поле `content`. Записи с `isActive: false`, некорректные значения и служебные ключи исключаются. Если значение не является объектом или в нём не осталось пригодных локалей, функция возвращает `undefined`; обычные строки она не принимает и коды локалей не валидирует.
+
 ## Database Standard Surface
 
 -   `@universo-react/utils/database` экспортирует `DbSession`, `DbExecutor` и `SqlQueryable`.

@@ -1,4 +1,4 @@
-> **Last Reviewed**: 2026-09-14 (refreshed: pnpm 12.4.1/Turbo 2.10.12/MUI 9.2; PlayCanvas Editor v2.30.4 and engine/Colyseus baselines; eight built-in templates and current widgetized/scoped runtime architecture)
+> **Last Reviewed**: 2026-09-26 (refreshed: repository 0.83.0-alpha; pnpm/Turbo/MUI and PlayCanvas baselines rechecked; Entity-backed Marketing Hero and shared dropdown architecture added)
 
 # Technical Context
 
@@ -271,11 +271,11 @@
 
 ## Thermos Quality Gate
 
-- **Thermos Review:** An automated code review framework integrated into `autoreview` via `--prompt-file` prompts:
-  - `thermos-correctness.md` (for UUID v7 order, parameterized SQL, origin validation, and security).
-  - `thermos-maintainability.md` (for modularity, circular imports, test coverage, and package boundaries).
-  - `thermos.md` (orchestrator synthesis).
-- **Drift Control:** The script `check:agent-profiles` (mapped to `pnpm check:agent-profiles`) validates that all 4 shared agent profiles in `.agents/agent-profiles/` match their 24 native copies across all 6 runtimes (.codex, .gemini, .claude, .github, .qoder, .kiro).
+-   **Thermos Review:** An automated code review framework integrated into `autoreview` via `--prompt-file` prompts:
+    -   `thermos-correctness.md` (for UUID v7 order, parameterized SQL, origin validation, and security).
+    -   `thermos-maintainability.md` (for modularity, circular imports, test coverage, and package boundaries).
+    -   `thermos.md` (orchestrator synthesis).
+-   **Drift Control:** The script `check:agent-profiles` (mapped to `pnpm check:agent-profiles`) validates that all 4 shared agent profiles in `.agents/agent-profiles/` match their 24 native copies across all 6 runtimes (.codex, .gemini, .claude, .github, .qoder, .kiro).
 
 ## Runtime And Platform Foundation Notes
 
@@ -302,6 +302,8 @@
 -   Custom entity types use the **Entity Type Constructor** + `EntityTypeCapabilities`; Object remains the generic reference/transactional/hybrid primitive with `posting`/`ledgerSchema` capabilities.
 -   Eight built-in metahub templates: `basic`, `basic-demo`, `empty`, `lms`, `1c-compatible`, `playcanvas`, `interpretation-network`, `marketing-page`. Registry source: `packages/universo-react-metahubs-backend/src/domains/templates/data/index.ts`.
 -   Runtime/template evolution is data-driven: MUI 9 application templates resolve persisted widget composition, global/entity-scoped layouts, source lineage, optimistic versions, zone settings, and target-aware effective layout.
+-   Entity-backed authoring widgets keep business/content values in ordinary Entity records and store only semantic source binding plus presentation behavior in widget/layout state. The current pilot maps `marketing.hero` to `MarketingPageHero`; default placement provisioning creates a fresh bound record transactionally, while advanced authoring may select/customize a compatible source and warns when multiple placements share one record.
+-   Shared selection controls for non-published management/authoring surfaces live in `@universo-react/template-mui/dropdowns`; `@universo-react/apps-template-mui` remains isolated and owns its published-runtime components independently.
 -   Full platform contract lives in `.agents/skills/universo-platform-architecture/`.
 
 ## Legacy UPDL Product Surface (historical)

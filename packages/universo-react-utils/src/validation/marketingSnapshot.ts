@@ -1,8 +1,8 @@
 import {
     MARKETING_PAGE_TEMPLATE_KEY,
     MARKETING_WIDGET_REGISTRY,
+    MissingRequiredWidgetBindingsError,
     applicationTemplateKeySchema,
-    decodeLayoutConfigEnvelope,
     decodeWidgetConfigEnvelope,
     getLayoutWidgetAllowedZones,
     getLayoutWidgetDefinition,
@@ -10,15 +10,25 @@ import {
     marketingWidgetKeySchema,
     parseApplicationLayoutConfig,
     parseApplicationLayoutWidgetConfig,
+    validateWidgetBindings,
     type MarketingWidgetKey
 } from '@universo-react/types'
 
 import { getCodenamePrimary } from '../vlc'
 import { isUuidV7 } from '../uuid'
+import { assertMarketingSnapshotBoundTargetContract } from './marketingSnapshotBindingValidation'
+import {
+    decodeSnapshotLayoutRendererConfig,
+    readSnapshotRecordArray,
+    readSnapshotTemplateKey,
+    validateSnapshotLayoutNeutralMetadata as validateSnapshotLayoutNeutralMetadataInternal
+} from './snapshotLayoutMetadataValidation'
 
 export type MarketingSnapshotEntityLike = {
     kind?: unknown
     codename?: unknown
+    config?: unknown
+    fields?: unknown
 }
 
 export type MarketingSnapshotLayoutLike = {
@@ -60,12 +70,14 @@ export type MarketingSnapshotOverrideLike = {
 
 export type MarketingSnapshotLike = {
     entities?: Record<string, MarketingSnapshotEntityLike>
+    elements?: Record<string, unknown>
     layouts?: MarketingSnapshotLayoutLike[]
     scopedLayouts?: MarketingSnapshotLayoutLike[]
     layoutZoneWidgets?: MarketingSnapshotWidgetLike[]
     layoutWidgetOverrides?: MarketingSnapshotOverrideLike[]
     defaultLayoutId?: unknown
     layoutConfig?: unknown
+    versionEnvelope?: { snapshotFormatVersion?: unknown }
 }
 
 export class SnapshotLayoutValidationError extends Error {
@@ -396,23 +408,66 @@ const readParsedSource = (value: unknown, scope: string): Record<string, unknown
     return source
 }
 
+const parseMarketingWidgetConfig = (
+    snapshot: MarketingSnapshotLike,
+    widgetKey: string,
+    zone: string,
+    rawConfig: unknown,
+    scope: string
+): { config: Record<string, unknown>; hasEntityBindings: boolean } => {
+    let decoded: ReturnType<typeof decodeWidgetConfigEnvelope>
+    try {
+        decoded = decodeWidgetConfigEnvelope(rawConfig, {
+            templateKey: MARKETING_PAGE_TEMPLATE_KEY,
+            widgetKey,
+            zone,
+            requireBindings: true
+        })
+    } catch (error) {
+        if (error instanceof MissingRequiredWidgetBindingsError) {
+            return fail('Marketing snapshot widget binding is invalid', { scope })
+        }
+        return fail('Marketing snapshot widget configuration is invalid', { scope })
+    }
+
+    let config: Record<string, unknown>
+    try {
+        config = parseApplicationLayoutWidgetConfig(widgetKey, decoded.rendererConfig)
+    } catch {
+        return fail('Marketing snapshot widget configuration is invalid', { scope })
+    }
+
+    const definition = getLayoutWidgetDefinition(widgetKey)
+    const hasDeclaredBindingSlots = (definition?.bindingSlots?.length ?? 0) > 0
+    const bindings = decoded.neutral.bindings
+    if (hasDeclaredBindingSlots && !bindings) {
+        return fail('Marketing snapshot widget binding is invalid', { scope })
+    }
+    if (bindings && (!definition || !hasDeclaredBindingSlots)) {
+        return fail('Marketing snapshot widget binding is invalid', { scope })
+    }
+    if (bindings && definition) {
+        let validatedBindings: ReturnType<typeof validateWidgetBindings>
+        try {
+            validatedBindings = validateWidgetBindings(definition, bindings)
+        } catch {
+            return fail('Marketing snapshot widget binding is invalid', { scope })
+        }
+        for (const slot of validatedBindings.slots) {
+            assertMarketingSnapshotBoundTargetContract(snapshot, definition, slot, `${scope}:binding`, fail)
+        }
+    }
+
+    return { config, hasEntityBindings: bindings !== undefined }
+}
+
 const parseWidget = (snapshot: MarketingSnapshotLike, widget: MarketingSnapshotWidgetLike): ParsedMarketingWidget => {
     const widgetKeyResult = marketingWidgetKeySchema.safeParse(widget.widgetKey)
     const widgetKey = widgetKeyResult.success
         ? widgetKeyResult.data
         : fail('Marketing snapshot marketing widget key is invalid', { widgetId: widget.id, layoutId: widget.layoutId })
 
-    const config = (() => {
-        try {
-            return parseApplicationLayoutWidgetConfig(widgetKey, widget.config)
-        } catch {
-            return fail('Marketing snapshot widget configuration is invalid', {
-                widgetId: widget.id,
-                layoutId: widget.layoutId,
-                widgetKey
-            })
-        }
-    })()
+    const { config, hasEntityBindings } = parseMarketingWidgetConfig(snapshot, widgetKey, widget.zone, widget.config, `widget:${widget.id}`)
 
     const instanceKey =
         typeof config.instanceKey === 'string' && config.instanceKey.length > 0
@@ -439,7 +494,7 @@ const parseWidget = (snapshot: MarketingSnapshotLike, widget: MarketingSnapshotW
     const source = config.source === undefined ? undefined : readParsedSource(config.source, `widget:${widget.id}:source`)
     if (source) {
         assertObjectEntity(snapshot, source.entityCodename, `widget:${widget.id}:source`)
-    } else if (registryEntry.dataOwnership === 'entity') {
+    } else if (registryEntry.dataOwnership === 'entity' && !hasEntityBindings) {
         fail('Marketing snapshot widget source is invalid', { scope: `widget:${widget.id}:source` })
     }
 
@@ -839,13 +894,13 @@ export const validateMarketingSnapshotLayouts = (snapshot: unknown): void => {
             fail('Marketing widget override placement is invalid', { overrideId: override.id, zone: override.zone })
         }
         if (override.config !== undefined && override.config !== null) {
-            const config = (() => {
-                try {
-                    return parseApplicationLayoutWidgetConfig(baseWidget.widget.widgetKey, override.config)
-                } catch {
-                    return fail('Marketing widget override configuration is invalid', { overrideId: override.id })
-                }
-            })()
+            const { config } = parseMarketingWidgetConfig(
+                normalizedSnapshot,
+                baseWidget.widget.widgetKey,
+                override.zone ?? baseWidget.widget.zone,
+                override.config,
+                `widget override:${override.id}`
+            )
             if (baseWidget.parsed && config.instanceKey !== baseWidget.parsed.instanceKey) {
                 fail('Marketing widget override cannot change the base instance key', { overrideId: override.id })
             }
@@ -853,129 +908,14 @@ export const validateMarketingSnapshotLayouts = (snapshot: unknown): void => {
     }
 }
 
-const hasReservedLayoutMetadata = (value: unknown): boolean => isRecord(value) && Object.prototype.hasOwnProperty.call(value, '__layout')
-
-const readSnapshotRecordArray = (value: unknown, field: string): Record<string, unknown>[] =>
-    readSnapshotArray(value, field).map((entry, index) => {
-        if (!isRecord(entry)) failSnapshotLayout(`Snapshot ${field} entry is invalid`, { index })
-        return entry
-    })
-
-const readSnapshotTemplateKey = (value: unknown, scope: string) => {
-    const parsed = applicationTemplateKeySchema.safeParse(value)
-    if (!parsed.success) failSnapshotLayout(`Snapshot ${scope} template key is invalid`, { scope })
-    return parsed.data
-}
-
-const decodeSnapshotLayoutRendererConfig = (config: unknown, templateKey: string): Record<string, unknown> => {
-    const decoded = decodeLayoutConfigEnvelope(config === undefined ? {} : config, { templateKey })
-    return decoded.rendererConfig
-}
-
-/**
- * Validate the neutral `__layout` transport envelope without weakening the
- * renderer-owned marketing config validator. Snapshot composition remains a
- * top-level transport concern and application-only source settings are never
- * accepted in a published snapshot.
- */
-export const validateSnapshotLayoutNeutralMetadata = (snapshot: unknown): void => {
-    if (!isRecord(snapshot)) failSnapshotLayout('Snapshot must be an object', {})
-
-    const layouts = [
-        ...readSnapshotRecordArray(snapshot.layouts, 'layouts'),
-        ...readSnapshotRecordArray(snapshot.scopedLayouts, 'scoped layouts')
-    ]
-    const layoutsById = new Map<string, Record<string, unknown>>()
-    for (const layout of layouts) {
-        const layoutId = typeof layout.id === 'string' ? layout.id : String(layout.id)
-        const templateKey = readSnapshotTemplateKey(layout.templateKey, `layout:${layoutId}`)
-        let decoded: ReturnType<typeof decodeLayoutConfigEnvelope>
-        try {
-            decoded = decodeLayoutConfigEnvelope(layout.config === undefined ? {} : layout.config, { templateKey })
-        } catch {
-            failSnapshotLayout('Snapshot layout neutral metadata is invalid', { layoutId })
-        }
-        if (decoded.neutral.sourceZoneSettings !== undefined) {
-            failSnapshotLayout('Snapshot layout metadata contains application-only source zone settings', { layoutId })
-        }
-        if (decoded.neutral.composition !== undefined) {
-            failSnapshotLayout('Snapshot layout config must not duplicate top-level composition metadata', { layoutId })
-        }
-        if (layout.baseLayoutId !== null && layout.compositionMode !== 'overlay') {
-            failSnapshotLayout('Snapshot scoped layout composition is invalid', { layoutId })
-        }
-        if (layout.baseLayoutId === null && layout.compositionMode !== 'independent') {
-            failSnapshotLayout('Snapshot layout composition is invalid', { layoutId })
-        }
-        if (typeof layout.id === 'string') layoutsById.set(layout.id, layout)
-    }
-
-    const defaultLayout = typeof snapshot.defaultLayoutId === 'string' ? layoutsById.get(snapshot.defaultLayoutId) : undefined
-    if (snapshot.layoutConfig !== undefined && defaultLayout) {
-        const templateKey = readSnapshotTemplateKey(defaultLayout.templateKey, `layout:${String(defaultLayout.id)}`)
-        let decoded: ReturnType<typeof decodeLayoutConfigEnvelope>
-        try {
-            decoded = decodeLayoutConfigEnvelope(snapshot.layoutConfig, { templateKey })
-        } catch {
-            failSnapshotLayout('Snapshot default layout neutral metadata is invalid', { defaultLayoutId: snapshot.defaultLayoutId })
-        }
-        if (decoded.neutral.composition !== undefined || decoded.neutral.sourceZoneSettings !== undefined) {
-            failSnapshotLayout('Snapshot default layout config contains forbidden composition or source metadata', {
-                defaultLayoutId: snapshot.defaultLayoutId
-            })
-        }
-    }
-
-    const widgets = readSnapshotRecordArray(snapshot.layoutZoneWidgets, 'layout widgets')
-    const widgetsById = new Map<string, Record<string, unknown>>()
-    for (const widget of widgets) {
-        const layout = typeof widget.layoutId === 'string' ? layoutsById.get(widget.layoutId) : undefined
-        if (!layout) failSnapshotLayout('Snapshot widget references an unknown layout', { widgetId: widget.id })
-        const templateKey = readSnapshotTemplateKey(layout.templateKey, `layout:${String(layout.id)}`)
-        try {
-            decodeWidgetConfigEnvelope(widget.config === undefined ? {} : widget.config, {
-                templateKey,
-                widgetKey: String(widget.widgetKey),
-                zone: String(widget.zone)
-            })
-        } catch {
-            failSnapshotLayout('Snapshot widget configuration is invalid', { widgetId: widget.id })
-        }
-        if (typeof widget.id === 'string') widgetsById.set(widget.id, widget)
-    }
-
-    for (const override of readSnapshotRecordArray(snapshot.layoutWidgetOverrides, 'widget overrides')) {
-        if (override.config === null || override.config === undefined) continue
-        const baseWidget = typeof override.baseWidgetId === 'string' ? widgetsById.get(override.baseWidgetId) : undefined
-        const layout = typeof override.layoutId === 'string' ? layoutsById.get(override.layoutId) : undefined
-        if (!baseWidget || !layout) {
-            failSnapshotLayout('Snapshot widget override references an unknown layout or base widget', { overrideId: override.id })
-        }
-        const templateKey = readSnapshotTemplateKey(layout.templateKey, `layout:${String(layout.id)}`)
-        try {
-            decodeWidgetConfigEnvelope(override.config, {
-                templateKey,
-                widgetKey: String(baseWidget.widgetKey),
-                zone: String(override.zone ?? baseWidget.zone)
-            })
-        } catch {
-            failSnapshotLayout('Snapshot widget override configuration is invalid', { overrideId: override.id })
-        }
-    }
-}
-
 const buildMarketingRendererValidationSnapshot = (snapshot: Record<string, unknown>): Record<string, unknown> => {
-    const layouts = readSnapshotRecordArray(snapshot.layouts, 'layouts')
-    const scopedLayouts = readSnapshotRecordArray(snapshot.scopedLayouts, 'scoped layouts')
+    const layouts = readSnapshotRecordArray(snapshot.layouts, 'layouts', failSnapshotLayout)
+    const scopedLayouts = readSnapshotRecordArray(snapshot.scopedLayouts, 'scoped layouts', failSnapshotLayout)
     const allLayouts = [...layouts, ...scopedLayouts]
     const layoutsById = new Map(allLayouts.filter((layout) => typeof layout.id === 'string').map((layout) => [layout.id as string, layout]))
-    const widgets = readSnapshotRecordArray(snapshot.layoutZoneWidgets, 'layout widgets')
-    const baseWidgetsById = new Map(
-        widgets.filter((widget) => typeof widget.id === 'string').map((widget) => [widget.id as string, widget])
-    )
 
     const normalizeLayout = (layout: Record<string, unknown>): Record<string, unknown> => {
-        const templateKey = readSnapshotTemplateKey(layout.templateKey, `layout:${String(layout.id)}`)
+        const templateKey = readSnapshotTemplateKey(layout.templateKey, `layout:${String(layout.id)}`, failSnapshotLayout)
         return {
             ...layout,
             config: decodeSnapshotLayoutRendererConfig(layout.config, templateKey)
@@ -993,46 +933,23 @@ const buildMarketingRendererValidationSnapshot = (snapshot: Record<string, unkno
                       const defaultLayout =
                           typeof snapshot.defaultLayoutId === 'string' ? layoutsById.get(snapshot.defaultLayoutId) : undefined
                       if (!defaultLayout) return snapshot.layoutConfig
-                      const templateKey = readSnapshotTemplateKey(defaultLayout.templateKey, `layout:${String(defaultLayout.id)}`)
+                      const templateKey = readSnapshotTemplateKey(
+                          defaultLayout.templateKey,
+                          `layout:${String(defaultLayout.id)}`,
+                          failSnapshotLayout
+                      )
                       return decodeSnapshotLayoutRendererConfig(snapshot.layoutConfig, templateKey)
                   })(),
-        layoutZoneWidgets:
-            snapshot.layoutZoneWidgets === undefined
-                ? undefined
-                : widgets.map((widget) => {
-                      const layout = typeof widget.layoutId === 'string' ? layoutsById.get(widget.layoutId) : undefined
-                      if (!layout || !hasReservedLayoutMetadata(widget.config)) return widget
-                      const templateKey = readSnapshotTemplateKey(layout.templateKey, `layout:${String(layout.id)}`)
-                      return {
-                          ...widget,
-                          config: decodeWidgetConfigEnvelope(widget.config ?? {}, {
-                              templateKey,
-                              widgetKey: String(widget.widgetKey),
-                              zone: String(widget.zone)
-                          }).rendererConfig
-                      }
-                  }),
-        layoutWidgetOverrides:
-            snapshot.layoutWidgetOverrides === undefined
-                ? undefined
-                : readSnapshotRecordArray(snapshot.layoutWidgetOverrides, 'widget overrides').map((override) => {
-                      if (override.config === null || override.config === undefined || !hasReservedLayoutMetadata(override.config)) {
-                          return override
-                      }
-                      const layout = typeof override.layoutId === 'string' ? layoutsById.get(override.layoutId) : undefined
-                      const baseWidget = typeof override.baseWidgetId === 'string' ? baseWidgetsById.get(override.baseWidgetId) : undefined
-                      if (!layout || !baseWidget) return override
-                      const templateKey = readSnapshotTemplateKey(layout.templateKey, `layout:${String(layout.id)}`)
-                      return {
-                          ...override,
-                          config: decodeWidgetConfigEnvelope(override.config, {
-                              templateKey,
-                              widgetKey: String(baseWidget.widgetKey),
-                              zone: String(override.zone ?? baseWidget.zone)
-                          }).rendererConfig
-                      }
-                  })
+        // Keep widget envelopes intact so the renderer-level validator can
+        // validate Entity bindings before parsing the renderer-only config.
+        layoutZoneWidgets: snapshot.layoutZoneWidgets,
+        layoutWidgetOverrides: snapshot.layoutWidgetOverrides
     }
+}
+
+/** Validate snapshot neutral metadata with the public snapshot error contract. */
+export const validateSnapshotLayoutNeutralMetadata = (snapshot: unknown): void => {
+    validateSnapshotLayoutNeutralMetadataInternal(snapshot, failSnapshotLayout)
 }
 
 /** Validate a published/release snapshot carrying neutral layout envelopes. */

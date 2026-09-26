@@ -1,5 +1,11 @@
 import type { EntityDefinition } from '@universo-react/schema-ddl'
 import {
+    buildSingleTargetWidgetBinding,
+    decodeWidgetConfigEnvelope,
+    encodeWidgetConfigEnvelope,
+    getLayoutWidgetDefinition
+} from '@universo-react/types'
+import {
     buildMergedDashboardLayoutConfig,
     normalizeSnapshotLayoutZoneWidgets,
     normalizeSnapshotLayouts,
@@ -63,6 +69,14 @@ describe('sync layout materialization helpers', () => {
     })
 
     it('persists validated marketing layout and widget defaults during materialization', () => {
+        const heroDefinition = getLayoutWidgetDefinition('marketing.hero')
+        if (!heroDefinition) throw new Error('Expected marketing.hero to be registered')
+        const heroBindings = buildSingleTargetWidgetBinding(heroDefinition, 'content', {
+            entityKind: 'object',
+            entityCodename: 'MarketingPageHero',
+            semanticKey: 'default'
+        })
+        const heroConfigContext = { templateKey: 'marketing-page', widgetKey: 'marketing.hero', zone: 'marketing-main' }
         const snapshot: PublishedApplicationSnapshot = {
             entities: {},
             layouts: [
@@ -86,10 +100,13 @@ describe('sync layout materialization helpers', () => {
                     zone: 'marketing-main',
                     widgetKey: 'marketing.hero',
                     sortOrder: 0,
-                    config: {
-                        instanceKey: 'hero',
-                        source: { entityCodename: 'MarketingPageSiteSettings', entityKind: 'object' }
-                    },
+                    config: encodeWidgetConfigEnvelope(
+                        {
+                            rendererConfig: { instanceKey: 'hero', showLeadForm: true },
+                            neutral: { bindings: heroBindings }
+                        },
+                        heroConfigContext
+                    ),
                     isActive: true
                 }
             ],
@@ -105,11 +122,11 @@ describe('sync layout materialization helpers', () => {
             allowTelephoneActions: true,
             externalLinkTarget: 'new-tab'
         })
-        expect(widgets[0]?.config).toMatchObject({
-            instanceKey: 'hero',
-            showLeadForm: true,
-            source: { entityCodename: 'MarketingPageSiteSettings', entityKind: 'object', fieldMap: {} }
+        const normalizedWidgetConfig = decodeWidgetConfigEnvelope(widgets[0]?.config, {
+            ...heroConfigContext
         })
+        expect(normalizedWidgetConfig.rendererConfig).toMatchObject({ instanceKey: 'hero', showLeadForm: true })
+        expect(normalizedWidgetConfig.neutral.bindings).toEqual(heroBindings)
     })
 
     it('rejects dashboard widgets attached to a marketing layout instead of silently rendering them', () => {

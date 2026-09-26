@@ -153,6 +153,7 @@ jest.mock('../../services/ConnectorSyncTouchStore', () => ({
 }))
 
 import { createApplicationSyncRoutes, toStructuralSchemaSnapshot } from '../../routes/applicationSyncRoutes'
+import * as applicationSyncRoutesModule from '../../routes/applicationSyncRoutes'
 import { calculateSchemaDiff, createDDLServices } from '@universo-react/schema-ddl'
 import {
     calculateApplicationReleaseChecksum,
@@ -598,6 +599,100 @@ describe('applicationSyncRoutes', () => {
             .expect(500)
 
         expect(mockUpdateConnectorPublicationSchemaOptions).not.toHaveBeenCalled()
+    })
+
+    it('restores the previous schema health when layout materialization reports a blocked Hero copy', async () => {
+        const application = {
+            id: 'application-1',
+            schemaName: 'app_019ccefc2f7b7b3682f485cdb1312268',
+            schemaSnapshot: null,
+            schemaStatus: 'outdated',
+            schemaError: 'Previously recorded sync issue',
+            installedReleaseMetadata: null
+        }
+        mockFindApplicationCopySource.mockResolvedValue(application)
+        const loadPublishedApplicationSyncContext = jest.fn().mockResolvedValue(baseSyncContext)
+        configureDdlServices({
+            schemaExists: true,
+            latestMigrations: [{ meta: {} }],
+            applyAllChangesResult: {
+                success: false,
+                changesApplied: [],
+                errors: ['Layout copy failed: APPLICATION_LAYOUT_ENTITY_BACKED_WIDGET_COPY_CONFLICT']
+            }
+        })
+
+        const app = buildApp(loadPublishedApplicationSyncContext)
+        const response = await request(app)
+            .post('/application/application-1/sync')
+            .send({
+                confirmDestructive: false,
+                layoutResolutionPolicy: { default: 'copy_source_as_application' }
+            })
+            .expect(409)
+
+        expect(response.body).toMatchObject({
+            status: 'conflict',
+            error: 'APPLICATION_LAYOUT_ENTITY_BACKED_WIDGET_COPY_CONFLICT',
+            code: 'APPLICATION_LAYOUT_ENTITY_BACKED_WIDGET_COPY_CONFLICT'
+        })
+        expect(mockUpdateApplicationSyncFields).toHaveBeenNthCalledWith(1, exec, expect.objectContaining({ schemaStatus: 'maintenance' }))
+        expect(mockUpdateApplicationSyncFields).toHaveBeenNthCalledWith(
+            2,
+            exec,
+            expect.objectContaining({
+                applicationId: 'application-1',
+                schemaStatus: 'outdated',
+                schemaError: 'Previously recorded sync issue',
+                userId: 'user-1'
+            })
+        )
+        expect(mockUpdateConnectorPublicationSchemaOptions).not.toHaveBeenCalled()
+    })
+
+    it('rejects a blocked Hero copy before sync changes application schema health', async () => {
+        const application = {
+            id: 'application-1',
+            schemaName: 'app_019ccefc2f7b7b3682f485cdb1312268',
+            schemaSnapshot: null,
+            schemaStatus: 'outdated',
+            schemaError: 'Previously recorded sync issue',
+            installedReleaseMetadata: null
+        }
+        mockFindApplicationCopySource.mockResolvedValue(application)
+        const loadPublishedApplicationSyncContext = jest.fn().mockResolvedValue(baseSyncContext)
+        const blockedCopy = {
+            type: 'LAYOUT_CONFLICT',
+            scope: 'global',
+            sourceLayoutId: 'layout-hero',
+            applicationLayoutId: 'application-layout-hero',
+            recommendedResolution: 'keep_local',
+            copySourceAsApplicationUnavailable: true
+        } as const
+        const buildLayoutChanges = jest.spyOn(applicationSyncRoutesModule, 'buildApplicationLayoutChanges').mockResolvedValue([blockedCopy])
+
+        try {
+            const app = buildApp(loadPublishedApplicationSyncContext)
+            const response = await request(app)
+                .post('/application/application-1/sync')
+                .send({
+                    confirmDestructive: false,
+                    layoutResolutionPolicy: { default: 'copy_source_as_application' }
+                })
+                .expect(409)
+
+            expect(response.body).toMatchObject({
+                error: 'APPLICATION_LAYOUT_ENTITY_BACKED_WIDGET_COPY_CONFLICT',
+                code: 'APPLICATION_LAYOUT_ENTITY_BACKED_WIDGET_COPY_CONFLICT'
+            })
+            expect(buildLayoutChanges).toHaveBeenCalledTimes(1)
+            expect(mockUpdateApplicationSyncFields).not.toHaveBeenCalled()
+            expect(mockPersistApplicationSchemaSyncState).not.toHaveBeenCalled()
+            expect(mockedCreateDDLServices).not.toHaveBeenCalled()
+            expect(mockUpdateConnectorPublicationSchemaOptions).not.toHaveBeenCalled()
+        } finally {
+            buildLayoutChanges.mockRestore()
+        }
     })
 
     it('includes TABLE child field metadata in create diff details for preview rendering', async () => {

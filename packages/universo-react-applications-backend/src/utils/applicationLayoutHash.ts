@@ -14,6 +14,7 @@ import {
     type LayoutNeutralComposition,
     type PersistedLayoutNeutralMetadata
 } from '@universo-react/types'
+import { getApplicationLayoutWidgetSourceBindingState } from '../persistence/applicationLayoutStoreSupport'
 
 export interface ApplicationLayoutHashInput {
     layout: Pick<ApplicationLayout, 'templateKey' | 'name'> &
@@ -80,7 +81,11 @@ const decodeLayoutForHash = (
 const decodeWidgetForHash = (
     templateKey: ApplicationTemplateKey,
     widget: Pick<ApplicationLayoutWidget, 'widgetKey' | 'zone' | 'config'>
-): { rendererConfig: Record<string, unknown>; placement: LayoutLogicalPlacement | null } => {
+): {
+    rendererConfig: Record<string, unknown>
+    placement: LayoutLogicalPlacement | null
+    bindings: ReturnType<typeof decodeLayoutWidgetConfigEnvelope>['neutral']['bindings']
+} => {
     const decoded = decodeLayoutWidgetConfigEnvelope(widget.config, {
         templateKey,
         widgetKey: widget.widgetKey,
@@ -94,6 +99,7 @@ const decodeWidgetForHash = (
     }
     return {
         rendererConfig: decoded.rendererConfig,
+        bindings: decoded.neutral.bindings,
         placement:
             (widget as ApplicationLayoutWidget & { placement?: LayoutLogicalPlacement }).placement ??
             decoded.neutral.placement ??
@@ -108,6 +114,19 @@ export function normalizeApplicationLayoutForHash(input: ApplicationLayoutHashIn
     const widgets = (input.widgets ?? [])
         .map((widget) => {
             const widgetEnvelope = decodeWidgetForHash(templateKey, widget)
+            const sourceBindingState = getApplicationLayoutWidgetSourceBindingState(widget)
+            let trustedBindings = sourceBindingState?.bindings
+            if (sourceBindingState === undefined && widget.sourceConfig !== undefined && widget.sourceConfig !== null) {
+                trustedBindings = decodeLayoutWidgetConfigEnvelope(widget.sourceConfig, {
+                    templateKey,
+                    widgetKey: widget.widgetKey,
+                    zone: widget.zone
+                }).neutral.bindings
+            }
+            const semanticBindings =
+                sourceBindingState !== undefined || (widget.sourceConfig !== undefined && widget.sourceConfig !== null)
+                    ? trustedBindings
+                    : widgetEnvelope.bindings
             const instanceKey =
                 typeof widgetEnvelope.rendererConfig.instanceKey === 'string' && widgetEnvelope.rendererConfig.instanceKey.length > 0
                     ? widgetEnvelope.rendererConfig.instanceKey
@@ -122,6 +141,7 @@ export function normalizeApplicationLayoutForHash(input: ApplicationLayoutHashIn
                 sortOrder: widget.sortOrder,
                 instanceKey,
                 config: widgetEnvelope.rendererConfig,
+                ...(semanticBindings === undefined ? {} : { bindings: semanticBindings }),
                 placement: widgetEnvelope.placement,
                 isActive: widget.isActive !== false
             }

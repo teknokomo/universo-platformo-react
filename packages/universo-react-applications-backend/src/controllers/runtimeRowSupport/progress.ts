@@ -27,6 +27,7 @@ import {
     type RuntimeProgressStoreBinding
 } from './contracts'
 import { resolveRuntimeObjectByCodename } from './objects'
+import { assertRuntimeEntityMutationAllowed } from '../../shared/entityMutationPolicy'
 
 export const readRuntimeProgressSequencePolicy = (
     config: Record<string, unknown> | null | undefined
@@ -135,6 +136,7 @@ export const resolveProgressStoreBinding = async (
 
     return {
         tableIdent: `${schemaIdent}.${quoteIdentifier(object.table_name)}`,
+        config: object.config,
         columns: columns as RuntimeProgressStoreBinding['columns']
     }
 }
@@ -638,6 +640,12 @@ const recomputeRuntimeProgressParent = async (params: {
             error: 'Progress aggregation parent is not configured',
             code: 'PROGRESS_AGGREGATION_INVALID'
         })
+    }
+    try {
+        assertRuntimeEntityMutationAllowed(parentObject.config)
+    } catch (error) {
+        if (error instanceof UpdateFailure) return error
+        throw error
     }
     const parentActiveCondition = buildRuntimeActiveRowCondition(
         parentObject.lifecycleContract,

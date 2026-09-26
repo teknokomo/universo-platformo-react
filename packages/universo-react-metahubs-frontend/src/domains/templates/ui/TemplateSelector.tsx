@@ -1,9 +1,11 @@
 import { useEffect } from 'react'
-import { Box, FormControl, InputLabel, Select, MenuItem, Typography, Chip, CircularProgress } from '@mui/material'
+import { Box, FormControl, InputLabel, MenuItem, Typography, Chip, CircularProgress } from '@mui/material'
+
 import type { TemplateDefinitionType } from '@universo-react/types'
 import { useTranslation } from 'react-i18next'
 import { getVLCString } from '../../../types'
 import { useTemplates } from '../../templates/hooks'
+import { DropdownSelect as Select } from '@universo-react/template-mui/dropdowns'
 
 interface TemplateSelectorProps {
     value: string | undefined

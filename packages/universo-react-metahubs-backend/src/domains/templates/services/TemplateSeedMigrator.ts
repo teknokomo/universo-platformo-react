@@ -272,14 +272,15 @@ export class TemplateSeedMigrator {
                 const widgetEnvelope = decodeWidgetConfigEnvelope(w.config ?? {}, {
                     templateKey: layoutRow?.template_key ?? 'dashboard',
                     widgetKey,
-                    zone: w.zone
+                    zone: w.zone,
+                    requireBindings: true
                 })
                 const rendererConfig = isMarketingLayout
                     ? parseApplicationLayoutWidgetConfig(w.widgetKey, widgetEnvelope.rendererConfig)
                     : widgetEnvelope.rendererConfig
                 const config = encodeWidgetConfigEnvelope(
                     { rendererConfig, neutral: widgetEnvelope.neutral },
-                    { templateKey: layoutRow?.template_key ?? 'dashboard', widgetKey, zone: w.zone }
+                    { templateKey: layoutRow?.template_key ?? 'dashboard', widgetKey, zone: w.zone, requireBindings: true }
                 )
                 if (dryRun && layoutId.startsWith('dry-run:')) {
                     insertedAny = true

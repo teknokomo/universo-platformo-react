@@ -9,11 +9,11 @@ import {
     InputLabel,
     MenuItem,
     OutlinedInput,
-    Select,
     Stack,
     TextField,
     Typography
 } from '@mui/material'
+
 import AddRoundedIcon from '@mui/icons-material/AddRounded'
 import DeleteRoundedIcon from '@mui/icons-material/DeleteRounded'
 import { useTranslation } from 'react-i18next'
@@ -32,6 +32,7 @@ import {
     type LedgerProjectionDefinition
 } from '@universo-react/types'
 import type { RecordBehaviorOption } from './RecordBehaviorFields'
+import { DropdownSelect as Select } from '@universo-react/template-mui/dropdowns'
 
 export interface LedgerSchemaFieldsProps {
     value: LedgerConfig

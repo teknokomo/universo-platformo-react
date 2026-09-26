@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import { Box, FormControl, FormControlLabel, FormHelperText, InputLabel, MenuItem, Select, Stack, Switch, TextField } from '@mui/material'
+import { Box, FormControl, FormControlLabel, FormHelperText, InputLabel, MenuItem, Stack, Switch, TextField } from '@mui/material'
 import { CollapsibleSection, LocalizedInlineField, useCodenameAutoFillVlc } from '@universo-react/template-mui'
 import type { FixedValueDataType, VersionedLocalizedContent } from '@universo-react/types'
 import { NUMBER_DEFAULTS, toNumberRules, validateNumber } from '@universo-react/utils'
@@ -7,6 +7,7 @@ import { CodenameField } from '../../../../../components'
 import { sanitizeCodenameForStyle } from '../../../../../utils/codename'
 import { ensureLocalizedContent, normalizeLocale } from '../../../../../utils/localizedInput'
 import { useCodenameConfig } from '../../../../settings/hooks/useCodenameConfig'
+import { DropdownSelect as Select } from '@universo-react/template-mui/dropdowns'
 
 type GenericFormValues = Record<string, unknown>
 

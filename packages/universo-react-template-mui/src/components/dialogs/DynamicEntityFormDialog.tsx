@@ -20,7 +20,6 @@ import {
     InputLabel,
     InputAdornment,
     MenuItem,
-    Select,
     Stack,
     Table,
     TableBody,
@@ -31,6 +30,7 @@ import {
     TextField,
     Typography
 } from '@mui/material'
+import { DropdownSelect as Select } from '../dropdowns'
 import {
     parseSafeExternalUrl,
     RESOURCE_TYPES,
@@ -124,6 +124,12 @@ export interface DynamicFieldConfig {
     uiConfig?: Record<string, unknown>
 }
 
+export interface DynamicEntityFormFieldError {
+    fieldId: string
+    message: string
+    locale?: string
+}
+
 export interface DynamicEntityFormDialogProps {
     open: boolean
     title: string
@@ -134,11 +140,14 @@ export interface DynamicEntityFormDialogProps {
     initialData?: Record<string, unknown>
     isSubmitting?: boolean
     error?: string | null
+    fieldValidationError?: DynamicEntityFormFieldError | null
+    onFieldErrorClear?: (fieldId: string) => void
     requireAnyValue?: boolean
     emptyStateText?: string
     saveButtonText?: string
     savingButtonText?: string
     cancelButtonText?: string
+    footerStartActions?: React.ReactNode
     showDeleteButton?: boolean
     deleteButtonText?: string
     deleteButtonDisabled?: boolean
@@ -227,6 +236,12 @@ const getResourceSourceDomain = (value: ResourceSource | Record<string, unknown>
 
 const isLocalizedContent = (value: unknown): value is VersionedLocalizedContent<string> =>
     Boolean(value && typeof value === 'object' && 'locales' in (value as Record<string, unknown>))
+
+const hasLocalizedLocaleValue = (value: unknown, locale: string): boolean => {
+    if (!isLocalizedContent(value)) return false
+    const entry = value.locales[normalizeLocale(locale)]
+    return typeof entry?.content === 'string' && entry.content.trim() !== ''
+}
 
 const ensureLocalizedValue = (value: unknown, locale: string): VersionedLocalizedContent<string> | null => {
     if (value == null) return null
@@ -572,11 +587,14 @@ export const DynamicEntityFormDialog: React.FC<DynamicEntityFormDialogProps> = (
     initialData,
     isSubmitting = false,
     error = null,
+    fieldValidationError = null,
+    onFieldErrorClear,
     requireAnyValue = false,
     emptyStateText,
     saveButtonText = 'Save',
     savingButtonText,
     cancelButtonText = 'Cancel',
+    footerStartActions,
     showDeleteButton = false,
     deleteButtonText = 'Delete',
     deleteButtonDisabled = false,
@@ -640,9 +658,18 @@ export const DynamicEntityFormDialog: React.FC<DynamicEntityFormDialogProps> = (
 
     const { t } = useTranslation(i18nNamespace)
 
-    const handleFieldChange = useCallback((id: string, value: unknown) => {
-        setFormData((prev) => ({ ...prev, [id]: value }))
-    }, [])
+    const handleFieldChange = useCallback(
+        (id: string, value: unknown) => {
+            setFormData((prev) => ({ ...prev, [id]: value }))
+            if (
+                fieldValidationError?.fieldId === id &&
+                (!fieldValidationError.locale || hasLocalizedLocaleValue(value, fieldValidationError.locale))
+            ) {
+                onFieldErrorClear?.(id)
+            }
+        },
+        [fieldValidationError?.fieldId, fieldValidationError?.locale, onFieldErrorClear]
+    )
 
     const resolveValuePresent = useCallback(
         (field: DynamicFieldConfig, value: unknown) => {
@@ -844,7 +871,9 @@ export const DynamicEntityFormDialog: React.FC<DynamicEntityFormDialogProps> = (
         const value = formData[field.id]
         const disabled = isSubmitting
         const rules = field.validationRules
-        const fieldError = getFieldError(field, value)
+        const validationError = getFieldError(field, value)
+        const serverFieldError = fieldValidationError?.fieldId === field.id ? fieldValidationError : null
+        const fieldError = validationError ?? serverFieldError?.message ?? null
         const helperText = fieldError ?? field.helperText
 
         const customField = renderFieldOverride?.({
@@ -888,7 +917,7 @@ export const DynamicEntityFormDialog: React.FC<DynamicEntityFormDialogProps> = (
                             uiLocale={locale}
                             disabled={disabled}
                             error={fieldError}
-                            errorLocale={vlcErrorLocale}
+                            errorLocale={serverFieldError?.locale ?? vlcErrorLocale}
                             helperText={field.helperText}
                             multiline={isMultiline}
                             rows={isMultiline ? multilineRows : undefined}
@@ -909,7 +938,7 @@ export const DynamicEntityFormDialog: React.FC<DynamicEntityFormDialogProps> = (
                             uiLocale={locale}
                             disabled={disabled}
                             error={fieldError}
-                            errorLocale={vlcErrorLocale}
+                            errorLocale={serverFieldError?.locale ?? vlcErrorLocale}
                             helperText={field.helperText}
                             multiline={isMultiline}
                             rows={isMultiline ? multilineRows : undefined}
@@ -1815,17 +1844,29 @@ export const DynamicEntityFormDialog: React.FC<DynamicEntityFormDialogProps> = (
                     )}
                 </Stack>
             </DialogContent>
-            <DialogActions sx={{ p: 3, pt: 2, justifyContent: showDeleteButton ? 'space-between' : 'flex-end' }}>
-                {showDeleteButton ? (
-                    <Button
-                        onClick={deleteButtonDisabled ? undefined : onDelete}
-                        disabled={isSubmitting || deleteButtonDisabled}
-                        variant='outlined'
-                        startIcon={<DeleteIcon />}
-                        sx={{ borderRadius: 1, mr: 'auto' }}
-                    >
-                        {deleteButtonText}
-                    </Button>
+            <DialogActions
+                sx={{
+                    p: 3,
+                    pt: 2,
+                    justifyContent: showDeleteButton || footerStartActions ? 'space-between' : 'flex-end',
+                    flexWrap: footerStartActions ? 'wrap' : 'nowrap',
+                    gap: footerStartActions ? 1 : undefined
+                }}
+            >
+                {showDeleteButton || footerStartActions ? (
+                    <Box sx={{ display: 'flex', gap: 1 }}>
+                        {showDeleteButton ? (
+                            <Button
+                                onClick={deleteButtonDisabled ? undefined : onDelete}
+                                disabled={isSubmitting || deleteButtonDisabled}
+                                variant='outlined'
+                                startIcon={<DeleteIcon />}
+                            >
+                                {deleteButtonText}
+                            </Button>
+                        ) : null}
+                        {footerStartActions}
+                    </Box>
                 ) : null}
                 <Box sx={{ display: 'flex', gap: 1 }}>
                     <Button onClick={handleClose} disabled={isSubmitting}>

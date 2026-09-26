@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Badge, Box, ButtonBase, CircularProgress, Divider, Menu, MenuItem, Stack, TextField, Typography } from '@mui/material'
 import { styled, useTheme } from '@mui/material/styles'
 import StarRoundedIcon from '@mui/icons-material/StarRounded'
@@ -338,6 +338,22 @@ const LocalizedInlineFieldContent: React.FC<LocalizedFieldProps> = ({
     const [menuLocale, setMenuLocale] = useState<LocaleCode | null>(null)
     const [menuMode, setMenuMode] = useState<'main' | 'add' | 'change'>('main')
     const [focusedLocale, setFocusedLocale] = useState<LocaleCode | null>(null)
+    const localeInputRefs = useRef<Map<string, HTMLInputElement>>(new Map())
+    const normalizedErrorLocale = errorLocale ? normalizeLocale(errorLocale) : null
+
+    useEffect(() => {
+        if (!error || !normalizedErrorLocale || !value || activeLocales.includes(normalizedErrorLocale as LocaleCode)) return
+        const availableLocale = availableLocales.find((entry) => entry.code === normalizedErrorLocale)
+        if (availableLocale) {
+            onChange(updateLocalizedContentLocale(value, availableLocale.code, ''))
+        }
+    }, [activeLocales, availableLocales, error, normalizedErrorLocale, onChange, value])
+
+    useEffect(() => {
+        if (!error || !normalizedErrorLocale) return
+        const frame = requestAnimationFrame(() => localeInputRefs.current.get(normalizedErrorLocale)?.focus())
+        return () => cancelAnimationFrame(frame)
+    }, [activeLocales, error, normalizedErrorLocale])
 
     const closeMenu = useCallback(() => {
         setMenuAnchor(null)
@@ -541,6 +557,10 @@ const LocalizedInlineFieldContent: React.FC<LocalizedFieldProps> = ({
                         <TextField
                             fullWidth
                             label={label}
+                            inputRef={(input: HTMLInputElement | null) => {
+                                if (input) localeInputRefs.current.set(locale.toLowerCase(), input)
+                                else localeInputRefs.current.delete(locale.toLowerCase())
+                            }}
                             required={isPrimary && required}
                             disabled={disabled}
                             error={Boolean(showError)}

@@ -8,7 +8,13 @@ import Typography from '@mui/material/Typography'
 import { styled } from '@mui/material/styles'
 import { useTranslation } from 'react-i18next'
 
-import type { MarketingActionHandler, MarketingHeroData, MarketingLeadHandler, MarketingMedia } from '../types'
+import type {
+    MarketingActionHandler,
+    MarketingHeroData,
+    MarketingLeadHandler,
+    MarketingMedia,
+    MarketingSectionAnchorResolver
+} from '../types'
 import { marketingFieldId, marketingSectionId, MarketingActionButton, MarketingActionLink, MarketingMediaView } from './MarketingPrimitives'
 
 const StyledBox = styled('div')(({ theme }) => ({
@@ -59,9 +65,10 @@ export interface HeroProps {
     onAction?: MarketingActionHandler
     onLeadSubmit?: MarketingLeadHandler
     backgroundOwner?: 'widget' | 'page'
+    sectionAnchors?: MarketingSectionAnchorResolver
 }
 
-export default function Hero({ data, instanceKey, onAction, onLeadSubmit, backgroundOwner = 'widget' }: HeroProps) {
+export default function Hero({ data, instanceKey, onAction, onLeadSubmit, backgroundOwner = 'widget', sectionAnchors }: HeroProps) {
     const { t } = useTranslation('apps')
     const heroId = marketingSectionId('hero', instanceKey)
     const [email, setEmail] = React.useState('')
@@ -145,6 +152,7 @@ export default function Hero({ data, instanceKey, onAction, onLeadSubmit, backgr
             <MarketingActionButton
                 action={actionLead}
                 onAction={onAction}
+                sectionAnchors={sectionAnchors}
                 variant='contained'
                 color='primary'
                 size='small'
@@ -190,17 +198,45 @@ export default function Hero({ data, instanceKey, onAction, onLeadSubmit, backgr
                         sx={{
                             display: 'flex',
                             flexDirection: { xs: 'column', sm: 'row' },
+                            flexWrap: { xs: 'nowrap', sm: 'wrap' },
                             alignItems: 'center',
                             textAlign: 'center',
-                            fontSize: 'clamp(3rem, 10vw, 3.5rem)',
+                            width: '100%',
+                            minWidth: 0,
+                            maxWidth: '100%',
+                            overflowWrap: 'anywhere',
+                            fontSize: 'clamp(2.5rem, 8vw, 3.5rem)',
                             gap: { xs: 0, sm: 1 }
                         }}
                     >
-                        {data.title}
+                        <Box
+                            component='span'
+                            sx={{
+                                display: 'block',
+                                width: { xs: '100%', sm: 'auto' },
+                                maxWidth: '100%',
+                                minWidth: 0,
+                                flex: { xs: '0 0 auto', sm: '0 1 auto' },
+                                overflowWrap: 'anywhere',
+                                textWrap: 'pretty'
+                            }}
+                        >
+                            {data.title}
+                        </Box>
                         {data.accent ? (
                             <Box
                                 component='span'
-                                sx={(theme) => ({ color: 'primary.main', ...theme.applyStyles('dark', { color: 'primary.light' }) })}
+                                sx={(theme) => ({
+                                    color: 'primary.main',
+                                    display: 'block',
+                                    width: { xs: '100%', sm: 'auto' },
+                                    maxWidth: '100%',
+                                    minWidth: 0,
+                                    flex: { xs: '0 0 auto', sm: '0 1 auto' },
+                                    overflowWrap: 'anywhere',
+                                    textWrap: 'pretty',
+                                    ...theme.applyStyles('dark', { color: 'primary.light' })
+                                })}
                             >
                                 {data.accent}
                             </Box>
@@ -220,7 +256,12 @@ export default function Hero({ data, instanceKey, onAction, onLeadSubmit, backgr
                         >
                             {lead.termsText}{' '}
                             {lead.termsAction ? (
-                                <MarketingActionLink action={lead.termsAction} onAction={onAction} sx={{ color: 'primary.main' }} />
+                                <MarketingActionLink
+                                    action={lead.termsAction}
+                                    onAction={onAction}
+                                    sectionAnchors={sectionAnchors}
+                                    sx={{ color: 'primary.main' }}
+                                />
                             ) : null}
                         </Typography>
                     ) : null}

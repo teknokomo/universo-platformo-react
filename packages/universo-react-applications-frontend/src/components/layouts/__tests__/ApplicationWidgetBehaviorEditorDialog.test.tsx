@@ -4,6 +4,7 @@ import type { ReactNode } from 'react'
 import ApplicationWidgetBehaviorEditorDialog from '../ApplicationWidgetBehaviorEditorDialog'
 
 vi.mock('react-i18next', () => ({
+    initReactI18next: { type: '3rdParty', init: vi.fn() },
     useTranslation: () => ({
         t: (_key: string, fallback?: string) => fallback ?? _key
     })

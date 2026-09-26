@@ -80,6 +80,7 @@
 -   [Backend Architecture](architecture/backend.md)
 -   [Frontend Architecture](architecture/frontend.md)
 -   [Entity Systems Architecture](architecture/entity-systems.md)
+-   [Entity-backed Widgets](architecture/entity-backed-widgets.md)
 -   [Interpretation Network Data Model](architecture/interpretation-network-data-model.md)
 -   [Entity Component System](architecture/entity-component-system.md)
 -   [Ledgers](architecture/ledgers.md)

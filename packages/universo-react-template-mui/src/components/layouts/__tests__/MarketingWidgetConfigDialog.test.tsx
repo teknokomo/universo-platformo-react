@@ -2,13 +2,36 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import '@testing-library/jest-dom'
 
+import { LAYOUT_WIDGET_DEFINITIONS } from '@universo-react/types'
+import * as sharedDialogModule from '../../dialogs/StandardDialog'
 import { MarketingWidgetConfigDialog } from '../MarketingWidgetConfigDialog'
 import { LayoutAuthoringDetails } from '../LayoutAuthoringDetails'
 
 const translate = (_key: string, defaultValue?: string) => defaultValue ?? _key
 
 describe('MarketingWidgetConfigDialog', () => {
-    it('leaves new widget identity to the server and does not expose a record key editor', async () => {
+    it('renders its authoring surface through the shared StandardDialog primitive', () => {
+        const standardDialogSpy = jest.spyOn(sharedDialogModule, 'StandardDialog')
+
+        try {
+            render(
+                <MarketingWidgetConfigDialog
+                    open
+                    widgetKey='marketing.hero'
+                    title='Hero settings'
+                    t={translate}
+                    onSave={() => undefined}
+                    onCancel={() => undefined}
+                />
+            )
+
+            expect(standardDialogSpy.mock.calls.some(([props]) => props.open && props.title === 'Hero settings')).toBe(true)
+        } finally {
+            standardDialogSpy.mockRestore()
+        }
+    })
+
+    it('saves only Hero presentation settings and edits content in its bound Object record', async () => {
         const user = userEvent.setup()
         const onSave = jest.fn().mockResolvedValue(undefined)
 
@@ -16,6 +39,7 @@ describe('MarketingWidgetConfigDialog', () => {
             <MarketingWidgetConfigDialog
                 open
                 widgetKey='marketing.hero'
+                initialConfig={{ instanceKey: 'hero', showLeadForm: true }}
                 sourceOptions={[{ value: 'MarketingPageSiteSettings', label: 'Site settings', entityKind: 'object' }]}
                 title='Hero settings'
                 t={translate}
@@ -24,100 +48,61 @@ describe('MarketingWidgetConfigDialog', () => {
             />
         )
 
-        expect(screen.queryByLabelText('Record key (optional)')).not.toBeInTheDocument()
-        expect(screen.getByTestId('marketing-widget-record-selection')).toHaveTextContent(
-            'The published source determines which records are shown.'
-        )
+        expect(screen.getByRole('switch', { name: 'Show lead form' })).toBeChecked()
+        expect(screen.queryByRole('combobox')).not.toBeInTheDocument()
+        expect(screen.queryByTestId('marketing-widget-record-selection')).not.toBeInTheDocument()
+        expect(screen.getByRole('alert')).toHaveTextContent('Hero content is edited separately in the bound Object record.')
 
-        await user.click(screen.getByRole('combobox'))
-        await user.click(screen.getByRole('option', { name: 'Site settings' }))
         await user.click(screen.getByRole('button', { name: 'Save' }))
 
         await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1))
-        const savedConfig = onSave.mock.calls[0][0] as Record<string, unknown>
-        expect(savedConfig).not.toHaveProperty('instanceKey')
-        expect(savedConfig).not.toHaveProperty('source.recordKey')
+        const presentationField = LAYOUT_WIDGET_DEFINITIONS.find(
+            (definition) => definition.key === 'marketing.hero'
+        )?.presentationFields?.find((field) => field.key === 'showLeadForm')
+        expect(presentationField?.kind).toBe('switch')
+        expect(onSave).toHaveBeenCalledWith({
+            instanceKey: 'hero',
+            [presentationField?.key ?? 'showLeadForm']: presentationField?.defaultValue
+        })
     })
 
-    it('allows replacing an unavailable source before saving', async () => {
-        const user = userEvent.setup()
-        const onSave = jest.fn().mockResolvedValue(undefined)
+    it('uses Hero presentation translation metadata and the localized record guidance key', () => {
+        const definition = LAYOUT_WIDGET_DEFINITIONS.find((widget) => widget.key === 'marketing.hero')
+        const field = definition?.presentationFields?.find((presentationField) => presentationField.key === 'showLeadForm')
+        expect(field?.kind).toBe('switch')
+        if (!field || field.kind !== 'switch') throw new Error('Hero showLeadForm presentation metadata is missing.')
+
+        const localizedValues: Record<string, string> = {
+            [field.labelKey]: 'Localized lead form label',
+            [field.helperTextKey]: 'Localized lead form helper',
+            'layouts.marketing.widget.recordSelectionEditHint': 'Localized bound Object record guidance'
+        }
+        const t = jest.fn((key: string, defaultValue?: string) => localizedValues[key] ?? defaultValue ?? key)
 
         render(
             <MarketingWidgetConfigDialog
                 open
                 widgetKey='marketing.hero'
-                initialConfig={{
-                    instanceKey: 'hero-instance',
-                    source: { entityCodename: 'MarketingPageRemoved', entityKind: 'object' }
-                }}
-                sourceOptions={[{ value: 'MarketingPageSiteSettings', label: 'Site settings', entityKind: 'object' }]}
                 title='Hero settings'
-                t={translate}
-                onSave={onSave}
+                t={t}
+                onSave={() => undefined}
                 onCancel={() => undefined}
             />
         )
 
-        expect(screen.getByRole('alert')).toHaveTextContent('The previously selected content source is no longer available.')
-        expect(screen.getByRole('combobox')).toBeEnabled()
-
-        await user.click(screen.getByRole('combobox'))
-        await user.click(screen.getByRole('option', { name: 'Site settings' }))
-        await user.click(screen.getByRole('button', { name: 'Save' }))
-
-        await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1))
-        expect(onSave).toHaveBeenCalledWith(
-            expect.objectContaining({
-                instanceKey: 'hero-instance',
-                source: expect.objectContaining({
-                    entityCodename: 'MarketingPageSiteSettings',
-                    entityKind: 'object'
-                })
-            })
+        expect(screen.getByRole('switch', { name: 'Localized lead form label' })).toBeChecked()
+        expect(screen.getByText('Localized lead form helper')).toBeInTheDocument()
+        expect(screen.getByRole('alert')).toHaveTextContent('Localized bound Object record guidance')
+        expect(t).toHaveBeenCalledWith(field.labelKey, field.defaultLabel)
+        expect(t).toHaveBeenCalledWith(field.helperTextKey, field.defaultHelperText)
+        expect(t).toHaveBeenCalledWith(
+            'layouts.marketing.widget.recordSelectionEditHint',
+            'Hero content is edited separately in the bound Object record.'
         )
     })
 
-    it('preserves an existing record selection while editing', async () => {
+    it('keeps other entity-backed source selection and localized labels working', async () => {
         const user = userEvent.setup()
-        const onSave = jest.fn().mockResolvedValue(undefined)
-
-        render(
-            <MarketingWidgetConfigDialog
-                open
-                widgetKey='marketing.hero'
-                initialConfig={{
-                    instanceKey: 'hero-instance',
-                    source: {
-                        entityCodename: 'MarketingPageSiteSettings',
-                        entityKind: 'object',
-                        recordKey: 'homepage',
-                        fieldMap: { heroTitle: 'heroTitle' }
-                    }
-                }}
-                sourceOptions={[{ value: 'MarketingPageSiteSettings', label: 'Site settings', entityKind: 'object' }]}
-                title='Hero settings'
-                t={translate}
-                onSave={onSave}
-                onCancel={() => undefined}
-            />
-        )
-
-        expect(screen.getByTestId('marketing-widget-record-selection')).toHaveTextContent(
-            'The published source manages the selected record.'
-        )
-        await user.click(screen.getByRole('button', { name: 'Save' }))
-
-        await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1))
-        expect(onSave).toHaveBeenCalledWith(
-            expect.objectContaining({
-                instanceKey: 'hero-instance',
-                source: expect.objectContaining({ recordKey: 'homepage', fieldMap: { heroTitle: 'heroTitle' } })
-            })
-        )
-    })
-
-    it('keeps a stable source identity while displaying its localized label', async () => {
         const onSave = jest.fn().mockResolvedValue(undefined)
 
         render(
@@ -141,6 +126,18 @@ describe('MarketingWidgetConfigDialog', () => {
         const sourceSelect = screen.getByRole('combobox', { name: 'Content source' })
         expect(sourceSelect).toBeEnabled()
         expect(sourceSelect).toHaveTextContent('Логотипы клиентов')
+
+        await user.click(sourceSelect)
+        await user.click(screen.getByRole('option', { name: 'Логотипы клиентов' }))
+        await user.click(screen.getByRole('button', { name: 'Save' }))
+
+        await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1))
+        expect(onSave).toHaveBeenCalledWith(
+            expect.objectContaining({
+                instanceKey: 'logos-instance',
+                source: expect.objectContaining({ entityCodename: 'MarketingPageLogo', entityKind: 'object' })
+            })
+        )
     })
 
     it('edits static marketing image settings without exposing entity source controls', async () => {

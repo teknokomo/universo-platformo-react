@@ -1,5 +1,5 @@
 import { MetahubObjectsService } from '../../domains/metahubs/services/MetahubObjectsService'
-import { MetahubNotFoundError } from '../../domains/shared/domainErrors'
+import { MetahubConflictError, MetahubNotFoundError } from '../../domains/shared/domainErrors'
 
 describe('MetahubObjectsService mutation fail-closed behavior', () => {
     type MockExecutor = {
@@ -123,21 +123,53 @@ describe('MetahubObjectsService mutation fail-closed behavior', () => {
     })
 
     it('soft-deletes only active metahub object rows', async () => {
+        mockQuery.mockImplementation(async (sql: string) => {
+            if (sql.includes('pg_advisory_xact_lock')) return []
+            if (sql.includes('SELECT id, kind') && sql.includes('FOR UPDATE')) {
+                return [{ id: 'object-1', kind: 'object', codename: 'MarketingPageHero', config: {} }]
+            }
+            if (sql.includes('SELECT id, kind')) return [{ id: 'object-1', kind: 'object' }]
+            if (sql.includes('SELECT EXISTS')) return [{ bound: false }]
+            if (sql.trimStart().startsWith('UPDATE')) return [{ id: 'object-1' }]
+            return []
+        })
+
         await service.delete('metahub-1', 'object-1', 'user-1')
 
-        const [sql, params] = mockQuery.mock.calls[1]
+        const calls = mockQuery.mock.calls as Array<[string, unknown[] | undefined]>
+        const updateCall = calls.find(([sql]) => sql.trimStart().startsWith('UPDATE'))
+        const [sql, params] = updateCall ?? ['', undefined]
+        expect(calls.findIndex(([statement]) => statement.includes('pg_advisory_xact_lock'))).toBeLessThan(
+            calls.findIndex(([statement]) => statement.includes('FOR UPDATE'))
+        )
+        expect(calls.findIndex(([statement]) => statement.includes('SELECT EXISTS'))).toBeLessThan(calls.indexOf(updateCall!))
         expect(sql).toContain('UPDATE "mhb_a1b2c3d4e5f67890abcdef1234567890_b1"."_mhb_objects"')
         expect(sql).toContain('SET _mhb_deleted = TRUE')
         expect(sql).toContain('WHERE id = $3 AND _upl_deleted = false AND _mhb_deleted = false')
         expect(sql).toContain('RETURNING id')
-        expect(params[1]).toBe('user-1')
-        expect(params[2]).toBe('object-1')
+        expect(params?.[1]).toBe('user-1')
+        expect(params?.[2]).toBe('object-1')
     })
 
     it('fails closed when soft delete touches no active rows', async () => {
-        mockQuery.mockResolvedValueOnce([{ id: 'missing-object', kind: 'object' }]).mockResolvedValueOnce([])
+        mockQuery.mockResolvedValueOnce([])
 
         await expect(service.delete('metahub-1', 'missing-object', 'user-1')).rejects.toThrow(MetahubNotFoundError)
+    })
+
+    it('rejects deleting an Entity codename that is still referenced by a live layout binding', async () => {
+        mockQuery.mockImplementation(async (sql: string) => {
+            if (sql.includes('pg_advisory_xact_lock')) return []
+            if (sql.includes('SELECT id, kind') && sql.includes('FOR UPDATE')) {
+                return [{ id: 'object-1', kind: 'object', codename: 'MarketingPageHero', config: {} }]
+            }
+            if (sql.includes('SELECT id, kind')) return [{ id: 'object-1', kind: 'object' }]
+            if (sql.includes('SELECT EXISTS')) return [{ bound: true }]
+            return []
+        })
+
+        await expect(service.delete('metahub-1', 'object-1', 'user-1')).rejects.toThrow(MetahubConflictError)
+        expect(mockQuery.mock.calls.some(([sql]) => String(sql).trimStart().startsWith('UPDATE'))).toBe(false)
     })
 
     it('restores only metahub object rows that are currently in trash', async () => {

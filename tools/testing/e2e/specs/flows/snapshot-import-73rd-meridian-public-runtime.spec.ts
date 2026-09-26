@@ -28,6 +28,7 @@ import {
     MERIDIAN_73_ACTIVITIES,
     MERIDIAN_73_FAQ,
     MERIDIAN_73_FOOTER_LINKS,
+    MERIDIAN_73_HERO,
     MERIDIAN_73_METAHUB,
     MERIDIAN_73_NAVIGATION,
     MERIDIAN_73_PRICING_TIERS,
@@ -36,6 +37,8 @@ import {
 import { assertMeridian73FixtureEnvelopeContract } from '../../support/meridian73FixtureContract'
 
 const fixturePath = path.resolve(repoRoot, 'tools', 'fixtures', 'metahubs-73rd-meridian-app-snapshot.json')
+
+const getMeridian73HeroHeading = (locale: 'en' | 'ru'): string => `${MERIDIAN_73_HERO.title[locale]} ${MERIDIAN_73_HERO.accent[locale]}`
 
 type ApiContext = Awaited<ReturnType<typeof createLoggedInApiContext>>
 type BootstrapApiContext = Awaited<ReturnType<typeof createBootstrapApiContext>>
@@ -228,7 +231,7 @@ const assertPublicMarketingContent = async (
 ): Promise<void> => {
     assertRuntimeWidgetSettings(payload, label)
     await expect(page.locator('#marketing-page-main')).toBeVisible({ timeout: 60_000 })
-    await expect(page.getByRole('heading', { name: expectedTitle, exact: true })).toBeVisible()
+    await expect(page.getByRole('heading', { name: `${expectedTitle} ${MERIDIAN_73_HERO.accent[locale]}`, exact: true })).toBeVisible()
     await expect(page.getByRole('heading', { name: expectedActivity, exact: true })).toBeVisible()
     await expect(page.getByText(expectedFaq, { exact: true })).toBeVisible()
     const pricingSection = page.locator('#pricing')
@@ -358,7 +361,7 @@ test('@flow @marketing-page @snapshot imports the committed 73rd Meridian fixtur
             await assertRuntimeLocation(anonymousPage, '/a/' + applicationId + suffix, search)
             await assertPublicMarketingContent(
                 anonymousPage,
-                MERIDIAN_73_SITE_SETTINGS.heroTitle.en,
+                MERIDIAN_73_HERO.title.en,
                 MERIDIAN_73_ACTIVITIES[0].title.en,
                 MERIDIAN_73_FAQ[0].question.en,
                 '73rd Meridian UUID public runtime',
@@ -373,7 +376,7 @@ test('@flow @marketing-page @snapshot imports the committed 73rd Meridian fixtur
             await assertRuntimeLocation(anonymousPage, '/a/' + secondaryAlias + suffix, search)
             await assertPublicMarketingContent(
                 anonymousPage,
-                MERIDIAN_73_SITE_SETTINGS.heroTitle.en,
+                MERIDIAN_73_HERO.title.en,
                 MERIDIAN_73_ACTIVITIES[0].title.en,
                 MERIDIAN_73_FAQ[0].question.en,
                 '73rd Meridian direct alias public runtime',
@@ -388,7 +391,7 @@ test('@flow @marketing-page @snapshot imports the committed 73rd Meridian fixtur
             await assertRuntimeLocation(anonymousPage, '/a/' + applicationId + suffix, search)
             await assertPublicMarketingContent(
                 anonymousPage,
-                MERIDIAN_73_SITE_SETTINGS.heroTitle.en,
+                MERIDIAN_73_HERO.title.en,
                 MERIDIAN_73_ACTIVITIES[0].title.en,
                 MERIDIAN_73_FAQ[0].question.en,
                 '73rd Meridian canonical UUID public runtime',
@@ -401,12 +404,12 @@ test('@flow @marketing-page @snapshot imports the committed 73rd Meridian fixtur
             const search = '?locale=en&step=alias-admin'
             const payload = await gotoPublicRuntime(anonymousPage, '/a/' + primaryAlias + '/admin' + search)
             await assertRuntimeLocation(anonymousPage, '/a/' + primaryAlias + '/admin', search)
-            await expect(anonymousPage.getByRole('heading', { name: MERIDIAN_73_SITE_SETTINGS.heroTitle.en, exact: true })).toBeVisible({
+            await expect(anonymousPage.getByRole('heading', { name: getMeridian73HeroHeading('en'), exact: true })).toBeVisible({
                 timeout: 30_000
             })
             await assertPublicMarketingContent(
                 anonymousPage,
-                MERIDIAN_73_SITE_SETTINGS.heroTitle.en,
+                MERIDIAN_73_HERO.title.en,
                 MERIDIAN_73_ACTIVITIES[0].title.en,
                 MERIDIAN_73_FAQ[0].question.en,
                 '73rd Meridian alias admin-suffix public runtime',
@@ -422,7 +425,7 @@ test('@flow @marketing-page @snapshot imports the committed 73rd Meridian fixtur
             await assertRuntimeLocation(anonymousPage, '/a/' + primaryAlias + suffix, search)
             await assertPublicMarketingContent(
                 anonymousPage,
-                MERIDIAN_73_SITE_SETTINGS.heroTitle.ru,
+                MERIDIAN_73_HERO.title.ru,
                 MERIDIAN_73_ACTIVITIES[0].title.ru,
                 MERIDIAN_73_FAQ[0].question.ru,
                 '73rd Meridian canonical Russian alias public runtime',
@@ -471,9 +474,9 @@ test('@flow @marketing-page @snapshot imports the committed 73rd Meridian fixtur
             ]) {
                 await anonymousPage.setViewportSize({ width: viewport.width, height: viewport.height })
                 await anonymousPage.goto('/a/' + applicationId + '?locale=en')
-                await expect(anonymousPage.getByRole('heading', { name: MERIDIAN_73_SITE_SETTINGS.heroTitle.en, exact: true })).toBeVisible(
-                    { timeout: 30_000 }
-                )
+                await expect(anonymousPage.getByRole('heading', { name: getMeridian73HeroHeading('en'), exact: true })).toBeVisible({
+                    timeout: 30_000
+                })
                 await expectNoPageHorizontalOverflow(anonymousPage, '73rd Meridian anonymous landing page ' + viewport.name)
                 await expectNoTechnicalLeakage(anonymousPage.locator('#marketing-page-main'), {
                     label: '73rd Meridian anonymous landing page ' + viewport.name
@@ -498,7 +501,7 @@ test('@flow @marketing-page @snapshot imports the committed 73rd Meridian fixtur
         await test.step('anonymous landing keeps the language and theme switchers and hides the disabled auth widget', async () => {
             await anonymousPage.setViewportSize({ width: 1280, height: 900 })
             await anonymousPage.goto('/a/' + applicationId + '?locale=en')
-            await expect(anonymousPage.getByRole('heading', { name: MERIDIAN_73_SITE_SETTINGS.heroTitle.en, exact: true })).toBeVisible({
+            await expect(anonymousPage.getByRole('heading', { name: getMeridian73HeroHeading('en'), exact: true })).toBeVisible({
                 timeout: 30_000
             })
 
@@ -511,7 +514,7 @@ test('@flow @marketing-page @snapshot imports the committed 73rd Meridian fixtur
             await anonymousPage.getByRole('menuitem', { name: 'Dark', exact: true }).click()
             await expect(anonymousPage.locator('html')).toHaveAttribute('data-mui-color-scheme', 'dark')
             await anonymousPage.reload()
-            await expect(anonymousPage.getByRole('heading', { name: MERIDIAN_73_SITE_SETTINGS.heroTitle.en, exact: true })).toBeVisible({
+            await expect(anonymousPage.getByRole('heading', { name: getMeridian73HeroHeading('en'), exact: true })).toBeVisible({
                 timeout: 30_000
             })
             await expect(anonymousPage.locator('html')).toHaveAttribute('data-mui-color-scheme', 'dark')
@@ -522,7 +525,7 @@ test('@flow @marketing-page @snapshot imports the committed 73rd Meridian fixtur
             await languageSwitcher.click()
             await anonymousPage.getByRole('menuitem', { name: 'Russian' }).click()
             await expect(anonymousPage).toHaveURL(/locale=ru/)
-            await expect(anonymousPage.getByRole('heading', { name: MERIDIAN_73_SITE_SETTINGS.heroTitle.ru, exact: true })).toBeVisible({
+            await expect(anonymousPage.getByRole('heading', { name: getMeridian73HeroHeading('ru'), exact: true })).toBeVisible({
                 timeout: 30_000
             })
             await expectNoPageHorizontalOverflow(anonymousPage, '73rd Meridian language switch RU')

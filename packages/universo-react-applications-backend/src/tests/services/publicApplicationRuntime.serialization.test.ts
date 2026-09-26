@@ -1,5 +1,12 @@
-import { MARKETING_DEFAULT_IMAGE_URL, MARKETING_SOURCE_FIELD_KEYS } from '@universo-react/types'
+import {
+    MARKETING_DEFAULT_IMAGE_URL,
+    MARKETING_SOURCE_FIELD_KEYS,
+    buildSingleTargetWidgetBinding,
+    getLayoutWidgetDefinition,
+    marketingHeroWidgetDataSchema
+} from '@universo-react/types'
 import { PUBLIC_MARKETING_RECORD_FIELDS, serializePublicMarketingRuntime } from '../../services/publicMarketingRuntime'
+import { attachApplicationLayoutWidgetSourceBindingState } from '../../persistence/applicationLayoutStoreSupport'
 
 const applicationId = '0190a9b5-3cde-7abc-8def-0123456789ab'
 
@@ -15,8 +22,6 @@ describe('public marketing runtime serialization', () => {
                         id: rowId,
                         codename: 'site-settings',
                         BrandName: { en: 'Public brand' },
-                        HeroTitle: { en: 'Public title' },
-                        HeroSubtitle: { en: 'Public subtitle' },
                         IsVisible: true,
                         secret: 'must-not-cross-boundary'
                     }
@@ -118,6 +123,305 @@ describe('public marketing runtime serialization', () => {
         expect(undeclared).toEqual([])
     })
 
+    it('rejects legacy Hero copySource during public materialization', () => {
+        const heroWidget = {
+            id: '019ccefc-2f7b-7b36-82f4-85cdb1312298',
+            zone: 'marketing-main',
+            semanticRegion: 'main',
+            widgetKey: 'marketing.hero',
+            sortOrder: 0,
+            config: {
+                instanceKey: 'hero-default',
+                copySource: { entityCodename: 'MarketingPageSection', entityKind: 'object', recordKey: 'hero' }
+            },
+            isActive: true,
+            version: 1
+        }
+
+        expect(() =>
+            serializePublicMarketingRuntime({
+                route: {
+                    applicationId,
+                    matchedBy: 'uuid',
+                    matchedAlias: null,
+                    routingMode: 'direct',
+                    primaryAlias: null,
+                    canonicalAlias: null
+                },
+                locale: 'en',
+                rows: new Map([
+                    ['MarketingPageSiteSettings', [{ id: '019ccefc-2f7b-7b36-82f4-85cdb1312288', BrandName: { en: 'Public brand' } }]]
+                ]),
+                effectiveLayout: {
+                    layout: { templateKey: 'marketing-page', config: {} },
+                    widgets: [heroWidget]
+                } as never
+            })
+        ).toThrow('Public marketing widgets with binding slots must use their registered Entity binding')
+    })
+
+    it('serializes the shared binding projection as an allowlisted public Hero DTO', () => {
+        const layoutId = '019ccefc-2f7b-7b36-82f4-85cdb1312273'
+        const heroRecordId = '019ccefc-2f7b-7b36-82f4-85cdb1312299'
+        const binding = buildSingleTargetWidgetBinding(getLayoutWidgetDefinition('marketing.hero')!, 'content', {
+            entityKind: 'object',
+            entityCodename: 'MarketingPageHero',
+            semanticKey: 'hero-default'
+        })
+        const heroWidget = attachApplicationLayoutWidgetSourceBindingState(
+            {
+                id: '019ccefc-2f7b-7b36-82f4-85cdb1312298',
+                zone: 'marketing-main',
+                semanticRegion: 'main',
+                widgetKey: 'marketing.hero',
+                sortOrder: 0,
+                config: { instanceKey: 'hero-default', showLeadForm: true },
+                isActive: true,
+                version: 1
+            },
+            { persistedApplicationRow: true, bindings: binding }
+        )
+        const rows = new Map<string, readonly Record<string, unknown>[]>([
+            ['MarketingPageSiteSettings', [{ id: '019ccefc-2f7b-7b36-82f4-85cdb1312288', BrandName: { en: 'Public brand' } }]],
+            [
+                'MarketingPageHero',
+                [
+                    {
+                        id: heroRecordId,
+                        HeroKey: 'hero-default',
+                        Title: { en: 'Entity owned title' },
+                        Accent: { en: 'Entity accent' },
+                        Description: { en: 'Entity owned description' },
+                        EmailLabel: { en: 'Email' },
+                        EmailPlaceholder: { en: 'you@example.test' },
+                        PrimaryActionLabel: { en: 'Join' },
+                        PrimaryAction: { kind: 'internal', path: '/join' },
+                        PrivateColumn: 'never serialize'
+                    }
+                ]
+            ]
+        ])
+
+        const payload = serializePublicMarketingRuntime({
+            route: {
+                applicationId,
+                matchedBy: 'uuid',
+                matchedAlias: null,
+                routingMode: 'direct',
+                primaryAlias: null,
+                canonicalAlias: null
+            },
+            locale: 'en',
+            rows,
+            effectiveLayout: {
+                status: 'ok',
+                target: { applicationId, locale: 'en' },
+                resolvedEntityTypeId: null,
+                scope: 'global',
+                layout: {
+                    id: layoutId,
+                    scopeKind: 'global',
+                    scopeEntityId: null,
+                    templateKey: 'marketing-page',
+                    sourceKind: 'authored',
+                    sourceLayoutId: null,
+                    sourceSnapshotHash: null,
+                    sourceContentHash: null,
+                    localContentHash: null,
+                    syncState: 'synced',
+                    name: {},
+                    description: null,
+                    config: { themeMode: 'system' },
+                    isActive: true,
+                    isDefault: true,
+                    sortOrder: 0,
+                    version: 1
+                },
+                widgets: [heroWidget],
+                precedence: [],
+                publicationIdentity: null,
+                effectiveHash: 'a'.repeat(64)
+            } as never
+        })
+
+        const hero = payload.marketingPage.widgets.find((widget) => widget.widgetKey === 'marketing.hero')
+        const typedHeroData = marketingHeroWidgetDataSchema.parse(hero?.data)
+        expect(hero?.data).toEqual(typedHeroData)
+        expect(hero).toMatchObject({
+            widgetKey: 'marketing.hero',
+            data: {
+                records: [
+                    {
+                        kind: 'heroContent',
+                        semanticKey: 'content',
+                        content: {
+                            title: { en: 'Entity owned title' },
+                            description: { en: 'Entity owned description' },
+                            primaryAction: { kind: 'internal', path: '/join' }
+                        }
+                    }
+                ]
+            }
+        })
+        expect(JSON.stringify(payload)).not.toContain(heroRecordId)
+        expect(JSON.stringify(payload)).not.toContain('never serialize')
+        expect(JSON.stringify(payload)).not.toContain('HeroTitle')
+    })
+
+    it('remaps active Hero action anchors to public identities and redacts inactive UUID targets', () => {
+        const opaqueHeroUuid = '01a0d4c7-770c-761f-92cd-03ed35b5e6a7'
+        const opaqueHeroInstanceKey = `hero-${opaqueHeroUuid}`
+        const inactiveHeroUuid = '01a0d4c8-770c-761f-92cd-03ed35b5e6a7'
+        const createHeroWidget = (instanceKey: string | undefined, semanticKey: string, sortOrder: number) => {
+            const binding = buildSingleTargetWidgetBinding(getLayoutWidgetDefinition('marketing.hero')!, 'content', {
+                entityKind: 'object',
+                entityCodename: 'MarketingPageHero',
+                semanticKey
+            })
+            return attachApplicationLayoutWidgetSourceBindingState(
+                {
+                    id: `019ccefc-2f7b-7b36-82f4-85cdb13122${String(sortOrder).padStart(2, '0')}`,
+                    zone: 'marketing-main',
+                    semanticRegion: 'main',
+                    widgetKey: 'marketing.hero',
+                    sortOrder,
+                    config: { ...(instanceKey !== undefined ? { instanceKey } : {}), showLeadForm: true },
+                    isActive: true,
+                    version: 1
+                },
+                { persistedApplicationRow: true, bindings: binding }
+            )
+        }
+        const layoutId = '019ccefc-2f7b-7b36-82f4-85cdb1312273'
+        const widgets = [
+            createHeroWidget('hero-first', 'hero-first', 1),
+            createHeroWidget(opaqueHeroInstanceKey, 'hero-second', 2),
+            createHeroWidget(undefined, 'hero-third', 3),
+            createHeroWidget('', 'hero-empty-instance', 4),
+            createHeroWidget('   ', 'hero-blank-instance', 5)
+        ]
+        const createFallbackHeroRecord = (id: string, semanticKey: string, title: string) => ({
+            id,
+            HeroKey: semanticKey,
+            Title: { en: title },
+            Description: { en: `${title} description` },
+            EmailLabel: { en: 'Email' },
+            EmailPlaceholder: { en: 'you@example.test' },
+            PrimaryActionLabel: { en: 'Back to the first Hero' },
+            PrimaryAction: { kind: 'anchor', href: '#hero' },
+            TermsText: { en: 'Review conditions' },
+            TermsLinkLabel: { en: 'Terms' },
+            TermsAction: { kind: 'internal', path: '/terms' }
+        })
+        const rows = new Map<string, readonly Record<string, unknown>[]>([
+            ['MarketingPageSiteSettings', [{ id: '019ccefc-2f7b-7b36-82f4-85cdb1312288', BrandName: { en: 'Public brand' } }]],
+            [
+                'MarketingPageHero',
+                [
+                    {
+                        id: '019ccefc-2f7b-7b36-82f4-85cdb1312289',
+                        HeroKey: 'hero-first',
+                        Title: { en: 'First Hero' },
+                        Description: { en: 'First description' },
+                        EmailLabel: { en: 'Email' },
+                        EmailPlaceholder: { en: 'you@example.test' },
+                        PrimaryActionLabel: { en: 'Join' },
+                        PrimaryAction: { kind: 'internal', path: '/join' },
+                        TermsText: { en: 'Review conditions' },
+                        TermsLinkLabel: { en: 'Terms' },
+                        TermsAction: { kind: 'anchor', href: `#${opaqueHeroInstanceKey}` }
+                    },
+                    {
+                        id: '019ccefc-2f7b-7b36-82f4-85cdb1312290',
+                        HeroKey: 'hero-second',
+                        Title: { en: 'Second Hero' },
+                        Description: { en: 'Second description' },
+                        EmailLabel: { en: 'Email' },
+                        EmailPlaceholder: { en: 'you@example.test' },
+                        PrimaryActionLabel: { en: 'Explore the platform' },
+                        PrimaryAction: { kind: 'anchor', href: `#hero-${opaqueHeroInstanceKey}` },
+                        TermsText: { en: 'Review conditions' },
+                        TermsLinkLabel: { en: 'Terms' },
+                        TermsAction: { kind: 'anchor', href: `#hero-${inactiveHeroUuid}` }
+                    },
+                    createFallbackHeroRecord('019ccefc-2f7b-7b36-82f4-85cdb1312291', 'hero-third', 'Third Hero'),
+                    createFallbackHeroRecord('019ccefc-2f7b-7b36-82f4-85cdb1312292', 'hero-empty-instance', 'Empty-key Hero'),
+                    createFallbackHeroRecord('019ccefc-2f7b-7b36-82f4-85cdb1312293', 'hero-blank-instance', 'Whitespace-key Hero')
+                ]
+            ]
+        ])
+
+        const payload = serializePublicMarketingRuntime({
+            route: {
+                applicationId,
+                matchedBy: 'uuid',
+                matchedAlias: null,
+                routingMode: 'direct',
+                primaryAlias: null,
+                canonicalAlias: null
+            },
+            locale: 'en',
+            rows,
+            effectiveLayout: {
+                layout: {
+                    id: layoutId,
+                    templateKey: 'marketing-page',
+                    config: { themeMode: 'system' }
+                },
+                widgets
+            } as never
+        })
+
+        const heroes = payload.marketingPage.widgets.filter((widget) => widget.widgetKey === 'marketing.hero')
+        expect(heroes[1]).toMatchObject({
+            instanceKey: 'marketing-hero-1',
+            data: {
+                records: [
+                    {
+                        content: {
+                            primaryAction: { kind: 'anchor', href: '#hero-marketing-hero-1' },
+                            termsAction: { kind: 'anchor', href: '#unavailable-public-section-0' }
+                        }
+                    }
+                ]
+            }
+        })
+        expect(heroes[0]).toMatchObject({
+            data: {
+                records: [
+                    {
+                        content: {
+                            termsAction: { kind: 'anchor', href: '#marketing-hero-1' }
+                        }
+                    }
+                ]
+            }
+        })
+        expect(heroes[2]).toMatchObject({
+            instanceKey: 'marketing-hero-2',
+            data: {
+                records: [
+                    {
+                        content: {
+                            title: { en: 'Third Hero' },
+                            primaryAction: { kind: 'anchor', href: '#hero' }
+                        }
+                    }
+                ]
+            }
+        })
+        expect(heroes[3]).toMatchObject({
+            instanceKey: 'marketing-hero-3',
+            data: { records: [{ content: { primaryAction: { kind: 'anchor', href: '#hero' } } }] }
+        })
+        expect(heroes[4]).toMatchObject({
+            instanceKey: 'marketing-hero-4',
+            data: { records: [{ content: { primaryAction: { kind: 'anchor', href: '#hero' } } }] }
+        })
+        expect(JSON.stringify(payload)).not.toContain(opaqueHeroUuid)
+        expect(JSON.stringify(payload)).not.toContain(inactiveHeroUuid)
+    })
+
     it('projects active header layout rows, excluding disabled ones, with the language switcher', () => {
         const layoutId = '019ccefc-2f7b-7b36-82f4-85cdb1312281'
         const rows = new Map<string, readonly Record<string, unknown>[]>([
@@ -128,8 +432,6 @@ describe('public marketing runtime serialization', () => {
                         id: '019ccefc-2f7b-7b36-82f4-85cdb1312282',
                         codename: 'site-settings',
                         BrandName: { en: 'Public brand' },
-                        HeroTitle: { en: 'Public title' },
-                        HeroSubtitle: { en: 'Public subtitle' },
                         IsVisible: true
                     }
                 ]
@@ -245,8 +547,6 @@ describe('public marketing runtime serialization', () => {
                         id: '019ccefc-2f7b-7b36-82f4-85cdb1312272',
                         codename: 'site-settings',
                         BrandName: { en: 'Public brand' },
-                        HeroTitle: { en: 'Public title' },
-                        HeroSubtitle: { en: 'Public subtitle' },
                         IsVisible: true
                     }
                 ]
@@ -331,8 +631,6 @@ describe('public marketing runtime serialization', () => {
                         id: '019ccefc-2f7b-7b36-82f4-85cdb1312272',
                         codename: 'site-settings',
                         BrandName: { en: 'Public brand' },
-                        HeroTitle: { en: 'Public title' },
-                        HeroSubtitle: { en: 'Public subtitle' },
                         IsVisible: true
                     }
                 ]
@@ -441,8 +739,6 @@ describe('public marketing runtime serialization', () => {
                         id: '019ccefc-2f7b-7b36-82f4-85cdb1312272',
                         codename: 'site-settings',
                         BrandName: { en: 'Public brand' },
-                        HeroTitle: { en: 'Public title' },
-                        HeroSubtitle: { en: 'Public subtitle' },
                         IsVisible: true
                     }
                 ]
@@ -537,8 +833,6 @@ describe('public marketing runtime serialization', () => {
                         id: '019ccefc-2f7b-7b36-82f4-85cdb1312272',
                         codename: 'site-settings',
                         BrandName: { en: 'Public brand' },
-                        HeroTitle: { en: 'Public title' },
-                        HeroSubtitle: { en: 'Public subtitle' },
                         IsVisible: true
                     }
                 ]
@@ -624,8 +918,6 @@ describe('public marketing runtime serialization', () => {
                         id: '019ccefc-2f7b-7b36-82f4-85cdb1312272',
                         codename: 'site-settings',
                         BrandName: { en: 'Public brand' },
-                        HeroTitle: { en: 'Public title' },
-                        HeroSubtitle: { en: 'Public subtitle' },
                         IsVisible: true
                     }
                 ]
@@ -724,8 +1016,6 @@ describe('public marketing runtime serialization', () => {
                         id: '019ccefc-2f7b-7b36-82f4-85cdb1312296',
                         codename: 'site-settings',
                         BrandName: { en: 'Public brand' },
-                        HeroTitle: { en: 'Public title' },
-                        HeroSubtitle: { en: 'Public subtitle' },
                         IsVisible: true
                     }
                 ]

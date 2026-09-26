@@ -834,6 +834,9 @@ export async function copyWorkspace(
         })
         const scopedTables = await listWorkspaceScopedBusinessTables(tx, input.schemaName)
 
+        // Copying is owner-authorized workspace management, not a runtime row
+        // mutation. Preserve protected seed Entities and their records in the
+        // destination while ordinary runtime writes remain policy-gated.
         await tx.query('CREATE TEMP TABLE workspace_copy_id_map (old_id UUID PRIMARY KEY, new_id UUID NOT NULL) ON COMMIT DROP')
         for (const tableName of scopedTables) {
             const tableIdent = qSchemaTable(input.schemaName, tableName)

@@ -1,5 +1,6 @@
 import { useId } from 'react'
-import { Checkbox, FormControl, FormControlLabel, InputLabel, MenuItem, Select, Stack, Switch, Typography } from '@mui/material'
+import { Checkbox, FormControl, FormControlLabel, InputLabel, MenuItem, Stack, Switch, Typography } from '@mui/material'
+import { DropdownSelect as Select } from '../dropdowns'
 import { type DashboardSideMenuMode, type MenuWidgetConfig } from '@universo-react/types'
 
 import {

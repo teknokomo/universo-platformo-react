@@ -509,6 +509,26 @@ describe('applicationLayoutsController', () => {
         expect(res.status.mock.results[0]?.value.json).toHaveBeenCalledWith({ error: 'APPLICATION_LAYOUT_VERSION_CONFLICT' })
     })
 
+    it('maps a generic copy of an entity-backed widget layout to a typed HTTP 409 conflict', async () => {
+        const controller = createApplicationLayoutsController(() => executor as never)
+        const res = createResponse()
+        mockCopyApplicationLayout.mockRejectedValue(new Error('APPLICATION_LAYOUT_ENTITY_BACKED_WIDGET_COPY_CONFLICT'))
+
+        await controller.copy(
+            {
+                params: { applicationId: 'app-1', layoutId: '018f8a78-7b8f-7c1d-a111-2222333344a1' },
+                body: { expectedVersion: 7 }
+            } as unknown as Request,
+            res
+        )
+
+        expect(res.status).toHaveBeenCalledWith(409)
+        expect(res.status.mock.results[0]?.value.json).toHaveBeenCalledWith({
+            error: 'APPLICATION_LAYOUT_ENTITY_BACKED_WIDGET_COPY_CONFLICT',
+            code: 'APPLICATION_LAYOUT_ENTITY_BACKED_WIDGET_COPY_CONFLICT'
+        })
+    })
+
     it('maps a duplicate marketing instance key to HTTP 409 and preserves both route ids', async () => {
         const controller = createApplicationLayoutsController(() => executor as never)
         const res = createResponse()
@@ -516,11 +536,7 @@ describe('applicationLayoutsController', () => {
             zone: 'marketing-main',
             widgetKey: 'marketing.hero',
             expectedVersion: 3,
-            config: {
-                instanceKey: 'hero',
-                source: { entityCodename: 'MarketingPageSiteSettings', entityKind: 'object' },
-                showLeadForm: false
-            }
+            config: { instanceKey: 'hero', showLeadForm: false }
         }
         mockUpsertApplicationLayoutWidget.mockRejectedValue(new Error('APPLICATION_LAYOUT_WIDGET_DUPLICATE_INSTANCE'))
 
@@ -548,7 +564,7 @@ describe('applicationLayoutsController', () => {
     it('passes the route layout id to widget config updates', async () => {
         const controller = createApplicationLayoutsController(() => executor as never)
         const res = createResponse()
-        const body = { expectedVersion: 3, config: { instanceKey: 'hero', source: { entityCodename: 'MarketingPageSiteSettings' } } }
+        const body = { expectedVersion: 3, config: { instanceKey: 'hero', showLeadForm: true } }
         mockUpdateApplicationLayoutWidgetConfig.mockResolvedValue({ id: 'widget-1' })
 
         await controller.updateWidgetConfig(
@@ -601,6 +617,28 @@ describe('applicationLayoutsController', () => {
             'user-1'
         )
         expect(res.json).toHaveBeenCalledWith({ item: { id: 'widget-1', isActive: false } })
+    })
+
+    it('returns a typed conflict when hiding a section would break a bound Hero action', async () => {
+        const controller = createApplicationLayoutsController(() => executor as never)
+        const res = createResponse()
+        const conflict = 'APPLICATION_LAYOUT_MARKETING_HERO_ACTION_INTEGRITY_CONFLICT'
+        mockToggleApplicationLayoutWidget.mockRejectedValue(new Error(conflict))
+
+        await controller.toggleWidget(
+            {
+                params: {
+                    applicationId: 'app-1',
+                    layoutId: '018f8a78-7b8f-7c1d-a111-2222333344a2',
+                    widgetId: '018f8a78-7b8f-7c1d-a111-2222333344a3'
+                },
+                body: { isActive: false, expectedVersion: 4 }
+            } as unknown as Request,
+            res
+        )
+
+        expect(res.status).toHaveBeenCalledWith(409)
+        expect(res.status.mock.results[0]?.value.json).toHaveBeenCalledWith({ error: conflict, code: conflict })
     })
 
     it('passes the route layout id and expectedVersion to widget deletion', async () => {

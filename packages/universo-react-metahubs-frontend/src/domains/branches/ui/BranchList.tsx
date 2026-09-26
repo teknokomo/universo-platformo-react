@@ -8,7 +8,6 @@ import {
     Chip,
     FormControl,
     InputLabel,
-    Select,
     MenuItem,
     FormHelperText,
     Checkbox,
@@ -64,6 +63,7 @@ import branchActions from './BranchActions'
 import { useMetahubPrimaryLocale } from '../../settings/hooks/useMetahubPrimaryLocale'
 import type { GenericFormValues, BranchMenuBaseContext } from './branchListUtils'
 import { extractResponseStatus, extractResponseMessage } from './branchListUtils'
+import { DropdownSelect as Select } from '@universo-react/template-mui/dropdowns'
 
 type BranchFormFieldsProps = {
     values: GenericFormValues

@@ -9,7 +9,6 @@ import { useCallback } from 'react'
 import {
     Switch,
     FormControlLabel,
-    Select,
     MenuItem,
     TextField,
     FormGroup,
@@ -19,8 +18,10 @@ import {
     Box,
     SelectChangeEvent
 } from '@mui/material'
+
 import { useTranslation } from 'react-i18next'
 import { buildEntitySurfaceSettingKey } from '@universo-react/types'
+import { DropdownSelect as Select } from '@universo-react/template-mui/dropdowns'
 
 export interface SettingControlProps {
     /** Setting key (dot-notation, e.g. 'general.codenameStyle') */

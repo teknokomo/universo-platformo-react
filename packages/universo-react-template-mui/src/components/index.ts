@@ -75,6 +75,8 @@ export { CodenameField } from './forms/CodenameField'
 export type { CodenameFieldProps } from './forms/CodenameField'
 export { LocalizedInlineField } from './forms/LocalizedInlineField'
 export { LocalizedFieldEditor } from './forms/LocalizedFieldEditor'
+export { DropdownSelect, DropdownAutocomplete, DropdownActionButtons } from './dropdowns'
+export type { DropdownSelectProps, DropdownAutocompleteProps, DropdownAction, DropdownActionButtonsProps } from './dropdowns'
 export { LocalizedVariantTabs } from './tabs'
 export type { LocalizedVariantTabItem, LocalizedVariantTabsLabels, LocalizedVariantTabsProps } from './tabs'
 

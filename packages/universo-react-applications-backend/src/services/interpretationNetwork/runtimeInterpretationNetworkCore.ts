@@ -5,6 +5,7 @@ import { LocalizedStringAllowEmptySchema, LocalizedStringSchema, type Interpreta
 import type { DbExecutor } from '@universo-react/utils'
 import { createLocalizedContent, ensureVLC, generateUuidV7 } from '@universo-react/utils'
 import { z } from 'zod'
+import { assertRuntimeEntityMutationAllowed, RuntimeEntityMutationPolicyError } from '../../shared/entityMutationPolicy'
 import {
     IDENTIFIER_REGEX,
     UUID_REGEX,
@@ -54,6 +55,16 @@ export class InterpretationNetworkCommandError extends Error {
     ) {
         super(message)
         this.name = 'InterpretationNetworkCommandError'
+    }
+}
+
+export const assertInterpretationNetworkEntityMutationAllowed = (config: unknown): void => {
+    try {
+        assertRuntimeEntityMutationAllowed(config)
+    } catch (error) {
+        if (!(error instanceof RuntimeEntityMutationPolicyError)) throw error
+        const message = typeof error.body.error === 'string' ? error.body.error : 'Entity runtime mutation is disabled.'
+        throw new InterpretationNetworkCommandError(error.statusCode, error.code, message)
     }
 }
 
@@ -462,6 +473,7 @@ export const insertRow = async (
         userId: string
     }
 ): Promise<string> => {
+    assertInterpretationNetworkEntityMutationAllowed(params.contract.object.config)
     const generatedId = generateUuidV7()
     const columns: string[] = ['id']
     const placeholders: string[] = ['$1']
@@ -515,6 +527,7 @@ export const updateRowValues = async (
         expectedVersion?: number
     }
 ): Promise<Record<string, unknown>> => {
+    assertInterpretationNetworkEntityMutationAllowed(params.contract.object.config)
     const setClauses: string[] = []
     const queryValues: unknown[] = []
 
@@ -572,6 +585,7 @@ export const softDeleteRow = async (
         expectedVersion?: number
     }
 ): Promise<void> => {
+    assertInterpretationNetworkEntityMutationAllowed(params.contract.object.config)
     const values: unknown[] = [params.userId, params.rowId]
     const where = ['id = $2']
     if (params.expectedVersion !== undefined) {
@@ -622,6 +636,7 @@ export const softDeleteChildRows = async (
 ): Promise<string[]> => {
     const parentIds = [...new Set(params.parentIds.filter((id) => UUID_REGEX.test(id)))]
     if (parentIds.length === 0) return []
+    assertInterpretationNetworkEntityMutationAllowed(params.contract.object.config)
     const values: unknown[] = [params.userId, parentIds]
     const rows = await executor.query<{ id: string }>(
         `
@@ -655,6 +670,7 @@ export const softDeleteRowsByField = async (
         userId: string
     }
 ): Promise<string[]> => {
+    assertInterpretationNetworkEntityMutationAllowed(params.contract.object.config)
     const column = assertColumn(params.field, params.field.codename)
     const values: unknown[] = [params.userId, params.value]
     const rows = await executor.query<{ id: string }>(
@@ -750,6 +766,7 @@ export const insertChildRows = async (
     }
 ): Promise<void> => {
     if (params.rows.length === 0) return
+    assertInterpretationNetworkEntityMutationAllowed(params.contract.object.config)
 
     const childAttrsByColumn = new Map<string, RuntimeTableChildComponentMeta>(
         Object.values(params.contract.childFields).map((field) => [

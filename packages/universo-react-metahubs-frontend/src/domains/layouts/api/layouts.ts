@@ -36,6 +36,24 @@ export type LayoutWidgetScopeVisibility = {
     isOverridden: boolean
 }
 
+export type LayoutZoneWidgetBinding = {
+    recordId: string
+    recordVersion: number
+    widgetVersion: number
+    label: string
+}
+
+export type WidgetBindingSource = {
+    entityId: string
+    entityCodename: string
+    name: string
+    description?: string
+    recordsCount: number
+    otherWidgetUsageCount: number
+}
+export type WidgetBindingSourceProvision = { source: WidgetBindingSource; initialRecord: { recordId: string } }
+export type WidgetBindingUsage = { recordId: string; usageCount: number }
+
 /**
  * List layouts for a specific metahub
  */
@@ -86,6 +104,7 @@ export type LayoutCopyInput = {
     descriptionPrimaryLocale?: MetahubLayoutLocalizedPayload['descriptionPrimaryLocale']
     copyWidgets?: LayoutCopyOptions['copyWidgets']
     deactivateAllWidgets?: LayoutCopyOptions['deactivateAllWidgets']
+    heroBindingCopyMode?: 'reuse' | 'omit'
 }
 
 export const copyLayout = (metahubId: string, layoutId: string, data: LayoutCopyInput) =>
@@ -155,9 +174,52 @@ export const assignLayoutZoneWidget = (
         widgetKey: ApplicationLayoutWidgetKey
         sortOrder?: number
         config?: Record<string, unknown>
+        heroContent?: { mode: 'auto'; sourceWidgetId?: string } | { mode: 'existing'; recordId: string }
         expectedVersion: number
     }
 ) => apiClient.put<MetahubLayoutZoneWidget>(`/metahub/${metahubId}/layout/${layoutId}/zone-widget`, data)
+
+export const getWidgetBindingSources = (
+    metahubId: string,
+    layoutId: string,
+    widgetKey: string,
+    slotKey: string,
+    locale: 'en' | 'ru',
+    excludeWidgetId?: string
+) =>
+    apiClient.get<{ items: WidgetBindingSource[] }>(
+        `/metahub/${metahubId}/layout/${layoutId}/widget-binding-sources/${widgetKey}/${slotKey}`,
+        { params: { locale, ...(excludeWidgetId ? { excludeWidgetId } : {}) } }
+    )
+
+export const provisionWidgetBindingSource = (
+    metahubId: string,
+    layoutId: string,
+    widgetKey: string,
+    slotKey: string,
+    data: { codename: string; name: string; description?: string }
+) =>
+    apiClient.post<WidgetBindingSourceProvision>(
+        `/metahub/${metahubId}/layout/${layoutId}/widget-binding-sources/${widgetKey}/${slotKey}`,
+        data
+    )
+
+export const getWidgetBindingUsage = (metahubId: string, layoutId: string, recordId: string, excludeWidgetId?: string) =>
+    apiClient.get<WidgetBindingUsage>(`/metahub/${metahubId}/layout/${layoutId}/widget-binding-usage`, {
+        params: { recordId, ...(excludeWidgetId ? { excludeWidgetId } : {}) }
+    })
+
+export const getLayoutZoneWidgetBinding = (metahubId: string, layoutId: string, widgetId: string, locale: 'en' | 'ru') =>
+    apiClient.get<LayoutZoneWidgetBinding>(`/metahub/${metahubId}/layout/${layoutId}/zone-widget/${widgetId}/binding`, {
+        params: { locale }
+    })
+
+export const updateLayoutZoneWidgetBinding = (
+    metahubId: string,
+    layoutId: string,
+    widgetId: string,
+    data: { recordId: string; expectedVersion: number }
+) => apiClient.patch<MetahubLayoutZoneWidget>(`/metahub/${metahubId}/layout/${layoutId}/zone-widget/${widgetId}/binding`, data)
 
 export const moveLayoutZoneWidget = (
     metahubId: string,

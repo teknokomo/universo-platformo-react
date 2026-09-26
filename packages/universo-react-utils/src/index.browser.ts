@@ -62,7 +62,8 @@ export {
     getCodenamePrimary,
     getVLCStringWithFallback,
     getSimpleLocalizedValue,
-    normalizeLocale
+    normalizeLocale,
+    toLocalizedStringMap
 } from './vlc'
 
 // Number validation utilities for precision/scale constraints

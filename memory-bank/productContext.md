@@ -1,4 +1,4 @@
-> **Last Reviewed**: 2026-09-14 (refreshed: repository 0.82.0-alpha; active 1C/Interpretation/Marketing/PlayCanvas configurations; MUI 9 widgetized/scoped application runtime focus)
+> **Last Reviewed**: 2026-09-26 (refreshed: repository 0.83.0-alpha; Entity-backed Marketing Hero authoring; shared non-published MUI dropdown baseline; active configuration set rechecked)
 
 # Product Context
 
@@ -20,6 +20,10 @@ introducing new platform-level types for each product.
 -   **Generic over feature-specific**: configuration data and i18n drive
     behavior; widgets stay generic. LMS-specific labels, icons, and
     flows are metadata, not widget code.
+-   **Entity-owned widget content**: authoring widgets are graphical/no-code
+    tools over ordinary Entity data. Business/content values live in
+    Objects/Components; widget placement stores the semantic binding and
+    presentation configuration instead of creating a parallel content store.
 -   **Strengthen the existing primitive over adding a new one**: when a
     domain need does not fit the current entity types, prefer extending
     a preset (capabilities or `recordBehavior`) or building a custom
@@ -70,7 +74,7 @@ parity.
     orchestration, distributed nodes, and robotic execution.
 -   **1C-compatible metahub template**: active built-in template with specialized metadata presets for organizations migrating 1C-style transactional/accounting models.
 -   **Interpretation Network**: active template/runtime for hierarchical structures, interpretations, cells, relations, materials, and reusable matrix/table models.
--   **Marketing Page**: active data-driven MUI 9 template proving persisted widget composition, scoped layouts, responsive runtime controls, and reusable authoring.
+-   **Marketing Page**: active data-driven MUI 9 template proving persisted widget composition, scoped layouts, responsive runtime controls, and Entity-backed reusable authoring. The `marketing.hero` pilot binds to `MarketingPageHero` Object records and supports automatic source provisioning plus advanced source reuse/customization.
 -   **PlayCanvas/MMOOMM**: active Project-bound 3D authoring/runtime path using the vendored PlayCanvas Editor, engine runtime, modules, and Colyseus realtime packages.
 
 These configurations share the platform; they are not separate
@@ -160,15 +164,15 @@ product.
 
 ## Current Status
 
--   **Repository version**: `0.82.0-alpha`.
--   **Recent focus**: unified application-template widgets/scoped layouts and the marketing header zone-settings contract on MUI 9, with Interpretation Network and PlayCanvas/MMOOMM as major runtime workloads; LMS remains an active product configuration.
+-   **Repository version**: `0.83.0-alpha`.
+-   **Recent focus**: Entity-backed Marketing Hero authoring, unified application-template widgets/scoped layouts, and shared MUI selection controls for non-published management surfaces; Interpretation Network and PlayCanvas/MMOOMM remain major runtime workloads, and LMS remains an active product configuration.
 -   **Platform groundwork**: ongoing consolidation of the metahub
     configuration model, the entity type constructor, and the
     metahub-as-application transition.
 
 ## Next Development Focus
 
--   Continue productizing generic application-template widgets/layout authoring so Marketing, Interpretation Network, LMS, and future configurations share the same runtime contracts.
+-   Continue productizing generic Entity-backed widget/layout authoring so Marketing, Interpretation Network, LMS, and future configurations share the same content-ownership, binding, and runtime contracts.
 -   Continue LMS Learning Content parity work on generic primitives.
 -   Continue the metahub-as-application migration: replace legacy
     feature packages (one area at a time) with applications shipped

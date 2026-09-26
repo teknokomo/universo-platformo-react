@@ -89,15 +89,17 @@ type MarketingNavigationGeometry = {
     scrollY: number
 }
 
-const readMarketingNavigationGeometry = async (page: Page): Promise<MarketingNavigationGeometry> =>
-    page.evaluate(() => {
+const readMarketingNavigationGeometry = async (page: Page, allowMissingHero = false): Promise<MarketingNavigationGeometry> =>
+    page.evaluate((permitMissingHero) => {
         const navigation = document.querySelector<HTMLElement>('[data-testid="marketing-header-navigation"]')
         const appBar = document.querySelector<HTMLElement>('[data-testid="marketing-header-shell"]')
         const hero = document.querySelector<HTMLElement>('[data-marketing-widget-instance="hero"]')
-        if (!navigation || !appBar || !hero) throw new Error('Marketing navigation geometry was not rendered')
+        const marketingMain = document.querySelector<HTMLElement>('#marketing-page-main')
+        const anchor = hero ?? (permitMissingHero ? marketingMain : null)
+        if (!navigation || !appBar || !anchor) throw new Error('Marketing navigation geometry was not rendered')
         const navigationRect = navigation.getBoundingClientRect()
         const appBarRect = appBar.getBoundingClientRect()
-        const heroRect = hero.getBoundingClientRect()
+        const anchorRect = anchor.getBoundingClientRect()
         const frameHeight = Number.parseFloat(window.getComputedStyle(document.documentElement).getPropertyValue('--template-frame-height'))
         const normalizedFrameHeight = Number.isFinite(frameHeight) ? frameHeight : 0
         const visualOffset = Number.parseFloat(appBar.dataset.marketingHeaderVisualOffset ?? '')
@@ -110,14 +112,15 @@ const readMarketingNavigationGeometry = async (page: Page): Promise<MarketingNav
             visualOffset: normalizedVisualOffset,
             navigationTop: navigationRect.top,
             navigationHeight: navigationRect.height,
-            heroTop: heroRect.top,
+            heroTop: anchorRect.top,
             scrollY: window.scrollY
         }
-    })
+    }, allowMissingHero)
 
 type MarketingBackgroundOwnership = {
     pageBackgroundImage: string
     heroBackgroundImage: string
+    hasHero: boolean
 }
 
 const readMarketingBackgroundOwnership = async (page: Page): Promise<MarketingBackgroundOwnership> =>
@@ -125,10 +128,11 @@ const readMarketingBackgroundOwnership = async (page: Page): Promise<MarketingBa
         const pageRoot = document.querySelector<HTMLElement>('[data-testid="marketing-page-root"]')
         const heroSlot = document.querySelector<HTMLElement>('[data-marketing-widget-instance="hero"]')
         const hero = heroSlot?.firstElementChild as HTMLElement | null
-        if (!pageRoot || !hero) throw new Error('Marketing background ownership was not rendered')
+        if (!pageRoot) throw new Error('Marketing background ownership was not rendered')
         return {
             pageBackgroundImage: window.getComputedStyle(pageRoot).backgroundImage,
-            heroBackgroundImage: window.getComputedStyle(hero).backgroundImage
+            heroBackgroundImage: hero ? window.getComputedStyle(hero).backgroundImage : 'none',
+            hasHero: Boolean(hero)
         }
     })
 
@@ -199,6 +203,20 @@ async function upsertApplicationLayoutWidgetWithRetry(
             { timeout: 30_000 }
         )
         .toBe(true)
+}
+
+async function expectApplicationHeroBindingWriteDenied(
+    api: Awaited<ReturnType<typeof createLoggedInApiContext>>,
+    applicationId: string,
+    layoutId: string,
+    payload: { widgetKey: string; zone: string; sortOrder: number; config: Record<string, unknown> }
+): Promise<void> {
+    const detail = await getApplicationLayout(api, applicationId, layoutId)
+    const version = detail?.item?.version
+    if (!Number.isInteger(version) || version < 1) throw new Error(`Layout ${layoutId} did not expose a writable version`)
+    await expect(upsertApplicationLayoutWidget(api, applicationId, layoutId, { ...payload, expectedVersion: version })).rejects.toThrow(
+        'APPLICATION_LAYOUT_ENTITY_BACKED_WIDGET_COPY_CONFLICT'
+    )
 }
 
 test('@flow @combined @cross-template resolves an entity-scoped template and shared widget across runtime hosts', async ({
@@ -341,12 +359,17 @@ test('@flow @combined @cross-template resolves an entity-scoped template and sha
 
         for (const widget of sourceWidgetResponse?.items ?? []) {
             if (typeof widget.widgetKey !== 'string' || typeof widget.zone !== 'string') continue
-            await upsertApplicationLayoutWidgetWithRetry(api, applicationId, scopedMarketingLayout.id, {
+            const payload = {
                 widgetKey: widget.widgetKey,
                 zone: widget.zone,
                 sortOrder: typeof widget.sortOrder === 'number' ? widget.sortOrder : 0,
                 config: widget.config && typeof widget.config === 'object' && !Array.isArray(widget.config) ? widget.config : {}
-            })
+            }
+            if (widget.widgetKey === 'marketing.hero') {
+                await expectApplicationHeroBindingWriteDenied(api, applicationId, scopedMarketingLayout.id, payload)
+                continue
+            }
+            await upsertApplicationLayoutWidgetWithRetry(api, applicationId, scopedMarketingLayout.id, payload)
         }
 
         const navigationSourceWidget = (sourceWidgetResponse?.items ?? []).find(
@@ -395,7 +418,7 @@ test('@flow @combined @cross-template resolves an entity-scoped template and sha
             )}&locale=en&themeVariant=light`
         )
         await expect(page.locator('#marketing-page-main')).toBeVisible()
-        await expect(page.getByRole('heading', { name: 'Our latest products', exact: true })).toBeVisible()
+        await expect(page.locator('[data-marketing-widget-instance="hero"]')).toHaveCount(0)
         await expect(page.getByTestId('marketing-header-shell')).toHaveCount(1)
         await expect(page.getByRole('banner')).toHaveCount(1)
         await expect(page.getByTestId('marketing-header-drawer')).toHaveCount(1)
@@ -412,20 +435,21 @@ test('@flow @combined @cross-template resolves an entity-scoped template and sha
             )
         expect(navigationLabels).toHaveLength(3)
         expect(new Set(navigationLabels).size).toBe(3)
-        const navigationGeometry = await readMarketingNavigationGeometry(page)
+        const navigationGeometry = await readMarketingNavigationGeometry(page, true)
         expect(navigationGeometry.appBarPosition).toBe('fixed')
         expect(navigationGeometry.visualOffset).toBe(28)
         expect(navigationGeometry.navigationHeight).toBeGreaterThan(0)
         expect(
             Math.abs(navigationGeometry.heroTop),
-            'Repeated navigation must overlay the reference Hero from document y=0'
+            'Independent scoped marketing content must start at document y=0 without inheriting the Hero'
         ).toBeLessThanOrEqual(1)
         const repeatedBackgroundOwnership = await readMarketingBackgroundOwnership(page)
         expect(repeatedBackgroundOwnership.pageBackgroundImage).toBe('none')
-        expect(repeatedBackgroundOwnership.heroBackgroundImage).toContain('radial-gradient')
+        expect(repeatedBackgroundOwnership.hasHero).toBe(false)
+        expect(repeatedBackgroundOwnership.heroBackgroundImage).toBe('none')
         await page.evaluate(() => window.scrollTo({ top: 320, behavior: 'instant' }))
         await page.waitForFunction(() => window.scrollY > 0)
-        const scrolledNavigationGeometry = await readMarketingNavigationGeometry(page)
+        const scrolledNavigationGeometry = await readMarketingNavigationGeometry(page, true)
         expect(scrolledNavigationGeometry.appBarPosition).toBe('fixed')
         expect(Math.abs(scrolledNavigationGeometry.appBarTop - navigationGeometry.appBarTop)).toBeLessThanOrEqual(1)
         await page.screenshot({
@@ -457,13 +481,14 @@ test('@flow @combined @cross-template resolves an entity-scoped template and sha
         await expect(navigationLandmarks).toHaveCount(3)
         await expect(page.getByTestId('marketing-header-shell')).toHaveCount(1)
         await expect(page.getByRole('banner')).toHaveCount(1)
-        const mobileInitialGeometry = await readMarketingNavigationGeometry(page)
+        await expect(page.locator('[data-marketing-widget-instance="hero"]')).toHaveCount(0)
+        const mobileInitialGeometry = await readMarketingNavigationGeometry(page, true)
         expect(mobileInitialGeometry.appBarPosition).toBe('fixed')
         expect(mobileInitialGeometry.visualOffset).toBe(28)
         expect(Math.abs(mobileInitialGeometry.appBarTop - mobileInitialGeometry.expectedAppBarTop)).toBeLessThanOrEqual(1)
         await page.evaluate(() => window.scrollTo({ top: 320, behavior: 'instant' }))
         await page.waitForFunction(() => window.scrollY > 0)
-        const mobileScrolledGeometry = await readMarketingNavigationGeometry(page)
+        const mobileScrolledGeometry = await readMarketingNavigationGeometry(page, true)
         expect(mobileScrolledGeometry.scrollY).toBeGreaterThan(0)
         expect(Math.abs(mobileScrolledGeometry.appBarTop - mobileInitialGeometry.appBarTop)).toBeLessThanOrEqual(1)
         await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' }))

@@ -10,7 +10,6 @@ import {
     InputLabel,
     MenuItem,
     Paper,
-    Select,
     Stack,
     Switch,
     TextField,
@@ -35,6 +34,7 @@ import ApplicationLayoutSharedBehaviorFields, {
     getSharedBehaviorFromWidgetConfig,
     setSharedBehaviorInWidgetConfig
 } from './ApplicationLayoutSharedBehaviorFields'
+import { DropdownSelect as Select } from '@universo-react/template-mui/dropdowns'
 
 type OptionItem = { id: string; label: string }
 

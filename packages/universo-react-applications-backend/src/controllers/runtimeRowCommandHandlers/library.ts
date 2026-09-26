@@ -19,6 +19,7 @@ import {
     type RuntimeRelationBinding
 } from '../runtimeRowSupport/contracts'
 import { resolveRuntimeObjectCollection, resolveRuntimeRecordOwnerColumnName } from '../runtimeRowSupport/objects'
+import { denyRuntimeEntityMutation } from '../../shared/entityMutationPolicy'
 import {
     buildRuntimeRecordAccessClause,
     readRuntimeLibraryConfig,
@@ -241,6 +242,7 @@ export const createLibraryRelationHandler = ({ getDbExecutor, query }: RuntimeRo
         if (!objectCollection) {
             return res.status(404).json({ error: objectCollectionError })
         }
+        if (denyRuntimeEntityMutation(res, objectCollection.config)) return
 
         const objectCodename = resolveRuntimeCodenameText(objectCollection.codename)
         const relationKey = parsedRelationKey.data
@@ -265,6 +267,7 @@ export const createLibraryRelationHandler = ({ getDbExecutor, query }: RuntimeRo
             return res.status(bindingResult.failure.statusCode).json(bindingResult.failure.body)
         }
         const { binding } = bindingResult
+        if (denyRuntimeEntityMutation(res, binding.config)) return
 
         const sharedPrincipalType = isSharedRelation ? parsedBody.data.principalType ?? 'user' : null
         const sharedPrincipalId = isSharedRelation ? parsedBody.data.principalId ?? ctx.userId : null

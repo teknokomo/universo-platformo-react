@@ -1,4 +1,19 @@
 import { createDomainErrorHandler } from '../../../../shared'
+import type { DomainMutationError } from '../../../../shared/createDomainErrorHandler'
+
+type ComponentMutationTranslator = (key: string, defaultValue?: string) => string
+
+export const getComponentMutationErrorMessage = (
+    error: DomainMutationError,
+    t: ComponentMutationTranslator,
+    fallbackKey: string
+): string => {
+    if (error.response?.data?.code === 'ENTITY_COMPONENT_SCHEMA_PROTECTED') {
+        return t('components.bindingSchemaProtected', 'This field is part of a widget binding and its data contract cannot be changed.')
+    }
+
+    return error.response?.data?.message || error.response?.data?.error || error.message || t(fallbackKey)
+}
 
 /**
  * Domain error handler for component mutations.

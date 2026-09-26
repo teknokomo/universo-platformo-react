@@ -1,4 +1,6 @@
 import { hashApplicationLayoutContent } from '../../utils/applicationLayoutHash'
+import { buildSingleTargetWidgetBinding, encodeLayoutWidgetConfigEnvelope, LAYOUT_WIDGET_DEFINITIONS } from '@universo-react/types'
+import { mapWidget } from '../../persistence/applicationLayoutStoreSupport'
 
 describe('application layout content hash', () => {
     const layout = {
@@ -14,6 +16,41 @@ describe('application layout content hash', () => {
         isDefault: true,
         sortOrder: 0
     }
+
+    const heroDefinition = LAYOUT_WIDGET_DEFINITIONS.find(({ key }) => key === 'marketing.hero')
+    if (!heroDefinition) throw new Error('The marketing hero widget must be registered')
+
+    const heroBinding = (semanticKey: string) =>
+        buildSingleTargetWidgetBinding(heroDefinition, 'content', {
+            entityKind: 'object',
+            entityCodename: 'MarketingPageHero',
+            semanticKey
+        })
+
+    const mappedHero = (showLeadForm: boolean, semanticKey = 'default') =>
+        mapWidget(
+            {
+                id: '0190a9b5-3cde-7abc-8def-0123456789a1',
+                layout_id: '0190a9b5-3cde-7abc-8def-0123456789a2',
+                zone: 'marketing-main',
+                widget_key: 'marketing.hero',
+                sort_order: 1,
+                config: { instanceKey: 'hero', showLeadForm },
+                source_config: encodeLayoutWidgetConfigEnvelope(
+                    {
+                        rendererConfig: { instanceKey: 'hero', showLeadForm: true },
+                        neutral: { bindings: heroBinding(semanticKey) }
+                    },
+                    { templateKey: 'marketing-page', widgetKey: 'marketing.hero', zone: 'marketing-main' }
+                ),
+                source_widget_id: '0190a9b5-3cde-7abc-8def-0123456789a3',
+                source_base_widget_id: null,
+                is_customized: !showLeadForm,
+                is_active: true,
+                version: 2
+            },
+            'marketing-page'
+        )
 
     it('is stable when widget input order changes', () => {
         const first = hashApplicationLayoutContent({
@@ -225,6 +262,27 @@ describe('application layout content hash', () => {
 
         expect(sourceFixedStart).not.toBe(sourceFlow)
         expect(sourceFixedEnd).not.toBe(sourceFixedStart)
+    })
+
+    it('includes the trusted source binding while hashing a local presentation override', () => {
+        const marketingLayout = {
+            ...layout,
+            templateKey: 'marketing-page' as const,
+            config: {
+                themeMode: 'system',
+                __layout: { composition: { mode: 'independent', baseLayoutId: null } }
+            }
+        }
+        const localOverride = mappedHero(false)
+        const sourcePresentation = mappedHero(true)
+        const differentBinding = mappedHero(false, 'campaign')
+
+        const localHash = hashApplicationLayoutContent({ layout: marketingLayout, widgets: [localOverride] })
+        const presentationHash = hashApplicationLayoutContent({ layout: marketingLayout, widgets: [sourcePresentation] })
+        const bindingHash = hashApplicationLayoutContent({ layout: marketingLayout, widgets: [differentBinding] })
+
+        expect(localHash).not.toBe(presentationHash)
+        expect(localHash).not.toBe(bindingHash)
     })
 
     it('includes the complete overlay base lineage in the semantic hash', () => {

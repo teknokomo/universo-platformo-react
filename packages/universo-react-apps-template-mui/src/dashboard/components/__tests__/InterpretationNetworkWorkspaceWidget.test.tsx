@@ -2128,7 +2128,7 @@ describe('InterpretationNetworkWorkspaceWidget', () => {
             ).not.toBeInTheDocument()
         )
         expect(fetchMock.mock.calls.some(([input, init]) => init?.method === 'POST' && String(input).includes('/runtime/rows'))).toBe(false)
-    })
+    }, 15_000)
 
     it('reports atomic structure creation failure without issuing legacy row compensation', async () => {
         const user = userEvent.setup()

@@ -138,7 +138,7 @@ describe('public application runtime routes', () => {
         jest.clearAllMocks()
         mockResolvePublicApplication.mockResolvedValue(resolvedApplication())
         mockResolvePublicEntryWorkspace.mockResolvedValue(null)
-        mockResolveEffectiveLayout.mockResolvedValue({ layout: { id: layoutId } })
+        mockResolveEffectiveLayout.mockResolvedValue({ layout: { id: layoutId }, widgets: [] })
         mockLoadAllowlistedPublishedMarketingRows.mockResolvedValue(new Map())
         mockSerializePublicMarketingRuntime.mockReturnValue(publicMarketingPayload)
         mockCreateMarketingController.mockImplementation((_getExecutor, options) => ({
@@ -162,7 +162,11 @@ describe('public application runtime routes', () => {
         expect(tx.query).toHaveBeenCalledWith('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ')
         expect(mockResolvePublicApplication).toHaveBeenCalledWith(tx, applicationId)
         expect(mockCreateMarketingController).not.toHaveBeenCalled()
-        expect(mockLoadAllowlistedPublishedMarketingRows).toHaveBeenCalledWith(tx, { schemaName, workspaceId: null })
+        expect(mockLoadAllowlistedPublishedMarketingRows).toHaveBeenCalledWith(tx, {
+            schemaName,
+            workspaceId: null,
+            heroTargets: []
+        })
         expect(response.body.route).toEqual({
             matchedBy: 'uuid',
             matchedAlias: null,

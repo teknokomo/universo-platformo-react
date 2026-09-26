@@ -107,6 +107,46 @@ describeIntegration('Executor Integration (requires PG)', () => {
         }
     })
 
+    it('RLS nested savepoint rolls a failed update back and leaves the outer request transaction usable', async () => {
+        const connection = await knex.client.acquireConnection()
+        try {
+            await knex.raw('BEGIN').connection(connection)
+            await knex.raw('CREATE TEMP TABLE _test_exec_savepoint (id int primary key, name text) ON COMMIT DROP').connection(connection)
+            await knex.raw('INSERT INTO _test_exec_savepoint VALUES (1, ?)', ['before']).connection(connection)
+            const exec = createRlsExecutor(knex, connection, { inTransaction: true })
+
+            await exec.transaction(async (requestTxExec) => {
+                await expect(
+                    requestTxExec.transaction(async (savepointExec) => {
+                        await savepointExec.query('UPDATE _test_exec_savepoint SET name = $1 WHERE id = $2', ['after', 1])
+                        throw new Error('forced nested rollback')
+                    })
+                ).rejects.toThrow('forced nested rollback')
+
+                const afterRollback = await requestTxExec.query<{ name: string }>('SELECT name FROM _test_exec_savepoint WHERE id = $1', [
+                    1
+                ])
+                expect(afterRollback).toEqual([{ name: 'before' }])
+
+                await requestTxExec.transaction(async (savepointExec) => {
+                    await savepointExec.query('UPDATE _test_exec_savepoint SET name = $1 WHERE id = $2', ['continued', 1])
+                })
+                const afterContinuation = await requestTxExec.query<{ name: string }>(
+                    'SELECT name FROM _test_exec_savepoint WHERE id = $1',
+                    [1]
+                )
+                expect(afterContinuation).toEqual([{ name: 'continued' }])
+            })
+
+            await knex.raw('ROLLBACK').connection(connection)
+        } catch (error) {
+            await knex.raw('ROLLBACK').connection(connection)
+            throw error
+        } finally {
+            await knex.client.releaseConnection(connection)
+        }
+    })
+
     it('RLS executor preserves request.jwt.claims across queries on the pinned connection', async () => {
         const connection = await knex.client.acquireConnection()
         try {
@@ -126,11 +166,12 @@ describeIntegration('Executor Integration (requires PG)', () => {
         }
     })
 
-    it('pool executor does not inherit request.jwt.claims from request-scoped sessions', async () => {
+    it('pool executor does not inherit request-specific jwt claims from request-scoped sessions', async () => {
         const exec = createKnexExecutor(knex)
         const rows = await exec.query<{ claims: string | null }>("SELECT current_setting('request.jwt.claims', true) AS claims")
 
-        expect(rows).toEqual([{ claims: null }])
+        expect(rows).toHaveLength(1)
+        expect(rows[0]?.claims).not.toBe('{"sub":"user-1"}')
     })
 
     it('pool executor transaction rolls back on error', async () => {

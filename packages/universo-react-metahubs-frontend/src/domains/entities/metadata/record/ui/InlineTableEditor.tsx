@@ -4,7 +4,7 @@ import Button from '@mui/material/Button'
 import IconButton from '@mui/material/IconButton'
 import InputAdornment from '@mui/material/InputAdornment'
 import MenuItem from '@mui/material/MenuItem'
-import Select from '@mui/material/Select'
+
 import Table from '@mui/material/Table'
 import TableBody from '@mui/material/TableBody'
 import TableCell from '@mui/material/TableCell'
@@ -31,6 +31,7 @@ import { useTranslation } from 'react-i18next'
 import { buildTableConstraintText, createLocalizedContent, NUMBER_DEFAULTS, validateNumber, toNumberRules } from '@universo-react/utils'
 import { ConfirmDeleteDialog } from '@universo-react/template-mui/components/dialogs'
 import type { DynamicFieldConfig, DynamicFieldValidationRules } from '@universo-react/template-mui'
+import { DropdownSelect as Select } from '@universo-react/template-mui/dropdowns'
 
 export interface InlineTableEditorProps {
     /** Display label for the table section */

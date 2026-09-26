@@ -11,6 +11,7 @@ import {
     acquireCommandLock,
     activeWorkspaceWhere,
     assertColumn,
+    assertInterpretationNetworkEntityMutationAllowed,
     assertReadySurface,
     assertRuntimePermissions,
     childTableIdent,
@@ -36,6 +37,8 @@ export const createMaterialForCell = async (
     const surface = assertReadySurface(surfaceInput, 'createMaterialForCell')
     const materialContract = surface.contracts.Material
     const interpretationContract = surface.contracts.Interpretation
+    assertInterpretationNetworkEntityMutationAllowed(materialContract.object.config)
+    assertInterpretationNetworkEntityMutationAllowed(interpretationContract.object.config)
     const materialCellIdColumn = assertColumn(getField(materialContract, 'CellId'), 'Material.CellId')
     const matrixCellIdColumn = assertColumn(getChildField(interpretationContract, 'CellId'), 'InterpretationMatrix.CellId')
     const matrixMaterialRefColumn = assertColumn(getChildField(interpretationContract, 'MaterialRef'), 'InterpretationMatrix.MaterialRef')

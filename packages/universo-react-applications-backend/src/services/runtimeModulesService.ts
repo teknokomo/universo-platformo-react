@@ -30,6 +30,7 @@ import {
 } from './runtimeRecordBehavior'
 import { buildRuntimeRecordRuleLockKey, evaluateRuntimeRecordRules } from './runtimeRecordRules'
 import { assertMarketingRuntimeRowCap } from '../controllers/runtimeRowSupport/rows'
+import { assertRuntimeEntityMutationAllowed } from '../shared/entityMutationPolicy'
 import {
     IDENTIFIER_REGEX,
     RUNTIME_WRITABLE_TYPES,
@@ -1268,6 +1269,7 @@ export class RuntimeModulesService {
                 ...params,
                 executor: txExecutor
             })
+            assertRuntimeEntityMutationAllowed(binding.object.config)
             await assertMarketingRuntimeRowCap({
                 manager: txExecutor,
                 schemaIdent: quoteIdentifier(params.schemaName),
@@ -1426,6 +1428,7 @@ export class RuntimeModulesService {
                 ...params,
                 executor: txExecutor
             })
+            assertRuntimeEntityMutationAllowed(binding.object.config)
 
             const currentRow = (await txExecutor.query(
                 `
@@ -1583,6 +1586,7 @@ export class RuntimeModulesService {
                 ...params,
                 executor: txExecutor
             })
+            assertRuntimeEntityMutationAllowed(binding.object.config)
 
             const currentRow = (await txExecutor.query(
                 `

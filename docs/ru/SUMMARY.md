@@ -80,6 +80,7 @@
 -   [Архитектура бэкенда](architecture/backend.md)
 -   [Архитектура фронтенда](architecture/frontend.md)
 -   [Архитектура системы сущностей](architecture/entity-systems.md)
+-   [Виджеты на основе Сущностей](architecture/entity-backed-widgets.md)
 -   [Entity Component System](architecture/entity-component-system.md)
 -   [Модель данных трактовочной сети](architecture/interpretation-network-data-model.md)
 -   [Регистры](architecture/ledgers.md)

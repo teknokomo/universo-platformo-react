@@ -5,6 +5,7 @@ import { z } from 'zod'
 import type { DbExecutor } from '@universo-react/utils'
 import { qColumn, qSchemaTable } from '@universo-react/database'
 import { RuntimeModulesService } from '../services/runtimeModulesService'
+import { denyRuntimeEntityMutation } from '../shared/entityMutationPolicy'
 import {
     listActivePublicWorkspaceIds,
     loadPublicRuntimeRecord,
@@ -1178,7 +1179,6 @@ export function createRuntimeGuestController(getDbExecutor: () => DbExecutor) {
                 res.status(404).json({ error: 'Access link not found' })
                 return
             }
-
             if (ctx.workspacesEnabled) {
                 const hasWorkspace = await setPublicWorkspaceContext(ctx.manager, ctx.schemaName, link.workspaceId)
                 if (!hasWorkspace) {
@@ -1225,6 +1225,7 @@ export function createRuntimeGuestController(getDbExecutor: () => DbExecutor) {
                 res.status(404).json({ error: 'Access link not found' })
                 return
             }
+            if (denyRuntimeEntityMutation(res, link.binding.config)) return
 
             if (ctx.workspacesEnabled) {
                 const hasWorkspace = await setPublicWorkspaceContext(ctx.manager, ctx.schemaName, link.workspaceId)
@@ -1245,6 +1246,7 @@ export function createRuntimeGuestController(getDbExecutor: () => DbExecutor) {
                 res.status(400).json({ error: 'Participant object is not available in this application' })
                 return
             }
+            if (denyRuntimeEntityMutation(res, studentsBinding.config)) return
 
             const attrs = resolveTopLevelComponents(studentsBinding)
             const attrByCodename = indexByCodename(attrs)
@@ -1510,6 +1512,7 @@ export function createRuntimeGuestController(getDbExecutor: () => DbExecutor) {
                 res.status(400).json({ error: 'Assessment responses object is not available' })
                 return
             }
+            if (denyRuntimeEntityMutation(res, responsesBinding.config)) return
 
             const attrs = resolveTopLevelComponents(responsesBinding)
             const attrByCodename = indexByCodename(attrs)
@@ -1729,6 +1732,7 @@ export function createRuntimeGuestController(getDbExecutor: () => DbExecutor) {
                 res.status(500).json({ error: 'Content progress object is not available' })
                 return
             }
+            if (denyRuntimeEntityMutation(res, progressBinding.config)) return
 
             const attrs = resolveTopLevelComponents(progressBinding)
             const attrByCodename = indexByCodename(attrs)

@@ -29,9 +29,12 @@ import {
     useConnectorName,
     truncateConnectorName,
     useLayoutName,
-    truncateLayoutName
+    truncateLayoutName,
+    useInstanceName,
+    truncateInstanceName,
+    useRoleName,
+    truncateRoleName
 } from '../../hooks'
-import { useInstanceName, truncateInstanceName, useRoleName, truncateRoleName } from '@universo-react/admin-frontend'
 
 const StyledBreadcrumbs = styled(Breadcrumbs)(({ theme }) => ({
     margin: theme.spacing(1, 0),
@@ -402,7 +405,7 @@ export default function NavbarBreadcrumbs() {
     const instanceName = useInstanceName(instanceId)
 
     const roleIdMatch = location.pathname.match(/^\/admin\/instance\/[^/]+\/roles\/([^/]+)/)
-    const roleId = roleIdMatch ? roleIdMatch[1] : null
+    const roleId = roleIdMatch && roleIdMatch[1] !== 'new' ? roleIdMatch[1] : null
     const roleName = useRoleName(roleId)
 
     // Check admin panel access for admin routes

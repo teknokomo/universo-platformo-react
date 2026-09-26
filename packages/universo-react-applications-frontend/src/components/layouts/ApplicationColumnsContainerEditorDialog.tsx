@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Box, Button, FormControl, IconButton, InputLabel, MenuItem, Paper, Select, Slider, Stack, Typography } from '@mui/material'
+import { Box, Button, FormControl, IconButton, InputLabel, MenuItem, Paper, Slider, Stack, Typography } from '@mui/material'
 import AddRoundedIcon from '@mui/icons-material/AddRounded'
 import DeleteRoundedIcon from '@mui/icons-material/DeleteRounded'
 import DragIndicatorRoundedIcon from '@mui/icons-material/DragIndicatorRounded'
@@ -17,6 +17,7 @@ import ApplicationLayoutSharedBehaviorFields, {
     getSharedBehaviorFromWidgetConfig,
     setSharedBehaviorInWidgetConfig
 } from './ApplicationLayoutSharedBehaviorFields'
+import { DropdownSelect as Select } from '@universo-react/template-mui/dropdowns'
 
 type Props = {
     open: boolean

@@ -18,6 +18,7 @@ type RendererProps<K extends WidgetKey> = {
     onAction: MarketingPageProps['onAction']
     onLeadSubmit: MarketingPageProps['onLeadSubmit']
     heroBackgroundOwner?: MarketingRenderOptions['heroBackgroundOwner']
+    sectionAnchors?: MarketingRenderOptions['sectionAnchors']
 }
 type WidgetRenderer<K extends WidgetKey> = (props: RendererProps<K>) => ReactNode
 
@@ -58,13 +59,14 @@ const marketingWidgetRenderers = {
     'marketing.brand': (): ReactNode => null,
     'marketing.navigation': (): ReactNode => null,
     'marketing.auth': (): ReactNode => null,
-    'marketing.hero': ({ widget, onAction, onLeadSubmit, heroBackgroundOwner }: RendererProps<'marketing.hero'>) => (
+    'marketing.hero': ({ widget, onAction, onLeadSubmit, heroBackgroundOwner, sectionAnchors }: RendererProps<'marketing.hero'>) => (
         <Hero
             instanceKey={widget.instanceKey}
             data={widget.content}
             onAction={onAction}
             onLeadSubmit={onLeadSubmit}
             backgroundOwner={heroBackgroundOwner}
+            sectionAnchors={sectionAnchors}
         />
     ),
     'marketing.image': ({ widget }: RendererProps<'marketing.image'>) => <MarketingHeroImage media={widget.content.media} />,

@@ -172,7 +172,7 @@ describe('runtimeRowsController zone widget transport', () => {
     })
 })
 
-function createRuntimeMutationHarness() {
+function createRuntimeMutationHarness(objectConfig: Record<string, unknown> = {}) {
     const { executor } = createMockDbExecutor()
     const controller = createRuntimeRowsController(() => executor)
 
@@ -204,7 +204,7 @@ function createRuntimeMutationHarness() {
     })
     executor.query.mockImplementation(async (sql: string) => {
         if (sql.includes('FROM runtime_schema._app_objects') && sql.includes('ORDER BY')) {
-            return runtimeObjectCollectionRows
+            return runtimeObjectCollectionRows.map((row) => ({ ...row, config: objectConfig }))
         }
         throw new Error(`Unexpected SQL after object collection resolution: ${sql}`)
     })
@@ -287,6 +287,185 @@ describe('runtimeRowsController object collection target resolution', () => {
         expect(executedSql).not.toMatch(/\bUPDATE\b/i)
         expect(executedSql).not.toMatch(/\bDELETE\b/i)
         expect(executedSql).not.toContain('runtime_schema."structure"')
+    })
+})
+
+describe('runtimeRowsController Entity runtime mutation policy', () => {
+    const deniedConfig = {
+        recordPolicy: {
+            version: 1,
+            denyDeleteWhenBound: false,
+            immutableSemanticKeyWhenBound: false,
+            runtimeMutation: 'deny'
+        }
+    }
+
+    beforeEach(() => {
+        jest.clearAllMocks()
+        mockRuntimeQuery.mockReset()
+        mockRuntimeQuery.mockResolvedValue([])
+    })
+
+    it.each([
+        {
+            label: 'create',
+            run: (controller: ReturnType<typeof createRuntimeRowsController>, res: ReturnType<typeof createResponse>) =>
+                controller.createRow(
+                    createRuntimeRequest({ body: { objectCollectionId: mutableObjectCollectionId, data: { name: 'Draft' } } }),
+                    res
+                )
+        },
+        {
+            label: 'copy',
+            run: (controller: ReturnType<typeof createRuntimeRowsController>, res: ReturnType<typeof createResponse>) =>
+                controller.copyRow(
+                    createRuntimeRequest({ body: { objectCollectionId: mutableObjectCollectionId, expectedVersion: 1 } }),
+                    res
+                )
+        },
+        {
+            label: 'single-cell update',
+            run: (controller: ReturnType<typeof createRuntimeRowsController>, res: ReturnType<typeof createResponse>) =>
+                controller.updateCell(
+                    createRuntimeRequest({
+                        method: 'PATCH',
+                        body: { objectCollectionId: mutableObjectCollectionId, field: 'name', value: 'Changed', expectedVersion: 1 }
+                    }),
+                    res
+                )
+        },
+        {
+            label: 'bulk update',
+            run: (controller: ReturnType<typeof createRuntimeRowsController>, res: ReturnType<typeof createResponse>) =>
+                controller.bulkUpdateRow(
+                    createRuntimeRequest({
+                        method: 'PATCH',
+                        body: { objectCollectionId: mutableObjectCollectionId, data: { name: 'Changed' }, expectedVersion: 1 }
+                    }),
+                    res
+                )
+        },
+        {
+            label: 'delete',
+            run: (controller: ReturnType<typeof createRuntimeRowsController>, res: ReturnType<typeof createResponse>) =>
+                controller.deleteRow(
+                    createRuntimeRequest({
+                        method: 'DELETE',
+                        query: { objectCollectionId: mutableObjectCollectionId, expectedVersion: '1' }
+                    }),
+                    res
+                )
+        },
+        {
+            label: 'compensate create',
+            run: (controller: ReturnType<typeof createRuntimeRowsController>, res: ReturnType<typeof createResponse>) =>
+                controller.deleteRow(
+                    createRuntimeRequest({
+                        method: 'POST',
+                        path: '/runtime/rows/019f2000-0000-7000-8000-000000000002/compensate-create',
+                        body: { objectCollectionId: mutableObjectCollectionId, expectedVersion: 1 }
+                    }),
+                    res
+                )
+        },
+        {
+            label: 'restore',
+            run: (controller: ReturnType<typeof createRuntimeRowsController>, res: ReturnType<typeof createResponse>) =>
+                controller.restoreRow(
+                    createRuntimeRequest({ body: { objectCollectionId: mutableObjectCollectionId, expectedVersion: 1 } }),
+                    res
+                )
+        },
+        {
+            label: 'reorder',
+            run: (controller: ReturnType<typeof createRuntimeRowsController>, res: ReturnType<typeof createResponse>) =>
+                controller.reorderRows(
+                    createRuntimeRequest({
+                        body: {
+                            objectCollectionId: mutableObjectCollectionId,
+                            orderedRowIds: ['019f2000-0000-7000-8000-000000000002']
+                        }
+                    }),
+                    res
+                )
+        },
+        {
+            label: 'posting',
+            run: (controller: ReturnType<typeof createRuntimeRowsController>, res: ReturnType<typeof createResponse>) =>
+                controller.postRow(
+                    createRuntimeRequest({ body: { objectCollectionId: mutableObjectCollectionId, expectedVersion: 1 } }),
+                    res
+                )
+        },
+        {
+            label: 'unposting',
+            run: (controller: ReturnType<typeof createRuntimeRowsController>, res: ReturnType<typeof createResponse>) =>
+                controller.unpostRow(
+                    createRuntimeRequest({ body: { objectCollectionId: mutableObjectCollectionId, expectedVersion: 1 } }),
+                    res
+                )
+        },
+        {
+            label: 'voiding',
+            run: (controller: ReturnType<typeof createRuntimeRowsController>, res: ReturnType<typeof createResponse>) =>
+                controller.voidRow(
+                    createRuntimeRequest({ body: { objectCollectionId: mutableObjectCollectionId, expectedVersion: 1 } }),
+                    res
+                )
+        },
+        {
+            label: 'workflow',
+            run: (controller: ReturnType<typeof createRuntimeRowsController>, res: ReturnType<typeof createResponse>) =>
+                controller.runWorkflowAction(
+                    createRuntimeRequest({
+                        params: {
+                            applicationId: testApplicationId,
+                            rowId: '019f2000-0000-7000-8000-000000000002',
+                            actionCodename: 'approve'
+                        },
+                        body: { objectCollectionId: mutableObjectCollectionId, expectedVersion: 1 }
+                    }),
+                    res
+                )
+        },
+        {
+            label: 'library relation',
+            run: (controller: ReturnType<typeof createRuntimeRowsController>, res: ReturnType<typeof createResponse>) =>
+                controller.setLibraryRelation(
+                    createRuntimeRequest({
+                        params: {
+                            applicationId: testApplicationId,
+                            rowId: '019f2000-0000-7000-8000-000000000002',
+                            relationKey: 'starred'
+                        },
+                        body: { objectCollectionId: mutableObjectCollectionId, active: true }
+                    }),
+                    res
+                )
+        }
+    ])('denies $label before any write when the authoritative Entity policy is deny', async ({ run }) => {
+        const { controller, executor } = createRuntimeMutationHarness(deniedConfig)
+        const res = createResponse()
+        executor.query.mockImplementation(async (sql: string) => {
+            if (sql.includes('FROM runtime_schema._app_objects') && sql.includes('ORDER BY')) {
+                return runtimeObjectCollectionRows.map((row) => ({ ...row, config: deniedConfig }))
+            }
+            if (sql.includes('FROM runtime_schema._app_components')) return mutableRuntimeComponents
+            throw new Error(`Unexpected SQL after denied policy resolution: ${sql}`)
+        })
+
+        await run(controller, res)
+
+        expect(res.status).toHaveBeenCalledWith(403)
+        expect(res.status.mock.results[0]?.value.json).toHaveBeenCalledWith({
+            error: 'Runtime mutation is disabled for this Entity.',
+            code: 'RUNTIME_ENTITY_MUTATION_DENIED'
+        })
+        expect(executor.transaction).not.toHaveBeenCalled()
+        const executedSql = executor.query.mock.calls.map(([sql]) => String(sql)).join('\n')
+        expect(executedSql).not.toMatch(/\bINSERT\b/i)
+        expect(executedSql).not.toMatch(/\bUPDATE\b/i)
+        expect(executedSql).not.toMatch(/\bDELETE\b/i)
     })
 })
 

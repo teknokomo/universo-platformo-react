@@ -29,7 +29,7 @@ import type {
     ToggleRequiredParams,
     SetDisplayComponentParams
 } from './mutationTypes'
-import { handleComponentError } from './componentErrorHandler'
+import { getComponentMutationErrorMessage, handleComponentError } from './componentErrorHandler'
 
 const getComponentQueryKeyPrefix = (variables: { metahubId: string; treeEntityId?: string; objectCollectionId: string }) =>
     variables.treeEntityId
@@ -265,11 +265,7 @@ export function useUpdateComponent() {
     const { enqueueSnackbar } = useSnackbar()
     const { t } = useTranslation('metahubs')
 
-    const getErrorMessage = (error: ComponentMutationError) =>
-        error?.response?.data?.message ||
-        error?.response?.data?.error ||
-        error.message ||
-        t('components.updateError', 'Failed to update component')
+    const getErrorMessage = (error: ComponentMutationError) => getComponentMutationErrorMessage(error, t, 'components.updateError')
 
     return useMutation({
         mutationKey: ['components', 'update'],
@@ -386,9 +382,9 @@ export function useUpdateChildComponent() {
             })
             enqueueSnackbar(t('components.updateSuccess', 'Component updated'), { variant: 'success' })
         },
-        onError: (error: Error, _variables, context) => {
+        onError: (error: ComponentMutationError, _variables, context) => {
             rollbackOptimisticSnapshots(queryClient, context?.previousSnapshots)
-            enqueueSnackbar(error.message || t('components.updateError', 'Failed to update component'), { variant: 'error' })
+            enqueueSnackbar(getComponentMutationErrorMessage(error, t, 'components.updateError'), { variant: 'error' })
         },
         onSettled: (_data, _error, variables) => {
             invalidateChildComponentScopes(queryClient, variables)
@@ -421,9 +417,9 @@ export function useDeleteComponent() {
         onSuccess: () => {
             enqueueSnackbar(t('components.deleteSuccess', 'Component deleted'), { variant: 'success' })
         },
-        onError: (error: Error, _variables, context) => {
+        onError: (error: ComponentMutationError, _variables, context) => {
             rollbackOptimisticSnapshots(queryClient, context?.previousSnapshots)
-            enqueueSnackbar(error.message || t('components.deleteError', 'Failed to delete component'), { variant: 'error' })
+            enqueueSnackbar(getComponentMutationErrorMessage(error, t, 'components.deleteError'), { variant: 'error' })
         },
         onSettled: (_data, _error, variables) => {
             invalidateComponentScopes(queryClient, variables)
@@ -456,9 +452,9 @@ export function useDeleteChildComponent() {
         onSuccess: () => {
             enqueueSnackbar(t('components.deleteSuccess', 'Component deleted'), { variant: 'success' })
         },
-        onError: (error: Error, _variables, context) => {
+        onError: (error: ComponentMutationError, _variables, context) => {
             rollbackOptimisticSnapshots(queryClient, context?.previousSnapshots)
-            enqueueSnackbar(error.message || t('components.deleteError', 'Failed to delete component'), { variant: 'error' })
+            enqueueSnackbar(getComponentMutationErrorMessage(error, t, 'components.deleteError'), { variant: 'error' })
         },
         onSettled: (_data, _error, variables) => {
             invalidateChildComponentScopes(queryClient, variables)
@@ -877,8 +873,8 @@ export function useToggleComponentRequired() {
             const defaultMessage = variables.isRequired ? 'Component marked as required' : 'Component marked as optional'
             enqueueSnackbar(t(messageKey, defaultMessage), { variant: 'success' })
         },
-        onError: (error: Error) => {
-            enqueueSnackbar(error.message || t('components.toggleRequiredError', 'Failed to update component'), { variant: 'error' })
+        onError: (error: ComponentMutationError) => {
+            enqueueSnackbar(getComponentMutationErrorMessage(error, t, 'components.toggleRequiredError'), { variant: 'error' })
         },
         onSettled: (_data, _error, variables) => {
             if (queryClient.isMutating({ mutationKey: ['components'] }) <= 1) {
@@ -917,8 +913,8 @@ export function useSetDisplayComponent() {
         onSuccess: () => {
             enqueueSnackbar(t('components.setDisplaySuccess', 'Component set as display component'), { variant: 'success' })
         },
-        onError: (error: Error) => {
-            enqueueSnackbar(error.message || t('components.setDisplayError', 'Failed to set display component'), { variant: 'error' })
+        onError: (error: ComponentMutationError) => {
+            enqueueSnackbar(getComponentMutationErrorMessage(error, t, 'components.setDisplayError'), { variant: 'error' })
         },
         onSettled: (_data, _error, variables) => {
             if (queryClient.isMutating({ mutationKey: ['components'] }) <= 1) {

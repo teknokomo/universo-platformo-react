@@ -5,6 +5,7 @@ import { isModuleAttachmentKind, type ModuleAttachmentKind } from '@universo-rea
 import { createQueryHelper, resolveRuntimeSchema } from '../shared/runtimeHelpers'
 import { RuntimeModulesService } from '../services/runtimeModulesService'
 import { RUNTIME_RECORD_RULE_CODES } from '../services/runtimeRecordRules'
+import { RUNTIME_ENTITY_MUTATION_POLICY_CODES } from '../shared/entityMutationPolicy'
 
 const moduleAttachmentKindSchema = z
     .string()
@@ -42,7 +43,10 @@ export function createRuntimeModulesController(getDbExecutor: () => DbExecutor) 
 
     /** Stable rule codes that may be surfaced to callers; SQLSTATE or other
      * database codes must stay behind the generic response body. */
-    const FORWARDABLE_MODULE_ERROR_CODES = new Set<string>(Object.values(RUNTIME_RECORD_RULE_CODES))
+    const FORWARDABLE_MODULE_ERROR_CODES = new Set<string>([
+        ...Object.values(RUNTIME_RECORD_RULE_CODES),
+        ...Object.values(RUNTIME_ENTITY_MUTATION_POLICY_CODES)
+    ])
 
     /**
      * Record rule failures raised by module writes carry stable codes; forward

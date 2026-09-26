@@ -43,6 +43,7 @@ import {
     isRuntimeServerOwnedAttr
 } from '../runtimeRowSupport/contracts'
 import { getNextRuntimeSortValue, resolveRuntimeObjectCollection, resolveRuntimeObjectCollectionConfig } from '../runtimeRowSupport/objects'
+import { denyRuntimeEntityMutation } from '../../shared/entityMutationPolicy'
 import {
     applyRuntimeDateOffsetDerivations,
     validateRuntimeDateOrderRules,
@@ -638,6 +639,7 @@ export const createCreateRowHandler = ({ getDbExecutor, query, recordCommandServ
             error: objectCollectionError
         } = await resolveRuntimeObjectCollection(ctx.manager, ctx.schemaIdent, requestedObjectCollectionId)
         if (!objectCollection) return res.status(404).json({ error: objectCollectionError })
+        if (denyRuntimeEntityMutation(res, objectCollection.config)) return
         const runtimeRowCondition = buildRuntimeActiveRowCondition(
             objectCollection.lifecycleContract,
             objectCollection.config,

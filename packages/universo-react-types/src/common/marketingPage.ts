@@ -180,6 +180,8 @@ export const MARKETING_WIDGET_REGISTRY: Readonly<Record<MarketingWidgetKey, Mark
     }
 }
 
+export const MARKETING_HERO_ENTITY_CODENAME = 'MarketingPageHero' as const
+
 /**
  * Entity codenames supported by the built-in marketing adapter. The adapter is
  * intentionally bounded: selecting an entity type never grants access to an
@@ -188,6 +190,7 @@ export const MARKETING_WIDGET_REGISTRY: Readonly<Record<MarketingWidgetKey, Mark
 export const MARKETING_SOURCE_CODENAMES = [
     'MarketingPageSection',
     'MarketingPageSiteSettings',
+    MARKETING_HERO_ENTITY_CODENAME,
     'MarketingPageLogo',
     'MarketingPageFeature',
     'MarketingPageTestimonial',
@@ -206,7 +209,7 @@ export const MARKETING_WIDGET_SOURCE_CODENAMES: Readonly<Record<MarketingWidgetK
     'marketing.brand': ['MarketingPageSiteSettings'],
     'marketing.navigation': ['MarketingPageNavigation'],
     'marketing.auth': [],
-    'marketing.hero': ['MarketingPageSiteSettings'],
+    'marketing.hero': [],
     'marketing.image': [],
     'marketing.collection': [
         'MarketingPageLogo',
@@ -256,19 +259,24 @@ export const MARKETING_SOURCE_FIELD_KEYS: Readonly<Record<MarketingSourceCodenam
     MarketingPageSiteSettings: [
         'brandName',
         'brandLogo',
-        'heroTitle',
-        'heroSubtitle',
-        'heroAccent',
-        'heroEmailLabel',
-        'heroEmailPlaceholder',
-        'heroTermsText',
-        'heroPrimaryAction',
-        'heroSecondaryAction',
         'footerDescription',
         'copyright',
         'copyrightLabel',
         'copyrightAction',
         'newsletter'
+    ],
+    [MARKETING_HERO_ENTITY_CODENAME]: [
+        'key',
+        'title',
+        'accent',
+        'description',
+        'emailLabel',
+        'emailPlaceholder',
+        'primaryActionLabel',
+        'primaryAction',
+        'termsText',
+        'termsLinkLabel',
+        'termsAction'
     ],
     MarketingPageLogo: ['name', 'media', 'darkMedia', 'order', 'isVisible'],
     MarketingPageFeature: ['title', 'description', 'iconKey', 'lightMedia', 'darkMedia', 'order', 'isVisible'],
@@ -693,14 +701,6 @@ export const marketingSiteSettingsRecordSchema = marketingRecordBaseSchema
         kind: z.literal('siteSettings'),
         brandName: marketingLocalizedTextSchema,
         brandLogo: marketingMediaSchema.optional(),
-        heroTitle: marketingLocalizedTextSchema,
-        heroSubtitle: marketingLocalizedTextSchema,
-        heroAccent: marketingLocalizedTextSchema.optional(),
-        heroEmailLabel: marketingLocalizedLabelSchema.optional(),
-        heroEmailPlaceholder: marketingLocalizedLabelSchema.optional(),
-        heroTermsText: marketingLocalizedTextSchema.optional(),
-        heroPrimaryAction: marketingActionButtonSchema.optional(),
-        heroSecondaryAction: marketingActionButtonSchema.optional(),
         footerDescription: marketingLocalizedTextSchema.optional(),
         copyright: marketingLocalizedTextSchema.optional(),
         copyrightLabel: marketingLocalizedTextSchema.optional(),
@@ -864,14 +864,6 @@ export const publicMarketingSiteSettingsRecordSchema = publicMarketingRecordBase
         kind: z.literal('siteSettings'),
         brandName: marketingLocalizedTextSchema,
         brandLogo: publicMarketingMediaSchema.optional(),
-        heroTitle: marketingLocalizedTextSchema,
-        heroSubtitle: marketingLocalizedTextSchema,
-        heroAccent: marketingLocalizedTextSchema.optional(),
-        heroEmailLabel: marketingLocalizedLabelSchema.optional(),
-        heroEmailPlaceholder: marketingLocalizedLabelSchema.optional(),
-        heroTermsText: marketingLocalizedTextSchema.optional(),
-        heroPrimaryAction: marketingActionButtonSchema.optional(),
-        heroSecondaryAction: marketingActionButtonSchema.optional(),
         footerDescription: marketingLocalizedTextSchema.optional(),
         copyright: marketingLocalizedTextSchema.optional(),
         copyrightLabel: marketingLocalizedTextSchema.optional(),
@@ -1136,12 +1128,120 @@ export const marketingNavigationWidgetConfigSchema = marketingEntityWidgetConfig
     .strict()
     .superRefine((value, context) => refineMarketingWidgetSources(value, context, 'marketing.navigation'))
 
-export const marketingHeroWidgetConfigSchema = marketingEntityWidgetConfigBaseSchema
-    .extend({
+export const marketingHeroWidgetConfigSchema = z
+    .object({
+        instanceKey: marketingWidgetInstanceKeySchema,
         showLeadForm: z.boolean().default(true)
     })
     .strict()
-    .superRefine((value, context) => refineMarketingWidgetSources(value, context, 'marketing.hero'))
+
+const marketingHeroActionTargetLength = (action: MarketingAction): number => {
+    switch (action.kind) {
+        case 'internal':
+            return action.path.length
+        case 'external':
+            return action.url.length
+        case 'anchor':
+            return action.href.length
+        case 'email':
+            return action.address.length + (action.subject?.length ?? 0)
+        case 'tel':
+            return action.number.length
+    }
+}
+
+/** Bounded, localized Hero projection produced by the Entity binding resolver. */
+export const marketingHeroEntityContentSchema = z
+    .object({
+        title: marketingLocalizedTextSchema,
+        accent: marketingLocalizedTextSchema.optional(),
+        description: marketingLocalizedTextSchema,
+        emailLabel: marketingLocalizedTextSchema,
+        emailPlaceholder: marketingLocalizedTextSchema,
+        primaryActionLabel: marketingLocalizedTextSchema,
+        primaryAction: marketingActionSchema,
+        termsText: marketingLocalizedTextSchema.optional(),
+        termsLinkLabel: marketingLocalizedTextSchema.optional(),
+        termsAction: marketingActionSchema.optional()
+    })
+    .strict()
+    .superRefine((content, context) => {
+        const fields: Array<[keyof typeof content, number]> = [
+            ['title', 255],
+            ['accent', 120],
+            ['description', 2000],
+            ['emailLabel', 120],
+            ['emailPlaceholder', 120],
+            ['primaryActionLabel', 120],
+            ['termsText', 500],
+            ['termsLinkLabel', 120]
+        ]
+        for (const [field, maxLength] of fields) {
+            const localized = content[field]
+            if (!localized || typeof localized === 'string') continue
+            for (const [locale, value] of Object.entries(localized)) {
+                if (value.length > maxLength) {
+                    context.addIssue({
+                        code: z.ZodIssueCode.too_big,
+                        type: 'string',
+                        maximum: maxLength,
+                        inclusive: true,
+                        path: [field, locale],
+                        message: 'Hero text exceeds the configured length limit.'
+                    })
+                }
+            }
+        }
+
+        const hasTerms = ['termsText', 'termsLinkLabel', 'termsAction'].some(
+            (field) => content[field as keyof typeof content] !== undefined
+        )
+        if (hasTerms && (!content.termsText || !content.termsLinkLabel || !content.termsAction)) {
+            context.addIssue({
+                code: z.ZodIssueCode.custom,
+                path: ['termsText'],
+                message: 'Terms text, link label, and action must be provided together.'
+            })
+        }
+        if (marketingHeroActionTargetLength(content.primaryAction) > 500) {
+            context.addIssue({
+                code: z.ZodIssueCode.too_big,
+                type: 'string',
+                maximum: 500,
+                inclusive: true,
+                path: ['primaryAction'],
+                message: 'Hero action targets may contain at most 500 characters.'
+            })
+        }
+        if (content.termsAction && marketingHeroActionTargetLength(content.termsAction) > 500) {
+            context.addIssue({
+                code: z.ZodIssueCode.too_big,
+                type: 'string',
+                maximum: 500,
+                inclusive: true,
+                path: ['termsAction'],
+                message: 'Hero action targets may contain at most 500 characters.'
+            })
+        }
+    })
+export type MarketingHeroEntityContent = z.infer<typeof marketingHeroEntityContentSchema>
+
+/**
+ * Keeps the established `data.records` runtime envelope while carrying a
+ * bounded projection of the Entity record that owns Hero content.
+ */
+export const marketingHeroContentRecordSchema = z
+    .object({
+        kind: z.literal('heroContent'),
+        semanticKey: z.literal('content'),
+        order: z.literal(0),
+        isVisible: z.literal(true),
+        content: marketingHeroEntityContentSchema
+    })
+    .strict()
+
+export const marketingHeroWidgetDataSchema = z.object({ records: z.tuple([marketingHeroContentRecordSchema]) }).strict()
+export type MarketingHeroWidgetData = z.infer<typeof marketingHeroWidgetDataSchema>
 
 export const marketingCollectionWidgetConfigSchema = marketingEntityWidgetConfigBaseSchema
     .extend({
@@ -1282,14 +1382,12 @@ export const marketingNavigationWidgetSchema = marketingRuntimeWidgetBaseSchema
 export const marketingHeroWidgetSchema = marketingRuntimeWidgetBaseSchema
     .extend({
         widgetKey: z.literal('marketing.hero'),
-        config: marketingHeroWidgetConfigSchema
+        config: marketingHeroWidgetConfigSchema,
+        data: marketingHeroWidgetDataSchema
     })
     .superRefine((value, context) => {
         if (value.zone !== 'marketing-main') {
             context.addIssue({ code: z.ZodIssueCode.custom, path: ['zone'], message: 'Hero widgets must use the main zone.' })
-        }
-        if (value.data.records.some((record) => !['siteSettings', 'sectionCopy'].includes(record.kind))) {
-            context.addIssue({ code: z.ZodIssueCode.custom, path: ['data'], message: 'Hero data must contain site settings only.' })
         }
     })
 
@@ -1528,7 +1626,8 @@ export const publicMarketingNavigationWidgetSchema = publicMarketingRuntimeWidge
 export const publicMarketingHeroWidgetSchema = publicMarketingRuntimeWidgetBaseSchema
     .extend({
         widgetKey: z.literal('marketing.hero'),
-        config: publicMarketingEntityWidgetConfigBaseSchema.extend({ showLeadForm: z.boolean().default(true) })
+        config: publicMarketingEntityWidgetConfigBaseSchema.extend({ showLeadForm: z.boolean().default(true) }),
+        data: marketingHeroWidgetDataSchema
     })
     .superRefine((value, context) => {
         if (value.zone !== 'marketing-main') {

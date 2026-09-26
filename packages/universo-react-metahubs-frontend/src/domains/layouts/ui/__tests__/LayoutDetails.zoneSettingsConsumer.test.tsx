@@ -90,6 +90,7 @@ vi.mock('@universo-react/template-mui', async () => {
 })
 
 vi.mock('@universo-react/template-mui/components/dialogs', () => ({ ConfirmDeleteDialog: () => null }))
+vi.mock('../MarketingHeroBindingDialog', () => ({ default: () => null }))
 
 vi.mock('../../api', () => ({
     ...layoutApiMocks

@@ -27,12 +27,14 @@ import {
     strictApplicationLayoutWidgetToggleMutationSchema
 } from '../validation/applicationLayoutMutationSchemas'
 import type { StrictApplicationLayoutWidgetMoveMutation } from '../validation/applicationLayoutMutationSchemas'
+import { assertMarketingHeroActionsRemainValidAfterToggle } from './applicationLayoutMarketingActionIntegrity'
 import {
     applicationLayoutWidgetPredicate,
     assertApplicationLayoutWidgetConfig,
     assertApplicationLayoutWidgetMultiplicity,
     assertRendererConfigInput,
     assertWidgetPlacementForTemplate,
+    copyApplicationLayoutWidgetSourceBindingState,
     encodeLayoutConfigForStorage,
     encodeWidgetConfigForStorage,
     getApplicationLayoutDetail,
@@ -141,6 +143,9 @@ export async function upsertApplicationLayoutWidget(
 ): Promise<ApplicationLayoutWidget> {
     if (isRecord(input)) assertRendererConfigInput(input.config)
     const data = strictApplicationLayoutWidgetMutationSchema.parse(input)
+    if (LAYOUT_WIDGET_DEFINITIONS.find((definition) => definition.key === data.widgetKey)?.bindingSlots?.length) {
+        throw new Error('APPLICATION_LAYOUT_ENTITY_BACKED_WIDGET_COPY_CONFLICT')
+    }
     const widgetsTable = qSchemaTable(schemaName, '_app_widgets')
     const layoutsTable = qSchemaTable(schemaName, '_app_layouts')
     const config = assertApplicationLayoutWidgetConfig(data.widgetKey, data.config ?? {}, { generateInstanceKey: true })
@@ -423,7 +428,9 @@ export async function resetApplicationLayoutWidgetConfigsBatch(
             }
             const currentLayout = layoutById.get(update.layoutId)!
             try {
-                readWidgetConfigEnvelope(currentLayout.item.templateKey, current.widget_key, current.zone, current.source_config)
+                readWidgetConfigEnvelope(currentLayout.item.templateKey, current.widget_key, current.zone, current.source_config, {
+                    requireBindings: true
+                })
             } catch {
                 throw new Error('APPLICATION_LAYOUT_WIDGET_INVALID')
             }
@@ -439,7 +446,8 @@ export async function resetApplicationLayoutWidgetConfigsBatch(
                     currentLayout.item.templateKey,
                     current.widget_key,
                     current.zone,
-                    current.source_config
+                    current.source_config,
+                    { requireBindings: true }
                 ).rendererConfig
                 return {
                     current: { widgetKey: current.widget_key, config: current.config, isActive: current.is_active },
@@ -529,7 +537,7 @@ export async function moveApplicationLayoutWidget(
 
         const targetBucket = buckets.get(data.targetZone) ?? []
         const targetIndex = Math.max(0, Math.min(data.targetIndex, targetBucket.length))
-        targetBucket.splice(targetIndex, 0, { ...moved, zone: data.targetZone })
+        targetBucket.splice(targetIndex, 0, copyApplicationLayoutWidgetSourceBindingState(moved, { ...moved, zone: data.targetZone }))
         buckets.set(data.targetZone, targetBucket)
 
         let movedResult: ApplicationLayoutWidget | null = null
@@ -540,7 +548,11 @@ export async function moveApplicationLayoutWidget(
                 const nextSortOrder = index + 1
                 if (widget.zone === zone && widget.sortOrder === nextSortOrder) {
                     if (widget.id === moved.id) {
-                        movedResult = { ...widget, zone, sortOrder: nextSortOrder }
+                        movedResult = copyApplicationLayoutWidgetSourceBindingState(moved, {
+                            ...widget,
+                            zone,
+                            sortOrder: nextSortOrder
+                        })
                     }
                     continue
                 }
@@ -593,7 +605,13 @@ export async function moveApplicationLayoutWidget(
                 if (update.id !== moved.id) {
                     continue
                 }
-                movedResult = updatedById.get(update.id) ?? { ...moved, zone: update.zone, sortOrder: update.sortOrder }
+                movedResult =
+                    updatedById.get(update.id) ??
+                    copyApplicationLayoutWidgetSourceBindingState(moved, {
+                        ...moved,
+                        zone: update.zone,
+                        sortOrder: update.sortOrder
+                    })
                 break
             }
         }
@@ -621,7 +639,14 @@ export async function moveApplicationLayoutWidget(
         }
 
         await refreshLayoutLocalContentHash(tx, schemaName, layoutId, userId)
-        return movedResult ?? { ...moved, zone: data.targetZone, sortOrder: targetIndex + 1 }
+        return (
+            movedResult ??
+            copyApplicationLayoutWidgetSourceBindingState(moved, {
+                ...moved,
+                zone: data.targetZone,
+                sortOrder: targetIndex + 1
+            })
+        )
     })
 }
 
@@ -656,6 +681,9 @@ export async function toggleApplicationLayoutWidget(
             ],
             { lockAlreadyHeld: true }
         )
+        if (data.isActive !== current.isActive) {
+            await assertMarketingHeroActionsRemainValidAfterToggle(tx, schemaName, currentLayout, widgetId, data.isActive)
+        }
         const rows = await tx.query<WidgetRow>(
             `
             UPDATE ${widgetsTable}

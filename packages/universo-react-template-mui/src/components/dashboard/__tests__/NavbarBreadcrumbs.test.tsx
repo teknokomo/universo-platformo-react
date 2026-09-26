@@ -95,11 +95,7 @@ jest.mock('../../../hooks', () => ({
     useConnectorName: () => null,
     truncateConnectorName: (value: string) => value,
     useLayoutName: () => null,
-    truncateLayoutName: (value: string) => value
-}))
-
-jest.mock('@universo-react/admin-frontend', () => ({
-    __esModule: true,
+    truncateLayoutName: (value: string) => value,
     useInstanceName: () => null,
     truncateInstanceName: (value: string) => value,
     useRoleName: () => null,

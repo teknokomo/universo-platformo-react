@@ -42,14 +42,6 @@ export const MERIDIAN_73_METAHUB = {
 
 export const MERIDIAN_73_SITE_SETTINGS = {
     brandName: MERIDIAN_73_METAHUB.name,
-    heroTitle: {
-        en: '73rd Meridian — a new North–South industrial and logistics corridor',
-        ru: '73-й Меридиан — новый индустриально-логистический коридор Север–Юг'
-    },
-    heroSubtitle: {
-        en: 'The Consortium brings together infrastructure projects, digital twins of territories, and intelligent management systems to develop international transport routes.',
-        ru: 'Консорциум объединяет инфраструктурные проекты, цифровые двойники территорий и интеллектуальные системы управления для развития международных транспортных маршрутов.'
-    },
     footerDescription: {
         en: 'We are open to dialogue with investors, technology companies, industrial partners, and experts.',
         ru: 'Мы открыты к диалогу с инвесторами, технологическими компаниями, промышленными партнёрами и экспертами.'
@@ -57,15 +49,22 @@ export const MERIDIAN_73_SITE_SETTINGS = {
     copyright: MERIDIAN_73_METAHUB.name
 } as const
 
-export const MERIDIAN_73_SECTIONS = [
-    {
-        key: 'hero',
-        title: { en: 'About the project', ru: 'О проекте' },
-        description: {
-            en: 'We are creating an intelligent framework for preparing, modeling, and delivering next-generation projects — from digital twins of territories to international industrial and logistics corridors.',
-            ru: 'Создаём интеллектуальный контур для подготовки, моделирования и реализации проектов нового поколения — от цифровых двойников территорий до международных индустриально-логистических коридоров.'
-        }
+export const MERIDIAN_73_HERO = {
+    title: {
+        en: '73rd Meridian — a new North–South industrial and logistics corridor',
+        ru: '73-й Меридиан — новый индустриально-логистический коридор Север–Юг'
     },
+    accent: {
+        en: 'Connecting Eurasia',
+        ru: 'Объединяя Евразию'
+    },
+    description: {
+        en: 'The Consortium brings together infrastructure projects, digital twins of territories, and intelligent management systems to develop international transport routes.',
+        ru: 'Консорциум объединяет инфраструктурные проекты, цифровые двойники территорий и интеллектуальные системы управления для развития международных транспортных маршрутов.'
+    }
+} as const
+
+export const MERIDIAN_73_SECTIONS = [
     {
         key: 'logos',
         title: { en: 'Partner ecosystem', ru: 'Партнёрская экосистема' },

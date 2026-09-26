@@ -20,20 +20,9 @@ import type { RuntimeWorkspaceAccess } from '../services/applicationWorkspaces'
 import { resolveRuntimeWorkspaceAccess, setRuntimeWorkspaceContext } from '../services/applicationWorkspaces'
 import { resolveEffectiveApplicationSettingsForWorkspace } from '../services/workspaceSettingsService'
 import { getRequestDbExecutor, getRequestDbSession } from '../utils'
+import { UpdateFailure } from './updateFailure'
 
-// ---------------------------------------------------------------------------
-// Custom error class for transaction rollback signals
-// ---------------------------------------------------------------------------
-
-/**
- * Thrown inside `executor.transaction()` callbacks to signal a business-logic
- * failure that should trigger transaction rollback and a specific HTTP response.
- */
-export class UpdateFailure extends Error {
-    constructor(public readonly statusCode: number, public readonly body: Record<string, unknown>) {
-        super('Update failed')
-    }
-}
+export { UpdateFailure } from './updateFailure'
 
 /**
  * Safe, stable validation error for a closed metadata formatter.

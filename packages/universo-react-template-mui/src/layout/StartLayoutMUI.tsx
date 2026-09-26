@@ -5,7 +5,7 @@ import Box from '@mui/material/Box'
 import { useAuth } from '@universo-react/auth-frontend'
 import AppTheme from '../components/shared/AppTheme'
 import AppAppBar from '../views/start-page/components/AppAppBar'
-import { CookieConsentBanner } from '@universo-react/start-frontend/components'
+import { CookieConsentBanner } from '../components/cookies/CookieConsentBanner'
 
 interface StartLayoutMUIProps {
     disableCustomTheme?: boolean

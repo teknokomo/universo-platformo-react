@@ -518,6 +518,7 @@ export const RUNTIME_CURRENT_USER_ID_TOKEN = '{{runtime.currentUserId}}'
 
 export type RuntimeProgressStoreBinding = {
     tableIdent: string
+    config?: Record<string, unknown> | null
     columns: {
         targetObjectCodename: string
         targetRecordId: string

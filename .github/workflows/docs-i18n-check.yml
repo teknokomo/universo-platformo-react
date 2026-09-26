@@ -5,22 +5,28 @@ on:
         paths:
             - 'packages/**/README.md'
             - 'packages/**/README-RU.md'
+            - 'packages/universo-react-apps-template-mui/**'
+            - 'packages/universo-react-metahubs-frontend/src/domains/layouts/**'
             - 'docs/en/**'
             - 'docs/ru/**'
             - '.gemini/rules/i18n-docs.md'
             - 'tools/docs/**'
             - 'tools/testing/e2e/**'
             - 'package.json'
+            - '.github/workflows/docs-i18n-check.yml'
     push:
         paths:
             - 'packages/**/README.md'
             - 'packages/**/README-RU.md'
+            - 'packages/universo-react-apps-template-mui/**'
+            - 'packages/universo-react-metahubs-frontend/src/domains/layouts/**'
             - 'docs/en/**'
             - 'docs/ru/**'
             - '.gemini/rules/i18n-docs.md'
             - 'tools/docs/**'
             - 'tools/testing/e2e/**'
             - 'package.json'
+            - '.github/workflows/docs-i18n-check.yml'
 
 jobs:
     check:
@@ -44,8 +50,17 @@ jobs:
             - name: Run i18n docs check (resources scope)
               run: I18N_SCOPE=resources pnpm docs:i18n:check
 
+            - name: Install Chromium for localized marketing documentation screenshots
+              run: pnpm --filter @universo-react/playcanvas-editor-frontend exec playwright install --with-deps chromium
+
+            - name: Generate and verify Marketing Page documentation screenshots
+              run: pnpm docs:marketing-page:verify:local-supabase
+
             - name: Run GitBook screenshot asset check
               run: pnpm docs:gitbook-screenshot-assets:check
+
+            - name: Run Marketing Page screenshot provenance and route/scope check
+              run: pnpm docs:marketing-page:screenshot:check
 
             - name: Run LMS user guide docs check
               run: pnpm docs:lms-user-guide:check

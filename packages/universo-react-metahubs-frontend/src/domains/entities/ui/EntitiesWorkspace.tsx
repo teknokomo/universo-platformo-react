@@ -11,7 +11,6 @@ import {
     FormHelperText,
     InputLabel,
     MenuItem,
-    Select,
     Skeleton,
     Stack,
     TextField,
@@ -89,6 +88,7 @@ import {
     getEntityBehaviorProfile,
     type SupportedEntityTab
 } from './entityBehaviorProfiles'
+import { DropdownSelect as Select } from '@universo-react/template-mui/dropdowns'
 
 type EntityTypeFormValues = Record<string, unknown>
 

@@ -1,5 +1,6 @@
 import { generateUuidV7 } from '@universo-react/utils'
 import { isUniqueViolation, getDbErrorConstraint } from '@universo-react/utils/database'
+import type { SqlQueryable } from '@universo-react/utils/database'
 import { isEnabledCapabilityConfig } from '@universo-react/types'
 import type { createMetahubHandlerFactory } from '../../shared/createMetahubHandler'
 import { paginateItems } from '../../shared/queryParams'
@@ -11,6 +12,8 @@ import { copyDesignTimeObjectChildren } from '../services/designTimeObjectChildr
 import { getEntityBehaviorService } from '../services/builtinKindBehaviorRegistry'
 import { PlayCanvasProjectsService } from '../../playcanvas-projects/services/PlayCanvasProjectsService'
 import { extractProjectBindingFromConfig } from './entityControllerShared'
+import { assertEntityMetadataSecurityUpdate, isEntityMetadataPolicyManaged } from '../../shared/entityMetadataMutationPolicy'
+import { acquireWidgetBindingObjectLock, isEntityBoundByCodename } from '../../layouts/widgetBindingPolicyStore'
 import {
     createEntityServices,
     assertSupportedEntityKind,
@@ -237,6 +240,15 @@ export function createEntityCrudHandlers(createHandler: ReturnType<typeof create
             componentsService
         })
 
+        const existingCodename = getCodenamePayloadText(existing.codename as never)
+        const requestedCodename = nextCodename?.normalizedCodename
+        const codenameChanged = requestedCodename !== undefined && requestedCodename !== existingCodename
+        const requestTouchesRecordPolicy = Boolean(config && Object.prototype.hasOwnProperty.call(config, 'recordPolicy'))
+        const shouldLockEntityMetadata =
+            existing.kind === 'object' &&
+            (codenameChanged || requestTouchesRecordPolicy || isEntityMetadataPolicyManaged(existingCodename, existing.config))
+        const schemaName = shouldLockEntityMetadata ? await schemaService.ensureSchema(metahubId, userId) : undefined
+
         const updated = (await mutationService.run({
             metahubId,
             objectId: existing.id,
@@ -244,8 +256,21 @@ export function createEntityCrudHandlers(createHandler: ReturnType<typeof create
             beforeEvent: 'beforeUpdate',
             afterEvent: 'afterUpdate',
             actionExecutor,
-            mutation: async (tx) =>
-                objectsService.updateObject(
+            mutation: async (tx) => {
+                if (shouldLockEntityMetadata && schemaName) {
+                    const lockedEntity = await acquireWidgetBindingObjectLock(tx, schemaName, existing.id)
+                    assertEntityMetadataSecurityUpdate({
+                        codename: lockedEntity.codename,
+                        config: lockedEntity.config,
+                        nextCodename: requestedCodename,
+                        configPatch: config
+                    })
+                    if (codenameChanged && (await isEntityBoundByCodename(tx, schemaName, lockedEntity.kind, lockedEntity.codename))) {
+                        throw new MetahubConflictError('An Entity codename used by a live layout binding cannot be changed.')
+                    }
+                }
+
+                return objectsService.updateObject(
                     metahubId,
                     existing.id,
                     existing.kind,
@@ -260,6 +285,7 @@ export function createEntityCrudHandlers(createHandler: ReturnType<typeof create
                     userId,
                     tx
                 )
+            }
         })) as EntityInstanceRow
 
         return res.json(mapEntityInstanceResponse(updated))
@@ -406,6 +432,17 @@ export function createEntityCrudHandlers(createHandler: ReturnType<typeof create
             }
         }
 
+        const objectSchemaName = existing.kind === 'object' ? await schemaService.ensureSchema(metahubId, userId) : undefined
+        const softDeleteEntity = async (tx: SqlQueryable): Promise<void> => {
+            if (objectSchemaName) {
+                const lockedObject = await acquireWidgetBindingObjectLock(tx, objectSchemaName, existing.id)
+                if (await isEntityBoundByCodename(tx, objectSchemaName, lockedObject.kind, lockedObject.codename)) {
+                    throw new MetahubConflictError('An Entity used by a live layout binding cannot be deleted.')
+                }
+            }
+            await objectsService.delete(metahubId, existing.id, userId, tx)
+        }
+
         const metadataKind = getEntityMetadataKind(resolvedType)
         const behavior = metadataKind ? getEntityBehaviorService(metadataKind) : null
         if (behavior) {
@@ -432,9 +469,7 @@ export function createEntityCrudHandlers(createHandler: ReturnType<typeof create
                         beforeEvent: 'beforeDelete',
                         afterEvent: 'afterDelete',
                         actionExecutor,
-                        mutation: async (tx) => {
-                            await objectsService.delete(metahubId, existing.id, userId, tx)
-                        }
+                        mutation: softDeleteEntity
                     })
                 }
             })
@@ -454,9 +489,7 @@ export function createEntityCrudHandlers(createHandler: ReturnType<typeof create
             beforeEvent: 'beforeDelete',
             afterEvent: 'afterDelete',
             actionExecutor,
-            mutation: async (tx) => {
-                await objectsService.delete(metahubId, existing.id, userId, tx)
-            }
+            mutation: softDeleteEntity
         })
 
         await cascadeBoundProject()

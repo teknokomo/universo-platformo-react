@@ -573,6 +573,7 @@
             "marketing": {
                 "appearanceTitle": "Marketing page appearance",
                 "appearanceDescription": "Configure the published marketing page without editing its content records.",
+                "heroActionIntegrityConflict": "This section is used by a Hero action. Change that action or keep the section active.",
                 "invalidConfig": "The saved marketing appearance configuration is invalid.",
                 "resetHint": "Restore the theme, colors, and action policy to the marketing template defaults.",
                 "reset": "Restore template defaults",
@@ -1261,6 +1262,7 @@
                 "overwriteSource": "Overwrite with metahub source",
                 "keepLocal": "Keep the application layout",
                 "copySourceAsApplication": "Copy metahub source as a new application layout",
+                "copySourceUnavailable": "This layout contains an Entity-backed Hero placement that cannot be copied into an application layout. Keep the application layout or skip this source update.",
                 "skipSource": "Skip this metahub layout update for now",
                 "overwriteLocal": "Replace the application layout with metahub source",
                 "required": "Choose a bulk policy or set explicit per-layout resolutions before sync is enabled.",

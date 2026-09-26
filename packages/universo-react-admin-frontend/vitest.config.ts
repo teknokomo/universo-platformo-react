@@ -18,6 +18,7 @@ export default mergeConfig(
         resolve: {
             alias: {
                 ...tsconfigAliases,
+                '@universo-react/template-mui/dropdowns': path.resolve(templateMuiSrcDir, 'components/dropdowns/index.ts'),
                 '@universo-react/template-mui/components/dialogs': path.resolve(templateMuiSrcDir, 'components/dialogs/index.ts'),
                 '@universo-react/template-mui': path.resolve(templateMuiSrcDir, 'index.ts'),
                 '@': srcDir

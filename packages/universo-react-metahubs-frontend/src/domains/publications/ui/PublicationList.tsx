@@ -10,7 +10,6 @@ import {
     Alert,
     FormControl,
     InputLabel,
-    Select,
     MenuItem,
     FormHelperText,
     FormControlLabel,
@@ -26,6 +25,9 @@ import { useCommonTranslations } from '@universo-react/i18n'
 import { useSnackbar } from 'notistack'
 import { useQueryClient } from '@tanstack/react-query'
 
+// project imports
+// project imports
+// project imports
 // project imports
 import {
     TemplateMainCard as MainCard,
@@ -60,6 +62,7 @@ import { isOptimisticLockConflict, extractConflictInfo, isPendingEntity, getPend
 import publicationActions from './PublicationActions'
 import { AccessPanel } from './AccessPanel'
 import type { PublicationAccessMode, Publication } from '../api'
+import { DropdownSelect as Select } from '@universo-react/template-mui/dropdowns'
 
 type PublicationFormValues = {
     nameVlc: VersionedLocalizedContent<string> | null

@@ -19,6 +19,7 @@ import {
     resolveProgressStoreBinding
 } from '../runtimeRowSupport/progress'
 import { buildRuntimeRecordAccessClause } from '../runtimeRowSupport/access'
+import { assertRuntimeEntityMutationAllowed, denyRuntimeEntityMutation } from '../../shared/entityMutationPolicy'
 
 import { persistRuntimeActorLibraryRelation } from './actorRelations'
 import type { RuntimeCommandGuardFailure, RuntimeProgressQuotedColumns, RuntimeProgressTarget, RuntimeRowCommandHandlerDeps } from './types'
@@ -33,6 +34,14 @@ export const ensureRuntimeProgressTargetAccessible = async (params: {
     })
     if (!targetObject) {
         return { failure: { statusCode: 404, body: { error: 'Progress target object not found' } } }
+    }
+    try {
+        assertRuntimeEntityMutationAllowed(targetObject.config)
+    } catch (error) {
+        if (error instanceof UpdateFailure) {
+            return { failure: { statusCode: error.statusCode, body: error.body } }
+        }
+        throw error
     }
 
     if (targetObject.kind === 'page') {
@@ -393,6 +402,7 @@ export const createContentProgressHandler = ({ getDbExecutor, query }: RuntimeRo
         if (!binding) {
             return res.json({ persisted: false, reason: 'progress_store_unavailable' })
         }
+        if (denyRuntimeEntityMutation(res, binding.config)) return
 
         if (parsedBody.data.action !== 'recalculate') {
             const sequenceFailure = await assertRuntimeProgressSequenceAvailable({

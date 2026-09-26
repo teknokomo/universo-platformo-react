@@ -125,9 +125,6 @@ export const hasMarketingLocalizedContent = (value: unknown): boolean =>
 export const toMarketingLocalizedOptionalMap = (value: unknown, locale: string): Record<string, string> | undefined =>
     hasMarketingLocalizedContent(value) ? toMarketingLocalizedMap(value, locale, '') : undefined
 
-export const toMarketingLocalizedOptionalLabel = (value: unknown, locale: string): string | undefined =>
-    hasMarketingLocalizedContent(value) ? resolveLocalizedContent(value, locale, '') : undefined
-
 export const toMarketingSemanticKey = (value: unknown, fallback: string): string => {
     const raw = resolveRuntimeCodenameText(value).trim().toLowerCase()
     const normalized = raw.replace(/[^a-z0-9._-]+/g, '-').replace(/^[^a-z]+/u, '')

@@ -7,6 +7,10 @@ Shared utility package for validation, serialization, browser/runtime helpers, a
 This package provides cross-environment helpers that backend and frontend packages can consume without taking direct dependencies on framework-specific runtime code.
 It also owns the executor and query helper contracts that define the SQL-first repository standard.
 
+## Localized String Map
+
+`toLocalizedStringMap(value)` accepts either a plain locale-to-string map or a versioned localized-content object whose `locales` entries contain string `content`. Versioned entries with `isActive: false`, malformed entries, and metadata keys are excluded. The helper returns `undefined` when the input is not an object or no usable locale entries remain; it does not accept plain strings or validate locale codes.
+
 ## Database Standard Surface
 
 -   `@universo-react/utils/database` exports `DbSession`, `DbExecutor`, and `SqlQueryable`.

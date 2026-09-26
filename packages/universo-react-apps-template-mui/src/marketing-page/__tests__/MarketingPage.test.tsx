@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event'
 
 import AppMainLayout from '../../layouts/AppMainLayout'
 import MarketingPage, { widgetAnchorId } from '../MarketingPage'
-import { MarketingMediaView } from '../components/MarketingPrimitives'
+import { marketingSectionId, MarketingMediaView } from '../components/MarketingPrimitives'
 import type { MarketingAction, MarketingEffectiveLayoutWidgets, MarketingPageData } from '../types'
 
 vi.mock('react-i18next', () => ({
@@ -447,6 +447,36 @@ describe('MarketingPage', () => {
         expect(screen.queryByRole('link', { name: 'Unknown' })).not.toBeInTheDocument()
     })
 
+    it('resolves Hero actions against the active repeated section instance', () => {
+        const heroActionData: MarketingPageData = {
+            ...data,
+            widgets: data.widgets.map((widget) =>
+                widget.widgetKey === 'marketing.hero'
+                    ? {
+                          ...widget,
+                          content: {
+                              ...widget.content,
+                              lead: {
+                                  label: 'Email',
+                                  placeholder: 'name@example.com',
+                                  submitLabel: 'Explore features',
+                                  action: action('#features-features-secondary', 'Explore features')
+                              }
+                          }
+                      }
+                    : widget
+            ) as MarketingPageData['widgets']
+        }
+
+        renderPage({ data: heroActionData })
+
+        const heroAction = screen.getByRole('link', { name: 'Explore features' })
+        expect(heroAction).toHaveAttribute('href', '#features-features-secondary')
+        expect(document.getElementById('features-features-secondary')).toContainElement(
+            screen.getByRole('heading', { name: 'Automation features' })
+        )
+    })
+
     it('uses one zone-owned shell, one Drawer, and atomic persisted header projections', () => {
         renderPage()
 
@@ -568,5 +598,9 @@ describe('MarketingPage', () => {
     it('keeps widget fragment anchors unique for distinct semantic keys', () => {
         expect(widgetAnchorId('promo.one')).not.toBe(widgetAnchorId('promo-one'))
         expect(widgetAnchorId('promo.one')).toMatch(/^marketing-widget-/)
+    })
+
+    it('keeps section fragment anchors unique for punctuation-distinct instance keys', () => {
+        expect(marketingSectionId('hero', 'promo.one')).not.toBe(marketingSectionId('hero', 'promo-one'))
     })
 })

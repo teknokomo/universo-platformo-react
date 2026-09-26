@@ -1,5 +1,5 @@
 import { PUBLIC_MARKETING_ROW_LIMIT } from '../../../persistence/publicApplicationRuntimeStore'
-import { assertMarketingRuntimeRowCap } from '../../../controllers/runtimeRowSupport/rows'
+import { assertMarketingRuntimeRowCap, copyRuntimeConfiguredRelations } from '../../../controllers/runtimeRowSupport/rows'
 
 const createManager = (count: string | number) => ({
     query: jest.fn(async () => [{ count: String(count) }])
@@ -50,5 +50,51 @@ describe('assertMarketingRuntimeRowCap', () => {
             statusCode: 409,
             body: expect.objectContaining({ code: 'MARKETING_ROW_LIMIT_REACHED' })
         })
+    })
+})
+
+describe('copyRuntimeConfiguredRelations Entity policy', () => {
+    it('rejects a denied related Object before inserting any copied relation rows', async () => {
+        const manager = {
+            query: jest.fn().mockResolvedValue([
+                {
+                    id: 'related-object',
+                    kind: 'object',
+                    codename: 'OwnedItems',
+                    table_name: 'owned_items',
+                    config: {
+                        recordPolicy: {
+                            version: 1,
+                            denyDeleteWhenBound: false,
+                            immutableSemanticKeyWhenBound: false,
+                            runtimeMutation: 'deny'
+                        }
+                    }
+                }
+            ])
+        }
+
+        await expect(
+            copyRuntimeConfiguredRelations({
+                manager: manager as never,
+                schemaIdent: '"runtime_schema"',
+                currentWorkspaceId: null,
+                workspacesEnabled: false,
+                userId: 'user-1',
+                sourceParentId: 'source-id',
+                copiedParentId: 'copy-id',
+                relations: [
+                    {
+                        objectCodename: 'OwnedItems',
+                        parentFieldCodename: 'Owner',
+                        orderFieldCodename: null,
+                        refRemaps: []
+                    }
+                ]
+            })
+        ).rejects.toMatchObject({ statusCode: 403, code: 'RUNTIME_ENTITY_MUTATION_DENIED' })
+
+        expect(manager.query).toHaveBeenCalledTimes(1)
+        expect(manager.query.mock.calls.some(([sql]) => String(sql).includes('INSERT INTO'))).toBe(false)
     })
 })

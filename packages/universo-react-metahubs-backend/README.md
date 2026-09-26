@@ -64,6 +64,13 @@ It combines SQL-first domain services with isolated DDL boundaries, template see
     and `RETURNING` confirmation. Snapshot export retains semantic settings and
     excludes application-only source baselines.
 
+## Entity-backed Marketing Hero
+
+-   The `marketing.hero` placement binds through registry-declared `content` slot metadata to a semantic key in the `MarketingPageHero` Object. Placement state and `showLeadForm` stay in the layout; editorial copy stays in the Object record.
+-   `PATCH /metahub/:metahubId/layout/:layoutId/zone-widget/:widgetId/binding` accepts only `{ recordId, expectedVersion }`, resolves and validates the target under the layout graph lock, uses optimistic concurrency, and returns the updated widget directly.
+-   `MarketingPageHero` has a server-owned record policy. Generic metadata edits cannot relax runtime write denial, required EN/RU fields, bound-record deletion protection, or the immutable semantic key; rename/removal is serialized with binding mutations.
+-   Authenticated authoring and public runtime resolve the same bounded projection through parameterized SQL and the existing DbExecutor boundary. Public serialization preserves the shared `data.records` envelope without forwarding physical row metadata.
+
 ## Main Responsibilities
 
 -   Expose authenticated CRUD routes for design-time metahub resources.

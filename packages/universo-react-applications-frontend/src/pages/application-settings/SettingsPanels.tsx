@@ -8,12 +8,12 @@ import {
     FormControlLabel,
     InputLabel,
     MenuItem,
-    Select,
     Stack,
     Switch,
     TextField,
     Typography
 } from '@mui/material'
+
 import SaveIcon from '@mui/icons-material/Save'
 import type { TFunction } from 'i18next'
 import {
@@ -22,6 +22,17 @@ import {
     normalizeApplicationWorkspaceOverridePolicy
 } from '@universo-react/types'
 import type { ApplicationDialogSettings, ApplicationRole, ApplicationWorkspaceLimitItem } from '../../types'
+import { DropdownSelect as Select } from '@universo-react/template-mui/dropdowns'
+
+const GENERAL_SETTINGS_SELECT_ROW_SX = {
+    py: 2,
+    display: 'flex',
+    flexDirection: { xs: 'column', sm: 'row' },
+    alignItems: { xs: 'stretch', sm: 'center' },
+    gap: { xs: 1.5, sm: 3 }
+} as const
+
+const GENERAL_SETTINGS_SELECT_SX = { minWidth: { xs: '100%', sm: 250 } } as const
 
 export type ApplicationCapabilityKey =
     | 'manageMembers'
@@ -302,7 +313,7 @@ export const GeneralSettingsPanel = ({
                 />
             </Box>
 
-            <Box data-testid='application-setting-dialogSizePreset' sx={{ py: 2, display: 'flex', alignItems: 'center', gap: 3 }}>
+            <Box data-testid='application-setting-dialogSizePreset' sx={GENERAL_SETTINGS_SELECT_ROW_SX}>
                 <Box sx={{ flex: 1, minWidth: 0 }}>
                     <Typography variant='subtitle2'>{t('settings.dialogSizePreset', 'Popup window size')}</Typography>
                     <Typography
@@ -314,10 +325,14 @@ export const GeneralSettingsPanel = ({
                         {t('settings.dialogSizePresetDescription', 'Default size for popup windows in this application control panel.')}
                     </Typography>
                 </Box>
-                <FormControl size='small' sx={{ minWidth: 250 }}>
-                    <InputLabel>{t('settings.dialogSizePreset', 'Popup window size')}</InputLabel>
+                <FormControl size='small' sx={GENERAL_SETTINGS_SELECT_SX}>
+                    <InputLabel id='application-setting-dialogSizePreset-label'>
+                        {t('settings.dialogSizePreset', 'Popup window size')}
+                    </InputLabel>
                     <Select
+                        id='application-setting-dialogSizePreset-select'
                         value={settings.dialogSizePreset}
+                        labelId='application-setting-dialogSizePreset-label'
                         label={t('settings.dialogSizePreset', 'Popup window size')}
                         onChange={(event) =>
                             onSettingsChange({ dialogSizePreset: event.target.value as ApplicationDialogSettings['dialogSizePreset'] })
@@ -409,7 +424,7 @@ export const GeneralSettingsPanel = ({
                 />
             </Box>
 
-            <Box data-testid='application-setting-dialogCloseBehavior' sx={{ py: 2, display: 'flex', alignItems: 'center', gap: 3 }}>
+            <Box data-testid='application-setting-dialogCloseBehavior' sx={GENERAL_SETTINGS_SELECT_ROW_SX}>
                 <Box sx={{ flex: 1, minWidth: 0 }}>
                     <Typography variant='subtitle2'>{t('settings.dialogCloseBehavior', 'Popup window type')}</Typography>
                     <Typography
@@ -424,10 +439,14 @@ export const GeneralSettingsPanel = ({
                         )}
                     </Typography>
                 </Box>
-                <FormControl size='small' sx={{ minWidth: 250 }}>
-                    <InputLabel>{t('settings.dialogCloseBehavior', 'Popup window type')}</InputLabel>
+                <FormControl size='small' sx={GENERAL_SETTINGS_SELECT_SX}>
+                    <InputLabel id='application-setting-dialogCloseBehavior-label'>
+                        {t('settings.dialogCloseBehavior', 'Popup window type')}
+                    </InputLabel>
                     <Select
+                        id='application-setting-dialogCloseBehavior-select'
                         value={settings.dialogCloseBehavior}
+                        labelId='application-setting-dialogCloseBehavior-label'
                         label={t('settings.dialogCloseBehavior', 'Popup window type')}
                         onChange={(event) =>
                             onSettingsChange({
@@ -441,7 +460,7 @@ export const GeneralSettingsPanel = ({
                 </FormControl>
             </Box>
 
-            <Box data-testid='application-setting-dashboardDefaultMode' sx={{ py: 2, display: 'flex', alignItems: 'center', gap: 3 }}>
+            <Box data-testid='application-setting-dashboardDefaultMode' sx={GENERAL_SETTINGS_SELECT_ROW_SX}>
                 <Box sx={{ flex: 1, minWidth: 0 }}>
                     <Typography variant='subtitle2'>{t('settings.dashboardDefaultMode', 'Runtime dashboard default')}</Typography>
                     <Typography
@@ -456,10 +475,14 @@ export const GeneralSettingsPanel = ({
                         )}
                     </Typography>
                 </Box>
-                <FormControl size='small' sx={{ minWidth: 250 }}>
-                    <InputLabel>{t('settings.dashboardDefaultMode', 'Runtime dashboard default')}</InputLabel>
+                <FormControl size='small' sx={GENERAL_SETTINGS_SELECT_SX}>
+                    <InputLabel id='application-setting-dashboardDefaultMode-label'>
+                        {t('settings.dashboardDefaultMode', 'Runtime dashboard default')}
+                    </InputLabel>
                     <Select
+                        id='application-setting-dashboardDefaultMode-select'
                         value={settings.dashboardDefaultMode}
+                        labelId='application-setting-dashboardDefaultMode-label'
                         label={t('settings.dashboardDefaultMode', 'Runtime dashboard default')}
                         onChange={(event) =>
                             onSettingsChange({
@@ -475,7 +498,7 @@ export const GeneralSettingsPanel = ({
                 </FormControl>
             </Box>
 
-            <Box data-testid='application-setting-datasourceExecutionPolicy' sx={{ py: 2, display: 'flex', alignItems: 'center', gap: 3 }}>
+            <Box data-testid='application-setting-datasourceExecutionPolicy' sx={GENERAL_SETTINGS_SELECT_ROW_SX}>
                 <Box sx={{ flex: 1, minWidth: 0 }}>
                     <Typography variant='subtitle2'>{t('settings.datasourceExecutionPolicy', 'Datasource execution')}</Typography>
                     <Typography
@@ -490,10 +513,14 @@ export const GeneralSettingsPanel = ({
                         )}
                     </Typography>
                 </Box>
-                <FormControl size='small' sx={{ minWidth: 250 }}>
-                    <InputLabel>{t('settings.datasourceExecutionPolicy', 'Datasource execution')}</InputLabel>
+                <FormControl size='small' sx={GENERAL_SETTINGS_SELECT_SX}>
+                    <InputLabel id='application-setting-datasourceExecutionPolicy-label'>
+                        {t('settings.datasourceExecutionPolicy', 'Datasource execution')}
+                    </InputLabel>
                     <Select
+                        id='application-setting-datasourceExecutionPolicy-select'
                         value={settings.datasourceExecutionPolicy}
+                        labelId='application-setting-datasourceExecutionPolicy-label'
                         label={t('settings.datasourceExecutionPolicy', 'Datasource execution')}
                         onChange={(event) =>
                             onSettingsChange({
@@ -509,7 +536,7 @@ export const GeneralSettingsPanel = ({
                 </FormControl>
             </Box>
 
-            <Box data-testid='application-setting-workspaceOpenBehavior' sx={{ py: 2, display: 'flex', alignItems: 'center', gap: 3 }}>
+            <Box data-testid='application-setting-workspaceOpenBehavior' sx={GENERAL_SETTINGS_SELECT_ROW_SX}>
                 <Box sx={{ flex: 1, minWidth: 0 }}>
                     <Typography variant='subtitle2'>{t('settings.workspaceOpenBehavior', 'Workspace opening')}</Typography>
                     <Typography
@@ -524,10 +551,14 @@ export const GeneralSettingsPanel = ({
                         )}
                     </Typography>
                 </Box>
-                <FormControl size='small' sx={{ minWidth: 250 }}>
-                    <InputLabel>{t('settings.workspaceOpenBehavior', 'Workspace opening')}</InputLabel>
+                <FormControl size='small' sx={GENERAL_SETTINGS_SELECT_SX}>
+                    <InputLabel id='application-setting-workspaceOpenBehavior-label'>
+                        {t('settings.workspaceOpenBehavior', 'Workspace opening')}
+                    </InputLabel>
                     <Select
+                        id='application-setting-workspaceOpenBehavior-select'
                         value={settings.workspaceOpenBehavior}
+                        labelId='application-setting-workspaceOpenBehavior-label'
                         label={t('settings.workspaceOpenBehavior', 'Workspace opening')}
                         onChange={(event) =>
                             onSettingsChange({

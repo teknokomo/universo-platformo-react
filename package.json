@@ -1,6 +1,6 @@
 {
     "name": "universo-platformo-react",
-    "version": "0.82.0-alpha",
+    "version": "0.83.0-alpha",
     "private": true,
     "packageManager": "pnpm@12.4.1",
     "homepage": "https://universo.pro",
@@ -26,6 +26,7 @@
         "check:runtime-support-cycles": "node tools/check-module-cycles.mjs packages/universo-react-applications-backend/src/controllers",
         "test:i18n-coverage": "node --test tools/check-i18n-coverage.test.mjs",
         "test:landing-runtime-unit-gate": "node --test tools/check-i18n-coverage.test.mjs && pnpm --filter @universo-react/utils test && pnpm --filter @universo-react/types test && pnpm --filter @universo-react/apps-template-mui exec vitest run src/marketing-page && pnpm --filter @universo-react/template-mui test MarketingWidgetConfigDialog && pnpm --filter @universo-react/applications-frontend exec vitest run src/i18n/__tests__/notificationMessages.test.ts src/i18n/__tests__/marketingLayoutTranslations.test.ts src/hooks/__tests__/mutations.test.tsx src/pages/__tests__/ApplicationLayouts.test.tsx && pnpm --filter @universo-react/metahubs-frontend exec vitest run src/i18n/__tests__/notificationMessages.test.ts src/i18n/__tests__/marketingLayoutTranslations.test.ts src/domains/publications/hooks/__tests__/mutations.test.tsx && pnpm --filter @universo-react/metahubs-backend exec node ../../tools/testing/backend/run-jest.cjs --config ./jest.config.js src/tests/services/MetahubRecordsService.test.ts && pnpm --filter @universo-react/applications-backend exec node ../../tools/testing/backend/run-jest.cjs --config ./jest.config.js src/tests/services/publicApplicationRuntime src/tests/services/marketingRuntimeSerialization.test.ts src/tests/services/runtimeRecordRules.test.ts src/tests/controllers/runtimeMarketingPageController.test.ts src/tests/routes/publicApplicationRuntimeRoutes.test.ts",
+        "test:marketing-hero-unit-gate": "node --test tools/docs/pngDimensions.test.mjs tools/testing/e2e/support/browser/runtimeUx.test.ts tools/testing/e2e/support/e2eRunLock.test.mjs tools/testing/e2e/support/localSupabaseE2eGateCoordinator.test.mjs tools/testing/e2e/support/managedE2eCommand.test.mjs tools/testing/e2e/support/stopSupabaseStackWithRunLock.test.mjs tools/testing/e2e/support/env/localSupabaseE2eEnv.test.mjs && pnpm --filter @universo-react/metahubs-frontend exec vitest run --config vitest.config.ts src/domains/entities/metadata/record/ui/fields/MarketingActionField.test.tsx src/domains/layouts/ui/__tests__/marketingHeroAuthoring.test.ts src/domains/layouts/ui/__tests__/LayoutRuntimeSettingsPanel.marketing.test.tsx src/domains/layouts/ui/__tests__/MarketingHeroBindingDialog.render.test.tsx src/domains/layouts/ui/__tests__/MarketingHeroRecordFormDialog.test.tsx src/domains/layouts/ui/__tests__/useMarketingHeroBindingDialog.test.ts src/domains/layouts/ui/__tests__/LayoutList.copyFlow.test.tsx src/i18n/__tests__/marketingHeroAuthoringLocales.test.ts && pnpm --filter @universo-react/metahubs-backend exec node ../../tools/testing/backend/run-jest.cjs --config ./jest.config.js src/tests/routes/layoutsRoutes.test.ts src/tests/services/marketingHeroBindingService.test.ts src/tests/services/marketingHeroBindingsStore.test.ts src/tests/services/marketingHeroActionIntegrityStore.test.ts src/tests/services/widgetBindingPolicyStore.test.ts src/tests/services/MetahubLayoutsService.test.ts src/tests/services/MetahubComponentsService.test.ts src/tests/services/marketingSnapshotValidation.test.ts src/tests/services/SnapshotSerializer.test.ts src/tests/services/SnapshotRestoreService.test.ts && pnpm --filter @universo-react/applications-backend exec node ../../tools/testing/backend/run-jest.cjs --config ./jest.config.js src/tests/services/marketingHeroEntityBinding.test.ts src/tests/services/widgetBindingResolver.test.ts src/tests/persistence/applicationLayoutWidgetsStoreBindings.test.ts src/tests/persistence/applicationLayoutWidgetToggleIntegrity.test.ts",
         "test:records-integration": "pnpm --filter @universo-react/metahubs-backend exec node ../../tools/testing/backend/run-jest.cjs --config ./jest.config.js src/tests/services/MetahubRecordsService.integration.test.ts",
         "test:records-integration:local-supabase": "node tools/testing/backend/run-records-integration-local-supabase.mjs",
         "test:applications-integration:local-supabase": "node tools/testing/backend/run-applications-integration-local-supabase.mjs",
@@ -53,12 +54,14 @@
         "test:e2e:application-aliases:verify:local-supabase": "node tools/testing/e2e/support/runApplicationAliasesVerificationLocalSupabase.mjs",
         "test:e2e:interpretation-network:verify:local-supabase": "node tools/testing/e2e/support/runInterpretationNetworkVerificationLocalSupabase.mjs",
         "test:e2e:marketing-page:verify:local-supabase": "node tools/testing/e2e/support/runMarketingPageVerificationLocalSupabase.mjs",
+        "test:marketing-hero-integration:local-supabase": "node tools/testing/e2e/support/runMarketingHeroIntegrationLocalSupabase.mjs",
         "test:e2e:cross-template:verify:local-supabase": "node tools/testing/e2e/support/runCrossTemplateVerificationLocalSupabase.mjs",
         "test:e2e:cross-template:standalone": "node tools/testing/e2e/support/runCrossTemplateStandaloneVerification.mjs",
         "test:e2e:cross-template:concurrency": "node tools/testing/e2e/support/runCrossTemplateConcurrencyGate.mjs",
         "docs:i18n:check": "node tools/docs/check-i18n-docs.mjs",
         "docs:gitbook-screenshot-assets:check": "node tools/docs/check-gitbook-screenshot-assets.mjs",
         "docs:marketing-page:screenshot:check": "node tools/docs/check-marketing-page-screenshot-provenance.mjs",
+        "docs:marketing-page:verify:local-supabase": "node tools/docs/run-marketing-page-docs-verification-local-supabase.mjs",
         "docs:lms-user-guide:check": "node tools/docs/check-lms-user-guide-docs.mjs && pnpm check:runtime-no-lms-forks",
         "docs:lms-user-guide:screenshots": "node tools/testing/e2e/run-playwright-suite.mjs --project generators --grep \"lms user guide\"",
         "docs:lms-user-guide:screenshots:local-supabase": "pnpm supabase:e2e:start:minimal && pnpm env:e2e:local-supabase && pnpm doctor:e2e:local-supabase && cross-env UNIVERSO_ENV_FILE=.env.e2e.local-supabase UNIVERSO_FRONTEND_ENV_FILE=packages/universo-react-core-frontend/.env.e2e.local-supabase node tools/testing/e2e/run-playwright-suite.mjs --project generators --grep \"lms user guide\"",
@@ -155,7 +158,8 @@
         "check:react-bundle": "node tools/testing/check-react-require.mjs",
         "quick": "pretty-quick --staged",
         "postinstall": "husky install",
-        "check:no-package-base-paths": "node tools/check-no-package-base-paths.mjs"
+        "check:no-package-base-paths": "node tools/check-no-package-base-paths.mjs",
+        "test:e2e:marketing-page:authoring:local-supabase": "node tools/testing/e2e/support/runMarketingPageAuthoringLocalSupabase.mjs"
     },
     "lint-staged": {
         "*.{js,jsx,ts,tsx,json,md}": "eslint --fix"

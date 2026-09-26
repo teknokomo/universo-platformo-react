@@ -11,6 +11,7 @@ import {
 import { createRuntimeVersionConflictFailure } from '../runtimeVersionConflict'
 import { runtimeReorderBodySchema } from '../runtimeRowSupport/contracts'
 import { resolveRuntimeObjectCollection, resolveRuntimeObjectCollectionConfig } from '../runtimeRowSupport/objects'
+import { denyRuntimeEntityMutation } from '../../shared/entityMutationPolicy'
 import { resolveRuntimeReorderField } from '../runtimeRowSupport/list'
 import { buildRuntimeRecordAccessClause } from '../runtimeRowSupport/access'
 
@@ -57,6 +58,7 @@ export const createReorderRowsHandler = ({ getDbExecutor, query }: RuntimeRowCom
         if (!objectCollection) {
             return res.status(404).json({ error: objectCollectionError })
         }
+        if (denyRuntimeEntityMutation(res, objectCollection.config)) return
 
         const { runtimeConfig } = await resolveRuntimeObjectCollectionConfig({
             manager: ctx.manager,

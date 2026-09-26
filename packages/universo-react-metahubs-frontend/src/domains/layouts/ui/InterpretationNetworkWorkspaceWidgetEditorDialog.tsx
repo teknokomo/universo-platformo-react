@@ -1,16 +1,5 @@
 import { useEffect, useId, useState } from 'react'
-import {
-    Checkbox,
-    FormControl,
-    FormControlLabel,
-    FormHelperText,
-    InputLabel,
-    MenuItem,
-    Select,
-    Stack,
-    Switch,
-    Typography
-} from '@mui/material'
+import { Checkbox, FormControl, FormControlLabel, FormHelperText, InputLabel, MenuItem, Stack, Switch, Typography } from '@mui/material'
 import { useTranslation } from 'react-i18next'
 import { EntityFormDialog } from '@universo-react/template-mui'
 import {
@@ -32,6 +21,7 @@ import {
 
 import LayoutWidgetSharedBehaviorFields from './LayoutWidgetSharedBehaviorFields'
 import WidgetScopeVisibilityPanel from './WidgetScopeVisibilityPanel'
+import { DropdownSelect as Select } from '@universo-react/template-mui/dropdowns'
 
 export interface InterpretationNetworkWorkspaceWidgetEditorDialogProps {
     open: boolean

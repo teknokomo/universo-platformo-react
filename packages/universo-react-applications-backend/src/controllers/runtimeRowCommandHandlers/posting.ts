@@ -19,6 +19,7 @@ import {
 import { createRuntimeVersionConflictFailure } from '../runtimeVersionConflict'
 import { runtimeRecordCommandBodySchema, type RuntimePostingMovementWriteResult } from '../runtimeRowSupport/contracts'
 import { resolveRuntimeObjectCollection } from '../runtimeRowSupport/objects'
+import { denyRuntimeEntityMutation } from '../../shared/entityMutationPolicy'
 import { buildRuntimeRecordAccessClause } from '../runtimeRowSupport/access'
 
 import type { RuntimeRowCommandHandlerDeps } from './types'
@@ -106,6 +107,7 @@ export const createRecordStateCommandHandlers = ({
             error: objectCollectionError
         } = await resolveRuntimeObjectCollection(ctx.manager, ctx.schemaIdent, parsedBody.data.objectCollectionId)
         if (!objectCollection) return res.status(404).json({ error: objectCollectionError })
+        if (denyRuntimeEntityMutation(res, objectCollection.config)) return
 
         const behavior = normalizeRuntimeRecordBehavior(objectCollection.config)
         if (!isRuntimeRecordBehaviorEnabled(behavior) || behavior.posting.mode === 'disabled') {

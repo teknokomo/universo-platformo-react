@@ -82,6 +82,16 @@ Ledgers classify ordinary field definitions through `fieldRoles` and use source 
 
 This contract changes widget configuration only. It does not add a database schema migration or require a metahub template version bump.
 
+## Entity-Backed Widget Bindings
+
+`common/widgetBindings` defines the UI-neutral contracts for declarative widget binding slots and their persisted instances. A layout widget definition declares the semantic requirements of each slot; a persisted binding selects an Entity kind and record set, then maps renderer fields to Entity Component codenames. The shared validator checks the slot cardinality, Entity kind, field selectors, projections, and registry requirements before consumers use the binding.
+
+Binding instances are stored separately from slot definitions. They contain semantic selectors and renderer projections rather than copied business content, so the bound Entity remains the source of truth. The `marketing.hero` definition uses this contract for its content slot.
+
+`common/entityRecordPolicy` describes server-owned Object record rules such as semantic keys, runtime mutation restrictions, required locales, and a registered validator. These policies constrain generic authoring and runtime mutation paths; they do not turn the widget into a second content store.
+
+This is a code and template metadata contract. It does not require a database schema migration or a metahub template version bump.
+
 ## Neutral Layout Envelope
 
 `common/layoutEnvelope` is the shared serializable contract for layout metadata

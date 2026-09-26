@@ -40,6 +40,11 @@ export type BrowserRuntimeIssue = {
     url?: string
 }
 
+const EXPECTED_CONFLICT_RESOURCE_ERROR = 'Failed to load resource: the server responded with a status of 409 (Conflict)'
+
+export const isExpectedConflictResourceFailure = (issue: BrowserRuntimeIssue, expectedUrls: readonly string[]): boolean =>
+    issue.source === 'console' && issue.text === EXPECTED_CONFLICT_RESOURCE_ERROR && Boolean(issue.url && expectedUrls.includes(issue.url))
+
 export type StrictRuntimeUxOptions = {
     label: string
     locale: 'en' | 'ru'
@@ -57,12 +62,15 @@ export const RUNTIME_UX_VIEWPORT_MATRIX: RuntimeUxViewport[] = [
 const UUID_ONLY_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 const UUID_SUBSTRING_PATTERN = /[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}/gi
 const JSON_LIKE_PATTERN =
-    /\{[\s\S]{0,700}"(?:type|url|source|blocks|data|_schema|storageKey|mimeType|launchMode|packageDescriptor|recordId|targetId|resourceKey|storagePath|bucket)"\s*:[\s\S]{0,700}\}|\[[\s\S]{0,120}\{[\s\S]{0,700}"(?:type|url|source|blocks|data|_schema|storageKey|mimeType|launchMode|packageDescriptor|recordId|targetId|resourceKey|storagePath|bucket)"\s*:[\s\S]{0,700}\}[\s\S]{0,120}\]|\[object Object\]/i
+    /(?:^|[\s:=])\{\s*"[^"\n]{1,120}"\s*:\s*(?:"|-|\d|\{|\[|true\b|false\b|null\b)[\s\S]{0,700}\}|(?:^|[\s:=])\[\s*\{\s*"[^"\n]{1,120}"\s*:\s*(?:"|-|\d|\{|\[|true\b|false\b|null\b)[\s\S]{0,700}\}[\s\S]{0,120}\]|\[object Object\]/i
 const INTERNAL_VALIDATION_PATTERN =
     /String must contain|Expected .* received|Invalid input|Required property|required_type|too_small|invalid_type|Zod/i
+const ENGLISH_VALIDATION_FALLBACK_PATTERN =
+    /^(?:required|this field is required|.+\b(?:is required|is a required field)|please\s+(?:enter|select|choose)\b.*)[.!?]?\s*$/i
 const ISO_DATETIME_TEXT_PATTERN = /\b\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?Z\b/
 const RAW_STRUCTURED_VALUE_PATTERNS = [
     /\[object (?:Object|Array)\]/i,
+    /(?:^|[\s:=])\{\s*"(?:kind|href|path|target|type|url|src|alt|source|blocks|data|recordId|targetId|resourceKey|storagePath|mimeType)"\s*:/im,
     /(?:^|\n)\s*\{\s*(?:\n\s*)?"[^"\n]{1,120}"\s*:/m,
     /(?:^|\n)\s*\[\s*(?:\n\s*)?\{\s*(?:\n\s*)?"[^"\n]{1,120}"\s*:/m
 ]
@@ -70,8 +78,36 @@ const INTERNAL_ERROR_CODE_PATTERN = /\b(?:APPLICATION|METAHUB|LAYOUT|VALIDATION|
 
 const readVisibleText = async (locator: Locator): Promise<string> =>
     locator.evaluate((node) => {
-        const element = node as HTMLElement
-        return element.innerText || element.textContent || ''
+        const root = node as HTMLElement
+        const isVisible = (element: HTMLElement): boolean => {
+            const rect = element.getBoundingClientRect()
+            const style = window.getComputedStyle(element)
+            return rect.width > 0 && rect.height > 0 && style.display !== 'none' && style.visibility !== 'hidden' && style.opacity !== '0'
+        }
+        const contentNodes = [
+            ...(root.matches(
+                '[aria-label], [aria-description], [title], img[alt], input:not([type="hidden"]):not([type="password"]), textarea'
+            )
+                ? [root]
+                : []),
+            ...Array.from(
+                root.querySelectorAll<HTMLElement>(
+                    '[aria-label], [aria-description], [title], img[alt], input:not([type="hidden"]):not([type="password"]), textarea'
+                )
+            )
+        ]
+        const accessibleContent = contentNodes
+            .filter(isVisible)
+            .flatMap((element) => [
+                element.matches('input, textarea') ? String((element as HTMLInputElement | HTMLTextAreaElement).value ?? '') : '',
+                element.getAttribute('aria-label') ?? '',
+                element.getAttribute('aria-description') ?? '',
+                element.getAttribute('placeholder') ?? '',
+                element.getAttribute('title') ?? '',
+                element.matches('img') ? element.getAttribute('alt') ?? '' : ''
+            ])
+            .filter(Boolean)
+        return [root.innerText || root.textContent || '', ...accessibleContent].filter(Boolean).join('\n')
     })
 
 const isAllowedText = (text: string, allowTextPatterns: RegExp[]) => allowTextPatterns.some((pattern) => pattern.test(text))
@@ -100,11 +136,13 @@ export const watchBrowserRuntimeIssues = (page: Page): BrowserRuntimeIssue[] => 
 export function expectNoUnexpectedBrowserRuntimeIssues(
     issues: BrowserRuntimeIssue[],
     label: string,
-    options: { allowTextPatterns?: RegExp[] } = {}
+    options: { allowTextPatterns?: RegExp[]; allowExpectedConflictResourceUrls?: readonly string[] } = {}
 ): void {
     const allowTextPatterns = options.allowTextPatterns ?? []
     const unexpected = issues.filter(
-        (issue) => !allowTextPatterns.some((pattern) => matchesPattern(pattern, `${issue.text}\n${issue.url ?? ''}`))
+        (issue) =>
+            !isExpectedConflictResourceFailure(issue, options.allowExpectedConflictResourceUrls ?? []) &&
+            !allowTextPatterns.some((pattern) => matchesPattern(pattern, `${issue.text}\n${issue.url ?? ''}`))
     )
 
     expect(unexpected, `${label} must not emit unexpected console errors or page errors`).toEqual([])
@@ -126,7 +164,9 @@ const collectTechnicalLeakageIssues = (text: string, options: Required<Technical
         .filter(Boolean)
     const issues: string[] = []
 
-    if (checkJsonLikeText && JSON_LIKE_PATTERN.test(text) && !isAllowedText(text, allowTextPatterns)) {
+    const containsRawStructuredValue =
+        JSON_LIKE_PATTERN.test(text) || RAW_STRUCTURED_VALUE_PATTERNS.some((pattern) => matchesPattern(pattern, text))
+    if (checkJsonLikeText && containsRawStructuredValue && !isAllowedText(text, allowTextPatterns)) {
         issues.push('visible raw JSON/object text')
     }
 
@@ -217,11 +257,17 @@ export async function expectNoVisibleTextPatterns(
 
 export async function expectSemanticFieldControls(dialog: Locator, contract: SemanticFieldControlContract): Promise<void> {
     for (const label of contract.longTextLabels ?? []) {
-        const control = dialog.getByLabel(label, { exact: false }).first()
-        await expect(control, `${label} must be visible as a form control`).toBeVisible()
-        const tagName = await control.evaluate((node) => node.tagName.toLowerCase())
-        const ariaMultiline = await control.getAttribute('aria-multiline')
-        expect(tagName === 'textarea' || ariaMultiline === 'true', `${label} must be a multiline text control`).toBe(true)
+        const controls = dialog.getByLabel(label, { exact: false })
+        let visibleCount = 0
+        for (let index = 0; index < (await controls.count()); index += 1) {
+            const control = controls.nth(index)
+            if (!(await control.isVisible().catch(() => false))) continue
+            visibleCount += 1
+            const tagName = await control.evaluate((node) => node.tagName.toLowerCase())
+            const ariaMultiline = await control.getAttribute('aria-multiline')
+            expect(tagName === 'textarea' || ariaMultiline === 'true', `${label} control #${index + 1} must be multiline`).toBe(true)
+        }
+        expect(visibleCount, `${label} must expose at least one visible multiline form control`).toBeGreaterThan(0)
     }
 
     for (const label of contract.forbiddenEditableIdLabels ?? []) {
@@ -255,7 +301,25 @@ export async function expectLocalizedValidation(
         locale === 'ru'
             ? [INTERNAL_VALIDATION_PATTERN, /String must contain|This resource source is not valid|Invalid input/i]
             : [INTERNAL_VALIDATION_PATTERN]
-    const matches = [...defaultForbidden, ...forbiddenPatterns].filter((pattern) => pattern.test(text))
+    const matches = [...defaultForbidden, ...forbiddenPatterns].filter((pattern) => matchesPattern(pattern, text))
+    if (locale === 'ru') {
+        const messages = await surface
+            .locator('[role="alert"], [aria-live="assertive"], [aria-live="polite"], .MuiFormHelperText-root.Mui-error')
+            .evaluateAll((nodes) =>
+                nodes
+                    .filter((node) => {
+                        const element = node as HTMLElement
+                        const rect = element.getBoundingClientRect()
+                        const style = window.getComputedStyle(element)
+                        return rect.width > 0 && rect.height > 0 && style.display !== 'none' && style.visibility !== 'hidden'
+                    })
+                    .map((node) => node.textContent?.trim() ?? '')
+                    .filter(Boolean)
+            )
+        for (const message of messages) {
+            if (matchesPattern(ENGLISH_VALIDATION_FALLBACK_PATTERN, message)) matches.push(ENGLISH_VALIDATION_FALLBACK_PATTERN)
+        }
+    }
     expect(matches, `${label} must not expose internal validation text for ${locale}`).toEqual([])
 }
 
@@ -347,49 +411,42 @@ export async function expectNoDataGridTechnicalLeakage(surface: Locator, options
 
     for (let index = 0; index < gridCount; index += 1) {
         const grid = grids.nth(index)
-        const visible = await grid
-            .evaluate((node) => {
-                const element = node as HTMLElement
-                const rect = element.getBoundingClientRect()
-                const style = window.getComputedStyle(element)
-                return rect.width > 0 && rect.height > 0 && style.visibility !== 'hidden' && style.display !== 'none'
-            })
-            .catch(() => false)
+        const visible = await grid.evaluate((node) => {
+            const element = node as HTMLElement
+            const rect = element.getBoundingClientRect()
+            const style = window.getComputedStyle(element)
+            return rect.width > 0 && rect.height > 0 && style.visibility !== 'hidden' && style.display !== 'none'
+        })
         if (!visible) {
             continue
         }
         visibleGridCount += 1
 
         const scroller = grid.locator('.MuiDataGrid-virtualScroller').first()
-        const hasScroller = await scroller
-            .count()
-            .then((count) => count > 0)
-            .catch(() => false)
-        const scrollPoints = hasScroller
-            ? await scroller
-                  .evaluate((node) => {
-                      const element = node as HTMLElement
-                      const maxScrollLeft = Math.max(0, element.scrollWidth - element.clientWidth)
-                      return Array.from(new Set([0, Math.floor(maxScrollLeft / 2), maxScrollLeft]))
-                  })
-                  .catch(() => [0])
-            : [0]
+        const scrollerCount = await scroller.count()
+        expect(
+            scrollerCount,
+            `${normalizedOptions.label ?? 'Runtime UX surface'} DataGrid #${index} must expose its virtual scroller`
+        ).toBeGreaterThan(0)
+        const scrollPoints = await scroller.evaluate((node) => {
+            const element = node as HTMLElement
+            const maxScrollLeft = Math.max(0, element.scrollWidth - element.clientWidth)
+            return Array.from(new Set([0, Math.floor(maxScrollLeft / 2), maxScrollLeft]))
+        })
 
         for (const scrollLeft of scrollPoints) {
-            if (hasScroller) {
-                await scroller
-                    .evaluate((node, nextScrollLeft) => {
-                        ;(node as HTMLElement).scrollLeft = nextScrollLeft
-                    }, scrollLeft)
-                    .catch(() => undefined)
-            }
+            await scroller.evaluate((node, nextScrollLeft) => {
+                ;(node as HTMLElement).scrollLeft = nextScrollLeft
+            }, scrollLeft)
             await waitForLayoutFrame(surface.page())
-            const text = await grid
-                .evaluate((node) => {
-                    const element = node as HTMLElement
-                    return element.innerText || element.textContent || ''
-                })
-                .catch(() => '')
+            const actualScrollLeft = await scroller.evaluate((node) => (node as HTMLElement).scrollLeft)
+            expect(
+                Math.abs(actualScrollLeft - scrollLeft),
+                `${
+                    normalizedOptions.label ?? 'Runtime UX surface'
+                } DataGrid #${index} must reach scrollLeft ${scrollLeft} before its visible cells are inspected`
+            ).toBeLessThanOrEqual(1)
+            const text = await readVisibleText(grid)
             const issues = collectTechnicalLeakageIssues(text, normalizedOptions)
             expect(
                 issues,
@@ -399,14 +456,10 @@ export async function expectNoDataGridTechnicalLeakage(surface: Locator, options
             ).toEqual([])
         }
 
-        if (hasScroller) {
-            await scroller
-                .evaluate((node) => {
-                    ;(node as HTMLElement).scrollLeft = 0
-                })
-                .catch(() => undefined)
-            await waitForLayoutFrame(surface.page())
-        }
+        await scroller.evaluate((node) => {
+            ;(node as HTMLElement).scrollLeft = 0
+        })
+        await waitForLayoutFrame(surface.page())
     }
 
     if (requireVisibleGrid) {
@@ -555,6 +608,73 @@ export async function expectLocatorFullyFitsViewport(locator: Locator, label: st
 
     expect(box.y, `${label} must start inside the viewport vertically`).toBeGreaterThanOrEqual(0)
     expect(box.y + box.height, `${label} must fit inside the viewport vertically`).toBeLessThanOrEqual(viewport.height + 1)
+}
+
+export async function expectTextOnSingleLine(locator: Locator, label: string): Promise<void> {
+    await expect(locator, `${label} must be visible before text layout checks`).toBeVisible()
+    const metrics = await locator.evaluate((node) => {
+        const element = node as HTMLElement
+        const text = element.innerText.replace(/\s+/g, ' ').trim()
+        const elementBounds = element.getBoundingClientRect()
+        const lineCenters: number[] = []
+        let clipped = false
+        const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT)
+
+        while (walker.nextNode()) {
+            const textNode = walker.currentNode
+            if (!textNode.textContent?.trim()) continue
+
+            const range = document.createRange()
+            range.selectNodeContents(textNode)
+            for (const rect of Array.from(range.getClientRects())) {
+                if (rect.width <= 0 || rect.height <= 0) continue
+
+                const center = rect.top + rect.height / 2
+                if (!lineCenters.some((knownCenter) => Math.abs(knownCenter - center) < 3)) lineCenters.push(center)
+                if (
+                    rect.left < elementBounds.left - 1 ||
+                    rect.right > elementBounds.right + 1 ||
+                    rect.top < elementBounds.top - 1 ||
+                    rect.bottom > elementBounds.bottom + 1
+                ) {
+                    clipped = true
+                }
+
+                let ancestor = textNode.parentElement
+                while (ancestor && element.contains(ancestor)) {
+                    const style = window.getComputedStyle(ancestor)
+                    const bounds = ancestor.getBoundingClientRect()
+                    const clipsX = style.overflowX !== 'visible' && style.overflowX !== 'unset'
+                    const clipsY = style.overflowY !== 'visible' && style.overflowY !== 'unset'
+
+                    if (
+                        (clipsX &&
+                            (rect.left < bounds.left - 1 ||
+                                rect.right > bounds.right + 1 ||
+                                ancestor.scrollWidth > ancestor.clientWidth + 1)) ||
+                        (clipsY &&
+                            (rect.top < bounds.top - 1 ||
+                                rect.bottom > bounds.bottom + 1 ||
+                                ancestor.scrollHeight > ancestor.clientHeight + 1)) ||
+                        (style.textOverflow === 'ellipsis' && ancestor.scrollWidth > ancestor.clientWidth + 1)
+                    ) {
+                        clipped = true
+                    }
+
+                    const lineClamp = Number.parseInt(style.webkitLineClamp, 10)
+                    if (Number.isFinite(lineClamp) && lineClamp > 0 && ancestor.scrollHeight > ancestor.clientHeight + 1) clipped = true
+                    if (ancestor === element) break
+                    ancestor = ancestor.parentElement
+                }
+            }
+        }
+
+        return { text, visualLines: lineCenters.length, clipped }
+    })
+
+    expect(metrics.text, `${label} must contain visible text`).not.toBe('')
+    expect(metrics.visualLines, `${label} must occupy exactly one visual line`).toBe(1)
+    expect(metrics.clipped, `${label} text must not be clipped`).toBe(false)
 }
 
 export async function expectLocatorHasNoInlineOverflow(locator: Locator, label: string): Promise<void> {

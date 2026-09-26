@@ -25,6 +25,8 @@ import {
 } from './applicationLayoutStoreSupport'
 type JsonRecord = Record<string, unknown>
 
+export const APPLICATION_LAYOUT_ENTITY_BACKED_WIDGET_COPY_CONFLICT = 'APPLICATION_LAYOUT_ENTITY_BACKED_WIDGET_COPY_CONFLICT'
+
 export interface ApplicationLayoutSyncLayoutRow {
     id: string
     scope_entity_id: string | null
@@ -106,6 +108,19 @@ const requireInteger = (value: unknown, context: string): number => {
 const json = (value: unknown): string => JSON.stringify(value ?? null)
 
 const readExists = (value: unknown): boolean => value === true || value === 't' || value === 1 || value === '1'
+
+/** Return whether a source layout contains widget state the application template cannot safely clone. */
+export const containsEntityBackedWidgetCopyConflict = (templateKey: ApplicationTemplateKey, widgets: readonly SyncWidgetInput[]): boolean =>
+    widgets.some((widget) => {
+        if (widget.widgetKey === 'marketing.hero') return true
+        return (
+            decodeLayoutWidgetConfigEnvelope(widget.config, {
+                templateKey,
+                widgetKey: widget.widgetKey,
+                zone: widget.zone
+            }).neutral.bindings !== undefined
+        )
+    })
 
 const requireExactlyOne = <T>(rows: T[], code: string): T => {
     if (rows.length !== 1) throw new Error(code)
@@ -644,6 +659,38 @@ export async function syncApplicationLayouts(
         for (const layout of input.layouts) {
             const physicalId = sourceToPhysical.get(layout.row.id)
             if (physicalId) widgetsByLayoutId.set(physicalId, input.widgetsBySourceLayoutId.get(layout.row.id) ?? [])
+        }
+
+        // Preflight every eligible generic copy before the first layout DML so a
+        // later entity-backed source cannot leave earlier rows partially copied.
+        for (const layoutInput of input.layouts) {
+            const physicalLayoutId = sourceToPhysical.get(layoutInput.row.id)
+            if (!physicalLayoutId) continue
+            const existing = existingByPhysicalId.get(physicalLayoutId)
+            if (!existing || existing.is_source_excluded) continue
+
+            const locallyModified =
+                existing.source_kind === 'metahub' &&
+                existing.source_content_hash !== null &&
+                existing.local_content_hash !== null &&
+                existing.source_content_hash !== existing.local_content_hash
+            const resolution = input.policy?.bySourceLayoutId?.[layoutInput.row.id] ?? input.policy?.default
+            const sourceChanged =
+                existing.source_kind === 'metahub' &&
+                existing.source_content_hash !== null &&
+                existing.source_content_hash !== layoutInput.sourceContentHash
+
+            if (
+                locallyModified &&
+                sourceChanged &&
+                resolution === 'copy_source_as_application' &&
+                containsEntityBackedWidgetCopyConflict(
+                    layoutInput.row.templateKey,
+                    input.widgetsBySourceLayoutId.get(layoutInput.row.id) ?? []
+                )
+            ) {
+                throw new Error(APPLICATION_LAYOUT_ENTITY_BACKED_WIDGET_COPY_CONFLICT)
+            }
         }
 
         for (const layoutInput of input.layouts) {

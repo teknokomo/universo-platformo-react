@@ -709,9 +709,12 @@ const normalizeSnapshotWidgetConfig = (
     context: string
 ): Record<string, unknown> => {
     try {
-        const decoded = decodeLayoutWidgetConfigEnvelope(rawConfig, { templateKey, widgetKey, zone })
+        const decoded = decodeLayoutWidgetConfigEnvelope(rawConfig, { templateKey, widgetKey, zone, requireBindings: true })
         const config = parseApplicationLayoutWidgetConfig(widgetKey, decoded.rendererConfig)
-        return encodeLayoutWidgetConfigEnvelope({ rendererConfig: config, neutral: decoded.neutral }, { templateKey, widgetKey, zone })
+        return encodeLayoutWidgetConfigEnvelope(
+            { rendererConfig: config, neutral: decoded.neutral },
+            { templateKey, widgetKey, zone, requireBindings: true }
+        )
     } catch {
         throw new Error(`${context} contains invalid ${templateKey} widget configuration`)
     }

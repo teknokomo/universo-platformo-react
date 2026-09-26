@@ -1,13 +1,21 @@
 import { qColumn, qSchemaTable } from '@universo-react/database'
-import { MARKETING_MAX_RUNTIME_RECORDS, MARKETING_SOURCE_CODENAMES, type MarketingSourceCodename } from '@universo-react/types'
+import {
+    MARKETING_HERO_ENTITY_CODENAME,
+    getLayoutWidgetDefinition,
+    MARKETING_MAX_RUNTIME_RECORDS,
+    MARKETING_SOURCE_CODENAMES,
+    marketingSemanticKeySchema,
+    type MarketingSourceCodename
+} from '@universo-react/types'
 
 export const PUBLIC_MARKETING_ROW_LIMIT = 1000
 import { isUuidV7, type DbExecutor } from '@universo-react/utils'
 import { resolveRuntimeCodenameText, runtimeCodenameTextSql, runtimeObjectFilterSql } from '../shared/runtimeHelpers'
+import { isCompatibleMarketingHeroObject } from '../services/marketingHeroEntityBinding'
 
 export type PublicMarketingRuntimeRow = Record<string, unknown>
 
-export type PublicMarketingRuntimeRows = ReadonlyMap<MarketingSourceCodename, readonly PublicMarketingRuntimeRow[]>
+export type PublicMarketingRuntimeRows = ReadonlyMap<string, readonly PublicMarketingRuntimeRow[]>
 
 export class PublicMarketingMaterializationError extends Error {
     constructor(message = 'Public marketing materialization is invalid') {
@@ -26,16 +34,6 @@ const MARKETING_COMPONENT_ALLOWLIST: Readonly<Record<MarketingSourceCodename, re
     MarketingPageSiteSettings: [
         'BrandName',
         'BrandLogo',
-        'HeroTitle',
-        'HeroAccent',
-        'HeroSubtitle',
-        'HeroEmailLabel',
-        'HeroEmailPlaceholder',
-        'HeroPrimaryActionLabel',
-        'HeroPrimaryActionHref',
-        'HeroTermsText',
-        'HeroTermsLinkLabel',
-        'HeroTermsHref',
         'FooterDescription',
         'CopyrightText',
         'CopyrightLabel',
@@ -50,6 +48,19 @@ const MARKETING_COMPONENT_ALLOWLIST: Readonly<Record<MarketingSourceCodename, re
         'NewsletterErrorMessage',
         'NewsletterEnabled',
         'IsVisible'
+    ],
+    [MARKETING_HERO_ENTITY_CODENAME]: [
+        'HeroKey',
+        'Title',
+        'Accent',
+        'Description',
+        'EmailLabel',
+        'EmailPlaceholder',
+        'PrimaryActionLabel',
+        'PrimaryAction',
+        'TermsText',
+        'TermsLinkLabel',
+        'TermsAction'
     ],
     MarketingPageLogo: ['LogoKey', 'ImageLight', 'ImageDark', 'AltText', 'SortOrder', 'IsVisible'],
     MarketingPageFeature: ['FeatureKey', 'IconKey', 'Title', 'Description', 'ImageLight', 'ImageDark', 'SortOrder', 'IsVisible'],
@@ -87,12 +98,17 @@ interface RuntimeObjectMetadataRow {
     id: unknown
     codename: unknown
     tableName: unknown
+    kind: unknown
+    config: unknown
 }
 
 interface RuntimeComponentMetadataRow {
     objectId: unknown
     codename: unknown
     columnName: unknown
+    dataType: unknown
+    isRequired: unknown
+    validationRules: unknown
 }
 
 const APPLICATION_RUNTIME_LIFECYCLE_SQL = `
@@ -103,14 +119,20 @@ const APPLICATION_RUNTIME_LIFECYCLE_SQL = `
     AND _app_published = true
 `
 
-const readObjectMetadata = async (executor: DbExecutor, schemaName: string): Promise<RuntimeObjectMetadataRow[]> => {
+const readObjectMetadata = async (
+    executor: DbExecutor,
+    schemaName: string,
+    entityNames: readonly string[]
+): Promise<RuntimeObjectMetadataRow[]> => {
     const objectsTable = qSchemaTable(schemaName, '_app_objects')
     const rows = await executor.query<RuntimeObjectMetadataRow>(
         `
         SELECT
             o.id,
             ${runtimeCodenameTextSql('o.codename')} AS codename,
-            o.table_name AS "tableName"
+            o.table_name AS "tableName",
+            o.kind,
+            o.config
         FROM ${objectsTable} o
         WHERE ${runtimeObjectFilterSql('o.kind', 'o.config')}
           AND ${runtimeCodenameTextSql('o.codename')} = ANY($1::text[])
@@ -121,13 +143,13 @@ const readObjectMetadata = async (executor: DbExecutor, schemaName: string): Pro
           AND o._app_published = true
         ORDER BY o.id ASC
         `,
-        [MARKETING_SOURCE_CODENAMES]
+        [entityNames]
     )
 
     const seen = new Set<string>()
     for (const row of rows) {
         const objectName = resolveRuntimeCodenameText(row.codename)
-        if (!MARKETING_SOURCE_CODENAMES.includes(objectName as MarketingSourceCodename)) continue
+        if (!entityNames.includes(objectName)) continue
         if (seen.has(objectName)) throw new PublicMarketingMaterializationError('Duplicate public marketing object metadata')
         seen.add(objectName)
         if (!isUuidV7(row.id)) throw new PublicMarketingMaterializationError('Public marketing object metadata has an invalid id')
@@ -148,7 +170,10 @@ const readComponentMetadata = async (
         SELECT
             c.object_id AS "objectId",
             c.codename,
-            c.column_name AS "columnName"
+            c.column_name AS "columnName",
+            c.data_type AS "dataType",
+            c.is_required AS "isRequired",
+            c.validation_rules AS "validationRules"
         FROM ${componentsTable} c
         WHERE c.object_id = ANY($1::uuid[])
           AND c.parent_component_id IS NULL
@@ -187,11 +212,12 @@ const readWorkspaceScopedTables = async (
 const readAllowlistedObjectRows = async (
     executor: DbExecutor,
     schemaName: string,
-    objectName: MarketingSourceCodename,
+    objectName: string,
     object: RuntimeObjectMetadataRow,
     components: readonly RuntimeComponentMetadataRow[],
     workspaceId: string | null,
-    workspaceScopedTables: ReadonlySet<string>
+    workspaceScopedTables: ReadonlySet<string>,
+    heroTargets: ReadonlyMap<string, readonly string[]>
 ): Promise<PublicMarketingRuntimeRow[]> => {
     const tableName = typeof object.tableName === 'string' ? object.tableName : ''
     if (!tableName) throw new PublicMarketingMaterializationError('Public marketing object has no physical table')
@@ -202,7 +228,13 @@ const readAllowlistedObjectRows = async (
     } catch {
         throw new PublicMarketingMaterializationError('Public marketing object has an unsafe physical table')
     }
-    const allowedLogicalComponents = new Set(MARKETING_COMPONENT_ALLOWLIST[objectName])
+    const heroSlot = getLayoutWidgetDefinition('marketing.hero')?.bindingSlots?.find(({ key }) => key === 'content')
+    const isHeroObject = heroTargets.has(objectName) || objectName === MARKETING_HERO_ENTITY_CODENAME
+    const allowedLogicalComponents = new Set(
+        isHeroObject
+            ? heroSlot?.requirements.components.map(({ componentCodename }) => componentCodename) ?? []
+            : MARKETING_COMPONENT_ALLOWLIST[objectName as MarketingSourceCodename] ?? []
+    )
     const selectedColumns = new Map<string, string>()
 
     for (const component of components) {
@@ -225,6 +257,14 @@ const readAllowlistedObjectRows = async (
         selectedColumns.set(logicalName, columnName)
     }
 
+    const heroSemanticKeys = heroTargets.get(objectName) ?? []
+    if (isHeroObject && heroSemanticKeys.length === 0) return []
+    const semanticComponent = heroSlot?.requirements.components.find(({ semanticKey }) => semanticKey)?.componentCodename
+    const heroKeyColumn = isHeroObject && semanticComponent ? selectedColumns.get(semanticComponent) : undefined
+    if (isHeroObject && !heroKeyColumn) {
+        throw new PublicMarketingMaterializationError('Published Hero object is missing its semantic key Component')
+    }
+
     const columns = [qColumn('id'), ...Array.from(selectedColumns.values()).map((column) => qColumn(column))]
     const parameters: unknown[] = []
     const isWorkspaceScoped = workspaceScopedTables.has(tableName)
@@ -239,6 +279,12 @@ const readAllowlistedObjectRows = async (
               })()
             : `AND ${qColumn('workspace_id')} IS NULL`
         : ''
+    const heroSemanticKeyClause = isHeroObject
+        ? (() => {
+              parameters.push(heroSemanticKeys)
+              return `AND ${qColumn(heroKeyColumn as string)} = ANY($${parameters.length}::text[])`
+          })()
+        : ''
     parameters.push(PUBLIC_MARKETING_ROW_LIMIT + 1)
 
     const sortColumn = selectedColumns.get('SortOrder')
@@ -246,7 +292,7 @@ const readAllowlistedObjectRows = async (
         `
         SELECT ${columns.join(', ')}
         FROM ${table}
-        WHERE ${APPLICATION_RUNTIME_LIFECYCLE_SQL}${workspaceClause}
+        WHERE ${APPLICATION_RUNTIME_LIFECYCLE_SQL}${workspaceClause} ${heroSemanticKeyClause}
         ORDER BY ${sortColumn ? qColumn(sortColumn) : qColumn('id')} ASC NULLS LAST, ${qColumn('id')} ASC
         LIMIT $${parameters.length}
         `,
@@ -272,13 +318,33 @@ const readAllowlistedObjectRows = async (
  */
 export async function loadAllowlistedPublishedMarketingRows(
     executor: DbExecutor,
-    input: { schemaName: string; workspaceId: string | null }
+    input: {
+        schemaName: string
+        workspaceId: string | null
+        heroTargets: readonly { entityCodename: string; semanticKeys: readonly string[] }[]
+    }
 ): Promise<PublicMarketingRuntimeRows> {
     if (input.workspaceId !== null && !isUuidV7(input.workspaceId)) {
         throw new PublicMarketingMaterializationError('Public marketing workspace id is invalid')
     }
+    if (!Array.isArray(input.heroTargets) || input.heroTargets.length > PUBLIC_MARKETING_ROW_LIMIT) {
+        throw new PublicMarketingMaterializationError('Public marketing Hero selection is invalid')
+    }
+    const heroTargets = new Map<string, string[]>()
+    for (const target of input.heroTargets) {
+        if (!/^[A-Za-z][A-Za-z0-9._-]*$/u.test(target.entityCodename))
+            throw new PublicMarketingMaterializationError('Public marketing Hero target is invalid')
+        const keys = heroTargets.get(target.entityCodename) ?? []
+        keys.push(...target.semanticKeys)
+        heroTargets.set(target.entityCodename, [...new Set(keys)])
+    }
+    const heroSemanticKeys = [...heroTargets.values()].flat()
+    if (heroSemanticKeys.some((key) => !marketingSemanticKeySchema.safeParse(key).success)) {
+        throw new PublicMarketingMaterializationError('Public marketing Hero selection is invalid')
+    }
 
-    const objects = await readObjectMetadata(executor, input.schemaName)
+    const requestedObjects = [...new Set([...MARKETING_SOURCE_CODENAMES, ...heroTargets.keys()])]
+    const objects = await readObjectMetadata(executor, input.schemaName, requestedObjects)
     const objectIds: string[] = objects.flatMap((row) => (isUuidV7(row.id) ? [row.id] : []))
     const components = await readComponentMetadata(executor, input.schemaName, objectIds)
     const workspaceScopedTables = await readWorkspaceScopedTables(
@@ -296,11 +362,25 @@ export async function loadAllowlistedPublishedMarketingRows(
         componentsByObject.set(component.objectId, objectComponents)
     }
 
-    const rowsByObject = new Map<MarketingSourceCodename, readonly PublicMarketingRuntimeRow[]>()
+    const rowsByObject = new Map<string, readonly PublicMarketingRuntimeRow[]>()
     let totalRows = 0
     for (const object of objects) {
-        const objectName = resolveRuntimeCodenameText(object.codename) as MarketingSourceCodename
-        if (!MARKETING_SOURCE_CODENAMES.includes(objectName)) continue
+        const objectName = resolveRuntimeCodenameText(object.codename)
+        if (!requestedObjects.includes(objectName)) continue
+        if (
+            heroTargets.has(objectName) &&
+            !isCompatibleMarketingHeroObject(
+                { kind: object.kind, config: object.config },
+                (componentsByObject.get(String(object.id)) ?? []).map(({ codename, dataType, isRequired, validationRules }) => ({
+                    codename: resolveRuntimeCodenameText(codename),
+                    dataType,
+                    isRequired,
+                    validationRules
+                }))
+            )
+        ) {
+            throw new PublicMarketingMaterializationError('Published Hero target is incompatible')
+        }
         const rows = await readAllowlistedObjectRows(
             executor,
             input.schemaName,
@@ -308,7 +388,8 @@ export async function loadAllowlistedPublishedMarketingRows(
             object,
             componentsByObject.get(String(object.id)) ?? [],
             input.workspaceId,
-            workspaceScopedTables
+            workspaceScopedTables,
+            heroTargets
         )
         totalRows += rows.length
         if (totalRows > MARKETING_MAX_RUNTIME_RECORDS) {
