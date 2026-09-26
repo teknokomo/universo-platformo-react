@@ -8,6 +8,7 @@ import { createManagedE2eCommandRunner } from '../testing/e2e/support/managedE2e
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..')
 const E2E_RUN_LOCK = path.join(ROOT, 'tools/testing/e2e/.artifacts/run.lock')
+const MARKETING_SCREENSHOT_PROVENANCE = path.join(ROOT, 'tools/docs/marketing-page-screenshot-provenance.json')
 const artifactRunId = new Date()
     .toISOString()
     .replace(/[^0-9A-Za-z]+/g, '-')
@@ -72,6 +73,8 @@ try {
             await runPnpm(['build:e2e'], { env: LOCAL_SUPABASE_ENV })
         },
         runSuite: async (lease, markSuiteStarted) => {
+            await runPnpm(['docs:marketing-page:screenshot:check'])
+            const committedProvenance = JSON.parse(await fs.readFile(MARKETING_SCREENSHOT_PROVENANCE, 'utf8'))
             await commandRunner.run(
                 process.execPath,
                 [
@@ -90,6 +93,12 @@ try {
                 }
             )
             await runPnpm(['docs:marketing-page:screenshot:check'])
+            const regeneratedProvenance = JSON.parse(await fs.readFile(MARKETING_SCREENSHOT_PROVENANCE, 'utf8'))
+            delete committedProvenance.generatedAt
+            delete regeneratedProvenance.generatedAt
+            if (JSON.stringify(regeneratedProvenance) !== JSON.stringify(committedProvenance)) {
+                throw new Error('Regenerated marketing-page screenshots differ from committed assets and provenance')
+            }
             await runPnpm(['docs:i18n:check'])
             await runPnpm(['docs:gitbook-screenshot-assets:check'])
             await runPnpm(['exec', 'node', 'tools/docs/check-gitbook-links.mjs'])

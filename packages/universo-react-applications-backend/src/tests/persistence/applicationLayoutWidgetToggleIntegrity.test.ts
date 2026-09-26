@@ -181,7 +181,14 @@ const createScenario = (initialWidgets: Array<Record<string, unknown>>, heroRows
                     ({ HeroKey: 'hero_key', PrimaryAction: 'primary_action', TermsAction: 'terms_action' } as Record<string, string>)[
                         component.componentCodename
                     ] ?? `unused_${component.componentCodename}`,
-                dataType: component.valueType === 'json' ? 'jsonb' : 'text'
+                dataType: component.valueType === 'json' ? 'jsonb' : 'text',
+                is_required: component.required,
+                validation_rules: {
+                    ...(component.localized ? { localized: true } : {}),
+                    ...(component.maxLength !== undefined ? { maxLength: component.maxLength } : {}),
+                    ...(component.semanticKey ? { unique: true } : {}),
+                    ...(component.format ? { format: component.format } : {})
+                }
             }))
         }
         if (sql.includes('marketing_page_hero')) {
@@ -297,6 +304,9 @@ describe('application layout marketing Hero action integrity on widget toggle', 
             )
         ).resolves.toMatchObject({ id: widgetId, isActive: false })
 
+        expect(scenario.txExecutor.query.mock.calls.some(([query]) => String(query).includes('c.is_required, c.validation_rules'))).toBe(
+            true
+        )
         expect(scenario.txExecutor.query.mock.calls.some(([query]) => String(query).includes('SET is_active = $2'))).toBe(true)
     })
 

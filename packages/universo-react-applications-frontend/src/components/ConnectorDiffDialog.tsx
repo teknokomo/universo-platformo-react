@@ -1261,7 +1261,7 @@ export function ConnectorDiffDialog({
                                                                     </Typography>
                                                                 )}
                                                                 {change.copySourceAsApplicationUnavailable === true && (
-                                                                    <Typography variant='body2' color='warning.main' sx={{ mb: 1 }}>
+                                                                    <Typography variant='body2' sx={{ color: 'warning.main', mb: 1 }}>
                                                                         {t(
                                                                             'connectors.diffDialog.layoutResolution.copySourceUnavailable',
                                                                             'This layout contains an Entity-backed Hero placement that cannot be copied into an application layout. Keep the application layout or skip this source update.'

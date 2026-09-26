@@ -1,12 +1,12 @@
 {
     "version": 3,
-    "generatedAt": "2026-09-24T15:39:34.435Z",
+    "generatedAt": "2026-09-26T00:26:24.518Z",
     "generator": "tools/testing/e2e/specs/generators/docs-marketing-page-screenshots.spec.ts",
     "generatorSha256": "274f47ecbf3b63a73fc320f093e05c4569403300f328360c0b70836209330a98",
     "manifest": "tools/docs/marketing-page-screenshot-manifest.json",
     "manifestSha256": "9fa4f74e7a653423a124ad2dcf6eec1ec731b02c6e8a83d33270e66ce19ced75",
     "sourceTemplate": "packages/universo-react-metahubs-backend/src/domains/templates/data/marketing-page.template.ts",
-    "sourceTemplateSha256": "c34ce3e3e04af9095a30a2b8d7ef94cfbbe132b02d0c67673ecb2193a42c6cf2",
+    "sourceTemplateSha256": "a2fd28bc816f16009e00ea56dfffc61ea644bfb92d3ffbe0aa1d7e5cb1219553",
     "seedInputs": [
         {
             "path": "packages/universo-react-metahubs-backend/src/domains/templates/data/basic.template.ts",
@@ -14,7 +14,7 @@
         },
         {
             "path": "packages/universo-react-metahubs-backend/src/domains/templates/data/marketing-page.hero.ts",
-            "sha256": "38633edc8892b491f19338c47865537d11899b821f3713e2db021af4b6fcc681"
+            "sha256": "93a678e1b365763b70b04f0ce38aa26623ad1336404d124ba9054a02329bd7f5"
         },
         {
             "path": "packages/universo-react-metahubs-backend/src/domains/templates/data/marketing-page.layouts.ts",

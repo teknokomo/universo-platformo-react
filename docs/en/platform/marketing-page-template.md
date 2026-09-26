@@ -123,7 +123,9 @@ as template-aware application rows rather than dashboard widgets. Unknown
 keys, invalid source/variant combinations, unsafe URLs, and malformed media
 fail closed instead of falling back to the dashboard.
 
-The hosted route selects the template before initializing dashboard CRUD state. The application runtime owns an application-level `AppMainLayout` so the saved appearance overrides are applied; the renderer itself does not create another theme provider. The standalone shell owns the equivalent provider for direct template previews.
+The hosted route selects the template before initializing dashboard CRUD state.
+The application runtime owns an application-level `AppMainLayout` so the saved appearance overrides are applied;
+the renderer itself does not create another theme provider. The standalone shell owns the equivalent provider for direct template previews.
 
 An entity-scoped application layout can independently select the Dashboard
 template for a Page/Object target even when the global layout is
@@ -133,7 +135,8 @@ error and never silently falls back to the marketing global layout.
 
 ## Actions and media
 
-Actions are typed as internal paths, named anchors, external HTTP(S) URLs, email, or telephone actions. Placeholder `#`, `javascript:`, `data:`, protocol-relative, credential-bearing, and arbitrary endpoint values are rejected. External new-tab links receive `noopener noreferrer`. Missing or blocked media renders a localized fallback instead of exposing a raw URL or object value.
+Actions are typed as internal paths, named anchors, external HTTP(S) URLs, email, or telephone actions. Placeholder `#`, `javascript:`, `data:`, protocol-relative, credential-bearing, and arbitrary endpoint values are rejected.
+External new-tab links receive `noopener noreferrer`. Missing or blocked media renders a localized fallback instead of exposing a raw URL or object value.
 
 The seeded newsletter uses the existing sign-up action. It does not create a
 new lead-storage API: the published runtime renders a navigation CTA and no

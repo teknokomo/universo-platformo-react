@@ -171,7 +171,7 @@ export default function MarketingHeroBindingDialog({
                 }
             >
                 <Stack spacing={2} sx={{ minWidth: 0, pt: 0.5 }}>
-                    <Typography variant='body2' color='text.secondary'>
+                    <Typography variant='body2' sx={{ color: 'text.secondary' }}>
                         {t(
                             'layouts.marketing.heroAuthoring.description',
                             'Choose the Entity record shown by this Hero. Entity content and presentation settings are saved separately.'
