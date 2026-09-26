@@ -267,8 +267,8 @@ test('@flow @combined @marketing-page browser widget lifecycle persists semantic
             'The duplicated marketing hero widget was not persisted with a new instance identity'
         )
         expect(readString(readConfig(duplicatedHero).instanceKey)).not.toBe(readString(readConfig(heroWidget).instanceKey))
-        const duplicatedHeroKey = readString(readConfig(duplicatedHero).instanceKey)
-        expect(duplicatedHeroKey).not.toBe('')
+        const duplicatedHeroInstanceKey = readString(readConfig(duplicatedHero).instanceKey)
+        expect(duplicatedHeroInstanceKey).not.toBe('')
         expect(readString(duplicatedHero.id)).not.toBe(readString(heroWidget.id))
         await expect
             .poll(
@@ -290,9 +290,9 @@ test('@flow @combined @marketing-page browser widget lifecycle persists semantic
         expect(newHeroRecords).toHaveLength(1)
         const duplicatedHeroRecord = newHeroRecords[0]
         expect(duplicatedHeroRecord.id).toBeTruthy()
-        const duplicatedHeroKey = readString(readRecord(duplicatedHeroRecord.data).HeroKey)
-        expect(duplicatedHeroKey).not.toBe('')
-        expect(duplicatedHeroKey).not.toBe(sourceHeroKey)
+        const duplicatedHeroRecordKey = readString(readRecord(duplicatedHeroRecord.data).HeroKey)
+        expect(duplicatedHeroRecordKey).not.toBe('')
+        expect(duplicatedHeroRecordKey).not.toBe(sourceHeroKey)
         expect(duplicatedHeroRecord.id).not.toBe(sourceHeroRecord.id)
 
         const duplicatedHeroSurface = widgetSurface(page, duplicatedHero)
@@ -319,7 +319,7 @@ test('@flow @combined @marketing-page browser widget lifecycle persists semantic
         }
         const savedCopy = recordsAfterCopiedEdit.items?.find((record) => record.id === duplicatedHeroRecord.id)
         const savedSource = recordsAfterCopiedEdit.items?.find((record) => record.id === sourceHeroRecord.id)
-        expect(readString(readRecord(savedCopy?.data).HeroKey)).toBe(duplicatedHeroKey)
+        expect(readString(readRecord(savedCopy?.data).HeroKey)).toBe(duplicatedHeroRecordKey)
         expect(readString(readRecord(savedSource?.data).HeroKey)).toBe(sourceHeroKey)
         expect(readLocalizedText(readRecord(savedCopy?.data).Title, 'en')).toBe('Lifecycle copy edited independently')
         expect(readLocalizedText(readRecord(savedSource?.data).Title, 'en')).toBe('Our latest')
