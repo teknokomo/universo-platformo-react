@@ -594,7 +594,7 @@ export async function loadApplicationRuntimeLayouts(
 
     const widgets = await exec.query<RuntimeApplicationWidgetRow>(
         `
-            SELECT id, layout_id, zone, widget_key, sort_order, config, is_active, source_widget_id, source_base_widget_id
+            SELECT id, layout_id, zone, widget_key, sort_order, config, source_config, is_active, source_widget_id, source_base_widget_id
             FROM ${schemaIdent}._app_widgets
             WHERE _upl_deleted = false
               AND _app_deleted = false
@@ -608,11 +608,45 @@ export async function loadApplicationRuntimeLayouts(
         if (!layout) throw new Error(`[SchemaSync] Runtime widget ${id} references an unknown layout ${layoutId}`)
         const zone = requireString(row.zone, 'zone', `widget ${id}`)
         const widgetKey = requireString(row.widget_key, 'widgetKey', `widget ${id}`)
+        const sourceBaseWidgetId =
+            row.source_base_widget_id === null || row.source_base_widget_id === undefined
+                ? null
+                : requireString(row.source_base_widget_id, 'sourceBaseWidgetId', `widget ${id}`)
+        const isMarketingOverlayWidget =
+            layout.templateKey === 'marketing-page' &&
+            layout.scopeEntityId !== null &&
+            layout.composition.mode === 'overlay' &&
+            sourceBaseWidgetId !== null
+        const hasSourceConfig = row.source_config !== null && row.source_config !== undefined
         const decoded = decodeLayoutWidgetConfigEnvelope(requireRecord(row.config, 'config', `widget ${id}`), {
             templateKey: layout.templateKey,
             widgetKey,
-            zone
+            zone,
+            requireBindings: !isMarketingOverlayWidget && !hasSourceConfig
         })
+        if (isMarketingOverlayWidget && decoded.neutral.bindings !== undefined) {
+            throw new Error(`[SchemaSync] Runtime Marketing overlay widget ${id} cannot contain entity bindings`)
+        }
+        const neutral = { ...decoded.neutral }
+        if (hasSourceConfig) {
+            const sourceDecoded = decodeLayoutWidgetConfigEnvelope(requireRecord(row.source_config, 'source_config', `widget ${id}`), {
+                templateKey: layout.templateKey,
+                widgetKey,
+                zone,
+                requireBindings: !isMarketingOverlayWidget
+            })
+            if (isMarketingOverlayWidget && sourceDecoded.neutral.bindings !== undefined) {
+                throw new Error(`[SchemaSync] Runtime Marketing overlay widget ${id} source config cannot contain entity bindings`)
+            }
+            if (
+                decoded.neutral.bindings !== undefined &&
+                stableStringify(decoded.neutral.bindings) !== stableStringify(sourceDecoded.neutral.bindings)
+            ) {
+                throw new Error(`[SchemaSync] Runtime widget ${id} bindings do not match its source config`)
+            }
+            if (sourceDecoded.neutral.bindings === undefined) delete neutral.bindings
+            else neutral.bindings = sourceDecoded.neutral.bindings
+        }
         const rendererConfig = parseApplicationLayoutWidgetConfig(widgetKey, decoded.rendererConfig)
         return {
             id,
@@ -621,18 +655,15 @@ export async function loadApplicationRuntimeLayouts(
             widgetKey,
             sortOrder: requireInteger(row.sort_order, 'sortOrder', `widget ${id}`),
             config: encodeLayoutWidgetConfigEnvelope(
-                { rendererConfig, neutral: decoded.neutral },
-                { templateKey: layout.templateKey, widgetKey, zone }
+                { rendererConfig, neutral },
+                { templateKey: layout.templateKey, widgetKey, zone, requireBindings: !isMarketingOverlayWidget }
             ),
             isActive: requireBoolean(row.is_active, 'isActive', `widget ${id}`),
             sourceWidgetId:
                 row.source_widget_id === null || row.source_widget_id === undefined
                     ? null
                     : requireString(row.source_widget_id, 'sourceWidgetId', `widget ${id}`),
-            sourceBaseWidgetId:
-                row.source_base_widget_id === null || row.source_base_widget_id === undefined
-                    ? null
-                    : requireString(row.source_base_widget_id, 'sourceBaseWidgetId', `widget ${id}`)
+            sourceBaseWidgetId
         }
     })
 
@@ -656,11 +687,29 @@ export async function loadApplicationRuntimeLayouts(
             if (!baseWidget || baseWidget.layoutId !== layout.composition.baseLayoutId) {
                 throw new Error(`[SchemaSync] Runtime widget ${widget.id} references a missing overlay base widget`)
             }
+            let inheritedBaseConfig = baseWidget.config
+            if (layout.templateKey === 'marketing-page') {
+                const decodedBase = decodeLayoutWidgetConfigEnvelope(baseWidget.config, {
+                    templateKey: 'marketing-page',
+                    widgetKey: baseWidget.widgetKey,
+                    zone: baseWidget.zone,
+                    requireBindings: true
+                })
+                const neutral = { ...decodedBase.neutral }
+                delete neutral.bindings
+                inheritedBaseConfig = encodeLayoutWidgetConfigEnvelope(
+                    {
+                        rendererConfig: parseApplicationLayoutWidgetConfig(baseWidget.widgetKey, decodedBase.rendererConfig),
+                        neutral
+                    },
+                    { templateKey: 'marketing-page', widgetKey: baseWidget.widgetKey, zone: widget.zone, requireBindings: false }
+                )
+            }
             if (
                 widget.isActive === baseWidget.isActive &&
                 widget.zone === baseWidget.zone &&
                 widget.sortOrder === baseWidget.sortOrder &&
-                stableStringify(widget.config) === stableStringify(baseWidget.config)
+                stableStringify(widget.config) === stableStringify(inheritedBaseConfig)
             ) {
                 continue
             }

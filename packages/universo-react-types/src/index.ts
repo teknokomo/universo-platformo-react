@@ -30,6 +30,8 @@ export * from './common/applicationAliases'
 export * from './common/applicationLayouts'
 export * from './common/layoutWidgetDefinitions'
 export * from './common/widgetBindings'
+export * from './common/widgetBindingApi'
+export { MARKETING_SAFE_HREF_PATTERN_SOURCE } from './common/marketingWidgetContracts'
 export * from './common/entityRecordPolicy'
 export * from './common/layoutEnvelope'
 export {

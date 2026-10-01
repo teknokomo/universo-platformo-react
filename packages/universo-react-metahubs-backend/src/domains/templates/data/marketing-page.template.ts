@@ -8,10 +8,12 @@ import {
 } from '@universo-react/types'
 import { enrichConfigWithVlcTimestamps, vlc } from './basic.template'
 import { marketingPageHeroElements, marketingPageHeroEntity } from './marketing-page.hero'
+import { marketingPageImageElements, marketingPageImageEntity } from './marketing-page.image'
 import { marketingLayoutZoneWidgets } from './marketing-page.layouts'
 import {
     keyComponent,
     localizedComponent,
+    marketingHrefComponent,
     mediaComponent,
     marketingComponent,
     plainComponent,
@@ -25,7 +27,7 @@ import {
  */
 const sectionComponents: TemplateSeedComponent[] = [
     keyComponent('SectionKey', 'Section key', 'Ключ секции', 64),
-    localizedComponent('Title', 'Title', 'Заголовок', 255),
+    localizedComponent('Title', 'Title', 'Заголовок', 255, true),
     localizedComponent('Description', 'Description', 'Описание', 2000)
 ]
 
@@ -95,15 +97,6 @@ const sectionElements: TemplateSeedElement[] = [
             Title: vlc('Frequently asked questions', 'Часто задаваемые вопросы'),
             Description: vlc('Answers to the most common questions about the product.', 'Ответы на самые частые вопросы о продукте.')
         }
-    },
-    {
-        codename: 'footer',
-        sortOrder: 7,
-        data: {
-            SectionKey: 'footer',
-            Title: vlc('Footer', 'Подвал'),
-            Description: vlc('Footer branding and newsletter content.', 'Брендинг подвала и содержимое рассылки.')
-        }
     }
 ]
 
@@ -111,8 +104,8 @@ const logoComponents: TemplateSeedComponent[] = [
     keyComponent('LogoKey', 'Logo key', 'Ключ логотипа', 64),
     mediaComponent('ImageLight', 'Light logo', 'Логотип для светлой темы'),
     mediaComponent('ImageDark', 'Dark logo', 'Логотип для тёмной темы'),
-    localizedComponent('AltText', 'Alternative text', 'Альтернативный текст', 255),
-    marketingComponent('SortOrder', 'Order', 'Порядок', { dataType: 'NUMBER', validationRules: { min: 0, max: 100 } }),
+    localizedComponent('AltText', 'Alternative text', 'Альтернативный текст', 255, true),
+    marketingComponent('SortOrder', 'Order', 'Порядок', { dataType: 'NUMBER', isRequired: true, validationRules: { min: 0, max: 100 } }),
     marketingComponent('IsVisible', 'Visible', 'Видимость', { dataType: 'BOOLEAN', isRequired: true })
 ]
 
@@ -170,12 +163,12 @@ const logoElements: TemplateSeedElement[] = logoSources.map(([key, label, imageL
 
 const featureComponents: TemplateSeedComponent[] = [
     keyComponent('FeatureKey', 'Feature key', 'Ключ возможности', 64),
-    plainComponent('IconKey', 'Icon key', 'Ключ иконки', 64),
-    localizedComponent('Title', 'Title', 'Заголовок', 255),
-    localizedComponent('Description', 'Description', 'Описание', 1000),
+    plainComponent('IconKey', 'Icon key', 'Ключ иконки', 64, true),
+    localizedComponent('Title', 'Title', 'Заголовок', 255, true),
+    localizedComponent('Description', 'Description', 'Описание', 1000, true),
     mediaComponent('ImageLight', 'Light image', 'Изображение для светлой темы'),
     mediaComponent('ImageDark', 'Dark image', 'Изображение для тёмной темы'),
-    marketingComponent('SortOrder', 'Order', 'Порядок', { dataType: 'NUMBER', validationRules: { min: 0, max: 100 } }),
+    marketingComponent('SortOrder', 'Order', 'Порядок', { dataType: 'NUMBER', isRequired: true, validationRules: { min: 0, max: 100 } }),
     marketingComponent('IsVisible', 'Visible', 'Видимость', { dataType: 'BOOLEAN', isRequired: true })
 ]
 
@@ -235,13 +228,13 @@ const featureElements: TemplateSeedElement[] = [
 
 const testimonialComponents: TemplateSeedComponent[] = [
     keyComponent('TestimonialKey', 'Testimonial key', 'Ключ отзыва', 64),
-    localizedComponent('Name', 'Name', 'Имя', 255),
+    localizedComponent('Name', 'Name', 'Имя', 255, true),
     localizedComponent('Occupation', 'Occupation', 'Должность', 255),
-    localizedComponent('Quote', 'Quote', 'Отзыв', 2000),
+    localizedComponent('Quote', 'Quote', 'Отзыв', 2000, true),
     mediaComponent('AvatarUrl', 'Avatar', 'Аватар'),
     mediaComponent('LogoLightUrl', 'Light logo', 'Логотип для светлой темы'),
     mediaComponent('LogoDarkUrl', 'Dark logo', 'Логотип для тёмной темы'),
-    marketingComponent('SortOrder', 'Order', 'Порядок', { dataType: 'NUMBER', validationRules: { min: 0, max: 100 } }),
+    marketingComponent('SortOrder', 'Order', 'Порядок', { dataType: 'NUMBER', isRequired: true, validationRules: { min: 0, max: 100 } }),
     marketingComponent('IsVisible', 'Visible', 'Видимость', { dataType: 'BOOLEAN', isRequired: true })
 ]
 
@@ -330,10 +323,10 @@ const testimonialElements: TemplateSeedElement[] = testimonialSeed.map(([key, na
 
 const highlightComponents: TemplateSeedComponent[] = [
     keyComponent('HighlightKey', 'Highlight key', 'Ключ преимущества', 64),
-    plainComponent('IconKey', 'Icon key', 'Ключ иконки', 64),
-    localizedComponent('Title', 'Title', 'Заголовок', 255),
-    localizedComponent('Description', 'Description', 'Описание', 1000),
-    marketingComponent('SortOrder', 'Order', 'Порядок', { dataType: 'NUMBER', validationRules: { min: 0, max: 100 } }),
+    plainComponent('IconKey', 'Icon key', 'Ключ иконки', 64, true),
+    localizedComponent('Title', 'Title', 'Заголовок', 255, true),
+    localizedComponent('Description', 'Description', 'Описание', 1000, true),
+    marketingComponent('SortOrder', 'Order', 'Порядок', { dataType: 'NUMBER', isRequired: true, validationRules: { min: 0, max: 100 } }),
     marketingComponent('IsVisible', 'Visible', 'Видимость', { dataType: 'BOOLEAN', isRequired: true })
 ]
 
@@ -403,17 +396,18 @@ const highlightElements: TemplateSeedElement[] = highlightSeed.map(([key, icon, 
 
 const pricingComponents: TemplateSeedComponent[] = [
     keyComponent('TierKey', 'Tier key', 'Ключ тарифа', 64),
-    localizedComponent('Title', 'Title', 'Заголовок', 255),
+    localizedComponent('Title', 'Title', 'Заголовок', 255, true),
     localizedComponent('Subheader', 'Subheader', 'Подзаголовок', 255),
     marketingComponent('Price', 'Price', 'Цена', {
         dataType: 'NUMBER',
+        isRequired: true,
         validationRules: { min: 0, max: 1000000, precision: 10, scale: 2 }
     }),
-    localizedComponent('Period', 'Billing period', 'Период оплаты', 120),
-    localizedComponent('ActionLabel', 'Action label', 'Подпись кнопки', 120),
-    plainComponent('ActionHref', 'Action target', 'Цель кнопки', 500),
-    marketingComponent('Featured', 'Featured', 'Рекомендуемый', { dataType: 'BOOLEAN' }),
-    marketingComponent('SortOrder', 'Order', 'Порядок', { dataType: 'NUMBER', validationRules: { min: 0, max: 100 } }),
+    localizedComponent('Period', 'Billing period', 'Период оплаты', 120, true),
+    localizedComponent('ActionLabel', 'Action label', 'Подпись кнопки', 120, true),
+    marketingHrefComponent('ActionHref', 'Action target', 'Цель кнопки', 500, true),
+    marketingComponent('Featured', 'Featured', 'Рекомендуемый', { dataType: 'BOOLEAN', isRequired: true }),
+    marketingComponent('SortOrder', 'Order', 'Порядок', { dataType: 'NUMBER', isRequired: true, validationRules: { min: 0, max: 100 } }),
     marketingComponent('IsVisible', 'Visible', 'Видимость', { dataType: 'BOOLEAN', isRequired: true })
 ]
 
@@ -425,8 +419,8 @@ const pricingBenefitComponents: TemplateSeedComponent[] = [
         targetEntityCodename: 'MarketingPagePricing',
         targetEntityKind: 'object'
     }),
-    localizedComponent('Label', 'Label', 'Подпись', 255),
-    marketingComponent('SortOrder', 'Order', 'Порядок', { dataType: 'NUMBER', validationRules: { min: 0, max: 100 } }),
+    localizedComponent('Label', 'Label', 'Подпись', 255, true),
+    marketingComponent('SortOrder', 'Order', 'Порядок', { dataType: 'NUMBER', isRequired: true, validationRules: { min: 0, max: 100 } }),
     marketingComponent('IsVisible', 'Visible', 'Видимость', { dataType: 'BOOLEAN', isRequired: true })
 ]
 
@@ -528,9 +522,9 @@ const pricingBenefitElements: TemplateSeedElement[] = pricingSeed.flatMap(([tier
 
 const faqComponents: TemplateSeedComponent[] = [
     keyComponent('FaqKey', 'FAQ key', 'Ключ вопроса', 64),
-    localizedComponent('Question', 'Question', 'Вопрос', 500),
-    localizedComponent('Answer', 'Answer', 'Ответ', 2000),
-    marketingComponent('SortOrder', 'Order', 'Порядок', { dataType: 'NUMBER', validationRules: { min: 0, max: 100 } }),
+    localizedComponent('Question', 'Question', 'Вопрос', 500, true),
+    localizedComponent('Answer', 'Answer', 'Ответ', 2000, true),
+    marketingComponent('SortOrder', 'Order', 'Порядок', { dataType: 'NUMBER', isRequired: true, validationRules: { min: 0, max: 100 } }),
     marketingComponent('IsVisible', 'Visible', 'Видимость', { dataType: 'BOOLEAN', isRequired: true })
 ]
 
@@ -593,10 +587,10 @@ const faqElements: TemplateSeedElement[] = faqSeed.map(([key, question, answer],
 
 const navigationComponents: TemplateSeedComponent[] = [
     keyComponent('NavKey', 'Navigation key', 'Ключ навигации', 64),
-    localizedComponent('Label', 'Label', 'Подпись', 120),
-    plainComponent('Href', 'Target', 'Цель', 500),
+    localizedComponent('Label', 'Label', 'Подпись', 120, true),
+    marketingHrefComponent('Href', 'Target', 'Цель', 500, true),
     plainComponent('SectionKey', 'Section key', 'Ключ секции', 64),
-    marketingComponent('SortOrder', 'Order', 'Порядок', { dataType: 'NUMBER', validationRules: { min: 0, max: 100 } }),
+    marketingComponent('SortOrder', 'Order', 'Порядок', { dataType: 'NUMBER', isRequired: true, validationRules: { min: 0, max: 100 } }),
     marketingComponent('IsVisible', 'Visible', 'Видимость', { dataType: 'BOOLEAN', isRequired: true })
 ]
 
@@ -622,32 +616,33 @@ const navigationSeed: TemplateSeedElement[] = [
 
 const footerLinkComponents: TemplateSeedComponent[] = [
     keyComponent('LinkKey', 'Link key', 'Ключ ссылки', 128),
-    plainComponent('GroupKey', 'Group key', 'Ключ группы', 64),
-    localizedComponent('GroupTitle', 'Group title', 'Название группы', 120),
-    localizedComponent('Label', 'Label', 'Подпись', 120),
+    plainComponent('GroupKey', 'Group key', 'Ключ группы', 64, true),
+    localizedComponent('GroupTitle', 'Group title', 'Название группы', 120, true),
+    localizedComponent('Label', 'Label', 'Подпись', 120, true),
     localizedComponent('BottomLabel', 'Bottom label', 'Подпись в нижней строке', 120),
-    plainComponent('Href', 'Target', 'Цель', 500),
+    marketingHrefComponent('Href', 'Target', 'Цель', 500, true),
     plainComponent('IconKey', 'Icon key', 'Ключ иконки', 64),
-    marketingComponent('SortOrder', 'Order', 'Порядок', { dataType: 'NUMBER', validationRules: { min: 0, max: 100 } }),
+    marketingComponent('SortOrder', 'Order', 'Порядок', { dataType: 'NUMBER', isRequired: true, validationRules: { min: 0, max: 100 } }),
     marketingComponent('IsVisible', 'Visible', 'Видимость', { dataType: 'BOOLEAN', isRequired: true })
 ]
 
 const siteSettingsComponents: TemplateSeedComponent[] = [
-    localizedComponent('BrandName', 'Brand name', 'Название бренда', 255),
+    keyComponent('SiteKey', 'Site key', 'Ключ сайта', 64),
+    localizedComponent('BrandName', 'Brand name', 'Название бренда', 255, true),
     mediaComponent('BrandLogo', 'Brand logo', 'Логотип бренда'),
     localizedComponent('FooterDescription', 'Footer description', 'Описание подвала', 1000),
     localizedComponent('CopyrightText', 'Copyright text', 'Текст авторских прав', 500),
     localizedComponent('CopyrightLabel', 'Copyright brand label', 'Подпись бренда авторских прав', 255),
-    plainComponent('CopyrightHref', 'Copyright brand target', 'Цель ссылки бренда авторских прав', 500),
+    marketingHrefComponent('CopyrightHref', 'Copyright brand target', 'Цель ссылки бренда авторских прав', 500),
     localizedComponent('NewsletterTitle', 'Newsletter title', 'Заголовок рассылки', 255),
     localizedComponent('NewsletterDescription', 'Newsletter description', 'Описание рассылки', 1000),
     localizedComponent('NewsletterLabel', 'Newsletter label', 'Подпись рассылки', 255),
     localizedComponent('NewsletterPlaceholder', 'Newsletter placeholder', 'Подсказка рассылки', 255),
     localizedComponent('NewsletterActionLabel', 'Newsletter action label', 'Подпись кнопки рассылки', 120),
-    plainComponent('NewsletterActionHref', 'Newsletter action target', 'Цель кнопки рассылки', 500),
+    marketingHrefComponent('NewsletterActionHref', 'Newsletter action target', 'Цель кнопки рассылки', 500),
     localizedComponent('NewsletterSuccessMessage', 'Newsletter success message', 'Сообщение об успешной подписке', 500),
     localizedComponent('NewsletterErrorMessage', 'Newsletter error message', 'Сообщение об ошибке подписки', 500),
-    marketingComponent('NewsletterEnabled', 'Newsletter enabled', 'Рассылка включена', { dataType: 'BOOLEAN' }),
+    marketingComponent('NewsletterEnabled', 'Newsletter enabled', 'Рассылка включена', { dataType: 'BOOLEAN', isRequired: true }),
     marketingComponent('IsVisible', 'Visible', 'Видимость', { dataType: 'BOOLEAN', isRequired: true })
 ]
 
@@ -656,7 +651,9 @@ const siteSettingsElements: TemplateSeedElement[] = [
         codename: 'site-settings',
         sortOrder: 1,
         data: {
+            SiteKey: 'site-settings',
             BrandName: vlc('Material UI', 'Material UI'),
+            BrandLogo: resourceSource('https://mui.com/static/screenshots/material-ui/getting-started/templates/dashboard.jpg'),
             CopyrightText: vlc('Copyright ©', 'Copyright ©'),
             CopyrightLabel: vlc('Sitemark', 'Sitemark'),
             CopyrightHref: 'https://mui.com/',
@@ -732,10 +729,21 @@ const entities: TemplateSeedEntity[] = [
             'Единичная запись с брендингом, рассылкой и правовыми настройками опубликованной маркетинговой страницы.'
         ),
         hubs: ['MarketingPage'],
-        config: { recordBehavior: 'reference', marketingRole: 'siteSettings' },
+        config: {
+            recordBehavior: 'reference',
+            marketingRole: 'siteSettings',
+            recordPolicy: {
+                version: 1,
+                semanticKey: { componentCodename: 'SiteKey', creationPrefix: 'site', protectedValues: ['site-settings'] },
+                denyDeleteWhenBound: true,
+                immutableSemanticKeyWhenBound: true,
+                runtimeMutation: 'deny'
+            }
+        },
         components: siteSettingsComponents
     },
     marketingPageHeroEntity,
+    marketingPageImageEntity,
     {
         codename: 'MarketingPageSection',
         kind: 'object',
@@ -746,7 +754,21 @@ const entities: TemplateSeedEntity[] = [
             'Локализованный текст заголовков и описаний, который используют маркетинговые виджеты.'
         ),
         hubs: ['MarketingPage'],
-        config: { recordBehavior: 'reference', marketingRole: 'section' },
+        config: {
+            recordBehavior: 'reference',
+            marketingRole: 'section',
+            recordPolicy: {
+                version: 1,
+                semanticKey: {
+                    componentCodename: 'SectionKey',
+                    creationPrefix: 'section',
+                    protectedValues: ['logos', 'features', 'testimonials', 'highlights', 'pricing', 'faq']
+                },
+                denyDeleteWhenBound: true,
+                immutableSemanticKeyWhenBound: true,
+                runtimeMutation: 'deny'
+            }
+        },
         components: sectionComponents
     },
     {
@@ -906,6 +928,7 @@ export const marketingPageTemplate: MetahubTemplateManifest = {
             MarketingPageSection: sectionElements,
             MarketingPageSiteSettings: siteSettingsElements,
             [MARKETING_HERO_ENTITY_CODENAME]: marketingPageHeroElements,
+            MarketingPageImage: marketingPageImageElements,
             MarketingPageLogo: logoElements,
             MarketingPageFeature: featureElements,
             MarketingPageTestimonial: testimonialElements,

@@ -2,7 +2,7 @@ import type { EntityRecordPolicy } from '@universo-react/types'
 import type { SqlQueryable } from '@universo-react/utils/database'
 import { MetahubValidationError } from '../../shared/domainErrors'
 import { assertMarketingHeroRecordActionsRemainValid } from '../../layouts/marketingHeroActionIntegrityStore'
-import { projectMarketingHeroContentData } from '../../layouts/marketingHeroBindingsStore'
+import { projectMarketingHeroContentData } from '../../layouts/marketingHeroContentProjection'
 
 type AssertMarketingHeroUpdateActionsInput = {
     db: SqlQueryable

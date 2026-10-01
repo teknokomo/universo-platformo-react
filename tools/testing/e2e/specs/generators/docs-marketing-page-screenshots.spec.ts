@@ -235,7 +235,11 @@ test('@generator marketing page GitBook screenshot generator captures the publis
             const scrollWidth = await page.evaluate(() => document.documentElement.scrollWidth)
             expect(scrollWidth).toBeLessThanOrEqual(viewportWidth)
             await localMedia.assertLoaded(page)
-            await page.evaluate(() => window.scrollTo(0, 0))
+            await page.evaluate(async () => {
+                await document.fonts.ready
+                window.scrollTo(0, 0)
+                await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())))
+            })
 
             const outputPath = path.join(repoRoot, screenshot.path)
             await fs.mkdir(path.dirname(outputPath), { recursive: true })

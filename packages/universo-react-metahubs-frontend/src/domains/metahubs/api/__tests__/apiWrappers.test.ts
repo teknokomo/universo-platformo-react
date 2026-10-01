@@ -68,6 +68,10 @@ describe('metahubs-frontend api wrappers', () => {
         api.getMetahub('m1')
         expect(get).toHaveBeenCalledWith('/metahub/m1')
 
+        const permissionsRequest = new AbortController()
+        api.getMetahub('m1', permissionsRequest.signal)
+        expect(get).toHaveBeenLastCalledWith('/metahub/m1', { signal: permissionsRequest.signal })
+
         api.createMetahub({ codename: 'test-metahub', name: { en: 'Name' }, description: { en: 'Desc' } })
         expect(post).toHaveBeenCalledWith('/metahubs', { codename: 'test-metahub', name: { en: 'Name' }, description: { en: 'Desc' } })
 

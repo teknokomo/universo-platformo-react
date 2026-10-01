@@ -20,7 +20,7 @@ import {
 } from '../../support/backend/api-session.mjs'
 import { createBootstrapApiContext, disposeBootstrapApiContext } from '../../support/backend/bootstrap.mjs'
 import { withE2eDatabaseClient } from '../../support/backend/e2eDatabase.mjs'
-import { flattenMarketingPageRecords } from '../../support/marketingPageRuntimeMaterialization'
+import { findRuntimeEntityRowByComponentValue, flattenMarketingPageRecords } from '../../support/marketingPageRuntimeMaterialization'
 import {
     recordCreatedApplication,
     recordCreatedGlobalUser,
@@ -268,20 +268,16 @@ test('@flow @permission @marketing-page verifies workspace lifecycle, seed isola
             expect.arrayContaining([expect.objectContaining({ kind: 'siteSettings' })])
         )
 
-        const readSiteSettingsId = (payload: unknown): string => {
-            const record = flattenMarketingPageRecords(payload as Parameters<typeof flattenMarketingPageRecords>[0]).find(
-                (item) => item.kind === 'siteSettings'
-            )
-            if (!record || typeof record.id !== 'string' || !record.id) {
-                throw new Error('Site settings record was not materialized for the workspace')
-            }
-            return record.id
-        }
-        expect(readSiteSettingsId(sharedRuntimePayload)).not.toBe(readSiteSettingsId(copiedRuntimePayload))
-        const copiedSiteSettingsId = readSiteSettingsId(copiedRuntimePayload)
-
         const sharedGenericRuntime = (await getRuntimeAppData(ownerApi, application.id, {
+            objectCollectionCodename: 'MarketingPageSiteSettings',
             workspaceId: sharedWorkspace.id,
+            locale: 'en'
+        })) as {
+            objectCollections?: Array<{ id?: string; codename?: string }>
+        }
+        const copiedGenericRuntime = (await getRuntimeAppData(ownerApi, application.id, {
+            objectCollectionCodename: 'MarketingPageSiteSettings',
+            workspaceId: createdCopiedWorkspace.id,
             locale: 'en'
         })) as {
             objectCollections?: Array<{ id?: string; codename?: string }>
@@ -289,8 +285,18 @@ test('@flow @permission @marketing-page verifies workspace lifecycle, seed isola
         const siteSettingsCollection = sharedGenericRuntime.objectCollections?.find(
             (collection) => collection.codename === 'MarketingPageSiteSettings'
         )
-        expect(siteSettingsCollection?.id).toMatch(/^[0-9a-f-]{36}$/i)
-        const sharedSiteSettingsId = readSiteSettingsId(sharedRuntimePayload)
+        const copiedSiteSettingsCollection = copiedGenericRuntime.objectCollections?.find(
+            (collection) => collection.codename === 'MarketingPageSiteSettings'
+        )
+        expect(siteSettingsCollection?.id).toEqual(copiedSiteSettingsCollection?.id)
+        expect(isUuidV7(siteSettingsCollection?.id)).toBe(true)
+        const sharedSiteSettingsRowMetadata = findRuntimeEntityRowByComponentValue(sharedGenericRuntime, 'SiteKey', 'site-settings')
+        const copiedSiteSettingsRowMetadata = findRuntimeEntityRowByComponentValue(copiedGenericRuntime, 'SiteKey', 'site-settings')
+        const sharedSiteSettingsId = String(sharedSiteSettingsRowMetadata.id)
+        const copiedSiteSettingsId = String(copiedSiteSettingsRowMetadata.id)
+        expect(isUuidV7(sharedSiteSettingsId)).toBe(true)
+        expect(isUuidV7(copiedSiteSettingsId)).toBe(true)
+        expect(sharedSiteSettingsId).not.toBe(copiedSiteSettingsId)
         const sharedSiteSettingsRow = await getRuntimeRow(ownerApi, application.id, sharedSiteSettingsId, {
             objectCollectionId: siteSettingsCollection!.id,
             workspaceId: sharedWorkspace.id
@@ -309,7 +315,7 @@ test('@flow @permission @marketing-page verifies workspace lifecycle, seed isola
                 }
             }
         )
-        expect(crossScopeMutation.status).toBe(404)
+        expect(crossScopeMutation.status).toBe(403)
         expect(
             await getRuntimeRow(ownerApi, application.id, sharedSiteSettingsId, {
                 objectCollectionId: siteSettingsCollection!.id,
@@ -317,13 +323,13 @@ test('@flow @permission @marketing-page verifies workspace lifecycle, seed isola
             })
         ).toBeNull()
 
-        const authoredBrandName = `Authored workspace content ${runManifest.runId}`
         const copiedSiteSettingsRow = await getRuntimeRow(ownerApi, application.id, copiedSiteSettingsId, {
             objectCollectionId: siteSettingsCollection!.id,
             workspaceId: createdCopiedWorkspace.id
         })
+        expect(copiedSiteSettingsRow).toBeTruthy()
         const copiedRowVersion = Number(copiedSiteSettingsRow?.version ?? copiedSiteSettingsRow?._upl_version ?? 1)
-        const authoredMutation = await sendWithCsrf(
+        const protectedMutation = await sendWithCsrf(
             ownerApi,
             'PATCH',
             `/api/v1/applications/${application.id}/runtime/rows/${copiedSiteSettingsId}?objectCollectionId=${encodeURIComponent(
@@ -332,18 +338,20 @@ test('@flow @permission @marketing-page verifies workspace lifecycle, seed isola
             {
                 objectCollectionId: siteSettingsCollection!.id,
                 expectedVersion: Number.isInteger(copiedRowVersion) && copiedRowVersion > 0 ? copiedRowVersion : 1,
-                data: { BrandName: createLocalizedContent('en', authoredBrandName) }
+                data: { BrandName: createLocalizedContent('en', 'Rejected workspace mutation') }
             }
         )
-        expect(authoredMutation.ok).toBe(true)
-        const authoredRuntime = await getApiResponse(ownerApi, runtimePath(application.id, createdCopiedWorkspace.id))
-        expect(authoredRuntime.status).toBe(200)
-        const authoredRuntimePayload = await authoredRuntime.json()
+        expect(protectedMutation.status).toBe(403)
         expect(
-            readEnglishLocalizedValue(
-                flattenMarketingPageRecords(authoredRuntimePayload).find((record) => record.kind === 'siteSettings')?.brandName
-            )
-        ).toBe(authoredBrandName)
+            await getRuntimeRow(ownerApi, application.id, copiedSiteSettingsId, {
+                objectCollectionId: siteSettingsCollection!.id,
+                workspaceId: createdCopiedWorkspace.id
+            })
+        ).toEqual(copiedSiteSettingsRow)
+        const copiedSiteSettingsBrandName = readEnglishLocalizedValue(
+            flattenMarketingPageRecords(copiedRuntimePayload).find((record) => record.kind === 'siteSettings')?.brandName
+        )
+        expect(copiedSiteSettingsBrandName).toBeDefined()
 
         await ownerBrowser.page.goto(new URL(`/a/${application.id}/workspaces`, ownerBrowser.page.url()).toString())
         await expect(ownerBrowser.page.getByTestId('runtime-workspaces-page')).toBeVisible({ timeout: 60_000 })
@@ -438,7 +446,7 @@ test('@flow @permission @marketing-page verifies workspace lifecycle, seed isola
             readEnglishLocalizedValue(
                 flattenMarketingPageRecords(authoredAfterResetPayload).find((record) => record.kind === 'siteSettings')?.brandName
             )
-        ).toBe(authoredBrandName)
+        ).toBe(copiedSiteSettingsBrandName)
         expect(readBoundHeroContent(authoredAfterResetPayload)).toEqual(copiedHeroContent)
 
         const memberResetResponse = await sendWithCsrf(

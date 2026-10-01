@@ -5,13 +5,13 @@ import CircularProgress from '@mui/material/CircularProgress'
 import { useQuery } from '@tanstack/react-query'
 import type { ReactNode } from 'react'
 import { useContext, useEffect, useMemo } from 'react'
-import type { MarketingPageRendererViewModel } from '@universo-react/types'
 
 import { fetchMarketingPageRuntime } from '../api/api'
 import type { MarketingRuntimeTarget } from '../api/api'
 import AppMainLayout, { AppMainLayoutContext } from '../layouts/AppMainLayout'
 import MarketingPage from './MarketingPage'
 import { normalizeMarketingPageRuntime } from './normalize'
+import type { MarketingPageRuntimePayload } from './runtimeDto'
 import type { MarketingActionHandler, MarketingEffectiveLayoutConfig, MarketingEffectiveLayoutWidgets, MarketingPageData } from './types'
 
 export interface MarketingRuntimeContentProps {
@@ -36,7 +36,7 @@ export interface MarketingRuntimeContentProps {
      * When supplied, this component never calls the authenticated marketing
      * runtime endpoint.
      */
-    runtimePayload?: MarketingPageRendererViewModel
+    runtimePayload?: MarketingPageRuntimePayload
 }
 
 const readHttpStatus = (error: unknown): number | null => {

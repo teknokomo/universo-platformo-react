@@ -94,14 +94,9 @@ export const PublicApplicationRuntime = () => {
         marketingPage: publicRuntime.marketingPage
     } as const
 
-    // The public bootstrap already contains the renderer-safe marketing widget
-    // placement. Header capabilities (including the language switcher) use the
-    // layout rows when present and fall back to the data widgets on payloads
-    // created before the header contract; no authenticated request is made.
-    const headerWidgets = publicRuntime.marketingPage.headerWidgets
-    const effectiveLayoutWidgets = (headerWidgets && headerWidgets.length > 0
-        ? headerWidgets
-        : publicRuntime.marketingPage.widgets) as unknown as MarketingRuntimeContentProps['effectiveLayoutWidgets']
+    // The public bootstrap carries the renderer-safe header placements directly.
+    const effectiveLayoutWidgets = publicRuntime.marketingPage
+        .headerWidgets as unknown as MarketingRuntimeContentProps['effectiveLayoutWidgets']
 
     return (
         <MarketingRuntimeContent
@@ -109,6 +104,14 @@ export const PublicApplicationRuntime = () => {
             locale={requestedLocale}
             apiBaseUrl='/api/v1'
             effectiveLayoutWidgets={effectiveLayoutWidgets}
+            effectiveLayoutConfig={{
+                templateKey: 'marketing-page',
+                zoneSettings: {
+                    'marketing-header': {
+                        position: publicRuntime.marketingPage.headerPosition
+                    }
+                }
+            }}
             loadingLabel={t('app.runtime.loading', 'Loading application')}
             errorLabel={t('app.errors.loadFailed', 'Failed to load runtime data')}
             retryLabel={t('common.retry', 'Retry')}

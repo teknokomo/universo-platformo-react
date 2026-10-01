@@ -3,6 +3,9 @@ import {
     publicMarketingApplicationRuntimeSchema,
     type PublicMarketingApplicationRuntime
 } from '@universo-react/types'
+import type { ApplicationRuntimeLayoutTarget } from '../types'
+
+export type PublicApplicationRuntimeTarget = Pick<ApplicationRuntimeLayoutTarget, 'targetKind' | 'entityTypeId' | 'entityTypeCodename'>
 
 const PUBLIC_RUNTIME_UI_PROBE_ACCEPT = 'application/vnd.universo.public-runtime-probe+json'
 
@@ -37,13 +40,22 @@ export const isPublicApplicationUnavailableError = (error: unknown): boolean =>
     error.status === 404 &&
     (error.code === null || error.code === PUBLIC_APPLICATION_RUNTIME_ERROR_CODE)
 
-export const getPublicApplicationRuntime = async (applicationRef: string, locale: string): Promise<PublicMarketingApplicationRuntime> => {
+export const getPublicApplicationRuntime = async (
+    applicationRef: string,
+    locale: string,
+    target?: PublicApplicationRuntimeTarget
+): Promise<PublicMarketingApplicationRuntime> => {
     const normalizedRef = applicationRef.trim()
     if (!normalizedRef) {
         throw new PublicApplicationRuntimeError(400, null, 'Application reference is required')
     }
 
     const params = new URLSearchParams({ locale })
+    if (target?.targetKind !== undefined && target.targetKind !== null) params.set('targetKind', target.targetKind)
+    if (target?.entityTypeId !== undefined && target.entityTypeId !== null) params.set('entityTypeId', target.entityTypeId)
+    if (target?.entityTypeCodename !== undefined && target.entityTypeCodename !== null) {
+        params.set('entityTypeCodename', target.entityTypeCodename)
+    }
     const response = await fetch(`/api/v1/public/applications/${encodeURIComponent(normalizedRef)}/runtime?${params.toString()}`, {
         method: 'GET',
         credentials: 'omit',

@@ -42,13 +42,11 @@ import {
     getLayoutZoneSettingDefinition,
     LAYOUT_ZONE_DEFINITIONS,
     MARKETING_LAYOUT_ZONES,
-    MARKETING_SOURCE_CODENAMES,
     MARKETING_WIDGET_REGISTRY
 } from '@universo-react/types'
 import {
     extractObjectCollectionLayoutBehaviorConfig,
     extractAxiosError,
-    getCodenamePrimary,
     normalizeObjectCollectionRuntimeViewConfig,
     setObjectCollectionLayoutBehaviorConfig
 } from '@universo-react/utils'
@@ -748,8 +746,23 @@ const ApplicationLayouts = () => {
                     }
                 ]
             }),
-        onError: (error) => {
+        onError: (error, widget) => {
             const apiError = extractAxiosError(error)
+            if (isMarketingWidgetKey(widget.widgetKey)) {
+                const isConflict =
+                    apiError.code === 'APPLICATION_LAYOUT_WIDGET_BATCH_CONFLICT' ||
+                    apiError.message === 'APPLICATION_LAYOUT_WIDGET_BATCH_CONFLICT'
+                enqueueSnackbar(
+                    isConflict
+                        ? t(
+                              'layouts.widgetResetToSourceConflict',
+                              'This widget changed in another session. Reload the layout and try again.'
+                          )
+                        : t('layouts.widgetResetToSourceError', 'Failed to reset widget settings to the source.'),
+                    { variant: 'error' }
+                )
+                return
+            }
             const message =
                 apiError.code === 'APPLICATION_INTERPRETATION_NETWORK_NON_SYSTEM_STRUCTURES_EXIST'
                     ? t(
@@ -769,12 +782,18 @@ const ApplicationLayouts = () => {
                     : t('settings.matrix.resetError', 'Failed to restore metahub settings')
             enqueueSnackbar(message, { variant: 'error' })
         },
-        onSuccess: async () => {
-            setInterpretationNetworkEditingWidget(null)
-            setInterpretationNetworkInitialSettings(null)
-            setInterpretationNetworkDraft(null)
-            setInterpretationNetworkDraftHasChanges(false)
-            enqueueSnackbar(t('settings.matrix.resetSuccess', 'Metahub settings restored'), { variant: 'success' })
+        onSuccess: async (_widgets, widget) => {
+            if (isMarketingWidgetKey(widget.widgetKey)) {
+                enqueueSnackbar(t('layouts.widgetResetToSourceSuccess', 'Widget settings were reset to the source.'), {
+                    variant: 'success'
+                })
+            } else {
+                setInterpretationNetworkEditingWidget(null)
+                setInterpretationNetworkInitialSettings(null)
+                setInterpretationNetworkDraft(null)
+                setInterpretationNetworkDraftHasChanges(false)
+                enqueueSnackbar(t('settings.matrix.resetSuccess', 'Metahub settings restored'), { variant: 'success' })
+            }
             await invalidateLayouts()
         }
     })
@@ -975,19 +994,6 @@ const ApplicationLayouts = () => {
                 label: scope.name,
                 codename: resolveLocalizedText(scope.codename ?? {}, 'en', scope.tableName ?? scope.name)
             }))
-        const marketingSourceOptions = (scopesQuery.data ?? [])
-            .filter((scope) => scope.scopeEntityId)
-            .map((scope) => {
-                const value = getCodenamePrimary(scope.codename).trim()
-                if (!value || !MARKETING_SOURCE_CODENAMES.includes(value as (typeof MARKETING_SOURCE_CODENAMES)[number])) return null
-                return {
-                    value,
-                    label: scope.name,
-                    entityKind: 'object' as const
-                }
-            })
-            .filter((option): option is { value: string; label: string; entityKind: 'object' } => option !== null)
-            .sort((left, right) => left.label.localeCompare(right.label))
         const layoutZones = LAYOUT_ZONES_BY_TEMPLATE[layout.templateKey]
         const widgetsByZone = layoutZones.reduce<Record<ApplicationLayoutZone, ApplicationLayoutWidget[]>>((accumulator, zone) => {
             accumulator[zone] = widgets
@@ -1078,12 +1084,16 @@ const ApplicationLayouts = () => {
         }
 
         const getAvailableWidgetsForZone = (zone: ApplicationLayoutZone) =>
-            widgetObject.filter(
-                (item) =>
+            widgetObject.filter((item) => {
+                const isSourceManagedMarketingWidget = layout.templateKey === 'marketing-page' && isMarketingWidgetKey(item.key)
+                const canAdd =
+                    !isSourceManagedMarketingWidget || getLayoutWidgetDefinition(item.key)?.authoring?.application?.canAdd !== false
+                return (
                     item.supportedTemplates.includes(layout.templateKey) &&
                     item.allowedZonesByTemplate[layout.templateKey]?.includes(zone) &&
-                    !(layout.templateKey === 'marketing-page' && item.key === 'marketing.hero')
-            )
+                    canAdd
+                )
+            })
 
         const getWidgetChipLabel = (widget: ApplicationLayoutWidget): string => {
             const base = widgetLabelByKey[widget.widgetKey] ?? tc('layouts.widgets.unknown', 'Widget')
@@ -1220,7 +1230,19 @@ const ApplicationLayouts = () => {
 
         const buildWidgetRow = (widget: ApplicationLayoutWidget) => {
             const label = getWidgetChipLabel(widget)
-            const canDuplicate = !(layout.templateKey === 'marketing-page' && widget.widgetKey === 'marketing.hero')
+            const isSourceManagedMarketingWidget = layout.templateKey === 'marketing-page' && isMarketingWidgetKey(widget.widgetKey)
+            const widgetDefinition = getLayoutWidgetDefinition(widget.widgetKey)
+            const applicationAuthoring = widgetDefinition?.authoring?.application
+            const canEditWidgetConfig =
+                !isSourceManagedMarketingWidget ||
+                Boolean(widgetDefinition?.presentationFields && widgetDefinition.presentationFields.length > 0)
+            const canDuplicate = !isSourceManagedMarketingWidget || applicationAuthoring?.canDuplicate !== false
+            const canResetToSource =
+                isSourceManagedMarketingWidget &&
+                applicationAuthoring?.resetToSource === true &&
+                widget.sourceConfig != null &&
+                widget.isCustomized === true
+            const isResettingToSource = resetWidgetConfigMutation.isPending && resetWidgetConfigMutation.variables?.id === widget.id
             const isHeaderWidget = layout.templateKey === 'marketing-page' && widget.zone === 'marketing-header'
             const placement = readWidgetPlacement(widget)
             const placementActions = isHeaderWidget
@@ -1265,28 +1287,36 @@ const ApplicationLayouts = () => {
                 isActive: widget.isActive,
                 draggable: !moveWidgetMutation.isPending,
                 moveActions: [...placementActions, ...zoneMoveActions],
-                onEdit: () => openStructuredWidgetEditor(widget),
-                onClick: () => openStructuredWidgetEditor(widget),
+                onEdit: canEditWidgetConfig ? () => openStructuredWidgetEditor(widget) : undefined,
+                onClick: canEditWidgetConfig ? () => openStructuredWidgetEditor(widget) : undefined,
                 onDuplicate: canDuplicate
                     ? () => {
                           if (!duplicateWidgetMutation.isPending) duplicateWidgetMutation.mutate(widget)
                       }
                     : undefined,
+                onReset:
+                    canResetToSource && !resetWidgetConfigMutation.isPending ? () => resetWidgetConfigMutation.mutate(widget) : undefined,
                 onRemove: () => void requestDeleteWidget(widget),
                 onToggleActive: (active: boolean) => {
                     if (!toggleWidgetMutation.isPending) toggleWidgetMutation.mutate({ widget, isActive: active })
                 },
-                editTooltip: tc('actions.edit', 'Edit'),
+                editTooltip: canEditWidgetConfig ? tc('actions.edit', 'Edit') : undefined,
                 removeTooltip: tc('actions.delete', 'Delete'),
                 toggleActiveTooltip: widget.isActive ? t('layouts.deactivate', 'Deactivate') : t('layouts.activate', 'Activate'),
-                editAriaLabel: t('layouts.editWidgetNamed', 'Edit widget: {{label}}', { label }),
+                editAriaLabel: canEditWidgetConfig ? t('layouts.editWidgetNamed', 'Edit widget: {{label}}', { label }) : undefined,
                 duplicateTooltip: canDuplicate ? t('layouts.duplicateWidget', 'Duplicate widget') : undefined,
                 duplicateAriaLabel: canDuplicate ? t('layouts.duplicateWidgetNamed', 'Duplicate widget: {{label}}', { label }) : undefined,
+                resetTooltip: canResetToSource ? t('layouts.widgetResetToSource', 'Reset to source') : undefined,
+                resetAriaLabel: canResetToSource
+                    ? t('layouts.widgetResetToSourceNamed', 'Reset {{label}} to source', { label })
+                    : undefined,
                 removeAriaLabel: t('layouts.removeWidgetNamed', 'Remove widget: {{label}}', { label }),
                 toggleActiveAriaLabel: widget.isActive
                     ? t('layouts.deactivateWidgetNamed', 'Deactivate widget: {{label}}', { label })
                     : t('layouts.activateWidgetNamed', 'Activate widget: {{label}}', { label }),
-                inheritedLabel: hasWidgetProvenance(layout, widget)
+                inheritedLabel: isResettingToSource
+                    ? t('layouts.widgetResetToSourcePending', 'Resetting to source…')
+                    : hasWidgetProvenance(layout, widget)
                     ? isApplicationOwnedWidget(layout, widget)
                         ? t('layouts.widgetCustomization.application', 'Customized in application')
                         : t('layouts.widgetCustomization.metahub', 'Inherited from metahub')
@@ -1511,7 +1541,6 @@ const ApplicationLayouts = () => {
                         open={marketingWidgetEditor.open}
                         widgetKey={marketingWidgetEditor.widgetKey}
                         initialConfig={marketingWidgetEditor.config}
-                        sourceOptions={marketingSourceOptions}
                         title={widgetLabelByKey[marketingWidgetEditor.widgetKey] ?? tc('layouts.widgets.unknown', 'Widget')}
                         t={(key, defaultValue, options) => t(key, defaultValue ?? key, options)}
                         onSave={async (config) => {

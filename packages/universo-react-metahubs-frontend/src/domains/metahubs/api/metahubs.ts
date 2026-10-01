@@ -60,7 +60,8 @@ export const listMetahubs = async (params?: MetahubPaginationParams): Promise<Pa
     }
 }
 
-export const getMetahub = (id: string) => apiClient.get<Metahub>(`/metahub/${id}`)
+export const getMetahub = (id: string, signal?: AbortSignal) =>
+    signal ? apiClient.get<Metahub>(`/metahub/${id}`, { signal }) : apiClient.get<Metahub>(`/metahub/${id}`)
 
 export const createMetahub = (data: MetahubInput) => apiClient.post<Metahub>('/metahubs', data)
 

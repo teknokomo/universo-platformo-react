@@ -1197,10 +1197,8 @@ describe('MetahubList', () => {
 
         it('should persist view preference to localStorage', async () => {
             // Force a deterministic initial view (card) so clicking "list" always triggers a change.
-            const getItemSpy = vi
-                .spyOn(window.localStorage, 'getItem')
-                .mockImplementation((key: string) => (key === 'metahubsMetahubDisplayStyle' ? 'card' : null))
-            const setItemSpy = vi.spyOn(window.localStorage, 'setItem')
+            const storageKey = 'metahubsMetahubDisplayStyle'
+            window.localStorage.setItem(storageKey, 'card')
 
             const { user, container } = renderWithProviders(<MetahubList />)
 
@@ -1212,14 +1210,15 @@ describe('MetahubList', () => {
             const listViewButton = container.querySelector('button[value="list"]') as HTMLElement | null
             expect(listViewButton).toBeTruthy()
 
-            await user.click(listViewButton as HTMLElement)
+            try {
+                await user.click(listViewButton as HTMLElement)
 
-            await waitFor(() => {
-                expect(setItemSpy).toHaveBeenCalledWith('metahubsMetahubDisplayStyle', 'list')
-            })
-
-            getItemSpy.mockRestore()
-            setItemSpy.mockRestore()
+                await waitFor(() => {
+                    expect(window.localStorage.getItem(storageKey)).toBe('list')
+                })
+            } finally {
+                window.localStorage.removeItem(storageKey)
+            }
         })
     })
 

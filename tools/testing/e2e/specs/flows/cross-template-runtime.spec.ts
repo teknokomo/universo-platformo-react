@@ -1,4 +1,5 @@
 import { createLocalizedContent } from '@universo-react/utils'
+import { getLayoutWidgetDefinition } from '@universo-react/types'
 import AxeBuilder from '@axe-core/playwright'
 import type { Page } from '@playwright/test'
 import { expect, test } from '../../fixtures/test'
@@ -15,6 +16,8 @@ import {
     createLoggedInApiContext,
     createMetahub,
     createPublication,
+    createPublicationLinkedApplication,
+    createApplicationWorkspace,
     disposeApiContext,
     getApplication,
     getApplicationEffectiveLayout,
@@ -23,13 +26,14 @@ import {
     listApplicationLayoutScopes,
     listApplicationLayouts,
     listApplicationLayoutWidgets,
+    listApplicationWorkspaces,
     listEntityInstances,
-    listPublicationApplications,
     syncApplicationSchema,
     syncPublication,
     updateApplicationLayoutZoneSetting,
     updateRuntimeRow,
     upsertApplicationLayoutWidget,
+    setApplicationPublicEntryWorkspace,
     waitForPublicationReady
 } from '../../support/backend/api-session.mjs'
 import { recordCreatedApplication, recordCreatedMetahub, recordCreatedPublication } from '../../support/backend/run-manifest.mjs'
@@ -147,24 +151,6 @@ const readCodename = (value: unknown): string => {
     return typeof englishContent === 'string' ? englishContent : ''
 }
 
-async function waitForLinkedApplication(
-    api: Awaited<ReturnType<typeof createLoggedInApiContext>>,
-    metahubId: string,
-    publicationId: string
-) {
-    let application: Record<string, unknown> | null = null
-    await expect
-        .poll(async () => {
-            const response = await listPublicationApplications(api, metahubId, publicationId)
-            application = (response?.items ?? [])[0] ?? null
-            return typeof application?.id === 'string'
-        })
-        .toBe(true)
-
-    if (typeof application?.id !== 'string') throw new Error('The publication did not expose a linked application')
-    return application
-}
-
 async function waitForApplicationSchema(api: Awaited<ReturnType<typeof createLoggedInApiContext>>, applicationId: string): Promise<void> {
     await expect.poll(async () => (await getApplication(api, applicationId))?.schemaStatus).toBe('synced')
 }
@@ -205,7 +191,7 @@ async function upsertApplicationLayoutWidgetWithRetry(
         .toBe(true)
 }
 
-async function expectApplicationHeroBindingWriteDenied(
+async function expectApplicationEntityBindingWriteDenied(
     api: Awaited<ReturnType<typeof createLoggedInApiContext>>,
     applicationId: string,
     layoutId: string,
@@ -221,6 +207,7 @@ async function expectApplicationHeroBindingWriteDenied(
 
 test('@flow @combined @cross-template resolves an entity-scoped template and shared widget across runtime hosts', async ({
     page,
+    browser,
     runManifest
 }, testInfo) => {
     test.setTimeout(300_000)
@@ -247,9 +234,7 @@ test('@flow @combined @cross-template resolves an entity-scoped template and sha
         const publication = await createPublication(api, metahub.id, {
             name: { en: publicationName },
             namePrimaryLocale: 'en',
-            autoCreateApplication: true,
-            applicationName: { en: `E2E ${runManifest.runId} cross-template application` },
-            applicationNamePrimaryLocale: 'en',
+            autoCreateApplication: false,
             runtimePolicy: {
                 workspaceMode: 'required',
                 requiredWorkspaceModeAcknowledged: true
@@ -260,8 +245,13 @@ test('@flow @combined @cross-template resolves an entity-scoped template and sha
         await syncPublication(api, metahub.id, publication.id)
         await waitForPublicationReady(api, metahub.id, publication.id)
 
-        const linkedApplication = await waitForLinkedApplication(api, metahub.id, publication.id)
-        const applicationId = typeof linkedApplication.id === 'string' ? linkedApplication.id : null
+        const linkedApplication = await createPublicationLinkedApplication(api, metahub.id, publication.id, {
+            name: { en: `E2E ${runManifest.runId} cross-template application` },
+            namePrimaryLocale: 'en',
+            createApplicationSchema: false,
+            isPublic: true
+        })
+        const applicationId = linkedApplication?.application?.id
         if (!applicationId) throw new Error('Cross-template publication did not create an application')
         await recordCreatedApplication({
             id: applicationId
@@ -274,6 +264,23 @@ test('@flow @combined @cross-template resolves an entity-scoped template and sha
             }
         })
         await waitForApplicationSchema(api, applicationId)
+
+        const workspaceList = await listApplicationWorkspaces(api, applicationId)
+        const sharedWorkspace = (workspaceList?.items ?? []).find(
+            (workspace: Record<string, unknown>) => workspace?.workspaceType !== 'personal' && !workspace?.personalUserId
+        )
+        const publicEntryWorkspaceId =
+            (sharedWorkspace as { id?: string } | undefined)?.id ??
+            (
+                await createApplicationWorkspace(api, applicationId, {
+                    name: createLocalizedContent('en', 'Cross-template public entry workspace'),
+                    description: createLocalizedContent('en', 'Workspace used for anonymous cross-template rendering')
+                })
+            )?.id
+        if (typeof publicEntryWorkspaceId !== 'string') {
+            throw new Error('Cross-template runtime spec could not prepare a public entry workspace')
+        }
+        await setApplicationPublicEntryWorkspace(api, applicationId, publicEntryWorkspaceId)
 
         const entityResponse = await listEntityInstances(api, metahub.id, { kind: 'object', limit: 200, offset: 0 })
         const sourceEntity = (entityResponse?.items ?? []).find(
@@ -365,33 +372,8 @@ test('@flow @combined @cross-template resolves an entity-scoped template and sha
                 sortOrder: typeof widget.sortOrder === 'number' ? widget.sortOrder : 0,
                 config: widget.config && typeof widget.config === 'object' && !Array.isArray(widget.config) ? widget.config : {}
             }
-            if (widget.widgetKey === 'marketing.hero') {
-                await expectApplicationHeroBindingWriteDenied(api, applicationId, scopedMarketingLayout.id, payload)
-                continue
-            }
-            await upsertApplicationLayoutWidgetWithRetry(api, applicationId, scopedMarketingLayout.id, payload)
-        }
-
-        const navigationSourceWidget = (sourceWidgetResponse?.items ?? []).find(
-            (widget: { widgetKey?: unknown }) => widget.widgetKey === 'marketing.navigation'
-        ) as { widgetKey?: string; zone?: string; sortOrder?: number; config?: unknown } | undefined
-        if (typeof navigationSourceWidget?.zone !== 'string') {
-            throw new Error('The marketing navigation widget was not available for repeated-instance coverage')
-        }
-        const repeatedNavigationConfig =
-            navigationSourceWidget.config &&
-            typeof navigationSourceWidget.config === 'object' &&
-            !Array.isArray(navigationSourceWidget.config)
-                ? { ...(navigationSourceWidget.config as Record<string, unknown>) }
-                : {}
-        delete repeatedNavigationConfig.instanceKey
-        for (let duplicateIndex = 0; duplicateIndex < 2; duplicateIndex += 1) {
-            await upsertApplicationLayoutWidgetWithRetry(api, applicationId, scopedMarketingLayout.id, {
-                widgetKey: 'marketing.navigation',
-                zone: navigationSourceWidget.zone,
-                sortOrder: (navigationSourceWidget.sortOrder ?? 0) + duplicateIndex + 1,
-                config: repeatedNavigationConfig
-            })
+            if (!getLayoutWidgetDefinition(payload.widgetKey, payload.config)?.bindingSlots?.length) continue
+            await expectApplicationEntityBindingWriteDenied(api, applicationId, scopedMarketingLayout.id, payload)
         }
 
         const scopedMarketingEffective = await getApplicationEffectiveLayout(api, applicationId, {
@@ -406,11 +388,60 @@ test('@flow @combined @cross-template resolves an entity-scoped template and sha
         const effectiveNavigationWidgets = scopedMarketingEffective.widgets.filter(
             (widget: { widgetKey?: unknown }) => widget.widgetKey === 'marketing.navigation'
         )
-        expect(effectiveNavigationWidgets).toHaveLength(3)
-        expect(
-            new Set(effectiveNavigationWidgets.map((widget: { id?: unknown; instanceKey?: unknown }) => widget.instanceKey ?? widget.id))
-                .size
-        ).toBe(3)
+        expect(effectiveNavigationWidgets).toHaveLength(0)
+
+        const baseURL = testInfo.project.use.baseURL
+        if (typeof baseURL !== 'string') throw new Error('The cross-template test project must define the E2E base URL')
+        const anonymousContext = await browser.newContext({
+            baseURL,
+            storageState: { cookies: [], origins: [] },
+            locale: 'en-US',
+            colorScheme: 'light',
+            viewport: { width: 1440, height: 900 }
+        })
+        try {
+            await anonymousContext.clearCookies()
+            expect((await anonymousContext.cookies()).length).toBe(0)
+            const anonymousPage = await anonymousContext.newPage()
+            const anonymousBrowserIssues = watchBrowserIssues(anonymousPage)
+            const publicRuntimeResponse = anonymousPage.waitForResponse((response) => {
+                const url = new URL(response.url())
+                return (
+                    url.pathname === `/api/v1/public/applications/${applicationId}/runtime` &&
+                    url.searchParams.get('targetKind') === 'object' &&
+                    url.searchParams.get('entityTypeId') === entityScope.scopeEntityId
+                )
+            })
+            await anonymousPage.goto(
+                `/a/${applicationId}/${encodeURIComponent(entityScope.scopeEntityId)}?targetKind=object&entityTypeId=${encodeURIComponent(
+                    entityScope.scopeEntityId
+                )}&locale=en&themeVariant=light`
+            )
+            const publicResponse = await publicRuntimeResponse
+            expect(publicResponse.status()).toBe(200)
+            await expect(anonymousPage.locator('#marketing-page-main')).toBeVisible()
+            await expect(anonymousPage.locator('[data-marketing-widget-instance]')).toHaveCount(0)
+            const authBootstrapPaths = new Set(['/api/v1/auth/me', '/api/v1/auth/permissions'])
+            const unexpectedAnonymousBrowserIssues = anonymousBrowserIssues.filter((issue) => {
+                if (issue.source === 'response' && issue.status === 401 && issue.url) {
+                    return !authBootstrapPaths.has(new URL(issue.url).pathname)
+                }
+                if (issue.source === 'console' && /Failed to load resource:.*\b401\b/u.test(issue.text)) {
+                    // Chromium logs expected anonymous auth probes without the response URL.
+                    return false
+                }
+                return true
+            })
+            expect(unexpectedAnonymousBrowserIssues, JSON.stringify(unexpectedAnonymousBrowserIssues, null, 2)).toEqual([])
+            await expectNoPageHorizontalOverflow(anonymousPage, 'Anonymous cross-template scoped marketing runtime')
+            await anonymousPage.screenshot({
+                path: testInfo.outputPath('cross-template-anonymous-scoped-marketing.png'),
+                fullPage: true,
+                animations: 'disabled'
+            })
+        } finally {
+            await anonymousContext.close()
+        }
 
         await page.goto(
             `/a/${applicationId}/${encodeURIComponent(entityScope.scopeEntityId)}?targetKind=object&entityTypeId=${encodeURIComponent(
@@ -418,96 +449,16 @@ test('@flow @combined @cross-template resolves an entity-scoped template and sha
             )}&locale=en&themeVariant=light`
         )
         await expect(page.locator('#marketing-page-main')).toBeVisible()
+        await expect(page.locator('[data-marketing-widget-instance]')).toHaveCount(0)
         await expect(page.locator('[data-marketing-widget-instance="hero"]')).toHaveCount(0)
-        await expect(page.getByTestId('marketing-header-shell')).toHaveCount(1)
-        await expect(page.getByRole('banner')).toHaveCount(1)
-        await expect(page.getByTestId('marketing-header-drawer')).toHaveCount(1)
-        const navigationLandmarks = page.getByTestId('marketing-header-navigation')
-        await expect(navigationLandmarks).toHaveCount(3)
-        for (let index = 0; index < 3; index += 1) {
-            await expect(navigationLandmarks.nth(index)).toBeVisible()
-        }
-        await expect(page.getByRole('navigation')).toHaveCount(3)
-        const navigationLabels = await page
-            .getByRole('navigation')
-            .evaluateAll((nodes) =>
-                nodes.map((node) => node.getAttribute('aria-label')).filter((label): label is string => Boolean(label?.trim()))
-            )
-        expect(navigationLabels).toHaveLength(3)
-        expect(new Set(navigationLabels).size).toBe(3)
-        const navigationGeometry = await readMarketingNavigationGeometry(page, true)
-        expect(navigationGeometry.appBarPosition).toBe('fixed')
-        expect(navigationGeometry.visualOffset).toBe(28)
-        expect(navigationGeometry.navigationHeight).toBeGreaterThan(0)
-        expect(
-            Math.abs(navigationGeometry.heroTop),
-            'Independent scoped marketing content must start at document y=0 without inheriting the Hero'
-        ).toBeLessThanOrEqual(1)
-        const repeatedBackgroundOwnership = await readMarketingBackgroundOwnership(page)
-        expect(repeatedBackgroundOwnership.pageBackgroundImage).toBe('none')
-        expect(repeatedBackgroundOwnership.hasHero).toBe(false)
-        expect(repeatedBackgroundOwnership.heroBackgroundImage).toBe('none')
-        await page.evaluate(() => window.scrollTo({ top: 320, behavior: 'instant' }))
-        await page.waitForFunction(() => window.scrollY > 0)
-        const scrolledNavigationGeometry = await readMarketingNavigationGeometry(page, true)
-        expect(scrolledNavigationGeometry.appBarPosition).toBe('fixed')
-        expect(Math.abs(scrolledNavigationGeometry.appBarTop - navigationGeometry.appBarTop)).toBeLessThanOrEqual(1)
-        await page.screenshot({
-            path: testInfo.outputPath('cross-template-scoped-marketing-repeated-navigation-scrolled.png'),
-            fullPage: true,
-            animations: 'disabled'
-        })
-        await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' }))
-        await page.waitForFunction(() => window.scrollY === 0)
+        await expect(page.getByTestId('marketing-header-shell')).toHaveCount(0)
         await expect(page.getByTestId('runtime-main-content')).toHaveCount(0)
-        await expectNoPageHorizontalOverflow(page, 'Cross-template scoped marketing runtime')
+        await expectNoPageHorizontalOverflow(page, 'Independent scoped marketing layout without inherited Entity bindings')
         await expectNoTechnicalLeakage(page.locator('body'), {
-            label: 'Cross-template scoped marketing runtime',
+            label: 'Independent scoped marketing layout without inherited Entity bindings',
             checkUuidSubstrings: true,
             forbiddenVisibleTextPatterns: [/marketing\.(?:navigation|footer|hero)/i]
         })
-        await page.screenshot({
-            path: testInfo.outputPath('cross-template-scoped-marketing-repeated-navigation.png'),
-            fullPage: true,
-            animations: 'disabled'
-        })
-
-        await page.setViewportSize({ width: 390, height: 844 })
-        await page.goto(
-            `/a/${applicationId}/${encodeURIComponent(entityScope.scopeEntityId)}?targetKind=object&entityTypeId=${encodeURIComponent(
-                entityScope.scopeEntityId
-            )}&locale=en&themeVariant=light`
-        )
-        await expect(navigationLandmarks).toHaveCount(3)
-        await expect(page.getByTestId('marketing-header-shell')).toHaveCount(1)
-        await expect(page.getByRole('banner')).toHaveCount(1)
-        await expect(page.locator('[data-marketing-widget-instance="hero"]')).toHaveCount(0)
-        const mobileInitialGeometry = await readMarketingNavigationGeometry(page, true)
-        expect(mobileInitialGeometry.appBarPosition).toBe('fixed')
-        expect(mobileInitialGeometry.visualOffset).toBe(28)
-        expect(Math.abs(mobileInitialGeometry.appBarTop - mobileInitialGeometry.expectedAppBarTop)).toBeLessThanOrEqual(1)
-        await page.evaluate(() => window.scrollTo({ top: 320, behavior: 'instant' }))
-        await page.waitForFunction(() => window.scrollY > 0)
-        const mobileScrolledGeometry = await readMarketingNavigationGeometry(page, true)
-        expect(mobileScrolledGeometry.scrollY).toBeGreaterThan(0)
-        expect(Math.abs(mobileScrolledGeometry.appBarTop - mobileInitialGeometry.appBarTop)).toBeLessThanOrEqual(1)
-        await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' }))
-        await page.waitForFunction(() => window.scrollY === 0)
-        const firstMobileMenuButton = page.getByTestId('marketing-header-mobile-menu').locator('button')
-        await firstMobileMenuButton.click()
-        await expect(firstMobileMenuButton).toHaveAttribute('aria-expanded', 'true')
-        await expect(page.getByTestId('marketing-header-drawer')).toBeVisible()
-        const drawerNavigationLandmarks = page.getByTestId('marketing-header-drawer-navigation')
-        await expect(drawerNavigationLandmarks).toHaveCount(3)
-        for (let index = 0; index < 3; index += 1) {
-            await expect(drawerNavigationLandmarks.nth(index)).toBeVisible()
-        }
-        const mobileAccessibility = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa']).analyze()
-        expect(mobileAccessibility.violations, JSON.stringify(mobileAccessibility.violations)).toEqual([])
-        await page.keyboard.press('Escape')
-        await expect(firstMobileMenuButton).toHaveAttribute('aria-expanded', 'false')
-        await expect(firstMobileMenuButton).toBeFocused()
-        await expectNoPageHorizontalOverflow(page, 'Cross-template scoped marketing mobile runtime')
 
         const scopedLayoutResponse = await createApplicationLayout(api, applicationId, {
             templateKey: 'dashboard',

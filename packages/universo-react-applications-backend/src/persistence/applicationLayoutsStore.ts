@@ -32,9 +32,8 @@ import {
     applicationLayoutScopeLockKey,
     assertRendererConfigInput,
     encodeLayoutConfigForStorage,
-    getApplicationLayoutDetail,
+    getApplicationLayoutDetail as readApplicationLayoutDetail,
     getApplicationLayoutRawConfig,
-    getApplicationLayoutWidgetSourceBindingState,
     isRecord,
     layoutCompositionToNeutral,
     layoutSelect,
@@ -47,8 +46,9 @@ import {
     runApplicationLayoutTransaction,
     type LayoutRow
 } from './applicationLayoutStoreSupport'
+import { containsEntityBackedWidgetCopyConflict } from './applicationLayoutEntityBindingPolicy'
+export { applicationLayoutTablesExist } from './applicationLayoutCapabilitiesStore'
 
-export { getApplicationLayoutDetail } from './applicationLayoutStoreSupport'
 export {
     deleteApplicationLayoutWidget,
     listApplicationLayoutWidgetObject,
@@ -71,6 +71,11 @@ interface ApplicationLayoutWidgetTombstoneRow {
     is_active: boolean
     _upl_deleted: boolean
     _app_deleted: boolean
+}
+
+export async function getApplicationLayoutDetail(executor: DbExecutor, schemaName: string, layoutId: string) {
+    const detail = await readApplicationLayoutDetail(executor, schemaName, layoutId)
+    return detail
 }
 
 const updateZoneSettings = (
@@ -101,7 +106,7 @@ const validateZoneSetting = (templateKey: ApplicationLayout['templateKey'], zone
     }
 }
 
-const readCurrentLayoutEnvelope = (current: Awaited<ReturnType<typeof getApplicationLayoutDetail>>) => {
+const readCurrentLayoutEnvelope = (current: Awaited<ReturnType<typeof readApplicationLayoutDetail>>) => {
     if (!current) return null
     return readLayoutConfigEnvelope(current.item.templateKey, getApplicationLayoutRawConfig(current))
 }
@@ -207,18 +212,6 @@ export async function getApplicationRuntimeSchemaName(executor: DbExecutor, appl
         [applicationId]
     )
     return rows[0]?.schemaName ?? null
-}
-
-export async function applicationLayoutTablesExist(executor: DbExecutor, schemaName: string): Promise<boolean> {
-    const rows = await executor.query<{ layouts: boolean; widgets: boolean }>(
-        `
-        SELECT
-          EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = $1 AND table_name = '_app_layouts') AS layouts,
-          EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = $1 AND table_name = '_app_widgets') AS widgets
-        `,
-        [schemaName]
-    )
-    return rows[0]?.layouts === true && rows[0]?.widgets === true
 }
 
 export async function listApplicationLayoutScopes(
@@ -490,7 +483,7 @@ export async function updateApplicationLayout(
         }
         if (current.item.isDefault && rows[0].is_default !== true) {
             await assignNextDefaultLayout(tx, schemaName, current.item.scopeEntityId, null, userId)
-            return getApplicationLayoutDetail(tx, schemaName, layoutId).then((detail) => detail?.item ?? mapLayout(rows[0]))
+            return readApplicationLayoutDetail(tx, schemaName, layoutId).then((detail) => detail?.item ?? mapLayout(rows[0]))
         }
         return rows[0] ? mapLayout(rows[0]) : null
     })
@@ -734,12 +727,7 @@ export async function copyApplicationLayout(
         }
         const currentEnvelope = readCurrentLayoutEnvelope(current)
         if (!currentEnvelope) return null
-        if (
-            current.widgets.some(
-                (widget) =>
-                    widget.widgetKey === 'marketing.hero' || getApplicationLayoutWidgetSourceBindingState(widget)?.bindings !== undefined
-            )
-        ) {
+        if (containsEntityBackedWidgetCopyConflict(current.item.templateKey, current.widgets)) {
             throw new Error('APPLICATION_LAYOUT_ENTITY_BACKED_WIDGET_COPY_CONFLICT')
         }
         const copiedNeutral = {

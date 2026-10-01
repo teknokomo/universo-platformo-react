@@ -1,89 +1,49 @@
-import { buildSingleTargetWidgetBinding, getLayoutWidgetDefinition, type EffectiveWidget } from '@universo-react/types'
-import { attachApplicationLayoutWidgetSourceBindingState } from '../../persistence/applicationLayoutStoreSupport'
-import { collectActivePublicHeroSelections } from '../../controllers/publicApplicationRuntimeController'
+import type { Request } from 'express'
+import { resolvePublicRuntimeRequest } from '../../controllers/publicApplicationRuntimeController'
+import { PublicApplicationUnavailableError } from '../../services/publicApplicationRuntime'
 
-const heroDefinition = getLayoutWidgetDefinition('marketing.hero')
-if (!heroDefinition) throw new Error('The Hero widget definition must be registered')
+const requestWithQuery = (query: Record<string, unknown>) => ({ query } as unknown as Request)
+const applicationId = '0190a9b5-3cde-7abc-8def-0123456789ab'
 
-const makeHeroWidget = (semanticKey: string, isActive = true): EffectiveWidget => {
-    const widget = {
-        id: '019ccefc-2f7b-7b36-82f4-85cdb1312298',
-        zone: 'marketing-main',
-        semanticRegion: 'main',
-        widgetKey: 'marketing.hero',
-        sortOrder: 0,
-        config: { instanceKey: 'hero', showLeadForm: true },
-        isActive,
-        version: 1
-    } as EffectiveWidget
-    const bindings = buildSingleTargetWidgetBinding(heroDefinition, 'content', {
-        entityKind: 'object',
-        entityCodename: 'MarketingPageHero',
-        semanticKey
-    })
-    return attachApplicationLayoutWidgetSourceBindingState(widget, { persistedApplicationRow: true, bindings })
-}
-
-describe('collectActivePublicHeroSemanticKeys', () => {
-    it('returns only unique Hero keys selected by active, trusted placement bindings', () => {
-        const first = makeHeroWidget('hero-alpha')
-        const second = makeHeroWidget('hero-beta')
-        const duplicate = makeHeroWidget('hero-alpha')
-        const inactive = makeHeroWidget('hero-inactive', false)
-        const other = { ...makeHeroWidget('hero-other'), widgetKey: 'marketing.image' } as EffectiveWidget
-
-        expect(collectActivePublicHeroSelections([first, second, duplicate, inactive, other])).toEqual([
-            { entityCodename: 'MarketingPageHero', semanticKeys: ['hero-alpha', 'hero-beta'] }
-        ])
-    })
-
-    it('fails closed when an active Hero placement has no persisted source binding', () => {
-        const active = {
-            id: '019ccefc-2f7b-7b36-82f4-85cdb1312299',
-            zone: 'marketing-main',
-            semanticRegion: 'main',
-            widgetKey: 'marketing.hero',
-            sortOrder: 0,
-            config: {},
-            isActive: true
-        } as EffectiveWidget
-
-        expect(() => collectActivePublicHeroSelections([active])).toThrow(/binding is missing/i)
-    })
-
-    it('accepts a registered semantic binding for another Object codename', () => {
-        const widget = {
-            ...makeHeroWidget('hero-alpha'),
-            id: '019ccefc-2f7b-7b36-82f4-85cdb1312300'
-        } as EffectiveWidget
-        const wrongEntityBinding = buildSingleTargetWidgetBinding(heroDefinition, 'content', {
-            entityKind: 'object',
-            entityCodename: 'MarketingPageLogo',
-            semanticKey: 'hero-alpha'
+describe('public application runtime controller request parsing', () => {
+    it('defaults to English global scope and accepts supported locales', () => {
+        expect(resolvePublicRuntimeRequest(requestWithQuery({}), applicationId)).toMatchObject({
+            locale: 'en',
+            target: { applicationId, targetKind: null, locale: 'en' }
         })
-        const invalid = attachApplicationLayoutWidgetSourceBindingState(
-            {
-                ...widget,
-                id: '019ccefc-2f7b-7b36-82f4-85cdb1312301'
-            },
-            { persistedApplicationRow: true, bindings: wrongEntityBinding }
-        )
-
-        expect(collectActivePublicHeroSelections([invalid])).toEqual([
-            { entityCodename: 'MarketingPageLogo', semanticKeys: ['hero-alpha'] }
-        ])
+        expect(resolvePublicRuntimeRequest(requestWithQuery({ locale: 'en' }), applicationId).locale).toBe('en')
+        expect(resolvePublicRuntimeRequest(requestWithQuery({ locale: 'ru' }), applicationId).locale).toBe('ru')
     })
 
-    it('collects custom Object targets while preserving semantic-key grouping', () => {
-        const widget = { ...makeHeroWidget('hero-custom'), id: '019ccefc-2f7b-7b36-82f4-85cdb1312399' }
-        const customBindings = buildSingleTargetWidgetBinding(heroDefinition, 'content', {
-            entityKind: 'object',
-            entityCodename: 'CustomLandingHero',
-            semanticKey: 'hero-custom'
+    it('accepts one page/object selector and validates its UUID v7 or codename form', () => {
+        const pageId = '0190a9b5-3cde-7abc-8def-0123456789ac'
+        expect(
+            resolvePublicRuntimeRequest(requestWithQuery({ targetKind: 'page', entityTypeId: pageId, locale: 'ru' }), applicationId)
+        ).toMatchObject({
+            locale: 'ru',
+            target: { applicationId, targetKind: 'page', entityTypeId: pageId, locale: 'ru' }
         })
-        const custom = attachApplicationLayoutWidgetSourceBindingState(widget, { persistedApplicationRow: true, bindings: customBindings })
-        expect(collectActivePublicHeroSelections([custom])).toEqual([
-            { entityCodename: 'CustomLandingHero', semanticKeys: ['hero-custom'] }
-        ])
+        expect(
+            resolvePublicRuntimeRequest(
+                requestWithQuery({ targetKind: 'object', entityTypeCodename: 'MarketingPageFeature' }),
+                applicationId
+            ).target
+        ).toMatchObject({ targetKind: 'object', entityTypeCodename: 'MarketingPageFeature' })
+    })
+
+    it('rejects unknown, repeated, unsupported, incomplete, or workspace-selecting queries', () => {
+        for (const query of [
+            { debug: 'true' },
+            { locale: ['en', 'ru'] },
+            { locale: 'fr' },
+            { workspaceId: applicationId },
+            { targetKind: 'set', entityTypeId: applicationId },
+            { targetKind: 'page' },
+            { entityTypeId: applicationId },
+            { targetKind: 'page', entityTypeId: applicationId, entityTypeCodename: 'Landing' },
+            { targetKind: 'page', entityTypeId: '0190a9b5-3cde-4abc-8def-0123456789ab' }
+        ]) {
+            expect(() => resolvePublicRuntimeRequest(requestWithQuery(query), applicationId)).toThrow(PublicApplicationUnavailableError)
+        }
     })
 })

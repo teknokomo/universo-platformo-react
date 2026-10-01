@@ -4,6 +4,8 @@ import type { DbExecutor } from '../../../utils'
 import { asyncHandler } from '../../shared'
 import { createMetahubHandlerFactory } from '../../shared/createMetahubHandler'
 import { createLayoutsController } from '../controllers/layoutsController'
+import { createWidgetBindingsController } from '../controllers/widgetBindingsController'
+import { createMarketingWidgetRecordDuplicateController } from '../controllers/marketingWidgetRecordDuplicateController'
 
 export function createLayoutsRoutes(
     ensureAuth: RequestHandler,
@@ -16,6 +18,8 @@ export function createLayoutsRoutes(
 
     const createHandler = createMetahubHandlerFactory(getDbExecutor)
     const ctrl = createLayoutsController(createHandler)
+    const bindingCtrl = createWidgetBindingsController(createHandler)
+    const recordDuplicateCtrl = createMarketingWidgetRecordDuplicateController(createHandler)
 
     router.get('/metahub/:metahubId/layouts', readLimiter, asyncHandler(ctrl.list))
     router.post('/metahub/:metahubId/layouts', writeLimiter, asyncHandler(ctrl.create))
@@ -31,23 +35,42 @@ export function createLayoutsRoutes(
     )
     router.get('/metahub/:metahubId/layout/:layoutId/zone-widgets/object', readLimiter, asyncHandler(ctrl.widgetsObject))
     router.get('/metahub/:metahubId/layout/:layoutId/zone-widgets', readLimiter, asyncHandler(ctrl.listZoneWidgets))
-    router.get('/metahub/:metahubId/layout/:layoutId/zone-widget/:widgetId/binding', readLimiter, asyncHandler(ctrl.getZoneWidgetBinding))
+    router.get(
+        '/metahub/:metahubId/layout/:layoutId/zone-widget/:widgetId/binding',
+        readLimiter,
+        asyncHandler(bindingCtrl.getZoneWidgetBinding)
+    )
     router.get(
         '/metahub/:metahubId/layout/:layoutId/widget-binding-sources/:widgetKey/:slotKey',
         readLimiter,
-        asyncHandler(ctrl.getWidgetBindingSources)
+        asyncHandler(bindingCtrl.getWidgetBindingSources)
     )
     router.post(
         '/metahub/:metahubId/layout/:layoutId/widget-binding-sources/:widgetKey/:slotKey',
         writeLimiter,
-        asyncHandler(ctrl.provisionWidgetBindingSource)
+        asyncHandler(bindingCtrl.provisionWidgetBindingSource)
     )
-    router.get('/metahub/:metahubId/layout/:layoutId/widget-binding-usage', readLimiter, asyncHandler(ctrl.getWidgetBindingUsage))
+    router.get(
+        '/metahub/:metahubId/layout/:layoutId/zone-widget/:widgetId/binding-records/:slotKey',
+        readLimiter,
+        asyncHandler(bindingCtrl.getWidgetBindingRecords)
+    )
+    router.get(
+        '/metahub/:metahubId/layout/:layoutId/widget-binding-records/:widgetKey/:slotKey',
+        readLimiter,
+        asyncHandler(bindingCtrl.getWidgetBindingRecords)
+    )
+    router.get('/metahub/:metahubId/layout/:layoutId/widget-binding-usage', readLimiter, asyncHandler(bindingCtrl.getWidgetBindingUsage))
     router.put('/metahub/:metahubId/layout/:layoutId/zone-widget', writeLimiter, asyncHandler(ctrl.assignZoneWidget))
+    router.post(
+        '/metahub/:metahubId/layout/:layoutId/zone-widget/duplicate',
+        writeLimiter,
+        asyncHandler(recordDuplicateCtrl.duplicateZoneWidget)
+    )
     router.patch(
         '/metahub/:metahubId/layout/:layoutId/zone-widget/:widgetId/binding',
         writeLimiter,
-        asyncHandler(ctrl.updateZoneWidgetBinding)
+        asyncHandler(bindingCtrl.updateZoneWidgetBinding)
     )
     router.patch('/metahub/:metahubId/layout/:layoutId/zone-widgets/move', writeLimiter, asyncHandler(ctrl.moveZoneWidget))
     router.delete('/metahub/:metahubId/layout/:layoutId/zone-widget/:widgetId', writeLimiter, asyncHandler(ctrl.removeZoneWidget))

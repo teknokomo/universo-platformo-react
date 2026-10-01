@@ -11,6 +11,8 @@ It also owns the executor and query helper contracts that define the SQL-first r
 
 `toLocalizedStringMap(value)` accepts either a plain locale-to-string map or a versioned localized-content object whose `locales` entries contain string `content`. Versioned entries with `isActive: false`, malformed entries, and metadata keys are excluded. The helper returns `undefined` when the input is not an object or no usable locale entries remain; it does not accept plain strings or validate locale codes.
 
+Marketing snapshot validation checks selected `semantic-key`, `record-set`, and `relation-set` values against registered Component contracts before publication or transport. It verifies required Components, value types, locale requirements, safe media/action formats, and child REF membership without including record contents in validation failures.
+
 ## Database Standard Surface
 
 -   `@universo-react/utils/database` exports `DbSession`, `DbExecutor`, and `SqlQueryable`.

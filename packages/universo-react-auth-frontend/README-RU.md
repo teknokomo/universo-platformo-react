@@ -233,7 +233,7 @@ const client = createAuthClient({ baseURL: '/api/v1' })
 
 ### Предварительные требования
 
--   Node.js 22.22.2 recommended (>=22.6.0 required)
+-   Node.js 22.22.2 recommended (>=22.6.0 required by this package)
 -   Среда рабочего пространства PNPM
 -   Peer-зависимости Material-UI
 

@@ -34,6 +34,22 @@ describe('public application runtime transport', () => {
         })
     })
 
+    it('sends a scoped target through the anonymous endpoint without forwarding workspace selectors', async () => {
+        const fetchMock = vi.fn().mockResolvedValue(new Response(null, { status: 204 }))
+        vi.stubGlobal('fetch', fetchMock)
+        const entityTypeId = '0190a9b5-3cde-7abc-8def-0123456789ac'
+
+        await expect(getPublicApplicationRuntime('north-route', 'en', { targetKind: 'object', entityTypeId })).rejects.toMatchObject({
+            status: 404,
+            code: PUBLIC_APPLICATION_RUNTIME_ERROR_CODE
+        })
+
+        expect(fetchMock.mock.calls[0]?.[0]).toBe(
+            `/api/v1/public/applications/north-route/runtime?locale=en&targetKind=object&entityTypeId=${entityTypeId}`
+        )
+        expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({ credentials: 'omit', cache: 'no-store' })
+    })
+
     it('maps the UI probe no-content response to the same unavailable contract', async () => {
         vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(null, { status: 204 })))
 
@@ -148,7 +164,14 @@ describe('public application runtime transport', () => {
         expect(publicApplicationRuntimeQueryKeys.runtime(' North-Route ', 'RU_ru')).toEqual([
             'public-application-runtime',
             'north-route',
-            'ru'
+            'ru',
+            { targetKind: null, entityTypeId: null, entityTypeCodename: null }
         ])
+        expect(
+            publicApplicationRuntimeQueryKeys.runtime('north-route', 'en', {
+                targetKind: 'page',
+                entityTypeId: ' 0190A9B5-3CDE-7ABC-8DEF-0123456789AC '
+            })
+        ).not.toEqual(publicApplicationRuntimeQueryKeys.runtime('north-route', 'en'))
     })
 })

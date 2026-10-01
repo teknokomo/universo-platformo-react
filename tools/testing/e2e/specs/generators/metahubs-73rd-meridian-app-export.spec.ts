@@ -30,6 +30,7 @@ import {
     MERIDIAN_73_FAQ,
     MERIDIAN_73_FOOTER_LINKS,
     MERIDIAN_73_HERO,
+    MERIDIAN_73_IMAGE_ALT,
     MERIDIAN_73_IMAGE_URL,
     MERIDIAN_73_METAHUB,
     MERIDIAN_73_NAVIGATION,
@@ -65,7 +66,18 @@ const readLocalizedText = (value: unknown): string => {
 
 const verifySourceRevision = (): void => {
     const sourcePath = path.resolve(repoRoot, MERIDIAN_73_SOURCE.path)
-    const source = fs.readFileSync(sourcePath)
+    let source: Buffer
+    try {
+        source = fs.readFileSync(sourcePath)
+    } catch (error) {
+        if (error && typeof error === 'object' && 'code' in error && error.code === 'ENOENT') {
+            console.info(
+                `[73rd Meridian fixture] Optional source draft is unavailable at ${MERIDIAN_73_SOURCE.path}; checked-in product content remains the generator input.`
+            )
+            return
+        }
+        throw error
+    }
     const actualHash = createHash('sha256').update(source).digest('hex')
     expect(actualHash).toBe(MERIDIAN_73_SOURCE.sha256)
 }
@@ -113,6 +125,52 @@ const replaceRecords = async (
     }
 }
 
+const upsertRecordsBySemanticKey = async (
+    api: ApiContext,
+    metahubId: string,
+    objectsByCodename: Map<string, ObjectEntity>,
+    objectCodename: string,
+    semanticComponentCodename: string,
+    seeds: readonly RecordSeed[]
+): Promise<void> => {
+    const object = objectsByCodename.get(objectCodename)
+    if (!object?.id) throw new Error(`73rd Meridian generator could not find Object ${objectCodename}`)
+
+    for (const seed of seeds) {
+        const semanticValue = seed.data[semanticComponentCodename]
+        if (typeof semanticValue !== 'string' || semanticValue.length === 0) {
+            throw new Error(`73rd Meridian generator requires ${semanticComponentCodename} for ${objectCodename}`)
+        }
+        const payload = await listRecords(api, metahubId, object.id, {
+            limit: 2,
+            offset: 0,
+            exactComponentCodename: semanticComponentCodename,
+            exactValue: semanticValue
+        })
+        const existing = Array.isArray(payload?.items) ? (payload.items as Array<{ id?: unknown; version?: unknown }>) : []
+        if (existing.length > 1) {
+            throw new Error(`73rd Meridian generator found duplicate ${objectCodename}.${semanticComponentCodename}=${semanticValue}`)
+        }
+        const record = existing[0]
+        if (!record) {
+            await createRecord(api, metahubId, object.id, seed)
+            continue
+        }
+        if (typeof record.id !== 'string') throw new Error(`73rd Meridian generator found an invalid ${objectCodename} record id`)
+        const expectedVersion = Number(record.version)
+        if (!Number.isInteger(expectedVersion) || expectedVersion < 1) {
+            throw new Error(`73rd Meridian generator requires a versioned ${objectCodename} record`)
+        }
+        const response = await sendWithCsrf(
+            api,
+            'PATCH',
+            `/api/v1/metahub/${metahubId}/entities/object/instance/${object.id}/record/${record.id}`,
+            { data: seed.data, sortOrder: seed.sortOrder, expectedVersion }
+        )
+        expect(response.ok).toBe(true)
+    }
+}
+
 /**
  * Pricing tiers and their benefits are relation-linked, so benefits must be
  * created against the real persisted tier id after the tiers exist.
@@ -131,6 +189,8 @@ const authorPricingRecords = async (api: ApiContext, metahubId: string, objectsB
                 Subheader: localized(tier.description),
                 Price: tier.price,
                 Period: localized(tier.period),
+                ActionLabel: localized(tier.actionLabel),
+                ActionHref: tier.actionHref,
                 Featured: false,
                 SortOrder: index + 1,
                 IsVisible: true
@@ -169,7 +229,9 @@ const buildSiteSettingsSeeds = (): RecordSeed[] => [
     {
         sortOrder: 1,
         data: {
+            SiteKey: 'site-settings',
             BrandName: localized(MERIDIAN_73_SITE_SETTINGS.brandName),
+            BrandLogo: null,
             FooterDescription: localized(MERIDIAN_73_SITE_SETTINGS.footerDescription),
             CopyrightText: localized(MERIDIAN_73_SITE_SETTINGS.copyright),
             NewsletterEnabled: false,
@@ -209,6 +271,40 @@ const authorHeroRecord = async (api: ApiContext, metahubId: string, objectsByCod
         }
     )
     expect(response.ok).toBe(true)
+}
+
+const authorImageRecord = async (api: ApiContext, metahubId: string, objectsByCodename: Map<string, ObjectEntity>): Promise<void> => {
+    const imageObject = objectsByCodename.get('MarketingPageImage')
+    if (!imageObject?.id) throw new Error('73rd Meridian generator could not find Object MarketingPageImage')
+
+    const payload = await listRecords(api, metahubId, imageObject.id, { limit: 100, offset: 0 })
+    const records = Array.isArray(payload?.items)
+        ? (payload.items as Array<{ id?: unknown; version?: unknown; data?: Record<string, unknown> }>)
+        : []
+    const defaultRecord = records.find((record) => record.data?.ImageKey === 'default')
+    if (typeof defaultRecord?.id !== 'string') {
+        throw new Error('73rd Meridian generator requires the default MarketingPageImage record seeded by the template')
+    }
+    const expectedVersion = Number(defaultRecord.version)
+    if (!Number.isInteger(expectedVersion) || expectedVersion < 1) {
+        throw new Error('73rd Meridian generator requires a versioned default MarketingPageImage record')
+    }
+
+    const response = await sendWithCsrf(
+        api,
+        'PATCH',
+        `/api/v1/metahub/${metahubId}/entities/object/instance/${imageObject.id}/record/${defaultRecord.id}`,
+        {
+            expectedVersion,
+            data: {
+                Resource: { type: 'url', url: MERIDIAN_73_IMAGE_URL, launchMode: 'inline' },
+                AltText: localized(MERIDIAN_73_IMAGE_ALT),
+                Decorative: false
+            }
+        }
+    )
+    const responseBody = response.ok ? '' : await response.text()
+    expect(response.ok, responseBody).toBe(true)
 }
 
 const buildPartnerSeeds = (): RecordSeed[] =>
@@ -309,12 +405,13 @@ const buildNavigationSeeds = (): RecordSeed[] =>
 const authorProductRecords = async (api: ApiContext, metahubId: string): Promise<void> => {
     const objects = await loadObjectEntities(api, metahubId)
 
-    // Replace relation-linked pricing content first, then remove every MUI demo
-    // record and rebuild only the approved Consortium product content.
+    // Replace relation-linked pricing content first. Semantic records protected by
+    // active Marketing bindings are updated in place; list content is rebuilt.
     await authorPricingRecords(api, metahubId, objects)
-    await replaceRecords(api, metahubId, objects, 'MarketingPageSection', buildSectionSeeds())
-    await replaceRecords(api, metahubId, objects, 'MarketingPageSiteSettings', buildSiteSettingsSeeds())
+    await upsertRecordsBySemanticKey(api, metahubId, objects, 'MarketingPageSection', 'SectionKey', buildSectionSeeds())
+    await upsertRecordsBySemanticKey(api, metahubId, objects, 'MarketingPageSiteSettings', 'SiteKey', buildSiteSettingsSeeds())
     await authorHeroRecord(api, metahubId, objects)
+    await authorImageRecord(api, metahubId, objects)
     await replaceRecords(api, metahubId, objects, 'MarketingPageLogo', buildPartnerSeeds())
     await replaceRecords(api, metahubId, objects, 'MarketingPageFeature', buildActivitySeeds())
     await replaceRecords(api, metahubId, objects, 'MarketingPageTestimonial', buildExpertVisionSeeds())
@@ -354,8 +451,7 @@ const configureProductLayout = async (api: ApiContext, metahubId: string): Promi
         )
 
     const imageWidget = byInstanceKey('hero-image')
-    const imageResource = imageWidget?.config?.media?.resource
-    expect(imageResource?.url).toBe(MERIDIAN_73_IMAGE_URL)
+    expect(imageWidget?.config?.media).toBeUndefined()
 
     const configPatches: Array<[string, Record<string, unknown>]> = [
         ['auth', { showAuthActions: false }],

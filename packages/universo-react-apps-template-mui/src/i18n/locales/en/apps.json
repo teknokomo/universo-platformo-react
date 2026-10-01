@@ -661,6 +661,7 @@
             "dark": "Dark"
         },
         "empty": "No {{section}} content is configured yet.",
+        "emptyLayout": "This page has no published content yet.",
         "mediaMissing": "Media is unavailable",
         "mediaDeferred": "Media is configured but is not available in this runtime."
     },

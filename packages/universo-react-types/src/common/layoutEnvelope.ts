@@ -2,8 +2,18 @@ import { z } from 'zod'
 
 import { getLayoutWidgetDefinition, getLayoutZoneDefinition, LAYOUT_ZONE_DEFINITIONS } from './layoutWidgetDefinitions'
 import { applicationTemplateKeySchema, type ApplicationTemplateKey } from './marketingPage'
+import { layoutLogicalPlacementSchema } from './layoutWidgetPrimitives'
 import type { ApplicationLayoutZone } from './applicationLayouts'
 import { validateWidgetBindings, widgetEntityBindingEnvelopeSchema } from './widgetBindings'
+
+export {
+    LAYOUT_LOGICAL_PLACEMENTS,
+    layoutLogicalPlacementSchema,
+    layoutWidgetPlacementSchema,
+    LAYOUT_WIDGET_MOBILE_PROJECTIONS,
+    layoutWidgetMobileProjectionSchema
+} from './layoutWidgetPrimitives'
+export type { LayoutLogicalPlacement, LayoutWidgetMobileProjection } from './layoutWidgetPrimitives'
 
 /** The one system-owned namespace inside persisted layout/widget config objects. */
 export const RESERVED_LAYOUT_METADATA_KEY = '__layout' as const
@@ -12,16 +22,6 @@ export const LAYOUT_POSITIONS = ['fixed', 'flow'] as const
 export type LayoutPosition = (typeof LAYOUT_POSITIONS)[number]
 export type LayoutZoneSettingValue = string
 export const layoutPositionSchema = z.enum(LAYOUT_POSITIONS)
-
-export const LAYOUT_LOGICAL_PLACEMENTS = ['start', 'end'] as const
-export type LayoutLogicalPlacement = (typeof LAYOUT_LOGICAL_PLACEMENTS)[number]
-export const layoutLogicalPlacementSchema = z.enum(LAYOUT_LOGICAL_PLACEMENTS)
-/** Alias used by callers that treat placement as a widget-specific contract. */
-export const layoutWidgetPlacementSchema = layoutLogicalPlacementSchema
-
-export const LAYOUT_WIDGET_MOBILE_PROJECTIONS = ['compact-header', 'drawer'] as const
-export type LayoutWidgetMobileProjection = (typeof LAYOUT_WIDGET_MOBILE_PROJECTIONS)[number]
-export const layoutWidgetMobileProjectionSchema = z.enum(LAYOUT_WIDGET_MOBILE_PROJECTIONS)
 
 const layoutBaseLayoutIdSchema = z
     .string()
@@ -109,6 +109,8 @@ export interface LayoutWidgetEnvelopeContext {
     readonly templateKey?: ApplicationTemplateKey | string
     readonly widgetKey?: string
     readonly zone?: string
+    /** Renderer config selects registry-owned binding variants where applicable. */
+    readonly rendererConfig?: unknown
     /** Require all declared slots when validating a complete source-owned widget envelope. */
     readonly requireBindings?: boolean
 }
@@ -322,13 +324,13 @@ type CompleteLayoutWidgetEnvelopeContext = {
     readonly templateKey: ApplicationTemplateKey | string
     readonly widgetKey: string
     readonly zone: string
-} & Pick<LayoutWidgetEnvelopeContext, 'requireBindings'>
+} & Pick<LayoutWidgetEnvelopeContext, 'requireBindings' | 'rendererConfig'>
 
 const assertWidgetContext = (
     context: CompleteLayoutWidgetEnvelopeContext
 ): { templateKey: ApplicationTemplateKey; defaultPlacement?: LayoutLogicalPlacement } => {
     const templateKey = parseTemplateKey(context.templateKey)
-    const definition = getLayoutWidgetDefinition(context.widgetKey)
+    const definition = getLayoutWidgetDefinition(context.widgetKey, context.rendererConfig)
     if (!definition || !definition.supportedTemplates.includes(templateKey)) {
         throw new Error(`Unsupported widget for template: ${templateKey}/${context.widgetKey}`)
     }
@@ -359,7 +361,7 @@ const assertSupportedWidgetMetadata = (
     if (neutral.placement !== undefined && defaultPlacement === undefined) {
         throw new Error(`Widget does not support logical placement: ${context.widgetKey}`)
     }
-    const definition = getLayoutWidgetDefinition(context.widgetKey)
+    const definition = getLayoutWidgetDefinition(context.widgetKey, context.rendererConfig)
     const bindingSlots = definition?.bindingSlots ?? []
     if (neutral.bindings === undefined) {
         if (context.requireBindings === true && bindingSlots.some(({ cardinality }) => cardinality.min > 0)) {
@@ -383,7 +385,7 @@ export const decodeWidgetConfigEnvelope = (rawConfig: unknown, context: LayoutWi
 
     assertRendererConfig(rendererConfig)
     const parsedNeutral = persistedWidgetNeutralMetadataSchema.parse(hasNeutralMetadata ? rawNeutral : {})
-    const neutral = assertSupportedWidgetMetadata(parsedNeutral, context)
+    const neutral = assertSupportedWidgetMetadata(parsedNeutral, { ...context, rendererConfig })
 
     return { rendererConfig, neutral }
 }
@@ -398,7 +400,7 @@ export const encodeWidgetConfigEnvelope = (
 ): Record<string, unknown> => {
     const rendererConfig = assertRendererConfig(input.rendererConfig)
     const parsedNeutral = persistedWidgetNeutralMetadataSchema.parse(input.neutral ?? {})
-    const neutral = assertSupportedWidgetMetadata(parsedNeutral, context)
+    const neutral = assertSupportedWidgetMetadata(parsedNeutral, { ...context, rendererConfig })
 
     if (Object.keys(neutral).length === 0) return rendererConfig
     return {

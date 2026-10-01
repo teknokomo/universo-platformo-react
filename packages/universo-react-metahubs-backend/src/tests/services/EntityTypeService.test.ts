@@ -28,6 +28,7 @@ describe('EntityTypeService', () => {
             actions: { enabled: true },
             events: { enabled: true },
             modules: false,
+            blockContent: false,
             layoutConfig: false,
             runtimeBehavior: false,
             physicalTable: false
@@ -70,13 +71,14 @@ describe('EntityTypeService', () => {
                             records: false,
                             treeAssignment: { enabled: true },
                             optionValues: false,
-                            constants: false,
+                            fixedValues: false,
                             hierarchy: false,
                             nestedCollections: false,
                             relations: false,
                             actions: { enabled: true },
                             events: { enabled: true },
                             modules: false,
+                            blockContent: false,
                             layoutConfig: false,
                             runtimeBehavior: false,
                             physicalTable: false
@@ -101,13 +103,14 @@ describe('EntityTypeService', () => {
                             records: false,
                             treeAssignment: false,
                             optionValues: false,
-                            constants: false,
+                            fixedValues: false,
                             hierarchy: false,
                             nestedCollections: false,
                             relations: false,
                             actions: { enabled: true },
                             events: { enabled: true },
                             modules: false,
+                            blockContent: false,
                             layoutConfig: false,
                             runtimeBehavior: false,
                             physicalTable: false
@@ -156,6 +159,7 @@ describe('EntityTypeService', () => {
                             actions: { enabled: true },
                             events: { enabled: true },
                             modules: false,
+                            blockContent: false,
                             layoutConfig: false,
                             runtimeBehavior: false,
                             physicalTable: false
@@ -198,13 +202,14 @@ describe('EntityTypeService', () => {
                     records: false,
                     treeAssignment: false,
                     optionValues: false,
-                    constants: false,
+                    fixedValues: false,
                     hierarchy: false,
                     nestedCollections: false,
                     relations: false,
                     actions: false,
                     events: false,
                     modules: false,
+                    blockContent: false,
                     layoutConfig: false,
                     runtimeBehavior: false,
                     physicalTable: false
@@ -238,6 +243,7 @@ describe('EntityTypeService', () => {
                     actions: false,
                     events: false,
                     modules: false,
+                    blockContent: false,
                     layoutConfig: false,
                     runtimeBehavior: false,
                     physicalTable: { enabled: true, prefix: 'doc' }
@@ -416,13 +422,14 @@ describe('EntityTypeService', () => {
                             records: false,
                             treeAssignment: false,
                             optionValues: false,
-                            constants: false,
+                            fixedValues: false,
                             hierarchy: false,
                             nestedCollections: false,
                             relations: false,
                             actions: { enabled: true },
                             events: { enabled: true },
                             modules: false,
+                            blockContent: false,
                             layoutConfig: false,
                             runtimeBehavior: false,
                             physicalTable: false
@@ -451,13 +458,14 @@ describe('EntityTypeService', () => {
                 records: false,
                 treeAssignment: false,
                 optionValues: false,
-                constants: false,
+                fixedValues: false,
                 hierarchy: false,
                 nestedCollections: false,
                 relations: false,
                 actions: { enabled: true },
                 events: { enabled: true },
                 modules: false,
+                blockContent: false,
                 layoutConfig: false,
                 runtimeBehavior: false,
                 physicalTable: false
@@ -491,13 +499,14 @@ describe('EntityTypeService', () => {
                             records: false,
                             treeAssignment: false,
                             optionValues: false,
-                            constants: false,
+                            fixedValues: false,
                             hierarchy: false,
                             nestedCollections: false,
                             relations: false,
                             actions: { enabled: true },
                             events: { enabled: true },
                             modules: false,
+                            blockContent: false,
                             layoutConfig: false,
                             runtimeBehavior: false,
                             physicalTable: false
@@ -528,13 +537,14 @@ describe('EntityTypeService', () => {
                     records: false,
                     treeAssignment: false,
                     optionValues: false,
-                    constants: false,
+                    fixedValues: false,
                     hierarchy: false,
                     nestedCollections: false,
                     relations: false,
                     actions: { enabled: true },
                     events: { enabled: true },
                     modules: false,
+                    blockContent: false,
                     layoutConfig: false,
                     runtimeBehavior: false,
                     physicalTable: false
@@ -578,13 +588,14 @@ describe('EntityTypeService', () => {
                     records: false,
                     treeAssignment: false,
                     optionValues: false,
-                    constants: false,
+                    fixedValues: false,
                     hierarchy: false,
                     nestedCollections: false,
                     relations: false,
                     actions: { enabled: true },
                     events: { enabled: true },
                     modules: false,
+                    blockContent: false,
                     layoutConfig: false,
                     runtimeBehavior: false,
                     physicalTable: false
@@ -617,13 +628,14 @@ describe('EntityTypeService', () => {
                             records: false,
                             treeAssignment: false,
                             optionValues: false,
-                            constants: false,
+                            fixedValues: false,
                             hierarchy: false,
                             nestedCollections: false,
                             relations: false,
                             actions: { enabled: true },
                             events: { enabled: true },
                             modules: false,
+                            blockContent: false,
                             layoutConfig: false,
                             runtimeBehavior: false,
                             physicalTable: false
@@ -652,13 +664,14 @@ describe('EntityTypeService', () => {
                 records: false,
                 treeAssignment: false,
                 optionValues: false,
-                constants: false,
+                fixedValues: false,
                 hierarchy: false,
                 nestedCollections: false,
                 relations: false,
                 actions: { enabled: true },
                 events: { enabled: true },
                 modules: false,
+                blockContent: false,
                 layoutConfig: false,
                 runtimeBehavior: false,
                 physicalTable: false
@@ -702,6 +715,7 @@ describe('EntityTypeService', () => {
                             actions: { enabled: true },
                             events: { enabled: true },
                             modules: false,
+                            blockContent: false,
                             layoutConfig: false,
                             runtimeBehavior: false,
                             physicalTable: false
@@ -745,6 +759,7 @@ describe('EntityTypeService', () => {
                 actions: { enabled: true },
                 events: { enabled: true },
                 modules: false,
+                blockContent: false,
                 layoutConfig: false,
                 runtimeBehavior: false,
                 physicalTable: false
@@ -793,6 +808,7 @@ describe('EntityTypeService', () => {
                     actions: { enabled: true },
                     events: { enabled: true },
                     modules: false,
+                    blockContent: false,
                     layoutConfig: false,
                     runtimeBehavior: false,
                     physicalTable: false
@@ -834,6 +850,7 @@ describe('EntityTypeService', () => {
                     actions: { enabled: true },
                     events: { enabled: true },
                     modules: false,
+                    blockContent: false,
                     layoutConfig: false,
                     runtimeBehavior: false,
                     physicalTable: false
@@ -876,13 +893,14 @@ describe('EntityTypeService', () => {
                             records: false,
                             treeAssignment: false,
                             optionValues: false,
-                            constants: false,
+                            fixedValues: false,
                             hierarchy: false,
                             nestedCollections: false,
                             relations: false,
                             actions: { enabled: true },
                             events: { enabled: true },
                             modules: false,
+                            blockContent: false,
                             layoutConfig: false,
                             runtimeBehavior: false,
                             physicalTable: false
@@ -917,13 +935,14 @@ describe('EntityTypeService', () => {
                             records: false,
                             treeAssignment: false,
                             optionValues: false,
-                            constants: false,
+                            fixedValues: false,
                             hierarchy: false,
                             nestedCollections: false,
                             relations: false,
                             actions: { enabled: true },
                             events: { enabled: true },
                             modules: false,
+                            blockContent: false,
                             layoutConfig: false,
                             runtimeBehavior: false,
                             physicalTable: false
@@ -971,13 +990,14 @@ describe('EntityTypeService', () => {
                             records: false,
                             treeAssignment: false,
                             optionValues: false,
-                            constants: false,
+                            fixedValues: false,
                             hierarchy: false,
                             nestedCollections: false,
                             relations: false,
                             actions: { enabled: true },
                             events: { enabled: true },
                             modules: false,
+                            blockContent: false,
                             layoutConfig: false,
                             runtimeBehavior: false,
                             physicalTable: false
@@ -1011,13 +1031,14 @@ describe('EntityTypeService', () => {
                             records: false,
                             treeAssignment: false,
                             optionValues: false,
-                            constants: false,
+                            fixedValues: false,
                             hierarchy: false,
                             nestedCollections: false,
                             relations: false,
                             actions: { enabled: true },
                             events: { enabled: true },
                             modules: false,
+                            blockContent: false,
                             layoutConfig: false,
                             runtimeBehavior: false,
                             physicalTable: false
@@ -1052,6 +1073,68 @@ describe('EntityTypeService', () => {
         ).rejects.toThrow('Entity type codename already exists')
     })
 
+    it('serializes layout capability changes with layout graph mutations and rejects disabling a used capability', async () => {
+        const baseline = createStandardCatalogRow()
+        const customType = {
+            ...baseline,
+            id: 'custom-page-type',
+            kind_key: 'custom-page',
+            codename: { _schema: 'v1', _primary: 'en', locales: { en: { content: 'custom-page' } } },
+            capabilities: { ...baseline.capabilities, layoutConfig: { enabled: true } }
+        }
+        const queryMock = jest.fn(async (sql: string) => {
+            if (sql.includes('WHERE id = $1 AND _upl_deleted = false AND _mhb_deleted = false')) return [customType]
+            if (sql.includes('pg_advisory_xact_lock')) return []
+            if (sql.includes('SELECT kind_key') && sql.includes('FOR UPDATE')) return [{ kind_key: 'custom-page' }]
+            if (sql.includes('COUNT(*)::int AS count')) return [{ count: 1 }]
+            return []
+        })
+        const service = new EntityTypeService(createExecutor(queryMock) as any, { ensureSchema: mockEnsureSchema } as any)
+
+        await expect(
+            service.updateType(
+                'metahub-1',
+                'custom-page-type',
+                { capabilities: { ...customType.capabilities, layoutConfig: false } as never },
+                'user-1'
+            )
+        ).rejects.toMatchObject({
+            message: 'Entity type cannot disable custom layouts while scoped layouts still exist',
+            statusCode: 409,
+            code: 'ENTITY_TYPE_LAYOUTS_EXIST'
+        })
+
+        const lockCallIndex = queryMock.mock.calls.findIndex(([sql]) => sql.includes('pg_advisory_xact_lock'))
+        const layoutCountCallIndex = queryMock.mock.calls.findIndex(([sql]) => sql.includes('COUNT(*)::int AS count'))
+        expect(lockCallIndex).toBeGreaterThanOrEqual(0)
+        expect(queryMock.mock.calls[lockCallIndex]?.[1]).toEqual([`mhb-layout-graph:${schemaName}`])
+        expect(layoutCountCallIndex).toBeGreaterThan(lockCallIndex)
+        expect(
+            queryMock.mock.calls.some(([sql]) => /^UPDATE\s/u.test(sql.trimStart()) && sql.includes('_mhb_entity_type_definitions'))
+        ).toBe(false)
+    })
+
+    it('rejects partial capability manifests before locking or persisting an entity type update', async () => {
+        const existing = createStandardCatalogRow()
+        const queryMock = jest.fn(async (sql: string) => {
+            if (sql.includes('WHERE id = $1 AND _upl_deleted = false AND _mhb_deleted = false')) return [existing]
+            return []
+        })
+        const service = new EntityTypeService(createExecutor(queryMock) as any, { ensureSchema: mockEnsureSchema } as any)
+
+        await expect(
+            service.updateType('metahub-1', existing.id, { capabilities: { records: false } as never }, 'user-1')
+        ).rejects.toMatchObject({
+            statusCode: 400,
+            code: 'VALIDATION_ERROR'
+        })
+
+        expect(queryMock.mock.calls.some(([sql]) => sql.includes('pg_advisory_xact_lock'))).toBe(false)
+        expect(
+            queryMock.mock.calls.some(([sql]) => /^UPDATE\s/u.test(sql.trimStart()) && sql.includes('_mhb_entity_type_definitions'))
+        ).toBe(false)
+    })
+
     it('rejects user-created entity types that claim template-managed metadata', async () => {
         const service = new EntityTypeService(createExecutor(jest.fn(async () => [])) as any, { ensureSchema: mockEnsureSchema } as any)
 
@@ -1071,6 +1154,7 @@ describe('EntityTypeService', () => {
                     actions: false,
                     events: false,
                     modules: false,
+                    blockContent: false,
                     layoutConfig: false,
                     runtimeBehavior: false,
                     physicalTable: false
@@ -1140,13 +1224,14 @@ describe('EntityTypeService', () => {
                             records: false,
                             treeAssignment: false,
                             optionValues: false,
-                            constants: false,
+                            fixedValues: false,
                             hierarchy: false,
                             nestedCollections: false,
                             relations: false,
                             actions: false,
                             events: false,
                             modules: false,
+                            blockContent: false,
                             layoutConfig: false,
                             runtimeBehavior: false,
                             physicalTable: false
@@ -1196,13 +1281,14 @@ describe('EntityTypeService', () => {
                             records: false,
                             treeAssignment: false,
                             optionValues: false,
-                            constants: false,
+                            fixedValues: false,
                             hierarchy: false,
                             nestedCollections: false,
                             relations: false,
                             actions: false,
                             events: false,
                             modules: false,
+                            blockContent: false,
                             layoutConfig: false,
                             runtimeBehavior: false,
                             physicalTable: false
@@ -1236,13 +1322,14 @@ describe('EntityTypeService', () => {
                             records: false,
                             treeAssignment: false,
                             optionValues: false,
-                            constants: false,
+                            fixedValues: false,
                             hierarchy: false,
                             nestedCollections: false,
                             relations: false,
                             actions: false,
                             events: false,
                             modules: false,
+                            blockContent: false,
                             layoutConfig: false,
                             runtimeBehavior: false,
                             physicalTable: false

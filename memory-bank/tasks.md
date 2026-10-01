@@ -1,3 +1,42 @@
+# Marketing Page Complete Entity-Backed Widgets — IMPLEMENT (2026-09-28)
+
+> Active checklist for `memory-bank/plan/marketing-page-complete-entity-backed-widgets-plan-2026-09-27.md`. Clean cutover: preserve unrelated worktree changes; no legacy compatibility reader, schema/template version bump, or `pnpm dev`.
+
+## Continuation — E2E findings and closeout
+
+-   [x] MPW-C10 Complete the Russian direct Hero-record edit journey with localized field validation, persisted update, and discard confirmation. The Playwright flow checks localized required-field feedback, successful persisted readback, and discard/keep-editing behavior.
+-   [x] MPW-C11 Prove a valid bound Marketing Image is serialized and decoded in the published runtime with EN/RU alt text, responsive screenshots, and no blank image; retain empty-Resource omission coverage in runtime serialization tests. The browser flow verifies the public DTO, localized alt text, `naturalWidth > 0`, and absence of empty `src`; fresh mobile screenshots visibly contain the bound dashboard image.
+-   [x] MPW-C12 Strengthen FAQ duplication to assert one new placement, preserved presentation config and bindings, then capture responsive lifecycle screenshots and overflow checks. The lifecycle flow covers desktop/tablet/mobile and persisted readback.
+-   [x] MPW-C13 Prove layout copy with `entityBindingCopyMode: reuse` leaves all source Object record counts unchanged. The Playwright helper compares each source Object's record count before and after copy.
+-   [x] MPW-C14 Add a unit canary proving the binding dialog continues to render through the shared `StandardDialog` primitive. The focused dialog test asserts use of the shared primitive.
+-   [x] MPW-C15 Run the final affected test/build/lint/docs/browser gates, inspect screenshots, complete focused Thermos/OntoIndex reviews where available, and record fresh evidence and limitations. Final evidence and limitations are recorded below and in `memory-bank/progress.md`.
+-   [x] MPW-C16 Isolate Marketing overlay binding projection rules and published-widget source-baseline decoding from their large layout orchestration/store modules without changing their public contracts. Overlay configuration and published-widget projection now live in focused modules with direct regression coverage.
+-   [x] MPW-C07 Fix the persisted-binding reference query to filter through the outer `reference.target` projection and update SQL contract tests. Both focused Jest suites passed (27 tests); after rebuilding `@universo-react/metahubs-backend`, the minimal-Supabase concurrency E2E passed (2 tests, including auth setup) and the mutation now returns the expected conflict instead of PostgreSQL's missing-alias 500.
+-   [x] MPW-C08 Resolve bound-record deletion feedback and post-provision record-form enablement using existing localized UI primitives. The browser flow confirms the localized 409 feedback and retained row; a newly provisioned source enables the content form and the saved record appears in the binding.
+-   [x] MPW-C09 Re-run the Marketing Page, cross-template, full implementation-plan test/doc gates, inspect final screenshots, add the publication-sync/update and reset/update race oracle, and record review/progress evidence. The local-Supabase gate holds the PostgreSQL layout-mutation advisory lock during both request pairs, proves the stored layout version/configuration remain unchanged before release, then verifies the optimistic 200/409 result and single version increment for reset/update.
+-   [x] MPW-C01 Preserve semantic selector `pattern` when provisioning a separate compatible Entity source; assert the persisted rule.
+-   [x] MPW-C02 Validate every required localized field locale before save, map the server's required-locale error to an accessible field error, and supply EN/RU messages.
+-   [x] MPW-C03 Correct dialog handoff and locale selectors in Marketing authoring checks; use the common presentation-label namespace; verify localized source and presentation flows in browser.
+-   [x] MPW-C04 Align cross-template checks with the presentation-only Application contract: copied Entity-bound placements are rejected and runtime content remains Metahub-sourced.
+-   [x] MPW-C05 Close the browser-oracle and screenshot-provenance failures; rerun the minimum-Supabase Marketing E2E, visual matrix and full documentation gate, and inspect regenerated EN/RU screenshots.
+-   [x] MPW-C06 Complete affected package quality gates, documentation/provenance checks, independent Thermos reviews, explicit OntoIndex file/test inventory verification, and progress evidence. The broad Autoreview helper is unavailable because its optional Codex Linux package is missing; this is recorded as a limitation, not a pass.
+
+-   [x] MPW-00 Read the QA-approved brief/research/plan, preserve the dirty tree, map package boundaries and high-risk consumers, and start implementation tracking.
+-   [x] MPW-01 Generalize shared slot/selector/registry contracts and validate strict canonical envelopes.
+-   [x] MPW-02 Seed the complete Marketing Page Entity model and 14 binding-bearing placements, including the Image Object.
+-   [x] MPW-03 Finish generic authenticated Metahub binding/source/record APIs, including safe bounded search and atomic presentation updates.
+-   [x] MPW-04 Finish the generic Metahub authoring UI: initial Add with no existing source, select/edit/create/rebind, relation-parent dependencies, duplication policy, permission/error states, and EN/RU strings.
+-   [x] MPW-05 Generalize live-binding Entity/Component/record integrity policies and transactional binding persistence.
+-   [x] MPW-06 Make copy, snapshots, restore, scoped overrides, publication, application source baseline/sync/reset/hash and materialization preserve trusted bindings.
+-   [x] MPW-07 Restrict Application controls to presentation/activity/order/placement and keep required source bindings inherited.
+-   [x] MPW-08 Unify authenticated/public selector resolution, bounded SQL-first loaders, typed adapter DTOs and runtime redaction.
+-   [x] MPW-09 Update the isolated MUI runtime renderer to consume only validated Entity-backed DTOs.
+-   [x] MPW-10 Remove obsolete Marketing `source` / `copySource` / Hero-only authoring/service/test paths without compatibility aliases; preserve only typed binding projections and action-integrity semantics.
+-   [x] MPW-11 Complete direct Jest/Vitest/service/store/route coverage and real-PostgreSQL tests for selectors, integrity, copy, publication, sync/reset/conflicts and public boundaries; the lifecycle gate verifies sync/update and reset/update version races.
+-   [x] MPW-12 Complete minimum-Supabase Playwright authoring/runtime flows, keyboard and permission coverage, responsive screenshots, and visual inspection.
+-   [x] MPW-13 Finish package READMEs and bilingual GitBook architecture/template docs, fixtures and provenance checks.
+-   [x] MPW-14 Run focused formatting/lint/build/contracts, full affected package suites, real-PG and browser gates (4 direct PostgreSQL tests and 3 Playwright tests in the final focused gate), independent review and OntoIndex file/test verification, and update progress with observed evidence and limitations. OntoIndex passed for all 312 dirty paths; the helper-level Autoreview attempt ended `UNAVAILABLE` because the installed Codex CLI lacks optional `@openai/codex-linux-x64`.
+
 # Unified Entity-backed Marketing Hero — IMPLEMENT (2026-09-23)
 
 > Authoritative checklist for the QA-corrected plan at `memory-bank/plan/unified-entity-backed-widget-authoring-hero-pilot-plan-2026-09-22.md`. Preserve unrelated worktree changes. Clean break: no legacy Hero reads, DB migration, schema/template version bump, or `pnpm dev`.
@@ -1140,3 +1179,33 @@ The Interpretation Network baseline is now aligned at its ownership boundary: th
 -   [x] DD-07 Replace fallback-only dropdown localization mocks with real English/Russian i18n-resource assertions.
 -   [x] DD-08 Add an AST architecture guard for direct MUI Select/Autocomplete imports outside the shared controls, including JS/JSX sources and excluding the isolated published-app template.
 -   [x] DD-09 Require visible source-option text and UUID-free labels in Playwright; resolve empty localized source names, and give the shared theme-menu trigger localized accessible semantics with a matching controls target.
+
+## 2026-09-29 — Marketing-page entity-backed widget QA remediation
+
+> Complete the unresolved implementation findings from the final QA of the marketing-page entity-backed widget refactor. Preserve the existing dirty worktree and the approved no-legacy/no-schema-or-template-version-bump constraints.
+
+-   [x] MPW-QA-01 Make source-removal synchronization fail closed for locally retained/copy resolutions whenever required entity-backed widget bindings would be orphaned; add direct persistence/diff tests for single and bulk resolution. Jest: `syncLayoutPersistence.test.ts` 44/44 passed; source lineage is retained and bound widgets tombstoned on `keep_local`.
+-   [x] MPW-QA-02 Keep the base placement as the only binding authority for scoped Marketing overlays; reject or strip overlay binding mutations at write/snapshot boundaries and prove materialization/reference counting use the base binding.
+-   [x] MPW-QA-03 Add localized unsaved-change confirmation to binding, content, and presentation dialogs; update unit and real-browser flows to prove cancel preserves edits and discard closes them.
+-   [x] MPW-QA-12 Make Marketing record duplication and placement one authenticated backend transaction; prove transaction rollback after record creation and assert the browser issues only the atomic request.
+-   [x] MPW-QA-04 Remove physical layout/source identity from authenticated Marketing runtime DTOs while retaining necessary internal validation; add backend and client serialization contracts.
+-   [x] MPW-QA-05 Complete EN/RU translations for all Marketing widget helper-text keys and test coverage derived from the widget contracts; assert Russian copy in the Application UI. Contract-derived resource test passed 4/4; full browser assertion remains included in MPW-QA-03 verification.
+-   [x] MPW-QA-06 Verify the centrally pinned test-toolchain support policy and upgrade Vitest/Vite/plugin versions only where a compatible, repository-wide change is evidenced; validate affected workspace builds/tests.
+-   [x] MPW-QA-07 Update relevant README/GitBook documentation and memory-bank progress with the final architecture and verified behavior; keep memory-bank content in English.
+-   [x] MPW-QA-08 Run focused unit/store/API tests, minimal-local-Supabase Playwright journeys with inspected screenshots, formatting/lint/build/docs checks, OntoIndex diff verification, and final Thermos review; record any environment-limited gate truthfully.
+-   [x] MPW-QA-09 Preserve a dirty resource-source provisioning draft behind localized discard confirmation; prove keep-editing and discard behavior.
+-   [x] MPW-QA-10 Add a real-browser Marketing Image record flow for resource-source media, including empty optional value and no raw JSON.
+-   [x] MPW-QA-11 Verify the presentation dialog at 1920x1080, 768x1024, and 390x844, inspect screenshots, and assert dialog/footer/page bounds.
+-   [x] MPW-QA-13 Close QA-discovered test-oracle and contract mismatches, abort permission loading on navigation, cover optional child-table omission, split EN/RU lifecycle specs, and rerun focused plus full local-Supabase verification.
+-   [x] MPW-QA-14 Close scoped Marketing overlay binding-ownership bypasses at assignment, binding mutation, snapshot ingress, application materialization, and persisted-reference boundaries; add direct regression coverage for each boundary.
+-   [x] MPW-QA-15 Validate every explicit test path in the Marketing unit-gate manifest and keep the client runtime DTO strict against widget physical identities.
+
+### Final continuation evidence (2026-10-01)
+
+-   The full build passed 36/36 tasks. The Marketing widget unit gate passed, and the canonical minimal-Supabase verification passed with 19 Chromium tests, one opt-in standalone-host skip, and a 5/5 visual matrix. Documentation checks covered 115 EN/RU page pairs, local links, screenshot assets, and provenance; generated screenshots were inspected.
+-   The direct RLS executor suites passed 38 tests, `publicRuntimeAccess.test.ts` passed 10 tests, database and applications-backend lint passed, and the root-config profile exports smoke test passed 2/2. The eight targeted high-cost Interpretation Network UI tests passed in isolation.
+-   The full workspace Vitest run completed with 299/301 test files and 2,446/2,458 tests passing; 12 timeout failures were confined to two existing UI suites under aggregate load. The affected Application dialog cases passed in isolation, as did the eight targeted Interpretation Network cases. This remains a full-workspace test-suite limitation, not a pass.
+-   OntoIndex analyzed the local tree once and `gn_verify_diff` returned PASS for the explicit 495-file inventory and all nine recorded passing verification commands. Its automatic graph scan is capped at 200 files, the worktree remains dirty with untracked source, and graph freshness remains low-confidence; no graph-only claim is made for those files.
+-   Focused security/correctness and maintainability reviewers returned PASS for their assigned scopes. Autoreview ended `UNAVAILABLE` after retries because the installed Codex CLI lacks optional `@openai/codex-linux-x64`; this is not a clean Autoreview verdict. Live-PostgreSQL testing of concurrent DDL against the executor preflight was not performed.
+-   The root Vitest 4 config preserves all 16 previous project paths and explicitly disables root-run coverage; package-level coverage configurations remain intact. The full workspace run above started before the explicit root-level coverage setting was added.
+-   No database migration or schema/template version bump was introduced. `version` and `minStructureVersion` remain `0.1.0`, and no legacy compatibility reader was retained.

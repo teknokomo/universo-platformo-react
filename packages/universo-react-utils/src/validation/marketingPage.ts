@@ -196,6 +196,11 @@ export function parseMarketingActionHref(
     }
 }
 
+/** Apply the canonical Marketing action parser to persisted navigable hrefs. */
+export function isSafeMarketingActionHref(value: unknown): value is string {
+    return parseMarketingActionHref(value) !== null
+}
+
 /** Convert a typed action to the only href forms the renderer is allowed to emit. */
 export function toMarketingActionHref(value: MarketingAction): string {
     const action = normalizeMarketingAction(value)

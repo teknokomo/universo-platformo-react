@@ -363,11 +363,18 @@ export function MarketingMediaView({
         )
     }
 
+    const intrinsicDimensions: Pick<React.ImgHTMLAttributes<HTMLImageElement>, 'width' | 'height'> = {
+        width: media.width,
+        height: media.height
+    }
+
     return (
         <Box
             component='img'
+            {...intrinsicDimensions}
             src={validSource}
             alt={alt}
+            style={{ width: media.width, height: media.height }}
             loading={loading}
             decoding='async'
             referrerPolicy='no-referrer'

@@ -35,6 +35,26 @@ All links and media are validated at the API boundary and checked again by the
 renderer. Content is edited through the standard localized Object/Page/Set/
 Enumeration authoring controls; no demo arrays are hardcoded in this package.
 
+The runtime contract is clean-break and Entity-backed: every content-bearing
+Marketing placement receives validated projected records through
+`data.records`; its `config` contains presentation and placement options.
+The shared binding contract supports <code>semantic-key</code>,
+<code>record-set</code>, and <code>relation-set</code> selectors, but selector
+and persistence metadata do not cross the renderer DTO boundary. Authenticated
+and public runtimes validate their DTOs before rendering. The public response
+contains only allowlisted content and publishable media URLs, without storage
+locators or physical record identity.
+
+The `marketing.image` projection follows the shared `MarketingPageImage`
+contract and has one `image` record whose `media` contains the resource,
+localized alternative text, decorative flag, and dimensions. Alternative text
+is required in English and Russian when the image is not decorative; a
+decorative image may leave it empty. The
+renderer never falls back to `source`, `copySource`, or config-owned media.
+Content remains editable through the ordinary localized Entity authoring
+controls in Metahub; the Application renderer does not persist or edit that
+content.
+
 ## Reference
 
 The upstream MUI marketing-page files in `.backup/templates/marketing-page`

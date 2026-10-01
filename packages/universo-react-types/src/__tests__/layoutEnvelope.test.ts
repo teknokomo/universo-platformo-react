@@ -11,6 +11,8 @@ import { DASHBOARD_LAYOUT_WIDGETS } from '../common/metahubs'
 import { MARKETING_WIDGET_REGISTRY, marketingPageConfigSchema, marketingWidgetRegistrySchema } from '../common/marketingPage'
 import {
     MissingRequiredWidgetBindingsError,
+    LAYOUT_LOGICAL_PLACEMENTS,
+    LAYOUT_WIDGET_MOBILE_PROJECTIONS,
     RESERVED_LAYOUT_METADATA_KEY,
     decodeLayoutConfigEnvelope,
     decodeWidgetConfigEnvelope,
@@ -20,6 +22,8 @@ import {
     getLayoutWidgetDefaultPlacement,
     getLayoutZoneSettingDefault,
     layoutLogicalPlacementSchema,
+    layoutWidgetPlacementSchema,
+    layoutWidgetMobileProjectionSchema,
     replaceLayoutRendererConfig,
     replaceWidgetRendererConfig,
     resolveLayoutWidgetPlacement,
@@ -195,6 +199,10 @@ describe('neutral layout and widget envelopes', () => {
         ).toBeUndefined()
         expect(layoutLogicalPlacementSchema.safeParse('start').success).toBe(true)
         expect(layoutLogicalPlacementSchema.safeParse('end').success).toBe(true)
+        expect(LAYOUT_LOGICAL_PLACEMENTS).toEqual(['start', 'end'])
+        expect(layoutWidgetPlacementSchema).toBe(layoutLogicalPlacementSchema)
+        expect(LAYOUT_WIDGET_MOBILE_PROJECTIONS).toEqual(['compact-header', 'drawer'])
+        expect(layoutWidgetMobileProjectionSchema.safeParse('drawer').success).toBe(true)
 
         expect(MARKETING_WIDGET_REGISTRY['marketing.brand']).toMatchObject({
             repeatable: false,
@@ -219,17 +227,18 @@ describe('neutral layout and widget envelopes', () => {
             bindingSlots: [
                 {
                     key: 'content',
+                    selectorKinds: ['semantic-key'],
                     authoring: {
-                        labelKey: 'layouts.widgetBindings.recordLabel',
-                        defaultLabel: 'Content record',
-                        placeholderKey: 'layouts.widgetBindings.recordPlaceholder',
-                        defaultPlaceholder: 'Search by content title',
-                        helperTextKey: 'layouts.widgetBindings.recordHelperText',
+                        labelKey: 'layouts.widgetBindings.content.label',
+                        defaultLabel: 'Hero content',
+                        placeholderKey: 'layouts.widgetBindings.content.placeholder',
+                        defaultPlaceholder: 'Search by content name',
+                        helperTextKey: 'layouts.widgetBindings.content.helperText',
                         defaultHelperText: 'Choose the Entity record displayed by this widget.',
-                        emptyOptionsKey: 'layouts.widgetBindings.noRecords',
-                        defaultEmptyOptions: 'No compatible content records found.',
-                        loadingOptionsKey: 'layouts.widgetBindings.loadingRecords',
-                        defaultLoadingOptions: 'Loading content records…'
+                        emptyOptionsKey: 'layouts.widgetBindings.content.noOptions',
+                        defaultEmptyOptions: 'No compatible content sources found.',
+                        loadingOptionsKey: 'layouts.widgetBindings.content.loading',
+                        defaultLoadingOptions: 'Loading compatible content sources…'
                     },
                     cardinality: { min: 1, max: 1 }
                 }

@@ -1,4 +1,4 @@
-> **Last Reviewed**: 2026-09-26 (refreshed: repository 0.83.0-alpha; entity-backed Marketing Hero authoring and shared non-published MUI dropdown baseline; package/template inventory rechecked)
+> **Last Reviewed**: 2026-10-01 (refreshed: repository 0.83.0-alpha; complete Entity-backed Marketing Page authoring/runtime and shared non-published MUI dropdown baseline; package/template inventory rechecked)
 
 # Project Brief - Universo Platformo
 
@@ -150,7 +150,7 @@ planned, not yet implemented.
 
 ### Core Technologies
 
--   **Node.js** (>=22.6.0; 22.22.2 recommended) — required for isolated-vm 6.x
+-   **Node.js** (>=22.12.0; 22.22.2 recommended) — required by Vite 7; the workspace also uses isolated-vm 6.x
 -   **PNPM** (>=10) — **IMPORTANT: Use PNPM, not npm.**
 -   **TypeScript** for type safety
 -   **React** with Material-UI components

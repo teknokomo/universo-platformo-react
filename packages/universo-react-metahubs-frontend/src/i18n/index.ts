@@ -41,6 +41,7 @@ interface MetahubsBundle {
     actions?: Record<string, unknown>
     errors?: Record<string, unknown>
     projects?: Record<string, unknown>
+    resourceSource?: Record<string, unknown>
 }
 
 const consolidateMetahubsNamespace = (bundle: MetahubsBundle) => {
@@ -98,7 +99,8 @@ const consolidateMetahubsNamespace = (bundle: MetahubsBundle) => {
             ...(bundle?.table ?? {})
         },
         errors: bundle?.errors ?? {},
-        projects: bundle?.projects ?? {}
+        projects: bundle?.projects ?? {},
+        resourceSource: bundle?.resourceSource ?? {}
     }
 }
 

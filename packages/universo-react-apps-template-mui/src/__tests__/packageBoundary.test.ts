@@ -1,29 +1,19 @@
-import { readdirSync, readFileSync, statSync } from 'node:fs'
+import { execFileSync } from 'node:child_process'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
-const SRC_DIR = path.resolve(__dirname, '..')
 
-const collectSourceFiles = (dir: string): string[] =>
-    readdirSync(dir).flatMap((entry) => {
-        const fullPath = path.join(dir, entry)
-        const stat = statSync(fullPath)
-        if (stat.isDirectory()) {
-            if (entry === 'node_modules' || entry === 'dist') return []
-            return collectSourceFiles(fullPath)
-        }
-        return /\.(ts|tsx)$/.test(entry) ? [fullPath] : []
-    })
+const REPOSITORY_ROOT = path.resolve(__dirname, '../../../..')
+const ISOLATION_POLICY = path.join(REPOSITORY_ROOT, 'tools/check-apps-template-isolation.mjs')
 
 describe('apps-template-mui package boundary', () => {
-    it('does not import the old universo template package from runtime source', () => {
-        const offenders = collectSourceFiles(SRC_DIR).filter(
-            (filePath) =>
-                path.basename(filePath) !== 'packageBoundary.test.ts' &&
-                readFileSync(filePath, 'utf8').includes('@universo-react/template-mui')
-        )
+    it('uses the repository isolation policy for source and dependency boundaries', () => {
+        const output = execFileSync(process.execPath, [ISOLATION_POLICY], {
+            cwd: REPOSITORY_ROOT,
+            encoding: 'utf8'
+        })
 
-        expect(offenders).toEqual([])
+        expect(output).toContain('apps-template-mui isolation guard passed.')
     })
 })

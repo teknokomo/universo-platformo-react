@@ -991,7 +991,7 @@ const validateEffectiveLayoutWidgets = (
     const seenSingleInstanceWidgetKeys = new Set<string>()
 
     widgets.forEach((widget, index) => {
-        const definition = getLayoutWidgetDefinition(widget.widgetKey)
+        const definition = getLayoutWidgetDefinition(widget.widgetKey, widget.config)
         const allowedZones = getLayoutWidgetAllowedZones(widget.widgetKey, templateKey)
         const zoneDefinition = getLayoutZoneDefinition(widget.zone, templateKey)
 
@@ -1463,7 +1463,7 @@ export const applicationLayoutChangeSchema = z.object({
     sourceKind: applicationLayoutSourceKindSchema.optional(),
     currentSyncState: applicationLayoutSyncStateSchema.optional(),
     recommendedResolution: applicationLayoutSyncResolutionSchema.optional(),
-    copySourceAsApplicationUnavailable: z.boolean().optional(),
+    copyAsApplicationUnavailable: z.boolean().optional(),
     title: applicationLayoutLocalizedContentSchema.optional(),
     message: z.string().optional()
 })

@@ -10,251 +10,65 @@ import type {
     ObjectCollectionRuntimeViewConfig,
     ApplicationLayoutZone,
     ApplicationLayoutWidgetKey,
-    ApplicationTemplateKey,
-    DashboardLayoutZone,
     ResolvedDashboardLayoutConfig,
-    MenuWidgetConfig,
-    ColumnsContainerConfig,
-    QuizWidgetConfig,
-    InterpretationNetworkWorkspaceWidgetConfig,
     DashboardSideMenuConfig,
     LayoutPosition,
     LayoutLogicalPlacement
 } from '@universo-react/types'
-import {
-    DASHBOARD_LAYOUT_ZONES,
-    getLayoutWidgetAllowedZones,
-    getLayoutWidgetDefinition,
-    getLayoutZoneSettingDefinition,
-    LAYOUT_ZONE_DEFINITIONS,
-    MARKETING_LAYOUT_ZONES,
-    MARKETING_SOURCE_CODENAMES,
-    MARKETING_WIDGET_REGISTRY,
-    type MarketingWidgetKey
-} from '@universo-react/types'
+import { DASHBOARD_LAYOUT_ZONES, getLayoutWidgetAllowedZones, MARKETING_LAYOUT_ZONES } from '@universo-react/types'
 import {
     LayoutAuthoringDetails,
     LayoutZoneSettingsDialog,
-    MarketingWidgetConfigDialog,
     TemplateMainCard as MainCard,
     ViewHeaderMUI as ViewHeader,
     notifyError,
-    normalizeSideMenuConfig,
     useConfirm
 } from '@universo-react/template-mui'
 import { ConfirmDeleteDialog } from '@universo-react/template-mui/components/dialogs'
 import {
     extractObjectCollectionLayoutBehaviorConfig,
-    getCodenamePrimary,
     normalizeObjectCollectionRuntimeViewConfig,
     setObjectCollectionLayoutBehaviorConfig
 } from '@universo-react/utils'
 
 import { metahubsQueryKeys, invalidateLayoutsQueries } from '../../shared'
 import { useMetahubDetails } from '../../metahubs/hooks'
-import { useEntityInstancesQuery } from '../../entities/hooks'
 import * as layoutsApi from '../api'
-import type { Metahub, MetahubLayout, MetahubLayoutZoneWidget, DashboardLayoutWidgetItem } from '../../../types'
-import { getVLCString, normalizeLocale } from '../../../types'
-import MenuWidgetEditorDialog from './MenuWidgetEditorDialog'
-import ColumnsContainerEditorDialog from './ColumnsContainerEditorDialog'
-import QuizWidgetEditorDialog from './QuizWidgetEditorDialog'
-import PlayCanvasCanvasWidgetEditorDialog from './PlayCanvasCanvasWidgetEditorDialog'
-import InterpretationNetworkWorkspaceWidgetEditorDialog from './InterpretationNetworkWorkspaceWidgetEditorDialog'
-import WidgetBehaviorEditorDialog from './WidgetBehaviorEditorDialog'
+import type { Metahub, MetahubLayout, MetahubLayoutZoneWidget } from '../../../types'
+import { getVLCString } from '../../../types'
 import { getSharedBehaviorFromWidgetConfig } from './LayoutWidgetSharedBehaviorFields'
 import LayoutRuntimeSettingsPanel from './LayoutRuntimeSettingsPanel'
-import MarketingHeroBindingDialog from './MarketingHeroBindingDialog'
-import { MARKETING_HERO_ENTITY_CODENAME } from './marketingHeroAuthoring'
-
-type MenuEditorState = {
-    open: boolean
-    zone: DashboardLayoutZone | null
-    /** widgetId when editing existing menuWidget, null when creating new */
-    widgetId: string | null
-    config: MenuWidgetConfig | null
-}
-
-type ColumnsEditorState = {
-    open: boolean
-    zone: DashboardLayoutZone | null
-    /** widgetId when editing existing columnsContainer, null when creating new */
-    widgetId: string | null
-    config: ColumnsContainerConfig | null
-}
-
-type QuizEditorState = {
-    open: boolean
-    zone: DashboardLayoutZone | null
-    widgetId: string | null
-    config: QuizWidgetConfig | null
-}
-
-type PlayCanvasCanvasEditorState = {
-    open: boolean
-    zone: DashboardLayoutZone | null
-    widgetId: string | null
-    config: Record<string, unknown> | null
-}
-
-type InterpretationNetworkEditorState = {
-    open: boolean
-    widgetId: string | null
-    config: InterpretationNetworkWorkspaceWidgetConfig | null
-}
-
-type WidgetBehaviorEditorState = {
-    open: boolean
-    widgetId: string | null
-    widgetLabel: string | null
-    config: Record<string, unknown> | null
-}
-
-type MarketingWidgetEditorState = {
-    open: boolean
-    zone: ApplicationLayoutZone | null
-    widgetId: string | null
-    widgetKey: MarketingWidgetKey | null
-    config: Record<string, unknown> | null
-    heroRecordId?: string | null
-}
-
-type MarketingHeroBindingEditorState = {
-    open: boolean
-    zone: ApplicationLayoutZone | null
-    widgetId: string | null
-    config: Record<string, unknown> | null
-}
-
-const LAYOUT_ZONES_BY_TEMPLATE: Readonly<Record<ApplicationTemplateKey, readonly ApplicationLayoutZone[]>> = {
-    dashboard: DASHBOARD_LAYOUT_ZONES,
-    'marketing-page': MARKETING_LAYOUT_ZONES
-}
-
-const marketingHeaderSettingDefinition = getLayoutZoneSettingDefinition('marketing-page', 'marketing-header', 'position')
-
-const buildMarketingHeaderDialogSettings = (t: (key: string, fallback: string) => string) =>
-    marketingHeaderSettingDefinition
-        ? [
-              {
-                  key: marketingHeaderSettingDefinition.key,
-                  kind: marketingHeaderSettingDefinition.kind,
-                  label: t(marketingHeaderSettingDefinition.labelKey, marketingHeaderSettingDefinition.defaultLabel),
-                  options: marketingHeaderSettingDefinition.options.map((value) => ({
-                      value,
-                      label: t(
-                          marketingHeaderSettingDefinition.optionLabelKeys[value],
-                          marketingHeaderSettingDefinition.defaultOptionLabels[value]
-                      )
-                  }))
-              }
-          ]
-        : []
-
-const isMarketingWidgetKey = (value: ApplicationLayoutWidgetKey): value is MarketingWidgetKey =>
-    Object.prototype.hasOwnProperty.call(MARKETING_WIDGET_REGISTRY, value)
-
-const readWidgetPlacement = (widget: MetahubLayoutZoneWidget): LayoutLogicalPlacement | undefined => {
-    const placement = widget.placement
-    if (placement === 'start' || placement === 'end') return placement
-    return getLayoutWidgetDefinition(widget.widgetKey)?.defaultPlacement
-}
-
-const getWidgetDropIndex = (
-    items: readonly MetahubLayoutZoneWidget[],
-    movingWidgetId: string,
-    placement?: LayoutLogicalPlacement,
-    overWidgetId?: string
-): number => {
-    const remainingItems = items.filter((item) => item.id !== movingWidgetId)
-    if (overWidgetId) {
-        const overIndex = remainingItems.findIndex((item) => item.id === overWidgetId)
-        return overIndex >= 0 ? overIndex : remainingItems.length
-    }
-    if (placement === 'start') return remainingItems.filter((item) => readWidgetPlacement(item) === 'start').length
-    return remainingItems.length
-}
-
-const readMarketingHeaderPosition = (
-    layout: MetahubLayout,
-    baseLayout?: MetahubLayout
-): { value: LayoutPosition; inherited: boolean; available: boolean } => {
-    if (!marketingHeaderSettingDefinition) return { value: 'fixed', inherited: true, available: false }
-    const settingKey = marketingHeaderSettingDefinition.key
-    const localPosition = layout.neutral?.zoneSettings?.['marketing-header']?.[settingKey]
-    const sourcePosition = layout.neutral?.sourceZoneSettings?.['marketing-header']?.[settingKey]
-    const basePosition = baseLayout?.neutral?.zoneSettings?.['marketing-header']?.[settingKey]
-    const isSupportedPosition = (value: unknown): value is LayoutPosition =>
-        typeof value === 'string' && marketingHeaderSettingDefinition.options.includes(value)
-    const hasInvalidValue =
-        (localPosition !== undefined && !isSupportedPosition(localPosition)) ||
-        (sourcePosition !== undefined && !isSupportedPosition(sourcePosition)) ||
-        (basePosition !== undefined && !isSupportedPosition(basePosition))
-    const value = isSupportedPosition(localPosition)
-        ? localPosition
-        : isSupportedPosition(sourcePosition)
-        ? sourcePosition
-        : isSupportedPosition(basePosition)
-        ? basePosition
-        : (marketingHeaderSettingDefinition.defaultValue as LayoutPosition)
-    return { value, inherited: localPosition === undefined, available: !hasInvalidValue }
-}
-
-const EMPTY_ZONE_WIDGETS: MetahubLayoutZoneWidget[] = []
-const EMPTY_WIDGET_OBJECTS: DashboardLayoutWidgetItem[] = []
-const LAYOUT_ZONE_ORDER = Object.fromEntries(LAYOUT_ZONE_DEFINITIONS.map(({ key }, index) => [key, index])) as Record<
-    ApplicationLayoutZone,
-    number
->
-
-const normalizeEditableSideMenuConfig = (value: unknown): DashboardSideMenuConfig => {
-    return normalizeSideMenuConfig(
-        (value && typeof value === 'object' && !Array.isArray(value) ? value : undefined) as MenuWidgetConfig['sideMenu']
-    )
-}
+import LayoutWidgetEditorDialogs from './LayoutWidgetEditorDialogs'
+import {
+    buildMarketingHeaderDialogSettings,
+    EMPTY_WIDGET_OBJECTS,
+    EMPTY_ZONE_WIDGETS,
+    getMarketingRendererConfig,
+    getWidgetDropIndex,
+    isMarketingWidgetKey,
+    LAYOUT_ZONES_BY_TEMPLATE,
+    LAYOUT_ZONE_ORDER,
+    marketingHeaderSettingDefinition,
+    normalizeEditableSideMenuConfig,
+    readMarketingHeaderPosition,
+    readWidgetPlacement
+} from './layoutDetailsWidgetAuthoringModel'
+import { useLayoutWidgetAuthoring } from './useLayoutWidgetAuthoring'
+import { useLayoutAuthoringZones } from './useLayoutAuthoringZones'
 
 export default function LayoutDetails() {
     const { metahubId, layoutId } = useParams<{ metahubId: string; layoutId: string }>()
     const { t, i18n } = useTranslation(['metahubs', 'common'])
+    const uiLocale = i18n.resolvedLanguage ?? i18n.language
     const { t: tc } = useCommonTranslations()
     const { enqueueSnackbar } = useSnackbar()
     const { confirm } = useConfirm()
+    const notifyLayoutError = useCallback(
+        (error: unknown) => notifyError((key, fallback) => String(t(key, { defaultValue: fallback })), enqueueSnackbar, error),
+        [enqueueSnackbar, t]
+    )
     const queryClient = useQueryClient()
     const metahubDetailsQuery = useMetahubDetails(metahubId ?? '', { enabled: Boolean(metahubId) })
-    const [menuEditor, setMenuEditor] = useState<MenuEditorState>({ open: false, zone: null, widgetId: null, config: null })
-    const [columnsEditor, setColumnsEditor] = useState<ColumnsEditorState>({ open: false, zone: null, widgetId: null, config: null })
-    const [quizEditor, setQuizEditor] = useState<QuizEditorState>({ open: false, zone: null, widgetId: null, config: null })
-    const [playCanvasCanvasEditor, setPlayCanvasCanvasEditor] = useState<PlayCanvasCanvasEditorState>({
-        open: false,
-        zone: null,
-        widgetId: null,
-        widgetVersion: null,
-        config: null
-    })
-    const [interpretationNetworkEditor, setInterpretationNetworkEditor] = useState<InterpretationNetworkEditorState>({
-        open: false,
-        widgetId: null,
-        config: null
-    })
-    const [widgetBehaviorEditor, setWidgetBehaviorEditor] = useState<WidgetBehaviorEditorState>({
-        open: false,
-        widgetId: null,
-        widgetLabel: null,
-        config: null
-    })
-    const [marketingWidgetEditor, setMarketingWidgetEditor] = useState<MarketingWidgetEditorState>({
-        open: false,
-        zone: null,
-        widgetId: null,
-        widgetKey: null,
-        config: null
-    })
-    const [marketingHeroBindingEditor, setMarketingHeroBindingEditor] = useState<MarketingHeroBindingEditorState>({
-        open: false,
-        zone: null,
-        widgetId: null,
-        config: null
-    })
     const [viewSettingsSaving, setViewSettingsSaving] = useState(false)
     const [removeWidgetId, setRemoveWidgetId] = useState<string | null>(null)
     const [removeWidgetError, setRemoveWidgetError] = useState<string | null>(null)
@@ -274,7 +88,12 @@ export default function LayoutDetails() {
     const zoneWidgetsQuery = useQuery({
         queryKey: metahubId && layoutId ? metahubsQueryKeys.layoutZoneWidgets(metahubId, layoutId) : ['layout-zone-widgets-empty'],
         enabled: Boolean(metahubId && layoutId),
-        queryFn: async () => layoutsApi.listLayoutZoneWidgets(String(metahubId), String(layoutId))
+        queryFn: async () => {
+            const widgets = await layoutsApi.listLayoutZoneWidgets(String(metahubId), String(layoutId))
+            return widgets.map((widget) =>
+                isMarketingWidgetKey(widget.widgetKey) ? { ...widget, config: getMarketingRendererConfig(widget) } : widget
+            )
+        }
     })
 
     const widgetObjectsQuery = useQuery({
@@ -282,26 +101,12 @@ export default function LayoutDetails() {
         enabled: Boolean(metahubId && layoutId),
         queryFn: async () => layoutsApi.getLayoutZoneWidgetObjects(String(metahubId), String(layoutId))
     })
-    const uiLocale = normalizeLocale(i18n.language)
-    const marketingContentQuery = useEntityInstancesQuery(
-        metahubId,
-        layoutQuery.data && (layoutQuery.data as MetahubLayout).templateKey === 'marketing-page'
-            ? {
-                  kind: 'object',
-                  locale: uiLocale,
-                  limit: 1000,
-                  offset: 0,
-                  sortBy: 'codename',
-                  sortOrder: 'asc'
-              }
-            : undefined
-    )
-
     const cachedMetahub = metahubId ? queryClient.getQueryData<Metahub>(metahubsQueryKeys.detail(metahubId)) : undefined
     const metahubPermissions = metahubDetailsQuery.data?.permissions ?? cachedMetahub?.permissions
     const canManageLayouts = metahubPermissions?.manageMetahub === true
     const canEditContent = metahubPermissions?.editContent === true
     const layout = layoutQuery.data as MetahubLayout | undefined
+    const zoneWidgets = zoneWidgetsQuery.data ?? EMPTY_ZONE_WIDGETS
     const baseLayoutQuery = useQuery({
         queryKey:
             metahubId && layout?.baseLayoutId ? metahubsQueryKeys.layoutDetail(metahubId, layout.baseLayoutId) : ['layout-base-empty'],
@@ -312,9 +117,9 @@ export default function LayoutDetails() {
         }
     })
     const baseLayout = baseLayoutQuery.data as MetahubLayout | undefined
-    const zoneWidgets = zoneWidgetsQuery.data ?? EMPTY_ZONE_WIDGETS
     const widgetObjects = widgetObjectsQuery.data ?? EMPTY_WIDGET_OBJECTS
     const isGlobalLayout = layout?.scopeEntityId == null
+    const isMarketingOverlay = layout?.scopeEntityId != null && layout.baseLayoutId != null
     const layoutZones = layout ? LAYOUT_ZONES_BY_TEMPLATE[layout.templateKey] : DASHBOARD_LAYOUT_ZONES
     const getExpectedLayoutVersion = useCallback((): number => {
         if (!layout || !Number.isSafeInteger(layout.version) || layout.version <= 0) {
@@ -324,7 +129,7 @@ export default function LayoutDetails() {
     }, [layout, t])
     const getExpectedWidgetVersion = (widgetId: string | null): number => {
         const version = widgetId ? zoneWidgets.find((item) => item.id === widgetId)?.version : undefined
-        if (!Number.isSafeInteger(version) || version <= 0) {
+        if (typeof version !== 'number' || !Number.isSafeInteger(version) || version <= 0) {
             throw new Error(t('layouts.details.versionUnavailable', 'The latest widget version is unavailable. Refresh and try again.'))
         }
         return version
@@ -363,206 +168,6 @@ export default function LayoutDetails() {
         }
         return initial
     }, [zoneWidgets])
-
-    const widgetLabelByKey = useMemo(() => {
-        const labels: Record<string, string> = {}
-        for (const item of widgetObjects) {
-            labels[item.key] = tc(
-                item.labelKey ?? `layouts.widgets.${item.key}`,
-                item.defaultLabel ?? tc('layouts.widgets.unknown', 'Widget')
-            )
-        }
-        return labels
-    }, [tc, widgetObjects])
-
-    const zoneLabels = useMemo<Record<ApplicationLayoutZone, string>>(
-        () =>
-            Object.fromEntries(LAYOUT_ZONE_DEFINITIONS.map((zone) => [zone.key, tc(zone.labelKey, zone.defaultLabel)])) as Record<
-                ApplicationLayoutZone,
-                string
-            >,
-        [tc]
-    )
-
-    const marketingSourceOptions = useMemo(
-        () =>
-            (marketingContentQuery.data?.items ?? [])
-                .map((entity) => {
-                    const codename = getCodenamePrimary(entity.codename)
-                    if (!codename || !MARKETING_SOURCE_CODENAMES.includes(codename as (typeof MARKETING_SOURCE_CODENAMES)[number]))
-                        return null
-                    const name = getVLCString(entity.name, uiLocale) || getVLCString(entity.name, 'en')
-                    return {
-                        value: codename,
-                        label: name || codename,
-                        entityKind: 'object' as const
-                    }
-                })
-                .filter((option): option is { value: string; label: string; entityKind: 'object' } => option !== null)
-                .sort((left, right) => left.label.localeCompare(right.label)),
-        [marketingContentQuery.data?.items, uiLocale]
-    )
-    const marketingHeroObjectId = useMemo(
-        () =>
-            (marketingContentQuery.data?.items ?? []).find(
-                (entity) => getCodenamePrimary(entity.codename) === MARKETING_HERO_ENTITY_CODENAME
-            )?.id ?? null,
-        [marketingContentQuery.data?.items]
-    )
-    const marketingHeroWidgetVersion = marketingHeroBindingEditor.widgetId
-        ? zoneWidgets.find((widget) => widget.id === marketingHeroBindingEditor.widgetId)?.version ?? null
-        : null
-
-    const openWidgetEditor = useCallback(
-        (zone: ApplicationLayoutZone, item: MetahubLayoutZoneWidget) => {
-            if (isMarketingWidgetKey(item.widgetKey)) {
-                if (item.widgetKey === 'marketing.hero') {
-                    setMarketingHeroBindingEditor({
-                        open: true,
-                        zone,
-                        widgetId: item.id,
-                        config:
-                            item.config && typeof item.config === 'object' && !Array.isArray(item.config)
-                                ? { ...(item.config as Record<string, unknown>) }
-                                : {}
-                    })
-                    return
-                }
-                setMarketingWidgetEditor({
-                    open: true,
-                    zone,
-                    widgetId: item.id,
-                    widgetKey: item.widgetKey,
-                    config:
-                        item.config && typeof item.config === 'object' && !Array.isArray(item.config)
-                            ? { ...(item.config as Record<string, unknown>) }
-                            : {}
-                })
-                return
-            }
-            if (item.isInherited) {
-                return
-            }
-            if (!DASHBOARD_LAYOUT_ZONES.includes(zone as DashboardLayoutZone)) {
-                return
-            }
-            const dashboardZone = zone as DashboardLayoutZone
-            if (item.widgetKey === 'menuWidget') {
-                setMenuEditor({
-                    open: true,
-                    zone: dashboardZone,
-                    widgetId: item.id,
-                    config: (item.config as MenuWidgetConfig) ?? null
-                })
-                return
-            }
-            if (item.widgetKey === 'columnsContainer') {
-                setColumnsEditor({
-                    open: true,
-                    zone: dashboardZone,
-                    widgetId: item.id,
-                    config: (item.config as ColumnsContainerConfig) ?? null
-                })
-                return
-            }
-            if (item.widgetKey === 'quizWidget') {
-                setQuizEditor({
-                    open: true,
-                    zone: dashboardZone,
-                    widgetId: item.id,
-                    config: (item.config as QuizWidgetConfig) ?? null
-                })
-                return
-            }
-            if (item.widgetKey === 'playcanvasCanvas') {
-                setPlayCanvasCanvasEditor({
-                    open: true,
-                    zone: dashboardZone,
-                    widgetId: item.id,
-                    config:
-                        item.config && typeof item.config === 'object' && !Array.isArray(item.config)
-                            ? { ...(item.config as Record<string, unknown>) }
-                            : {}
-                })
-                return
-            }
-            if (item.widgetKey === 'interpretationNetworkWorkspace') {
-                setInterpretationNetworkEditor({
-                    open: true,
-                    widgetId: item.id,
-                    config: (item.config as InterpretationNetworkWorkspaceWidgetConfig) ?? null
-                })
-                return
-            }
-            if (isGlobalLayout) {
-                setWidgetBehaviorEditor({
-                    open: true,
-                    widgetId: item.id,
-                    widgetLabel: widgetLabelByKey[item.widgetKey] ?? tc('layouts.widgets.unknown', 'Widget'),
-                    config:
-                        item.config && typeof item.config === 'object' && !Array.isArray(item.config)
-                            ? { ...(item.config as Record<string, unknown>) }
-                            : {}
-                })
-            }
-        },
-        [isGlobalLayout, tc, widgetLabelByKey]
-    )
-
-    /** Build a chip label: for menuWidget append the resolved menu title, for columnsContainer list inner widgets. */
-    const getWidgetChipLabel = useCallback(
-        (widget: MetahubLayoutZoneWidget): string => {
-            const base = widgetLabelByKey[widget.widgetKey] || tc('layouts.widgets.unknown', 'Widget')
-            if (isMarketingWidgetKey(widget.widgetKey)) {
-                const variant = widget.config?.variant
-                if (widget.widgetKey === 'marketing.collection' && typeof variant === 'string') {
-                    return `${base}: ${t(`layouts.marketing.widget.variants.${variant}`, 'Collection')}`
-                }
-                return base
-            }
-            if (widget.widgetKey === 'menuWidget') {
-                const cfg = widget.config as MenuWidgetConfig | undefined
-                if (!cfg?.title) return base
-                const title = getVLCString(cfg.title, uiLocale) || getVLCString(cfg.title, 'en')
-                return title ? `${base}: ${title}` : base
-            }
-            if (widget.widgetKey === 'columnsContainer') {
-                const cfg = widget.config as ColumnsContainerConfig | undefined
-                if (!cfg?.columns?.length) return base
-                const innerNames = cfg.columns
-                    .flatMap((col) =>
-                        (col.widgets ?? []).map((w) => widgetLabelByKey[w.widgetKey] || tc('layouts.widgets.unknown', 'Widget'))
-                    )
-                    .join(', ')
-                return `${base}: ${innerNames}`
-            }
-            return base
-        },
-        [tc, t, uiLocale, widgetLabelByKey]
-    )
-
-    const getAvailableWidgetsForZone = useCallback(
-        (zone: ApplicationLayoutZone): DashboardLayoutWidgetItem[] => {
-            return widgetObjects.filter((widgetItem) => {
-                const templateKey = layout?.templateKey
-                if (!templateKey) return false
-                const supportedTemplates = Array.isArray(widgetItem.supportedTemplates) ? widgetItem.supportedTemplates : []
-                const allowedZones =
-                    widgetItem.allowedZonesByTemplate && typeof widgetItem.allowedZonesByTemplate === 'object'
-                        ? widgetItem.allowedZonesByTemplate[templateKey]
-                        : undefined
-                return (
-                    supportedTemplates.includes(templateKey) &&
-                    Array.isArray(allowedZones) &&
-                    allowedZones.includes(zone) &&
-                    (widgetItem.key !== 'marketing.hero' || isGlobalLayout) &&
-                    (widgetItem.key !== 'marketing.hero' || canEditContent)
-                )
-            })
-        },
-        [canEditContent, isGlobalLayout, layout?.templateKey, widgetObjects]
-    )
-
     const persistAndRefresh = useCallback(async () => {
         if (!metahubId || !layoutId) return
         if (layout?.scopeEntityId == null) {
@@ -645,12 +250,12 @@ export default function LayoutDetails() {
                         ? t('layouts.zoneSettingUnresolved', 'Resolve the layout source conflict before changing this setting.')
                         : t('layouts.zoneSettingUpdateError', 'Failed to save zone settings.')
                 setZoneSettingsError(message)
-                notifyError(t, enqueueSnackbar, error)
+                notifyLayoutError(error)
             } finally {
                 setZoneSettingsSaving(false)
             }
         },
-        [canManageLayouts, enqueueSnackbar, layout, layoutId, metahubId, persistAndRefresh, queryClient, t]
+        [canManageLayouts, layout, layoutId, metahubId, notifyLayoutError, persistAndRefresh, queryClient, t]
     )
 
     const resetMarketingHeaderPosition = useCallback(async () => {
@@ -671,11 +276,11 @@ export default function LayoutDetails() {
                     ? t('layouts.zoneSettingVersionConflict', 'This layout changed in another session. Reload it and try again.')
                     : t('layouts.zoneSettingResetError', 'Failed to reset zone settings.')
             setZoneSettingsError(message)
-            notifyError(t, enqueueSnackbar, error)
+            notifyLayoutError(error)
         } finally {
             setZoneSettingsSaving(false)
         }
-    }, [canManageLayouts, enqueueSnackbar, layout, layoutId, metahubId, persistAndRefresh, t])
+    }, [canManageLayouts, layout, layoutId, metahubId, notifyLayoutError, persistAndRefresh, t])
 
     const handleViewSettingChange = useCallback(
         async (key: string, value: unknown) => {
@@ -684,12 +289,12 @@ export default function LayoutDetails() {
             try {
                 await persistLayoutConfig({ ...layout.config, [key]: value })
             } catch (e: unknown) {
-                notifyError(t, enqueueSnackbar, e)
+                notifyLayoutError(e)
             } finally {
                 setViewSettingsSaving(false)
             }
         },
-        [canManageLayouts, enqueueSnackbar, layout, persistLayoutConfig, t]
+        [canManageLayouts, layout, notifyLayoutError, persistLayoutConfig]
     )
 
     const handleSideMenuConfigChange = useCallback(
@@ -708,12 +313,12 @@ export default function LayoutDetails() {
                 const currentBehaviorConfig = extractObjectCollectionLayoutBehaviorConfig(layout.config) ?? {}
                 await persistLayoutConfig(setObjectCollectionLayoutBehaviorConfig(layout.config, { ...currentBehaviorConfig, ...patch }))
             } catch (e: unknown) {
-                notifyError(t, enqueueSnackbar, e)
+                notifyLayoutError(e)
             } finally {
                 setViewSettingsSaving(false)
             }
         },
-        [canManageLayouts, enqueueSnackbar, layout, persistLayoutConfig, t]
+        [canManageLayouts, layout, notifyLayoutError, persistLayoutConfig]
     )
 
     const commitReorderPersistenceField = useCallback(async () => {
@@ -812,7 +417,7 @@ export default function LayoutDetails() {
         } catch (e: unknown) {
             // Rollback optimistic update on error
             if (previousData) queryClient.setQueryData(zoneWidgetsKey, previousData)
-            notifyError(t, enqueueSnackbar, e)
+            notifyLayoutError(e)
         }
     }
 
@@ -828,11 +433,11 @@ export default function LayoutDetails() {
                 await layoutsApi.removeLayoutZoneWidget(metahubId, layoutId, widgetId, currentItem.version)
                 await persistAndRefresh()
             } catch (e: unknown) {
-                notifyError(t, enqueueSnackbar, e)
+                notifyLayoutError(e)
                 throw e
             }
         },
-        [canManageLayouts, enqueueSnackbar, layoutId, metahubId, persistAndRefresh, t, zoneWidgets]
+        [canManageLayouts, layoutId, metahubId, notifyLayoutError, persistAndRefresh, zoneWidgets]
     )
 
     const requestRemoveWidget = useCallback((widgetId: string) => {
@@ -862,132 +467,32 @@ export default function LayoutDetails() {
                 })
                 await persistAndRefresh()
             } catch (e: unknown) {
-                notifyError(t, enqueueSnackbar, e)
+                notifyLayoutError(e)
             }
         },
-        [canManageLayouts, enqueueSnackbar, getExpectedLayoutVersion, layout, layoutId, metahubId, persistAndRefresh, t]
+        [canManageLayouts, getExpectedLayoutVersion, layout, layoutId, metahubId, notifyLayoutError, persistAndRefresh]
     )
 
-    const handleAddWidgetRequest = useCallback(
-        (zone: ApplicationLayoutZone, widgetKey: ApplicationLayoutWidgetKey) => {
-            if (!canManageLayouts) {
-                return
-            }
-            if (!layout) return
-            if (widgetKey === 'marketing.hero' && !isGlobalLayout) return
-            const definition = getLayoutWidgetDefinition(widgetKey)
-            if (!definition || !definition.supportedTemplates.includes(layout.templateKey)) return
-            if (!getLayoutWidgetAllowedZones(widgetKey, layout.templateKey)?.includes(zone)) return
-            if (isMarketingWidgetKey(widgetKey)) {
-                if (widgetKey === 'marketing.hero') {
-                    if (!canEditContent) return
-                    void (async () => {
-                        try {
-                            await layoutsApi.assignLayoutZoneWidget(metahubId!, layoutId!, {
-                                zone,
-                                widgetKey,
-                                heroContent: { mode: 'auto' },
-                                expectedVersion: getExpectedLayoutVersion()
-                            })
-                            await persistAndRefresh()
-                        } catch (error: unknown) {
-                            notifyError(t, enqueueSnackbar, error)
-                        }
-                    })()
-                    return
-                }
-                setMarketingWidgetEditor({ open: true, zone, widgetId: null, widgetKey, config: null })
-                return
-            }
-            if (definition.shared) {
-                void handleAddWidget(zone, widgetKey)
-                return
-            }
-            if (!DASHBOARD_LAYOUT_ZONES.includes(zone as DashboardLayoutZone)) {
-                return
-            }
-            const dashboardZone = zone as DashboardLayoutZone
-            if (widgetKey === 'menuWidget') {
-                setMenuEditor({ open: true, zone: dashboardZone, widgetId: null, config: null })
-                return
-            }
-            if (widgetKey === 'columnsContainer') {
-                setColumnsEditor({ open: true, zone: dashboardZone, widgetId: null, config: null })
-                return
-            }
-            if (widgetKey === 'quizWidget') {
-                setQuizEditor({ open: true, zone: dashboardZone, widgetId: null, config: null })
-                return
-            }
-            if (widgetKey === 'playcanvasCanvas') {
-                setPlayCanvasCanvasEditor({ open: true, zone: dashboardZone, widgetId: null, config: null })
-                return
-            }
-            void handleAddWidget(dashboardZone, widgetKey)
-        },
-        [
-            canEditContent,
-            canManageLayouts,
-            enqueueSnackbar,
-            getExpectedLayoutVersion,
-            handleAddWidget,
-            isGlobalLayout,
-            layout,
-            layoutId,
-            metahubId,
-            persistAndRefresh,
-            t
-        ]
-    )
-
-    const handleDuplicateWidget = useCallback(
-        async (item: MetahubLayoutZoneWidget) => {
-            if (!metahubId || !layoutId || !layout || !canManageLayouts) return
-            if (item.widgetKey === 'marketing.hero' && !isGlobalLayout) return
-
-            const config = { ...item.config }
-            if (isMarketingWidgetKey(item.widgetKey)) delete config.instanceKey
-            if (item.widgetKey === 'marketing.hero') {
-                if (!canEditContent) return
-                try {
-                    await layoutsApi.assignLayoutZoneWidget(metahubId, layoutId, {
-                        zone: item.zone,
-                        widgetKey: 'marketing.hero',
-                        config,
-                        heroContent: { mode: 'auto', sourceWidgetId: item.id },
-                        expectedVersion: getExpectedLayoutVersion()
-                    })
-                    await persistAndRefresh()
-                } catch (error: unknown) {
-                    notifyError(t, enqueueSnackbar, error)
-                }
-                return
-            }
-            try {
-                await layoutsApi.assignLayoutZoneWidget(metahubId, layoutId, {
-                    zone: item.zone,
-                    widgetKey: item.widgetKey,
-                    config,
-                    expectedVersion: getExpectedLayoutVersion()
-                })
-                await persistAndRefresh()
-            } catch (e: unknown) {
-                notifyError(t, enqueueSnackbar, e)
-            }
-        },
-        [
-            canEditContent,
-            canManageLayouts,
-            enqueueSnackbar,
-            getExpectedLayoutVersion,
-            isGlobalLayout,
-            layout,
-            layoutId,
-            metahubId,
-            persistAndRefresh,
-            t
-        ]
-    )
+    const widgetAuthoring = useLayoutWidgetAuthoring({
+        metahubId,
+        layoutId,
+        layout,
+        zoneWidgets,
+        widgetObjects,
+        canManageLayouts,
+        canEditContent,
+        isGlobalLayout,
+        isMarketingOverlay,
+        locale: uiLocale,
+        t,
+        tc,
+        notifyError: notifyLayoutError,
+        getExpectedLayoutVersion,
+        getExpectedWidgetVersion,
+        persistAndRefresh,
+        upsertZoneWidgetInCache,
+        onAddWidget: (zone, widgetKey) => void handleAddWidget(zone, widgetKey)
+    })
 
     const handleResetWidgetOverride = useCallback(
         async (item: MetahubLayoutZoneWidget) => {
@@ -1006,10 +511,10 @@ export default function LayoutDetails() {
                 await layoutsApi.resetLayoutZoneWidgetOverride(metahubId, layoutId, item.id, item.version)
                 await persistAndRefresh()
             } catch (e: unknown) {
-                notifyError(t, enqueueSnackbar, e)
+                notifyLayoutError(e)
             }
         },
-        [canManageLayouts, confirm, enqueueSnackbar, isGlobalLayout, layoutId, metahubId, persistAndRefresh, t]
+        [canManageLayouts, confirm, isGlobalLayout, layoutId, metahubId, notifyLayoutError, persistAndRefresh, t]
     )
 
     const handleToggleWidgetActive = useCallback(
@@ -1038,202 +543,40 @@ export default function LayoutDetails() {
                 if (previousData) {
                     queryClient.setQueryData(zoneWidgetsKey, previousData)
                 }
-                notifyError(t, enqueueSnackbar, e)
+                notifyLayoutError(e)
             }
         },
-        [canManageLayouts, enqueueSnackbar, layoutId, metahubId, persistAndRefresh, queryClient, t, zoneWidgets]
-    )
-
-    const authoringZones = useMemo(
-        () =>
-            layout
-                ? layoutZones.map((zone) => ({
-                      zone,
-                      title: zoneLabels[zone],
-                      addDisabled: !canManageLayouts,
-                      availableWidgets: getAvailableWidgetsForZone(zone).map((widgetItem) => ({
-                          key: widgetItem.key,
-                          label: widgetLabelByKey[widgetItem.key] || tc('layouts.widgets.unknown', 'Widget')
-                      })),
-                      items: zoneToItems[zone].map((item) => {
-                          const isInheritedWidget = item.isInherited === true
-                          const sharedBehavior = getSharedBehaviorFromWidgetConfig(item.config)
-                          const canDragWidget = canManageLayouts && (!isInheritedWidget || !sharedBehavior.positionLocked)
-                          const canToggleWidget = canManageLayouts && (!isInheritedWidget || sharedBehavior.canDeactivate)
-                          const canRemoveWidget = canManageLayouts && (!isInheritedWidget || sharedBehavior.canExclude)
-                          const canDuplicateWidget =
-                              canManageLayouts && (item.widgetKey !== 'marketing.hero' || (isGlobalLayout && canEditContent))
-                          const canResetWidget = canManageLayouts && !isGlobalLayout && isInheritedWidget && item.isOverridden === true
-                          const canEditWidget =
-                              (canManageLayouts &&
-                                  (item.widgetKey !== 'marketing.hero' || isGlobalLayout) &&
-                                  (isMarketingWidgetKey(item.widgetKey) ? true : !isInheritedWidget) &&
-                                  (isMarketingWidgetKey(item.widgetKey) ||
-                                      item.widgetKey === 'menuWidget' ||
-                                      item.widgetKey === 'columnsContainer' ||
-                                      item.widgetKey === 'quizWidget' ||
-                                      item.widgetKey === 'playcanvasCanvas' ||
-                                      item.widgetKey === 'interpretationNetworkWorkspace' ||
-                                      isGlobalLayout)) ||
-                              (item.widgetKey === 'marketing.hero' && isGlobalLayout && canEditContent)
-
-                          return {
-                              id: item.id,
-                              label: getWidgetChipLabel(item),
-                              isActive: item.isActive,
-                              draggable: canDragWidget,
-                              moveActions: canManageLayouts
-                                  ? [
-                                        ...(item.zone === 'marketing-header'
-                                            ? (['start', 'end'] as const)
-                                                  .filter((targetPlacement) => targetPlacement !== readWidgetPlacement(item))
-                                                  .map((targetPlacement) => ({
-                                                      key: `${item.id}-placement-${targetPlacement}`,
-                                                      testId: `layout-widget-placement-${item.id}-${targetPlacement}`,
-                                                      label: t(
-                                                          targetPlacement === 'start' ? 'layouts.moveToStart' : 'layouts.moveToEnd',
-                                                          targetPlacement === 'start' ? 'Move to Start' : 'Move to End'
-                                                      ),
-                                                      onClick: () =>
-                                                          void layoutsApi
-                                                              .moveLayoutZoneWidget(metahubId, layoutId, {
-                                                                  widgetId: item.id,
-                                                                  targetZone: item.zone,
-                                                                  targetIndex: getWidgetDropIndex(
-                                                                      zoneToItems[item.zone],
-                                                                      item.id,
-                                                                      targetPlacement
-                                                                  ),
-                                                                  targetPlacement,
-                                                                  expectedVersion: item.version
-                                                              })
-                                                              .then(persistAndRefresh)
-                                                              .catch((e: unknown) => notifyError(t, enqueueSnackbar, e))
-                                                  }))
-                                            : []),
-                                        ...layoutZones
-                                            .filter(
-                                                (targetZone) =>
-                                                    targetZone !== item.zone &&
-                                                    getLayoutWidgetAllowedZones(item.widgetKey, layout.templateKey)?.includes(targetZone)
-                                            )
-                                            .map((targetZone) => ({
-                                                key: `${item.id}-${targetZone}`,
-                                                testId: `layout-widget-move-${item.id}-${targetZone}`,
-                                                label: t('layouts.moveToZone', 'Move to {{zone}}', { zone: zoneLabels[targetZone] }),
-                                                onClick: () =>
-                                                    void layoutsApi
-                                                        .moveLayoutZoneWidget(metahubId, layoutId, {
-                                                            widgetId: item.id,
-                                                            targetZone,
-                                                            targetIndex: getWidgetDropIndex(zoneToItems[targetZone], item.id),
-                                                            expectedVersion: item.version
-                                                        })
-                                                        .then(persistAndRefresh)
-                                                        .catch((e: unknown) => notifyError(t, enqueueSnackbar, e))
-                                            }))
-                                    ]
-                                  : undefined,
-                              onRemove: canRemoveWidget ? () => requestRemoveWidget(item.id) : undefined,
-                              onDuplicate: canDuplicateWidget ? () => void handleDuplicateWidget(item) : undefined,
-                              onReset: canResetWidget ? () => void handleResetWidgetOverride(item) : undefined,
-                              onClick: canEditWidget ? () => openWidgetEditor(zone, item) : undefined,
-                              onEdit: canEditWidget ? () => openWidgetEditor(zone, item) : undefined,
-                              onToggleActive: canToggleWidget
-                                  ? (active: boolean) => void handleToggleWidgetActive(item.id, active)
-                                  : undefined,
-                              inheritedLabel: isInheritedWidget ? t('layouts.details.inheritedBadge', 'Inherited') : undefined,
-                              editTooltip: canEditWidget ? t('common:actions.edit') : undefined,
-                              duplicateTooltip: canDuplicateWidget ? t('layouts.actions.duplicate', 'Duplicate') : undefined,
-                              duplicateAriaLabel: canDuplicateWidget
-                                  ? t('layouts.actions.duplicateWidgetNamed', 'Duplicate widget: {{label}}', {
-                                        label: getWidgetChipLabel(item)
-                                    })
-                                  : undefined,
-                              resetTooltip: canResetWidget ? t('layouts.actions.resetOverride', 'Reset override') : undefined,
-                              resetAriaLabel: canResetWidget
-                                  ? t('layouts.actions.resetOverrideWidgetNamed', 'Reset override: {{label}}', {
-                                        label: getWidgetChipLabel(item)
-                                    })
-                                  : undefined,
-                              removeTooltip: canRemoveWidget
-                                  ? isInheritedWidget
-                                      ? t('layouts.actions.exclude', 'Exclude')
-                                      : t('common:actions.delete')
-                                  : undefined,
-                              toggleActiveTooltip:
-                                  canToggleWidget && item.isActive
-                                      ? t('layouts.actions.deactivate', 'Deactivate')
-                                      : canToggleWidget
-                                      ? t('layouts.actions.activate', 'Activate')
-                                      : undefined
-                          }
-                      })
-                  }))
-                : [],
-        [
-            canManageLayouts,
-            canEditContent,
-            getAvailableWidgetsForZone,
-            getWidgetChipLabel,
-            handleDuplicateWidget,
-            handleResetWidgetOverride,
-            handleToggleWidgetActive,
-            isGlobalLayout,
-            openWidgetEditor,
-            requestRemoveWidget,
-            tc,
-            t,
-            widgetLabelByKey,
-            zoneLabels,
-            zoneToItems,
-            enqueueSnackbar,
-            layoutId,
-            metahubId,
-            persistAndRefresh,
-            layoutZones,
-            layout
-        ]
+        [canManageLayouts, layoutId, metahubId, notifyLayoutError, persistAndRefresh, queryClient, zoneWidgets]
     )
 
     const marketingHeaderSetting = layout
         ? readMarketingHeaderPosition(layout, baseLayout)
         : { value: 'fixed' as LayoutPosition, inherited: true, available: true }
-    const authoringZonesWithSettings = useMemo(
-        () =>
-            authoringZones.map((zone) => {
-                if (zone.zone !== 'marketing-header') return zone
-                const placementById = new Map(zoneWidgets.map((item) => [item.id, readWidgetPlacement(item)]))
-                return {
-                    ...zone,
-                    groups: [
-                        {
-                            key: 'start',
-                            title: tc('layouts.startGroup', { defaultValue: 'Start' }),
-                            items: zone.items.filter((item) => placementById.get(item.id) !== 'end')
-                        },
-                        {
-                            key: 'end',
-                            title: tc('layouts.endGroup', { defaultValue: 'End' }),
-                            items: zone.items.filter((item) => placementById.get(item.id) === 'end')
-                        }
-                    ],
-                    settingsAction: marketingHeaderSetting.available
-                        ? {
-                              label: `${tc('layouts.zoneSettings.settings', { defaultValue: 'Settings' })}: ${zone.title}`,
-                              summary: marketingHeaderSetting.inherited
-                                  ? tc('layouts.zoneSettings.inherited', { defaultValue: 'Inherited from the current layout source' })
-                                  : tc('layouts.zoneSettings.customized', { defaultValue: 'Customized for this layout' }),
-                              onClick: () => {
-                                  setZoneSettingsError(null)
-                                  setZoneSettingsOpen(true)
-                              }
-                          }
-                        : undefined
-                }
-            }),
-        [authoringZones, marketingHeaderSetting.available, marketingHeaderSetting.inherited, tc, zoneWidgets]
-    )
+    const openMarketingHeaderSettings = useCallback(() => {
+        setZoneSettingsError(null)
+        setZoneSettingsOpen(true)
+    }, [])
+    const { zoneLabels, zones: authoringZonesWithSettings } = useLayoutAuthoringZones({
+        metahubId,
+        layoutId,
+        layout,
+        layoutZones,
+        zoneToItems,
+        zoneWidgets,
+        authoring: widgetAuthoring,
+        canManageLayouts,
+        canEditContent,
+        isGlobalLayout,
+        t,
+        tc,
+        persistAndRefresh,
+        notifyError: notifyLayoutError,
+        requestRemoveWidget,
+        handleResetWidgetOverride,
+        handleToggleWidgetActive,
+        marketingHeaderSetting,
+        onOpenMarketingHeaderSettings: openMarketingHeaderSettings
+    })
 
     if (!metahubId || !layoutId) {
         return (
@@ -1243,8 +586,8 @@ export default function LayoutDetails() {
         )
     }
 
-    const isLoading = layoutQuery.isLoading || zoneWidgetsQuery.isLoading || widgetObjectsQuery.isLoading || marketingContentQuery.isLoading
-    const hasError = layoutQuery.error || zoneWidgetsQuery.error || widgetObjectsQuery.error || marketingContentQuery.error
+    const isLoading = layoutQuery.isLoading || zoneWidgetsQuery.isLoading || widgetObjectsQuery.isLoading
+    const hasError = layoutQuery.error || zoneWidgetsQuery.error || widgetObjectsQuery.error
 
     return (
         <MainCard content={false} sx={{ maxWidth: '100%', width: '100%', p: 0, gap: 0 }} disableHeader border={false} shadow={false}>
@@ -1254,8 +597,8 @@ export default function LayoutDetails() {
                     description={
                         layout?.templateKey === 'marketing-page'
                             ? tc(
-                                  'layouts.marketing.heroAuthoring.pageDescription',
-                                  'Manage Hero content as Entity records, then adjust its presentation separately.'
+                                  'layouts.widgetBindings.pageDescription',
+                                  'Configure widget content from Entity records, then adjust its presentation separately.'
                               )
                             : t('layouts.details.description', 'Configure dashboard zones and widgets.')
                     }
@@ -1278,7 +621,6 @@ export default function LayoutDetails() {
                                         void layoutQuery.refetch()
                                         void zoneWidgetsQuery.refetch()
                                         void widgetObjectsQuery.refetch()
-                                        void marketingContentQuery.refetch()
                                     }}
                                 >
                                     {t('common:actions.retry', 'Retry')}
@@ -1298,7 +640,7 @@ export default function LayoutDetails() {
                                 moveWidgetLabel={t('layouts.moveWidget', 'Move widget')}
                                 zones={authoringZonesWithSettings}
                                 onDragEnd={handleDragEnd}
-                                onAddWidgetRequest={handleAddWidgetRequest}
+                                onAddWidgetRequest={widgetAuthoring.handleAddWidgetRequest}
                                 beforeZonesContent={
                                     <LayoutRuntimeSettingsPanel
                                         t={t}
@@ -1323,320 +665,16 @@ export default function LayoutDetails() {
                 </Box>
             </Stack>
 
-            {/* Menu widget editor dialog */}
-            <MenuWidgetEditorDialog
-                open={menuEditor.open}
-                metahubId={metahubId}
-                config={menuEditor.config ?? undefined}
-                layoutId={layoutId}
-                widgetId={menuEditor.widgetId}
-                showSharedBehavior={isGlobalLayout}
-                showScopeVisibility={isGlobalLayout && Boolean(menuEditor.widgetId)}
-                onSave={async (config) => {
-                    const zone = menuEditor.zone
-                    const widgetId = menuEditor.widgetId
-                    if (!zone || !metahubId || !layoutId) return
-                    try {
-                        let savedWidget: MetahubLayoutZoneWidget
-                        if (widgetId) {
-                            // Editing existing menuWidget config
-                            const response = await layoutsApi.updateLayoutZoneWidgetConfig(
-                                metahubId,
-                                layoutId,
-                                widgetId,
-                                config as Record<string, unknown>,
-                                getExpectedWidgetVersion(widgetId)
-                            )
-                            savedWidget = response.data.item
-                        } else {
-                            // Creating new menuWidget
-                            const response = await layoutsApi.assignLayoutZoneWidget(metahubId, layoutId, {
-                                zone,
-                                widgetKey: 'menuWidget',
-                                config: config as Record<string, unknown>,
-                                expectedVersion: getExpectedLayoutVersion()
-                            })
-                            savedWidget = response.data
-                        }
-                        upsertZoneWidgetInCache(savedWidget)
-                        await persistAndRefresh()
-                        setMenuEditor({ open: false, zone: null, widgetId: null, config: null })
-                    } catch (e: unknown) {
-                        notifyError(t, enqueueSnackbar, e)
-                    }
-                }}
-                onCancel={() => setMenuEditor({ open: false, zone: null, widgetId: null, config: null })}
-            />
-
-            {/* Columns container editor dialog */}
-            <ColumnsContainerEditorDialog
-                open={columnsEditor.open}
-                config={columnsEditor.config ?? undefined}
+            <LayoutWidgetEditorDialogs
+                authoring={widgetAuthoring}
                 metahubId={metahubId}
                 layoutId={layoutId}
-                widgetId={columnsEditor.widgetId}
-                showSharedBehavior={isGlobalLayout}
-                showScopeVisibility={isGlobalLayout && Boolean(columnsEditor.widgetId)}
-                onSave={async (config) => {
-                    const zone = columnsEditor.zone
-                    const widgetId = columnsEditor.widgetId
-                    if (!zone || !metahubId || !layoutId) return
-                    try {
-                        let savedWidget: MetahubLayoutZoneWidget
-                        if (widgetId) {
-                            const response = await layoutsApi.updateLayoutZoneWidgetConfig(
-                                metahubId,
-                                layoutId,
-                                widgetId,
-                                config as Record<string, unknown>,
-                                getExpectedWidgetVersion(widgetId)
-                            )
-                            savedWidget = response.data.item
-                        } else {
-                            const response = await layoutsApi.assignLayoutZoneWidget(metahubId, layoutId, {
-                                zone,
-                                widgetKey: 'columnsContainer',
-                                config: config as Record<string, unknown>,
-                                expectedVersion: getExpectedLayoutVersion()
-                            })
-                            savedWidget = response.data
-                        }
-                        upsertZoneWidgetInCache(savedWidget)
-                        await persistAndRefresh()
-                        setColumnsEditor({ open: false, zone: null, widgetId: null, config: null })
-                    } catch (e: unknown) {
-                        notifyError(t, enqueueSnackbar, e)
-                    }
-                }}
-                onCancel={() => setColumnsEditor({ open: false, zone: null, widgetId: null, config: null })}
-            />
-
-            <QuizWidgetEditorDialog
-                open={quizEditor.open}
-                metahubId={metahubId}
-                config={quizEditor.config ?? undefined}
-                layoutId={layoutId}
-                widgetId={quizEditor.widgetId}
-                showSharedBehavior={isGlobalLayout}
-                showScopeVisibility={isGlobalLayout && Boolean(quizEditor.widgetId)}
-                onSave={async (config) => {
-                    const zone = quizEditor.zone
-                    const widgetId = quizEditor.widgetId
-                    if (!zone || !metahubId || !layoutId) return
-                    try {
-                        let savedWidget: MetahubLayoutZoneWidget
-                        if (widgetId) {
-                            const response = await layoutsApi.updateLayoutZoneWidgetConfig(
-                                metahubId,
-                                layoutId,
-                                widgetId,
-                                config as Record<string, unknown>,
-                                getExpectedWidgetVersion(widgetId)
-                            )
-                            savedWidget = response.data.item
-                        } else {
-                            const response = await layoutsApi.assignLayoutZoneWidget(metahubId, layoutId, {
-                                zone,
-                                widgetKey: 'quizWidget',
-                                config: config as Record<string, unknown>,
-                                expectedVersion: getExpectedLayoutVersion()
-                            })
-                            savedWidget = response.data
-                        }
-                        upsertZoneWidgetInCache(savedWidget)
-                        await persistAndRefresh()
-                        setQuizEditor({ open: false, zone: null, widgetId: null, config: null })
-                    } catch (e: unknown) {
-                        notifyError(t, enqueueSnackbar, e)
-                    }
-                }}
-                onCancel={() => setQuizEditor({ open: false, zone: null, widgetId: null, config: null })}
-            />
-
-            <PlayCanvasCanvasWidgetEditorDialog
-                open={playCanvasCanvasEditor.open}
-                metahubId={metahubId}
-                config={playCanvasCanvasEditor.config ?? undefined}
-                layoutId={layoutId}
-                widgetId={playCanvasCanvasEditor.widgetId}
-                showSharedBehavior={isGlobalLayout}
-                showScopeVisibility={isGlobalLayout && Boolean(playCanvasCanvasEditor.widgetId)}
-                onSave={async (config) => {
-                    const zone = playCanvasCanvasEditor.zone
-                    const widgetId = playCanvasCanvasEditor.widgetId
-                    if (!zone || !metahubId || !layoutId) return
-                    try {
-                        let savedWidget: MetahubLayoutZoneWidget
-                        if (widgetId) {
-                            const response = await layoutsApi.updateLayoutZoneWidgetConfig(
-                                metahubId,
-                                layoutId,
-                                widgetId,
-                                config as Record<string, unknown>,
-                                getExpectedWidgetVersion(widgetId)
-                            )
-                            savedWidget = response.data.item
-                        } else {
-                            const response = await layoutsApi.assignLayoutZoneWidget(metahubId, layoutId, {
-                                zone,
-                                widgetKey: 'playcanvasCanvas',
-                                config: config as Record<string, unknown>,
-                                expectedVersion: getExpectedLayoutVersion()
-                            })
-                            savedWidget = response.data
-                        }
-                        upsertZoneWidgetInCache(savedWidget)
-                        await persistAndRefresh()
-                        setPlayCanvasCanvasEditor({ open: false, zone: null, widgetId: null, config: null })
-                    } catch (e: unknown) {
-                        notifyError(t, enqueueSnackbar, e)
-                    }
-                }}
-                onCancel={() => setPlayCanvasCanvasEditor({ open: false, zone: null, widgetId: null, config: null })}
-            />
-
-            {interpretationNetworkEditor.open ? (
-                <InterpretationNetworkWorkspaceWidgetEditorDialog
-                    open={interpretationNetworkEditor.open}
-                    config={interpretationNetworkEditor.config ?? undefined}
-                    metahubId={metahubId}
-                    layoutId={layoutId}
-                    widgetId={interpretationNetworkEditor.widgetId}
-                    showSharedBehavior={isGlobalLayout}
-                    showScopeVisibility={isGlobalLayout && Boolean(interpretationNetworkEditor.widgetId)}
-                    onSave={async (config) => {
-                        const widgetId = interpretationNetworkEditor.widgetId
-                        if (!widgetId || !metahubId || !layoutId) return
-                        try {
-                            const response = await layoutsApi.updateLayoutZoneWidgetConfig(
-                                metahubId,
-                                layoutId,
-                                widgetId,
-                                config as Record<string, unknown>,
-                                getExpectedWidgetVersion(widgetId)
-                            )
-                            upsertZoneWidgetInCache(response.data.item)
-                            await persistAndRefresh()
-                            setInterpretationNetworkEditor({ open: false, widgetId: null, config: null })
-                        } catch (e: unknown) {
-                            notifyError(t, enqueueSnackbar, e)
-                            throw e
-                        }
-                    }}
-                    onCancel={() => setInterpretationNetworkEditor({ open: false, widgetId: null, config: null })}
-                />
-            ) : null}
-
-            <WidgetBehaviorEditorDialog
-                open={widgetBehaviorEditor.open}
-                config={widgetBehaviorEditor.config ?? undefined}
-                metahubId={metahubId}
-                layoutId={layoutId}
-                widgetId={widgetBehaviorEditor.widgetId}
-                widgetLabel={widgetBehaviorEditor.widgetLabel}
-                showScopeVisibility={isGlobalLayout && Boolean(widgetBehaviorEditor.widgetId)}
-                onSave={async (config) => {
-                    const widgetId = widgetBehaviorEditor.widgetId
-                    if (!widgetId || !metahubId || !layoutId) return
-                    try {
-                        const response = await layoutsApi.updateLayoutZoneWidgetConfig(
-                            metahubId,
-                            layoutId,
-                            widgetId,
-                            config,
-                            getExpectedWidgetVersion(widgetId)
-                        )
-                        upsertZoneWidgetInCache(response.data.item)
-                        await persistAndRefresh()
-                        setWidgetBehaviorEditor({ open: false, widgetId: null, widgetLabel: null, config: null })
-                    } catch (e: unknown) {
-                        notifyError(t, enqueueSnackbar, e)
-                    }
-                }}
-                onCancel={() => setWidgetBehaviorEditor({ open: false, widgetId: null, widgetLabel: null, config: null })}
-            />
-
-            <MarketingHeroBindingDialog
-                open={marketingHeroBindingEditor.open}
-                metahubId={metahubId}
-                layoutId={layoutId}
-                widgetId={marketingHeroBindingEditor.widgetId}
-                widgetVersion={marketingHeroWidgetVersion}
-                heroObjectId={marketingHeroObjectId}
                 locale={uiLocale}
+                isGlobalLayout={isGlobalLayout}
                 canManageLayouts={canManageLayouts}
                 canEditContent={canEditContent}
-                initialConfig={marketingHeroBindingEditor.config}
-                onClose={() => setMarketingHeroBindingEditor({ open: false, zone: null, widgetId: null, config: null })}
-                onBindingSaved={persistAndRefresh}
-                onConfigurePresentation={(recordId, config) => {
-                    const { zone, widgetId } = marketingHeroBindingEditor
-                    if (!zone) return
-                    setMarketingHeroBindingEditor({ open: false, zone: null, widgetId: null, config: null })
-                    setMarketingWidgetEditor({
-                        open: true,
-                        zone,
-                        widgetId,
-                        widgetKey: 'marketing.hero',
-                        config,
-                        heroRecordId: widgetId ? null : recordId
-                    })
-                }}
+                t={t}
             />
-
-            {marketingWidgetEditor.open && marketingWidgetEditor.widgetKey ? (
-                <MarketingWidgetConfigDialog
-                    open={marketingWidgetEditor.open}
-                    widgetKey={marketingWidgetEditor.widgetKey}
-                    initialConfig={marketingWidgetEditor.config}
-                    sourceOptions={marketingSourceOptions}
-                    title={widgetLabelByKey[marketingWidgetEditor.widgetKey] ?? marketingWidgetEditor.widgetKey}
-                    t={t}
-                    onSave={async (config) => {
-                        const { widgetId, zone, widgetKey } = marketingWidgetEditor
-                        if (!metahubId || !layoutId || !zone || !widgetKey) return
-                        try {
-                            if (widgetId) {
-                                const response = await layoutsApi.updateLayoutZoneWidgetConfig(
-                                    metahubId,
-                                    layoutId,
-                                    widgetId,
-                                    config,
-                                    getExpectedWidgetVersion(widgetId)
-                                )
-                                upsertZoneWidgetInCache(response.data.item)
-                            } else {
-                                if (widgetKey === 'marketing.hero' && !marketingWidgetEditor.heroRecordId) {
-                                    enqueueSnackbar(
-                                        tc(
-                                            'layouts.marketing.heroAuthoring.selectContentFirst',
-                                            'Choose a Hero content record before adding this widget.'
-                                        ),
-                                        { variant: 'error' }
-                                    )
-                                    return
-                                }
-                                const response = await layoutsApi.assignLayoutZoneWidget(metahubId, layoutId, {
-                                    zone,
-                                    widgetKey,
-                                    config,
-                                    ...(widgetKey === 'marketing.hero' && marketingWidgetEditor.heroRecordId
-                                        ? { heroContent: { mode: 'existing' as const, recordId: marketingWidgetEditor.heroRecordId } }
-                                        : {}),
-                                    expectedVersion: getExpectedLayoutVersion()
-                                })
-                                upsertZoneWidgetInCache(response.data)
-                            }
-                            await persistAndRefresh()
-                            setMarketingWidgetEditor({ open: false, zone: null, widgetId: null, widgetKey: null, config: null })
-                        } catch (e: unknown) {
-                            notifyError(t, enqueueSnackbar, e)
-                            throw e
-                        }
-                    }}
-                    onCancel={() => setMarketingWidgetEditor({ open: false, zone: null, widgetId: null, widgetKey: null, config: null })}
-                />
-            ) : null}
 
             {layout?.templateKey === 'marketing-page' && marketingHeaderSetting.available ? (
                 <LayoutZoneSettingsDialog

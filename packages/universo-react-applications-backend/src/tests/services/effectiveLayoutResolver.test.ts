@@ -12,11 +12,12 @@ import {
     encodeLayoutWidgetConfigEnvelope,
     LAYOUT_WIDGET_DEFINITIONS
 } from '@universo-react/types'
-import { resolveEffectiveLayoutForRequest } from '../../services/effectiveLayoutResolver'
+import { resolveEffectiveLayoutForPublicTransaction, resolveEffectiveLayoutForRequest } from '../../services/effectiveLayoutResolver'
 import { EffectiveLayoutError } from '../../services/effectiveLayoutContract'
 import { createMockDbExecutor } from '../utils/dbMocks'
 import { resolveRuntimeWorkspaceAccess, setRuntimeWorkspaceContext } from '../../services/applicationWorkspaces'
 import { getApplicationLayoutWidgetSourceBindingState } from '../../persistence/applicationLayoutStoreSupport'
+import { createApplicationLayoutWidgetSourceState } from '../../services/applicationLayoutWidgetSourceState'
 
 jest.mock('../../services/applicationWorkspaces', () => ({
     __esModule: true,
@@ -113,21 +114,43 @@ const layoutRow = (overrides: Record<string, unknown> = {}) => ({
     ...overrides
 })
 
-const widgetRow = (overrides: Record<string, unknown> = {}) => ({
-    id: globalWidgetId,
-    layout_id: globalLayoutId,
-    zone: 'top',
-    widget_key: 'header',
-    sort_order: 0,
-    config: {},
-    source_config: null,
-    source_widget_id: globalWidgetId,
-    source_base_widget_id: null,
-    is_customized: false,
-    is_active: true,
-    version: 1,
-    ...overrides
-})
+const widgetRow = (overrides: Record<string, unknown> = {}) => {
+    const row = {
+        id: globalWidgetId,
+        layout_id: globalLayoutId,
+        zone: 'top',
+        widget_key: 'header',
+        sort_order: 0,
+        config: {},
+        source_config: null,
+        source_widget_id: globalWidgetId,
+        source_base_widget_id: null,
+        is_customized: false,
+        is_active: true,
+        version: 1,
+        ...overrides
+    }
+    let sourceState: ReturnType<typeof createApplicationLayoutWidgetSourceState> | null = null
+    if (row.source_config !== null && row.source_config !== undefined) {
+        try {
+            const inheritsMarketingBindings = row.source_base_widget_id !== null && row.source_base_widget_id !== undefined
+            sourceState = createApplicationLayoutWidgetSourceState(
+                'marketing-page',
+                String(row.widget_key),
+                {
+                    zone: String(row.zone),
+                    sortOrder: Number(row.sort_order),
+                    isActive: row.is_active === true,
+                    config: row.source_config
+                },
+                inheritsMarketingBindings ? { requireBindings: false, rejectBindings: true } : undefined
+            )
+        } catch {
+            sourceState = null
+        }
+    }
+    return { ...row, source_state: sourceState }
+}
 
 const resolverInput = (targetKind: 'page' | 'object' = 'object') => ({
     applicationId,
@@ -152,6 +175,12 @@ const heroSourceConfig = (semanticKey: string) =>
             rendererConfig: { instanceKey: 'page-hero', showLeadForm: true },
             neutral: { bindings: heroBinding(semanticKey) }
         },
+        { templateKey: 'marketing-page', widgetKey: 'marketing.hero', zone: 'marketing-main' }
+    )
+
+const heroOverlayConfig = (showLeadForm: boolean) =>
+    encodeLayoutWidgetConfigEnvelope(
+        { rendererConfig: { instanceKey: 'page-hero', showLeadForm } },
         { templateKey: 'marketing-page', widgetKey: 'marketing.hero', zone: 'marketing-main' }
     )
 
@@ -217,6 +246,7 @@ describe('effectiveLayoutResolver', () => {
                           zone: 'marketing-main',
                           widget_key: 'marketing.hero',
                           config: { instanceKey: 'hero', showLeadForm: true },
+                          source_config: heroSourceConfig('independent-scoped'),
                           source_widget_id: scopedWidgetId
                       })
                   ]
@@ -391,10 +421,16 @@ describe('effectiveLayoutResolver', () => {
         expect(result.resolvedEntityTypeId).toBe(entityId)
         expect(result.layout.id).toBe(scopedLayoutId)
         expect(result.widgets[0]?.widgetKey).toBe('overviewCards')
-        expect(mockFindEntity).toHaveBeenCalledWith(expect.anything(), schemaName, 'page', {
-            kind: 'codename',
-            value: 'LearnerHome'
-        })
+        expect(mockFindEntity).toHaveBeenCalledWith(
+            expect.anything(),
+            schemaName,
+            'page',
+            {
+                kind: 'codename',
+                value: 'LearnerHome'
+            },
+            'authenticated'
+        )
     })
 
     it('resolves a Page target with the same scoped-template precedence as an Object target', async () => {
@@ -422,6 +458,7 @@ describe('effectiveLayoutResolver', () => {
                           zone: 'marketing-main',
                           widget_key: 'marketing.hero',
                           config: { instanceKey: 'page-hero', showLeadForm: false },
+                          source_config: heroSourceConfig('page-scoped'),
                           source_widget_id: null
                       })
                   ]
@@ -434,7 +471,7 @@ describe('effectiveLayoutResolver', () => {
             resolverInput('page')
         )
 
-        expect(mockFindEntity).toHaveBeenCalledWith(expect.anything(), schemaName, 'page', { kind: 'id', value: entityId })
+        expect(mockFindEntity).toHaveBeenCalledWith(expect.anything(), schemaName, 'page', { kind: 'id', value: entityId }, 'authenticated')
         expect(result.resolvedEntityTypeId).toBe(entityId)
         expect(result.layout.templateKey).toBe('marketing-page')
         expect(result.scope).toBe('entity')
@@ -589,6 +626,93 @@ describe('effectiveLayoutResolver', () => {
         expect(result.widgets[0]?.sourceBaseWidgetId).toBe(globalWidgetId)
     })
 
+    it('attaches only the validated base Marketing binding to a binding-free overlay delta', async () => {
+        mockListCandidates.mockResolvedValue([
+            layoutRow({
+                template_key: 'marketing-page',
+                config: { __layout: { composition: { mode: 'independent', baseLayoutId: null } } }
+            }),
+            layoutRow({
+                id: scopedLayoutId,
+                scope_entity_id: entityId,
+                template_key: 'marketing-page',
+                config: { __layout: { composition: { mode: 'overlay', baseLayoutId: globalLayoutId } } }
+            })
+        ] as never)
+        mockListWidgets.mockResolvedValue([
+            widgetRow({
+                id: scopedWidgetId,
+                layout_id: scopedLayoutId,
+                zone: 'marketing-main',
+                widget_key: 'marketing.hero',
+                config: heroOverlayConfig(false),
+                source_config: heroOverlayConfig(true),
+                source_widget_id: globalWidgetId,
+                source_base_widget_id: globalWidgetId
+            })
+        ] as never)
+        mockFindBaseWidgets.mockResolvedValue([
+            {
+                id: globalWidgetId,
+                layout_id: globalLayoutId,
+                source_widget_id: globalWidgetId,
+                source_base_widget_id: null,
+                template_key: 'marketing-page',
+                scope_entity_id: null,
+                widget_key: 'marketing.hero',
+                zone: 'marketing-main',
+                config: heroSourceConfig('config-binding'),
+                source_config: heroSourceConfig('trusted-base-binding')
+            }
+        ] as never)
+
+        const result = await resolveEffectiveLayoutForRequest(
+            executor,
+            { applicationId, userId: 'user-1', role: 'member' },
+            resolverInput()
+        )
+        const resolvedHero = result.widgets.find(({ widgetKey }) => widgetKey === 'marketing.hero')
+
+        expect(resolvedHero?.config).toEqual({ instanceKey: 'page-hero', showLeadForm: false })
+        expect(resolvedHero?.sourceConfig).toEqual({ instanceKey: 'page-hero', showLeadForm: true })
+        expect(resolvedHero && getApplicationLayoutWidgetSourceBindingState(resolvedHero)).toEqual({
+            persistedApplicationRow: true,
+            bindings: heroBinding('trusted-base-binding')
+        })
+        expect(JSON.stringify(result)).not.toContain('bindings')
+    })
+
+    it('rejects a persisted binding in an inherited Marketing overlay source config', async () => {
+        mockListCandidates.mockResolvedValue([
+            layoutRow({
+                template_key: 'marketing-page',
+                config: { __layout: { composition: { mode: 'independent', baseLayoutId: null } } }
+            }),
+            layoutRow({
+                id: scopedLayoutId,
+                scope_entity_id: entityId,
+                template_key: 'marketing-page',
+                config: { __layout: { composition: { mode: 'overlay', baseLayoutId: globalLayoutId } } }
+            })
+        ] as never)
+        mockListWidgets.mockResolvedValue([
+            widgetRow({
+                id: scopedWidgetId,
+                layout_id: scopedLayoutId,
+                zone: 'marketing-main',
+                widget_key: 'marketing.hero',
+                config: heroOverlayConfig(false),
+                source_config: heroSourceConfig('forbidden-overlay-binding'),
+                source_widget_id: globalWidgetId,
+                source_base_widget_id: globalWidgetId
+            })
+        ] as never)
+
+        await expect(
+            resolveEffectiveLayoutForRequest(executor, { applicationId, userId: 'user-1', role: 'member' }, resolverInput())
+        ).rejects.toMatchObject<Partial<EffectiveLayoutError>>({ code: 'LAYOUT_PERSISTED_INVALID', httpStatus: 409 })
+    })
+
     it('allows a valid overlay whose inherited widgets are all hidden', async () => {
         mockListCandidates.mockResolvedValue([
             layoutRow(),
@@ -610,6 +734,37 @@ describe('effectiveLayoutResolver', () => {
         expect(result.layout.compositionMode).toBe('overlay')
         expect(result.layout.baseLayoutId).toBe(globalLayoutId)
         expect(result.widgets).toEqual([])
+    })
+
+    it('keeps application-owned scoped layouts that pass the public lifecycle filter', async () => {
+        mockListCandidates.mockResolvedValue([
+            layoutRow({
+                template_key: 'marketing-page',
+                name: { en: 'Published marketing' },
+                config: { themeMode: 'system', __layout: { composition: { mode: 'independent', baseLayoutId: null } } }
+            }),
+            layoutRow({
+                id: scopedLayoutId,
+                scope_entity_id: entityId,
+                template_key: 'marketing-page',
+                name: { en: 'Published local marketing' },
+                config: { themeMode: 'system', __layout: { composition: { mode: 'independent', baseLayoutId: null } } },
+                source_kind: 'application',
+                source_layout_id: null,
+                source_snapshot_hash: null,
+                source_content_hash: null,
+                local_content_hash: null
+            })
+        ] as never)
+        mockListWidgets.mockResolvedValue([])
+
+        const result = await resolveEffectiveLayoutForPublicTransaction(executor, resolverInput(), null)
+
+        expect(result.layout.id).toBe(scopedLayoutId)
+        expect(result.publicationIdentity).toBeNull()
+        expect(mockFindEntity).toHaveBeenCalledWith(executor, schemaName, 'object', { kind: 'id', value: entityId }, 'public')
+        expect(mockListCandidates).toHaveBeenCalledWith(executor, schemaName, entityId, 'public')
+        expect(mockListWidgets).toHaveBeenCalledWith(executor, schemaName, scopedLayoutId, 'public')
     })
 
     it('resolves an application-owned layout without fabricated publication metadata', async () => {

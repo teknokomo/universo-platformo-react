@@ -35,14 +35,15 @@ describe('effectiveLayoutStore', () => {
         expect(params).toEqual([entityId])
     })
 
-    it('reads customized state from source/config equality and keeps the layout id bound', async () => {
+    it('selects the source-state baseline and keeps the layout id bound', async () => {
         const { executor } = createMockDbExecutor()
         const layoutId = '018f8a78-7b8f-7c1d-a111-2222333344a2'
 
         await listEffectiveLayoutWidgets(executor, schemaName, layoutId)
 
         const [sql, params] = executor.query.mock.calls[0] as [string, unknown[]]
-        expect(sql).toContain('w.config IS DISTINCT FROM w.source_config')
+        expect(sql).toContain('w.source_state')
+        expect(sql).not.toContain('w.config IS DISTINCT FROM w.source_config')
         expect(sql).toContain('w.layout_id = $1')
         expect(sql).toContain('w.is_active = true')
         expect(params).toEqual([layoutId])
@@ -63,6 +64,9 @@ describe('effectiveLayoutStore', () => {
         expect(sql).toContain('l.scope_entity_id IS NULL')
         expect(sql).toContain('w.is_active = true')
         expect(sql).toContain('w.source_widget_id')
+        expect(sql).toContain('w.zone')
+        expect(sql).toContain('w.config')
+        expect(sql).toContain('w.source_config')
         expect(params).toEqual([[widgetId]])
     })
 
@@ -76,5 +80,30 @@ describe('effectiveLayoutStore', () => {
         expect(sql).toContain("NOT IN ('hub', 'set', 'enumeration', 'page', 'ledger')")
         expect(sql).toContain("$1 = 'object'")
         expect(params).toEqual(['object', entityId])
+    })
+
+    it('applies published lifecycle filters to anonymous effective-layout reads only', async () => {
+        const { executor } = createMockDbExecutor()
+        const entityId = '018f8a78-7b8f-7c1d-a111-2222333344a3'
+        const layoutId = '018f8a78-7b8f-7c1d-a111-2222333344a2'
+        const widgetId = '018f8a78-7b8f-7c1d-a111-2222333344a4'
+
+        await findEffectiveLayoutEntity(executor, schemaName, 'object', { kind: 'id', value: entityId }, 'public')
+        await listEffectiveLayoutCandidates(executor, schemaName, entityId, 'public')
+        await listEffectiveLayoutWidgets(executor, schemaName, layoutId, 'public')
+        await findEffectiveLayoutBaseWidgets(executor, schemaName, [widgetId], 'public')
+
+        const publicSql = executor.query.mock.calls.map(([sql]) => String(sql))
+        for (const sql of publicSql) {
+            expect(sql).toContain('"_upl_archived" = false')
+            expect(sql).toContain('"_app_archived" = false')
+            expect(sql).toContain('"_app_published" = true')
+        }
+
+        executor.query.mockClear()
+        await findEffectiveLayoutEntity(executor, schemaName, 'object', { kind: 'id', value: entityId })
+        const authenticatedSql = String(executor.query.mock.calls[0]?.[0])
+        expect(authenticatedSql).toContain('o._upl_deleted = false')
+        expect(authenticatedSql).not.toContain('"_app_published" = true')
     })
 })

@@ -95,15 +95,25 @@ const hasLiveEntityBinding = async (db: SqlQueryable, schemaName: string, lookup
                 AND layout._upl_deleted = false
                 AND layout._mhb_deleted = false
              UNION ALL
-             SELECT layout_override.config
+             SELECT base_widget.config
                FROM ${overridesTable} layout_override
                JOIN ${layoutsTable} layout ON layout.id = layout_override.layout_id
-              WHERE layout_override.config IS NOT NULL
+               JOIN ${layoutsTable} base_layout ON base_layout.id = layout.base_layout_id
+               JOIN ${widgetsTable} base_widget ON base_widget.id = layout_override.base_widget_id
+              WHERE layout.template_key = 'marketing-page'
+                AND layout.scope_entity_id IS NOT NULL
+                AND base_widget.layout_id = base_layout.id
+                AND base_layout.scope_entity_id IS NULL
+                AND base_layout.template_key = layout.template_key
                 AND layout_override.is_deleted_override = false
                 AND layout_override._upl_deleted = false
                 AND layout_override._mhb_deleted = false
+                AND base_widget._upl_deleted = false
+                AND base_widget._mhb_deleted = false
                 AND layout._upl_deleted = false
                 AND layout._mhb_deleted = false
+                AND base_layout._upl_deleted = false
+                AND base_layout._mhb_deleted = false
          ), slots AS (
              SELECT slot.value AS value
                FROM persisted_configs config

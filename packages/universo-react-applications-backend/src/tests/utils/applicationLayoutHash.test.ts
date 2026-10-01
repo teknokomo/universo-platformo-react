@@ -285,6 +285,20 @@ describe('application layout content hash', () => {
         expect(localHash).not.toBe(bindingHash)
     })
 
+    it('changes the semantic hash when only a trusted source binding changes', () => {
+        const marketingLayout = {
+            ...layout,
+            templateKey: 'marketing-page' as const,
+            config: { __layout: { composition: { mode: 'independent', baseLayoutId: null } } }
+        }
+        const defaultBinding = mappedHero(true, 'default')
+        const campaignBinding = mappedHero(true, 'campaign')
+
+        expect(hashApplicationLayoutContent({ layout: marketingLayout, widgets: [campaignBinding] })).not.toBe(
+            hashApplicationLayoutContent({ layout: marketingLayout, widgets: [defaultBinding] })
+        )
+    })
+
     it('includes the complete overlay base lineage in the semantic hash', () => {
         const baseLayoutId = '0190a9b5-3cde-7abc-8def-1123456789b1'
         const nextBaseLayoutId = '0190a9b5-3cde-7abc-8def-1123456789b2'

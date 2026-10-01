@@ -106,7 +106,9 @@ export async function verifyPublishedMarketingHeroRuntime(options: {
     browserIssues: ReturnType<typeof watchBrowserRuntimeIssues>
     applicationId: string
     brandLogoUrl: string
+    imageAltText: { en: string; ru: string }
     actionTargetId: string
+    expectedValidationResourceUrls: string[]
     expectedConflictResourceUrls: string[]
     firstHero: HeroCopy
     secondHero: HeroCopy
@@ -117,7 +119,9 @@ export async function verifyPublishedMarketingHeroRuntime(options: {
         browserIssues,
         applicationId,
         brandLogoUrl,
+        imageAltText,
         actionTargetId,
+        expectedValidationResourceUrls,
         expectedConflictResourceUrls,
         firstHero,
         secondHero
@@ -139,6 +143,16 @@ export async function verifyPublishedMarketingHeroRuntime(options: {
         'Published marketing header'
     )
     await expectPublishedBrandLogo(page.locator(`#footer img[src="${brandLogoUrl}"]`), 'Published marketing footer')
+    const heroImage = page.locator('#marketing-widget-hero-image img')
+    await expect(heroImage, 'The published Marketing Image must render from its bound Entity record').toHaveCount(1)
+    await expect(heroImage).toHaveAttribute('alt', imageAltText.en)
+    await expect(heroImage).toHaveAttribute('src', brandLogoUrl)
+    await expect
+        .poll(async () => heroImage.evaluate((image) => (image as HTMLImageElement).naturalWidth), {
+            message: 'Waiting for the published Marketing Image to decode',
+            timeout: 30_000
+        })
+        .toBeGreaterThan(0)
 
     await page.waitForLoadState('networkidle')
     await page.reload()
@@ -176,6 +190,9 @@ export async function verifyPublishedMarketingHeroRuntime(options: {
     await expect(firstHeroHeadings).toBeVisible({ timeout: 120_000 })
     await expect(secondHeroHeadings).toBeVisible({ timeout: 120_000 })
     await expect(page.locator('#marketing-widget-faq')).toHaveCount(0)
+    await expect(heroImage).toBeVisible()
+    await expect(heroImage).toHaveAttribute('alt', imageAltText.en)
+    await expect(heroImage).toHaveAttribute('src', brandLogoUrl)
 
     await expectStrictRuntimeUxSurface(page.locator('body'), {
         label: 'Published marketing-page authoring flow',
@@ -185,6 +202,11 @@ export async function verifyPublishedMarketingHeroRuntime(options: {
         beforeEachViewport: async (viewport) => {
             await expect(firstHeroHeadings).toHaveCount(1)
             await expect(secondHeroHeadings).toHaveCount(1)
+            await expect(heroImage).toBeVisible()
+            await expect(heroImage).toHaveAttribute('alt', imageAltText.en)
+            await expect(heroImage).toHaveAttribute('src', brandLogoUrl)
+            await expect(page.locator('#marketing-page-main img[src=""]')).toHaveCount(0)
+            await expectNoPageHorizontalOverflow(page, `Published Entity-backed Marketing Image at ${viewport.name}`)
             await expect(firstHeroHeadings.first()).toBeVisible()
             await expect(secondHeroHeadings.first()).toBeVisible()
             const secondHeroAction = page
@@ -238,6 +260,7 @@ export async function verifyPublishedMarketingHeroRuntime(options: {
     const russianPermissionsResponse = await russianPermissionsResponsePromise
     expect([200, 401]).toContain(russianPermissionsResponse.status())
     await expect(page.locator('html')).toHaveAttribute('lang', 'ru')
+    await expect(heroImage).toHaveAttribute('alt', imageAltText.ru)
     const firstHeroRussianHeading = page.getByRole('heading', {
         name: `${firstHero.titleRu} ${firstHero.accentRu}`,
         exact: true
@@ -254,6 +277,9 @@ export async function verifyPublishedMarketingHeroRuntime(options: {
         beforeEachViewport: async (viewport) => {
             await expect(firstHeroRussianHeading).toBeVisible()
             await expect(secondHeroRussianHeading).toBeVisible()
+            await expect(heroImage).toBeVisible()
+            await expect(heroImage).toHaveAttribute('alt', imageAltText.ru)
+            await expect(heroImage).toHaveAttribute('src', brandLogoUrl)
             if (viewport.name === 'desktop-1920') {
                 const accessibility = await new AxeBuilder({ page })
                     .include('#marketing-page-main')
@@ -301,6 +327,7 @@ export async function verifyPublishedMarketingHeroRuntime(options: {
 
     expectNoUnexpectedBrowserRuntimeIssues(browserIssues, 'Marketing-page authoring browser flow', {
         allowTextPatterns: [expectedRuntimeFailurePattern],
+        allowExpectedValidationResourceUrls: expectedValidationResourceUrls,
         allowExpectedConflictResourceUrls: expectedConflictResourceUrls
     })
 }

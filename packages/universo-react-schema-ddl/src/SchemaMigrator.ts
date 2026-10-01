@@ -29,6 +29,14 @@ export interface ApplyChangesOptions {
     userId?: string | null
     /** Optional capability gates for application-like system tables */
     systemTableCapabilities?: SystemTableCapabilityOptions
+    /** Optional hook executed in the migration transaction before any schema DDL is applied. */
+    beforeSchemaChanges?: (context: {
+        trx: Knex.Transaction
+        schemaName: string
+        snapshotBefore: SchemaSnapshot | null
+        diff: SchemaDiff
+        tableNames: string[]
+    }) => Promise<void>
     /** Optional hook executed inside the migration transaction after migration history is recorded */
     afterMigrationRecorded?: (context: {
         trx: Knex.Transaction
@@ -154,6 +162,27 @@ export class SchemaMigrator {
 
         try {
             await this.knex.transaction(async (trx) => {
+                if (diff.hasChanges) {
+                    const runtimeTableNames = new Set<string>()
+                    for (const entity of Object.values(snapshotBefore?.entities ?? {})) {
+                        if (entity.tableName) runtimeTableNames.add(entity.tableName)
+                    }
+                    for (const entity of entities) {
+                        if (hasPhysicalRuntimeTable(entity)) runtimeTableNames.add(resolveEntityTableName(entity))
+                    }
+                    for (const change of [...diff.destructive, ...diff.additive]) {
+                        if (change.tableName) runtimeTableNames.add(change.tableName)
+                    }
+
+                    await options?.beforeSchemaChanges?.({
+                        trx,
+                        schemaName,
+                        snapshotBefore,
+                        diff,
+                        tableNames: [...runtimeTableNames].sort()
+                    })
+                }
+
                 for (const change of this.orderChangesForApply(diff.destructive, 'destructive')) {
                     try {
                         await this.applyChange(schemaName, change, entities, trx, options)

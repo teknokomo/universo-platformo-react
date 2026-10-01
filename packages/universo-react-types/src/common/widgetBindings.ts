@@ -1,9 +1,17 @@
 import { z } from 'zod'
+import {
+    entityRecordPolicyCoRequiredGroupsSchema,
+    entityRecordPolicyConditionalRequiredSchema,
+    resolveEntityRecordPolicy,
+    sameEntityRecordPolicyConditionalRequired
+} from './entityRecordPolicy'
 
 export const MAX_WIDGET_BINDING_SLOTS = 16
 export const MAX_WIDGET_BINDING_TARGETS = 32
+export const MAX_WIDGET_BINDING_RESOLVED_RECORDS = 500
 export const MAX_WIDGET_BINDING_PROJECTION_FIELDS = 32
 export const MAX_WIDGET_BINDING_COMPONENTS = 32
+export const MAX_MARKETING_WIDGET_SOURCE_RECORDS = 1000
 
 const semanticNamePattern = /^[A-Za-z][A-Za-z0-9._-]*$/u
 const semanticValuePattern = /^[A-Za-z0-9][A-Za-z0-9._-]*$/u
@@ -35,6 +43,19 @@ export const semanticEntitySelectorSchema = z
     .strict()
 export type SemanticEntitySelector = z.infer<typeof semanticEntitySelectorSchema>
 
+export const recordSetEntitySelectorSchema = z.object({ kind: z.literal('record-set') }).strict()
+export type RecordSetEntitySelector = z.infer<typeof recordSetEntitySelectorSchema>
+
+export const relationSetEntitySelectorSchema = z.object({ kind: z.literal('relation-set'), parentSlot: semanticRoleSchema }).strict()
+export type RelationSetEntitySelector = z.infer<typeof relationSetEntitySelectorSchema>
+
+export const widgetBindingSelectorSchema = z.discriminatedUnion('kind', [
+    semanticEntitySelectorSchema,
+    recordSetEntitySelectorSchema,
+    relationSetEntitySelectorSchema
+])
+export type WidgetBindingSelector = z.infer<typeof widgetBindingSelectorSchema>
+
 export const widgetBindingProjectionFieldSchema = z
     .object({
         field: semanticRoleSchema,
@@ -47,7 +68,7 @@ const widgetBindingTargetSchema = z
     .object({
         entityKind: widgetBindingEntityKindSchema,
         entityCodename: semanticNameSchema(128),
-        selector: semanticEntitySelectorSchema,
+        selector: widgetBindingSelectorSchema,
         projection: z.array(widgetBindingProjectionFieldSchema).min(1).max(MAX_WIDGET_BINDING_PROJECTION_FIELDS)
     })
     .strict()
@@ -84,7 +105,13 @@ const widgetBindingSlotSchema = z
     .superRefine((slot, context) => {
         const identities = new Set<string>()
         slot.targets.forEach((target, index) => {
-            const identity = [target.entityKind, target.entityCodename, target.selector.field, target.selector.value].join('\u0000')
+            const selectorIdentity =
+                target.selector.kind === 'semantic-key'
+                    ? [target.selector.kind, target.selector.field, target.selector.value].join('\u0000')
+                    : target.selector.kind === 'relation-set'
+                    ? [target.selector.kind, target.selector.parentSlot].join('\u0000')
+                    : target.selector.kind
+            const identity = [target.entityKind, target.entityCodename, selectorIdentity].join('\u0000')
             if (identities.has(identity)) {
                 context.addIssue({
                     code: z.ZodIssueCode.custom,
@@ -132,7 +159,8 @@ const bindingRecordPolicyRequirementSchema = z
             .strict()
             .optional(),
         requiredLocales: z.array(z.string().trim().min(2).max(16)).min(1).max(8).optional(),
-        validatorKey: z.string().trim().min(1).max(128).optional()
+        coRequiredGroups: entityRecordPolicyCoRequiredGroupsSchema.optional(),
+        conditionalRequired: entityRecordPolicyConditionalRequiredSchema.optional()
     })
     .strict()
 
@@ -140,24 +168,70 @@ const bindingComponentRequirementSchema = z
     .object({
         field: semanticRoleSchema,
         componentCodename: semanticNameSchema(128),
-        valueType: z.enum(['string', 'number', 'boolean', 'json']),
+        valueType: z.enum(['string', 'number', 'boolean', 'json', 'ref']),
         localized: z.boolean(),
         required: z.boolean(),
         semanticKey: z.boolean().optional(),
         maxLength: z.number().int().positive().max(4096).optional(),
+        pattern: z.string().trim().min(1).max(256).optional(),
         format: z.string().trim().min(1).max(64).regex(semanticNamePattern, 'Expected a semantic validator format.').optional()
     })
     .strict()
     .superRefine((component, context) => {
-        if (component.semanticKey && (component.valueType !== 'string' || component.localized || !component.required)) {
+        if (
+            component.semanticKey &&
+            (component.valueType !== 'string' || component.localized || !component.required || !component.pattern)
+        ) {
             context.addIssue({
                 code: z.ZodIssueCode.custom,
                 path: ['semanticKey'],
-                message: 'Semantic keys must be required, non-localized string Components.'
+                message: 'Semantic keys must be required, non-localized string Components with a canonical pattern.'
             })
         }
     })
 export type WidgetBindingComponentRequirement = z.infer<typeof bindingComponentRequirementSchema>
+
+/** Normalize physical Component data types before comparing persisted metadata with a binding contract. */
+export const normalizeWidgetBindingDataType = (value: unknown): string | undefined => {
+    if (typeof value !== 'string') return undefined
+    const normalized = value
+        .trim()
+        .toUpperCase()
+        .replace(/\s+/gu, ' ')
+        .replace(/\s*\([^()]*\)\s*$/u, '')
+    if (['STRING', 'TEXT', 'VARCHAR', 'CHARACTER VARYING', 'CHARACTER', 'CHAR', 'BPCHAR', 'CITEXT'].includes(normalized)) {
+        return 'STRING'
+    }
+    if (
+        [
+            'NUMBER',
+            'NUMERIC',
+            'DECIMAL',
+            'DEC',
+            'INTEGER',
+            'INT',
+            'INT2',
+            'INT4',
+            'INT8',
+            'SMALLINT',
+            'BIGINT',
+            'SERIAL',
+            'SMALLSERIAL',
+            'BIGSERIAL',
+            'REAL',
+            'FLOAT',
+            'FLOAT4',
+            'FLOAT8',
+            'DOUBLE PRECISION'
+        ].includes(normalized)
+    ) {
+        return 'NUMBER'
+    }
+    if (normalized === 'BOOLEAN' || normalized === 'BOOL') return 'BOOLEAN'
+    if (normalized === 'JSON' || normalized === 'JSONB') return 'JSON'
+    if (normalized === 'REF' || normalized === 'UUID') return 'REF'
+    return normalized
+}
 
 /** Keep binding metadata checks identical at persistence and snapshot boundaries. */
 export const matchesWidgetBindingComponentValidationRules = (
@@ -172,6 +246,7 @@ export const matchesWidgetBindingComponentValidationRules = (
         (rules.localized === true) === requirement.localized &&
         (requirement.maxLength === undefined || rules.maxLength === requirement.maxLength) &&
         (requirement.semanticKey !== true || rules.unique === true) &&
+        (requirement.pattern === undefined || rules.pattern === requirement.pattern) &&
         (requirement.format === undefined || rules.format === requirement.format)
     )
 }
@@ -201,6 +276,38 @@ const widgetBindingSlotRequirementsSchema = z
                 message: 'Required Component codenames must be unique.'
             })
         }
+        for (const [groupIndex, group] of (requirements.recordPolicy?.coRequiredGroups ?? []).entries()) {
+            for (const [fieldIndex, codename] of group.entries()) {
+                const component = requirements.components.find((candidate) => candidate.componentCodename === codename)
+                if (!component || component.required) {
+                    context.addIssue({
+                        code: z.ZodIssueCode.custom,
+                        path: ['recordPolicy', 'coRequiredGroups', groupIndex, fieldIndex],
+                        message: 'Co-required Components must be declared as optional slot requirements.'
+                    })
+                }
+            }
+        }
+        for (const [ruleIndex, rule] of (requirements.recordPolicy?.conditionalRequired ?? []).entries()) {
+            const target = requirements.components.find((candidate) => candidate.componentCodename === rule.componentCodename)
+            const condition = requirements.components.find((candidate) => candidate.componentCodename === rule.when.componentCodename)
+            const expectedConditionType =
+                typeof rule.when.equals === 'boolean' ? 'boolean' : typeof rule.when.equals === 'number' ? 'number' : 'string'
+            if (!target || target.required) {
+                context.addIssue({
+                    code: z.ZodIssueCode.custom,
+                    path: ['recordPolicy', 'conditionalRequired', ruleIndex, 'componentCodename'],
+                    message: 'Conditionally required Components must be declared as optional slot requirements.'
+                })
+            }
+            if (!condition || condition.localized || condition.valueType !== expectedConditionType) {
+                context.addIssue({
+                    code: z.ZodIssueCode.custom,
+                    path: ['recordPolicy', 'conditionalRequired', ruleIndex, 'when'],
+                    message: 'Conditional requirements must reference a non-localized scalar Component with a matching value type.'
+                })
+            }
+        }
         if (requirements.components.filter(({ semanticKey }) => semanticKey === true).length > 1) {
             context.addIssue({
                 code: z.ZodIssueCode.custom,
@@ -227,6 +334,10 @@ const widgetBindingSlotRequirementsSchema = z
 export const widgetBindingSlotDefinitionSchema = z
     .object({
         key: semanticRoleSchema,
+        selectorKinds: z
+            .array(z.enum(['semantic-key', 'record-set', 'relation-set']))
+            .min(1)
+            .max(3),
         authoring: z
             .object({
                 labelKey: z.string().trim().min(1).max(128),
@@ -256,10 +367,135 @@ export const widgetBindingSlotDefinitionSchema = z
                     })
                 }
             }),
+        orderByField: semanticRoleSchema.optional(),
+        visibilityField: semanticRoleSchema.optional(),
+        maxResolvedRecords: z.number().int().positive().max(MAX_WIDGET_BINDING_RESOLVED_RECORDS).optional(),
+        relation: z.object({ field: semanticRoleSchema, parentSlot: semanticRoleSchema }).strict().optional(),
         requirements: widgetBindingSlotRequirementsSchema
     })
     .strict()
+    .superRefine((slot, context) => {
+        const fields = new Set(slot.requirements.components.map(({ field }) => field))
+        if (slot.orderByField && !fields.has(slot.orderByField)) {
+            context.addIssue({ code: z.ZodIssueCode.custom, path: ['orderByField'], message: 'Order role must be declared by the slot.' })
+        }
+        if (slot.visibilityField && !fields.has(slot.visibilityField)) {
+            context.addIssue({
+                code: z.ZodIssueCode.custom,
+                path: ['visibilityField'],
+                message: 'Visibility role must be declared by the slot.'
+            })
+        }
+        if (slot.relation) {
+            const relationComponent = slot.requirements.components.find(({ field }) => field === slot.relation?.field)
+            if (!slot.selectorKinds.includes('relation-set') || relationComponent?.valueType !== 'ref') {
+                context.addIssue({
+                    code: z.ZodIssueCode.custom,
+                    path: ['relation'],
+                    message: 'Relation slots require a declared REF Component.'
+                })
+            }
+        }
+        if (slot.selectorKinds.includes('relation-set') !== Boolean(slot.relation)) {
+            context.addIssue({
+                code: z.ZodIssueCode.custom,
+                path: ['relation'],
+                message: 'Relation-set slots must declare one REF relationship.'
+            })
+        }
+        if (slot.selectorKinds.includes('record-set') && slot.maxResolvedRecords === undefined) {
+            context.addIssue({
+                code: z.ZodIssueCode.custom,
+                path: ['maxResolvedRecords'],
+                message: 'Record-set slots require a server result limit.'
+            })
+        }
+    })
 export type WidgetBindingSlotDefinition = z.infer<typeof widgetBindingSlotDefinitionSchema>
+
+export interface WidgetBindingEntityComponentMetadata {
+    readonly codename: string
+    readonly dataType: string
+    readonly isRequired: boolean
+    readonly validationRules: unknown
+}
+
+export interface WidgetBindingEntityMetadata {
+    readonly kind: string
+    readonly config: unknown
+    readonly components: readonly WidgetBindingEntityComponentMetadata[]
+}
+
+const matchesBindingValueType = (actualType: string, expectedType: WidgetBindingComponentRequirement['valueType']): boolean => {
+    const expectedCanonicalType: Readonly<Record<WidgetBindingComponentRequirement['valueType'], string>> = {
+        string: 'STRING',
+        number: 'NUMBER',
+        boolean: 'BOOLEAN',
+        json: 'JSON',
+        ref: 'REF'
+    }
+    return normalizeWidgetBindingDataType(actualType) === expectedCanonicalType[expectedType]
+}
+
+/** Check persisted Entity metadata against the exact registry contract for one binding slot. */
+export const isCompatibleWidgetBindingEntity = (slot: WidgetBindingSlotDefinition, entity: WidgetBindingEntityMetadata): boolean => {
+    if (slot.requirements.entityKinds && !slot.requirements.entityKinds.includes(entity.kind as WidgetBindingEntityKind)) return false
+    const componentsByCodename = new Map<string, WidgetBindingEntityComponentMetadata>()
+    for (const component of entity.components) {
+        if (!component.codename || componentsByCodename.has(component.codename)) return false
+        componentsByCodename.set(component.codename, component)
+    }
+
+    for (const requirement of slot.requirements.components) {
+        const component = componentsByCodename.get(requirement.componentCodename)
+        if (
+            !component ||
+            !matchesBindingValueType(component.dataType, requirement.valueType) ||
+            component.isRequired !== requirement.required ||
+            !matchesWidgetBindingComponentValidationRules(requirement, component.validationRules)
+        ) {
+            return false
+        }
+    }
+
+    const expectedPolicy = slot.requirements.recordPolicy
+    if (!expectedPolicy) return true
+    let actualPolicy
+    try {
+        actualPolicy = resolveEntityRecordPolicy(entity.config)
+    } catch {
+        return false
+    }
+    if (!actualPolicy) return false
+    const expectedSemantic = expectedPolicy.semanticKey
+    if (
+        actualPolicy.runtimeMutation !== expectedPolicy.runtimeMutation ||
+        (expectedPolicy.denyDeleteWhenBound !== undefined && actualPolicy.denyDeleteWhenBound !== expectedPolicy.denyDeleteWhenBound) ||
+        (expectedPolicy.immutableSemanticKeyWhenBound !== undefined &&
+            actualPolicy.immutableSemanticKeyWhenBound !== expectedPolicy.immutableSemanticKeyWhenBound) ||
+        actualPolicy.semanticKey?.componentCodename !== expectedSemantic?.componentCodename ||
+        actualPolicy.semanticKey?.creationPrefix !== expectedSemantic?.creationPrefix ||
+        (expectedSemantic !== undefined &&
+            (actualPolicy.semanticKey?.protectedValues.length !== expectedSemantic.protectedValues.length ||
+                expectedSemantic.protectedValues.some((value) => !actualPolicy.semanticKey?.protectedValues.includes(value)))) ||
+        (expectedPolicy.requiredLocales !== undefined &&
+            (actualPolicy.requiredLocales?.length !== expectedPolicy.requiredLocales.length ||
+                expectedPolicy.requiredLocales.some((locale) => !actualPolicy.requiredLocales?.includes(locale)))) ||
+        !sameStringGroups(actualPolicy.coRequiredGroups, expectedPolicy.coRequiredGroups) ||
+        !sameEntityRecordPolicyConditionalRequired(actualPolicy.conditionalRequired, expectedPolicy.conditionalRequired)
+    ) {
+        return false
+    }
+    return true
+}
+
+const sameStringGroups = (left: readonly (readonly string[])[] | undefined, right: readonly (readonly string[])[] | undefined): boolean => {
+    const normalize = (groups: readonly (readonly string[])[] | undefined): string[] =>
+        (groups ?? []).map((group) => [...group].sort().join('\u0000')).sort()
+    const normalizedLeft = normalize(left)
+    const normalizedRight = normalize(right)
+    return normalizedLeft.length === normalizedRight.length && normalizedLeft.every((group, index) => group === normalizedRight[index])
+}
 
 const switchPresentationFieldSchema = z
     .object({
@@ -313,8 +549,27 @@ const selectPresentationFieldSchema = z
     })
     .strict()
 
+const numberPresentationFieldSchema = z
+    .object({
+        key: semanticRoleSchema,
+        kind: z.literal('number'),
+        labelKey: z.string().trim().min(1).max(128),
+        defaultLabel: z.string().trim().min(1).max(128),
+        helperTextKey: z.string().trim().min(1).max(128),
+        defaultHelperText: z.string().trim().min(1).max(256),
+        defaultValue: z.number().int(),
+        min: z.number().int(),
+        max: z.number().int()
+    })
+    .strict()
+
 export const layoutWidgetPresentationFieldSchema = z
-    .discriminatedUnion('kind', [switchPresentationFieldSchema, textPresentationFieldSchema, selectPresentationFieldSchema])
+    .discriminatedUnion('kind', [
+        switchPresentationFieldSchema,
+        textPresentationFieldSchema,
+        selectPresentationFieldSchema,
+        numberPresentationFieldSchema
+    ])
     .superRefine((field, context) => {
         if (field.kind === 'text') {
             if (field.minLength !== undefined && field.maxLength !== undefined && field.minLength > field.maxLength) {
@@ -349,14 +604,61 @@ export const layoutWidgetPresentationFieldSchema = z
                 })
             }
         }
+        if (field.kind === 'number' && (field.min > field.max || field.defaultValue < field.min || field.defaultValue > field.max)) {
+            context.addIssue({
+                code: z.ZodIssueCode.custom,
+                path: ['defaultValue'],
+                message: 'Numeric presentation default must be within its declared bounds.'
+            })
+        }
     })
 export type LayoutWidgetPresentationField = z.infer<typeof layoutWidgetPresentationFieldSchema>
 
+export const layoutWidgetAuthoringCapabilitiesSchema = z
+    .object({
+        metahub: z
+            .object({
+                add: z.enum(['none', 'select-source', 'create-or-select']),
+                duplicate: z.enum(['none', 'share-bindings', 'clone-record']),
+                contentEditing: z.enum(['none', 'single-record', 'record-set', 'multi-slot']),
+                canRebind: z.boolean()
+            })
+            .strict(),
+        application: z
+            .object({
+                presentationOnly: z.boolean(),
+                canAdd: z.boolean(),
+                canDuplicate: z.boolean(),
+                canEditContent: z.boolean(),
+                canRebind: z.boolean(),
+                resetToSource: z.boolean()
+            })
+            .strict()
+    })
+    .strict()
+    .superRefine((capabilities, context) => {
+        if (capabilities.application.presentationOnly && (capabilities.application.canEditContent || capabilities.application.canRebind)) {
+            context.addIssue({
+                code: z.ZodIssueCode.custom,
+                path: ['application'],
+                message: 'Presentation-only Application capabilities cannot mutate content or bindings.'
+            })
+        }
+    })
+export type LayoutWidgetAuthoringCapabilities = z.infer<typeof layoutWidgetAuthoringCapabilitiesSchema>
+
 export interface WidgetBindingDefinitionContract {
     readonly bindingSlots?: readonly WidgetBindingSlotDefinition[]
+    readonly bindingVariants?: Readonly<Record<string, readonly WidgetBindingSlotDefinition[]>>
 }
 
 const canonicalCompare = (left: string, right: string): number => (left < right ? -1 : left > right ? 1 : 0)
+
+const getBindingSelectorIdentity = (selector: WidgetBindingSelector): string => {
+    if (selector.kind === 'semantic-key') return [selector.kind, selector.field, selector.value].join('\u0000')
+    if (selector.kind === 'relation-set') return [selector.kind, selector.parentSlot].join('\u0000')
+    return selector.kind
+}
 
 /** Parse and sort set-like binding collections so hashes and persistence are stable. */
 export const canonicalizeWidgetBindings = (input: unknown): WidgetEntityBindingEnvelope => {
@@ -369,8 +671,10 @@ export const canonicalizeWidgetBindings = (input: unknown): WidgetEntityBindingE
                 slot,
                 targets: [...targets]
                     .sort((left, right) => {
-                        const leftIdentity = [left.entityKind, left.entityCodename, left.selector.field, left.selector.value].join('\u0000')
-                        const rightIdentity = [right.entityKind, right.entityCodename, right.selector.field, right.selector.value].join(
+                        const leftIdentity = [left.entityKind, left.entityCodename, getBindingSelectorIdentity(left.selector)].join(
+                            '\u0000'
+                        )
+                        const rightIdentity = [right.entityKind, right.entityCodename, getBindingSelectorIdentity(right.selector)].join(
                             '\u0000'
                         )
                         return canonicalCompare(leftIdentity, rightIdentity)
@@ -417,6 +721,13 @@ export const validateWidgetBindings = (definition: WidgetBindingDefinitionContra
         const declaredComponents = new Map(requirements.components.map((component) => [component.field, component]))
         const semanticKeyFields = requirements.components.filter(({ semanticKey }) => semanticKey === true)
         binding.targets.forEach((target, targetIndex) => {
+            if (!definitionForSlot.selectorKinds.includes(target.selector.kind)) {
+                addBindingIssue(
+                    issues,
+                    ['slots', bindingIndex, 'targets', targetIndex, 'selector', 'kind'],
+                    'Selector kind is not allowed by this slot.'
+                )
+            }
             if (requirements.entityKinds && !requirements.entityKinds.includes(target.entityKind)) {
                 addBindingIssue(
                     issues,
@@ -424,11 +735,21 @@ export const validateWidgetBindings = (definition: WidgetBindingDefinitionContra
                     'Entity kind is not allowed by this slot.'
                 )
             }
-            if (semanticKeyFields.length !== 1 || target.selector.field !== semanticKeyFields[0]?.field) {
+            if (
+                target.selector.kind === 'semantic-key' &&
+                (semanticKeyFields.length !== 1 || target.selector.field !== semanticKeyFields[0]?.field)
+            ) {
                 addBindingIssue(
                     issues,
                     ['slots', bindingIndex, 'targets', targetIndex, 'selector', 'field'],
                     'Selector must use the slot semantic-key Component.'
+                )
+            }
+            if (target.selector.kind === 'relation-set' && target.selector.parentSlot !== definitionForSlot.relation?.parentSlot) {
+                addBindingIssue(
+                    issues,
+                    ['slots', bindingIndex, 'targets', targetIndex, 'selector', 'parentSlot'],
+                    'Relation selector must use the declared parent slot.'
                 )
             }
 
@@ -466,6 +787,13 @@ export const validateWidgetBindings = (definition: WidgetBindingDefinitionContra
         const bindingIndex = bindings.slots.findIndex(({ slot: key }) => key === slot.key)
         if (slot.cardinality.min > 0 && bindingIndex === -1) {
             addBindingIssue(issues, ['bindingSlots', definitionIndex], 'Required binding slot is missing.')
+        }
+    })
+
+    bindings.slots.forEach((binding, bindingIndex) => {
+        const relation = definitions.get(binding.slot)?.relation
+        if (relation && !bindings.slots.some(({ slot }) => slot === relation.parentSlot)) {
+            addBindingIssue(issues, ['slots', bindingIndex], 'Relation binding requires its parent slot.')
         }
     })
 

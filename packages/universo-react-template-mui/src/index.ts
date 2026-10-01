@@ -98,7 +98,6 @@ export type {
     LayoutZoneSettingsDialogLabels,
     LayoutZoneSettingsDialogProps,
     MarketingWidgetConfigDialogProps,
-    MarketingWidgetSourceOption,
     LayoutStateChipsProps,
     LayoutChipLabels,
     MenuWidgetSideMenuSettingsProps,

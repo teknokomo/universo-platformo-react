@@ -14,7 +14,7 @@ import {
     confirmOptimisticUpdate,
     confirmOptimisticCreate
 } from '@universo-react/template-mui'
-import { getVLCString, isApiError, makePendingMarkers, resolveApiErrorMessage } from '@universo-react/utils'
+import { getVLCString, makePendingMarkers, resolveApiErrorMessage } from '@universo-react/utils'
 import { metahubsQueryKeys } from '../../shared'
 import * as layoutsApi from '../api'
 import type { CreateLayoutParams, UpdateLayoutParams, DeleteLayoutParams, CopyLayoutParams } from './mutationTypes'
@@ -262,12 +262,7 @@ export function useCopyLayout() {
             if (context?.breadcrumbKey) {
                 cleanupBreadcrumbCache(queryClient, context.breadcrumbKey)
             }
-            const message = isApiError(error, 'MARKETING_HERO_COPY_MODE_REQUIRED')
-                ? t(
-                      'layouts.copy.options.heroBindingModeRequired',
-                      'Choose whether to reuse or skip bound Hero placements before copying this layout.'
-                  )
-                : resolveApiErrorMessage(error, t('layouts.copyError', 'Failed to copy layout'))
+            const message = resolveApiErrorMessage(error, t('layouts.copyError', 'Failed to copy layout'))
             enqueueSnackbar(message, { variant: 'error' })
         },
         onSettled: async (_data, _error, variables) => {

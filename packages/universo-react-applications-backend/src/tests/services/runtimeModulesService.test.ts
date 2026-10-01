@@ -1,6 +1,7 @@
 import type { ApplicationLifecycleContract, ApplicationModuleDefinition } from '@universo-react/types'
 import { RuntimeModulesService } from '../../services/runtimeModulesService'
 import { createMockDbExecutor } from '../utils/dbMocks'
+import { createMarketingCollectionConfig } from '../utils/marketingWidgetBindings'
 
 const defaultLifecycleContract: ApplicationLifecycleContract = {
     publish: { enabled: true, trackAt: true, trackBy: true },
@@ -881,8 +882,22 @@ describe('RuntimeModulesService', () => {
             'buildWritableColumnValues'
         ).mockResolvedValue([{ column: 'name', value: 'Blocked FAQ' }])
 
-        txExecutor.query.mockImplementation(async (sql: string) => {
+        txExecutor.query.mockImplementation(async (sql: string, params?: unknown[]) => {
             if (String(sql).includes('pg_advisory_xact_lock')) return []
+            if (String(sql).includes('information_schema.tables')) return [{ layouts: true, widgets: true }]
+            if (String(sql).includes('"_app_widgets"')) {
+                expect(params).toEqual(['marketing-page', 'MarketingPageFaq'])
+                const config = createMarketingCollectionConfig('MarketingPageFaq')
+                return [
+                    {
+                        widget_key: 'marketing.collection',
+                        zone: 'marketing-main',
+                        config,
+                        source_config: null,
+                        source_base_widget_id: null
+                    }
+                ]
+            }
             if (String(sql).includes('COUNT(*)')) return [{ count: '1000' }]
             return []
         })

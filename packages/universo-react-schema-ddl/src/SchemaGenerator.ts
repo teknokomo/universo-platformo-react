@@ -1145,6 +1145,7 @@ export class SchemaGenerator {
                 table.integer('sort_order').notNullable().defaultTo(1)
                 table.jsonb('config').notNullable().defaultTo('{}')
                 table.jsonb('source_config').nullable()
+                table.jsonb('source_state').nullable()
                 table.boolean('is_active').notNullable().defaultTo(true)
                 table.uuid('source_widget_id').nullable()
                 table.uuid('source_base_widget_id').nullable()
@@ -1190,6 +1191,7 @@ export class SchemaGenerator {
                 ALTER TABLE "${schemaName}"."_app_widgets"
                 ADD COLUMN IF NOT EXISTS "is_active" BOOLEAN NOT NULL DEFAULT true,
                 ADD COLUMN IF NOT EXISTS "source_config" JSONB NULL,
+                ADD COLUMN IF NOT EXISTS "source_state" JSONB NULL,
                 ADD COLUMN IF NOT EXISTS "source_widget_id" UUID NULL,
                 ADD COLUMN IF NOT EXISTS "source_base_widget_id" UUID NULL,
                 ADD COLUMN IF NOT EXISTS "source_content_hash" TEXT NULL,

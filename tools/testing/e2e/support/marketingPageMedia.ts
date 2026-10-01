@@ -111,8 +111,10 @@ export async function installMarketingPageLocalMedia(page: Page): Promise<Market
 
     return {
         requestedUrls,
-        assertLoaded: async (currentPage, expectedCount = 21) => {
+        assertLoaded: async (currentPage, expectedCount = 23) => {
             const images = currentPage.locator('img')
+            // Count both responsive feature-image branches and the entity-backed
+            // footer logo; hidden responsive branches must also resolve locally.
             await expect(images).toHaveCount(expectedCount)
 
             for (let index = 0; index < expectedCount; index += 1) {
@@ -123,19 +125,29 @@ export async function installMarketingPageLocalMedia(page: Page): Promise<Market
                 await expect
                     .poll(
                         async () =>
-                            image.evaluate((element) => ({
-                                complete: element.complete,
-                                naturalWidth: element.naturalWidth,
-                                source: element.currentSrc || element.getAttribute('src') || ''
-                            })),
+                            image.evaluate((element) => {
+                                if (!(element instanceof HTMLImageElement)) {
+                                    throw new Error('Marketing media selector did not resolve to an image element')
+                                }
+                                return {
+                                    complete: element.complete,
+                                    naturalWidth: element.naturalWidth,
+                                    source: element.currentSrc || element.getAttribute('src') || ''
+                                }
+                            }),
                         { message: `Waiting for marketing media image ${index + 1} to load` }
                     )
                     .toMatchObject({ complete: true, naturalWidth: expect.any(Number) })
 
-                const state = await image.evaluate((element) => ({
-                    naturalWidth: element.naturalWidth,
-                    source: element.currentSrc || element.getAttribute('src') || ''
-                }))
+                const state = await image.evaluate((element) => {
+                    if (!(element instanceof HTMLImageElement)) {
+                        throw new Error('Marketing media selector did not resolve to an image element')
+                    }
+                    return {
+                        naturalWidth: element.naturalWidth,
+                        source: element.currentSrc || element.getAttribute('src') || ''
+                    }
+                })
                 expect(state.naturalWidth, `Marketing media image ${index + 1} has no decoded pixels`).toBeGreaterThan(0)
                 expect(isMarketingPageMediaUrl(state.source), `Unexpected marketing media source: ${state.source}`).toBe(true)
                 expect(requestedUrls, `Marketing media was not served by the local fixture: ${state.source}`).toContain(state.source)

@@ -61,7 +61,7 @@
         "serve": "14.2.6",
         "sharedb": "catalog:",
         "typescript": "catalog:",
-        "vite": "7.3.2",
+        "vite": "catalog:",
         "vitest": "catalog:"
     }
 }

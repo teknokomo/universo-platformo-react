@@ -63,7 +63,7 @@ import {
 } from '../../../../../types'
 import { hasAxiosResponse, isOptimisticLockConflict, extractConflictInfo, type ConflictInfo } from '@universo-react/utils'
 import { useMetahubPrimaryLocale } from '../../../../settings/hooks/useMetahubPrimaryLocale'
-import { MARKETING_ACTION_INTERNAL_ROUTES } from '@universo-react/types'
+import { MARKETING_ACTION_INTERNAL_ROUTES, resolveEntityRecordPolicy } from '@universo-react/types'
 import recordActions from './RecordActions'
 import InlineTableEditor from './InlineTableEditor'
 import type { DynamicFieldConfig, DynamicFieldValidationRules } from '@universo-react/template-mui/components/dialogs'
@@ -87,7 +87,7 @@ import {
     extractResponseMessage,
     resolveSetConstantLabel,
     resolveRefId,
-    applyCopySuffixToFirstStringComponent
+    prepareRecordCopyInitialData
 } from './recordListUtils'
 import { buildObjectCollectionAuthoringPath } from '../../../../shared/entityMetadataRoutePaths'
 import { DropdownAutocomplete as Autocomplete } from '@universo-react/template-mui/dropdowns'
@@ -465,15 +465,15 @@ const RecordList = () => {
 
     const marketingActionSummaryLabels = useMemo<MarketingActionSummaryLabels>(
         () => ({
-            unavailable: tc('layouts.marketing.heroAuthoring.actionSummary.unavailable', {
+            unavailable: tc('layouts.marketing.actionAuthoring.actionSummary.unavailable', {
                 defaultValue: 'Action destination unavailable'
             }),
             actionKinds: {
-                internal: tc('layouts.marketing.heroAuthoring.actionKinds.internal', { defaultValue: 'Application page' }),
-                external: tc('layouts.marketing.heroAuthoring.actionKinds.external', { defaultValue: 'Website' }),
-                anchor: tc('layouts.marketing.heroAuthoring.actionKinds.anchor', { defaultValue: 'Page section' }),
-                email: tc('layouts.marketing.heroAuthoring.actionKinds.email', { defaultValue: 'Email' }),
-                tel: tc('layouts.marketing.heroAuthoring.actionKinds.tel', { defaultValue: 'Phone' })
+                internal: tc('layouts.marketing.actionAuthoring.actionKinds.internal', { defaultValue: 'Application page' }),
+                external: tc('layouts.marketing.actionAuthoring.actionKinds.external', { defaultValue: 'Website' }),
+                anchor: tc('layouts.marketing.actionAuthoring.actionKinds.anchor', { defaultValue: 'Page section' }),
+                email: tc('layouts.marketing.actionAuthoring.actionKinds.email', { defaultValue: 'Email' }),
+                tel: tc('layouts.marketing.actionAuthoring.actionKinds.tel', { defaultValue: 'Phone' })
             },
             internalRoutes: Object.fromEntries(
                 MARKETING_ACTION_INTERNAL_ROUTES.map(({ path, labelKey, defaultLabel }) => [
@@ -482,7 +482,7 @@ const RecordList = () => {
                 ])
             ),
             withTarget: (kind, target) =>
-                tc('layouts.marketing.heroAuthoring.actionSummary.withTarget', {
+                tc('layouts.marketing.actionAuthoring.actionSummary.withTarget', {
                     kind,
                     target,
                     defaultValue: '{{kind}} — {{target}}'
@@ -553,6 +553,14 @@ const RecordList = () => {
         [i18n.language]
     )
 
+    const recordPolicy = useMemo(() => {
+        try {
+            return resolveEntityRecordPolicy(objectForHubResolution?.config)
+        } catch {
+            return undefined
+        }
+    }, [objectForHubResolution?.config])
+
     const buildStringLengthHelperText = useCallback(
         (rules?: { minLength?: number | null; maxLength?: number | null }) => {
             const minLength = typeof rules?.minLength === 'number' ? rules.minLength : null
@@ -596,6 +604,21 @@ const RecordList = () => {
     const elementFields = useMemo<DynamicFieldConfig[]>(
         () =>
             orderedComponents.map((component) => {
+                const componentCodename = typeof component.codename === 'string' ? component.codename : undefined
+                const conditionalRule = recordPolicy?.conditionalRequired?.find((rule) => rule.componentCodename === componentCodename)
+                const conditionComponent = conditionalRule
+                    ? orderedComponents.find((candidate) => candidate.codename === conditionalRule.when.componentCodename)
+                    : undefined
+                const conditionFieldId = conditionComponent ? resolveFieldKey(conditionComponent) : undefined
+                const validationRules: DynamicFieldValidationRules = {
+                    ...(component.validationRules as DynamicFieldValidationRules | undefined),
+                    ...(component.validationRules?.localized === true && recordPolicy?.requiredLocales
+                        ? { requiredLocales: recordPolicy.requiredLocales }
+                        : {}),
+                    ...(conditionalRule && conditionFieldId
+                        ? { requiredWhen: { field: conditionFieldId, equals: conditionalRule.when.equals } }
+                        : {})
+                }
                 const resolvedTargetEntityId = component.targetEntityId ?? null
                 const resolvedTargetEntityKind = component.targetEntityKind ?? null
                 const resolvedTargetConstantId = resolvedTargetEntityKind === 'set' ? component.targetConstantId ?? null : null
@@ -705,7 +728,7 @@ const RecordList = () => {
 
                 return {
                     id: componentKey,
-                    codename: typeof component.codename === 'string' ? component.codename : undefined,
+                    codename: componentCodename,
                     label: getVLCString(component.name, i18n.language) || componentKey,
                     type: component.dataType as DynamicFieldConfig['type'],
                     required: component.isRequired,
@@ -715,7 +738,7 @@ const RecordList = () => {
                             : component.dataType === 'NUMBER'
                             ? buildNumberRangeHelperText(component.validationRules)
                             : undefined,
-                    validationRules: component.validationRules as DynamicFieldValidationRules | undefined,
+                    validationRules,
                     refTargetEntityId: resolvedTargetEntityId,
                     refTargetEntityKind: resolvedTargetEntityKind,
                     refTargetConstantId: resolvedTargetConstantId,
@@ -729,17 +752,19 @@ const RecordList = () => {
                     enumLabelEmptyDisplay,
                     childFields,
                     tableShowTitle: component.dataType === 'TABLE' ? uiConfig.showTitle !== false : undefined,
+                    hidden: uiConfig.hidden === true,
                     uiConfig
                 }
             }),
         [
             orderedComponents,
+            recordPolicy,
+            resolveFieldKey,
             i18n.language,
             buildStringLengthHelperText,
             buildNumberRangeHelperText,
             childComponentsMap,
             childEnumValuesMap,
-            resolveFieldKey,
             setConstantsMap,
             t
         ]
@@ -1224,11 +1249,12 @@ const RecordList = () => {
 
     const copyInitialData = useMemo(() => {
         if (!dialogs.copy.item?.data || typeof dialogs.copy.item.data !== 'object') return undefined
-        return applyCopySuffixToFirstStringComponent({
+        return prepareRecordCopyInitialData({
             sourceData: dialogs.copy.item.data as Record<string, unknown>,
             components: orderedComponents.map((component) => ({
                 dataType: component.dataType,
-                codename: resolveFieldKey(component)
+                codename: resolveFieldKey(component),
+                uiConfig: component.uiConfig
             })),
             locale: i18n.language
         })
@@ -1299,7 +1325,7 @@ const RecordList = () => {
     }
 
     // Show loading state while resolving the parent object.
-    if (!hubIdParam && isObjectResolutionLoading) {
+    if (isObjectResolutionLoading) {
         return (
             <EmptyListState
                 image={APIEmptySVG}
@@ -1311,7 +1337,7 @@ const RecordList = () => {
     }
 
     // Show error only when parent object-collection resolution fails.
-    if (!hubIdParam && objectResolutionError) {
+    if (objectResolutionError) {
         return (
             <EmptyListState
                 image={APIEmptySVG}
@@ -1532,6 +1558,7 @@ const RecordList = () => {
                         searchPlaceholder={t('records.searchPlaceholder')}
                         onSearchChange={handleSearchChange}
                         title={t('records.title')}
+                        controlsWrap
                     >
                         <ToolbarControls
                             primaryAction={{

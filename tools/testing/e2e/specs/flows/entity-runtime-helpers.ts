@@ -26,7 +26,7 @@ export const isRecord = (value: unknown): value is Record<string, unknown> =>
     Boolean(value) && typeof value === 'object' && !Array.isArray(value)
 
 export const getResponseData = (payload: unknown): Record<string, unknown> => {
-    if (isRecord(payload?.data)) {
+    if (isRecord(payload) && isRecord(payload.data)) {
         return payload.data
     }
 

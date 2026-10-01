@@ -7,6 +7,7 @@ import { MetahubObjectsService } from './MetahubObjectsService'
 import { MetahubComponentsService } from './MetahubComponentsService'
 import {
     filterLocalizedContent,
+    isSafeMarketingActionHref,
     isLocalizedContent,
     isUnsafeValidationPattern,
     isUsableValidationPattern,
@@ -16,6 +17,8 @@ import {
 } from '@universo-react/utils'
 import {
     ComponentDefinitionDataType,
+    marketingActionSchema,
+    marketingMediaReferenceSchema,
     normalizeInterpretationNetworkHexColor,
     VersionedLocalizedContent,
     type EntityRecordPolicy
@@ -344,9 +347,15 @@ export class MetahubRecordsService {
             sortBy?: string
             sortOrder?: 'asc' | 'desc'
             search?: string
+            exactComponentCodename?: string
+            exactValue?: string
         } = {},
         userId?: string
     ) {
+        if ((options.exactComponentCodename === undefined) !== (options.exactValue === undefined)) {
+            throw new MetahubValidationError('Exact component lookup requires both a component codename and a value')
+        }
+
         // Verify object exists
         const object = await this.objectsService.findById(metahubId, objectCollectionId, userId)
         if (!object) throw new MetahubNotFoundError('Object')
@@ -357,6 +366,12 @@ export class MetahubRecordsService {
         const conditions: string[] = ['object_id = $1', ACTIVE]
         const baseParams: unknown[] = [objectCollectionId]
         let paramIdx = 2
+
+        if (options.exactComponentCodename !== undefined && options.exactValue !== undefined) {
+            conditions.push(`data ->> $${paramIdx}::text = $${paramIdx + 1}::text`)
+            baseParams.push(options.exactComponentCodename, options.exactValue)
+            paramIdx += 2
+        }
 
         if (options.search) {
             const escapedSearch = `%${escapeLikeWildcards(options.search)}%`
@@ -422,6 +437,34 @@ export class MetahubRecordsService {
         )
 
         return row ? this.mapRowToRecord(row) : null
+    }
+
+    /**
+     * Lock a record as the source of a transactional copy. Preserve the shared
+     * graph -> Object -> sort-order -> record lock order used by binding and
+     * record mutations.
+     */
+    async lockForCopy(metahubId: string, objectCollectionId: string, id: string, userId?: string, db?: SqlQueryable) {
+        const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
+        const qt = qSchemaTable(schemaName, '_mhb_elements')
+
+        const lockAndRead = async (tx: SqlQueryable) => {
+            const locked = await lockEntityRecordPolicyForWrite(tx, schemaName, objectCollectionId)
+            if (locked.object.kind !== 'object') throw new MetahubNotFoundError('Object')
+
+            await this.acquireSortOrderLockInTransaction(tx, schemaName, objectCollectionId)
+            const row = await queryOne<Record<string, unknown>>(
+                tx,
+                `SELECT * FROM ${qt}
+                  WHERE id = $1 AND object_id = $2 AND ${ACTIVE}
+                  LIMIT 1 FOR UPDATE`,
+                [id, objectCollectionId]
+            )
+            if (!row) return null
+            return { object: locked.object, policy: locked.policy, record: this.mapRowToRecord(row) }
+        }
+
+        return db ? lockAndRead(db) : this.exec.transaction(lockAndRead)
     }
 
     /**
@@ -550,10 +593,6 @@ export class MetahubRecordsService {
             const mergedData = { ...existingData, ...input.data }
             // Use findAllFlat to include child attrs for TABLE validation
             const components = await this.componentsService.findAllFlat(metahubId, objectCollectionId, userId)
-            const keyComponent = recordPolicy?.semanticKey?.componentCodename
-            if (keyComponent && input.data[keyComponent] !== undefined && input.data[keyComponent] !== existingData[keyComponent]) {
-                throw new MetahubRecordProtectedError()
-            }
             const validation = this.validateRecordData(mergedData, components)
             if (!validation.valid) {
                 throw new MetahubValidationError(`Validation failed: ${validation.errors.join(', ')}`)
@@ -615,8 +654,27 @@ export class MetahubRecordsService {
                     throw new MetahubValidationError(`Validation failed: ${validation.errors.join(', ')}`)
                 }
                 const semanticKeyComponent = authoritativePolicy.semanticKey?.componentCodename
-                if (semanticKeyComponent && mergedData[semanticKeyComponent] !== readRecordData(existing.data)[semanticKeyComponent]) {
-                    throw new MetahubRecordProtectedError()
+                const existingRecordData = readRecordData(existing.data)
+                if (semanticKeyComponent && mergedData[semanticKeyComponent] !== existingRecordData[semanticKeyComponent]) {
+                    const previousSemanticKey = existingRecordData[semanticKeyComponent]
+                    const nextSemanticKey = mergedData[semanticKeyComponent]
+                    const protectedValues = authoritativePolicy.semanticKey?.protectedValues ?? []
+                    if (
+                        typeof previousSemanticKey !== 'string' ||
+                        typeof nextSemanticKey !== 'string' ||
+                        protectedValues.includes(previousSemanticKey) ||
+                        protectedValues.includes(nextSemanticKey)
+                    ) {
+                        throw new MetahubRecordProtectedError()
+                    }
+
+                    if (
+                        authoritativePolicy.immutableSemanticKeyWhenBound &&
+                        lockedObject &&
+                        (await isEntityRecordBoundBySemanticKey(tx, schemaName, lockedObject.codename, previousSemanticKey))
+                    ) {
+                        throw new MetahubRecordProtectedError()
+                    }
                 }
                 assertEntityRecordPolicyData(authoritativePolicy, mergedData, ruleComponents)
                 const normalizedRecordData = this.normalizeHexColorFields(mergedData, ruleComponents)
@@ -865,7 +923,8 @@ export class MetahubRecordsService {
         componentCodename: string,
         baseValue: string,
         userId?: string,
-        limits?: { maxLength?: number | null; pattern?: string | null; format?: string | null }
+        limits?: { maxLength?: number | null; pattern?: string | null; format?: string | null },
+        db?: SqlQueryable
     ): Promise<string> {
         const maxLength = limits?.maxLength ?? null
         const pattern = limits?.pattern ?? null
@@ -873,7 +932,7 @@ export class MetahubRecordsService {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
         const qt = qSchemaTable(schemaName, '_mhb_elements')
         const rows = await queryMany<{ value: string | null }>(
-            this.exec,
+            db ?? this.exec,
             `SELECT data ->> $1::text AS value FROM ${qt} WHERE object_id = $2 AND ${ACTIVE}`,
             [componentCodename, objectCollectionId]
         )
@@ -1276,6 +1335,7 @@ export class MetahubRecordsService {
 
         switch (dataType) {
             case ComponentDefinitionDataType.STRING:
+                if (rules.format === 'marketingHref' && !isSafeMarketingActionHref(value)) return 'Expected a safe Marketing link'
                 if (rules.format === 'hexColor' && typeof value !== 'string') return 'Expected opaque hexadecimal colour'
                 if (typeof value === 'string' || isLocalizedContent(value)) break
                 return 'Expected string'
@@ -1284,6 +1344,14 @@ export class MetahubRecordsService {
                 break
             case ComponentDefinitionDataType.BOOLEAN:
                 if (typeof value !== 'boolean') return 'Expected boolean'
+                break
+            case ComponentDefinitionDataType.JSON:
+                if (rules.format === 'marketingAction' && !marketingActionSchema.safeParse(value).success) {
+                    return 'Expected a valid Marketing action'
+                }
+                if (rules.format === 'marketingMediaReference' && !marketingMediaReferenceSchema.safeParse(value).success) {
+                    return 'Expected a safe Marketing media URL'
+                }
                 break
             case ComponentDefinitionDataType.DATE:
                 return this.validateDateValue(value, rules)

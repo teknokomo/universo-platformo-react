@@ -7,10 +7,14 @@ import {
     createLoggedInApiContext,
     disposeApiContext,
     getAssignableRoles,
-    listMetahubMembers
+    getLayoutZoneWidgetBindings,
+    listMetahubMembers,
+    listRecords,
+    sendWithCsrf
 } from '../backend/api-session.mjs'
 import { createBootstrapApiContext, disposeBootstrapApiContext } from '../backend/bootstrap.mjs'
 import { recordCreatedGlobalUser } from '../backend/run-manifest.mjs'
+import { expectNoTechnicalLeakage } from '../browser/runtimeUx'
 
 export async function verifyMarketingHeroMemberPermissions(options: {
     browser: Browser
@@ -19,9 +23,10 @@ export async function verifyMarketingHeroMemberPermissions(options: {
     memberPassword: string
     metahubId: string
     marketingLayoutId: string
+    heroEntityId: string
     sourceHeroWidgetId: string
 }): Promise<void> {
-    const { browser, api, executionRunId, memberPassword, metahubId, marketingLayoutId, sourceHeroWidgetId } = options
+    const { browser, api, executionRunId, memberPassword, metahubId, marketingLayoutId, heroEntityId, sourceHeroWidgetId } = options
     const bootstrapApi = await createBootstrapApiContext()
     let noEditContentApi: APIRequestContext | null = null
     let noEditContentBrowser: Awaited<ReturnType<typeof createLoggedInBrowserContext>> | null = null
@@ -64,12 +69,102 @@ export async function verifyMarketingHeroMemberPermissions(options: {
         const memberAccess = await listMetahubMembers(noEditContentApi, metahubId)
         expect(memberAccess).toMatchObject({ role: 'member', permissions: { editContent: false } })
 
+        const sourceBinding = (await getLayoutZoneWidgetBindings(api, metahubId, marketingLayoutId, sourceHeroWidgetId, 'en')) as {
+            bindings?: Array<{ slot?: string; semanticKey?: string }>
+        }
+        const sourceHeroKey = sourceBinding.bindings?.find((binding) => binding.slot === 'content')?.semanticKey
+        if (!sourceHeroKey) throw new Error('The seeded Hero placement had no semantic Entity binding for the permission check')
+        const initialRecords = (await listRecords(api, metahubId, heroEntityId, { limit: 100, offset: 0 })) as {
+            items?: Array<{ id?: string; data?: Record<string, unknown> }>
+        }
+        const sourceHeroRecord = initialRecords.items?.find((record) => record.data?.HeroKey === sourceHeroKey)
+        if (!sourceHeroRecord?.id || !sourceHeroRecord.data) {
+            throw new Error('The bound Hero record was unavailable for the permission mutation checks')
+        }
+
+        const createProbeKey = `permission-probe-${executionRunId}`
+        let deniedCreateStatus: number | undefined
+        let createdProbeId: string | undefined
+        let createRequestError: unknown
+        try {
+            const deniedCreateResponse = await sendWithCsrf(
+                noEditContentApi,
+                'POST',
+                `/api/v1/metahub/${metahubId}/entities/object/instance/${heroEntityId}/records`,
+                { data: { ...sourceHeroRecord.data, HeroKey: createProbeKey } }
+            )
+            deniedCreateStatus = deniedCreateResponse.status
+            if (deniedCreateResponse.ok) {
+                const createPayload = (await deniedCreateResponse.json().catch(() => null)) as {
+                    id?: string
+                    data?: { id?: string }
+                } | null
+                createdProbeId = createPayload?.id ?? createPayload?.data?.id
+            }
+        } catch (error) {
+            createRequestError = error
+        }
+
+        const recordsAfterCreate = (await listRecords(api, metahubId, heroEntityId, {
+            limit: 100,
+            offset: 0
+        })) as { items?: Array<{ id?: string; data?: Record<string, unknown> }> }
+        if (!Array.isArray(recordsAfterCreate.items)) {
+            throw new Error('The Hero permission-probe cleanup could not verify the Object records')
+        }
+        const probeIds = new Set(
+            recordsAfterCreate.items
+                .filter((record) => record.data?.HeroKey === createProbeKey)
+                .map((record) => record.id)
+                .filter((id): id is string => typeof id === 'string')
+        )
+        if (typeof createdProbeId === 'string') probeIds.add(createdProbeId)
+        for (const probeId of probeIds) {
+            const cleanupResponse = await sendWithCsrf(
+                api,
+                'DELETE',
+                `/api/v1/metahub/${metahubId}/entities/object/instance/${heroEntityId}/record/${probeId}`
+            )
+            if (!cleanupResponse.ok) {
+                throw new Error(`The Hero permission-probe record cleanup failed with ${cleanupResponse.status}`)
+            }
+        }
+        const recordsAfterCleanup = (await listRecords(api, metahubId, heroEntityId, {
+            limit: 100,
+            offset: 0
+        })) as { items?: Array<{ data?: Record<string, unknown> }> }
+        if (
+            !Array.isArray(recordsAfterCleanup.items) ||
+            recordsAfterCleanup.items.some((record) => record.data?.HeroKey === createProbeKey)
+        ) {
+            throw new Error('The Hero permission-probe record remained after cleanup')
+        }
+        if (createRequestError) throw createRequestError
+        expect(deniedCreateStatus).toBe(403)
+
+        const deniedUpdateResponse = await sendWithCsrf(
+            noEditContentApi,
+            'PATCH',
+            `/api/v1/metahub/${metahubId}/entities/object/instance/${heroEntityId}/record/${sourceHeroRecord.id}`,
+            { data: sourceHeroRecord.data }
+        )
+        const recordsAfterDeniedUpdate = (await listRecords(api, metahubId, heroEntityId, { limit: 100, offset: 0 })) as {
+            items?: Array<{ id?: string; data?: Record<string, unknown> }>
+        }
+        const heroAfterDeniedUpdate = recordsAfterDeniedUpdate.items?.find((record) => record.id === sourceHeroRecord.id)
+        expect(heroAfterDeniedUpdate?.data).toEqual(sourceHeroRecord.data)
+        expect(deniedUpdateResponse.status).toBe(403)
+
         noEditContentBrowser = await createLoggedInBrowserContext(browser, { email: memberEmail, password: memberPassword })
         await applyBrowserPreferences(noEditContentBrowser.page, { language: 'en' })
         await noEditContentBrowser.page.goto(`/metahub/${metahubId}/resources/layouts/${marketingLayoutId}`)
         await expect(noEditContentBrowser.page.getByTestId('metahub-layout-details-content')).toBeVisible()
         const readOnlyHeroSurface = noEditContentBrowser.page.getByTestId(`layout-widget-${sourceHeroWidgetId}`)
         await expect(readOnlyHeroSurface).toBeVisible()
+        await expectNoTechnicalLeakage(readOnlyHeroSurface, {
+            label: 'Read-only Marketing Hero surface',
+            checkUuidSubstrings: true
+        })
         await expect(readOnlyHeroSurface.getByRole('button', { name: 'Edit', exact: true })).toHaveCount(0)
         await expect(noEditContentBrowser.page.getByRole('button', { name: 'Create record', exact: true })).toHaveCount(0)
         await expect(noEditContentBrowser.page.getByRole('button', { name: 'Edit record', exact: true })).toHaveCount(0)

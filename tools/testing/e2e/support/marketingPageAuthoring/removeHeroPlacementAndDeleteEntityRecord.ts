@@ -1,5 +1,5 @@
 import { expect, type APIRequestContext, type Page } from '@playwright/test'
-import { getLayoutZoneWidgetBinding, listLayoutZoneWidgets, listLayouts, listRecords, sendWithCsrf } from '../backend/api-session.mjs'
+import { getLayoutZoneWidgetBindings, listLayoutZoneWidgets, listLayouts, listRecords, sendWithCsrf } from '../backend/api-session.mjs'
 import { waitForSettledMutationResponse } from '../browser/network'
 import { applyBrowserPreferences } from '../browser/preferences'
 import { expectNoTechnicalLeakage } from '../browser/runtimeUx'
@@ -11,8 +11,8 @@ export async function removeHeroPlacementAndDeleteEntityRecord(options: {
     metahubId: string
     marketingLayoutId: string
     addedHeroWidgetId: string
-    reusedLayoutId: string
-    reusedLayoutName: string
+    copiedLayoutId: string
+    copiedLayoutName: string
     heroEntityId: string
     heroRecordId: string
     heroRecordTitleRu: string
@@ -23,8 +23,8 @@ export async function removeHeroPlacementAndDeleteEntityRecord(options: {
         metahubId,
         marketingLayoutId,
         addedHeroWidgetId,
-        reusedLayoutId,
-        reusedLayoutName,
+        copiedLayoutId,
+        copiedLayoutName,
         heroEntityId,
         heroRecordId,
         heroRecordTitleRu
@@ -57,21 +57,27 @@ export async function removeHeroPlacementAndDeleteEntityRecord(options: {
     expect((await removeWidgetResponsePromise).ok()).toBe(true)
     await expect(heroPlacement).toHaveCount(0)
 
-    const remainingSourceWidgets = (await listLayoutZoneWidgets(api, metahubId, marketingLayoutId)) as LayoutWidgetsResponse
-    const sourceBindings = await Promise.all(
-        (remainingSourceWidgets.items ?? [])
-            .filter((widget) => widget.widgetKey === 'marketing.hero' && typeof widget.id === 'string')
-            .map((widget) => getLayoutZoneWidgetBinding(api, metahubId, marketingLayoutId, String(widget.id), 'en'))
-    )
-    expect(sourceBindings.some((binding) => (binding as { recordId?: string }).recordId === heroRecordId)).toBe(false)
+    const heroRecords = (await listRecords(api, metahubId, heroEntityId, { limit: 100, offset: 0 })) as {
+        items?: Array<{ id?: string; data?: Record<string, unknown> }>
+    }
+    const heroRecordKey = heroRecords.items?.find((record) => record.id === heroRecordId)?.data?.HeroKey
+    if (typeof heroRecordKey !== 'string') throw new Error('The copied Hero record did not expose its semantic key')
 
-    const remainingCopies = (await listLayoutZoneWidgets(api, metahubId, reusedLayoutId)) as LayoutWidgetsResponse
-    const copyBindings = await Promise.all(
-        (remainingCopies.items ?? [])
-            .filter((widget) => widget.widgetKey === 'marketing.hero' && typeof widget.id === 'string')
-            .map((widget) => getLayoutZoneWidgetBinding(api, metahubId, reusedLayoutId, String(widget.id), 'en'))
-    )
-    expect(copyBindings.filter((binding) => (binding as { recordId?: string }).recordId === heroRecordId)).toHaveLength(1)
+    const semanticKeysForHeroWidgets = async (layoutId: string): Promise<string[]> => {
+        const widgets = (await listLayoutZoneWidgets(api, metahubId, layoutId)) as LayoutWidgetsResponse
+        const bindings = await Promise.all(
+            (widgets.items ?? [])
+                .filter((widget) => widget.widgetKey === 'marketing.hero' && typeof widget.id === 'string')
+                .map((widget) => getLayoutZoneWidgetBindings(api, metahubId, layoutId, String(widget.id), 'en'))
+        )
+        return bindings.flatMap((response) => {
+            const body = response as { bindings?: Array<{ slot?: string; semanticKey?: string }> }
+            const semanticKey = body.bindings?.find((binding) => binding.slot === 'content')?.semanticKey
+            return semanticKey ? [semanticKey] : []
+        })
+    }
+    expect(await semanticKeysForHeroWidgets(marketingLayoutId)).not.toContain(heroRecordKey)
+    expect(await semanticKeysForHeroWidgets(copiedLayoutId)).toContain(heroRecordKey)
 
     const stillBoundDelete = await sendWithCsrf(
         api,
@@ -84,16 +90,16 @@ export async function removeHeroPlacementAndDeleteEntityRecord(options: {
     await page.goto(`/metahub/${metahubId}/resources`)
     await page.getByRole('tab', { name: /^(?:Layouts|Макеты)$/ }).click()
     await ensureListView(page)
-    const reusedLayoutRow = page.getByRole('row').filter({ has: page.getByRole('link', { name: reusedLayoutName, exact: true }) })
-    await expect(reusedLayoutRow).toBeVisible()
-    await reusedLayoutRow.getByRole('button', { name: `Actions for ${reusedLayoutName}`, exact: true }).click()
+    const copiedLayoutRow = page.getByRole('row').filter({ has: page.getByRole('link', { name: copiedLayoutName, exact: true }) })
+    await expect(copiedLayoutRow).toBeVisible()
+    await copiedLayoutRow.getByRole('button', { name: `Actions for ${copiedLayoutName}`, exact: true }).click()
     await page.getByRole('menuitem', { name: 'Delete', exact: true }).click()
     const deleteLayoutDialog = page.getByRole('dialog', { name: 'Delete layout?', exact: true })
     await expect(deleteLayoutDialog).toBeVisible()
     await expectNoTechnicalLeakage(deleteLayoutDialog, { label: 'Delete copied layout confirmation', checkUuidSubstrings: true })
     const deleteLayoutResponsePromise = waitForSettledMutationResponse(
         page,
-        (response) => responseIsMutation(response, 'DELETE', new RegExp(`/api/v1/metahub/${metahubId}/layout/${reusedLayoutId}$`)),
+        (response) => responseIsMutation(response, 'DELETE', new RegExp(`/api/v1/metahub/${metahubId}/layout/${copiedLayoutId}$`)),
         { label: 'Deleting the copied layout that still references the Hero record', timeout: 90_000 }
     )
     await deleteLayoutDialog.getByRole('button', { name: 'Delete', exact: true }).click()
@@ -101,7 +107,7 @@ export async function removeHeroPlacementAndDeleteEntityRecord(options: {
     const activeLayouts = (await listLayouts(api, metahubId, { limit: 100, offset: 0 })) as {
         items?: Array<{ id?: string }>
     }
-    expect(activeLayouts.items?.some((layout) => layout.id === reusedLayoutId)).toBe(false)
+    expect(activeLayouts.items?.some((layout) => layout.id === copiedLayoutId)).toBe(false)
 
     await applyBrowserPreferences(page, { language: 'ru' })
     await page.goto(`/metahub/${metahubId}/entities/object/instance/${heroEntityId}/records`)

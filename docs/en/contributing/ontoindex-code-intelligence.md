@@ -22,7 +22,7 @@ Never install a similarly named package expecting this tool.
 
 ## Prerequisites
 
--   Node.js `>=22.6.0` (already required by this repository).
+-   Node.js `>=22.12.0` (already required by this repository).
 -   The `git` command line tool.
 -   On Linux, `python3`, `make`, and a C++ compiler for native parser builds.
 

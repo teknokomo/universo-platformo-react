@@ -8,8 +8,9 @@ const mockResolvePublicApplication = jest.fn()
 const mockResolvePublicEntryWorkspace = jest.fn()
 const mockResolveEffectiveLayout = jest.fn()
 const mockCreateMarketingController = jest.fn()
-const mockLoadAllowlistedPublishedMarketingRows = jest.fn()
+const mockCreatePublicMarketingBindingRecordLoader = jest.fn()
 const mockSerializePublicMarketingRuntime = jest.fn()
+const mockPublicMarketingRecordLoader = jest.fn()
 
 jest.mock('../../services/publicApplicationRuntime', () => ({
     __esModule: true,
@@ -36,7 +37,7 @@ jest.mock('../../controllers/runtimeMarketingPageController', () => ({
 jest.mock('../../persistence/publicApplicationRuntimeStore', () => ({
     __esModule: true,
     ...jest.requireActual('../../persistence/publicApplicationRuntimeStore'),
-    loadAllowlistedPublishedMarketingRows: (...args: unknown[]) => mockLoadAllowlistedPublishedMarketingRows(...args)
+    createPublicMarketingBindingRecordLoader: (...args: unknown[]) => mockCreatePublicMarketingBindingRecordLoader(...args)
 }))
 
 jest.mock('../../services/publicMarketingRuntime', () => ({
@@ -139,7 +140,7 @@ describe('public application runtime routes', () => {
         mockResolvePublicApplication.mockResolvedValue(resolvedApplication())
         mockResolvePublicEntryWorkspace.mockResolvedValue(null)
         mockResolveEffectiveLayout.mockResolvedValue({ layout: { id: layoutId }, widgets: [] })
-        mockLoadAllowlistedPublishedMarketingRows.mockResolvedValue(new Map())
+        mockCreatePublicMarketingBindingRecordLoader.mockReturnValue(mockPublicMarketingRecordLoader)
         mockSerializePublicMarketingRuntime.mockReturnValue(publicMarketingPayload)
         mockCreateMarketingController.mockImplementation((_getExecutor, options) => ({
             getMarketingPage: async (req: Request, res: Response) => {
@@ -162,10 +163,15 @@ describe('public application runtime routes', () => {
         expect(tx.query).toHaveBeenCalledWith('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ')
         expect(mockResolvePublicApplication).toHaveBeenCalledWith(tx, applicationId)
         expect(mockCreateMarketingController).not.toHaveBeenCalled()
-        expect(mockLoadAllowlistedPublishedMarketingRows).toHaveBeenCalledWith(tx, {
+        expect(mockCreatePublicMarketingBindingRecordLoader).toHaveBeenCalledWith(tx, {
             schemaName,
-            workspaceId: null,
-            heroTargets: []
+            workspaceId: null
+        })
+        expect(mockSerializePublicMarketingRuntime).toHaveBeenCalledWith({
+            route: resolvedApplication().route,
+            locale: 'en',
+            effectiveLayout: { layout: { id: layoutId }, widgets: [] },
+            loadRecords: mockPublicMarketingRecordLoader
         })
         expect(response.body.route).toEqual({
             matchedBy: 'uuid',
@@ -194,6 +200,7 @@ describe('public application runtime routes', () => {
 
         expect(mockResolvePublicEntryWorkspace).toHaveBeenCalledWith(tx, schemaName)
         expect(mockResolveEffectiveLayout).toHaveBeenCalledWith(tx, expect.any(Object), workspaceId)
+        expect(mockCreatePublicMarketingBindingRecordLoader).toHaveBeenCalledWith(tx, { schemaName, workspaceId })
         expect(mockCreateMarketingController).not.toHaveBeenCalled()
     })
 
@@ -217,9 +224,9 @@ describe('public application runtime routes', () => {
     it('collapses damaged published materialization SQL errors into the same unavailable outcome', async () => {
         for (const sqlState of ['42P01', '3F000', '42703']) {
             const { executor } = createExecutor()
-            mockLoadAllowlistedPublishedMarketingRows.mockRejectedValueOnce(
-                Object.assign(new Error('damaged published materialization'), { code: sqlState })
-            )
+            mockCreatePublicMarketingBindingRecordLoader.mockImplementationOnce(() => {
+                throw Object.assign(new Error('damaged published materialization'), { code: sqlState })
+            })
             const app = express()
             app.use(createPublicApplicationRuntimeRoutes(() => executor, readLimiter))
 
@@ -268,5 +275,6 @@ describe('public application runtime routes', () => {
             .expect(404, { code: 'PUBLIC_APPLICATION_NOT_AVAILABLE' })
 
         expect(mockResolvePublicApplication).not.toHaveBeenCalled()
+        expect(executor.transaction).not.toHaveBeenCalled()
     })
 })

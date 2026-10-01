@@ -9,11 +9,11 @@ vi.mock('@universo-react/i18n', () => ({
     useCommonTranslations: () => ({
         t: (key: string, options?: { defaultValue?: string }) => {
             const labels: Record<string, string> = {
-                'layouts.marketing.heroAuthoring.actionKinds.internal': 'Application page',
-                'layouts.marketing.heroAuthoring.actionKinds.external': 'Website',
-                'layouts.marketing.heroAuthoring.actionKinds.anchor': 'Page section',
-                'layouts.marketing.heroAuthoring.actionKinds.email': 'Email',
-                'layouts.marketing.heroAuthoring.actionKinds.tel': 'Phone'
+                'layouts.marketing.actionAuthoring.actionKinds.internal': 'Application page',
+                'layouts.marketing.actionAuthoring.actionKinds.external': 'Website',
+                'layouts.marketing.actionAuthoring.actionKinds.anchor': 'Page section',
+                'layouts.marketing.actionAuthoring.actionKinds.email': 'Email',
+                'layouts.marketing.actionAuthoring.actionKinds.tel': 'Phone'
             }
             return labels[key] ?? options?.defaultValue ?? key
         }
@@ -77,7 +77,7 @@ describe('MarketingActionField', () => {
             {
                 href: '#pricing-pricing-campus',
                 sectionId: 'pricing-pricing-campus',
-                labelKey: 'layouts.marketing.heroAuthoring.sections.pricing',
+                labelKey: 'layouts.marketing.actionAuthoring.sections.pricing',
                 defaultLabel: 'Pricing',
                 instanceNumber: 2
             }

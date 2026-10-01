@@ -12,6 +12,7 @@ import {
     resolveEntityTableName,
     type EntityDefinition
 } from '@universo-react/schema-ddl'
+import { createKnexExecutor } from '@universo-react/database'
 import { ComponentDefinitionDataType } from '@universo-react/types'
 import { isUuidV7 } from '@universo-react/utils'
 import type { PublishedApplicationSnapshot } from '../../services/applicationSyncContracts'
@@ -38,7 +39,12 @@ import {
     resolveFieldDefaultEnumValueId,
     normalizeSnapshotCodenameValue
 } from './syncHelpers'
-import { assertMarketingSeedRows, isMarketingSeedObject } from '../../services/marketingSeedGuard'
+import {
+    assertMarketingSeedRowCount,
+    assertMarketingSeedRows,
+    collectMarketingWidgetBindingSources
+} from '../../services/marketingSeedGuard'
+import { acquireMarketingRowCapLock } from '../../services/marketingRowCap'
 
 // --- Element seeding ---
 
@@ -49,18 +55,28 @@ export async function seedPredefinedElements(
     userId?: string | null,
     trx?: ApplicationSyncTransaction
 ): Promise<string[]> {
-    if (!snapshot.elements || Object.keys(snapshot.elements).length === 0) {
-        return []
-    }
-
     const entityMap = new Map<string, EntityDefinition>(entities.map((entity) => [entity.id, entity]))
+    const objectOrder = resolveObjectSeedingOrder(entities)
+    const marketingWidgetBindingSources = collectMarketingWidgetBindingSources(snapshot)
+    const hasPredefinedElements = Boolean(snapshot.elements && Object.keys(snapshot.elements).length > 0)
+    const guardedMarketingEntities = entities.filter(
+        (entity) => hasPhysicalRuntimeTable(entity) && marketingWidgetBindingSources.has(entity.codename)
+    )
+    if (!hasPredefinedElements && guardedMarketingEntities.length === 0) return []
     const knex = getApplicationSyncKnex()
     const executor = trx ?? knex
     const now = new Date()
     const warnings: string[] = []
-    const objectOrder = resolveObjectSeedingOrder(entities)
 
     const applySeed = async (activeTrx: ApplicationSyncTransaction) => {
+        const lockExecutor = createKnexExecutor(activeTrx)
+        const guardedEntities = [...guardedMarketingEntities].sort((left, right) =>
+            resolveEntityTableName(left).localeCompare(resolveEntityTableName(right))
+        )
+        for (const entity of guardedEntities) {
+            await acquireMarketingRowCapLock(lockExecutor, schemaName, resolveEntityTableName(entity))
+        }
+
         for (const objectId of objectOrder) {
             const rawElements = snapshot.elements?.[objectId] as unknown[] | undefined
             const elements = (rawElements ?? []) as SnapshotElementRow[]
@@ -84,7 +100,7 @@ export async function seedPredefinedElements(
             // Marketing content is read back through the anonymous public runtime,
             // which caps each object and requires unique semantic keys: fail the
             // sync at write time instead of breaking the published page later.
-            if (isMarketingSeedObject(entity.codename)) {
+            if (marketingWidgetBindingSources.has(entity.codename)) {
                 assertMarketingSeedRows({
                     objectCodename: entity.codename,
                     rows: elements,
@@ -181,8 +197,6 @@ export async function seedPredefinedElements(
             const validRows = rows.filter((row): row is Record<string, unknown> => row !== null)
             if (validRows.length === 0) continue
 
-            if (validRows.length === 0) continue
-
             const mergeColumns = ['_upl_updated_at', '_upl_updated_by', ...dataColumns]
             await activeTrx.withSchema(schemaName).table(tableName).insert(validRows).onConflict('id').merge(mergeColumns)
 
@@ -222,6 +236,20 @@ export async function seedPredefinedElements(
                     }
                 }
             }
+        }
+
+        for (const entity of guardedMarketingEntities) {
+            const tableName = resolveEntityTableName(entity)
+            const rows = await activeTrx
+                .withSchema(schemaName)
+                .table(tableName)
+                .where('_upl_deleted', false)
+                .andWhere('_app_deleted', false)
+                .andWhere('_upl_archived', false)
+                .andWhere('_app_archived', false)
+                .andWhere('_app_published', true)
+                .count<{ count: string }>({ count: '*' })
+            assertMarketingSeedRowCount({ objectCodename: entity.codename, rowCount: Number(rows[0]?.count ?? Number.NaN) })
         }
     }
 

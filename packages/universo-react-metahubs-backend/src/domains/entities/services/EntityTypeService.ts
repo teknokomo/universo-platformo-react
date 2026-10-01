@@ -6,6 +6,8 @@ import {
     normalizeEntityTypeTreeAssignmentLabels,
     validateEntityResourceSurfacesAgainstCapabilities,
     validateCapabilityDependencies,
+    entityTypeCapabilitiesSchema,
+    isEnabledCapabilityConfig,
     type EntityTypeCapabilities,
     type EntityKind,
     type EntityTypeUIConfig,
@@ -22,9 +24,10 @@ import {
 } from '@universo-react/utils/database'
 import { updateWithVersionCheck, incrementVersion } from '../../../utils/optimisticLock'
 import { codenamePrimaryTextSql, ensureCodenameValue, getCodenameText } from '../../shared/codename'
-import { MetahubConflictError, MetahubNotFoundError, MetahubValidationError } from '../../shared/domainErrors'
+import { MetahubConflictError, MetahubDomainError, MetahubNotFoundError, MetahubValidationError } from '../../shared/domainErrors'
 import { MetahubSchemaService } from '../../metahubs/services/MetahubSchemaService'
 import { isRegisteredBuiltinEntityTypePresetKind } from '../../templates/data'
+import { acquireMetahubLayoutGraphLock } from '../../layouts/layoutGraphLocks'
 
 const TABLE = '_mhb_entity_type_definitions'
 const ACTIVE_CLAUSE = '_upl_deleted = false AND _mhb_deleted = false'
@@ -161,8 +164,18 @@ const validateResourceSurfacesAgainstComponents = (ui: EntityTypeUIConfig, capab
     }
 }
 
-const normalizeEntityTypeCapabilities = (value: EntityTypeCapabilities): EntityTypeCapabilities => {
-    const manifest = value as EntityTypeCapabilities
+const normalizeEntityTypeCapabilities = (value: unknown): EntityTypeCapabilities => {
+    const parsed = entityTypeCapabilitiesSchema.safeParse(value)
+    if (!parsed.success) {
+        throw new MetahubValidationError('Invalid entity type capabilities manifest', {
+            issues: parsed.error.issues.map((issue) => ({
+                path: issue.path.map(String).join('.'),
+                message: issue.message
+            }))
+        })
+    }
+
+    const manifest = parsed.data
     const dependencyErrors = validateCapabilityDependencies(manifest)
     if (dependencyErrors.length > 0) {
         throw new MetahubValidationError(dependencyErrors.join('; '))
@@ -171,7 +184,7 @@ const normalizeEntityTypeCapabilities = (value: EntityTypeCapabilities): EntityT
 }
 
 const parseStoredEntityTypeCapabilities = (value: unknown): EntityTypeCapabilities => {
-    return normalizeEntityTypeCapabilities(ensureJsonRecord(value) as unknown as EntityTypeCapabilities)
+    return normalizeEntityTypeCapabilities(value)
 }
 
 const parseStoredUiConfig = (value: unknown): EntityTypeUIConfig => {
@@ -545,6 +558,55 @@ export class EntityTypeService {
         })
 
         return this.exec.transaction(async (tx) => {
+            if (input.capabilities !== undefined) {
+                // Layout copies and scoped-layout creation use this same lock so a
+                // capability change cannot invalidate a layout created in parallel.
+                await acquireMetahubLayoutGraphLock(tx, schemaName)
+
+                if (!isEnabledCapabilityConfig(nextComponents.layoutConfig)) {
+                    const ownerType = await queryOne<{ kind_key: string }>(
+                        tx,
+                        `SELECT kind_key
+                           FROM ${qSchemaTable(schemaName, TABLE)}
+                          WHERE id = $1
+                            AND _upl_deleted = false
+                            AND _mhb_deleted = false
+                          FOR UPDATE`,
+                        [entityTypeId]
+                    )
+                    if (!ownerType) {
+                        throw new MetahubNotFoundError('Entity type', entityTypeId)
+                    }
+
+                    const scopedLayoutCount = await queryOneOrThrow<{ count: number | string }>(
+                        tx,
+                        `SELECT COUNT(*)::int AS count
+                           FROM ${qSchemaTable(schemaName, '_mhb_layouts')} l
+                           JOIN ${qSchemaTable(schemaName, '_mhb_objects')} o
+                             ON o.id = l.scope_entity_id
+                            AND o.kind = $1
+                            AND o._upl_deleted = false
+                            AND o._mhb_deleted = false
+                          WHERE l.scope_entity_id IS NOT NULL
+                            AND l._upl_deleted = false
+                            AND l._mhb_deleted = false`,
+                        [ownerType.kind_key]
+                    )
+                    const count = Number(scopedLayoutCount.count)
+                    if (!Number.isSafeInteger(count) || count > 0) {
+                        throw new MetahubDomainError({
+                            message: 'Entity type cannot disable custom layouts while scoped layouts still exist',
+                            statusCode: 409,
+                            code: 'ENTITY_TYPE_LAYOUTS_EXIST',
+                            details: {
+                                kindKey: ownerType.kind_key,
+                                scopedLayoutCount: Number.isSafeInteger(count) ? count : undefined
+                            }
+                        })
+                    }
+                }
+            }
+
             const conflictByKindKey = await this.findTypeRowByKindKey(schemaName, nextKindKey, tx)
             if (conflictByKindKey && conflictByKindKey.id !== existing.id) {
                 throw new MetahubConflictError('Entity type kindKey already exists', {
@@ -567,7 +629,7 @@ export class EntityTypeService {
                 kind_key: nextKindKey,
                 codename: JSON.stringify(nextCodename),
                 presentation: JSON.stringify(nextPresentation),
-                capabilities: JSON.stringify(nextComponents),
+                ...(input.capabilities !== undefined ? { capabilities: JSON.stringify(nextComponents) } : {}),
                 ui_config: JSON.stringify(nextUi),
                 config: JSON.stringify(nextConfig),
                 _mhb_published: nextPublished,

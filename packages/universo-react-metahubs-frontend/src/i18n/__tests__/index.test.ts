@@ -10,6 +10,22 @@ describe('metahubs i18n consolidation', () => {
         expect(translations.shared?.list?.badge).toBe('Общая')
     })
 
+    it('keeps generic resource-source translations inside the consolidated metahubs namespace', () => {
+        const ruTranslations = getMetahubsTranslations('ru') as {
+            resourceSource?: { type?: string; url?: string; launchModes?: { inline?: string } }
+        }
+        const enTranslations = getMetahubsTranslations('en') as {
+            resourceSource?: { type?: string; url?: string; launchModes?: { inline?: string } }
+        }
+
+        expect(ruTranslations.resourceSource?.type).toBe('Тип ресурса')
+        expect(ruTranslations.resourceSource?.url).toBe('URL источника')
+        expect(ruTranslations.resourceSource?.launchModes?.inline).toBe('Встроенно')
+        expect(enTranslations.resourceSource?.type).toBe('Resource type')
+        expect(enTranslations.resourceSource?.url).toBe('Source URL')
+        expect(enTranslations.resourceSource?.launchModes?.inline).toBe('Inline')
+    })
+
     it('keeps components translations inside the consolidated metahubs namespace', () => {
         const translations = getMetahubsTranslations('ru') as {
             components?: { title?: string }

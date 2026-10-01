@@ -20,10 +20,17 @@ import {
     type PersistedLayoutNeutralMetadata,
     type PersistedWidgetNeutralMetadata
 } from '@universo-react/types'
+import stableStringify from 'json-stable-stringify'
 import { isValidSchemaName } from '@universo-react/schema-ddl'
 import { isUuidV7, type DbExecutor } from '@universo-react/utils'
 import { hashApplicationLayoutContent } from '../utils/applicationLayoutHash'
 import { attachApplicationLayoutWidgetSourceBindingState } from '../persistence/applicationLayoutStoreSupport'
+import {
+    applicationLayoutWidgetSourceStatesEqual,
+    createApplicationLayoutWidgetSourceState,
+    isApplicationLayoutWidgetCustomized,
+    parseApplicationLayoutWidgetSourceState
+} from './applicationLayoutWidgetSourceState'
 import { resolveEffectiveRolePermissions, type ApplicationRole } from '../routes/guards'
 import { resolveRuntimeWorkspaceAccess, setRuntimeWorkspaceContext } from './applicationWorkspaces'
 import {
@@ -36,6 +43,7 @@ import {
     type EffectiveLayoutBaseWidgetRow,
     type EffectiveLayoutCandidateRow,
     type EffectiveLayoutEntityRow,
+    type EffectiveLayoutReadVisibility,
     type EffectiveLayoutWidgetRow
 } from '../persistence/effectiveLayoutStore'
 import {
@@ -255,6 +263,13 @@ const validateWidgetRow = (row: EffectiveLayoutWidgetRow, layout: ValidatedLayou
     const id = requireUuidV7(row.id)
     const layoutId = requireUuidV7(row.layout_id)
     if (layoutId !== layout.id) return failEffectiveLayout('LAYOUT_PERSISTED_INVALID')
+    const sourceBaseWidgetId = readNullableUuidV7(row.source_base_widget_id)
+    const inheritsMarketingBinding =
+        layout.templateKey === 'marketing-page' &&
+        layout.scopeEntityId !== null &&
+        layout.compositionHint === 'overlay' &&
+        layout.baseLayoutId !== null &&
+        sourceBaseWidgetId !== null
     if (typeof row.zone !== 'string' || typeof row.widget_key !== 'string') {
         return failEffectiveLayout('LAYOUT_PERSISTED_INVALID')
     }
@@ -268,16 +283,27 @@ const validateWidgetRow = (row: EffectiveLayoutWidgetRow, layout: ValidatedLayou
     const config = readRecord(row.config)
     let parsedConfig: RecordValue
     let placement: 'start' | 'end' | undefined
+    let configBindings: PersistedWidgetNeutralMetadata['bindings']
     try {
         const decoded = decodeLayoutWidgetConfigEnvelope(config, {
             templateKey: layout.templateKey,
             widgetKey: row.widget_key,
-            zone: row.zone
+            zone: row.zone,
+            requireBindings: !inheritsMarketingBinding && (row.source_config === undefined || row.source_config === null)
         })
+        if (inheritsMarketingBinding && decoded.neutral.bindings !== undefined) {
+            return failEffectiveLayout('LAYOUT_PERSISTED_INVALID')
+        }
+        configBindings = decoded.neutral.bindings
         parsedConfig = parseApplicationLayoutWidgetConfig(row.widget_key, decoded.rendererConfig)
         placement =
             decoded.neutral.placement ??
-            getLayoutWidgetDefaultPlacement({ templateKey: layout.templateKey, widgetKey: row.widget_key, zone: row.zone })
+            getLayoutWidgetDefaultPlacement({
+                templateKey: layout.templateKey,
+                widgetKey: row.widget_key,
+                zone: row.zone,
+                rendererConfig: parsedConfig
+            })
     } catch {
         return failEffectiveLayout('LAYOUT_PERSISTED_INVALID')
     }
@@ -291,16 +317,67 @@ const validateWidgetRow = (row: EffectiveLayoutWidgetRow, layout: ValidatedLayou
                 templateKey: layout.templateKey,
                 widgetKey: row.widget_key,
                 zone: row.zone,
-                requireBindings: true
+                requireBindings: !inheritsMarketingBinding
             })
+            if (inheritsMarketingBinding && decoded.neutral.bindings !== undefined) {
+                return failEffectiveLayout('LAYOUT_PERSISTED_INVALID')
+            }
+            if (
+                !inheritsMarketingBinding &&
+                configBindings !== undefined &&
+                stableStringify(configBindings) !== stableStringify(decoded.neutral.bindings)
+            ) {
+                return failEffectiveLayout('LAYOUT_PERSISTED_INVALID')
+            }
             sourceConfig = parseApplicationLayoutWidgetConfig(row.widget_key, decoded.rendererConfig)
-            sourceBindings = decoded.neutral.bindings
+            if (!inheritsMarketingBinding) sourceBindings = decoded.neutral.bindings
         } catch {
             return failEffectiveLayout('LAYOUT_PERSISTED_INVALID')
         }
     }
+    let isCustomized = false
+    if (row.source_state !== undefined && row.source_state !== null) {
+        if (row.source_config === undefined || row.source_config === null) return failEffectiveLayout('LAYOUT_PERSISTED_INVALID')
+        try {
+            const sourceState = parseApplicationLayoutWidgetSourceState(row.source_state, layout.templateKey, row.widget_key)
+            const sourceConfigState = createApplicationLayoutWidgetSourceState(
+                layout.templateKey,
+                row.widget_key,
+                {
+                    zone: sourceState.zone,
+                    sortOrder: sourceState.sortOrder,
+                    isActive: sourceState.isActive,
+                    config: row.source_config
+                },
+                {
+                    requireBindings: !inheritsMarketingBinding,
+                    rejectBindings: inheritsMarketingBinding
+                }
+            )
+            if (!applicationLayoutWidgetSourceStatesEqual(sourceState, sourceConfigState)) {
+                return failEffectiveLayout('LAYOUT_PERSISTED_INVALID')
+            }
+            isCustomized = isApplicationLayoutWidgetCustomized(
+                layout.templateKey,
+                {
+                    widgetKey: row.widget_key,
+                    zone: row.zone,
+                    sortOrder: readInteger(row.sort_order),
+                    isActive: readBoolean(row.is_active),
+                    config: parsedConfig,
+                    placement: placement ?? null
+                },
+                sourceState
+            )
+        } catch {
+            return failEffectiveLayout('LAYOUT_PERSISTED_INVALID')
+        }
+    } else if (row.source_config !== undefined && row.source_config !== null) {
+        return failEffectiveLayout('LAYOUT_PERSISTED_INVALID')
+    } else {
+        sourceBindings = configBindings
+    }
     const sourceWidgetId = readNullableUuidV7(row.source_widget_id)
-    const sourceBaseWidgetId = readNullableUuidV7(row.source_base_widget_id)
     const instanceKey = parsedConfig.instanceKey
     if (instanceKey !== undefined && !layoutInstanceKeySchema.safeParse(instanceKey).success) {
         return failEffectiveLayout('LAYOUT_PERSISTED_INVALID')
@@ -318,11 +395,12 @@ const validateWidgetRow = (row: EffectiveLayoutWidgetRow, layout: ValidatedLayou
         sourceConfig,
         sourceWidgetId,
         sourceBaseWidgetId,
-        isCustomized: readBoolean(row.is_customized),
+        isCustomized,
         isActive: readBoolean(row.is_active),
         version: readPositiveInteger(row.version),
         ...(placement === undefined ? {} : { placement })
     } as EffectiveWidgetWithPlacement
+    if (inheritsMarketingBinding) return widget
     return attachApplicationLayoutWidgetSourceBindingState(widget, {
         persistedApplicationRow: true,
         ...(sourceBindings === undefined ? {} : { bindings: sourceBindings })
@@ -344,7 +422,7 @@ const validateBaseLineage = (
     baseRows: readonly EffectiveLayoutBaseWidgetRow[],
     layout: ValidatedLayout,
     availableLayouts: readonly ValidatedLayout[]
-): void => {
+): Map<string, EffectiveLayoutBaseWidgetRow> => {
     const inheritedIds = widgets.map((widget) => widget.sourceBaseWidgetId).filter((id): id is string => typeof id === 'string')
     const uniqueInheritedIds = new Set(inheritedIds)
     if (uniqueInheritedIds.size !== inheritedIds.length) return failEffectiveLayout('LAYOUT_PERSISTED_INVALID')
@@ -377,6 +455,7 @@ const validateBaseLineage = (
     }
 
     const matchedBaseRows = new Set<string>()
+    const baseRowsByInheritedWidgetId = new Map<string, EffectiveLayoutBaseWidgetRow>()
     for (const widget of widgets) {
         const baseId = widget.sourceBaseWidgetId
         if (!baseId) continue
@@ -386,9 +465,47 @@ const validateBaseLineage = (
         }
         if (widget.sourceWidgetId !== baseId) return failEffectiveLayout('LAYOUT_PERSISTED_INVALID')
         matchedBaseRows.add(requireUuidV7(base.id))
+        baseRowsByInheritedWidgetId.set(widget.id, base)
     }
     if (matchedBaseRows.size !== uniqueInheritedIds.size) return failEffectiveLayout('LAYOUT_PERSISTED_INVALID')
+    return baseRowsByInheritedWidgetId
 }
+
+const attachValidatedMarketingOverlayBindings = (
+    widgets: readonly EffectiveLayoutWidget[],
+    baseRowsByInheritedWidgetId: ReadonlyMap<string, EffectiveLayoutBaseWidgetRow>,
+    layout: ValidatedLayout
+): EffectiveLayoutWidget[] =>
+    widgets.map((widget) => {
+        if (
+            layout.templateKey !== 'marketing-page' ||
+            layout.scopeEntityId === null ||
+            layout.compositionHint !== 'overlay' ||
+            layout.baseLayoutId === null ||
+            widget.sourceBaseWidgetId === null
+        ) {
+            return widget
+        }
+        const base = baseRowsByInheritedWidgetId.get(widget.id)
+        if (!base || typeof base.zone !== 'string') return failEffectiveLayout('LAYOUT_PERSISTED_INVALID')
+        let bindings: PersistedWidgetNeutralMetadata['bindings']
+        try {
+            const authoritativeConfig = base.source_config ?? base.config
+            const decoded = decodeLayoutWidgetConfigEnvelope(readRecord(authoritativeConfig), {
+                templateKey: 'marketing-page',
+                widgetKey: widget.widgetKey,
+                zone: base.zone,
+                requireBindings: true
+            })
+            bindings = decoded.neutral.bindings
+        } catch {
+            return failEffectiveLayout('LAYOUT_PERSISTED_INVALID')
+        }
+        return attachApplicationLayoutWidgetSourceBindingState(widget, {
+            persistedApplicationRow: true,
+            ...(bindings === undefined ? {} : { bindings })
+        })
+    })
 
 const resolveCompositionMode = (layout: ValidatedLayout, widgets: readonly EffectiveLayoutWidget[]): EffectiveLayoutCompositionMode => {
     const hasInheritedWidgets = widgets.some((widget) => widget.sourceBaseWidgetId !== null)
@@ -623,7 +740,8 @@ const readStartupTargetToken = (config: RecordValue): string | null => {
 const resolveStartupEntityId = async (
     executor: DbExecutor,
     schemaName: string,
-    globalWidgets: readonly EffectiveLayoutWidgetRow[]
+    globalWidgets: readonly EffectiveLayoutWidgetRow[],
+    visibility: EffectiveLayoutReadVisibility
 ): Promise<string | null> => {
     const menuWidgets = globalWidgets.filter((row) => row.widget_key === 'menuWidget')
     for (const menuWidget of menuWidgets) {
@@ -633,7 +751,7 @@ const resolveStartupEntityId = async (
 
         const selector = isUuidV7(token) ? { kind: 'id' as const, value: token } : { kind: 'codename' as const, value: token }
         for (const targetKind of ['page', 'object'] as const) {
-            const entities = await queryOrFail(() => findEffectiveLayoutEntity(executor, schemaName, targetKind, selector))
+            const entities = await queryOrFail(() => findEffectiveLayoutEntity(executor, schemaName, targetKind, selector, visibility))
             if (entities.length > 1) return failEffectiveLayout('LAYOUT_DEFAULT_INVALID')
             const entity = entities[0]
             if (entity) return requireUuidV7(entity.id)
@@ -658,7 +776,8 @@ type EffectiveLayoutWorkspaceResolver = (
 const resolveEffectiveLayoutInTransaction = async (
     tx: DbExecutor,
     target: RuntimeTarget,
-    resolveWorkspaceContext: EffectiveLayoutWorkspaceResolver
+    resolveWorkspaceContext: EffectiveLayoutWorkspaceResolver,
+    visibility: EffectiveLayoutReadVisibility = 'authenticated'
 ): Promise<EffectiveLayoutSuccess> => {
     const application = await queryOrFail(() => findEffectiveLayoutApplication(tx, target.applicationId))
     if (!application) return failEffectiveLayout('LAYOUT_TARGET_NOT_FOUND')
@@ -680,7 +799,9 @@ const resolveEffectiveLayoutInTransaction = async (
         const selector = target.entityTypeId
             ? { kind: 'id' as const, value: selectorValue }
             : { kind: 'codename' as const, value: selectorValue }
-        const entities = await queryOrFail(() => findEffectiveLayoutEntity(tx, application.schemaName!, target.targetKind, selector))
+        const entities = await queryOrFail(() =>
+            findEffectiveLayoutEntity(tx, application.schemaName!, target.targetKind, selector, visibility)
+        )
         if (entities.length === 0) return failEffectiveLayout('LAYOUT_TARGET_NOT_FOUND')
         if (entities.length > 1) return failEffectiveLayout('LAYOUT_DEFAULT_INVALID')
         const entity = entities[0] as EffectiveLayoutEntityRow
@@ -691,18 +812,24 @@ const resolveEffectiveLayoutInTransaction = async (
     const tablesExist = await queryOrFail(() => effectiveLayoutTablesExist(tx, application.schemaName!))
     if (!tablesExist) return failEffectiveLayout('LAYOUT_PERSISTED_INVALID')
 
-    let candidateRows = await queryOrFail(() => listEffectiveLayoutCandidates(tx, application.schemaName!, resolvedEntityTypeId))
+    let candidateRows = await queryOrFail(() =>
+        listEffectiveLayoutCandidates(tx, application.schemaName!, resolvedEntityTypeId, visibility)
+    )
     const layouts = candidateRows.map(validateLayoutRow)
     let selected = selectCanonicalLayoutCandidate(layouts, resolvedEntityTypeId)
     if (!selected) return failEffectiveLayout('LAYOUT_DEFAULT_INVALID')
 
     if (target.targetKind === null && selected.scope === 'global') {
         const globalLayout = selected
-        const globalWidgetRows = await queryOrFail(() => listEffectiveLayoutWidgets(tx, application.schemaName!, globalLayout.layout.id))
-        const startupEntityId = await resolveStartupEntityId(tx, application.schemaName!, globalWidgetRows)
+        const globalWidgetRows = await queryOrFail(() =>
+            listEffectiveLayoutWidgets(tx, application.schemaName!, globalLayout.layout.id, visibility)
+        )
+        const startupEntityId = await resolveStartupEntityId(tx, application.schemaName!, globalWidgetRows, visibility)
         if (startupEntityId) {
             resolvedEntityTypeId = startupEntityId
-            candidateRows = await queryOrFail(() => listEffectiveLayoutCandidates(tx, application.schemaName!, resolvedEntityTypeId))
+            candidateRows = await queryOrFail(() =>
+                listEffectiveLayoutCandidates(tx, application.schemaName!, resolvedEntityTypeId, visibility)
+            )
             const startupLayouts = candidateRows.map(validateLayoutRow)
             selected = selectCanonicalLayoutCandidate(startupLayouts, resolvedEntityTypeId)
             if (!selected) return failEffectiveLayout('LAYOUT_DEFAULT_INVALID')
@@ -710,12 +837,13 @@ const resolveEffectiveLayoutInTransaction = async (
     }
     if (!selected) return failEffectiveLayout('LAYOUT_DEFAULT_INVALID')
 
-    const widgetRows = await queryOrFail(() => listEffectiveLayoutWidgets(tx, application.schemaName!, selected.layout.id))
-    const widgets = widgetRows.map((row) => validateWidgetRow(row, selected.layout))
+    const widgetRows = await queryOrFail(() => listEffectiveLayoutWidgets(tx, application.schemaName!, selected.layout.id, visibility))
+    let widgets = widgetRows.map((row) => validateWidgetRow(row, selected.layout))
     validateEffectiveWidgetMultiplicity(widgets)
     const inheritedIds = widgets.map((widget) => widget.sourceBaseWidgetId).filter((id): id is string => typeof id === 'string')
-    const baseRows = await queryOrFail(() => findEffectiveLayoutBaseWidgets(tx, application.schemaName!, inheritedIds))
-    validateBaseLineage(widgets, baseRows, selected.layout, layouts)
+    const baseRows = await queryOrFail(() => findEffectiveLayoutBaseWidgets(tx, application.schemaName!, inheritedIds, visibility))
+    const baseRowsByInheritedWidgetId = validateBaseLineage(widgets, baseRows, selected.layout, layouts)
+    widgets = attachValidatedMarketingOverlayBindings(widgets, baseRowsByInheritedWidgetId, selected.layout)
     const compositionMode = resolveCompositionMode(selected.layout, widgets)
     const { publicationIdentity } = validateLineage(selected.layout, materialization)
 
@@ -723,7 +851,9 @@ const resolveEffectiveLayoutInTransaction = async (
     if (!currentApplication || currentApplication.version !== application.version) {
         return failEffectiveLayout('LAYOUT_CONFLICT')
     }
-    const currentCandidateRows = await queryOrFail(() => listEffectiveLayoutCandidates(tx, application.schemaName!, resolvedEntityTypeId))
+    const currentCandidateRows = await queryOrFail(() =>
+        listEffectiveLayoutCandidates(tx, application.schemaName!, resolvedEntityTypeId, visibility)
+    )
     const currentLayouts = currentCandidateRows.map(validateLayoutRow)
     const currentSelected = selectCanonicalLayoutCandidate(currentLayouts, resolvedEntityTypeId)
     if (
@@ -771,21 +901,26 @@ export async function resolveEffectiveLayoutForPublicTransaction(
     const target = normalizeRuntimeTarget(input)
     if (target.workspaceId) return failEffectiveLayout('LAYOUT_REQUEST_INVALID')
 
-    return resolveEffectiveLayoutInTransaction(executor, target, async (tx, application) => {
-        if (!application) return failEffectiveLayout('LAYOUT_TARGET_NOT_FOUND')
-        if (typeof application.workspacesEnabled !== 'boolean') return failEffectiveLayout('LAYOUT_PERSISTED_INVALID')
+    return resolveEffectiveLayoutInTransaction(
+        executor,
+        target,
+        async (tx, application) => {
+            if (!application) return failEffectiveLayout('LAYOUT_TARGET_NOT_FOUND')
+            if (typeof application.workspacesEnabled !== 'boolean') return failEffectiveLayout('LAYOUT_PERSISTED_INVALID')
 
-        if (!application.workspacesEnabled) {
-            if (publicWorkspaceId !== null) return failEffectiveLayout('LAYOUT_PERSISTED_INVALID')
-            await queryOrFail(() => setRuntimeWorkspaceContext(tx, null))
-            return
-        }
+            if (!application.workspacesEnabled) {
+                if (publicWorkspaceId !== null) return failEffectiveLayout('LAYOUT_PERSISTED_INVALID')
+                await queryOrFail(() => setRuntimeWorkspaceContext(tx, null))
+                return
+            }
 
-        if (!publicWorkspaceId || !isUuidV7(publicWorkspaceId)) {
-            return failEffectiveLayout('LAYOUT_TARGET_NOT_FOUND')
-        }
-        await queryOrFail(() => setRuntimeWorkspaceContext(tx, publicWorkspaceId))
-    })
+            if (!publicWorkspaceId || !isUuidV7(publicWorkspaceId)) {
+                return failEffectiveLayout('LAYOUT_TARGET_NOT_FOUND')
+            }
+            await queryOrFail(() => setRuntimeWorkspaceContext(tx, publicWorkspaceId))
+        },
+        'public'
+    )
 }
 
 export async function resolveEffectiveLayoutForRequest(

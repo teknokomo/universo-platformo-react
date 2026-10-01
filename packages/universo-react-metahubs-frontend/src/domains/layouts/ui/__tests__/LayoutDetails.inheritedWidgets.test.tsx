@@ -1,16 +1,24 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import type { ReactNode } from 'react'
 import { metahubsQueryKeys } from '../../../shared'
 
-const { getLayout, listLayoutZoneWidgets, getLayoutZoneWidgetObjects, assignLayoutZoneWidget, marketingHeroDialog } = vi.hoisted(() => ({
+const {
+    getLayout,
+    listLayoutZoneWidgets,
+    getLayoutZoneWidgetObjects,
+    assignLayoutZoneWidget,
+    marketingBindingDialog,
+    marketingConfigDialog
+} = vi.hoisted(() => ({
     getLayout: vi.fn(),
     listLayoutZoneWidgets: vi.fn(),
     getLayoutZoneWidgetObjects: vi.fn(),
     assignLayoutZoneWidget: vi.fn(),
-    marketingHeroDialog: vi.fn()
+    marketingBindingDialog: vi.fn(),
+    marketingConfigDialog: vi.fn()
 }))
 const mockUseMetahubDetails = vi.fn()
 
@@ -88,6 +96,14 @@ vi.mock('@universo-react/template-mui', () => ({
         </div>
     ),
     LayoutZoneSettingsDialog: () => null,
+    MarketingWidgetConfigDialog: (props: any) => {
+        marketingConfigDialog(props)
+        return props.open ? (
+            <button type='button' onClick={() => void props.onSave(props.initialConfig ?? { showLeadForm: true })}>
+                Save presentation
+            </button>
+        ) : null
+    },
     notifyError: vi.fn(),
     useConfirm: () => ({ confirm: vi.fn(async () => true) }),
     normalizeSideMenuConfig: (value: any) => ({
@@ -132,9 +148,9 @@ vi.mock('../ColumnsContainerEditorDialog', () => ({ default: () => null }))
 vi.mock('../QuizWidgetEditorDialog', () => ({ default: () => null }))
 vi.mock('../PlayCanvasCanvasWidgetEditorDialog', () => ({ default: () => null }))
 vi.mock('../WidgetBehaviorEditorDialog', () => ({ default: () => null }))
-vi.mock('../MarketingHeroBindingDialog', () => ({
+vi.mock('../MarketingWidgetBindingDialog', () => ({
     default: (props: unknown) => {
-        marketingHeroDialog(props)
+        marketingBindingDialog(props)
         return null
     }
 }))
@@ -290,7 +306,52 @@ describe('LayoutDetails inherited widget contract', () => {
         expect(screen.getByTestId('available-widget-top-header')).toBeInTheDocument()
     })
 
-    it('adds a Hero with one automatic binding mutation and no chooser', async () => {
+    it('shows the existing localized load error for invalid Marketing widget envelopes', async () => {
+        getLayout.mockResolvedValueOnce({
+            data: {
+                id: 'layout-global',
+                scopeEntityId: null,
+                templateKey: 'marketing-page',
+                name: { _schema: 'v1', _primary: 'en', locales: { en: { content: 'Marketing' } } },
+                description: null,
+                config: {},
+                isActive: true,
+                isDefault: true,
+                sortOrder: 0,
+                version: 1,
+                createdAt: '2026-04-06T00:00:00.000Z',
+                updatedAt: '2026-04-06T00:00:00.000Z'
+            }
+        })
+        listLayoutZoneWidgets.mockResolvedValueOnce([
+            {
+                id: 'invalid-marketing-widget',
+                layoutId: 'layout-global',
+                zone: 'marketing-main',
+                widgetKey: 'marketing.hero',
+                sortOrder: 1,
+                config: { instanceKey: 'hero', __layout: 'invalid-envelope' },
+                isActive: true,
+                isInherited: false
+            }
+        ])
+        getLayoutZoneWidgetObjects.mockResolvedValueOnce([])
+
+        render(
+            <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+                <MemoryRouter initialEntries={['/metahub/metahub-1/resources/layout/layout-global']}>
+                    <Routes>
+                        <Route path='/metahub/:metahubId/resources/layout/:layoutId' element={<LayoutDetails />} />
+                    </Routes>
+                </MemoryRouter>
+            </QueryClientProvider>
+        )
+
+        expect(await screen.findByText('Failed to load layout zones')).toBeVisible()
+        expect(screen.queryByTestId('layout-widget-invalid-marketing-widget')).not.toBeInTheDocument()
+    })
+
+    it('adds a registry-backed widget from a valid same-layout placement and submits its canonical bindings', async () => {
         mockUseMetahubDetails.mockReturnValue({ data: { permissions: { manageMetahub: true, editContent: true } } })
         getLayout.mockResolvedValueOnce({
             data: {
@@ -309,7 +370,19 @@ describe('LayoutDetails inherited widget contract', () => {
                 updatedAt: '2026-04-06T00:00:00.000Z'
             }
         })
-        listLayoutZoneWidgets.mockResolvedValueOnce([])
+        listLayoutZoneWidgets.mockResolvedValueOnce([
+            {
+                id: 'hero-source',
+                layoutId: 'layout-global',
+                zone: 'marketing-main',
+                widgetKey: 'marketing.hero',
+                sortOrder: 1,
+                config: { instanceKey: 'hero-source-instance', showLeadForm: true },
+                isActive: true,
+                version: 2,
+                isInherited: false
+            }
+        ])
         getLayoutZoneWidgetObjects.mockResolvedValueOnce([
             {
                 key: 'marketing.hero',
@@ -320,7 +393,17 @@ describe('LayoutDetails inherited widget contract', () => {
                 supportedTemplates: ['marketing-page']
             }
         ])
-        assignLayoutZoneWidget.mockResolvedValueOnce({ data: { id: 'hero-new' } })
+        assignLayoutZoneWidget.mockResolvedValueOnce({
+            data: {
+                id: 'hero-new',
+                layoutId: 'layout-global',
+                zone: 'marketing-main',
+                widgetKey: 'marketing.hero',
+                config: { showLeadForm: true },
+                isActive: true,
+                version: 1
+            }
+        })
 
         render(
             <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
@@ -334,17 +417,38 @@ describe('LayoutDetails inherited widget contract', () => {
 
         const add = await screen.findByTestId('available-widget-marketing-main-marketing.hero')
         fireEvent.click(add)
-        await waitFor(() => expect(assignLayoutZoneWidget).toHaveBeenCalledTimes(1))
+        fireEvent.click(await screen.findByRole('button', { name: 'Save presentation' }))
+        await waitFor(() => {
+            expect(marketingBindingDialog).toHaveBeenLastCalledWith(
+                expect.objectContaining({
+                    open: true,
+                    widgetId: null,
+                    sourceWidgetId: 'hero-source',
+                    duplicateMode: false,
+                    widgetKey: 'marketing.hero'
+                })
+            )
+        })
+        expect(assignLayoutZoneWidget).not.toHaveBeenCalled()
+        const addDialogProps = [...marketingBindingDialog.mock.calls]
+            .map(([props]) => props as { open: boolean; onSelection: (value: unknown) => Promise<void> })
+            .reverse()
+            .find(({ open }) => open)
+        if (!addDialogProps) throw new Error('The generic binding dialog did not open for Add')
+        const bindings = { version: 1, slots: [{ slot: 'content', targets: [] }] }
+        const config = { showLeadForm: false, __layout: { neutral: { bindings } } }
+        await act(async () => {
+            await addDialogProps.onSelection({ bindings, config })
+        })
         expect(assignLayoutZoneWidget).toHaveBeenCalledWith('metahub-1', 'layout-global', {
             zone: 'marketing-main',
             widgetKey: 'marketing.hero',
-            heroContent: { mode: 'auto' },
+            config,
             expectedVersion: 5
         })
-        expect(marketingHeroDialog).not.toHaveBeenCalledWith(expect.objectContaining({ open: true }))
     })
 
-    it('duplicates a Hero with one auto-binding mutation referencing its source and copied presentation config', async () => {
+    it('opens generic duplicate authoring with a persisted same-layout source and applies the selected bindings', async () => {
         mockUseMetahubDetails.mockReturnValue({ data: { permissions: { manageMetahub: true, editContent: true } } })
         getLayout.mockResolvedValueOnce({
             data: {
@@ -385,7 +489,17 @@ describe('LayoutDetails inherited widget contract', () => {
                 supportedTemplates: ['marketing-page']
             }
         ])
-        assignLayoutZoneWidget.mockResolvedValueOnce({ data: { id: 'hero-copy' } })
+        assignLayoutZoneWidget.mockResolvedValueOnce({
+            data: {
+                id: 'hero-copy',
+                layoutId: 'layout-global',
+                zone: 'marketing-main',
+                widgetKey: 'marketing.hero',
+                config: { showLeadForm: true },
+                isActive: true,
+                version: 1
+            }
+        })
 
         render(
             <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
@@ -398,14 +512,102 @@ describe('LayoutDetails inherited widget contract', () => {
         )
 
         fireEvent.click(await screen.findByTestId('layout-widget-duplicate-hero-source'))
-        await waitFor(() => expect(assignLayoutZoneWidget).toHaveBeenCalledTimes(1))
+        await waitFor(() => {
+            expect(marketingBindingDialog).toHaveBeenLastCalledWith(
+                expect.objectContaining({
+                    open: true,
+                    widgetId: null,
+                    sourceWidgetId: 'hero-source',
+                    duplicateMode: true,
+                    widgetKey: 'marketing.hero'
+                })
+            )
+        })
+        expect(assignLayoutZoneWidget).not.toHaveBeenCalled()
+        const duplicateDialogProps = [...marketingBindingDialog.mock.calls]
+            .map(([props]) => props as { open: boolean; onSelection: (value: unknown) => Promise<void> })
+            .reverse()
+            .find(({ open }) => open)
+        if (!duplicateDialogProps) throw new Error('The generic binding dialog did not open for Duplicate')
+        const bindings = { version: 1, slots: [{ slot: 'content', targets: [] }] }
+        const config = { showLeadForm: true, __layout: { neutral: { bindings } } }
+        await act(async () => {
+            await duplicateDialogProps.onSelection({ bindings, config })
+        })
         expect(assignLayoutZoneWidget).toHaveBeenCalledWith('metahub-1', 'layout-global', {
             zone: 'marketing-main',
             widgetKey: 'marketing.hero',
-            config: { showLeadForm: true },
-            heroContent: { mode: 'auto', sourceWidgetId: 'hero-source' },
+            config,
             expectedVersion: 5
         })
+    })
+
+    it('opens the generic binding editor for editing an owned registry-backed widget', async () => {
+        mockUseMetahubDetails.mockReturnValue({ data: { permissions: { manageMetahub: true, editContent: true } } })
+        getLayout.mockResolvedValueOnce({
+            data: {
+                id: 'layout-global',
+                scopeEntityId: null,
+                templateKey: 'marketing-page',
+                name: { _schema: 'v1', _primary: 'en', locales: { en: { content: 'Marketing' } } },
+                description: null,
+                config: {},
+                isActive: true,
+                isDefault: true,
+                sortOrder: 0,
+                version: 5,
+                createdAt: '2026-04-06T00:00:00.000Z',
+                updatedAt: '2026-04-06T00:00:00.000Z'
+            }
+        })
+        listLayoutZoneWidgets.mockResolvedValueOnce([
+            {
+                id: 'hero-edit',
+                layoutId: 'layout-global',
+                zone: 'marketing-main',
+                widgetKey: 'marketing.hero',
+                sortOrder: 1,
+                config: { showLeadForm: true },
+                isActive: true,
+                version: 3,
+                isInherited: false
+            }
+        ])
+        getLayoutZoneWidgetObjects.mockResolvedValueOnce([
+            {
+                key: 'marketing.hero',
+                allowedZones: ['marketing-main'],
+                allowedZonesByTemplate: { 'marketing-page': ['marketing-main'] },
+                multiInstance: true,
+                templateKey: 'marketing-page',
+                supportedTemplates: ['marketing-page']
+            }
+        ])
+
+        render(
+            <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+                <MemoryRouter initialEntries={['/metahub/metahub-1/layout/layout-global']}>
+                    <Routes>
+                        <Route path='/metahub/:metahubId/layout/:layoutId' element={<LayoutDetails />} />
+                    </Routes>
+                </MemoryRouter>
+            </QueryClientProvider>
+        )
+
+        fireEvent.click(await screen.findByTestId('layout-widget-edit-hero-edit'))
+        await waitFor(() => {
+            expect(marketingBindingDialog).toHaveBeenLastCalledWith(
+                expect.objectContaining({
+                    open: true,
+                    widgetId: 'hero-edit',
+                    sourceWidgetId: 'hero-edit',
+                    duplicateMode: false,
+                    widgetKey: 'marketing.hero',
+                    canManageLayouts: true
+                })
+            )
+        })
+        expect(marketingConfigDialog).not.toHaveBeenCalledWith(expect.objectContaining({ open: true }))
     })
 
     it('waits for layout metadata before deriving controls for already-loaded widgets', async () => {
@@ -516,7 +718,7 @@ describe('LayoutDetails inherited widget contract', () => {
         }
     })
 
-    it('allows Hero content editing with editContent while keeping layout controls under manageMetahub', async () => {
+    it('opens registry-backed binding details for editContent users while mutation controls still require manageMetahub', async () => {
         mockUseMetahubDetails.mockReturnValue({
             data: { permissions: { manageMetahub: false, editContent: true } }
         })
@@ -576,11 +778,12 @@ describe('LayoutDetails inherited widget contract', () => {
         fireEvent.click(screen.getByTestId('layout-widget-edit-hero-widget'))
 
         await waitFor(() => {
-            expect(marketingHeroDialog).toHaveBeenLastCalledWith(
+            expect(marketingBindingDialog).toHaveBeenLastCalledWith(
                 expect.objectContaining({
                     open: true,
                     widgetId: 'hero-widget',
-                    widgetVersion: 13,
+                    sourceWidgetId: 'hero-widget',
+                    duplicateMode: false,
                     canManageLayouts: false,
                     canEditContent: true
                 })
@@ -588,7 +791,7 @@ describe('LayoutDetails inherited widget contract', () => {
         })
     })
 
-    it('hides source Hero assignment, editing, and duplication on scoped marketing layouts', async () => {
+    it('keeps inherited bindings authoritative in marketing overlay layouts', async () => {
         mockUseMetahubDetails.mockReturnValue({
             data: { permissions: { manageMetahub: true, editContent: true } }
         })
@@ -651,6 +854,6 @@ describe('LayoutDetails inherited widget contract', () => {
         expect(screen.queryByTestId('available-widget-marketing-main-marketing.hero')).not.toBeInTheDocument()
         expect(screen.queryByTestId('layout-widget-edit-hero-widget-scoped')).not.toBeInTheDocument()
         expect(screen.queryByTestId('layout-widget-duplicate-hero-widget-scoped')).not.toBeInTheDocument()
-        expect(marketingHeroDialog).not.toHaveBeenCalledWith(expect.objectContaining({ open: true }))
+        expect(marketingBindingDialog).not.toHaveBeenCalledWith(expect.objectContaining({ open: true }))
     })
 })

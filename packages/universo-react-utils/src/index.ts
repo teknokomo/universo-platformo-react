@@ -231,6 +231,7 @@ export {
 } from './validation/identity'
 export {
     normalizeMarketingAction,
+    isSafeMarketingActionHref,
     parseMarketingActionHref,
     normalizeMarketingLocalizedText,
     normalizeMarketingMedia,

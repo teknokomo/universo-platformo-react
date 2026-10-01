@@ -194,6 +194,7 @@ test('@flow @marketing-page publishes the data-driven MUI marketing page without
         await expect(page.locator('#pricing')).toBeVisible()
         await expect(page.locator('#faq')).toBeVisible()
         await expect(page.locator('#footer')).toBeVisible()
+        await expect(page.locator('#footer img')).toHaveCount(1)
 
         await expect(page.getByRole('heading', { name: 'Our latest products' })).toBeVisible()
         await expect(page.getByRole('link', { name: 'Start now' }).first()).toBeVisible()

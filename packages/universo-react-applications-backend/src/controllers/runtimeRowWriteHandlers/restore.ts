@@ -271,6 +271,7 @@ export const createRestoreRowHandler = ({ getDbExecutor, query }: RuntimeRowWrit
 
                 await assertMarketingRuntimeRowCap({
                     manager: txManager,
+                    schemaName: ctx.schemaName,
                     schemaIdent: ctx.schemaIdent,
                     tableName: objectCollection.table_name,
                     runtimeRowCondition: activeRowCondition,

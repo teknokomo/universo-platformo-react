@@ -133,7 +133,13 @@ export const useUpdateEntityType = () => {
             enqueueSnackbar(t('entities.updateSuccess', 'Entity type updated'), { variant: 'success' })
         },
         onError: (error) => {
-            enqueueSnackbar(getErrorMessage(error, t('entities.updateError', 'Failed to update entity type')), { variant: 'error' })
+            const message = isApiError(error, 'ENTITY_TYPE_LAYOUTS_EXIST')
+                ? t(
+                      'entities.layoutCapabilityInUse',
+                      'Remove the layouts attached to instances of this entity type before disabling layout configuration.'
+                  )
+                : getErrorMessage(error, t('entities.updateError', 'Failed to update entity type'))
+            enqueueSnackbar(message, { variant: 'error' })
         }
     })
 }

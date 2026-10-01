@@ -206,6 +206,7 @@ describe('SnapshotRestoreService', () => {
                 ...(component.localized ? { localized: true } : {}),
                 ...(component.maxLength !== undefined ? { maxLength: component.maxLength } : {}),
                 ...(component.semanticKey ? { unique: true } : {}),
+                ...(component.pattern === undefined ? {} : { pattern: component.pattern }),
                 ...(component.format !== undefined ? { format: component.format } : {})
             }
         }))
@@ -1890,6 +1891,71 @@ describe('SnapshotRestoreService', () => {
             code: 'VALIDATION_ERROR',
             statusCode: 400,
             details: { operation: 'layout-neutral-metadata-preflight' }
+        })
+        expect(deletedTables).toEqual([])
+        expect(trxFn).not.toHaveBeenCalled()
+    })
+
+    it('rejects entity bindings inside a Marketing overlay override before destructive restore writes', async () => {
+        const layoutId = '019e8afa-0000-7000-8000-000000000041'
+        const scopedLayoutId = '019e8afa-0000-7000-8000-000000000042'
+        const widgetId = '019e8afa-0000-7000-8000-000000000043'
+        const overrideId = '019e8afa-0000-7000-8000-000000000044'
+        const heroEntityId = '019e8afa-0000-7000-8000-000000000045'
+        const baseWidget = marketingHeroWidget(layoutId, widgetId)
+        const snapshot = makeMinimalSnapshot({
+            entities: { [heroEntityId]: marketingHeroEntity() },
+            elements: { [heroEntityId]: [{ codename: 'default', data: marketingHeroRecordData() }] },
+            layouts: [
+                {
+                    id: layoutId,
+                    templateKey: 'marketing-page',
+                    name: { en: 'Marketing page' },
+                    description: null,
+                    config: {},
+                    isDefault: true,
+                    isActive: true,
+                    sortOrder: 0,
+                    compositionMode: 'independent',
+                    baseLayoutId: null
+                }
+            ],
+            scopedLayouts: [
+                {
+                    id: scopedLayoutId,
+                    scopeEntityId: heroEntityId,
+                    baseLayoutId: layoutId,
+                    templateKey: 'marketing-page',
+                    name: { en: 'Scoped marketing page' },
+                    description: null,
+                    config: {},
+                    isDefault: false,
+                    isActive: true,
+                    sortOrder: 0,
+                    compositionMode: 'overlay'
+                }
+            ],
+            defaultLayoutId: layoutId,
+            layoutConfig: {},
+            layoutZoneWidgets: [baseWidget],
+            layoutWidgetOverrides: [
+                {
+                    id: overrideId,
+                    layoutId: scopedLayoutId,
+                    baseWidgetId: widgetId,
+                    zone: 'marketing-main',
+                    config: baseWidget.config,
+                    isActive: true,
+                    isDeletedOverride: false
+                }
+            ]
+        } as unknown as Partial<MetahubSnapshot>)
+        const { knex, deletedTables, trxFn } = createMockKnex()
+        const service = new SnapshotRestoreService(knex as any, 'mhb_a1b2c3d4e5f67890abcdef1234567890_b1')
+
+        await expect(service.restoreFromSnapshot('metahub-1', snapshot, 'user-1')).rejects.toMatchObject({
+            code: 'VALIDATION_ERROR',
+            statusCode: 400
         })
         expect(deletedTables).toEqual([])
         expect(trxFn).not.toHaveBeenCalled()

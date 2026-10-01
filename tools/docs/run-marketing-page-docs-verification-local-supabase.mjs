@@ -97,7 +97,19 @@ try {
             delete committedProvenance.generatedAt
             delete regeneratedProvenance.generatedAt
             if (JSON.stringify(regeneratedProvenance) !== JSON.stringify(committedProvenance)) {
-                throw new Error('Regenerated marketing-page screenshots differ from committed assets and provenance')
+                const committedAssets = new Map((committedProvenance.assets ?? []).map((asset) => [asset.id, asset]))
+                const regeneratedAssets = new Map((regeneratedProvenance.assets ?? []).map((asset) => [asset.id, asset]))
+                const assetIds = [...new Set([...committedAssets.keys(), ...regeneratedAssets.keys()])].sort()
+                const assetDiffs = assetIds
+                    .map((id) => ({ id, committed: committedAssets.get(id) ?? null, regenerated: regeneratedAssets.get(id) ?? null }))
+                    .filter(({ committed, regenerated }) => JSON.stringify(committed) !== JSON.stringify(regenerated))
+                throw new Error(
+                    `Regenerated marketing-page screenshots differ from committed assets and provenance\n${JSON.stringify(
+                        { assetDiffs, committed: committedProvenance, regenerated: regeneratedProvenance },
+                        null,
+                        2
+                    )}`
+                )
             }
             await runPnpm(['docs:i18n:check'])
             await runPnpm(['docs:gitbook-screenshot-assets:check'])

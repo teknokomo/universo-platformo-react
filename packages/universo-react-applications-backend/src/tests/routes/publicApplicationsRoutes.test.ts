@@ -1971,12 +1971,7 @@ describe('Public Applications Routes', () => {
                                 column_name: 'content_items',
                                 data_type: 'TABLE',
                                 parent_component_id: null
-                            }
-                        ]
-                    }
-
-                    if (params[0] === 'resource-content-items') {
-                        return [
+                            },
                             {
                                 id: 'content-item-title',
                                 codename: 'ItemTitle',
@@ -1996,6 +1991,20 @@ describe('Public Applications Routes', () => {
                                 codename: 'ItemContent',
                                 column_name: 'item_content',
                                 data_type: 'STRING',
+                                parent_component_id: 'resource-content-items'
+                            },
+                            {
+                                id: 'content-item-quiz',
+                                codename: 'QuizId',
+                                column_name: 'quiz_id',
+                                data_type: 'STRING',
+                                parent_component_id: 'resource-content-items'
+                            },
+                            {
+                                id: 'content-item-sort-order',
+                                codename: 'SortOrder',
+                                column_name: 'sort_order',
+                                data_type: 'NUMBER',
                                 parent_component_id: 'resource-content-items'
                             }
                         ]
@@ -2210,6 +2219,103 @@ describe('Public Applications Routes', () => {
         await request(app)
             .get(`/public/a/${applicationId}/runtime?slug=demo-content&targetType=quiz&targetId=018f8a78-7b8f-7c1d-a111-222233334444`)
             .expect(403)
+    })
+
+    it('returns content with an empty child list when its optional TABLE component is absent', async () => {
+        const executedSql: string[] = []
+        const dataSource = buildDataSource(
+            withPublicApplication((sql, params) => {
+                executedSql.push(sql)
+
+                if (sql.includes(`FROM "${schemaName}"."_app_objects"`)) {
+                    if (params[0] === 'AccessLinks') {
+                        return [
+                            { id: 'object-links', codename: codenameVlc('AccessLinks'), kind: 'object', table_name: 'access_links_table' }
+                        ]
+                    }
+                    return [
+                        {
+                            id: 'object-learning-resources',
+                            codename: codenameVlc('LearningResources'),
+                            kind: 'object',
+                            table_name: 'learning_resources_table'
+                        }
+                    ]
+                }
+
+                if (sql.includes(`FROM "${schemaName}"."_app_components"`)) {
+                    if (params[0] === 'object-links') {
+                        return [
+                            {
+                                id: 'attr-slug',
+                                codename: codenameVlc('Slug'),
+                                column_name: 'slug',
+                                data_type: 'STRING',
+                                parent_component_id: null
+                            },
+                            {
+                                id: 'attr-target-type',
+                                codename: codenameVlc('TargetType'),
+                                column_name: 'target_type',
+                                data_type: 'STRING',
+                                parent_component_id: null
+                            },
+                            {
+                                id: 'attr-target-id',
+                                codename: codenameVlc('TargetId'),
+                                column_name: 'target_id',
+                                data_type: 'STRING',
+                                parent_component_id: null
+                            },
+                            {
+                                id: 'attr-active',
+                                codename: codenameVlc('IsActive'),
+                                column_name: 'is_active',
+                                data_type: 'BOOLEAN',
+                                parent_component_id: null
+                            }
+                        ]
+                    }
+
+                    return [
+                        {
+                            id: 'attr-title',
+                            codename: codenameVlc('Title'),
+                            column_name: 'title',
+                            data_type: 'STRING',
+                            parent_component_id: null
+                        },
+                        {
+                            id: 'attr-description',
+                            codename: codenameVlc('Description'),
+                            column_name: 'description',
+                            data_type: 'STRING',
+                            parent_component_id: null
+                        }
+                    ]
+                }
+
+                if (sql.includes(`FROM "${schemaName}"."access_links_table"`)) {
+                    return [{ id: accessLinkId, slug: 'demo-content', target_type: 'content', target_id: contentNodeId, is_active: true }]
+                }
+
+                if (sql.includes(`FROM "${schemaName}"."learning_resources_table"`)) {
+                    return [{ id: contentNodeId, title: 'Content without optional items', description: 'A standalone lesson' }]
+                }
+
+                return undefined
+            })
+        )
+
+        const response = await request(buildApp(dataSource)).get(`/public/a/${applicationId}/runtime?slug=demo-content`).expect(200)
+
+        expect(response.body).toMatchObject({
+            type: 'content',
+            id: contentNodeId,
+            title: 'Content without optional items',
+            contentItems: []
+        })
+        expect(executedSql.some((sql) => sql.includes(`FROM "${schemaName}"."content_items"`))).toBe(false)
     })
 
     it('keeps runtime reads bound to the workspace resolved from the access link', async () => {

@@ -38,8 +38,9 @@ describe('useMetahubDetails', () => {
         expect(opts.refetchOnWindowFocus).toBe(false)
         expect(opts.refetchOnMount).toBe(false)
 
-        await expect(opts.queryFn()).resolves.toEqual({ id: 'm1', codename: 'metahub-1' })
-        expect(mocks.getMetahub).toHaveBeenCalledWith('m1')
+        const signal = new AbortController().signal
+        await expect(opts.queryFn({ signal })).resolves.toEqual({ id: 'm1', codename: 'metahub-1' })
+        expect(mocks.getMetahub).toHaveBeenCalledWith('m1', signal)
     })
 
     it('disables query when metahubId is empty', async () => {

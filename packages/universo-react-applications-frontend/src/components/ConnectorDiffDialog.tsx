@@ -471,11 +471,11 @@ export function ConnectorDiffDialog({
         return !layoutOverrides[sourceLayoutId] && !bulkLayoutResolution
     })
     const hasBlockedCopyResolution = requiredLayoutChanges.some((change) => {
-        if (change.copySourceAsApplicationUnavailable !== true) return false
+        if (change.copyAsApplicationUnavailable !== true) return false
         const selectedResolution = layoutOverrides[change.sourceLayoutId ?? ''] ?? bulkLayoutResolution
         return selectedResolution === 'copy_source_as_application'
     })
-    const bulkLayoutResolutionOptions = requiredLayoutChanges.some((change) => change.copySourceAsApplicationUnavailable === true)
+    const bulkLayoutResolutionOptions = requiredLayoutChanges.some((change) => change.copyAsApplicationUnavailable === true)
         ? BULK_LAYOUT_RESOLUTION_OPTIONS.filter((resolution) => resolution !== 'copy_source_as_application')
         : BULK_LAYOUT_RESOLUTION_OPTIONS
 
@@ -595,8 +595,8 @@ export function ConnectorDiffDialog({
                 setLayoutOverrides({})
                 setSyncErrorMessage(
                     t(
-                        'connectors.diffDialog.layoutResolution.copySourceUnavailable',
-                        'This layout contains an Entity-backed Hero placement that cannot be copied into an application layout. Keep the application layout or skip this source update.'
+                        'connectors.diffDialog.layoutResolution.copyAsApplicationUnavailable',
+                        'This layout contains a widget with Entity-backed content that cannot become application-owned content. Keep the application layout or skip this source update.'
                     )
                 )
                 await refetchDiff()
@@ -1164,8 +1164,8 @@ export function ConnectorDiffDialog({
                                         >
                                             {hasBlockedCopyResolution
                                                 ? t(
-                                                      'connectors.diffDialog.layoutResolution.copySourceUnavailable',
-                                                      'This layout contains an Entity-backed Hero placement that cannot be copied into an application layout. Keep the application layout or skip this source update.'
+                                                      'connectors.diffDialog.layoutResolution.copyAsApplicationUnavailable',
+                                                      'This layout contains a widget with Entity-backed content that cannot become application-owned content. Keep the application layout or skip this source update.'
                                                   )
                                                 : hasUnresolvedRequiredLayoutChanges
                                                 ? t(
@@ -1260,11 +1260,11 @@ export function ConnectorDiffDialog({
                                                                         {change.message}
                                                                     </Typography>
                                                                 )}
-                                                                {change.copySourceAsApplicationUnavailable === true && (
+                                                                {change.copyAsApplicationUnavailable === true && (
                                                                     <Typography variant='body2' sx={{ color: 'warning.main', mb: 1 }}>
                                                                         {t(
-                                                                            'connectors.diffDialog.layoutResolution.copySourceUnavailable',
-                                                                            'This layout contains an Entity-backed Hero placement that cannot be copied into an application layout. Keep the application layout or skip this source update.'
+                                                                            'connectors.diffDialog.layoutResolution.copyAsApplicationUnavailable',
+                                                                            'This layout contains a widget with Entity-backed content that cannot become application-owned content. Keep the application layout or skip this source update.'
                                                                         )}
                                                                     </Typography>
                                                                 )}
@@ -1322,7 +1322,7 @@ export function ConnectorDiffDialog({
                                                                                 (resolution) =>
                                                                                     !(
                                                                                         resolution === 'copy_source_as_application' &&
-                                                                                        change.copySourceAsApplicationUnavailable === true
+                                                                                        change.copyAsApplicationUnavailable === true
                                                                                     )
                                                                             ).map((resolution) => (
                                                                                 <MenuItem key={resolution} value={resolution}>

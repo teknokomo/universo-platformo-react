@@ -24,6 +24,7 @@ vi.mock('react-i18next', () => ({
 }))
 
 vi.mock('@universo-react/template-mui', () => ({
+    useDebouncedSearch: ({ onSearchChange }: { onSearchChange: (value: string) => void }) => ({ setSearchValue: onSearchChange }),
     EDITABLE_SIDE_MENU_MODES: ['wide', 'compact', 'overlay'],
     TemplateMainCard: ({ children }: { children: ReactNode }) => <div>{children}</div>,
     ViewHeaderMUI: ({ children, title }: { children?: ReactNode; title?: string }) => (

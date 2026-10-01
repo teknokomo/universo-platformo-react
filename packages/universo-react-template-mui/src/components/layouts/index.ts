@@ -20,7 +20,7 @@ export type {
     LayoutAuthoringWidgetRow,
     LayoutAuthoringZoneGroup
 } from './LayoutAuthoringDetails'
-export type { MarketingWidgetConfigDialogProps, MarketingWidgetSourceOption } from './MarketingWidgetConfigDialog'
+export type { MarketingWidgetConfigDialogProps } from './MarketingWidgetConfigDialog'
 export { MenuWidgetSideMenuSettings } from './MenuWidgetSideMenuSettings'
 export type { MenuWidgetSideMenuSettingsProps } from './MenuWidgetSideMenuSettings'
 export {

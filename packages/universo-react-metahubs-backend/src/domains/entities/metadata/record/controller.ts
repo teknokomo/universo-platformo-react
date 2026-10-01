@@ -1,13 +1,10 @@
 import { z } from 'zod'
-import { validateListQuery } from '../../../shared/queryParams'
+import { ListQuerySchema } from '../../../shared/queryParams'
 import type { createMetahubHandlerFactory } from '../../../shared/createMetahubHandler'
 import { MetahubObjectsService } from '../../../metahubs/services/MetahubObjectsService'
 import { MetahubComponentsService } from '../../../metahubs/services/MetahubComponentsService'
 import { MetahubRecordsService } from '../../../metahubs/services/MetahubRecordsService'
-import { validation } from '@universo-react/utils'
-import { ComponentDefinitionDataType } from '@universo-react/types'
-
-const { normalizeRecordCopyOptions } = validation
+import { prepareRecordCopy } from '../../../metahubs/services/recordCopy'
 
 // ---------------------------------------------------------------------------
 // Zod Schemas
@@ -47,6 +44,15 @@ const reorderRecordSchema = z
     })
     .strict()
 
+const recordsListQuerySchema = ListQuerySchema.extend({
+    exactComponentCodename: z.string().trim().min(1).max(128).optional(),
+    exactValue: z.string().trim().min(1).max(500).optional()
+}).superRefine((query, context) => {
+    if ((query.exactComponentCodename === undefined) !== (query.exactValue === undefined)) {
+        context.addIssue({ code: z.ZodIssueCode.custom, message: 'Exact component and value must be provided together' })
+    }
+})
+
 // ---------------------------------------------------------------------------
 // Controller factory
 // ---------------------------------------------------------------------------
@@ -66,22 +72,17 @@ export function createRecordsController(createHandler: ReturnType<typeof createM
         const { objectCollectionId } = req.params
         const { recordsService } = mkServices(exec, schemaService)
 
-        let validatedQuery
-        try {
-            validatedQuery = validateListQuery(req.query)
-        } catch (error) {
-            if (error instanceof z.ZodError) {
-                return res.status(400).json({ error: 'Invalid query', details: error.flatten() })
-            }
-            throw error
+        const validatedQuery = recordsListQuerySchema.safeParse(req.query)
+        if (!validatedQuery.success) {
+            return res.status(400).json({ error: 'Invalid query', details: validatedQuery.error.flatten() })
         }
 
-        const { limit, offset, sortBy, sortOrder, search } = validatedQuery
+        const { limit, offset, sortBy, sortOrder, search, exactComponentCodename, exactValue } = validatedQuery.data
 
         const { items, total } = await recordsService.findAllAndCount(
             metahubId,
             objectCollectionId,
-            { limit, offset, sortBy, sortOrder, search },
+            { limit, offset, sortBy, sortOrder, search, exactComponentCodename, exactValue },
             userId
         )
 
@@ -205,53 +206,28 @@ export function createRecordsController(createHandler: ReturnType<typeof createM
             }
 
             const attrs = await componentsService.findAllFlat(metahubId, objectCollectionId, userId)
-            const rootTableAttrs = attrs.filter((cmp) => !cmp.parentComponentId && cmp.dataType === ComponentDefinitionDataType.TABLE)
-            const hasRequiredChildTables = rootTableAttrs.some((cmp) => {
-                const minRows = typeof cmp.validationRules?.minRows === 'number' ? cmp.validationRules.minRows : 0
-                return Boolean(cmp.isRequired) || minRows > 0
-            })
-
-            const requestedOptions = normalizeRecordCopyOptions({
+            const sourceData = source.data && typeof source.data === 'object' ? source.data : {}
+            const preparedCopy = await prepareRecordCopy({
+                metahubId,
+                objectCollectionId,
+                sourceData: sourceData as Record<string, unknown>,
+                components: attrs,
+                recordsService,
+                userId,
                 copyChildTables: parsed.data.copyChildTables
             })
-            const copyOptions = hasRequiredChildTables ? { ...requestedOptions, copyChildTables: true } : requestedOptions
 
-            const sourceData = source.data && typeof source.data === 'object' ? source.data : {}
-            const copiedData: Record<string, unknown> = { ...(sourceData as Record<string, unknown>) }
-            if (!copyOptions.copyChildTables) {
-                for (const cmp of rootTableAttrs) {
-                    delete copiedData[cmp.codename]
-                }
-            }
-
-            // Records are copied with their data intact; unique semantic keys must
-            // be re-suffixed or the copy would collide with the source record.
-            const uniqueRootComponents = attrs.filter((cmp) => !cmp.parentComponentId && cmp.validationRules?.unique === true)
-            for (const component of uniqueRootComponents) {
-                const value = copiedData[component.codename]
-                if (typeof value !== 'string' || value.trim().length === 0) continue
-                const maxLength = typeof component.validationRules?.maxLength === 'number' ? component.validationRules.maxLength : null
-                const pattern = typeof component.validationRules?.pattern === 'string' ? component.validationRules.pattern : null
-                copiedData[component.codename] = await recordsService.suggestUniqueComponentValue(
-                    metahubId,
-                    objectCollectionId,
-                    component.codename,
-                    value,
-                    userId,
-                    {
-                        maxLength,
-                        pattern,
-                        format: typeof component.validationRules?.format === 'string' ? component.validationRules.format : null
-                    }
-                )
-            }
-
-            const copied = await recordsService.create(metahubId, objectCollectionId, { data: copiedData, createdBy: userId }, userId)
+            const copied = await recordsService.create(
+                metahubId,
+                objectCollectionId,
+                { data: preparedCopy.data, createdBy: userId },
+                userId
+            )
 
             return res.status(201).json({
                 ...copied,
-                copyOptions,
-                hasRequiredChildTables
+                copyOptions: preparedCopy.copyOptions,
+                hasRequiredChildTables: preparedCopy.hasRequiredChildTables
             })
         },
         { permission: 'editContent' }

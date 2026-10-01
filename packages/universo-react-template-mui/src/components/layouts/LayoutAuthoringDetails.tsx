@@ -5,6 +5,7 @@ import CloseRoundedIcon from '@mui/icons-material/CloseRounded'
 import ContentCopyRoundedIcon from '@mui/icons-material/ContentCopyRounded'
 import DragIndicatorRoundedIcon from '@mui/icons-material/DragIndicatorRounded'
 import EditRoundedIcon from '@mui/icons-material/EditRounded'
+import EditNoteRoundedIcon from '@mui/icons-material/EditNoteRounded'
 import OpenWithRoundedIcon from '@mui/icons-material/OpenWithRounded'
 import RestartAltRoundedIcon from '@mui/icons-material/RestartAltRounded'
 import SettingsRoundedIcon from '@mui/icons-material/SettingsRounded'
@@ -37,6 +38,8 @@ export type LayoutAuthoringWidgetRow = {
     inheritedLabel?: string
     editTooltip?: string
     editAriaLabel?: string
+    editContentTooltip?: string
+    editContentAriaLabel?: string
     duplicateTooltip?: string
     duplicateAriaLabel?: string
     resetTooltip?: string
@@ -54,6 +57,7 @@ export type LayoutAuthoringWidgetRow = {
     }>
     onClick?: () => void
     onEdit?: () => void
+    onEditContent?: () => void
     onDuplicate?: () => void
     onReset?: () => void
     onRemove?: () => void
@@ -129,11 +133,14 @@ function SortableLayoutWidgetChip({
     onRemove,
     onClick,
     onEdit,
+    onEditContent,
     onDuplicate,
     onReset,
     onToggleActive,
     editTooltip,
     editAriaLabel,
+    editContentTooltip,
+    editContentAriaLabel,
     duplicateTooltip,
     duplicateAriaLabel,
     resetTooltip,
@@ -152,7 +159,7 @@ function SortableLayoutWidgetChip({
         disabled: !draggable
     })
     const [moveMenuAnchorEl, setMoveMenuAnchorEl] = useState<HTMLElement | null>(null)
-    const hasActions = Boolean(moveActions?.length || onEdit || onDuplicate || onReset || onToggleActive || onRemove)
+    const hasActions = Boolean(moveActions?.length || onEdit || onEditContent || onDuplicate || onReset || onToggleActive || onRemove)
 
     return (
         <Paper
@@ -296,6 +303,18 @@ function SortableLayoutWidgetChip({
                                 onClick={onEdit}
                             >
                                 <EditRoundedIcon fontSize='small' />
+                            </IconButton>
+                        </Tooltip>
+                    ) : null}
+                    {onEditContent ? (
+                        <Tooltip title={editContentTooltip || ''} arrow>
+                            <IconButton
+                                size='small'
+                                data-testid={`layout-widget-edit-content-${id}`}
+                                aria-label={editContentAriaLabel || editContentTooltip}
+                                onClick={onEditContent}
+                            >
+                                <EditNoteRoundedIcon fontSize='small' />
                             </IconButton>
                         </Tooltip>
                     ) : null}

@@ -104,7 +104,7 @@ router.use('/locales', publicLocalesRouter)
 let metahubsRouter: ExpressRouter | null = null
 router.use((req: Request, res: Response, next: NextFunction) => {
     if (!metahubsRouter) {
-        metahubsRouter = createMetahubsServiceRoutes(ensureAuthWithRls, getPoolExecutor, requireConfiguredCsrfProtection)
+        metahubsRouter = createMetahubsServiceRoutes(ensureAuthWithRls, getPoolExecutor, requireConfiguredCsrfProtection, ensurePlainAuth)
     }
     if (metahubsRouter) {
         metahubsRouter(req, res, next)
@@ -252,10 +252,11 @@ router.use(async (err: Error & { statusCode?: number }, req: Request, res: Respo
         err.statusCode && err.statusCode >= 400 && err.statusCode < 600 ? err.statusCode : isDatabaseConnectTimeoutError(err) ? 503 : 500
 
     if (statusCode !== 404) {
-        logger.error('[API Error Handler]', {
+        const routeTemplate = typeof req.route?.path === 'string' ? req.route.path : '<unmatched-route>'
+        logger.error(`[API Error Handler] ${req.method} ${routeTemplate} (${statusCode})`, {
             error: err.message,
             stack: err.stack,
-            path: req.path,
+            route: routeTemplate,
             method: req.method,
             statusCode,
             timestamp: new Date().toISOString()

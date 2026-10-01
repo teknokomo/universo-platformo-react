@@ -1,10 +1,16 @@
-import { buildSingleTargetWidgetBinding, encodeWidgetConfigEnvelope, LAYOUT_WIDGET_DEFINITIONS } from '@universo-react/types'
+import {
+    buildSingleTargetWidgetBinding,
+    encodeWidgetConfigEnvelope,
+    getLayoutWidgetDefinition,
+    LAYOUT_WIDGET_DEFINITIONS,
+    validateWidgetBindings
+} from '@universo-react/types'
 import type { SqlQueryable } from '@universo-react/utils/database'
 import {
     assertMarketingHeroLayoutMutationPreservesActions,
     assertMarketingHeroRecordActionsRemainValid
 } from '../../domains/layouts/marketingHeroActionIntegrityStore'
-import { projectMarketingHeroContentData } from '../../domains/layouts/marketingHeroBindingsStore'
+import { projectMarketingHeroContentData } from '../../domains/layouts/marketingHeroContentProjection'
 
 const sourceLayoutId = '0190a9b5-3cde-7abc-8def-0123456789a1'
 const scopedLayoutId = '0190a9b5-3cde-7abc-8def-0123456789a2'
@@ -48,12 +54,72 @@ const heroConfig = encodeWidgetConfigEnvelope(
     { templateKey: 'marketing-page', widgetKey: 'marketing.hero', zone: 'marketing-main' }
 )
 
+const heroOverlayDeltaConfig = encodeWidgetConfigEnvelope(
+    { rendererConfig: { instanceKey: 'hero-default', showLeadForm: false } },
+    { templateKey: 'marketing-page', widgetKey: 'marketing.hero', zone: 'marketing-main' }
+)
+
+const widgetConfig = (
+    widgetKey: 'marketing.pricing' | 'marketing.collection',
+    rendererConfig: Record<string, unknown>,
+    semanticKeys: Record<string, string>
+) => {
+    const definition = getLayoutWidgetDefinition(widgetKey, rendererConfig)
+    if (!definition) throw new Error(`${widgetKey} widget is not registered`)
+    const collectionEntities: Record<string, string> = {
+        logos: 'MarketingPageLogo',
+        features: 'MarketingPageFeature',
+        testimonials: 'MarketingPageTestimonial',
+        highlights: 'MarketingPageHighlight',
+        faq: 'MarketingPageFaq'
+    }
+    const entityCodenames: Record<string, string> = {
+        section: 'MarketingPageSection',
+        tiers: 'MarketingPagePricing',
+        benefits: 'MarketingPagePricingBenefit',
+        items: collectionEntities[String(rendererConfig.variant ?? 'features')] ?? 'MarketingPageFeature'
+    }
+    const bindings = validateWidgetBindings(definition, {
+        version: 1,
+        slots: (definition.bindingSlots ?? []).map((slot) => {
+            const semanticComponent = slot.requirements.components.find(({ semanticKey }) => semanticKey === true)
+            const selectorKind = slot.selectorKinds[0]
+            const selector =
+                selectorKind === 'semantic-key'
+                    ? {
+                          kind: selectorKind,
+                          field: semanticComponent?.field ?? 'key',
+                          value: semanticKeys[slot.key] ?? 'default'
+                      }
+                    : selectorKind === 'relation-set'
+                    ? { kind: selectorKind, parentSlot: slot.relation?.parentSlot ?? 'tiers' }
+                    : { kind: selectorKind }
+            return {
+                slot: slot.key,
+                targets: [
+                    {
+                        entityKind: 'object',
+                        entityCodename: entityCodenames[slot.key] ?? `MarketingPage${slot.key}`,
+                        selector,
+                        projection: slot.requirements.components.map(({ field, componentCodename }) => ({ field, componentCodename }))
+                    }
+                ]
+            }
+        })
+    })
+    return encodeWidgetConfigEnvelope(
+        { rendererConfig, neutral: { bindings } },
+        { templateKey: 'marketing-page', widgetKey, zone: 'marketing-main' }
+    )
+}
+
 const createDb = (
     primaryHref = '#pricing',
     scopedPricingActive = true,
     scopedHeroActive = true,
     includeEnterprisePricing = false,
-    includeFeatureCollection = false
+    includeFeatureCollection = false,
+    scopedHeroConfig?: unknown
 ) => {
     const query = jest.fn(async (sql: string, _params?: unknown[]) => {
         if (sql.includes('FROM') && sql.includes('"_mhb_layouts"')) {
@@ -77,10 +143,7 @@ const createDb = (
                     layout_id: sourceLayoutId,
                     widget_key: 'marketing.pricing',
                     zone: 'marketing-main',
-                    config: {
-                        instanceKey: 'pricing',
-                        source: { entityKind: 'object', entityCodename: 'MarketingPagePricing' }
-                    },
+                    config: widgetConfig('marketing.pricing', { instanceKey: 'pricing', maxItems: 24, showBenefits: true }, {}),
                     is_active: true
                 },
                 ...(includeEnterprisePricing
@@ -90,10 +153,11 @@ const createDb = (
                               layout_id: sourceLayoutId,
                               widget_key: 'marketing.pricing',
                               zone: 'marketing-main',
-                              config: {
-                                  instanceKey: 'pricing-enterprise',
-                                  source: { entityKind: 'object', entityCodename: 'MarketingPagePricing' }
-                              },
+                              config: widgetConfig(
+                                  'marketing.pricing',
+                                  { instanceKey: 'pricing-enterprise', maxItems: 24, showBenefits: true },
+                                  {}
+                              ),
                               sort_order: 3,
                               is_active: true
                           }
@@ -106,16 +170,11 @@ const createDb = (
                               layout_id: sourceLayoutId,
                               widget_key: 'marketing.collection',
                               zone: 'marketing-main',
-                              config: {
-                                  instanceKey: 'features-secondary',
-                                  variant: 'features',
-                                  source: { entityCodename: 'MarketingPageFeature', entityKind: 'object' },
-                                  copySource: {
-                                      entityCodename: 'MarketingPageSection',
-                                      entityKind: 'object',
-                                      recordKey: 'features'
-                                  }
-                              },
+                              config: widgetConfig(
+                                  'marketing.collection',
+                                  { instanceKey: 'features-secondary', variant: 'features', maxItems: 100 },
+                                  { section: 'features' }
+                              ),
                               sort_order: 4,
                               is_active: true
                           }
@@ -132,7 +191,17 @@ const createDb = (
                     is_active: scopedPricingActive,
                     is_deleted_override: false
                 },
-                ...(scopedHeroActive
+                ...(scopedHeroConfig !== undefined
+                    ? [
+                          {
+                              layout_id: scopedLayoutId,
+                              base_widget_id: heroWidgetId,
+                              config: scopedHeroConfig,
+                              is_active: scopedHeroActive,
+                              is_deleted_override: false
+                          }
+                      ]
+                    : scopedHeroActive
                     ? []
                     : [
                           {
@@ -157,7 +226,7 @@ const createDb = (
                             immutableSemanticKeyWhenBound: true,
                             runtimeMutation: 'deny',
                             requiredLocales: ['en', 'ru'],
-                            validatorKey: 'marketing.hero.v1'
+                            coRequiredGroups: [['TermsText', 'TermsLinkLabel', 'TermsAction']]
                         }
                     }
                 }
@@ -173,6 +242,7 @@ const createDb = (
                     ...(component.localized ? { localized: true } : {}),
                     ...(component.maxLength !== undefined ? { maxLength: component.maxLength } : {}),
                     ...(component.semanticKey ? { unique: true } : {}),
+                    ...(component.pattern === undefined ? {} : { pattern: component.pattern }),
                     ...(component.format ? { format: component.format } : {})
                 }
             }))
@@ -236,6 +306,15 @@ describe('Marketing Hero anchor integrity store', () => {
         ).rejects.toThrow('Hero action targets an inactive section in this layout')
     })
 
+    it('validates scoped Hero actions with the base binding when the overlay stores only a renderer delta', async () => {
+        const { db } = createDb('#pricing', false, true, false, false, heroOverlayDeltaConfig)
+        const content = projectMarketingHeroContentData(heroRecordData('#pricing'))
+
+        await expect(
+            assertMarketingHeroRecordActionsRemainValid(db, 'mhb_0123456789abcdef0123456789abcdef_b1', 'HeroKey', 'hero-default', content)
+        ).rejects.toThrow('Hero action targets an inactive section in this layout')
+    })
+
     it('respects scoped inactive overrides before allowing a section change', async () => {
         const { db } = createDb('#pricing', true)
 
@@ -269,16 +348,11 @@ describe('Marketing Hero anchor integrity store', () => {
                 widgetId: featureWidgetId,
                 widgetKey: 'marketing.collection',
                 kind: 'set-config',
-                config: {
-                    instanceKey: 'features-secondary',
-                    variant: 'testimonials',
-                    source: { entityCodename: 'MarketingPageTestimonial', entityKind: 'object' },
-                    copySource: {
-                        entityCodename: 'MarketingPageSection',
-                        entityKind: 'object',
-                        recordKey: 'testimonials'
-                    }
-                }
+                config: widgetConfig(
+                    'marketing.collection',
+                    { instanceKey: 'features-secondary', variant: 'testimonials', maxItems: 100 },
+                    { section: 'testimonials' }
+                )
             })
         ).rejects.toThrow('Hero action targets an inactive section in this layout')
     })
@@ -339,10 +413,7 @@ describe('Marketing Hero anchor integrity store', () => {
                         layout_id: sourceLayoutId,
                         widget_key: 'marketing.pricing',
                         zone: 'marketing-main',
-                        config: {
-                            instanceKey: 'pricing',
-                            source: { entityKind: 'object', entityCodename: 'MarketingPagePricing' }
-                        },
+                        config: widgetConfig('marketing.pricing', { instanceKey: 'pricing', maxItems: 24, showBenefits: true }, {}),
                         is_active: true
                     }
                 ]
@@ -359,7 +430,7 @@ describe('Marketing Hero anchor integrity store', () => {
                                 immutableSemanticKeyWhenBound: true,
                                 runtimeMutation: 'deny',
                                 requiredLocales: ['en', 'ru'],
-                                validatorKey: 'marketing.hero.v1'
+                                coRequiredGroups: [['TermsText', 'TermsLinkLabel', 'TermsAction']]
                             }
                         }
                     }
@@ -375,6 +446,7 @@ describe('Marketing Hero anchor integrity store', () => {
                         ...(component.localized ? { localized: true } : {}),
                         ...(component.maxLength !== undefined ? { maxLength: component.maxLength } : {}),
                         ...(component.semanticKey ? { unique: true } : {}),
+                        ...(component.pattern === undefined ? {} : { pattern: component.pattern }),
                         ...(component.format ? { format: component.format } : {})
                     }
                 }))

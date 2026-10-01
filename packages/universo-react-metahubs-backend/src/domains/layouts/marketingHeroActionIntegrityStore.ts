@@ -3,6 +3,8 @@ import {
     applicationLayoutZoneSchema,
     decodeWidgetConfigEnvelope,
     getMarketingSectionAnchorEntries,
+    getLayoutWidgetDefinition,
+    isCompatibleWidgetBindingEntity,
     LAYOUT_WIDGET_DEFINITIONS,
     parseApplicationLayoutWidgetConfig,
     resolveSharedBehavior,
@@ -14,9 +16,8 @@ import { queryMany, queryOne } from '@universo-react/utils/database'
 import { qSchemaTable } from '@universo-react/database'
 import { codenamePrimaryTextSql } from '../shared/codename'
 import { MetahubValidationError } from '../shared/domainErrors'
-import { resolveEntityRecordPolicy } from '@universo-react/types'
-import { projectMarketingHeroContentData, validateMarketingHeroComponents } from './marketingHeroBindingsStore'
-import { isAuthoritativeMarketingHeroRecordPolicy, validateEntityRecordPolicyData } from '../shared/entityRecordPolicy'
+import { projectMarketingHeroContentData } from './marketingHeroContentProjection'
+import { readEntityRecordPolicy, validateEntityRecordPolicyData } from '../shared/entityRecordPolicy'
 import { validateMarketingHeroActionTargets } from './marketingHeroActionPolicy'
 
 const ACTIVE = '_upl_deleted = false AND _mhb_deleted = false'
@@ -76,6 +77,22 @@ const decodeWidget = (row: DbWidget): EffectiveWidget => {
         config: parseApplicationLayoutWidgetConfig(widgetKey, envelope.rendererConfig),
         isActive: row.is_active !== false,
         ...(envelope.neutral.bindings ? { bindings: widgetEntityBindingEnvelopeSchema.parse(envelope.neutral.bindings) } : {})
+    }
+}
+
+const decodeMarketingOverlayWidget = (base: EffectiveWidget, config: unknown): EffectiveWidget => {
+    const envelope = decodeWidgetConfigEnvelope(config, {
+        templateKey: MARKETING_TEMPLATE,
+        widgetKey: base.widgetKey,
+        zone: base.zone,
+        requireBindings: false
+    })
+    if (envelope.neutral.bindings !== undefined) {
+        throw new MetahubValidationError('Marketing widget overrides cannot contain entity bindings', { widgetKey: base.widgetKey })
+    }
+    return {
+        ...base,
+        config: parseApplicationLayoutWidgetConfig(base.widgetKey, envelope.rendererConfig)
     }
 }
 
@@ -151,7 +168,7 @@ const getEffectiveLayouts = async (
 
             let resolved = base
             if (override?.config !== null && override?.config !== undefined) {
-                const configured = decodeWidget({ ...row, config: override.config })
+                const configured = decodeMarketingOverlayWidget(base, override.config)
                 const baseInstanceKey = typeof base.config.instanceKey === 'string' ? base.config.instanceKey : undefined
                 const overrideInstanceKey = typeof configured.config.instanceKey === 'string' ? configured.config.instanceKey : undefined
                 if (baseInstanceKey !== overrideInstanceKey) {
@@ -204,6 +221,7 @@ export const countMarketingHeroBindingUsage = async (
 ): Promise<number> => {
     const selected = binding.slots.find(({ slot }) => slot === 'content')?.targets[0]
     if (!selected || selected.selector.kind !== 'semantic-key') return 0
+    const selectedSelector = selected.selector
     const layouts = await getEffectiveLayouts(db, schemaName)
     return layouts.reduce(
         (count, layout) =>
@@ -215,8 +233,8 @@ export const countMarketingHeroBindingUsage = async (
                         target.entityKind === selected.entityKind &&
                         target.entityCodename === selected.entityCodename &&
                         target.selector.kind === 'semantic-key' &&
-                        target.selector.field === selected.selector.field &&
-                        target.selector.value === selected.selector.value
+                        target.selector.field === selectedSelector.field &&
+                        target.selector.value === selectedSelector.value
                 )
             }).length,
         0
@@ -267,11 +285,10 @@ const loadBoundHeroContent = async (
             [target.entityCodename]
         )
         if (!object) throw new MetahubValidationError('Hero binding Object is unavailable')
-        const policy = resolveEntityRecordPolicy(object.config)
-        if (
-            !isAuthoritativeMarketingHeroRecordPolicy(policy) ||
-            policy.semanticKey?.componentCodename !== semanticKeyDefinition.componentCodename
-        ) {
+        const policy = readEntityRecordPolicy(object.config)
+        const semanticKeyComponent = policy?.semanticKey?.componentCodename
+        const slot = getLayoutWidgetDefinition(HERO_WIDGET)?.bindingSlots?.find(({ key }) => key === 'content')
+        if (!slot || !policy || semanticKeyComponent !== semanticKeyDefinition.componentCodename) {
             throw new MetahubValidationError('Hero Entity record policy does not match its registered binding slot')
         }
         const components = await queryMany<{ codename: string; data_type: string; is_required: boolean; validation_rules: unknown }>(
@@ -280,12 +297,25 @@ const loadBoundHeroContent = async (
                FROM ${qSchemaTable(schemaName, '_mhb_components')} WHERE object_id = $1 AND parent_component_id IS NULL AND ${ACTIVE}`,
             [object.id]
         )
-        validateMarketingHeroComponents(components)
+        if (
+            !isCompatibleWidgetBindingEntity(slot, {
+                kind: 'object',
+                config: object.config,
+                components: components.map((component) => ({
+                    codename: component.codename,
+                    dataType: component.data_type,
+                    isRequired: component.is_required,
+                    validationRules: component.validation_rules
+                }))
+            })
+        ) {
+            throw new MetahubValidationError('Hero Entity metadata does not match its registered binding slot')
+        }
         const matches = await queryMany<{ id: string; data: unknown }>(
             db,
             `SELECT id, data FROM ${qSchemaTable(schemaName, '_mhb_elements')}
               WHERE object_id = $1 AND ${ACTIVE} AND data ->> $2::text = $3 ORDER BY id ASC LIMIT 2`,
-            [object.id, policy.semanticKey.componentCodename, semanticKey]
+            [object.id, semanticKeyComponent, semanticKey]
         )
         if (matches.length !== 1 || !isRecord(matches[0]!.data)) {
             throw new MetahubValidationError('Hero semantic key does not resolve to one active Entity record', {
@@ -298,6 +328,7 @@ const loadBoundHeroContent = async (
             matches[0]!.data,
             components.map((component) => ({
                 codename: component.codename,
+                dataType: component.data_type,
                 isRequired: component.is_required,
                 validationRules: isRecord(component.validation_rules) ? component.validation_rules : {}
             }))

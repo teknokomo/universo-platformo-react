@@ -32,28 +32,28 @@ describe('marketing action catalog', () => {
             {
                 href: '#hero',
                 sectionId: 'hero',
-                labelKey: 'layouts.marketing.heroAuthoring.sections.hero',
+                labelKey: 'layouts.marketing.actionAuthoring.sections.hero',
                 defaultLabel: 'Hero',
                 instanceNumber: 1
             },
             {
                 href: '#features-pricing',
                 sectionId: 'features-pricing',
-                labelKey: 'layouts.marketing.heroAuthoring.sections.features',
+                labelKey: 'layouts.marketing.actionAuthoring.sections.features',
                 defaultLabel: 'Features',
                 instanceNumber: 1
             },
             {
                 href: '#pricing-pricing-enterprise',
                 sectionId: 'pricing-pricing-enterprise',
-                labelKey: 'layouts.marketing.heroAuthoring.sections.pricing',
+                labelKey: 'layouts.marketing.actionAuthoring.sections.pricing',
                 defaultLabel: 'Pricing',
                 instanceNumber: 1
             },
             {
                 href: '#pricing-pricing-campus',
                 sectionId: 'pricing-pricing-campus',
-                labelKey: 'layouts.marketing.heroAuthoring.sections.pricing',
+                labelKey: 'layouts.marketing.actionAuthoring.sections.pricing',
                 defaultLabel: 'Pricing',
                 instanceNumber: 2
             }

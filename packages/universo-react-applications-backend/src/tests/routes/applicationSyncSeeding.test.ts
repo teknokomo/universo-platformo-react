@@ -1,12 +1,15 @@
 jest.mock('@universo-react/database', () => ({
     __esModule: true,
+    createKnexExecutor: jest.fn(() => ({ query: jest.fn().mockResolvedValue([]) })),
     getKnex: jest.fn(() => ({})),
     qSchemaTable: jest.requireActual('@universo-react/database').qSchemaTable
 }))
 
 import type { Knex } from 'knex'
+import { createKnexExecutor } from '@universo-react/database'
 import type { EntityDefinition } from '@universo-react/schema-ddl'
 import { seedPredefinedElements, syncEnumerationValues } from '../../routes/applicationSyncRoutes'
+import { createMarketingCollectionConfig, createMarketingPricingConfig } from '../utils/marketingWidgetBindings'
 
 describe('application sync predefined seeding', () => {
     afterEach(() => {
@@ -53,14 +56,16 @@ describe('application sync predefined seeding', () => {
         expect(merge).not.toHaveBeenCalled()
     })
 
-    it('fails the sync when a marketing object exceeds the public runtime row limit', async () => {
+    it('fails the sync when a semantic-key Marketing binding exceeds the public runtime row limit', async () => {
         const withSchema = jest.fn()
         const trx = { withSchema } as unknown as Knex.Transaction
+        const objectId = '019ccefc-2f7b-7b36-82f4-85cdb1312268'
+        const layoutId = '019ccefc-2f7b-7b36-82f4-85cdb1312269'
         const entities = [
             {
-                id: '019ccefc-2f7b-7b36-82f4-85cdb1312268',
+                id: objectId,
                 kind: 'object',
-                codename: 'MarketingPageFaq',
+                codename: 'CustomMarketingFaq',
                 fields: []
             }
         ] as unknown as EntityDefinition[]
@@ -72,7 +77,18 @@ describe('application sync predefined seeding', () => {
         await expect(
             seedPredefinedElements(
                 'app_019ccefc2f7b7b3682f485cdb1312268',
-                { elements: { '019ccefc-2f7b-7b36-82f4-85cdb1312268': oversizedRows } } as never,
+                {
+                    layouts: [{ id: layoutId, templateKey: 'marketing-page' }],
+                    layoutZoneWidgets: [
+                        {
+                            layoutId,
+                            widgetKey: 'marketing.pricing',
+                            zone: 'marketing-main',
+                            config: createMarketingPricingConfig({ section: 'CustomMarketingFaq' })
+                        }
+                    ],
+                    elements: { [objectId]: oversizedRows }
+                } as never,
                 entities,
                 'user-1',
                 trx
@@ -82,14 +98,121 @@ describe('application sync predefined seeding', () => {
         expect(withSchema).not.toHaveBeenCalled()
     })
 
-    it('rejects snapshots with duplicate unique keys before writing', async () => {
-        const withSchema = jest.fn()
+    it('rejects a Marketing source when existing active rows keep the table above the public runtime limit', async () => {
+        const merge = jest.fn().mockResolvedValue(undefined)
+        const onConflict = jest.fn().mockReturnValue({ merge })
+        const insert = jest.fn().mockReturnValue({ onConflict })
+        const count = jest.fn().mockResolvedValue([{ count: '1001' }])
+        const tableBuilder = {
+            insert,
+            where: jest.fn().mockReturnThis(),
+            andWhere: jest.fn().mockReturnThis(),
+            count
+        }
+        const table = jest.fn().mockReturnValue(tableBuilder)
+        const withSchema = jest.fn().mockReturnValue({ table })
         const trx = { withSchema } as unknown as Knex.Transaction
+        const objectId = '019ccefc-2f7b-7b36-82f4-85cdb1312268'
+        const layoutId = '019ccefc-2f7b-7b36-82f4-85cdb1312269'
         const entities = [
             {
-                id: '019ccefc-2f7b-7b36-82f4-85cdb1312269',
+                id: objectId,
                 kind: 'object',
-                codename: 'MarketingPageFaq',
+                codename: 'CustomLandingFeature',
+                fields: []
+            }
+        ] as unknown as EntityDefinition[]
+
+        await expect(
+            seedPredefinedElements(
+                'app_019ccefc2f7b7b3682f485cdb1312268',
+                {
+                    layouts: [{ id: layoutId, templateKey: 'marketing-page' }],
+                    layoutZoneWidgets: [
+                        {
+                            layoutId,
+                            widgetKey: 'marketing.collection',
+                            zone: 'marketing-main',
+                            config: createMarketingCollectionConfig('CustomLandingFeature')
+                        }
+                    ],
+                    elements: {
+                        [objectId]: [{ id: '019ccefc-2f7b-7b39-82f4-85cdb131226b', data: {} }]
+                    }
+                } as never,
+                entities,
+                'user-1',
+                trx
+            )
+        ).rejects.toThrow('exceeds the public runtime row limit')
+
+        expect(merge).toHaveBeenCalledTimes(1)
+        expect(count).toHaveBeenCalledTimes(1)
+        expect(tableBuilder.where).toHaveBeenCalledWith('_upl_deleted', false)
+        expect(tableBuilder.andWhere).toHaveBeenCalledWith('_app_deleted', false)
+        expect(tableBuilder.andWhere).toHaveBeenCalledWith('_upl_archived', false)
+        expect(tableBuilder.andWhere).toHaveBeenCalledWith('_app_archived', false)
+        expect(tableBuilder.andWhere).toHaveBeenCalledWith('_app_published', true)
+        const createKnexExecutorMock = jest.mocked(createKnexExecutor)
+        const lockExecutor = createKnexExecutorMock.mock.results[createKnexExecutorMock.mock.results.length - 1]?.value as unknown as {
+            query: jest.Mock
+        }
+        expect(lockExecutor.query).toHaveBeenCalledWith('SELECT pg_advisory_xact_lock(hashtextextended($1::text, 0))', [
+            'marketing-row-cap:runtime-record-rules:app_019ccefc2f7b7b3682f485cdb1312268.obj_019ccefc2f7b7b3682f485cdb1312268'
+        ])
+    })
+
+    it('fails the sync when a custom Entity used by a Marketing collection exceeds the public runtime row limit', async () => {
+        const withSchema = jest.fn()
+        const trx = { withSchema } as unknown as Knex.Transaction
+        const objectId = '019ccefc-2f7b-7b36-82f4-85cdb1312268'
+        const layoutId = '019ccefc-2f7b-7b36-82f4-85cdb1312269'
+        const entities = [
+            {
+                id: objectId,
+                kind: 'object',
+                codename: 'CustomLandingFeature',
+                fields: []
+            }
+        ] as unknown as EntityDefinition[]
+        const oversizedRows = Array.from({ length: 1001 }, (_unused, index) => ({
+            id: `019ccefc-2f7b-7b39-82f4-85cdb131${String(index).padStart(4, '0')}`,
+            data: {}
+        }))
+
+        await expect(
+            seedPredefinedElements(
+                'app_019ccefc2f7b7b3682f485cdb1312268',
+                {
+                    layouts: [{ id: layoutId, templateKey: 'marketing-page' }],
+                    layoutZoneWidgets: [
+                        {
+                            layoutId,
+                            widgetKey: 'marketing.collection',
+                            zone: 'marketing-main',
+                            config: createMarketingCollectionConfig('CustomLandingFeature')
+                        }
+                    ],
+                    elements: { [objectId]: oversizedRows }
+                } as never,
+                entities,
+                'user-1',
+                trx
+            )
+        ).rejects.toThrow('exceeds the public runtime row limit')
+
+        expect(withSchema).not.toHaveBeenCalled()
+    })
+
+    it('rejects duplicate unique keys for a custom semantic-key source before writing', async () => {
+        const withSchema = jest.fn()
+        const trx = { withSchema } as unknown as Knex.Transaction
+        const objectId = '019ccefc-2f7b-7b36-82f4-85cdb1312269'
+        const entities = [
+            {
+                id: objectId,
+                kind: 'object',
+                codename: 'CustomMarketingFaq',
                 fields: [
                     {
                         id: 'faq-key',
@@ -106,8 +229,17 @@ describe('application sync predefined seeding', () => {
             seedPredefinedElements(
                 'app_019ccefc2f7b7b3682f485cdb1312268',
                 {
+                    layouts: [{ id: '019ccefc-2f7b-7b36-82f4-85cdb1312270', templateKey: 'marketing-page' }],
+                    layoutZoneWidgets: [
+                        {
+                            layoutId: '019ccefc-2f7b-7b36-82f4-85cdb1312270',
+                            widgetKey: 'marketing.pricing',
+                            zone: 'marketing-main',
+                            config: createMarketingPricingConfig({ section: 'CustomMarketingFaq' })
+                        }
+                    ],
                     elements: {
-                        '019ccefc-2f7b-7b36-82f4-85cdb1312269': [
+                        [objectId]: [
                             { id: '019ccefc-2f7b-7b39-82f4-85cdb131226b', data: { FaqKey: 'support' } },
                             { id: '019ccefc-2f7b-7b39-82f4-85cdb131226c', data: { FaqKey: 'support' } }
                         ]

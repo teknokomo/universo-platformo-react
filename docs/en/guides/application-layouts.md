@@ -119,6 +119,33 @@ standalone Playwright proof is opt-in and reports
 `BLOCKED` when no deployed shell is configured; a skipped standalone test is not
 treated as evidence.
 
+## Marketing Page source-owned widget settings
+
+For a metahub-sourced <code>marketing-page</code> layout, bindings stay owned by
+the source placement. Application edits are limited to the widget's registered
+presentation fields and permitted active state, order, and placement. Entity
+content and source selection remain in Metahub authoring.
+
+Synchronization stores a trusted source config and a complete source-state
+baseline for renderer presentation, activation, sort order, zone, and logical
+placement. A reset restores that latest baseline while retaining the inherited
+binding. Source-owned baseline metadata is not part of the public runtime DTO.
+
+The Application editor hides Add and Duplicate for source-managed Marketing
+placements. A customized placement with an available source baseline exposes
+Reset to source, which restores its current presentation and placement state
+while retaining the inherited binding. The Marketing header zone setting has
+its own reset control.
+
+Application permissions and server-side layout validation remain authoritative.
+The Application UI cannot create a binding by submitting renderer config, and
+content or binding changes must be made in Metahub, then published and synced
+to the already linked application.
+
+See [Entity-backed widgets](../architecture/entity-backed-widgets.md) and the
+[Marketing Page Template](../platform/marketing-page-template.md) for the full
+ownership and binding contract.
+
 ## Side Menu Modes
 
 The layout configuration includes side-menu behavior for published applications. Administrators can enable any combination of:

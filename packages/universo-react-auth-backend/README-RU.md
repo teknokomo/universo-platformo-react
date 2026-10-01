@@ -52,7 +52,8 @@ router.use('/applications', ensureAuthWithRls, applicationsRouter)
 4. **Pinned Connection**: Захватывает одно выделенное Knex-соединение на весь жизненный цикл запроса
 5. **RLS Context Application**: Записывает `request.jwt.claims` в это соединение, чтобы PostgreSQL policies видели контекст пользователя
 6. **Request Context**: Кладёт нейтральную пару `DbSession` / `DbExecutor` в `req.dbContext` для роутов и сервисов
-7. **Cleanup**: Сбрасывает session claims и освобождает pinned connection при завершении запроса
+7. **Cleanup**: Закрывает admission транзакций до connection lease, дожидается принятых операций и завершает request transaction до отправки ответа. Ошибка savepoint аннулирует родительскую request transaction даже при перехваченном rejection; успешный rollback сохраняет клиентский статус ошибки.
+8. **Connection safety**: Если reset или rollback нельзя подтвердить, соединение помечается непригодным, чтобы Knex pool удалил его перед повторным использованием.
 
 ### Usage in Services
 

@@ -1,21 +1,9 @@
 import {
     MARKETING_NUMERIC_TEXT_PATTERN,
-    marketingPageRuntimeViewModelSchema,
-    publicMarketingPageRuntimeViewModelSchema,
     type MarketingAction as SharedMarketingAction,
-    type MarketingAtomicHeaderWidget,
     type MarketingCollectionVariant,
     type MarketingHeroEntityContent,
-    type MarketingMedia as SharedMarketingMedia,
-    type MarketingPageRecord,
-    type MarketingPageRuntimeViewModel,
-    type MarketingPageRendererViewModel,
-    type MarketingRuntimeWidget,
-    type MarketingSiteSettingsRecord,
-    type PublicMarketingAtomicHeaderWidget,
-    type PublicMarketingPageRecord,
-    type PublicMarketingRuntimeWidget,
-    type PublicMarketingSiteSettingsRecord
+    type MarketingMedia as SharedMarketingMedia
 } from '@universo-react/types'
 import { resolveMarketingLocalizedText, toMarketingActionHref, toMarketingActionLinkAttributes } from '@universo-react/utils'
 import i18n from '@universo-react/i18n'
@@ -43,6 +31,13 @@ import type {
     MarketingSectionCopy,
     MarketingTestimonial
 } from './types'
+import {
+    authenticatedMarketingPageRuntimePayloadSchema,
+    publicMarketingPageRuntimePayloadSchema,
+    type MarketingPageRuntimePayload,
+    type MarketingRuntimeRecordProjection,
+    type MarketingRuntimeWidgetProjection
+} from './runtimeDto'
 import '../i18n'
 
 const iconMap: Record<string, MarketingIconKey> = {
@@ -125,7 +120,9 @@ const media = (value: SharedMarketingMedia | undefined, locale: string): Marketi
         resource: value.resource,
         src: value.resource.url ?? '',
         alt: value.decorative ? '' : text(value.alt, locale),
-        decorative: value.decorative
+        decorative: value.decorative,
+        width: value.width,
+        height: value.height
     }
 }
 
@@ -160,12 +157,11 @@ const internalAction = (semanticKey: string, label: string, href: string): Marke
     target: '_self'
 })
 
-type RuntimeRecord = MarketingPageRecord | PublicMarketingPageRecord
-type RuntimeWidget = MarketingRuntimeWidget | PublicMarketingRuntimeWidget
-type AtomicHeaderWidget = MarketingAtomicHeaderWidget | PublicMarketingAtomicHeaderWidget
-type SiteSettingsRecord =
-    | (Omit<MarketingSiteSettingsRecord, 'brandLogo'> & { brandLogo?: SharedMarketingMedia })
-    | (Omit<PublicMarketingSiteSettingsRecord, 'brandLogo'> & { brandLogo?: SharedMarketingMedia })
+type RuntimeRecord = MarketingRuntimeRecordProjection
+type RuntimeWidget = MarketingRuntimeWidgetProjection
+type AtomicHeaderWidget = Extract<RuntimeWidget, { widgetKey: 'marketing.brand' | 'marketing.auth' }>
+type ContentWidget = Exclude<RuntimeWidget, AtomicHeaderWidget>
+type SiteSettingsRecord = Extract<RuntimeRecord, { kind: 'siteSettings' }>
 type RecordOfKind<T extends RuntimeRecord['kind']> = Extract<RuntimeRecord, { kind: T }>
 
 const recordsOfKind = <T extends RuntimeRecord['kind']>(items: readonly RuntimeRecord[], kind: T): RecordOfKind<T>[] =>
@@ -183,15 +179,17 @@ const visibleInContent = <T extends { visible?: boolean; order?: number }>(items
 
 const widgetItems = (widget: RuntimeWidget): RuntimeRecord[] => ('records' in widget.data ? widget.data.records : []) as RuntimeRecord[]
 
-const isAtomicHeaderWidget = (value: MarketingPageRendererViewModel['marketingPage']['widgets'][number]): value is AtomicHeaderWidget => {
+const isAtomicHeaderWidget = (value: RuntimeWidget): value is AtomicHeaderWidget => {
     return value.widgetKey === 'marketing.brand' || value.widgetKey === 'marketing.auth'
 }
 
 const runtimeRecords = (widget: AtomicHeaderWidget): RuntimeRecord[] => widget.data.records
 
-type MarketingRuntimePage = Omit<MarketingPageRendererViewModel['marketingPage'], 'widgets'> & {
-    widgets: RuntimeWidget[]
-}
+type MarketingRuntimePage = MarketingPageRuntimePayload['marketingPage'] extends infer Page
+    ? Page extends { widgets: unknown[] }
+        ? Omit<Page, 'widgets'> & { widgets: ContentWidget[] }
+        : never
+    : never
 
 interface ParsedMarketingRuntimeEnvelope {
     page: MarketingRuntimePage
@@ -199,10 +197,10 @@ interface ParsedMarketingRuntimeEnvelope {
 }
 
 const parseMarketingRuntimeEnvelope = (viewModel: unknown): ParsedMarketingRuntimeEnvelope => {
-    const authenticated = marketingPageRuntimeViewModelSchema.safeParse(viewModel)
-    const parsed = authenticated.success ? authenticated.data : publicMarketingPageRuntimeViewModelSchema.parse(viewModel)
+    const authenticated = authenticatedMarketingPageRuntimePayloadSchema.safeParse(viewModel)
+    const parsed = authenticated.success ? authenticated.data : publicMarketingPageRuntimePayloadSchema.parse(viewModel)
     const atomicHeaderWidgets = parsed.marketingPage.widgets.filter(isAtomicHeaderWidget)
-    const coreWidgets = parsed.marketingPage.widgets.filter((widget): widget is RuntimeWidget => !isAtomicHeaderWidget(widget))
+    const coreWidgets = parsed.marketingPage.widgets.filter((widget): widget is ContentWidget => !isAtomicHeaderWidget(widget))
     return {
         page: {
             ...parsed.marketingPage,
@@ -212,8 +210,7 @@ const parseMarketingRuntimeEnvelope = (viewModel: unknown): ParsedMarketingRunti
     }
 }
 
-const firstSettings = (items: readonly RuntimeRecord[], fallback?: SiteSettingsRecord): SiteSettingsRecord | undefined =>
-    recordsOfKind(items, 'siteSettings')[0] ?? fallback
+const firstSettings = (items: readonly RuntimeRecord[]): SiteSettingsRecord | undefined => recordsOfKind(items, 'siteSettings')[0]
 
 const sectionCopy = (
     items: readonly RuntimeRecord[],
@@ -499,11 +496,10 @@ const atomicFrame = (
 
 const normalizeAtomicHeaderWidget = (
     widget: AtomicHeaderWidget,
-    locale: string,
-    globalSettings: SiteSettingsRecord | undefined
+    locale: string
 ): MarketingBrandWidget | MarketingAuthWidget | undefined => {
     const frameData = atomicFrame(widget)
-    const settings = firstSettings(runtimeRecords(widget), globalSettings)
+    const settings = firstSettings(runtimeRecords(widget))
     if (widget.widgetKey === 'marketing.brand') {
         return {
             ...frameData,
@@ -529,7 +525,7 @@ const normalizeAtomicHeaderWidget = (
 }
 
 const normalizeCollection = (
-    widget: Extract<RuntimeWidget, { widgetKey: 'marketing.collection' }>,
+    widget: Extract<ContentWidget, { widgetKey: 'marketing.collection' }>,
     locale: string
 ): MarketingCollectionWidget => {
     const items = widgetItems(widget)
@@ -579,7 +575,7 @@ const normalizeCollection = (
     return { ...frame(widget), widgetKey: 'marketing.collection', content }
 }
 
-const normalizeWidget = (widget: RuntimeWidget, locale: string, globalSettings: SiteSettingsRecord | undefined): MarketingPageWidget => {
+const normalizeWidget = (widget: ContentWidget, locale: string): MarketingPageWidget => {
     const items = widgetItems(widget)
     switch (widget.widgetKey) {
         case 'marketing.navigation':
@@ -595,10 +591,12 @@ const normalizeWidget = (widget: RuntimeWidget, locale: string, globalSettings: 
                 content: normalizeHero(widget.data.records[0].content, locale, widget.config.showLeadForm)
             }
         case 'marketing.image': {
-            const normalizedMedia = media(widget.config.media, locale)
+            const imageRecord = widget.data.records[0]
+            const normalizedMedia = media(imageRecord.media, locale)
             if (!normalizedMedia) throw new Error('Marketing image widget media could not be normalized')
             return {
                 ...frame(widget),
+                isActive: widget.isActive && imageRecord.isVisible,
                 widgetKey: widget.widgetKey,
                 content: { media: normalizedMedia }
             }
@@ -623,7 +621,7 @@ const normalizeWidget = (widget: RuntimeWidget, locale: string, globalSettings: 
             return {
                 ...frame(widget),
                 widgetKey: widget.widgetKey,
-                content: normalizeFooter(items, firstSettings(items, globalSettings), locale, widget.config.showNewsletter)
+                content: normalizeFooter(items, firstSettings(items), locale, widget.config.showNewsletter)
             } satisfies MarketingFooterWidget
     }
 }
@@ -638,25 +636,16 @@ export function normalizeMarketingPageRuntime(viewModel: unknown, locale: string
     const parsed = parseMarketingRuntimeEnvelope(viewModel)
     const page = parsed.page
     const requestedLocale = normalizeLanguage(locale)
-    const allItems = [
-        ...page.widgets.flatMap((widget) => widgetItems(widget)),
-        ...parsed.atomicHeaderWidgets.flatMap((widget) => runtimeRecords(widget))
-    ]
-    const inheritedSettings = firstSettings(allItems)
-    const globalSettings =
-        page.config.brandLogo && inheritedSettings ? { ...inheritedSettings, brandLogo: page.config.brandLogo } : inheritedSettings
-
     const normalizedAtomicWidgets = parsed.atomicHeaderWidgets
-        .map((widget) => normalizeAtomicHeaderWidget(widget, requestedLocale, globalSettings))
+        .map((widget) => normalizeAtomicHeaderWidget(widget, requestedLocale))
         .filter((widget): widget is MarketingBrandWidget | MarketingAuthWidget => Boolean(widget))
 
     return {
         templateKey: 'marketing-page',
         locale: page.locale,
         config: page.config,
-        widgets: [...page.widgets.map((widget) => normalizeWidget(widget, requestedLocale, globalSettings)), ...normalizedAtomicWidgets],
-        runtime: 'runtime' in page ? (page as MarketingPageRuntimeViewModel['marketingPage']).runtime : undefined,
-        provenance: 'provenance' in page ? (page as MarketingPageRuntimeViewModel['marketingPage']).provenance : undefined,
-        richContent: 'richContent' in page ? (page as MarketingPageRuntimeViewModel['marketingPage']).richContent : undefined
+        widgets: [...page.widgets.map((widget) => normalizeWidget(widget, requestedLocale)), ...normalizedAtomicWidgets],
+        runtime: 'runtime' in page ? page.runtime : undefined,
+        richContent: 'richContent' in page ? page.richContent : undefined
     }
 }

@@ -425,7 +425,7 @@ describe('LayoutList copy flow entry', () => {
         })
     })
 
-    it('requires a visible Hero binding choice before copying a marketing layout', async () => {
+    it('copies a marketing layout without a Hero-specific binding mode', async () => {
         mockUsePaginated.mockReturnValue({
             data: [
                 {
@@ -472,24 +472,17 @@ describe('LayoutList copy flow entry', () => {
         await user.click(screen.getByTestId('layout-more-icon').closest('button') as HTMLButtonElement)
         await user.click(await screen.findByText('Copy'))
 
-        const reuseRadio = screen.getByRole('radio', { name: /reuse the same hero records/i })
-        const omitRadio = screen.getByRole('radio', { name: /skip bound hero placements/i })
-        expect(reuseRadio).not.toBeChecked()
-        expect(omitRadio).not.toBeChecked()
-        expect(screen.getByText('Add Hero placements later and select or create their Entity records.')).toBeInTheDocument()
-
-        await user.click(reuseRadio)
-        expect(reuseRadio).toBeChecked()
+        expect(screen.queryByRole('radio', { name: /bound content placements/i })).not.toBeInTheDocument()
         await user.click(screen.getByRole('button', { name: 'submit-layout-copy' }))
         await waitFor(() => {
             expect(copyLayoutMutate).toHaveBeenCalledWith(
                 expect.objectContaining({
                     data: expect.objectContaining({
-                        copyWidgets: true,
-                        heroBindingCopyMode: 'reuse'
+                        copyWidgets: true
                     })
                 })
             )
+            expect(copyLayoutMutate.mock.calls[0]?.[0]?.data).toMatchObject({ entityBindingCopyMode: 'reuse' })
         })
     })
 

@@ -15,24 +15,27 @@ Knex remains the shared transport and DDL engine, but day-to-day domain logic ta
 
 ## Core Rules
 
-- Domain routes and services accept `DbExecutor` or `SqlQueryable`.
-- Domain code does not import `knex` or `KnexClient` directly.
-- Dynamic identifiers go through `qSchema`, `qTable`, `qSchemaTable`, and `qColumn`.
-- Mutating DML uses `RETURNING` so callers observe the committed row shape.
-- Active-row reads must respect the owning domain soft-delete contract.
-- Admin `SECURITY DEFINER` helper functions that accept `user_id` arguments may use explicit foreign user ids only from Tier 2 backend/bootstrap contexts; request-scoped authenticated sessions must stay self-scoped to `auth.uid()`.
-- Zero-row writes fail closed instead of silently succeeding after stale lookups or races.
-- Advisory locks go through shared helpers instead of route-local or service-local raw helper forks.
-- Long-running work sets explicit `SET LOCAL lock_timeout` and `statement_timeout` budgets.
-- Schema-qualified names are required; domain SQL does not rely on `search_path`.
+-   Domain routes and services accept `DbExecutor` or `SqlQueryable`.
+-   Domain code does not import `knex` or `KnexClient` directly.
+-   Dynamic identifiers go through `qSchema`, `qTable`, `qSchemaTable`, and `qColumn`.
+-   Mutating DML uses `RETURNING` so callers observe the committed row shape.
+-   Active-row reads must respect the owning domain soft-delete contract.
+-   Admin `SECURITY DEFINER` helper functions that accept `user_id` arguments may use explicit foreign user ids only from Tier 2 backend/bootstrap contexts; request-scoped authenticated sessions must stay self-scoped to `auth.uid()`.
+-   Zero-row writes fail closed instead of silently succeeding after stale lookups or races.
+-   Advisory locks go through shared helpers instead of route-local or service-local raw helper forks.
+-   Long-running work sets explicit `SET LOCAL lock_timeout` and `statement_timeout` budgets.
+-   Schema-qualified names are required; domain SQL does not rely on `search_path`.
+-   Request-scoped RLS work stops admission before lease shutdown, drains admitted operations, and finalizes the outer transaction before sending a response.
+-   Request-session SQL shares the active async transaction scope; savepoint failures roll back the parent request transaction even if a caller catches the returned native Promise.
+-   A connection with an unconfirmed rollback/reset is marked unusable and discarded by the Knex pool validator before reuse.
 
 ## Allowed Tier 3 Boundaries
 
-- `@universo-react/schema-ddl` and migration packages own direct Knex DDL orchestration.
-- `@universo-react/database` owns the shared Knex lifecycle and executor factories.
-- `@universo-react/applications-backend` keeps raw Knex behind `src/ddl/index.ts` for runtime sync DDL orchestration.
-- `@universo-react/metahubs-backend` keeps raw Knex inside its DDL seams and schema-ddl integration paths.
-- These boundaries may bridge back into executor-style contracts, but route and store code outside them stay SQL-first.
+-   `@universo-react/schema-ddl` and migration packages own direct Knex DDL orchestration.
+-   `@universo-react/database` owns the shared Knex lifecycle and executor factories.
+-   `@universo-react/applications-backend` keeps raw Knex behind `src/ddl/index.ts` for runtime sync DDL orchestration.
+-   `@universo-react/metahubs-backend` keeps raw Knex inside its DDL seams and schema-ddl integration paths.
+-   These boundaries may bridge back into executor-style contracts, but route and store code outside them stay SQL-first.
 
 ## Request Flow
 
@@ -43,19 +46,19 @@ Knex remains the shared transport and DDL engine, but day-to-day domain logic ta
 
 ## Review Expectations
 
-- New persistence helpers should have direct unit tests, not only route-level mocks.
-- Route handlers should choose the correct tier once and pass neutral contracts downward.
-- Copy, delete, restore, and sync flows should prove their fail-closed behavior explicitly.
-- Package documentation and `AGENTS.md` guidance should match the same tier rules.
+-   New persistence helpers should have direct unit tests, not only route-level mocks.
+-   Route handlers should choose the correct tier once and pass neutral contracts downward.
+-   Copy, delete, restore, and sync flows should prove their fail-closed behavior explicitly.
+-   Package documentation and `AGENTS.md` guidance should match the same tier rules.
 
 ## Enforcement
 
-- `tools/lint-db-access.mjs` blocks forbidden Knex usage in domain packages.
-- CI runs the lint-db-access step before the workspace build.
-- Reviewers use the database code review checklist in the contributing docs.
+-   `tools/lint-db-access.mjs` blocks forbidden Knex usage in domain packages.
+-   CI runs the lint-db-access step before the workspace build.
+-   Reviewers use the database code review checklist in the contributing docs.
 
 ## Related References
 
-- [Database Design](database.md)
-- [Backend Architecture](backend.md)
-- [Database Code Review Checklist](../contributing/database-code-review-checklist.md)
+-   [Database Design](database.md)
+-   [Backend Architecture](backend.md)
+-   [Database Code Review Checklist](../contributing/database-code-review-checklist.md)

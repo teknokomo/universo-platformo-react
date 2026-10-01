@@ -34,6 +34,7 @@ export type {
     MarketingSectionCopy,
     MarketingTestimonial
 } from './marketing-page/types'
+export type { MarketingPageRuntimePayload, MarketingRendererConfig } from './marketing-page/runtimeDto'
 
 // Layout
 export { default as AppMainLayout, AppMainLayoutContext } from './layouts/AppMainLayout'

@@ -3,6 +3,7 @@ import type { RateLimitRequestHandler } from 'express-rate-limit'
 import type { MetahubPackageAttachment } from '@universo-react/types'
 import { PlayCanvasEditorBridgeSessionService } from '../../domains/playcanvas-projects/services/PlayCanvasEditorBridgeSessionService'
 import { artifactTokenTtlMs } from '../../domains/packages/services/editorArtifactTokenService'
+import { createPackageArtifactRoutes } from '../../domains/packages/routes/packageArtifactRoutes'
 
 const express = require('express') as typeof import('express')
 const request = require('supertest') as typeof import('supertest')
@@ -162,13 +163,14 @@ describe('Packages Routes', () => {
         next()) as RateLimitRequestHandler
     const mockExec = { query: jest.fn(), isReleased: jest.fn(() => false) }
 
-    const buildApp = (auth: RequestHandler = ensureAuth) => {
+    const buildApp = (auth: RequestHandler = ensureAuth, artifactAuth: RequestHandler = auth) => {
         const app = express()
         app.response.sendFile = function sendFileStub(filePath: string) {
             this.setHeader('X-Test-SendFile', filePath)
             return this.send('artifact')
         } as never
         app.use(express.json())
+        app.use(createPackageArtifactRoutes(artifactAuth, () => mockExec as never, mockRateLimiter))
         app.use(createPackagesRoutes(auth, () => mockExec as never, mockRateLimiter, mockRateLimiter))
         return app
     }
@@ -562,6 +564,19 @@ describe('Packages Routes', () => {
         expect(response.headers['content-security-policy']).toContain("frame-ancestors 'self'")
         expect(response.headers['content-type']).toContain('application/javascript')
         expect(response.headers['x-test-sendfile']).toContain('/assets/editor.js')
+        expect(mockEnsureMetahubAccess).toHaveBeenCalledWith(mockExec, 'user-1', 'metahub-1', 'manageMetahub', mockDbSession)
+    })
+
+    it('serves authenticated streamed artifacts through plain auth before any RLS middleware', async () => {
+        const ensureRlsAuth = jest.fn((_req: Request, _res: Response, next: NextFunction) => next())
+        const ensurePlainAuth = jest.fn((_req: Request, _res: Response, next: NextFunction) => next())
+
+        await request(buildApp(ensureRlsAuth, ensurePlainAuth))
+            .get('/metahub/metahub-1/packages/playcanvas-editor/editor-artifact/assets/editor.js')
+            .expect(200)
+
+        expect(ensurePlainAuth).toHaveBeenCalledTimes(1)
+        expect(ensureRlsAuth).not.toHaveBeenCalled()
         expect(mockEnsureMetahubAccess).toHaveBeenCalledWith(mockExec, 'user-1', 'metahub-1', 'manageMetahub', mockDbSession)
     })
 

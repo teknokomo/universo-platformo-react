@@ -197,6 +197,23 @@ export const flattenMarketingPageRecords = (payload: RuntimePayload): RuntimeRec
     })
 }
 
+/** Read a physical row from the generic runtime table payload using its semantic component value. */
+export const findRuntimeEntityRowByComponentValue = (
+    payload: unknown,
+    componentCodename: string,
+    expectedValue: string
+): Record<string, unknown> => {
+    const runtimeData = asRecord(payload)
+    const columns = Array.isArray(runtimeData.columns) ? runtimeData.columns.map(asRecord) : []
+    const field = columns.find((column) => column.codename === componentCodename)?.field
+    if (typeof field !== 'string') throw new Error(`Runtime component ${componentCodename} must be available`)
+    const rows = Array.isArray(runtimeData.rows) ? runtimeData.rows.map(asRecord) : []
+    const row = rows.find((candidate) => candidate[field] === expectedValue)
+    if (!row) throw new Error(`Runtime row ${componentCodename}=${expectedValue} must be available`)
+    if (typeof row.id !== 'string') throw new Error('Generic runtime row must include its physical ID')
+    return row
+}
+
 /**
  * Compare the materialized application read model with the built-in seed.
  * IDs, timestamps, and provenance are intentionally excluded because they are
@@ -236,13 +253,23 @@ export function assertMarketingPageRuntimeMaterialization(payload: RuntimePayloa
         .flat()
         .find((widget) => widget.widgetKey === 'marketing.image')
     const imageRuntimeWidget = widgets.find((widget) => widget.widgetKey === 'marketing.image')
+    const imageSeedRecord = readData(seedElement(manifest, 'MarketingPageImage'))
     assert.ok(imageSeedWidget, 'Built-in marketing image widget seed is required')
     assert.ok(imageRuntimeWidget, 'Materialized marketing image widget is required')
+    const imageRecord = imageRuntimeWidget.data?.records?.[0]
+    assert.ok(imageRecord, 'Materialized marketing image Entity record is required')
     assert.deepEqual(
-        mediaSignature(asRecord(imageRuntimeWidget.config).media),
-        mediaSignature(asRecord(imageSeedWidget.config).media),
-        'Materialized marketing image configuration differs from the metahub seed'
+        {
+            semanticKey: readString(imageRecord.semanticKey),
+            media: mediaSignature(imageRecord.media)
+        },
+        {
+            semanticKey: readString(imageSeedRecord.ImageKey),
+            media: seedMediaSignature(imageSeedRecord.Resource, 'hero', imageSeedRecord.AltText)
+        },
+        'Materialized marketing image Entity content differs from the metahub seed'
     )
+    assert.equal('media' in asRecord(imageRuntimeWidget.config), false, 'Image content must come from its bound Entity record')
     const heroWidget = widgets.find((widget) => widget.widgetKey === 'marketing.hero')
     assert.ok(heroWidget, 'Materialized marketing Hero widget is required')
     assert.equal(heroWidget.data?.records?.length, 1, 'The default Hero placement must project exactly one bound Entity record')
@@ -488,6 +515,7 @@ export function assertMarketingPageRuntimeMaterialization(payload: RuntimePayloa
         }))
         .sort((left, right) => left.key.localeCompare(right.key))
     assert.deepEqual(pricingBenefitsActual, pricingBenefitsExpected, 'Materialized pricing benefits differ from the metahub seed')
+    const pricingBenefitLabels = new Map(pricingBenefitsActual.map(({ key, label }) => [key, label]))
 
     const pricingExpected = seedElements(manifest, 'MarketingPagePricing').map((element) => {
         const data = readData(element)
@@ -505,9 +533,8 @@ export function assertMarketingPageRuntimeMaterialization(payload: RuntimePayloa
     })
     const pricingActual = recordsByKind(records, 'pricingTier').map((record) => {
         const benefitKeys = Array.isArray(record.benefitKeys) ? record.benefitKeys.map(readString) : []
-        const benefits = Array.isArray(record.benefits) ? record.benefits.map(readLocalized) : []
         const benefitPairs = benefitKeys
-            .map((key, index) => ({ key, label: benefits[index] }))
+            .map((key) => ({ key, label: pricingBenefitLabels.get(key) }))
             .sort((left, right) => left.key.localeCompare(right.key))
         return {
             key: readString(record.semanticKey),

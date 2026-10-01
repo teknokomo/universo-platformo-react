@@ -589,7 +589,7 @@ describe('SchemaGenerator', () => {
             expect(createdTables).toContain('_app_workflow_action_audit')
         })
 
-        it('adds source widget configuration storage for application reset semantics', async () => {
+        it('adds trusted source configuration and presentation-state storage for application reset semantics', async () => {
             await generator.ensureSystemTables('metahubs')
 
             const rawSqlCalls = mockKnex.raw.mock.calls.map(([sql]) => String(sql))
@@ -597,8 +597,12 @@ describe('SchemaGenerator', () => {
 
             expect(widgetCreateCall).toBeDefined()
             expect(mockTableBuilder.jsonb).toHaveBeenCalledWith('source_config')
+            expect(mockTableBuilder.jsonb).toHaveBeenCalledWith('source_state')
             expect(rawSqlCalls).toEqual(
-                expect.arrayContaining([expect.stringContaining('ADD COLUMN IF NOT EXISTS "source_config" JSONB NULL')])
+                expect.arrayContaining([
+                    expect.stringContaining('ADD COLUMN IF NOT EXISTS "source_config" JSONB NULL'),
+                    expect.stringContaining('ADD COLUMN IF NOT EXISTS "source_state" JSONB NULL')
+                ])
             )
         })
 

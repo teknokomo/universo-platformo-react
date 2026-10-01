@@ -1,185 +1,475 @@
-import { entityRecordPolicySchema, type EntityRecordPolicy } from '@universo-react/types'
+import {
+    ComponentDefinitionDataType,
+    entityRecordPolicySchema,
+    getLayoutWidgetDefinition,
+    MARKETING_SEMANTIC_KEY_PATTERN,
+    type EntityRecordPolicy,
+    type WidgetBindingComponentRequirement,
+    type WidgetBindingSlotDefinition
+} from '@universo-react/types'
 import {
     assertEntityMetadataSecurityUpdate,
-    assertMarketingHeroComponentMutation,
-    isEntityMetadataPolicyManaged
+    assertWidgetBindingComponentMutation,
+    isEntityMetadataPolicyManaged,
+    isWidgetBindingComponentCodename,
+    isWidgetBindingEntityMetadata
 } from '../../domains/shared/entityMetadataMutationPolicy'
 
-const heroPolicy: EntityRecordPolicy = entityRecordPolicySchema.parse({
-    version: 1,
-    semanticKey: { componentCodename: 'HeroKey', creationPrefix: 'hero', protectedValues: ['default'] },
-    denyDeleteWhenBound: true,
-    immutableSemanticKeyWhenBound: true,
-    runtimeMutation: 'deny',
-    requiredLocales: ['en', 'ru'],
-    validatorKey: 'marketing.hero.v1'
-})
+const getSlot = (widgetKey: string, slotKey: string, variant?: string): WidgetBindingSlotDefinition => {
+    const definition = getLayoutWidgetDefinition(widgetKey, variant ? { variant } : undefined)
+    const slot = definition?.bindingSlots?.find(({ key }) => key === slotKey)
+    if (!slot) throw new Error('Missing registered slot ' + widgetKey + '.' + slotKey)
+    return slot
+}
 
-const heroConfig = { marketingRole: 'hero', recordPolicy: heroPolicy }
+const getPolicy = (widgetKey: string, slotKey: string, variant?: string): EntityRecordPolicy => {
+    const recordPolicy = getSlot(widgetKey, slotKey, variant).requirements.recordPolicy
+    if (!recordPolicy) throw new Error('Missing record policy for ' + widgetKey + '.' + slotKey)
+    return entityRecordPolicySchema.parse({ version: 1, ...recordPolicy })
+}
+
+const componentFromRequirement = (requirement: WidgetBindingComponentRequirement) => {
+    const dataTypes = {
+        string: ComponentDefinitionDataType.STRING,
+        number: ComponentDefinitionDataType.NUMBER,
+        boolean: ComponentDefinitionDataType.BOOLEAN,
+        json: ComponentDefinitionDataType.JSON,
+        ref: ComponentDefinitionDataType.REF
+    } as const
+
+    return {
+        codename: requirement.componentCodename,
+        dataType: dataTypes[requirement.valueType],
+        isRequired: requirement.required,
+        validationRules: {
+            localized: requirement.localized,
+            ...(requirement.maxLength !== undefined ? { maxLength: requirement.maxLength } : {}),
+            ...(requirement.semanticKey ? { unique: true, pattern: MARKETING_SEMANTIC_KEY_PATTERN.source } : {}),
+            ...(requirement.format ? { format: requirement.format } : {})
+        },
+        parentComponentId: null
+    }
+}
+
+const heroPolicy = getPolicy('marketing.hero', 'content')
+const heroConfig = { recordBehavior: 'reference', marketingRole: 'hero', recordPolicy: heroPolicy }
 
 describe('Entity metadata mutation policy', () => {
-    it('protects Hero runtime and delete invariants from generic metadata updates', () => {
+    it.each([
+        { codename: 'MarketingPageHero', role: 'hero', widgetKey: 'marketing.hero', slotKey: 'content' },
+        { codename: 'MarketingPageImage', role: 'image', widgetKey: 'marketing.image', slotKey: 'content' },
+        { codename: 'MarketingPageSection', role: 'section', widgetKey: 'marketing.collection', slotKey: 'section', variant: 'logos' },
+        { codename: 'MarketingPageSiteSettings', role: 'siteSettings', widgetKey: 'marketing.brand', slotKey: 'site' }
+    ])('protects registry-owned record policies for $codename', ({ codename, role, widgetKey, slotKey, variant }) => {
+        const policy = getPolicy(widgetKey, slotKey, variant)
+        const config = { recordBehavior: 'reference', marketingRole: role, recordPolicy: policy }
+
+        expect(isEntityMetadataPolicyManaged(codename, config)).toBe(true)
+        expect(isWidgetBindingEntityMetadata(codename, config)).toBe(true)
         expect(() =>
             assertEntityMetadataSecurityUpdate({
-                codename: 'MarketingPageHero',
-                config: heroConfig,
-                configPatch: { recordPolicy: { ...heroPolicy, runtimeMutation: 'allow' } }
+                codename,
+                config,
+                configPatch: { ...config, recordPolicy: { ...policy, runtimeMutation: 'allow' } }
             })
         ).toThrow('Entity record policies are managed by the platform.')
         expect(() =>
             assertEntityMetadataSecurityUpdate({
-                codename: 'MarketingPageHero',
-                config: heroConfig,
-                configPatch: { recordPolicy: { ...heroPolicy, denyDeleteWhenBound: false } }
-            })
-        ).toThrow('Entity record policies are managed by the platform.')
-    })
-
-    it('keeps the bound Hero Object codename and role fixed', () => {
-        expect(() =>
-            assertEntityMetadataSecurityUpdate({
-                codename: 'MarketingPageHero',
-                config: heroConfig,
-                nextCodename: 'RenamedHero'
-            })
-        ).toThrow('The Marketing Hero Object codename is fixed')
-        expect(() =>
-            assertEntityMetadataSecurityUpdate({
-                codename: 'MarketingPageHero',
-                config: heroConfig,
-                configPatch: { marketingRole: 'content' }
-            })
-        ).toThrow('The Marketing Hero Object role is managed')
-    })
-
-    it('allows presentation metadata updates and unchanged policy input', () => {
-        expect(() =>
-            assertEntityMetadataSecurityUpdate({
-                codename: 'MarketingPageHero',
-                config: heroConfig,
-                configPatch: { recordPolicy: heroPolicy }
+                codename,
+                config,
+                configPatch: { ...config, recordPolicy: policy }
             })
         ).not.toThrow()
-        expect(isEntityMetadataPolicyManaged('MarketingPageHero', heroConfig)).toBe(true)
     })
 
-    it('does not allow a generic Entity to acquire or replace a record policy', () => {
+    it('rejects removing a template source role or required registry policy', () => {
         expect(() =>
             assertEntityMetadataSecurityUpdate({
-                codename: 'Article',
-                config: {},
-                configPatch: { recordPolicy: heroPolicy }
+                codename: 'MarketingPageHero',
+                config: heroConfig,
+                configPatch: { marketingRole: null, recordBehavior: 'reference', recordPolicy: heroPolicy }
+            })
+        ).toThrow('source role is managed by the template')
+
+        expect(() =>
+            assertEntityMetadataSecurityUpdate({
+                codename: 'MarketingPageImage',
+                config: { recordBehavior: 'reference', marketingRole: 'image' }
+            })
+        ).toThrow('record policy is managed by the template')
+    })
+
+    it('protects the Marketing Image conditional alternative-text rule from metadata changes', () => {
+        const policy = getPolicy('marketing.image', 'content')
+        const config = { recordBehavior: 'reference', marketingRole: 'image', recordPolicy: policy }
+
+        expect(policy.conditionalRequired).toEqual([
+            { componentCodename: 'AltText', when: { componentCodename: 'Decorative', equals: false } }
+        ])
+        expect(() =>
+            assertEntityMetadataSecurityUpdate({
+                codename: 'MarketingPageImage',
+                config,
+                configPatch: {
+                    ...config,
+                    recordPolicy: {
+                        ...policy,
+                        conditionalRequired: [{ componentCodename: 'AltText', when: { componentCodename: 'Decorative', equals: true } }]
+                    }
+                }
             })
         ).toThrow('Entity record policies are managed by the platform.')
+    })
 
-        const otherPolicy = { ...heroPolicy, validatorKey: 'article.v1' }
+    it('keeps all template source codenames stable while allowing presentation metadata updates', () => {
+        const templateSource = {
+            recordBehavior: 'reference',
+            marketingRole: 'section',
+            recordPolicy: getPolicy('marketing.collection', 'section', 'features')
+        }
+        expect(() =>
+            assertEntityMetadataSecurityUpdate({
+                codename: 'MarketingPageSection',
+                config: templateSource,
+                nextCodename: 'MarketingSections'
+            })
+        ).toThrow('codename is fixed')
+        expect(() =>
+            assertEntityMetadataSecurityUpdate({
+                codename: 'MarketingPageSection',
+                config: templateSource,
+                configPatch: { description: { en: 'Updated description' } }
+            })
+        ).not.toThrow()
+        expect(() =>
+            assertEntityMetadataSecurityUpdate({
+                codename: 'MarketingPageSection',
+                config: templateSource,
+                configPatch: { ...templateSource, description: { en: 'Updated description' } }
+            })
+        ).not.toThrow()
+        expect(() =>
+            assertEntityMetadataSecurityUpdate({
+                codename: 'MarketingPageSection',
+                config: templateSource,
+                configPatch: { ...templateSource, marketingRole: 'pricing' }
+            })
+        ).toThrow('source role is managed by the template')
+    })
+
+    it('protects general Entity record policies without applying Marketing template identity rules', () => {
+        const otherPolicy: EntityRecordPolicy = entityRecordPolicySchema.parse({
+            version: 1,
+            semanticKey: { componentCodename: 'ArticleKey', creationPrefix: 'article', protectedValues: ['home'] },
+            denyDeleteWhenBound: true,
+            immutableSemanticKeyWhenBound: true,
+            runtimeMutation: 'deny'
+        })
+
+        expect(isEntityMetadataPolicyManaged('Article', { recordPolicy: otherPolicy })).toBe(true)
         expect(() =>
             assertEntityMetadataSecurityUpdate({
                 codename: 'Article',
                 config: { recordPolicy: otherPolicy },
-                configPatch: { recordPolicy: heroPolicy }
+                nextCodename: 'KnowledgeArticle',
+                configPatch: { recordPolicy: otherPolicy }
+            })
+        ).not.toThrow()
+        expect(() =>
+            assertEntityMetadataSecurityUpdate({
+                codename: 'Article',
+                config: {},
+                configPatch: { recordPolicy: otherPolicy }
+            })
+        ).toThrow('Entity record policies are managed by the platform.')
+        expect(() =>
+            assertEntityMetadataSecurityUpdate({
+                codename: 'Article',
+                config: { recordPolicy: otherPolicy },
+                configPatch: { recordPolicy: { ...otherPolicy, runtimeMutation: 'allow' } }
             })
         ).toThrow('Entity record policies are managed by the platform.')
     })
 
-    it('protects registered binding field requirements and permits presentation-only edits', () => {
-        const description = {
-            codename: 'Description',
-            dataType: 'STRING',
+    it('derives protected Component names from registered slots, including relation and record-set sources', () => {
+        for (const codename of ['HeroKey', 'ImageKey', 'LogoKey', 'NavKey', 'TierRef', 'BenefitKey', 'FaqKey']) {
+            expect(isWidgetBindingComponentCodename(codename)).toBe(true)
+        }
+        expect(isWidgetBindingComponentCodename('UnrelatedField')).toBe(false)
+    })
+
+    it.each([
+        { entityCodename: 'MarketingPageHero', role: 'hero', widgetKey: 'marketing.hero', slotKey: 'content', componentCodename: 'Title' },
+        {
+            entityCodename: 'MarketingPageImage',
+            role: 'image',
+            widgetKey: 'marketing.image',
+            slotKey: 'content',
+            componentCodename: 'Resource',
+            policy: getPolicy('marketing.image', 'content')
+        },
+        {
+            entityCodename: 'MarketingPageLogo',
+            role: 'logo',
+            widgetKey: 'marketing.collection',
+            slotKey: 'items',
+            componentCodename: 'LogoKey',
+            variant: 'logos'
+        },
+        {
+            entityCodename: 'MarketingPagePricingBenefit',
+            role: 'pricingBenefit',
+            widgetKey: 'marketing.pricing',
+            slotKey: 'benefits',
+            componentCodename: 'TierRef'
+        },
+        {
+            entityCodename: 'MarketingPageFaq',
+            role: 'faq',
+            widgetKey: 'marketing.collection',
+            slotKey: 'items',
+            componentCodename: 'Answer',
+            variant: 'faq'
+        }
+    ])(
+        'protects registry-declared $entityCodename binding Components',
+        ({ entityCodename, role, widgetKey, slotKey, componentCodename, variant, policy }) => {
+            const slot = getSlot(widgetKey, slotKey, variant)
+            const requirement = slot.requirements.components.find(({ componentCodename: codename }) => codename === componentCodename)
+            if (!requirement) throw new Error('Missing ' + componentCodename + ' requirement in ' + widgetKey + '.' + slotKey)
+            const current = componentFromRequirement(requirement)
+            const config = {
+                marketingRole: role,
+                ...(policy ? { recordPolicy: policy } : role === 'hero' ? { recordPolicy: heroPolicy } : {})
+            }
+
+            expect(() =>
+                assertWidgetBindingComponentMutation({
+                    entityCodename,
+                    entityConfig: config,
+                    isBound: true,
+                    current,
+                    next: {
+                        ...current,
+                        dataType:
+                            current.dataType === ComponentDefinitionDataType.REF
+                                ? ComponentDefinitionDataType.STRING
+                                : current.dataType === ComponentDefinitionDataType.JSON
+                                ? ComponentDefinitionDataType.STRING
+                                : current.dataType,
+                        isRequired: !current.isRequired
+                    },
+                    operation: 'update'
+                })
+            ).toThrow('registered widget binding contract')
+        }
+    )
+
+    it('protects a custom source only while a live binding uses its registered Component contract', () => {
+        const current = {
+            codename: 'Title',
+            dataType: ComponentDefinitionDataType.STRING,
             isRequired: true,
-            validationRules: { maxLength: 2000, localized: true, versioned: true },
+            validationRules: { localized: true, maxLength: 255 },
             parentComponentId: null
         }
 
         expect(() =>
-            assertMarketingHeroComponentMutation({
-                entityCodename: 'MarketingPageHero',
-                entityConfig: heroConfig,
-                current: description,
-                next: { ...description, isRequired: false },
+            assertWidgetBindingComponentMutation({
+                entityCodename: 'CustomContent',
+                entityConfig: {},
+                isBound: false,
+                current,
+                next: { ...current, validationRules: { localized: false, maxLength: 255 } },
                 operation: 'update'
             })
-        ).toThrow('cannot be changed in a way that invalidates its bindings')
-
+        ).not.toThrow()
         expect(() =>
-            assertMarketingHeroComponentMutation({
-                entityCodename: 'MarketingPageHero',
-                entityConfig: heroConfig,
-                current: description,
-                next: { ...description, validationRules: { ...description.validationRules, localized: false } },
+            assertWidgetBindingComponentMutation({
+                entityCodename: 'CustomContent',
+                entityConfig: {},
+                isBound: true,
+                bindingSlots: [getSlot('marketing.hero', 'content')],
+                current,
+                next: { ...current, validationRules: { localized: false, maxLength: 255 } },
                 operation: 'update'
             })
-        ).toThrow('cannot be changed in a way that invalidates its bindings')
+        ).toThrow('registered widget binding contract')
+    })
+
+    it('protects the declared REF target of a bound relation-set source', () => {
+        const slot = getSlot('marketing.pricing', 'benefits')
+        const requirement = slot.requirements.components.find(({ componentCodename }) => componentCodename === 'TierRef')
+        if (!requirement) throw new Error('Missing Pricing benefits relation Component')
+        const current = {
+            ...componentFromRequirement(requirement),
+            targetEntityId: '0190a9b5-3cde-7abc-8def-0123456789a1',
+            targetEntityKind: 'object'
+        }
 
         expect(() =>
-            assertMarketingHeroComponentMutation({
-                entityCodename: 'MarketingPageHero',
-                entityConfig: heroConfig,
-                current: description,
-                operation: 'delete'
+            assertWidgetBindingComponentMutation({
+                entityCodename: 'CustomPricingBenefits',
+                entityConfig: {},
+                isBound: true,
+                bindingSlots: [slot],
+                current,
+                next: { ...current, targetEntityId: '0190a9b5-3cde-7abc-8def-0123456789a2' },
+                operation: 'update'
             })
-        ).toThrow('cannot be changed in a way that invalidates its bindings')
+        ).toThrow('registered widget binding contract')
 
         expect(() =>
-            assertMarketingHeroComponentMutation({
-                entityCodename: 'MarketingPageHero',
-                entityConfig: heroConfig,
-                current: {
-                    codename: 'Accent',
-                    dataType: 'STRING',
-                    isRequired: false,
-                    validationRules: { maxLength: 120, localized: true, versioned: true },
-                    parentComponentId: null
-                },
-                next: {
-                    codename: 'Accent',
-                    dataType: 'STRING',
-                    isRequired: true,
-                    validationRules: { maxLength: 120, localized: true, versioned: true },
-                    parentComponentId: null
-                },
-                operation: 'set-display'
-            })
-        ).toThrow('cannot be changed in a way that invalidates its bindings')
-
-        expect(() =>
-            assertMarketingHeroComponentMutation({
-                entityCodename: 'MarketingPageHero',
-                entityConfig: heroConfig,
-                current: description,
-                next: { ...description, parentComponentId: 'table-component-id' },
-                operation: 'move'
-            })
-        ).toThrow('cannot be changed in a way that invalidates its bindings')
-
-        expect(() =>
-            assertMarketingHeroComponentMutation({
-                entityCodename: 'MarketingPageHero',
-                entityConfig: heroConfig,
-                current: description,
-                next: description,
+            assertWidgetBindingComponentMutation({
+                entityCodename: 'CustomPricingBenefits',
+                entityConfig: {},
+                isBound: true,
+                bindingSlots: [slot],
+                current,
+                next: { ...current },
                 operation: 'update'
             })
         ).not.toThrow()
     })
 
-    it.each(['PrimaryAction', 'TermsAction'])('protects the registered %s validator format', (codename) => {
-        const component = {
-            codename,
-            dataType: 'JSON',
-            isRequired: codename === 'PrimaryAction',
-            validationRules: { format: 'marketingAction' },
-            parentComponentId: null
+    it('uses active slots ahead of ambiguous policy matches and falls back to policy slots when unbound', () => {
+        const activeSlot = getSlot('marketing.brand', 'site')
+        const footerSlot = getSlot('marketing.footer', 'site')
+        const footerDescriptionRequirement = footerSlot.requirements.components.find(
+            ({ componentCodename }) => componentCodename === 'FooterDescription'
+        )
+        const semanticKeyRequirement = activeSlot.requirements.components.find(({ semanticKey }) => semanticKey === true)
+        const policy = activeSlot.requirements.recordPolicy
+        if (!footerDescriptionRequirement || !semanticKeyRequirement || !policy) {
+            throw new Error('Missing site source contract requirements')
         }
 
+        const unusedByActiveSlot = componentFromRequirement(footerDescriptionRequirement)
         expect(() =>
-            assertMarketingHeroComponentMutation({
-                entityCodename: 'MarketingPageHero',
-                entityConfig: heroConfig,
-                current: component,
-                next: { ...component, validationRules: { format: 'untrusted' } },
+            assertWidgetBindingComponentMutation({
+                entityCodename: 'CustomSiteContent',
+                entityConfig: { recordPolicy: { version: 1, ...policy } },
+                isBound: true,
+                bindingSlots: [activeSlot],
+                current: unusedByActiveSlot,
+                next: { ...unusedByActiveSlot, dataType: ComponentDefinitionDataType.JSON },
                 operation: 'update'
             })
-        ).toThrow('cannot be changed in a way that invalidates its bindings')
+        ).not.toThrow()
+
+        const semanticKey = componentFromRequirement(semanticKeyRequirement)
+        expect(() =>
+            assertWidgetBindingComponentMutation({
+                entityCodename: 'CustomSiteContent',
+                entityConfig: { recordPolicy: { version: 1, ...policy } },
+                isBound: true,
+                bindingSlots: [],
+                current: semanticKey,
+                operation: 'delete'
+            })
+        ).toThrow('registered widget binding contract')
+    })
+
+    it('applies the exact active slot contract when a shared Component codename has different requirements', () => {
+        const featureSlot = getSlot('marketing.collection', 'items', 'features')
+        const descriptionRequirement = featureSlot.requirements.components.find(
+            ({ componentCodename }) => componentCodename === 'Description'
+        )
+        if (!descriptionRequirement) throw new Error('Missing feature Description binding contract')
+        const current = componentFromRequirement(descriptionRequirement)
+
+        expect(() =>
+            assertWidgetBindingComponentMutation({
+                entityCodename: 'CustomFeatureContent',
+                entityConfig: {},
+                isBound: true,
+                bindingSlots: [featureSlot],
+                current,
+                next: current,
+                operation: 'update'
+            })
+        ).not.toThrow()
+
+        expect(() =>
+            assertWidgetBindingComponentMutation({
+                entityCodename: 'CustomFeatureContent',
+                entityConfig: {},
+                isBound: true,
+                bindingSlots: [featureSlot],
+                current,
+                next: {
+                    ...current,
+                    validationRules: { ...(current.validationRules as Record<string, unknown>), maxLength: 2000 }
+                },
+                operation: 'update'
+            })
+        ).toThrow('registered widget binding contract')
+    })
+
+    it('allows compatible presentation-only edits and rejects nested moves of bound source Components', () => {
+        const requirement = getSlot('marketing.hero', 'content').requirements.components.find(
+            ({ componentCodename }) => componentCodename === 'Title'
+        )
+        if (!requirement) throw new Error('Missing Hero title component contract')
+        const title = componentFromRequirement(requirement)
+
+        expect(() =>
+            assertWidgetBindingComponentMutation({
+                entityCodename: 'MarketingPageHero',
+                entityConfig: heroConfig,
+                isBound: true,
+                current: title,
+                next: title,
+                operation: 'update'
+            })
+        ).not.toThrow()
+
+        expect(() =>
+            assertWidgetBindingComponentMutation({
+                entityCodename: 'MarketingPageHero',
+                entityConfig: heroConfig,
+                isBound: true,
+                current: title,
+                next: { ...title, parentComponentId: 'nested-table-id' },
+                operation: 'move'
+            })
+        ).toThrow('registered widget binding contract')
+
+        const accent = {
+            codename: 'Accent',
+            dataType: ComponentDefinitionDataType.STRING,
+            isRequired: false,
+            validationRules: { localized: true, maxLength: 120 },
+            parentComponentId: null
+        }
+        expect(() =>
+            assertWidgetBindingComponentMutation({
+                entityCodename: 'MarketingPageHero',
+                entityConfig: heroConfig,
+                isBound: true,
+                current: accent,
+                next: { ...accent, isRequired: true },
+                operation: 'set-display'
+            })
+        ).toThrow('registered widget binding contract')
+    })
+
+    it.each(['PrimaryAction', 'TermsAction'])('protects the registry validator format for %s', (codename) => {
+        const requirement = getSlot('marketing.hero', 'content').requirements.components.find(
+            (componentRequirement) => componentRequirement.componentCodename === codename
+        )
+        if (!requirement) throw new Error('Missing ' + codename + ' binding contract')
+        const current = componentFromRequirement(requirement)
+
+        expect(() =>
+            assertWidgetBindingComponentMutation({
+                entityCodename: 'MarketingPageHero',
+                entityConfig: heroConfig,
+                isBound: true,
+                current,
+                next: { ...current, validationRules: { format: 'untrusted' } },
+                operation: 'update'
+            })
+        ).toThrow('registered widget binding contract')
     })
 })

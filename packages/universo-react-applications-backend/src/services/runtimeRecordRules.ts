@@ -2,6 +2,7 @@ import type { DbExecutor } from '@universo-react/utils'
 import { isUnsafeValidationPattern, isUsableValidationPattern, isUsableValidationPatternValue } from '@universo-react/utils'
 import { acquireAdvisoryXactLock } from '@universo-react/utils/database'
 import { IDENTIFIER_REGEX, UpdateFailure, quoteIdentifier } from '../shared/runtimeHelpers'
+import { buildRuntimeRecordRuleLockKey } from './runtimeRecordRuleLockKey'
 
 /**
  * Runtime write-path enforcement for authoring component rules that the
@@ -22,21 +23,6 @@ export type RuntimeRecordRuleViolation = {
     code: RuntimeRecordRuleCode
     field: string
     message: string
-}
-
-/**
- * Stable advisory-lock scope so writers on one runtime table serialize. The
- * identifier parts are normalized without quotes because the REST paths pass a
- * quoted schema ident while the module Record API passes a fully quoted table
- * ident: both must hash to the same lock or cross-surface writes would not
- * serialize.
- */
-export const buildRuntimeRecordRuleLockKey = (schemaName: string, tableNameOrIdent: string): string => {
-    const normalize = (value: string): string => value.replace(/"/g, '')
-    // The module Record API passes a schema-qualified quoted ident; the REST
-    // paths pass a bare table name. Both must map to the same lock scope.
-    const lastSegment = tableNameOrIdent.slice(tableNameOrIdent.lastIndexOf('.') + 1)
-    return `runtime-record-rules:${normalize(schemaName)}.${normalize(lastSegment)}`
 }
 
 export type RuntimeRecordRuleAttr = {

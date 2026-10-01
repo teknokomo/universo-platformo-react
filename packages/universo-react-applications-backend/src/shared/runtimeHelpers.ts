@@ -76,7 +76,10 @@ export const resolveRequestedRuntimeWorkspaceId = (
     }
 
     if (!workspaceAccess.allowedWorkspaceIds.includes(normalizedWorkspaceId)) {
-        throw new UpdateFailure(403, { error: 'Requested workspace is not available for the current user' })
+        throw new UpdateFailure(403, {
+            error: 'Requested workspace is not available for the current user',
+            code: 'WORKSPACE_ACCESS_DENIED'
+        })
     }
 
     return normalizedWorkspaceId

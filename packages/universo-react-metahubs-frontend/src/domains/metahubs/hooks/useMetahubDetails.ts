@@ -54,8 +54,8 @@ export function useMetahubDetails(metahubId: string, options?: UseMetahubDetails
 
     return useQuery({
         queryKey: metahubsQueryKeys.detail(metahubId),
-        queryFn: async () => {
-            const response = await getMetahub(metahubId)
+        queryFn: async ({ signal }) => {
+            const response = await getMetahub(metahubId, signal)
             return response.data
         },
         enabled: enabled && Boolean(metahubId),

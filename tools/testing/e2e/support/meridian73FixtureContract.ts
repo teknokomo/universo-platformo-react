@@ -153,6 +153,14 @@ export const assertMeridian73FixtureEnvelopeContract = (fixture: MetahubSnapshot
     assertLocalizedEquals(fixture.metahub.description, MERIDIAN_73_METAHUB.description, 'metahub description')
     if (readLocalized(fixture.metahub.codename) !== MERIDIAN_73_METAHUB.codename) fail('canonical metahub codename is incorrect')
 
+    for (const widget of widgets(fixture)) {
+        if (typeof widget.widgetKey !== 'string' || !widget.widgetKey.startsWith('marketing.')) continue
+        const config = widgetConfig(widget)
+        if (config.source !== undefined || config.copySource !== undefined) {
+            fail(`${widget.widgetKey} must keep Entity source selections in its binding envelope`)
+        }
+    }
+
     const siteSettings = rowsFor(fixture, 'MarketingPageSiteSettings')
     if (siteSettings.length !== 1) fail(`expected one site-settings row, received ${siteSettings.length}`)
     assertLocalizedEquals(siteSettings[0]?.data?.BrandName, MERIDIAN_73_SITE_SETTINGS.brandName, 'brand name')
@@ -403,24 +411,60 @@ export const assertMeridian73FixtureEnvelopeContract = (fixture: MetahubSnapshot
     const imageWidgets = widgets(fixture).filter((widget) => widget.widgetKey === 'marketing.image')
     if (imageWidgets.length !== 1) fail('fixture must contain exactly one marketing.image widget')
     const image = findWidgetByInstanceKey(fixture, 'hero-image')
-    const imageMedia = widgetConfig(image).media as Record<string, unknown> | undefined
-    const imageResource = imageMedia?.resource as Record<string, unknown> | undefined
-    if (imageResource?.url !== MERIDIAN_73_IMAGE_URL) fail('standalone marketing.image must keep the requested temporary MUI dashboard URL')
+    const imageConfig = widgetConfig(image)
+    if ('media' in imageConfig) fail('marketing.image renderer config must not own Entity media content')
+    const imageBindings = decodeWidgetConfigEnvelope(imageConfig, {
+        templateKey: 'marketing-page',
+        widgetKey: 'marketing.image',
+        zone: 'marketing-main'
+    }).neutral.bindings?.slots
+    const imageBinding = imageBindings?.find((binding) => binding.slot === 'content')?.targets[0]
+    if (
+        imageBinding?.entityCodename !== 'MarketingPageImage' ||
+        imageBinding.selector.kind !== 'semantic-key' ||
+        imageBinding.selector.value !== 'default'
+    ) {
+        fail('standalone marketing.image must bind to the default MarketingPageImage record')
+    }
+    const imageRecord = findRowByKey(rowsFor(fixture, 'MarketingPageImage'), 'ImageKey', 'default', 'marketing image')
+    const imageResource = imageRecord.data?.Resource as Record<string, unknown> | undefined
+    if (imageResource?.url !== MERIDIAN_73_IMAGE_URL) fail('MarketingPageImage must keep the requested temporary MUI dashboard URL')
 
     const pricingWidgets = widgets(fixture).filter((widget) => widget.widgetKey === 'marketing.pricing')
     if (pricingWidgets.length !== 1)
         fail(`Consortium layout must contain exactly one marketing.pricing widget, received ${pricingWidgets.length}`)
     const pricingWidget = pricingWidgets[0]
     const pricingConfig = widgetConfig(pricingWidget)
-    const pricingSource = pricingConfig.source as Record<string, unknown> | undefined
-    const pricingCopySource = pricingConfig.copySource as Record<string, unknown> | undefined
+    const pricingBindings = decodeWidgetConfigEnvelope(pricingConfig, {
+        templateKey: 'marketing-page',
+        widgetKey: 'marketing.pricing',
+        zone: 'marketing-main'
+    }).neutral.bindings?.slots
     if (pricingConfig.instanceKey !== 'pricing') fail('Investment stages widget must keep the canonical pricing instance key')
     if (pricingConfig.cardStyle !== 'uniform') fail('Investment stages must render uniform pricing cards')
     if (pricingConfig.cardWidth !== 'auto') fail('Investment stages must use the base layout width by default')
     if (pricingConfig.showBenefits !== true) fail('Investment stages must keep the financing breakdown visible')
     if (pricingConfig.maxItems !== MERIDIAN_73_PRICING_TIERS.length) fail('Investment stages widget must show every funding stage')
-    if (pricingSource?.entityCodename !== 'MarketingPagePricing') fail('Investment stages must read the pricing source entity')
-    if (pricingCopySource?.recordKey !== 'pricing') fail('Investment stages must reuse the pricing section copy')
+    const pricingSections = pricingBindings?.find((binding) => binding.slot === 'section')?.targets[0]
+    const pricingTiers = pricingBindings?.find((binding) => binding.slot === 'tiers')?.targets[0]
+    const pricingBenefits = pricingBindings?.find((binding) => binding.slot === 'benefits')?.targets[0]
+    if (
+        pricingSections?.entityCodename !== 'MarketingPageSection' ||
+        pricingSections.selector.kind !== 'semantic-key' ||
+        pricingSections.selector.value !== 'pricing'
+    ) {
+        fail('Investment stages must bind their section copy through the Entity binding envelope')
+    }
+    if (pricingTiers?.entityCodename !== 'MarketingPagePricing' || pricingTiers.selector.kind !== 'record-set') {
+        fail('Investment stages must read the MarketingPagePricing record set')
+    }
+    if (
+        pricingBenefits?.entityCodename !== 'MarketingPagePricingBenefit' ||
+        pricingBenefits.selector.kind !== 'relation-set' ||
+        pricingBenefits.selector.parentSlot !== 'tiers'
+    ) {
+        fail('Investment stage benefits must use the relation-set selector linked to tiers')
+    }
 
     const featuresWidget = findWidgetByInstanceKey(fixture, 'features')
     const featuresConfig = widgetConfig(featuresWidget)
@@ -454,13 +498,12 @@ export const assertMeridian73FixtureEnvelopeContract = (fixture: MetahubSnapshot
     if (dashboardImageOccurrences !== 1) {
         fail('base dashboard.jpg must occur exactly once in the marketing.image hero media')
     }
-    const dashboardImageWidgetUrls = imageWidgets
-        .map((widget) => (widgetConfig(widget).media as Record<string, unknown> | undefined)?.resource)
-        .filter((resource): resource is Record<string, unknown> => Boolean(resource && typeof resource === 'object'))
-        .map((resource) => resource.url)
+    const dashboardImageRecords = rowsFor(fixture, 'MarketingPageImage')
+        .map((row) => row.data?.Resource as Record<string, unknown> | undefined)
+        .map((resource) => resource?.url)
         .filter((url): url is string => typeof url === 'string' && url.includes('dashboard.jpg'))
-    if (dashboardImageWidgetUrls.length !== 1 || dashboardImageWidgetUrls[0] !== MERIDIAN_73_IMAGE_URL) {
-        fail('the only dashboard.jpg occurrence must be the hero marketing.image resource')
+    if (dashboardImageRecords.length !== 1 || dashboardImageRecords[0] !== MERIDIAN_73_IMAGE_URL) {
+        fail('the only dashboard.jpg occurrence must belong to the bound MarketingPageImage record')
     }
     for (const forbidden of [
         'support@email.com',

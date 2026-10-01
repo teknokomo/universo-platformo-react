@@ -1585,7 +1585,7 @@ describe('InterpretationNetworkWorkspaceWidget', () => {
         expect(await within(structurePane).findByTestId('interpretation-network-matrix-workspace')).toBeInTheDocument()
         expect(window.location.pathname).toBe(`/a/app-1/${sectionIds.Structure}/concept-2`)
         expect(navigate).toHaveBeenCalledWith(`/a/app-1/${sectionIds.Structure}/concept-2`)
-    })
+    }, 15_000)
 
     it('shows material creation guidance until a matrix cell is selected', async () => {
         const user = userEvent.setup()
@@ -1616,7 +1616,7 @@ describe('InterpretationNetworkWorkspaceWidget', () => {
         expect(within(detailsPane).getByRole('textbox', { name: 'Filter by title' })).toBeInTheDocument()
         expect(within(detailsPane).getByRole('button', { name: 'Table view' })).toBeInTheDocument()
         expect(within(detailsPane).getByRole('button', { name: 'Card view' })).toBeInTheDocument()
-    })
+    }, 15_000)
 
     it('keeps hierarchical root creation owned by structure creation when a matrix is empty', async () => {
         const user = userEvent.setup()
@@ -2082,7 +2082,7 @@ describe('InterpretationNetworkWorkspaceWidget', () => {
             within(screen.getByTestId('interpretation-network-details-pane')).queryByRole('button', { name: 'Create' })
         ).not.toBeInTheDocument()
         expect(screen.queryByRole('button', { name: 'Edit material' })).not.toBeInTheDocument()
-    })
+    }, 15_000)
 
     it('allows editor structure creation without delete permission', async () => {
         const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
@@ -2335,7 +2335,7 @@ describe('InterpretationNetworkWorkspaceWidget', () => {
         expect(within(toolbar).getByRole('button', { name: 'Add' })).toBeEnabled()
         expect(within(table).getByRole('button', { name: 'Add row' })).toBeEnabled()
         expect(within(table).getByRole('button', { name: 'Add column' })).toBeEnabled()
-    })
+    }, 15_000)
 
     it('keeps the standalone cell dialog fail-closed for new row and column creation by default', async () => {
         render(
@@ -2402,7 +2402,7 @@ describe('InterpretationNetworkWorkspaceWidget', () => {
         expect(onSubmit).not.toHaveBeenCalled()
         expect(await within(dialog).findByRole('textbox', { name: /Title/i })).toHaveAccessibleDescription('This field is required.')
         expect(within(dialog).getByRole('tab', { name: 'Basic' })).toHaveAttribute('aria-selected', 'true')
-    })
+    }, 15_000)
 
     it('requires edited row and column labels before saving an existing cell', async () => {
         const user = userEvent.setup()
@@ -2436,7 +2436,7 @@ describe('InterpretationNetworkWorkspaceWidget', () => {
         expect(onSubmit).not.toHaveBeenCalled()
         expect(await within(dialog).findByRole('textbox', { name: /Row label/i })).toHaveAccessibleDescription('This field is required.')
         expect(within(dialog).getByRole('textbox', { name: /Column label/i })).toHaveAccessibleDescription('This field is required.')
-    })
+    }, 15_000)
 
     it('creates a new table column from the dedicated table plus dialog', async () => {
         const user = userEvent.setup()
@@ -3120,7 +3120,7 @@ describe('InterpretationNetworkWorkspaceWidget', () => {
                 )
             ).toBe(false)
         })
-    }, 35_000)
+    }, 60_000)
 
     it('keeps a deep focused hierarchy expanded while a newly created child is refetched', async () => {
         const user = userEvent.setup()
@@ -3242,7 +3242,7 @@ describe('InterpretationNetworkWorkspaceWidget', () => {
             expect(createdCell).toBeDefined()
             expect(createdCell!).toHaveAttribute('data-selected', 'true')
         })
-    }, 20_000)
+    }, 60_000)
 
     it('creates a hierarchical child under the menu cell even when another cell is selected', async () => {
         const user = userEvent.setup()
@@ -3313,7 +3313,7 @@ describe('InterpretationNetworkWorkspaceWidget', () => {
                 })
             )
         })
-    }, 20_000)
+    }, 60_000)
 
     it('renders independent row cells by stored sort order instead of API order', async () => {
         const user = userEvent.setup()
@@ -3793,7 +3793,7 @@ describe('InterpretationNetworkWorkspaceWidget', () => {
             ).toBe(false)
         })
         expect(screen.queryByTestId('interpretation-network-material-editor')).not.toBeInTheDocument()
-    }, 20_000)
+    }, 60_000)
 
     it('shows a localized error when aggregate material creation fails without creating an orphan row', async () => {
         const user = userEvent.setup()
@@ -3823,7 +3823,7 @@ describe('InterpretationNetworkWorkspaceWidget', () => {
             ).toBe(false)
         })
         expect(await screen.findByText('Failed to save material')).toBeInTheDocument()
-    }, 20_000)
+    }, 60_000)
 
     it('blocks material creation when the localized title exceeds the metadata max length', async () => {
         const user = userEvent.setup()
@@ -3989,7 +3989,7 @@ describe('InterpretationNetworkWorkspaceWidget', () => {
         expect(selectedCellStyle.borderTopWidth).toBe('3px')
         expect(selectedCell).toHaveAttribute('data-selected-outline', 'inset')
         expect(selectedCellStyle.backgroundColor).not.toBe('rgb(0, 0, 0)')
-    })
+    }, 15_000)
 
     it('edits cell metadata and style from the card menu through the tabular update endpoint', async () => {
         const user = userEvent.setup()

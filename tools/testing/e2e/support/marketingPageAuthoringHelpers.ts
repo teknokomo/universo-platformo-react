@@ -35,6 +35,8 @@ export type LayoutWidget = {
     widgetKey?: unknown
     zone?: unknown
     config?: unknown
+    sourceConfig?: unknown
+    isCustomized?: unknown
     version?: unknown
     isActive?: unknown
 }
@@ -189,11 +191,12 @@ export const openVisibleRowMenu = async (page: Page, text: string): Promise<Loca
     return row
 }
 
-export const ensureListView = async (page: Page): Promise<void> => {
-    const listView = page.getByTitle(/^(?:List View|Списком)$/)
-    if (await listView.count()) {
-        await listView.click()
-    }
+export const ensureListView = async (page: Page, required = false): Promise<void> => {
+    const listView = page.getByRole('button', { name: /^(?:List View|Списком)$/ })
+    if (!required && !(await listView.count())) return
+    await expect(listView).toBeVisible()
+    if ((await listView.getAttribute('aria-pressed')) !== 'true') await listView.click()
+    await expect(listView).toHaveAttribute('aria-pressed', 'true')
 }
 
 export const waitForPublicationApplication = async (

@@ -1,4 +1,5 @@
 import { qSchemaTable } from '@universo-react/database'
+import stableStringify from 'json-stable-stringify'
 import {
     LAYOUT_WIDGET_DEFINITIONS,
     MARKETING_WIDGET_REGISTRY,
@@ -24,6 +25,10 @@ import {
 } from '@universo-react/types'
 import { generateUuidV7, type DbExecutor } from '@universo-react/utils'
 import { acquireAdvisoryXactLock } from '@universo-react/utils/database'
+import {
+    isApplicationLayoutWidgetCustomized,
+    parseApplicationLayoutWidgetSourceState
+} from '../services/applicationLayoutWidgetSourceState'
 
 export const GLOBAL_SCOPE_ID = 'global'
 
@@ -57,6 +62,7 @@ export interface WidgetRow {
     sort_order: number
     config: Record<string, unknown>
     source_config: Record<string, unknown> | null
+    source_state?: unknown
     source_widget_id?: string | null
     source_base_widget_id?: string | null
     is_customized: boolean
@@ -336,10 +342,17 @@ export const mapWidget = (row: WidgetRow, templateKey: ApplicationLayout['templa
     if (typeof row.is_customized !== 'boolean') throw new Error('APPLICATION_LAYOUT_WIDGET_INVALID')
     let rendererConfig: Record<string, unknown>
     let placement: LayoutLogicalPlacement | undefined
+    let configBindings: PersistedWidgetNeutralMetadata['bindings']
+    const inheritsMarketingBindings =
+        templateKey === 'marketing-page' && row.source_base_widget_id !== null && row.source_base_widget_id !== undefined
     try {
         const decoded = readWidgetConfigEnvelope(templateKey, row.widget_key, row.zone, row.config)
         rendererConfig = decoded.rendererConfig
         placement = decoded.placement
+        configBindings = decoded.bindings
+        if (inheritsMarketingBindings && configBindings !== undefined) {
+            throw new Error('Marketing overlay config cannot contain Entity bindings')
+        }
     } catch {
         throw new Error('APPLICATION_LAYOUT_WIDGET_INVALID')
     }
@@ -348,12 +361,42 @@ export const mapWidget = (row: WidgetRow, templateKey: ApplicationLayout['templa
     if (row.source_config !== null && row.source_config !== undefined) {
         try {
             const decodedSource = readWidgetConfigEnvelope(templateKey, row.widget_key, row.zone, row.source_config, {
-                requireBindings: true
+                requireBindings: !inheritsMarketingBindings
             })
+            if (inheritsMarketingBindings && decodedSource.bindings !== undefined) {
+                throw new Error('Marketing overlay source config cannot contain Entity bindings')
+            }
+            if (configBindings !== undefined && stableStringify(configBindings) !== stableStringify(decodedSource.bindings)) {
+                throw new Error('Widget config bindings do not match its trusted source config')
+            }
             sourceConfig = decodedSource.rendererConfig
             sourceBindings = decodedSource.bindings
         } catch {
             throw new Error('APPLICATION_LAYOUT_WIDGET_INVALID')
+        }
+    }
+    if (configBindings !== undefined && sourceBindings === undefined) {
+        throw new Error('APPLICATION_LAYOUT_WIDGET_INVALID')
+    }
+    let isCustomized = row.is_customized
+    if (Object.prototype.hasOwnProperty.call(row, 'source_state')) {
+        if (row.source_state === null || row.source_state === undefined) {
+            if (sourceConfig !== null) throw new Error('APPLICATION_LAYOUT_WIDGET_INVALID')
+        } else {
+            if (sourceConfig === null) throw new Error('APPLICATION_LAYOUT_WIDGET_INVALID')
+            const sourceState = parseApplicationLayoutWidgetSourceState(row.source_state, templateKey, row.widget_key)
+            isCustomized = isApplicationLayoutWidgetCustomized(
+                templateKey,
+                {
+                    widgetKey: row.widget_key,
+                    zone: row.zone,
+                    sortOrder: row.sort_order,
+                    isActive: row.is_active,
+                    config: rendererConfig,
+                    placement
+                },
+                sourceState
+            )
         }
     }
     const widget = applicationLayoutWidgetSchema.parse({
@@ -367,7 +410,7 @@ export const mapWidget = (row: WidgetRow, templateKey: ApplicationLayout['templa
         sourceConfig,
         sourceWidgetId: row.source_widget_id ?? null,
         sourceBaseWidgetId: row.source_base_widget_id ?? null,
-        isCustomized: row.is_customized,
+        isCustomized,
         isActive: row.is_active,
         version: row.version,
         ...(placement === undefined ? {} : { placement })
@@ -411,6 +454,7 @@ export const widgetSelect = (widgetsTable: string): string => `
       sort_order,
       config,
       source_config,
+      source_state,
       source_widget_id,
       source_base_widget_id,
       (source_config IS NOT NULL AND config IS DISTINCT FROM source_config) AS is_customized,

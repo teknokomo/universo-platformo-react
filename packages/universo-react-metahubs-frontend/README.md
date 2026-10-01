@@ -79,14 +79,15 @@ and permission contracts, and use package-local English/Russian translations.
 -   The shared contract from `@universo-react/types` treats `table`, `horizontalRows`, and `verticalTree` as peer Matrix views, requires at least one, and limits `verticalTree` to hierarchical cells.
 -   These settings belong to the metahub because they are shipped with every publication. Deployment-specific overrides belong to the Application control panel, and user-authored Structures, cells, Materials, Relations, and table templates belong to the published workspace.
 
-### Entity-backed Marketing Hero authoring
+### Entity-backed Marketing Page authoring
 
--   Adding a repeatable Hero automatically creates and binds a fresh Entity record; duplicating a Hero clones its bound record into a fresh record so the default flow stays independent and one-click.
--   The binding editor is the advanced path: authors can select a human-readable record from any compatible Hero Object or provision a separate compatible Object model, then continue managing its Components through the standard Entity UI.
--   Selecting a record that is already used by another Hero shows a localized shared-source notice before rebinding/editing because record changes affect every consumer.
--   Content and layout presentation are saved separately. Rebinding uses the optimistic `expectedVersion` contract, while presentation controls reuse the shared layout widget dialog.
--   The binding picker, action fields, English/Russian validation and conflicts are localized; normal authoring surfaces do not expose record UUIDs or binding JSON.
--   UI labels and validation are localized in English and Russian and must not expose widget IDs, config keys, UUIDs, or product-specific legacy terminology.
+-   The layout registry defines the Entity-backed Marketing placements and their slots, compatible sources, projections, and authoring capabilities. A generic binding editor supports the validated <code>semantic-key</code>, <code>record-set</code>, and <code>relation-set</code> selectors.
+-   Source-slot navigation is registry-driven through the optional `initialBindingSlotKey` metadata, including polymorphic collection variants; the editor does not choose a slot by checking a Marketing widget key.
+-   Add, edit, and duplicate actions follow each registered widget's capabilities. Hero and Image duplication clones the bound Object record and creates its new placement in one backend transaction; other placements follow their registry-defined source and sharing rules.
+-   After selecting a compatible source, authors can create a separate empty Object model for a slot. The model receives the slot's registered Components through Entity services; existing records are not copied, and relation Components target the selected parent Object.
+-   Binding selection and presentation are separate. Marketing content is authored through the normal localized Entity Component controls, while the placement binding remains source metadata and presentation stays in renderer configuration.
+-   The Metahub layout/content permissions gate authoring, and the server checks the permissions and binding contract again. Localized pickers and validation do not expose record UUIDs, raw binding JSON, or physical Component columns as ordinary user-facing values.
+-   The Application layout is presentation-only for source-managed Marketing placements. Source content and bindings are changed in Metahub, published, and synchronized to the linked Application. See [Entity-backed widgets](../../docs/en/architecture/entity-backed-widgets.md) for the complete contract and current UI limitations.
 
 ## Installation & Setup
 
@@ -94,7 +95,7 @@ and permission contracts, and use package-local English/Russian translations.
 
 ```bash
 # System requirements
-Node.js >= 22.6.0
+Node.js >= 22.12.0
 PNPM >= 10.0.0
 ```
 
@@ -352,7 +353,7 @@ function useMetahubs() {
 
 ### Prerequisites
 
--   Node.js 22.22.2 recommended (>=22.6.0 required)
+-   Node.js 22.22.2 recommended (>=22.12.0 required)
 -   pnpm 12.x (12.4.1 pinned at the workspace root)
 -   TypeScript 5+
 

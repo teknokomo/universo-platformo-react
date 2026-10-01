@@ -19,7 +19,7 @@ export const listRecords = async (
     metahubId: string,
     treeEntityId: string,
     objectCollectionId: string,
-    params?: PaginationParams & { kindKey?: string }
+    params?: PaginationParams & { kindKey?: string; exactComponentCodename?: string; exactValue?: string }
 ): Promise<PaginatedResponse<RecordItem>> => {
     const response = await apiClient.get<{ items: RecordItem[]; pagination: { total: number; limit: number; offset: number } }>(
         `${buildContainerScopedCollectionPath(metahubId, treeEntityId, objectCollectionId, params?.kindKey)}/records`,
@@ -29,7 +29,9 @@ export const listRecords = async (
                 offset: params?.offset,
                 sortBy: params?.sortBy,
                 sortOrder: params?.sortOrder,
-                search: params?.search
+                search: params?.search,
+                exactComponentCodename: params?.exactComponentCodename,
+                exactValue: params?.exactValue
             }
         }
     )

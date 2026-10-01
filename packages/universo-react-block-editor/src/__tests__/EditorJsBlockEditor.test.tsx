@@ -16,7 +16,7 @@ const mockState = vi.hoisted(() => ({
     editorConstructor: vi.fn()
 }))
 
-mockState.editorConstructor.mockImplementation((config: Record<string, unknown>) => {
+mockState.editorConstructor.mockImplementation(function mockEditorJsConstructor(config: Record<string, unknown>) {
     const instance = {
         isReady: mockState.nextEditorReadyPromise ?? Promise.resolve(),
         destroy: vi.fn(),

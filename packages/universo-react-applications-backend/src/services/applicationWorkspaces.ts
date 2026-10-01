@@ -3,7 +3,10 @@ import { qColumn, qSchema, qSchemaTable, qTable } from '@universo-react/database
 import { generateChildTableName, hasPhysicalRuntimeTable, resolveEntityTableName, type EntityDefinition } from '@universo-react/schema-ddl'
 import { ApplicationMembershipState, normalizeInterpretationNetworkHexColor, type VersionedLocalizedContent } from '@universo-react/types'
 import { WorkspaceSeedResetError, WORKSPACE_SEED_RESET_ERROR_CODES } from './runtimeWorkspaceErrors'
-import { assertMarketingSeedRows, isMarketingSeedObject } from './marketingSeedGuard'
+import { assertMarketingSeedRowCount, assertMarketingSeedRows } from './marketingSeedGuard'
+import { acquireMarketingRowCapLock } from './marketingRowCap'
+import { listMarketingWidgetBindingSources } from '../persistence/marketingWidgetBindingStore'
+import { buildPublicMarketingLifecyclePredicate } from '../shared/marketingRuntimeLifecycleSql'
 import { acquireAdvisoryXactLock, withTransactionSavepoint } from '@universo-react/utils/database'
 import { resolveValidatedRuntimeEntityRecordPolicy } from '../shared/entityMutationPolicy'
 import {
@@ -202,16 +205,6 @@ const normalizeReferenceId = (value: unknown): string | null => {
     }
 
     return null
-}
-
-const resolveWorkspaceSeedLegacyObjectIdFromTableName = (tableName: string): string | null => {
-    const match = /^(?:cat|doc|rel)_([0-9a-f]{32})$/i.exec(tableName)
-    if (!match) {
-        return null
-    }
-
-    const compactId = match[1].toLowerCase()
-    return `${compactId.slice(0, 8)}-${compactId.slice(8, 12)}-${compactId.slice(12, 16)}-${compactId.slice(16, 20)}-${compactId.slice(20)}`
 }
 
 const buildChildSeedSourceKey = (parentSeedSourceKey: string, tableComponentId: string, index: number): string =>
@@ -1184,6 +1177,25 @@ export async function syncWorkspaceSeededElements(
     const seedRowIdBySourceKey = new Map<string, string>()
     const duplicateSeedSourceKeys = new Set<string>()
     const excludedEntityIds = new Set(input.excludedEntityIds ?? [])
+    let marketingWidgetBindingSources = await listMarketingWidgetBindingSources(executor, input.schemaName)
+    const hasWorkspaceSeedRows = (object: RuntimeObjectSeedObjectRow): boolean => {
+        const directRows = template?.elements?.[object.objectId]
+        return Array.isArray(directRows) && directRows.length > 0
+    }
+    const guardedObjects = objects
+        .filter(
+            (object) =>
+                !excludedEntityIds.has(object.objectId) &&
+                (marketingWidgetBindingSources.has(object.codename) || hasWorkspaceSeedRows(object))
+        )
+        .sort((left, right) => left.tableName.localeCompare(right.tableName))
+    for (const object of guardedObjects) {
+        await acquireMarketingRowCapLock(executor, input.schemaName, object.tableName)
+    }
+    // A publication may have changed bindings while this transaction waited
+    // for a source-table lock. Refresh the registry view before deciding which
+    // seeded objects require the public-runtime row cap.
+    marketingWidgetBindingSources = await listMarketingWidgetBindingSources(executor, input.schemaName)
 
     const rememberSeedRowId = (objectId: string, seedSourceKey: string, rowId: string): void => {
         const objectSeedRows = seedRowIdByObjectAndSourceKey.get(objectId) ?? new Map<string, string>()
@@ -1211,17 +1223,11 @@ export async function syncWorkspaceSeededElements(
         const tableComponents = components.filter(
             (component) => component.objectId === object.objectId && component.parentComponentId === null && component.dataType === 'TABLE'
         )
-        const legacyObjectId = resolveWorkspaceSeedLegacyObjectIdFromTableName(object.tableName)
         const directRows = template?.elements?.[object.objectId]
-        const legacyRows = legacyObjectId ? template?.elements?.[legacyObjectId] : undefined
-        const entityRows = Array.isArray(directRows)
-            ? (directRows as unknown[])
-            : Array.isArray(legacyRows)
-            ? (legacyRows as unknown[])
-            : []
+        const entityRows = Array.isArray(directRows) ? (directRows as unknown[]) : []
         // Workspace-scoped marketing content is published through the same
         // anonymous runtime, so it must satisfy the same seed-time guards.
-        if (isMarketingSeedObject(object.codename)) {
+        if (marketingWidgetBindingSources.has(object.codename)) {
             assertMarketingSeedRows({
                 objectCodename: object.codename,
                 rows: entityRows,
@@ -1303,6 +1309,20 @@ export async function syncWorkspaceSeededElements(
                     overwriteExisting: input.overwriteExisting
                 })
             }
+        }
+
+        if (marketingWidgetBindingSources.has(object.codename)) {
+            const activeRows = await executor.query<{ count: string }>(
+                `
+                SELECT COUNT(*)::text AS count
+                FROM ${tableQt}
+                WHERE ${qWorkspaceColumn()} = $1
+                  AND ${ACTIVE_ROW_SQL}
+                  AND ${buildPublicMarketingLifecyclePredicate()}
+                `,
+                [input.workspaceId]
+            )
+            assertMarketingSeedRowCount({ objectCodename: object.codename, rowCount: Number(activeRows[0]?.count ?? Number.NaN) })
         }
 
         // A source publication cannot remove or archive workspace rows. This

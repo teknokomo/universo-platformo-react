@@ -9,10 +9,6 @@ import {
     Button,
     Checkbox,
     CircularProgress,
-    Dialog,
-    DialogActions,
-    DialogContent,
-    DialogTitle,
     FormControl,
     FormHelperText,
     FormControlLabel,
@@ -47,8 +43,20 @@ import {
     validateNumber
 } from '@universo-react/utils'
 import { useTranslation } from 'react-i18next'
+import { useCommonTranslations } from '@universo-react/i18n'
 import { LocalizedInlineField } from '../forms/LocalizedInlineField'
-import { mergeDialogPaperProps, mergeDialogSx, useDialogPresentation } from './dialogPresentation'
+import { generateUuidV7 } from '@universo-react/utils'
+import { StandardDialog } from './StandardDialog'
+import { useConfirm } from '../../hooks/useConfirm'
+import {
+    buildFormDataSignature,
+    getMissingRequiredLocale,
+    hasAnyLocalizedContent,
+    hasLocalizedLocaleValue,
+    isLocalizedContent,
+    normalizeLocale,
+    resolveEffectiveField
+} from './dynamicEntityFormValidation'
 
 export type DynamicFieldType = 'STRING' | 'NUMBER' | 'BOOLEAN' | 'DATE' | 'REF' | 'JSON' | 'TABLE'
 
@@ -62,6 +70,8 @@ export interface DynamicFieldValidationRules {
     maxLength?: number | null
     versioned?: boolean
     localized?: boolean
+    requiredLocales?: readonly string[]
+    requiredWhen?: { field: string; equals: string | number | boolean }
 
     // NUMBER settings
     precision?: number
@@ -84,6 +94,8 @@ export interface DynamicFieldConfig {
     label: string
     type: DynamicFieldType
     required?: boolean
+    /** Technical fields remain in the submitted Entity payload but are not shown to the user. */
+    hidden?: boolean
     multilineRows?: number
     /** @deprecated Use validationRules.localized instead */
     localized?: boolean
@@ -166,8 +178,6 @@ export interface DynamicEntityFormDialogProps {
     }) => React.ReactNode | undefined
 }
 
-const normalizeLocale = (locale?: string) => (locale ? locale.split(/[-_]/)[0].toLowerCase() : 'en')
-
 const getMultilineRows = (field: DynamicFieldConfig): number => {
     if (typeof field.multilineRows === 'number' && Number.isInteger(field.multilineRows) && field.multilineRows > 0) {
         return field.multilineRows
@@ -234,15 +244,6 @@ const getResourceSourceDomain = (value: ResourceSource | Record<string, unknown>
     }
 }
 
-const isLocalizedContent = (value: unknown): value is VersionedLocalizedContent<string> =>
-    Boolean(value && typeof value === 'object' && 'locales' in (value as Record<string, unknown>))
-
-const hasLocalizedLocaleValue = (value: unknown, locale: string): boolean => {
-    if (!isLocalizedContent(value)) return false
-    const entry = value.locales[normalizeLocale(locale)]
-    return typeof entry?.content === 'string' && entry.content.trim() !== ''
-}
-
 const ensureLocalizedValue = (value: unknown, locale: string): VersionedLocalizedContent<string> | null => {
     if (value == null) return null
     if (isLocalizedContent(value)) return value
@@ -251,9 +252,6 @@ const ensureLocalizedValue = (value: unknown, locale: string): VersionedLocalize
     }
     return createLocalizedContent(locale, String(value))
 }
-
-const hasAnyLocalizedContent = (value: VersionedLocalizedContent<string>) =>
-    Object.values(value.locales ?? {}).some((entry) => typeof entry?.content === 'string' && entry.content.trim() !== '')
 
 const getLocalizedStringValue = (value: unknown, locale: string): string | null => {
     if (!isLocalizedContent(value)) return null
@@ -605,17 +603,28 @@ export const DynamicEntityFormDialog: React.FC<DynamicEntityFormDialogProps> = (
     renderField: renderFieldOverride
 }) => {
     const [formData, setFormData] = useState<Record<string, unknown>>({})
+    const initialFormSnapshotRef = useRef<Record<string, unknown>>({})
     const [isReady, setReady] = useState(false)
+    const formFieldsRef = useRef<HTMLDivElement>(null)
     const tableLocalIdRef = useRef(1)
     // Track NUMBER input refs and last cursor zone for zone-aware steppers
     const numberInputRefsRef = useRef<Map<string, HTMLInputElement>>(new Map())
     const numberCursorZoneRef = useRef<Map<string, 'integer' | 'decimal'>>(new Map())
+    const visibleFields = useMemo(
+        () => fields.filter((field) => field.hidden !== true && field.uiConfig?.hidden !== true && field.uiConfig?.formHidden !== true),
+        [fields]
+    )
+    const validationFields = visibleFields
 
     const applyFieldDefaults = useCallback(
         (seed: Record<string, unknown>) => {
             const next = { ...seed }
 
             for (const field of fields) {
+                if (field.uiConfig?.autoGenerateSemanticKey === true) {
+                    const value = next[field.id]
+                    if (typeof value !== 'string' || !value.trim()) next[field.id] = `record-${generateUuidV7()}`
+                }
                 if (next[field.id] !== undefined) continue
                 if (field.type !== 'REF') continue
                 if (field.refTargetEntityKind === 'enumeration') {
@@ -647,16 +656,24 @@ export const DynamicEntityFormDialog: React.FC<DynamicEntityFormDialogProps> = (
     useEffect(() => {
         if (open) {
             setReady(false)
-            setFormData(applyFieldDefaults(initialData ?? {}))
+            const initialFormData = applyFieldDefaults(initialData ?? {})
+            initialFormSnapshotRef.current = initialFormData
+            setFormData(initialFormData)
             setReady(true)
         } else {
             setReady(false)
         }
     }, [open, initialData, applyFieldDefaults])
 
+    const focusFirstInvalidField = useCallback(() => {
+        formFieldsRef.current?.querySelector<HTMLElement>('[aria-invalid="true"]:not([disabled])')?.focus({ preventScroll: true })
+    }, [])
+
     const normalizedLocale = useMemo(() => normalizeLocale(locale), [locale])
 
     const { t } = useTranslation(i18nNamespace)
+    const { t: tCommon } = useCommonTranslations()
+    const { confirm } = useConfirm()
 
     const handleFieldChange = useCallback(
         (id: string, value: unknown) => {
@@ -732,10 +749,25 @@ export const DynamicEntityFormDialog: React.FC<DynamicEntityFormDialogProps> = (
     }, [])
 
     const getFieldError = useCallback(
-        (field: DynamicFieldConfig, value: unknown) => {
-            if (!resolveValuePresent(field, value)) return null
-
+        (configuredField: DynamicFieldConfig, value: unknown, values: Record<string, unknown>) => {
+            const field = resolveEffectiveField(configuredField, values)
             const rules = field.validationRules ?? {}
+            const missingRequiredLocale = getMissingRequiredLocale(field, value)
+            if (missingRequiredLocale) {
+                const normalizedMissingLocale = normalizeLocale(missingRequiredLocale)
+                const localeLabel =
+                    normalizedMissingLocale === 'en'
+                        ? tCommon('layouts.widgetBindings.locales.en', { defaultValue: 'English' })
+                        : normalizedMissingLocale === 'ru'
+                        ? tCommon('layouts.widgetBindings.locales.ru', { defaultValue: 'Russian' })
+                        : missingRequiredLocale.toUpperCase()
+                return tCommon('layouts.widgetBindings.missingLocale', {
+                    defaultValue: 'Add {{field}} in {{locale}} before saving.',
+                    field: field.label,
+                    locale: localeLabel
+                })
+            }
+            if (!resolveValuePresent(field, value)) return null
 
             if (field.type === 'STRING') {
                 const minLength = typeof rules.minLength === 'number' ? rules.minLength : null
@@ -813,41 +845,58 @@ export const DynamicEntityFormDialog: React.FC<DynamicEntityFormDialogProps> = (
 
             return null
         },
-        [t, getStringValueForValidation, getVlcMinLengthError, resolveValuePresent]
+        [t, tCommon, getStringValueForValidation, getVlcMinLengthError, resolveValuePresent]
     )
 
     const hasAnyValue = useMemo(
-        () => fields.some((field) => resolveValuePresent(field, formData[field.id])),
-        [fields, formData, resolveValuePresent]
+        () => visibleFields.some((field) => resolveValuePresent(field, formData[field.id])),
+        [visibleFields, formData, resolveValuePresent]
     )
 
     const hasMissingRequired = useMemo(
         () =>
-            fields.some((field) => {
-                if (field.type === 'TABLE' && field.required) {
+            validationFields.some((field) => {
+                const effectiveField = resolveEffectiveField(field, formData)
+                if (effectiveField.type === 'TABLE' && effectiveField.required) {
                     // TABLE required: must have at least max(1, minRows) rows
-                    const rows = formData[field.id]
+                    const rows = formData[effectiveField.id]
                     const rowCount = Array.isArray(rows) ? rows.length : 0
-                    const minRequired = Math.max(1, typeof field.validationRules?.minRows === 'number' ? field.validationRules.minRows : 1)
+                    const minRequired = Math.max(
+                        1,
+                        typeof effectiveField.validationRules?.minRows === 'number' ? effectiveField.validationRules.minRows : 1
+                    )
                     if (rowCount < minRequired) return true
                     return false
                 }
-                if (field.required && !resolveValuePresent(field, formData[field.id])) return true
+                if (effectiveField.required && !resolveValuePresent(effectiveField, formData[effectiveField.id])) return true
+                if (getMissingRequiredLocale(effectiveField, formData[effectiveField.id])) return true
                 return false
             }),
-        [fields, formData, resolveValuePresent]
+        [validationFields, formData, resolveValuePresent]
     )
 
     const hasValidationErrors = useMemo(
-        () => fields.some((field) => Boolean(getFieldError(field, formData[field.id]))),
-        [fields, formData, getFieldError]
+        () => validationFields.some((field) => Boolean(getFieldError(field, formData[field.id], formData))),
+        [validationFields, formData, getFieldError]
     )
 
     const buildPayload = useCallback(() => {
         const payload: Record<string, unknown> = {}
         fields.forEach((field) => {
             const value = formData[field.id]
-            if (!resolveValuePresent(field, value)) return
+            if (!resolveValuePresent(field, value)) {
+                // Updates merge their payload into the existing Entity record. An
+                // empty optional ResourceSource therefore needs an explicit null
+                // to clear its previous locator instead of silently retaining it.
+                if (
+                    field.type === 'JSON' &&
+                    isResourceSourceField(field) &&
+                    hasResourceSourceLocator(parseResourceSourceDraft(initialFormSnapshotRef.current[field.id]))
+                ) {
+                    payload[field.id] = null
+                }
+                return
+            }
             // Strip internal-only properties from TABLE row arrays before sending to the API
             if (field.type === 'TABLE' && Array.isArray(value)) {
                 payload[field.id] = value.map((row: Record<string, unknown>) => {
@@ -867,11 +916,13 @@ export const DynamicEntityFormDialog: React.FC<DynamicEntityFormDialogProps> = (
         await onSubmit(buildPayload())
     }
 
-    const renderField = (field: DynamicFieldConfig) => {
+    const renderField = (configuredField: DynamicFieldConfig) => {
+        const field = resolveEffectiveField(configuredField, formData)
         const value = formData[field.id]
         const disabled = isSubmitting
         const rules = field.validationRules
-        const validationError = getFieldError(field, value)
+        const missingRequiredLocale = getMissingRequiredLocale(field, value)
+        const validationError = getFieldError(configuredField, value, formData)
         const serverFieldError = fieldValidationError?.fieldId === field.id ? fieldValidationError : null
         const fieldError = validationError ?? serverFieldError?.message ?? null
         const helperText = fieldError ?? field.helperText
@@ -917,7 +968,7 @@ export const DynamicEntityFormDialog: React.FC<DynamicEntityFormDialogProps> = (
                             uiLocale={locale}
                             disabled={disabled}
                             error={fieldError}
-                            errorLocale={serverFieldError?.locale ?? vlcErrorLocale}
+                            errorLocale={serverFieldError?.locale ?? missingRequiredLocale ?? vlcErrorLocale}
                             helperText={field.helperText}
                             multiline={isMultiline}
                             rows={isMultiline ? multilineRows : undefined}
@@ -938,7 +989,7 @@ export const DynamicEntityFormDialog: React.FC<DynamicEntityFormDialogProps> = (
                             uiLocale={locale}
                             disabled={disabled}
                             error={fieldError}
-                            errorLocale={serverFieldError?.locale ?? vlcErrorLocale}
+                            errorLocale={serverFieldError?.locale ?? missingRequiredLocale ?? vlcErrorLocale}
                             helperText={field.helperText}
                             multiline={isMultiline}
                             rows={isMultiline ? multilineRows : undefined}
@@ -1796,94 +1847,91 @@ export const DynamicEntityFormDialog: React.FC<DynamicEntityFormDialogProps> = (
 
     const isSubmitDisabled =
         isSubmitting || !isReady || fields.length === 0 || hasMissingRequired || hasValidationErrors || (requireAnyValue && !hasAnyValue)
+    const isFormDirty = open && buildFormDataSignature(formData) !== buildFormDataSignature(initialFormSnapshotRef.current)
 
     const hasTableFields = fields.some((f) => f.type === 'TABLE')
     const dialogMaxWidth = hasTableFields ? 'md' : 'sm'
     const handleClose = () => {
         if (isSubmitting) return
-        onClose()
-    }
-    const presentation = useDialogPresentation({ open, onClose: handleClose, fallbackMaxWidth: dialogMaxWidth, isBusy: isSubmitting })
-    const titleNode = presentation.titleActions ? (
-        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2 }}>
-            <Box component='span' sx={{ minWidth: 0 }}>
-                {title}
-            </Box>
-            {presentation.titleActions}
-        </Box>
-    ) : (
-        title
-    )
+        if (!isFormDirty) {
+            onClose()
+            return
+        }
 
+        void confirm({
+            title: tCommon('unsavedChanges.title', { defaultValue: 'Discard unsaved changes?' }),
+            description: tCommon('unsavedChanges.description', { defaultValue: 'Your unsaved changes will be lost.' }),
+            confirmButtonName: tCommon('unsavedChanges.confirm', { defaultValue: 'Discard' }),
+            cancelButtonName: tCommon('unsavedChanges.cancel', { defaultValue: 'Keep editing' })
+        }).then((discard) => {
+            if (discard) onClose()
+        })
+    }
     return (
-        <Dialog
+        <StandardDialog
             open={open}
-            onClose={presentation.dialogProps.onClose}
-            maxWidth={presentation.dialogProps.maxWidth ?? dialogMaxWidth}
-            fullWidth={presentation.dialogProps.fullWidth ?? true}
-            slotProps={{ paper: mergeDialogPaperProps({ sx: { borderRadius: 1 } }, presentation.dialogProps.PaperProps) }}
-        >
-            <DialogTitle>{titleNode}</DialogTitle>
-            <DialogContent sx={mergeDialogSx({ overflowY: 'visible', overflowX: 'hidden' }, presentation.contentSx)}>
-                <Stack spacing={2} sx={{ mt: 1 }}>
-                    {error && <Alert severity='error'>{error}</Alert>}
-                    {!isReady ? (
-                        <Stack sx={{ py: 3, alignItems: 'center', justifyContent: 'center' }}>
-                            <CircularProgress size={20} />
-                        </Stack>
-                    ) : fields.length === 0 ? (
-                        <Typography
-                            sx={{
-                                color: 'text.secondary'
-                            }}
-                        >
-                            {emptyStateText}
-                        </Typography>
-                    ) : (
-                        fields.map((field) => <React.Fragment key={field.id}>{renderField(field)}</React.Fragment>)
-                    )}
-                </Stack>
-            </DialogContent>
-            <DialogActions
-                sx={{
+            onClose={handleClose}
+            title={title}
+            maxWidth={dialogMaxWidth}
+            fullWidth
+            isBusy={isSubmitting}
+            onTransitionEntered={focusFirstInvalidField}
+            dialogContentProps={{ sx: { overflowY: 'visible', overflowX: 'hidden' } }}
+            dialogActionsProps={{
+                sx: {
                     p: 3,
                     pt: 2,
                     justifyContent: showDeleteButton || footerStartActions ? 'space-between' : 'flex-end',
                     flexWrap: footerStartActions ? 'wrap' : 'nowrap',
                     gap: footerStartActions ? 1 : undefined
-                }}
-            >
-                {showDeleteButton || footerStartActions ? (
+                }
+            }}
+            actions={
+                <>
+                    {showDeleteButton || footerStartActions ? (
+                        <Box sx={{ display: 'flex', gap: 1 }}>
+                            {showDeleteButton ? (
+                                <Button
+                                    onClick={deleteButtonDisabled ? undefined : onDelete}
+                                    disabled={isSubmitting || deleteButtonDisabled}
+                                    variant='outlined'
+                                    startIcon={<DeleteIcon />}
+                                >
+                                    {deleteButtonText}
+                                </Button>
+                            ) : null}
+                            {footerStartActions}
+                        </Box>
+                    ) : null}
                     <Box sx={{ display: 'flex', gap: 1 }}>
-                        {showDeleteButton ? (
-                            <Button
-                                onClick={deleteButtonDisabled ? undefined : onDelete}
-                                disabled={isSubmitting || deleteButtonDisabled}
-                                variant='outlined'
-                                startIcon={<DeleteIcon />}
-                            >
-                                {deleteButtonText}
-                            </Button>
-                        ) : null}
-                        {footerStartActions}
+                        <Button onClick={handleClose} disabled={isSubmitting}>
+                            {cancelButtonText}
+                        </Button>
+                        <Button
+                            onClick={handleSubmit}
+                            variant='contained'
+                            disabled={isSubmitDisabled}
+                            startIcon={isSubmitting ? <CircularProgress size={16} /> : null}
+                        >
+                            {isSubmitting ? savingButtonText ?? saveButtonText : saveButtonText}
+                        </Button>
                     </Box>
-                ) : null}
-                <Box sx={{ display: 'flex', gap: 1 }}>
-                    <Button onClick={handleClose} disabled={isSubmitting}>
-                        {cancelButtonText}
-                    </Button>
-                    <Button
-                        onClick={handleSubmit}
-                        variant='contained'
-                        disabled={isSubmitDisabled}
-                        startIcon={isSubmitting ? <CircularProgress size={16} /> : null}
-                    >
-                        {isSubmitting ? savingButtonText ?? saveButtonText : saveButtonText}
-                    </Button>
-                </Box>
-            </DialogActions>
-            {presentation.resizeHandle}
-        </Dialog>
+                </>
+            }
+        >
+            <Stack ref={formFieldsRef} spacing={2} sx={{ mt: 1 }}>
+                {error && <Alert severity='error'>{error}</Alert>}
+                {!isReady ? (
+                    <Stack sx={{ py: 3, alignItems: 'center', justifyContent: 'center' }}>
+                        <CircularProgress size={20} />
+                    </Stack>
+                ) : visibleFields.length === 0 ? (
+                    <Typography sx={{ color: 'text.secondary' }}>{emptyStateText}</Typography>
+                ) : (
+                    visibleFields.map((field) => <React.Fragment key={field.id}>{renderField(field)}</React.Fragment>)
+                )}
+            </Stack>
+        </StandardDialog>
     )
 }
 

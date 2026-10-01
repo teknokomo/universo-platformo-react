@@ -1,5 +1,6 @@
 import Box from '@mui/material/Box'
 import Divider from '@mui/material/Divider'
+import Typography from '@mui/material/Typography'
 import { Fragment, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { getMarketingSectionAnchorEntries, getMarketingWidgetAnchorId, MARKETING_WIDGET_REGISTRY } from '@universo-react/types'
@@ -73,6 +74,7 @@ const buildSectionAnchors = (orderedWidgets: readonly MarketingPageWidget[]): Ma
  * content widgets remain owned by the marketing runtime payload.
  */
 export default function MarketingPage({ data, effectiveLayoutWidgets, effectiveLayoutConfig, onAction, onLeadSubmit }: MarketingPageProps) {
+    const { t } = useTranslation('apps')
     const orderedWidgets = data.widgets
         .map((widget, index) => ({ widget, index }))
         .filter(({ widget }) => widget.isActive)
@@ -116,14 +118,27 @@ export default function MarketingPage({ data, effectiveLayoutWidgets, effectiveL
                 component='main'
                 id='marketing-page-main'
                 tabIndex={-1}
-                sx={{ minWidth: 0, scrollMarginBlockStart: 'var(--marketing-header-occlusion, 0px)' }}
+                sx={{
+                    minWidth: 0,
+                    minHeight: contentWidgets.length === 0 ? '100vh' : undefined,
+                    display: contentWidgets.length === 0 ? 'grid' : undefined,
+                    placeItems: contentWidgets.length === 0 ? 'center' : undefined,
+                    px: contentWidgets.length === 0 ? 2 : undefined,
+                    scrollMarginBlockStart: 'var(--marketing-header-occlusion, 0px)'
+                }}
             >
-                {contentWidgets.map((widget, index) => (
-                    <Fragment key={String(widget.instanceKey)}>
-                        {shouldRenderDividerBefore(widget, contentWidgets[index - 1]) ? <Divider /> : null}
-                        {renderWidgetSlot(widget, onAction, onLeadSubmit, renderOptionsForWidget(widget))}
-                    </Fragment>
-                ))}
+                {contentWidgets.length === 0 ? (
+                    <Typography data-testid='marketing-page-empty' role='status' sx={{ color: 'text.secondary', textAlign: 'center' }}>
+                        {t('marketingPage.emptyLayout', 'This page has no published content yet.')}
+                    </Typography>
+                ) : (
+                    contentWidgets.map((widget, index) => (
+                        <Fragment key={String(widget.instanceKey)}>
+                            {shouldRenderDividerBefore(widget, contentWidgets[index - 1]) ? <Divider /> : null}
+                            {renderWidgetSlot(widget, onAction, onLeadSubmit, renderOptionsForWidget(widget))}
+                        </Fragment>
+                    ))
+                )}
             </Box>
             {footerWidgets.map((widget) => (
                 <Fragment key={String(widget.instanceKey)}>

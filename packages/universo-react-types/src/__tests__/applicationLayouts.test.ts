@@ -64,26 +64,11 @@ describe('application layout widget config contracts', () => {
     })
 
     it('validates marketing header widget configs with their specialized schemas', () => {
-        expect(
-            parseApplicationLayoutWidgetConfig('marketing.brand', {
-                instanceKey: 'marketing-brand',
-                source: {
-                    entityCodename: 'MarketingPageSiteSettings',
-                    entityKind: 'object'
-                }
-            })
-        ).toMatchObject({ instanceKey: 'marketing-brand' })
+        expect(parseApplicationLayoutWidgetConfig('marketing.brand', { instanceKey: 'marketing-brand' })).toMatchObject({
+            instanceKey: 'marketing-brand'
+        })
 
-        expect(() => parseApplicationLayoutWidgetConfig('marketing.brand', { source: {} })).toThrow()
-        expect(() =>
-            parseApplicationLayoutWidgetConfig('marketing.brand', {
-                instanceKey: 'marketing-brand',
-                source: {
-                    entityCodename: 'MarketingPageSiteSettings',
-                    entityKind: 'page'
-                }
-            })
-        ).toThrow()
+        expect(() => parseApplicationLayoutWidgetConfig('marketing.brand', { instanceKey: 'marketing-brand', source: {} })).toThrow()
 
         expect(parseApplicationLayoutWidgetConfig('marketing.auth', { instanceKey: 'marketing-auth' })).toMatchObject({
             instanceKey: 'marketing-auth',
@@ -91,20 +76,13 @@ describe('application layout widget config contracts', () => {
         })
         expect(() => parseApplicationLayoutWidgetConfig('marketing.auth', { instanceKey: 'marketing-auth', unexpected: true })).toThrow()
 
-        expect(
-            parseApplicationLayoutWidgetConfig('marketing.image', {
-                instanceKey: 'hero-image',
-                media: {
-                    kind: 'hero',
-                    resource: { type: 'url', url: 'https://example.test/hero.webp', launchMode: 'inline' },
-                    decorative: true
-                }
-            })
-        ).toMatchObject({ instanceKey: 'hero-image', media: { kind: 'hero', decorative: true } })
+        expect(parseApplicationLayoutWidgetConfig('marketing.image', { instanceKey: 'hero-image' })).toMatchObject({
+            instanceKey: 'hero-image'
+        })
         expect(() =>
             parseApplicationLayoutWidgetConfig('marketing.image', {
                 instanceKey: 'hero-image',
-                source: { entityCodename: 'MarketingPageSiteSettings', entityKind: 'object' }
+                media: { type: 'url', url: 'https://example.test/hero.webp' }
             })
         ).toThrow()
     })

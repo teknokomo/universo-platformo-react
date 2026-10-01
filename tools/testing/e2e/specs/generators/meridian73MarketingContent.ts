@@ -18,6 +18,8 @@ export type Meridian73PricingTier = Readonly<{
     description: Meridian73LocalizedText
     price: number
     period: Meridian73LocalizedText
+    actionLabel: Meridian73LocalizedText
+    actionHref: string
     benefits: readonly Meridian73LocalizedText[]
 }>
 
@@ -27,6 +29,11 @@ export const MERIDIAN_73_SOURCE = {
 } as const
 
 export const MERIDIAN_73_IMAGE_URL = MARKETING_DEFAULT_IMAGE_URL
+
+export const MERIDIAN_73_IMAGE_ALT = {
+    en: 'Marketing page dashboard preview',
+    ru: 'Предпросмотр панели маркетинговой страницы'
+} as const
 
 export const MERIDIAN_73_METAHUB = {
     name: {
@@ -111,14 +118,6 @@ export const MERIDIAN_73_SECTIONS = [
         description: {
             en: 'Core facts about the Consortium, its role, technologies, and potential partners.',
             ru: 'Основная информация о Консорциуме, его роли, технологиях и потенциальных партнёрах.'
-        }
-    },
-    {
-        key: 'footer',
-        title: { en: 'Contacts', ru: 'Контакты' },
-        description: {
-            en: 'Building partnerships for the projects of the future.',
-            ru: 'Создаём партнёрства для проектов будущего.'
         }
     }
 ] as const
@@ -310,6 +309,8 @@ export const MERIDIAN_73_PRICING_TIERS: readonly Meridian73PricingTier[] = [
         },
         price: 1,
         period: { en: 'stage', ru: 'этап' },
+        actionLabel: { en: 'Contact the team', ru: 'Связаться с командой' },
+        actionHref: '#footer',
         benefits: [
             { en: 'Horizon: 0–18 months', ru: 'Горизонт: 0–18 месяцев' },
             { en: 'MVP and digital packaging of the project', ru: 'Развитие MVP и цифровая упаковка проекта' },
@@ -327,6 +328,8 @@ export const MERIDIAN_73_PRICING_TIERS: readonly Meridian73PricingTier[] = [
         },
         price: 2,
         period: { en: 'stage', ru: 'этап' },
+        actionLabel: { en: 'Contact the team', ru: 'Связаться с командой' },
+        actionHref: '#footer',
         benefits: [
             { en: 'First commercial mandates', ru: 'Первые коммерческие мандаты' },
             { en: 'Pilot project launches', ru: 'Запуск пилотных проектов' },
@@ -344,6 +347,8 @@ export const MERIDIAN_73_PRICING_TIERS: readonly Meridian73PricingTier[] = [
         },
         price: 3,
         period: { en: 'stage', ru: 'этап' },
+        actionLabel: { en: 'Contact the team', ru: 'Связаться с командой' },
+        actionHref: '#footer',
         benefits: [
             { en: 'Infrastructure SPV development', ru: 'Развитие инфраструктурных SPV' },
             { en: 'MTOR projects', ru: 'Проекты МТОР' },
