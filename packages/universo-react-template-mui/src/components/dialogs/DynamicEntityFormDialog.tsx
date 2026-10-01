@@ -614,7 +614,7 @@ export const DynamicEntityFormDialog: React.FC<DynamicEntityFormDialogProps> = (
         () => fields.filter((field) => field.hidden !== true && field.uiConfig?.hidden !== true && field.uiConfig?.formHidden !== true),
         [fields]
     )
-    const validationFields = useMemo(() => fields.filter((field) => field.uiConfig?.formHidden !== true), [fields])
+    const validationFields = visibleFields
 
     const applyFieldDefaults = useCallback(
         (seed: Record<string, unknown>) => {

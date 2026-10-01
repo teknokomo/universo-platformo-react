@@ -120,14 +120,14 @@ export default function MarketingPage({ data, effectiveLayoutWidgets, effectiveL
                 tabIndex={-1}
                 sx={{
                     minWidth: 0,
-                    minHeight: orderedWidgets.length === 0 ? '100vh' : undefined,
-                    display: orderedWidgets.length === 0 ? 'grid' : undefined,
-                    placeItems: orderedWidgets.length === 0 ? 'center' : undefined,
-                    px: orderedWidgets.length === 0 ? 2 : undefined,
+                    minHeight: contentWidgets.length === 0 ? '100vh' : undefined,
+                    display: contentWidgets.length === 0 ? 'grid' : undefined,
+                    placeItems: contentWidgets.length === 0 ? 'center' : undefined,
+                    px: contentWidgets.length === 0 ? 2 : undefined,
                     scrollMarginBlockStart: 'var(--marketing-header-occlusion, 0px)'
                 }}
             >
-                {orderedWidgets.length === 0 ? (
+                {contentWidgets.length === 0 ? (
                     <Typography data-testid='marketing-page-empty' role='status' sx={{ color: 'text.secondary', textAlign: 'center' }}>
                         {t('marketingPage.emptyLayout', 'This page has no published content yet.')}
                     </Typography>

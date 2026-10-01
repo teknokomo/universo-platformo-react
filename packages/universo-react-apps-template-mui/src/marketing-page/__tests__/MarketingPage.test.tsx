@@ -291,6 +291,18 @@ describe('MarketingPage', () => {
         expect(screen.getByRole('status')).toHaveTextContent('This page has no published content yet.')
     })
 
+    it('renders the localized main empty state when only header or footer widgets are active', () => {
+        const shellOnlyData: MarketingPageData = {
+            ...data,
+            widgets: data.widgets.filter((widget) => widget.zone !== 'marketing-main')
+        }
+        renderPage({ data: shellOnlyData })
+
+        expect(screen.getByRole('main')).toBeVisible()
+        expect(screen.getByRole('status')).toHaveTextContent('This page has no published content yet.')
+        expect(screen.getByRole('contentinfo')).toBeVisible()
+    })
+
     it('renders an authenticated Marketing Image payload without physical layout or source identities', () => {
         const imageData = normalizeMarketingPageRuntime(
             {

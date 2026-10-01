@@ -218,6 +218,30 @@ describe('DynamicEntityFormDialog', () => {
         await waitFor(() => expect(onSubmit).toHaveBeenCalledWith({ Title: 'Updated title', ArchivedAt: '2026-09-01' }))
     })
 
+    it('does not block saving on a required hidden field that the user cannot edit', async () => {
+        const onSubmit = jest.fn().mockResolvedValue(undefined)
+        render(
+            <DynamicEntityFormDialog
+                open
+                title='Create managed record'
+                locale='en'
+                fields={[
+                    { id: 'PrincipalId', label: 'Principal id', type: 'STRING', required: true, hidden: true },
+                    { id: 'Title', label: 'Title', type: 'STRING', required: true }
+                ]}
+                onClose={() => undefined}
+                onSubmit={onSubmit}
+            />
+        )
+
+        expect(screen.queryByRole('textbox', { name: 'Principal id' })).not.toBeInTheDocument()
+        fireEvent.change(screen.getByRole('textbox', { name: 'Title' }), { target: { value: 'Managed record' } })
+        fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+
+        await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1))
+        expect(onSubmit).toHaveBeenCalledWith({ Title: 'Managed record' })
+    })
+
     it('associates server validation with the requested locale and focuses that localized field', async () => {
         const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
         const clearFieldError = jest.fn()
