@@ -543,6 +543,55 @@ describe('shared marketing widget binding projection', () => {
         }
     })
 
+    it('projects an Image with an empty optional ResourceSource as an empty record set', async () => {
+        const imageFixture = marketingWidgetDtoFixtures.find(({ name }) => name === 'Image')
+        if (!imageFixture) throw new Error('Missing Marketing Image projection fixture')
+        const imageSource = imageFixture.sources.content
+        const imageRecord = imageSource?.records[0]
+        if (!imageSource || !imageRecord) throw new Error('Missing Marketing Image source record')
+        const dataWithoutResource = { ...imageRecord.data }
+        delete dataWithoutResource.resource
+
+        await expect(
+            projectMarketingWidgetFixture({
+                ...imageFixture,
+                sources: {
+                    ...imageFixture.sources,
+                    content: { ...imageSource, records: [{ ...imageRecord, data: dataWithoutResource }] }
+                }
+            })
+        ).resolves.toEqual({ records: [] })
+    })
+
+    it('projects more than 64 Pricing benefits up to the registered relation limit', async () => {
+        const pricingFixture = marketingWidgetDtoFixtures.find(({ name }) => name === 'Pricing')
+        if (!pricingFixture) throw new Error('Missing Marketing Pricing projection fixture')
+        const tierRecord = pricingFixture.sources.tiers?.records[0]
+        const benefitSource = pricingFixture.sources.benefits
+        const benefitRecord = benefitSource?.records[0]
+        if (!tierRecord || !benefitSource || !benefitRecord) throw new Error('Missing Marketing Pricing relation fixture')
+
+        const benefits = Array.from({ length: 65 }, (_, index) => ({
+            recordId: `019ccefc-2f7b-7b36-82f4-${String(900000000000 + index).padStart(12, '0')}`,
+            data: {
+                ...benefitRecord.data,
+                key: `benefit-${index + 1}`,
+                tier: tierRecord.recordId,
+                order: index + 1
+            }
+        }))
+        const projected = await projectMarketingWidgetFixture({
+            ...pricingFixture,
+            sources: { ...pricingFixture.sources, benefits: { ...benefitSource, records: benefits } }
+        })
+        const tier = projected?.records.find((item) => item.kind === 'pricingTier')
+
+        expect(tier).toBeDefined()
+        expect(tier && 'benefitKeys' in tier ? tier.benefitKeys : []).toHaveLength(65)
+        expect(tier && 'benefits' in tier ? tier.benefits : []).toHaveLength(65)
+        expect(publicMarketingPageRecordSchema.safeParse(tier).success).toBe(true)
+    })
+
     it('rejects a string Resource instead of coercing it into a canonical media reference', async () => {
         const imageFixture = marketingWidgetDtoFixtures.find(({ name }) => name === 'Image')
         if (!imageFixture) throw new Error('Missing Marketing Image projection fixture')

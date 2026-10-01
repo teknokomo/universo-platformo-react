@@ -1,6 +1,7 @@
 import { z } from 'zod'
 
 export const MARKETING_PAGE_REQUIRED_LOCALES = ['en', 'ru'] as const
+export const MARKETING_PRICING_MAX_BENEFITS = 200
 
 /** Template-aware widget keys. Dashboard keys are deliberately not included. */
 export const MARKETING_WIDGET_KEYS = [

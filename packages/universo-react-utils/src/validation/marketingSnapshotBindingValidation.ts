@@ -329,9 +329,6 @@ const selectSnapshotBindingRecords = (
             parentRecordIds.add(parentRecord.id)
         }
     }
-    if (parentRecordIds.size === 0) {
-        fail('Marketing snapshot relation parent selection is empty', { scope, parentSlot: relation.parentSlot })
-    }
     const relatedRecords = records.filter(
         (record) =>
             isRecord(record) &&

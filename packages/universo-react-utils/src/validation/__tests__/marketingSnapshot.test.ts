@@ -256,6 +256,36 @@ describe('validateMarketingSnapshotLayouts', () => {
         expect(() => validateMarketingSnapshotLayouts(snapshot)).not.toThrow()
     })
 
+    it('accepts an empty Pricing relation-set when every parent tier is hidden', () => {
+        const snapshot = createSnapshot([
+            {
+                id: ids.widget,
+                layoutId: ids.layout,
+                zone: 'marketing-main',
+                widgetKey: 'marketing.pricing',
+                sortOrder: 0,
+                config: boundWidgetConfig(
+                    'marketing.pricing',
+                    { instanceKey: 'pricing', showBenefits: true },
+                    {
+                        section: 'MarketingPageSection',
+                        tiers: 'MarketingPagePricing',
+                        benefits: 'MarketingPagePricingBenefit'
+                    },
+                    { section: 'pricing' }
+                ),
+                isActive: true
+            }
+        ])
+        const tiers = snapshot.elements?.pricing as Array<Record<string, unknown>>
+        for (const tier of tiers) {
+            const data = tier.data as Record<string, unknown>
+            data.IsVisible = false
+        }
+
+        expect(() => validateMarketingSnapshotLayouts(snapshot)).not.toThrow()
+    })
+
     it('accepts an Entity-backed image widget without renderer-owned media', () => {
         const image = {
             id: ids.secondWidget,

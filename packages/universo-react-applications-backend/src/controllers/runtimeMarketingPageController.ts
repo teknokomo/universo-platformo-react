@@ -430,6 +430,10 @@ export function createRuntimeMarketingPageController(getDbExecutor: () => DbExec
                 return unavailableSource('Marketing widget Entity binding is unavailable.')
             }
 
+            if (widget.widgetKey === 'marketing.image' && data && Array.isArray(data.records) && data.records.length === 0) {
+                continue
+            }
+
             runtimeRecordCount += data?.records.length ?? 0
             if (runtimeRecordCount > MARKETING_MAX_RUNTIME_RECORDS) {
                 return res.status(413).json({

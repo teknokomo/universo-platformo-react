@@ -1,6 +1,7 @@
 import { z } from 'zod'
 
 import {
+    MARKETING_PRICING_MAX_BENEFITS,
     marketingActionSchema,
     marketingLocaleCodeSchema,
     marketingLocalizedTextSchema,
@@ -130,8 +131,8 @@ export const marketingPricingTierRecordSchema = marketingRecordBaseSchema
         price: marketingLocalizedTextSchema,
         period: marketingLocalizedTextSchema.optional(),
         action: marketingActionButtonSchema.optional(),
-        benefitKeys: z.array(marketingSemanticKeySchema).max(64).default([]),
-        benefits: z.array(marketingLocalizedTextSchema).max(64).default([]),
+        benefitKeys: z.array(marketingSemanticKeySchema).max(MARKETING_PRICING_MAX_BENEFITS).default([]),
+        benefits: z.array(marketingLocalizedTextSchema).max(MARKETING_PRICING_MAX_BENEFITS).default([]),
         featured: z.boolean().default(false)
     })
     .strict()
@@ -293,8 +294,8 @@ export const publicMarketingPricingTierRecordSchema = publicMarketingRecordBaseS
         price: marketingLocalizedTextSchema,
         period: marketingLocalizedTextSchema.optional(),
         action: marketingActionButtonSchema.optional(),
-        benefitKeys: z.array(marketingSemanticKeySchema).max(64).default([]),
-        benefits: z.array(marketingLocalizedTextSchema).max(64).default([]),
+        benefitKeys: z.array(marketingSemanticKeySchema).max(MARKETING_PRICING_MAX_BENEFITS).default([]),
+        benefits: z.array(marketingLocalizedTextSchema).max(MARKETING_PRICING_MAX_BENEFITS).default([]),
         featured: z.boolean().default(false)
     })
     .strict()

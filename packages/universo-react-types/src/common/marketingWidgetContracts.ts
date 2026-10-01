@@ -1,5 +1,6 @@
 import {
     MARKETING_PAGE_REQUIRED_LOCALES,
+    MARKETING_PRICING_MAX_BENEFITS,
     MARKETING_SEMANTIC_KEY_PATTERN,
     type MarketingCollectionVariant,
     type MarketingWidgetKey
@@ -440,7 +441,7 @@ export const MARKETING_WIDGET_CONTRACTS: Readonly<Record<MarketingWidgetKey, Mar
                     parentSlot: 'tiers',
                     orderByField: 'order',
                     visibilityField: 'visible',
-                    maxResolvedRecords: 200
+                    maxResolvedRecords: MARKETING_PRICING_MAX_BENEFITS
                 }
             )
         ],
