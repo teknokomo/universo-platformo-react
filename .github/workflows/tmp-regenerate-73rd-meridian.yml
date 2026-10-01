@@ -1,0 +1,34 @@
+name: Temporary 73rd Meridian fixture regeneration
+on:
+    push:
+        branches:
+            - feature/marketing-page-entity-backed-widgets
+permissions:
+    contents: read
+jobs:
+    generate:
+        runs-on: ubuntu-latest
+        env:
+            PUPPETEER_SKIP_DOWNLOAD: true
+        steps:
+            - uses: actions/checkout@v5
+            - uses: pnpm/action-setup@v4
+            - uses: actions/setup-node@v5
+              with:
+                  node-version: 22.22.0
+                  cache: 'pnpm'
+                  cache-dependency-path: 'pnpm-lock.yaml'
+            - run: pnpm install
+            - name: Install Chromium
+              run: pnpm exec playwright install --with-deps chromium
+            - name: Generate and validate fixture
+              continue-on-error: true
+              run: pnpm run test:e2e:73rd-meridian-fixture-gate:local-supabase
+            - name: Upload generated fixture
+              if: always()
+              uses: actions/upload-artifact@v4
+              with:
+                  name: generated-73rd-meridian-fixture
+                  path: tools/testing/e2e/.artifacts/generated-metahubs-73rd-meridian-app-snapshot.json
+                  if-no-files-found: error
+                  retention-days: 1
