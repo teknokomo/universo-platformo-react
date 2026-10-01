@@ -1,4 +1,4 @@
-> **Last Reviewed**: 2026-09-26 (refreshed: repository 0.83.0-alpha; pnpm/Turbo/MUI and PlayCanvas baselines rechecked; Entity-backed Marketing Hero and shared dropdown architecture added)
+> **Last Reviewed**: 2026-10-01 (refreshed: repository 0.83.0-alpha; complete Entity-backed Marketing Page architecture, pnpm/Turbo/MUI, and PlayCanvas baselines rechecked)
 
 # Technical Context
 
@@ -302,7 +302,7 @@
 -   Custom entity types use the **Entity Type Constructor** + `EntityTypeCapabilities`; Object remains the generic reference/transactional/hybrid primitive with `posting`/`ledgerSchema` capabilities.
 -   Eight built-in metahub templates: `basic`, `basic-demo`, `empty`, `lms`, `1c-compatible`, `playcanvas`, `interpretation-network`, `marketing-page`. Registry source: `packages/universo-react-metahubs-backend/src/domains/templates/data/index.ts`.
 -   Runtime/template evolution is data-driven: MUI 9 application templates resolve persisted widget composition, global/entity-scoped layouts, source lineage, optimistic versions, zone settings, and target-aware effective layout.
--   Entity-backed authoring widgets keep business/content values in ordinary Entity records and store only semantic source binding plus presentation behavior in widget/layout state. The current pilot maps `marketing.hero` to `MarketingPageHero`; default placement provisioning creates a fresh bound record transactionally, while advanced authoring may select/customize a compatible source and warns when multiple placements share one record.
+-   Marketing Page authoring is fully Entity-backed: all content-bearing Marketing widgets keep business/content values in ordinary Object records, while widget/layout state stores only typed semantic bindings, composition, and presentation behavior. Binding definitions are registry-driven and support semantic-key, record-set, and relation-set selectors; authenticated/public runtimes resolve bounded, allowlisted record DTOs. Application-owned authoring remains presentation-only for required source-bound widgets.
 -   Shared selection controls for non-published management/authoring surfaces live in `@universo-react/template-mui/dropdowns`; `@universo-react/apps-template-mui` remains isolated and owns its published-runtime components independently.
 -   Full platform contract lives in `.agents/skills/universo-platform-architecture/`.
 

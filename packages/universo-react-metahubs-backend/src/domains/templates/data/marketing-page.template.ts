@@ -102,8 +102,8 @@ const sectionElements: TemplateSeedElement[] = [
 
 const logoComponents: TemplateSeedComponent[] = [
     keyComponent('LogoKey', 'Logo key', 'Ключ логотипа', 64),
-    mediaComponent('ImageLight', 'Light logo', 'Логотип для светлой темы', true),
-    mediaComponent('ImageDark', 'Dark logo', 'Логотип для тёмной темы', true),
+    mediaComponent('ImageLight', 'Light logo', 'Логотип для светлой темы'),
+    mediaComponent('ImageDark', 'Dark logo', 'Логотип для тёмной темы'),
     localizedComponent('AltText', 'Alternative text', 'Альтернативный текст', 255, true),
     marketingComponent('SortOrder', 'Order', 'Порядок', { dataType: 'NUMBER', isRequired: true, validationRules: { min: 0, max: 100 } }),
     marketingComponent('IsVisible', 'Visible', 'Видимость', { dataType: 'BOOLEAN', isRequired: true })
@@ -166,8 +166,8 @@ const featureComponents: TemplateSeedComponent[] = [
     plainComponent('IconKey', 'Icon key', 'Ключ иконки', 64, true),
     localizedComponent('Title', 'Title', 'Заголовок', 255, true),
     localizedComponent('Description', 'Description', 'Описание', 1000, true),
-    mediaComponent('ImageLight', 'Light image', 'Изображение для светлой темы', true),
-    mediaComponent('ImageDark', 'Dark image', 'Изображение для тёмной темы', true),
+    mediaComponent('ImageLight', 'Light image', 'Изображение для светлой темы'),
+    mediaComponent('ImageDark', 'Dark image', 'Изображение для тёмной темы'),
     marketingComponent('SortOrder', 'Order', 'Порядок', { dataType: 'NUMBER', isRequired: true, validationRules: { min: 0, max: 100 } }),
     marketingComponent('IsVisible', 'Visible', 'Видимость', { dataType: 'BOOLEAN', isRequired: true })
 ]
@@ -229,11 +229,11 @@ const featureElements: TemplateSeedElement[] = [
 const testimonialComponents: TemplateSeedComponent[] = [
     keyComponent('TestimonialKey', 'Testimonial key', 'Ключ отзыва', 64),
     localizedComponent('Name', 'Name', 'Имя', 255, true),
-    localizedComponent('Occupation', 'Occupation', 'Должность', 255, true),
+    localizedComponent('Occupation', 'Occupation', 'Должность', 255),
     localizedComponent('Quote', 'Quote', 'Отзыв', 2000, true),
-    mediaComponent('AvatarUrl', 'Avatar', 'Аватар', true),
-    mediaComponent('LogoLightUrl', 'Light logo', 'Логотип для светлой темы', true),
-    mediaComponent('LogoDarkUrl', 'Dark logo', 'Логотип для тёмной темы', true),
+    mediaComponent('AvatarUrl', 'Avatar', 'Аватар'),
+    mediaComponent('LogoLightUrl', 'Light logo', 'Логотип для светлой темы'),
+    mediaComponent('LogoDarkUrl', 'Dark logo', 'Логотип для тёмной темы'),
     marketingComponent('SortOrder', 'Order', 'Порядок', { dataType: 'NUMBER', isRequired: true, validationRules: { min: 0, max: 100 } }),
     marketingComponent('IsVisible', 'Visible', 'Видимость', { dataType: 'BOOLEAN', isRequired: true })
 ]

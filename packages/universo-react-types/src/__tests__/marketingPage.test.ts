@@ -6,6 +6,7 @@ import {
     APPLICATION_TEMPLATE_REGISTRY,
     MARKETING_PAGE_TEMPLATE_KEY,
     MARKETING_PAGE_REQUIRED_LOCALES,
+    MARKETING_PRICING_MAX_BENEFITS,
     MARKETING_WIDGET_KEYS,
     MARKETING_COLLECTION_VARIANTS,
     MARKETING_SEMANTIC_KEY_PATTERN,
@@ -24,10 +25,12 @@ import {
     marketingMediaSchema,
     marketingMediaReferenceSchema,
     marketingPageConfigSchema,
+    marketingPricingTierRecordSchema,
     publicMarketingHeroWidgetSchema,
     publicMarketingCollectionWidgetSchema,
     publicMarketingNavigationWidgetSchema,
     publicMarketingMediaSchema,
+    publicMarketingPricingTierRecordSchema,
     marketingPageDataSchema,
     publicMarketingPageDataSchema,
     marketingPersistedIdSchema,
@@ -221,6 +224,59 @@ describe('marketing page contracts', () => {
 
         const footer = getLayoutWidgetDefinition('marketing.footer')
         expect(footer?.presentationFields?.find(({ key }) => key === 'maxItems')).toMatchObject({ max: 100 })
+    })
+
+    it('keeps Pricing relation and DTO benefit limits aligned', () => {
+        const benefitKeys = Array.from({ length: MARKETING_PRICING_MAX_BENEFITS }, (_, index) => `benefit-${index}`)
+        const benefits = benefitKeys.map((key) => ({ en: key }))
+        const relationSlot = getLayoutWidgetDefinition('marketing.pricing')?.bindingSlots?.find(({ key }) => key === 'benefits')
+
+        expect(relationSlot?.maxResolvedRecords).toBe(MARKETING_PRICING_MAX_BENEFITS)
+        expect(
+            marketingPricingTierRecordSchema.safeParse({
+                kind: 'pricingTier',
+                id: uuidV7,
+                semanticKey: 'tier-pro',
+                locale: 'en',
+                order: 0,
+                isVisible: true,
+                scope: 'application',
+                provenance: { layer: 'metahub', seedKey: 'tier-pro', isSeeded: true, isAuthored: false },
+                title: { en: 'Pro' },
+                price: { en: '99' },
+                benefitKeys,
+                benefits,
+                featured: false
+            }).success
+        ).toBe(true)
+        expect(
+            publicMarketingPricingTierRecordSchema.safeParse({
+                kind: 'pricingTier',
+                semanticKey: 'tier-pro',
+                order: 0,
+                isVisible: true,
+                title: { en: 'Pro' },
+                price: { en: '99' },
+                benefitKeys,
+                benefits,
+                featured: false
+            }).success
+        ).toBe(true)
+
+        const tooManyBenefitKeys = [...benefitKeys, 'benefit-over-limit']
+        expect(
+            publicMarketingPricingTierRecordSchema.safeParse({
+                kind: 'pricingTier',
+                semanticKey: 'tier-pro',
+                order: 0,
+                isVisible: true,
+                title: { en: 'Pro' },
+                price: { en: '99' },
+                benefitKeys: tooManyBenefitKeys,
+                benefits: tooManyBenefitKeys.map((key) => ({ en: key })),
+                featured: false
+            }).success
+        ).toBe(false)
     })
 
     it('projects the Entity-owned brand logo into the Marketing footer binding', () => {

@@ -43,6 +43,7 @@ import {
     type EffectiveLayoutBaseWidgetRow,
     type EffectiveLayoutCandidateRow,
     type EffectiveLayoutEntityRow,
+    type EffectiveLayoutReadVisibility,
     type EffectiveLayoutWidgetRow
 } from '../persistence/effectiveLayoutStore'
 import {
@@ -739,7 +740,8 @@ const readStartupTargetToken = (config: RecordValue): string | null => {
 const resolveStartupEntityId = async (
     executor: DbExecutor,
     schemaName: string,
-    globalWidgets: readonly EffectiveLayoutWidgetRow[]
+    globalWidgets: readonly EffectiveLayoutWidgetRow[],
+    visibility: EffectiveLayoutReadVisibility
 ): Promise<string | null> => {
     const menuWidgets = globalWidgets.filter((row) => row.widget_key === 'menuWidget')
     for (const menuWidget of menuWidgets) {
@@ -749,7 +751,7 @@ const resolveStartupEntityId = async (
 
         const selector = isUuidV7(token) ? { kind: 'id' as const, value: token } : { kind: 'codename' as const, value: token }
         for (const targetKind of ['page', 'object'] as const) {
-            const entities = await queryOrFail(() => findEffectiveLayoutEntity(executor, schemaName, targetKind, selector))
+            const entities = await queryOrFail(() => findEffectiveLayoutEntity(executor, schemaName, targetKind, selector, visibility))
             if (entities.length > 1) return failEffectiveLayout('LAYOUT_DEFAULT_INVALID')
             const entity = entities[0]
             if (entity) return requireUuidV7(entity.id)
@@ -775,7 +777,7 @@ const resolveEffectiveLayoutInTransaction = async (
     tx: DbExecutor,
     target: RuntimeTarget,
     resolveWorkspaceContext: EffectiveLayoutWorkspaceResolver,
-    options: { publishedOnly?: boolean } = {}
+    visibility: EffectiveLayoutReadVisibility = 'authenticated'
 ): Promise<EffectiveLayoutSuccess> => {
     const application = await queryOrFail(() => findEffectiveLayoutApplication(tx, target.applicationId))
     if (!application) return failEffectiveLayout('LAYOUT_TARGET_NOT_FOUND')
@@ -797,7 +799,9 @@ const resolveEffectiveLayoutInTransaction = async (
         const selector = target.entityTypeId
             ? { kind: 'id' as const, value: selectorValue }
             : { kind: 'codename' as const, value: selectorValue }
-        const entities = await queryOrFail(() => findEffectiveLayoutEntity(tx, application.schemaName!, target.targetKind, selector))
+        const entities = await queryOrFail(() =>
+            findEffectiveLayoutEntity(tx, application.schemaName!, target.targetKind, selector, visibility)
+        )
         if (entities.length === 0) return failEffectiveLayout('LAYOUT_TARGET_NOT_FOUND')
         if (entities.length > 1) return failEffectiveLayout('LAYOUT_DEFAULT_INVALID')
         const entity = entities[0] as EffectiveLayoutEntityRow
@@ -808,32 +812,36 @@ const resolveEffectiveLayoutInTransaction = async (
     const tablesExist = await queryOrFail(() => effectiveLayoutTablesExist(tx, application.schemaName!))
     if (!tablesExist) return failEffectiveLayout('LAYOUT_PERSISTED_INVALID')
 
-    let candidateRows = await queryOrFail(() => listEffectiveLayoutCandidates(tx, application.schemaName!, resolvedEntityTypeId))
-    const layouts = candidateRows.map(validateLayoutRow).filter((layout) => !options.publishedOnly || layout.sourceKind === 'metahub')
+    let candidateRows = await queryOrFail(() =>
+        listEffectiveLayoutCandidates(tx, application.schemaName!, resolvedEntityTypeId, visibility)
+    )
+    const layouts = candidateRows.map(validateLayoutRow)
     let selected = selectCanonicalLayoutCandidate(layouts, resolvedEntityTypeId)
     if (!selected) return failEffectiveLayout('LAYOUT_DEFAULT_INVALID')
 
     if (target.targetKind === null && selected.scope === 'global') {
         const globalLayout = selected
-        const globalWidgetRows = await queryOrFail(() => listEffectiveLayoutWidgets(tx, application.schemaName!, globalLayout.layout.id))
-        const startupEntityId = await resolveStartupEntityId(tx, application.schemaName!, globalWidgetRows)
+        const globalWidgetRows = await queryOrFail(() =>
+            listEffectiveLayoutWidgets(tx, application.schemaName!, globalLayout.layout.id, visibility)
+        )
+        const startupEntityId = await resolveStartupEntityId(tx, application.schemaName!, globalWidgetRows, visibility)
         if (startupEntityId) {
             resolvedEntityTypeId = startupEntityId
-            candidateRows = await queryOrFail(() => listEffectiveLayoutCandidates(tx, application.schemaName!, resolvedEntityTypeId))
-            const startupLayouts = candidateRows
-                .map(validateLayoutRow)
-                .filter((layout) => !options.publishedOnly || layout.sourceKind === 'metahub')
+            candidateRows = await queryOrFail(() =>
+                listEffectiveLayoutCandidates(tx, application.schemaName!, resolvedEntityTypeId, visibility)
+            )
+            const startupLayouts = candidateRows.map(validateLayoutRow)
             selected = selectCanonicalLayoutCandidate(startupLayouts, resolvedEntityTypeId)
             if (!selected) return failEffectiveLayout('LAYOUT_DEFAULT_INVALID')
         }
     }
     if (!selected) return failEffectiveLayout('LAYOUT_DEFAULT_INVALID')
 
-    const widgetRows = await queryOrFail(() => listEffectiveLayoutWidgets(tx, application.schemaName!, selected.layout.id))
+    const widgetRows = await queryOrFail(() => listEffectiveLayoutWidgets(tx, application.schemaName!, selected.layout.id, visibility))
     let widgets = widgetRows.map((row) => validateWidgetRow(row, selected.layout))
     validateEffectiveWidgetMultiplicity(widgets)
     const inheritedIds = widgets.map((widget) => widget.sourceBaseWidgetId).filter((id): id is string => typeof id === 'string')
-    const baseRows = await queryOrFail(() => findEffectiveLayoutBaseWidgets(tx, application.schemaName!, inheritedIds))
+    const baseRows = await queryOrFail(() => findEffectiveLayoutBaseWidgets(tx, application.schemaName!, inheritedIds, visibility))
     const baseRowsByInheritedWidgetId = validateBaseLineage(widgets, baseRows, selected.layout, layouts)
     widgets = attachValidatedMarketingOverlayBindings(widgets, baseRowsByInheritedWidgetId, selected.layout)
     const compositionMode = resolveCompositionMode(selected.layout, widgets)
@@ -843,10 +851,10 @@ const resolveEffectiveLayoutInTransaction = async (
     if (!currentApplication || currentApplication.version !== application.version) {
         return failEffectiveLayout('LAYOUT_CONFLICT')
     }
-    const currentCandidateRows = await queryOrFail(() => listEffectiveLayoutCandidates(tx, application.schemaName!, resolvedEntityTypeId))
-    const currentLayouts = currentCandidateRows
-        .map(validateLayoutRow)
-        .filter((layout) => !options.publishedOnly || layout.sourceKind === 'metahub')
+    const currentCandidateRows = await queryOrFail(() =>
+        listEffectiveLayoutCandidates(tx, application.schemaName!, resolvedEntityTypeId, visibility)
+    )
+    const currentLayouts = currentCandidateRows.map(validateLayoutRow)
     const currentSelected = selectCanonicalLayoutCandidate(currentLayouts, resolvedEntityTypeId)
     if (
         !currentSelected ||
@@ -911,7 +919,7 @@ export async function resolveEffectiveLayoutForPublicTransaction(
             }
             await queryOrFail(() => setRuntimeWorkspaceContext(tx, publicWorkspaceId))
         },
-        { publishedOnly: true }
+        'public'
     )
 }
 

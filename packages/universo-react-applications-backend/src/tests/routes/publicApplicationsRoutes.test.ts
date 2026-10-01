@@ -1971,12 +1971,7 @@ describe('Public Applications Routes', () => {
                                 column_name: 'content_items',
                                 data_type: 'TABLE',
                                 parent_component_id: null
-                            }
-                        ]
-                    }
-
-                    if (params[0] === 'resource-content-items') {
-                        return [
+                            },
                             {
                                 id: 'content-item-title',
                                 codename: 'ItemTitle',
@@ -1996,6 +1991,20 @@ describe('Public Applications Routes', () => {
                                 codename: 'ItemContent',
                                 column_name: 'item_content',
                                 data_type: 'STRING',
+                                parent_component_id: 'resource-content-items'
+                            },
+                            {
+                                id: 'content-item-quiz',
+                                codename: 'QuizId',
+                                column_name: 'quiz_id',
+                                data_type: 'STRING',
+                                parent_component_id: 'resource-content-items'
+                            },
+                            {
+                                id: 'content-item-sort-order',
+                                codename: 'SortOrder',
+                                column_name: 'sort_order',
+                                data_type: 'NUMBER',
                                 parent_component_id: 'resource-content-items'
                             }
                         ]

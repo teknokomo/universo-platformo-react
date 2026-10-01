@@ -113,7 +113,7 @@ const publicWidgetConfig = (widgetKey: string, config: PublicRecord, instanceKey
             if (typeof config.variant !== 'string') {
                 throw new PublicMarketingMaterializationError('Public marketing collection variant is invalid')
             }
-            const maxItems = readMaxItems(config.maxItems, 100, 1000)
+            const maxItems = readMaxItems(config.maxItems, 100, 100)
             return {
                 instanceKey,
                 variant: config.variant,

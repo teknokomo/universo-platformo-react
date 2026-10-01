@@ -80,8 +80,14 @@ describe('listMarketingWidgetBindingSources', () => {
                 ])
         }
 
-        const sources = await listMarketingWidgetBindingSourcesForRuntimeWrites(executor as never, schemaName)
+        const sources = await listMarketingWidgetBindingSourcesForRuntimeWrites(executor as never, schemaName, 'CustomPricingSection')
         expect(sources.has('CustomPricingSection')).toBe(true)
+        const [sql, params] = executor.query.mock.calls[1] as [string, unknown[]]
+        expect(sql).toContain('jsonb_array_elements')
+        expect(sql).toContain("jsonb_typeof(w.config #> '{__layout,bindings,slots}') = 'array'")
+        expect(sql).toContain("target.value ->> 'entityCodename' = $2")
+        expect(sql).not.toContain('?')
+        expect(params).toEqual(['marketing-page', 'CustomPricingSection'])
     })
 
     it('fails closed when persisted bindings or their source baseline are invalid', async () => {

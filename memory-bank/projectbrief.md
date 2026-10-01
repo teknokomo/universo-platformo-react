@@ -1,4 +1,4 @@
-> **Last Reviewed**: 2026-09-26 (refreshed: repository 0.83.0-alpha; entity-backed Marketing Hero authoring and shared non-published MUI dropdown baseline; package/template inventory rechecked)
+> **Last Reviewed**: 2026-10-01 (refreshed: repository 0.83.0-alpha; complete Entity-backed Marketing Page authoring/runtime and shared non-published MUI dropdown baseline; package/template inventory rechecked)
 
 # Project Brief - Universo Platformo
 

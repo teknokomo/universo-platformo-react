@@ -592,6 +592,29 @@ describe('entity-backed widget binding contracts', () => {
         ).toBe(false)
     })
 
+    it('keeps collection media optional when the runtime supports text-only content', () => {
+        const logos = getLayoutWidgetDefinition('marketing.collection', { variant: 'logos' })?.bindingSlots?.find(
+            ({ key }) => key === 'items'
+        )
+        const features = getLayoutWidgetDefinition('marketing.collection', { variant: 'features' })?.bindingSlots?.find(
+            ({ key }) => key === 'items'
+        )
+        const testimonials = getLayoutWidgetDefinition('marketing.collection', { variant: 'testimonials' })?.bindingSlots?.find(
+            ({ key }) => key === 'items'
+        )
+        if (!logos || !features || !testimonials) throw new Error('Marketing collection item binding slots are missing')
+
+        for (const codename of ['ImageLight', 'ImageDark']) {
+            expect(logos.requirements.components.find(({ componentCodename }) => componentCodename === codename)?.required).toBe(false)
+            expect(features.requirements.components.find(({ componentCodename }) => componentCodename === codename)?.required).toBe(false)
+        }
+        for (const codename of ['Occupation', 'AvatarUrl', 'LogoLightUrl', 'LogoDarkUrl']) {
+            expect(testimonials.requirements.components.find(({ componentCodename }) => componentCodename === codename)?.required).toBe(
+                false
+            )
+        }
+    })
+
     it('requires the registered conditional alternative-text policy for Marketing Images', () => {
         const definition = getLayoutWidgetDefinition('marketing.image')
         const slot = definition?.bindingSlots?.[0]

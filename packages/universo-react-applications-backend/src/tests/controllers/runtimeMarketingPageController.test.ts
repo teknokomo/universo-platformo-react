@@ -65,6 +65,54 @@ const heroDataRow = {
     ...Object.fromEntries(heroSlot.requirements.components.map((requirement, index) => ['field_' + index, heroContent[requirement.field]]))
 }
 
+const imageDefinition = getLayoutWidgetDefinition('marketing.image')!
+const imageSlot = imageDefinition.bindingSlots!.find(({ key }) => key === 'content')!
+const imageBindings = buildSingleTargetWidgetBinding(imageDefinition, 'content', {
+    entityKind: 'object',
+    entityCodename: 'MarketingPageImage',
+    semanticKey: 'default'
+})
+const imageObject = {
+    id: objectId,
+    codename: 'MarketingPageImage',
+    kind: 'object',
+    table_name: 'marketing_page_image',
+    config: {
+        capabilities: { dataSchema: { enabled: true }, records: { enabled: true } },
+        recordPolicy: { version: 1, ...imageSlot.requirements.recordPolicy }
+    }
+}
+const imageComponents = imageSlot.requirements.components.map((requirement, index) => ({
+    id: '0190a9b5-3cde-7abc-8def-1123456789' + String(index + 10).padStart(2, '0'),
+    object_id: objectId,
+    codename: requirement.componentCodename,
+    column_name: 'image_field_' + index,
+    data_type: requirement.valueType.toUpperCase(),
+    is_required: requirement.required,
+    validation_rules: {
+        ...(requirement.localized ? { localized: true } : {}),
+        ...(requirement.maxLength === undefined ? {} : { maxLength: requirement.maxLength }),
+        ...(requirement.semanticKey ? { unique: true } : {}),
+        ...(requirement.pattern === undefined ? {} : { pattern: requirement.pattern }),
+        ...(requirement.format ? { format: requirement.format } : {})
+    },
+    target_object_id: null
+}))
+const imageContent: Record<string, unknown> = {
+    key: 'default',
+    resource: null,
+    altText: undefined,
+    decorative: true,
+    width: 1600,
+    height: 900
+}
+const imageDataRow = {
+    record_id: recordId,
+    ...Object.fromEntries(
+        imageSlot.requirements.components.map((requirement, index) => ['field_' + index, imageContent[requirement.field]])
+    )
+}
+
 const createResponse = () => {
     const json = jest.fn()
     const status = jest.fn().mockReturnValue({ json })
@@ -96,6 +144,26 @@ const layoutWidget = (
         ...(bindings === undefined ? {} : { bindings: bindings as never })
     })
 }
+
+const imageLayoutWidget = () =>
+    attachApplicationLayoutWidgetSourceBindingState(
+        {
+            id: physicalWidgetId,
+            layoutId,
+            zone: 'marketing-main',
+            semanticRegion: 'main',
+            widgetKey: 'marketing.image',
+            instanceKey: 'hero-image',
+            sortOrder: 0,
+            config: { instanceKey: 'hero-image' },
+            sourceConfig: null,
+            sourceWidgetId: null,
+            sourceBaseWidgetId: null,
+            isActive: true,
+            version: 1
+        },
+        { persistedApplicationRow: true, bindings: imageBindings }
+    )
 
 const createRuntimeLayout = (
     widgets = [layoutWidget()],
@@ -147,11 +215,14 @@ const createHarness = (
         sourceContentHash?: string | null
     } = {}
 ) => {
+    const runtimeObject = options.object ?? heroObject
     const manager = {
         query: jest.fn(async (sql: string) => {
-            if (sql.includes('_app_objects')) return [options.object ?? heroObject]
+            if (sql.includes('_app_objects')) return [runtimeObject]
             if (sql.includes('_app_components')) return options.components ?? heroComponents
-            if (sql.includes('FROM "app_0190a9b53cde7abc8def0123456789a0"."marketing_page_hero"')) return [options.record ?? heroDataRow]
+            if (sql.includes(`FROM "app_0190a9b53cde7abc8def0123456789a0"."${String(runtimeObject.table_name)}"`)) {
+                return [options.record ?? heroDataRow]
+            }
             return []
         })
     }
@@ -248,6 +319,21 @@ describe('runtime marketing page controller', () => {
         for (const identity of [layoutId, physicalWidgetId, sourceLayoutId, sourceWidgetId, sourceBaseWidgetId, 'c'.repeat(64)]) {
             expect(serialized).not.toContain(identity)
         }
+    })
+
+    it('omits an Entity-backed Image widget while its optional ResourceSource is empty', async () => {
+        const { controller } = createHarness({
+            widgets: [imageLayoutWidget() as never],
+            object: imageObject,
+            components: imageComponents,
+            record: imageDataRow
+        })
+        const res = createResponse()
+
+        await controller.getMarketingPage({ params: { applicationId }, query: { locale: 'en' } } as unknown as Request, res)
+
+        expect(res.status).not.toHaveBeenCalled()
+        expect(res.json.mock.calls[0]?.[0].marketingPage.widgets).toEqual([])
     })
 
     it('rejects missing bindings before reading Entity metadata', async () => {

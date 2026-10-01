@@ -57,6 +57,36 @@ describe('assertMarketingRuntimeRowCap', () => {
         expect(manager.query.mock.calls.some(([sql]) => sql.includes('COUNT(*)'))).toBe(false)
     })
 
+    it('scopes Marketing binding discovery to the Object being mutated', async () => {
+        const manager = {
+            query: jest.fn(async (sql: string, params?: unknown[]) => {
+                if (sql.includes('pg_advisory_xact_lock')) return []
+                if (sql.includes('information_schema.tables')) return [{ layouts: true, widgets: true }]
+                if (sql.includes('"_app_widgets"')) {
+                    expect(sql).toContain('jsonb_array_elements')
+                    expect(sql).not.toContain('?')
+                    expect(params).toEqual(['marketing-page', 'UnrelatedObject'])
+                    // A malformed Marketing widget for another Object is excluded by the SQL predicate,
+                    // so it never reaches strict envelope decoding for this write.
+                    return []
+                }
+                if (sql.includes('COUNT(*)')) throw new Error('Unrelated Object must not be counted as Marketing content')
+                return []
+            })
+        }
+
+        await expect(
+            assertMarketingRuntimeRowCap({
+                manager: manager as never,
+                schemaName,
+                schemaIdent: `"${schemaName}"`,
+                tableName: 'unrelated_object',
+                runtimeRowCondition: '_upl_deleted = false',
+                objectCodename: 'UnrelatedObject'
+            })
+        ).resolves.toBeUndefined()
+    })
+
     it('applies the row cap to a custom Object selected by semantic key', async () => {
         const manager = createManager(
             PUBLIC_MARKETING_ROW_LIMIT - 1,

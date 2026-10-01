@@ -1,6 +1,7 @@
 import { qSchemaTable } from '@universo-react/database'
 import type { DbExecutor } from '@universo-react/utils'
 import { runtimeLayoutCapableFilterSql, runtimeObjectFilterSql } from '../shared/runtimeHelpers'
+import { buildPublicMarketingLifecyclePredicate } from '../shared/marketingRuntimeLifecycleSql'
 import { findApplicationCopySource, type ApplicationCopySourceRecord } from './applicationsStore'
 import { applicationLayoutTablesExist } from './applicationLayoutCapabilitiesStore'
 
@@ -60,6 +61,13 @@ export interface EffectiveLayoutBaseWidgetRow {
     source_config: unknown
 }
 
+export type EffectiveLayoutReadVisibility = 'authenticated' | 'public'
+
+const effectiveLayoutLifecyclePredicate = (alias: string, visibility: EffectiveLayoutReadVisibility): string =>
+    visibility === 'public'
+        ? buildPublicMarketingLifecyclePredicate(alias)
+        : `${alias}._upl_deleted = false AND ${alias}._app_deleted = false`
+
 const runtimeCodenameTextSql = (columnRef: string): string =>
     `COALESCE(${columnRef}->'locales'->(${columnRef}->>'_primary')->>'content', ${columnRef}->'locales'->'en'->>'content', ${columnRef} #>> '{}', '')`
 
@@ -74,7 +82,8 @@ export async function findEffectiveLayoutEntity(
     executor: DbExecutor,
     schemaName: string,
     targetKind: 'page' | 'object',
-    selector: { kind: 'id' | 'codename'; value: string }
+    selector: { kind: 'id' | 'codename'; value: string },
+    visibility: EffectiveLayoutReadVisibility = 'authenticated'
 ): Promise<EffectiveLayoutEntityRow[]> {
     const objectsTable = qSchemaTable(schemaName, '_app_objects')
     const selectorSql = selector.kind === 'id' ? 'o.id = $2' : `${runtimeCodenameTextSql('o.codename')} = $2`
@@ -87,8 +96,7 @@ export async function findEffectiveLayoutEntity(
             ${runtimeCodenameTextSql('o.codename')} AS codename
         FROM ${objectsTable} o
         WHERE ${targetKindSql}
-          AND o._upl_deleted = false
-          AND o._app_deleted = false
+          AND ${effectiveLayoutLifecyclePredicate('o', visibility)}
           AND ${runtimeLayoutCapableFilterSql('o.config')}
           AND ${selectorSql}
         ORDER BY o.id ASC
@@ -105,7 +113,8 @@ export async function effectiveLayoutTablesExist(executor: DbExecutor, schemaNam
 export async function listEffectiveLayoutCandidates(
     executor: DbExecutor,
     schemaName: string,
-    entityId: string | null
+    entityId: string | null,
+    visibility: EffectiveLayoutReadVisibility = 'authenticated'
 ): Promise<EffectiveLayoutCandidateRow[]> {
     const layoutsTable = qSchemaTable(schemaName, '_app_layouts')
     return executor.query<EffectiveLayoutCandidateRow>(
@@ -133,8 +142,7 @@ export async function listEffectiveLayoutCandidates(
         FROM ${layoutsTable} l
         WHERE (l.scope_entity_id IS NULL OR l.scope_entity_id IS NOT DISTINCT FROM $1)
           AND l.is_active = true
-          AND l._upl_deleted = false
-          AND l._app_deleted = false
+          AND ${effectiveLayoutLifecyclePredicate('l', visibility)}
         ORDER BY l.scope_entity_id NULLS FIRST, l.is_default DESC, l.sort_order ASC, l._upl_created_at ASC, l.id ASC
         `,
         [entityId]
@@ -144,7 +152,8 @@ export async function listEffectiveLayoutCandidates(
 export async function listEffectiveLayoutWidgets(
     executor: DbExecutor,
     schemaName: string,
-    layoutId: string
+    layoutId: string,
+    visibility: EffectiveLayoutReadVisibility = 'authenticated'
 ): Promise<EffectiveLayoutWidgetRow[]> {
     const widgetsTable = qSchemaTable(schemaName, '_app_widgets')
     return executor.query<EffectiveLayoutWidgetRow>(
@@ -165,8 +174,7 @@ export async function listEffectiveLayoutWidgets(
         FROM ${widgetsTable} w
         WHERE w.layout_id = $1
           AND w.is_active = true
-          AND w._upl_deleted = false
-          AND w._app_deleted = false
+          AND ${effectiveLayoutLifecyclePredicate('w', visibility)}
         ORDER BY w.zone ASC, w.sort_order ASC, w._upl_created_at ASC, w.id ASC
         `,
         [layoutId]
@@ -176,7 +184,8 @@ export async function listEffectiveLayoutWidgets(
 export async function findEffectiveLayoutBaseWidgets(
     executor: DbExecutor,
     schemaName: string,
-    widgetIds: readonly string[]
+    widgetIds: readonly string[],
+    visibility: EffectiveLayoutReadVisibility = 'authenticated'
 ): Promise<EffectiveLayoutBaseWidgetRow[]> {
     if (widgetIds.length === 0) return []
 
@@ -199,10 +208,8 @@ export async function findEffectiveLayoutBaseWidgets(
         INNER JOIN ${layoutsTable} l ON l.id = w.layout_id
         WHERE (w.id = ANY($1::uuid[]) OR w.source_widget_id = ANY($1::uuid[]) OR w.source_base_widget_id = ANY($1::uuid[]))
           AND w.is_active = true
-          AND w._upl_deleted = false
-          AND w._app_deleted = false
-          AND l._upl_deleted = false
-          AND l._app_deleted = false
+          AND ${effectiveLayoutLifecyclePredicate('w', visibility)}
+          AND ${effectiveLayoutLifecyclePredicate('l', visibility)}
           AND l.is_active = true
           AND l.scope_entity_id IS NULL
         ORDER BY w.id ASC

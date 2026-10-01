@@ -153,7 +153,7 @@ jest.mock('../../services/ConnectorSyncTouchStore', () => ({
 }))
 
 import { createApplicationSyncRoutes, toStructuralSchemaSnapshot } from '../../routes/applicationSyncRoutes'
-import * as applicationSyncRoutesModule from '../../routes/applicationSyncRoutes'
+import * as syncLayoutPersistenceModule from '../../routes/sync/syncLayoutPersistence'
 import { calculateSchemaDiff, createDDLServices } from '@universo-react/schema-ddl'
 import {
     calculateApplicationReleaseChecksum,
@@ -669,7 +669,7 @@ describe('applicationSyncRoutes', () => {
             recommendedResolution: 'keep_local',
             copyAsApplicationUnavailable: true
         } as const
-        const buildLayoutChanges = jest.spyOn(applicationSyncRoutesModule, 'buildApplicationLayoutChanges').mockResolvedValue([blockedCopy])
+        const buildLayoutChanges = jest.spyOn(syncLayoutPersistenceModule, 'buildApplicationLayoutChanges').mockResolvedValue([blockedCopy])
 
         try {
             const app = buildApp(loadPublishedApplicationSyncContext)

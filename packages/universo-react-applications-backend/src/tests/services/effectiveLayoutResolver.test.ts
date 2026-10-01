@@ -421,10 +421,16 @@ describe('effectiveLayoutResolver', () => {
         expect(result.resolvedEntityTypeId).toBe(entityId)
         expect(result.layout.id).toBe(scopedLayoutId)
         expect(result.widgets[0]?.widgetKey).toBe('overviewCards')
-        expect(mockFindEntity).toHaveBeenCalledWith(expect.anything(), schemaName, 'page', {
-            kind: 'codename',
-            value: 'LearnerHome'
-        })
+        expect(mockFindEntity).toHaveBeenCalledWith(
+            expect.anything(),
+            schemaName,
+            'page',
+            {
+                kind: 'codename',
+                value: 'LearnerHome'
+            },
+            'authenticated'
+        )
     })
 
     it('resolves a Page target with the same scoped-template precedence as an Object target', async () => {
@@ -465,7 +471,7 @@ describe('effectiveLayoutResolver', () => {
             resolverInput('page')
         )
 
-        expect(mockFindEntity).toHaveBeenCalledWith(expect.anything(), schemaName, 'page', { kind: 'id', value: entityId })
+        expect(mockFindEntity).toHaveBeenCalledWith(expect.anything(), schemaName, 'page', { kind: 'id', value: entityId }, 'authenticated')
         expect(result.resolvedEntityTypeId).toBe(entityId)
         expect(result.layout.templateKey).toBe('marketing-page')
         expect(result.scope).toBe('entity')
@@ -730,7 +736,7 @@ describe('effectiveLayoutResolver', () => {
         expect(result.widgets).toEqual([])
     })
 
-    it('does not expose an application-owned scoped layout through anonymous public resolution', async () => {
+    it('keeps application-owned scoped layouts that pass the public lifecycle filter', async () => {
         mockListCandidates.mockResolvedValue([
             layoutRow({
                 template_key: 'marketing-page',
@@ -741,7 +747,7 @@ describe('effectiveLayoutResolver', () => {
                 id: scopedLayoutId,
                 scope_entity_id: entityId,
                 template_key: 'marketing-page',
-                name: { en: 'Unpublished local marketing' },
+                name: { en: 'Published local marketing' },
                 config: { themeMode: 'system', __layout: { composition: { mode: 'independent', baseLayoutId: null } } },
                 source_kind: 'application',
                 source_layout_id: null,
@@ -754,9 +760,11 @@ describe('effectiveLayoutResolver', () => {
 
         const result = await resolveEffectiveLayoutForPublicTransaction(executor, resolverInput(), null)
 
-        expect(result.layout.id).toBe(globalLayoutId)
-        expect(result.publicationIdentity).toEqual({ publicationId, publicationVersionId, snapshotHash })
-        expect(result.precedence).toEqual(['published-publication', 'application-global', 'metahub-provenance'])
+        expect(result.layout.id).toBe(scopedLayoutId)
+        expect(result.publicationIdentity).toBeNull()
+        expect(mockFindEntity).toHaveBeenCalledWith(executor, schemaName, 'object', { kind: 'id', value: entityId }, 'public')
+        expect(mockListCandidates).toHaveBeenCalledWith(executor, schemaName, entityId, 'public')
+        expect(mockListWidgets).toHaveBeenCalledWith(executor, schemaName, scopedLayoutId, 'public')
     })
 
     it('resolves an application-owned layout without fabricated publication metadata', async () => {

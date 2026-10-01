@@ -12,6 +12,7 @@ export {
     marketingWidgetKeySchema,
     MARKETING_COLLECTION_VARIANTS,
     marketingCollectionVariantSchema,
+    MARKETING_PRICING_MAX_BENEFITS,
     MARKETING_SEMANTIC_KEY_PATTERN,
     marketingSemanticKeySchema
 } from './marketingWidgetPrimitives'

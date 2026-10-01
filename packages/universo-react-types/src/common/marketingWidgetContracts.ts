@@ -183,8 +183,8 @@ const itemsForVariant: Readonly<Record<MarketingCollectionVariant, readonly Widg
         sectionSlot(),
         recordSet('items', [
             key('key', 'LogoKey'),
-            json('imageLight', 'ImageLight', true, 'marketingMediaReference'),
-            json('imageDark', 'ImageDark', true, 'marketingMediaReference'),
+            json('imageLight', 'ImageLight', false, 'marketingMediaReference'),
+            json('imageDark', 'ImageDark', false, 'marketingMediaReference'),
             text('altText', 'AltText', 255),
             numeric('order', 'SortOrder'),
             boolean('visible', 'IsVisible')
@@ -197,8 +197,8 @@ const itemsForVariant: Readonly<Record<MarketingCollectionVariant, readonly Widg
             plainText('iconKey', 'IconKey', 64),
             text('title', 'Title', 255),
             text('description', 'Description', 1000),
-            json('imageLight', 'ImageLight', true, 'marketingMediaReference'),
-            json('imageDark', 'ImageDark', true, 'marketingMediaReference'),
+            json('imageLight', 'ImageLight', false, 'marketingMediaReference'),
+            json('imageDark', 'ImageDark', false, 'marketingMediaReference'),
             numeric('order', 'SortOrder'),
             boolean('visible', 'IsVisible')
         ])
@@ -208,11 +208,11 @@ const itemsForVariant: Readonly<Record<MarketingCollectionVariant, readonly Widg
         recordSet('items', [
             key('key', 'TestimonialKey'),
             text('name', 'Name', 255),
-            text('occupation', 'Occupation', 255),
+            text('occupation', 'Occupation', 255, false),
             text('quote', 'Quote', 2000),
-            json('avatar', 'AvatarUrl', true, 'marketingMediaReference'),
-            json('logoLight', 'LogoLightUrl', true, 'marketingMediaReference'),
-            json('logoDark', 'LogoDarkUrl', true, 'marketingMediaReference'),
+            json('avatar', 'AvatarUrl', false, 'marketingMediaReference'),
+            json('logoLight', 'LogoLightUrl', false, 'marketingMediaReference'),
+            json('logoDark', 'LogoDarkUrl', false, 'marketingMediaReference'),
             numeric('order', 'SortOrder'),
             boolean('visible', 'IsVisible')
         ])

@@ -585,10 +585,12 @@ describe('shared marketing widget binding projection', () => {
             sources: { ...pricingFixture.sources, benefits: { ...benefitSource, records: benefits } }
         })
         const tier = projected?.records.find((item) => item.kind === 'pricingTier')
+        const projectedBenefits = projected?.records.filter((item) => item.kind === 'pricingBenefit') ?? []
 
         expect(tier).toBeDefined()
         expect(tier && 'benefitKeys' in tier ? tier.benefitKeys : []).toHaveLength(65)
-        expect(tier && 'benefits' in tier ? tier.benefits : []).toHaveLength(65)
+        expect(tier && 'benefits' in tier ? tier.benefits : []).toHaveLength(0)
+        expect(projectedBenefits).toHaveLength(65)
         expect(publicMarketingPageRecordSchema.safeParse(tier).success).toBe(true)
     })
 

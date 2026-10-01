@@ -34,7 +34,11 @@ export const assertMarketingRuntimeRowCap = async (params: {
     // workspace seed paths. Otherwise a concurrent binding change can commit
     // between the metadata probe and this write, bypassing the row cap.
     await acquireMarketingRowCapLock(params.manager, params.schemaIdent, params.tableName)
-    const marketingWidgetBindingSources = await listMarketingWidgetBindingSourcesForRuntimeWrites(params.manager, params.schemaName)
+    const marketingWidgetBindingSources = await listMarketingWidgetBindingSourcesForRuntimeWrites(
+        params.manager,
+        params.schemaName,
+        params.objectCodename
+    )
     if (!marketingWidgetBindingSources.has(params.objectCodename)) return
     // Serialize the count with concurrent writers so two requests at the
     // boundary cannot both pass the check; the lock order (cap -> rules ->

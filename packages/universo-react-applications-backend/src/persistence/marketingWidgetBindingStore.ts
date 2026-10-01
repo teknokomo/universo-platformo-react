@@ -22,7 +22,30 @@ const mapBindingRow = (row: MarketingWidgetConfigRow) => ({
     sourceBaseWidgetId: row.source_base_widget_id
 })
 
-const loadMarketingWidgetBindingRows = async (executor: DbExecutor, schemaName: string): Promise<MarketingWidgetConfigRow[]> => {
+const entityCodenameBindingPredicate = (configColumn: 'w.config' | 'w.source_config'): string => `EXISTS (
+    SELECT 1
+    FROM jsonb_array_elements(
+        CASE
+            WHEN jsonb_typeof(${configColumn} #> '{__layout,bindings,slots}') = 'array'
+                THEN ${configColumn} #> '{__layout,bindings,slots}'
+            ELSE '[]'::jsonb
+        END
+    ) AS slot(value)
+    CROSS JOIN LATERAL jsonb_array_elements(
+        CASE
+            WHEN jsonb_typeof(slot.value -> 'targets') = 'array'
+                THEN slot.value -> 'targets'
+            ELSE '[]'::jsonb
+        END
+    ) AS target(value)
+    WHERE target.value ->> 'entityCodename' = $2
+)`
+
+const loadMarketingWidgetBindingRows = async (
+    executor: DbExecutor,
+    schemaName: string,
+    targetEntityCodename?: string
+): Promise<MarketingWidgetConfigRow[]> => {
     if (!(await applicationLayoutTablesExist(executor, schemaName))) return []
 
     const layoutsTable = qSchemaTable(schemaName, '_app_layouts')
@@ -37,9 +60,14 @@ const loadMarketingWidgetBindingRows = async (executor: DbExecutor, schemaName: 
           AND l._app_deleted = false
           AND w._upl_deleted = false
           AND w._app_deleted = false
+          ${
+              targetEntityCodename
+                  ? `AND (${entityCodenameBindingPredicate('w.config')} OR ${entityCodenameBindingPredicate('w.source_config')})`
+                  : ''
+          }
         ORDER BY w.layout_id ASC, w.zone ASC, w.sort_order ASC, w.id ASC
         `,
-        ['marketing-page']
+        targetEntityCodename ? ['marketing-page', targetEntityCodename] : ['marketing-page']
     )
 }
 
@@ -52,7 +80,11 @@ export const listMarketingWidgetBindingSources = async (executor: DbExecutor, sc
  * placements are rejected by the strict authoring/publication/runtime paths and
  * do not block writes to otherwise unrelated Entities.
  */
-export const listMarketingWidgetBindingSourcesForRuntimeWrites = async (executor: DbExecutor, schemaName: string): Promise<Set<string>> =>
+export const listMarketingWidgetBindingSourcesForRuntimeWrites = async (
+    executor: DbExecutor,
+    schemaName: string,
+    targetEntityCodename: string
+): Promise<Set<string>> =>
     collectMarketingWidgetBindingSourcesForRuntimeWritesFromConfigs(
-        (await loadMarketingWidgetBindingRows(executor, schemaName)).map(mapBindingRow)
+        (await loadMarketingWidgetBindingRows(executor, schemaName, targetEntityCodename)).map(mapBindingRow)
     )
