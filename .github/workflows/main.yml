@@ -74,8 +74,8 @@ jobs:
               run: pnpm test:marketing-widget-unit-gate
             - name: Check MMOOMM app UI-first fixture generator gate
               run: pnpm run test:e2e:mmoomm-app-gate:local-supabase
-            - name: Check 73rd Meridian public runtime in a real browser
-              run: pnpm run test:e2e:73rd-meridian-fixture-runtime
+            - name: Check 73rd Meridian generated fixture contract, drift, and public runtime
+              run: pnpm run test:e2e:73rd-meridian-fixture-gate
               env:
                   UNIVERSO_ENV_FILE: .env.e2e.local-supabase
                   UNIVERSO_FRONTEND_ENV_FILE: packages/universo-react-core-frontend/.env.e2e.local-supabase
