@@ -8,6 +8,7 @@ import {
     LAYOUT_WIDGET_DEFINITIONS,
     MARKETING_LAYOUT_ZONES,
     MARKETING_WIDGET_REGISTRY,
+    getLayoutWidgetDefinition,
     getLayoutWidgetAllowedZones,
     getLayoutWidgetDefaultPlacement,
     getLayoutZoneSettingDefinition,
@@ -36,16 +37,23 @@ import {
 } from '@universo-react/types'
 import { escapeLikeWildcards, generateUuidV7, OptimisticLockError, uuidV7Schema } from '@universo-react/utils'
 import { MetahubSchemaService } from '../../metahubs/services/MetahubSchemaService'
-import { MetahubObjectsService } from '../../metahubs/services/MetahubObjectsService'
-import { MetahubComponentsService } from '../../metahubs/services/MetahubComponentsService'
-import { MetahubRecordsService } from '../../metahubs/services/MetahubRecordsService'
 import { updateWithVersionCheck } from '../../../utils/optimisticLock'
 import { DEFAULT_DASHBOARD_ZONE_WIDGETS, buildDashboardLayoutConfig } from '../../shared'
 import { MetahubNotFoundError, MetahubConflictError, MetahubValidationError } from '../../shared/domainErrors'
 import { findDuplicateActiveSingleInstanceWidgetKey } from '../widgetInvariants'
 import { acquireMetahubLayoutGraphLock } from '../layoutGraphLocks'
-import { MarketingHeroBindingService } from '../marketingHeroBindingService'
 import { assertMarketingHeroLayoutMutationPreservesActions } from '../marketingHeroActionIntegrityStore'
+import { MetahubWidgetBindingsService } from './MetahubWidgetBindingsService'
+import { WidgetBindingService } from '../widgetBindingService'
+import { createWidgetBindingSourceProvisioner } from '../widgetBindingSourceProvisioner'
+import { LAYOUT_CONFIG_SKIP_DEFAULT_WIDGET_SEED_KEY } from './layoutConstants'
+import {
+    assertMarketingOverlayBindingOwnership as assertMarketingOverlayBindingOwnershipRules,
+    encodeMarketingOverlayWidgetOverrideConfig as encodeMarketingOverlayWidgetOverride,
+    resolveMarketingOverlayWidgetConfig as resolveMarketingOverlayWidget
+} from './marketingOverlayWidgetConfig'
+
+export { LAYOUT_CONFIG_SKIP_DEFAULT_WIDGET_SEED_KEY } from './layoutConstants'
 
 export type LayoutTemplateKey = ApplicationTemplateKey
 
@@ -172,8 +180,6 @@ type ResolvedLayoutWidgetState = {
     version: number
 }
 
-export const LAYOUT_CONFIG_SKIP_DEFAULT_WIDGET_SEED_KEY = '__skipDefaultZoneWidgetSeed'
-
 const DASHBOARD_WIDGET_VISIBILITY_CONFIG_KEYS = Object.keys(buildDashboardLayoutConfig([]))
 
 const isRecord = (value: unknown): value is Record<string, unknown> => Boolean(value) && typeof value === 'object' && !Array.isArray(value)
@@ -223,6 +229,7 @@ const rendererConfigInputSchema = z.record(z.string(), z.unknown()).superRefine(
         })
     }
 })
+const widgetAssignmentConfigInputSchema = z.record(z.string(), z.unknown())
 
 const layoutZoneSettingKeySchema = z.string().trim().min(1).max(128)
 const layoutZoneSettingValueSchema = z.string().trim().min(1).max(128)
@@ -352,32 +359,47 @@ export const assignLayoutZoneWidgetSchema = z
     .object({
         zone: layoutZoneSchema,
         widgetKey: layoutWidgetKeySchema,
-        heroContent: z
-            .discriminatedUnion('mode', [
-                z.object({ mode: z.literal('auto'), sourceWidgetId: uuidV7Schema.optional() }).strict(),
-                z.object({ mode: z.literal('existing'), recordId: uuidV7Schema }).strict()
-            ])
-            .optional(),
         sortOrder: z.number().int().positive().optional(),
-        config: rendererConfigInputSchema.optional(),
+        config: widgetAssignmentConfigInputSchema.optional(),
         expectedVersion: z.number().int().positive()
     })
     .strict()
     .superRefine((value, context) => {
-        if (value.widgetKey === 'marketing.hero' && !value.heroContent) {
-            context.addIssue({ code: z.ZodIssueCode.custom, path: ['heroContent'], message: 'Hero content mode is required.' })
+        const definition = getLayoutWidgetDefinition(value.widgetKey, value.config)
+        if (definition?.bindingSlots?.some(({ cardinality }) => cardinality.min > 0) && value.config === undefined) {
+            context.addIssue({
+                code: z.ZodIssueCode.custom,
+                path: ['config'],
+                message: 'A complete binding configuration is required for this widget.'
+            })
         }
-        if (value.widgetKey !== 'marketing.hero' && value.heroContent) {
-            context.addIssue({ code: z.ZodIssueCode.custom, path: ['heroContent'], message: 'This widget has no Hero content.' })
+        if (value.config === undefined) return
+        const templateKey = (['dashboard', 'marketing-page'] as const).find((key) =>
+            definition?.allowedZonesByTemplate[key]?.includes(value.zone)
+        )
+        if (!definition || !templateKey) {
+            context.addIssue({
+                code: z.ZodIssueCode.custom,
+                path: ['config'],
+                message: 'Widget configuration context is invalid.'
+            })
+            return
+        }
+        try {
+            decodeWidgetConfigEnvelope(value.config, {
+                templateKey,
+                widgetKey: value.widgetKey,
+                zone: value.zone,
+                requireBindings: definition.bindingSlots?.some(({ cardinality }) => cardinality.min > 0)
+            })
+        } catch {
+            context.addIssue({
+                code: z.ZodIssueCode.custom,
+                path: ['config'],
+                message: 'Widget configuration is invalid.'
+            })
         }
     })
-
-export const updateLayoutZoneWidgetBindingSchema = z
-    .object({
-        recordId: uuidV7Schema,
-        expectedVersion: z.number().int().positive()
-    })
-    .strict()
 
 export const moveLayoutZoneWidgetSchema = z
     .object({
@@ -403,27 +425,16 @@ export const toggleLayoutZoneWidgetActiveSchema = z
     .strict()
 
 export class MetahubLayoutsService {
-    private readonly marketingHeroBindingService: MarketingHeroBindingService<LayoutZoneWidgetRow>
+    private readonly widgetBindingService: WidgetBindingService
+    readonly widgetBindings: MetahubWidgetBindingsService
 
     constructor(private readonly exec: DbExecutor, private readonly schemaService: MetahubSchemaService) {
-        const objectsService = new MetahubObjectsService(exec, schemaService)
-        const componentsService = new MetahubComponentsService(exec, schemaService)
-        const recordsService = new MetahubRecordsService(exec, schemaService, objectsService, componentsService)
-        this.marketingHeroBindingService = new MarketingHeroBindingService({
-            exec,
+        this.widgetBindingService = new WidgetBindingService({
             schemaService,
-            acquireLayoutGraphLock: (db, schemaName) => this.acquireLayoutGraphLock(db, schemaName),
-            getLayoutScopeRow: (db, schemaName, layoutId) => this.getLayoutScopeRow(db, schemaName, layoutId),
-            lockLayoutScopeRow: (db, schemaName, layoutId) => this.lockLayoutScopeRow(db, schemaName, layoutId),
-            assertLayoutSupportsWidgets: (layout) => this.assertLayoutSupportsWidgets(layout),
-            assertExpectedWidgetVersion: (row, expectedVersion) => this.assertExpectedWidgetVersion(row, expectedVersion),
-            syncLayoutConfigFromZoneWidgets: (db, schemaName, layoutId, userId) =>
-                this.syncLayoutConfigFromZoneWidgets(db, schemaName, layoutId, userId),
-            mapZoneWidgetRow: (row, templateKey) => this.mapZoneWidgetRow(row, templateKey),
-            recordsService,
-            objectsService,
-            componentsService
+            provisionSource: createWidgetBindingSourceProvisioner(exec, schemaService),
+            syncLayoutConfig: (db, schemaName, layoutId, userId) => this.syncLayoutConfigFromZoneWidgets(db, schemaName, layoutId, userId)
         })
+        this.widgetBindings = new MetahubWidgetBindingsService(exec, this.widgetBindingService)
     }
 
     private createConflictError(message: string): MetahubConflictError {
@@ -510,19 +521,12 @@ export class MetahubLayoutsService {
         options: {
             generateInstanceKey?: boolean
             expectedInstanceKey?: string
-            allowMissingBindingsForAssignment?: boolean
         } = {}
     ): Record<string, unknown> {
         const codecZone = this.resolveWidgetZone(templateKey, widgetKey, config)
-        const allowMissingBindingsForAssignment = options.allowMissingBindingsForAssignment === true && widgetKey === 'marketing.hero'
         let decoded: ReturnType<typeof decodeWidgetForStorage>
         try {
-            decoded = allowMissingBindingsForAssignment
-                ? decodeWidgetConfigEnvelope(config ?? {})
-                : decodeWidgetForStorage(templateKey, widgetKey, codecZone, config)
-            if (allowMissingBindingsForAssignment && Object.keys(decoded.neutral).length > 0) {
-                throw new Error('New widget assignments cannot include reserved metadata.')
-            }
+            decoded = decodeWidgetForStorage(templateKey, widgetKey, codecZone, config)
         } catch (error) {
             throw new MetahubValidationError('Layout widget configuration is invalid', {
                 widgetKey,
@@ -566,6 +570,34 @@ export class MetahubLayoutsService {
                 reason: error instanceof Error ? error.message : 'Invalid configuration'
             })
         }
+    }
+
+    private resolveMarketingOverlayWidgetConfig(
+        widgetKey: ApplicationLayoutWidgetKey,
+        zone: ApplicationLayoutZone,
+        baseConfig: Record<string, unknown>,
+        overrideConfig: Record<string, unknown>,
+        expectedInstanceKey?: string
+    ): Record<string, unknown> {
+        return resolveMarketingOverlayWidget(widgetKey, zone, baseConfig, overrideConfig, expectedInstanceKey, {
+            parseWidgetConfig: (templateKey, configWidgetKey, config, options) =>
+                this.parseWidgetConfig(templateKey, configWidgetKey, config, options),
+            resolveWidgetZone: (templateKey, configWidgetKey, config) => this.resolveWidgetZone(templateKey, configWidgetKey, config)
+        })
+    }
+
+    private encodeMarketingOverlayWidgetOverrideConfig(
+        widgetKey: ApplicationLayoutWidgetKey,
+        zone: ApplicationLayoutZone,
+        baseConfig: Record<string, unknown>,
+        overrideConfig: Record<string, unknown>,
+        expectedInstanceKey?: string
+    ): Record<string, unknown> {
+        return encodeMarketingOverlayWidgetOverride(widgetKey, zone, baseConfig, overrideConfig, expectedInstanceKey, {
+            parseWidgetConfig: (templateKey, configWidgetKey, config, options) =>
+                this.parseWidgetConfig(templateKey, configWidgetKey, config, options),
+            resolveWidgetZone: (templateKey, configWidgetKey, config) => this.resolveWidgetZone(templateKey, configWidgetKey, config)
+        })
     }
 
     private resolveWidgetZone(
@@ -1007,6 +1039,14 @@ export class MetahubLayoutsService {
         return typeof scope?.scope_entity_id === 'string' && typeof scope?.base_layout_id === 'string'
     }
 
+    private assertMarketingOverlayBindingOwnership(
+        scope: LayoutScopeRow | DbRow | null | undefined,
+        templateKey: LayoutTemplateKey,
+        hasBindingSlots: boolean
+    ): void {
+        assertMarketingOverlayBindingOwnershipRules(scope, templateKey, hasBindingSlots)
+    }
+
     private async listResolvedLayoutWidgetStates(
         db: SqlQueryable,
         schemaName: string,
@@ -1083,10 +1123,6 @@ export class MetahubLayoutsService {
             const baseZone = applicationLayoutZoneSchema.parse(row.zone)
             const baseConfig = this.parseWidgetConfig(templateKey, widgetKey, row.config)
             const baseInstanceKey = this.getWidgetInstanceKey(baseConfig)
-            const resolvedConfig =
-                templateKey === 'marketing-page' && isRecord(override?.config)
-                    ? this.parseWidgetConfig(templateKey, widgetKey, override.config, { expectedInstanceKey: baseInstanceKey })
-                    : baseConfig
             const sharedBehavior = resolveWidgetSharedBehavior(baseConfig)
             if (override?.is_deleted_override === true && sharedBehavior.canExclude) {
                 continue
@@ -1095,6 +1131,10 @@ export class MetahubLayoutsService {
             const resolvedZone =
                 sharedBehavior.positionLocked || !override?.zone ? baseZone : applicationLayoutZoneSchema.parse(override.zone)
             this.assertWidgetAllowedInZone(templateKey, widgetKey, resolvedZone)
+            const resolvedConfig =
+                templateKey === 'marketing-page' && isRecord(override?.config)
+                    ? this.resolveMarketingOverlayWidgetConfig(widgetKey, resolvedZone, baseConfig, override.config, baseInstanceKey)
+                    : baseConfig
 
             resolved.push({
                 id: baseWidgetId,
@@ -1222,7 +1262,11 @@ export class MetahubLayoutsService {
             if (isMarketingWidgetKey(widgetKey) && !expectedInstanceKey) {
                 throw new MetahubValidationError('Marketing base widget configuration is invalid')
             }
-            nextConfig = this.parseWidgetConfig(templateKey, widgetKey, nextConfig, { expectedInstanceKey })
+            if (!baseConfig) {
+                throw new MetahubValidationError('Marketing widget override requires its base widget configuration')
+            }
+            const configZone = nextZone ?? this.resolveWidgetZone(templateKey, widgetKey, baseConfig)
+            nextConfig = this.encodeMarketingOverlayWidgetOverrideConfig(widgetKey, configZone, baseConfig, nextConfig, expectedInstanceKey)
         }
         const nextIsActive = patch.isActive !== undefined ? patch.isActive : existingIsActive
         const nextIsDeletedOverride = patch.isDeletedOverride === true
@@ -2447,21 +2491,24 @@ export class MetahubLayoutsService {
             const initialTemplateKey = this.assertLayoutSupportsWidgets(initialLayoutScope)
             this.assertWidgetAllowedInZone(initialTemplateKey, input.widgetKey, input.zone)
             const parsedWidgetConfig = this.parseWidgetConfig(initialTemplateKey, input.widgetKey, input.config ?? {}, {
-                generateInstanceKey: initialTemplateKey === 'marketing-page',
-                allowMissingBindingsForAssignment: input.widgetKey === 'marketing.hero'
+                generateInstanceKey: initialTemplateKey === 'marketing-page'
             })
-            let widgetConfig = parsedWidgetConfig
-
-            if (input.widgetKey === 'marketing.hero') {
-                widgetConfig = await this.marketingHeroBindingService.createAssignedHeroConfig(tx, schemaName, {
+            const widgetConfig = parsedWidgetConfig
+            const assignmentRendererConfig = isRecord(parsedWidgetConfig.rendererConfig)
+                ? parsedWidgetConfig.rendererConfig
+                : parsedWidgetConfig
+            const assignmentDefinition = getLayoutWidgetDefinition(input.widgetKey, assignmentRendererConfig)
+            this.assertMarketingOverlayBindingOwnership(
+                initialLayoutScope,
+                initialTemplateKey,
+                (assignmentDefinition?.bindingSlots?.length ?? 0) > 0
+            )
+            if (assignmentDefinition?.bindingSlots?.length) {
+                await this.widgetBindingService.validateAssignedConfig(tx, schemaName, {
                     templateKey: initialTemplateKey,
-                    scopeEntityId: initialLayoutScope.scope_entity_id,
-                    layoutId,
+                    widgetKey: input.widgetKey,
                     zone: input.zone,
-                    heroContent: input.heroContent!,
-                    metahubId,
-                    userId,
-                    parsedWidgetConfig
+                    config: widgetConfig
                 })
             }
 
@@ -2479,6 +2526,7 @@ export class MetahubLayoutsService {
             }
             const templateKey = this.assertLayoutSupportsWidgets(layoutScope)
             this.assertWidgetAllowedInZone(templateKey, input.widgetKey, input.zone)
+            this.assertMarketingOverlayBindingOwnership(layoutScope, templateKey, (assignmentDefinition?.bindingSlots?.length ?? 0) > 0)
 
             if (this.isScopedEntityLayout(layoutScope)) {
                 const resolvedWidgets = await this.listResolvedLayoutWidgetStates(tx, schemaName, layoutScope)
@@ -2564,51 +2612,6 @@ export class MetahubLayoutsService {
 
             return this.mapZoneWidgetRow(inserted, templateKey)
         })
-    }
-
-    /** Bind or rebind a source-owned Hero placement to an authoritative Object record. */
-    async updateLayoutZoneWidgetBinding(
-        metahubId: string,
-        layoutId: string,
-        widgetId: string,
-        input: z.infer<typeof updateLayoutZoneWidgetBindingSchema>,
-        userId?: string | null
-    ): Promise<LayoutZoneWidgetRow> {
-        return this.marketingHeroBindingService.update(metahubId, layoutId, widgetId, input, userId)
-    }
-
-    /** Return only the selected record details required by the metahub authoring picker. */
-    async getLayoutZoneWidgetBindingTarget(
-        metahubId: string,
-        layoutId: string,
-        widgetId: string,
-        locale: string,
-        userId?: string | null
-    ): Promise<{ recordId: string; recordVersion: number; widgetVersion: number; label: string }> {
-        return this.marketingHeroBindingService.getTarget(metahubId, layoutId, widgetId, locale, userId)
-    }
-
-    async listMarketingHeroBindingSources(
-        metahubId: string,
-        layoutId: string,
-        locale: string,
-        userId?: string | null,
-        excludeWidgetId?: string
-    ) {
-        return this.marketingHeroBindingService.listSources(metahubId, layoutId, locale, userId, excludeWidgetId)
-    }
-
-    async provisionMarketingHeroBindingSource(
-        metahubId: string,
-        layoutId: string,
-        input: { codename: string; name: unknown; description?: unknown },
-        userId?: string | null
-    ) {
-        return this.marketingHeroBindingService.provisionSource(metahubId, layoutId, input, userId)
-    }
-
-    async getMarketingHeroBindingUsage(metahubId: string, recordId: string, excludeWidgetId?: string, userId?: string | null) {
-        return this.marketingHeroBindingService.getUsage(metahubId, recordId, excludeWidgetId, userId)
     }
 
     async moveLayoutZoneWidget(

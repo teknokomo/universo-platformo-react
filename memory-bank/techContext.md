@@ -207,7 +207,7 @@
 ## Build, Test, And Tooling Notes
 
 -   Package management: PNPM workspaces pinned by root `packageManager` to `pnpm@12.4.1`; pnpm v12 workspace settings/overrides/build policy live in `pnpm-workspace.yaml`.
--   **Node.js version**: >=22.6.0 REQUIRED (for isolated-vm 6.x compatibility); vendored PlayCanvas Editor requires >=22.22.0.
+-   **Node.js version**: >=22.12.0 REQUIRED for the Vite 7 workspace toolchain and isolated-vm 6.x; vendored PlayCanvas Editor requires >=22.22.0.
 -   **UI baseline**: React 18.3.1, Material UI Core 9.2.0, MUI X 9.8.0.
 -   **isolated-vm**: Version 6.x required for Node.js 22+ (uses V8 API changes).
 -   **Startup flag**: `--no-node-snapshot` REQUIRED for isolated-vm (configured in `bin/run`).

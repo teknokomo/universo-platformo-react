@@ -1,5 +1,4 @@
 import { type DbExecutor } from '@universo-react/utils'
-import { acquireAdvisoryXactLock } from '@universo-react/utils/database'
 import {
     UpdateFailure,
     IDENTIFIER_REGEX,
@@ -12,9 +11,10 @@ import {
 import { type RuntimeCopyRelation } from './contracts'
 import { buildRuntimeAttrLookup, loadRuntimeObjectAttrs, resolveRuntimeObjectByCodename } from './objects'
 import { assertRuntimeEntityMutationAllowed } from '../../shared/entityMutationPolicy'
-import { PUBLIC_MARKETING_ROW_LIMIT } from '../../persistence/publicApplicationRuntimeStore'
-import { isMarketingSeedObject } from '../../services/marketingSeedGuard'
-import { buildRuntimeRecordRuleLockKey } from '../../services/runtimeRecordRules'
+import { buildPublicMarketingLifecyclePredicate } from '../../shared/marketingRuntimeLifecycleSql'
+import { PUBLIC_MARKETING_ROW_LIMIT } from '../../shared/marketingRuntimeLimits'
+import { listMarketingWidgetBindingSources } from '../../persistence/marketingWidgetBindingStore'
+import { acquireMarketingRowCapLock } from '../../services/marketingRowCap'
 
 /**
  * Published marketing objects are read back through the anonymous runtime,
@@ -24,27 +24,36 @@ import { buildRuntimeRecordRuleLockKey } from '../../services/runtimeRecordRules
  */
 export const assertMarketingRuntimeRowCap = async (params: {
     manager: DbExecutor
+    schemaName: string
     schemaIdent: string
     tableName: string
     runtimeRowCondition: string
     objectCodename: string
 }): Promise<void> => {
-    if (!isMarketingSeedObject(params.objectCodename)) return
+    // Read the live binding set under the same lock used by publication and
+    // workspace seed paths. Otherwise a concurrent binding change can commit
+    // between the metadata probe and this write, bypassing the row cap.
+    await acquireMarketingRowCapLock(params.manager, params.schemaIdent, params.tableName)
+    const marketingWidgetBindingSources = await listMarketingWidgetBindingSources(params.manager, params.schemaName)
+    if (!marketingWidgetBindingSources.has(params.objectCodename)) return
     // Serialize the count with concurrent writers so two requests at the
     // boundary cannot both pass the check; the lock order (cap -> rules ->
     // row) matches create/restore/module writes.
-    await acquireAdvisoryXactLock(
-        params.manager,
-        `marketing-row-cap:${buildRuntimeRecordRuleLockKey(params.schemaIdent, params.tableName)}`
-    )
     const rows = (await params.manager.query(
-        `SELECT COUNT(*)::text AS count FROM ${params.schemaIdent}.${quoteIdentifier(params.tableName)} WHERE ${
-            params.runtimeRowCondition
-        }`,
+        `SELECT COUNT(*)::text AS count
+         FROM ${params.schemaIdent}.${quoteIdentifier(params.tableName)}
+         WHERE (${params.runtimeRowCondition})
+           AND ${buildPublicMarketingLifecyclePredicate()}`,
         []
     )) as Array<{ count: string }>
-    const count = Number(rows[0]?.count ?? 0)
-    if (count >= PUBLIC_MARKETING_ROW_LIMIT) {
+    const countText = rows[0]?.count
+    if (typeof countText !== 'string' || !/^\d+$/.test(countText)) {
+        throw new UpdateFailure(500, {
+            error: 'Unable to validate the published marketing object row count',
+            code: 'MARKETING_ROW_COUNT_INVALID'
+        })
+    }
+    if (BigInt(countText) >= BigInt(PUBLIC_MARKETING_ROW_LIMIT)) {
         throw new UpdateFailure(409, {
             error: `Published marketing object ${params.objectCodename} reached the public runtime row limit (${PUBLIC_MARKETING_ROW_LIMIT})`,
             code: 'MARKETING_ROW_LIMIT_REACHED'

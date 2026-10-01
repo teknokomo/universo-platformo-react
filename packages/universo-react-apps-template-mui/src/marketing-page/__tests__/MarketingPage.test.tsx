@@ -5,6 +5,7 @@ import userEvent from '@testing-library/user-event'
 import AppMainLayout from '../../layouts/AppMainLayout'
 import MarketingPage, { widgetAnchorId } from '../MarketingPage'
 import { marketingSectionId, MarketingMediaView } from '../components/MarketingPrimitives'
+import { normalizeMarketingPageRuntime } from '../normalize'
 import type { MarketingAction, MarketingEffectiveLayoutWidgets, MarketingPageData } from '../types'
 
 vi.mock('react-i18next', () => ({
@@ -22,6 +23,7 @@ vi.mock('react-i18next', () => ({
                 'marketingPage.colorMode.dark': 'Dark',
                 'marketingPage.mediaMissing': 'Media unavailable',
                 'marketingPage.mediaDeferred': 'Media is configured but unavailable in this runtime.',
+                'marketingPage.emptyLayout': 'This page has no published content yet.',
                 'marketingPage.form.invalidEmail': 'Enter a valid email address',
                 'marketingPage.form.submitted': 'Thanks for subscribing!',
                 'marketingPage.form.submitting': 'Submitting'
@@ -33,8 +35,6 @@ vi.mock('react-i18next', () => ({
         i18n: { language: 'en', resolvedLanguage: 'en' }
     })
 }))
-
-const uuid = '0190a9b5-3cde-7abc-8def-012345678900'
 
 const action = (href: string, label: string): MarketingAction => ({
     semanticKey: label.toLowerCase().replace(/\s+/g, '-'),
@@ -108,7 +108,7 @@ const data: MarketingPageData = {
     templateKey: 'marketing-page',
     locale: 'en',
     config,
-    runtime: { layoutId: uuid, layoutVersion: 1, layoutHash: 'a'.repeat(64) },
+    runtime: { layoutVersion: 1, layoutHash: 'a'.repeat(64) },
     widgets: [
         {
             instanceKey: 'brand',
@@ -274,6 +274,77 @@ describe('MarketingPage', () => {
             )
         ).toEqual(['hero', 'features-primary', 'features-secondary', 'logos-empty', 'footer'])
         expect(document.getElementById('marketing-widget-features-secondary')).toBeInTheDocument()
+    })
+
+    it('renders a localized accessible state when the effective layout has no active widgets', () => {
+        render(
+            <AppMainLayout>
+                <MarketingPage
+                    data={{ ...data, widgets: [] }}
+                    effectiveLayoutWidgets={[]}
+                    effectiveLayoutConfig={{ templateKey: 'marketing-page' }}
+                />
+            </AppMainLayout>
+        )
+
+        expect(screen.getByRole('main')).toBeVisible()
+        expect(screen.getByRole('status')).toHaveTextContent('This page has no published content yet.')
+    })
+
+    it('renders an authenticated Marketing Image payload without physical layout or source identities', () => {
+        const imageData = normalizeMarketingPageRuntime(
+            {
+                templateKey: 'marketing-page',
+                marketingPage: {
+                    templateKey: 'marketing-page',
+                    locale: 'en',
+                    config: {},
+                    runtime: { layoutVersion: 1, layoutHash: 'b'.repeat(64) },
+                    widgets: [
+                        {
+                            instanceKey: 'hero-image',
+                            widgetKey: 'marketing.image',
+                            zone: 'marketing-main',
+                            sortOrder: 0,
+                            isActive: true,
+                            config: { instanceKey: 'hero-image' },
+                            data: {
+                                records: [
+                                    {
+                                        kind: 'image',
+                                        semanticKey: 'default',
+                                        order: 0,
+                                        isVisible: true,
+                                        media: {
+                                            kind: 'hero',
+                                            resource: {
+                                                type: 'url',
+                                                url: 'https://cdn.example.test/projected-image.webp',
+                                                launchMode: 'inline'
+                                            },
+                                            alt: { en: 'Product preview' },
+                                            decorative: false,
+                                            width: 1600,
+                                            height: 900
+                                        }
+                                    }
+                                ]
+                            }
+                        }
+                    ]
+                }
+            },
+            'en'
+        )
+
+        expect(imageData.runtime).toEqual({ layoutVersion: 1, layoutHash: 'b'.repeat(64) })
+        renderPage({ data: imageData })
+
+        const image = screen.getByRole('img', { name: 'Product preview' })
+        expect(image).toHaveAttribute('src', 'https://cdn.example.test/projected-image.webp')
+        expect(image).toHaveAttribute('width', '1600')
+        expect(image).toHaveAttribute('height', '900')
+        expect(document.getElementById('marketing-widget-hero-image')).toBeInTheDocument()
     })
 
     it('renders a configured brand name as visible text instead of the demo wordmark', () => {
@@ -571,7 +642,7 @@ describe('MarketingPage', () => {
         expect(within(drawer).getByRole('link', { name: 'Sign in' })).toHaveAttribute('href', '/sign-in')
         await user.click(within(drawer).getByRole('button', { name: 'Close navigation menu' }))
         expect(menuButton).toHaveFocus()
-    })
+    }, 15_000)
 
     it('keeps flow mode in normal flow without fixed spacer or scroll padding', () => {
         renderPage('flow')

@@ -34,7 +34,7 @@ export const loadLocalSupabaseDatabaseUrl = () => {
     }
 
     const envFile = parseEnvFile(BACKEND_ENV_PATH)
-    const resolveValue = (key) => process.env[key]?.trim() || envFile.get(key)?.trim() || ''
+    const resolveValue = (key) => envFile.get(key)?.trim() || ''
     const requiredKeys = ['DATABASE_USER', 'DATABASE_PASSWORD', 'DATABASE_HOST', 'DATABASE_PORT', 'DATABASE_NAME']
     const missingKeys = requiredKeys.filter((key) => {
         const value = resolveValue(key)
@@ -45,8 +45,15 @@ export const loadLocalSupabaseDatabaseUrl = () => {
         process.exit(1)
     }
 
+    const host = resolveValue('DATABASE_HOST').toLowerCase()
+    if (host !== '127.0.0.1' && host !== 'localhost') {
+        throw new Error('Local E2E Supabase database host must resolve to loopback')
+    }
+
+    const databaseEnv = Object.fromEntries(requiredKeys.map((key) => [key, resolveValue(key)]))
     return {
         envFile,
+        databaseEnv,
         databaseUrl: `postgres://${encodeURIComponent(resolveValue('DATABASE_USER'))}:${encodeURIComponent(
             resolveValue('DATABASE_PASSWORD')
         )}@${resolveValue('DATABASE_HOST')}:${resolveValue('DATABASE_PORT')}/${resolveValue('DATABASE_NAME')}`
@@ -73,7 +80,9 @@ export const runStep = (command, args, label, extraEnv = {}) =>
  * `applications` schema must recreate it deterministically.
  */
 export const ensurePlatformMigrations = async (databaseUrl) => {
+    const { databaseEnv } = loadLocalSupabaseDatabaseUrl()
     const exitCode = await runStep('node', ['tools/testing/backend/ensure-platform-migrations.mjs'], 'Platform migrations', {
+        ...databaseEnv,
         DATABASE_TEST_URL: databaseUrl
     })
     return exitCode

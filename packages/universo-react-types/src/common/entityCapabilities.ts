@@ -1,4 +1,5 @@
-import type { LedgerMode } from './ledgers'
+import { z } from 'zod'
+import { LEDGER_MODES, type LedgerMode } from './ledgerModes'
 
 export const ENTITY_CAPABILITY_KEYS = [
     'dataSchema',
@@ -128,6 +129,124 @@ export interface EntityTypeCapabilities {
     ledgerSchema?: LedgerSchemaCapabilityConfig | false
     projectBinding?: ProjectBindingCapabilityConfig | false
 }
+
+const capabilityConfigSchema = z.object({ enabled: z.boolean() }).strict()
+const dataSchemaCapabilitySchema = z.union([
+    z.literal(false),
+    z.object({ enabled: z.boolean(), maxComponents: z.number().int().nullable().optional() }).strict()
+])
+const recordsCapabilitySchema = z.union([
+    z.literal(false),
+    z.object({ enabled: z.boolean(), maxElements: z.number().int().nullable().optional() }).strict()
+])
+const treeAssignmentCapabilitySchema = z.union([
+    z.literal(false),
+    z
+        .object({
+            enabled: z.boolean(),
+            isSingleHub: z.boolean().optional(),
+            isRequiredHub: z.boolean().optional()
+        })
+        .strict()
+])
+const hierarchyCapabilitySchema = z.union([
+    z.literal(false),
+    z.object({ enabled: z.boolean(), supportsFolders: z.boolean().optional() }).strict()
+])
+const nestedCollectionsCapabilitySchema = z.union([
+    z.literal(false),
+    z.object({ enabled: z.boolean(), maxCollections: z.number().int().nullable().optional() }).strict()
+])
+const relationsCapabilitySchema = z.union([
+    z.literal(false),
+    z.object({ enabled: z.boolean(), allowedRelationTypes: z.array(z.string()).optional() }).strict()
+])
+const blockContentCapabilitySchema = z.union([
+    z.literal(false),
+    z
+        .object({
+            enabled: z.boolean(),
+            storage: z.enum(['objectConfig', 'recordJsonb']),
+            defaultFormat: z.literal('editorjs'),
+            supportedFormats: z.array(z.string().min(1)).min(1),
+            allowedBlockTypes: z.array(z.string().regex(/^[a-z][a-z0-9_-]{0,63}$/)).min(1),
+            maxBlocks: z.number().int().positive().max(5000)
+        })
+        .strict()
+])
+const physicalTableCapabilitySchema = z.union([z.literal(false), z.object({ enabled: z.boolean(), prefix: z.string().min(1) }).strict()])
+const identityFieldsCapabilitySchema = z.union([
+    z.literal(false),
+    z
+        .object({
+            enabled: z.boolean(),
+            allowNumber: z.boolean().optional(),
+            allowEffectiveDate: z.boolean().optional()
+        })
+        .strict()
+])
+const recordLifecycleCapabilitySchema = z.union([
+    z.literal(false),
+    z.object({ enabled: z.boolean(), allowCustomStates: z.boolean().optional() }).strict()
+])
+const postingCapabilitySchema = z.union([
+    z.literal(false),
+    z
+        .object({
+            enabled: z.boolean(),
+            allowManualPosting: z.boolean().optional(),
+            allowAutomaticPosting: z.boolean().optional()
+        })
+        .strict()
+])
+const ledgerSchemaCapabilitySchema = z.union([
+    z.literal(false),
+    z
+        .object({
+            enabled: z.boolean(),
+            allowProjections: z.boolean().optional(),
+            allowRegistrarPolicy: z.boolean().optional(),
+            allowManualFacts: z.boolean().optional(),
+            allowedModes: z.array(z.enum(LEDGER_MODES)).optional()
+        })
+        .strict()
+])
+const projectBindingCapabilitySchema = z.union([
+    z.literal(false),
+    z
+        .object({
+            enabled: z.boolean(),
+            provider: z.enum(PROJECT_BINDING_PROVIDERS),
+            cardinality: z.literal('single')
+        })
+        .strict()
+])
+
+/** Complete serializable capability contract shared by entity APIs and services. */
+export const entityTypeCapabilitiesSchema: z.ZodType<EntityTypeCapabilities> = z
+    .object({
+        dataSchema: dataSchemaCapabilitySchema,
+        records: recordsCapabilitySchema,
+        treeAssignment: treeAssignmentCapabilitySchema,
+        optionValues: z.union([z.literal(false), capabilityConfigSchema]),
+        fixedValues: z.union([z.literal(false), capabilityConfigSchema]),
+        hierarchy: hierarchyCapabilitySchema,
+        nestedCollections: nestedCollectionsCapabilitySchema,
+        relations: relationsCapabilitySchema,
+        actions: z.union([z.literal(false), capabilityConfigSchema]),
+        events: z.union([z.literal(false), capabilityConfigSchema]),
+        modules: z.union([z.literal(false), capabilityConfigSchema]),
+        blockContent: blockContentCapabilitySchema,
+        layoutConfig: z.union([z.literal(false), capabilityConfigSchema]),
+        runtimeBehavior: z.union([z.literal(false), capabilityConfigSchema]),
+        physicalTable: physicalTableCapabilitySchema,
+        identityFields: identityFieldsCapabilitySchema.optional(),
+        recordLifecycle: recordLifecycleCapabilitySchema.optional(),
+        posting: postingCapabilitySchema.optional(),
+        ledgerSchema: ledgerSchemaCapabilitySchema.optional(),
+        projectBinding: projectBindingCapabilitySchema.optional()
+    })
+    .strict()
 
 export const CAPABILITY_DEPENDENCIES: Record<EntityCapabilityKey, readonly EntityCapabilityKey[]> = {
     dataSchema: [],

@@ -1,4 +1,9 @@
-import { getLayoutWidgetDefinition, getLayoutZoneSettingDefinition, resolveLayoutZoneSettingValue } from '@universo-react/types'
+import {
+    getLayoutWidgetDefinition,
+    getLayoutZoneSettingDefinition,
+    resolveLayoutZoneSettingValue,
+    type MarketingHeaderPosition
+} from '@universo-react/types'
 import type {
     MarketingAuthData,
     MarketingBrandData,
@@ -7,7 +12,7 @@ import type {
     MarketingPageWidget
 } from './types'
 
-export type MarketingHeaderPosition = 'fixed' | 'flow'
+export type { MarketingHeaderPosition }
 export type MarketingHeaderPlacement = 'start' | 'end'
 
 export interface MarketingHeaderProjectionBase {

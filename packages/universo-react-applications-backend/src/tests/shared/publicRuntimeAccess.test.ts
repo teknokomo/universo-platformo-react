@@ -265,6 +265,117 @@ describe('publicRuntimeAccess helpers', () => {
         ])
     })
 
+    it('loads childless TABLE row identities when the optional physical child table exists', async () => {
+        const { executor } = createMockDbExecutor()
+        executor.query.mockImplementation(async (sql: string) => {
+            if (sql.includes('to_regclass')) return [{ table_exists: true }]
+            if (sql.includes('SELECT id')) return [{ id: 'row-1' }]
+            return []
+        })
+        const childRows = await loadPublicTableRows(
+            executor,
+            schemaName,
+            {
+                id: 'attr-content',
+                codename: 'ContentItems',
+                column_name: 'content_items',
+                data_type: 'TABLE',
+                parent_component_id: null
+            },
+            [],
+            '018f8a78-7b8f-7c1d-a111-222233334444'
+        )
+
+        expect(childRows).toEqual([{ id: 'row-1' }])
+        expect(executor.query).toHaveBeenNthCalledWith(1, expect.stringContaining("to_regclass(format('%I.%I', $1::text, $2::text))"), [
+            schemaName,
+            'content_items'
+        ])
+        expect(executor.query).toHaveBeenNthCalledWith(2, expect.stringContaining('SELECT id'), ['018f8a78-7b8f-7c1d-a111-222233334444'])
+    })
+
+    it('omits an absent optional physical child table only when no child fields are declared', async () => {
+        const { executor } = createMockDbExecutor()
+        executor.query.mockResolvedValue([{ table_exists: false }])
+        const childRows = await loadPublicTableRows(
+            executor,
+            schemaName,
+            {
+                id: 'attr-content',
+                codename: 'ContentItems',
+                column_name: 'content_items',
+                data_type: 'TABLE',
+                parent_component_id: null
+            },
+            [],
+            '018f8a78-7b8f-7c1d-a111-222233334444'
+        )
+
+        expect(childRows).toEqual([])
+        expect(executor.query).toHaveBeenCalledTimes(1)
+        expect(executor.query).toHaveBeenCalledWith(expect.stringContaining("to_regclass(format('%I.%I', $1::text, $2::text))"), [
+            schemaName,
+            'content_items'
+        ])
+    })
+
+    it('propagates errors while checking an optional child table instead of treating them as absence', async () => {
+        const { executor } = createMockDbExecutor()
+        const lookupError = Object.assign(new Error('permission denied'), { code: '42501' })
+        executor.query.mockRejectedValue(lookupError)
+
+        await expect(
+            loadPublicTableRows(
+                executor,
+                schemaName,
+                {
+                    id: 'attr-content',
+                    codename: 'ContentItems',
+                    column_name: 'content_items',
+                    data_type: 'TABLE',
+                    parent_component_id: null
+                },
+                [],
+                '018f8a78-7b8f-7c1d-a111-222233334444'
+            )
+        ).rejects.toBe(lookupError)
+
+        expect(executor.query).toHaveBeenCalledTimes(1)
+    })
+
+    it('surfaces a missing child table when child fields are declared', async () => {
+        const { executor } = createMockDbExecutor()
+        const missingTableError = Object.assign(new Error('relation does not exist'), { code: '42P01' })
+        executor.query.mockImplementation(async (sql: string) => {
+            if (sql.includes('SELECT id')) throw missingTableError
+            return []
+        })
+
+        await expect(
+            loadPublicTableRows(
+                executor,
+                schemaName,
+                {
+                    id: 'attr-content',
+                    codename: 'ContentItems',
+                    column_name: 'content_items',
+                    data_type: 'TABLE',
+                    parent_component_id: null
+                },
+                [
+                    {
+                        id: 'child-title',
+                        codename: 'ItemTitle',
+                        column_name: 'item_title',
+                        data_type: 'STRING',
+                        parent_component_id: 'attr-content'
+                    }
+                ],
+                '018f8a78-7b8f-7c1d-a111-222233334444'
+            )
+        ).rejects.toBe(missingTableError)
+    })
+
     it('does not select TABLE components as parent-table columns when loading a public runtime record', async () => {
         const { executor } = createMockDbExecutor()
 

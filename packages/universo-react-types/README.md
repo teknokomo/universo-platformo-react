@@ -84,9 +84,13 @@ This contract changes widget configuration only. It does not add a database sche
 
 ## Entity-Backed Widget Bindings
 
-`common/widgetBindings` defines the UI-neutral contracts for declarative widget binding slots and their persisted instances. A layout widget definition declares the semantic requirements of each slot; a persisted binding selects an Entity kind and record set, then maps renderer fields to Entity Component codenames. The shared validator checks the slot cardinality, Entity kind, field selectors, projections, and registry requirements before consumers use the binding.
+`common/widgetBindings` defines the UI-neutral contracts for declarative widget binding slots and their persisted instances. A layout widget definition declares each slot's Entity requirements, required Components, capabilities, cardinality, ordering and visibility rules, relation policy, and record limits. A binding uses one of the validated <code>semantic-key</code>, <code>record-set</code>, or <code>relation-set</code> selectors; the shared validator checks the selector, slot, registered projection, and resolved records before a consumer uses the binding.
 
-Binding instances are stored separately from slot definitions. They contain semantic selectors and renderer projections rather than copied business content, so the bound Entity remains the source of truth. The `marketing.hero` definition uses this contract for its content slot.
+Widget definitions may declare `initialBindingSlotKey` for authoring. The metadata is transported with the definition, validated against every slot variant, and lets the editor open the useful source slot for a new placement without a widget-key special case.
+
+Binding instances are stored separately from slot definitions. They contain semantic source selectors and renderer projections rather than copied business content, so the bound Entity remains the source of truth. Marketing Page slots use this generic contract; placement-specific bindings stay in Metahub-owned layout metadata, while Application layouts carry presentation and placement state. Renderer DTOs receive validated projected records, not persisted binding metadata.
+
+Before Marketing snapshots cross publication, restore, import, or synchronization boundaries, selected source records are checked against their registered Component schemas, locale requirements, safe action/media formats, and relation references.
 
 `common/entityRecordPolicy` describes server-owned Object record rules such as semantic keys, runtime mutation restrictions, required locales, and a registered validator. These policies constrain generic authoring and runtime mutation paths; they do not turn the widget into a second content store.
 

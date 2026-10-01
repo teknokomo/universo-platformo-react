@@ -6,7 +6,7 @@ description: Install the monorepo dependencies and prepare the local workspace.
 
 ## Prerequisites
 
--   Node.js 22.22.2 recommended; Node.js >=22.6.0 is required by the root package rules.
+-   Node.js 22.22.2 recommended; Node.js >=22.12.0 is required by the root package rules.
 -   PNPM 12.x is required; the workspace is pinned to pnpm 12.4.1.
 -   Access to a Supabase (PostgreSQL) environment for backend startup.
 

@@ -14,7 +14,6 @@ import {
     type MarketingWidgetKey
 } from '@universo-react/types'
 
-import { getCodenamePrimary } from '../vlc'
 import { isUuidV7 } from '../uuid'
 import { assertMarketingSnapshotBoundTargetContract } from './marketingSnapshotBindingValidation'
 import {
@@ -100,18 +99,11 @@ export class MarketingSnapshotValidationError extends SnapshotLayoutValidationEr
 type ParsedMarketingWidget = {
     widgetKey: MarketingWidgetKey
     instanceKey: string
-    source?: Record<string, unknown>
-    copySource?: Record<string, unknown>
+    hasEntityBindings: boolean
     variant?: string
-    showBenefits?: boolean
 }
 
 const isRecord = (value: unknown): value is Record<string, unknown> => Boolean(value && typeof value === 'object' && !Array.isArray(value))
-
-const getSnapshotEntityCodename = (entity: MarketingSnapshotEntityLike): string | undefined => {
-    if (typeof entity.codename === 'string') return entity.codename
-    return getCodenamePrimary(entity.codename) ?? undefined
-}
 
 const fail = (message: string, details: Record<string, unknown>): never => {
     throw new MarketingSnapshotValidationError(message, details)
@@ -378,50 +370,22 @@ export const validateSnapshotLayoutIdentities = (snapshot: unknown): void => {
     }
 }
 
-const assertObjectEntity = (snapshot: MarketingSnapshotLike, codename: unknown, scope: string): void => {
-    if (typeof codename !== 'string') {
-        fail('Marketing snapshot source codename is invalid', { scope })
-    }
-
-    const entity = Object.values(snapshot.entities ?? {}).find(
-        (candidate) =>
-            isRecord(candidate) &&
-            candidate.kind === 'object' &&
-            getSnapshotEntityCodename(candidate as MarketingSnapshotEntityLike) === codename
-    )
-    if (!entity) {
-        fail('Marketing snapshot source entity is missing', { scope, entityCodename: codename })
-    }
-}
-
-const readParsedSource = (value: unknown, scope: string): Record<string, unknown> => {
-    if (!isRecord(value)) {
-        return fail('Marketing snapshot widget source is invalid', { scope })
-    }
-    const source = value
-    if (typeof source.entityCodename !== 'string' || source.entityKind !== 'object') {
-        fail('Marketing snapshot widget source is invalid', { scope })
-    }
-    if (source.recordKey !== undefined && typeof source.recordKey !== 'string') {
-        fail('Marketing snapshot widget source record key is invalid', { scope })
-    }
-    return source
-}
-
 const parseMarketingWidgetConfig = (
     snapshot: MarketingSnapshotLike,
     widgetKey: string,
     zone: string,
     rawConfig: unknown,
-    scope: string
+    scope: string,
+    options: { bindingMode?: 'required' | 'inherited' } = {}
 ): { config: Record<string, unknown>; hasEntityBindings: boolean } => {
+    const bindingMode = options.bindingMode ?? 'required'
     let decoded: ReturnType<typeof decodeWidgetConfigEnvelope>
     try {
         decoded = decodeWidgetConfigEnvelope(rawConfig, {
             templateKey: MARKETING_PAGE_TEMPLATE_KEY,
             widgetKey,
             zone,
-            requireBindings: true
+            requireBindings: bindingMode === 'required'
         })
     } catch (error) {
         if (error instanceof MissingRequiredWidgetBindingsError) {
@@ -437,14 +401,17 @@ const parseMarketingWidgetConfig = (
         return fail('Marketing snapshot widget configuration is invalid', { scope })
     }
 
-    const definition = getLayoutWidgetDefinition(widgetKey)
+    const definition = getLayoutWidgetDefinition(widgetKey, config)
     const hasDeclaredBindingSlots = (definition?.bindingSlots?.length ?? 0) > 0
     const bindings = decoded.neutral.bindings
-    if (hasDeclaredBindingSlots && !bindings) {
+    if (bindingMode === 'required' && hasDeclaredBindingSlots && !bindings) {
         return fail('Marketing snapshot widget binding is invalid', { scope })
     }
     if (bindings && (!definition || !hasDeclaredBindingSlots)) {
         return fail('Marketing snapshot widget binding is invalid', { scope })
+    }
+    if (bindingMode === 'inherited' && bindings !== undefined) {
+        return fail('Marketing widget override cannot contain entity bindings; it inherits them from its base widget', { scope })
     }
     if (bindings && definition) {
         let validatedBindings: ReturnType<typeof validateWidgetBindings>
@@ -454,7 +421,7 @@ const parseMarketingWidgetConfig = (
             return fail('Marketing snapshot widget binding is invalid', { scope })
         }
         for (const slot of validatedBindings.slots) {
-            assertMarketingSnapshotBoundTargetContract(snapshot, definition, slot, `${scope}:binding`, fail)
+            assertMarketingSnapshotBoundTargetContract(snapshot, definition, slot, `${scope}:binding`, fail, validatedBindings)
         }
     }
 
@@ -491,19 +458,8 @@ const parseWidget = (snapshot: MarketingSnapshotLike, widget: MarketingSnapshotW
         fail('Marketing snapshot widget active state is invalid', { widgetId: widget.id, layoutId: widget.layoutId })
     }
 
-    const source = config.source === undefined ? undefined : readParsedSource(config.source, `widget:${widget.id}:source`)
-    if (source) {
-        assertObjectEntity(snapshot, source.entityCodename, `widget:${widget.id}:source`)
-    } else if (registryEntry.dataOwnership === 'entity' && !hasEntityBindings) {
-        fail('Marketing snapshot widget source is invalid', { scope: `widget:${widget.id}:source` })
-    }
-
-    const copySource = config.copySource === undefined ? undefined : readParsedSource(config.copySource, `widget:${widget.id}:copySource`)
-    if (copySource) {
-        if (copySource.entityCodename !== 'MarketingPageSection' || typeof copySource.recordKey !== 'string') {
-            fail('Marketing snapshot copy source is invalid', { widgetId: widget.id, layoutId: widget.layoutId })
-        }
-        assertObjectEntity(snapshot, copySource.entityCodename, `widget:${widget.id}:copySource`)
+    if (registryEntry.dataOwnership === 'entity' && !hasEntityBindings) {
+        fail('Marketing snapshot widget binding is invalid', { scope: `widget:${widget.id}:binding` })
     }
 
     const variant = typeof config.variant === 'string' ? config.variant : undefined
@@ -514,10 +470,8 @@ const parseWidget = (snapshot: MarketingSnapshotLike, widget: MarketingSnapshotW
     return {
         widgetKey,
         instanceKey,
-        ...(source ? { source } : {}),
-        ...(copySource ? { copySource } : {}),
-        ...(variant ? { variant } : {}),
-        ...(typeof config.showBenefits === 'boolean' ? { showBenefits: config.showBenefits } : {})
+        hasEntityBindings,
+        ...(variant ? { variant } : {})
     }
 }
 
@@ -796,6 +750,17 @@ export const validateMarketingSnapshotLayouts = (snapshot: unknown): void => {
         let parsed: ParsedMarketingWidget | undefined
         if (widget.widgetKey.startsWith('marketing.')) {
             parsed = parseWidget(normalizedSnapshot, widget)
+            const isScopedOverlay =
+                layout.scopeEntityId !== undefined &&
+                layout.scopeEntityId !== null &&
+                layout.compositionMode === 'overlay' &&
+                typeof layout.baseLayoutId === 'string'
+            if (isScopedOverlay && (parsed.hasEntityBindings || MARKETING_WIDGET_REGISTRY[parsed.widgetKey].dataOwnership === 'entity')) {
+                fail('Marketing overlay widgets cannot own Entity bindings; bind the base placement instead', {
+                    widgetId: widget.id,
+                    layoutId: layout.id
+                })
+            }
             const instanceKeys = instanceKeysByLayout.get(layout.id) ?? new Set<string>()
             if (instanceKeys.has(parsed.instanceKey)) {
                 fail('Marketing snapshot contains duplicate widget instance keys', { layoutId: layout.id, instanceKey: parsed.instanceKey })
@@ -815,10 +780,6 @@ export const validateMarketingSnapshotLayouts = (snapshot: unknown): void => {
         }
         if (widgetsById.has(widget.id)) fail('Marketing snapshot contains duplicate widget ids', { widgetId: widget.id })
         widgetsById.set(widget.id, { widget, parsed, layoutId: layout.id })
-
-        if (parsed?.widgetKey === 'marketing.pricing' && parsed.showBenefits !== false) {
-            assertObjectEntity(normalizedSnapshot, 'MarketingPagePricingBenefit', `widget:${widget.id}:benefits`)
-        }
     }
 
     const overrideIds = new Set<string>()
@@ -899,7 +860,8 @@ export const validateMarketingSnapshotLayouts = (snapshot: unknown): void => {
                 baseWidget.widget.widgetKey,
                 override.zone ?? baseWidget.widget.zone,
                 override.config,
-                `widget override:${override.id}`
+                `widget override:${override.id}`,
+                { bindingMode: 'inherited' }
             )
             if (baseWidget.parsed && config.instanceKey !== baseWidget.parsed.instanceKey) {
                 fail('Marketing widget override cannot change the base instance key', { overrideId: override.id })

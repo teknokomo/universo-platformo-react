@@ -2,7 +2,7 @@ jest.mock('../../domains/layouts/marketingHeroActionIntegrityStore', () => ({
     assertMarketingHeroRecordActionsRemainValid: jest.fn(async () => undefined)
 }))
 
-jest.mock('../../domains/layouts/marketingHeroBindingsStore', () => ({
+jest.mock('../../domains/layouts/marketingHeroContentProjection', () => ({
     projectMarketingHeroContentData: jest.fn(() => ({ title: { en: 'Welcome' } }))
 }))
 

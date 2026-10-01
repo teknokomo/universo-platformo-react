@@ -139,9 +139,10 @@ catalog:
     # broken CJS code with __esm() wrappers that fail on circular dependencies
     # See: circular deps issue in some packages (storageUtils <-> utils)
     tsdown: 0.15.7
-    vite: ^5.4.19
-    '@vitejs/plugin-react': ^4.3.4
-    vitest: ^2.1.8
+    vite: ^7.3.2
+    '@vitejs/plugin-react': ^5.1.4
+    vitest: ^4.1.6
+    '@vitest/coverage-v8': ^4.1.6
 
     # MUI ecosystem - v9.x (one coordinated Core/X policy)
     # Keep exact versions here so every workspace package resolves one MUI major and patch line.

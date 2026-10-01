@@ -1,179 +1,53 @@
 import { describe, expect, it } from 'vitest'
-import { buildSingleTargetWidgetBinding, encodeWidgetConfigEnvelope, getLayoutWidgetDefinition } from '@universo-react/types'
+import { decodeWidgetConfigEnvelope, encodeWidgetConfigEnvelope, getLayoutWidgetDefinition } from '@universo-react/types'
 
 import {
     validateMarketingSnapshotLayouts,
     validateMarketingSnapshotTransportLayouts,
     validateSnapshotLayoutIdentities,
-    validateSnapshotLayoutNeutralMetadata,
-    type MarketingSnapshotLike
+    validateSnapshotLayoutNeutralMetadata
 } from '../marketingSnapshot'
-
-const ids = {
-    layout: '0190a9b5-3cde-7abc-8def-0123456789a1',
-    secondLayout: '0190a9b5-3cde-7abc-8def-0123456789a2',
-    widget: '0190a9b5-3cde-7abc-8def-0123456789a3',
-    secondWidget: '0190a9b5-3cde-7abc-8def-0123456789a4',
-    scopedLayout: '0190a9b5-3cde-7abc-8def-0123456789a5',
-    override: '0190a9b5-3cde-7abc-8def-0123456789a6',
-    scopeEntity: '0190a9b5-3cde-7abc-8def-0123456789a7',
-    heroEntity: '0190a9b5-3cde-7abc-8def-0123456789a8'
-} as const
-
-const heroDefinition = getLayoutWidgetDefinition('marketing.hero')
-if (!heroDefinition?.bindingSlots?.[0]) throw new Error('Expected Hero binding slot definition')
-const heroComponents = heroDefinition.bindingSlots[0].requirements.components.map((component) => ({
-    codename: component.componentCodename,
-    dataType: component.valueType.toUpperCase(),
-    isRequired: component.required,
-    validationRules: {
-        ...(component.localized ? { localized: true } : {}),
-        ...(component.maxLength !== undefined ? { maxLength: component.maxLength } : {}),
-        ...(component.semanticKey ? { unique: true } : {}),
-        ...(component.format !== undefined ? { format: component.format } : {})
-    }
-}))
-
-const localizedVlc = (en: string, ru?: string) => ({
-    _schema: '1',
-    _primary: 'en',
-    locales: {
-        en: { content: en, version: 1, isActive: true },
-        ...(ru === undefined ? {} : { ru: { content: ru, version: 1, isActive: true } })
-    }
-})
-
-const heroRecordData = () => ({
-    HeroKey: 'default',
-    Title: localizedVlc('Build with confidence', 'Создавайте с уверенностью'),
-    Accent: localizedVlc('A better way', 'Лучший подход'),
-    Description: localizedVlc('A complete platform for your team.', 'Полная платформа для вашей команды.'),
-    EmailLabel: localizedVlc('Email', 'Электронная почта'),
-    EmailPlaceholder: localizedVlc('you@example.com', 'you@example.com'),
-    PrimaryActionLabel: localizedVlc('Get started', 'Начать'),
-    PrimaryAction: { kind: 'internal', path: '/sign-up', target: 'same-tab' },
-    TermsText: localizedVlc('By continuing, you agree to our', 'Продолжая, вы соглашаетесь с'),
-    TermsLinkLabel: localizedVlc('Terms of Service', 'Условиями использования'),
-    TermsAction: { kind: 'anchor', href: '#terms' }
-})
-
-const getHeroRecordData = (snapshot: MarketingSnapshotLike): Record<string, unknown> => {
-    const records = snapshot.elements?.[ids.heroEntity]
-    const record = Array.isArray(records) ? records[0] : undefined
-    if (!record || typeof record !== 'object' || Array.isArray(record)) throw new Error('Expected a Hero snapshot record')
-    const data = (record as Record<string, unknown>).data
-    if (!data || typeof data !== 'object' || Array.isArray(data)) throw new Error('Expected Hero snapshot record data')
-    return data as Record<string, unknown>
-}
-
-const entities = {
-    [ids.scopeEntity]: { kind: 'object', codename: 'MarketingPageSiteSettings' },
-    logos: { kind: 'object', codename: 'MarketingPageLogo' },
-    features: { kind: 'object', codename: 'MarketingPageFeature' },
-    pricing: { kind: 'object', codename: 'MarketingPagePricing' },
-    benefits: { kind: 'object', codename: 'MarketingPagePricingBenefit' },
-    [ids.heroEntity]: {
-        kind: 'object',
-        codename: 'MarketingPageHero',
-        config: {
-            capabilities: { dataSchema: { enabled: true }, records: { enabled: true } },
-            recordPolicy: {
-                version: 1,
-                denyDeleteWhenBound: true,
-                immutableSemanticKeyWhenBound: true,
-                runtimeMutation: 'deny',
-                semanticKey: { componentCodename: 'HeroKey', creationPrefix: 'hero', protectedValues: ['default'] },
-                requiredLocales: ['en', 'ru'],
-                validatorKey: 'marketing.hero.v1'
-            }
-        },
-        fields: heroComponents
-    }
-}
-
-const collectionWidget = (id: string, instanceKey: string, sourceCodename = 'MarketingPageLogo') => ({
-    id,
-    layoutId: ids.layout,
-    zone: 'marketing-main',
-    widgetKey: 'marketing.collection',
-    sortOrder: 0,
-    config: {
-        instanceKey,
-        source: { entityCodename: sourceCodename, entityKind: 'object' },
-        variant: sourceCodename === 'MarketingPageFeature' ? 'features' : 'logos'
-    },
-    isActive: true
-})
-
-const heroWidget = (id: string, instanceKey: string) => {
-    const definition = getLayoutWidgetDefinition('marketing.hero')
-    if (!definition) throw new Error('Expected marketing.hero widget definition')
-
-    return {
-        id,
-        layoutId: ids.layout,
-        zone: 'marketing-main',
-        widgetKey: 'marketing.hero',
-        sortOrder: 0,
-        config: encodeWidgetConfigEnvelope(
-            {
-                rendererConfig: { instanceKey, showLeadForm: true },
-                neutral: {
-                    bindings: buildSingleTargetWidgetBinding(definition, 'content', {
-                        entityKind: 'object',
-                        entityCodename: 'MarketingPageHero',
-                        semanticKey: 'default'
-                    })
-                }
-            },
-            { templateKey: 'marketing-page', widgetKey: 'marketing.hero', zone: 'marketing-main' }
-        ),
-        isActive: true
-    }
-}
-
-const createSnapshot = (widgets: unknown[] = [collectionWidget(ids.widget, 'logos')]): MarketingSnapshotLike => ({
-    entities: {
-        ...entities,
-        [ids.heroEntity]: {
-            ...entities[ids.heroEntity],
-            config: {
-                capabilities: { dataSchema: { enabled: true }, records: { enabled: true } },
-                recordPolicy: {
-                    version: 1,
-                    denyDeleteWhenBound: true,
-                    immutableSemanticKeyWhenBound: true,
-                    runtimeMutation: 'deny',
-                    semanticKey: { componentCodename: 'HeroKey', creationPrefix: 'hero', protectedValues: ['default'] },
-                    requiredLocales: ['en', 'ru'],
-                    validatorKey: 'marketing.hero.v1'
-                }
-            },
-            fields: heroComponents.map((field) => ({ ...field, validationRules: { ...field.validationRules } }))
-        }
-    },
-    layouts: [
-        {
-            id: ids.layout,
-            templateKey: 'marketing-page',
-            name: { en: 'Marketing page' },
-            config: {},
-            isDefault: true,
-            isActive: true,
-            sortOrder: 0,
-            compositionMode: 'independent',
-            baseLayoutId: null
-        }
-    ],
-    defaultLayoutId: ids.layout,
-    layoutConfig: {},
-    elements: {
-        [ids.heroEntity]: [{ data: heroRecordData() }]
-    },
-    layoutZoneWidgets: widgets
-})
+import { findInvalidWidgetBindingRecordComponent } from '../marketingSnapshotRecordValidation'
+import {
+    boundWidgetConfig,
+    collectionWidget,
+    createSnapshot,
+    entities,
+    getHeroRecordData,
+    heroWidget,
+    ids,
+    localizedVlc,
+    validBoundRecordData
+} from './marketingSnapshot.fixtures'
 
 describe('validateMarketingSnapshotLayouts', () => {
+    it.each(['/sample-path', '#pricing', 'HTTPS://example.test/docs', 'mailto:sales@example.test?subject=Hello', 'tel:+1 (555) 010-1234'])(
+        'accepts safe bound navigation hrefs in snapshots',
+        (href) => {
+            const slot = getLayoutWidgetDefinition('marketing.navigation')?.bindingSlots?.[0]
+            if (!slot) throw new Error('Expected a Marketing navigation binding slot')
+            const data = validBoundRecordData(slot.requirements.components)
+            data.Href = href
+
+            expect(findInvalidWidgetBindingRecordComponent([{ data }], slot.requirements.components)).toBeUndefined()
+        }
+    )
+
+    it.each(['javascript:alert(1)', 'data:text/html,<script>alert(1)</script>', 'https://user:pass@example.test'])(
+        'rejects unsafe or malformed bound navigation hrefs in snapshots',
+        (href) => {
+            const slot = getLayoutWidgetDefinition('marketing.navigation')?.bindingSlots?.[0]
+            if (!slot) throw new Error('Expected a Marketing navigation binding slot')
+            const data = validBoundRecordData(slot.requirements.components)
+            data.Href = href
+
+            expect(findInvalidWidgetBindingRecordComponent([{ data }], slot.requirements.components)).toMatchObject({
+                recordIndex: 0,
+                componentCodename: 'Href'
+            })
+        }
+    )
+
     it.each([
         ['missing', undefined],
         ['runtime-writable', { ...entities[ids.heroEntity].config!.recordPolicy!, runtimeMutation: 'allow' }],
@@ -187,7 +61,11 @@ describe('validateMarketingSnapshotLayouts', () => {
             }
         ],
         ['missing required locale', { ...entities[ids.heroEntity].config!.recordPolicy!, requiredLocales: ['en'] }],
-        ['unknown validator', { ...entities[ids.heroEntity].config!.recordPolicy!, validatorKey: 'other.v1' }]
+        ['unknown validator', { ...entities[ids.heroEntity].config!.recordPolicy!, validatorKey: 'other.v1' }],
+        [
+            'mismatched co-required group',
+            { ...entities[ids.heroEntity].config!.recordPolicy!, coRequiredGroups: [['TermsText', 'TermsLinkLabel']] }
+        ]
     ])('rejects a Hero binding Entity with a %s record policy', (_label, policy) => {
         const snapshot = createSnapshot([heroWidget(ids.widget, 'hero')])
         const heroEntity = snapshot.entities?.[ids.heroEntity]
@@ -211,25 +89,329 @@ describe('validateMarketingSnapshotLayouts', () => {
         ).not.toThrow()
     })
 
-    it('accepts static image widgets without an entity source', () => {
+    it('rejects snapshot bindings that exceed the runtime record limit', () => {
+        const snapshot = createSnapshot()
+        const slot = getLayoutWidgetDefinition('marketing.collection', { variant: 'logos' })?.bindingSlots?.find(
+            ({ key }) => key === 'items'
+        )
+        if (!slot?.maxResolvedRecords) throw new Error('Expected a bounded collection item slot')
+        const semanticKeyComponent = slot.requirements.components.find(({ semanticKey }) => semanticKey)
+        const sourceRows = snapshot.elements?.logos
+        const firstRow = Array.isArray(sourceRows) ? sourceRows[0] : undefined
+        if (!semanticKeyComponent || !firstRow || typeof firstRow !== 'object' || Array.isArray(firstRow)) {
+            throw new Error('Expected a seeded logo record fixture')
+        }
+        const firstData = (firstRow as Record<string, unknown>).data
+        if (!firstData || typeof firstData !== 'object' || Array.isArray(firstData)) throw new Error('Expected logo record data')
+
+        snapshot.elements!.logos = Array.from({ length: slot.maxResolvedRecords + 1 }, (_, index) => ({
+            id: `0190a9b5-3cde-7abc-8def-${String(index + 1).padStart(12, '0')}`,
+            data: {
+                ...(firstData as Record<string, unknown>),
+                [semanticKeyComponent.componentCodename]: `logo-${index + 1}`
+            }
+        }))
+
+        expect(() => validateMarketingSnapshotLayouts(snapshot)).toThrow('exceeds the registered maximum record count')
+    })
+
+    it('rejects malformed selected record values before publication', () => {
+        const snapshot = createSnapshot([collectionWidget(ids.widget, 'features', 'MarketingPageFeature')])
+        const records = snapshot.elements?.features
+        expect(Array.isArray(records)).toBe(true)
+        const firstRecord = (records as Array<Record<string, unknown>>)[0]
+        const data = firstRecord.data as Record<string, unknown>
+        data.Title = { en: 42, ru: 'Функция' }
+
+        expect(() => validateMarketingSnapshotLayouts(snapshot)).toThrow('Marketing snapshot bound record data is invalid')
+    })
+
+    it('rejects missing required Components on selected records before publication', () => {
+        const snapshot = createSnapshot([collectionWidget(ids.widget, 'features', 'MarketingPageFeature')])
+        const records = snapshot.elements?.features as Array<Record<string, unknown>>
+        const data = records[0]?.data as Record<string, unknown>
+        delete data.Description
+
+        expect(() => validateMarketingSnapshotLayouts(snapshot)).toThrow('Marketing snapshot bound record data is invalid')
+    })
+
+    it('rejects selected record values that do not match their Component data types', () => {
+        const snapshot = createSnapshot([collectionWidget(ids.widget, 'features', 'MarketingPageFeature')])
+        const records = snapshot.elements?.features as Array<Record<string, unknown>>
+        const data = records[0]?.data as Record<string, unknown>
+        data.SortOrder = '1'
+
+        expect(() => validateMarketingSnapshotLayouts(snapshot)).toThrow('Marketing snapshot bound record data is invalid')
+    })
+
+    it('rejects unsafe formatted media references before publication', () => {
+        const snapshot = createSnapshot([collectionWidget(ids.widget, 'logos')])
+        const records = snapshot.elements?.logos as Array<Record<string, unknown>>
+        const data = records[0]?.data as Record<string, unknown>
+        data.ImageLight = { type: 'url', url: 'javascript:alert(1)' }
+
+        expect(() => validateMarketingSnapshotLayouts(snapshot)).toThrow('Marketing snapshot bound record data is invalid')
+    })
+
+    it('validates data on relation-set child records before publication', () => {
+        const snapshot = createSnapshot([
+            {
+                id: ids.widget,
+                layoutId: ids.layout,
+                zone: 'marketing-main',
+                widgetKey: 'marketing.pricing',
+                sortOrder: 0,
+                config: boundWidgetConfig(
+                    'marketing.pricing',
+                    { instanceKey: 'pricing', showBenefits: true },
+                    {
+                        section: 'MarketingPageSection',
+                        tiers: 'MarketingPagePricing',
+                        benefits: 'MarketingPagePricingBenefit'
+                    },
+                    { section: 'pricing' }
+                ),
+                isActive: true
+            }
+        ])
+        const benefits = snapshot.elements?.benefits as Array<Record<string, unknown>>
+        const data = benefits[0]?.data as Record<string, unknown>
+        const tiers = snapshot.elements?.pricing as Array<Record<string, unknown>>
+        expect(data.TierRef).toBe(tiers[0]?.id)
+        data.Label = { en: 'Benefit', ru: 42 }
+
+        expect(() => validateMarketingSnapshotLayouts(snapshot)).toThrow('Marketing snapshot bound record data is invalid')
+    })
+
+    it.each([
+        ['targetEntityId', ids.heroEntity],
+        ['targetEntityKind', 'set']
+    ] as const)('rejects a relation REF Component with a mismatched %s before publication', (property, value) => {
+        const snapshot = createSnapshot([
+            {
+                id: ids.widget,
+                layoutId: ids.layout,
+                zone: 'marketing-main',
+                widgetKey: 'marketing.pricing',
+                sortOrder: 0,
+                config: boundWidgetConfig(
+                    'marketing.pricing',
+                    { instanceKey: 'pricing', showBenefits: true },
+                    {
+                        section: 'MarketingPageSection',
+                        tiers: 'MarketingPagePricing',
+                        benefits: 'MarketingPagePricingBenefit'
+                    },
+                    { section: 'pricing' }
+                ),
+                isActive: true
+            }
+        ])
+        const relationEntity = snapshot.entities?.benefits as Record<string, unknown>
+        const fields = relationEntity.fields as Array<Record<string, unknown>>
+        const relationField = fields.find(({ codename }) => codename === 'TierRef')
+        if (!relationField) throw new Error('Relation REF Component fixture is missing')
+        relationField[property] = value
+
+        expect(() => validateMarketingSnapshotLayouts(snapshot)).toThrow('Marketing snapshot relation Component targets another Entity')
+    })
+
+    it('ignores relation records whose parent is excluded by the parent visibility selector', () => {
+        const snapshot = createSnapshot([
+            {
+                id: ids.widget,
+                layoutId: ids.layout,
+                zone: 'marketing-main',
+                widgetKey: 'marketing.pricing',
+                sortOrder: 0,
+                config: boundWidgetConfig(
+                    'marketing.pricing',
+                    { instanceKey: 'pricing', showBenefits: true },
+                    {
+                        section: 'MarketingPageSection',
+                        tiers: 'MarketingPagePricing',
+                        benefits: 'MarketingPagePricingBenefit'
+                    },
+                    { section: 'pricing' }
+                ),
+                isActive: true
+            }
+        ])
+        const tiers = snapshot.elements?.pricing as Array<Record<string, unknown>>
+        const benefits = snapshot.elements?.benefits as Array<Record<string, unknown>>
+        const selectedTier = tiers[0]
+        const selectedBenefit = benefits[0]
+        if (!selectedTier || !selectedBenefit) throw new Error('Expected pricing relation fixtures')
+
+        const hiddenTierId = '0190a9b5-3cde-7abc-8def-0123456789b1'
+        tiers.push({
+            id: hiddenTierId,
+            data: { ...(selectedTier.data as Record<string, unknown>), TierKey: 'hidden-tier', SortOrder: 2, IsVisible: false }
+        })
+        benefits.push({
+            id: '0190a9b5-3cde-7abc-8def-0123456789b2',
+            data: { ...(selectedBenefit.data as Record<string, unknown>), BenefitKey: 'hidden-tier-benefit', TierRef: hiddenTierId }
+        })
+
+        expect(() => validateMarketingSnapshotLayouts(snapshot)).not.toThrow()
+    })
+
+    it('accepts an Entity-backed image widget without renderer-owned media', () => {
         const image = {
             id: ids.secondWidget,
             layoutId: ids.layout,
             zone: 'marketing-main',
             widgetKey: 'marketing.image',
             sortOrder: 1,
-            config: {
-                instanceKey: 'hero-image',
-                media: {
-                    kind: 'hero',
-                    resource: { type: 'url', url: 'https://example.test/hero.webp', launchMode: 'inline' },
-                    decorative: true
-                }
-            },
+            config: boundWidgetConfig(
+                'marketing.image',
+                { instanceKey: 'hero-image' },
+                { content: 'MarketingPageImage' },
+                { content: 'hero-image' }
+            ),
             isActive: true
         }
 
         expect(() => validateMarketingSnapshotLayouts(createSnapshot([collectionWidget(ids.widget, 'logos'), image]))).not.toThrow()
+    })
+
+    it('accepts a bound Marketing Image record with an empty optional ResourceSource', () => {
+        const image = {
+            id: ids.secondWidget,
+            layoutId: ids.layout,
+            zone: 'marketing-main',
+            widgetKey: 'marketing.image',
+            sortOrder: 1,
+            config: boundWidgetConfig(
+                'marketing.image',
+                { instanceKey: 'hero-image' },
+                { content: 'MarketingPageImage' },
+                { content: 'hero-image' }
+            ),
+            isActive: true
+        }
+        const snapshot = createSnapshot([collectionWidget(ids.widget, 'logos'), image])
+        const imageEntity = Object.entries(snapshot.entities ?? {}).find(([, entity]) => entity.codename === 'MarketingPageImage')
+        if (!imageEntity) throw new Error('Expected the Image binding Entity fixture')
+        const records = snapshot.elements?.[imageEntity[0]]
+        if (!Array.isArray(records) || !records[0] || typeof records[0] !== 'object') {
+            throw new Error('Expected the bound Image record fixture')
+        }
+        const data = (records[0] as { data: Record<string, unknown> }).data
+        data.Resource = null
+
+        expect(() => validateMarketingSnapshotLayouts(snapshot)).not.toThrow()
+    })
+
+    it('rejects nondecorative snapshot images without complete alternative text', () => {
+        const image = {
+            id: ids.secondWidget,
+            layoutId: ids.layout,
+            zone: 'marketing-main',
+            widgetKey: 'marketing.image',
+            sortOrder: 1,
+            config: boundWidgetConfig(
+                'marketing.image',
+                { instanceKey: 'hero-image' },
+                { content: 'MarketingPageImage' },
+                { content: 'hero-image' }
+            ),
+            isActive: true
+        }
+        const snapshot = createSnapshot([collectionWidget(ids.widget, 'logos'), image])
+        const imageEntity = Object.entries(snapshot.entities ?? {}).find(([, entity]) => entity.codename === 'MarketingPageImage')
+        if (!imageEntity) throw new Error('Expected the Image binding Entity fixture')
+        const records = snapshot.elements?.[imageEntity[0]]
+        if (!Array.isArray(records) || !records[0] || typeof records[0] !== 'object') {
+            throw new Error('Expected the bound Image record fixture')
+        }
+        const data = (records[0] as { data: Record<string, unknown> }).data
+        data.Decorative = false
+        delete data.AltText
+
+        expect(() => validateMarketingSnapshotLayouts(snapshot)).toThrow('bound record data is invalid')
+    })
+
+    it('rejects nondecorative snapshot images with English-only alternative text', () => {
+        const image = {
+            id: ids.secondWidget,
+            layoutId: ids.layout,
+            zone: 'marketing-main',
+            widgetKey: 'marketing.image',
+            sortOrder: 1,
+            config: boundWidgetConfig(
+                'marketing.image',
+                { instanceKey: 'hero-image' },
+                { content: 'MarketingPageImage' },
+                { content: 'hero-image' }
+            ),
+            isActive: true
+        }
+        const snapshot = createSnapshot([collectionWidget(ids.widget, 'logos'), image])
+        const imageEntity = Object.entries(snapshot.entities ?? {}).find(([, entity]) => entity.codename === 'MarketingPageImage')
+        if (!imageEntity) throw new Error('Expected the Image binding Entity fixture')
+        const records = snapshot.elements?.[imageEntity[0]]
+        if (!Array.isArray(records) || !records[0] || typeof records[0] !== 'object') {
+            throw new Error('Expected the bound Image record fixture')
+        }
+        const data = (records[0] as { data: Record<string, unknown> }).data
+        data.Decorative = false
+        data.AltText = localizedVlc('A descriptive image')
+
+        expect(() => validateMarketingSnapshotLayouts(snapshot)).toThrow('bound record data is invalid')
+    })
+
+    it('accepts decorative snapshot images with intentionally empty alternative text', () => {
+        const image = {
+            id: ids.secondWidget,
+            layoutId: ids.layout,
+            zone: 'marketing-main',
+            widgetKey: 'marketing.image',
+            sortOrder: 1,
+            config: boundWidgetConfig(
+                'marketing.image',
+                { instanceKey: 'hero-image' },
+                { content: 'MarketingPageImage' },
+                { content: 'hero-image' }
+            ),
+            isActive: true
+        }
+        const snapshot = createSnapshot([collectionWidget(ids.widget, 'logos'), image])
+        const imageEntity = Object.entries(snapshot.entities ?? {}).find(([, entity]) => entity.codename === 'MarketingPageImage')
+        if (!imageEntity) throw new Error('Expected the Image binding Entity fixture')
+        const records = snapshot.elements?.[imageEntity[0]]
+        if (!Array.isArray(records) || !records[0] || typeof records[0] !== 'object') {
+            throw new Error('Expected the bound Image record fixture')
+        }
+        const data = (records[0] as { data: Record<string, unknown> }).data
+        data.Decorative = true
+        data.AltText = localizedVlc('', '')
+
+        expect(() => validateMarketingSnapshotLayouts(snapshot)).not.toThrow()
+    })
+
+    it.each(['source', 'copySource'] as const)('rejects legacy marketing %s renderer configuration', (field) => {
+        const snapshot = createSnapshot()
+        const widget = snapshot.layoutZoneWidgets?.[0]
+        if (!widget) throw new Error('Expected marketing collection widget')
+        const decoded = decodeWidgetConfigEnvelope(widget.config, {
+            templateKey: 'marketing-page',
+            widgetKey: 'marketing.collection',
+            zone: 'marketing-main',
+            requireBindings: true
+        })
+        widget.config = encodeWidgetConfigEnvelope(
+            {
+                rendererConfig: {
+                    ...decoded.rendererConfig,
+                    [field]: { entityKind: 'object', entityCodename: 'MarketingPageLogo' }
+                },
+                neutral: decoded.neutral
+            },
+            { templateKey: 'marketing-page', widgetKey: 'marketing.collection', zone: 'marketing-main' }
+        )
+
+        expect(() => validateMarketingSnapshotLayouts(snapshot)).toThrow('Marketing snapshot widget configuration is invalid')
     })
 
     it('rejects an empty or inactive marketing composition', () => {
@@ -379,8 +561,25 @@ describe('validateMarketingSnapshotLayouts', () => {
         expect(() => validateMarketingSnapshotLayouts(snapshot)).toThrow('Component does not match its registered contract')
     })
 
-    it('validates bound Hero configuration in scoped widget overrides', () => {
+    it('accepts binding-free Marketing renderer and placement deltas', () => {
         const snapshot = createSnapshot([heroWidget(ids.widget, 'hero')])
+        const authConfig = encodeWidgetConfigEnvelope(
+            { rendererConfig: { instanceKey: 'auth', showAuthActions: true }, neutral: { placement: 'end' } },
+            { templateKey: 'marketing-page', widgetKey: 'marketing.auth', zone: 'marketing-header' }
+        )
+        const authOverrideConfig = encodeWidgetConfigEnvelope(
+            { rendererConfig: { instanceKey: 'auth', showAuthActions: false }, neutral: { placement: 'start' } },
+            { templateKey: 'marketing-page', widgetKey: 'marketing.auth', zone: 'marketing-header' }
+        )
+        snapshot.layoutZoneWidgets!.push({
+            id: ids.secondWidget,
+            layoutId: ids.layout,
+            zone: 'marketing-header',
+            widgetKey: 'marketing.auth',
+            sortOrder: 1,
+            config: authConfig,
+            isActive: true
+        })
         snapshot.scopedLayouts = [
             {
                 id: ids.scopedLayout,
@@ -401,21 +600,54 @@ describe('validateMarketingSnapshotLayouts', () => {
                 layoutId: ids.scopedLayout,
                 baseWidgetId: ids.widget,
                 zone: 'marketing-main',
-                config: heroWidget(ids.secondWidget, 'hero').config,
+                config: { instanceKey: 'hero', showLeadForm: false },
+                isDeletedOverride: false
+            },
+            {
+                id: ids.secondOverride,
+                layoutId: ids.scopedLayout,
+                baseWidgetId: ids.secondWidget,
+                zone: 'marketing-header',
+                config: authOverrideConfig,
                 isDeletedOverride: false
             }
         ]
 
         expect(() => validateMarketingSnapshotTransportLayouts(snapshot)).not.toThrow()
 
-        snapshot.layoutWidgetOverrides[0]!.config = { instanceKey: 'hero' }
-        expect(() => validateMarketingSnapshotTransportLayouts(snapshot)).toThrow('widget override binding is invalid')
+        snapshot.layoutWidgetOverrides[0]!.config = heroWidget(ids.secondWidget, 'hero').config
+        expect(() => validateMarketingSnapshotTransportLayouts(snapshot)).toThrow('cannot contain entity bindings')
+    })
+
+    it('rejects Entity-backed Marketing widgets stored directly on a scoped overlay layout', () => {
+        const snapshot = createSnapshot([heroWidget(ids.widget, 'base-hero')])
+        snapshot.scopedLayouts = [
+            {
+                id: ids.scopedLayout,
+                scopeEntityId: ids.scopeEntity,
+                baseLayoutId: ids.layout,
+                compositionMode: 'overlay',
+                templateKey: 'marketing-page',
+                name: { en: 'Scoped marketing page' },
+                config: {},
+                isDefault: false,
+                isActive: true,
+                sortOrder: 0
+            }
+        ]
+        snapshot.layoutZoneWidgets!.push({
+            ...heroWidget(ids.secondWidget, 'overlay-owned-hero'),
+            layoutId: ids.scopedLayout
+        })
+
+        expect(() => validateMarketingSnapshotLayouts(snapshot)).toThrow('Marketing overlay widgets cannot own Entity bindings')
+        expect(() => validateMarketingSnapshotTransportLayouts(snapshot)).toThrow('Marketing overlay widgets cannot own Entity bindings')
     })
 
     it('rejects missing source entities, invalid zones, and non-v7 identifiers', () => {
         const missingSource = createSnapshot()
         delete missingSource.entities?.logos
-        expect(() => validateMarketingSnapshotLayouts(missingSource)).toThrow('source entity is missing')
+        expect(() => validateMarketingSnapshotLayouts(missingSource)).toThrow('binding entity is missing')
 
         const invalidZone = createSnapshot()
         invalidZone.layoutZoneWidgets![0]!.zone = 'marketing-footer'
@@ -675,16 +907,21 @@ describe('validateMarketingSnapshotLayouts', () => {
                 zone: 'marketing-main',
                 widgetKey: 'marketing.pricing',
                 sortOrder: 0,
-                config: {
-                    instanceKey: 'pricing',
-                    source: { entityCodename: 'MarketingPagePricing', entityKind: 'object' },
-                    showBenefits: true
-                },
+                config: boundWidgetConfig(
+                    'marketing.pricing',
+                    { instanceKey: 'pricing', showBenefits: true },
+                    {
+                        section: 'MarketingPageSection',
+                        tiers: 'MarketingPagePricing',
+                        benefits: 'MarketingPagePricingBenefit'
+                    },
+                    { section: 'pricing' }
+                ),
                 isActive: true
             }
         ])
         delete pricing.entities?.benefits
-        expect(() => validateMarketingSnapshotLayouts(pricing)).toThrow('source entity is missing')
+        expect(() => validateMarketingSnapshotLayouts(pricing)).toThrow('binding entity is missing')
     })
 })
 

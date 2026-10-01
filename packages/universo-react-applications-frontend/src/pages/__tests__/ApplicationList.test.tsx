@@ -1026,10 +1026,8 @@ describe('ApplicationList', () => {
 
         it('should persist view preference to localStorage', async () => {
             // Force a deterministic initial view (card) so clicking "list" always triggers a change.
-            const getItemSpy = vi
-                .spyOn(window.localStorage, 'getItem')
-                .mockImplementation((key: string) => (key === 'applicationsApplicationDisplayStyle' ? 'card' : null))
-            const setItemSpy = vi.spyOn(window.localStorage, 'setItem')
+            const storageKey = 'applicationsApplicationDisplayStyle'
+            window.localStorage.setItem(storageKey, 'card')
 
             const { user, container } = renderWithProviders(<ApplicationList />)
 
@@ -1040,15 +1038,15 @@ describe('ApplicationList', () => {
             // Prefer a stable selector over translated title text.
             const listViewButton = container.querySelector('button[value="list"]') as HTMLElement | null
             expect(listViewButton).toBeTruthy()
+            try {
+                await user.click(listViewButton as HTMLElement)
 
-            await user.click(listViewButton as HTMLElement)
-
-            await waitFor(() => {
-                expect(setItemSpy).toHaveBeenCalledWith('applicationsApplicationDisplayStyle', 'list')
-            })
-
-            getItemSpy.mockRestore()
-            setItemSpy.mockRestore()
+                await waitFor(() => {
+                    expect(window.localStorage.getItem(storageKey)).toBe('list')
+                })
+            } finally {
+                window.localStorage.removeItem(storageKey)
+            }
         })
     })
 

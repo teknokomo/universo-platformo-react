@@ -28,7 +28,8 @@ import {
     isRuntimeRecordBehaviorEnabled,
     normalizeRuntimeRecordBehavior
 } from './runtimeRecordBehavior'
-import { buildRuntimeRecordRuleLockKey, evaluateRuntimeRecordRules } from './runtimeRecordRules'
+import { evaluateRuntimeRecordRules } from './runtimeRecordRules'
+import { buildRuntimeRecordRuleLockKey } from './runtimeRecordRuleLockKey'
 import { assertMarketingRuntimeRowCap } from '../controllers/runtimeRowSupport/rows'
 import { assertRuntimeEntityMutationAllowed } from '../shared/entityMutationPolicy'
 import {
@@ -1272,6 +1273,7 @@ export class RuntimeModulesService {
             assertRuntimeEntityMutationAllowed(binding.object.config)
             await assertMarketingRuntimeRowCap({
                 manager: txExecutor,
+                schemaName: params.schemaName,
                 schemaIdent: quoteIdentifier(params.schemaName),
                 tableName: binding.tableName,
                 runtimeRowCondition: binding.activeRowCondition,

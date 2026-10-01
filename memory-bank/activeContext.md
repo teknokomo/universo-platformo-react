@@ -64,7 +64,7 @@
 ## Current Platform Baseline
 
 -   Repository version: `0.83.0-alpha`; latest published GitHub release in the Memory Bank table is `0.81.0-alpha` (2026-09-14).
--   Package manager: `pnpm@12.4.1`; Turbo: `2.10.12`; Node root requirement: `>=22.6.0`.
+-   Package manager: `pnpm@12.4.1`; Turbo: `2.10.12`; Node root requirement: `>=22.12.0` (Vite 7 compatibility).
 -   UI baseline: React 18.3.1, Material UI Core 9.2.0, MUI X 9.8.0.
 -   Built-in templates: `basic`, `basic-demo`, `empty`, `lms`, `1c-compatible`, `playcanvas`, `interpretation-network`, `marketing-page`.
 -   Core entity presets: `hub`, `object`, `project`, `page`, `set`, `enumeration`, `ledger`, `fixed-values-library`; 1C-compatible template registers additional specialized presets.

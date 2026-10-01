@@ -77,6 +77,8 @@ const publicPayload = () => ({
     },
     templateKey: 'marketing-page' as const,
     marketingPage: {
+        headerPosition: 'fixed' as const,
+        headerWidgets: [],
         widgets: [
             {
                 instanceKey: 'hero',

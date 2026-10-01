@@ -1,6 +1,8 @@
 import {
     isKnownMarketingInternalRoute,
     marketingActionSchema,
+    marketingMediaReferenceSchema,
+    normalizeWidgetBindingDataType,
     resolveEntityRecordPolicy,
     type EntityRecordPolicy
 } from '@universo-react/types'
@@ -8,6 +10,7 @@ import { generateUuidV7 } from '@universo-react/utils'
 
 type RecordPolicyComponent = {
     codename: string
+    dataType?: string
     isRequired: boolean
     validationRules?: Record<string, unknown>
 }
@@ -17,8 +20,6 @@ type RecordPolicyValidation = {
     errors: string[]
 }
 
-type PolicyValidator = (data: Record<string, unknown>, policy: EntityRecordPolicy) => string[]
-
 const isRecord = (value: unknown): value is Record<string, unknown> => Boolean(value && typeof value === 'object' && !Array.isArray(value))
 
 const hasActiveLocalizedText = (value: unknown): boolean => {
@@ -26,6 +27,41 @@ const hasActiveLocalizedText = (value: unknown): boolean => {
     return Object.values(value.locales).some(
         (entry) => isRecord(entry) && entry.isActive !== false && typeof entry.content === 'string' && entry.content.trim().length > 0
     )
+}
+
+const hasPolicyValue = (value: unknown): boolean => {
+    if (value === undefined || value === null) return false
+    if (typeof value === 'string') return value.trim().length > 0
+    if (isRecord(value) && isRecord(value.locales)) return hasActiveLocalizedText(value)
+    return true
+}
+
+const hasRequiredPolicyValue = (value: unknown, component: RecordPolicyComponent): boolean => {
+    if (value === undefined || value === null) return false
+
+    switch (normalizeWidgetBindingDataType(component.dataType)) {
+        case 'STRING':
+        case 'DATE':
+        case 'REF':
+            return typeof value === 'string' && value.trim().length > 0
+        case 'NUMBER':
+            return typeof value === 'number' && Number.isFinite(value)
+        case 'BOOLEAN':
+            return typeof value === 'boolean'
+        case 'TABLE':
+            return Array.isArray(value) && value.length > 0
+        case 'JSON':
+            return true
+        default:
+            return hasPolicyValue(value)
+    }
+}
+
+const matchesConditionalValueType = (component: RecordPolicyComponent | undefined, value: string | number | boolean): boolean => {
+    if (!component?.dataType) return false
+    const normalizedType = normalizeWidgetBindingDataType(component.dataType)
+    const expectedType = typeof value === 'boolean' ? 'BOOLEAN' : typeof value === 'number' ? 'NUMBER' : 'STRING'
+    return normalizedType === expectedType
 }
 
 const validateLocalizedString = (value: unknown, field: string, required: boolean, requiredLocales: readonly string[]): string[] => {
@@ -42,8 +78,7 @@ const validateLocalizedString = (value: unknown, field: string, required: boolea
     return errors
 }
 
-const validateAction = (data: Record<string, unknown>, field: string, required: boolean): string[] => {
-    const value = data[field]
+const validateAction = (value: unknown, field: string, required: boolean): string[] => {
     if (value === undefined || value === null || value === '') return required ? [`${field}.required`] : []
 
     const parsed = marketingActionSchema.safeParse(value)
@@ -68,52 +103,6 @@ const validateAction = (data: Record<string, unknown>, field: string, required: 
     return []
 }
 
-const validateMarketingHeroV1: PolicyValidator = (data, policy) => {
-    const locales = policy.requiredLocales ?? []
-    const errors = [
-        ...validateLocalizedString(data.Title, 'Title', true, locales),
-        ...validateLocalizedString(data.Description, 'Description', true, locales),
-        ...validateLocalizedString(data.EmailLabel, 'EmailLabel', true, locales),
-        ...validateLocalizedString(data.EmailPlaceholder, 'EmailPlaceholder', true, locales),
-        ...validateLocalizedString(data.PrimaryActionLabel, 'PrimaryActionLabel', true, locales),
-        ...validateLocalizedString(data.Accent, 'Accent', false, locales),
-        ...validateAction(data, 'PrimaryAction', true)
-    ]
-
-    const hasTerms = ['TermsText', 'TermsLinkLabel', 'TermsAction'].some((field) => data[field] !== undefined && data[field] !== null)
-    if (hasTerms) {
-        errors.push(...validateLocalizedString(data.TermsText, 'TermsText', true, locales))
-        errors.push(...validateLocalizedString(data.TermsLinkLabel, 'TermsLinkLabel', true, locales))
-        errors.push(...validateAction(data, 'TermsAction', true))
-    }
-
-    return errors
-}
-
-const policyValidators: Readonly<Record<string, PolicyValidator>> = {
-    'marketing.hero.v1': validateMarketingHeroV1
-}
-
-/** Check the full server-owned Hero policy before authoring, binding, or publication. */
-export const isAuthoritativeMarketingHeroRecordPolicy = (policy: EntityRecordPolicy | undefined): policy is EntityRecordPolicy => {
-    const semanticKey = policy?.semanticKey
-    const requiredLocales = policy?.requiredLocales ?? []
-    return Boolean(
-        policy?.version === 1 &&
-            semanticKey?.componentCodename === 'HeroKey' &&
-            semanticKey.creationPrefix === 'hero' &&
-            semanticKey.protectedValues.length === 1 &&
-            semanticKey.protectedValues[0] === 'default' &&
-            policy.denyDeleteWhenBound === true &&
-            policy.immutableSemanticKeyWhenBound === true &&
-            policy.runtimeMutation === 'deny' &&
-            requiredLocales.length === 2 &&
-            requiredLocales.includes('en') &&
-            requiredLocales.includes('ru') &&
-            policy.validatorKey === 'marketing.hero.v1'
-    )
-}
-
 /** Replace client-provided semantic IDs with a server-generated UUID v7 key. */
 export const prepareEntityRecordCreationData = (
     policy: EntityRecordPolicy | undefined,
@@ -126,7 +115,7 @@ export const prepareEntityRecordCreationData = (
     }
 }
 
-/** Validate policy metadata and values without leaking content into errors. */
+/** Validate generic record-policy constraints and component-declared Marketing formats. */
 export const validateEntityRecordPolicyData = (
     policy: EntityRecordPolicy | undefined,
     data: Record<string, unknown>,
@@ -140,22 +129,59 @@ export const validateEntityRecordPolicyData = (
         if (typeof key !== 'string' || key.trim().length === 0) errors.push(`${policy.semanticKey.componentCodename}.required`)
     }
 
-    const requiredLocales = policy.requiredLocales ?? []
-    for (const component of components) {
-        if (component.validationRules?.localized !== true) continue
-        const value = data[component.codename]
-        const authored = hasActiveLocalizedText(value)
-        if (component.isRequired || authored) {
-            errors.push(...validateLocalizedString(value, component.codename, component.isRequired, requiredLocales))
+    const componentCodenames = new Set(components.map(({ codename }) => codename))
+    const componentsByCodename = new Map(components.map((component) => [component.codename, component]))
+    const groupRequiredCodenames = new Set<string>()
+    for (const group of policy.coRequiredGroups ?? []) {
+        if (group.some((codename) => !componentCodenames.has(codename))) {
+            errors.push('recordPolicy.invalid_co_required_group')
+            continue
+        }
+        if (group.some((codename) => hasPolicyValue(data[codename]))) {
+            group.forEach((codename) => groupRequiredCodenames.add(codename))
         }
     }
 
-    if (policy.validatorKey) {
-        const validator = policyValidators[policy.validatorKey]
-        if (!validator) {
-            errors.push('recordPolicy.unsupported_validator')
-        } else {
-            errors.push(...validator(data, policy))
+    const requiredLocales = policy.requiredLocales ?? []
+    const conditionallyRequiredCodenames = new Set<string>()
+    for (const rule of policy.conditionalRequired ?? []) {
+        const target = componentsByCodename.get(rule.componentCodename)
+        const condition = componentsByCodename.get(rule.when.componentCodename)
+        if (
+            !target ||
+            target.isRequired ||
+            !condition ||
+            condition.validationRules?.localized === true ||
+            !matchesConditionalValueType(condition, rule.when.equals)
+        ) {
+            errors.push('recordPolicy.invalid_conditional_requirement')
+            continue
+        }
+        if (data[condition.codename] === rule.when.equals) conditionallyRequiredCodenames.add(target.codename)
+    }
+
+    for (const component of components) {
+        const value = data[component.codename]
+        const required =
+            component.isRequired || groupRequiredCodenames.has(component.codename) || conditionallyRequiredCodenames.has(component.codename)
+        if (component.validationRules?.localized === true) {
+            if (required || hasActiveLocalizedText(value)) {
+                errors.push(...validateLocalizedString(value, component.codename, required, requiredLocales))
+            }
+            continue
+        }
+
+        if (required && !hasRequiredPolicyValue(value, component)) errors.push(`${component.codename}.required`)
+
+        const format = component.validationRules?.format
+        if (format === 'marketingAction') {
+            errors.push(...validateAction(value, component.codename, required))
+        } else if (
+            format === 'marketingMediaReference' &&
+            hasPolicyValue(value) &&
+            !marketingMediaReferenceSchema.safeParse(value).success
+        ) {
+            errors.push(`${component.codename}.invalid_media_reference`)
         }
     }
 

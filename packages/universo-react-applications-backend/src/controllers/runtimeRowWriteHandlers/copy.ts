@@ -328,6 +328,7 @@ export const executeCopyRowTransaction = async (params: {
     await assertInterpretationNetworkGenericCreateAllowed(params.executor, params.ctx, params.applicationId, params.objectCollection.id)
     await assertMarketingRuntimeRowCap({
         manager: params.executor,
+        schemaName: params.ctx.schemaName,
         schemaIdent: params.ctx.schemaIdent,
         tableName: params.objectCollection.table_name,
         runtimeRowCondition: params.runtimeRowCondition,

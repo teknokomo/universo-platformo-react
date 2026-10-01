@@ -143,14 +143,19 @@ export function toFixedValueDisplay(constant: FixedValue, locale = 'en'): FixedV
 
 /** Convert RecordItem to RecordItemDisplay for table rendering */
 export function toRecordItemDisplay(element: RecordItem, components: Component[] = [], locale = 'en'): RecordItemDisplay {
-    const displayComponent = components.find((component) => component.isDisplayComponent)
-    const fallbackComponent = components.find((component) => component.dataType === 'STRING')
+    const displayableComponents = components.filter(
+        (component) => component.uiConfig?.hidden !== true && component.uiConfig?.gridHidden !== true
+    )
+    const displayComponent = displayableComponents.find((component) => component.isDisplayComponent)
+    const fallbackComponent = displayableComponents.find((component) => component.dataType === 'STRING')
     const selectedComponent = displayComponent || fallbackComponent
     const rawValue = selectedComponent ? element.data[selectedComponent.codename] : undefined
     const nameValue =
         selectedComponent && rawValue !== undefined && rawValue !== null
             ? getVLCString(rawValue as VersatileLocalizedContent, locale) || String(rawValue)
-            : `Element ${element.id.slice(0, 8)}`
+            : locale.toLowerCase().startsWith('ru')
+            ? 'Запись'
+            : 'Record'
 
     return {
         ...element,

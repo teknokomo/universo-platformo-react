@@ -83,6 +83,8 @@ const publicPayload = (matchedAlias: string, canonicalAlias: string | null = nul
     },
     templateKey: 'marketing-page' as const,
     marketingPage: {
+        headerPosition: 'fixed' as const,
+        headerWidgets: [],
         widgets: [
             {
                 instanceKey: 'hero',
@@ -140,18 +142,67 @@ describe('PublicApplicationRuntime', () => {
         renderPublicRuntime('/a/secondary?locale=ru')
 
         expect(await screen.findByTestId('public-marketing-runtime')).toBeInTheDocument()
-        expect(publicRuntimeMocks.getPublicApplicationRuntime).toHaveBeenCalledWith('secondary', 'ru')
+        expect(publicRuntimeMocks.getPublicApplicationRuntime).toHaveBeenCalledWith('secondary', 'ru', undefined)
         expect(publicRuntimeMocks.getApplicationEffectiveLayout).not.toHaveBeenCalled()
+        expect(publicRuntimeMocks.marketingProps?.effectiveLayoutWidgets).toEqual([])
         expect(publicRuntimeMocks.marketingProps).toMatchObject({
             applicationId: 'secondary',
             locale: 'ru',
-            apiBaseUrl: '/api/v1'
+            apiBaseUrl: '/api/v1',
+            effectiveLayoutConfig: {
+                templateKey: 'marketing-page',
+                zoneSettings: { 'marketing-header': { position: 'fixed' } }
+            }
         })
         expect(publicRuntimeMocks.marketingProps?.runtimePayload).toEqual({
             templateKey: 'marketing-page',
             marketingPage: publicPayload('secondary').marketingPage
         })
         expect(publicRuntimeMocks.marketingProps).not.toHaveProperty('workspaceId')
+    })
+
+    it('passes the allowlisted public header position to the isolated marketing renderer', async () => {
+        publicRuntimeMocks.getPublicApplicationRuntime.mockResolvedValue({
+            ...publicPayload('secondary'),
+            marketingPage: { ...publicPayload('secondary').marketingPage, headerPosition: 'flow' }
+        })
+
+        renderPublicRuntime('/a/secondary?locale=en')
+
+        expect(await screen.findByTestId('public-marketing-runtime')).toBeInTheDocument()
+        expect(publicRuntimeMocks.marketingProps).toMatchObject({
+            effectiveLayoutConfig: {
+                templateKey: 'marketing-page',
+                zoneSettings: { 'marketing-header': { position: 'flow' } }
+            }
+        })
+    })
+
+    it('requests an anonymous entity-scoped runtime using the target from the visitor URL', async () => {
+        publicRuntimeMocks.getPublicApplicationRuntime.mockResolvedValue(publicPayload('secondary'))
+        const entityTypeId = '0190a9b5-3cde-7abc-8def-0123456789ac'
+
+        renderPublicRuntime(`/a/secondary?targetKind=object&entityTypeId=${entityTypeId}&locale=en`)
+
+        expect(await screen.findByTestId('public-marketing-runtime')).toBeInTheDocument()
+        expect(publicRuntimeMocks.getPublicApplicationRuntime).toHaveBeenCalledWith('secondary', 'en', {
+            targetKind: 'object',
+            entityTypeId
+        })
+    })
+
+    it('sends a fail-closed target when a visitor URL repeats an entity selector', async () => {
+        publicRuntimeMocks.getPublicApplicationRuntime.mockResolvedValue(publicPayload('secondary'))
+
+        renderPublicRuntime(
+            '/a/secondary?targetKind=object&entityTypeId=0190a9b5-3cde-7abc-8def-0123456789ac&entityTypeId=0190a9b5-3cde-7abc-8def-0123456789ad'
+        )
+
+        expect(await screen.findByTestId('public-marketing-runtime')).toBeInTheDocument()
+        expect(publicRuntimeMocks.getPublicApplicationRuntime).toHaveBeenCalledWith('secondary', 'en', {
+            targetKind: 'object',
+            entityTypeId: ''
+        })
     })
 
     it('replaces a canonical secondary alias while preserving the remaining path and query', async () => {

@@ -12,7 +12,6 @@ import {
     toMarketingActionLinkAttributes
 } from '../marketingPage'
 
-const uuidV7 = '0190a9b5-3cde-7abc-8def-0123456789ab'
 const localized = { en: 'English', ru: 'Русский' }
 
 describe('marketing page validation utilities', () => {
@@ -134,7 +133,6 @@ describe('marketing page validation utilities', () => {
                     }
                 ],
                 runtime: {
-                    layoutId: uuidV7,
                     layoutVersion: 1,
                     layoutHash: 'a'.repeat(64)
                 }

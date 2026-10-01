@@ -145,3 +145,20 @@ export const applyCopySuffixToFirstStringComponent = (params: {
         [fieldKey]: `${getCopyLabelByLocale(locale)}${defaultSuffix}`
     }
 }
+
+export const prepareRecordCopyInitialData = (params: {
+    sourceData: Record<string, unknown>
+    components: Array<{ dataType: string; codename: string; uiConfig?: Record<string, unknown> }>
+    locale: string
+}): Record<string, unknown> => {
+    const copiedData = applyCopySuffixToFirstStringComponent({
+        ...params,
+        components: params.components
+            .filter((component) => component.uiConfig?.hidden !== true)
+            .map(({ dataType, codename }) => ({ dataType, codename }))
+    })
+    for (const component of params.components) {
+        if (component.uiConfig?.autoGenerateSemanticKey === true) delete copiedData[component.codename]
+    }
+    return copiedData
+}

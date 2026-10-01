@@ -10,7 +10,7 @@ import {
 import { isUuidV7, type DbExecutor } from '@universo-react/utils'
 import { getApplicationLayoutWidgetSourceBindingState } from './applicationLayoutStoreSupport'
 import { resolveRuntimeCodenameText, runtimeCodenameTextSql, runtimeObjectFilterSql } from '../shared/runtimeHelpers'
-import { isCompatibleMarketingHeroObject } from '../services/marketingHeroEntityBinding'
+import { isCompatibleMarketingWidgetObject } from '../services/marketingWidgetEntityBinding'
 
 const HERO_WIDGET_KEY = 'marketing.hero'
 const MAX_BOUND_HERO_RECORDS = 1000
@@ -137,9 +137,11 @@ const loadBoundHeroRows = async (
     )
 
     if (
-        !isCompatibleMarketingHeroObject(
+        !isCompatibleMarketingWidgetObject(
             { kind: object.kind, config: object.config },
-            componentRows.map((row) => ({ ...row, codename: resolveRuntimeCodenameText(row.codename) }))
+            componentRows.map((row) => ({ ...row, codename: resolveRuntimeCodenameText(row.codename) })),
+            HERO_WIDGET_KEY,
+            'content'
         )
     )
         return failIntegrity()

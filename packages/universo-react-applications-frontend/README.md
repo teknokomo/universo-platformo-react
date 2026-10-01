@@ -41,7 +41,7 @@ Frontend application for managing applications and connectors in the Universo Pl
 -   **Runtime-Safe Toggles**: Inactive layouts and widgets remain editable but are excluded from runtime rendering.
 -   **Runtime Widget Overrides**: Application-level settings update materialized widget configuration for the deployed instance without changing the source metahub template.
 -   **Widget Instance Rules**: The layout editor keeps repeatable compatible widgets available after placement, while server validation reserves single-instance shell widgets such as `appNavbar` and `header`. Each placement has its own server-owned identity.
--   **Marketing Hero Ownership**: The published metahub supplies source-bound `marketing.hero` widgets. The application layout editor does not offer them for addition, and the backend rejects forged entity-backed additions and layout copies containing Hero; the content binding stays source-owned.
+-   **Marketing Page Ownership**: Published metahub layouts supply source-managed Entity-backed Marketing placements. Application edits are limited to registered presentation and placement state; bindings remain source-owned and cannot be created or rebound through renderer configuration. Add and Duplicate are hidden for these placements. Customized widgets with an available source baseline expose Reset to source. Use Metahub authoring for source placements and content.
 -   **Zone Settings**: The shared layout authoring surface exposes registry-backed zone settings, including the marketing header `fixed`/`flow` behavior, sparse inherited values, targeted reset, and read-only/conflict states.
 
 ### 🎨 User Interface
@@ -86,7 +86,7 @@ Frontend application for managing applications and connectors in the Universo Pl
 
 ```bash
 # System requirements
-Node.js >= 22.6.0
+Node.js >= 22.12.0
 PNPM >= 10.0.0
 ```
 

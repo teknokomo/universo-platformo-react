@@ -9,7 +9,12 @@ import {
     resolveTemplateSeedCodenameConfig
 } from '../../domains/templates/services/TemplateSeedExecutor'
 import { TemplateSeedMigrator } from '../../domains/templates/services/TemplateSeedMigrator'
-import { createTemplateSeedElements } from '../../domains/templates/services/templateSeedElements'
+import {
+    buildTemplateSeedComponentMap,
+    buildTemplateSeedElementMapKey,
+    createTemplateSeedElements,
+    resolveTemplateSeedElementData
+} from '../../domains/templates/services/templateSeedElements'
 import { resolveWidgetTableName } from '../../domains/templates/services/widgetTableResolver'
 import { basicTemplate } from '../../domains/templates/data/basic.template'
 import { marketingPageTemplate } from '../../domains/templates/data/marketing-page.template'
@@ -158,6 +163,42 @@ describe('Template seed services transaction scope', () => {
             expect(codename?.locales?.ru).toBeUndefined()
             expect(entity.name.locales.ru?.content).toBeTruthy()
         }
+    })
+
+    it('resolves every seeded Pricing benefit TierRef to the generated Pricing record UUID', () => {
+        const entities = marketingPageTemplate.seed.entities ?? []
+        const componentsByEntity = buildTemplateSeedComponentMap(entities)
+        const benefitComponents = componentsByEntity.get('MarketingPagePricingBenefit')
+        expect(benefitComponents?.get('TierRef')).toMatchObject({
+            dataType: 'REF',
+            targetEntityCodename: 'MarketingPagePricing',
+            targetEntityKind: 'object'
+        })
+        if (!benefitComponents) throw new Error('Pricing benefit seed Components are required')
+
+        const generatedPricingIds = new Map([
+            [buildTemplateSeedElementMapKey('MarketingPagePricing', 'free'), '0190a9b5-3cde-7abc-8def-0123456789a1'],
+            [buildTemplateSeedElementMapKey('MarketingPagePricing', 'professional'), '0190a9b5-3cde-7abc-8def-0123456789a2'],
+            [buildTemplateSeedElementMapKey('MarketingPagePricing', 'enterprise'), '0190a9b5-3cde-7abc-8def-0123456789a3']
+        ])
+        const benefits = marketingPageTemplate.seed.elements?.MarketingPagePricingBenefit ?? []
+        const resolvedTierIds = benefits.map(({ codename, data }) => {
+            const resolved = resolveTemplateSeedElementData(data, benefitComponents, new Map(), generatedPricingIds)
+            const originalTierKey = data.TierRef
+            expect(typeof originalTierKey).toBe('string')
+            return {
+                codename,
+                tierId: resolved.TierRef,
+                expectedId: generatedPricingIds.get(`MarketingPagePricing:${String(originalTierKey)}`)
+            }
+        })
+
+        expect(resolvedTierIds).toHaveLength(14)
+        for (const resolved of resolvedTierIds) {
+            expect(resolved.tierId).toBe(resolved.expectedId)
+            expect(resolved.tierId).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu)
+        }
+        expect(new Set(resolvedTierIds.map(({ codename }) => codename)).size).toBe(14)
     })
 
     it('remaps seeded hub references after all entities are inserted', async () => {

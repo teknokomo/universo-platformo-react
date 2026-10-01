@@ -1,14 +1,11 @@
 import { getMarketingSectionAnchorEntries } from '@universo-react/types'
-import type { MarketingHeroBindingTarget } from './marketingHeroBindingsStore'
+import type { MarketingHeroEntityContent } from '@universo-react/types'
 import { MetahubValidationError } from '../shared/domainErrors'
 
 type MarketingSectionWidget = Parameters<typeof getMarketingSectionAnchorEntries>[0][number]
 
 /** Ensure persisted Hero anchor actions resolve to active sections in their layout. */
-export const validateMarketingHeroActionTargets = (
-    data: MarketingHeroBindingTarget['data'],
-    widgets: readonly MarketingSectionWidget[]
-): void => {
+export const validateMarketingHeroActionTargets = (data: MarketingHeroEntityContent, widgets: readonly MarketingSectionWidget[]): void => {
     const validTargets = new Set(getMarketingSectionAnchorEntries(widgets).map(([key]) => `#${key}`))
     for (const action of [data.primaryAction, data.termsAction]) {
         if (action?.kind === 'anchor' && !validTargets.has(action.href)) {

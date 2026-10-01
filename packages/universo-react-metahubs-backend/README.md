@@ -64,12 +64,16 @@ It combines SQL-first domain services with isolated DDL boundaries, template see
     and `RETURNING` confirmation. Snapshot export retains semantic settings and
     excludes application-only source baselines.
 
-## Entity-backed Marketing Hero
+## Entity-backed Marketing Page widgets
 
--   The `marketing.hero` placement binds through registry-declared `content` slot metadata to a semantic key in the `MarketingPageHero` Object. Placement state and `showLeadForm` stay in the layout; editorial copy stays in the Object record.
--   `PATCH /metahub/:metahubId/layout/:layoutId/zone-widget/:widgetId/binding` accepts only `{ recordId, expectedVersion }`, resolves and validates the target under the layout graph lock, uses optimistic concurrency, and returns the updated widget directly.
--   `MarketingPageHero` has a server-owned record policy. Generic metadata edits cannot relax runtime write denial, required EN/RU fields, bound-record deletion protection, or the immutable semantic key; rename/removal is serialized with binding mutations.
--   Authenticated authoring and public runtime resolve the same bounded projection through parameterized SQL and the existing DbExecutor boundary. Public serialization preserves the shared `data.records` envelope without forwarding physical row metadata.
+-   The registry declares each Entity-backed Marketing slot, its supported <code>semantic-key</code>, <code>record-set</code>, or <code>relation-set</code> selector, cardinality, compatible Components, registered projection, and source-authoring capabilities. Placement bindings are persisted as reserved Metahub layout metadata, separately from renderer configuration.
+-   The binding service validates slot and selector semantics, source scope, compatible Entity/Component records, relation targets, and registered projections under the layout graph lock. It applies optimistic version checks and commits a complete binding change atomically. Endpoint details remain an implementation contract; clients should use the published UI/API contract rather than infer request shapes from this overview.
+-   Hero and Image record duplication validates and copies the source Object record, rewrites its registered semantic-key binding, and creates the new placement in one request-scoped transaction. A failed placement (including an optimistic-version conflict) rolls back the copied record. The route requires both `manageMetahub` and `editContent`.
+-   SQL-first stores enforce active Entity/Component compatibility, semantic-key and relation integrity, bounded source/record queries, and deletion/schema-mutation protections. Routes use the request-scoped executor and do not issue direct Supabase or Knex calls.
+-   Authenticated runtime resolves records within the authorized Metahub scope. Public runtime uses a separate loader for ready published data and returns a validated, bounded allowlist DTO without binding metadata, physical row identity, or arbitrary Entity fields.
+-   Snapshot validation checks selected record values, required EN/RU content, safe Marketing JSON formats, and relation-set REF membership before publication, restore, import, activation, or sync. Record create/update also rejects malformed values for the registered Marketing action/media formats.
+-   Application source state preserves trusted bindings separately from editable presentation and placement state so synchronization, reset, hashing, and conflict checks cannot silently detach a required source-owned slot.
+-   The canonical data model is documented in [Entity-backed widgets](../../docs/en/architecture/entity-backed-widgets.md) and the [Marketing Page Template](../../docs/en/platform/marketing-page-template.md).
 
 ## Main Responsibilities
 
@@ -184,6 +188,12 @@ DATABASE_TEST_URL=postgresql://postgres:postgres@127.0.0.1:55322/postgres pnpm t
 ```
 
 Without the variable the suite is skipped, matching the other `.integration.test.ts` files in this package.
+
+The Marketing widget binding integration gate also starts the minimal local Supabase database and runs the binding SQL-store suite through a real `DbExecutor` before its browser concurrency flow:
+
+```bash
+pnpm test:marketing-widget-binding-integration:local-supabase
+```
 
 ## Related Packages
 

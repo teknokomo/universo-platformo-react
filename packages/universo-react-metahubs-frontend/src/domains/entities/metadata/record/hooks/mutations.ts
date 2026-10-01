@@ -194,7 +194,7 @@ export function useDeleteRecord() {
             const message = isApiError(error, 'RECORD_BOUND')
                 ? t(
                       'records.deleteBound',
-                      'This record is used by a Hero placement. Open Layouts, select the placement, then choose another content record or remove it before deleting this record.'
+                      'This record is used by a layout widget. Open Layouts, choose another content record or remove the widget before deleting this record.'
                   )
                 : isApiError(error, 'RECORD_REFERENCED')
                 ? t('records.deleteReferenced', 'This record is used by other records. Remove those references first.')

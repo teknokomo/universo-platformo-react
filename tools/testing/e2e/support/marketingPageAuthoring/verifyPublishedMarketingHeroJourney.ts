@@ -21,11 +21,25 @@ export async function verifyPublishedMarketingHeroJourney(options: {
     browserIssues: Parameters<typeof verifyPublishedMarketingHeroRuntime>[0]['browserIssues']
     applicationId: string
     brandLogoUrl: string
+    imageAltText: { en: string; ru: string }
+    expectedValidationResourceUrls: string[]
     expectedConflictResourceUrls: string[]
     firstHero: MarketingHeroCopy
     secondHero: MarketingHeroCopy
 }): Promise<void> {
-    const { api, page, testInfo, browserIssues, applicationId, brandLogoUrl, expectedConflictResourceUrls, firstHero, secondHero } = options
+    const {
+        api,
+        page,
+        testInfo,
+        browserIssues,
+        applicationId,
+        brandLogoUrl,
+        imageAltText,
+        expectedValidationResourceUrls,
+        expectedConflictResourceUrls,
+        firstHero,
+        secondHero
+    } = options
     await applyBrowserPreferences(page, { language: 'en' })
 
     const runtimePayload = (await getMarketingPageRuntime(api, applicationId, 'en')) as RuntimePayload & {
@@ -60,6 +74,20 @@ export async function verifyPublishedMarketingHeroJourney(options: {
     // Inactive widgets are filtered from the published runtime envelope;
     // authoring keeps the inactive row, while runtime never exposes it.
     expect(publishedFaqWidget).toBeUndefined()
+    const publishedHeroImageWidget = runtimePayload.marketingPage?.widgets?.find(
+        (widget) => widget.widgetKey === 'marketing.image' && widget.instanceKey === 'hero-image'
+    )
+    expect(publishedHeroImageWidget, 'The bound Marketing Image must be present in the public DTO').toBeDefined()
+    expect(publishedHeroImageWidget?.data?.records[0]).toMatchObject({
+        kind: 'image',
+        media: {
+            resource: { type: 'url', url: brandLogoUrl },
+            alt: imageAltText,
+            decorative: false
+        }
+    })
+    expect(publishedHeroImageWidget?.data?.records[0]).not.toHaveProperty('id')
+    expect(JSON.stringify(publishedHeroImageWidget)).not.toMatch(/(?:recordId|entityId|sourceConfig|storageKey)/u)
 
     // Reload the published app and assert the semantic value rendered by
     // the MUI marketing template, not an implementation detail or ID.
@@ -77,6 +105,16 @@ export async function verifyPublishedMarketingHeroJourney(options: {
     await expect(publishedHeroHeadings.first()).toBeVisible()
     await expect(independentHeroHeadings.first()).toBeVisible()
     await expect(page.locator('#marketing-widget-faq')).toHaveCount(0)
+    const publishedImage = page.locator('#marketing-widget-hero-image').getByRole('img', { name: imageAltText.en, exact: true })
+    await expect(publishedImage).toBeVisible()
+    await expect(publishedImage).toHaveAttribute('src', brandLogoUrl)
+    await expect
+        .poll(async () => publishedImage.evaluate((image) => (image as HTMLImageElement).naturalWidth), {
+            message: 'Waiting for the published entity-backed Marketing Image to decode',
+            timeout: 30_000
+        })
+        .toBeGreaterThan(0)
+    await expect(page.locator('#marketing-page-main img[src=""]')).toHaveCount(0)
 
     const publishedHeroAction = page
         .locator('[id^="hero-"]')
@@ -103,7 +141,9 @@ export async function verifyPublishedMarketingHeroJourney(options: {
         browserIssues,
         applicationId,
         brandLogoUrl,
+        imageAltText,
         actionTargetId: publishedHeroActionTargetId,
+        expectedValidationResourceUrls,
         expectedConflictResourceUrls: expectedConflictResourceUrls,
         firstHero: {
             title: firstHero.title,

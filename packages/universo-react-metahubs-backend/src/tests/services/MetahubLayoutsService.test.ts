@@ -4,172 +4,17 @@ import {
     assignLayoutZoneWidgetSchema,
     createLayoutSchema,
     moveLayoutZoneWidgetSchema,
-    updateLayoutZoneWidgetBindingSchema
+    updateLayoutZoneWidgetConfigSchema
 } from '../../domains/layouts/services/MetahubLayoutsService'
-import { buildSingleTargetWidgetBinding, encodeWidgetConfigEnvelope, LAYOUT_WIDGET_DEFINITIONS } from '@universo-react/types'
+import { updateLayoutZoneWidgetBindingSchema } from '../../domains/layouts/widgetBindingSchemas'
+import {
+    buildSingleTargetWidgetBinding,
+    encodeWidgetConfigEnvelope,
+    getLayoutWidgetDefinition,
+    validateWidgetBindings
+} from '@universo-react/types'
 
 const globalLayoutIdV7 = '0190a9b5-3cde-7abc-8def-0123456789a1'
-
-const bindingTestSchemaName = 'mhb_a1b2c3d4e5f67890abcdef1234567890_b1'
-const bindingTestLayoutId = '0190a9b5-3cde-7abc-8def-0123456789b1'
-const bindingTestWidgetId = '0190a9b5-3cde-7abc-8def-0123456789b2'
-const bindingTestObjectId = '0190a9b5-3cde-7abc-8def-0123456789b3'
-const bindingTestRecordId = '0190a9b5-3cde-7abc-8def-0123456789b4'
-
-const bindingTestPolicy = {
-    version: 1,
-    semanticKey: { componentCodename: 'HeroKey', creationPrefix: 'hero', protectedValues: ['default'] },
-    denyDeleteWhenBound: true,
-    immutableSemanticKeyWhenBound: true,
-    runtimeMutation: 'deny',
-    requiredLocales: ['en', 'ru'],
-    validatorKey: 'marketing.hero.v1'
-}
-
-const bindingTestLocalizedText = (en: string, ru: string) => ({
-    _schema: 'v1',
-    _primary: 'en',
-    locales: {
-        en: { content: en, isActive: true },
-        ru: { content: ru, isActive: true }
-    }
-})
-
-const createWidgetBindingUpdateHarness = (
-    options: {
-        widgetVersion?: number
-        updateReturnsRow?: boolean
-        widgetConfig?: Record<string, unknown>
-    } = {}
-) => {
-    const widgetVersion = options.widgetVersion ?? 4
-    const updateReturnsRow = options.updateReturnsRow ?? true
-    const layoutRow = {
-        id: bindingTestLayoutId,
-        scope_entity_id: null,
-        base_layout_id: null,
-        template_key: 'marketing-page',
-        config: {},
-        version: 2
-    }
-    const heroDefinition = LAYOUT_WIDGET_DEFINITIONS.find(({ key }) => key === 'marketing.hero')
-    const requirements = heroDefinition?.bindingSlots?.find(({ key }) => key === 'content')?.requirements.components
-    if (!heroDefinition || !requirements) throw new Error('Marketing Hero binding slot is missing')
-    const defaultWidgetConfig = encodeWidgetConfigEnvelope(
-        {
-            rendererConfig: { instanceKey: 'hero-main', showLeadForm: true },
-            neutral: {
-                bindings: buildSingleTargetWidgetBinding(heroDefinition, 'content', {
-                    entityKind: 'object',
-                    entityCodename: 'MarketingPageHero',
-                    semanticKey: 'hero-featured'
-                })
-            }
-        },
-        { templateKey: 'marketing-page', widgetKey: 'marketing.hero', zone: 'marketing-main' }
-    )
-    const widgetRow = {
-        id: bindingTestWidgetId,
-        layout_id: bindingTestLayoutId,
-        zone: 'marketing-main',
-        widget_key: 'marketing.hero',
-        sort_order: 1,
-        config: options.widgetConfig ?? defaultWidgetConfig,
-        is_active: true,
-        _upl_version: widgetVersion,
-        _upl_created_at: '2026-04-01T00:00:00.000Z',
-        _upl_updated_at: '2026-04-01T00:00:00.000Z'
-    }
-    const componentRows = requirements.map((component) => ({
-        codename: component.componentCodename,
-        data_type: component.valueType === 'json' ? 'JSON' : 'STRING',
-        is_required: component.required,
-        validation_rules: {
-            localized: component.localized,
-            ...(component.semanticKey ? { unique: true } : {}),
-            ...(component.maxLength ? { maxLength: component.maxLength } : {}),
-            ...(component.format ? { format: component.format } : {})
-        }
-    }))
-    const recordData = {
-        HeroKey: 'hero-featured',
-        Title: bindingTestLocalizedText('Featured welcome', 'Приветствие'),
-        Description: bindingTestLocalizedText('A product overview', 'Описание продукта'),
-        EmailLabel: bindingTestLocalizedText('Email', 'Электронная почта'),
-        EmailPlaceholder: bindingTestLocalizedText('you@example.com', 'you@example.com'),
-        PrimaryActionLabel: bindingTestLocalizedText('Get started', 'Начать'),
-        PrimaryAction: { kind: 'internal', path: '/auth' }
-    }
-    const query = jest.fn(async (sql: string, params?: unknown[]) => {
-        if (sql.includes('pg_advisory_xact_lock(hashtextextended($1::text, 0))')) return []
-        if (sql.includes('SELECT id, kind') && sql.includes('_mhb_objects')) {
-            return [{ id: bindingTestObjectId, kind: 'object', codename: 'MarketingPageHero', config: { recordPolicy: bindingTestPolicy } }]
-        }
-        if (sql.includes('SELECT object_id') && sql.includes('_mhb_elements')) return [{ object_id: bindingTestObjectId }]
-        if (sql.includes('SELECT id FROM') && sql.includes('_mhb_objects')) return [{ id: bindingTestObjectId }]
-        if (sql.includes('data_type, is_required, validation_rules')) return componentRows
-        if (sql.includes('SELECT id, data') && sql.includes('_mhb_elements')) {
-            return [{ id: bindingTestRecordId, data: recordData, version: 7 }]
-        }
-        if (sql.includes('data ->>') && sql.includes('_mhb_elements')) return [{ id: bindingTestRecordId }]
-        if (sql.includes('SELECT id, scope_entity_id, base_layout_id, template_key') && sql.includes('_mhb_layouts')) return [layoutRow]
-        if (sql.includes('SELECT widget_key, zone, config, is_active') && sql.includes('_mhb_widgets')) return []
-        if (sql.includes('SELECT id, sort_order') && sql.includes('_mhb_widgets')) return []
-        if (sql.includes('SELECT widget_key, is_active') && sql.includes('_mhb_widgets')) return []
-        if (sql.includes('SELECT id FROM') && sql.includes('_mhb_widgets')) return []
-        if (sql.includes('SELECT id, widget_key, zone, config') && sql.includes('_mhb_widgets')) {
-            return [{ ...widgetRow, widget_version: widgetVersion }]
-        }
-        if (sql.includes('SELECT * FROM') && sql.includes('_mhb_widgets')) return [widgetRow]
-        if (sql.trimStart().startsWith('INSERT') && sql.includes('_mhb_widgets')) {
-            return [
-                {
-                    ...widgetRow,
-                    layout_id: params?.[0],
-                    zone: params?.[1],
-                    widget_key: params?.[2],
-                    sort_order: params?.[3],
-                    config: JSON.parse(String(params?.[4] ?? '{}')),
-                    _upl_created_at: params?.[5],
-                    _upl_updated_at: params?.[5],
-                    _upl_version: 1
-                }
-            ]
-        }
-        if (sql.trimStart().startsWith('UPDATE') && sql.includes('_mhb_widgets')) {
-            if (!updateReturnsRow) return []
-            return [
-                {
-                    ...widgetRow,
-                    config: JSON.parse(String(params?.[0] ?? '{}')),
-                    _upl_version: widgetVersion + 1,
-                    _upl_updated_at: params?.[1]
-                }
-            ]
-        }
-        if (sql.trimStart().startsWith('UPDATE') && sql.includes('_mhb_layouts')) return [{ id: bindingTestLayoutId }]
-        throw new Error(`Unexpected SQL in updateLayoutZoneWidgetBinding test: ${sql}`)
-    })
-    type TestExecutor = {
-        query: typeof query
-        transaction: jest.Mock
-    }
-    let tx: TestExecutor
-    tx = {
-        query,
-        transaction: jest.fn(async (callback: (trx: TestExecutor) => Promise<unknown>) => callback(tx))
-    }
-    const exec = {
-        query,
-        transaction: jest.fn(async (callback: (trx: typeof tx) => Promise<unknown>) => callback(tx)),
-        isReleased: () => false
-    }
-    const schemaService = {
-        ensureSchema: jest.fn(async () => bindingTestSchemaName)
-    }
-
-    return { query, exec, service: new MetahubLayoutsService(exec as never, schemaService as never) }
-}
 
 describe('MetahubLayoutsService', () => {
     it('accepts only UUID v7 layout, scope, base, and widget identities at the layout ingress schemas', () => {
@@ -196,19 +41,37 @@ describe('MetahubLayoutsService', () => {
                 expectedVersion: 1
             }).success
         ).toBe(false)
+        const heroDefinition = getLayoutWidgetDefinition('marketing.hero')
+        const heroContentSlot = heroDefinition?.bindingSlots?.find(({ key }) => key === 'content')
+        if (!heroDefinition || !heroContentSlot) throw new Error('Hero binding contract is missing')
+        const heroBindings = validateWidgetBindings(heroDefinition, {
+            version: 1,
+            slots: [
+                {
+                    slot: 'content',
+                    targets: [
+                        {
+                            entityKind: 'object',
+                            entityCodename: 'MarketingPageHero',
+                            selector: { kind: 'semantic-key', field: 'key', value: 'hero-featured' },
+                            projection: heroContentSlot.requirements.components.map(({ field, componentCodename }) => ({
+                                field,
+                                componentCodename
+                            }))
+                        }
+                    ]
+                }
+            ]
+        })
+        const heroConfig = encodeWidgetConfigEnvelope(
+            { rendererConfig: { instanceKey: uuidV7, showLeadForm: true }, neutral: { bindings: heroBindings } },
+            { templateKey: 'marketing-page', widgetKey: 'marketing.hero', zone: 'marketing-main' }
+        )
         expect(
             assignLayoutZoneWidgetSchema.safeParse({
                 zone: 'marketing-main',
                 widgetKey: 'marketing.hero',
-                heroContent: { mode: 'auto' },
-                expectedVersion: 1
-            }).success
-        ).toBe(true)
-        expect(
-            assignLayoutZoneWidgetSchema.safeParse({
-                zone: 'marketing-main',
-                widgetKey: 'marketing.hero',
-                heroContent: { mode: 'existing', recordId: uuidV7 },
+                config: heroConfig,
                 expectedVersion: 1
             }).success
         ).toBe(true)
@@ -228,144 +91,12 @@ describe('MetahubLayoutsService', () => {
                 expectedVersion: 1
             }).success
         ).toBe(false)
-        expect(updateLayoutZoneWidgetBindingSchema.safeParse({ recordId: uuidV7, expectedVersion: 1 }).success).toBe(true)
-        expect(updateLayoutZoneWidgetBindingSchema.safeParse({ recordId: uuidV4, expectedVersion: 1 }).success).toBe(false)
-    })
-
-    it('persists the selected Entity record as the Hero widget semantic binding', async () => {
-        const { query, exec, service } = createWidgetBindingUpdateHarness()
-
-        const result = await service.updateLayoutZoneWidgetBinding(
-            'metahub-1',
-            bindingTestLayoutId,
-            bindingTestWidgetId,
-            { recordId: bindingTestRecordId, expectedVersion: 4 },
-            'user-1'
-        )
-
-        const widgetUpdate = query.mock.calls.find(([sql]) => sql.trimStart().startsWith('UPDATE') && sql.includes('_mhb_widgets'))
-        expect(widgetUpdate).toBeDefined()
-        expect(widgetUpdate?.[0]).toContain('COALESCE(_upl_version, 1) = $6')
-        expect(widgetUpdate?.[1]?.slice(3)).toEqual([bindingTestWidgetId, bindingTestLayoutId, 4])
-        const persistedConfig = JSON.parse(String(widgetUpdate?.[1]?.[0])) as Record<string, unknown>
-        const neutral = persistedConfig.__layout as Record<string, unknown>
-        const expectedBinding = buildSingleTargetWidgetBinding(
-            LAYOUT_WIDGET_DEFINITIONS.find(({ key }) => key === 'marketing.hero')!,
-            'content',
-            {
-                entityKind: 'object',
-                entityCodename: 'MarketingPageHero',
-                semanticKey: 'hero-featured'
-            }
-        )
-
-        expect(neutral.bindings).toEqual(expectedBinding)
-        expect(JSON.stringify(neutral.bindings)).not.toContain(bindingTestRecordId)
-        expect(persistedConfig).toMatchObject({ instanceKey: 'hero-main', showLeadForm: true })
-        expect(result).toMatchObject({ id: bindingTestWidgetId, version: 5 })
-        expect(result.config).toMatchObject({ instanceKey: 'hero-main', showLeadForm: true })
-        expect(result.config).not.toHaveProperty('__layout')
-        expect(exec.transaction).toHaveBeenCalledTimes(1)
-        expect(query.mock.calls.some(([sql]) => sql.includes('pg_advisory_xact_lock(hashtextextended($1::text, 0))'))).toBe(true)
-        expect(query.mock.calls.some(([sql]) => sql.includes('_mhb_widgets') && sql.includes('FOR UPDATE'))).toBe(true)
-    })
-
-    it('creates a new Hero placement with the selected Entity record semantic binding', async () => {
-        const { query, exec, service } = createWidgetBindingUpdateHarness()
-
-        const result = await service.assignLayoutZoneWidget(
-            'metahub-1',
-            bindingTestLayoutId,
-            {
-                zone: 'marketing-main',
-                widgetKey: 'marketing.hero',
-                heroContent: { mode: 'existing', recordId: bindingTestRecordId },
-                sortOrder: 1,
-                config: { instanceKey: 'hero-new', showLeadForm: true },
-                expectedVersion: 2
-            },
-            'user-1'
-        )
-
-        const widgetInsert = query.mock.calls.find(([sql]) => sql.trimStart().startsWith('INSERT') && sql.includes('_mhb_widgets'))
-        expect(widgetInsert).toBeDefined()
-        const persistedConfig = JSON.parse(String(widgetInsert?.[1]?.[4])) as Record<string, unknown>
-        const neutral = persistedConfig.__layout as Record<string, unknown>
-        expect(neutral.bindings).toEqual(
-            buildSingleTargetWidgetBinding(LAYOUT_WIDGET_DEFINITIONS.find(({ key }) => key === 'marketing.hero')!, 'content', {
-                entityKind: 'object',
-                entityCodename: 'MarketingPageHero',
-                semanticKey: 'hero-featured'
-            })
-        )
-        expect(JSON.stringify(neutral.bindings)).not.toContain(bindingTestRecordId)
-        expect(result).toMatchObject({ widgetKey: 'marketing.hero', config: { instanceKey: 'hero-new', showLeadForm: true } })
-        expect(exec.transaction).toHaveBeenCalledTimes(1)
-        expect(query.mock.calls.some(([sql]) => sql.includes('pg_advisory_xact_lock(hashtextextended($1::text, 0))'))).toBe(true)
-    })
-
-    it('rejects a stale widget version before attempting the binding update', async () => {
-        const { query, service } = createWidgetBindingUpdateHarness({ widgetVersion: 5 })
-
-        await expect(
-            service.updateLayoutZoneWidgetBinding(
-                'metahub-1',
-                bindingTestLayoutId,
-                bindingTestWidgetId,
-                { recordId: bindingTestRecordId, expectedVersion: 4 },
-                'user-1'
-            )
-        ).rejects.toMatchObject({ statusCode: 409 })
-
-        expect(query.mock.calls.some(([sql]) => sql.trimStart().startsWith('UPDATE') && sql.includes('_mhb_widgets'))).toBe(false)
-        expect(query.mock.calls.some(([sql]) => sql.trimStart().startsWith('UPDATE') && sql.includes('_mhb_layouts'))).toBe(false)
-    })
-
-    it('returns widget and record versions independently for the current binding target', async () => {
-        const widgetContext = { templateKey: 'marketing-page', widgetKey: 'marketing.hero', zone: 'marketing-main' }
-        const bindings = buildSingleTargetWidgetBinding(LAYOUT_WIDGET_DEFINITIONS.find(({ key }) => key === 'marketing.hero')!, 'content', {
-            entityKind: 'object',
-            entityCodename: 'MarketingPageHero',
-            semanticKey: 'hero-featured'
-        })
-        const widgetConfig = encodeWidgetConfigEnvelope(
-            { rendererConfig: { instanceKey: 'hero-main', showLeadForm: true }, neutral: { bindings } },
-            widgetContext
-        )
-        const { query, exec, service } = createWidgetBindingUpdateHarness({ widgetVersion: 4, widgetConfig })
-
-        const target = await service.getLayoutZoneWidgetBindingTarget('metahub-1', bindingTestLayoutId, bindingTestWidgetId, 'ru', 'user-1')
-
-        expect(target).toEqual({
-            recordId: bindingTestRecordId,
-            recordVersion: 7,
-            widgetVersion: 4,
-            label: 'Приветствие',
-            entityId: bindingTestObjectId,
-            entityCodename: 'MarketingPageHero'
-        })
-        expect(query.mock.calls.some(([sql]) => sql.includes('COALESCE(_upl_version, 1)::int AS widget_version'))).toBe(true)
-        expect(exec.transaction).toHaveBeenCalledTimes(1)
-        expect(query.mock.calls.some(([sql]) => sql.includes('pg_advisory_xact_lock(hashtextextended($1::text, 0))'))).toBe(true)
-    })
-
-    it('fails closed when the optimistic binding UPDATE loses a concurrent version race', async () => {
-        const { query, service } = createWidgetBindingUpdateHarness({ updateReturnsRow: false })
-
-        await expect(
-            service.updateLayoutZoneWidgetBinding(
-                'metahub-1',
-                bindingTestLayoutId,
-                bindingTestWidgetId,
-                { recordId: bindingTestRecordId, expectedVersion: 4 },
-                'user-1'
-            )
-        ).rejects.toMatchObject({ statusCode: 409 })
-
-        const widgetUpdate = query.mock.calls.find(([sql]) => sql.trimStart().startsWith('UPDATE') && sql.includes('_mhb_widgets'))
-        expect(widgetUpdate?.[0]).toContain('COALESCE(_upl_version, 1) = $6')
-        expect(widgetUpdate?.[1]?.[5]).toBe(4)
-        expect(query.mock.calls.some(([sql]) => sql.trimStart().startsWith('UPDATE') && sql.includes('_mhb_layouts'))).toBe(false)
+        const selection = { slot: 'content', sourceKey: 'MarketingPageHero', selector: { kind: 'semantic-key', value: 'hero-featured' } }
+        expect(updateLayoutZoneWidgetBindingSchema.safeParse({ bindings: [selection], expectedVersion: 1 }).success).toBe(true)
+        expect(updateLayoutZoneWidgetBindingSchema.safeParse({ bindings: [selection], expectedVersion: 0 }).success).toBe(false)
+        expect(
+            updateLayoutZoneWidgetBindingSchema.safeParse({ bindings: [{ ...selection, sourceKey: uuidV4 }], expectedVersion: 1 }).success
+        ).toBe(false)
     })
 
     it('accepts shared languageSwitcher widgets on marketing layouts', async () => {
@@ -411,6 +142,187 @@ describe('MetahubLayoutsService', () => {
 
         expect(result).toHaveLength(1)
         expect(result[0]).toMatchObject({ widgetKey: 'languageSwitcher', zone: 'marketing-header', config: {} })
+    })
+
+    it('keeps marketing overlay bindings on the base widget when an API config override is written', async () => {
+        const layoutId = '0190a9b5-3cde-7abc-8def-0123456789a2'
+        const baseLayoutId = '0190a9b5-3cde-7abc-8def-0123456789a3'
+        const scopeEntityId = '0190a9b5-3cde-7abc-8def-0123456789a4'
+        const widgetId = '0190a9b5-3cde-7abc-8def-0123456789a5'
+        const definition = getLayoutWidgetDefinition('marketing.image')
+        if (!definition) throw new Error('Expected marketing.image to be registered')
+        const bindings = buildSingleTargetWidgetBinding(definition, 'content', {
+            entityKind: 'object',
+            entityCodename: 'MarketingPageImage',
+            semanticKey: 'hero-image'
+        })
+        const widgetContext = { templateKey: 'marketing-page', widgetKey: 'marketing.image', zone: 'marketing-main' }
+        const baseConfig = encodeWidgetConfigEnvelope(
+            { rendererConfig: { instanceKey: 'hero-image' }, neutral: { bindings } },
+            widgetContext
+        )
+        const baseWidget = {
+            id: widgetId,
+            layout_id: baseLayoutId,
+            zone: 'marketing-main',
+            widget_key: 'marketing.image',
+            sort_order: 1,
+            config: baseConfig,
+            is_active: true,
+            _upl_version: 1,
+            _upl_created_at: '2026-04-01T00:00:00.000Z',
+            _upl_updated_at: '2026-04-01T00:00:00.000Z'
+        }
+        let storedOverride: Record<string, unknown> | null = null
+        let storedOverrideConfig: Record<string, unknown> | null = null
+        const query = jest.fn(async (sql: string, params?: unknown[]) => {
+            if (sql.includes('pg_advisory_xact_lock(hashtextextended($1::text, 0))')) return []
+            if (sql.includes('SELECT id, scope_entity_id, base_layout_id') && sql.includes('_mhb_layouts')) {
+                return [
+                    {
+                        id: layoutId,
+                        scope_entity_id: scopeEntityId,
+                        base_layout_id: baseLayoutId,
+                        template_key: 'marketing-page',
+                        config: {}
+                    }
+                ]
+            }
+            if (sql.includes('SELECT * FROM') && sql.includes('_mhb_widgets') && sql.includes('layout_id = $1')) {
+                return params?.[0] === baseLayoutId ? [baseWidget] : []
+            }
+            if (sql.includes('SELECT * FROM') && sql.includes('_mhb_layout_widget_overrides') && sql.includes('base_widget_id = $2')) {
+                return storedOverride ? [storedOverride] : []
+            }
+            if (sql.includes('SELECT * FROM') && sql.includes('_mhb_layout_widget_overrides') && sql.includes('layout_id = $1')) {
+                return storedOverride ? [storedOverride] : []
+            }
+            if (sql.includes('SELECT id, _upl_version') && sql.includes('_mhb_widgets')) {
+                return [{ id: widgetId, _upl_version: 1 }]
+            }
+            if (sql.includes('INSERT INTO') && sql.includes('_mhb_layout_widget_overrides')) {
+                storedOverrideConfig = JSON.parse(String(params?.[4] ?? 'null')) as Record<string, unknown>
+                storedOverride = {
+                    id: '0190a9b5-3cde-7abc-8def-0123456789a6',
+                    layout_id: layoutId,
+                    base_widget_id: widgetId,
+                    zone: params?.[2] ?? null,
+                    sort_order: params?.[3] ?? null,
+                    config: storedOverrideConfig,
+                    is_active: params?.[5] ?? null,
+                    is_deleted_override: params?.[6] ?? false,
+                    _upl_version: 1,
+                    _upl_updated_at: '2026-04-01T00:00:01.000Z'
+                }
+                return [{ id: storedOverride.id }]
+            }
+            throw new Error(`Unexpected SQL in marketing overlay binding test: ${sql}`)
+        })
+        const tx = { query }
+        const exec = {
+            query,
+            transaction: jest.fn(async (callback: (trx: typeof tx) => Promise<unknown>) => callback(tx)),
+            isReleased: () => false
+        }
+        const schemaService = {
+            ensureSchema: jest.fn(async () => 'mhb_a1b2c3d4e5f67890abcdef1234567890_b1')
+        }
+        const service = new MetahubLayoutsService(exec as never, schemaService as never)
+
+        expect(
+            updateLayoutZoneWidgetConfigSchema.safeParse({
+                config: { instanceKey: 'hero-image', __layout: { bindings } },
+                expectedVersion: 1
+            }).success
+        ).toBe(false)
+
+        const result = await service.updateLayoutZoneWidgetConfig(
+            'metahub-1',
+            layoutId,
+            widgetId,
+            { instanceKey: 'hero-image' },
+            'user-1',
+            1
+        )
+
+        expect(storedOverrideConfig).toBeTruthy()
+        expect(storedOverrideConfig).not.toHaveProperty('__layout.bindings')
+        expect(result.config).toMatchObject({ instanceKey: 'hero-image' })
+
+        const insertCount = query.mock.calls.filter(
+            ([sql]) => String(sql).includes('INSERT INTO') && String(sql).includes('_mhb_layout_widget_overrides')
+        ).length
+        await expect(
+            service.updateLayoutZoneWidgetConfig(
+                'metahub-1',
+                layoutId,
+                widgetId,
+                { instanceKey: 'hero-image', __layout: { bindings } },
+                'user-1',
+                1
+            )
+        ).rejects.toThrow()
+        expect(
+            query.mock.calls.filter(([sql]) => String(sql).includes('INSERT INTO') && String(sql).includes('_mhb_layout_widget_overrides'))
+        ).toHaveLength(insertCount)
+    })
+
+    it('rejects assigning an Entity-backed Marketing widget directly into a scoped overlay', async () => {
+        const layoutId = '0190a9b5-3cde-7abc-8def-0123456789a2'
+        const baseLayoutId = '0190a9b5-3cde-7abc-8def-0123456789a3'
+        const scopeEntityId = '0190a9b5-3cde-7abc-8def-0123456789a4'
+        const definition = getLayoutWidgetDefinition('marketing.image')
+        if (!definition) throw new Error('Expected marketing.image to be registered')
+        const bindings = buildSingleTargetWidgetBinding(definition, 'content', {
+            entityKind: 'object',
+            entityCodename: 'MarketingPageImage',
+            semanticKey: 'overlay-image'
+        })
+        const config = encodeWidgetConfigEnvelope(
+            { rendererConfig: { instanceKey: 'overlay-image' }, neutral: { bindings } },
+            { templateKey: 'marketing-page', widgetKey: 'marketing.image', zone: 'marketing-main' }
+        )
+        const query = jest.fn(async (sql: string) => {
+            if (sql.includes('pg_advisory_xact_lock(hashtextextended($1::text, 0))')) return []
+            if (sql.includes('SELECT id, scope_entity_id, base_layout_id') && sql.includes('_mhb_layouts')) {
+                return [
+                    {
+                        id: layoutId,
+                        scope_entity_id: scopeEntityId,
+                        base_layout_id: baseLayoutId,
+                        template_key: 'marketing-page',
+                        config: {},
+                        version: 1
+                    }
+                ]
+            }
+            throw new Error(`Unexpected SQL in Marketing overlay assignment test: ${sql}`)
+        })
+        const tx = { query }
+        const exec = {
+            query,
+            transaction: jest.fn(async (callback: (trx: typeof tx) => Promise<unknown>) => callback(tx)),
+            isReleased: () => false
+        }
+        const schemaService = {
+            ensureSchema: jest.fn(async () => 'mhb_a1b2c3d4e5f67890abcdef1234567890_b1')
+        }
+        const service = new MetahubLayoutsService(exec as never, schemaService as never)
+
+        await expect(
+            service.assignLayoutZoneWidget(
+                'metahub-1',
+                layoutId,
+                {
+                    zone: 'marketing-main',
+                    widgetKey: 'marketing.image',
+                    config,
+                    expectedVersion: 1
+                },
+                'user-1'
+            )
+        ).rejects.toThrow('Marketing overlay layouts must inherit Entity bindings from their base placements')
+        expect(query.mock.calls.some(([sql]) => String(sql).includes('INSERT INTO'))).toBe(false)
     })
 
     it('fails closed when a stored metahub layout contains application-only source zone settings', async () => {
@@ -594,21 +506,61 @@ describe('MetahubLayoutsService', () => {
             template_key: 'marketing-page',
             config: {}
         }
-        const source = (entityCodename: string) => ({ entityCodename, entityKind: 'object' })
-        const heroDefinition = LAYOUT_WIDGET_DEFINITIONS.find(({ key }) => key === 'marketing.hero')
-        if (!heroDefinition) throw new Error('Marketing Hero widget definition is missing')
-        const heroBinding = buildSingleTargetWidgetBinding(heroDefinition, 'content', {
-            entityKind: 'object',
-            entityCodename: 'MarketingPageHero',
-            semanticKey: 'default'
-        })
+        const makeConfig = (
+            widgetKey: string,
+            rendererConfig: Record<string, unknown>,
+            sourceBySlot: Readonly<Record<string, string>>,
+            semanticKeyBySlot: Readonly<Record<string, string>> = {}
+        ) => {
+            const definition = getLayoutWidgetDefinition(widgetKey, rendererConfig)
+            if (!definition) throw new Error(`Marketing widget definition is missing: ${widgetKey}`)
+            const slots = (definition.bindingSlots ?? []).map((slot) => {
+                const sourceKey = sourceBySlot[slot.key]
+                if (!sourceKey) throw new Error(`Missing test source for ${widgetKey}/${slot.key}`)
+                const semanticKey = semanticKeyBySlot[slot.key]
+                const selector = slot.selectorKinds.includes('semantic-key')
+                    ? {
+                          kind: 'semantic-key' as const,
+                          field: slot.requirements.components.find(({ semanticKey: isKey }) => isKey)?.field ?? 'key',
+                          value: semanticKey ?? 'default'
+                      }
+                    : slot.selectorKinds.includes('relation-set')
+                    ? { kind: 'relation-set' as const, parentSlot: slot.relation?.parentSlot ?? 'parent' }
+                    : { kind: 'record-set' as const }
+                return {
+                    slot: slot.key,
+                    targets: [
+                        {
+                            entityKind: 'object' as const,
+                            entityCodename: sourceKey,
+                            selector,
+                            projection: slot.requirements.components.map(({ field, componentCodename }) => ({ field, componentCodename }))
+                        }
+                    ]
+                }
+            })
+            const bindings = validateWidgetBindings(definition, { version: 1, slots })
+            const zone = definition.allowedZonesByTemplate['marketing-page']?.[0] ?? 'marketing-main'
+            return encodeWidgetConfigEnvelope(
+                { rendererConfig, neutral: { bindings } },
+                { templateKey: 'marketing-page', widgetKey, zone, rendererConfig }
+            )
+        }
+        const heroBindingConfig = makeConfig(
+            'marketing.hero',
+            { instanceKey: 'hero', showLeadForm: true },
+            { content: 'MarketingPageHero' },
+            {
+                content: 'default'
+            }
+        )
         const collectionConfig = (instanceKey: string, variant: string, entityCodename: string) => ({
-            instanceKey,
-            variant,
-            source: source(entityCodename),
-            maxItems: 24,
-            showTitle: true,
-            showDescription: true
+            ...makeConfig(
+                'marketing.collection',
+                { instanceKey, variant, maxItems: 24, showTitle: true, showDescription: true },
+                { section: 'MarketingPageSection', items: entityCodename },
+                { section: variant }
+            )
         })
         const initialRows = [
             {
@@ -617,7 +569,7 @@ describe('MetahubLayoutsService', () => {
                 zone: 'marketing-main',
                 widget_key: 'marketing.hero',
                 sort_order: 1,
-                config: { instanceKey: 'hero', showLeadForm: true, __layout: { bindings: heroBinding } },
+                config: heroBindingConfig,
                 is_active: true,
                 _upl_version: 1,
                 _upl_created_at: '2026-04-01T00:00:00.000Z',
@@ -677,12 +629,16 @@ describe('MetahubLayoutsService', () => {
                 zone: 'marketing-main',
                 widget_key: 'marketing.pricing',
                 sort_order: 6,
-                config: {
-                    instanceKey: 'pricing',
-                    source: source('MarketingPagePricing'),
-                    maxItems: 24,
-                    showBenefits: true
-                },
+                config: makeConfig(
+                    'marketing.pricing',
+                    { instanceKey: 'pricing', maxItems: 24, showBenefits: true },
+                    {
+                        section: 'MarketingPageSection',
+                        tiers: 'MarketingPagePricing',
+                        benefits: 'MarketingPagePricingBenefit'
+                    },
+                    { section: 'pricing' }
+                ),
                 is_active: true,
                 _upl_version: 3,
                 _upl_created_at: '2026-04-01T00:00:05.000Z',

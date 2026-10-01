@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { ENTITY_RESOURCE_SURFACE_CAPABILITIES, type VersionedLocalizedContent } from '@universo-react/types'
+import { entityTypeCapabilitiesSchema, ENTITY_RESOURCE_SURFACE_CAPABILITIES, type VersionedLocalizedContent } from '@universo-react/types'
 import type { createMetahubHandlerFactory } from '../../shared/createMetahubHandler'
 import { ListQuerySchema, paginateItems } from '../../shared/queryParams'
 import { getCodenameText } from '../../shared/codename'
@@ -71,7 +71,7 @@ const createEntityTypeSchema = z
         kindKey: z.string().trim().min(1).max(64),
         codename: codenameInputSchema,
         presentation: z.record(z.unknown()).optional(),
-        capabilities: z.record(z.unknown()),
+        capabilities: entityTypeCapabilitiesSchema,
         ui: entityTypeUiSchema,
         config: z.record(z.unknown()).optional(),
         published: z.boolean().optional()
@@ -83,7 +83,7 @@ const updateEntityTypeSchema = z
         kindKey: z.string().trim().min(1).max(64).optional(),
         codename: codenameInputSchema.optional(),
         presentation: z.record(z.unknown()).optional(),
-        capabilities: z.record(z.unknown()).optional(),
+        capabilities: entityTypeCapabilitiesSchema.optional(),
         ui: entityTypeUiSchema.optional(),
         config: z.record(z.unknown()).optional(),
         published: z.boolean().optional(),
@@ -141,7 +141,7 @@ export function createEntityTypesController(createHandler: ReturnType<typeof cre
                     kindKey: parsed.data.kindKey,
                     codename: parsed.data.codename,
                     presentation: parsed.data.presentation,
-                    capabilities: parsed.data.capabilities as never,
+                    capabilities: parsed.data.capabilities,
                     ui: parsed.data.ui,
                     config: parsed.data.config,
                     published: parsed.data.published
@@ -169,7 +169,7 @@ export function createEntityTypesController(createHandler: ReturnType<typeof cre
                     kindKey: parsed.data.kindKey,
                     codename: parsed.data.codename,
                     presentation: parsed.data.presentation,
-                    capabilities: parsed.data.capabilities as never,
+                    capabilities: parsed.data.capabilities,
                     ui: parsed.data.ui,
                     config: parsed.data.config,
                     published: parsed.data.published,

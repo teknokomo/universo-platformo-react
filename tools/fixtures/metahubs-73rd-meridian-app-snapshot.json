@@ -1627,7 +1627,7 @@
                             "protectedValues": ["default"],
                             "componentCodename": "HeroKey"
                         },
-                        "validatorKey": "marketing.hero.v1",
+                        "coRequiredGroups": [["TermsText", "TermsLinkLabel", "TermsAction"]],
                         "requiredLocales": ["en", "ru"],
                         "runtimeMutation": "deny",
                         "denyDeleteWhenBound": true,
@@ -13466,20 +13466,142 @@
                 "widgetKey": "marketing.footer",
                 "sortOrder": 0,
                 "config": {
-                    "source": {
-                        "fieldMap": {},
-                        "entityKind": "object",
-                        "entityCodename": "MarketingPageFooterLink"
-                    },
                     "maxItems": 100,
-                    "copySource": {
-                        "fieldMap": {},
-                        "recordKey": "footer",
-                        "entityKind": "object",
-                        "entityCodename": "MarketingPageSection"
-                    },
                     "instanceKey": "footer",
-                    "showNewsletter": false
+                    "showNewsletter": false,
+                    "__layout": {
+                        "bindings": {
+                            "version": 1,
+                            "slots": [
+                                {
+                                    "slot": "links",
+                                    "targets": [
+                                        {
+                                            "entityKind": "object",
+                                            "entityCodename": "MarketingPageFooterLink",
+                                            "selector": {
+                                                "kind": "record-set"
+                                            },
+                                            "projection": [
+                                                {
+                                                    "field": "bottomLabel",
+                                                    "componentCodename": "BottomLabel"
+                                                },
+                                                {
+                                                    "field": "groupKey",
+                                                    "componentCodename": "GroupKey"
+                                                },
+                                                {
+                                                    "field": "groupTitle",
+                                                    "componentCodename": "GroupTitle"
+                                                },
+                                                {
+                                                    "field": "href",
+                                                    "componentCodename": "Href"
+                                                },
+                                                {
+                                                    "field": "iconKey",
+                                                    "componentCodename": "IconKey"
+                                                },
+                                                {
+                                                    "field": "key",
+                                                    "componentCodename": "LinkKey"
+                                                },
+                                                {
+                                                    "field": "label",
+                                                    "componentCodename": "Label"
+                                                },
+                                                {
+                                                    "field": "order",
+                                                    "componentCodename": "SortOrder"
+                                                },
+                                                {
+                                                    "field": "visible",
+                                                    "componentCodename": "IsVisible"
+                                                }
+                                            ]
+                                        }
+                                    ]
+                                },
+                                {
+                                    "slot": "site",
+                                    "targets": [
+                                        {
+                                            "entityKind": "object",
+                                            "entityCodename": "MarketingPageSiteSettings",
+                                            "selector": {
+                                                "kind": "semantic-key",
+                                                "field": "key",
+                                                "value": "site-settings"
+                                            },
+                                            "projection": [
+                                                {
+                                                    "field": "brandName",
+                                                    "componentCodename": "BrandName"
+                                                },
+                                                {
+                                                    "field": "copyrightHref",
+                                                    "componentCodename": "CopyrightHref"
+                                                },
+                                                {
+                                                    "field": "copyrightLabel",
+                                                    "componentCodename": "CopyrightLabel"
+                                                },
+                                                {
+                                                    "field": "copyrightText",
+                                                    "componentCodename": "CopyrightText"
+                                                },
+                                                {
+                                                    "field": "footerDescription",
+                                                    "componentCodename": "FooterDescription"
+                                                },
+                                                {
+                                                    "field": "key",
+                                                    "componentCodename": "SiteKey"
+                                                },
+                                                {
+                                                    "field": "newsletterActionHref",
+                                                    "componentCodename": "NewsletterActionHref"
+                                                },
+                                                {
+                                                    "field": "newsletterActionLabel",
+                                                    "componentCodename": "NewsletterActionLabel"
+                                                },
+                                                {
+                                                    "field": "newsletterDescription",
+                                                    "componentCodename": "NewsletterDescription"
+                                                },
+                                                {
+                                                    "field": "newsletterEnabled",
+                                                    "componentCodename": "NewsletterEnabled"
+                                                },
+                                                {
+                                                    "field": "newsletterErrorMessage",
+                                                    "componentCodename": "NewsletterErrorMessage"
+                                                },
+                                                {
+                                                    "field": "newsletterLabel",
+                                                    "componentCodename": "NewsletterLabel"
+                                                },
+                                                {
+                                                    "field": "newsletterPlaceholder",
+                                                    "componentCodename": "NewsletterPlaceholder"
+                                                },
+                                                {
+                                                    "field": "newsletterSuccessMessage",
+                                                    "componentCodename": "NewsletterSuccessMessage"
+                                                },
+                                                {
+                                                    "field": "newsletterTitle",
+                                                    "componentCodename": "NewsletterTitle"
+                                                }
+                                            ]
+                                        }
+                                    ]
+                                }
+                            ]
+                        }
+                    }
                 },
                 "isActive": true
             },
@@ -13490,13 +13612,42 @@
                 "widgetKey": "marketing.brand",
                 "sortOrder": 0,
                 "config": {
-                    "source": {
-                        "fieldMap": {},
-                        "recordKey": "site-settings",
-                        "entityKind": "object",
-                        "entityCodename": "MarketingPageSiteSettings"
-                    },
-                    "instanceKey": "brand"
+                    "instanceKey": "brand",
+                    "__layout": {
+                        "bindings": {
+                            "version": 1,
+                            "slots": [
+                                {
+                                    "slot": "site",
+                                    "targets": [
+                                        {
+                                            "entityKind": "object",
+                                            "entityCodename": "MarketingPageSiteSettings",
+                                            "selector": {
+                                                "kind": "semantic-key",
+                                                "field": "key",
+                                                "value": "site-settings"
+                                            },
+                                            "projection": [
+                                                {
+                                                    "field": "brandLogo",
+                                                    "componentCodename": "BrandLogo"
+                                                },
+                                                {
+                                                    "field": "brandName",
+                                                    "componentCodename": "BrandName"
+                                                },
+                                                {
+                                                    "field": "key",
+                                                    "componentCodename": "SiteKey"
+                                                }
+                                            ]
+                                        }
+                                    ]
+                                }
+                            ]
+                        }
+                    }
                 },
                 "isActive": true
             },
@@ -13507,14 +13658,54 @@
                 "widgetKey": "marketing.navigation",
                 "sortOrder": 1,
                 "config": {
-                    "source": {
-                        "fieldMap": {},
-                        "entityKind": "object",
-                        "entityCodename": "MarketingPageNavigation"
-                    },
                     "maxItems": 6,
                     "instanceKey": "navigation",
-                    "showAuthActions": false
+                    "showAuthActions": false,
+                    "__layout": {
+                        "bindings": {
+                            "version": 1,
+                            "slots": [
+                                {
+                                    "slot": "items",
+                                    "targets": [
+                                        {
+                                            "entityKind": "object",
+                                            "entityCodename": "MarketingPageNavigation",
+                                            "selector": {
+                                                "kind": "record-set"
+                                            },
+                                            "projection": [
+                                                {
+                                                    "field": "href",
+                                                    "componentCodename": "Href"
+                                                },
+                                                {
+                                                    "field": "key",
+                                                    "componentCodename": "NavKey"
+                                                },
+                                                {
+                                                    "field": "label",
+                                                    "componentCodename": "Label"
+                                                },
+                                                {
+                                                    "field": "order",
+                                                    "componentCodename": "SortOrder"
+                                                },
+                                                {
+                                                    "field": "sectionKey",
+                                                    "componentCodename": "SectionKey"
+                                                },
+                                                {
+                                                    "field": "visible",
+                                                    "componentCodename": "IsVisible"
+                                                }
+                                            ]
+                                        }
+                                    ]
+                                }
+                            ]
+                        }
+                    }
                 },
                 "isActive": true
             },
@@ -13655,7 +13846,54 @@
                         },
                         "decorative": false
                     },
-                    "instanceKey": "hero-image"
+                    "instanceKey": "hero-image",
+                    "__layout": {
+                        "bindings": {
+                            "version": 1,
+                            "slots": [
+                                {
+                                    "slot": "content",
+                                    "targets": [
+                                        {
+                                            "entityKind": "object",
+                                            "entityCodename": "MarketingPageImage",
+                                            "selector": {
+                                                "kind": "semantic-key",
+                                                "field": "key",
+                                                "value": "default"
+                                            },
+                                            "projection": [
+                                                {
+                                                    "field": "altText",
+                                                    "componentCodename": "AltText"
+                                                },
+                                                {
+                                                    "field": "decorative",
+                                                    "componentCodename": "Decorative"
+                                                },
+                                                {
+                                                    "field": "height",
+                                                    "componentCodename": "Height"
+                                                },
+                                                {
+                                                    "field": "key",
+                                                    "componentCodename": "ImageKey"
+                                                },
+                                                {
+                                                    "field": "resource",
+                                                    "componentCodename": "Resource"
+                                                },
+                                                {
+                                                    "field": "width",
+                                                    "componentCodename": "Width"
+                                                }
+                                            ]
+                                        }
+                                    ]
+                                }
+                            ]
+                        }
+                    }
                 },
                 "isActive": true
             },
@@ -13666,24 +13904,86 @@
                 "widgetKey": "marketing.collection",
                 "sortOrder": 2,
                 "config": {
-                    "source": {
-                        "fieldMap": {},
-                        "entityKind": "object",
-                        "entityCodename": "MarketingPageLogo"
-                    },
                     "variant": "logos",
                     "maxItems": 6,
                     "showTitle": true,
-                    "copySource": {
-                        "fieldMap": {},
-                        "recordKey": "logos",
-                        "entityKind": "object",
-                        "entityCodename": "MarketingPageSection"
-                    },
                     "instanceKey": "logos",
                     "showDescription": true,
                     "fixedItemsHeight": false,
-                    "showItemDescriptions": true
+                    "showItemDescriptions": true,
+                    "__layout": {
+                        "bindings": {
+                            "version": 1,
+                            "slots": [
+                                {
+                                    "slot": "items",
+                                    "targets": [
+                                        {
+                                            "entityKind": "object",
+                                            "entityCodename": "MarketingPageLogo",
+                                            "selector": {
+                                                "kind": "record-set"
+                                            },
+                                            "projection": [
+                                                {
+                                                    "field": "altText",
+                                                    "componentCodename": "AltText"
+                                                },
+                                                {
+                                                    "field": "imageDark",
+                                                    "componentCodename": "ImageDark"
+                                                },
+                                                {
+                                                    "field": "imageLight",
+                                                    "componentCodename": "ImageLight"
+                                                },
+                                                {
+                                                    "field": "key",
+                                                    "componentCodename": "LogoKey"
+                                                },
+                                                {
+                                                    "field": "order",
+                                                    "componentCodename": "SortOrder"
+                                                },
+                                                {
+                                                    "field": "visible",
+                                                    "componentCodename": "IsVisible"
+                                                }
+                                            ]
+                                        }
+                                    ]
+                                },
+                                {
+                                    "slot": "section",
+                                    "targets": [
+                                        {
+                                            "entityKind": "object",
+                                            "entityCodename": "MarketingPageSection",
+                                            "selector": {
+                                                "kind": "semantic-key",
+                                                "field": "key",
+                                                "value": "logos"
+                                            },
+                                            "projection": [
+                                                {
+                                                    "field": "description",
+                                                    "componentCodename": "Description"
+                                                },
+                                                {
+                                                    "field": "key",
+                                                    "componentCodename": "SectionKey"
+                                                },
+                                                {
+                                                    "field": "title",
+                                                    "componentCodename": "Title"
+                                                }
+                                            ]
+                                        }
+                                    ]
+                                }
+                            ]
+                        }
+                    }
                 },
                 "isActive": true
             },
@@ -13694,24 +13994,94 @@
                 "widgetKey": "marketing.collection",
                 "sortOrder": 3,
                 "config": {
-                    "source": {
-                        "fieldMap": {},
-                        "entityKind": "object",
-                        "entityCodename": "MarketingPageFeature"
-                    },
                     "variant": "features",
                     "maxItems": 5,
                     "showTitle": true,
-                    "copySource": {
-                        "fieldMap": {},
-                        "recordKey": "features",
-                        "entityKind": "object",
-                        "entityCodename": "MarketingPageSection"
-                    },
                     "instanceKey": "features",
                     "showDescription": true,
                     "fixedItemsHeight": true,
-                    "showItemDescriptions": true
+                    "showItemDescriptions": true,
+                    "__layout": {
+                        "bindings": {
+                            "version": 1,
+                            "slots": [
+                                {
+                                    "slot": "items",
+                                    "targets": [
+                                        {
+                                            "entityKind": "object",
+                                            "entityCodename": "MarketingPageFeature",
+                                            "selector": {
+                                                "kind": "record-set"
+                                            },
+                                            "projection": [
+                                                {
+                                                    "field": "description",
+                                                    "componentCodename": "Description"
+                                                },
+                                                {
+                                                    "field": "iconKey",
+                                                    "componentCodename": "IconKey"
+                                                },
+                                                {
+                                                    "field": "imageDark",
+                                                    "componentCodename": "ImageDark"
+                                                },
+                                                {
+                                                    "field": "imageLight",
+                                                    "componentCodename": "ImageLight"
+                                                },
+                                                {
+                                                    "field": "key",
+                                                    "componentCodename": "FeatureKey"
+                                                },
+                                                {
+                                                    "field": "order",
+                                                    "componentCodename": "SortOrder"
+                                                },
+                                                {
+                                                    "field": "title",
+                                                    "componentCodename": "Title"
+                                                },
+                                                {
+                                                    "field": "visible",
+                                                    "componentCodename": "IsVisible"
+                                                }
+                                            ]
+                                        }
+                                    ]
+                                },
+                                {
+                                    "slot": "section",
+                                    "targets": [
+                                        {
+                                            "entityKind": "object",
+                                            "entityCodename": "MarketingPageSection",
+                                            "selector": {
+                                                "kind": "semantic-key",
+                                                "field": "key",
+                                                "value": "features"
+                                            },
+                                            "projection": [
+                                                {
+                                                    "field": "description",
+                                                    "componentCodename": "Description"
+                                                },
+                                                {
+                                                    "field": "key",
+                                                    "componentCodename": "SectionKey"
+                                                },
+                                                {
+                                                    "field": "title",
+                                                    "componentCodename": "Title"
+                                                }
+                                            ]
+                                        }
+                                    ]
+                                }
+                            ]
+                        }
+                    }
                 },
                 "isActive": true
             },
@@ -13722,24 +14092,98 @@
                 "widgetKey": "marketing.collection",
                 "sortOrder": 4,
                 "config": {
-                    "source": {
-                        "fieldMap": {},
-                        "entityKind": "object",
-                        "entityCodename": "MarketingPageTestimonial"
-                    },
                     "variant": "testimonials",
                     "maxItems": 3,
                     "showTitle": true,
-                    "copySource": {
-                        "fieldMap": {},
-                        "recordKey": "testimonials",
-                        "entityKind": "object",
-                        "entityCodename": "MarketingPageSection"
-                    },
                     "instanceKey": "testimonials",
                     "showDescription": true,
                     "fixedItemsHeight": false,
-                    "showItemDescriptions": true
+                    "showItemDescriptions": true,
+                    "__layout": {
+                        "bindings": {
+                            "version": 1,
+                            "slots": [
+                                {
+                                    "slot": "items",
+                                    "targets": [
+                                        {
+                                            "entityKind": "object",
+                                            "entityCodename": "MarketingPageTestimonial",
+                                            "selector": {
+                                                "kind": "record-set"
+                                            },
+                                            "projection": [
+                                                {
+                                                    "field": "avatar",
+                                                    "componentCodename": "AvatarUrl"
+                                                },
+                                                {
+                                                    "field": "key",
+                                                    "componentCodename": "TestimonialKey"
+                                                },
+                                                {
+                                                    "field": "logoDark",
+                                                    "componentCodename": "LogoDarkUrl"
+                                                },
+                                                {
+                                                    "field": "logoLight",
+                                                    "componentCodename": "LogoLightUrl"
+                                                },
+                                                {
+                                                    "field": "name",
+                                                    "componentCodename": "Name"
+                                                },
+                                                {
+                                                    "field": "occupation",
+                                                    "componentCodename": "Occupation"
+                                                },
+                                                {
+                                                    "field": "order",
+                                                    "componentCodename": "SortOrder"
+                                                },
+                                                {
+                                                    "field": "quote",
+                                                    "componentCodename": "Quote"
+                                                },
+                                                {
+                                                    "field": "visible",
+                                                    "componentCodename": "IsVisible"
+                                                }
+                                            ]
+                                        }
+                                    ]
+                                },
+                                {
+                                    "slot": "section",
+                                    "targets": [
+                                        {
+                                            "entityKind": "object",
+                                            "entityCodename": "MarketingPageSection",
+                                            "selector": {
+                                                "kind": "semantic-key",
+                                                "field": "key",
+                                                "value": "testimonials"
+                                            },
+                                            "projection": [
+                                                {
+                                                    "field": "description",
+                                                    "componentCodename": "Description"
+                                                },
+                                                {
+                                                    "field": "key",
+                                                    "componentCodename": "SectionKey"
+                                                },
+                                                {
+                                                    "field": "title",
+                                                    "componentCodename": "Title"
+                                                }
+                                            ]
+                                        }
+                                    ]
+                                }
+                            ]
+                        }
+                    }
                 },
                 "isActive": true
             },
@@ -13750,24 +14194,86 @@
                 "widgetKey": "marketing.collection",
                 "sortOrder": 5,
                 "config": {
-                    "source": {
-                        "fieldMap": {},
-                        "entityKind": "object",
-                        "entityCodename": "MarketingPageHighlight"
-                    },
                     "variant": "highlights",
                     "maxItems": 6,
                     "showTitle": true,
-                    "copySource": {
-                        "fieldMap": {},
-                        "recordKey": "highlights",
-                        "entityKind": "object",
-                        "entityCodename": "MarketingPageSection"
-                    },
                     "instanceKey": "highlights",
                     "showDescription": true,
                     "fixedItemsHeight": false,
-                    "showItemDescriptions": true
+                    "showItemDescriptions": true,
+                    "__layout": {
+                        "bindings": {
+                            "version": 1,
+                            "slots": [
+                                {
+                                    "slot": "items",
+                                    "targets": [
+                                        {
+                                            "entityKind": "object",
+                                            "entityCodename": "MarketingPageHighlight",
+                                            "selector": {
+                                                "kind": "record-set"
+                                            },
+                                            "projection": [
+                                                {
+                                                    "field": "description",
+                                                    "componentCodename": "Description"
+                                                },
+                                                {
+                                                    "field": "iconKey",
+                                                    "componentCodename": "IconKey"
+                                                },
+                                                {
+                                                    "field": "key",
+                                                    "componentCodename": "HighlightKey"
+                                                },
+                                                {
+                                                    "field": "order",
+                                                    "componentCodename": "SortOrder"
+                                                },
+                                                {
+                                                    "field": "title",
+                                                    "componentCodename": "Title"
+                                                },
+                                                {
+                                                    "field": "visible",
+                                                    "componentCodename": "IsVisible"
+                                                }
+                                            ]
+                                        }
+                                    ]
+                                },
+                                {
+                                    "slot": "section",
+                                    "targets": [
+                                        {
+                                            "entityKind": "object",
+                                            "entityCodename": "MarketingPageSection",
+                                            "selector": {
+                                                "kind": "semantic-key",
+                                                "field": "key",
+                                                "value": "highlights"
+                                            },
+                                            "projection": [
+                                                {
+                                                    "field": "description",
+                                                    "componentCodename": "Description"
+                                                },
+                                                {
+                                                    "field": "key",
+                                                    "componentCodename": "SectionKey"
+                                                },
+                                                {
+                                                    "field": "title",
+                                                    "componentCodename": "Title"
+                                                }
+                                            ]
+                                        }
+                                    ]
+                                }
+                            ]
+                        }
+                    }
                 },
                 "isActive": true
             },
@@ -13778,22 +14284,135 @@
                 "widgetKey": "marketing.pricing",
                 "sortOrder": 6,
                 "config": {
-                    "source": {
-                        "fieldMap": {},
-                        "entityKind": "object",
-                        "entityCodename": "MarketingPagePricing"
-                    },
                     "maxItems": 3,
                     "cardStyle": "uniform",
                     "cardWidth": "auto",
-                    "copySource": {
-                        "fieldMap": {},
-                        "recordKey": "pricing",
-                        "entityKind": "object",
-                        "entityCodename": "MarketingPageSection"
-                    },
                     "instanceKey": "pricing",
-                    "showBenefits": true
+                    "showBenefits": true,
+                    "__layout": {
+                        "bindings": {
+                            "version": 1,
+                            "slots": [
+                                {
+                                    "slot": "benefits",
+                                    "targets": [
+                                        {
+                                            "entityKind": "object",
+                                            "entityCodename": "MarketingPagePricingBenefit",
+                                            "selector": {
+                                                "kind": "relation-set",
+                                                "parentSlot": "tiers"
+                                            },
+                                            "projection": [
+                                                {
+                                                    "field": "key",
+                                                    "componentCodename": "BenefitKey"
+                                                },
+                                                {
+                                                    "field": "label",
+                                                    "componentCodename": "Label"
+                                                },
+                                                {
+                                                    "field": "order",
+                                                    "componentCodename": "SortOrder"
+                                                },
+                                                {
+                                                    "field": "tier",
+                                                    "componentCodename": "TierRef"
+                                                },
+                                                {
+                                                    "field": "visible",
+                                                    "componentCodename": "IsVisible"
+                                                }
+                                            ]
+                                        }
+                                    ]
+                                },
+                                {
+                                    "slot": "section",
+                                    "targets": [
+                                        {
+                                            "entityKind": "object",
+                                            "entityCodename": "MarketingPageSection",
+                                            "selector": {
+                                                "kind": "semantic-key",
+                                                "field": "key",
+                                                "value": "pricing"
+                                            },
+                                            "projection": [
+                                                {
+                                                    "field": "description",
+                                                    "componentCodename": "Description"
+                                                },
+                                                {
+                                                    "field": "key",
+                                                    "componentCodename": "SectionKey"
+                                                },
+                                                {
+                                                    "field": "title",
+                                                    "componentCodename": "Title"
+                                                }
+                                            ]
+                                        }
+                                    ]
+                                },
+                                {
+                                    "slot": "tiers",
+                                    "targets": [
+                                        {
+                                            "entityKind": "object",
+                                            "entityCodename": "MarketingPagePricing",
+                                            "selector": {
+                                                "kind": "record-set"
+                                            },
+                                            "projection": [
+                                                {
+                                                    "field": "actionHref",
+                                                    "componentCodename": "ActionHref"
+                                                },
+                                                {
+                                                    "field": "actionLabel",
+                                                    "componentCodename": "ActionLabel"
+                                                },
+                                                {
+                                                    "field": "featured",
+                                                    "componentCodename": "Featured"
+                                                },
+                                                {
+                                                    "field": "key",
+                                                    "componentCodename": "TierKey"
+                                                },
+                                                {
+                                                    "field": "order",
+                                                    "componentCodename": "SortOrder"
+                                                },
+                                                {
+                                                    "field": "period",
+                                                    "componentCodename": "Period"
+                                                },
+                                                {
+                                                    "field": "price",
+                                                    "componentCodename": "Price"
+                                                },
+                                                {
+                                                    "field": "subheader",
+                                                    "componentCodename": "Subheader"
+                                                },
+                                                {
+                                                    "field": "title",
+                                                    "componentCodename": "Title"
+                                                },
+                                                {
+                                                    "field": "visible",
+                                                    "componentCodename": "IsVisible"
+                                                }
+                                            ]
+                                        }
+                                    ]
+                                }
+                            ]
+                        }
+                    }
                 },
                 "isActive": true
             },
@@ -13804,24 +14423,82 @@
                 "widgetKey": "marketing.collection",
                 "sortOrder": 7,
                 "config": {
-                    "source": {
-                        "fieldMap": {},
-                        "entityKind": "object",
-                        "entityCodename": "MarketingPageFaq"
-                    },
                     "variant": "faq",
                     "maxItems": 4,
                     "showTitle": true,
-                    "copySource": {
-                        "fieldMap": {},
-                        "recordKey": "faq",
-                        "entityKind": "object",
-                        "entityCodename": "MarketingPageSection"
-                    },
                     "instanceKey": "faq",
                     "showDescription": true,
                     "fixedItemsHeight": false,
-                    "showItemDescriptions": true
+                    "showItemDescriptions": true,
+                    "__layout": {
+                        "bindings": {
+                            "version": 1,
+                            "slots": [
+                                {
+                                    "slot": "items",
+                                    "targets": [
+                                        {
+                                            "entityKind": "object",
+                                            "entityCodename": "MarketingPageFaq",
+                                            "selector": {
+                                                "kind": "record-set"
+                                            },
+                                            "projection": [
+                                                {
+                                                    "field": "answer",
+                                                    "componentCodename": "Answer"
+                                                },
+                                                {
+                                                    "field": "key",
+                                                    "componentCodename": "FaqKey"
+                                                },
+                                                {
+                                                    "field": "order",
+                                                    "componentCodename": "SortOrder"
+                                                },
+                                                {
+                                                    "field": "question",
+                                                    "componentCodename": "Question"
+                                                },
+                                                {
+                                                    "field": "visible",
+                                                    "componentCodename": "IsVisible"
+                                                }
+                                            ]
+                                        }
+                                    ]
+                                },
+                                {
+                                    "slot": "section",
+                                    "targets": [
+                                        {
+                                            "entityKind": "object",
+                                            "entityCodename": "MarketingPageSection",
+                                            "selector": {
+                                                "kind": "semantic-key",
+                                                "field": "key",
+                                                "value": "faq"
+                                            },
+                                            "projection": [
+                                                {
+                                                    "field": "description",
+                                                    "componentCodename": "Description"
+                                                },
+                                                {
+                                                    "field": "key",
+                                                    "componentCodename": "SectionKey"
+                                                },
+                                                {
+                                                    "field": "title",
+                                                    "componentCodename": "Title"
+                                                }
+                                            ]
+                                        }
+                                    ]
+                                }
+                            ]
+                        }
+                    }
                 },
                 "isActive": true
             }
@@ -13931,5 +14608,5 @@
             "snapshotFormatVersion": 3
         }
     },
-    "snapshotHash": "8dec918d0a1113a933464ec9f38e42a9a5c711c2eca440e64d6ea8f733f5b246"
+    "snapshotHash": "b475eefba7336f665c6e5049113d602531fad5d8fcdab2bd8392ccdd4810b6c6"
 }

@@ -10,6 +10,12 @@ jest.mock('@universo-react/database', () => {
 })
 
 import { alignPlayCanvasRuntimeManifestBindings, attachLayoutsToSnapshot } from '../../domains/shared/snapshotLayouts'
+import {
+    buildSingleTargetWidgetBinding,
+    decodeWidgetConfigEnvelope,
+    encodeWidgetConfigEnvelope,
+    getLayoutWidgetDefinition
+} from '@universo-react/types'
 import type { MetahubSnapshot } from '../../domains/publications/services/SnapshotSerializer'
 
 type MockPoolExecutor = {
@@ -190,6 +196,23 @@ const createPoolExecutor = (): MockPoolExecutor => {
     return executor
 }
 
+const createMarketingBrandConfig = () => {
+    const definition = getLayoutWidgetDefinition('marketing.brand')
+    if (!definition) throw new Error('Marketing brand widget definition is missing')
+    const bindings = buildSingleTargetWidgetBinding(definition, 'site', {
+        entityKind: 'object',
+        entityCodename: 'MarketingPageSiteSettings',
+        semanticKey: 'site-settings'
+    })
+    return encodeWidgetConfigEnvelope(
+        {
+            rendererConfig: { instanceKey: 'brand' },
+            neutral: { placement: 'start', bindings }
+        },
+        { templateKey: 'marketing-page', widgetKey: 'marketing.brand', zone: 'marketing-header' }
+    )
+}
+
 describe('attachLayoutsToSnapshot', () => {
     beforeEach(() => {
         jest.clearAllMocks()
@@ -261,6 +284,117 @@ describe('attachLayoutsToSnapshot', () => {
         ])
     })
 
+    it('exports Marketing overlay config deltas without copying base widget bindings', async () => {
+        const baseLayoutId = '019e8afa-0000-7000-8000-000000000011'
+        const scopedLayoutId = '019e8afa-0000-7000-8000-000000000012'
+        const scopeEntityId = '019e8afa-0000-7000-8000-000000000013'
+        const baseWidgetId = '019e8afa-0000-7000-8000-000000000014'
+        const context = { templateKey: 'marketing-page', widgetKey: 'marketing.brand', zone: 'marketing-header' }
+        const baseConfig = createMarketingBrandConfig()
+        const overrideConfig = encodeWidgetConfigEnvelope(
+            { rendererConfig: { instanceKey: 'brand' }, neutral: { placement: 'end' } },
+            context
+        )
+        let overrideConfigToPersist = overrideConfig
+        const poolExecutor = createPoolExecutor()
+        poolExecutor.query.mockImplementation(async (sql: string, params: unknown[]) => {
+            if (sql.includes('pg_advisory_xact_lock')) return []
+            if (sql.includes('information_schema.tables')) return [{ exists: true }]
+            if (sql.includes('_mhb_layout_widget_overrides')) {
+                return [
+                    {
+                        id: '019e8afa-0000-7000-8000-000000000015',
+                        layout_id: scopedLayoutId,
+                        base_widget_id: baseWidgetId,
+                        zone: 'marketing-header',
+                        sort_order: 2,
+                        config: overrideConfigToPersist,
+                        is_active: true,
+                        is_deleted_override: false
+                    }
+                ]
+            }
+            if (sql.includes('_mhb_widgets')) {
+                return [
+                    {
+                        id: baseWidgetId,
+                        layout_id: baseLayoutId,
+                        zone: 'marketing-header',
+                        widget_key: 'marketing.brand',
+                        sort_order: 1,
+                        config: baseConfig,
+                        is_active: true
+                    }
+                ]
+            }
+            if (sql.includes('_mhb_layouts')) {
+                return [
+                    {
+                        id: baseLayoutId,
+                        scope_entity_id: null,
+                        base_layout_id: null,
+                        template_key: 'marketing-page',
+                        name: { en: 'Marketing' },
+                        description: null,
+                        config: { __layout: { composition: { mode: 'independent', baseLayoutId: null } } },
+                        is_active: true,
+                        is_default: true,
+                        sort_order: 0
+                    },
+                    {
+                        id: scopedLayoutId,
+                        scope_entity_id: scopeEntityId,
+                        base_layout_id: baseLayoutId,
+                        template_key: 'marketing-page',
+                        name: { en: 'Scoped Marketing' },
+                        description: null,
+                        config: { __layout: { composition: { mode: 'overlay', baseLayoutId } } },
+                        is_active: true,
+                        is_default: false,
+                        sort_order: 0
+                    }
+                ]
+            }
+            throw new Error(`Unexpected query: ${sql} ${String(params)}`)
+        })
+        mockGetPoolExecutor.mockReturnValue(poolExecutor)
+        const snapshot = {} as MetahubSnapshot
+
+        await attachLayoutsToSnapshot({
+            schemaService: { ensureSchema: jest.fn(async () => 'mhb_018f8a787b8f7c1da111222233334444_b1') } as any,
+            snapshot,
+            metahubId: 'metahub-1',
+            userId: 'user-1'
+        })
+
+        const exportedOverride = snapshot.layoutWidgetOverrides?.[0]
+        expect(exportedOverride?.config).toBeDefined()
+        const decoded = decodeWidgetConfigEnvelope(exportedOverride?.config, context)
+        expect(decoded.rendererConfig).toEqual({ instanceKey: 'brand' })
+        expect(decoded.neutral.placement).toBe('end')
+        expect(decoded.neutral.bindings).toBeUndefined()
+        expect(decodeWidgetConfigEnvelope(baseConfig, context).neutral.bindings).toBeDefined()
+
+        const overrideMetadata = overrideConfig.__layout as Record<string, unknown>
+        const baseMetadata = baseConfig.__layout as Record<string, unknown>
+        overrideConfigToPersist = {
+            ...overrideConfig,
+            __layout: {
+                ...overrideMetadata,
+                bindings: baseMetadata.bindings
+            }
+        }
+
+        await expect(
+            attachLayoutsToSnapshot({
+                schemaService: { ensureSchema: jest.fn(async () => 'mhb_018f8a787b8f7c1da111222233334444_b1') } as any,
+                snapshot: {} as MetahubSnapshot,
+                metahubId: 'metahub-1',
+                userId: 'user-1'
+            })
+        ).rejects.toThrow('Stored layout widget override cannot contain entity bindings')
+    })
+
     it('round-trips flow zone settings and widget placement without snapshot composition duplication', async () => {
         const globalLayoutId = '019e8afa-0000-7000-8000-000000000010'
         const poolExecutor = createPoolExecutor()
@@ -297,7 +431,7 @@ describe('attachLayoutsToSnapshot', () => {
                         zone: 'marketing-header',
                         widget_key: 'marketing.brand',
                         sort_order: 1,
-                        config: { instanceKey: 'brand', __layout: { placement: 'start' } },
+                        config: createMarketingBrandConfig(),
                         is_active: true
                     }
                 ]
@@ -320,7 +454,7 @@ describe('attachLayoutsToSnapshot', () => {
             __layout: { zoneSettings: { 'marketing-header': { position: 'flow' } } }
         })
         expect(snapshot.layoutConfig).toEqual(snapshot.layouts?.[0]?.config)
-        expect(snapshot.layoutZoneWidgets?.[0]?.config).toEqual({ instanceKey: 'brand', __layout: { placement: 'start' } })
+        expect(snapshot.layoutZoneWidgets?.[0]?.config).toEqual(createMarketingBrandConfig())
         expect(snapshot.layouts?.[0]?.config.__layout).not.toHaveProperty('composition')
     })
 

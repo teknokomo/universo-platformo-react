@@ -33,7 +33,7 @@ export function useRecordListData() {
     const { i18n } = useTranslation()
     const entityKindKey = resolveEntityChildKindKey({ routeKindKey, childObjectKind: 'object' })
 
-    // Resolve treeEntityId from object when treeEntityId is not in the URL (object-centric routes)
+    // Load the Object config on every records route so shared record policies can drive the form contract.
     const {
         data: objectForHubResolution,
         isLoading: isObjectResolutionLoading,
@@ -47,7 +47,7 @@ export function useRecordListData() {
             if (!metahubId || !objectCollectionId) throw new Error('metahubId and objectCollectionId are required')
             return getObjectCollectionById(metahubId, objectCollectionId, entityKindKey)
         },
-        enabled: !!metahubId && !!objectCollectionId && !hubIdParam
+        enabled: !!metahubId && !!objectCollectionId
     })
 
     const effectiveTreeEntityId = hubIdParam || objectForHubResolution?.treeEntities?.[0]?.id
@@ -55,7 +55,7 @@ export function useRecordListData() {
     // Hubs (shared hook — staleTime: 5min, deduplication via same queryKey)
     const treeEntities = useTreeEntities(metahubId)
 
-    const canLoadData = !!metahubId && !!objectCollectionId && (!hubIdParam || !isObjectResolutionLoading)
+    const canLoadData = !!metahubId && !!objectCollectionId && !isObjectResolutionLoading
 
     // Components for this object
     const { data: componentsData } = useQuery({

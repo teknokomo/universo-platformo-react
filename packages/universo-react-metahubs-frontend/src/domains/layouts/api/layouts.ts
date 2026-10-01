@@ -14,9 +14,37 @@ import type {
     ApplicationLayoutZone,
     LayoutCopyOptions,
     LayoutLogicalPlacement,
-    LayoutZoneSettingValue
+    LayoutZoneSettingValue,
+    MarketingWidgetRecordCopyIntent,
+    ReplaceLayoutZoneWidgetBindingsInput,
+    ReplaceLayoutZoneWidgetBindingsResult,
+    WidgetBindingReadDto,
+    WidgetBindingReadItem,
+    WidgetBindingRecordsDto,
+    WidgetBindingSelectedSourceOption,
+    WidgetBindingSourceProvisionInput,
+    WidgetBindingSourceProvisionResult,
+    WidgetBindingSourcesDto
 } from '@universo-react/types'
 import { layoutWidgetMetadataResponseSchema } from '@universo-react/types'
+
+export type {
+    MarketingWidgetRecordCopyIntent,
+    ReplaceLayoutZoneWidgetBindingsInput,
+    ReplaceLayoutZoneWidgetBindingsResult,
+    WidgetBindingReadDto,
+    WidgetBindingReadItem,
+    WidgetBindingRecordOption,
+    WidgetBindingRecordsDto,
+    WidgetBindingSelectedSourceOption,
+    WidgetBindingSelectionInput,
+    WidgetBindingSelectorInput,
+    WidgetBindingSelectorKind,
+    WidgetBindingSourceOption,
+    WidgetBindingSourceProvisionInput,
+    WidgetBindingSourceProvisionResult,
+    WidgetBindingSourcesDto
+} from '@universo-react/types'
 
 export type LayoutScopeParams = {
     scopeEntityId?: string | null
@@ -36,23 +64,11 @@ export type LayoutWidgetScopeVisibility = {
     isOverridden: boolean
 }
 
-export type LayoutZoneWidgetBinding = {
-    recordId: string
-    recordVersion: number
-    widgetVersion: number
-    label: string
-}
-
-export type WidgetBindingSource = {
-    entityId: string
-    entityCodename: string
-    name: string
-    description?: string
-    recordsCount: number
-    otherWidgetUsageCount: number
-}
-export type WidgetBindingSourceProvision = { source: WidgetBindingSource; initialRecord: { recordId: string } }
-export type WidgetBindingUsage = { recordId: string; usageCount: number }
+export type LayoutZoneWidgetBindingReadItem = WidgetBindingReadItem
+export type LayoutZoneWidgetBindings = WidgetBindingReadDto
+export type WidgetBindingSelectedSource = WidgetBindingSelectedSourceOption
+export type WidgetBindingSourcesPage = WidgetBindingSourcesDto
+export type WidgetBindingRecordsPage = WidgetBindingRecordsDto
 
 /**
  * List layouts for a specific metahub
@@ -104,7 +120,7 @@ export type LayoutCopyInput = {
     descriptionPrimaryLocale?: MetahubLayoutLocalizedPayload['descriptionPrimaryLocale']
     copyWidgets?: LayoutCopyOptions['copyWidgets']
     deactivateAllWidgets?: LayoutCopyOptions['deactivateAllWidgets']
-    heroBindingCopyMode?: 'reuse' | 'omit'
+    entityBindingCopyMode?: 'reuse' | 'omit'
 }
 
 export const copyLayout = (metahubId: string, layoutId: string, data: LayoutCopyInput) =>
@@ -174,52 +190,108 @@ export const assignLayoutZoneWidget = (
         widgetKey: ApplicationLayoutWidgetKey
         sortOrder?: number
         config?: Record<string, unknown>
-        heroContent?: { mode: 'auto'; sourceWidgetId?: string } | { mode: 'existing'; recordId: string }
         expectedVersion: number
     }
 ) => apiClient.put<MetahubLayoutZoneWidget>(`/metahub/${metahubId}/layout/${layoutId}/zone-widget`, data)
 
-export const getWidgetBindingSources = (
+/** Atomically copy a Marketing content record and create its duplicated placement. */
+export const duplicateLayoutZoneWidgetWithRecordCopy = (
+    metahubId: string,
+    layoutId: string,
+    data: {
+        zone: ApplicationLayoutZone
+        widgetKey: ApplicationLayoutWidgetKey
+        config: Record<string, unknown>
+        expectedVersion: number
+        recordCopy: MarketingWidgetRecordCopyIntent
+    }
+) => apiClient.post<MetahubLayoutZoneWidget>(`/metahub/${metahubId}/layout/${layoutId}/zone-widget/duplicate`, data)
+
+/** Load the current generic slot bindings for an existing placement in this layout. */
+export const getLayoutZoneWidgetBindings = (metahubId: string, layoutId: string, widgetId: string, locale: string) =>
+    apiClient.get<LayoutZoneWidgetBindings>(`/metahub/${metahubId}/layout/${layoutId}/zone-widget/${widgetId}/binding`, {
+        params: { locale }
+    })
+
+/** List compatible semantic Entity sources for a placement or a new marketing widget. */
+export const listWidgetBindingSources = (
     metahubId: string,
     layoutId: string,
     widgetKey: string,
-    slotKey: string,
-    locale: 'en' | 'ru',
-    excludeWidgetId?: string
+    slot: string,
+    widgetId: string | null,
+    locale: string,
+    offset = 0,
+    search?: string,
+    variant?: string,
+    parentSourceKey?: string,
+    selectedSourceKey?: string
 ) =>
-    apiClient.get<{ items: WidgetBindingSource[] }>(
-        `/metahub/${metahubId}/layout/${layoutId}/widget-binding-sources/${widgetKey}/${slotKey}`,
-        { params: { locale, ...(excludeWidgetId ? { excludeWidgetId } : {}) } }
+    apiClient.get<WidgetBindingSourcesPage>(
+        `/metahub/${metahubId}/layout/${layoutId}/widget-binding-sources/${encodeURIComponent(widgetKey)}/${encodeURIComponent(slot)}`,
+        {
+            params: {
+                ...(widgetId === null ? {} : { widgetId }),
+                locale,
+                offset,
+                ...(search === undefined ? {} : { search }),
+                ...(variant === undefined ? {} : { variant }),
+                ...(parentSourceKey === undefined ? {} : { parentSourceKey }),
+                ...(selectedSourceKey === undefined ? {} : { selectedSourceKey })
+            }
+        }
     )
 
 export const provisionWidgetBindingSource = (
     metahubId: string,
     layoutId: string,
     widgetKey: string,
-    slotKey: string,
-    data: { codename: string; name: string; description?: string }
+    slot: string,
+    data: WidgetBindingSourceProvisionInput
 ) =>
-    apiClient.post<WidgetBindingSourceProvision>(
-        `/metahub/${metahubId}/layout/${layoutId}/widget-binding-sources/${widgetKey}/${slotKey}`,
+    apiClient.post<WidgetBindingSourceProvisionResult>(
+        `/metahub/${metahubId}/layout/${layoutId}/widget-binding-sources/${encodeURIComponent(widgetKey)}/${encodeURIComponent(slot)}`,
         data
     )
 
-export const getWidgetBindingUsage = (metahubId: string, layoutId: string, recordId: string, excludeWidgetId?: string) =>
-    apiClient.get<WidgetBindingUsage>(`/metahub/${metahubId}/layout/${layoutId}/widget-binding-usage`, {
-        params: { recordId, ...(excludeWidgetId ? { excludeWidgetId } : {}) }
-    })
+/** List safe semantic-key choices; physical record identifiers stay on the server. */
+export const listWidgetBindingRecords = (
+    metahubId: string,
+    layoutId: string,
+    widgetKey: string,
+    slot: string,
+    widgetId: string | null,
+    sourceKey: string,
+    locale: string,
+    offset = 0,
+    search?: string,
+    variant?: string,
+    selectedSemanticKey?: string
+) =>
+    apiClient.get<WidgetBindingRecordsPage>(
+        widgetId === null
+            ? `/metahub/${metahubId}/layout/${layoutId}/widget-binding-records/${encodeURIComponent(widgetKey)}/${encodeURIComponent(slot)}`
+            : `/metahub/${metahubId}/layout/${layoutId}/zone-widget/${widgetId}/binding-records/${encodeURIComponent(slot)}`,
+        {
+            params: {
+                sourceKey,
+                locale,
+                offset,
+                ...(search === undefined ? {} : { search }),
+                ...(variant === undefined ? {} : { variant }),
+                ...(selectedSemanticKey === undefined ? {} : { selectedSemanticKey })
+            }
+        }
+    )
 
-export const getLayoutZoneWidgetBinding = (metahubId: string, layoutId: string, widgetId: string, locale: 'en' | 'ru') =>
-    apiClient.get<LayoutZoneWidgetBinding>(`/metahub/${metahubId}/layout/${layoutId}/zone-widget/${widgetId}/binding`, {
-        params: { locale }
-    })
-
-export const updateLayoutZoneWidgetBinding = (
+/** Replace every selected slot atomically using the placement's optimistic version. */
+export const replaceLayoutZoneWidgetBindings = (
     metahubId: string,
     layoutId: string,
     widgetId: string,
-    data: { recordId: string; expectedVersion: number }
-) => apiClient.patch<MetahubLayoutZoneWidget>(`/metahub/${metahubId}/layout/${layoutId}/zone-widget/${widgetId}/binding`, data)
+    data: ReplaceLayoutZoneWidgetBindingsInput
+) =>
+    apiClient.patch<ReplaceLayoutZoneWidgetBindingsResult>(`/metahub/${metahubId}/layout/${layoutId}/zone-widget/${widgetId}/binding`, data)
 
 export const moveLayoutZoneWidget = (
     metahubId: string,

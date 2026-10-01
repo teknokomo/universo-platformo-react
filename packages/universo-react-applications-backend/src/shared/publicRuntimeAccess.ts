@@ -286,6 +286,13 @@ export const loadPublicTableRows = async (
     if (workspaceId !== null && !UUID_REGEX.test(workspaceId)) {
         return []
     }
+    if (childComponents.length === 0) {
+        const tablePresence = await executor.query<{ table_exists: boolean }>(
+            `SELECT to_regclass(format('%I.%I', $1::text, $2::text)) IS NOT NULL AS table_exists`,
+            [schemaName, tableName]
+        )
+        if (tablePresence[0]?.table_exists !== true) return []
+    }
 
     const tableQt = qSchemaTable(schemaName, tableName)
     const selectColumns = [

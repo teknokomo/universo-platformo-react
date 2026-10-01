@@ -1,14 +1,17 @@
 import { qSchemaTable } from '@universo-react/database'
 import {
+    encodeLayoutWidgetConfigEnvelope,
     LAYOUT_WIDGET_DEFINITIONS,
     MARKETING_LAYOUT_ZONES,
     applicationTemplateKeySchema,
+    getLayoutWidgetDefinition,
     type ApplicationLayoutWidget,
     type ApplicationLayoutWidgetConfigBatchMutation,
     type ApplicationLayoutWidgetConfigMutation,
     type ApplicationLayoutWidgetMutation,
     type ApplicationLayoutWidgetResetBatchMutation,
     type ApplicationLayoutWidgetToggleMutation,
+    type ApplicationTemplateKey,
     type LayoutWidgetDefinition
 } from '@universo-react/types'
 import { type DbExecutor } from '@universo-react/utils'
@@ -18,6 +21,11 @@ import {
     lockInterpretationNetworkStructureMode
 } from '../shared/interpretationNetworkStructureModeGuard'
 import { hashApplicationLayoutContent } from '../utils/applicationLayoutHash'
+import {
+    applicationLayoutWidgetSourceStatesEqual,
+    createApplicationLayoutWidgetSourceState,
+    parseApplicationLayoutWidgetSourceState
+} from '../services/applicationLayoutWidgetSourceState'
 import {
     strictApplicationLayoutWidgetConfigBatchMutationSchema,
     strictApplicationLayoutWidgetConfigMutationSchema,
@@ -50,8 +58,7 @@ import {
     resolveExistingLayoutComposition,
     runApplicationLayoutTransaction,
     type ApplicationLayoutWidgetWithPlacement,
-    type WidgetRow,
-    widgetSelect
+    type WidgetRow
 } from './applicationLayoutStoreSupport'
 
 const ORDERED_LAYOUT_ZONES: Array<ApplicationLayoutWidget['zone']> = ['left', 'top', 'right', 'bottom', 'center', ...MARKETING_LAYOUT_ZONES]
@@ -126,12 +133,17 @@ const refreshLayoutLocalContentHash = async (
 
 export const listApplicationLayoutWidgetObject = (): LayoutWidgetDefinition[] => LAYOUT_WIDGET_DEFINITIONS.map((widget) => ({ ...widget }))
 
+const mapWidgetWithCanonicalSourceState = (row: WidgetRow, templateKey: ApplicationTemplateKey): ApplicationLayoutWidget =>
+    mapWidget(row, templateKey)
+
 export async function listApplicationLayoutWidgets(
     executor: DbExecutor,
     schemaName: string,
     layoutId: string
 ): Promise<ApplicationLayoutWidget[]> {
-    return (await getApplicationLayoutDetail(executor, schemaName, layoutId))?.widgets ?? []
+    const detail = await getApplicationLayoutDetail(executor, schemaName, layoutId)
+    if (!detail) return []
+    return detail.widgets
 }
 
 export async function upsertApplicationLayoutWidget(
@@ -143,7 +155,7 @@ export async function upsertApplicationLayoutWidget(
 ): Promise<ApplicationLayoutWidget> {
     if (isRecord(input)) assertRendererConfigInput(input.config)
     const data = strictApplicationLayoutWidgetMutationSchema.parse(input)
-    if (LAYOUT_WIDGET_DEFINITIONS.find((definition) => definition.key === data.widgetKey)?.bindingSlots?.length) {
+    if (getLayoutWidgetDefinition(data.widgetKey, data.config ?? {})?.bindingSlots?.length) {
         throw new Error('APPLICATION_LAYOUT_ENTITY_BACKED_WIDGET_COPY_CONFLICT')
     }
     const widgetsTable = qSchemaTable(schemaName, '_app_widgets')
@@ -190,7 +202,7 @@ export async function upsertApplicationLayoutWidget(
         )
         if (!rows[0]) throw new Error('APPLICATION_LAYOUT_WIDGET_INVALID')
         await refreshLayoutLocalContentHash(tx, schemaName, layoutId, userId)
-        return mapWidget(rows[0], current.item.templateKey)
+        return mapWidgetWithCanonicalSourceState(rows[0], current.item.templateKey)
     })
 }
 
@@ -261,7 +273,7 @@ export async function updateApplicationLayoutWidgetConfig(
         )
         if (!rows[0]) throw new Error('APPLICATION_LAYOUT_VERSION_CONFLICT')
         await refreshLayoutLocalContentHash(tx, schemaName, String(rows[0].layout_id), userId)
-        return mapWidget(rows[0], currentLayout.item.templateKey)
+        return mapWidgetWithCanonicalSourceState(rows[0], currentLayout.item.templateKey)
     })
 }
 
@@ -294,7 +306,11 @@ export async function updateApplicationLayoutWidgetConfigsBatch(
         }
 
         const currentRows = await tx.query<WidgetRow>(
-            `${widgetSelect(widgetsTable)}
+            `SELECT w.id, w.layout_id, w.zone, w.widget_key, w.sort_order, w.config, w.source_config, w.source_state,
+                    w.source_widget_id, w.source_base_widget_id,
+                    (w.source_config IS NOT NULL AND w.config IS DISTINCT FROM w.source_config) AS is_customized,
+                    w.is_active, COALESCE(w._upl_version, 1)::int AS version
+             FROM ${widgetsTable} w
              WHERE (layout_id, id) IN (
                    SELECT requested.layout_id, requested.widget_id
                    FROM UNNEST($1::uuid[], $2::uuid[]) AS requested(layout_id, widget_id)
@@ -372,7 +388,7 @@ export async function updateApplicationLayoutWidgetConfigsBatch(
                 [update.widgetId, JSON.stringify(storedConfig), userId, update.layoutId, update.expectedVersion]
             )
             if (!rows[0]) throw new Error('APPLICATION_LAYOUT_WIDGET_BATCH_CONFLICT')
-            saved.push(mapWidget(rows[0], currentLayout.item.templateKey))
+            saved.push(mapWidgetWithCanonicalSourceState(rows[0], currentLayout.item.templateKey))
             touchedLayoutIds.add(String(rows[0].layout_id))
         }
 
@@ -407,16 +423,20 @@ export async function resetApplicationLayoutWidgetConfigsBatch(
         }
 
         const currentRows = await tx.query<WidgetRow>(
-            `${widgetSelect(widgetsTable)}
-             WHERE (layout_id, id) IN (
+            `SELECT w.id, w.layout_id, w.zone, w.widget_key, w.sort_order, w.config, w.source_config, w.source_state,
+                    w.source_widget_id, w.source_base_widget_id,
+                    (w.source_config IS NOT NULL AND w.config IS DISTINCT FROM w.source_config) AS is_customized,
+                    w.is_active, COALESCE(w._upl_version, 1)::int AS version
+             FROM ${widgetsTable} w
+             WHERE (w.layout_id, w.id) IN (
                    SELECT requested.layout_id, requested.widget_id
                    FROM UNNEST($1::uuid[], $2::uuid[]) AS requested(layout_id, widget_id)
              )
-               AND source_config IS NOT NULL
-               AND _upl_deleted = false
-               AND _app_deleted = false
-               AND ${applicationLayoutWidgetPredicate(layoutsTable, 'layout_id')}
-             ORDER BY id
+               AND w.source_config IS NOT NULL
+               AND w._upl_deleted = false
+               AND w._app_deleted = false
+               AND ${applicationLayoutWidgetPredicate(layoutsTable, 'w.layout_id')}
+             ORDER BY w.id
              FOR UPDATE`,
             [updates.map((update) => update.layoutId), updates.map((update) => update.widgetId)]
         )
@@ -427,11 +447,36 @@ export async function resetApplicationLayoutWidgetConfigsBatch(
                 throw new Error('APPLICATION_LAYOUT_WIDGET_BATCH_CONFLICT')
             }
             const currentLayout = layoutById.get(update.layoutId)!
+            const inheritsMarketingBindings =
+                currentLayout.item.templateKey === 'marketing-page' &&
+                current.source_base_widget_id !== null &&
+                current.source_base_widget_id !== undefined
             try {
-                readWidgetConfigEnvelope(currentLayout.item.templateKey, current.widget_key, current.zone, current.source_config, {
-                    requireBindings: true
-                })
+                const decodedSource = readWidgetConfigEnvelope(
+                    currentLayout.item.templateKey,
+                    current.widget_key,
+                    current.zone,
+                    current.source_config,
+                    { requireBindings: !inheritsMarketingBindings }
+                )
+                if (inheritsMarketingBindings && decodedSource.bindings !== undefined) {
+                    throw new Error('Marketing overlay source config cannot contain Entity bindings')
+                }
             } catch {
+                throw new Error('APPLICATION_LAYOUT_WIDGET_INVALID')
+            }
+            const sourceState = parseApplicationLayoutWidgetSourceState(
+                (current as WidgetRow & { source_state?: unknown }).source_state,
+                currentLayout.item.templateKey,
+                current.widget_key
+            )
+            const validatedSourceState = createApplicationLayoutWidgetSourceState(currentLayout.item.templateKey, current.widget_key, {
+                zone: sourceState.zone,
+                sortOrder: sourceState.sortOrder,
+                isActive: sourceState.isActive,
+                config: current.source_config
+            })
+            if (!applicationLayoutWidgetSourceStatesEqual(sourceState, validatedSourceState)) {
                 throw new Error('APPLICATION_LAYOUT_WIDGET_INVALID')
             }
         }
@@ -442,16 +487,14 @@ export async function resetApplicationLayoutWidgetConfigsBatch(
             updates.map((update) => {
                 const current = currentByScopedId.get(`${update.layoutId}:${update.widgetId}`)!
                 const currentLayout = layoutById.get(update.layoutId)!
-                const sourceRendererConfig = readWidgetConfigEnvelope(
+                const sourceState = parseApplicationLayoutWidgetSourceState(
+                    (current as WidgetRow & { source_state?: unknown }).source_state,
                     currentLayout.item.templateKey,
-                    current.widget_key,
-                    current.zone,
-                    current.source_config,
-                    { requireBindings: true }
-                ).rendererConfig
+                    current.widget_key
+                )
                 return {
                     current: { widgetKey: current.widget_key, config: current.config, isActive: current.is_active },
-                    next: { widgetKey: current.widget_key, config: sourceRendererConfig, isActive: current.is_active }
+                    next: { widgetKey: current.widget_key, config: sourceState.rendererConfig, isActive: sourceState.isActive }
                 }
             }),
             { lockAlreadyHeld: true }
@@ -460,28 +503,55 @@ export async function resetApplicationLayoutWidgetConfigsBatch(
         const saved: ApplicationLayoutWidget[] = []
         const touchedLayoutIds = new Set<string>()
         for (const update of updates) {
+            const current = currentByScopedId.get(`${update.layoutId}:${update.widgetId}`)!
+            const currentLayout = layoutById.get(update.layoutId)!
+            const sourceState = parseApplicationLayoutWidgetSourceState(
+                (current as WidgetRow & { source_state?: unknown }).source_state,
+                currentLayout.item.templateKey,
+                current.widget_key
+            )
+            const config = encodeLayoutWidgetConfigEnvelope(
+                {
+                    rendererConfig: sourceState.rendererConfig,
+                    neutral: sourceState.placement === null ? {} : { placement: sourceState.placement }
+                },
+                { templateKey: currentLayout.item.templateKey, widgetKey: current.widget_key, zone: sourceState.zone }
+            )
             const rows = await tx.query<WidgetRow>(
                 `
                 UPDATE ${widgetsTable}
-                SET config = source_config,
+                SET config = $3::jsonb,
+                    zone = $5,
+                    sort_order = $6,
+                    is_active = $7,
                     _upl_updated_at = NOW(),
-                    _upl_updated_by = $3,
+                    _upl_updated_by = $4,
                     _upl_version = COALESCE(_upl_version, 1) + 1
                 WHERE id = $1
                   AND layout_id = $2
                   AND source_config IS NOT NULL
+                  AND source_state IS NOT NULL
                   AND _upl_deleted = false
                   AND _app_deleted = false
-                  AND COALESCE(_upl_version, 1) = $4
+                  AND COALESCE(_upl_version, 1) = $8
                   AND ${applicationLayoutWidgetPredicate(layoutsTable, 'layout_id')}
                 RETURNING *,
                           false AS is_customized,
                           COALESCE(_upl_version, 1)::int AS version
                 `,
-                [update.widgetId, update.layoutId, userId, update.expectedVersion]
+                [
+                    update.widgetId,
+                    update.layoutId,
+                    JSON.stringify(config),
+                    userId,
+                    sourceState.zone,
+                    sourceState.sortOrder,
+                    sourceState.isActive,
+                    update.expectedVersion
+                ]
             )
             if (!rows[0]) throw new Error('APPLICATION_LAYOUT_WIDGET_BATCH_CONFLICT')
-            saved.push(mapWidget(rows[0], layoutById.get(update.layoutId)!.item.templateKey))
+            saved.push(mapWidgetWithCanonicalSourceState(rows[0], layoutById.get(update.layoutId)!.item.templateKey))
             touchedLayoutIds.add(update.layoutId)
         }
 
@@ -595,7 +665,9 @@ export async function moveApplicationLayoutWidget(
                     pendingUpdates.map((update) => update.sortOrder)
                 ]
             )
-            const updatedById = new Map(updatedRows.map((row) => [row.id, mapWidget(row, currentLayout.item.templateKey)]))
+            const updatedById = new Map(
+                updatedRows.map((row) => [row.id, mapWidgetWithCanonicalSourceState(row, currentLayout.item.templateKey)])
+            )
 
             if (updatedRows.length !== pendingUpdates.length) {
                 throw new Error('APPLICATION_LAYOUT_WIDGET_BATCH_CONFLICT')
@@ -635,7 +707,7 @@ export async function moveApplicationLayoutWidget(
                 [moved.id, JSON.stringify(movedStoredConfig), userId, layoutId]
             )
             if (!movedRows[0]) throw new Error('APPLICATION_LAYOUT_WIDGET_BATCH_CONFLICT')
-            movedResult = mapWidget(movedRows[0], currentLayout.item.templateKey)
+            movedResult = mapWidgetWithCanonicalSourceState(movedRows[0], currentLayout.item.templateKey)
         }
 
         await refreshLayoutLocalContentHash(tx, schemaName, layoutId, userId)
@@ -702,7 +774,7 @@ export async function toggleApplicationLayoutWidget(
         )
         if (!rows[0]) throw new Error('APPLICATION_LAYOUT_VERSION_CONFLICT')
         await refreshLayoutLocalContentHash(tx, schemaName, String(rows[0].layout_id), userId)
-        return mapWidget(rows[0], currentLayout.item.templateKey)
+        return mapWidgetWithCanonicalSourceState(rows[0], currentLayout.item.templateKey)
     })
 }
 

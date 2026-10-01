@@ -52,7 +52,8 @@ router.use('/applications', ensureAuthWithRls, applicationsRouter)
 4. **Pinned Connection**: Acquires one dedicated Knex pool connection for the full request lifecycle
 5. **RLS Context Application**: Writes `request.jwt.claims` on that pinned connection so PostgreSQL policies can read the authenticated user context
 6. **Request Context**: Attaches a neutral `DbSession` / `DbExecutor` pair to `req.dbContext` for route handlers and services
-7. **Cleanup**: Resets the session claims and releases the pinned connection on request finish/close
+7. **Cleanup**: Stops transaction admission before closing the connection lease, drains admitted work, finalizes the request transaction before sending a response, then releases the pinned connection. A failed savepoint invalidates the parent request transaction even when its rejection is caught; successful rollback preserves the route's client-error response.
+8. **Connection safety**: If reset or rollback cannot be confirmed, marks the connection unusable so the Knex pool discards it before reuse.
 
 ### Usage in Services
 
@@ -103,7 +104,7 @@ CREATE POLICY "Users can only access their own data" ON app.items
 -   Each protected request uses one pinned Knex connection until cleanup runs
 -   The request-scoped executor keeps all queries and transactions on that same connection
 -   JWT verification happens once per request before `req.dbContext` is populated
--   Cleanup explicitly clears `request.jwt.claims` before the connection returns to the pool
+-   JWT claims use transaction-local `set_config(..., true)` and disappear on commit or rollback; cleanup drains admitted work, finalizes the transaction before sending the response, then releases the connection
 
 ## Core Components
 

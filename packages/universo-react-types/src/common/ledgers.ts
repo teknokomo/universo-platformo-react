@@ -1,9 +1,9 @@
 import { z } from 'zod'
 
 import type { ComponentDefinitionDataType } from './metahubs'
+import { LEDGER_MODES, type LedgerMode } from './ledgerModes'
 
-export const LEDGER_MODES = ['facts', 'balance', 'accounting', 'calculation'] as const
-export type LedgerMode = (typeof LEDGER_MODES)[number]
+export { LEDGER_MODES, type LedgerMode } from './ledgerModes'
 
 export const LEDGER_MUTATION_POLICIES = ['appendOnly', 'manualEditable'] as const
 export type LedgerMutationPolicy = (typeof LEDGER_MUTATION_POLICIES)[number]

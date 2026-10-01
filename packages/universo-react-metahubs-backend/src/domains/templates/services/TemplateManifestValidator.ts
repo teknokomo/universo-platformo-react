@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import {
     COMPONENT_DATA_TYPES,
+    entityTypeCapabilitiesSchema,
     validateCapabilityDependencies,
     FIXED_VALUE_DATA_TYPES,
     DASHBOARD_LAYOUT_ZONES,
@@ -31,6 +32,7 @@ import {
     CURRENT_STRUCTURE_VERSION_SEMVER,
     semverToStructureVersion
 } from '../../metahubs/services/structureVersions'
+import { collectMarketingPageSeedIntegrityErrors } from './marketingPageSeedIntegrity'
 
 const widgetKeys = DASHBOARD_LAYOUT_WIDGETS.map((w) => w.key) as [DashboardLayoutWidgetKey, ...DashboardLayoutWidgetKey[]]
 const entityKindKeySchema = z
@@ -100,7 +102,7 @@ const validationRulesSchema = z
         maxLength: z.number().int().min(1).max(10_000).nullable().optional(),
         pattern: z.string().max(500).nullable().optional(),
         options: z.array(z.string().max(200)).max(100).nullable().optional(),
-        format: z.enum(['hexColor', 'marketingAction']).nullable().optional(),
+        format: z.enum(['hexColor', 'marketingAction', 'marketingMediaReference', 'marketingHref']).nullable().optional(),
         versioned: z.boolean().nullable().optional(),
         localized: z.boolean().nullable().optional(),
         /** Records of this object must keep this component value unique. */
@@ -238,7 +240,6 @@ const templateMetaSchema = z.object({
     previewUrl: z.string().optional()
 })
 
-const componentConfigSchema = z.object({ enabled: z.boolean() })
 const behaviorConfigKindByKey: Record<(typeof ENTITY_BEHAVIOR_CONFIG_KEYS)[number], string> = {
     singleValue: 'singleValue',
     catalogBehavior: 'catalog',
@@ -358,93 +359,6 @@ export function validateTemplateSeedEntityBehaviorReferences(seed: MetahubTempla
         }
     }
 }
-
-const componentManifestSchema = z.object({
-    dataSchema: z.union([componentConfigSchema.extend({ maxComponents: z.number().int().nullable().optional() }), z.literal(false)]),
-    records: z.union([componentConfigSchema.extend({ maxElements: z.number().int().nullable().optional() }), z.literal(false)]),
-    treeAssignment: z.union([
-        componentConfigSchema.extend({
-            isSingleHub: z.boolean().optional(),
-            isRequiredHub: z.boolean().optional()
-        }),
-        z.literal(false)
-    ]),
-    optionValues: z.union([componentConfigSchema, z.literal(false)]),
-    fixedValues: z.union([componentConfigSchema, z.literal(false)]),
-    hierarchy: z.union([componentConfigSchema.extend({ supportsFolders: z.boolean().optional() }), z.literal(false)]),
-    nestedCollections: z.union([
-        componentConfigSchema.extend({ maxCollections: z.number().int().nullable().optional() }),
-        z.literal(false)
-    ]),
-    relations: z.union([
-        componentConfigSchema.extend({
-            allowedRelationTypes: z.array(z.string()).optional()
-        }),
-        z.literal(false)
-    ]),
-    actions: z.union([componentConfigSchema, z.literal(false)]),
-    events: z.union([componentConfigSchema, z.literal(false)]),
-    modules: z.union([componentConfigSchema, z.literal(false)]),
-    blockContent: z.union([
-        componentConfigSchema.extend({
-            storage: z.enum(['objectConfig', 'recordJsonb']),
-            defaultFormat: z.literal('editorjs'),
-            supportedFormats: z.array(z.string().min(1)).min(1),
-            allowedBlockTypes: z.array(z.string().regex(/^[a-z][a-z0-9_-]{0,63}$/)).min(1),
-            maxBlocks: z.number().int().positive().max(5000)
-        }),
-        z.literal(false)
-    ]),
-    layoutConfig: z.union([componentConfigSchema, z.literal(false)]),
-    runtimeBehavior: z.union([componentConfigSchema, z.literal(false)]),
-    physicalTable: z.union([componentConfigSchema.extend({ prefix: z.string().min(1) }), z.literal(false)]),
-    identityFields: z
-        .union([
-            componentConfigSchema.extend({
-                allowNumber: z.boolean().optional(),
-                allowEffectiveDate: z.boolean().optional()
-            }),
-            z.literal(false)
-        ])
-        .optional(),
-    recordLifecycle: z
-        .union([
-            componentConfigSchema.extend({
-                allowCustomStates: z.boolean().optional()
-            }),
-            z.literal(false)
-        ])
-        .optional(),
-    posting: z
-        .union([
-            componentConfigSchema.extend({
-                allowManualPosting: z.boolean().optional(),
-                allowAutomaticPosting: z.boolean().optional()
-            }),
-            z.literal(false)
-        ])
-        .optional(),
-    ledgerSchema: z
-        .union([
-            componentConfigSchema.extend({
-                allowProjections: z.boolean().optional(),
-                allowRegistrarPolicy: z.boolean().optional(),
-                allowManualFacts: z.boolean().optional(),
-                allowedModes: z.array(z.enum(['facts', 'balance', 'accounting', 'calculation'])).optional()
-            }),
-            z.literal(false)
-        ])
-        .optional(),
-    projectBinding: z
-        .union([
-            componentConfigSchema.extend({
-                provider: z.enum(['playcanvasEditor']),
-                cardinality: z.literal('single')
-            }),
-            z.literal(false)
-        ])
-        .optional()
-})
 
 const entityTypeUiSchema = z.object({
     iconName: z.string().min(1),
@@ -694,6 +608,14 @@ export const templateManifestSchema = baseTemplateManifestSchema.superRefine((ma
                 }
             }
         }
+    }
+
+    for (const error of collectMarketingPageSeedIntegrityErrors(manifest.seed)) {
+        ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ['seed', 'layoutZoneWidgets'],
+            message: error
+        })
     }
 
     const presetCodenameSet = new Set<string>()
@@ -979,7 +901,7 @@ const entityTypePresetManifestSchemaBase = z.object({
             .max(64)
             .regex(/^[a-z][a-z0-9._-]{0,63}$/, 'Kind key must be lowercase and start with a letter'),
         codename: vlcSchema.optional(),
-        capabilities: componentManifestSchema,
+        capabilities: entityTypeCapabilitiesSchema,
         ui: entityTypeUiSchema,
         presentation: z.record(z.unknown()).optional(),
         config: z.record(z.unknown()).optional()

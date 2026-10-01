@@ -61,7 +61,7 @@
         "@testing-library/jest-dom": "catalog:",
         "@testing-library/react": "catalog:",
         "@testing-library/user-event": "catalog:",
-        "@vitejs/plugin-react": "^4.3.4",
+        "@vitejs/plugin-react": "catalog:",
         "rimraf": "^5.0.5",
         "sass": "^1.42.1",
         "typescript": "catalog:",

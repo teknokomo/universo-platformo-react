@@ -551,8 +551,11 @@ const attachLayoutsToSnapshotInTransaction = async (options: {
                               templateKey: layout.templateKey,
                               widgetKey: baseWidget.widgetKey,
                               zone,
-                              requireBindings: true
+                              requireBindings: false
                           })
+                if (decoded?.neutral.bindings !== undefined) {
+                    throw new Error('Stored layout widget override cannot contain entity bindings')
+                }
                 return {
                     id: readStoredString(row.id, 'widget override id'),
                     layoutId,
@@ -564,7 +567,7 @@ const attachLayoutsToSnapshotInTransaction = async (options: {
                             ? rawConfig
                             : encodeWidgetConfigEnvelope(
                                   { rendererConfig: decoded.rendererConfig, neutral: decoded.neutral },
-                                  { templateKey: layout.templateKey, widgetKey: baseWidget.widgetKey, zone, requireBindings: true }
+                                  { templateKey: layout.templateKey, widgetKey: baseWidget.widgetKey, zone, requireBindings: false }
                               ),
                     isActive: row.is_active === null ? null : readStoredBoolean(row.is_active, 'widget override active state'),
                     isDeletedOverride: readStoredBoolean(row.is_deleted_override, 'widget override deletion state')

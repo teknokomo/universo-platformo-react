@@ -49,12 +49,13 @@ const languageMenuLabel = (menuLocale: string, targetLocale: string) => {
 }
 
 /**
- * The private-application probe answers `204 No Content` and Chromium reports a
- * spurious `net::ERR_ABORTED` for that probe; the authenticated runtime then
- * loads normally. Only that exact, expected abort is ignored.
+ * Chromium reports expected aborts for the private-application probe and for
+ * the permissions request canceled during page teardown. Ignore only those
+ * exact endpoints; other failed requests remain visible to the browser check.
  */
-const isExpectedPublicProbeAbort = (url: string, errorText: string | undefined): boolean =>
-    errorText === 'net::ERR_ABORTED' && /\/api\/v1\/public\/applications\/[^/]+\/runtime(?:\?|$)/u.test(url)
+const isExpectedRequestAbort = (url: string, errorText: string | undefined): boolean =>
+    errorText === 'net::ERR_ABORTED' &&
+    (/\/api\/v1\/public\/applications\/[^/]+\/runtime(?:\?|$)/u.test(url) || /\/api\/v1\/auth\/permissions(?:\?|$)/u.test(url))
 
 function watchBrowserIssues(page: Page): BrowserIssue[] {
     const issues: BrowserIssue[] = []
@@ -69,7 +70,7 @@ function watchBrowserIssues(page: Page): BrowserIssue[] {
     })
     page.on('requestfailed', (request) => {
         const errorText = request.failure()?.errorText
-        if (isExpectedPublicProbeAbort(request.url(), errorText)) return
+        if (isExpectedRequestAbort(request.url(), errorText)) return
         issues.push({
             source: 'requestfailed',
             text: errorText ?? 'Request failed',

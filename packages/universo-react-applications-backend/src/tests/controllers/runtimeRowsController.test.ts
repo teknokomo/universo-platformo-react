@@ -1575,12 +1575,21 @@ describe('resolveRequestedRuntimeWorkspaceId', () => {
     })
 
     it('rejects explicit workspaces that are not available to the current user', () => {
-        expect(() =>
+        let failure: unknown
+        try {
             resolveRequestedRuntimeWorkspaceId('workspace-foreign', {
                 membershipState: ApplicationMembershipState.JOINED,
                 defaultWorkspaceId: 'workspace-personal',
                 allowedWorkspaceIds: ['workspace-personal', 'workspace-shared']
             })
-        ).toThrow(UpdateFailure)
+        } catch (error) {
+            failure = error
+        }
+
+        expect(failure).toBeInstanceOf(UpdateFailure)
+        expect(failure).toMatchObject({
+            statusCode: 403,
+            body: { code: 'WORKSPACE_ACCESS_DENIED' }
+        })
     })
 })

@@ -11,6 +11,7 @@ import {
     readWidgetConfigEnvelope,
     runApplicationLayoutTransaction
 } from './applicationLayoutStoreSupport'
+import { containsPersistedRequiredEntityBackedWidget } from './applicationLayoutEntityBindingPolicy'
 import {
     allocatePhysicalUuid,
     insertApplicationLayoutSyncWidget,
@@ -24,6 +25,7 @@ import {
     type ApplicationLayoutSyncWidgetRow,
     type SyncWidgetInput
 } from './applicationLayoutSyncStore'
+import { resolveSyncedApplicationLayoutWidgetState } from '../services/applicationLayoutWidgetSourceState'
 
 type JsonRecord = Record<string, unknown>
 
@@ -41,8 +43,7 @@ const updateWidget = async (
     physicalWidgetId: string,
     physicalLayoutId: string,
     row: SyncWidgetInput,
-    config: JsonRecord,
-    isActive: boolean,
+    state: ReturnType<typeof resolveSyncedApplicationLayoutWidgetState>,
     sourceContentHash: string | null,
     userId: string | null
 ): Promise<void> => {
@@ -55,13 +56,14 @@ const updateWidget = async (
             sort_order = $5,
             config = $6::jsonb,
             source_config = $7::jsonb,
-            is_active = $8,
-            source_widget_id = $9,
-            source_base_widget_id = $10,
-            source_content_hash = $11,
-            local_content_hash = $11,
+            source_state = $8::jsonb,
+            is_active = $9,
+            source_widget_id = $10,
+            source_base_widget_id = $11,
+            source_content_hash = $12,
+            local_content_hash = $12,
             _upl_updated_at = NOW(),
-            _upl_updated_by = $12,
+            _upl_updated_by = $13,
             _upl_version = COALESCE(_upl_version, 1) + 1,
             _upl_deleted = false,
             _upl_deleted_at = NULL,
@@ -74,8 +76,8 @@ const updateWidget = async (
           AND (
               _upl_deleted = false
               OR (
-                  source_widget_id IS NOT DISTINCT FROM $9
-                  AND source_base_widget_id IS NOT DISTINCT FROM $10
+                  source_widget_id IS NOT DISTINCT FROM $10
+                  AND source_base_widget_id IS NOT DISTINCT FROM $11
               )
           )
         RETURNING id
@@ -83,12 +85,13 @@ const updateWidget = async (
         [
             physicalWidgetId,
             physicalLayoutId,
-            row.zone,
+            state.zone,
             row.widgetKey,
-            row.sortOrder,
-            json(config),
+            state.sortOrder,
+            json(state.config),
             json(row.config),
-            isActive,
+            json(state.sourceState),
+            state.isActive,
             widgetSourceId(row),
             row.sourceBaseWidgetId ?? null,
             sourceContentHash,
@@ -251,7 +254,7 @@ export async function syncApplicationWidgets(
             physicalLayoutId: string
             row: SyncWidgetInput
             current: ApplicationLayoutSyncWidgetRow | undefined
-            preserveApplicationOverride: boolean
+            state: ReturnType<typeof resolveSyncedApplicationLayoutWidgetState>
         }> = []
         const nextPhysicalIds = new Set<string>()
         const usedPhysicalIds = new Set(existingRows.filter((row) => !row._app_deleted).map((row) => row.id))
@@ -287,14 +290,16 @@ export async function syncApplicationWidgets(
             if (current && current.layout_id !== physicalLayoutId) {
                 throw new Error('[SchemaSync] Snapshot widget identity collides with an unrelated application widget')
             }
-            const layout = inheritedLayouts.find((candidate) => candidate.id === physicalLayoutId)
+            const templateKey = templateByLayoutId.get(physicalLayoutId)
+            if (!templateKey) throw new Error(`[SchemaSync] Persisted widget ${row.id} references an invalid layout`)
+            const state = resolveSyncedApplicationLayoutWidgetState(templateKey, row, current)
             touchedLayoutIds.add(physicalLayoutId)
             pending.push({
                 physicalId,
                 physicalLayoutId,
                 row,
                 current,
-                preserveApplicationOverride: Boolean(current && layout && layout.sync_state !== 'clean')
+                state
             })
         }
 
@@ -306,26 +311,13 @@ export async function syncApplicationWidgets(
                       isActive: item.current.is_active
                   }
                 : null,
-            next:
-                item.preserveApplicationOverride && item.current
-                    ? {
-                          widgetKey: item.current.widget_key,
-                          config: canonicalCurrentConfigById.get(item.current.id) as JsonRecord,
-                          isActive: item.current.is_active
-                      }
-                    : { widgetKey: item.row.widgetKey, config: item.row.config, isActive: item.row.isActive !== false }
+            next: { widgetKey: item.row.widgetKey, config: item.state.config, isActive: item.state.isActive }
         }))
         if (transitions.length > 0) {
             await assertInterpretationNetworkSingleSystemTransitionAllowed(tx, schemaName, transitions, { lockAlreadyHeld: true })
         }
 
         for (const item of pending) {
-            const sourceConfig = item.row.config
-            const config =
-                item.preserveApplicationOverride && item.current
-                    ? (canonicalCurrentConfigById.get(item.current.id) as JsonRecord)
-                    : sourceConfig
-            const isActive = item.preserveApplicationOverride && item.current ? item.current.is_active : item.row.isActive !== false
             if (item.current) {
                 await updateWidget(
                     tx,
@@ -333,8 +325,7 @@ export async function syncApplicationWidgets(
                     item.physicalId,
                     item.physicalLayoutId,
                     item.row,
-                    config,
-                    isActive,
+                    item.state,
                     item.row.sourceContentHash,
                     input.userId
                 )
@@ -346,7 +337,8 @@ export async function syncApplicationWidgets(
                     item.physicalLayoutId,
                     item.row,
                     item.row.sourceContentHash,
-                    input.userId
+                    input.userId,
+                    { sourceState: item.state.sourceState }
                 )
             }
         }
@@ -354,11 +346,49 @@ export async function syncApplicationWidgets(
         const nextIds = [...nextPhysicalIds]
         const locallyModifiedLayoutIds = inheritedLayouts.filter((row) => row.sync_state !== 'clean').map((row) => row.id)
         if (locallyModifiedLayoutIds.length > 0) {
+            const locallyModifiedLayoutIdSet = new Set(locallyModifiedLayoutIds)
+            const removedSourceWidgetIdsToDeactivate = new Set<string>()
+            const removedSourceWidgetIdsToDetach = new Set<string>()
+            for (const row of existingRows) {
+                if (
+                    !locallyModifiedLayoutIdSet.has(row.layout_id) ||
+                    row.source_widget_id === null ||
+                    row.source_widget_id === undefined ||
+                    nextPhysicalIds.has(row.id) ||
+                    row._upl_deleted ||
+                    row._app_deleted
+                ) {
+                    continue
+                }
+                if (row.source_base_widget_id !== null && row.source_base_widget_id !== undefined) {
+                    if (row.is_active !== false) removedSourceWidgetIdsToDeactivate.add(row.id)
+                    continue
+                }
+                const templateKey = templateByLayoutId.get(row.layout_id)
+                if (!templateKey) throw new Error(`[SchemaSync] Persisted widget ${row.id} references an invalid layout`)
+                if (containsPersistedRequiredEntityBackedWidget(templateKey, [row])) {
+                    if (row.is_active !== false) removedSourceWidgetIdsToDeactivate.add(row.id)
+                } else {
+                    removedSourceWidgetIdsToDetach.add(row.id)
+                }
+            }
             const rows = await tx.query<{ id: string; layout_id: string }>(
                 `
                 UPDATE ${widgetsTable}
-                SET source_config = NULL,
-                    is_active = CASE WHEN source_base_widget_id IS NULL THEN is_active ELSE false END,
+                SET source_config = CASE WHEN id = ANY($5::uuid[]) THEN NULL ELSE source_config END,
+                    source_state = CASE WHEN id = ANY($5::uuid[]) THEN NULL ELSE source_state END,
+                    source_widget_id = CASE WHEN id = ANY($5::uuid[]) THEN NULL ELSE source_widget_id END,
+                    source_base_widget_id = CASE WHEN id = ANY($5::uuid[]) THEN NULL ELSE source_base_widget_id END,
+                    source_content_hash = CASE WHEN id = ANY($5::uuid[]) THEN NULL ELSE source_content_hash END,
+                    local_content_hash = CASE WHEN id = ANY($5::uuid[]) THEN NULL ELSE local_content_hash END,
+                    is_active = CASE
+                        WHEN id = ANY($4::uuid[]) THEN false
+                        WHEN source_base_widget_id IS NULL THEN is_active
+                        ELSE false
+                    END,
+                    _upl_deleted = CASE WHEN id = ANY($4::uuid[]) THEN true ELSE _upl_deleted END,
+                    _upl_deleted_at = CASE WHEN id = ANY($4::uuid[]) THEN NOW() ELSE _upl_deleted_at END,
+                    _upl_deleted_by = CASE WHEN id = ANY($4::uuid[]) THEN $3 ELSE _upl_deleted_by END,
                     _upl_updated_at = NOW(), _upl_updated_by = $3,
                     _upl_version = COALESCE(_upl_version, 1) + 1
                 WHERE layout_id = ANY($1::uuid[])
@@ -368,7 +398,13 @@ export async function syncApplicationWidgets(
                   AND _app_deleted = false
                 RETURNING id, layout_id
                 `,
-                [locallyModifiedLayoutIds, nextIds, input.userId]
+                [
+                    locallyModifiedLayoutIds,
+                    nextIds,
+                    input.userId,
+                    [...removedSourceWidgetIdsToDeactivate],
+                    [...removedSourceWidgetIdsToDetach]
+                ]
             )
             for (const row of rows) {
                 if (row.layout_id) touchedLayoutIds.add(row.layout_id)

@@ -166,4 +166,35 @@ describe('Record Routes', () => {
         expect(response.body.error).toBe('Validation failed')
         expect(mockRecordsService.reorderRecord).not.toHaveBeenCalled()
     })
+
+    it('GET /records applies a parameterized exact component-value filter', async () => {
+        const app = buildApp()
+        mockRecordsService.findAllAndCount.mockResolvedValueOnce({ items: [], total: 0 })
+
+        await request(app)
+            .get(
+                '/metahub/metahub-1/entities/object/instance/tree-1/instance/object-1/records?exactComponentCodename=HeroKey&exactValue=hero-home'
+            )
+            .expect(200)
+
+        expect(mockRecordsService.findAllAndCount).toHaveBeenCalledWith(
+            'metahub-1',
+            'object-1',
+            expect.objectContaining({ exactComponentCodename: 'HeroKey', exactValue: 'hero-home' }),
+            'test-user-id'
+        )
+    })
+
+    it('GET /records rejects incomplete or repeated exact component-value filters', async () => {
+        const app = buildApp()
+
+        await request(app).get('/metahub/metahub-1/entities/object/instance/object-1/records?exactComponentCodename=HeroKey').expect(400)
+        await request(app)
+            .get(
+                '/metahub/metahub-1/entities/object/instance/object-1/records?exactComponentCodename=HeroKey&exactValue=one&exactValue=two'
+            )
+            .expect(400)
+
+        expect(mockRecordsService.findAllAndCount).not.toHaveBeenCalled()
+    })
 })

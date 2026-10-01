@@ -1,7 +1,8 @@
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import AxeBuilder from '@axe-core/playwright'
-import { createLocalizedContent } from '@universo-react/utils'
+import type { Knex } from 'knex'
+import { createLocalizedContent, isUuidV7 } from '@universo-react/utils'
 import { marketingPageTemplate } from '../../../../../packages/universo-react-metahubs-backend/dist/domains/templates/data/marketing-page.template.js'
 import { expect, test } from '../../fixtures/test'
 import {
@@ -19,6 +20,7 @@ import {
     listLayouts,
     createPublicationVersion,
     resetApplicationLayoutZoneSetting,
+    sendWithCsrf,
     syncApplicationSchema,
     syncPublication,
     updateApplicationLayout,
@@ -30,6 +32,7 @@ import { recordCreatedApplication, recordCreatedMetahub, recordCreatedPublicatio
 import { assertMarketingPageRuntimeMaterialization } from '../../support/marketingPageRuntimeMaterialization.ts'
 import { installMarketingPageLocalMedia } from '../../support/marketingPageMedia'
 import { toolbarSelectors } from '../../support/selectors/contracts'
+import { loadLocalSupabaseDatabaseUrl } from '../../../backend/localSupabaseEnv.mjs'
 
 type ApiContext = Awaited<ReturnType<typeof createLoggedInApiContext>>
 
@@ -65,6 +68,61 @@ const readCookieHeader = (api: ApiContext): string =>
         .map(([name, value]) => `${name}=${value}`)
         .join('; ')
 
+async function readApiResponsePayload(response: Response): Promise<Record<string, unknown>> {
+    const text = await response.text()
+    if (!text) return {}
+    try {
+        const payload: unknown = JSON.parse(text)
+        return payload && typeof payload === 'object' && !Array.isArray(payload) ? (payload as Record<string, unknown>) : {}
+    } catch {
+        return { raw: text }
+    }
+}
+
+async function withHeldApplicationLayoutMutationLock<T>(
+    knex: Knex,
+    schemaName: string,
+    startRequests: () => Promise<T>,
+    assertWhileHeld: () => Promise<void>
+): Promise<T> {
+    const transaction = await knex.transaction()
+    let requests: Promise<T> | undefined
+    try {
+        const backendPidResult = await transaction.raw('SELECT pg_backend_pid() AS pid')
+        const backendPid = Number(backendPidResult.rows?.[0]?.pid)
+        if (!Number.isInteger(backendPid) || backendPid <= 0) throw new Error('The PostgreSQL lock barrier did not return its backend pid')
+
+        await transaction.raw('SELECT pg_advisory_xact_lock(hashtextextended(?::text, 0))', [`${schemaName}:application-layout-mutations`])
+        requests = startRequests()
+        await expect
+            .poll(
+                async () => {
+                    const result = await knex.raw(
+                        `
+                        SELECT COUNT(*)::int AS count
+                        FROM pg_stat_activity
+                        WHERE pid <> ?
+                          AND wait_event_type = 'Lock'
+                          AND ? = ANY(pg_blocking_pids(pid))
+                          AND POSITION('pg_advisory_xact_lock(hashtextextended' IN query) > 0
+                        `,
+                        [backendPid, backendPid]
+                    )
+                    return Number(result.rows?.[0]?.count ?? 0)
+                },
+                { timeout: 30_000, message: 'Waiting for a concurrent layout operation to queue on the held mutation-family lock' }
+            )
+            .toBeGreaterThan(0)
+
+        await assertWhileHeld()
+        await transaction.commit()
+        return await requests
+    } finally {
+        if (!transaction.isCompleted()) await transaction.rollback()
+        if (requests) await Promise.allSettled([requests])
+    }
+}
+
 async function getMetahubExport(api: ApiContext, metahubId: string): Promise<Record<string, unknown>> {
     const response = await fetch(new URL(`/api/v1/metahub/${metahubId}/export`, api.baseURL as string), {
         method: 'GET',
@@ -92,6 +150,44 @@ function readSnapshotEntityCodenames(snapshot: Record<string, unknown>): string[
         .map((entity) => readLocalizedText(entity.codename))
         .filter(Boolean)
         .sort()
+}
+
+function readPricingBenefitTierRelations(snapshot: Record<string, unknown>): Array<{ benefitKey: string; tierKey: string }> {
+    const entities = snapshot.entities
+    const elements = snapshot.elements
+    expect(entities && typeof entities === 'object' && !Array.isArray(entities)).toBe(true)
+    expect(elements && typeof elements === 'object' && !Array.isArray(elements)).toBe(true)
+
+    const entityEntries = Object.entries(entities as Record<string, Record<string, unknown>>)
+    const pricingEntity = entityEntries.find(([, entity]) => readLocalizedText(entity.codename) === 'MarketingPagePricing')
+    const benefitsEntity = entityEntries.find(([, entity]) => readLocalizedText(entity.codename) === 'MarketingPagePricingBenefit')
+    expect(pricingEntity).toBeDefined()
+    expect(benefitsEntity).toBeDefined()
+
+    const rowsByEntity = elements as Record<string, unknown>
+    const pricingRows = rowsByEntity[pricingEntity![0]]
+    const benefitsRows = rowsByEntity[benefitsEntity![0]]
+    expect(Array.isArray(pricingRows)).toBe(true)
+    expect(Array.isArray(benefitsRows)).toBe(true)
+
+    const tierKeysById = new Map<string, string>()
+    for (const row of pricingRows as Array<Record<string, unknown>>) {
+        const data = row.data as Record<string, unknown> | undefined
+        expect(isUuidV7(row.id)).toBe(true)
+        expect(typeof data?.TierKey).toBe('string')
+        tierKeysById.set(row.id as string, data!.TierKey as string)
+    }
+
+    return (benefitsRows as Array<Record<string, unknown>>)
+        .map((row) => {
+            const data = row.data as Record<string, unknown> | undefined
+            expect(isUuidV7(row.id)).toBe(true)
+            expect(isUuidV7(data?.TierRef)).toBe(true)
+            const tierKey = tierKeysById.get(data?.TierRef as string)
+            expect(tierKey).toBeDefined()
+            return { benefitKey: String(data?.BenefitKey ?? ''), tierKey: tierKey! }
+        })
+        .sort((left, right) => left.benefitKey.localeCompare(right.benefitKey))
 }
 
 function readMarketingHeroCopy(snapshot: Record<string, unknown>) {
@@ -137,6 +233,9 @@ function assertMarketingSnapshotRoundtrip(source: Record<string, unknown>, impor
     expect(importedSnapshot.version).toBe(sourceSnapshot.version)
     expect(importedSnapshot.versionEnvelope).toEqual(sourceSnapshot.versionEnvelope)
     expect(readSnapshotEntityCodenames(importedSnapshot)).toEqual(readSnapshotEntityCodenames(sourceSnapshot))
+    const sourceTierRelations = readPricingBenefitTierRelations(sourceSnapshot)
+    expect(sourceTierRelations).toHaveLength(14)
+    expect(readPricingBenefitTierRelations(importedSnapshot)).toEqual(sourceTierRelations)
 
     const sourceHeroCopy = readMarketingHeroCopy(sourceSnapshot)
     expect(readMarketingHeroCopy(importedSnapshot)).toEqual(sourceHeroCopy)
@@ -210,6 +309,9 @@ test('@flow @marketing-page @snapshot verifies marketing-page export/import roun
         email: runManifest.testUser.email,
         password: runManifest.testUser.password
     })
+    let raceDatabase: Knex | undefined
+    let raceWriterA: ApiContext | undefined
+    let raceWriterB: ApiContext | undefined
 
     try {
         const sourceName = `E2E ${runManifest.runId} marketing snapshot source`
@@ -364,19 +466,104 @@ test('@flow @marketing-page @snapshot verifies marketing-page export/import roun
         await syncPublication(api, source.id, sourcePublication.id)
         await waitForPublicationReady(api, source.id, sourcePublication.id)
 
-        await syncApplicationSchema(api, applicationId, {
-            layoutResolutionPolicy: { default: 'keep_local' }
+        const applicationDetails = await getApplication(api, applicationId)
+        const applicationSchemaName = applicationDetails?.schemaName
+        if (typeof applicationSchemaName !== 'string' || !applicationSchemaName) {
+            throw new Error('The application did not expose its schema name for the real-PostgreSQL race barrier')
+        }
+        const knexModule = await import('knex')
+        raceDatabase = knexModule.default({
+            client: 'pg',
+            connection: loadLocalSupabaseDatabaseUrl().databaseUrl,
+            pool: { min: 0, max: 3 }
         })
+        raceWriterA = await createLoggedInApiContext(runManifest.testUser)
+        raceWriterB = await createLoggedInApiContext(runManifest.testUser)
+        if (!raceWriterA || !raceWriterB) throw new Error('The application race writers could not be initialized')
+        const syncWriter = raceWriterA
+        const updateWriter = raceWriterB
+
+        const applicationBeforeSourceSync = await getApplicationLayout(api, applicationId, sourceApplicationMarketingLayout.id)
+        const competingSyncVersion = applicationBeforeSourceSync.item?.version
+        if (typeof competingSyncVersion !== 'number') {
+            throw new Error('The application layout did not expose a version before the publication sync race')
+        }
+        const competingZoneSettingPath = `/api/v1/applications/${applicationId}/layouts/${sourceApplicationMarketingLayout.id}/zone-settings/marketing-header/position`
+        const [sourceSync, sourceSyncUpdateResponse] = await withHeldApplicationLayoutMutationLock(
+            raceDatabase,
+            applicationSchemaName,
+            () =>
+                Promise.all([
+                    syncApplicationSchema(syncWriter, applicationId, {
+                        layoutResolutionPolicy: { default: 'keep_local' }
+                    }),
+                    sendWithCsrf(updateWriter, 'PATCH', competingZoneSettingPath, { value: 'fixed', expectedVersion: competingSyncVersion })
+                ]),
+            async () => {
+                const applicationLayoutWhileLocked = await getApplicationLayout(api, applicationId, sourceApplicationMarketingLayout.id)
+                expect(applicationLayoutWhileLocked.item.version).toBe(competingSyncVersion)
+                expect(applicationLayoutWhileLocked.item.neutral?.sourceZoneSettings?.['marketing-header']).toEqual(
+                    applicationBeforeSourceSync.item.neutral?.sourceZoneSettings?.['marketing-header']
+                )
+            }
+        )
+        expect(sourceSync).toBeDefined()
+        expect([200, 409]).toContain(sourceSyncUpdateResponse.status)
+        const sourceSyncUpdatePayload = await readApiResponsePayload(sourceSyncUpdateResponse)
+        if (sourceSyncUpdateResponse.status === 409) {
+            expect(sourceSyncUpdatePayload.error).toBe('APPLICATION_LAYOUT_VERSION_CONFLICT')
+        }
 
         const keptLocalLayout = await getApplicationLayout(api, applicationId, sourceApplicationMarketingLayout.id)
         expect(readLocalizedText(keptLocalLayout.item.name)).toBe(localLayoutName)
-        expect(keptLocalLayout.item.neutral?.zoneSettings?.['marketing-header']).toEqual({ position: 'flow' })
         expect(keptLocalLayout.item.neutral?.sourceZoneSettings?.['marketing-header']).toEqual({ position: 'fixed' })
         const keptLocalEffectiveLayout = await getApplicationEffectiveLayout(api, applicationId, {
             locale: 'en',
             themeVariant: 'light'
         })
-        expect(keptLocalEffectiveLayout.layout.zoneSettings?.['marketing-header']).toEqual({ position: 'flow' })
+        const expectedAfterSyncPosition = sourceSyncUpdateResponse.status === 200 ? 'fixed' : 'flow'
+        expect(keptLocalEffectiveLayout.layout.zoneSettings?.['marketing-header']).toEqual({ position: expectedAfterSyncPosition })
+
+        const resetRaceVersion = keptLocalLayout.item.version
+        const [resetRaceResponse, updateRaceResponse] = await withHeldApplicationLayoutMutationLock(
+            raceDatabase,
+            applicationSchemaName,
+            () =>
+                Promise.all([
+                    sendWithCsrf(syncWriter, 'POST', `${competingZoneSettingPath}/reset`, { expectedVersion: resetRaceVersion }),
+                    sendWithCsrf(updateWriter, 'PATCH', competingZoneSettingPath, {
+                        value: 'flow',
+                        expectedVersion: resetRaceVersion
+                    })
+                ]),
+            async () => {
+                const applicationLayoutWhileLocked = await getApplicationLayout(api, applicationId, sourceApplicationMarketingLayout.id)
+                expect(applicationLayoutWhileLocked.item.version).toBe(resetRaceVersion)
+                expect(applicationLayoutWhileLocked.item.neutral?.zoneSettings?.['marketing-header']).toEqual(
+                    keptLocalLayout.item.neutral?.zoneSettings?.['marketing-header']
+                )
+                expect(applicationLayoutWhileLocked.item.neutral?.sourceZoneSettings?.['marketing-header']).toEqual(
+                    keptLocalLayout.item.neutral?.sourceZoneSettings?.['marketing-header']
+                )
+            }
+        )
+        expect([resetRaceResponse.status, updateRaceResponse.status].sort((left, right) => left - right)).toEqual([200, 409])
+        const [resetRacePayload, updateRacePayload] = await Promise.all([
+            readApiResponsePayload(resetRaceResponse),
+            readApiResponsePayload(updateRaceResponse)
+        ])
+        const conflictPayload = resetRaceResponse.status === 409 ? resetRacePayload : updateRacePayload
+        expect(conflictPayload.error).toBe('APPLICATION_LAYOUT_VERSION_CONFLICT')
+
+        const layoutAfterResetRace = await getApplicationLayout(api, applicationId, sourceApplicationMarketingLayout.id)
+        expect(layoutAfterResetRace.item.version).toBe(resetRaceVersion + 1)
+        expect(layoutAfterResetRace.item.neutral?.sourceZoneSettings?.['marketing-header']).toEqual({ position: 'fixed' })
+        const resetRaceEffectiveLayout = await getApplicationEffectiveLayout(api, applicationId, {
+            locale: 'en',
+            themeVariant: 'light'
+        })
+        const expectedAfterResetRace = resetRaceResponse.status === 200 ? 'fixed' : 'flow'
+        expect(resetRaceEffectiveLayout.layout.zoneSettings?.['marketing-header']).toEqual({ position: expectedAfterResetRace })
 
         const resetLocalLayout = await resetApplicationLayoutZoneSetting(
             api,
@@ -384,7 +571,7 @@ test('@flow @marketing-page @snapshot verifies marketing-page export/import roun
             sourceApplicationMarketingLayout.id,
             'marketing-header',
             'position',
-            keptLocalLayout.item.version
+            layoutAfterResetRace.item.version
         )
         expect(resetLocalLayout.neutral?.zoneSettings?.['marketing-header']).toBeUndefined()
         expect(resetLocalLayout.neutral?.sourceZoneSettings?.['marketing-header']).toEqual({ position: 'fixed' })
@@ -417,11 +604,16 @@ test('@flow @marketing-page @snapshot verifies marketing-page export/import roun
         await page.waitForFunction(() => window.scrollY === 0)
         await expect(page.getByTestId('marketing-pricing-card')).toHaveCount(3)
         await expect(page.locator('#faq .MuiAccordion-root')).toHaveCount(4)
+        await expect(page.locator('#footer img')).toHaveCount(1)
         await localMedia.assertLoaded(page)
 
         const accessibility = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa']).analyze()
         expect(accessibility.violations, JSON.stringify(accessibility.violations)).toEqual([])
     } finally {
-        await disposeApiContext(api)
+        try {
+            await raceDatabase?.destroy()
+        } finally {
+            await Promise.all([disposeApiContext(raceWriterA), disposeApiContext(raceWriterB), disposeApiContext(api)])
+        }
     }
 })

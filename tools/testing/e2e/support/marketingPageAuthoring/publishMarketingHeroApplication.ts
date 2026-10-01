@@ -28,7 +28,7 @@ export async function publishMarketingHeroApplication(options: {
     page: Page
     metahubId: string
     publicationName: string
-}): Promise<{ applicationId: string; connectorName: string }> {
+}): Promise<{ applicationId: string; connectorName: string; publicationId: string }> {
     const { api, page, metahubId, publicationName } = options
     // Create a publication and linked application from the UI. Application
     // schema creation is intentionally completed below in ConnectorBoard,
@@ -86,5 +86,5 @@ export async function publishMarketingHeroApplication(options: {
         throw new Error('The linked marketing application connector did not return a localized display name')
     }
 
-    return { applicationId: application.id, connectorName }
+    return { applicationId: application.id, connectorName, publicationId: publication.id }
 }

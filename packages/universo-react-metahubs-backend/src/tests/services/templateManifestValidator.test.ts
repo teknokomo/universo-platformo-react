@@ -20,6 +20,7 @@ import {
     decodeWidgetConfigEnvelope,
     entityRecordPolicySchema,
     getLayoutWidgetDefinition,
+    matchesWidgetBindingComponentValidationRules,
     parseApplicationLayoutWidgetConfig,
     workflowActionSchema
 } from '@universo-react/types'
@@ -54,7 +55,7 @@ describe('TemplateManifestValidator', () => {
         expect(() => validateTemplateManifest(cloneTemplate(lmsTemplate))).not.toThrow()
     })
 
-    it('accepts registered marketingAction and hexColor metadata and rejects unknown semantic formats', () => {
+    it('accepts registered Marketing formats and hexColor metadata and rejects unknown semantic formats', () => {
         expect(() => validateTemplateManifest(cloneTemplate(interpretationNetworkTemplate))).not.toThrow()
         expect(() => validateTemplateManifest(cloneTemplate(marketingPageTemplate))).not.toThrow()
 
@@ -88,8 +89,7 @@ describe('TemplateManifestValidator', () => {
             'testimonials',
             'highlights',
             'pricing',
-            'faq',
-            'footer'
+            'faq'
         ])
         expect(marketingPageTemplate.seed.elements?.MarketingPageLogo).toHaveLength(6)
         expect(marketingPageTemplate.seed.elements?.MarketingPageFeature).toHaveLength(3)
@@ -98,6 +98,12 @@ describe('TemplateManifestValidator', () => {
         expect(marketingPageTemplate.seed.elements?.MarketingPagePricing).toHaveLength(3)
         expect(marketingPageTemplate.seed.elements?.MarketingPagePricingBenefit).toHaveLength(14)
         expect(marketingPageTemplate.seed.elements?.MarketingPageFaq).toHaveLength(4)
+
+        const marketingSemanticKeyComponents = marketingPageTemplate.seed.entities
+            ?.flatMap((entity) => entity.components ?? [])
+            .filter((component) => component.validationRules?.unique === true)
+        expect(marketingSemanticKeyComponents).not.toHaveLength(0)
+        expect(marketingSemanticKeyComponents?.every((component) => component.isRequired === true)).toBe(true)
 
         const pricingEntity = marketingPageTemplate.seed.entities?.find((entity) => entity.codename === 'MarketingPagePricing')
         expect(pricingEntity?.components?.some((component) => component.dataType === 'JSON')).toBe(false)
@@ -113,6 +119,85 @@ describe('TemplateManifestValidator', () => {
                 .every((entity) => entity.localizeCodenameFromName === false)
         ).toBe(true)
         expect(() => validateTemplateManifest(cloneTemplate(marketingPageTemplate))).not.toThrow()
+    })
+
+    it('keeps every seeded marketing binding Entity aligned with its registered Component contract', () => {
+        const entitiesByCodename = new Map((marketingPageTemplate.seed.entities ?? []).map((entity) => [entity.codename, entity]))
+        const dataTypeByBindingType: Record<string, string> = {
+            STRING: 'string',
+            NUMBER: 'number',
+            BOOLEAN: 'boolean',
+            JSON: 'json',
+            REF: 'ref'
+        }
+        const failures: string[] = []
+
+        for (const widgets of Object.values(marketingPageTemplate.seed.layoutZoneWidgets)) {
+            for (const widget of widgets) {
+                const context = { templateKey: 'marketing-page', widgetKey: widget.widgetKey, zone: widget.zone }
+                const envelope = decodeWidgetConfigEnvelope(widget.config ?? {}, context)
+                const definition = getLayoutWidgetDefinition(widget.widgetKey, envelope.rendererConfig)
+                if (!definition?.bindingSlots?.length) continue
+
+                for (const binding of envelope.neutral.bindings?.slots ?? []) {
+                    const slot = definition.bindingSlots.find(({ key }) => key === binding.slot)
+                    const entityCodename = binding.targets[0]?.entityCodename
+                    const entity = entityCodename ? entitiesByCodename.get(entityCodename) : undefined
+                    if (!slot || !entity) {
+                        failures.push(`${widget.widgetKey}/${binding.slot}: seeded binding Entity or slot is missing`)
+                        continue
+                    }
+
+                    for (const requirement of slot.requirements.components) {
+                        const component = entity.components?.find(({ codename }) => codename === requirement.componentCodename)
+                        const dataType = component ? dataTypeByBindingType[component.dataType.toUpperCase()] : undefined
+                        const componentLabel = `${entity.codename}.${requirement.componentCodename}`
+                        if (!component) {
+                            failures.push(`${widget.widgetKey}/${binding.slot}: ${componentLabel} is missing`)
+                            continue
+                        }
+                        if (
+                            dataType !== requirement.valueType ||
+                            (component.isRequired ?? false) !== requirement.required ||
+                            !matchesWidgetBindingComponentValidationRules(requirement, component.validationRules)
+                        ) {
+                            failures.push(
+                                `${widget.widgetKey}/${binding.slot}: ${componentLabel} does not satisfy its registered binding metadata`
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        expect(failures).toEqual([])
+    })
+
+    it('rejects Marketing bindings whose semantic selectors do not resolve to exactly one seeded record', () => {
+        const manifest = cloneTemplate(marketingPageTemplate)
+        const hero = manifest.seed.elements?.MarketingPageHero?.[0]
+        expect(hero).toBeDefined()
+        if (!hero) return
+        hero.data.HeroKey = 'missing-hero'
+
+        expect(() => validateTemplateManifest(manifest)).toThrow(/semantic selector.*resolves to 0 seeded records/u)
+    })
+
+    it('rejects a Pricing benefit whose TierRef does not resolve to a seeded Pricing tier', () => {
+        const manifest = cloneTemplate(marketingPageTemplate)
+        const benefit = manifest.seed.elements?.MarketingPagePricingBenefit?.[0]
+        expect(benefit).toBeDefined()
+        if (!benefit) return
+        benefit.data.TierRef = 'missing-tier'
+
+        expect(() => validateTemplateManifest(manifest)).toThrow(/seeded records resolve to the bound relation parent/u)
+    })
+
+    it('rejects a required Marketing record-set binding without seeded content records', () => {
+        const manifest = cloneTemplate(marketingPageTemplate)
+        manifest.seed.elements!.MarketingPageLogo = []
+
+        expect(() => validateTemplateManifest(manifest)).toThrow(/record-set Entity MarketingPageLogo has no seeded records/u)
     })
 
     it('rejects malformed Hero binding envelopes in marketing template seeds', () => {
@@ -166,19 +251,20 @@ describe('TemplateManifestValidator', () => {
         expect(() => parseApplicationLayoutWidgetConfig('marketing.hero', heroWidget.config ?? {})).toThrow()
     })
 
-    it('seeds a repeatable, record-bound Hero with the MHP-03 record policy', () => {
+    it('seeds marketing content entities and record policies required by bound Hero and Image content', () => {
         expect(marketingPageTemplate.seed.elements?.MarketingPageSection?.map((element) => element.data.SectionKey)).toEqual([
             'logos',
             'features',
             'testimonials',
             'highlights',
             'pricing',
-            'faq',
-            'footer'
+            'faq'
         ])
 
         const siteSettings = marketingPageTemplate.seed.entities?.find((entity) => entity.codename === 'MarketingPageSiteSettings')
         expect(siteSettings?.components?.some((component) => component.codename.startsWith('Hero'))).toBe(false)
+        expect(siteSettings?.components?.some((component) => component.codename === 'SiteKey')).toBe(true)
+        expect(marketingPageTemplate.seed.elements?.MarketingPageSiteSettings?.[0]?.data.SiteKey).toBe('site-settings')
         expect(
             Object.keys(marketingPageTemplate.seed.elements?.MarketingPageSiteSettings?.[0]?.data ?? {}).some((key) =>
                 key.startsWith('Hero')
@@ -192,9 +278,10 @@ describe('TemplateManifestValidator', () => {
         })
         expect(
             marketingPageTemplate.seed.entities
-                ?.filter((entity) => entity.codename !== 'MarketingPageHero')
-                .every((entity) => !Object.hasOwn(entity.config ?? {}, 'recordPolicy'))
-        ).toBe(true)
+                ?.filter((entity) => Object.hasOwn(entity.config ?? {}, 'recordPolicy'))
+                .map((entity) => entity.codename)
+                .sort()
+        ).toEqual(['MarketingPageHero', 'MarketingPageImage', 'MarketingPageSection', 'MarketingPageSiteSettings'].sort())
         expect(entityRecordPolicySchema.parse(heroEntity?.config?.recordPolicy)).toEqual({
             version: 1,
             semanticKey: { componentCodename: 'HeroKey', creationPrefix: 'hero', protectedValues: ['default'] },
@@ -202,10 +289,38 @@ describe('TemplateManifestValidator', () => {
             immutableSemanticKeyWhenBound: true,
             runtimeMutation: 'deny',
             requiredLocales: ['en', 'ru'],
-            validatorKey: 'marketing.hero.v1'
+            coRequiredGroups: [['TermsText', 'TermsLinkLabel', 'TermsAction']]
+        })
+
+        const imageEntity = marketingPageTemplate.seed.entities?.find((entity) => entity.codename === 'MarketingPageImage')
+        expect(imageEntity).toMatchObject({ kind: 'object', config: { recordBehavior: 'reference', marketingRole: 'image' } })
+        expect(entityRecordPolicySchema.parse(imageEntity?.config?.recordPolicy)).toEqual({
+            version: 1,
+            semanticKey: { componentCodename: 'ImageKey', creationPrefix: 'image', protectedValues: ['default'] },
+            denyDeleteWhenBound: true,
+            immutableSemanticKeyWhenBound: true,
+            runtimeMutation: 'deny',
+            requiredLocales: ['en', 'ru'],
+            conditionalRequired: [{ componentCodename: 'AltText', when: { componentCodename: 'Decorative', equals: false } }]
+        })
+        expect(marketingPageTemplate.seed.elements?.MarketingPageImage).toHaveLength(1)
+        expect(marketingPageTemplate.seed.elements?.MarketingPageImage?.[0]?.data).toMatchObject({
+            ImageKey: 'default',
+            Resource: { type: 'url', launchMode: 'inline' },
+            AltText: expect.any(Object),
+            Decorative: false,
+            Width: 1600,
+            Height: 900
         })
 
         const heroComponents = new Map(heroEntity?.components?.map((component) => [component.codename, component]))
+        const imageComponents = new Map(imageEntity?.components?.map((component) => [component.codename, component]))
+        expect(imageComponents.get('Resource')).toMatchObject({
+            dataType: 'JSON',
+            isRequired: false,
+            validationRules: { format: 'marketingMediaReference' },
+            uiConfig: { widget: 'resourceSource', gridHidden: true }
+        })
         expect(heroComponents.get('HeroKey')).toMatchObject({
             isRequired: true,
             validationRules: { unique: true },

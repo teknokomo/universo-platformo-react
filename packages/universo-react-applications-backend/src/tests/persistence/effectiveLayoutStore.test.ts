@@ -35,14 +35,15 @@ describe('effectiveLayoutStore', () => {
         expect(params).toEqual([entityId])
     })
 
-    it('reads customized state from source/config equality and keeps the layout id bound', async () => {
+    it('selects the source-state baseline and keeps the layout id bound', async () => {
         const { executor } = createMockDbExecutor()
         const layoutId = '018f8a78-7b8f-7c1d-a111-2222333344a2'
 
         await listEffectiveLayoutWidgets(executor, schemaName, layoutId)
 
         const [sql, params] = executor.query.mock.calls[0] as [string, unknown[]]
-        expect(sql).toContain('w.config IS DISTINCT FROM w.source_config')
+        expect(sql).toContain('w.source_state')
+        expect(sql).not.toContain('w.config IS DISTINCT FROM w.source_config')
         expect(sql).toContain('w.layout_id = $1')
         expect(sql).toContain('w.is_active = true')
         expect(params).toEqual([layoutId])
@@ -63,6 +64,9 @@ describe('effectiveLayoutStore', () => {
         expect(sql).toContain('l.scope_entity_id IS NULL')
         expect(sql).toContain('w.is_active = true')
         expect(sql).toContain('w.source_widget_id')
+        expect(sql).toContain('w.zone')
+        expect(sql).toContain('w.config')
+        expect(sql).toContain('w.source_config')
         expect(params).toEqual([[widgetId]])
     })
 

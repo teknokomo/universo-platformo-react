@@ -25,11 +25,13 @@ import {
     getMarketingPageRuntime,
     getRuntimeAppData,
     getRuntimeRow,
+    getLayoutZoneWidgetBindings,
     resetApplicationLayoutWidgetConfigs,
     resetApplicationLayoutZoneSetting,
     requestApi,
     listApplicationLayouts,
     listApplicationWorkspaces,
+    listLayoutZoneWidgets,
     listLayouts,
     listPublicationApplications,
     addMetahubMember,
@@ -45,7 +47,7 @@ import {
     waitForPublicationReady
 } from '../../support/backend/api-session.mjs'
 import { createBootstrapApiContext, disposeBootstrapApiContext } from '../../support/backend/bootstrap.mjs'
-import { flattenMarketingPageRecords } from '../../support/marketingPageRuntimeMaterialization'
+import { findRuntimeEntityRowByComponentValue, flattenMarketingPageRecords } from '../../support/marketingPageRuntimeMaterialization'
 import {
     recordCreatedApplication,
     recordCreatedGlobalUser,
@@ -318,7 +320,7 @@ test('@flow @permission @marketing-page enforces runtime read and layout mutatio
 
         const memberRuntimeView = await getMarketingPageRuntime(memberApi, application.id, 'en')
         const memberSiteSettingsRecord = flattenMarketingPageRecords(memberRuntimeView).find((record) => record.kind === 'siteSettings')
-        if (!memberSiteSettingsRecord?.id) throw new Error('Permission fixture member site-settings row was not materialized')
+        if (!memberSiteSettingsRecord) throw new Error('Permission fixture member site-settings projection was not materialized')
         const memberRuntimeData = await getRuntimeAppData(memberApi, application.id, {
             objectCollectionCodename: 'MarketingPageSiteSettings',
             locale: 'en'
@@ -329,7 +331,10 @@ test('@flow @permission @marketing-page enforces runtime read and layout mutatio
             (collection: { codename?: string; id?: string }) => collection.codename === 'MarketingPageSiteSettings'
         )
         if (!memberSiteSettingsCollection?.id) throw new Error('Permission fixture member site-settings collection was not materialized')
-        const memberRowBefore = await getRuntimeRow(memberApi, application.id, memberSiteSettingsRecord.id, {
+        const memberSiteSettingsRow = findRuntimeEntityRowByComponentValue(memberRuntimeData, 'SiteKey', 'site-settings')
+        if (!isUuidV7(memberSiteSettingsRow.id)) throw new Error('Permission fixture member site-settings row was not materialized')
+        const memberSiteSettingsRowId = memberSiteSettingsRow.id
+        const memberRowBefore = await getRuntimeRow(memberApi, application.id, memberSiteSettingsRowId, {
             objectCollectionId: memberSiteSettingsCollection.id,
             workspaceId: memberWorkspaceId
         })
@@ -344,23 +349,23 @@ test('@flow @permission @marketing-page enforces runtime read and layout mutatio
             sendWithCsrf(
                 memberApi,
                 'PATCH',
-                `/api/v1/applications/${application.id}/runtime/rows/${memberSiteSettingsRecord.id}?objectCollectionId=${memberSiteSettingsCollection.id}&workspaceId=${memberWorkspaceId}`,
+                `/api/v1/applications/${application.id}/runtime/rows/${memberSiteSettingsRowId}?objectCollectionId=${memberSiteSettingsCollection.id}&workspaceId=${memberWorkspaceId}`,
                 { objectCollectionId: memberSiteSettingsCollection.id, data: {} }
             ),
             sendWithCsrf(
                 memberApi,
                 'POST',
-                `/api/v1/applications/${application.id}/runtime/rows/${memberSiteSettingsRecord.id}/copy?workspaceId=${memberWorkspaceId}`,
+                `/api/v1/applications/${application.id}/runtime/rows/${memberSiteSettingsRowId}/copy?workspaceId=${memberWorkspaceId}`,
                 { objectCollectionId: memberSiteSettingsCollection.id }
             ),
             sendWithCsrf(
                 memberApi,
                 'DELETE',
-                `/api/v1/applications/${application.id}/runtime/rows/${memberSiteSettingsRecord.id}?objectCollectionId=${memberSiteSettingsCollection.id}&workspaceId=${memberWorkspaceId}`
+                `/api/v1/applications/${application.id}/runtime/rows/${memberSiteSettingsRowId}?objectCollectionId=${memberSiteSettingsCollection.id}&workspaceId=${memberWorkspaceId}`
             )
         ])
         for (const response of memberContentMutationResponses) expect(response.status).toBe(403)
-        const memberRowAfter = await getRuntimeRow(memberApi, application.id, memberSiteSettingsRecord.id, {
+        const memberRowAfter = await getRuntimeRow(memberApi, application.id, memberSiteSettingsRowId, {
             objectCollectionId: memberSiteSettingsCollection.id,
             workspaceId: memberWorkspaceId
         })
@@ -368,7 +373,7 @@ test('@flow @permission @marketing-page enforces runtime read and layout mutatio
 
         const editorRuntimeView = await getMarketingPageRuntime(editorApi, application.id, 'en')
         const editorSiteSettingsRecord = flattenMarketingPageRecords(editorRuntimeView).find((record) => record.kind === 'siteSettings')
-        if (!editorSiteSettingsRecord?.id) throw new Error('Permission fixture editor site-settings row was not materialized')
+        if (!editorSiteSettingsRecord) throw new Error('Permission fixture editor site-settings projection was not materialized')
         const editorRuntimeData = await getRuntimeAppData(editorApi, application.id, {
             objectCollectionCodename: 'MarketingPageSiteSettings',
             locale: 'en'
@@ -383,7 +388,10 @@ test('@flow @permission @marketing-page enforces runtime read and layout mutatio
             (collection: { codename?: string; id?: string }) => collection.codename === 'MarketingPageSiteSettings'
         )
         if (!editorSiteSettingsCollection?.id) throw new Error('Permission fixture editor site-settings collection was not materialized')
-        const editorRowBefore = await getRuntimeRow(editorApi, application.id, editorSiteSettingsRecord.id, {
+        const editorSiteSettingsRow = findRuntimeEntityRowByComponentValue(editorRuntimeData, 'SiteKey', 'site-settings')
+        if (!isUuidV7(editorSiteSettingsRow.id)) throw new Error('Permission fixture editor site-settings row was not materialized')
+        const editorSiteSettingsRowId = editorSiteSettingsRow.id
+        const editorRowBefore = await getRuntimeRow(editorApi, application.id, editorSiteSettingsRowId, {
             objectCollectionId: editorSiteSettingsCollection.id,
             workspaceId: editorWorkspaceId
         })
@@ -394,25 +402,32 @@ test('@flow @permission @marketing-page enforces runtime read and layout mutatio
         const editorMutation = await sendWithCsrf(
             editorApi,
             'PATCH',
-            `/api/v1/applications/${application.id}/runtime/rows/${editorSiteSettingsRecord.id}?objectCollectionId=${editorSiteSettingsCollection.id}&workspaceId=${editorWorkspaceId}`,
+            `/api/v1/applications/${application.id}/runtime/rows/${editorSiteSettingsRowId}?objectCollectionId=${editorSiteSettingsCollection.id}&workspaceId=${editorWorkspaceId}`,
             {
                 objectCollectionId: editorSiteSettingsCollection.id,
                 expectedVersion: Number(editorRowBefore?.version ?? editorRowBefore?._upl_version ?? 1),
                 data: { BrandName: editorBrandName }
             }
         )
-        expect(editorMutation.status).toBe(200)
+        expect(editorMutation.status).toBe(403)
+        expect(
+            await getRuntimeRow(editorApi, application.id, editorSiteSettingsRowId, {
+                objectCollectionId: editorSiteSettingsCollection.id,
+                workspaceId: editorWorkspaceId
+            })
+        ).toEqual(editorRowBefore)
 
         const editorOwnerWorkspaceMutation = await sendWithCsrf(
             editorApi,
             'PATCH',
-            `/api/v1/applications/${application.id}/runtime/rows/${editorSiteSettingsRecord.id}?objectCollectionId=${editorSiteSettingsCollection.id}&workspaceId=${ownerPersonalWorkspace.id}`,
+            `/api/v1/applications/${application.id}/runtime/rows/${editorSiteSettingsRowId}?objectCollectionId=${editorSiteSettingsCollection.id}&workspaceId=${ownerPersonalWorkspace.id}`,
             {
                 objectCollectionId: editorSiteSettingsCollection.id,
                 data: { BrandName: editorBrandName }
             }
         )
         expect(editorOwnerWorkspaceMutation.status).toBe(403)
+        expect(await editorOwnerWorkspaceMutation.json()).toMatchObject({ code: 'WORKSPACE_ACCESS_DENIED' })
 
         const editorHeroRuntimeData = await getRuntimeAppData(editorApi, application.id, {
             objectCollectionCodename: 'MarketingPageHero',
@@ -725,7 +740,56 @@ test('@flow @permission @marketing-page enforces runtime read and layout mutatio
             throw new Error('Marketing permission fixture did not expose a versioned collection widget')
         }
 
-        // Direct widget endpoint matrix: CSRF, role boundary, and cross-app identity.
+        // A member may edit content where its record policy allows it, but cannot
+        // replace the trusted source bindings owned by a metahub manager.
+        const metahubWidgets = (await listLayoutZoneWidgets(ownerApi, metahub.id, metahubMarketingLayout.id)) as {
+            items?: Array<{ id?: string; widgetKey?: string }>
+        }
+        const heroWidget = metahubWidgets.items?.find((widget) => widget.widgetKey === 'marketing.hero')
+        if (!heroWidget?.id) throw new Error('Permission fixture did not expose the metahub Hero widget')
+
+        const heroBindingBefore = (await getLayoutZoneWidgetBindings(
+            ownerApi,
+            metahub.id,
+            metahubMarketingLayout.id,
+            heroWidget.id,
+            'en'
+        )) as {
+            version: number
+            bindings: Array<{
+                slot: string
+                sourceKey: string
+                selectorKind: 'semantic-key' | 'record-set' | 'relation-set'
+                semanticKey?: string
+            }>
+        }
+        if (heroBindingBefore.bindings.length === 0) throw new Error('Permission fixture Hero binding must not be empty')
+        const replacementBindings = heroBindingBefore.bindings.map((binding) => {
+            if (binding.selectorKind === 'semantic-key' && !binding.semanticKey) {
+                throw new Error(`Permission fixture Hero binding ${binding.slot} is missing its semantic key`)
+            }
+
+            return {
+                slot: binding.slot,
+                sourceKey: binding.sourceKey,
+                selector:
+                    binding.selectorKind === 'semantic-key'
+                        ? { kind: 'semantic-key' as const, value: binding.semanticKey }
+                        : { kind: binding.selectorKind }
+            }
+        })
+        const deniedBindingMutation = await sendWithCsrf(
+            memberApi,
+            'PATCH',
+            `/api/v1/metahub/${metahub.id}/layout/${metahubMarketingLayout.id}/zone-widget/${heroWidget.id}/binding`,
+            { expectedVersion: heroBindingBefore.version, bindings: replacementBindings, locale: 'en' }
+        )
+        expect(deniedBindingMutation.status).toBe(403)
+
+        const heroBindingAfter = await getLayoutZoneWidgetBindings(ownerApi, metahub.id, metahubMarketingLayout.id, heroWidget.id, 'en')
+        expect(heroBindingAfter).toEqual(heroBindingBefore)
+
+        // Direct application widget endpoint matrix: CSRF, role boundary, and cross-app identity.
         const noCsrfMutation = await requestApi(
             adminApi,
             `/api/v1/applications/${application.id}/layouts/${marketingLayout.id}/zone-widget/${faqWidget.id}/toggle-active`,
@@ -827,7 +891,7 @@ test('@flow @permission @marketing-page enforces runtime read and layout mutatio
             throw new Error('Marketing source widget disappeared before reset identity check')
         }
         const customized = await updateApplicationLayoutWidgetConfig(ownerApi, application.id, marketingLayout.id, resetSourceWidget.id, {
-            config: { ...resetSourceWidget.config, maxItems: Number(resetSourceWidget.config.maxItems ?? 100) + 1 },
+            config: { ...resetSourceWidget.config, showTitle: resetSourceWidget.config.showTitle === false },
             expectedVersion: resetSourceWidget.version
         })
         expect(customized.item.id).toBe(resetSourceWidget.id)

@@ -1,5 +1,10 @@
-import { PUBLIC_MARKETING_ROW_LIMIT } from '../../persistence/publicApplicationRuntimeStore'
-import { assertMarketingSeedRows, isMarketingSeedObject } from '../../services/marketingSeedGuard'
+import { PUBLIC_MARKETING_ROW_LIMIT } from '../../shared/marketingRuntimeLimits'
+import {
+    assertMarketingSeedRows,
+    collectMarketingWidgetBindingSources,
+    collectMarketingWidgetBindingSourcesFromConfigs
+} from '../../services/marketingSeedGuard'
+import { createMarketingCollectionConfig, createMarketingPricingConfig } from '../utils/marketingWidgetBindings'
 
 describe('marketingSeedGuard', () => {
     it('accepts rows within the public runtime row limit', () => {
@@ -63,8 +68,70 @@ describe('marketingSeedGuard', () => {
         ).not.toThrow()
     })
 
-    it('recognizes marketing source codenames only', () => {
-        expect(isMarketingSeedObject('MarketingPagePricing')).toBe(true)
-        expect(isMarketingSeedObject('Orders')).toBe(false)
+    it('collects semantic-key, record-set, and relation-set sources from Marketing widget bindings', () => {
+        const pricingConfig = createMarketingPricingConfig({
+            section: 'CustomPricingSection',
+            tiers: 'CustomPricingTier',
+            benefits: 'CustomPricingBenefit'
+        })
+        const sources = collectMarketingWidgetBindingSources({
+            layouts: [
+                { id: 'marketing-layout', templateKey: 'marketing-page' },
+                { id: 'dashboard-layout', templateKey: 'dashboard' }
+            ],
+            layoutZoneWidgets: [
+                { layoutId: 'marketing-layout', widgetKey: 'marketing.pricing', zone: 'marketing-main', config: pricingConfig },
+                {
+                    layoutId: 'dashboard-layout',
+                    widgetKey: 'marketing.pricing',
+                    zone: 'marketing-main',
+                    config: pricingConfig
+                }
+            ]
+        })
+
+        expect(sources).toEqual(new Set(['CustomPricingSection', 'CustomPricingTier', 'CustomPricingBenefit']))
+    })
+
+    it('collects any trusted baseline sources from a retained Marketing placement', () => {
+        const sources = collectMarketingWidgetBindingSourcesFromConfigs([
+            {
+                widgetKey: 'marketing.collection',
+                zone: 'marketing-main',
+                config: { variant: 'features' },
+                sourceConfig: createMarketingCollectionConfig('CustomLandingFeature')
+            }
+        ])
+
+        expect(sources).toEqual(new Set(['MarketingPageFeature', 'CustomLandingFeature']))
+    })
+
+    it('allows binding-free Marketing overlays but rejects a local binding override', () => {
+        const overlay = {
+            widgetKey: 'marketing.pricing',
+            zone: 'marketing-main',
+            config: { maxItems: 24, showBenefits: true },
+            sourceConfig: { maxItems: 24, showBenefits: true },
+            sourceBaseWidgetId: '019ccefc-2f7b-7b36-82f4-85cdb1312269'
+        }
+        expect(collectMarketingWidgetBindingSourcesFromConfigs([overlay])).toEqual(new Set())
+        expect(() => collectMarketingWidgetBindingSourcesFromConfigs([{ ...overlay, config: createMarketingPricingConfig() }])).toThrow(
+            /cannot override inherited Entity bindings/
+        )
+    })
+
+    it('fails closed for invalid Marketing binding metadata and dangling layout references', () => {
+        expect(() =>
+            collectMarketingWidgetBindingSources({
+                layouts: [{ id: 'marketing-layout', templateKey: 'marketing-page' }],
+                layoutZoneWidgets: [{ layoutId: 'marketing-layout', widgetKey: 'marketing.pricing', zone: 'marketing-main', config: {} }]
+            })
+        ).toThrow()
+        expect(() =>
+            collectMarketingWidgetBindingSources({
+                layouts: [{ id: 'marketing-layout', templateKey: 'marketing-page' }],
+                layoutZoneWidgets: [{ layoutId: 'missing-layout', widgetKey: 'marketing.pricing', zone: 'marketing-main', config: {} }]
+            })
+        ).toThrow(/unknown layout/)
     })
 })

@@ -3,15 +3,18 @@ import { describe, expect, it } from 'vitest'
 import {
     canonicalizeWidgetBindings,
     buildSingleTargetWidgetBinding,
+    isCompatibleWidgetBindingEntity,
+    normalizeWidgetBindingDataType,
     validateWidgetBindings,
     widgetEntityBindingEnvelopeSchema,
     widgetBindingSlotDefinitionSchema,
     type WidgetBindingDefinitionContract
 } from '../common/widgetBindings'
-import { LAYOUT_WIDGET_DEFINITIONS } from '../common/layoutWidgetDefinitions'
+import { getLayoutWidgetDefinition, LAYOUT_WIDGET_DEFINITIONS, layoutWidgetDefinitionSchema } from '../common/layoutWidgetDefinitions'
 
 const heroSlot = {
     key: 'content',
+    selectorKinds: ['semantic-key'],
     authoring: {
         labelKey: 'layouts.widgetBindings.recordLabel',
         defaultLabel: 'Content record',
@@ -35,7 +38,8 @@ const heroSlot = {
                 localized: false,
                 required: true,
                 semanticKey: true,
-                maxLength: 64
+                maxLength: 64,
+                pattern: '^[a-z][a-z0-9]*(?:[._-][a-z0-9]+)*$'
             },
             { field: 'title', componentCodename: 'Title', valueType: 'string', localized: true, required: true, maxLength: 255 },
             {
@@ -53,8 +57,7 @@ const heroSlot = {
             denyDeleteWhenBound: true,
             immutableSemanticKeyWhenBound: true,
             semanticKey: { componentCodename: 'HeroKey', creationPrefix: 'hero', protectedValues: ['default'] },
-            requiredLocales: ['en', 'ru'],
-            validatorKey: 'marketing.hero.v1'
+            requiredLocales: ['en', 'ru']
         }
     }
 } as const
@@ -83,6 +86,70 @@ const heroBinding = {
 const heroDefinition: WidgetBindingDefinitionContract = { bindingSlots: [heroSlot] }
 
 describe('entity-backed widget binding contracts', () => {
+    it('normalizes PostgreSQL Component data type aliases for binding validation', () => {
+        expect(normalizeWidgetBindingDataType('character varying(255)')).toBe('STRING')
+        expect(normalizeWidgetBindingDataType('citext')).toBe('STRING')
+        expect(normalizeWidgetBindingDataType('double precision')).toBe('NUMBER')
+        expect(normalizeWidgetBindingDataType('bool')).toBe('BOOLEAN')
+        expect(normalizeWidgetBindingDataType('jsonb')).toBe('JSON')
+        expect(normalizeWidgetBindingDataType('uuid')).toBe('REF')
+        expect(normalizeWidgetBindingDataType('timestamp with time zone')).toBe('TIMESTAMP WITH TIME ZONE')
+        expect(normalizeWidgetBindingDataType(null)).toBeUndefined()
+    })
+
+    it('declares valid capability and slot metadata for every Marketing widget and collection variant', () => {
+        const marketingDefinitions = LAYOUT_WIDGET_DEFINITIONS.filter(({ templateKey }) => templateKey === 'marketing-page')
+        expect(marketingDefinitions).toHaveLength(8)
+        for (const definition of marketingDefinitions) {
+            expect(layoutWidgetDefinitionSchema.safeParse(definition).success, definition.key).toBe(true)
+            expect(definition.authoring?.application).toMatchObject({
+                presentationOnly: true,
+                canEditContent: false,
+                canRebind: false
+            })
+            for (const slot of definition.bindingSlots ?? []) {
+                expect(widgetBindingSlotDefinitionSchema.safeParse(slot).success, `${definition.key}/${slot.key}`).toBe(true)
+            }
+            for (const [variant, slots] of Object.entries(definition.bindingVariants ?? {})) {
+                expect(slots.length, `${definition.key}/${variant}`).toBeGreaterThan(0)
+                for (const slot of slots) {
+                    expect(widgetBindingSlotDefinitionSchema.safeParse(slot).success, `${definition.key}/${variant}/${slot.key}`).toBe(true)
+                }
+            }
+            for (const field of definition.presentationFields ?? []) {
+                expect(field.labelKey, `${definition.key}/${field.key}`).toMatch(/^layouts\.marketing\.widget\./)
+                if (field.helperTextKey) {
+                    expect(field.helperTextKey, `${definition.key}/${field.key} helper`).toMatch(/^layouts\.marketing\.widget\./)
+                }
+                for (const option of field.options ?? []) {
+                    expect(option.labelKey, `${definition.key}/${field.key}/${option.value}`).toMatch(/^layouts\.marketing\.widget\./)
+                }
+            }
+        }
+
+        const collectionDefinition = LAYOUT_WIDGET_DEFINITIONS.find(({ key }) => key === 'marketing.collection')
+        expect(collectionDefinition?.initialBindingSlotKey).toBe('items')
+        for (const variant of ['logos', 'features', 'testimonials', 'highlights', 'faq']) {
+            const resolvedDefinition = getLayoutWidgetDefinition('marketing.collection', { variant })
+            expect(resolvedDefinition?.bindingSlots?.map(({ key }) => key)).toEqual(['section', 'items'])
+            expect(resolvedDefinition?.bindingSlots?.some(({ key }) => key === collectionDefinition?.initialBindingSlotKey)).toBe(true)
+        }
+        expect(getLayoutWidgetDefinition('marketing.collection', { variant: 'unknown' })?.bindingSlots).toEqual([])
+
+        if (!collectionDefinition) throw new Error('Marketing collection layout definition is missing')
+        const legacyDefinition = Object.fromEntries(Object.entries(collectionDefinition).filter(([key]) => key !== 'initialBindingSlotKey'))
+        expect(layoutWidgetDefinitionSchema.safeParse(legacyDefinition).success).toBe(true)
+
+        const invalidVariantDefinition = {
+            ...collectionDefinition,
+            bindingVariants: {
+                ...collectionDefinition.bindingVariants,
+                faq: (collectionDefinition.bindingVariants?.faq ?? []).filter(({ key }) => key !== 'items')
+            }
+        }
+        expect(layoutWidgetDefinitionSchema.safeParse(invalidVariantDefinition).success).toBe(false)
+    })
+
     it('accepts a bounded semantic-key binding with no physical identifiers', () => {
         expect(widgetEntityBindingEnvelopeSchema.safeParse(heroBinding).success).toBe(true)
         expect(widgetBindingSlotDefinitionSchema.safeParse(heroSlot).success).toBe(true)
@@ -189,6 +256,162 @@ describe('entity-backed widget binding contracts', () => {
         const canonical = canonicalizeWidgetBindings(heroBinding)
         expect(canonical.slots[0].targets[0].projection.map(({ field }) => field)).toEqual(['description', 'key', 'title'])
         expect(canonicalizeWidgetBindings(canonical)).toEqual(canonical)
+    })
+
+    it('supports a bounded record-set source independently from the rows it resolves', () => {
+        const definition: WidgetBindingDefinitionContract = {
+            bindingSlots: [
+                {
+                    ...heroSlot,
+                    key: 'items',
+                    selectorKinds: ['record-set'],
+                    cardinality: { min: 1, max: 1 },
+                    orderByField: 'order',
+                    visibilityField: 'visible',
+                    maxResolvedRecords: 100,
+                    requirements: {
+                        ...heroSlot.requirements,
+                        recordPolicy: undefined,
+                        components: [
+                            {
+                                field: 'key',
+                                componentCodename: 'RecordKey',
+                                valueType: 'string',
+                                localized: false,
+                                required: true,
+                                semanticKey: true,
+                                pattern: '^[a-z][a-z0-9]*(?:[._-][a-z0-9]+)*$'
+                            },
+                            { field: 'title', componentCodename: 'Title', valueType: 'string', localized: true, required: true },
+                            { field: 'order', componentCodename: 'SortOrder', valueType: 'number', localized: false, required: true },
+                            { field: 'visible', componentCodename: 'IsVisible', valueType: 'boolean', localized: false, required: true }
+                        ]
+                    }
+                }
+            ]
+        }
+        const binding = {
+            version: 1,
+            slots: [
+                {
+                    slot: 'items',
+                    targets: [
+                        {
+                            entityKind: 'object',
+                            entityCodename: 'CustomOrderedContent',
+                            selector: { kind: 'record-set' },
+                            projection: [
+                                { field: 'key', componentCodename: 'RecordKey' },
+                                { field: 'title', componentCodename: 'Title' },
+                                { field: 'order', componentCodename: 'SortOrder' },
+                                { field: 'visible', componentCodename: 'IsVisible' }
+                            ]
+                        }
+                    ]
+                }
+            ]
+        }
+
+        expect(validateWidgetBindings(definition, binding).slots[0].targets).toHaveLength(1)
+        expect(widgetBindingSlotDefinitionSchema.safeParse(definition.bindingSlots?.[0]).success).toBe(true)
+        expect(
+            widgetEntityBindingEnvelopeSchema.safeParse({
+                ...binding,
+                slots: [
+                    { ...binding.slots[0], targets: [{ ...binding.slots[0].targets[0], selector: { kind: 'record-set', limit: 5000 } }] }
+                ]
+            }).success
+        ).toBe(false)
+    })
+
+    it('requires a relation-set to target its declared parent slot and REF role', () => {
+        const parentSlot = { ...heroSlot, key: 'tiers', selectorKinds: ['record-set'] as const, maxResolvedRecords: 24 }
+        const benefitsSlot = {
+            ...heroSlot,
+            key: 'benefits',
+            selectorKinds: ['relation-set'] as const,
+            relation: { field: 'tier', parentSlot: 'tiers' },
+            requirements: {
+                ...heroSlot.requirements,
+                components: [
+                    {
+                        field: 'key',
+                        componentCodename: 'BenefitKey',
+                        valueType: 'string' as const,
+                        localized: false,
+                        required: true,
+                        semanticKey: true,
+                        pattern: '^[a-z][a-z0-9]*(?:[._-][a-z0-9]+)*$'
+                    },
+                    { field: 'tier', componentCodename: 'TierRef', valueType: 'ref' as const, localized: false, required: true }
+                ]
+            }
+        }
+        const definition: WidgetBindingDefinitionContract = { bindingSlots: [parentSlot, benefitsSlot] }
+        const target = (entityCodename: string, selector: unknown, projection: { field: string; componentCodename: string }[]) => ({
+            entityKind: 'object' as const,
+            entityCodename,
+            selector,
+            projection
+        })
+        const valid = {
+            version: 1,
+            slots: [
+                {
+                    slot: 'tiers',
+                    targets: [target('CustomTier', { kind: 'record-set' }, heroBinding.slots[0].targets[0].projection)]
+                },
+                {
+                    slot: 'benefits',
+                    targets: [
+                        target('CustomBenefit', { kind: 'relation-set', parentSlot: 'tiers' }, [
+                            { field: 'key', componentCodename: 'BenefitKey' },
+                            { field: 'tier', componentCodename: 'TierRef' }
+                        ])
+                    ]
+                }
+            ]
+        }
+        expect(validateWidgetBindings(definition, valid).slots).toHaveLength(2)
+        expect(() => validateWidgetBindings(definition, { ...valid, slots: [valid.slots[1]] })).toThrow()
+        expect(() =>
+            validateWidgetBindings(definition, {
+                ...valid,
+                slots: [
+                    valid.slots[0],
+                    {
+                        ...valid.slots[1],
+                        targets: [
+                            target('CustomBenefit', { kind: 'relation-set', parentSlot: 'wrong' }, valid.slots[1].targets[0].projection)
+                        ]
+                    }
+                ]
+            })
+        ).toThrow()
+        expect(
+            widgetBindingSlotDefinitionSchema.safeParse({
+                ...benefitsSlot,
+                requirements: {
+                    ...benefitsSlot.requirements,
+                    components: benefitsSlot.requirements.components.map((item) =>
+                        item.field === 'tier' ? { ...item, valueType: 'json' } : item
+                    )
+                }
+            }).success
+        ).toBe(false)
+    })
+
+    it('allows an optional slot to be absent without encoding an empty target array', () => {
+        const definition: WidgetBindingDefinitionContract = {
+            bindingSlots: [heroSlot, { ...heroSlot, key: 'optional', cardinality: { min: 0, max: 1 } }]
+        }
+        expect(validateWidgetBindings(definition, heroBinding).slots).toHaveLength(1)
+        expect(() =>
+            validateWidgetBindings(definition, {
+                ...heroBinding,
+                slots: [...heroBinding.slots, { slot: 'optional', targets: [] }]
+            })
+        ).toThrow()
     })
 
     it('validates slot cardinality, allowed kinds, semantic key, and exact projection coverage', () => {
@@ -303,6 +526,118 @@ describe('entity-backed widget binding contracts', () => {
                     slot: `slot-${index}`,
                     targets: [heroBinding.slots[0].targets[0]]
                 }))
+            }).success
+        ).toBe(false)
+    })
+
+    it('accepts capability-compatible custom Objects and rejects incompatible Component metadata', () => {
+        const definition = getLayoutWidgetDefinition('marketing.collection', { variant: 'logos' })
+        const slot = definition?.bindingSlots?.find(({ key }) => key === 'items')
+        if (!slot) throw new Error('Marketing logos item slot is missing')
+        const components = slot.requirements.components.map((requirement) => ({
+            codename: requirement.componentCodename,
+            dataType: requirement.valueType.toUpperCase(),
+            isRequired: requirement.required,
+            validationRules: {
+                ...(requirement.localized ? { localized: true } : {}),
+                ...(requirement.maxLength === undefined ? {} : { maxLength: requirement.maxLength }),
+                ...(requirement.semanticKey ? { unique: true } : {}),
+                ...(requirement.pattern === undefined ? {} : { pattern: requirement.pattern }),
+                ...(requirement.format === undefined ? {} : { format: requirement.format })
+            }
+        }))
+        const customObject = { kind: 'object', config: {}, components }
+
+        expect(isCompatibleWidgetBindingEntity(slot, customObject)).toBe(true)
+        expect(
+            isCompatibleWidgetBindingEntity(slot, {
+                ...customObject,
+                components: components.map((component) => {
+                    const requirement = slot.requirements.components.find(
+                        ({ componentCodename }) => componentCodename === component.codename
+                    )
+                    const aliases = { string: 'citext', number: 'double precision', boolean: 'bool', json: 'jsonb', ref: 'uuid' } as const
+                    return requirement ? { ...component, dataType: aliases[requirement.valueType] } : component
+                })
+            })
+        ).toBe(true)
+        expect(
+            isCompatibleWidgetBindingEntity(slot, {
+                ...customObject,
+                components: components.map((component) =>
+                    component.codename === 'IsVisible' ? { ...component, dataType: 'STRING' } : component
+                )
+            })
+        ).toBe(false)
+        const semanticKeyRequirement = slot.requirements.components.find(({ semanticKey }) => semanticKey)
+        if (!semanticKeyRequirement) throw new Error('Marketing logos semantic key requirement is missing')
+        expect(
+            isCompatibleWidgetBindingEntity(slot, {
+                ...customObject,
+                components: components.map((component) =>
+                    component.codename === semanticKeyRequirement.componentCodename
+                        ? { ...component, validationRules: { ...component.validationRules, pattern: '^invalid$' } }
+                        : component
+                )
+            })
+        ).toBe(false)
+        expect(
+            widgetBindingSlotDefinitionSchema.safeParse({
+                ...slot,
+                requirements: {
+                    ...slot.requirements,
+                    components: slot.requirements.components.map(({ pattern: _pattern, ...component }) => component)
+                }
+            }).success
+        ).toBe(false)
+    })
+
+    it('requires the registered conditional alternative-text policy for Marketing Images', () => {
+        const definition = getLayoutWidgetDefinition('marketing.image')
+        const slot = definition?.bindingSlots?.[0]
+        if (!slot?.requirements.recordPolicy) throw new Error('Marketing Image content policy is missing')
+        expect(slot.requirements.components.find(({ componentCodename }) => componentCodename === 'Resource')?.required).toBe(false)
+        const components = slot.requirements.components.map((requirement) => ({
+            codename: requirement.componentCodename,
+            dataType: requirement.valueType.toUpperCase(),
+            isRequired: requirement.required,
+            validationRules: {
+                ...(requirement.localized ? { localized: true } : {}),
+                ...(requirement.maxLength === undefined ? {} : { maxLength: requirement.maxLength }),
+                ...(requirement.semanticKey ? { unique: true } : {}),
+                ...(requirement.pattern === undefined ? {} : { pattern: requirement.pattern }),
+                ...(requirement.format === undefined ? {} : { format: requirement.format })
+            }
+        }))
+        const entity = {
+            kind: 'object',
+            config: { recordPolicy: { version: 1, ...slot.requirements.recordPolicy } },
+            components
+        }
+
+        expect(isCompatibleWidgetBindingEntity(slot, entity)).toBe(true)
+        expect(
+            isCompatibleWidgetBindingEntity(slot, {
+                ...entity,
+                config: {
+                    recordPolicy: {
+                        version: 1,
+                        ...slot.requirements.recordPolicy,
+                        conditionalRequired: undefined
+                    }
+                }
+            })
+        ).toBe(false)
+        expect(
+            widgetBindingSlotDefinitionSchema.safeParse({
+                ...slot,
+                requirements: {
+                    ...slot.requirements,
+                    recordPolicy: {
+                        ...slot.requirements.recordPolicy,
+                        conditionalRequired: [{ componentCodename: 'ImageKey', when: { componentCodename: 'Decorative', equals: false } }]
+                    }
+                }
             }).success
         ).toBe(false)
     })

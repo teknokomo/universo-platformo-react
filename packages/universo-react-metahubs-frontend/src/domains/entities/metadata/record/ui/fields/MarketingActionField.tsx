@@ -29,15 +29,15 @@ const isRecord = (value: unknown): value is Record<string, unknown> => Boolean(v
 const actionInputField = (kind: MarketingActionKind): { labelKey: string; fallback: string } => {
     switch (kind) {
         case 'internal':
-            return { labelKey: 'layouts.marketing.heroAuthoring.actionPath', fallback: 'Application page' }
+            return { labelKey: 'layouts.marketing.actionAuthoring.actionPath', fallback: 'Application page' }
         case 'external':
-            return { labelKey: 'layouts.marketing.heroAuthoring.actionUrl', fallback: 'Web address' }
+            return { labelKey: 'layouts.marketing.actionAuthoring.actionUrl', fallback: 'Web address' }
         case 'anchor':
-            return { labelKey: 'layouts.marketing.heroAuthoring.actionAnchor', fallback: 'Page section' }
+            return { labelKey: 'layouts.marketing.actionAuthoring.actionAnchor', fallback: 'Page section' }
         case 'email':
-            return { labelKey: 'layouts.marketing.heroAuthoring.actionEmail', fallback: 'Email address' }
+            return { labelKey: 'layouts.marketing.actionAuthoring.actionEmail', fallback: 'Email address' }
         case 'tel':
-            return { labelKey: 'layouts.marketing.heroAuthoring.actionPhone', fallback: 'Phone number' }
+            return { labelKey: 'layouts.marketing.actionAuthoring.actionPhone', fallback: 'Phone number' }
     }
 }
 
@@ -109,7 +109,7 @@ export default function MarketingActionField({
                     disabled={disabled}
                     onClick={() => onChange(createDefaultMarketingAction('internal', field.id === 'TermsAction' ? '/terms' : '/auth'))}
                 >
-                    {t('layouts.marketing.heroAuthoring.addAction', { defaultValue: 'Add link action' })}
+                    {t('layouts.marketing.actionAuthoring.addAction', { defaultValue: 'Add link action' })}
                 </Button>
                 {error || helperText ? (
                     <FormHelperText id={validationId} error={Boolean(error)}>
@@ -131,23 +131,25 @@ export default function MarketingActionField({
         kind !== 'anchor'
             ? helperText
             : savedAnchorUnavailable
-            ? t('layouts.marketing.heroAuthoring.sections.unavailable', { defaultValue: 'This section is no longer in the current layout' })
+            ? t('layouts.marketing.actionAuthoring.sections.unavailable', {
+                  defaultValue: 'This section is no longer in the current layout'
+              })
             : sectionTargetsState === 'loading'
-            ? t('layouts.marketing.heroAuthoring.actionTargetsLoading', { defaultValue: 'Loading active page sections…' })
+            ? t('layouts.marketing.actionAuthoring.actionTargetsLoading', { defaultValue: 'Loading active page sections…' })
             : sectionTargetsState === 'unavailable'
-            ? t('layouts.marketing.heroAuthoring.actionTargetsUnavailable', { defaultValue: 'Active page sections could not be loaded.' })
+            ? t('layouts.marketing.actionAuthoring.actionTargetsUnavailable', { defaultValue: 'Active page sections could not be loaded.' })
             : sectionTargetsState === 'context-unavailable'
-            ? t('layouts.marketing.heroAuthoring.actionTargetsContextUnavailable', {
+            ? t('layouts.marketing.actionAuthoring.actionTargetsContextUnavailable', {
                   defaultValue: 'Edit this content from its layout to choose an active page section.'
               })
             : targetOptions?.length === 0
-            ? t('layouts.marketing.heroAuthoring.actionTargetsEmpty', {
+            ? t('layouts.marketing.actionAuthoring.actionTargetsEmpty', {
                   defaultValue: 'Add an active page section before using a section action.'
               })
             : helperText
     const kindLabelId = `${field.id.toLowerCase()}-action-kind-label`
     const targetLabelId = `${field.id.toLowerCase()}-action-target-label`
-    const kindLabel = t('layouts.marketing.heroAuthoring.actionKind', { defaultValue: 'Action type' })
+    const kindLabel = t('layouts.marketing.actionAuthoring.actionKind', { defaultValue: 'Action type' })
 
     return (
         <Stack spacing={1} role='group' aria-labelledby={fieldLabelId} aria-describedby={error || helperText ? validationId : undefined}>
@@ -172,7 +174,7 @@ export default function MarketingActionField({
                     >
                         {MARKETING_ACTION_KINDS.map((actionKind) => (
                             <MenuItem key={actionKind} value={actionKind}>
-                                {t(`layouts.marketing.heroAuthoring.actionKinds.${actionKind}`, { defaultValue: actionKind })}
+                                {t(`layouts.marketing.actionAuthoring.actionKinds.${actionKind}`, { defaultValue: actionKind })}
                             </MenuItem>
                         ))}
                     </Select>
@@ -198,7 +200,7 @@ export default function MarketingActionField({
                                 const baseLabel = t(option.labelKey, { defaultValue: option.defaultLabel })
                                 const label =
                                     'instanceNumber' in option && option.instanceNumber > 1
-                                        ? t('layouts.marketing.heroAuthoring.sections.instance', {
+                                        ? t('layouts.marketing.actionAuthoring.sections.instance', {
                                               section: baseLabel,
                                               number: option.instanceNumber,
                                               defaultValue: `${baseLabel} — ${option.instanceNumber}`
@@ -212,14 +214,14 @@ export default function MarketingActionField({
                             })}
                             {savedAnchorUnavailable ? (
                                 <MenuItem value={actionValue} disabled>
-                                    {t('layouts.marketing.heroAuthoring.sections.unavailable', {
+                                    {t('layouts.marketing.actionAuthoring.sections.unavailable', {
                                         defaultValue: 'This section is no longer in the current layout'
                                     })}
                                 </MenuItem>
                             ) : null}
                             {kind === 'anchor' && sectionTargetsState === 'ready' && targetOptions?.length === 0 && !actionValue ? (
                                 <MenuItem value='' disabled>
-                                    {t('layouts.marketing.heroAuthoring.actionTargetsEmpty', {
+                                    {t('layouts.marketing.actionAuthoring.actionTargetsEmpty', {
                                         defaultValue: 'Add an active page section before using a section action.'
                                     })}
                                 </MenuItem>
@@ -227,14 +229,14 @@ export default function MarketingActionField({
                             {kind === 'anchor' && sectionTargetsState !== 'ready' ? (
                                 <MenuItem value={actionValue || ''} disabled>
                                     {sectionTargetsState === 'loading'
-                                        ? t('layouts.marketing.heroAuthoring.actionTargetsLoading', {
+                                        ? t('layouts.marketing.actionAuthoring.actionTargetsLoading', {
                                               defaultValue: 'Loading active page sections…'
                                           })
                                         : sectionTargetsState === 'context-unavailable'
-                                        ? t('layouts.marketing.heroAuthoring.actionTargetsContextUnavailable', {
+                                        ? t('layouts.marketing.actionAuthoring.actionTargetsContextUnavailable', {
                                               defaultValue: 'Edit this content from its layout to choose an active page section.'
                                           })
-                                        : t('layouts.marketing.heroAuthoring.actionTargetsUnavailable', {
+                                        : t('layouts.marketing.actionAuthoring.actionTargetsUnavailable', {
                                               defaultValue: 'Active page sections could not be loaded.'
                                           })}
                                 </MenuItem>
@@ -261,23 +263,23 @@ export default function MarketingActionField({
                 )}
                 {optional ? (
                     <Button type='button' size='small' disabled={disabled} onClick={() => onChange(undefined)}>
-                        {t('layouts.marketing.heroAuthoring.removeAction', { defaultValue: 'Remove' })}
+                        {t('layouts.marketing.actionAuthoring.removeAction', { defaultValue: 'Remove' })}
                     </Button>
                 ) : null}
             </Stack>
             {kind === 'external' ? (
                 <FormControl fullWidth size='small' disabled={disabled}>
                     <InputLabel id={targetLabelId}>
-                        {t('layouts.marketing.heroAuthoring.openLinkIn', { defaultValue: 'Open link in' })}
+                        {t('layouts.marketing.actionAuthoring.openLinkIn', { defaultValue: 'Open link in' })}
                     </InputLabel>
                     <Select
                         labelId={targetLabelId}
                         value={action.target === 'same-tab' ? 'same-tab' : 'new-tab'}
-                        label={t('layouts.marketing.heroAuthoring.openLinkIn', { defaultValue: 'Open link in' })}
+                        label={t('layouts.marketing.actionAuthoring.openLinkIn', { defaultValue: 'Open link in' })}
                         onChange={(event) => onChange({ ...action, target: event.target.value as 'same-tab' | 'new-tab' })}
                     >
-                        <MenuItem value='same-tab'>{t('layouts.marketing.heroAuthoring.sameTab', { defaultValue: 'Same tab' })}</MenuItem>
-                        <MenuItem value='new-tab'>{t('layouts.marketing.heroAuthoring.newTab', { defaultValue: 'New tab' })}</MenuItem>
+                        <MenuItem value='same-tab'>{t('layouts.marketing.actionAuthoring.sameTab', { defaultValue: 'Same tab' })}</MenuItem>
+                        <MenuItem value='new-tab'>{t('layouts.marketing.actionAuthoring.newTab', { defaultValue: 'New tab' })}</MenuItem>
                     </Select>
                 </FormControl>
             ) : null}

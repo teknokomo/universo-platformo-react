@@ -30,10 +30,12 @@ import { hashApplicationLayoutContent } from '../../utils/applicationLayoutHash'
 import {
     applicationLayoutsTableExists,
     containsEntityBackedWidgetCopyConflict,
+    containsPersistedRequiredEntityBackedWidget,
     getPersistedDashboardLayoutConfig as readPersistedDashboardLayoutConfig,
     getPersistedPublishedLayouts as readPersistedPublishedLayouts,
     getPersistedPublishedWidgets as readPersistedPublishedWidgets,
     listApplicationLayoutSyncRows,
+    listApplicationLayoutSyncWidgets,
     readMigrationRow,
     syncApplicationLayouts,
     updateMigrationMeta,
@@ -180,11 +182,16 @@ const buildComparableWidget = (
     templateKey: ApplicationTemplateKey
 ): Record<string, unknown> => {
     const zone = normalizeLayoutZone(row.zone, templateKey)
+    const inheritsMarketingBindings = templateKey === 'marketing-page' && row.source_base_widget_id !== null
     const decoded = decodeLayoutWidgetConfigEnvelope(row.config, {
         templateKey,
         widgetKey: row.widget_key,
-        zone
+        zone,
+        requireBindings: !inheritsMarketingBindings
     })
+    if (inheritsMarketingBindings && decoded.neutral.bindings !== undefined) {
+        throw new Error('[SchemaSync] Persisted Marketing overlay widget comparison cannot contain entity bindings')
+    }
     const rendererConfig = parseApplicationLayoutWidgetConfig(row.widget_key, decoded.rendererConfig)
     const config = encodeLayoutWidgetConfigEnvelope(
         { rendererConfig, neutral: decoded.neutral },
@@ -215,6 +222,7 @@ export async function buildApplicationLayoutChanges(options: {
 
     const { layouts: nextLayouts, widgetsBySourceLayoutId } = nextInputs
     const existingRows = await listApplicationLayoutSyncRows(executor, schemaName, { includeDeleted: false })
+    const existingWidgetRows = await listApplicationLayoutSyncWidgets(executor, schemaName, { includeDeleted: false })
     const existingBySourceId = new Map<string, ApplicationLayoutSyncLayoutRow>()
     for (const row of existingRows) {
         if (row.source_kind !== 'metahub' || !row.source_layout_id || row.is_source_excluded) continue
@@ -258,7 +266,7 @@ export async function buildApplicationLayoutChanges(options: {
                     sourceKind: 'metahub',
                     currentSyncState: isLocallyModifiedLayout(competingDefault) ? 'local_modified' : undefined,
                     recommendedResolution: entityBackedWidgetCopyUnavailable ? 'keep_local' : 'copy_source_as_application',
-                    ...(entityBackedWidgetCopyUnavailable ? { copySourceAsApplicationUnavailable: true } : {}),
+                    ...(entityBackedWidgetCopyUnavailable ? { copyAsApplicationUnavailable: true } : {}),
                     title: toLocalizedTitle(row.name),
                     message: 'Source default conflicts with an application-selected default in the same scope.'
                 })
@@ -305,7 +313,7 @@ export async function buildApplicationLayoutChanges(options: {
                 sourceKind: 'metahub',
                 currentSyncState: 'local_modified',
                 recommendedResolution: entityBackedWidgetCopyUnavailable ? 'keep_local' : 'copy_source_as_application',
-                ...(entityBackedWidgetCopyUnavailable ? { copySourceAsApplicationUnavailable: true } : {}),
+                ...(entityBackedWidgetCopyUnavailable ? { copyAsApplicationUnavailable: true } : {}),
                 title: toLocalizedTitle(row.name),
                 message: 'Both the metahub source and the application copy changed since the last sync.'
             })
@@ -317,6 +325,10 @@ export async function buildApplicationLayoutChanges(options: {
         if (row.source_kind !== 'metahub' || row.is_source_excluded || !row.source_layout_id || nextSourceIds.has(row.source_layout_id))
             continue
         if (!isLocallyModifiedLayout(row)) continue
+        const hasRequiredEntityBackedWidgets = containsPersistedRequiredEntityBackedWidget(
+            parseApplicationTemplateKey(row.template_key, `removed layout ${row.id}`),
+            existingWidgetRows.filter((widget) => widget.layout_id === row.id)
+        )
         changes.push({
             type: 'LAYOUT_SOURCE_REMOVED',
             scope: resolveLayoutScope(row.scope_entity_id),
@@ -325,6 +337,7 @@ export async function buildApplicationLayoutChanges(options: {
             sourceKind: 'metahub',
             currentSyncState: 'source_removed',
             recommendedResolution: 'keep_local',
+            ...(hasRequiredEntityBackedWidgets ? { copyAsApplicationUnavailable: true } : {}),
             title: toLocalizedTitle(row.name),
             message: 'The metahub source layout was removed, but the application still carries local changes.'
         })

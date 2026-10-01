@@ -1432,7 +1432,7 @@ export async function listLayoutZoneWidgets(api, metahubId, layoutId) {
     return response.json()
 }
 
-export async function getLayoutZoneWidgetBinding(api, metahubId, layoutId, widgetId, locale = 'en') {
+export async function getLayoutZoneWidgetBindings(api, metahubId, layoutId, widgetId, locale = 'en') {
     const query = new URLSearchParams({ locale })
     const response = await fetchFromApi(
         api,
@@ -1440,7 +1440,7 @@ export async function getLayoutZoneWidgetBinding(api, metahubId, layoutId, widge
         { method: 'GET' }
     )
     if (!response.ok) {
-        throw await buildError(response, `Fetching Hero binding for widget ${widgetId} in layout ${layoutId}`)
+        throw await buildError(response, `Fetching Entity binding selections for widget ${widgetId} in layout ${layoutId}`)
     }
 
     return response.json()

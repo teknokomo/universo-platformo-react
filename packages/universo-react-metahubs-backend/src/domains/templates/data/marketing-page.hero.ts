@@ -20,8 +20,7 @@ export const defaultMarketingHeroBinding = buildSingleTargetWidgetBinding(market
 const heroComponents: TemplateSeedComponent[] = [
     {
         ...keyComponent('HeroKey', 'Hero key', 'Ключ первого экрана', 64),
-        isRequired: true,
-        uiConfig: { hidden: true, gridHidden: true }
+        isRequired: true
     },
     {
         ...localizedComponent('Title', 'Title', 'Заголовок', 255),
@@ -73,7 +72,7 @@ export const marketingPageHeroEntity: TemplateSeedEntity = {
             immutableSemanticKeyWhenBound: true,
             runtimeMutation: 'deny',
             requiredLocales: ['en', 'ru'],
-            validatorKey: 'marketing.hero.v1'
+            coRequiredGroups: [['TermsText', 'TermsLinkLabel', 'TermsAction']]
         }
     },
     components: heroComponents

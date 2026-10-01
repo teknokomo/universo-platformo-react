@@ -35,6 +35,29 @@ const mockEventBindingService = {
 
 const mockDbSession = { isReleased: () => false }
 
+const completeEntityCapabilities = {
+    dataSchema: { enabled: true },
+    records: false,
+    treeAssignment: false,
+    optionValues: false,
+    fixedValues: false,
+    hierarchy: false,
+    nestedCollections: false,
+    relations: false,
+    actions: false,
+    events: false,
+    modules: false,
+    blockContent: false,
+    layoutConfig: false,
+    runtimeBehavior: false,
+    physicalTable: false,
+    identityFields: false,
+    recordLifecycle: false,
+    posting: false,
+    ledgerSchema: false,
+    projectBinding: false
+}
+
 jest.mock('../../utils', () => ({
     __esModule: true,
     getRequestDbExecutor: (_req: unknown, fallback: unknown) => fallback
@@ -204,7 +227,7 @@ describe('Entity ECAE routes', () => {
             .send({
                 kindKey: 'custom-order',
                 codename: 'custom-order',
-                capabilities: { dataSchema: { enabled: true } },
+                capabilities: completeEntityCapabilities,
                 ui: { iconName: 'IconBolt', tabs: ['general'], sidebarSection: 'objects', nameKey: 'Custom Order' },
                 published: false
             })
@@ -228,7 +251,7 @@ describe('Entity ECAE routes', () => {
             .send({
                 kindKey: 'custom-order',
                 codename: 'custom-order',
-                capabilities: { dataSchema: { enabled: true } },
+                capabilities: completeEntityCapabilities,
                 ui: { iconName: 'IconBolt', tabs: ['general'], sidebarSection: 'objects', nameKey: 'Custom Order' }
             })
             .expect(403)
@@ -245,22 +268,7 @@ describe('Entity ECAE routes', () => {
             .send({
                 kindKey: 'custom-knowledge',
                 codename: 'custom-knowledge',
-                capabilities: {
-                    dataSchema: { enabled: true },
-                    records: false,
-                    treeAssignment: false,
-                    optionValues: false,
-                    fixedValues: false,
-                    hierarchy: false,
-                    nestedCollections: false,
-                    relations: false,
-                    actions: { enabled: true },
-                    events: { enabled: true },
-                    modules: false,
-                    layoutConfig: false,
-                    runtimeBehavior: false,
-                    physicalTable: false
-                },
+                capabilities: completeEntityCapabilities,
                 ui: {
                     iconName: 'IconBook',
                     tabs: ['general'],
@@ -304,7 +312,7 @@ describe('Entity ECAE routes', () => {
             .send({
                 kindKey: 'custom-order',
                 codename: 'custom-order',
-                capabilities: { dataSchema: { enabled: true } },
+                capabilities: completeEntityCapabilities,
                 ui: {
                     iconName: 'IconBolt',
                     tabs: ['general'],
@@ -334,7 +342,7 @@ describe('Entity ECAE routes', () => {
             .send({
                 kindKey: 'custom-order',
                 codename: 'custom-order',
-                capabilities: { dataSchema: { enabled: true } },
+                capabilities: completeEntityCapabilities,
                 ui: {
                     iconName: 'IconBolt',
                     tabs: ['general'],
@@ -377,7 +385,7 @@ describe('Entity ECAE routes', () => {
             .send({
                 kindKey: 'custom-order',
                 codename: 'custom-order',
-                capabilities: { dataSchema: { enabled: true } },
+                capabilities: completeEntityCapabilities,
                 ui: { iconName: 'IconBolt', tabs: ['general'], sidebarSection: 'objects', nameKey: 'Custom Order' }
             })
             .expect(409)
@@ -398,6 +406,18 @@ describe('Entity ECAE routes', () => {
             expect.objectContaining({ published: false, expectedVersion: 2 }),
             'user-1'
         )
+    })
+
+    it('rejects partial capability manifests before the update service', async () => {
+        const app = buildApp()
+
+        const response = await request(app)
+            .patch('/metahub/metahub-1/entity-type/entity-type-1')
+            .send({ capabilities: { layoutConfig: false } })
+            .expect(400)
+
+        expect(response.body.error).toBe('Invalid input')
+        expect(mockEntityTypeService.updateType).not.toHaveBeenCalled()
     })
 
     it('returns 403 when a read-only metahub member attempts to update an entity type', async () => {

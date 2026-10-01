@@ -20,6 +20,8 @@ It is the entry point for Tier 1 request-scoped executors, Tier 2 pool executors
 -   `initKnex`, `getKnex`, and `destroyKnex`.
 -   `checkDatabaseHealth` and `registerGracefulShutdown`.
 -   `createKnexExecutor`, `createRlsExecutor`, and `getPoolExecutor`.
+-   `runWithRlsOperationScope`, `runInRlsOperationScope`, and the `RlsOperationScope` type for authenticated request lifecycle coordination.
+-   `releaseKnexConnection` for releasing manually acquired connections and discarding connections whose transaction state is unknown.
 -   `qSchema`, `qTable`, `qSchemaTable`, and `qColumn`.
 -   `convertPgBindings`.
 
@@ -30,12 +32,18 @@ It is the entry point for Tier 1 request-scoped executors, Tier 2 pool executors
 -   Tier 3 uses `getKnex()` only for infrastructure, migrations, and schema-ddl boundaries.
 -   Domain packages should depend on executors and identifier helpers, not on Knex transport APIs.
 -   Helper consumers must keep SQL parameterized and schema-qualified.
+-   Authenticated request middleware uses the exported operation-scope API to stop admission, drain work, and finalize the outer transaction; consumers should not create their own async context for this lifecycle.
+-   A manually acquired connection whose transaction reset or rollback cannot be confirmed must be released with `{ discard: true }` through `releaseKnexConnection`.
 
 ## Operational Notes
 
 -   Pool ownership lives here so backend packages do not configure independent Knex singletons.
 -   Identifier helpers are the approved path for every dynamic schema, table, and column name.
 -   Executor factories preserve the unified PostgreSQL access model documented in the architecture docs.
+-   Request-scoped RLS executors stop admitting work before closing the connection lease, drain admitted queries and transactions, finalize the outer transaction, then release the pinned connection.
+-   Request-session queries run in the active transaction scope, so they wait behind savepoints when called by parent work and are rolled back with the savepoint when called inside it.
+-   RLS executor transactions return native promises. Any failed nested transaction rolls back its savepoint and fails its parent transaction; a caught rejection does not make the parent commit partial work.
+-   If a request connection cannot be reset or its rollback cannot be confirmed, it is marked unusable so Knex's pool validator discards it before reuse.
 -   Package boundaries such as applications-backend `src/ddl/index.ts` or metahubs-backend DDL seams build on this runtime package.
 
 ## Development

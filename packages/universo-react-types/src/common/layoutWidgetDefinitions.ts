@@ -1,7 +1,7 @@
 import { z } from 'zod'
 
 import type { ApplicationLayoutWidgetKey, ApplicationLayoutZone } from './applicationLayouts'
-import type { LayoutLogicalPlacement, LayoutWidgetMobileProjection } from './layoutEnvelope'
+import type { LayoutLogicalPlacement, LayoutWidgetMobileProjection } from './layoutWidgetPrimitives'
 import {
     MARKETING_LAYOUT_ZONES,
     MARKETING_LAYOUT_ZONE_SEMANTICS,
@@ -19,10 +19,13 @@ import {
 } from './applicationTemplates'
 import {
     layoutWidgetPresentationFieldSchema,
+    layoutWidgetAuthoringCapabilitiesSchema,
     widgetBindingSlotDefinitionSchema,
+    type LayoutWidgetAuthoringCapabilities,
     type LayoutWidgetPresentationField,
     type WidgetBindingSlotDefinition
 } from './widgetBindings'
+import { MARKETING_WIDGET_CONTRACTS } from './marketingWidgetContracts'
 
 /** Serializable setting descriptor exposed through layout metadata responses. */
 export interface LayoutZoneSettingDefinition<TKey extends string = string, TOption extends string = string> {
@@ -136,8 +139,14 @@ export interface LayoutWidgetDefinition {
     readonly mobileProjection?: LayoutWidgetMobileProjection
     /** Semantic Entity bindings declared for this renderer. */
     readonly bindingSlots?: readonly WidgetBindingSlotDefinition[]
+    /** Slot selected by default when configuring a source-backed widget. */
+    readonly initialBindingSlotKey?: string
     /** Serializable presentation-only fields shared by the authoring hosts. */
     readonly presentationFields?: readonly LayoutWidgetPresentationField[]
+    /** Declarative Add, Duplicate, content and Application ownership capabilities. */
+    readonly authoring?: LayoutWidgetAuthoringCapabilities
+    /** Variant-specific slot requirements for polymorphic widgets such as collections. */
+    readonly bindingVariants?: Readonly<Record<string, readonly WidgetBindingSlotDefinition[]>>
 }
 
 const layoutWidgetKeySchema = z.string().trim().min(1).max(128)
@@ -175,7 +184,10 @@ export const layoutWidgetDefinitionSchema = z
         defaultPlacement: z.enum(['start', 'end']).optional(),
         mobileProjection: z.enum(['compact-header', 'drawer']).optional(),
         bindingSlots: z.array(widgetBindingSlotDefinitionSchema).max(16).optional(),
-        presentationFields: z.array(layoutWidgetPresentationFieldSchema).max(32).optional()
+        initialBindingSlotKey: z.string().trim().min(1).max(128).optional(),
+        presentationFields: z.array(layoutWidgetPresentationFieldSchema).max(32).optional(),
+        authoring: layoutWidgetAuthoringCapabilitiesSchema.optional(),
+        bindingVariants: z.record(z.string().trim().min(1).max(128), z.array(widgetBindingSlotDefinitionSchema).max(16)).optional()
     })
     .strict()
     .superRefine((value, context) => {
@@ -195,6 +207,19 @@ export const layoutWidgetDefinitionSchema = z
                 path: ['bindingSlots'],
                 message: 'Widget binding slot keys must be unique.'
             })
+        }
+        if (value.initialBindingSlotKey !== undefined) {
+            const slotGroups = Object.entries(value.bindingVariants ?? {})
+            const groups = slotGroups.length > 0 ? slotGroups : [['bindingSlots', value.bindingSlots ?? []] as const]
+            for (const [groupKey, slots] of groups) {
+                if (!slots.some(({ key }) => key === value.initialBindingSlotKey)) {
+                    context.addIssue({
+                        code: z.ZodIssueCode.custom,
+                        path: slotGroups.length > 0 ? ['bindingVariants', groupKey] : ['bindingSlots'],
+                        message: 'Initial binding slot must exist in every supported widget slot list.'
+                    })
+                }
+            }
         }
         const presentationKeys = (value.presentationFields ?? []).map(({ key }) => key)
         if (new Set(presentationKeys).size !== presentationKeys.length) {
@@ -261,156 +286,28 @@ const DASHBOARD_WIDGET_DEFINITIONS: readonly LayoutWidgetDefinition[] = DASHBOAR
     }
 })
 
-const MARKETING_WIDGET_DEFINITIONS: readonly LayoutWidgetDefinition[] = Object.values(MARKETING_WIDGET_REGISTRY).map((widget) => ({
-    key: widget.key,
-    allowedZones: widget.allowedZones,
-    allowedZonesByTemplate: { 'marketing-page': widget.allowedZones },
-    multiInstance: widget.repeatable,
-    templateKey: 'marketing-page',
-    supportedTemplates: ['marketing-page'],
-    requiredHostCapabilities: [],
-    shared: false,
-    labelKey: `layouts.widgets.${widget.key}`,
-    defaultLabel: toDefaultLabel(widget.key),
-    ...(widget.key === 'marketing.hero'
-        ? {
-              bindingSlots: [
-                  {
-                      key: 'content',
-                      authoring: {
-                          labelKey: 'layouts.widgetBindings.recordLabel',
-                          defaultLabel: 'Content record',
-                          placeholderKey: 'layouts.widgetBindings.recordPlaceholder',
-                          defaultPlaceholder: 'Search by content title',
-                          helperTextKey: 'layouts.widgetBindings.recordHelperText',
-                          defaultHelperText: 'Choose the Entity record displayed by this widget.',
-                          emptyOptionsKey: 'layouts.widgetBindings.noRecords',
-                          defaultEmptyOptions: 'No compatible content records found.',
-                          loadingOptionsKey: 'layouts.widgetBindings.loadingRecords',
-                          defaultLoadingOptions: 'Loading content records…'
-                      },
-                      cardinality: { min: 1, max: 1 },
-                      requirements: {
-                          entityCapabilities: ['dataSchema', 'records'],
-                          entityKinds: ['object'],
-                          recordPolicy: {
-                              runtimeMutation: 'deny',
-                              denyDeleteWhenBound: true,
-                              immutableSemanticKeyWhenBound: true,
-                              semanticKey: { componentCodename: 'HeroKey', creationPrefix: 'hero', protectedValues: ['default'] },
-                              requiredLocales: ['en', 'ru'],
-                              validatorKey: 'marketing.hero.v1'
-                          },
-                          components: [
-                              {
-                                  field: 'key',
-                                  componentCodename: 'HeroKey',
-                                  valueType: 'string',
-                                  localized: false,
-                                  required: true,
-                                  semanticKey: true,
-                                  maxLength: 64
-                              },
-                              {
-                                  field: 'title',
-                                  componentCodename: 'Title',
-                                  valueType: 'string',
-                                  localized: true,
-                                  required: true,
-                                  maxLength: 255
-                              },
-                              {
-                                  field: 'accent',
-                                  componentCodename: 'Accent',
-                                  valueType: 'string',
-                                  localized: true,
-                                  required: false,
-                                  maxLength: 120
-                              },
-                              {
-                                  field: 'description',
-                                  componentCodename: 'Description',
-                                  valueType: 'string',
-                                  localized: true,
-                                  required: true,
-                                  maxLength: 2000
-                              },
-                              {
-                                  field: 'emailLabel',
-                                  componentCodename: 'EmailLabel',
-                                  valueType: 'string',
-                                  localized: true,
-                                  required: true,
-                                  maxLength: 120
-                              },
-                              {
-                                  field: 'emailPlaceholder',
-                                  componentCodename: 'EmailPlaceholder',
-                                  valueType: 'string',
-                                  localized: true,
-                                  required: true,
-                                  maxLength: 120
-                              },
-                              {
-                                  field: 'primaryActionLabel',
-                                  componentCodename: 'PrimaryActionLabel',
-                                  valueType: 'string',
-                                  localized: true,
-                                  required: true,
-                                  maxLength: 120
-                              },
-                              {
-                                  field: 'primaryAction',
-                                  componentCodename: 'PrimaryAction',
-                                  valueType: 'json',
-                                  localized: false,
-                                  required: true,
-                                  format: 'marketingAction'
-                              },
-                              {
-                                  field: 'termsText',
-                                  componentCodename: 'TermsText',
-                                  valueType: 'string',
-                                  localized: true,
-                                  required: false,
-                                  maxLength: 500
-                              },
-                              {
-                                  field: 'termsLinkLabel',
-                                  componentCodename: 'TermsLinkLabel',
-                                  valueType: 'string',
-                                  localized: true,
-                                  required: false,
-                                  maxLength: 120
-                              },
-                              {
-                                  field: 'termsAction',
-                                  componentCodename: 'TermsAction',
-                                  valueType: 'json',
-                                  localized: false,
-                                  required: false,
-                                  format: 'marketingAction'
-                              }
-                          ]
-                      }
-                  }
-              ],
-              presentationFields: [
-                  {
-                      key: 'showLeadForm',
-                      kind: 'switch',
-                      labelKey: 'layouts.marketingHero.showLeadForm',
-                      defaultLabel: 'Show lead form',
-                      helperTextKey: 'layouts.marketingHero.showLeadFormHelp',
-                      defaultHelperText: 'Show the email signup form in this Hero placement.',
-                      defaultValue: true
-                  }
-              ]
-          }
-        : {}),
-    ...(widget.defaultPlacement ? { defaultPlacement: widget.defaultPlacement } : {}),
-    ...(widget.mobileProjection ? { mobileProjection: widget.mobileProjection } : {})
-}))
+const MARKETING_WIDGET_DEFINITIONS: readonly LayoutWidgetDefinition[] = Object.values(MARKETING_WIDGET_REGISTRY).map((widget) => {
+    const contract = MARKETING_WIDGET_CONTRACTS[widget.key]
+    return {
+        key: widget.key,
+        allowedZones: widget.allowedZones,
+        allowedZonesByTemplate: { 'marketing-page': widget.allowedZones },
+        multiInstance: widget.repeatable,
+        templateKey: 'marketing-page',
+        supportedTemplates: ['marketing-page'],
+        requiredHostCapabilities: [],
+        shared: false,
+        labelKey: `layouts.widgets.${widget.key}`,
+        defaultLabel: toDefaultLabel(widget.key),
+        ...(contract.bindingSlots ? { bindingSlots: contract.bindingSlots } : {}),
+        ...(contract.initialBindingSlotKey ? { initialBindingSlotKey: contract.initialBindingSlotKey } : {}),
+        ...(contract.bindingVariants ? { bindingVariants: contract.bindingVariants } : {}),
+        ...(contract.presentationFields ? { presentationFields: contract.presentationFields } : {}),
+        authoring: contract.authoring,
+        ...(widget.defaultPlacement ? { defaultPlacement: widget.defaultPlacement } : {}),
+        ...(widget.mobileProjection ? { mobileProjection: widget.mobileProjection } : {})
+    }
+})
 
 /**
  * Canonical labels and placement metadata shared by metahub and application
@@ -455,8 +352,21 @@ const LAYOUT_WIDGET_DEFINITIONS_BY_KEY = new Map<ApplicationLayoutWidgetKey, Lay
 )
 
 /** Resolve one widget definition without coercing unknown keys to a fallback. */
-export const getLayoutWidgetDefinition = (key: string): LayoutWidgetDefinition | undefined =>
-    LAYOUT_WIDGET_DEFINITIONS_BY_KEY.get(key as ApplicationLayoutWidgetKey)
+export const getLayoutWidgetBindingSlotDefinitions = (key: string, rendererConfig?: unknown): readonly WidgetBindingSlotDefinition[] => {
+    const definition = LAYOUT_WIDGET_DEFINITIONS_BY_KEY.get(key as ApplicationLayoutWidgetKey)
+    if (!definition) return []
+    if (!definition.bindingVariants) return definition.bindingSlots ?? []
+    const config = rendererConfig && typeof rendererConfig === 'object' && !Array.isArray(rendererConfig) ? rendererConfig : {}
+    const variant = 'variant' in config && typeof config.variant === 'string' ? config.variant : undefined
+    return (variant ? definition.bindingVariants[variant] : undefined) ?? []
+}
+
+export const getLayoutWidgetDefinition = (key: string, rendererConfig?: unknown): LayoutWidgetDefinition | undefined => {
+    const definition = LAYOUT_WIDGET_DEFINITIONS_BY_KEY.get(key as ApplicationLayoutWidgetKey)
+    if (!definition?.bindingVariants) return definition
+    const bindingSlots = getLayoutWidgetBindingSlotDefinitions(key, rendererConfig)
+    return { ...definition, bindingSlots }
+}
 
 /** Return the physical zones accepted by a widget for one concrete template. */
 export const getLayoutWidgetAllowedZones = (

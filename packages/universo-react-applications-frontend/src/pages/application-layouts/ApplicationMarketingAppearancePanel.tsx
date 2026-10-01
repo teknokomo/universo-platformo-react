@@ -151,12 +151,10 @@ export function ApplicationMarketingAppearancePanel({
                         {t('layouts.marketing.brandAsset', 'Brand asset')}
                     </Typography>
                     <Typography variant='body2' sx={{ color: 'text.secondary' }}>
-                        {config.brandLogo
-                            ? t('layouts.marketing.brandAssetConfigured', 'Application logo and alternative text are configured.')
-                            : t(
-                                  'layouts.marketing.brandAssetInherited',
-                                  'The logo and alternative text are inherited from the Site settings Object.'
-                              )}
+                        {t(
+                            'layouts.marketing.brandAssetInherited',
+                            'The logo and alternative text are inherited from the Site settings Object. Edit that record through standard content authoring.'
+                        )}
                     </Typography>
                 </Box>
                 <Box>

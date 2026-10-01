@@ -211,6 +211,39 @@ const authorHeroRecord = async (api: ApiContext, metahubId: string, objectsByCod
     expect(response.ok).toBe(true)
 }
 
+const authorImageRecord = async (api: ApiContext, metahubId: string, objectsByCodename: Map<string, ObjectEntity>): Promise<void> => {
+    const imageObject = objectsByCodename.get('MarketingPageImage')
+    if (!imageObject?.id) throw new Error('73rd Meridian generator could not find Object MarketingPageImage')
+
+    const payload = await listRecords(api, metahubId, imageObject.id, { limit: 100, offset: 0 })
+    const records = Array.isArray(payload?.items)
+        ? (payload.items as Array<{ id?: unknown; version?: unknown; data?: Record<string, unknown> }>)
+        : []
+    const defaultRecord = records.find((record) => record.data?.ImageKey === 'default')
+    if (typeof defaultRecord?.id !== 'string') {
+        throw new Error('73rd Meridian generator requires the default MarketingPageImage record seeded by the template')
+    }
+    const expectedVersion = Number(defaultRecord.version)
+    if (!Number.isInteger(expectedVersion) || expectedVersion < 1) {
+        throw new Error('73rd Meridian generator requires a versioned default MarketingPageImage record')
+    }
+
+    const response = await sendWithCsrf(
+        api,
+        'PATCH',
+        `/api/v1/metahub/${metahubId}/entities/object/instance/${imageObject.id}/record/${defaultRecord.id}`,
+        {
+            expectedVersion,
+            data: {
+                Resource: { type: 'url', url: MERIDIAN_73_IMAGE_URL, launchMode: 'inline' },
+                AltText: localized('Marketing page dashboard preview'),
+                Decorative: false
+            }
+        }
+    )
+    expect(response.ok).toBe(true)
+}
+
 const buildPartnerSeeds = (): RecordSeed[] =>
     MERIDIAN_73_PARTNER_CATEGORIES.map((partner, index) => ({
         sortOrder: index + 1,
@@ -315,6 +348,7 @@ const authorProductRecords = async (api: ApiContext, metahubId: string): Promise
     await replaceRecords(api, metahubId, objects, 'MarketingPageSection', buildSectionSeeds())
     await replaceRecords(api, metahubId, objects, 'MarketingPageSiteSettings', buildSiteSettingsSeeds())
     await authorHeroRecord(api, metahubId, objects)
+    await authorImageRecord(api, metahubId, objects)
     await replaceRecords(api, metahubId, objects, 'MarketingPageLogo', buildPartnerSeeds())
     await replaceRecords(api, metahubId, objects, 'MarketingPageFeature', buildActivitySeeds())
     await replaceRecords(api, metahubId, objects, 'MarketingPageTestimonial', buildExpertVisionSeeds())
@@ -354,8 +388,7 @@ const configureProductLayout = async (api: ApiContext, metahubId: string): Promi
         )
 
     const imageWidget = byInstanceKey('hero-image')
-    const imageResource = imageWidget?.config?.media?.resource
-    expect(imageResource?.url).toBe(MERIDIAN_73_IMAGE_URL)
+    expect(imageWidget?.config?.media).toBeUndefined()
 
     const configPatches: Array<[string, Record<string, unknown>]> = [
         ['auth', { showAuthActions: false }],

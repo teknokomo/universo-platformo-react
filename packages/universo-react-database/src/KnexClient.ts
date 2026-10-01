@@ -196,6 +196,15 @@ export function getKnex(): Knex {
     return instance
 }
 
+/** Release a manually acquired pool connection and optionally make it ineligible for reuse. */
+export async function releaseKnexConnection(knexInstance: Knex, connection: unknown, options: { discard?: boolean } = {}): Promise<void> {
+    if (options.discard && connection && typeof connection === 'object') {
+        // Knex's pool validator rejects this marker and destroys the resource before another caller can acquire it.
+        ;(connection as { __knex__disposed?: string }).__knex__disposed = 'Connection transaction state is unknown'
+    }
+    await knexInstance.client.releaseConnection(connection)
+}
+
 /**
  * Destroy the Knex singleton and release all pool connections.
  */

@@ -10,6 +10,7 @@ import {
     type DialogContentProps,
     type DialogActionsProps
 } from '@mui/material'
+import type { TransitionProps } from '@mui/material/transitions'
 import { mergeDialogPaperProps, mergeDialogSx, useDialogPresentation, type DialogPaperProps } from './dialogPresentation'
 
 export interface StandardDialogProps {
@@ -26,6 +27,7 @@ export interface StandardDialogProps {
     dialogTitleProps?: DialogTitleProps
     dialogContentProps?: DialogContentProps
     dialogActionsProps?: DialogActionsProps
+    onTransitionEntered?: TransitionProps['onEntered']
     disablePresentationControls?: boolean
 }
 
@@ -43,6 +45,7 @@ export function StandardDialog({
     dialogTitleProps,
     dialogContentProps,
     dialogActionsProps,
+    onTransitionEntered,
     disablePresentationControls = false
 }: StandardDialogProps) {
     const generatedTitleId = `standard-dialog-title-${useId().replace(/:/g, '')}`
@@ -80,7 +83,10 @@ export function StandardDialog({
             aria-labelledby={titleLabelId}
             maxWidth={presentation.dialogProps.maxWidth ?? maxWidth}
             fullWidth={presentation.dialogProps.fullWidth ?? fullWidth}
-            slotProps={{ paper: mergedPaperProps }}
+            slotProps={{
+                paper: mergedPaperProps,
+                ...(onTransitionEntered ? { transition: { onEntered: onTransitionEntered } } : {})
+            }}
         >
             <DialogTitle {...dialogTitleProps} id={titleId}>
                 {titleNode}

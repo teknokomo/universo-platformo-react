@@ -9,19 +9,20 @@ vi.mock('../../../shared', () => ({
 
 import {
     assignLayoutZoneWidget,
-    getWidgetBindingSources,
-    getWidgetBindingUsage,
-    getLayoutZoneWidgetBinding,
+    duplicateLayoutZoneWidgetWithRecordCopy,
+    getLayoutZoneWidgetBindings,
     getLayoutZoneWidgetObjects,
+    listWidgetBindingRecords,
+    listWidgetBindingSources,
+    provisionWidgetBindingSource,
+    replaceLayoutZoneWidgetBindings,
     resetLayoutZoneSetting,
-    updateLayoutZoneWidgetBinding,
-    updateLayoutZoneSetting,
-    provisionWidgetBindingSource
+    updateLayoutZoneSetting
 } from '../layouts'
 
 describe('layout metadata API wrapper', () => {
     beforeEach(() => {
-        vi.clearAllMocks()
+        vi.resetAllMocks()
     })
 
     it('returns template-aware widget metadata from the complete API envelope', async () => {
@@ -56,32 +57,198 @@ describe('layout metadata API wrapper', () => {
         await expect(getLayoutZoneWidgetObjects('metahub-1', 'layout-1')).rejects.toThrow('LAYOUT_WIDGET_METADATA_INVALID')
     })
 
-    it('loads the bound Entity record with a locale and patches only the binding contract', async () => {
-        const binding = { recordId: 'record-1', recordVersion: 4, widgetVersion: 7, label: 'Launch' }
-        get.mockResolvedValueOnce({ data: binding })
-        const updatedWidget = { id: 'widget-1', widgetKey: 'marketing.hero' }
-        patch.mockResolvedValueOnce({ data: updatedWidget })
+    it('loads generic binding state and paginated compatible sources and semantic records', async () => {
+        const bindings = {
+            widgetKey: 'marketing.hero',
+            version: 7,
+            bindings: [
+                {
+                    slot: 'content',
+                    sourceKey: 'MarketingHeroContent',
+                    sourceName: 'Hero content',
+                    selectorKind: 'semantic-key',
+                    selectionLabel: 'Launch',
+                    semanticKey: 'launch'
+                }
+            ]
+        }
+        const sources = {
+            widgetKey: 'marketing.hero',
+            slot: 'content',
+            selectorKinds: ['semantic-key'],
+            sources: [{ sourceKey: 'MarketingHeroContent', label: 'Hero content', recordsCount: 2, selectorKinds: ['semantic-key'] }],
+            selectedSource: {
+                sourceKey: 'MarketingHeroContent',
+                label: 'Hero content',
+                recordsCount: 2,
+                selectorKinds: ['semantic-key'],
+                compatible: true
+            },
+            nextOffset: 20,
+            truncated: true
+        }
+        const records = {
+            widgetKey: 'marketing.hero',
+            slot: 'content',
+            sourceKey: 'MarketingHeroContent',
+            records: [{ semanticKey: 'launch', label: 'Launch' }],
+            nextOffset: null,
+            truncated: false
+        }
+        get.mockResolvedValueOnce({ data: bindings }).mockResolvedValueOnce({ data: sources }).mockResolvedValueOnce({ data: records })
 
-        await expect(getLayoutZoneWidgetBinding('metahub-1', 'layout-1', 'widget-1', 'ru')).resolves.toEqual({ data: binding })
-        expect(get).toHaveBeenCalledWith('/metahub/metahub-1/layout/layout-1/zone-widget/widget-1/binding', {
+        await expect(getLayoutZoneWidgetBindings('metahub-1', 'layout-1', 'widget-1', 'ru')).resolves.toEqual({ data: bindings })
+        expect(get).toHaveBeenNthCalledWith(1, '/metahub/metahub-1/layout/layout-1/zone-widget/widget-1/binding', {
             params: { locale: 'ru' }
         })
-
         await expect(
-            updateLayoutZoneWidgetBinding('metahub-1', 'layout-1', 'widget-1', { recordId: 'record-2', expectedVersion: 7 })
-        ).resolves.toMatchObject({ data: updatedWidget })
-        expect(patch).toHaveBeenCalledWith('/metahub/metahub-1/layout/layout-1/zone-widget/widget-1/binding', {
-            recordId: 'record-2',
-            expectedVersion: 7
+            listWidgetBindingSources('metahub-1', 'layout-1', 'marketing.hero', 'content', 'widget-1', 'en', 20, undefined, undefined)
+        ).resolves.toEqual({
+            data: sources
+        })
+        expect(get).toHaveBeenNthCalledWith(2, '/metahub/metahub-1/layout/layout-1/widget-binding-sources/marketing.hero/content', {
+            params: { widgetId: 'widget-1', locale: 'en', offset: 20 }
+        })
+        await expect(
+            listWidgetBindingRecords('metahub-1', 'layout-1', 'marketing.hero', 'content', 'widget-1', 'MarketingHeroContent', 'ru', 0)
+        ).resolves.toEqual({ data: records })
+        expect(get).toHaveBeenNthCalledWith(3, '/metahub/metahub-1/layout/layout-1/zone-widget/widget-1/binding-records/content', {
+            params: { sourceKey: 'MarketingHeroContent', locale: 'ru', offset: 0 }
         })
     })
 
-    it('sends Hero binding intent separately from renderer-only configuration when placing a widget', async () => {
+    it('discovers Add choices without a placement and sends bounded search, selected key, and final variant', async () => {
+        get.mockResolvedValueOnce({ data: { widgetKey: 'marketing.collection', slot: 'items', sources: [] } }).mockResolvedValueOnce({
+            data: {
+                widgetKey: 'marketing.collection',
+                slot: 'section',
+                sourceKey: 'MarketingSections',
+                records: [],
+                selectedRecord: { semanticKey: 'launch', label: 'Launch' },
+                nextOffset: null,
+                truncated: false
+            }
+        })
+
+        await listWidgetBindingSources('metahub-1', 'layout-1', 'marketing.collection', 'items', null, 'ru', 40, 'company', 'logos')
+        expect(get).toHaveBeenNthCalledWith(1, '/metahub/metahub-1/layout/layout-1/widget-binding-sources/marketing.collection/items', {
+            params: { locale: 'ru', offset: 40, search: 'company', variant: 'logos' }
+        })
+
+        await expect(
+            listWidgetBindingRecords(
+                'metahub-1',
+                'layout-1',
+                'marketing.collection',
+                'section',
+                null,
+                'MarketingSections',
+                'en',
+                0,
+                'launch',
+                'logos',
+                'launch'
+            )
+        ).resolves.toMatchObject({ data: { selectedRecord: { semanticKey: 'launch', label: 'Launch' } } })
+        expect(get).toHaveBeenNthCalledWith(2, '/metahub/metahub-1/layout/layout-1/widget-binding-records/marketing.collection/section', {
+            params: {
+                sourceKey: 'MarketingSections',
+                locale: 'en',
+                offset: 0,
+                search: 'launch',
+                variant: 'logos',
+                selectedSemanticKey: 'launch'
+            }
+        })
+    })
+
+    it('creates a source model from a compatible source without sending physical entity ids', async () => {
+        const result = {
+            widgetKey: 'marketing.hero',
+            slot: 'content',
+            source: { sourceKey: 'MarketingWidgetSourceNew', label: 'Alternative hero', recordsCount: 0, selectorKinds: ['semantic-key'] }
+        }
+        post.mockResolvedValueOnce({ data: result })
+
+        await expect(
+            provisionWidgetBindingSource('metahub-1', 'layout-1', 'marketing.hero', 'content', {
+                locale: 'ru',
+                templateSourceKey: 'MarketingPageHero',
+                name: 'Alternative hero'
+            })
+        ).resolves.toEqual({ data: result })
+        expect(post).toHaveBeenCalledWith('/metahub/metahub-1/layout/layout-1/widget-binding-sources/marketing.hero/content', {
+            locale: 'ru',
+            templateSourceKey: 'MarketingPageHero',
+            name: 'Alternative hero'
+        })
+    })
+
+    it('resolves an existing relation source against the draft parent without sending placement ids', async () => {
+        const page = {
+            widgetKey: 'marketing.pricing',
+            slot: 'benefits',
+            selectorKinds: ['relation-set'],
+            sources: [],
+            selectedSource: {
+                sourceKey: 'PricingBenefits',
+                label: 'Plan benefits',
+                recordsCount: 4,
+                selectorKinds: ['relation-set'],
+                compatible: false
+            },
+            nextOffset: null,
+            truncated: false
+        }
+        get.mockResolvedValueOnce({ data: page })
+
+        await expect(
+            listWidgetBindingSources(
+                'metahub-1',
+                'layout-1',
+                'marketing.pricing',
+                'benefits',
+                null,
+                'en',
+                0,
+                undefined,
+                undefined,
+                'PricingTiers',
+                'PricingBenefits'
+            )
+        ).resolves.toEqual({ data: page })
+        expect(get).toHaveBeenCalledWith('/metahub/metahub-1/layout/layout-1/widget-binding-sources/marketing.pricing/benefits', {
+            params: {
+                locale: 'en',
+                offset: 0,
+                parentSourceKey: 'PricingTiers',
+                selectedSourceKey: 'PricingBenefits'
+            }
+        })
+    })
+
+    it('replaces the full generic slot set in one atomic mutation', async () => {
+        const result = { widgetKey: 'marketing.collection', version: 8 }
+        const input = {
+            expectedVersion: 7,
+            bindings: [
+                { slot: 'section', sourceKey: 'MarketingSection', selector: { kind: 'semantic-key', value: 'pricing' } },
+                { slot: 'items', sourceKey: 'FeatureItems', selector: { kind: 'record-set' } }
+            ],
+            locale: 'en' as const,
+            rendererConfig: { instanceKey: '0190a9b5-3cde-7abc-8def-0123456789a6', variant: 'features' }
+        }
+        patch.mockResolvedValueOnce({ data: result })
+
+        await expect(replaceLayoutZoneWidgetBindings('metahub-1', 'layout-1', 'widget-1', input)).resolves.toEqual({ data: result })
+        expect(patch).toHaveBeenCalledWith('/metahub/metahub-1/layout/layout-1/zone-widget/widget-1/binding', input)
+    })
+
+    it('sends generic renderer configuration when placing a widget', async () => {
         put.mockResolvedValueOnce({ data: { id: 'widget-1' } })
         const payload = {
             zone: 'marketing-main' as const,
             widgetKey: 'marketing.hero' as const,
-            heroContent: { mode: 'auto' as const },
             config: { instanceKey: 'hero', showLeadForm: false },
             expectedVersion: 3
         }
@@ -92,37 +259,24 @@ describe('layout metadata API wrapper', () => {
         expect(payload.config).not.toHaveProperty('bindings')
     })
 
-    it('uses the layout source, provision, and usage endpoints', async () => {
-        const sources = [
-            { entityId: 'entity-1', entityCodename: 'MarketingPageHero', name: 'Hero content', recordsCount: 2, otherWidgetUsageCount: 1 }
-        ]
-        get.mockResolvedValueOnce({ data: { items: sources } }).mockResolvedValueOnce({ data: { recordId: 'record-1', usageCount: 3 } })
-        post.mockResolvedValueOnce({ data: { source: sources[0], initialRecord: { recordId: 'record-1' } } })
+    it('uses the atomic record-copy placement endpoint for Marketing duplicates', async () => {
+        const payload = {
+            zone: 'marketing-main' as const,
+            widgetKey: 'marketing.image' as const,
+            config: { instanceKey: 'image-copy', bindings: { content: 'image-source' } },
+            expectedVersion: 7,
+            recordCopy: {
+                entityId: '01a0eac4-0a52-7053-a127-9e8c3a0fd3bb',
+                recordId: '01a0eac4-0a52-7053-a127-9e8c3a0fd3bc',
+                sourceKey: 'MarketingPageImage',
+                sourceSemanticKey: 'image-source',
+                slot: 'content'
+            }
+        }
 
-        await expect(
-            getWidgetBindingSources('metahub-1', 'layout-1', 'marketing.hero', 'content', 'ru', 'widget-1')
-        ).resolves.toMatchObject({
-            data: { items: sources }
-        })
-        expect(get).toHaveBeenNthCalledWith(1, '/metahub/metahub-1/layout/layout-1/widget-binding-sources/marketing.hero/content', {
-            params: { locale: 'ru', excludeWidgetId: 'widget-1' }
-        })
-        await expect(
-            provisionWidgetBindingSource('metahub-1', 'layout-1', 'marketing.hero', 'content', {
-                codename: 'HeroContent',
-                name: 'Hero content'
-            })
-        ).resolves.toMatchObject({ data: { source: sources[0] } })
-        expect(post).toHaveBeenCalledWith('/metahub/metahub-1/layout/layout-1/widget-binding-sources/marketing.hero/content', {
-            codename: 'HeroContent',
-            name: 'Hero content'
-        })
-        await expect(getWidgetBindingUsage('metahub-1', 'layout-1', 'record-1', 'widget-1')).resolves.toMatchObject({
-            data: { usageCount: 3 }
-        })
-        expect(get).toHaveBeenNthCalledWith(2, '/metahub/metahub-1/layout/layout-1/widget-binding-usage', {
-            params: { recordId: 'record-1', excludeWidgetId: 'widget-1' }
-        })
+        await duplicateLayoutZoneWidgetWithRecordCopy('metahub-1', 'layout-1', payload)
+
+        expect(post).toHaveBeenCalledWith('/metahub/metahub-1/layout/layout-1/zone-widget/duplicate', payload)
     })
 
     it('unwraps zone-setting mutation responses to the public MetahubLayout result', async () => {

@@ -75,11 +75,11 @@ vi.mock('@universo-react/i18n', () => ({
     useCommonTranslations: () => ({
         t: (key: string, options?: string | { defaultValue?: string; kind?: string; target?: string }) => {
             const translatedLabels: Record<string, string> = {
-                'layouts.marketing.heroAuthoring.actionKinds.internal': 'Application page',
-                'layouts.marketing.heroAuthoring.actionKinds.external': 'Website',
-                'layouts.marketing.heroAuthoring.actionKinds.anchor': 'Page section',
-                'layouts.marketing.heroAuthoring.actionKinds.email': 'Email',
-                'layouts.marketing.heroAuthoring.actionKinds.tel': 'Phone'
+                'layouts.marketing.actionAuthoring.actionKinds.internal': 'Application page',
+                'layouts.marketing.actionAuthoring.actionKinds.external': 'Website',
+                'layouts.marketing.actionAuthoring.actionKinds.anchor': 'Page section',
+                'layouts.marketing.actionAuthoring.actionKinds.email': 'Email',
+                'layouts.marketing.actionAuthoring.actionKinds.tel': 'Phone'
             }
             const template = translatedLabels[key] ?? (typeof options === 'string' ? options : options?.defaultValue ?? key)
             return template

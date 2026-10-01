@@ -5,18 +5,31 @@ import {
     APPLICATION_TEMPLATE_KEYS,
     APPLICATION_TEMPLATE_REGISTRY,
     MARKETING_PAGE_TEMPLATE_KEY,
+    MARKETING_PAGE_REQUIRED_LOCALES,
+    MARKETING_WIDGET_KEYS,
+    MARKETING_COLLECTION_VARIANTS,
+    MARKETING_SEMANTIC_KEY_PATTERN,
+    marketingWidgetKeySchema,
+    marketingCollectionVariantSchema,
+    marketingSemanticKeySchema,
     createRuntimeViewModelSchema,
     marketingActionSchema,
     marketingCollectionWidgetConfigSchema,
     marketingHeroWidgetSchema,
+    marketingNavigationWidgetSchema,
     marketingImageWidgetSchema,
     marketingImageWidgetConfigSchema,
+    marketingFooterWidgetConfigSchema,
     marketingNavigationWidgetConfigSchema,
     marketingMediaSchema,
+    marketingMediaReferenceSchema,
     marketingPageConfigSchema,
     publicMarketingHeroWidgetSchema,
+    publicMarketingCollectionWidgetSchema,
+    publicMarketingNavigationWidgetSchema,
     publicMarketingMediaSchema,
     marketingPageDataSchema,
+    publicMarketingPageDataSchema,
     marketingPersistedIdSchema,
     marketingProvenanceSchema,
     marketingThemeColorSchema,
@@ -26,31 +39,16 @@ import {
     marketingBrandWidgetConfigSchema
 } from '../common/marketingPage'
 import { applicationLayoutConfigSchema, parseApplicationLayoutConfig } from '../common/applicationLayouts'
+import { getLayoutWidgetDefinition } from '../common/layoutWidgetDefinitions'
 
 const uuidV7 = '0190a9b5-3cde-7abc-8def-0123456789ab'
 const uuidV4 = '0190a9b5-3cde-4abc-8def-0123456789ab'
 
 const text = { en: 'Marketing', ru: 'Маркетинг' }
-const provenance = {
-    layer: 'application' as const,
-    sourceId: uuidV7,
-    isSeeded: false,
-    isAuthored: true
-}
 const logo = {
     kind: 'logo' as const,
     resource: { type: 'url' as const, url: 'https://cdn.example.test/logo.svg' },
     alt: text
-}
-
-const baseRecord = {
-    id: uuidV7,
-    semanticKey: 'site-settings',
-    locale: 'en',
-    order: 0,
-    isVisible: true,
-    scope: 'application' as const,
-    provenance
 }
 
 const heroContent = {
@@ -145,72 +143,107 @@ describe('marketing page contracts', () => {
         })
         expect(marketingPageConfigSchema.safeParse({ sectionOrder: ['hero', 'footer'] }).success).toBe(false)
         expect(marketingPageConfigSchema.safeParse({ sectionVisibility: { internal: true } }).success).toBe(false)
+        expect(marketingPageConfigSchema.safeParse({ brandLogo: { kind: 'logo' } }).success).toBe(false)
     })
 
-    it('binds widget sources to built-in Object entities and collection variants', () => {
-        expect(
-            marketingNavigationWidgetConfigSchema.safeParse({
-                instanceKey: 'navigation',
-                source: { entityCodename: 'MarketingPageNavigation', entityKind: 'object' }
-            }).success
-        ).toBe(true)
+    it('keeps Entity bindings outside renderer configuration', () => {
+        expect(marketingNavigationWidgetConfigSchema.safeParse({ instanceKey: 'navigation', maxItems: 24 }).success).toBe(true)
+        expect(marketingCollectionWidgetConfigSchema.safeParse({ instanceKey: 'features', variant: 'features' }).success).toBe(true)
         expect(
             marketingCollectionWidgetConfigSchema.safeParse({
                 instanceKey: 'features',
                 variant: 'features',
-                source: { entityCodename: 'MarketingPageFeature', entityKind: 'object', fieldMap: { title: 'description' } },
-                copySource: { entityCodename: 'MarketingPageSection', entityKind: 'object', recordKey: 'features' }
-            }).success
-        ).toBe(true)
-        expect(
-            marketingCollectionWidgetConfigSchema.safeParse({
-                instanceKey: 'features',
-                variant: 'features',
-                source: { entityCodename: 'MarketingPageFeature', entityKind: 'object', fieldMap: { title: 'PhysicalTitleColumn' } }
+                source: { entityCodename: 'MarketingPageFeature', entityKind: 'object' }
             }).success
         ).toBe(false)
         expect(
             marketingCollectionWidgetConfigSchema.safeParse({
                 instanceKey: 'features',
                 variant: 'features',
-                source: { entityCodename: 'MarketingPageLogo', entityKind: 'object' }
-            }).success
-        ).toBe(false)
-        expect(
-            marketingNavigationWidgetConfigSchema.safeParse({
-                instanceKey: 'navigation',
-                source: { entityCodename: 'MarketingPageNavigation', entityKind: 'hub' }
-            }).success
-        ).toBe(false)
-        expect(
-            marketingNavigationWidgetConfigSchema.safeParse({
-                instanceKey: 'navigation',
-                source: { entityCodename: 'MarketingPageNavigation', entityKind: 'object' },
                 copySource: { entityCodename: 'MarketingPageSection', entityKind: 'object' }
             }).success
         ).toBe(false)
     })
 
-    it('keeps static marketing image settings separate from entity-backed widget sources', () => {
+    it('limits Navigation runtime records to its declared navigation-link slot', () => {
+        const baseWidget = {
+            instanceKey: 'navigation',
+            zone: 'marketing-header',
+            sortOrder: 0,
+            isActive: true,
+            widgetKey: 'marketing.navigation',
+            config: { instanceKey: 'navigation' }
+        }
+        const navigationLink = {
+            kind: 'navigationLink',
+            semanticKey: 'home',
+            order: 0,
+            isVisible: true,
+            label: { en: 'Home' },
+            action: { kind: 'internal', path: '/' }
+        }
+        const siteSettings = {
+            kind: 'siteSettings',
+            id: uuidV7,
+            semanticKey: 'site-settings',
+            locale: 'en',
+            order: 0,
+            isVisible: true,
+            scope: 'application',
+            provenance: { layer: 'metahub', seedKey: 'site-settings', isSeeded: true, isAuthored: false },
+            brandName: { en: 'Example' }
+        }
+
+        expect(publicMarketingNavigationWidgetSchema.safeParse({ ...baseWidget, data: { records: [navigationLink] } }).success).toBe(true)
+        expect(publicMarketingNavigationWidgetSchema.safeParse({ ...baseWidget, data: { records: [siteSettings] } }).success).toBe(false)
+        expect(marketingNavigationWidgetSchema.safeParse({ ...baseWidget, data: { records: [siteSettings] } }).success).toBe(false)
+    })
+
+    it('uses the same safe item cap in Marketing Page authoring and public runtime contracts', () => {
+        expect(
+            marketingCollectionWidgetConfigSchema.safeParse({ instanceKey: 'features', variant: 'features', maxItems: 100 }).success
+        ).toBe(true)
+        expect(
+            marketingCollectionWidgetConfigSchema.safeParse({ instanceKey: 'features', variant: 'features', maxItems: 101 }).success
+        ).toBe(false)
+        expect(
+            publicMarketingCollectionWidgetSchema.safeParse({
+                instanceKey: 'features',
+                zone: 'marketing-main',
+                sortOrder: 0,
+                isActive: true,
+                widgetKey: 'marketing.collection',
+                config: { instanceKey: 'features', variant: 'features', maxItems: 101 },
+                data: { records: [] }
+            }).success
+        ).toBe(false)
+        expect(marketingFooterWidgetConfigSchema.safeParse({ instanceKey: 'footer', maxItems: 101 }).success).toBe(false)
+
+        const footer = getLayoutWidgetDefinition('marketing.footer')
+        expect(footer?.presentationFields?.find(({ key }) => key === 'maxItems')).toMatchObject({ max: 100 })
+    })
+
+    it('projects the Entity-owned brand logo into the Marketing footer binding', () => {
+        const footerSiteSlot = getLayoutWidgetDefinition('marketing.footer')?.bindingSlots?.find(({ key }) => key === 'site')
+
+        expect(footerSiteSlot?.requirements.components).toContainEqual(
+            expect.objectContaining({
+                field: 'brandLogo',
+                componentCodename: 'BrandLogo',
+                valueType: 'json',
+                format: 'marketingMediaReference'
+            })
+        )
+    })
+
+    it('keeps image content in the bound Entity instead of widget configuration', () => {
         const media = {
             kind: 'hero' as const,
             resource: { type: 'url' as const, url: 'https://example.test/hero.webp', launchMode: 'inline' as const },
             decorative: true
         }
-        expect(marketingImageWidgetConfigSchema.safeParse({ instanceKey: 'hero-image', media }).success).toBe(true)
-        expect(
-            marketingImageWidgetConfigSchema.safeParse({
-                instanceKey: 'hero-image',
-                media: { ...media, resource: { ...media.resource, url: 'http://example.test/hero.webp' } }
-            }).success
-        ).toBe(false)
-        expect(
-            marketingImageWidgetConfigSchema.safeParse({
-                instanceKey: 'hero-image',
-                media: { ...media, resource: { ...media.resource, url: 'http://localhost:3000/hero.webp' } }
-            }).success
-        ).toBe(true)
-        expect(marketingImageWidgetConfigSchema.safeParse({ instanceKey: 'hero-image', media, source: {} }).success).toBe(false)
+        expect(marketingImageWidgetConfigSchema.safeParse({ instanceKey: 'hero-image' }).success).toBe(true)
+        expect(marketingImageWidgetConfigSchema.safeParse({ instanceKey: 'hero-image', media }).success).toBe(false)
     })
 
     it('accepts only opaque theme colors with an accessible foreground choice', () => {
@@ -223,17 +256,41 @@ describe('marketing page contracts', () => {
 
     it('validates widget-owned record payloads and rejects duplicate widget instances', () => {
         const faqRecord = {
-            ...baseRecord,
-            id: '0190a9b5-3cde-7abc-8def-0123456789ac',
+            semanticKey: 'faq',
+            order: 0,
+            isVisible: true,
             kind: 'faq' as const,
             question: text,
             answer: text
         }
         const runtime = {
-            layoutId: uuidV7,
             layoutVersion: 1,
             layoutHash: 'a'.repeat(64)
         }
+        expect(
+            marketingPageDataSchema.safeParse({ templateKey: 'marketing-page', locale: 'en', config: {}, widgets: [], runtime }).success
+        ).toBe(true)
+        expect(
+            marketingPageDataSchema.safeParse({
+                templateKey: 'marketing-page',
+                locale: 'en',
+                config: {},
+                widgets: [],
+                runtime: { ...runtime, layoutId: uuidV7, sourceLayoutId: uuidV7, sourceContentHash: 'c'.repeat(64) }
+            }).success
+        ).toBe(false)
+        const parsedPublicPage = publicMarketingPageDataSchema.safeParse({
+            templateKey: 'marketing-page',
+            locale: 'en',
+            config: {},
+            widgets: [],
+            headerPosition: 'fixed',
+            headerWidgets: []
+        })
+        expect(parsedPublicPage.success).toBe(true)
+        expect(
+            publicMarketingPageDataSchema.safeParse({ templateKey: 'marketing-page', locale: 'en', config: {}, widgets: [] }).success
+        ).toBe(false)
         const heroWidget = {
             instanceKey: 'hero',
             zone: 'marketing-main' as const,
@@ -260,8 +317,7 @@ describe('marketing page contracts', () => {
                     widgetKey: 'marketing.collection' as const,
                     config: {
                         instanceKey: 'faq',
-                        variant: 'faq' as const,
-                        source: { entityCodename: 'MarketingPageFaq', entityKind: 'object' as const }
+                        variant: 'faq' as const
                     },
                     data: { records: [faqRecord] }
                 }
@@ -318,7 +374,7 @@ describe('marketing page contracts', () => {
                             }
                         }
                     ],
-                    runtime: { layoutId: uuidV7, layoutVersion: 1, layoutHash: 'b'.repeat(64) }
+                    runtime: { layoutVersion: 1, layoutHash: 'b'.repeat(64) }
                 }
             }).success
         ).toBe(true)
@@ -340,6 +396,25 @@ describe('marketing page contracts', () => {
         expect(publicMarketingMediaSchema.safeParse(buildMedia('http://localhost:3000/image.png')).success).toBe(true)
         expect(publicMarketingMediaSchema.safeParse(buildMedia('http://insecure.example.com/image.png')).success).toBe(false)
         expect(publicMarketingMediaSchema.safeParse(buildMedia('HTTP://INSECURE.EXAMPLE.COM/image.png')).success).toBe(false)
+    })
+
+    it('validates the safe URL ResourceSource used by Entity-backed marketing media Components', () => {
+        expect(
+            marketingMediaReferenceSchema.safeParse({ type: 'url', url: 'https://example.com/image.png', launchMode: 'inline' }).success
+        ).toBe(true)
+        expect(marketingMediaReferenceSchema.safeParse({ type: 'url', url: 'javascript:alert(1)' }).success).toBe(false)
+        expect(marketingMediaReferenceSchema.safeParse({ type: 'file', storageKey: 'marketing/logo.svg' }).success).toBe(false)
+        expect(marketingMediaReferenceSchema.safeParse({ type: 'url', url: 'http://insecure.example.com/image.png' }).success).toBe(false)
+    })
+})
+
+describe('marketing widget primitive exports', () => {
+    it('keeps shared marketing primitives available from the marketing page module', () => {
+        expect(MARKETING_PAGE_REQUIRED_LOCALES).toEqual(['en', 'ru'])
+        expect(marketingWidgetKeySchema.parse(MARKETING_WIDGET_KEYS[0])).toBe('marketing.brand')
+        expect(marketingCollectionVariantSchema.parse(MARKETING_COLLECTION_VARIANTS[0])).toBe('logos')
+        expect(MARKETING_SEMANTIC_KEY_PATTERN.test('section.intro')).toBe(true)
+        expect(marketingSemanticKeySchema.parse('section.intro')).toBe('section.intro')
     })
 })
 
@@ -402,14 +477,23 @@ describe('marketing hero and image widget contracts', () => {
             sortOrder: 1,
             isActive: true,
             config: {
-                instanceKey: 'hero-image',
-                media: {
-                    kind: 'hero',
-                    resource: { type: 'url', url: 'https://cdn.example.test/hero.png' },
-                    alt: text
-                }
+                instanceKey: 'hero-image'
             },
-            data: { records: [] }
+            data: {
+                records: [
+                    {
+                        semanticKey: 'default',
+                        order: 0,
+                        isVisible: true,
+                        kind: 'image',
+                        media: {
+                            kind: 'hero',
+                            resource: { type: 'url', url: 'https://cdn.example.test/hero.png' },
+                            alt: text
+                        }
+                    }
+                ]
+            }
         }
         expect(marketingImageWidgetSchema.safeParse(imageEnvelope).success).toBe(true)
     })
@@ -445,36 +529,16 @@ describe('normalizeMarketingNumericText', () => {
 })
 
 describe('marketingBrandWidgetConfigSchema', () => {
-    const base = {
-        instanceKey: 'brand',
-        source: { entityCodename: 'MarketingPageSiteSettings', entityKind: 'object' as const, recordKey: 'site-settings' }
-    }
+    const base = { instanceKey: 'brand' }
 
-    it('accepts optional brand name and decorative logo overrides', () => {
-        const parsed = marketingBrandWidgetConfigSchema.safeParse({
-            ...base,
-            brandName: 'Consortium',
-            brandLogo: {
-                kind: 'logo',
-                resource: { type: 'url', url: 'https://example.test/logo.png', launchMode: 'inline' },
-                decorative: true
-            }
-        })
-        expect(parsed.success).toBe(true)
+    it('contains only the placement identity and rejects Entity-owned brand content', () => {
+        expect(marketingBrandWidgetConfigSchema.safeParse(base).success).toBe(true)
+        expect(marketingBrandWidgetConfigSchema.safeParse({ ...base, brandName: 'Consortium' }).success).toBe(false)
+        expect(marketingBrandWidgetConfigSchema.safeParse({ ...base, brandLogo: {} }).success).toBe(false)
     })
 
-    it('rejects unknown keys and non-decorative logos without alt text', () => {
+    it('rejects other unknown keys', () => {
         expect(marketingBrandWidgetConfigSchema.safeParse({ ...base, unexpected: true }).success).toBe(false)
-        expect(
-            marketingBrandWidgetConfigSchema.safeParse({
-                ...base,
-                brandLogo: {
-                    kind: 'logo',
-                    resource: { type: 'url', url: 'https://example.test/logo.png', launchMode: 'inline' },
-                    decorative: false
-                }
-            }).success
-        ).toBe(false)
     })
 })
 

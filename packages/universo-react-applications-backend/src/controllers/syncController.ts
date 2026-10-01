@@ -17,25 +17,31 @@ import { acquireApplicationSyncAdvisoryLock, getApplicationSyncDdlServices, rele
 import { resolveUserId } from '../shared/runtimeHelpers'
 import {
     applicationReleaseBundleSchema,
-    buildApplicationLayoutChanges,
-    buildApplicationSyncSourceFromBundle,
-    buildApplicationSyncSourceFromPublication,
-    buildCreateEntityGroupDetails,
-    buildCreateTableDetails,
-    buildRuntimeSnapshotForApplicationSync,
-    createExistingApplicationReleaseBundle,
-    createPublicationApplicationReleaseBundle,
-    hasDashboardLayoutConfigChanges,
-    hasPublishedLayoutsChanges,
-    hasPublishedWidgetsChanges,
-    mapStructuredChange,
-    syncApplicationSchemaFromSource,
     UI_LAYOUT_DIFF_MARKER,
     UI_LAYOUTS_DIFF_MARKER,
     UI_LAYOUT_ZONES_DIFF_MARKER,
     SYSTEM_METADATA_DIFF_MARKER,
     type DiffStructuredChange
-} from '../routes/applicationSyncRoutes'
+} from '../routes/sync/syncTypes'
+import {
+    buildApplicationSyncSourceFromBundle,
+    buildApplicationSyncSourceFromPublication,
+    createExistingApplicationReleaseBundle,
+    createPublicationApplicationReleaseBundle
+} from '../routes/sync/syncDataLoader'
+import {
+    buildCreateEntityGroupDetails,
+    buildCreateTableDetails,
+    buildRuntimeSnapshotForApplicationSync,
+    mapStructuredChange,
+    syncApplicationSchemaFromSource
+} from '../routes/sync/syncEngine'
+import {
+    buildApplicationLayoutChanges,
+    hasDashboardLayoutConfigChanges,
+    hasPublishedLayoutsChanges,
+    hasPublishedWidgetsChanges
+} from '../routes/sync/syncLayoutPersistence'
 
 const ADMIN_ROLES: ApplicationRole[] = ['owner', 'admin']
 const SAFE_BULK_LAYOUT_RESOLUTIONS = new Set<ApplicationLayoutSyncResolution>(['keep_local', 'copy_source_as_application', 'skip_source'])
@@ -50,7 +56,7 @@ export const findBlockedEntityBackedCopyResolution = (
 ): ApplicationLayoutChange | undefined => {
     const perLayout = policy?.bySourceLayoutId ?? {}
     return changes.find((change) => {
-        if (!requiresExplicitLayoutResolution(change) || change.copySourceAsApplicationUnavailable !== true) return false
+        if (!requiresExplicitLayoutResolution(change) || change.copyAsApplicationUnavailable !== true) return false
         const selectedResolution = (change.sourceLayoutId ? perLayout[change.sourceLayoutId] : undefined) ?? policy?.default
         return selectedResolution === 'copy_source_as_application'
     })

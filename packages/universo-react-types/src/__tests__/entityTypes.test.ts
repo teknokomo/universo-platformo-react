@@ -17,6 +17,8 @@ import {
     isEntityResourceSurfaceCapability,
     ENTITY_RESOURCE_SURFACE_CAPABILITIES,
     CAPABILITY_DEPENDENCIES,
+    ENTITY_CAPABILITY_KEYS,
+    entityTypeCapabilitiesSchema,
     METAHUB_SETTINGS_REGISTRY,
     type EntityTypeCapabilities,
     METAHUB_MENU_ITEM_KINDS,
@@ -91,6 +93,20 @@ describe('entity type contracts', () => {
 
         expect(validateCapabilityDependencies(manifest)).toEqual([])
         expect(getEnabledCapabilityKeys(manifest)).toEqual(expect.arrayContaining(['dataSchema', 'records', 'actions', 'events']))
+    })
+
+    it('validates complete capability manifests and rejects partial or malformed capabilities', () => {
+        const completeManifest = Object.fromEntries(ENTITY_CAPABILITY_KEYS.map((key) => [key, false]))
+
+        expect(entityTypeCapabilitiesSchema.safeParse(completeManifest).success).toBe(true)
+        expect(entityTypeCapabilitiesSchema.safeParse({ records: false }).success).toBe(false)
+        expect(entityTypeCapabilitiesSchema.safeParse({ ...completeManifest, customCapability: false }).success).toBe(false)
+        expect(
+            entityTypeCapabilitiesSchema.safeParse({
+                ...completeManifest,
+                layoutConfig: { enabled: 'false' }
+            }).success
+        ).toBe(false)
     })
 
     it('treats ledgerSchema as a generic component capability, not as a kind name', () => {

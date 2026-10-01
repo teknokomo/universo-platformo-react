@@ -706,18 +706,62 @@ const normalizeSnapshotWidgetConfig = (
     widgetKey: string,
     zone: string,
     rawConfig: Record<string, unknown>,
-    context: string
+    context: string,
+    options: { requireBindings?: boolean } = {}
 ): Record<string, unknown> => {
+    const requireBindings = options.requireBindings ?? true
     try {
-        const decoded = decodeLayoutWidgetConfigEnvelope(rawConfig, { templateKey, widgetKey, zone, requireBindings: true })
+        const decoded = decodeLayoutWidgetConfigEnvelope(rawConfig, { templateKey, widgetKey, zone, requireBindings })
         const config = parseApplicationLayoutWidgetConfig(widgetKey, decoded.rendererConfig)
         return encodeLayoutWidgetConfigEnvelope(
             { rendererConfig: config, neutral: decoded.neutral },
-            { templateKey, widgetKey, zone, requireBindings: true }
+            { templateKey, widgetKey, zone, requireBindings }
         )
     } catch {
         throw new Error(`${context} contains invalid ${templateKey} widget configuration`)
     }
+}
+
+const normalizeMarketingOverlayWidgetConfig = (
+    baseWidget: { widgetKey: string; zone: string; config: Record<string, unknown> },
+    zone: string,
+    rawConfig: Record<string, unknown> | null | undefined,
+    context: string
+): Record<string, unknown> => {
+    const templateKey = 'marketing-page'
+    const baseEnvelope = decodeLayoutWidgetConfigEnvelope(baseWidget.config, {
+        templateKey,
+        widgetKey: baseWidget.widgetKey,
+        zone: baseWidget.zone,
+        requireBindings: true
+    })
+    let rendererConfig: Record<string, unknown>
+    let neutral: ReturnType<typeof decodeLayoutWidgetConfigEnvelope>['neutral']
+    if (rawConfig === null || rawConfig === undefined) {
+        rendererConfig = parseApplicationLayoutWidgetConfig(baseWidget.widgetKey, baseEnvelope.rendererConfig)
+        neutral = { ...baseEnvelope.neutral }
+    } else {
+        const normalizedOverrideConfig = normalizeSnapshotWidgetConfig(templateKey, baseWidget.widgetKey, zone, rawConfig, context, {
+            requireBindings: false
+        })
+        const overrideEnvelope = decodeLayoutWidgetConfigEnvelope(normalizedOverrideConfig, {
+            templateKey,
+            widgetKey: baseWidget.widgetKey,
+            zone,
+            requireBindings: false
+        })
+        if (overrideEnvelope.neutral.bindings !== undefined) {
+            throw new Error(`[SchemaSync] ${context} cannot contain entity bindings; it inherits them from its base widget`)
+        }
+        rendererConfig = overrideEnvelope.rendererConfig
+        neutral = { ...overrideEnvelope.neutral }
+    }
+
+    delete neutral.bindings
+    return encodeLayoutWidgetConfigEnvelope(
+        { rendererConfig, neutral },
+        { templateKey, widgetKey: baseWidget.widgetKey, zone, requireBindings: false }
+    )
 }
 
 type NormalizedLayoutWidgetOverride = {
@@ -1276,6 +1320,22 @@ export const materializeSnapshotLayoutsAndWidgets = (
         }
 
         const ownedWidgetsForLayout = widgetsByLayoutId.get(scopedLayout.id) ?? []
+        if (scopedTemplateKey === 'marketing-page') {
+            for (const widget of ownedWidgetsForLayout) {
+                const widgetEnvelope = decodeLayoutWidgetConfigEnvelope(widget.config, {
+                    templateKey: scopedTemplateKey,
+                    widgetKey: widget.widgetKey,
+                    zone: widget.zone,
+                    requireBindings: false
+                })
+                const definition = getLayoutWidgetDefinition(widget.widgetKey, widgetEnvelope.rendererConfig)
+                if (widgetEnvelope.neutral.bindings !== undefined || definition?.bindingSlots?.length) {
+                    throw new Error(
+                        `[SchemaSync] Marketing overlay layout ${scopedLayout.id} cannot own Entity bindings; bind the base placement instead`
+                    )
+                }
+            }
+        }
         const materializedScopedWidgets: MaterializedSnapshotWidget[] = []
 
         const baseWidgets = widgetsByLayoutId.get(baseLayoutId) ?? []
@@ -1299,13 +1359,16 @@ export const materializeSnapshotLayoutsAndWidgets = (
                 throw new Error(`Widget ${baseWidget.widgetKey} is not allowed in scoped layout ${scopedLayout.id}`)
             }
             const inheritedIsActive = override?.isActive ?? baseWidget.isActive
-            const inheritedConfig = normalizeSnapshotWidgetConfig(
-                scopedTemplateKey,
-                baseWidget.widgetKey,
-                inheritedZone,
-                (override?.config ?? baseWidget.config) as Record<string, unknown>,
-                `Scoped layout ${scopedLayout.id}`
-            )
+            const inheritedConfig =
+                scopedTemplateKey === 'marketing-page'
+                    ? normalizeMarketingOverlayWidgetConfig(baseWidget, inheritedZone, override?.config, `Scoped layout ${scopedLayout.id}`)
+                    : normalizeSnapshotWidgetConfig(
+                          scopedTemplateKey,
+                          baseWidget.widgetKey,
+                          inheritedZone,
+                          (override?.config ?? baseWidget.config) as Record<string, unknown>,
+                          `Scoped layout ${scopedLayout.id}`
+                      )
             if (
                 scopedTemplateKey === 'marketing-page' &&
                 materializedWidgetInstanceKey({ widgetKey: baseWidget.widgetKey, config: inheritedConfig }) !==

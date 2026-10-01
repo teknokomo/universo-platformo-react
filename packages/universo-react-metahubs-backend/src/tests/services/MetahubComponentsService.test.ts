@@ -10,7 +10,7 @@ const marketingHeroRecordPolicy = {
     immutableSemanticKeyWhenBound: true,
     runtimeMutation: 'deny',
     requiredLocales: ['en', 'ru'],
-    validatorKey: 'marketing.hero.v1'
+    coRequiredGroups: [['TermsText', 'TermsLinkLabel', 'TermsAction']]
 }
 
 const marketingHeroMetadata = {
@@ -168,6 +168,37 @@ describe('MetahubComponentsService active-row filtering', () => {
         expect(
             mockExecQuery.mock.calls.some(([sql]) => String(sql).includes('_mhb_components') && String(sql).includes('FOR UPDATE'))
         ).toBe(false)
+    })
+
+    it('protects custom Entity Components when a live layout binding uses a registry contract', async () => {
+        const title = { ...marketingHeroComponentRow('Title', true, { localized: true, maxLength: 255 }), object_id: 'custom-object' }
+        const config = {
+            __layout: {
+                bindings: {
+                    version: 1,
+                    slots: [{ slot: 'content', targets: [{ entityKind: 'object', entityCodename: 'CustomContent' }] }]
+                }
+            }
+        }
+        mockExecQuery.mockImplementation(async (sql: string) => {
+            if (sql.includes('SELECT codename, config')) return [{ codename: 'CustomContent', config: {} }]
+            if (sql.includes('WITH persisted_configs')) {
+                return [{ widget_key: 'marketing.hero', config, slot_key: 'content' }]
+            }
+            if (sql.includes('_mhb_objects')) return [{ id: 'custom-object' }]
+            if (sql.includes('_mhb_components')) return [title]
+            return []
+        })
+
+        await expect(
+            service.update('metahub-1', title.id, { validationRules: { localized: false, maxLength: 255 } }, 'user-1')
+        ).rejects.toMatchObject({ code: 'ENTITY_COMPONENT_SCHEMA_PROTECTED' })
+
+        const bindingLookup = mockExecQuery.mock.calls.find(([sql]) => String(sql).includes('WITH persisted_configs'))
+        expect(bindingLookup?.[0]).toContain('reference."target" ->> \'entityKind\' = $1')
+        expect(bindingLookup?.[0]).toContain('reference."target" ->> \'entityCodename\' = $2')
+        expect(bindingLookup?.[1]).toEqual(['object', 'CustomContent', 257])
+        expect(mockExecQuery.mock.calls.some(([sql]) => /^\s*UPDATE\b/.test(String(sql)))).toBe(false)
     })
 
     it('uses the supplied transaction when rereading flattened Components', async () => {

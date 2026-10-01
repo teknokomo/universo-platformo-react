@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 import type { Locator, Page } from '@playwright/test'
-import { expectNoDataGridTechnicalLeakage, isExpectedConflictResourceFailure } from './runtimeUx.ts'
+import { expectNoDataGridTechnicalLeakage, isExpectedConflictResourceFailure, isExpectedValidationResourceFailure } from './runtimeUx.ts'
 
 const expectedUrl = 'http://127.0.0.1:3100/api/v1/applications/app-id/layouts/layout-id/zone-widget/widget-id/toggle-active'
 
@@ -43,6 +43,54 @@ describe('browser runtime issue filtering', () => {
         )
         assert.equal(
             isExpectedConflictResourceFailure({ source: 'pageerror', text: '409 Conflict', url: expectedUrl }, [expectedUrl]),
+            false
+        )
+    })
+
+    it('allows only an explicitly expected 400 validation response at its exact URL', () => {
+        const expectedValidationUrl = 'http://127.0.0.1:3100/api/v1/metahub/metahub-id/entities/object/records'
+        assert.equal(
+            isExpectedValidationResourceFailure(
+                {
+                    source: 'console',
+                    text: 'Failed to load resource: the server responded with a status of 400 (Bad Request)',
+                    url: expectedValidationUrl
+                },
+                [expectedValidationUrl]
+            ),
+            true
+        )
+        assert.equal(
+            isExpectedValidationResourceFailure(
+                {
+                    source: 'console',
+                    text: 'Failed to load resource: the server responded with a status of 500 (Internal Server Error)',
+                    url: expectedValidationUrl
+                },
+                [expectedValidationUrl]
+            ),
+            false
+        )
+        assert.equal(
+            isExpectedValidationResourceFailure(
+                {
+                    source: 'console',
+                    text: 'Failed to load resource: the server responded with a status of 400 (Bad Request)',
+                    url: `${expectedValidationUrl}/unexpected`
+                },
+                [expectedValidationUrl]
+            ),
+            false
+        )
+        assert.equal(
+            isExpectedValidationResourceFailure(
+                {
+                    source: 'pageerror',
+                    text: 'Failed to load resource: the server responded with a status of 400 (Bad Request)',
+                    url: expectedValidationUrl
+                },
+                [expectedValidationUrl]
+            ),
             false
         )
     })

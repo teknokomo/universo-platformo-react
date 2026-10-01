@@ -2,19 +2,26 @@ import { qSchemaTable } from '@universo-react/database'
 import {
     applicationTemplateKeySchema,
     decodeLayoutConfigEnvelope,
-    decodeLayoutWidgetConfigEnvelope,
     encodeLayoutConfigEnvelope,
-    encodeLayoutWidgetConfigEnvelope,
     encodeSnapshotLayoutConfigEnvelope,
     parseApplicationLayoutConfig,
-    parseApplicationLayoutWidgetConfig,
     type ApplicationTemplateKey,
     type PersistedLayoutNeutralMetadata
 } from '@universo-react/types'
 import { generateUuidV7, normalizeDashboardLayoutConfig, type DbExecutor } from '@universo-react/utils'
 import type { ApplicationLayoutSyncResolution } from '@universo-react/types'
-import type { PersistedAppLayout, PersistedAppLayoutZoneWidget } from '../routes/sync/syncTypes'
+import { type PersistedAppLayout, type PersistedAppLayoutZoneWidget } from '../routes/sync/syncTypes'
+import type { ApplicationLayoutWidgetSourceState } from '../services/applicationLayoutWidgetSourceState'
 import { stableLineageUuidV7 } from '../shared/applicationLayoutWidgetLineage'
+import { containsEntityBackedWidgetCopyConflict, containsPersistedRequiredEntityBackedWidget } from './applicationLayoutEntityBindingPolicy'
+import {
+    parseApplicationLayoutSyncTemplateKey as parseTemplateKey,
+    requireApplicationLayoutSyncBoolean as requireBoolean,
+    requireApplicationLayoutSyncInteger as requireInteger,
+    requireApplicationLayoutSyncRecord as requireRecord
+} from './applicationLayoutSyncGuards'
+import { projectPersistedPublishedWidgets, type PersistedPublishedWidgetProjectionRow } from './applicationLayoutPublishedWidgetProjection'
+import type { ApplicationLayoutSyncWidgetRow } from './applicationLayoutSyncTypes'
 import {
     applicationLayoutMutationLockKey,
     lockApplicationLayoutMutationFamily,
@@ -23,6 +30,8 @@ import {
     lockApplicationLayoutWidgetSet,
     runApplicationLayoutTransaction
 } from './applicationLayoutStoreSupport'
+export { containsEntityBackedWidgetCopyConflict, containsPersistedRequiredEntityBackedWidget }
+export type { ApplicationLayoutSyncWidgetRow } from './applicationLayoutSyncTypes'
 type JsonRecord = Record<string, unknown>
 
 export const APPLICATION_LAYOUT_ENTITY_BACKED_WIDGET_COPY_CONFLICT = 'APPLICATION_LAYOUT_ENTITY_BACKED_WIDGET_COPY_CONFLICT'
@@ -52,25 +61,6 @@ export interface ApplicationLayoutSyncLayoutRow {
     version: number
 }
 
-export interface ApplicationLayoutSyncWidgetRow {
-    id: string
-    layout_id: string
-    zone: string
-    widget_key: string
-    sort_order: number
-    config: unknown
-    source_config: unknown
-    is_active: boolean
-    source_widget_id: string | null
-    source_base_widget_id: string | null
-    source_content_hash: string | null
-    local_content_hash: string | null
-    _upl_deleted: boolean
-    _app_deleted: boolean
-    _upl_created_at: unknown
-    version: number
-}
-
 export interface SyncLayoutInput {
     row: PersistedAppLayout
     sourceContentHash: string
@@ -90,37 +80,9 @@ const activeRowPredicate = '_upl_deleted = false AND _app_deleted = false'
 
 const isRecord = (value: unknown): value is JsonRecord => Boolean(value && typeof value === 'object' && !Array.isArray(value))
 
-const requireRecord = (value: unknown, context: string): JsonRecord => {
-    if (!isRecord(value)) throw new Error(`[SchemaSync] ${context} must be an object`)
-    return value
-}
-
-const requireBoolean = (value: unknown, context: string): boolean => {
-    if (typeof value !== 'boolean') throw new Error(`[SchemaSync] ${context} must be a boolean`)
-    return value
-}
-
-const requireInteger = (value: unknown, context: string): number => {
-    if (typeof value !== 'number' || !Number.isInteger(value)) throw new Error(`[SchemaSync] ${context} must be an integer`)
-    return value
-}
-
 const json = (value: unknown): string => JSON.stringify(value ?? null)
 
 const readExists = (value: unknown): boolean => value === true || value === 't' || value === 1 || value === '1'
-
-/** Return whether a source layout contains widget state the application template cannot safely clone. */
-export const containsEntityBackedWidgetCopyConflict = (templateKey: ApplicationTemplateKey, widgets: readonly SyncWidgetInput[]): boolean =>
-    widgets.some((widget) => {
-        if (widget.widgetKey === 'marketing.hero') return true
-        return (
-            decodeLayoutWidgetConfigEnvelope(widget.config, {
-                templateKey,
-                widgetKey: widget.widgetKey,
-                zone: widget.zone
-            }).neutral.bindings !== undefined
-        )
-    })
 
 const requireExactlyOne = <T>(rows: T[], code: string): T => {
     if (rows.length !== 1) throw new Error(code)
@@ -284,6 +246,7 @@ const widgetRowsSelect = (table: string): string => `
       w.sort_order,
       w.config,
       w.source_config,
+      w.source_state,
       w.is_active,
       w.source_widget_id,
       w.source_base_widget_id,
@@ -597,20 +560,21 @@ export const insertApplicationLayoutSyncWidget = async (
     row: SyncWidgetInput,
     sourceContentHash: string | null,
     userId: string | null,
-    options: { ownership?: 'inherited' | 'application' } = {}
+    options: { ownership?: 'inherited' | 'application'; sourceState?: ApplicationLayoutWidgetSourceState } = {}
 ): Promise<void> => {
     const isApplicationOwned = options.ownership === 'application'
     const result = await executor.query<{ id: string }>(
         `
         INSERT INTO ${table} (
-            id, layout_id, zone, widget_key, sort_order, config, source_config, is_active,
+            id, layout_id, zone, widget_key, sort_order, config, source_config, source_state, is_active,
             source_widget_id, source_base_widget_id, source_content_hash, local_content_hash,
             _upl_created_at, _upl_created_by, _upl_updated_at, _upl_updated_by, _upl_version,
             _upl_archived, _upl_deleted, _upl_locked, _app_published, _app_archived, _app_deleted
         ) VALUES (
-            $1, $2, $3, $4, $5, $6::jsonb, ${isApplicationOwned ? 'NULL::jsonb' : '$6::jsonb'}, $7,
-            ${isApplicationOwned ? 'NULL' : '$8'}, ${isApplicationOwned ? 'NULL' : '$9'}, ${isApplicationOwned ? 'NULL' : '$10'}, $10,
-            NOW(), $11, NOW(), $11, 1,
+            $1, $2, $3, $4, $5, $6::jsonb, ${isApplicationOwned ? 'NULL::jsonb' : '$6::jsonb'},
+            ${isApplicationOwned ? 'NULL::jsonb' : '$7::jsonb'}, $8,
+            ${isApplicationOwned ? 'NULL' : '$9'}, ${isApplicationOwned ? 'NULL' : '$10'}, ${isApplicationOwned ? 'NULL' : '$11'}, $11,
+            NOW(), $12, NOW(), $12, 1,
             false, false, false, true, false, false
         )
         RETURNING id
@@ -622,6 +586,7 @@ export const insertApplicationLayoutSyncWidget = async (
             row.widgetKey,
             row.sortOrder,
             json(row.config),
+            json(options.sourceState ?? null),
             row.isActive !== false,
             widgetSourceId(row),
             row.sourceBaseWidgetId ?? null,
@@ -655,6 +620,32 @@ export async function syncApplicationLayouts(
         const existingWidgetRows = await listApplicationLayoutSyncWidgets(tx, schemaName)
         const sourceToPhysical = buildSourceLayoutMap(existingRows, input.layouts)
         const existingByPhysicalId = new Map(existingRows.filter((row) => !row._app_deleted).map((row) => [row.id, row]))
+        const nextSourceLayoutIds = new Set(input.layouts.map(({ row }) => row.id))
+        const requiredBindingSourceRemovedLayoutIds = new Set<string>()
+        for (const layout of existingRows) {
+            if (
+                layout.source_kind !== 'metahub' ||
+                layout.is_source_excluded ||
+                !layout.source_layout_id ||
+                nextSourceLayoutIds.has(layout.source_layout_id) ||
+                layout._upl_deleted ||
+                layout._app_deleted
+            ) {
+                continue
+            }
+            const templateKey = applicationTemplateKeySchema.parse(layout.template_key)
+            const persistedWidgets = existingWidgetRows.filter((widget) => widget.layout_id === layout.id)
+            if (!containsPersistedRequiredEntityBackedWidget(templateKey, persistedWidgets)) continue
+            requiredBindingSourceRemovedLayoutIds.add(layout.id)
+            const resolution = input.policy?.bySourceLayoutId?.[layout.source_layout_id] ?? input.policy?.default
+            const locallyModified =
+                layout.source_content_hash !== null &&
+                layout.local_content_hash !== null &&
+                layout.source_content_hash !== layout.local_content_hash
+            if (locallyModified && resolution === 'copy_source_as_application') {
+                throw new Error(APPLICATION_LAYOUT_ENTITY_BACKED_WIDGET_COPY_CONFLICT)
+            }
+        }
         const widgetsByLayoutId = new Map<string, readonly SyncWidgetInput[]>()
         for (const layout of input.layouts) {
             const physicalId = sourceToPhysical.get(layout.row.id)
@@ -905,6 +896,31 @@ export async function syncApplicationLayouts(
             if (missing.sync_state === 'source_removed' && resolution === 'skip_source') {
                 continue
             }
+            if (missing.sync_state === 'source_removed' && resolution === 'keep_local' && !missing.is_active) {
+                await tombstoneApplicationLayoutWidgetsForSourceRemoval(tx, schemaName, missing.id, input.userId)
+                continue
+            }
+            if (
+                requiredBindingSourceRemovedLayoutIds.has(missing.id) &&
+                locallyModified &&
+                resolution !== 'overwrite_local' &&
+                resolution !== 'skip_source'
+            ) {
+                const rows = await tx.query<{ id: string }>(
+                    `
+                    UPDATE ${layoutsTable}
+                    SET is_active = false, is_default = false, sync_state = 'source_removed',
+                        _upl_updated_at = NOW(), _upl_updated_by = $2,
+                        _upl_version = COALESCE(_upl_version, 1) + 1
+                    WHERE id = $1 AND _upl_deleted = false AND _app_deleted = false
+                    RETURNING id
+                    `,
+                    [missing.id, input.userId]
+                )
+                requireExactlyOne(rows, '[SchemaSync] Bound source-removed layout update lost its target row')
+                await tombstoneApplicationLayoutWidgetsForSourceRemoval(tx, schemaName, missing.id, input.userId)
+                continue
+            }
             if (missing.sync_state === 'source_removed' && resolution === undefined) {
                 await tombstoneApplicationLayoutWidgetsForSourceRemoval(tx, schemaName, missing.id, input.userId)
                 continue
@@ -978,12 +994,6 @@ export async function getPersistedDashboardLayoutConfig(executor: DbExecutor, sc
     }
 }
 
-const parseTemplateKey = (value: unknown, context: string): ApplicationTemplateKey => {
-    const parsed = applicationTemplateKeySchema.safeParse(value)
-    if (!parsed.success) throw new Error(`[SchemaSync] Invalid template key for ${context}`)
-    return parsed.data
-}
-
 export async function getPersistedPublishedLayouts(
     executor: DbExecutor,
     schemaName: string
@@ -1021,9 +1031,9 @@ export async function getPersistedPublishedLayouts(
 export async function getPersistedPublishedWidgets(executor: DbExecutor, schemaName: string): Promise<PersistedAppLayoutZoneWidget[]> {
     const widgetsTable = qSchemaTable(schemaName, '_app_widgets')
     const layoutsTable = qSchemaTable(schemaName, '_app_layouts')
-    const rows = await executor.query<ApplicationLayoutSyncWidgetRow & { template_key: unknown }>(
+    const rows = await executor.query<PersistedPublishedWidgetProjectionRow>(
         `
-        SELECT w.id, w.layout_id, w.zone, w.widget_key, w.sort_order, w.config, w.is_active,
+        SELECT w.id, w.layout_id, w.zone, w.widget_key, w.sort_order, w.config, w.source_config, w.is_active,
                w.source_base_widget_id, w.source_widget_id, l.template_key
         FROM ${widgetsTable} w
         INNER JOIN ${layoutsTable} l ON l.id = w.layout_id
@@ -1036,31 +1046,7 @@ export async function getPersistedPublishedWidgets(executor: DbExecutor, schemaN
         `,
         ['conflict']
     )
-    return rows.map((row) => {
-        const templateKey = parseTemplateKey(row.template_key, `persisted widget ${row.id}`)
-        if (typeof row.zone !== 'string' || row.zone.length === 0 || typeof row.widget_key !== 'string' || row.widget_key.length === 0) {
-            throw new Error(`[SchemaSync] Persisted widget ${row.id} identity is invalid`)
-        }
-        const decoded = decodeLayoutWidgetConfigEnvelope(requireRecord(row.config, `Persisted widget ${row.id} config`), {
-            templateKey,
-            widgetKey: row.widget_key,
-            zone: row.zone
-        })
-        const rendererConfig = parseApplicationLayoutWidgetConfig(row.widget_key, decoded.rendererConfig)
-        return {
-            id: row.id,
-            layoutId: row.layout_id,
-            sourceBaseWidgetId: row.source_base_widget_id,
-            zone: row.zone as PersistedAppLayoutZoneWidget['zone'],
-            widgetKey: row.widget_key,
-            sortOrder: requireInteger(row.sort_order, `Persisted widget ${row.id} sortOrder`),
-            config: encodeLayoutWidgetConfigEnvelope(
-                { rendererConfig, neutral: decoded.neutral },
-                { templateKey, widgetKey: row.widget_key, zone: row.zone }
-            ),
-            isActive: requireBoolean(row.is_active, `Persisted widget ${row.id} isActive`)
-        }
-    })
+    return projectPersistedPublishedWidgets(rows)
 }
 
 export async function readMigrationRow(

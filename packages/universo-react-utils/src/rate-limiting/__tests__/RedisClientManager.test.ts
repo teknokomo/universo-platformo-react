@@ -46,7 +46,7 @@ describe('RedisClientManager', () => {
         }
 
         // Mock Redis constructor to return our mock and emit 'ready' asynchronously
-        vi.mocked(Redis).mockImplementation(() => {
+        vi.mocked(Redis).mockImplementation(function mockRedisConstructor() {
             // Emit 'ready' event in next tick to simulate real Redis behavior
             process.nextTick(() => {
                 mockRedisInstance.status = 'ready'
@@ -108,7 +108,7 @@ describe('RedisClientManager', () => {
             const error = new Error('Connection failed')
 
             // Mock Redis to emit error instead of ready
-            vi.mocked(Redis).mockImplementation(() => {
+            vi.mocked(Redis).mockImplementation(function mockRedisConstructor() {
                 process.nextTick(() => {
                     mockRedisInstance.emit('error', error)
                 })

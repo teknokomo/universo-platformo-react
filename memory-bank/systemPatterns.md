@@ -44,7 +44,7 @@
 -   Treat the live binding graph as referential integrity for Entity records: deletion guards and concurrent binding mutations must use the shared transaction/locking contract rather than widget-local checks.
 -   Published runtime resolves only an allowlisted typed projection/view model from the validated binding; renderers never receive reserved `__layout` metadata or direct persistence authority.
 
-**Detection**: `rg 'bindingSlots|replaceWidgetRendererConfig|marketingHeroBindingService|widgetBindingResolver|collectActivePublicHeroSelections' packages`
+**Detection**: `rg 'bindingSlots|replaceWidgetRendererConfig|widgetBindingService|widgetBindingResolver|collectActivePublicHeroSelections' packages`
 
 **Why**: the Entity-backed Marketing Hero pilot established the reusable boundary that prevents widgets from becoming a second data model while preserving no-code authoring, secure semantic references, and deterministic publication/runtime behavior.
 
@@ -691,7 +691,7 @@
     3. `check:<pkg>-vendor-drift` — diff guard that compares the vendored source against the pinned upstream tag. **Developer-local only by design**: reads `PC_<PKG>_UPSTREAM_DIR` (default `~/dev/<upstream>-<tag>`), a sibling worktree OUTSIDE `packages/**` to satisfy the existing `git clone/fetch/pull/submodule update` blocklist in `assertBuildScriptsDoNotInstall`. **Exits 0 in CI** when the directory is absent; full diff in developer terminals.
 -   **Formatter protection** at the repo root: `.prettierignore` must list `<pkg>/vendor/**` and other generated paths. ESLint's `.eslintrc.js` `ignorePatterns` already covers the same paths; do not extend the format glob to vendor.
 -   **Provenance record** at `vendor/UPSTREAM.md` lists the current tag, commit, snapshot date, license, and an "Update from X → Y (DATE)" section per bump. Memory Bank `techContext.md` "Last Reviewed" date is bumped in lockstep.
--   **Skill extension, not new Skill**: the existing `playcanvas-editor-authoring` (or equivalent) Skill gets a new `## Upstream Update Governance` H2 section with an 11-step checklist. The next agent must update `src/index.ts` constants *and* the previous-version literals in the metadata guard in the same commit.
+-   **Skill extension, not new Skill**: the existing `playcanvas-editor-authoring` (or equivalent) Skill gets a new `## Upstream Update Governance` H2 section with an 11-step checklist. The next agent must update `src/index.ts` constants _and_ the previous-version literals in the metadata guard in the same commit.
 -   **Snapshot replacement uses atomic `.next` rename** (not `rm -rf` + `cp`): stage into `vendor/<upstream>.next`, apply local omissions (`package.json`, `package-lock.json`, `test/`, `test-suite/`, `.github/`, Docker, Renovate), verify the staged copy contains the required new files, then `rm -rf` the old tree and `mv` the new one. Single-`git-checkout` recovery is possible if the rename fails.
 -   **Sibling worktree pattern** for `git archive` extraction: clone the upstream repo into `~/dev/<upstream>-<tag>` (outside `packages/**`), then `git archive <tag> | tar -x -C staging`. Inside `packages/**`, only `git archive` is allowed by the existing `assertBuildScriptsDoNotInstall` blocklist; `git clone` is not.
 

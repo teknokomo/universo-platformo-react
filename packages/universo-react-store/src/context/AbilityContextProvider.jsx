@@ -28,7 +28,7 @@
  * if (ability.can('delete', 'Metaverse')) { ... }
  * ```
  */
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import PropTypes from 'prop-types'
 import { createMongoAbility } from '@casl/ability'
 import { ABILITY_MODULE_TO_SUBJECT } from '@universo-react/types'
@@ -88,11 +88,12 @@ const buildAbilityFromPermissions = (permissions) => {
  * Fetches permissions from API (new format with metadata and config)
  * @returns {Promise<{permissions: Array, globalRoles: Array, isSuperuser: boolean, hasAdminAccess: boolean, rolesMetadata: Object, config: Object}>}
  */
-const fetchPermissions = async () => {
+const fetchPermissions = async (signal) => {
     try {
         const response = await fetch('/api/v1/auth/permissions', {
             method: 'GET',
             credentials: 'include',
+            signal,
             headers: {
                 'Content-Type': 'application/json'
             }
@@ -138,6 +139,9 @@ const fetchPermissions = async () => {
             config: data.config || { adminPanelEnabled: true, globalRolesEnabled: true, superuserEnabled: true }
         }
     } catch (error) {
+        if (signal?.aborted || error?.name === 'AbortError') {
+            throw error
+        }
         console.error('[AbilityProvider] Failed to load permissions:', error)
         return {
             permissions: [],
@@ -164,19 +168,30 @@ const AbilityContextProvider = ({ children }) => {
     const [hasAnyGlobalRole, setHasAnyGlobalRole] = useState(false)
     // Admin feature flags configuration
     const [adminConfig, setAdminConfig] = useState({ adminPanelEnabled: true, globalRolesEnabled: true, superuserEnabled: true })
+    const permissionRequestRef = useRef({ requestId: 0, controller: null })
 
     // Load permissions on mount
     useEffect(() => {
         let mounted = true
+        const requestId = permissionRequestRef.current.requestId + 1
+        permissionRequestRef.current.controller?.abort()
+        const controller = new AbortController()
+        permissionRequestRef.current = { requestId, controller }
+        const isCurrentRequest = () => mounted && permissionRequestRef.current.requestId === requestId && !controller.signal.aborted
+        const abortPendingPermissionRequest = () => permissionRequestRef.current.controller?.abort()
+
+        if (typeof window !== 'undefined') {
+            window.addEventListener('pagehide', abortPendingPermissionRequest)
+        }
 
         const loadPermissions = async () => {
             setLoading(true)
             setError(null)
 
             try {
-                const data = await fetchPermissions()
+                const data = await fetchPermissions(controller.signal)
 
-                if (mounted) {
+                if (isCurrentRequest()) {
                     const newAbility = buildAbilityFromPermissions(data.permissions)
                     setAbility(newAbility)
                     setGlobalRoles(data.globalRoles)
@@ -195,12 +210,13 @@ const AbilityContextProvider = ({ children }) => {
                     })
                 }
             } catch (err) {
-                if (mounted) {
+                if (isCurrentRequest()) {
                     setError(err)
                     console.error('[AbilityProvider] Error:', err)
                 }
             } finally {
-                if (mounted) {
+                if (isCurrentRequest()) {
+                    permissionRequestRef.current = { requestId, controller: null }
                     setLoading(false)
                 }
             }
@@ -210,27 +226,78 @@ const AbilityContextProvider = ({ children }) => {
 
         return () => {
             mounted = false
+            if (typeof window !== 'undefined') {
+                window.removeEventListener('pagehide', abortPendingPermissionRequest)
+            }
+            const currentRequest = permissionRequestRef.current
+            currentRequest.controller?.abort()
+            controller.abort()
+            permissionRequestRef.current = { requestId: currentRequest.requestId + 1, controller: null }
         }
     }, [])
 
     // Refresh function (can be called after login/logout)
     const refreshAbility = useCallback(async () => {
+        const requestId = permissionRequestRef.current.requestId + 1
+        permissionRequestRef.current.controller?.abort()
+        const controller = new AbortController()
+        permissionRequestRef.current = { requestId, controller }
         setLoading(true)
-        const data = await fetchPermissions()
-        const newAbility = buildAbilityFromPermissions(data.permissions)
-        setAbility(newAbility)
-        setGlobalRoles(data.globalRoles)
-        setRolesMetadata(data.rolesMetadata)
-        setIsSuperuser(data.isSuperuser ?? false)
-        setHasAdminAccess(data.hasAdminAccess ?? false)
-        setHasAnyGlobalRole(data.hasAnyGlobalRole ?? false)
-        setAdminConfig(data.config)
-        setLoading(false)
-        return newAbility
+        setError(null)
+
+        try {
+            const data = await fetchPermissions(controller.signal)
+            if (permissionRequestRef.current.requestId !== requestId || controller.signal.aborted) return ability
+
+            const newAbility = buildAbilityFromPermissions(data.permissions)
+            setAbility(newAbility)
+            setGlobalRoles(data.globalRoles)
+            setRolesMetadata(data.rolesMetadata)
+            setIsSuperuser(data.isSuperuser ?? false)
+            setHasAdminAccess(data.hasAdminAccess ?? false)
+            setHasAnyGlobalRole(data.hasAnyGlobalRole ?? false)
+            setAdminConfig(data.config)
+            return newAbility
+        } catch (err) {
+            if (permissionRequestRef.current.requestId !== requestId || controller.signal.aborted || err?.name === 'AbortError') {
+                return ability
+            }
+            setError(err)
+            console.error('[AbilityProvider] Error refreshing permissions:', err)
+            throw err
+        } finally {
+            if (permissionRequestRef.current.requestId === requestId) {
+                permissionRequestRef.current = { requestId, controller: null }
+                setLoading(false)
+            }
+        }
+    }, [ability])
+
+    const refreshAbilityRef = useRef(refreshAbility)
+
+    useEffect(() => {
+        refreshAbilityRef.current = refreshAbility
+    }, [refreshAbility])
+
+    useEffect(() => {
+        if (typeof window === 'undefined') return undefined
+
+        const refreshPermissionsAfterBfCacheRestore = (event) => {
+            if (!event.persisted) return
+            void refreshAbilityRef.current().catch(() => undefined)
+        }
+
+        window.addEventListener('pageshow', refreshPermissionsAfterBfCacheRestore)
+        return () => window.removeEventListener('pageshow', refreshPermissionsAfterBfCacheRestore)
     }, [])
 
     // Clear ability (for logout)
     const clearAbility = useCallback(() => {
+        const requestId = permissionRequestRef.current.requestId + 1
+        permissionRequestRef.current.controller?.abort()
+        permissionRequestRef.current = { requestId, controller: null }
+        setLoading(false)
+        setError(null)
         setAbility(createEmptyAbility())
         setGlobalRoles([])
         setRolesMetadata({})

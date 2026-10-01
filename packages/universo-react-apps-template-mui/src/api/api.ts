@@ -15,9 +15,7 @@ import {
     runtimePageBlockSchema,
     reportDefinitionSchema,
     workflowActionSchema,
-    readLocalizedTextValue,
-    marketingPageRuntimeViewModelSchema,
-    type MarketingPageRuntimeViewModel
+    readLocalizedTextValue
 } from '@universo-react/types'
 import {
     buildRuntimeApiUrl,
@@ -27,6 +25,8 @@ import {
     normalizeRuntimeLayoutTarget,
     parseRuntimeResponse
 } from './client'
+import { authenticatedMarketingPageRuntimePayloadSchema } from '../marketing-page/runtimeDto'
+import type { AuthenticatedMarketingPageRuntimePayload } from '../marketing-page/runtimeDto'
 export { effectiveLayoutResultSchema } from '@universo-react/types'
 export {
     buildAppsApiUrl,
@@ -196,7 +196,7 @@ export type AppDataResponse = z.infer<typeof appDataResponseSchema>
 
 export type RuntimeEffectiveLayoutResponse = EffectiveLayoutResult
 export type RuntimeEffectiveLayoutSuccess = Extract<EffectiveLayoutResult, { status: 'ok' }>
-export type MarketingPageRuntimeResponse = MarketingPageRuntimeViewModel
+export type MarketingPageRuntimeResponse = AuthenticatedMarketingPageRuntimePayload
 
 /** @deprecated Use AppDataResponse instead */
 export type ApplicationRuntimeResponse = AppDataResponse
@@ -339,7 +339,7 @@ export async function fetchMarketingPageRuntime(options: {
     if (options.target?.recordKey?.trim()) url.searchParams.set('recordKey', options.target.recordKey.trim())
     if (options.expectedLayoutHash?.trim()) url.searchParams.set('expectedLayoutHash', options.expectedLayoutHash.trim())
     const res = await fetch(url.toString(), { credentials: 'include' })
-    return parseRuntimeResponse(res, marketingPageRuntimeViewModelSchema, 'Marketing page runtime API request failed')
+    return parseRuntimeResponse(res, authenticatedMarketingPageRuntimePayloadSchema, 'Marketing page runtime API request failed')
 }
 
 export type MarketingRuntimeTarget = {

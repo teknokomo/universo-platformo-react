@@ -231,6 +231,12 @@ const routeSources = [
         file: 'packages/universo-react-metahubs-backend/src/domains/packages/routes/packagesRoutes.ts',
         mountPrefix: '',
         tag: 'Packages',
+        security: bearerSecurity
+    },
+    {
+        file: 'packages/universo-react-metahubs-backend/src/domains/packages/routes/packageArtifactRoutes.ts',
+        mountPrefix: '',
+        tag: 'Packages',
         security: bearerSecurity,
         publicPathMatchers: [/^\/metahub\/:metahubId\/packages\/:packageSlug\/editor-artifact-token\//]
     },
@@ -267,32 +273,6 @@ const manualOperations = [
         tag: 'System',
         security: publicSecurity,
         description: 'Database health endpoint mounted directly by the core backend runtime.'
-    },
-    {
-        method: 'get',
-        path: '/metahub/:metahubId/layout/:layoutId/zone-widget/:widgetId/binding',
-        tag: 'Layouts',
-        security: bearerSecurity,
-        description: 'Returns the semantic Entity record currently bound to a marketing Hero placement.',
-        parameters: [
-            {
-                name: 'locale',
-                in: 'query',
-                required: false,
-                schema: { type: 'string', minLength: 2, maxLength: 32 },
-                description: 'Locale used to resolve the selected record display label.'
-            }
-        ],
-        responseSchema: 'MarketingHeroBindingTarget'
-    },
-    {
-        method: 'patch',
-        path: '/metahub/:metahubId/layout/:layoutId/zone-widget/:widgetId/binding',
-        tag: 'Layouts',
-        security: bearerSecurity,
-        description: 'Binds a marketing Hero placement to an Object record using optimistic concurrency.',
-        requestSchema: 'MarketingHeroBindingUpdateRequest',
-        responseSchema: 'MarketingHeroBindingResponse'
     },
     {
         method: 'get',
@@ -780,6 +760,15 @@ const packageOperationOverrides = {
             ...jsonSchemaRef('MetahubLayoutZoneSettingRequest')
         }
     },
+    'PATCH /metahub/{metahubId}/layout/{layoutId}/zone-widget/{widgetId}/binding': {
+        summary: 'Replace a marketing widget entity binding configuration',
+        description:
+            'Manager-only replacement of the widget binding selections with optimistic concurrency. The server validates every slot and source against the registered widget definition and metahub entity model.',
+        requestBody: {
+            required: true,
+            ...jsonSchemaRef('MetahubWidgetBindingReplaceRequest')
+        }
+    },
     'POST /metahub/{metahubId}/layout/{layoutId}/zone-settings/{zone}/{settingKey}/reset': {
         summary: 'Reset a metahub layout zone setting',
         description:
@@ -1078,55 +1067,60 @@ const buildSpec = () => {
                     description:
                         'Generic JSON object used where the route inventory is current but payload-specific schemas remain handler-defined.'
                 },
-                MarketingHeroBindingTarget: {
-                    type: 'object',
-                    additionalProperties: false,
-                    properties: {
-                        recordId: { $ref: '#/components/schemas/UuidV7' },
-                        recordVersion: { type: 'integer', minimum: 1 },
-                        widgetVersion: { type: 'integer', minimum: 1 },
-                        label: { type: 'string' }
-                    },
-                    required: ['recordId', 'recordVersion', 'widgetVersion', 'label']
-                },
-                MarketingHeroBindingUpdateRequest: {
-                    type: 'object',
-                    additionalProperties: false,
-                    properties: {
-                        recordId: { $ref: '#/components/schemas/UuidV7' },
-                        expectedVersion: { type: 'integer', minimum: 1 }
-                    },
-                    required: ['recordId', 'expectedVersion']
-                },
-                MarketingHeroBindingResponse: {
-                    type: 'object',
-                    additionalProperties: false,
-                    properties: {
-                        id: { $ref: '#/components/schemas/UuidV7' },
-                        layoutId: { $ref: '#/components/schemas/UuidV7' },
-                        zone: { type: 'string', const: 'marketing-main' },
-                        widgetKey: { type: 'string', const: 'marketing.hero' },
-                        instanceKey: { type: 'string' },
-                        sortOrder: { type: 'integer', minimum: 0 },
-                        config: { type: 'object', additionalProperties: true },
-                        placement: { type: 'string', enum: ['start', 'end'] },
-                        isActive: { type: 'boolean' },
-                        version: { type: 'integer', minimum: 1 },
-                        createdAt: { type: 'string', format: 'date-time' },
-                        updatedAt: { type: 'string', format: 'date-time' }
-                    },
-                    required: [
-                        'id',
-                        'layoutId',
-                        'zone',
-                        'widgetKey',
-                        'sortOrder',
-                        'config',
-                        'isActive',
-                        'version',
-                        'createdAt',
-                        'updatedAt'
+                MetahubWidgetBindingSelectorInput: {
+                    oneOf: [
+                        {
+                            type: 'object',
+                            additionalProperties: false,
+                            properties: {
+                                kind: { type: 'string', const: 'semantic-key' },
+                                value: { type: 'string', minLength: 1, maxLength: 128 }
+                            },
+                            required: ['kind', 'value']
+                        },
+                        {
+                            type: 'object',
+                            additionalProperties: false,
+                            properties: { kind: { type: 'string', const: 'record-set' } },
+                            required: ['kind']
+                        },
+                        {
+                            type: 'object',
+                            additionalProperties: false,
+                            properties: { kind: { type: 'string', const: 'relation-set' } },
+                            required: ['kind']
+                        }
                     ]
+                },
+                MetahubWidgetBindingSelectionInput: {
+                    type: 'object',
+                    additionalProperties: false,
+                    properties: {
+                        slot: { type: 'string', minLength: 1, maxLength: 64 },
+                        sourceKey: {
+                            type: 'string',
+                            minLength: 1,
+                            maxLength: 128,
+                            pattern: '^[A-Za-z][A-Za-z0-9._-]*$'
+                        },
+                        selector: { $ref: '#/components/schemas/MetahubWidgetBindingSelectorInput' }
+                    },
+                    required: ['slot', 'sourceKey', 'selector']
+                },
+                MetahubWidgetBindingReplaceRequest: {
+                    type: 'object',
+                    additionalProperties: false,
+                    properties: {
+                        bindings: {
+                            type: 'array',
+                            maxItems: 16,
+                            items: { $ref: '#/components/schemas/MetahubWidgetBindingSelectionInput' }
+                        },
+                        locale: { type: 'string', minLength: 2, maxLength: 16 },
+                        expectedVersion: { type: 'integer', minimum: 1 },
+                        rendererConfig: { $ref: '#/components/schemas/GenericObject' }
+                    },
+                    required: ['bindings', 'expectedVersion']
                 },
                 UuidV7: {
                     type: 'string',

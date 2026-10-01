@@ -36,11 +36,8 @@ import { buildMergedSharedEntityList, planMergedSharedEntityOrder, type SharedEn
 import { SharedEntityOverridesService } from '../../shared/services/SharedEntityOverridesService'
 import { SharedContainerService } from '../../shared/services/SharedContainerService'
 import { mhbSoftDelete } from '../../../persistence/metahubsQueryHelpers'
-import {
-    assertMarketingHeroComponentMutation,
-    isMarketingHeroBindingComponentCodename,
-    isMarketingHeroEntityMetadata
-} from '../../shared/entityMetadataMutationPolicy'
+import { isWidgetBindingComponentCodename } from '../../shared/entityMetadataMutationPolicy'
+import { assertWidgetBindingComponentMutationAllowed as validateWidgetBindingComponentMutation } from './widgetBindingComponentMutationGuard'
 
 const ACTIVE = '_upl_deleted = false AND _mhb_deleted = false'
 type ComponentScope = 'business' | 'system' | 'all'
@@ -180,7 +177,7 @@ export class MetahubComponentsService {
         }
     }
 
-    private async assertMarketingHeroComponentMutationAllowed({
+    private async assertWidgetBindingComponentMutationAllowed({
         schemaName,
         objectCollectionId,
         componentId,
@@ -200,52 +197,18 @@ export class MetahubComponentsService {
             isDisplayComponent?: boolean
             validationRules?: unknown
             parentComponentId?: string | null
+            targetEntityId?: string | null
+            targetEntityKind?: string | null
         }
     }): Promise<void> {
-        const objectsTable = qSchemaTable(schemaName, '_mhb_objects')
-        const componentsTable = qSchemaTable(schemaName, '_mhb_components')
-        const object = await queryOne<{ codename: unknown; config: unknown }>(
+        await validateWidgetBindingComponentMutation({
+            schemaName,
+            objectCollectionId,
+            componentId,
             runner,
-            `SELECT codename, config FROM ${objectsTable}
-             WHERE id = $1 AND kind = $2 AND ${ACTIVE}
-             LIMIT 1 FOR SHARE`,
-            [objectCollectionId, 'object']
-        )
-        if (!object) return
-        const entityCodename = getCodenameText(object.codename)
-        if (!isMarketingHeroEntityMetadata(entityCodename, object.config)) return
-
-        const componentRow = await queryOne<Record<string, unknown>>(
-            runner,
-            `SELECT * FROM ${componentsTable}
-             WHERE id = $1 AND object_id = $2 AND ${ACTIVE}
-             LIMIT 1 FOR UPDATE`,
-            [componentId, objectCollectionId]
-        )
-        if (!componentRow) return
-
-        const current = this.mapRowToComponent(componentRow)
-        const nextCodename = patch?.codename === undefined ? current.codename : getCodenameText(patch.codename)
-        const next =
-            operation === 'delete'
-                ? undefined
-                : {
-                      codename: nextCodename,
-                      dataType: patch?.dataType ?? current.dataType,
-                      isRequired:
-                          operation === 'set-display' || patch?.isDisplayComponent === true
-                              ? true
-                              : patch?.isRequired ?? current.isRequired,
-                      validationRules: patch?.validationRules ?? current.validationRules,
-                      parentComponentId: patch?.parentComponentId === undefined ? current.parentComponentId : patch.parentComponentId
-                  }
-
-        assertMarketingHeroComponentMutation({
-            entityCodename,
-            entityConfig: object.config,
-            current,
-            next,
-            operation
+            operation,
+            patch,
+            mapRowToComponent: this.mapRowToComponent
         })
     }
 
@@ -1093,10 +1056,10 @@ export class MetahubComponentsService {
         this.assertSystemMutationAllowed(current, data)
 
         const nextCodename = data.codename === undefined ? current?.codename : getCodenameText(data.codename)
-        const needsMarketingHeroGuard =
-            isMarketingHeroBindingComponentCodename(current?.codename ?? '') || isMarketingHeroBindingComponentCodename(nextCodename ?? '')
-        if (needsMarketingHeroGuard && current) {
-            await this.assertMarketingHeroComponentMutationAllowed({
+        const needsWidgetBindingGuard =
+            isWidgetBindingComponentCodename(current?.codename ?? '') || isWidgetBindingComponentCodename(nextCodename ?? '')
+        if (needsWidgetBindingGuard && current) {
+            await this.assertWidgetBindingComponentMutationAllowed({
                 schemaName,
                 objectCollectionId: current.objectCollectionId,
                 componentId: id,
@@ -1287,11 +1250,11 @@ export class MetahubComponentsService {
             })
         }
 
-        const needsMarketingHeroGuard = isMarketingHeroBindingComponentCodename(component?.codename ?? '')
+        const needsWidgetBindingGuard = isWidgetBindingComponentCodename(component?.codename ?? '')
 
         const runDelete = async (tx: SqlQueryable) => {
-            if (needsMarketingHeroGuard && component) {
-                await this.assertMarketingHeroComponentMutationAllowed({
+            if (needsWidgetBindingGuard && component) {
+                await this.assertWidgetBindingComponentMutationAllowed({
                     schemaName,
                     objectCollectionId: component.objectCollectionId,
                     componentId: id,
@@ -1434,8 +1397,8 @@ export class MetahubComponentsService {
             const isCrossList = targetParent !== currentParent
 
             if (isCrossList) {
-                if (isMarketingHeroBindingComponentCodename(getCodenameText(current.codename))) {
-                    await this.assertMarketingHeroComponentMutationAllowed({
+                if (isWidgetBindingComponentCodename(getCodenameText(current.codename))) {
+                    await this.assertWidgetBindingComponentMutationAllowed({
                         schemaName,
                         objectCollectionId: objectId,
                         componentId,
@@ -1825,8 +1788,8 @@ export class MetahubComponentsService {
 
         const now = new Date()
         const applyDisplayComponent = async (tx: SqlQueryable) => {
-            if (isMarketingHeroBindingComponentCodename(component.codename)) {
-                await this.assertMarketingHeroComponentMutationAllowed({
+            if (isWidgetBindingComponentCodename(component.codename)) {
+                await this.assertWidgetBindingComponentMutationAllowed({
                     schemaName,
                     objectCollectionId,
                     componentId,

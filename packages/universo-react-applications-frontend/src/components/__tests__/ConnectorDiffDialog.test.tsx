@@ -15,10 +15,10 @@ vi.mock('react-i18next', async () => {
         import('../../i18n/locales/en/applications.json'),
         import('../../i18n/locales/ru/applications.json')
     ])
-    const copyConflictKey = 'connectors.diffDialog.layoutResolution.copySourceUnavailable'
+    const copyConflictKey = 'connectors.diffDialog.layoutResolution.copyAsApplicationUnavailable'
     const copyConflictMessages = {
-        en: enModule.default.connectors.diffDialog.layoutResolution.copySourceUnavailable,
-        ru: ruModule.default.connectors.diffDialog.layoutResolution.copySourceUnavailable
+        en: enModule.default.connectors.diffDialog.layoutResolution.copyAsApplicationUnavailable,
+        ru: ruModule.default.connectors.diffDialog.layoutResolution.copyAsApplicationUnavailable
     }
 
     return {
@@ -239,7 +239,7 @@ describe('ConnectorDiffDialog', () => {
         })
     })
 
-    it('explains when an entity-backed Hero conflict cannot be copied and only offers safe resolutions', async () => {
+    it('explains when a required Entity binding cannot become application-owned and only offers safe resolutions', async () => {
         const onSync = vi.fn().mockResolvedValue(undefined)
         vi.mocked(useApplicationDiff).mockReturnValue(
             createDiffQuery({
@@ -259,7 +259,7 @@ describe('ConnectorDiffDialog', () => {
                                     title: { en: 'Homepage' },
                                     message: 'Both layout versions changed.',
                                     recommendedResolution: 'keep_local',
-                                    copySourceAsApplicationUnavailable: true
+                                    copyAsApplicationUnavailable: true
                                 }
                             ]
                         }
@@ -282,7 +282,7 @@ describe('ConnectorDiffDialog', () => {
 
         expect(
             screen.getByText(
-                'This layout contains an Entity-backed Hero placement that cannot be copied into an application layout. Keep the application layout or skip this source update.'
+                'This layout contains a widget with Entity-backed content that cannot become application-owned content. Keep the application layout or skip this source update.'
             )
         ).toBeInTheDocument()
 
@@ -326,7 +326,7 @@ describe('ConnectorDiffDialog', () => {
                                     title: { en: 'Homepage' },
                                     message: 'Both layout versions changed.',
                                     recommendedResolution: 'keep_local',
-                                    copySourceAsApplicationUnavailable: true
+                                    copyAsApplicationUnavailable: true
                                 }
                             ]
                         }
@@ -355,8 +355,8 @@ describe('ConnectorDiffDialog', () => {
         expect(onSync).toHaveBeenCalledWith(false, { default: 'keep_local' })
         const expectedMessage =
             locale === 'ru'
-                ? 'Этот макет содержит размещение Hero с привязкой к Сущности, которое нельзя скопировать в макет приложения. Сохраните макет приложения или пропустите это обновление источника.'
-                : 'This layout contains an Entity-backed Hero placement that cannot be copied into an application layout. Keep the application layout or skip this source update.'
+                ? 'В этом макете есть виджет с содержимым из Сущности, которое нельзя передать в собственность приложения. Сохраните макет приложения или пропустите это обновление источника.'
+                : 'This layout contains a widget with Entity-backed content that cannot become application-owned content. Keep the application layout or skip this source update.'
         await waitFor(() => expect(screen.getAllByText(expectedMessage, { exact: true }).length).toBeGreaterThanOrEqual(2))
         expect(screen.queryByText('This layout contains entity-backed data and cannot be copied.')).not.toBeInTheDocument()
         await waitFor(() => expect(refetch).toHaveBeenCalledTimes(2))

@@ -667,7 +667,7 @@ describe('applicationSyncRoutes', () => {
             sourceLayoutId: 'layout-hero',
             applicationLayoutId: 'application-layout-hero',
             recommendedResolution: 'keep_local',
-            copySourceAsApplicationUnavailable: true
+            copyAsApplicationUnavailable: true
         } as const
         const buildLayoutChanges = jest.spyOn(applicationSyncRoutesModule, 'buildApplicationLayoutChanges').mockResolvedValue([blockedCopy])
 

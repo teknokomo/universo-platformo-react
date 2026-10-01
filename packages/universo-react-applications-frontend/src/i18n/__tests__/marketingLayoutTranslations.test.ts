@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import commonEn from '@universo-react/i18n/locales/en/common.json'
 import commonRu from '@universo-react/i18n/locales/ru/common.json'
+import { LAYOUT_WIDGET_DEFINITIONS } from '@universo-react/types'
 import enApplications from '../locales/en/applications.json'
 import ruApplications from '../locales/ru/applications.json'
 
@@ -13,10 +14,6 @@ import ruApplications from '../locales/ru/applications.json'
 const MARKETING_WIDGET_DIALOG_KEYS = [
     'variant',
     'maxItems',
-    'brandLogoHelper',
-    'brandLogoUrl',
-    'brandNameHelper',
-    'brandName',
     'maxItemsHelper',
     'showTitle',
     'showDescription',
@@ -52,6 +49,32 @@ const readMarketingLayoutMessage = (bundle: unknown, key: string): string => {
     return typeof value === 'string' ? value.trim() : ''
 }
 
+const readTranslation = (bundle: unknown, rootKey: string, key: string): string => {
+    if (!bundle || typeof bundle !== 'object' || Array.isArray(bundle)) return ''
+
+    let value: unknown = bundle
+    for (const segment of [rootKey, ...key.split('.')]) {
+        if (!value || typeof value !== 'object' || Array.isArray(value)) return ''
+        value = (value as Record<string, unknown>)[segment]
+    }
+
+    return typeof value === 'string' ? value.trim() : ''
+}
+
+const MARKETING_WIDGET_HELPER_TEXT_FIELDS = LAYOUT_WIDGET_DEFINITIONS.filter(({ templateKey }) => templateKey === 'marketing-page').flatMap(
+    ({ key: widgetKey, bindingSlots = [], bindingVariants = {}, presentationFields = [] }) => [
+        ...[...bindingSlots, ...Object.values(bindingVariants).flat()].map(({ key: slotKey, authoring }) => ({
+            widgetKey,
+            fieldKey: `binding.${slotKey}`,
+            helperTextKey: authoring.helperTextKey,
+            resource: 'common' as const
+        })),
+        ...presentationFields.flatMap(({ key: fieldKey, helperTextKey }) =>
+            helperTextKey ? [{ widgetKey, fieldKey, helperTextKey, resource: 'applications' as const }] : []
+        )
+    ]
+)
+
 const MARKETING_ZONE_KEYS = ['marketingHeader', 'marketingMain', 'marketingFooter'] as const
 
 const readZoneLabel = (locale: unknown, key: string): string => {
@@ -84,6 +107,23 @@ describe('application marketing layout translations', () => {
 
             expect(english, `applications layouts.marketing.widget.${key} (EN)`).not.toBe('')
             expect(russian, `applications layouts.marketing.widget.${key} (RU)`).not.toBe('')
+        }
+    })
+
+    it('resolves every registered marketing widget helper text in English and Russian without fallback', () => {
+        expect(MARKETING_WIDGET_HELPER_TEXT_FIELDS.length).toBeGreaterThan(0)
+
+        for (const { widgetKey, fieldKey, helperTextKey, resource } of MARKETING_WIDGET_HELPER_TEXT_FIELDS) {
+            const englishBundle = resource === 'applications' ? enApplications : commonEn
+            const russianBundle = resource === 'applications' ? ruApplications : commonRu
+            const rootKey = resource === 'applications' ? 'applications' : 'common'
+            const english = readTranslation(englishBundle, rootKey, helperTextKey)
+            const russian = readTranslation(russianBundle, rootKey, helperTextKey)
+            const context = `${widgetKey}.${fieldKey} (${helperTextKey})`
+
+            expect(english, `${context} (EN)`).not.toBe('')
+            expect(russian, `${context} (RU)`).not.toBe('')
+            expect(russian, `${context} must have a Russian translation`).not.toBe(english)
         }
     })
 

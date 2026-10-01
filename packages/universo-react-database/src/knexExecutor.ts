@@ -1,6 +1,13 @@
 import type { Knex } from 'knex'
 import type { DbExecutor } from '@universo-react/utils/database'
 import { convertPgBindings } from './pgBindings'
+import {
+    createRlsOperationScope,
+    getActiveRlsOperationScope,
+    runInRlsOperationScope,
+    runWithRlsOperationScope,
+    type RlsOperationScope
+} from './rlsOperationScope'
 
 /**
  * Pool-level executor — acquires connections from pool per-query.
@@ -55,55 +62,168 @@ export function createKnexExecutor(knex: Knex): DbExecutor {
  *   a BEGIN; top-level transaction() calls reuse that request transaction
  *   directly, while explicit nested transaction() calls still use SAVEPOINT.
  */
-export function createRlsExecutor(knex: Knex, connection: unknown, options?: { inTransaction?: boolean }): DbExecutor {
-    const query = async <T = unknown>(sql: string, params?: unknown[]) => {
-        const { sql: knexSql, bindings } = convertPgBindings(sql, params)
-        const result = await knex.raw(knexSql, bindings as Knex.RawBinding[]).connection(connection)
-        return (result.rows ?? result) as T[]
+type RlsExecutorOptions = {
+    inTransaction?: boolean
+    /** Rejects executor work once request cleanup stops accepting operations. */
+    isConnectionUnavailable?: () => boolean
+    /** Holds the pinned connection lease until the complete executor operation settles. */
+    runWithConnectionLease?: <T>(operation: () => Promise<T>) => Promise<T>
+    /** Fails the HTTP response if PostgreSQL aborts a middleware-owned transaction. */
+    onOuterTransactionFailure?: (error: unknown) => void
+    /** Gives request middleware the scope drain used before finalizing its outer transaction. */
+    onRequestScopeCreated?: (scope: RlsOperationScope) => void
+}
+
+const operationScopeOwners = new WeakMap<RlsOperationScope, object>()
+
+const createOwnedOperationScope = (owner: object, options?: { trackTransactionFailures?: boolean }): RlsOperationScope => {
+    const scope = createRlsOperationScope(options)
+    operationScopeOwners.set(scope, owner)
+    return scope
+}
+
+type ScopedExecutorScopeKind = 'request' | 'transaction'
+
+export function createRlsExecutor(knex: Knex, connection: unknown, options?: RlsExecutorOptions): DbExecutor {
+    const isConnectionUnavailable = options?.isConnectionUnavailable ?? (() => false)
+    const runWithConnectionLease = options?.runWithConnectionLease ?? (<T>(operation: () => Promise<T>): Promise<T> => operation())
+    const assertConnectionAvailable = () => {
+        if (isConnectionUnavailable()) throw new Error('RLS connection is unavailable')
+    }
+    const reuseOuterTransaction = options?.inTransaction === true
+    const operationScopeOwner = {}
+    const requestOperationScope = createOwnedOperationScope(operationScopeOwner, {
+        trackTransactionFailures: reuseOuterTransaction
+    })
+    let outerTransactionFailureReported = false
+    const reportOuterTransactionFailure = (error: unknown) => {
+        if (!reuseOuterTransaction || outerTransactionFailureReported) return
+        outerTransactionFailureReported = true
+        options?.onOuterTransactionFailure?.(error)
     }
 
-    const reuseOuterTransaction = options?.inTransaction === true
-
-    const createScopedExecutor = (depth: number): DbExecutor => ({
-        query,
-        transaction: async <T>(work: (executor: DbExecutor) => Promise<T>) => {
-            if (reuseOuterTransaction && depth === 0) {
-                return work(createScopedExecutor(depth + 1))
-            }
-
-            const nextDepth = depth + 1
-            const savepointName = `rls_sp_${nextDepth}`
-            const useSavepoint = nextDepth > 1
-
-            if (useSavepoint) {
-                await knex.raw(`SAVEPOINT ${savepointName}`).connection(connection)
-            } else {
-                await knex.raw('BEGIN').connection(connection)
-            }
-
+    const executeTransaction = async <T>(depth: number, work: (executor: DbExecutor) => Promise<T>): Promise<T> => {
+        const operationScope = createOwnedOperationScope(operationScopeOwner)
+        if (reuseOuterTransaction && depth === 0) {
             try {
-                const result = await work(createScopedExecutor(nextDepth))
-                if (useSavepoint) {
-                    await knex.raw(`RELEASE SAVEPOINT ${savepointName}`).connection(connection)
-                } else {
-                    await knex.raw('COMMIT').connection(connection)
+                const result = await runWithRlsOperationScope(operationScope, () =>
+                    work(createScopedExecutor(depth + 1, operationScope, 'transaction'))
+                )
+                const failures = await operationScope.closeAndDrain()
+                const databaseFailure = failures.find((failure) => failure.kind === 'database')
+                if (databaseFailure) {
+                    reportOuterTransactionFailure(databaseFailure.reason)
+                    throw databaseFailure.reason
                 }
+                if (failures.length > 0) throw failures[0].reason
                 return result
-            } catch (err) {
-                try {
-                    if (useSavepoint) {
-                        await knex.raw(`ROLLBACK TO SAVEPOINT ${savepointName}`).connection(connection)
-                    } else {
-                        await knex.raw('ROLLBACK').connection(connection)
-                    }
-                } catch {
-                    /* best-effort rollback */
-                }
-                throw err
+            } catch (error) {
+                const failures = await operationScope.closeAndDrain()
+                const databaseFailure = failures.find((failure) => failure.kind === 'database')
+                if (databaseFailure) reportOuterTransactionFailure(databaseFailure.reason)
+                throw error
             }
+        }
+
+        const nextDepth = depth + 1
+        const savepointName = `rls_sp_${nextDepth}`
+        const useSavepoint = nextDepth > 1
+
+        if (useSavepoint) {
+            await knex.raw(`SAVEPOINT ${savepointName}`).connection(connection)
+        } else {
+            await knex.raw('BEGIN').connection(connection)
+        }
+
+        try {
+            const result = await runWithRlsOperationScope(operationScope, () =>
+                work(createScopedExecutor(nextDepth, operationScope, 'transaction'))
+            )
+            const failures = await operationScope.closeAndDrain()
+            if (failures.length > 0) throw failures[0].reason
+            if (useSavepoint) {
+                await knex.raw(`RELEASE SAVEPOINT ${savepointName}`).connection(connection)
+            } else {
+                await knex.raw('COMMIT').connection(connection)
+            }
+            return result
+        } catch (err) {
+            const failures = await operationScope.closeAndDrain()
+            try {
+                if (useSavepoint) {
+                    await knex.raw(`ROLLBACK TO SAVEPOINT ${savepointName}`).connection(connection)
+                } else {
+                    await knex.raw('ROLLBACK').connection(connection)
+                }
+            } catch (rollbackError) {
+                /* best-effort rollback */
+                if (reuseOuterTransaction) reportOuterTransactionFailure(rollbackError)
+            }
+            const databaseFailure = failures.find((failure) => failure.kind === 'database')
+            if (databaseFailure && !useSavepoint) reportOuterTransactionFailure(databaseFailure.reason)
+            throw err
+        }
+    }
+
+    const createScopedExecutor = (depth: number, operationScope: RlsOperationScope, scopeKind: ScopedExecutorScopeKind): DbExecutor => ({
+        query: async <T = unknown>(sql: string, params?: unknown[]) => {
+            const executeQuery = async () => {
+                const { sql: knexSql, bindings } = convertPgBindings(sql, params)
+                try {
+                    const result = await knex.raw(knexSql, bindings as Knex.RawBinding[]).connection(connection)
+                    return (result.rows ?? result) as T[]
+                } catch (error) {
+                    if (scopeKind === 'transaction') operationScope.recordFailure(error)
+                    if (scopeKind === 'request') reportOuterTransactionFailure(error)
+                    throw error
+                }
+            }
+            if (depth > 0) return operationScope.run(executeQuery)
+
+            const activeScope = getActiveRlsOperationScope()
+            if (activeScope && activeScope !== operationScope) {
+                if (operationScopeOwners.get(activeScope) !== operationScopeOwner) {
+                    return runWithConnectionLease(async () => {
+                        assertConnectionAvailable()
+                        return runWithRlsOperationScope(operationScope, () => operationScope.run(executeQuery))
+                    })
+                }
+                assertConnectionAvailable()
+                return runInRlsOperationScope(operationScope, executeQuery)
+            }
+
+            return runWithConnectionLease(async () => {
+                assertConnectionAvailable()
+                return operationScope.run(executeQuery)
+            })
         },
-        isReleased: () => false
+        transaction: <T>(work: (executor: DbExecutor) => Promise<T>) => {
+            const activeScope = getActiveRlsOperationScope()
+            const inheritedTransactionScope =
+                depth === 0 &&
+                activeScope &&
+                activeScope !== operationScope &&
+                operationScopeOwners.get(activeScope) === operationScopeOwner
+                    ? activeScope
+                    : undefined
+            if (inheritedTransactionScope) assertConnectionAvailable()
+
+            const acquireRequestLease = !inheritedTransactionScope && depth === 0
+            const task = (inheritedTransactionScope ?? operationScope).runSerializedTransaction(
+                () => executeTransaction(inheritedTransactionScope ? depth + 1 : depth, work),
+                acquireRequestLease
+                    ? (operation) =>
+                          runWithConnectionLease(async () => {
+                              assertConnectionAvailable()
+                              return operation()
+                          })
+                    : undefined
+            )
+            return task.promise
+        },
+        isReleased: () => operationScope.isClosed() || isConnectionUnavailable()
     })
 
-    return createScopedExecutor(0)
+    if (reuseOuterTransaction) options?.onRequestScopeCreated?.(requestOperationScope)
+    return createScopedExecutor(0, requestOperationScope, 'request')
 }

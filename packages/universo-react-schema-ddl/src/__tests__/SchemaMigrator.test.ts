@@ -219,6 +219,72 @@ describe('SchemaMigrator', () => {
         expect(applyChangeMock).toHaveBeenCalledTimes(1)
     })
 
+    it('acquires runtime table locks before applying schema changes', async () => {
+        const trx = { raw: jest.fn().mockResolvedValue(undefined) } as unknown as import('knex').Knex.Transaction
+        const snapshotBefore = {
+            version: 1,
+            generatedAt: '2026-09-28T00:00:00.000Z',
+            hasSystemTables: true,
+            entities: {
+                existing: {
+                    kind: 'object' as const,
+                    codename: 'existing',
+                    tableName: 'obj_existing',
+                    fields: {}
+                }
+            }
+        }
+        const localKnex = {
+            transaction: jest.fn(async (callback: (innerTrx: import('knex').Knex.Transaction) => Promise<void>) => callback(trx))
+        } as unknown as import('knex').Knex
+        const generator = {
+            syncSystemMetadata: jest.fn().mockResolvedValue(undefined),
+            generateSnapshot: jest.fn().mockReturnValue({ ...snapshotBefore, entities: {} })
+        } as unknown as import('../SchemaGenerator').SchemaGenerator
+        const migrationManager = {
+            getLatestMigration: jest.fn().mockResolvedValue({ meta: { snapshotAfter: snapshotBefore } }),
+            recordMigration: jest.fn().mockResolvedValue('migration-id')
+        } as unknown as import('../MigrationManager').MigrationManager
+        const migrator = new SchemaMigrator(localKnex, generator, migrationManager)
+        const events: string[] = []
+        Reflect.set(
+            migrator as object,
+            'applyChange',
+            jest.fn().mockImplementation(async () => {
+                events.push('ddl')
+            })
+        )
+
+        const result = await migrator.applyAllChanges(
+            'app_test_schema',
+            {
+                hasChanges: true,
+                additive: [
+                    {
+                        type: ChangeType.ADD_TABLE,
+                        entityCodename: 'products',
+                        tableName: 'obj_products',
+                        isDestructive: false,
+                        description: 'Create table "products"'
+                    }
+                ],
+                destructive: [],
+                summary: '1 additive change'
+            },
+            [],
+            true,
+            {
+                beforeSchemaChanges: async ({ tableNames }) => {
+                    events.push('lock')
+                    expect(tableNames).toEqual(['obj_existing', 'obj_products'])
+                }
+            }
+        )
+
+        expect(result.success).toBe(true)
+        expect(events).toEqual(['lock', 'ddl'])
+    })
+
     it('uses physical column types and explicit SQL defaults when adding columns', async () => {
         const columnBuilder = {
             nullable: jest.fn().mockReturnThis(),

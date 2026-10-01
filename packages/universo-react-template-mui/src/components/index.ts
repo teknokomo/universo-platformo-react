@@ -107,6 +107,5 @@ export type {
     LayoutZoneSettingsDialogLabels,
     LayoutZoneSettingsDialogProps,
     MarketingWidgetConfigDialogProps,
-    MarketingWidgetSourceOption,
     MenuWidgetSideMenuSettingsProps
 } from './layouts'

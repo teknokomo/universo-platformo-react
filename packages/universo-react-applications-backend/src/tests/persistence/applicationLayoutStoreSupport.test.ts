@@ -1,5 +1,6 @@
 import { describe, expect, it, jest } from '@jest/globals'
 import { buildSingleTargetWidgetBinding, encodeLayoutWidgetConfigEnvelope, LAYOUT_WIDGET_DEFINITIONS } from '@universo-react/types'
+import { createApplicationLayoutWidgetSourceState } from '../../services/applicationLayoutWidgetSourceState'
 
 import {
     assertRendererConfigInput,
@@ -188,6 +189,37 @@ describe('applicationLayoutStoreSupport', () => {
             bindings: heroBinding()
         })
         expect(JSON.stringify(detail)).not.toContain('bindings')
+    })
+
+    it('derives customization from the complete source state on layout detail reads', async () => {
+        const layoutRow = {
+            ...baseLayoutRow,
+            template_key: 'marketing-page',
+            config: {
+                themeMode: 'system',
+                __layout: { composition: { mode: 'independent', baseLayoutId: null } }
+            }
+        }
+        const sourceState = createApplicationLayoutWidgetSourceState('marketing-page', 'marketing.hero', {
+            zone: 'marketing-main',
+            sortOrder: 1,
+            isActive: true,
+            config: heroSourceConfig()
+        })
+        const row = {
+            ...baseRow,
+            zone: 'marketing-main',
+            sort_order: 2,
+            config: { instanceKey: 'hero', showLeadForm: true },
+            source_config: heroSourceConfig(),
+            source_state: sourceState
+        }
+        const query = jest.fn().mockResolvedValueOnce([layoutRow]).mockResolvedValueOnce([row])
+
+        const detail = await getApplicationLayoutDetail({ query } as never, 'app_018f8a787b8f7c1da111222233334444', baseRow.layout_id)
+
+        expect(query.mock.calls[1]?.[0]).toContain('source_state')
+        expect(detail?.widgets[0]).toEqual(expect.objectContaining({ sortOrder: 2, isCustomized: true }))
     })
 
     it('rejects client-supplied binding metadata and does not copy a trusted source binding into an app-owned layout', () => {

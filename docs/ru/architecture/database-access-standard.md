@@ -15,24 +15,27 @@ Knex остаётся общим transport и DDL engine, а повседнев�
 
 ## Базовые правила
 
-- Доменные route handlers и services принимают `DbExecutor` или `SqlQueryable`.
-- Доменный код не импортирует `knex` или `KnexClient` напрямую.
-- Динамические identifiers проходят через `qSchema`, `qTable`, `qSchemaTable` и `qColumn`.
-- Мутирующий DML использует `RETURNING`, чтобы вызывающий код видел committed row shape.
-- Active-row чтение обязано уважать soft-delete contract своего домена.
-- Admin `SECURITY DEFINER` helper functions, принимающие `user_id`, могут использовать явный чужой user id только из Tier 2 backend/bootstrap-контекстов; request-scoped authenticated sessions должны оставаться self-scoped к `auth.uid()`.
-- Zero-row writes fail closed, а не молча завершаются после stale lookup или race-condition.
-- Advisory locks идут через shared helper-ы, а не через route-local или service-local raw helper forks.
-- Долгие операции задают явные бюджеты `SET LOCAL lock_timeout` и `statement_timeout`.
-- Schema-qualified names обязательны; доменный SQL не полагается на `search_path`.
+-   Доменные route handlers и services принимают `DbExecutor` или `SqlQueryable`.
+-   Доменный код не импортирует `knex` или `KnexClient` напрямую.
+-   Динамические identifiers проходят через `qSchema`, `qTable`, `qSchemaTable` и `qColumn`.
+-   Мутирующий DML использует `RETURNING`, чтобы вызывающий код видел committed row shape.
+-   Active-row чтение обязано уважать soft-delete contract своего домена.
+-   Admin `SECURITY DEFINER` helper functions, принимающие `user_id`, могут использовать явный чужой user id только из Tier 2 backend/bootstrap-контекстов; request-scoped authenticated sessions должны оставаться self-scoped к `auth.uid()`.
+-   Zero-row writes fail closed, а не молча завершаются после stale lookup или race-condition.
+-   Advisory locks идут через shared helper-ы, а не через route-local или service-local raw helper forks.
+-   Долгие операции задают явные бюджеты `SET LOCAL lock_timeout` и `statement_timeout`.
+-   Schema-qualified names обязательны; доменный SQL не полагается на `search_path`.
+-   Request-scoped RLS закрывает admission до connection lease, дожидается принятых операций и завершает outer transaction до отправки ответа.
+-   SQL через request session использует активный async transaction scope; ошибка savepoint откатывает родительскую request transaction даже при перехваченном rejection native Promise.
+-   Connection с неподтверждённым rollback/reset помечается непригодным и удаляется pool validator-ом Knex до повторного использования.
 
 ## Допустимые Tier 3 Boundaries
 
-- `@universo-react/schema-ddl` и migration packages владеют прямой Knex DDL orchestration.
-- `@universo-react/database` владеет shared Knex lifecycle и фабриками executor-ов.
-- `@universo-react/applications-backend` держит raw Knex за `src/ddl/index.ts` для DDL orchestration runtime sync.
-- `@universo-react/metahubs-backend` держит raw Knex внутри своих DDL seams и путей интеграции schema-ddl.
-- Эти boundaries могут мостить обратно в executor-style contracts, но route и store код вне их остаётся SQL-first.
+-   `@universo-react/schema-ddl` и migration packages владеют прямой Knex DDL orchestration.
+-   `@universo-react/database` владеет shared Knex lifecycle и фабриками executor-ов.
+-   `@universo-react/applications-backend` держит raw Knex за `src/ddl/index.ts` для DDL orchestration runtime sync.
+-   `@universo-react/metahubs-backend` держит raw Knex внутри своих DDL seams и путей интеграции schema-ddl.
+-   Эти boundaries могут мостить обратно в executor-style contracts, но route и store код вне их остаётся SQL-first.
 
 ## Поток запроса
 
@@ -43,19 +46,19 @@ Knex остаётся общим transport и DDL engine, а повседнев�
 
 ## Ожидания ревью
 
-- Новые persistence helper-ы должны иметь прямые unit test-ы, а не только route-level mocks.
-- Route handlers должны один раз выбрать корректный tier и передавать вниз нейтральные контракты.
-- Потоки copy, delete, restore и sync должны явно доказывать своё fail-closed поведение.
-- Package documentation и guidance в `AGENTS.md` должны использовать те же самые tier rules.
+-   Новые persistence helper-ы должны иметь прямые unit test-ы, а не только route-level mocks.
+-   Route handlers должны один раз выбрать корректный tier и передавать вниз нейтральные контракты.
+-   Потоки copy, delete, restore и sync должны явно доказывать своё fail-closed поведение.
+-   Package documentation и guidance в `AGENTS.md` должны использовать те же самые tier rules.
 
 ## Enforcement
 
-- `tools/lint-db-access.mjs` блокирует запрещённое использование Knex в доменных пакетах.
-- CI запускает шаг lint-db-access перед workspace build.
-- Reviewers используют checklist для database code review из contributing docs.
+-   `tools/lint-db-access.mjs` блокирует запрещённое использование Knex в доменных пакетах.
+-   CI запускает шаг lint-db-access перед workspace build.
+-   Reviewers используют checklist для database code review из contributing docs.
 
 ## Связанные материалы
 
-- [Проектирование базы данных](database.md)
-- [Архитектура бэкенда](backend.md)
-- [Чеклист ревью кода базы данных](../contributing/database-code-review-checklist.md)
+-   [Проектирование базы данных](database.md)
+-   [Архитектура бэкенда](backend.md)
+-   [Чеклист ревью кода базы данных](../contributing/database-code-review-checklist.md)

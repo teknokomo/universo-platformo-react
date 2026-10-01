@@ -2,15 +2,15 @@ import type { ReactNode } from 'react'
 import type {
     MarketingLayoutZone,
     MarketingLocaleCode,
-    MarketingPageConfig,
-    MarketingPageRuntimeViewModel,
-    MarketingProvenance,
     MarketingRuntimeIdentity,
     MarketingWidgetInstanceKey,
     ResourceSource,
     EffectiveLayoutMetadata,
-    EffectiveWidget
+    EffectiveWidget,
+    PageBlockContent
 } from '@universo-react/types'
+
+import type { MarketingRendererConfig } from './runtimeDto'
 
 export type MarketingActionKind = 'internal' | 'external' | 'mailto' | 'tel'
 
@@ -32,6 +32,8 @@ export interface MarketingMedia {
     darkSrc?: string
     darkAlt?: string
     decorative?: boolean
+    width?: number
+    height?: number
 }
 
 export type MarketingIconKey =
@@ -270,11 +272,10 @@ export type MarketingPageWidget =
 export interface MarketingPageData {
     templateKey: 'marketing-page'
     locale: MarketingLocaleCode
-    config: MarketingPageConfig
+    config: MarketingRendererConfig
     widgets: MarketingPageWidget[]
     runtime?: MarketingRuntimeIdentity
-    provenance?: MarketingProvenance
-    richContent?: MarketingPageRuntimeViewModel['marketingPage']['richContent']
+    richContent?: PageBlockContent
 }
 
 /** Runtime effective-layout input supplied by the host application. */

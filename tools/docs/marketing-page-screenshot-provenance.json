@@ -1,12 +1,12 @@
 {
     "version": 3,
-    "generatedAt": "2026-09-26T00:26:24.518Z",
+    "generatedAt": "2026-09-29T02:44:50.962Z",
     "generator": "tools/testing/e2e/specs/generators/docs-marketing-page-screenshots.spec.ts",
     "generatorSha256": "274f47ecbf3b63a73fc320f093e05c4569403300f328360c0b70836209330a98",
     "manifest": "tools/docs/marketing-page-screenshot-manifest.json",
     "manifestSha256": "9fa4f74e7a653423a124ad2dcf6eec1ec731b02c6e8a83d33270e66ce19ced75",
     "sourceTemplate": "packages/universo-react-metahubs-backend/src/domains/templates/data/marketing-page.template.ts",
-    "sourceTemplateSha256": "a2fd28bc816f16009e00ea56dfffc61ea644bfb92d3ffbe0aa1d7e5cb1219553",
+    "sourceTemplateSha256": "cba5d039c2578c2e9f4a21b31dd1a71d6a804d860ea97baaf5c070eda8e0c7c9",
     "seedInputs": [
         {
             "path": "packages/universo-react-metahubs-backend/src/domains/templates/data/basic.template.ts",
@@ -14,15 +14,15 @@
         },
         {
             "path": "packages/universo-react-metahubs-backend/src/domains/templates/data/marketing-page.hero.ts",
-            "sha256": "93a678e1b365763b70b04f0ce38aa26623ad1336404d124ba9054a02329bd7f5"
+            "sha256": "4f9a84f16acb535307dd5ec2399750557e01f0c423fc39f78afe417149506f88"
         },
         {
             "path": "packages/universo-react-metahubs-backend/src/domains/templates/data/marketing-page.layouts.ts",
-            "sha256": "14e92f00becb40df045f9d98a6773d3d966530f59dd2e4239debf43ec22a7578"
+            "sha256": "e332098f95c50fff55aaa3b7eedd528e0d22f42a24d8df433ec3f36fa986f2b2"
         },
         {
             "path": "packages/universo-react-metahubs-backend/src/domains/templates/data/marketing-page.seed-helpers.ts",
-            "sha256": "36a4e6df98838dca78e41745b062993eae8ed0a1ee3ad1d1abb2cf5ee78c5705"
+            "sha256": "ed91d39d9902c77710556f07721402fc491f0479f58a0aa54a50491cdc3f9551"
         }
     ],
     "routePattern": "/a/{applicationId}?locale={locale}&themeVariant=light",
@@ -48,7 +48,7 @@
                 "height": 900
             },
             "path": "docs/en/.gitbook/assets/marketing-page/marketing-page-runtime-en-light.png",
-            "sha256": "27f416fd4c775d185eea367565f22dd102559122f17a006c76150bc4cb745701",
+            "sha256": "ccab7952b46ac38cc111cf11fe778dd4b89330d96aeb5500f84ed873dc430248",
             "dimensions": {
                 "width": 1440,
                 "height": 5749
@@ -67,7 +67,7 @@
                 "height": 900
             },
             "path": "docs/ru/.gitbook/assets/marketing-page/marketing-page-runtime-ru-light.png",
-            "sha256": "87d644581f4f98d0040a417af9968f4d9b841a685424e9fcf89510fc2dfd1530",
+            "sha256": "494fe66dc69d26b136c56acab4046cbe9228e353d70bae7f3a3177e0a89423ae",
             "dimensions": {
                 "width": 1440,
                 "height": 5685
@@ -79,7 +79,7 @@
             "id": "marketing-page-runtime-en-light",
             "locale": "en",
             "path": "docs/en/.gitbook/assets/marketing-page/marketing-page-runtime-en-light.png",
-            "sha256": "27f416fd4c775d185eea367565f22dd102559122f17a006c76150bc4cb745701",
+            "sha256": "ccab7952b46ac38cc111cf11fe778dd4b89330d96aeb5500f84ed873dc430248",
             "dimensions": {
                 "width": 1440,
                 "height": 5749
@@ -89,7 +89,7 @@
             "id": "marketing-page-runtime-ru-light",
             "locale": "ru",
             "path": "docs/ru/.gitbook/assets/marketing-page/marketing-page-runtime-ru-light.png",
-            "sha256": "87d644581f4f98d0040a417af9968f4d9b841a685424e9fcf89510fc2dfd1530",
+            "sha256": "494fe66dc69d26b136c56acab4046cbe9228e353d70bae7f3a3177e0a89423ae",
             "dimensions": {
                 "width": 1440,
                 "height": 5685

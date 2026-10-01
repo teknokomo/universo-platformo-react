@@ -9,20 +9,20 @@ export const APPLICATION_HOST_ROUTE_PATHS = {
 
 /** Public routes that the marketing page may safely use as internal actions. */
 export const MARKETING_ACTION_INTERNAL_ROUTES = [
-    { path: APPLICATION_HOST_ROUTE_PATHS.home, labelKey: 'layouts.marketing.heroAuthoring.routes.home', defaultLabel: 'Home' },
+    { path: APPLICATION_HOST_ROUTE_PATHS.home, labelKey: 'layouts.marketing.actionAuthoring.routes.home', defaultLabel: 'Home' },
     {
         path: APPLICATION_HOST_ROUTE_PATHS.auth,
-        labelKey: 'layouts.marketing.heroAuthoring.routes.auth',
+        labelKey: 'layouts.marketing.actionAuthoring.routes.auth',
         defaultLabel: 'Sign in or create an account'
     },
     {
         path: APPLICATION_HOST_ROUTE_PATHS.terms,
-        labelKey: 'layouts.marketing.heroAuthoring.routes.terms',
+        labelKey: 'layouts.marketing.actionAuthoring.routes.terms',
         defaultLabel: 'Terms and conditions'
     },
     {
         path: APPLICATION_HOST_ROUTE_PATHS.privacy,
-        labelKey: 'layouts.marketing.heroAuthoring.routes.privacy',
+        labelKey: 'layouts.marketing.actionAuthoring.routes.privacy',
         defaultLabel: 'Privacy policy'
     }
 ] as const
@@ -83,7 +83,7 @@ const sectionDefinition = (widget: MarketingSectionWidgetDescriptor): SectionDef
         case 'marketing.hero':
             return {
                 sectionId: 'hero',
-                labelKey: 'layouts.marketing.heroAuthoring.sections.hero',
+                labelKey: 'layouts.marketing.actionAuthoring.sections.hero',
                 defaultLabel: 'Hero',
                 aliases: ['hero']
             }
@@ -95,35 +95,35 @@ const sectionDefinition = (widget: MarketingSectionWidgetDescriptor): SectionDef
                 case 'logos':
                     return {
                         sectionId: 'logoCollection',
-                        labelKey: 'layouts.marketing.heroAuthoring.sections.logos',
+                        labelKey: 'layouts.marketing.actionAuthoring.sections.logos',
                         defaultLabel: 'Logos',
                         aliases: ['logos', 'logoCollection']
                     }
                 case 'features':
                     return {
                         sectionId: 'features',
-                        labelKey: 'layouts.marketing.heroAuthoring.sections.features',
+                        labelKey: 'layouts.marketing.actionAuthoring.sections.features',
                         defaultLabel: 'Features',
                         aliases: ['features']
                     }
                 case 'testimonials':
                     return {
                         sectionId: 'testimonials',
-                        labelKey: 'layouts.marketing.heroAuthoring.sections.testimonials',
+                        labelKey: 'layouts.marketing.actionAuthoring.sections.testimonials',
                         defaultLabel: 'Testimonials',
                         aliases: ['testimonials']
                     }
                 case 'highlights':
                     return {
                         sectionId: 'highlights',
-                        labelKey: 'layouts.marketing.heroAuthoring.sections.highlights',
+                        labelKey: 'layouts.marketing.actionAuthoring.sections.highlights',
                         defaultLabel: 'Highlights',
                         aliases: ['highlights']
                     }
                 case 'faq':
                     return {
                         sectionId: 'faq',
-                        labelKey: 'layouts.marketing.heroAuthoring.sections.faq',
+                        labelKey: 'layouts.marketing.actionAuthoring.sections.faq',
                         defaultLabel: 'FAQ',
                         aliases: ['faq']
                     }
@@ -134,14 +134,14 @@ const sectionDefinition = (widget: MarketingSectionWidgetDescriptor): SectionDef
         case 'marketing.pricing':
             return {
                 sectionId: 'pricing',
-                labelKey: 'layouts.marketing.heroAuthoring.sections.pricing',
+                labelKey: 'layouts.marketing.actionAuthoring.sections.pricing',
                 defaultLabel: 'Pricing',
                 aliases: ['pricing']
             }
         case 'marketing.footer':
             return {
                 sectionId: 'footer',
-                labelKey: 'layouts.marketing.heroAuthoring.sections.footer',
+                labelKey: 'layouts.marketing.actionAuthoring.sections.footer',
                 defaultLabel: 'Footer',
                 aliases: ['footer']
             }

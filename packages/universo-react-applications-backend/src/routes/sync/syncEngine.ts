@@ -23,6 +23,7 @@ import type { PublishedApplicationSnapshot } from '../../services/applicationSyn
 import { buildInstalledReleaseMetadataFromBundle } from '../../services/applicationReleaseBundle'
 import { persistApplicationSchemaSyncState } from '../../services/ApplicationSchemaSyncStateStore'
 import { persistConnectorSyncTouch } from '../../services/ConnectorSyncTouchStore'
+import { acquireMarketingRowCapLock } from '../../services/marketingRowCap'
 import {
     ensureApplicationRuntimeWorkspaceSchema,
     persistWorkspaceSeedTemplate,
@@ -635,6 +636,12 @@ export async function syncApplicationSchemaFromSource(options: {
                 migrationMeta,
                 publicationSnapshot: source.publicationSnapshot,
                 userId,
+                beforeSchemaChanges: async ({ trx, schemaName, tableNames }) => {
+                    const executor = createKnexExecutor(trx)
+                    for (const tableName of tableNames) {
+                        await acquireMarketingRowCapLock(executor, schemaName, tableName)
+                    }
+                },
                 afterMigrationRecorded: async ({ trx, snapshotAfter, migrationId }) => {
                     await runPublishedApplicationRuntimeSync({
                         trx,

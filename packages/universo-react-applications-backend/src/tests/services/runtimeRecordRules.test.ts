@@ -1,9 +1,5 @@
-import {
-    buildRuntimeRecordRuleLockKey,
-    evaluateRuntimeRecordRules,
-    RUNTIME_RECORD_RULE_CODES,
-    type RuntimeRecordRuleAttr
-} from '../../services/runtimeRecordRules'
+import { evaluateRuntimeRecordRules, RUNTIME_RECORD_RULE_CODES, type RuntimeRecordRuleAttr } from '../../services/runtimeRecordRules'
+import { buildRuntimeRecordRuleLockKey } from '../../services/runtimeRecordRuleLockKey'
 import { createMockDbExecutor } from '../utils/dbMocks'
 
 const stringAttr = (overrides: Partial<RuntimeRecordRuleAttr> = {}): RuntimeRecordRuleAttr => ({

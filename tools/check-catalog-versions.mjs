@@ -6,6 +6,8 @@ const PACKAGE_JSON_BASENAMES = new Set(['package.json'])
 const PRIORITIZED_DEPENDENCIES = new Set([
     'typescript',
     'vitest',
+    '@vitest/coverage-v8',
+    '@vitejs/plugin-react',
     '@tanstack/react-query',
     'eslint',
     'react',

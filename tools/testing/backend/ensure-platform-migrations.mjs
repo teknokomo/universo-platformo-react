@@ -10,7 +10,7 @@ import { loadLocalSupabaseDatabaseUrl } from './localSupabaseEnv.mjs'
 const { envFile } = loadLocalSupabaseDatabaseUrl()
 
 for (const key of ['DATABASE_USER', 'DATABASE_PASSWORD', 'DATABASE_HOST', 'DATABASE_PORT', 'DATABASE_NAME']) {
-    const value = process.env[key]?.trim() || envFile.get(key)?.trim() || ''
+    const value = envFile.get(key)?.trim() || ''
     if (value.length > 0 || key === 'DATABASE_PASSWORD') {
         process.env[key] = value
     }

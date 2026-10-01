@@ -2,7 +2,7 @@ import { qSchemaTable } from '@universo-react/database'
 import type { DbExecutor } from '@universo-react/utils'
 import { runtimeLayoutCapableFilterSql, runtimeObjectFilterSql } from '../shared/runtimeHelpers'
 import { findApplicationCopySource, type ApplicationCopySourceRecord } from './applicationsStore'
-import { applicationLayoutTablesExist } from './applicationLayoutsStore'
+import { applicationLayoutTablesExist } from './applicationLayoutCapabilitiesStore'
 
 export interface EffectiveLayoutEntityRow {
     id: unknown
@@ -40,9 +40,9 @@ export interface EffectiveLayoutWidgetRow {
     sort_order: unknown
     config: unknown
     source_config: unknown
+    source_state: unknown
     source_widget_id: unknown
     source_base_widget_id: unknown
-    is_customized: unknown
     is_active: unknown
     version: unknown
 }
@@ -55,6 +55,9 @@ export interface EffectiveLayoutBaseWidgetRow {
     template_key: unknown
     scope_entity_id: unknown
     widget_key: unknown
+    zone: unknown
+    config: unknown
+    source_config: unknown
 }
 
 const runtimeCodenameTextSql = (columnRef: string): string =>
@@ -154,9 +157,9 @@ export async function listEffectiveLayoutWidgets(
             w.sort_order,
             w.config,
             w.source_config,
+            w.source_state,
             w.source_widget_id,
             w.source_base_widget_id,
-            (w.source_config IS NOT NULL AND w.config IS DISTINCT FROM w.source_config) AS is_customized,
             w.is_active,
             COALESCE(w._upl_version, 1)::int AS version
         FROM ${widgetsTable} w
@@ -188,7 +191,10 @@ export async function findEffectiveLayoutBaseWidgets(
             w.source_base_widget_id,
             l.template_key,
             l.scope_entity_id,
-            w.widget_key
+            w.widget_key,
+            w.zone,
+            w.config,
+            w.source_config
         FROM ${widgetsTable} w
         INNER JOIN ${layoutsTable} l ON l.id = w.layout_id
         WHERE (w.id = ANY($1::uuid[]) OR w.source_widget_id = ANY($1::uuid[]) OR w.source_base_widget_id = ANY($1::uuid[]))

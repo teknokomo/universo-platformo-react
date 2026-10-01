@@ -530,6 +530,7 @@ export const executeCreateRowTransaction = async (params: {
 
     await assertMarketingRuntimeRowCap({
         manager: mgr,
+        schemaName: params.ctx.schemaName,
         schemaIdent: params.ctx.schemaIdent,
         tableName: params.objectCollection.table_name,
         runtimeRowCondition: params.runtimeRowCondition,

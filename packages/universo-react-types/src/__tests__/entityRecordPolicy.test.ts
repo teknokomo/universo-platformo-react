@@ -13,11 +13,11 @@ const heroRecordPolicy = {
     immutableSemanticKeyWhenBound: true,
     runtimeMutation: 'deny',
     requiredLocales: ['en', 'ru'],
-    validatorKey: 'marketing.hero.v1'
+    coRequiredGroups: [['TermsText', 'TermsLinkLabel', 'TermsAction']]
 } as const
 
 describe('Entity record policy', () => {
-    it('parses the bounded semantic-key, lifecycle, runtime, and validator policy', () => {
+    it('parses the bounded semantic-key, lifecycle, runtime, locale, and group policy', () => {
         expect(entityRecordPolicySchema.parse(heroRecordPolicy)).toEqual(heroRecordPolicy)
         expect(resolveEntityRecordPolicy({ recordPolicy: heroRecordPolicy })).toEqual(heroRecordPolicy)
     })
@@ -46,6 +46,43 @@ describe('Entity record policy', () => {
             entityRecordPolicySchema.safeParse({
                 ...heroRecordPolicy,
                 requiredLocales: ['en', 'en']
+            }).success
+        ).toBe(false)
+    })
+
+    it('rejects duplicate or overlapping co-required Component groups and strict legacy validator fields', () => {
+        expect(entityRecordPolicySchema.safeParse({ ...heroRecordPolicy, coRequiredGroups: [['Title', 'Title']] }).success).toBe(false)
+        expect(
+            entityRecordPolicySchema.safeParse({
+                ...heroRecordPolicy,
+                coRequiredGroups: [
+                    ['TermsText', 'TermsLinkLabel'],
+                    ['TermsLinkLabel', 'TermsAction']
+                ]
+            }).success
+        ).toBe(false)
+        expect(entityRecordPolicySchema.safeParse({ ...heroRecordPolicy, validatorKey: 'marketing.hero.v1' }).success).toBe(false)
+    })
+
+    it('accepts bounded conditional requirements and rejects self-referential or duplicate targets', () => {
+        const imagePolicy = {
+            ...heroRecordPolicy,
+            conditionalRequired: [{ componentCodename: 'AltText', when: { componentCodename: 'Decorative', equals: false } }]
+        }
+        expect(entityRecordPolicySchema.parse(imagePolicy)).toEqual(imagePolicy)
+        expect(
+            entityRecordPolicySchema.safeParse({
+                ...heroRecordPolicy,
+                conditionalRequired: [{ componentCodename: 'Decorative', when: { componentCodename: 'Decorative', equals: false } }]
+            }).success
+        ).toBe(false)
+        expect(
+            entityRecordPolicySchema.safeParse({
+                ...heroRecordPolicy,
+                conditionalRequired: [
+                    { componentCodename: 'AltText', when: { componentCodename: 'Decorative', equals: false } },
+                    { componentCodename: 'AltText', when: { componentCodename: 'Visible', equals: true } }
+                ]
             }).success
         ).toBe(false)
     })

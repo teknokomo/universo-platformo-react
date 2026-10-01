@@ -16,6 +16,7 @@ const EXPECTED_ENTITY_CODENAMES = [
     'MarketingPage',
     'MarketingPageSiteSettings',
     'MarketingPageHero',
+    'MarketingPageImage',
     'MarketingPageSection',
     'MarketingPageLogo',
     'MarketingPageFeature',
@@ -31,7 +32,8 @@ const EXPECTED_ENTITY_CODENAMES = [
 const EXPECTED_ELEMENT_COUNTS: Record<string, number> = {
     MarketingPageSiteSettings: 1,
     MarketingPageHero: 1,
-    MarketingPageSection: 7,
+    MarketingPageImage: 1,
+    MarketingPageSection: 6,
     MarketingPageLogo: 6,
     MarketingPageFeature: 3,
     MarketingPageTestimonial: 6,
@@ -49,7 +51,13 @@ const EXPECTED_WIDGET_COMPOSITION = [
         widgetKey: 'marketing.brand',
         sortOrder: 0,
         instanceKey: 'brand',
-        source: { entityCodename: 'MarketingPageSiteSettings', entityKind: 'object', recordKey: 'site-settings' },
+        bindings: [
+            {
+                slot: 'site',
+                entityCodename: 'MarketingPageSiteSettings',
+                selector: { kind: 'semantic-key', field: 'key', value: 'site-settings' }
+            }
+        ],
         isActive: true
     },
     {
@@ -57,8 +65,7 @@ const EXPECTED_WIDGET_COMPOSITION = [
         widgetKey: 'marketing.navigation',
         sortOrder: 1,
         instanceKey: 'navigation',
-        source: { entityCodename: 'MarketingPageNavigation', entityKind: 'object' },
-        showAuthActions: false,
+        bindings: [{ slot: 'items', entityCodename: 'MarketingPageNavigation', selector: { kind: 'record-set' } }],
         isActive: true
     },
     {
@@ -89,34 +96,9 @@ const EXPECTED_WIDGET_COMPOSITION = [
         sortOrder: 0,
         instanceKey: 'hero',
         showLeadForm: true,
-        bindings: {
-            version: 1,
-            slots: [
-                {
-                    slot: 'content',
-                    targets: [
-                        {
-                            entityKind: 'object',
-                            entityCodename: 'MarketingPageHero',
-                            selector: { kind: 'semantic-key', field: 'key', value: 'default' },
-                            projection: [
-                                { field: 'accent', componentCodename: 'Accent' },
-                                { field: 'description', componentCodename: 'Description' },
-                                { field: 'emailLabel', componentCodename: 'EmailLabel' },
-                                { field: 'emailPlaceholder', componentCodename: 'EmailPlaceholder' },
-                                { field: 'key', componentCodename: 'HeroKey' },
-                                { field: 'primaryAction', componentCodename: 'PrimaryAction' },
-                                { field: 'primaryActionLabel', componentCodename: 'PrimaryActionLabel' },
-                                { field: 'termsAction', componentCodename: 'TermsAction' },
-                                { field: 'termsLinkLabel', componentCodename: 'TermsLinkLabel' },
-                                { field: 'termsText', componentCodename: 'TermsText' },
-                                { field: 'title', componentCodename: 'Title' }
-                            ]
-                        }
-                    ]
-                }
-            ]
-        },
+        bindings: [
+            { slot: 'content', entityCodename: 'MarketingPageHero', selector: { kind: 'semantic-key', field: 'key', value: 'default' } }
+        ],
         isActive: true
     },
     {
@@ -124,6 +106,13 @@ const EXPECTED_WIDGET_COMPOSITION = [
         widgetKey: 'marketing.image',
         sortOrder: 1,
         instanceKey: 'hero-image',
+        bindings: [
+            {
+                slot: 'content',
+                entityCodename: 'MarketingPageImage',
+                selector: { kind: 'semantic-key', field: 'key', value: 'default' }
+            }
+        ],
         isActive: true
     },
     {
@@ -132,8 +121,14 @@ const EXPECTED_WIDGET_COMPOSITION = [
         sortOrder: 2,
         instanceKey: 'logos',
         variant: 'logos',
-        source: { entityCodename: 'MarketingPageLogo', entityKind: 'object' },
-        copySource: { entityCodename: 'MarketingPageSection', entityKind: 'object', recordKey: 'logos' },
+        bindings: [
+            { slot: 'items', entityCodename: 'MarketingPageLogo', selector: { kind: 'record-set' } },
+            {
+                slot: 'section',
+                entityCodename: 'MarketingPageSection',
+                selector: { kind: 'semantic-key', field: 'key', value: 'logos' }
+            }
+        ],
         isActive: true
     },
     {
@@ -142,8 +137,14 @@ const EXPECTED_WIDGET_COMPOSITION = [
         sortOrder: 3,
         instanceKey: 'features',
         variant: 'features',
-        source: { entityCodename: 'MarketingPageFeature', entityKind: 'object' },
-        copySource: { entityCodename: 'MarketingPageSection', entityKind: 'object', recordKey: 'features' },
+        bindings: [
+            { slot: 'items', entityCodename: 'MarketingPageFeature', selector: { kind: 'record-set' } },
+            {
+                slot: 'section',
+                entityCodename: 'MarketingPageSection',
+                selector: { kind: 'semantic-key', field: 'key', value: 'features' }
+            }
+        ],
         isActive: true
     },
     {
@@ -152,8 +153,14 @@ const EXPECTED_WIDGET_COMPOSITION = [
         sortOrder: 4,
         instanceKey: 'testimonials',
         variant: 'testimonials',
-        source: { entityCodename: 'MarketingPageTestimonial', entityKind: 'object' },
-        copySource: { entityCodename: 'MarketingPageSection', entityKind: 'object', recordKey: 'testimonials' },
+        bindings: [
+            { slot: 'items', entityCodename: 'MarketingPageTestimonial', selector: { kind: 'record-set' } },
+            {
+                slot: 'section',
+                entityCodename: 'MarketingPageSection',
+                selector: { kind: 'semantic-key', field: 'key', value: 'testimonials' }
+            }
+        ],
         isActive: true
     },
     {
@@ -162,8 +169,14 @@ const EXPECTED_WIDGET_COMPOSITION = [
         sortOrder: 5,
         instanceKey: 'highlights',
         variant: 'highlights',
-        source: { entityCodename: 'MarketingPageHighlight', entityKind: 'object' },
-        copySource: { entityCodename: 'MarketingPageSection', entityKind: 'object', recordKey: 'highlights' },
+        bindings: [
+            { slot: 'items', entityCodename: 'MarketingPageHighlight', selector: { kind: 'record-set' } },
+            {
+                slot: 'section',
+                entityCodename: 'MarketingPageSection',
+                selector: { kind: 'semantic-key', field: 'key', value: 'highlights' }
+            }
+        ],
         isActive: true
     },
     {
@@ -171,8 +184,15 @@ const EXPECTED_WIDGET_COMPOSITION = [
         widgetKey: 'marketing.pricing',
         sortOrder: 6,
         instanceKey: 'pricing',
-        source: { entityCodename: 'MarketingPagePricing', entityKind: 'object' },
-        copySource: { entityCodename: 'MarketingPageSection', entityKind: 'object', recordKey: 'pricing' },
+        bindings: [
+            { slot: 'benefits', entityCodename: 'MarketingPagePricingBenefit', selector: { kind: 'relation-set', parentSlot: 'tiers' } },
+            {
+                slot: 'section',
+                entityCodename: 'MarketingPageSection',
+                selector: { kind: 'semantic-key', field: 'key', value: 'pricing' }
+            },
+            { slot: 'tiers', entityCodename: 'MarketingPagePricing', selector: { kind: 'record-set' } }
+        ],
         isActive: true
     },
     {
@@ -181,8 +201,14 @@ const EXPECTED_WIDGET_COMPOSITION = [
         sortOrder: 7,
         instanceKey: 'faq',
         variant: 'faq',
-        source: { entityCodename: 'MarketingPageFaq', entityKind: 'object' },
-        copySource: { entityCodename: 'MarketingPageSection', entityKind: 'object', recordKey: 'faq' },
+        bindings: [
+            { slot: 'items', entityCodename: 'MarketingPageFaq', selector: { kind: 'record-set' } },
+            {
+                slot: 'section',
+                entityCodename: 'MarketingPageSection',
+                selector: { kind: 'semantic-key', field: 'key', value: 'faq' }
+            }
+        ],
         isActive: true
     },
     {
@@ -190,8 +216,14 @@ const EXPECTED_WIDGET_COMPOSITION = [
         widgetKey: 'marketing.footer',
         sortOrder: 0,
         instanceKey: 'footer',
-        source: { entityCodename: 'MarketingPageFooterLink', entityKind: 'object' },
-        copySource: { entityCodename: 'MarketingPageSection', entityKind: 'object', recordKey: 'footer' },
+        bindings: [
+            { slot: 'links', entityCodename: 'MarketingPageFooterLink', selector: { kind: 'record-set' } },
+            {
+                slot: 'site',
+                entityCodename: 'MarketingPageSiteSettings',
+                selector: { kind: 'semantic-key', field: 'key', value: 'site-settings' }
+            }
+        ],
         isActive: true
     }
 ] as const
@@ -209,6 +241,35 @@ const readData = (element: Record<string, unknown>): Record<string, unknown> => 
 const readRecord = (value: unknown, field: string): Record<string, unknown> => {
     assert.ok(value && typeof value === 'object' && !Array.isArray(value), `${field} must be an object`)
     return value as Record<string, unknown>
+}
+
+const summarizeBindings = (value: unknown): Array<Record<string, unknown>> | undefined => {
+    if (value === undefined) return undefined
+    const envelope = readRecord(value, 'widget binding envelope')
+    assert.equal(envelope.version, 1, 'widget binding envelope version changed')
+    assert.ok(Array.isArray(envelope.slots), 'widget binding envelope must contain slot bindings')
+    return (envelope.slots as Array<Record<string, unknown>>).map((slotBinding) => {
+        const targets = slotBinding.targets
+        assert.ok(Array.isArray(targets) && targets.length === 1, 'each seeded slot must target exactly one Entity')
+        const target = readRecord(targets[0], 'widget binding target')
+        const selector = readRecord(target.selector, 'widget binding selector')
+        const kind = readString(selector.kind, 'widget binding selector kind')
+        const normalizedSelector =
+            kind === 'semantic-key'
+                ? {
+                      kind,
+                      field: readString(selector.field, 'semantic key field'),
+                      value: readString(selector.value, 'semantic key value')
+                  }
+                : kind === 'relation-set'
+                ? { kind, parentSlot: readString(selector.parentSlot, 'relation parent slot') }
+                : { kind }
+        return {
+            slot: readString(slotBinding.slot, 'widget binding slot'),
+            entityCodename: readString(target.entityCodename, 'widget binding Entity codename'),
+            selector: normalizedSelector
+        }
+    })
 }
 
 const readResourceSourceUrl = (value: unknown): string => {
@@ -268,13 +329,14 @@ export function assertMarketingPageTemplateBaseline(manifest: TemplateManifest):
     assert.deepEqual(
         (layoutZoneWidgets['marketing-main'] ?? []).map((assignment) => {
             const config = readRecord(assignment.config, 'marketing widget config')
-            const source = config.source === undefined ? undefined : readRecord(config.source, 'marketing widget source')
-            const copySource = config.copySource === undefined ? undefined : readRecord(config.copySource, 'marketing widget copy source')
             const layoutMetadata = config.__layout === undefined ? undefined : readRecord(config.__layout, 'layout widget metadata')
-            const bindings = layoutMetadata?.bindings === undefined ? undefined : readRecord(layoutMetadata.bindings, 'widget bindings')
+            const bindings = summarizeBindings(layoutMetadata?.bindings)
             const instanceKey =
                 config.instanceKey === undefined ? undefined : readString(config.instanceKey, 'marketing widget instanceKey')
             const placement = layoutMetadata?.placement === undefined ? undefined : readString(layoutMetadata.placement, 'widget placement')
+
+            assert.equal(config.source, undefined, 'marketing renderer config must not own Entity content sources')
+            assert.equal(config.copySource, undefined, 'marketing renderer config must not duplicate Entity content sources')
 
             return {
                 zone: readString(assignment.zone, 'marketing widget zone'),
@@ -282,8 +344,6 @@ export function assertMarketingPageTemplateBaseline(manifest: TemplateManifest):
                 sortOrder: assignment.sortOrder,
                 ...(instanceKey === undefined ? {} : { instanceKey }),
                 ...(config.variant === undefined ? {} : { variant: readString(config.variant, 'marketing collection variant') }),
-                ...(source === undefined ? {} : { source }),
-                ...(copySource === undefined ? {} : { copySource }),
                 ...(config.showLeadForm === undefined ? {} : { showLeadForm: config.showLeadForm }),
                 ...(config.showAuthActions === undefined ? {} : { showAuthActions: config.showAuthActions }),
                 ...(bindings === undefined ? {} : { bindings }),
@@ -393,11 +453,6 @@ export function assertMarketingPageTemplateBaseline(manifest: TemplateManifest):
                     en: 'Answers to the most common questions about the product.',
                     ru: 'Ответы на самые частые вопросы о продукте.'
                 }
-            },
-            {
-                key: 'footer',
-                title: { en: 'Footer', ru: 'Подвал' },
-                description: { en: 'Footer branding and newsletter content.', ru: 'Брендинг подвала и содержимое рассылки.' }
             }
         ],
         'section order and copy changed'

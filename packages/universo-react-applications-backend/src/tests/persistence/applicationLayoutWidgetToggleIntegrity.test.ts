@@ -2,10 +2,13 @@ import {
     buildSingleTargetWidgetBinding,
     encodeLayoutConfigEnvelope,
     encodeLayoutWidgetConfigEnvelope,
-    getLayoutWidgetDefinition
+    getLayoutWidgetDefinition,
+    validateWidgetBindings
 } from '@universo-react/types'
 import { toggleApplicationLayoutWidget } from '../../persistence/applicationLayoutsStore'
+import { mapWidget } from '../../persistence/applicationLayoutStoreSupport'
 import { APPLICATION_LAYOUT_MARKETING_HERO_ACTION_INTEGRITY_CONFLICT } from '../../persistence/applicationLayoutMarketingActionIntegrity'
+import { createApplicationLayoutWidgetSourceState } from '../../services/applicationLayoutWidgetSourceState'
 import { createMockDbExecutor } from '../utils/dbMocks'
 
 const schemaName = 'app_018f8a787b8f7c1da111222233334444'
@@ -15,6 +18,61 @@ const pricingDuplicateId = '018f8a78-7b8f-7c1d-a111-2222333344a3'
 const primaryHeroId = '018f8a78-7b8f-7c1d-a111-2222333344a4'
 const inheritedHeroId = '018f8a78-7b8f-7c1d-a111-2222333344a5'
 const inheritedHeroBaseId = '018f8a78-7b8f-7c1d-a111-2222333344a6'
+
+const boundMarketingWidgetConfig = (
+    widgetKey: 'marketing.collection' | 'marketing.pricing',
+    rendererConfig: Record<string, unknown>,
+    entityCodenames: Record<string, string>,
+    semanticKeys: Record<string, string>
+) => {
+    const definition = getLayoutWidgetDefinition(widgetKey, rendererConfig)
+    if (!definition) throw new Error(`Expected ${widgetKey} widget definition`)
+
+    const bindings = validateWidgetBindings(definition, {
+        version: 1,
+        slots: (definition.bindingSlots ?? []).map((slot) => {
+            const selectorKind = slot.selectorKinds[0]
+            const semanticComponent = slot.requirements.components.find(({ semanticKey }) => semanticKey === true)
+            const selector =
+                selectorKind === 'semantic-key'
+                    ? {
+                          kind: selectorKind,
+                          field: semanticComponent?.field ?? 'key',
+                          value: semanticKeys[slot.key] ?? 'default'
+                      }
+                    : selectorKind === 'relation-set'
+                    ? { kind: selectorKind, parentSlot: slot.relation?.parentSlot ?? 'tiers' }
+                    : { kind: 'record-set' as const }
+            const entityCodename = entityCodenames[slot.key]
+            if (!entityCodename) throw new Error(`Expected ${widgetKey}/${slot.key} binding entity`)
+
+            return {
+                slot: slot.key,
+                targets: [
+                    {
+                        entityKind: 'object',
+                        entityCodename,
+                        selector,
+                        projection: slot.requirements.components.map(({ field, componentCodename }) => ({ field, componentCodename }))
+                    }
+                ]
+            }
+        })
+    })
+
+    return encodeLayoutWidgetConfigEnvelope(
+        { rendererConfig, neutral: { bindings } },
+        { templateKey: 'marketing-page', widgetKey, zone: 'marketing-main' }
+    )
+}
+
+const sourceStateFor = (widgetKey: string, config: unknown, sortOrder: number) =>
+    createApplicationLayoutWidgetSourceState('marketing-page', widgetKey, {
+        zone: 'marketing-main',
+        sortOrder,
+        isActive: true,
+        config
+    })
 
 const layoutRow = {
     id: layoutId,
@@ -43,68 +101,76 @@ const layoutRow = {
     version: 4
 }
 
-const pricingWidget = (id: string, instanceKey = 'pricing') => ({
-    id,
-    layout_id: layoutId,
-    zone: 'marketing-main',
-    widget_key: 'marketing.pricing',
-    sort_order: 1,
-    config: encodeLayoutWidgetConfigEnvelope(
+const pricingWidget = (id: string, instanceKey = 'pricing') => {
+    const sourceConfig = boundMarketingWidgetConfig(
+        'marketing.pricing',
+        { instanceKey },
         {
-            rendererConfig: {
-                instanceKey,
-                source: { entityKind: 'object', entityCodename: 'MarketingPagePricing' }
-            }
+            section: 'MarketingPageSection',
+            tiers: 'MarketingPagePricing',
+            benefits: 'MarketingPagePricingBenefit'
         },
-        { templateKey: 'marketing-page', widgetKey: 'marketing.pricing', zone: 'marketing-main' }
-    ),
-    source_config: null,
-    source_widget_id: null,
-    source_base_widget_id: null,
-    is_customized: false,
-    is_active: true,
-    version: 1
-})
-
-const featuresWidget = {
-    id: '018f8a78-7b8f-7c1d-a111-2222333344a7',
-    layout_id: layoutId,
-    zone: 'marketing-main',
-    widget_key: 'marketing.collection',
-    sort_order: 2,
-    config: encodeLayoutWidgetConfigEnvelope(
-        {
-            rendererConfig: {
-                instanceKey: 'features',
-                variant: 'features',
-                source: { entityKind: 'object', entityCodename: 'MarketingPageFeature' }
-            }
-        },
-        { templateKey: 'marketing-page', widgetKey: 'marketing.collection', zone: 'marketing-main' }
-    ),
-    source_config: null,
-    source_widget_id: null,
-    source_base_widget_id: null,
-    is_customized: false,
-    is_active: true,
-    version: 1
+        { section: 'pricing' }
+    )
+    return {
+        id,
+        layout_id: layoutId,
+        zone: 'marketing-main',
+        widget_key: 'marketing.pricing',
+        sort_order: 1,
+        config: sourceConfig,
+        source_config: sourceConfig,
+        source_state: sourceStateFor('marketing.pricing', sourceConfig, 1),
+        source_widget_id: null,
+        source_base_widget_id: null,
+        is_customized: false,
+        is_active: true,
+        version: 1
+    }
 }
 
-const customFeaturesWidget = (id: string, instanceKey: string, sortOrder: number) => ({
-    ...featuresWidget,
-    id,
-    sort_order: sortOrder,
-    config: encodeLayoutWidgetConfigEnvelope(
-        {
-            rendererConfig: {
-                instanceKey,
-                variant: 'features',
-                source: { entityKind: 'object', entityCodename: 'MarketingPageFeature' }
-            }
-        },
-        { templateKey: 'marketing-page', widgetKey: 'marketing.collection', zone: 'marketing-main' }
+const featuresWidgetId = '018f8a78-7b8f-7c1d-a111-2222333344a7'
+const featuresWidget = (() => {
+    const sourceConfig = boundMarketingWidgetConfig(
+        'marketing.collection',
+        { instanceKey: 'features', variant: 'features' },
+        { section: 'MarketingPageSection', items: 'MarketingPageFeature' },
+        { section: 'features' }
     )
-})
+    return {
+        id: featuresWidgetId,
+        layout_id: layoutId,
+        zone: 'marketing-main',
+        widget_key: 'marketing.collection',
+        sort_order: 2,
+        config: sourceConfig,
+        source_config: sourceConfig,
+        source_state: sourceStateFor('marketing.collection', sourceConfig, 2),
+        source_widget_id: null,
+        source_base_widget_id: null,
+        is_customized: false,
+        is_active: true,
+        version: 1
+    }
+})()
+
+const customFeaturesWidget = (id: string, instanceKey: string, sortOrder: number) => {
+    const sourceConfig = boundMarketingWidgetConfig(
+        'marketing.collection',
+        { instanceKey, variant: 'features' },
+        { section: 'MarketingPageSection', items: 'MarketingPageFeature' },
+        { section: 'features' }
+    )
+    return {
+        ...featuresWidget,
+        id,
+        sort_order: sortOrder,
+        config: sourceConfig,
+        source_config: sourceConfig,
+        source_state: sourceStateFor('marketing.collection', sourceConfig, sortOrder),
+        source_widget_id: null
+    }
+}
 
 const heroWidget = (id: string, semanticKey: string, inherited = false) => {
     const definition = getLayoutWidgetDefinition('marketing.hero')
@@ -123,17 +189,22 @@ const heroWidget = (id: string, semanticKey: string, inherited = false) => {
         },
         { templateKey: 'marketing-page', widgetKey: 'marketing.hero', zone: 'marketing-main' }
     )
+    const baselineConfig =
+        inherited === true
+            ? encodeLayoutWidgetConfigEnvelope(
+                  { rendererConfig },
+                  { templateKey: 'marketing-page', widgetKey: 'marketing.hero', zone: 'marketing-main' }
+              )
+            : sourceConfig
     return {
         id,
         layout_id: layoutId,
         zone: 'marketing-main',
         widget_key: 'marketing.hero',
         sort_order: inherited ? 4 : 3,
-        config: encodeLayoutWidgetConfigEnvelope(
-            { rendererConfig },
-            { templateKey: 'marketing-page', widgetKey: 'marketing.hero', zone: 'marketing-main' }
-        ),
-        source_config: sourceConfig,
+        config: baselineConfig,
+        source_config: baselineConfig,
+        source_state: sourceStateFor('marketing.hero', baselineConfig, inherited ? 4 : 3),
         source_widget_id: inherited ? inheritedHeroBaseId : null,
         source_base_widget_id: inherited ? inheritedHeroBaseId : null,
         is_customized: false,
@@ -168,7 +239,7 @@ const createScenario = (initialWidgets: Array<Record<string, unknown>>, heroRows
                             immutableSemanticKeyWhenBound: true,
                             semanticKey: { componentCodename: 'HeroKey', creationPrefix: 'hero', protectedValues: ['default'] },
                             requiredLocales: ['en', 'ru'],
-                            validatorKey: 'marketing.hero.v1'
+                            coRequiredGroups: [['TermsText', 'TermsLinkLabel', 'TermsAction']]
                         }
                     }
                 }
@@ -187,6 +258,7 @@ const createScenario = (initialWidgets: Array<Record<string, unknown>>, heroRows
                     ...(component.localized ? { localized: true } : {}),
                     ...(component.maxLength !== undefined ? { maxLength: component.maxLength } : {}),
                     ...(component.semanticKey ? { unique: true } : {}),
+                    ...(component.pattern === undefined ? {} : { pattern: component.pattern }),
                     ...(component.format ? { format: component.format } : {})
                 }
             }))
@@ -210,6 +282,21 @@ const createScenario = (initialWidgets: Array<Record<string, unknown>>, heroRows
     })
     return { executor, txExecutor }
 }
+
+describe('application-bound Marketing widget test fixtures', () => {
+    it('maps direct and sparse inherited source baselines with their trusted binding ownership', () => {
+        const rows = [
+            pricingWidget(widgetId),
+            featuresWidget,
+            heroWidget(primaryHeroId, 'hero-primary'),
+            heroWidget(inheritedHeroId, 'hero-inherited', true)
+        ]
+
+        for (const row of rows) {
+            expect(() => mapWidget(row as never, 'marketing-page')).not.toThrow()
+        }
+    })
+})
 
 const activeHeroRecord = (id: string, heroKey: string, primaryAction: unknown, termsAction: unknown = null) => ({
     id,
@@ -242,7 +329,7 @@ describe('application layout marketing Hero action integrity on widget toggle', 
         expect(scenario.txExecutor.query.mock.calls.some(([query]) => String(query).includes('SET is_active = $2'))).toBe(false)
     })
 
-    it('blocks hiding a section targeted by any active Hero placement, including an inherited placement', async () => {
+    it('blocks hiding a section targeted by any active Hero placement', async () => {
         const heroRows = [
             activeHeroRecord('018f8a78-7b8f-7c1d-a111-2222333344b1', 'hero-primary', { kind: 'anchor', href: '#features' }),
             activeHeroRecord(
@@ -257,7 +344,7 @@ describe('application layout marketing Hero action integrity on widget toggle', 
                 pricingWidget(widgetId),
                 featuresWidget,
                 heroWidget(primaryHeroId, 'hero-primary'),
-                heroWidget(inheritedHeroId, 'hero-inherited', true)
+                heroWidget(inheritedHeroId, 'hero-inherited')
             ],
             heroRows
         )

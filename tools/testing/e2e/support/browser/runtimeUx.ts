@@ -41,9 +41,15 @@ export type BrowserRuntimeIssue = {
 }
 
 const EXPECTED_CONFLICT_RESOURCE_ERROR = 'Failed to load resource: the server responded with a status of 409 (Conflict)'
+const EXPECTED_VALIDATION_RESOURCE_ERROR = 'Failed to load resource: the server responded with a status of 400 (Bad Request)'
 
 export const isExpectedConflictResourceFailure = (issue: BrowserRuntimeIssue, expectedUrls: readonly string[]): boolean =>
     issue.source === 'console' && issue.text === EXPECTED_CONFLICT_RESOURCE_ERROR && Boolean(issue.url && expectedUrls.includes(issue.url))
+
+export const isExpectedValidationResourceFailure = (issue: BrowserRuntimeIssue, expectedUrls: readonly string[]): boolean =>
+    issue.source === 'console' &&
+    issue.text === EXPECTED_VALIDATION_RESOURCE_ERROR &&
+    Boolean(issue.url && expectedUrls.includes(issue.url))
 
 export type StrictRuntimeUxOptions = {
     label: string
@@ -136,12 +142,17 @@ export const watchBrowserRuntimeIssues = (page: Page): BrowserRuntimeIssue[] => 
 export function expectNoUnexpectedBrowserRuntimeIssues(
     issues: BrowserRuntimeIssue[],
     label: string,
-    options: { allowTextPatterns?: RegExp[]; allowExpectedConflictResourceUrls?: readonly string[] } = {}
+    options: {
+        allowTextPatterns?: RegExp[]
+        allowExpectedConflictResourceUrls?: readonly string[]
+        allowExpectedValidationResourceUrls?: readonly string[]
+    } = {}
 ): void {
     const allowTextPatterns = options.allowTextPatterns ?? []
     const unexpected = issues.filter(
         (issue) =>
             !isExpectedConflictResourceFailure(issue, options.allowExpectedConflictResourceUrls ?? []) &&
+            !isExpectedValidationResourceFailure(issue, options.allowExpectedValidationResourceUrls ?? []) &&
             !allowTextPatterns.some((pattern) => matchesPattern(pattern, `${issue.text}\n${issue.url ?? ''}`))
     )
 

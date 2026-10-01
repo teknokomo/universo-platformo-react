@@ -124,7 +124,6 @@ const marketingRuntimeTemplate = {
         locale: 'en' as const,
         config: {},
         runtime: {
-            layoutId,
             layoutVersion: 1,
             layoutHash: 'a'.repeat(64)
         },

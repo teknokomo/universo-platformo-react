@@ -11,6 +11,7 @@ import { createEntityFixedValueRoutes } from './entities/metadata/fixedValue/rou
 import { createLayoutsRoutes } from './layouts/routes/layoutsRoutes'
 import { createModulesRoutes } from './modules/routes/modulesRoutes'
 import { createPackagesRoutes } from './packages/routes/packagesRoutes'
+import { createPackageArtifactRoutes } from './packages/routes/packageArtifactRoutes'
 import { createPlayCanvasProjectsRoutes } from './playcanvas-projects/routes/playCanvasProjectsRoutes'
 import { createTemplatesRoutes } from './templates/routes/templatesRoutes'
 import { createPublicMetahubsRoutes } from './metahubs/routes/publicMetahubsRoutes'
@@ -65,11 +66,16 @@ export function getRateLimiters(): { read: RateLimitRequestHandler; write: RateL
 export function createMetahubsServiceRoutes(
     ensureAuth: RequestHandler,
     getDbExecutor: () => DbExecutor,
-    csrfProtection: RequestHandler
+    csrfProtection: RequestHandler,
+    ensureAuthWithoutRls: RequestHandler = ensureAuth
 ): Router {
     const router = Router()
 
     const { read, write } = getRateLimiters()
+
+    // Streamed editor artifact responses must not run inside the request-scoped
+    // RLS transaction, which commits only after buffered API responses complete.
+    router.use('/', createPackageArtifactRoutes(ensureAuthWithoutRls, getDbExecutor, read))
 
     // PlayCanvas Editor compatibility routes accept short-lived signed headers
     // before the domain routers with catch-all session middleware.

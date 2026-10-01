@@ -173,10 +173,15 @@ export type RuntimeApplicationWidgetRow = {
     widget_key: unknown
     sort_order: unknown
     config: unknown
+    source_config?: unknown
     is_active: unknown
     source_widget_id?: unknown
     source_base_widget_id?: unknown
 }
+
+/** Application-only source baseline for fields that live outside widget config JSON. */
+export { applicationLayoutWidgetSourceStateSchema } from '../../services/applicationLayoutWidgetSourceState'
+export type { ApplicationLayoutWidgetSourceState } from '../../services/applicationLayoutWidgetSourceState'
 
 // --- Enumeration / layout snapshot types ---
 

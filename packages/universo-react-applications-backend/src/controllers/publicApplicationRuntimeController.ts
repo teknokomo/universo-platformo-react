@@ -1,15 +1,9 @@
 import type { Request, Response } from 'express'
-import {
-    getLayoutWidgetDefinition,
-    marketingSemanticKeySchema,
-    PUBLIC_APPLICATION_RUNTIME_ERROR_CODE,
-    validateWidgetBindings,
-    type EffectiveWidget,
-    type PublicMarketingApplicationRuntime
-} from '@universo-react/types'
+import { PUBLIC_APPLICATION_RUNTIME_ERROR_CODE, type PublicMarketingApplicationRuntime } from '@universo-react/types'
 import { type DbExecutor } from '@universo-react/utils'
+import type { RuntimeTarget } from '@universo-react/types'
 import { PublicEntryWorkspaceError, resolvePublicEntryWorkspace } from '../services/applicationWorkspaces'
-import { EffectiveLayoutError } from '../services/effectiveLayoutContract'
+import { EffectiveLayoutError, parseRuntimeTarget } from '../services/effectiveLayoutContract'
 import { resolveEffectiveLayoutForPublicTransaction } from '../services/effectiveLayoutResolver'
 import {
     parsePublicApplicationRef,
@@ -17,15 +11,10 @@ import {
     resolvePublicApplication,
     type ResolvedPublicApplication
 } from '../services/publicApplicationRuntime'
-import {
-    loadAllowlistedPublishedMarketingRows,
-    PublicMarketingMaterializationError,
-    PUBLIC_MARKETING_ROW_LIMIT
-} from '../persistence/publicApplicationRuntimeStore'
+import { createPublicMarketingBindingRecordLoader, PublicMarketingMaterializationError } from '../persistence/publicApplicationRuntimeStore'
 import { serializePublicMarketingRuntime } from '../services/publicMarketingRuntime'
-import { getApplicationLayoutWidgetSourceBindingState } from '../persistence/applicationLayoutStoreSupport'
 
-const PUBLIC_RUNTIME_QUERY_KEYS = new Set(['locale'])
+const PUBLIC_RUNTIME_QUERY_KEYS = new Set(['locale', 'targetKind', 'entityTypeId', 'entityTypeCodename'])
 const DAMAGED_PUBLIC_MATERIALIZATION_SQLSTATES = new Set(['42P01', '3F000', '42703'])
 
 /**
@@ -43,79 +32,71 @@ const isDamagedPublicMaterializationError = (error: unknown): boolean =>
     )
 const PUBLIC_RUNTIME_UI_PROBE_ACCEPT = 'application/vnd.universo.public-runtime-probe+json'
 
-export type PublicHeroSelection = { entityCodename: string; semanticKeys: string[] }
-
-/** Select only source-backed Hero records placed in the published layout. */
-export const collectActivePublicHeroSelections = (widgets: readonly EffectiveWidget[]): PublicHeroSelection[] => {
-    const activeHeroWidgets = widgets.filter((widget) => widget.widgetKey === 'marketing.hero' && widget.isActive)
-    if (activeHeroWidgets.length === 0) return []
-
-    const definition = getLayoutWidgetDefinition('marketing.hero')
-    if (!definition?.bindingSlots?.some((slot) => slot.key === 'content')) {
-        throw new PublicMarketingMaterializationError('Published Hero binding contract is unavailable')
-    }
-
-    const selections = new Map<string, Set<string>>()
-    for (const widget of activeHeroWidgets) {
-        const bindings = getApplicationLayoutWidgetSourceBindingState(widget)?.bindings
-        if (!bindings) throw new PublicMarketingMaterializationError('Published Hero binding is missing')
-
-        let validatedBindings
-        try {
-            validatedBindings = validateWidgetBindings(definition, bindings)
-        } catch {
-            throw new PublicMarketingMaterializationError('Published Hero binding is invalid')
-        }
-
-        const targets = validatedBindings.slots.find((slot) => slot.slot === 'content')?.targets
-        if (!targets || targets.length !== 1) throw new PublicMarketingMaterializationError('Published Hero binding is invalid')
-        const [target] = targets
-        if (
-            target.entityKind !== 'object' ||
-            !/^[A-Za-z][A-Za-z0-9._-]*$/u.test(target.entityCodename) ||
-            target.selector.kind !== 'semantic-key' ||
-            target.selector.field !== 'key' ||
-            !marketingSemanticKeySchema.safeParse(target.selector.value).success
-        ) {
-            throw new PublicMarketingMaterializationError('Published Hero binding target is invalid')
-        }
-        const keys = selections.get(target.entityCodename) ?? new Set<string>()
-        keys.add(target.selector.value)
-        selections.set(target.entityCodename, keys)
-    }
-    const totalKeys = [...selections.values()].reduce((total, keys) => total + keys.size, 0)
-    if (totalKeys > PUBLIC_MARKETING_ROW_LIMIT) {
-        throw new PublicMarketingMaterializationError('Published Hero selection exceeds the row limit')
-    }
-    return [...selections].map(([entityCodename, keys]) => ({ entityCodename, semanticKeys: [...keys] }))
-}
-
 const prefersUiProbeResponse = (req: Request): boolean => req.get('accept')?.toLowerCase().includes(PUBLIC_RUNTIME_UI_PROBE_ACCEPT) === true
 
-export const resolvePublicLocale = (req: Request): 'en' | 'ru' => {
+const readPublicQueryValue = (value: unknown): string | undefined => {
+    if (value === undefined) return undefined
+    if (typeof value !== 'string') throw new PublicApplicationUnavailableError('reference_invalid')
+    return value
+}
+
+interface ParsedPublicRuntimeQuery {
+    locale: 'en' | 'ru'
+    targetKind?: string
+    entityTypeId?: string
+    entityTypeCodename?: string
+}
+
+export const parsePublicRuntimeQuery = (req: Request): ParsedPublicRuntimeQuery => {
     const queryKeys = Object.keys(req.query)
     if (queryKeys.some((key) => !PUBLIC_RUNTIME_QUERY_KEYS.has(key))) {
         throw new PublicApplicationUnavailableError('reference_invalid')
     }
 
-    const rawLocale = req.query.locale
-    if (rawLocale === undefined) return 'en'
+    const rawLocale = readPublicQueryValue(req.query.locale) ?? 'en'
     if (rawLocale !== 'en' && rawLocale !== 'ru') {
         throw new PublicApplicationUnavailableError('reference_invalid')
     }
-    return rawLocale
+
+    const targetKind = readPublicQueryValue(req.query.targetKind)
+    const entityTypeId = readPublicQueryValue(req.query.entityTypeId)
+    const entityTypeCodename = readPublicQueryValue(req.query.entityTypeCodename)
+    return {
+        locale: rawLocale,
+        ...(targetKind !== undefined ? { targetKind } : {}),
+        ...(entityTypeId !== undefined ? { entityTypeId } : {}),
+        ...(entityTypeCodename !== undefined ? { entityTypeCodename } : {})
+    }
+}
+
+const resolvePublicRuntimeTarget = (query: ParsedPublicRuntimeQuery, applicationId: string): RuntimeTarget => {
+    try {
+        return parseRuntimeTarget(applicationId, query)
+    } catch (error) {
+        if (error instanceof EffectiveLayoutError && error.code === 'LAYOUT_REQUEST_INVALID') {
+            throw new PublicApplicationUnavailableError('reference_invalid')
+        }
+        throw error
+    }
+}
+
+export const resolvePublicRuntimeRequest = (req: Request, applicationId: string): { locale: 'en' | 'ru'; target: RuntimeTarget } => {
+    const query = parsePublicRuntimeQuery(req)
+    return { locale: query.locale, target: resolvePublicRuntimeTarget(query, applicationId) }
 }
 
 export interface PublicMarketingRuntimeLoadInput {
     executor: DbExecutor
     locale: 'en' | 'ru'
+    target: RuntimeTarget
     resolved: ResolvedPublicApplication
 }
 
-/** Resolve public workspace/layout and load the published allowlisted DTO in one transaction. */
+/** Resolve public workspace/layout and bounded Entity bindings in one transaction. */
 export const loadPublicMarketingRuntime = async ({
     executor,
     locale,
+    target,
     resolved
 }: PublicMarketingRuntimeLoadInput): Promise<PublicMarketingApplicationRuntime> => {
     const application = resolved.application
@@ -127,11 +108,7 @@ export const loadPublicMarketingRuntime = async ({
 
     let effectiveLayout
     try {
-        effectiveLayout = await resolveEffectiveLayoutForPublicTransaction(
-            executor,
-            { applicationId: application.id, targetKind: null, locale },
-            publicWorkspace?.workspaceId ?? null
-        )
+        effectiveLayout = await resolveEffectiveLayoutForPublicTransaction(executor, target, publicWorkspace?.workspaceId ?? null)
     } catch (error) {
         if (error instanceof EffectiveLayoutError) {
             // Transient query failures (5xx) must stay retryable: turning them
@@ -143,13 +120,12 @@ export const loadPublicMarketingRuntime = async ({
         throw error
     }
 
-    const rows = await loadAllowlistedPublishedMarketingRows(executor, {
+    const loadRecords = createPublicMarketingBindingRecordLoader(executor, {
         schemaName: application.schemaName,
-        workspaceId: publicWorkspace?.workspaceId ?? null,
-        heroTargets: collectActivePublicHeroSelections(effectiveLayout.widgets)
+        workspaceId: publicWorkspace?.workspaceId ?? null
     })
 
-    return serializePublicMarketingRuntime({ route: resolved.route, locale, effectiveLayout, rows })
+    return serializePublicMarketingRuntime({ route: resolved.route, locale, effectiveLayout, loadRecords })
 }
 
 export function createPublicApplicationRuntimeController(getDbExecutor: () => DbExecutor) {
@@ -159,12 +135,12 @@ export function createPublicApplicationRuntimeController(getDbExecutor: () => Db
         try {
             const applicationRef = req.params.applicationRef
             parsePublicApplicationRef(applicationRef)
-            const locale = resolvePublicLocale(req)
-
+            const query = parsePublicRuntimeQuery(req)
             const payload = await getDbExecutor().transaction(async (tx) => {
                 await tx.query('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ')
                 const resolved = await resolvePublicApplication(tx, applicationRef)
-                return loadPublicMarketingRuntime({ executor: tx, locale, resolved })
+                const target = resolvePublicRuntimeTarget(query, resolved.application.id)
+                return loadPublicMarketingRuntime({ executor: tx, locale: query.locale, target, resolved })
             })
 
             return res.status(200).json(payload)

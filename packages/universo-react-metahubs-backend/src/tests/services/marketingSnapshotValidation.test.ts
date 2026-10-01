@@ -1,4 +1,10 @@
-import { buildSingleTargetWidgetBinding, encodeWidgetConfigEnvelope, getLayoutWidgetDefinition } from '@universo-react/types'
+import {
+    buildSingleTargetWidgetBinding,
+    decodeWidgetConfigEnvelope,
+    encodeWidgetConfigEnvelope,
+    getLayoutWidgetDefinition,
+    validateWidgetBindings
+} from '@universo-react/types'
 import { validateMarketingSnapshotLayouts } from '../../domains/publications/services/marketingSnapshotValidation'
 import type { MetahubSnapshot } from '../../domains/publications/services/SnapshotSerializer'
 
@@ -14,7 +20,8 @@ const ids = {
     siteSettings: '0190a9b5-3cde-7abc-8def-0123456789b1',
     logos: '0190a9b5-3cde-7abc-8def-0123456789b2',
     features: '0190a9b5-3cde-7abc-8def-0123456789b3',
-    heroEntity: '0190a9b5-3cde-7abc-8def-0123456789b4'
+    heroEntity: '0190a9b5-3cde-7abc-8def-0123456789b4',
+    sections: '0190a9b5-3cde-7abc-8def-0123456789b5'
 } as const
 
 const heroDefinition = getLayoutWidgetDefinition('marketing.hero')
@@ -28,6 +35,7 @@ const heroComponents = heroBindingSlot.requirements.components.map((component) =
         ...(component.localized ? { localized: true } : {}),
         ...(component.maxLength !== undefined ? { maxLength: component.maxLength } : {}),
         ...(component.semanticKey ? { unique: true } : {}),
+        ...(component.pattern === undefined ? {} : { pattern: component.pattern }),
         ...(component.format !== undefined ? { format: component.format } : {})
     }
 }))
@@ -48,6 +56,34 @@ const localizedHeroText = (en: string, ru: string) => ({
     }
 })
 
+const validBindingRecordData = (
+    components: readonly {
+        readonly componentCodename: string
+        readonly semanticKey?: boolean
+        readonly localized: boolean
+        readonly valueType: string
+        readonly format?: string
+    }[],
+    semanticKey: string
+): Record<string, unknown> =>
+    Object.fromEntries(
+        components.map((component) => {
+            if (component.semanticKey) return [component.componentCodename, semanticKey]
+            if (component.localized) return [component.componentCodename, localizedHeroText('Sample content', 'Тестовое содержимое')]
+            if (component.valueType === 'number') return [component.componentCodename, 1]
+            if (component.valueType === 'boolean') return [component.componentCodename, true]
+            if (component.valueType === 'ref') return [component.componentCodename, ids.collectionOne]
+            if (component.format === 'marketingAction') {
+                return [component.componentCodename, { kind: 'internal', path: '/pricing', target: 'same-tab' }]
+            }
+            if (component.format === 'marketingMediaReference') {
+                return [component.componentCodename, { type: 'url', url: 'https://example.test/marketing-media.svg', launchMode: 'inline' }]
+            }
+            if (component.valueType === 'json') return [component.componentCodename, {}]
+            return [component.componentCodename, 'Sample content']
+        })
+    )
+
 const heroRecordData = () => ({
     HeroKey: 'default',
     Title: localizedHeroText('Our latest', 'Наши новые'),
@@ -59,33 +95,141 @@ const heroRecordData = () => ({
     PrimaryAction: { kind: 'internal', path: '/auth', target: 'same-tab' }
 })
 
-const collectionWidget = (id: string, instanceKey: string, sourceCodename: string, variant: 'logos' | 'features', sortOrder: number) => ({
-    id,
-    layoutId: ids.layout,
-    zone: 'marketing-main',
-    widgetKey: 'marketing.collection',
-    sortOrder,
-    config: {
-        instanceKey,
-        source: { entityCodename: sourceCodename, entityKind: 'object' },
-        variant,
-        maxItems: 12,
-        showTitle: true,
-        showDescription: true
-    },
-    isActive: true
-})
+const collectionWidget = (id: string, instanceKey: string, sourceCodename: string, variant: 'logos' | 'features', sortOrder: number) => {
+    const widgetKey = 'marketing.collection'
+    const rendererConfig = { instanceKey, variant, maxItems: 12, showTitle: true, showDescription: true }
+    const definition = getLayoutWidgetDefinition(widgetKey, rendererConfig)
+    if (!definition) throw new Error('Expected marketing.collection widget definition')
 
-const makeSnapshot = (widgets: unknown[]): MetahubSnapshot =>
-    ({
+    const bindings = validateWidgetBindings(definition, {
+        version: 1,
+        slots: (definition.bindingSlots ?? []).map((slot) => {
+            const selectorKind = slot.selectorKinds[0]
+            const semanticComponent = slot.requirements.components.find(({ semanticKey }) => semanticKey === true)
+            const selector =
+                selectorKind === 'semantic-key'
+                    ? { kind: selectorKind, field: semanticComponent?.field ?? 'key', value: variant }
+                    : selectorKind === 'relation-set'
+                    ? { kind: selectorKind, parentSlot: slot.relation?.parentSlot ?? 'items' }
+                    : { kind: 'record-set' as const }
+            return {
+                slot: slot.key,
+                targets: [
+                    {
+                        entityKind: 'object',
+                        entityCodename: slot.key === 'section' ? 'MarketingPageSection' : sourceCodename,
+                        selector,
+                        projection: slot.requirements.components.map(({ field, componentCodename }) => ({ field, componentCodename }))
+                    }
+                ]
+            }
+        })
+    })
+
+    return {
+        id,
+        layoutId: ids.layout,
+        zone: 'marketing-main',
+        widgetKey,
+        sortOrder,
+        config: encodeWidgetConfigEnvelope(
+            { rendererConfig, neutral: { bindings } },
+            { templateKey: 'marketing-page', widgetKey, zone: 'marketing-main' }
+        ),
+        isActive: true
+    }
+}
+
+const bindingSourceFixtures = (widgets: unknown[]) => {
+    const sourceEntities: Record<string, Record<string, unknown>> = {}
+    const sourceElements: Record<string, Array<Record<string, unknown>>> = {}
+    const sourceIds: Record<string, string> = {
+        MarketingPageSection: ids.sections,
+        MarketingPageLogo: ids.logos,
+        MarketingPageFeature: ids.features
+    }
+    let nextRecord = 1
+
+    for (const value of widgets) {
+        if (!value || typeof value !== 'object' || Array.isArray(value)) continue
+        const widget = value as Record<string, unknown>
+        if (typeof widget.widgetKey !== 'string' || typeof widget.zone !== 'string') continue
+        const decoded = decodeWidgetConfigEnvelope(widget.config, {
+            templateKey: 'marketing-page',
+            widgetKey: widget.widgetKey,
+            zone: widget.zone,
+            requireBindings: true
+        })
+        const definition = getLayoutWidgetDefinition(widget.widgetKey, decoded.rendererConfig)
+        if (!definition || !decoded.neutral.bindings) continue
+
+        for (const binding of decoded.neutral.bindings.slots) {
+            const slot = definition.bindingSlots?.find(({ key }) => key === binding.slot)
+            if (!slot) continue
+            for (const target of binding.targets) {
+                // The canonical Hero entity and record are supplied by makeSnapshot below.
+                if (target.entityCodename === 'MarketingPageHero') continue
+                const entityId = sourceIds[target.entityCodename]
+                if (!entityId) throw new Error(`Unexpected binding source ${target.entityCodename}`)
+                if (!sourceEntities[entityId]) {
+                    sourceEntities[entityId] = {
+                        kind: target.entityKind,
+                        codename: target.entityCodename,
+                        config: {
+                            capabilities: Object.fromEntries(
+                                slot.requirements.entityCapabilities.map((capability) => [capability, { enabled: true }])
+                            ),
+                            ...(slot.requirements.recordPolicy ? { recordPolicy: { version: 1, ...slot.requirements.recordPolicy } } : {})
+                        },
+                        fields: slot.requirements.components.map((component) => ({
+                            codename: component.componentCodename,
+                            dataType: component.valueType.toUpperCase(),
+                            isRequired: component.required,
+                            validationRules: {
+                                ...(component.localized ? { localized: true } : {}),
+                                ...(component.maxLength !== undefined ? { maxLength: component.maxLength } : {}),
+                                ...(component.semanticKey ? { unique: true } : {}),
+                                ...(component.pattern === undefined ? {} : { pattern: component.pattern }),
+                                ...(component.format !== undefined ? { format: component.format } : {})
+                            }
+                        }))
+                    }
+                }
+
+                const records = sourceElements[entityId] ?? []
+                if (target.selector.kind === 'semantic-key') {
+                    const semanticComponent = slot.requirements.components.find(({ semanticKey }) => semanticKey === true)
+                    const componentCodename = semanticComponent?.componentCodename
+                    if (
+                        componentCodename &&
+                        !records.some(
+                            (record) => (record.data as Record<string, unknown> | undefined)?.[componentCodename] === target.selector.value
+                        )
+                    ) {
+                        records.push({
+                            id: `0190a9b5-3cde-7abc-8def-${String(nextRecord++).padStart(12, '0')}`,
+                            data: validBindingRecordData(slot.requirements.components, target.selector.value)
+                        })
+                    }
+                }
+                sourceElements[entityId] = records
+            }
+        }
+    }
+
+    return { sourceEntities, sourceElements }
+}
+
+const makeSnapshot = (widgets: unknown[]): MetahubSnapshot => {
+    const sources = bindingSourceFixtures(widgets)
+    return {
         version: 1,
         versionEnvelope: {},
         generatedAt: '2026-09-04T00:00:00.000Z',
         metahubId: '0190a9b5-3cde-7abc-8def-0123456789a0',
         entities: {
             [ids.siteSettings]: objectEntity('MarketingPageSiteSettings'),
-            [ids.logos]: objectEntity('MarketingPageLogo'),
-            [ids.features]: objectEntity('MarketingPageFeature'),
+            ...sources.sourceEntities,
             [ids.heroEntity]: {
                 ...objectEntity('MarketingPageHero'),
                 config: {
@@ -97,7 +241,7 @@ const makeSnapshot = (widgets: unknown[]): MetahubSnapshot =>
         },
         fixedValues: {},
         optionValues: {},
-        elements: { [ids.heroEntity]: [{ data: heroRecordData() }] },
+        elements: { ...sources.sourceElements, [ids.heroEntity]: [{ data: heroRecordData() }] },
         systemFields: {},
         layouts: [
             {
@@ -116,7 +260,8 @@ const makeSnapshot = (widgets: unknown[]): MetahubSnapshot =>
         defaultLayoutId: ids.layout,
         layoutConfig: {},
         layoutZoneWidgets: widgets
-    } as unknown as MetahubSnapshot)
+    } as unknown as MetahubSnapshot
+}
 
 describe('validateMarketingSnapshotLayouts', () => {
     it('accepts repeated collection instances with distinct semantic keys', () => {
@@ -128,6 +273,30 @@ describe('validateMarketingSnapshotLayouts', () => {
                 ])
             )
         ).not.toThrow()
+    })
+
+    it.each(['source', 'copySource'] as const)('rejects legacy marketing %s renderer configuration', (field) => {
+        const snapshot = makeSnapshot([collectionWidget(ids.collectionOne, 'logos', 'MarketingPageLogo', 'logos', 0)])
+        const widget = snapshot.layoutZoneWidgets?.[0]
+        if (!widget) throw new Error('Expected marketing collection widget')
+        const decoded = decodeWidgetConfigEnvelope(widget.config, {
+            templateKey: 'marketing-page',
+            widgetKey: 'marketing.collection',
+            zone: 'marketing-main',
+            requireBindings: true
+        })
+        widget.config = encodeWidgetConfigEnvelope(
+            {
+                rendererConfig: {
+                    ...decoded.rendererConfig,
+                    [field]: { entityKind: 'object', entityCodename: 'MarketingPageLogo' }
+                },
+                neutral: decoded.neutral
+            },
+            { templateKey: 'marketing-page', widgetKey: 'marketing.collection', zone: 'marketing-main' }
+        )
+
+        expect(() => validateMarketingSnapshotLayouts(snapshot)).toThrow('Marketing snapshot widget configuration is invalid')
     })
 
     it('rejects an empty marketing composition with an explicit contract error', () => {
@@ -172,11 +341,11 @@ describe('validateMarketingSnapshotLayouts', () => {
         )
     })
 
-    it('rejects a source codename that is absent from the snapshot entities', () => {
+    it('rejects a binding target entity that is absent from the snapshot entities', () => {
         const snapshot = makeSnapshot([collectionWidget(ids.collectionOne, 'logos', 'MarketingPageLogo', 'logos', 0)])
         delete snapshot.entities[ids.logos]
 
-        expect(() => validateMarketingSnapshotLayouts(snapshot)).toThrow('source entity is missing')
+        expect(() => validateMarketingSnapshotLayouts(snapshot)).toThrow('binding entity is missing')
     })
 
     it('rejects a marketing snapshot with no explicit default layout or widget array', () => {

@@ -120,18 +120,22 @@ export const validateSnapshotLayoutNeutralMetadata = (snapshot: unknown, failSna
             failSnapshotLayout('Snapshot widget override references an unknown layout or base widget', { overrideId: override.id })
         }
         const templateKey = readSnapshotTemplateKey(layout.templateKey, `layout:${String(layout.id)}`, failSnapshotLayout)
+        let decoded: ReturnType<typeof decodeWidgetConfigEnvelope>
         try {
-            decodeWidgetConfigEnvelope(override.config, {
+            decoded = decodeWidgetConfigEnvelope(override.config, {
                 templateKey,
                 widgetKey: String(baseWidget.widgetKey),
                 zone: String(override.zone ?? baseWidget.zone),
-                requireBindings: true
+                requireBindings: false
             })
         } catch (error) {
             if (error instanceof MissingRequiredWidgetBindingsError) {
                 failSnapshotLayout('Snapshot widget override binding is invalid', { overrideId: override.id })
             }
             failSnapshotLayout('Snapshot widget override configuration is invalid', { overrideId: override.id })
+        }
+        if (decoded.neutral.bindings !== undefined) {
+            failSnapshotLayout('Snapshot widget override cannot contain entity bindings', { overrideId: override.id })
         }
     }
 }

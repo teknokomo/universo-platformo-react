@@ -1,12 +1,15 @@
 import { describe, expect, it } from 'vitest'
 
-import type { MarketingHeroEntityContent, MarketingPageRuntimeViewModel } from '@universo-react/types'
+import type { MarketingHeroEntityContent } from '@universo-react/types'
 
 import { normalizeMarketingPageRuntime } from '../normalize'
+import {
+    authenticatedMarketingPageRuntimePayloadSchema,
+    publicMarketingPageRuntimePayloadSchema,
+    type MarketingPageRuntimePayload
+} from '../runtimeDto'
 
-const uuid = (suffix: string): string => `0190a9b5-3cde-7abc-8def-0123456789${suffix}`
 const localized = (en: string, ru = en) => ({ en, ru })
-const provenance = { layer: 'application' as const, isSeeded: true, isAuthored: false, seedKey: 'marketing-seed' }
 const heroContent = (overrides: Partial<MarketingHeroEntityContent> = {}): MarketingHeroEntityContent => ({
     title: localized('A focused launch', 'Короткий запуск'),
     accent: localized('Made for teams', 'Для команд'),
@@ -20,38 +23,10 @@ const heroContent = (overrides: Partial<MarketingHeroEntityContent> = {}): Marke
 const heroWidgetData = (content: MarketingHeroEntityContent) => ({
     records: [{ kind: 'heroContent' as const, semanticKey: 'content' as const, order: 0 as const, isVisible: true as const, content }]
 })
-const sourceForWidget = (widgetKey: string, variant?: string) => {
-    const entityCodenameByWidget: Record<string, string> = {
-        'marketing.navigation': 'MarketingPageNavigation',
-        'marketing.brand': 'MarketingPageSiteSettings',
-        'marketing.collection': 'MarketingPageFeature',
-        'marketing.pricing': 'MarketingPagePricing',
-        'marketing.footer': 'MarketingPageFooterLink'
-    }
-    const collectionSourceByVariant: Record<string, string> = {
-        logos: 'MarketingPageLogo',
-        features: 'MarketingPageFeature',
-        testimonials: 'MarketingPageTestimonial',
-        highlights: 'MarketingPageHighlight',
-        faq: 'MarketingPageFaq'
-    }
-    return {
-        entityCodename:
-            widgetKey === 'marketing.collection'
-                ? collectionSourceByVariant[variant ?? '']
-                : entityCodenameByWidget[widgetKey] ?? 'MarketingPageSiteSettings',
-        entityKind: 'object' as const
-    }
-}
-
-const record = (id: string, semanticKey: string, kind: string, extra: Record<string, unknown> = {}) => ({
-    id: uuid(id),
+const record = (_id: string, semanticKey: string, kind: string, extra: Record<string, unknown> = {}) => ({
     semanticKey,
-    locale: 'en',
     order: 1,
     isVisible: true,
-    scope: 'application',
-    provenance,
     kind,
     ...extra
 })
@@ -80,13 +55,7 @@ const widget = ({
     zone,
     sortOrder,
     isActive,
-    config: {
-        instanceKey,
-        ...(widgetKey === 'marketing.image' || widgetKey === 'marketing.hero'
-            ? {}
-            : { source: sourceForWidget(widgetKey, typeof config.variant === 'string' ? config.variant : undefined) }),
-        ...config
-    },
+    config: { instanceKey, ...config },
     data: runtimeData === undefined ? { records: items } : runtimeData
 })
 
@@ -108,15 +77,11 @@ const atomicWidget = ({
     zone: 'marketing-header',
     sortOrder,
     isActive: true,
-    config: {
-        instanceKey,
-        ...(widgetKey === 'marketing.brand' ? { source: sourceForWidget(widgetKey) } : {}),
-        ...config
-    },
+    config: { instanceKey, ...config },
     data: { records: items }
 })
 
-const envelope = (widgets: unknown[]): MarketingPageRuntimeViewModel =>
+const envelope = (widgets: unknown[]): MarketingPageRuntimePayload =>
     ({
         templateKey: 'marketing-page',
         marketingPage: {
@@ -125,15 +90,36 @@ const envelope = (widgets: unknown[]): MarketingPageRuntimeViewModel =>
             config: {},
             widgets,
             runtime: {
-                layoutId: uuid('90'),
                 layoutVersion: 1,
                 layoutHash: 'a'.repeat(64)
-            },
-            provenance
+            }
         }
-    } as unknown as MarketingPageRuntimeViewModel)
+    } as unknown as MarketingPageRuntimePayload)
 
 describe('normalizeMarketingPageRuntime', () => {
+    it('accepts authenticated runtime envelopes with allowlisted Entity projections', () => {
+        const viewModel = envelope([
+            widget({
+                instanceKey: 'hero',
+                widgetKey: 'marketing.hero',
+                zone: 'marketing-main',
+                sortOrder: 0,
+                data: heroWidgetData(heroContent())
+            }),
+            widget({
+                instanceKey: 'features',
+                widgetKey: 'marketing.collection',
+                zone: 'marketing-main',
+                sortOrder: 1,
+                config: { variant: 'features' },
+                items: [record('01', 'quick-start', 'feature', { title: localized('Quick start') })]
+            })
+        ])
+
+        expect(authenticatedMarketingPageRuntimePayloadSchema.safeParse(viewModel).success).toBe(true)
+        expect(normalizeMarketingPageRuntime(viewModel, 'en').widgets).toHaveLength(2)
+    })
+
     it('normalizes every valid widget, including repeated variants, inactive widgets, and empty content', () => {
         const viewModel = envelope([
             widget({ instanceKey: 'navigation', widgetKey: 'marketing.navigation', zone: 'marketing-header', sortOrder: 0 }),
@@ -198,6 +184,21 @@ describe('normalizeMarketingPageRuntime', () => {
         expect(normalized).not.toHaveProperty('sectionVisibility')
         expect(normalized).not.toHaveProperty('records')
         expect(normalized).not.toHaveProperty('sectionCopies')
+        expect(normalized).not.toHaveProperty('provenance')
+    })
+
+    it('rejects internal source provenance at the authenticated runtime boundary', () => {
+        const payload = envelope([]) as unknown as { templateKey: string; marketingPage: Record<string, unknown> }
+        payload.marketingPage.provenance = {
+            layer: 'application',
+            sourceId: '0190a9b5-3cde-7abc-8def-0123456789ab',
+            seedKey: 'hero',
+            isSeeded: true,
+            isAuthored: false
+        }
+
+        expect(authenticatedMarketingPageRuntimePayloadSchema.safeParse(payload).success).toBe(false)
+        expect(() => normalizeMarketingPageRuntime(payload, 'en')).toThrow()
     })
 
     it('uses localized content and linked pricing benefits from the widget payload', () => {
@@ -422,7 +423,7 @@ describe('normalizeMarketingPageRuntime', () => {
                 widgetKey: 'marketing.navigation',
                 zone: 'marketing-header',
                 sortOrder: 0,
-                config: { showAuthActions: false }
+                config: { maxItems: 24 }
             }),
             widget({
                 instanceKey: 'hero',
@@ -475,7 +476,31 @@ describe('normalizeMarketingPageRuntime', () => {
                 sortOrder: 0,
                 data: heroWidgetData(heroContent({ title: localized('Hero'), description: localized('Description') }))
             }),
-            widget({ instanceKey: 'footer', widgetKey: 'marketing.footer', zone: 'marketing-footer', sortOrder: 0 }),
+            widget({
+                instanceKey: 'footer',
+                widgetKey: 'marketing.footer',
+                zone: 'marketing-footer',
+                sortOrder: 0,
+                items: [
+                    record('41', 'footer-settings', 'siteSettings', {
+                        brandName: localized('Footer-owned settings'),
+                        brandLogo: {
+                            kind: 'logo',
+                            resource: { type: 'url', url: 'https://cdn.example.test/footer.svg' },
+                            alt: localized('Footer logo')
+                        },
+                        newsletter: {
+                            title: localized('Newsletter', 'RU Newsletter'),
+                            description: localized('Get updates', 'RU Get updates'),
+                            emailLabel: localized('Email', 'RU Email'),
+                            emailPlaceholder: localized('you@example.test', 'RU you@example.test'),
+                            submitLabel: localized('Subscribe', 'RU Subscribe'),
+                            successMessage: localized('Thanks', 'RU Thanks'),
+                            errorMessage: localized('Try again', 'RU Try again')
+                        }
+                    })
+                ]
+            }),
             atomicWidget({
                 instanceKey: 'brand',
                 widgetKey: 'marketing.brand',
@@ -493,14 +518,6 @@ describe('normalizeMarketingPageRuntime', () => {
             }),
             atomicWidget({ instanceKey: 'auth', widgetKey: 'marketing.auth', sortOrder: 2 })
         ])
-        viewModel.marketingPage.config = {
-            brandLogo: {
-                kind: 'logo',
-                resource: { type: 'url', url: 'https://cdn.example.test/application.svg' },
-                alt: localized('Application brand')
-            }
-        }
-
         const normalized = normalizeMarketingPageRuntime(viewModel, 'en')
 
         expect(normalized.widgets.find((item) => item.widgetKey === 'marketing.brand')).toMatchObject({
@@ -511,7 +528,25 @@ describe('normalizeMarketingPageRuntime', () => {
             content: { signIn: { href: '/sign-in' }, signUp: { href: '/sign-up' } }
         })
         expect(normalized.widgets.find((item) => item.widgetKey === 'marketing.footer')).toMatchObject({
-            content: { logo: { resource: { url: 'https://cdn.example.test/application.svg' } } }
+            content: {
+                brandName: 'Footer-owned settings',
+                logo: { resource: { url: 'https://cdn.example.test/footer.svg' } },
+                newsletter: { label: 'Email', submitLabel: 'Subscribe' }
+            }
+        })
+
+        const normalizedRussian = normalizeMarketingPageRuntime(viewModel, 'ru')
+        expect(normalizedRussian.widgets.find((item) => item.widgetKey === 'marketing.footer')).toMatchObject({
+            content: {
+                newsletter: {
+                    title: 'RU Newsletter',
+                    description: 'RU Get updates',
+                    label: 'RU Email',
+                    submitLabel: 'RU Subscribe',
+                    successMessage: 'RU Thanks',
+                    errorMessage: 'RU Try again'
+                }
+            }
         })
     })
 
@@ -534,6 +569,21 @@ describe('normalizeMarketingPageRuntime', () => {
         expect(() =>
             normalizeMarketingPageRuntime(
                 envelope([
+                    widget({
+                        instanceKey: 'navigation',
+                        widgetKey: 'marketing.navigation',
+                        zone: 'marketing-header',
+                        sortOrder: 0,
+                        config: { showAuthActions: false }
+                    })
+                ]),
+                'en'
+            )
+        ).toThrow()
+
+        expect(() =>
+            normalizeMarketingPageRuntime(
+                envelope([
                     widget({ instanceKey: 'navigation', widgetKey: 'marketing.navigation', zone: 'marketing-header', sortOrder: 0 }),
                     atomicWidget({ instanceKey: 'navigation', widgetKey: 'marketing.brand', sortOrder: 1 })
                 ]),
@@ -542,7 +592,21 @@ describe('normalizeMarketingPageRuntime', () => {
         ).toThrow()
     })
 
-    it('normalizes the static marketing image widget independently from hero content', () => {
+    it('normalizes marketing image content from its entity-backed data projection', () => {
+        const imageRecord = {
+            kind: 'image',
+            semanticKey: 'default',
+            order: 0,
+            isVisible: true,
+            media: {
+                kind: 'hero',
+                resource: { type: 'url', url: 'https://cdn.example.test/hero.webp', launchMode: 'inline' },
+                alt: localized('Hero preview'),
+                decorative: false,
+                width: 1600,
+                height: 900
+            }
+        }
         const viewModel = envelope([
             widget({
                 instanceKey: 'hero',
@@ -556,14 +620,7 @@ describe('normalizeMarketingPageRuntime', () => {
                 widgetKey: 'marketing.image',
                 zone: 'marketing-main',
                 sortOrder: 1,
-                config: {
-                    media: {
-                        kind: 'hero',
-                        resource: { type: 'url', url: 'https://cdn.example.test/hero.webp', launchMode: 'inline' },
-                        alt: localized('Hero preview')
-                    }
-                },
-                items: []
+                items: [imageRecord]
             })
         ])
 
@@ -572,7 +629,163 @@ describe('normalizeMarketingPageRuntime', () => {
         const image = normalized.widgets.find((item) => item.widgetKey === 'marketing.image')
 
         expect(hero?.content).not.toHaveProperty('media')
-        expect(image).toMatchObject({ content: { media: { resource: { url: 'https://cdn.example.test/hero.webp' } } } })
+        expect(image).toMatchObject({
+            content: {
+                media: {
+                    src: 'https://cdn.example.test/hero.webp',
+                    alt: 'Hero preview',
+                    width: 1600,
+                    height: 900
+                }
+            }
+        })
+        expect(image).not.toHaveProperty('id')
+        expect(image).not.toHaveProperty('data')
+
+        const hiddenImage = normalizeMarketingPageRuntime(
+            envelope([
+                widget({
+                    instanceKey: 'hero-image',
+                    widgetKey: 'marketing.image',
+                    zone: 'marketing-main',
+                    sortOrder: 0,
+                    items: [{ ...imageRecord, isVisible: false }]
+                })
+            ]),
+            'en'
+        )
+        expect(hiddenImage.widgets[0]).toMatchObject({ isActive: false })
+    })
+
+    it('rejects legacy source locators and config-owned image media', () => {
+        const navigationWithSource = envelope([
+            widget({
+                instanceKey: 'navigation',
+                widgetKey: 'marketing.navigation',
+                zone: 'marketing-header',
+                sortOrder: 0,
+                config: { source: { entityCodename: 'MarketingPageNavigation', entityKind: 'object' } }
+            })
+        ])
+        expect(() => normalizeMarketingPageRuntime(navigationWithSource, 'en')).toThrow()
+
+        const navigationWithCopySource = envelope([
+            widget({
+                instanceKey: 'navigation',
+                widgetKey: 'marketing.navigation',
+                zone: 'marketing-header',
+                sortOrder: 0,
+                config: { copySource: { entityCodename: 'MarketingPageSection', entityKind: 'object' } }
+            })
+        ])
+        expect(() => normalizeMarketingPageRuntime(navigationWithCopySource, 'en')).toThrow()
+
+        const imageWithInlineMedia = envelope([
+            widget({
+                instanceKey: 'hero-image',
+                widgetKey: 'marketing.image',
+                zone: 'marketing-main',
+                sortOrder: 0,
+                config: {
+                    media: {
+                        kind: 'hero',
+                        resource: { type: 'url', url: 'https://cdn.example.test/legacy.webp', launchMode: 'inline' },
+                        alt: localized('Legacy media')
+                    }
+                }
+            })
+        ])
+        expect(() => normalizeMarketingPageRuntime(imageWithInlineMedia, 'en')).toThrow()
+
+        const pageWithBrandContent = envelope([
+            widget({ instanceKey: 'hero-image', widgetKey: 'marketing.image', zone: 'marketing-main', sortOrder: 0 })
+        ]) as unknown as { templateKey: string; marketingPage: Record<string, unknown> }
+        pageWithBrandContent.marketingPage.config = {
+            brandLogo: {
+                kind: 'logo',
+                resource: { type: 'url', url: 'https://cdn.example.test/legacy-logo.svg' },
+                alt: localized('Legacy brand')
+            }
+        }
+        expect(() => normalizeMarketingPageRuntime(pageWithBrandContent, 'en')).toThrow()
+    })
+
+    it('keeps public image projections URL-only and removes entity identity before render', () => {
+        const publicPayload = {
+            templateKey: 'marketing-page',
+            marketingPage: {
+                templateKey: 'marketing-page',
+                locale: 'en',
+                config: {},
+                headerPosition: 'fixed',
+                headerWidgets: [],
+                widgets: [
+                    {
+                        instanceKey: 'hero-image',
+                        widgetKey: 'marketing.image',
+                        zone: 'marketing-main',
+                        sortOrder: 0,
+                        isActive: true,
+                        config: { instanceKey: 'hero-image' },
+                        data: {
+                            records: [
+                                {
+                                    kind: 'image',
+                                    semanticKey: 'default',
+                                    order: 0,
+                                    isVisible: true,
+                                    media: {
+                                        kind: 'hero',
+                                        resource: {
+                                            type: 'url',
+                                            url: 'https://cdn.example.test/published.webp',
+                                            launchMode: 'inline'
+                                        },
+                                        alt: localized('Published preview'),
+                                        decorative: false,
+                                        width: 1200,
+                                        height: 800
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                ]
+            }
+        }
+
+        expect(publicMarketingPageRuntimePayloadSchema.safeParse(publicPayload).success).toBe(true)
+        const normalized = normalizeMarketingPageRuntime(publicPayload, 'en')
+        expect(normalized.widgets[0]).toMatchObject({
+            content: { media: { src: 'https://cdn.example.test/published.webp', alt: 'Published preview' } }
+        })
+        expect(normalized.widgets[0]).not.toHaveProperty('data')
+
+        const imageWidget = publicPayload.marketingPage.widgets[0]
+        const imageRecord = imageWidget.data.records[0]
+        const privatePayload = {
+            ...publicPayload,
+            marketingPage: {
+                ...publicPayload.marketingPage,
+                widgets: [
+                    {
+                        ...imageWidget,
+                        data: {
+                            records: [
+                                {
+                                    ...imageRecord,
+                                    media: {
+                                        ...imageRecord.media,
+                                        resource: { ...imageRecord.media.resource, storageKey: 'private/asset.webp' }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                ]
+            }
+        }
+        expect(publicMarketingPageRuntimePayloadSchema.safeParse(privatePayload).success).toBe(false)
     })
 
     it('fails closed for the legacy page-level record envelope', () => {

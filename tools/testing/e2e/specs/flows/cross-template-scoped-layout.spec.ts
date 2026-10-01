@@ -1,3 +1,4 @@
+import { getLayoutWidgetDefinition } from '@universo-react/types'
 import { createLocalizedContent, isUuidV7 } from '@universo-react/utils'
 import AxeBuilder from '@axe-core/playwright'
 import type { Locator, Page, Response } from '@playwright/test'
@@ -21,6 +22,8 @@ import {
     createLoggedInApiContext,
     createMetahub,
     createPublication,
+    createPublicationLinkedApplication,
+    createApplicationWorkspace,
     disposeApiContext,
     getApplication,
     getApplicationEffectiveLayout,
@@ -28,10 +31,12 @@ import {
     listApplicationLayoutScopes,
     listApplicationLayouts,
     listApplicationLayoutWidgets,
+    listApplicationWorkspaces,
     listEntityInstances,
-    listPublicationApplications,
+    setApplicationPublicEntryWorkspace,
     syncApplicationSchema,
     syncPublication,
+    updateApplicationLayout,
     upsertApplicationLayoutWidget,
     waitForPublicationReady
 } from '../../support/backend/api-session.mjs'
@@ -124,20 +129,6 @@ const readLayoutItem = (payload: unknown): LayoutRecord => {
     return record as LayoutRecord
 }
 
-const waitForLinkedApplication = async (api: ApiContext, metahubId: string, publicationId: string) => {
-    let application: Record<string, unknown> | null = null
-    await expect
-        .poll(async () => {
-            const response = await listPublicationApplications(api, metahubId, publicationId)
-            application = (response?.items ?? [])[0] ?? null
-            return typeof application?.id === 'string'
-        })
-        .toBe(true)
-
-    if (typeof application?.id !== 'string') throw new Error('The publication did not expose a linked application')
-    return application
-}
-
 const waitForApplicationSchema = async (api: ApiContext, applicationId: string): Promise<void> => {
     await expect.poll(async () => (await getApplication(api, applicationId))?.schemaStatus).toBe('synced')
 }
@@ -162,9 +153,7 @@ const createRuntimeFixture = async (runManifest: {
     const publication = await createPublication(api, metahub.id, {
         name: { en: `E2E ${runManifest.runId} scoped-layout publication` },
         namePrimaryLocale: 'en',
-        autoCreateApplication: true,
-        applicationName: { en: `E2E ${runManifest.runId} scoped-layout application` },
-        applicationNamePrimaryLocale: 'en',
+        autoCreateApplication: false,
         runtimePolicy: {
             workspaceMode: 'required',
             requiredWorkspaceModeAcknowledged: true
@@ -175,20 +164,43 @@ const createRuntimeFixture = async (runManifest: {
     await syncPublication(api, metahub.id, publication.id)
     await waitForPublicationReady(api, metahub.id, publication.id)
 
-    const linkedApplication = await waitForLinkedApplication(api, metahub.id, publication.id)
-    if (typeof linkedApplication.id !== 'string') throw new Error('Scoped-layout publication did not create an application')
-    await recordCreatedApplication({
-        id: linkedApplication.id
+    const linkedApplication = await createPublicationLinkedApplication(api, metahub.id, publication.id, {
+        name: { en: `E2E ${runManifest.runId} scoped-layout application` },
+        namePrimaryLocale: 'en',
+        createApplicationSchema: false,
+        isPublic: true
     })
-    await syncApplicationSchema(api, linkedApplication.id, {
+    const applicationId = linkedApplication?.application?.id
+    if (typeof applicationId !== 'string') throw new Error('Scoped-layout publication did not create an application')
+    await recordCreatedApplication({
+        id: applicationId
+    })
+    await syncApplicationSchema(api, applicationId, {
         schemaOptions: {
             workspaceModeRequested: 'enabled',
             acknowledgeIrreversibleWorkspaceEnablement: true
         }
     })
-    await waitForApplicationSchema(api, linkedApplication.id)
+    await waitForApplicationSchema(api, applicationId)
 
-    const scopesResponse = await listApplicationLayoutScopes(api, linkedApplication.id, 'en')
+    const workspaceList = await listApplicationWorkspaces(api, applicationId)
+    const sharedWorkspace = (workspaceList?.items ?? []).find(
+        (workspace: Record<string, unknown>) => workspace?.workspaceType !== 'personal' && !workspace?.personalUserId
+    )
+    const publicEntryWorkspaceId =
+        (sharedWorkspace as { id?: string } | undefined)?.id ??
+        (
+            await createApplicationWorkspace(api, applicationId, {
+                name: createLocalizedContent('en', 'Scoped-layout public entry workspace'),
+                description: createLocalizedContent('en', 'Workspace used for anonymous scoped-layout rendering')
+            })
+        )?.id
+    if (typeof publicEntryWorkspaceId !== 'string') {
+        throw new Error('Scoped-layout runtime spec could not prepare a public entry workspace')
+    }
+    await setApplicationPublicEntryWorkspace(api, applicationId, publicEntryWorkspaceId)
+
+    const scopesResponse = await listApplicationLayoutScopes(api, applicationId, 'en')
     const scopes = (scopesResponse?.items ?? []) as LayoutScope[]
     const entityResponse = await listEntityInstances(api, metahub.id, {
         kind: 'object',
@@ -223,7 +235,7 @@ const createRuntimeFixture = async (runManifest: {
         throw new Error('The scoped-layout application did not expose a Page target')
     }
 
-    const layoutResponse = await listApplicationLayouts(api, linkedApplication.id, { limit: 100, offset: 0 })
+    const layoutResponse = await listApplicationLayouts(api, applicationId, { limit: 100, offset: 0 })
     const globalLayout = (layoutResponse?.items ?? []).find(
         (layout: LayoutRecord) => layout.scopeEntityId === null && layout.templateKey === 'marketing-page'
     ) as LayoutRecord | undefined
@@ -231,7 +243,7 @@ const createRuntimeFixture = async (runManifest: {
         throw new Error('The scoped-layout application did not expose its materialized marketing global layout')
     }
 
-    const sourceWidgetsResponse = await listApplicationLayoutWidgets(api, linkedApplication.id, globalLayout.id)
+    const sourceWidgetsResponse = await listApplicationLayoutWidgets(api, applicationId, globalLayout.id)
     const sourceWidgets = (sourceWidgetsResponse?.items ?? []).filter(
         (widget: LayoutWidget) => typeof widget.widgetKey === 'string' && typeof widget.zone === 'string'
     ) as LayoutWidget[]
@@ -239,7 +251,7 @@ const createRuntimeFixture = async (runManifest: {
 
     return {
         api,
-        applicationId: linkedApplication.id,
+        applicationId,
         metahubId: metahub.id,
         globalLayout,
         sourceWidgets,
@@ -280,7 +292,7 @@ const addWidget = async (api: ApiContext, applicationId: string, layoutId: strin
         .toBe(true)
 }
 
-const expectApplicationHeroBindingWriteDenied = async (
+const expectApplicationEntityBindingWriteDenied = async (
     api: ApiContext,
     applicationId: string,
     layoutId: string,
@@ -294,7 +306,7 @@ const expectApplicationHeroBindingWriteDenied = async (
     )
 }
 
-const copyWidgets = async (fixture: RuntimeFixture, layoutId: string): Promise<void> => {
+const expectSourceWidgetBindingsRemainMetahubOwned = async (fixture: RuntimeFixture, layoutId: string): Promise<void> => {
     for (const widget of fixture.sourceWidgets) {
         if (!widget.widgetKey || !widget.zone) continue
         const payload = {
@@ -303,12 +315,11 @@ const copyWidgets = async (fixture: RuntimeFixture, layoutId: string): Promise<v
             sortOrder: widget.sortOrder ?? 0,
             config: widget.config && typeof widget.config === 'object' && !Array.isArray(widget.config) ? widget.config : {}
         }
-        if (widget.widgetKey === 'marketing.hero') {
-            await expectApplicationHeroBindingWriteDenied(fixture.api, fixture.applicationId, layoutId, payload)
-            continue
-        }
-        await addWidget(fixture.api, fixture.applicationId, layoutId, payload)
+        if (!getLayoutWidgetDefinition(payload.widgetKey, payload.config)?.bindingSlots?.length) continue
+        await expectApplicationEntityBindingWriteDenied(fixture.api, fixture.applicationId, layoutId, payload)
     }
+    const persisted = await listApplicationLayoutWidgets(fixture.api, fixture.applicationId, layoutId)
+    expect(persisted?.items ?? []).toHaveLength(0)
 }
 
 const addDashboardWidgets = async (fixture: RuntimeFixture, layoutId: string): Promise<void> => {
@@ -393,12 +404,13 @@ const effectiveResponseFor = (page: Page, applicationId: string, target: Runtime
         { timeout: 60_000 }
     )
 
-const marketingResponseFor = (page: Page, applicationId: string, target: RuntimeTarget | null): Promise<Response> =>
+const publicMarketingResponseFor = (page: Page, applicationId: string, target: RuntimeTarget | null, locale: string): Promise<Response> =>
     page.waitForResponse(
         (response) => {
             if (response.request().method() !== 'GET') return false
             const url = new URL(response.url())
-            if (url.pathname !== `/api/v1/applications/${applicationId}/runtime/marketing-page`) return false
+            if (url.pathname !== `/api/v1/public/applications/${applicationId}/runtime`) return false
+            if (url.searchParams.get('locale') !== locale) return false
             return target
                 ? url.searchParams.get('targetKind') === target.kind && url.searchParams.get('entityTypeId') === target.entityTypeId
                 : !url.searchParams.has('targetKind') && !url.searchParams.has('entityTypeId')
@@ -455,26 +467,44 @@ const visitRuntime = async (
     effectiveRequestKeys: Set<string>,
     marketingRequestKeys: Set<string>
 ): Promise<void> => {
-    const effectivePromise = effectiveResponseFor(page, fixture.applicationId, target)
-    const marketingPromise = expected.templateKey === 'marketing-page' ? marketingResponseFor(page, fixture.applicationId, target) : null
+    const effectivePromise = expected.templateKey === 'dashboard' ? effectiveResponseFor(page, fixture.applicationId, target) : null
+    const marketingPromise =
+        expected.templateKey === 'marketing-page'
+            ? publicMarketingResponseFor(page, fixture.applicationId, target, expected.locale ?? 'en')
+            : null
     await page.goto(buildRuntimePath(fixture.applicationId, target, expected.locale ?? 'en', expected.themeVariant ?? 'light'))
 
-    const effectiveResponse = await effectivePromise
-    expect(effectiveResponse.ok(), `${label} effective-layout response`).toBe(true)
-    const effectivePayload = (await effectiveResponse.json()) as {
-        effectiveHash?: unknown
-        layout?: { id?: unknown; templateKey?: string; version?: unknown }
-        scope?: unknown
+    if (effectivePromise) {
+        const effectiveResponse = await effectivePromise
+        expect(effectiveResponse.ok(), `${label} effective-layout response`).toBe(true)
+        const effectivePayload = (await effectiveResponse.json()) as {
+            effectiveHash?: unknown
+            layout?: { id?: unknown; templateKey?: string; version?: unknown }
+            scope?: unknown
+        }
+        expect(effectivePayload.layout?.templateKey, `${label} effective template`).toBe(expected.templateKey)
+        expect(isUuidV7(effectivePayload.layout?.id), `${label} effective layout identity must be UUID v7`).toBe(true)
+        expect(effectivePayload.layout?.version, `${label} effective layout must expose a version`).toEqual(expect.any(Number))
+        expect(effectivePayload.effectiveHash, `${label} effective layout must expose a content hash`).toMatch(/^[0-9a-f]{64}$/i)
+        effectiveRequestKeys.add(targetKey(target))
     }
-    expect(effectivePayload.layout?.templateKey, `${label} effective template`).toBe(expected.templateKey)
-    expect(isUuidV7(effectivePayload.layout?.id), `${label} effective layout identity must be UUID v7`).toBe(true)
-    expect(effectivePayload.layout?.version, `${label} effective layout must expose a version`).toEqual(expect.any(Number))
-    expect(effectivePayload.effectiveHash, `${label} effective layout must expose a content hash`).toMatch(/^[0-9a-f]{64}$/i)
-    effectiveRequestKeys.add(targetKey(target))
 
     if (marketingPromise) {
         const marketingResponse = await marketingPromise
         expect(marketingResponse.ok(), `${label} marketing content response`).toBe(true)
+        const publicPayload = (await marketingResponse.json()) as {
+            templateKey?: unknown
+            marketingPage?: { templateKey?: unknown; widgets?: Array<{ widgetKey?: unknown }> }
+        }
+        expect(publicPayload.templateKey, `${label} public marketing template`).toBe('marketing-page')
+        expect(publicPayload.marketingPage?.templateKey, `${label} public marketing DTO`).toBe('marketing-page')
+        expect(Array.isArray(publicPayload.marketingPage?.widgets), `${label} public marketing placements`).toBe(true)
+        if (expected.heroContent === false) {
+            expect(
+                publicPayload.marketingPage?.widgets?.some((widget) => widget.widgetKey === 'marketing.hero'),
+                `${label} scoped public layout must not inherit a Hero placement`
+            ).toBe(false)
+        }
         marketingRequestKeys.add(targetKey(target))
     }
 
@@ -548,7 +578,7 @@ test('@flow @combined @cross-template @scoped-layout covers Page/Object preceden
             `Page marketing ${runManifest.runId}`,
             true
         )
-        await copyWidgets(fixture, pageMarketing.id)
+        await expectSourceWidgetBindingsRemainMetahubOwned(fixture, pageMarketing.id)
         const objectMarketing = await createLayout(
             fixture,
             'marketing-page',
@@ -556,7 +586,7 @@ test('@flow @combined @cross-template @scoped-layout covers Page/Object preceden
             `Object marketing ${runManifest.runId}`,
             true
         )
-        await copyWidgets(fixture, objectMarketing.id)
+        await expectSourceWidgetBindingsRemainMetahubOwned(fixture, objectMarketing.id)
 
         const directionOneGlobal = await getApplicationEffectiveLayout(fixture.api, fixture.applicationId, {
             locale: 'en',
@@ -625,8 +655,14 @@ test('@flow @combined @cross-template @scoped-layout covers Page/Object preceden
             marketingRequestKeys
         )
 
-        const globalMarketing = await createLayout(fixture, 'marketing-page', null, `Global marketing ${runManifest.runId}`, true)
-        await copyWidgets(fixture, globalMarketing.id)
+        const currentSourceMarketing = await getApplicationLayout(fixture.api, fixture.applicationId, fixture.globalLayout.id)
+        const globalMarketingResponse = await updateApplicationLayout(fixture.api, fixture.applicationId, fixture.globalLayout.id, {
+            isDefault: true,
+            expectedVersion: currentSourceMarketing.item.version
+        })
+        const globalMarketing = (globalMarketingResponse?.item ?? globalMarketingResponse) as LayoutRecord
+        expect(globalMarketing.id).toBe(fixture.globalLayout.id)
+        expect(globalMarketing.isDefault).toBe(true)
         const pageDashboard = await createLayout(fixture, 'dashboard', pageTarget.entityTypeId, `Page dashboard ${runManifest.runId}`, true)
         await addDashboardWidgets(fixture, pageDashboard.id)
         const objectDashboard = await createLayout(
@@ -664,7 +700,7 @@ test('@flow @combined @cross-template @scoped-layout covers Page/Object preceden
             page,
             fixture,
             null,
-            { templateKey: 'marketing-page', heroContent: false },
+            { templateKey: 'marketing-page' },
             'Direction two global Marketing',
             effectiveRequestKeys,
             marketingRequestKeys
@@ -678,7 +714,7 @@ test('@flow @combined @cross-template @scoped-layout covers Page/Object preceden
             page,
             fixture,
             null,
-            { templateKey: 'marketing-page', themeVariant: 'dark', heroContent: false },
+            { templateKey: 'marketing-page', themeVariant: 'dark' },
             'Direction two global Marketing dark theme',
             effectiveRequestKeys,
             marketingRequestKeys
