@@ -13,7 +13,7 @@ import { buildRuntimeAttrLookup, loadRuntimeObjectAttrs, resolveRuntimeObjectByC
 import { assertRuntimeEntityMutationAllowed } from '../../shared/entityMutationPolicy'
 import { buildPublicMarketingLifecyclePredicate } from '../../shared/marketingRuntimeLifecycleSql'
 import { PUBLIC_MARKETING_ROW_LIMIT } from '../../shared/marketingRuntimeLimits'
-import { listMarketingWidgetBindingSources } from '../../persistence/marketingWidgetBindingStore'
+import { listMarketingWidgetBindingSourcesForRuntimeWrites } from '../../persistence/marketingWidgetBindingStore'
 import { acquireMarketingRowCapLock } from '../../services/marketingRowCap'
 
 /**
@@ -34,7 +34,7 @@ export const assertMarketingRuntimeRowCap = async (params: {
     // workspace seed paths. Otherwise a concurrent binding change can commit
     // between the metadata probe and this write, bypassing the row cap.
     await acquireMarketingRowCapLock(params.manager, params.schemaIdent, params.tableName)
-    const marketingWidgetBindingSources = await listMarketingWidgetBindingSources(params.manager, params.schemaName)
+    const marketingWidgetBindingSources = await listMarketingWidgetBindingSourcesForRuntimeWrites(params.manager, params.schemaName)
     if (!marketingWidgetBindingSources.has(params.objectCodename)) return
     // Serialize the count with concurrent writers so two requests at the
     // boundary cannot both pass the check; the lock order (cap -> rules ->

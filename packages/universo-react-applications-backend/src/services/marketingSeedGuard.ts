@@ -61,6 +61,27 @@ export const collectMarketingWidgetBindingSourcesFromConfigs = (widgets: readonl
     return sources
 }
 
+
+/**
+ * Runtime row-cap discovery must not make an unrelated Entity write fail only
+ * because another Marketing placement is malformed. Publication and runtime
+ * resolution keep using the strict collector above; every valid placement still
+ * contributes its bound sources here.
+ */
+export const collectMarketingWidgetBindingSourcesForRuntimeWritesFromConfigs = (
+    widgets: readonly MarketingWidgetBindingConfigRow[]
+): Set<string> => {
+    const sources = new Set<string>()
+    for (const widget of widgets) {
+        try {
+            for (const source of collectMarketingWidgetBindingSourcesFromConfigs([widget])) sources.add(source)
+        } catch {
+            // Broken layouts fail closed at their authoring/publication/runtime boundaries.
+        }
+    }
+    return sources
+}
+
 const readMarketingWidgetBindings = (rawConfig: unknown, context: { widgetKey: string; zone: string; requireBindings: boolean }) => {
     if (!asRecord(rawConfig)) throw new Error('Persisted Marketing widget config is invalid')
     return decodeLayoutWidgetConfigEnvelope(rawConfig, {

@@ -12,7 +12,7 @@ import {
     encodeLayoutWidgetConfigEnvelope,
     LAYOUT_WIDGET_DEFINITIONS
 } from '@universo-react/types'
-import { resolveEffectiveLayoutForRequest } from '../../services/effectiveLayoutResolver'
+import { resolveEffectiveLayoutForPublicTransaction, resolveEffectiveLayoutForRequest } from '../../services/effectiveLayoutResolver'
 import { EffectiveLayoutError } from '../../services/effectiveLayoutContract'
 import { createMockDbExecutor } from '../utils/dbMocks'
 import { resolveRuntimeWorkspaceAccess, setRuntimeWorkspaceContext } from '../../services/applicationWorkspaces'
@@ -728,6 +728,35 @@ describe('effectiveLayoutResolver', () => {
         expect(result.layout.compositionMode).toBe('overlay')
         expect(result.layout.baseLayoutId).toBe(globalLayoutId)
         expect(result.widgets).toEqual([])
+    })
+
+    it('does not expose an application-owned scoped layout through anonymous public resolution', async () => {
+        mockListCandidates.mockResolvedValue([
+            layoutRow({
+                template_key: 'marketing-page',
+                name: { en: 'Published marketing' },
+                config: { themeMode: 'system', __layout: { composition: { mode: 'independent', baseLayoutId: null } } }
+            }),
+            layoutRow({
+                id: scopedLayoutId,
+                scope_entity_id: entityId,
+                template_key: 'marketing-page',
+                name: { en: 'Unpublished local marketing' },
+                config: { themeMode: 'system', __layout: { composition: { mode: 'independent', baseLayoutId: null } } },
+                source_kind: 'application',
+                source_layout_id: null,
+                source_snapshot_hash: null,
+                source_content_hash: null,
+                local_content_hash: null
+            })
+        ] as never)
+        mockListWidgets.mockResolvedValue([])
+
+        const result = await resolveEffectiveLayoutForPublicTransaction(executor, resolverInput(), null)
+
+        expect(result.layout.id).toBe(globalLayoutId)
+        expect(result.publicationIdentity).toEqual({ publicationId, publicationVersionId, snapshotHash })
+        expect(result.precedence).toEqual(['published-publication', 'application-global', 'metahub-provenance'])
     })
 
     it('resolves an application-owned layout without fabricated publication metadata', async () => {

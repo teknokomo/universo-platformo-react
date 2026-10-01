@@ -1,5 +1,8 @@
 import { createMarketingPricingConfig } from '../utils/marketingWidgetBindings'
-import { listMarketingWidgetBindingSources } from '../../persistence/marketingWidgetBindingStore'
+import {
+    listMarketingWidgetBindingSources,
+    listMarketingWidgetBindingSourcesForRuntimeWrites
+} from '../../persistence/marketingWidgetBindingStore'
 
 describe('listMarketingWidgetBindingSources', () => {
     const schemaName = 'app_019ccefc2f7b7b3682f485cdb1312268'
@@ -51,6 +54,34 @@ describe('listMarketingWidgetBindingSources', () => {
         expect(executor.query).toHaveBeenCalledTimes(1)
         expect(executor.query.mock.calls[0]?.[0]).toContain('information_schema.tables')
         expect(executor.query.mock.calls[0]?.[0]).not.toContain('"_app_widgets"')
+    })
+
+    it('skips malformed placements only for runtime-write row-cap classification', async () => {
+        const validConfig = createMarketingPricingConfig({ section: 'CustomPricingSection' })
+        const executor = {
+            query: jest
+                .fn()
+                .mockResolvedValueOnce([{ layouts: true, widgets: true }])
+                .mockResolvedValueOnce([
+                    {
+                        widget_key: 'marketing.collection',
+                        zone: 'marketing-main',
+                        config: { variant: 'features' },
+                        source_config: null,
+                        source_base_widget_id: null
+                    },
+                    {
+                        widget_key: 'marketing.pricing',
+                        zone: 'marketing-main',
+                        config: validConfig,
+                        source_config: validConfig,
+                        source_base_widget_id: null
+                    }
+                ])
+        }
+
+        const sources = await listMarketingWidgetBindingSourcesForRuntimeWrites(executor as never, schemaName)
+        expect(sources.has('CustomPricingSection')).toBe(true)
     })
 
     it('fails closed when persisted bindings or their source baseline are invalid', async () => {

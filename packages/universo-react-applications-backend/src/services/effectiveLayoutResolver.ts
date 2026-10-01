@@ -774,7 +774,8 @@ type EffectiveLayoutWorkspaceResolver = (
 const resolveEffectiveLayoutInTransaction = async (
     tx: DbExecutor,
     target: RuntimeTarget,
-    resolveWorkspaceContext: EffectiveLayoutWorkspaceResolver
+    resolveWorkspaceContext: EffectiveLayoutWorkspaceResolver,
+    options: { publishedOnly?: boolean } = {}
 ): Promise<EffectiveLayoutSuccess> => {
     const application = await queryOrFail(() => findEffectiveLayoutApplication(tx, target.applicationId))
     if (!application) return failEffectiveLayout('LAYOUT_TARGET_NOT_FOUND')
@@ -808,7 +809,7 @@ const resolveEffectiveLayoutInTransaction = async (
     if (!tablesExist) return failEffectiveLayout('LAYOUT_PERSISTED_INVALID')
 
     let candidateRows = await queryOrFail(() => listEffectiveLayoutCandidates(tx, application.schemaName!, resolvedEntityTypeId))
-    const layouts = candidateRows.map(validateLayoutRow)
+    const layouts = candidateRows.map(validateLayoutRow).filter((layout) => !options.publishedOnly || layout.sourceKind === 'metahub')
     let selected = selectCanonicalLayoutCandidate(layouts, resolvedEntityTypeId)
     if (!selected) return failEffectiveLayout('LAYOUT_DEFAULT_INVALID')
 
@@ -819,7 +820,9 @@ const resolveEffectiveLayoutInTransaction = async (
         if (startupEntityId) {
             resolvedEntityTypeId = startupEntityId
             candidateRows = await queryOrFail(() => listEffectiveLayoutCandidates(tx, application.schemaName!, resolvedEntityTypeId))
-            const startupLayouts = candidateRows.map(validateLayoutRow)
+            const startupLayouts = candidateRows
+                .map(validateLayoutRow)
+                .filter((layout) => !options.publishedOnly || layout.sourceKind === 'metahub')
             selected = selectCanonicalLayoutCandidate(startupLayouts, resolvedEntityTypeId)
             if (!selected) return failEffectiveLayout('LAYOUT_DEFAULT_INVALID')
         }
@@ -841,7 +844,9 @@ const resolveEffectiveLayoutInTransaction = async (
         return failEffectiveLayout('LAYOUT_CONFLICT')
     }
     const currentCandidateRows = await queryOrFail(() => listEffectiveLayoutCandidates(tx, application.schemaName!, resolvedEntityTypeId))
-    const currentLayouts = currentCandidateRows.map(validateLayoutRow)
+    const currentLayouts = currentCandidateRows
+        .map(validateLayoutRow)
+        .filter((layout) => !options.publishedOnly || layout.sourceKind === 'metahub')
     const currentSelected = selectCanonicalLayoutCandidate(currentLayouts, resolvedEntityTypeId)
     if (
         !currentSelected ||
@@ -902,7 +907,7 @@ export async function resolveEffectiveLayoutForPublicTransaction(
             return failEffectiveLayout('LAYOUT_TARGET_NOT_FOUND')
         }
         await queryOrFail(() => setRuntimeWorkspaceContext(tx, publicWorkspaceId))
-    })
+    }, { publishedOnly: true })
 }
 
 export async function resolveEffectiveLayoutForRequest(
