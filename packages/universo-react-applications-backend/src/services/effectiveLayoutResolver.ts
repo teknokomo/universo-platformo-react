@@ -893,21 +893,26 @@ export async function resolveEffectiveLayoutForPublicTransaction(
     const target = normalizeRuntimeTarget(input)
     if (target.workspaceId) return failEffectiveLayout('LAYOUT_REQUEST_INVALID')
 
-    return resolveEffectiveLayoutInTransaction(executor, target, async (tx, application) => {
-        if (!application) return failEffectiveLayout('LAYOUT_TARGET_NOT_FOUND')
-        if (typeof application.workspacesEnabled !== 'boolean') return failEffectiveLayout('LAYOUT_PERSISTED_INVALID')
+    return resolveEffectiveLayoutInTransaction(
+        executor,
+        target,
+        async (tx, application) => {
+            if (!application) return failEffectiveLayout('LAYOUT_TARGET_NOT_FOUND')
+            if (typeof application.workspacesEnabled !== 'boolean') return failEffectiveLayout('LAYOUT_PERSISTED_INVALID')
 
-        if (!application.workspacesEnabled) {
-            if (publicWorkspaceId !== null) return failEffectiveLayout('LAYOUT_PERSISTED_INVALID')
-            await queryOrFail(() => setRuntimeWorkspaceContext(tx, null))
-            return
-        }
+            if (!application.workspacesEnabled) {
+                if (publicWorkspaceId !== null) return failEffectiveLayout('LAYOUT_PERSISTED_INVALID')
+                await queryOrFail(() => setRuntimeWorkspaceContext(tx, null))
+                return
+            }
 
-        if (!publicWorkspaceId || !isUuidV7(publicWorkspaceId)) {
-            return failEffectiveLayout('LAYOUT_TARGET_NOT_FOUND')
-        }
-        await queryOrFail(() => setRuntimeWorkspaceContext(tx, publicWorkspaceId))
-    }, { publishedOnly: true })
+            if (!publicWorkspaceId || !isUuidV7(publicWorkspaceId)) {
+                return failEffectiveLayout('LAYOUT_TARGET_NOT_FOUND')
+            }
+            await queryOrFail(() => setRuntimeWorkspaceContext(tx, publicWorkspaceId))
+        },
+        { publishedOnly: true }
+    )
 }
 
 export async function resolveEffectiveLayoutForRequest(

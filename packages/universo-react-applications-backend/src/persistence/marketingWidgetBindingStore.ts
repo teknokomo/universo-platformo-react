@@ -52,10 +52,7 @@ export const listMarketingWidgetBindingSources = async (executor: DbExecutor, sc
  * placements are rejected by the strict authoring/publication/runtime paths and
  * do not block writes to otherwise unrelated Entities.
  */
-export const listMarketingWidgetBindingSourcesForRuntimeWrites = async (
-    executor: DbExecutor,
-    schemaName: string
-): Promise<Set<string>> =>
+export const listMarketingWidgetBindingSourcesForRuntimeWrites = async (executor: DbExecutor, schemaName: string): Promise<Set<string>> =>
     collectMarketingWidgetBindingSourcesForRuntimeWritesFromConfigs(
         (await loadMarketingWidgetBindingRows(executor, schemaName)).map(mapBindingRow)
     )

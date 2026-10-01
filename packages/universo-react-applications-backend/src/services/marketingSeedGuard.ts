@@ -61,7 +61,6 @@ export const collectMarketingWidgetBindingSourcesFromConfigs = (widgets: readonl
     return sources
 }
 
-
 /**
  * Runtime row-cap discovery must not make an unrelated Entity write fail only
  * because another Marketing placement is malformed. Publication and runtime
