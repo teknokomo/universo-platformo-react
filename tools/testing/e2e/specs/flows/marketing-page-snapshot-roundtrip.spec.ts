@@ -315,7 +315,8 @@ test('@flow @marketing-page @snapshot verifies marketing-page export/import roun
 
     try {
         const sourceName = `E2E ${runManifest.runId} marketing snapshot source`
-        const sourceCodename = `${runManifest.runId}-marketing-snapshot-source`
+        const retrySuffix = testInfo.retry === 0 ? '' : `-r${testInfo.retry}`
+        const sourceCodename = `${runManifest.runId}-marketing-snapshot-source${retrySuffix}`
         const source = await createMetahub(api, {
             name: { en: sourceName, ru: `Источник маркетингового snapshot ${runManifest.runId}` },
             namePrimaryLocale: 'en',

@@ -21,9 +21,13 @@ UUID остаётся стабильным техническим адресом
 
 ```text
 GET /api/v1/public/applications/:applicationRef/runtime?locale=en|ru
+GET /api/v1/public/applications/:applicationRef/runtime?locale=en|ru&targetKind=page|object&entityTypeId=<uuid-v7>
+GET /api/v1/public/applications/:applicationRef/runtime?locale=en|ru&targetKind=page|object&entityTypeCodename=<codename>
 ```
 
 Запрос отправляется без credentials. Сервер разрешает UUID или алиас, проверяет публичность и публикацию приложения, согласованность установленного рантайма и возвращает allowlist DTO для renderer. Неизвестное, приватное, архивное или неготовое приложение получает одинаковый ответ недоступности, поэтому маршрут не раскрывает состояние приложения. Публичный запрос никогда не выбирает рабочее пространство и не принимает `workspaceId` как разрешение.
+
+Необязательный селектор сущности разрешает активный макет области страницы или объекта в том же готовом публичном приложении. Укажите `targetKind` равным `page` или `object` и передайте ровно один параметр — UUID v7 `entityTypeId` либо `entityTypeCodename`; без селектора используется глобальная область. Селектор не меняет публичность приложения, правила доступа или рабочее пространство.
 
 Для рендеринга `marketing-page` allowlist содержит зарегистрированную позицию шапки (`fixed` или `flow`), чтобы публичная страница совпадала с effective layout Приложения. Старые payload используют `fixed` по умолчанию.
 
@@ -66,4 +70,6 @@ GET /api/v1/public/applications/:applicationRef/runtime?locale=en|ru
 pnpm run test:e2e:73rd-meridian-fixture-gate:local-supabase
 ```
 
-Контракт проверяет согласованный русский текст из `.backup/Лендинг-для-Консорциума.md` и английский перевод, отсутствие демо-тарифов, выдуманных логотипов, придуманных отзывов и неподтверждённых демо-адресов, наличие утверждённых контактов в подвале (Telegram-канал, почта, телефон), а также отключённые действия lead/auth/newsletter. Сгенерированный snapshot записывается в `tools/fixtures/metahubs-73rd-meridian-app-snapshot.json` для импорта в новую тестовую базу. Контракт сверяет все семантические marketing records в обоих языках. Drift gate сравнивает сгенерированный snapshot с committed fixture после нормализации транспортных ID, hash и timestamp и требует ровно одно вхождение `dashboard.jpg` в hero-ресурсе `marketing.image`. Browser flow импортирует committed fixture, создаёт связанную публичную публикацию и проверяет anonymous runtime по UUID и alias в режимах direct и canonical с сохранением suffix пути и query.
+Контракт проверяет каждый семантический marketing record в обоих языках, отсутствие демо-тарифов, выдуманных логотипов, придуманных отзывов и неподтверждённых демо-адресов, наличие утверждённых контактов в подвале (Telegram-канал, почта, телефон), а также отключённые действия lead/auth/newsletter. Сгенерированный snapshot записывается в `tools/fixtures/metahubs-73rd-meridian-app-snapshot.json` для импорта в новую тестовую базу. Drift gate сравнивает сгенерированный snapshot с committed fixture после нормализации транспортных ID, hash и timestamp и требует ровно одно вхождение `dashboard.jpg` в hero-ресурсе `marketing.image`. Browser flow импортирует committed fixture, создаёт связанную публичную публикацию и проверяет anonymous runtime по UUID и alias в режимах direct и canonical с сохранением suffix пути и query.
+
+Двуязычные текстовые константы генератора хранятся в репозитории. SHA-256 исходного русского черновика проверяется, если эта необязательная рабочая копия доступна; чистый checkout может создать и проверить fixture без внешнего черновика.

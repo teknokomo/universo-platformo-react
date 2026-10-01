@@ -21,9 +21,13 @@ The browser asks the dedicated public endpoint:
 
 ```text
 GET /api/v1/public/applications/:applicationRef/runtime?locale=en|ru
+GET /api/v1/public/applications/:applicationRef/runtime?locale=en|ru&targetKind=page|object&entityTypeId=<uuid-v7>
+GET /api/v1/public/applications/:applicationRef/runtime?locale=en|ru&targetKind=page|object&entityTypeCodename=<codename>
 ```
 
 The request is sent without credentials. The server resolves the UUID or alias, verifies that the application is public and published, checks that its installed runtime materialization is coherent, and returns an allowlisted renderer payload. Unknown, private, archived, or not-ready applications use the same unavailable response so the route does not disclose application state. The public request never chooses a workspace or sends a `workspaceId`.
+
+An optional entity selector resolves an active page- or object-scoped layout inside that same ready public application. Set `targetKind` to `page` or `object` and provide exactly one UUID v7 `entityTypeId` or `entityTypeCodename`; without a selector, the resolver uses the global scope. The selector does not change application visibility, access policy, or workspace.
 
 For Marketing Page rendering, that allowlist includes the registered header position (`fixed` or `flow`) so the public renderer matches the effective Application layout. Older payloads default to `fixed`.
 
@@ -67,3 +71,5 @@ pnpm run test:e2e:73rd-meridian-fixture-gate:local-supabase
 ```
 
 The contract checks every semantic marketing record in both locales, the absence of demo pricing, fake logos, fabricated testimonials and unverified demo destinations, the presence of the approved footer contacts (Telegram channel, email, phone), and disabled lead/auth/newsletter actions. The drift gate compares the generated snapshot with the committed fixture after normalizing transport IDs, hashes, and timestamps, while requiring exactly one `dashboard.jpg` occurrence in the hero `marketing.image` resource. The browser flow imports the committed fixture, publishes a linked public application, and verifies anonymous UUID and alias runtime resolution in direct and canonical modes with path suffix and query preservation.
+
+The generator uses bilingual content constants checked into the repository. It also verifies the SHA-256 of the original Russian draft when that optional working copy is available; clean checkouts can generate and validate the fixture without the external draft.
