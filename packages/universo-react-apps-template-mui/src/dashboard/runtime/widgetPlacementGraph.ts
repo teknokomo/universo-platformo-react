@@ -143,6 +143,28 @@ export function childrenForSlot(graph: readonly RuntimePlacement[], parentInstan
         .sort((left, right) => left.sortOrder - right.sortOrder || left.instanceKey.localeCompare(right.instanceKey))
 }
 
+const selectSingletonWinners = (placements: readonly RuntimePlacement[]): Map<string, RuntimePlacement> => {
+    const winners = new Map<string, RuntimePlacement>()
+    for (const placement of placements) {
+        const definition = widgetDefinition(placement.widgetKey)
+        if (!definition || definition.multiInstance !== false) continue
+
+        const current = winners.get(placement.widgetKey)
+        const placementZoneRank = definition.allowedZones.indexOf(placement.zone)
+        const currentZoneRank = current ? definition.allowedZones.indexOf(current.zone) : -1
+        if (
+            !current ||
+            placementZoneRank < currentZoneRank ||
+            (placementZoneRank === currentZoneRank &&
+                (placement.sortOrder < current.sortOrder ||
+                    (placement.sortOrder === current.sortOrder && placement.instanceKey.localeCompare(current.instanceKey) < 0)))
+        ) {
+            winners.set(placement.widgetKey, placement)
+        }
+    }
+    return winners
+}
+
 export function rootPlacements(graph: readonly RuntimePlacement[], zone: RuntimePlacement['zone']): RuntimePlacement[] {
     const roots = graph
         .filter(
@@ -160,26 +182,7 @@ export function rootPlacements(graph: readonly RuntimePlacement[], zone: Runtime
             placement.parentInstanceKey === null &&
             widgetDefinition(placement.widgetKey)?.allowedZones.includes(placement.zone)
     )
-    const singletonWinners = new Map<string, RuntimePlacement>()
-    allRoots.forEach((placement) => {
-        const definition = widgetDefinition(placement.widgetKey)
-        if (definition?.multiInstance !== false) return
-
-        const current = singletonWinners.get(placement.widgetKey)
-        const placementAllowedZoneIndex = definition.allowedZones.indexOf(placement.zone)
-        const allowedZoneRank = placementAllowedZoneIndex < 0 ? definition.allowedZones.length : placementAllowedZoneIndex
-        const currentAllowedZoneIndex = current ? definition.allowedZones.indexOf(current.zone) : -1
-        const currentAllowedZoneRank = currentAllowedZoneIndex < 0 ? definition.allowedZones.length : currentAllowedZoneIndex
-        if (
-            !current ||
-            allowedZoneRank < currentAllowedZoneRank ||
-            (allowedZoneRank === currentAllowedZoneRank &&
-                (placement.sortOrder < current.sortOrder ||
-                    (placement.sortOrder === current.sortOrder && placement.instanceKey.localeCompare(current.instanceKey) < 0)))
-        ) {
-            singletonWinners.set(placement.widgetKey, placement)
-        }
-    })
+    const singletonWinners = selectSingletonWinners(allRoots)
 
     return roots.filter((placement) => {
         const definition = widgetDefinition(placement.widgetKey)

@@ -198,6 +198,8 @@ const bindingComponentRequirementSchema = z
         valueType: z.enum(['string', 'number', 'boolean', 'json', 'ref']),
         localized: z.boolean(),
         required: z.boolean(),
+        // Trusted registry opt-in for structural values; server-owned fields remain denied by default.
+        allowServerOwnedRead: z.literal(true).optional(),
         semanticKey: z.boolean().optional(),
         maxLength: z.number().int().positive().max(4096).optional(),
         pattern: z.string().trim().min(1).max(256).optional(),
@@ -516,11 +518,30 @@ const matchesBindingValueType = (actualType: string, expectedType: WidgetBinding
     return normalizeWidgetBindingDataType(actualType) === expectedCanonicalType[expectedType]
 }
 
-const isSafeWidgetBindingComponentUiConfig = (value: unknown): boolean => {
+const serverOwnedStructuralComponentCodenamesByEntityAndRole: Readonly<Record<string, Readonly<Record<string, readonly string[]>>>> = {
+    Courses: { order: ['SortOrder'] },
+    LearningTracks: { order: ['SortOrder'] },
+    CourseItems: { parent: ['CourseId'], order: ['SortOrder'] },
+    CourseSections: { parent: ['CourseId'], order: ['SortOrder'] },
+    TrackStages: { parent: ['TrackId'], order: ['SortOrder'] },
+    TrackSteps: { parent: ['TrackId'], order: ['SortOrder'] }
+}
+
+const isSafeWidgetBindingComponentUiConfig = (
+    value: unknown,
+    requirement: WidgetBindingComponentRequirement,
+    entityCodename: string
+): boolean => {
     if (value === undefined || value === null) return true
     if (typeof value !== 'object' || Array.isArray(value)) return false
     const uiConfig = value as Record<string, unknown>
-    return uiConfig.sensitive !== true && uiConfig.private !== true && uiConfig.serverOwned !== true
+    const isTrustedStructuralField =
+        requirement.allowServerOwnedRead === true &&
+        (serverOwnedStructuralComponentCodenamesByEntityAndRole[entityCodename]?.[requirement.field]?.includes(
+            requirement.componentCodename
+        ) ??
+            false)
+    return uiConfig.sensitive !== true && uiConfig.private !== true && (uiConfig.serverOwned !== true || isTrustedStructuralField)
 }
 
 /** Check persisted Entity metadata against the exact registry contract for one binding slot. */
@@ -540,7 +561,7 @@ export const isCompatibleWidgetBindingEntity = (slot: WidgetBindingSlotDefinitio
             !matchesBindingValueType(component.dataType, requirement.valueType) ||
             component.isRequired !== requirement.required ||
             !matchesWidgetBindingComponentValidationRules(requirement, component.validationRules) ||
-            !isSafeWidgetBindingComponentUiConfig(component.uiConfig)
+            !isSafeWidgetBindingComponentUiConfig(component.uiConfig, requirement, entity.codename)
         ) {
             return false
         }

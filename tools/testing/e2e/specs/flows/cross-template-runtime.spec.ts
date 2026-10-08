@@ -882,7 +882,14 @@ test('@flow @combined @cross-template resolves an entity-scoped template and sha
             await expectNoPageHorizontalOverflow(page, `Dashboard reference geometry ${viewport.name}`)
             const geometry = await readDashboardGeometry(page)
             expect(Math.abs(geometry.mainLeft - viewport.expectedMainLeft)).toBeLessThanOrEqual(1)
-            expect(Math.abs(geometry.contentTop - viewport.expectedContentTop)).toBeLessThanOrEqual(1)
+            expect(
+                Math.abs(geometry.contentTop - viewport.expectedContentTop),
+                `Dashboard content top mismatch: ${JSON.stringify({
+                    viewport: viewport.name,
+                    expected: viewport.expectedContentTop,
+                    actual: geometry.contentTop
+                })}`
+            ).toBeLessThanOrEqual(1)
             expect(geometry.contentPaddingLeft).toBe(viewport.expectedPadding)
             expect(geometry.appBarPosition).toBe('fixed')
             expect(geometry.appBarTop).toBe(geometry.expectedAppBarTop)

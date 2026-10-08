@@ -100,3 +100,12 @@ test('the focused unit gate includes the shared dialog runtime contract tests', 
         )
     )
 })
+
+test('the focused unit gate covers migration ordering before Dashboard DDL integration', () => {
+    assert.ok(
+        marketingWidgetUnitGateCommands.some(
+            ([executable, args]) =>
+                executable === 'node' && args.includes('tools/testing/backend/runPlatformMigrationsBeforeIntegration.test.mjs')
+        )
+    )
+})

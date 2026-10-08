@@ -283,8 +283,8 @@ export default function Dashboard(props: DashboardProps) {
                             px: { xs: 2, sm: 3 },
                             pb: hasViewportBoundedCanvas ? { xs: 2, sm: 3 } : 5,
                             mt: {
-                                xs: showAppNavbar ? 7 : 0,
-                                md: showAppNavbarOnDesktop ? 7 : 0
+                                xs: showAppNavbar ? 8 : 0,
+                                md: showAppNavbarOnDesktop ? 8 : 0
                             }
                         }}
                     >

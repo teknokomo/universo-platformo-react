@@ -99,6 +99,13 @@ const createTrackPlayerHarness = (courseItems = trackCourseItemRows()) => {
         metadataForSlot(trackCourseObjectId, 'Courses', courseParentSlot),
         metadataForSlot(trackCourseItemsObjectId, 'CourseItems', courseItemsSlot, trackCourseObjectId)
     ])
+    const trackStepComponents = metadata.componentsByObjectId.get(childObjectId) ?? []
+    metadata.componentsByObjectId.set(
+        childObjectId,
+        trackStepComponents.map((component) =>
+            ['TrackId', 'SortOrder'].includes(component.codename) ? { ...component, uiConfig: { serverOwned: true } } : component
+        )
+    )
     ;(runtimeStore.loadRuntimeWidgetBindingMetadata as jest.Mock).mockResolvedValue(metadata)
     ;(runtimeStore.loadWidgetBindingRuntimeRecords as jest.Mock).mockImplementation(
         (_executor: unknown, input: { query: { slot: string; target: { entityCodename: string } } }) => {
@@ -197,6 +204,13 @@ describe('resolveEffectiveWidgetRuntimeData learnerPlayer projection', () => {
             metadataForSlot(parentObjectId, 'Courses', parent),
             metadataForSlot(childObjectId, 'CourseItems', items, parentObjectId)
         ])
+        const courseItemComponents = metadata.componentsByObjectId.get(childObjectId) ?? []
+        metadata.componentsByObjectId.set(
+            childObjectId,
+            courseItemComponents.map((component) =>
+                ['CourseId', 'SortOrder'].includes(component.codename) ? { ...component, uiConfig: { serverOwned: true } } : component
+            )
+        )
         const courseItemsObject = metadata.objectsByCodename.get('CourseItems')
         if (!courseItemsObject) throw new Error('CourseItems runtime metadata is missing')
         metadata.objectsByCodename.set('CourseItems', {

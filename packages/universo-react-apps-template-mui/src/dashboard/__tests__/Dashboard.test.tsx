@@ -362,7 +362,7 @@ describe('Dashboard side menu modes', () => {
             />
         )
 
-        expect(screen.getByTestId('runtime-main-content')).toHaveStyle({ marginTop: '56px' })
+        expect(screen.getByTestId('runtime-main-content')).toHaveStyle({ marginTop: '64px' })
     })
 
     it('lets compact side-menu mode use the full content rail', async () => {

@@ -88,6 +88,8 @@ This contract changes widget configuration only. It does not add a database sche
 
 Widget definitions may declare `initialBindingSlotKey` and `initialBindingVariantKey` for authoring. The metadata is transported with the definition, validated against every slot/variant, and lets the editor choose useful source defaults without a widget-key special case.
 
+`allowServerOwnedRead` is a trusted registry opt-in for structural binding fields only. The compatibility validator restricts it to `CourseItems` and `CourseSections` parent fields (`CourseId`), `TrackStages` and `TrackSteps` parent fields (`TrackId`), and `SortOrder` on those child entities plus `Courses` and `LearningTracks`. Server-owned fields are denied by default, and `private` or `sensitive` fields are always denied.
+
 Binding instances are stored separately from slot definitions. They contain semantic source selectors and renderer projections rather than copied business content, so the bound Entity remains the source of truth. Dashboard and Marketing Page placements use this generic contract; placement-specific bindings stay in Metahub-owned layout metadata, while Application layouts carry only registry-permitted placement and presentation overrides. Runtime DTOs receive validated projections, not persisted binding metadata.
 
 Before Marketing snapshots cross publication, restore, import, or synchronization boundaries, selected source records are checked against their registered Component schemas, locale requirements, safe action/media formats, and relation references.

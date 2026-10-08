@@ -47,9 +47,9 @@ const panelSlot = makeBindingSlot(
     'panel',
     'relation-set',
     [
-        component('parent', 'Parent', 'ref'),
+        component('parent', 'Parent', 'ref', false, true, { allowServerOwnedRead: true }),
         component('title', 'Title', 'string', true, true, { maxLength: 255 }),
-        component('order', 'SortOrder', 'number')
+        component('order', 'SortOrder', 'number', false, true, { allowServerOwnedRead: true })
     ],
     {
         required: false,
@@ -418,7 +418,10 @@ const dashboardWidgetRegistry = [
                 makeBindingSlot(
                     'parent',
                     'record-set',
-                    [component('title', 'Title', 'string', true, true, { maxLength: 255 }), component('order', 'SortOrder', 'number')],
+                    [
+                        component('title', 'Title', 'string', true, true, { maxLength: 255 }),
+                        component('order', 'SortOrder', 'number', false, true, { allowServerOwnedRead: true })
+                    ],
                     { required: false, maxResolvedRecords: 100, orderByField: 'order' }
                 ),
                 panelSlot
@@ -659,7 +662,7 @@ const dashboardWidgetRegistry = [
                             'record-set',
                             [
                                 component('title', 'Title', 'string', true, true, { maxLength: 255 }),
-                                component('order', 'SortOrder', 'number')
+                                component('order', 'SortOrder', 'number', false, true, { allowServerOwnedRead: true })
                             ],
                             { maxResolvedRecords: 100, orderByField: 'order' }
                         ),
@@ -667,11 +670,11 @@ const dashboardWidgetRegistry = [
                             'items',
                             'relation-set',
                             [
-                                component('parent', 'CourseId', 'ref'),
+                                component('parent', 'CourseId', 'ref', false, true, { allowServerOwnedRead: true }),
                                 component('title', 'Title', 'string', true, true, { maxLength: 255 }),
                                 component('targetObjectCodename', 'TargetObjectCodename', 'string'),
                                 component('targetRecordId', 'TargetRecordId', 'string'),
-                                component('order', 'SortOrder', 'number')
+                                component('order', 'SortOrder', 'number', false, true, { allowServerOwnedRead: true })
                             ],
                             {
                                 maxResolvedRecords: 100,
@@ -686,7 +689,7 @@ const dashboardWidgetRegistry = [
                             'record-set',
                             [
                                 component('title', 'Title', 'string', true, true, { maxLength: 255 }),
-                                component('order', 'SortOrder', 'number')
+                                component('order', 'SortOrder', 'number', false, true, { allowServerOwnedRead: true })
                             ],
                             { maxResolvedRecords: 100, orderByField: 'order' }
                         ),
@@ -694,10 +697,10 @@ const dashboardWidgetRegistry = [
                             'items',
                             'relation-set',
                             [
-                                component('parent', 'TrackId', 'ref'),
+                                component('parent', 'TrackId', 'ref', false, true, { allowServerOwnedRead: true }),
                                 component('title', 'Title', 'string', true, true, { maxLength: 255 }),
                                 component('targetRecordId', 'CourseId', 'ref'),
-                                component('order', 'SortOrder', 'number')
+                                component('order', 'SortOrder', 'number', false, true, { allowServerOwnedRead: true })
                             ],
                             {
                                 maxResolvedRecords: 100,
@@ -746,8 +749,6 @@ export const DASHBOARD_LAYOUT_WIDGETS: typeof DASHBOARD_LAYOUT_WIDGET_REGISTRY =
 export const dashboardWidgetRegistrySchema = dashboardLayoutWidgetRegistrySchema
 export type DashboardLayoutWidgetKeyFromRegistry = (typeof DASHBOARD_LAYOUT_WIDGET_REGISTRY)[number]['key']
 
-dashboardWidgetRegistrySchema.parse(DASHBOARD_LAYOUT_WIDGET_REGISTRY)
-
 export const dashboardWidgetConfigSchemaByKey = DASHBOARD_WIDGET_CONFIG_SCHEMAS satisfies Readonly<
     Record<DashboardLayoutWidgetKey, z.ZodTypeAny>
 >
@@ -761,15 +762,6 @@ export const getPlacementSourcePolicy = (definition: Pick<DashboardLayoutWidgetD
 
 export const getPlacementLineageState = (placement: { sourceBaseWidgetId: string | null }): PlacementLineageState =>
     placementLineageStateSchema.parse({ kind: placement.sourceBaseWidgetId === null ? 'unlinked' : 'source-linked' })
-
-const expectedDashboardKeys = DASHBOARD_LAYOUT_WIDGET_REGISTRY.map(({ key }) => key).sort()
-const schemaDashboardKeys = Object.keys(DASHBOARD_WIDGET_CONFIG_SCHEMAS).sort()
-if (
-    expectedDashboardKeys.length !== schemaDashboardKeys.length ||
-    expectedDashboardKeys.some((key, index) => key !== schemaDashboardKeys[index])
-) {
-    throw new Error('Dashboard widget config schemas must cover every retained Dashboard registry key exactly once.')
-}
 
 export const getDashboardWidgetConfigFields = (
     key: DashboardLayoutWidgetKey

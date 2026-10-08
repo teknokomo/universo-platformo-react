@@ -11,7 +11,7 @@ export const component = (
     valueType: 'string' | 'number' | 'boolean' | 'json' | 'ref',
     localized = false,
     required = true,
-    options: Partial<Pick<BindingComponentRequirement, 'semanticKey' | 'maxLength' | 'pattern' | 'format'>> = {}
+    options: Partial<Pick<BindingComponentRequirement, 'allowServerOwnedRead' | 'semanticKey' | 'maxLength' | 'pattern' | 'format'>> = {}
 ): BindingComponentRequirement => ({ field, componentCodename, valueType, localized, required, ...options })
 
 export const makeBindingSlot = (

@@ -3,7 +3,8 @@ import path from 'path'
 import { spawn } from 'child_process'
 import { repoRoot } from './env/load-e2e-env.mjs'
 import { acquireE2eRunLock, releaseE2eRunLock } from './e2eRunLock.mjs'
-import { loadLocalSupabaseDatabaseUrl } from '../../backend/localSupabaseEnv.mjs'
+import { ensurePlatformMigrations, loadLocalSupabaseDatabaseUrl } from '../../backend/localSupabaseEnv.mjs'
+import { runPlatformMigrationsBeforeIntegration } from '../../backend/runPlatformMigrationsBeforeIntegration.mjs'
 
 const run = (args, options = {}) =>
     new Promise((resolve, reject) => {
@@ -102,20 +103,25 @@ try {
     await run(['doctor:e2e:local-supabase'])
     await run(['build:e2e'], { env: localSupabaseEnv })
     if (localDatabase) {
-        await run(
-            [
-                '--filter',
-                '@universo-react/metahubs-backend',
-                'exec',
-                'node',
-                '../../tools/testing/backend/run-jest.cjs',
-                '--config',
-                './jest.config.js',
-                '--runInBand',
-                'src/tests/services/widgetPlacementDdl.integration.test.ts'
-            ],
-            { env: { DATABASE_TEST_URL: localDatabase.databaseUrl } }
-        )
+        await runPlatformMigrationsBeforeIntegration({
+            databaseUrl: localDatabase.databaseUrl,
+            runMigrations: ensurePlatformMigrations,
+            runIntegration: (databaseUrl) =>
+                run(
+                    [
+                        '--filter',
+                        '@universo-react/metahubs-backend',
+                        'exec',
+                        'node',
+                        '../../tools/testing/backend/run-jest.cjs',
+                        '--config',
+                        './jest.config.js',
+                        '--runInBand',
+                        'src/tests/services/widgetPlacementDdl.integration.test.ts'
+                    ],
+                    { env: { DATABASE_TEST_URL: databaseUrl } }
+                )
+        })
     }
     await run(['exec', 'node', 'tools/testing/e2e/run-playwright-suite.mjs', ...acceptanceSpecs, '--project', 'chromium'], {
         env: {

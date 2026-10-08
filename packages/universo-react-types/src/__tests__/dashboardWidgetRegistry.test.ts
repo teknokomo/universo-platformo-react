@@ -291,6 +291,7 @@ describe('canonical Dashboard widget registry', () => {
     it('keeps retained registry keys, strict schemas, and public metadata aligned', () => {
         expect(DASHBOARD_LAYOUT_WIDGETS).toBe(DASHBOARD_LAYOUT_WIDGET_REGISTRY)
         expect(DASHBOARD_LAYOUT_WIDGETS.map(({ key }) => key).sort()).toEqual(retainedDashboardKeys)
+        expect(Object.keys(DASHBOARD_WIDGET_CONFIG_SCHEMAS).sort()).toEqual(DASHBOARD_LAYOUT_WIDGET_REGISTRY.map(({ key }) => key).sort())
         expect(Object.keys(dashboardWidgetConfigSchemaByKey).sort()).toEqual(retainedDashboardKeys)
         expect(dashboardWidgetRegistrySchema.safeParse(DASHBOARD_LAYOUT_WIDGETS).success).toBe(true)
         const invalidInitialVariant = DASHBOARD_LAYOUT_WIDGETS.map((widget) =>
@@ -642,11 +643,21 @@ describe('canonical Dashboard widget registry', () => {
         })
         expect(courseRelationBuilder?.bindingSlots?.map(({ key }) => key)).toEqual(['parent', 'panel:items'])
         expect(courseRelationBuilder?.bindingSlotFamilies).toBeUndefined()
+        expect(courseRelationBuilder?.bindingSlots?.find(({ key }) => key === 'parent')?.requirements.components).toEqual(
+            expect.arrayContaining([
+                expect.objectContaining({ field: 'order', componentCodename: 'SortOrder', allowServerOwnedRead: true })
+            ])
+        )
         expect(courseRelationBuilder?.bindingSlots?.find(({ key }) => key === 'panel:items')?.requirements.components).toEqual(
             expect.arrayContaining([
-                expect.objectContaining({ field: 'parent', componentCodename: 'CourseId', valueType: 'ref' }),
+                expect.objectContaining({ field: 'parent', componentCodename: 'CourseId', valueType: 'ref', allowServerOwnedRead: true }),
                 expect.objectContaining({ field: 'title', componentCodename: 'Title', localized: true }),
-                expect.objectContaining({ field: 'order', componentCodename: 'SortOrder', valueType: 'number' }),
+                expect.objectContaining({
+                    field: 'order',
+                    componentCodename: 'SortOrder',
+                    valueType: 'number',
+                    allowServerOwnedRead: true
+                }),
                 expect.objectContaining({
                     field: 'display1',
                     componentCodename: 'Category',
@@ -668,13 +679,20 @@ describe('canonical Dashboard widget registry', () => {
         })
         expect(trackRelationBuilder?.bindingSlots?.find(({ key }) => key === 'panel:steps')?.requirements.components).toEqual(
             expect.arrayContaining([
-                expect.objectContaining({ field: 'parent', componentCodename: 'TrackId', valueType: 'ref' }),
-                expect.objectContaining({ field: 'order', componentCodename: 'SortOrder', valueType: 'number' })
+                expect.objectContaining({ field: 'parent', componentCodename: 'TrackId', valueType: 'ref', allowServerOwnedRead: true }),
+                expect.objectContaining({ field: 'order', componentCodename: 'SortOrder', valueType: 'number', allowServerOwnedRead: true })
             ])
         )
 
         const learnerPlayer = getDashboardWidgetDefinition('learnerPlayer')
         expect(getLayoutWidgetDefinition('learnerPlayer')?.initialBindingVariantKey).toBe('course')
+        for (const variant of ['course', 'track'] as const) {
+            expect(
+                getLayoutWidgetDefinition('learnerPlayer', { variant })
+                    ?.bindingSlots?.find(({ key }) => key === 'parent')
+                    ?.requirements.components.find(({ field }) => field === 'order')
+            ).toMatchObject({ componentCodename: 'SortOrder', allowServerOwnedRead: true })
+        }
         const learnerItems = learnerPlayer?.bindingSlots?.find(({ key }) => key === 'items')
         expect(learnerItems).toMatchObject({
             selectorKinds: ['relation-set'],
