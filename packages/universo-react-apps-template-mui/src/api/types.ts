@@ -20,11 +20,17 @@ export interface RuntimeListQueryParams {
     lifecycleState?: 'active' | 'deleted'
 }
 
+export interface RuntimeRelationScope {
+    fieldCodename: string
+    parentRecordId: string
+}
+
 export interface RuntimeRowTarget {
     objectCollectionId?: string
     sectionId?: string
     /** Explicit workspace selected by a route; omitted means the server default workspace. */
     workspaceId?: string | null
+    relationScope?: RuntimeRelationScope
 }
 
 /**
@@ -89,6 +95,7 @@ export interface CrudDataAdapter {
             workspaceId?: string | null
             data?: Record<string, unknown>
             expectedVersion?: number
+            relationScope?: RuntimeRelationScope
         }
     ): Promise<Record<string, unknown>>
 
@@ -113,6 +120,7 @@ export interface CrudDataAdapter {
         workspaceId?: string | null
         orderedRowIds: string[]
         expectedVersionsByRowId?: Record<string, number>
+        parentScope?: { fieldCodename: string; parentRecordId: string }
     }): Promise<void>
 }
 

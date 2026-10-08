@@ -10,7 +10,6 @@ import {
 } from '../../services/runtimeLifecycleDispatch'
 import {
     IDENTIFIER_REGEX,
-    UUID_REGEX,
     UpdateFailure,
     buildRuntimeActiveRowCondition,
     coerceRuntimeValue,
@@ -36,30 +35,45 @@ import {
     isRuntimeSetKind,
     runtimeCopyBodySchema,
     type RuntimeObjectCollectionAttr
-} from '../runtimeRowSupport/contracts'
-import { getNextRuntimeSortValue, resolveRuntimeObjectCollection, resolveRuntimeObjectCollectionConfig } from '../runtimeRowSupport/objects'
-import { denyRuntimeEntityMutation } from '../../shared/entityMutationPolicy'
+} from '../../services/runtimeRowSupport/contracts'
+import {
+    findRuntimeAttrByFieldKey,
+    getNextRuntimeSortValue,
+    resolveRuntimeObjectCollection,
+    resolveRuntimeObjectCollectionConfig
+} from '../runtimeRowSupport/objects'
+import { assertRuntimeEntityMutationAllowed, denyRuntimeEntityMutation } from '../../shared/entityMutationPolicy'
+import { assertMarketingRuntimeRowCap } from '../../services/marketingRowCap'
+import { lockApplicationLayoutMutationFamily } from '../../persistence/applicationLayoutStoreSupport'
 import {
     applyRuntimeDateOffsetDerivations,
     validateRuntimeDateOrderRules,
     validateRuntimeParentRecordAccessReferences,
     validateRuntimeRecordPickerReferences,
-    validateRuntimeRequiredWhenRules
+    validateRuntimeRequiredWhenRules,
+    hasRuntimeServerOwnedInput
 } from '../runtimeRowSupport/validation'
-import { resolveRuntimeReorderField } from '../runtimeRowSupport/list'
+import { resolveRuntimeRelationOwnedFieldCodenames, resolveRuntimeReorderField } from '../../services/runtimeRowSupport/list'
+import {
+    buildRuntimeRelationRowPredicate,
+    lockRuntimeRelationParentRecord,
+    resolveRuntimeRelationWriteScope,
+    revalidateRuntimeRelationWriteScope,
+    type ResolvedRuntimeRelationScope
+} from '../runtimeRowSupport/relationScope'
 import {
     assertInterpretationNetworkGenericCopyAllowed,
     assertInterpretationNetworkGenericCreateAllowed,
     assertNotProtectedSystemStructureRuntimeRow,
     buildRuntimeRecordAccessClause,
-    hasRuntimeServerOwnedInput,
     readRuntimeCopyRelations,
     validateRuntimeAccessEntryMembership
-} from '../runtimeRowSupport/access'
-import { assertMarketingRuntimeRowCap, copyRuntimeConfiguredRelations, loadRuntimeRowById } from '../runtimeRowSupport/rows'
+} from '../../services/runtimeRowSupport/access'
+import { copyRuntimeConfiguredRelations, loadRuntimeRowById } from '../runtimeRowSupport/rows'
 
 import { copyRuntimeChildTableRows } from './tableChildren'
 import type { RuntimeRowWriteDeps, RuntimeWriteCopyRelationsConfig, RuntimeWriteResolvedObjectCollection } from './types'
+import { isRuntimeRecordReference, issueRuntimeRecordHandle, resolveRuntimeRecordReference } from '../../services/runtimeRecordHandle'
 
 export const buildCopyOverrideValues = async (params: {
     ctx: RuntimeSchemaContext
@@ -252,6 +266,7 @@ export const loadLockedCopySourceRow = async (params: {
     runtimeRowCondition: string
     expectedVersion: number | undefined
     dataTableIdent: string
+    relationScope?: ResolvedRuntimeRelationScope
 }): Promise<Record<string, unknown>> => {
     const transactionalSourceValues: unknown[] = [params.rowId]
     const transactionalSourceAccessClause = await buildRuntimeRecordAccessClause({
@@ -267,7 +282,14 @@ export const loadLockedCopySourceRow = async (params: {
         values: transactionalSourceValues,
         minimumAccessLevel: 'edit'
     })
-    const transactionalSourceWhereSql = ['id = $1', params.runtimeRowCondition, transactionalSourceAccessClause]
+    const relationScopeClause = params.relationScope
+        ? buildRuntimeRelationRowPredicate({
+              scope: params.relationScope,
+              parameterIndex: transactionalSourceValues.length + 1
+          })
+        : null
+    if (params.relationScope) transactionalSourceValues.push(params.relationScope.request.parentRecordId)
+    const transactionalSourceWhereSql = ['id = $1', params.runtimeRowCondition, transactionalSourceAccessClause, relationScopeClause]
         .filter((clause): clause is string => typeof clause === 'string' && clause.length > 0)
         .join(' AND ')
     const sourceRowsForCopy = (await params.executor.query(
@@ -323,7 +345,22 @@ export const executeCopyRowTransaction = async (params: {
     copyChildTables: boolean
     copyRelationsConfig: RuntimeWriteCopyRelationsConfig
     insertColumns: string[]
+    relationScope?: ResolvedRuntimeRelationScope
 }): Promise<{ copiedId: string; afterCopyLifecycleRequest: RuntimeLifecycleDispatchRequest }> => {
+    const relationScope = params.relationScope
+        ? await revalidateRuntimeRelationWriteScope({
+              executor: params.executor,
+              ctx: params.ctx,
+              applicationId: params.applicationId,
+              objectCollectionId: params.objectCollection.id,
+              childEntity: params.objectCollection,
+              childAttrs: params.attrs,
+              scope: params.relationScope
+          })
+        : undefined
+    if (relationScope) {
+        await lockRuntimeRelationParentRecord({ executor: params.executor, ctx: params.ctx, scope: relationScope })
+    }
     await assertInterpretationNetworkGenericCopyAllowed(params.executor, params.ctx, params.applicationId, params.objectCollection.id)
     await assertInterpretationNetworkGenericCreateAllowed(params.executor, params.ctx, params.applicationId, params.objectCollection.id)
     await assertMarketingRuntimeRowCap({
@@ -352,8 +389,10 @@ export const executeCopyRowTransaction = async (params: {
         rowId: params.rowId,
         runtimeRowCondition: params.runtimeRowCondition,
         expectedVersion: params.expectedVersion,
-        dataTableIdent: params.dataTableIdent
+        dataTableIdent: params.dataTableIdent,
+        relationScope
     })
+    const reorderFieldAttr = relationScope ? relationScope.sortOrderAttr : params.reorderFieldAttr
     const effectiveCopyValues = await buildPendingCopyState({
         executor: params.executor,
         ctx: params.ctx,
@@ -384,7 +423,7 @@ export const executeCopyRowTransaction = async (params: {
 
     const copiedRuleValues = Object.fromEntries(
         params.nonTableAttrs
-            .filter((cmp) => cmp.column_name !== params.reorderFieldAttr?.column_name)
+            .filter((cmp) => cmp.column_name !== reorderFieldAttr?.column_name)
             .map((cmp) => [
                 cmp.column_name,
                 effectiveCopyValues.has(cmp.column_name)
@@ -419,7 +458,7 @@ export const executeCopyRowTransaction = async (params: {
     })
 
     const insertValuesArr = params.nonTableAttrs.map((cmp) =>
-        params.reorderFieldAttr?.column_name === cmp.column_name
+        reorderFieldAttr?.column_name === cmp.column_name
             ? null
             : effectiveCopyValues.has(cmp.column_name)
             ? effectiveCopyValues.get(cmp.column_name) ?? null
@@ -429,16 +468,32 @@ export const executeCopyRowTransaction = async (params: {
     if (params.ctx.userId) insertValuesArr.push(params.ctx.userId)
     const placeholders = insertValuesArr.map((_, index) => `$${index + 1}`)
 
-    if (params.reorderFieldAttr) {
-        const reorderFieldIndex = params.nonTableAttrs.findIndex((cmp) => cmp.column_name === params.reorderFieldAttr?.column_name)
+    if (reorderFieldAttr) {
+        const reorderFieldIndex = params.nonTableAttrs.findIndex((cmp) => cmp.column_name === reorderFieldAttr.column_name)
         if (reorderFieldIndex >= 0) {
             insertValuesArr[reorderFieldIndex] = await getNextRuntimeSortValue({
                 manager: params.executor,
                 dataTableIdent: params.dataTableIdent,
                 runtimeRowCondition: params.runtimeRowCondition,
-                reorderColumnName: params.reorderFieldAttr.column_name
+                reorderColumnName: reorderFieldAttr.column_name,
+                ...(relationScope
+                    ? {
+                          parentScope: {
+                              fieldColumnName: relationScope.parentFieldAttr.column_name,
+                              parentRecordId: relationScope.request.parentRecordId
+                          }
+                      }
+                    : {})
             })
         }
+    }
+
+    if (relationScope) {
+        const parentFieldIndex = params.nonTableAttrs.findIndex(
+            ({ column_name }) => column_name === relationScope.parentFieldAttr.column_name
+        )
+        if (parentFieldIndex < 0) throw new UpdateFailure(409, { error: 'The relation parent field is not writable' })
+        insertValuesArr[parentFieldIndex] = relationScope.request.parentRecordId
     }
 
     const [insertedParent] = (await params.executor.query(
@@ -496,8 +551,8 @@ export const executeCopyRowTransaction = async (params: {
 export const createCopyRowHandler = ({ getDbExecutor, query }: RuntimeRowWriteDeps) => {
     // ============ COPY ROW ============
     const copyRow = async (req: Request, res: Response) => {
-        const { applicationId, rowId } = req.params
-        if (!UUID_REGEX.test(rowId)) return res.status(400).json({ error: 'Invalid row ID format' })
+        const { applicationId, rowId: rowReference } = req.params
+        if (!isRuntimeRecordReference(rowReference)) return res.status(400).json({ error: 'Invalid row reference format' })
 
         const parsedBody = runtimeCopyBodySchema.safeParse(req.body ?? {})
         if (!parsedBody.success) {
@@ -515,6 +570,14 @@ export const createCopyRowHandler = ({ getDbExecutor, query }: RuntimeRowWriteDe
         } = await resolveRuntimeObjectCollection(ctx.manager, ctx.schemaIdent, parsedBody.data.objectCollectionId)
         if (!objectCollection) return res.status(404).json({ error: objectCollectionError })
         if (denyRuntimeEntityMutation(res, objectCollection.config)) return
+        const entityCodename = resolveRuntimeCodenameText(objectCollection.codename)
+        const resolvedReference = resolveRuntimeRecordReference(rowReference, {
+            applicationId,
+            workspaceId: ctx.currentWorkspaceId,
+            entityCodename
+        })
+        if (!resolvedReference) return res.status(404).json({ error: 'Row not found' })
+        const rowId = resolvedReference.recordId
 
         const safeAttrs = attrs.filter((a) => IDENTIFIER_REGEX.test(a.column_name))
         const nonTableAttrs = safeAttrs.filter((a) => a.data_type !== 'TABLE')
@@ -530,18 +593,6 @@ export const createCopyRowHandler = ({ getDbExecutor, query }: RuntimeRowWriteDe
             objectCollection.config,
             undefined,
             ctx.currentWorkspaceId
-        )
-        const { runtimeConfig } = await resolveRuntimeObjectCollectionConfig({
-            manager: ctx.manager,
-            applicationId,
-            userId: ctx.userId,
-            role: ctx.role,
-            workspaceId: ctx.currentWorkspaceId,
-            objectCollectionId: objectCollection.id
-        })
-        const reorderFieldAttr = resolveRuntimeReorderField(
-            nonTableAttrs,
-            runtimeConfig.enableRowReordering ? runtimeConfig.reorderPersistenceField : null
         )
         const copyRelationsConfig = readRuntimeCopyRelations(objectCollection.config)
         if (copyRelationsConfig?.invalid) {
@@ -572,8 +623,60 @@ export const createCopyRowHandler = ({ getDbExecutor, query }: RuntimeRowWriteDe
         let afterCopyLifecycleRequest: RuntimeLifecycleDispatchRequest | null = null
 
         try {
-            const copyResult = await withTransactionSavepoint(ctx.manager, async (tx) =>
-                executeCopyRowTransaction({
+            const copyResult = await withTransactionSavepoint(ctx.manager, async (tx) => {
+                await lockApplicationLayoutMutationFamily(tx, ctx.schemaName)
+                const { runtimeConfig, selectedLayout } = await resolveRuntimeObjectCollectionConfig({
+                    manager: tx,
+                    applicationId,
+                    userId: ctx.userId,
+                    role: ctx.role,
+                    workspaceId: ctx.currentWorkspaceId,
+                    objectCollectionId: objectCollection.id,
+                    objectCollectionCodename: resolveRuntimeCodenameText(objectCollection.codename)
+                })
+                const relationOwnedAttrs = resolveRuntimeRelationOwnedFieldCodenames(
+                    selectedLayout.zoneWidgets,
+                    resolveRuntimeCodenameText(objectCollection.codename)
+                )
+                    .map((fieldCodename) => findRuntimeAttrByFieldKey(attrs, fieldCodename))
+                    .filter((attr): attr is RuntimeObjectCollectionAttr => Boolean(attr))
+                const reorderFieldAttr = resolveRuntimeReorderField(
+                    nonTableAttrs,
+                    runtimeConfig.enableRowReordering ? runtimeConfig.reorderPersistenceField : null
+                )
+                const relationScope = parsedBody.data.relationScope
+                    ? await resolveRuntimeRelationWriteScope({
+                          manager: tx,
+                          applicationId,
+                          workspaceId: ctx.currentWorkspaceId,
+                          schemaIdent: ctx.schemaIdent,
+                          zoneWidgets: selectedLayout.zoneWidgets,
+                          childEntity: objectCollection,
+                          childAttrs: attrs,
+                          request: parsedBody.data.relationScope
+                      })
+                    : null
+                if (parsedBody.data.relationScope && !relationScope) {
+                    throw new UpdateFailure(409, {
+                        error: 'The requested relation scope is unavailable',
+                        code: 'RUNTIME_RELATION_SCOPE_INVALID'
+                    })
+                }
+                if (relationOwnedAttrs.length > 0 && !relationScope) {
+                    throw new UpdateFailure(409, {
+                        error: 'A verified relation scope is required to copy this related record',
+                        code: 'RUNTIME_RELATION_SCOPE_REQUIRED'
+                    })
+                }
+                if (relationScope) assertRuntimeEntityMutationAllowed(relationScope.parentCollection.config)
+                if (
+                    relationOwnedAttrs.some(
+                        (attr) => getRuntimeInputValue(parsedBody.data.data ?? {}, attr.column_name, attr.codename).hasUserValue
+                    )
+                ) {
+                    throw new UpdateFailure(400, { error: 'Relation parent and ordering fields are server-owned' })
+                }
+                return executeCopyRowTransaction({
                     executor: tx,
                     ctx,
                     applicationId,
@@ -589,13 +692,21 @@ export const createCopyRowHandler = ({ getDbExecutor, query }: RuntimeRowWriteDe
                     reorderFieldAttr,
                     copyChildTables,
                     copyRelationsConfig,
-                    insertColumns
+                    insertColumns,
+                    relationScope: relationScope ?? undefined
                 })
-            )
+            })
             afterCopyLifecycleRequest = copyResult.afterCopyLifecycleRequest
             dispatchRuntimeLifecycleAfterCommit(ctx.manager, afterCopyLifecycleRequest)
             return res.status(201).json({
-                id: copyResult.copiedId,
+                id: resolvedReference.fromHandle
+                    ? issueRuntimeRecordHandle({
+                          applicationId,
+                          workspaceId: ctx.currentWorkspaceId,
+                          entityCodename,
+                          recordId: copyResult.copiedId
+                      })
+                    : copyResult.copiedId,
                 status: 'created',
                 copyOptions: { copyChildTables },
                 hasRequiredChildTables

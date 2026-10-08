@@ -3,7 +3,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import type { ReactNode } from 'react'
-import { extractObjectCollectionLayoutBehaviorConfig } from '@universo-react/utils'
+import { getLayoutWidgetDefinition } from '@universo-react/types'
 
 const { getLayout, listLayoutZoneWidgets, getLayoutZoneWidgetObjects, updateLayout, toggleLayoutZoneWidgetActive } = vi.hoisted(() => ({
     getLayout: vi.fn(),
@@ -18,7 +18,15 @@ const mockUseMetahubDetails = vi.fn()
 vi.mock('react-i18next', () => ({
     initReactI18next: { type: '3rdParty', init: vi.fn() },
     useTranslation: () => ({
-        t: (key: string, defaultValue?: string) => defaultValue ?? key,
+        t: (key: string, options?: string | Record<string, unknown>) => {
+            const parameters = typeof options === 'object' && options !== null ? options : {}
+            const fallback = typeof options === 'string' ? options : parameters.defaultValue
+            return Object.entries(parameters).reduce(
+                (message, [name, replacement]) =>
+                    name === 'defaultValue' ? message : message.replaceAll(`{{${name}}}`, String(replacement)),
+                typeof fallback === 'string' ? fallback : key
+            )
+        },
         i18n: { language: 'en' }
     })
 }))
@@ -134,25 +142,19 @@ const seedGlobalLayoutResponse = () => {
         {
             id: 'widget-global',
             layoutId: 'layout-global',
+            instanceKey: 'widget-global-instance',
             zone: 'left',
             widgetKey: 'menuWidget',
             sortOrder: 1,
-            config: { title: 'Objects' },
+            parentInstanceKey: null,
+            slotKey: null,
+            config: { variant: 'generated' },
             isActive: true,
             isInherited: false
         }
     ])
 
-    getLayoutZoneWidgetObjects.mockResolvedValue([
-        {
-            key: 'menuWidget',
-            allowedZones: ['left', 'right'],
-            allowedZonesByTemplate: { dashboard: ['left', 'right'] },
-            multiInstance: true,
-            templateKey: 'dashboard',
-            supportedTemplates: ['dashboard']
-        }
-    ])
+    getLayoutZoneWidgetObjects.mockResolvedValue([getLayoutWidgetDefinition('menuWidget')!])
 }
 
 describe('LayoutDetails cache invalidation for global layouts', () => {
@@ -232,7 +234,7 @@ describe('LayoutDetails cache invalidation for global layouts', () => {
         expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: metahubsQueryKeys.layoutsRoot('metahub-1') })
     })
 
-    it('stores persisted row reorder settings inside object behavior config', async () => {
+    it('does not expose details-table ordering as Object runtime behavior', async () => {
         const queryClient = createQueryClient()
 
         render(
@@ -246,23 +248,9 @@ describe('LayoutDetails cache invalidation for global layouts', () => {
         )
 
         await waitFor(() => {
-            expect(screen.getByRole('switch', { name: 'Enable row reordering' })).toBeInTheDocument()
+            expect(screen.getByRole('switch', { name: 'Show create button' })).toBeInTheDocument()
         })
 
-        fireEvent.click(screen.getByRole('switch', { name: 'Enable row reordering' }))
-
-        await waitFor(() => {
-            expect(updateLayout).toHaveBeenCalledWith('metahub-1', 'layout-global', expect.objectContaining({ config: expect.any(Object) }))
-        })
-
-        const lastCall = updateLayout.mock.calls.at(-1)
-        const nextConfig = lastCall?.[2]?.config as Record<string, unknown>
-
-        expect(nextConfig.enableRowReordering).toBeUndefined()
-        expect(extractObjectCollectionLayoutBehaviorConfig(nextConfig)).toEqual(
-            expect.objectContaining({
-                enableRowReordering: true
-            })
-        )
+        expect(screen.queryByRole('switch', { name: 'Enable row reordering' })).not.toBeInTheDocument()
     })
 })

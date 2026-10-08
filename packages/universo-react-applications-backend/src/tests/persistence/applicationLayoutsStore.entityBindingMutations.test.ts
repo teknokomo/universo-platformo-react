@@ -16,8 +16,8 @@ describe('applicationLayoutsStore Entity-backed binding mutations', () => {
                     widget_key: 'marketing.collection',
                     sort_order: 0,
                     config: encodeBoundCollectionConfig('hero', 'features'),
-                    source_config: null,
-                    source_widget_id: null,
+                    source_config: encodeBoundCollectionConfig('hero', 'features'),
+                    source_widget_id: '0190a9b5-3cde-7abc-8def-2123456789d7',
                     source_base_widget_id: null,
                     is_customized: false,
                     is_active: true,
@@ -35,7 +35,7 @@ describe('applicationLayoutsStore Entity-backed binding mutations', () => {
                     zone: 'marketing-main',
                     widgetKey: 'marketing.collection',
                     expectedVersion: 1,
-                    config: { instanceKey: 'hero', variant: 'features' }
+                    config: { variant: 'features' }
                 },
                 'user-1'
             )
@@ -52,8 +52,8 @@ describe('applicationLayoutsStore Entity-backed binding mutations', () => {
             widget_key: 'marketing.collection',
             sort_order: 0,
             config: encodeBoundCollectionConfig('hero', 'features'),
-            source_config: null,
-            source_widget_id: null,
+            source_config: encodeBoundCollectionConfig('hero', 'features'),
+            source_widget_id: '0190a9b5-3cde-7abc-8def-2123456789d7',
             source_base_widget_id: null,
             is_customized: false,
             is_active: true,
@@ -73,13 +73,13 @@ describe('applicationLayoutsStore Entity-backed binding mutations', () => {
                     zone: 'marketing-main',
                     widgetKey: 'marketing.collection',
                     expectedVersion: 1,
-                    config: { instanceKey: 'new-placement', variant: 'features' }
+                    config: { variant: 'features' }
                 },
                 'user-1'
             )
         ).rejects.toThrow('APPLICATION_LAYOUT_ENTITY_BACKED_WIDGET_COPY_CONFLICT')
-        expect(executor.transaction).not.toHaveBeenCalled()
-        expect(txExecutor.query).not.toHaveBeenCalled()
+        expect(executor.transaction).toHaveBeenCalledTimes(1)
+        expect(txExecutor.query.mock.calls.some(([sql]) => String(sql).includes('INSERT INTO'))).toBe(false)
     })
 
     it.each(['source', 'copySource'] as const)('rejects legacy marketing %s data at the Entity-backed widget boundary', async (field) => {
@@ -102,7 +102,7 @@ describe('applicationLayoutsStore Entity-backed binding mutations', () => {
                 },
                 'user-1'
             )
-        ).rejects.toThrow('APPLICATION_LAYOUT_ENTITY_BACKED_WIDGET_COPY_CONFLICT')
+        ).rejects.toThrow('APPLICATION_LAYOUT_WIDGET_INVALID')
         expect(executor.transaction).not.toHaveBeenCalled()
     })
 
@@ -119,8 +119,8 @@ describe('applicationLayoutsStore Entity-backed binding mutations', () => {
                     widget_key: 'marketing.collection',
                     sort_order: 0,
                     config: encodeBoundCollectionConfig('features', 'features'),
-                    source_config: null,
-                    source_widget_id: null,
+                    source_config: encodeBoundCollectionConfig('features', 'features'),
+                    source_widget_id: '0190a9b5-3cde-7abc-8def-2123456789de',
                     source_base_widget_id: null,
                     is_customized: false,
                     is_active: true,
@@ -138,7 +138,7 @@ describe('applicationLayoutsStore Entity-backed binding mutations', () => {
                     zone: 'marketing-main',
                     widgetKey: 'marketing.collection',
                     expectedVersion: 1,
-                    config: { instanceKey: 'features', variant: 'features' }
+                    config: { variant: 'features' }
                 },
                 'user-1'
             )

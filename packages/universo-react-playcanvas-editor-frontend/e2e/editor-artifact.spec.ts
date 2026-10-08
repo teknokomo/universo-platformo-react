@@ -844,6 +844,153 @@ test('PlayCanvas Editor hosted upstream UI saves serializable entities', async (
             })
         ])
     )
+
+    const persistedEntityMetadata = {
+        mmoomm: {
+            visualMaterial: {
+                role: 'core',
+                materialAssetId: 701
+            }
+        }
+    }
+    const fallbackEntityMetadata = {
+        mmoomm: {
+            visualMaterial: {
+                role: 'fallback',
+                materialAssetId: 702
+            }
+        }
+    }
+    const observerEntityMetadata = {
+        mmoomm: {
+            editorObserved: true
+        }
+    }
+    const serializedMetadata = await frame.locator('body').evaluate(
+        (
+            _body,
+            input: {
+                entityId: string
+                metadata: Record<string, unknown>
+                fallbackMetadata: Record<string, unknown>
+                observerMetadata: Record<string, unknown>
+            }
+        ) => {
+            const windowState = window as unknown as {
+                editor: {
+                    api?: unknown
+                    call?: (method: string) => unknown
+                }
+            }
+            const bridge = window.__UNIVERSO_PLAYCANVAS_EDITOR_BRIDGE__ as unknown as {
+                dirty?: boolean
+                lastCleanLoadedScenePayload?: unknown
+                serializeCurrentScene?: () => { entities?: Array<{ id?: string; metadata?: unknown }> }
+            }
+            const entityData = {
+                resource_id: input.entityId,
+                name: 'Smoke Entity',
+                parent: 'root',
+                enabled: true,
+                position: [0, 0, 0],
+                rotation: [0, 0, 0],
+                scale: [1, 1, 1],
+                components: {}
+            }
+            const previousEditor = windowState.editor
+            const previousDirty = bridge.dirty
+            const previousCleanPayload = bridge.lastCleanLoadedScenePayload
+            const createEditor = (realtimeEntity: Record<string, unknown>, observerMetadata?: Record<string, unknown>) => {
+                const observerData = observerMetadata ? { ...entityData, metadata: observerMetadata } : entityData
+                const observer = {
+                    data: observerData,
+                    get: (path: string) => path.split('.').reduce((value, key) => value?.[key], observerData as Record<string, unknown>),
+                    json: () => observerData
+                }
+                return {
+                    api: {
+                        globals: {
+                            realtime: {
+                                scenes: {
+                                    current: {
+                                        data: {
+                                            entities: { [input.entityId]: realtimeEntity }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    call: (method: string) => {
+                        if (method === 'entities:list') return [observer]
+                        if (method === 'entities:raw' || method === 'assets:list' || method === 'assets:raw') return []
+                        return null
+                    }
+                }
+            }
+            bridge.lastCleanLoadedScenePayload = {
+                schemaVersion: '1',
+                entities: [
+                    {
+                        id: input.entityId,
+                        entity: {
+                            name: entityData.name,
+                            parent: entityData.parent,
+                            enabled: entityData.enabled,
+                            position: entityData.position,
+                            rotation: entityData.rotation,
+                            scale: entityData.scale,
+                            components: entityData.components,
+                            metadata: input.fallbackMetadata
+                        }
+                    }
+                ]
+            }
+            bridge.dirty = true
+            try {
+                windowState.editor = createEditor({ ...entityData, metadata: input.metadata }, input.observerMetadata)
+                const currentSceneMetadata = bridge
+                    .serializeCurrentScene?.()
+                    ?.entities?.find((candidate) => candidate.id === input.entityId)?.metadata
+
+                windowState.editor = createEditor({ ...entityData })
+                const fallbackSceneMetadata = bridge
+                    .serializeCurrentScene?.()
+                    ?.entities?.find((candidate) => candidate.id === input.entityId)?.metadata
+
+                windowState.editor = createEditor({ ...entityData, metadata: null })
+                const explicitClearMetadata = bridge
+                    .serializeCurrentScene?.()
+                    ?.entities?.find((candidate) => candidate.id === input.entityId)?.metadata
+
+                return {
+                    currentSceneMetadata,
+                    fallbackSceneMetadata,
+                    explicitClearMetadataWasApplied: explicitClearMetadata === undefined
+                }
+            } finally {
+                windowState.editor = previousEditor
+                bridge.lastCleanLoadedScenePayload = previousCleanPayload
+                bridge.dirty = previousDirty
+            }
+        },
+        {
+            entityId: String((entity as { id?: string }).id),
+            metadata: persistedEntityMetadata,
+            fallbackMetadata: fallbackEntityMetadata,
+            observerMetadata: observerEntityMetadata
+        }
+    )
+    expect(serializedMetadata).toEqual({
+        currentSceneMetadata: {
+            mmoomm: {
+                visualMaterial: persistedEntityMetadata.mmoomm.visualMaterial,
+                editorObserved: true
+            }
+        },
+        fallbackSceneMetadata: fallbackEntityMetadata,
+        explicitClearMetadataWasApplied: true
+    })
 })
 
 test('PlayCanvas Editor hosted upstream UI authors MMOOMM native renderable entities without projection controls', async ({

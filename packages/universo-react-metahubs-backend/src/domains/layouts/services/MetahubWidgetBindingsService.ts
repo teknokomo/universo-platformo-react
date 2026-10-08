@@ -27,14 +27,10 @@ export class MetahubWidgetBindingsService {
     async discoverWidgetBindingSources(
         metahubId: string,
         layoutId: string,
-        input: Omit<Parameters<WidgetBindingService['discoverSources']>[1], 'layoutId' | 'templateKey'>,
+        input: Omit<Parameters<WidgetBindingService['discoverSources']>[1], 'layoutId'>,
         userId?: string | null
     ) {
-        return this.widgetBindingService.discoverSources(this.context(metahubId, userId), {
-            ...input,
-            layoutId,
-            templateKey: 'marketing-page'
-        })
+        return this.widgetBindingService.discoverSources(this.context(metahubId, userId), { ...input, layoutId })
     }
 
     async listWidgetBindingRecords(
@@ -50,14 +46,10 @@ export class MetahubWidgetBindingsService {
     async discoverWidgetBindingRecords(
         metahubId: string,
         layoutId: string,
-        input: Omit<Parameters<WidgetBindingService['discoverSemanticRecords']>[1], 'layoutId' | 'templateKey'>,
+        input: Omit<Parameters<WidgetBindingService['discoverSemanticRecords']>[1], 'layoutId'>,
         userId?: string | null
     ) {
-        return this.widgetBindingService.discoverSemanticRecords(this.context(metahubId, userId), {
-            ...input,
-            layoutId,
-            templateKey: 'marketing-page'
-        })
+        return this.widgetBindingService.discoverSemanticRecords(this.context(metahubId, userId), { ...input, layoutId })
     }
 
     async updateWidgetBinding(
@@ -84,11 +76,7 @@ export class MetahubWidgetBindingsService {
         },
         userId?: string | null
     ) {
-        return this.widgetBindingService.provisionSource(this.context(metahubId, userId), {
-            ...input,
-            layoutId,
-            templateKey: 'marketing-page'
-        })
+        return this.widgetBindingService.provisionSource(this.context(metahubId, userId), { ...input, layoutId })
     }
 
     async getWidgetBindingUsage(

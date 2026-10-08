@@ -1,12 +1,24 @@
+const mockResolveEffectiveLayoutStructureForRequest = jest.fn()
+
+jest.mock('../../../services/effectiveLayoutResolverCore', () => ({
+    __esModule: true,
+    resolveEffectiveLayoutStructureForRequest: (...args: unknown[]) => mockResolveEffectiveLayoutStructureForRequest(...args)
+}))
+
 import {
     buildRuntimeAttrLookup,
     findRuntimeAttrByFieldKey,
     findRuntimeSystemKeyAttr,
     readRuntimeAttrStringValue,
     readRuntimeAttrValue,
+    resolveRuntimeObjectCollectionConfig,
     resolveRuntimeRecordOwnerColumnName
 } from '../../../controllers/runtimeRowSupport/objects'
-import type { RuntimeObjectCollectionAttr } from '../../../controllers/runtimeRowSupport/contracts'
+import { resolveRuntimeRelationOwnedFieldCodenames } from '../../../services/runtimeRowSupport/list'
+import { resolveRuntimeRelationWriteScope } from '../../../controllers/runtimeRowSupport/relationScope'
+import type { RuntimeObjectCollectionAttr } from '../../../services/runtimeRowSupport/contracts'
+import { createRelationBuilderEffectiveWidget } from './runtimeRelationAuthorityFixture'
+import type { DbExecutor } from '@universo-react/utils'
 
 const codename = (text: string) => ({ _primary: 'en', locales: { en: { content: text } } })
 
@@ -73,6 +85,82 @@ describe('readRuntimeAttrStringValue', () => {
         expect(readRuntimeAttrStringValue({ start_date: '   ' }, startDateAttr)).toBeNull()
         expect(readRuntimeAttrStringValue({ start_date: 42 }, startDateAttr)).toBeNull()
         expect(readRuntimeAttrStringValue({}, undefined)).toBeNull()
+    })
+})
+
+describe('resolveRuntimeObjectCollectionConfig relation authority', () => {
+    it('preserves the authorized relation projection used by relation scope and owned-field discovery', async () => {
+        const applicationId = '019f2000-0000-7000-8000-000000000001'
+        const objectCollectionId = '019f2000-0000-7000-8000-000000000002'
+        const parentEntityId = '019f2000-0000-7000-8000-000000000007'
+        const parentRecordId = '019f2000-0000-7000-8000-000000000003'
+        const relationWidget = createRelationBuilderEffectiveWidget()
+        mockResolveEffectiveLayoutStructureForRequest.mockResolvedValue({
+            status: 'ok',
+            layout: { id: '019f2000-0000-7000-8000-000000000004', templateKey: 'dashboard', config: {} },
+            widgets: [relationWidget]
+        })
+
+        const query = jest.fn(async (sql: string) => {
+            if (sql.includes('FROM "app_test"._app_objects')) {
+                return [{ id: parentEntityId, kind: 'object', codename: 'Courses', table_name: 'courses', config: null }]
+            }
+            return []
+        })
+        const manager = {
+            query
+        } as unknown as DbExecutor
+        const result = await resolveRuntimeObjectCollectionConfig({
+            manager,
+            applicationId,
+            userId: '019f2000-0000-7000-8000-000000000006',
+            role: 'member',
+            workspaceId: null,
+            locale: 'en',
+            objectCollectionId,
+            objectCollectionCodename: 'CourseItems'
+        })
+        const scope = await resolveRuntimeRelationWriteScope({
+            manager,
+            schemaIdent: '"app_test"',
+            zoneWidgets: result.selectedLayout.zoneWidgets,
+            childEntity: { codename: 'CourseItems' },
+            childAttrs: [
+                {
+                    id: 'course-ref',
+                    codename: 'CourseId',
+                    column_name: 'course_id',
+                    data_type: 'REF',
+                    is_required: true,
+                    target_object_id: parentEntityId,
+                    target_object_kind: 'object'
+                },
+                {
+                    id: 'sort-order',
+                    codename: 'SortOrder',
+                    column_name: 'sort_order',
+                    data_type: 'NUMBER',
+                    is_required: true
+                }
+            ],
+            request: { fieldCodename: 'CourseId', parentRecordId }
+        })
+        const ownedFields = resolveRuntimeRelationOwnedFieldCodenames(result.selectedLayout.zoneWidgets, 'CourseItems')
+
+        expect(mockResolveEffectiveLayoutStructureForRequest).toHaveBeenCalledWith(
+            expect.anything(),
+            { applicationId, userId: '019f2000-0000-7000-8000-000000000006', role: 'member' },
+            { applicationId, targetKind: 'object', entityTypeId: objectCollectionId, locale: 'en' }
+        )
+        expect(scope).toMatchObject({
+            request: { fieldCodename: 'CourseId', parentRecordId },
+            parentFieldAttr: { target_object_id: parentEntityId },
+            parentCollection: { id: parentEntityId, codename: 'Courses' },
+            sortOrderAttr: { codename: 'SortOrder', column_name: 'sort_order' }
+        })
+        expect(ownedFields).toEqual(['CourseId', 'SortOrder'])
+        expect(result.selectedLayout.zoneWidgets.center[0]).not.toHaveProperty('runtimeData')
+        expect(query.mock.calls.every(([sql]) => !sql.includes('FROM "app_test".courses'))).toBe(true)
     })
 })
 

@@ -8,12 +8,15 @@ import type {
 
 import type { normalizeRuntimeRecordBehavior } from '../../services/runtimeRecordBehavior'
 import type { createQueryHelper, RuntimeDataType, RuntimeRefOption } from '../../shared/runtimeHelpers'
-import type { runtimeQuerySchema } from '../runtimeRowSupport/contracts'
-import type { readConfiguredWorkflowActions } from '../runtimeRowSupport/workflow'
+import type { runtimeQuerySchema } from '../../services/runtimeRowSupport/contracts'
+import type { readConfiguredWorkflowActions } from '../../services/runtimeRowSupport/workflow'
+import type { RuntimeRowReorderAuthority } from '../../services/runtimeRowSupport/list'
 
 export type RuntimeReadFailure = { statusCode: number; body: Record<string, unknown> }
 
 export type RuntimeReadQuery = z.infer<typeof runtimeQuerySchema>
+
+export type RuntimeReadRuntimeConfig = ReturnType<typeof resolveObjectCollectionLayoutBehaviorConfig> & RuntimeRowReorderAuthority
 
 export type RuntimeReadComponent = {
     id: string
@@ -47,9 +50,7 @@ export type RuntimeReadRuntimeSection = {
     kind: string
     codename: string
     tableName: string | null
-    runtimeConfig:
-        | ReturnType<typeof resolveObjectCollectionLayoutBehaviorConfig>
-        | ReturnType<typeof normalizeObjectCollectionRuntimeViewConfig>
+    runtimeConfig: RuntimeReadRuntimeConfig | ReturnType<typeof normalizeObjectCollectionRuntimeViewConfig>
     recordBehavior: ReturnType<typeof normalizeRuntimeRecordBehavior> | undefined
     workflowActions: ReturnType<typeof readConfiguredWorkflowActions>
     name: string

@@ -6,25 +6,24 @@ import {
     MARKETING_LAYOUT_ZONES,
     MARKETING_LAYOUT_ZONE_SEMANTICS,
     MARKETING_WIDGET_REGISTRY,
-    APPLICATION_TEMPLATE_KEYS,
     applicationTemplateKeySchema
 } from './marketingPage'
 import type { ApplicationTemplateKey } from './marketingPage'
 import { DASHBOARD_LAYOUT_WIDGETS, DASHBOARD_LAYOUT_ZONES, DASHBOARD_LAYOUT_ZONE_SEMANTICS } from './metahubs'
+import {
+    dashboardWidgetOwnershipMetadataSchema,
+    type DashboardWidgetOwnershipMetadata,
+    type LayoutWidgetCopyPolicy,
+    type LayoutWidgetPlacementPolicy,
+    type PlacementSourcePolicy
+} from './dashboardWidgetRegistry'
 import {
     applicationTemplateHostCapabilitySchema,
     layoutSemanticRegionSchema,
     type ApplicationTemplateHostCapability,
     type LayoutSemanticRegion
 } from './applicationTemplates'
-import {
-    layoutWidgetPresentationFieldSchema,
-    layoutWidgetAuthoringCapabilitiesSchema,
-    widgetBindingSlotDefinitionSchema,
-    type LayoutWidgetAuthoringCapabilities,
-    type LayoutWidgetPresentationField,
-    type WidgetBindingSlotDefinition
-} from './widgetBindings'
+import { type WidgetBindingSlotDefinition } from './widgetBindings'
 import { MARKETING_WIDGET_CONTRACTS } from './marketingWidgetContracts'
 
 /** Serializable setting descriptor exposed through layout metadata responses. */
@@ -119,7 +118,7 @@ export interface LayoutSemanticZoneMapping {
     readonly physicalZone: ApplicationLayoutZone
 }
 
-export interface LayoutWidgetDefinition {
+export interface LayoutWidgetDefinition extends DashboardWidgetOwnershipMetadata {
     readonly key: ApplicationLayoutWidgetKey
     /** Template that originally owns the widget definition. */
     readonly templateKey: ApplicationTemplateKey
@@ -137,20 +136,15 @@ export interface LayoutWidgetDefinition {
     readonly defaultPlacement?: LayoutLogicalPlacement
     /** Compact/mobile projection owned by the zone shell. */
     readonly mobileProjection?: LayoutWidgetMobileProjection
-    /** Semantic Entity bindings declared for this renderer. */
-    readonly bindingSlots?: readonly WidgetBindingSlotDefinition[]
     /** Slot selected by default when configuring a source-backed widget. */
     readonly initialBindingSlotKey?: string
-    /** Serializable presentation-only fields shared by the authoring hosts. */
-    readonly presentationFields?: readonly LayoutWidgetPresentationField[]
-    /** Declarative Add, Duplicate, content and Application ownership capabilities. */
-    readonly authoring?: LayoutWidgetAuthoringCapabilities
-    /** Variant-specific slot requirements for polymorphic widgets such as collections. */
-    readonly bindingVariants?: Readonly<Record<string, readonly WidgetBindingSlotDefinition[]>>
 }
 
 const layoutWidgetKeySchema = z.string().trim().min(1).max(128)
-const layoutZoneKeySchema = z.enum([...DASHBOARD_LAYOUT_ZONES, ...MARKETING_LAYOUT_ZONES] as [string, ...string[]])
+const layoutZoneKeySchema = z.enum([...DASHBOARD_LAYOUT_ZONES, ...MARKETING_LAYOUT_ZONES] as [
+    ApplicationLayoutZone,
+    ...ApplicationLayoutZone[]
+])
 
 /** Runtime contract for one canonical layout zone definition. */
 export const layoutZoneDefinitionSchema = z
@@ -183,11 +177,8 @@ export const layoutWidgetDefinitionSchema = z
         defaultLabel: z.string().trim().min(1),
         defaultPlacement: z.enum(['start', 'end']).optional(),
         mobileProjection: z.enum(['compact-header', 'drawer']).optional(),
-        bindingSlots: z.array(widgetBindingSlotDefinitionSchema).max(16).optional(),
         initialBindingSlotKey: z.string().trim().min(1).max(128).optional(),
-        presentationFields: z.array(layoutWidgetPresentationFieldSchema).max(32).optional(),
-        authoring: layoutWidgetAuthoringCapabilitiesSchema.optional(),
-        bindingVariants: z.record(z.string().trim().min(1).max(128), z.array(widgetBindingSlotDefinitionSchema).max(16)).optional()
+        ...dashboardWidgetOwnershipMetadataSchema.shape
     })
     .strict()
     .superRefine((value, context) => {
@@ -221,6 +212,16 @@ export const layoutWidgetDefinitionSchema = z
                 }
             }
         }
+        if (
+            value.initialBindingVariantKey !== undefined &&
+            !Object.prototype.hasOwnProperty.call(value.bindingVariants ?? {}, value.initialBindingVariantKey)
+        ) {
+            context.addIssue({
+                code: z.ZodIssueCode.custom,
+                path: ['initialBindingVariantKey'],
+                message: 'Initial binding variant must name a declared widget binding variant.'
+            })
+        }
         const presentationKeys = (value.presentationFields ?? []).map(({ key }) => key)
         if (new Set(presentationKeys).size !== presentationKeys.length) {
             context.addIssue({
@@ -228,6 +229,18 @@ export const layoutWidgetDefinitionSchema = z
                 path: ['presentationFields'],
                 message: 'Widget presentation field keys must be unique.'
             })
+        }
+        if (value.variantOverrides) {
+            const declaredVariants = new Set(Object.keys(value.bindingVariants ?? {}))
+            for (const variant of Object.keys(value.variantOverrides)) {
+                if (!declaredVariants.has(variant)) {
+                    context.addIssue({
+                        code: z.ZodIssueCode.custom,
+                        path: ['variantOverrides', variant],
+                        message: 'Widget variant overrides must target a declared binding variant.'
+                    })
+                }
+            }
         }
     })
 
@@ -263,28 +276,34 @@ const toDefaultLabel = (key: string): string => {
 
 const capitalize = (value: string): string => value.charAt(0).toUpperCase() + value.slice(1)
 
-const DASHBOARD_WIDGET_DEFINITIONS: readonly LayoutWidgetDefinition[] = DASHBOARD_LAYOUT_WIDGETS.map((widget) => {
-    const isShared = widget.key === 'languageSwitcher' || widget.key === 'colorModeSwitcher'
-    const supportedTemplates: readonly ApplicationTemplateKey[] = isShared ? [...APPLICATION_TEMPLATE_KEYS] : ['dashboard']
-    const requiredHostCapabilities: readonly ApplicationTemplateHostCapability[] =
-        'requiredHostCapabilities' in widget ? widget.requiredHostCapabilities : []
-
-    return {
-        key: widget.key,
-        allowedZones: widget.allowedZones,
-        allowedZonesByTemplate: isShared
-            ? { dashboard: widget.allowedZones, 'marketing-page': ['marketing-header'] }
-            : { dashboard: widget.allowedZones },
-        multiInstance: widget.multiInstance,
-        templateKey: 'dashboard',
-        supportedTemplates,
-        requiredHostCapabilities,
-        shared: isShared,
-        labelKey: `layouts.widgets.${widget.key}`,
-        defaultLabel: toDefaultLabel(widget.key),
-        ...(isShared ? { defaultPlacement: 'end' as const, mobileProjection: 'compact-header' as const } : {})
+const DASHBOARD_WIDGET_DEFINITIONS: readonly LayoutWidgetDefinition[] = DASHBOARD_LAYOUT_WIDGETS.map((widget) => ({
+    ...widget,
+    allowedZonesByTemplate: {
+        dashboard: [...widget.allowedZones],
+        ...(widget.shared ? { 'marketing-page': ['marketing-header'] as const } : {})
     }
+}))
+
+const marketingSourcePolicy = (hasBindings: boolean): PlacementSourcePolicy => ({
+    authority: 'metahub-source',
+    sourceMode: hasBindings ? 'required' : 'none',
+    inheritBindings: hasBindings,
+    inheritComposition: false
 })
+
+const marketingCopyPolicy = (widgetKey: string): LayoutWidgetCopyPolicy => {
+    const duplicate = MARKETING_WIDGET_CONTRACTS[widgetKey as keyof typeof MARKETING_WIDGET_CONTRACTS].authoring.metahub.duplicate
+    if (duplicate === 'none') return { placement: 'none', binding: 'none' }
+    return { placement: 'copy', binding: duplicate }
+}
+
+const marketingConfigFields = (contract: (typeof MARKETING_WIDGET_CONTRACTS)[keyof typeof MARKETING_WIDGET_CONTRACTS]) =>
+    (contract.presentationFields ?? []).map(({ key }) => ({
+        path: key,
+        owner: contract.bindingVariants && key === 'variant' ? ('specialized-runtime' as const) : ('presentation' as const)
+    }))
+
+const marketingPlacementPolicy: LayoutWidgetPlacementPolicy = { parent: 'root-only' }
 
 const MARKETING_WIDGET_DEFINITIONS: readonly LayoutWidgetDefinition[] = Object.values(MARKETING_WIDGET_REGISTRY).map((widget) => {
     const contract = MARKETING_WIDGET_CONTRACTS[widget.key]
@@ -299,11 +318,25 @@ const MARKETING_WIDGET_DEFINITIONS: readonly LayoutWidgetDefinition[] = Object.v
         shared: false,
         labelKey: `layouts.widgets.${widget.key}`,
         defaultLabel: toDefaultLabel(widget.key),
-        ...(contract.bindingSlots ? { bindingSlots: contract.bindingSlots } : {}),
-        ...(contract.initialBindingSlotKey ? { initialBindingSlotKey: contract.initialBindingSlotKey } : {}),
-        ...(contract.bindingVariants ? { bindingVariants: contract.bindingVariants } : {}),
-        ...(contract.presentationFields ? { presentationFields: contract.presentationFields } : {}),
+        sourceClass: widget.key === 'marketing.auth' ? 'host' : 'entity',
+        sourcePolicy: marketingSourcePolicy(Boolean(contract.bindingSlots?.length || contract.bindingVariants)),
+        identity: { instanceKey: 'required' },
+        configFields: marketingConfigFields(contract),
+        copyPolicy: marketingCopyPolicy(widget.key),
+        applicationPlacementOverrides: { active: true, order: 'root-only', zone: false, parentSlot: false },
+        placementPolicy: marketingPlacementPolicy,
+        composition: { sourceOwned: false },
+        capabilities: [widget.key === 'marketing.auth' ? 'marketing.host' : 'marketing.content'],
+        seedPolicies: ['shell'],
+        presentationFields: [...(contract.presentationFields ?? [])],
         authoring: contract.authoring,
+        ...(contract.bindingSlots ? { bindingSlots: [...contract.bindingSlots] } : {}),
+        ...(contract.initialBindingSlotKey ? { initialBindingSlotKey: contract.initialBindingSlotKey } : {}),
+        ...(contract.bindingVariants
+            ? {
+                  bindingVariants: Object.fromEntries(Object.entries(contract.bindingVariants).map(([key, slots]) => [key, [...slots]]))
+              }
+            : {}),
         ...(widget.defaultPlacement ? { defaultPlacement: widget.defaultPlacement } : {}),
         ...(widget.mobileProjection ? { mobileProjection: widget.mobileProjection } : {})
     }
@@ -351,21 +384,135 @@ const LAYOUT_WIDGET_DEFINITIONS_BY_KEY = new Map<ApplicationLayoutWidgetKey, Lay
     LAYOUT_WIDGET_DEFINITIONS.map((definition) => [definition.key, definition])
 )
 
+const resolveRelationBuilderBindingSlots = (
+    definition: LayoutWidgetDefinition,
+    config: Record<string, unknown>
+): readonly WidgetBindingSlotDefinition[] | undefined => {
+    if (definition.key !== 'relationBuilder') return undefined
+
+    const panels = Array.isArray(config.panels) ? config.panels : []
+    const parentTitleFieldCodename =
+        typeof config.parentTitleFieldCodename === 'string' && config.parentTitleFieldCodename.trim()
+            ? config.parentTitleFieldCodename.trim()
+            : 'Title'
+    const parentSlot = definition.bindingSlots?.find(({ key }) => key === 'parent')
+    const panelTemplate = definition.bindingSlots?.find(({ key }) => key === 'panel')
+    if (!parentSlot || !panelTemplate) return definition.bindingSlots
+
+    const resolvedParent: WidgetBindingSlotDefinition = {
+        ...parentSlot,
+        requirements: {
+            ...parentSlot.requirements,
+            components: parentSlot.requirements.components.map((component) =>
+                component.field === 'title' ? { ...component, componentCodename: parentTitleFieldCodename } : component
+            )
+        }
+    }
+
+    if (panels.length === 0) return [resolvedParent, panelTemplate]
+
+    const resolvedPanels = panels.flatMap((value): WidgetBindingSlotDefinition[] => {
+        if (!value || typeof value !== 'object' || Array.isArray(value)) return []
+        const panel = value as Record<string, unknown>
+        const slotKey = typeof panel.slotKey === 'string' ? panel.slotKey.trim() : ''
+        const parentFieldCodename = typeof panel.parentFieldCodename === 'string' ? panel.parentFieldCodename.trim() : ''
+        if (!slotKey || !parentFieldCodename) return []
+        const sortOrderFieldCodename =
+            typeof panel.sortOrderFieldCodename === 'string' && panel.sortOrderFieldCodename.trim()
+                ? panel.sortOrderFieldCodename.trim()
+                : 'SortOrder'
+        const displayFields = Array.isArray(panel.displayFields) ? panel.displayFields : []
+        const displayRequirements = displayFields.flatMap((value, index) => {
+            if (!value || typeof value !== 'object' || Array.isArray(value)) return []
+            const field = value as Record<string, unknown>
+            const fieldCodename = typeof field.fieldCodename === 'string' ? field.fieldCodename.trim() : ''
+            const valueType: 'string' | 'number' | 'boolean' | undefined =
+                field.valueType === 'string' || field.valueType === 'number' || field.valueType === 'boolean' ? field.valueType : undefined
+            if (!fieldCodename || !valueType || typeof field.localized !== 'boolean' || typeof field.required !== 'boolean') return []
+            return [
+                {
+                    field: `display${index + 1}`,
+                    componentCodename: fieldCodename,
+                    valueType,
+                    localized: field.localized,
+                    required: field.required
+                }
+            ]
+        })
+        return [
+            {
+                ...panelTemplate,
+                key: slotKey,
+                requirements: {
+                    ...panelTemplate.requirements,
+                    components: [
+                        ...panelTemplate.requirements.components.map((component) => {
+                            if (component.field === 'parent') return { ...component, componentCodename: parentFieldCodename }
+                            if (component.field === 'order') return { ...component, componentCodename: sortOrderFieldCodename }
+                            return component
+                        }),
+                        ...displayRequirements
+                    ]
+                }
+            }
+        ]
+    })
+
+    return [resolvedParent, ...resolvedPanels]
+}
+
+const resolveWidgetBindingSlots = (
+    definition: LayoutWidgetDefinition,
+    rendererConfig?: unknown
+): readonly WidgetBindingSlotDefinition[] => {
+    const config = rendererConfig && typeof rendererConfig === 'object' && !Array.isArray(rendererConfig) ? rendererConfig : {}
+    const relationBuilderSlots = resolveRelationBuilderBindingSlots(definition, config as Record<string, unknown>)
+    if (relationBuilderSlots) return relationBuilderSlots
+    if (!definition.bindingVariants) return definition.bindingSlots ?? []
+    const variant = 'variant' in config && typeof config.variant === 'string' ? config.variant : undefined
+    return (variant ? definition.bindingVariants[variant] : definition.bindingSlots) ?? []
+}
+
 /** Resolve one widget definition without coercing unknown keys to a fallback. */
 export const getLayoutWidgetBindingSlotDefinitions = (key: string, rendererConfig?: unknown): readonly WidgetBindingSlotDefinition[] => {
     const definition = LAYOUT_WIDGET_DEFINITIONS_BY_KEY.get(key as ApplicationLayoutWidgetKey)
     if (!definition) return []
-    if (!definition.bindingVariants) return definition.bindingSlots ?? []
-    const config = rendererConfig && typeof rendererConfig === 'object' && !Array.isArray(rendererConfig) ? rendererConfig : {}
-    const variant = 'variant' in config && typeof config.variant === 'string' ? config.variant : undefined
-    return (variant ? definition.bindingVariants[variant] : undefined) ?? []
+    return resolveWidgetBindingSlots(definition, rendererConfig)
 }
 
 export const getLayoutWidgetDefinition = (key: string, rendererConfig?: unknown): LayoutWidgetDefinition | undefined => {
     const definition = LAYOUT_WIDGET_DEFINITIONS_BY_KEY.get(key as ApplicationLayoutWidgetKey)
-    if (!definition?.bindingVariants) return definition
-    const bindingSlots = getLayoutWidgetBindingSlotDefinitions(key, rendererConfig)
-    return { ...definition, bindingSlots }
+    if (!definition) return undefined
+    const config = rendererConfig && typeof rendererConfig === 'object' && !Array.isArray(rendererConfig) ? rendererConfig : {}
+    const variant = 'variant' in config && typeof config.variant === 'string' ? config.variant : undefined
+    const variantOverride = variant ? definition.variantOverrides?.[variant] : undefined
+    const bindingSlots = resolveWidgetBindingSlots(definition, rendererConfig)
+    const configuredPanels = (config as Record<string, unknown>).panels
+    const hasDynamicRelationBuilderSlots =
+        definition.key === 'relationBuilder' && Array.isArray(configuredPanels) && configuredPanels.length > 0
+    return {
+        ...definition,
+        ...variantOverride,
+        bindingSlots: [...bindingSlots],
+        ...(hasDynamicRelationBuilderSlots ? { bindingSlotFamilies: undefined } : {})
+    }
+}
+
+/** Application-owned layouts may only add unbound structural widget primitives. */
+export const canAddApplicationLayoutWidget = (
+    definition: LayoutWidgetDefinition | undefined,
+    sourceKind: 'metahub' | 'application'
+): boolean => {
+    if (!definition) return false
+    if (sourceKind !== 'application') return false
+
+    return (
+        definition.sourceClass === 'structural' &&
+        definition.sourcePolicy.sourceMode === 'none' &&
+        (definition.bindingSlots?.length ?? 0) === 0 &&
+        (definition.bindingSlotFamilies?.length ?? 0) === 0 &&
+        definition.composition?.container === undefined
+    )
 }
 
 /** Return the physical zones accepted by a widget for one concrete template. */

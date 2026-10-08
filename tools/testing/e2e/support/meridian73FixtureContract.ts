@@ -76,7 +76,7 @@ const widgetConfig = (widget: Record<string, unknown>): Record<string, unknown> 
     widget.config && typeof widget.config === 'object' ? (widget.config as Record<string, unknown>) : {}
 
 const findWidgetByInstanceKey = (fixture: MetahubSnapshotTransportEnvelope, instanceKey: string): Record<string, unknown> => {
-    const widget = widgets(fixture).find((candidate) => widgetConfig(candidate).instanceKey === instanceKey)
+    const widget = widgets(fixture).find((candidate) => candidate.instanceKey === instanceKey)
     if (!widget) fail(`missing layout widget instance ${instanceKey}`)
     return widget
 }
@@ -440,7 +440,7 @@ export const assertMeridian73FixtureEnvelopeContract = (fixture: MetahubSnapshot
         widgetKey: 'marketing.pricing',
         zone: 'marketing-main'
     }).neutral.bindings?.slots
-    if (pricingConfig.instanceKey !== 'pricing') fail('Investment stages widget must keep the canonical pricing instance key')
+    if (pricingWidget.instanceKey !== 'pricing') fail('Investment stages widget must keep the canonical pricing instance key')
     if (pricingConfig.cardStyle !== 'uniform') fail('Investment stages must render uniform pricing cards')
     if (pricingConfig.cardWidth !== 'auto') fail('Investment stages must use the base layout width by default')
     if (pricingConfig.showBenefits !== true) fail('Investment stages must keep the financing breakdown visible')
@@ -479,7 +479,7 @@ export const assertMeridian73FixtureEnvelopeContract = (fixture: MetahubSnapshot
     const activeMainOrder = widgets(fixture)
         .filter((widget) => widget.zone === 'marketing-main' && widget.isActive !== false)
         .sort((left, right) => Number(left.sortOrder ?? 0) - Number(right.sortOrder ?? 0))
-        .map((widget) => String(widgetConfig(widget).instanceKey ?? ''))
+        .map((widget) => String(widget.instanceKey ?? ''))
     assertSameStrings([...activeMainOrder].sort(), [...expectedMainOrder].sort(), 'active marketing-main instance set')
     if (activeMainOrder.some((value, index) => value !== expectedMainOrder[index])) {
         fail(`marketing-main order mismatch: expected ${JSON.stringify(expectedMainOrder)}, received ${JSON.stringify(activeMainOrder)}`)

@@ -73,7 +73,7 @@ describe('Template seed services transaction scope', () => {
                     where: jest.fn(() => ({
                         first: jest.fn(async () => ({ id: 'layout-existing-id' })),
                         select: jest.fn(() => ({
-                            first: jest.fn(async () => ({ id: 'layout-existing-id' }))
+                            first: jest.fn(async () => ({ template_key: 'dashboard' }))
                         }))
                     })),
                     update: jest.fn(async () => 0)
@@ -93,7 +93,7 @@ describe('Template seed services transaction scope', () => {
             layouts: [
                 {
                     codename: 'dashboard',
-                    templateKey: 'dashboard.default',
+                    templateKey: 'dashboard',
                     name: {} as never,
                     isActive: true,
                     isDefault: false,

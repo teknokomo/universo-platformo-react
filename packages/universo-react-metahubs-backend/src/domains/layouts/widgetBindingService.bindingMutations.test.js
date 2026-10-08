@@ -24,7 +24,7 @@ describe('generic Metahub widget binding service', () => {
                 { executor: harness.executor, metahubId },
                 { layoutId, widgetId, expectedVersion: 5, bindings: [] }
             )
-        ).rejects.toThrow('Marketing overlay layouts must inherit Entity bindings from their base placements')
+        ).rejects.toThrow('This layout inherits Entity bindings from its source placement')
 
         expect(harness.store.updateConfig).not.toHaveBeenCalled()
     })
@@ -128,7 +128,7 @@ describe('generic Metahub widget binding service', () => {
     it('atomically changes collection variant with its new registry slot bindings and preserves other renderer settings', async () => {
         const harness = createHarness({
             widgetKey: 'marketing.collection',
-            rendererConfig: { instanceKey: 'collection-instance', variant: 'logos', maxItems: 8 }
+            rendererConfig: { variant: 'logos', maxItems: 8 }
         })
         const nextDefinition = getLayoutWidgetDefinition('marketing.collection', { variant: 'features' })
         if (!nextDefinition) throw new Error('Missing features collection definition')
@@ -156,7 +156,7 @@ describe('generic Metahub widget binding service', () => {
                 layoutId,
                 widgetId,
                 expectedVersion: 5,
-                rendererConfig: { instanceKey: 'collection-instance', variant: 'features', maxItems: 8 },
+                rendererConfig: { variant: 'features', maxItems: 8 },
                 bindings: [
                     { slot: 'section', sourceKey: 'MarketingFeatureSections', selector: { kind: 'semantic-key', value: 'features' } },
                     { slot: 'items', sourceKey: 'MarketingFeatures', selector: { kind: 'record-set' } }
@@ -176,7 +176,8 @@ describe('generic Metahub widget binding service', () => {
             widgetKey: 'marketing.collection',
             zone: harness.row.zone
         })
-        expect(updated.rendererConfig).toMatchObject({ instanceKey: 'collection-instance', variant: 'features', maxItems: 8 })
+        expect(updated.rendererConfig).toMatchObject({ variant: 'features', maxItems: 8 })
+        expect(updated.rendererConfig).not.toHaveProperty('instanceKey')
         expect(updated.neutral.bindings?.slots.map(({ slot }) => slot).sort()).toEqual(['items', 'section'])
         expect(updated.neutral.bindings?.slots.find(({ slot }) => slot === 'items')?.targets[0].projection).toEqual(
             projectionFor(nextDefinition.bindingSlots.find(({ key }) => key === 'items'))

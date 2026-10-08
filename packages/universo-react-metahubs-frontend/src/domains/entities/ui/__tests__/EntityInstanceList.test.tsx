@@ -186,6 +186,12 @@ vi.mock('react-i18next', () => ({
                     'Create ledger dimensions, resources, or properties through the shared component list.',
                 'hubs.title': 'Hubs',
                 'objects.tabs.layout': 'Layouts',
+                'objects.tabs.navigation': 'Navigation',
+                'objects.runtime.navigation.showInMenu': 'Show in application menu',
+                'objects.runtime.navigation.description': 'Only Objects enabled here appear in the published application menu.',
+                'objects.runtime.navigation.icon': 'Menu icon',
+                'objects.runtime.navigation.icons.apps': 'Applications',
+                'objects.runtime.navigation.icons.analytics': 'Analytics',
                 'pages.empty': 'No pages yet',
                 'pages.emptyDescription': 'Create the first page to configure structured application content',
                 'pages.searchPlaceholder': 'Search pages...',
@@ -384,10 +390,13 @@ vi.mock('../api', () => ({
 
 vi.mock('@universo-react/template-mui/components/dialogs', () => ({
     EntityFormDialog: ({ open, tabs, initialExtraValues, title, onSave, canSave, validate }: EntityFormDialogProps) => {
+        const ReactModule = React
+        const [values, setValues] = ReactModule.useState<Record<string, unknown>>(initialExtraValues ?? {})
+        ReactModule.useEffect(() => setValues(initialExtraValues ?? {}), [initialExtraValues, open])
         if (!open) return null
-        const values = initialExtraValues ?? {}
         const errors = validate?.(values) ?? {}
         const saveAllowed = canSave ? canSave(values) : true
+        const setValue = (name: string, value: unknown) => setValues((current) => ({ ...current, [name]: value }))
 
         return (
             <div data-testid='entity-form-dialog'>
@@ -399,7 +408,7 @@ vi.mock('@universo-react/template-mui/components/dialogs', () => ({
                         ?.content as string | undefined) ?? ''}
                 </div>
                 {tabs
-                    ? tabs({ values, setValue: vi.fn(), isLoading: false, errors }).map((tab) => (
+                    ? tabs({ values, setValue, isLoading: false, errors }).map((tab) => (
                           <div key={tab.id}>
                               <span>{tab.label}</span>
                               {tab.content}

@@ -32,7 +32,7 @@ on:
 
 jobs:
     check:
-        runs-on: ubuntu-latest
+        runs-on: ubuntu-24.04
         steps:
             - name: Checkout
               uses: actions/checkout@v5
@@ -48,6 +48,9 @@ jobs:
 
             - name: Install
               run: pnpm install --frozen-lockfile
+
+            - name: Install deterministic fonts for localized screenshots
+              run: sudo apt-get update && sudo apt-get install --no-install-recommends --yes fonts-noto-core
 
             - name: Run i18n docs check (resources scope)
               run: I18N_SCOPE=resources pnpm docs:i18n:check

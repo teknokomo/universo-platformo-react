@@ -2,7 +2,6 @@ import {
     applicationLayoutWidgetKeySchema,
     getLayoutWidgetAllowedZones,
     LAYOUT_WIDGET_DEFINITIONS,
-    MARKETING_WIDGET_REGISTRY,
     decodeWidgetConfigEnvelope,
     encodeWidgetConfigEnvelope,
     parseApplicationLayoutWidgetConfig,
@@ -10,9 +9,9 @@ import {
     type ApplicationLayoutZone,
     type ApplicationTemplateKey
 } from '@universo-react/types'
-import { generateUuidV7 } from '@universo-react/utils'
 import { MetahubDomainError } from '../../shared/domainErrors'
 import { findDuplicateActiveSingleInstanceWidgetKey } from '../widgetInvariants'
+import { assertNoWidgetSharedBehaviorConfig, requireLayoutWidgetOwnership } from '../widgetOwnership'
 
 export const prepareCopiedWidgetConfig = (
     templateKey: ApplicationTemplateKey,
@@ -37,16 +36,11 @@ export const prepareCopiedWidgetConfig = (
             zone: String(zone),
             requireBindings: true
         })
-        const rawConfig = decoded.rendererConfig
-        const isMarketingWidget =
-            typeof widgetKey === 'string' && Object.prototype.hasOwnProperty.call(MARKETING_WIDGET_REGISTRY, widgetKey)
-        const parsed =
-            templateKey === 'dashboard'
-                ? rawConfig
-                : parseApplicationLayoutWidgetConfig(
-                      widgetKey as ApplicationLayoutWidgetKey,
-                      isMarketingWidget && rawConfig.instanceKey === undefined ? { ...rawConfig, instanceKey: generateUuidV7() } : rawConfig
-                  )
+        if (Object.prototype.hasOwnProperty.call(decoded.rendererConfig, 'instanceKey')) {
+            throw new Error('Widget placement identity must not be stored in renderer config')
+        }
+        assertNoWidgetSharedBehaviorConfig(decoded.rendererConfig)
+        const parsed = parseApplicationLayoutWidgetConfig(widgetKey as ApplicationLayoutWidgetKey, decoded.rendererConfig)
         return encodeWidgetConfigEnvelope(
             { rendererConfig: parsed, neutral: decoded.neutral },
             { templateKey, widgetKey: String(widgetKey), zone: String(zone), requireBindings: true }
@@ -69,25 +63,33 @@ export const prepareCopiedOverrideConfig = (
     if (config === null || config === undefined) return null
     const parsedWidgetKey = applicationLayoutWidgetKeySchema.parse(widgetKey)
     const parsedZone = String(zone)
-    const isMarketingOverlay = templateKey === 'marketing-page'
+    const definition = requireLayoutWidgetOwnership(templateKey, parsedWidgetKey)
+    const inheritsSourceBindings = definition.sourcePolicy.inheritBindings
     const decoded = decodeWidgetConfigEnvelope(config, {
         templateKey,
         widgetKey: parsedWidgetKey,
         zone: parsedZone,
-        requireBindings: !isMarketingOverlay
+        requireBindings: !inheritsSourceBindings
     })
-    if (isMarketingOverlay && decoded.neutral.bindings !== undefined) {
+    if (inheritsSourceBindings && decoded.neutral.bindings !== undefined) {
         throw new MetahubDomainError({
-            message: 'Marketing overlay widget overrides cannot contain Entity bindings',
+            message: 'Source-managed widget overrides cannot contain Entity bindings',
             statusCode: 409,
             code: 'VALIDATION_ERROR'
         })
     }
-    const rendererConfig =
-        templateKey === 'dashboard' ? decoded.rendererConfig : parseApplicationLayoutWidgetConfig(parsedWidgetKey, decoded.rendererConfig)
+    if (Object.prototype.hasOwnProperty.call(decoded.rendererConfig, 'instanceKey')) {
+        throw new MetahubDomainError({
+            message: 'Widget placement identity must not be stored in renderer config',
+            statusCode: 409,
+            code: 'VALIDATION_ERROR'
+        })
+    }
+    assertNoWidgetSharedBehaviorConfig(decoded.rendererConfig)
+    const rendererConfig = parseApplicationLayoutWidgetConfig(parsedWidgetKey, decoded.rendererConfig)
     return encodeWidgetConfigEnvelope(
         { rendererConfig, neutral: decoded.neutral },
-        { templateKey, widgetKey: parsedWidgetKey, zone: parsedZone, requireBindings: !isMarketingOverlay }
+        { templateKey, widgetKey: parsedWidgetKey, zone: parsedZone, requireBindings: !inheritsSourceBindings }
     )
 }
 

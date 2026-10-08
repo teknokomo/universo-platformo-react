@@ -16,28 +16,34 @@ description: How learners open content, track progress, and complete learning it
 -   Choose the correct workspace or follow the assigned link.
 -   Use the player controls rather than changing the authoring version of the content.
 
+## Before You Start
+
+-   Confirm that the course is available in the Player course tabs. If it is missing, ask the course owner to check your access.
+-   Learning items can have prerequisites. A disabled next item means that an earlier required item still needs to be completed.
+-   Wait for the progress status to update before refreshing or leaving the page.
+
 ## Workflow
 
-1. Open Courses and select the Player tab for an assigned course.
+1. Open Courses, select Player, and use the course tabs to inspect an available course.
    ![Learner Experience step 1](../.gitbook/assets/lms-user-guide/learner-experience-step-1.png)
-2. Read the selected content item and use the outline when the player shows one.
+2. Select the assigned Learner Onboarding Course. Confirm that its first item is available and the next item stays locked until completion.
    ![Learner Experience step 2](../.gitbook/assets/lms-user-guide/learner-experience-step-2.png)
-3. Select Complete for the current item when the learner has finished it.
+3. Select Mark complete when the learner has finished reading the item.
    ![Learner Experience step 3](../.gitbook/assets/lms-user-guide/learner-experience-step-3.png)
-4. Use Next or the outline to continue to the next available item.
+4. Reopen Player after completion and select the now available next learning item.
    ![Learner Experience step 4](../.gitbook/assets/lms-user-guide/learner-experience-step-4.png)
 5. Reload the page and confirm that the progress remains visible.
    ![Learner Experience step 5](../.gitbook/assets/lms-user-guide/learner-experience-step-5.png)
 
 ## Screen Details
 
-| Area              | How to use it                                                                                                                      |
-| ----------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-| Entry points      | Learners can start from Dashboard, Learning Content, Courses, Tracks, Recent, or a public link depending on access.                |
-| Player content    | The player should show the current item title, body content, and visible navigation without requiring hidden platform knowledge.   |
-| Progress          | Progress should update after meaningful actions such as moving to the next item, submitting a quiz, or completing content.         |
-| Completion action | Use the visible completion button only after the learner has reviewed the required item. The confirmation message should be clear. |
-| Persistence       | Reload the page or return through Recent when checking persistence. Completion should remain visible for the same session or user. |
+| Area              | How to use it                                                                                                    |
+| ----------------- | ---------------------------------------------------------------------------------------------------------------- |
+| Entry points      | Learners can open assigned Courses or Tracks, or follow a public link when one is available.                     |
+| Player content    | The player shows the selected course or track, its learning items, and the current item's content.               |
+| Progress          | Completing a required item updates its progress and unlocks the next item when the sequence requires it.         |
+| Completion action | Use Mark complete only after the learner has reviewed the required item. The visible progress should reach 100%. |
+| Persistence       | Reload the player and confirm the completed state remains visible and the next required item stays available.    |
 
 ## Result
 

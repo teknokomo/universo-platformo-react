@@ -167,12 +167,13 @@ const collectionWidget = (id: string, instanceKey: string, sourceCodename = 'Mar
     return {
         id,
         layoutId: ids.layout,
+        instanceKey,
         zone: 'marketing-main',
         widgetKey: 'marketing.collection',
         sortOrder: 0,
         config: boundWidgetConfig(
             'marketing.collection',
-            { instanceKey, variant },
+            { variant },
             { section: 'MarketingPageSection', items: sourceCodename },
             { section: variant }
         ),
@@ -187,12 +188,13 @@ const heroWidget = (id: string, instanceKey: string) => {
     return {
         id,
         layoutId: ids.layout,
+        instanceKey,
         zone: 'marketing-main',
         widgetKey: 'marketing.hero',
         sortOrder: 0,
         config: encodeWidgetConfigEnvelope(
             {
-                rendererConfig: { instanceKey, showLeadForm: true },
+                rendererConfig: { showLeadForm: true },
                 neutral: {
                     bindings: buildSingleTargetWidgetBinding(definition, 'content', {
                         entityKind: 'object',

@@ -33,6 +33,7 @@ type ConnectorsResponse = {
 export type LayoutWidget = {
     id?: unknown
     widgetKey?: unknown
+    instanceKey?: unknown
     zone?: unknown
     config?: unknown
     sourceConfig?: unknown
@@ -277,7 +278,7 @@ export const findMarketingWidget = async (
     }
 
     const widgets = (await listLayoutZoneWidgets(api, metahubId, marketingLayout.id)) as LayoutWidgetsResponse
-    const widget = widgets.items?.find((item) => readLayoutWidgetConfig(item).instanceKey === instanceKey)
+    const widget = widgets.items?.find((item) => item.instanceKey === instanceKey)
     if (typeof widget?.id !== 'string') {
         throw new Error(`The marketing layout did not expose the ${instanceKey} widget`)
     }

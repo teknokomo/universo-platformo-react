@@ -87,7 +87,7 @@ export { LayoutStateChips } from './layouts'
 export { LayoutAuthoringList } from './layouts'
 export { LayoutAuthoringDetails } from './layouts'
 export { LayoutZoneSettingsDialog } from './layouts'
-export { MarketingWidgetConfigDialog } from './layouts'
+export { LayoutWidgetPresentationDialog, MarketingWidgetConfigDialog } from './layouts'
 export { MenuWidgetSideMenuSettings } from './layouts'
 export { applySideMenuPatch, EDITABLE_SIDE_MENU_MODES, normalizeSideMenuConfig, SIDE_MENU_MODE_LABEL_FALLBACKS } from './layouts'
 export type {
@@ -106,6 +106,7 @@ export type {
     LayoutZoneSettingsDialogValues,
     LayoutZoneSettingsDialogLabels,
     LayoutZoneSettingsDialogProps,
+    LayoutWidgetPresentationDialogProps,
     MarketingWidgetConfigDialogProps,
     MenuWidgetSideMenuSettingsProps
 } from './layouts'

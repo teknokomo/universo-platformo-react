@@ -2,9 +2,9 @@ import type { Page, TestInfo } from '@playwright/test'
 import { createLocalizedContent } from '@universo-react/utils'
 import { expect, test } from '../../fixtures/test'
 import {
-    copyApplicationLayout,
     createLoggedInApiContext,
     createLayout,
+    createApplicationLayout,
     createMetahub,
     createPublication,
     createPublicationLinkedApplication,
@@ -112,7 +112,7 @@ async function waitForWidgetZone(
         .toBe(expectedZone)
 }
 
-test('@flow @combined application layout management exposes sourced layouts and browser widget reordering', async ({
+test('@flow @combined application layout management exposes sourced layouts and registry-authorized widget reordering', async ({
     page,
     runManifest
 }, testInfo) => {
@@ -132,7 +132,8 @@ test('@flow @combined application layout management exposes sourced layouts and 
         const metahub = await createMetahub(api, {
             name: { en: metahubName },
             namePrimaryLocale: 'en',
-            codename: createLocalizedContent('en', metahubCodename)
+            codename: createLocalizedContent('en', metahubCodename),
+            templateCodename: 'basic-demo'
         })
 
         if (!metahub?.id) {
@@ -197,67 +198,83 @@ test('@flow @combined application layout management exposes sourced layouts and 
         )) as ApplicationLayoutWidgetObjectResponse
         expect(widgetObject.items?.some((item) => item.key === 'divider' && item.allowedZones?.includes('top'))).toBe(true)
 
-        const centerWidget = detail.widgets?.find((widget) => widget.zone === 'center' && typeof widget.id === 'string')
+        const centerWidget = detail.widgets?.find(
+            (widget) => widget.widgetKey === 'overviewCards' && widget.zone === 'center' && typeof widget.id === 'string'
+        )
         if (!centerWidget?.id || !centerWidget.widgetKey) {
             throw new Error(`Application layout ${layoutId} did not expose a center widget for reorder coverage`)
         }
+
+        const localLayoutName = `E2E ${runManifest.runId} local move layout`
+        const localLayoutResponse = await createApplicationLayout(api, applicationId, {
+            templateKey: 'dashboard',
+            scopeEntityId: null,
+            name: { en: localLayoutName },
+            isActive: true,
+            isDefault: false,
+            sortOrder: 99,
+            config: {}
+        })
+        const localLayout = localLayoutResponse?.item ?? localLayoutResponse
+        if (typeof localLayout?.id !== 'string') {
+            throw new Error('Application-owned layout creation did not return an id for widget reorder coverage')
+        }
+        const localLayoutId = localLayout.id
+
         await page.goto(`/a/${applicationId}/admin/layouts`)
         await expect(page.getByRole('heading', { name: 'Layouts' })).toBeVisible()
         await expect(page.getByText('Metahub', { exact: true })).toBeVisible()
-        await expect(page.getByText('Clean', { exact: true })).toBeVisible()
+        await expect(page.getByText('Clean', { exact: true }).first()).toBeVisible()
+        await expect(page.getByText(localLayoutName, { exact: true })).toBeVisible()
         const appListRect = await page.getByTestId('application-layouts-list-content').boundingBox()
         await captureProofScreenshot(page, testInfo, 'application-layouts-list.png')
 
-        const currentDetail = (await getApplicationLayout(api, applicationId, layoutId)) as ApplicationLayoutDetailResponse
+        await page.goto(`/a/${applicationId}/admin/layouts/${layoutId}`)
+        await expect(page.getByRole('heading', { name: 'Main' })).toBeVisible()
+        const sourcedWidgetCard = page.getByTestId(buildLayoutWidgetSelector(centerWidget.id))
+        await expect(sourcedWidgetCard).toBeVisible()
+        await expect(sourcedWidgetCard.getByTestId(`layout-widget-duplicate-${centerWidget.id}`)).toHaveCount(0)
+        await expect(sourcedWidgetCard.getByTestId(`layout-widget-move-menu-${centerWidget.id}`)).toHaveCount(0)
+        await captureProofScreenshot(page, testInfo, 'application-layouts-detail-sourced.png')
+
+        await page.goto(`/a/${applicationId}/admin/layouts/${localLayoutId}`)
+        await expect(page.getByRole('heading', { name: localLayoutName })).toBeVisible()
+        for (const zoneName of ['Top', 'Left', 'Center', 'Right', 'Bottom']) {
+            await expect(page.getByRole('heading', { name: zoneName })).toBeVisible()
+        }
+
+        const currentDetail = (await getApplicationLayout(api, applicationId, localLayoutId)) as ApplicationLayoutDetailResponse
         const currentVersion = currentDetail.item?.version
         if (!Number.isInteger(currentVersion) || (currentVersion ?? 0) < 1) {
-            throw new Error(`Application layout ${layoutId} did not expose a version for cross-zone reorder setup`)
+            throw new Error(`Application-owned layout ${localLayoutId} did not expose a version for cross-zone reorder setup`)
         }
-        await upsertApplicationLayoutWidget(api, applicationId, layoutId, {
+        const dividerResponse = await upsertApplicationLayoutWidget(api, applicationId, localLayoutId, {
             widgetKey: 'divider',
             zone: 'left',
             sortOrder: 99,
             config: {},
             expectedVersion: currentVersion
         })
-        const detailWithDivider = (await getApplicationLayout(api, applicationId, layoutId)) as ApplicationLayoutDetailResponse
-        const movableWidget = detailWithDivider.widgets?.find(
-            (widget) => widget.widgetKey === 'divider' && widget.zone === 'left' && typeof widget.id === 'string'
-        )
+        const dividerItem = dividerResponse?.item ?? dividerResponse
+        if (typeof dividerItem?.id !== 'string') {
+            throw new Error(`Application-owned layout ${localLayoutId} did not return the created divider placement`)
+        }
+        const detailWithDivider = (await getApplicationLayout(api, applicationId, localLayoutId)) as ApplicationLayoutDetailResponse
+        const movableWidget = detailWithDivider.widgets?.find((widget) => widget.id === dividerItem.id)
         if (!movableWidget?.id) {
-            throw new Error(`Application layout ${layoutId} did not persist the divider widget used for cross-zone reorder coverage`)
+            throw new Error(
+                `Application-owned layout ${localLayoutId} did not persist the divider widget used for cross-zone reorder coverage`
+            )
         }
+        expect(movableWidget).toMatchObject({ widgetKey: 'divider', zone: 'left' })
 
-        await page.goto(`/a/${applicationId}/admin/layouts/${layoutId}`)
-        await expect(page.getByRole('heading', { name: 'Main' })).toBeVisible()
-        for (const zoneName of ['Top', 'Left', 'Center', 'Right', 'Bottom']) {
-            await expect(page.getByRole('heading', { name: zoneName })).toBeVisible()
-        }
+        // The placement was created through the API client while the editor route was open.
+        // Reload so the browser query cache observes that out-of-band change before the move flow.
+        await page.reload()
+        await expect(page.getByRole('heading', { name: localLayoutName })).toBeVisible()
         const appDetailRect = await page.getByTestId('application-layout-details-content').boundingBox()
         const appTopZoneRect = await page.getByTestId('layout-zone-top').boundingBox()
         await captureProofScreenshot(page, testInfo, 'application-layouts-detail-before-move.png')
-
-        const widgetCard = page.getByTestId(buildLayoutWidgetSelector(centerWidget.id))
-        await expect(widgetCard).toBeVisible()
-
-        const duplicateApplicationWidgetResponsePromise = waitForSettledMutationResponse(
-            page,
-            (response) =>
-                response.request().method() === 'PUT' &&
-                new URL(response.url()).pathname === `/api/v1/applications/${applicationId}/layouts/${layoutId}/zone-widget`,
-            { label: 'Duplicating a dashboard widget in the application layout' }
-        )
-        await widgetCard.getByTestId(`layout-widget-duplicate-${centerWidget.id}`).click()
-        expect((await duplicateApplicationWidgetResponsePromise).ok()).toBe(true)
-        await expect
-            .poll(async () => {
-                const current = (await getApplicationLayout(api, applicationId, layoutId)) as ApplicationLayoutDetailResponse
-                return (
-                    current.widgets?.filter((widget) => widget.widgetKey === centerWidget.widgetKey && widget.id !== centerWidget.id)
-                        .length ?? 0
-                )
-            })
-            .toBeGreaterThan(0)
 
         const movableWidgetCard = page.getByTestId(buildLayoutWidgetSelector(movableWidget.id))
         await expect(movableWidgetCard).toBeVisible()
@@ -266,12 +283,12 @@ test('@flow @combined application layout management exposes sourced layouts and 
             page,
             (response) =>
                 response.request().method() === 'PATCH' &&
-                new URL(response.url()).pathname === `/api/v1/applications/${applicationId}/layouts/${layoutId}/zone-widgets/move`,
+                new URL(response.url()).pathname === `/api/v1/applications/${applicationId}/layouts/${localLayoutId}/zone-widgets/move`,
             { label: 'Moving a dashboard widget between allowed zones' }
         )
         await page.getByTestId(`layout-widget-move-${movableWidget.id}-top`).click()
         expect((await moveResponsePromise).ok()).toBe(true)
-        await waitForWidgetZone(api, applicationId, layoutId, movableWidget.id, 'top')
+        await waitForWidgetZone(api, applicationId, localLayoutId, movableWidget.id, 'top')
         await expect(movableWidgetCard).toBeVisible()
         await captureProofScreenshot(page, testInfo, 'application-layouts-detail-after-move.png')
 
@@ -290,12 +307,14 @@ test('@flow @combined application layout management exposes sourced layouts and 
         await page.goto(`/metahub/${metahub.id}/resources/layouts/${metahubLayoutId}`)
         await expect(page.getByTestId('metahub-layout-details-content')).toBeVisible()
         for (const zoneName of ['Top', 'Left', 'Center', 'Right', 'Bottom']) {
-            await expect(page.getByRole('heading', { name: zoneName })).toBeVisible()
+            await expect(page.getByRole('heading', { name: `${zoneName} zone`, exact: true })).toBeVisible()
         }
         const metahubWidgetPayload = (await listLayoutZoneWidgets(api, metahub.id, metahubLayoutId)) as {
             items?: Array<{ id?: string; widgetKey?: string; zone?: string }>
         }
-        const metahubWidget = metahubWidgetPayload.items?.find((widget) => widget.zone === 'center' && typeof widget.id === 'string')
+        const metahubWidget = metahubWidgetPayload.items?.find(
+            (widget) => widget.widgetKey === 'overviewCards' && widget.zone === 'center' && typeof widget.id === 'string'
+        )
         if (!metahubWidget?.id || !metahubWidget.widgetKey) {
             throw new Error(`Metahub layout ${metahubLayoutId} did not expose a center widget for duplicate coverage`)
         }
@@ -304,8 +323,9 @@ test('@flow @combined application layout management exposes sourced layouts and 
         const duplicateMetahubWidgetResponsePromise = waitForSettledMutationResponse(
             page,
             (response) =>
-                response.request().method() === 'PUT' &&
-                new URL(response.url()).pathname === `/api/v1/metahub/${metahub.id}/layout/${metahubLayoutId}/zone-widget`,
+                response.request().method() === 'POST' &&
+                new URL(response.url()).pathname ===
+                    `/api/v1/metahub/${metahub.id}/layout/${metahubLayoutId}/zone-widget/placement-duplicate`,
             { label: 'Duplicating a dashboard widget in the metahub layout' }
         )
         await metahubWidgetCard.getByTestId(`layout-widget-duplicate-${metahubWidget.id}`).click()
@@ -423,15 +443,23 @@ test('@flow @combined application layout sync resolves layout conflicts, preserv
             throw new Error(`Application ${applicationId} did not import the expected metahub layouts`)
         }
 
-        const copiedBaseLayoutResponse = await copyApplicationLayout(api, applicationId, baseImportedLayout.id, baseImportedLayout.version)
-        const copiedBaseLayout = copiedBaseLayoutResponse?.item ?? copiedBaseLayoutResponse
-        if (!copiedBaseLayout?.id || typeof copiedBaseLayout.version !== 'number') {
-            throw new Error('Copying the base imported layout did not return a versioned application-owned layout')
+        const independentLayoutResponse = await createApplicationLayout(api, applicationId, {
+            templateKey: 'dashboard',
+            scopeEntityId: null,
+            name: { en: `E2E ${runManifest.runId} independent default layout` },
+            isActive: true,
+            isDefault: false,
+            sortOrder: 99,
+            config: {}
+        })
+        const independentLayout = independentLayoutResponse?.item ?? independentLayoutResponse
+        if (!independentLayout?.id || typeof independentLayout.version !== 'number') {
+            throw new Error('Creating an independent application-owned layout did not return a versioned layout')
         }
 
-        await updateApplicationLayout(api, applicationId, copiedBaseLayout.id, {
+        await updateApplicationLayout(api, applicationId, independentLayout.id, {
             isDefault: true,
-            expectedVersion: copiedBaseLayout.version
+            expectedVersion: independentLayout.version
         })
         const refreshedAppLayouts = (await listApplicationLayouts(api, applicationId, {
             limit: 50,

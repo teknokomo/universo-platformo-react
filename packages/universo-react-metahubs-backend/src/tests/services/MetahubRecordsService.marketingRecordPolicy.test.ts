@@ -199,7 +199,7 @@ describe('MetahubRecordsService exact component and Marketing record policies', 
             semanticKey: 'hero-default'
         })
         const heroConfig = encodeWidgetConfigEnvelope(
-            { rendererConfig: { instanceKey: 'hero-default' }, neutral: { bindings: heroBinding } },
+            { rendererConfig: {}, neutral: { bindings: heroBinding } },
             { templateKey: 'marketing-page', widgetKey: 'marketing.hero', zone: 'marketing-main' }
         )
         const pricingDefinition = getLayoutWidgetDefinition('marketing.pricing')
@@ -234,7 +234,7 @@ describe('MetahubRecordsService exact component and Marketing record policies', 
             })
         })
         const pricingConfig = encodeWidgetConfigEnvelope(
-            { rendererConfig: { instanceKey: 'pricing', showBenefits: true }, neutral: { bindings: pricingBindings } },
+            { rendererConfig: { showBenefits: true }, neutral: { bindings: pricingBindings } },
             { templateKey: 'marketing-page', widgetKey: 'marketing.pricing', zone: 'marketing-main' }
         )
         const layoutId = '018f8a78-7b8f-7c1d-a111-222233334570'

@@ -366,7 +366,7 @@ describe('QuizWidget', () => {
         })
     })
 
-    it('passes quizId to mount and submit calls when the widget is scoped to a specific quiz reference', async () => {
+    it('uses the selected module as the quiz source without persisting a physical quiz id', async () => {
         const queryClient = createQueryClient()
 
         render(
@@ -380,7 +380,7 @@ describe('QuizWidget', () => {
                         } as never
                     }
                 >
-                    <QuizWidget config={{ attachedToKind: 'object', moduleCodename: 'quiz-widget', quizId: 'quiz-42' }} />
+                    <QuizWidget config={{ attachedToKind: 'object', moduleCodename: 'quiz-widget' }} />
                 </DashboardDetailsProvider>
             </QueryClientProvider>
         )
@@ -393,7 +393,7 @@ describe('QuizWidget', () => {
             expect(mocks.executeClientModuleMethod).toHaveBeenCalledWith(
                 expect.objectContaining({
                     methodName: 'mount',
-                    args: [{ locale: 'en', quizId: 'quiz-42' }]
+                    args: ['en']
                 })
             )
         })
@@ -403,7 +403,7 @@ describe('QuizWidget', () => {
                 methodName: 'submit',
                 args: [
                     expect.objectContaining({
-                        quizId: 'quiz-42'
+                        responses: expect.any(Object)
                     })
                 ]
             })

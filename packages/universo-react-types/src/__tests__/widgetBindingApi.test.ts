@@ -44,6 +44,20 @@ describe('widget binding API contracts', () => {
                 name: 'Hero content'
             }).success
         ).toBe(true)
+        expect(
+            widgetBindingSourceProvisionPayloadSchema.safeParse({
+                variant: 'custom-carousel-v2',
+                templateSourceKey: 'DashboardContent',
+                name: 'Dashboard content'
+            }).success
+        ).toBe(true)
+        expect(
+            widgetBindingSourceProvisionPayloadSchema.safeParse({
+                variant: 'invalid variant',
+                templateSourceKey: 'DashboardContent',
+                name: 'Dashboard content'
+            }).success
+        ).toBe(false)
     })
 
     it('accepts a bounded UUID v7 semantic copy intent and rejects physical or extra fields', () => {

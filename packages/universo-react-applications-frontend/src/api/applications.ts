@@ -1,4 +1,5 @@
 import apiClient from './apiClient'
+import type { RuntimeRelationScope } from '@universo-react/apps-template-mui'
 import { extractAxiosError, normalizeRuntimeLayoutTarget as normalizeSharedRuntimeLayoutTarget } from '@universo-react/utils'
 import type {
     ApplicationCopyOptions,
@@ -28,7 +29,8 @@ import {
     applicationLayoutWidgetSchema,
     applicationLayoutsListResponseSchema,
     effectiveLayoutResultSchema,
-    layoutWidgetDefinitionSchema
+    layoutWidgetDefinitionSchema,
+    readLocalizedTextValue
 } from '@universo-react/types'
 import type { RuntimeRecordCommand } from '@universo-react/apps-template-mui'
 import type { RuntimeRestoreTarget } from '@universo-react/apps-template-mui'
@@ -99,6 +101,25 @@ const normalizeRuntimeWorkspaceId = (workspaceId?: string | null): string | unde
     const normalized = workspaceId?.trim()
     return normalized || undefined
 }
+
+type ApplicationRuntimeColumn = ApplicationRuntimeResponse['columns'][number]
+type ApplicationRuntimeRefOption = NonNullable<ApplicationRuntimeColumn['enumOptions']>[number]
+
+const normalizeRuntimeRefOptions = (options: ApplicationRuntimeRefOption[] | undefined): ApplicationRuntimeRefOption[] | undefined =>
+    options?.map((option) => {
+        const codename = readLocalizedTextValue(option.codename, 'en')
+        if (codename) return { ...option, codename }
+
+        const { codename: _codename, ...safeOption } = option
+        return safeOption
+    })
+
+const normalizeApplicationRuntimeColumn = (column: ApplicationRuntimeColumn): ApplicationRuntimeColumn => ({
+    ...column,
+    ...(column.refOptions ? { refOptions: normalizeRuntimeRefOptions(column.refOptions) } : {}),
+    ...(column.enumOptions ? { enumOptions: normalizeRuntimeRefOptions(column.enumOptions) } : {}),
+    ...(column.childColumns ? { childColumns: column.childColumns.map(normalizeApplicationRuntimeColumn) } : {})
+})
 
 const withRuntimeWorkspaceParam = <T extends Record<string, unknown>>(
     params: T,
@@ -206,7 +227,10 @@ export const getApplicationRuntime = async (
             ...withRuntimeWorkspaceParam({}, params?.workspaceId)
         }
     })
-    return response.data
+    return {
+        ...response.data,
+        columns: response.data.columns.map(normalizeApplicationRuntimeColumn)
+    }
 }
 
 export const getApplicationEffectiveLayout = async (
@@ -311,11 +335,13 @@ export const createApplicationRuntimeRow = async (params: {
     objectCollectionId?: string
     sectionId?: string
     workspaceId?: string | null
+    relationScope?: RuntimeRelationScope
 }): Promise<Record<string, unknown>> => {
-    const { applicationId, data, objectCollectionId, sectionId, workspaceId } = params
+    const { applicationId, data, objectCollectionId, sectionId, workspaceId, relationScope } = params
     const resolvedSectionId = sectionId ?? objectCollectionId
     const body: Record<string, unknown> = { data }
     if (resolvedSectionId) body.objectCollectionId = resolvedSectionId
+    if (relationScope) body.relationScope = relationScope
     const normalizedWorkspaceId = normalizeRuntimeWorkspaceId(workspaceId)
     const response = normalizedWorkspaceId
         ? await apiClient.post<Record<string, unknown>>(`/applications/${applicationId}/runtime/rows`, body, {
@@ -334,12 +360,14 @@ export const updateApplicationRuntimeRow = async (params: {
     sectionId?: string
     workspaceId?: string | null
     expectedVersion?: number
+    relationScope?: RuntimeRelationScope
 }): Promise<Record<string, unknown>> => {
-    const { applicationId, rowId, data, objectCollectionId, sectionId, workspaceId, expectedVersion } = params
+    const { applicationId, rowId, data, objectCollectionId, sectionId, workspaceId, expectedVersion, relationScope } = params
     const resolvedSectionId = sectionId ?? objectCollectionId
     const body: Record<string, unknown> = { data }
     if (resolvedSectionId) body.objectCollectionId = resolvedSectionId
     if (typeof expectedVersion === 'number') body.expectedVersion = expectedVersion
+    if (relationScope) body.relationScope = relationScope
     const normalizedWorkspaceId = normalizeRuntimeWorkspaceId(workspaceId)
     const response = normalizedWorkspaceId
         ? await apiClient.patch<Record<string, unknown>>(`/applications/${applicationId}/runtime/rows/${rowId}`, body, {
@@ -357,12 +385,14 @@ export const deleteApplicationRuntimeRow = async (params: {
     sectionId?: string
     workspaceId?: string | null
     expectedVersion?: number
+    relationScope?: RuntimeRelationScope
 }): Promise<void> => {
-    const { applicationId, rowId, objectCollectionId, sectionId, workspaceId, expectedVersion } = params
+    const { applicationId, rowId, objectCollectionId, sectionId, workspaceId, expectedVersion, relationScope } = params
     const resolvedSectionId = sectionId ?? objectCollectionId
     const requestParams: Record<string, unknown> = {}
     if (resolvedSectionId) requestParams.objectCollectionId = resolvedSectionId
     if (typeof expectedVersion === 'number') requestParams.expectedVersion = expectedVersion
+    if (relationScope) requestParams.relationScope = relationScope
     const normalizedWorkspaceId = normalizeRuntimeWorkspaceId(workspaceId)
     if (normalizedWorkspaceId) requestParams.workspaceId = normalizedWorkspaceId
     await apiClient.delete(`/applications/${applicationId}/runtime/rows/${rowId}`, {
@@ -406,13 +436,25 @@ export const copyApplicationRuntimeRow = async (params: {
     copyChildTables?: boolean
     data?: Record<string, unknown>
     expectedVersion?: number
+    relationScope?: RuntimeRelationScope
 }): Promise<Record<string, unknown>> => {
-    const { applicationId, rowId, objectCollectionId, sectionId, workspaceId, copyChildTables = true, data, expectedVersion } = params
+    const {
+        applicationId,
+        rowId,
+        objectCollectionId,
+        sectionId,
+        workspaceId,
+        copyChildTables = true,
+        data,
+        expectedVersion,
+        relationScope
+    } = params
     const resolvedSectionId = sectionId ?? objectCollectionId
     const body: Record<string, unknown> = { copyChildTables }
     if (resolvedSectionId) body.objectCollectionId = resolvedSectionId
     if (data && Object.keys(data).length > 0) body.data = data
     if (typeof expectedVersion === 'number') body.expectedVersion = expectedVersion
+    if (relationScope) body.relationScope = relationScope
     const normalizedWorkspaceId = normalizeRuntimeWorkspaceId(workspaceId)
     const response = normalizedWorkspaceId
         ? await apiClient.post<Record<string, unknown>>(`/applications/${applicationId}/runtime/rows/${rowId}/copy`, body, {
@@ -479,14 +521,16 @@ export const reorderApplicationRuntimeRows = async (params: {
     sectionId?: string
     workspaceId?: string | null
     expectedVersionsByRowId?: Record<string, number>
+    parentScope?: { fieldCodename: string; parentRecordId: string }
 }): Promise<void> => {
-    const { applicationId, orderedRowIds, objectCollectionId, sectionId, workspaceId, expectedVersionsByRowId } = params
+    const { applicationId, orderedRowIds, objectCollectionId, sectionId, workspaceId, expectedVersionsByRowId, parentScope } = params
     const resolvedSectionId = sectionId ?? objectCollectionId
     const body: Record<string, unknown> = { orderedRowIds }
     if (resolvedSectionId) body.objectCollectionId = resolvedSectionId
     if (expectedVersionsByRowId && Object.keys(expectedVersionsByRowId).length > 0) {
         body.expectedVersionsByRowId = expectedVersionsByRowId
     }
+    if (parentScope) body.parentScope = parentScope
     const normalizedWorkspaceId = normalizeRuntimeWorkspaceId(workspaceId)
     if (normalizedWorkspaceId) {
         await apiClient.post(`/applications/${applicationId}/runtime/rows/reorder`, body, {

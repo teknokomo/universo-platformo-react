@@ -19,6 +19,7 @@ export interface MarketingRuntimeContentProps {
     locale: string
     apiBaseUrl: string
     workspaceId?: string | null
+    themeVariant?: import('../api/client').RuntimeLayoutTarget['themeVariant']
     target?: MarketingRuntimeTarget | null
     layoutIdentity?: {
         layoutVersion: number
@@ -117,6 +118,7 @@ export default function MarketingRuntimeContent({
     locale,
     apiBaseUrl,
     workspaceId,
+    themeVariant,
     target,
     effectiveLayoutWidgets,
     effectiveLayoutConfig,
@@ -149,6 +151,7 @@ export default function MarketingRuntimeContent({
             applicationId,
             locale,
             normalizedWorkspaceId ?? 'default',
+            themeVariant ?? null,
             normalizedTarget,
             normalizedLayoutIdentity
         ],
@@ -158,6 +161,7 @@ export default function MarketingRuntimeContent({
                 applicationId,
                 locale,
                 workspaceId: normalizedWorkspaceId,
+                themeVariant,
                 target: normalizedTarget,
                 expectedLayoutHash: normalizedLayoutIdentity?.layoutHash
             }).then((response) => {

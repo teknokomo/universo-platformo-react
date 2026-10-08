@@ -1,6 +1,7 @@
 import {
     findEffectiveLayoutBaseWidgets,
     findEffectiveLayoutEntity,
+    findEffectiveLayoutHomePages,
     listEffectiveLayoutCandidates,
     listEffectiveLayoutWidgets
 } from '../../persistence/effectiveLayoutStore'
@@ -35,6 +36,33 @@ describe('effectiveLayoutStore', () => {
         expect(params).toEqual([entityId])
     })
 
+    it('resolves only an active, layout-capable Page marked as the home route', async () => {
+        const { executor } = createMockDbExecutor()
+
+        await findEffectiveLayoutHomePages(executor, schemaName)
+
+        const [sql, params] = executor.query.mock.calls[0] as [string, unknown[]]
+        expect(sql).toContain('"app_018f8a787b8f7c1da111222233334444"."_app_objects"')
+        expect(sql).toContain("o.kind = 'page'")
+        expect(sql).toContain("o.config->'runtime'->>'routeSegment' = 'home'")
+        expect(sql).toContain("lower(o.config->'capabilities'->'layoutConfig'->>'enabled') = 'true'")
+        expect(sql).toContain('o._upl_deleted = false')
+        expect(sql).toContain('o._app_deleted = false')
+        expect(sql).toContain('LIMIT 2')
+        expect(params).toBeUndefined()
+    })
+
+    it('applies published lifecycle filters when resolving a public home Page', async () => {
+        const { executor } = createMockDbExecutor()
+
+        await findEffectiveLayoutHomePages(executor, schemaName, 'public')
+
+        const [sql] = executor.query.mock.calls[0] as [string, unknown[]]
+        expect(sql).toContain('"_upl_archived" = false')
+        expect(sql).toContain('"_app_archived" = false')
+        expect(sql).toContain('"_app_published" = true')
+    })
+
     it('selects the source-state baseline and keeps the layout id bound', async () => {
         const { executor } = createMockDbExecutor()
         const layoutId = '018f8a78-7b8f-7c1d-a111-2222333344a2'
@@ -64,6 +92,7 @@ describe('effectiveLayoutStore', () => {
         expect(sql).toContain('l.scope_entity_id IS NULL')
         expect(sql).toContain('w.is_active = true')
         expect(sql).toContain('w.source_widget_id')
+        expect(sql).toContain('w.instance_key')
         expect(sql).toContain('w.zone')
         expect(sql).toContain('w.config')
         expect(sql).toContain('w.source_config')

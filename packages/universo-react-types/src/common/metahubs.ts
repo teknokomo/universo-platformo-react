@@ -4,10 +4,15 @@
 import type { VersionedLocalizedContent } from './admin'
 import type { EntityTypeCapabilities } from './entityCapabilities'
 import type { EntityTypeUIConfig } from './entityTypeDefinition'
-import type { SharedBehavior } from './shared'
-import type { DashboardSideMenuConfig } from './dashboardLayout'
 import type { ModuleAttachmentKind, ModuleCapability, ModuleRole, ModuleSourceKind } from './modules'
-import type { ApplicationTemplateHostCapability, LayoutSemanticRegion } from './applicationTemplates'
+import type { WidgetEntityBindingEnvelope } from './widgetBindings'
+
+export {
+    DASHBOARD_LAYOUT_WIDGETS,
+    DASHBOARD_LAYOUT_WIDGET_REGISTRY,
+    DASHBOARD_LAYOUT_ZONES,
+    DASHBOARD_LAYOUT_ZONE_SEMANTICS
+} from './dashboardWidgetRegistry'
 
 /**
  * Supported component data types.
@@ -831,228 +836,14 @@ export interface EnumerationValueDefinition {
 
 // ========= Dashboard layout zones/widgets (Metahubs + Runtime UI) =========
 
-export const DASHBOARD_LAYOUT_ZONES = ['left', 'top', 'right', 'bottom', 'center'] as const
-export type DashboardLayoutZone = (typeof DASHBOARD_LAYOUT_ZONES)[number]
-
-/** Explicit semantic mapping for the Dashboard's persisted physical zones. */
-export const DASHBOARD_LAYOUT_ZONE_SEMANTICS = {
-    left: 'sidebar',
-    top: 'header',
-    right: 'auxiliary',
-    bottom: 'footer',
-    center: 'main'
-} as const satisfies Readonly<Record<DashboardLayoutZone, LayoutSemanticRegion>>
-
-export const DASHBOARD_LAYOUT_WIDGETS = [
-    // Left zone widgets (decomposed from former monolithic sideMenu)
-    { key: 'brandSelector', allowedZones: ['left'] as const, multiInstance: true },
-    { key: 'workspaceSwitcher', allowedZones: ['left'] as const, multiInstance: true },
-    { key: 'divider', allowedZones: ['left', 'top', 'bottom', 'right'] as const, multiInstance: true },
-    { key: 'menuWidget', allowedZones: ['left'] as const, multiInstance: true },
-    { key: 'spacer', allowedZones: ['left', 'right'] as const, multiInstance: true },
-    { key: 'infoCard', allowedZones: ['left', 'right'] as const, multiInstance: true },
-    { key: 'userProfile', allowedZones: ['left'] as const, multiInstance: true },
-    // Top zone widgets
-    { key: 'appNavbar', allowedZones: ['top'] as const, multiInstance: false },
-    { key: 'header', allowedZones: ['top'] as const, multiInstance: false },
-    { key: 'breadcrumbs', allowedZones: ['top'] as const, multiInstance: true },
-    { key: 'search', allowedZones: ['top'] as const, multiInstance: true },
-    { key: 'datePicker', allowedZones: ['top'] as const, multiInstance: true },
-    { key: 'optionsMenu', allowedZones: ['top'] as const, multiInstance: true },
-    {
-        key: 'languageSwitcher',
-        allowedZones: ['top'] as const,
-        multiInstance: false,
-        requiredHostCapabilities: [
-            'locale.state',
-            'locale.change',
-            'keyboard.focus',
-            'accessibility.label',
-            'theme.safe'
-        ] as const satisfies readonly ApplicationTemplateHostCapability[]
-    },
-    {
-        key: 'colorModeSwitcher',
-        allowedZones: ['top'] as const,
-        multiInstance: false,
-        requiredHostCapabilities: [
-            'keyboard.focus',
-            'accessibility.label',
-            'theme.safe'
-        ] as const satisfies readonly ApplicationTemplateHostCapability[]
-    },
-    // Center zone widgets
-    { key: 'overviewTitle', allowedZones: ['center'] as const, multiInstance: true },
-    { key: 'overviewCards', allowedZones: ['center'] as const, multiInstance: true },
-    { key: 'sessionsChart', allowedZones: ['center'] as const, multiInstance: true },
-    { key: 'pageViewsChart', allowedZones: ['center'] as const, multiInstance: true },
-    { key: 'detailsTitle', allowedZones: ['center'] as const, multiInstance: true },
-    { key: 'detailsTable', allowedZones: ['center'] as const, multiInstance: true },
-    { key: 'relationBuilder', allowedZones: ['center'] as const, multiInstance: true },
-    { key: 'columnsContainer', allowedZones: ['center'] as const, multiInstance: true },
-    { key: 'detailsTabs', allowedZones: ['center'] as const, multiInstance: true },
-    { key: 'interpretationNetworkWorkspace', allowedZones: ['center'] as const, multiInstance: true },
-    { key: 'quizWidget', allowedZones: ['center', 'right'] as const, multiInstance: true },
-    { key: 'playcanvasCanvas', allowedZones: ['center'] as const, multiInstance: true },
-    { key: 'resourcePreview', allowedZones: ['center', 'right'] as const, multiInstance: true },
-    { key: 'learnerPlayer', allowedZones: ['center'] as const, multiInstance: true },
-    // Right zone widgets
-    { key: 'productTree', allowedZones: ['center', 'right'] as const, multiInstance: true },
-    { key: 'usersByCountryChart', allowedZones: ['center', 'right'] as const, multiInstance: true },
-    // Bottom zone widgets
-    { key: 'footer', allowedZones: ['bottom'] as const, multiInstance: true }
-] as const
-
-export type DashboardLayoutWidgetKey = (typeof DASHBOARD_LAYOUT_WIDGETS)[number]['key']
-
-export type DashboardLayoutWidgetDefinition = {
-    key: DashboardLayoutWidgetKey
-    allowedZones: readonly DashboardLayoutZone[]
-    multiInstance: boolean
-    requiredHostCapabilities?: readonly ApplicationTemplateHostCapability[]
-}
-
-/** Configuration for the menuWidget — embeds menu definition directly in widget config. */
-export type MenuWidgetTarget =
-    | { kind: 'section'; sectionId: string }
-    | { kind: 'objectCollection'; objectCollectionId: string }
-    | { kind: 'hub'; hubId: string }
-    | { kind: 'treeEntity'; treeEntityId: string }
-    | { kind: 'menuItem'; menuItemId: string }
-
-export interface MenuWidgetConfig {
-    showTitle: boolean
-    title: VersionedLocalizedContent<string>
-    /** When true, runtime automatically includes all renderable Entity sections as menu items. */
-    autoShowAllSections: boolean
-    /** Enables direct binding of this menu widget to a specific hub. */
-    bindToHub?: boolean
-    /** Hub ID used when direct binding is enabled. */
-    boundHubId?: string | null
-    /** Legacy/editor alias for hub binding. */
-    boundTreeEntityId?: string | null
-    /** Maximum number of primary menu items before overflow is used. */
-    maxPrimaryItems?: number
-    /** Shared i18n key used for the overflow menu label. */
-    overflowLabelKey?: string | null
-    /** Preferred start page as a section id/codename or menu item id. */
-    startPage?: string | null
-    /** UUID-backed normalized start target used by runtime materialization. */
-    startTarget?: MenuWidgetTarget | null
-    /** Placement for the runtime workspace entry injected by the published app. */
-    workspacePlacement?: 'primary' | 'overflow' | 'hidden'
-    /** Runtime side menu display modes controlled by this menu widget. */
-    sideMenu?: DashboardSideMenuConfig
-    sharedBehavior?: SharedBehavior
-    items: MenuWidgetConfigItem[]
-}
-
-/** A single menu item embedded in MenuWidgetConfig. */
-export interface MenuWidgetConfigItem {
-    /** Client-generated UUID for stable DnD identity. */
-    id: string
-    kind: MetahubMenuItemKind
-    title: VersionedLocalizedContent<string>
-    icon?: string | null
-    href?: string | null
-    /** Runtime/application alias for the selected Entity section. */
-    objectCollectionId?: string | null
-    /** Selected Entity section id or codename. */
-    sectionId?: string | null
-    hubId?: string | null
-    /** Runtime/application alias for hubId. */
-    treeEntityId?: string | null
-    sortOrder: number
-    isActive: boolean
-}
-
-export interface DashboardLayoutZoneWidget {
-    id: string
-    layoutId: string
-    zone: DashboardLayoutZone
-    widgetKey: DashboardLayoutWidgetKey
-    sortOrder: number
-    config: Record<string, unknown>
-    isActive: boolean
-}
-
-// ========= ColumnsContainer widget config =========
-
-/** A single widget entry rendered inside a column. */
-export interface ColumnsContainerColumnWidget {
-    /** Stable identity for nested widget overrides. */
-    id?: string
-    /** Widget key to render. */
-    widgetKey: DashboardLayoutWidgetKey
-    /** Ordered position inside the column. */
-    sortOrder?: number
-    /** Whether this nested widget should render. */
-    isActive?: boolean
-    /** Nested widget-specific config. */
-    config?: Record<string, unknown>
-}
-
-/** A single column inside a columnsContainer widget. */
-export interface ColumnsContainerColumn {
-    /** Client-generated UUID for stable identity. */
-    id: string
-    /** MUI Grid column width (1-12). */
-    width: number
-    /** Ordered list of widgets rendered vertically inside this column. */
-    widgets: ColumnsContainerColumnWidget[]
-}
-
-/** Configuration for the columnsContainer widget — multi-column center layout. */
-export interface ColumnsContainerConfig {
-    /** Ordered array of columns. Widths should sum to 12 for a balanced row. */
-    columns: ColumnsContainerColumn[]
-    sharedBehavior?: SharedBehavior
-}
-
-/** A single tab rendered by the generic detailsTabs widget. */
-export interface DetailsTabsTab {
-    /** Stable tab identity. */
-    id: string
-    /** Localized or plain tab label. */
-    label?: Record<string, unknown> | string
-    /** Ordered list of widgets rendered inside the tab panel. */
-    widgets: ColumnsContainerColumnWidget[]
-    /** Whether this tab should render. */
-    isActive?: boolean
-}
-
-/** Configuration for the detailsTabs widget. */
-export interface DetailsTabsConfig {
-    /** Ordered tab definitions. */
-    tabs: DetailsTabsTab[]
-    sharedBehavior?: SharedBehavior
-}
-
-export interface QuizWidgetConfig {
-    title?: string
-    description?: string
-    moduleCodename?: string | null
-    attachedToKind?: ModuleAttachmentKind
-    quizId?: string | null
-    mountMethodName?: string
-    submitMethodName?: string
-    emptyStateTitle?: string
-    emptyStateDescription?: string
-    sharedBehavior?: SharedBehavior
-}
-
-// ========= Menu item kinds (used by MenuWidgetConfig) =========
-
-export const METAHUB_MENU_ITEM_KINDS = ['section', 'hub', 'link'] as const
-export type MetahubMenuItemKind = (typeof METAHUB_MENU_ITEM_KINDS)[number]
-
 // ========= Template Manifest Types =========
 
 /** Schema version discriminator for future manifest format evolution. */
 export type MetahubTemplateSchemaVersion = 'metahub-template/v1'
 
 /** Snapshot envelope version used for metahub export/publication snapshots. */
-export type MetahubSnapshotFormatVersion = 1 | 2 | 3
+export const CURRENT_METAHUB_SNAPSHOT_FORMAT_VERSION = 4 as const
+export type MetahubSnapshotFormatVersion = typeof CURRENT_METAHUB_SNAPSHOT_FORMAT_VERSION
 
 /**
  * Unified version envelope that separates:
@@ -1201,18 +992,27 @@ export interface TemplateSeedScopedLayout extends TemplateSeedLayout {
     scopeEntityKind?: EntityKind
 }
 
-/**
- * Seed widget assignment. Placement and key are interpreted by the selected
- * application template; dashboard-specific validation belongs to its adapter.
- */
-export interface TemplateSeedZoneWidget {
+/** Common fields for a seeded placement before its root or child parentage is applied. */
+interface TemplateSeedZoneWidgetBase {
     zone: string
     widgetKey: string
+    /** Stable semantic placement identity; never copied into rendererConfig. */
+    instanceKey: string
     sortOrder: number
-    config?: Record<string, unknown>
+    /** Parsed against the canonical strict schema selected by widgetKey. */
+    rendererConfig: Record<string, unknown>
+    /** Neutral Entity binding envelope, kept outside renderer configuration. */
+    bindings?: WidgetEntityBindingEnvelope
     /** When omitted, defaults to true at seed time. */
     isActive?: boolean
 }
+
+/**
+ * Seed widget placement. Root placements have null semantic parentage; child
+ * placements identify their parent by instanceKey and their semantic slot.
+ */
+export type TemplateSeedZoneWidget = TemplateSeedZoneWidgetBase &
+    ({ parentInstanceKey: null; slotKey: null } | { parentInstanceKey: string; slotKey: string })
 
 /** Seed setting key/value pair. */
 export interface TemplateSeedSetting {
@@ -1305,7 +1105,7 @@ export interface MetahubTemplateSeed {
     layouts: TemplateSeedLayout[]
     /** Entity-scoped layouts keyed by codename and inheriting from a global base layout. */
     scopedLayouts?: TemplateSeedScopedLayout[]
-    /** Zone widget assignments keyed by layout codename. */
+    /** First-class placements keyed by layout codename. */
     layoutZoneWidgets: Record<string, TemplateSeedZoneWidget[]>
     settings?: TemplateSeedSetting[]
     entities?: TemplateSeedEntity[]

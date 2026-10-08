@@ -21,18 +21,29 @@ import {
     resolveRuntimeSchema
 } from '../../shared/runtimeHelpers'
 import { createRuntimeVersionConflictFailure } from '../runtimeVersionConflict'
-import { buildRuntimeExpectedVersionPredicate, runtimeCompensateCreateBodySchema } from '../runtimeRowSupport/contracts'
-import { resolveRuntimeObjectCollection } from '../runtimeRowSupport/objects'
+import {
+    buildRuntimeExpectedVersionPredicate,
+    runtimeCompensateCreateBodySchema,
+    runtimeRelationScopeSchema
+} from '../../services/runtimeRowSupport/contracts'
+import { resolveRuntimeObjectCollection, resolveRuntimeObjectCollectionConfig } from '../runtimeRowSupport/objects'
 import { denyRuntimeEntityMutation } from '../../shared/entityMutationPolicy'
-import { assertNotProtectedSystemStructureRuntimeRow, buildRuntimeRecordAccessClause } from '../runtimeRowSupport/access'
+import { assertNotProtectedSystemStructureRuntimeRow, buildRuntimeRecordAccessClause } from '../../services/runtimeRowSupport/access'
 import { loadRuntimeRowById } from '../runtimeRowSupport/rows'
+import {
+    buildRuntimeRelationRowPredicate,
+    lockRuntimeRelationParentRecord,
+    revalidateRuntimeRelationWriteScope,
+    resolveRuntimeRelationWriteScope
+} from '../runtimeRowSupport/relationScope'
 
 import type { RuntimeRowWriteDeps } from './types'
+import { isRuntimeRecordReference, resolveRuntimeRecordReference } from '../../services/runtimeRecordHandle'
 
 export const createDeleteRowHandler = ({ getDbExecutor, query }: RuntimeRowWriteDeps) => {
     const deleteRow = async (req: Request, res: Response) => {
-        const { applicationId, rowId } = req.params
-        if (!UUID_REGEX.test(rowId)) return res.status(400).json({ error: 'Invalid row ID format' })
+        const { applicationId, rowId: rowReference } = req.params
+        if (!isRuntimeRecordReference(rowReference)) return res.status(400).json({ error: 'Invalid row reference format' })
         const compensateCreate = req.method === 'POST' && req.path.endsWith('/compensate-create')
         const parsedCompensation = compensateCreate ? runtimeCompensateCreateBodySchema.safeParse(req.body ?? {}) : null
         if (parsedCompensation && !parsedCompensation.success) {
@@ -52,6 +63,15 @@ export const createDeleteRowHandler = ({ getDbExecutor, query }: RuntimeRowWrite
         if (expectedVersion !== undefined && (!Number.isInteger(expectedVersion) || expectedVersion <= 0)) {
             return res.status(400).json({ error: 'Invalid expected version' })
         }
+        if (compensateCreate && Object.prototype.hasOwnProperty.call(req.query, 'relationScope')) {
+            return res.status(400).json({ error: 'Relation scope is not supported for create compensation' })
+        }
+        const hasRelationScope = !compensateCreate && Object.prototype.hasOwnProperty.call(req.query, 'relationScope')
+        const parsedRelationScope = hasRelationScope ? runtimeRelationScopeSchema.safeParse(req.query.relationScope) : null
+        if (parsedRelationScope && !parsedRelationScope.success) {
+            return res.status(400).json({ error: 'Invalid relation scope' })
+        }
+        const requestedRelationScope = parsedRelationScope?.success ? parsedRelationScope.data : undefined
 
         const ctx = await resolveRuntimeSchema(getDbExecutor, query, req, res, applicationId)
         if (!ctx) return
@@ -69,6 +89,41 @@ export const createDeleteRowHandler = ({ getDbExecutor, query }: RuntimeRowWrite
         } = await resolveRuntimeObjectCollection(ctx.manager, ctx.schemaIdent, objectCollectionId)
         if (!objectCollection) return res.status(404).json({ error: objectCollectionError })
         if (denyRuntimeEntityMutation(res, objectCollection.config)) return
+        const resolvedReference = resolveRuntimeRecordReference(rowReference, {
+            applicationId,
+            workspaceId: ctx.currentWorkspaceId,
+            entityCodename: resolveRuntimeCodenameText(objectCollection.codename)
+        })
+        if (!resolvedReference) return res.status(404).json({ error: 'Row not found' })
+        const rowId = resolvedReference.recordId
+        const relationLayout = requestedRelationScope
+            ? await resolveRuntimeObjectCollectionConfig({
+                  manager: ctx.manager,
+                  applicationId,
+                  userId: ctx.userId,
+                  role: ctx.role,
+                  workspaceId: ctx.currentWorkspaceId,
+                  objectCollectionId: objectCollection.id,
+                  objectCollectionCodename: resolveRuntimeCodenameText(objectCollection.codename)
+              })
+            : null
+        const relationScope =
+            requestedRelationScope && relationLayout
+                ? await resolveRuntimeRelationWriteScope({
+                      manager: ctx.manager,
+                      applicationId,
+                      workspaceId: ctx.currentWorkspaceId,
+                      schemaIdent: ctx.schemaIdent,
+                      zoneWidgets: relationLayout.selectedLayout.zoneWidgets,
+                      childEntity: objectCollection,
+                      childAttrs: attrs,
+                      request: requestedRelationScope
+                  })
+                : null
+        if (requestedRelationScope && !relationScope) {
+            return res.status(409).json({ error: 'The requested relation scope is unavailable', code: 'RUNTIME_RELATION_SCOPE_INVALID' })
+        }
+        if (relationScope && denyRuntimeEntityMutation(res, relationScope.parentCollection.config)) return
 
         const dataTableIdent = `${ctx.schemaIdent}.${quoteIdentifier(objectCollection.table_name)}`
         const runtimeRowCondition = buildRuntimeActiveRowCondition(
@@ -86,6 +141,20 @@ export const createDeleteRowHandler = ({ getDbExecutor, query }: RuntimeRowWrite
         let afterDeleteLifecycleRequest: RuntimeLifecycleDispatchRequest | null = null
 
         const performDelete = async (mgr: DbExecutor) => {
+            const transactionRelationScope = relationScope
+                ? await revalidateRuntimeRelationWriteScope({
+                      executor: mgr,
+                      ctx,
+                      applicationId,
+                      objectCollectionId: objectCollection.id,
+                      childEntity: objectCollection,
+                      childAttrs: attrs,
+                      scope: relationScope
+                  })
+                : null
+            if (transactionRelationScope) {
+                await lockRuntimeRelationParentRecord({ executor: mgr, ctx, scope: transactionRelationScope })
+            }
             const sourceValues: unknown[] = [rowId]
             const sourceAccessClause = await buildRuntimeRecordAccessClause({
                 manager: mgr,
@@ -107,7 +176,11 @@ export const createDeleteRowHandler = ({ getDbExecutor, query }: RuntimeRowWrite
                    AND COALESCE(_upl_version, 1) = 1
                    AND _upl_created_at >= NOW() - INTERVAL '10 minutes'`
             }
-            const sourceWhereSql = ['id = $1', runtimeRowCondition, sourceAccessClause, compensationSourceClause]
+            const relationSourceClause = transactionRelationScope
+                ? buildRuntimeRelationRowPredicate({ scope: transactionRelationScope, parameterIndex: sourceValues.length + 1 })
+                : null
+            if (transactionRelationScope) sourceValues.push(transactionRelationScope.request.parentRecordId)
+            const sourceWhereSql = ['id = $1', runtimeRowCondition, sourceAccessClause, compensationSourceClause, relationSourceClause]
                 .filter((clause): clause is string => typeof clause === 'string' && clause.length > 0)
                 .join(' AND ')
             const sourceRows = (await mgr.query(
@@ -169,6 +242,10 @@ export const createDeleteRowHandler = ({ getDbExecutor, query }: RuntimeRowWrite
                 values: deleteParams,
                 minimumAccessLevel: 'edit'
             })
+            const relationDeleteClause = transactionRelationScope
+                ? buildRuntimeRelationRowPredicate({ scope: transactionRelationScope, parameterIndex: deleteParams.length + 1 })
+                : null
+            if (transactionRelationScope) deleteParams.push(transactionRelationScope.request.parentRecordId)
             let compensationDeleteClause = ''
             if (canCompensateCreate) {
                 deleteParams.push(ctx.userId)
@@ -185,7 +262,8 @@ export const createDeleteRowHandler = ({ getDbExecutor, query }: RuntimeRowWrite
                 runtimeRowCondition,
                 'COALESCE(_upl_locked, false) = false',
                 deleteAccessClause,
-                compensationDeleteClause
+                compensationDeleteClause,
+                relationDeleteClause
             ]
                 .filter((clause): clause is string => typeof clause === 'string' && clause.length > 0)
                 .join(' AND ')

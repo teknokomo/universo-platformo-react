@@ -12,6 +12,7 @@ import {
     syncApplicationSchema,
     toggleLayoutZoneWidgetActive,
     getLayout,
+    getLayoutZoneWidgetBindings,
     listLayouts,
     listLayoutZoneWidgets,
     sendWithCsrf,
@@ -19,6 +20,7 @@ import {
 } from '../../support/backend/api-session.mjs'
 import { recordCreatedMetahub, recordCreatedApplication } from '../../support/backend/run-manifest.mjs'
 import { repoRoot } from '../../support/env/load-e2e-env.mjs'
+import { resolveFixtureOutputPath } from '../../support/fixtureOutputPath'
 import { SHARED_OBJECT_KINDS } from '@universo-react/types'
 import { buildVLC, createLocalizedContent, validateSnapshotEnvelope } from '@universo-react/utils'
 import {
@@ -83,10 +85,9 @@ async function waitForDefaultLayoutId(api: ApiContext, metahubId: string) {
     return layoutId
 }
 
-async function applyEnhancedLayoutConfig(api: ApiContext, metahubId: string) {
+async function applyEnhancedLayoutConfig(api: ApiContext, metahubId: string, detailsTableSourceKey: string) {
     const layoutId = await waitForDefaultLayoutId(api, metahubId)
     const layout = await getLayout(api, metahubId, layoutId)
-    const currentConfig = layout?.config && typeof layout.config === 'object' ? layout.config : {}
 
     if (!Number.isSafeInteger(layout?.version) || layout.version < 1) {
         throw new Error(`Self-hosted layout ${layoutId} did not return a valid optimistic-lock version`)
@@ -97,10 +98,6 @@ async function applyEnhancedLayoutConfig(api: ApiContext, metahubId: string) {
         namePrimaryLocale: 'en',
         description: SELF_HOSTED_APP_LAYOUT.description,
         descriptionPrimaryLocale: 'en',
-        config: {
-            ...currentConfig,
-            ...SELF_HOSTED_APP_LAYOUT.runtimeConfig
-        },
         expectedVersion: layout.version
     })
 
@@ -110,41 +107,8 @@ async function applyEnhancedLayoutConfig(api: ApiContext, metahubId: string) {
     const menuWidgets = zoneWidgetItems.filter((widget) => widget?.widgetKey === 'menuWidget')
     const primaryMenuWidget = menuWidgets[0]
 
-    if (primaryMenuWidget?.id) {
-        if (!Number.isSafeInteger(primaryMenuWidget?.version) || primaryMenuWidget.version < 1) {
-            throw new Error(`Self-hosted menu widget ${primaryMenuWidget.id} did not return a valid optimistic-lock version`)
-        }
-        const menuWidgetResponse = await sendWithCsrf(
-            api,
-            'PATCH',
-            `/api/v1/metahub/${metahubId}/layout/${layoutId}/zone-widget/${primaryMenuWidget.id}/config`,
-            {
-                config: {
-                    ...(primaryMenuWidget.config && typeof primaryMenuWidget.config === 'object' ? primaryMenuWidget.config : {}),
-                    autoShowAllSections: true,
-                    showTitle: true,
-                    title: buildVLC(SELF_HOSTED_APP_LAYOUT.menuTitle.en, SELF_HOSTED_APP_LAYOUT.menuTitle.ru)
-                },
-                expectedVersion: primaryMenuWidget.version
-            }
-        )
-        expect(menuWidgetResponse.ok).toBe(true)
-    } else {
-        const currentLayout = await getLayout(api, metahubId, layoutId)
-        if (!Number.isSafeInteger(currentLayout?.version) || currentLayout.version < 1) {
-            throw new Error(`Self-hosted layout ${layoutId} did not return a valid optimistic-lock version before menu creation`)
-        }
-        const menuWidgetResponse = await sendWithCsrf(api, 'PUT', `/api/v1/metahub/${metahubId}/layout/${layoutId}/zone-widget`, {
-            zone: 'left',
-            widgetKey: 'menuWidget',
-            config: {
-                autoShowAllSections: true,
-                showTitle: true,
-                title: buildVLC(SELF_HOSTED_APP_LAYOUT.menuTitle.en, SELF_HOSTED_APP_LAYOUT.menuTitle.ru)
-            },
-            expectedVersion: currentLayout.version
-        })
-        expect(menuWidgetResponse.ok).toBe(true)
+    if (!primaryMenuWidget?.id || primaryMenuWidget.config?.variant !== 'generated') {
+        throw new Error(`Self-hosted layout ${layoutId} must contain its seeded entity-generated menu widget`)
     }
 
     let hasRemovableMenuWidget = true
@@ -167,19 +131,101 @@ async function applyEnhancedLayoutConfig(api: ApiContext, metahubId: string) {
         expect(removeResponse.status).toBe(204)
     }
 
-    const currentLayout = await getLayout(api, metahubId, layoutId)
-    if (!Number.isSafeInteger(currentLayout?.version) || currentLayout.version < 1) {
-        throw new Error(`Self-hosted layout ${layoutId} did not return a valid optimistic-lock version before details table creation`)
-    }
-    const detailsTableResponse = await sendWithCsrf(api, 'PUT', `/api/v1/metahub/${metahubId}/layout/${layoutId}/zone-widget`, {
-        zone: 'center',
-        widgetKey: 'detailsTable',
-        expectedVersion: currentLayout.version
-    })
-    expect(detailsTableResponse.ok).toBe(true)
+    let detailsTableWidgetsResponse = await listLayoutZoneWidgets(api, metahubId, layoutId)
+    let detailsTableWidget = detailsTableWidgetsResponse?.items?.find(
+        (widget) => widget?.widgetKey === 'detailsTable' && widget?.isActive !== false
+    )
 
-    const updatedLayout = await getLayout(api, metahubId, layoutId)
-    expect(updatedLayout?.config).toMatchObject(SELF_HOSTED_APP_LAYOUT.runtimeConfig)
+    if (detailsTableWidget?.id) {
+        if (!Number.isSafeInteger(detailsTableWidget?.version) || detailsTableWidget.version < 1) {
+            throw new Error(`Self-hosted details table ${detailsTableWidget.id} did not return a valid optimistic-lock version`)
+        }
+        const detailsTableConfigResponse = await sendWithCsrf(
+            api,
+            'PATCH',
+            `/api/v1/metahub/${metahubId}/layout/${layoutId}/zone-widget/${detailsTableWidget.id}/config`,
+            {
+                config: {
+                    ...(detailsTableWidget.config && typeof detailsTableWidget.config === 'object' ? detailsTableWidget.config : {}),
+                    ...SELF_HOSTED_APP_LAYOUT.detailsTableConfig
+                },
+                expectedVersion: detailsTableWidget.version
+            }
+        )
+        expect(detailsTableConfigResponse.ok).toBe(true)
+    } else {
+        const currentLayout = await getLayout(api, metahubId, layoutId)
+        if (!Number.isSafeInteger(currentLayout?.version) || currentLayout.version < 1) {
+            throw new Error(`Self-hosted layout ${layoutId} did not return a valid optimistic-lock version before details table creation`)
+        }
+        const detailsTableResponse = await sendWithCsrf(api, 'PUT', `/api/v1/metahub/${metahubId}/layout/${layoutId}/zone-widget`, {
+            zone: 'center',
+            widgetKey: 'detailsTable',
+            config: SELF_HOSTED_APP_LAYOUT.detailsTableConfig,
+            expectedVersion: currentLayout.version
+        })
+        expect(detailsTableResponse.ok).toBe(true)
+        detailsTableWidgetsResponse = await listLayoutZoneWidgets(api, metahubId, layoutId)
+        detailsTableWidget = detailsTableWidgetsResponse?.items?.find(
+            (widget) => widget?.widgetKey === 'detailsTable' && widget?.isActive !== false
+        )
+    }
+
+    if (!detailsTableWidget?.id) {
+        throw new Error(`Self-hosted layout ${layoutId} did not contain an active detailsTable after configuration`)
+    }
+
+    let hasDuplicateDetailsTable = true
+    while (hasDuplicateDetailsTable) {
+        detailsTableWidgetsResponse = await listLayoutZoneWidgets(api, metahubId, layoutId)
+        const widget = detailsTableWidgetsResponse?.items?.find(
+            (item) => item?.widgetKey === 'detailsTable' && item.id !== detailsTableWidget?.id
+        )
+        if (!widget) {
+            hasDuplicateDetailsTable = false
+            continue
+        }
+
+        if (!Number.isSafeInteger(widget?.version) || widget.version < 1) {
+            throw new Error(`Duplicate details table ${widget?.id ?? 'unknown'} did not return a valid optimistic-lock version`)
+        }
+        const removeResponse = await sendWithCsrf(
+            api,
+            'DELETE',
+            `/api/v1/metahub/${metahubId}/layout/${layoutId}/zone-widget/${widget.id}?expectedVersion=${widget.version}`
+        )
+        expect(removeResponse.status).toBe(204)
+    }
+
+    const configuredZoneWidgets = await listLayoutZoneWidgets(api, metahubId, layoutId)
+    const configuredDetailsTable = configuredZoneWidgets?.items?.find((widget) => widget?.id === detailsTableWidget?.id)
+    expect(configuredDetailsTable?.config).toMatchObject(SELF_HOSTED_APP_LAYOUT.detailsTableConfig)
+    if (!configuredDetailsTable?.id || !Number.isSafeInteger(configuredDetailsTable.version) || configuredDetailsTable.version < 1) {
+        throw new Error('Configured self-hosted detailsTable did not return a valid optimistic-lock version')
+    }
+
+    const detailsTableBindingResponse = await sendWithCsrf(
+        api,
+        'PATCH',
+        `/api/v1/metahub/${metahubId}/layout/${layoutId}/zone-widget/${configuredDetailsTable.id}/binding`,
+        {
+            locale: 'en',
+            bindings: [{ slot: 'rows', sourceKey: detailsTableSourceKey, selector: { kind: 'record-set' } }],
+            expectedVersion: configuredDetailsTable.version
+        }
+    )
+    expect(detailsTableBindingResponse.ok).toBe(true)
+
+    const persistedDetailsTableBindings = await getLayoutZoneWidgetBindings(api, metahubId, layoutId, configuredDetailsTable.id, 'en')
+    expect(persistedDetailsTableBindings?.bindings).toEqual(
+        expect.arrayContaining([
+            expect.objectContaining({
+                slot: 'rows',
+                sourceKey: detailsTableSourceKey,
+                selectorKind: 'record-set'
+            })
+        ])
+    )
 
     return layoutId
 }
@@ -194,7 +240,6 @@ async function createSettingsScopedLayoutOverride(api: ApiContext, metahubId: st
         description: SELF_HOSTED_APP_SETTINGS_LAYOUT.description,
         descriptionPrimaryLocale: 'en',
         config: {
-            ...SELF_HOSTED_APP_SETTINGS_LAYOUT.runtimeConfig,
             objectBehavior: SELF_HOSTED_APP_SETTINGS_LAYOUT.objectBehavior
         },
         isActive: true,
@@ -207,6 +252,26 @@ async function createSettingsScopedLayoutOverride(api: ApiContext, metahubId: st
     const settingsLayoutId = created?.id ?? created?.data?.id
     const settingsLayoutWidgets = await listLayoutZoneWidgets(api, metahubId, settingsLayoutId)
     const settingsLayoutWidgetItems = Array.isArray(settingsLayoutWidgets?.items) ? settingsLayoutWidgets.items : []
+    const detailsTableWidget = settingsLayoutWidgetItems.find(
+        (widget) => widget?.widgetKey === 'detailsTable' && widget?.isActive !== false
+    )
+    if (!detailsTableWidget?.id || !Number.isSafeInteger(detailsTableWidget.version) || detailsTableWidget.version < 1) {
+        throw new Error('Settings layout did not return an active detailsTable with a valid optimistic-lock version')
+    }
+    const detailsTableConfigResponse = await sendWithCsrf(
+        api,
+        'PATCH',
+        `/api/v1/metahub/${metahubId}/layout/${settingsLayoutId}/zone-widget/${detailsTableWidget.id}/config`,
+        {
+            config: {
+                ...(detailsTableWidget.config && typeof detailsTableWidget.config === 'object' ? detailsTableWidget.config : {}),
+                ...SELF_HOSTED_APP_SETTINGS_LAYOUT.detailsTableConfig
+            },
+            expectedVersion: detailsTableWidget.version
+        }
+    )
+    expect(detailsTableConfigResponse.ok).toBe(true)
+
     const detailsTitleWidget = settingsLayoutWidgetItems.find(
         (widget) => widget?.widgetKey === 'detailsTitle' && widget?.isActive !== false
     )
@@ -227,12 +292,7 @@ async function createSettingsScopedLayoutOverride(api: ApiContext, metahubId: st
     }
 
     const updatedSettingsLayout = await getLayout(api, metahubId, settingsLayoutId)
-    expect(updatedSettingsLayout?.config).toMatchObject({
-        showViewToggle: SELF_HOSTED_APP_SETTINGS_LAYOUT.runtimeConfig.showViewToggle,
-        defaultViewMode: SELF_HOSTED_APP_SETTINGS_LAYOUT.runtimeConfig.defaultViewMode,
-        showFilterBar: SELF_HOSTED_APP_SETTINGS_LAYOUT.runtimeConfig.showFilterBar,
-        objectBehavior: SELF_HOSTED_APP_SETTINGS_LAYOUT.objectBehavior
-    })
+    expect(updatedSettingsLayout?.config).toMatchObject({ objectBehavior: SELF_HOSTED_APP_SETTINGS_LAYOUT.objectBehavior })
 
     return settingsLayoutId
 }
@@ -371,6 +431,7 @@ async function seedSharedEntities(api: ApiContext, metahubId: string, sectionMap
 /* ────── Constants ────── */
 
 const FIXTURES_DIR = path.resolve(repoRoot, 'tools', 'fixtures')
+const FIXTURE_OUTPUT_PATH = resolveFixtureOutputPath('SELF_HOSTED_APP_FIXTURE_OUTPUT_PATH', SELF_HOSTED_APP_FIXTURE_FILENAME)
 const SCREENSHOTS_DIR = path.resolve(repoRoot, 'test-results', SELF_HOSTED_APP_SCREENSHOTS_DIRNAME)
 
 /* ────── Test ────── */
@@ -394,6 +455,7 @@ test.describe('Metahubs Self-Hosted App Export', () => {
             name: liveMetahubName,
             namePrimaryLocale: 'en',
             codename: metahubCodename,
+            templateCodename: 'basic-demo',
             description: SELF_HOSTED_APP_CANONICAL_METAHUB.description,
             descriptionPrimaryLocale: 'en'
         })
@@ -461,7 +523,11 @@ test.describe('Metahubs Self-Hosted App Export', () => {
 
         await seedSharedEntities(api, metahubId, sectionMap)
 
-        const defaultLayoutId = await applyEnhancedLayoutConfig(api, metahubId)
+        const detailsTableSourceKey = SELF_HOSTED_APP_SECTIONS.find((section) => section.codename === 'settings')?.name.en
+        if (!detailsTableSourceKey) {
+            throw new Error('Self-hosted fixture contract is missing the Settings source for detailsTable')
+        }
+        const defaultLayoutId = await applyEnhancedLayoutConfig(api, metahubId, detailsTableSourceKey)
 
         if (sectionMap.settings) {
             const settingsLayoutId = await createSettingsScopedLayoutOverride(api, metahubId, sectionMap.settings, defaultLayoutId)
@@ -578,7 +644,8 @@ test.describe('Metahubs Self-Hosted App Export', () => {
         assertSelfHostedAppEnvelopeContract(envelope)
 
         /* ── 11. Save snapshot to fixtures (persists after test cleanup) ── */
-        const fixturePath = path.join(FIXTURES_DIR, SELF_HOSTED_APP_FIXTURE_FILENAME)
+        const fixturePath = FIXTURE_OUTPUT_PATH
+        fs.mkdirSync(path.dirname(fixturePath), { recursive: true })
         fs.writeFileSync(fixturePath, `${JSON.stringify(envelope, null, 2)}\n`, 'utf8')
         expect(fs.existsSync(fixturePath)).toBe(true)
 

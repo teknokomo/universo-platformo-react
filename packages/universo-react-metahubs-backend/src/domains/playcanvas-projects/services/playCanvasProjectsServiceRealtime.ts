@@ -73,6 +73,7 @@ import {
     isEditorCompatibilitySettingsWriteResult,
     getPrimaryText
 } from './playCanvasProjectsServiceHelpers'
+import type { PlayCanvasEditorCompatibilityAssetEntry } from './playCanvasProjectsServiceHelpers'
 import type {
     CompatibilitySettingsKind,
     PlayCanvasEditorEntityMetadata,
@@ -268,7 +269,11 @@ export class PlayCanvasProjectsServiceRealtime extends PlayCanvasProjectsService
             numericSceneId: number
             numericUserId: number
         },
-        executor: DbExecutor = this.exec
+        executor: DbExecutor = this.exec,
+        assetContext?: {
+            entries?: readonly PlayCanvasEditorCompatibilityAssetEntry[]
+            pathContextByAssetId?: ReturnType<typeof buildEditorCompatibilityAssetPathContext>
+        }
     ): Promise<{
         collection: 'scenes' | 'assets' | 'settings' | 'user_data'
         id: string
@@ -347,17 +352,21 @@ export class PlayCanvasProjectsServiceRealtime extends PlayCanvasProjectsService
             }
         }
 
-        const entries = await this.loadEditorCompatibilityAssetEntries(
-            input.metahubId,
-            input.projectId,
-            input.userId,
-            {
-                sceneId: input.sceneId
-            },
-            executor
-        )
+        const entries =
+            assetContext?.entries ??
+            (await this.loadEditorCompatibilityAssetEntries(
+                input.metahubId,
+                input.projectId,
+                input.userId,
+                {
+                    sceneId: input.sceneId
+                },
+                executor
+            ))
         const matchedEntry = resolveEditorCompatibilityAssetEntry(entries, input.documentId, input.sceneId)
-        const pathContext = buildEditorCompatibilityAssetPathContext(entries).get(matchedEntry.asset.id)
+        const pathContext = assetContext?.pathContextByAssetId
+            ? assetContext.pathContextByAssetId.get(matchedEntry.asset.id)
+            : buildEditorCompatibilityAssetPathContext([...entries]).get(matchedEntry.asset.id)
         return {
             collection: 'assets',
             id: input.documentId,

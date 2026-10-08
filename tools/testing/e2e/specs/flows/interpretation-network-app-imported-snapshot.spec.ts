@@ -24,7 +24,8 @@ import {
     expectNoPageHorizontalOverflow,
     expectNoTechnicalLeakage,
     expectRuntimeUxViewportMatrix,
-    expectSemanticFieldControls
+    expectSemanticFieldControls,
+    expectRuntimeNavigationIconSemantics
 } from '../../support/browser/runtimeUx'
 import { recordCreatedMetahub } from '../../support/backend/run-manifest.mjs'
 import { setInterpretationNetworkWidgetConfig } from '../../support/interpretationNetworkFocused'
@@ -149,13 +150,63 @@ const setInterpretationNetworkStructureMode = async (
 
 const expectInterpretationNetworkStartPage = async (page: Page): Promise<void> => {
     const menu = getVisibleRuntimeNavigation(page)
+    const locale = (await page.locator('html').getAttribute('lang'))?.toLowerCase()
+    const labels = locale?.startsWith('ru')
+        ? {
+              welcome: 'Добро пожаловать',
+              start: 'Начало',
+              structures: 'Структуры',
+              workspaces: 'Рабочие пространства',
+              dashboard: 'Дашборд',
+              access: 'Доступ',
+              settings: 'Настройки',
+              defaultHub: 'Основной'
+          }
+        : {
+              welcome: 'Welcome',
+              start: 'Start',
+              structures: 'Structures',
+              workspaces: 'Workspaces',
+              dashboard: 'Dashboard',
+              access: 'Access',
+              settings: 'Settings',
+              defaultHub: 'Main'
+          }
+    const navigationLabels = [
+        labels.welcome,
+        labels.start,
+        labels.structures,
+        labels.workspaces,
+        labels.dashboard,
+        labels.access,
+        labels.settings
+    ]
     await expect(menu).toBeVisible()
-    await expect(menu.getByRole('link', { name: 'Start' })).toBeVisible()
-    await expect(menu.getByRole('link', { name: 'Structures' })).toBeVisible()
-    await expect(menu.getByRole('link', { name: 'Workspaces' })).toBeVisible()
+    const startPage = menu.getByRole('link', { name: labels.start, exact: true })
+    const structures = menu.getByRole('link', { name: labels.structures, exact: true })
+    await expect(startPage).toBeVisible()
+    await expect(startPage).not.toHaveAttribute('aria-current', 'page')
+    await expect(structures).toBeVisible()
+    await expect(menu.getByRole('heading', { name: labels.defaultHub, exact: true })).toHaveCount(0)
+    await expect(menu.getByRole('link')).toHaveText(navigationLabels)
+    await expect(menu.getByRole('link', { name: labels.workspaces, exact: true })).toBeVisible()
+    await expectRuntimeNavigationIconSemantics(menu, [
+        { label: labels.welcome, family: 'home' },
+        { label: labels.start, family: 'home' },
+        { label: labels.structures, family: 'structures' },
+        { label: labels.workspaces, family: 'workspaces' },
+        { label: labels.dashboard, family: 'dashboard' },
+        { label: labels.access, family: 'access' },
+        { label: labels.settings, family: 'settings' }
+    ])
     await expect(page.getByRole('main')).toContainText(/interpretation network/i)
-    await expect(page.getByRole('main')).toContainText(/structures/i)
-    await expect(page.getByTestId('interpretation-network-workspace')).toHaveCount(0)
+    await expect(page.getByTestId('interpretation-network-workspace')).toBeVisible()
+
+    await startPage.click()
+    await expect(page).toHaveURL(/targetKind=page/)
+    await expect(page).toHaveURL(/entityTypeCodename=InterpretationNetworkIntro/)
+    await expect(startPage).toHaveAttribute('aria-current', 'page')
+    await expect(page.getByTestId('interpretation-network-workspace')).toBeVisible()
 }
 
 const expectSingleSystemMatrixWorkspace = async (page: Page, locale: 'en' | 'ru' = 'en'): Promise<void> => {
@@ -188,8 +239,6 @@ const expectSingleSystemMatrixWorkspace = async (page: Page, locale: 'en' | 'ru'
     await expect(structurePane.getByRole('tab', { name: labels.matrix })).toBeVisible()
     await expect(structurePane.getByRole('tab', { name: labels.templates })).toBeVisible()
     await expect(page.getByTestId('interpretation-network-structure-header')).toHaveCount(0)
-    await expect(page.getByRole('button', { name: 'Structures' })).toHaveCount(0)
-    await expect(page.getByRole('button', { name: 'Структуры' })).toHaveCount(0)
     await expect(page.getByRole('button', { name: /Universe|Вселенная/ }).first()).toBeVisible({
         timeout: 30_000
     })
@@ -201,6 +250,21 @@ const expectSingleSystemMatrixWorkspace = async (page: Page, locale: 'en' | 'ru'
     await expect(main.getByText('Gravity material', { exact: false })).toHaveCount(0)
     await expect(main.getByText('Attraction between masses', { exact: false })).toHaveCount(0)
     await expect(main.getByText('Basic interpretation matrix', { exact: false })).toHaveCount(0)
+}
+
+const expectMultipleStructuresWorkspace = async (page: Page, locale: 'en' | 'ru' = 'en'): Promise<void> => {
+    const labels =
+        locale === 'ru'
+            ? { structures: 'Структуры', templates: 'Шаблоны', create: 'Создать', empty: 'Сначала создайте структуру.' }
+            : { structures: 'Structures', templates: 'Templates', create: 'Create', empty: 'Create a structure first.' }
+    const structurePane = page.getByTestId('interpretation-network-structure-pane')
+    await expect(page.getByTestId('interpretation-network-workspace')).toBeVisible({ timeout: 30_000 })
+    await expect(page.getByTestId('interpretation-network-matrix-workspace')).toHaveCount(0)
+    await expect(structurePane.getByRole('heading', { name: labels.structures })).toBeVisible()
+    await expect(structurePane.getByRole('tab', { name: labels.templates })).toBeVisible()
+    await expect(structurePane.getByRole('button', { name: labels.create, exact: true })).toBeVisible()
+    await expect(structurePane.getByText(labels.empty, { exact: true })).toBeVisible()
+    await expect(page.getByTestId('interpretation-network-structure-header')).toHaveCount(0)
 }
 
 const expectEqualDesktopPaneWidths = async (page: Page, label: string): Promise<void> => {
@@ -229,8 +293,7 @@ const getOverlayRuntimeNavigation = (page: Page): Locator => page.getByTestId('r
 
 const getVisibleRuntimeNavigation = (page: Page): Locator =>
     page
-        .getByRole('navigation')
-        .filter({ has: page.getByRole('link', { name: 'Structures' }).or(page.getByRole('button', { name: 'Structures' })) })
+        .getByRole('navigation', { name: /^(?:Application navigation|Навигация приложения)$/u })
         .filter({ visible: true })
         .first()
 
@@ -375,15 +438,14 @@ const expectRuntimeSideMenuModes = async (page: Page, testInfo: TestInfo): Promi
     const wideNavigation = getDockedRuntimeNavigation(page)
     await expect(getRuntimeNavigationItem(wideNavigation, 'Start')).toBeVisible()
     await expect(getRuntimeNavigationItem(wideNavigation, 'Structures')).toBeVisible()
-    await expect(wideNavigation).toContainText('Structures')
     expect(await readNavigationDrawerWidth(wideNavigation), 'wide side menu width').toBeGreaterThanOrEqual(220)
     await expectContentAlignedWithRail(page, 'Interpretation Network desktop content rail 1920')
 
     await page.getByRole('button', { name: 'Enable compact menu' }).click()
     const compactNavigation = getDockedRuntimeNavigation(page)
     await expect(page.getByRole('button', { name: 'Enable wide menu' })).toBeVisible()
+    await expect(getRuntimeNavigationItem(compactNavigation, 'Start')).toBeVisible()
     await expect(getRuntimeNavigationItem(compactNavigation, 'Structures')).toBeVisible()
-    await expect(compactNavigation).not.toContainText('Structures')
     expect(await readNavigationDrawerWidth(compactNavigation), 'compact side menu width').toBeLessThan(100)
     await expect(page.getByRole('button', { name: 'Use overlay menu' })).toBeVisible()
     await expectNoPageHorizontalOverflow(page, 'Interpretation Network compact side menu')
@@ -412,6 +474,7 @@ const expectRuntimeSideMenuModes = async (page: Page, testInfo: TestInfo): Promi
     const overlayNavigation = getOverlayRuntimeNavigation(page)
     await expect(dockedNavigation).toBeHidden()
     await expect(overlayNavigation).toBeVisible()
+    await expect(getRuntimeNavigationItem(overlayNavigation, 'Start')).toBeVisible()
     await expect(getRuntimeNavigationItem(overlayNavigation, 'Structures')).toBeVisible()
     await expect(page.getByRole('button', { name: 'Use docked menu' })).toBeVisible()
     expect(await readNavigationDrawerWidth(overlayNavigation), 'overlay side menu width').toBeGreaterThanOrEqual(220)
@@ -436,6 +499,7 @@ const expectRuntimeSideMenuModes = async (page: Page, testInfo: TestInfo): Promi
         await page.getByRole('button', { name: 'Use overlay menu' }).click()
         const viewportOverlayNavigation = getOverlayRuntimeNavigation(page)
         await expect(getDockedRuntimeNavigation(page)).toBeHidden()
+        await expect(getRuntimeNavigationItem(viewportOverlayNavigation, 'Start')).toBeVisible({ timeout: 30_000 })
         await expect(getRuntimeNavigationItem(viewportOverlayNavigation, 'Structures')).toBeVisible({ timeout: 30_000 })
         await expectNoPageHorizontalOverflow(page, `Interpretation Network overlay side menu ${viewport.name}`)
         await attachRuntimeScreenshot(page, testInfo, `side-menu-overlay-${viewport.name}`)
@@ -465,6 +529,7 @@ const expectStructuresOverlayUsesFullRail = async (page: Page, testInfo: TestInf
 
     const overlayNavigation = getOverlayRuntimeNavigation(page)
     await expect(getDockedRuntimeNavigation(page)).toBeHidden()
+    await expect(getRuntimeNavigationItem(overlayNavigation, 'Start')).toBeVisible({ timeout: 30_000 })
     await expect(getRuntimeNavigationItem(overlayNavigation, 'Structures')).toBeVisible({ timeout: 30_000 })
     await expectOverlayContentUsesFullRail(page, 'Interpretation Network Structures overlay 1920')
     await expectStructuresVisualRails(page, 'Interpretation Network Structures overlay 1920', { left: 24, rightInset: 24 })
@@ -965,7 +1030,7 @@ const expectInterpretationNetworkMatrixSettings = async (page: Page, application
 
     const structureMode = page.getByRole('combobox', { name: 'Structure mode' })
     const showNextToMatrix = page.getByRole('checkbox', { name: 'Show next to Matrix' })
-    await expect(structureMode).toContainText('One system structure')
+    await expect(structureMode).toContainText('Multiple structures')
     await expect(showNextToMatrix).toBeChecked()
     await structureMode.click()
     await page.getByRole('option', { name: 'Multiple structures' }).click()
@@ -1000,8 +1065,6 @@ const expectInterpretationNetworkMatrixSettings = async (page: Page, application
 
     await page.goto(`/a/${applicationId}`)
     await expectInterpretationNetworkStartPage(page)
-    const overriddenNavigation = getVisibleRuntimeNavigation(page)
-    await getRuntimeNavigationItem(overriddenNavigation, 'Structures').click()
     const overriddenStructurePane = page.getByTestId('interpretation-network-structure-pane')
     await expect(overriddenStructurePane.getByRole('heading', { name: 'Structures' })).toBeVisible({ timeout: 30_000 })
     await expect(overriddenStructurePane.getByRole('button', { name: 'Create', exact: true })).toBeVisible()
@@ -1038,7 +1101,7 @@ const expectInterpretationNetworkMatrixSettings = async (page: Page, application
     expect(resetBody.items?.length, 'Reset response must return restored widgets').toBe(resetPayload.updates?.length)
     for (const item of resetBody.items ?? []) {
         expect(item.isCustomized).toBe(false)
-        expect(item.config).toEqual(expect.objectContaining({ structureMode: 'singleSystem' }))
+        expect(item.config).toEqual(expect.objectContaining({ structureMode: 'multiple' }))
         expect(item.config?.templatePanel).toEqual(expect.objectContaining({ showInStructureList: true, showInMatrix: true }))
         expect(item.config).toEqual(item.sourceConfig)
     }
@@ -1047,14 +1110,12 @@ const expectInterpretationNetworkMatrixSettings = async (page: Page, application
 
     await page.reload()
     await page.getByRole('tab', { name: 'Matrix' }).click()
-    await expect(page.getByRole('combobox', { name: 'Structure mode' })).toContainText('One system structure')
+    await expect(page.getByRole('combobox', { name: 'Structure mode' })).toContainText('Multiple structures')
     await expect(page.getByRole('checkbox', { name: 'Show next to Matrix' })).toBeChecked()
 
     await page.goto(`/a/${applicationId}`)
     await expectInterpretationNetworkStartPage(page)
-    const restoredNavigation = getVisibleRuntimeNavigation(page)
-    await getRuntimeNavigationItem(restoredNavigation, 'Structures').click()
-    await expectSingleSystemMatrixWorkspace(page)
+    await expectMultipleStructuresWorkspace(page)
     await expectNoPageHorizontalOverflow(page, 'Restored Interpretation Network metahub settings runtime')
     await attachRuntimeScreenshot(page, testInfo, 'application-settings-matrix-reset-runtime-desktop-1280')
 }
@@ -1092,7 +1153,7 @@ const expectMetahubAggregateWidgetSettings = async (page: Page, metahubId: strin
 const expectApplicationLayoutWidgetSettings = async (page: Page, applicationId: string, testInfo: TestInfo): Promise<void> => {
     await page.goto(`/a/${applicationId}/admin/layouts`)
     await expect(page.getByRole('heading', { name: 'Layouts' })).toBeVisible({ timeout: 30_000 })
-    await page.getByTestId('application-layouts-list-content').getByText('Main').first().click()
+    await page.getByTestId('application-layouts-list-content').getByRole('button', { name: 'Main', exact: true }).click()
     await expect(page.getByRole('heading', { name: 'Main' })).toBeVisible({ timeout: 30_000 })
 
     const main = page.getByRole('main')
@@ -1104,7 +1165,7 @@ const expectApplicationLayoutWidgetSettings = async (page: Page, applicationId: 
     await expect(widgetCard.getByText('Inherited from metahub')).toBeVisible()
     await expect(widgetCard.getByText('Raw JSON')).toHaveCount(0)
 
-    await widgetCard.getByLabel('Edit widget: Interpretation Network workspace').click()
+    await widgetCard.getByRole('button', { name: 'Edit widget: Interpretation network workspace', exact: true }).click()
     const dialog = page.getByRole('dialog', { name: 'Interpretation network workspace' })
     await expect(dialog).toBeVisible({ timeout: 30_000 })
     await expect(dialog.getByRole('combobox', { name: 'Matrix mode' })).toBeVisible()
@@ -1516,6 +1577,85 @@ async function fillMaterialBlockEditor(page: Page, surface: Locator, value: stri
         .not.toBe(previousCommittedSequence)
 }
 
+const expectRuntimeHeaderPreferences = async (page: Page, testInfo: TestInfo): Promise<void> => {
+    const languageButton = page.getByTestId('runtime-language-switcher')
+    const themeButton = page.locator('button[data-screenshot="toggle-mode"]')
+    const headerActions = page.getByTestId('runtime-header-actions')
+
+    const expectControlsInsideViewport = async (label: string): Promise<void> => {
+        const viewport = page.viewportSize()
+        const controls = [headerActions, languageButton, themeButton]
+        if (!viewport) throw new Error(`${label} requires a fixed browser viewport`)
+        for (const control of controls) {
+            const bounds = await control.boundingBox()
+            expect(bounds, `${label}: ${await control.getAttribute('data-testid')}`).not.toBeNull()
+            expect(bounds?.x).toBeGreaterThanOrEqual(0)
+            expect((bounds?.x ?? 0) + (bounds?.width ?? 0)).toBeLessThanOrEqual(viewport.width + 1)
+        }
+    }
+
+    await page.setViewportSize({ width: 1280, height: 900 })
+    await expect(languageButton).toBeVisible()
+    await expect(languageButton).toHaveCount(1)
+    await expect(themeButton).toBeVisible()
+    await expect(themeButton).toHaveCount(1)
+    await expect(headerActions).toBeVisible()
+    await expectControlsInsideViewport('English Dashboard header at 1280px')
+    await expectNoPageHorizontalOverflow(page, 'English Dashboard header controls at 1280px')
+    await testInfo.attach('interpretation-network-header-controls-en-desktop-1280', {
+        body: await page.screenshot({ fullPage: true, animations: 'disabled' }),
+        contentType: 'image/png'
+    })
+
+    await languageButton.focus()
+    await page.keyboard.press('Enter')
+    await page.getByRole('menu').getByRole('menuitem', { name: 'Russian', exact: true }).click()
+    await expect(page.locator('html')).toHaveAttribute('lang', 'ru')
+    await expect(languageButton).toHaveAttribute('aria-label', 'Язык')
+    const russianNavigation = getVisibleRuntimeNavigation(page)
+    const startPage = russianNavigation.getByRole('link', { name: 'Начало', exact: true })
+    const structures = russianNavigation.getByRole('link', { name: 'Структуры', exact: true })
+    await expect(startPage).toBeVisible()
+    await expect(structures).toBeVisible()
+    await expect(russianNavigation.getByRole('heading', { name: 'Основной', exact: true })).toHaveCount(0)
+    await expectRuntimeNavigationIconSemantics(russianNavigation, [
+        { label: 'Начало', family: 'home' },
+        { label: 'Структуры', family: 'structures' }
+    ])
+
+    await themeButton.focus()
+    await page.keyboard.press('Enter')
+    await page.getByRole('menuitem', { name: 'Тёмная', exact: true }).click()
+    await expect(page.locator('html')).toHaveAttribute('data-mui-color-scheme', 'dark')
+    await expect.poll(() => page.evaluate(() => window.localStorage.getItem('mui-mode'))).toBe('dark')
+
+    await page.setViewportSize({ width: 390, height: 844 })
+    await expectControlsInsideViewport('Russian Dashboard header at 390px')
+    await expectNoPageHorizontalOverflow(page, 'Russian Dashboard header controls at 390px')
+    await testInfo.attach('interpretation-network-header-controls-ru-dark-mobile-390', {
+        body: await page.screenshot({ fullPage: true, animations: 'disabled' }),
+        contentType: 'image/png'
+    })
+
+    await page.reload()
+    await expect(page.locator('html')).toHaveAttribute('lang', 'ru')
+    await expect(page.locator('html')).toHaveAttribute('data-mui-color-scheme', 'dark')
+    await expect(languageButton).toHaveCount(1)
+    await expect(themeButton).toHaveCount(1)
+
+    await themeButton.focus()
+    await page.keyboard.press('Enter')
+    await page.getByRole('menuitem', { name: 'Системная', exact: true }).click()
+    await expect.poll(() => page.evaluate(() => window.localStorage.getItem('mui-mode'))).toBe('system')
+
+    await languageButton.focus()
+    await page.keyboard.press('Enter')
+    await page.getByRole('menu').getByRole('menuitem', { name: 'Английский', exact: true }).click()
+    await expect(page.locator('html')).toHaveAttribute('lang', 'en')
+    await expect(languageButton).toHaveAttribute('aria-label', 'Language')
+    await expectNoPageHorizontalOverflow(page, 'Restored English Dashboard header')
+}
+
 test.describe('Interpretation Network imported snapshot @flow', () => {
     let api: ApiContext
 
@@ -1559,9 +1699,20 @@ test.describe('Interpretation Network imported snapshot @flow', () => {
         await page.goto(`/a/${applicationId}`)
         await expect(getVisibleWorkspaceSwitcher(page)).toBeVisible({ timeout: 30_000 })
         await expectInterpretationNetworkStartPage(page)
+        const initialStructuresLink = getVisibleRuntimeNavigation(page).getByRole('link', { name: 'Structures', exact: true })
+        await initialStructuresLink.click()
+        await expect(page).toHaveURL(/targetKind=object/)
+        await expect(page).toHaveURL(/entityTypeCodename=Structure/)
+        await expectMultipleStructuresWorkspace(page)
+        await expectNoPageHorizontalOverflow(page, 'Default multiple-Structures workspace')
+        await attachRuntimeScreenshot(page, testInfo, 'default-multiple-structures-workspace-desktop-1280')
+        await page.goto(`/a/${applicationId}`)
+        await expect(getVisibleWorkspaceSwitcher(page)).toBeVisible({ timeout: 30_000 })
+        await expectInterpretationNetworkStartPage(page)
         await expect(page.getByRole('main')).not.toContainText('Users')
         await expect(page.getByRole('main')).not.toContainText('Conversions')
         await expect(page.getByRole('main')).not.toContainText('Event count')
+        await expectRuntimeHeaderPreferences(page, testInfo)
         await expectRuntimeSideMenuModes(page, testInfo)
         await expectMetahubAggregateWidgetSettings(page, metahub.id, testInfo)
         await expectApplicationLayoutWidgetSettings(page, applicationId, testInfo)
@@ -1570,15 +1721,89 @@ test.describe('Interpretation Network imported snapshot @flow', () => {
         await page.goto(`/a/${applicationId}`)
         await expect(getVisibleWorkspaceSwitcher(page)).toBeVisible({ timeout: 30_000 })
         await expectInterpretationNetworkStartPage(page)
+        await setInterpretationNetworkStructureMode(api, applicationId, 'singleSystem')
+        await page.reload()
+        await expectSingleSystemMatrixWorkspace(page)
 
         const menu = getDockedRuntimeNavigation(page)
-        await menu.getByRole('link', { name: 'Workspaces' }).click()
+        const workspacesLink = menu.getByRole('link', { name: 'Workspaces', exact: true })
+        await workspacesLink.focus()
+        await expect(workspacesLink).toBeFocused()
+        await page.keyboard.press('Enter')
         await expect(page.getByRole('heading', { name: 'Workspaces' })).toBeVisible({ timeout: 30_000 })
+        await expect(page).toHaveURL(new RegExp(`/a/${applicationId}/workspaces(?:[/?#]|$)`))
+        await expect(workspacesLink).toHaveAttribute('aria-current', 'page')
         await expect(page.getByTestId('interpretation-network-workspace')).toHaveCount(0)
+        await expectRuntimeUxViewportMatrix(page, 'Dashboard Workspaces route', {
+            beforeEachViewport: async (viewport) => {
+                await expect(page.getByRole('heading', { name: 'Workspaces' })).toBeVisible()
+                await expect(page.getByTestId('interpretation-network-workspace')).toHaveCount(0)
+                const headerActions = page.getByTestId('runtime-header-actions')
+                const languageButton = page.getByTestId('runtime-language-switcher')
+                const themeButton = page.locator('button[data-screenshot="toggle-mode"]')
+                await expect(headerActions).toHaveCount(1)
+                await expect(languageButton).toHaveCount(1)
+                await expect(themeButton).toHaveCount(1)
+                await expect(headerActions).toBeVisible()
+                await expect(languageButton).toBeVisible()
+                await expect(themeButton).toBeVisible()
+
+                const narrowViewport = viewport.width < 900
+                const openMenuButton = narrowViewport ? page.getByRole('button', { name: 'Open menu', exact: true }) : null
+                if (openMenuButton) {
+                    await expect(openMenuButton).toBeVisible()
+                    await openMenuButton.focus()
+                    await page.keyboard.press('Enter')
+                }
+                const workspaceNavigation = narrowViewport ? getVisibleRuntimeNavigation(page) : getDockedRuntimeNavigation(page)
+                const workspaceLinks = [
+                    { label: 'Workspaces', icon: 'AppsRoundedIcon' },
+                    { label: 'Dashboard', icon: 'DashboardRoundedIcon' },
+                    { label: 'Access', icon: 'PeopleRoundedIcon' },
+                    { label: 'Settings', icon: 'SettingsRoundedIcon' }
+                ]
+                for (const { label } of workspaceLinks) {
+                    const link = workspaceNavigation.getByRole('link', { name: label, exact: true })
+                    await expect(link, `Workspaces route must keep the ${label} link`).toBeVisible()
+                }
+                await expectRuntimeNavigationIconSemantics(
+                    workspaceNavigation,
+                    workspaceLinks.map(({ label, icon }) => ({ label, family: icon }))
+                )
+                if (openMenuButton) {
+                    if (viewport.name === 'mobile') {
+                        await testInfo.attach('dashboard-workspaces-route-mobile-390.png', {
+                            body: await page.screenshot({ fullPage: true, animations: 'disabled' }),
+                            contentType: 'image/png'
+                        })
+                    }
+                    await page.keyboard.press('Escape')
+                    await expect(workspaceNavigation).toBeHidden()
+                    await expect(openMenuButton).toBeFocused()
+                }
+            }
+        })
+        await page.screenshot({
+            path: testInfo.outputPath('dashboard-workspaces-route-desktop-1280.png'),
+            fullPage: true,
+            animations: 'disabled'
+        })
         const workspaceMenu = getVisibleRuntimeNavigation(page)
-        await expect(workspaceMenu.getByRole('link', { name: 'Structures' })).toBeVisible()
-        await workspaceMenu.getByRole('link', { name: 'Structures' }).click()
+        const interpretationPage = workspaceMenu.getByRole('link', { name: 'Start', exact: true })
+        await expect(interpretationPage).toBeVisible()
+        await expect(interpretationPage).not.toHaveAttribute('aria-current', 'page')
+        await interpretationPage.click()
+        await expect(page).toHaveURL(/targetKind=page/)
+        await expect(page).toHaveURL(/entityTypeCodename=InterpretationNetworkIntro/)
         await expectSingleSystemMatrixWorkspace(page)
+        const structuresPage = workspaceMenu.getByRole('link', { name: 'Structures', exact: true })
+        await structuresPage.click()
+        await expect(page).toHaveURL(/targetKind=object/)
+        await expect(page).toHaveURL(/entityTypeCodename=Structure/)
+        await expect(structuresPage).toHaveAttribute('aria-current', 'page')
+        await expectSingleSystemMatrixWorkspace(page)
+        await interpretationPage.click()
+        await expect(interpretationPage).toHaveAttribute('aria-current', 'page')
         await expectStructuresOverlayUsesFullRail(page, testInfo)
         await expectNoPageHorizontalOverflow(page, 'Interpretation Network workspace shell')
         await expectRuntimeUxViewportMatrix(page, 'Interpretation Network workspace shell', {

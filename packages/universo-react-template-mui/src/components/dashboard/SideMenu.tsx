@@ -70,7 +70,6 @@ export default function SideMenu() {
                 }}
             >
                 <MenuContent />
-                {/* <CardAlert /> */}
             </Box>
             {/* Logout button at the bottom of the drawer */}
             <Stack sx={{ p: 2 }}>

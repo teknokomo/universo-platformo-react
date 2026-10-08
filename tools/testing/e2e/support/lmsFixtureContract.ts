@@ -1,5 +1,6 @@
-import { buildVLC, computeSnapshotHash } from '@universo-react/utils'
+import { buildVLC, computeSnapshotHash, isUuidV7 } from '@universo-react/utils'
 import {
+    CURRENT_METAHUB_SNAPSHOT_FORMAT_VERSION,
     catalogPublicationPolicySchema,
     isDeferredResourceSource,
     LMS_ACCEPTANCE_AREAS,
@@ -8,12 +9,13 @@ import {
     resourceDefinitionSchema,
     workflowActionSchema
 } from '@universo-react/types'
+import { assertLmsDashboardFixtureContract } from './lmsDashboardFixtureContract.ts'
 
 export const LMS_FIXTURE_FILENAME = 'metahubs-lms-app-snapshot.json'
 const LMS_EXPECTED_BUNDLE_VERSION = 1
 const LMS_EXPECTED_SNAPSHOT_VERSION = 1
 const LMS_EXPECTED_STRUCTURE_VERSION = '0.1.0'
-const LMS_EXPECTED_SNAPSHOT_FORMAT_VERSION = 3
+const LMS_EXPECTED_SNAPSHOT_FORMAT_VERSION = CURRENT_METAHUB_SNAPSHOT_FORMAT_VERSION
 
 export const LMS_CANONICAL_METAHUB = {
     name: {
@@ -531,11 +533,13 @@ export const LMS_PRODUCT_ACCEPTANCE_MATRIX = lmsAcceptanceMatrixSchema.parse([
             'workspace-isolated': true,
             'covered-by-e2e': true
         }),
-        requiredEntities: ['ContentProjects', 'LearningResources', 'Courses', 'LearningTracks', 'TrashEntries'],
-        browserEvidence: ['snapshot-import-lms-runtime captures Library, Recent, Starred, Shared with me, and Trash runtime views'],
+        requiredEntities: ['ContentProjects', 'KnowledgeArticles', 'LearningResources', 'Courses', 'LearningTracks', 'TrashEntries'],
+        browserEvidence: [
+            'snapshot-import-lms-runtime captures the entity-backed Knowledge Articles table and Library, Recent, Starred, Shared with me, and Trash runtime views'
+        ],
         evidence: [
-            'Primary LMS navigation targets ContentProjects and LearningResources',
-            'snapshot-import-lms-runtime captures Learning Content, Recent, Starred, Shared with me, and Trash screenshots'
+            'Primary LMS navigation targets ContentProjects, KnowledgeArticles, and LearningResources',
+            'snapshot-import-lms-runtime captures Knowledge Articles, Learning Content, Recent, Starred, Shared with me, and Trash screenshots'
         ]
     },
     {
@@ -587,12 +591,12 @@ export const LMS_PRODUCT_ACCEPTANCE_MATRIX = lmsAcceptanceMatrixSchema.parse([
         requiredEntities: ['CourseOverview', 'Courses', 'CourseSections', 'CourseItems', 'LearningResources'],
         requiredStatuses: ['Published'],
         browserEvidence: [
-            'snapshot-import-lms-runtime captures Course Builder tabs, player, outline scope, enrollment warning, and ordering proof'
+            'snapshot-import-lms-runtime captures first-class Course Builder tabs, bound child tables, reports, and ordering proof'
         ],
         evidence: [
             'course overview page and published-app authoring flows create content resources through the LMS fixture',
             'CourseSections and CourseItems have scoped generic ordering layouts backed by SortOrder',
-            'snapshot-import-lms-runtime captures Course Builder tabs, player, outline scope, enrollment warning, and ordering proof'
+            'snapshot-import-lms-runtime captures first-class Course Builder tabs, bound child tables, reports, and ordering proof'
         ]
     },
     {
@@ -606,17 +610,17 @@ export const LMS_PRODUCT_ACCEPTANCE_MATRIX = lmsAcceptanceMatrixSchema.parse([
             'covered-by-e2e': true
         }),
         requiredEntities: ['Courses', 'CourseSections', 'CourseItems', 'LearningResources'],
-        requiredReports: ['CourseBuilderOutline'],
+        requiredReports: ['LearningContentSummary', 'LearnerProgress'],
         requiredStatuses: ['Draft', 'Published'],
         browserEvidence: [
-            'snapshot-import-lms-runtime verifies Course Builder tabs, scoped child rows, enrollment wizard, player, and outline reordering'
+            'snapshot-import-lms-runtime verifies Course Builder first-class tabs, bound child tables, reports, and outline reordering'
         ],
         evidence: [
             'CourseItems is the canonical Course -> Section -> Content item model',
-            'Generic relationBuilder panels scope CourseSections and CourseItems to the selected Course parent',
-            'Generic records.list details tables can persist CourseSections and CourseItems order through the runtime reorder endpoint',
-            'Course Builder is organized through metadata-defined detailsTabs for Outline, General, Completion, Player, Enrollments, and Reports',
-            'snapshot-import-lms-runtime verifies builder tabs, scoped child rows, enrollment warnings, enrollment wizard, learner player, and outline reordering'
+            'CourseSections and CourseItems are source-managed through neutral record-set bindings on first-class detailsTable placements',
+            'Generic details tables can persist CourseSections and CourseItems order through the runtime reorder endpoint',
+            'Course Builder is organized through detailsTabs whose child widgets are separate parent_widget_id/slot_key placements',
+            'snapshot-import-lms-runtime verifies builder tabs, bound child tables, saved reports, and outline reordering'
         ]
     },
     {
@@ -631,7 +635,7 @@ export const LMS_PRODUCT_ACCEPTANCE_MATRIX = lmsAcceptanceMatrixSchema.parse([
         }),
         requiredEntities: ['LearningTracks', 'TrackStages', 'TrackSteps', 'Courses', 'Enrollments', 'ProgressLedger'],
         requiredStatuses: ['NotStarted', 'InProgress', 'Completed', 'Overdue', 'Expired'],
-        browserEvidence: ['snapshot-import-lms-runtime verifies track learner-player completion and guest progress flows'],
+        browserEvidence: ['snapshot-import-lms-runtime verifies track runtime progression and guest progress flows'],
         evidence: ['guest content flow writes progress and direct ledger facts are verified in LMS runtime E2E']
     },
     {
@@ -645,16 +649,16 @@ export const LMS_PRODUCT_ACCEPTANCE_MATRIX = lmsAcceptanceMatrixSchema.parse([
             'covered-by-e2e': true
         }),
         requiredEntities: ['LearningTracks', 'TrackStages', 'TrackSteps', 'Courses'],
-        requiredReports: ['TrackBuilderOutline'],
+        requiredReports: ['LearningContentSummary', 'LearnerProgress'],
         browserEvidence: [
-            'snapshot-import-lms-runtime verifies Track Builder tabs, learner player, scoped child rows, warnings, and outline reordering'
+            'snapshot-import-lms-runtime verifies Track Builder first-class tabs, bound child tables, reports, and outline reordering'
         ],
         evidence: [
             'TrackStages and course-centered TrackSteps are present in the canonical metadata model',
-            'Generic relationBuilder panels scope TrackStages and TrackSteps to the selected LearningTrack parent',
-            'Generic records.list details tables can persist TrackStages and TrackSteps order through the runtime reorder endpoint',
-            'Track Builder is organized through metadata-defined detailsTabs for Outline, General, Completion, Player, Enrollments, and Reports',
-            'snapshot-import-lms-runtime verifies track builder tabs, learner player, scoped child rows, enrollment warnings, and outline reordering'
+            'TrackStages and TrackSteps are source-managed through neutral record-set bindings on first-class detailsTable placements',
+            'Generic details tables can persist TrackStages and TrackSteps order through the runtime reorder endpoint',
+            'Track Builder is organized through detailsTabs whose child widgets are separate parent_widget_id/slot_key placements',
+            'snapshot-import-lms-runtime verifies builder tabs, bound child tables, saved reports, and outline reordering'
         ]
     },
     {
@@ -669,11 +673,13 @@ export const LMS_PRODUCT_ACCEPTANCE_MATRIX = lmsAcceptanceMatrixSchema.parse([
         }),
         requiredEntities: ['Enrollments', 'Students', 'Courses', 'LearningTracks'],
         requiredStatuses: ['NotStarted', 'InProgress', 'Completed', 'Overdue'],
-        browserEvidence: ['snapshot-import-lms-runtime verifies the metadata-driven Enrollment Wizard in the Course Builder'],
+        browserEvidence: [
+            'snapshot-import-lms-runtime verifies My Courses and My Tracks against the actor-scoped shared Enrollments Object'
+        ],
         evidence: [
-            'Course and Track enrollment tabs use the generic relationBuilder surface over the shared Enrollments Object',
-            'Seeded enrollments use runtime current-user token assignment for learner-facing My Courses/My Tracks visibility',
-            'snapshot-import-lms-runtime verifies the metadata-driven Enrollment Wizard in the Course Builder'
+            'Course and Track enrollments remain ordinary runtime records in the shared Enrollments Object',
+            'Seeded enrollment rows use the runtime current-user token for learner-scoped assignment ownership',
+            'snapshot-import-lms-runtime verifies enrollment runtime records and posting/unposting ledger behavior independently of builder composition'
         ]
     },
     {
@@ -689,13 +695,12 @@ export const LMS_PRODUCT_ACCEPTANCE_MATRIX = lmsAcceptanceMatrixSchema.parse([
         requiredEntities: ['Courses', 'CourseItems', 'LearningTracks', 'TrackSteps', 'LearnerHome', 'ContentProgress'],
         requiredStatuses: ['NotStarted', 'InProgress', 'Completed'],
         browserEvidence: [
-            'snapshot-import-lms-runtime verifies Course persisted progress after reload and the Track learner-player completion path'
+            'snapshot-import-lms-runtime verifies registry-bound course and track learnerPlayer sequencing and persisted progress, plus guest completion flows'
         ],
         evidence: [
-            'Course Builder exposes a metadata-defined generic learnerPlayer tab over Courses and CourseItems',
-            'Track Builder exposes the same generic learnerPlayer surface over LearningTracks and TrackSteps with a static Courses target object',
-            'The player uses CourseItems and TrackSteps sequence policies, target content references, and the runtime progress endpoint',
-            'snapshot-import-lms-runtime verifies Course and Track learner-player completion paths'
+            'CourseItems and TrackSteps keep generic runtime progress sequence policies in Entity metadata',
+            'Course and Track learnerPlayer placements bind parent record sets and parent-scoped item relation sets through the registry',
+            'Published learning pages, learnerPlayer flows, and guest flows persist progress through the shared runtime progress endpoint'
         ]
     },
     {
@@ -1169,152 +1174,15 @@ export const LMS_DEMO_LEADERBOARD = [
     }
 ] as const
 
+/** Report identities covered by the fixture contract; definitions live in the LMS template seed. */
 export const LMS_DEMO_REPORTS = [
-    reportDefinitionSchema.parse({
-        codename: 'LearningContentSummary',
-        title: buildVLC('Learning Content summary', 'Сводка учебного контента'),
-        datasource: {
-            kind: 'records.union',
-            projectedFields: ['Instructor'],
-            targets: [
-                {
-                    sectionCodename: 'LearningResources',
-                    displayType: 'resource',
-                    titleField: 'Title',
-                    statusField: 'PublicationStatus',
-                    projectField: 'ProjectId'
-                },
-                {
-                    sectionCodename: 'Courses',
-                    displayType: 'course',
-                    titleField: 'Title',
-                    statusField: 'Status',
-                    projectField: 'ProjectId'
-                },
-                {
-                    sectionCodename: 'LearningTracks',
-                    displayType: 'track',
-                    titleField: 'Title',
-                    statusField: 'Status',
-                    projectField: 'ProjectId'
-                }
-            ],
-            query: {
-                lifecycleState: 'active',
-                libraryView: 'all',
-                sort: [{ field: 'title', direction: 'asc' }]
-            }
-        },
-        columns: [
-            { field: 'type', label: buildVLC('Type', 'Тип'), type: 'text' },
-            { field: 'title', label: buildVLC('Title', 'Заголовок'), type: 'text' },
-            { field: 'status', label: buildVLC('Status', 'Статус'), type: 'status' },
-            { field: 'Instructor', label: buildVLC('Instructor', 'Преподаватель'), type: 'text' },
-            { field: 'project', label: buildVLC('Project', 'Проект'), type: 'text' }
-        ],
-        filters: [],
-        aggregations: []
-    }),
-    reportDefinitionSchema.parse({
-        codename: 'LearnerProgress',
-        title: buildVLC('Learner progress', 'Прогресс учащихся'),
-        datasource: {
-            kind: 'records.list',
-            sectionCodename: 'ContentProgress',
-            query: { sort: [{ field: 'CompletedAt', direction: 'desc' }] }
-        },
-        columns: [
-            { field: 'ProgressStudentId', label: buildVLC('Learner', 'Учащийся'), type: 'text' },
-            { field: 'ProgressPercent', label: buildVLC('Progress', 'Прогресс'), type: 'number' },
-            { field: 'ProgressStatus', label: buildVLC('Status', 'Статус'), type: 'status' }
-        ],
-        filters: [],
-        aggregations: [{ field: 'ProgressPercent', function: 'avg', alias: 'AverageProgress' }]
-    }),
-    reportDefinitionSchema.parse({
-        codename: 'CourseProgress',
-        title: buildVLC('Course progress', 'Прогресс курсов'),
-        datasource: {
-            kind: 'records.list',
-            sectionCodename: 'Enrollments',
-            query: { sort: [{ field: 'EnrolledAt', direction: 'desc' }] }
-        },
-        columns: [
-            { field: 'EnrollmentStudentId', label: buildVLC('Learner', 'Учащийся'), type: 'text' },
-            { field: 'TargetId', label: buildVLC('Learning Item', 'Учебный объект'), type: 'text' },
-            { field: 'Score', label: buildVLC('Score', 'Балл'), type: 'number' }
-        ],
-        filters: [],
-        aggregations: [{ field: 'Score', function: 'avg', alias: 'AverageScore' }]
-    }),
-    reportDefinitionSchema.parse({
-        codename: 'CourseBuilderOutline',
-        title: buildVLC('Course outline report', 'Отчет по структуре курса'),
-        datasource: {
-            kind: 'records.list',
-            sectionCodename: 'CourseItems',
-            query: { sort: [{ field: 'SortOrder', direction: 'asc' }] }
-        },
-        columns: [
-            { field: 'Title', label: buildVLC('Title', 'Название'), type: 'text' },
-            { field: 'ItemType', label: buildVLC('Type', 'Тип'), type: 'text' },
-            { field: 'IsRequired', label: buildVLC('Required', 'Обязательный'), type: 'boolean' },
-            { field: 'CompletionWeight', label: buildVLC('Weight', 'Вес'), type: 'number' }
-        ],
-        filters: [],
-        aggregations: []
-    }),
-    reportDefinitionSchema.parse({
-        codename: 'TrackBuilderOutline',
-        title: buildVLC('Track outline report', 'Отчет по структуре трека'),
-        datasource: {
-            kind: 'records.list',
-            sectionCodename: 'TrackSteps',
-            query: { sort: [{ field: 'SortOrder', direction: 'asc' }] }
-        },
-        columns: [
-            { field: 'Title', label: buildVLC('Title', 'Название'), type: 'text' },
-            { field: 'CourseId', label: buildVLC('Course', 'Курс'), type: 'text' },
-            { field: 'EnrollmentOffsetDays', label: buildVLC('Start offset', 'Смещение старта'), type: 'number' },
-            { field: 'DueOffsetDays', label: buildVLC('Due offset', 'Смещение срока'), type: 'number' }
-        ],
-        filters: [],
-        aggregations: []
-    }),
-    reportDefinitionSchema.parse({
-        codename: 'Leaderboard',
-        title: buildVLC('Leaderboard', 'Рейтинг'),
-        datasource: {
-            kind: 'records.list',
-            sectionCodename: 'LeaderboardSnapshots',
-            query: { sort: [{ field: 'Rank', direction: 'asc' }] }
-        },
-        columns: [
-            { field: 'StudentId', label: buildVLC('Learner', 'Учащийся'), type: 'text' },
-            { field: 'Period', label: buildVLC('Period', 'Период'), type: 'text' },
-            { field: 'TotalPoints', label: buildVLC('Points', 'Баллы'), type: 'number' },
-            { field: 'Rank', label: buildVLC('Rank', 'Место'), type: 'number' },
-            { field: 'BadgeCount', label: buildVLC('Badges', 'Бейджи'), type: 'number' }
-        ],
-        filters: [],
-        aggregations: [{ field: 'TotalPoints', function: 'sum', alias: 'TotalAwardedPoints' }]
-    }),
-    reportDefinitionSchema.parse({
-        codename: 'Achievements',
-        title: buildVLC('Achievements', 'Достижения'),
-        datasource: {
-            kind: 'records.list',
-            sectionCodename: 'BadgeIssues',
-            query: { sort: [{ field: 'IssuedAt', direction: 'desc' }] }
-        },
-        columns: [
-            { field: 'StudentId', label: buildVLC('Learner', 'Учащийся'), type: 'text' },
-            { field: 'BadgeId', label: buildVLC('Badge', 'Бейдж'), type: 'text' },
-            { field: 'Status', label: buildVLC('Status', 'Статус'), type: 'status' }
-        ],
-        filters: [],
-        aggregations: []
-    })
+    { codename: 'LearningContentSummary' },
+    { codename: 'LearnerProgress' },
+    { codename: 'CourseProgress' },
+    { codename: 'CourseBuilderOutline' },
+    { codename: 'TrackBuilderOutline' },
+    { codename: 'Leaderboard' },
+    { codename: 'Achievements' }
 ] as const
 
 export const LMS_DEMO_ACCESS_LINKS = [
@@ -1761,20 +1629,35 @@ const readLocalizedText = (value: unknown, locale = 'en'): string | undefined =>
         return undefined
     }
 
-    const localized = value as { _primary?: string; locales?: Record<string, { content?: string }> }
+    const localized = value as {
+        _primary?: string
+        locales?: Record<string, { content?: string }>
+        [key: string]: unknown
+    }
     const normalizedLocale = locale.split(/[-_]/)[0]?.toLowerCase() || 'en'
     const locales = localized.locales ?? {}
-    const directValue = locales[normalizedLocale]?.content
+    const readLocaleValue = (entry: unknown): string | undefined => {
+        if (typeof entry === 'string' && entry.length > 0) return entry
+        if (!entry || typeof entry !== 'object') return undefined
+        const content = (entry as { content?: unknown }).content
+        return typeof content === 'string' && content.length > 0 ? content : undefined
+    }
+    const directValue = readLocaleValue(locales[normalizedLocale]) ?? readLocaleValue(localized[normalizedLocale])
     if (typeof directValue === 'string' && directValue.length > 0) {
         return directValue
     }
 
-    const primaryValue = localized._primary ? locales[localized._primary]?.content : undefined
+    const primaryValue = localized._primary
+        ? readLocaleValue(locales[localized._primary]) ?? readLocaleValue(localized[localized._primary])
+        : undefined
     if (typeof primaryValue === 'string' && primaryValue.length > 0) {
         return primaryValue
     }
 
-    const fallbackValue = Object.values(locales).find((entry) => typeof entry?.content === 'string' && entry.content.length > 0)?.content
+    const fallbackValue = Object.entries(Object.keys(locales).length > 0 ? locales : localized)
+        .filter(([key]) => !key.startsWith('_') && key !== 'locales')
+        .map(([, entry]) => readLocaleValue(entry))
+        .find((entry): entry is string => typeof entry === 'string')
     return typeof fallbackValue === 'string' ? fallbackValue : undefined
 }
 
@@ -1793,6 +1676,105 @@ const assertLocalizedFixtureValue = (errors: string[], value: unknown, expected:
     if (actualRu !== expected.ru) {
         errors.push(`${label} is missing the canonical Russian value`)
     }
+}
+
+const assertLmsReportSeedRows = (
+    errors: string[],
+    reportRows: SnapshotElement[],
+    expectedReports: ReadonlyArray<{ codename: string }>,
+    progressReportTypeId: unknown
+): Map<string, SnapshotElement> => {
+    const reportRowsByCodename = new Map<string, SnapshotElement>()
+
+    for (const expectedReport of expectedReports) {
+        const reportMatches = reportRows.filter((row) => readRecord(row?.data?.__templateSeed)?.codename === expectedReport.codename)
+        if (reportMatches.length !== 1) {
+            errors.push(
+                `LMS fixture must contain exactly one template-seeded Reports row for ${expectedReport.codename}; found ${reportMatches.length}`
+            )
+            continue
+        }
+
+        const reportRow = reportMatches[0]
+        reportRowsByCodename.set(expectedReport.codename, reportRow)
+
+        if (!isUuidV7(reportRow.id)) {
+            errors.push(`LMS report ${expectedReport.codename} must keep its UUID v7 identity`)
+        }
+        if (typeof progressReportTypeId !== 'string' || reportRow.data?.ReportType !== progressReportTypeId) {
+            errors.push(`LMS report ${expectedReport.codename} must resolve ReportType to the seeded Progress option`)
+        }
+
+        const reportDefinition = reportDefinitionSchema.safeParse(reportRow.data?.Definition)
+        if (!reportDefinition.success) {
+            errors.push(`LMS report ${expectedReport.codename} must store a valid generic report definition`)
+            continue
+        }
+        if (reportDefinition.data.codename !== expectedReport.codename) {
+            errors.push(`LMS report ${expectedReport.codename} must keep its canonical report codename`)
+        }
+
+        const title = {
+            en: readLocalizedText(reportDefinition.data.title, 'en') ?? '',
+            ru: readLocalizedText(reportDefinition.data.title, 'ru') ?? ''
+        }
+        assertLocalizedFixtureValue(errors, reportRow.data?.Name, title, `LMS report ${expectedReport.codename} name`)
+
+        if (expectedReport.codename === 'LearningContentSummary') {
+            if (reportDefinition.data.datasource.kind !== 'records.union') {
+                errors.push('LMS LearningContentSummary report must use the generic records.union datasource')
+            } else {
+                const targetDisplayTypes = new Set(
+                    reportDefinition.data.datasource.targets
+                        .map((target) => target.displayType)
+                        .filter((value): value is string => typeof value === 'string')
+                )
+                for (const displayType of ['resource', 'course', 'track']) {
+                    if (!targetDisplayTypes.has(displayType)) {
+                        errors.push(`LMS LearningContentSummary report must include the ${displayType} union target`)
+                    }
+                }
+                if (!reportDefinition.data.datasource.projectedFields?.includes('Instructor')) {
+                    errors.push('LMS LearningContentSummary report must project the generic Instructor component')
+                }
+                const columnFields = new Set(reportDefinition.data.columns.map((column) => column.field))
+                for (const field of ['type', 'title', 'status', 'Instructor', 'project']) {
+                    if (!columnFields.has(field)) {
+                        errors.push(`LMS LearningContentSummary report must expose the safe ${field} column`)
+                    }
+                }
+            }
+        } else if (expectedReport.codename === 'LearnerProgress') {
+            const datasource = reportDefinition.data.datasource
+            if (datasource.kind !== 'records.list' || datasource.sectionCodename !== 'ContentProgress') {
+                errors.push('LMS LearnerProgress report must list entity-backed ContentProgress records')
+            }
+
+            const requiredAggregation = reportDefinition.data.aggregations.some(
+                (aggregation) =>
+                    aggregation.field === 'ProgressPercent' && aggregation.function === 'avg' && aggregation.alias === 'AverageProgress'
+            )
+            if (!requiredAggregation) {
+                errors.push('LMS LearnerProgress report must aggregate ProgressPercent as AverageProgress')
+            }
+
+            const requiredColumns = [
+                { field: 'ProgressStudentId', type: 'text' },
+                { field: 'ProgressPercent', type: 'number' },
+                { field: 'ProgressStatus', type: 'status' }
+            ] as const
+            for (const requiredColumn of requiredColumns) {
+                const column = reportDefinition.data.columns.find(({ field }) => field === requiredColumn.field)
+                if (!column || column.type !== requiredColumn.type) {
+                    errors.push(`LMS LearnerProgress report must include the ${requiredColumn.type} ${requiredColumn.field} column`)
+                }
+            }
+        } else if (reportDefinition.data.datasource.kind !== 'records.list') {
+            errors.push(`LMS report ${expectedReport.codename} must use an existing generic records.list datasource`)
+        }
+    }
+
+    return reportRowsByCodename
 }
 
 const isVersionedLocalizedText = (value: unknown): boolean => {
@@ -1842,6 +1824,598 @@ export function buildLmsLiveMetahubName(_runId?: string) {
 
 export function buildLmsLiveMetahubCodename(_runId?: string) {
     return buildVLC(LMS_CANONICAL_METAHUB.codename.en, LMS_CANONICAL_METAHUB.codename.ru)
+}
+
+function assertLmsSeededRowsContract(options: {
+    envelope: SnapshotEnvelope
+    entityByCodename: Map<string, SnapshotEntity>
+    errors: string[]
+}): void {
+    const { envelope, entityByCodename, errors } = options
+    const elementsByEntityId = envelope.snapshot?.elements ?? {}
+    const classRows = getSeededRows(elementsByEntityId, entityByCodename.get('Classes')?.id)
+    const studentRows = getSeededRows(elementsByEntityId, entityByCodename.get('Students')?.id)
+    const contentProjectRows = getSeededRows(elementsByEntityId, entityByCodename.get('ContentProjects')?.id)
+    const contentAccessRows = getSeededRows(elementsByEntityId, entityByCodename.get('ContentAccessEntries')?.id)
+    const contentStarRows = getSeededRows(elementsByEntityId, entityByCodename.get('ContentStars')?.id)
+    const recentContentRows = getSeededRows(elementsByEntityId, entityByCodename.get('RecentContentViews')?.id)
+    const resourceRows = getSeededRows(elementsByEntityId, entityByCodename.get('LearningResources')?.id)
+    const courseRows = getSeededRows(elementsByEntityId, entityByCodename.get('Courses')?.id)
+    const courseSectionRows = getSeededRows(elementsByEntityId, entityByCodename.get('CourseSections')?.id)
+    const courseItemRows = getSeededRows(elementsByEntityId, entityByCodename.get('CourseItems')?.id)
+    const learningTrackRows = getSeededRows(elementsByEntityId, entityByCodename.get('LearningTracks')?.id)
+    const trackStageRows = getSeededRows(elementsByEntityId, entityByCodename.get('TrackStages')?.id)
+    const trackStepRows = getSeededRows(elementsByEntityId, entityByCodename.get('TrackSteps')?.id)
+    const quizRows = getSeededRows(elementsByEntityId, entityByCodename.get('Quizzes')?.id)
+    const quizResponseRows = getSeededRows(elementsByEntityId, entityByCodename.get('QuizResponses')?.id)
+    const contentProgressRows = getSeededRows(elementsByEntityId, entityByCodename.get('ContentProgress')?.id)
+    const accessLinkRows = getSeededRows(elementsByEntityId, entityByCodename.get('AccessLinks')?.id)
+    const enrollmentRows = getSeededRows(elementsByEntityId, entityByCodename.get('Enrollments')?.id)
+    const knowledgeSpaceRows = getSeededRows(elementsByEntityId, entityByCodename.get('KnowledgeSpaces')?.id)
+    const knowledgeFolderRows = getSeededRows(elementsByEntityId, entityByCodename.get('KnowledgeFolders')?.id)
+    const knowledgeArticleRows = getSeededRows(elementsByEntityId, entityByCodename.get('KnowledgeArticles')?.id)
+    const knowledgeBookmarkRows = getSeededRows(elementsByEntityId, entityByCodename.get('KnowledgeBookmarks')?.id)
+    const developmentPlanRows = getSeededRows(elementsByEntityId, entityByCodename.get('DevelopmentPlans')?.id)
+    const developmentPlanStageRows = getSeededRows(elementsByEntityId, entityByCodename.get('DevelopmentPlanStages')?.id)
+    const developmentPlanTaskRows = getSeededRows(elementsByEntityId, entityByCodename.get('DevelopmentPlanTasks')?.id)
+    const gamificationSettingRows = getSeededRows(elementsByEntityId, entityByCodename.get('GamificationSettings')?.id)
+    const pointAwardRuleRows = getSeededRows(elementsByEntityId, entityByCodename.get('PointAwardRules')?.id)
+    const pointTransactionRows = getSeededRows(elementsByEntityId, entityByCodename.get('PointTransactions')?.id)
+    const badgeDefinitionRows = getSeededRows(elementsByEntityId, entityByCodename.get('BadgeDefinitions')?.id)
+    const badgeIssueRows = getSeededRows(elementsByEntityId, entityByCodename.get('BadgeIssues')?.id)
+    const leaderboardRows = getSeededRows(elementsByEntityId, entityByCodename.get('LeaderboardSnapshots')?.id)
+    const reportRows = getSeededRows(elementsByEntityId, entityByCodename.get('Reports')?.id)
+    const reportTypeEntityId = entityByCodename.get('ReportType')?.id
+    const progressReportType = reportTypeEntityId
+        ? (envelope.snapshot?.optionValues?.[reportTypeEntityId] ?? []).find(
+              (optionValue) => readLocalizedText(optionValue.codename, 'en') === 'Progress'
+          )
+        : undefined
+    if (typeof progressReportType?.id !== 'string') {
+        errors.push('LMS ReportType enumeration must export the seeded Progress option')
+    }
+
+    const expectedCounts = [
+        ['class', classRows.length, LMS_DEMO_CLASSES.length],
+        ['student', studentRows.length, LMS_DEMO_STUDENTS.length],
+        ['content project', contentProjectRows.length, 2],
+        ['content access entry', contentAccessRows.length, 1],
+        ['content star', contentStarRows.length, 1],
+        ['recent content view', recentContentRows.length, 1],
+        ['resource', resourceRows.length, LMS_DEMO_RESOURCES.length + LMS_DEMO_CONTENT_NODES.length],
+        ['course', courseRows.length, LMS_DEMO_COURSES.length],
+        ['course section', courseSectionRows.length, 3],
+        ['course item', courseItemRows.length, 3],
+        ['learning track', learningTrackRows.length, 2],
+        ['track stage', trackStageRows.length, 2],
+        ['track step', trackStepRows.length, 3],
+        ['quiz', quizRows.length, LMS_DEMO_QUIZZES.length],
+        ['quiz response', quizResponseRows.length, LMS_DEMO_QUIZ_RESPONSES.length],
+        ['content progress', contentProgressRows.length, LMS_DEMO_CONTENT_PROGRESS.length],
+        ['access link', accessLinkRows.length, LMS_DEMO_ACCESS_LINKS.length],
+        ['enrollment', enrollmentRows.length, LMS_DEMO_ENROLLMENTS.length + 2],
+        ['knowledge space', knowledgeSpaceRows.length, 1],
+        ['knowledge folder', knowledgeFolderRows.length, 1],
+        ['knowledge article', knowledgeArticleRows.length, 1],
+        ['knowledge bookmark', knowledgeBookmarkRows.length, 1],
+        ['development plan', developmentPlanRows.length, 1],
+        ['development plan stage', developmentPlanStageRows.length, 1],
+        ['development plan task', developmentPlanTaskRows.length, 1],
+        ['gamification setting', gamificationSettingRows.length, LMS_DEMO_GAMIFICATION_SETTINGS.length],
+        ['point award rule', pointAwardRuleRows.length, LMS_DEMO_POINT_AWARD_RULES.length],
+        ['point transaction', pointTransactionRows.length, LMS_DEMO_POINT_TRANSACTIONS.length],
+        ['badge definition', badgeDefinitionRows.length, LMS_DEMO_BADGES.length],
+        ['badge issue', badgeIssueRows.length, LMS_DEMO_BADGE_ISSUES.length],
+        ['leaderboard snapshot', leaderboardRows.length, LMS_DEMO_LEADERBOARD.length],
+        ['report', reportRows.length, LMS_DEMO_REPORTS.length]
+    ] as const
+
+    for (const [label, actual, expected] of expectedCounts) {
+        if (actual !== expected) {
+            errors.push(`LMS fixture must seed exactly ${expected} ${label} row(s), received ${actual}`)
+        }
+    }
+
+    if (resourceRows.some((row) => !row.data?.Body)) {
+        errors.push('LMS fixture must seed authored LearningResources.Body content for direct app-side editing')
+    }
+    for (const resourceRow of resourceRows) {
+        const label = readLocalizedText(resourceRow.data?.Title, 'en') ?? resourceRow.id
+        assertEditorBlockTextLocalized(errors, resourceRow.data?.Body, `LMS learning resource ${label}`)
+    }
+    if (!knowledgeArticleRows[0]?.data?.Body) {
+        errors.push('LMS fixture must seed at least one authored KnowledgeArticles.Body document')
+    }
+    if (knowledgeArticleRows.some((row) => typeof row.data?.SortOrder !== 'number')) {
+        errors.push('LMS fixture KnowledgeArticles rows must include their required numeric SortOrder')
+    }
+    for (const articleRow of knowledgeArticleRows) {
+        const label = readLocalizedText(articleRow.data?.Title, 'en') ?? articleRow.id
+        assertEditorBlockTextLocalized(errors, articleRow.data?.Body, `LMS knowledge article ${label}`)
+    }
+    if (!knowledgeBookmarkRows[0]?.data?.ArticleId || knowledgeBookmarkRows[0]?.data?.FolderId) {
+        errors.push('LMS fixture knowledge bookmarks must point at KnowledgeArticles instead of folders')
+    }
+
+    for (const seededCourse of LMS_DEMO_COURSES) {
+        const courseRow = courseRows.find((row) => readLocalizedText(row?.data?.Title, 'en') === seededCourse.title.en)
+        if (!courseRow) continue
+        const parsedCatalogPolicy = catalogPublicationPolicySchema.safeParse({
+            visible: courseRow.data?.CatalogVisible,
+            category: courseRow.data?.CatalogCategory,
+            audience: courseRow.data?.CatalogAudience,
+            selfEnrollmentMode: courseRow.data?.SelfEnrollmentMode
+        })
+        if (!parsedCatalogPolicy.success) {
+            errors.push(`LMS course ${seededCourse.key} must expose valid catalog-ready metadata`)
+        } else if (
+            parsedCatalogPolicy.data.visible !== true ||
+            readLocalizedText(parsedCatalogPolicy.data.category, 'en') !== seededCourse.catalogCategory.en ||
+            readLocalizedText(parsedCatalogPolicy.data.audience, 'en') !== seededCourse.catalogAudience.en ||
+            parsedCatalogPolicy.data.selfEnrollmentMode !== seededCourse.selfEnrollmentMode
+        ) {
+            errors.push(`LMS course ${seededCourse.key} must keep deterministic catalog policy metadata`)
+        }
+    }
+
+    for (const expectedTrack of [
+        {
+            title: 'New learner onboarding track',
+            category: 'Onboarding',
+            audience: 'New learners',
+            selfEnrollmentMode: 'open'
+        },
+        {
+            title: 'Compliance refresh track',
+            category: 'Compliance',
+            audience: 'All learners',
+            selfEnrollmentMode: 'disabled'
+        }
+    ] as const) {
+        const trackRow = learningTrackRows.find((row) => readLocalizedText(row?.data?.Title, 'en') === expectedTrack.title)
+        if (!trackRow) continue
+        const parsedCatalogPolicy = catalogPublicationPolicySchema.safeParse({
+            visible: trackRow.data?.CatalogVisible,
+            category: trackRow.data?.CatalogCategory,
+            audience: trackRow.data?.CatalogAudience,
+            selfEnrollmentMode: trackRow.data?.SelfEnrollmentMode
+        })
+        if (!parsedCatalogPolicy.success) {
+            errors.push(`LMS learning track ${expectedTrack.title} must expose valid catalog-ready metadata`)
+        } else if (
+            parsedCatalogPolicy.data.visible !== true ||
+            readLocalizedText(parsedCatalogPolicy.data.category, 'en') !== expectedTrack.category ||
+            readLocalizedText(parsedCatalogPolicy.data.audience, 'en') !== expectedTrack.audience ||
+            parsedCatalogPolicy.data.selfEnrollmentMode !== expectedTrack.selfEnrollmentMode
+        ) {
+            errors.push(`LMS learning track ${expectedTrack.title} must keep deterministic catalog policy metadata`)
+        }
+    }
+
+    const enabledGamificationSetting = gamificationSettingRows.find((row) => row.data?.Scope === 'application')
+    if (enabledGamificationSetting?.data?.Enabled !== true) {
+        errors.push('LMS fixture must seed enabled application-level gamification settings')
+    }
+    const pointRuleCodes = new Set(pointAwardRuleRows.map((row) => row.data?.RuleCode).filter(Boolean))
+    for (const requiredRuleCode of ['content.completed', 'assignment.accepted', 'manual.adjustment']) {
+        if (!pointRuleCodes.has(requiredRuleCode)) {
+            errors.push(`LMS fixture must seed point award rule ${requiredRuleCode}`)
+        }
+    }
+    const approvedPoints = pointTransactionRows.reduce((sum, row) => {
+        if (row.data?.Status !== 'Approved') return sum
+        const value = typeof row.data?.PointsDelta === 'number' ? row.data.PointsDelta : Number(row.data?.PointsDelta)
+        return Number.isFinite(value) ? sum + value : sum
+    }, 0)
+    const currentLeaderboardTotal = leaderboardRows.reduce((sum, row) => {
+        if (row.data?.Period !== 'current') return sum
+        const value = typeof row.data?.TotalPoints === 'number' ? row.data.TotalPoints : Number(row.data?.TotalPoints)
+        return Number.isFinite(value) ? sum + value : sum
+    }, 0)
+    if (approvedPoints !== 40 || currentLeaderboardTotal !== 50) {
+        errors.push('LMS fixture must keep deterministic approved points and current leaderboard totals for achievements')
+    }
+    const issuedBadgeCount = badgeIssueRows.filter((row) => row.data?.Status === 'Issued').length
+    if (issuedBadgeCount < 1) {
+        errors.push('LMS fixture must seed at least one issued learner badge')
+    }
+    const topLeaderboardRow = leaderboardRows.find((row) => row.data?.Rank === 1)
+    if (!topLeaderboardRow || topLeaderboardRow.data?.TotalPoints !== 35 || topLeaderboardRow.data?.BadgeCount !== 1) {
+        errors.push('LMS fixture must seed the deterministic top leaderboard achievement row')
+    }
+
+    const exportedResourceSourceTypes = new Set<string>()
+    let hasDeferredScormPlaceholder = false
+    let hasDeferredXapiPlaceholder = false
+    for (const expectedResource of LMS_DEMO_RESOURCES) {
+        const resourceRow = resourceRows.find(
+            (row) => readLocalizedText(row?.data?.Title, 'en') === readLocalizedText(expectedResource.title, 'en')
+        )
+        if (!resourceRow) {
+            errors.push(`LMS fixture is missing learning resource ${expectedResource.codename}`)
+            continue
+        }
+        const resourceDefinition = resourceDefinitionSchema.safeParse({
+            codename: expectedResource.codename,
+            title: resourceRow.data?.Title,
+            source: resourceRow.data?.Source,
+            estimatedTimeMinutes: resourceRow.data?.EstimatedTimeMinutes,
+            language: resourceRow.data?.Language
+        })
+        if (!resourceDefinition.success) {
+            errors.push(`LMS learning resource ${expectedResource.codename} must match the generic resource contract`)
+            continue
+        }
+        exportedResourceSourceTypes.add(resourceDefinition.data.source.type)
+        if (resourceDefinition.data.source.type === 'scorm' && isDeferredResourceSource(resourceDefinition.data.source)) {
+            hasDeferredScormPlaceholder = true
+        }
+        if (resourceDefinition.data.source.type === 'xapi' && isDeferredResourceSource(resourceDefinition.data.source)) {
+            hasDeferredXapiPlaceholder = true
+        }
+        if (resourceDefinition.data.source.type !== expectedResource.source.type) {
+            errors.push(
+                `LMS learning resource ${expectedResource.codename} must keep source type ${expectedResource.source.type}, received ${resourceDefinition.data.source.type}`
+            )
+        }
+    }
+    for (const requiredResourceType of ['page', 'url', 'video', 'audio', 'document', 'embed', 'scorm', 'xapi']) {
+        if (!exportedResourceSourceTypes.has(requiredResourceType)) {
+            errors.push(`LMS fixture must seed a realistic ${requiredResourceType} learning resource source`)
+        }
+    }
+    if (!hasDeferredScormPlaceholder) {
+        errors.push('LMS fixture must keep SCORM as an explicit deferred placeholder, not a silently supported runtime player')
+    }
+    if (!hasDeferredXapiPlaceholder) {
+        errors.push('LMS fixture must keep xAPI as an explicit deferred placeholder, not a silently supported runtime player')
+    }
+
+    const reportRowsByCodename = assertLmsReportSeedRows(errors, reportRows, LMS_DEMO_REPORTS, progressReportType?.id)
+
+    for (const acceptanceArea of LMS_PRODUCT_ACCEPTANCE_MATRIX) {
+        for (const reportCodename of acceptanceArea.requiredReports) {
+            if (!reportRowsByCodename.has(reportCodename)) {
+                errors.push(`LMS acceptance area ${acceptanceArea.area} is missing report ${reportCodename}`)
+            }
+        }
+    }
+
+    const classRowsByKey = new Map<string, SnapshotElement>()
+    for (const seededClass of LMS_DEMO_CLASSES) {
+        const classRow = findRowByField(classRows, 'Name', seededClass.name.en)
+        if (!classRow) {
+            errors.push(`LMS fixture is missing class ${seededClass.name.en}`)
+            continue
+        }
+        classRowsByKey.set(seededClass.key, classRow)
+
+        const classData = classRow.data ?? {}
+        assertLocalizedFixtureValue(errors, classData.Name, seededClass.name, `LMS class ${seededClass.name.en} name`)
+        assertLocalizedFixtureValue(errors, classData.Description, seededClass.description, `LMS class ${seededClass.name.en} description`)
+        if (classData.SchoolYear !== seededClass.schoolYear) {
+            errors.push(`LMS class ${seededClass.name.en} must use SchoolYear=${seededClass.schoolYear}`)
+        }
+        if (classData.StudentCountLimit !== seededClass.studentCountLimit) {
+            errors.push(`LMS class ${seededClass.name.en} must use StudentCountLimit=${seededClass.studentCountLimit}`)
+        }
+    }
+
+    const studentRowsByKey = new Map<string, SnapshotElement>()
+    for (const seededStudent of LMS_DEMO_STUDENTS) {
+        const studentRow = studentRows.find((row) => row?.data?.Email === seededStudent.email)
+        if (!studentRow) {
+            errors.push(`LMS fixture is missing student ${seededStudent.email}`)
+            continue
+        }
+        studentRowsByKey.set(seededStudent.key, studentRow)
+
+        const studentData = studentRow.data ?? {}
+        if (readLocalizedText(studentData.DisplayName, 'en') !== seededStudent.displayName.en) {
+            errors.push(`LMS student ${seededStudent.email} is missing the canonical English display name`)
+        }
+    }
+
+    const quizRowsByKey = new Map<string, SnapshotElement>()
+    for (const seededQuiz of LMS_DEMO_QUIZZES) {
+        const quizRow = findRowByField(quizRows, 'Title', seededQuiz.title.en)
+        if (!quizRow) {
+            errors.push(`LMS fixture is missing quiz ${seededQuiz.title.en}`)
+            continue
+        }
+        quizRowsByKey.set(seededQuiz.key, quizRow)
+
+        const quizData = quizRow.data ?? {}
+        if (readLocalizedText(quizData.Title, 'ru') !== seededQuiz.title.ru) {
+            errors.push(`LMS quiz ${seededQuiz.title.en} is missing the canonical Russian title`)
+        }
+        if (readLocalizedText(quizData.Description, 'en') !== seededQuiz.description.en) {
+            errors.push(`LMS quiz ${seededQuiz.title.en} is missing the canonical English description`)
+        }
+        if (readLocalizedText(quizData.Description, 'ru') !== seededQuiz.description.ru) {
+            errors.push(`LMS quiz ${seededQuiz.title.en} is missing the canonical Russian description`)
+        }
+        if (quizData.PassingScorePercent !== seededQuiz.passingScorePercent) {
+            errors.push(`LMS quiz ${seededQuiz.title.en} must keep PassingScorePercent=${seededQuiz.passingScorePercent}`)
+        }
+        if (quizData.MaxAttempts !== seededQuiz.maxAttempts) {
+            errors.push(`LMS quiz ${seededQuiz.title.en} must keep MaxAttempts=${seededQuiz.maxAttempts}`)
+        }
+
+        const quizQuestions = Array.isArray(quizData.Questions) ? quizData.Questions : []
+        if (quizQuestions.length !== seededQuiz.questions.en.length) {
+            errors.push(`LMS quiz ${seededQuiz.title.en} must contain ${seededQuiz.questions.en.length} questions`)
+        }
+        if (seededQuiz.questions.ru.length !== seededQuiz.questions.en.length) {
+            errors.push(`LMS quiz ${seededQuiz.title.en} must define equal English and Russian question counts`)
+        }
+        for (const [index, expectedEnQuestion] of seededQuiz.questions.en.entries()) {
+            const expectedRuQuestion = seededQuiz.questions.ru[index]
+            const actualQuestion = readRecord(quizQuestions[index])
+            if (!actualQuestion || !expectedRuQuestion) {
+                continue
+            }
+
+            assertLocalizedFixtureValue(
+                errors,
+                actualQuestion.Prompt,
+                { en: expectedEnQuestion.prompt, ru: expectedRuQuestion.prompt },
+                `LMS quiz ${seededQuiz.title.en} question ${index + 1} prompt`
+            )
+            assertLocalizedFixtureValue(
+                errors,
+                actualQuestion.QuestionDescription,
+                { en: expectedEnQuestion.description, ru: expectedRuQuestion.description },
+                `LMS quiz ${seededQuiz.title.en} question ${index + 1} description`
+            )
+            assertLocalizedFixtureValue(
+                errors,
+                actualQuestion.Explanation,
+                { en: expectedEnQuestion.explanation, ru: expectedRuQuestion.explanation },
+                `LMS quiz ${seededQuiz.title.en} question ${index + 1} explanation`
+            )
+            const actualOptions = Array.isArray(actualQuestion.Options) ? actualQuestion.Options : []
+            if (actualOptions.length !== expectedEnQuestion.options.length) {
+                errors.push(
+                    `LMS quiz ${seededQuiz.title.en} question ${index + 1} must contain ${
+                        expectedEnQuestion.options.length
+                    } answer option(s)`
+                )
+            }
+            if (expectedRuQuestion.options.length !== expectedEnQuestion.options.length) {
+                errors.push(`LMS quiz ${seededQuiz.title.en} question ${index + 1} must define equal English and Russian option counts`)
+            }
+            for (const [optionIndex, expectedEnOption] of expectedEnQuestion.options.entries()) {
+                const expectedRuOption = expectedRuQuestion.options[optionIndex]
+                const actualOption = readRecord(actualOptions[optionIndex])
+                if (!actualOption || !expectedRuOption) {
+                    continue
+                }
+                assertLocalizedFixtureValue(
+                    errors,
+                    actualOption.label,
+                    {
+                        en: readLocalizedText(expectedEnOption.label, 'en') ?? '',
+                        ru: readLocalizedText(expectedRuOption.label, 'ru') ?? ''
+                    },
+                    `LMS quiz ${seededQuiz.title.en} question ${index + 1} option ${optionIndex + 1} label`
+                )
+                if (actualOption.isCorrect !== expectedEnOption.isCorrect || actualOption.isCorrect !== expectedRuOption.isCorrect) {
+                    errors.push(
+                        `LMS quiz ${seededQuiz.title.en} question ${index + 1} option ${
+                            optionIndex + 1
+                        } must keep the same correctness flag in both locales`
+                    )
+                }
+            }
+        }
+    }
+
+    const guestContentRowsByKey = new Map<string, SnapshotElement>()
+    for (const seededContent of LMS_DEMO_CONTENT_NODES) {
+        const contentRow = findRowByField(resourceRows, 'Title', seededContent.title.en)
+        if (!contentRow) {
+            errors.push(`LMS fixture is missing guest content ${seededContent.title.en}`)
+            continue
+        }
+        guestContentRowsByKey.set(seededContent.key, contentRow)
+
+        const contentData = contentRow.data ?? {}
+        if (readLocalizedText(contentData.Title, 'ru') !== seededContent.title.ru) {
+            errors.push(`LMS guest content ${seededContent.title.en} is missing the canonical Russian title`)
+        }
+        if (readLocalizedText(contentData.Description, 'en') !== seededContent.description.en) {
+            errors.push(`LMS guest content ${seededContent.title.en} is missing the canonical English description`)
+        }
+        if (readLocalizedText(contentData.Description, 'ru') !== seededContent.description.ru) {
+            errors.push(`LMS guest content ${seededContent.title.en} is missing the canonical Russian description`)
+        }
+        if (contentData.EstimatedTimeMinutes !== seededContent.estimatedDurationMinutes) {
+            errors.push(
+                `LMS guest content ${seededContent.title.en} must keep EstimatedTimeMinutes=${seededContent.estimatedDurationMinutes}`
+            )
+        }
+
+        const contentItems = Array.isArray(contentData.ContentItems) ? contentData.ContentItems : []
+        if (contentItems.length !== seededContent.contentItems.en.length) {
+            errors.push(`LMS guest content ${seededContent.title.en} must contain ${seededContent.contentItems.en.length} content item(s)`)
+        }
+        if (seededContent.contentItems.ru.length !== seededContent.contentItems.en.length) {
+            errors.push(`LMS guest content ${seededContent.title.en} must define equal English and Russian content item counts`)
+        }
+        for (const [index, expectedEnItem] of seededContent.contentItems.en.entries()) {
+            const expectedRuItem = seededContent.contentItems.ru[index]
+            const actualItem = readRecord(contentItems[index])
+            if (!actualItem || !expectedRuItem) {
+                continue
+            }
+
+            assertLocalizedFixtureValue(
+                errors,
+                actualItem.ItemTitle,
+                { en: expectedEnItem.itemTitle, ru: expectedRuItem.itemTitle },
+                `LMS guest content ${seededContent.title.en} item ${index + 1} title`
+            )
+            const expectedEnContent = 'itemContent' in expectedEnItem ? expectedEnItem.itemContent : undefined
+            const expectedRuContent = 'itemContent' in expectedRuItem ? expectedRuItem.itemContent : undefined
+            if (expectedEnContent || expectedRuContent) {
+                assertLocalizedFixtureValue(
+                    errors,
+                    actualItem.ItemContent,
+                    { en: expectedEnContent ?? '', ru: expectedRuContent ?? '' },
+                    `LMS guest content ${seededContent.title.en} item ${index + 1} content`
+                )
+            }
+            if (actualItem.SortOrder !== expectedEnItem.sortOrder || actualItem.SortOrder !== expectedRuItem.sortOrder) {
+                errors.push(`LMS guest content ${seededContent.title.en} item ${index + 1} must keep the same sort order in both locales`)
+            }
+        }
+
+        const quizRefItem = contentItems.find((item) => item && typeof item === 'object' && (item as Record<string, unknown>).QuizId)
+        const linkedQuizRow = quizRowsByKey.get(seededContent.linkedQuizKey)
+        if (!quizRefItem || !linkedQuizRow?.id) {
+            errors.push(`LMS guest content ${seededContent.title.en} must include a quiz_ref item linked to ${seededContent.linkedQuizKey}`)
+        } else if ((quizRefItem as Record<string, unknown>).QuizId !== linkedQuizRow.id) {
+            errors.push(`LMS guest content ${seededContent.title.en} quiz_ref item must point at the canonical seeded quiz row id`)
+        }
+    }
+
+    for (const seededLink of LMS_DEMO_ACCESS_LINKS) {
+        const accessLinkRow = accessLinkRows.find((row) => row?.data?.Slug === seededLink.slug)
+        if (!accessLinkRow) {
+            errors.push(`LMS fixture is missing access link ${seededLink.slug}`)
+            continue
+        }
+
+        const accessLinkData = accessLinkRow.data ?? {}
+        if (readLocalizedText(accessLinkData.LinkTitle, 'en') !== seededLink.title.en) {
+            errors.push(`LMS access link ${seededLink.slug} is missing the canonical English title`)
+        }
+        if (readLocalizedText(accessLinkData.LinkTitle, 'ru') !== seededLink.title.ru) {
+            errors.push(`LMS access link ${seededLink.slug} is missing the canonical Russian title`)
+        }
+        if (accessLinkData.TargetType !== 'content') {
+            errors.push(`LMS access link ${seededLink.slug} must target the guest content journey`)
+        }
+
+        const linkedContentRow = guestContentRowsByKey.get(seededLink.contentKey)
+        const linkedClassRow = classRowsByKey.get(seededLink.classKey)
+        if (linkedContentRow?.id && accessLinkData.TargetId !== linkedContentRow.id) {
+            errors.push(`LMS access link ${seededLink.slug} must keep the seeded guest content row id in TargetId`)
+        }
+        if (linkedContentRow?.id && accessLinkData.ContentNodeIdRef !== linkedContentRow.id) {
+            errors.push(`LMS access link ${seededLink.slug} must reference the seeded guest content row through ContentNodeIdRef`)
+        }
+        if (linkedClassRow?.id && accessLinkData.LinkClassId !== linkedClassRow.id) {
+            errors.push(`LMS access link ${seededLink.slug} must reference the seeded class row id`)
+        }
+    }
+
+    for (const seededEnrollment of LMS_DEMO_ENROLLMENTS) {
+        const expectedStudentRow = studentRowsByKey.get(seededEnrollment.studentKey)
+        const expectedClassRow = classRowsByKey.get(seededEnrollment.classKey)
+        const expectedContentRow = guestContentRowsByKey.get(seededEnrollment.contentKey)
+        const enrollmentRow = enrollmentRows.find(
+            (row) =>
+                row?.data?.EnrollmentStudentId === expectedStudentRow?.id &&
+                row?.data?.EnrollmentClassId === expectedClassRow?.id &&
+                row?.data?.TargetType === 'content' &&
+                row?.data?.TargetId === expectedContentRow?.id &&
+                row?.data?.ContentNodeIdRef === expectedContentRow?.id
+        )
+
+        if (!enrollmentRow) {
+            errors.push(`LMS fixture is missing enrollment ${seededEnrollment.key}`)
+        } else {
+            if (enrollmentRow.data?.AssignedUserId !== LMS_RUNTIME_CURRENT_USER_ID_TOKEN) {
+                errors.push(`LMS enrollment ${seededEnrollment.key} must use the runtime current-user seed token`)
+            }
+            if (!readLocalizedText(enrollmentRow.data?.TargetTitle, 'en')) {
+                errors.push(`LMS enrollment ${seededEnrollment.key} must expose a learner-facing TargetTitle`)
+            }
+            if (enrollmentRow.data?.DueDateMode !== 'ByDate' || typeof enrollmentRow.data?.DuePeriodDays !== 'number') {
+                errors.push(`LMS enrollment ${seededEnrollment.key} must seed due-date mode and period metadata`)
+            }
+        }
+    }
+
+    const courseEnrollment = enrollmentRows.find((row) => row?.data?.TargetType === 'course')
+    if (
+        !courseEnrollment?.data?.TargetId ||
+        !courseEnrollment.data.DueDate ||
+        courseEnrollment.data.DueDateMode !== 'ByDate' ||
+        courseEnrollment.data.DuePeriodDays !== 14 ||
+        courseEnrollment.data.RestrictAfterDueDate !== true ||
+        courseEnrollment.data.AssignedUserId !== LMS_RUNTIME_CURRENT_USER_ID_TOKEN ||
+        readLocalizedText(courseEnrollment.data.TargetTitle, 'en') !== 'Compliance Refresh Course'
+    ) {
+        errors.push('LMS fixture must seed at least one due-date restricted course enrollment')
+    }
+    const trackEnrollment = enrollmentRows.find((row) => row?.data?.TargetType === 'track')
+    if (
+        !trackEnrollment?.data?.TargetId ||
+        !trackEnrollment.data.DueDate ||
+        trackEnrollment.data.DueDateMode !== 'ForPeriod' ||
+        trackEnrollment.data.DuePeriodDays !== 20 ||
+        trackEnrollment.data.RestrictAfterDueDate !== true ||
+        trackEnrollment.data.AssignedUserId !== LMS_RUNTIME_CURRENT_USER_ID_TOKEN ||
+        readLocalizedText(trackEnrollment.data.TargetTitle, 'en') !== 'Compliance refresh track'
+    ) {
+        errors.push('LMS fixture must seed at least one due-date restricted track enrollment')
+    }
+
+    for (const seededProgress of LMS_DEMO_CONTENT_PROGRESS) {
+        const expectedStudentRow = studentRowsByKey.get(seededProgress.studentKey)
+        const expectedContentRow = guestContentRowsByKey.get(seededProgress.contentKey)
+        const contentProgressRow = contentProgressRows.find(
+            (row) => row?.data?.ProgressStudentId === expectedStudentRow?.id && row?.data?.ContentNodeId === expectedContentRow?.id
+        )
+
+        if (!contentProgressRow) {
+            errors.push(`LMS fixture is missing content progress ${seededProgress.key}`)
+            continue
+        }
+
+        const contentProgressData = contentProgressRow.data ?? {}
+        if (contentProgressData.ProgressStatus !== seededProgress.status) {
+            errors.push(`LMS content progress ${seededProgress.key} must keep ProgressStatus=${seededProgress.status}`)
+        }
+        if (contentProgressData.ProgressPercent !== seededProgress.progressPercent) {
+            errors.push(`LMS content progress ${seededProgress.key} must keep ProgressPercent=${seededProgress.progressPercent}`)
+        }
+    }
+
+    for (const seededResponse of LMS_DEMO_QUIZ_RESPONSES) {
+        const expectedStudentRow = studentRowsByKey.get(seededResponse.studentKey)
+        const expectedQuizRow = quizRowsByKey.get(seededResponse.quizKey)
+        const quizResponseRow = quizResponseRows.find(
+            (row) =>
+                row?.data?.StudentId === expectedStudentRow?.id &&
+                row?.data?.QuizId === expectedQuizRow?.id &&
+                row?.data?.QuestionId === seededResponse.questionId
+        )
+
+        if (!quizResponseRow) {
+            errors.push(`LMS fixture is missing quiz response ${seededResponse.key}`)
+            continue
+        }
+
+        const quizResponseData = quizResponseRow.data ?? {}
+        const normalizedSelectedOptionIds = Array.isArray(quizResponseData.SelectedOptionIds) ? quizResponseData.SelectedOptionIds : []
+
+        if (quizResponseData.QuestionId !== seededResponse.questionId) {
+            errors.push(`LMS quiz response ${seededResponse.key} must keep QuestionId=${seededResponse.questionId}`)
+        }
+        if (JSON.stringify(normalizedSelectedOptionIds) !== JSON.stringify(seededResponse.selectedOptionIds)) {
+            errors.push(`LMS quiz response ${seededResponse.key} must keep the canonical SelectedOptionIds payload`)
+        }
+        if (quizResponseData.IsCorrect !== seededResponse.isCorrect) {
+            errors.push(`LMS quiz response ${seededResponse.key} must keep IsCorrect=${String(seededResponse.isCorrect)}`)
+        }
+        if (quizResponseData.AttemptNumber !== seededResponse.attemptNumber) {
+            errors.push(`LMS quiz response ${seededResponse.key} must keep AttemptNumber=${seededResponse.attemptNumber}`)
+        }
+    }
 }
 
 export function assertLmsFixtureEnvelopeContract(envelope: SnapshotEnvelope) {
@@ -1992,6 +2566,19 @@ export function assertLmsFixtureEnvelopeContract(envelope: SnapshotEnvelope) {
         const entity = entityByCodename.get(entityCodename)
         const config = readRecord(entity?.config)
         const runtimeLibrary = readRecord(config?.runtimeLibrary)
+        const projection = readRecord(runtimeLibrary?.projection)
+        const expectedDisplayType = entityCodename === 'LearningResources' ? 'resource' : entityCodename === 'Courses' ? 'course' : 'track'
+        const expectedStatusField = entityCodename === 'LearningResources' ? 'PublicationStatus' : 'Status'
+        const projectedFieldCodenames = Array.isArray(projection?.projectedFieldCodenames) ? projection.projectedFieldCodenames : []
+        if (
+            projection?.displayType !== expectedDisplayType ||
+            projection.titleFieldCodename !== 'Title' ||
+            projection.statusFieldCodename !== expectedStatusField ||
+            projection.projectFieldCodename !== 'ProjectId' ||
+            !projectedFieldCodenames.includes('Instructor')
+        ) {
+            errors.push(`LMS ${entityCodename} must own the trusted Learning Content runtime projection metadata`)
+        }
         const recent = readRecord(runtimeLibrary?.recent)
         if (
             recent?.objectCodename !== 'RecentContentViews' ||
@@ -2074,6 +2661,13 @@ export function assertLmsFixtureEnvelopeContract(envelope: SnapshotEnvelope) {
         }
     }
 
+    const assertServerOwnedRuntimeField = (entityCodename: string, fieldCodename: string) => {
+        const uiConfig = readFieldUiConfig(entityCodename, fieldCodename)
+        if (uiConfig?.serverOwned !== true) {
+            errors.push(`LMS ${entityCodename}.${fieldCodename} must be marked server-owned in Entity metadata`)
+        }
+    }
+
     const assertNoEditableRuntimeIdentityIdFields = (entityCodename: string) => {
         const entity = entityByCodename.get(entityCodename)
         for (const field of entity?.fields ?? []) {
@@ -2104,6 +2698,27 @@ export function assertLmsFixtureEnvelopeContract(envelope: SnapshotEnvelope) {
     assertResourceSourceField('Courses', 'Cover')
     assertResourceSourceField('LearningResources', 'Source')
     assertHiddenRuntimeField('LearningResources', 'CreatedBy')
+    assertHiddenRuntimeField('CourseItems', 'SortOrder')
+    assertHiddenRuntimeField('KnowledgeArticles', 'SortOrder')
+    {
+        const knowledgeArticleSortOrderField = entityByCodename
+            .get('KnowledgeArticles')
+            ?.fields?.find((field) => readLocalizedText(field?.codename, 'en') === 'SortOrder')
+        const knowledgeArticleSortOrderUiConfig = readFieldUiConfig('KnowledgeArticles', 'SortOrder') ?? {}
+        if (
+            knowledgeArticleSortOrderField?.dataType !== 'NUMBER' ||
+            knowledgeArticleSortOrderField.isRequired !== true ||
+            knowledgeArticleSortOrderUiConfig.defaultValue !== 0 ||
+            knowledgeArticleSortOrderUiConfig.formHidden !== true ||
+            knowledgeArticleSortOrderUiConfig.gridHidden !== true
+        ) {
+            errors.push(
+                'LMS KnowledgeArticles.SortOrder must be a required numeric Entity field defaulted to 0 and hidden from runtime forms and grids'
+            )
+        }
+    }
+    assertServerOwnedRuntimeField('CourseItems', 'SortOrder')
+    assertHiddenRuntimeField('CourseItems', 'AvailabilityOverride')
     assertGridHiddenField('Reports', 'Filters')
     assertGridHiddenField('Reports', 'Definition')
     assertGridHiddenField('Reports', 'SavedFilters')
@@ -2171,688 +2786,15 @@ export function assertLmsFixtureEnvelopeContract(envelope: SnapshotEnvelope) {
     }
 
     const modules = Array.isArray(envelope.snapshot?.modules) ? envelope.snapshot.modules : []
-    const forbiddenModuleCodenames = new Set(['lms-module-viewer', 'lms-stats-viewer'])
-    for (const module of modules) {
-        const moduleCodename = readLocalizedText(module?.codename, 'en')
-        if (moduleCodename && forbiddenModuleCodenames.has(moduleCodename)) {
-            errors.push(`LMS fixture must not export legacy dashboard module ${moduleCodename}`)
-        }
-    }
-
-    const widgets = Array.isArray(envelope.snapshot?.layoutZoneWidgets) ? envelope.snapshot.layoutZoneWidgets : []
-    const scopedLayouts = Array.isArray(envelope.snapshot?.scopedLayouts) ? envelope.snapshot.scopedLayouts : []
-    const learnerHomeEntityForLayout = entityByCodename.get('LearnerHome')
-    const coursesEntityForLayout = entityByCodename.get('Courses')
-    const learningTracksEntityForLayout = entityByCodename.get('LearningTracks')
-    const reportsEntityForLayout = entityByCodename.get('Reports')
-    const learnerHomeLayout = scopedLayouts.find(
-        (layout) =>
-            layout?.scopeEntityId === learnerHomeEntityForLayout?.id &&
-            layout?.baseLayoutId === envelope.snapshot?.defaultLayoutId &&
-            layout?.isActive !== false
-    )
-    const courseBuilderLayout = scopedLayouts.find(
-        (layout) =>
-            layout?.scopeEntityId === coursesEntityForLayout?.id &&
-            layout?.baseLayoutId === envelope.snapshot?.defaultLayoutId &&
-            layout?.isActive !== false
-    )
-    const trackBuilderLayout = scopedLayouts.find(
-        (layout) =>
-            layout?.scopeEntityId === learningTracksEntityForLayout?.id &&
-            layout?.baseLayoutId === envelope.snapshot?.defaultLayoutId &&
-            layout?.isActive !== false
-    )
-    const reportsLayout = scopedLayouts.find(
-        (layout) =>
-            layout?.scopeEntityId === reportsEntityForLayout?.id &&
-            layout?.baseLayoutId === envelope.snapshot?.defaultLayoutId &&
-            layout?.isActive !== false
-    )
-    const globalLayout = Array.isArray(envelope.snapshot?.layouts)
-        ? envelope.snapshot.layouts.find((layout) => layout?.id === envelope.snapshot?.defaultLayoutId)
-        : null
-    const globalLayoutConfig = readWidgetConfig(globalLayout?.config)
-
-    if (!learnerHomeLayout) {
-        errors.push('LMS fixture must scope dashboard statistics to the LearnerHome page layout')
-    }
-    if (!courseBuilderLayout) {
-        errors.push('LMS fixture must scope Course Builder widgets to the Courses layout')
-    }
-    if (!trackBuilderLayout) {
-        errors.push('LMS fixture must scope Track Builder widgets to the LearningTracks layout')
-    }
-    if (!reportsLayout) {
-        errors.push('LMS fixture must scope the primary Learning Content summary report to the Reports layout')
-    }
-    if (
-        globalLayoutConfig.showOverviewCards !== false ||
-        globalLayoutConfig.showSessionsChart !== false ||
-        globalLayoutConfig.showPageViewsChart !== false ||
-        globalLayoutConfig.showColumnsContainer !== false
-    ) {
-        errors.push('LMS global layout must not enable home-only dashboard statistics or empty report columns')
-    }
-
-    const forbiddenWidgetKeys = new Set([
-        'moduleViewerWidget',
-        'statsViewerWidget',
-        'qrCodeWidget',
-        'brandSelector',
-        'productTree',
-        'usersByCountryChart'
-    ])
-    for (const widget of widgets) {
-        if (forbiddenWidgetKeys.has(String(widget?.widgetKey))) {
-            errors.push(`LMS fixture must not include legacy global widget ${String(widget?.widgetKey)}`)
-        }
-    }
-    const unionDatasourceWidgets = widgets.filter((widget) => {
-        const config = readWidgetConfig(widget?.config)
-        const datasource = readRecord(config.datasource)
-        return widget?.widgetKey === 'detailsTable' && datasource?.kind === 'records.union'
-    })
-    for (const widget of unionDatasourceWidgets) {
-        const config = readWidgetConfig(widget?.config)
-        const datasource = readRecord(config.datasource)
-        const targets = Array.isArray(datasource?.targets) ? datasource.targets : []
-        const query = readRecord(datasource?.query)
-        const libraryView = typeof query?.libraryView === 'string' ? query.libraryView : ''
-        const lifecycleState = typeof query?.lifecycleState === 'string' ? query.lifecycleState : ''
-        const querySort = Array.isArray(query?.sort) ? query.sort.map(readRecord) : []
-        const projectedFields = Array.isArray(datasource?.projectedFields) ? datasource.projectedFields : []
-        const createTargets = Array.isArray(config.createTargets) ? config.createTargets : []
-        const rowActions = Array.isArray(config.rowActions) ? config.rowActions.map(readRecord) : []
-        const targetFilters = Array.isArray(config.targetFilters) ? config.targetFilters.map(readRecord) : []
-        if (config.showSearch !== true) {
-            errors.push('LMS Learning Content records.union views must expose the generic runtime search toolbar')
-        }
-        if (!projectedFields.includes('Instructor')) {
-            errors.push('LMS Learning Content records.union views must project the generic Instructor business field')
-        }
-        const targetFilterDisplayTypes = new Set(
-            targetFilters
-                .flatMap((filter) => (Array.isArray(filter?.targetDisplayTypes) ? filter.targetDisplayTypes : []))
-                .filter((value): value is string => typeof value === 'string')
-        )
-        for (const displayType of ['resource', 'course', 'track']) {
-            if (!targetFilterDisplayTypes.has(displayType)) {
-                errors.push(`LMS Learning Content records.union views must expose a generic ${displayType} target filter`)
-            }
-        }
-        if (lifecycleState === 'active') {
-            const starredAction = rowActions.find(
-                (action) => action?.kind === 'library.toggle' && action.libraryView === 'starred' && action.icon === 'star'
-            )
-            if (!starredAction) {
-                errors.push('LMS active Learning Content records.union views must expose the generic starred row action')
-            }
-            const sharedAction = rowActions.find(
-                (action) => action?.kind === 'library.toggle' && action.libraryView === 'shared' && action.icon === 'share'
-            )
-            if (!sharedAction) {
-                errors.push('LMS active Learning Content records.union views must expose the generic shared row action')
-            } else if (sharedAction.principalTarget !== 'workspaceMember') {
-                errors.push('LMS shared Learning Content row action must use the generic workspace-member picker target')
-            }
-            if (libraryView === 'all') {
-                const moveProjectAction = rowActions.find(
-                    (action) =>
-                        action?.kind === 'field.updateWithTarget' &&
-                        action.fieldCodename === 'ProjectId' &&
-                        action.targetObjectCollectionCodename === 'ContentProjects' &&
-                        action.icon === 'move'
-                )
-                if (!moveProjectAction) {
-                    errors.push(
-                        'LMS main Learning Content records.union view must expose the generic Move to project target-field row action'
-                    )
-                }
-            }
-        }
-        for (const target of targets) {
-            const targetRecord = readRecord(target)
-            const sectionCodename = typeof targetRecord?.sectionCodename === 'string' ? targetRecord.sectionCodename : ''
-            const expectedStatusField =
-                sectionCodename === 'LearningResources'
-                    ? 'PublicationStatus'
-                    : ['Courses', 'LearningTracks'].includes(sectionCodename)
-                    ? 'Status'
-                    : null
-            if (!['LearningResources', 'Courses', 'LearningTracks'].includes(sectionCodename)) {
-                continue
-            }
-            if (
-                targetRecord?.titleField !== 'Title' ||
-                (expectedStatusField && targetRecord.statusField !== expectedStatusField) ||
-                targetRecord.projectField !== 'ProjectId'
-            ) {
-                errors.push(
-                    `LMS records.union target ${sectionCodename} must declare title/status/project projection fields for safe Learning Content display`
-                )
-            }
-        }
-        if (libraryView === 'all' && lifecycleState === 'active') {
-            const createTargetCodenames = new Set(
-                createTargets
-                    .map((target) => readRecord(target)?.sectionCodename)
-                    .filter((value): value is string => typeof value === 'string')
-            )
-            for (const requiredCreateTarget of ['ContentProjects', 'LearningResources', 'Courses', 'LearningTracks']) {
-                if (!createTargetCodenames.has(requiredCreateTarget)) {
-                    errors.push(`LMS Learning Content create menu must expose ${requiredCreateTarget} through generic createTargets`)
-                }
-            }
-            const createTargetLabels = createTargets
-                .map((target) => readRecord(target)?.label)
-                .map((label) => (typeof label === 'string' ? label : readRecord(readRecord(label)?.locales)?.en))
-                .map((label) => (typeof label === 'string' ? label : readRecord(label)?.content))
-                .filter((value): value is string => typeof value === 'string')
-            for (const requiredLabel of ['Project', 'Page', 'Link', 'Course', 'Learning Track', 'Quiz (planned)', 'Assignment (planned)']) {
-                if (!createTargetLabels.includes(requiredLabel)) {
-                    errors.push(`LMS Learning Content create menu must include a ${requiredLabel} entry`)
-                }
-            }
-            const createTargetById = new Map(
-                createTargets
-                    .map((target) => readRecord(target))
-                    .filter((target): target is Record<string, unknown> => Boolean(target))
-                    .map((target) => [String(target.id ?? ''), target])
-            )
-            const projectTarget = createTargetById.get('learning-content-create-project')
-            const pageDefaults = createTargetById.get('learning-content-create-page')?.createDefaults
-            const linkDefaults = createTargetById.get('learning-content-create-link')?.createDefaults
-            const courseDefaults = createTargetById.get('learning-content-create-course')?.createDefaults
-            const trackDefaults = createTargetById.get('learning-content-create-track')?.createDefaults
-            const quizLiteTarget = createTargetById.get('learning-content-create-quiz-lite')
-            const assignmentLiteTarget = createTargetById.get('learning-content-create-assignment-lite')
-            const packageTarget = createTargetById.get('learning-content-create-package')
-            const hasCreateDefault = (defaults: unknown, expected: Record<string, unknown>): boolean =>
-                Array.isArray(defaults) &&
-                defaults.some((item) => {
-                    const record = readRecord(item)
-                    return Object.entries(expected).every(([key, value]) => record?.[key] === value)
-                })
-            if (projectTarget?.sectionCodename !== 'ContentProjects') {
-                errors.push('LMS Project create target must open ContentProjects through the generic createTargets contract')
-            }
-            if (Array.isArray(projectTarget?.createDefaults) && projectTarget.createDefaults.length > 0) {
-                errors.push('LMS Project create target must not prefill system-owned or policy fields through createDefaults')
-            }
-            if (
-                !hasCreateDefault(pageDefaults, { fieldCodename: 'ResourceType', enumCodename: 'Page' }) ||
-                !hasCreateDefault(pageDefaults, { fieldCodename: 'Source', resourceSourceType: 'page' })
-            ) {
-                errors.push('LMS Page create target must preselect the Page resource type and page source draft through createDefaults')
-            }
-            if (
-                !hasCreateDefault(linkDefaults, { fieldCodename: 'ResourceType', enumCodename: 'Url' }) ||
-                !hasCreateDefault(linkDefaults, { fieldCodename: 'Source', resourceSourceType: 'url' })
-            ) {
-                errors.push('LMS Link create target must preselect the URL resource type and URL source draft through createDefaults')
-            }
-            if (
-                !hasCreateDefault(courseDefaults, {
-                    fieldCodename: 'NavigationMode',
-                    contextPath: 'learningContent.courseCompletionPolicy.navigationMode'
-                }) ||
-                !hasCreateDefault(courseDefaults, {
-                    fieldCodename: 'CompletionCondition',
-                    contextPath: 'learningContent.courseCompletionPolicy.completionCondition'
-                }) ||
-                !hasCreateDefault(courseDefaults, {
-                    fieldCodename: 'StatusFormat',
-                    contextPath: 'learningContent.courseCompletionPolicy.statusFormat'
-                })
-            ) {
-                errors.push('LMS Course create target must derive completion defaults from the generic runtime create context')
-            }
-            if (
-                !hasCreateDefault(trackDefaults, {
-                    fieldCodename: 'OrderMode',
-                    contextPath: 'learningContent.trackOrderPolicy.orderMode'
-                })
-            ) {
-                errors.push('LMS Learning Track create target must derive order defaults from the generic runtime create context')
-            }
-            if (quizLiteTarget?.sectionCodename !== 'Quizzes' || quizLiteTarget.disabled !== true) {
-                errors.push('LMS Quiz (planned) create target must stay an explicitly disabled generic createTargets entry for Quizzes')
-            } else {
-                assertLocalizedFixtureValue(
-                    errors,
-                    quizLiteTarget.disabledReason,
-                    {
-                        en: 'Quiz authoring is planned for a later Learning Content phase.',
-                        ru: 'Создание тестов запланировано на следующий этап учебного контента.'
-                    },
-                    'LMS Quiz (planned) create target disabled reason'
-                )
-            }
-            if (assignmentLiteTarget?.sectionCodename !== 'Assignments' || assignmentLiteTarget.disabled !== true) {
-                errors.push(
-                    'LMS Assignment (planned) create target must stay an explicitly disabled generic createTargets entry for Assignments'
-                )
-            } else {
-                assertLocalizedFixtureValue(
-                    errors,
-                    assignmentLiteTarget.disabledReason,
-                    {
-                        en: 'Assignment authoring is planned for a later Learning Content phase.',
-                        ru: 'Создание заданий запланировано на следующий этап учебного контента.'
-                    },
-                    'LMS Assignment (planned) create target disabled reason'
-                )
-            }
-            if (packageTarget?.sectionCodename !== 'LearningResources' || packageTarget.disabled !== true) {
-                errors.push(
-                    'LMS Import package (planned) create target must stay an explicitly disabled generic createTargets entry for LearningResources'
-                )
-            } else {
-                assertLocalizedFixtureValue(
-                    errors,
-                    packageTarget.disabledReason,
-                    {
-                        en: 'File import support is planned for a later phase.',
-                        ru: 'Импорт файлов запланирован на следующий этап.'
-                    },
-                    'LMS Import package (planned) create target disabled reason'
-                )
-            }
-        } else if (libraryView === 'recent' && lifecycleState === 'active') {
-            const recentSort = querySort[0]
-            if (recentSort?.field !== 'recentAt' || recentSort.direction !== 'desc') {
-                errors.push('LMS Recent Learning Content view must sort by generic recentAt timestamp descending')
-            }
-        } else if (libraryView === 'shared' && lifecycleState === 'active') {
-            const sharedSort = querySort[0]
-            if (sharedSort?.field !== 'sharedAt' || sharedSort.direction !== 'desc') {
-                errors.push('LMS Shared Learning Content view must sort by generic sharedAt timestamp descending')
-            }
-        } else if (lifecycleState === 'deleted') {
-            const restoreTarget = readRecord(config.restoreTarget)
-            const labelFields = Array.isArray(restoreTarget?.labelFields) ? restoreTarget.labelFields : []
-            if (
-                restoreTarget?.targetObjectCollectionCodename !== 'ContentProjects' ||
-                restoreTarget.parentFieldCodename !== 'ProjectId' ||
-                !labelFields.includes('Name')
-            ) {
-                errors.push(
-                    'LMS Learning Content Trash must expose the generic restoreTarget picker for restoring records into ContentProjects'
-                )
-            }
-        } else if (createTargets.length > 0) {
-            errors.push('LMS secondary records.union views must not expose create targets')
-        }
-    }
-
-    const menuWidget = widgets.find((widget) => widget?.widgetKey === 'menuWidget')
-    if (!menuWidget) {
-        errors.push('LMS fixture must include a default menuWidget')
-    } else {
-        const config = readWidgetConfig(menuWidget.config)
-        const menuItems = Array.isArray(config.items) ? config.items : []
-        const activeItems = menuItems.filter((item) => (item as Record<string, unknown>)?.isActive !== false)
-        if (config.autoShowAllSections !== false) {
-            errors.push('LMS menuWidget must disable autoShowAllSections and expose only curated primary sections')
-        }
-        if (activeItems.length < 4) {
-            errors.push('LMS menuWidget must include product-facing primary navigation items')
-        }
-        const sectionTargets = new Set(
-            activeItems
-                .map((item) =>
-                    item && typeof item === 'object' && typeof (item as Record<string, unknown>).sectionId === 'string'
-                        ? String((item as Record<string, unknown>).sectionId)
-                        : null
-                )
-                .filter((value): value is string => Boolean(value))
-        )
-        for (const requiredSectionTarget of [
-            'LearnerHome',
-            'ContentProjects',
-            'RecentContentViews',
-            'ContentStars',
-            'ContentAccessEntries',
-            'TrashEntries',
-            'Courses',
-            'LearningTracks',
-            'KnowledgeArticles',
-            'DevelopmentPlans',
-            'Reports'
-        ]) {
-            if (!sectionTargets.has(requiredSectionTarget)) {
-                errors.push(`LMS menuWidget must expose ${requiredSectionTarget} as a direct product-facing section`)
-            }
-        }
-        for (const item of activeItems) {
-            const normalizedItem = item as Record<string, unknown>
-            const itemLabel = readLocalizedText(normalizedItem.label ?? normalizedItem.title ?? normalizedItem.name, 'en')
-            const targetSectionCodename =
-                typeof normalizedItem.sectionId === 'string'
-                    ? normalizedItem.sectionId
-                    : typeof normalizedItem.linkedCollectionId === 'string'
-                    ? normalizedItem.linkedCollectionId
-                    : null
-            if (normalizedItem.kind === 'hub') {
-                errors.push(`LMS menuWidget item ${String(normalizedItem.id ?? '<unknown>')} must not render an inert hub label`)
-            }
-            if (normalizedItem.kind === 'link' && typeof normalizedItem.href !== 'string') {
-                errors.push(`LMS menuWidget item ${String(normalizedItem.id ?? '<unknown>')} must not be an inert link`)
-            }
-            if (normalizedItem.kind !== 'section' && normalizedItem.kind !== 'link') {
-                errors.push(`LMS menuWidget item ${String(normalizedItem.id ?? '<unknown>')} must use section or link kind`)
-            }
-            if (normalizedItem.kind === 'section' && targetSectionCodename === null) {
-                errors.push(`LMS menuWidget section item ${String(normalizedItem.id ?? '<unknown>')} must target a real section`)
-            }
-            if (normalizedItem.kind === 'section' && itemLabel === 'Knowledge' && targetSectionCodename === 'Quizzes') {
-                errors.push('LMS Knowledge primary navigation must target a knowledge page or knowledge object, not Quizzes')
-            }
-            if (normalizedItem.kind === 'section' && itemLabel === 'Knowledge' && targetSectionCodename !== 'KnowledgeArticles') {
-                errors.push('LMS Knowledge primary navigation must target the KnowledgeArticles authoring object')
-            }
-            if (normalizedItem.kind === 'section' && itemLabel === 'Development' && targetSectionCodename === 'Classes') {
-                errors.push('LMS Development primary navigation must target a development page or development object, not Classes')
-            }
-            if (normalizedItem.kind === 'section' && itemLabel === 'Development' && targetSectionCodename !== 'DevelopmentPlans') {
-                errors.push('LMS Development primary navigation must target the DevelopmentPlans authoring object')
-            }
-        }
-        if (config.maxPrimaryItems !== 12) {
-            errors.push(
-                'LMS menuWidget must keep maxPrimaryItems=12 so the Learning Content library, courses, tracks, reports, and workspace entry stay directly reachable'
-            )
-        }
-        if (config.overflowLabelKey !== 'runtime.menu.more') {
-            errors.push('LMS menuWidget must use the shared runtime.menu.more overflow label key')
-        }
-        if (config.startPage !== 'LearnerHome') {
-            errors.push('LMS menuWidget must start from the LearnerHome page')
-        }
-        if (config.workspacePlacement !== 'primary') {
-            errors.push('LMS menuWidget must keep workspace navigation in the primary menu for MVP')
-        }
-    }
-    const overviewCardsWidget = widgets.find((widget) => widget?.widgetKey === 'overviewCards')
-    if (learnerHomeLayout && overviewCardsWidget?.layoutId !== learnerHomeLayout.id) {
-        errors.push('LMS overviewCards must belong to the LearnerHome scoped layout')
-    }
-    const overviewCardsConfig = readWidgetConfig(overviewCardsWidget?.config)
-    const overviewCards = Array.isArray(overviewCardsConfig.cards) ? overviewCardsConfig.cards : []
-    if (overviewCards.length < 4) {
-        errors.push('LMS fixture must configure overviewCards with learner dashboard metrics')
-    }
-    if (!overviewCards.some((card) => readLocalizedText((card as Record<string, unknown>)?.title, 'ru') === 'Учащиеся')) {
-        errors.push('LMS overviewCards must store localized learner metric titles in widget config')
-    }
-    for (const card of overviewCards) {
-        const datasource = (card as Record<string, unknown>)?.datasource as Record<string, unknown> | undefined
-        const params = datasource?.params as Record<string, unknown> | undefined
-        if (datasource?.kind !== 'metric' || datasource?.metricKey !== 'records.count' || typeof params?.sectionCodename !== 'string') {
-            errors.push('LMS overviewCards must use generic records.count metric datasources targeted by section codename')
-            break
-        }
-    }
-
-    for (const chartWidgetKey of ['sessionsChart', 'pageViewsChart']) {
-        const chartWidget = widgets.find((widget) => widget?.widgetKey === chartWidgetKey)
-        if (learnerHomeLayout && chartWidget?.layoutId !== learnerHomeLayout.id) {
-            errors.push(`LMS ${chartWidgetKey} must belong to the LearnerHome scoped layout`)
-        }
-        const chartConfig = readWidgetConfig(chartWidget?.config)
-        const datasource = chartConfig.datasource as Record<string, unknown> | undefined
-        const chartTitleRu = readLocalizedText(chartConfig.title, 'ru')
-        if (!chartWidget || datasource?.kind !== 'records.list' || typeof datasource?.sectionCodename !== 'string') {
-            errors.push(`LMS ${chartWidgetKey} must use a generic records.list datasource targeted by section codename`)
-        }
-        if (typeof chartConfig.xField !== 'string' || !Array.isArray(chartConfig.series) || chartConfig.series.length === 0) {
-            errors.push(`LMS ${chartWidgetKey} must declare generic xField and series config`)
-        }
-        if (chartWidgetKey === 'sessionsChart' && chartTitleRu !== 'Прогресс подразделений') {
-            errors.push('LMS sessionsChart must store localized chart titles in widget config')
-        }
-        if (chartWidgetKey === 'pageViewsChart' && chartTitleRu !== 'Оценки заданий') {
-            errors.push('LMS pageViewsChart must store localized chart titles in widget config')
-        }
-    }
-
-    const assertBuilderRelationScope = (
-        layout: Record<string, unknown> | undefined,
-        label: string,
-        expectedParentSectionCodename: string,
-        expectedPanelRelations: Array<{ id: string; datasourceSectionCodename: string; parentFieldCodename: string }>
-    ) => {
-        if (!layout) return
-        const tabsWidget = widgets.find((widget) => widget?.layoutId === layout.id && widget?.widgetKey === 'detailsTabs')
-        const tabsConfig = readWidgetConfig(tabsWidget?.config)
-        const tabs = Array.isArray(tabsConfig.tabs) ? tabsConfig.tabs : []
-        const outlineTab = tabs.map(readRecord).find((tab) => tab?.id === 'outline')
-        const outlineWidgets = outlineTab && Array.isArray(outlineTab.widgets) ? outlineTab.widgets : []
-        const relationBuilderWidget = outlineWidgets.map(readRecord).find((widget) => widget?.widgetKey === 'relationBuilder')
-        const relationBuilderConfig = relationBuilderWidget ? readWidgetConfig(relationBuilderWidget.config) : {}
-        const parentDatasource = readRecord(relationBuilderConfig.parentDatasource)
-        if (parentDatasource?.sectionCodename !== expectedParentSectionCodename) {
-            errors.push(`${label} outline must use relationBuilder with ${expectedParentSectionCodename} as its parent datasource`)
-        }
-        const panels = Array.isArray(relationBuilderConfig.panels) ? relationBuilderConfig.panels : []
-        for (const expectedPanel of expectedPanelRelations) {
-            const panel = panels.map(readRecord).find((candidate) => candidate?.id === expectedPanel.id)
-            const datasource = panel ? readRecord(panel.datasource) : null
-            if (
-                !panel ||
-                datasource?.sectionCodename !== expectedPanel.datasourceSectionCodename ||
-                panel.parentFieldCodename !== expectedPanel.parentFieldCodename
-            ) {
-                errors.push(
-                    `${label} relationBuilder panel ${expectedPanel.id} must scope ${expectedPanel.datasourceSectionCodename} by ${expectedPanel.parentFieldCodename}`
-                )
-            }
-        }
-    }
-
-    assertBuilderRelationScope(courseBuilderLayout, 'Course Builder', 'Courses', [
-        { id: 'course-sections', datasourceSectionCodename: 'CourseSections', parentFieldCodename: 'CourseId' },
-        { id: 'course-items', datasourceSectionCodename: 'CourseItems', parentFieldCodename: 'CourseId' }
-    ])
-    assertBuilderRelationScope(trackBuilderLayout, 'Track Builder', 'LearningTracks', [
-        { id: 'track-stages', datasourceSectionCodename: 'TrackStages', parentFieldCodename: 'TrackId' },
-        { id: 'track-steps', datasourceSectionCodename: 'TrackSteps', parentFieldCodename: 'TrackId' }
-    ])
-
-    const assertBuilderEnrollmentList = (
-        layout: Record<string, unknown> | undefined,
-        label: string,
-        expectedTargetType: 'course' | 'track'
-    ) => {
-        if (!layout) return
-        const tabsWidget = widgets.find((widget) => widget?.layoutId === layout.id && widget?.widgetKey === 'detailsTabs')
-        const tabsConfig = readWidgetConfig(tabsWidget?.config)
-        const tabs = Array.isArray(tabsConfig.tabs) ? tabsConfig.tabs : []
-        const enrollmentsTab = tabs.map(readRecord).find((tab) => tab?.id === 'enrollments')
-        const enrollmentWidgets = enrollmentsTab && Array.isArray(enrollmentsTab.widgets) ? enrollmentsTab.widgets : []
-        const listWidget = enrollmentWidgets
-            .map(readRecord)
-            .filter((widget) => widget?.widgetKey === 'detailsTable')
-            .find((widget) => {
-                const config = readWidgetConfig(widget?.config)
-                const datasource = readRecord(config.datasource)
-                const query = readRecord(datasource?.query)
-                const filters = Array.isArray(query?.filters) ? query.filters.map(readRecord) : []
-                return (
-                    datasource?.kind === 'records.list' &&
-                    datasource.sectionCodename === 'Enrollments' &&
-                    filters.some(
-                        (filter) => filter?.field === 'TargetType' && filter.operator === 'equals' && filter.value === expectedTargetType
-                    )
-                )
-            })
-
-        if (!listWidget) {
-            errors.push(`${label} enrollments tab must include a generic detailsTable list filtered to ${expectedTargetType} enrollments`)
-        }
-    }
-
-    assertBuilderEnrollmentList(courseBuilderLayout, 'Course Builder', 'course')
-    assertBuilderEnrollmentList(trackBuilderLayout, 'Track Builder', 'track')
-
-    const assertBuilderCompletionSequencePolicy = (
-        layout: Record<string, unknown> | undefined,
-        label: string,
-        expectedSectionCodename: 'CourseItems' | 'TrackSteps',
-        expectedScopeFieldCodename: 'CourseId' | 'TrackId'
-    ) => {
-        if (!layout) return
-        const tabsWidget = widgets.find((widget) => widget?.layoutId === layout.id && widget?.widgetKey === 'detailsTabs')
-        const tabsConfig = readWidgetConfig(tabsWidget?.config)
-        const tabs = Array.isArray(tabsConfig.tabs) ? tabsConfig.tabs : []
-        const completionTab = tabs.map(readRecord).find((tab) => tab?.id === 'completion')
-        const completionWidgets = completionTab && Array.isArray(completionTab.widgets) ? completionTab.widgets : []
-        const tableWidget = completionWidgets
-            .map(readRecord)
-            .filter((widget) => widget?.widgetKey === 'detailsTable')
-            .find((widget) => {
-                const config = readWidgetConfig(widget?.config)
-                const datasource = readRecord(config.datasource)
-                const sequencePolicy = readRecord(config.sequencePolicy)
-                return (
-                    datasource?.kind === 'records.list' &&
-                    datasource.sectionCodename === expectedSectionCodename &&
-                    sequencePolicy?.mode === 'sequential' &&
-                    sequencePolicy.scopeFieldCodename === expectedScopeFieldCodename &&
-                    sequencePolicy.orderFieldCodename === 'SortOrder'
-                )
-            })
-
-        if (!tableWidget) {
-            errors.push(
-                `${label} completion tab must expose ${expectedSectionCodename} through detailsTable sequencePolicy instead of a custom LMS player table`
-            )
-        }
-    }
-
-    assertBuilderCompletionSequencePolicy(courseBuilderLayout, 'Course Builder', 'CourseItems', 'CourseId')
-    assertBuilderCompletionSequencePolicy(trackBuilderLayout, 'Track Builder', 'TrackSteps', 'TrackId')
-
-    const assertBuilderReportReference = (
-        layout: Record<string, unknown> | undefined,
-        label: string,
-        expectedReportCodename: 'CourseBuilderOutline' | 'TrackBuilderOutline'
-    ) => {
-        if (!layout) return
-        const tabsWidget = widgets.find((widget) => widget?.layoutId === layout.id && widget?.widgetKey === 'detailsTabs')
-        const tabsConfig = readWidgetConfig(tabsWidget?.config)
-        const tabs = Array.isArray(tabsConfig.tabs) ? tabsConfig.tabs : []
-        const reportsTab = tabs.map(readRecord).find((tab) => tab?.id === 'reports')
-        const reportWidgets = reportsTab && Array.isArray(reportsTab.widgets) ? reportsTab.widgets : []
-        const reportWidget = reportWidgets
-            .map(readRecord)
-            .filter((widget) => widget?.widgetKey === 'detailsTable')
-            .find((widget) => {
-                const config = readWidgetConfig(widget?.config)
-                return config.reportCodename === expectedReportCodename && !Object.prototype.hasOwnProperty.call(config, 'reportDefinition')
-            })
-
-        if (!reportWidget) {
-            errors.push(`${label} reports tab must reference saved report ${expectedReportCodename} by reportCodename only`)
-        }
-    }
-
-    assertBuilderReportReference(courseBuilderLayout, 'Course Builder', 'CourseBuilderOutline')
-    assertBuilderReportReference(trackBuilderLayout, 'Track Builder', 'TrackBuilderOutline')
-
-    const reportsSummaryWidget =
-        reportsLayout &&
-        widgets.find((widget) => {
-            if (widget?.layoutId !== reportsLayout.id || widget?.widgetKey !== 'detailsTable') return false
-            const config = readWidgetConfig(widget?.config)
-            return config.reportCodename === 'LearningContentSummary' && !Object.prototype.hasOwnProperty.call(config, 'reportDefinition')
-        })
-    if (!reportsSummaryWidget) {
-        errors.push('Reports layout must expose LearningContentSummary through the generic detailsTable reportCodename surface')
-    }
-
-    const assertLearnerPlayer = (
-        layout: Record<string, unknown> | undefined,
-        options: {
-            label: string
-            parentSectionCodename: 'Courses' | 'LearningTracks'
-            itemSectionCodename: 'CourseItems' | 'TrackSteps'
-            parentFieldCodename: 'CourseId' | 'TrackId'
-            completionTargetObjectCodename: 'CourseItems' | 'TrackSteps'
-            scopeFieldCodename: 'CourseId' | 'TrackId'
-            expectedTargetObjectCodenameField?: string
-            expectedStaticTargetObjectCodename?: string
-            expectedTargetRecordIdField?: string
-        }
-    ) => {
-        if (!layout) return
-        const {
-            label,
-            parentSectionCodename,
-            itemSectionCodename,
-            parentFieldCodename,
-            completionTargetObjectCodename,
-            scopeFieldCodename,
-            expectedTargetObjectCodenameField,
-            expectedStaticTargetObjectCodename,
-            expectedTargetRecordIdField
-        } = options
-        const tabsWidget = widgets.find((widget) => widget?.layoutId === layout.id && widget?.widgetKey === 'detailsTabs')
-        const tabsConfig = readWidgetConfig(tabsWidget?.config)
-        const tabs = Array.isArray(tabsConfig.tabs) ? tabsConfig.tabs : []
-        const playerTab = tabs.map(readRecord).find((tab) => tab?.id === 'player')
-        const playerWidgets = playerTab && Array.isArray(playerTab.widgets) ? playerTab.widgets : []
-        const playerWidget = playerWidgets
-            .map(readRecord)
-            .filter((widget) => widget?.widgetKey === 'learnerPlayer')
-            .find((widget) => {
-                const config = readWidgetConfig(widget?.config)
-                const parentDatasource = readRecord(config.parentDatasource)
-                const itemsDatasource = readRecord(config.itemsDatasource)
-                const sequencePolicy = readRecord(config.sequencePolicy)
-                return (
-                    parentDatasource?.kind === 'records.list' &&
-                    parentDatasource.sectionCodename === parentSectionCodename &&
-                    itemsDatasource?.kind === 'records.list' &&
-                    itemsDatasource.sectionCodename === itemSectionCodename &&
-                    config.parentFieldCodename === parentFieldCodename &&
-                    config.completionTargetObjectCodename === completionTargetObjectCodename &&
-                    (expectedTargetObjectCodenameField === undefined ||
-                        config.targetObjectCodenameField === expectedTargetObjectCodenameField) &&
-                    (expectedStaticTargetObjectCodename === undefined ||
-                        config.targetObjectCodename === expectedStaticTargetObjectCodename) &&
-                    (expectedTargetRecordIdField === undefined || config.targetRecordIdField === expectedTargetRecordIdField) &&
-                    sequencePolicy?.mode === 'sequential' &&
-                    sequencePolicy.scopeFieldCodename === scopeFieldCodename &&
-                    sequencePolicy.orderFieldCodename === 'SortOrder'
-                )
-            })
-
-        if (!playerWidget) {
-            errors.push(`${label} must expose a generic learnerPlayer tab for sequential preview and completion`)
-        }
-    }
-
-    assertLearnerPlayer(courseBuilderLayout, {
-        label: 'Course Builder',
-        parentSectionCodename: 'Courses',
-        itemSectionCodename: 'CourseItems',
-        parentFieldCodename: 'CourseId',
-        completionTargetObjectCodename: 'CourseItems',
-        scopeFieldCodename: 'CourseId',
-        expectedTargetObjectCodenameField: 'TargetObjectCodename',
-        expectedTargetRecordIdField: 'TargetRecordId'
-    })
-    assertLearnerPlayer(trackBuilderLayout, {
-        label: 'Track Builder',
-        parentSectionCodename: 'LearningTracks',
-        itemSectionCodename: 'TrackSteps',
-        parentFieldCodename: 'TrackId',
-        completionTargetObjectCodename: 'TrackSteps',
-        scopeFieldCodename: 'TrackId',
-        expectedStaticTargetObjectCodename: 'Courses',
-        expectedTargetRecordIdField: 'CourseId'
+    assertLmsDashboardFixtureContract({
+        envelope,
+        entityByCodename,
+        modules,
+        errors,
+        readRecord,
+        readWidgetConfig,
+        readLocalizedText,
+        assertLocalizedFixtureValue
     })
 
     const assertRuntimeProgressSequencePolicy = (
@@ -2942,6 +2884,7 @@ export function assertLmsFixtureEnvelopeContract(envelope: SnapshotEnvelope) {
         const relations = Array.isArray(runtimeCopy?.relations) ? runtimeCopy.relations.map(readRecord) : []
 
         for (const expectedRelation of expectedRelations) {
+            const expectedRefRemap = expectedRelation.refRemap
             const relation = relations.find(
                 (candidate) =>
                     candidate?.objectCodename === expectedRelation.objectCodename &&
@@ -2950,11 +2893,11 @@ export function assertLmsFixtureEnvelopeContract(envelope: SnapshotEnvelope) {
             )
             const refRemaps = Array.isArray(relation?.refRemaps) ? relation.refRemaps.map(readRecord) : []
             const hasExpectedRefRemap =
-                !expectedRelation.refRemap ||
+                !expectedRefRemap ||
                 refRemaps.some(
                     (candidate) =>
-                        candidate?.fieldCodename === expectedRelation.refRemap?.fieldCodename &&
-                        candidate.sourceObjectCodename === expectedRelation.refRemap.sourceObjectCodename
+                        candidate?.fieldCodename === expectedRefRemap.fieldCodename &&
+                        candidate.sourceObjectCodename === expectedRefRemap.sourceObjectCodename
                 )
 
             if (!relation || !hasExpectedRefRemap) {
@@ -3337,624 +3280,7 @@ export function assertLmsFixtureEnvelopeContract(envelope: SnapshotEnvelope) {
         }
     }
 
-    const elementsByEntityId = envelope.snapshot?.elements ?? {}
-    const classRows = getSeededRows(elementsByEntityId, entityByCodename.get('Classes')?.id)
-    const studentRows = getSeededRows(elementsByEntityId, entityByCodename.get('Students')?.id)
-    const contentProjectRows = getSeededRows(elementsByEntityId, entityByCodename.get('ContentProjects')?.id)
-    const contentAccessRows = getSeededRows(elementsByEntityId, entityByCodename.get('ContentAccessEntries')?.id)
-    const contentStarRows = getSeededRows(elementsByEntityId, entityByCodename.get('ContentStars')?.id)
-    const recentContentRows = getSeededRows(elementsByEntityId, entityByCodename.get('RecentContentViews')?.id)
-    const resourceRows = getSeededRows(elementsByEntityId, entityByCodename.get('LearningResources')?.id)
-    const courseRows = getSeededRows(elementsByEntityId, entityByCodename.get('Courses')?.id)
-    const courseSectionRows = getSeededRows(elementsByEntityId, entityByCodename.get('CourseSections')?.id)
-    const courseItemRows = getSeededRows(elementsByEntityId, entityByCodename.get('CourseItems')?.id)
-    const learningTrackRows = getSeededRows(elementsByEntityId, entityByCodename.get('LearningTracks')?.id)
-    const trackStageRows = getSeededRows(elementsByEntityId, entityByCodename.get('TrackStages')?.id)
-    const trackStepRows = getSeededRows(elementsByEntityId, entityByCodename.get('TrackSteps')?.id)
-    const quizRows = getSeededRows(elementsByEntityId, entityByCodename.get('Quizzes')?.id)
-    const quizResponseRows = getSeededRows(elementsByEntityId, entityByCodename.get('QuizResponses')?.id)
-    const contentProgressRows = getSeededRows(elementsByEntityId, entityByCodename.get('ContentProgress')?.id)
-    const accessLinkRows = getSeededRows(elementsByEntityId, entityByCodename.get('AccessLinks')?.id)
-    const enrollmentRows = getSeededRows(elementsByEntityId, entityByCodename.get('Enrollments')?.id)
-    const knowledgeSpaceRows = getSeededRows(elementsByEntityId, entityByCodename.get('KnowledgeSpaces')?.id)
-    const knowledgeFolderRows = getSeededRows(elementsByEntityId, entityByCodename.get('KnowledgeFolders')?.id)
-    const knowledgeArticleRows = getSeededRows(elementsByEntityId, entityByCodename.get('KnowledgeArticles')?.id)
-    const knowledgeBookmarkRows = getSeededRows(elementsByEntityId, entityByCodename.get('KnowledgeBookmarks')?.id)
-    const developmentPlanRows = getSeededRows(elementsByEntityId, entityByCodename.get('DevelopmentPlans')?.id)
-    const developmentPlanStageRows = getSeededRows(elementsByEntityId, entityByCodename.get('DevelopmentPlanStages')?.id)
-    const developmentPlanTaskRows = getSeededRows(elementsByEntityId, entityByCodename.get('DevelopmentPlanTasks')?.id)
-    const gamificationSettingRows = getSeededRows(elementsByEntityId, entityByCodename.get('GamificationSettings')?.id)
-    const pointAwardRuleRows = getSeededRows(elementsByEntityId, entityByCodename.get('PointAwardRules')?.id)
-    const pointTransactionRows = getSeededRows(elementsByEntityId, entityByCodename.get('PointTransactions')?.id)
-    const badgeDefinitionRows = getSeededRows(elementsByEntityId, entityByCodename.get('BadgeDefinitions')?.id)
-    const badgeIssueRows = getSeededRows(elementsByEntityId, entityByCodename.get('BadgeIssues')?.id)
-    const leaderboardRows = getSeededRows(elementsByEntityId, entityByCodename.get('LeaderboardSnapshots')?.id)
-    const reportRows = getSeededRows(elementsByEntityId, entityByCodename.get('Reports')?.id)
-
-    const expectedCounts = [
-        ['class', classRows.length, LMS_DEMO_CLASSES.length],
-        ['student', studentRows.length, LMS_DEMO_STUDENTS.length],
-        ['content project', contentProjectRows.length, 2],
-        ['content access entry', contentAccessRows.length, 1],
-        ['content star', contentStarRows.length, 1],
-        ['recent content view', recentContentRows.length, 1],
-        ['resource', resourceRows.length, LMS_DEMO_RESOURCES.length + LMS_DEMO_CONTENT_NODES.length],
-        ['course', courseRows.length, LMS_DEMO_COURSES.length],
-        ['course section', courseSectionRows.length, 3],
-        ['course item', courseItemRows.length, 3],
-        ['learning track', learningTrackRows.length, 2],
-        ['track stage', trackStageRows.length, 2],
-        ['track step', trackStepRows.length, 3],
-        ['quiz', quizRows.length, LMS_DEMO_QUIZZES.length],
-        ['quiz response', quizResponseRows.length, LMS_DEMO_QUIZ_RESPONSES.length],
-        ['content progress', contentProgressRows.length, LMS_DEMO_CONTENT_PROGRESS.length],
-        ['access link', accessLinkRows.length, LMS_DEMO_ACCESS_LINKS.length],
-        ['enrollment', enrollmentRows.length, LMS_DEMO_ENROLLMENTS.length + 2],
-        ['knowledge space', knowledgeSpaceRows.length, 1],
-        ['knowledge folder', knowledgeFolderRows.length, 1],
-        ['knowledge article', knowledgeArticleRows.length, 1],
-        ['knowledge bookmark', knowledgeBookmarkRows.length, 1],
-        ['development plan', developmentPlanRows.length, 1],
-        ['development plan stage', developmentPlanStageRows.length, 1],
-        ['development plan task', developmentPlanTaskRows.length, 1],
-        ['gamification setting', gamificationSettingRows.length, LMS_DEMO_GAMIFICATION_SETTINGS.length],
-        ['point award rule', pointAwardRuleRows.length, LMS_DEMO_POINT_AWARD_RULES.length],
-        ['point transaction', pointTransactionRows.length, LMS_DEMO_POINT_TRANSACTIONS.length],
-        ['badge definition', badgeDefinitionRows.length, LMS_DEMO_BADGES.length],
-        ['badge issue', badgeIssueRows.length, LMS_DEMO_BADGE_ISSUES.length],
-        ['leaderboard snapshot', leaderboardRows.length, LMS_DEMO_LEADERBOARD.length],
-        ['report', reportRows.length, LMS_DEMO_REPORTS.length]
-    ] as const
-
-    for (const [label, actual, expected] of expectedCounts) {
-        if (actual !== expected) {
-            errors.push(`LMS fixture must seed exactly ${expected} ${label} row(s), received ${actual}`)
-        }
-    }
-
-    if (resourceRows.some((row) => !row.data?.Body)) {
-        errors.push('LMS fixture must seed authored LearningResources.Body content for direct app-side editing')
-    }
-    for (const resourceRow of resourceRows) {
-        const label = readLocalizedText(resourceRow.data?.Title, 'en') ?? resourceRow.id
-        assertEditorBlockTextLocalized(errors, resourceRow.data?.Body, `LMS learning resource ${label}`)
-    }
-    if (!knowledgeArticleRows[0]?.data?.Body) {
-        errors.push('LMS fixture must seed at least one authored KnowledgeArticles.Body document')
-    }
-    for (const articleRow of knowledgeArticleRows) {
-        const label = readLocalizedText(articleRow.data?.Title, 'en') ?? articleRow.id
-        assertEditorBlockTextLocalized(errors, articleRow.data?.Body, `LMS knowledge article ${label}`)
-    }
-    if (!knowledgeBookmarkRows[0]?.data?.ArticleId || knowledgeBookmarkRows[0]?.data?.FolderId) {
-        errors.push('LMS fixture knowledge bookmarks must point at KnowledgeArticles instead of folders')
-    }
-
-    for (const seededCourse of LMS_DEMO_COURSES) {
-        const courseRow = courseRows.find((row) => readLocalizedText(row?.data?.Title, 'en') === seededCourse.title.en)
-        if (!courseRow) continue
-        const parsedCatalogPolicy = catalogPublicationPolicySchema.safeParse({
-            visible: courseRow.data?.CatalogVisible,
-            category: courseRow.data?.CatalogCategory,
-            audience: courseRow.data?.CatalogAudience,
-            selfEnrollmentMode: courseRow.data?.SelfEnrollmentMode
-        })
-        if (!parsedCatalogPolicy.success) {
-            errors.push(`LMS course ${seededCourse.key} must expose valid catalog-ready metadata`)
-        } else if (
-            parsedCatalogPolicy.data.visible !== true ||
-            readLocalizedText(parsedCatalogPolicy.data.category, 'en') !== seededCourse.catalogCategory.en ||
-            readLocalizedText(parsedCatalogPolicy.data.audience, 'en') !== seededCourse.catalogAudience.en ||
-            parsedCatalogPolicy.data.selfEnrollmentMode !== seededCourse.selfEnrollmentMode
-        ) {
-            errors.push(`LMS course ${seededCourse.key} must keep deterministic catalog policy metadata`)
-        }
-    }
-
-    for (const expectedTrack of [
-        {
-            title: 'New learner onboarding track',
-            category: 'Onboarding',
-            audience: 'New learners',
-            selfEnrollmentMode: 'open'
-        },
-        {
-            title: 'Compliance refresh track',
-            category: 'Compliance',
-            audience: 'All learners',
-            selfEnrollmentMode: 'disabled'
-        }
-    ] as const) {
-        const trackRow = learningTrackRows.find((row) => readLocalizedText(row?.data?.Title, 'en') === expectedTrack.title)
-        if (!trackRow) continue
-        const parsedCatalogPolicy = catalogPublicationPolicySchema.safeParse({
-            visible: trackRow.data?.CatalogVisible,
-            category: trackRow.data?.CatalogCategory,
-            audience: trackRow.data?.CatalogAudience,
-            selfEnrollmentMode: trackRow.data?.SelfEnrollmentMode
-        })
-        if (!parsedCatalogPolicy.success) {
-            errors.push(`LMS learning track ${expectedTrack.title} must expose valid catalog-ready metadata`)
-        } else if (
-            parsedCatalogPolicy.data.visible !== true ||
-            readLocalizedText(parsedCatalogPolicy.data.category, 'en') !== expectedTrack.category ||
-            readLocalizedText(parsedCatalogPolicy.data.audience, 'en') !== expectedTrack.audience ||
-            parsedCatalogPolicy.data.selfEnrollmentMode !== expectedTrack.selfEnrollmentMode
-        ) {
-            errors.push(`LMS learning track ${expectedTrack.title} must keep deterministic catalog policy metadata`)
-        }
-    }
-
-    const enabledGamificationSetting = gamificationSettingRows.find((row) => row.data?.Scope === 'application')
-    if (enabledGamificationSetting?.data?.Enabled !== true) {
-        errors.push('LMS fixture must seed enabled application-level gamification settings')
-    }
-    const pointRuleCodes = new Set(pointAwardRuleRows.map((row) => row.data?.RuleCode).filter(Boolean))
-    for (const requiredRuleCode of ['content.completed', 'assignment.accepted', 'manual.adjustment']) {
-        if (!pointRuleCodes.has(requiredRuleCode)) {
-            errors.push(`LMS fixture must seed point award rule ${requiredRuleCode}`)
-        }
-    }
-    const approvedPoints = pointTransactionRows.reduce((sum, row) => {
-        if (row.data?.Status !== 'Approved') return sum
-        const value = typeof row.data?.PointsDelta === 'number' ? row.data.PointsDelta : Number(row.data?.PointsDelta)
-        return Number.isFinite(value) ? sum + value : sum
-    }, 0)
-    const currentLeaderboardTotal = leaderboardRows.reduce((sum, row) => {
-        if (row.data?.Period !== 'current') return sum
-        const value = typeof row.data?.TotalPoints === 'number' ? row.data.TotalPoints : Number(row.data?.TotalPoints)
-        return Number.isFinite(value) ? sum + value : sum
-    }, 0)
-    if (approvedPoints !== 40 || currentLeaderboardTotal !== 50) {
-        errors.push('LMS fixture must keep deterministic approved points and current leaderboard totals for achievements')
-    }
-    const issuedBadgeCount = badgeIssueRows.filter((row) => row.data?.Status === 'Issued').length
-    if (issuedBadgeCount < 1) {
-        errors.push('LMS fixture must seed at least one issued learner badge')
-    }
-    const topLeaderboardRow = leaderboardRows.find((row) => row.data?.Rank === 1)
-    if (!topLeaderboardRow || topLeaderboardRow.data?.TotalPoints !== 35 || topLeaderboardRow.data?.BadgeCount !== 1) {
-        errors.push('LMS fixture must seed the deterministic top leaderboard achievement row')
-    }
-
-    const exportedResourceSourceTypes = new Set<string>()
-    let hasDeferredScormPlaceholder = false
-    let hasDeferredXapiPlaceholder = false
-    for (const expectedResource of LMS_DEMO_RESOURCES) {
-        const resourceRow = resourceRows.find(
-            (row) => readLocalizedText(row?.data?.Title, 'en') === readLocalizedText(expectedResource.title, 'en')
-        )
-        if (!resourceRow) {
-            errors.push(`LMS fixture is missing learning resource ${expectedResource.codename}`)
-            continue
-        }
-        const resourceDefinition = resourceDefinitionSchema.safeParse({
-            codename: expectedResource.codename,
-            title: resourceRow.data?.Title,
-            source: resourceRow.data?.Source,
-            estimatedTimeMinutes: resourceRow.data?.EstimatedTimeMinutes,
-            language: resourceRow.data?.Language
-        })
-        if (!resourceDefinition.success) {
-            errors.push(`LMS learning resource ${expectedResource.codename} must match the generic resource contract`)
-            continue
-        }
-        exportedResourceSourceTypes.add(resourceDefinition.data.source.type)
-        if (resourceDefinition.data.source.type === 'scorm' && isDeferredResourceSource(resourceDefinition.data.source)) {
-            hasDeferredScormPlaceholder = true
-        }
-        if (resourceDefinition.data.source.type === 'xapi' && isDeferredResourceSource(resourceDefinition.data.source)) {
-            hasDeferredXapiPlaceholder = true
-        }
-        if (resourceDefinition.data.source.type !== expectedResource.source.type) {
-            errors.push(
-                `LMS learning resource ${expectedResource.codename} must keep source type ${expectedResource.source.type}, received ${resourceDefinition.data.source.type}`
-            )
-        }
-    }
-    for (const requiredResourceType of ['page', 'url', 'video', 'audio', 'document', 'embed', 'scorm', 'xapi']) {
-        if (!exportedResourceSourceTypes.has(requiredResourceType)) {
-            errors.push(`LMS fixture must seed a realistic ${requiredResourceType} learning resource source`)
-        }
-    }
-    if (!hasDeferredScormPlaceholder) {
-        errors.push('LMS fixture must keep SCORM as an explicit deferred placeholder, not a silently supported runtime player')
-    }
-    if (!hasDeferredXapiPlaceholder) {
-        errors.push('LMS fixture must keep xAPI as an explicit deferred placeholder, not a silently supported runtime player')
-    }
-
-    const reportRowsByCodename = new Map<string, SnapshotElement>()
-    for (const expectedReport of LMS_DEMO_REPORTS) {
-        const reportRow = reportRows.find(
-            (row) => readLocalizedText(row?.data?.Name, 'en') === readLocalizedText(expectedReport.title, 'en')
-        )
-        if (!reportRow) {
-            errors.push(`LMS fixture is missing report definition ${expectedReport.codename}`)
-            continue
-        }
-        reportRowsByCodename.set(expectedReport.codename, reportRow)
-
-        const reportDefinition = reportDefinitionSchema.safeParse(reportRow.data?.Definition)
-        if (!reportDefinition.success) {
-            errors.push(`LMS report ${expectedReport.codename} must store a valid generic report definition`)
-            continue
-        }
-        if (reportDefinition.data.codename !== expectedReport.codename) {
-            errors.push(`LMS report ${expectedReport.codename} must keep its canonical report codename`)
-        }
-        if (expectedReport.codename === 'LearningContentSummary') {
-            if (reportDefinition.data.datasource.kind !== 'records.union') {
-                errors.push('LMS LearningContentSummary report must use the generic records.union datasource')
-            } else {
-                const targetDisplayTypes = new Set(
-                    reportDefinition.data.datasource.targets
-                        .map((target) => target.displayType)
-                        .filter((value): value is string => typeof value === 'string')
-                )
-                for (const displayType of ['resource', 'course', 'track']) {
-                    if (!targetDisplayTypes.has(displayType)) {
-                        errors.push(`LMS LearningContentSummary report must include the ${displayType} union target`)
-                    }
-                }
-                if (!reportDefinition.data.datasource.projectedFields?.includes('Instructor')) {
-                    errors.push('LMS LearningContentSummary report must project the generic Instructor component')
-                }
-                const columnFields = new Set(reportDefinition.data.columns.map((column) => column.field))
-                for (const field of ['type', 'title', 'status', 'Instructor', 'project']) {
-                    if (!columnFields.has(field)) {
-                        errors.push(`LMS LearningContentSummary report must expose the safe ${field} column`)
-                    }
-                }
-            }
-        } else if (reportDefinition.data.datasource.kind !== 'records.list') {
-            errors.push(`LMS report ${expectedReport.codename} must use an existing generic records.list datasource`)
-        }
-    }
-    for (const acceptanceArea of LMS_PRODUCT_ACCEPTANCE_MATRIX) {
-        for (const reportCodename of acceptanceArea.requiredReports) {
-            if (!reportRowsByCodename.has(reportCodename)) {
-                errors.push(`LMS acceptance area ${acceptanceArea.area} is missing report ${reportCodename}`)
-            }
-        }
-    }
-
-    const classRowsByKey = new Map<string, SnapshotElement>()
-    for (const seededClass of LMS_DEMO_CLASSES) {
-        const classRow = findRowByField(classRows, 'Name', seededClass.name.en)
-        if (!classRow) {
-            errors.push(`LMS fixture is missing class ${seededClass.name.en}`)
-            continue
-        }
-        classRowsByKey.set(seededClass.key, classRow)
-
-        const classData = classRow.data ?? {}
-        assertLocalizedFixtureValue(errors, classData.Name, seededClass.name, `LMS class ${seededClass.name.en} name`)
-        assertLocalizedFixtureValue(errors, classData.Description, seededClass.description, `LMS class ${seededClass.name.en} description`)
-        if (classData.SchoolYear !== seededClass.schoolYear) {
-            errors.push(`LMS class ${seededClass.name.en} must use SchoolYear=${seededClass.schoolYear}`)
-        }
-        if (classData.StudentCountLimit !== seededClass.studentCountLimit) {
-            errors.push(`LMS class ${seededClass.name.en} must use StudentCountLimit=${seededClass.studentCountLimit}`)
-        }
-    }
-
-    const studentRowsByKey = new Map<string, SnapshotElement>()
-    for (const seededStudent of LMS_DEMO_STUDENTS) {
-        const studentRow = studentRows.find((row) => row?.data?.Email === seededStudent.email)
-        if (!studentRow) {
-            errors.push(`LMS fixture is missing student ${seededStudent.email}`)
-            continue
-        }
-        studentRowsByKey.set(seededStudent.key, studentRow)
-
-        const studentData = studentRow.data ?? {}
-        if (readLocalizedText(studentData.DisplayName, 'en') !== seededStudent.displayName.en) {
-            errors.push(`LMS student ${seededStudent.email} is missing the canonical English display name`)
-        }
-    }
-
-    const quizRowsByKey = new Map<string, SnapshotElement>()
-    for (const seededQuiz of LMS_DEMO_QUIZZES) {
-        const quizRow = findRowByField(quizRows, 'Title', seededQuiz.title.en)
-        if (!quizRow) {
-            errors.push(`LMS fixture is missing quiz ${seededQuiz.title.en}`)
-            continue
-        }
-        quizRowsByKey.set(seededQuiz.key, quizRow)
-
-        const quizData = quizRow.data ?? {}
-        if (readLocalizedText(quizData.Title, 'ru') !== seededQuiz.title.ru) {
-            errors.push(`LMS quiz ${seededQuiz.title.en} is missing the canonical Russian title`)
-        }
-        if (readLocalizedText(quizData.Description, 'en') !== seededQuiz.description.en) {
-            errors.push(`LMS quiz ${seededQuiz.title.en} is missing the canonical English description`)
-        }
-        if (readLocalizedText(quizData.Description, 'ru') !== seededQuiz.description.ru) {
-            errors.push(`LMS quiz ${seededQuiz.title.en} is missing the canonical Russian description`)
-        }
-        if (quizData.PassingScorePercent !== seededQuiz.passingScorePercent) {
-            errors.push(`LMS quiz ${seededQuiz.title.en} must keep PassingScorePercent=${seededQuiz.passingScorePercent}`)
-        }
-        if (quizData.MaxAttempts !== seededQuiz.maxAttempts) {
-            errors.push(`LMS quiz ${seededQuiz.title.en} must keep MaxAttempts=${seededQuiz.maxAttempts}`)
-        }
-
-        const quizQuestions = Array.isArray(quizData.Questions) ? quizData.Questions : []
-        if (quizQuestions.length !== seededQuiz.questions.en.length) {
-            errors.push(`LMS quiz ${seededQuiz.title.en} must contain ${seededQuiz.questions.en.length} questions`)
-        }
-        if (seededQuiz.questions.ru.length !== seededQuiz.questions.en.length) {
-            errors.push(`LMS quiz ${seededQuiz.title.en} must define equal English and Russian question counts`)
-        }
-        for (const [index, expectedEnQuestion] of seededQuiz.questions.en.entries()) {
-            const expectedRuQuestion = seededQuiz.questions.ru[index]
-            const actualQuestion = readRecord(quizQuestions[index])
-            if (!actualQuestion || !expectedRuQuestion) {
-                continue
-            }
-
-            assertLocalizedFixtureValue(
-                errors,
-                actualQuestion.Prompt,
-                { en: expectedEnQuestion.prompt, ru: expectedRuQuestion.prompt },
-                `LMS quiz ${seededQuiz.title.en} question ${index + 1} prompt`
-            )
-            assertLocalizedFixtureValue(
-                errors,
-                actualQuestion.QuestionDescription,
-                { en: expectedEnQuestion.description, ru: expectedRuQuestion.description },
-                `LMS quiz ${seededQuiz.title.en} question ${index + 1} description`
-            )
-            assertLocalizedFixtureValue(
-                errors,
-                actualQuestion.Explanation,
-                { en: expectedEnQuestion.explanation, ru: expectedRuQuestion.explanation },
-                `LMS quiz ${seededQuiz.title.en} question ${index + 1} explanation`
-            )
-            const actualOptions = Array.isArray(actualQuestion.Options) ? actualQuestion.Options : []
-            if (actualOptions.length !== expectedEnQuestion.options.length) {
-                errors.push(
-                    `LMS quiz ${seededQuiz.title.en} question ${index + 1} must contain ${
-                        expectedEnQuestion.options.length
-                    } answer option(s)`
-                )
-            }
-            if (expectedRuQuestion.options.length !== expectedEnQuestion.options.length) {
-                errors.push(`LMS quiz ${seededQuiz.title.en} question ${index + 1} must define equal English and Russian option counts`)
-            }
-            for (const [optionIndex, expectedEnOption] of expectedEnQuestion.options.entries()) {
-                const expectedRuOption = expectedRuQuestion.options[optionIndex]
-                const actualOption = readRecord(actualOptions[optionIndex])
-                if (!actualOption || !expectedRuOption) {
-                    continue
-                }
-                assertLocalizedFixtureValue(
-                    errors,
-                    actualOption.label,
-                    {
-                        en: readLocalizedText(expectedEnOption.label, 'en') ?? '',
-                        ru: readLocalizedText(expectedRuOption.label, 'ru') ?? ''
-                    },
-                    `LMS quiz ${seededQuiz.title.en} question ${index + 1} option ${optionIndex + 1} label`
-                )
-                if (actualOption.isCorrect !== expectedEnOption.isCorrect || actualOption.isCorrect !== expectedRuOption.isCorrect) {
-                    errors.push(
-                        `LMS quiz ${seededQuiz.title.en} question ${index + 1} option ${
-                            optionIndex + 1
-                        } must keep the same correctness flag in both locales`
-                    )
-                }
-            }
-        }
-    }
-
-    const guestContentRowsByKey = new Map<string, SnapshotElement>()
-    for (const seededContent of LMS_DEMO_CONTENT_NODES) {
-        const contentRow = findRowByField(resourceRows, 'Title', seededContent.title.en)
-        if (!contentRow) {
-            errors.push(`LMS fixture is missing guest content ${seededContent.title.en}`)
-            continue
-        }
-        guestContentRowsByKey.set(seededContent.key, contentRow)
-
-        const contentData = contentRow.data ?? {}
-        if (readLocalizedText(contentData.Title, 'ru') !== seededContent.title.ru) {
-            errors.push(`LMS guest content ${seededContent.title.en} is missing the canonical Russian title`)
-        }
-        if (readLocalizedText(contentData.Description, 'en') !== seededContent.description.en) {
-            errors.push(`LMS guest content ${seededContent.title.en} is missing the canonical English description`)
-        }
-        if (readLocalizedText(contentData.Description, 'ru') !== seededContent.description.ru) {
-            errors.push(`LMS guest content ${seededContent.title.en} is missing the canonical Russian description`)
-        }
-        if (contentData.EstimatedTimeMinutes !== seededContent.estimatedDurationMinutes) {
-            errors.push(
-                `LMS guest content ${seededContent.title.en} must keep EstimatedTimeMinutes=${seededContent.estimatedDurationMinutes}`
-            )
-        }
-
-        const contentItems = Array.isArray(contentData.ContentItems) ? contentData.ContentItems : []
-        if (contentItems.length !== seededContent.contentItems.en.length) {
-            errors.push(`LMS guest content ${seededContent.title.en} must contain ${seededContent.contentItems.en.length} content item(s)`)
-        }
-        if (seededContent.contentItems.ru.length !== seededContent.contentItems.en.length) {
-            errors.push(`LMS guest content ${seededContent.title.en} must define equal English and Russian content item counts`)
-        }
-        for (const [index, expectedEnItem] of seededContent.contentItems.en.entries()) {
-            const expectedRuItem = seededContent.contentItems.ru[index]
-            const actualItem = readRecord(contentItems[index])
-            if (!actualItem || !expectedRuItem) {
-                continue
-            }
-
-            assertLocalizedFixtureValue(
-                errors,
-                actualItem.ItemTitle,
-                { en: expectedEnItem.itemTitle, ru: expectedRuItem.itemTitle },
-                `LMS guest content ${seededContent.title.en} item ${index + 1} title`
-            )
-            const expectedEnContent = 'itemContent' in expectedEnItem ? expectedEnItem.itemContent : undefined
-            const expectedRuContent = 'itemContent' in expectedRuItem ? expectedRuItem.itemContent : undefined
-            if (expectedEnContent || expectedRuContent) {
-                assertLocalizedFixtureValue(
-                    errors,
-                    actualItem.ItemContent,
-                    { en: expectedEnContent ?? '', ru: expectedRuContent ?? '' },
-                    `LMS guest content ${seededContent.title.en} item ${index + 1} content`
-                )
-            }
-            if (actualItem.SortOrder !== expectedEnItem.sortOrder || actualItem.SortOrder !== expectedRuItem.sortOrder) {
-                errors.push(`LMS guest content ${seededContent.title.en} item ${index + 1} must keep the same sort order in both locales`)
-            }
-        }
-
-        const quizRefItem = contentItems.find((item) => item && typeof item === 'object' && (item as Record<string, unknown>).QuizId)
-        const linkedQuizRow = quizRowsByKey.get(seededContent.linkedQuizKey)
-        if (!quizRefItem || !linkedQuizRow?.id) {
-            errors.push(`LMS guest content ${seededContent.title.en} must include a quiz_ref item linked to ${seededContent.linkedQuizKey}`)
-        } else if ((quizRefItem as Record<string, unknown>).QuizId !== linkedQuizRow.id) {
-            errors.push(`LMS guest content ${seededContent.title.en} quiz_ref item must point at the canonical seeded quiz row id`)
-        }
-    }
-
-    for (const seededLink of LMS_DEMO_ACCESS_LINKS) {
-        const accessLinkRow = accessLinkRows.find((row) => row?.data?.Slug === seededLink.slug)
-        if (!accessLinkRow) {
-            errors.push(`LMS fixture is missing access link ${seededLink.slug}`)
-            continue
-        }
-
-        const accessLinkData = accessLinkRow.data ?? {}
-        if (readLocalizedText(accessLinkData.LinkTitle, 'en') !== seededLink.title.en) {
-            errors.push(`LMS access link ${seededLink.slug} is missing the canonical English title`)
-        }
-        if (readLocalizedText(accessLinkData.LinkTitle, 'ru') !== seededLink.title.ru) {
-            errors.push(`LMS access link ${seededLink.slug} is missing the canonical Russian title`)
-        }
-        if (accessLinkData.TargetType !== 'content') {
-            errors.push(`LMS access link ${seededLink.slug} must target the guest content journey`)
-        }
-
-        const linkedContentRow = guestContentRowsByKey.get(seededLink.contentKey)
-        const linkedClassRow = classRowsByKey.get(seededLink.classKey)
-        if (linkedContentRow?.id && accessLinkData.TargetId !== linkedContentRow.id) {
-            errors.push(`LMS access link ${seededLink.slug} must keep the seeded guest content row id in TargetId`)
-        }
-        if (linkedContentRow?.id && accessLinkData.ContentNodeIdRef !== linkedContentRow.id) {
-            errors.push(`LMS access link ${seededLink.slug} must reference the seeded guest content row through ContentNodeIdRef`)
-        }
-        if (linkedClassRow?.id && accessLinkData.LinkClassId !== linkedClassRow.id) {
-            errors.push(`LMS access link ${seededLink.slug} must reference the seeded class row id`)
-        }
-    }
-
-    for (const seededEnrollment of LMS_DEMO_ENROLLMENTS) {
-        const expectedStudentRow = studentRowsByKey.get(seededEnrollment.studentKey)
-        const expectedClassRow = classRowsByKey.get(seededEnrollment.classKey)
-        const expectedContentRow = guestContentRowsByKey.get(seededEnrollment.contentKey)
-        const enrollmentRow = enrollmentRows.find(
-            (row) =>
-                row?.data?.EnrollmentStudentId === expectedStudentRow?.id &&
-                row?.data?.EnrollmentClassId === expectedClassRow?.id &&
-                row?.data?.TargetType === 'content' &&
-                row?.data?.TargetId === expectedContentRow?.id &&
-                row?.data?.ContentNodeIdRef === expectedContentRow?.id
-        )
-
-        if (!enrollmentRow) {
-            errors.push(`LMS fixture is missing enrollment ${seededEnrollment.key}`)
-        } else {
-            if (enrollmentRow.data?.AssignedUserId !== LMS_RUNTIME_CURRENT_USER_ID_TOKEN) {
-                errors.push(`LMS enrollment ${seededEnrollment.key} must use the runtime current-user seed token`)
-            }
-            if (!readLocalizedText(enrollmentRow.data?.TargetTitle, 'en')) {
-                errors.push(`LMS enrollment ${seededEnrollment.key} must expose a learner-facing TargetTitle`)
-            }
-            if (enrollmentRow.data?.DueDateMode !== 'ByDate' || typeof enrollmentRow.data?.DuePeriodDays !== 'number') {
-                errors.push(`LMS enrollment ${seededEnrollment.key} must seed due-date mode and period metadata`)
-            }
-        }
-    }
-
-    const courseEnrollment = enrollmentRows.find((row) => row?.data?.TargetType === 'course')
-    if (
-        !courseEnrollment?.data?.TargetId ||
-        !courseEnrollment.data.DueDate ||
-        courseEnrollment.data.DueDateMode !== 'ByDate' ||
-        courseEnrollment.data.DuePeriodDays !== 14 ||
-        courseEnrollment.data.RestrictAfterDueDate !== true ||
-        courseEnrollment.data.AssignedUserId !== LMS_RUNTIME_CURRENT_USER_ID_TOKEN ||
-        readLocalizedText(courseEnrollment.data.TargetTitle, 'en') !== 'Compliance Refresh Course'
-    ) {
-        errors.push('LMS fixture must seed at least one due-date restricted course enrollment')
-    }
-    const trackEnrollment = enrollmentRows.find((row) => row?.data?.TargetType === 'track')
-    if (
-        !trackEnrollment?.data?.TargetId ||
-        !trackEnrollment.data.DueDate ||
-        trackEnrollment.data.DueDateMode !== 'ForPeriod' ||
-        trackEnrollment.data.DuePeriodDays !== 20 ||
-        trackEnrollment.data.RestrictAfterDueDate !== true ||
-        trackEnrollment.data.AssignedUserId !== LMS_RUNTIME_CURRENT_USER_ID_TOKEN ||
-        readLocalizedText(trackEnrollment.data.TargetTitle, 'en') !== 'Compliance refresh track'
-    ) {
-        errors.push('LMS fixture must seed at least one due-date restricted track enrollment')
-    }
-
-    for (const seededProgress of LMS_DEMO_CONTENT_PROGRESS) {
-        const expectedStudentRow = studentRowsByKey.get(seededProgress.studentKey)
-        const expectedContentRow = guestContentRowsByKey.get(seededProgress.contentKey)
-        const contentProgressRow = contentProgressRows.find(
-            (row) => row?.data?.ProgressStudentId === expectedStudentRow?.id && row?.data?.ContentNodeId === expectedContentRow?.id
-        )
-
-        if (!contentProgressRow) {
-            errors.push(`LMS fixture is missing content progress ${seededProgress.key}`)
-            continue
-        }
-
-        const contentProgressData = contentProgressRow.data ?? {}
-        if (contentProgressData.ProgressStatus !== seededProgress.status) {
-            errors.push(`LMS content progress ${seededProgress.key} must keep ProgressStatus=${seededProgress.status}`)
-        }
-        if (contentProgressData.ProgressPercent !== seededProgress.progressPercent) {
-            errors.push(`LMS content progress ${seededProgress.key} must keep ProgressPercent=${seededProgress.progressPercent}`)
-        }
-    }
-
-    for (const seededResponse of LMS_DEMO_QUIZ_RESPONSES) {
-        const expectedStudentRow = studentRowsByKey.get(seededResponse.studentKey)
-        const expectedQuizRow = quizRowsByKey.get(seededResponse.quizKey)
-        const quizResponseRow = quizResponseRows.find(
-            (row) =>
-                row?.data?.StudentId === expectedStudentRow?.id &&
-                row?.data?.QuizId === expectedQuizRow?.id &&
-                row?.data?.QuestionId === seededResponse.questionId
-        )
-
-        if (!quizResponseRow) {
-            errors.push(`LMS fixture is missing quiz response ${seededResponse.key}`)
-            continue
-        }
-
-        const quizResponseData = quizResponseRow.data ?? {}
-        const normalizedSelectedOptionIds = Array.isArray(quizResponseData.SelectedOptionIds) ? quizResponseData.SelectedOptionIds : []
-
-        if (quizResponseData.QuestionId !== seededResponse.questionId) {
-            errors.push(`LMS quiz response ${seededResponse.key} must keep QuestionId=${seededResponse.questionId}`)
-        }
-        if (JSON.stringify(normalizedSelectedOptionIds) !== JSON.stringify(seededResponse.selectedOptionIds)) {
-            errors.push(`LMS quiz response ${seededResponse.key} must keep the canonical SelectedOptionIds payload`)
-        }
-        if (quizResponseData.IsCorrect !== seededResponse.isCorrect) {
-            errors.push(`LMS quiz response ${seededResponse.key} must keep IsCorrect=${String(seededResponse.isCorrect)}`)
-        }
-        if (quizResponseData.AttemptNumber !== seededResponse.attemptNumber) {
-            errors.push(`LMS quiz response ${seededResponse.key} must keep AttemptNumber=${seededResponse.attemptNumber}`)
-        }
-    }
-
+    assertLmsSeededRowsContract({ envelope, entityByCodename, errors })
     if (errors.length > 0) {
         throw new Error(errors.join('\n'))
     }

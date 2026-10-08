@@ -13,6 +13,8 @@ import {
     uuidV7Schema
 } from '@universo-react/types'
 
+const placementSlotKeySchema = z.string().trim().min(1).max(128)
+
 /**
  * The shared type schemas predate the backend request boundary and several
  * widget mutations are intentionally non-strict there. Keep the public type
@@ -23,11 +25,28 @@ export const strictApplicationLayoutCreateSchema = applicationLayoutCreateSchema
 export const strictApplicationLayoutUpdateSchema = applicationLayoutUpdateSchema.strict()
 export const strictApplicationLayoutConfigResetMutationSchema = applicationLayoutConfigResetMutationSchema.strict()
 export const strictApplicationLayoutCopyMutationSchema = applicationLayoutCopyMutationSchema.strict()
-export const strictApplicationLayoutWidgetMutationSchema = applicationLayoutWidgetMutationSchema.strict()
+export const strictApplicationLayoutWidgetMutationSchema = applicationLayoutWidgetMutationSchema
+    .extend({
+        parentWidgetId: uuidV7Schema.nullable().default(null),
+        slotKey: placementSlotKeySchema.nullable().default(null)
+    })
+    .strict()
 export const strictApplicationLayoutWidgetConfigMutationSchema = applicationLayoutWidgetConfigMutationSchema.strict()
 export const strictApplicationLayoutWidgetMoveMutationSchema = applicationLayoutWidgetMoveMutationSchema
-    .extend({ targetPlacement: layoutLogicalPlacementSchema.optional() })
+    .extend({
+        targetPlacement: layoutLogicalPlacementSchema.optional(),
+        parentWidgetId: uuidV7Schema.nullable().optional(),
+        slotKey: placementSlotKeySchema.nullable().optional()
+    })
     .strict()
+    .superRefine((mutation, context) => {
+        if ((mutation.parentWidgetId === undefined) !== (mutation.slotKey === undefined)) {
+            context.addIssue({ code: z.ZodIssueCode.custom, message: 'Parent and slot must be supplied together' })
+        }
+        if ((mutation.parentWidgetId === null) !== (mutation.slotKey === null) && mutation.parentWidgetId !== undefined) {
+            context.addIssue({ code: z.ZodIssueCode.custom, message: 'Parent and slot must either both be set or both be null' })
+        }
+    })
 export const strictApplicationLayoutWidgetToggleMutationSchema = applicationLayoutWidgetToggleMutationSchema.strict()
 export const strictApplicationLayoutWidgetResetBatchMutationSchema = applicationLayoutWidgetResetBatchMutationSchema.strict()
 

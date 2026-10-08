@@ -1,12 +1,12 @@
 import {
-    marketingCollectionVariantSchema,
-    marketingWidgetKeySchema,
+    applicationLayoutWidgetKeySchema,
+    getLayoutWidgetDefinition,
     replaceLayoutZoneWidgetBindingsInputSchema,
     widgetBindingSelectionInputSchema,
     widgetBindingSelectorInputSchema,
     widgetBindingSourceKeySchema,
     widgetBindingSourceProvisionPayloadSchema,
-    type MarketingWidgetKey,
+    widgetBindingVariantKeySchema,
     type WidgetBindingSlotDefinition
 } from '@universo-react/types'
 import { z } from 'zod'
@@ -23,14 +23,15 @@ export const normalizedSearchInputSchema = z
         z.string().max(128).optional()
     )
     .transform((value) => value || undefined)
+export const widgetBindingVariantSchema = widgetBindingVariantKeySchema
 export const updateLayoutZoneWidgetBindingSchema = replaceLayoutZoneWidgetBindingsInputSchema
 export const recordPageInputSchema = z
     .object({
         layoutId: uuidV7Schema,
         widgetId: uuidV7Schema,
         slot: z.string().trim().min(1).max(64),
-        widgetKey: marketingWidgetKeySchema.optional(),
-        variant: marketingCollectionVariantSchema.optional(),
+        widgetKey: applicationLayoutWidgetKeySchema.optional(),
+        variant: widgetBindingVariantSchema.optional(),
         sourceKey: sourceKeySchema,
         locale: z.string().trim().min(2).max(16).default('en'),
         offset: z.number().int().min(0).max(MAX_WIDGET_BINDING_OFFSET).default(0),
@@ -43,8 +44,8 @@ export const sourcePageInputSchema = z
         layoutId: uuidV7Schema,
         widgetId: uuidV7Schema,
         slot: z.string().trim().min(1).max(64),
-        widgetKey: marketingWidgetKeySchema.optional(),
-        variant: marketingCollectionVariantSchema.optional(),
+        widgetKey: applicationLayoutWidgetKeySchema.optional(),
+        variant: widgetBindingVariantSchema.optional(),
         locale: z.string().trim().min(2).max(16).default('en'),
         offset: z.number().int().min(0).max(MAX_WIDGET_BINDING_OFFSET).default(0),
         search: normalizedSearchInputSchema,
@@ -62,10 +63,9 @@ export const readBindingInputSchema = z
 export const discoveryPageInputShape = z
     .object({
         layoutId: uuidV7Schema,
-        templateKey: z.literal('marketing-page'),
-        widgetKey: marketingWidgetKeySchema,
+        widgetKey: applicationLayoutWidgetKeySchema,
         slot: z.string().trim().min(1).max(64),
-        variant: marketingCollectionVariantSchema.optional(),
+        variant: widgetBindingVariantSchema.optional(),
         locale: z.string().trim().min(2).max(16).default('en'),
         offset: z.number().int().min(0).max(MAX_WIDGET_BINDING_OFFSET).default(0),
         search: normalizedSearchInputSchema,
@@ -73,18 +73,24 @@ export const discoveryPageInputShape = z
         selectedSourceKey: sourceKeySchema.optional()
     })
     .strict()
-const validateDiscoveryVariant = (
-    input: { widgetKey: MarketingWidgetKey; variant?: z.infer<typeof marketingCollectionVariantSchema> },
-    issueContext: z.RefinementCtx
-): void => {
-    if (input.widgetKey === 'marketing.collection' && input.variant === undefined) {
-        issueContext.addIssue({ code: z.ZodIssueCode.custom, path: ['variant'], message: 'A collection variant is required.' })
+const validateDiscoveryVariant = (input: { widgetKey: string; variant?: string }, issueContext: z.RefinementCtx): void => {
+    const definition = getLayoutWidgetDefinition(input.widgetKey, input.variant === undefined ? {} : { variant: input.variant })
+    const variants = definition?.bindingVariants
+    const hasVariants = Boolean(variants && Object.keys(variants).length > 0)
+
+    if (hasVariants && input.variant === undefined) {
+        issueContext.addIssue({ code: z.ZodIssueCode.custom, path: ['variant'], message: 'A widget binding variant is required.' })
+        return
     }
-    if (input.widgetKey !== 'marketing.collection' && input.variant !== undefined) {
+    if (input.variant !== undefined && (!variants || !Object.prototype.hasOwnProperty.call(variants, input.variant))) {
+        issueContext.addIssue({ code: z.ZodIssueCode.custom, path: ['variant'], message: 'This widget variant is not registered.' })
+        return
+    }
+    if (!hasVariants && input.variant !== undefined) {
         issueContext.addIssue({
             code: z.ZodIssueCode.custom,
             path: ['variant'],
-            message: 'This widget does not support a collection variant.'
+            message: 'This widget does not support a binding variant.'
         })
     }
 }
@@ -96,10 +102,9 @@ export { widgetBindingSourceProvisionPayloadSchema }
 export const provisionSourceInputSchema = z
     .object({
         layoutId: uuidV7Schema,
-        templateKey: z.literal('marketing-page'),
-        widgetKey: marketingWidgetKeySchema,
+        widgetKey: applicationLayoutWidgetKeySchema,
         slot: z.string().trim().min(1).max(64),
-        variant: marketingCollectionVariantSchema.optional(),
+        variant: widgetBindingVariantSchema.optional(),
         locale: z.string().trim().min(2).max(16).default('en'),
         templateSourceKey: sourceKeySchema,
         parentSourceKey: sourceKeySchema.optional(),

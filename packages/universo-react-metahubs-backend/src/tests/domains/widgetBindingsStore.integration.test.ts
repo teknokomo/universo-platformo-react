@@ -314,6 +314,48 @@ describeIntegration('Marketing widget binding SQL store integration (requires Po
         })
     })
 
+    it('loads and updates bindings for an independent scoped layout while keeping overlay writes closed', async () => {
+        const scopedLayoutId = uuid(32)
+        const scopedWidgetId = uuid(33)
+        const scopeEntityId = uuid(34)
+        const userId = uuid(40)
+        const config = { variant: 'records' }
+
+        await knex.withSchema(schemaName).table('_mhb_layouts').insert({
+            id: scopedLayoutId,
+            template_key: 'dashboard',
+            scope_entity_id: scopeEntityId,
+            base_layout_id: null
+        })
+        await knex.withSchema(schemaName).table('_mhb_widgets').insert({
+            id: scopedWidgetId,
+            layout_id: scopedLayoutId,
+            widget_key: 'detailsTable',
+            zone: 'center',
+            config: {}
+        })
+
+        await expect(loadWidgetBindingWidget(executor, schemaName, scopedWidgetId)).resolves.toMatchObject({
+            id: scopedWidgetId,
+            layout_id: scopedLayoutId,
+            scope_entity_id: scopeEntityId,
+            base_layout_id: null
+        })
+        await expect(
+            updateWidgetBindingConfig(executor, schemaName, {
+                widgetId: scopedWidgetId,
+                layoutId: scopedLayoutId,
+                expectedVersion: 1,
+                config,
+                userId
+            })
+        ).resolves.toBe(2)
+        await expect(loadWidgetBindingWidget(executor, schemaName, scopedWidgetId)).resolves.toMatchObject({
+            widget_version: 2,
+            config
+        })
+    })
+
     it('rejects direct binding writes to scoped overlay widgets at the store boundary', async () => {
         const overlayLayoutId = uuid(32)
         const overlayWidgetId = uuid(33)

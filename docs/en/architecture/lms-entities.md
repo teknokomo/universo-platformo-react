@@ -9,23 +9,27 @@ All primary LMS concepts are represented as ordinary metahub entities.
 
 ## Core Objects
 
-| Entity              | Purpose                                                                            |
-| ------------------- | ---------------------------------------------------------------------------------- |
-| `LearnerHome`       | Non-physical Page with Editor.js-compatible blocks for the learner landing surface |
-| `Classes`           | Student groups or cohorts                                                          |
-| `Students`          | Registered learners and guest learners                                             |
-| `LearningResources` | Standalone pages, structured guest lessons, links, and other authored resources    |
-| `Courses`           | Sequenced course shells built from sections and course items                       |
-| `CourseSections`    | Course outline sections with persisted ordering                                    |
-| `CourseItems`       | Parent-scoped course content links with completion and availability metadata       |
-| `LearningTracks`    | Multi-course learning paths                                                        |
-| `TrackStages`       | Learning-track stages with persisted ordering                                      |
-| `TrackSteps`        | Parent-scoped track steps linked to courses or resources                           |
-| `Quizzes`           | Quiz definitions with question tables                                              |
-| `QuizResponses`     | Per-question response persistence                                                  |
-| `ContentProgress`   | Per-student progress for Learning Resources and public guest-flow progress         |
-| `AccessLinks`       | Guest-access routing records                                                       |
-| `Enrollments`       | Polymorphic assignment rows for resources, courses, and tracks                     |
+| Entity               | Purpose                                                                            |
+| -------------------- | ---------------------------------------------------------------------------------- |
+| `LearnerHome`        | Non-physical Page with Editor.js-compatible blocks for the learner landing surface |
+| `Classes`            | Student groups or cohorts                                                          |
+| `Students`           | Registered learners and guest learners                                             |
+| `LearningResources`  | Standalone pages, structured guest lessons, links, and other authored resources    |
+| `Courses`            | Sequenced course shells built from sections and course items                       |
+| `CourseSections`     | Course outline sections with persisted ordering                                    |
+| `CourseItems`        | Parent-scoped course content links with completion and availability metadata       |
+| `LearningTracks`     | Multi-course learning paths                                                        |
+| `TrackStages`        | Learning-track stages with persisted ordering                                      |
+| `TrackSteps`         | Parent-scoped track steps linked to courses or resources                           |
+| `Quizzes`            | Quiz definitions with question tables                                              |
+| `QuizResponses`      | Per-question response persistence                                                  |
+| `ContentProgress`    | Per-student progress for Learning Resources and public guest-flow progress         |
+| `AccessLinks`        | Guest-access routing records                                                       |
+| `Enrollments`        | Polymorphic assignment rows for resources, courses, and tracks                     |
+| `KnowledgeSpaces`    | Workspace-scoped knowledge bases                                                   |
+| `KnowledgeFolders`   | Ordered folders within a knowledge space                                           |
+| `KnowledgeArticles`  | Workspace-authored articles linked to a knowledge folder                           |
+| `KnowledgeBookmarks` | Learner bookmarks that reference a knowledge article                               |
 
 ## Operational Ledgers
 
@@ -51,6 +55,7 @@ All primary LMS concepts are represented as ordinary metahub entities.
 -   `ProgressLedger` and `ScoreLedger` are standard Ledger entities, not LMS-specific services. They use the shared Ledger configuration block for dimensions, resources, measures, period fields, and projections.
 -   Transactional LMS objects use the shared Object `behavior` tab for numbering, effective dates, lifecycle states, posting targets, and posting modules. The LMS fixture stores these settings in `config.recordBehavior`.
 -   Access links are ordinary runtime rows rather than a separate routing subsystem.
+-   Knowledge Articles are ordinary `KnowledgeArticles` Object records. Their published route uses a scoped Dashboard with the shared `detailsTable` record-set binding; the required `SortOrder` component follows the common row-order contract and is hidden from the normal form and grid.
 -   Guest sessions create student rows in the same application schema so progress and quiz statistics remain queryable together.
 
 ## Page Content Authoring
@@ -67,9 +72,12 @@ Published applications do not bundle Editor.js for rendering.
 
 The LMS layout uses the same generic dashboard widgets as other published applications:
 
--   `menuWidget` with curated primary items, optional overflow, and a `startPage` pointing at `LearnerHome`.
+-   `menuWidget` with generated navigation derived from layout-capable Entity types. Menu configuration stores no Entity IDs, editorial item list, or startup target.
 -   `appNavbar`, `header`, `detailsTitle`, and `detailsTable` for the runtime shell and data surfaces.
 -   `columnsContainer` when a layout needs composed dashboard content while preserving nested widget configuration.
 
-The platform still supports module-backed widgets and QR widgets as generic capabilities, but the LMS fixture does not bind global content/statistics/QR widgets into the default application layout.
+The generated LMS menu marks the `Reports` Object with `runtime.requiresPermission: readReports`, so members without that application capability do not see its link. This is a navigation aid; report data and execution remain protected by server-side permission checks.
+
+`LearnerHome` remains a Page with its own scoped layout and is resolved through the runtime's semantic Entity target. The platform still supports module-backed widgets and QR widgets as generic capabilities, but the LMS fixture does not bind global content/statistics/QR widgets into the default application layout.
+`KnowledgeArticles` also has an Entity-scoped Dashboard: its rows and create action use the existing generic records table and localized create-target menu, with content stored only on the Object records.
 LMS-specific behavior comes from metahub configuration, entity data, modules attached to the relevant metadata surface, and public runtime links.

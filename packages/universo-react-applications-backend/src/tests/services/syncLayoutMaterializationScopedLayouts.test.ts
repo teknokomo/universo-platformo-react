@@ -1,3 +1,4 @@
+import { encodeLayoutWidgetConfigEnvelope } from '@universo-react/types'
 import {
     buildMergedDashboardLayoutConfig,
     normalizeSnapshotLayoutZoneWidgets,
@@ -10,6 +11,36 @@ import {
 import type { PublishedApplicationSnapshot } from './syncLayoutMaterializationHarness'
 
 describe('sync layout workspace and scoped materialization', () => {
+    it('preserves a non-default scoped layout and allows runtime fallback to the global default', () => {
+        const snapshot: PublishedApplicationSnapshot = {
+            layouts: [createGlobalDashboardLayout()],
+            scopedLayouts: [
+                {
+                    id: 'scoped-layout-1',
+                    scopeEntityId: 'scope-entity-1',
+                    baseLayoutId: 'global-layout-1',
+                    compositionMode: 'overlay',
+                    templateKey: 'dashboard',
+                    name: { en: 'Scoped alternate' },
+                    description: null,
+                    config: {},
+                    isActive: true,
+                    isDefault: false,
+                    sortOrder: 1
+                }
+            ],
+            layoutZoneWidgets: [],
+            defaultLayoutId: 'global-layout-1'
+        }
+
+        expect(normalizeSnapshotLayouts(snapshot)).toEqual(
+            expect.arrayContaining([
+                expect.objectContaining({ id: 'global-layout-1', scopeEntityId: null, isDefault: true }),
+                expect.objectContaining({ id: 'scoped-layout-1', scopeEntityId: 'scope-entity-1', isDefault: false })
+            ])
+        )
+    })
+
     it('injects workspace switcher widgets into global layouts when runtime workspaces are enabled', () => {
         const snapshot: PublishedApplicationSnapshot = {
             layouts: [
@@ -20,7 +51,7 @@ describe('sync layout workspace and scoped materialization', () => {
                     baseLayoutId: null,
                     name: { en: 'Global default' },
                     description: null,
-                    config: { showSideMenu: true },
+                    config: {},
                     isActive: true,
                     isDefault: true,
                     sortOrder: 0
@@ -33,7 +64,7 @@ describe('sync layout workspace and scoped materialization', () => {
                     zone: 'left',
                     widgetKey: 'menuWidget',
                     sortOrder: 0,
-                    config: { items: [] },
+                    config: { variant: 'generated' },
                     isActive: true
                 }
             ],
@@ -86,9 +117,9 @@ describe('sync layout workspace and scoped materialization', () => {
                     id: '018f8a78-7b8f-7c1d-a111-2222333344a2',
                     layoutId: 'global-layout-1',
                     zone: 'center',
-                    widgetKey: 'detailsTable',
+                    widgetKey: 'columnsContainer',
                     sortOrder: 0,
-                    config: { datasource: { kind: 'records.list', sectionCodename: 'Object' } },
+                    config: { columns: [{ slotKey: 'column:main', width: 12 }] },
                     isActive: true
                 }
             ],
@@ -105,6 +136,86 @@ describe('sync layout workspace and scoped materialization', () => {
         expect(first?.id).toEqual(expect.stringMatching(/^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/))
         expect(second?.id).toEqual(expect.stringMatching(/^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/))
         expect(first?.id).not.toBe(second?.id)
+    })
+
+    it('remaps an overlay-owned child from its base parent to the scoped container clone', () => {
+        const baseContainerId = '018f8a78-7b8f-7c1d-a111-2222333344b1'
+        const snapshot: PublishedApplicationSnapshot = {
+            layouts: [createGlobalDashboardLayout()],
+            scopedLayouts: [
+                {
+                    id: 'scoped-layout-1',
+                    scopeEntityId: 'scope-entity-1',
+                    baseLayoutId: 'global-layout-1',
+                    compositionMode: 'overlay',
+                    templateKey: 'dashboard',
+                    name: { en: 'Scoped' },
+                    description: null,
+                    config: {},
+                    isActive: true,
+                    isDefault: true,
+                    sortOrder: 0
+                }
+            ],
+            layoutZoneWidgets: [
+                {
+                    id: baseContainerId,
+                    layoutId: 'global-layout-1',
+                    zone: 'center',
+                    widgetKey: 'columnsContainer',
+                    instanceKey: 'base.columns',
+                    parentWidgetId: null,
+                    slotKey: null,
+                    sortOrder: 0,
+                    config: { columns: [{ slotKey: 'column:main', width: 12 }] },
+                    isActive: true
+                },
+                {
+                    id: '018f8a78-7b8f-7c1d-a111-2222333344b2',
+                    layoutId: 'scoped-layout-1',
+                    zone: 'center',
+                    widgetKey: 'detailsTable',
+                    instanceKey: 'scoped.table',
+                    parentWidgetId: baseContainerId,
+                    slotKey: 'column:main',
+                    sortOrder: 0,
+                    config: encodeLayoutWidgetConfigEnvelope(
+                        {
+                            rendererConfig: { maxRows: 20, showSearch: true },
+                            neutral: {
+                                bindings: {
+                                    version: 1,
+                                    slots: [
+                                        {
+                                            slot: 'rows',
+                                            targets: [
+                                                {
+                                                    entityKind: 'object',
+                                                    entityCodename: 'Courses',
+                                                    selector: { kind: 'record-set' },
+                                                    projection: []
+                                                }
+                                            ]
+                                        }
+                                    ]
+                                }
+                            }
+                        },
+                        { templateKey: 'dashboard', widgetKey: 'detailsTable', zone: 'center', requireBindings: true }
+                    ),
+                    isActive: true
+                }
+            ],
+            defaultLayoutId: 'global-layout-1'
+        }
+
+        const widgets = materializeSnapshotLayoutsAndWidgets(snapshot).widgets
+        const scopedContainer = widgets.find((widget) => widget.layoutId === 'scoped-layout-1' && widget.widgetKey === 'columnsContainer')
+        const scopedChild = widgets.find((widget) => widget.layoutId === 'scoped-layout-1' && widget.widgetKey === 'detailsTable')
+
+        expect(scopedContainer?.id).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/)
+        expect(scopedContainer?.id).not.toBe(baseContainerId)
+        expect(scopedChild).toMatchObject({ parentWidgetId: scopedContainer?.id, slotKey: 'column:main' })
     })
 
     it('keeps generated workspace widget lineage stable across scoped materializations', () => {
@@ -169,7 +280,7 @@ describe('sync layout workspace and scoped materialization', () => {
                     baseLayoutId: null,
                     name: { en: 'Global default' },
                     description: null,
-                    config: { showHeader: true, showSideMenu: true },
+                    config: { sideMenu: { availableModes: ['wide', 'compact'], primaryMode: 'wide' } },
                     isActive: true,
                     isDefault: true,
                     sortOrder: 0
@@ -182,16 +293,16 @@ describe('sync layout workspace and scoped materialization', () => {
                     zone: 'left',
                     widgetKey: 'menuWidget',
                     sortOrder: 1,
-                    config: { showTitle: true, items: [] },
+                    config: { variant: 'manual' },
                     isActive: true
                 },
                 {
                     id: 'entity-owned-widget-1',
                     layoutId: 'object-layout-1',
                     zone: 'right',
-                    widgetKey: 'productTree',
+                    widgetKey: 'divider',
                     sortOrder: 1,
-                    config: { compact: true },
+                    config: {},
                     isActive: true
                 }
             ],
@@ -204,7 +315,7 @@ describe('sync layout workspace and scoped materialization', () => {
                     templateKey: 'dashboard',
                     name: { en: 'Object override' },
                     description: null,
-                    config: { showHeader: false },
+                    config: { sideMenu: { availableModes: ['compact'], primaryMode: 'compact' } },
                     isActive: true,
                     isDefault: true,
                     sortOrder: 0
@@ -216,7 +327,7 @@ describe('sync layout workspace and scoped materialization', () => {
                     baseWidgetId: '018f8a78-7b8f-7c1d-a111-2222333344a3',
                     zone: 'left',
                     sortOrder: 2,
-                    config: { showTitle: false, items: [] },
+                    config: { variant: 'generated' },
                     isActive: false,
                     isDeletedOverride: false
                 }
@@ -233,17 +344,13 @@ describe('sync layout workspace and scoped materialization', () => {
                     id: 'global-layout-1',
                     scopeEntityId: null,
                     isDefault: true,
-                    config: expect.objectContaining({ showHeader: true, showSideMenu: true })
+                    config: expect.objectContaining({ sideMenu: expect.objectContaining({ primaryMode: 'wide' }) })
                 }),
                 expect.objectContaining({
                     id: 'object-layout-1',
                     scopeEntityId: 'object-1',
                     isDefault: true,
-                    config: expect.objectContaining({
-                        showHeader: false,
-                        showSideMenu: false,
-                        showRightSideMenu: true
-                    })
+                    config: expect.objectContaining({ sideMenu: expect.objectContaining({ primaryMode: 'compact' }) })
                 })
             ])
         )
@@ -254,12 +361,24 @@ describe('sync layout workspace and scoped materialization', () => {
             layoutId: 'object-layout-1',
             zone: 'left',
             sortOrder: 2,
-            config: { showTitle: false, items: [] },
+            config: { variant: 'generated' },
             sourceBaseWidgetId: '018f8a78-7b8f-7c1d-a111-2222333344a3',
             isActive: false
         })
         expect(inheritedCatalogWidget?.id).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/)
         expect(inheritedCatalogWidget?.id).not.toBe('018f8a78-7b8f-7c1d-a111-2222333344a3')
+
+        const changedCompositionSnapshot = {
+            ...snapshot,
+            layoutWidgetOverrides: [
+                {
+                    ...snapshot.layoutWidgetOverrides?.[0],
+                    parentWidgetId: '018f8a78-7b8f-7c1d-a111-2222333344af',
+                    slotKey: 'column:main'
+                }
+            ]
+        }
+        expect(() => materializeSnapshotLayoutsAndWidgets(changedCompositionSnapshot)).toThrow('changes source-owned composition')
 
         expect(widgets).toEqual(
             expect.arrayContaining([
@@ -267,14 +386,14 @@ describe('sync layout workspace and scoped materialization', () => {
                     id: 'entity-owned-widget-1',
                     layoutId: 'object-layout-1',
                     zone: 'right',
-                    widgetKey: 'productTree',
-                    config: { compact: true }
+                    widgetKey: 'divider',
+                    config: {}
                 })
             ])
         )
     })
 
-    it('keeps explicit scoped layout visibility flags over inherited widget-derived visibility', () => {
+    it('preserves scoped Dashboard host configuration while widget visibility stays placement-owned', () => {
         const snapshot: PublishedApplicationSnapshot = {
             layouts: [
                 {
@@ -284,7 +403,7 @@ describe('sync layout workspace and scoped materialization', () => {
                     baseLayoutId: null,
                     name: { en: 'Global default' },
                     description: null,
-                    config: { showDetailsTable: true },
+                    config: { sideMenu: { availableModes: ['wide', 'compact'], primaryMode: 'wide' } },
                     isActive: true,
                     isDefault: true,
                     sortOrder: 0
@@ -295,9 +414,9 @@ describe('sync layout workspace and scoped materialization', () => {
                     id: '018f8a78-7b8f-7c1d-a111-2222333344a5',
                     layoutId: 'global-layout-1',
                     zone: 'center',
-                    widgetKey: 'detailsTable',
+                    widgetKey: 'columnsContainer',
                     sortOrder: 0,
-                    config: {},
+                    config: { columns: [{ slotKey: 'column:main', width: 12 }] },
                     isActive: true
                 }
             ],
@@ -310,7 +429,7 @@ describe('sync layout workspace and scoped materialization', () => {
                     templateKey: 'dashboard',
                     name: { en: 'Object override' },
                     description: null,
-                    config: { showDetailsTable: false, showColumnsContainer: true },
+                    config: { sideMenu: { availableModes: ['compact'], primaryMode: 'compact' } },
                     isActive: true,
                     isDefault: true,
                     sortOrder: 0
@@ -322,19 +441,14 @@ describe('sync layout workspace and scoped materialization', () => {
         const layouts = normalizeSnapshotLayouts(snapshot)
         const scopedLayout = layouts.find((item) => item.id === 'object-layout-1')
 
-        expect(scopedLayout?.config).toEqual(
-            expect.objectContaining({
-                showDetailsTable: false,
-                showColumnsContainer: true
-            })
-        )
+        expect(scopedLayout?.config).toEqual(expect.objectContaining({ sideMenu: expect.objectContaining({ primaryMode: 'compact' }) }))
     })
 
     it('keeps menu widget side-menu settings out of the runtime layout config', () => {
         const snapshot: PublishedApplicationSnapshot = {
             entities: {},
             layoutConfig: {
-                showSideMenu: true,
+                sideMenu: {},
                 __layout: { zoneSettings: { top: {} } }
             },
             layouts: [createGlobalDashboardLayout()],
@@ -345,13 +459,7 @@ describe('sync layout workspace and scoped materialization', () => {
                     zone: 'left',
                     widgetKey: 'menuWidget',
                     sortOrder: 0,
-                    config: {
-                        sideMenu: {
-                            availableModes: ['compact', 'overlay'],
-                            primaryMode: 'compact',
-                            rememberUserChoice: false
-                        }
-                    },
+                    config: { variant: 'generated', projection: 'compact' },
                     isActive: true
                 }
             ],
@@ -360,7 +468,6 @@ describe('sync layout workspace and scoped materialization', () => {
 
         expect(buildMergedDashboardLayoutConfig(snapshot)).toEqual(
             expect.objectContaining({
-                showSideMenu: true,
                 sideMenu: {
                     availableModes: ['wide', 'compact', 'overlay'],
                     primaryMode: 'wide',
@@ -369,7 +476,7 @@ describe('sync layout workspace and scoped materialization', () => {
             })
         )
 
-        expect(() => buildMergedDashboardLayoutConfig({ ...snapshot, layoutConfig: { showHeader: 'false' } })).toThrow()
+        expect(() => buildMergedDashboardLayoutConfig({ ...snapshot, layoutConfig: { sideMenu: { primaryMode: 'invalid' } } })).toThrow()
         expect(() => buildMergedDashboardLayoutConfig({ ...snapshot, layoutConfig: 'false' as never })).toThrow(
             /layoutConfig must be an object/
         )
@@ -385,7 +492,7 @@ describe('sync layout workspace and scoped materialization', () => {
                     baseLayoutId: null,
                     name: { en: 'Global default' },
                     description: null,
-                    config: { showHeader: true },
+                    config: {},
                     isActive: true,
                     isDefault: true,
                     sortOrder: 0
@@ -398,7 +505,7 @@ describe('sync layout workspace and scoped materialization', () => {
                     zone: 'left',
                     widgetKey: 'menuWidget',
                     sortOrder: 1,
-                    config: { showTitle: true, items: [] },
+                    config: { variant: 'generated' },
                     isActive: true
                 }
             ],
@@ -560,7 +667,7 @@ describe('sync layout workspace and scoped materialization', () => {
 
         expect(() => normalizeSnapshotLayouts(snapshot)).toThrow(/config must be an object/)
 
-        snapshot.layouts![0]!.config = { showHeader: 'false' }
+        snapshot.layouts![0]!.config = { sideMenu: 'invalid' }
         expect(() => normalizeSnapshotLayouts(snapshot)).toThrow(/invalid dashboard configuration/)
 
         snapshot.layouts![0]!.config = []
@@ -606,7 +713,7 @@ describe('sync layout workspace and scoped materialization', () => {
                     compositionMode: 'overlay',
                     templateKey: 'dashboard',
                     name: { en: 'Scoped dashboard' },
-                    config: { showHeader: 'false' },
+                    config: { sideMenu: 'invalid' },
                     isActive: true,
                     isDefault: true,
                     sortOrder: 0

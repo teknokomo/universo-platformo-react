@@ -12,11 +12,10 @@ import ViewSidebarRoundedIcon from '@mui/icons-material/ViewSidebarRounded'
 import SideMenuMobile from './SideMenuMobile'
 import SideMenuMobileRight from './SideMenuMobileRight'
 import MenuButton from './MenuButton'
-import ColorModeIconDropdown from '../../shared-theme/ColorModeIconDropdown'
-import LanguageSwitcher from '../../components/LanguageSwitcher'
 import i18n from '@universo-react/i18n'
 import type { DashboardSideMenuMode } from '@universo-react/types'
-import type { DashboardMenuSlot, DashboardMenusMap, ZoneWidgetItem, ZoneWidgets } from '../Dashboard'
+import type { ZoneWidgetItem, ZoneWidgets } from '../contracts'
+import type { RuntimePlacement } from '../runtime/widgetPlacementGraph'
 
 const drawerWidth = 240
 const compactDrawerWidth = 72
@@ -41,33 +40,23 @@ const Toolbar = styled(MuiToolbar)(({ theme }) => ({
 }))
 
 interface AppNavbarProps {
-    menu?: DashboardMenuSlot
-    menus?: DashboardMenusMap
     rightWidgets?: ZoneWidgetItem[]
     zoneWidgets?: ZoneWidgets
+    placements?: readonly RuntimePlacement[]
     sideMenuMode?: DashboardSideMenuMode
     availableSideMenuModes?: DashboardSideMenuMode[]
     reserveDockedSideMenuWidth?: boolean
-    showLanguageSwitcher?: boolean
-    showLanguageSwitcherOnDesktop?: boolean
-    showColorMode?: boolean
-    showColorModeOnDesktop?: boolean
     onToggleDockedSideMenuMode?: () => void
     onOpenSideMenu?: () => void
 }
 
 export default function AppNavbar({
-    menu,
-    menus,
     rightWidgets = [],
     zoneWidgets,
+    placements = [],
     sideMenuMode = 'wide',
     availableSideMenuModes = ['wide'],
     reserveDockedSideMenuWidth = true,
-    showLanguageSwitcher = true,
-    showLanguageSwitcherOnDesktop = true,
-    showColorMode = true,
-    showColorModeOnDesktop = true,
     onToggleDockedSideMenuMode,
     onOpenSideMenu
 }: AppNavbarProps) {
@@ -202,18 +191,6 @@ export default function AppNavbar({
                         data-testid='runtime-app-toolbar-actions'
                         sx={{ alignItems: 'center', pointerEvents: 'auto' }}
                     >
-                        {showLanguageSwitcher && (
-                            <Box sx={{ display: showLanguageSwitcherOnDesktop ? undefined : { xs: 'inline-flex', md: 'none' } }}>
-                                <LanguageSwitcher />
-                            </Box>
-                        )}
-                        {showColorMode && (
-                            <ColorModeIconDropdown
-                                data-testid='runtime-color-mode-button'
-                                aria-label={t('colorMode.label', 'Color mode')}
-                                sx={showColorModeOnDesktop ? undefined : { display: { xs: 'inline-flex', md: 'none' } }}
-                            />
-                        )}
                         {showModeSwitcher && sideMenuMode !== 'overlay' && (
                             <Box sx={{ display: { xs: 'inline-flex', md: 'none' } }}>
                                 <MenuButton
@@ -253,9 +230,8 @@ export default function AppNavbar({
                             drawerId={leftDrawerId}
                             restoreFocusRef={leftMenuTriggerRef}
                             toggleDrawer={toggleLeftDrawer}
-                            menu={menu}
-                            menus={menus}
                             zoneWidgets={zoneWidgets}
+                            placements={placements}
                         />
                     )}
                     {hasRightWidgets && (
@@ -263,8 +239,7 @@ export default function AppNavbar({
                             open={rightOpen}
                             onClose={toggleRightDrawer(false)}
                             widgets={rightWidgets}
-                            menu={menu}
-                            menus={menus}
+                            placements={placements}
                         />
                     )}
                 </Stack>

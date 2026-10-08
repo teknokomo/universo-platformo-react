@@ -199,7 +199,7 @@ export function WorkspaceShell({
                         }}
                     />
                 ) : null}
-                <Stack id='interpretation-network-details-container' sx={{ flex: '1 1 0%', minWidth: 0 }}>
+                <Stack id='interpretation-network-details-container' sx={{ flex: '1 1 0%', minWidth: 0, width: '100%' }}>
                     <DetailsPaneBridge {...details} />
                 </Stack>
             </Stack>

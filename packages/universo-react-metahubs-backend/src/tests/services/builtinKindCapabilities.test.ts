@@ -1,5 +1,9 @@
 import { generateTableName } from '../../domains/ddl'
-import { buildBuiltinKindDeletePlan, resolveBuiltinGeneratedTableName } from '../../domains/entities/services/builtinKindCapabilities'
+import {
+    buildBuiltinKindBlockingState,
+    buildBuiltinKindDeletePlan,
+    resolveBuiltinGeneratedTableName
+} from '../../domains/entities/services/builtinKindCapabilities'
 
 describe('builtinKindCapabilities', () => {
     const createContext = () => ({
@@ -86,45 +90,30 @@ describe('builtinKindCapabilities', () => {
         })
     })
 
-    it('blocks Page deletion while runtime menu widgets reference it', async () => {
+    it('allows Page deletion without querying obsolete renderer menu references', async () => {
         const context = {
             ...createContext(),
             resolvedType: { kindKey: 'page', capabilities: {} } as never
         }
-        const query = (context.exec as unknown as { query: jest.Mock }).query
-        query
-            .mockResolvedValueOnce([{ id: 'entity-1', codename: 'LearnerHome' }])
-            .mockResolvedValueOnce([
-                {
-                    source: 'layoutWidget',
-                    layoutId: 'layout-1',
-                    widgetId: 'widget-1',
-                    layoutName: { en: 'Main' },
-                    reference: 'LearnerHome'
-                }
-            ])
-            .mockResolvedValueOnce([])
 
         const result = await buildBuiltinKindDeletePlan('page', context)
 
-        expect(result).toEqual({
-            policyOutcome: {
-                status: 409,
-                body: {
-                    error: 'Cannot delete page because it is referenced by runtime navigation',
-                    code: 'PAGE_DELETE_BLOCKED_BY_LAYOUT_REFERENCES',
-                    pageId: 'entity-1',
-                    blockingReferences: [
-                        {
-                            source: 'layoutWidget',
-                            layoutId: 'layout-1',
-                            widgetId: 'widget-1',
-                            layoutName: { en: 'Main' },
-                            reference: 'LearnerHome'
-                        }
-                    ]
-                }
-            }
+        expect(result).toEqual({ policyOutcome: null })
+        expect((context.exec as unknown as { query: jest.Mock }).query).not.toHaveBeenCalled()
+        expect(context.schemaService.ensureSchema).not.toHaveBeenCalled()
+    })
+
+    it('reports no obsolete renderer blockers in the Page blocking-state projection', async () => {
+        const context = {
+            ...createContext(),
+            resolvedType: { kindKey: 'page', capabilities: {} } as never
+        }
+
+        await expect(buildBuiltinKindBlockingState('page', context)).resolves.toEqual({
+            status: 200,
+            body: { pageId: 'entity-1', blockingReferences: [], canDelete: true }
         })
+        expect((context.exec as unknown as { query: jest.Mock }).query).not.toHaveBeenCalled()
+        expect(context.schemaService.ensureSchema).not.toHaveBeenCalled()
     })
 })

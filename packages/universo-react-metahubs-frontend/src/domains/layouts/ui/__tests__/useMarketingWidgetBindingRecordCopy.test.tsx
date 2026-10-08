@@ -59,7 +59,8 @@ describe('useMarketingWidgetBindingRecordCopy', () => {
             'object-tree-1',
             'image-entity-1',
             'ImageKey',
-            'image-source'
+            'image-source',
+            undefined
         )
     })
 

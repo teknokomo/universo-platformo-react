@@ -5,8 +5,8 @@ import type {
     ApplicationRolePolicySettings,
     DialogCloseBehavior,
     DialogSizePreset,
+    EffectiveLayoutRuntimeWidget,
     EffectiveLayoutResult,
-    EffectiveWidget,
     RuntimeTarget,
     VersionedLocalizedContent
 } from '@universo-react/types'
@@ -264,28 +264,6 @@ export interface ApplicationRuntimeObjectCollection {
     runtimeConfig?: Record<string, unknown>
 }
 
-export interface ApplicationRuntimeMenuItem {
-    id: string
-    kind: 'section' | 'hub' | 'link'
-    title: string
-    icon?: string | null
-    href?: string | null
-    sectionId?: string | null
-    objectCollectionId?: string | null
-    treeEntityId?: string | null
-    sortOrder?: number
-    isActive?: boolean
-}
-
-export interface ApplicationRuntimeMenu {
-    id: string
-    widgetId: string
-    showTitle?: boolean
-    title?: string
-    autoShowAllSections?: boolean
-    items: ApplicationRuntimeMenuItem[]
-}
-
 export interface ApplicationRuntimeResponse {
     section?: ApplicationRuntimeObjectCollection
     sections?: ApplicationRuntimeObjectCollection[]
@@ -305,29 +283,6 @@ export interface ApplicationRuntimeResponse {
         currentRows: number
         canCreate: boolean
     }
-    layoutConfig?: Record<string, unknown>
-    zoneWidgets?: {
-        left: Array<{
-            id: string
-            widgetKey: string
-            sortOrder: number
-            config: Record<string, unknown>
-        }>
-        right?: Array<{
-            id: string
-            widgetKey: string
-            sortOrder: number
-            config: Record<string, unknown>
-        }>
-        center?: Array<{
-            id: string
-            widgetKey: string
-            sortOrder: number
-            config: Record<string, unknown>
-        }>
-    }
-    menus?: ApplicationRuntimeMenu[]
-    activeMenuId?: string | null
 }
 
 export type ApplicationRuntimeTargetKind = 'page' | 'object'
@@ -344,7 +299,7 @@ export interface ApplicationRuntimeLayoutTarget {
 }
 
 export type ApplicationEffectiveLayoutTarget = RuntimeTarget
-export type ApplicationEffectiveLayoutWidget = EffectiveWidget
+export type ApplicationEffectiveLayoutWidget = EffectiveLayoutRuntimeWidget
 export type ApplicationEffectiveLayoutResponse = Extract<EffectiveLayoutResult, { status: 'ok' }>
 
 export interface ApplicationWorkspaceLimitItem {

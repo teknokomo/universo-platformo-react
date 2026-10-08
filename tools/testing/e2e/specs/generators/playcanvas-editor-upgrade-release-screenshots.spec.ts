@@ -145,6 +145,13 @@ async function captureViewportScreenshot(page: Page, locale: Locale, id: string,
 
 async function expectPublishedAppWorkspaceReady(page: Page, applicationId: string): Promise<void> {
     await page.goto(`/a/${applicationId}`)
+    const welcomePageLink = page.getByRole('link', { name: /^(Welcome|Добро пожаловать)$/i })
+    await expect(welcomePageLink).toBeVisible({ timeout: MMOOMM_RUNTIME_EXPECT_TIMEOUT })
+    await welcomePageLink.click()
+    await page.waitForURL(
+        (url) => url.searchParams.get('targetKind') === 'page' && url.searchParams.get('entityTypeCodename') === 'WelcomePage',
+        { timeout: MMOOMM_RUNTIME_EXPECT_TIMEOUT }
+    )
     await expect(page.getByRole('heading', { name: WELCOME_HEADING })).toBeVisible({
         timeout: MMOOMM_RUNTIME_EXPECT_TIMEOUT
     })
@@ -281,7 +288,7 @@ async function captureLoadingSkeletonOnce(
         await captureViewportScreenshot(page, locale, 'canvas-loading-skeleton', 'canvas-loading-skeleton.png')
         return { context, page }
     } catch (error) {
-        await context.close().catch(() => {})
+        await context.close().catch(() => undefined)
         throw error
     }
 }
@@ -367,7 +374,7 @@ test.describe('PlayCanvas Editor upgrade release screenshots @generator', () => 
 
             await writeCaptureEvidence()
         } catch (error) {
-            await writeCaptureEvidence().catch(() => {})
+            await writeCaptureEvidence().catch(() => undefined)
             throw error
         } finally {
             await disposeApiContext(api)

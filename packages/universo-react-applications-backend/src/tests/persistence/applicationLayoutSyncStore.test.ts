@@ -33,15 +33,19 @@ const heroBinding = (semanticKey: string) =>
 
 const heroConfig = (semanticKey: string) =>
     encodeLayoutWidgetConfigEnvelope(
-        { rendererConfig: { instanceKey: 'hero', showLeadForm: true }, neutral: { bindings: heroBinding(semanticKey) } },
+        { rendererConfig: { showLeadForm: true }, neutral: { bindings: heroBinding(semanticKey) } },
         { templateKey: 'marketing-page', widgetKey: 'marketing.hero', zone: 'marketing-main' }
     )
 
 const syncWidget = (widgetKey: string, zone: string, config: Record<string, unknown>): SyncWidgetInput => ({
     id: '0190a9b5-3cde-7000-8000-000000000031',
     layoutId: '0190a9b5-3cde-7000-8000-000000000032',
+    sourceWidgetId: '0190a9b5-3cde-7000-8000-000000000031',
     zone,
     widgetKey,
+    instanceKey: 'hero',
+    parentWidgetId: null,
+    slotKey: null,
     sortOrder: 0,
     config,
     isActive: true,
@@ -55,13 +59,20 @@ describe('applicationLayoutSyncStore canonical layout boundaries', () => {
             zone: 'marketing-main',
             sortOrder: 0,
             isActive: true,
-            config: previousConfig
+            config: previousConfig,
+            instanceKey: 'hero',
+            parentWidgetId: null,
+            slotKey: null
         })
         const nextInput = {
             id: '0190a9b5-3cde-7000-8000-000000000011',
             layoutId: '0190a9b5-3cde-7000-8000-000000000012',
             zone: 'marketing-main',
             widgetKey: 'marketing.hero',
+            instanceKey: 'hero',
+            parentWidgetId: null,
+            slotKey: null,
+            sourceWidgetId: '0190a9b5-3cde-7000-8000-000000000011',
             sortOrder: 0,
             config: heroConfig('campaign'),
             isActive: true,
@@ -72,6 +83,9 @@ describe('applicationLayoutSyncStore canonical layout boundaries', () => {
             layout_id: nextInput.layoutId,
             zone: nextInput.zone,
             widget_key: nextInput.widgetKey,
+            instance_key: nextInput.instanceKey,
+            parent_widget_id: null,
+            slot_key: null,
             sort_order: nextInput.sortOrder,
             config: previousConfig,
             source_config: previousConfig,
@@ -94,7 +108,7 @@ describe('applicationLayoutSyncStore canonical layout boundaries', () => {
             zone: 'marketing-main'
         })
 
-        expect(decoded.rendererConfig).toEqual({ instanceKey: 'hero', showLeadForm: true })
+        expect(decoded.rendererConfig).toEqual({ showLeadForm: true })
         expect(decoded.neutral.bindings).toEqual(heroBinding('campaign'))
         expect(resolved.sourceState).toEqual(sourceState)
         expect(resolved.sourceState).not.toHaveProperty('bindings')
@@ -106,7 +120,10 @@ describe('applicationLayoutSyncStore canonical layout boundaries', () => {
             zone: 'marketing-main',
             sortOrder: 0,
             isActive: true,
-            config: previousConfig
+            config: previousConfig,
+            instanceKey: 'hero',
+            parentWidgetId: null,
+            slotKey: null
         })
         const nextInput = {
             ...syncWidget('marketing.hero', 'marketing-main', heroConfig('campaign')),
@@ -117,8 +134,11 @@ describe('applicationLayoutSyncStore canonical layout boundaries', () => {
             layout_id: nextInput.layoutId,
             zone: nextInput.zone,
             widget_key: nextInput.widgetKey,
+            instance_key: nextInput.instanceKey,
+            parent_widget_id: null,
+            slot_key: null,
             sort_order: nextInput.sortOrder,
-            config: { instanceKey: 'hero', showLeadForm: false },
+            config: { showLeadForm: false },
             source_config: previousConfig,
             source_state: sourceState,
             is_active: true,
@@ -139,7 +159,7 @@ describe('applicationLayoutSyncStore canonical layout boundaries', () => {
             zone: 'marketing-main'
         })
 
-        expect(decoded.rendererConfig).toEqual({ instanceKey: 'hero', showLeadForm: false })
+        expect(decoded.rendererConfig).toEqual({ showLeadForm: false })
         expect(decoded.neutral.bindings).toEqual(heroBinding('campaign'))
         expect(resolved.sourceState).toEqual(sourceState)
     })
@@ -147,7 +167,7 @@ describe('applicationLayoutSyncStore canonical layout boundaries', () => {
     it('persists inherited Marketing overlay presentation without base bindings', () => {
         const baseWidgetId = '0190a9b5-3cde-7000-8000-000000000041'
         const overlayConfig = encodeLayoutWidgetConfigEnvelope(
-            { rendererConfig: { instanceKey: 'hero', showLeadForm: false } },
+            { rendererConfig: { showLeadForm: false } },
             { templateKey: 'marketing-page', widgetKey: 'marketing.hero', zone: 'marketing-main' }
         )
         const input: SyncWidgetInput = {
@@ -162,7 +182,7 @@ describe('applicationLayoutSyncStore canonical layout boundaries', () => {
             zone: 'marketing-main'
         })
 
-        expect(decoded.rendererConfig).toEqual({ instanceKey: 'hero', showLeadForm: false })
+        expect(decoded.rendererConfig).toEqual({ showLeadForm: false })
         expect(decoded.neutral.placement).toBeUndefined()
         expect(decoded.neutral.bindings).toBeUndefined()
         expect(resolved.sourceState).not.toHaveProperty('bindings')
@@ -171,7 +191,7 @@ describe('applicationLayoutSyncStore canonical layout boundaries', () => {
                 ...input,
                 config: heroConfig('attempted-overlay-binding')
             })
-        ).toThrow('cannot contain entity bindings')
+        ).toThrow('Inherited widget config cannot contain bindings')
     })
 
     it('restores source activation after a sync tombstone without interpreting it as a local override', () => {
@@ -180,13 +200,19 @@ describe('applicationLayoutSyncStore canonical layout boundaries', () => {
             zone: 'marketing-main',
             sortOrder: 0,
             isActive: true,
-            config
+            config,
+            instanceKey: 'hero',
+            parentWidgetId: null,
+            slotKey: null
         })
         const current = {
             id: '0190a9b5-3cde-7000-8000-000000000021',
             layout_id: '0190a9b5-3cde-7000-8000-000000000022',
             zone: 'marketing-main',
             widget_key: 'marketing.hero',
+            instance_key: 'hero',
+            parent_widget_id: null,
+            slot_key: null,
             sort_order: 0,
             config,
             source_config: config,
@@ -209,6 +235,10 @@ describe('applicationLayoutSyncStore canonical layout boundaries', () => {
                 layoutId: current.layout_id,
                 zone: current.zone,
                 widgetKey: current.widget_key,
+                instanceKey: 'hero',
+                parentWidgetId: null,
+                slotKey: null,
+                sourceWidgetId: current.id,
                 sortOrder: current.sort_order,
                 config,
                 isActive: true,
@@ -230,6 +260,10 @@ describe('applicationLayoutSyncStore canonical layout boundaries', () => {
                     layoutId: '0190a9b5-3cde-7000-8000-000000000032',
                     zone: 'marketing-main',
                     widgetKey: 'marketing.hero',
+                    instanceKey: 'hero',
+                    parentWidgetId: null,
+                    slotKey: null,
+                    sourceWidgetId: '0190a9b5-3cde-7000-8000-000000000031',
                     sortOrder: 0,
                     config,
                     isActive: true,
@@ -240,6 +274,9 @@ describe('applicationLayoutSyncStore canonical layout boundaries', () => {
                     layout_id: '0190a9b5-3cde-7000-8000-000000000032',
                     zone: 'marketing-main',
                     widget_key: 'marketing.hero',
+                    instance_key: 'hero',
+                    parent_widget_id: null,
+                    slot_key: null,
                     sort_order: 0,
                     config,
                     source_config: config,
@@ -352,6 +389,10 @@ describe('applicationLayoutSyncStore canonical layout boundaries', () => {
                             id: '0190a9b5-3cde-7000-8000-000000000003',
                             layout_id: '0190a9b5-3cde-7000-8000-000000000001',
                             source_base_widget_id: null,
+                            source_widget_id: null,
+                            instance_key: 'languageSwitcher',
+                            parent_widget_id: null,
+                            slot_key: null,
                             zone: 'marketing-header',
                             widget_key: 'languageSwitcher',
                             sort_order: 2,
@@ -374,7 +415,7 @@ describe('applicationLayoutSyncStore canonical layout boundaries', () => {
 
     it('reads inherited Marketing overlay config deltas without accepting scoped bindings', async () => {
         const overlayConfig = encodeLayoutWidgetConfigEnvelope(
-            { rendererConfig: { instanceKey: 'hero', showLeadForm: false } },
+            { rendererConfig: { showLeadForm: false } },
             { templateKey: 'marketing-page', widgetKey: 'marketing.hero', zone: 'marketing-main' }
         )
         const validExecutor = createExecutor(
@@ -385,6 +426,10 @@ describe('applicationLayoutSyncStore canonical layout boundaries', () => {
                             id: '0190a9b5-3cde-7000-8000-000000000051',
                             layout_id: '0190a9b5-3cde-7000-8000-000000000052',
                             source_base_widget_id: '0190a9b5-3cde-7000-8000-000000000053',
+                            source_widget_id: null,
+                            instance_key: 'hero',
+                            parent_widget_id: null,
+                            slot_key: null,
                             zone: 'marketing-main',
                             widget_key: 'marketing.hero',
                             sort_order: 1,
@@ -414,6 +459,10 @@ describe('applicationLayoutSyncStore canonical layout boundaries', () => {
                             id: '0190a9b5-3cde-7000-8000-000000000054',
                             layout_id: '0190a9b5-3cde-7000-8000-000000000052',
                             source_base_widget_id: '0190a9b5-3cde-7000-8000-000000000053',
+                            source_widget_id: null,
+                            instance_key: 'hero',
+                            parent_widget_id: null,
+                            slot_key: null,
                             zone: 'marketing-main',
                             widget_key: 'marketing.hero',
                             sort_order: 1,
@@ -425,7 +474,9 @@ describe('applicationLayoutSyncStore canonical layout boundaries', () => {
                     ] as never
             )
         )
-        await expect(getPersistedPublishedWidgets(invalidExecutor, schemaName)).rejects.toThrow('cannot contain entity bindings')
+        await expect(getPersistedPublishedWidgets(invalidExecutor, schemaName)).rejects.toThrow(
+            'cannot contain bindings for its registry policy'
+        )
     })
 
     it('reconstructs published bindings from source_config after local renderer edits', async () => {
@@ -434,10 +485,13 @@ describe('applicationLayoutSyncStore canonical layout boundaries', () => {
             layout_id: '0190a9b5-3cde-7000-8000-000000000062',
             source_base_widget_id: null,
             source_widget_id: '0190a9b5-3cde-7000-8000-000000000063',
+            instance_key: 'hero',
+            parent_widget_id: null,
+            slot_key: null,
             zone: 'marketing-main',
             widget_key: 'marketing.hero',
             sort_order: 1,
-            config: { instanceKey: 'hero', showLeadForm: false },
+            config: { showLeadForm: false },
             source_config: heroConfig('campaign'),
             is_active: true,
             template_key: 'marketing-page'
@@ -451,7 +505,7 @@ describe('applicationLayoutSyncStore canonical layout boundaries', () => {
             zone: 'marketing-main'
         })
 
-        expect(decoded.rendererConfig).toEqual({ instanceKey: 'hero', showLeadForm: false })
+        expect(decoded.rendererConfig).toEqual({ showLeadForm: false })
         expect(decoded.neutral.bindings).toEqual(heroBinding('campaign'))
 
         const forgedExecutor = createExecutor(jest.fn(async () => [{ ...row, config: heroConfig('forged') }] as never))
@@ -467,6 +521,10 @@ describe('applicationLayoutSyncStore canonical layout boundaries', () => {
                             id: '0190a9b5-3cde-7000-8000-000000000004',
                             layout_id: '0190a9b5-3cde-7000-8000-000000000001',
                             source_base_widget_id: null,
+                            source_widget_id: null,
+                            instance_key: 'languageSwitcher',
+                            parent_widget_id: null,
+                            slot_key: null,
                             zone: 'marketing-header',
                             widget_key: 'languageSwitcher',
                             sort_order: 2,

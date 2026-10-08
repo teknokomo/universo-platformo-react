@@ -39,6 +39,8 @@ import * as componentsApi from '../../metadata/component/api'
 import RecordBehaviorFields from '../../ui/RecordBehaviorFields'
 import type { RecordBehaviorOption } from '../../ui/RecordBehaviorFields'
 import LedgerSchemaFields from '../../ui/LedgerSchemaFields'
+import ObjectRuntimeNavigationFields from '../../ui/ObjectRuntimeNavigationFields'
+import { applyObjectRuntimeNavigationConfig, getObjectRuntimeNavigationValues } from '../../ui/entityInstanceListHelpers'
 
 const DEFAULT_CC: CodenameConfig = {
     style: 'pascal-case',
@@ -51,6 +53,7 @@ const DEFAULT_CC: CodenameConfig = {
 const _cc = (values?: Record<string, unknown> | null): CodenameConfig =>
     (values?._codenameConfig as CodenameConfig | undefined) || DEFAULT_CC
 const DIALOG_SAVE_CANCEL = { __dialogCancelled: true } as const
+const isRecord = (value: unknown): value is Record<string, unknown> => Boolean(value && typeof value === 'object' && !Array.isArray(value))
 
 /**
  * Extended ObjectCollectionDisplay type that includes treeEntityId for AllObjectCollectionsList context
@@ -149,6 +152,9 @@ const validateRecordBehaviorValue = (
 export const buildInitialValues = (ctx: ActionContext<ObjectCollectionDisplayWithContainer, ObjectCollectionLocalizedPayload>) => {
     const objectMap = ctx.objectMap as Map<string, ObjectCollectionEntity | ObjectCollectionWithContainers> | undefined
     const raw = objectMap?.get(ctx.entity.id)
+    const contextEntity = ctx.entity as ObjectCollectionDisplayWithContainer & { config?: unknown }
+    const entityConfig = isRecord(raw?.config) ? raw.config : isRecord(contextEntity.config) ? contextEntity.config : {}
+    const runtimeConfig = isRecord(entityConfig.runtime) ? { runtime: entityConfig.runtime } : {}
     const uiLocale = normalizeLocale(ctx.uiLocale as string | undefined)
     const nameFallback = ctx.entity?.name || ctx.entity?.codename || ''
     const descriptionFallback = ctx.entity?.description || ''
@@ -176,6 +182,8 @@ export const buildInitialValues = (ctx: ActionContext<ObjectCollectionDisplayWit
         descriptionVlc: ensureLocalizedContent(raw?.description ?? ctx.entity?.description, uiLocale, descriptionFallback),
         codename: ensureEntityCodenameContent(raw, uiLocale, raw?.codename ?? ctx.entity?.codename ?? ''),
         codenameTouched: true,
+        _objectRuntimeConfig: runtimeConfig,
+        ...getObjectRuntimeNavigationValues(runtimeConfig),
         treeEntityIds,
         isSingleHub,
         isRequiredHub,
@@ -605,6 +613,7 @@ export const canSaveObjectCollectionForm = (
 export const toPayload = (
     rawValues?: ObjectCollectionFormValues | null
 ): ObjectCollectionLocalizedPayload & {
+    config?: Record<string, unknown>
     treeEntityIds?: string[]
     isSingleHub?: boolean
     isRequiredHub?: boolean
@@ -624,6 +633,7 @@ export const toPayload = (
     const rawCodename = getVLCString(codenameValue || undefined, codenamePrimaryLocale)
     const codename = normalizeCodenameForStyle(rawCodename, cc.style, cc.alphabet)
     const codenamePayload = ensureLocalizedContent(codenameValue, namePrimaryLocale ?? codenamePrimaryLocale, codename)
+    const baseRuntimeConfig = isRecord(values._objectRuntimeConfig) ? values._objectRuntimeConfig : {}
 
     return {
         codename: codenamePayload,
@@ -631,6 +641,7 @@ export const toPayload = (
         description: descriptionInput,
         namePrimaryLocale,
         descriptionPrimaryLocale,
+        config: applyObjectRuntimeNavigationConfig(baseRuntimeConfig, values.runtimeMenuVisible === true, values.runtimeMenuIcon),
         treeEntityIds,
         isSingleHub,
         isRequiredHub,
@@ -725,6 +736,20 @@ export const buildFormTabs = (
                 )
             }
         ]
+
+        tabs.push({
+            id: 'navigation',
+            label: ctx.t('objects.tabs.navigation', 'Navigation'),
+            content: (
+                <ObjectRuntimeNavigationFields
+                    visible={values.runtimeMenuVisible === true}
+                    icon={values.runtimeMenuIcon}
+                    setValue={setValue}
+                    disabled={isFormLoading}
+                    t={ctx.t}
+                />
+            )
+        })
 
         if ((ctx as ObjectCollectionActionContext).recordBehaviorEnabled) {
             tabs.push({
@@ -964,14 +989,14 @@ const objectCollectionActions: readonly ActionDescriptor<ObjectCollectionDisplay
                                 ...copyPayload
                             } = payload
                             const copyOptions = getObjectCollectionCopyOptions(data)
-                            const copiedConfig: Record<string, unknown> = {}
+                            const copiedConfig: Record<string, unknown> = isRecord(payload.config) ? { ...payload.config } : {}
                             if ((ctx as ObjectCollectionActionContext).recordBehaviorEnabled) {
                                 copiedConfig.recordBehavior = normalizeObjectRecordBehavior(recordBehavior)
                             }
                             if ((ctx as ObjectCollectionActionContext).ledgerSchemaEnabled && ledgerConfig) {
                                 copiedConfig.ledger = normalizeLedgerConfig(ledgerConfig)
                             }
-                            const behaviorConfig = Object.keys(copiedConfig).length > 0 ? { config: copiedConfig } : {}
+                            const configPayload = Object.keys(copiedConfig).length > 0 ? { config: copiedConfig } : {}
                             const currentTreeEntityId = (ctx as ObjectCollectionActionContext).currentTreeEntityId
                             const detachedFromCurrentHub =
                                 typeof currentTreeEntityId === 'string' &&
@@ -994,7 +1019,7 @@ const objectCollectionActions: readonly ActionDescriptor<ObjectCollectionDisplay
                             }
                             void ctx.api?.copyEntity?.(ctx.entity.id, {
                                 ...copyPayload,
-                                ...behaviorConfig,
+                                ...configPayload,
                                 ...copyOptions
                             })
                         } catch (error: unknown) {

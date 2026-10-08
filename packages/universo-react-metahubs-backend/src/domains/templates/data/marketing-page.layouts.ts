@@ -1,4 +1,4 @@
-import { encodeWidgetConfigEnvelope, getLayoutWidgetDefinition, validateWidgetBindings } from '@universo-react/types'
+import { getLayoutWidgetDefinition, validateWidgetBindings } from '@universo-react/types'
 import type {
     MarketingCollectionVariant,
     TemplateSeedZoneWidget,
@@ -94,17 +94,13 @@ const encodeBoundMarketingWidget = (
     zone: string,
     rendererConfig: Record<string, unknown>,
     createBindings: (definition: ResolvedMarketingWidgetDefinition) => WidgetEntityBindingEnvelope
-): Record<string, unknown> => {
+): WidgetEntityBindingEnvelope => {
     const definition = getLayoutWidgetDefinition(widgetKey, rendererConfig)
     if (!definition) {
         throw new Error(`Marketing widget is not registered: ${widgetKey}`)
     }
 
-    const bindings = validateWidgetBindings(definition, createBindings(definition))
-    return encodeWidgetConfigEnvelope(
-        { rendererConfig, neutral: { bindings } },
-        { templateKey: 'marketing-page', widgetKey, zone, rendererConfig, requireBindings: true }
-    )
+    return validateWidgetBindings(definition, createBindings(definition))
 }
 
 const encodeMarketingWidgetWithTargets = (
@@ -112,8 +108,27 @@ const encodeMarketingWidgetWithTargets = (
     zone: string,
     rendererConfig: Record<string, unknown>,
     targets: readonly MarketingBindingSeedTarget[]
-): Record<string, unknown> =>
+): WidgetEntityBindingEnvelope =>
     encodeBoundMarketingWidget(widgetKey, zone, rendererConfig, (definition) => createBindingInput(definition, targets))
+
+const marketingSeedPlacement = (
+    zone: string,
+    widgetKey: string,
+    instanceKey: string,
+    sortOrder: number,
+    rendererConfig: Record<string, unknown> = {},
+    bindings?: WidgetEntityBindingEnvelope
+): TemplateSeedZoneWidget => ({
+    zone,
+    widgetKey,
+    instanceKey,
+    parentInstanceKey: null,
+    slotKey: null,
+    sortOrder,
+    rendererConfig,
+    ...(bindings ? { bindings } : {}),
+    isActive: true
+})
 
 const semanticTarget = (slot: string, entityCodename: string, value: string): MarketingBindingSeedTarget => ({
     slot,
@@ -135,23 +150,23 @@ const relationSetTarget = (slot: string, entityCodename: string): MarketingBindi
 
 const collectionWidget = (variant: MarketingCollectionVariant, entityCodename: string, sortOrder: number): TemplateSeedZoneWidget => {
     const rendererConfig = {
-        instanceKey: variant,
         variant,
         maxItems: 100,
         showTitle: true,
         showDescription: true
     }
 
-    return {
-        zone: 'marketing-main',
-        widgetKey: 'marketing.collection',
+    return marketingSeedPlacement(
+        'marketing-main',
+        'marketing.collection',
+        variant,
         sortOrder,
-        config: encodeMarketingWidgetWithTargets('marketing.collection', 'marketing-main', rendererConfig, [
+        rendererConfig,
+        encodeMarketingWidgetWithTargets('marketing.collection', 'marketing-main', rendererConfig, [
             semanticTarget('section', 'MarketingPageSection', variant),
             recordSetTarget('items', entityCodename)
-        ]),
-        isActive: true
-    }
+        ])
+    )
 }
 
 /**
@@ -161,108 +176,74 @@ const collectionWidget = (variant: MarketingCollectionVariant, entityCodename: s
  */
 export const marketingLayoutZoneWidgets: Record<string, TemplateSeedZoneWidget[]> = {
     'marketing-main': [
-        {
-            zone: 'marketing-header',
-            widgetKey: 'marketing.brand',
-            sortOrder: 0,
-            config: encodeMarketingWidgetWithTargets('marketing.brand', 'marketing-header', { instanceKey: 'brand' }, [
+        marketingSeedPlacement(
+            'marketing-header',
+            'marketing.brand',
+            'brand',
+            0,
+            {},
+            encodeMarketingWidgetWithTargets('marketing.brand', 'marketing-header', {}, [
                 semanticTarget('site', 'MarketingPageSiteSettings', 'site-settings')
-            ]),
-            isActive: true
-        },
-        {
-            zone: 'marketing-header',
-            widgetKey: 'marketing.navigation',
-            sortOrder: 1,
-            config: encodeMarketingWidgetWithTargets(
-                'marketing.navigation',
-                'marketing-header',
-                { instanceKey: 'navigation', maxItems: 24 },
-                [recordSetTarget('items', 'MarketingPageNavigation')]
-            ),
-            isActive: true
-        },
-        {
-            zone: 'marketing-header',
-            widgetKey: 'marketing.auth',
-            sortOrder: 2,
-            config: {
-                instanceKey: 'auth',
-                showAuthActions: true
-            },
-            isActive: true
-        },
-        {
-            zone: 'marketing-header',
-            widgetKey: 'languageSwitcher',
-            sortOrder: 3,
-            config: {
-                __layout: { placement: 'end' }
-            },
-            isActive: true
-        },
-        {
-            zone: 'marketing-header',
-            widgetKey: 'colorModeSwitcher',
-            sortOrder: 4,
-            config: {
-                __layout: { placement: 'end' }
-            },
-            isActive: true
-        },
-        {
-            zone: 'marketing-main',
-            widgetKey: 'marketing.hero',
-            sortOrder: 0,
-            config: encodeBoundMarketingWidget(
-                'marketing.hero',
-                'marketing-main',
-                { instanceKey: 'hero', showLeadForm: true },
-                () => defaultMarketingHeroBinding
-            ),
-            isActive: true
-        },
-        {
-            zone: 'marketing-main',
-            widgetKey: 'marketing.image',
-            sortOrder: 1,
-            config: encodeMarketingWidgetWithTargets('marketing.image', 'marketing-main', { instanceKey: 'hero-image' }, [
+            ])
+        ),
+        marketingSeedPlacement(
+            'marketing-header',
+            'marketing.navigation',
+            'navigation',
+            1,
+            { maxItems: 24 },
+            encodeMarketingWidgetWithTargets('marketing.navigation', 'marketing-header', { maxItems: 24 }, [
+                recordSetTarget('items', 'MarketingPageNavigation')
+            ])
+        ),
+        marketingSeedPlacement('marketing-header', 'marketing.auth', 'auth', 2, { showAuthActions: true }),
+        marketingSeedPlacement('marketing-header', 'languageSwitcher', 'language-switcher', 3),
+        marketingSeedPlacement('marketing-header', 'colorModeSwitcher', 'color-mode-switcher', 4),
+        marketingSeedPlacement(
+            'marketing-main',
+            'marketing.hero',
+            'hero',
+            0,
+            { showLeadForm: true },
+            encodeBoundMarketingWidget('marketing.hero', 'marketing-main', { showLeadForm: true }, () => defaultMarketingHeroBinding)
+        ),
+        marketingSeedPlacement(
+            'marketing-main',
+            'marketing.image',
+            'hero-image',
+            1,
+            {},
+            encodeMarketingWidgetWithTargets('marketing.image', 'marketing-main', {}, [
                 semanticTarget('content', 'MarketingPageImage', 'default')
-            ]),
-            isActive: true
-        },
+            ])
+        ),
         collectionWidget('logos', 'MarketingPageLogo', 2),
         collectionWidget('features', 'MarketingPageFeature', 3),
         collectionWidget('testimonials', 'MarketingPageTestimonial', 4),
         collectionWidget('highlights', 'MarketingPageHighlight', 5),
-        {
-            zone: 'marketing-main',
-            widgetKey: 'marketing.pricing',
-            sortOrder: 6,
-            config: encodeMarketingWidgetWithTargets(
-                'marketing.pricing',
-                'marketing-main',
-                { instanceKey: 'pricing', maxItems: 24, showBenefits: true },
-                [
-                    semanticTarget('section', 'MarketingPageSection', 'pricing'),
-                    recordSetTarget('tiers', 'MarketingPagePricing'),
-                    relationSetTarget('benefits', 'MarketingPagePricingBenefit')
-                ]
-            ),
-            isActive: true
-        },
+        marketingSeedPlacement(
+            'marketing-main',
+            'marketing.pricing',
+            'pricing',
+            6,
+            { maxItems: 24, showBenefits: true },
+            encodeMarketingWidgetWithTargets('marketing.pricing', 'marketing-main', { maxItems: 24, showBenefits: true }, [
+                semanticTarget('section', 'MarketingPageSection', 'pricing'),
+                recordSetTarget('tiers', 'MarketingPagePricing'),
+                relationSetTarget('benefits', 'MarketingPagePricingBenefit')
+            ])
+        ),
         collectionWidget('faq', 'MarketingPageFaq', 7),
-        {
-            zone: 'marketing-footer',
-            widgetKey: 'marketing.footer',
-            sortOrder: 0,
-            config: encodeMarketingWidgetWithTargets(
-                'marketing.footer',
-                'marketing-footer',
-                { instanceKey: 'footer', maxItems: 100, showNewsletter: true },
-                [semanticTarget('site', 'MarketingPageSiteSettings', 'site-settings'), recordSetTarget('links', 'MarketingPageFooterLink')]
-            ),
-            isActive: true
-        }
+        marketingSeedPlacement(
+            'marketing-footer',
+            'marketing.footer',
+            'footer',
+            0,
+            { maxItems: 100, showNewsletter: true },
+            encodeMarketingWidgetWithTargets('marketing.footer', 'marketing-footer', { maxItems: 100, showNewsletter: true }, [
+                semanticTarget('site', 'MarketingPageSiteSettings', 'site-settings'),
+                recordSetTarget('links', 'MarketingPageFooterLink')
+            ])
+        )
     ]
 }

@@ -207,7 +207,7 @@ const hasNestedLearningContentWidget = (value: unknown): boolean => {
 
     const record = value as Record<string, unknown>
     if (record.isActive !== false && record.widgetKey === 'learnerPlayer') return true
-    if (record.learningContent !== undefined || record.sharedBehavior === 'learningContent') return true
+    if (record.learningContent !== undefined) return true
     return Object.values(record).some(hasNestedLearningContentWidget)
 }
 
@@ -217,7 +217,6 @@ const hasLearningContentMaterializedState = (state?: MaterializedApplicationLayo
             isActiveMaterializedWidget(widget) &&
             (widget.widgetKey === 'learnerPlayer' ||
                 widget.config?.learningContent !== undefined ||
-                widget.config?.sharedBehavior === 'learningContent' ||
                 hasNestedLearningContentWidget(widget.config))
     )
 
@@ -297,8 +296,6 @@ const INTERPRETATION_NETWORK_WORKSPACE_CONFIG_KEYS = new Set([
     'mountMethodName',
     'emptyStateTitle',
     'emptyStateDescription',
-    'visibleFor',
-    'sharedBehavior',
     'serverModuleCodename',
     'structureMode',
     'matrixMode',

@@ -50,6 +50,7 @@ type RecordComponent = {
     /** Object that owns the component; scopes scans to the declaring object. */
     objectCollectionId?: string
     targetEntityId?: string | null
+    targetEntityKind?: string | null
     validationRules?: Record<string, unknown>
 }
 
@@ -836,11 +837,11 @@ export class MetahubRecordsService {
     }
 
     /**
-     * Fail closed when a REF component points at a record that does not exist
-     * (or is soft-deleted) in its target object. Root REF components and REF
-     * components nested in TABLE rows are both covered, because either can
-     * persist a reference-to-nowhere that only breaks during publication sync.
-     * Values are grouped per target object so each target costs one probe.
+     * Fail closed when a REF component points at a missing or soft-deleted
+     * record/enum value. Root REF components and REF components nested in TABLE
+     * rows are both covered, because either can persist a reference-to-nowhere
+     * that only breaks during publication sync. Values are grouped per target
+     * entity so each target costs one probe.
      */
     private async assertRefTargetsExist(
         db: SqlQueryable,
@@ -859,20 +860,25 @@ export class MetahubRecordsService {
 
         const componentsById = new Map(components.map((component) => [component.id, component]))
         /** target entity id -> referenced value -> offending component codename */
-        const targets = new Map<string, Map<string, string>>()
-        const register = (targetEntityId: string, value: unknown, codename: string): void => {
+        const targetsByTable = new Map<'_mhb_elements' | '_mhb_values', Map<string, Map<string, string>>>([
+            ['_mhb_elements', new Map()],
+            ['_mhb_values', new Map()]
+        ])
+        const register = (component: RecordComponent, value: unknown): void => {
             if (typeof value !== 'string' || value.trim().length === 0) return
+            const targetEntityId = component.targetEntityId as string
+            const targetTable = component.targetEntityKind === 'enumeration' ? '_mhb_values' : '_mhb_elements'
+            const targets = targetsByTable.get(targetTable)!
             const byValue = targets.get(targetEntityId) ?? new Map<string, string>()
-            if (!byValue.has(value)) byValue.set(value, codename)
+            if (!byValue.has(value)) byValue.set(value, component.codename)
             targets.set(targetEntityId, byValue)
         }
         const isPatched = (codename: string): boolean => !patch || Object.prototype.hasOwnProperty.call(patch, codename)
 
         for (const component of refComponents) {
-            const targetEntityId = component.targetEntityId as string
             if (!component.parentComponentId) {
                 if (!isPatched(component.codename)) continue
-                register(targetEntityId, data[component.codename], component.codename)
+                register(component, data[component.codename])
                 continue
             }
             const parent = componentsById.get(component.parentComponentId)
@@ -884,30 +890,32 @@ export class MetahubRecordsService {
             if (!Array.isArray(rows)) continue
             for (const row of rows) {
                 if (!row || typeof row !== 'object' || Array.isArray(row)) continue
-                register(targetEntityId, (row as Record<string, unknown>)[component.codename], component.codename)
+                register(component, (row as Record<string, unknown>)[component.codename])
             }
         }
 
-        if (targets.size === 0) return
-
-        const qt = qSchemaTable(schemaName, '_mhb_elements')
-        for (const [targetEntityId, byValue] of targets) {
-            // FOR KEY SHARE holds the referenced rows stable until this write
-            // commits, so a concurrent delete of a target cannot verify and
-            // soft-delete it between this existence check and the insert.
-            const existing = await queryMany<{ id: string }>(
-                db,
-                `SELECT id FROM ${qt}
-                 WHERE object_id = $1
-                   AND id = ANY($2::uuid[])
-                   AND ${ACTIVE}
-                 FOR KEY SHARE`,
-                [targetEntityId, [...byValue.keys()]]
-            )
-            const existingIds = new Set(existing.map((row) => row.id))
-            for (const [value, codename] of byValue) {
-                if (!existingIds.has(value)) {
-                    throw new MetahubRecordReferenceMissingError(codename, value)
+        for (const [targetTable, targets] of targetsByTable) {
+            if (targets.size === 0) continue
+            const qt = qSchemaTable(schemaName, targetTable)
+            for (const [targetEntityId, byValue] of targets) {
+                // Hold the targets stable through this transaction so a
+                // concurrent soft-delete cannot invalidate the reference
+                // between validation and the record write.
+                const existing = await queryMany<{ id: string }>(
+                    db,
+                    `SELECT id FROM ${qt}
+                     WHERE object_id = $1
+                       AND id = ANY($2::uuid[])
+                       AND ${ACTIVE}
+                     ORDER BY id
+                     FOR SHARE`,
+                    [targetEntityId, [...byValue.keys()].sort()]
+                )
+                const existingIds = new Set(existing.map((row) => row.id))
+                for (const [value, codename] of byValue) {
+                    if (!existingIds.has(value)) {
+                        throw new MetahubRecordReferenceMissingError(codename, value)
+                    }
                 }
             }
         }

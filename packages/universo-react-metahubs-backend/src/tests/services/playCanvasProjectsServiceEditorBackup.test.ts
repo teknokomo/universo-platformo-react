@@ -2,6 +2,7 @@ import type { DbExecutor } from '@universo-react/utils'
 import { createPlayCanvasEditorNumericIds } from '@universo-react/playcanvas-editor-backend'
 import { MetahubDomainError } from '../../domains/shared/domainErrors'
 import { PlayCanvasProjectsService } from '../../domains/playcanvas-projects/services/PlayCanvasProjectsService'
+import type { PlayCanvasEditorCompatibilityAssetEntry } from '../../domains/playcanvas-projects/services/playCanvasProjectsServiceHelpers'
 
 const TEST_SCHEMA = 'mhb_a1b2c3d4e5f67890abcdef1234567890_b1'
 const METAHUB_ID = '019e8afa-0000-7000-8000-000000000010'
@@ -133,6 +134,34 @@ const BACKUP_INPUT = {
     assetDocumentIds: [77]
 } as const
 
+type AssetEntryLoaderTarget = {
+    loadEditorCompatibilityAssetEntries: (
+        metahubId: string,
+        projectId: string,
+        userId: string,
+        options: { sceneId?: string | null },
+        executor: DbExecutor
+    ) => Promise<PlayCanvasEditorCompatibilityAssetEntry[]>
+}
+
+const mockAssetEntryLoader = (service: PlayCanvasProjectsService, entries: PlayCanvasEditorCompatibilityAssetEntry[] = []) =>
+    jest.spyOn(service as unknown as AssetEntryLoaderTarget, 'loadEditorCompatibilityAssetEntries').mockResolvedValue(entries)
+
+const createAssetEntry = (documentId: number): PlayCanvasEditorCompatibilityAssetEntry => ({
+    asset: {
+        id: `asset-${documentId}`,
+        projectId: PROJECT_ID,
+        stableAssetId: `stable-${documentId}`,
+        type: 'texture',
+        name: `Texture ${documentId}`,
+        virtualPath: ['textures'],
+        metadata: {},
+        publish: true,
+        version: 1
+    },
+    documentId
+})
+
 describe('PlayCanvasProjectsService editor document backups', () => {
     afterEach(() => {
         jest.restoreAllMocks()
@@ -141,6 +170,7 @@ describe('PlayCanvasProjectsService editor document backups', () => {
     it('enumerates every derived realtime document exactly like the realtime seeding path before backing up', async () => {
         const harness = createBackupHarness()
         const service = new PlayCanvasProjectsService(harness.exec, makeSchemaService() as never)
+        const assetEntryLoader = mockAssetEntryLoader(service, [createAssetEntry(77)])
         const loadSpy = jest.spyOn(service, 'loadEditorRealtimeDocument').mockImplementation(async (input) => ({
             collection: input.collection,
             id: input.documentId,
@@ -152,6 +182,7 @@ describe('PlayCanvasProjectsService editor document backups', () => {
 
         expect(result.status).toBe('created')
         expect(result.documentCount).toBe(7)
+        expect(assetEntryLoader).toHaveBeenCalledTimes(1)
 
         const numericIds = createPlayCanvasEditorNumericIds({
             metahubId: METAHUB_ID,
@@ -179,6 +210,43 @@ describe('PlayCanvasProjectsService editor document backups', () => {
         })
     })
 
+    it('enumerates a realistic asset set once and reuses its indexes for every backup document', async () => {
+        const harness = createBackupHarness()
+        const service = new PlayCanvasProjectsService(harness.exec, makeSchemaService() as never)
+        const assetDocumentIds = Array.from({ length: 64 }, (_, index) => 1001 + index)
+        const assetEntries = assetDocumentIds.map(createAssetEntry)
+        const assetEntryLoader = mockAssetEntryLoader(service, assetEntries)
+        const loadSpy = jest.spyOn(service, 'loadEditorRealtimeDocument').mockImplementation(async (input) => ({
+            collection: input.collection,
+            id: input.documentId,
+            data: {},
+            version: 1
+        }))
+
+        const result = await service.ensureOpenedProjectBackup({ ...BACKUP_INPUT, assetDocumentIds })
+
+        expect(result).toMatchObject({ status: 'created', documentCount: 70 })
+        expect(assetEntryLoader).toHaveBeenCalledTimes(1)
+        expect(assetEntryLoader).toHaveBeenCalledWith(
+            METAHUB_ID,
+            PROJECT_ID,
+            'user-1',
+            { sceneId: SCENE_ID },
+            expect.objectContaining({ query: expect.any(Function) })
+        )
+
+        const assetCalls = loadSpy.mock.calls.filter(([input]) => input.collection === 'assets')
+        expect(assetCalls.map(([input]) => input.documentId)).toEqual(assetDocumentIds.map(String))
+        expect(assetCalls).toHaveLength(assetDocumentIds.length)
+        const sharedContext = assetCalls[0][2]
+        expect(sharedContext?.entries).toBe(assetEntries)
+        expect(sharedContext?.pathContextByAssetId).toBeInstanceOf(Map)
+        expect(assetCalls.every(([, , context]) => context === sharedContext)).toBe(true)
+        for (const entry of assetEntries) {
+            expect(sharedContext?.pathContextByAssetId?.has(entry.asset.id)).toBe(true)
+        }
+    })
+
     it('skips re-backup when the same session marker is already backed up', async () => {
         const harness = createBackupHarness()
         harness.existsQueue.push(true)
@@ -196,6 +264,7 @@ describe('PlayCanvasProjectsService editor document backups', () => {
     it('creates a fresh backup set when a new editor session presents a new marker', async () => {
         const harness = createBackupHarness()
         const service = new PlayCanvasProjectsService(harness.exec, makeSchemaService() as never)
+        mockAssetEntryLoader(service, [createAssetEntry(77)])
         jest.spyOn(service, 'loadEditorRealtimeDocument').mockImplementation(async (input) => ({
             collection: input.collection,
             id: input.documentId,
@@ -221,6 +290,7 @@ describe('PlayCanvasProjectsService editor document backups', () => {
     it('bounds growth by pruning to at most five sets on every committed backup', async () => {
         const harness = createBackupHarness()
         const service = new PlayCanvasProjectsService(harness.exec, makeSchemaService() as never)
+        mockAssetEntryLoader(service, [createAssetEntry(77)])
         jest.spyOn(service, 'loadEditorRealtimeDocument').mockImplementation(async (input) => ({
             collection: input.collection,
             id: input.documentId,
@@ -248,6 +318,7 @@ describe('PlayCanvasProjectsService editor document backups', () => {
         const harness = createBackupHarness()
         harness.failInsert = true
         const service = new PlayCanvasProjectsService(harness.exec, makeSchemaService() as never)
+        mockAssetEntryLoader(service, [createAssetEntry(77)])
         const loadSpy = jest.spyOn(service, 'loadEditorRealtimeDocument').mockImplementation(async (input) => ({
             collection: input.collection,
             id: input.documentId,

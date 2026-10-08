@@ -50,12 +50,12 @@ const binding = (() => {
 })()
 
 const heroConfig = encodeWidgetConfigEnvelope(
-    { rendererConfig: { instanceKey: 'hero-default' }, neutral: { bindings: binding } },
+    { rendererConfig: {}, neutral: { bindings: binding } },
     { templateKey: 'marketing-page', widgetKey: 'marketing.hero', zone: 'marketing-main' }
 )
 
 const heroOverlayDeltaConfig = encodeWidgetConfigEnvelope(
-    { rendererConfig: { instanceKey: 'hero-default', showLeadForm: false } },
+    { rendererConfig: { showLeadForm: false } },
     { templateKey: 'marketing-page', widgetKey: 'marketing.hero', zone: 'marketing-main' }
 )
 
@@ -143,7 +143,7 @@ const createDb = (
                     layout_id: sourceLayoutId,
                     widget_key: 'marketing.pricing',
                     zone: 'marketing-main',
-                    config: widgetConfig('marketing.pricing', { instanceKey: 'pricing', maxItems: 24, showBenefits: true }, {}),
+                    config: widgetConfig('marketing.pricing', { maxItems: 24, showBenefits: true }, {}),
                     is_active: true
                 },
                 ...(includeEnterprisePricing
@@ -153,11 +153,7 @@ const createDb = (
                               layout_id: sourceLayoutId,
                               widget_key: 'marketing.pricing',
                               zone: 'marketing-main',
-                              config: widgetConfig(
-                                  'marketing.pricing',
-                                  { instanceKey: 'pricing-enterprise', maxItems: 24, showBenefits: true },
-                                  {}
-                              ),
+                              config: widgetConfig('marketing.pricing', { maxItems: 24, showBenefits: true }, {}),
                               sort_order: 3,
                               is_active: true
                           }
@@ -170,11 +166,7 @@ const createDb = (
                               layout_id: sourceLayoutId,
                               widget_key: 'marketing.collection',
                               zone: 'marketing-main',
-                              config: widgetConfig(
-                                  'marketing.collection',
-                                  { instanceKey: 'features-secondary', variant: 'features', maxItems: 100 },
-                                  { section: 'features' }
-                              ),
+                              config: widgetConfig('marketing.collection', { variant: 'features', maxItems: 100 }, { section: 'features' }),
                               sort_order: 4,
                               is_active: true
                           }
@@ -348,11 +340,7 @@ describe('Marketing Hero anchor integrity store', () => {
                 widgetId: featureWidgetId,
                 widgetKey: 'marketing.collection',
                 kind: 'set-config',
-                config: widgetConfig(
-                    'marketing.collection',
-                    { instanceKey: 'features-secondary', variant: 'testimonials', maxItems: 100 },
-                    { section: 'testimonials' }
-                )
+                config: widgetConfig('marketing.collection', { variant: 'testimonials', maxItems: 100 }, { section: 'testimonials' })
             })
         ).rejects.toThrow('Hero action targets an inactive section in this layout')
     })
@@ -390,7 +378,7 @@ describe('Marketing Hero anchor integrity store', () => {
     it('allows removing a section when bound Hero actions do not target it', async () => {
         const { db } = createDb('#pricing')
         const heroWithExternalAction = encodeWidgetConfigEnvelope(
-            { rendererConfig: { instanceKey: 'hero-default' }, neutral: { bindings: binding } },
+            { rendererConfig: {}, neutral: { bindings: binding } },
             { templateKey: 'marketing-page', widgetKey: 'marketing.hero', zone: 'marketing-main' }
         )
         const heroWidgetQuery = db.query as jest.Mock
@@ -413,7 +401,7 @@ describe('Marketing Hero anchor integrity store', () => {
                         layout_id: sourceLayoutId,
                         widget_key: 'marketing.pricing',
                         zone: 'marketing-main',
-                        config: widgetConfig('marketing.pricing', { instanceKey: 'pricing', maxItems: 24, showBenefits: true }, {}),
+                        config: widgetConfig('marketing.pricing', { maxItems: 24, showBenefits: true }, {}),
                         is_active: true
                     }
                 ]

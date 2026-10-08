@@ -30,7 +30,7 @@ description: Object-backed определения отчётов LMS и безо
 
 Backend report runner валидирует определение отчёта shared-схемами из `@universo-react/types`.
 Runtime API calls не передают raw report definition.
-Они передают ровно одну ссылку на сохранённый отчёт: `reportId` или `reportCodename`, а backend загружает JSON `Definition` из опубликованного Object `Reports` в текущем workspace.
+Они передают ровно одну ссылку на сохранённый отчёт: `reportId` содержит UUID v7 записи отчёта, а `reportCodename` — её codename. Backend загружает JSON `Definition` из опубликованного Object `Reports` в текущем workspace.
 
 Имена таблиц и колонок runner получает только из разрешённых published metadata.
 API payload может ссылаться на сохранённые записи отчётов, но не должен передавать raw SQL identifiers или inline datasource definitions.

@@ -199,7 +199,7 @@ describe('Layouts Routes', () => {
             expect(findLayoutCopyQueryCalls(trx, 'INSERT', '_mhb_widgets')).toHaveLength(0)
             const insertParams = findLayoutCopyQueryCalls(trx, 'INSERT', '_mhb_layouts')[0]?.[1]
             const config = JSON.parse(insertParams?.[5] as string)
-            expect(config.__skipDefaultZoneWidgetSeed).toBe(true)
+            expect(config.__layout.skipDefaultZoneWidgetSeed).toBe(true)
         })
 
         it('rolls back a failed overlay copy after layout, widget, and override inserts', async () => {
@@ -336,8 +336,8 @@ describe('Layouts Routes', () => {
                 .expect(201)
 
             const widgetInsertParams = findLayoutCopyQueryCalls(trx, 'INSERT', '_mhb_widgets')[0]?.[1] as unknown[]
-            // is_active is the 6th param per widget (index 5)
-            expect(widgetInsertParams?.[5]).toBe(false)
+            // is_active follows placement identity, parent/slot, config, and sort fields.
+            expect(widgetInsertParams?.[9]).toBe(false)
         })
 
         it('copies scoped layout entity scope and inherited overrides when deactivating copied widgets', async () => {
@@ -354,9 +354,8 @@ describe('Layouts Routes', () => {
                     },
                     description: null,
                     config: {
-                        dashboardBehavior: {
-                            showCreateButton: false,
-                            searchMode: 'server'
+                        objectBehavior: {
+                            showCreateButton: false
                         }
                     },
                     is_active: true,
@@ -378,9 +377,8 @@ describe('Layouts Routes', () => {
                     },
                     description: null,
                     config: {
-                        dashboardBehavior: {
-                            showCreateButton: false,
-                            searchMode: 'server'
+                        objectBehavior: {
+                            showCreateButton: false
                         }
                     },
                     is_active: true,
@@ -392,11 +390,11 @@ describe('Layouts Routes', () => {
                 },
                 sourceWidgets: [
                     {
-                        id: 'owned-widget-1',
+                        id: '0190a9b5-3cde-7abc-8def-000000000041',
                         zone: 'left',
                         widget_key: 'menuWidget',
                         sort_order: 1,
-                        config: { title: 'Owned menu' },
+                        config: { variant: 'generated' },
                         is_active: true
                     }
                 ],
@@ -405,14 +403,14 @@ describe('Layouts Routes', () => {
                         base_widget_id: baseWidgetOneIdV7,
                         zone: 'right',
                         sort_order: 2,
-                        config: { title: 'Entity override' },
+                        config: {},
                         is_active: true,
                         is_deleted_override: false
                     }
                 ],
                 baseWidgets: [
                     { id: baseWidgetOneIdV7, widget_key: 'resourcePreview', zone: 'right', is_active: true },
-                    { id: baseWidgetTwoIdV7, widget_key: 'detailsTable', zone: 'center', is_active: true }
+                    { id: baseWidgetTwoIdV7, widget_key: 'footer', zone: 'bottom', is_active: true }
                 ]
             })
             ;(mockExec.transaction as jest.Mock).mockImplementationOnce(async (callback: (trx: unknown) => Promise<unknown>) =>
@@ -427,7 +425,7 @@ describe('Layouts Routes', () => {
                     deactivateAllWidgets: true,
                     name: { en: 'Entity dashboard (copy)' }
                 })
-                .expect(201)
+            expect(response.status).toBe(201)
 
             expect(response.body.scopeEntityId).toBe('0190a9b5-3cde-7abc-8def-0123456789c1')
             expect(response.body.baseLayoutId).toBe(baseLayoutIdV7)

@@ -64,7 +64,7 @@
     "peerDependencies": {
         "react": ">=18",
         "react-dom": ">=18",
-        "react-router-dom": ">=6"
+        "react-router-dom": ">=7.18.2"
     },
     "devDependencies": {
         "@testing-library/jest-dom": "catalog:",

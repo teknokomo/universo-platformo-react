@@ -72,7 +72,8 @@ export function createRuntimeAdapter(applicationId: string): CrudDataAdapter {
             createApplicationRuntimeRow({
                 applicationId,
                 data,
-                ...resolveRuntimeTarget(target)
+                ...resolveRuntimeTarget(target),
+                ...(target?.relationScope ? { relationScope: target.relationScope } : {})
             }),
 
         updateRow: (rowId, data, target, expectedVersion) =>
@@ -81,6 +82,7 @@ export function createRuntimeAdapter(applicationId: string): CrudDataAdapter {
                 rowId,
                 data,
                 ...resolveRuntimeTarget(target),
+                ...(target?.relationScope ? { relationScope: target.relationScope } : {}),
                 expectedVersion
             }),
 
@@ -89,6 +91,7 @@ export function createRuntimeAdapter(applicationId: string): CrudDataAdapter {
                 applicationId,
                 rowId,
                 ...resolveRuntimeTarget(target),
+                ...(target?.relationScope ? { relationScope: target.relationScope } : {}),
                 expectedVersion
             }),
 
@@ -110,7 +113,8 @@ export function createRuntimeAdapter(applicationId: string): CrudDataAdapter {
                 ...withWorkspaceId(data?.workspaceId),
                 copyChildTables: data?.copyChildTables,
                 data: data?.data,
-                expectedVersion: data?.expectedVersion
+                expectedVersion: data?.expectedVersion,
+                ...(data?.relationScope ? { relationScope: data.relationScope } : {})
             }),
 
         recordCommand: (rowId, command, data) =>
@@ -135,14 +139,15 @@ export function createRuntimeAdapter(applicationId: string): CrudDataAdapter {
                 expectedVersion: data.expectedVersion
             }),
 
-        reorderRows: ({ objectCollectionId, sectionId, workspaceId, orderedRowIds, expectedVersionsByRowId }) =>
+        reorderRows: ({ objectCollectionId, sectionId, workspaceId, orderedRowIds, expectedVersionsByRowId, parentScope }) =>
             reorderApplicationRuntimeRows({
                 applicationId,
                 objectCollectionId,
                 sectionId: sectionId ?? objectCollectionId,
                 ...withWorkspaceId(workspaceId),
                 orderedRowIds,
-                expectedVersionsByRowId
+                expectedVersionsByRowId,
+                parentScope
             })
     }
 }

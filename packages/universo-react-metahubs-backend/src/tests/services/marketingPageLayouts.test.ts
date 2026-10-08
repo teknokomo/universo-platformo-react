@@ -1,9 +1,4 @@
-import {
-    decodeWidgetConfigEnvelope,
-    getLayoutWidgetDefinition,
-    MARKETING_SAFE_HREF_PATTERN_SOURCE,
-    validateWidgetBindings
-} from '@universo-react/types'
+import { getLayoutWidgetDefinition, MARKETING_SAFE_HREF_PATTERN_SOURCE, validateWidgetBindings } from '@universo-react/types'
 import type { TemplateSeedZoneWidget, WidgetBindingTarget } from '@universo-react/types'
 import { marketingLayoutZoneWidgets } from '../../domains/templates/data/marketing-page.layouts'
 import { defaultMarketingHeroBinding, marketingPageHeroEntity } from '../../domains/templates/data/marketing-page.hero'
@@ -12,23 +7,16 @@ import { marketingPageTemplate } from '../../domains/templates/data/marketing-pa
 
 const placements = Object.values(marketingLayoutZoneWidgets).flat()
 
-const readConfig = (widget: TemplateSeedZoneWidget) =>
-    decodeWidgetConfigEnvelope(widget.config ?? {}, {
-        templateKey: 'marketing-page',
-        widgetKey: widget.widgetKey,
-        zone: widget.zone
-    })
+const readRendererConfig = (widget: TemplateSeedZoneWidget) => widget.rendererConfig
 
 const getPlacement = (widgetKey: string, instanceKey: string): TemplateSeedZoneWidget => {
-    const widget = placements.find(
-        (candidate) => candidate.widgetKey === widgetKey && readConfig(candidate).rendererConfig.instanceKey === instanceKey
-    )
+    const widget = placements.find((candidate) => candidate.widgetKey === widgetKey && candidate.instanceKey === instanceKey)
     if (!widget) throw new Error(`Missing marketing placement: ${widgetKey}/${instanceKey}`)
     return widget
 }
 
 const getTarget = (widget: TemplateSeedZoneWidget, slotKey: string): WidgetBindingTarget => {
-    const target = readConfig(widget).neutral.bindings?.slots.find(({ slot }) => slot === slotKey)?.targets[0]
+    const target = widget.bindings?.slots.find(({ slot }) => slot === slotKey)?.targets[0]
     if (!target) throw new Error(`Missing binding target: ${widget.widgetKey}/${slotKey}`)
     return target
 }
@@ -72,20 +60,19 @@ describe('marketing page initial layout seed', () => {
 
     it('validates every entity-backed placement against its resolved widget contract', () => {
         const entityBackedPlacements = placements.filter((widget) => {
-            const definition = getLayoutWidgetDefinition(widget.widgetKey, readConfig(widget).rendererConfig)
+            const definition = getLayoutWidgetDefinition(widget.widgetKey, readRendererConfig(widget))
             return (definition?.bindingSlots?.length ?? 0) > 0
         })
 
         expect(entityBackedPlacements).toHaveLength(11)
 
         for (const widget of entityBackedPlacements) {
-            const decoded = readConfig(widget)
-            const definition = getLayoutWidgetDefinition(widget.widgetKey, decoded.rendererConfig)
+            const definition = getLayoutWidgetDefinition(widget.widgetKey, readRendererConfig(widget))
             expect(definition).toBeDefined()
             if (!definition) throw new Error(`Missing marketing widget definition: ${widget.widgetKey}`)
 
-            expect(decoded.neutral.bindings).toBeDefined()
-            const validated = validateWidgetBindings(definition, decoded.neutral.bindings)
+            expect(widget.bindings).toBeDefined()
+            const validated = validateWidgetBindings(definition, widget.bindings)
 
             for (const binding of validated.slots) {
                 const slotDefinition = definition.bindingSlots?.find(({ key }) => key === binding.slot)
@@ -149,14 +136,14 @@ describe('marketing page initial layout seed', () => {
 
     it('binds the default Image and complete Pricing relations through Entity records', () => {
         const image = getPlacement('marketing.image', 'hero-image')
-        expect(readConfig(image).rendererConfig).toEqual({ instanceKey: 'hero-image' })
+        expect(readRendererConfig(image)).toEqual({})
         expect(getTarget(image, 'content')).toMatchObject({
             entityCodename: 'MarketingPageImage',
             selector: { kind: 'semantic-key', field: 'key', value: 'default' }
         })
 
         const hero = getPlacement('marketing.hero', 'hero')
-        expect(readConfig(hero).neutral.bindings).toEqual(defaultMarketingHeroBinding)
+        expect(hero.bindings).toEqual(defaultMarketingHeroBinding)
 
         const pricing = getPlacement('marketing.pricing', 'pricing')
         expect(getTarget(pricing, 'section')).toMatchObject({
@@ -191,29 +178,20 @@ describe('marketing page initial layout seed', () => {
             ['marketing.footer', 'marketing-footer', 0]
         ])
 
-        expect(readConfig(getPlacement('marketing.brand', 'brand')).rendererConfig).toEqual({ instanceKey: 'brand' })
-        expect(readConfig(getPlacement('marketing.navigation', 'navigation')).rendererConfig).toEqual({
-            instanceKey: 'navigation',
-            maxItems: 24
-        })
-        expect(readConfig(getPlacement('marketing.hero', 'hero')).rendererConfig).toEqual({ instanceKey: 'hero', showLeadForm: true })
-        expect(readConfig(getPlacement('marketing.auth', 'auth')).rendererConfig).toEqual({
-            instanceKey: 'auth',
-            showAuthActions: true
-        })
-        expect(readConfig(getPlacement('marketing.pricing', 'pricing')).rendererConfig).toEqual({
-            instanceKey: 'pricing',
+        expect(readRendererConfig(getPlacement('marketing.brand', 'brand'))).toEqual({})
+        expect(readRendererConfig(getPlacement('marketing.navigation', 'navigation'))).toEqual({ maxItems: 24 })
+        expect(readRendererConfig(getPlacement('marketing.hero', 'hero'))).toEqual({ showLeadForm: true })
+        expect(readRendererConfig(getPlacement('marketing.auth', 'auth'))).toEqual({ showAuthActions: true })
+        expect(readRendererConfig(getPlacement('marketing.pricing', 'pricing'))).toEqual({
             maxItems: 24,
             showBenefits: true
         })
-        expect(readConfig(getPlacement('marketing.footer', 'footer')).rendererConfig).toEqual({
-            instanceKey: 'footer',
+        expect(readRendererConfig(getPlacement('marketing.footer', 'footer'))).toEqual({
             maxItems: 100,
             showNewsletter: true
         })
         for (const variant of ['logos', 'features', 'testimonials', 'highlights', 'faq'] as const) {
-            expect(readConfig(getPlacement('marketing.collection', variant)).rendererConfig).toEqual({
-                instanceKey: variant,
+            expect(readRendererConfig(getPlacement('marketing.collection', variant))).toEqual({
                 variant,
                 maxItems: 100,
                 showTitle: true,
@@ -222,7 +200,8 @@ describe('marketing page initial layout seed', () => {
         }
 
         for (const widget of placements) {
-            expect(containsLegacySource(widget.config)).toBe(false)
+            expect(widget).not.toHaveProperty('config')
+            expect(containsLegacySource(widget.rendererConfig)).toBe(false)
         }
     })
 })

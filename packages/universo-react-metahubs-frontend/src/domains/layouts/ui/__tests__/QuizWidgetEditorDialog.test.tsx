@@ -90,6 +90,7 @@ const createModuleRecord = (overrides: Record<string, unknown> = {}) => ({
         capabilities: ['rpc.client'],
         methods: [
             { name: 'mount', target: 'client' },
+            { name: 'mountQuiz', target: 'client' },
             { name: 'submit', target: 'server_and_client' }
         ]
     },
@@ -135,13 +136,12 @@ describe('QuizWidgetEditorDialog', () => {
 
         await user.click(screen.getByRole('combobox', { name: 'Quiz module' }))
         await user.click(screen.getByRole('option', { name: 'Space Quiz Widget (quiz-widget)' }))
-        await user.type(screen.getByLabelText('Widget title override'), 'Mission Control Quiz')
         await user.click(screen.getByRole('button', { name: 'Advanced actions' }))
-        await user.type(screen.getByLabelText('Content loader'), 'mountQuiz')
+        await user.click(screen.getByLabelText('Content loader'))
+        await user.click(screen.getByRole('option', { name: 'mountQuiz' }))
         await user.click(screen.getByRole('button', { name: 'Save' }))
 
         expect(onSave).toHaveBeenCalledWith({
-            title: 'Mission Control Quiz',
             moduleCodename: 'quiz-widget',
             attachedToKind: 'metahub',
             mountMethodName: 'mountQuiz'

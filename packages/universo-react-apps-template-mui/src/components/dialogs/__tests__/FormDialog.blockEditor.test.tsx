@@ -109,6 +109,9 @@ describe('FormDialog block editor fields', () => {
     })
 
     it('renders metadata-driven runtime record pickers for polymorphic content links', async () => {
+        const targetObjectFieldId = '019bbf00-0000-7000-8000-000000000001'
+        const targetRecordFieldId = '019bbf00-0000-7000-8000-000000000002'
+        const rawOptionId = '019bbf00-0000-7000-8000-000000000003'
         const fetchMock = vi.fn(
             async () =>
                 new Response(
@@ -116,9 +119,21 @@ describe('FormDialog block editor fields', () => {
                         objectCollection: { id: 'pages-object', codename: 'Pages', tableName: null, name: 'Pages' },
                         sections: [],
                         objectCollections: [],
-                        columns: [],
-                        rows: [{ id: 'page-1', Title: 'Intro page' }],
-                        pagination: { total: 1, limit: 100, offset: 0 },
+                        columns: [
+                            {
+                                id: 'title-component',
+                                codename: 'title',
+                                field: 'title_column',
+                                dataType: 'STRING',
+                                headerName: 'Title'
+                            }
+                        ],
+                        rows: [
+                            { id: 'page-1', title_column: 'Intro page' },
+                            { id: 'page-2', title_column: 'rh1.private-source' },
+                            { id: 'page-3', title_column: 'usr_internal_credential' }
+                        ],
+                        pagination: { total: 3, limit: 100, offset: 0 },
                         permissions: {},
                         layoutConfig: defaultDashboardLayoutConfig
                     }),
@@ -130,17 +145,26 @@ describe('FormDialog block editor fields', () => {
         const onSubmit = vi.fn().mockResolvedValue(undefined)
         const fields: FieldConfig[] = [
             {
-                id: 'TargetObjectCodename',
+                id: targetObjectFieldId,
+                codename: 'TargetObjectCodename',
                 label: 'Target Object',
                 type: 'STRING',
                 required: true,
                 uiConfig: {
                     widget: 'select',
-                    stringOptions: [{ value: 'Pages', label: 'Pages' }]
+                    stringOptions: [
+                        { value: 'Pages', label: 'Pages' },
+                        { value: rawOptionId, label: rawOptionId },
+                        { value: 'OwnerId', label: 'OwnerId' },
+                        { value: 'rh1.private-source', label: 'rh1.private-source' },
+                        { value: 'usr_internal_credential', label: 'usr_internal_credential' },
+                        { value: 'UnlabeledInternalValue' }
+                    ]
                 }
             },
             {
-                id: 'TargetRecordId',
+                id: targetRecordFieldId,
+                codename: 'TargetRecordId',
                 label: 'Target Record',
                 type: 'STRING',
                 required: true,
@@ -162,7 +186,7 @@ describe('FormDialog block editor fields', () => {
                 title='Create course item'
                 fields={fields}
                 locale='en'
-                initialData={{ TargetObjectCodename: 'Pages' }}
+                initialData={{ [targetObjectFieldId]: 'Pages' }}
                 onClose={vi.fn()}
                 onSubmit={onSubmit}
                 apiBaseUrl='/api/v1'
@@ -178,14 +202,86 @@ describe('FormDialog block editor fields', () => {
         expect(requestedUrl.searchParams.get('workspaceId')).toBe('workspace-1')
 
         const user = userEvent.setup()
+        await user.click(screen.getByRole('combobox', { name: 'Target Object' }))
+        expect(screen.getByRole('option', { name: 'Pages', exact: true })).toBeVisible()
+        expect(screen.queryByRole('option', { name: rawOptionId, exact: true })).not.toBeInTheDocument()
+        expect(screen.queryByRole('option', { name: 'OwnerId', exact: true })).not.toBeInTheDocument()
+        expect(screen.queryByRole('option', { name: 'rh1.private-source', exact: true })).not.toBeInTheDocument()
+        expect(screen.queryByRole('option', { name: 'usr_internal_credential', exact: true })).not.toBeInTheDocument()
+        await user.keyboard('{Escape}')
         await user.click(screen.getByRole('combobox', { name: 'Target Record' }))
+        expect(screen.getAllByRole('option', { name: 'Untitled record', exact: true })).toHaveLength(2)
+        expect(screen.queryByRole('option', { name: 'rh1.private-source', exact: true })).not.toBeInTheDocument()
+        expect(screen.queryByRole('option', { name: 'usr_internal_credential', exact: true })).not.toBeInTheDocument()
         await user.click(await screen.findByRole('option', { name: 'Intro page' }))
         await user.click(screen.getByRole('button', { name: 'Save' }))
 
         expect(onSubmit).toHaveBeenCalledWith({
-            TargetObjectCodename: 'Pages',
-            TargetRecordId: 'page-1'
+            [targetObjectFieldId]: 'Pages',
+            [targetRecordFieldId]: 'page-1'
         })
+    })
+
+    it('rejects ambiguous record-picker target aliases and localizes safe fallback labels', async () => {
+        await i18n.changeLanguage('ru')
+        const fetchMock = vi.fn()
+        vi.stubGlobal('fetch', fetchMock)
+        const fields: FieldConfig[] = [
+            {
+                id: 'target-object-field',
+                codename: 'TargetObjectCodename',
+                label: 'TargetObjectCodename',
+                type: 'STRING',
+                uiConfig: {
+                    widget: 'select',
+                    stringOptions: [{ value: 'Pages', label: 'Страницы' }]
+                }
+            },
+            {
+                id: 'TargetObjectCodename',
+                codename: 'LegacyTargetAlias',
+                label: '019bbf00-0000-7000-8000-000000000004',
+                type: 'STRING',
+                uiConfig: { hidden: true }
+            },
+            {
+                id: 'TargetRecordId',
+                codename: 'TargetRecordId',
+                label: 'TargetRecordId',
+                type: 'STRING',
+                required: true,
+                uiConfig: {
+                    widget: 'runtimeRecordPicker',
+                    runtimeRecordPicker: { targetObjectCodenameField: 'TargetObjectCodename' }
+                }
+            }
+        ]
+
+        render(
+            <FormDialog
+                open
+                title='Создать элемент'
+                fields={fields}
+                locale='ru'
+                initialData={{ 'target-object-field': 'Pages' }}
+                onClose={vi.fn()}
+                onSubmit={vi.fn()}
+                apiBaseUrl='/api/v1'
+                applicationId='app-1'
+                objectCollections={[{ id: 'pages-object', codename: 'Pages', name: 'Страницы' }]}
+                currentWorkspaceId='workspace-1'
+            />
+        )
+
+        const objectSelector = screen.getByRole('combobox', { name: 'Значение' })
+        const recordPicker = screen.getByRole('combobox', { name: 'Связанная запись' })
+        expect(objectSelector).toBeVisible()
+        expect(recordPicker).toHaveAttribute('aria-disabled', 'true')
+        expect(screen.getByText('Настроенное поле целевого объекта недоступно.')).toBeVisible()
+        expect(fetchMock).not.toHaveBeenCalled()
+        expect(document.body).not.toHaveTextContent('TargetObjectCodename')
+        expect(document.body).not.toHaveTextContent('TargetRecordId')
+        expect(document.body).not.toHaveTextContent('019bbf00-0000-7000-8000-000000000004')
     })
 
     it('does not expose raw unavailable runtime record picker IDs', async () => {
@@ -270,8 +366,17 @@ describe('FormDialog block editor fields', () => {
                         objectCollection: { id: 'pages-object', codename: 'Pages', tableName: null, name: 'Pages' },
                         sections: [],
                         objectCollections: [],
-                        columns: [],
-                        rows: [{ id: rawRecordId }],
+                        columns: [
+                            {
+                                id: 'target-record',
+                                codename: 'TargetRecordId',
+                                field: 'TargetRecordId',
+                                dataType: 'STRING',
+                                headerName: 'Target Record ID'
+                            },
+                            { id: 'title', codename: 'Title', field: 'Title', dataType: 'STRING', headerName: 'Title' }
+                        ],
+                        rows: [{ id: rawRecordId, TargetRecordId: rawRecordId, Title: rawRecordId }],
                         pagination: { total: 1, limit: 100, offset: 0 },
                         permissions: {},
                         layoutConfig: defaultDashboardLayoutConfig
@@ -302,7 +407,7 @@ describe('FormDialog block editor fields', () => {
                     runtimeRecordPicker: {
                         targetObjectCodenameField: 'TargetObjectCodename',
                         allowedObjectCodenames: ['Pages'],
-                        labelFields: ['Title', 'Name'],
+                        labelFields: ['TargetRecordId', 'Title', 'Name'],
                         limit: 100
                     }
                 }
@@ -672,6 +777,100 @@ describe('FormDialog block editor fields', () => {
         })
     })
 
+    it('applies numeric metadata defaults to form state and submits the default value', async () => {
+        const onSubmit = vi.fn().mockResolvedValue(undefined)
+        const fields: FieldConfig[] = [
+            {
+                id: 'SortOrder',
+                label: 'Sort Order',
+                type: 'NUMBER',
+                required: true,
+                validationRules: { min: 0 },
+                uiConfig: { defaultValue: 0 }
+            }
+        ]
+
+        render(<FormDialog open title='Create resource' fields={fields} locale='en' onClose={vi.fn()} onSubmit={onSubmit} />)
+
+        const submit = screen.getByTestId('entity-form-submit')
+        expect(screen.getByRole('textbox', { name: 'Sort Order' })).toHaveValue('0.00')
+        expect(submit).toBeEnabled()
+
+        await userEvent.click(submit)
+
+        expect(onSubmit).toHaveBeenCalledWith({ SortOrder: 0 })
+    })
+
+    it('submits non-server-owned formHidden metadata defaults without rendering the fields', async () => {
+        const onSubmit = vi.fn().mockResolvedValue(undefined)
+        const fields: FieldConfig[] = [
+            {
+                id: 'SortOrder',
+                label: 'Sort Order',
+                type: 'NUMBER',
+                required: true,
+                uiConfig: { defaultValue: 0, formHidden: true }
+            },
+            {
+                id: 'CreatedBy',
+                label: 'Created By',
+                type: 'STRING',
+                uiConfig: { defaultValue: 'server-owned-value', formHidden: true, serverOwned: true }
+            }
+        ]
+
+        render(<FormDialog open title='Create resource' fields={fields} locale='en' onClose={vi.fn()} onSubmit={onSubmit} />)
+
+        expect(screen.queryByLabelText('Sort Order')).not.toBeInTheDocument()
+        expect(screen.queryByLabelText('Created By')).not.toBeInTheDocument()
+        await userEvent.click(screen.getByTestId('entity-form-submit'))
+
+        expect(onSubmit).toHaveBeenCalledWith({ SortOrder: 0 })
+    })
+
+    it('never submits derived values for server-owned fields', async () => {
+        const onSubmit = vi.fn().mockResolvedValue(undefined)
+        const fields: FieldConfig[] = [
+            {
+                id: 'StartDate',
+                label: 'Start date',
+                type: 'DATE',
+                required: true,
+                validationRules: { dateComposition: 'date' }
+            },
+            {
+                id: 'OffsetDays',
+                label: 'Offset days',
+                type: 'NUMBER',
+                required: true
+            },
+            {
+                id: 'ServerOwnedDate',
+                label: 'Server owned date',
+                type: 'DATE',
+                uiConfig: {
+                    serverOwned: true,
+                    derivedDateOffset: { startFieldId: 'StartDate', offsetDaysFieldId: 'OffsetDays' }
+                }
+            }
+        ]
+
+        render(
+            <FormDialog
+                open
+                title='Create resource'
+                fields={fields}
+                locale='en'
+                initialData={{ StartDate: '2026-10-01', OffsetDays: 2 }}
+                onClose={vi.fn()}
+                onSubmit={onSubmit}
+            />
+        )
+        await userEvent.click(screen.getByTestId('entity-form-submit'))
+
+        expect(onSubmit).toHaveBeenCalledWith({ StartDate: '2026-10-01', OffsetDays: 2 })
+    })
+
     it('keeps a URL-backed file source visible and unchanged while editing', async () => {
         const onSubmit = vi.fn().mockResolvedValue(undefined)
         const fields: FieldConfig[] = [
@@ -856,18 +1055,33 @@ describe('FormDialog block editor fields', () => {
                 validationRules: { localized: true, versioned: true, maxLength: '5' as unknown as number }
             }
         ]
+        const initialData = {
+            title: {
+                _schema: '1',
+                _primary: 'en',
+                locales: {
+                    en: { content: 'Too long', version: 1, isActive: true }
+                }
+            }
+        }
 
         const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
 
         render(
             <QueryClientProvider client={queryClient}>
-                <FormDialog open title='Create material' fields={fields} locale='en' onClose={vi.fn()} onSubmit={onSubmit} />
+                <FormDialog
+                    open
+                    title='Create material'
+                    fields={fields}
+                    initialData={initialData}
+                    locale='en'
+                    onClose={vi.fn()}
+                    onSubmit={onSubmit}
+                />
             </QueryClientProvider>
         )
 
-        fireEvent.change(screen.getByRole('textbox', { name: 'Title' }), { target: { value: 'Too long' } })
-
-        expect(await screen.findByText('Language "EN": maximum length 5')).toBeVisible()
+        expect(await screen.findByText('Enter no more than 5 characters in English.')).toBeVisible()
         expect(screen.getByTestId('entity-form-submit')).toBeDisabled()
     })
 

@@ -6,9 +6,10 @@ import type {
 import {
     getLayoutWidgetDefinition,
     validateWidgetBindings,
+    type ApplicationLayoutWidgetKey,
+    type ApplicationTemplateKey,
     type EntityRecordPolicyConditionalRequired,
     type MarketingActionSectionTarget,
-    type MarketingWidgetKey,
     type MarketingWidgetRecordCopyIntent,
     type WidgetBindingSlotDefinition,
     type WidgetEntityBindingEnvelope,
@@ -24,6 +25,7 @@ export type DraftBinding = {
     sourceKey: string
     sourceName: string
     selectorKind: WidgetBindingSelectorKind
+    entityKind?: 'object' | 'page'
     semanticKey?: string
     selectionLabel?: string
 }
@@ -32,7 +34,8 @@ export type MarketingWidgetBindingDialogProps = {
     open: boolean
     metahubId: string
     layoutId: string
-    widgetKey: MarketingWidgetKey
+    widgetKey: ApplicationLayoutWidgetKey
+    templateKey?: ApplicationTemplateKey
     zone: ApplicationLayoutZone
     widgetId: string | null
     sourceWidgetId?: string | null
@@ -71,7 +74,25 @@ const RESERVED_RECORD_COMPONENT_KEYS = new Set([
     'uuid',
     'recordid',
     'entityid',
-    'componentid'
+    'componentid',
+    'ownerid',
+    'owneruuid',
+    'userid',
+    'useruuid',
+    'assigneduserid',
+    'assigneduseruuid',
+    'createdbyid',
+    'updatedbyid',
+    'deletedbyid',
+    'tenantid',
+    'workspaceid',
+    'metahubid',
+    'applicationid',
+    'publicationid',
+    'objectid',
+    'pageid',
+    'hubid',
+    'parentid'
 ])
 const EDITABLE_JSON_FORMATS = new Set(['marketingAction', 'marketingMediaReference'])
 const EDITABLE_COMPONENT_TYPES = new Set(['STRING', 'NUMBER', 'BOOLEAN', 'DATE'])
@@ -239,7 +260,7 @@ export const makeApiSelector = (slot: WidgetBindingSlotDefinition, draft: DraftB
 }
 
 export const createBindingEnvelope = (
-    widgetKey: MarketingWidgetKey,
+    widgetKey: ApplicationLayoutWidgetKey,
     rendererConfig: Record<string, unknown>,
     slots: readonly WidgetBindingSlotDefinition[],
     selections: Record<string, DraftBinding>
@@ -258,7 +279,7 @@ export const createBindingEnvelope = (
                     slot: slot.key,
                     targets: [
                         {
-                            entityKind: 'object' as const,
+                            entityKind: draft.entityKind ?? 'object',
                             entityCodename: draft.sourceKey,
                             selector: makeSelector(slot, draft),
                             projection: slot.requirements.components.map(({ field, componentCodename }) => ({ field, componentCodename }))

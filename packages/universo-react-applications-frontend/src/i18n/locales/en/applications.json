@@ -485,6 +485,7 @@
             "saveError": "Failed to save layout settings.",
             "createError": "Failed to create layout.",
             "copyError": "Failed to copy layout.",
+            "copyUnavailable": "Source-managed layouts may contain widgets the application cannot own, so they cannot be copied.",
             "deleteError": "Failed to delete layout.",
             "versionConflict": "This layout changed in another session. Reload it and try again.",
             "widgetVersionConflict": "This widget changed in another session. Reload the layout and try again.",
@@ -680,13 +681,6 @@
             "moveUp": "Move up",
             "moveDown": "Move down",
             "emptyZone": "No widgets in this zone yet.",
-            "sharedBehavior": {
-                "title": "Shared behavior",
-                "description": "Control how inherited scoped layouts can exclude, deactivate, or move this widget.",
-                "canDeactivate": "Can be deactivated",
-                "canExclude": "Can be excluded",
-                "positionLocked": "Position locked"
-            },
             "widgetBehaviorEditor": {
                 "title": "Widget behavior",
                 "description": "Configure how inherited layouts can override this widget."
@@ -902,88 +896,19 @@
                 "totalWidth": "Total width",
                 "noChanges": "No changes yet."
             },
-            "menuEditor": {
-                "title": "Menu widget",
-                "showTitle": "Show title",
-                "titleField": "Title",
-                "autoShowAllSections": "Show all sections automatically",
-                "maxPrimaryItems": "Primary menu item limit",
-                "maxPrimaryItemsHint": "Extra active menu items are moved into the overflow menu.",
-                "overflowLabelKey": "Overflow label i18n key",
-                "startPage": "Start page",
-                "startPageDefault": "Layout default",
-                "startPageHint": "Choose the section that opens first in the published application.",
-                "configuredSection": "Configured section",
-                "workspacePlacement": "Workspace menu placement",
-                "workspacePlacementHint": "Workspace navigation can stay in the main menu, move to overflow, or be hidden.",
-                "workspacePlacements": {
-                    "primary": "Primary menu",
-                    "overflow": "Overflow menu",
-                    "hidden": "Hidden"
-                },
-                "sideMenu": {
-                    "title": "Side menu display",
-                    "primaryMode": "Primary display mode",
-                    "rememberUserChoice": "Remember user choice",
-                    "modes": {
-                        "wide": "Wide",
-                        "compact": "Compact icons",
-                        "overlay": "Overlay drawer"
-                    }
-                },
-                "itemsTitle": "Menu items",
-                "addItem": "Add item",
-                "editItem": "Edit item",
-                "editItemNamed": "Edit menu item: {{label}}",
-                "removeItemNamed": "Remove menu item: {{label}}",
-                "untitledItem": "Untitled item",
-                "kind": "Type",
-                "itemTitle": "Item title",
-                "icon": "Icon",
-                "href": "Link URL",
-                "section": "Entity section",
-                "isActive": "Active",
-                "kinds": {
-                    "section": "Entity section",
-                    "link": "Link"
-                },
-                "validation": {
-                    "titleRequired": "Name is required.",
-                    "sectionRequired": "Select an entity section for this menu item.",
-                    "hrefRequired": "Link URL is required for link items.",
-                    "hrefUnsafeScheme": "This link type is not allowed. Use https, mailto, tel, #, or an internal path.",
-                    "unsupportedKind": "This menu item type is read-only."
-                },
-                "unavailableStartPage": "Unavailable section"
-            },
             "objectBehaviorTitleGlobal": "Default entity runtime behavior",
             "objectBehaviorTitleObject": "Entity runtime behavior",
-            "objectBehaviorDescriptionGlobal": "These settings define the default create/search behavior for entities that use this global layout until an entity-specific layout overrides it.",
-            "objectBehaviorDescriptionObject": "This layout controls create/search behavior for its selected entity target.",
+            "objectBehaviorDescriptionGlobal": "These settings define default record creation and form behavior for entities that use this global layout until an entity-specific layout overrides it.",
+            "objectBehaviorDescriptionObject": "This layout controls record creation and form behavior for its selected entity.",
             "showCreateButton": "Show create button",
-            "searchMode": "Search mode",
-            "searchModePageLocal": "Page-local",
-            "searchModeServer": "Server",
             "createSurface": "Create form type",
             "editSurface": "Edit form type",
             "copySurface": "Copy form type",
             "surfaceDialog": "Dialog",
             "surfacePage": "Page",
-            "enableRowReordering": "Enable row reordering",
-            "viewSettings": "Application View Settings",
-            "viewSettingsDescription": "Control how the runtime list view behaves for this layout.",
-            "showViewToggle": "Card/table view toggle",
-            "defaultViewMode": "Default view mode",
-            "viewModeTable": "Table",
-            "viewModeCard": "Card",
-            "showFilterBar": "Search/filter bar",
-            "cardColumns": "Card columns",
-            "rowHeight": "Row height",
-            "rowHeightCompact": "Compact (default)",
-            "rowHeightNormal": "Normal (52px)",
-            "rowHeightAuto": "Auto (multi-line)",
             "sideMenu": {
                 "title": "Side menu display",
+                "description": "Control the Dashboard shell navigation. Widget presentation is configured on each widget.",
                 "primaryMode": "Primary display mode",
                 "rememberUserChoice": "Remember user choice",
                 "modes": {
@@ -1097,6 +1022,10 @@
                 "goHome": "Go home"
             },
             "actions": "Actions",
+            "workflowActionCompleted": "Workflow action completed.",
+            "targetActionUnavailable": "This action is not available for this row.",
+            "rowActionsLoading": "Loading actions…",
+            "rowActionsUnavailable": "Actions are unavailable for this record.",
             "edit": "Edit",
             "copy": "Copy",
             "copying": "Copying...",
@@ -1133,6 +1062,8 @@
             "errorDelete": "Delete failed: {{message}}",
             "errorCopy": "Copy failed: {{message}}",
             "errorRecordCommand": "Record command failed: {{message}}",
+            "errorRuntimeRowVersionRequired": "This record has no current version. Reload it and try again.",
+            "errorWorkflowVersionRequired": "Workflow action requires a current row version. Please reload and try again.",
             "errorSchemaChanged": "Schema has changed since this form was opened. Please close and try again.",
             "workspaceLimitReached": "The workspace limit for this section has been reached ({{current}} / {{max}}).",
             "runtime": {
@@ -1591,9 +1522,6 @@
         "backToList": "Back to applications"
     },
     "layouts": {
-        "menuEditor": {
-            "validation": {}
-        },
         "datasource": {}
     },
     "app": {

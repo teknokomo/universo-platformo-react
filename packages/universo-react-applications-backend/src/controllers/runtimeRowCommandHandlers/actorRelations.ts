@@ -1,8 +1,8 @@
 import { acquireAdvisoryXactLock } from '@universo-react/utils/database'
 import type { DbExecutor } from '@universo-react/utils'
 import { quoteIdentifier, UpdateFailure, buildRuntimeSoftDeleteSetClause } from '../../shared/runtimeHelpers'
-import type { RuntimeLibraryRelationKey, RuntimeRelationBinding } from '../runtimeRowSupport/contracts'
-import { readRuntimeLibraryConfig, resolveRuntimeRelationBinding } from '../runtimeRowSupport/access'
+import type { RuntimeLibraryRelationKey, RuntimeRelationBinding } from '../../services/runtimeRowSupport/contracts'
+import { readRuntimeLibraryConfig, resolveRuntimeRelationBinding } from '../../services/runtimeRowSupport/access'
 import { assertRuntimeEntityMutationAllowed } from '../../shared/entityMutationPolicy'
 
 import type { RuntimeLibraryRelationColumns } from './types'

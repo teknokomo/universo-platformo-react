@@ -4,7 +4,7 @@ import type { ApplicationEffectiveLayoutResponse } from '../../../types'
 import { toDashboardZoneWidgets } from '../runtimeLayout'
 
 describe('runtime layout conversion', () => {
-    it('groups active dashboard placements by zone and preserves their effective configuration', () => {
+    it('groups dashboard placements by zone and preserves graph identity plus runtime data', () => {
         const layoutId = '0190a9b5-3cde-7abc-8def-0123456789a1'
         const effectiveLayout = {
             status: 'ok',
@@ -21,7 +21,7 @@ describe('runtime layout conversion', () => {
                 sourceLayoutId: null,
                 compositionMode: 'independent',
                 baseLayoutId: null,
-                config: { showHeader: true }
+                config: {}
             },
             widgets: [
                 {
@@ -31,9 +31,19 @@ describe('runtime layout conversion', () => {
                     semanticRegion: 'main',
                     widgetKey: 'detailsTable',
                     instanceKey: 'details-primary',
+                    parentInstanceKey: 'content-grid',
+                    slotKey: 'column:primary',
                     sortOrder: 2,
-                    config: { title: 'Details' },
-                    isActive: true
+                    config: { showSearch: true },
+                    isActive: true,
+                    runtimeData: {
+                        status: 'ready',
+                        data: {
+                            kind: 'table',
+                            columns: [{ key: 'title', label: 'Title' }],
+                            rows: [{ key: 'course-1', cells: [{ key: 'title', value: 'Course 1' }] }]
+                        }
+                    }
                 },
                 {
                     id: '0190a9b5-3cde-7abc-8def-0123456789a4',
@@ -42,6 +52,8 @@ describe('runtime layout conversion', () => {
                     semanticRegion: 'header',
                     widgetKey: 'header',
                     instanceKey: 'header',
+                    parentInstanceKey: null,
+                    slotKey: null,
                     sortOrder: 0,
                     config: { variant: 'compact' },
                     isActive: true
@@ -53,6 +65,8 @@ describe('runtime layout conversion', () => {
                     semanticRegion: 'main',
                     widgetKey: 'detailsTable',
                     instanceKey: 'details-secondary',
+                    parentInstanceKey: null,
+                    slotKey: null,
                     sortOrder: 1,
                     config: {},
                     isActive: true
@@ -64,6 +78,8 @@ describe('runtime layout conversion', () => {
                     semanticRegion: 'main',
                     widgetKey: 'detailsTable',
                     instanceKey: 'details-disabled',
+                    parentInstanceKey: null,
+                    slotKey: null,
                     sortOrder: 0,
                     config: {},
                     isActive: false
@@ -73,8 +89,10 @@ describe('runtime layout conversion', () => {
                     layoutId,
                     zone: 'right',
                     semanticRegion: 'sidebar',
-                    widgetKey: 'productTree',
-                    instanceKey: 'tree',
+                    widgetKey: 'infoCard',
+                    instanceKey: 'help-card',
+                    parentInstanceKey: null,
+                    slotKey: null,
                     sortOrder: 0,
                     config: {},
                     isActive: true
@@ -94,36 +112,72 @@ describe('runtime layout conversion', () => {
                     widgetKey: 'header',
                     sortOrder: 0,
                     config: { variant: 'compact' },
-                    isActive: true
+                    isActive: true,
+                    instanceKey: 'header',
+                    zone: 'top',
+                    parentInstanceKey: null,
+                    slotKey: null
                 }
             ],
             right: [
                 {
                     id: '0190a9b5-3cde-7abc-8def-0123456789a7',
                     layoutId,
-                    widgetKey: 'productTree',
+                    widgetKey: 'infoCard',
                     sortOrder: 0,
                     config: {},
-                    isActive: true
+                    isActive: true,
+                    instanceKey: 'help-card',
+                    zone: 'right',
+                    parentInstanceKey: null,
+                    slotKey: null
                 }
             ],
             bottom: [],
             center: [
+                {
+                    id: '0190a9b5-3cde-7abc-8def-0123456789a6',
+                    layoutId,
+                    widgetKey: 'detailsTable',
+                    sortOrder: 0,
+                    config: {},
+                    isActive: false,
+                    instanceKey: 'details-disabled',
+                    zone: 'center',
+                    parentInstanceKey: null,
+                    slotKey: null
+                },
                 {
                     id: '0190a9b5-3cde-7abc-8def-0123456789a5',
                     layoutId,
                     widgetKey: 'detailsTable',
                     sortOrder: 1,
                     config: {},
-                    isActive: true
+                    isActive: true,
+                    instanceKey: 'details-secondary',
+                    zone: 'center',
+                    parentInstanceKey: null,
+                    slotKey: null
                 },
                 {
                     id: '0190a9b5-3cde-7abc-8def-0123456789a3',
                     layoutId,
                     widgetKey: 'detailsTable',
                     sortOrder: 2,
-                    config: { title: 'Details' },
-                    isActive: true
+                    config: { showSearch: true },
+                    isActive: true,
+                    instanceKey: 'details-primary',
+                    zone: 'center',
+                    parentInstanceKey: 'content-grid',
+                    slotKey: 'column:primary',
+                    runtimeData: {
+                        status: 'ready',
+                        data: {
+                            kind: 'table',
+                            columns: [{ key: 'title', label: 'Title' }],
+                            rows: [{ key: 'course-1', cells: [{ key: 'title', value: 'Course 1' }] }]
+                        }
+                    }
                 }
             ]
         })

@@ -90,7 +90,7 @@ vi.mock('@universo-react/template-mui', async () => {
         ),
         LayoutAuthoringList: () => null,
         LayoutStateChips: () => null,
-        MarketingWidgetConfigDialog: () => null,
+        LayoutWidgetPresentationDialog: () => null,
         useConfirm: () => ({ confirm: vi.fn(async () => true) })
     }
 })

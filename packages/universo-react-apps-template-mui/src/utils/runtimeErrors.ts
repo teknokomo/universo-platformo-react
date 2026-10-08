@@ -42,7 +42,9 @@ export const isUnsafeRuntimeErrorMessage = (message: string, locale = 'en'): boo
  */
 export const RUNTIME_RULE_ERROR_KEYS: Record<string, string> = {
     RECORD_KEY_DUPLICATE: 'errors.recordKeyDuplicate',
-    RECORD_PATTERN_MISMATCH: 'errors.recordPatternMismatch'
+    RECORD_PATTERN_MISMATCH: 'errors.recordPatternMismatch',
+    RUNTIME_RELATION_SCOPE_REQUIRED: 'errors.relationScopeRequired',
+    RUNTIME_RECORD_VERSION_CONFLICT: 'errors.recordVersionConflict'
 }
 
 export type RuntimeRuleTranslator = (key: string, locale: string) => string | null
@@ -66,19 +68,27 @@ export const RUNTIME_RULE_ERROR_MESSAGES: Record<string, { en: string; ru: strin
     RECORD_PATTERN_MISMATCH: {
         en: 'The value does not match the required field format. Check the value and try again.',
         ru: 'Значение не соответствует требуемому формату поля. Проверьте значение и повторите попытку.'
+    },
+    RUNTIME_RELATION_SCOPE_REQUIRED: {
+        en: 'Open this record from its related list to change the relationship safely.',
+        ru: 'Чтобы безопасно изменить связь, откройте запись из списка связанных записей.'
+    },
+    RUNTIME_RECORD_VERSION_CONFLICT: {
+        en: 'This record changed after you opened it. Reload the record and try again.',
+        ru: 'Запись изменилась после открытия. Обновите её и повторите попытку.'
     }
 }
 
 export const readRuntimeErrorCode = (error: unknown): string | null => {
     if (!error || typeof error !== 'object') return null
     const record = error as Record<string, unknown>
-    const direct = record.code
-    if (typeof direct === 'string' && direct.trim().length > 0) return direct.trim()
     const responseData = (record.response as { data?: unknown } | undefined)?.data
     if (responseData && typeof responseData === 'object') {
         const nested = (responseData as Record<string, unknown>).code
         if (typeof nested === 'string' && nested.trim().length > 0) return nested.trim()
     }
+    const direct = record.code
+    if (typeof direct === 'string' && direct.trim().length > 0) return direct.trim()
     return null
 }
 

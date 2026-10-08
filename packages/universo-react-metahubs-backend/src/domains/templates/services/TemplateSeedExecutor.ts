@@ -2,7 +2,6 @@ import type { Knex } from 'knex'
 import {
     applicationLayoutWidgetKeySchema,
     decodeLayoutConfigEnvelope,
-    decodeWidgetConfigEnvelope,
     encodeLayoutConfigEnvelope,
     encodeWidgetConfigEnvelope,
     getLayoutZoneSettingDefault,
@@ -16,15 +15,13 @@ import type {
     TemplateSeedComponent,
     TemplateSeedElement,
     TemplateSeedModule,
-    DashboardLayoutWidgetKey,
-    DashboardLayoutZone,
     CodenameAlphabet,
     CodenameStyle,
     VersionedLocalizedContent
 } from '@universo-react/types'
 import { compileModuleSource } from '@universo-react/modules-engine'
+import { generateUuidV7 } from '@universo-react/utils'
 import { normalizeCodenameForStyle } from '@universo-react/utils/validation/codename'
-import { buildDashboardLayoutConfig } from '../../shared'
 import { toJsonbValue } from '../../shared/jsonb'
 import { codenamePrimaryTextSql, ensureCodenameValue } from '../../shared/codename'
 import { resolveWidgetTableName } from './widgetTableResolver'
@@ -35,7 +32,9 @@ import {
 } from './systemComponentSeed'
 import { createTemplateSeedElements, resolveTemplateSeedElementData } from './templateSeedElements'
 import { createLogger } from '../../../utils/logger'
-import { resolveMarketingSeedWidgetLookup } from './templateSeedWidgetIdentity'
+import { resolveTemplateSeedWidgetInstanceKey } from './templateSeedWidgetIdentity'
+import { orderDashboardSeedPlacements } from './dashboardSeedPlacement'
+import { buildTemplateSeedWidgetPlacementRow } from './templateSeedWidgetPlacement'
 
 const log = createLogger('TemplateSeedExecutor')
 
@@ -190,7 +189,7 @@ export class TemplateSeedExecutor {
             }
 
             // 5. Create zone widgets after all layout codenames have been registered.
-            await this.createZoneWidgets(trx, seed.layoutZoneWidgets, layoutIdMap)
+            await this.createZoneWidgets(trx, seed.layoutZoneWidgets, layoutIdMap, entityIdMap)
 
             if (seed.modules?.length) {
                 await this.createModules(trx, seed.modules, entityIdMap)
@@ -379,7 +378,8 @@ export class TemplateSeedExecutor {
     private async createZoneWidgets(
         qb: Knex,
         widgetsByLayout: Record<string, TemplateSeedZoneWidget[]>,
-        layoutIdMap: Map<string, string>
+        layoutIdMap: Map<string, string>,
+        entityIdMap: Map<string, string>
     ): Promise<void> {
         const now = new Date()
         const widgetTableName = await resolveWidgetTableName(qb, this.schemaName)
@@ -395,107 +395,131 @@ export class TemplateSeedExecutor {
                 .withSchema(this.schemaName)
                 .from('_mhb_layouts')
                 .where({ id: layoutId })
-                .select('template_key', 'config')
+                .select('template_key')
                 .first()
             const isMarketingLayout = layoutRow?.template_key === 'marketing-page'
-            let insertedAny = false
-            for (const w of widgets) {
-                const widgetKey = applicationLayoutWidgetKeySchema.parse(w.widgetKey)
-                const widgetEnvelope = decodeWidgetConfigEnvelope(w.config ?? {}, {
-                    templateKey: layoutRow?.template_key ?? 'dashboard',
-                    widgetKey,
-                    zone: w.zone,
-                    requireBindings: true
-                })
-                let config = widgetEnvelope.rendererConfig
-                if (isMarketingLayout) {
+            if (isMarketingLayout) {
+                for (const widget of widgets) {
+                    if (widget.parentInstanceKey !== null || widget.slotKey !== null) {
+                        throw new Error(`Marketing widget seed must be a root placement: ${widget.instanceKey}`)
+                    }
+                    const widgetKey = applicationLayoutWidgetKeySchema.parse(widget.widgetKey)
+                    let config: Record<string, unknown>
                     try {
-                        config = parseApplicationLayoutWidgetConfig(w.widgetKey, config)
+                        config = parseApplicationLayoutWidgetConfig(widgetKey, widget.rendererConfig)
                     } catch {
-                        throw new Error(`Invalid marketing widget configuration for ${w.widgetKey}`)
+                        throw new Error(`Invalid marketing widget configuration for ${widget.widgetKey}`)
+                    }
+                    const instanceKey = resolveTemplateSeedWidgetInstanceKey(widget)
+                    const bindings = widget.bindings
+                    for (const target of bindings?.slots.flatMap(({ targets }) => targets) ?? []) {
+                        if (!entityIdMap.has(buildEntityMapKey(target.entityKind, target.entityCodename))) {
+                            throw new Error(`Marketing widget source Entity is missing: ${target.entityKind}/${target.entityCodename}`)
+                        }
+                    }
+                    config = encodeWidgetConfigEnvelope(
+                        { rendererConfig: config, neutral: bindings ? { bindings } : {} },
+                        { templateKey: 'marketing-page', widgetKey, zone: widget.zone, requireBindings: true }
+                    )
+                    const existsQuery = qb.withSchema(this.schemaName).from(widgetTableName).where({
+                        layout_id: layoutId,
+                        instance_key: instanceKey,
+                        _upl_deleted: false,
+                        _mhb_deleted: false
+                    })
+                    const exists = await existsQuery.select('id', 'instance_key', 'widget_key').first()
+                    if (exists) {
+                        if (exists.instance_key !== instanceKey || exists.widget_key !== widgetKey) {
+                            throw new Error(`Existing Marketing widget identity is invalid: ${instanceKey}`)
+                        }
+                        continue
+                    }
+
+                    await qb
+                        .withSchema(this.schemaName)
+                        .into(widgetTableName)
+                        .insert(
+                            buildTemplateSeedWidgetPlacementRow({
+                                id: generateUuidV7(),
+                                layoutId,
+                                instanceKey,
+                                parentWidgetId: null,
+                                slotKey: null,
+                                zone: widget.zone,
+                                widgetKey: widget.widgetKey,
+                                sortOrder: widget.sortOrder,
+                                config,
+                                isActive: widget.isActive !== false,
+                                now
+                            })
+                        )
+                }
+                continue
+            }
+
+            if (layoutRow?.template_key !== 'dashboard') {
+                throw new Error(`Unsupported template key for seeded layout widgets: ${String(layoutRow?.template_key)}`)
+            }
+
+            const orderedWidgets = orderDashboardSeedPlacements(widgets)
+            const widgetIdByInstanceKey = new Map<string, string>()
+            for (const widget of orderedWidgets) {
+                for (const binding of widget.bindings?.slots ?? []) {
+                    for (const target of binding.targets) {
+                        if (!entityIdMap.has(buildEntityMapKey(target.entityKind, target.entityCodename))) {
+                            throw new Error(`Dashboard widget source Entity is missing: ${target.entityKind}/${target.entityCodename}`)
+                        }
                     }
                 }
-                config = encodeWidgetConfigEnvelope(
-                    { rendererConfig: config, neutral: widgetEnvelope.neutral },
-                    { templateKey: layoutRow?.template_key ?? 'dashboard', widgetKey, zone: w.zone, requireBindings: true }
+
+                const exists = await qb
+                    .withSchema(this.schemaName)
+                    .from(widgetTableName)
+                    .where({ layout_id: layoutId, instance_key: widget.instanceKey, _upl_deleted: false, _mhb_deleted: false })
+                    .select('id', 'instance_key')
+                    .first()
+                if (exists) {
+                    if (typeof exists.id !== 'string' || exists.instance_key !== widget.instanceKey) {
+                        throw new Error(`Existing Dashboard widget identity is invalid: ${widget.instanceKey}`)
+                    }
+                    widgetIdByInstanceKey.set(widget.instanceKey, exists.id)
+                    continue
+                }
+
+                const parentWidgetId =
+                    widget.parentInstanceKey === null ? null : widgetIdByInstanceKey.get(widget.parentInstanceKey) ?? null
+                if (widget.parentInstanceKey !== null && parentWidgetId === null) {
+                    throw new Error(`Dashboard parent was not inserted before its child: ${widget.parentInstanceKey}`)
+                }
+                const widgetKey = applicationLayoutWidgetKeySchema.parse(widget.widgetKey)
+                const config = encodeWidgetConfigEnvelope(
+                    {
+                        rendererConfig: widget.rendererConfig,
+                        neutral: widget.bindings ? { bindings: widget.bindings } : {}
+                    },
+                    { templateKey: 'dashboard', widgetKey, zone: widget.zone, requireBindings: true }
                 )
-                const existsQuery = qb.withSchema(this.schemaName).from(widgetTableName).where({
-                    layout_id: layoutId,
-                    widget_key: w.widgetKey,
-                    _upl_deleted: false,
-                    _mhb_deleted: false
-                })
-                if (isMarketingLayout) {
-                    const lookup = resolveMarketingSeedWidgetLookup(w.widgetKey, widgetEnvelope.rendererConfig)
-                    if (lookup.kind === 'instanceKey') {
-                        existsQuery.whereRaw("config->>'instanceKey' = ?", [lookup.value])
-                    }
-                } else {
-                    existsQuery.where({ zone: w.zone, sort_order: w.sortOrder })
-                }
-                const exists = await existsQuery.first()
-
-                if (exists) continue
-
+                const id = generateUuidV7()
                 await qb
                     .withSchema(this.schemaName)
                     .into(widgetTableName)
-                    .insert({
-                        layout_id: layoutId,
-                        zone: w.zone,
-                        widget_key: w.widgetKey,
-                        sort_order: w.sortOrder,
-                        config,
-                        is_active: w.isActive !== false,
-                        _upl_created_at: now,
-                        _upl_created_by: null,
-                        _upl_updated_at: now,
-                        _upl_updated_by: null,
-                        _upl_version: 1,
-                        _upl_archived: false,
-                        _upl_deleted: false,
-                        _upl_locked: false,
-                        _mhb_published: true,
-                        _mhb_archived: false,
-                        _mhb_deleted: false
-                    })
-                insertedAny = true
-            }
-
-            if (!insertedAny) {
-                continue
-            }
-
-            if (isMarketingLayout || hasNonEmptyConfigObject(layoutRow?.config)) {
-                continue
-            }
-
-            const activeWidgets = await qb
-                .withSchema(this.schemaName)
-                .from(widgetTableName)
-                .where({ layout_id: layoutId, is_active: true, _upl_deleted: false, _mhb_deleted: false })
-                .select('widget_key', 'zone')
-
-            const layoutConfig = buildDashboardLayoutConfig(
-                activeWidgets.map((row: { widget_key: DashboardLayoutWidgetKey; zone: DashboardLayoutZone }) => ({
-                    widgetKey: row.widget_key as DashboardLayoutWidgetKey,
-                    zone: row.zone as DashboardLayoutZone
-                }))
-            )
-            const layoutEnvelope = decodeLayoutConfigEnvelope(layoutRow?.config ?? {}, {
-                templateKey: 'dashboard',
-                allowSourceZoneSettings: false
-            })
-            await qb
-                .withSchema(this.schemaName)
-                .from('_mhb_layouts')
-                .where({ id: layoutId })
-                .update({
-                    config: encodeLayoutConfigEnvelope(
-                        { rendererConfig: layoutConfig, neutral: layoutEnvelope.neutral },
-                        { templateKey: 'dashboard' }
+                    .insert(
+                        buildTemplateSeedWidgetPlacementRow({
+                            id,
+                            layoutId,
+                            instanceKey: widget.instanceKey,
+                            parentWidgetId,
+                            slotKey: widget.slotKey,
+                            zone: widget.zone,
+                            widgetKey,
+                            sortOrder: widget.sortOrder,
+                            config,
+                            isActive: widget.isActive !== false,
+                            now
+                        })
                     )
-                })
+                widgetIdByInstanceKey.set(widget.instanceKey, id)
+            }
         }
     }
 
@@ -692,6 +716,7 @@ export class TemplateSeedExecutor {
                         _upl_deleted: false,
                         _mhb_deleted: false
                     })
+                    .whereNull('parent_component_id')
                     .whereRaw(`${codenamePrimaryTextSql('codename')} = ?`, [cmp.codename])
                     .first()
 
@@ -746,6 +771,7 @@ export class TemplateSeedExecutor {
                             .withSchema(this.schemaName)
                             .from('_mhb_components')
                             .where({
+                                object_id: entityId,
                                 parent_component_id: parentComponentId,
                                 _upl_deleted: false,
                                 _mhb_deleted: false

@@ -8,33 +8,45 @@ import {
     buildRuntimeActiveRowCondition,
     type RuntimeSchemaContext
 } from '../../shared/runtimeHelpers'
-import { runtimeContentProgressBodySchema, type RuntimeProgressStoreBinding } from '../runtimeRowSupport/contracts'
+import { runtimeContentProgressBodySchema, type RuntimeProgressStoreBinding } from '../../services/runtimeRowSupport/contracts'
 import { loadRuntimeObjectAttrs, resolveRuntimeObjectByCodename } from '../runtimeRowSupport/objects'
 import {
+    acquireRuntimeProgressUserScopeLock,
     applyRuntimeProgressParentAggregations,
     assertRuntimeProgressSequenceAvailable,
     readRuntimeProgressAggregateParents,
     readRuntimeProgressNumber,
     readRuntimeProgressString,
     resolveProgressStoreBinding
-} from '../runtimeRowSupport/progress'
-import { buildRuntimeRecordAccessClause } from '../runtimeRowSupport/access'
+} from '../../services/runtimeRowSupport/progress'
+import { buildRuntimeRecordAccessClause } from '../../services/runtimeRowSupport/access'
 import { assertRuntimeEntityMutationAllowed, denyRuntimeEntityMutation } from '../../shared/entityMutationPolicy'
+import { resolveRuntimeRecordReference } from '../../services/runtimeRecordHandle'
 
 import { persistRuntimeActorLibraryRelation } from './actorRelations'
 import type { RuntimeCommandGuardFailure, RuntimeProgressQuotedColumns, RuntimeProgressTarget, RuntimeRowCommandHandlerDeps } from './types'
 
 export const ensureRuntimeProgressTargetAccessible = async (params: {
     ctx: RuntimeSchemaContext
+    applicationId: string
     targetObjectCodename: string
-    targetRecordId: string
-}): Promise<{ targetObject: RuntimeProgressTarget } | { failure: RuntimeCommandGuardFailure }> => {
+    targetRecordReference: string
+}): Promise<{ targetObject: RuntimeProgressTarget; targetRecordId: string } | { failure: RuntimeCommandGuardFailure }> => {
     const targetObject = await resolveRuntimeObjectByCodename(params.ctx.manager, params.ctx.schemaIdent, params.targetObjectCodename, {
         includePages: true
     })
     if (!targetObject) {
         return { failure: { statusCode: 404, body: { error: 'Progress target object not found' } } }
     }
+    const resolvedReference = resolveRuntimeRecordReference(params.targetRecordReference, {
+        applicationId: params.applicationId,
+        workspaceId: params.ctx.currentWorkspaceId,
+        entityCodename: params.targetObjectCodename
+    })
+    if (!resolvedReference) {
+        return { failure: { statusCode: 404, body: { error: 'Progress target row not found' } } }
+    }
+    const targetRecordId = resolvedReference.recordId
     try {
         assertRuntimeEntityMutationAllowed(targetObject.config)
     } catch (error) {
@@ -45,7 +57,7 @@ export const ensureRuntimeProgressTargetAccessible = async (params: {
     }
 
     if (targetObject.kind === 'page') {
-        if (targetObject.id !== params.targetRecordId) {
+        if (targetObject.id !== targetRecordId) {
             return { failure: { statusCode: 404, body: { error: 'Progress target row not found' } } }
         }
     } else {
@@ -61,7 +73,7 @@ export const ensureRuntimeProgressTargetAccessible = async (params: {
             params.ctx.currentWorkspaceId
         )
         const targetAttrs = await loadRuntimeObjectAttrs(params.ctx.manager, params.ctx.schemaIdent, targetObject.id)
-        const targetValues: unknown[] = [params.targetRecordId]
+        const targetValues: unknown[] = [targetRecordId]
         const targetAccessClause = await buildRuntimeRecordAccessClause({
             manager: params.ctx.manager,
             schemaIdent: params.ctx.schemaIdent,
@@ -92,7 +104,7 @@ export const ensureRuntimeProgressTargetAccessible = async (params: {
         }
     }
 
-    return { targetObject }
+    return { targetObject, targetRecordId }
 }
 
 export const updateExistingRuntimeProgressRow = async (params: {
@@ -227,6 +239,7 @@ export const runRuntimeContentProgressRecalculation = async (params: {
     targetObject: RuntimeProgressTarget
     targetObjectCodename: string
     targetRecordId: string
+    responseTargetRecordReference: string
     aggregateConfig: RuntimeProgressAggregateParents
 }): Promise<{ payload: Record<string, unknown> } | { failure: RuntimeCommandGuardFailure }> => {
     try {
@@ -257,7 +270,7 @@ export const runRuntimeContentProgressRecalculation = async (params: {
             persisted: true,
             action: 'recalculate',
             targetObjectCodename: params.targetObjectCodename,
-            targetRecordId: params.targetRecordId
+            targetRecordId: params.responseTargetRecordReference
         }
     }
 }
@@ -282,6 +295,14 @@ export const persistRuntimeContentProgress = async (params: {
     let storedStatus = params.status
 
     await withTransactionSavepoint(ctx.manager, async (tx) => {
+        await acquireRuntimeProgressUserScopeLock({
+            manager: tx,
+            schemaIdent: ctx.schemaIdent,
+            binding,
+            userId: ctx.userId,
+            currentWorkspaceId: ctx.currentWorkspaceId,
+            workspacesEnabled: ctx.workspacesEnabled
+        })
         await acquireAdvisoryXactLock(
             tx,
             [
@@ -390,13 +411,15 @@ export const createContentProgressHandler = ({ getDbExecutor, query }: RuntimeRo
 
         const targetResult = await ensureRuntimeProgressTargetAccessible({
             ctx,
+            applicationId,
             targetObjectCodename: parsedBody.data.targetObjectCodename,
-            targetRecordId: parsedBody.data.targetRecordId
+            targetRecordReference: parsedBody.data.targetRecordId
         })
         if ('failure' in targetResult) {
             return res.status(targetResult.failure.statusCode).json(targetResult.failure.body)
         }
         const targetObject = targetResult.targetObject
+        const targetRecordId = targetResult.targetRecordId
 
         const binding = await resolveProgressStoreBinding(ctx.manager, ctx.schemaIdent, ctx.applicationSettings)
         if (!binding) {
@@ -414,7 +437,7 @@ export const createContentProgressHandler = ({ getDbExecutor, query }: RuntimeRo
                 binding,
                 targetObject,
                 targetObjectCodename: parsedBody.data.targetObjectCodename,
-                targetRecordId: parsedBody.data.targetRecordId
+                targetRecordId
             })
             if (sequenceFailure) {
                 return res.status(sequenceFailure.statusCode).json(sequenceFailure.body)
@@ -442,7 +465,8 @@ export const createContentProgressHandler = ({ getDbExecutor, query }: RuntimeRo
                 binding,
                 targetObject,
                 targetObjectCodename: parsedBody.data.targetObjectCodename,
-                targetRecordId: parsedBody.data.targetRecordId,
+                targetRecordId,
+                responseTargetRecordReference: parsedBody.data.targetRecordId,
                 aggregateConfig
             })
             if ('failure' in recalcResult) {
@@ -469,8 +493,8 @@ export const createContentProgressHandler = ({ getDbExecutor, query }: RuntimeRo
         const activeWorkspaceClause = ctx.workspacesEnabled && ctx.currentWorkspaceId ? 'AND workspace_id = $4' : ''
         const existingParams =
             ctx.workspacesEnabled && ctx.currentWorkspaceId
-                ? [parsedBody.data.targetObjectCodename, parsedBody.data.targetRecordId, ctx.userId, ctx.currentWorkspaceId]
-                : [parsedBody.data.targetObjectCodename, parsedBody.data.targetRecordId, ctx.userId]
+                ? [parsedBody.data.targetObjectCodename, targetRecordId, ctx.userId, ctx.currentWorkspaceId]
+                : [parsedBody.data.targetObjectCodename, targetRecordId, ctx.userId]
 
         let storedProgress: { progressPercent: number; status: string }
         try {
@@ -480,7 +504,7 @@ export const createContentProgressHandler = ({ getDbExecutor, query }: RuntimeRo
                 binding,
                 targetObject,
                 targetObjectCodename: parsedBody.data.targetObjectCodename,
-                targetRecordId: parsedBody.data.targetRecordId,
+                targetRecordId,
                 action: progressAction,
                 status,
                 progressPercent,

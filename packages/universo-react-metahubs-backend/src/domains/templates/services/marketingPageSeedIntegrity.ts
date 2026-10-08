@@ -1,4 +1,4 @@
-import { decodeWidgetConfigEnvelope, getLayoutWidgetDefinition, validateWidgetBindings } from '@universo-react/types'
+import { getLayoutWidgetDefinition, parseApplicationLayoutWidgetConfig, validateWidgetBindings } from '@universo-react/types'
 import type { MetahubTemplateSeed, TemplateSeedElement, WidgetBindingSlotDefinition, WidgetBindingTarget } from '@universo-react/types'
 
 type SeedTargetContext = {
@@ -51,6 +51,11 @@ const resolveSeedTargetRecords = (
         return records
     }
 
+    if (selector.kind === 'learner-enrollment-set') {
+        // Learner assignments are actor-scoped runtime data, so an LMS template may seed none.
+        return records
+    }
+
     const relation = slot.relation
     const parentSlot = context.definitionBySlot.get(selector.parentSlot)
     const parentTargets = context.bindingsBySlot.get(selector.parentSlot) ?? []
@@ -96,24 +101,19 @@ export const collectMarketingPageSeedIntegrityErrors = (seed: MetahubTemplateSee
         if (templateKeyByLayout.get(layoutCodename) !== 'marketing-page') continue
 
         for (const widget of widgets) {
-            let decoded: ReturnType<typeof decodeWidgetConfigEnvelope>
+            let rendererConfig: Record<string, unknown>
             try {
-                decoded = decodeWidgetConfigEnvelope(widget.config ?? {}, {
-                    templateKey: 'marketing-page',
-                    widgetKey: widget.widgetKey,
-                    zone: widget.zone,
-                    requireBindings: true
-                })
+                rendererConfig = parseApplicationLayoutWidgetConfig(widget.widgetKey, widget.rendererConfig)
             } catch {
                 continue
             }
 
-            const definition = getLayoutWidgetDefinition(widget.widgetKey, decoded.rendererConfig)
+            const definition = getLayoutWidgetDefinition(widget.widgetKey, rendererConfig)
             if (!definition?.bindingSlots?.length) continue
 
             let bindings: ReturnType<typeof validateWidgetBindings>
             try {
-                bindings = validateWidgetBindings(definition, decoded.neutral.bindings)
+                bindings = validateWidgetBindings(definition, widget.bindings)
             } catch {
                 continue
             }

@@ -107,9 +107,12 @@ describe('syncLayoutPersistenceLineage', () => {
             layoutId: dashboardIds.layout,
             sourceLineageKey: 'copy:dashboard:widget',
             zone: 'center',
-            widgetKey: 'detailsTable',
+            widgetKey: 'columnsContainer',
+            instanceKey: 'columns-main',
+            parentWidgetId: null,
+            slotKey: null,
             sortOrder: 1,
-            config: { datasource: { kind: 'records.list', sectionCodename: 'Object' } },
+            config: { columns: [{ slotKey: 'column:main', width: 12 }] },
             isActive: true,
             sourceContentHash: 'a'.repeat(64)
         }
@@ -127,7 +130,7 @@ describe('syncLayoutPersistenceLineage', () => {
 
         const sql = String(query.mock.calls[0]?.[0])
         expect(sql).toContain('NULL::jsonb')
-        expect(sql).toMatch(/NULL, NULL, NULL, \$11/u)
+        expect(sql).toMatch(/NULL, NULL, NULL, \$14/u)
     })
 
     it('allocates physical UUID v7 identities, remaps overlay references, and reuses them on resync', async () => {
@@ -265,7 +268,7 @@ describe('syncLayoutPersistenceLineage', () => {
                     template_key: 'dashboard',
                     name: { en: 'Main' },
                     description: null,
-                    config: { showHeader: false },
+                    config: {},
                     is_active: true,
                     is_default: true,
                     sort_order: 0,
@@ -286,9 +289,12 @@ describe('syncLayoutPersistenceLineage', () => {
                     id: dashboardIds.widget,
                     layout_id: dashboardIds.layout,
                     zone: 'center',
-                    widget_key: 'detailsTable',
+                    widget_key: 'columnsContainer',
+                    instance_key: 'columns-main',
+                    parent_widget_id: null,
+                    slot_key: null,
                     sort_order: 1,
-                    config: { showHeader: false },
+                    config: { columns: [{ slotKey: 'column:main', width: 12 }] },
                     source_widget_id: dashboardIds.widget,
                     source_base_widget_id: null,
                     source_content_hash: 'widget-source',
@@ -357,7 +363,7 @@ describe('syncLayoutPersistenceLineage', () => {
                     baseLayoutId: null,
                     name: { en: 'Main' },
                     description: null,
-                    config: { showDetailsTable: true },
+                    config: {},
                     isActive: true,
                     isDefault: true,
                     sortOrder: 0
@@ -383,9 +389,14 @@ describe('syncLayoutPersistenceLineage', () => {
                     id: dashboardIds.baseWidget,
                     layoutId: dashboardIds.layout,
                     zone: 'center',
-                    widgetKey: 'detailsTable',
+                    widgetKey: 'columnsContainer',
+                    instanceKey: 'base-columns',
+                    parentWidgetId: null,
+                    slotKey: null,
+                    sourceWidgetId: dashboardIds.baseWidget,
+                    sourceBaseWidgetId: null,
                     sortOrder: 10,
-                    config: { datasource: { kind: 'records.list', sectionCodename: 'object-1' } },
+                    config: { columns: [{ slotKey: 'column:main', width: 12 }] },
                     isActive: true
                 }
             ],
@@ -444,7 +455,7 @@ describe('syncLayoutPersistenceLineage', () => {
                     baseLayoutId: null,
                     name: { en: 'Main' },
                     description: null,
-                    config: { showDetailsTable: true },
+                    config: {},
                     isActive: true,
                     isDefault: true,
                     sortOrder: 0
@@ -470,18 +481,28 @@ describe('syncLayoutPersistenceLineage', () => {
                     id: dashboardIds.baseWidget,
                     layoutId: dashboardIds.layout,
                     zone: 'center',
-                    widgetKey: 'detailsTable',
+                    widgetKey: 'columnsContainer',
+                    instanceKey: 'base-columns',
+                    parentWidgetId: null,
+                    slotKey: null,
+                    sourceWidgetId: dashboardIds.baseWidget,
+                    sourceBaseWidgetId: null,
                     sortOrder: 10,
-                    config: { datasource: { kind: 'records.list', sectionCodename: 'LearningResources' } },
+                    config: { columns: [{ slotKey: 'column:main', width: 12 }] },
                     isActive: true
                 },
                 {
                     id: dashboardIds.courseWidget,
                     layoutId: dashboardIds.courseLayout,
                     zone: 'center',
-                    widgetKey: 'detailsTable',
+                    widgetKey: 'columnsContainer',
+                    instanceKey: 'course-columns',
+                    parentWidgetId: null,
+                    slotKey: null,
+                    sourceWidgetId: dashboardIds.courseWidget,
+                    sourceBaseWidgetId: null,
                     sortOrder: 20,
-                    config: { datasource: { kind: 'records.list', sectionCodename: 'CourseItems' } },
+                    config: { columns: [{ slotKey: 'column:course', width: 12 }] },
                     isActive: true
                 }
             ],
@@ -494,19 +515,19 @@ describe('syncLayoutPersistenceLineage', () => {
             userId: 'user-1'
         })
 
-        const scopedDetailsTables = currentKnex.widgetRows.filter(
-            (row) => row.layout_id === dashboardIds.courseLayout && row.zone === 'center' && row.widget_key === 'detailsTable'
+        const scopedColumns = currentKnex.widgetRows.filter(
+            (row) => row.layout_id === dashboardIds.courseLayout && row.zone === 'center' && row.widget_key === 'columnsContainer'
         )
-        expect(scopedDetailsTables).toHaveLength(2)
-        expect(scopedDetailsTables).toEqual(
+        expect(scopedColumns).toHaveLength(2)
+        expect(scopedColumns).toEqual(
             expect.arrayContaining([
                 expect.objectContaining({
                     source_base_widget_id: null,
-                    config: { datasource: { kind: 'records.list', sectionCodename: 'CourseItems' } }
+                    config: { columns: [{ slotKey: 'column:course', width: 12 }] }
                 }),
                 expect.objectContaining({
                     source_base_widget_id: dashboardIds.baseWidget,
-                    config: { datasource: { kind: 'records.list', sectionCodename: 'LearningResources' } }
+                    config: { columns: [{ slotKey: 'column:main', width: 12 }] }
                 })
             ])
         )

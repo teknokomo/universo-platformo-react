@@ -3,7 +3,7 @@ import {
     validateRuntimeDateOrderRules,
     validateRuntimeRequiredWhenRules
 } from '../../../controllers/runtimeRowSupport/validation'
-import type { RuntimeObjectCollectionAttr } from '../../../controllers/runtimeRowSupport/contracts'
+import type { RuntimeObjectCollectionAttr } from '../../../services/runtimeRowSupport/contracts'
 
 const codename = (text: string) => ({ _primary: 'en', locales: { en: { content: text } } })
 

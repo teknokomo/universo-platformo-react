@@ -1,21 +1,17 @@
 import { z } from 'zod'
+import { effectiveWidgetRuntimeDataSchema } from './effectiveWidgetRuntimeData'
 import { APPLICATION_TEMPLATE_REGISTRY, layoutSemanticRegionSchema } from './applicationTemplates'
-import { dashboardLayoutConfigSchema, dashboardSideMenuConfigSchema, type DashboardLayoutConfig } from './dashboardLayout'
+import { dashboardLayoutConfigSchema, type DashboardLayoutConfig } from './dashboardLayout'
 import { getLayoutWidgetAllowedZones, getLayoutWidgetDefinition, getLayoutZoneDefinition } from './layoutWidgetDefinitions'
 import { layoutLogicalPlacementSchema, layoutZoneSettingsSchema, persistedLayoutNeutralMetadataSchema } from './layoutEnvelope'
-import { DASHBOARD_LAYOUT_WIDGETS, DASHBOARD_LAYOUT_ZONES, type MenuWidgetTarget } from './metahubs'
-import { moduleBackedWidgetConfigSchema, sharedBehaviorSchema } from './moduleBackedWidgetConfig'
-import { interpretationNetworkWorkspaceWidgetConfigSchema } from './interpretationNetworkLayout'
+import { DASHBOARD_LAYOUT_WIDGETS, DASHBOARD_LAYOUT_ZONES } from './metahubs'
 import {
-    ledgerProjectionDatasourceSchema,
-    recordsListDatasourceSchema,
-    runtimeDatasourceDescriptorSchema,
-    statCardMetricDatasourceSchema
-} from './runtimeDataSources'
-import { RESOURCE_TYPES, resourceSourceSchema } from './resourceSources'
-import { sequencePolicySchema } from './sequenceCompletion'
-import { reportDefinitionSchema } from './lmsPlatform'
-import { workflowActionSchema } from './workflowActions'
+    DASHBOARD_WIDGET_CONFIG_SCHEMAS,
+    dashboardWidgetConfigSchemaByKey,
+    effectiveLayoutParentageFieldsSchema,
+    effectiveLayoutParentageSchema,
+    persistedLayoutWidgetParentageSchema
+} from './dashboardWidgetRegistry'
 import {
     applicationTemplateKeySchema,
     marketingAuthWidgetConfigSchema,
@@ -245,7 +241,10 @@ export type ApplicationLayoutZone = z.infer<typeof applicationLayoutZoneSchema>
  * validate it against the selected template before persisting or rendering.
  */
 export type ApplicationLayoutConfig = (DashboardLayoutConfig | MarketingPageConfig) & Record<string, unknown>
-export const applicationLayoutConfigSchema: z.ZodType<ApplicationLayoutConfig> = z.record(z.string(), z.unknown()).default({})
+export const applicationLayoutConfigSchema = z
+    .record(z.string(), z.unknown())
+    .default({})
+    .transform((config) => config as ApplicationLayoutConfig)
 
 const isApplicationLayoutRecord = (value: unknown): value is Record<string, unknown> =>
     Boolean(value && typeof value === 'object' && !Array.isArray(value))
@@ -271,607 +270,10 @@ export const parseApplicationLayoutConfig = (templateKey: ApplicationTemplateKey
         throw new Error('Dashboard layouts cannot contain marketing-page configuration keys.')
     }
     const dashboardConfig = dashboardLayoutConfigSchema.parse(config ?? {}) ?? {}
-    return {
-        ...(isApplicationLayoutRecord(config) ? config : {}),
-        ...dashboardConfig
-    } as ApplicationLayoutConfig
+    return dashboardConfig as ApplicationLayoutConfig
 }
 
-const genericWidgetConfigSchema = z.record(z.unknown()).default({})
-const localizedWidgetTextSchema = z.union([z.string().min(1).max(160), applicationLayoutLocalizedContentSchema])
-const rowCountWarningSchema = z
-    .object({
-        threshold: z.number().int().min(1).max(100_000),
-        message: localizedWidgetTextSchema
-    })
-    .strict()
-
-const normalizeCreateDefaultFieldKey = (value: string): string =>
-    value
-        .trim()
-        .replace(/[^a-z0-9]/gi, '')
-        .toLowerCase()
-
-const forbiddenCreateDefaultFieldKeys = new Set([
-    'id',
-    'workspaceid',
-    'workspace',
-    'ownerid',
-    'owneruserid',
-    'owner',
-    'userid',
-    'user',
-    'assigneduserid',
-    'createdby',
-    'updatedby',
-    'deletedby',
-    'progress',
-    'progresspercent',
-    'progressstatus',
-    'lifecyclestate',
-    'lifecycle',
-    'targetrecordid',
-    'targetobjectcodename',
-    'targetobjectid',
-    'sourceobjectcodename',
-    'sourcerowid',
-    'sourcelineid',
-    'principalid',
-    'apprecordstate',
-    'appdeleted'
-])
-
-const isUnsafeCreateDefaultFieldCodename = (fieldCodename: string): boolean => {
-    const normalized = normalizeCreateDefaultFieldKey(fieldCodename)
-    return normalized.startsWith('upl') || normalized.startsWith('_upl') || forbiddenCreateDefaultFieldKeys.has(normalized)
-}
-
-const forbiddenCreateDefaultContextPathSegments = new Set(['__proto__', 'prototype', 'constructor'])
-
-const createDefaultContextPathSchema = z
-    .string()
-    .trim()
-    .min(1)
-    .max(256)
-    .refine(
-        (value) =>
-            value.split('.').every((segment) => {
-                const normalized = segment.toLowerCase()
-                return /^[A-Za-z0-9_-]+$/.test(segment) && !forbiddenCreateDefaultContextPathSegments.has(normalized)
-            }),
-        'Create target default context paths must use safe dot-separated identifiers.'
-    )
-
-const createTargetDefaultSchema = z
-    .object({
-        fieldCodename: z.string().trim().min(1).max(128),
-        value: z.union([z.string().max(2048), z.number().finite(), z.boolean(), z.null()]).optional(),
-        enumCodename: z.string().trim().min(1).max(128).optional(),
-        resourceSourceType: z.enum(RESOURCE_TYPES).optional(),
-        contextPath: createDefaultContextPathSchema.optional()
-    })
-    .strict()
-    .superRefine((value, ctx) => {
-        if (isUnsafeCreateDefaultFieldCodename(value.fieldCodename)) {
-            ctx.addIssue({
-                code: z.ZodIssueCode.custom,
-                message: 'Create target defaults cannot target system-owned fields.',
-                path: ['fieldCodename']
-            })
-        }
-
-        const defaultKinds = [
-            Object.prototype.hasOwnProperty.call(value, 'value'),
-            typeof value.enumCodename === 'string',
-            typeof value.resourceSourceType === 'string',
-            typeof value.contextPath === 'string'
-        ].filter(Boolean).length
-
-        if (defaultKinds !== 1) {
-            ctx.addIssue({
-                code: z.ZodIssueCode.custom,
-                message: 'Create target default must define exactly one default value source.'
-            })
-        }
-    })
-
-export type CreateTargetDefault = z.infer<typeof createTargetDefaultSchema>
-
-const menuWidgetItemSchema = z
-    .object({
-        id: z.string().min(1),
-        kind: z.enum(['section', 'hub', 'link']),
-        title: applicationLayoutLocalizedContentSchema,
-        icon: z.string().nullable().optional(),
-        href: z.string().nullable().optional(),
-        objectCollectionId: z.string().nullable().optional(),
-        sectionId: z.string().nullable().optional(),
-        hubId: z.string().nullable().optional(),
-        treeEntityId: z.string().nullable().optional(),
-        sortOrder: z.number().int(),
-        isActive: z.boolean()
-    })
-    .strict()
-
-const menuWidgetTargetSchema: z.ZodType<MenuWidgetTarget> = z.discriminatedUnion('kind', [
-    z.object({ kind: z.literal('section'), sectionId: z.string().min(1) }).strict(),
-    z.object({ kind: z.literal('objectCollection'), objectCollectionId: z.string().min(1) }).strict(),
-    z.object({ kind: z.literal('hub'), hubId: z.string().min(1) }).strict(),
-    z.object({ kind: z.literal('treeEntity'), treeEntityId: z.string().min(1) }).strict(),
-    z.object({ kind: z.literal('menuItem'), menuItemId: z.string().min(1) }).strict()
-])
-
-export const menuWidgetConfigSchema = z
-    .object({
-        boundHubId: z.string().nullable().optional(),
-        boundTreeEntityId: z.string().nullable().optional(),
-        bindToHub: z.boolean().optional(),
-        showTitle: z.boolean().optional(),
-        title: applicationLayoutLocalizedContentSchema.optional(),
-        autoShowAllSections: z.boolean().optional(),
-        maxPrimaryItems: z.number().int().min(1).max(12).optional(),
-        overflowLabelKey: z.string().nullable().optional(),
-        startPage: z.string().nullable().optional(),
-        startTarget: menuWidgetTargetSchema.nullable().optional(),
-        workspacePlacement: z.enum(['primary', 'overflow', 'hidden']).optional(),
-        sideMenu: dashboardSideMenuConfigSchema.optional(),
-        items: z.array(menuWidgetItemSchema),
-        sharedBehavior: sharedBehaviorSchema.optional()
-    })
-    .strict()
-
-const nestedColumnsContainerWidgetKeySchema = z
-    .string()
-    .refine(
-        (value) => DASHBOARD_LAYOUT_WIDGETS.some((widget) => widget.key === value) && value !== 'columnsContainer',
-        'Nested columnsContainer widgets are not allowed'
-    )
-
-const nestedDetailsTabsWidgetKeySchema = z
-    .string()
-    .refine(
-        (value) => DASHBOARD_LAYOUT_WIDGETS.some((widget) => widget.key === value) && value !== 'detailsTabs',
-        'Nested detailsTabs widgets are not allowed'
-    )
-
-const dashboardNestedWidgetSchema = (widgetKeySchema: z.ZodType<string>) =>
-    z
-        .object({
-            id: z.string().min(1).optional(),
-            widgetKey: widgetKeySchema,
-            sortOrder: z.number().int().optional(),
-            isActive: z.boolean().optional(),
-            config: z.record(z.unknown()).optional()
-        })
-        .strict()
-
-const columnsContainerNestedWidgetSchema = dashboardNestedWidgetSchema(nestedColumnsContainerWidgetKeySchema)
-
-const detailsTabsNestedWidgetSchema = dashboardNestedWidgetSchema(nestedDetailsTabsWidgetKeySchema)
-
-const detailsTabsTabSchema = z
-    .object({
-        id: z.string().min(1),
-        label: localizedWidgetTextSchema.optional(),
-        isActive: z.boolean().optional(),
-        widgets: z.array(detailsTabsNestedWidgetSchema)
-    })
-    .strict()
-
-const columnsContainerColumnSchema = z
-    .object({
-        id: z.string().min(1),
-        width: z.number().int().min(1).max(12),
-        widgets: z.array(columnsContainerNestedWidgetSchema)
-    })
-    .strict()
-
-export const columnsContainerWidgetConfigSchema = z
-    .object({
-        columns: z.array(columnsContainerColumnSchema),
-        sharedBehavior: sharedBehaviorSchema.optional()
-    })
-    .strict()
-
-export const detailsTabsWidgetConfigSchema = z
-    .object({
-        tabs: z.array(detailsTabsTabSchema).min(1).max(8),
-        sharedBehavior: sharedBehaviorSchema.optional()
-    })
-    .strict()
-
-export type DetailsTabsWidgetConfig = z.infer<typeof detailsTabsWidgetConfigSchema>
-
-export const quizWidgetConfigSchema = moduleBackedWidgetConfigSchema
-    .extend({
-        quizId: z.string().nullable().optional(),
-        submitMethodName: z.string().nullable().optional(),
-        title: z.string().nullable().optional(),
-        description: z.string().nullable().optional()
-    })
-    .strict()
-
-const playcanvasVector3Schema = z
-    .object({
-        x: z.number().finite(),
-        y: z.number().finite(),
-        z: z.number().finite()
-    })
-    .strict()
-
-const playcanvasObjectSchema = z
-    .object({
-        id: z.string().trim().min(1).max(128),
-        label: localizedWidgetTextSchema.optional(),
-        position: playcanvasVector3Schema,
-        scale: playcanvasVector3Schema,
-        selectable: z.boolean().optional(),
-        guard: z.boolean().optional()
-    })
-    .strict()
-
-const playcanvasRuntimeManifestBindingSchema = z
-    .object({
-        source: z.literal('publishedManifest'),
-        projectId: z.string().uuid(),
-        sceneId: z.string().uuid().nullable().optional(),
-        checksum: z.string().regex(/^[a-f0-9]{64}$/i),
-        failClosed: z.boolean().default(true)
-    })
-    .strict()
-
-export const playcanvasCanvasWidgetConfigSchema = moduleBackedWidgetConfigSchema
-    .extend({
-        title: localizedWidgetTextSchema.optional(),
-        runtimeManifest: playcanvasRuntimeManifestBindingSchema.optional(),
-        minHeight: z.number().int().min(320).max(1200).optional(),
-        heightMode: z.enum(['fixed', 'fitViewport']).optional(),
-        camera: z
-            .object({
-                distance: z.number().min(1).max(1000).optional(),
-                minDistance: z.number().min(1).max(1000).optional(),
-                maxDistance: z.number().min(1).max(2000).optional()
-            })
-            .strict()
-            .optional(),
-        scene: z
-            .object({
-                background: z.string().trim().min(1).max(32).optional(),
-                objects: z.array(playcanvasObjectSchema).min(1).max(64).optional(),
-                controlledObjectId: z.string().trim().min(1).max(128).optional(),
-                targetObjectId: z.string().trim().min(1).max(128).optional(),
-                cruiseSpeed: z.number().min(1).max(1000).optional(),
-                intentDistance: z.number().min(10).max(10_000).optional()
-            })
-            .strict()
-            .superRefine((scene, ctx) => {
-                if (!scene.objects?.length) {
-                    return
-                }
-
-                const objectIds = new Set<string>()
-                for (const [index, object] of scene.objects.entries()) {
-                    if (objectIds.has(object.id)) {
-                        ctx.addIssue({
-                            code: z.ZodIssueCode.custom,
-                            path: ['objects', index, 'id'],
-                            message: 'Scene object ids must be unique.'
-                        })
-                    }
-                    objectIds.add(object.id)
-                }
-                if (scene.controlledObjectId && !objectIds.has(scene.controlledObjectId)) {
-                    ctx.addIssue({
-                        code: z.ZodIssueCode.custom,
-                        path: ['controlledObjectId'],
-                        message: 'Controlled object must reference an object in the scene.'
-                    })
-                }
-                if (scene.targetObjectId && !objectIds.has(scene.targetObjectId)) {
-                    ctx.addIssue({
-                        code: z.ZodIssueCode.custom,
-                        path: ['targetObjectId'],
-                        message: 'Target object must reference an object in the scene.'
-                    })
-                }
-            })
-            .optional()
-    })
-    .strict()
-
-const targetPickerConfigObjectSchema = z
-    .object({
-        targetSectionId: z.string().trim().min(1).max(128).optional(),
-        targetSectionCodename: z.string().trim().min(1).max(128).optional(),
-        targetObjectCollectionId: z.string().trim().min(1).max(128).optional(),
-        targetObjectCollectionCodename: z.string().trim().min(1).max(128).optional(),
-        parentFieldCodename: z.string().trim().min(1).max(128).optional(),
-        labelFields: z.array(z.string().trim().min(1).max(128)).min(1).max(8).optional(),
-        dialogTitle: localizedWidgetTextSchema.optional(),
-        targetLabel: localizedWidgetTextSchema.optional()
-    })
-    .strict()
-
-const requireTargetPickerReference = (value: z.infer<typeof targetPickerConfigObjectSchema>, ctx: z.RefinementCtx) => {
-    if (
-        !value.targetSectionId &&
-        !value.targetSectionCodename &&
-        !value.targetObjectCollectionId &&
-        !value.targetObjectCollectionCodename
-    ) {
-        ctx.addIssue({
-            code: z.ZodIssueCode.custom,
-            message: 'Target picker must reference a section or object collection.'
-        })
-    }
-}
-
-const restoreTargetConfigSchema = targetPickerConfigObjectSchema.superRefine((value, ctx) => {
-    if (
-        !value.targetSectionId &&
-        !value.targetSectionCodename &&
-        !value.targetObjectCollectionId &&
-        !value.targetObjectCollectionCodename
-    ) {
-        ctx.addIssue({
-            code: z.ZodIssueCode.custom,
-            message: 'Restore target must reference a section or object collection.'
-        })
-    }
-})
-
-const recordsUnionTargetFilterSchema = z
-    .object({
-        id: z.string().trim().min(1).max(64),
-        label: localizedWidgetTextSchema,
-        targetDisplayTypes: z.array(z.string().trim().min(1).max(64)).min(1).max(16).optional(),
-        targetSectionCodenames: z.array(z.string().trim().min(1).max(128)).min(1).max(16).optional(),
-        targetObjectCollectionCodenames: z.array(z.string().trim().min(1).max(128)).min(1).max(16).optional(),
-        targetSectionIds: z.array(z.string().trim().min(1).max(128)).min(1).max(16).optional(),
-        targetObjectCollectionIds: z.array(z.string().trim().min(1).max(128)).min(1).max(16).optional()
-    })
-    .strict()
-    .superRefine((value, ctx) => {
-        const hasCriteria = [
-            value.targetDisplayTypes,
-            value.targetSectionCodenames,
-            value.targetObjectCollectionCodenames,
-            value.targetSectionIds,
-            value.targetObjectCollectionIds
-        ].some((items) => Array.isArray(items) && items.length > 0)
-
-        if (!hasCriteria) {
-            ctx.addIssue({
-                code: z.ZodIssueCode.custom,
-                message: 'Records union target filters must reference at least one target criterion.'
-            })
-        }
-    })
-
-export const detailsTableWidgetConfigSchema = z
-    .object({
-        datasource: runtimeDatasourceDescriptorSchema.optional(),
-        enableRowReordering: z.boolean().optional(),
-        showViewToggle: z.boolean().optional(),
-        showSearch: z.boolean().optional(),
-        targetFilters: z.array(recordsUnionTargetFilterSchema).max(16).optional(),
-        createTargets: z
-            .array(
-                z
-                    .object({
-                        id: z.string().trim().min(1).max(64),
-                        label: localizedWidgetTextSchema,
-                        sectionId: z.string().trim().min(1).max(128).optional(),
-                        sectionCodename: z.string().trim().min(1).max(128).optional(),
-                        objectCollectionId: z.string().trim().min(1).max(128).optional(),
-                        objectCollectionCodename: z.string().trim().min(1).max(128).optional(),
-                        icon: z.string().trim().min(1).max(64).nullable().optional(),
-                        surface: z.enum(['dialog', 'page']).optional(),
-                        disabled: z.boolean().optional(),
-                        disabledReason: localizedWidgetTextSchema.optional(),
-                        createDefaults: z.array(createTargetDefaultSchema).max(12).optional()
-                    })
-                    .strict()
-                    .superRefine((value, ctx) => {
-                        if (!value.sectionId && !value.sectionCodename && !value.objectCollectionId && !value.objectCollectionCodename) {
-                            ctx.addIssue({
-                                code: z.ZodIssueCode.custom,
-                                message: 'Create target must reference a section or object collection.'
-                            })
-                        }
-                    })
-            )
-            .max(16)
-            .optional(),
-        rowActions: z
-            .array(
-                z.union([
-                    z
-                        .object({
-                            id: z.string().trim().min(1).max(64),
-                            kind: z.literal('library.toggle'),
-                            libraryView: z.enum(['starred', 'shared']),
-                            label: localizedWidgetTextSchema.optional(),
-                            activeLabel: localizedWidgetTextSchema.optional(),
-                            icon: z.enum(['star', 'share']).optional(),
-                            principalTarget: z.enum(['currentUser', 'workspaceMember']).optional(),
-                            dialogTitle: localizedWidgetTextSchema.optional(),
-                            targetLabel: localizedWidgetTextSchema.optional()
-                        })
-                        .strict(),
-                    targetPickerConfigObjectSchema
-                        .extend({
-                            id: z.string().trim().min(1).max(64),
-                            kind: z.literal('field.updateWithTarget'),
-                            fieldCodename: z.string().trim().min(1).max(128),
-                            label: localizedWidgetTextSchema.optional(),
-                            icon: z.enum(['move']).optional()
-                        })
-                        .strict()
-                        .superRefine(requireTargetPickerReference)
-                ])
-            )
-            .max(8)
-            .optional(),
-        restoreTarget: restoreTargetConfigSchema.optional(),
-        rowCountWarning: rowCountWarningSchema.optional(),
-        sequencePolicy: sequencePolicySchema.optional(),
-        reportCodename: z.string().trim().min(1).max(128).optional(),
-        reportDefinition: reportDefinitionSchema.optional(),
-        workflowActions: z.array(workflowActionSchema).max(16).optional(),
-        sharedBehavior: sharedBehaviorSchema.optional()
-    })
-    .strict()
-
-export type DetailsTableWidgetConfig = z.infer<typeof detailsTableWidgetConfigSchema>
-
-const relationBuilderPanelSchema = z
-    .object({
-        id: z.string().min(1),
-        title: localizedWidgetTextSchema,
-        width: z.number().int().min(1).max(12).optional(),
-        datasource: recordsListDatasourceSchema,
-        parentFieldCodename: z.string().trim().min(1).max(128),
-        sortOrderFieldCodename: z.string().trim().min(1).max(128).optional(),
-        enableRowReordering: z.boolean().optional(),
-        createDefaults: z.record(z.unknown()).optional(),
-        createWizard: z
-            .object({
-                steps: z
-                    .array(
-                        z
-                            .object({
-                                id: z.string().trim().min(1).max(64),
-                                label: localizedWidgetTextSchema,
-                                helperText: localizedWidgetTextSchema.optional(),
-                                fieldCodenames: z.array(z.string().trim().min(1).max(128)).min(1).max(12)
-                            })
-                            .strict()
-                    )
-                    .min(1)
-                    .max(6)
-            })
-            .strict()
-            .optional(),
-        rowCountWarning: rowCountWarningSchema.optional()
-    })
-    .strict()
-
-export const relationBuilderWidgetConfigSchema = z
-    .object({
-        parentDatasource: recordsListDatasourceSchema.optional(),
-        parentLabel: localizedWidgetTextSchema.optional(),
-        parentTitleFieldCodename: z.string().trim().min(1).max(128).optional(),
-        emptyParentMessage: localizedWidgetTextSchema.optional(),
-        panels: z.array(relationBuilderPanelSchema).min(1).max(4),
-        sharedBehavior: sharedBehaviorSchema.optional()
-    })
-    .strict()
-
-export type RelationBuilderWidgetConfig = z.infer<typeof relationBuilderWidgetConfigSchema>
-export type RelationBuilderPanelConfig = z.infer<typeof relationBuilderPanelSchema>
-
-export const statCardWidgetConfigSchema = z
-    .object({
-        title: localizedWidgetTextSchema.optional(),
-        value: z.string().max(80).optional(),
-        interval: localizedWidgetTextSchema.optional(),
-        trend: z.enum(['up', 'down', 'neutral']).optional(),
-        data: z.array(z.number()).max(120).optional(),
-        datasource: statCardMetricDatasourceSchema.optional()
-    })
-    .strict()
-
-export type StatCardWidgetConfig = z.infer<typeof statCardWidgetConfigSchema>
-
-export const overviewCardsWidgetConfigSchema = z
-    .object({
-        cards: z.array(statCardWidgetConfigSchema).max(8).optional(),
-        sharedBehavior: sharedBehaviorSchema.optional()
-    })
-    .strict()
-
-export type OverviewCardsWidgetConfig = z.infer<typeof overviewCardsWidgetConfigSchema>
-
-const chartSeriesDefinitionSchema = z
-    .object({
-        id: z.string().min(1).max(128).optional(),
-        label: localizedWidgetTextSchema.optional(),
-        field: z.string().min(1).max(128),
-        stack: z.string().min(1).max(128).optional(),
-        area: z.boolean().optional()
-    })
-    .strict()
-
-export const recordsSeriesChartWidgetConfigSchema = z
-    .object({
-        title: localizedWidgetTextSchema.optional(),
-        value: z.string().max(80).optional(),
-        interval: localizedWidgetTextSchema.optional(),
-        trend: z.enum(['up', 'down', 'neutral']).optional(),
-        datasource: z.union([recordsListDatasourceSchema, ledgerProjectionDatasourceSchema]).optional(),
-        xField: z.string().min(1).max(128).optional(),
-        maxRows: z.number().int().min(1).max(100).optional(),
-        series: z.array(chartSeriesDefinitionSchema).min(1).max(8).optional(),
-        sharedBehavior: sharedBehaviorSchema.optional()
-    })
-    .strict()
-
-export type RecordsSeriesChartWidgetConfig = z.infer<typeof recordsSeriesChartWidgetConfigSchema>
-
-export const resourcePreviewWidgetConfigSchema = z
-    .object({
-        title: localizedWidgetTextSchema.optional(),
-        description: localizedWidgetTextSchema.optional(),
-        source: resourceSourceSchema.optional(),
-        sharedBehavior: sharedBehaviorSchema.optional()
-    })
-    .strict()
-
-export type ResourcePreviewWidgetConfig = z.infer<typeof resourcePreviewWidgetConfigSchema>
-
-const learnerPlayerTargetContentSchema = z
-    .object({
-        titleFieldCodename: z.string().trim().min(1).max(128).optional(),
-        descriptionFieldCodename: z.string().trim().min(1).max(128).optional(),
-        sourceFieldCodename: z.string().trim().min(1).max(128).optional(),
-        bodyFieldCodename: z.string().trim().min(1).max(128).optional()
-    })
-    .strict()
-
-export const learnerPlayerWidgetConfigSchema = z
-    .object({
-        parentDatasource: recordsListDatasourceSchema.optional(),
-        itemsDatasource: recordsListDatasourceSchema.optional(),
-        parentLabel: localizedWidgetTextSchema.optional(),
-        parentFieldCodename: z.string().trim().min(1).max(128).optional(),
-        itemTitleFieldCodename: z.string().trim().min(1).max(128).optional(),
-        targetObjectCodenameField: z.string().trim().min(1).max(128).optional(),
-        targetObjectCodename: z.string().trim().min(1).max(128).optional(),
-        targetRecordIdField: z.string().trim().min(1).max(128).optional(),
-        completionTargetObjectCodename: z.string().trim().min(1).max(128).optional(),
-        sequencePolicy: sequencePolicySchema.optional(),
-        targetContent: learnerPlayerTargetContentSchema.optional(),
-        sharedBehavior: sharedBehaviorSchema.optional()
-    })
-    .strict()
-
-export type LearnerPlayerWidgetConfig = z.infer<typeof learnerPlayerWidgetConfigSchema>
-
-const widgetConfigSchemaByKey = {
-    menuWidget: menuWidgetConfigSchema,
-    columnsContainer: columnsContainerWidgetConfigSchema,
-    quizWidget: quizWidgetConfigSchema,
-    playcanvasCanvas: playcanvasCanvasWidgetConfigSchema,
-    detailsTable: detailsTableWidgetConfigSchema,
-    relationBuilder: relationBuilderWidgetConfigSchema,
-    overviewCards: overviewCardsWidgetConfigSchema,
-    sessionsChart: recordsSeriesChartWidgetConfigSchema,
-    pageViewsChart: recordsSeriesChartWidgetConfigSchema,
-    detailsTabs: detailsTabsWidgetConfigSchema,
-    resourcePreview: resourcePreviewWidgetConfigSchema,
-    learnerPlayer: learnerPlayerWidgetConfigSchema,
-    interpretationNetworkWorkspace: interpretationNetworkWorkspaceWidgetConfigSchema,
+const marketingStoredWidgetConfigSchemaByKey = {
     'marketing.brand': marketingBrandWidgetConfigSchema,
     'marketing.navigation': marketingNavigationWidgetConfigSchema,
     'marketing.auth': marketingAuthWidgetConfigSchema,
@@ -882,12 +284,51 @@ const widgetConfigSchemaByKey = {
     'marketing.footer': marketingFooterWidgetConfigSchema
 } as const
 
-export const applicationLayoutWidgetConfigSchema = genericWidgetConfigSchema
+const widgetConfigSchemaByKey = {
+    ...dashboardWidgetConfigSchemaByKey,
+    ...marketingStoredWidgetConfigSchemaByKey
+} as const
 
-export const parseApplicationLayoutWidgetConfig = (widgetKey: string, config: unknown): Record<string, unknown> => {
-    const schema = widgetConfigSchemaByKey[widgetKey as keyof typeof widgetConfigSchemaByKey] ?? applicationLayoutWidgetConfigSchema
-    return schema.parse(config ?? {})
+const allWidgetConfigSchemas = Object.values(widgetConfigSchemaByKey)
+if (allWidgetConfigSchemas.length < 2) {
+    throw new Error('Application layouts require at least two widget config schemas.')
 }
+const [firstWidgetConfigSchema, secondWidgetConfigSchema, ...remainingWidgetConfigSchemas] = allWidgetConfigSchemas
+export const applicationLayoutWidgetConfigSchema = z.union([
+    firstWidgetConfigSchema!,
+    secondWidgetConfigSchema!,
+    ...remainingWidgetConfigSchemas
+])
+
+const isStoredWidgetConfigValid = (widgetKey: string, config: unknown): boolean => {
+    const schema = widgetConfigSchemaByKey[widgetKey as keyof typeof widgetConfigSchemaByKey]
+    return Boolean(schema?.safeParse(config ?? {}).success)
+}
+
+/** Parse persisted renderer config using the exact strict schema for its widget key. */
+export const parseApplicationLayoutWidgetConfig = (widgetKey: string, config: unknown): Record<string, unknown> => {
+    const schema = widgetConfigSchemaByKey[widgetKey as keyof typeof widgetConfigSchemaByKey]
+    if (!schema) throw new Error(`Unsupported layout widget key: ${widgetKey}`)
+    return schema.parse(config ?? {}) as Record<string, unknown>
+}
+
+export const menuWidgetConfigSchema = DASHBOARD_WIDGET_CONFIG_SCHEMAS.menuWidget
+export const columnsContainerWidgetConfigSchema = DASHBOARD_WIDGET_CONFIG_SCHEMAS.columnsContainer
+export const detailsTabsWidgetConfigSchema = DASHBOARD_WIDGET_CONFIG_SCHEMAS.detailsTabs
+export const quizWidgetConfigSchema = DASHBOARD_WIDGET_CONFIG_SCHEMAS.quizWidget
+export const playcanvasCanvasWidgetConfigSchema = DASHBOARD_WIDGET_CONFIG_SCHEMAS.playcanvasCanvas
+export const detailsTableWidgetConfigSchema = DASHBOARD_WIDGET_CONFIG_SCHEMAS.detailsTable
+export const relationBuilderWidgetConfigSchema = DASHBOARD_WIDGET_CONFIG_SCHEMAS.relationBuilder
+export const overviewCardsWidgetConfigSchema = DASHBOARD_WIDGET_CONFIG_SCHEMAS.overviewCards
+export const recordsSeriesChartWidgetConfigSchema = DASHBOARD_WIDGET_CONFIG_SCHEMAS.sessionsChart
+export const resourcePreviewWidgetConfigSchema = DASHBOARD_WIDGET_CONFIG_SCHEMAS.resourcePreview
+export const learnerPlayerWidgetConfigSchema = DASHBOARD_WIDGET_CONFIG_SCHEMAS.learnerPlayer
+export type DetailsTabsWidgetConfig = z.infer<typeof detailsTabsWidgetConfigSchema>
+export type DetailsTableWidgetConfig = z.infer<typeof detailsTableWidgetConfigSchema>
+export type RelationBuilderWidgetConfig = z.infer<typeof relationBuilderWidgetConfigSchema>
+export type RecordsSeriesChartWidgetConfig = z.infer<typeof recordsSeriesChartWidgetConfigSchema>
+export type ResourcePreviewWidgetConfig = z.infer<typeof resourcePreviewWidgetConfigSchema>
+export type LearnerPlayerWidgetConfig = z.infer<typeof learnerPlayerWidgetConfigSchema>
 
 export const applicationLayoutScopeSchema = z.object({
     id: z.string(),
@@ -901,22 +342,55 @@ export const applicationLayoutScopeSchema = z.object({
 })
 export type ApplicationLayoutScope = z.infer<typeof applicationLayoutScopeSchema>
 
-export const applicationLayoutWidgetSchema = z.object({
-    id: uuidV7Schema,
-    layoutId: uuidV7Schema,
-    zone: applicationLayoutZoneSchema,
-    widgetKey: applicationLayoutWidgetKeySchema,
-    instanceKey: z.string().trim().min(1).optional(),
-    sortOrder: z.number().int(),
-    config: z.record(z.unknown()).default({}),
-    sourceConfig: z.record(z.unknown()).nullable().default(null),
-    sourceWidgetId: uuidV7Schema.nullable().optional(),
-    sourceBaseWidgetId: uuidV7Schema.nullable().optional(),
-    placement: layoutLogicalPlacementSchema.optional(),
-    isCustomized: z.boolean().default(false),
-    isActive: z.boolean(),
-    version: z.number().int().positive()
-})
+export const applicationLayoutWidgetSchema = z
+    .object({
+        id: uuidV7Schema,
+        layoutId: uuidV7Schema,
+        zone: applicationLayoutZoneSchema,
+        widgetKey: applicationLayoutWidgetKeySchema,
+        instanceKey: layoutInstanceKeySchema,
+        parentWidgetId: uuidV7Schema.nullable(),
+        slotKey: z
+            .string()
+            .trim()
+            .min(1)
+            .max(64)
+            .regex(/^[A-Za-z][A-Za-z0-9._:-]*$/u)
+            .nullable(),
+        sortOrder: z.number().int(),
+        config: z.record(z.unknown()).default({}),
+        sourceConfig: z.record(z.unknown()).nullable().default(null),
+        sourceWidgetId: uuidV7Schema.nullable().optional(),
+        sourceBaseWidgetId: uuidV7Schema.nullable().optional(),
+        placement: layoutLogicalPlacementSchema.optional(),
+        isCustomized: z.boolean().default(false),
+        isActive: z.boolean(),
+        version: z.number().int().positive()
+    })
+    .strict()
+    .superRefine((widget, context) => {
+        if (!persistedLayoutWidgetParentageSchema.safeParse({ parentWidgetId: widget.parentWidgetId, slotKey: widget.slotKey }).success) {
+            context.addIssue({
+                code: z.ZodIssueCode.custom,
+                path: ['slotKey'],
+                message: 'Root placements have no parent or slot; child placements require both.'
+            })
+        }
+        if (!isStoredWidgetConfigValid(widget.widgetKey, widget.config)) {
+            context.addIssue({
+                code: z.ZodIssueCode.custom,
+                path: ['config'],
+                message: 'Widget config does not match its strict registry contract.'
+            })
+        }
+        if (widget.sourceConfig !== null && !isStoredWidgetConfigValid(widget.widgetKey, widget.sourceConfig)) {
+            context.addIssue({
+                code: z.ZodIssueCode.custom,
+                path: ['sourceConfig'],
+                message: 'Source config does not match its strict registry contract.'
+            })
+        }
+    })
 export type ApplicationLayoutWidget = z.infer<typeof applicationLayoutWidgetSchema>
 
 export const applicationLayoutSchema = z.object({
@@ -960,14 +434,15 @@ export const applicationLayoutLineageSchema = z
 export type ApplicationLayoutLineage = z.infer<typeof applicationLayoutLineageSchema>
 
 /** A renderer-ready widget placement with explicit semantic placement. */
-export const effectiveLayoutWidgetSchema = z
+const effectiveLayoutWidgetObjectSchema = z
     .object({
         id: uuidV7Schema,
         layoutId: uuidV7Schema.optional(),
         zone: applicationLayoutZoneSchema,
         semanticRegion: layoutSemanticRegionSchema,
         widgetKey: applicationLayoutWidgetKeySchema,
-        instanceKey: layoutInstanceKeySchema.optional(),
+        instanceKey: layoutInstanceKeySchema,
+        ...effectiveLayoutParentageFieldsSchema.shape,
         // System widgets injected before user-configured items use reserved negative orders.
         sortOrder: z.number().int(),
         config: z.record(z.string(), z.unknown()).default({}),
@@ -980,11 +455,48 @@ export const effectiveLayoutWidgetSchema = z
         version: z.number().int().positive().optional()
     })
     .strict()
-export type EffectiveWidget = z.infer<typeof effectiveLayoutWidgetSchema>
+
+const validateEffectiveLayoutWidget = (widget: z.infer<typeof effectiveLayoutWidgetObjectSchema>, context: z.RefinementCtx): void => {
+    if (!effectiveLayoutParentageSchema.safeParse({ parentInstanceKey: widget.parentInstanceKey, slotKey: widget.slotKey }).success) {
+        context.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ['slotKey'],
+            message: 'Root placements have no parent or slot; child placements require both.'
+        })
+    }
+    if (!isStoredWidgetConfigValid(widget.widgetKey, widget.config)) {
+        context.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ['config'],
+            message: 'Widget config does not match its strict registry contract.'
+        })
+    }
+    if (
+        widget.sourceConfig !== undefined &&
+        widget.sourceConfig !== null &&
+        !isStoredWidgetConfigValid(widget.widgetKey, widget.sourceConfig)
+    ) {
+        context.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ['sourceConfig'],
+            message: 'Source config does not match its strict registry contract.'
+        })
+    }
+}
+
+export const effectiveLayoutWidgetSchema = effectiveLayoutWidgetObjectSchema.superRefine(validateEffectiveLayoutWidget)
+export type EffectiveLayoutWidget = z.infer<typeof effectiveLayoutWidgetSchema>
+
+/** Runtime-only API projection. Bound content is never persisted in layout snapshots. */
+export const effectiveLayoutRuntimeWidgetSchema = effectiveLayoutWidgetObjectSchema
+    .extend({ runtimeData: effectiveWidgetRuntimeDataSchema.optional() })
+    .strict()
+    .superRefine(validateEffectiveLayoutWidget)
+export type EffectiveLayoutRuntimeWidget = z.infer<typeof effectiveLayoutRuntimeWidgetSchema>
 
 const validateEffectiveLayoutWidgets = (
     templateKey: ApplicationTemplateKey,
-    widgets: readonly EffectiveWidget[],
+    widgets: readonly EffectiveLayoutWidget[],
     ctx: z.RefinementCtx
 ): void => {
     const seenInstanceKeys = new Set<string>()
@@ -1020,16 +532,14 @@ const validateEffectiveLayoutWidgets = (
             })
         }
 
-        if (widget.instanceKey) {
-            if (seenInstanceKeys.has(widget.instanceKey)) {
-                ctx.addIssue({
-                    code: z.ZodIssueCode.custom,
-                    message: 'Widget instance keys must be unique within a layout.',
-                    path: ['widgets', index, 'instanceKey']
-                })
-            }
-            seenInstanceKeys.add(widget.instanceKey)
+        if (seenInstanceKeys.has(widget.instanceKey)) {
+            ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                message: 'Widget instance keys must be unique within a layout.',
+                path: ['widgets', index, 'instanceKey']
+            })
         }
+        seenInstanceKeys.add(widget.instanceKey)
 
         if (!definition.multiInstance && seenSingleInstanceWidgetKeys.has(widget.widgetKey)) {
             ctx.addIssue({
@@ -1047,6 +557,78 @@ const validateEffectiveLayoutWidgets = (
                 message: 'The selected layout host does not provide the widget capabilities.',
                 path: ['widgets', index, 'widgetKey']
             })
+        }
+    })
+
+    const indexByInstanceKey = new Map<string, number>()
+    widgets.forEach((widget, index) => {
+        if (!indexByInstanceKey.has(widget.instanceKey)) indexByInstanceKey.set(widget.instanceKey, index)
+    })
+
+    widgets.forEach((widget, index) => {
+        if (widget.parentInstanceKey === null) return
+
+        const parentIndex = indexByInstanceKey.get(widget.parentInstanceKey)
+        if (parentIndex === undefined) {
+            ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                message: 'Placement parent is unavailable.',
+                path: ['widgets', index, 'parentInstanceKey']
+            })
+            return
+        }
+
+        const parent = widgets[parentIndex]
+        const parentDefinition = getLayoutWidgetDefinition(parent.widgetKey, parent.config)
+        const childDefinition = getLayoutWidgetDefinition(widget.widgetKey, widget.config)
+        const container = parentDefinition?.composition?.container
+        const declaredContainerSlot = container?.slots.find((slot) => {
+            if (!widget.slotKey?.startsWith(slot.slotPrefix)) return false
+            return new RegExp(slot.slotKeyPattern, 'u').test(widget.slotKey.slice(slot.slotPrefix.length))
+        })
+        const slotDescriptors = container ? parent.config[container.kind === 'columns' ? 'columns' : 'tabs'] : undefined
+        const slotIsConfigured =
+            Array.isArray(slotDescriptors) &&
+            slotDescriptors.some(
+                (descriptor) =>
+                    descriptor !== null &&
+                    typeof descriptor === 'object' &&
+                    !Array.isArray(descriptor) &&
+                    (descriptor as { slotKey?: unknown }).slotKey === widget.slotKey
+            )
+        const childCapabilityIsAllowed = (childDefinition?.capabilities ?? []).some((capability) =>
+            (declaredContainerSlot?.allowedChildCapabilities ?? []).includes(capability)
+        )
+
+        if (
+            parent.zone !== widget.zone ||
+            childDefinition?.placementPolicy.parent !== 'root-or-compatible-container-slot' ||
+            !declaredContainerSlot ||
+            !slotIsConfigured ||
+            !childCapabilityIsAllowed
+        ) {
+            ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                message: 'Placement parent or slot is incompatible.',
+                path: ['widgets', index, 'parentInstanceKey']
+            })
+        }
+
+        const visited = new Set<string>([widget.instanceKey])
+        let current: EffectiveLayoutWidget | undefined = parent
+        while (current) {
+            if (visited.has(current.instanceKey)) {
+                ctx.addIssue({
+                    code: z.ZodIssueCode.custom,
+                    message: 'Placement graph cannot contain cycles.',
+                    path: ['widgets', index, 'parentInstanceKey']
+                })
+                break
+            }
+            visited.add(current.instanceKey)
+            const ancestorIndex: number | undefined =
+                current.parentInstanceKey === null ? undefined : indexByInstanceKey.get(current.parentInstanceKey)
+            current = ancestorIndex === undefined ? undefined : widgets[ancestorIndex]
         }
     })
 }
@@ -1270,7 +852,7 @@ const effectiveLayoutSuccessSchema = z
         resolvedEntityTypeId: uuidV7Schema.nullable().optional(),
         scope: applicationLayoutScopeKindSchema,
         layout: effectiveLayoutMetadataSchema,
-        widgets: z.array(effectiveLayoutWidgetSchema),
+        widgets: z.array(effectiveLayoutRuntimeWidgetSchema),
         precedence: z.array(layoutEffectivePrecedenceSchema).min(1),
         publicationIdentity: publicationIdentitySchema.nullable(),
         materializationHash: layoutHashSchema.optional(),

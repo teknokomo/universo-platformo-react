@@ -1,7 +1,6 @@
 import type { Request, Response } from 'express'
-import { normalizeDashboardSideMenuConfig } from '@universo-react/utils'
 import { normalizeLocale, resolveRuntimeSchema } from '../../shared/runtimeHelpers'
-import { runtimeQuerySchema } from '../runtimeRowSupport/contracts'
+import { runtimeQuerySchema } from '../../services/runtimeRowSupport/contracts'
 
 import type { RuntimeRowReadHandlerDeps } from './types'
 import {
@@ -15,7 +14,6 @@ import {
     resolveRuntimeReadActiveObjectCollection,
     resolveRuntimeReadLayout
 } from './dataLoaders'
-import { buildRuntimeReadMenus, loadRuntimeMenuStructure } from './menus'
 import { buildRuntimeReadResponsePayload, buildRuntimeReadSections } from './payload'
 
 export const createGetRuntimeHandler = ({ getDbExecutor, query }: RuntimeRowReadHandlerDeps) => {
@@ -46,9 +44,6 @@ export const createGetRuntimeHandler = ({ getDbExecutor, query }: RuntimeRowRead
         }
 
         const activeResult = await resolveRuntimeReadActiveObjectCollection({
-            manager,
-            schemaName,
-            schemaIdent,
             runtimeObjects,
             requestedSectionId,
             requestedObjectCollectionId,
@@ -105,11 +100,10 @@ export const createGetRuntimeHandler = ({ getDbExecutor, query }: RuntimeRowRead
         if ('failure' in layoutResult) {
             return res.status(layoutResult.failure.statusCode).json(layoutResult.failure.body)
         }
-        const { selectedLayout, activeObjectCollectionRuntimeConfig, reorderFieldAttr } = layoutResult
+        const { activeObjectCollectionRuntimeConfig, reorderFieldAttr } = layoutResult
 
         let total = 0
         let rows: Array<Record<string, unknown> & { id: string }> = []
-        let canPersistRowReordering = false
 
         if (!isActivePage) {
             const rowsResult = await loadRuntimeReadRows({
@@ -132,7 +126,6 @@ export const createGetRuntimeHandler = ({ getDbExecutor, query }: RuntimeRowRead
             }
             total = rowsResult.total
             rows = rowsResult.rows
-            canPersistRowReordering = rowsResult.canPersistRowReordering
         }
 
         const workspaceLimit = await loadRuntimeReadWorkspaceLimit({
@@ -143,41 +136,12 @@ export const createGetRuntimeHandler = ({ getDbExecutor, query }: RuntimeRowRead
             schemaName
         })
 
-        const {
-            layoutConfig: initialLayoutConfig,
-            objectCollectionsForRuntime,
-            runtimeMenuTargetById,
-            zoneWidgets
-        } = buildRuntimeReadSections({
+        const { objectCollectionsForRuntime } = buildRuntimeReadSections({
             runtimeObjects,
             activeObjectCollection,
             activeObjectCollectionRuntimeConfig,
-            requestedLocale,
-            canPersistRowReordering,
-            selectedLayout
+            requestedLocale
         })
-        let layoutConfig = initialLayoutConfig
-
-        const menuStructure = await loadRuntimeMenuStructure({ manager, schemaIdent, requestedLocale })
-        const { menus, activeMenuId } = buildRuntimeReadMenus({
-            objectCollectionsForRuntime,
-            runtimeMenuTargetById,
-            menuStructure,
-            zoneWidgets,
-            requestedLocale,
-            applicationId,
-            workspacesEnabled: runtimeContext.workspacesEnabled
-        })
-
-        const sideMenuWidgetConfig = zoneWidgets.left.find(
-            (widget) => widget.widgetKey === 'menuWidget' && widget.config && typeof widget.config.sideMenu === 'object'
-        )?.config.sideMenu
-        if (sideMenuWidgetConfig && (layoutConfig.sideMenu === undefined || layoutConfig.sideMenu === null)) {
-            layoutConfig = {
-                ...layoutConfig,
-                sideMenu: normalizeDashboardSideMenuConfig(sideMenuWidgetConfig)
-            }
-        }
 
         const columns = buildRuntimeReadColumnDefinitions({
             safeComponents,
@@ -196,7 +160,6 @@ export const createGetRuntimeHandler = ({ getDbExecutor, query }: RuntimeRowRead
                 activeRecordBehavior,
                 activeWorkflowActions,
                 activeObjectCollectionRuntimeConfig,
-                canPersistRowReordering,
                 requestedLocale,
                 objectCollectionsForRuntime,
                 columns,
@@ -204,11 +167,7 @@ export const createGetRuntimeHandler = ({ getDbExecutor, query }: RuntimeRowRead
                 total,
                 limit,
                 offset,
-                workspaceLimit,
-                layoutConfig,
-                zoneWidgets,
-                menus,
-                activeMenuId
+                workspaceLimit
             })
         )
     }

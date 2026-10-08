@@ -1,4 +1,13 @@
 import { z } from 'zod'
+import { CURRENT_METAHUB_SNAPSHOT_FORMAT_VERSION } from './metahubs'
+
+const metahubSnapshotVersionEnvelopeSchema = z
+    .object({
+        structureVersion: z.string().trim().min(1),
+        templateVersion: z.string().nullable(),
+        snapshotFormatVersion: z.literal(CURRENT_METAHUB_SNAPSHOT_FORMAT_VERSION)
+    })
+    .strict()
 
 /** Zod schema for snapshot transport envelope — used by both backend and frontend */
 export const MetahubSnapshotTransportEnvelopeSchema = z.object({
@@ -27,6 +36,7 @@ export const MetahubSnapshotTransportEnvelopeSchema = z.object({
         .object({
             version: z.union([z.number().int().positive(), z.string()]),
             metahubId: z.string().uuid(),
+            versionEnvelope: metahubSnapshotVersionEnvelopeSchema,
             entities: z.record(z.unknown()),
             entityTypeDefinitions: z.record(z.unknown()).optional(),
             fixedValues: z.record(z.unknown()).optional(),

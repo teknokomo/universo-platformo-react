@@ -6,7 +6,7 @@ describe('MetahubWidgetBindingsService adapter', () => {
     const layoutId = 'layout-1'
     const userId = 'user-1'
 
-    it('adds request scope and fixes the template key for source discovery', async () => {
+    it('passes the lookup without client-selected source authority', async () => {
         const discoverSources = jest.fn().mockResolvedValue({ sources: [] })
         const service = new MetahubWidgetBindingsService(executor, { discoverSources })
 
@@ -19,11 +19,11 @@ describe('MetahubWidgetBindingsService adapter', () => {
 
         expect(discoverSources).toHaveBeenCalledWith(
             { executor, metahubId, userId },
-            { widgetKey: 'marketing.hero', slot: 'content', locale: 'ru', layoutId, templateKey: 'marketing-page' }
+            { widgetKey: 'marketing.hero', slot: 'content', locale: 'ru', layoutId }
         )
     })
 
-    it('adds request scope and fixes the template key when provisioning a source', async () => {
+    it('passes the provision request without client-selected source authority', async () => {
         const provisionSource = jest.fn().mockResolvedValue({ sourceKey: 'MarketingHeroContent' })
         const service = new MetahubWidgetBindingsService(executor, { provisionSource })
         const input = {
@@ -36,7 +36,7 @@ describe('MetahubWidgetBindingsService adapter', () => {
 
         await service.provisionWidgetBindingSource(metahubId, layoutId, input, userId)
 
-        expect(provisionSource).toHaveBeenCalledWith({ executor, metahubId, userId }, { ...input, layoutId, templateKey: 'marketing-page' })
+        expect(provisionSource).toHaveBeenCalledWith({ executor, metahubId, userId }, { ...input, layoutId })
     })
 
     it('preserves the request scope while replacing a widget binding', async () => {

@@ -4,8 +4,8 @@ import {
     quoteSqlLiteral,
     remapRuntimeUnionSqlPlaceholders,
     resolveRuntimeUnionProjectionLabel
-} from '../../../controllers/runtimeRowSupport/union'
-import type { RuntimeColumnDefinition } from '../../../controllers/runtimeRowSupport/contracts'
+} from '../../../services/runtimeRowSupport/union/index'
+import type { RuntimeColumnDefinition } from '../../../services/runtimeRowSupport/contracts'
 
 const column = (overrides: Partial<RuntimeColumnDefinition> & Pick<RuntimeColumnDefinition, 'field'>): RuntimeColumnDefinition => ({
     id: `column-${overrides.field}`,

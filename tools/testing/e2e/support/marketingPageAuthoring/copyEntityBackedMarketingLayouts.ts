@@ -38,7 +38,7 @@ const readBoundPlacementStates = async (api: APIRequestContext, metahubId: strin
             if (typeof widget.id !== 'string' || typeof widget.widgetKey !== 'string') return null
             const config = readLayoutWidgetConfig(widget)
             if (getLayoutWidgetBindingSlotDefinitions(widget.widgetKey, config).length === 0) return null
-            const instanceKey = config.instanceKey
+            const instanceKey = widget.instanceKey
             if (typeof instanceKey !== 'string' || instanceKey.trim() === '') return null
             const bindingResponse = (await getLayoutZoneWidgetBindings(api, metahubId, layoutId, widget.id, 'en')) as LayoutBindingsResponse
             const bindings = (bindingResponse.bindings ?? []).map(bindingSignature).sort()

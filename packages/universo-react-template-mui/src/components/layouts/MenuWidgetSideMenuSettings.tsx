@@ -1,7 +1,7 @@
 import { useId } from 'react'
 import { Checkbox, FormControl, FormControlLabel, InputLabel, MenuItem, Stack, Switch, Typography } from '@mui/material'
 import { DropdownSelect as Select } from '../dropdowns'
-import { type DashboardSideMenuMode, type MenuWidgetConfig } from '@universo-react/types'
+import { type DashboardSideMenuConfig, type DashboardSideMenuMode } from '@universo-react/types'
 
 import {
     applySideMenuPatch,
@@ -18,9 +18,9 @@ interface MenuWidgetSideMenuSettingsLabels {
 }
 
 export interface MenuWidgetSideMenuSettingsProps {
-    sideMenu: MenuWidgetConfig['sideMenu']
+    sideMenu: DashboardSideMenuConfig
     labels: MenuWidgetSideMenuSettingsLabels
-    onChange: (sideMenu: NonNullable<MenuWidgetConfig['sideMenu']>) => void
+    onChange: (sideMenu: DashboardSideMenuConfig) => void
 }
 
 export function MenuWidgetSideMenuSettings({ sideMenu, labels, onChange }: MenuWidgetSideMenuSettingsProps) {

@@ -7,12 +7,12 @@ import {
     type ApplicationTemplateKey
 } from '@universo-react/types'
 import { MetahubValidationError } from '../../shared/domainErrors'
+import { requireLayoutWidgetOwnership } from '../widgetOwnership'
 
 type WidgetConfigParser = (
     templateKey: ApplicationTemplateKey,
     widgetKey: ApplicationLayoutWidgetKey,
-    config: unknown,
-    options?: { expectedInstanceKey?: string }
+    config: unknown
 ) => Record<string, unknown>
 
 type WidgetZoneResolver = (
@@ -27,20 +27,21 @@ export interface MarketingOverlayWidgetConfigDependencies {
 }
 
 export const resolveMarketingOverlayWidgetConfig = (
+    templateKey: ApplicationTemplateKey,
     widgetKey: ApplicationLayoutWidgetKey,
     zone: ApplicationLayoutZone,
     baseConfig: Record<string, unknown>,
     overrideConfig: Record<string, unknown>,
-    expectedInstanceKey: string | undefined,
     dependencies: MarketingOverlayWidgetConfigDependencies
 ): Record<string, unknown> => {
-    const templateKey = 'marketing-page'
+    const ownership = requireLayoutWidgetOwnership(templateKey, widgetKey, baseConfig)
+    const inheritsSourceBindings = ownership.sourcePolicy.inheritBindings
     const baseZone = dependencies.resolveWidgetZone(templateKey, widgetKey, baseConfig)
     const baseEnvelope = decodeWidgetConfigEnvelope(baseConfig, {
         templateKey,
         widgetKey,
         zone: baseZone,
-        requireBindings: true
+        requireBindings: ownership.sourcePolicy.sourceMode === 'required'
     })
 
     let overrideEnvelope: ReturnType<typeof decodeWidgetConfigEnvelope>
@@ -49,65 +50,65 @@ export const resolveMarketingOverlayWidgetConfig = (
             templateKey,
             widgetKey,
             zone,
-            requireBindings: false
+            requireBindings: !inheritsSourceBindings && ownership.sourcePolicy.sourceMode === 'required'
         })
     } catch (error) {
-        throw new MetahubValidationError('Marketing widget override configuration is invalid', {
+        throw new MetahubValidationError('Layout widget override configuration is invalid', {
             widgetKey,
             reason: error instanceof Error ? error.message : 'Invalid reserved metadata'
         })
     }
+    if (inheritsSourceBindings && overrideEnvelope.neutral.bindings !== undefined) {
+        throw new MetahubValidationError('Source-managed widget overrides cannot contain Entity bindings', { widgetKey })
+    }
 
     const rendererConfig = parseApplicationLayoutWidgetConfig(widgetKey, overrideEnvelope.rendererConfig)
     const neutral = { ...overrideEnvelope.neutral }
-    if (baseEnvelope.neutral.bindings === undefined) delete neutral.bindings
-    else neutral.bindings = baseEnvelope.neutral.bindings
+    if (inheritsSourceBindings) {
+        if (baseEnvelope.neutral.bindings === undefined) delete neutral.bindings
+        else neutral.bindings = baseEnvelope.neutral.bindings
+    }
 
     return dependencies.parseWidgetConfig(
         templateKey,
         widgetKey,
-        encodeWidgetConfigEnvelope({ rendererConfig, neutral }, { templateKey, widgetKey, zone, requireBindings: true }),
-        { expectedInstanceKey }
+        encodeWidgetConfigEnvelope(
+            { rendererConfig, neutral },
+            {
+                templateKey,
+                widgetKey,
+                zone,
+                requireBindings: !inheritsSourceBindings && ownership.sourcePolicy.sourceMode === 'required'
+            }
+        )
     )
 }
 
 export const encodeMarketingOverlayWidgetOverrideConfig = (
+    templateKey: ApplicationTemplateKey,
     widgetKey: ApplicationLayoutWidgetKey,
     zone: ApplicationLayoutZone,
     baseConfig: Record<string, unknown>,
     overrideConfig: Record<string, unknown>,
-    expectedInstanceKey: string | undefined,
     dependencies: MarketingOverlayWidgetConfigDependencies
 ): Record<string, unknown> => {
-    const resolvedConfig = resolveMarketingOverlayWidgetConfig(
-        widgetKey,
-        zone,
-        baseConfig,
-        overrideConfig,
-        expectedInstanceKey,
-        dependencies
-    )
+    const ownership = requireLayoutWidgetOwnership(templateKey, widgetKey, baseConfig)
+    const resolvedConfig = resolveMarketingOverlayWidgetConfig(templateKey, widgetKey, zone, baseConfig, overrideConfig, dependencies)
     const decoded = decodeWidgetConfigEnvelope(resolvedConfig, {
-        templateKey: 'marketing-page',
+        templateKey,
         widgetKey,
         zone,
-        requireBindings: true
+        requireBindings: ownership.sourcePolicy.sourceMode === 'required'
     })
     const neutral = { ...decoded.neutral }
-    delete neutral.bindings
+    if (ownership.sourcePolicy.inheritBindings) delete neutral.bindings
     return encodeWidgetConfigEnvelope(
         { rendererConfig: decoded.rendererConfig, neutral },
-        { templateKey: 'marketing-page', widgetKey, zone, requireBindings: false }
+        {
+            templateKey,
+            widgetKey,
+            zone,
+            requireBindings: !ownership.sourcePolicy.inheritBindings && ownership.sourcePolicy.sourceMode === 'required'
+        }
     )
-}
-
-export const assertMarketingOverlayBindingOwnership = (
-    scope: { scope_entity_id?: unknown; base_layout_id?: unknown } | null | undefined,
-    templateKey: ApplicationTemplateKey,
-    hasBindingSlots: boolean
-): void => {
-    const isScopedEntityLayout = typeof scope?.scope_entity_id === 'string' && typeof scope.base_layout_id === 'string'
-    if (templateKey === 'marketing-page' && isScopedEntityLayout && hasBindingSlots) {
-        throw new MetahubValidationError('Marketing overlay layouts must inherit Entity bindings from their base placements')
-    }
 }

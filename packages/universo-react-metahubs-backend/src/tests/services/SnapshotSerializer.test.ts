@@ -225,7 +225,7 @@ describe('SnapshotSerializer system field propagation', () => {
             versionEnvelope: {
                 structureVersion: '53.0.0',
                 templateVersion: null,
-                snapshotFormatVersion: 1
+                snapshotFormatVersion: 4
             },
             entities: {
                 'object-site-settings': {
@@ -392,7 +392,7 @@ describe('SnapshotSerializer system field propagation', () => {
 
         const exportedSnapshot = await serializer.serializeMetahub('metahub-1')
 
-        expect(exportedSnapshot.versionEnvelope.snapshotFormatVersion).toBe(3)
+        expect(exportedSnapshot.versionEnvelope.snapshotFormatVersion).toBe(4)
         expect(exportedSnapshot.sharedComponents).toHaveLength(1)
         expect(exportedSnapshot.sharedFixedValues).toHaveLength(1)
         expect(exportedSnapshot.sharedOptionValues).toHaveLength(1)
@@ -761,7 +761,7 @@ describe('SnapshotSerializer system field propagation', () => {
         const snapshot = await serializer.serializeMetahub('metahub-1')
         const runtimeEntities = serializer.deserializeSnapshot(snapshot)
 
-        expect(snapshot.versionEnvelope.snapshotFormatVersion).toBe(3)
+        expect(snapshot.versionEnvelope.snapshotFormatVersion).toBe(4)
         expect(snapshot.entityTypeDefinitions?.customer_registry).toMatchObject({
             id: 'type-1',
             kindKey: 'customer_registry',

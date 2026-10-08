@@ -79,7 +79,8 @@ export function createStandaloneAdapter(params: { apiBaseUrl: string; applicatio
                 data,
                 objectCollectionId: target?.objectCollectionId,
                 sectionId: target?.sectionId ?? target?.objectCollectionId,
-                ...withWorkspaceId(target?.workspaceId)
+                ...withWorkspaceId(target?.workspaceId),
+                ...(target?.relationScope ? { relationScope: target.relationScope } : {})
             }),
 
         updateRow: (rowId, data, target, expectedVersion) =>
@@ -91,6 +92,7 @@ export function createStandaloneAdapter(params: { apiBaseUrl: string; applicatio
                 objectCollectionId: target?.objectCollectionId,
                 sectionId: target?.sectionId ?? target?.objectCollectionId,
                 ...withWorkspaceId(target?.workspaceId),
+                ...(target?.relationScope ? { relationScope: target.relationScope } : {}),
                 expectedVersion
             }),
 
@@ -102,6 +104,7 @@ export function createStandaloneAdapter(params: { apiBaseUrl: string; applicatio
                 objectCollectionId: target?.objectCollectionId,
                 sectionId: target?.sectionId ?? target?.objectCollectionId,
                 ...withWorkspaceId(target?.workspaceId),
+                ...(target?.relationScope ? { relationScope: target.relationScope } : {}),
                 expectedVersion
             }),
 
@@ -127,7 +130,8 @@ export function createStandaloneAdapter(params: { apiBaseUrl: string; applicatio
                 ...withWorkspaceId(data?.workspaceId),
                 copyChildTables: data?.copyChildTables,
                 data: data?.data,
-                expectedVersion: data?.expectedVersion
+                expectedVersion: data?.expectedVersion,
+                ...(data?.relationScope ? { relationScope: data.relationScope } : {})
             }),
 
         recordCommand: (rowId, command, data) =>
@@ -154,7 +158,7 @@ export function createStandaloneAdapter(params: { apiBaseUrl: string; applicatio
                 expectedVersion: data.expectedVersion
             }),
 
-        reorderRows: ({ objectCollectionId, sectionId, workspaceId, orderedRowIds, expectedVersionsByRowId }) =>
+        reorderRows: ({ objectCollectionId, sectionId, workspaceId, orderedRowIds, expectedVersionsByRowId, parentScope }) =>
             reorderAppRows({
                 apiBaseUrl,
                 applicationId,
@@ -162,7 +166,8 @@ export function createStandaloneAdapter(params: { apiBaseUrl: string; applicatio
                 sectionId: sectionId ?? objectCollectionId,
                 ...withWorkspaceId(workspaceId),
                 orderedRowIds,
-                expectedVersionsByRowId
+                expectedVersionsByRowId,
+                parentScope
             })
     }
 }

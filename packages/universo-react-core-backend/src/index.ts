@@ -9,6 +9,7 @@ import session from 'express-session'
 import { createCsrfProtection } from './middlewares/csrf'
 import rateLimit from 'express-rate-limit'
 const cookieParser = require('cookie-parser')
+const globalAgent = require('global-agent') as { bootstrap: () => boolean }
 import { getNodeModulesPackagePath } from './utils'
 import logger, { expressRequestLogger } from './utils/logger'
 import { sanitizeMiddleware, getCorsOptions, getAllowedIframeOrigins, allowPrivateNetworkAccess } from './utils/XSS'
@@ -50,10 +51,11 @@ import {
 import { initializeRateLimiters as initializeStartRateLimiters } from '@universo-react/start-backend'
 import errorHandlerMiddleware from './middlewares/errors'
 import { isGlobalMigrationObjectEnabled, isWhitelistedApiPath, parsePositiveInt, resolveRateLimitKey } from '@universo-react/utils'
-import 'global-agent/bootstrap'
 import { bootstrapStartupSuperuser } from './bootstrap/bootstrapSuperuser'
 import { executeStartupFullReset } from './bootstrap/startupReset'
 import { createSupabaseAdminClient } from './utils/supabaseAdmin'
+
+globalAgent.bootstrap()
 
 const parseSameSite = (value?: string): boolean | 'lax' | 'strict' | 'none' => {
     if (!value) return 'lax'

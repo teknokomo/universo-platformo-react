@@ -1253,6 +1253,14 @@ const buildSpec = () => {
                         },
                         widgetKey: { type: 'string', minLength: 1 },
                         sortOrder: { type: 'integer' },
+                        parentWidgetId: {
+                            oneOf: [{ $ref: '#/components/schemas/UuidV7' }, { type: 'null' }],
+                            description: 'Optional for root placements; child placements require a parent and slot.'
+                        },
+                        slotKey: {
+                            oneOf: [{ type: 'string', minLength: 1, maxLength: 128 }, { type: 'null' }],
+                            description: 'Optional for root placements; child placements require a parent and slot.'
+                        },
                         config: { type: 'object', additionalProperties: true },
                         expectedVersion: { type: 'integer', minimum: 1 }
                     },
@@ -1300,6 +1308,15 @@ const buildSpec = () => {
                             enum: ['left', 'top', 'right', 'bottom', 'center', 'marketing-header', 'marketing-main', 'marketing-footer']
                         },
                         targetIndex: { type: 'integer', minimum: 0 },
+                        targetPlacement: { type: 'string', enum: ['start', 'end'] },
+                        parentWidgetId: {
+                            oneOf: [{ $ref: '#/components/schemas/UuidV7' }, { type: 'null' }],
+                            description: 'Optional for root placements; child placements require a parent and slot.'
+                        },
+                        slotKey: {
+                            oneOf: [{ type: 'string', minLength: 1, maxLength: 128 }, { type: 'null' }],
+                            description: 'Optional for root placements; child placements require a parent and slot.'
+                        },
                         expectedVersion: { type: 'integer', minimum: 1 }
                     },
                     required: ['widgetId', 'targetZone', 'targetIndex', 'expectedVersion']
@@ -1335,11 +1352,41 @@ const buildSpec = () => {
                             enum: ['left', 'top', 'right', 'bottom', 'center', 'marketing-header', 'marketing-main', 'marketing-footer']
                         },
                         widgetKey: { type: 'string' },
+                        instanceKey: {
+                            type: 'string',
+                            minLength: 1,
+                            maxLength: 128,
+                            pattern: '^[A-Za-z0-9][A-Za-z0-9._-]*$',
+                            description: 'Server-generated portable placement identity, unique within its layout.'
+                        },
+                        parentWidgetId: {
+                            oneOf: [{ $ref: '#/components/schemas/UuidV7' }, { type: 'null' }],
+                            description: 'Null for root placements; child placements reference a parent in this layout.'
+                        },
+                        slotKey: {
+                            oneOf: [
+                                {
+                                    type: 'string',
+                                    minLength: 1,
+                                    maxLength: 64,
+                                    pattern: '^[A-Za-z][A-Za-z0-9._:-]*$'
+                                },
+                                { type: 'null' }
+                            ],
+                            description: 'Null for root placements; child placements require a semantic parent slot.'
+                        },
                         sortOrder: { type: 'integer' },
                         config: { type: 'object', additionalProperties: true },
                         sourceConfig: {
                             oneOf: [{ type: 'object', additionalProperties: true }, { type: 'null' }]
                         },
+                        sourceWidgetId: {
+                            oneOf: [{ $ref: '#/components/schemas/UuidV7' }, { type: 'null' }]
+                        },
+                        sourceBaseWidgetId: {
+                            oneOf: [{ $ref: '#/components/schemas/UuidV7' }, { type: 'null' }]
+                        },
+                        placement: { type: 'string', enum: ['start', 'end'] },
                         isCustomized: { type: 'boolean' },
                         isActive: { type: 'boolean' },
                         version: { type: 'integer', minimum: 1 }
@@ -1349,6 +1396,9 @@ const buildSpec = () => {
                         'layoutId',
                         'zone',
                         'widgetKey',
+                        'instanceKey',
+                        'parentWidgetId',
+                        'slotKey',
                         'sortOrder',
                         'config',
                         'sourceConfig',

@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import { getMetahubsTranslations } from '../index'
 
+const getLeafPaths = (value: unknown, prefix = ''): string[] => {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return [prefix]
+    return Object.entries(value).flatMap(([key, nested]) => getLeafPaths(nested, prefix ? `${prefix}.${key}` : key))
+}
+
 describe('metahubs i18n consolidation', () => {
     it('keeps top-level shared translations inside the consolidated metahubs namespace', () => {
         const translations = getMetahubsTranslations('ru') as {
@@ -68,19 +73,42 @@ describe('metahubs i18n consolidation', () => {
         expect(enTranslations.projects?.binding?.actions?.openEditor).toBe('Open editor')
     })
 
-    it('keeps layout widget shared behavior translations inside the consolidated metahubs namespace', () => {
+    it('keeps only current generated/manual menu and side-menu strings in both locales', () => {
         const ruTranslations = getMetahubsTranslations('ru') as {
-            layouts?: {
-                actions?: { exclude?: string }
-                sharedBehavior?: { title?: string; description?: string }
-            }
+            layouts?: { menuEditor?: unknown; sharedBehavior?: unknown; actions?: { exclude?: string } }
+            shared?: { behavior?: { canExclude?: string } }
         }
+        const enTranslations = getMetahubsTranslations('en') as {
+            layouts?: { menuEditor?: unknown; sharedBehavior?: unknown }
+            shared?: { behavior?: { canExclude?: string } }
+        }
+        const expectedMenuEditorKeys = [
+            'continueToSource',
+            'description',
+            'generatedHint',
+            'manualHint',
+            'sideMenu.modes.compact',
+            'sideMenu.modes.overlay',
+            'sideMenu.modes.wide',
+            'sideMenu.primaryMode',
+            'sideMenu.rememberUserChoice',
+            'sideMenu.title',
+            'title',
+            'variant',
+            'variants.generated',
+            'variants.manual'
+        ]
 
-        expect(ruTranslations.layouts?.sharedBehavior?.title).toBe('Общее поведение')
-        expect(ruTranslations.layouts?.sharedBehavior?.description).toBe(
-            'Определяет, можно ли в унаследованных макетах отключать, исключать или перемещать этот виджет.'
-        )
+        expect(getLeafPaths(ruTranslations.layouts?.menuEditor).sort()).toEqual(expectedMenuEditorKeys)
+        expect(getLeafPaths(enTranslations.layouts?.menuEditor).sort()).toEqual(expectedMenuEditorKeys)
+        expect(ruTranslations.layouts).not.toHaveProperty('sharedBehavior')
+        expect(enTranslations.layouts).not.toHaveProperty('sharedBehavior')
+        expect(ruTranslations.layouts?.menuEditor).not.toHaveProperty('autoShowAllSections')
+        expect(ruTranslations.layouts?.menuEditor).not.toHaveProperty('startPage')
+        expect(ruTranslations.layouts?.menuEditor).not.toHaveProperty('overflowLabelKey')
         expect(ruTranslations.layouts?.actions?.exclude).toBe('Исключить')
+        expect(ruTranslations.shared?.behavior?.canExclude).toBe('Можно исключать')
+        expect(enTranslations.shared?.behavior?.canExclude).toBe('Can be excluded')
     })
 
     it('merges module authoring translations with resource scope labels', () => {

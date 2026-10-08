@@ -1,6 +1,8 @@
 import { FormDialog, type ResourceSourceTypeOption, type RuntimeObjectCollectionOption } from './dialogs/FormDialog'
 import { ConfirmDeleteDialog } from './dialogs/ConfirmDeleteDialog'
+import { readLocalizedTextValue } from '@universo-react/types'
 import type { CrudDashboardState } from '../hooks/useCrudDashboard'
+import { useTranslation } from 'react-i18next'
 
 export interface CrudDialogsProps {
     /** State object returned by `useCrudDashboard()`. */
@@ -67,7 +69,20 @@ export function CrudDialogs({
     renderForm = true,
     renderDelete = true
 }: CrudDialogsProps) {
+    const { t } = useTranslation('apps')
     const keepPageSurfaceMounted = surface === 'page' && state.isSubmitting
+    const wizardSteps = state.createWizard?.steps.map((step, index) => ({
+        id: step.id,
+        label:
+            readLocalizedTextValue(step.label, locale) ??
+            readLocalizedTextValue(step.label, 'en') ??
+            t('runtime.wizard.step', { number: index + 1 }),
+        helperText: step.helperText ? readLocalizedTextValue(step.helperText, locale) : undefined,
+        fieldIds: step.fieldCodenames.map(
+            (codename) =>
+                state.appData?.columns.find((column) => column.codename === codename || column.field === codename)?.field ?? codename
+        )
+    }))
 
     return (
         <>
@@ -95,6 +110,7 @@ export function CrudDialogs({
                     objectCollections={objectCollections}
                     currentWorkspaceId={currentWorkspaceId}
                     resourceSourceTypes={resourceSourceTypes}
+                    wizardSteps={state.editRowId || state.copyRowId ? undefined : wizardSteps}
                 />
             ) : null}
 

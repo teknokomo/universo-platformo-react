@@ -10,7 +10,7 @@ const describeIntegration = DATABASE_TEST_URL ? describe : describe.skip
 
 const quoteIdentifier = (value: string): string => `"${value.replaceAll('"', '""')}"`
 
-describeIntegration('persisted Marketing binding reference store (requires PostgreSQL)', () => {
+describeIntegration('persisted widget binding reference store (requires PostgreSQL)', () => {
     let knex: Knex
     let schemaName: string
 
@@ -103,7 +103,7 @@ describeIntegration('persisted Marketing binding reference store (requires Postg
             semanticKey: 'hero-default'
         })
         const baseConfig = encodeWidgetConfigEnvelope(
-            { rendererConfig: { instanceKey: 'hero' }, neutral: { bindings: baseBinding } },
+            { rendererConfig: {}, neutral: { bindings: baseBinding } },
             { templateKey: 'marketing-page', widgetKey: 'marketing.hero', zone: 'marketing-main' }
         )
         const forgedOverrideBinding = buildSingleTargetWidgetBinding(widgetDefinition, 'content', {
@@ -112,11 +112,11 @@ describeIntegration('persisted Marketing binding reference store (requires Postg
             semanticKey: 'site-settings'
         })
         const forgedOverrideConfig = encodeWidgetConfigEnvelope(
-            { rendererConfig: { instanceKey: 'hero' }, neutral: { bindings: forgedOverrideBinding } },
+            { rendererConfig: {}, neutral: { bindings: forgedOverrideBinding } },
             { templateKey: 'marketing-page', widgetKey: 'marketing.hero', zone: 'marketing-main' }
         )
         const directOverlayConfig = encodeWidgetConfigEnvelope(
-            { rendererConfig: { instanceKey: 'direct-overlay-hero' }, neutral: { bindings: forgedOverrideBinding } },
+            { rendererConfig: {}, neutral: { bindings: forgedOverrideBinding } },
             { templateKey: 'marketing-page', widgetKey: 'marketing.hero', zone: 'marketing-main' }
         )
 
@@ -228,5 +228,71 @@ describeIntegration('persisted Marketing binding reference store (requires Postg
                 limit: 10
             })
         ).resolves.toEqual([])
+    })
+
+    it('counts inherited Dashboard bindings for scoped overlays', async () => {
+        const ids = {
+            baseLayout: '019e8afa-0000-7000-8000-000000000201',
+            overlayLayout: '019e8afa-0000-7000-8000-000000000202',
+            baseWidget: '019e8afa-0000-7000-8000-000000000203',
+            liveOverride: '019e8afa-0000-7000-8000-000000000204',
+            overlayEntity: '019e8afa-0000-7000-8000-000000000205'
+        }
+        const widgetDefinition = getLayoutWidgetDefinition('infoCard')
+        if (!widgetDefinition) throw new Error('Dashboard infoCard widget definition is missing')
+
+        const baseBinding = buildSingleTargetWidgetBinding(widgetDefinition, 'content', {
+            entityKind: 'object',
+            entityCodename: 'DashboardInfoCard',
+            semanticKey: 'notice'
+        })
+        const baseConfig = encodeWidgetConfigEnvelope(
+            { rendererConfig: { severity: 'info' }, neutral: { bindings: baseBinding } },
+            { templateKey: 'dashboard', widgetKey: 'infoCard', zone: 'left' }
+        )
+
+        await knex
+            .withSchema(schemaName)
+            .table('_mhb_layouts')
+            .insert([
+                {
+                    id: ids.baseLayout,
+                    template_key: 'dashboard',
+                    scope_entity_id: null,
+                    base_layout_id: null,
+                    is_default: true
+                },
+                {
+                    id: ids.overlayLayout,
+                    template_key: 'dashboard',
+                    scope_entity_id: ids.overlayEntity,
+                    base_layout_id: ids.baseLayout
+                }
+            ])
+        await knex.withSchema(schemaName).table('_mhb_widgets').insert({
+            id: ids.baseWidget,
+            layout_id: ids.baseLayout,
+            zone: 'left',
+            widget_key: 'infoCard',
+            config: baseConfig
+        })
+        await knex.withSchema(schemaName).table('_mhb_layout_widget_overrides').insert({
+            id: ids.liveOverride,
+            layout_id: ids.overlayLayout,
+            base_widget_id: ids.baseWidget,
+            config: null,
+            is_deleted_override: false
+        })
+
+        const references = await listPersistedWidgetBindingReferences(createKnexExecutor(knex), schemaName, {
+            entityKind: 'object',
+            entityCodename: 'DashboardInfoCard',
+            semanticKey: 'notice',
+            limit: 10
+        })
+
+        expect(references.map(({ widget_id }) => widget_id)).toEqual(expect.arrayContaining([ids.baseWidget, ids.liveOverride]))
+        expect(references).toHaveLength(2)
+        expect(references.find(({ widget_id }) => widget_id === ids.liveOverride)?.config).toEqual(baseConfig)
     })
 })

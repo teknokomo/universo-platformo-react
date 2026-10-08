@@ -7,11 +7,27 @@ import {
     TreeEntityRef
 } from '../../../../types'
 import type { ObjectCollectionCopyOptions, VersionedLocalizedContent } from '@universo-react/types'
-import { normalizeObjectRecordBehavior, normalizeLedgerConfig } from '@universo-react/types'
+import {
+    DEFAULT_OBJECT_RUNTIME_MENU_ICON,
+    isObjectRuntimeMenuIcon,
+    normalizeObjectRecordBehavior,
+    normalizeLedgerConfig
+} from '@universo-react/types'
 
 type EntityInstancePaginationParams = PaginationParams & { kindKey?: string }
 
 const resolveObjectKindKey = (kindKey?: string) => kindKey?.trim() || 'object'
+const isRecord = (value: unknown): value is Record<string, unknown> => Boolean(value && typeof value === 'object' && !Array.isArray(value))
+
+const runtimeNavigationFields = (config: unknown): Record<string, unknown> => {
+    const runtime = isRecord(config) && isRecord(config.runtime) ? config.runtime : {}
+    const visible = runtime.menuVisibility === 'primary'
+
+    return {
+        runtimeMenuVisible: visible,
+        ...(visible ? { runtimeMenuIcon: isObjectRuntimeMenuIcon(runtime.icon) ? runtime.icon : DEFAULT_OBJECT_RUNTIME_MENU_ICON } : {})
+    }
+}
 
 const buildObjectCollectionInstancesPath = (metahubId: string, kindKey?: string) =>
     `/metahub/${metahubId}/entities/${encodeURIComponent(resolveObjectKindKey(kindKey))}/instances`
@@ -23,6 +39,7 @@ const buildContainerScopedObjectCollectionPath = (metahubId: string, treeEntityI
     `/metahub/${metahubId}/entities/${encodeURIComponent(resolveObjectKindKey(kindKey))}/instance/${treeEntityId}`
 
 const buildObjectCollectionConfig = (params: {
+    baseConfig?: Record<string, unknown>
     sortOrder?: number
     treeEntityIds?: string[]
     isSingleHub?: boolean
@@ -30,8 +47,9 @@ const buildObjectCollectionConfig = (params: {
     recordBehavior?: unknown
     ledgerConfig?: unknown | null
 }) => {
-    const { sortOrder, treeEntityIds, isSingleHub, isRequiredHub, recordBehavior, ledgerConfig } = params
+    const { baseConfig, sortOrder, treeEntityIds, isSingleHub, isRequiredHub, recordBehavior, ledgerConfig } = params
     const config: Record<string, unknown> = {
+        ...(isRecord(baseConfig) ? baseConfig : {}),
         ...(sortOrder !== undefined ? { sortOrder } : {}),
         ...(treeEntityIds !== undefined ? { hubs: treeEntityIds } : {}),
         ...(isSingleHub !== undefined ? { isSingleHub } : {}),
@@ -179,12 +197,23 @@ export const createObjectCollectionAtMetahub = (
         kindKey?: string
     }
 ) => {
-    const { kindKey, sortOrder, treeEntityIds, isSingleHub, isRequiredHub, recordBehavior, ledgerConfig, ...payload } = data
+    const {
+        kindKey,
+        config: baseConfig,
+        sortOrder,
+        treeEntityIds,
+        isSingleHub,
+        isRequiredHub,
+        recordBehavior,
+        ledgerConfig,
+        ...payload
+    } = data
 
     return apiClient.post<ObjectCollectionEntity>(buildObjectCollectionInstancesPath(metahubId, kindKey), {
         ...payload,
         kind: resolveObjectKindKey(kindKey),
         config: buildObjectCollectionConfig({
+            baseConfig,
             sortOrder,
             treeEntityIds,
             isSingleHub,
@@ -202,11 +231,14 @@ export const createObjectCollection = (
     metahubId: string,
     treeEntityId: string,
     data: ObjectCollectionLocalizedPayload & { sortOrder?: number; ledgerConfig?: unknown | null; kindKey?: string }
-) =>
-    apiClient.post<ObjectCollectionEntity>(
+) => {
+    const { config, ...payload } = data
+
+    return apiClient.post<ObjectCollectionEntity>(
         `${buildContainerScopedObjectCollectionPath(metahubId, treeEntityId, data.kindKey)}/instances`,
-        data
+        { ...payload, ...(config !== undefined ? runtimeNavigationFields(config) : {}) }
     )
+}
 
 export type ObjectCollectionCopyInput = ObjectCollectionLocalizedPayload & {
     config?: Record<string, unknown>
@@ -248,11 +280,14 @@ export const updateObjectCollection = (
         expectedVersion?: number
         kindKey?: string
     }
-) =>
-    apiClient.patch<ObjectCollectionEntity>(
+) => {
+    const { config, ...payload } = data
+
+    return apiClient.patch<ObjectCollectionEntity>(
         `${buildContainerScopedObjectCollectionPath(metahubId, treeEntityId, data.kindKey)}/instance/${objectCollectionId}`,
-        data
+        { ...payload, ...(config !== undefined ? runtimeNavigationFields(config) : {}) }
     )
+}
 
 /**
  * Update a object at metahub level (for objectCollections without hub or with multiple treeEntities)
@@ -271,11 +306,29 @@ export const updateObjectCollectionAtMetahub = (
         kindKey?: string
     }
 ) => {
-    const { kindKey, sortOrder, treeEntityIds, isSingleHub, isRequiredHub, recordBehavior, ledgerConfig, ...payload } = data
+    const {
+        kindKey,
+        config: baseConfig,
+        sortOrder,
+        treeEntityIds,
+        isSingleHub,
+        isRequiredHub,
+        recordBehavior,
+        ledgerConfig,
+        ...payload
+    } = data
 
     return apiClient.patch<ObjectCollectionEntity>(buildObjectCollectionInstancePath(metahubId, objectCollectionId, kindKey), {
         ...payload,
-        config: buildObjectCollectionConfig({ sortOrder, treeEntityIds, isSingleHub, isRequiredHub, recordBehavior, ledgerConfig })
+        config: buildObjectCollectionConfig({
+            baseConfig,
+            sortOrder,
+            treeEntityIds,
+            isSingleHub,
+            isRequiredHub,
+            recordBehavior,
+            ledgerConfig
+        })
     })
 }
 

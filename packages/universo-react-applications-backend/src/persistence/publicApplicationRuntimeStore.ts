@@ -41,6 +41,7 @@ interface RuntimeComponentMetadataRow {
     targetObjectId: unknown
     targetObjectKind: unknown
     targetObjectCodename: unknown
+    uiConfig: unknown
 }
 
 interface PublishedObjectMetadata {
@@ -60,6 +61,7 @@ interface PublishedComponentMetadata {
     readonly targetObjectId: string | null
     readonly targetObjectKind: string | null
     readonly targetObjectCodename: string | null
+    readonly uiConfig: unknown
 }
 
 interface CompatiblePublishedObject {
@@ -299,6 +301,7 @@ export const createPublicMarketingBindingRecordLoader = (
                     c.data_type AS "dataType",
                     c.is_required AS "isRequired",
                     c.validation_rules AS "validationRules",
+                    c.ui_config AS "uiConfig",
                     c.target_object_id AS "targetObjectId",
                     c.target_object_kind AS "targetObjectKind",
                     ${runtimeCodenameTextSql('target_object.codename')} AS "targetObjectCodename"
@@ -345,6 +348,7 @@ export const createPublicMarketingBindingRecordLoader = (
                     dataType: String(row.dataType ?? ''),
                     isRequired: row.isRequired === true,
                     validationRules: row.validationRules,
+                    uiConfig: row.uiConfig,
                     targetObjectId,
                     targetObjectKind: typeof row.targetObjectKind === 'string' ? row.targetObjectKind : null,
                     targetObjectCodename:
@@ -372,12 +376,14 @@ export const createPublicMarketingBindingRecordLoader = (
         const components = await readComponentMetadata(object, slot)
         const compatible = isCompatibleWidgetBindingEntity(slot, {
             kind: object.kind,
+            codename: object.codename,
             config: object.config,
-            components: [...components.values()].map(({ codename, dataType, isRequired, validationRules }) => ({
+            components: [...components.values()].map(({ codename, dataType, isRequired, validationRules, uiConfig }) => ({
                 codename,
                 dataType,
                 isRequired,
-                validationRules
+                validationRules,
+                uiConfig
             }))
         })
         if (!compatible) throw new PublicMarketingMaterializationError('Published marketing Object/Component contract is incompatible')

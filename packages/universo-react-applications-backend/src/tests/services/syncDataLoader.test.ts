@@ -24,10 +24,7 @@ const globalLayout = {
     template_key: 'dashboard',
     name: { en: 'Dashboard' },
     description: null,
-    config: {
-        showHeader: true,
-        __layout: { composition: { mode: 'independent', baseLayoutId: null } }
-    },
+    config: { __layout: { composition: { mode: 'independent', baseLayoutId: null } } },
     is_active: true,
     is_default: true,
     sort_order: 0
@@ -39,10 +36,7 @@ const scopedLayout = {
     template_key: 'dashboard',
     name: { en: 'Products' },
     description: null,
-    config: {
-        showHeader: false,
-        __layout: { composition: { mode: 'overlay', baseLayoutId: ids.globalLayout } }
-    },
+    config: { __layout: { composition: { mode: 'overlay', baseLayoutId: ids.globalLayout } } },
     is_active: true,
     is_default: true,
     sort_order: 0
@@ -53,32 +47,36 @@ const createExecutor = (options: { rejectWidgets?: boolean; layouts?: unknown[];
         if (sql.includes('._app_layouts')) return options.layouts ?? [globalLayout, scopedLayout]
         if (sql.includes('._app_widgets')) {
             if (options.rejectWidgets) throw new Error('widgets query failed')
-            return (
-                options.widgets ?? [
-                    {
-                        id: ids.globalWidget,
-                        layout_id: ids.globalLayout,
-                        zone: 'top',
-                        widget_key: 'header',
-                        sort_order: 0,
-                        config: {},
-                        is_active: true,
-                        source_widget_id: ids.sourceWidget,
-                        source_base_widget_id: null
-                    },
-                    {
-                        id: ids.scopedWidget,
-                        layout_id: ids.scopedLayout,
-                        zone: 'top',
-                        widget_key: 'header',
-                        sort_order: 1,
-                        config: {},
-                        is_active: true,
-                        source_widget_id: ids.sourceWidget,
-                        source_base_widget_id: ids.sourceWidget
-                    }
-                ]
-            )
+            const rows = (options.widgets ?? [
+                {
+                    id: ids.globalWidget,
+                    layout_id: ids.globalLayout,
+                    zone: 'top',
+                    widget_key: 'header',
+                    sort_order: 0,
+                    config: {},
+                    is_active: true,
+                    source_widget_id: ids.sourceWidget,
+                    source_base_widget_id: null
+                },
+                {
+                    id: ids.scopedWidget,
+                    layout_id: ids.scopedLayout,
+                    zone: 'top',
+                    widget_key: 'header',
+                    sort_order: 1,
+                    config: {},
+                    is_active: true,
+                    source_widget_id: ids.sourceWidget,
+                    source_base_widget_id: ids.sourceWidget
+                }
+            ]) as Array<Record<string, unknown>>
+            return rows.map((row) => ({
+                instance_key: Object.prototype.hasOwnProperty.call(row, 'instance_key') ? row.instance_key : row.widget_key,
+                parent_widget_id: Object.prototype.hasOwnProperty.call(row, 'parent_widget_id') ? row.parent_widget_id : null,
+                slot_key: Object.prototype.hasOwnProperty.call(row, 'slot_key') ? row.slot_key : null,
+                ...row
+            }))
         }
         return []
     })
@@ -93,7 +91,7 @@ describe('loadApplicationRuntimeLayouts', () => {
                 id: ids.globalLayout,
                 compositionMode: 'independent',
                 baseLayoutId: null,
-                config: { showHeader: true }
+                config: {}
             })
         ])
         expect(result.scopedLayouts).toEqual([
@@ -102,21 +100,32 @@ describe('loadApplicationRuntimeLayouts', () => {
                 scopeEntityId: ids.scopeEntity,
                 compositionMode: 'overlay',
                 baseLayoutId: ids.globalLayout,
-                config: { showHeader: false }
+                config: {}
             })
         ])
         expect(result.layoutZoneWidgets).toEqual([
-            expect.objectContaining({ id: ids.globalWidget, layoutId: ids.globalLayout, widgetKey: 'header' })
+            expect.objectContaining({
+                id: ids.globalWidget,
+                layoutId: ids.globalLayout,
+                instanceKey: 'header',
+                parentWidgetId: null,
+                slotKey: null,
+                widgetKey: 'header',
+                config: expect.not.objectContaining({ instanceKey: expect.anything() })
+            })
         ])
         expect(result.layoutWidgetOverrides).toEqual([
             expect.objectContaining({
                 id: ids.scopedWidget,
                 layoutId: ids.scopedLayout,
                 baseWidgetId: ids.globalWidget,
+                instanceKey: 'header',
+                parentWidgetId: null,
+                slotKey: null,
                 isDeletedOverride: false
             })
         ])
-        expect(result.layoutConfig).toEqual({ showHeader: true })
+        expect(result.layoutConfig).toEqual({})
     })
 
     it('fails closed when the widget query cannot be completed', async () => {
@@ -128,7 +137,7 @@ describe('loadApplicationRuntimeLayouts', () => {
     it('fails closed when persisted composition metadata is missing', async () => {
         const executor = createExecutor()
         executor.query.mockImplementation(async (sql: string) => {
-            if (sql.includes('._app_layouts')) return [{ ...globalLayout, config: { showHeader: true } }]
+            if (sql.includes('._app_layouts')) return [{ ...globalLayout, config: {} }]
             return []
         })
 
@@ -147,20 +156,17 @@ describe('loadApplicationRuntimeLayouts', () => {
         })
         const widgetContext = { templateKey: 'marketing-page', widgetKey: 'marketing.hero', zone: 'marketing-main' } as const
         const globalConfig = encodeLayoutWidgetConfigEnvelope(
-            { rendererConfig: { instanceKey: 'hero', showLeadForm: true }, neutral: { bindings: binding } },
+            { rendererConfig: { showLeadForm: true }, neutral: { bindings: binding } },
             widgetContext
         )
-        const overlayConfig = encodeLayoutWidgetConfigEnvelope(
-            { rendererConfig: { instanceKey: 'hero', showLeadForm: false } },
-            widgetContext
-        )
+        const overlayConfig = encodeLayoutWidgetConfigEnvelope({ rendererConfig: { showLeadForm: false } }, widgetContext)
         const authContext = { templateKey: 'marketing-page', widgetKey: 'marketing.auth', zone: 'marketing-header' } as const
         const baseAuthConfig = encodeLayoutWidgetConfigEnvelope(
-            { rendererConfig: { instanceKey: 'auth', showAuthActions: true }, neutral: { placement: 'end' } },
+            { rendererConfig: { showAuthActions: true }, neutral: { placement: 'end' } },
             authContext
         )
         const overlayAuthConfig = encodeLayoutWidgetConfigEnvelope(
-            { rendererConfig: { instanceKey: 'auth', showAuthActions: false }, neutral: { placement: 'start' } },
+            { rendererConfig: { showAuthActions: false }, neutral: { placement: 'start' } },
             authContext
         )
         const globalMarketingLayout = {
@@ -184,7 +190,8 @@ describe('loadApplicationRuntimeLayouts', () => {
                         zone: 'marketing-main',
                         widget_key: 'marketing.hero',
                         sort_order: 0,
-                        config: { instanceKey: 'hero', showLeadForm: true },
+                        config: { showLeadForm: true },
+                        instance_key: 'hero',
                         source_config: globalConfig,
                         is_active: true,
                         source_widget_id: ids.sourceWidget,
@@ -193,6 +200,7 @@ describe('loadApplicationRuntimeLayouts', () => {
                     {
                         id: ids.scopedWidget,
                         layout_id: ids.scopedLayout,
+                        instance_key: 'hero',
                         zone: 'marketing-main',
                         widget_key: 'marketing.hero',
                         sort_order: 0,
@@ -239,11 +247,11 @@ describe('loadApplicationRuntimeLayouts', () => {
 
         expect(result.layoutWidgetOverrides).toHaveLength(2)
         expect(heroOverride).toMatchObject({ baseWidgetId: ids.globalWidget, zone: 'marketing-main' })
-        expect(decodedHeroOverride.rendererConfig).toEqual({ instanceKey: 'hero', showLeadForm: false })
+        expect(decodedHeroOverride.rendererConfig).toEqual({ showLeadForm: false })
         expect(decodedHeroOverride.neutral.bindings).toBeUndefined()
         expect(decodedBaseHero.neutral.bindings).toEqual(binding)
         expect(authOverride).toMatchObject({ baseWidgetId: ids.authGlobalWidget, zone: 'marketing-header' })
-        expect(decodedAuthOverride.rendererConfig).toEqual({ instanceKey: 'auth', showAuthActions: false })
+        expect(decodedAuthOverride.rendererConfig).toEqual({ showAuthActions: false })
         expect(decodedAuthOverride.neutral).toEqual({ placement: 'start' })
     })
 
@@ -256,7 +264,7 @@ describe('loadApplicationRuntimeLayouts', () => {
             semanticKey: 'hero-default'
         })
         const widgetConfig = encodeLayoutWidgetConfigEnvelope(
-            { rendererConfig: { instanceKey: 'hero' }, neutral: { bindings: binding } },
+            { rendererConfig: {}, neutral: { bindings: binding } },
             { templateKey: 'marketing-page', widgetKey: 'marketing.hero', zone: 'marketing-main' }
         )
 
@@ -302,7 +310,7 @@ describe('loadApplicationRuntimeLayouts', () => {
                 }) as never,
                 'app_019f3100000070008000000000000001'
             )
-        ).rejects.toThrow('cannot contain entity bindings')
+        ).rejects.toThrow('registered source policy')
     })
 
     it('reconstructs direct Marketing bindings from source_config in a release bundle', async () => {
@@ -320,7 +328,7 @@ describe('loadApplicationRuntimeLayouts', () => {
         })
         const widgetContext = { templateKey: 'marketing-page', widgetKey: 'marketing.hero', zone: 'marketing-main' } as const
         const sourceConfig = encodeLayoutWidgetConfigEnvelope(
-            { rendererConfig: { instanceKey: 'hero', showLeadForm: true }, neutral: { bindings: sourceBinding } },
+            { rendererConfig: { showLeadForm: true }, neutral: { bindings: sourceBinding } },
             widgetContext
         )
         const executor = createExecutor({
@@ -338,7 +346,8 @@ describe('loadApplicationRuntimeLayouts', () => {
                     zone: 'marketing-main',
                     widget_key: 'marketing.hero',
                     sort_order: 0,
-                    config: { instanceKey: 'hero', showLeadForm: false },
+                    config: { showLeadForm: false },
+                    instance_key: 'hero',
                     source_config: sourceConfig,
                     is_active: true,
                     source_widget_id: ids.sourceWidget,
@@ -350,7 +359,7 @@ describe('loadApplicationRuntimeLayouts', () => {
         const result = await loadApplicationRuntimeLayouts(executor as never, 'app_019f3100000070008000000000000001')
         const exported = result.layoutZoneWidgets[0]?.config
         const decoded = decodeLayoutWidgetConfigEnvelope(exported, widgetContext)
-        expect(decoded.rendererConfig).toEqual({ instanceKey: 'hero', showLeadForm: false })
+        expect(decoded.rendererConfig).toEqual({ showLeadForm: false })
         expect(decoded.neutral.bindings).toEqual(sourceBinding)
         expect((executor.query as jest.Mock).mock.calls.find(([sql]) => String(sql).includes('._app_widgets'))?.[0]).toContain(
             'source_config'
@@ -371,10 +380,7 @@ describe('loadApplicationRuntimeLayouts', () => {
                     zone: 'marketing-main',
                     widget_key: 'marketing.hero',
                     sort_order: 0,
-                    config: encodeLayoutWidgetConfigEnvelope(
-                        { rendererConfig: { instanceKey: 'hero' }, neutral: { bindings: forgedBinding } },
-                        widgetContext
-                    ),
+                    config: encodeLayoutWidgetConfigEnvelope({ rendererConfig: {}, neutral: { bindings: forgedBinding } }, widgetContext),
                     source_config: sourceConfig,
                     is_active: true,
                     source_widget_id: ids.sourceWidget,

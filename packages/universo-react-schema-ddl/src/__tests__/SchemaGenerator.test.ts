@@ -1,4 +1,6 @@
 import { ComponentDefinitionDataType } from '@universo-react/types'
+import type { Knex } from 'knex'
+import knexFactory from 'knex'
 import { SchemaGenerator } from '../SchemaGenerator'
 import { generateSchemaName, generateTableName, generateColumnName } from '../naming'
 
@@ -18,6 +20,7 @@ const mockTableBuilder = {
     specificType: jest.fn().mockReturnThis(),
     unique: jest.fn().mockReturnThis(),
     index: jest.fn().mockReturnThis(),
+    check: jest.fn().mockReturnThis(),
     foreign: jest.fn().mockReturnThis(),
     references: jest.fn().mockReturnThis(),
     inTable: jest.fn().mockReturnThis(),
@@ -589,7 +592,7 @@ describe('SchemaGenerator', () => {
             expect(createdTables).toContain('_app_workflow_action_audit')
         })
 
-        it('adds trusted source configuration and presentation-state storage for application reset semantics', async () => {
+        it('declares trusted source configuration and presentation-state storage in the fresh widget table', async () => {
             await generator.ensureSystemTables('metahubs')
 
             const rawSqlCalls = mockKnex.raw.mock.calls.map(([sql]) => String(sql))
@@ -598,12 +601,101 @@ describe('SchemaGenerator', () => {
             expect(widgetCreateCall).toBeDefined()
             expect(mockTableBuilder.jsonb).toHaveBeenCalledWith('source_config')
             expect(mockTableBuilder.jsonb).toHaveBeenCalledWith('source_state')
-            expect(rawSqlCalls).toEqual(
-                expect.arrayContaining([
-                    expect.stringContaining('ADD COLUMN IF NOT EXISTS "source_config" JSONB NULL'),
-                    expect.stringContaining('ADD COLUMN IF NOT EXISTS "source_state" JSONB NULL')
-                ])
+            expect(
+                rawSqlCalls.filter((sql) => sql.includes('_app_widgets') && /\b(?:ADD COLUMN|ALTER COLUMN|UPDATE)\b/iu.test(sql))
+            ).toEqual([])
+        })
+
+        it('declares widget placement columns and same-layout nesting constraints in the fresh table', async () => {
+            await generator.ensureSystemTables('metahubs')
+
+            const widgetCreateCall = mockSchemaBuilder.createTable.mock.calls.find(([tableName]) => tableName === '_app_widgets')
+            const rawSqlCalls = mockKnex.raw.mock.calls.map(([sql]) => String(sql))
+
+            expect(widgetCreateCall).toBeDefined()
+            expect(mockTableBuilder.text).toHaveBeenCalledWith('instance_key')
+            expect(mockTableBuilder.uuid).toHaveBeenCalledWith('parent_widget_id')
+            expect(mockTableBuilder.text).toHaveBeenCalledWith('slot_key')
+            expect(mockTableBuilder.unique).toHaveBeenCalledWith(['layout_id', 'instance_key'], 'uq_app_widgets_layout_instance_key')
+            expect(mockTableBuilder.unique).toHaveBeenCalledWith(['layout_id', 'id'], 'uq_app_widgets_layout_id_id')
+            expect(mockTableBuilder.foreign).toHaveBeenCalledWith(['layout_id', 'parent_widget_id'], 'fk_app_widgets_parent_layout')
+            expect(mockTableBuilder.references).toHaveBeenCalledWith(['layout_id', 'id'])
+            expect(mockTableBuilder.inTable).toHaveBeenCalledWith('metahubs._app_widgets')
+            expect(mockTableBuilder.onDelete).toHaveBeenCalledWith('CASCADE')
+            expect(mockTableBuilder.check).toHaveBeenCalledWith(
+                '((parent_widget_id IS NULL AND slot_key IS NULL) OR (parent_widget_id IS NOT NULL AND slot_key IS NOT NULL))',
+                {},
+                'chk_app_widgets_parent_slot_pair'
             )
+            expect(mockTableBuilder.check).toHaveBeenCalledWith(
+                'parent_widget_id IS NULL OR parent_widget_id <> id',
+                {},
+                'chk_app_widgets_parent_not_self'
+            )
+            expect(mockTableBuilder.index).toHaveBeenCalledWith(
+                ['layout_id', 'parent_widget_id', 'slot_key', 'sort_order', 'id'],
+                'idx_app_widgets_parent_graph'
+            )
+            expect(
+                rawSqlCalls.filter((sql) => sql.includes('_app_widgets') && /\b(?:ADD COLUMN|ALTER COLUMN|UPDATE)\b/iu.test(sql))
+            ).toEqual([])
+        })
+
+        it('emits app widget CHECK and composite self-FK SQL through Knex', async () => {
+            const ddlKnex = knexFactory({ client: 'pg' })
+            const createTableCalls: Array<{
+                tableName: string
+                callback: (table: Knex.CreateTableBuilder) => void
+            }> = []
+            const localSchemaBuilder = {
+                withSchema: jest.fn().mockReturnThis(),
+                hasTable: jest.fn().mockResolvedValue(false),
+                createTable: jest.fn((tableName: string, callback: (table: Knex.CreateTableBuilder) => void) => {
+                    createTableCalls.push({ tableName, callback })
+                    callback(mockTableBuilder as unknown as Knex.CreateTableBuilder)
+                    return Promise.resolve()
+                })
+            }
+            const localKnex = {
+                schema: localSchemaBuilder,
+                raw: jest.fn((sql: string) => (sql === 'public.uuid_generate_v7()' ? ddlKnex.raw(sql) : Promise.resolve(undefined))),
+                fn: ddlKnex.fn
+            } as unknown as Knex
+
+            try {
+                await new SchemaGenerator(localKnex).ensureSystemTables('safe_schema', undefined, {
+                    includeComponents: false,
+                    includeValues: false,
+                    includeLayouts: true,
+                    includeWidgets: true
+                })
+
+                const widgetCall = createTableCalls.find((call) => call.tableName === '_app_widgets')
+                expect(widgetCall).toBeDefined()
+                const compiledDdl = ddlKnex.schema
+                    .withSchema('safe_schema')
+                    .createTable('_app_widgets', (table) => widgetCall!.callback(table))
+                    .toSQL()
+                const sql = compiledDdl.map((statement) => statement.sql).join('\n')
+
+                expect(sql).toContain('"instance_key" text not null')
+                expect(sql).toContain('"parent_widget_id" uuid null')
+                expect(sql).toContain('"slot_key" text null')
+                expect(sql).toContain('unique ("layout_id", "instance_key")')
+                expect(sql).toContain('unique ("layout_id", "id")')
+                expect(sql).toContain('foreign key ("layout_id", "parent_widget_id")')
+                expect(sql).toContain('references "safe_schema"."_app_widgets" ("layout_id", "id") on delete CASCADE')
+                expect(sql).toContain(
+                    'check (((parent_widget_id IS NULL AND slot_key IS NULL) OR (parent_widget_id IS NOT NULL AND slot_key IS NOT NULL)))'
+                )
+                expect(sql).toContain('check (parent_widget_id IS NULL OR parent_widget_id <> id)')
+                expect(sql).toContain(
+                    'create index "idx_app_widgets_parent_graph" on "safe_schema"."_app_widgets" ("layout_id", "parent_widget_id", "slot_key", "sort_order", "id")'
+                )
+                expect(compiledDdl.every((statement) => statement.bindings.length === 0)).toBe(true)
+            } finally {
+                await ddlKnex.destroy()
+            }
         })
 
         it('widens runtime kind-bearing columns for custom entity kinds', async () => {

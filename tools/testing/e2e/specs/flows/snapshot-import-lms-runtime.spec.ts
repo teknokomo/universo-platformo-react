@@ -4,17 +4,26 @@ import type { Locator, Page, Response } from '@playwright/test'
 import { buildVLC, createLocalizedContent } from '@universo-react/utils'
 import { expect, test } from '../../fixtures/test'
 import { waitForSettledMutationResponse } from '../../support/browser/network'
-import { applyBrowserPreferences } from '../../support/browser/preferences'
+import { createLmsRuntimeBuilderHelpers, expectLmsLinkSortOrderDefault } from '../../support/lmsRuntimeBuilderHelpers'
+import { createLmsRuntimePlayerHelpers } from '../../support/lmsRuntimePlayerHelpers'
+import {
+    expectNoVisibleLearningContentTechnicalText,
+    expectPublishedLearnerHomeAssignments,
+    expectPublishedLearnerHomeLibraryTabs
+} from '../../support/lmsRuntimeLearnerHomeHelpers'
+import { applyBrowserPreferences, switchRuntimeLocale } from '../../support/browser/preferences'
 import { expectHeightsAligned, expectVerticalGapBetween } from '../../support/browser/spacing'
 import {
     expectDataGridHorizontalScrollConstrained,
     expectElementFitsViewport,
+    expectLocatorFullyFitsViewport,
     expectLocatorFitsViewport,
     expectLocatorHasNoInlineOverflow,
     expectLocalizedValidation,
     expectNoDataGridTechnicalLeakage,
     expectNoPageHorizontalOverflow,
     expectRuntimeUxViewportMatrix,
+    expectTableHorizontalScrollConstrained,
     expectNoTechnicalLeakage,
     expectNoVisibleTextPatterns,
     expectSemanticFieldControls
@@ -37,7 +46,6 @@ import {
 import { recordCreatedApplication, recordCreatedMetahub, recordCreatedPublication } from '../../support/backend/run-manifest.mjs'
 import {
     applicationSelectors,
-    buildGridRowActionsTriggerSelector,
     buildEntityMenuItemSelector,
     buildEntityMenuTriggerSelector,
     entityDialogSelectors,
@@ -84,30 +92,76 @@ type RuntimeMutationResponse = {
 }
 
 const UUID_SUBSTRING_PATTERN = /[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}/i
+const UUID_V7_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu
+const RUNTIME_RECORD_HANDLE_PATTERN = /^rh1\.[A-Za-z0-9_-]+$/u
+const RUNTIME_NAVIGATION_ACCESSIBLE_NAME = /^(?:Application navigation|Навигация приложения)$/u
+const LMS_PRIMARY_NAV_OBJECT_CODENAMES = new Set([
+    'ContentProjects',
+    'Courses',
+    'KnowledgeArticles',
+    'LearningTracks',
+    'Reports',
+    'TrashEntries'
+])
+const LMS_OBJECT_RUNTIME_TARGETS = new Map<string, string>([
+    ['Content Projects', 'ContentProjects'],
+    ['Проекты контента', 'ContentProjects'],
+    ['Courses', 'Courses'],
+    ['Курсы', 'Courses'],
+    ['Learning Tracks', 'LearningTracks'],
+    ['Учебные треки', 'LearningTracks'],
+    ['Recent Content Views', 'RecentContentViews'],
+    ['Недавние просмотры контента', 'RecentContentViews'],
+    ['Content Stars', 'ContentStars'],
+    ['Избранный контент', 'ContentStars'],
+    ['Content Access Entries', 'ContentAccessEntries'],
+    ['Записи доступа к контенту', 'ContentAccessEntries'],
+    ['Trash', 'TrashEntries'],
+    ['Корзина', 'TrashEntries'],
+    ['Knowledge Articles', 'KnowledgeArticles'],
+    ['Статьи базы знаний', 'KnowledgeArticles'],
+    ['Reports', 'Reports'],
+    ['Отчёты', 'Reports']
+])
 
 function readLocalizedText(value: unknown, locale = 'en'): string | undefined {
     if (typeof value === 'string') {
         return value
     }
 
-    if (!value || typeof value !== 'object' || !('locales' in value)) {
+    if (!value || typeof value !== 'object') {
         return undefined
     }
 
-    const localized = value as { _primary?: string; locales?: Record<string, { content?: string }> }
+    const localized = value as {
+        _primary?: string
+        locales?: Record<string, { content?: string }>
+        [key: string]: unknown
+    }
     const normalizedLocale = locale.split(/[-_]/)[0]?.toLowerCase() || 'en'
     const locales = localized.locales ?? {}
-    const directValue = locales[normalizedLocale]?.content
+    const readLocaleValue = (entry: unknown): string | undefined => {
+        if (typeof entry === 'string' && entry.length > 0) return entry
+        if (!entry || typeof entry !== 'object') return undefined
+        const content = (entry as { content?: unknown }).content
+        return typeof content === 'string' && content.length > 0 ? content : undefined
+    }
+    const directValue = readLocaleValue(locales[normalizedLocale]) ?? readLocaleValue(localized[normalizedLocale])
     if (typeof directValue === 'string' && directValue.length > 0) {
         return directValue
     }
 
-    const primaryValue = localized._primary ? locales[localized._primary]?.content : undefined
+    const primaryValue = localized._primary
+        ? readLocaleValue(locales[localized._primary]) ?? readLocaleValue(localized[localized._primary])
+        : undefined
     if (typeof primaryValue === 'string' && primaryValue.length > 0) {
         return primaryValue
     }
 
-    const fallbackValue = Object.values(locales).find((entry) => typeof entry?.content === 'string' && entry.content.length > 0)?.content
+    const fallbackValue = Object.entries(Object.keys(locales).length > 0 ? locales : localized)
+        .filter(([key]) => !key.startsWith('_') && key !== 'locales')
+        .map(([, entry]) => readLocaleValue(entry))
+        .find((entry): entry is string => typeof entry === 'string')
     return typeof fallbackValue === 'string' ? fallbackValue : undefined
 }
 
@@ -182,7 +236,7 @@ async function seedSharedPublicGuestContent(options: {
         quizRowsByKey.set(seededQuiz.key, { id: quizRow.id })
     }
 
-    for (const seededContent of publicContentNodes) {
+    for (const [contentIndex, seededContent] of publicContentNodes.entries()) {
         const linkedQuiz = quizRowsByKey.get(seededContent.linkedQuizKey)
         if (!linkedQuiz) {
             throw new Error(`Shared public LMS seed could not find linked quiz ${seededContent.linkedQuizKey}`)
@@ -199,15 +253,16 @@ async function seedSharedPublicGuestContent(options: {
                 Source: { type: 'page', pageCodename: 'CourseOverview' },
                 EstimatedTimeMinutes: seededContent.estimatedDurationMinutes,
                 PublicationStatus: options.publishedPublicationStatusValueId,
+                SortOrder: contentIndex + 1,
                 ContentItems: seededContent.contentItems.en.map((item, index) => {
                     const localizedItem = seededContent.contentItems.ru[index]
                     const isQuizRef = item.itemType === 'QuizRef'
+                    const itemContent = 'itemContent' in item ? item.itemContent : undefined
+                    const localizedItemContent = 'itemContent' in localizedItem ? localizedItem.itemContent : undefined
                     return {
                         ItemType: isQuizRef ? options.quizRefValueId : options.textValueId,
                         ItemTitle: buildVLC(item.itemTitle, localizedItem.itemTitle),
-                        ...(item.itemContent
-                            ? { ItemContent: buildVLC(item.itemContent, localizedItem.itemContent ?? localizedItem.itemTitle) }
-                            : {}),
+                        ...(itemContent ? { ItemContent: buildVLC(itemContent, localizedItemContent ?? localizedItem.itemTitle) } : {}),
                         ...(isQuizRef ? { QuizId: linkedQuiz.id } : {}),
                         SortOrder: item.sortOrder
                     }
@@ -312,14 +367,69 @@ async function activateButtonByKeyboard(page: Page, button: Locator, label: stri
 }
 
 async function clickRuntimeNavigationItem(page: Page, name: string): Promise<void> {
+    const objectCodename = LMS_OBJECT_RUNTIME_TARGETS.get(name)
+    if (objectCodename) {
+        const objectLink = await findVisibleRuntimeNavigationItem(page, name)
+        if (objectLink) {
+            await objectLink.click()
+            return
+        }
+        if (LMS_PRIMARY_NAV_OBJECT_CODENAMES.has(objectCodename)) {
+            const navigation = page.getByRole('navigation', { name: RUNTIME_NAVIGATION_ACCESSIBLE_NAME })
+            const overflowButton = navigation.getByRole('button', { name: /^(More|Ещё)$/u })
+            let visibleNavigationItem: Locator | null = null
+            await expect
+                .poll(
+                    async () => {
+                        visibleNavigationItem = await findVisibleRuntimeNavigationItem(page, name)
+                        return visibleNavigationItem !== null || (await overflowButton.isVisible().catch(() => false))
+                    },
+                    {
+                        timeout: 30_000,
+                        message: `${name} must become visible in the primary navigation or its overflow menu`
+                    }
+                )
+                .toBe(true)
+            if (visibleNavigationItem) {
+                await visibleNavigationItem.click()
+                return
+            }
+            const lateNavigationItem = await findVisibleRuntimeNavigationItem(page, name)
+            if (lateNavigationItem) {
+                await lateNavigationItem.click()
+                return
+            }
+            await activateButtonByKeyboard(page, overflowButton, 'More overflow')
+            const overflowItem = page.getByRole('menuitem', { name, exact: true })
+            await expect(overflowItem, `${name} must be available in primary or overflow navigation`).toBeVisible({ timeout: 30_000 })
+            await activateButtonByKeyboard(page, overflowItem, name)
+            return
+        }
+        const targetUrl = new URL(page.url())
+        if (!targetUrl.pathname.startsWith('/a/')) {
+            throw new Error(`Cannot open LMS Object runtime scope before the application route: ${name}`)
+        }
+        targetUrl.searchParams.set('targetKind', 'object')
+        targetUrl.searchParams.set('entityTypeCodename', objectCodename)
+        targetUrl.searchParams.delete('entityTypeId')
+        await page.goto(`${targetUrl.pathname}${targetUrl.search}${targetUrl.hash}`)
+        return
+    }
+
     const directItem = await waitForVisibleRuntimeNavigationItem(page, name, 30_000)
     if (directItem) {
         await directItem.click()
         return
     }
 
-    const overflowButton = page.getByRole('button', { name: 'More' })
+    const navigation = page.getByRole('navigation', { name: RUNTIME_NAVIGATION_ACCESSIBLE_NAME })
+    const overflowButton = navigation.getByRole('button', { name: /^(More|Ещё)$/u })
     await expect(overflowButton).toBeVisible({ timeout: 30_000 })
+    const lateDirectItem = await findVisibleRuntimeNavigationItem(page, name)
+    if (lateDirectItem) {
+        await lateDirectItem.click()
+        return
+    }
     await overflowButton.click()
 
     const overflowItem = page.getByRole('menuitem', { name })
@@ -328,13 +438,60 @@ async function clickRuntimeNavigationItem(page: Page, name: string): Promise<voi
 }
 
 async function expectRuntimeNavigationItemSelected(page: Page, name: string): Promise<void> {
+    const objectCodename = LMS_OBJECT_RUNTIME_TARGETS.get(name)
+    if (objectCodename) {
+        const objectLink = await findVisibleRuntimeNavigationItem(page, name)
+        if (objectLink) {
+            await expect(objectLink).toHaveAttribute('aria-current', 'page', { timeout: 30_000 })
+            return
+        }
+        if (LMS_PRIMARY_NAV_OBJECT_CODENAMES.has(objectCodename)) {
+            const navigation = page.getByRole('navigation', { name: RUNTIME_NAVIGATION_ACCESSIBLE_NAME })
+            const overflowButton = navigation.getByRole('button', { name: /^(More|Ещё)$/u })
+            let directItem: Locator | null = null
+            await expect
+                .poll(
+                    async () => {
+                        directItem = await findVisibleRuntimeNavigationItem(page, name)
+                        if (directItem) return 'direct'
+                        return (await overflowButton.isVisible().catch(() => false)) ? 'overflow' : 'waiting'
+                    },
+                    { timeout: 30_000, message: `${name} must become visible directly or in the navigation overflow` }
+                )
+                .not.toBe('waiting')
+            if (directItem) {
+                await expect(directItem, `${name} must be selected after navigation`).toHaveAttribute('aria-current', 'page', {
+                    timeout: 30_000
+                })
+                return
+            }
+            await activateButtonByKeyboard(page, overflowButton, 'More overflow')
+            const overflowItem = page.getByRole('menuitem', { name, exact: true })
+            await expect(overflowItem, `${name} overflow item must be selected`).toHaveAttribute('aria-current', 'page', {
+                timeout: 30_000
+            })
+            await page.keyboard.press('Escape')
+            return
+        }
+        const targetUrl = new URL(page.url())
+        expect(targetUrl.searchParams.get('targetKind')).toBe('object')
+        expect(targetUrl.searchParams.get('entityTypeCodename')).toBe(objectCodename)
+        expect(targetUrl.searchParams.has('entityTypeId')).toBe(false)
+        await expect(
+            page.getByRole('navigation', { name: RUNTIME_NAVIGATION_ACCESSIBLE_NAME }).getByRole('link', { name, exact: true })
+        ).toHaveCount(0)
+        await expect(page.getByTestId('runtime-main-content')).toBeVisible()
+        return
+    }
+
     const directItem = await waitForVisibleRuntimeNavigationItem(page, name, 30_000)
     if (directItem) {
         await expect(directItem).toHaveAttribute('aria-current', 'page', { timeout: 30_000 })
         return
     }
 
-    const overflowButton = page.getByRole('button', { name: 'More' })
+    const navigation = page.getByRole('navigation', { name: RUNTIME_NAVIGATION_ACCESSIBLE_NAME })
+    const overflowButton = navigation.getByRole('button', { name: /^(More|Ещё)$/u })
     await expect(overflowButton).toBeVisible({ timeout: 30_000 })
     await overflowButton.click()
 
@@ -344,12 +501,17 @@ async function expectRuntimeNavigationItemSelected(page: Page, name: string): Pr
 }
 
 async function findVisibleRuntimeNavigationItem(page: Page, name: string): Promise<Locator | null> {
-    const items = page.getByRole('link', { name, exact: true }).or(page.getByRole('button', { name, exact: true }))
-    const count = await items.count()
-    for (let index = 0; index < count; index += 1) {
-        const item = items.nth(index)
-        if (await item.isVisible()) {
-            return item
+    const navigation = page.getByRole('navigation', { name: RUNTIME_NAVIGATION_ACCESSIBLE_NAME })
+    const candidates = [
+        navigation.getByRole('link', { name, exact: true }),
+        navigation.getByRole('button', { name, exact: true }),
+        page.getByRole('menuitem', { name, exact: true })
+    ]
+    for (const candidate of candidates) {
+        const count = await candidate.count()
+        for (let index = 0; index < count; index += 1) {
+            const item = candidate.nth(index)
+            if (await item.isVisible()) return item
         }
     }
     return null
@@ -445,20 +607,20 @@ async function revealRuntimeGridRowActions(page: Page): Promise<void> {
     })
 }
 
-async function getVisibleRuntimeRowActions(page: Page, rowId: string): Promise<Locator> {
-    const trigger = page.getByTestId(`grid-row-actions-trigger-${rowId}`)
-    if ((await trigger.count()) > 0) {
-        try {
-            await expect(trigger).toBeVisible({ timeout: 1_000 })
-            return trigger
-        } catch {
-            // The actions column can be horizontally virtualized in wide LMS tables.
-        }
-    }
+async function getVisibleRuntimeRowActions(page: Page, visibleRowText: string): Promise<{ trigger: Locator; recordHandle: string }> {
+    const grid = page.getByRole('grid').first()
+    await expect(grid).toBeVisible({ timeout: 30_000 })
+    const row = grid.getByRole('row').filter({ hasText: visibleRowText })
+    await expect(row, `Runtime grid must expose exactly one row matching ${visibleRowText}`).toHaveCount(1)
 
     await revealRuntimeGridRowActions(page)
+    const trigger = row.locator('[data-testid^="grid-row-actions-trigger-"]').first()
     await expect(trigger).toBeVisible({ timeout: 30_000 })
-    return trigger
+    const triggerTestId = await trigger.getAttribute('data-testid')
+    const recordHandle = triggerTestId?.replace(/^grid-row-actions-trigger-/, '') ?? ''
+    expect(recordHandle, 'Runtime row actions must target an opaque runtime record handle').toMatch(RUNTIME_RECORD_HANDLE_PATTERN)
+    expect(recordHandle, 'Runtime row actions must not expose the persisted UUID').not.toMatch(UUID_V7_PATTERN)
+    return { trigger, recordHandle }
 }
 
 function watchBrowserRuntimeIssues(page: Page): BrowserRuntimeIssue[] {
@@ -520,49 +682,43 @@ function buildPublishedRuntimeObjectHref(applicationId: string, objectCollection
     return `/a/${applicationId}/${encodeURIComponent(objectCollectionId)}?${targetQuery}`
 }
 
-async function getRuntimeRecordCommandMenuItem(page: Page, rowId: string, command: 'post' | 'unpost'): Promise<Locator> {
-    const commandItemByTestId = page.getByTestId(`runtime-record-command-${command}`).first()
-    const commandItemByLabel = page
-        .getByRole('menuitem', {
-            name: command === 'post' ? /^(post|провести|опубликовать)$/i : /^(unpost|отменить проведение|распровести)$/i
-        })
+async function runRuntimeRecordCommandFromSemanticRow(page: Page, rowText: string, command: 'post' | 'unpost'): Promise<string> {
+    await revealRuntimeGridRowActions(page)
+
+    const row = page
+        .getByRole('row')
+        .filter({ has: page.getByText(rowText, { exact: true }) })
         .first()
+    await expect(row, `Runtime row "${rowText}" must be visible`).toBeVisible({ timeout: 30_000 })
 
-    const deadline = Date.now() + 30_000
-    while (Date.now() < deadline) {
-        const trigger = await getVisibleRuntimeRowActions(page, rowId)
-        await trigger.click()
-        const commandItem = (await commandItemByTestId.count()) > 0 ? commandItemByTestId : commandItemByLabel
-
-        try {
-            await expect(commandItem).toBeVisible({ timeout: 1_500 })
-            return commandItem
-        } catch {
-            await page.keyboard.press('Escape').catch(() => undefined)
-            await expect(commandItem)
-                .toHaveCount(0, { timeout: 750 })
-                .catch(() => undefined)
-        }
-    }
-
-    const trigger = await getVisibleRuntimeRowActions(page, rowId)
+    const trigger = row.getByRole('button', { name: /^Actions for .+/u }).first()
+    await expect(trigger, `Runtime row "${rowText}" must expose row actions`).toBeVisible({ timeout: 30_000 })
     await trigger.click()
-    const commandItem = (await commandItemByTestId.count()) > 0 ? commandItemByTestId : commandItemByLabel
-    await expect(commandItem).toBeVisible({ timeout: 1_500 })
-    return commandItem
-}
 
-async function runRuntimeRecordCommandFromRow(page: Page, rowId: string, command: 'post' | 'unpost'): Promise<void> {
-    const commandItem = await getRuntimeRecordCommandMenuItem(page, rowId, command)
+    const commandItem = page.getByTestId(`runtime-record-command-${command}`).first()
+    await expect(commandItem, `Runtime row "${rowText}" must expose the ${command} command`).toBeVisible({ timeout: 30_000 })
+
     const commandResponsePromise = page.waitForResponse(
-        (response) =>
-            response.request().method() === 'POST' && response.url().includes(`/runtime/rows/${encodeURIComponent(rowId)}/${command}`),
+        (response) => {
+            if (response.request().method() !== 'POST') return false
+            const pathname = new URL(response.url()).pathname
+            return pathname.includes('/runtime/rows/') && pathname.endsWith(`/${command}`)
+        },
         { timeout: 30_000 }
     )
     await commandItem.click()
     const commandResponse = await commandResponsePromise
     expect(commandResponse.ok(), `${command} runtime record command must succeed`).toBe(true)
+
+    const pathSegments = new URL(commandResponse.url()).pathname.split('/').filter(Boolean)
+    const commandIndex = pathSegments.lastIndexOf(command)
+    const recordHandle = commandIndex > 0 ? decodeURIComponent(pathSegments[commandIndex - 1] ?? '') : ''
+    expect(recordHandle, `${command} runtime record command must target an opaque runtime record handle`).toMatch(
+        RUNTIME_RECORD_HANDLE_PATTERN
+    )
+
     await expect(page.getByRole('progressbar')).toHaveCount(0, { timeout: 30_000 })
+    return recordHandle
 }
 
 async function submitSnapshotImportDialog(page: Page, dialog: Locator): Promise<Response> {
@@ -812,46 +968,6 @@ function requireRuntimeRowId(row: Record<string, unknown>, label: string): strin
     return row.id
 }
 
-async function readSortedRuntimeRowIds(
-    api: ApiContext,
-    applicationId: string,
-    objectId: string,
-    workspaceId: string,
-    label: string
-): Promise<string[]> {
-    const runtime = await getApplicationRuntime(api, applicationId, {
-        objectId,
-        workspaceId,
-        limit: 100,
-        offset: 0,
-        sort: JSON.stringify([{ field: 'SortOrder', direction: 'asc' }])
-    })
-    const rows = Array.isArray(runtime.rows) ? (runtime.rows as Array<Record<string, unknown>>) : []
-    return rows.map((row, index) => requireRuntimeRowId(row, `${label} row ${index + 1}`))
-}
-
-async function readSortedRuntimeRows(
-    api: ApiContext,
-    applicationId: string,
-    objectId: string,
-    workspaceId: string,
-    label: string
-): Promise<Array<Record<string, unknown> & { id: string }>> {
-    const runtime = await getApplicationRuntime(api, applicationId, {
-        objectId,
-        workspaceId,
-        limit: 100,
-        offset: 0,
-        sort: JSON.stringify([{ field: 'SortOrder', direction: 'asc' }])
-    })
-    const rows = Array.isArray(runtime.rows) ? (runtime.rows as Array<Record<string, unknown>>) : []
-    const columns = Array.isArray(runtime.columns) ? (runtime.columns as Array<{ field?: unknown; codename?: unknown }>) : []
-    return rows.map((row, index) => ({
-        ...withRuntimeCodenameAliases(row, columns),
-        id: requireRuntimeRowId(row, `${label} row ${index + 1}`)
-    }))
-}
-
 async function expectRuntimeCollectionRowIdsUnique(
     api: ApiContext,
     applicationId: string,
@@ -874,58 +990,16 @@ async function expectRuntimeCollectionRowIdsUnique(
     return rowIds
 }
 
-function withRuntimeCodenameAliases(
-    row: Record<string, unknown>,
-    columns: Array<{ field?: unknown; codename?: unknown }>
-): Record<string, unknown> {
-    const mappedRow = { ...row }
-    const data = row.data && typeof row.data === 'object' ? (row.data as Record<string, unknown>) : {}
-
-    for (const column of columns) {
-        if (typeof column.field !== 'string' || typeof column.codename !== 'string') {
-            continue
-        }
-
-        if (Object.prototype.hasOwnProperty.call(mappedRow, column.codename)) {
-            continue
-        }
-
-        mappedRow[column.codename] = row[column.field] ?? data[column.field]
-    }
-
-    return mappedRow
-}
-
-function readRuntimeRowLabel(row: Record<string, unknown>, label: string): string {
-    const data = row.data && typeof row.data === 'object' ? (row.data as Record<string, unknown>) : {}
-    for (const field of ['DisplayName', 'displayName', 'Name', 'name', 'Title', 'title', 'ItemTitle', 'itemTitle', 'Label', 'label']) {
-        const value = row[field] ?? data[field]
-        const text = typeof value === 'string' ? value : readLocalizedText(value, 'en')
-        if (text && text.trim().length > 0) {
-            return text.trim()
-        }
-    }
-
-    throw new Error(`${label} row does not expose a readable title for row-specific action labels`)
-}
-
-async function readVisibleSortableRuntimeRowIds(surface: Locator): Promise<string[]> {
-    return surface.locator('tbody tr').evaluateAll((rows) =>
-        rows
-            .map((row) => {
-                const sortableAction = row.querySelector('[data-testid^="runtime-row-move-down-"], [data-testid^="runtime-row-move-up-"]')
-                const testId = sortableAction?.getAttribute('data-testid') ?? ''
-                return testId.replace(/^runtime-row-move-(?:down|up)-/, '')
-            })
-            .filter(Boolean)
-    )
-}
-
 async function readVisibleGridActionRowIds(surface: Locator): Promise<string[]> {
-    return surface.locator('[data-testid^="grid-row-actions-trigger-"]').evaluateAll((actions) =>
-        actions
-            .map((action) => (action.getAttribute('data-testid') ?? '').replace(/^grid-row-actions-trigger-/, ''))
-            .map((rowKey) => rowKey.split(':').at(-1) ?? rowKey)
+    return surface.getByRole('row').evaluateAll((rows) =>
+        rows
+            .filter((row) => row.querySelector('[data-testid^="grid-row-actions-trigger-"], button[aria-label^="Actions for "]'))
+            .map((row) => {
+                const action = row.querySelector<HTMLElement>('[data-testid^="grid-row-actions-trigger-"]')
+                const actionTestId = action?.dataset.testid ?? ''
+                const rowKey = actionTestId ? actionTestId.replace(/^grid-row-actions-trigger-/, '') : (row as HTMLElement).dataset.id ?? ''
+                return rowKey.split(':').at(-1) ?? rowKey
+            })
             .filter(Boolean)
     )
 }
@@ -935,83 +1009,32 @@ function expectUniqueRuntimeRowIds(rowIds: string[], label: string): void {
     expect(new Set(rowIds).size, `${label} must not duplicate runtime row ids`).toBe(rowIds.length)
 }
 
-async function expectPublishedOutlineReorder(options: {
-    page: Page
-    api: ApiContext
-    applicationId: string
-    objectId: string
-    workspaceId: string
-    label: string
-    screenshotPath: string
-}): Promise<void> {
-    const { page, api, applicationId, objectId, workspaceId, label, screenshotPath } = options
-    const beforeRows = await readSortedRuntimeRows(api, applicationId, objectId, workspaceId, label)
-    const beforeOrder = beforeRows.map((row) => row.id)
-    expect(beforeOrder.length, `${label} must have at least two rows for ordering proof`).toBeGreaterThanOrEqual(2)
-    const firstRowLabel = readRuntimeRowLabel(beforeRows[0], label)
+const {
+    expectPublishedRelationBuilderReorder,
+    expectPublishedBuilderRelationScope,
+    expectPublishedCourseItemCreateWizard,
+    expectPublishedCourseItemCreateSucceeds,
+    expectPublishedBuilderTabs
+} = createLmsRuntimeBuilderHelpers({
+    clickRuntimeNavigationItem,
+    expectRuntimeNavigationItemSelected,
+    expectNoRussianLmsFallbackText,
+    activateButtonByKeyboard,
+    assertNoHorizontalOverflowWithScreenshots,
+    readLocalizedText,
+    readRuntimeRowValue,
+    requireRuntimeRowId,
+    parseJsonResponse,
+    expectReportCsvExport,
+    UUID_SUBSTRING_PATTERN,
+    UUID_V7_PATTERN
+})
 
-    await page.goto(buildPublishedRuntimeObjectHref(applicationId, objectId))
-    const surface = page.getByTestId('runtime-list-surface').first()
-    await expect(surface, `${label} ordering table must use the generic runtime list surface`).toBeVisible({ timeout: 30_000 })
-    await expect
-        .poll(
-            async () => {
-                const visibleOrder = await readVisibleSortableRuntimeRowIds(surface)
-                return visibleOrder.slice(0, 2)
-            },
-            { timeout: 30_000, intervals: [500, 1_000, 2_000] }
-        )
-        .toEqual(beforeOrder.slice(0, 2))
-
-    const isReorderResponse = (response: Response) =>
-        response.request().method() === 'POST' && response.url().includes(`/api/v1/applications/${applicationId}/runtime/rows/reorder`)
-    const moveDownButton = surface.getByRole('button', { name: `Move ${firstRowLabel} down` }).first()
-    await expect(moveDownButton, `${label} first row move-down action must be visible`).toBeVisible({ timeout: 30_000 })
-    await expect(moveDownButton, `${label} first row move-down action must be enabled`).toBeEnabled({ timeout: 30_000 })
-    await expect(moveDownButton, `${label} move-down action must name the actual first row`).toHaveAttribute(
-        'aria-label',
-        `Move ${firstRowLabel} down`
-    )
-
-    let reorderResponse: Response | null = null
-    for (let attempt = 0; attempt < 2 && reorderResponse === null; attempt += 1) {
-        await page.mouse.move(0, 0)
-        await moveDownButton.scrollIntoViewIfNeeded()
-        const reorderResponsePromise = page
-            .waitForResponse(isReorderResponse, { timeout: attempt === 0 ? 15_000 : 30_000 })
-            .catch(() => null)
-        await moveDownButton.click()
-        reorderResponse = await reorderResponsePromise
-    }
-
-    expect(reorderResponse, `${label} row reorder must send the generic reorder request`).not.toBeNull()
-    if (!reorderResponse) {
-        throw new Error(`${label} row reorder did not send the generic reorder request`)
-    }
-    expect(reorderResponse.ok(), `${label} row reorder must succeed from the published app`).toBe(true)
-    await expect(page.getByRole('progressbar')).toHaveCount(0, { timeout: 30_000 })
-
-    await expect
-        .poll(
-            async () => {
-                const afterOrder = await readSortedRuntimeRowIds(api, applicationId, objectId, workspaceId, label)
-                return afterOrder.slice(0, 2)
-            },
-            { timeout: 30_000, intervals: [500, 1_000, 2_000] }
-        )
-        .toEqual([beforeOrder[1], beforeOrder[0]])
-
-    await expect
-        .poll(
-            async () => {
-                const visibleOrder = await readVisibleSortableRuntimeRowIds(surface)
-                return visibleOrder.slice(0, 2)
-            },
-            { timeout: 30_000, intervals: [500, 1_000, 2_000] }
-        )
-        .toEqual([beforeOrder[1], beforeOrder[0]])
-
-    await page.screenshot({ path: screenshotPath, fullPage: true })
+function getFirstGridRowAction(surface: Locator): Locator {
+    return surface
+        .locator('[data-testid^="grid-row-actions-trigger-"]')
+        .or(surface.getByRole('button', { name: /Actions for .+/ }))
+        .first()
 }
 
 async function expectReportCsvExport(page: Page, reportSurface: Locator, label: string): Promise<void> {
@@ -1038,60 +1061,758 @@ async function expectReportCsvExport(page: Page, reportSurface: Locator, label: 
     await expect(page.getByRole('progressbar')).toHaveCount(0, { timeout: 30_000 })
 }
 
-async function expectPublishedBuilderTabs(options: {
+const { expectPublishedLearnerPlayer, expectPublishedTrackLearnerPlayer } = createLmsRuntimePlayerHelpers({
+    clickRuntimeNavigationItem,
+    expectRuntimeNavigationItemSelected,
+    readRuntimeRowValue,
+    assertNoHorizontalOverflowWithScreenshots
+})
+
+async function assertCreateTargetDefaults(options: {
     page: Page
+    api?: ApiContext
+    applicationId?: string
+    workspaceId?: string
+    label: string
+    screenshotPath: string
+    targetLabel: 'Page' | 'Link'
+    screenshotSuffix: string
+    returnToCreateTargetSurface: () => Promise<void>
+}): Promise<void> {
+    const { page, api, applicationId, workspaceId, label, screenshotPath, targetLabel, screenshotSuffix, returnToCreateTargetSurface } =
+        options
+    const getCreateButton = () => page.getByTestId('records-union-create-target-menu-button')
+    if (!api || !applicationId || !workspaceId) {
+        throw new Error(`${targetLabel} create target persistence proof requires api, applicationId, and workspaceId`)
+    }
+    const contentProjectsObjectId = await waitForApplicationObjectId(api, applicationId, 'ContentProjects')
+    const contentProjectsRuntime = await getApplicationRuntime(api, applicationId, {
+        objectId: contentProjectsObjectId,
+        workspaceId,
+        limit: 200,
+        offset: 0
+    })
+    const projectRows = Array.isArray(contentProjectsRuntime.rows) ? (contentProjectsRuntime.rows as Array<Record<string, unknown>>) : []
+    const projectColumns = Array.isArray(contentProjectsRuntime.columns)
+        ? (contentProjectsRuntime.columns as Array<{ field?: unknown; codename?: unknown }>)
+        : []
+    const existingProject = projectRows.find(
+        (row) => readLocalizedText(readRuntimeRowValue(row, projectColumns, 'Title', 'title')) === 'Onboarding library'
+    )
+    if (!existingProject) {
+        throw new Error(`${label} create target requires the seeded Onboarding library project`)
+    }
+    const expectedProjectId = requireRuntimeRowId(existingProject, `${label} Onboarding library project`)
+
+    await returnToCreateTargetSurface()
+    const createButton = getCreateButton()
+    await expect(createButton, `${label} create menu button must stay available before selecting ${targetLabel}`).toBeVisible({
+        timeout: 30_000
+    })
+    await createButton.click()
+    await expect(page.getByRole('menu'), `${label} create menu must open before selecting ${targetLabel}`).toBeVisible({
+        timeout: 30_000
+    })
+    await page.getByRole('menuitem', { name: targetLabel, exact: true }).click()
+    const dialog = page.getByRole('dialog').first()
+    await expect(dialog, `${label} ${targetLabel} target must open the generic create dialog`).toBeVisible({ timeout: 30_000 })
+    await expectNoTechnicalLeakage(dialog, {
+        label: `${label} ${targetLabel} create dialog`,
+        checkUuidSubstrings: true
+    })
+    await expectSemanticFieldControls(dialog, {
+        referenceFieldLabels: ['Project'],
+        forbiddenEditableIdLabels: ['ProjectId', 'OwnerId', 'UserId', 'WorkspaceId']
+    })
+
+    const selectExistingProject = async () => {
+        const projectField = dialog.getByRole('combobox', { name: 'Project', exact: true })
+        await expect(projectField, `${label} ${targetLabel} target must expose its project relationship`).toBeVisible()
+        await projectField.click()
+        const projectOption = page.getByRole('option', { name: 'Onboarding library', exact: true })
+        await expect(projectOption, `${label} ${targetLabel} target must offer the readable seeded project`).toBeVisible({
+            timeout: 30_000
+        })
+        await projectOption.click()
+        await expect(projectField).toContainText('Onboarding library')
+    }
+
+    const title = targetLabel === 'Page' ? 'Runtime authoring proof page' : 'Runtime authoring proof link'
+    const pageBody = 'Runtime authoring proof body content'
+    if (targetLabel === 'Page') {
+        await expect(dialog.getByRole('combobox', { name: 'Resource Type', exact: true })).toContainText(/Page/i)
+        await expect(
+            dialog.getByLabel(/Page codename/i),
+            `${label} Page target must not require authors to type a technical page codename`
+        ).toHaveCount(0)
+        await expect(dialog.getByTestId('entity-form-submit')).toBeDisabled()
+        await dialog.getByRole('textbox', { name: 'Title', exact: true }).fill(title)
+        await expect(dialog.getByTestId('entity-form-submit')).toBeEnabled()
+        await selectExistingProject()
+        await expect(dialog.getByRole('textbox', { name: 'Sort Order', exact: true })).toHaveValue('0.00')
+        await fillRuntimeBlockEditorField(page, dialog, pageBody)
+        await expect(dialog.getByTestId('entity-form-submit')).toBeEnabled()
+        await expectRuntimeUxViewportMatrix(page, `${label} Page create dialog with content`, {
+            beforeEachViewport: async (viewport) => {
+                const dialogHeading = dialog.getByRole('heading').first()
+                const submitButton = dialog.getByTestId('entity-form-submit')
+                const firstField = dialog.getByRole('textbox').first()
+                const publicationStatusField = dialog.getByRole('combobox', { name: /publication status/i })
+                const viewportSuffix = viewport.name.toLowerCase().replace(/[^a-z0-9]+/g, '-')
+                const viewportScreenshotPath = screenshotPath.replace(/\.png$/i, `-create-page-${viewportSuffix}`)
+
+                await expect(dialog, `Page create dialog must remain visible at ${viewport.name}`).toBeVisible()
+                await dialog.evaluate((element) => {
+                    const dialogElement = element as HTMLElement
+                    const scrollableElements = [dialogElement, ...Array.from(dialogElement.querySelectorAll<HTMLElement>('*'))].filter(
+                        (element) => element.scrollHeight > element.clientHeight
+                    )
+                    for (const element of scrollableElements) element.scrollTop = 0
+                })
+                await expect(firstField, `First Page field must be visible at the top of the dialog for ${viewport.name}`).toBeInViewport({
+                    ratio: 1
+                })
+                await dialog.screenshot({ path: `${viewportScreenshotPath}-top.png` })
+                await expect(dialog, `Page create dialog must fit at ${viewport.name}`).toBeInViewport({ ratio: 1 })
+                await expectLocatorFullyFitsViewport(dialog, `Page create dialog at ${viewport.name}`)
+                await expect(dialogHeading, `Page create dialog heading must remain visible at ${viewport.name}`).toBeInViewport({
+                    ratio: 1
+                })
+                await expect(submitButton, `Page create dialog action must remain visible at ${viewport.name}`).toBeInViewport({
+                    ratio: 1
+                })
+                await expect(publicationStatusField, `The final Page field must remain reachable at ${viewport.name}`).toBeVisible()
+                await publicationStatusField.scrollIntoViewIfNeeded()
+                await dialog.screenshot({ path: `${viewportScreenshotPath}-final-field.png` })
+                await expect(publicationStatusField, `Page create dialog final field must be in view at ${viewport.name}`).toBeInViewport({
+                    ratio: 1
+                })
+                await expectLocatorFullyFitsViewport(publicationStatusField, `Page create dialog final field at ${viewport.name}`)
+                await expect(
+                    submitButton,
+                    `Page create dialog action must remain visible after scrolling at ${viewport.name}`
+                ).toBeInViewport({ ratio: 1 })
+                await expectLocatorFullyFitsViewport(submitButton, `Page create dialog action after scrolling at ${viewport.name}`)
+            }
+        })
+    } else {
+        await expectLmsLinkSortOrderDefault({ dialog, label: `${label} Link target` })
+        await expect(dialog.getByRole('combobox', { name: 'Resource Type', exact: true })).toContainText(/^URL$/i)
+        await dialog.getByRole('textbox', { name: 'Title', exact: true }).fill(title)
+        const sourceUrlFields = dialog.getByRole('textbox', { name: 'Source URL', exact: true })
+        await expect(sourceUrlFields, `${label} Link form must expose primary and thumbnail URL fields`).toHaveCount(2)
+        const sourceUrl = sourceUrlFields.first()
+        await expect(sourceUrl, `${label} Link target must preselect the expected resource source draft`).toBeVisible({
+            timeout: 30_000
+        })
+        await expect(
+            dialog.getByText('Enter an absolute http or https URL.'),
+            `${label} Link source must remain free of validation errors before a value is entered`
+        ).toHaveCount(0)
+        await sourceUrl.fill('javascript:alert(1)')
+        await expect(dialog.getByText('Enter an absolute http or https URL.')).toBeVisible()
+        await expect(dialog.locator('[data-testid$="resource-source-domain-preview"]')).toHaveCount(0)
+        await sourceUrl.fill('https://example.com/lesson')
+        await expect(dialog.getByTestId('resource-preview-domain')).toContainText('Domain: example.com')
+        await selectExistingProject()
+        const submitButton = dialog.getByTestId('entity-form-submit')
+        const fieldReadiness = await dialog.locator('input, textarea, [role="combobox"]').evaluateAll((elements) =>
+            elements.map((element) => {
+                const field = element as HTMLInputElement
+                const label = field.labels?.[0]?.textContent?.trim() || field.getAttribute('aria-label') || 'unlabeled field'
+                const value = typeof field.value === 'string' ? field.value : field.textContent ?? ''
+                const required = field.required || field.getAttribute('aria-required') === 'true'
+                const invalid = field.getAttribute('aria-invalid') === 'true'
+                return `${label}: required=${required}, present=${value.trim().length > 0}, invalid=${invalid}`
+            })
+        )
+        const validationDiagnostics = await dialog.evaluate((root) => {
+            const invalidFields = Array.from(root.querySelectorAll<HTMLElement>('[aria-invalid="true"]')).map((field) => ({
+                label: field.getAttribute('aria-label') ?? field.getAttribute('name') ?? field.id ?? field.tagName,
+                required: field.getAttribute('aria-required') === 'true',
+                fieldType: field.getAttribute('type')
+            }))
+            const validationMessages = Array.from(root.querySelectorAll<HTMLElement>('.MuiFormHelperText-root.Mui-error, [role="alert"]'))
+                .map((element) => element.textContent?.trim())
+                .filter((message): message is string => Boolean(message))
+
+            return { invalidFields, validationMessages }
+        })
+        await expect(
+            submitButton,
+            `Link create form state: ${fieldReadiness.join('; ')}; validation: ${JSON.stringify(validationDiagnostics)}`
+        ).toBeEnabled()
+    }
+
+    await dialog.screenshot({ path: screenshotPath.replace(/\.png$/i, `-${screenshotSuffix}.png`) })
+    const learningResourcesObjectId = await waitForApplicationObjectId(api, applicationId, 'LearningResources')
+    const resourceIdsBeforeCreate = await expectRuntimeCollectionRowIdsUnique(
+        api,
+        applicationId,
+        learningResourcesObjectId,
+        workspaceId,
+        `${label} LearningResources before ${targetLabel} create`
+    )
+    const createResourceRequest = waitForSettledMutationResponse(
+        page,
+        (response) => {
+            if (response.request().method() !== 'POST' || !response.url().includes(`/api/v1/applications/${applicationId}/runtime/rows`)) {
+                return false
+            }
+            const requestBody = response.request().postDataJSON() as Record<string, unknown>
+            return requestBody.objectCollectionId === learningResourcesObjectId
+        },
+        { label: `Creating LMS Learning Content ${targetLabel}` }
+    )
+    await dialog.getByTestId(entityDialogSelectors.submitButton).click()
+    const createdResourceResponse = await createResourceRequest
+    const createdResource = await parseJsonResponse<RuntimeMutationResponse>(
+        createdResourceResponse,
+        `Creating LMS Learning Content ${targetLabel}`
+    )
+    if (!createdResource.id) {
+        throw new Error(`Created LMS Learning Content ${targetLabel} did not return an id`)
+    }
+    expect(createdResource.id, `Created LMS Learning Content ${targetLabel} must use UUID v7 identity`).toMatch(UUID_V7_PATTERN)
+    await expect(dialog).toHaveCount(0)
+
+    const createdResourceRow = await waitForApplicationRuntimeRow(api, applicationId, learningResourcesObjectId, createdResource.id, {
+        workspaceId
+    })
+    expect(readLocalizedText(createdResourceRow?.Title)).toBe(title)
+    expect(createdResourceRow?.ProjectId, `${label} ${targetLabel} create must persist the selected project relationship`).toBe(
+        expectedProjectId
+    )
+    if (targetLabel === 'Link') {
+        expect(createdResourceRow?.SortOrder, `${label} Link create must persist the default Sort Order`).toBe(0)
+    }
+    if (targetLabel === 'Page') {
+        expect(extractRuntimeBlockTexts(createdResourceRow?.Body)).toContain(pageBody)
+    }
+    expect(createdResourceRow?.Source).toMatchObject(
+        targetLabel === 'Page'
+            ? { type: 'page', pageCodename: 'runtime-authoring-proof-page' }
+            : { type: 'url', url: 'https://example.com/lesson' }
+    )
+    const resourceIdsAfterCreate = await expectRuntimeCollectionRowIdsUnique(
+        api,
+        applicationId,
+        learningResourcesObjectId,
+        workspaceId,
+        `${label} LearningResources after ${targetLabel} create`
+    )
+    expect(resourceIdsBeforeCreate, `${label} ${targetLabel} create must allocate a new row id`).not.toContain(createdResource.id)
+    expect(resourceIdsAfterCreate, `${label} ${targetLabel} create must persist the new row id`).toContain(createdResource.id)
+}
+
+async function expectPublishedLearningContentCreateTargets(options: {
+    page: Page
+    api: ApiContext
+    applicationId: string
+    workspaceId: string
     navigationItem: string
     label: string
     screenshotPath: string
-    tabNames?: string[]
+    genericRuntimeSurface: Locator
 }): Promise<void> {
-    const {
+    const { page, api, applicationId, workspaceId, navigationItem, label, screenshotPath, genericRuntimeSurface } = options
+    const getCreateButton = () => page.getByTestId('records-union-create-target-menu-button')
+    const returnToCreateTargetSurface = async () => {
+        await clickRuntimeNavigationItem(page, navigationItem)
+        await expectRuntimeNavigationItemSelected(page, navigationItem)
+        await expect(genericRuntimeSurface, `${label} create target surface must be visible`).toBeVisible({ timeout: 30_000 })
+        await expect(page.getByRole('progressbar')).toHaveCount(0, { timeout: 30_000 })
+    }
+
+    const assertSettingsDerivedCreateTargetDefaults = async (
+        targetLabel: 'Course' | 'Learning track',
+        expectedFields: Array<{ label: string; value: RegExp }>,
+        screenshotSuffix: string
+    ) => {
+        await returnToCreateTargetSurface()
+        const createButton = getCreateButton()
+        await expect(createButton, `${label} create menu button must stay available before selecting ${targetLabel}`).toBeVisible({
+            timeout: 30_000
+        })
+        await createButton.click()
+        await expect(page.getByRole('menu'), `${label} create menu must open before selecting ${targetLabel}`).toBeVisible({
+            timeout: 30_000
+        })
+        await page.getByRole('menuitem', { name: targetLabel, exact: true }).click()
+        const dialog = page.getByRole('dialog').first()
+        await expect(dialog, `${label} ${targetLabel} target must open the generic create dialog`).toBeVisible({ timeout: 30_000 })
+
+        for (const expectedField of expectedFields) {
+            await expect(
+                dialog.getByRole('combobox', { name: expectedField.label, exact: true }),
+                `${label} ${targetLabel} target must apply the configured ${expectedField.label} default`
+            ).toContainText(expectedField.value)
+        }
+
+        await dialog.screenshot({ path: screenshotPath.replace(/\.png$/i, `-${screenshotSuffix}.png`) })
+        await dialog.getByTestId('entity-form-cancel').click()
+        await expect(dialog).toHaveCount(0)
+    }
+
+    const assertProjectCreateTargetDialog = async () => {
+        if (!api || !applicationId || !workspaceId) {
+            throw new Error('Project create target persistence proof requires api, applicationId, and workspaceId')
+        }
+        await returnToCreateTargetSurface()
+        const createButton = getCreateButton()
+        await expect(createButton, `${label} create menu button must stay available before selecting Project`).toBeVisible({
+            timeout: 30_000
+        })
+        await createButton.click()
+        await expect(page.getByRole('menu'), `${label} create menu must open before selecting Project`).toBeVisible({
+            timeout: 30_000
+        })
+        await page.getByRole('menuitem', { name: 'Project', exact: true }).click()
+        const dialog = page.getByRole('dialog').first()
+        await expect(dialog, `${label} Project target must open the generic create dialog`).toBeVisible({ timeout: 30_000 })
+        await expect(dialog.getByRole('textbox', { name: 'Title', exact: true })).toBeVisible()
+        await expect(dialog.getByRole('textbox', { name: 'Description', exact: true })).toBeVisible()
+        await expectSemanticFieldControls(dialog, {
+            longTextLabels: ['Description'],
+            forbiddenEditableIdLabels: ['ProjectId', 'OwnerId', 'UserId', 'WorkspaceId']
+        })
+        await expect(dialog.getByLabel(/ProjectId|OwnerId|UserId|WorkspaceId/i)).toHaveCount(0)
+        await expect(dialog.getByTestId('entity-form-submit')).toBeDisabled()
+        const projectTitle = 'Runtime authoring proof project'
+        const projectDescription = 'Created through the generic Learning Content create target'
+        await dialog.getByRole('textbox', { name: 'Title', exact: true }).fill(projectTitle)
+        await dialog.getByRole('textbox', { name: 'Description', exact: true }).fill(projectDescription)
+        await expect(dialog.getByTestId('entity-form-submit')).toBeEnabled()
+        await dialog.screenshot({ path: screenshotPath.replace(/\.png$/i, '-create-project-dialog.png') })
+
+        const contentProjectsObjectId = await waitForApplicationObjectId(api, applicationId, 'ContentProjects')
+        const projectIdsBeforeCreate = await expectRuntimeCollectionRowIdsUnique(
+            api,
+            applicationId,
+            contentProjectsObjectId,
+            workspaceId,
+            `${label} ContentProjects before Project create`
+        )
+        const createProjectRequest = waitForSettledMutationResponse(
+            page,
+            (response) =>
+                response.request().method() === 'POST' && response.url().includes(`/api/v1/applications/${applicationId}/runtime/rows`),
+            { label: 'Creating LMS Learning Content project' }
+        )
+        await dialog.getByTestId(entityDialogSelectors.submitButton).click()
+        const createdProjectResponse = await createProjectRequest
+        const createdProject = await parseJsonResponse<RuntimeMutationResponse>(
+            createdProjectResponse,
+            'Creating LMS Learning Content project'
+        )
+        if (!createdProject.id) {
+            throw new Error('Created LMS Learning Content project did not return an id')
+        }
+        expect(createdProject.id, 'Created LMS Learning Content project must use UUID v7 identity').toMatch(UUID_V7_PATTERN)
+        await expect(dialog).toHaveCount(0)
+        await expect(page.getByRole('progressbar')).toHaveCount(0, { timeout: 30_000 })
+
+        const createdProjectRow = await waitForApplicationRuntimeRow(api, applicationId, contentProjectsObjectId, createdProject.id, {
+            workspaceId
+        })
+        expect(readLocalizedText(createdProjectRow?.Title)).toBe(projectTitle)
+        expect(readLocalizedText(createdProjectRow?.Description)).toBe(projectDescription)
+        const projectIdsAfterCreate = await expectRuntimeCollectionRowIdsUnique(
+            api,
+            applicationId,
+            contentProjectsObjectId,
+            workspaceId,
+            `${label} ContentProjects after Project create`
+        )
+        expect(projectIdsBeforeCreate, `${label} Project create must allocate a new row id`).not.toContain(createdProject.id)
+        expect(projectIdsAfterCreate, `${label} Project create must persist the new row id`).toContain(createdProject.id)
+    }
+
+    const createButton = getCreateButton()
+    await expect(createButton, `${label} must expose the generic create menu`).toBeVisible({ timeout: 30_000 })
+    await createButton.click()
+    await expect(page.getByRole('menu'), `${label} create menu must open`).toBeVisible({ timeout: 30_000 })
+    for (const targetLabel of ['Project', 'Page', 'Link', 'Course', 'Learning track']) {
+        await expect(
+            page.getByRole('menuitem', { name: targetLabel, exact: true }),
+            `${label} create menu must include ${targetLabel}`
+        ).toBeVisible()
+    }
+    await expect(page.getByRole('menuitem', { name: /^Quiz\b/ })).toBeDisabled()
+    await expect(page.getByText('Quiz authoring is planned for a later Learning Content phase.')).toBeVisible()
+    await expect(page.getByRole('menuitem', { name: /^Assignment\b/ })).toBeDisabled()
+    await expect(page.getByText('Assignment authoring is planned for a later Learning Content phase.')).toBeVisible()
+    await expect(page.getByRole('menuitem', { name: /^Package\b/ })).toBeDisabled()
+    await expect(page.getByText('File import support is planned for a later phase.')).toBeVisible()
+    await page.keyboard.press('Escape')
+    await expect(page.getByRole('menu')).toHaveCount(0)
+
+    await assertProjectCreateTargetDialog()
+    await assertCreateTargetDefaults({
         page,
-        navigationItem,
+        api,
+        applicationId,
+        workspaceId,
         label,
         screenshotPath,
-        tabNames = ['Outline', 'General', 'Completion', 'Enrollments', 'Reports']
-    } = options
-    await clickRuntimeNavigationItem(page, navigationItem)
-    await expectRuntimeNavigationItemSelected(page, navigationItem)
-
-    const tabs = page.getByTestId('runtime-details-tabs').first()
-    await expect(tabs, `${label} must render the generic detailsTabs surface`).toBeVisible({ timeout: 30_000 })
-    for (const tabName of tabNames) {
-        await expect(page.getByRole('tab', { name: tabName }), `${label} tab ${tabName} must be visible`).toBeVisible({ timeout: 30_000 })
-    }
-
-    await page.getByRole('tab', { name: 'Completion' }).click()
-    await expect(page.getByRole('tab', { name: 'Completion' })).toHaveAttribute('aria-selected', 'true')
-    await expect(page.getByRole('columnheader', { name: 'Availability', exact: true })).toBeVisible({ timeout: 30_000 })
-    await expect(page.getByText('Available').first(), `${label} sequence policy must mark the first step as available`).toBeVisible({
-        timeout: 30_000
+        targetLabel: 'Page',
+        screenshotSuffix: 'create-page-defaults',
+        returnToCreateTargetSurface
     })
-    await expect(page.getByText('Locked').first(), `${label} sequence policy must mark later sequential steps as locked`).toBeVisible({
-        timeout: 30_000
+    await assertCreateTargetDefaults({
+        page,
+        api,
+        applicationId,
+        workspaceId,
+        label,
+        screenshotPath,
+        targetLabel: 'Link',
+        screenshotSuffix: 'create-link-defaults',
+        returnToCreateTargetSurface
     })
-    if (tabNames.includes('Reports')) {
-        await page.getByRole('tab', { name: 'Reports' }).click()
-        await expect(page.getByRole('tab', { name: 'Reports' })).toHaveAttribute('aria-selected', 'true')
-        const reportSurface = page.getByTestId('runtime-report-details-table').or(page.getByRole('grid')).first()
-        await expect(reportSurface, `${label} report tab must render a generic report surface`).toBeVisible({ timeout: 30_000 })
-        await expectNoTechnicalLeakage(reportSurface, { label: `${label} report tab`, checkUuidSubstrings: true })
-        await expectReportCsvExport(page, reportSurface, `${label} report tab`)
-    }
-    await page.screenshot({ path: screenshotPath, fullPage: true })
-}
-
-async function expectNoVisibleLearningContentTechnicalText(surface: Locator, label: string): Promise<void> {
-    const text = await surface.evaluate((node) => {
-        const element = node as HTMLElement
-        return element.innerText || element.textContent || ''
-    })
-    expect(text, `${label} must not expose hidden Learning Content technical columns`).not.toMatch(
-        /\b(ProjectId|CreatedBy|OwnerUserId|TargetRecordId|__runtime|SourceJson)\b/
+    await assertSettingsDerivedCreateTargetDefaults(
+        'Course',
+        [
+            { label: 'Navigation Mode', value: /Sequential/i },
+            { label: 'Completion Condition', value: /Selected items/i },
+            { label: 'Status Format', value: /Passed \/ Failed/i }
+        ],
+        'create-course-settings-defaults'
     )
+    await assertSettingsDerivedCreateTargetDefaults(
+        'Learning track',
+        [{ label: 'Order Mode', value: /By days/i }],
+        'create-track-settings-defaults'
+    )
+    await returnToCreateTargetSurface()
 }
 
-async function expectPublishedLearningContentView(options: {
+async function expectPublishedLearningContentCardView(options: {
+    page: Page
+    label: string
+    librarySurface: Locator
+    hasVisibleLibrarySurface: boolean
+    screenshotPath: string
+}): Promise<void> {
+    const { page, label, librarySurface, hasVisibleLibrarySurface, screenshotPath } = options
+    const cardSurface = hasVisibleLibrarySurface ? librarySurface : page.getByTestId('records-union-card-view').first()
+    await expect(cardSurface, `${label} must use the configured card default view`).toBeVisible({ timeout: 30_000 })
+    await expectNoTechnicalLeakage(cardSurface, { label: `${label} card view`, checkUuidSubstrings: true })
+    await expectNoVisibleLearningContentTechnicalText(cardSurface, `${label} card view`)
+    if (hasVisibleLibrarySurface) {
+        await expect(cardSurface.getByRole('button', { name: /Card View|Карточками/i })).toHaveAttribute('aria-pressed', 'true')
+        await expect(page.getByText(/Title: Source isolation proof\s+Status:/).first()).toBeVisible()
+    }
+    await assertNoHorizontalOverflowWithScreenshots(page, `${label} card view`, screenshotPath)
+    const cardAction = hasVisibleLibrarySurface
+        ? cardSurface.getByRole('button', { name: /Actions for .+/ }).first()
+        : page.locator('[data-testid^="records-union-card-actions-"]').first()
+    await expect(cardAction, `${label} card view must expose generic row actions`).toBeVisible({ timeout: 30_000 })
+    await cardAction.click()
+    await expect(page.getByRole('menuitem', { name: 'Edit' }), `${label} card row actions must include Edit`).toBeVisible({
+        timeout: 30_000
+    })
+    await expect(page.getByRole('menuitem', { name: 'Copy' }), `${label} card row actions must include Copy`).toBeVisible()
+    await expect(page.getByRole('menuitem', { name: 'Delete' }), `${label} card row actions must include Delete`).toBeVisible()
+    await page.keyboard.press('Escape')
+    await expect(page.getByRole('menu')).toHaveCount(0)
+}
+
+async function expectPublishedLearningContentCopyIsolation(options: {
+    page: Page
+    api: ApiContext
+    applicationId: string
+    workspaceId: string
+    label: string
+    rowActionScope: Locator
+}): Promise<void> {
+    const { page, api, applicationId, workspaceId, label, rowActionScope } = options
+    const gridRowIdsBeforeCopy = await readVisibleGridActionRowIds(rowActionScope)
+    expectUniqueRuntimeRowIds(gridRowIdsBeforeCopy, `${label} visible rows before copy`)
+    const learningResourcesObjectId = await waitForApplicationObjectId(api, applicationId, 'LearningResources')
+    const collectionRowIdsBeforeCopy = await expectRuntimeCollectionRowIdsUnique(
+        api,
+        applicationId,
+        learningResourcesObjectId,
+        workspaceId,
+        `${label} LearningResources before copy`
+    )
+    const currentRowAction = getFirstGridRowAction(rowActionScope)
+    await expect(currentRowAction, `${label} table view must keep row actions after mutations`).toBeVisible({ timeout: 30_000 })
+    const copySourceTitle = (await currentRowAction.getAttribute('aria-label'))?.replace(/^Actions for /, '') ?? ''
+    expect(copySourceTitle, `${label} copy source must have a user-facing title`).not.toBe('')
+    const currentLocale =
+        (await page.locator('html').getAttribute('lang'))?.split('-')[0]?.toLowerCase() ||
+        new URL(page.url()).searchParams.get('locale')?.split('-')[0]?.toLowerCase() ||
+        'en'
+    const expectedCopyTitle = `${copySourceTitle}${currentLocale === 'ru' ? ' (копия)' : ' (copy)'}`
+    const sourceRuntime = await getApplicationRuntime(api, applicationId, {
+        objectId: learningResourcesObjectId,
+        workspaceId,
+        limit: 200,
+        offset: 0
+    })
+    const sourceRows = Array.isArray(sourceRuntime.rows) ? (sourceRuntime.rows as Array<Record<string, unknown>>) : []
+    const sourceColumns = Array.isArray(sourceRuntime.columns)
+        ? (sourceRuntime.columns as Array<{ field?: unknown; codename?: unknown }>)
+        : []
+    const matchingSourceRows = sourceRows.filter(
+        (row) => readLocalizedText(readRuntimeRowValue(row, sourceColumns, 'Title', 'title'), currentLocale) === copySourceTitle
+    )
+    expect(matchingSourceRows, `${label} copy source title must identify exactly one persisted Entity`).toHaveLength(1)
+    const sourceRowId = requireRuntimeRowId(matchingSourceRows[0], `${label} copy source`)
+    const sourceRecordBefore = await waitForApplicationRuntimeRow(api, applicationId, learningResourcesObjectId, sourceRowId, {
+        workspaceId
+    })
+    const sourceTitleBefore = readLocalizedText(sourceRecordBefore?.Title, currentLocale)
+    expect(sourceTitleBefore, `${label} copy source must have a persisted localized title`).toBe(copySourceTitle)
+    await expect(
+        rowActionScope.getByRole('row').filter({ hasText: expectedCopyTitle }),
+        `${label} copy title must not already exist before creating the copy`
+    ).toHaveCount(0)
+    await currentRowAction.click()
+    const currentCopyAction = page.getByRole('menuitem', { name: 'Copy' })
+    await expect(currentCopyAction, `${label} table row actions must still include Copy after mutations`).toBeVisible({
+        timeout: 30_000
+    })
+    await currentCopyAction.click()
+    const copyDialog = page
+        .getByRole('dialog', { name: 'Copy element' })
+        .or(page.getByRole('dialog', { name: 'Copy record' }))
+        .first()
+    await expect(copyDialog, `${label} Copy dialog must open`).toBeVisible({ timeout: 30_000 })
+    await expectNoTechnicalLeakage(copyDialog, { label: `${label} Copy dialog`, checkUuidSubstrings: true })
+    const effectiveLayoutResponsePromise = page.waitForResponse((response) => {
+        const url = new URL(response.url())
+        return response.request().method() === 'GET' && url.pathname === `/api/v1/applications/${applicationId}/runtime/effective-layout`
+    })
+    const copyResponsePromise = waitForSettledMutationResponse(
+        page,
+        (response) =>
+            response.request().method() === 'POST' &&
+            response.url().includes(`/api/v1/applications/${applicationId}/runtime/rows/`) &&
+            response.url().includes('/copy'),
+        { label: 'Copying a Learning Content row' }
+    )
+    await copyDialog.getByRole('button', { name: 'Copy' }).click()
+    const copyResponse = await copyResponsePromise
+    expect(copyResponse.ok(), 'Learning Content Copy mutation must succeed').toBe(true)
+    const copiedResource = await parseJsonResponse<RuntimeMutationResponse>(copyResponse, 'Copying a Learning Content row')
+    expect(copiedResource.id, `${label} copy must preserve the opaque runtime record identity contract`).toMatch(
+        RUNTIME_RECORD_HANDLE_PATTERN
+    )
+    const copiedRecordHandle = String(copiedResource.id)
+    const effectiveLayoutResponse = await effectiveLayoutResponsePromise
+    expect(effectiveLayoutResponse.ok(), 'Dashboard runtime must reload after a copied source record is created').toBe(true)
+    await expect(page.getByRole('progressbar')).toHaveCount(0, { timeout: 30_000 })
+    const collectionRowIdsAfterCopy = await expectRuntimeCollectionRowIdsUnique(
+        api,
+        applicationId,
+        learningResourcesObjectId,
+        workspaceId,
+        `${label} LearningResources after copy`
+    )
+    expect(collectionRowIdsAfterCopy, `${label} copy must add exactly one persisted collection row`).toHaveLength(
+        collectionRowIdsBeforeCopy.length + 1
+    )
+    for (const existingRowId of collectionRowIdsBeforeCopy) {
+        expect(collectionRowIdsAfterCopy, `${label} copy must preserve every pre-existing collection row`).toContain(existingRowId)
+    }
+    const copiedStorageRowIds = collectionRowIdsAfterCopy.filter((rowId) => !collectionRowIdsBeforeCopy.includes(rowId))
+    expect(copiedStorageRowIds, `${label} copy must create exactly one new persisted storage row`).toHaveLength(1)
+    const copiedStorageRowId = copiedStorageRowIds[0]
+    expect(copiedStorageRowId, `${label} copied storage row must use UUID v7 identity`).toMatch(UUID_V7_PATTERN)
+    expect(copiedStorageRowId, `${label} copied storage row must be distinct from its source`).not.toBe(sourceRowId)
+
+    const copiedRecord = await waitForApplicationRuntimeRow(api, applicationId, learningResourcesObjectId, copiedRecordHandle, {
+        workspaceId
+    })
+    const copiedStorageRecord = await waitForApplicationRuntimeRow(api, applicationId, learningResourcesObjectId, copiedStorageRowId, {
+        workspaceId
+    })
+    expect(readLocalizedText(copiedRecord?.Title, currentLocale)).toBe(expectedCopyTitle)
+    expect(readLocalizedText(copiedStorageRecord?.Title, currentLocale)).toBe(expectedCopyTitle)
+
+    const copiedRow = rowActionScope.getByRole('row').filter({ hasText: expectedCopyTitle })
+    await expect(copiedRow, `${label} must render the copied row by its localized title`).toHaveCount(1, {
+        timeout: 30_000
+    })
+    await expect(
+        copiedRow.getByText(expectedCopyTitle, { exact: true }),
+        `${label} must render the copied title as a complete cell value`
+    ).toBeVisible()
+
+    const isolatedCopyTitle = buildVLC('Copy isolation proof', 'Проверка изоляции копии')
+    const updateCopyResponse = await sendWithCsrf(
+        api,
+        'PATCH',
+        `/api/v1/applications/${applicationId}/runtime/rows/${encodeURIComponent(copiedRecordHandle)}?workspaceId=${encodeURIComponent(
+            workspaceId
+        )}`,
+        {
+            objectCollectionId: learningResourcesObjectId,
+            expectedVersion: requireRuntimeRowVersion(copiedRecord, `${label} copied row`),
+            data: { Title: isolatedCopyTitle }
+        }
+    )
+    expect(updateCopyResponse.ok, `${label} must update the copied row through its distinct persisted identity`).toBe(true)
+    const updatedCopyRecord = await waitForApplicationRuntimeRow(api, applicationId, learningResourcesObjectId, copiedRecordHandle, {
+        workspaceId
+    })
+    const updatedCopyStorageRecord = await waitForApplicationRuntimeRow(api, applicationId, learningResourcesObjectId, copiedStorageRowId, {
+        workspaceId
+    })
+    const sourceAfterCopyMutation = await waitForApplicationRuntimeRow(api, applicationId, learningResourcesObjectId, sourceRowId, {
+        workspaceId
+    })
+    const expectedIsolatedTitle = currentLocale === 'ru' ? 'Проверка изоляции копии' : 'Copy isolation proof'
+    expect(readLocalizedText(updatedCopyRecord?.Title, currentLocale)).toBe(expectedIsolatedTitle)
+    expect(readLocalizedText(updatedCopyStorageRecord?.Title, currentLocale)).toBe(expectedIsolatedTitle)
+    expect(readLocalizedText(sourceAfterCopyMutation?.Title, currentLocale)).toBe(sourceTitleBefore)
+
+    const isolatedSourceTitle = buildVLC('Source isolation proof', 'Проверка изоляции источника')
+    const updateSourceResponse = await sendWithCsrf(
+        api,
+        'PATCH',
+        `/api/v1/applications/${applicationId}/runtime/rows/${encodeURIComponent(sourceRowId)}?workspaceId=${encodeURIComponent(
+            workspaceId
+        )}`,
+        {
+            objectCollectionId: learningResourcesObjectId,
+            expectedVersion: requireRuntimeRowVersion(sourceRecordBefore, `${label} source row`),
+            data: { Title: isolatedSourceTitle }
+        }
+    )
+    expect(updateSourceResponse.ok, `${label} must update the source through its original persisted identity`).toBe(true)
+    const updatedSourceRecord = await waitForApplicationRuntimeRow(api, applicationId, learningResourcesObjectId, sourceRowId, {
+        workspaceId
+    })
+    const unchangedCopyRecord = await waitForApplicationRuntimeRow(api, applicationId, learningResourcesObjectId, copiedRecordHandle, {
+        workspaceId
+    })
+    const expectedUpdatedSourceTitle = currentLocale === 'ru' ? 'Проверка изоляции источника' : 'Source isolation proof'
+    expect(readLocalizedText(updatedSourceRecord?.Title, currentLocale)).toBe(expectedUpdatedSourceTitle)
+    expect(readLocalizedText(unchangedCopyRecord?.Title, currentLocale)).toBe(expectedIsolatedTitle)
+
+    const gridRowIdsAfterCopy = await readVisibleGridActionRowIds(rowActionScope)
+    expectUniqueRuntimeRowIds(gridRowIdsAfterCopy, `${label} visible rows after copy`)
+    await expectNoTechnicalLeakage(page.getByRole('grid').first(), { label: `${label} after copy`, checkUuidSubstrings: true })
+}
+
+async function expectPublishedLearningContentTableActions(options: {
+    page: Page
+    api: ApiContext
+    applicationId: string
+    workspaceId: string
+    label: string
+    tableSurface: Locator
+    hasVisibleLibrarySurface: boolean
+}): Promise<void> {
+    const { page, api, applicationId, workspaceId, label, tableSurface, hasVisibleLibrarySurface } = options
+    const rowActionScope = tableSurface
+    const rowAction = hasVisibleLibrarySurface
+        ? rowActionScope.getByRole('button', { name: /Actions for .+/ }).first()
+        : rowActionScope.locator('[data-testid^="grid-row-actions-trigger-"]').first()
+    await expect(rowAction, `${label} table view must expose generic row actions`).toBeVisible({ timeout: 30_000 })
+    await expect(rowAction, `${label} table row action must name the target row`).toHaveAttribute('aria-label', /Actions for .+/, {
+        timeout: 30_000
+    })
+    await rowAction.click()
+    await expect(page.getByRole('menuitem', { name: 'Edit' }), `${label} table row actions must include Edit`).toBeVisible({
+        timeout: 30_000
+    })
+    const copyAction = page.getByRole('menuitem', { name: 'Copy' })
+    await expect(copyAction, `${label} table row actions must include Copy`).toBeVisible()
+    await expect(page.getByRole('menuitem', { name: 'Delete' }), `${label} table row actions must include Delete`).toBeVisible()
+    const shareAction = page.getByRole('menuitem', { name: 'Share' })
+    await expect(shareAction, `${label} table row actions must include Share`).toBeVisible({ timeout: 30_000 })
+    await shareAction.click()
+
+    const shareDialog = page.getByRole('dialog', { name: 'Share content' })
+    await expect(shareDialog, `${label} Share content dialog must open`).toBeVisible({ timeout: 30_000 })
+    await expectNoTechnicalLeakage(shareDialog, { label: `${label} Share content dialog`, checkUuidSubstrings: true })
+    await shareDialog.getByRole('combobox', { name: 'Workspace member' }).click()
+    const shareListbox = page.getByRole('listbox')
+    await expect(shareListbox, `${label} Share workspace member list must open`).toBeVisible({ timeout: 30_000 })
+    await expectNoTechnicalLeakage(shareListbox, { label: `${label} Share workspace member list`, checkUuidSubstrings: true })
+    const firstMemberOption = shareListbox.getByRole('option').first()
+    await expect(firstMemberOption, `${label} Share list must contain a readable workspace member`).toBeVisible({
+        timeout: 30_000
+    })
+    await firstMemberOption.click()
+
+    const shareResponsePromise = waitForSettledMutationResponse(
+        page,
+        (response) =>
+            response.request().method() === 'POST' &&
+            response.url().includes(`/api/v1/applications/${applicationId}/runtime/rows/`) &&
+            response.url().includes('/library/shared'),
+        { label: 'Sharing Learning Content with a workspace member' }
+    )
+    await shareDialog.getByRole('button', { name: 'Share' }).click()
+    const shareResponse = await shareResponsePromise
+    expect(shareResponse.ok(), 'Learning Content Share mutation must succeed').toBe(true)
+
+    const shareBody = shareResponse.request().postDataJSON() as Record<string, unknown>
+    expect(shareBody.active, 'Learning Content Share request must activate the relation').toBe(true)
+    expect(
+        typeof shareBody.objectCollectionId === 'string' ? shareBody.objectCollectionId : '',
+        'Learning Content Share request must carry the source object collection id'
+    ).toBeTruthy()
+    expect(shareBody.principalType, 'Learning Content Share request must target a workspace member').toBe('workspaceMember')
+    expect(
+        typeof shareBody.principalId === 'string' ? shareBody.principalId : '',
+        'Learning Content Share request must carry the selected workspace member id'
+    ).toMatch(/^[0-9a-f-]{36}$/i)
+    await expect(page.getByRole('progressbar')).toHaveCount(0, { timeout: 30_000 })
+
+    await rowAction.click()
+    const moveAction = page.getByRole('menuitem', { name: 'Move to project' })
+    await expect(moveAction, `${label} table row actions must include Move to project`).toBeVisible({ timeout: 30_000 })
+    await moveAction.click()
+
+    const moveDialog = page.getByRole('dialog', { name: 'Move to project' })
+    await expect(moveDialog, `${label} Move to project dialog must open`).toBeVisible({ timeout: 30_000 })
+    await expectNoTechnicalLeakage(moveDialog, { label: `${label} Move to project dialog`, checkUuidSubstrings: true })
+    await moveDialog.getByRole('combobox', { name: 'Project' }).click()
+    const listbox = page.getByRole('listbox')
+    await expect(listbox, `${label} Move to project list must open`).toBeVisible({ timeout: 30_000 })
+    await expectNoTechnicalLeakage(listbox, { label: `${label} Move to project list`, checkUuidSubstrings: true })
+    const firstProjectOption = listbox.getByRole('option').first()
+    await expect(firstProjectOption, `${label} Move to project list must contain a readable project`).toBeVisible({
+        timeout: 30_000
+    })
+    await firstProjectOption.click()
+
+    const moveResponsePromise = waitForSettledMutationResponse(
+        page,
+        (response) =>
+            response.request().method() === 'PATCH' && response.url().includes(`/api/v1/applications/${applicationId}/runtime/rows/`),
+        { label: 'Moving Learning Content to a selected project' }
+    )
+    await moveDialog.getByRole('button', { name: 'Move to project' }).click()
+    const moveResponse = await moveResponsePromise
+    expect(moveResponse.ok(), 'Learning Content Move to project mutation must succeed').toBe(true)
+
+    const moveBody = moveResponse.request().postDataJSON() as Record<string, unknown>
+    const moveData = isRecord(moveBody.data) ? moveBody.data : {}
+    const rowId = new URL(moveResponse.url()).pathname.match(/\/runtime\/rows\/([^/]+)$/)?.[1]
+    const objectCollectionId = typeof moveBody.objectCollectionId === 'string' ? moveBody.objectCollectionId : ''
+    const targetProjectId = typeof moveData.ProjectId === 'string' ? moveData.ProjectId : ''
+    expect(rowId, 'Learning Content Move to project response URL must expose the moved row id').toBeTruthy()
+    expect(objectCollectionId, 'Learning Content Move to project request must carry the source object collection id').toBeTruthy()
+    expect(targetProjectId, 'Learning Content Move to project request must carry the selected project id').toBeTruthy()
+    expect(typeof moveBody.expectedVersion, 'Learning Content Move to project request must use expectedVersion').toBe('number')
+    if (!rowId || !objectCollectionId || !targetProjectId) {
+        throw new Error('Learning Content Move to project response omitted its source row, collection, or target project')
+    }
+    const movedRow = await waitForApplicationRuntimeRow(api, applicationId, objectCollectionId, rowId, { workspaceId })
+    expect(movedRow?.ProjectId, 'Moved Learning Content row must point to the selected project').toBe(targetProjectId)
+    await expect(page.getByRole('progressbar')).toHaveCount(0, { timeout: 30_000 })
+    await expectPublishedLearningContentCopyIsolation({ page, api, applicationId, workspaceId, label, rowActionScope })
+}
+
+async function expectPublishedLearningContentTableView(options: {
     page: Page
     api?: ApiContext
     applicationId?: string
@@ -1099,13 +1820,9 @@ async function expectPublishedLearningContentView(options: {
     navigationItem: string
     label: string
     screenshotPath: string
-    expectedDefaultView?: 'table' | 'card'
-    cardScreenshotPath?: string
-    captureViewportScreenshots?: boolean
-    expectCreateMenu?: boolean
-    expectRowActions?: boolean
-    expectShareWithMemberAction?: boolean
-    expectMoveToProjectAction?: boolean
+    surfaceMode: 'library-table' | 'saved-table'
+    librarySurface: Locator
+    hasVisibleLibrarySurface: boolean
 }): Promise<void> {
     const {
         page,
@@ -1115,398 +1832,133 @@ async function expectPublishedLearningContentView(options: {
         navigationItem,
         label,
         screenshotPath,
-        expectedDefaultView = 'table',
-        cardScreenshotPath,
-        captureViewportScreenshots = false,
-        expectCreateMenu = false,
-        expectRowActions = false,
-        expectShareWithMemberAction = false,
-        expectMoveToProjectAction = false
+        surfaceMode,
+        librarySurface,
+        hasVisibleLibrarySurface
     } = options
-    await clickRuntimeNavigationItem(page, navigationItem)
-    await expectRuntimeNavigationItemSelected(page, navigationItem)
-
-    const genericRuntimeSurface = page
-        .getByTestId('records-union-details-table')
-        .or(page.getByTestId('runtime-list-surface'))
-        .or(page.getByTestId('records-union-card-view'))
-        .or(page.getByRole('grid'))
-        .first()
-    await expect(genericRuntimeSurface, `${label} must render a generic runtime data surface`).toBeVisible({ timeout: 30_000 })
-    await expect(page.getByRole('progressbar')).toHaveCount(0, { timeout: 30_000 })
-    await expectNoTechnicalLeakage(genericRuntimeSurface, { label, checkUuidSubstrings: true })
-    await expectNoVisibleLearningContentTechnicalText(genericRuntimeSurface, label)
-
+    const isLibraryTable = surfaceMode === 'library-table'
     const getCreateButton = () => page.getByTestId('records-union-create-target-menu-button')
-    if (expectCreateMenu) {
-        const returnToCreateTargetSurface = async () => {
-            await clickRuntimeNavigationItem(page, navigationItem)
-            await expectRuntimeNavigationItemSelected(page, navigationItem)
-            await expect(genericRuntimeSurface, `${label} create target surface must be visible`).toBeVisible({ timeout: 30_000 })
-            await expect(page.getByRole('progressbar')).toHaveCount(0, { timeout: 30_000 })
-        }
-
-        const getDialogLabelLocator = (dialog: Locator, labelText: string | RegExp) =>
-            typeof labelText === 'string' ? dialog.getByLabel(labelText, { exact: true }) : dialog.getByLabel(labelText)
-
-        const assertCreateTargetDefaults = async (targetLabel: 'Page' | 'Link', screenshotSuffix: string) => {
-            if (!api || !applicationId || !workspaceId) {
-                throw new Error(`${targetLabel} create target persistence proof requires api, applicationId, and workspaceId`)
-            }
-            await returnToCreateTargetSurface()
-            const createButton = getCreateButton()
-            await expect(createButton, `${label} create menu button must stay available before selecting ${targetLabel}`).toBeVisible({
-                timeout: 30_000
-            })
-            await createButton.click()
-            await expect(page.getByRole('menu'), `${label} create menu must open before selecting ${targetLabel}`).toBeVisible({
-                timeout: 30_000
-            })
-            await page.getByRole('menuitem', { name: targetLabel, exact: true }).click()
-            const dialog = page.getByRole('dialog').first()
-            await expect(dialog, `${label} ${targetLabel} target must open the generic create dialog`).toBeVisible({ timeout: 30_000 })
-
-            const title = targetLabel === 'Page' ? 'Runtime authoring proof page' : 'Runtime authoring proof link'
-            if (targetLabel === 'Page') {
-                await expect(dialog.getByRole('combobox', { name: 'Resource Type', exact: true })).toContainText(/Page/i)
-                await expect(
-                    dialog.getByLabel(/Page codename/i),
-                    `${label} Page target must not require authors to type a technical page codename`
-                ).toHaveCount(0)
-                await expect(dialog.getByTestId('entity-form-submit')).toBeDisabled()
-                await dialog.getByRole('textbox', { name: 'Title', exact: true }).fill(title)
-                await expect(dialog.getByTestId('entity-form-submit')).toBeEnabled()
-            } else {
-                await dialog.getByRole('textbox', { name: 'Title', exact: true }).fill(title)
-                const sourceUrl = getDialogLabelLocator(dialog, 'Source URL *')
-                await expect(sourceUrl, `${label} Link target must preselect the expected resource source draft`).toBeVisible({
-                    timeout: 30_000
-                })
-                await expect(
-                    dialog.getByText('Enter an absolute http or https URL.'),
-                    `${label} optional Link source must not show validation before a source is entered`
-                ).toHaveCount(0)
-                await sourceUrl.fill('javascript:alert(1)')
-                await expect(dialog.getByText('Enter an absolute http or https URL.')).toBeVisible()
-                await expect(dialog.locator('[data-testid$="resource-source-domain-preview"]')).toHaveCount(0)
-                await sourceUrl.fill('https://example.com/lesson')
-                await expect(dialog.getByTestId('resource-preview-domain')).toContainText('Domain: example.com')
-            }
-
-            await dialog.screenshot({ path: screenshotPath.replace(/\.png$/i, `-${screenshotSuffix}.png`) })
-            const learningResourcesObjectId = await waitForApplicationObjectId(api, applicationId, 'LearningResources')
-            const resourceIdsBeforeCreate = await expectRuntimeCollectionRowIdsUnique(
-                api,
-                applicationId,
-                learningResourcesObjectId,
-                workspaceId,
-                `${label} LearningResources before ${targetLabel} create`
-            )
-            const createResourceRequest = waitForSettledMutationResponse(
-                page,
-                (response) =>
-                    response.request().method() === 'POST' && response.url().includes(`/api/v1/applications/${applicationId}/runtime/rows`),
-                { label: `Creating LMS Learning Content ${targetLabel}` }
-            )
-            await dialog.getByTestId(entityDialogSelectors.submitButton).click()
-            const createdResourceResponse = await createResourceRequest
-            const createdResource = await parseJsonResponse<RuntimeMutationResponse>(
-                createdResourceResponse,
-                `Creating LMS Learning Content ${targetLabel}`
-            )
-            if (!createdResource.id) {
-                throw new Error(`Created LMS Learning Content ${targetLabel} did not return an id`)
-            }
-            await expect(dialog).toHaveCount(0)
-
-            const createdResourceRow = await waitForApplicationRuntimeRow(
-                api,
-                applicationId,
-                learningResourcesObjectId,
-                createdResource.id,
-                {
-                    workspaceId
-                }
-            )
-            expect(readLocalizedText(createdResourceRow?.Title)).toBe(title)
-            expect(createdResourceRow?.Source).toMatchObject(
-                targetLabel === 'Page'
-                    ? { type: 'page', pageCodename: 'runtime-authoring-proof-page' }
-                    : { type: 'url', url: 'https://example.com/lesson' }
-            )
-            const resourceIdsAfterCreate = await expectRuntimeCollectionRowIdsUnique(
-                api,
-                applicationId,
-                learningResourcesObjectId,
-                workspaceId,
-                `${label} LearningResources after ${targetLabel} create`
-            )
-            expect(resourceIdsBeforeCreate, `${label} ${targetLabel} create must allocate a new row id`).not.toContain(createdResource.id)
-            expect(resourceIdsAfterCreate, `${label} ${targetLabel} create must persist the new row id`).toContain(createdResource.id)
-        }
-
-        const assertSettingsDerivedCreateTargetDefaults = async (
-            targetLabel: 'Course' | 'Learning Track',
-            expectedFields: Array<{ label: string; value: RegExp }>,
-            screenshotSuffix: string
-        ) => {
-            await returnToCreateTargetSurface()
-            const createButton = getCreateButton()
-            await expect(createButton, `${label} create menu button must stay available before selecting ${targetLabel}`).toBeVisible({
-                timeout: 30_000
-            })
-            await createButton.click()
-            await expect(page.getByRole('menu'), `${label} create menu must open before selecting ${targetLabel}`).toBeVisible({
-                timeout: 30_000
-            })
-            await page.getByRole('menuitem', { name: targetLabel, exact: true }).click()
-            const dialog = page.getByRole('dialog').first()
-            await expect(dialog, `${label} ${targetLabel} target must open the generic create dialog`).toBeVisible({ timeout: 30_000 })
-
-            for (const expectedField of expectedFields) {
-                await expect(
-                    dialog.getByRole('combobox', { name: expectedField.label, exact: true }),
-                    `${label} ${targetLabel} target must apply the configured ${expectedField.label} default`
-                ).toContainText(expectedField.value)
-            }
-
-            await dialog.screenshot({ path: screenshotPath.replace(/\.png$/i, `-${screenshotSuffix}.png`) })
-            await dialog.getByTestId('entity-form-cancel').click()
-            await expect(dialog).toHaveCount(0)
-        }
-
-        const assertProjectCreateTargetDialog = async () => {
-            if (!api || !applicationId || !workspaceId) {
-                throw new Error('Project create target persistence proof requires api, applicationId, and workspaceId')
-            }
-            await returnToCreateTargetSurface()
-            const createButton = getCreateButton()
-            await expect(createButton, `${label} create menu button must stay available before selecting Project`).toBeVisible({
-                timeout: 30_000
-            })
-            await createButton.click()
-            await expect(page.getByRole('menu'), `${label} create menu must open before selecting Project`).toBeVisible({
-                timeout: 30_000
-            })
-            await page.getByRole('menuitem', { name: 'Project', exact: true }).click()
-            const dialog = page.getByRole('dialog').first()
-            await expect(dialog, `${label} Project target must open the generic create dialog`).toBeVisible({ timeout: 30_000 })
-            await expect(dialog.getByRole('textbox', { name: 'Title', exact: true })).toBeVisible()
-            await expect(dialog.getByRole('textbox', { name: 'Description', exact: true })).toBeVisible()
-            await expectSemanticFieldControls(dialog, {
-                longTextLabels: ['Description'],
-                forbiddenEditableIdLabels: ['ProjectId', 'OwnerId', 'UserId', 'WorkspaceId']
-            })
-            await expect(dialog.getByLabel(/ProjectId|OwnerId|UserId|WorkspaceId/i)).toHaveCount(0)
-            await expect(dialog.getByTestId('entity-form-submit')).toBeDisabled()
-            const projectTitle = 'Runtime authoring proof project'
-            const projectDescription = 'Created through the generic Learning Content create target'
-            await dialog.getByRole('textbox', { name: 'Title', exact: true }).fill(projectTitle)
-            await dialog.getByRole('textbox', { name: 'Description', exact: true }).fill(projectDescription)
-            await expect(dialog.getByTestId('entity-form-submit')).toBeEnabled()
-            await dialog.screenshot({ path: screenshotPath.replace(/\.png$/i, '-create-project-dialog.png') })
-
-            const contentProjectsObjectId = await waitForApplicationObjectId(api, applicationId, 'ContentProjects')
-            const projectIdsBeforeCreate = await expectRuntimeCollectionRowIdsUnique(
-                api,
-                applicationId,
-                contentProjectsObjectId,
-                workspaceId,
-                `${label} ContentProjects before Project create`
-            )
-            const createProjectRequest = waitForSettledMutationResponse(
-                page,
-                (response) =>
-                    response.request().method() === 'POST' && response.url().includes(`/api/v1/applications/${applicationId}/runtime/rows`),
-                { label: 'Creating LMS Learning Content project' }
-            )
-            await dialog.getByTestId(entityDialogSelectors.submitButton).click()
-            const createdProjectResponse = await createProjectRequest
-            const createdProject = await parseJsonResponse<RuntimeMutationResponse>(
-                createdProjectResponse,
-                'Creating LMS Learning Content project'
-            )
-            if (!createdProject.id) {
-                throw new Error('Created LMS Learning Content project did not return an id')
-            }
-            await expect(dialog).toHaveCount(0)
-            await expect(page.getByRole('progressbar')).toHaveCount(0, { timeout: 30_000 })
-
-            const createdProjectRow = await waitForApplicationRuntimeRow(api, applicationId, contentProjectsObjectId, createdProject.id, {
-                workspaceId
-            })
-            expect(readLocalizedText(createdProjectRow?.Title)).toBe(projectTitle)
-            expect(readLocalizedText(createdProjectRow?.Description)).toBe(projectDescription)
-            const projectIdsAfterCreate = await expectRuntimeCollectionRowIdsUnique(
-                api,
-                applicationId,
-                contentProjectsObjectId,
-                workspaceId,
-                `${label} ContentProjects after Project create`
-            )
-            expect(projectIdsBeforeCreate, `${label} Project create must allocate a new row id`).not.toContain(createdProject.id)
-            expect(projectIdsAfterCreate, `${label} Project create must persist the new row id`).toContain(createdProject.id)
-        }
-
-        const createButton = getCreateButton()
-        await expect(createButton, `${label} must expose the generic create menu`).toBeVisible({ timeout: 30_000 })
-        await createButton.click()
-        await expect(page.getByRole('menu'), `${label} create menu must open`).toBeVisible({ timeout: 30_000 })
-        for (const targetLabel of ['Project', 'Page', 'Link', 'Course', 'Learning Track']) {
-            await expect(
-                page.getByRole('menuitem', { name: targetLabel }),
-                `${label} create menu must include ${targetLabel}`
-            ).toBeVisible()
-        }
-        await expect(page.getByRole('menuitem', { name: /Quiz \(planned\)/i })).toBeDisabled()
-        await expect(page.getByText('Quiz authoring is planned for a later Learning Content phase.')).toBeVisible()
-        await expect(page.getByRole('menuitem', { name: /Assignment \(planned\)/i })).toBeDisabled()
-        await expect(page.getByText('Assignment authoring is planned for a later Learning Content phase.')).toBeVisible()
-        await expect(page.getByRole('menuitem', { name: /Import package \(planned\)/i })).toBeDisabled()
-        await expect(page.getByText('File import support is planned for a later phase.')).toBeVisible()
-        await page.keyboard.press('Escape')
-        await expect(page.getByRole('menu')).toHaveCount(0)
-
-        await assertProjectCreateTargetDialog()
-        await assertCreateTargetDefaults('Page', 'create-page-defaults')
-        await assertCreateTargetDefaults('Link', 'create-link-defaults')
-        await assertSettingsDerivedCreateTargetDefaults(
-            'Course',
-            [
-                { label: 'Navigation Mode', value: /Sequential/i },
-                { label: 'Completion Condition', value: /Selected items/i },
-                { label: 'Status Format', value: /Passed \/ Failed/i }
-            ],
-            'create-course-settings-defaults'
-        )
-        await assertSettingsDerivedCreateTargetDefaults(
-            'Learning Track',
-            [{ label: 'Order Mode', value: /By days/i }],
-            'create-track-settings-defaults'
-        )
-        await returnToCreateTargetSurface()
-    }
-
-    if (expectedDefaultView === 'card') {
-        const cardSurface = page.getByTestId('records-union-card-view').first()
-        await expect(cardSurface, `${label} must use the configured card default view`).toBeVisible({ timeout: 30_000 })
-        await expectNoTechnicalLeakage(cardSurface, { label: `${label} card view`, checkUuidSubstrings: true })
-        await expectNoVisibleLearningContentTechnicalText(cardSurface, `${label} card view`)
-        if (cardScreenshotPath) {
-            await assertNoHorizontalOverflowWithScreenshots(page, `${label} card view`, cardScreenshotPath)
-        } else {
-            await assertNoHorizontalOverflow(page, `${label} card view`)
-        }
-        if (expectRowActions) {
-            const cardAction = page.locator('[data-testid^="records-union-card-actions-"]').first()
-            await expect(cardAction, `${label} card view must expose generic row actions`).toBeVisible({ timeout: 30_000 })
-            await cardAction.click()
-            await expect(page.getByRole('menuitem', { name: 'Edit' }), `${label} card row actions must include Edit`).toBeVisible({
-                timeout: 30_000
-            })
-            await expect(page.getByRole('menuitem', { name: 'Copy' }), `${label} card row actions must include Copy`).toBeVisible()
-            await expect(page.getByRole('menuitem', { name: 'Delete' }), `${label} card row actions must include Delete`).toBeVisible()
-            await page.keyboard.press('Escape')
-            await expect(page.getByRole('menu')).toHaveCount(0)
-        }
-    } else {
-        const unionWidget = page.getByTestId('records-union-details-table').first()
-        const hasVisibleUnionWidget = await unionWidget.isVisible().catch(() => false)
-        const grid = hasVisibleUnionWidget ? unionWidget.getByRole('grid').first() : page.getByRole('grid').first()
-        const searchInput = unionWidget.getByRole('textbox', { name: /Search/i }).first()
-        await expect(searchInput, `${label} table view must expose generic runtime search`).toBeVisible({ timeout: 30_000 })
-        if (navigationItem === 'Learning Content') {
-            const searchResponsePromise = page.waitForResponse(
-                (response) => {
-                    if (response.request().method() !== 'POST') return false
-                    if (!response.url().includes('/runtime/datasources/records/union')) return false
-                    try {
-                        const body = response.request().postDataJSON() as {
-                            datasource?: { query?: { search?: unknown } }
-                            offset?: unknown
-                        }
-                        return body.datasource?.query?.search === 'Safety' && body.offset === 0
-                    } catch {
-                        return false
-                    }
-                },
-                { timeout: 30_000 }
-            )
-            await searchInput.fill('Safety')
+    const unionWidget = page.getByTestId('records-union-details-table').first()
+    const hasVisibleUnionWidget = await unionWidget.isVisible().catch(() => false)
+    const tableSurface = hasVisibleUnionWidget ? unionWidget : hasVisibleLibrarySurface ? librarySurface : page.getByRole('main')
+    const grid = tableSurface.getByRole('grid').first()
+    const searchInput = tableSurface.getByRole('textbox', { name: /Search records|Поиск записей/i }).first()
+    await expect(searchInput, `${label} table view must expose generic runtime search`).toBeVisible({ timeout: 30_000 })
+    if (navigationItem === 'Content Projects') {
+        const searchResponsePromise = hasVisibleLibrarySurface
+            ? undefined
+            : page.waitForResponse(
+                  (response) => {
+                      if (response.request().method() !== 'POST') return false
+                      if (!response.url().includes('/runtime/datasources/records/union')) return false
+                      try {
+                          const body = response.request().postDataJSON() as {
+                              datasource?: { query?: { search?: unknown } }
+                              offset?: unknown
+                          }
+                          return body.datasource?.query?.search === 'Safety' && body.offset === 0
+                      } catch {
+                          return false
+                      }
+                  },
+                  { timeout: 30_000 }
+              )
+        await searchInput.fill('Safety')
+        if (searchResponsePromise) {
             expect((await searchResponsePromise).ok(), 'Learning Content runtime search request must succeed').toBe(true)
-            await searchInput.clear()
-            await expect(searchInput, 'Learning Content runtime search must clear without stale visible input').toHaveValue('')
             await expect(
                 grid.getByRole('row', { name: /Certificate policy page/i }).first(),
-                'Learning Content runtime search reset must restore non-search rows'
-            ).toBeVisible({ timeout: 30_000 })
-
-            const typeFilter = unionWidget.getByRole('combobox', { name: 'Type' }).first()
-            await expect(typeFilter, `${label} table view must expose generic type filtering`).toBeVisible({ timeout: 30_000 })
-            await typeFilter.click()
-            const typeFilterListbox = page.getByRole('listbox')
-            await expect(typeFilterListbox.getByRole('option', { name: 'Resources' })).toBeVisible()
-            await expect(typeFilterListbox.getByRole('option', { name: 'Courses' })).toBeVisible()
-            await expect(typeFilterListbox.getByRole('option', { name: 'Learning Tracks' })).toBeVisible()
-            await expectNoTechnicalLeakage(typeFilterListbox, { label: `${label} type filter`, checkUuidSubstrings: true })
-            const courseFilterResponsePromise = page.waitForResponse(
-                (response) => {
-                    if (response.request().method() !== 'POST') return false
-                    if (!response.url().includes('/runtime/datasources/records/union')) return false
-                    try {
-                        const body = response.request().postDataJSON() as {
-                            datasource?: { targets?: Array<{ displayType?: unknown }> }
-                            offset?: unknown
-                        }
-                        return (
-                            body.offset === 0 &&
-                            body.datasource?.targets?.length === 1 &&
-                            body.datasource.targets[0]?.displayType === 'course'
-                        )
-                    } catch {
-                        return false
-                    }
-                },
-                { timeout: 30_000 }
-            )
-            await typeFilterListbox.getByRole('option', { name: 'Courses' }).click()
-            expect((await courseFilterResponsePromise).ok(), 'Learning Content type filter request must succeed').toBe(true)
-
-            await typeFilter.click()
-            await page.getByRole('option', { name: 'All types' }).click()
-            await expect(
-                grid.getByRole('row', { name: /Learning Tracks/i }).first(),
-                'Learning Content type filter reset must restore non-course rows'
-            ).toBeVisible({ timeout: 30_000 })
+                'Learning Content runtime search must filter non-matching rows'
+            ).toHaveCount(0)
         }
-        await expect(grid, `${label} must use the configured table default view`).toBeVisible({ timeout: 30_000 })
         await expect(
-            grid
-                .getByRole('columnheader')
-                .filter({ hasText: /^Type$/ })
-                .first()
+            grid.getByRole('row', { name: /Safety intro video/i }).first(),
+            'Learning Content search must show the matching safety resource'
         ).toBeVisible({ timeout: 30_000 })
+        await searchInput.clear()
+        await expect(searchInput, 'Learning Content runtime search must clear without stale visible input').toHaveValue('')
         await expect(
-            grid
-                .getByRole('columnheader')
-                .filter({ hasText: /^Title$/ })
-                .first()
+            grid.getByRole('row', { name: /Certificate policy page/i }).first(),
+            'Learning Content runtime search reset must restore non-search rows'
         ).toBeVisible({ timeout: 30_000 })
+
+        const typeFilter = tableSurface.getByRole('combobox', { name: /Type|Тип/i }).first()
+        await expect(typeFilter, `${label} table view must expose generic type filtering`).toBeVisible({ timeout: 30_000 })
+        await typeFilter.click()
+        const typeFilterListbox = page.getByRole('listbox')
+        await expect(typeFilterListbox.getByRole('option', { name: 'Resources' })).toBeVisible()
+        await expect(typeFilterListbox.getByRole('option', { name: 'Courses' })).toBeVisible()
+        await expect(typeFilterListbox.getByRole('option', { name: 'Learning Tracks' })).toBeVisible()
+        await expectNoTechnicalLeakage(typeFilterListbox, { label: `${label} type filter`, checkUuidSubstrings: true })
+        const courseFilterResponsePromise = hasVisibleLibrarySurface
+            ? undefined
+            : page.waitForResponse(
+                  (response) => {
+                      if (response.request().method() !== 'POST') return false
+                      if (!response.url().includes('/runtime/datasources/records/union')) return false
+                      try {
+                          const body = response.request().postDataJSON() as {
+                              datasource?: { targets?: Array<{ displayType?: unknown }> }
+                              offset?: unknown
+                          }
+                          return (
+                              body.offset === 0 &&
+                              body.datasource?.targets?.length === 1 &&
+                              body.datasource.targets[0]?.displayType === 'course'
+                          )
+                      } catch {
+                          return false
+                      }
+                  },
+                  { timeout: 30_000 }
+              )
+        await typeFilterListbox.getByRole('option', { name: 'Courses' }).click()
+        if (courseFilterResponsePromise) {
+            expect((await courseFilterResponsePromise).ok(), 'Learning Content type filter request must succeed').toBe(true)
+        }
+        await expect(grid.getByRole('row', { name: /Compliance Refresh Course/i })).toBeVisible({ timeout: 30_000 })
+        await expect(grid.getByRole('row', { name: /Learning Tracks|Certificate policy page/i })).toHaveCount(0)
+
+        await typeFilter.click()
+        await page.getByRole('option', { name: 'All types' }).click()
         await expect(
-            grid
-                .getByRole('columnheader')
-                .filter({ hasText: /^Status$/ })
-                .first()
+            grid.getByRole('row', { name: /Learning Tracks/i }).first(),
+            'Learning Content type filter reset must restore non-course rows'
         ).toBeVisible({ timeout: 30_000 })
-        if (navigationItem === 'Learning Content') {
+    }
+    await expect(grid, `${label} must use the configured table default view`).toBeVisible({ timeout: 30_000 })
+    await expect(
+        grid
+            .getByRole('columnheader')
+            .filter({ hasText: /^Type$/ })
+            .first()
+    ).toBeVisible({ timeout: 30_000 })
+    await expect(
+        grid
+            .getByRole('columnheader')
+            .filter({ hasText: /^Title$/ })
+            .first()
+    ).toBeVisible({ timeout: 30_000 })
+    await expect(
+        grid
+            .getByRole('columnheader')
+            .filter({ hasText: /^Status$/ })
+            .first()
+    ).toBeVisible({ timeout: 30_000 })
+    if (navigationItem === 'Content Projects') {
+        if (hasVisibleLibrarySurface) {
+            await expect(page.getByRole('heading', { name: 'Records', exact: true })).toBeVisible()
+        } else {
             await expectVerticalGapBetween(page.getByRole('heading', { name: 'Content Projects' }).first(), unionWidget, {
                 min: 16,
                 max: 160,
                 label: `${label} heading-to-table module spacing`
             })
         }
-        await expect(grid.getByRole('columnheader', { name: /ProjectId|CreatedBy/i })).toHaveCount(0)
-        const columnVisibilityButton = unionWidget.getByTestId('runtime-column-visibility-button').first()
+    }
+    await expect(grid.getByRole('columnheader', { name: /ProjectId|CreatedBy/i })).toHaveCount(0)
+    const columnVisibilityButton = tableSurface.getByTestId('runtime-column-visibility-button').first()
+    if (!hasVisibleLibrarySurface) {
         await expect(columnVisibilityButton, `${label} table view must expose generic safe column settings`).toBeVisible({
             timeout: 30_000
         })
@@ -1520,258 +1972,155 @@ async function expectPublishedLearningContentView(options: {
         await expectNoPageHorizontalOverflow(page, `${label} column settings`)
         await page.keyboard.press('Escape')
         await expect(page.getByRole('menu', { name: 'Table columns' })).toHaveCount(0)
-        if (navigationItem === 'Learning Content') {
-            const originalViewport = page.viewportSize()
-            const toolbarViewports = [
-                { name: 'desktop', width: 1920, height: 1080 },
-                { name: 'tablet', width: 768, height: 1024 },
-                { name: 'mobile', width: 390, height: 844 }
-            ]
+    }
+    if (navigationItem === 'Content Projects') {
+        const originalViewport = page.viewportSize()
+        const toolbarViewports = [
+            { name: 'desktop', width: 1920, height: 1080 },
+            { name: 'tablet', width: 768, height: 1024 },
+            { name: 'mobile', width: 390, height: 844 }
+        ]
 
-            try {
-                for (const viewport of toolbarViewports) {
-                    await page.setViewportSize({ width: viewport.width, height: viewport.height })
-                    const createButton = getCreateButton().first()
-                    const typeFilter = unionWidget.getByTestId('records-union-target-filter').first()
-                    const cardViewButton = unionWidget.getByRole('button', { name: 'Card view' }).first()
-                    const tableViewButton = unionWidget.getByRole('button', { name: 'Table view' }).first()
-
-                    await expect(
-                        page.getByTestId('application-runtime-create-row'),
-                        `${label} ${viewport.name} toolbar must not duplicate the primary create action`
-                    ).toHaveCount(0)
-                    await expect(createButton, `${label} ${viewport.name} toolbar must keep the create menu visible`).toBeVisible({
-                        timeout: 30_000
-                    })
-                    await expect(typeFilter, `${label} ${viewport.name} toolbar must keep the type filter visible`).toBeVisible({
-                        timeout: 30_000
-                    })
-                    await expect(columnVisibilityButton, `${label} ${viewport.name} toolbar must keep column settings visible`).toBeVisible(
-                        {
-                            timeout: 30_000
-                        }
-                    )
-                    await expect(cardViewButton, `${label} ${viewport.name} toolbar must keep card view visible`).toBeVisible({
-                        timeout: 30_000
-                    })
-                    await expect(tableViewButton, `${label} ${viewport.name} toolbar must keep table view visible`).toBeVisible({
-                        timeout: 30_000
-                    })
-
-                    await expectHeightsAligned(createButton, typeFilter, 2)
-                    await expectHeightsAligned(createButton, columnVisibilityButton, 2)
-                    await expectHeightsAligned(createButton, cardViewButton, 2)
-                    await expectHeightsAligned(createButton, tableViewButton, 2)
-                    await expectLocatorFitsViewport(createButton, `${label} ${viewport.name} create button`)
-                    await expectLocatorFitsViewport(typeFilter, `${label} ${viewport.name} type filter`)
-                    await expectLocatorFitsViewport(columnVisibilityButton, `${label} ${viewport.name} column visibility button`)
-                    await expectLocatorHasNoInlineOverflow(createButton, `${label} ${viewport.name} create button`)
-                    await expectLocatorHasNoInlineOverflow(columnVisibilityButton, `${label} ${viewport.name} column visibility button`)
-                    await expectNoPageHorizontalOverflow(page, `${label} ${viewport.name} toolbar`)
-
-                    if (viewport.name === 'mobile') {
-                        await page.screenshot({ path: screenshotPath.replace(/\.png$/i, '-mobile-toolbar.png'), fullPage: true })
-                    }
-                }
-            } finally {
-                if (originalViewport) {
-                    await page.setViewportSize(originalViewport)
-                }
-            }
-        }
-        await expectDataGridHorizontalScrollConstrained(page, `${label} table view`)
-        await expectNoDataGridTechnicalLeakage(unionWidget, { label: `${label} table view`, checkUuidSubstrings: true })
-        if (captureViewportScreenshots) {
-            await assertNoHorizontalOverflowWithScreenshots(page, `${label} table view`, screenshotPath)
-        } else {
-            await assertNoHorizontalOverflow(page, label)
-        }
-        if (expectRowActions) {
-            const rowActionScope = hasVisibleUnionWidget ? unionWidget : page
-            const rowAction = rowActionScope.locator('[data-testid^="grid-row-actions-trigger-"]').first()
-            await expect(rowAction, `${label} table view must expose generic row actions`).toBeVisible({ timeout: 30_000 })
-            await expect(rowAction, `${label} table row action must name the target row`).toHaveAttribute('aria-label', /Actions for .+/, {
-                timeout: 30_000
-            })
-            await rowAction.click()
-            await expect(page.getByRole('menuitem', { name: 'Edit' }), `${label} table row actions must include Edit`).toBeVisible({
-                timeout: 30_000
-            })
-            const copyAction = page.getByRole('menuitem', { name: 'Copy' })
-            await expect(copyAction, `${label} table row actions must include Copy`).toBeVisible()
-            await expect(page.getByRole('menuitem', { name: 'Delete' }), `${label} table row actions must include Delete`).toBeVisible()
-            if (expectShareWithMemberAction) {
-                const shareAction = page.getByRole('menuitem', { name: 'Share' })
-                await expect(shareAction, `${label} table row actions must include Share`).toBeVisible({ timeout: 30_000 })
-                await shareAction.click()
-
-                const shareDialog = page.getByRole('dialog', { name: 'Share content' })
-                await expect(shareDialog, `${label} Share content dialog must open`).toBeVisible({ timeout: 30_000 })
-                await expectNoTechnicalLeakage(shareDialog, { label: `${label} Share content dialog`, checkUuidSubstrings: true })
-                await shareDialog.getByRole('combobox', { name: 'Workspace member' }).click()
-                const shareListbox = page.getByRole('listbox')
-                await expect(shareListbox, `${label} Share workspace member list must open`).toBeVisible({ timeout: 30_000 })
-                await expectNoTechnicalLeakage(shareListbox, { label: `${label} Share workspace member list`, checkUuidSubstrings: true })
-                const firstMemberOption = shareListbox.getByRole('option').first()
-                await expect(firstMemberOption, `${label} Share list must contain a readable workspace member`).toBeVisible({
-                    timeout: 30_000
-                })
-                await firstMemberOption.click()
-
-                const shareResponsePromise = waitForSettledMutationResponse(
-                    page,
-                    (response) =>
-                        response.request().method() === 'POST' &&
-                        response.url().includes(`/api/v1/applications/${applicationId}/runtime/rows/`) &&
-                        response.url().includes('/library/shared'),
-                    { label: 'Sharing Learning Content with a workspace member' }
-                )
-                await shareDialog.getByRole('button', { name: 'Share' }).click()
-                const shareResponse = await shareResponsePromise
-                expect(shareResponse.ok(), 'Learning Content Share mutation must succeed').toBe(true)
-
-                const shareBody = shareResponse.request().postDataJSON() as Record<string, unknown>
-                expect(shareBody.active, 'Learning Content Share request must activate the relation').toBe(true)
-                expect(
-                    typeof shareBody.objectCollectionId === 'string' ? shareBody.objectCollectionId : '',
-                    'Learning Content Share request must carry the source object collection id'
-                ).toBeTruthy()
-                expect(shareBody.principalType, 'Learning Content Share request must target a workspace member').toBe('workspaceMember')
-                expect(
-                    typeof shareBody.principalId === 'string' ? shareBody.principalId : '',
-                    'Learning Content Share request must carry the selected workspace member id'
-                ).toMatch(/^[0-9a-f-]{36}$/i)
-                await expect(page.getByRole('progressbar')).toHaveCount(0, { timeout: 30_000 })
-
-                if (expectMoveToProjectAction) {
-                    await rowAction.click()
-                }
-            }
-            if (expectMoveToProjectAction) {
-                const moveAction = page.getByRole('menuitem', { name: 'Move to project' })
-                await expect(moveAction, `${label} table row actions must include Move to project`).toBeVisible({ timeout: 30_000 })
-                await moveAction.click()
-
-                const moveDialog = page.getByRole('dialog', { name: 'Move to project' })
-                await expect(moveDialog, `${label} Move to project dialog must open`).toBeVisible({ timeout: 30_000 })
-                await expectNoTechnicalLeakage(moveDialog, { label: `${label} Move to project dialog`, checkUuidSubstrings: true })
-                await moveDialog.getByRole('combobox', { name: 'Project' }).click()
-                const listbox = page.getByRole('listbox')
-                await expect(listbox, `${label} Move to project list must open`).toBeVisible({ timeout: 30_000 })
-                await expectNoTechnicalLeakage(listbox, { label: `${label} Move to project list`, checkUuidSubstrings: true })
-                const firstProjectOption = listbox.getByRole('option').first()
-                await expect(firstProjectOption, `${label} Move to project list must contain a readable project`).toBeVisible({
-                    timeout: 30_000
-                })
-                await firstProjectOption.click()
-
-                const moveResponsePromise = waitForSettledMutationResponse(
-                    page,
-                    (response) =>
-                        response.request().method() === 'PATCH' &&
-                        response.url().includes(`/api/v1/applications/${applicationId}/runtime/rows/`),
-                    { label: 'Moving Learning Content to a selected project' }
-                )
-                await moveDialog.getByRole('button', { name: 'Move to project' }).click()
-                const moveResponse = await moveResponsePromise
-                expect(moveResponse.ok(), 'Learning Content Move to project mutation must succeed').toBe(true)
-
-                const moveBody = moveResponse.request().postDataJSON() as Record<string, unknown>
-                const moveData = isRecord(moveBody.data) ? moveBody.data : {}
-                const rowId = new URL(moveResponse.url()).pathname.match(/\/runtime\/rows\/([^/]+)$/)?.[1]
-                const objectCollectionId = typeof moveBody.objectCollectionId === 'string' ? moveBody.objectCollectionId : ''
-                const targetProjectId = typeof moveData.ProjectId === 'string' ? moveData.ProjectId : ''
-                expect(rowId, 'Learning Content Move to project response URL must expose the moved row id').toBeTruthy()
-                expect(
-                    objectCollectionId,
-                    'Learning Content Move to project request must carry the source object collection id'
-                ).toBeTruthy()
-                expect(targetProjectId, 'Learning Content Move to project request must carry the selected project id').toBeTruthy()
-                expect(typeof moveBody.expectedVersion, 'Learning Content Move to project request must use expectedVersion').toBe('number')
-                if (api && applicationId && workspaceId && rowId) {
-                    const movedRow = await waitForApplicationRuntimeRow(api, applicationId, objectCollectionId, rowId, { workspaceId })
-                    expect(movedRow?.ProjectId, 'Moved Learning Content row must point to the selected project').toBe(targetProjectId)
-                }
-                await expect(page.getByRole('progressbar')).toHaveCount(0, { timeout: 30_000 })
-            } else {
-                await page.keyboard.press('Escape')
-                await expect(page.getByRole('menu')).toHaveCount(0)
-            }
-            if (label === 'Learning Content library') {
-                const gridRowIdsBeforeCopy = await readVisibleGridActionRowIds(rowActionScope)
-                expectUniqueRuntimeRowIds(gridRowIdsBeforeCopy, `${label} visible rows before copy`)
-                const learningResourcesObjectId =
-                    api && applicationId ? await waitForApplicationObjectId(api, applicationId, 'LearningResources') : undefined
-                const collectionRowIdsBeforeCopy =
-                    api && applicationId && workspaceId && learningResourcesObjectId
-                        ? await expectRuntimeCollectionRowIdsUnique(
-                              api,
-                              applicationId,
-                              learningResourcesObjectId,
-                              workspaceId,
-                              `${label} LearningResources before copy`
-                          )
-                        : []
-                const currentRowAction = page.locator('[data-testid^="grid-row-actions-trigger-"]').first()
-                await expect(currentRowAction, `${label} table view must keep row actions after mutations`).toBeVisible({ timeout: 30_000 })
-                await currentRowAction.click()
-                const currentCopyAction = page.getByRole('menuitem', { name: 'Copy' })
-                await expect(currentCopyAction, `${label} table row actions must still include Copy after mutations`).toBeVisible({
-                    timeout: 30_000
-                })
-                await currentCopyAction.click()
-                const copyDialog = page
-                    .getByRole('dialog', { name: 'Copy element' })
-                    .or(page.getByRole('dialog', { name: 'Copy record' }))
+        try {
+            for (const viewport of toolbarViewports) {
+                await page.setViewportSize({ width: viewport.width, height: viewport.height })
+                const createButton = getCreateButton().first()
+                const typeFilter = tableSurface
+                    .getByTestId(hasVisibleLibrarySurface ? 'library-target-filter' : 'records-union-target-filter')
                     .first()
-                await expect(copyDialog, `${label} Copy dialog must open`).toBeVisible({ timeout: 30_000 })
-                await expectNoTechnicalLeakage(copyDialog, { label: `${label} Copy dialog`, checkUuidSubstrings: true })
-                const copyResponsePromise = waitForSettledMutationResponse(
-                    page,
-                    (response) =>
-                        response.request().method() === 'POST' &&
-                        response.url().includes(`/api/v1/applications/${applicationId}/runtime/rows/`) &&
-                        response.url().includes('/copy'),
-                    { label: 'Copying a Learning Content row' }
-                )
-                await copyDialog.getByRole('button', { name: 'Copy' }).click()
-                const copyResponse = await copyResponsePromise
-                expect(copyResponse.ok(), 'Learning Content Copy mutation must succeed').toBe(true)
-                const copiedResource = await parseJsonResponse<RuntimeMutationResponse>(copyResponse, 'Copying a Learning Content row')
-                await expect(page.getByRole('progressbar')).toHaveCount(0, { timeout: 30_000 })
+                const cardViewButton = tableSurface.getByRole('button', { name: /Card View|Карточками/i }).first()
+                const tableViewButton = tableSurface.getByRole('button', { name: /Table view|Табличный вид/i }).first()
+
                 await expect(
-                    page
-                        .getByRole('grid')
-                        .getByText(/\(copy\)/i)
-                        .first(),
-                    'Copied Learning Content row must appear in the table'
-                ).toBeVisible({
+                    page.getByTestId('application-runtime-create-row'),
+                    `${label} ${viewport.name} toolbar must not duplicate the primary create action`
+                ).toHaveCount(0)
+                await expect(createButton, `${label} ${viewport.name} toolbar must keep the create menu visible`).toBeVisible({
                     timeout: 30_000
                 })
-                const gridRowIdsAfterCopy = await readVisibleGridActionRowIds(rowActionScope)
-                if (gridRowIdsAfterCopy.length > 0) {
-                    expectUniqueRuntimeRowIds(gridRowIdsAfterCopy, `${label} visible rows after copy`)
-                    expect(
-                        gridRowIdsAfterCopy.some((rowId) => !gridRowIdsBeforeCopy.includes(rowId)),
-                        `${label} copy must allocate a new visible row id`
-                    ).toBe(true)
-                }
-                if (api && applicationId && workspaceId && learningResourcesObjectId && copiedResource.id) {
-                    const collectionRowIdsAfterCopy = await expectRuntimeCollectionRowIdsUnique(
-                        api,
-                        applicationId,
-                        learningResourcesObjectId,
-                        workspaceId,
-                        `${label} LearningResources after copy`
+                await expect(typeFilter, `${label} ${viewport.name} toolbar must keep the type filter visible`).toBeVisible({
+                    timeout: 30_000
+                })
+                if (!hasVisibleLibrarySurface) {
+                    await expect(columnVisibilityButton, `${label} ${viewport.name} toolbar must keep column settings visible`).toBeVisible(
+                        { timeout: 30_000 }
                     )
-                    expect(collectionRowIdsBeforeCopy, `${label} copy must allocate a new collection row id`).not.toContain(
-                        copiedResource.id
-                    )
-                    expect(collectionRowIdsAfterCopy, `${label} copy must persist the copied row id`).toContain(copiedResource.id)
                 }
-                await expectNoTechnicalLeakage(page.getByRole('grid').first(), { label: `${label} after copy`, checkUuidSubstrings: true })
+                await expect(cardViewButton, `${label} ${viewport.name} toolbar must keep card view visible`).toBeVisible({
+                    timeout: 30_000
+                })
+                await expect(tableViewButton, `${label} ${viewport.name} toolbar must keep table view visible`).toBeVisible({
+                    timeout: 30_000
+                })
+
+                await expectHeightsAligned(createButton, typeFilter, 2)
+                if (!hasVisibleLibrarySurface) await expectHeightsAligned(createButton, columnVisibilityButton, 2)
+                await expectHeightsAligned(createButton, cardViewButton, 2)
+                await expectHeightsAligned(createButton, tableViewButton, 2)
+                await expectLocatorFitsViewport(createButton, `${label} ${viewport.name} create button`)
+                await expectLocatorFitsViewport(typeFilter, `${label} ${viewport.name} type filter`)
+                if (!hasVisibleLibrarySurface) {
+                    await expectLocatorFitsViewport(columnVisibilityButton, `${label} ${viewport.name} column visibility button`)
+                }
+                await expectLocatorHasNoInlineOverflow(createButton, `${label} ${viewport.name} create button`)
+                if (!hasVisibleLibrarySurface) {
+                    await expectLocatorHasNoInlineOverflow(columnVisibilityButton, `${label} ${viewport.name} column visibility button`)
+                }
+                await expectNoPageHorizontalOverflow(page, `${label} ${viewport.name} toolbar`)
+
+                if (viewport.name === 'mobile') {
+                    await page.screenshot({ path: screenshotPath.replace(/\.png$/i, '-mobile-toolbar.png'), fullPage: true })
+                }
+            }
+        } finally {
+            if (originalViewport) {
+                await page.setViewportSize(originalViewport)
             }
         }
+    }
+    await expectDataGridHorizontalScrollConstrained(page, `${label} table view`)
+    await expectNoDataGridTechnicalLeakage(tableSurface, { label: `${label} table view`, checkUuidSubstrings: true })
+    if (isLibraryTable) {
+        await assertNoHorizontalOverflowWithScreenshots(page, `${label} table view`, screenshotPath)
+    } else {
+        await assertNoHorizontalOverflow(page, label)
+    }
+    if (surfaceMode === 'library-table') {
+        if (!api || !applicationId || !workspaceId) {
+            throw new Error(`${label} library row actions require an authenticated application workspace`)
+        }
+        await expectPublishedLearningContentTableActions({
+            page,
+            api,
+            applicationId,
+            workspaceId,
+            label,
+            tableSurface,
+            hasVisibleLibrarySurface
+        })
+    }
+}
+
+async function expectPublishedLearningContentView(options: {
+    page: Page
+    api?: ApiContext
+    applicationId?: string
+    workspaceId?: string
+    navigationItem: string
+    label: string
+    screenshotPath: string
+    surfaceMode: 'library-table' | 'library-card' | 'saved-table'
+}): Promise<void> {
+    const { page, api, applicationId, workspaceId, navigationItem, label, screenshotPath, surfaceMode } = options
+    const isLibraryCard = surfaceMode === 'library-card'
+    await clickRuntimeNavigationItem(page, navigationItem)
+    await expectRuntimeNavigationItemSelected(page, navigationItem)
+
+    const librarySurface = page.getByTestId('library-details-table').first()
+    const genericRuntimeSurface = page
+        .getByTestId('records-union-details-table')
+        .or(page.getByTestId('library-details-table'))
+        .or(page.getByTestId('runtime-list-surface'))
+        .or(page.getByTestId('records-union-card-view'))
+        .or(page.getByRole('grid'))
+        .first()
+    await expect(genericRuntimeSurface, `${label} must render a generic runtime data surface`).toBeVisible({ timeout: 30_000 })
+    const hasVisibleLibrarySurface = await librarySurface.isVisible().catch(() => false)
+    await expect(page.getByRole('progressbar')).toHaveCount(0, { timeout: 30_000 })
+    await expectNoTechnicalLeakage(genericRuntimeSurface, { label, checkUuidSubstrings: true })
+    await expectNoVisibleLearningContentTechnicalText(genericRuntimeSurface, label)
+
+    if (surfaceMode === 'library-table') {
+        if (!api || !applicationId || !workspaceId) {
+            throw new Error(`${label} library authoring requires an authenticated application workspace`)
+        }
+        await expectPublishedLearningContentCreateTargets({
+            page,
+            api,
+            applicationId,
+            workspaceId,
+            navigationItem,
+            label,
+            screenshotPath,
+            genericRuntimeSurface
+        })
+    }
+
+    if (isLibraryCard) {
+        await expectPublishedLearningContentCardView({ page, label, librarySurface, hasVisibleLibrarySurface, screenshotPath })
+    } else {
+        await expectPublishedLearningContentTableView({
+            page,
+            api,
+            applicationId,
+            workspaceId,
+            navigationItem,
+            label,
+            screenshotPath,
+            surfaceMode,
+            librarySurface,
+            hasVisibleLibrarySurface
+        })
     }
 
     await page.screenshot({ path: screenshotPath, fullPage: true })
@@ -1783,14 +2132,25 @@ async function expectPublishedTrashRestoreTargetFlow(options: {
     applicationId: string
     workspaceId: string
     screenshotPath: string
+    deletedRecord: {
+        objectCollectionId: string
+        storageRowId: string
+        title: string
+    }
 }): Promise<void> {
-    const { page, api, applicationId, workspaceId, screenshotPath } = options
+    const { page, api, applicationId, workspaceId, screenshotPath, deletedRecord } = options
     await clickRuntimeNavigationItem(page, 'Trash')
     await expectRuntimeNavigationItemSelected(page, 'Trash')
 
     const trashUnionWidget = page.getByTestId('records-union-details-table').first()
     const hasVisibleTrashUnionWidget = await trashUnionWidget.isVisible().catch(() => false)
-    const trashSurface = hasVisibleTrashUnionWidget ? trashUnionWidget : page.getByRole('grid').first()
+    const trashLibrarySurface = page.getByTestId('library-details-table').first()
+    const hasVisibleTrashLibrarySurface = await trashLibrarySurface.isVisible().catch(() => false)
+    const trashSurface = hasVisibleTrashUnionWidget
+        ? trashUnionWidget
+        : hasVisibleTrashLibrarySurface
+        ? trashLibrarySurface
+        : page.getByRole('grid').first()
     await expect(trashSurface, 'Learning Content Trash must render a generic runtime surface').toBeVisible({ timeout: 30_000 })
     await expect(page.getByRole('progressbar')).toHaveCount(0, { timeout: 30_000 })
     await expectNoTechnicalLeakage(trashSurface, { label: 'Learning Content Trash before restore', checkUuidSubstrings: true })
@@ -1833,7 +2193,7 @@ async function expectPublishedTrashRestoreTargetFlow(options: {
         (response) =>
             response.request().method() === 'POST' &&
             response.url().includes(`/api/v1/applications/${applicationId}/runtime/rows/`) &&
-            response.url().endsWith('/restore'),
+            new URL(response.url()).pathname.endsWith('/restore'),
         { label: 'Restoring Learning Content from Trash into a selected project' }
     )
     await dialog.getByRole('button', { name: 'Restore' }).click()
@@ -1841,18 +2201,23 @@ async function expectPublishedTrashRestoreTargetFlow(options: {
     expect(restoreResponse.ok(), 'Learning Content restore target mutation must succeed').toBe(true)
 
     const restoreUrl = new URL(restoreResponse.url())
-    const restoredRowId = restoreUrl.pathname.match(/\/runtime\/rows\/([^/]+)\/restore$/)?.[1]
-    expect(restoredRowId, 'Learning Content restore response URL must expose the restored row id for API verification').toBeTruthy()
+    const restoredRecordHandle = restoreUrl.pathname.match(/\/runtime\/rows\/([^/]+)\/restore$/)?.[1]
+    expect(restoredRecordHandle, 'Learning Content restore request URL must expose the opaque runtime record handle').toMatch(
+        RUNTIME_RECORD_HANDLE_PATTERN
+    )
 
     const restoreBody = restoreResponse.request().postDataJSON() as Record<string, unknown>
     const restoreTarget = isRecord(restoreBody.restoreTarget) ? restoreBody.restoreTarget : {}
     const objectCollectionId = typeof restoreBody.objectCollectionId === 'string' ? restoreBody.objectCollectionId : ''
     const targetRecordId = typeof restoreTarget.targetRecordId === 'string' ? restoreTarget.targetRecordId : ''
     expect(objectCollectionId, 'Learning Content restore request must carry the source object collection id').toBeTruthy()
+    expect(objectCollectionId, 'Learning Content restore must target the collection that supplied the deleted record').toBe(
+        deletedRecord.objectCollectionId
+    )
     expect(targetRecordId, 'Learning Content restore request must carry the selected restore target row id').toBeTruthy()
 
     await expect(dialog).toHaveCount(0)
-    const restoredRow = await waitForApplicationRuntimeRow(api, applicationId, objectCollectionId, restoredRowId!, { workspaceId })
+    const restoredRow = await waitForApplicationRuntimeRow(api, applicationId, objectCollectionId, restoredRecordHandle!, { workspaceId })
     expect(restoredRow?.ProjectId, 'Restored Learning Content row must point to the selected project').toBe(targetRecordId)
     const collectionRowIdsAfterRestore = await expectRuntimeCollectionRowIdsUnique(
         api,
@@ -1861,22 +2226,57 @@ async function expectPublishedTrashRestoreTargetFlow(options: {
         workspaceId,
         'Learning Content collection after Trash restore'
     )
-    expect(collectionRowIdsAfterRestore, 'Learning Content restore must preserve the restored row id').toContain(restoredRowId)
+    for (const rowId of collectionRowIdsAfterRestore) {
+        expect(rowId, 'Learning Content restored collection must expose physical UUID v7 storage identities').toMatch(UUID_V7_PATTERN)
+    }
 
-    await clickRuntimeNavigationItem(page, 'Learning Content')
-    await expectRuntimeNavigationItemSelected(page, 'Learning Content')
+    const restoredCollectionRuntime = await getApplicationRuntime(api, applicationId, {
+        objectId: objectCollectionId,
+        workspaceId,
+        limit: 200,
+        offset: 0
+    })
+    const restoredCollectionRows = Array.isArray(restoredCollectionRuntime.rows)
+        ? (restoredCollectionRuntime.rows as Array<Record<string, unknown>>)
+        : []
+    const restoredCollectionColumns = Array.isArray(restoredCollectionRuntime.columns)
+        ? (restoredCollectionRuntime.columns as Array<{ field?: unknown; codename?: unknown }>)
+        : []
+    const restoredTitle = readLocalizedText(restoredRow?.Title)
+    expect(restoredTitle, 'Restored Learning Content row must have a human-readable title').toBeTruthy()
+    const matchingRestoredStorageRows = restoredCollectionRows.filter(
+        (row) => readLocalizedText(readRuntimeRowValue(row, restoredCollectionColumns, 'Title', 'title')) === restoredTitle
+    )
+    expect(matchingRestoredStorageRows, 'Learning Content restore must reactivate exactly one matching physical storage row').toHaveLength(
+        1
+    )
+    const restoredStorageRowId = requireRuntimeRowId(matchingRestoredStorageRows[0], 'Restored Learning Content storage row')
+    expect(restoredStorageRowId, 'Restored Learning Content storage row must use UUID v7 identity').toMatch(UUID_V7_PATTERN)
+    expect(restoredStorageRowId, 'Learning Content restore must reactivate the same physical row that was soft-deleted').toBe(
+        deletedRecord.storageRowId
+    )
+    expect(restoredTitle, 'Learning Content restore must preserve the deleted record title').toBe(deletedRecord.title)
+    expect(collectionRowIdsAfterRestore, 'Learning Content restore must expose the reactivated physical storage row').toContain(
+        restoredStorageRowId
+    )
+
+    await clickRuntimeNavigationItem(page, 'Content Projects')
+    await expectRuntimeNavigationItemSelected(page, 'Content Projects')
     await expect(page.getByRole('progressbar')).toHaveCount(0, { timeout: 30_000 })
-    const learningContentSurface = page.getByTestId('records-union-details-table').or(page.getByRole('grid')).first()
+    const learningContentSurface = page
+        .getByTestId('records-union-details-table')
+        .or(page.getByTestId('library-details-table'))
+        .or(page.getByRole('grid'))
+        .first()
     await expect(learningContentSurface).toBeVisible({ timeout: 30_000 })
     await expectNoTechnicalLeakage(learningContentSurface, {
         label: 'Learning Content after Trash restore',
         checkUuidSubstrings: true
     })
-    const visibleLearningContentRowIdsAfterRestore = await readVisibleGridActionRowIds(learningContentSurface)
-    expectUniqueRuntimeRowIds(visibleLearningContentRowIdsAfterRestore, 'Learning Content visible rows after Trash restore')
-    expect(visibleLearningContentRowIdsAfterRestore, 'Learning Content restore must return the row to the visible table').toContain(
-        restoredRowId
-    )
+    await expect(
+        learningContentSurface.getByRole('gridcell', { name: restoredTitle!, exact: true }),
+        'Learning Content restore must return the restored business record to the visible table'
+    ).toBeVisible({ timeout: 30_000 })
 }
 
 async function deleteFirstPublishedLearningContentRowForTrashProof(
@@ -1884,21 +2284,64 @@ async function deleteFirstPublishedLearningContentRowForTrashProof(
     api: ApiContext,
     applicationId: string,
     workspaceId: string
-): Promise<void> {
-    await clickRuntimeNavigationItem(page, 'Learning Content')
-    await expectRuntimeNavigationItemSelected(page, 'Learning Content')
+): Promise<{ objectCollectionId: string; storageRowId: string; title: string }> {
+    await clickRuntimeNavigationItem(page, 'Content Projects')
+    await expectRuntimeNavigationItemSelected(page, 'Content Projects')
 
     const unionWidget = page.getByTestId('records-union-details-table').first()
-    await expect(unionWidget, 'Learning Content delete setup must use the generic records.union table').toBeVisible({ timeout: 30_000 })
+    const librarySurface = page.getByTestId('library-details-table').first()
+    const hasVisibleUnionWidget = await unionWidget.isVisible().catch(() => false)
+    const hasVisibleLibrarySurface = await librarySurface.isVisible().catch(() => false)
+    const tableSurface = hasVisibleUnionWidget ? unionWidget : hasVisibleLibrarySurface ? librarySurface : page.getByRole('main')
+    await expect(tableSurface.getByRole('grid'), 'Learning Content delete setup must render its runtime table').toBeVisible({
+        timeout: 30_000
+    })
     await expect(page.getByRole('progressbar')).toHaveCount(0, { timeout: 30_000 })
+    const learningResourcesObjectId = await waitForApplicationObjectId(api, applicationId, 'LearningResources')
+    const collectionRowIdsBeforeDelete = await expectRuntimeCollectionRowIdsUnique(
+        api,
+        applicationId,
+        learningResourcesObjectId,
+        workspaceId,
+        'Learning Content source collection before delete'
+    )
+    for (const rowId of collectionRowIdsBeforeDelete) {
+        expect(rowId, 'Learning Content source collection must expose physical UUID v7 storage identities').toMatch(UUID_V7_PATTERN)
+    }
 
-    const rowAction = unionWidget.locator('[data-testid^="grid-row-actions-trigger-"]').first()
+    const rowAction = getFirstGridRowAction(tableSurface)
     await expect(rowAction, 'Learning Content delete setup must expose row actions').toBeVisible({ timeout: 30_000 })
-    const visibleRowIdsBeforeDelete = await readVisibleGridActionRowIds(unionWidget)
-    expectUniqueRuntimeRowIds(visibleRowIdsBeforeDelete, 'Learning Content visible rows before delete')
-    const deletedRowActionTestId = await rowAction.getAttribute('data-testid')
-    const deletedRowId = deletedRowActionTestId?.replace(/^grid-row-actions-trigger-/, '')
-    expect(deletedRowId, 'Learning Content delete setup must target a concrete row id').toBeTruthy()
+    const deletedRow = rowAction.locator('xpath=ancestor::*[@role="row"][1]')
+    const deletedRowTitle = (await deletedRow.getByRole('gridcell').nth(1).innerText()).trim()
+    expect(deletedRowTitle, 'Learning Content delete setup must identify the selected row by its visible title').toBeTruthy()
+    const currentLocale =
+        (await page.locator('html').getAttribute('lang'))?.split('-')[0]?.toLowerCase() ||
+        new URL(page.url()).searchParams.get('locale')?.split('-')[0]?.toLowerCase() ||
+        'en'
+    const sourceRuntimeBeforeDelete = await getApplicationRuntime(api, applicationId, {
+        objectId: learningResourcesObjectId,
+        workspaceId,
+        limit: 200,
+        offset: 0
+    })
+    const sourceRowsBeforeDelete = Array.isArray(sourceRuntimeBeforeDelete.rows)
+        ? (sourceRuntimeBeforeDelete.rows as Array<Record<string, unknown>>)
+        : []
+    const sourceColumnsBeforeDelete = Array.isArray(sourceRuntimeBeforeDelete.columns)
+        ? (sourceRuntimeBeforeDelete.columns as Array<{ field?: unknown; codename?: unknown }>)
+        : []
+    const matchingSourceRowsBeforeDelete = sourceRowsBeforeDelete.filter(
+        (row) => readLocalizedText(readRuntimeRowValue(row, sourceColumnsBeforeDelete, 'Title', 'title'), currentLocale) === deletedRowTitle
+    )
+    expect(
+        matchingSourceRowsBeforeDelete,
+        'Learning Content delete target title must identify exactly one active physical storage row'
+    ).toHaveLength(1)
+    const deletedStorageRowId = requireRuntimeRowId(matchingSourceRowsBeforeDelete[0], 'Learning Content delete target storage row')
+    expect(deletedStorageRowId, 'Learning Content delete target storage row must use UUID v7 identity').toMatch(UUID_V7_PATTERN)
+    expect(collectionRowIdsBeforeDelete, 'Learning Content delete target must belong to the active source collection').toContain(
+        deletedStorageRowId
+    )
     await rowAction.click()
 
     const deleteMenuItem = page.getByRole('menuitem', { name: 'Delete' })
@@ -1922,7 +2365,14 @@ async function deleteFirstPublishedLearningContentRowForTrashProof(
     const deleteResponse = await deleteResponsePromise
     expect(deleteResponse.ok(), 'Learning Content row delete mutation must succeed before Trash restore').toBe(true)
     const deletedObjectCollectionId = new URL(deleteResponse.url()).searchParams.get('objectCollectionId') ?? ''
+    const deletedRecordHandle = new URL(deleteResponse.url()).pathname.match(/\/runtime\/rows\/([^/]+)$/)?.[1] ?? ''
     expect(deletedObjectCollectionId, 'Learning Content delete request must carry the source object collection id').toBeTruthy()
+    expect(deletedObjectCollectionId, 'Learning Content delete request must target the LearningResources collection').toBe(
+        learningResourcesObjectId
+    )
+    expect(deletedRecordHandle, 'Learning Content delete request must target an opaque runtime record handle').toMatch(
+        RUNTIME_RECORD_HANDLE_PATTERN
+    )
     const collectionRowIdsAfterDelete = await expectRuntimeCollectionRowIdsUnique(
         api,
         applicationId,
@@ -1930,19 +2380,49 @@ async function deleteFirstPublishedLearningContentRowForTrashProof(
         workspaceId,
         'Learning Content source collection after delete'
     )
-    expect(collectionRowIdsAfterDelete, 'Learning Content delete must remove the targeted row from its source collection').not.toContain(
-        deletedRowId
+    for (const rowId of collectionRowIdsAfterDelete) {
+        expect(rowId, 'Learning Content active source collection must expose physical UUID v7 storage identities').toMatch(UUID_V7_PATTERN)
+    }
+    expect(collectionRowIdsAfterDelete, 'Learning Content delete must remove exactly one active physical row').toHaveLength(
+        collectionRowIdsBeforeDelete.length - 1
     )
+    const removedStorageRowIds = collectionRowIdsBeforeDelete.filter((rowId) => !collectionRowIdsAfterDelete.includes(rowId))
+    expect(removedStorageRowIds, 'Learning Content delete must remove exactly the selected physical storage row').toEqual([
+        deletedStorageRowId
+    ])
+
+    const sourceRuntimeAfterDelete = await getApplicationRuntime(api, applicationId, {
+        objectId: deletedObjectCollectionId,
+        workspaceId,
+        limit: 200,
+        offset: 0
+    })
+    const sourceRowsAfterDelete = Array.isArray(sourceRuntimeAfterDelete.rows)
+        ? (sourceRuntimeAfterDelete.rows as Array<Record<string, unknown>>)
+        : []
+    const sourceColumnsAfterDelete = Array.isArray(sourceRuntimeAfterDelete.columns)
+        ? (sourceRuntimeAfterDelete.columns as Array<{ field?: unknown; codename?: unknown }>)
+        : []
+    const matchingActiveRowsAfterDelete = sourceRowsAfterDelete.filter(
+        (row) => readLocalizedText(readRuntimeRowValue(row, sourceColumnsAfterDelete, 'Title', 'title'), currentLocale) === deletedRowTitle
+    )
+    expect(
+        matchingActiveRowsAfterDelete,
+        'Learning Content delete must remove the selected business record from the active source collection'
+    ).toHaveLength(0)
 
     await expect(page.getByRole('progressbar')).toHaveCount(0, { timeout: 30_000 })
-    if (await unionWidget.isVisible().catch(() => false)) {
-        const visibleRowIdsAfterDelete = await readVisibleGridActionRowIds(unionWidget)
-        if (visibleRowIdsAfterDelete.length > 0) {
-            expectUniqueRuntimeRowIds(visibleRowIdsAfterDelete, 'Learning Content visible rows after delete')
-            expect(visibleRowIdsAfterDelete, 'Learning Content delete must remove the targeted row from the visible table').not.toContain(
-                deletedRowId
-            )
-        }
+    if (await tableSurface.isVisible().catch(() => false)) {
+        await expect(
+            tableSurface.getByRole('gridcell', { name: deletedRowTitle, exact: true }),
+            'Learning Content delete must remove the selected business record from the visible table'
+        ).toHaveCount(0, { timeout: 30_000 })
+    }
+
+    return {
+        objectCollectionId: deletedObjectCollectionId,
+        storageRowId: deletedStorageRowId,
+        title: deletedRowTitle
     }
 }
 
@@ -1971,270 +2451,6 @@ async function updateLearningContentSettings(
 
 async function setLearningContentDefaultView(api: ApiContext, applicationId: string, defaultView: 'table' | 'cards'): Promise<void> {
     await updateLearningContentSettings(api, applicationId, { defaultView })
-}
-
-async function waitForLearnerPlayerCompletionResponse(
-    page: Page,
-    applicationId: string,
-    targetObjectCodename: 'CourseItems' | 'TrackSteps'
-): Promise<Response> {
-    return page.waitForResponse(
-        async (response) => {
-            if (
-                response.request().method() !== 'POST' ||
-                !response.url().includes(`/api/v1/applications/${applicationId}/runtime/progress/content`)
-            ) {
-                return false
-            }
-
-            if (!response.ok()) {
-                return false
-            }
-
-            const payload = await response.json().catch(() => null)
-            return (
-                payload?.persisted === true &&
-                payload?.targetObjectCodename === targetObjectCodename &&
-                payload?.progressPercent === 100 &&
-                payload?.status === 'completed'
-            )
-        },
-        { timeout: 30_000 }
-    )
-}
-
-async function expectPublishedLearnerPlayer(options: { page: Page; applicationId: string; screenshotPath: string }): Promise<void> {
-    const { page, applicationId, screenshotPath } = options
-    await clickRuntimeNavigationItem(page, 'Courses')
-    await expectRuntimeNavigationItemSelected(page, 'Courses')
-    await page.getByRole('tab', { name: 'Player' }).click()
-    await expect(page.getByRole('tab', { name: 'Player' })).toHaveAttribute('aria-selected', 'true')
-
-    const player = page.getByTestId('learner-player')
-    await expect(player, 'Course Builder must render the generic learner player').toBeVisible({ timeout: 30_000 })
-    await expect(player.getByTestId('learner-player-parent-select'), 'Learner player must expose a generic parent selector').toBeVisible({
-        timeout: 30_000
-    })
-    await player.getByTestId('learner-player-parent-select').click()
-    await page.getByRole('option', { name: 'Learner Onboarding Course' }).click()
-    await expect(player.getByTestId('learner-player-parent-select')).toContainText('Learner Onboarding Course', { timeout: 30_000 })
-    const outline = player.getByTestId('learner-player-outline')
-    const content = player.getByTestId('learner-player-content')
-    await expect(
-        outline.getByRole('button', { name: /Start with the course overview/ }),
-        'Learner player must show the first course item in the outline'
-    ).toBeVisible({
-        timeout: 30_000
-    })
-    await expect(
-        content.getByRole('heading', { name: /Start with the course overview/ }),
-        'Learner player must show the current course item in the content pane'
-    ).toBeVisible({
-        timeout: 30_000
-    })
-    await expect(
-        outline.getByRole('button', { name: /Watch the safety intro/ }),
-        'Learner player must show later course items'
-    ).toBeVisible({
-        timeout: 30_000
-    })
-    await expect(outline.getByText('Locked').first(), 'Learner player must show sequential lock state').toBeVisible({ timeout: 30_000 })
-    await expect(player.getByTestId('resource-preview'), 'Learner player must render the target resource preview').toBeVisible({
-        timeout: 30_000
-    })
-    await expectNoTechnicalLeakage(player, { label: 'Course learner player', checkUuidSubstrings: true })
-
-    const progressResponsePromise = waitForLearnerPlayerCompletionResponse(page, applicationId, 'CourseItems')
-    await player.getByRole('button', { name: 'Complete' }).click()
-    const progressResponse = await progressResponsePromise
-    expect(progressResponse.ok(), 'Course item progress persistence must succeed from the generic learner player').toBe(true)
-    await expect(progressResponse.json()).resolves.toMatchObject({
-        persisted: true,
-        targetObjectCodename: 'CourseItems',
-        progressPercent: 100,
-        status: 'completed'
-    })
-    await expect(player.getByText('1 of 2 completed'), 'Learner player must update local completion progress').toBeVisible({
-        timeout: 30_000
-    })
-    await expectNoTechnicalLeakage(player, { label: 'Course learner player after completion', checkUuidSubstrings: true })
-
-    await page.reload()
-    await expect(page.getByRole('progressbar')).toHaveCount(0, { timeout: 30_000 })
-    await clickRuntimeNavigationItem(page, 'Courses')
-    await expectRuntimeNavigationItemSelected(page, 'Courses')
-    await page.getByRole('tab', { name: 'Player' }).click()
-    await expect(page.getByRole('tab', { name: 'Player' })).toHaveAttribute('aria-selected', 'true')
-    const reloadedPlayer = page.getByTestId('learner-player')
-    await reloadedPlayer.getByTestId('learner-player-parent-select').click()
-    await page.getByRole('option', { name: 'Learner Onboarding Course' }).click()
-    await expect(
-        reloadedPlayer.getByText('1 of 2 completed'),
-        'Learner player must derive completion count from persisted progress after reload'
-    ).toBeVisible({ timeout: 30_000 })
-    await expectNoTechnicalLeakage(reloadedPlayer, { label: 'Reloaded course learner player', checkUuidSubstrings: true })
-
-    await page.screenshot({ path: screenshotPath, fullPage: true })
-}
-
-async function expectPublishedTrackLearnerPlayer(options: { page: Page; applicationId: string; screenshotPath: string }): Promise<void> {
-    const { page, applicationId, screenshotPath } = options
-    await clickRuntimeNavigationItem(page, 'Tracks')
-    await expectRuntimeNavigationItemSelected(page, 'Tracks')
-    await page.getByRole('tab', { name: 'Player' }).click()
-    await expect(page.getByRole('tab', { name: 'Player' })).toHaveAttribute('aria-selected', 'true')
-
-    const player = page.getByTestId('learner-player')
-    await expect(player, 'Track Builder must render the generic learner player').toBeVisible({ timeout: 30_000 })
-    await player.getByTestId('learner-player-parent-select').click()
-    await page.getByRole('option', { name: 'New learner onboarding track' }).click()
-    await expect(player.getByTestId('learner-player-parent-select')).toContainText('New learner onboarding track', { timeout: 30_000 })
-
-    const outline = player.getByTestId('learner-player-outline')
-    const content = player.getByTestId('learner-player-content')
-    await expect(
-        outline.getByRole('button', { name: /Start onboarding/ }),
-        'Track player must show the first track step in the outline'
-    ).toBeVisible({
-        timeout: 30_000
-    })
-    await expect(
-        content.getByRole('heading', { name: /Start onboarding/ }),
-        'Track player must show the current track step in the content pane'
-    ).toBeVisible({
-        timeout: 30_000
-    })
-    await expect(outline.getByRole('button', { name: /Compliance essentials/ }), 'Track player must show later track steps').toBeVisible({
-        timeout: 30_000
-    })
-    await expect(outline.getByText('Locked').first(), 'Track player must show sequential lock state').toBeVisible({ timeout: 30_000 })
-    await expect(
-        player.getByText('This content item does not have a previewable source yet.'),
-        'Track player must safely handle course targets without a direct media source'
-    ).toBeVisible({
-        timeout: 30_000
-    })
-    await expectNoTechnicalLeakage(player, { label: 'Track learner player', checkUuidSubstrings: true })
-
-    const progressResponsePromise = waitForLearnerPlayerCompletionResponse(page, applicationId, 'TrackSteps')
-    await player.getByRole('button', { name: 'Complete' }).click()
-    const progressResponse = await progressResponsePromise
-    expect(progressResponse.ok(), 'Track step progress persistence must succeed from the generic learner player').toBe(true)
-    await expect(progressResponse.json()).resolves.toMatchObject({
-        persisted: true,
-        targetObjectCodename: 'TrackSteps',
-        progressPercent: 100,
-        status: 'completed'
-    })
-    await expect(player.getByText('1 of 2 completed'), 'Track player must update local completion progress').toBeVisible({
-        timeout: 30_000
-    })
-    await expectNoTechnicalLeakage(player, { label: 'Track learner player after completion', checkUuidSubstrings: true })
-
-    await page.screenshot({ path: screenshotPath, fullPage: true })
-}
-
-async function expectPublishedBuilderRelationScope(options: {
-    page: Page
-    navigationItem: string
-    label: string
-    initialParent: string
-    initialChildren: string[]
-    nextParent: string
-    nextChildren: string[]
-    screenshotPath: string
-}): Promise<void> {
-    const { page, navigationItem, label, initialParent, initialChildren, nextParent, nextChildren, screenshotPath } = options
-    await clickRuntimeNavigationItem(page, navigationItem)
-    await expectRuntimeNavigationItemSelected(page, navigationItem)
-    await page.getByRole('tab', { name: 'Outline' }).click()
-
-    const builder = page.getByTestId('runtime-relation-builder')
-    await expect(builder, `${label} must render the generic relationBuilder outline`).toBeVisible({ timeout: 30_000 })
-    await expectNoTechnicalLeakage(builder, { label: `${label} relation builder`, checkUuidSubstrings: true })
-    await expect(builder.getByTestId('runtime-relation-builder-parent-select')).toContainText(initialParent, { timeout: 30_000 })
-    for (const child of initialChildren) {
-        await expect(builder.getByText(child).first(), `${label} must show ${child} for ${initialParent}`).toBeVisible({
-            timeout: 30_000
-        })
-    }
-
-    await builder.getByTestId('runtime-relation-builder-parent-select').click()
-    await page.getByRole('option', { name: nextParent }).click()
-    await expect(builder.getByTestId('runtime-relation-builder-parent-select')).toContainText(nextParent, { timeout: 30_000 })
-    for (const child of nextChildren) {
-        await expect(builder.getByText(child).first(), `${label} must show ${child} for ${nextParent}`).toBeVisible({ timeout: 30_000 })
-    }
-    for (const child of initialChildren) {
-        await expect(builder.getByText(child), `${label} must hide ${child} after switching to ${nextParent}`).toHaveCount(0)
-    }
-
-    await expectNoTechnicalLeakage(builder, { label: `${label} relation builder after parent switch`, checkUuidSubstrings: true })
-    await assertNoHorizontalOverflowWithScreenshots(page, `${label} relation builder`, screenshotPath)
-    await page.screenshot({ path: screenshotPath, fullPage: true })
-}
-
-async function expectPublishedBuilderEnrollmentWarning(options: {
-    page: Page
-    navigationItem: string
-    label: string
-    parentName: string
-    warningText: string
-    screenshotPath: string
-}): Promise<void> {
-    const { page, navigationItem, label, parentName, warningText, screenshotPath } = options
-    await clickRuntimeNavigationItem(page, navigationItem)
-    await expectRuntimeNavigationItemSelected(page, navigationItem)
-    await page.getByRole('tab', { name: 'Enrollments' }).click()
-
-    const builder = page.getByTestId('runtime-relation-builder')
-    await expect(builder, `${label} enrollments must render the generic relationBuilder surface`).toBeVisible({ timeout: 30_000 })
-    await expect(builder.getByTestId('runtime-relation-builder-parent-select')).toContainText(parentName, { timeout: 30_000 })
-    await expect(builder.getByText(warningText), `${label} must warn about active enrollments`).toBeVisible({ timeout: 30_000 })
-    await expect(
-        page.getByRole('grid').filter({ hasText: parentName }).last(),
-        `${label} enrollments must render a generic detailsTable list`
-    ).toBeVisible({
-        timeout: 30_000
-    })
-    await page.screenshot({ path: screenshotPath, fullPage: true })
-}
-
-async function expectPublishedEnrollmentWizard(options: {
-    page: Page
-    navigationItem: string
-    label: string
-    panelId: string
-    screenshotPath: string
-}): Promise<void> {
-    const { page, navigationItem, label, panelId, screenshotPath } = options
-    await clickRuntimeNavigationItem(page, navigationItem)
-    await expectRuntimeNavigationItemSelected(page, navigationItem)
-    await page.getByRole('tab', { name: 'Enrollments' }).click()
-
-    const panel = page.getByTestId(`runtime-relation-panel-${panelId}`)
-    await expect(panel, `${label} enrollments must expose a metadata-driven relation panel`).toBeVisible({ timeout: 30_000 })
-    await panel.getByRole('button', { name: 'Create' }).click()
-
-    const dialog = page.getByRole('dialog', { name: 'Create related record' })
-    await expect(dialog, `${label} enrollment wizard dialog must open from the generic create action`).toBeVisible({
-        timeout: 30_000
-    })
-    await expect(dialog.getByText('Content'), `${label} enrollment wizard must include the content step`).toBeVisible()
-    await expect(dialog.getByText('Learners'), `${label} enrollment wizard must include the learners step`).toBeVisible()
-    await expect(dialog.getByText('Parameters'), `${label} enrollment wizard must include the parameters step`).toBeVisible()
-    await expect(dialog.getByText(/selected .* is used as the enrollment target/i)).toBeVisible()
-    await expectNoTechnicalLeakage(dialog, { label: `${label} enrollment wizard dialog`, checkUuidSubstrings: true })
-    await expectSemanticFieldControls(dialog, {
-        forbiddenEditableIdLabels: ['ProjectId', 'CourseId', 'TrackId', 'TargetRecordId', 'UserId', 'PrincipalId']
-    })
-
-    await dialog.getByRole('button', { name: 'Next' }).click()
-    await expect(dialog.getByText('Select the learner and class context for this enrollment.')).toBeVisible()
-    await expectNoTechnicalLeakage(dialog, { label: `${label} enrollment wizard learner step`, checkUuidSubstrings: true })
-    await dialog.screenshot({ path: screenshotPath })
-    await dialog.getByRole('button', { name: 'Cancel' }).click()
-    await expect(dialog).toHaveCount(0)
 }
 
 function readRuntimeRowValue(
@@ -2292,15 +2508,17 @@ async function runLmsWorkflowActionThroughUi(
     workspaceId: string,
     objectCollectionId: string,
     row: Record<string, unknown>,
+    visibleRowText: string,
     actionCodename: string,
     expectedToStatus: string,
     expectedPostingCommand: string | null = null
 ): Promise<Record<string, unknown>> {
-    const rowId = requireRuntimeRowId(row, `Browser workflow action ${actionCodename}`)
-    const expectedVersion = requireRuntimeRowVersion(row, `${objectCollectionId}/${rowId}`)
+    const physicalRowId = requireRuntimeRowId(row, `Browser workflow action ${actionCodename}`)
+    const expectedVersion = requireRuntimeRowVersion(row, `${objectCollectionId}/${physicalRowId}`)
 
     await page.goto(buildPublishedRuntimeObjectHref(applicationId, objectCollectionId))
-    const rowActions = await getVisibleRuntimeRowActions(page, rowId)
+    const { trigger: rowActions, recordHandle } = await getVisibleRuntimeRowActions(page, visibleRowText)
+    expect(recordHandle, `Browser workflow action ${actionCodename} must not expose the physical row id`).not.toBe(physicalRowId)
     await rowActions.click()
 
     const action = page.getByTestId(`runtime-workflow-action-${actionCodename}`).first()
@@ -2309,7 +2527,7 @@ async function runLmsWorkflowActionThroughUi(
     const responsePromise = page.waitForResponse(
         (response) =>
             response.request().method() === 'POST' &&
-            response.url().includes(`/runtime/rows/${encodeURIComponent(rowId)}/workflow/${encodeURIComponent(actionCodename)}`),
+            response.url().includes(`/runtime/rows/${encodeURIComponent(recordHandle)}/workflow/${encodeURIComponent(actionCodename)}`),
         { timeout: 30_000 }
     )
     await action.click()
@@ -2329,20 +2547,21 @@ async function runLmsWorkflowActionThroughUi(
 
     const payload = await response.json()
     expect(payload).toMatchObject({
-        id: rowId,
+        id: recordHandle,
         actionCodename,
         toStatus: expectedToStatus,
         postingCommand: expectedPostingCommand
     })
+    expect(payload.id, `Browser workflow action ${actionCodename} response must not expose the physical row id`).not.toBe(physicalRowId)
     expect(Number(payload.version), `${actionCodename} must advance the row version through UI`).toBe(expectedVersion + 1)
 
-    const updatedRow = await getRuntimeRow(api, applicationId, rowId, { objectCollectionId, workspaceId })
-    expect(updatedRow?.id, `Browser workflow action ${actionCodename} must leave the runtime row fetchable`).toBe(rowId)
+    const updatedRow = await getRuntimeRow(api, applicationId, physicalRowId, { objectCollectionId, workspaceId })
+    expect(updatedRow?.id, `Browser workflow action ${actionCodename} must leave the runtime row fetchable`).toBe(physicalRowId)
     const updatedVersion = Number(updatedRow?.version ?? updatedRow?.data?._upl_version)
     expect(updatedVersion, `${actionCodename} must persist the row version through UI`).toBe(expectedVersion + 1)
     await expect(page.getByRole('progressbar')).toHaveCount(0, { timeout: 30_000 })
     return {
-        id: rowId,
+        id: physicalRowId,
         ...row,
         ...(updatedRow?.data ?? {}),
         Status: expectedToStatus,
@@ -2420,10 +2639,14 @@ test.describe('LMS Snapshot Import Runtime Flow', () => {
         expect(widgetKeys.has('qrCodeWidget')).toBe(false)
 
         const menuWidget = (layoutWidgets.items ?? []).find((item: Record<string, unknown>) => item?.widgetKey === 'menuWidget')
-        const menuWidgetConfig = menuWidget?.config && typeof menuWidget.config === 'object' ? menuWidget.config : {}
-        expect((menuWidgetConfig as Record<string, unknown>).autoShowAllSections).toBe(false)
-        expect((menuWidgetConfig as Record<string, unknown>).maxPrimaryItems).toBe(12)
-        expect((menuWidgetConfig as Record<string, unknown>).startPage).toBe('LearnerHome')
+        expect(menuWidget, 'Imported LMS must preserve its generated menu placement').toBeTruthy()
+        expect(menuWidget).toMatchObject({
+            layoutId,
+            zone: 'left',
+            isActive: true,
+            config: { variant: 'generated' }
+        })
+        expect(menuWidget?.config).toEqual({ variant: 'generated' })
 
         await applyBrowserPreferences(page, { language: 'ru' })
         await page.goto(`/metahub/${importedId}/entities/object/instances`)
@@ -2648,8 +2871,6 @@ test.describe('LMS Snapshot Import Runtime Flow', () => {
             developmentPlanTasksObjectId,
             notificationOutboxObjectId,
             contentProgressObjectId,
-            courseItemsObjectId,
-            trackStepsObjectId,
             learnerHomePageId,
             progressLedgerId
         ] = await Promise.all([
@@ -2669,8 +2890,6 @@ test.describe('LMS Snapshot Import Runtime Flow', () => {
             waitForApplicationObjectId(api, applicationId, 'DevelopmentPlanTasks'),
             waitForApplicationObjectId(api, applicationId, 'NotificationOutbox'),
             waitForApplicationObjectId(api, applicationId, 'ContentProgress'),
-            waitForApplicationObjectId(api, applicationId, 'CourseItems'),
-            waitForApplicationObjectId(api, applicationId, 'TrackSteps'),
             waitForApplicationObjectId(api, applicationId, 'LearnerHome'),
             waitForApplicationLedgerId(api, applicationId, 'ProgressLedger')
         ])
@@ -2712,6 +2931,9 @@ test.describe('LMS Snapshot Import Runtime Flow', () => {
         if (typeof publicGuestWorkspaceId !== 'string' || publicGuestWorkspaceId.length === 0) {
             throw new Error('LMS public guest shared workspace creation did not return an id')
         }
+        expect(publicGuestWorkspaceId, 'Learning progress must be exercised outside the default personal workspace').not.toBe(
+            mainWorkspaceId
+        )
 
         await seedSharedPublicGuestContent({
             api,
@@ -2752,25 +2974,27 @@ test.describe('LMS Snapshot Import Runtime Flow', () => {
         })
         await expect(page.getByRole('heading', { name: LMS_WELCOME_PAGE.howToStartTitle.en })).toBeVisible({ timeout: 30_000 })
         await expect(page.getByText(LMS_WELCOME_PAGE.workspaceGuidance.en)).toBeVisible({ timeout: 30_000 })
-        await expect(page.getByRole('heading', { name: 'Learners' })).toBeVisible({ timeout: 30_000 })
-        await expect(page.getByRole('heading', { name: 'Projects' })).toBeVisible({ timeout: 30_000 })
-        await expect(page.getByRole('heading', { name: 'Enrollments' })).toBeVisible({ timeout: 30_000 })
-        await expect(page.getByRole('heading', { name: 'Certificates' })).toBeVisible({ timeout: 30_000 })
-        await expect(page.getByRole('heading', { name: 'Department Progress' })).toBeVisible({ timeout: 30_000 })
-        await expect(page.getByRole('heading', { name: 'Assignment Scores' })).toBeVisible({ timeout: 30_000 })
+        await expectPublishedLearnerHomeAssignments({
+            page,
+            locale: 'en',
+            screenshotPaths: {
+                course: testInfo.outputPath('lms-learner-home-my-courses-en.png'),
+                track: testInfo.outputPath('lms-learner-home-my-tracks-en.png')
+            }
+        })
+        await expectPublishedLearnerHomeLibraryTabs({
+            page,
+            locale: 'en',
+            screenshotPath: testInfo.outputPath('lms-learner-home-library-tabs-en.png')
+        })
         await expectNoTechnicalLeakage(page.getByTestId('runtime-page-blocks'), {
             label: 'LMS dashboard page player blocks',
             checkUuidSubstrings: true
         })
-        await expect(page.getByRole('tab', { name: 'My Courses' })).toBeVisible({ timeout: 30_000 })
-        await page.getByRole('tab', { name: 'My Courses' }).click()
-        await expect(page.getByText('Compliance Refresh Course')).toBeVisible({ timeout: 30_000 })
-        await page.getByRole('tab', { name: 'My Tracks' }).click()
-        await expect(page.getByText('Compliance refresh track')).toBeVisible({ timeout: 30_000 })
-        await expectVerticalGapBetween(page.getByRole('grid').first(), page.getByTestId('runtime-page-blocks'), {
-            min: 12,
-            max: 96,
-            label: 'LMS dashboard table-to-content module spacing'
+        await expectVerticalGapBetween(page.getByTestId('runtime-page-blocks'), page.getByTestId('runtime-details-tabs').first(), {
+            min: 0,
+            max: 48,
+            label: 'LMS dashboard page-to-tabs module spacing'
         })
         await expect(page.getByRole('link', { name: 'Workspaces' }).first()).toBeVisible()
         await expect(page.getByText('Module access QR')).toHaveCount(0)
@@ -2844,51 +3068,49 @@ test.describe('LMS Snapshot Import Runtime Flow', () => {
             api,
             applicationId,
             workspaceId: mainWorkspaceId,
-            navigationItem: 'Learning Content',
+            navigationItem: 'Content Projects',
             label: 'Learning Content library',
-            screenshotPath: testInfo.outputPath('lms-learning-content-library-en.png'),
-            captureViewportScreenshots: true,
-            expectCreateMenu: true,
-            expectRowActions: true,
-            expectShareWithMemberAction: true,
-            expectMoveToProjectAction: true
+            surfaceMode: 'library-table',
+            screenshotPath: testInfo.outputPath('lms-learning-content-library-en.png')
         })
         await setLearningContentDefaultView(api, applicationId, 'cards')
         await page.goto(`/a/${applicationId}`)
         await expectPublishedLearningContentView({
             page,
-            navigationItem: 'Learning Content',
+            navigationItem: 'Content Projects',
             label: 'Learning Content library card default',
-            expectedDefaultView: 'card',
-            screenshotPath: testInfo.outputPath('lms-learning-content-library-card-default-en.png'),
-            cardScreenshotPath: testInfo.outputPath('lms-learning-content-library-card-default-en.png'),
-            expectRowActions: true
+            surfaceMode: 'library-card',
+            screenshotPath: testInfo.outputPath('lms-learning-content-library-card-default-en.png')
         })
         await setLearningContentDefaultView(api, applicationId, 'table')
         await page.goto(`/a/${applicationId}`)
         await expectPublishedLearningContentView({
             page,
-            navigationItem: 'Recent',
+            navigationItem: 'Recent Content Views',
             label: 'Recent Learning Content',
+            surfaceMode: 'saved-table',
             screenshotPath: testInfo.outputPath('lms-learning-content-recent-en.png')
         })
         await expectPublishedLearningContentView({
             page,
-            navigationItem: 'Starred',
+            navigationItem: 'Content Stars',
             label: 'Starred Learning Content',
+            surfaceMode: 'saved-table',
             screenshotPath: testInfo.outputPath('lms-learning-content-starred-en.png')
         })
         await expectPublishedLearningContentView({
             page,
-            navigationItem: 'Shared with me',
+            navigationItem: 'Content Access Entries',
             label: 'Shared Learning Content',
+            surfaceMode: 'saved-table',
             screenshotPath: testInfo.outputPath('lms-learning-content-shared-en.png')
         })
-        await deleteFirstPublishedLearningContentRowForTrashProof(page, api, applicationId, mainWorkspaceId)
+        const deletedLearningContent = await deleteFirstPublishedLearningContentRowForTrashProof(page, api, applicationId, mainWorkspaceId)
         await expectPublishedLearningContentView({
             page,
             navigationItem: 'Trash',
             label: 'Learning Content Trash',
+            surfaceMode: 'saved-table',
             screenshotPath: testInfo.outputPath('lms-learning-content-trash-en.png')
         })
         await expectPublishedTrashRestoreTargetFlow({
@@ -2896,97 +3118,133 @@ test.describe('LMS Snapshot Import Runtime Flow', () => {
             api,
             applicationId,
             workspaceId: mainWorkspaceId,
-            screenshotPath: testInfo.outputPath('lms-learning-content-trash-restore-target-en.png')
+            screenshotPath: testInfo.outputPath('lms-learning-content-trash-restore-target-en.png'),
+            deletedRecord: deletedLearningContent
         })
 
         await expectPublishedBuilderTabs({
             page,
             navigationItem: 'Courses',
             label: 'Course Builder',
-            tabNames: ['Outline', 'General', 'Completion', 'Player', 'Enrollments', 'Reports'],
+            tabs: [
+                { name: 'Sections', kind: 'relation', expectedColumnHeader: 'Name' },
+                { name: 'Course items', kind: 'relation', expectedColumnHeader: 'Name' },
+                { name: 'Player', kind: 'learner-player' },
+                { name: 'Reports', kind: 'reports' }
+            ],
             screenshotPath: testInfo.outputPath('lms-course-builder-tabs-en.png')
-        })
-        await expectPublishedLearnerPlayer({
-            page,
-            applicationId,
-            screenshotPath: testInfo.outputPath('lms-course-builder-learner-player-en.png')
-        })
-        await expectPublishedBuilderRelationScope({
-            page,
-            navigationItem: 'Courses',
-            label: 'Course Builder',
-            initialParent: 'Compliance Refresh Course',
-            initialChildren: ['Read the certificate policy'],
-            nextParent: 'Learner Onboarding Course',
-            nextChildren: ['Start with the course overview', 'Watch the safety intro'],
-            screenshotPath: testInfo.outputPath('lms-course-builder-outline-scope-en.png')
-        })
-        await expectPublishedBuilderEnrollmentWarning({
-            page,
-            navigationItem: 'Courses',
-            label: 'Course Builder',
-            parentName: 'Compliance Refresh Course',
-            warningText: 'This course already has enrollments. Review learner impact before changing the outline.',
-            screenshotPath: testInfo.outputPath('lms-course-builder-enrollments-warning-en.png')
-        })
-        await expectPublishedEnrollmentWizard({
-            page,
-            navigationItem: 'Courses',
-            label: 'Course Builder',
-            panelId: 'course-enrollments',
-            screenshotPath: testInfo.outputPath('lms-course-builder-enrollment-wizard-en.png')
         })
         await expectPublishedBuilderTabs({
             page,
-            navigationItem: 'Tracks',
+            navigationItem: 'Learning Tracks',
             label: 'Learning Track Builder',
-            tabNames: ['Outline', 'General', 'Completion', 'Player', 'Enrollments', 'Reports'],
+            tabs: [
+                { name: 'Stages', kind: 'relation', expectedColumnHeader: 'Name' },
+                { name: 'Track steps', kind: 'relation', expectedColumnHeader: 'Name' },
+                { name: 'Player', kind: 'learner-player' },
+                { name: 'Reports', kind: 'reports' }
+            ],
             screenshotPath: testInfo.outputPath('lms-track-builder-tabs-en.png')
+        })
+
+        await expectPublishedBuilderRelationScope({
+            page,
+            navigationItem: 'Courses',
+            builderTab: 'Course items',
+            label: 'CourseItems parent selection',
+            locale: 'en',
+            screenshotPath: testInfo.outputPath('lms-course-items-parent-selection-en.png')
+        })
+        await expectPublishedCourseItemCreateWizard({
+            page,
+            navigationItem: 'Courses',
+            builderTab: 'Course items',
+            label: 'Course item create wizard',
+            locale: 'en',
+            screenshotPath: testInfo.outputPath('lms-course-item-create-wizard.png')
+        })
+        await switchRuntimeLocale(page, 'ru')
+        await expectPublishedCourseItemCreateWizard({
+            page,
+            navigationItem: 'Курсы',
+            builderTab: 'Элементы курса',
+            label: 'Мастер создания элемента курса',
+            locale: 'ru',
+            screenshotPath: testInfo.outputPath('lms-course-item-create-wizard.png')
+        })
+        await switchRuntimeLocale(page, 'en')
+        await expectPublishedLearnerPlayer({
+            page,
+            api,
+            applicationId,
+            contentProgressObjectId,
+            workspaceId: publicGuestWorkspaceId,
+            navigationItem: 'Courses',
+            label: 'Course learner player',
+            targetObjectCodename: 'CourseItems',
+            locale: 'en',
+            screenshotPath: testInfo.outputPath('lms-course-builder-learner-player-en.png')
         })
         await expectPublishedTrackLearnerPlayer({
             page,
+            api,
             applicationId,
-            screenshotPath: testInfo.outputPath('lms-track-builder-learner-player-en.png')
+            contentProgressObjectId,
+            workspaceId: mainWorkspaceId,
+            navigationItem: 'Учебные треки',
+            label: 'Track learner player',
+            locale: 'ru',
+            screenshotPath: testInfo.outputPath('lms-track-builder-learner-player-ru.png')
         })
+        await switchRuntimeLocale(page, 'en')
         await expectPublishedBuilderRelationScope({
             page,
-            navigationItem: 'Tracks',
-            label: 'Learning Track Builder',
-            initialParent: 'Compliance refresh track',
-            initialChildren: ['Refresh compliance'],
-            nextParent: 'New learner onboarding track',
-            nextChildren: ['Start onboarding', 'Compliance essentials'],
-            screenshotPath: testInfo.outputPath('lms-track-builder-outline-scope-en.png')
+            navigationItem: 'Learning Tracks',
+            builderTab: 'Шаги трека',
+            label: 'TrackSteps parent selection',
+            locale: 'ru',
+            screenshotPath: testInfo.outputPath('lms-track-steps-parent-selection-ru.png')
         })
-        await expectPublishedBuilderEnrollmentWarning({
-            page,
-            navigationItem: 'Tracks',
-            label: 'Learning Track Builder',
-            parentName: 'Compliance refresh track',
-            warningText: 'This track already has enrollments. Review learner impact before changing stages or steps.',
-            screenshotPath: testInfo.outputPath('lms-track-builder-enrollments-warning-en.png')
-        })
+        await switchRuntimeLocale(page, 'en')
 
-        await expectPublishedOutlineReorder({
+        await expectPublishedRelationBuilderReorder({
             page,
             api,
             applicationId,
-            objectId: courseItemsObjectId,
             workspaceId: mainWorkspaceId,
+            objectCodename: 'CourseItems',
+            navigationItem: 'Courses',
+            builderTab: 'Course items',
+            parentFieldCodename: 'CourseId',
             label: 'CourseItems outline',
-            screenshotPath: testInfo.outputPath('lms-course-items-outline-ordering-en.png')
+            screenshotPath: testInfo.outputPath('lms-course-items-relation-ordering-en.png')
         })
-        await expectPublishedOutlineReorder({
+        await expectPublishedRelationBuilderReorder({
             page,
             api,
             applicationId,
-            objectId: trackStepsObjectId,
             workspaceId: mainWorkspaceId,
+            objectCodename: 'TrackSteps',
+            navigationItem: 'Learning Tracks',
+            builderTab: 'Track steps',
+            parentFieldCodename: 'TrackId',
             label: 'TrackSteps outline',
-            screenshotPath: testInfo.outputPath('lms-track-steps-outline-ordering-en.png')
+            screenshotPath: testInfo.outputPath('lms-track-steps-relation-ordering-en.png')
+        })
+        await expectPublishedCourseItemCreateSucceeds({
+            page,
+            api,
+            applicationId,
+            workspaceId: mainWorkspaceId,
+            screenshotPath: testInfo.outputPath('lms-course-item-create-persisted-en.png')
         })
 
-        await page.getByRole('link', { name: 'Workspaces' }).first().click()
+        const workspacesLink = page.getByRole('link', { name: 'Workspaces', exact: true })
+        await expect(workspacesLink, 'The generated dashboard must expose one Workspaces navigation link').toHaveCount(1)
+        const workspacesHref = await workspacesLink.getAttribute('href')
+        expect(workspacesHref, 'Workspaces navigation must expose its runtime route').not.toBeNull()
+        expect(new URL(workspacesHref ?? '', 'http://runtime.local').pathname).toBe(`/a/${applicationId}/workspaces`)
+        await workspacesLink.click()
         await expect(page.getByTestId('runtime-workspaces-page')).toBeVisible({ timeout: 30_000 })
         await expect(page.getByTestId('runtime-workspaces-card-view')).toBeVisible({ timeout: 30_000 })
         await expect(page.getByTestId('runtime-pagination-surface')).toBeVisible({ timeout: 30_000 })
@@ -2995,26 +3253,50 @@ test.describe('LMS Snapshot Import Runtime Flow', () => {
         await page.getByRole('button', { name: 'Table view' }).click()
         await expect(page.getByTestId('runtime-list-surface')).toBeVisible({ timeout: 30_000 })
         await expect(page.getByTestId('runtime-pagination-surface')).toBeVisible({ timeout: 30_000 })
+        await expectRuntimeUxViewportMatrix(page, 'LMS workspaces table view', {
+            beforeEachViewport: async (viewport) => {
+                await expect(page.getByTestId('runtime-list-surface')).toBeVisible({ timeout: 30_000 })
+                await expect(page.getByTestId('runtime-pagination-surface')).toBeVisible({ timeout: 30_000 })
+                await expectTableHorizontalScrollConstrained(
+                    page.getByTestId('runtime-list-surface'),
+                    `LMS workspaces table at ${viewport.name}`
+                )
+                await expectNoDataGridTechnicalLeakage(page.getByTestId('runtime-list-surface'), {
+                    label: `LMS workspaces table at ${viewport.name}`,
+                    checkUuidSubstrings: true
+                })
+                const suffix = viewport.name.toLowerCase().replace(/[^a-z0-9]+/g, '-')
+                await page.screenshot({ path: testInfo.outputPath(`lms-workspaces-table-${suffix}.png`), fullPage: true })
+            }
+        })
         await page.screenshot({ path: testInfo.outputPath('lms-workspaces-en.png'), fullPage: true })
         await page.goto(`/a/${applicationId}`)
         await expect(page.getByTestId('runtime-page-blocks')).toBeVisible({ timeout: 30_000 })
 
-        const assertHomeDashboardWidgetsHidden = async () => {
-            await expect(page.getByText('Learners', { exact: true })).toHaveCount(0)
-            await expect(page.getByText('Department Progress', { exact: true })).toHaveCount(0)
-            await expect(page.getByText('Assignment Scores', { exact: true })).toHaveCount(0)
+        const assertLearnerHomeCompositionHidden = async () => {
+            await expect(page.getByRole('tab', { name: 'Recent', exact: true })).toHaveCount(0)
+            await expect(page.getByRole('tab', { name: 'Starred', exact: true })).toHaveCount(0)
+            await expect(page.getByRole('tab', { name: 'Shared with me', exact: true })).toHaveCount(0)
         }
 
-        await clickRuntimeNavigationItem(page, 'Knowledge')
-        await expect(page.getByTestId(applicationSelectors.runtimeCreateButton)).toBeEnabled({ timeout: 30_000 })
+        await clickRuntimeNavigationItem(page, 'Knowledge Articles')
+        const knowledgeArticlesTable = page.getByTestId('dashboard-entity-table').first()
+        await expect(knowledgeArticlesTable).toBeVisible({ timeout: 30_000 })
+        const createArticleMenu = knowledgeArticlesTable.getByTestId('records-union-create-target-menu-button')
+        await expect(createArticleMenu).toBeEnabled({ timeout: 30_000 })
         const knowledgeArticlesObjectId = await waitForApplicationObjectId(api, applicationId, 'Knowledge Articles')
         const authoredArticleTitle = `Published app article ${runManifest.runId}`
         const authoredArticleBody = `Created in the published application ${runManifest.runId}`
         const updatedArticleBody = `Updated in the published application ${runManifest.runId}`
 
-        await page.getByTestId(applicationSelectors.runtimeCreateButton).click()
+        await createArticleMenu.click()
+        await page.getByRole('menuitem', { name: 'Article', exact: true }).click()
         const createArticleDialog = page.getByRole('dialog', { name: 'Create element' })
         await expect(createArticleDialog).toBeVisible()
+        await expect(
+            createArticleDialog.getByRole('textbox', { name: 'Sort Order', exact: true }),
+            'Knowledge Article order is Entity-owned with a hidden default and must not become a manual runtime form field'
+        ).toHaveCount(0)
         await expectNoTechnicalLeakage(createArticleDialog, {
             label: 'Published app create article dialog',
             checkUuidSubstrings: true
@@ -3028,8 +3310,12 @@ test.describe('LMS Snapshot Import Runtime Flow', () => {
         await fillRuntimeBlockEditorField(page, createArticleDialog, authoredArticleBody)
         const createArticleRequest = waitForSettledMutationResponse(
             page,
-            (response) =>
-                response.request().method() === 'POST' && response.url().endsWith(`/api/v1/applications/${applicationId}/runtime/rows`),
+            (response) => {
+                const requestUrl = new URL(response.url())
+                return (
+                    response.request().method() === 'POST' && requestUrl.pathname === `/api/v1/applications/${applicationId}/runtime/rows`
+                )
+            },
             { label: 'Creating LMS knowledge article' }
         )
         await createArticleDialog.getByTestId(entityDialogSelectors.submitButton).click()
@@ -3041,9 +3327,12 @@ test.describe('LMS Snapshot Import Runtime Flow', () => {
         await expect(page.getByText(authoredArticleTitle, { exact: true })).toBeVisible({ timeout: 30_000 })
         const createdArticleRow = await waitForApplicationRuntimeRow(api, applicationId, knowledgeArticlesObjectId, createdArticle.id)
         expect(readLocalizedText(createdArticleRow?.Title)).toBe(authoredArticleTitle)
+        expect(createdArticleRow?.SortOrder).toBe(0)
         expect(extractRuntimeBlockTexts(createdArticleRow?.Body)).toContain(authoredArticleBody)
 
-        await page.getByTestId(buildGridRowActionsTriggerSelector(createdArticle.id)).click()
+        const authoredArticleRow = knowledgeArticlesTable.getByRole('row').filter({ hasText: authoredArticleTitle })
+        await expect(authoredArticleRow, 'The newly created Knowledge Article must appear in its Entity-backed table').toBeVisible()
+        await authoredArticleRow.getByRole('button', { name: `Actions for ${authoredArticleTitle}`, exact: true }).click()
         await page.getByRole('menuitem', { name: 'Edit' }).click()
         const editArticleDialog = page.getByRole('dialog', { name: 'Edit element' })
         await expect(editArticleDialog).toBeVisible()
@@ -3055,25 +3344,36 @@ test.describe('LMS Snapshot Import Runtime Flow', () => {
             forbiddenEditableIdLabels: ['ProjectId', 'OwnerId', 'UserId', 'FolderId', 'TargetRecordId']
         })
         await fillRuntimeBlockEditorField(page, editArticleDialog, updatedArticleBody)
+        const editArticlePathPrefix = `/api/v1/applications/${applicationId}/runtime/rows/`
         const editArticleRequest = waitForSettledMutationResponse(
             page,
-            (response) =>
-                response.request().method() === 'PATCH' &&
-                response.url().endsWith(`/api/v1/applications/${applicationId}/runtime/rows/${createdArticle.id}`),
+            (response) => {
+                const requestUrl = new URL(response.url())
+                return response.request().method() === 'PATCH' && requestUrl.pathname.startsWith(`${editArticlePathPrefix}rh1.`)
+            },
             { label: 'Editing LMS knowledge article' }
         )
         await editArticleDialog.getByTestId(entityDialogSelectors.submitButton).click()
-        await expect((await editArticleRequest).ok()).toBe(true)
+        const editArticleResponse = await editArticleRequest
+        const editArticleRecordReference = new URL(editArticleResponse.url()).pathname.slice(editArticlePathPrefix.length)
+        expect(editArticleRecordReference, 'Published row mutation must use an opaque runtime record handle').toMatch(
+            RUNTIME_RECORD_HANDLE_PATTERN
+        )
+        expect(editArticleRecordReference, 'Published row mutation must not expose the physical Entity UUID').not.toBe(createdArticle.id)
+        await expect(editArticleResponse.ok()).toBe(true)
         const updatedArticleRow = await waitForApplicationRuntimeRow(api, applicationId, knowledgeArticlesObjectId, createdArticle.id)
         expect(extractRuntimeBlockTexts(updatedArticleRow?.Body)).toContain(updatedArticleBody)
         await expect(page.getByRole('progressbar')).toHaveCount(0, { timeout: 30_000 })
         await expect(page.getByText('[object Object]', { exact: true })).toHaveCount(0)
-        await assertHomeDashboardWidgetsHidden()
+        await assertLearnerHomeCompositionHidden()
         await page.screenshot({ path: testInfo.outputPath('lms-knowledge-without-home-widgets-en.png'), fullPage: true })
-        await clickRuntimeNavigationItem(page, 'Development')
-        await expect(page.getByTestId(applicationSelectors.runtimeCreateButton)).toBeEnabled({ timeout: 30_000 })
-        await expect(page.getByRole('progressbar')).toHaveCount(0, { timeout: 30_000 })
-        await assertHomeDashboardWidgetsHidden()
+        await clickRuntimeNavigationItem(page, 'Development Home')
+        await expect(page.getByTestId('runtime-page-blocks')).toBeVisible({ timeout: 30_000 })
+        await expect(page.getByTestId(applicationSelectors.runtimeCreateButton)).toHaveCount(0)
+        const readingProgress = page.getByRole('progressbar', { name: 'Reading progress' })
+        await expect(readingProgress).toBeVisible({ timeout: 30_000 })
+        await expect(readingProgress).toHaveAttribute('aria-valuenow', '0')
+        await assertLearnerHomeCompositionHidden()
         const reportsNavigationItem = page
             .getByRole('link', { name: 'Reports' })
             .or(page.getByRole('button', { name: 'Reports' }))
@@ -3122,7 +3422,7 @@ test.describe('LMS Snapshot Import Runtime Flow', () => {
             'Reports Learning Content summary report',
             testInfo.outputPath('lms-reports-learning-content-summary-viewport.png')
         )
-        await assertHomeDashboardWidgetsHidden()
+        await assertLearnerHomeCompositionHidden()
 
         await applyBrowserPreferences(page, { language: 'ru' })
         await page.goto(`/a/${applicationId}`)
@@ -3138,13 +3438,11 @@ test.describe('LMS Snapshot Import Runtime Flow', () => {
         })
         await expect(page.getByRole('heading', { name: LMS_WELCOME_PAGE.howToStartTitle.ru })).toBeVisible({ timeout: 30_000 })
         await expect(page.getByText(LMS_WELCOME_PAGE.workspaceGuidance.ru)).toBeVisible({ timeout: 30_000 })
-        await expect(page.getByRole('heading', { name: 'Учащиеся' })).toBeVisible({ timeout: 30_000 })
-        await expect(page.getByRole('heading', { name: 'Проекты' })).toBeVisible({ timeout: 30_000 })
-        await expect(page.getByRole('heading', { name: 'Назначения' })).toBeVisible({ timeout: 30_000 })
-        await expect(page.getByRole('heading', { name: 'Сертификаты' })).toBeVisible({ timeout: 30_000 })
-        await expect(page.getByRole('heading', { name: 'Прогресс подразделений' })).toBeVisible({ timeout: 30_000 })
-        await expect(page.getByRole('heading', { name: 'Оценки заданий' })).toBeVisible({ timeout: 30_000 })
-        await expect(page.getByText('Нет данных для отображения', { exact: true }).first()).toBeVisible({ timeout: 30_000 })
+        await expectPublishedLearnerHomeLibraryTabs({
+            page,
+            locale: 'ru',
+            screenshotPath: testInfo.outputPath('lms-learner-home-library-tabs-ru.png')
+        })
         await expect(page.getByText('Learners', { exact: true })).toHaveCount(0)
         await expect(page.getByText('No data to display', { exact: true })).toHaveCount(0)
         await expect(page.getByRole('link', { name: 'Рабочие пространства' }).first()).toBeVisible()
@@ -3159,8 +3457,8 @@ test.describe('LMS Snapshot Import Runtime Flow', () => {
         await assertNoHorizontalOverflow(page, 'RU LMS dashboard')
         await page.screenshot({ path: testInfo.outputPath('lms-dashboard-ru.png'), fullPage: true })
 
-        await clickRuntimeNavigationItem(page, 'Учебный контент')
-        const ruLearningContentSurface = page.getByTestId('records-union-details-table').first()
+        await clickRuntimeNavigationItem(page, 'Проекты контента')
+        const ruLearningContentSurface = page.getByTestId('library-details-table').first()
         await expect(ruLearningContentSurface, 'RU Learning Content runtime surface must load').toBeVisible({ timeout: 30_000 })
         await expectNoTechnicalLeakage(ruLearningContentSurface, {
             label: 'RU Learning Content runtime surface',
@@ -3264,40 +3562,62 @@ test.describe('LMS Snapshot Import Runtime Flow', () => {
         await expectPublicRuntimeSecurityEdges(page, applicationId)
         await expectRegistrarOnlyLedgerRejectsManualWrite(api, applicationId, progressLedgerId, mainWorkspaceId)
 
-        const enrollmentRows = await waitForApplicationRuntimeRowCount(
-            api,
-            applicationId,
-            enrollmentsObjectId,
-            LMS_DEMO_ENROLLMENTS.length + 2,
-            {
-                workspaceId: mainWorkspaceId
-            }
-        )
-        const enrollmentToPost = enrollmentRows.find((row) => row?._app_record_state !== 'posted') ?? enrollmentRows[0]
-        if (typeof enrollmentToPost?.id !== 'string') {
-            throw new Error('LMS posting proof could not find an enrollment runtime row')
-        }
+        await waitForApplicationRuntimeRowCount(api, applicationId, enrollmentsObjectId, LMS_DEMO_ENROLLMENTS.length + 2, {
+            workspaceId: mainWorkspaceId
+        })
 
         await page.goto(buildPublishedRuntimeObjectHref(applicationId, enrollmentsObjectId))
-        await runRuntimeRecordCommandFromRow(page, enrollmentToPost.id, 'post')
+        const enrollmentRecordCommandTarget = 'Compliance Refresh Course'
+        const enrollmentsRuntime = await getApplicationRuntime(api, applicationId, {
+            objectId: enrollmentsObjectId,
+            workspaceId: mainWorkspaceId,
+            limit: 200,
+            offset: 0
+        })
+        const enrollmentColumns = Array.isArray(enrollmentsRuntime.columns)
+            ? (enrollmentsRuntime.columns as Array<{ field?: unknown; codename?: unknown }>)
+            : []
+        const enrollmentRows = Array.isArray(enrollmentsRuntime.rows) ? (enrollmentsRuntime.rows as Array<Record<string, unknown>>) : []
+        const matchingEnrollmentRows = enrollmentRows.filter(
+            (row) =>
+                readLocalizedText(readRuntimeRowValue(row, enrollmentColumns, 'TargetTitle', 'target_title'), 'en') ===
+                enrollmentRecordCommandTarget
+        )
+        expect(matchingEnrollmentRows, 'The posted enrollment must resolve to one physical Entity row').toHaveLength(1)
+        const physicalEnrollmentId = requireRuntimeRowId(matchingEnrollmentRows[0]!, 'Compliance Refresh Course enrollment')
+        expect(physicalEnrollmentId, 'Persisted enrollment identity must remain UUID v7').toMatch(UUID_V7_PATTERN)
+
+        const postedEnrollmentHandle = await runRuntimeRecordCommandFromSemanticRow(page, enrollmentRecordCommandTarget, 'post')
+        expect(postedEnrollmentHandle, 'Public post command must not expose the physical enrollment UUID').not.toBe(physicalEnrollmentId)
 
         const progressFacts = await waitForApplicationLedgerFactCount(api, applicationId, progressLedgerId, 1, {
             workspaceId: mainWorkspaceId
         })
         expect(progressFacts[0]?.data).toMatchObject({
-            SourceRowId: enrollmentToPost.id,
+            SourceRowId: physicalEnrollmentId,
             SourceLineId: 'enrollment-progress'
         })
-        const postedProgressDelta = Number(progressFacts[0]?.data?.ProgressDelta ?? 0)
+        const postedProgressData = progressFacts[0]?.data
+        const postedProgressDelta = Number(isRecord(postedProgressData) ? postedProgressData.ProgressDelta ?? 0 : 0)
         expect(Number.isFinite(postedProgressDelta)).toBe(true)
 
-        await runRuntimeRecordCommandFromRow(page, enrollmentToPost.id, 'unpost')
+        const unpostedEnrollmentHandle = await runRuntimeRecordCommandFromSemanticRow(page, enrollmentRecordCommandTarget, 'unpost')
+        expect(unpostedEnrollmentHandle, 'Public unpost command must not expose the physical enrollment UUID').not.toBe(
+            physicalEnrollmentId
+        )
 
         const compensatedProgressFacts = await waitForApplicationLedgerFactCount(api, applicationId, progressLedgerId, 2, {
             workspaceId: mainWorkspaceId
         })
+        expect(
+            compensatedProgressFacts.every((fact) => isRecord(fact?.data) && fact.data.SourceRowId === physicalEnrollmentId),
+            'Post and unpost ledger facts must resolve their opaque handles to the same physical enrollment UUID'
+        ).toBe(true)
         const progressDeltas = compensatedProgressFacts
-            .map((fact) => Number(fact?.data?.ProgressDelta ?? 0))
+            .map((fact) => {
+                const factData = fact?.data
+                return Number(isRecord(factData) ? factData.ProgressDelta ?? 0 : 0)
+            })
             .sort((left, right) => left - right)
         expect(progressDeltas.every(Number.isFinite)).toBe(true)
         expect(progressDeltas.reduce((sum, delta) => sum + delta, 0)).toBeCloseTo(0)
@@ -3307,12 +3627,19 @@ test.describe('LMS Snapshot Import Runtime Flow', () => {
             expect(progressDeltas.every((delta) => delta === 0)).toBe(true)
         }
 
-        const expectedContentProgressRuntimeRows =
-            LMS_DEMO_CONTENT_PROGRESS.length +
-            1 + // page completion progress
-            2 + // course item progress plus course aggregate
-            2 + // track step progress plus track aggregate
-            1 // learner-player preview view progress before explicit completion
+        const expectedContentProgressSemanticTargetCounts = {
+            LearnerHome: 1,
+            CourseItems: 1,
+            Courses: 1,
+            TrackSteps: 3,
+            LearningTracks: 2,
+            DevelopmentHome: 1
+        } as const
+        const expectedContentProgressSemanticRows = Object.values(expectedContentProgressSemanticTargetCounts).reduce(
+            (sum, count) => sum + count,
+            0
+        )
+        const expectedContentProgressRuntimeRows = LMS_DEMO_CONTENT_PROGRESS.length + expectedContentProgressSemanticRows
 
         // Creating the shared public guest workspace re-seeds the published snapshot
         // demo elements (students, quiz responses, content progress) into it, exactly
@@ -3321,7 +3648,18 @@ test.describe('LMS Snapshot Import Runtime Flow', () => {
         // per run on top of the seeded demo rows.
         const expectedPublicGuestStudentRows = LMS_DEMO_STUDENTS.length + 2
         const expectedPublicGuestQuizResponseRows = LMS_DEMO_QUIZ_RESPONSES.length + 4
-        const expectedPublicGuestContentProgressRows = LMS_DEMO_CONTENT_PROGRESS.length + 2
+        const expectedPublicGuestContentProgressSemanticTargetCounts = {
+            LearnerHome: 1,
+            CourseItems: 3,
+            Courses: 2
+        } as const
+        const expectedPublicGuestContentProgressSemanticRows = Object.values(expectedPublicGuestContentProgressSemanticTargetCounts).reduce(
+            (sum, count) => sum + count,
+            0
+        )
+        const expectedPublicGuestLegacyContentProgressRows = LMS_DEMO_CONTENT_PROGRESS.length + 2
+        const expectedPublicGuestContentProgressRows =
+            expectedPublicGuestLegacyContentProgressRows + expectedPublicGuestContentProgressSemanticRows
 
         const [
             studentRows,
@@ -3360,6 +3698,77 @@ test.describe('LMS Snapshot Import Runtime Flow', () => {
         expect(publicGuestContentProgressRows).toHaveLength(expectedPublicGuestContentProgressRows)
         expect(new Set(publicGuestContentProgressRows.map((row) => requireRuntimeRowId(row, 'Public ContentProgress'))).size).toBe(
             publicGuestContentProgressRows.length
+        )
+
+        const assertContentProgressSemanticTargets = async (
+            rows: Array<Record<string, unknown>>,
+            workspaceId: string,
+            expectedCounts: Readonly<Record<string, number>>,
+            expectedSemanticRows: number,
+            expectedLegacyRows: number,
+            label: string
+        ) => {
+            const runtime = await getApplicationRuntime(api, applicationId, {
+                objectId: contentProgressObjectId,
+                workspaceId
+            })
+            const columns = Array.isArray(runtime.columns) ? (runtime.columns as Array<{ field?: unknown; codename?: unknown }>) : []
+            const semanticKeys: string[] = []
+            const legacyKeys: string[] = []
+            const counts = new Map<string, number>()
+
+            for (const row of rows) {
+                const targetObjectCodename = readRuntimeRowValue(row, columns, 'TargetObjectCodename', 'target_object_codename')
+                const targetRecordId = readRuntimeRowValue(row, columns, 'TargetRecordId', 'target_record_id')
+                if (
+                    typeof targetObjectCodename !== 'string' ||
+                    targetObjectCodename.length === 0 ||
+                    typeof targetRecordId !== 'string' ||
+                    targetRecordId.length === 0
+                ) {
+                    const progressStudentId = readRuntimeRowValue(row, columns, 'ProgressStudentId', 'progress_student_id')
+                    const contentNodeId = readRuntimeRowValue(row, columns, 'ContentNodeId', 'content_node_id')
+                    if (
+                        typeof progressStudentId === 'string' &&
+                        progressStudentId.length > 0 &&
+                        typeof contentNodeId === 'string' &&
+                        contentNodeId.length > 0
+                    ) {
+                        legacyKeys.push(`${progressStudentId}:${contentNodeId}`)
+                    }
+                    continue
+                }
+
+                semanticKeys.push(`${targetObjectCodename}:${targetRecordId}`)
+                counts.set(targetObjectCodename, (counts.get(targetObjectCodename) ?? 0) + 1)
+            }
+
+            expect(semanticKeys, `${label} semantic progress rows`).toHaveLength(expectedSemanticRows)
+            expect(new Set(semanticKeys).size, `${label} semantic progress keys must be unique`).toBe(semanticKeys.length)
+            expect(legacyKeys, `${label} legacy/guest progress rows`).toHaveLength(expectedLegacyRows)
+            expect(new Set(legacyKeys).size, `${label} legacy/guest progress keys must be unique`).toBe(legacyKeys.length)
+            expect(rows.length, `${label} progress rows must be fully classified`).toBe(semanticKeys.length + legacyKeys.length)
+            expect(
+                Object.fromEntries([...counts.entries()].sort(([left], [right]) => left.localeCompare(right))),
+                `${label} semantic progress targets`
+            ).toEqual(Object.fromEntries(Object.entries(expectedCounts).sort(([left], [right]) => left.localeCompare(right))))
+        }
+
+        await assertContentProgressSemanticTargets(
+            contentProgressRows,
+            mainWorkspaceId,
+            expectedContentProgressSemanticTargetCounts,
+            expectedContentProgressSemanticRows,
+            LMS_DEMO_CONTENT_PROGRESS.length,
+            'Main workspace'
+        )
+        await assertContentProgressSemanticTargets(
+            publicGuestContentProgressRows,
+            publicGuestWorkspaceId,
+            expectedPublicGuestContentProgressSemanticTargetCounts,
+            expectedPublicGuestContentProgressSemanticRows,
+            expectedPublicGuestLegacyContentProgressRows,
+            'Public guest workspace'
         )
         const primaryStudentId = studentRows.find((row) => typeof row?.id === 'string')?.id
         if (typeof primaryStudentId !== 'string') {
@@ -3404,7 +3813,7 @@ test.describe('LMS Snapshot Import Runtime Flow', () => {
         const browserGatedSubmissionVersion = requireRuntimeRowVersion(browserGatedSubmissionRow, 'Browser-gated workflow submission')
 
         await page.goto(buildPublishedRuntimeObjectHref(applicationId, assignmentSubmissionsObjectId))
-        const hiddenCapabilityRowActions = await getVisibleRuntimeRowActions(page, browserGatedSubmissionRowId)
+        const { trigger: hiddenCapabilityRowActions } = await getVisibleRuntimeRowActions(page, '2026-05-15T10:30:00')
         await hiddenCapabilityRowActions.click()
         await expect(page.getByTestId('runtime-workflow-action-StartSubmissionReview')).toHaveCount(0)
         await page.screenshot({ path: testInfo.outputPath('lms-workflow-action-hidden-without-capability-en.png'), fullPage: true })
@@ -3430,7 +3839,11 @@ test.describe('LMS Snapshot Import Runtime Flow', () => {
 
         await grantLmsOwnerWorkflowCapabilities(api, applicationId)
         await page.goto(buildPublishedRuntimeObjectHref(applicationId, assignmentSubmissionsObjectId))
-        const visibleCapabilityRowActions = await getVisibleRuntimeRowActions(page, browserGatedSubmissionRowId)
+        const { trigger: visibleCapabilityRowActions, recordHandle: browserGatedSubmissionRecordHandle } =
+            await getVisibleRuntimeRowActions(page, '2026-05-15T10:30:00')
+        expect(browserGatedSubmissionRecordHandle, 'Browser workflow action must not expose the physical submission id').not.toBe(
+            browserGatedSubmissionRowId
+        )
         await visibleCapabilityRowActions.click()
         const startReviewAction = page.getByTestId('runtime-workflow-action-StartSubmissionReview').first()
         await expect(startReviewAction).toBeVisible({ timeout: 30_000 })
@@ -3438,12 +3851,23 @@ test.describe('LMS Snapshot Import Runtime Flow', () => {
         const browserWorkflowResponsePromise = page.waitForResponse(
             (response) =>
                 response.request().method() === 'POST' &&
-                response.url().includes(`/runtime/rows/${encodeURIComponent(browserGatedSubmissionRowId)}/workflow/StartSubmissionReview`),
+                response
+                    .url()
+                    .includes(`/runtime/rows/${encodeURIComponent(browserGatedSubmissionRecordHandle)}/workflow/StartSubmissionReview`),
             { timeout: 30_000 }
         )
         await startReviewAction.click()
         const browserWorkflowResponse = await browserWorkflowResponsePromise
         expect(browserWorkflowResponse.ok(), 'Browser workflow action must succeed after the capability grant').toBe(true)
+        const browserWorkflowPayload = await browserWorkflowResponse.json()
+        expect(browserWorkflowPayload).toMatchObject({
+            id: browserGatedSubmissionRecordHandle,
+            actionCodename: 'StartSubmissionReview',
+            toStatus: 'PendingReview'
+        })
+        expect(browserWorkflowPayload.id, 'Browser workflow response must not expose the physical submission id').not.toBe(
+            browserGatedSubmissionRowId
+        )
         browserGatedSubmissionRow = await waitForApplicationRuntimeRow(
             api,
             applicationId,
@@ -3468,6 +3892,7 @@ test.describe('LMS Snapshot Import Runtime Flow', () => {
             mainWorkspaceId,
             assignmentSubmissionsObjectId,
             acceptedSubmissionRow,
+            '2026-05-15T11:00:00',
             'StartSubmissionReview',
             'PendingReview'
         )
@@ -3478,6 +3903,7 @@ test.describe('LMS Snapshot Import Runtime Flow', () => {
             mainWorkspaceId,
             assignmentSubmissionsObjectId,
             acceptedSubmissionRow,
+            '2026-05-15T11:00:00',
             'AcceptSubmission',
             'Accepted',
             'post'
@@ -3497,6 +3923,7 @@ test.describe('LMS Snapshot Import Runtime Flow', () => {
             mainWorkspaceId,
             assignmentSubmissionsObjectId,
             declinedSubmissionRow,
+            '2026-05-15T11:30:00',
             'StartSubmissionReview',
             'PendingReview'
         )
@@ -3507,6 +3934,7 @@ test.describe('LMS Snapshot Import Runtime Flow', () => {
             mainWorkspaceId,
             assignmentSubmissionsObjectId,
             declinedSubmissionRow,
+            '2026-05-15T11:30:00',
             'DeclineSubmission',
             'Declined'
         )
@@ -3525,6 +3953,7 @@ test.describe('LMS Snapshot Import Runtime Flow', () => {
             mainWorkspaceId,
             trainingAttendanceObjectId,
             attendedRow,
+            '2026-05-15T09:05:00',
             'MarkAttendanceAttended',
             'Attended',
             'post'
@@ -3536,6 +3965,7 @@ test.describe('LMS Snapshot Import Runtime Flow', () => {
             mainWorkspaceId,
             trainingAttendanceObjectId,
             attendedRow,
+            '2026-05-15T09:05:00',
             'CancelAttendance',
             'Cancelled',
             'void'
@@ -3555,6 +3985,7 @@ test.describe('LMS Snapshot Import Runtime Flow', () => {
             mainWorkspaceId,
             trainingAttendanceObjectId,
             noShowRow,
+            '2026-05-15T09:10:00',
             'MarkAttendanceNoShow',
             'NoShow',
             'post'
@@ -3574,6 +4005,7 @@ test.describe('LMS Snapshot Import Runtime Flow', () => {
             mainWorkspaceId,
             certificateIssuesObjectId,
             certificateIssueRow,
+            'CERT-E2E-ISSUE-001',
             'IssueCertificate',
             'Issued',
             'post'
@@ -3585,6 +4017,7 @@ test.describe('LMS Snapshot Import Runtime Flow', () => {
             mainWorkspaceId,
             certificateIssuesObjectId,
             certificateIssueRow,
+            'CERT-E2E-ISSUE-001',
             'RevokeCertificate',
             'Revoked',
             'post'
@@ -3603,6 +4036,7 @@ test.describe('LMS Snapshot Import Runtime Flow', () => {
             mainWorkspaceId,
             developmentPlanTasksObjectId,
             developmentTaskRow,
+            'Operational workflow task',
             'StartDevelopmentTask',
             'InProgress'
         )
@@ -3613,6 +4047,7 @@ test.describe('LMS Snapshot Import Runtime Flow', () => {
             mainWorkspaceId,
             developmentPlanTasksObjectId,
             developmentTaskRow,
+            'Operational workflow task',
             'CompleteDevelopmentTask',
             'Completed'
         )
@@ -3623,6 +4058,7 @@ test.describe('LMS Snapshot Import Runtime Flow', () => {
             mainWorkspaceId,
             developmentPlanTasksObjectId,
             developmentTaskRow,
+            'Operational workflow task',
             'ReopenDevelopmentTask',
             'InProgress'
         )
@@ -3640,6 +4076,7 @@ test.describe('LMS Snapshot Import Runtime Flow', () => {
             mainWorkspaceId,
             notificationOutboxObjectId,
             sentNotificationRow,
+            'learner@example.test',
             'MarkNotificationSent',
             'Sent',
             'post'
@@ -3658,6 +4095,7 @@ test.describe('LMS Snapshot Import Runtime Flow', () => {
             mainWorkspaceId,
             notificationOutboxObjectId,
             failedNotificationRow,
+            'ops@example.test',
             'MarkNotificationFailed',
             'Failed'
         )
@@ -3668,6 +4106,7 @@ test.describe('LMS Snapshot Import Runtime Flow', () => {
             mainWorkspaceId,
             notificationOutboxObjectId,
             failedNotificationRow,
+            'ops@example.test',
             'CancelNotification',
             'Cancelled',
             'void'

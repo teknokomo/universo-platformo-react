@@ -61,8 +61,31 @@ describe('runtimeErrors', () => {
         expect(resolveRuntimeRuleErrorMessage(duplicate, 'en')).toContain('already exists')
         expect(resolveRuntimeRuleErrorMessage(duplicate, 'ru')).toContain('уже существует')
         expect(resolveRuntimeRuleErrorMessage({ code: 'RECORD_PATTERN_MISMATCH' }, 'ru')).toContain('формату')
+        expect(resolveRuntimeRuleErrorMessage({ code: 'RUNTIME_RELATION_SCOPE_REQUIRED' }, 'en')).toContain('related list')
+        expect(resolveRuntimeRuleErrorMessage({ code: 'RUNTIME_RELATION_SCOPE_REQUIRED' }, 'ru')).toContain('связанных записей')
+        expect(resolveRuntimeRuleErrorMessage({ code: 'RUNTIME_RECORD_VERSION_CONFLICT' }, 'en')).toContain('changed after you opened it')
+        expect(resolveRuntimeRuleErrorMessage({ code: 'RUNTIME_RECORD_VERSION_CONFLICT' }, 'ru')).toContain('изменилась после открытия')
+        expect(
+            extractRuntimeErrorMessage(
+                {
+                    code: 'ERR_BAD_REQUEST',
+                    message: 'Request failed with status code 409',
+                    response: {
+                        data: {
+                            error: 'Record version conflict',
+                            code: 'RUNTIME_RECORD_VERSION_CONFLICT'
+                        }
+                    }
+                },
+                'Try again.',
+                'en'
+            )
+        ).toContain('This record changed after you opened it')
 
         expect(extractRuntimeErrorMessage(duplicate, 'Try again.', 'ru')).toContain('уже существует')
+        expect(extractRuntimeErrorMessage({ code: 'RUNTIME_RECORD_VERSION_CONFLICT' }, 'Повторите действие.', 'ru')).toContain(
+            'изменилась после открытия'
+        )
         expect(
             extractRuntimeErrorMessage(
                 { response: { data: { error: 'A record with the same value already exists', code: 'RECORD_KEY_DUPLICATE' } } },

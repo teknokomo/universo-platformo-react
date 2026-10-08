@@ -55,7 +55,7 @@ const widget = ({
     zone,
     sortOrder,
     isActive,
-    config: { instanceKey, ...config },
+    config,
     data: runtimeData === undefined ? { records: items } : runtimeData
 })
 
@@ -77,7 +77,7 @@ const atomicWidget = ({
     zone: 'marketing-header',
     sortOrder,
     isActive: true,
-    config: { instanceKey, ...config },
+    config,
     data: { records: items }
 })
 
@@ -726,7 +726,7 @@ describe('normalizeMarketingPageRuntime', () => {
                         zone: 'marketing-main',
                         sortOrder: 0,
                         isActive: true,
-                        config: { instanceKey: 'hero-image' },
+                        config: {},
                         data: {
                             records: [
                                 {

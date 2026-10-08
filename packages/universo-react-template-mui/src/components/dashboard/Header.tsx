@@ -3,12 +3,10 @@ import { useLocation } from 'react-router-dom'
 import NavbarBreadcrumbs from './NavbarBreadcrumbs'
 import ColorModeIconDropdown from '../shared/ColorModeIconDropdown'
 import LanguageSwitcher from '../shared/LanguageSwitcher'
-import type { DashboardLayoutConfig } from './runtimeTypes'
 import { getHeaderInsetPx } from '../../constants/pageSpacing'
 
-export default function Header({ layoutConfig }: { layoutConfig?: DashboardLayoutConfig }) {
+export default function Header() {
     const location = useLocation()
-    const showBreadcrumbs = layoutConfig?.showBreadcrumbs ?? true
     const headerInsetPx = getHeaderInsetPx(location.pathname)
 
     return (
@@ -25,7 +23,7 @@ export default function Header({ layoutConfig }: { layoutConfig?: DashboardLayou
             }}
             spacing={2}
         >
-            {showBreadcrumbs ? <NavbarBreadcrumbs /> : <span />}
+            <NavbarBreadcrumbs />
             <Stack direction='row' sx={{ gap: 1 }}>
                 {/* Keep only theme + language in the host shell (future features stay hidden for now). */}
                 <ColorModeIconDropdown />

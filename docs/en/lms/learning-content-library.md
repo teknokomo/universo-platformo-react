@@ -12,7 +12,7 @@ description: How to use the central Learning Content library.
 
 ## What You Need
 
--   Open the Learning Content section from the sidebar.
+-   Open Content Projects from the sidebar.
 -   Confirm that you are in the workspace where content belongs.
 -   Make sure you have permission to create and edit content.
 
@@ -20,9 +20,9 @@ description: How to use the central Learning Content library.
 
 1. Use Search to find a resource, course, track, or project by visible title.
    ![Learning Content Library step 1](../.gitbook/assets/lms-user-guide/learning-content-library-step-1.png)
-2. Use the Type filter to narrow the unified list to resources, courses, or learning tracks.
+2. Clear the search and select Courses in the Type filter to confirm the list contains only courses.
    ![Learning Content Library step 2](../.gitbook/assets/lms-user-guide/learning-content-library-step-2.png)
-3. Use Columns when you need to show or hide user-facing business fields.
+3. Switch to Card view for a visual scan of titles and their key details.
    ![Learning Content Library step 3](../.gitbook/assets/lms-user-guide/learning-content-library-step-3.png)
 4. Use Create to add a project, page, link, course, or learning track from the same toolbar.
    ![Learning Content Library step 4](../.gitbook/assets/lms-user-guide/learning-content-library-step-4.png)
@@ -35,7 +35,7 @@ description: How to use the central Learning Content library.
 | --------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Unified list    | The library combines projects, standalone resources, courses, and learning tracks in one operational list. Use Type and title together to avoid opening the wrong record.   |
 | Search behavior | Search is intended for visible titles, not internal codes. Clear the search before creating a new item so you can confirm the saved row appears.                            |
-| Columns         | Column settings should expose business fields only. Hide columns you do not need for the current task instead of dragging the page horizontally.                            |
+| Views           | Use table view to compare fields across records and Card view to scan titles with key details.                                                                              |
 | Create menu     | Create opens the available content types for the current workspace. Pick the target type first, then fill the localized fields in the dialog.                               |
 | Item lifecycle  | Use item actions menu for edit, copy, share, move to project, delete, and restore. Each action should keep readable titles visible and should not require technical values. |
 

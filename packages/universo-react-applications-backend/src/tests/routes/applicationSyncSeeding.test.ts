@@ -7,7 +7,8 @@ jest.mock('@universo-react/database', () => ({
 
 import type { Knex } from 'knex'
 import { createKnexExecutor } from '@universo-react/database'
-import type { EntityDefinition } from '@universo-react/schema-ddl'
+import { generateColumnName, type EntityDefinition } from '@universo-react/schema-ddl'
+import { ComponentDefinitionDataType } from '@universo-react/types'
 import { seedPredefinedElements, syncEnumerationValues } from '../../routes/applicationSyncRoutes'
 import { createMarketingCollectionConfig, createMarketingPricingConfig } from '../utils/marketingWidgetBindings'
 
@@ -54,6 +55,50 @@ describe('application sync predefined seeding', () => {
         expect(insert).not.toHaveBeenCalled()
         expect(onConflict).not.toHaveBeenCalled()
         expect(merge).not.toHaveBeenCalled()
+    })
+
+    it('serializes JSONB arrays and objects as JSON text before predefined row inserts', async () => {
+        const merge = jest.fn().mockResolvedValue(undefined)
+        const onConflict = jest.fn().mockReturnValue({ merge })
+        const insert = jest.fn().mockReturnValue({ onConflict })
+        const table = jest.fn().mockReturnValue({ insert })
+        const withSchema = jest.fn().mockReturnValue({ table })
+        const trx = { withSchema } as unknown as Knex.Transaction
+        const objectId = '019ccefc-2f7b-7b36-82f4-85cdb1312268'
+        const fields = [
+            { id: '019ccefc-2f7b-7b36-82f4-85cdb1312269', codename: 'Filters', dataType: ComponentDefinitionDataType.JSON },
+            { id: '019ccefc-2f7b-7b36-82f4-85cdb1312270', codename: 'Definition', dataType: ComponentDefinitionDataType.JSON },
+            { id: '019ccefc-2f7b-7b36-82f4-85cdb1312271', codename: 'SavedFilters', dataType: ComponentDefinitionDataType.JSON }
+        ]
+        const entities = [{ id: objectId, kind: 'object', codename: 'Reports', fields }] as unknown as EntityDefinition[]
+        const filters: unknown[] = []
+        const definition = { datasource: { kind: 'records.list', sectionCodename: 'Courses' } }
+        const savedFilters = [{ name: 'Active learners', filters: [{ field: 'Status', value: 'active' }] }]
+
+        await seedPredefinedElements(
+            'app_019ccefc2f7b7b3682f485cdb1312268',
+            {
+                elements: {
+                    [objectId]: [
+                        {
+                            id: '019ccefc-2f7b-7b39-82f4-85cdb131226b',
+                            data: { Filters: filters, Definition: definition, SavedFilters: savedFilters }
+                        }
+                    ]
+                }
+            } as never,
+            entities,
+            'user-1',
+            trx
+        )
+
+        const insertedRows = insert.mock.calls[0]?.[0] as Array<Record<string, unknown>>
+        expect(insertedRows).toHaveLength(1)
+        expect(insertedRows[0]?.[generateColumnName(fields[0]!.id)]).toBe(JSON.stringify(filters))
+        expect(insertedRows[0]?.[generateColumnName(fields[1]!.id)]).toBe(JSON.stringify(definition))
+        expect(insertedRows[0]?.[generateColumnName(fields[2]!.id)]).toBe(JSON.stringify(savedFilters))
+        expect(onConflict).toHaveBeenCalledWith('id')
+        expect(merge).toHaveBeenCalled()
     })
 
     it('fails the sync when a semantic-key Marketing binding exceeds the public runtime row limit', async () => {

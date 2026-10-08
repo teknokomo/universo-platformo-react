@@ -1,27 +1,11 @@
-import { getVLCString } from '@universo-react/utils'
+import { getVLCString, isRuntimeTechnicalFieldName } from '@universo-react/utils'
+export { isRuntimeSensitiveFieldName, isRuntimeTechnicalFieldName } from '@universo-react/utils'
 
 const DISPLAY_KEYS = ['label', 'name', 'title', 'displayName'] as const
 const UUID_SUBSTRING_PATTERN = /\b[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\b/i
+const INTERNAL_REFERENCE_LABEL_PATTERN = /\b(?:rh1\.[a-z\d._-]+|usr_internal_[a-z\d_-]+)/i
 const RAW_RUNTIME_JSON_PATTERN =
     /\{[\s\S]{0,700}"(?:type|url|source|blocks|data|_schema|storageKey|mimeType|launchMode|packageDescriptor|recordId|targetId)"\s*:[\s\S]{0,700}\}|\[[\s\S]{0,120}\{[\s\S]{0,700}"(?:type|url|source|blocks|data|_schema|storageKey|mimeType|launchMode|packageDescriptor|recordId|targetId)"\s*:[\s\S]{0,700}\}[\s\S]{0,120}\]|\[object Object\]/i
-const TECHNICAL_RUNTIME_FIELD_KEYS = new Set([
-    'uplversion',
-    'createdby',
-    'updatedby',
-    'deletedby',
-    'projectid',
-    'owneruserid',
-    'userid',
-    'assigneduserid',
-    'targetrecordid',
-    'targetobjectcodename',
-    'principalid',
-    'sourcejson',
-    'resourcejson',
-    'storagejson',
-    'namemanuallyedited'
-])
-
 const isPlainObject = (value: unknown): value is Record<string, unknown> =>
     Boolean(value) && typeof value === 'object' && !Array.isArray(value)
 
@@ -166,17 +150,6 @@ export function formatRuntimeValue(value: unknown, locale = 'en', seen = new Wea
     return ''
 }
 
-export function isRuntimeTechnicalFieldName(value: string | undefined): boolean {
-    const raw = value?.trim() ?? ''
-    const normalized = raw.replace(/[-_\s]+/g, '').toLowerCase() ?? ''
-    if (!normalized) return false
-    if (TECHNICAL_RUNTIME_FIELD_KEYS.has(normalized)) return true
-    if (normalized.startsWith('upl')) return true
-    if (normalized === 'id') return true
-    if (/[-_\s]id$/i.test(raw)) return true
-    return /(?:Id|ID)$/.test(raw.replace(/[-_\s]+/g, ''))
-}
-
 export function hasRuntimeTechnicalValueLeakage(value: string): boolean {
     return UUID_SUBSTRING_PATTERN.test(value) || RAW_RUNTIME_JSON_PATTERN.test(value)
 }
@@ -185,4 +158,10 @@ export function formatRuntimeSafeValue(value: unknown, locale = 'en'): string {
     const formatted = formatRuntimeValue(value, locale).trim()
     if (!formatted || hasRuntimeTechnicalValueLeakage(formatted)) return ''
     return formatted
+}
+
+export function formatRuntimeSafeFieldLabel(value: unknown, locale = 'en'): string {
+    const label = formatRuntimeSafeValue(value, locale)
+    if (!label || isRuntimeTechnicalFieldName(label) || INTERNAL_REFERENCE_LABEL_PATTERN.test(label)) return ''
+    return label
 }

@@ -34,10 +34,47 @@ export type RuntimeUxViewportMatrixOptions = {
     restoreViewport?: boolean
 }
 
+export type RuntimeNavigationIconContract = {
+    label: string
+    family: string
+}
+
 export type BrowserRuntimeIssue = {
     source: 'console' | 'pageerror'
     text: string
     url?: string
+}
+
+export const expectRuntimeNavigationIconSemantics = async (
+    navigation: Locator,
+    contracts: readonly RuntimeNavigationIconContract[]
+): Promise<void> => {
+    const signaturesByFamily = new Map<string, string>()
+    const familiesBySignature = new Map<string, string>()
+
+    for (const { label, family } of contracts) {
+        const link = navigation.getByRole('link', { name: label, exact: true })
+        await expect(link, `Runtime navigation must contain ${label}`).toBeVisible()
+
+        const icon = link.locator('.MuiListItemIcon-root svg').first()
+        await expect(icon, `${label} must render a visible navigation icon`).toBeVisible()
+        const pathData = await icon
+            .locator('path')
+            .evaluateAll((paths) => paths.map((path) => path.getAttribute('d') ?? '').filter(Boolean))
+        expect(pathData.length, `${label} icon must contain an SVG path`).toBeGreaterThan(0)
+        const signature = pathData.join('\u241f')
+
+        const familySignature = signaturesByFamily.get(family)
+        if (familySignature) {
+            expect(signature, `${label} must match the ${family} icon used by its semantic family`).toBe(familySignature)
+            continue
+        }
+
+        const existingFamily = familiesBySignature.get(signature)
+        expect(existingFamily, `${label} must use an icon distinct from ${existingFamily ?? 'other semantic families'}`).toBeUndefined()
+        signaturesByFamily.set(family, signature)
+        familiesBySignature.set(signature, family)
+    }
 }
 
 const EXPECTED_CONFLICT_RESOURCE_ERROR = 'Failed to load resource: the server responded with a status of 409 (Conflict)'
@@ -282,6 +319,7 @@ export async function expectSemanticFieldControls(dialog: Locator, contract: Sem
     }
 
     for (const label of contract.forbiddenEditableIdLabels ?? []) {
+        await expect(dialog.getByText(label, { exact: true }), `${label} must not be exposed as a user-facing field label`).toHaveCount(0)
         const controls = dialog.getByLabel(label, { exact: false })
         const count = await controls.count()
         for (let index = 0; index < count; index += 1) {
@@ -610,15 +648,20 @@ export async function expectLocatorFitsViewport(locator: Locator, label: string)
 }
 
 export async function expectLocatorFullyFitsViewport(locator: Locator, label: string): Promise<void> {
-    await expectLocatorFitsViewport(locator, label)
-    const box = await locator.boundingBox()
-    const viewport = locator.page().viewportSize()
-    expect(box, `${label} must be rendered`).not.toBeNull()
-    expect(viewport, `${label} requires a viewport`).not.toBeNull()
-    if (!box || !viewport) return
+    await expect(locator, `${label} must be visible before viewport checks`).toBeVisible()
 
-    expect(box.y, `${label} must start inside the viewport vertically`).toBeGreaterThanOrEqual(0)
-    expect(box.y + box.height, `${label} must fit inside the viewport vertically`).toBeLessThanOrEqual(viewport.height + 1)
+    await expect(async () => {
+        const box = await locator.boundingBox()
+        const viewport = locator.page().viewportSize()
+        expect(box, `${label} must be rendered`).not.toBeNull()
+        expect(viewport, `${label} requires a viewport`).not.toBeNull()
+        if (!box || !viewport) return
+
+        expect(box.x, `${label} must start inside the viewport`).toBeGreaterThanOrEqual(0)
+        expect(box.x + box.width, `${label} must fit inside the viewport`).toBeLessThanOrEqual(viewport.width + 1)
+        expect(box.y, `${label} must start inside the viewport vertically`).toBeGreaterThanOrEqual(0)
+        expect(box.y + box.height, `${label} must fit inside the viewport vertically`).toBeLessThanOrEqual(viewport.height + 1)
+    }).toPass({ timeout: 5_000 })
 }
 
 export async function expectTextOnSingleLine(locator: Locator, label: string): Promise<void> {

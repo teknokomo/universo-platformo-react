@@ -4,6 +4,7 @@ import { test, expect } from '../../fixtures/test'
 import { createLoggedInApiContext, createMetahub, createRecord, disposeApiContext } from '../../support/backend/api-session.mjs'
 import { recordCreatedMetahub } from '../../support/backend/run-manifest.mjs'
 import { repoRoot } from '../../support/env/load-e2e-env.mjs'
+import { resolveFixtureOutputPath } from '../../support/fixtureOutputPath'
 import { buildSnapshotEnvelope, buildVLC, validateSnapshotEnvelope } from '@universo-react/utils'
 import { waitForMetahubObjectId, waitForMetahubEnumerationId, waitForOptionValueId } from '../../support/lmsRuntime'
 import {
@@ -28,16 +29,17 @@ import {
     LMS_DEMO_POINT_TRANSACTIONS,
     LMS_DEMO_QUIZ_RESPONSES,
     LMS_DEMO_QUIZZES,
-    LMS_DEMO_REPORTS,
     LMS_DEMO_RESOURCES,
     LMS_DEMO_STUDENTS,
     LMS_RUNTIME_CURRENT_USER_ID_TOKEN,
-    LMS_FIXTURE_FILENAME
+    LMS_FIXTURE_FILENAME,
+    type SnapshotEnvelope
 } from '../../support/lmsFixtureContract'
 
 type ApiContext = Awaited<ReturnType<typeof createLoggedInApiContext>>
 
 const FIXTURES_DIR = path.resolve(repoRoot, 'tools', 'fixtures')
+const FIXTURE_OUTPUT_PATH = resolveFixtureOutputPath('LMS_FIXTURE_OUTPUT_PATH', LMS_FIXTURE_FILENAME)
 
 const buildEditorBlockContent = (blocks: Array<Record<string, unknown>>) => ({
     format: 'editorjs',
@@ -92,7 +94,6 @@ async function seedCanonicalLmsRecords(api: ApiContext, metahubId: string) {
         badgeDefinitionsObjectId,
         badgeIssuesObjectId,
         leaderboardSnapshotsObjectId,
-        reportsObjectId,
         contentTypeEnumerationId,
         resourceTypeEnumerationId,
         learningResourceStatusEnumerationId,
@@ -100,8 +101,7 @@ async function seedCanonicalLmsRecords(api: ApiContext, metahubId: string) {
         enrollmentStatusEnumerationId,
         completionStatusEnumerationId,
         publicationStatusEnumerationId,
-        pointSourceTypeEnumerationId,
-        reportTypeEnumerationId
+        pointSourceTypeEnumerationId
     ] = await Promise.all([
         waitForMetahubObjectId(api, metahubId, 'Classes'),
         waitForMetahubObjectId(api, metahubId, 'Students'),
@@ -134,7 +134,6 @@ async function seedCanonicalLmsRecords(api: ApiContext, metahubId: string) {
         waitForMetahubObjectId(api, metahubId, 'Badge Definitions'),
         waitForMetahubObjectId(api, metahubId, 'Badge Issues'),
         waitForMetahubObjectId(api, metahubId, 'Leaderboard Snapshots'),
-        waitForMetahubObjectId(api, metahubId, 'Reports'),
         waitForMetahubEnumerationId(api, metahubId, 'Content Type'),
         waitForMetahubEnumerationId(api, metahubId, 'Resource Type'),
         waitForMetahubEnumerationId(api, metahubId, 'Learning Resource Status'),
@@ -142,8 +141,7 @@ async function seedCanonicalLmsRecords(api: ApiContext, metahubId: string) {
         waitForMetahubEnumerationId(api, metahubId, 'Enrollment Status'),
         waitForMetahubEnumerationId(api, metahubId, 'Completion Status'),
         waitForMetahubEnumerationId(api, metahubId, 'Publication Status'),
-        waitForMetahubEnumerationId(api, metahubId, 'Point Source Type'),
-        waitForMetahubEnumerationId(api, metahubId, 'Report Type')
+        waitForMetahubEnumerationId(api, metahubId, 'Point Source Type')
     ])
 
     const [
@@ -155,8 +153,7 @@ async function seedCanonicalLmsRecords(api: ApiContext, metahubId: string) {
         activeEnrollmentStatusValueId,
         inProgressCompletionStatusValueId,
         publishedPublicationStatusValueId,
-        pointSourceTypeValueIds,
-        progressReportTypeValueId
+        pointSourceTypeValueIds
     ] = await Promise.all([
         waitForOptionValueId(api, metahubId, contentTypeEnumerationId, 'Text'),
         waitForOptionValueId(api, metahubId, contentTypeEnumerationId, 'QuizRef'),
@@ -200,8 +197,7 @@ async function seedCanonicalLmsRecords(api: ApiContext, metahubId: string) {
             TrainingEvent: trainingEvent,
             Certificate: certificate,
             Manual: manual
-        })),
-        waitForOptionValueId(api, metahubId, reportTypeEnumerationId, 'Progress')
+        }))
     ])
 
     const classRowsByKey = new Map<string, Awaited<ReturnType<typeof createRecord>>>()
@@ -259,7 +255,7 @@ async function seedCanonicalLmsRecords(api: ApiContext, metahubId: string) {
     contentProjectRowsByKey.set('compliance-project', complianceProject)
 
     const resourceRowsByCodename = new Map<string, Awaited<ReturnType<typeof createRecord>>>()
-    for (const seededResource of LMS_DEMO_RESOURCES) {
+    for (const [resourceIndex, seededResource] of LMS_DEMO_RESOURCES.entries()) {
         const resourceTypeValueId = resourceTypeValueIds[seededResource.source.type]
         const projectRow =
             seededResource.codename === 'CertificatePolicyResource'
@@ -296,6 +292,7 @@ async function seedCanonicalLmsRecords(api: ApiContext, metahubId: string) {
                 EstimatedTimeMinutes: seededResource.estimatedTimeMinutes ?? 0,
                 Language: seededResource.language ?? 'en',
                 Version: '1.0',
+                SortOrder: resourceIndex + 1,
                 CreatedBy: '{{runtime.currentUserId}}'
             }
         })
@@ -334,7 +331,7 @@ async function seedCanonicalLmsRecords(api: ApiContext, metahubId: string) {
     }
 
     const courseRowsByKey = new Map<string, Awaited<ReturnType<typeof createRecord>>>()
-    for (const seededCourse of LMS_DEMO_COURSES) {
+    for (const [courseIndex, seededCourse] of LMS_DEMO_COURSES.entries()) {
         const projectRow =
             seededCourse.key === 'compliance-course'
                 ? contentProjectRowsByKey.get('compliance-project')
@@ -348,6 +345,7 @@ async function seedCanonicalLmsRecords(api: ApiContext, metahubId: string) {
                 NavigationMode: 'free',
                 CompletionCondition: 'allItems',
                 StatusFormat: 'completeIncomplete',
+                SortOrder: courseIndex + 1,
                 Instructor: buildVLC(seededCourse.instructor.en, seededCourse.instructor.ru),
                 Tags: seededCourse.key === 'compliance-course' ? 'compliance,certificate' : 'onboarding,start',
                 CatalogVisible: true,
@@ -384,7 +382,7 @@ async function seedCanonicalLmsRecords(api: ApiContext, metahubId: string) {
     }
 
     const guestContentRowsByKey = new Map<string, Awaited<ReturnType<typeof createRecord>>>()
-    for (const seededContent of LMS_DEMO_CONTENT_NODES) {
+    for (const [contentIndex, seededContent] of LMS_DEMO_CONTENT_NODES.entries()) {
         const contentRow = await createRecord(api, metahubId, learningResourcesObjectId, {
             data: {
                 Title: buildVLC(seededContent.title.en, seededContent.title.ru),
@@ -394,6 +392,7 @@ async function seedCanonicalLmsRecords(api: ApiContext, metahubId: string) {
                 Source: { type: 'page', pageCodename: 'CourseOverview' },
                 EstimatedTimeMinutes: seededContent.estimatedDurationMinutes,
                 PublicationStatus: publishedPublicationStatusValueId,
+                SortOrder: contentIndex + 1,
                 Body: buildEditorBlockContent([
                     {
                         type: 'header',
@@ -407,12 +406,12 @@ async function seedCanonicalLmsRecords(api: ApiContext, metahubId: string) {
                 ContentItems: seededContent.contentItems.en.map((item, index) => {
                     const localizedItem = seededContent.contentItems.ru[index]
                     const isQuizRef = item.itemType === 'QuizRef'
+                    const itemContent = 'itemContent' in item ? item.itemContent : undefined
+                    const localizedItemContent = 'itemContent' in localizedItem ? localizedItem.itemContent : undefined
                     return {
                         ItemType: isQuizRef ? quizRefValueId : textValueId,
                         ItemTitle: buildVLC(item.itemTitle, localizedItem.itemTitle),
-                        ...(item.itemContent
-                            ? { ItemContent: buildVLC(item.itemContent, localizedItem.itemContent ?? localizedItem.itemTitle) }
-                            : {}),
+                        ...(itemContent ? { ItemContent: buildVLC(itemContent, localizedItemContent ?? localizedItem.itemTitle) } : {}),
                         ...(isQuizRef ? { QuizId: quizRowsByKey.get(seededContent.linkedQuizKey)?.id ?? null } : {}),
                         SortOrder: item.sortOrder
                     }
@@ -496,7 +495,8 @@ async function seedCanonicalLmsRecords(api: ApiContext, metahubId: string) {
             CatalogVisible: true,
             CatalogCategory: buildVLC('Onboarding', 'Адаптация'),
             CatalogAudience: buildVLC('New learners', 'Новые учащиеся'),
-            SelfEnrollmentMode: 'open'
+            SelfEnrollmentMode: 'open',
+            SortOrder: 1
         }
     })
     trackRowsByKey.set('onboarding-track', onboardingTrack)
@@ -513,7 +513,8 @@ async function seedCanonicalLmsRecords(api: ApiContext, metahubId: string) {
             CatalogVisible: true,
             CatalogCategory: buildVLC('Compliance', 'Соответствие'),
             CatalogAudience: buildVLC('All learners', 'Все учащиеся'),
-            SelfEnrollmentMode: 'disabled'
+            SelfEnrollmentMode: 'disabled',
+            SortOrder: 2
         }
     })
     trackRowsByKey.set('compliance-track', complianceTrack)
@@ -708,7 +709,8 @@ async function seedCanonicalLmsRecords(api: ApiContext, metahubId: string) {
                     data: { text: buildVLC(LMS_DEMO_KNOWLEDGE_ARTICLE.body.en, LMS_DEMO_KNOWLEDGE_ARTICLE.body.ru) }
                 }
             ]),
-            Status: publishedLearningResourceStatusValueId
+            Status: publishedLearningResourceStatusValueId,
+            SortOrder: 1
         }
     })
     await createRecord(api, metahubId, knowledgeBookmarksObjectId, {
@@ -822,18 +824,6 @@ async function seedCanonicalLmsRecords(api: ApiContext, metahubId: string) {
             }
         })
     }
-
-    for (const reportDefinition of LMS_DEMO_REPORTS) {
-        await createRecord(api, metahubId, reportsObjectId, {
-            data: {
-                Name: reportDefinition.title,
-                ReportType: progressReportTypeValueId,
-                Filters: reportDefinition.filters,
-                Definition: reportDefinition,
-                SavedFilters: [{ name: buildVLC('All active learners', 'Все активные учащиеся'), filters: reportDefinition.filters }]
-            }
-        })
-    }
 }
 
 test.describe('Metahubs LMS App Export', () => {
@@ -878,7 +868,10 @@ test.describe('Metahubs LMS App Export', () => {
         await seedCanonicalLmsRecords(api, metahub.id)
 
         const exportResponse = await apiGet(api, `/api/v1/metahub/${metahub.id}/export`)
-        expect(exportResponse.ok).toBe(true)
+        if (!exportResponse.ok) {
+            const errorBody = (await exportResponse.text()).slice(0, 2000)
+            throw new Error(`Metahub snapshot export failed (${exportResponse.status}): ${errorBody}`)
+        }
 
         const exportedEnvelope = validateSnapshotEnvelope((await exportResponse.json()) as Record<string, unknown>)
         const envelope = buildSnapshotEnvelope({
@@ -893,9 +886,10 @@ test.describe('Metahubs LMS App Export', () => {
             }
         })
         validateSnapshotEnvelope(envelope)
-        assertLmsFixtureEnvelopeContract(envelope)
+        assertLmsFixtureEnvelopeContract(envelope as unknown as SnapshotEnvelope)
 
-        const fixturePath = path.join(FIXTURES_DIR, LMS_FIXTURE_FILENAME)
+        const fixturePath = FIXTURE_OUTPUT_PATH
+        fs.mkdirSync(path.dirname(fixturePath), { recursive: true })
         fs.writeFileSync(fixturePath, `${JSON.stringify(envelope, null, 2)}\n`, 'utf8')
 
         expect(fs.existsSync(fixturePath)).toBe(true)

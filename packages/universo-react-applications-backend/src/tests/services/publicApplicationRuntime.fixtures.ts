@@ -61,6 +61,9 @@ const targetSelector = (slot: WidgetBindingSlotDefinition, semanticKey: string) 
         if (!slot.relation) throw new Error(`Missing relation in ${slot.key}`)
         return { kind: 'relation-set' as const, parentSlot: slot.relation.parentSlot }
     }
+    if (slot.selectorKinds.includes('learner-enrollment-set')) {
+        return { kind: 'learner-enrollment-set' as const, targetKind: 'course' as const }
+    }
     return { kind: 'record-set' as const }
 }
 
@@ -70,13 +73,14 @@ export const createPublicMarketingWidget = (
     index: number,
     suppliedConfig: Record<string, unknown> = {}
 ) => {
-    const config = { instanceKey: `${widgetKey.replace('marketing.', '')}-${index}`, ...suppliedConfig }
+    const config = { ...suppliedConfig }
     const definition = definitionFor(widgetKey, config)
     const widget = {
         id: nextUuidV7(),
         zone,
         semanticRegion: zone === 'marketing-header' ? 'header' : zone === 'marketing-footer' ? 'footer' : 'main',
         widgetKey,
+        instanceKey: `${widgetKey.replace('marketing.', '')}-${index}`,
         sortOrder: index,
         config,
         isActive: true,

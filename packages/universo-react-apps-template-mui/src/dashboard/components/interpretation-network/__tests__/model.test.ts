@@ -790,6 +790,40 @@ describe('interpretation network model', () => {
         ).toBe(titleValue)
     })
 
+    it('reads hidden hierarchy fields from the dedicated runtime projection', () => {
+        const rootCellId = '019f2000-0000-7000-8000-000000000006'
+        const childCellId = '019f2000-0000-7000-8000-000000000007'
+        const cells = toMatrixRows(
+            [
+                {
+                    id: '019f2000-0000-7000-8000-000000000008',
+                    matrixHierarchy: { cellId: rootCellId, parentCellId: null },
+                    phys_row_key: 'root',
+                    phys_row_label: 'Root',
+                    phys_col_key: 'root-column',
+                    phys_col_label: 'Root column',
+                    phys_cell_value: 'Root cell'
+                },
+                {
+                    id: '019f2000-0000-7000-8000-000000000009',
+                    matrixHierarchy: { cellId: childCellId, parentCellId: rootCellId },
+                    phys_row_key: 'child',
+                    phys_row_label: 'Child',
+                    phys_col_key: 'child-column',
+                    phys_col_label: 'Child column',
+                    phys_cell_value: 'Child cell'
+                }
+            ],
+            { ...matrixColumn, childColumns: physicalMatrixChildColumns },
+            'en'
+        )
+
+        expect(cells.map(({ id, parentCellId }) => ({ id, parentCellId }))).toEqual([
+            { id: rootCellId, parentCellId: null },
+            { id: childCellId, parentCellId: rootCellId }
+        ])
+    })
+
     it('preserves backend matrix cell order instead of sorting by labels', () => {
         const cells = toMatrixRows(
             [

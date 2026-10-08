@@ -163,7 +163,12 @@ const logoElements: TemplateSeedElement[] = logoSources.map(([key, label, imageL
 
 const featureComponents: TemplateSeedComponent[] = [
     keyComponent('FeatureKey', 'Feature key', 'Ключ возможности', 64),
-    plainComponent('IconKey', 'Icon key', 'Ключ иконки', 64, true),
+    marketingComponent('IconKey', 'Icon key', 'Ключ иконки', {
+        dataType: 'STRING',
+        isRequired: true,
+        validationRules: { maxLength: 64 },
+        uiConfig: { gridHidden: true }
+    }),
     localizedComponent('Title', 'Title', 'Заголовок', 255, true),
     localizedComponent('Description', 'Description', 'Описание', 1000, true),
     mediaComponent('ImageLight', 'Light image', 'Изображение для светлой темы'),

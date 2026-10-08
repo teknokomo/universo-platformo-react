@@ -35,29 +35,41 @@ import {
     type RuntimeSchemaContext
 } from '../../shared/runtimeHelpers'
 import { assertRuntimeRecordRules } from '../../services/runtimeRecordRules'
+import { assertMarketingRuntimeRowCap } from '../../services/marketingRowCap'
 import {
     isRuntimeEnumerationKind,
     isRuntimeSetKind,
     runtimeCreateBodySchema,
     type RuntimeObjectCollectionAttr,
     isRuntimeServerOwnedAttr
-} from '../runtimeRowSupport/contracts'
-import { getNextRuntimeSortValue, resolveRuntimeObjectCollection, resolveRuntimeObjectCollectionConfig } from '../runtimeRowSupport/objects'
+} from '../../services/runtimeRowSupport/contracts'
+import {
+    findRuntimeAttrByFieldKey,
+    getNextRuntimeSortValue,
+    resolveRuntimeObjectCollection,
+    resolveRuntimeObjectCollectionConfig
+} from '../runtimeRowSupport/objects'
 import { denyRuntimeEntityMutation } from '../../shared/entityMutationPolicy'
 import {
     applyRuntimeDateOffsetDerivations,
     validateRuntimeDateOrderRules,
     validateRuntimeParentRecordAccessReferences,
     validateRuntimeRecordPickerReferences,
-    validateRuntimeRequiredWhenRules
+    validateRuntimeRequiredWhenRules,
+    hasRuntimeServerOwnedInput
 } from '../runtimeRowSupport/validation'
-import { resolveRuntimeReorderField } from '../runtimeRowSupport/list'
+import { resolveRuntimeRelationOwnedFieldCodenames, resolveRuntimeReorderField } from '../../services/runtimeRowSupport/list'
+import {
+    lockRuntimeRelationParentRecord,
+    resolveRuntimeRelationWriteScope,
+    revalidateRuntimeRelationWriteScope,
+    type ResolvedRuntimeRelationScope
+} from '../runtimeRowSupport/relationScope'
 import {
     assertInterpretationNetworkGenericCreateAllowed,
-    hasRuntimeServerOwnedInput,
     validateRuntimeAccessEntryMembership
-} from '../runtimeRowSupport/access'
-import { assertMarketingRuntimeRowCap, collectTouchedComponentIds, loadRuntimeRowById } from '../runtimeRowSupport/rows'
+} from '../../services/runtimeRowSupport/access'
+import { collectTouchedComponentIds, loadRuntimeRowById } from '../runtimeRowSupport/rows'
 
 import { insertRuntimeChildRowsBatch } from './tableChildren'
 import type {
@@ -258,7 +270,8 @@ export const applyCreateReorderField = async (params: {
         userId: params.ctx.userId,
         role: params.ctx.role,
         workspaceId: params.ctx.currentWorkspaceId,
-        objectCollectionId: params.objectCollection.id
+        objectCollectionId: params.objectCollection.id,
+        objectCollectionCodename: resolveRuntimeCodenameText(params.objectCollection.codename)
     })
     const reorderFieldAttr = resolveRuntimeReorderField(
         params.safeAttrs,
@@ -482,8 +495,46 @@ export const executeCreateRowTransaction = async (params: {
     recordBehavior: ReturnType<typeof normalizeRuntimeRecordBehavior>
     tableDataEntries: RuntimeWriteTableDataEntryWithAttr[]
     recordCommandService: RuntimeRecordCommandService
+    relationScope?: ResolvedRuntimeRelationScope
 }): Promise<{ parentId: string; afterCreateLifecycleRequest: RuntimeLifecycleDispatchRequest }> => {
     const mgr = params.executor
+    const relationScope = params.relationScope
+        ? await revalidateRuntimeRelationWriteScope({
+              executor: mgr,
+              ctx: params.ctx,
+              applicationId: params.applicationId,
+              objectCollectionId: params.objectCollection.id,
+              childEntity: params.objectCollection,
+              childAttrs: params.attrs,
+              scope: params.relationScope
+          })
+        : undefined
+    if (relationScope) {
+        await lockRuntimeRelationParentRecord({ executor: mgr, ctx: params.ctx, scope: relationScope })
+        const parentValues = [
+            {
+                column: relationScope.parentFieldAttr.column_name,
+                value: relationScope.request.parentRecordId
+            }
+        ]
+        params.columnValues = params.columnValues.filter(
+            ({ column }) => column !== relationScope.parentFieldAttr.column_name && column !== relationScope.sortOrderAttr?.column_name
+        )
+        params.columnValues.push(...parentValues)
+        if (relationScope.sortOrderAttr) {
+            const nextSortValue = await getNextRuntimeSortValue({
+                manager: mgr,
+                dataTableIdent: params.dataTableIdent,
+                runtimeRowCondition: params.runtimeRowCondition,
+                reorderColumnName: relationScope.sortOrderAttr.column_name,
+                parentScope: {
+                    fieldColumnName: relationScope.parentFieldAttr.column_name,
+                    parentRecordId: relationScope.request.parentRecordId
+                }
+            })
+            params.columnValues.push({ column: relationScope.sortOrderAttr.column_name, value: nextSortValue })
+        }
+    }
     await assertInterpretationNetworkGenericCreateAllowed(mgr, params.ctx, params.applicationId, params.objectCollection.id)
     if (params.ctx.workspacesEnabled && params.ctx.currentWorkspaceId) {
         const limitState = await enforceObjectWorkspaceLimit(mgr, {
@@ -632,7 +683,7 @@ export const createCreateRowHandler = ({ getDbExecutor, query, recordCommandServ
             return res.status(400).json({ error: 'Invalid body', details: parsedBody.error.flatten() })
         }
 
-        const { objectCollectionId: requestedObjectCollectionId, data } = parsedBody.data
+        const { objectCollectionId: requestedObjectCollectionId, data, relationScope: requestedRelationScope } = parsedBody.data
 
         const {
             objectCollection,
@@ -641,6 +692,45 @@ export const createCreateRowHandler = ({ getDbExecutor, query, recordCommandServ
         } = await resolveRuntimeObjectCollection(ctx.manager, ctx.schemaIdent, requestedObjectCollectionId)
         if (!objectCollection) return res.status(404).json({ error: objectCollectionError })
         if (denyRuntimeEntityMutation(res, objectCollection.config)) return
+        const selectedLayout = (
+            await resolveRuntimeObjectCollectionConfig({
+                manager: ctx.manager,
+                applicationId,
+                userId: ctx.userId,
+                role: ctx.role,
+                workspaceId: ctx.currentWorkspaceId,
+                objectCollectionId: objectCollection.id,
+                objectCollectionCodename: resolveRuntimeCodenameText(objectCollection.codename)
+            })
+        ).selectedLayout
+        const relationOwnedAttrs = resolveRuntimeRelationOwnedFieldCodenames(
+            selectedLayout.zoneWidgets,
+            resolveRuntimeCodenameText(objectCollection.codename)
+        )
+            .map((fieldCodename) => findRuntimeAttrByFieldKey(attrs, fieldCodename))
+            .filter((attr): attr is RuntimeObjectCollectionAttr => Boolean(attr))
+        const relationScope = requestedRelationScope
+            ? await resolveRuntimeRelationWriteScope({
+                  manager: ctx.manager,
+                  applicationId,
+                  workspaceId: ctx.currentWorkspaceId,
+                  schemaIdent: ctx.schemaIdent,
+                  zoneWidgets: selectedLayout.zoneWidgets,
+                  childEntity: objectCollection,
+                  childAttrs: attrs,
+                  request: requestedRelationScope
+              })
+            : null
+        if (requestedRelationScope && !relationScope) {
+            return res.status(409).json({ error: 'The requested relation scope is unavailable', code: 'RUNTIME_RELATION_SCOPE_INVALID' })
+        }
+        if (!relationScope && relationOwnedAttrs.some((attr) => getRuntimeInputValue(data, attr.column_name, attr.codename).hasUserValue)) {
+            return res.status(409).json({
+                error: 'A verified relation scope is required to change this relationship',
+                code: 'RUNTIME_RELATION_SCOPE_REQUIRED'
+            })
+        }
+        if (relationScope && denyRuntimeEntityMutation(res, relationScope.parentCollection.config)) return
         const runtimeRowCondition = buildRuntimeActiveRowCondition(
             objectCollection.lifecycleContract,
             objectCollection.config,
@@ -648,12 +738,25 @@ export const createCreateRowHandler = ({ getDbExecutor, query, recordCommandServ
             ctx.currentWorkspaceId
         )
         const dataTableIdent = `${ctx.schemaIdent}.${quoteIdentifier(objectCollection.table_name)}`
+        const scopedRelationOwnedAttrs = relationScope
+            ? [relationScope.parentFieldAttr, relationScope.sortOrderAttr].filter((attr): attr is NonNullable<typeof attr> => attr !== null)
+            : []
+        const relationOwnedColumns = new Set(scopedRelationOwnedAttrs.map(({ column_name }) => column_name))
+        const suppliedRelationOwnedAttr = relationOwnedAttrs.find(
+            (attr) => getRuntimeInputValue(data, attr.column_name, attr.codename).hasUserValue
+        )
+        if (suppliedRelationOwnedAttr) {
+            return res.status(400).json({
+                error: `Field is server-owned: ${formatRuntimeFieldLabel(suppliedRelationOwnedAttr.codename)}`
+            })
+        }
+
         const safeAttrs = attrs.filter(
             (a) =>
                 IDENTIFIER_REGEX.test(a.column_name) &&
                 RUNTIME_WRITABLE_TYPES.has(a.data_type) &&
                 a.data_type !== 'TABLE' &&
-                !isRuntimeServerOwnedAttr(a)
+                (!isRuntimeServerOwnedAttr(a) || relationOwnedColumns.has(a.column_name))
         )
         const serverOwnedInputAttr = attrs.find((attr) => hasRuntimeServerOwnedInput(data, attr))
         if (serverOwnedInputAttr) {
@@ -662,39 +765,46 @@ export const createCreateRowHandler = ({ getDbExecutor, query, recordCommandServ
             })
         }
 
+        const validationData: Record<string, unknown> = relationScope
+            ? {
+                  ...data,
+                  [relationScope.parentFieldAttr.column_name]: relationScope.request.parentRecordId,
+                  ...(relationScope.sortOrderAttr ? { [relationScope.sortOrderAttr.column_name]: 0 } : {})
+              }
+            : data
         const scalarColumnValuesResult = await buildCreateScalarColumnValues({
             manager: ctx.manager,
             schemaIdent: ctx.schemaIdent,
-            data,
+            data: validationData,
             safeAttrs
         })
         if (scalarColumnValuesResult.kind === 'failure') {
             return res.status(scalarColumnValuesResult.statusCode).json(scalarColumnValuesResult.body)
         }
-        const columnValues = scalarColumnValuesResult.columnValues
-
         const pendingRowResult = await validateCreatePendingRow({
             ctx,
             objectCollection,
             attrs,
             safeAttrs,
-            columnValues
+            columnValues: scalarColumnValuesResult.columnValues
         })
         if (pendingRowResult.kind === 'failure') {
             return res.status(pendingRowResult.statusCode).json(pendingRowResult.body)
         }
 
-        await applyCreateReorderField({
-            ctx,
-            applicationId,
-            objectCollection,
-            safeAttrs,
-            columnValues,
-            dataTableIdent,
-            runtimeRowCondition
-        })
+        if (!relationScope) {
+            await applyCreateReorderField({
+                ctx,
+                applicationId,
+                objectCollection,
+                safeAttrs,
+                columnValues: pendingRowResult.columnValues,
+                dataTableIdent,
+                runtimeRowCondition
+            })
+        }
 
-        const touchedComponentIds = collectTouchedComponentIds(attrs, data)
+        const touchedComponentIds = collectTouchedComponentIds(attrs, validationData)
         const recordBehavior = normalizeRuntimeRecordBehavior(objectCollection.config)
 
         const tableAttrsForCreate = attrs.filter((a) => a.data_type === 'TABLE')
@@ -723,11 +833,12 @@ export const createCreateRowHandler = ({ getDbExecutor, query, recordCommandServ
                     data,
                     runtimeRowCondition,
                     dataTableIdent,
-                    columnValues,
+                    columnValues: pendingRowResult.columnValues,
                     touchedComponentIds,
                     recordBehavior,
                     tableDataEntries,
-                    recordCommandService
+                    recordCommandService,
+                    relationScope: relationScope ?? undefined
                 })
             )
             parentId = createResult.parentId

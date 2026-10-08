@@ -1,5 +1,6 @@
 const {
     countWidgetBindingObjectRecords,
+    findWidgetBindingObjectByCodename,
     findWidgetBindingRecordBySemanticKey,
     hasWidgetBindingUsage,
     listWidgetBindingComponents,
@@ -59,7 +60,6 @@ describe('generic widget binding SQL store', () => {
         const [sql, params] = query.mock.calls[0]
         expect(sql).toContain('"' + schemaName + '"."_mhb_widgets"')
         expect(sql).toContain('"_upl_deleted" = false')
-        expect(sql).toContain('"scope_entity_id" IS NULL')
         expect(sql).toContain('"base_layout_id" IS NULL')
         expect(sql).toContain('"id" = $1')
         expect(params).toEqual([widgetId])
@@ -80,7 +80,42 @@ describe('generic widget binding SQL store', () => {
         expect(sql).toContain('object."kind" = ANY($1::text[])')
         expect(sql).toContain('LIMIT $2 OFFSET $3')
         expect(sql).not.toContain('"_mhb_elements"')
-        expect(params).toEqual([['object'], 251, 0, null])
+        expect(params).toEqual([['object'], 251, 0, null, null])
+    })
+
+    it('restricts candidate source codenames with a bound allowlist', async () => {
+        const { db, query } = createDb([])
+
+        await listWidgetBindingObjectCandidates(
+            db,
+            schemaName,
+            { entityKinds: ['object'], entityCodenames: ['Enrollments'], entityCapabilities: [], components: [] },
+            0
+        )
+
+        const [sql, params] = query.mock.calls[0]
+        expect(sql).toContain('= ANY($5::text[])')
+        expect(sql).not.toContain('Enrollments')
+        expect(params).toEqual([['object'], 251, 0, null, ['Enrollments']])
+    })
+
+    it('applies the same source codename allowlist to exact source lookups', async () => {
+        const row = { id: targetObjectId, kind: 'object', codename: 'Enrollments' }
+        const { db, query } = createDb([row])
+
+        await expect(
+            findWidgetBindingObjectByCodename(
+                db,
+                schemaName,
+                { entityKinds: ['object'], entityCodenames: ['Enrollments'], entityCapabilities: [], components: [] },
+                'Enrollments'
+            )
+        ).resolves.toEqual(row)
+
+        const [sql, params] = query.mock.calls[0]
+        expect(sql).toContain('= ANY($3::text[])')
+        expect(sql).not.toContain('Enrollments')
+        expect(params).toEqual([['object'], 'Enrollments', ['Enrollments']])
     })
 
     it('filters source discovery in SQL using escaped bound search text before pagination', async () => {
@@ -99,7 +134,7 @@ describe('generic widget binding SQL store', () => {
         expect(sql).toContain('ILIKE $4 ESCAPE E')
         expect(sql).toContain('LIMIT $2 OFFSET $3')
         expect(sql).not.toContain(search)
-        expect(params).toEqual([['object'], 251, 50, "%Logo\\_\\%' OR 1=1 --%"])
+        expect(params).toEqual([['object'], 251, 50, "%Logo\\_\\%' OR 1=1 --%", null])
     })
 
     it('filters semantic records through bound registry component keys and bounded pagination', async () => {

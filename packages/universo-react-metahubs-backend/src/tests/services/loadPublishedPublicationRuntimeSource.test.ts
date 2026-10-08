@@ -64,6 +64,30 @@ describe('loadPublishedPublicationRuntimeSource', () => {
     const executor = {
         query: jest.fn()
     }
+    const layoutId = '0190a9b5-3cde-7abc-8def-0123456789b2'
+    const rootWidgetId = '0190a9b5-3cde-7abc-8def-0123456789b1'
+    const childWidgetId = '0190a9b5-3cde-7abc-8def-0123456789b3'
+
+    const createDashboardSnapshot = (layoutZoneWidgets: Record<string, unknown>[]) => ({
+        version: 2,
+        entities: {},
+        layouts: [
+            {
+                id: layoutId,
+                templateKey: 'dashboard',
+                scopeEntityId: null,
+                compositionMode: 'independent',
+                baseLayoutId: null,
+                config: {}
+            }
+        ],
+        layoutZoneWidgets
+    })
+
+    const setActiveSnapshot = (snapshotJson: unknown) => {
+        mockFindPublicationById.mockResolvedValue({ id: 'publication-1', activeVersionId: 'version-1' })
+        mockFindPublicationVersionById.mockResolvedValue({ id: 'version-1', snapshotJson, snapshotHash: 'stored-hash' })
+    }
 
     beforeEach(() => {
         jest.clearAllMocks()
@@ -116,6 +140,122 @@ describe('loadPublishedPublicationRuntimeSource', () => {
         await expect(loadPublishedPublicationRuntimeSource(executor as never, 'publication-1')).rejects.toThrow('UUID v7')
         expect(mockMaterializeSharedEntitiesForRuntime).not.toHaveBeenCalled()
         expect(mockDeserializeSnapshot).not.toHaveBeenCalled()
+    })
+
+    it.each(['missing parent', 'unknown slot', 'cycle', 'missing instance key'] as const)(
+        'rejects a published Dashboard placement graph with a %s before runtime materialization',
+        async (invalidCase) => {
+            const root = {
+                id: rootWidgetId,
+                layoutId,
+                instanceKey: 'columns-root',
+                parentWidgetId: null,
+                slotKey: null,
+                zone: 'center',
+                widgetKey: 'columnsContainer',
+                sortOrder: 0,
+                config: { columns: [{ slotKey: 'column:primary', width: 12 }] },
+                isActive: true
+            }
+            const child: Record<string, unknown> = {
+                id: childWidgetId,
+                layoutId,
+                instanceKey: 'canvas-child',
+                parentWidgetId: rootWidgetId,
+                slotKey: 'column:primary',
+                zone: 'center',
+                widgetKey: 'playcanvasCanvas',
+                sortOrder: 1,
+                config: {},
+                isActive: true
+            }
+            let widgets: Record<string, unknown>[] = [root, child]
+
+            if (invalidCase === 'missing parent') {
+                widgets = [{ ...child, parentWidgetId: '0190a9b5-3cde-7abc-8def-0123456789b4' }]
+            } else if (invalidCase === 'unknown slot') {
+                widgets = [root, { ...child, slotKey: 'column:missing' }]
+            } else if (invalidCase === 'cycle') {
+                widgets = [{ ...root, parentWidgetId: childWidgetId, slotKey: 'column:primary' }, child]
+            } else {
+                const withoutInstanceKey = { ...child }
+                delete withoutInstanceKey.instanceKey
+                widgets = [root, withoutInstanceKey]
+            }
+
+            setActiveSnapshot(createDashboardSnapshot(widgets))
+
+            await expect(loadPublishedPublicationRuntimeSource(executor as never, 'publication-1')).rejects.toThrow(
+                'invalid layout widget placement graph'
+            )
+            expect(mockMaterializeSharedEntitiesForRuntime).not.toHaveBeenCalled()
+            expect(mockDeserializeSnapshot).not.toHaveBeenCalled()
+        }
+    )
+
+    it('accepts a valid overlay child whose portable parent reference belongs to its base layout', async () => {
+        const baseLayoutId = layoutId
+        const scopedLayoutId = '0190a9b5-3cde-7abc-8def-0123456789b4'
+        const scopeEntityId = '0190a9b5-3cde-7abc-8def-0123456789b5'
+        const parentId = rootWidgetId
+        const overlaySnapshot = {
+            version: 2,
+            entities: { [scopeEntityId]: {} },
+            layouts: [
+                {
+                    id: baseLayoutId,
+                    templateKey: 'dashboard',
+                    scopeEntityId: null,
+                    compositionMode: 'independent',
+                    baseLayoutId: null,
+                    config: {}
+                }
+            ],
+            scopedLayouts: [
+                {
+                    id: scopedLayoutId,
+                    scopeEntityId,
+                    templateKey: 'dashboard',
+                    compositionMode: 'overlay',
+                    baseLayoutId,
+                    config: {}
+                }
+            ],
+            layoutZoneWidgets: [
+                {
+                    id: parentId,
+                    layoutId: baseLayoutId,
+                    instanceKey: 'base-columns',
+                    parentWidgetId: null,
+                    slotKey: null,
+                    zone: 'center',
+                    widgetKey: 'columnsContainer',
+                    sortOrder: 0,
+                    config: { columns: [{ slotKey: 'column:primary', width: 12 }] },
+                    isActive: true
+                },
+                {
+                    id: childWidgetId,
+                    layoutId: scopedLayoutId,
+                    instanceKey: 'overlay-canvas',
+                    parentWidgetId: parentId,
+                    slotKey: 'column:primary',
+                    zone: 'center',
+                    widgetKey: 'playcanvasCanvas',
+                    sortOrder: 0,
+                    config: {},
+                    isActive: true
+                }
+            ]
+        }
+        setActiveSnapshot(overlaySnapshot)
+
+        await expect(loadPublishedPublicationRuntimeSource(executor as never, 'publication-1')).resolves.toMatchObject({
+            publicationId: 'publication-1',
+            publicationVersionId: 'version-1'
+        })
+        expect(mockMaterializeSharedEntitiesForRuntime).toHaveBeenCalledWith(overlaySnapshot)
+        expect(mockDeserializeSnapshot).toHaveBeenCalled()
     })
 
     it('materializes shared entities before runtime deserialization and enrichment', async () => {

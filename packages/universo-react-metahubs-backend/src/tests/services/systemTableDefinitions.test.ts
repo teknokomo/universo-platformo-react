@@ -85,6 +85,40 @@ describe('systemTableDefinitions', () => {
             })
         })
 
+        it('defines universal widget placement identity and nested graph constraints', () => {
+            const widgetsTable = SYSTEM_TABLES.find((table) => table.name === '_mhb_widgets')
+            const columns = new Map(widgetsTable?.columns.map((column) => [column.name, column]))
+
+            expect(columns.get('instance_key')).toMatchObject({ type: 'text', nullable: false })
+            expect(columns.get('parent_widget_id')).toMatchObject({ type: 'uuid', nullable: true })
+            expect(columns.get('slot_key')).toMatchObject({ type: 'text', nullable: true })
+            expect(widgetsTable?.uniqueConstraints).toEqual(expect.arrayContaining([['layout_id', 'instance_key']]))
+            expect(widgetsTable?.foreignKeys).toContainEqual({
+                column: 'parent_widget_id',
+                referencesTable: '_mhb_widgets',
+                referencesColumn: 'id',
+                onDelete: 'CASCADE'
+            })
+            expect(widgetsTable?.compositeForeignKeys ?? []).toEqual([])
+            expect(widgetsTable?.checkConstraints).toEqual(
+                expect.arrayContaining([
+                    expect.objectContaining({
+                        name: 'chk_mhb_widgets_parent_slot_pair',
+                        expression:
+                            '((parent_widget_id IS NULL AND slot_key IS NULL) OR (parent_widget_id IS NOT NULL AND slot_key IS NOT NULL))'
+                    }),
+                    expect.objectContaining({
+                        name: 'chk_mhb_widgets_parent_not_self',
+                        expression: 'parent_widget_id IS NULL OR parent_widget_id <> id'
+                    })
+                ])
+            )
+            expect(widgetsTable?.indexes).toContainEqual({
+                name: 'idx_mhb_widgets_parent_graph',
+                columns: ['layout_id', 'parent_widget_id', 'slot_key', 'sort_order', 'id']
+            })
+        })
+
         it('foreign keys reference existing tables', () => {
             const tableNames = new Set(SYSTEM_TABLES.map((t) => t.name))
             for (const table of SYSTEM_TABLES) {
@@ -98,7 +132,31 @@ describe('systemTableDefinitions', () => {
             for (const table of SYSTEM_TABLES) {
                 const colNames = new Set(table.columns.map((c) => c.name))
                 for (const fk of table.foreignKeys ?? []) {
-                    expect(colNames.has(fk.column)).toBe(true)
+                    const columns = Array.isArray(fk.column) ? fk.column : [fk.column]
+                    for (const column of columns) {
+                        expect(colNames.has(column)).toBe(true)
+                    }
+                }
+                for (const fk of table.compositeForeignKeys ?? []) {
+                    for (const column of fk.columns) {
+                        expect(colNames.has(column)).toBe(true)
+                    }
+                }
+            }
+        })
+
+        it('foreign key target columns exist for single-column and composite references', () => {
+            const definitionsByName = new Map(SYSTEM_TABLES.map((table) => [table.name, table]))
+            for (const table of SYSTEM_TABLES) {
+                const foreignKeys = [
+                    ...(table.foreignKeys ?? []).map((fk) => ({ table: fk.referencesTable, columns: [fk.referencesColumn] })),
+                    ...(table.compositeForeignKeys ?? []).map((fk) => ({ table: fk.referencesTable, columns: fk.referencesColumns }))
+                ]
+                for (const fk of foreignKeys) {
+                    const targetColumns = new Set(definitionsByName.get(fk.table)?.columns.map((column) => column.name))
+                    for (const reference of fk.columns) {
+                        expect(targetColumns.has(reference)).toBe(true)
+                    }
                 }
             }
         })
@@ -242,11 +300,37 @@ describe('systemTableDefinitions', () => {
             expect(snapshotNames).toEqual(definitionNames)
         })
 
+        it('includes widget check constraints in the current schema snapshot', () => {
+            const snapshot = buildSystemStructureSnapshot(CURRENT_STRUCTURE_VERSION)!
+            const widgetDefinition = SYSTEM_TABLES.find((table) => table.name === '_mhb_widgets')!
+            const widgetSnapshot = snapshot.tables.find((table) => table.name === '_mhb_widgets')!
+
+            expect(widgetSnapshot.checkConstraints).toEqual(widgetDefinition.checkConstraints)
+            expect(widgetSnapshot.foreignKeys).toEqual(widgetDefinition.foreignKeys)
+            expect(widgetSnapshot.compositeForeignKeys ?? []).toEqual(widgetDefinition.compositeForeignKeys ?? [])
+            expect(widgetSnapshot.checkConstraints).toEqual(
+                expect.arrayContaining([
+                    expect.objectContaining({ name: 'chk_mhb_widgets_parent_slot_pair' }),
+                    expect.objectContaining({ name: 'chk_mhb_widgets_parent_not_self' })
+                ])
+            )
+        })
+
         it('snapshot is a deep clone (modifying it does not affect definitions)', () => {
             const snapshot = buildSystemStructureSnapshot(CURRENT_STRUCTURE_VERSION)!
-            const originalName = snapshot.tables[0].name
-            snapshot.tables[0].name = 'MODIFIED'
-            expect(SYSTEM_TABLES[0].name).toBe(originalName)
+            const widgetDefinition = SYSTEM_TABLES.find((table) => table.name === '_mhb_widgets')!
+            const widgetSnapshot = snapshot.tables.find((table) => table.name === '_mhb_widgets')!
+            const originalExpression = widgetDefinition.checkConstraints![0].expression
+            const originalParentReference = {
+                ...widgetDefinition.foreignKeys!.find(({ column }) => column === 'parent_widget_id')!
+            }
+
+            widgetSnapshot.name = 'MODIFIED'
+            widgetSnapshot.checkConstraints[0].expression = 'modified expression'
+            widgetSnapshot.foreignKeys.find(({ column }) => column === 'parent_widget_id')!.referencesColumn = 'modified_column'
+            expect(widgetDefinition.name).toBe('_mhb_widgets')
+            expect(widgetDefinition.checkConstraints![0].expression).toBe(originalExpression)
+            expect(widgetDefinition.foreignKeys!.find(({ column }) => column === 'parent_widget_id')).toEqual(originalParentReference)
         })
     })
 

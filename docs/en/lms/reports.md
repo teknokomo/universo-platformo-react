@@ -20,13 +20,13 @@ description: How to open LMS reports, read results, and export CSV files.
 
 1. Open Reports from the sidebar and focus the first readable report row after the table finishes loading.
    ![Reports step 1](../.gitbook/assets/lms-user-guide/reports-step-1.png)
-2. Review Type, Title, Status, Instructor, and Project columns, and confirm that each row is readable without opening a technical record.
+2. Sort by Title and confirm that the report detail table shows readable business columns and rows.
    ![Reports step 2](../.gitbook/assets/lms-user-guide/reports-step-2.png)
 3. Click a business column header, such as Type, to sort the table and check that the order matches your review question.
    ![Reports step 3](../.gitbook/assets/lms-user-guide/reports-step-3.png)
 4. Focus the Export CSV action and use it only after the on-screen rows contain the data you expect to analyze outside the application.
    ![Reports step 4](../.gitbook/assets/lms-user-guide/reports-step-4.png)
-5. Return to Learning Content when a report row points to a course, track, or resource that needs correction, then reopen Reports to verify the result.
+5. Return to Content Projects and search the title from a report to inspect its source, then reopen Reports after any correction.
    ![Reports step 5](../.gitbook/assets/lms-user-guide/reports-step-5.png)
 
 ## Screen Details

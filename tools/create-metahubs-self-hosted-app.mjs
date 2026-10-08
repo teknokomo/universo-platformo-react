@@ -207,26 +207,19 @@ async function main() {
         console.log('    + 1 enumeration value created')
     }
 
-    // 4. Rename/configure the seeded default layout, then persist runtime view settings after widget sync
-    console.log('\n4. Configuring canonical default layout with runtime view settings...')
+    // 4. Name the canonical layout and configure presentation on its widget placements
+    console.log('\n4. Configuring the canonical default dashboard layout...')
     const layoutId = await waitForDefaultLayoutId(metahubId)
     console.log(`  ✓ Default layout located: ${layoutId}`)
 
     try {
-        const currentLayout = await api('GET', `/metahub/${metahubId}/layout/${layoutId}`)
-        const currentConfig = currentLayout?.config && typeof currentLayout.config === 'object' ? currentLayout.config : {}
-
         await api('PATCH', `/metahub/${metahubId}/layout/${layoutId}`, {
             name: SELF_HOSTED_APP_LAYOUT.name,
             namePrimaryLocale: 'en',
             description: SELF_HOSTED_APP_LAYOUT.description,
-            descriptionPrimaryLocale: 'en',
-            config: {
-                ...currentConfig,
-                ...SELF_HOSTED_APP_LAYOUT.runtimeConfig
-            }
+            descriptionPrimaryLocale: 'en'
         })
-        console.log('  ✓ Default layout renamed and configured')
+        console.log('  ✓ Default layout metadata updated')
     } catch (e) {
         console.warn(`  ⚠ Could not update default layout metadata/config: ${e.message}`)
     }
@@ -268,11 +261,18 @@ async function main() {
     }
 
     try {
-        await api('PUT', `/metahub/${metahubId}/layout/${layoutId}/zone-widget`, {
-            zone: 'center',
-            widgetKey: 'detailsTable'
+        const zoneWidgetsResponse = await api('GET', `/metahub/${metahubId}/layout/${layoutId}/zone-widgets`)
+        const zoneWidgets = Array.isArray(zoneWidgetsResponse?.items) ? zoneWidgetsResponse.items : []
+        const detailsTableWidget = zoneWidgets.find((widget) => widget?.widgetKey === 'detailsTable' && widget?.isActive !== false)
+        if (!detailsTableWidget?.id) throw new Error('The default Dashboard must already contain its bound detailsTable placement')
+
+        await api('PATCH', `/metahub/${metahubId}/layout/${layoutId}/zone-widget/${detailsTableWidget.id}/config`, {
+            config: {
+                ...(detailsTableWidget.config && typeof detailsTableWidget.config === 'object' ? detailsTableWidget.config : {}),
+                ...SELF_HOSTED_APP_LAYOUT.detailsTableConfig
+            }
         })
-        console.log('  ✓ Details table widget configured')
+        console.log('  ✓ Details table presentation configured on its bound placement')
     } catch (e) {
         console.warn(`  ⚠ Could not configure details table widget: ${e.message}`)
     }

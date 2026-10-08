@@ -22,6 +22,7 @@ import {
 } from '../../support/backend/api-session.mjs'
 import { recordCreatedMetahub } from '../../support/backend/run-manifest.mjs'
 import { repoRoot } from '../../support/env/load-e2e-env.mjs'
+import { resolveFixtureOutputPath } from '../../support/fixtureOutputPath'
 import { assertMeridian73FixtureEnvelopeContract, MERIDIAN_73_FIXTURE_FILENAME } from '../../support/meridian73FixtureContract'
 import { buildSnapshotEnvelope, buildVLC, createLocalizedContent, validateSnapshotEnvelope } from '@universo-react/utils'
 import {
@@ -47,10 +48,7 @@ type ApiContext = Awaited<ReturnType<typeof createLoggedInApiContext>>
 type ObjectEntity = { id: string; codename?: unknown }
 type RecordSeed = Readonly<{ data: Record<string, unknown>; sortOrder: number }>
 
-const FIXTURES_DIR = path.resolve(repoRoot, 'tools', 'fixtures')
-const explicitFixtureOutputPath = process.env.MERIDIAN_73_FIXTURE_OUTPUT_PATH
-const resolveFixtureOutputPath = () =>
-    explicitFixtureOutputPath ? path.resolve(repoRoot, explicitFixtureOutputPath) : path.join(FIXTURES_DIR, MERIDIAN_73_FIXTURE_FILENAME)
+const resolveGeneratedFixturePath = () => resolveFixtureOutputPath('MERIDIAN_73_FIXTURE_OUTPUT_PATH', MERIDIAN_73_FIXTURE_FILENAME)
 
 const localized = (value: Meridian73LocalizedText) => buildVLC(value.en, value.ru)
 
@@ -445,10 +443,7 @@ const configureProductLayout = async (api: ApiContext, metahubId: string): Promi
 
     let widgetsPayload = await listLayoutZoneWidgets(api, metahubId, layout.id)
     let widgets = Array.isArray(widgetsPayload?.items) ? widgetsPayload.items : []
-    const byInstanceKey = (instanceKey: string) =>
-        widgets.find(
-            (candidate) => candidate?.config && typeof candidate.config === 'object' && candidate.config.instanceKey === instanceKey
-        )
+    const byInstanceKey = (instanceKey: string) => widgets.find((candidate) => candidate?.instanceKey === instanceKey)
 
     const imageWidget = byInstanceKey('hero-image')
     expect(imageWidget?.config?.media).toBeUndefined()
@@ -559,7 +554,7 @@ test.describe('73rd Meridian Consortium marketing fixture generator', () => {
         validateSnapshotEnvelope(envelope)
         assertMeridian73FixtureEnvelopeContract(envelope)
 
-        const fixturePath = resolveFixtureOutputPath()
+        const fixturePath = resolveGeneratedFixturePath()
         fs.mkdirSync(path.dirname(fixturePath), { recursive: true })
         fs.writeFileSync(fixturePath, `${JSON.stringify(envelope, null, 4)}\n`, 'utf8')
         expect(fs.existsSync(fixturePath)).toBe(true)

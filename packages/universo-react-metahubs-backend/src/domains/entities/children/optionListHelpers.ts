@@ -2,6 +2,7 @@ import type { Response } from 'express'
 import { z } from 'zod'
 import { MetaEntityKind, SHARED_OBJECT_KINDS } from '@universo-react/types'
 import { localizedContent } from '@universo-react/utils'
+import type { SqlQueryable } from '@universo-react/utils/database'
 import { getCodenamePayloadText, optionalCodenamePayloadSchema, requiredCodenamePayloadSchema } from '../../shared/codenamePayload'
 import { getCodenameText } from '../../shared/codename'
 import { toTimestamp } from '../../shared/timestamps'
@@ -204,8 +205,9 @@ export const findBlockingDefaultValueReferences = async (
     valueId: string,
     compatibleOptionListKinds: readonly string[],
     componentsService: MetahubComponentsService,
-    userId?: string
-) => componentsService.findDefaultEnumValueBlockers(metahubId, valueId, userId, compatibleOptionListKinds)
+    userId?: string,
+    db?: SqlQueryable
+) => componentsService.findDefaultEnumValueBlockers(metahubId, valueId, userId, compatibleOptionListKinds, db)
 
 export const findBlockingRecordValueReferences = async (
     metahubId: string,
@@ -213,8 +215,9 @@ export const findBlockingRecordValueReferences = async (
     valueId: string,
     compatibleOptionListKinds: readonly string[],
     componentsService: MetahubComponentsService,
-    userId?: string
-) => componentsService.findElementEnumValueBlockers(metahubId, optionListId, valueId, userId, compatibleOptionListKinds)
+    userId?: string,
+    db?: SqlQueryable
+) => componentsService.findElementEnumValueBlockers(metahubId, optionListId, valueId, userId, compatibleOptionListKinds, db)
 
 export const loadCompatibleOptionListKinds = async (
     entityTypeService: EntityTypeService,

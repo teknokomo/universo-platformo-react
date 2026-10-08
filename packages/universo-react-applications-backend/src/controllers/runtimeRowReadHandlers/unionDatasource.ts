@@ -1,7 +1,7 @@
 import type { Request, Response } from 'express'
 import { UpdateFailure, normalizeLocale, resolveRuntimeSchema, toRuntimeInputFormatErrorBody } from '../../shared/runtimeHelpers'
-import { runtimeRecordsUnionBodySchema } from '../runtimeRowSupport/contracts'
-import { executeRuntimeRecordsUnionDatasource } from '../runtimeRowSupport/union'
+import { runtimeRecordsUnionBodySchema } from '../../services/runtimeRowSupport/contracts'
+import { executeRuntimeRecordsUnionDatasource } from '../../services/runtimeRowSupport/union/index'
 
 import type { RuntimeRowReadHandlerDeps } from './types'
 

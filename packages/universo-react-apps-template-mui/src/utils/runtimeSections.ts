@@ -1,4 +1,4 @@
-import type { DashboardDetailsSlot } from '../dashboard/Dashboard'
+import type { DashboardDetailsSlot } from '../dashboard/contracts'
 
 const normalizeRuntimeCodename = (value: string | null | undefined): string | undefined => {
     const normalized = value?.trim().toLocaleLowerCase()

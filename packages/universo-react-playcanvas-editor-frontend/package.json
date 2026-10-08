@@ -53,7 +53,7 @@
         "ot-text": "github:playcanvas/ot-text#b3d5f9610f3a78a7782bbc3b466e1b88355d59e7",
         "playcanvas": "2.21.3",
         "pngjs": "5.0.0",
-        "postcss": "8.5.12",
+        "postcss": "catalog:",
         "rimraf": "^5.0.5",
         "rollup": "4.59.0",
         "rollup-plugin-polyfill-node": "0.13.0",

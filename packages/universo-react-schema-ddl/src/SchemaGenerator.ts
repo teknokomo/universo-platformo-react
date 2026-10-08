@@ -1140,6 +1140,9 @@ export class SchemaGenerator {
             await knex.schema.withSchema(schemaName).createTable('_app_widgets', (table) => {
                 table.uuid('id').primary().defaultTo(knex.raw('public.uuid_generate_v7()'))
                 table.uuid('layout_id').notNullable().references('id').inTable(`${schemaName}._app_layouts`).onDelete('CASCADE')
+                table.text('instance_key').notNullable()
+                table.uuid('parent_widget_id').nullable()
+                table.text('slot_key').nullable()
                 table.string('zone', 20).notNullable()
                 table.string('widget_key', 100).notNullable()
                 table.integer('sort_order').notNullable().defaultTo(1)
@@ -1151,6 +1154,21 @@ export class SchemaGenerator {
                 table.uuid('source_base_widget_id').nullable()
                 table.text('source_content_hash').nullable()
                 table.text('local_content_hash').nullable()
+
+                table.unique(['layout_id', 'instance_key'], 'uq_app_widgets_layout_instance_key')
+                // PostgreSQL requires an exact unique key for the same-layout composite parent FK.
+                table.unique(['layout_id', 'id'], 'uq_app_widgets_layout_id_id')
+                table
+                    .foreign(['layout_id', 'parent_widget_id'], 'fk_app_widgets_parent_layout')
+                    .references(['layout_id', 'id'])
+                    .inTable(`${schemaName}._app_widgets`)
+                    .onDelete('CASCADE')
+                table.check(
+                    '((parent_widget_id IS NULL AND slot_key IS NULL) OR (parent_widget_id IS NOT NULL AND slot_key IS NOT NULL))',
+                    {},
+                    'chk_app_widgets_parent_slot_pair'
+                )
+                table.check('parent_widget_id IS NULL OR parent_widget_id <> id', {}, 'chk_app_widgets_parent_not_self')
 
                 table.timestamp('_upl_created_at', { useTz: true }).notNullable().defaultTo(knex.fn.now())
                 table.uuid('_upl_created_by').nullable()
@@ -1182,32 +1200,17 @@ export class SchemaGenerator {
                 table.index(['layout_id'], 'idx_app_widgets_layout_id')
                 table.index(['layout_id', 'zone', 'sort_order'], 'idx_app_widgets_layout_zone_sort')
                 table.index(['layout_id', 'is_active'], 'idx_app_widgets_layout_active')
+                table.index(['layout_id', 'parent_widget_id', 'slot_key', 'sort_order', 'id'], 'idx_app_widgets_parent_graph')
             })
             console.log(`[SchemaGenerator] _app_widgets created`)
         }
 
         if (capabilities.includeWidgets) {
-            await knex.raw(`
-                ALTER TABLE "${schemaName}"."_app_widgets"
-                ADD COLUMN IF NOT EXISTS "is_active" BOOLEAN NOT NULL DEFAULT true,
-                ADD COLUMN IF NOT EXISTS "source_config" JSONB NULL,
-                ADD COLUMN IF NOT EXISTS "source_state" JSONB NULL,
-                ADD COLUMN IF NOT EXISTS "source_widget_id" UUID NULL,
-                ADD COLUMN IF NOT EXISTS "source_base_widget_id" UUID NULL,
-                ADD COLUMN IF NOT EXISTS "source_content_hash" TEXT NULL,
-                ADD COLUMN IF NOT EXISTS "local_content_hash" TEXT NULL
-            `)
-            await knex.raw(`
-                CREATE INDEX IF NOT EXISTS idx_app_widgets_layout_active
-                ON "${schemaName}"._app_widgets (layout_id, is_active)
-            `)
-            await knex.raw(`
-                CREATE UNIQUE INDEX IF NOT EXISTS idx_app_widgets_layout_source_base_active
-                ON "${schemaName}"._app_widgets (layout_id, source_base_widget_id)
-                WHERE source_base_widget_id IS NOT NULL
-                  AND _upl_deleted = false
-                  AND _app_deleted = false
-            `)
+            // Repeated ensures for fresh schemas are harmless; old placement tables are intentionally not migrated.
+            await knex.raw(
+                'CREATE UNIQUE INDEX IF NOT EXISTS ?? ON ??.?? (layout_id, source_base_widget_id) WHERE source_base_widget_id IS NOT NULL AND _upl_deleted = false AND _app_deleted = false',
+                ['idx_app_widgets_layout_source_base_active', schemaName, '_app_widgets']
+            )
         }
 
         const hasEnumValues = capabilities.includeValues ? await knex.schema.withSchema(schemaName).hasTable('_app_values') : true

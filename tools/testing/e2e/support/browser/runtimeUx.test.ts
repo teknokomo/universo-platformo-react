@@ -1,7 +1,12 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 import type { Locator, Page } from '@playwright/test'
-import { expectNoDataGridTechnicalLeakage, isExpectedConflictResourceFailure, isExpectedValidationResourceFailure } from './runtimeUx.ts'
+import {
+    expectNoDataGridTechnicalLeakage,
+    expectNoTechnicalLeakage,
+    isExpectedConflictResourceFailure,
+    isExpectedValidationResourceFailure
+} from './runtimeUx.ts'
 
 const expectedUrl = 'http://127.0.0.1:3100/api/v1/applications/app-id/layouts/layout-id/zone-widget/widget-id/toggle-active'
 
@@ -164,5 +169,28 @@ describe('DataGrid technical leakage checks', () => {
 
     it('fails when visible grid text cannot be read', async () => {
         await assert.rejects(expectNoDataGridTechnicalLeakage(createSurface({ failGridText: true })), /forced DataGrid text read failure/)
+    })
+})
+
+describe('runtime technical leakage oracle canaries', () => {
+    const createTextSurface = (text: string): Locator => ({ evaluate: async () => text } as unknown as Locator)
+
+    it('detects UUIDs embedded in normal user-facing text', async () => {
+        await assert.rejects(
+            expectNoTechnicalLeakage(createTextSurface('Record 018f0000-0000-7000-8000-000000000001'), {
+                checkUuidSubstrings: true
+            }),
+            /visible raw UUID value/
+        )
+    })
+
+    it('detects raw JSON and object stringification', async () => {
+        for (const text of ['Source {"name":"Revenue"}', 'Source [object Object]']) {
+            await assert.rejects(expectNoTechnicalLeakage(createTextSurface(text)), /visible raw JSON\/object text/)
+        }
+    })
+
+    it('allows ordinary semantic labels', async () => {
+        await assert.doesNotReject(expectNoTechnicalLeakage(createTextSurface('Revenue by month')))
     })
 })

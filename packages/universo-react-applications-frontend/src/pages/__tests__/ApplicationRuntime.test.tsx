@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react'
+import { useState, type MouseEvent, type ReactNode } from 'react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, render, waitFor, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
@@ -19,13 +19,35 @@ const runtimeMocks = vi.hoisted(() => ({
     handleCloseForm: vi.fn(),
     onSelectObjectCollection: vi.fn(),
     updateLearningContentProgress: vi.fn().mockResolvedValue({ persisted: true }),
+    fetchList: vi.fn(),
+    fetchRow: vi.fn(),
+    recordCommand: vi.fn(),
+    workflowAction: vi.fn(),
+    invalidateQueries: vi.fn(),
+    enqueueSnackbar: vi.fn(),
+    capturedRowActionsContext: null as null | Record<string, any>,
     setPaginationModel: vi.fn(),
     dashboardStateOverrides: {} as Record<string, unknown>,
     templateKey: 'dashboard',
     templateQueryOptions: undefined as { queryKey?: unknown; queryFn?: () => Promise<unknown> } | undefined,
+    applicationDetailsData: { name: { en: 'Test application', ru: 'Тестовое приложение' } } as Record<string, unknown>,
+    getApplication: vi.fn(),
     getApplicationEffectiveLayout: vi.fn(),
+    effectiveLayoutRefetch: vi.fn().mockResolvedValue({}),
     effectiveLayoutZone: undefined as string | undefined,
-    capturedDashboardProps: null as { layoutConfig?: Record<string, unknown>; zoneWidgets?: unknown } | null,
+    effectiveLayoutWidgets: undefined as unknown[] | undefined,
+    resolvedEntityTypeId: undefined as string | undefined,
+    capturedDashboardProps: null as {
+        layoutConfig?: Record<string, unknown>
+        zoneWidgets?: unknown
+        details?: {
+            locale?: string
+            workspacesEnabled?: boolean
+            currentWorkspaceId?: string | null
+            settings?: Record<string, unknown>
+            footerMetadata?: { siteName: string }
+        }
+    } | null,
     capturedMarketingProps: null as {
         locale?: string
         target?: unknown
@@ -50,45 +72,156 @@ vi.mock('react-i18next', () => ({
     })
 }))
 
+vi.mock('@universo-react/auth-frontend', () => ({
+    useAuth: () => ({ user: { id: 'runtime-user', email: 'member@example.com' } })
+}))
+
 // Dashboard interaction tests exercise the existing runtime surface. The
 // template-dispatch query is covered by the marketing runtime contract tests;
 // keep this suite deterministic and independent from a QueryClient provider.
-vi.mock('@tanstack/react-query', () => ({
-    useQuery: vi.fn((options: { queryKey?: unknown; queryFn?: () => Promise<unknown> }) => {
-        runtimeMocks.templateQueryOptions = options
-        return {
-            isLoading: false,
-            isError: false,
-            data: {
-                status: 'ok',
-                layout: { templateKey: runtimeMocks.templateKey, config: { showFooter: false } },
-                widgets: [
-                    {
-                        id: 'effective-widget-1',
-                        layoutId: 'effective-layout-1',
-                        zone:
-                            runtimeMocks.effectiveLayoutZone ??
-                            (runtimeMocks.templateKey === 'marketing-page' ? 'marketing-header' : 'center'),
-                        widgetKey: runtimeMocks.templateKey === 'marketing-page' ? 'languageSwitcher' : 'menuWidget',
-                        sortOrder: 1,
-                        config: {},
-                        sourceWidgetId: null,
-                        sourceBaseWidgetId: null,
-                        isActive: true,
-                        version: 1
+vi.mock('@tanstack/react-query', async () => {
+    const React = await import('react')
+    return {
+        useQuery: vi.fn((options: { queryKey?: unknown; enabled?: boolean; queryFn?: () => Promise<unknown> }) => {
+            const isBoundRowActionQuery = Array.isArray(options.queryKey) && options.queryKey[0] === 'runtime-bound-row-actions'
+            const isApplicationDetailQuery =
+                Array.isArray(options.queryKey) &&
+                options.queryKey.length === 3 &&
+                options.queryKey[0] === 'applications' &&
+                options.queryKey[1] === 'detail'
+            const [boundResult, setBoundResult] = React.useState<{
+                isLoading: boolean
+                isError: boolean
+                data: unknown
+            }>({ isLoading: false, isError: false, data: null })
+            const queryFnRef = React.useRef(options.queryFn)
+            queryFnRef.current = options.queryFn
+            const serializedKey = JSON.stringify(options.queryKey)
+
+            React.useEffect(() => {
+                if (!isBoundRowActionQuery || !options.enabled || !queryFnRef.current) {
+                    return undefined
+                }
+                let cancelled = false
+                setBoundResult({ isLoading: true, isError: false, data: null })
+                void queryFnRef.current().then(
+                    (data) => {
+                        if (!cancelled) setBoundResult({ isLoading: false, isError: false, data })
+                    },
+                    () => {
+                        if (!cancelled) setBoundResult({ isLoading: false, isError: true, data: null })
                     }
-                ]
+                )
+                return () => {
+                    cancelled = true
+                }
+            }, [isBoundRowActionQuery, options.enabled, serializedKey])
+
+            if (isBoundRowActionQuery) {
+                return boundResult
             }
-        }
-    })
+
+            if (isApplicationDetailQuery) {
+                return {
+                    isLoading: false,
+                    isError: false,
+                    data: options.enabled ? runtimeMocks.applicationDetailsData : undefined
+                }
+            }
+
+            runtimeMocks.templateQueryOptions = options
+            return {
+                isLoading: false,
+                isError: false,
+                refetch: runtimeMocks.effectiveLayoutRefetch,
+                data: {
+                    status: 'ok',
+                    resolvedEntityTypeId: runtimeMocks.resolvedEntityTypeId,
+                    layout: {
+                        templateKey: runtimeMocks.templateKey,
+                        config: { sideMenu: { availableModes: ['wide', 'compact'], primaryMode: 'compact', rememberUserChoice: true } }
+                    },
+                    widgets: runtimeMocks.effectiveLayoutWidgets ?? [
+                        {
+                            id: 'effective-widget-1',
+                            layoutId: 'effective-layout-1',
+                            zone:
+                                runtimeMocks.effectiveLayoutZone ??
+                                (runtimeMocks.templateKey === 'marketing-page' ? 'marketing-header' : 'left'),
+                            widgetKey: runtimeMocks.templateKey === 'marketing-page' ? 'languageSwitcher' : 'menuWidget',
+                            sortOrder: 1,
+                            config: {},
+                            ...(runtimeMocks.templateKey === 'dashboard'
+                                ? {
+                                      runtimeData: {
+                                          status: 'ready',
+                                          data: {
+                                              kind: 'menu',
+                                              title: 'Main',
+                                              showTitle: false,
+                                              overflowLabel: 'More',
+                                              items: [
+                                                  {
+                                                      key: 'object:details',
+                                                      label: 'Details',
+                                                      icon: null,
+                                                      kind: 'section',
+                                                      target: { kind: 'object', codename: 'details' }
+                                                  }
+                                              ],
+                                              overflowItems: []
+                                          }
+                                      }
+                                  }
+                                : {}),
+                            sourceWidgetId: null,
+                            sourceBaseWidgetId: null,
+                            isActive: true,
+                            version: 1
+                        }
+                    ]
+                }
+            }
+        }),
+        useMutation: (options: {
+            mutationFn: (variables: any) => Promise<unknown>
+            onSuccess?: (result: unknown, variables: any) => void | Promise<void>
+            onError?: (error: unknown, variables: any) => void
+        }) => ({
+            mutate: (variables: any) => {
+                void options.mutationFn(variables).then(
+                    async (result) => {
+                        await options.onSuccess?.(result, variables)
+                    },
+                    (error) => {
+                        options.onError?.(error, variables)
+                    }
+                )
+            },
+            isPending: false,
+            variables: undefined
+        }),
+        useQueryClient: () => ({ invalidateQueries: runtimeMocks.invalidateQueries })
+    }
+})
+
+vi.mock('notistack', () => ({
+    useSnackbar: () => ({ enqueueSnackbar: runtimeMocks.enqueueSnackbar })
 }))
 
 vi.mock('../../api/applications', () => ({
+    getApplication: runtimeMocks.getApplication,
     getApplicationEffectiveLayout: runtimeMocks.getApplicationEffectiveLayout
 }))
 
 vi.mock('../../api/runtimeAdapter', () => ({
-    createRuntimeAdapter: vi.fn(() => ({ queryKeyPrefix: ['runtime', 'app-1'] }))
+    createRuntimeAdapter: vi.fn(() => ({
+        queryKeyPrefix: ['runtime', 'app-1'],
+        fetchList: runtimeMocks.fetchList,
+        fetchRow: runtimeMocks.fetchRow,
+        recordCommand: runtimeMocks.recordCommand,
+        workflowAction: runtimeMocks.workflowAction
+    }))
 }))
 
 vi.mock('../../api/mutations', () => ({
@@ -98,8 +231,10 @@ vi.mock('../../api/mutations', () => ({
     getRuntimeCellPendingKey: vi.fn((rowId: string, field: string) => `${rowId}:${field}`)
 }))
 
-vi.mock('@universo-react/apps-template-mui', () => {
+vi.mock('@universo-react/apps-template-mui', async (importOriginal) => {
+    const actual = await importOriginal<typeof import('@universo-react/apps-template-mui')>()
     return {
+        ...actual,
         getRuntimeLayoutErrorCode: vi.fn(() => null),
         AppMainLayout: ({ children }: { children: ReactNode }) => <div data-testid='app-main-layout'>{children}</div>,
         MarketingRuntimeContent: (props: {
@@ -115,7 +250,6 @@ vi.mock('@universo-react/apps-template-mui', () => {
         AppsDashboard: ({
             details,
             layoutConfig,
-            menu,
             zoneWidgets
         }: {
             details?: {
@@ -126,14 +260,20 @@ vi.mock('@universo-react/apps-template-mui', () => {
                 locale?: string
                 sections?: Array<{ id: string; codename: string }>
                 objectCollections?: Array<{ id: string; codename: string }>
+                workspacesEnabled?: boolean
+                currentWorkspaceId?: string | null
+                settings?: Record<string, unknown>
+                footerMetadata?: { siteName: string }
                 pagePlayer?: {
                     showOutline?: boolean
                     showProgressHeader?: boolean
                     completeButtonMode?: string
                     progressStorageKey?: string
-                    onProgressChange?: (payload: { action: 'view' | 'complete' }) => Promise<void> | void
+                    onProgressChange?: (payload: {
+                        action: 'view' | 'complete'
+                        target?: { objectCodename: string; recordHandle: string }
+                    }) => Promise<void> | void
                 }
-                tableDefaults?: unknown
                 onOpenCreateTarget?: (target: {
                     id: string
                     label: string
@@ -149,23 +289,32 @@ vi.mock('@universo-react/apps-template-mui', () => {
                 onOpenRowTarget?: (
                     target: {
                         rowId: string
+                        expectedVersion?: number
                         sectionCodename?: string
                         objectCollectionCodename?: string
                     },
                     action: 'edit' | 'copy' | 'delete'
                 ) => void
+                onOpenRowMenu?: (
+                    event: MouseEvent<HTMLElement>,
+                    rowId: string,
+                    target?: { entityCodename: string; recordHandle: string }
+                ) => void
             }
             layoutConfig?: Record<string, unknown>
             zoneWidgets?: unknown
-            menu?: { items?: Array<{ label: string; selected?: boolean; href?: string | null }> }
         }) => {
-            runtimeMocks.capturedDashboardProps = { layoutConfig, zoneWidgets }
+            runtimeMocks.capturedDashboardProps = { layoutConfig, zoneWidgets, details }
             return (
                 <div data-testid='apps-dashboard'>
                     <div data-testid='apps-dashboard-layout'>{JSON.stringify(layoutConfig ?? {})}</div>
                     <div data-testid='apps-dashboard-zone-widgets'>{JSON.stringify(zoneWidgets ?? {})}</div>
-                    <div data-testid='apps-dashboard-menu'>
-                        {menu?.items?.map((item) => `${item.label}:${Boolean(item.selected)}:${item.href ?? ''}`).join('|')}
+                    <div data-testid='apps-dashboard-runtime-navigation'>
+                        {JSON.stringify({
+                            zoneWidgets,
+                            workspacesEnabled: details?.workspacesEnabled,
+                            currentWorkspaceId: details?.currentWorkspaceId
+                        })}
                     </div>
                     <div data-testid='apps-dashboard-banner'>{details?.banner}</div>
                     <div data-testid='apps-dashboard-title'>{details?.title}</div>
@@ -182,8 +331,7 @@ vi.mock('@universo-react/apps-template-mui', () => {
                                       progressStorageKey: details.pagePlayer.progressStorageKey,
                                       hasProgressHandler: typeof details.pagePlayer.onProgressChange === 'function'
                                   }
-                                : null,
-                            tableDefaults: details?.tableDefaults ?? null
+                                : null
                         })}
                     </div>
                     <button
@@ -192,6 +340,18 @@ vi.mock('@universo-react/apps-template-mui', () => {
                         type='button'
                     >
                         complete
+                    </button>
+                    <button
+                        data-testid='apps-dashboard-complete-course-item'
+                        onClick={() =>
+                            void details?.pagePlayer?.onProgressChange?.({
+                                action: 'complete',
+                                target: { objectCodename: 'CourseItems', recordHandle: 'rh1.test-course-item' }
+                            })
+                        }
+                        type='button'
+                    >
+                        complete course item
                     </button>
                     <button
                         data-testid='apps-dashboard-open-course-target'
@@ -208,11 +368,38 @@ vi.mock('@universo-react/apps-template-mui', () => {
                         create course target
                     </button>
                     <button
+                        data-testid='apps-dashboard-open-details-target'
+                        onClick={() =>
+                            details?.onOpenCreateTarget?.({
+                                id: 'create-details',
+                                label: 'Details',
+                                sectionCodename: 'details'
+                            })
+                        }
+                        type='button'
+                    >
+                        create details target
+                    </button>
+                    <button
                         data-testid='apps-dashboard-open-course-row-edit'
-                        onClick={() => details?.onOpenRowTarget?.({ rowId: 'course-row-1', sectionCodename: 'Courses' }, 'edit')}
+                        onClick={() =>
+                            details?.onOpenRowTarget?.({ rowId: 'course-row-1', sectionCodename: 'Courses', expectedVersion: 7 }, 'edit')
+                        }
                         type='button'
                     >
                         edit course row
+                    </button>
+                    <button
+                        data-testid='apps-dashboard-open-course-row-actions'
+                        onClick={(event) =>
+                            details?.onOpenRowMenu?.(event, 'course-row-2', {
+                                entityCodename: 'Courses',
+                                recordHandle: 'rh1.test-course-row-2'
+                            })
+                        }
+                        type='button'
+                    >
+                        open course row actions
                     </button>
                     <div data-testid='apps-dashboard-actions'>{details?.actions}</div>
                     <div data-testid='apps-dashboard-content'>{details?.content}</div>
@@ -242,7 +429,24 @@ vi.mock('@universo-react/apps-template-mui', () => {
                 {renderDelete ? <div data-testid='crud-dialogs-delete'>delete</div> : null}
             </>
         ),
-        RowActionsMenu: () => null,
+        RowActionsMenu: ({ runtimeContext }: { runtimeContext?: Record<string, any> }) => {
+            runtimeMocks.capturedRowActionsContext = runtimeContext ?? null
+            const recordState = runtimeContext?.row?._app_record_state === 'posted' ? 'posted' : 'draft'
+            return runtimeContext ? (
+                <div data-testid='bound-row-actions-menu'>
+                    <span>{String(runtimeContext.row?.title ?? '')}</span>
+                    <button
+                        type='button'
+                        onClick={() => {
+                            runtimeContext.onCloseMenu?.()
+                            runtimeContext.onRecordCommand?.(runtimeContext.menuRowId, recordState === 'posted' ? 'unpost' : 'post')
+                        }}
+                    >
+                        {recordState === 'posted' ? 'Unpost bound row' : 'Post bound row'}
+                    </button>
+                </div>
+            ) : null
+        },
         updateLearningContentProgress: runtimeMocks.updateLearningContentProgress,
         RuntimeWorkspacesPage: ({
             applicationId,
@@ -262,9 +466,6 @@ vi.mock('@universo-react/apps-template-mui', () => {
             runtimeMocks.capturedCellRenderers = options.cellRenderers
             const overrides = runtimeMocks.dashboardStateOverrides as any
             const baseAppData = {
-                zoneWidgets: { left: [], right: [], center: [] },
-                menus: [],
-                activeMenuId: null,
                 settings: { sectionLinksEnabled: true },
                 permissions: {
                     manageMembers: true,
@@ -275,6 +476,7 @@ vi.mock('@universo-react/apps-template-mui', () => {
                     readReports: true
                 },
                 workspacesEnabled: true,
+                currentWorkspaceId: null,
                 section: { name: 'Details', codename: 'details' },
                 sections: [{ id: 'object-1', codename: 'details' }],
                 objectCollection: { name: 'Details' },
@@ -303,7 +505,6 @@ vi.mock('@universo-react/apps-template-mui', () => {
                 isLoading: false,
                 isFetching: false,
                 isError: false,
-                layoutConfig: {},
                 columns: [],
                 fieldConfigs: [],
                 rows: [],
@@ -319,14 +520,6 @@ vi.mock('@universo-react/apps-template-mui', () => {
                 activeObjectCollectionId: 'object-1',
                 selectedObjectCollectionId: 'object-1',
                 onSelectObjectCollection: runtimeMocks.onSelectObjectCollection,
-                activeMenu: null,
-                dashboardMenuItems: [],
-                menuSlot: {
-                    title: null,
-                    showTitle: false,
-                    items: [{ id: 'modules', label: 'Modules', kind: 'section', objectCollectionId: 'object-1', selected: true }]
-                },
-                menusMap: {},
                 formOpen: false,
                 editRowId: null,
                 formError: null,
@@ -443,11 +636,23 @@ describe('ApplicationRuntime pending interaction safety', () => {
         runtimeMocks.handleOpenCopy.mockReset()
         runtimeMocks.handleOpenDelete.mockReset()
         runtimeMocks.updateLearningContentProgress.mockClear()
+        runtimeMocks.fetchList.mockReset()
+        runtimeMocks.fetchRow.mockReset()
+        runtimeMocks.recordCommand.mockReset()
+        runtimeMocks.workflowAction.mockReset()
+        runtimeMocks.invalidateQueries.mockReset()
+        runtimeMocks.enqueueSnackbar.mockReset()
+        runtimeMocks.capturedRowActionsContext = null
         runtimeMocks.dashboardStateOverrides = {}
         runtimeMocks.templateKey = 'dashboard'
         runtimeMocks.templateQueryOptions = undefined
+        runtimeMocks.applicationDetailsData = { name: { en: 'Test application', ru: 'Тестовое приложение' } }
+        runtimeMocks.getApplication.mockReset()
         runtimeMocks.getApplicationEffectiveLayout.mockReset()
+        runtimeMocks.effectiveLayoutRefetch.mockReset().mockResolvedValue({})
         runtimeMocks.effectiveLayoutZone = undefined
+        runtimeMocks.effectiveLayoutWidgets = undefined
+        runtimeMocks.resolvedEntityTypeId = undefined
         runtimeMocks.capturedDashboardProps = null
         runtimeMocks.capturedMarketingProps = null
         runtimeMocks.triggerRerender = undefined
@@ -503,8 +708,15 @@ describe('ApplicationRuntime pending interaction safety', () => {
     it('passes effective dashboard config and widgets to the dashboard renderer', () => {
         renderRuntimePageAt('/applications/app-1/runtime')
 
-        expect(screen.getByTestId('apps-dashboard-layout')).toHaveTextContent('"showFooter":false')
+        expect(screen.getByTestId('apps-dashboard-layout')).toHaveTextContent('"primaryMode":"compact"')
         expect(screen.getByTestId('apps-dashboard-zone-widgets')).toHaveTextContent('effective-widget-1')
+        expect(runtimeMocks.capturedDashboardProps?.details?.footerMetadata).toEqual({ siteName: 'Test application' })
+    })
+
+    it('localizes application metadata passed to the Dashboard footer', () => {
+        renderRuntimePageAt('/applications/app-1/runtime?locale=ru')
+
+        expect(runtimeMocks.capturedDashboardProps?.details?.footerMetadata).toEqual({ siteName: 'Тестовое приложение' })
     })
 
     it('fails closed when effective dashboard layout contains an unknown zone', () => {
@@ -545,7 +757,20 @@ describe('ApplicationRuntime pending interaction safety', () => {
             locale: 'ru',
             themeVariant: 'dark'
         })
-        expect(runtimeMocks.capturedMarketingProps).toMatchObject({ locale: 'ru', target: { targetKind: 'page' } })
+        expect(runtimeMocks.capturedMarketingProps).toMatchObject({ locale: 'ru', themeVariant: 'dark', target: { targetKind: 'page' } })
+    })
+
+    it('refetches the effective Dashboard layout after runtime content changes', async () => {
+        renderRuntimePageAt('/applications/app-1/runtime')
+
+        const onRuntimeDataChanged = runtimeMocks.capturedCrudOptions?.onRuntimeDataChanged
+        expect(onRuntimeDataChanged).toEqual(expect.any(Function))
+
+        await act(async () => {
+            await onRuntimeDataChanged()
+        })
+
+        expect(runtimeMocks.effectiveLayoutRefetch).toHaveBeenCalledTimes(1)
     })
 
     it('fails closed for an entity selector without a target kind instead of falling back to the global layout', () => {
@@ -555,51 +780,20 @@ describe('ApplicationRuntime pending interaction safety', () => {
         expect(runtimeMocks.getApplicationEffectiveLayout).not.toHaveBeenCalled()
     })
 
-    it('resolves the Structure section as the preferred target for a Matrix deep link', () => {
-        renderRuntimePageAt('/applications/app-1/runtime?matrixCell=019fa968-aac3-7ce7-9717-79e7c6c6e77e')
+    it('uses the server-resolved Entity UUID for row loading from a semantic route target', async () => {
+        const resolvedEntityTypeId = '019fa968-aac3-7ce7-9717-79e7c6c6e77e'
+        runtimeMocks.resolvedEntityTypeId = resolvedEntityTypeId
 
-        const structureSection = {
-            id: 'structure-section',
-            codename: 'Structure',
-            tableName: 'obj_structure'
-        }
-        const introSection = {
-            id: 'intro-section',
-            codename: 'InterpretationNetworkIntro',
-            tableName: null
-        }
-        const appData = {
-            zoneWidgets: {
-                left: [],
-                right: [],
-                center: [
-                    {
-                        id: 'matrix-widget',
-                        widgetKey: 'interpretationNetworkWorkspace',
-                        config: {
-                            visibleFor: {
-                                sectionCodenames: ['Structure'],
-                                objectCollectionCodenames: ['Structure']
-                            }
-                        }
-                    }
-                ]
-            },
-            menus: [
-                {
-                    id: 'main-menu',
-                    items: [
-                        { id: 'intro', kind: 'section', sectionId: introSection.id, isActive: true },
-                        { id: 'structures', kind: 'section', sectionId: structureSection.id, isActive: true }
-                    ],
-                    overflowItems: []
-                }
-            ],
-            sections: [introSection, structureSection],
-            objectCollections: [introSection, structureSection]
-        }
+        renderRuntimePageAt('/applications/app-1/runtime?targetKind=object&entityTypeCodename=Structure&locale=ru')
 
-        expect(runtimeMocks.capturedCrudOptions.resolvePreferredSectionId(appData)).toBe(structureSection.id)
+        expect(runtimeMocks.capturedCrudOptions.initialSectionId).toBe(resolvedEntityTypeId)
+        await act(async () => {
+            await runtimeMocks.templateQueryOptions?.queryFn?.()
+        })
+        expect(runtimeMocks.getApplicationEffectiveLayout).toHaveBeenCalledWith(
+            'app-1',
+            expect.objectContaining({ targetKind: 'object', entityTypeCodename: 'Structure', entityTypeId: null, locale: 'ru' })
+        )
     })
 
     it('shows loading state before runtime data is available', () => {
@@ -648,9 +842,6 @@ describe('ApplicationRuntime pending interaction safety', () => {
             activeObjectCollectionId: 'project-section',
             selectedObjectCollectionId: 'project-section',
             appData: {
-                zoneWidgets: { left: [], right: [], center: [] },
-                menus: [],
-                activeMenuId: null,
                 section: { id: 'project-section', name: 'Projects', codename: 'ContentProjects' },
                 objectCollection: { id: 'project-section', name: 'Projects', codename: 'ContentProjects' },
                 activeSectionId: 'project-section',
@@ -694,7 +885,83 @@ describe('ApplicationRuntime pending interaction safety', () => {
         await waitFor(() => {
             expect(runtimeMocks.handleOpenCreate).toHaveBeenCalledTimes(1)
         })
-        expect(runtimeMocks.handleOpenCreate).toHaveBeenCalledWith([{ fieldCodename: 'Status', enumCodename: 'Draft' }])
+        expect(runtimeMocks.handleOpenCreate).toHaveBeenCalledWith(
+            [{ fieldCodename: 'Status', enumCodename: 'Draft' }],
+            undefined,
+            undefined,
+            undefined
+        )
+    })
+
+    it('uses the active section over the scoped URL when Dashboard actions switch entity targets', async () => {
+        const routeSectionId = '019fa968-aac3-7ce7-9717-79e7c6c6e77e'
+        const otherSectionId = '019fa968-aac3-7ce7-9717-79e7c6c6e77f'
+        runtimeMocks.dashboardStateOverrides = {
+            activeSectionId: otherSectionId,
+            selectedSectionId: otherSectionId,
+            activeObjectCollectionId: otherSectionId,
+            selectedObjectCollectionId: otherSectionId,
+            appData: {
+                section: { id: otherSectionId, name: 'Courses', codename: 'Courses' },
+                objectCollection: { id: otherSectionId, name: 'Courses', codename: 'Courses' },
+                activeSectionId: otherSectionId,
+                activeObjectCollectionId: otherSectionId,
+                sections: [
+                    { id: routeSectionId, codename: 'details' },
+                    { id: otherSectionId, codename: 'Courses' }
+                ],
+                objectCollections: [
+                    { id: routeSectionId, codename: 'details' },
+                    { id: otherSectionId, codename: 'Courses' }
+                ]
+            }
+        }
+        renderRuntimeHarness(`/applications/app-1/runtime/${routeSectionId}`)
+
+        const user = userEvent.setup()
+        await user.click(screen.getByTestId('apps-dashboard-open-details-target'))
+
+        expect(runtimeMocks.onSelectObjectCollection).toHaveBeenCalledWith(routeSectionId)
+        expect(runtimeMocks.handleOpenCreate).not.toHaveBeenCalled()
+
+        runtimeMocks.dashboardStateOverrides = {
+            ...runtimeMocks.dashboardStateOverrides,
+            activeSectionId: routeSectionId,
+            selectedSectionId: routeSectionId,
+            activeObjectCollectionId: routeSectionId,
+            selectedObjectCollectionId: routeSectionId,
+            appData: {
+                ...(runtimeMocks.dashboardStateOverrides.appData as Record<string, unknown>),
+                section: { id: routeSectionId, name: 'Details', codename: 'details' },
+                objectCollection: { id: routeSectionId, name: 'Details', codename: 'details' },
+                activeSectionId: routeSectionId,
+                activeObjectCollectionId: routeSectionId
+            }
+        }
+        act(() => runtimeMocks.triggerRerender?.())
+
+        await waitFor(() => expect(runtimeMocks.handleOpenCreate).toHaveBeenCalledTimes(1))
+
+        await user.click(screen.getByTestId('apps-dashboard-open-course-target'))
+        expect(runtimeMocks.onSelectObjectCollection).toHaveBeenLastCalledWith(otherSectionId)
+
+        runtimeMocks.dashboardStateOverrides = {
+            ...runtimeMocks.dashboardStateOverrides,
+            activeSectionId: otherSectionId,
+            selectedSectionId: otherSectionId,
+            activeObjectCollectionId: otherSectionId,
+            selectedObjectCollectionId: otherSectionId,
+            appData: {
+                ...(runtimeMocks.dashboardStateOverrides.appData as Record<string, unknown>),
+                section: { id: otherSectionId, name: 'Courses', codename: 'Courses' },
+                objectCollection: { id: otherSectionId, name: 'Courses', codename: 'Courses' },
+                activeSectionId: otherSectionId,
+                activeObjectCollectionId: otherSectionId
+            }
+        }
+        act(() => runtimeMocks.triggerRerender?.())
+
+        await waitFor(() => expect(runtimeMocks.handleOpenCreate).toHaveBeenCalledTimes(2))
     })
 
     it('waits for the selected row target schema before opening a union source row action', async () => {
@@ -704,9 +971,6 @@ describe('ApplicationRuntime pending interaction safety', () => {
             activeObjectCollectionId: 'project-section',
             selectedObjectCollectionId: 'project-section',
             appData: {
-                zoneWidgets: { left: [], right: [], center: [] },
-                menus: [],
-                activeMenuId: null,
                 section: { id: 'project-section', name: 'Projects', codename: 'ContentProjects' },
                 objectCollection: { id: 'project-section', name: 'Projects', codename: 'ContentProjects' },
                 activeSectionId: 'project-section',
@@ -748,7 +1012,106 @@ describe('ApplicationRuntime pending interaction safety', () => {
         })
 
         await waitFor(() => {
-            expect(runtimeMocks.handleOpenEdit).toHaveBeenCalledWith('course-row-1')
+            expect(runtimeMocks.handleOpenEdit).toHaveBeenCalledWith('course-row-1', undefined, 7)
+        })
+    })
+
+    it('loads a bound Dashboard row context and routes record commands to the target entity', async () => {
+        const permissions = {
+            manageMembers: true,
+            manageApplication: true,
+            createContent: true,
+            editContent: true,
+            deleteContent: true,
+            readReports: true
+        }
+        const currentEntity = { id: 'details-section', name: 'Details', codename: 'details' }
+        const targetEntity = {
+            id: 'course-section',
+            name: 'Courses',
+            codename: 'Courses',
+            recordBehavior: {
+                mode: 'transactional',
+                posting: { mode: 'manual', targetLedgers: ['ProgressLedger'], moduleCodename: 'EnrollmentPostingModule' },
+                immutability: 'posted'
+            },
+            workflowActions: []
+        }
+        runtimeMocks.dashboardStateOverrides = {
+            activeSectionId: currentEntity.id,
+            selectedSectionId: currentEntity.id,
+            activeObjectCollectionId: currentEntity.id,
+            selectedObjectCollectionId: currentEntity.id,
+            appData: {
+                currentWorkspaceId: 'workspace-1',
+                permissions,
+                section: currentEntity,
+                objectCollection: currentEntity,
+                activeSectionId: currentEntity.id,
+                activeObjectCollectionId: currentEntity.id,
+                sections: [currentEntity, targetEntity],
+                objectCollections: [currentEntity, targetEntity],
+                settings: {},
+                workspacesEnabled: true
+            }
+        }
+        runtimeMocks.fetchList.mockResolvedValue({
+            objectCollection: targetEntity,
+            columns: [],
+            rows: [],
+            pagination: { total: 1, limit: 1, offset: 0 },
+            permissions
+        })
+        runtimeMocks.fetchRow
+            .mockResolvedValueOnce({
+                id: '0190a9b5-3cde-7abc-8def-0123456789d2',
+                version: 5,
+                data: { title: 'Compliance Refresh Course', _app_record_state: 'draft' }
+            })
+            .mockResolvedValue({
+                id: '0190a9b5-3cde-7abc-8def-0123456789d2',
+                version: 6,
+                data: { title: 'Compliance Refresh Course', _app_record_state: 'posted' }
+            })
+        runtimeMocks.recordCommand.mockResolvedValue({ id: '0190a9b5-3cde-7abc-8def-0123456789d2', version: 6 })
+
+        renderRuntimePage()
+        const user = userEvent.setup()
+        await user.click(screen.getByTestId('apps-dashboard-open-course-row-actions'))
+
+        await waitFor(() => expect(screen.getByTestId('bound-row-actions-menu')).toHaveTextContent('Compliance Refresh Course'))
+        expect(runtimeMocks.fetchList).toHaveBeenCalledWith(
+            expect.objectContaining({
+                objectCollectionId: targetEntity.id,
+                sectionId: targetEntity.id,
+                workspaceId: 'workspace-1'
+            })
+        )
+        expect(runtimeMocks.fetchRow).toHaveBeenCalledWith(
+            'rh1.test-course-row-2',
+            expect.objectContaining({ objectCollectionId: targetEntity.id, sectionId: targetEntity.id, workspaceId: 'workspace-1' })
+        )
+        expect(runtimeMocks.capturedRowActionsContext?.recordBehavior).toEqual(targetEntity.recordBehavior)
+
+        await user.click(screen.getByRole('button', { name: 'Post bound row' }))
+        await waitFor(() =>
+            expect(runtimeMocks.recordCommand).toHaveBeenCalledWith('rh1.test-course-row-2', 'post', {
+                objectCollectionId: targetEntity.id,
+                sectionId: targetEntity.id,
+                workspaceId: 'workspace-1',
+                expectedVersion: 5
+            })
+        )
+
+        await waitFor(() => expect(screen.queryByTestId('bound-row-actions-menu')).not.toBeInTheDocument())
+        await user.click(screen.getByTestId('apps-dashboard-open-course-row-actions'))
+
+        await waitFor(() => expect(screen.getByRole('button', { name: 'Unpost bound row' })).toBeVisible())
+        expect(runtimeMocks.fetchRow).toHaveBeenCalledTimes(2)
+        expect(runtimeMocks.capturedRowActionsContext?.row).toMatchObject({
+            id: 'rh1.test-course-row-2',
+            _upl_version: 6,
+            _app_record_state: 'posted'
         })
     })
 
@@ -759,9 +1122,6 @@ describe('ApplicationRuntime pending interaction safety', () => {
             activeObjectCollectionId: 'page-1',
             selectedObjectCollectionId: 'page-1',
             appData: {
-                zoneWidgets: { left: [], right: [], center: [] },
-                menus: [],
-                activeMenuId: null,
                 currentWorkspaceId: 'workspace-1',
                 settings: {
                     sectionLinksEnabled: true,
@@ -814,16 +1174,42 @@ describe('ApplicationRuntime pending interaction safety', () => {
             applicationId: 'app-1',
             targetObjectCodename: 'LearnerHome',
             targetRecordId: 'page-1',
+            workspaceId: 'workspace-1',
             action: 'complete'
         })
     })
 
-    it('passes Learning Content table defaults to the generic runtime dashboard contract', () => {
+    it('forwards the learner-player opaque record handle to the progress API', async () => {
+        runtimeMocks.dashboardStateOverrides = {
+            activeSectionId: 'course-collection-id',
+            appData: {
+                currentWorkspaceId: 'workspace-1',
+                objectCollection: { id: 'course-collection-id', codename: 'Courses' },
+                objectCollections: [
+                    { id: 'course-collection-id', codename: 'Courses' },
+                    { id: 'course-items-collection-id', codename: 'CourseItems' }
+                ]
+            }
+        }
+
+        renderRuntimePage()
+
+        const user = userEvent.setup()
+        await user.click(screen.getByTestId('apps-dashboard-complete-course-item'))
+
+        expect(runtimeMocks.updateLearningContentProgress).toHaveBeenCalledWith({
+            apiBaseUrl: '/api/v1',
+            applicationId: 'app-1',
+            targetObjectCodename: 'CourseItems',
+            targetRecordId: 'rh1.test-course-item',
+            workspaceId: 'workspace-1',
+            action: 'complete'
+        })
+    })
+
+    it('keeps Learning Content presentation settings out of the generic runtime dashboard contract', () => {
         runtimeMocks.dashboardStateOverrides = {
             appData: {
-                zoneWidgets: { left: [], right: [], center: [] },
-                menus: [],
-                activeMenuId: null,
                 settings: {
                     sectionLinksEnabled: true,
                     learningContent: {
@@ -865,9 +1251,9 @@ describe('ApplicationRuntime pending interaction safety', () => {
 
         renderRuntimePage()
 
-        expect(screen.getByTestId('apps-dashboard-details')).toHaveTextContent('"defaultViewMode":"card"')
-        expect(screen.getByTestId('apps-dashboard-details')).toHaveTextContent('"field":"type"')
-        expect(screen.getByTestId('apps-dashboard-details')).toHaveTextContent('"visible":false')
+        expect(runtimeMocks.capturedDashboardProps?.details).not.toHaveProperty('tableDefaults')
+        expect(runtimeMocks.capturedDashboardProps?.details).not.toHaveProperty('rows')
+        expect(runtimeMocks.capturedDashboardProps?.details).not.toHaveProperty('columns')
 
         expect(runtimeMocks.capturedCrudOptions.createDefaultContext(runtimeMocks.dashboardStateOverrides.appData)).toMatchObject({
             learningContent: {
@@ -883,120 +1269,61 @@ describe('ApplicationRuntime pending interaction safety', () => {
         })
     })
 
-    it('renders the workspaces route with runtime navigation and no demo dashboard layout', () => {
+    it('renders the workspaces route with Entity-backed Dashboard navigation', () => {
         renderRuntimePageAt('/applications/app-1/runtime/workspaces')
 
         expect(createRuntimeAdapter).toHaveBeenCalledWith('app-1')
         expect(screen.getByTestId('apps-dashboard-title')).toHaveTextContent('Workspaces')
         expect(screen.getByTestId('runtime-workspaces-page')).toHaveTextContent('workspaces:app-1')
-        expect(screen.getByTestId('apps-dashboard-menu')).toHaveTextContent(
-            'Modules:false:/a/app-1/object-1?targetKind=object&entityTypeId=object-1&locale=en|Workspaces:true:/a/app-1/workspaces?locale=en'
-        )
-        expect(screen.getByTestId('apps-dashboard-layout')).toHaveTextContent('"showOverviewTitle":false')
-        expect(screen.getByTestId('apps-dashboard-layout')).toHaveTextContent('"showOverviewCards":false')
-        expect(screen.getByTestId('apps-dashboard-layout')).toHaveTextContent('"showSessionsChart":false')
-        expect(screen.getByTestId('apps-dashboard-layout')).toHaveTextContent('"showPageViewsChart":false')
-        expect(screen.getByTestId('apps-dashboard-layout')).toHaveTextContent('"showDetailsTable":false')
+        expect(screen.getByTestId('apps-dashboard-layout')).not.toHaveTextContent('showOverviewTitle')
+        expect(screen.getByTestId('apps-dashboard-layout')).not.toHaveTextContent('showDetailsTable')
+        expect(runtimeMocks.capturedDashboardProps?.zoneWidgets).toMatchObject({ center: [], bottom: [] })
+        expect(runtimeMocks.capturedDashboardProps?.details).toMatchObject({ workspacesEnabled: true, currentWorkspaceId: null })
+        expect(runtimeMocks.capturedDashboardProps?.zoneWidgets).toMatchObject({
+            left: [
+                {
+                    widgetKey: 'menuWidget',
+                    runtimeData: {
+                        status: 'ready',
+                        data: {
+                            kind: 'menu',
+                            items: [{ key: 'object:details', target: { kind: 'object', codename: 'details' } }]
+                        }
+                    }
+                }
+            ]
+        })
         expect(screen.queryByTestId('crud-dialogs-surface')).not.toBeInTheDocument()
     })
 
-    it('passes workspace detail route parameters and renders workspace nested navigation', () => {
+    it('passes application navigation settings to the Dashboard placement renderer', () => {
+        runtimeMocks.dashboardStateOverrides = {
+            appData: { settings: { sectionLinksEnabled: false } }
+        }
+
+        renderRuntimePage()
+
+        expect(runtimeMocks.capturedDashboardProps?.details?.settings).toEqual({ sectionLinksEnabled: false })
+    })
+
+    it('passes the current workspace to the dashboard shell on workspace detail routes', () => {
         const workspaceId = '00000000-0000-7000-8000-000000000111'
+        runtimeMocks.dashboardStateOverrides = { appData: { currentWorkspaceId: workspaceId } }
 
         renderRuntimePageAt(`/applications/app-1/runtime/workspaces/${workspaceId}/access`)
 
         expect(screen.getByTestId('runtime-workspaces-page')).toHaveTextContent(`workspaces:app-1:${workspaceId}:access`)
-        expect(screen.getByTestId('apps-dashboard-menu')).toHaveTextContent(
-            `Modules:false:/a/app-1/object-1?targetKind=object&entityTypeId=object-1&locale=en|Workspaces:true:/a/app-1/workspaces?locale=en|Dashboard:false:/a/app-1/workspaces/${workspaceId}?locale=en|Access:true:/a/app-1/workspaces/${workspaceId}/access?locale=en|Settings:false:/a/app-1/workspaces/${workspaceId}/settings?locale=en`
-        )
+        expect(runtimeMocks.capturedDashboardProps?.details).toMatchObject({ workspacesEnabled: true, currentWorkspaceId: workspaceId })
     })
 
-    it('passes workspace settings route parameters and selects settings navigation', () => {
+    it('preserves workspace context on settings routes', () => {
         const workspaceId = '00000000-0000-7000-8000-000000000111'
+        runtimeMocks.dashboardStateOverrides = { appData: { currentWorkspaceId: workspaceId } }
 
         renderRuntimePageAt(`/applications/app-1/runtime/workspaces/${workspaceId}/settings`)
 
         expect(screen.getByTestId('runtime-workspaces-page')).toHaveTextContent(`workspaces:app-1:${workspaceId}:settings`)
-        expect(screen.getByTestId('apps-dashboard-menu')).toHaveTextContent(`Settings:true:/a/app-1/workspaces/${workspaceId}/settings`)
-    })
-
-    it('does not duplicate Workspaces when the runtime menu already provides the root workspace link', () => {
-        runtimeMocks.dashboardStateOverrides = {
-            menuSlot: {
-                title: null,
-                showTitle: false,
-                items: [
-                    { id: 'modules', label: 'Modules', kind: 'section', objectCollectionId: 'object-1', selected: true },
-                    {
-                        id: 'runtime-workspaces',
-                        label: 'Workspaces',
-                        icon: 'apps',
-                        kind: 'link',
-                        href: '/a/app-1/workspaces',
-                        selected: false
-                    }
-                ]
-            }
-        }
-
-        renderRuntimePageAt('/applications/app-1/runtime/workspaces')
-
-        expect(screen.getByTestId('apps-dashboard-menu')).toHaveTextContent(
-            'Modules:false:/a/app-1/object-1?targetKind=object&entityTypeId=object-1&locale=en|Workspaces:true:/a/app-1/workspaces?locale=en'
-        )
-    })
-
-    it('uses the base runtime URL for section links when section-specific links are disabled', () => {
-        runtimeMocks.dashboardStateOverrides = {
-            appData: {
-                zoneWidgets: { left: [], right: [], center: [] },
-                menus: [],
-                activeMenuId: null,
-                settings: { sectionLinksEnabled: false },
-                workspacesEnabled: true,
-                section: { name: 'Details', codename: 'details' },
-                objectCollection: { name: 'Details' }
-            }
-        }
-
-        renderRuntimePageAt('/applications/app-1/runtime/workspaces')
-
-        expect(screen.getByTestId('apps-dashboard-menu')).toHaveTextContent('Modules:false:/a/app-1|Workspaces:true:/a/app-1/workspaces')
-    })
-
-    it('keeps target-aware section links when workspaces are disabled', () => {
-        runtimeMocks.dashboardStateOverrides = {
-            appData: {
-                zoneWidgets: { left: [], right: [], center: [] },
-                menus: [],
-                activeMenuId: null,
-                settings: { sectionLinksEnabled: true },
-                workspacesEnabled: false,
-                permissions: {
-                    manageMembers: false,
-                    manageApplication: false,
-                    createContent: false,
-                    editContent: false,
-                    deleteContent: false,
-                    readReports: false
-                },
-                section: { id: 'page-1', name: 'Landing', codename: 'Landing', kind: 'page' },
-                objectCollection: { id: 'object-1', name: 'Products', codename: 'Products', kind: 'object' },
-                sections: [{ id: 'page-1', codename: 'Landing', kind: 'page' }],
-                objectCollections: [{ id: 'object-1', codename: 'Products', kind: 'object', tableName: 'obj_products' }]
-            },
-            menuSlot: {
-                title: null,
-                showTitle: false,
-                items: [{ id: 'products', label: 'Products', kind: 'section', objectCollectionId: 'object-1', selected: false }]
-            }
-        }
-
-        renderRuntimePageAt('/applications/app-1/runtime?locale=ru')
-
-        expect(screen.getByTestId('apps-dashboard-menu')).toHaveTextContent(
-            'Products:false:/a/app-1/object-1?targetKind=object&entityTypeId=object-1&locale=ru'
-        )
+        expect(runtimeMocks.capturedDashboardProps?.details).toMatchObject({ workspacesEnabled: true, currentWorkspaceId: workspaceId })
     })
 
     it('uses a route UUID as the initially selected runtime section', () => {
@@ -1010,9 +1337,6 @@ describe('ApplicationRuntime pending interaction safety', () => {
     it('renders the workspace limit banner inside dashboard details area', () => {
         runtimeMocks.dashboardStateOverrides = {
             appData: {
-                zoneWidgets: { left: [], right: [], center: [] },
-                menus: [],
-                activeMenuId: null,
                 objectCollection: { name: 'Details' },
                 workspaceLimit: {
                     canCreate: false,
@@ -1032,9 +1356,6 @@ describe('ApplicationRuntime pending interaction safety', () => {
     it('prefers section aliases for dashboard title and inline mutation targeting', async () => {
         runtimeMocks.dashboardStateOverrides = {
             appData: {
-                zoneWidgets: { left: [], right: [], center: [] },
-                menus: [],
-                activeMenuId: null,
                 section: { name: 'Orders', codename: 'orders' },
                 objectCollection: { name: 'Legacy Object' }
             },
@@ -1068,9 +1389,6 @@ describe('ApplicationRuntime pending interaction safety', () => {
     it('hides the create action when the object runtime config disables it', () => {
         runtimeMocks.dashboardStateOverrides = {
             appData: {
-                zoneWidgets: { left: [], right: [], center: [] },
-                menus: [],
-                activeMenuId: null,
                 objectCollection: {
                     name: 'Details',
                     runtimeConfig: { showCreateButton: false }
@@ -1086,9 +1404,6 @@ describe('ApplicationRuntime pending interaction safety', () => {
     it('hides the create action and clears direct page create mode when runtime permissions are read-only', async () => {
         runtimeMocks.dashboardStateOverrides = {
             appData: {
-                zoneWidgets: { left: [], right: [], center: [] },
-                menus: [],
-                activeMenuId: null,
                 objectCollection: {
                     name: 'Details',
                     runtimeConfig: { createSurface: 'page' }
@@ -1119,9 +1434,6 @@ describe('ApplicationRuntime pending interaction safety', () => {
     ])('fails closed for %s runtime permissions', async (_caseName, permissions) => {
         runtimeMocks.dashboardStateOverrides = {
             appData: {
-                zoneWidgets: { left: [], right: [], center: [] },
-                menus: [],
-                activeMenuId: null,
                 objectCollection: {
                     name: 'Details',
                     runtimeConfig: { createSurface: 'page' }
@@ -1142,9 +1454,6 @@ describe('ApplicationRuntime pending interaction safety', () => {
     it('disables inline boolean editing when editContent is not explicitly allowed', async () => {
         runtimeMocks.dashboardStateOverrides = {
             appData: {
-                zoneWidgets: { left: [], right: [], center: [] },
-                menus: [],
-                activeMenuId: null,
                 section: { name: 'Orders', codename: 'orders' },
                 objectCollection: { name: 'Orders' },
                 permissions: {
@@ -1176,9 +1485,6 @@ describe('ApplicationRuntime pending interaction safety', () => {
     it('renders page-surface forms inside dashboard content when createSurface is configured as page', async () => {
         runtimeMocks.dashboardStateOverrides = {
             appData: {
-                zoneWidgets: { left: [], right: [], center: [] },
-                menus: [],
-                activeMenuId: null,
                 objectCollection: {
                     name: 'Details',
                     runtimeConfig: { createSurface: 'page' }
@@ -1200,9 +1506,6 @@ describe('ApplicationRuntime pending interaction safety', () => {
 
         runtimeMocks.dashboardStateOverrides = {
             appData: {
-                zoneWidgets: { left: [], right: [], center: [] },
-                menus: [],
-                activeMenuId: null,
                 objectCollection: {
                     name: 'Details',
                     runtimeConfig: { createSurface: 'page' }
@@ -1245,9 +1548,6 @@ describe('ApplicationRuntime pending interaction safety', () => {
 
     it('does not reopen an already-consumed create page surface after the form closes', async () => {
         const pageSurfaceAppData = {
-            zoneWidgets: { left: [], right: [], center: [] },
-            menus: [],
-            activeMenuId: null,
             objectCollection: {
                 name: 'Details',
                 runtimeConfig: { createSurface: 'page' }
@@ -1304,9 +1604,6 @@ describe('ApplicationRuntime pending interaction safety', () => {
     it('blocks direct create page navigation when the object hides the create action', async () => {
         runtimeMocks.dashboardStateOverrides = {
             appData: {
-                zoneWidgets: { left: [], right: [], center: [] },
-                menus: [],
-                activeMenuId: null,
                 objectCollection: {
                     name: 'Details',
                     runtimeConfig: { showCreateButton: false, createSurface: 'page' }
@@ -1325,9 +1622,6 @@ describe('ApplicationRuntime pending interaction safety', () => {
 
     it('clears page surface state when the active object changes', async () => {
         const objectOneData = {
-            zoneWidgets: { left: [], right: [], center: [] },
-            menus: [],
-            activeMenuId: null,
             section: {
                 name: 'Object One',
                 codename: 'object-one',
@@ -1407,9 +1701,6 @@ describe('ApplicationRuntime pending interaction safety', () => {
 
     it('keeps page-surface content mounted until submit settles and then clears URL params', async () => {
         const pageSurfaceAppData = {
-            zoneWidgets: { left: [], right: [], center: [] },
-            menus: [],
-            activeMenuId: null,
             objectCollection: {
                 name: 'Details',
                 runtimeConfig: { createSurface: 'page' }

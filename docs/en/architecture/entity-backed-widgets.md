@@ -87,9 +87,49 @@ Authenticated Marketing runtime responses expose only the effective layout versi
 
 <code>@universo-react/apps-template-mui</code> consumes the typed <code>data.records</code> view model and renders it without importing persistence or querying Entity tables. It does not read the retired Marketing <code>source</code> or <code>copySource</code> contract.
 
+## Dashboard placement and content ownership
+
+The Dashboard uses the same cross-package registry contract while keeping its shell and responsive MUI 9 layout. The registry defines which widget types can be placed in each zone, the source and copy policy, the supported presentation fields, and whether the widget can contain other placements. A placement stores only its instance identity, zone, order, activation, optional parent/slot, renderer presentation, and neutral source bindings. Content-bearing widgets read normal Entity records or bounded server-owned data sources; host controls receive workspace, route, user, locale, and theme state from the runtime host. Published Dashboard menu links delegate navigation to the application host so the browser address and loaded runtime target stay synchronized; the isolated standalone runtime also supports pathname and <code>#/a/...</code> hash routes. Workspace management routes keep registry-declared host placements in the left, top, and right shell zones while hiding content placements and the Dashboard footer.
+
+Metadata Pages retain their validated Editor.js-compatible <code>blockContent</code> as Page-owned metadata. The Dashboard host renders these blocks through the existing <code>PageBlocksView</code> host-content slot before the persisted placement graph; page text never enters widget configuration and does not change widget placement.
+
+| Data                                                                     | Owner                                                            |
+| ------------------------------------------------------------------------ | ---------------------------------------------------------------- |
+| Editorial titles, notices, menu entries, resources, and business records | Entity Types and their records, normally Objects with Components |
+| Source selection and relation between source slots                       | Validated layout binding metadata                                |
+| Widget appearance                                                        | Strict, registry-declared presentation config                    |
+| Zone, order, activation, parent, and slot                                | First-class layout placement row                                 |
+| Workspace progress or user-authored runtime values                       | Workspace/runtime feature that owns that lifecycle               |
+| PlayCanvas, Quiz, and Interpretation Network execution state             | Their specialized typed runtime contracts                        |
+
+Every Dashboard placement has a portable <code>instanceKey</code>. It survives publication, snapshot restore, application synchronization, and Reset; physical UUID v7 row IDs remain persistence details. Copying a placement or a container subtree creates new row IDs and new instance keys as one atomic operation. No widget presentation config stores a second copy of business content or a nested child-widget list.
+
+Containers use ordinary placement rows for their children. The parent stores only its column or tab presentation descriptors; each child stores a parent reference and a semantic slot key. In a metahub overlay, that reference may target an inherited placement in the base layout. Snapshot and authoring boundaries validate the combined effective graph, and application materialization resolves it into one application layout. The following is a schematic fragment showing only the child-to-parent relationship; it is not a complete persisted placement or API payload:
+
+```json
+{
+    "widgetKey": "detailsTable",
+    "instanceKey": "records-table",
+    "parentWidgetId": "<snapshot-local-parent-id>",
+    "slotKey": "column:main"
+}
+```
+
+The parent UUID in an exported snapshot is local to that snapshot and is remapped during restore. Semantic hashes use the parent instance key and slot, never physical UUIDs. Server-side graph checks reject missing or foreign parents, self-links, cycles, unknown slots, incompatible child types, and repeated instance keys.
+
+For a source-managed placement, Metahub remains authoritative for source identity, bindings, zone, and nested composition. Application editors may change only the presentation fields and deployment overrides explicitly enabled by registry policy; Reset restores the current source baseline. The UI communicates these limits, and write services enforce them independently of the UI.
+
+Dashboard runtime resolvers read only registered sources, apply server-side access checks and fixed result limits, and return strict allowlist DTOs. Authenticated reads reuse the ordinary owner/shared policy for each source record and for relation-set parent records. Anonymous reads cannot access Objects protected by owner/shared policy; malformed access metadata also fails closed. The isolated app-template renderer receives no table names, SQL fragments, binding envelopes, or physical Entity/Component identifiers. Empty data, permission denial, stale sources, and load failures are represented as distinct localized states.
+
+The built-in Basic, Basic Demo, Empty, 1C-Compatible, LMS, Interpretation Network, and PlayCanvas templates all seed this same placement contract. Basic Demo supplies real Entity-backed records and bounded metric/series sources; other templates seed only their applicable shell and specialized runtime placements. This clean cutover does not add a compatibility reader or increase schema/template versions.
+
+Generated Dashboard navigation projects visible Page entities and groups them by their referenced Hub memberships. Objects stay out of navigation by default; a template may explicitly expose a curated Object as a primary link with `config.runtime.menuVisibility: "primary"`. Metahub Object create/edit forms expose this choice and its semantic icon in the Navigation tab; copying an Object preserves whether it is hidden or selected. This opt-in keeps ordinary data sources and registers from flooding the sidebar. Page, Hub, and selected Object icons use bounded semantic metadata mapped to existing MUI icons, with safe defaults for unknown values. The shared runtime header renders language and color-mode controls once, and theme menu labels use the shared `common` translations.
+
+This is a breaking Dashboard wire contract for the coordinated platform release. The old root-level <code>show\*</code>, <code>defaultViewMode</code>, <code>cardColumns</code>, <code>rowHeight</code>, and <code>enableRowReordering</code> settings are no longer accepted; configure presentation on each placement and shell behavior through <code>sideMenu</code> and <code>objectBehavior</code>. No automatic mapping is provided. Strict validation also rejects embedded child-widget arrays and persisted, imported, or synchronized placements that omit the required semantic identity and explicit parent/slot fields. The server generates each placement's <code>instanceKey</code>. Application placement requests use <code>parentWidgetId</code> (the parent's row UUID), while Metahub authoring uses <code>parentInstanceKey</code> (the parent's semantic key); root placements omit parent and slot, and child placements supply both. Responses include <code>instanceKey</code>, <code>parentWidgetId</code>, and <code>slotKey</code>, with null parent/slot for roots. Deploy the matching backend, Metahub and Application frontends, and isolated app-template runtime together; external REST API clients must update their request and response types to the new contracts. Recreate Dashboard metahubs/applications from the current seeds and regenerate snapshots. The previous Dashboard payloads are not upgraded in place.
+
 ## Localization
 
-Localized Entity Components remain the content authority. Slot policies declare required locales; Marketing snapshot validation requires both English and Russian content for localized fields. The Metahub source and record pickers, editor labels, empty/loading states, validation, permission failures, and conflicts use the English and Russian translation resources. The runtime selects localized content through the shared Marketing DTO contract.
+Localized Entity Components remain the content authority. Slot policies declare required locales; Marketing snapshot validation requires both English and Russian content for localized fields. The Metahub source and record pickers, editor labels, empty/loading states, validation, permission failures, and conflicts use the English and Russian translation resources. Each registered runtime widget selects localized values through its typed, allowlisted DTO contract and the shared locale-selection rules.
 
 ## Related documentation
 

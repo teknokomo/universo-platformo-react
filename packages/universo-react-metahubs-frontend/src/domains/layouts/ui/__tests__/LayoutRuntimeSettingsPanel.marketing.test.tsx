@@ -17,22 +17,16 @@ describe('LayoutRuntimeSettingsPanel marketing appearance', () => {
                 layoutConfig={{ themeMode: 'light', primaryColor: '#1976d2' }}
                 objectBehaviorConfig={{
                     showCreateButton: true,
-                    searchMode: 'page-local',
                     createSurface: 'dialog',
                     editSurface: 'dialog',
-                    copySurface: 'dialog',
-                    enableRowReordering: false,
-                    reorderPersistenceField: null
+                    copySurface: 'dialog'
                 }}
                 sideMenuConfig={{ availableModes: ['wide'], primaryMode: 'wide', rememberUserChoice: true }}
-                reorderPersistenceFieldDraft=''
                 viewSettingsSaving={false}
                 canManageLayouts
                 onObjectBehaviorChange={vi.fn()}
                 onViewSettingChange={onViewSettingChange}
                 onSideMenuConfigChange={vi.fn()}
-                onReorderPersistenceFieldDraftChange={vi.fn()}
-                onCommitReorderPersistenceField={vi.fn()}
             />
         )
 

@@ -169,6 +169,9 @@ export type RuntimeApplicationLayoutRow = {
 export type RuntimeApplicationWidgetRow = {
     id: unknown
     layout_id: unknown
+    instance_key: unknown
+    parent_widget_id: unknown
+    slot_key: unknown
     zone: unknown
     widget_key: unknown
     sort_order: unknown
@@ -238,6 +241,9 @@ export type SnapshotLayoutWidgetOverrideRow = {
     id?: unknown
     layoutId?: unknown
     baseWidgetId?: unknown
+    instanceKey?: unknown
+    parentWidgetId?: unknown
+    slotKey?: unknown
     zone?: unknown
     sortOrder?: unknown
     config?: unknown
@@ -248,6 +254,10 @@ export type SnapshotLayoutWidgetOverrideRow = {
 export type SnapshotWidgetRow = {
     id?: unknown
     layoutId?: unknown
+    instanceKey?: unknown
+    parentWidgetId?: unknown
+    slotKey?: unknown
+    sourceWidgetId?: unknown
     sourceBaseWidgetId?: unknown
     sourceLineageKey?: unknown
     zone?: unknown
@@ -280,6 +290,10 @@ export type PersistedAppLayout = {
 export type PersistedAppLayoutZoneWidget = {
     id: string
     layoutId: string
+    instanceKey: string
+    parentWidgetId: string | null
+    slotKey: string | null
+    sourceWidgetId?: string | null
     sourceBaseWidgetId?: string | null
     /** Stable logical key for sync-generated runtime widgets without a source row id. */
     sourceLineageKey?: string

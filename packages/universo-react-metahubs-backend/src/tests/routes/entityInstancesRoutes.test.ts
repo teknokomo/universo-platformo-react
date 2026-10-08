@@ -1,5 +1,6 @@
 import type { NextFunction, Request, Response } from 'express'
 import type { RateLimitRequestHandler } from 'express-rate-limit'
+import { createCodenameVLC } from '@universo-react/utils/vlc'
 
 const express = require('express') as typeof import('express')
 const request = require('supertest') as typeof import('supertest')
@@ -143,6 +144,8 @@ jest.mock('@universo-react/utils/database', () => ({
     getRequestDbSession: () => mockDbSession,
     queryOne: (...args: unknown[]) => mockQueryOne(...args),
     queryMany: (...args: unknown[]) => mockQueryMany(...args),
+    acquireAdvisoryXactLock: (db: { query: (sql: string, params?: unknown[]) => Promise<unknown[]> }, lockKey: string) =>
+        db.query('SELECT pg_advisory_xact_lock(hashtextextended($1::text, 0))', [lockKey]),
     isUniqueViolation: (...args: unknown[]) => mockIsUniqueViolation(...args),
     getDbErrorConstraint: (...args: unknown[]) => mockGetDbErrorConstraint(...args)
 }))
@@ -685,6 +688,170 @@ describe('Entity instance routes', () => {
         expect(response.body.sortOrder).toBe(7)
         expect(mockObjectsService.findById).toHaveBeenCalledWith('metahub-1', 'object-1', 'user-1')
         expect(mockEnsureMetahubAccess).toHaveBeenCalledWith(mockExec, 'user-1', 'metahub-1', undefined, mockDbSession)
+    })
+
+    it('persists only validated Object navigation fields through the Hub-scoped update route', async () => {
+        const object = {
+            id: 'object-1',
+            kind: 'object',
+            codename: 'Products',
+            name: { en: 'Products' },
+            config: {
+                hubs: ['hub-1'],
+                sortOrder: 7,
+                runtime: { theme: 'dark', menuVisibility: 'primary', icon: 'apps' }
+            },
+            _upl_version: 3,
+            _mhb_deleted: false
+        }
+        const updated = {
+            ...object,
+            config: { ...object.config, hubs: [], runtime: { theme: 'dark', menuVisibility: 'hidden' } },
+            _upl_version: 4
+        }
+        mockObjectsService.findById.mockResolvedValueOnce(object).mockResolvedValueOnce(updated)
+        mockObjectsService.updateObject.mockResolvedValueOnce(updated)
+
+        const app = buildApp()
+        await request(app)
+            .patch('/metahub/metahub-1/entities/object/instance/hub-1/instance/object-1')
+            .send({ treeEntityIds: [], runtimeMenuVisible: false, expectedVersion: 3 })
+            .expect(200)
+
+        expect(mockObjectsService.updateObject).toHaveBeenCalledWith(
+            'metahub-1',
+            'object-1',
+            'object',
+            expect.objectContaining({
+                config: expect.objectContaining({ hubs: [], runtime: { theme: 'dark', menuVisibility: 'hidden' } }),
+                expectedVersion: 3
+            }),
+            'user-1',
+            undefined
+        )
+        const persistedConfig = mockObjectsService.updateObject.mock.calls[0][3].config
+        expect(persistedConfig).not.toHaveProperty('runtimeConfig')
+    })
+
+    it('uses the read Object version as the compare-and-set precondition when the Hub-scoped update omits it', async () => {
+        const object = {
+            id: 'object-1',
+            kind: 'object',
+            codename: 'Products',
+            name: { en: 'Products' },
+            config: { hubs: ['hub-1'], sortOrder: 7, runtime: { menuVisibility: 'primary' } },
+            _upl_version: 3,
+            _mhb_deleted: false
+        }
+        const updated = { ...object, _upl_version: 4 }
+        mockObjectsService.findById.mockResolvedValueOnce(object).mockResolvedValueOnce(updated)
+        mockObjectsService.updateObject.mockResolvedValueOnce(updated)
+
+        const app = buildApp()
+        await request(app)
+            .patch('/metahub/metahub-1/entities/object/instance/hub-1/instance/object-1')
+            .send({ runtimeMenuVisible: false })
+            .expect(200)
+
+        expect(mockObjectsService.updateObject).toHaveBeenCalledWith(
+            'metahub-1',
+            'object-1',
+            'object',
+            expect.objectContaining({ expectedVersion: 3 }),
+            'user-1',
+            undefined
+        )
+    })
+
+    it('rejects unrecognized Object navigation icons before persistence', async () => {
+        mockObjectsService.findById.mockResolvedValueOnce({
+            id: 'object-1',
+            kind: 'object',
+            codename: 'Products',
+            config: { hubs: ['hub-1'] },
+            _upl_version: 3,
+            _mhb_deleted: false
+        })
+
+        const app = buildApp()
+        await request(app)
+            .patch('/metahub/metahub-1/entities/object/instance/hub-1/instance/object-1')
+            .send({ treeEntityIds: [], runtimeMenuVisible: true, runtimeMenuIcon: 'not-a-supported-icon', expectedVersion: 3 })
+            .expect(400)
+
+        expect(mockObjectsService.updateObject).not.toHaveBeenCalled()
+    })
+
+    it('rejects nested Object codename changes while a live layout binding references the Entity', async () => {
+        const object = {
+            id: 'object-1',
+            kind: 'object',
+            codename: 'Products',
+            name: { en: 'Products' },
+            config: { hubs: ['hub-1'], sortOrder: 7 },
+            _upl_version: 3,
+            _mhb_deleted: false
+        }
+        mockObjectsService.findById.mockResolvedValueOnce(object)
+        mockExec.query.mockImplementation(async (sql: string) => {
+            if (sql.includes('SELECT id, kind')) {
+                return [{ id: 'object-1', kind: 'object', codename: 'Products', config: object.config }]
+            }
+            if (sql.includes('SELECT EXISTS')) return [{ bound: true }]
+            return []
+        })
+
+        const app = buildApp()
+        const response = await request(app)
+            .patch('/metahub/metahub-1/entities/object/instance/hub-1/instance/object-1')
+            .send({ codename: createCodenameVLC('en', 'RenamedProducts'), expectedVersion: 3 })
+            .expect(409)
+
+        expect(response.body.error).toBe('An Entity codename used by a live layout binding cannot be changed.')
+        expect(mockEnsureSchema).toHaveBeenCalledWith('metahub-1', 'user-1')
+        expect(mockExec.transaction).toHaveBeenCalledTimes(1)
+        expect(mockObjectsService.updateObject).not.toHaveBeenCalled()
+        expect(mockExec.query).toHaveBeenCalledWith('SELECT pg_advisory_xact_lock(hashtextextended($1::text, 0))', [
+            'mhb-layout-graph:mhb_a1b2c3d4e5f67890abcdef1234567890_b1'
+        ])
+    })
+
+    it('changes an unbound nested Object codename inside the binding graph transaction', async () => {
+        const object = {
+            id: 'object-1',
+            kind: 'object',
+            codename: 'Products',
+            name: { en: 'Products' },
+            config: { hubs: ['hub-1'], sortOrder: 7 },
+            _upl_version: 3,
+            _mhb_deleted: false
+        }
+        const updatedObject = { ...object, codename: 'RenamedProducts', _upl_version: 4 }
+        mockObjectsService.findById.mockResolvedValueOnce(object).mockResolvedValueOnce(updatedObject)
+        mockObjectsService.updateObject.mockResolvedValue(updatedObject)
+        mockExec.query.mockImplementation(async (sql: string) => {
+            if (sql.includes('SELECT id, kind')) {
+                return [{ id: 'object-1', kind: 'object', codename: 'Products', config: object.config }]
+            }
+            if (sql.includes('SELECT EXISTS')) return [{ bound: false }]
+            return []
+        })
+
+        const app = buildApp()
+        await request(app)
+            .patch('/metahub/metahub-1/entities/object/instance/hub-1/instance/object-1')
+            .send({ codename: createCodenameVLC('en', 'RenamedProducts'), expectedVersion: 3 })
+            .expect(200)
+
+        expect(mockObjectsService.updateObject).toHaveBeenCalledWith(
+            'metahub-1',
+            'object-1',
+            'object',
+            expect.objectContaining({ codename: expect.any(Object), expectedVersion: 3, updatedBy: 'user-1' }),
+            'user-1',
+            mockExec
+        )
+        expect(mockExec.transaction).toHaveBeenCalledTimes(1)
     })
 
     it('lists template-managed object-like preset instances through the object-compatible nested route surface', async () => {
@@ -1320,6 +1487,72 @@ describe('Entity instance routes', () => {
         expect(mockEnsureMetahubAccess).toHaveBeenCalledWith(mockExec, 'user-1', 'metahub-1', 'editContent', mockDbSession)
         expect(mockEnsureMetahubAccess).not.toHaveBeenCalledWith(mockExec, 'user-1', 'metahub-1', 'manageMetahub', mockDbSession)
         expect(mockCopyDesignTimeObjectChildren).not.toHaveBeenCalled()
+    })
+
+    it('preserves hidden Object navigation and unrelated runtime settings when copying an Object', async () => {
+        const runtimeConfig = {
+            menuVisibility: 'hidden',
+            theme: 'dark',
+            customRuntimeFlag: 'preserve-me'
+        }
+        mockObjectsService.findById.mockResolvedValueOnce({
+            id: 'object-1',
+            kind: 'object',
+            codename: 'Products',
+            name: { _schema: '1', _primary: 'en', locales: { en: { content: 'Products' } } },
+            config: { hubs: ['hub-1'], runtime: runtimeConfig },
+            _mhb_deleted: false
+        })
+        mockResolver.resolve.mockResolvedValueOnce({ kindKey: 'object', capabilities: {}, config: {} })
+
+        const app = buildApp()
+        await request(app).post('/metahub/metahub-1/entity/object-1/copy').send({}).expect(201)
+
+        expect(mockObjectsService.createObject).toHaveBeenCalledWith(
+            'metahub-1',
+            'object',
+            expect.objectContaining({
+                config: expect.objectContaining({ hubs: ['hub-1'], runtime: runtimeConfig })
+            }),
+            'user-1',
+            mockExec
+        )
+    })
+
+    it('merges partial runtime overrides when copying an Object', async () => {
+        const runtimeConfig = {
+            menuVisibility: 'hidden',
+            theme: 'dark',
+            customRuntimeFlag: 'preserve-me'
+        }
+        mockObjectsService.findById.mockResolvedValueOnce({
+            id: 'object-1',
+            kind: 'object',
+            codename: 'Products',
+            name: { _schema: '1', _primary: 'en', locales: { en: { content: 'Products' } } },
+            config: { hubs: ['hub-1'], runtime: runtimeConfig },
+            _mhb_deleted: false
+        })
+        mockResolver.resolve.mockResolvedValueOnce({ kindKey: 'object', capabilities: {}, config: {} })
+
+        const app = buildApp()
+        await request(app)
+            .post('/metahub/metahub-1/entity/object-1/copy')
+            .send({ config: { runtime: { theme: 'light' } } })
+            .expect(201)
+
+        expect(mockObjectsService.createObject).toHaveBeenCalledWith(
+            'metahub-1',
+            'object',
+            expect.objectContaining({
+                config: expect.objectContaining({
+                    hubs: ['hub-1'],
+                    runtime: { ...runtimeConfig, theme: 'light' }
+                })
+            }),
+            'user-1',
+            mockExec
+        )
     })
 
     it('retries copy after codename unique violation and succeeds', async () => {

@@ -185,6 +185,7 @@ export function InterpretationNetworkDetailsPane({
                 sx={{
                     flex: '1 1 0%',
                     minWidth: 0,
+                    width: '100%',
                     border: 1,
                     borderColor: 'divider',
                     borderRadius: 1,
@@ -236,6 +237,7 @@ export function InterpretationNetworkDetailsPane({
                 sx={{
                     flex: '1 1 0%',
                     minWidth: 0,
+                    width: '100%',
                     border: 1,
                     borderColor: 'divider',
                     borderRadius: 1,
@@ -264,6 +266,7 @@ export function InterpretationNetworkDetailsPane({
             sx={{
                 flex: '1 1 0%',
                 minWidth: 0,
+                width: '100%',
                 border: 1,
                 borderColor: 'divider',
                 borderRadius: 1,
@@ -296,7 +299,10 @@ export function InterpretationNetworkDetailsPane({
                 ) : null}
 
                 {filteredMaterials.length > 0 && viewMode === 'table' ? (
-                    <Box data-testid='interpretation-network-material-table' sx={{ maxWidth: '100%', overflow: 'hidden' }}>
+                    <Box
+                        data-testid='interpretation-network-material-table'
+                        sx={{ width: '100%', minWidth: 0, maxWidth: '100%', overflow: 'hidden' }}
+                    >
                         <CustomizedDataGrid
                             rows={filteredMaterials.map((material) => ({
                                 id: material.id,

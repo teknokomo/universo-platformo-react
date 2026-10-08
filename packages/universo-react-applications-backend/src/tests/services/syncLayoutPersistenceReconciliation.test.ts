@@ -29,7 +29,7 @@ describe('syncLayoutPersistenceReconciliation', () => {
                     template_key: 'dashboard',
                     name: { en: 'Main' },
                     description: null,
-                    config: { showHeader: false },
+                    config: { sideMenu: { primaryMode: 'compact' } },
                     is_active: true,
                     is_default: true,
                     sort_order: 0,
@@ -50,11 +50,15 @@ describe('syncLayoutPersistenceReconciliation', () => {
                     id: dashboardIds.widget,
                     layout_id: dashboardIds.layout,
                     source_widget_id: dashboardIds.widget,
+                    source_base_widget_id: null,
                     zone: 'center',
-                    widget_key: 'detailsTable',
+                    widget_key: 'columnsContainer',
+                    instance_key: 'columns-main',
+                    parent_widget_id: null,
+                    slot_key: null,
                     sort_order: 1,
-                    config: { datasource: { kind: 'records.list', sectionCodename: 'legacy' } },
-                    source_config: { datasource: { kind: 'records.list', sectionCodename: 'object-1' } },
+                    config: { columns: [{ slotKey: 'column:local', width: 12 }] },
+                    source_config: { columns: [{ slotKey: 'column:main', width: 12 }] },
                     is_active: true,
                     _upl_deleted: false,
                     _app_deleted: false
@@ -82,7 +86,7 @@ describe('syncLayoutPersistenceReconciliation', () => {
 
         expect(currentKnex.layoutRows[0]?.source_snapshot_hash).toBe('snapshot-new')
         expect(currentKnex.layoutRows[0]?.sync_state).toBe('local_modified')
-        expect(currentKnex.widgetRows[0]?.config).toEqual({ datasource: { kind: 'records.list', sectionCodename: 'legacy' } })
+        expect(currentKnex.widgetRows[0]?.config).toEqual({ columns: [{ slotKey: 'column:local', width: 12 }] })
 
         await persistPublishedLayouts({
             schemaName: 'app_018f8a787b8f7c1da111222233334444',
@@ -91,7 +95,7 @@ describe('syncLayoutPersistenceReconciliation', () => {
             userId: 'user-1'
         })
 
-        expect(currentKnex.layoutRows[0]?.config).toEqual({ showHeader: false })
+        expect(currentKnex.layoutRows[0]?.config).toEqual({ sideMenu: { primaryMode: 'compact' } })
         expect(currentKnex.layoutRows[0]?.source_content_hash).toBeDefined()
         expect(currentKnex.layoutRows[0]?.sync_state).toBe('local_modified')
     })
@@ -105,7 +109,7 @@ describe('syncLayoutPersistenceReconciliation', () => {
                     template_key: 'dashboard',
                     name: { en: 'Main' },
                     description: null,
-                    config: { showHeader: false },
+                    config: { sideMenu: { primaryMode: 'compact' } },
                     is_active: true,
                     is_default: true,
                     sort_order: 0,
@@ -138,7 +142,7 @@ describe('syncLayoutPersistenceReconciliation', () => {
         })
 
         expect(currentKnex.layoutRows[0]).toMatchObject({
-            config: { showHeader: false },
+            config: { sideMenu: { primaryMode: 'compact' } },
             source_snapshot_hash: 'snapshot-old',
             source_content_hash: 'old-source-hash',
             sync_state: 'conflict'
@@ -154,7 +158,7 @@ describe('syncLayoutPersistenceReconciliation', () => {
                     template_key: 'dashboard',
                     name: { en: 'Main' },
                     description: null,
-                    config: { showHeader: true },
+                    config: { sideMenu: { primaryMode: 'overlay' } },
                     is_active: true,
                     is_default: true,
                     sort_order: 0,
@@ -181,7 +185,7 @@ describe('syncLayoutPersistenceReconciliation', () => {
         })
 
         expect(currentKnex.layoutRows[0]).toMatchObject({
-            config: { showHeader: true },
+            config: { sideMenu: { primaryMode: 'overlay' } },
             source_snapshot_hash: 'snapshot-old',
             source_content_hash: 'old-source-hash',
             local_content_hash: 'old-source-hash',
@@ -198,7 +202,7 @@ describe('syncLayoutPersistenceReconciliation', () => {
                     template_key: 'dashboard',
                     name: { en: 'Main' },
                     description: null,
-                    config: { showHeader: false },
+                    config: { sideMenu: { primaryMode: 'compact' } },
                     is_active: true,
                     is_default: true,
                     sort_order: 0,
@@ -219,8 +223,12 @@ describe('syncLayoutPersistenceReconciliation', () => {
                     id: dashboardIds.widget,
                     layout_id: dashboardIds.layout,
                     source_widget_id: dashboardIds.widget,
+                    source_base_widget_id: null,
                     zone: 'center',
                     widget_key: 'interpretationNetworkWorkspace',
+                    instance_key: 'interpretation-network',
+                    parent_widget_id: null,
+                    slot_key: null,
                     sort_order: 1,
                     config: { structureMode: 'multiple', templatePanel: { showInStructureList: false, showInMatrix: true } },
                     source_config: { structureMode: 'singleSystem', templatePanel: { showInStructureList: true, showInMatrix: true } },
@@ -238,6 +246,11 @@ describe('syncLayoutPersistenceReconciliation', () => {
                     layoutId: dashboardIds.layout,
                     zone: 'center',
                     widgetKey: 'interpretationNetworkWorkspace',
+                    instanceKey: 'interpretation-network',
+                    parentWidgetId: null,
+                    slotKey: null,
+                    sourceWidgetId: dashboardIds.widget,
+                    sourceBaseWidgetId: null,
                     sortOrder: 1,
                     config: { structureMode: 'singleSystem', templatePanel: { showInStructureList: true, showInMatrix: true } },
                     isActive: true
@@ -283,6 +296,9 @@ describe('syncLayoutPersistenceReconciliation', () => {
                     layout_id: dashboardIds.layout,
                     source_widget_id: dashboardIds.widget,
                     source_base_widget_id: null,
+                    instance_key: 'interpretation-network',
+                    parent_widget_id: null,
+                    slot_key: null,
                     widget_key: 'interpretationNetworkWorkspace',
                     config: { structureMode: 'multiple' },
                     source_config: { structureMode: 'singleSystem' },
@@ -323,11 +339,14 @@ describe('syncLayoutPersistenceReconciliation', () => {
                 {
                     id: physicalWidgetId,
                     layout_id: dashboardIds.layout,
-                    widget_key: 'detailsTable',
+                    widget_key: 'columnsContainer',
                     zone: 'center',
+                    instance_key: 'columns-main',
+                    parent_widget_id: null,
+                    slot_key: null,
                     sort_order: 0,
-                    config: {},
-                    source_config: {},
+                    config: { columns: [{ slotKey: 'column:main', width: 12 }] },
+                    source_config: { columns: [{ slotKey: 'column:main', width: 12 }] },
                     source_widget_id: dashboardIds.widget,
                     source_base_widget_id: null,
                     is_active: true,
@@ -553,6 +572,9 @@ describe('syncLayoutPersistenceReconciliation', () => {
                     layout_id: dashboardIds.layout,
                     source_widget_id: dashboardIds.widget,
                     source_base_widget_id: null,
+                    instance_key: 'interpretation-network',
+                    parent_widget_id: null,
+                    slot_key: null,
                     widget_key: 'interpretationNetworkWorkspace',
                     config: { structureMode: 'multiple', conceptCodename: 'Structure' },
                     source_config: { structureMode: 'multiple', conceptCodename: 'Structure' },
@@ -570,6 +592,11 @@ describe('syncLayoutPersistenceReconciliation', () => {
                     layoutId: dashboardIds.layout,
                     zone: 'center',
                     widgetKey: 'interpretationNetworkWorkspace',
+                    instanceKey: 'interpretation-network',
+                    parentWidgetId: null,
+                    slotKey: null,
+                    sourceWidgetId: dashboardIds.widget,
+                    sourceBaseWidgetId: null,
                     sortOrder: 1,
                     config: { structureMode: 'singleSystem', conceptCodename: 'Structure' },
                     isActive: true

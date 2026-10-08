@@ -74,11 +74,18 @@ jobs:
               run: pnpm test:marketing-widget-unit-gate
             - name: Check MMOOMM app UI-first fixture generator gate
               run: pnpm run test:e2e:mmoomm-app-gate:local-supabase
+            - name: Check entity-backed Dashboard authoring and published runtime
+              run: pnpm run test:e2e:dashboard-entity-backed:verify:local-supabase
+            - name: Upload Dashboard browser verification evidence
+              if: always()
+              uses: actions/upload-artifact@v4
+              with:
+                  name: dashboard-entity-backed-verification-evidence
+                  path: tools/testing/e2e/.artifacts/dashboard-entity-backed/
+                  if-no-files-found: warn
+                  retention-days: 7
             - name: Check 73rd Meridian generated fixture contract, drift, and public runtime
-              run: pnpm run test:e2e:73rd-meridian-fixture-gate
-              env:
-                  UNIVERSO_ENV_FILE: .env.e2e.local-supabase
-                  UNIVERSO_FRONTEND_ENV_FILE: packages/universo-react-core-frontend/.env.e2e.local-supabase
+              run: pnpm run test:e2e:73rd-meridian-fixture-gate:local-supabase
             - name: Check Marketing Page full browser and visual verification
               run: pnpm run test:e2e:marketing-page:verify:local-supabase
             - name: Upload Marketing Hero verification evidence

@@ -92,7 +92,7 @@
             "tableRequiredPrefix": "Обязательно",
             "tableMinRows": "мин. строк: {{count}}",
             "tableMaxRows": "макс. строк: {{count}}",
-            "vlcMinLength": "Язык «{{locale}}»: минимальная длина {{min}}"
+            "vlcMinLength": "Введите не менее {{min}} символов в переводе на {{language}} язык."
         },
         "number": {
             "increment": "Увеличить",
@@ -420,20 +420,8 @@
             "resetWidgetConfirm": "Сбросить переопределение",
             "objectBehaviorTitleGlobal": "Поведение объектов по умолчанию",
             "objectBehaviorTitleObject": "Runtime-поведение сущности",
-            "objectBehaviorDescriptionGlobal": "Эти настройки задают поведение создания и поиска по умолчанию для объектов, пока отдельный макет объекта его не переопределит.",
-            "objectBehaviorDescriptionObject": "Этот макет объекта переопределяет поведение создания и поиска, унаследованное от базового глобального макета.",
-            "viewSettings": "Настройки отображения приложения",
-            "showViewToggle": "Переключатель карточек/таблицы",
-            "defaultViewMode": "Вид по умолчанию",
-            "viewModeTable": "Таблица",
-            "viewModeCard": "Карточки",
-            "showFilterBar": "Строка поиска/фильтрации",
-            "enableRowReordering": "Включить перестановку строк",
-            "cardColumns": "Столбцы карточек",
-            "rowHeight": "Высота строки",
-            "rowHeightCompact": "Компактная (по умолчанию)",
-            "rowHeightNormal": "Обычная (52px)",
-            "rowHeightAuto": "Авто (многострочная)",
+            "objectBehaviorDescriptionGlobal": "Эти настройки задают создание записей и типы форм по умолчанию, пока их не переопределит отдельный макет объекта.",
+            "objectBehaviorDescriptionObject": "Этот макет задаёт создание записей и типы форм для выбранного объекта.",
             "sideMenu": {
                 "title": "Отображение бокового меню",
                 "primaryMode": "Основной режим отображения",
@@ -520,29 +508,16 @@
             "invalidColor": "Укажите корректный hex-цвет с достаточным контрастом."
         },
         "menuEditor": {
-            "title": "Настройка меню",
-            "createTitle": "Создать меню",
-            "editTitle": "Редактировать меню",
-            "titleLabel": "Заголовок меню",
-            "showTitle": "Показывать заголовок",
-            "bindToHub": "Связать меню с хабом",
-            "boundHubLabel": "Хаб для связи",
-            "boundHubPlaceholder": "Выберите хаб",
-            "boundHubInfo": "При связи меню с хабом отображаются только разделы, напрямую связанные с выбранным хабом.",
-            "autoShowAllSections": "Автоматически показывать все разделы",
-            "autoShowAllSectionsHint": "Если включено, все отображаемые разделы сущностей будут автоматически добавлены в меню при выполнении.",
-            "autoShowAllSectionsDisabledByBinding": "Опция отключена, пока включена прямая связь меню с хабом.",
-            "maxPrimaryItems": "Лимит основных пунктов меню",
-            "maxPrimaryItemsHint": "Дополнительные активные пункты будут перенесены в меню «Ещё».",
-            "overflowLabelKey": "i18n-ключ пункта «Ещё»",
-            "startPage": "Стартовая страница",
-            "startPageHint": "Выберите хаб или раздел сущности, который должен открываться первым.",
-            "workspacePlacement": "Размещение рабочих пространств",
-            "workspacePlacements": {
-                "primary": "Основное меню",
-                "overflow": "Меню «Ещё»",
-                "hidden": "Скрыто"
+            "title": "Навигация",
+            "continueToSource": "Перейти к источнику содержимого",
+            "description": "Выберите, будет ли навигация формироваться по данным опубликованного приложения или настраиваться через сущность-источник.",
+            "variant": "Источник навигации",
+            "variants": {
+                "generated": "Автоматически формируемая навигация",
+                "manual": "Ручная навигация"
             },
+            "manualHint": "Пункты меню хранятся в сущности-источнике. Продолжите, чтобы выбрать или отредактировать эту сущность; содержимое меню не хранится в настройках виджета.",
+            "generatedHint": "Навигация формируется по опубликованным данным приложения и не использует редактируемый источник содержимого.",
             "sideMenu": {
                 "title": "Отображение бокового меню",
                 "primaryMode": "Основной режим отображения",
@@ -552,56 +527,11 @@
                     "compact": "Компактное с иконками",
                     "overlay": "Шторка поверх контента"
                 }
-            },
-            "items": "Пункты меню",
-            "itemsEmpty": "Пунктов меню пока нет. Добавьте первый пункт.",
-            "addItem": "Добавить пункт",
-            "editItem": "Редактировать пункт",
-            "editItemNamed": "Редактировать пункт меню: {{label}}",
-            "removeItemNamed": "Удалить пункт меню: {{label}}",
-            "reorderItem": "Изменить порядок пункта меню: {{label}}",
-            "deleteItem": "Удалить пункт?",
-            "deleteItemDescription": "Этот пункт будет удалён из меню.",
-            "itemKind": "Тип пункта",
-            "itemTitle": "Заголовок",
-            "itemIcon": "Иконка",
-            "itemHref": "URL ссылки",
-            "itemSection": "Раздел сущности",
-            "itemSectionHint": "Выберите экземпляр сущности с поддержкой макетов.",
-            "unnamedSection": "Раздел без названия",
-            "itemHub": "Хаб",
-            "itemActive": "Активен",
-            "noHubs": "Нет доступных хабов",
-            "kindSection": "Раздел сущности",
-            "kindHub": "Хаб",
-            "kindLink": "Ссылка",
-            "validation": {
-                "titleRequired": "Название обязательно.",
-                "sectionRequired": "Выберите раздел сущности для этого пункта меню.",
-                "hubRequired": "Выберите хаб для этого пункта меню.",
-                "boundHubRequired": "Выберите хаб для связи меню.",
-                "hrefRequired": "Для пункта типа «Ссылка» требуется URL.",
-                "hrefUnsafeScheme": "Этот тип ссылки запрещён. Используйте https, mailto, tel, # или внутренний путь."
-            },
-            "saveSuccess": "Настройка меню сохранена",
-            "saveError": "Не удалось сохранить настройку меню",
-            "itemIconPlaceholder": "database, link, shopping_cart...",
-            "itemHrefPlaceholder": "https://...",
-            "defaultTitle": "Основное",
-            "defaultTitleRu": "Основное",
-            "unresolvedStartPage": "Настроенный раздел недоступен",
-            "startPageDefault": "По умолчанию в макете"
+            }
         },
-        "sharedBehavior": {
-            "title": "Общее поведение",
-            "description": "Определяет, можно ли в унаследованных макетах отключать, исключать или перемещать этот виджет.",
-            "canDeactivate": "Можно деактивировать",
-            "canExclude": "Можно исключать",
-            "positionLocked": "Позиция зафиксирована"
-        },
-        "widgetBehaviorEditor": {
-            "title": "Поведение виджета",
-            "description": "Настройте, как наследуемые макеты сущностей могут переопределять этот унаследованный виджет."
+        "widgetPresentationEditor": {
+            "title": "Настройки представления",
+            "description": "Настройте зарегистрированные параметры представления этого виджета."
         },
         "interpretationNetworkEditor": {
             "title": "Рабочая область трактовочной сети",
@@ -712,8 +642,10 @@
             "advancedActions": "Дополнительные действия",
             "mountMethodName": "Загрузка содержимого",
             "mountMethodHelp": "Необязательно. Оставьте пустым, чтобы использовать стандартную загрузку.",
+            "defaultMountMethod": "По умолчанию (mount)",
             "submitMethodName": "Проверка ответа",
             "submitMethodHelp": "Необязательно. Оставьте пустым, чтобы использовать стандартную проверку ответа.",
+            "defaultSubmitMethod": "По умолчанию (submit)",
             "emptyStateTitle": "Заголовок пустого состояния",
             "emptyStateDescription": "Описание пустого состояния"
         },
@@ -756,28 +688,6 @@
         "zoneErrors": {
             "load": "Не удалось загрузить зоны макета",
             "save": "Не удалось сохранить зоны макета"
-        },
-        "dashboard": {
-            "sections": {
-                "showSideMenu": "Левое меню",
-                "showAppNavbar": "Верхняя панель",
-                "showHeader": "Шапка",
-                "showBreadcrumbs": "Хлебные крошки",
-                "showSearch": "Поиск",
-                "showDatePicker": "Выбор даты",
-                "showOptionsMenu": "Уведомления и тема",
-                "showOverviewTitle": "Заголовок «Обзор»",
-                "showOverviewCards": "Карточки «Обзор»",
-                "showSessionsChart": "График «Сессии»",
-                "showPageViewsChart": "График «Просмотры страниц»",
-                "showDetailsTitle": "Заголовок «Детали»",
-                "showDetailsTable": "Таблица «Детали»",
-                "showColumnsContainer": "Контейнер колонок",
-                "showProductTree": "Дерево продуктов",
-                "showUsersByCountryChart": "График пользователей по странам",
-                "showRightSideMenu": "Правая боковая панель",
-                "showFooter": "Футер"
-            }
         },
         "copyInProgress": "Копирование…",
         "moveToZone": "Переместить в {{zone}}"
@@ -1929,6 +1839,7 @@
             "general": "Основное",
             "treeEntities": "Хабы",
             "layout": "Макеты",
+            "navigation": "Навигация",
             "options": "Опции"
         },
         "layoutTab": {
@@ -1938,30 +1849,36 @@
             "unavailable": "Макеты объекта доступны, когда объект открыт внутри контекста метахаба."
         },
         "runtime": {
-            "showSearch": "Строка поиска/фильтрации",
-            "searchMode": "Режим поиска",
-            "searchModePageLocal": "В пределах страницы",
-            "searchModeServer": "Серверный",
             "showCreateButton": "Показывать кнопку создания",
             "showViewToggle": "Переключатель карточек/таблицы",
-            "enableRowReordering": "Включить перестановку строк",
-            "reorderPersistenceField": "Поле сохранения порядка",
-            "reorderPersistenceFieldHelper": "Укажите кодовое имя или ключ числового поля, в котором хранится сохраняемый порядок строк, например sort_order.",
-            "useLayoutOverrides": "Переопределять настройки макета приложения",
-            "useLayoutOverridesHelper": "Когда переключатель выключен, объект наследует поиск, вид, карточки и высоту строк из макета приложения.",
-            "defaultViewMode": "Вид по умолчанию",
-            "viewModeTable": "Таблица",
-            "viewModeCard": "Карточки",
-            "cardColumns": "Столбцы карточек",
-            "rowHeight": "Высота строки",
-            "rowHeightCompact": "Компактная (по умолчанию)",
-            "rowHeightNormal": "Обычная (52px)",
-            "rowHeightAuto": "Авто (многострочная)",
             "createSurface": "Тип окна создания",
             "editSurface": "Тип окна редактирования",
             "copySurface": "Тип окна копирования",
             "surfaceDialog": "Диалог",
-            "surfacePage": "Страница"
+            "surfacePage": "Страница",
+            "navigation": {
+                "showInMenu": "Показывать в меню приложения",
+                "description": "В меню опубликованного приложения отображаются только объекты, включённые здесь.",
+                "icon": "Значок меню",
+                "icons": {
+                    "home": "Главная",
+                    "analytics": "Аналитика",
+                    "users": "Люди",
+                    "tasks": "Задачи",
+                    "database": "База данных",
+                    "folder": "Папка",
+                    "apps": "Приложения",
+                    "dashboard": "Дашборд",
+                    "page": "Страница",
+                    "article": "Статья",
+                    "school": "Обучение",
+                    "recent": "Недавние",
+                    "star": "Избранное",
+                    "trash": "Корзина",
+                    "settings": "Настройки",
+                    "more": "Ещё"
+                }
+            }
         },
         "copy": {
             "action": "Копировать",

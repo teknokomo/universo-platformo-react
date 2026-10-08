@@ -1,23 +1,18 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { useCommonTranslations } from '@universo-react/i18n'
-import { Box, Button, FormControl, IconButton, InputLabel, MenuItem, Paper, Slider, Stack, Typography } from '@mui/material'
+import { Box, Button, IconButton, Paper, Slider, Stack, Typography } from '@mui/material'
 import AddRoundedIcon from '@mui/icons-material/AddRounded'
 import DeleteRoundedIcon from '@mui/icons-material/DeleteRounded'
 import DragIndicatorRoundedIcon from '@mui/icons-material/DragIndicatorRounded'
 import { DndContext, DragEndEvent, PointerSensor, closestCenter, useSensor, useSensors } from '@dnd-kit/core'
 import { SortableContext, arrayMove, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import type { ColumnsContainerConfig, ColumnsContainerColumn, DashboardLayoutWidgetKey } from '@universo-react/types'
-import { DASHBOARD_LAYOUT_WIDGETS } from '@universo-react/types'
+import type { DashboardWidgetConfig } from '@universo-react/types'
+import { dashboardWidgetConfigSchemaByKey, getDashboardWidgetDefinition } from '@universo-react/types'
 import { EntityFormDialog } from '@universo-react/template-mui'
-import { generateUuidV7 } from '@universo-react/utils'
-import LayoutWidgetSharedBehaviorFields, {
-    getSharedBehaviorFromWidgetConfig,
-    setSharedBehaviorInWidgetConfig
-} from './LayoutWidgetSharedBehaviorFields'
 import WidgetScopeVisibilityPanel from './WidgetScopeVisibilityPanel'
-import { DropdownSelect as Select } from '@universo-react/template-mui/dropdowns'
+
+type ColumnsContainerConfig = DashboardWidgetConfig<'columnsContainer'>
 
 // ---------------------------------------------------------------------------
 // Props
@@ -30,7 +25,6 @@ export interface ColumnsContainerEditorDialogProps {
     metahubId?: string | null
     layoutId?: string | null
     widgetId?: string | null
-    showSharedBehavior?: boolean
     showScopeVisibility?: boolean
     onSave: (config: ColumnsContainerConfig) => void
     onCancel: () => void
@@ -40,34 +34,98 @@ export interface ColumnsContainerEditorDialogProps {
 // Constants
 // ---------------------------------------------------------------------------
 
-/** Widget keys that can be placed inside a column. */
-const CENTER_WIDGET_KEYS: DashboardLayoutWidgetKey[] = DASHBOARD_LAYOUT_WIDGETS.filter(
-    (w) => (w.allowedZones as readonly string[]).includes('center') && w.key !== 'columnsContainer'
-).map((w) => w.key)
-
 const MIN_WIDTH = 1
 const MAX_WIDTH = 12
-const MAX_COLUMNS = 6
-const MAX_WIDGETS_PER_COLUMN = 6
+const COLUMN_SLOT_DEFINITION = getDashboardWidgetDefinition('columnsContainer')?.composition?.container?.slots[0]
+const MIN_COLUMNS = COLUMN_SLOT_DEFINITION?.minSlots ?? 1
+const MAX_COLUMNS = COLUMN_SLOT_DEFINITION?.maxSlots ?? 12
+const DEFAULT_SLOT_SUFFIXES = ['primary', 'secondary']
+
+interface ColumnSlotDescriptor {
+    slotKey: string
+    width: number
+}
+
+type ColumnsContainerPresentationConfig = DashboardWidgetConfig<'columnsContainer'>
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
-function makeDefaultConfig(): ColumnsContainerConfig {
-    return {
-        columns: [
-            { id: generateUuidV7(), width: 6, widgets: [{ id: generateUuidV7(), widgetKey: 'sessionsChart', sortOrder: 1, config: {} }] },
-            { id: generateUuidV7(), width: 6, widgets: [{ id: generateUuidV7(), widgetKey: 'pageViewsChart', sortOrder: 1, config: {} }] }
-        ]
-    }
+function isRecord(value: unknown): value is Record<string, unknown> {
+    return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
 
-function cloneColumns(cols: ColumnsContainerColumn[]): ColumnsContainerColumn[] {
-    return cols.map((c) => ({
-        ...c,
-        widgets: c.widgets.map((w) => ({ ...w }))
-    }))
+function normalizeRegisteredSlotKey(value: unknown): string | undefined {
+    if (typeof value !== 'string' || !COLUMN_SLOT_DEFINITION) return undefined
+    if (!value.startsWith(COLUMN_SLOT_DEFINITION.slotPrefix)) return undefined
+    const suffix = value.slice(COLUMN_SLOT_DEFINITION.slotPrefix.length)
+    if (!new RegExp(COLUMN_SLOT_DEFINITION.slotKeyPattern, 'u').test(suffix)) return undefined
+
+    const parsed = dashboardWidgetConfigSchemaByKey.columnsContainer.safeParse({ columns: [{ slotKey: value, width: MIN_WIDTH }] })
+    if (!parsed.success) return undefined
+    return parsed.data.columns[0]?.slotKey
+}
+
+function createColumnSlotKey(columns: readonly ColumnSlotDescriptor[], preferredSuffix?: string): string | undefined {
+    if (!COLUMN_SLOT_DEFINITION) return undefined
+    const taken = new Set(columns.map(({ slotKey }) => slotKey))
+    const suffixes = [
+        ...(preferredSuffix ? [preferredSuffix] : []),
+        ...Array.from({ length: columns.length + 1 }, (_, index) => `column-${index + 1}`)
+    ]
+
+    for (const suffix of suffixes) {
+        const slotKey = normalizeRegisteredSlotKey(`${COLUMN_SLOT_DEFINITION.slotPrefix}${suffix}`)
+        if (slotKey && !taken.has(slotKey)) return slotKey
+    }
+    return undefined
+}
+
+function makeDefaultColumns(): ColumnSlotDescriptor[] {
+    const count = Math.max(MIN_COLUMNS, Math.min(2, MAX_COLUMNS))
+    const baseWidth = Math.floor(MAX_WIDTH / count)
+    const columns: ColumnSlotDescriptor[] = []
+
+    for (let index = 0; index < count; index += 1) {
+        const slotKey = createColumnSlotKey(columns, DEFAULT_SLOT_SUFFIXES[index])
+        if (!slotKey) return []
+        columns.push({
+            slotKey,
+            width: index === count - 1 ? MAX_WIDTH - baseWidth * (count - 1) : baseWidth
+        })
+    }
+    return columns
+}
+
+function readColumnDescriptors(config: ColumnsContainerConfig | null | undefined): ColumnSlotDescriptor[] {
+    const rawColumns = isRecord(config) ? config.columns : undefined
+    if (!Array.isArray(rawColumns)) return makeDefaultColumns()
+
+    const columns: ColumnSlotDescriptor[] = []
+    const fallbackWidth = Math.max(MIN_WIDTH, Math.floor(MAX_WIDTH / Math.max(1, Math.min(rawColumns.length, MAX_COLUMNS))))
+
+    for (const rawColumn of rawColumns.slice(0, MAX_COLUMNS)) {
+        if (!isRecord(rawColumn)) continue
+        const existingSlotKey = normalizeRegisteredSlotKey(rawColumn.slotKey)
+        const slotKey =
+            existingSlotKey && !columns.some((column) => column.slotKey === existingSlotKey)
+                ? existingSlotKey
+                : createColumnSlotKey(columns)
+        if (!slotKey) continue
+
+        const width = rawColumn.width
+        columns.push({
+            slotKey,
+            width: typeof width === 'number' && Number.isInteger(width) && width >= MIN_WIDTH && width <= MAX_WIDTH ? width : fallbackWidth
+        })
+    }
+
+    return columns
+}
+
+function toPresentationConfig(columns: readonly ColumnSlotDescriptor[]): ColumnsContainerPresentationConfig {
+    return { columns: columns.map(({ slotKey, width }) => ({ slotKey, width })) }
 }
 
 // ---------------------------------------------------------------------------
@@ -76,24 +134,18 @@ function cloneColumns(cols: ColumnsContainerColumn[]): ColumnsContainerColumn[] 
 
 function SortableColumnRow({
     column,
+    position,
     onChangeWidth,
-    onChangeWidget,
-    onAddWidget,
-    onRemoveWidget,
     onRemove,
-    widgetOptions,
     t
 }: {
-    column: ColumnsContainerColumn
+    column: ColumnSlotDescriptor
+    position: number
     onChangeWidth: (width: number) => void
-    onChangeWidget: (widgetIndex: number, key: DashboardLayoutWidgetKey) => void
-    onAddWidget: () => void
-    onRemoveWidget: (widgetIndex: number) => void
     onRemove: () => void
-    widgetOptions: Array<{ key: DashboardLayoutWidgetKey; label: string }>
     t: (key: string, options?: Record<string, unknown>) => string
 }) {
-    const { components, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: column.id })
+    const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: column.slotKey })
     const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : 1 }
 
     return (
@@ -101,7 +153,7 @@ function SortableColumnRow({
             <Stack spacing={1}>
                 {/* Column header: drag handle, width slider, delete */}
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <IconButton size='small' sx={{ cursor: 'grab' }} {...components} {...listeners}>
+                    <IconButton size='small' sx={{ cursor: 'grab' }} {...attributes} {...listeners}>
                         <DragIndicatorRoundedIcon fontSize='small' />
                     </IconButton>
                     <Box sx={{ flexGrow: 1, minWidth: 80 }}>
@@ -111,7 +163,7 @@ function SortableColumnRow({
                                 color: 'text.secondary'
                             }}
                         >
-                            {t('layouts.columnsEditor.width', { defaultValue: 'Width' })}: {column.width}/12
+                            {t('layouts.columnsEditor.width', { defaultValue: 'Width' })} {position + 1}: {column.width}/12
                         </Typography>
                         <Slider
                             value={column.width}
@@ -123,40 +175,10 @@ function SortableColumnRow({
                             valueLabelDisplay='auto'
                         />
                     </Box>
-                    <IconButton size='small' onClick={onRemove} color='error'>
+                    <IconButton size='small' onClick={onRemove} color='error' aria-label={t('common:delete', { defaultValue: 'Delete' })}>
                         <DeleteRoundedIcon fontSize='small' />
                     </IconButton>
                 </Box>
-                {/* Widget list within the column */}
-                {column.widgets.map((w, idx) => (
-                    <Box key={`${column.id}-w${idx}`} sx={{ display: 'flex', alignItems: 'center', gap: 1, pl: 4 }}>
-                        <FormControl size='small' sx={{ minWidth: 140, flexGrow: 1 }}>
-                            <InputLabel>{t('layouts.columnsEditor.widget', { defaultValue: 'Widget' })}</InputLabel>
-                            <Select
-                                value={w.widgetKey}
-                                label={t('layouts.columnsEditor.widget', { defaultValue: 'Widget' })}
-                                onChange={(e) => onChangeWidget(idx, e.target.value as DashboardLayoutWidgetKey)}
-                            >
-                                {widgetOptions.map((opt) => (
-                                    <MenuItem key={opt.key} value={opt.key}>
-                                        {opt.label}
-                                    </MenuItem>
-                                ))}
-                            </Select>
-                        </FormControl>
-                        {column.widgets.length > 1 && (
-                            <IconButton size='small' onClick={() => onRemoveWidget(idx)} color='error'>
-                                <DeleteRoundedIcon fontSize='small' />
-                            </IconButton>
-                        )}
-                    </Box>
-                ))}
-                {/* Add widget within column */}
-                {column.widgets.length < MAX_WIDGETS_PER_COLUMN && (
-                    <Button size='small' startIcon={<AddRoundedIcon />} onClick={onAddWidget} sx={{ pl: 4, alignSelf: 'flex-start' }}>
-                        {t('layouts.columnsEditor.addWidget', 'Add widget')}
-                    </Button>
-                )}
             </Stack>
         </Paper>
     )
@@ -172,131 +194,69 @@ export default function ColumnsContainerEditorDialog({
     metahubId,
     layoutId,
     widgetId,
-    showSharedBehavior = false,
     showScopeVisibility = false,
     onSave,
     onCancel
 }: ColumnsContainerEditorDialogProps) {
     const { t } = useTranslation(['metahubs', 'common'])
-    const { t: tc } = useCommonTranslations()
     const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }))
 
-    const [columns, setColumns] = useState<ColumnsContainerColumn[]>([])
-    const [sharedBehaviorValue, setSharedBehaviorValue] = useState(() => getSharedBehaviorFromWidgetConfig(config))
+    const [columns, setColumns] = useState<ColumnSlotDescriptor[]>([])
 
-    // Snapshot of columns at dialog open for dirty tracking
+    // Snapshot of registered slot descriptors at dialog open for dirty tracking.
     const initialSnapshotRef = useRef<string>('')
 
-    // Re-initialize columns every time the dialog opens (or config changes while open)
     useEffect(() => {
         if (open) {
-            const initial = config?.columns ? cloneColumns(config.columns) : makeDefaultConfig().columns
+            const initial = readColumnDescriptors(config)
             setColumns(initial)
-            const initialSharedBehavior = getSharedBehaviorFromWidgetConfig(config)
-            setSharedBehaviorValue(initialSharedBehavior)
-            initialSnapshotRef.current = JSON.stringify({ columns: initial, sharedBehavior: initialSharedBehavior })
+            initialSnapshotRef.current = JSON.stringify(initial)
         }
     }, [open, config])
 
-    const widgetOptions = useMemo(
-        () =>
-            CENTER_WIDGET_KEYS.map((key) => ({
-                key,
-                label: tc(`layouts.widgets.${key}`, key)
-            })),
-        [tc]
-    )
-
     const totalWidth = useMemo(() => columns.reduce((sum, c) => sum + c.width, 0), [columns])
-
-    const isDirty = useMemo(
-        () => JSON.stringify({ columns, sharedBehavior: sharedBehaviorValue }) !== initialSnapshotRef.current,
-        [columns, sharedBehaviorValue]
+    const presentationConfig = useMemo(() => toPresentationConfig(columns), [columns])
+    const isValidConfig = useMemo(
+        () => dashboardWidgetConfigSchemaByKey.columnsContainer.safeParse(presentationConfig).success,
+        [presentationConfig]
     )
+
+    const isDirty = useMemo(() => JSON.stringify(columns) !== initialSnapshotRef.current, [columns])
 
     const handleAddColumn = useCallback(() => {
         if (columns.length >= MAX_COLUMNS) return
+        const slotKey = createColumnSlotKey(columns)
+        if (!slotKey) return
         const remaining = MAX_WIDTH - totalWidth
         const defaultWidth = remaining > 0 ? Math.min(remaining, 4) : 4
-        setColumns((prev) => [
-            ...prev,
-            {
-                id: generateUuidV7(),
-                width: defaultWidth,
-                widgets: [{ widgetKey: CENTER_WIDGET_KEYS[0] }]
-            }
-        ])
-    }, [totalWidth, columns.length])
+        setColumns((previous) => [...previous, { slotKey, width: defaultWidth }])
+    }, [columns, totalWidth])
 
-    const handleRemoveColumn = useCallback((id: string) => {
-        setColumns((prev) => prev.filter((c) => c.id !== id))
+    const handleRemoveColumn = useCallback((slotKey: string) => {
+        setColumns((previous) => previous.filter((column) => column.slotKey !== slotKey))
     }, [])
 
-    const handleChangeWidth = useCallback((id: string, width: number) => {
-        setColumns((prev) => prev.map((c) => (c.id === id ? { ...c, width } : c)))
-    }, [])
-
-    const handleChangeWidget = useCallback((colId: string, widgetIndex: number, widgetKey: DashboardLayoutWidgetKey) => {
-        setColumns((prev) =>
-            prev.map((c) => {
-                if (c.id !== colId) return c
-                const widgets = c.widgets.map((w, i) => (i === widgetIndex ? { ...w, widgetKey, config: w.config ?? {} } : w))
-                return { ...c, widgets }
-            })
-        )
-    }, [])
-
-    const handleAddWidgetToColumn = useCallback((colId: string) => {
-        setColumns((prev) =>
-            prev.map((c) => {
-                if (c.id !== colId || c.widgets.length >= MAX_WIDGETS_PER_COLUMN) return c
-                return {
-                    ...c,
-                    widgets: [
-                        ...c.widgets,
-                        { id: generateUuidV7(), widgetKey: CENTER_WIDGET_KEYS[0], sortOrder: c.widgets.length + 1, config: {} }
-                    ]
-                }
-            })
-        )
-    }, [])
-
-    const handleRemoveWidgetFromColumn = useCallback((colId: string, widgetIndex: number) => {
-        setColumns((prev) =>
-            prev.map((c) => {
-                if (c.id !== colId || c.widgets.length <= 1) return c
-                return { ...c, widgets: c.widgets.filter((_, i) => i !== widgetIndex) }
-            })
-        )
+    const handleChangeWidth = useCallback((slotKey: string, width: number) => {
+        setColumns((previous) => previous.map((column) => (column.slotKey === slotKey ? { ...column, width } : column)))
     }, [])
 
     const handleDragEnd = useCallback((event: DragEndEvent) => {
         const { active, over } = event
         if (!over || active.id === over.id) return
-        setColumns((prev) => {
-            const oldIndex = prev.findIndex((c) => c.id === active.id)
-            const newIndex = prev.findIndex((c) => c.id === over.id)
-            if (oldIndex < 0 || newIndex < 0) return prev
-            return arrayMove(prev, oldIndex, newIndex)
+        setColumns((previous) => {
+            const oldIndex = previous.findIndex((column) => column.slotKey === active.id)
+            const newIndex = previous.findIndex((column) => column.slotKey === over.id)
+            if (oldIndex < 0 || newIndex < 0) return previous
+            return arrayMove(previous, oldIndex, newIndex)
         })
     }, [])
 
     const handleSave = useCallback(() => {
-        if (columns.length === 0 || totalWidth > MAX_WIDTH) return
-        // Defense-in-depth: strip any accidental columnsContainer nesting
-        const sanitized = columns.map((c) => ({
-            ...c,
-            widgets: c.widgets
-                .filter((w) => w.widgetKey !== 'columnsContainer')
-                .map((widget, index) => ({
-                    ...widget,
-                    id: widget.id ?? generateUuidV7(),
-                    sortOrder: index + 1,
-                    config: widget.config ?? {}
-                }))
-        }))
-        onSave(setSharedBehaviorInWidgetConfig({ columns: sanitized }, sharedBehaviorValue) as ColumnsContainerConfig)
-    }, [columns, onSave, sharedBehaviorValue, totalWidth])
+        if (columns.length < MIN_COLUMNS || columns.length > MAX_COLUMNS || totalWidth > MAX_WIDTH) return
+        const parsed = dashboardWidgetConfigSchemaByKey.columnsContainer.safeParse(presentationConfig)
+        if (!parsed.success) return
+        onSave(parsed.data)
+    }, [columns.length, onSave, presentationConfig, totalWidth])
 
     return (
         <EntityFormDialog
@@ -308,23 +268,11 @@ export default function ColumnsContainerEditorDialog({
             hideDefaultFields
             onClose={onCancel}
             onSave={handleSave}
-            canSave={() => isDirty && columns.length > 0 && totalWidth <= MAX_WIDTH}
+            canSave={() => isDirty && isValidConfig && columns.length >= MIN_COLUMNS && totalWidth <= MAX_WIDTH}
             saveButtonText={t('common:save', 'Save')}
             cancelButtonText={t('common:cancel', 'Cancel')}
             extraFields={() => (
                 <Stack spacing={2}>
-                    <Typography
-                        variant='body2'
-                        sx={{
-                            color: 'text.secondary'
-                        }}
-                    >
-                        {t(
-                            'layouts.columnsEditor.description',
-                            'Configure columns for this container. Each column can render one or more widgets stacked vertically. Widths use a 12-column grid.'
-                        )}
-                    </Typography>
-
                     {totalWidth !== 12 && (
                         <Typography variant='caption' color={totalWidth > 12 ? 'error.main' : 'warning.main'}>
                             {totalWidth > 12
@@ -342,18 +290,15 @@ export default function ColumnsContainerEditorDialog({
                     )}
 
                     <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-                        <SortableContext items={columns.map((c) => c.id)} strategy={verticalListSortingStrategy}>
+                        <SortableContext items={columns.map((column) => column.slotKey)} strategy={verticalListSortingStrategy}>
                             <Stack spacing={1}>
-                                {columns.map((col) => (
+                                {columns.map((column, index) => (
                                     <SortableColumnRow
-                                        key={col.id}
-                                        column={col}
-                                        onChangeWidth={(w) => handleChangeWidth(col.id, w)}
-                                        onChangeWidget={(idx, k) => handleChangeWidget(col.id, idx, k)}
-                                        onAddWidget={() => handleAddWidgetToColumn(col.id)}
-                                        onRemoveWidget={(idx) => handleRemoveWidgetFromColumn(col.id, idx)}
-                                        onRemove={() => handleRemoveColumn(col.id)}
-                                        widgetOptions={widgetOptions}
+                                        key={column.slotKey}
+                                        column={column}
+                                        position={index}
+                                        onChangeWidth={(width) => handleChangeWidth(column.slotKey, width)}
+                                        onRemove={() => handleRemoveColumn(column.slotKey)}
                                         t={(key, opts) => t(key, opts as Record<string, string>) as string}
                                     />
                                 ))}
@@ -361,16 +306,14 @@ export default function ColumnsContainerEditorDialog({
                         </SortableContext>
                     </DndContext>
 
-                    <Button size='small' startIcon={<AddRoundedIcon />} onClick={handleAddColumn} disabled={columns.length >= MAX_COLUMNS}>
+                    <Button
+                        size='small'
+                        startIcon={<AddRoundedIcon />}
+                        onClick={handleAddColumn}
+                        disabled={columns.length >= MAX_COLUMNS || !createColumnSlotKey(columns)}
+                    >
                         {t('layouts.columnsEditor.addColumn', 'Add column')}
                     </Button>
-
-                    {showSharedBehavior ? (
-                        <LayoutWidgetSharedBehaviorFields
-                            value={{ sharedBehavior: sharedBehaviorValue }}
-                            onChange={(nextValue) => setSharedBehaviorValue(getSharedBehaviorFromWidgetConfig(nextValue))}
-                        />
-                    ) : null}
 
                     {showScopeVisibility && metahubId && layoutId && widgetId ? (
                         <WidgetScopeVisibilityPanel metahubId={metahubId} layoutId={layoutId} widgetId={widgetId} />

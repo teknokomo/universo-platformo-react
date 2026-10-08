@@ -1,558 +1,36 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import type { GridColDef, GridFilterModel, GridLocaleText, GridPaginationModel, GridSortModel } from '@mui/x-data-grid'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import type { GridFilterModel, GridPaginationModel, GridSortModel } from '@mui/x-data-grid'
 import { useSnackbar } from 'notistack'
 import { useTranslation } from 'react-i18next'
-import { isPendingInteractionBlocked, makePendingMarkers } from '@universo-react/utils'
-import { normalizeDashboardLayoutConfig } from '@universo-react/utils'
-import type { CreateTargetDefault, DashboardLayoutConfig, ResourceType } from '@universo-react/types'
-import type { PendingAction } from '@universo-react/utils'
+import { isPendingInteractionBlocked } from '@universo-react/utils'
+import type { CreateTargetDefault } from '@universo-react/types'
 import {
-    applyOptimisticCreate,
-    applyOptimisticDelete,
-    applyOptimisticUpdate,
-    confirmOptimisticCreate,
-    confirmOptimisticUpdate,
-    generateOptimisticId,
-    revealPendingEntityFeedback,
-    rollbackOptimisticSnapshots,
-    safeInvalidateQueries,
-    safeInvalidateQueriesInactive
-} from './optimisticCrud'
+    EMPTY_KEY_PREFIX,
+    appendCopySuffixToFirstStringField,
+    buildSafeCreateInitialData,
+    readInitialObjectCollectionId,
+    readRuntimeRowVersion,
+    resolveRuntimeObjectCollectionForSection,
+    stripReadOnlyEnumerationLabelFields
+} from './useCrudDashboard.helpers'
+import { useCrudDashboardMutations } from './useCrudDashboard.mutations'
+import type { CrudDashboardState, RelationBuilderCreateWizard, UseCrudDashboardOptions } from './useCrudDashboard.types'
+export type { CrudDashboardState, UseCrudDashboardOptions } from './useCrudDashboard.types'
 import type { AppDataResponse } from '../api/api'
-import type { CrudDataAdapter, CellRendererOverrides, RuntimeRecordCommand } from '../api/types'
-import type { DashboardMenuItem, DashboardMenuSlot } from '../dashboard/Dashboard'
-import type { FieldConfig } from '../components/dialogs/FormDialog'
-import { buildDefaultResourceSourceForType } from '../utils/resourceSourceDefaults'
+import type { RuntimeRecordCommand, RuntimeRelationScope } from '../api/types'
+import { revealPendingEntityFeedback } from './optimisticCrud'
 import { toGridColumns, toFieldConfigs } from '../utils/columns'
 import { getDataGridLocaleText } from '../utils/getDataGridLocale'
 import { mapGridFilterModel, mapGridSortModel } from '../utils/runtimeListQuery'
 import { extractRuntimeErrorMessage } from '../utils/runtimeErrors'
 
-// ---------------------------------------------------------------------------
-//  Stable empty key prefix (avoids new [] allocation on each render)
-// ---------------------------------------------------------------------------
-
-const EMPTY_KEY_PREFIX: readonly unknown[] = []
-
-const readInitialObjectCollectionId = (): string | undefined => {
-    if (typeof window === 'undefined') return undefined
-    try {
-        return new URLSearchParams(window.location.search).get('objectCollectionId') ?? undefined
-    } catch {
-        return undefined
-    }
-}
-
-const normalizeLocale = (locale: string) => locale.split(/[-_]/)[0]?.toLowerCase() || 'en'
-
-const getCopySuffix = (locale: string) => (normalizeLocale(locale) === 'ru' ? ' (копия)' : ' (copy)')
-const getCopyLabel = (locale: string) => (normalizeLocale(locale) === 'ru' ? 'Копия' : 'Copy')
-
-const isLocalizedContent = (value: unknown): value is { _primary?: string; locales?: Record<string, { content?: string }> } =>
-    Boolean(value && typeof value === 'object' && 'locales' in (value as Record<string, unknown>))
-
-const appendCopySuffixToFirstStringField = (params: {
-    sourceData: Record<string, unknown>
-    fieldConfigs: FieldConfig[]
-    locale: string
-}): Record<string, unknown> => {
-    const { sourceData, fieldConfigs, locale } = params
-    const firstStringField = fieldConfigs.find((field) => field.type === 'STRING')
-    if (!firstStringField) return sourceData
-
-    const fieldId = firstStringField.id
-    const rawValue = sourceData[fieldId]
-    const fallbackSuffix = getCopySuffix(locale)
-
-    if (typeof rawValue === 'string') {
-        const content = rawValue.trim()
-        return {
-            ...sourceData,
-            [fieldId]: content.length > 0 ? `${content}${fallbackSuffix}` : fallbackSuffix.trim()
-        }
-    }
-
-    if (isLocalizedContent(rawValue)) {
-        const nextLocales = { ...(rawValue.locales ?? {}) }
-        let hasAnyContent = false
-        for (const [localeKey, localeValue] of Object.entries(nextLocales)) {
-            const content = typeof localeValue?.content === 'string' ? localeValue.content.trim() : ''
-            if (!content) continue
-            hasAnyContent = true
-            nextLocales[localeKey] = {
-                ...(localeValue ?? {}),
-                content: `${content}${getCopySuffix(localeKey)}`
-            }
-        }
-        if (!hasAnyContent) {
-            const primaryLocale = normalizeLocale(rawValue._primary || locale)
-            nextLocales[primaryLocale] = {
-                content: `${getCopyLabel(primaryLocale)}${getCopySuffix(primaryLocale)}`
-            }
-        }
-
-        return {
-            ...sourceData,
-            [fieldId]: {
-                ...rawValue,
-                locales: nextLocales
-            }
-        }
-    }
-
-    return {
-        ...sourceData,
-        [fieldId]: `${getCopyLabel(locale)}${fallbackSuffix}`
-    }
-}
-
-const normalizeCreateDefaultFieldKey = (value: unknown): string =>
-    (typeof value === 'string' ? value : '')
-        .trim()
-        .replace(/[^a-z0-9]/gi, '')
-        .toLowerCase()
-
-const blockedCreateDefaultFieldKeys = new Set([
-    'id',
-    'workspace',
-    'workspaceid',
-    'owner',
-    'ownerid',
-    'owneruserid',
-    'user',
-    'userid',
-    'assigneduserid',
-    'createdby',
-    'updatedby',
-    'deletedby',
-    'targetrecordid',
-    'targetobjectid',
-    'targetobjectcodename',
-    'sourceobjectcodename',
-    'sourcerowid',
-    'sourcelineid',
-    'principalid',
-    'apprecordstate',
-    'appdeleted'
-])
-
-const isUnsafeCreateDefaultField = (fieldCodename: string): boolean => {
-    const normalized = normalizeCreateDefaultFieldKey(fieldCodename)
-    return (
-        normalized.startsWith('upl') ||
-        normalized.startsWith('progress') ||
-        normalized.startsWith('lifecycle') ||
-        normalized.includes('workspaceid') ||
-        normalized.includes('ownerid') ||
-        normalized.includes('userid') ||
-        blockedCreateDefaultFieldKeys.has(normalized)
-    )
-}
-
-const isWritableCreateDefaultField = (field: FieldConfig): boolean => {
-    const uiConfig = field.uiConfig ?? {}
-    return (
-        field.type !== 'TABLE' &&
-        uiConfig.hidden !== true &&
-        uiConfig.formHidden !== true &&
-        uiConfig.readOnly !== true &&
-        uiConfig.readonly !== true &&
-        uiConfig.disabled !== true &&
-        uiConfig.serverOwned !== true
-    )
-}
-
-const isResourceSourceCreateDefaultField = (field: FieldConfig): boolean => {
-    const uiConfig = field.uiConfig ?? {}
-    return field.type === 'JSON' && (uiConfig.widget === 'resourceSource' || uiConfig.resourceSource === true || uiConfig.resource === true)
-}
-
-const resolveEnumDefaultValue = (field: FieldConfig, enumCodename: string): string | null => {
-    if (field.type !== 'REF' || field.refTargetEntityKind !== 'enumeration') return null
-
-    const targetCodename = normalizeCreateDefaultFieldKey(enumCodename)
-    const options = [...(field.enumOptions ?? []), ...(field.refOptions ?? [])]
-    return options.find((option) => normalizeCreateDefaultFieldKey(option.codename) === targetCodename)?.id ?? null
-}
-
-const coerceScalarCreateDefaultValue = (field: FieldConfig, value: string | number | boolean | null): unknown => {
-    if (value === null) return null
-    if (field.type === 'STRING' && typeof value === 'string') return value
-    if (field.type === 'NUMBER' && typeof value === 'number' && Number.isFinite(value)) return value
-    if (field.type === 'BOOLEAN' && typeof value === 'boolean') return value
-    if (field.type === 'DATE' && typeof value === 'string') return value
-    return undefined
-}
-
-const readCreateDefaultContextPath = (context: Record<string, unknown> | undefined, path: string): unknown => {
-    if (!context) return undefined
-
-    let current: unknown = context
-    for (const segment of path.split('.')) {
-        if (!current || typeof current !== 'object') return undefined
-        if (segment === '__proto__' || segment === 'prototype' || segment === 'constructor') return undefined
-
-        const record = current as Record<string, unknown>
-        if (!Object.prototype.hasOwnProperty.call(record, segment)) return undefined
-        current = record[segment]
-    }
-
-    return current
-}
-
-const buildSafeCreateInitialData = (
-    createDefaults: readonly CreateTargetDefault[] | undefined,
-    fieldConfigs: readonly FieldConfig[],
-    createDefaultContext?: Record<string, unknown>
-): Record<string, unknown> | undefined => {
-    if (!createDefaults?.length || fieldConfigs.length === 0) return undefined
-
-    const fieldsByCodename = new Map<string, FieldConfig>()
-    for (const field of fieldConfigs) {
-        fieldsByCodename.set(normalizeCreateDefaultFieldKey(field.id), field)
-        if (field.codename) {
-            fieldsByCodename.set(normalizeCreateDefaultFieldKey(field.codename), field)
-        }
-    }
-    const initialData: Record<string, unknown> = {}
-
-    for (const item of createDefaults) {
-        if (isUnsafeCreateDefaultField(item.fieldCodename)) continue
-
-        const field = fieldsByCodename.get(normalizeCreateDefaultFieldKey(item.fieldCodename))
-        if (!field || !isWritableCreateDefaultField(field)) continue
-
-        if (typeof item.enumCodename === 'string') {
-            const enumValueId = resolveEnumDefaultValue(field, item.enumCodename)
-            if (enumValueId) {
-                initialData[field.id] = enumValueId
-            }
-            continue
-        }
-
-        if (typeof item.resourceSourceType === 'string') {
-            if (isResourceSourceCreateDefaultField(field)) {
-                initialData[field.id] = buildDefaultResourceSourceForType(item.resourceSourceType as ResourceType)
-            }
-            continue
-        }
-
-        if (typeof item.contextPath === 'string') {
-            const rawValue = readCreateDefaultContextPath(createDefaultContext, item.contextPath)
-            if (rawValue === null || typeof rawValue === 'string' || typeof rawValue === 'number' || typeof rawValue === 'boolean') {
-                const nextValue = coerceScalarCreateDefaultValue(field, rawValue)
-                if (typeof nextValue !== 'undefined') {
-                    initialData[field.id] = nextValue
-                }
-            }
-            continue
-        }
-
-        if (Object.prototype.hasOwnProperty.call(item, 'value')) {
-            const nextValue = coerceScalarCreateDefaultValue(field, item.value as string | number | boolean | null)
-            if (typeof nextValue !== 'undefined') {
-                initialData[field.id] = nextValue
-            }
-        }
-    }
-
-    return Object.keys(initialData).length > 0 ? initialData : undefined
-}
-
-const stripReadOnlyEnumerationLabelFields = (params: {
-    payload: Record<string, unknown>
-    fieldConfigs: FieldConfig[]
-}): Record<string, unknown> => {
-    const { payload, fieldConfigs } = params
-    const result: Record<string, unknown> = {}
-
-    for (const field of fieldConfigs) {
-        if (!Object.prototype.hasOwnProperty.call(payload, field.id)) continue
-
-        if (field.type === 'REF' && field.refTargetEntityKind === 'enumeration' && field.enumPresentationMode === 'label') {
-            continue
-        }
-
-        if (field.type === 'TABLE') {
-            const rawRows = payload[field.id]
-            if (!Array.isArray(rawRows)) {
-                result[field.id] = rawRows
-                continue
-            }
-
-            const childFields = field.childFields ?? []
-            const sanitizedRows = rawRows.map((row) => {
-                if (!row || typeof row !== 'object') return row
-                const rowRecord = row as Record<string, unknown>
-                const sanitizedRow: Record<string, unknown> = {}
-
-                for (const childField of childFields) {
-                    if (!Object.prototype.hasOwnProperty.call(rowRecord, childField.id)) continue
-                    if (
-                        childField.type === 'REF' &&
-                        childField.refTargetEntityKind === 'enumeration' &&
-                        childField.enumPresentationMode === 'label'
-                    ) {
-                        continue
-                    }
-                    sanitizedRow[childField.id] = rowRecord[childField.id]
-                }
-
-                return sanitizedRow
-            })
-
-            result[field.id] = sanitizedRows
-            continue
-        }
-
-        result[field.id] = payload[field.id]
-    }
-
-    return result
-}
-
-const readRuntimeRowVersion = (row: Record<string, unknown> | null | undefined): number | null => {
-    const rawValue = row?._upl_version
-    const value =
-        typeof rawValue === 'number' ? rawValue : typeof rawValue === 'string' && rawValue.trim().length > 0 ? Number(rawValue) : Number.NaN
-    return Number.isInteger(value) && value > 0 ? value : null
-}
-
-type RuntimeSectionMenuItem = {
-    isActive?: boolean
-    kind?: string
-    objectCollectionId?: string | null
-    sectionId?: string | null
-}
-
-const resolveMenuObjectCollectionForSection = (appData: AppDataResponse | undefined, sectionId: string | undefined): string | undefined => {
-    if (!appData || !sectionId) return undefined
-    const normalizedSectionId = sectionId.trim().toLowerCase()
-
-    for (const menu of appData.menus ?? []) {
-        const menuItems: RuntimeSectionMenuItem[] = [...(menu.items ?? []), ...(menu.overflowItems ?? [])]
-        for (const item of menuItems) {
-            const itemSectionId = typeof item.sectionId === 'string' ? item.sectionId.trim() : ''
-            const itemObjectCollectionId = typeof item.objectCollectionId === 'string' ? item.objectCollectionId.trim() : ''
-            const matchesSectionId =
-                itemSectionId === sectionId ||
-                itemSectionId.toLowerCase() === normalizedSectionId ||
-                itemObjectCollectionId.toLowerCase() === normalizedSectionId
-
-            if (item.isActive === false || item.kind !== 'section' || !matchesSectionId) {
-                continue
-            }
-
-            const objectCollectionId = itemObjectCollectionId
-            if (objectCollectionId && objectCollectionId !== sectionId) {
-                return objectCollectionId
-            }
-        }
-    }
-
-    const objectCollectionById = (appData.objectCollections ?? []).find((item) => {
-        const itemCodename = typeof item.codename === 'string' ? item.codename.trim().toLowerCase() : ''
-        return item.id === sectionId || itemCodename === normalizedSectionId
+const hasExpectedVersionsForRows = (rowIds: string[], versionsByRowId: Record<string, number>): boolean =>
+    rowIds.length > 0 &&
+    rowIds.every((rowId) => {
+        const version = versionsByRowId[rowId]
+        return Number.isSafeInteger(version) && version > 0
     })
-    if (objectCollectionById?.tableName) {
-        return objectCollectionById.id
-    }
-
-    const section = (appData.sections ?? []).find((item) => {
-        const itemCodename = typeof item.codename === 'string' ? item.codename.trim().toLowerCase() : ''
-        return item.id === sectionId || itemCodename === normalizedSectionId
-    })
-    return section?.tableName ? section.id : undefined
-}
-
-// ---------------------------------------------------------------------------
-//  Helper: convert menu items to DashboardMenuItem[]
-// ---------------------------------------------------------------------------
-
-function mapMenuItems(
-    items: AppDataResponse['menus'][number]['items'],
-    sections: AppDataResponse['sections'],
-    activeSectionId: string | undefined
-): DashboardMenuItem[] {
-    return items.flatMap((item): DashboardMenuItem[] => {
-        if (!item.isActive) return []
-
-        if (item.kind === 'section') {
-            const targetSectionId = item.sectionId ?? item.objectCollectionId ?? null
-            const targetObjectCollectionId = item.objectCollectionId ?? null
-            return [
-                {
-                    id: item.id,
-                    label: item.title,
-                    icon: item.icon ?? null,
-                    kind: 'section' as const,
-                    sectionId: targetSectionId,
-                    objectCollectionId: targetObjectCollectionId,
-                    href: null,
-                    selected: targetSectionId != null && targetSectionId === activeSectionId
-                }
-            ]
-        }
-
-        if (item.kind === 'hub') {
-            return [
-                {
-                    id: item.id,
-                    label: item.title,
-                    icon: item.icon ?? null,
-                    kind: 'hub' as const,
-                    sectionId: null,
-                    objectCollectionId: null,
-                    hubId: item.hubId ?? item.treeEntityId ?? null,
-                    treeEntityId: item.treeEntityId ?? item.hubId ?? null,
-                    href: null,
-                    selected: false
-                }
-            ]
-        }
-
-        return [
-            {
-                id: item.id,
-                label: item.title,
-                icon: item.icon ?? null,
-                kind: 'link' as const,
-                sectionId: null,
-                objectCollectionId: null,
-                href: item.href ?? null,
-                selected: false
-            }
-        ]
-    })
-}
-
-// ---------------------------------------------------------------------------
-//  Hook options
-// ---------------------------------------------------------------------------
-
-export interface UseCrudDashboardOptions {
-    /** Adapter that provides all CRUD operations. Pass `null` to disable queries. */
-    adapter: CrudDataAdapter | null
-    /** BCP-47 locale string, e.g. `"en"`, `"ru"`. */
-    locale: string
-    /** i18n namespace for `useTranslation`. @default 'apps' */
-    i18nNamespace?: string
-    /** Default page size. @default 20 */
-    defaultPageSize?: number
-    /** Page size options shown in the DataGrid footer. @default [10, 20, 50] */
-    pageSizeOptions?: number[]
-    /** React Query staleTime (ms). @default 0 */
-    staleTime?: number
-    /** Initial runtime section id resolved from route params. */
-    initialSectionId?: string
-    /** Explicit workspace selected by the runtime route. Omitted means server default workspace. */
-    workspaceId?: string | null
-    /**
-     * Resolve a route-owned section after the bootstrap response exposes runtime metadata.
-     * A resolved value has precedence over the configured start menu item.
-     */
-    resolvePreferredSectionId?: (appData: AppDataResponse) => string | undefined
-    /**
-     * Per-dataType cell renderer overrides.
-     * Allows consumers to inject custom rendering (e.g. inline checkbox editing).
-     */
-    cellRenderers?: CellRendererOverrides
-    /**
-     * Curated host context used by metadata-defined create defaults.
-     * The resolver receives the already-loaded runtime app data and must not return secrets or raw settings blobs.
-     */
-    createDefaultContext?: Record<string, unknown> | ((appData: AppDataResponse | undefined) => Record<string, unknown> | undefined)
-}
-
-// ---------------------------------------------------------------------------
-//  Hook return type
-// ---------------------------------------------------------------------------
-
-export interface CrudDashboardState {
-    // Data & loading
-    rawAppData: AppDataResponse | undefined
-    appData: AppDataResponse | undefined
-    isLoading: boolean
-    isFetching: boolean
-    isError: boolean
-
-    // Layout
-    layoutConfig: NonNullable<DashboardLayoutConfig>
-
-    // Table
-    columns: GridColDef[]
-    fieldConfigs: FieldConfig[]
-    rows: Array<Record<string, unknown> & { id: string }>
-    rowCount: number | undefined
-    paginationModel: GridPaginationModel
-    setPaginationModel: (model: GridPaginationModel) => void
-    sortModel: GridSortModel
-    setSortModel: (model: GridSortModel) => void
-    filterModel: GridFilterModel
-    setFilterModel: (model: GridFilterModel) => void
-    searchValue: string
-    setSearchValue: (value: string) => void
-    pageSizeOptions: number[]
-    localeText: Partial<GridLocaleText> | undefined
-    handlePendingInteractionAttempt: (rowId: string) => boolean
-
-    // Section selection aliases (object fields remain for compatibility)
-    activeSectionId: string | undefined
-    selectedSectionId: string | undefined
-    onSelectSection: (sectionId: string) => void
-    activeObjectCollectionId: string | undefined
-    selectedObjectCollectionId: string | undefined
-    onSelectObjectCollection: (objectCollectionId: string) => void
-
-    // Menus
-    activeMenu: AppDataResponse['menus'][number] | null
-    dashboardMenuItems: DashboardMenuItem[]
-    /** Menu slot object ready for `<Dashboard menu={…} />`. */
-    menuSlot: DashboardMenuSlot | undefined
-    /** Map of menus by widget ID, ready for `<Dashboard menus={…} />`. */
-    menusMap: { [widgetId: string]: DashboardMenuSlot }
-
-    // CRUD form
-    formOpen: boolean
-    editRowId: string | null
-    formError: string | null
-    formInitialData: Record<string, unknown> | undefined
-    isFormReady: boolean
-    isSubmitting: boolean
-    isReordering: boolean
-    canPersistRowReorder: boolean
-    handleOpenCreate: (createDefaults?: readonly CreateTargetDefault[]) => void
-    handleOpenEdit: (rowId: string) => void
-    handleCloseForm: () => void
-    handleFormSubmit: (data: Record<string, unknown>) => Promise<void>
-    handlePersistRowReorder: (orderedRowIds: string[]) => Promise<void>
-
-    // Delete dialog
-    deleteRowId: string | null
-    deleteError: string | null
-    isDeleting: boolean
-    handleOpenDelete: (rowId: string) => void
-    handleCloseDelete: () => void
-    handleConfirmDelete: () => Promise<void>
-
-    // Copy dialog
-    copyRowId: string | null
-    copyError: string | null
-    isCopying: boolean
-    handleOpenCopy: (rowId: string) => void
-    handleCloseCopy: () => void
-
-    // Row actions menu
-    menuAnchorEl: HTMLElement | null
-    menuRowId: string | null
-    handleOpenMenu: (event: React.MouseEvent<HTMLElement>, rowId: string) => void
-    handleCloseMenu: () => void
-    handleRecordCommand?: (rowId: string, command: RuntimeRecordCommand) => Promise<void>
-    isRecordCommandPending?: boolean
-    handleWorkflowAction?: (rowId: string, actionCodename: string) => Promise<void>
-    isWorkflowActionPending?: boolean
-}
 
 // ---------------------------------------------------------------------------
 //  Hook implementation
@@ -567,8 +45,8 @@ export function useCrudDashboard(options: UseCrudDashboardOptions): CrudDashboar
         pageSizeOptions = [10, 20, 50],
         staleTime = 0,
         initialSectionId,
+        onRuntimeDataChanged,
         workspaceId,
-        resolvePreferredSectionId,
         cellRenderers,
         createDefaultContext: createDefaultContextOption
     } = options
@@ -597,7 +75,12 @@ export function useCrudDashboard(options: UseCrudDashboardOptions): CrudDashboar
     const [editRowId, setEditRowId] = useState<string | null>(null)
     const [deleteRowId, setDeleteRowId] = useState<string | null>(null)
     const [copyRowId, setCopyRowId] = useState<string | null>(null)
+    const [formRelationScope, setFormRelationScope] = useState<RuntimeRelationScope | undefined>(undefined)
+    const [deleteRelationScope, setDeleteRelationScope] = useState<RuntimeRelationScope | undefined>(undefined)
+    const [formExpectedVersion, setFormExpectedVersion] = useState<number | null>(null)
+    const [deleteExpectedVersion, setDeleteExpectedVersion] = useState<number | null>(null)
     const [createInitialData, setCreateInitialData] = useState<Record<string, unknown> | undefined>(undefined)
+    const [createWizard, setCreateWizard] = useState<RelationBuilderCreateWizard>(undefined)
     const [formError, setFormError] = useState<string | null>(null)
     const [deleteError, setDeleteError] = useState<string | null>(null)
     const [copyError, setCopyError] = useState<string | null>(null)
@@ -752,10 +235,6 @@ export function useCrudDashboard(options: UseCrudDashboardOptions): CrudDashboar
     const backendActiveSectionId =
         appData?.activeSectionId ?? appData?.section?.id ?? appData?.activeObjectCollectionId ?? appData?.objectCollection.id
     const backendActiveObjectCollectionId = appData?.activeObjectCollectionId ?? appData?.objectCollection.id ?? backendActiveSectionId
-    const preferredSectionId = useMemo(
-        () => (appData && resolvePreferredSectionId ? resolvePreferredSectionId(appData) : undefined),
-        [appData, resolvePreferredSectionId]
-    )
 
     useEffect(() => {
         if (!initialSectionId) {
@@ -773,43 +252,24 @@ export function useCrudDashboard(options: UseCrudDashboardOptions): CrudDashboar
                 return initialSectionId
             })
             if (appData) {
-                setSelectedObjectCollectionId(resolveMenuObjectCollectionForSection(appData, initialSectionId))
+                setSelectedObjectCollectionId(resolveRuntimeObjectCollectionForSection(appData, initialSectionId))
             }
             return
         }
 
         if (!appData || selectedSectionId !== initialSectionId) return
-        const nextObjectCollectionId = resolveMenuObjectCollectionForSection(appData, initialSectionId)
+        const nextObjectCollectionId = resolveRuntimeObjectCollectionForSection(appData, initialSectionId)
         setSelectedObjectCollectionId((current) => (current === nextObjectCollectionId ? current : nextObjectCollectionId))
     }, [appData, initialSectionId, resetSectionScopedListState, selectedSectionId])
 
-    const initialMenuSectionId = useMemo(() => {
-        if (!appData?.menus?.length) return undefined
-        const menu = appData.menus.find((item) => item.id === appData.activeMenuId) ?? appData.menus[0]
-        if (menu?.startSectionId) return menu.startSectionId
-        const firstSectionItem = menu?.items?.find(
-            (item) => item.isActive !== false && item.kind === 'section' && Boolean(item.sectionId ?? item.objectCollectionId)
-        )
-        return firstSectionItem?.sectionId ?? firstSectionItem?.objectCollectionId ?? undefined
-    }, [appData])
-
-    const isResolvingInitialMenuSection = Boolean(
-        appData &&
-            !selectedObjectCollectionId &&
-            !selectedSectionId &&
-            initialMenuSectionId &&
-            backendActiveSectionId &&
-            initialMenuSectionId !== backendActiveSectionId
-    )
     const isResolvingSelectedSection = Boolean(
         appData && selectedSectionId && backendActiveSectionId && selectedSectionId !== backendActiveSectionId && listQuery.isFetching
     )
-    const isSuppressingStaleSectionData = isResolvingInitialMenuSection || isResolvingSelectedSection
+    const isSuppressingStaleSectionData = isResolvingSelectedSection
     const displayAppData = isSuppressingStaleSectionData ? undefined : appData
-    const activeSectionId =
-        selectedSectionId ?? (isSuppressingStaleSectionData ? preferredSectionId ?? initialMenuSectionId : backendActiveSectionId)
+    const activeSectionId = selectedSectionId ?? (isSuppressingStaleSectionData ? undefined : backendActiveSectionId)
     const selectedSectionObjectCollectionId = selectedSectionId
-        ? resolveMenuObjectCollectionForSection(appData, selectedSectionId)
+        ? resolveRuntimeObjectCollectionForSection(appData, selectedSectionId)
         : undefined
     const activeObjectCollectionId = selectedSectionId
         ? selectedSectionObjectCollectionId
@@ -817,10 +277,10 @@ export function useCrudDashboard(options: UseCrudDashboardOptions): CrudDashboar
     const activeRuntimeTarget = useMemo(
         () => ({
             objectCollectionId: activeObjectCollectionId,
-            sectionId: selectedSectionId ?? preferredSectionId ?? activeSectionId,
+            sectionId: selectedSectionId ?? activeSectionId,
             ...(normalizedWorkspaceId ? { workspaceId: normalizedWorkspaceId } : {})
         }),
-        [activeObjectCollectionId, activeSectionId, normalizedWorkspaceId, preferredSectionId, selectedSectionId]
+        [activeObjectCollectionId, activeSectionId, normalizedWorkspaceId, selectedSectionId]
     )
     const makeRowKey = useCallback(
         (rowId: string | null | undefined) =>
@@ -877,6 +337,7 @@ export function useCrudDashboard(options: UseCrudDashboardOptions): CrudDashboar
     const fieldConfigs = useMemo(() => (displayAppData ? toFieldConfigs(displayAppData) : []), [displayAppData])
     const rows = useMemo(() => (displayAppData ? displayAppData.rows : []), [displayAppData])
     const canPersistRowReorder = Boolean(adapter?.reorderRows)
+    const canPersistRelationRowReorder = Boolean(adapter?.reorderRows)
     const createDefaultContext = useMemo(() => {
         if (typeof createDefaultContextOption === 'function') {
             return createDefaultContextOption(displayAppData)
@@ -884,15 +345,15 @@ export function useCrudDashboard(options: UseCrudDashboardOptions): CrudDashboar
         return createDefaultContextOption
     }, [createDefaultContextOption, displayAppData])
 
-    // Initialize section from the menu (fallback: backend active section)
+    // Initialize the selected runtime target from the effective layout route or backend default.
     useEffect(() => {
         if (!appData || selectedSectionId) return
-        const bootstrapSectionId = preferredSectionId ?? initialMenuSectionId ?? backendActiveSectionId
+        const bootstrapSectionId = backendActiveSectionId
         if (bootstrapSectionId) {
             setSelectedSectionId(bootstrapSectionId)
-            setSelectedObjectCollectionId(resolveMenuObjectCollectionForSection(appData, bootstrapSectionId))
+            setSelectedObjectCollectionId(resolveRuntimeObjectCollectionForSection(appData, bootstrapSectionId))
         }
-    }, [appData, selectedSectionId, preferredSectionId, initialMenuSectionId, backendActiveSectionId])
+    }, [appData, selectedSectionId, backendActiveSectionId])
 
     // ----- Row query (for edit) -----
     const rowQuery = useQuery({
@@ -902,6 +363,18 @@ export function useCrudDashboard(options: UseCrudDashboardOptions): CrudDashboar
         staleTime: 0,
         gcTime: 0
     })
+
+    useEffect(() => {
+        if (!sourceRowId || formExpectedVersion !== null || !rowQuery.data) return
+        const rawVersion = rowQuery.data.version
+        const expectedVersion =
+            typeof rawVersion === 'number'
+                ? rawVersion
+                : typeof rawVersion === 'string' && rawVersion.trim().length > 0
+                ? Number(rawVersion)
+                : Number.NaN
+        if (Number.isSafeInteger(expectedVersion) && expectedVersion > 0) setFormExpectedVersion(expectedVersion)
+    }, [formExpectedVersion, rowQuery.data, sourceRowId])
 
     const copyTablesQuery = useQuery({
         queryKey: copyTablesKey,
@@ -931,210 +404,17 @@ export function useCrudDashboard(options: UseCrudDashboardOptions): CrudDashboar
         gcTime: 0
     })
 
-    // ----- Mutations -----
-    const createMutation = useMutation({
-        mutationKey: [...queryKeyPrefix, 'create'],
-        mutationFn: (data: Record<string, unknown>) => {
-            if (!adapter) throw new Error('Adapter is not available')
-            return adapter.createRow(data, activeRuntimeTarget)
-        },
-        onMutate: async (data) => {
-            const optimisticId = generateOptimisticId()
-            const pendingAction: PendingAction = copyRowId ? 'copy' : 'create'
-            return applyOptimisticCreate({
-                queryClient,
-                queryKeyPrefix,
-                optimisticEntity: {
-                    id: optimisticId,
-                    ...data,
-                    ...makePendingMarkers(pendingAction)
-                } as AppDataResponse['rows'][number] & { id: string }
-            })
-        },
-        onError: (_error, _variables, context) => {
-            rollbackOptimisticSnapshots(queryClient, context?.previousSnapshots)
-        },
-        onSuccess: (data, _variables, context) => {
-            if (context?.optimisticId && data?.id) {
-                confirmOptimisticCreate(queryClient, queryKeyPrefix, context.optimisticId, String(data.id), {
-                    serverEntity: data
-                })
-            }
-            applyWorkspaceLimitDelta(1)
-        },
-        onSettled: () => {
-            safeInvalidateQueries(queryClient, queryKeyPrefix, queryKeyPrefix)
-        }
-    })
-
-    const copyMutation = useMutation({
-        mutationKey: [...queryKeyPrefix, 'copy'],
-        mutationFn: (params: { rowId: string; data: Record<string, unknown>; expectedVersion?: number }) => {
-            if (!adapter?.copyRow) throw new Error('Copy is not available for this runtime adapter')
-            return adapter.copyRow(params.rowId, {
-                objectCollectionId: activeRuntimeTarget.objectCollectionId,
-                sectionId: activeRuntimeTarget.sectionId,
-                ...(activeRuntimeTarget.workspaceId ? { workspaceId: activeRuntimeTarget.workspaceId } : {}),
-                copyChildTables: true,
-                data: params.data,
-                expectedVersion: params.expectedVersion
-            })
-        },
-        onMutate: async ({ data }) => {
-            const optimisticId = generateOptimisticId()
-            return applyOptimisticCreate({
-                queryClient,
-                queryKeyPrefix,
-                optimisticEntity: {
-                    id: optimisticId,
-                    ...data,
-                    ...makePendingMarkers('copy')
-                } as AppDataResponse['rows'][number] & { id: string }
-            })
-        },
-        onError: (_error, _variables, context) => {
-            rollbackOptimisticSnapshots(queryClient, context?.previousSnapshots)
-        },
-        onSuccess: (data, variables, context) => {
-            if (context?.optimisticId && data?.id) {
-                confirmOptimisticCreate(queryClient, queryKeyPrefix, context.optimisticId, String(data.id), {
-                    serverEntity: {
-                        id: data.id,
-                        ...variables.data
-                    }
-                })
-            }
-            applyWorkspaceLimitDelta(1)
-        },
-        onSettled: () => {
-            safeInvalidateQueries(queryClient, queryKeyPrefix, queryKeyPrefix)
-        }
-    })
-
-    const updateMutation = useMutation({
-        mutationKey: [...queryKeyPrefix, 'update'],
-        mutationFn: (params: { rowId: string; data: Record<string, unknown>; expectedVersion?: number }) => {
-            if (!adapter) throw new Error('Adapter is not available')
-            return adapter.updateRow(params.rowId, params.data, activeRuntimeTarget, params.expectedVersion)
-        },
-        onMutate: async ({ rowId, data }) => {
-            const rowDetailKey = makeRowKey(rowId)
-            return applyOptimisticUpdate({
-                queryClient,
-                queryKeyPrefix,
-                entityId: rowId,
-                updater: data as Partial<AppDataResponse['rows'][number]>,
-                detailQueryKey: rowDetailKey
-            })
-        },
-        onError: (_error, _variables, context) => {
-            rollbackOptimisticSnapshots(queryClient, context?.previousSnapshots)
-        },
-        onSuccess: async (data, variables) => {
-            await queryClient.cancelQueries({ queryKey: queryKeyPrefix })
-            confirmOptimisticUpdate(queryClient, queryKeyPrefix, variables.rowId, {
-                serverEntity: data ?? null
-            })
-            if (data) {
-                queryClient.setQueryData(makeRowKey(variables.rowId), data)
-            }
-        },
-        onSettled: (_data, _error, variables) => {
-            safeInvalidateQueriesInactive(queryClient, queryKeyPrefix, queryKeyPrefix, makeRowKey(variables.rowId))
-            // Also invalidate tabular rows for this row
-            queryClient.invalidateQueries({
-                predicate: (query) => {
-                    const key = query.queryKey
-                    return Array.isArray(key) && key[0] === 'tabularRows' && String(key[2] ?? '') === variables.rowId
-                }
-            })
-        }
-    })
-
-    const deleteMutation = useMutation({
-        mutationKey: [...queryKeyPrefix, 'delete'],
-        mutationFn: (params: { rowId: string; expectedVersion?: number }) => {
-            if (!adapter) throw new Error('Adapter is not available')
-            return adapter.deleteRow(params.rowId, activeRuntimeTarget, params.expectedVersion)
-        },
-        onMutate: async (params) => {
-            return applyOptimisticDelete({
-                queryClient,
-                queryKeyPrefix,
-                entityId: params.rowId,
-                strategy: 'remove'
-            })
-        },
-        onError: (_error, _variables, context) => {
-            rollbackOptimisticSnapshots(queryClient, context?.previousSnapshots)
-        },
-        onSuccess: () => {
-            applyWorkspaceLimitDelta(-1)
-        },
-        onSettled: () => {
-            safeInvalidateQueries(queryClient, queryKeyPrefix, queryKeyPrefix)
-        }
-    })
-
-    const reorderMutation = useMutation({
-        mutationKey: [...queryKeyPrefix, 'reorder'],
-        mutationFn: async (params: { orderedRowIds: string[]; expectedVersionsByRowId?: Record<string, number> }) => {
-            if (!adapter?.reorderRows) {
-                throw new Error('Row reordering is not available for this runtime adapter')
-            }
-
-            await adapter.reorderRows({
-                objectCollectionId: activeRuntimeTarget.objectCollectionId,
-                sectionId: activeRuntimeTarget.sectionId,
-                ...(activeRuntimeTarget.workspaceId ? { workspaceId: activeRuntimeTarget.workspaceId } : {}),
-                orderedRowIds: params.orderedRowIds,
-                expectedVersionsByRowId: params.expectedVersionsByRowId
-            })
-        },
-        onSettled: () => {
-            safeInvalidateQueries(queryClient, queryKeyPrefix, queryKeyPrefix)
-        }
-    })
-
-    const recordCommandMutation = useMutation({
-        mutationKey: [...queryKeyPrefix, 'record-command'],
-        mutationFn: async (params: { rowId: string; command: RuntimeRecordCommand; expectedVersion?: number }) => {
-            if (!adapter?.recordCommand) {
-                throw new Error('Record lifecycle commands are not available for this runtime adapter')
-            }
-
-            return adapter.recordCommand(params.rowId, params.command, {
-                objectCollectionId: activeRuntimeTarget.objectCollectionId,
-                sectionId: activeRuntimeTarget.sectionId,
-                ...(activeRuntimeTarget.workspaceId ? { workspaceId: activeRuntimeTarget.workspaceId } : {}),
-                expectedVersion: params.expectedVersion
-            })
-        },
-        onSettled: (_data, _error, variables) => {
-            safeInvalidateQueries(queryClient, queryKeyPrefix, queryKeyPrefix)
-            queryClient.invalidateQueries({ queryKey: makeRowKey(variables.rowId) })
-        }
-    })
-
-    const workflowActionMutation = useMutation({
-        mutationKey: [...queryKeyPrefix, 'workflow-action'],
-        mutationFn: async (params: { rowId: string; actionCodename: string; expectedVersion: number }) => {
-            if (!adapter?.workflowAction) {
-                throw new Error('Workflow actions are not available for this runtime adapter')
-            }
-
-            return adapter.workflowAction(params.rowId, params.actionCodename, {
-                objectCollectionId: activeRuntimeTarget.objectCollectionId,
-                sectionId: activeRuntimeTarget.sectionId,
-                ...(activeRuntimeTarget.workspaceId ? { workspaceId: activeRuntimeTarget.workspaceId } : {}),
-                expectedVersion: params.expectedVersion
-            })
-        },
-        onSettled: (_data, _error, variables) => {
-            safeInvalidateQueries(queryClient, queryKeyPrefix, queryKeyPrefix)
-            queryClient.invalidateQueries({ queryKey: makeRowKey(variables.rowId) })
-        }
-    })
+    const { createMutation, copyMutation, updateMutation, deleteMutation, reorderMutation, recordCommandMutation, workflowActionMutation } =
+        useCrudDashboardMutations({
+            adapter,
+            activeRuntimeTarget,
+            applyWorkspaceLimitDelta,
+            copyRowId,
+            makeRowKey,
+            queryClient,
+            queryKeyPrefix,
+            onRuntimeDataChanged
+        })
 
     const getRuntimeMutationErrorMessage = useCallback(
         (err: unknown) => extractRuntimeErrorMessage(err, t('app.errorGenericMessage', 'Please try again or reload the page.'), locale),
@@ -1143,7 +423,12 @@ export function useCrudDashboard(options: UseCrudDashboardOptions): CrudDashboar
 
     // ----- CRUD handlers -----
     const handleOpenCreate = useCallback(
-        (createDefaults?: readonly CreateTargetDefault[]) => {
+        (
+            createDefaults?: readonly CreateTargetDefault[],
+            createDefaultContextOverride?: Record<string, unknown>,
+            relationScope?: RuntimeRelationScope,
+            createWizard?: RelationBuilderCreateWizard
+        ) => {
             if (displayAppData?.workspaceLimit?.canCreate === false) {
                 enqueueSnackbar(
                     t('app.workspaceLimitReached', {
@@ -1159,8 +444,14 @@ export function useCrudDashboard(options: UseCrudDashboardOptions): CrudDashboar
             setCopyRowId(null)
             setCopyError(null)
             setEditRowId(null)
+            setFormExpectedVersion(null)
+            setFormRelationScope(relationScope)
+            setCreateWizard(createWizard)
             setFormError(null)
-            setCreateInitialData(buildSafeCreateInitialData(createDefaults, fieldConfigs, createDefaultContext))
+            const effectiveCreateDefaultContext = createDefaultContextOverride
+                ? { ...(createDefaultContext ?? {}), ...createDefaultContextOverride }
+                : createDefaultContext
+            setCreateInitialData(buildSafeCreateInitialData(createDefaults, fieldConfigs, effectiveCreateDefaultContext))
             formColumnsRef.current = currentSchemaFingerprint
             setFormOpen(true)
         },
@@ -1168,18 +459,26 @@ export function useCrudDashboard(options: UseCrudDashboardOptions): CrudDashboar
     )
 
     const handleOpenEdit = useCallback(
-        (rowId: string) => {
+        (rowId: string, relationScope?: RuntimeRelationScope, expectedVersion?: number) => {
             if (guardPendingRowInteraction(rowId)) return
             formRequestIdRef.current += 1
             setCopyRowId(null)
             setCopyError(null)
             setEditRowId(rowId)
+            const currentRow = rows.find((row) => String(row.id) === rowId)
+            setFormExpectedVersion(
+                typeof expectedVersion === 'number' && Number.isSafeInteger(expectedVersion) && expectedVersion > 0
+                    ? expectedVersion
+                    : readRuntimeRowVersion(currentRow)
+            )
+            setFormRelationScope(relationScope)
+            setCreateWizard(undefined)
             setFormError(null)
             setCreateInitialData(undefined)
             formColumnsRef.current = currentSchemaFingerprint
             setFormOpen(true)
         },
-        [currentSchemaFingerprint, guardPendingRowInteraction]
+        [currentSchemaFingerprint, guardPendingRowInteraction, rows]
     )
 
     const handleCloseForm = useCallback(() => {
@@ -1187,6 +486,9 @@ export function useCrudDashboard(options: UseCrudDashboardOptions): CrudDashboar
         setFormOpen(false)
         setEditRowId(null)
         setCopyRowId(null)
+        setFormExpectedVersion(null)
+        setFormRelationScope(undefined)
+        setCreateWizard(undefined)
         setCreateInitialData(undefined)
         setFormError(null)
         setCopyError(null)
@@ -1210,9 +512,27 @@ export function useCrudDashboard(options: UseCrudDashboardOptions): CrudDashboar
             })
             const currentEditRowId = editRowId
             const currentCopyRowId = copyRowId
+            const currentRelationScope = formRelationScope
             const isCopyMode = Boolean(currentCopyRowId)
             const requestId = formRequestIdRef.current
             const submittedSchemaFingerprint = formColumnsRef.current
+
+            const sourceCopyRow = currentCopyRowId ? rows.find((row) => String(row.id) === currentCopyRowId) : null
+            const copyExpectedVersion = formExpectedVersion ?? readRuntimeRowVersion(sourceCopyRow)
+            const sourceEditRow = currentEditRowId ? rows.find((row) => String(row.id) === currentEditRowId) : null
+            const editExpectedVersion = formExpectedVersion ?? readRuntimeRowVersion(sourceEditRow)
+            const expectedVersion = isCopyMode ? copyExpectedVersion : editExpectedVersion
+            const requiresExpectedVersion = isCopyMode || currentEditRowId !== null
+            const mutationExpectedVersion =
+                typeof expectedVersion === 'number' && Number.isSafeInteger(expectedVersion) && expectedVersion > 0
+                    ? expectedVersion
+                    : undefined
+            if (requiresExpectedVersion && mutationExpectedVersion === undefined) {
+                const message = t('app.errorRuntimeRowVersionRequired', 'This record has no current version. Reload it and try again.')
+                setFormError(message)
+                setCopyError(isCopyMode ? message : null)
+                return Promise.resolve()
+            }
 
             const reopenFormWithError = (err: unknown) => {
                 if (formRequestIdRef.current !== requestId) return
@@ -1249,23 +569,21 @@ export function useCrudDashboard(options: UseCrudDashboardOptions): CrudDashboar
             setCopyError(null)
             setFormOpen(false)
 
-            const sourceCopyRow = currentCopyRowId ? rows.find((row) => String(row.id) === currentCopyRowId) : null
-            const copyExpectedVersion = readRuntimeRowVersion(sourceCopyRow)
-            const sourceEditRow = currentEditRowId ? rows.find((row) => String(row.id) === currentEditRowId) : null
-            const editExpectedVersion = readRuntimeRowVersion(sourceEditRow)
             const mutationPromise = isCopyMode
                 ? copyMutation.mutateAsync({
                       rowId: currentCopyRowId!,
                       data: sanitizedData,
-                      expectedVersion: copyExpectedVersion ?? undefined
+                      expectedVersion: mutationExpectedVersion,
+                      relationScope: currentRelationScope
                   })
                 : currentEditRowId
                 ? updateMutation.mutateAsync({
                       rowId: currentEditRowId,
                       data: sanitizedData,
-                      expectedVersion: editExpectedVersion ?? undefined
+                      expectedVersion: mutationExpectedVersion,
+                      relationScope: currentRelationScope
                   })
-                : createMutation.mutateAsync(sanitizedData)
+                : createMutation.mutateAsync({ data: sanitizedData, relationScope: currentRelationScope })
 
             void mutationPromise
                 .then(() => {
@@ -1273,6 +591,9 @@ export function useCrudDashboard(options: UseCrudDashboardOptions): CrudDashboar
 
                     setEditRowId(null)
                     setCopyRowId(null)
+                    setFormExpectedVersion(null)
+                    setFormRelationScope(undefined)
+                    setCreateWizard(undefined)
                     setCreateInitialData(undefined)
                     setFormError(null)
                     setCopyError(null)
@@ -1287,6 +608,8 @@ export function useCrudDashboard(options: UseCrudDashboardOptions): CrudDashboar
         [
             copyRowId,
             editRowId,
+            formRelationScope,
+            formExpectedVersion,
             fieldConfigs,
             rows,
             copyMutation,
@@ -1299,18 +622,27 @@ export function useCrudDashboard(options: UseCrudDashboardOptions): CrudDashboar
     )
 
     const handleOpenDelete = useCallback(
-        (rowId: string) => {
+        (rowId: string, relationScope?: RuntimeRelationScope, expectedVersion?: number) => {
             if (guardPendingRowInteraction(rowId)) return
             deleteRequestIdRef.current += 1
             setDeleteRowId(rowId)
+            setDeleteRelationScope(relationScope)
+            const currentRow = rows.find((row) => String(row.id) === rowId)
+            setDeleteExpectedVersion(
+                typeof expectedVersion === 'number' && Number.isSafeInteger(expectedVersion) && expectedVersion > 0
+                    ? expectedVersion
+                    : readRuntimeRowVersion(currentRow)
+            )
             setDeleteError(null)
         },
-        [guardPendingRowInteraction]
+        [guardPendingRowInteraction, rows]
     )
 
     const handleCloseDelete = useCallback(() => {
         deleteRequestIdRef.current += 1
         setDeleteRowId(null)
+        setDeleteRelationScope(undefined)
+        setDeleteExpectedVersion(null)
         setDeleteError(null)
     }, [])
 
@@ -1318,15 +650,27 @@ export function useCrudDashboard(options: UseCrudDashboardOptions): CrudDashboar
         if (!deleteRowId) return Promise.resolve()
 
         const currentDeleteRowId = deleteRowId
+        const currentRelationScope = deleteRelationScope
         const requestId = deleteRequestIdRef.current
         const currentRow = rows.find((row) => String(row.id) === currentDeleteRowId)
-        const expectedVersion = readRuntimeRowVersion(currentRow)
+        const expectedVersion = deleteExpectedVersion ?? readRuntimeRowVersion(currentRow)
+
+        if (typeof expectedVersion !== 'number' || !Number.isSafeInteger(expectedVersion) || expectedVersion < 1) {
+            setDeleteError(t('app.errorRuntimeRowVersionRequired', 'This record has no current version. Reload it and try again.'))
+            return Promise.resolve()
+        }
 
         setDeleteError(null)
         setDeleteRowId(null)
 
         void deleteMutation
-            .mutateAsync({ rowId: currentDeleteRowId, expectedVersion: expectedVersion ?? undefined })
+            .mutateAsync({ rowId: currentDeleteRowId, expectedVersion, relationScope: currentRelationScope })
+            .then(() => {
+                if (deleteRequestIdRef.current === requestId) {
+                    setDeleteRelationScope(undefined)
+                    setDeleteExpectedVersion(null)
+                }
+            })
             .catch((err: unknown) => {
                 if (deleteRequestIdRef.current !== requestId) return
 
@@ -1341,10 +685,10 @@ export function useCrudDashboard(options: UseCrudDashboardOptions): CrudDashboar
             })
 
         return Promise.resolve()
-    }, [deleteRowId, deleteMutation, rows, t, getRuntimeMutationErrorMessage])
+    }, [deleteExpectedVersion, deleteRelationScope, deleteRowId, deleteMutation, rows, t, getRuntimeMutationErrorMessage])
 
     const handleOpenCopy = useCallback(
-        (rowId: string) => {
+        (rowId: string, relationScope?: RuntimeRelationScope, expectedVersion?: number) => {
             if (guardPendingRowInteraction(rowId)) return
             if (displayAppData?.workspaceLimit?.canCreate === false) {
                 enqueueSnackbar(
@@ -1363,10 +707,18 @@ export function useCrudDashboard(options: UseCrudDashboardOptions): CrudDashboar
             setFormError(null)
             setCreateInitialData(undefined)
             setCopyRowId(rowId)
+            const currentRow = rows.find((row) => String(row.id) === rowId)
+            setFormExpectedVersion(
+                typeof expectedVersion === 'number' && Number.isSafeInteger(expectedVersion) && expectedVersion > 0
+                    ? expectedVersion
+                    : readRuntimeRowVersion(currentRow)
+            )
+            setFormRelationScope(relationScope)
+            setCreateWizard(undefined)
             setEditRowId(null)
             formColumnsRef.current = currentSchemaFingerprint
         },
-        [displayAppData?.workspaceLimit, currentSchemaFingerprint, enqueueSnackbar, guardPendingRowInteraction, t]
+        [displayAppData?.workspaceLimit, currentSchemaFingerprint, enqueueSnackbar, guardPendingRowInteraction, rows, t]
     )
 
     const handleCloseCopy = useCallback(() => {
@@ -1374,16 +726,31 @@ export function useCrudDashboard(options: UseCrudDashboardOptions): CrudDashboar
     }, [handleCloseForm])
 
     const handlePersistRowReorder = useCallback(
-        async (orderedRowIds: string[]) => {
-            if (!adapter?.reorderRows || orderedRowIds.length === 0) return
+        async (params: { objectCollectionCodename: string; orderedRowIds: string[]; expectedVersionsByRowId: Record<string, number> }) => {
+            if (!adapter?.reorderRows || params.orderedRowIds.length === 0) return
+
+            const requestedCodename = params.objectCollectionCodename.trim().toLowerCase()
+            const matchingTargets = (displayAppData?.objectCollections ?? []).filter(
+                ({ codename }) => typeof codename === 'string' && codename.trim().toLowerCase() === requestedCodename
+            )
+            const target = matchingTargets.length === 1 ? matchingTargets[0] : undefined
+            if (!target?.id || !requestedCodename) {
+                enqueueSnackbar(t('app.targetActionUnavailable', 'This action is not available for this row.'), { variant: 'error' })
+                return
+            }
+            if (!hasExpectedVersionsForRows(params.orderedRowIds, params.expectedVersionsByRowId)) {
+                enqueueSnackbar(t('app.errorRuntimeRowVersionRequired', 'This record has no current version. Reload it and try again.'), {
+                    variant: 'error'
+                })
+                return
+            }
 
             try {
-                const expectedVersionsByRowId = orderedRowIds.reduce<Record<string, number>>((acc, rowId) => {
-                    const version = readRuntimeRowVersion(rows.find((row) => String(row.id) === rowId))
-                    if (version !== null) acc[rowId] = version
-                    return acc
-                }, {})
-                await reorderMutation.mutateAsync({ orderedRowIds, expectedVersionsByRowId })
+                await reorderMutation.mutateAsync({
+                    objectCollectionId: target.id,
+                    orderedRowIds: params.orderedRowIds,
+                    expectedVersionsByRowId: params.expectedVersionsByRowId
+                })
             } catch (err) {
                 const msg = getRuntimeMutationErrorMessage(err)
                 enqueueSnackbar(
@@ -1396,7 +763,54 @@ export function useCrudDashboard(options: UseCrudDashboardOptions): CrudDashboar
                 throw err
             }
         },
-        [adapter?.reorderRows, enqueueSnackbar, reorderMutation, rows, t, getRuntimeMutationErrorMessage]
+        [adapter?.reorderRows, displayAppData?.objectCollections, enqueueSnackbar, reorderMutation, t, getRuntimeMutationErrorMessage]
+    )
+
+    const handlePersistRelationRowReorder = useCallback(
+        async (params: {
+            objectCollectionCodename: string
+            parentFieldCodename: string
+            parentRecordId: string
+            orderedRowIds: string[]
+            expectedVersionsByRowId: Record<string, number>
+        }) => {
+            if (!adapter?.reorderRows || params.orderedRowIds.length === 0) return
+            const requestedCodename = params.objectCollectionCodename.trim().toLowerCase()
+            const target = (displayAppData?.objectCollections ?? []).find(
+                ({ codename }) => typeof codename === 'string' && codename.trim().toLowerCase() === requestedCodename
+            )
+            if (!target?.id) {
+                enqueueSnackbar(t('app.targetActionUnavailable', 'This action is not available for this row.'), { variant: 'error' })
+                return
+            }
+            if (!hasExpectedVersionsForRows(params.orderedRowIds, params.expectedVersionsByRowId)) {
+                enqueueSnackbar(t('app.errorRuntimeRowVersionRequired', 'This record has no current version. Reload it and try again.'), {
+                    variant: 'error'
+                })
+                return
+            }
+
+            try {
+                await reorderMutation.mutateAsync({
+                    objectCollectionId: target.id,
+                    orderedRowIds: params.orderedRowIds,
+                    expectedVersionsByRowId: params.expectedVersionsByRowId,
+                    parentScope: {
+                        fieldCodename: params.parentFieldCodename,
+                        parentRecordId: params.parentRecordId
+                    }
+                })
+            } catch (err) {
+                enqueueSnackbar(
+                    t('app.errorReorder', {
+                        defaultValue: 'Reorder failed: {{message}}',
+                        message: getRuntimeMutationErrorMessage(err)
+                    }),
+                    { variant: 'error' }
+                )
+            }
+        },
+        [adapter?.reorderRows, displayAppData?.objectCollections, enqueueSnackbar, getRuntimeMutationErrorMessage, reorderMutation, t]
     )
 
     const handleRecordCommand = useCallback(
@@ -1404,9 +818,15 @@ export function useCrudDashboard(options: UseCrudDashboardOptions): CrudDashboar
             if (guardPendingRowInteraction(rowId)) return
             const row = rows.find((candidate) => candidate.id === rowId) ?? null
             const expectedVersion = readRuntimeRowVersion(row)
+            if (!expectedVersion) {
+                enqueueSnackbar(t('app.errorRuntimeRowVersionRequired', 'This record has no current version. Reload it and try again.'), {
+                    variant: 'error'
+                })
+                return
+            }
 
             try {
-                await recordCommandMutation.mutateAsync({ rowId, command, expectedVersion: expectedVersion ?? undefined })
+                await recordCommandMutation.mutateAsync({ rowId, command, expectedVersion })
                 const messageKey =
                     command === 'post' ? 'app.recordPosted' : command === 'unpost' ? 'app.recordUnposted' : 'app.recordVoided'
                 const defaultValue = command === 'post' ? 'Record posted.' : command === 'unpost' ? 'Record unposted.' : 'Record voided.'
@@ -1511,84 +931,7 @@ export function useCrudDashboard(options: UseCrudDashboardOptions): CrudDashboar
     }, [displayAppData, t, handleOpenMenu, cellRenderers, locale])
 
     const rowCount = displayAppData?.pagination.total
-    const layoutConfig = useMemo(() => normalizeDashboardLayoutConfig(displayAppData?.layoutConfig), [displayAppData?.layoutConfig])
     const localeText = useMemo(() => getDataGridLocaleText(locale), [locale])
-
-    // ----- Derived: menus -----
-    const activeMenu = useMemo(() => {
-        if (!displayAppData?.menus?.length) return null
-        return displayAppData.menus.find((m) => m.id === displayAppData.activeMenuId) ?? displayAppData.menus[0]
-    }, [displayAppData])
-
-    const dashboardMenuItems = useMemo<DashboardMenuItem[]>(() => {
-        if (!activeMenu) return []
-        return mapMenuItems(activeMenu.items, displayAppData?.sections ?? displayAppData?.objectCollections ?? [], activeSectionId)
-    }, [activeMenu, displayAppData?.objectCollections, displayAppData?.sections, activeSectionId])
-
-    // Build menus map keyed by widgetId
-    const menusMap = useMemo<{ [widgetId: string]: DashboardMenuSlot }>(() => {
-        if (!displayAppData?.menus?.length) return {}
-        const sections = displayAppData.sections ?? displayAppData.objectCollections ?? []
-        const map: { [widgetId: string]: DashboardMenuSlot } = {}
-
-        for (const menu of displayAppData.menus) {
-            if (!menu.widgetId) continue
-            map[menu.widgetId] = {
-                title: menu.showTitle ? menu.title ?? null : null,
-                showTitle: Boolean(menu.showTitle),
-                items: mapMenuItems(menu.items, sections, activeSectionId),
-                overflowItems: mapMenuItems(menu.overflowItems ?? [], sections, activeSectionId),
-                overflowLabel:
-                    menu.overflowLabelKey === 'runtime.menu.more'
-                        ? t('runtime.menu.more')
-                        : menu.overflowLabelKey
-                        ? t(menu.overflowLabelKey)
-                        : null,
-                activeSectionId: activeSectionId ?? null,
-                onSelectSection,
-                activeObjectCollectionId: activeObjectCollectionId ?? null,
-                onSelectObjectCollection
-            }
-        }
-        return map
-    }, [displayAppData, activeObjectCollectionId, activeSectionId, onSelectObjectCollection, onSelectSection, t])
-
-    // Menu slot for simple (non-widget) usage
-    const menuSlot = useMemo<DashboardMenuSlot | undefined>(() => {
-        if (dashboardMenuItems.length === 0) return undefined
-        return {
-            title: activeMenu?.showTitle ? activeMenu.title ?? null : null,
-            showTitle: Boolean(activeMenu?.showTitle),
-            items: dashboardMenuItems,
-            overflowItems: activeMenu
-                ? mapMenuItems(
-                      activeMenu.overflowItems ?? [],
-                      displayAppData?.sections ?? displayAppData?.objectCollections ?? [],
-                      activeSectionId
-                  )
-                : [],
-            overflowLabel:
-                activeMenu?.overflowLabelKey === 'runtime.menu.more'
-                    ? t('runtime.menu.more')
-                    : activeMenu?.overflowLabelKey
-                    ? t(activeMenu.overflowLabelKey)
-                    : null,
-            activeSectionId: activeSectionId ?? null,
-            onSelectSection,
-            activeObjectCollectionId: activeObjectCollectionId ?? null,
-            onSelectObjectCollection
-        }
-    }, [
-        dashboardMenuItems,
-        activeMenu,
-        activeObjectCollectionId,
-        activeSectionId,
-        displayAppData?.objectCollections,
-        displayAppData?.sections,
-        onSelectObjectCollection,
-        onSelectSection,
-        t
-    ])
 
     // Form initial data
     const formInitialData = useMemo(() => {
@@ -1624,9 +967,6 @@ export function useCrudDashboard(options: UseCrudDashboardOptions): CrudDashboar
         isFetching: listQuery.isFetching,
         isError: listQuery.isError,
 
-        // Layout
-        layoutConfig,
-
         // Table
         columns,
         fieldConfigs,
@@ -1654,26 +994,23 @@ export function useCrudDashboard(options: UseCrudDashboardOptions): CrudDashboar
         selectedObjectCollectionId,
         onSelectObjectCollection,
 
-        // Menus
-        activeMenu,
-        dashboardMenuItems,
-        menuSlot,
-        menusMap,
-
         // CRUD form
         formOpen,
         editRowId,
         formError,
         formInitialData,
+        createWizard,
         isFormReady,
         isSubmitting: createMutation.isPending || updateMutation.isPending,
         isReordering: reorderMutation.isPending,
         canPersistRowReorder,
+        canPersistRelationRowReorder,
         handleOpenCreate,
         handleOpenEdit,
         handleCloseForm,
         handleFormSubmit,
         handlePersistRowReorder,
+        handlePersistRelationRowReorder,
 
         // Delete dialog
         deleteRowId,

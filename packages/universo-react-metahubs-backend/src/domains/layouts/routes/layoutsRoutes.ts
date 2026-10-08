@@ -63,6 +63,11 @@ export function createLayoutsRoutes(
     router.get('/metahub/:metahubId/layout/:layoutId/widget-binding-usage', readLimiter, asyncHandler(bindingCtrl.getWidgetBindingUsage))
     router.put('/metahub/:metahubId/layout/:layoutId/zone-widget', writeLimiter, asyncHandler(ctrl.assignZoneWidget))
     router.post(
+        '/metahub/:metahubId/layout/:layoutId/zone-widget/placement-duplicate',
+        writeLimiter,
+        asyncHandler(ctrl.duplicateZoneWidgetPlacement)
+    )
+    router.post(
         '/metahub/:metahubId/layout/:layoutId/zone-widget/duplicate',
         writeLimiter,
         asyncHandler(recordDuplicateCtrl.duplicateZoneWidget)

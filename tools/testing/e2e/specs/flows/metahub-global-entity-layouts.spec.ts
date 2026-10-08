@@ -229,7 +229,6 @@ test('@flow @combined metahub global and entity-scoped layouts drive runtime wid
             config: {
                 [objectBehaviorKey]: {
                     showCreateButton: false,
-                    searchMode: 'page-local',
                     createSurface: 'dialog',
                     editSurface: 'dialog',
                     copySurface: 'dialog'
@@ -286,7 +285,6 @@ test('@flow @combined metahub global and entity-scoped layouts drive runtime wid
                 ...((customLayout.config && typeof customLayout.config === 'object' ? customLayout.config : {}) as Record<string, unknown>),
                 [objectBehaviorKey]: {
                     showCreateButton: true,
-                    searchMode: 'server',
                     createSurface: 'page',
                     editSurface: 'page',
                     copySurface: 'page'

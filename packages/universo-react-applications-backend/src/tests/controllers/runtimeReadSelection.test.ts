@@ -1,12 +1,6 @@
 import { resolveRuntimeReadActiveObjectCollection } from '../../controllers/runtimeRowReadHandlers'
 import { resolveRuntimeObjectCollection } from '../../controllers/runtimeRowSupport/objects'
 
-const createManager = () => ({
-    query: jest.fn(async () => []),
-    transaction: jest.fn(),
-    isReleased: () => false
-})
-
 const objects = [
     {
         id: 'set-clone-id',
@@ -27,8 +21,6 @@ const objects = [
 ] as never
 
 const baseParams = {
-    schemaName: 'runtime_schema',
-    schemaIdent: 'runtime_schema',
     requestedSectionId: null,
     requestedObjectCollectionId: null,
     requestedObjectCollectionCodename: null
@@ -38,20 +30,19 @@ describe('runtime read default section selection', () => {
     it('skips non-tabular collections when no selector is provided', async () => {
         const result = await resolveRuntimeReadActiveObjectCollection({
             ...baseParams,
-            manager: createManager() as never,
             runtimeObjects: objects
         })
 
         expect('failure' in result).toBe(false)
         if ('failure' in result) return
         expect(result.activeObjectCollection.id).toBe('table-object-id')
+        expect(result.includeRuntimeRowVersion).toBe(true)
     })
 
     it('still fails closed when an explicit selector addresses a non-tabular collection', async () => {
         const result = await resolveRuntimeReadActiveObjectCollection({
             ...baseParams,
             requestedObjectCollectionCodename: 'AaaSetClone',
-            manager: createManager() as never,
             runtimeObjects: objects
         })
 

@@ -292,14 +292,14 @@ describe('applicationLayoutsStore layout and scope persistence', () => {
 
     it.each(['widget-key', 'entity-binding'] as const)(
         'rejects generic layout copies containing marketing.hero by %s before any row write',
-        async (contentKind) => {
+        async (_contentKind) => {
             const { executor, txExecutor } = createMockDbExecutor()
             const layoutId = '0190a9b5-3cde-7abc-8def-2123456789d8'
             const heroDefinition = LAYOUT_WIDGET_DEFINITIONS.find(({ key }) => key === 'marketing.hero')
             if (!heroDefinition) throw new Error('Expected marketing.hero to be registered')
             const bindingConfig = encodeLayoutWidgetConfigEnvelope(
                 {
-                    rendererConfig: { instanceKey: 'hero', showLeadForm: true },
+                    rendererConfig: { showLeadForm: true },
                     neutral: {
                         bindings: buildSingleTargetWidgetBinding(heroDefinition, 'content', {
                             entityKind: 'object',
@@ -321,9 +321,12 @@ describe('applicationLayoutsStore layout and scope persistence', () => {
                         layout_id: layoutId,
                         zone: 'marketing-main',
                         widget_key: 'marketing.hero',
+                        instance_key: 'hero',
+                        parent_widget_id: null,
+                        slot_key: null,
                         sort_order: 0,
-                        config: { instanceKey: 'hero', showLeadForm: true },
-                        source_config: contentKind === 'entity-binding' ? bindingConfig : null,
+                        config: bindingConfig,
+                        source_config: bindingConfig,
                         source_widget_id: null,
                         source_base_widget_id: null,
                         is_customized: false,

@@ -250,13 +250,12 @@ describe('InterpretationNetworkWorkspaceWidgetEditorDialog', () => {
         )
     })
 
-    it('preserves existing widget config and shared behavior while editing display settings', async () => {
+    it('drops the legacy widget placement field while editing display settings', async () => {
         const user = userEvent.setup()
         const { onSave } = renderDialog({
             metahubId: 'metahub-1',
             layoutId: 'layout-1',
             widgetId: 'widget-1',
-            showSharedBehavior: true,
             showScopeVisibility: true,
             config: {
                 matrixMode: 'hierarchicalCells',
@@ -284,14 +283,10 @@ describe('InterpretationNetworkWorkspaceWidgetEditorDialog', () => {
                 defaultMatrixView: 'horizontalRows',
                 conceptCodename: 'concepts',
                 allowNewAxesInCellDialog: false,
-                splitPane: { enabled: true },
-                sharedBehavior: {
-                    canDeactivate: true,
-                    canExclude: false,
-                    positionLocked: false
-                }
+                splitPane: { enabled: true }
             })
         )
+        expect(onSave.mock.calls[0]?.[0]).not.toHaveProperty('sharedBehavior')
     })
 
     it('saves the resizable-pane setting through the shared configuration contract', async () => {

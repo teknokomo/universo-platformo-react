@@ -413,11 +413,22 @@ export const captureMmoommRuntimeBaselineTrace = (page: Page, canvas: Locator) =
 
 export type MmoommRuntimeParityTolerance = {
     screenPixels?: number
+    /**
+     * Align the candidate screen projection to the baseline's initial screen
+     * anchor before comparing pixel deltas. This is reserved for the immutable
+     * pre-extraction trace: Dashboard composition may legitimately change the
+     * fitViewport canvas height while the PlayCanvas camera/world trajectory
+     * remains identical. Current-runtime replay comparisons keep absolute
+     * screen coordinates strict by leaving this disabled.
+     */
+    alignScreenOrigin?: boolean
     worldUnits?: number
     cameraDistance?: number
     cameraYaw?: number
     cameraPitch?: number
     guardClearance?: number
+    /** Skip clearance-magnitude parity when traces omit ship orientation; non-penetration remains asserted. */
+    compareGuardClearance?: boolean
     elapsedMs?: number
     sampleIntervalMs?: number
     /** Maximum bounded start-time skew compensated during trace comparison. */
@@ -442,11 +453,13 @@ export const expectMmoommRuntimeTraceWithinTolerance = (
     label = 'MMOOMM runtime extraction parity'
 ) => {
     const screenPixels = options.screenPixels ?? 1
+    const alignScreenOrigin = options.alignScreenOrigin ?? false
     const worldUnits = options.worldUnits ?? 0.5
     const cameraDistance = options.cameraDistance ?? 0.5
     const cameraYaw = options.cameraYaw ?? 0.02
     const cameraPitch = options.cameraPitch ?? 0.02
     const guardClearance = options.guardClearance ?? 0.5
+    const compareGuardClearance = options.compareGuardClearance ?? true
     const elapsedMs = options.elapsedMs ?? 40
     const sampleIntervalMs = options.sampleIntervalMs ?? MMOOMM_RUNTIME_BASELINE_INTERVAL_MS
     // The server-authoritative tick may acknowledge a click several frames
@@ -459,6 +472,19 @@ export const expectMmoommRuntimeTraceWithinTolerance = (
     assertTraceCadence(baseline, sampleIntervalMs, elapsedMs, `${label} baseline`)
     assertTraceCadence(candidate, sampleIntervalMs, elapsedMs, `${label} candidate`)
     const sampleCount = Math.min(baseline.samples.length, candidate.samples.length)
+    const baselineScreenAnchor = baseline.samples.find((sample) => sample.shipScreen)?.shipScreen ?? null
+    const candidateScreenAnchor = candidate.samples.find((sample) => sample.shipScreen)?.shipScreen ?? null
+    const screenOffset =
+        alignScreenOrigin && baselineScreenAnchor && candidateScreenAnchor
+            ? {
+                  x: candidateScreenAnchor.x - baselineScreenAnchor.x,
+                  y: candidateScreenAnchor.y - baselineScreenAnchor.y
+              }
+            : { x: 0, y: 0 }
+    if (alignScreenOrigin) {
+        expect(baselineScreenAnchor, `${label} baseline must expose a screen anchor for origin alignment`).not.toBeNull()
+        expect(candidateScreenAnchor, `${label} candidate must expose a screen anchor for origin alignment`).not.toBeNull()
+    }
     let lastMatchedBaselineElapsed = Number.NEGATIVE_INFINITY
     let previousActualShip: { x: number; y: number; z: number } | null = null
     let previousExpectedShip: { x: number; y: number; z: number } | null = null
@@ -503,11 +529,11 @@ export const expectMmoommRuntimeTraceWithinTolerance = (
             `${label} sample ${index} ship position must stay within ${worldUnits} world units`
         ).toBeLessThanOrEqual(worldUnits)
         expect(
-            Math.abs(alignedExpected.shipScreen.x - actual.shipScreen.x),
+            Math.abs(alignedExpected.shipScreen.x + screenOffset.x - actual.shipScreen.x),
             `${label} sample ${index} screen X must stay within ${screenPixels} pixels`
         ).toBeLessThanOrEqual(screenPixels)
         expect(
-            Math.abs(alignedExpected.shipScreen.y - actual.shipScreen.y),
+            Math.abs(alignedExpected.shipScreen.y + screenOffset.y - actual.shipScreen.y),
             `${label} sample ${index} screen Y must stay within ${screenPixels} pixels`
         ).toBeLessThanOrEqual(screenPixels)
         expect(
@@ -522,14 +548,16 @@ export const expectMmoommRuntimeTraceWithinTolerance = (
             Math.abs(alignedExpected.camera.pitch - actual.camera.pitch),
             `${label} sample ${index} camera pitch must stay within ${cameraPitch} radians`
         ).toBeLessThanOrEqual(cameraPitch)
-        expect(
-            Math.abs(alignedExpected.guardClearance.ship - actual.guardClearance.ship),
-            `${label} sample ${index} ship guard clearance must stay within ${guardClearance}`
-        ).toBeLessThanOrEqual(guardClearance)
-        expect(
-            Math.abs(alignedExpected.guardClearance.camera - actual.guardClearance.camera),
-            `${label} sample ${index} camera guard clearance must stay within ${guardClearance}`
-        ).toBeLessThanOrEqual(guardClearance)
+        if (compareGuardClearance) {
+            expect(
+                Math.abs(alignedExpected.guardClearance.ship - actual.guardClearance.ship),
+                `${label} sample ${index} ship guard clearance must stay within ${guardClearance}`
+            ).toBeLessThanOrEqual(guardClearance)
+            expect(
+                Math.abs(alignedExpected.guardClearance.camera - actual.guardClearance.camera),
+                `${label} sample ${index} camera guard clearance must stay within ${guardClearance}`
+            ).toBeLessThanOrEqual(guardClearance)
+        }
 
         previousActualShip = actual.ship
         previousExpectedShip = alignedExpected.ship

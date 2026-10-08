@@ -37,3 +37,14 @@ jobs:
 
             - name: Regenerate and verify LMS user-guide screenshots
               run: pnpm docs:lms-user-guide:verify:local-supabase
+
+            - name: Upload LMS user-guide browser evidence
+              if: always()
+              uses: actions/upload-artifact@v4
+              with:
+                  name: lms-user-guide-browser-evidence
+                  path: |
+                      test-results/
+                      playwright-report/
+                  if-no-files-found: ignore
+                  retention-days: 7

@@ -2,6 +2,7 @@ import { act, renderHook } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import type { PropsWithChildren } from 'react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { isUuidV7 } from '@universo-react/utils'
 import type { DynamicFieldConfig } from '@universo-react/template-mui/components/dialogs'
 import type { WidgetBindingSlotDefinition } from '@universo-react/types'
 import * as recordsApi from '../../../entities/metadata/record/api'
@@ -13,8 +14,11 @@ import { useMarketingWidgetBindingRecordForm } from '../useMarketingWidgetBindin
 
 vi.mock('../../../entities/metadata/record/api', () => ({
     listRecords: vi.fn(),
+    listRecordsDirect: vi.fn(),
     createRecord: vi.fn(),
-    updateRecord: vi.fn()
+    createRecordDirect: vi.fn(),
+    updateRecord: vi.fn(),
+    updateRecordDirect: vi.fn()
 }))
 
 type HookParams = Parameters<typeof useMarketingWidgetBindingRecordForm>[0]
@@ -109,6 +113,46 @@ describe('useMarketingWidgetBindingRecordForm', () => {
         })
     })
 
+    it('uses the source Entity kind when resolving Page records', async () => {
+        vi.mocked(recordsApi.listRecords).mockResolvedValueOnce({
+            items: [{ id: 'page-record', data: { HeroKey: 'page-home' } } as RecordItem],
+            pagination: { total: 1, hasMore: false }
+        } as Awaited<ReturnType<typeof recordsApi.listRecords>>)
+
+        await expect(findRecordBySemanticKey('metahub-1', 'tree-1', 'page-1', 'HeroKey', 'page-home', 'page')).resolves.toMatchObject({
+            id: 'page-record'
+        })
+        expect(recordsApi.listRecords).toHaveBeenCalledWith('metahub-1', 'tree-1', 'page-1', {
+            limit: 2,
+            offset: 0,
+            kindKey: 'page',
+            exactComponentCodename: 'HeroKey',
+            exactValue: 'page-home',
+            sortBy: 'updated',
+            sortOrder: 'desc'
+        })
+    })
+
+    it('resolves an unassociated object record with the exact direct query', async () => {
+        vi.mocked(recordsApi.listRecordsDirect).mockResolvedValueOnce({
+            items: [{ id: 'direct-record', data: { HeroKey: 'hero-home' } } as RecordItem],
+            pagination: { total: 1, hasMore: false }
+        } as Awaited<ReturnType<typeof recordsApi.listRecordsDirect>>)
+
+        await expect(findRecordBySemanticKey('metahub-1', null, 'object-1', 'HeroKey', 'hero-home')).resolves.toMatchObject({
+            id: 'direct-record'
+        })
+        expect(recordsApi.listRecordsDirect).toHaveBeenCalledWith('metahub-1', 'object-1', {
+            limit: 2,
+            offset: 0,
+            exactComponentCodename: 'HeroKey',
+            exactValue: 'hero-home',
+            sortBy: 'updated',
+            sortOrder: 'desc'
+        })
+        expect(recordsApi.listRecords).not.toHaveBeenCalled()
+    })
+
     it('fails when an exact semantic record is missing or duplicated', async () => {
         vi.mocked(recordsApi.listRecords).mockResolvedValueOnce({
             items: [],
@@ -165,6 +209,87 @@ describe('useMarketingWidgetBindingRecordForm', () => {
             'marketing.hero',
             'content'
         ])
+    })
+
+    it('creates content records through the selected Page Entity kind', async () => {
+        const recordData = { HeroKey: 'page-home', Title: 'Page headline' }
+        const { result } = renderRecordForm(createParams({ sourceEntity: { id: 'page-1' }, sourceEntityKind: 'page' }))
+        vi.mocked(recordsApi.createRecord).mockResolvedValue(apiResponse({ id: 'page-record', data: recordData } as unknown as RecordItem))
+
+        act(() => result.current.actions.openCreateRecord())
+        await act(async () => result.current.actions.saveRecordForm(recordData))
+
+        expect(recordsApi.createRecord).toHaveBeenCalledWith('metahub-1', 'tree-1', 'page-1', {
+            data: recordData,
+            kindKey: 'page'
+        })
+    })
+
+    it('creates an unassociated object record and invalidates its direct records cache', async () => {
+        const recordData = { HeroKey: 'hero-home', Title: 'Home headline' }
+        const params = createParams({ treeEntityId: null })
+        const { result, invalidateQueries } = renderRecordForm(params)
+        vi.mocked(recordsApi.createRecordDirect).mockResolvedValue(
+            apiResponse({ id: 'record-direct', data: recordData } as unknown as RecordItem)
+        )
+
+        act(() => result.current.actions.openCreateRecord())
+        expect(result.current.state.recordFormMode).toBe('create')
+        await act(async () => result.current.actions.saveRecordForm(recordData))
+
+        expect(recordsApi.createRecordDirect).toHaveBeenCalledWith('metahub-1', 'object-1', { data: recordData })
+        expect(recordsApi.createRecord).not.toHaveBeenCalled()
+        expect(invalidateQueries).toHaveBeenCalledWith({
+            queryKey: metahubsQueryKeys.recordsDirect('metahub-1', 'object-1')
+        })
+        expect(result.current.state.recordFormMode).toBeNull()
+    })
+
+    it('generates unique UUID v7 semantic keys when creating records without a submitted key field', async () => {
+        vi.mocked(recordsApi.createRecordDirect).mockImplementation(async (_metahubId, _objectId, payload) =>
+            apiResponse({ id: 'generated-record', data: payload.data } as unknown as RecordItem)
+        )
+
+        const generatedKeys: string[] = []
+        for (let index = 0; index < 2; index += 1) {
+            const { result } = renderRecordForm(createParams({ treeEntityId: null }))
+            act(() => result.current.actions.openCreateRecord())
+            await act(async () => result.current.actions.saveRecordForm({ Title: `Generated record ${index + 1}` }))
+            const payload = vi.mocked(recordsApi.createRecordDirect).mock.calls[index]?.[2]
+            const generatedKey = payload?.data.HeroKey
+            expect(typeof generatedKey).toBe('string')
+            if (typeof generatedKey !== 'string') continue
+            expect(generatedKey).toMatch(/^content-[0-9a-f-]{36}$/u)
+            expect(isUuidV7(generatedKey.slice('content-'.length))).toBe(true)
+            generatedKeys.push(generatedKey)
+        }
+
+        expect(generatedKeys).toHaveLength(2)
+        expect(new Set(generatedKeys).size).toBe(2)
+    })
+
+    it('loads and updates an unassociated object record directly with optimistic version checking', async () => {
+        const editedRecord = { id: 'record-direct', version: 4, data: { HeroKey: 'hero-home', Title: 'Existing' } } as unknown as RecordItem
+        const params = createParams({ treeEntityId: null })
+        const { result } = renderRecordForm(params)
+        vi.mocked(recordsApi.listRecordsDirect).mockResolvedValueOnce({
+            items: [editedRecord],
+            pagination: { total: 1, hasMore: false }
+        } as Awaited<ReturnType<typeof recordsApi.listRecordsDirect>>)
+        vi.mocked(recordsApi.updateRecordDirect).mockResolvedValue(
+            apiResponse({ id: 'record-direct', version: 5, data: { HeroKey: 'hero-home', Title: 'Updated' } } as unknown as RecordItem)
+        )
+
+        await act(async () => result.current.actions.openEditRecord())
+        expect(result.current.state.recordFormMode).toBe('edit')
+        await act(async () => result.current.actions.saveRecordForm({ HeroKey: 'hero-home', Title: 'Updated' }))
+
+        expect(recordsApi.updateRecordDirect).toHaveBeenCalledWith('metahub-1', 'object-1', 'record-direct', {
+            data: { HeroKey: 'hero-home', Title: 'Updated' },
+            expectedVersion: 4
+        })
+        expect(recordsApi.updateRecord).not.toHaveBeenCalled()
+        expect(result.current.state.recordFormMode).toBeNull()
     })
 
     it('initializes required boolean fields as explicit false when creating a content record', () => {
@@ -291,7 +416,12 @@ describe('useMarketingWidgetBindingRecordForm', () => {
 
     it('allows content record updates to editContent users without layout-management permission', async () => {
         const editedRecord = { id: 'record-9', version: 3, data: { HeroKey: 'hero-home', Title: 'Existing' } } as unknown as RecordItem
-        const params = createParams({ canManageLayouts: false, canEditContent: true })
+        const params = createParams({
+            canManageLayouts: false,
+            canEditContent: true,
+            sourceEntity: { id: 'page-1' },
+            sourceEntityKind: 'page'
+        })
         const { result } = renderRecordForm(params)
         vi.mocked(recordsApi.listRecords).mockResolvedValue({
             items: [editedRecord],
@@ -305,15 +435,25 @@ describe('useMarketingWidgetBindingRecordForm', () => {
         expect(result.current.state.recordFormMode).toBe('edit')
         await act(async () => result.current.actions.saveRecordForm({ HeroKey: 'hero-home', Title: 'Updated' }))
 
-        expect(recordsApi.updateRecord).toHaveBeenCalledWith('metahub-1', 'tree-1', 'object-1', 'record-9', {
+        expect(recordsApi.listRecords).toHaveBeenCalledWith('metahub-1', 'tree-1', 'page-1', {
+            limit: 2,
+            offset: 0,
+            kindKey: 'page',
+            exactComponentCodename: 'HeroKey',
+            exactValue: 'hero-home',
+            sortBy: 'updated',
+            sortOrder: 'desc'
+        })
+        expect(recordsApi.updateRecord).toHaveBeenCalledWith('metahub-1', 'tree-1', 'page-1', 'record-9', {
             data: { HeroKey: 'hero-home', Title: 'Updated' },
+            kindKey: 'page',
             expectedVersion: 3
         })
         expect(result.current.state.recordFormMode).toBeNull()
     })
 
     it('blocks record creation and updates when editContent permission is absent', async () => {
-        const params = createParams({ canManageLayouts: true, canEditContent: false })
+        const params = createParams({ canManageLayouts: true, canEditContent: false, treeEntityId: null })
         const { result } = renderRecordForm(params)
 
         act(() => result.current.actions.openCreateRecord())
@@ -322,8 +462,11 @@ describe('useMarketingWidgetBindingRecordForm', () => {
 
         expect(result.current.state.recordFormMode).toBeNull()
         expect(recordsApi.listRecords).not.toHaveBeenCalled()
+        expect(recordsApi.listRecordsDirect).not.toHaveBeenCalled()
         expect(recordsApi.createRecord).not.toHaveBeenCalled()
+        expect(recordsApi.createRecordDirect).not.toHaveBeenCalled()
         expect(recordsApi.updateRecord).not.toHaveBeenCalled()
+        expect(recordsApi.updateRecordDirect).not.toHaveBeenCalled()
     })
 
     it('prevents closing while a save is pending and closes after the save completes', async () => {

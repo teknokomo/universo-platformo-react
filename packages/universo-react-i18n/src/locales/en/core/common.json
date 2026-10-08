@@ -14,6 +14,15 @@
         "addNew": "Add",
         "cardView": "Card View",
         "listView": "List View",
+        "dashboard": {
+            "widgets": {
+                "records": "Records",
+                "searchRecords": "Search records",
+                "reorderRow": "Reorder row",
+                "reorderRows": "Reorder rows",
+                "tableView": "Table view"
+            }
+        },
         "add": "Add",
         "actions": {
             "save": "Save",
@@ -41,7 +50,25 @@
             "deletePermanently": "Delete permanently",
             "download": "Download",
             "upload": "Upload",
-            "retry": "Retry"
+            "retry": "Retry",
+            "reset": "Reset"
+        },
+        "nesting": {
+            "sourceManaged": "Managed by the source layout",
+            "applicationLocal": "Application content",
+            "column": "Column {{number}}",
+            "tab": "Tab {{number}}",
+            "moveUp": "Move up",
+            "moveDown": "Move down",
+            "children": "Nested content",
+            "moveToSlot": "Move to {{slot}}",
+            "duplicateSubtree": "Duplicate section and its content",
+            "addChild": "Add content",
+            "emptySlot": "No content in this section yet.",
+            "invalidNesting": "This content cannot be placed in that section.",
+            "reload": "Reload",
+            "retry": "Retry",
+            "cancel": "Cancel"
         },
         "fields": {
             "name": "Name",
@@ -149,7 +176,6 @@
             "widgets": {
                 "languageSwitcher": "Language switcher",
                 "colorModeSwitcher": "Color mode switcher",
-                "brandSelector": "Brand selector",
                 "divider": "Divider",
                 "menuWidget": "Menu",
                 "spacer": "Spacer",
@@ -174,8 +200,6 @@
                 "interpretationNetworkWorkspace": "Interpretation network workspace",
                 "quizWidget": "Quiz widget",
                 "playcanvasCanvas": "PlayCanvas canvas",
-                "productTree": "Product tree",
-                "usersByCountryChart": "Users by country chart",
                 "columnsContainer": "Columns container",
                 "resourcePreview": "Resource preview",
                 "learnerPlayer": "Learner player",
@@ -208,6 +232,8 @@
                 "sourceLabel": "Content source",
                 "sourcePlaceholder": "Search compatible sources",
                 "sourceHelperText": "Choose the Entity that contains the content shown by this widget.",
+                "managePermissionRequired": "Changing content sources or bindings requires permission to manage this Metahub.",
+                "recordPermissionRequired": "Editing Entity records requires content editing permission.",
                 "requiredSourceError": "Choose a content source to continue.",
                 "noSources": "No compatible content sources found.",
                 "loadingSources": "Loading compatible content sources…",
@@ -306,7 +332,56 @@
                     "noOptions": "No compatible footer link sources found.",
                     "loading": "Loading footer link sources…"
                 },
-                "pageDescription": "Configure widget content from Entity records, then adjust its presentation separately."
+                "pageDescription": "Configure widget content from Entity records, then adjust its presentation separately.",
+                "metrics": {
+                    "label": "Metrics",
+                    "placeholder": "Search metrics",
+                    "helperText": "Choose the bounded source that supplies metric cards.",
+                    "noOptions": "No compatible metric sources found.",
+                    "loading": "Loading metric sources…"
+                },
+                "series": {
+                    "label": "Time series",
+                    "placeholder": "Search time series",
+                    "helperText": "Choose the bounded source that supplies chart points.",
+                    "noOptions": "No compatible series sources found.",
+                    "loading": "Loading series sources…"
+                },
+                "rows": {
+                    "label": "Records",
+                    "placeholder": "Search records",
+                    "helperText": "Choose the Entity source that supplies table rows.",
+                    "noOptions": "No compatible record sources found.",
+                    "loading": "Loading record sources…"
+                },
+                "heading": {
+                    "label": "Heading content",
+                    "placeholder": "Search heading content",
+                    "helperText": "Choose the Entity record that supplies this heading.",
+                    "noOptions": "No compatible heading records found.",
+                    "loading": "Loading heading records…"
+                },
+                "panel": {
+                    "label": "Related records",
+                    "placeholder": "Search related records",
+                    "helperText": "Choose records related to the selected parent.",
+                    "noOptions": "No compatible related records found.",
+                    "loading": "Loading related records…"
+                },
+                "parent": {
+                    "label": "Parent record",
+                    "placeholder": "Search parent record",
+                    "helperText": "Choose the parent record for this relation.",
+                    "noOptions": "No compatible parent records found.",
+                    "loading": "Loading parent records…"
+                },
+                "resource": {
+                    "label": "Resource",
+                    "placeholder": "Search resource",
+                    "helperText": "Choose the resource shown in this preview.",
+                    "noOptions": "No compatible resources found.",
+                    "loading": "Loading resources…"
+                }
             },
             "marketing": {
                 "widget": {
@@ -359,6 +434,226 @@
                     "removeAction": "Remove",
                     "actionError": "Enter a valid action destination before saving.",
                     "openLinkIn": "Open link in"
+                }
+            },
+            "widgetPresentation": {
+                "variant": {
+                    "label": "Widget style",
+                    "help": "Choose the available widget style.",
+                    "compact": "Compact",
+                    "wide": "Wide",
+                    "generated": "Generated from the host",
+                    "manual": "Manual content"
+                },
+                "orientation": {
+                    "label": "Orientation",
+                    "help": "Choose the direction of this element.",
+                    "horizontal": "Horizontal",
+                    "vertical": "Vertical"
+                },
+                "spacing": {
+                    "label": "Spacing",
+                    "help": "Choose the spacing used around this element.",
+                    "compact": "Compact",
+                    "standard": "Standard",
+                    "spacious": "Spacious"
+                },
+                "severity": {
+                    "label": "Information style",
+                    "help": "Choose the visual status for this content.",
+                    "info": "Information",
+                    "success": "Success",
+                    "warning": "Warning",
+                    "error": "Error"
+                },
+                "flex": {
+                    "label": "Flex size",
+                    "help": "Choose how much flexible space this element uses."
+                },
+                "minSize": {
+                    "label": "Minimum size",
+                    "help": "Set the smallest supported size."
+                },
+                "maxItems": {
+                    "label": "Maximum items",
+                    "help": "Set how many items can be shown."
+                },
+                "overflow": {
+                    "label": "Overflow behavior",
+                    "help": "Choose how extra content is presented.",
+                    "collapse": "Collapse extra items",
+                    "scroll": "Scroll to see more"
+                },
+                "width": {
+                    "label": "Width",
+                    "help": "Choose the available width.",
+                    "compact": "Compact",
+                    "standard": "Standard",
+                    "wide": "Wide"
+                },
+                "selection": {
+                    "label": "Date selection",
+                    "help": "Choose the date selection mode.",
+                    "single": "Single date",
+                    "range": "Date range"
+                },
+                "showPresets": {
+                    "label": "Show date presets",
+                    "help": "Show shortcuts for common date ranges."
+                },
+                "align": {
+                    "label": "Text alignment",
+                    "help": "Choose how the text is aligned.",
+                    "left": "Left",
+                    "center": "Center",
+                    "right": "Right"
+                },
+                "level": {
+                    "label": "Heading level",
+                    "help": "Choose the semantic heading level.",
+                    "h1": "Main heading",
+                    "h2": "Section heading",
+                    "h3": "Subsection heading"
+                },
+                "maxCards": {
+                    "label": "Maximum cards",
+                    "help": "Limit the number of metric cards shown."
+                },
+                "density": {
+                    "label": "Density",
+                    "help": "Choose the spacing density.",
+                    "compact": "Compact",
+                    "standard": "Standard",
+                    "comfortable": "Comfortable"
+                },
+                "trendDisplay": {
+                    "label": "Trend display",
+                    "help": "Choose how metric trends are shown.",
+                    "hidden": "Hidden",
+                    "compact": "Compact",
+                    "expanded": "Expanded"
+                },
+                "interval": {
+                    "label": "Time interval",
+                    "help": "Choose the time interval for the series.",
+                    "hour": "Hour",
+                    "day": "Day",
+                    "week": "Week",
+                    "month": "Month",
+                    "quarter": "Quarter"
+                },
+                "maxPoints": {
+                    "label": "Maximum points",
+                    "help": "Limit the number of data points shown."
+                },
+                "showSearch": {
+                    "label": "Show search",
+                    "help": "Allow users to search these records."
+                },
+                "showViewToggle": {
+                    "label": "Show view switch",
+                    "help": "Allow users to switch between available views."
+                },
+                "defaultViewMode": {
+                    "label": "Default view",
+                    "help": "Choose the view shown first.",
+                    "table": "Table",
+                    "card": "Cards"
+                },
+                "showFilterBar": {
+                    "label": "Show filters",
+                    "help": "Show filters for the record set."
+                },
+                "enableRowReordering": {
+                    "label": "Allow reordering",
+                    "help": "Allow users to change the item order."
+                },
+                "cardColumns": {
+                    "label": "Card columns",
+                    "help": "Choose the number of cards shown per row."
+                },
+                "rowHeight": {
+                    "label": "Row height",
+                    "help": "Choose the height of each table row.",
+                    "auto": "Automatic"
+                },
+                "maxRows": {
+                    "label": "Maximum rows",
+                    "help": "Limit the number of records shown."
+                },
+                "wizardMode": {
+                    "label": "Guided editing",
+                    "help": "Guide users through relation editing steps."
+                },
+                "minHeight": {
+                    "label": "Minimum height",
+                    "help": "Set the minimum runtime height."
+                },
+                "heightMode": {
+                    "label": "Canvas height",
+                    "help": "Choose how the canvas height is determined.",
+                    "fixed": "Fixed height",
+                    "fitViewport": "Fit the available screen"
+                },
+                "displayMode": {
+                    "label": "Display mode",
+                    "help": "Choose how this content is presented.",
+                    "card": "Cards",
+                    "compact": "Compact",
+                    "embedded": "Embedded",
+                    "list": "List",
+                    "player": "Player"
+                },
+                "sequenceMode": {
+                    "label": "Sequence mode",
+                    "help": "Choose how learners move through the content.",
+                    "strict": "In order",
+                    "flexible": "Flexible"
+                },
+                "title": {
+                    "label": "Title",
+                    "help": "Set the title shown above this content."
+                },
+                "titleOverride": {
+                    "label": "Title override",
+                    "help": "Set an optional title for this preview."
+                },
+                "icon": {
+                    "label": "Icon",
+                    "help": "Choose an optional visual icon."
+                },
+                "alignment": {
+                    "label": "Footer alignment",
+                    "help": "Choose how footer content is aligned.",
+                    "left": "Left",
+                    "center": "Center",
+                    "right": "Right"
+                },
+                "showLegalLinks": {
+                    "label": "Show legal links",
+                    "help": "Show the available legal links."
+                },
+                "showContact": {
+                    "label": "Show contact details",
+                    "help": "Show the available contact details."
+                },
+                "distance": {
+                    "label": "Camera distance",
+                    "help": "Set the initial camera distance."
+                },
+                "minDistance": {
+                    "label": "Minimum camera distance",
+                    "help": "Set the closest camera distance."
+                },
+                "maxDistance": {
+                    "label": "Maximum camera distance",
+                    "help": "Set the farthest camera distance."
+                },
+                "submissionMode": {
+                    "label": "Submission mode",
+                    "help": "Choose how quiz answers are submitted.",
+                    "module-default": "Module default",
+                    "server-action": "Server action"
                 }
             }
         },

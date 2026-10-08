@@ -388,7 +388,7 @@ describe('normalizePublicationSnapshotForHash', () => {
                 defaultVersionEnvelope: {
                     structureVersion: '53.0.0',
                     templateVersion: null,
-                    snapshotFormatVersion: 1
+                    snapshotFormatVersion: 4
                 }
             }
         )
@@ -396,7 +396,7 @@ describe('normalizePublicationSnapshotForHash', () => {
         expect(normalized.versionEnvelope).toEqual({
             structureVersion: '53.0.0',
             templateVersion: null,
-            snapshotFormatVersion: 1
+            snapshotFormatVersion: 4
         })
         expect(normalized.layoutConfig).toEqual({})
         expect(normalized.entities).toEqual([])

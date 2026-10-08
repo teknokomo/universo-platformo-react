@@ -253,6 +253,9 @@ export const mockSqlQuery = async (sql: string, params: unknown[] = []): Promise
             source_base_widget_id: params[10],
             source_content_hash: params[11],
             local_content_hash: params[11],
+            instance_key: params[13],
+            parent_widget_id: params[14],
+            slot_key: params[15],
             _upl_deleted: false,
             _upl_deleted_at: null,
             _upl_deleted_by: null,
@@ -311,21 +314,24 @@ export const mockSqlQuery = async (sql: string, params: unknown[] = []): Promise
         return [{ id: params[0] }]
     }
     if (sql.startsWith('INSERT INTO') && sql.includes('_app_widgets')) {
-        const applicationOwned = sql.includes('$6::jsonb, NULL::jsonb, NULL::jsonb')
+        const applicationOwned = sql.includes('$9::jsonb, NULL::jsonb')
         widgets.push({
             id: params[0],
             layout_id: params[1],
             zone: params[2],
             widget_key: params[3],
-            sort_order: params[4],
-            config: parseJson(params[5]),
-            source_config: applicationOwned ? null : parseJson(params[5]),
-            source_state: applicationOwned ? null : parseJson(params[6]),
-            is_active: params[7],
-            source_widget_id: applicationOwned ? null : params[8],
-            source_base_widget_id: applicationOwned ? null : params[9],
-            source_content_hash: params[10],
-            local_content_hash: params[10],
+            instance_key: params[4],
+            parent_widget_id: params[5],
+            slot_key: params[6],
+            sort_order: params[7],
+            config: parseJson(params[8]),
+            source_config: applicationOwned ? null : parseJson(params[8]),
+            source_state: applicationOwned ? null : parseJson(params[9]),
+            is_active: params[10],
+            source_widget_id: applicationOwned ? null : params[11],
+            source_base_widget_id: applicationOwned ? null : params[12],
+            source_content_hash: params[13],
+            local_content_hash: params[13],
             _upl_version: 1,
             _upl_deleted: false,
             _app_deleted: false
@@ -371,9 +377,12 @@ export const createMockSyncKnex = (overrides?: { layoutRows?: StoredRow[]; widge
     const normalizeWidgetFixture = (input: StoredRow): StoredRow => {
         const row = {
             zone: 'center',
-            widget_key: 'detailsTable',
+            widget_key: 'columnsContainer',
+            instance_key: String(input.instance_key ?? input.id ?? 'fixture-widget'),
+            parent_widget_id: null,
+            slot_key: null,
             sort_order: 0,
-            config: {},
+            config: { columns: [{ slotKey: 'column:main', width: 12 }] },
             source_config: null,
             is_active: true,
             ...input
@@ -392,7 +401,10 @@ export const createMockSyncKnex = (overrides?: { layoutRows?: StoredRow[]; widge
                         zone: String(row.zone),
                         sortOrder: Number(row.sort_order),
                         isActive: row.is_active === true,
-                        config: row.source_config ?? row.config
+                        config: row.source_config ?? row.config,
+                        instanceKey: String(row.instance_key),
+                        parentWidgetId: row.parent_widget_id == null ? null : String(row.parent_widget_id),
+                        slotKey: row.slot_key == null ? null : String(row.slot_key)
                     }
                 )
             } catch {

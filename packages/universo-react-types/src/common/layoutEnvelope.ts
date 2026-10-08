@@ -2,7 +2,7 @@ import { z } from 'zod'
 
 import { getLayoutWidgetDefinition, getLayoutZoneDefinition, LAYOUT_ZONE_DEFINITIONS } from './layoutWidgetDefinitions'
 import { applicationTemplateKeySchema, type ApplicationTemplateKey } from './marketingPage'
-import { layoutLogicalPlacementSchema } from './layoutWidgetPrimitives'
+import { layoutLogicalPlacementSchema, type LayoutLogicalPlacement } from './layoutWidgetPrimitives'
 import type { ApplicationLayoutZone } from './applicationLayouts'
 import { validateWidgetBindings, widgetEntityBindingEnvelopeSchema } from './widgetBindings'
 
@@ -79,7 +79,8 @@ export const persistedLayoutNeutralMetadataSchema = z
     .object({
         composition: layoutNeutralCompositionSchema.optional(),
         zoneSettings: layoutZoneSettingsSchema.optional(),
-        sourceZoneSettings: layoutZoneSettingsSchema.optional()
+        sourceZoneSettings: layoutZoneSettingsSchema.optional(),
+        skipDefaultZoneWidgetSeed: z.boolean().optional()
     })
     .strict()
 export type PersistedLayoutNeutralMetadata = z.infer<typeof persistedLayoutNeutralMetadataSchema>
@@ -201,6 +202,14 @@ const assertRendererConfig = (rendererConfig: unknown): Record<string, unknown> 
     return parsed
 }
 
+const assertWidgetRendererConfig = (rendererConfig: unknown): Record<string, unknown> => {
+    const parsed = assertRendererConfig(rendererConfig)
+    if (hasOwn(parsed, 'instanceKey')) {
+        throw new Error('Widget renderer configuration cannot contain placement identity.')
+    }
+    return parsed
+}
+
 const encodeNeutralMetadata = (
     neutral: PersistedLayoutNeutralMetadata,
     options: LayoutEnvelopeEncodingOptions
@@ -210,7 +219,8 @@ const encodeNeutralMetadata = (
     const projected = {
         ...(omitComposition || neutral.composition === undefined ? {} : { composition: neutral.composition }),
         ...(neutral.zoneSettings === undefined ? {} : { zoneSettings: neutral.zoneSettings }),
-        ...(omitSourceZoneSettings || neutral.sourceZoneSettings === undefined ? {} : { sourceZoneSettings: neutral.sourceZoneSettings })
+        ...(omitSourceZoneSettings || neutral.sourceZoneSettings === undefined ? {} : { sourceZoneSettings: neutral.sourceZoneSettings }),
+        ...(neutral.skipDefaultZoneWidgetSeed === undefined ? {} : { skipDefaultZoneWidgetSeed: neutral.skipDefaultZoneWidgetSeed })
     }
 
     const parsed = persistedLayoutNeutralMetadataSchema.parse(projected)
@@ -246,7 +256,8 @@ const normalizeZoneSettings = (settings: LayoutZoneSettings | undefined): Layout
 const normalizeNeutralMetadata = (neutral: PersistedLayoutNeutralMetadata): PersistedLayoutNeutralMetadata => ({
     ...(neutral.composition === undefined ? {} : { composition: neutral.composition }),
     ...(neutral.zoneSettings === undefined ? {} : { zoneSettings: normalizeZoneSettings(neutral.zoneSettings) }),
-    ...(neutral.sourceZoneSettings === undefined ? {} : { sourceZoneSettings: normalizeZoneSettings(neutral.sourceZoneSettings) })
+    ...(neutral.sourceZoneSettings === undefined ? {} : { sourceZoneSettings: normalizeZoneSettings(neutral.sourceZoneSettings) }),
+    ...(neutral.skipDefaultZoneWidgetSeed === undefined ? {} : { skipDefaultZoneWidgetSeed: neutral.skipDefaultZoneWidgetSeed })
 })
 
 /**
@@ -362,6 +373,7 @@ const assertSupportedWidgetMetadata = (
         throw new Error(`Widget does not support logical placement: ${context.widgetKey}`)
     }
     const definition = getLayoutWidgetDefinition(context.widgetKey, context.rendererConfig)
+    if (!definition) throw new Error(`Unsupported widget: ${context.widgetKey}`)
     const bindingSlots = definition?.bindingSlots ?? []
     if (neutral.bindings === undefined) {
         if (context.requireBindings === true && bindingSlots.some(({ cardinality }) => cardinality.min > 0)) {
@@ -383,7 +395,7 @@ export const decodeWidgetConfigEnvelope = (rawConfig: unknown, context: LayoutWi
     const rawNeutral = rendererConfig[RESERVED_LAYOUT_METADATA_KEY]
     delete rendererConfig[RESERVED_LAYOUT_METADATA_KEY]
 
-    assertRendererConfig(rendererConfig)
+    assertWidgetRendererConfig(rendererConfig)
     const parsedNeutral = persistedWidgetNeutralMetadataSchema.parse(hasNeutralMetadata ? rawNeutral : {})
     const neutral = assertSupportedWidgetMetadata(parsedNeutral, { ...context, rendererConfig })
 
@@ -398,7 +410,7 @@ export const encodeWidgetConfigEnvelope = (
     input: EncodeLayoutConfigEnvelopeInput,
     context?: LayoutWidgetEnvelopeContext
 ): Record<string, unknown> => {
-    const rendererConfig = assertRendererConfig(input.rendererConfig)
+    const rendererConfig = assertWidgetRendererConfig(input.rendererConfig)
     const parsedNeutral = persistedWidgetNeutralMetadataSchema.parse(input.neutral ?? {})
     const neutral = assertSupportedWidgetMetadata(parsedNeutral, { ...context, rendererConfig })
 

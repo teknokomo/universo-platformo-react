@@ -1,5 +1,6 @@
 import { PUBLIC_MARKETING_ROW_LIMIT } from '../../../shared/marketingRuntimeLimits'
-import { assertMarketingRuntimeRowCap, copyRuntimeConfiguredRelations } from '../../../controllers/runtimeRowSupport/rows'
+import { assertMarketingRuntimeRowCap } from '../../../services/marketingRowCap'
+import { copyRuntimeConfiguredRelations } from '../../../controllers/runtimeRowSupport/rows'
 import { createMarketingCollectionConfig, createMarketingPricingConfig } from '../../utils/marketingWidgetBindings'
 import { buildRuntimeRecordRuleLockKey } from '../../../services/runtimeRecordRuleLockKey'
 

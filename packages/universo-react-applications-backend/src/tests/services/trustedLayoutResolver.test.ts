@@ -38,6 +38,9 @@ const createSnapshot = (): PublishedApplicationSnapshot => ({
             layoutId: globalLayoutId,
             zone: 'top',
             widgetKey: 'header',
+            instanceKey: 'global-header',
+            parentWidgetId: null,
+            slotKey: null,
             sortOrder: 0,
             config: {},
             isActive: true
@@ -52,7 +55,7 @@ const createSnapshot = (): PublishedApplicationSnapshot => ({
             templateKey: 'dashboard',
             name: { en: 'Products dashboard' },
             description: null,
-            config: { showHeader: false },
+            config: {},
             isActive: true,
             isDefault: true,
             sortOrder: 0

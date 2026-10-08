@@ -9,7 +9,7 @@ import {
     type RuntimeSchemaContext,
     type RuntimeTableChildComponentMeta
 } from '../../shared/runtimeHelpers'
-import { type RuntimeObjectCollectionAttr, isRuntimeServerOwnedAttr } from '../runtimeRowSupport/contracts'
+import { type RuntimeObjectCollectionAttr, isRuntimeServerOwnedAttr } from '../../services/runtimeRowSupport/contracts'
 
 export const insertRuntimeChildRowsBatch = async (params: {
     executor: DbExecutor

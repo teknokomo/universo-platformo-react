@@ -845,13 +845,19 @@ export class MetahubComponentsService {
      * Find REF components that use a specific enumeration value as default in ui_config.
      * Used to block deletion of enumeration values that are still configured as defaults.
      */
-    async findDefaultEnumValueBlockers(metahubId: string, enumValueId: string, userId?: string, targetObjectKinds?: readonly string[]) {
+    async findDefaultEnumValueBlockers(
+        metahubId: string,
+        enumValueId: string,
+        userId?: string,
+        targetObjectKinds?: readonly string[],
+        db?: SqlQueryable
+    ) {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
         const componentTable = qSchemaTable(schemaName, '_mhb_components')
         const objTable = qSchemaTable(schemaName, '_mhb_objects')
         const compatibleTargetKinds = normalizeCompatibleTargetKinds(targetObjectKinds ?? ['enumeration'])
         const rows = await queryMany<ReferenceBlockerRow>(
-            this.exec,
+            db ?? this.exec,
             `SELECT
                 cmp.id AS component_id,
                 cmp.codename AS component_codename,
@@ -889,7 +895,8 @@ export class MetahubComponentsService {
         optionListId: string,
         enumValueId: string,
         userId?: string,
-        targetObjectKinds?: readonly string[]
+        targetObjectKinds?: readonly string[],
+        db?: SqlQueryable
     ) {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
         const componentTable = qSchemaTable(schemaName, '_mhb_components')
@@ -897,7 +904,7 @@ export class MetahubComponentsService {
         const elTable = qSchemaTable(schemaName, '_mhb_elements')
         const compatibleTargetKinds = normalizeCompatibleTargetKinds(targetObjectKinds ?? ['enumeration'])
         const rows = await queryMany<ReferenceBlockerRow>(
-            this.exec,
+            db ?? this.exec,
             `SELECT
                 cmp.id AS component_id,
                 cmp.codename AS component_codename,

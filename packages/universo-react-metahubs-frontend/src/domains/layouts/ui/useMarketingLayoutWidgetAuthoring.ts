@@ -11,7 +11,6 @@ import {
     getMarketingRendererConfig,
     hasMarketingWidgetBindings,
     isMarketingWidgetKey,
-    withoutInstanceKey,
     type MarketingWidgetBindingEditorState,
     type MarketingWidgetEditorState
 } from './layoutDetailsWidgetAuthoringModel'
@@ -98,6 +97,7 @@ export function useMarketingLayoutWidgetAuthoring({
                     .sort((left, right) => left.sortOrder - right.sortOrder)
                     .map((item) => ({
                         widgetKey: item.widgetKey,
+                        instanceKey: item.instanceKey,
                         isActive: item.isActive,
                         config: getMarketingRendererConfig(item)
                     }))
@@ -173,7 +173,7 @@ export function useMarketingLayoutWidgetAuthoring({
                     zone,
                     widgetId: null,
                     widgetKey,
-                    config: source ? withoutInstanceKey(getMarketingRendererConfig(source)) : defaultConfig
+                    config: source ? getMarketingRendererConfig(source) : defaultConfig
                 })
             } else {
                 setMarketingWidgetEditor({ open: true, zone, widgetId: null, widgetKey, config: null })
@@ -196,7 +196,7 @@ export function useMarketingLayoutWidgetAuthoring({
                     duplicateMode: true,
                     rendererConfigPending: false,
                     widgetKey: item.widgetKey,
-                    config: withoutInstanceKey(getMarketingRendererConfig(item))
+                    config: getMarketingRendererConfig(item)
                 })
                 return
             }
@@ -204,7 +204,7 @@ export function useMarketingLayoutWidgetAuthoring({
                 await layoutsApi.assignLayoutZoneWidget(context.metahubId, context.layoutId, {
                     zone: item.zone,
                     widgetKey: item.widgetKey,
-                    config: withoutInstanceKey(getMarketingRendererConfig(item)),
+                    config: getMarketingRendererConfig(item),
                     expectedVersion: context.getExpectedVersion()
                 })
                 await persistAndRefresh()
@@ -221,9 +221,17 @@ export function useMarketingLayoutWidgetAuthoring({
             if (!metahubId || !layoutId || !zone || !widgetKey) throw new Error('MARKETING_WIDGET_PLACEMENT_CONTEXT_MISSING')
             let placementPersisted = false
             try {
-                const input = { zone, widgetKey, config, expectedVersion: getExpectedLayoutVersion() }
+                const input = {
+                    zone,
+                    widgetKey,
+                    config,
+                    expectedVersion: getExpectedLayoutVersion()
+                }
                 const response = recordCopy
-                    ? await layoutsApi.duplicateLayoutZoneWidgetWithRecordCopy(metahubId, layoutId, { ...input, recordCopy })
+                    ? await layoutsApi.duplicateLayoutZoneWidgetWithRecordCopy(metahubId, layoutId, {
+                          ...input,
+                          recordCopy
+                      })
                     : await layoutsApi.assignLayoutZoneWidget(metahubId, layoutId, input)
                 placementPersisted = true
                 upsertZoneWidgetInCache(response.data)
@@ -300,7 +308,7 @@ export function useMarketingLayoutWidgetAuthoring({
                         duplicateMode: false,
                         rendererConfigPending: false,
                         widgetKey,
-                        config: withoutInstanceKey(config)
+                        config
                     })
                     closeConfig()
                     return

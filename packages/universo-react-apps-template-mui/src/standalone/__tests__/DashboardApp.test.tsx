@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react'
+import type { MouseEvent } from 'react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { act, render, screen, waitFor } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import DashboardApp from '../DashboardApp'
 import { createStandaloneAdapter } from '../../api/adapters'
 
@@ -10,8 +10,39 @@ const dashboardMocks = vi.hoisted(() => ({
     handleOpenCreate: vi.fn(),
     handleOpenEdit: vi.fn(),
     handleOpenCopy: vi.fn(),
+    handleOpenDelete: vi.fn(),
     onSelectObjectCollection: vi.fn(),
+    onOpenCreateTarget: null as
+        | null
+        | ((target: {
+              id: string
+              label: string
+              objectCollectionId?: string
+              relationScope?: { fieldCodename: string; parentRecordId: string }
+          }) => void),
+    onOpenRowTarget: null as
+        | null
+        | ((
+              target: { rowId: string; objectCollectionId?: string; relationScope?: { fieldCodename: string; parentRecordId: string } },
+              action: 'edit' | 'copy' | 'delete'
+          ) => void),
     templateKey: 'dashboard',
+    effectiveLayoutConfig: {} as Record<string, unknown>,
+    effectiveLayoutWidgets: [] as Array<Record<string, unknown>>,
+    resolvedEntityTypeId: null as string | null,
+    capturedDashboardDetails: null as Record<string, unknown> | null,
+    onOpenRowMenu: null as
+        | null
+        | ((
+              event: MouseEvent<HTMLElement>,
+              rowId: string,
+              target?: { entityCodename: string; recordHandle: string; relationScope?: { fieldCodename: string; parentRecordId: string } }
+          ) => void),
+    boundRowActionData: null as null | { appData: Record<string, unknown>; row: Record<string, unknown> },
+    fetchList: vi.fn(),
+    fetchRow: vi.fn(),
+    invalidateQueries: vi.fn(),
+    enqueueSnackbar: vi.fn(),
     capturedCrudOptions: null as null | { createDefaultContext?: (appData: unknown) => unknown },
     marketingProps: null as null | Record<string, unknown>
 }))
@@ -28,20 +59,68 @@ vi.mock('../../layouts/AppMainLayout', () => ({
 }))
 
 vi.mock('../../api/adapters', () => ({
-    createStandaloneAdapter: vi.fn(() => ({ queryKeyPrefix: ['standalone', 'app-1'] }))
+    createStandaloneAdapter: vi.fn(() => ({
+        queryKeyPrefix: ['standalone', 'app-1'],
+        fetchList: dashboardMocks.fetchList,
+        fetchRow: dashboardMocks.fetchRow,
+        recordCommand: vi.fn(),
+        workflowAction: vi.fn()
+    }))
 }))
 
-vi.mock('@tanstack/react-query', () => ({
-    useQuery: () => ({
-        isLoading: false,
-        isError: false,
-        data: {
-            status: 'ok',
-            layout: { templateKey: dashboardMocks.templateKey, config: {} },
-            widgets: []
-        }
-    })
-}))
+vi.mock('@tanstack/react-query', async () => {
+    const React = await import('react')
+    return {
+        useQuery: (options: { queryKey?: unknown[]; enabled?: boolean; queryFn?: () => Promise<unknown> }) => {
+            const isBoundActionQuery = options.queryKey?.[0] === 'runtime-bound-row-actions'
+            const [result, setResult] = React.useState<{ isLoading: boolean; isError: boolean; isFetching: boolean; data: unknown }>({
+                isLoading: false,
+                isError: false,
+                isFetching: false,
+                data: null
+            })
+            const queryFnRef = React.useRef(options.queryFn)
+            queryFnRef.current = options.queryFn
+            const serializedKey = JSON.stringify(options.queryKey)
+            React.useEffect(() => {
+                if (!isBoundActionQuery || !options.enabled || !queryFnRef.current) {
+                    setResult({ isLoading: false, isError: false, isFetching: false, data: null })
+                    return undefined
+                }
+                let cancelled = false
+                setResult({ isLoading: true, isError: false, isFetching: true, data: null })
+                void queryFnRef.current().then(
+                    (data) => {
+                        if (!cancelled) setResult({ isLoading: false, isError: false, isFetching: false, data })
+                    },
+                    () => {
+                        if (!cancelled) setResult({ isLoading: false, isError: true, isFetching: false, data: null })
+                    }
+                )
+                return () => {
+                    cancelled = true
+                }
+            }, [isBoundActionQuery, options.enabled, serializedKey])
+            if (!isBoundActionQuery) {
+                return {
+                    isLoading: false,
+                    isError: false,
+                    data: {
+                        status: 'ok',
+                        resolvedEntityTypeId: dashboardMocks.resolvedEntityTypeId,
+                        layout: { templateKey: dashboardMocks.templateKey, config: dashboardMocks.effectiveLayoutConfig },
+                        widgets: dashboardMocks.effectiveLayoutWidgets
+                    }
+                }
+            }
+            return result
+        },
+        useMutation: () => ({ mutate: vi.fn(), isPending: false, variables: undefined }),
+        useQueryClient: () => ({ invalidateQueries: dashboardMocks.invalidateQueries })
+    }
+})
+
+vi.mock('notistack', () => ({ useSnackbar: () => ({ enqueueSnackbar: dashboardMocks.enqueueSnackbar }) }))
 
 vi.mock('../../marketing-page/MarketingRuntimeContent', () => ({
     default: (props: Record<string, unknown>) => {
@@ -54,12 +133,15 @@ vi.mock('../../dashboard/Dashboard', () => ({
     default: ({
         details,
         layoutConfig,
-        menu,
-        menus,
         zoneWidgets
     }: {
         details?: {
             title?: string
+            sectionId?: string
+            sectionCodename?: string
+            objectCollectionId?: string
+            objectCollectionCodename?: string
+            settings?: unknown
             actions?: ReactNode
             content?: ReactNode
             pageBlocks?: Array<Record<string, unknown>>
@@ -70,13 +152,11 @@ vi.mock('../../dashboard/Dashboard', () => ({
                 progressStorageKey?: string
                 onProgressChange?: (payload: { action: 'view' | 'complete' }) => void
             }
-            tableDefaults?: unknown
-            rows?: Array<Record<string, unknown>>
-            runtimeColumns?: Array<Record<string, unknown>>
             onOpenCreateTarget?: (target: {
                 id: string
                 label: string
                 objectCollectionId?: string
+                relationScope?: { fieldCodename: string; parentRecordId: string }
                 createDefaults?: Array<{
                     fieldCodename: string
                     enumCodename?: string
@@ -84,52 +164,77 @@ vi.mock('../../dashboard/Dashboard', () => ({
                     contextPath?: string
                 }>
             }) => void
+            onOpenRowTarget?: (
+                target: {
+                    rowId: string
+                    objectCollectionId?: string
+                    relationScope?: { fieldCodename: string; parentRecordId: string }
+                },
+                action: 'edit' | 'copy' | 'delete'
+            ) => void
+            onOpenRowMenu?: (
+                event: MouseEvent<HTMLElement>,
+                rowId: string,
+                target?: { entityCodename: string; recordHandle: string; relationScope?: { fieldCodename: string; parentRecordId: string } }
+            ) => void
         }
         layoutConfig?: Record<string, unknown>
-        menu?: { items?: Array<{ label: string; selected?: boolean; href?: string | null }> }
-        menus?: Record<string, { items?: Array<{ label: string; selected?: boolean; href?: string | null }> }>
         zoneWidgets?: Record<string, unknown>
-    }) => (
-        <div data-testid='dashboard-app'>
-            <div data-testid='dashboard-layout'>{JSON.stringify(layoutConfig ?? {})}</div>
-            <div data-testid='dashboard-menu'>
-                {menu?.items?.map((item) => `${item.label}:${Boolean(item.selected)}:${item.href ?? ''}`).join('|')}
+    }) => {
+        dashboardMocks.capturedDashboardDetails = details ?? null
+        dashboardMocks.onOpenCreateTarget = details?.onOpenCreateTarget ?? null
+        dashboardMocks.onOpenRowTarget = details?.onOpenRowTarget ?? null
+        dashboardMocks.onOpenRowMenu = details?.onOpenRowMenu ?? null
+        return (
+            <div data-testid='dashboard-app'>
+                <div data-testid='dashboard-layout'>{JSON.stringify(layoutConfig ?? {})}</div>
+                <div data-testid='dashboard-title'>{details?.title}</div>
+                <div data-testid='dashboard-details-context'>
+                    {details?.sectionId ?? ''}:{details?.sectionCodename ?? ''}:{details?.objectCollectionId ?? ''}:
+                    {details?.objectCollectionCodename ?? ''}
+                </div>
+                <div data-testid='dashboard-actions'>{details?.actions}</div>
+                <div data-testid='dashboard-content'>{details?.content}</div>
+                <div data-testid='dashboard-page-blocks'>{String(details?.pageBlocks?.length ?? 0)}</div>
+                <div data-testid='dashboard-page-progress-handler'>
+                    {String(typeof details?.pagePlayer?.onProgressChange === 'function')}
+                </div>
+                <div data-testid='dashboard-page-player'>{JSON.stringify(details?.pagePlayer ?? {})}</div>
+                <div data-testid='dashboard-details-settings'>{JSON.stringify(details?.settings ?? {})}</div>
+                <div data-testid='dashboard-zone-widgets'>{JSON.stringify(zoneWidgets ?? {})}</div>
+                <button
+                    data-testid='dashboard-open-link-target'
+                    onClick={() =>
+                        details?.onOpenCreateTarget?.({
+                            id: 'create-link',
+                            label: 'Link',
+                            objectCollectionId: 'object-1',
+                            createDefaults: [
+                                { fieldCodename: 'ResourceType', enumCodename: 'Url' },
+                                { fieldCodename: 'Source', resourceSourceType: 'url' }
+                            ]
+                        })
+                    }
+                    type='button'
+                >
+                    open link target
+                </button>
+                <button
+                    data-testid='dashboard-open-bound-row-actions'
+                    onClick={(event) =>
+                        details?.onOpenRowMenu?.(event, 'rh1.test-bound-row-target-0001', {
+                            entityCodename: 'Courses',
+                            recordHandle: 'rh1.test-bound-row-target-0001',
+                            relationScope: { fieldCodename: 'CourseId', parentRecordId: 'parent-1' }
+                        })
+                    }
+                    type='button'
+                >
+                    open row actions
+                </button>
             </div>
-            <div data-testid='dashboard-menus'>{JSON.stringify(menus ?? {})}</div>
-            <div data-testid='dashboard-title'>{details?.title}</div>
-            <div data-testid='dashboard-details-context'>
-                {details?.sectionId ?? ''}:{details?.sectionCodename ?? ''}:{details?.objectCollectionId ?? ''}:
-                {details?.objectCollectionCodename ?? ''}
-            </div>
-            <div data-testid='dashboard-actions'>{details?.actions}</div>
-            <div data-testid='dashboard-content'>{details?.content}</div>
-            <div data-testid='dashboard-page-blocks'>{String(details?.pageBlocks?.length ?? 0)}</div>
-            <div data-testid='dashboard-page-progress-handler'>{String(typeof details?.pagePlayer?.onProgressChange === 'function')}</div>
-            <div data-testid='dashboard-page-player'>{JSON.stringify(details?.pagePlayer ?? {})}</div>
-            <div data-testid='dashboard-table-defaults'>{JSON.stringify(details?.tableDefaults ?? {})}</div>
-            <div data-testid='dashboard-rows'>{JSON.stringify(details?.rows ?? [])}</div>
-            <div data-testid='dashboard-runtime-columns'>{JSON.stringify(details?.runtimeColumns ?? [])}</div>
-            <div data-testid='dashboard-row-count'>{String(details?.rowCount ?? '')}</div>
-            <div data-testid='dashboard-zone-widgets'>{JSON.stringify(zoneWidgets ?? {})}</div>
-            <button
-                data-testid='dashboard-open-link-target'
-                onClick={() =>
-                    details?.onOpenCreateTarget?.({
-                        id: 'create-link',
-                        label: 'Link',
-                        objectCollectionId: 'object-1',
-                        createDefaults: [
-                            { fieldCodename: 'ResourceType', enumCodename: 'Url' },
-                            { fieldCodename: 'Source', resourceSourceType: 'url' }
-                        ]
-                    })
-                }
-                type='button'
-            >
-                open link target
-            </button>
-        </div>
-    )
+        )
+    }
 }))
 
 vi.mock('../../workspaces/RuntimeWorkspacesPage', () => ({
@@ -153,7 +258,33 @@ vi.mock('../../components/CrudDialogs', () => ({
 }))
 
 vi.mock('../../components/RowActionsMenu', () => ({
-    RowActionsMenu: () => null
+    RowActionsMenu: ({
+        runtimeContext
+    }: {
+        runtimeContext?: {
+            row: Record<string, unknown> | null
+            onCloseMenu: () => void
+            onRowTargetAction?: (rowId: string, action: 'edit' | 'copy' | 'delete', expectedVersion: number | null) => void
+        }
+    }) =>
+        runtimeContext ? (
+            <div data-testid='bound-row-actions-menu'>
+                <span>{String(runtimeContext.row?.title ?? '')}</span>
+                <button
+                    onClick={() => {
+                        runtimeContext.onCloseMenu()
+                        runtimeContext.onRowTargetAction?.(
+                            'rh1.test-bound-row-target-0001',
+                            'edit',
+                            typeof runtimeContext.row?._upl_version === 'number' ? runtimeContext.row._upl_version : null
+                        )
+                    }}
+                    type='button'
+                >
+                    Edit bound row
+                </button>
+            </div>
+        ) : null
 }))
 
 vi.mock('../../hooks/useCrudDashboard', () => ({
@@ -161,9 +292,6 @@ vi.mock('../../hooks/useCrudDashboard', () => ({
         dashboardMocks.capturedCrudOptions = options
         return {
             appData: {
-                zoneWidgets: { left: [], right: [], center: [] },
-                menus: [],
-                activeMenuId: null,
                 settings: { sectionLinksEnabled: true },
                 workspacesEnabled: true,
                 permissions: {
@@ -207,6 +335,7 @@ vi.mock('../../hooks/useCrudDashboard', () => ({
             deleteRowId: null,
             isDeleting: false,
             deleteError: null,
+            handleOpenDelete: dashboardMocks.handleOpenDelete,
             handleCloseDelete: vi.fn(),
             handleConfirmDelete: vi.fn().mockResolvedValue(undefined),
             handleOpenMenu: vi.fn(),
@@ -214,20 +343,6 @@ vi.mock('../../hooks/useCrudDashboard', () => ({
             activeMenu: null,
             menuAnchorEl: null,
             menuRowId: null,
-            menuSlot: {
-                title: null,
-                showTitle: false,
-                items: [
-                    {
-                        id: 'learning-resources',
-                        label: 'LearningResources',
-                        kind: 'section',
-                        objectCollectionId: 'object-1',
-                        selected: true
-                    }
-                ]
-            },
-            menusMap: {},
             activeObjectCollectionId: 'object-1',
             selectedObjectCollectionId: 'object-1',
             onSelectObjectCollection: dashboardMocks.onSelectObjectCollection,
@@ -244,7 +359,19 @@ describe('DashboardApp', () => {
         vi.clearAllMocks()
         dashboardMocks.dashboardStateOverrides = {}
         dashboardMocks.templateKey = 'dashboard'
+        dashboardMocks.effectiveLayoutConfig = {}
+        dashboardMocks.effectiveLayoutWidgets = []
+        dashboardMocks.resolvedEntityTypeId = null
+        dashboardMocks.capturedDashboardDetails = null
+        dashboardMocks.onOpenRowMenu = null
+        dashboardMocks.boundRowActionData = null
+        dashboardMocks.fetchList.mockReset()
+        dashboardMocks.fetchRow.mockReset()
+        dashboardMocks.invalidateQueries.mockReset()
+        dashboardMocks.enqueueSnackbar.mockReset()
         dashboardMocks.onSelectObjectCollection.mockReset()
+        dashboardMocks.onOpenCreateTarget = null
+        dashboardMocks.onOpenRowTarget = null
         dashboardMocks.capturedCrudOptions = null
         dashboardMocks.marketingProps = null
         window.history.pushState({}, '', '/')
@@ -264,11 +391,7 @@ describe('DashboardApp', () => {
 
     it('renders a scoped marketing layout on a standalone entity route', () => {
         dashboardMocks.templateKey = 'marketing-page'
-        window.history.pushState(
-            {},
-            '',
-            '/a/app-1/019fa968-aac3-7ce7-9717-79e7c6c6e77e?targetKind=page&entityTypeId=019fa968-aac3-7ce7-9717-79e7c6c6e77e'
-        )
+        window.history.pushState({}, '', '/a/app-1?targetKind=page&entityTypeCodename=Landing')
 
         render(<DashboardApp applicationId='app-1' locale='en' apiBaseUrl='http://localhost:3000' />)
 
@@ -285,51 +408,275 @@ describe('DashboardApp', () => {
         expect(screen.queryByTestId('dashboard-app')).not.toBeInTheDocument()
     })
 
-    it('adds validated Page and Object target selectors to standalone section links', () => {
-        const applicationId = '018f8a78-7b8f-7c1d-a111-222233334444'
-        const pageId = '0190a9b5-3cde-7abc-8def-0123456789ad'
-        const objectId = '0190a9b5-3cde-7abc-8def-0123456789ae'
-        window.history.pushState({}, '', `/a/${applicationId}?locale=ru&workspaceId=workspace-1`)
+    it('loads the selected entity row context before reusing the host CRUD action flow', async () => {
+        const relationScope = { fieldCodename: 'CourseId', parentRecordId: 'parent-1' }
+        const permissions = {
+            manageMembers: false,
+            manageApplication: false,
+            createContent: true,
+            editContent: true,
+            deleteContent: true,
+            readReports: false
+        }
+        const currentEntity = { id: 'object-1', name: 'Resources', codename: 'LearningResources' }
+        const targetEntity = { id: 'object-2', name: 'Courses', codename: 'Courses' }
         dashboardMocks.dashboardStateOverrides = {
             appData: {
-                zoneWidgets: { left: [], right: [], center: [] },
-                menus: [],
-                activeMenuId: null,
-                settings: { sectionLinksEnabled: true },
-                workspacesEnabled: false,
-                permissions: {
-                    manageMembers: false,
-                    manageApplication: false,
-                    createContent: true,
-                    editContent: true,
-                    deleteContent: true,
-                    readReports: false
-                },
-                objectCollection: { id: pageId, name: 'Landing', kind: 'page', codename: 'Landing' },
-                section: { id: pageId, name: 'Landing', kind: 'page', codename: 'Landing' },
-                activeObjectCollectionId: pageId,
-                activeSectionId: pageId,
-                objectCollections: [{ id: objectId, name: 'Products', kind: 'object', codename: 'Products', tableName: 'obj_products' }],
-                sections: [{ id: pageId, name: 'Landing', kind: 'page', codename: 'Landing' }]
+                settings: {},
+                workspacesEnabled: true,
+                currentWorkspaceId: 'workspace-1',
+                permissions,
+                objectCollection: currentEntity,
+                activeObjectCollectionId: currentEntity.id,
+                objectCollections: [currentEntity, targetEntity],
+                sections: [currentEntity, targetEntity]
             },
-            menuSlot: {
-                title: null,
-                showTitle: false,
-                items: [
-                    { id: 'landing', label: 'Landing', kind: 'section', sectionId: pageId, selected: false },
-                    { id: 'products', label: 'Products', kind: 'section', objectCollectionId: objectId, selected: false }
-                ]
+            activeObjectCollectionId: currentEntity.id,
+            selectedObjectCollectionId: currentEntity.id
+        }
+        dashboardMocks.fetchList.mockResolvedValue({
+            objectCollection: targetEntity,
+            columns: [],
+            rows: [],
+            pagination: { total: 1, limit: 1, offset: 0 },
+            permissions
+        })
+        dashboardMocks.fetchRow.mockResolvedValue({
+            id: '019f2000-0000-7000-8000-000000000099',
+            version: 5,
+            data: { title: 'Entity-backed course' }
+        })
+
+        const view = render(<DashboardApp applicationId='app-1' locale='en' apiBaseUrl='http://localhost:3000' />)
+        fireEvent.click(screen.getByTestId('dashboard-open-bound-row-actions'))
+
+        await waitFor(() => expect(screen.getByTestId('bound-row-actions-menu')).toBeInTheDocument())
+        expect(screen.getByText('Entity-backed course')).toBeInTheDocument()
+        expect(document.body).not.toHaveTextContent('019f2000-0000-7000-8000-000000000099')
+        expect(dashboardMocks.fetchList).toHaveBeenCalledWith(
+            expect.objectContaining({ objectCollectionId: 'object-2', sectionId: 'object-2', workspaceId: 'workspace-1' })
+        )
+        expect(dashboardMocks.fetchRow).toHaveBeenCalledWith(
+            'rh1.test-bound-row-target-0001',
+            expect.objectContaining({ objectCollectionId: 'object-2', workspaceId: 'workspace-1' })
+        )
+
+        fireEvent.click(screen.getByRole('button', { name: 'Edit bound row' }))
+        expect(dashboardMocks.onSelectObjectCollection).toHaveBeenCalledWith('object-2')
+
+        const loadedTargetAppData = {
+            settings: {},
+            workspacesEnabled: true,
+            currentWorkspaceId: 'workspace-1',
+            permissions,
+            objectCollection: targetEntity,
+            section: targetEntity,
+            activeObjectCollectionId: targetEntity.id,
+            activeSectionId: targetEntity.id,
+            objectCollections: [currentEntity, targetEntity],
+            sections: [currentEntity, targetEntity]
+        }
+        dashboardMocks.dashboardStateOverrides = {
+            appData: loadedTargetAppData,
+            activeObjectCollectionId: targetEntity.id,
+            activeSectionId: targetEntity.id,
+            selectedObjectCollectionId: targetEntity.id,
+            selectedSectionId: targetEntity.id
+        }
+        view.rerender(<DashboardApp applicationId='app-1' locale='en' apiBaseUrl='http://localhost:3000' />)
+
+        await waitFor(() => expect(dashboardMocks.handleOpenEdit).toHaveBeenCalledWith('rh1.test-bound-row-target-0001', relationScope, 5))
+    })
+
+    it('retains action-specific relationScope across deferred row targets while changing sections', async () => {
+        const createRelationScope = {
+            fieldCodename: 'CourseId',
+            parentRecordId: 'rh1.test-relation-parent-0001'
+        }
+        const editRelationScope = {
+            fieldCodename: 'CourseId',
+            parentRecordId: 'rh1.test-relation-parent-0002'
+        }
+        const copyRelationScope = {
+            fieldCodename: 'CourseId',
+            parentRecordId: 'rh1.test-relation-parent-0003'
+        }
+        const deleteRelationScope = {
+            fieldCodename: 'CourseId',
+            parentRecordId: 'rh1.test-relation-parent-0004'
+        }
+        const createDefaults = [{ fieldCodename: 'CourseId', contextPath: 'relation.parentRecordId' }]
+        const createDefaultContext = { relation: { parentRecordId: createRelationScope.parentRecordId } }
+        const sections = [
+            { id: 'object-1', name: 'Resources', codename: 'LearningResources' },
+            { id: 'object-2', name: 'Courses', codename: 'Courses' }
+        ]
+        const permissions = {
+            manageMembers: false,
+            manageApplication: false,
+            createContent: true,
+            editContent: true,
+            deleteContent: true,
+            readReports: false
+        }
+        const view = render(<DashboardApp applicationId='app-1' locale='en' apiBaseUrl='http://localhost:3000' />)
+
+        act(() => {
+            dashboardMocks.onOpenCreateTarget?.({
+                id: 'relation-create:course-resources',
+                label: 'Course resources',
+                objectCollectionId: 'object-2',
+                createDefaults,
+                createDefaultContext,
+                relationScope: createRelationScope
+            })
+        })
+        expect(dashboardMocks.onSelectObjectCollection).toHaveBeenCalledWith('object-2')
+        expect(dashboardMocks.handleOpenCreate).not.toHaveBeenCalled()
+
+        const renderLoadedSection = (sectionId: string) => {
+            const section = sections.find(({ id }) => id === sectionId)!
+            dashboardMocks.dashboardStateOverrides = {
+                appData: {
+                    settings: { sectionLinksEnabled: true },
+                    workspacesEnabled: true,
+                    permissions,
+                    objectCollection: section,
+                    section,
+                    activeObjectCollectionId: sectionId,
+                    activeSectionId: sectionId,
+                    objectCollections: sections,
+                    sections
+                },
+                activeObjectCollectionId: sectionId,
+                activeSectionId: sectionId,
+                selectedObjectCollectionId: sectionId,
+                selectedSectionId: sectionId,
+                isLoading: false,
+                isFetching: false
+            }
+            view.rerender(<DashboardApp applicationId='app-1' locale='en' apiBaseUrl='http://localhost:3000' />)
+        }
+
+        renderLoadedSection('object-2')
+        await waitFor(() => {
+            expect(dashboardMocks.handleOpenCreate).toHaveBeenCalledWith(
+                createDefaults,
+                createDefaultContext,
+                createRelationScope,
+                undefined
+            )
+        })
+
+        act(() => {
+            dashboardMocks.onOpenRowTarget?.({ rowId: 'row-1', objectCollectionId: 'object-1', relationScope: copyRelationScope }, 'copy')
+        })
+        expect(dashboardMocks.onSelectObjectCollection).toHaveBeenCalledWith('object-1')
+        renderLoadedSection('object-1')
+
+        await waitFor(() => {
+            expect(dashboardMocks.handleOpenCopy).toHaveBeenCalledWith('row-1', copyRelationScope)
+        })
+
+        act(() => {
+            dashboardMocks.onOpenRowTarget?.({ rowId: 'row-2', objectCollectionId: 'object-2', relationScope: editRelationScope }, 'edit')
+        })
+        expect(dashboardMocks.onSelectObjectCollection).toHaveBeenCalledWith('object-2')
+        renderLoadedSection('object-2')
+
+        await waitFor(() => {
+            expect(dashboardMocks.handleOpenEdit).toHaveBeenCalledWith('row-2', editRelationScope)
+        })
+
+        act(() => {
+            dashboardMocks.onOpenRowTarget?.(
+                { rowId: 'row-3', objectCollectionId: 'object-1', relationScope: deleteRelationScope },
+                'delete'
+            )
+        })
+        expect(dashboardMocks.onSelectObjectCollection).toHaveBeenCalledWith('object-1')
+        renderLoadedSection('object-1')
+
+        await waitFor(() => {
+            expect(dashboardMocks.handleOpenDelete).toHaveBeenCalledWith('row-3', deleteRelationScope)
+        })
+    })
+
+    it('passes generated Entity navigation runtimeData through the effective Dashboard placement', () => {
+        const applicationId = '018f8a78-7b8f-7c1d-a111-222233334444'
+        window.history.pushState({}, '', `/a/${applicationId}?locale=ru&workspaceId=workspace-1`)
+        dashboardMocks.effectiveLayoutWidgets = [
+            {
+                id: '018f8a78-7b8f-7c1d-a111-222233334445',
+                instanceKey: 'main-menu',
+                layoutId: '018f8a78-7b8f-7c1d-a111-222233334446',
+                widgetKey: 'menuWidget',
+                zone: 'left',
+                sortOrder: 1,
+                isActive: true,
+                parentInstanceKey: null,
+                slotKey: null,
+                config: { variant: 'generated' },
+                runtimeData: {
+                    status: 'ready',
+                    data: {
+                        kind: 'menu',
+                        title: 'Navigation',
+                        showTitle: false,
+                        overflowLabel: 'More',
+                        items: [
+                            {
+                                key: 'page:Landing',
+                                label: 'Landing',
+                                icon: null,
+                                kind: 'section',
+                                target: { kind: 'page', codename: 'Landing' }
+                            },
+                            {
+                                key: 'object:Products',
+                                label: 'Products',
+                                icon: null,
+                                kind: 'section',
+                                target: { kind: 'object', codename: 'Products' }
+                            }
+                        ],
+                        overflowItems: []
+                    }
+                }
+            }
+        ]
+        dashboardMocks.dashboardStateOverrides = {
+            appData: {
+                settings: { sectionLinksEnabled: true },
+                objectCollection: { id: 'page-1', name: 'Landing', kind: 'page', codename: 'Landing' },
+                section: { id: 'page-1', name: 'Landing', kind: 'page', codename: 'Landing' },
+                activeObjectCollectionId: 'page-1',
+                activeSectionId: 'page-1',
+                objectCollections: [{ id: 'object-1', name: 'Products', kind: 'object', codename: 'Products', tableName: 'obj_products' }],
+                sections: [{ id: 'page-1', name: 'Landing', kind: 'page', codename: 'Landing' }]
             }
         }
 
         render(<DashboardApp applicationId={applicationId} locale='ru' apiBaseUrl='http://localhost:3000' />)
 
-        expect(screen.getByTestId('dashboard-menu')).toHaveTextContent(
-            `Landing:false:/a/${applicationId}/${pageId}?locale=ru&workspaceId=workspace-1&targetKind=page&entityTypeId=${pageId}`
-        )
-        expect(screen.getByTestId('dashboard-menu')).toHaveTextContent(
-            `Products:false:/a/${applicationId}/${objectId}?locale=ru&workspaceId=workspace-1&targetKind=object&entityTypeId=${objectId}`
-        )
+        const placements = JSON.parse(screen.getByTestId('dashboard-zone-widgets').textContent ?? '{}') as {
+            left?: Array<Record<string, unknown>>
+        }
+        expect(placements.left).toHaveLength(1)
+        expect(placements.left?.[0]).toMatchObject({
+            widgetKey: 'menuWidget',
+            zone: 'left',
+            config: { variant: 'generated' },
+            runtimeData: {
+                status: 'ready',
+                data: {
+                    kind: 'menu',
+                    items: [{ target: { kind: 'page', codename: 'Landing' } }, { target: { kind: 'object', codename: 'Products' } }]
+                }
+            }
+        })
+        expect(JSON.stringify(placements)).not.toContain('0190a9b5-3cde-7abc-8def-0123456789')
+        expect(screen.getByTestId('dashboard-details-settings')).toHaveTextContent('{"sectionLinksEnabled":true}')
     })
 
     it('keeps dialog surface by default when no page runtime surface is configured', () => {
@@ -339,6 +686,24 @@ describe('DashboardApp', () => {
         expect(screen.getByTestId('crud-dialogs-surface')).toHaveTextContent('dialog')
     })
 
+    it('passes only explicit side-menu settings from the effective layout to the dashboard shell', () => {
+        dashboardMocks.effectiveLayoutConfig = {
+            showHeader: true,
+            showAppNavbar: true,
+            sideMenu: { availableModes: ['compact'], primaryMode: 'compact', rememberUserChoice: false }
+        }
+
+        render(<DashboardApp applicationId='app-1' locale='en' apiBaseUrl='http://localhost:3000' />)
+
+        expect(screen.getByTestId('dashboard-layout')).toHaveTextContent(
+            JSON.stringify({
+                sideMenu: { availableModes: ['compact'], primaryMode: 'compact', rememberUserChoice: false }
+            })
+        )
+        expect(screen.getByTestId('dashboard-layout')).not.toHaveTextContent('showHeader')
+        expect(screen.getByTestId('dashboard-layout')).not.toHaveTextContent('showAppNavbar')
+    })
+
     it('passes runtime page blocks and Learning Content player settings to the dashboard', () => {
         dashboardMocks.dashboardStateOverrides = {
             selectedSectionId: 'page-1',
@@ -346,24 +711,6 @@ describe('DashboardApp', () => {
             activeSectionId: 'page-1',
             activeObjectCollectionId: 'page-1',
             appData: {
-                zoneWidgets: { left: [], right: [], center: [] },
-                menus: [],
-                activeMenuId: null,
-                activeObjectCollectionId: 'page-1',
-                currentWorkspaceId: 'workspace-1',
-                settings: {
-                    learningContent: {
-                        playerPreset: {
-                            codename: 'player',
-                            title: 'Player',
-                            showOutline: false,
-                            showProgressHeader: true,
-                            allowResume: true,
-                            allowResourcePreview: true,
-                            completeButtonMode: 'autoAfterOpen'
-                        }
-                    }
-                },
                 permissions: {
                     manageMembers: false,
                     manageApplication: false,
@@ -376,6 +723,18 @@ describe('DashboardApp', () => {
                     name: 'Page',
                     codename: 'Page',
                     pageBlocks: [{ id: 'body', type: 'paragraph', data: { text: 'Read' } }]
+                },
+                currentWorkspaceId: 'workspace-1',
+                settings: {
+                    learningContent: {
+                        playerPreset: { showOutline: false, showProgressHeader: true, completeButtonMode: 'autoAfterOpen' },
+                        courseCompletionPolicy: {
+                            navigationMode: 'sequential',
+                            completionCondition: 'selectedItems',
+                            statusFormat: 'passedFailed'
+                        },
+                        trackOrderPolicy: { orderMode: 'byDays' }
+                    }
                 }
             }
         }
@@ -392,34 +751,9 @@ describe('DashboardApp', () => {
         expect(screen.getByTestId('dashboard-page-progress-handler')).toHaveTextContent('true')
     })
 
-    it('passes Learning Content table defaults to the generic dashboard details contract', () => {
+    it('keeps Learning Content presentation settings out of the generic dashboard host context', () => {
         dashboardMocks.dashboardStateOverrides = {
             appData: {
-                zoneWidgets: { left: [], right: [], center: [] },
-                menus: [],
-                activeMenuId: null,
-                settings: {
-                    learningContent: {
-                        defaultView: 'cards',
-                        courseCompletionPolicy: {
-                            navigationMode: 'sequential',
-                            completionCondition: 'selectedItems',
-                            statusFormat: 'passedFailed'
-                        },
-                        trackOrderPolicy: {
-                            orderMode: 'byDays'
-                        },
-                        columnPreset: {
-                            codename: 'learningContentDefault',
-                            title: { en: 'Learning Content default' },
-                            columns: [
-                                { field: 'type', visible: true, width: 140 },
-                                { field: 'title', visible: true, flex: 1 },
-                                { field: 'ProjectId', visible: false }
-                            ]
-                        }
-                    }
-                },
                 permissions: {
                     manageMembers: false,
                     manageApplication: false,
@@ -431,15 +765,26 @@ describe('DashboardApp', () => {
                 objectCollection: {
                     name: 'Learning Content',
                     codename: 'LearningResources'
+                },
+                settings: {
+                    learningContent: {
+                        defaultView: 'cards',
+                        courseCompletionPolicy: {
+                            navigationMode: 'sequential',
+                            completionCondition: 'selectedItems',
+                            statusFormat: 'passedFailed'
+                        },
+                        trackOrderPolicy: { orderMode: 'byDays' }
+                    }
                 }
             }
         }
 
         render(<DashboardApp applicationId='app-1' locale='en' apiBaseUrl='http://localhost:3000' />)
 
-        expect(screen.getByTestId('dashboard-table-defaults')).toHaveTextContent('"defaultViewMode":"card"')
-        expect(screen.getByTestId('dashboard-table-defaults')).toHaveTextContent('"field":"type"')
-        expect(screen.getByTestId('dashboard-table-defaults')).toHaveTextContent('"visible":false')
+        expect(dashboardMocks.capturedDashboardDetails).not.toHaveProperty('tableDefaults')
+        expect(dashboardMocks.capturedDashboardDetails).not.toHaveProperty('rows')
+        expect(dashboardMocks.capturedDashboardDetails).not.toHaveProperty('columns')
         expect(dashboardMocks.capturedCrudOptions.createDefaultContext(dashboardMocks.dashboardStateOverrides.appData)).toMatchObject({
             learningContent: {
                 courseCompletionPolicy: {
@@ -457,120 +802,6 @@ describe('DashboardApp', () => {
     it('uses the configured create page surface after the create form opens', async () => {
         dashboardMocks.dashboardStateOverrides = {
             appData: {
-                zoneWidgets: { left: [], right: [], center: [] },
-                menus: [],
-                activeMenuId: null,
-                objectCollection: {
-                    name: 'Standalone details',
-                    runtimeConfig: { createSurface: 'page' }
-                }
-            },
-            formOpen: true
-        }
-
-        render(<DashboardApp applicationId='app-1' locale='en' apiBaseUrl='http://localhost:3000' />)
-
-        await waitFor(() => {
-            expect(screen.getByTestId('crud-dialogs-surface')).toHaveTextContent('page')
-        })
-    })
-
-    it('uses the configured edit and copy page surfaces when those modes are active', async () => {
-        const { rerender } = render(<DashboardApp applicationId='app-1' locale='en' apiBaseUrl='http://localhost:3000' />)
-
-        dashboardMocks.dashboardStateOverrides = {
-            appData: {
-                zoneWidgets: { left: [], right: [], center: [] },
-                menus: [],
-                activeMenuId: null,
-                objectCollection: {
-                    name: 'Standalone details',
-                    runtimeConfig: { editSurface: 'page', copySurface: 'page' }
-                }
-            },
-            formOpen: true,
-            editRowId: 'row-1',
-            copyRowId: null
-        }
-
-        rerender(<DashboardApp applicationId='app-1' locale='en' apiBaseUrl='http://localhost:3000' />)
-
-        await waitFor(() => {
-            expect(screen.getByTestId('crud-dialogs-surface')).toHaveTextContent('page')
-        })
-
-        dashboardMocks.dashboardStateOverrides = {
-            appData: {
-                zoneWidgets: { left: [], right: [], center: [] },
-                menus: [],
-                activeMenuId: null,
-                objectCollection: {
-                    name: 'Standalone details',
-                    runtimeConfig: { editSurface: 'dialog', copySurface: 'page' }
-                }
-            },
-            formOpen: true,
-            editRowId: null,
-            copyRowId: 'row-2'
-        }
-
-        rerender(<DashboardApp applicationId='app-1' locale='en' apiBaseUrl='http://localhost:3000' />)
-
-        await waitFor(() => {
-            expect(screen.getByTestId('crud-dialogs-surface')).toHaveTextContent('page')
-        })
-    })
-
-    it('wires the create action to the dashboard state', async () => {
-        render(<DashboardApp applicationId='app-1' locale='en' apiBaseUrl='http://localhost:3000' />)
-
-        const user = userEvent.setup()
-        await user.click(screen.getByRole('button', { name: 'Create' }))
-
-        expect(dashboardMocks.handleOpenCreate).toHaveBeenCalledTimes(1)
-    })
-
-    it('forwards create-target defaults to the standalone create form', async () => {
-        render(<DashboardApp applicationId='app-1' locale='en' apiBaseUrl='http://localhost:3000' />)
-
-        const user = userEvent.setup()
-        await user.click(screen.getByTestId('dashboard-open-link-target'))
-
-        await waitFor(() => {
-            expect(dashboardMocks.handleOpenCreate).toHaveBeenCalledWith([
-                { fieldCodename: 'ResourceType', enumCodename: 'Url' },
-                { fieldCodename: 'Source', resourceSourceType: 'url' }
-            ])
-        })
-    })
-
-    it('hides the create action when the object runtime config disables it', () => {
-        dashboardMocks.dashboardStateOverrides = {
-            appData: {
-                zoneWidgets: { left: [], right: [], center: [] },
-                menus: [],
-                activeMenuId: null,
-                objectCollection: {
-                    name: 'Standalone details',
-                    runtimeConfig: { showCreateButton: false }
-                }
-            }
-        }
-
-        render(<DashboardApp applicationId='app-1' locale='en' apiBaseUrl='http://localhost:3000' />)
-
-        expect(screen.queryByRole('button', { name: 'Create' })).not.toBeInTheDocument()
-    })
-
-    it('hides the create action when runtime permissions are read-only', () => {
-        dashboardMocks.dashboardStateOverrides = {
-            appData: {
-                zoneWidgets: { left: [], right: [], center: [] },
-                menus: [],
-                activeMenuId: null,
-                objectCollection: {
-                    name: 'Standalone details'
-                },
                 permissions: {
                     manageMembers: false,
                     manageApplication: false,
@@ -586,7 +817,7 @@ describe('DashboardApp', () => {
         expect(screen.queryByRole('button', { name: 'Create' })).not.toBeInTheDocument()
     })
 
-    it('renders the Workspaces route with runtime navigation and no demo dashboard layout', () => {
+    it('renders the Workspaces route with runtime navigation and no legacy dashboard flags', () => {
         const applicationId = '00000000-0000-7000-8000-000000000001'
         window.history.pushState({}, '', `/a/${applicationId}/workspaces`)
 
@@ -595,14 +826,7 @@ describe('DashboardApp', () => {
         expect(createStandaloneAdapter).toHaveBeenCalledWith({ apiBaseUrl: 'http://localhost:3000', applicationId })
         expect(screen.getByTestId('dashboard-title')).toHaveTextContent('Workspaces')
         expect(screen.getByTestId('dashboard-content')).toHaveTextContent(`workspaces:${applicationId}`)
-        expect(screen.getByTestId('dashboard-menu')).toHaveTextContent(
-            `LearningResources:false:/a/${applicationId}/object-1|Workspaces:true:/a/${applicationId}/workspaces`
-        )
-        expect(screen.getByTestId('dashboard-layout')).toHaveTextContent('"showOverviewTitle":false')
-        expect(screen.getByTestId('dashboard-layout')).toHaveTextContent('"showOverviewCards":false')
-        expect(screen.getByTestId('dashboard-layout')).toHaveTextContent('"showSessionsChart":false')
-        expect(screen.getByTestId('dashboard-layout')).toHaveTextContent('"showPageViewsChart":false')
-        expect(screen.getByTestId('dashboard-layout')).toHaveTextContent('"showDetailsTable":false')
+        expect(screen.getByTestId('dashboard-layout')).toHaveTextContent('{}')
     })
 
     it('reacts to internal runtime link navigation without a full page reload', async () => {
@@ -624,104 +848,37 @@ describe('DashboardApp', () => {
         expect(screen.getByTestId('dashboard-content')).toHaveTextContent(`workspaces:${applicationId}`)
     })
 
-    it('uses the interpretation workspace visibility target as standalone context for direct root Matrix routes', () => {
+    it('projects the semantic Structure target through its effective workspace placement', () => {
         const applicationId = '00000000-0000-7000-8000-000000000001'
-        window.history.pushState({}, '', `/a/${applicationId}?matrixCell=00000000-0000-7000-8000-000000000099`)
+        window.history.pushState({}, '', `/a/${applicationId}?targetKind=object&entityTypeCodename=Structure`)
+        dashboardMocks.resolvedEntityTypeId = 'structure-section'
+        dashboardMocks.effectiveLayoutWidgets = [
+            {
+                id: '018f8a78-7b8f-7c1d-a111-222233334445',
+                instanceKey: 'interpretation-workspace',
+                layoutId: '018f8a78-7b8f-7c1d-a111-222233334446',
+                widgetKey: 'interpretationNetworkWorkspace',
+                zone: 'center',
+                sortOrder: 1,
+                isActive: true,
+                parentInstanceKey: null,
+                slotKey: null,
+                config: { structureMode: 'multiple', conceptCodename: 'Structure' }
+            }
+        ]
         dashboardMocks.dashboardStateOverrides = {
-            selectedSectionId: undefined,
-            selectedObjectCollectionId: undefined,
-            activeSectionId: 'start-section',
-            activeObjectCollectionId: 'start-section',
+            selectedSectionId: 'intro-page',
+            activeSectionId: 'intro-page',
             appData: {
-                zoneWidgets: {
-                    left: [],
-                    right: [],
-                    center: [
-                        {
-                            id: 'interpretation-network',
-                            widgetKey: 'interpretationNetworkWorkspace',
-                            sortOrder: 1,
-                            config: {
-                                visibleFor: {
-                                    sectionCodenames: ['Structure'],
-                                    objectCollectionCodenames: ['Structure']
-                                }
-                            }
-                        }
-                    ]
-                },
-                menus: [
-                    {
-                        id: 'main-menu',
-                        widgetId: 'runtime-workspace-menu-widget',
-                        showTitle: false,
-                        title: 'Main',
-                        startSectionId: 'start-section',
-                        items: [
-                            {
-                                id: 'start',
-                                kind: 'section',
-                                title: 'Start',
-                                sectionId: 'start-section',
-                                sortOrder: 0,
-                                isActive: true
-                            },
-                            {
-                                id: 'structures',
-                                kind: 'section',
-                                title: 'Structures',
-                                sectionId: 'structure-section',
-                                sortOrder: 1,
-                                isActive: true
-                            }
-                        ]
-                    }
-                ],
-                activeMenuId: 'main-menu',
-                settings: { sectionLinksEnabled: true },
-                workspacesEnabled: true,
-                permissions: {
-                    manageMembers: false,
-                    manageApplication: false,
-                    createContent: true,
-                    editContent: true,
-                    deleteContent: true,
-                    readReports: false
-                },
-                objectCollection: {
-                    name: 'Start',
-                    codename: 'Start'
-                },
-                activeObjectCollectionId: 'start-section',
-                activeSectionId: 'start-section',
-                objectCollections: [
-                    { id: 'start-section', name: 'Start', codename: 'Start' },
-                    { id: 'structure-section', name: 'Structure', codename: 'Structure', tableName: 'obj_structure' }
-                ],
+                objectCollection: { id: 'intro-page', name: 'Welcome', codename: 'WelcomePage', pageBlocks: [{ id: 'intro' }] },
+                section: { id: 'intro-page', name: 'Welcome', codename: 'WelcomePage' },
+                objectCollections: [{ id: 'structure-section', name: 'Structure', codename: 'Structure', tableName: 'obj_structure' }],
                 sections: [
-                    { id: 'start-section', name: 'Start', codename: 'Start' },
+                    { id: 'intro-page', name: 'Welcome', codename: 'WelcomePage' },
                     { id: 'structure-section', name: 'Structure', codename: 'Structure', tableName: 'obj_structure' }
-                ]
-            },
-            menuSlot: {
-                title: null,
-                showTitle: false,
-                items: [
-                    {
-                        id: 'start',
-                        label: 'Start',
-                        kind: 'section',
-                        sectionId: 'start-section',
-                        selected: true
-                    },
-                    {
-                        id: 'structures',
-                        label: 'Structures',
-                        kind: 'section',
-                        sectionId: 'structure-section',
-                        selected: false
-                    }
-                ]
+                ],
+                activeObjectCollectionId: 'intro-page',
+                activeSectionId: 'intro-page'
             }
         }
 
@@ -730,254 +887,15 @@ describe('DashboardApp', () => {
         expect(screen.getByTestId('dashboard-title')).toHaveTextContent('Structure')
         expect(screen.getByTestId('dashboard-details-context')).toHaveTextContent('structure-section:Structure:structure-section:Structure')
         expect(screen.getByTestId('dashboard-page-blocks')).toHaveTextContent('0')
-    })
-
-    it('projects root Matrix routes even when the dashboard state still points to the Intro page', () => {
-        const applicationId = '00000000-0000-7000-8000-000000000001'
-        window.history.pushState({}, '', `/a/${applicationId}?matrixCell=00000000-0000-7000-8000-000000000099`)
-        dashboardMocks.dashboardStateOverrides = {
-            selectedSectionId: 'start-section',
-            selectedObjectCollectionId: 'start-section',
-            activeSectionId: 'start-section',
-            activeObjectCollectionId: undefined,
-            appData: {
-                zoneWidgets: {
-                    left: [],
-                    right: [],
-                    center: [
-                        {
-                            id: 'interpretation-network',
-                            widgetKey: 'interpretationNetworkWorkspace',
-                            sortOrder: 1,
-                            config: {
-                                structureMode: 'singleSystem',
-                                visibleFor: {
-                                    sectionCodenames: ['Structure'],
-                                    objectCollectionCodenames: ['Structure']
-                                }
-                            }
-                        }
-                    ]
-                },
-                menus: [
-                    {
-                        id: 'main-menu',
-                        widgetId: 'runtime-workspace-menu-widget',
-                        showTitle: false,
-                        title: 'Main',
-                        startSectionId: 'start-section',
-                        items: [
-                            {
-                                id: 'start',
-                                kind: 'section',
-                                title: 'Start',
-                                sectionId: 'start-section',
-                                sortOrder: 0,
-                                isActive: true
-                            },
-                            {
-                                id: 'structures',
-                                kind: 'section',
-                                title: 'Structures',
-                                sectionId: 'structure-section',
-                                objectCollectionId: 'structure-section',
-                                sortOrder: 1,
-                                isActive: true
-                            }
-                        ]
-                    }
-                ],
-                activeMenuId: 'main-menu',
-                settings: { sectionLinksEnabled: true },
-                workspacesEnabled: true,
-                permissions: {
-                    manageMembers: false,
-                    manageApplication: false,
-                    createContent: true,
-                    editContent: true,
-                    deleteContent: true,
-                    readReports: false
-                },
-                objectCollection: {
-                    id: 'start-section',
-                    name: 'Start',
-                    codename: 'InterpretationNetworkIntro',
-                    tableName: null,
-                    pageBlocks: [{ id: 'intro', type: 'paragraph', data: { text: 'Intro' } }]
-                },
-                section: {
-                    id: 'start-section',
-                    name: 'Start',
-                    codename: 'InterpretationNetworkIntro',
-                    tableName: null,
-                    pageBlocks: [{ id: 'intro', type: 'paragraph', data: { text: 'Intro' } }]
-                },
-                activeObjectCollectionId: null,
-                activeSectionId: 'start-section',
-                objectCollections: [
-                    { id: 'start-section', name: 'Start', codename: 'InterpretationNetworkIntro', tableName: null },
-                    { id: 'structure-section', name: 'Structure', codename: 'Structure', tableName: 'obj_structure' }
-                ],
-                sections: [
-                    { id: 'start-section', name: 'Start', codename: 'InterpretationNetworkIntro', tableName: null },
-                    { id: 'structure-section', name: 'Structure', codename: 'Structure', tableName: 'obj_structure' }
-                ],
-                rows: [],
-                columns: [],
-                pagination: { total: 0, limit: 50, offset: 0 }
-            },
-            menuSlot: {
-                title: null,
-                showTitle: false,
-                items: [
-                    {
-                        id: 'start',
-                        label: 'Start',
-                        kind: 'section',
-                        sectionId: 'start-section',
-                        selected: true
-                    },
-                    {
-                        id: 'structures',
-                        label: 'Structures',
-                        kind: 'section',
-                        sectionId: 'structure-section',
-                        objectCollectionId: 'structure-section',
-                        selected: false
-                    }
-                ]
-            }
+        const placements = JSON.parse(screen.getByTestId('dashboard-zone-widgets').textContent ?? '{}') as {
+            center?: Array<Record<string, unknown>>
         }
-
-        render(<DashboardApp applicationId={applicationId} locale='en' apiBaseUrl='http://localhost:3000' />)
-
-        expect(screen.getByTestId('dashboard-title')).toHaveTextContent('Structure')
-        expect(screen.getByTestId('dashboard-details-context')).toHaveTextContent('structure-section:Structure:structure-section:Structure')
-        expect(screen.getByTestId('dashboard-page-blocks')).toHaveTextContent('0')
-        expect(dashboardMocks.onSelectObjectCollection).not.toHaveBeenCalled()
-    })
-
-    it('projects the route section context while stale Intro page data is still loaded', () => {
-        const applicationId = '00000000-0000-7000-8000-000000000001'
-        window.history.pushState({}, '', `/a/${applicationId}/structure-section`)
-        dashboardMocks.dashboardStateOverrides = {
-            selectedSectionId: 'structure-section',
-            selectedObjectCollectionId: undefined,
-            activeSectionId: 'structure-section',
-            activeObjectCollectionId: undefined,
-            appData: {
-                zoneWidgets: {
-                    left: [],
-                    right: [],
-                    center: [
-                        {
-                            id: 'interpretation-network',
-                            widgetKey: 'interpretationNetworkWorkspace',
-                            sortOrder: 1,
-                            config: {
-                                visibleFor: {
-                                    sectionCodenames: ['Structure'],
-                                    objectCollectionCodenames: ['Structure']
-                                }
-                            }
-                        }
-                    ]
-                },
-                menus: [
-                    {
-                        id: 'main-menu',
-                        widgetId: 'runtime-workspace-menu-widget',
-                        showTitle: false,
-                        title: 'Main',
-                        startSectionId: 'start-section',
-                        items: [
-                            {
-                                id: 'start',
-                                kind: 'section',
-                                title: 'Start',
-                                sectionId: 'start-section',
-                                sortOrder: 0,
-                                isActive: true
-                            },
-                            {
-                                id: 'structures',
-                                kind: 'section',
-                                title: 'Structures',
-                                sectionId: 'structure-section',
-                                objectCollectionId: 'structure-section',
-                                sortOrder: 1,
-                                isActive: true
-                            }
-                        ]
-                    }
-                ],
-                activeMenuId: 'main-menu',
-                settings: { sectionLinksEnabled: true },
-                workspacesEnabled: true,
-                permissions: {
-                    manageMembers: false,
-                    manageApplication: false,
-                    createContent: true,
-                    editContent: true,
-                    deleteContent: true,
-                    readReports: false
-                },
-                objectCollection: {
-                    id: 'start-section',
-                    name: 'Start',
-                    codename: 'Start',
-                    tableName: null,
-                    pageBlocks: [{ id: 'intro', type: 'paragraph', data: { text: 'Intro' } }]
-                },
-                section: {
-                    id: 'start-section',
-                    name: 'Start',
-                    codename: 'Start',
-                    tableName: null,
-                    pageBlocks: [{ id: 'intro', type: 'paragraph', data: { text: 'Intro' } }]
-                },
-                activeObjectCollectionId: null,
-                activeSectionId: 'start-section',
-                objectCollections: [
-                    { id: 'start-section', name: 'Start', codename: 'Start', tableName: null },
-                    { id: 'structure-section', name: 'Structure', codename: 'Structure', tableName: 'obj_structure' }
-                ],
-                sections: [
-                    { id: 'start-section', name: 'Start', codename: 'Start', tableName: null },
-                    { id: 'structure-section', name: 'Structure', codename: 'Structure', tableName: 'obj_structure' }
-                ],
-                rows: [{ id: 'intro-row', title: 'Intro row' }],
-                columns: [{ id: 'intro-title', field: 'title', codename: 'Title', dataType: 'STRING', headerName: 'Title' }],
-                pagination: { total: 1, limit: 50, offset: 0 }
-            },
-            menuSlot: {
-                title: null,
-                showTitle: false,
-                items: [
-                    {
-                        id: 'start',
-                        label: 'Start',
-                        kind: 'section',
-                        sectionId: 'start-section',
-                        selected: true
-                    },
-                    {
-                        id: 'structures',
-                        label: 'Structures',
-                        kind: 'section',
-                        sectionId: 'structure-section',
-                        objectCollectionId: 'structure-section',
-                        selected: false
-                    }
-                ]
+        expect(placements.center).toMatchObject([
+            {
+                widgetKey: 'interpretationNetworkWorkspace',
+                config: { structureMode: 'multiple', conceptCodename: 'Structure' }
             }
-        }
-
-        render(<DashboardApp applicationId={applicationId} locale='en' apiBaseUrl='http://localhost:3000' />)
-
-        expect(screen.getByTestId('dashboard-title')).toHaveTextContent('Structure')
-        expect(screen.getByTestId('dashboard-details-context')).toHaveTextContent('structure-section:Structure:structure-section:Structure')
-        expect(screen.getByTestId('dashboard-page-blocks')).toHaveTextContent('0')
+        ])
     })
 
     it('renders a resolved union datasource when its active target differs from the aggregate route section', () => {
@@ -992,25 +910,6 @@ describe('DashboardApp', () => {
             activeObjectCollectionId: targetSectionId,
             rows: [{ id: 'resource-1', title: 'Operations handbook' }],
             appData: {
-                zoneWidgets: {
-                    left: [],
-                    right: [],
-                    center: [
-                        {
-                            id: 'union-table',
-                            widgetKey: 'detailsTable',
-                            sortOrder: 1,
-                            config: {
-                                datasource: {
-                                    kind: 'records.union',
-                                    targets: [{ objectCollectionId: targetSectionId }]
-                                }
-                            }
-                        }
-                    ]
-                },
-                menus: [],
-                activeMenuId: null,
                 settings: { sectionLinksEnabled: true },
                 workspacesEnabled: false,
                 permissions: {
@@ -1052,8 +951,8 @@ describe('DashboardApp', () => {
         expect(screen.getByTestId('dashboard-details-context')).toHaveTextContent(
             `${aggregateSectionId}:ContentProjects:${aggregateSectionId}:ContentProjects`
         )
-        expect(screen.getByTestId('dashboard-rows')).toHaveTextContent('Operations handbook')
-        expect(screen.getByTestId('dashboard-runtime-columns')).toHaveTextContent('title-column')
+        expect(dashboardMocks.capturedDashboardDetails).not.toHaveProperty('rows')
+        expect(dashboardMocks.capturedDashboardDetails).not.toHaveProperty('runtimeColumns')
     })
 
     it('does not accept an unresolved runtime route merely because stale data contains a union datasource', () => {
@@ -1067,20 +966,6 @@ describe('DashboardApp', () => {
             rows: [{ id: 'stale-row', title: 'Stale union content' }],
             rowCount: 42,
             appData: {
-                zoneWidgets: {
-                    left: [],
-                    right: [],
-                    center: [
-                        {
-                            id: 'stale-union-table',
-                            widgetKey: 'detailsTable',
-                            sortOrder: 1,
-                            config: { datasource: { kind: 'records.union', targets: [{ objectCollectionId: 'object-1' }] } }
-                        }
-                    ]
-                },
-                menus: [],
-                activeMenuId: null,
                 settings: { sectionLinksEnabled: true },
                 workspacesEnabled: false,
                 permissions: {
@@ -1105,9 +990,8 @@ describe('DashboardApp', () => {
 
         render(<DashboardApp applicationId={applicationId} locale='en' apiBaseUrl='http://localhost:3000' />)
 
-        expect(screen.getByTestId('dashboard-rows')).not.toHaveTextContent('Stale union content')
-        expect(screen.getByTestId('dashboard-runtime-columns')).not.toHaveTextContent('title-column')
-        expect(screen.getByTestId('dashboard-row-count')).toBeEmptyDOMElement()
+        expect(dashboardMocks.capturedDashboardDetails).not.toHaveProperty('rows')
+        expect(dashboardMocks.capturedDashboardDetails).not.toHaveProperty('columns')
         expect(screen.getByTestId('dashboard-zone-widgets')).not.toHaveTextContent('stale-union-table')
     })
 
@@ -1126,7 +1010,7 @@ describe('DashboardApp', () => {
 
         expect(screen.getByTestId('dashboard-title')).toHaveTextContent('Standalone details')
         expect(screen.getByTestId('dashboard-details-context')).toHaveTextContent(`${missingSectionId}::${missingSectionId}:`)
-        expect(screen.getByTestId('dashboard-rows')).not.toHaveTextContent('Stale content')
+        expect(dashboardMocks.capturedDashboardDetails).not.toHaveProperty('rows')
     })
 
     it('renders workspace detail navigation in standalone published apps', () => {
@@ -1137,9 +1021,6 @@ describe('DashboardApp', () => {
         render(<DashboardApp applicationId={applicationId} locale='en' apiBaseUrl='http://localhost:3000' />)
 
         expect(screen.getByTestId('dashboard-content')).toHaveTextContent(`workspaces:${applicationId}:${workspaceId}:access`)
-        expect(screen.getByTestId('dashboard-menu')).toHaveTextContent(
-            `LearningResources:false:/a/${applicationId}/object-1|Workspaces:true:/a/${applicationId}/workspaces|Dashboard:false:/a/${applicationId}/workspaces/${workspaceId}|Access:true:/a/${applicationId}/workspaces/${workspaceId}/access|Settings:false:/a/${applicationId}/workspaces/${workspaceId}/settings`
-        )
     })
 
     it('routes workspace settings in standalone published apps', () => {
@@ -1150,42 +1031,5 @@ describe('DashboardApp', () => {
         render(<DashboardApp applicationId={applicationId} locale='en' apiBaseUrl='http://localhost:3000' />)
 
         expect(screen.getByTestId('dashboard-content')).toHaveTextContent(`workspaces:${applicationId}:${workspaceId}:settings`)
-        expect(screen.getByTestId('dashboard-menu')).toHaveTextContent(
-            `Settings:true:/a/${applicationId}/workspaces/${workspaceId}/settings`
-        )
-    })
-
-    it('does not duplicate Workspaces when the runtime menu already provides the root workspace link', () => {
-        const applicationId = '00000000-0000-7000-8000-000000000001'
-        window.history.pushState({}, '', `/a/${applicationId}/workspaces`)
-        dashboardMocks.dashboardStateOverrides = {
-            menuSlot: {
-                title: null,
-                showTitle: false,
-                items: [
-                    {
-                        id: 'learning-resources',
-                        label: 'LearningResources',
-                        kind: 'section',
-                        objectCollectionId: 'object-1',
-                        selected: true
-                    },
-                    {
-                        id: 'runtime-workspaces',
-                        label: 'Workspaces',
-                        icon: 'apps',
-                        kind: 'link',
-                        href: `/a/${applicationId}/workspaces`,
-                        selected: false
-                    }
-                ]
-            }
-        }
-
-        render(<DashboardApp applicationId={applicationId} locale='en' apiBaseUrl='http://localhost:3000' />)
-
-        expect(screen.getByTestId('dashboard-menu')).toHaveTextContent(
-            `LearningResources:false:/a/${applicationId}/object-1|Workspaces:true:/a/${applicationId}/workspaces`
-        )
     })
 })

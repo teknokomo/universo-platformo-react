@@ -45,26 +45,14 @@ describe('applications translations', () => {
         expect(getPath(ru, 'workspace.settings')).toBe('Настройки')
     })
 
-    it('localizes menu widget side-menu settings in the application layout editor', () => {
+    it('localizes application layout side-menu settings', () => {
         const ru = applicationsTranslations.ru.applications
 
-        expect(getPath(ru, 'layouts.menuEditor.sideMenu.title')).toBe('Отображение бокового меню')
-        expect(getPath(ru, 'layouts.menuEditor.sideMenu.primaryMode')).toBe('Основной режим отображения')
-        expect(getPath(ru, 'layouts.menuEditor.sideMenu.rememberUserChoice')).toBe('Запоминать выбор пользователя')
-        expect(getPath(ru, 'layouts.menuEditor.sideMenu.modes.wide')).toBe('Широкое')
-        expect(getPath(ru, 'layouts.menuEditor.sideMenu.modes.compact')).toBe('Компактное с иконками')
-        expect(getPath(ru, 'layouts.menuEditor.sideMenu.modes.overlay')).toBe('Шторка поверх контента')
-    })
-
-    it('localizes inherited layout shared behavior fields in the application layout editor', () => {
-        const ru = applicationsTranslations.ru.applications
-
-        expect(getPath(ru, 'layouts.sharedBehavior.title')).toBe('Общее поведение')
-        expect(getPath(ru, 'layouts.sharedBehavior.description')).toBe(
-            'Определяет, можно ли в унаследованных макетах отключать, исключать или перемещать этот виджет.'
-        )
-        expect(getPath(ru, 'layouts.sharedBehavior.canDeactivate')).toBe('Можно деактивировать')
-        expect(getPath(ru, 'layouts.sharedBehavior.canExclude')).toBe('Можно исключать')
-        expect(getPath(ru, 'layouts.sharedBehavior.positionLocked')).toBe('Позиция зафиксирована')
+        expect(getPath(ru, 'layouts.sideMenu.title')).toBe('Отображение бокового меню')
+        expect(getPath(ru, 'layouts.sideMenu.primaryMode')).toBe('Основной режим отображения')
+        expect(getPath(ru, 'layouts.sideMenu.rememberUserChoice')).toBe('Запоминать выбор пользователя')
+        expect(getPath(ru, 'layouts.sideMenu.modes.wide')).toBe('Широкое')
+        expect(getPath(ru, 'layouts.sideMenu.modes.compact')).toBe('Компактное с иконками')
+        expect(getPath(ru, 'layouts.sideMenu.modes.overlay')).toBe('Шторка поверх контента')
     })
 })

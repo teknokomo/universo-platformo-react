@@ -70,6 +70,8 @@ import { useAllEntityTypesQuery } from '../../hooks'
 import RecordBehaviorFields from '../../ui/RecordBehaviorFields'
 import type { RecordBehaviorOption } from '../../ui/RecordBehaviorFields'
 import LedgerSchemaFields from '../../ui/LedgerSchemaFields'
+import ObjectRuntimeNavigationFields from '../../ui/ObjectRuntimeNavigationFields'
+import { applyObjectRuntimeNavigationConfig, getObjectRuntimeNavigationValues } from '../../ui/entityInstanceListHelpers'
 import {
     type ObjectCollectionFormValues,
     type ObjectCollectionMenuBaseContext,
@@ -371,6 +373,8 @@ export const ObjectCollectionListContent = () => {
             descriptionVlc: null,
             codename: null,
             codenameTouched: false,
+            _objectRuntimeConfig: {},
+            ...getObjectRuntimeNavigationValues({}),
             treeEntityIds: treeEntityId ? [treeEntityId] : [], // Auto-select current hub
             isSingleHub: false,
             isRequiredHub: false, // Default: object can exist without treeEntities
@@ -505,6 +509,20 @@ export const ObjectCollectionListContent = () => {
                     )
                 }
             ]
+
+            tabs.push({
+                id: 'navigation',
+                label: t('objects.tabs.navigation', 'Navigation'),
+                content: (
+                    <ObjectRuntimeNavigationFields
+                        visible={values.runtimeMenuVisible === true}
+                        icon={values.runtimeMenuIcon}
+                        setValue={setValue}
+                        disabled={isFormLoading}
+                        t={t}
+                    />
+                )
+            })
 
             if (showRecordBehaviorTab && objectEntityType) {
                 tabs.push({
@@ -1171,6 +1189,11 @@ export const ObjectCollectionListContent = () => {
             description: descriptionInput,
             namePrimaryLocale: namePrimaryLocale ?? '',
             descriptionPrimaryLocale,
+            config: applyObjectRuntimeNavigationConfig(
+                isRecordValue(data._objectRuntimeConfig) ? data._objectRuntimeConfig : {},
+                data.runtimeMenuVisible === true,
+                data.runtimeMenuIcon
+            ),
             treeEntityIds,
             isSingleHub,
             isRequiredHub,

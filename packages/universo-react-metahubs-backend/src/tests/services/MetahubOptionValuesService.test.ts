@@ -94,6 +94,17 @@ describe('MetahubOptionValuesService active-row filtering', () => {
         )
     })
 
+    it('locks an active option value for update before the transactional reference check', async () => {
+        const value = await service.findByIdForUpdate('metahub-1', 'value-1', 'user-1', mockTx as any)
+
+        expect(value).toMatchObject({ id: 'value-1', objectId: 'enum-1' })
+        expect(mockTxQuery).toHaveBeenCalledWith(
+            expect.stringContaining('WHERE id = $1 AND _upl_deleted = false AND _mhb_deleted = false LIMIT 1 FOR UPDATE'),
+            ['value-1']
+        )
+        expect(mockExecQuery).not.toHaveBeenCalled()
+    })
+
     it('returns the canonical codename JSONB on reads', async () => {
         mockExecQuery.mockResolvedValueOnce([
             {
@@ -240,5 +251,13 @@ describe('MetahubOptionValuesService active-row filtering', () => {
         ).toBe(true)
         expect(mockTxQuery.mock.calls.some((call) => call[0].includes('SET _mhb_deleted = true'))).toBe(true)
         expect(mockTxQuery.mock.calls.some((call) => call[0].includes('DELETE FROM'))).toBe(false)
+    })
+
+    it('deletes inside a caller transaction without opening a nested transaction', async () => {
+        await service.delete('metahub-1', 'value-1', 'user-1', mockTx as any)
+
+        expect(mockExec.transaction).not.toHaveBeenCalled()
+        expect(mockTxQuery.mock.calls.some((call) => call[0].includes('LIMIT 1 FOR UPDATE'))).toBe(true)
+        expect(mockTxQuery.mock.calls.some((call) => call[0].includes('SET _mhb_deleted = true'))).toBe(true)
     })
 })

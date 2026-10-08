@@ -21,6 +21,8 @@ import {
 import { assertRuntimeRecordMutable } from '../services/runtimeRecordBehavior'
 import { denyRuntimeEntityMutation } from '../shared/entityMutationPolicy'
 import { assertCanonicalMatrixChildMutation } from './runtimeChildRowsInterpretationNetworkGuard'
+import { isRuntimeChildParentReference, resolveRuntimeChildParentRecordId } from './runtimeChildRowParentReference'
+import { loadRuntimeChildParentRecord } from './runtimeChildRowParentAccess'
 import {
     resolveHierarchyAttrs,
     validateTabularCoordinates,
@@ -39,8 +41,8 @@ export const createRuntimeChildRowCopyDeleteHandlers = (
     query: ReturnType<typeof import('../shared/runtimeHelpers').createQueryHelper>
 ) => {
     const copyChildRow = async (req: Request, res: Response) => {
-        const { applicationId, recordId, componentId, childRowId } = req.params
-        if (!UUID_REGEX.test(recordId) || !UUID_REGEX.test(childRowId)) {
+        const { applicationId, recordId: parentRecordReference, componentId, childRowId } = req.params
+        if (!isRuntimeChildParentReference(parentRecordReference) || !UUID_REGEX.test(childRowId)) {
             return res.status(400).json({ error: 'Invalid ID format' })
         }
         const objectCollectionId = typeof req.query.objectCollectionId === 'string' ? req.query.objectCollectionId : undefined
@@ -53,13 +55,14 @@ export const createRuntimeChildRowCopyDeleteHandlers = (
 
         const tc = await resolveTabularContext(ctx.manager, ctx.schemaIdent, objectCollectionId, componentId)
         if (tc.error !== null) return res.status(400).json({ error: tc.error })
+        const recordId = resolveRuntimeChildParentRecordId({
+            reference: parentRecordReference,
+            applicationId,
+            workspaceId: ctx.currentWorkspaceId,
+            entityCodename: tc.object.codename
+        })
+        if (!recordId) return res.status(400).json({ error: 'Invalid ID format' })
         if (denyRuntimeEntityMutation(res, tc.object.config)) return
-        try {
-            await assertCanonicalMatrixChildMutation(ctx, applicationId, tc, recordId, 'copy')
-        } catch (error) {
-            if (error instanceof UpdateFailure) return res.status(error.statusCode).json(error.body)
-            throw error
-        }
         if (tc.tableAttr.validation_rules?.matrixUniqueCoordinates === true) {
             return res.status(400).json({ error: 'Matrix coordinate rows cannot be copied without selecting new coordinates' })
         }
@@ -73,24 +76,22 @@ export const createRuntimeChildRowCopyDeleteHandlers = (
         // FIX: replaced manual BEGIN/COMMIT/ROLLBACK with .transaction()
         try {
             const inserted = await ctx.manager.transaction(async (tx) => {
-                const parentRows = (await tx.query(
-                    `
-                    SELECT *
-            FROM ${tc.parentTableIdent}
-            WHERE id = $1
-              AND ${runtimeRowCondition}
-            FOR UPDATE
-          `,
-                    [recordId]
-                )) as Array<{ id: string; _upl_locked?: boolean }>
-
-                if (parentRows.length === 0) {
+                const parentRow = await loadRuntimeChildParentRecord({
+                    manager: tx,
+                    ctx,
+                    tc,
+                    recordId,
+                    minimumAccessLevel: 'edit',
+                    lock: true
+                })
+                if (!parentRow) {
                     throw new UpdateFailure(404, { error: 'Parent record not found' })
                 }
-                if (parentRows[0]._upl_locked) {
+                if (parentRow._upl_locked) {
                     throw new UpdateFailure(423, { error: 'Parent record is locked' })
                 }
-                assertRuntimeRecordMutable(tc.object.config, parentRows[0])
+                assertRuntimeRecordMutable(tc.object.config, parentRow)
+                await assertCanonicalMatrixChildMutation({ ...ctx, manager: tx }, applicationId, tc, recordId, 'copy')
 
                 const sourceRows = (await tx.query(
                     `
@@ -237,8 +238,8 @@ export const createRuntimeChildRowCopyDeleteHandlers = (
 
     // ============ DELETE CHILD ROW ============
     const deleteChildRow = async (req: Request, res: Response) => {
-        const { applicationId, recordId, componentId, childRowId } = req.params
-        if (!UUID_REGEX.test(recordId) || !UUID_REGEX.test(childRowId)) {
+        const { applicationId, recordId: parentRecordReference, componentId, childRowId } = req.params
+        if (!isRuntimeChildParentReference(parentRecordReference) || !UUID_REGEX.test(childRowId)) {
             return res.status(400).json({ error: 'Invalid ID format' })
         }
         const objectCollectionId = typeof req.query.objectCollectionId === 'string' ? req.query.objectCollectionId : undefined
@@ -258,13 +259,14 @@ export const createRuntimeChildRowCopyDeleteHandlers = (
 
         const tc = await resolveTabularContext(ctx.manager, ctx.schemaIdent, objectCollectionId, componentId)
         if (tc.error !== null) return res.status(400).json({ error: tc.error })
+        const recordId = resolveRuntimeChildParentRecordId({
+            reference: parentRecordReference,
+            applicationId,
+            workspaceId: ctx.currentWorkspaceId,
+            entityCodename: tc.object.codename
+        })
+        if (!recordId) return res.status(400).json({ error: 'Invalid ID format' })
         if (denyRuntimeEntityMutation(res, tc.object.config)) return
-        try {
-            await assertCanonicalMatrixChildMutation(ctx, applicationId, tc, recordId, 'delete')
-        } catch (error) {
-            if (error instanceof UpdateFailure) return res.status(error.statusCode).json(error.body)
-            throw error
-        }
         const runtimeRowCondition = buildRuntimeActiveRowCondition(
             tc.lifecycleContract,
             tc.object.config,
@@ -278,24 +280,22 @@ export const createRuntimeChildRowCopyDeleteHandlers = (
         // FIX: replaced manual BEGIN/COMMIT/ROLLBACK with .transaction()
         try {
             await ctx.manager.transaction(async (tx) => {
-                const parentRows = (await tx.query(
-                    `
-                    SELECT *
-            FROM ${tc.parentTableIdent}
-            WHERE id = $1
-              AND ${runtimeRowCondition}
-            FOR UPDATE
-          `,
-                    [recordId]
-                )) as Array<{ id: string; _upl_locked?: boolean }>
-
-                if (parentRows.length === 0) {
+                const parentRow = await loadRuntimeChildParentRecord({
+                    manager: tx,
+                    ctx,
+                    tc,
+                    recordId,
+                    minimumAccessLevel: 'edit',
+                    lock: true
+                })
+                if (!parentRow) {
                     throw new UpdateFailure(404, { error: 'Parent record not found' })
                 }
-                if (parentRows[0]._upl_locked) {
+                if (parentRow._upl_locked) {
                     throw new UpdateFailure(423, { error: 'Parent record is locked' })
                 }
-                assertRuntimeRecordMutable(tc.object.config, parentRows[0])
+                assertRuntimeRecordMutable(tc.object.config, parentRow)
+                await assertCanonicalMatrixChildMutation({ ...ctx, manager: tx }, applicationId, tc, recordId, 'delete')
 
                 const hierarchyAttrs = resolveHierarchyAttrs(tc)
                 const childRows = (await tx.query(

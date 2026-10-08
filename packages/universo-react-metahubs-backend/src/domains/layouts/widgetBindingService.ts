@@ -1,4 +1,5 @@
 import {
+    applicationTemplateKeySchema,
     semanticEntitySelectorSchema,
     type WidgetBindingEntityKind,
     type WidgetBindingSlotDefinition,
@@ -10,6 +11,7 @@ import { uuidV7Schema } from '@universo-react/utils'
 import { MetahubConflictError, MetahubNotFoundError, MetahubValidationError } from '../shared/domainErrors'
 import { acquireWidgetBindingObjectLockByCodename } from './widgetBindingPolicyStore'
 import { acquireMetahubLayoutGraphLock } from './layoutGraphLocks'
+import { assertLayoutWidgetBindingAuthority, assertLayoutWidgetCanAuthorBindings, requireLayoutWidgetOwnership } from './widgetOwnership'
 import {
     findWidgetBindingObjectByCodename,
     findWidgetBindingRecordBySemanticKey,
@@ -189,14 +191,19 @@ export class WidgetBindingService {
         return widget
     }
 
-    private assertBasePlacementOwnsMarketingBindings(widget: ResolvedWidgetContext): void {
-        if (
-            widget.templateKey === 'marketing-page' &&
-            typeof widget.row.scope_entity_id === 'string' &&
-            typeof widget.row.base_layout_id === 'string'
-        ) {
-            throw new MetahubValidationError('Marketing overlay layouts must inherit Entity bindings from their base placements')
-        }
+    private assertBasePlacementOwnsBindings(widget: ResolvedWidgetContext): void {
+        const definition = requireLayoutWidgetOwnership(widget.templateKey, widget.widgetKey, widget.rendererConfig)
+        assertLayoutWidgetBindingAuthority({
+            definition,
+            lineage: {
+                scopeEntityId: widget.row.scope_entity_id,
+                baseLayoutId: widget.row.base_layout_id
+            },
+            hasBindings:
+                definition.sourcePolicy.sourceMode === 'required' ||
+                (definition.bindingSlots?.length ?? 0) > 0 ||
+                (definition.bindingSlotFamilies?.length ?? 0) > 0
+        })
     }
 
     private async lockAndValidateObject(
@@ -543,7 +550,6 @@ export class WidgetBindingService {
         context: WidgetBindingRequestContext,
         rawInput: {
             layoutId: string
-            templateKey: 'marketing-page'
             widgetKey: string
             slot: string
             variant?: string
@@ -555,11 +561,17 @@ export class WidgetBindingService {
         }
     ): Promise<WidgetBindingSourcesDto> {
         const input = parseWidgetBindingInput(discoverSourcePageInputSchema, rawInput)
-        const definition = discoveryDefinition(input.widgetKey, input.variant)
-        assertDiscoveryAllowed(definition)
-        const slot = requireDefinitionSlot(definition, input.slot)
         return this.withSchema(context, async (db, schemaName) => {
             await acquireMetahubLayoutGraphLock(db, schemaName)
+            const layout = await this.store.loadSourceLayout(db, schemaName, input.layoutId, true)
+            const templateKey = applicationTemplateKeySchema.parse(layout.template_key)
+            const definition = discoveryDefinition(templateKey, input.widgetKey, input.variant)
+            assertLayoutWidgetCanAuthorBindings(definition, {
+                scopeEntityId: layout.scope_entity_id,
+                baseLayoutId: layout.base_layout_id
+            })
+            assertDiscoveryAllowed(definition)
+            const slot = requireDefinitionSlot(definition, input.slot)
             let parentObject: BindingObjectRow | undefined
             if (slot.relation) {
                 if (!input.parentSourceKey) throw new MetahubValidationError('Select the parent source before configuring this relation')
@@ -588,7 +600,6 @@ export class WidgetBindingService {
         context: WidgetBindingRequestContext,
         rawInput: {
             layoutId: string
-            templateKey: 'marketing-page'
             widgetKey: string
             slot: string
             variant?: string
@@ -599,18 +610,20 @@ export class WidgetBindingService {
         }
     ): Promise<{ readonly widgetKey: string; readonly slot: string; readonly source: WidgetBindingSourceOption }> {
         const input = parseWidgetBindingInput(provisionSourceInputSchema, rawInput)
-        const definition = discoveryDefinition(input.widgetKey, input.variant)
-        assertDiscoveryAllowed(definition)
-        const slot = requireDefinitionSlot(definition, input.slot)
         const provisioner = this.dependencies.provisionSource
         if (!provisioner) throw new MetahubValidationError('Compatible content source provisioning is unavailable')
 
         return this.withSchema(context, async (db, schemaName) => {
             await acquireMetahubLayoutGraphLock(db, schemaName)
             const layout: BindingLayoutRow = await this.store.loadSourceLayout(db, schemaName, input.layoutId, true)
-            if (layout.template_key !== input.templateKey || layout.scope_entity_id !== null || layout.base_layout_id !== null) {
-                throw new MetahubNotFoundError('Marketing source layout')
-            }
+            const templateKey = applicationTemplateKeySchema.parse(layout.template_key)
+            const definition = discoveryDefinition(templateKey, input.widgetKey, input.variant)
+            assertLayoutWidgetCanAuthorBindings(definition, {
+                scopeEntityId: layout.scope_entity_id,
+                baseLayoutId: layout.base_layout_id
+            })
+            assertDiscoveryAllowed(definition)
+            const slot = requireDefinitionSlot(definition, input.slot)
 
             let parentObject: BindingObjectRow | undefined
             if (slot.relation) {
@@ -702,7 +715,6 @@ export class WidgetBindingService {
         context: WidgetBindingRequestContext,
         rawInput: {
             layoutId: string
-            templateKey: 'marketing-page'
             widgetKey: string
             slot: string
             variant?: string
@@ -714,11 +726,17 @@ export class WidgetBindingService {
         }
     ): Promise<WidgetBindingRecordsDto> {
         const input = parseWidgetBindingInput(discoverRecordPageInputSchema, rawInput)
-        const definition = discoveryDefinition(input.widgetKey, input.variant)
-        assertDiscoveryAllowed(definition)
-        const slot = requireDefinitionSlot(definition, input.slot)
         return this.withSchema(context, async (db, schemaName) => {
             await acquireMetahubLayoutGraphLock(db, schemaName)
+            const layout = await this.store.loadSourceLayout(db, schemaName, input.layoutId, true)
+            const templateKey = applicationTemplateKeySchema.parse(layout.template_key)
+            const definition = discoveryDefinition(templateKey, input.widgetKey, input.variant)
+            assertLayoutWidgetCanAuthorBindings(definition, {
+                scopeEntityId: layout.scope_entity_id,
+                baseLayoutId: layout.base_layout_id
+            })
+            assertDiscoveryAllowed(definition)
+            const slot = requireDefinitionSlot(definition, input.slot)
             return this.listRecordsForSlot(
                 db,
                 schemaName,
@@ -812,7 +830,7 @@ export class WidgetBindingService {
         return this.withSchema(context, async (db, schemaName) => {
             await acquireMetahubLayoutGraphLock(db, schemaName)
             const initialWidget = await this.loadWidgetInLayout(db, schemaName, input.layoutId, input.widgetId)
-            this.assertBasePlacementOwnsMarketingBindings(initialWidget)
+            this.assertBasePlacementOwnsBindings(initialWidget)
             assertRebindAllowed(initialWidget)
             const targetWidget = input.rendererConfig ? withValidatedRendererConfig(initialWidget, input.rendererConfig) : initialWidget
 
@@ -887,7 +905,7 @@ export class WidgetBindingService {
             })
             const currentRow = await this.store.loadWidget(db, schemaName, input.widgetId, true)
             const currentWidget = parseResolvedWidget(currentRow)
-            this.assertBasePlacementOwnsMarketingBindings(currentWidget)
+            this.assertBasePlacementOwnsBindings(currentWidget)
             if (currentRow.layout_id !== input.layoutId || currentRow.widget_key !== initialWidget.row.widget_key) {
                 throw new MetahubNotFoundError('Layout widget')
             }

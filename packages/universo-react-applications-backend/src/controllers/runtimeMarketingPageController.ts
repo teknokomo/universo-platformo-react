@@ -340,7 +340,7 @@ export function createRuntimeMarketingPageController(getDbExecutor: () => DbExec
                 }
             }
 
-            const instanceKey = String(config.instanceKey)
+            const instanceKey = widget.instanceKey
             if (instanceKeys.has(instanceKey)) return invalidLayout('Marketing widget instance keys must be unique within a layout.')
             instanceKeys.add(instanceKey)
             validatedWidgets.set(widget.id, { config, ...(bindings ? { bindings } : {}) })
@@ -443,7 +443,7 @@ export function createRuntimeMarketingPageController(getDbExecutor: () => DbExec
             }
 
             const rawWidget = {
-                instanceKey: config.instanceKey,
+                instanceKey: widget.instanceKey,
                 zone: widget.zone,
                 widgetKey: widget.widgetKey,
                 sortOrder: widget.sortOrder,

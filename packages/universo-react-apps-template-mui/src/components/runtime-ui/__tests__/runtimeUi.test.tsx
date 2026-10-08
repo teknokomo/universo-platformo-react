@@ -52,6 +52,7 @@ describe('runtime UI primitives', () => {
                 <ItemCard data={{ id: 'workspace-1', displayName: 'Primary workspace', description: 'Workspace description' }} />
                 <FlowListTable
                     data={[{ id: 'workspace-1', displayName: 'Primary workspace', description: 'Workspace description' }]}
+                    tableAriaLabel='Workspace records'
                     customColumns={[
                         { id: 'name', label: 'Name', render: (row) => row.displayName },
                         { id: 'description', label: 'Description', render: (row) => row.description }
@@ -80,6 +81,7 @@ describe('runtime UI primitives', () => {
 
         expect(screen.getAllByText('Primary workspace')).toHaveLength(2)
         expect(screen.getByTestId('runtime-list-surface')).toBeVisible()
+        expect(screen.getByRole('table', { name: 'Workspace records' })).toBeVisible()
         expect(screen.getByTestId('runtime-pagination-surface')).toBeVisible()
         expect(screen.getByText('1-20 of 35')).toBeVisible()
         expect(screen.getByRole('combobox')).toBeVisible()
@@ -122,9 +124,13 @@ describe('runtime UI primitives', () => {
                     { id: 'row-2', Name: 'Lesson two' } as FlowListTableData & { Name: string }
                 ]}
                 sortableRows
+                tableAriaLabel='Lessons'
+                sortableColumnLabel='Reorder lessons'
             />
         )
 
+        expect(screen.getByRole('table', { name: 'Lessons' })).toBeVisible()
+        expect(screen.getByRole('columnheader', { name: 'Reorder lessons' })).toBeVisible()
         expect(screen.getByRole('button', { name: 'Move Lesson one down' })).toBeVisible()
         expect(screen.getByRole('button', { name: 'Move Lesson two up' })).toBeVisible()
     })

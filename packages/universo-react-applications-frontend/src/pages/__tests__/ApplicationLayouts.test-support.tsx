@@ -21,6 +21,24 @@ const getResetLocaleString = (language: 'en' | 'ru', key: string): string | unde
     return typeof value === 'string' ? value : undefined
 }
 
+const getApplicationLocaleString = (language: 'en' | 'ru', key: string): string | undefined => {
+    const locale = language === 'ru' ? ruApplicationsLocale : enApplicationsLocale
+    const resourceKey = key.split(':').at(-1) ?? key
+    let value: unknown = locale.applications
+    for (const segment of resourceKey.split('.')) {
+        if (!value || typeof value !== 'object') return undefined
+        value = (value as Record<string, unknown>)[segment]
+    }
+    return typeof value === 'string' ? value : undefined
+}
+
+const resourceBackedTestKeys = new Set([
+    'layouts.widgetCustomization.application',
+    'layouts.widgetCustomization.metahub',
+    'layouts.state.conflict',
+    'layouts.state.source_removed'
+])
+
 vi.setConfig({ testTimeout: 15_000 })
 
 const hoistedMocks = vi.hoisted(() => ({
@@ -83,6 +101,8 @@ vi.mock('react-i18next', () => ({
                     'Use application settings to control which workspace settings can be changed inside workspaces.',
                 'layouts.widgetCustomization.application': 'Customized in application',
                 'layouts.widgetCustomization.metahub': 'Inherited from metahub',
+                'layouts.state.conflict': localeMocks.language === 'ru' ? 'Конфликт' : 'Conflict',
+                'layouts.state.source_removed': localeMocks.language === 'ru' ? 'Источник удалён' : 'Source removed',
                 'layouts.interpretationNetworkEditor.saveError': 'Failed to save widget settings',
                 'settings.matrix.singleSystemStructuresExist':
                     'Single-system mode cannot be enabled while ordinary Structures exist. Delete them first.',
@@ -105,7 +125,9 @@ vi.mock('react-i18next', () => ({
                 dictionary['layouts.widgetCustomization.metahub'] = 'Унаследовано из метахаба'
             }
             const fallbackValue = typeof fallback === 'string' ? fallback : fallback?.defaultValue
-            const template = dictionary[key] ?? getResetLocaleString(localeMocks.language, key) ?? fallbackValue ?? key
+            const localizedTestValue = resourceBackedTestKeys.has(key) ? getApplicationLocaleString(localeMocks.language, key) : undefined
+            const template =
+                localizedTestValue ?? dictionary[key] ?? getResetLocaleString(localeMocks.language, key) ?? fallbackValue ?? key
             const interpolationParams = {
                 ...(typeof fallback === 'object' ? fallback : {}),
                 ...(params ?? {})
@@ -202,16 +224,45 @@ vi.mock('@universo-react/template-mui', async () => {
                               ))}
                               {(zone.items ?? []).map((item: any) => (
                                   <div key={item.id}>
-                                      <button type='button' onClick={item.onClick}>
-                                          {item.label}
-                                      </button>
+                                      {item.onClick ? (
+                                          <button
+                                              type='button'
+                                              data-testid={`layout-widget-edit-${item.id}`}
+                                              aria-label={item.editAriaLabel}
+                                              onClick={item.onClick}
+                                          >
+                                              {item.label}
+                                          </button>
+                                      ) : (
+                                          <span>{item.label}</span>
+                                      )}
+                                      {item.draggable ? (
+                                          <button
+                                              type='button'
+                                              data-testid={`layout-widget-drag-${item.id}`}
+                                              onClick={() => onDragEnd?.({ active: { id: item.id }, over: { id: `zone:${zone.zone}` } })}
+                                          >
+                                              reorder-{item.label}
+                                          </button>
+                                      ) : null}
                                       {item.toggleActiveAriaLabel ? (
                                           <button
                                               type='button'
+                                              data-testid={`layout-widget-toggle-${item.id}`}
                                               aria-label={item.toggleActiveAriaLabel}
                                               onClick={() => item.onToggleActive?.(!item.isActive)}
                                           >
                                               toggle-{item.label}
+                                          </button>
+                                      ) : null}
+                                      {item.onRemove ? (
+                                          <button
+                                              type='button'
+                                              data-testid={`layout-widget-remove-${item.id}`}
+                                              aria-label={item.removeAriaLabel}
+                                              onClick={item.onRemove}
+                                          >
+                                              remove-{item.label}
                                           </button>
                                       ) : null}
                                       {item.inheritedLabel ? <span>{item.inheritedLabel}</span> : null}
@@ -236,7 +287,7 @@ vi.mock('@universo-react/template-mui', async () => {
                                           </button>
                                       ) : null}
                                       {(item.moveActions ?? []).map((action: any) => (
-                                          <button key={action.key} type='button' onClick={action.onClick}>
+                                          <button key={action.key} type='button' data-testid={action.testId} onClick={action.onClick}>
                                               {action.testId}
                                           </button>
                                       ))}
@@ -251,24 +302,32 @@ vi.mock('@universo-react/template-mui', async () => {
             </div>
         ),
         LayoutZoneSettingsDialog: actual.LayoutZoneSettingsDialog,
-        MarketingWidgetConfigDialog: ({ open, title, widgetKey, onSave, onCancel }: any) =>
+        LayoutWidgetPresentationDialog: ({ open, title, widgetKey, initialConfig, onSave, onCancel }: any) =>
             open ? (
-                <div role='dialog' aria-label={title} data-testid='marketing-widget-config-dialog-mock'>
+                <div
+                    role='dialog'
+                    aria-label={title}
+                    data-testid='layout-widget-presentation-dialog-mock'
+                    data-widget-key={widgetKey}
+                    data-renderer-config-has-instance-key={String(Object.prototype.hasOwnProperty.call(initialConfig ?? {}, 'instanceKey'))}
+                >
                     <h2>{title}</h2>
                     <button
                         type='button'
-                        onClick={() =>
-                            onSave({
-                                instanceKey: '018f8a78-7b8f-7c1d-a111-2222333344a2',
-                                ...(widgetKey === 'marketing.hero' ? { showLeadForm: false } : {}),
-                                ...(widgetKey === 'marketing.collection' ? { variant: 'features' } : {})
-                            })
-                        }
+                        onClick={() => {
+                            void Promise.resolve(
+                                onSave({
+                                    ...(widgetKey === 'marketing.hero' ? { showLeadForm: false } : {}),
+                                    ...(widgetKey === 'marketing.collection' ? { variant: 'features' } : {}),
+                                    ...(widgetKey === 'overviewCards' ? { maxCards: 6, density: 'comfortable' } : {})
+                                })
+                            ).catch(() => undefined)
+                        }}
                     >
-                        save-marketing-widget
+                        save-widget-presentation
                     </button>
                     <button type='button' onClick={onCancel}>
-                        cancel-marketing-widget
+                        cancel-widget-presentation
                     </button>
                 </div>
             ) : null,
@@ -410,7 +469,9 @@ const marketingWidgetDefinitions = [
         templateKey: 'marketing-page',
         supportedTemplates: ['marketing-page'],
         labelKey: 'layouts.widgets.marketing.hero',
-        defaultLabel: 'Hero'
+        defaultLabel: 'Hero',
+        sourcePolicy: { authority: 'metahub-source', sourceMode: 'required', inheritBindings: true, inheritComposition: false },
+        applicationPlacementOverrides: { active: true, order: 'root-only', zone: false, parentSlot: false }
     },
     {
         key: 'marketing.collection',
@@ -420,7 +481,9 @@ const marketingWidgetDefinitions = [
         templateKey: 'marketing-page',
         supportedTemplates: ['marketing-page'],
         labelKey: 'layouts.widgets.marketing.collection',
-        defaultLabel: 'Collection'
+        defaultLabel: 'Collection',
+        sourcePolicy: { authority: 'metahub-source', sourceMode: 'required', inheritBindings: true, inheritComposition: false },
+        applicationPlacementOverrides: { active: true, order: 'root-only', zone: false, parentSlot: false }
     },
     {
         key: 'marketing.image',
@@ -430,7 +493,9 @@ const marketingWidgetDefinitions = [
         templateKey: 'marketing-page',
         supportedTemplates: ['marketing-page'],
         labelKey: 'layouts.widgets.marketing.image',
-        defaultLabel: 'Image'
+        defaultLabel: 'Image',
+        sourcePolicy: { authority: 'metahub-source', sourceMode: 'optional', inheritBindings: true, inheritComposition: false },
+        applicationPlacementOverrides: { active: true, order: 'root-only', zone: false, parentSlot: false }
     },
     {
         key: 'languageSwitcher',
@@ -445,12 +510,15 @@ const marketingWidgetDefinitions = [
     }
 ]
 
-export const prepareMarketingLayout = (widgets: Array<Record<string, unknown>>) => {
+export const prepareMarketingLayout = (
+    widgets: Array<Record<string, unknown>>,
+    syncState: 'clean' | 'conflict' | 'source_removed' = 'clean'
+) => {
     const item = {
         ...createMarketingLayout(),
         sourceKind: 'metahub' as const,
         sourceLayoutId: 'source-layout-1',
-        syncState: 'clean' as const
+        syncState
     }
     apiMocks.listApplicationLayouts.mockResolvedValue({
         items: [item],
@@ -544,6 +612,9 @@ export const resetApplicationLayoutsMocks = () => {
                 layoutId: 'layout-1',
                 zone: 'top',
                 widgetKey: 'overviewCards',
+                instanceKey: 'overview-cards-main',
+                parentWidgetId: null,
+                slotKey: null,
                 sortOrder: 0,
                 config: {},
                 isActive: true,
@@ -554,14 +625,11 @@ export const resetApplicationLayoutsMocks = () => {
                 layoutId: 'layout-1',
                 zone: 'center',
                 widgetKey: 'menuWidget',
+                instanceKey: 'menu-main',
+                parentWidgetId: null,
+                slotKey: null,
                 sortOrder: 0,
-                config: {
-                    title: {
-                        locales: {
-                            en: { content: 'Training' }
-                        }
-                    }
-                },
+                config: { variant: 'generated' },
                 isActive: true,
                 version: 3
             },
@@ -569,7 +637,10 @@ export const resetApplicationLayoutsMocks = () => {
                 id: 'widget-bottom-1',
                 layoutId: 'layout-1',
                 zone: 'bottom',
-                widgetKey: 'notes',
+                widgetKey: 'footer',
+                instanceKey: 'footer-inactive',
+                parentWidgetId: null,
+                slotKey: null,
                 sortOrder: 0,
                 config: {},
                 isActive: false,
@@ -580,6 +651,9 @@ export const resetApplicationLayoutsMocks = () => {
                 layoutId: 'layout-1',
                 zone: 'center',
                 widgetKey: 'interpretationNetworkWorkspace',
+                instanceKey: 'interpretation-main',
+                parentWidgetId: null,
+                slotKey: null,
                 sortOrder: 1,
                 config: {
                     matrixMode: 'hierarchicalCells',
@@ -602,6 +676,9 @@ export const resetApplicationLayoutsMocks = () => {
                 layoutId: 'layout-1',
                 zone: 'left',
                 widgetKey: 'workspaceSwitcher',
+                instanceKey: 'workspace-switcher-main',
+                parentWidgetId: null,
+                slotKey: null,
                 sortOrder: 1,
                 config: {},
                 isActive: true,
@@ -612,6 +689,9 @@ export const resetApplicationLayoutsMocks = () => {
                 layoutId: 'layout-1',
                 zone: 'left',
                 widgetKey: 'divider',
+                instanceKey: 'divider-main',
+                parentWidgetId: null,
+                slotKey: null,
                 sortOrder: 2,
                 config: {},
                 isActive: true,
@@ -638,7 +718,9 @@ export const resetApplicationLayoutsMocks = () => {
             templateKey: 'dashboard',
             supportedTemplates: ['dashboard'],
             labelKey: 'layouts.widgets.overviewCards',
-            defaultLabel: 'Overview cards'
+            defaultLabel: 'Overview cards',
+            sourcePolicy: { authority: 'metahub-source', sourceMode: 'required', inheritBindings: true, inheritComposition: false },
+            applicationPlacementOverrides: { active: true, order: 'root-only', zone: false, parentSlot: false }
         },
         {
             key: 'interpretationNetworkWorkspace',
@@ -676,6 +758,9 @@ export const resetApplicationLayoutsMocks = () => {
         layoutId: 'layout-1',
         zone: 'top',
         widgetKey: 'divider',
+        instanceKey: 'divider-main',
+        parentWidgetId: null,
+        slotKey: null,
         sortOrder: 1,
         config: {},
         isActive: true,

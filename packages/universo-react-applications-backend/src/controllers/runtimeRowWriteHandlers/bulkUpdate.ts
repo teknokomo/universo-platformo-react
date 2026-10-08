@@ -11,7 +11,6 @@ import {
 import {
     IDENTIFIER_REGEX,
     RUNTIME_WRITABLE_TYPES,
-    UUID_REGEX,
     UpdateFailure,
     buildRuntimeActiveRowCondition,
     buildRuntimeSoftDeleteSetClause,
@@ -43,23 +42,35 @@ import {
     isRuntimeSetKind,
     runtimeBulkUpdateBodySchema,
     type RuntimeObjectCollectionAttr
-} from '../runtimeRowSupport/contracts'
-import { resolveRuntimeObjectCollection } from '../runtimeRowSupport/objects'
+} from '../../services/runtimeRowSupport/contracts'
+import {
+    findRuntimeAttrByFieldKey,
+    resolveRuntimeObjectCollection,
+    resolveRuntimeObjectCollectionConfig
+} from '../runtimeRowSupport/objects'
 import { denyRuntimeEntityMutation } from '../../shared/entityMutationPolicy'
 import {
     validateRuntimeDateOrderRules,
     validateRuntimeParentRecordAccessReferences,
     validateRuntimeRecordPickerReferences,
-    validateRuntimeRequiredWhenRules
+    validateRuntimeRequiredWhenRules,
+    hasRuntimeServerOwnedInput
 } from '../runtimeRowSupport/validation'
 import {
     assertNotProtectedSystemStructureRuntimeRow,
     buildRuntimeRecordAccessClause,
-    hasRuntimeServerOwnedInput,
     loadRuntimeRowByIdWithRecordAccess,
     validateRuntimeAccessEntryMembership
-} from '../runtimeRowSupport/access'
+} from '../../services/runtimeRowSupport/access'
 import { collectTouchedComponentIds, loadRuntimeRowById } from '../runtimeRowSupport/rows'
+import {
+    buildRuntimeRelationRowPredicate,
+    lockRuntimeRelationParentRecord,
+    resolveRuntimeRelationWriteScope,
+    revalidateRuntimeRelationWriteScope,
+    type ResolvedRuntimeRelationScope
+} from '../runtimeRowSupport/relationScope'
+import { resolveRuntimeRelationOwnedFieldCodenames } from '../../services/runtimeRowSupport/list'
 
 import { insertRuntimeChildRowsBatch } from './tableChildren'
 import type {
@@ -68,6 +79,7 @@ import type {
     RuntimeWriteTableDataEntry,
     RuntimeTableChildAttrRow
 } from './types'
+import { isRuntimeRecordReference, resolveRuntimeRecordReference } from '../../services/runtimeRecordHandle'
 
 export const buildBulkUpdateScalarPatch = async (params: {
     manager: DbExecutor
@@ -413,6 +425,7 @@ export const executeBulkUpdateStatement = async (params: {
     versionCheckClause: string
     expectedVersion: number | undefined
     tableDataEntries: RuntimeWriteTableDataEntry[]
+    relationScope?: ResolvedRuntimeRelationScope
 }): Promise<void> => {
     const objectCodename = resolveRuntimeCodenameText(params.objectCollection.codename)
     const updateAccessClause = await buildRuntimeRecordAccessClause({
@@ -428,11 +441,19 @@ export const executeBulkUpdateStatement = async (params: {
         values: params.values,
         minimumAccessLevel: 'edit'
     })
+    const relationScopeClause = params.relationScope
+        ? buildRuntimeRelationRowPredicate({
+              scope: params.relationScope,
+              parameterIndex: params.values.length + 1
+          })
+        : null
+    if (params.relationScope) params.values.push(params.relationScope.request.parentRecordId)
     const updateWhereSql = [
         `id = $${params.rowIdParamIndex}`,
         params.runtimeRowCondition,
         'COALESCE(_upl_locked, false) = false',
-        updateAccessClause
+        updateAccessClause,
+        relationScopeClause
     ]
         .filter((clause): clause is string => typeof clause === 'string' && clause.length > 0)
         .join(' AND ')
@@ -505,7 +526,22 @@ export const applyBulkUpdateInTransaction = async (params: {
     rowIdParamIndex: number
     versionCheckClause: string
     tableDataEntries: RuntimeWriteTableDataEntry[]
+    relationScope?: ResolvedRuntimeRelationScope
 }): Promise<RuntimeLifecycleDispatchRequest | null> => {
+    const relationScope = params.relationScope
+        ? await revalidateRuntimeRelationWriteScope({
+              executor: params.executor,
+              ctx: params.ctx,
+              applicationId: params.applicationId,
+              objectCollectionId: params.objectCollection.id,
+              childEntity: params.objectCollection,
+              childAttrs: params.attrs,
+              scope: params.relationScope
+          })
+        : undefined
+    if (relationScope) {
+        await lockRuntimeRelationParentRecord({ executor: params.executor, ctx: params.ctx, scope: relationScope })
+    }
     const previousRow = await loadRuntimeRowByIdWithRecordAccess({
         manager: params.executor,
         schemaIdent: params.ctx.schemaIdent,
@@ -524,6 +560,9 @@ export const applyBulkUpdateInTransaction = async (params: {
         throw new UpdateFailure(404, {
             error: 'Row not found'
         })
+    }
+    if (relationScope && previousRow[relationScope.parentFieldAttr.column_name] !== relationScope.request.parentRecordId) {
+        throw new UpdateFailure(404, { error: 'Row not found' })
     }
     if (previousRow._upl_locked) {
         throw new UpdateFailure(423, {
@@ -646,7 +685,8 @@ export const applyBulkUpdateInTransaction = async (params: {
         rowIdParamIndex: params.rowIdParamIndex,
         versionCheckClause: params.versionCheckClause,
         expectedVersion: params.expectedVersion,
-        tableDataEntries: params.tableDataEntries
+        tableDataEntries: params.tableDataEntries,
+        relationScope
     })
 
     const nextRow = await loadRuntimeRowById(params.executor, params.dataTableIdent, params.rowId, params.runtimeRowCondition)
@@ -670,8 +710,8 @@ export const applyBulkUpdateInTransaction = async (params: {
 export const createBulkUpdateRowHandler = ({ getDbExecutor, query }: RuntimeRowWriteDeps) => {
     // ============ BULK UPDATE ROW ============
     const bulkUpdateRow = async (req: Request, res: Response) => {
-        const { applicationId, rowId } = req.params
-        if (!UUID_REGEX.test(rowId)) return res.status(400).json({ error: 'Invalid row ID format' })
+        const { applicationId, rowId: rowReference } = req.params
+        if (!isRuntimeRecordReference(rowReference)) return res.status(400).json({ error: 'Invalid row reference format' })
 
         const ctx = await resolveRuntimeSchema(getDbExecutor, query, req, res, applicationId)
         if (!ctx) return
@@ -682,7 +722,12 @@ export const createBulkUpdateRowHandler = ({ getDbExecutor, query }: RuntimeRowW
             return res.status(400).json({ error: 'Invalid body', details: parsedBody.error.flatten() })
         }
 
-        const { objectCollectionId: requestedObjectCollectionId, data, expectedVersion } = parsedBody.data
+        const {
+            objectCollectionId: requestedObjectCollectionId,
+            data,
+            expectedVersion,
+            relationScope: requestedRelationScope
+        } = parsedBody.data
 
         const {
             objectCollection,
@@ -691,6 +736,58 @@ export const createBulkUpdateRowHandler = ({ getDbExecutor, query }: RuntimeRowW
         } = await resolveRuntimeObjectCollection(ctx.manager, ctx.schemaIdent, requestedObjectCollectionId)
         if (!objectCollection) return res.status(404).json({ error: objectCollectionError })
         if (denyRuntimeEntityMutation(res, objectCollection.config)) return
+        const resolvedReference = resolveRuntimeRecordReference(rowReference, {
+            applicationId,
+            workspaceId: ctx.currentWorkspaceId,
+            entityCodename: resolveRuntimeCodenameText(objectCollection.codename)
+        })
+        if (!resolvedReference) return res.status(404).json({ error: 'Row not found' })
+        const rowId = resolvedReference.recordId
+        const selectedLayout = (
+            await resolveRuntimeObjectCollectionConfig({
+                manager: ctx.manager,
+                applicationId,
+                userId: ctx.userId,
+                role: ctx.role,
+                workspaceId: ctx.currentWorkspaceId,
+                objectCollectionId: objectCollection.id,
+                objectCollectionCodename: resolveRuntimeCodenameText(objectCollection.codename)
+            })
+        ).selectedLayout
+        const relationOwnedAttrs = resolveRuntimeRelationOwnedFieldCodenames(
+            selectedLayout.zoneWidgets,
+            resolveRuntimeCodenameText(objectCollection.codename)
+        )
+            .map((fieldCodename) => findRuntimeAttrByFieldKey(attrs, fieldCodename))
+            .filter((attr): attr is RuntimeObjectCollectionAttr => Boolean(attr))
+        const relationScope = requestedRelationScope
+            ? await resolveRuntimeRelationWriteScope({
+                  manager: ctx.manager,
+                  applicationId,
+                  workspaceId: ctx.currentWorkspaceId,
+                  schemaIdent: ctx.schemaIdent,
+                  zoneWidgets: selectedLayout.zoneWidgets,
+                  childEntity: objectCollection,
+                  childAttrs: attrs,
+                  request: requestedRelationScope
+              })
+            : null
+        if (requestedRelationScope && !relationScope) {
+            return res.status(409).json({ error: 'The requested relation scope is unavailable', code: 'RUNTIME_RELATION_SCOPE_INVALID' })
+        }
+        const suppliedRelationOwnedAttr = relationOwnedAttrs.find(
+            (attr) => getRuntimeInputValue(data, attr.column_name, attr.codename).hasUserValue
+        )
+        if (suppliedRelationOwnedAttr && !relationScope) {
+            return res.status(409).json({
+                error: 'A verified relation scope is required to change this relationship',
+                code: 'RUNTIME_RELATION_SCOPE_REQUIRED'
+            })
+        }
+        if (relationScope && denyRuntimeEntityMutation(res, relationScope.parentCollection.config)) return
+        if (suppliedRelationOwnedAttr) {
+            return res.status(400).json({ error: 'Relation parent and ordering fields are server-owned' })
+        }
         const runtimeRowCondition = buildRuntimeActiveRowCondition(
             objectCollection.lifecycleContract,
             objectCollection.config,
@@ -778,7 +875,8 @@ export const createBulkUpdateRowHandler = ({ getDbExecutor, query }: RuntimeRowW
                     rowId,
                     rowIdParamIndex,
                     versionCheckClause,
-                    tableDataEntries
+                    tableDataEntries,
+                    relationScope: relationScope ?? undefined
                 })
             })
 

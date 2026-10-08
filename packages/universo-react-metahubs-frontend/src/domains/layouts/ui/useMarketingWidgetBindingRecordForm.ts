@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import type { DynamicEntityFormFieldError, DynamicFieldConfig } from '@universo-react/template-mui/components/dialogs'
 import type { WidgetBindingSlotDefinition } from '@universo-react/types'
+import { generateUuidV7 } from '@universo-react/utils'
 import * as recordsApi from '../../entities/metadata/record/api'
 import { invalidateRecordsQueries, metahubsQueryKeys } from '../../shared'
 import type { Component, RecordItem } from '../../../types'
@@ -26,6 +27,7 @@ type UseMarketingWidgetBindingRecordFormParams = {
     activeSlot: WidgetBindingSlotDefinition | undefined
     activeDraft: DraftBinding | undefined
     sourceEntity: { id: string } | null
+    sourceEntityKind?: 'object' | 'page'
     treeEntityId: string | null
     canCreateRecord: boolean
     semanticKeyRequirement: { componentCodename: string } | undefined
@@ -48,6 +50,7 @@ export function useMarketingWidgetBindingRecordForm({
     activeSlot,
     activeDraft,
     sourceEntity,
+    sourceEntityKind,
     treeEntityId,
     canCreateRecord,
     semanticKeyRequirement,
@@ -75,15 +78,7 @@ export function useMarketingWidgetBindingRecordForm({
     }
 
     const openCreateRecord = () => {
-        if (
-            !canCreateRecord ||
-            !canEditContent ||
-            !activeDraft ||
-            activeDraft.selectorKind !== 'semantic-key' ||
-            !sourceEntity ||
-            !treeEntityId
-        )
-            return
+        if (!canCreateRecord || !canEditContent || !activeDraft || activeDraft.selectorKind !== 'semantic-key' || !sourceEntity) return
         setRecordFormMode('create')
         setRecordFormInitialData(
             Object.fromEntries(recordFields.filter(({ required, type }) => required && type === 'BOOLEAN').map(({ id }) => [id, false]))
@@ -94,7 +89,7 @@ export function useMarketingWidgetBindingRecordForm({
     }
 
     const openEditRecord = async () => {
-        if (!canEditContent || !activeSlot || !activeDraft?.semanticKey || !semanticKeyRequirement || !sourceEntity || !treeEntityId) return
+        if (!canEditContent || !activeSlot || !activeDraft?.semanticKey || !semanticKeyRequirement || !sourceEntity) return
         setIsRecordResolving(true)
         setRecordFormError(null)
         try {
@@ -103,7 +98,8 @@ export function useMarketingWidgetBindingRecordForm({
                 treeEntityId,
                 sourceEntity.id,
                 semanticKeyRequirement.componentCodename,
-                activeDraft.semanticKey
+                activeDraft.semanticKey,
+                sourceEntityKind
             )
             setRecordFormTarget(record)
             setRecordFormInitialData(record.data ?? {})
@@ -118,33 +114,64 @@ export function useMarketingWidgetBindingRecordForm({
     }
 
     const saveRecordForm = async (submittedData: Record<string, unknown>) => {
-        if (!canEditContent || !activeSlot || !activeDraft || !sourceEntity || !treeEntityId || !semanticKeyRequirement) return
+        if (!canEditContent || !activeSlot || !activeDraft || !sourceEntity || !semanticKeyRequirement) return
         if (recordFormMode !== 'edit' && !canCreateRecord) return
         setIsRecordSaving(true)
         setRecordFormError(null)
         setRecordFieldError(null)
         try {
+            const isEditingRecord = recordFormMode === 'edit' && Boolean(recordFormTarget)
+            const semanticKeyField = semanticKeyRequirement.componentCodename
+            const existingSemanticKey = submittedData[semanticKeyField]
+            const recordData = isEditingRecord
+                ? submittedData
+                : {
+                      ...submittedData,
+                      [semanticKeyField]:
+                          typeof existingSemanticKey === 'string' && existingSemanticKey.trim()
+                              ? existingSemanticKey
+                              : `content-${generateUuidV7()}`
+                  }
+            const kindKey = sourceEntityKind && sourceEntityKind !== 'object' ? { kindKey: sourceEntityKind } : {}
+            const expectedVersion =
+                recordFormMode === 'edit' &&
+                recordFormTarget &&
+                Number.isSafeInteger(recordFormTarget.version) &&
+                recordFormTarget.version > 0
+                    ? { expectedVersion: recordFormTarget.version }
+                    : {}
             const recordResponse =
                 recordFormMode === 'edit' && recordFormTarget
-                    ? await recordsApi.updateRecord(metahubId, treeEntityId, sourceEntity.id, recordFormTarget.id, {
-                          data: submittedData,
-                          ...(Number.isSafeInteger(recordFormTarget.version) && (recordFormTarget.version ?? 0) > 0
-                              ? { expectedVersion: recordFormTarget.version }
-                              : {})
-                      })
-                    : await recordsApi.createRecord(metahubId, treeEntityId, sourceEntity.id, { data: submittedData })
+                    ? treeEntityId
+                        ? await recordsApi.updateRecord(metahubId, treeEntityId, sourceEntity.id, recordFormTarget.id, {
+                              data: recordData,
+                              ...kindKey,
+                              ...expectedVersion
+                          })
+                        : await recordsApi.updateRecordDirect(metahubId, sourceEntity.id, recordFormTarget.id, {
+                              data: recordData,
+                              ...kindKey,
+                              ...expectedVersion
+                          })
+                    : treeEntityId
+                    ? await recordsApi.createRecord(metahubId, treeEntityId, sourceEntity.id, { data: recordData, ...kindKey })
+                    : await recordsApi.createRecordDirect(metahubId, sourceEntity.id, { data: recordData, ...kindKey })
             const record = recordResponse.data
-            const semanticKey = readSemanticKey(activeSlot, record.data ?? submittedData)
+            const semanticKey = readSemanticKey(activeSlot, record.data ?? recordData)
             if (!semanticKey) throw new Error('MARKETING_WIDGET_CREATED_RECORD_KEY_MISSING')
             const selectionLabel = getRecordLabel(
-                record.data ?? submittedData,
+                record.data ?? recordData,
                 recordComponents,
                 locale,
                 t('layouts.widgetBindings.untitledRecord', { defaultValue: 'Untitled content record' })
             )
             updateDraft(activeSlot.key, { ...activeDraft, semanticKey, selectionLabel })
             await Promise.all([
-                invalidateRecordsQueries.all(queryClient, metahubId, treeEntityId, sourceEntity.id),
+                treeEntityId
+                    ? invalidateRecordsQueries.all(queryClient, metahubId, treeEntityId, sourceEntity.id)
+                    : queryClient.invalidateQueries({
+                          queryKey: metahubsQueryKeys.recordsDirect(metahubId, sourceEntity.id, sourceEntityKind)
+                      }),
                 queryClient.invalidateQueries({
                     queryKey: [
                         ...metahubsQueryKeys.layoutZoneWidgets(metahubId, layoutId),

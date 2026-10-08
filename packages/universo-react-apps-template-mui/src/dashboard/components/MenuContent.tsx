@@ -1,4 +1,5 @@
-import { Fragment, useState, type ReactElement } from 'react'
+import { Fragment, useId, useState, type ReactElement } from 'react'
+import Box from '@mui/material/Box'
 import Divider from '@mui/material/Divider'
 import List from '@mui/material/List'
 import ListItem from '@mui/material/ListItem'
@@ -10,6 +11,7 @@ import MenuItem from '@mui/material/MenuItem'
 import Tooltip from '@mui/material/Tooltip'
 import Typography from '@mui/material/Typography'
 import HomeRoundedIcon from '@mui/icons-material/HomeRounded'
+import ArticleRoundedIcon from '@mui/icons-material/ArticleRounded'
 import AnalyticsRoundedIcon from '@mui/icons-material/AnalyticsRounded'
 import PeopleRoundedIcon from '@mui/icons-material/PeopleRounded'
 import AssignmentRoundedIcon from '@mui/icons-material/AssignmentRounded'
@@ -27,9 +29,33 @@ import SettingsRoundedIcon from '@mui/icons-material/SettingsRounded'
 import { sanitizeMenuHref } from '@universo-react/utils'
 import { useTranslation } from 'react-i18next'
 import i18n from '@universo-react/i18n'
-import type { DashboardMenuSlot } from '../Dashboard'
 
 export const sanitizeHref = sanitizeMenuHref
+
+export interface RuntimeMenuViewItem {
+    key: string
+    label: string
+    icon?: string | null
+    kind?: 'group' | 'section' | 'link' | 'workspaces'
+    href?: string
+    selected?: boolean
+    disabled?: boolean
+    dividerBefore?: boolean
+}
+
+export interface RuntimeMenuViewModel {
+    title: string
+    showTitle: boolean
+    overflowLabel: string
+    items: RuntimeMenuViewItem[]
+    overflowItems: RuntimeMenuViewItem[]
+}
+
+interface MenuContentProps {
+    viewModel: RuntimeMenuViewModel
+    variant?: 'wide' | 'compact'
+    onNavigate?: (href: string) => void
+}
 
 const resolveIcon = (iconName?: string | null) => {
     const normalized = iconName?.trim().toLowerCase()
@@ -52,6 +78,9 @@ const resolveIcon = (iconName?: string | null) => {
             return <AppsRoundedIcon />
         case 'dashboard':
             return <DashboardRoundedIcon />
+        case 'page':
+        case 'article':
+            return <ArticleRoundedIcon />
         case 'school':
         case 'learning':
             return <SchoolRoundedIcon />
@@ -73,53 +102,57 @@ const resolveIcon = (iconName?: string | null) => {
     }
 }
 
-const isCurrentHref = (href?: string | null): boolean => {
-    const safeHref = sanitizeHref(href)
-    if (!safeHref || typeof window === 'undefined') return false
-
+const readCurrentRuntimeUrl = (): URL | undefined => {
+    if (typeof window === 'undefined') return undefined
+    const hashRoute = window.location.hash.startsWith('#/a/') ? window.location.hash.slice(1) : undefined
     try {
-        const targetUrl = new URL(safeHref, window.location.origin)
-        return targetUrl.pathname === window.location.pathname && targetUrl.search === window.location.search
+        return new URL(hashRoute ?? `${window.location.pathname}${window.location.search}${window.location.hash}`, window.location.origin)
     } catch {
-        return safeHref === `${window.location.pathname}${window.location.search}`
+        return undefined
     }
 }
 
-const isRootApplicationStartHref = (href?: string | null): boolean => {
+const isCurrentHref = (href?: string): boolean => {
     const safeHref = sanitizeHref(href)
-    if (!safeHref || typeof window === 'undefined') return false
+    const currentUrl = readCurrentRuntimeUrl()
+    if (!safeHref || !currentUrl || typeof window === 'undefined') return false
 
     try {
-        const currentUrl = new URL(window.location.href)
         const targetUrl = new URL(safeHref, window.location.origin)
-        const currentParts = currentUrl.pathname.split('/').filter(Boolean)
-        const targetParts = targetUrl.pathname.split('/').filter(Boolean)
-
         return (
-            currentParts.length === 2 &&
-            targetParts.length >= 3 &&
-            currentParts[0] === 'a' &&
-            targetParts[0] === 'a' &&
-            currentParts[1] === targetParts[1] &&
-            targetUrl.search === currentUrl.search
+            targetUrl.origin === window.location.origin &&
+            targetUrl.pathname === currentUrl.pathname &&
+            targetUrl.search === currentUrl.search &&
+            targetUrl.hash === currentUrl.hash
         )
     } catch {
         return false
     }
 }
 
-const tryNavigateRuntimeLink = (href?: string | null): 'unhandled' | 'same-route' | 'navigated' => {
+const tryNavigateRuntimeLink = (href?: string, onNavigate?: (href: string) => void): 'unhandled' | 'same-route' | 'navigated' => {
     const safeHref = sanitizeHref(href)
     if (!safeHref || typeof window === 'undefined') return 'unhandled'
 
     try {
         const targetUrl = new URL(safeHref, window.location.origin)
-        if (targetUrl.origin !== window.location.origin) return 'unhandled'
-        if (!targetUrl.pathname.startsWith('/a/')) return 'unhandled'
+        if (targetUrl.origin !== window.location.origin || !targetUrl.pathname.startsWith('/a/')) return 'unhandled'
 
         const nextRoute = `${targetUrl.pathname}${targetUrl.search}${targetUrl.hash}`
-        const currentRoute = `${window.location.pathname}${window.location.search}${window.location.hash}`
+        const currentUrl = readCurrentRuntimeUrl()
+        if (!currentUrl) return 'unhandled'
+        const currentRoute = `${currentUrl.pathname}${currentUrl.search}${currentUrl.hash}`
         if (nextRoute === currentRoute) return 'same-route'
+
+        if (onNavigate) {
+            onNavigate(nextRoute)
+            return 'navigated'
+        }
+
+        if (window.location.hash.startsWith('#/a/')) {
+            window.location.hash = nextRoute
+            return 'navigated'
+        }
 
         window.history.pushState(null, '', nextRoute)
         window.dispatchEvent(new PopStateEvent('popstate'))
@@ -129,56 +162,13 @@ const tryNavigateRuntimeLink = (href?: string | null): 'unhandled' | 'same-route
     }
 }
 
-interface MenuContentProps {
-    menu?: DashboardMenuSlot
-    variant?: 'wide' | 'compact'
-}
-
-type DashboardMenuItem = DashboardMenuSlot['items'][number]
-
-const hasUsableTarget = (item: DashboardMenuItem): boolean => {
-    if (item.kind === 'section') {
-        return Boolean(item.sectionId ?? item.objectCollectionId)
-    }
-
-    if (item.kind === 'hub') {
-        return Boolean(item.treeEntityId ?? item.hubId)
-    }
-
-    return true
-}
-
-export default function MenuContent({ menu, variant = 'wide' }: MenuContentProps) {
+export default function MenuContent({ viewModel, variant = 'wide', onNavigate }: MenuContentProps) {
     const [overflowAnchor, setOverflowAnchor] = useState<HTMLElement | null>(null)
+    const overflowButtonId = useId()
+    const overflowMenuId = useId()
     const { t } = useTranslation('apps', { i18n })
     const isCompact = variant === 'compact'
-    const items = (menu?.items ?? []).filter(hasUsableTarget)
-    const overflowItems = (menu?.overflowItems ?? []).filter(hasUsableTarget)
-    const overflowLabel = menu?.overflowLabel || t('runtime.menu.more')
-    const isWorkspaceRootItem = (item: DashboardMenuItem) =>
-        item.id === 'runtime-workspaces' || item.id === 'workspaces' || /\/workspaces(?:$|\?)/.test(item.href ?? '')
-    const firstWorkspaceRootIndex = items.findIndex(isWorkspaceRootItem)
-    const handleItemSelect = (item: DashboardMenuItem) => {
-        if (item.kind === 'hub') {
-            return
-        }
-
-        if (item.objectCollectionId) {
-            if (menu?.onSelectObjectCollection) {
-                menu.onSelectObjectCollection(item.objectCollectionId)
-                return
-            }
-
-            if (menu?.onSelectSection) {
-                menu.onSelectSection(item.objectCollectionId)
-            }
-            return
-        }
-
-        if (item.sectionId && menu?.onSelectSection) {
-            menu.onSelectSection(item.sectionId)
-        }
-    }
+    const overflowLabel = viewModel.overflowLabel || t('runtime.menu.more')
 
     const renderText = (label: string) => (isCompact ? null : <ListItemText primary={label} />)
     const wrapCompactTooltip = (label: string, child: ReactElement) =>
@@ -191,79 +181,107 @@ export default function MenuContent({ menu, variant = 'wide' }: MenuContentProps
         )
 
     return (
-        <List component='nav' aria-label={menu?.title || t('runtime.menu.navigation', 'Application navigation')} dense sx={{ p: 1 }}>
-            {menu?.showTitle && menu.title && !isCompact ? (
+        <List component='nav' aria-label={t('runtime.menu.navigation', 'Application navigation')} dense sx={{ p: 1 }}>
+            {viewModel.showTitle && viewModel.title && !isCompact ? (
                 <Typography
                     variant='caption'
                     sx={{ px: 1.5, py: 0.5, display: 'block', color: 'text.secondary', fontWeight: 700, letterSpacing: 0.4 }}
                 >
-                    {menu.title}
+                    {viewModel.title}
                 </Typography>
             ) : null}
-            {items.map((item, index) => {
-                const isHubLabel = item.kind === 'hub'
-                const isInertLink = item.kind === 'link' && !sanitizeHref(item.href)
-                const isSelected =
-                    Boolean(item.selected) ||
-                    (item.kind === 'link' && (isCurrentHref(item.href) || (index === 0 && isRootApplicationStartHref(item.href))))
-                const needsWorkspaceDivider = index === firstWorkspaceRootIndex
+            {viewModel.items.map((item) => {
+                const safeHref = sanitizeHref(item.href)
+                const disabled = item.disabled === true || !safeHref
+                const selected = item.selected ?? (!disabled && isCurrentHref(safeHref))
+
                 return (
-                    <Fragment key={item.id}>
-                        {needsWorkspaceDivider ? <Divider sx={{ my: 0.5 }} /> : null}
-                        <ListItem disablePadding sx={{ display: 'block' }}>
-                            {wrapCompactTooltip(
-                                item.label,
-                                <ListItemButton
-                                    disabled={isHubLabel || isInertLink}
-                                    selected={isSelected}
-                                    aria-label={item.label}
-                                    aria-current={isSelected ? 'page' : undefined}
-                                    {...(item.kind === 'link' && sanitizeHref(item.href)
-                                        ? { component: 'a' as const, href: sanitizeHref(item.href) }
-                                        : {})}
-                                    onClick={(event) => {
-                                        const runtimeLinkResult = item.kind === 'link' ? tryNavigateRuntimeLink(item.href) : 'unhandled'
-                                        if (runtimeLinkResult !== 'unhandled') {
-                                            event.preventDefault()
-                                        }
-                                        if (runtimeLinkResult !== 'navigated') {
-                                            handleItemSelect(item)
-                                        }
-                                    }}
-                                    sx={{
-                                        borderRadius: 1,
-                                        minHeight: 36,
-                                        justifyContent: isCompact ? 'center' : 'flex-start',
-                                        px: isCompact ? 1 : undefined,
-                                        '&.Mui-selected': {
-                                            bgcolor: 'action.selected',
-                                            color: 'text.primary',
-                                            '& .MuiListItemIcon-root': {
-                                                color: 'text.primary'
-                                            },
-                                            '& .MuiListItemText-primary': {
-                                                fontWeight: 700
-                                            },
-                                            '&:hover': {
-                                                bgcolor: 'action.selected'
+                    <Fragment key={item.key}>
+                        {item.dividerBefore ? <Divider sx={{ my: 0.5 }} /> : null}
+                        {item.kind === 'group' ? (
+                            <ListItem disablePadding sx={{ display: 'block' }}>
+                                {wrapCompactTooltip(
+                                    item.label,
+                                    <Box
+                                        role='heading'
+                                        aria-level={2}
+                                        aria-label={item.label}
+                                        sx={{
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            minHeight: 36,
+                                            justifyContent: isCompact ? 'center' : 'flex-start',
+                                            gap: 1,
+                                            px: isCompact ? 1 : 2,
+                                            color: 'text.secondary',
+                                            fontWeight: 600
+                                        }}
+                                    >
+                                        <ListItemIcon aria-hidden='true' sx={{ minWidth: 0 }}>
+                                            {resolveIcon(item.icon)}
+                                        </ListItemIcon>
+                                        {renderText(item.label)}
+                                    </Box>
+                                )}
+                            </ListItem>
+                        ) : (
+                            <ListItem disablePadding sx={{ display: 'block' }}>
+                                {wrapCompactTooltip(
+                                    item.label,
+                                    <ListItemButton
+                                        disabled={disabled}
+                                        selected={selected}
+                                        aria-label={item.label}
+                                        aria-current={selected ? 'page' : undefined}
+                                        {...(!disabled && safeHref
+                                            ? { component: 'a' as const, href: safeHref, 'data-runtime-navigation-link': '' }
+                                            : {})}
+                                        onClick={(event) => {
+                                            const modifiedClick =
+                                                event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey
+                                            const runtimeLinkResult =
+                                                disabled || modifiedClick ? 'unhandled' : tryNavigateRuntimeLink(safeHref, onNavigate)
+                                            if (runtimeLinkResult !== 'unhandled') event.preventDefault()
+                                        }}
+                                        sx={{
+                                            borderRadius: 1,
+                                            minHeight: 36,
+                                            justifyContent: isCompact ? 'center' : 'flex-start',
+                                            px: isCompact ? 1 : undefined,
+                                            '&.Mui-selected': {
+                                                bgcolor: 'action.selected',
+                                                color: 'text.primary',
+                                                '& .MuiListItemIcon-root': {
+                                                    color: 'text.primary'
+                                                },
+                                                '& .MuiListItemText-primary': {
+                                                    fontWeight: 700
+                                                },
+                                                '&:hover': {
+                                                    bgcolor: 'action.selected'
+                                                }
                                             }
-                                        }
-                                    }}
-                                >
-                                    <ListItemIcon sx={{ minWidth: 0 }}>{resolveIcon(item.icon)}</ListItemIcon>
-                                    {renderText(item.label)}
-                                </ListItemButton>
-                            )}
-                        </ListItem>
+                                        }}
+                                    >
+                                        <ListItemIcon sx={{ minWidth: 0 }}>{resolveIcon(item.icon)}</ListItemIcon>
+                                        {renderText(item.label)}
+                                    </ListItemButton>
+                                )}
+                            </ListItem>
+                        )}
                     </Fragment>
                 )
             })}
-            {overflowItems.length > 0 ? (
+            {viewModel.overflowItems.length > 0 ? (
                 <ListItem disablePadding sx={{ display: 'block' }}>
                     {wrapCompactTooltip(
                         overflowLabel,
                         <ListItemButton
+                            id={overflowButtonId}
                             aria-label={overflowLabel}
+                            aria-haspopup='menu'
+                            aria-expanded={Boolean(overflowAnchor)}
+                            aria-controls={overflowAnchor ? overflowMenuId : undefined}
                             onClick={(event) => setOverflowAnchor(event.currentTarget)}
                             sx={{ justifyContent: isCompact ? 'center' : 'flex-start', px: isCompact ? 1 : undefined }}
                         >
@@ -271,30 +289,40 @@ export default function MenuContent({ menu, variant = 'wide' }: MenuContentProps
                             {renderText(overflowLabel)}
                         </ListItemButton>
                     )}
-                    <Menu anchorEl={overflowAnchor} open={Boolean(overflowAnchor)} onClose={() => setOverflowAnchor(null)}>
-                        {overflowItems.map((item) => (
-                            <MenuItem
-                                key={item.id}
-                                selected={Boolean(item.selected) || (item.kind === 'link' && isCurrentHref(item.href))}
-                                disabled={item.kind === 'hub' || (item.kind === 'link' && !sanitizeHref(item.href))}
-                                {...(item.kind === 'link' && sanitizeHref(item.href)
-                                    ? { component: 'a' as const, href: sanitizeHref(item.href) }
-                                    : {})}
-                                onClick={(event) => {
-                                    const runtimeLinkResult = item.kind === 'link' ? tryNavigateRuntimeLink(item.href) : 'unhandled'
-                                    if (runtimeLinkResult !== 'unhandled') {
-                                        event.preventDefault()
-                                    }
-                                    if (runtimeLinkResult !== 'navigated') {
-                                        handleItemSelect(item)
-                                    }
-                                    setOverflowAnchor(null)
-                                }}
-                            >
-                                <ListItemIcon>{resolveIcon(item.icon)}</ListItemIcon>
-                                <ListItemText primary={item.label} />
-                            </MenuItem>
-                        ))}
+                    <Menu
+                        anchorEl={overflowAnchor}
+                        open={Boolean(overflowAnchor)}
+                        onClose={() => setOverflowAnchor(null)}
+                        slotProps={{ list: { id: overflowMenuId, 'aria-labelledby': overflowButtonId } }}
+                    >
+                        {viewModel.overflowItems.map((item) => {
+                            const safeHref = sanitizeHref(item.href)
+                            const disabled = item.disabled === true || !safeHref
+                            const selected = item.selected ?? (!disabled && isCurrentHref(safeHref))
+
+                            return (
+                                <MenuItem
+                                    key={item.key}
+                                    selected={selected}
+                                    disabled={disabled}
+                                    aria-current={selected ? 'page' : undefined}
+                                    {...(!disabled && safeHref
+                                        ? { component: 'a' as const, href: safeHref, 'data-runtime-navigation-link': '' }
+                                        : {})}
+                                    onClick={(event) => {
+                                        const modifiedClick =
+                                            event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey
+                                        const runtimeLinkResult =
+                                            disabled || modifiedClick ? 'unhandled' : tryNavigateRuntimeLink(safeHref, onNavigate)
+                                        if (runtimeLinkResult !== 'unhandled') event.preventDefault()
+                                        setOverflowAnchor(null)
+                                    }}
+                                >
+                                    <ListItemIcon>{resolveIcon(item.icon)}</ListItemIcon>
+                                    <ListItemText primary={item.label} />
+                                </MenuItem>
+                            )
+                        })}
                     </Menu>
                 </ListItem>
             ) : null}

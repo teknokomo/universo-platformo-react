@@ -54,6 +54,7 @@ export interface BindingComponentRow {
     data_type: string
     is_required: boolean
     validation_rules: unknown
+    ui_config: unknown
     target_object_id: string | null
     target_object_kind: string | null
     target_object_codename: string | null
@@ -67,11 +68,12 @@ export interface BindingRecordRow {
 
 export interface BindingSourceRequirements {
     readonly entityKinds?: readonly WidgetBindingEntityKind[]
+    readonly entityCodenames?: readonly string[]
     readonly entityCapabilities: readonly string[]
     readonly components: WidgetBindingSlotDefinition['requirements']['components']
 }
 
-/** Load only a live source-layout widget in the metahub's own schema. */
+/** Load a live binding-owning source-layout widget in the metahub's own schema. */
 export const loadWidgetBindingWidget = async (
     db: SqlQueryable,
     schemaName: string,
@@ -97,7 +99,6 @@ export const loadWidgetBindingWidget = async (
           WHERE ${column('widget', 'id')} = $1
             AND ${active('widget')}
             AND ${active('layout')}
-            AND ${column('layout', 'scope_entity_id')} IS NULL
             AND ${column('layout', 'base_layout_id')} IS NULL
           LIMIT 1
           ${lockClause}`,
@@ -107,7 +108,7 @@ export const loadWidgetBindingWidget = async (
     return row
 }
 
-/** Load only a live, top-level Marketing source layout before source provisioning. */
+/** Load a live source layout before provisioning a widget binding source. */
 export const loadWidgetBindingSourceLayout = async (
     db: SqlQueryable,
     schemaName: string,
@@ -157,6 +158,7 @@ export const listWidgetBindingObjectCandidates = async (
             AND ${active('definition')}
           WHERE ${active('object')}
             AND ${column('object', 'kind')} = ANY($1::text[])
+            AND ($5::text[] IS NULL OR ${codename('object')} = ANY($5::text[]))
             AND ($4::text IS NULL
                  OR ${codename('object')} ILIKE $4 ESCAPE E'\\\\'
                  OR COALESCE(${column('object', 'presentation')} -> 'name', 'null'::jsonb)::text ILIKE $4 ESCAPE E'\\\\')
@@ -166,7 +168,8 @@ export const listWidgetBindingObjectCandidates = async (
             requirements.entityKinds?.length ? [...requirements.entityKinds] : ['object'],
             MAX_WIDGET_BINDING_SOURCE_OPTIONS + 1,
             offset,
-            searchPattern(search)
+            searchPattern(search),
+            requirements.entityCodenames ? [...requirements.entityCodenames] : null
         ]
     )
     return rows
@@ -236,9 +239,14 @@ export const findWidgetBindingObjectByCodename = async (
           WHERE ${active('object')}
             AND ${column('object', 'kind')} = ANY($1::text[])
             AND ${codename('object')} = $2
+            AND ($3::text[] IS NULL OR ${codename('object')} = ANY($3::text[]))
           ORDER BY ${column('object', 'kind')} ASC, ${column('object', 'id')} ASC
           LIMIT 1`,
-        [requirements.entityKinds?.length ? [...requirements.entityKinds] : ['object'], sourceKey]
+        [
+            requirements.entityKinds?.length ? [...requirements.entityKinds] : ['object'],
+            sourceKey,
+            requirements.entityCodenames ? [...requirements.entityCodenames] : null
+        ]
     )
 
 /** Read active root-Component metadata, including the declared REF target, for server-side matching. */
@@ -255,6 +263,7 @@ export const listWidgetBindingComponents = async (
                 ${column('component', 'data_type')} AS data_type,
                 ${column('component', 'is_required')} AS is_required,
                 ${column('component', 'validation_rules')} AS validation_rules,
+                ${column('component', 'ui_config')} AS ui_config,
                 ${column('component', 'target_object_id')} AS target_object_id,
                 ${column('component', 'target_object_kind')} AS target_object_kind,
                 ${codename('target_object')} AS target_object_codename
@@ -412,7 +421,6 @@ export const updateWidgetBindingConfig = async (
                   FROM ${layoutTable} AS layout
                  WHERE ${column('layout', 'id')} = ${column('widget', 'layout_id')}
                    AND ${active('layout')}
-                   AND ${column('layout', 'scope_entity_id')} IS NULL
                    AND ${column('layout', 'base_layout_id')} IS NULL
             )
           RETURNING COALESCE(${column('widget', '_upl_version')}, 1)::int AS widget_version`,

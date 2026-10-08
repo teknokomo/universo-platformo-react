@@ -6,9 +6,7 @@ import {
     type ApplicationTemplateKey
 } from '@universo-react/types'
 import { localizedContent } from '@universo-react/utils'
-import { buildDashboardLayoutConfig } from '../../shared'
 import { MetahubDomainError } from '../../shared/domainErrors'
-import { LAYOUT_CONFIG_SKIP_DEFAULT_WIDGET_SEED_KEY } from './layoutConstants'
 import type { CopyMetahubLayoutInput, LayoutCopyOwnership, PreparedLayoutCopy } from './copyMetahubLayoutTypes'
 
 const { sanitizeLocalizedInput, buildLocalizedContent } = localizedContent
@@ -118,12 +116,7 @@ const validateSourceComposition = (
     }
 }
 
-const prepareRendererConfig = (
-    rendererConfig: Record<string, unknown>,
-    templateKey: ApplicationTemplateKey,
-    copyWidgets: boolean,
-    shouldDeactivateWidgets: boolean
-): Record<string, unknown> => {
+const prepareRendererConfig = (rendererConfig: Record<string, unknown>, templateKey: ApplicationTemplateKey): Record<string, unknown> => {
     if (templateKey !== 'dashboard') {
         if (!marketingPageConfigSchema.safeParse(rendererConfig).success) {
             throw new MetahubDomainError({
@@ -136,18 +129,18 @@ const prepareRendererConfig = (
         return rendererConfig
     }
 
-    if (copyWidgets) {
-        return shouldDeactivateWidgets ? { ...rendererConfig, ...buildDashboardLayoutConfig([]) } : rendererConfig
-    }
-    return {
-        ...rendererConfig,
-        ...buildDashboardLayoutConfig([]),
-        [LAYOUT_CONFIG_SKIP_DEFAULT_WIDGET_SEED_KEY]: true
-    }
+    return rendererConfig
 }
 
-const prepareNeutralMetadata = (neutral: ReturnType<typeof decodeLayoutConfigEnvelope>['neutral'], ownership: LayoutCopyOwnership) => {
+const prepareNeutralMetadata = (
+    neutral: ReturnType<typeof decodeLayoutConfigEnvelope>['neutral'],
+    ownership: LayoutCopyOwnership,
+    skipDefaultZoneWidgetSeed: boolean
+) => {
     const copiedNeutral = { ...neutral }
+    if (ownership.templateKey === 'dashboard' && skipDefaultZoneWidgetSeed) {
+        copiedNeutral.skipDefaultZoneWidgetSeed = true
+    }
     if (ownership.isOverlayLayout && ownership.baseLayoutId) {
         copiedNeutral.composition = { mode: 'overlay', baseLayoutId: ownership.baseLayoutId }
         return copiedNeutral
@@ -172,14 +165,13 @@ export const prepareLayoutCopy = (
     sourceLayout: Record<string, unknown>,
     input: CopyMetahubLayoutInput,
     ownership: LayoutCopyOwnership,
-    copyWidgets: boolean,
-    shouldDeactivateWidgets: boolean
+    copyWidgets: boolean
 ): PreparedLayoutCopy => {
     const { name, description } = prepareLayoutName(sourceLayout, input)
     const sourceEnvelope = decodeSourceLayoutConfig(sourceLayout, ownership.templateKey)
     validateSourceComposition(sourceEnvelope.neutral.composition, ownership)
-    const rendererConfig = prepareRendererConfig(sourceEnvelope.rendererConfig, ownership.templateKey, copyWidgets, shouldDeactivateWidgets)
-    const neutral = prepareNeutralMetadata(sourceEnvelope.neutral, ownership)
+    const rendererConfig = prepareRendererConfig(sourceEnvelope.rendererConfig, ownership.templateKey)
+    const neutral = prepareNeutralMetadata(sourceEnvelope.neutral, ownership, !copyWidgets)
     const config = encodeLayoutConfigEnvelope({ rendererConfig, neutral }, { templateKey: ownership.templateKey })
 
     return {

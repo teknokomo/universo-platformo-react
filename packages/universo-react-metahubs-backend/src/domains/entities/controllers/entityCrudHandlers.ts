@@ -620,13 +620,23 @@ export function createEntityCrudHandlers(createHandler: ReturnType<typeof create
             designTimeCopyPlan.copyComponents || designTimeCopyPlan.copyRecords || designTimeCopyPlan.copyOptionValues
                 ? await schemaService.ensureSchema(metahubId, userId)
                 : undefined
-        const nextCopyConfig = {
-            ...((source.config && typeof source.config === 'object' && !Array.isArray(source.config)
+        const sourceConfig =
+            source.config && typeof source.config === 'object' && !Array.isArray(source.config)
                 ? (source.config as Record<string, unknown>)
-                : {}) as Record<string, unknown>),
-            ...((parsed.data.config && typeof parsed.data.config === 'object' && !Array.isArray(parsed.data.config)
-                ? parsed.data.config
-                : {}) as Record<string, unknown>)
+                : {}
+        const copyConfig =
+            parsed.data.config && typeof parsed.data.config === 'object' && !Array.isArray(parsed.data.config) ? parsed.data.config : {}
+        const nextCopyConfig = { ...sourceConfig, ...copyConfig }
+        const sourceRuntime =
+            sourceConfig.runtime && typeof sourceConfig.runtime === 'object' && !Array.isArray(sourceConfig.runtime)
+                ? (sourceConfig.runtime as Record<string, unknown>)
+                : {}
+        const copyRuntime =
+            copyConfig.runtime && typeof copyConfig.runtime === 'object' && !Array.isArray(copyConfig.runtime)
+                ? (copyConfig.runtime as Record<string, unknown>)
+                : null
+        if (copyRuntime) {
+            nextCopyConfig.runtime = { ...sourceRuntime, ...copyRuntime }
         }
         // The projectBinding link is 1:1 to an external authoring project. Cloning
         // a "Projects" instance must NOT carry the source's binding forward,

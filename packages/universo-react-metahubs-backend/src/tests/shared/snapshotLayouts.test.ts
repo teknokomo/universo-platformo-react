@@ -9,12 +9,17 @@ jest.mock('@universo-react/database', () => {
     }
 })
 
-import { alignPlayCanvasRuntimeManifestBindings, attachLayoutsToSnapshot } from '../../domains/shared/snapshotLayouts'
+import {
+    alignPlayCanvasRuntimeManifestBindings,
+    attachLayoutsToSnapshot,
+    validateSnapshotWidgetPlacements
+} from '../../domains/shared/snapshotLayouts'
 import {
     buildSingleTargetWidgetBinding,
     decodeWidgetConfigEnvelope,
     encodeWidgetConfigEnvelope,
-    getLayoutWidgetDefinition
+    getLayoutWidgetDefinition,
+    validateWidgetBindings
 } from '@universo-react/types'
 import type { MetahubSnapshot } from '../../domains/publications/services/SnapshotSerializer'
 
@@ -23,6 +28,108 @@ type MockPoolExecutor = {
     transaction: jest.Mock<Promise<unknown>, [(executor: MockPoolExecutor) => Promise<unknown>]>
     isReleased: () => boolean
 }
+
+const createDetailsTableConfig = (): Record<string, unknown> => {
+    const tableDefinition = getLayoutWidgetDefinition('detailsTable')
+    const tableSlot = tableDefinition?.bindingSlots?.find(({ key }) => key === 'rows')
+    if (!tableDefinition || !tableSlot) throw new Error('Details table binding contract is missing')
+    const bindings = validateWidgetBindings(tableDefinition, {
+        version: 1,
+        slots: [
+            {
+                slot: 'rows',
+                targets: [
+                    {
+                        entityKind: 'object',
+                        entityCodename: 'Products',
+                        selector: { kind: 'record-set' },
+                        projection: tableSlot.requirements.components.map(({ field, componentCodename }) => ({ field, componentCodename }))
+                    }
+                ]
+            }
+        ]
+    })
+    return encodeWidgetConfigEnvelope(
+        { rendererConfig: {}, neutral: { bindings } },
+        { templateKey: 'dashboard', widgetKey: 'detailsTable', zone: 'center' }
+    )
+}
+
+const createDetailsTableSnapshotEntity = () => {
+    const definition = getLayoutWidgetDefinition('detailsTable')
+    const rowsSlot = definition?.bindingSlots?.find(({ key }) => key === 'rows')
+    if (!definition || !rowsSlot) throw new Error('Details table binding contract is missing')
+    return {
+        kind: 'object',
+        codename: 'Products',
+        fields: rowsSlot.requirements.components.map((component) => ({
+            codename: component.componentCodename,
+            dataType: component.valueType.toUpperCase(),
+            isRequired: component.required,
+            validationRules: {
+                ...(component.localized ? { localized: true } : {}),
+                ...(component.maxLength !== undefined ? { maxLength: component.maxLength } : {}),
+                ...(component.semanticKey ? { unique: true } : {}),
+                ...(component.pattern === undefined ? {} : { pattern: component.pattern }),
+                ...(component.format !== undefined ? { format: component.format } : {})
+            }
+        }))
+    }
+}
+
+describe('validateSnapshotWidgetPlacements', () => {
+    it('accepts overlay-owned children that reference a base-layout placement', () => {
+        const baseLayoutId = '019e8afa-0000-7000-8000-000000000101'
+        const overlayLayoutId = '019e8afa-0000-7000-8000-000000000102'
+        const parentWidgetId = '019e8afa-0000-7000-8000-000000000103'
+        const scopeEntityId = '019e8afa-0000-7000-8000-000000000104'
+        const snapshot = {
+            entities: {
+                [scopeEntityId]: {},
+                products: createDetailsTableSnapshotEntity()
+            },
+            layouts: [{ id: baseLayoutId, templateKey: 'dashboard', baseLayoutId: null, config: {} }],
+            scopedLayouts: [
+                {
+                    id: overlayLayoutId,
+                    scopeEntityId,
+                    templateKey: 'dashboard',
+                    compositionMode: 'overlay',
+                    baseLayoutId,
+                    config: {}
+                }
+            ],
+            layoutZoneWidgets: [
+                {
+                    id: parentWidgetId,
+                    layoutId: baseLayoutId,
+                    instanceKey: 'base-columns',
+                    parentWidgetId: null,
+                    slotKey: null,
+                    zone: 'center',
+                    widgetKey: 'columnsContainer',
+                    sortOrder: 0,
+                    config: { columns: [{ slotKey: 'column:primary', width: 12 }] },
+                    isActive: true
+                },
+                {
+                    id: '019e8afa-0000-7000-8000-000000000105',
+                    layoutId: overlayLayoutId,
+                    instanceKey: 'overlay-table',
+                    parentWidgetId,
+                    slotKey: 'column:primary',
+                    zone: 'center',
+                    widgetKey: 'detailsTable',
+                    sortOrder: 0,
+                    config: createDetailsTableConfig(),
+                    isActive: true
+                }
+            ]
+        } as unknown as MetahubSnapshot
+
+        expect(() => validateSnapshotWidgetPlacements(snapshot)).not.toThrow()
+    })
+})
 
 const createPoolExecutor = (): MockPoolExecutor => {
     const executor = {
@@ -37,10 +144,7 @@ const createPoolExecutor = (): MockPoolExecutor => {
                         template_key: 'dashboard',
                         name: { en: 'Global active' },
                         description: null,
-                        config: {
-                            showHeader: true,
-                            __layout: { composition: { mode: 'independent', baseLayoutId: null } }
-                        },
+                        config: { __layout: { composition: { mode: 'independent', baseLayoutId: null } } },
                         is_active: true,
                         is_default: true,
                         sort_order: 0
@@ -52,10 +156,7 @@ const createPoolExecutor = (): MockPoolExecutor => {
                         template_key: 'dashboard',
                         name: { en: 'Global inactive' },
                         description: null,
-                        config: {
-                            showHeader: false,
-                            __layout: { composition: { mode: 'independent', baseLayoutId: null } }
-                        },
+                        config: { __layout: { composition: { mode: 'independent', baseLayoutId: null } } },
                         is_active: false,
                         is_default: false,
                         sort_order: 1
@@ -68,12 +169,8 @@ const createPoolExecutor = (): MockPoolExecutor => {
                         name: { en: 'Object active' },
                         description: null,
                         config: {
-                            showHeader: false,
                             __layout: {
-                                composition: {
-                                    mode: 'overlay',
-                                    baseLayoutId: '019e8afa-0000-7000-8000-000000000001'
-                                }
+                                composition: { mode: 'overlay', baseLayoutId: '019e8afa-0000-7000-8000-000000000001' }
                             }
                         },
                         is_active: true,
@@ -88,12 +185,8 @@ const createPoolExecutor = (): MockPoolExecutor => {
                         name: { en: 'Object inactive' },
                         description: null,
                         config: {
-                            showHeader: true,
                             __layout: {
-                                composition: {
-                                    mode: 'overlay',
-                                    baseLayoutId: '019e8afa-0000-7000-8000-000000000002'
-                                }
+                                composition: { mode: 'overlay', baseLayoutId: '019e8afa-0000-7000-8000-000000000002' }
                             }
                         },
                         is_active: false,
@@ -112,24 +205,33 @@ const createPoolExecutor = (): MockPoolExecutor => {
                     {
                         id: 'widget-global-active',
                         layout_id: '019e8afa-0000-7000-8000-000000000001',
+                        instance_key: 'global-menu',
+                        parent_widget_id: null,
+                        slot_key: null,
                         zone: 'left',
                         widget_key: 'menuWidget',
                         sort_order: 1,
-                        config: { showTitle: true },
+                        config: { variant: 'generated' },
                         is_active: true
                     },
                     {
                         id: 'widget-global-inactive',
                         layout_id: '019e8afa-0000-7000-8000-000000000002',
+                        instance_key: 'inactive-details',
+                        parent_widget_id: null,
+                        slot_key: null,
                         zone: 'center',
                         widget_key: 'detailsTable',
                         sort_order: 1,
-                        config: {},
+                        config: createDetailsTableConfig(),
                         is_active: true
                     },
                     {
                         id: 'widget-object-active',
                         layout_id: '019e8afa-0000-7000-8000-000000000003',
+                        instance_key: 'object-language',
+                        parent_widget_id: null,
+                        slot_key: null,
                         zone: 'top',
                         widget_key: 'languageSwitcher',
                         sort_order: 1,
@@ -139,8 +241,11 @@ const createPoolExecutor = (): MockPoolExecutor => {
                     {
                         id: 'widget-object-inactive',
                         layout_id: '019e8afa-0000-7000-8000-000000000004',
+                        instance_key: 'inactive-info',
+                        parent_widget_id: null,
+                        slot_key: null,
                         zone: 'right',
-                        widget_key: 'infoCard',
+                        widget_key: 'spacer',
                         sort_order: 2,
                         config: {},
                         is_active: false
@@ -160,7 +265,7 @@ const createPoolExecutor = (): MockPoolExecutor => {
                         base_widget_id: 'widget-global-active',
                         zone: 'left',
                         sort_order: 2,
-                        config: { ignored: true },
+                        config: { variant: 'generated' },
                         is_active: true,
                         is_deleted_override: false
                     },
@@ -206,11 +311,34 @@ const createMarketingBrandConfig = () => {
     })
     return encodeWidgetConfigEnvelope(
         {
-            rendererConfig: { instanceKey: 'brand' },
+            rendererConfig: {},
             neutral: { placement: 'start', bindings }
         },
         { templateKey: 'marketing-page', widgetKey: 'marketing.brand', zone: 'marketing-header' }
     )
+}
+
+const createMarketingSiteSnapshotEntity = () => {
+    const definition = getLayoutWidgetDefinition('marketing.brand')
+    const siteSlot = definition?.bindingSlots?.find(({ key }) => key === 'site')
+    if (!definition || !siteSlot) throw new Error('Marketing brand site binding contract is missing')
+
+    return {
+        kind: 'object',
+        codename: 'MarketingPageSiteSettings',
+        fields: siteSlot.requirements.components.map((component) => ({
+            codename: component.componentCodename,
+            dataType: component.valueType.toUpperCase(),
+            isRequired: component.required,
+            validationRules: {
+                ...(component.localized ? { localized: true } : {}),
+                ...(component.maxLength !== undefined ? { maxLength: component.maxLength } : {}),
+                ...(component.semanticKey ? { unique: true } : {}),
+                ...(component.pattern === undefined ? {} : { pattern: component.pattern }),
+                ...(component.format !== undefined ? { format: component.format } : {})
+            }
+        }))
+    }
 }
 
 describe('attachLayoutsToSnapshot', () => {
@@ -226,7 +354,11 @@ describe('attachLayoutsToSnapshot', () => {
             ensureSchema: jest.fn(async () => 'mhb_018f8a787b8f7c1da111222233334444_b1')
         }
 
-        const snapshot = {} as MetahubSnapshot
+        const snapshot = {
+            entities: {
+                products: createDetailsTableSnapshotEntity()
+            }
+        } as unknown as MetahubSnapshot
 
         await attachLayoutsToSnapshot({
             schemaService: schemaService as any,
@@ -257,14 +389,39 @@ describe('attachLayoutsToSnapshot', () => {
         ])
 
         expect(snapshot.defaultLayoutId).toBe('019e8afa-0000-7000-8000-000000000001')
-        expect(snapshot.layoutConfig).toEqual({ showHeader: true })
+        expect(snapshot.layoutConfig).toEqual({})
 
         expect(snapshot.layoutZoneWidgets).toEqual(
             expect.arrayContaining([
-                expect.objectContaining({ id: 'widget-global-active', layoutId: '019e8afa-0000-7000-8000-000000000001' }),
-                expect.objectContaining({ id: 'widget-global-inactive', layoutId: '019e8afa-0000-7000-8000-000000000002' }),
-                expect.objectContaining({ id: 'widget-object-active', layoutId: '019e8afa-0000-7000-8000-000000000003' }),
-                expect.objectContaining({ id: 'widget-object-inactive', layoutId: '019e8afa-0000-7000-8000-000000000004', isActive: false })
+                expect.objectContaining({
+                    id: 'widget-global-active',
+                    layoutId: '019e8afa-0000-7000-8000-000000000001',
+                    instanceKey: 'global-menu',
+                    parentWidgetId: null,
+                    slotKey: null
+                }),
+                expect.objectContaining({
+                    id: 'widget-global-inactive',
+                    layoutId: '019e8afa-0000-7000-8000-000000000002',
+                    instanceKey: 'inactive-details',
+                    parentWidgetId: null,
+                    slotKey: null
+                }),
+                expect.objectContaining({
+                    id: 'widget-object-active',
+                    layoutId: '019e8afa-0000-7000-8000-000000000003',
+                    instanceKey: 'object-language',
+                    parentWidgetId: null,
+                    slotKey: null
+                }),
+                expect.objectContaining({
+                    id: 'widget-object-inactive',
+                    layoutId: '019e8afa-0000-7000-8000-000000000004',
+                    instanceKey: 'inactive-info',
+                    parentWidgetId: null,
+                    slotKey: null,
+                    isActive: false
+                })
             ])
         )
 
@@ -273,7 +430,7 @@ describe('attachLayoutsToSnapshot', () => {
                 id: 'override-active',
                 layoutId: '019e8afa-0000-7000-8000-000000000003',
                 baseWidgetId: 'widget-global-active',
-                config: { ignored: true }
+                config: { variant: 'generated' }
             }),
             expect.objectContaining({
                 id: 'override-inactive',
@@ -291,10 +448,7 @@ describe('attachLayoutsToSnapshot', () => {
         const baseWidgetId = '019e8afa-0000-7000-8000-000000000014'
         const context = { templateKey: 'marketing-page', widgetKey: 'marketing.brand', zone: 'marketing-header' }
         const baseConfig = createMarketingBrandConfig()
-        const overrideConfig = encodeWidgetConfigEnvelope(
-            { rendererConfig: { instanceKey: 'brand' }, neutral: { placement: 'end' } },
-            context
-        )
+        const overrideConfig = encodeWidgetConfigEnvelope({ rendererConfig: {}, neutral: { placement: 'end' } }, context)
         let overrideConfigToPersist = overrideConfig
         const poolExecutor = createPoolExecutor()
         poolExecutor.query.mockImplementation(async (sql: string, params: unknown[]) => {
@@ -319,6 +473,9 @@ describe('attachLayoutsToSnapshot', () => {
                     {
                         id: baseWidgetId,
                         layout_id: baseLayoutId,
+                        instance_key: 'brand',
+                        parent_widget_id: null,
+                        slot_key: null,
                         zone: 'marketing-header',
                         widget_key: 'marketing.brand',
                         sort_order: 1,
@@ -358,7 +515,9 @@ describe('attachLayoutsToSnapshot', () => {
             throw new Error(`Unexpected query: ${sql} ${String(params)}`)
         })
         mockGetPoolExecutor.mockReturnValue(poolExecutor)
-        const snapshot = {} as MetahubSnapshot
+        const snapshot = {
+            entities: { 'site-settings': createMarketingSiteSnapshotEntity() }
+        } as unknown as MetahubSnapshot
 
         await attachLayoutsToSnapshot({
             schemaService: { ensureSchema: jest.fn(async () => 'mhb_018f8a787b8f7c1da111222233334444_b1') } as any,
@@ -370,7 +529,8 @@ describe('attachLayoutsToSnapshot', () => {
         const exportedOverride = snapshot.layoutWidgetOverrides?.[0]
         expect(exportedOverride?.config).toBeDefined()
         const decoded = decodeWidgetConfigEnvelope(exportedOverride?.config, context)
-        expect(decoded.rendererConfig).toEqual({ instanceKey: 'brand' })
+        expect(decoded.rendererConfig).toEqual({})
+        expect(exportedOverride?.config).not.toHaveProperty('instanceKey')
         expect(decoded.neutral.placement).toBe('end')
         expect(decoded.neutral.bindings).toBeUndefined()
         expect(decodeWidgetConfigEnvelope(baseConfig, context).neutral.bindings).toBeDefined()
@@ -410,7 +570,7 @@ describe('attachLayoutsToSnapshot', () => {
                         name: { en: 'Marketing page' },
                         description: null,
                         config: {
-                            appearance: 'hero',
+                            themeMode: 'system',
                             __layout: {
                                 composition: { mode: 'independent', baseLayoutId: null },
                                 zoneSettings: { 'marketing-header': { position: 'flow' } }
@@ -428,6 +588,9 @@ describe('attachLayoutsToSnapshot', () => {
                     {
                         id: '019e8afa-0000-7000-8000-000000000011',
                         layout_id: globalLayoutId,
+                        instance_key: 'brand',
+                        parent_widget_id: null,
+                        slot_key: null,
                         zone: 'marketing-header',
                         widget_key: 'marketing.brand',
                         sort_order: 1,
@@ -441,7 +604,9 @@ describe('attachLayoutsToSnapshot', () => {
         })
         mockGetPoolExecutor.mockReturnValue(poolExecutor)
 
-        const snapshot = {} as MetahubSnapshot
+        const snapshot = {
+            entities: { 'site-settings': createMarketingSiteSnapshotEntity() }
+        } as unknown as MetahubSnapshot
         await attachLayoutsToSnapshot({
             schemaService: { ensureSchema: jest.fn(async () => 'mhb_a1b2c3d4e5f67890abcdef1234567890_b1') } as any,
             snapshot,
@@ -450,11 +615,12 @@ describe('attachLayoutsToSnapshot', () => {
         })
 
         expect(snapshot.layouts?.[0]?.config).toEqual({
-            appearance: 'hero',
+            themeMode: 'system',
             __layout: { zoneSettings: { 'marketing-header': { position: 'flow' } } }
         })
         expect(snapshot.layoutConfig).toEqual(snapshot.layouts?.[0]?.config)
         expect(snapshot.layoutZoneWidgets?.[0]?.config).toEqual(createMarketingBrandConfig())
+        expect(snapshot.layoutZoneWidgets?.[0]?.config).not.toHaveProperty('instanceKey')
         expect(snapshot.layouts?.[0]?.config.__layout).not.toHaveProperty('composition')
     })
 

@@ -1211,6 +1211,8 @@ export function createRuntimeGuestController(getDbExecutor: () => DbExecutor) {
             return res.status(400).json({ error: 'Invalid request body', details: parsed.error.flatten() })
         }
 
+        let sessionPayload: { participantId: string; studentId: string; sessionToken: string } | null = null
+
         await withPublicRuntimeContext(applicationId, res, async (ctx) => {
             const runtimeConfig = requirePublicGuestRuntimeConfig(ctx, res)
             if (!runtimeConfig) return
@@ -1272,7 +1274,7 @@ export function createRuntimeGuestController(getDbExecutor: () => DbExecutor) {
             const tableQt = qSchemaTable(ctx.schemaName, studentsBinding.tableName)
 
             try {
-                const payload = await ctx.manager.transaction(async (tx: DbExecutor) => {
+                sessionPayload = await ctx.manager.transaction(async (tx: DbExecutor) => {
                     const consumed = await consumeAccessLinkUse(tx, ctx.schemaName, link)
                     if (!consumed) {
                         const error = new Error('Access link usage limit reached')
@@ -1320,8 +1322,6 @@ export function createRuntimeGuestController(getDbExecutor: () => DbExecutor) {
                         sessionToken: encodeGuestSessionToken({ linkId: link.id, secret: sessionSecret, workspaceId: link.workspaceId })
                     }
                 })
-
-                res.status(201).json(payload)
             } catch (error) {
                 if ((error as Error & { statusCode?: number }).statusCode === 409) {
                     res.status(409).json({ error: 'Access link usage limit reached' })
@@ -1330,6 +1330,13 @@ export function createRuntimeGuestController(getDbExecutor: () => DbExecutor) {
                 throw error
             }
         })
+
+        // A workspace-enabled public runtime keeps its RLS workspace context inside
+        // the transaction owned by withPublicRuntimeContext(). Do not expose the
+        // session token until that outer transaction has committed the participant.
+        if (sessionPayload && !res.headersSent) {
+            res.status(201).json(sessionPayload)
+        }
     }
 
     const getRuntime = async (req: Request, res: Response) => {

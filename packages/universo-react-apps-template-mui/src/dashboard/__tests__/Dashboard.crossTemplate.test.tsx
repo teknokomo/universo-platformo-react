@@ -1,5 +1,6 @@
+import type { ReactNode } from 'react'
 import { describe, expect, it, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 
 import Dashboard from '../Dashboard'
 
@@ -20,92 +21,68 @@ vi.mock('../components/SideMenuRight', () => ({
 }))
 
 vi.mock('../components/AppNavbar', () => ({
-    default: ({
-        rightWidgets,
-        showColorModeOnDesktop = true,
-        showColorMode = true,
-        showLanguageSwitcher = true,
-        showLanguageSwitcherOnDesktop = true
-    }: {
-        rightWidgets?: Array<unknown>
-        showColorModeOnDesktop?: boolean
-        showColorMode?: boolean
-        showLanguageSwitcher?: boolean
-        showLanguageSwitcherOnDesktop?: boolean
-    }) => (
-        <div
-            data-testid='top-shell'
-            data-color-mode={String(showColorMode)}
-            data-color-mode-desktop={String(showColorModeOnDesktop)}
-            data-language-switcher={String(showLanguageSwitcher)}
-            data-language-switcher-desktop={String(showLanguageSwitcherOnDesktop)}
-        >
-            {String(rightWidgets?.length ?? 0)}
-        </div>
-    )
+    default: ({ rightWidgets }: { rightWidgets?: Array<unknown> }) => <div data-testid='top-shell'>{String(rightWidgets?.length ?? 0)}</div>
 }))
 
 vi.mock('../components/Header', () => ({
-    default: ({
-        layoutConfig
-    }: {
-        layoutConfig?: {
-            showBreadcrumbs?: boolean
-            showSearch?: boolean
-            showDatePicker?: boolean
-            showOptionsMenu?: boolean
-            showLanguageSwitcher?: boolean
-            showColorMode?: boolean
-        }
-    }) => (
-        <div
-            data-testid='header-shell'
-            data-show-breadcrumbs={String(layoutConfig?.showBreadcrumbs ?? true)}
-            data-show-search={String(layoutConfig?.showSearch ?? true)}
-            data-show-date-picker={String(layoutConfig?.showDatePicker ?? true)}
-            data-show-options-menu={String(layoutConfig?.showOptionsMenu ?? true)}
-            data-language-switcher={String(layoutConfig?.showLanguageSwitcher ?? true)}
-            data-show-color-mode={String(layoutConfig?.showColorMode ?? true)}
-        />
+    default: ({ leading, actions }: { leading?: ReactNode; actions?: ReactNode }) => (
+        <div data-testid='header-shell'>
+            <div data-testid='header-leading'>{leading}</div>
+            <div data-testid='header-actions'>{actions}</div>
+        </div>
     )
 }))
 
 vi.mock('../components/MainGrid', () => ({
-    default: ({
-        centerWidgets,
-        bottomWidgets
-    }: {
-        centerWidgets?: Array<{ widgetKey: string }>
-        bottomWidgets?: Array<{ widgetKey: string }>
-    }) => (
-        <div data-testid='center-and-bottom-zone'>
-            <span data-testid='center-zone'>{String(centerWidgets?.length ?? 0)}</span>
-            {bottomWidgets?.map((widget) => (
-                <span key={widget.widgetKey} data-testid={`bottom-${widget.widgetKey}`} />
-            ))}
-        </div>
-    )
+    default: ({ placements }: { placements?: Array<{ widgetKey: string; zone: string }> }) => {
+        const centerWidgets = placements?.filter((widget) => widget.zone === 'center') ?? []
+        const bottomWidgets = placements?.filter((widget) => widget.zone === 'bottom') ?? []
+        return (
+            <div data-testid='center-and-bottom-zone'>
+                <span data-testid='center-zone'>{String(centerWidgets.length)}</span>
+                {bottomWidgets.map((widget) => (
+                    <span key={widget.widgetKey} data-testid={`bottom-${widget.widgetKey}`} />
+                ))}
+            </div>
+        )
+    }
 }))
 
 const details = {
     title: 'Runtime',
-    rows: [],
-    columns: []
+    hostCapabilities: ['theme.safe'] as const
 }
 
-const widget = (id: string, widgetKey: string, sortOrder = 0) => ({ id, widgetKey, sortOrder, config: {}, isActive: true })
+let widgetId = 0
+const widget = (
+    instanceKey: string,
+    widgetKey: string,
+    sortOrder = 0,
+    zone: 'left' | 'top' | 'right' | 'bottom' | 'center' = widgetKey === 'menuWidget'
+        ? 'left'
+        : widgetKey === 'footer'
+        ? 'bottom'
+        : ['appNavbar', 'header', 'breadcrumbs', 'search', 'datePicker', 'optionsMenu', 'languageSwitcher', 'colorModeSwitcher'].includes(
+              widgetKey
+          )
+        ? 'top'
+        : 'center'
+) => {
+    const id = `018f0000-0000-7000-8000-${String(++widgetId).padStart(12, '0')}`
+    return { id, instanceKey, widgetKey, zone, sortOrder, config: {}, isActive: true, parentInstanceKey: null, slotKey: null }
+}
 
 describe('Dashboard zone adapter', () => {
     it('passes all five supported zones to their existing shell/renderer owners', () => {
         render(
             <Dashboard
                 details={details}
-                layoutConfig={{ showRightSideMenu: true }}
+                layoutConfig={{}}
                 zoneWidgets={{
-                    left: [widget('left-1', 'menuWidget')],
-                    top: [widget('top-1', 'divider')],
-                    right: [widget('right-1', 'productTree')],
-                    bottom: [widget('bottom-1', 'footer')],
+                    left: [widget('left-1', 'menuWidget', 0, 'left')],
+                    top: [widget('top-1', 'divider', 0, 'top')],
+                    right: [widget('right-1', 'infoCard', 0, 'right')],
+                    bottom: [widget('bottom-1', 'footer', 0, 'bottom')],
                     center: [widget('center-1', 'detailsTable')]
                 }}
             />
@@ -123,14 +100,14 @@ describe('Dashboard zone adapter', () => {
         render(
             <Dashboard
                 details={details}
-                layoutConfig={{ showSideMenu: false, showAppNavbar: false, showHeader: false, showFooter: false }}
+                layoutConfig={{}}
                 zoneWidgets={{
                     left: [],
                     top: [
-                        widget('breadcrumbs-1', 'breadcrumbs', 1),
-                        widget('search-1', 'search', 2),
-                        widget('date-picker-1', 'datePicker', 3),
-                        widget('options-menu-1', 'optionsMenu', 4)
+                        widget('breadcrumbs-1', 'breadcrumbs', 1, 'top'),
+                        widget('search-1', 'search', 2, 'top'),
+                        widget('date-picker-1', 'datePicker', 3, 'top'),
+                        widget('options-menu-1', 'optionsMenu', 4, 'top')
                     ],
                     bottom: [],
                     center: []
@@ -143,17 +120,16 @@ describe('Dashboard zone adapter', () => {
         expect(screen.getByTestId('runtime-date-picker-widget')).toBeInTheDocument()
         expect(screen.getByTestId('runtime-options-menu-widget')).toBeInTheDocument()
         expect(screen.getByPlaceholderText('Search…')).toBeInTheDocument()
-        expect(screen.getByRole('button', { name: 'Open notifications' })).toBeInTheDocument()
     })
 
     it('does not revive the legacy Header shell when only a top control is persisted', () => {
         render(
             <Dashboard
                 details={details}
-                layoutConfig={{ showSideMenu: false, showAppNavbar: false, showFooter: false }}
+                layoutConfig={{}}
                 zoneWidgets={{
                     left: [],
-                    top: [widget('search-1', 'search')],
+                    top: [widget('search-1', 'search', 0, 'top')],
                     bottom: [],
                     center: []
                 }}
@@ -165,22 +141,7 @@ describe('Dashboard zone adapter', () => {
     })
 
     it('does not revive top shells or controls from legacy booleans when top composition is absent', () => {
-        render(
-            <Dashboard
-                details={details}
-                layoutConfig={{
-                    showSideMenu: false,
-                    showAppNavbar: true,
-                    showHeader: true,
-                    showBreadcrumbs: true,
-                    showSearch: true,
-                    showDatePicker: true,
-                    showOptionsMenu: true,
-                    showLanguageSwitcher: true
-                }}
-                zoneWidgets={{ left: [], bottom: [], center: [] }}
-            />
-        )
+        render(<Dashboard details={details} layoutConfig={{}} zoneWidgets={{ left: [], bottom: [], center: [] }} />)
 
         expect(screen.queryByTestId('top-shell')).not.toBeInTheDocument()
         expect(screen.queryByTestId('header-shell')).not.toBeInTheDocument()
@@ -192,54 +153,30 @@ describe('Dashboard zone adapter', () => {
     })
 
     it('does not revive boolean center widgets when the persisted center zone is empty', () => {
-        render(
-            <Dashboard
-                details={details}
-                layoutConfig={{
-                    showSideMenu: false,
-                    showAppNavbar: false,
-                    showHeader: false,
-                    showOverviewTitle: true,
-                    showOverviewCards: true
-                }}
-                zoneWidgets={{ left: [], top: [], bottom: [], center: [] }}
-            />
-        )
+        render(<Dashboard details={details} layoutConfig={{}} zoneWidgets={{ left: [], top: [], bottom: [], center: [] }} />)
 
         expect(screen.queryByText('Overview')).not.toBeInTheDocument()
         expect(screen.getByTestId('center-and-bottom-zone')).toBeInTheDocument()
     })
 
     it('does not revive the side menu when the persisted left zone is empty', () => {
-        render(
-            <Dashboard
-                details={details}
-                layoutConfig={{ showSideMenu: true, showAppNavbar: false, showHeader: false }}
-                zoneWidgets={{ left: [], top: [], bottom: [], center: [] }}
-            />
-        )
+        render(<Dashboard details={details} layoutConfig={{}} zoneWidgets={{ left: [], top: [], bottom: [], center: [] }} />)
 
         expect(screen.queryByTestId('left-zone')).not.toBeInTheDocument()
     })
 
-    it('renders persisted language and color-mode controls independently from both shell widgets', () => {
+    it('projects persisted language and color-mode placements through the Header shell without boolean adapters', () => {
         render(
             <Dashboard
                 details={details}
-                layoutConfig={{
-                    showSideMenu: true,
-                    showAppNavbar: false,
-                    showHeader: false,
-                    showLanguageSwitcher: false,
-                    sideMenu: { availableModes: ['wide', 'compact'], primaryMode: 'wide', rememberUserChoice: false }
-                }}
+                layoutConfig={{ sideMenu: { availableModes: ['wide', 'compact'], primaryMode: 'wide', rememberUserChoice: false } }}
                 zoneWidgets={{
-                    left: [widget('menu-1', 'menuWidget')],
+                    left: [widget('menu-1', 'menuWidget', 0, 'left')],
                     top: [
-                        widget('navbar-1', 'appNavbar'),
-                        widget('header-1', 'header'),
-                        widget('language-1', 'languageSwitcher'),
-                        widget('color-mode-1', 'colorModeSwitcher')
+                        widget('navbar-1', 'appNavbar', 0, 'top'),
+                        widget('header-1', 'header', 1, 'top'),
+                        widget('language-1', 'languageSwitcher', 2, 'top'),
+                        widget('color-mode-1', 'colorModeSwitcher', 3, 'top')
                     ],
                     bottom: [],
                     center: []
@@ -247,25 +184,45 @@ describe('Dashboard zone adapter', () => {
             />
         )
 
-        expect(screen.getByTestId('top-shell')).toHaveAttribute('data-color-mode', 'false')
-        expect(screen.getByTestId('top-shell')).toHaveAttribute('data-language-switcher', 'false')
-        expect(screen.getByTestId('header-shell')).toHaveAttribute('data-show-breadcrumbs', 'false')
-        expect(screen.getByTestId('header-shell')).toHaveAttribute('data-show-search', 'false')
-        expect(screen.getByTestId('header-shell')).toHaveAttribute('data-show-date-picker', 'false')
-        expect(screen.getByTestId('header-shell')).toHaveAttribute('data-show-options-menu', 'false')
-        expect(screen.getByTestId('header-shell')).toHaveAttribute('data-language-switcher', 'false')
-        expect(screen.getByTestId('header-shell')).toHaveAttribute('data-show-color-mode', 'false')
-        expect(screen.getByTestId('top-zone-widget-languageSwitcher')).toBeInTheDocument()
-        expect(screen.getByTestId('top-zone-widget-colorModeSwitcher')).toBeInTheDocument()
+        const actions = screen.getByTestId('header-actions')
+        expect(screen.getByTestId('top-shell')).toBeInTheDocument()
+        expect(within(actions).getByTestId('runtime-language-switcher')).toBeInTheDocument()
+        expect(actions.querySelectorAll('[data-screenshot="toggle-mode"]')).toHaveLength(1)
+        expect(screen.queryByTestId('top-zone-widget-languageSwitcher')).not.toBeInTheDocument()
+        expect(screen.queryByTestId('top-zone-widget-colorModeSwitcher')).not.toBeInTheDocument()
     })
 
-    it('keeps a persisted color-mode singleton independent when Header has no options menu', () => {
+    it('renders one language and color-mode control when singleton placements are duplicated', () => {
+        render(
+            <Dashboard
+                details={details}
+                zoneWidgets={{
+                    left: [],
+                    top: [
+                        widget('header-1', 'header'),
+                        widget('language-1', 'languageSwitcher', 1),
+                        widget('language-2', 'languageSwitcher', 2),
+                        widget('color-mode-1', 'colorModeSwitcher', 3),
+                        widget('color-mode-2', 'colorModeSwitcher', 4)
+                    ],
+                    bottom: [],
+                    center: []
+                }}
+            />
+        )
+
+        const actions = screen.getByTestId('header-actions')
+        expect(within(actions).getAllByTestId('runtime-language-switcher')).toHaveLength(1)
+        expect(actions.querySelectorAll('[data-screenshot="toggle-mode"]')).toHaveLength(1)
+        expect(screen.queryByTestId('top-zone-widget-languageSwitcher')).not.toBeInTheDocument()
+        expect(screen.queryByTestId('top-zone-widget-colorModeSwitcher')).not.toBeInTheDocument()
+    })
+
+    it('projects a persisted color-mode singleton into Header when no options menu exists', () => {
         render(
             <Dashboard
                 details={details}
                 layoutConfig={{
-                    showSideMenu: true,
-                    showFooter: false,
                     sideMenu: { availableModes: ['wide', 'compact'], primaryMode: 'wide', rememberUserChoice: false }
                 }}
                 zoneWidgets={{
@@ -281,17 +238,14 @@ describe('Dashboard zone adapter', () => {
             />
         )
 
-        expect(screen.getByTestId('top-shell')).toHaveAttribute('data-color-mode', 'false')
-        expect(screen.getByTestId('header-shell')).toHaveAttribute('data-show-options-menu', 'false')
-        expect(screen.getByTestId('header-shell')).toHaveAttribute('data-show-color-mode', 'false')
-        expect(screen.getByTestId('top-zone-widget-colorModeSwitcher')).toBeInTheDocument()
+        expect(screen.getByTestId('header-actions').querySelectorAll('[data-screenshot="toggle-mode"]')).toHaveLength(1)
+        expect(screen.queryByTestId('top-zone-widget-colorModeSwitcher')).not.toBeInTheDocument()
     })
 
-    it('keeps the persisted options menu owned by Header on desktop and available on mobile', () => {
+    it('projects persisted options and color-mode placements through Header exactly once', () => {
         render(
             <Dashboard
                 details={details}
-                layoutConfig={{ showSideMenu: false, showFooter: false }}
                 zoneWidgets={{
                     left: [],
                     top: [
@@ -306,18 +260,17 @@ describe('Dashboard zone adapter', () => {
             />
         )
 
-        expect(screen.getByTestId('top-shell')).toHaveAttribute('data-color-mode', 'false')
-        expect(screen.getByTestId('header-shell')).toHaveAttribute('data-show-options-menu', 'true')
-        expect(screen.getByTestId('header-shell')).toHaveAttribute('data-show-color-mode', 'false')
-        expect(screen.getByTestId('top-zone-widget-optionsMenu')).toBeInTheDocument()
-        expect(screen.getByTestId('top-zone-widget-colorModeSwitcher')).toBeInTheDocument()
+        const actions = screen.getByTestId('header-actions')
+        expect(within(actions).queryByTestId('runtime-options-menu-widget')).not.toBeInTheDocument()
+        expect(actions.querySelectorAll('[data-screenshot="toggle-mode"]')).toHaveLength(1)
+        expect(screen.queryByTestId('top-zone-widget-optionsMenu')).not.toBeInTheDocument()
+        expect(screen.queryByTestId('top-zone-widget-colorModeSwitcher')).not.toBeInTheDocument()
     })
 
     it('hides the persisted color mode control when the singleton is inactive', () => {
         render(
             <Dashboard
                 details={details}
-                layoutConfig={{ showSideMenu: false, showAppNavbar: false, showHeader: true }}
                 zoneWidgets={{
                     left: [],
                     top: [widget('header-1', 'header')],
@@ -327,15 +280,14 @@ describe('Dashboard zone adapter', () => {
             />
         )
 
-        expect(screen.getByTestId('header-shell')).toHaveAttribute('data-show-color-mode', 'false')
+        expect(screen.getByTestId('header-actions').querySelectorAll('[data-screenshot="toggle-mode"]')).toHaveLength(0)
         expect(screen.queryByTestId('top-zone-widget-colorModeSwitcher')).not.toBeInTheDocument()
     })
 
-    it('keeps a persisted language switcher available below the desktop-only Header', () => {
+    it('projects a persisted language switcher into Header', () => {
         render(
             <Dashboard
                 details={details}
-                layoutConfig={{ showSideMenu: false, showAppNavbar: false, showHeader: true, showLanguageSwitcher: true }}
                 zoneWidgets={{
                     left: [],
                     top: [widget('header-1', 'header'), widget('language-1', 'languageSwitcher')],
@@ -345,36 +297,19 @@ describe('Dashboard zone adapter', () => {
             />
         )
 
-        expect(screen.getByTestId('header-shell')).toHaveAttribute('data-language-switcher', 'false')
-        expect(screen.getByTestId('top-zone-widget-languageSwitcher')).toBeInTheDocument()
+        expect(within(screen.getByTestId('header-actions')).getByTestId('runtime-language-switcher')).toBeInTheDocument()
+        expect(screen.queryByTestId('top-zone-widget-languageSwitcher')).not.toBeInTheDocument()
     })
 
     it('does not restore removed persisted shell widgets from boolean layout flags', () => {
-        render(
-            <Dashboard
-                details={details}
-                layoutConfig={{ showSideMenu: false, showAppNavbar: true, showHeader: true, showLanguageSwitcher: true }}
-                zoneWidgets={{ left: [], top: [], bottom: [], center: [] }}
-            />
-        )
+        render(<Dashboard details={details} zoneWidgets={{ left: [], top: [], bottom: [], center: [] }} />)
 
         expect(screen.queryByTestId('top-shell')).not.toBeInTheDocument()
         expect(screen.queryByTestId('header-shell')).not.toBeInTheDocument()
     })
 
-    it('does not let an unpersisted shell recreate shared language or color controls', () => {
-        render(
-            <Dashboard
-                details={details}
-                layoutConfig={{
-                    showSideMenu: false,
-                    showAppNavbar: true,
-                    showHeader: true,
-                    showLanguageSwitcher: true,
-                    showColorMode: true
-                }}
-            />
-        )
+    it('does not render shell controls when no corresponding placements exist', () => {
+        render(<Dashboard details={details} />)
 
         expect(screen.queryByTestId('top-shell')).not.toBeInTheDocument()
         expect(screen.queryByTestId('header-shell')).not.toBeInTheDocument()
@@ -386,7 +321,6 @@ describe('Dashboard zone adapter', () => {
         render(
             <Dashboard
                 details={details}
-                layoutConfig={{ showSideMenu: false, showAppNavbar: false, showHeader: false, showFooter: false }}
                 zoneWidgets={{
                     left: [],
                     top: [

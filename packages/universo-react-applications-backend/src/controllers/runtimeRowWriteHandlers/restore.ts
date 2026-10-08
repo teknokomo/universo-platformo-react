@@ -10,7 +10,6 @@ import {
 } from '../../services/runtimeLifecycleDispatch'
 import {
     IDENTIFIER_REGEX,
-    UUID_REGEX,
     UpdateFailure,
     buildRuntimeActiveRowCondition,
     buildRuntimeDeletedRowCondition,
@@ -23,7 +22,8 @@ import {
 } from '../../shared/runtimeHelpers'
 import { assertRuntimeRecordRules } from '../../services/runtimeRecordRules'
 import { createRuntimeVersionConflictFailure } from '../runtimeVersionConflict'
-import { buildRuntimeExpectedVersionPredicate, runtimeRestoreBodySchema } from '../runtimeRowSupport/contracts'
+import { assertMarketingRuntimeRowCap } from '../../services/marketingRowCap'
+import { buildRuntimeExpectedVersionPredicate, runtimeRestoreBodySchema } from '../../services/runtimeRowSupport/contracts'
 import { resolveRuntimeObjectCollection } from '../runtimeRowSupport/objects'
 import { denyRuntimeEntityMutation, assertRuntimeEntityMutationAllowed } from '../../shared/entityMutationPolicy'
 import { validateRuntimeParentRecordAccessReferences } from '../runtimeRowSupport/validation'
@@ -31,16 +31,17 @@ import {
     assertInterpretationNetworkGenericCreateAllowed,
     assertNotProtectedSystemStructureRuntimeRow,
     buildRuntimeRecordAccessClause
-} from '../runtimeRowSupport/access'
-import { assertMarketingRuntimeRowCap, loadRuntimeRowById } from '../runtimeRowSupport/rows'
+} from '../../services/runtimeRowSupport/access'
+import { loadRuntimeRowById } from '../runtimeRowSupport/rows'
+import { isRuntimeRecordReference, resolveRuntimeRecordReference } from '../../services/runtimeRecordHandle'
 
 import type { RuntimeRowWriteDeps } from './types'
 
 export const createRestoreRowHandler = ({ getDbExecutor, query }: RuntimeRowWriteDeps) => {
     // ============ RESTORE ROW (soft-delete reversal) ============
     const restoreRow = async (req: Request, res: Response) => {
-        const { applicationId, rowId } = req.params
-        if (!UUID_REGEX.test(rowId)) return res.status(400).json({ error: 'Invalid row ID format' })
+        const { applicationId, rowId: rowReference } = req.params
+        if (!isRuntimeRecordReference(rowReference)) return res.status(400).json({ error: 'Invalid row reference format' })
 
         const parsedBody = runtimeRestoreBodySchema.safeParse(req.body ?? {})
         if (!parsedBody.success) {
@@ -64,6 +65,15 @@ export const createRestoreRowHandler = ({ getDbExecutor, query }: RuntimeRowWrit
                 code: 'RUNTIME_RECORD_RESTORE_UNSUPPORTED'
             })
         }
+        const resolvedReference = resolveRuntimeRecordReference(rowReference, {
+            applicationId,
+            workspaceId: ctx.currentWorkspaceId,
+            entityCodename: resolveRuntimeCodenameText(objectCollection.codename)
+        })
+        if (!resolvedReference) {
+            return res.status(404).json({ error: 'Deleted row not found', code: 'RUNTIME_RECORD_RESTORE_NOT_FOUND' })
+        }
+        const rowId = resolvedReference.recordId
 
         const dataTableIdent = `${ctx.schemaIdent}.${quoteIdentifier(objectCollection.table_name)}`
         const deletedRowCondition = buildRuntimeDeletedRowCondition(

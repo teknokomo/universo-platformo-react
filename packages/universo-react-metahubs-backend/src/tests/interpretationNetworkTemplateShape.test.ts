@@ -38,7 +38,7 @@ describe('interpretation-network template shape', () => {
         expect(main?.isActive).toBe(true)
     })
 
-    it('seeds the main layout with the interpretation workspace widget and no generic dashboard clutter', () => {
+    it('seeds the main layout with the interpretation workspace plus canonical Dashboard chrome', () => {
         const widgets = interpretationNetworkTemplate.seed.layoutZoneWidgets?.main ?? []
 
         const top = widgets.filter((w) => w.zone === 'top')
@@ -46,7 +46,7 @@ describe('interpretation-network template shape', () => {
         const center = widgets.filter((w) => w.zone === 'center')
         const workspace = findWidget(center, 'interpretationNetworkWorkspace') as
             | {
-                  config?: {
+                  rendererConfig?: {
                       conceptCodename?: string
                       interpretationCodename?: string
                       interpretationTitleField?: string
@@ -69,10 +69,42 @@ describe('interpretation-network template shape', () => {
               }
             | undefined
 
-        expect(top).toEqual([])
+        expect(
+            top.map(({ widgetKey, instanceKey, parentInstanceKey, slotKey }) => ({
+                widgetKey,
+                instanceKey,
+                parentInstanceKey,
+                slotKey
+            }))
+        ).toEqual([
+            {
+                widgetKey: 'appNavbar',
+                instanceKey: 'application-navbar',
+                parentInstanceKey: null,
+                slotKey: null
+            },
+            {
+                widgetKey: 'header',
+                instanceKey: 'application-header',
+                parentInstanceKey: null,
+                slotKey: null
+            },
+            {
+                widgetKey: 'languageSwitcher',
+                instanceKey: 'language-switcher',
+                parentInstanceKey: null,
+                slotKey: null
+            },
+            {
+                widgetKey: 'colorModeSwitcher',
+                instanceKey: 'color-mode-switcher',
+                parentInstanceKey: null,
+                slotKey: null
+            }
+        ])
         expect(findWidget(left, 'menuWidget')).toBeDefined()
         expect(findWidget(left, 'workspaceSwitcher')).toBeDefined()
-        expect(workspace?.config).toMatchObject({
+        expect(workspace?.rendererConfig).toMatchObject({
             matrixMode: 'hierarchicalCells',
             structureMode: 'multiple',
             templatePanel: {
@@ -104,30 +136,14 @@ describe('interpretation-network template shape', () => {
             conceptDescriptionField: 'Description',
             interpretationParentField: 'ParentStructure'
         })
-        const menu = findWidget(left, 'menuWidget') as
-            | { config?: { showTitle?: boolean; startPage?: string; items?: Array<{ id?: string }> } }
-            | undefined
-        expect(menu?.config?.showTitle).toBe(false)
-        expect(menu?.config?.startPage).toBe('InterpretationNetworkIntro')
-        expect(menu?.config?.items?.map((item) => item.id)).toEqual([
-            'interpretationNetwork-nav-intro',
-            'interpretationNetwork-nav-structures'
-        ])
+        expect(workspace?.rendererConfig).not.toHaveProperty('visibleFor')
+        const menu = findWidget(left, 'menuWidget') as { rendererConfig?: { variant?: string } } | undefined
+        expect(menu?.rendererConfig).toEqual({ variant: 'generated' })
     })
 
-    it('the main layout disables default overview, header, details table, and footer chrome', () => {
+    it('stores Dashboard chrome as explicit placements instead of legacy layout flags', () => {
         const main = interpretationNetworkTemplate.seed.layouts?.find((layout) => layout.codename === 'main')
-        expect(main?.config).toMatchObject({
-            showOverviewTitle: false,
-            showOverviewCards: false,
-            showSessionsChart: false,
-            showPageViewsChart: false,
-            showDetailsTitle: false,
-            showDetailsTable: false,
-            showColumnsContainer: false,
-            showHeader: false,
-            showFooter: false
-        })
+        expect(main?.config).toBeUndefined()
     })
 
     it('includes the base Set preset by default', () => {
@@ -200,6 +216,30 @@ describe('interpretation-network template shape', () => {
         expect(blockContent?.blocks?.length).toBeGreaterThanOrEqual(2)
         expect(JSON.stringify(blockContent)).toContain('Interpretation Network')
         expect(JSON.stringify(blockContent)).toContain('Трактовочная сеть')
+        expect(JSON.stringify(blockContent)).toContain('Use the workspace below to build the matrix')
+        expect(JSON.stringify(blockContent)).toContain('Создавайте матрицу в рабочей области ниже')
+        expect(JSON.stringify(blockContent)).not.toContain('Open Structures')
+    })
+
+    it('seeds bilingual top-level Start and Structures navigation', () => {
+        const entities = INTERPRETATION_NETWORK_STAGE2.seedEntities
+        const startPage = entities.find((entity) => entity.codename === 'InterpretationNetworkIntro')
+        const structures = entities.find((entity) => entity.codename === 'Structure')
+
+        expect(startPage).toMatchObject({
+            kind: 'page',
+            name: { locales: { en: { content: 'Start' }, ru: { content: 'Начало' } } },
+            hubs: [],
+            config: { runtime: { menuVisibility: 'primary', routeSegment: 'home', icon: 'home' } }
+        })
+        expect(structures).toMatchObject({
+            kind: 'object',
+            name: { locales: { en: { content: 'Structures' }, ru: { content: 'Структуры' } } },
+            hubs: [],
+            config: { runtime: { menuVisibility: 'primary', icon: 'object' } }
+        })
+        const menu = interpretationNetworkTemplate.seed.layoutZoneWidgets?.main?.find((widget) => widget.widgetKey === 'menuWidget')
+        expect(menu?.rendererConfig).toEqual({ variant: 'generated' })
     })
 
     it('Material is a record-capable Object with an Editor.js Body component', () => {

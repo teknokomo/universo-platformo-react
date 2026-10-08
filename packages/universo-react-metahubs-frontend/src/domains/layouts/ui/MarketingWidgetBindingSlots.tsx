@@ -19,7 +19,7 @@ export default function MarketingWidgetBindingSlots({ model }: { model: Marketin
     const {
         dialog: { open, canManageLayouts, canEditContent },
         state: { saveError, attemptedSubmit, draftBindings, recordFormMode, recordFormError, isRecordSaving, isRecordResolving },
-        queries: { bindingQuery, sourcesQuery, recordsQuery, hubsQuery, objectsQuery, componentsQuery },
+        queries: { bindingQuery, sourcesQuery, recordsQuery, hubsQuery, objectsQuery, pagesQuery, componentsQuery },
         data: {
             isInitialBindingLoading,
             isBindingReady,
@@ -56,6 +56,13 @@ export default function MarketingWidgetBindingSlots({ model }: { model: Marketin
 
     return (
         <Stack spacing={2} sx={{ minWidth: 0, pt: 0.5 }}>
+            {!canManageLayouts ? (
+                <Alert severity='info'>
+                    {t('layouts.widgetBindings.managePermissionRequired', {
+                        defaultValue: 'Changing content sources or bindings requires permission to manage this Metahub.'
+                    })}
+                </Alert>
+            ) : null}
             {bindingQuery.isError ? (
                 <Alert
                     severity='error'
@@ -274,6 +281,13 @@ export default function MarketingWidgetBindingSlots({ model }: { model: Marketin
                                         ) : null}
                                         {activeDraft?.selectorKind === 'semantic-key' ? (
                                             <>
+                                                {!canEditContent ? (
+                                                    <Alert severity='info'>
+                                                        {t('layouts.widgetBindings.recordPermissionRequired', {
+                                                            defaultValue: 'Editing Entity records requires content editing permission.'
+                                                        })}
+                                                    </Alert>
+                                                ) : null}
                                                 {recordsQuery.isError ? (
                                                     <Alert
                                                         severity='error'
@@ -377,6 +391,18 @@ export default function MarketingWidgetBindingSlots({ model }: { model: Marketin
                                                         })}
                                                     </Alert>
                                                 ) : null}
+                                                {shouldLoadRecordMetadata &&
+                                                sourceEntity &&
+                                                componentsQuery.isSuccess &&
+                                                !componentsQuery.isFetching &&
+                                                recordFields.length === 0 &&
+                                                !hasUnsupportedRequiredFields ? (
+                                                    <Alert severity='info'>
+                                                        {t('layouts.widgetBindings.recordFieldsEmpty', {
+                                                            defaultValue: 'This content source has no editable fields.'
+                                                        })}
+                                                    </Alert>
+                                                ) : null}
                                                 <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
                                                     <Button
                                                         variant='outlined'
@@ -419,7 +445,10 @@ export default function MarketingWidgetBindingSlots({ model }: { model: Marketin
                                                     </Button>
                                                 </Stack>
                                                 {shouldLoadRecordMetadata &&
-                                                (hubsQuery.isLoading || objectsQuery.isLoading || componentsQuery.isLoading) ? (
+                                                (hubsQuery.isLoading ||
+                                                    objectsQuery.isLoading ||
+                                                    pagesQuery.isLoading ||
+                                                    componentsQuery.isLoading) ? (
                                                     <Typography variant='body2' sx={{ color: 'text.secondary' }}>
                                                         {t('layouts.widgetBindings.loadingRecordFields', {
                                                             defaultValue: 'Loading content fields…'
@@ -427,11 +456,28 @@ export default function MarketingWidgetBindingSlots({ model }: { model: Marketin
                                                     </Typography>
                                                 ) : null}
                                                 {shouldLoadRecordMetadata &&
-                                                (hubsQuery.isError || objectsQuery.isError || componentsQuery.isError) ? (
-                                                    <Alert severity='error'>
+                                                (hubsQuery.isError ||
+                                                    objectsQuery.isError ||
+                                                    pagesQuery.isError ||
+                                                    componentsQuery.isError) ? (
+                                                    <Alert
+                                                        severity='error'
+                                                        action={
+                                                            <Button
+                                                                color='inherit'
+                                                                size='small'
+                                                                onClick={() => {
+                                                                    if (objectsQuery.isError) void objectsQuery.refetch()
+                                                                    if (pagesQuery.isError) void pagesQuery.refetch()
+                                                                    if (componentsQuery.isError) void componentsQuery.refetch()
+                                                                }}
+                                                            >
+                                                                {t('actions.retry', { defaultValue: 'Retry' })}
+                                                            </Button>
+                                                        }
+                                                    >
                                                         {t('layouts.widgetBindings.recordFieldsError', {
-                                                            defaultValue:
-                                                                'Content fields could not be loaded. Retry the request or choose another source.'
+                                                            defaultValue: 'Content fields could not be loaded. Try again.'
                                                         })}
                                                     </Alert>
                                                 ) : null}

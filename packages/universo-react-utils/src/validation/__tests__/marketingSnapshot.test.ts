@@ -158,12 +158,13 @@ describe('validateMarketingSnapshotLayouts', () => {
             {
                 id: ids.widget,
                 layoutId: ids.layout,
+                instanceKey: 'pricing',
                 zone: 'marketing-main',
                 widgetKey: 'marketing.pricing',
                 sortOrder: 0,
                 config: boundWidgetConfig(
                     'marketing.pricing',
-                    { instanceKey: 'pricing', showBenefits: true },
+                    { showBenefits: true },
                     {
                         section: 'MarketingPageSection',
                         tiers: 'MarketingPagePricing',
@@ -191,12 +192,13 @@ describe('validateMarketingSnapshotLayouts', () => {
             {
                 id: ids.widget,
                 layoutId: ids.layout,
+                instanceKey: 'pricing',
                 zone: 'marketing-main',
                 widgetKey: 'marketing.pricing',
                 sortOrder: 0,
                 config: boundWidgetConfig(
                     'marketing.pricing',
-                    { instanceKey: 'pricing', showBenefits: true },
+                    { showBenefits: true },
                     {
                         section: 'MarketingPageSection',
                         tiers: 'MarketingPagePricing',
@@ -221,12 +223,13 @@ describe('validateMarketingSnapshotLayouts', () => {
             {
                 id: ids.widget,
                 layoutId: ids.layout,
+                instanceKey: 'pricing',
                 zone: 'marketing-main',
                 widgetKey: 'marketing.pricing',
                 sortOrder: 0,
                 config: boundWidgetConfig(
                     'marketing.pricing',
-                    { instanceKey: 'pricing', showBenefits: true },
+                    { showBenefits: true },
                     {
                         section: 'MarketingPageSection',
                         tiers: 'MarketingPagePricing',
@@ -261,12 +264,13 @@ describe('validateMarketingSnapshotLayouts', () => {
             {
                 id: ids.widget,
                 layoutId: ids.layout,
+                instanceKey: 'pricing',
                 zone: 'marketing-main',
                 widgetKey: 'marketing.pricing',
                 sortOrder: 0,
                 config: boundWidgetConfig(
                     'marketing.pricing',
-                    { instanceKey: 'pricing', showBenefits: true },
+                    { showBenefits: true },
                     {
                         section: 'MarketingPageSection',
                         tiers: 'MarketingPagePricing',
@@ -290,15 +294,11 @@ describe('validateMarketingSnapshotLayouts', () => {
         const image = {
             id: ids.secondWidget,
             layoutId: ids.layout,
+            instanceKey: 'hero-image',
             zone: 'marketing-main',
             widgetKey: 'marketing.image',
             sortOrder: 1,
-            config: boundWidgetConfig(
-                'marketing.image',
-                { instanceKey: 'hero-image' },
-                { content: 'MarketingPageImage' },
-                { content: 'hero-image' }
-            ),
+            config: boundWidgetConfig('marketing.image', {}, { content: 'MarketingPageImage' }, { content: 'hero-image' }),
             isActive: true
         }
 
@@ -309,15 +309,11 @@ describe('validateMarketingSnapshotLayouts', () => {
         const image = {
             id: ids.secondWidget,
             layoutId: ids.layout,
+            instanceKey: 'hero-image',
             zone: 'marketing-main',
             widgetKey: 'marketing.image',
             sortOrder: 1,
-            config: boundWidgetConfig(
-                'marketing.image',
-                { instanceKey: 'hero-image' },
-                { content: 'MarketingPageImage' },
-                { content: 'hero-image' }
-            ),
+            config: boundWidgetConfig('marketing.image', {}, { content: 'MarketingPageImage' }, { content: 'hero-image' }),
             isActive: true
         }
         const snapshot = createSnapshot([collectionWidget(ids.widget, 'logos'), image])
@@ -337,15 +333,11 @@ describe('validateMarketingSnapshotLayouts', () => {
         const image = {
             id: ids.secondWidget,
             layoutId: ids.layout,
+            instanceKey: 'hero-image',
             zone: 'marketing-main',
             widgetKey: 'marketing.image',
             sortOrder: 1,
-            config: boundWidgetConfig(
-                'marketing.image',
-                { instanceKey: 'hero-image' },
-                { content: 'MarketingPageImage' },
-                { content: 'hero-image' }
-            ),
+            config: boundWidgetConfig('marketing.image', {}, { content: 'MarketingPageImage' }, { content: 'hero-image' }),
             isActive: true
         }
         const snapshot = createSnapshot([collectionWidget(ids.widget, 'logos'), image])
@@ -366,15 +358,11 @@ describe('validateMarketingSnapshotLayouts', () => {
         const image = {
             id: ids.secondWidget,
             layoutId: ids.layout,
+            instanceKey: 'hero-image',
             zone: 'marketing-main',
             widgetKey: 'marketing.image',
             sortOrder: 1,
-            config: boundWidgetConfig(
-                'marketing.image',
-                { instanceKey: 'hero-image' },
-                { content: 'MarketingPageImage' },
-                { content: 'hero-image' }
-            ),
+            config: boundWidgetConfig('marketing.image', {}, { content: 'MarketingPageImage' }, { content: 'hero-image' }),
             isActive: true
         }
         const snapshot = createSnapshot([collectionWidget(ids.widget, 'logos'), image])
@@ -395,15 +383,11 @@ describe('validateMarketingSnapshotLayouts', () => {
         const image = {
             id: ids.secondWidget,
             layoutId: ids.layout,
+            instanceKey: 'hero-image',
             zone: 'marketing-main',
             widgetKey: 'marketing.image',
             sortOrder: 1,
-            config: boundWidgetConfig(
-                'marketing.image',
-                { instanceKey: 'hero-image' },
-                { content: 'MarketingPageImage' },
-                { content: 'hero-image' }
-            ),
+            config: boundWidgetConfig('marketing.image', {}, { content: 'MarketingPageImage' }, { content: 'hero-image' }),
             isActive: true
         }
         const snapshot = createSnapshot([collectionWidget(ids.widget, 'logos'), image])
@@ -473,14 +457,14 @@ describe('validateMarketingSnapshotLayouts', () => {
         const missingBinding = createSnapshot([
             {
                 ...heroWidget(ids.widget, 'hero'),
-                config: { instanceKey: 'hero', showLeadForm: true }
+                config: { showLeadForm: true }
             }
         ])
         expect(() => validateMarketingSnapshotLayouts(missingBinding)).toThrow('widget binding is invalid')
 
-        const v3Binding = createSnapshot([heroWidget(ids.widget, 'hero')])
-        v3Binding.versionEnvelope = { snapshotFormatVersion: 3 }
-        expect(() => validateMarketingSnapshotLayouts(v3Binding)).not.toThrow()
+        const currentBinding = createSnapshot([heroWidget(ids.widget, 'hero')])
+        currentBinding.versionEnvelope = { snapshotFormatVersion: 4 }
+        expect(() => validateMarketingSnapshotLayouts(currentBinding)).not.toThrow()
 
         const missingEntity = createSnapshot([heroWidget(ids.widget, 'hero')])
         delete missingEntity.entities?.[ids.heroEntity]
@@ -594,16 +578,17 @@ describe('validateMarketingSnapshotLayouts', () => {
     it('accepts binding-free Marketing renderer and placement deltas', () => {
         const snapshot = createSnapshot([heroWidget(ids.widget, 'hero')])
         const authConfig = encodeWidgetConfigEnvelope(
-            { rendererConfig: { instanceKey: 'auth', showAuthActions: true }, neutral: { placement: 'end' } },
+            { rendererConfig: { showAuthActions: true }, neutral: { placement: 'end' } },
             { templateKey: 'marketing-page', widgetKey: 'marketing.auth', zone: 'marketing-header' }
         )
         const authOverrideConfig = encodeWidgetConfigEnvelope(
-            { rendererConfig: { instanceKey: 'auth', showAuthActions: false }, neutral: { placement: 'start' } },
+            { rendererConfig: { showAuthActions: false }, neutral: { placement: 'start' } },
             { templateKey: 'marketing-page', widgetKey: 'marketing.auth', zone: 'marketing-header' }
         )
         snapshot.layoutZoneWidgets!.push({
             id: ids.secondWidget,
             layoutId: ids.layout,
+            instanceKey: 'language-switcher',
             zone: 'marketing-header',
             widgetKey: 'marketing.auth',
             sortOrder: 1,
@@ -630,7 +615,7 @@ describe('validateMarketingSnapshotLayouts', () => {
                 layoutId: ids.scopedLayout,
                 baseWidgetId: ids.widget,
                 zone: 'marketing-main',
-                config: { instanceKey: 'hero', showLeadForm: false },
+                config: { showLeadForm: false },
                 isDeletedOverride: false
             },
             {
@@ -801,11 +786,106 @@ describe('validateMarketingSnapshotLayouts', () => {
         expect(() => validateSnapshotLayoutIdentities(snapshot)).not.toThrow()
     })
 
+    it('rejects retired Dashboard renderer configuration at snapshot layout and default-config boundaries', () => {
+        const snapshot = {
+            layouts: [
+                {
+                    id: ids.layout,
+                    templateKey: 'dashboard',
+                    config: { showHeader: true },
+                    baseLayoutId: null,
+                    compositionMode: 'independent'
+                }
+            ],
+            scopedLayouts: [],
+            defaultLayoutId: ids.layout,
+            layoutConfig: {},
+            layoutZoneWidgets: [],
+            layoutWidgetOverrides: []
+        }
+
+        expect(() => validateSnapshotLayoutNeutralMetadata(snapshot)).toThrow('Snapshot layout renderer configuration is invalid')
+
+        const invalidDefaultConfigSnapshot = {
+            ...snapshot,
+            layouts: [{ ...snapshot.layouts[0]!, config: {} }],
+            layoutConfig: { objectBehavior: { enableRowReordering: true } }
+        }
+        expect(() => validateSnapshotLayoutNeutralMetadata(invalidDefaultConfigSnapshot)).toThrow(
+            'Snapshot default layout renderer configuration is invalid'
+        )
+    })
+
+    it('strictly validates Dashboard widget renderer configuration at the snapshot transport boundary', () => {
+        const snapshot = {
+            layouts: [
+                {
+                    id: ids.layout,
+                    templateKey: 'dashboard',
+                    config: {},
+                    baseLayoutId: null,
+                    compositionMode: 'independent'
+                }
+            ],
+            scopedLayouts: [],
+            defaultLayoutId: ids.layout,
+            layoutConfig: {},
+            layoutZoneWidgets: [
+                {
+                    id: ids.widget,
+                    layoutId: ids.layout,
+                    instanceKey: 'date-filter',
+                    zone: 'top',
+                    widgetKey: 'datePicker',
+                    sortOrder: 0,
+                    config: { selection: 'quarter', unexpected: true },
+                    isActive: true
+                }
+            ],
+            layoutWidgetOverrides: []
+        }
+
+        expect(() => validateSnapshotLayoutNeutralMetadata(snapshot)).toThrow('Snapshot widget configuration is invalid')
+    })
+
+    it('rejects Dashboard widgets with missing required Entity bindings at the snapshot transport boundary', () => {
+        const snapshot = {
+            layouts: [
+                {
+                    id: ids.layout,
+                    templateKey: 'dashboard',
+                    config: {},
+                    baseLayoutId: null,
+                    compositionMode: 'independent'
+                }
+            ],
+            scopedLayouts: [],
+            defaultLayoutId: ids.layout,
+            layoutConfig: {},
+            layoutZoneWidgets: [
+                {
+                    id: ids.widget,
+                    layoutId: ids.layout,
+                    instanceKey: 'info-card',
+                    zone: 'left',
+                    widgetKey: 'infoCard',
+                    sortOrder: 0,
+                    config: { severity: 'info' },
+                    isActive: true
+                }
+            ],
+            layoutWidgetOverrides: []
+        }
+
+        expect(() => validateSnapshotLayoutNeutralMetadata(snapshot)).toThrow('Snapshot widget binding is invalid')
+    })
+
     it('accepts shared template widgets inside a marketing layout', () => {
         const snapshot = createSnapshot()
         snapshot.layoutZoneWidgets!.push({
             id: ids.secondWidget,
             layoutId: ids.layout,
+            instanceKey: 'auth',
             zone: 'marketing-header',
             widgetKey: 'languageSwitcher',
             sortOrder: 1,
@@ -821,10 +901,11 @@ describe('validateMarketingSnapshotLayouts', () => {
         snapshot.layoutZoneWidgets!.push({
             id: ids.secondWidget,
             layoutId: ids.layout,
+            instanceKey: 'auth',
             zone: 'marketing-header',
             widgetKey: 'marketing.auth',
             sortOrder: 1,
-            config: { instanceKey: 'auth', showAuthActions: true },
+            config: { showAuthActions: true },
             isActive: true
         })
 
@@ -934,12 +1015,13 @@ describe('validateMarketingSnapshotLayouts', () => {
             {
                 id: ids.widget,
                 layoutId: ids.layout,
+                instanceKey: 'pricing',
                 zone: 'marketing-main',
                 widgetKey: 'marketing.pricing',
                 sortOrder: 0,
                 config: boundWidgetConfig(
                     'marketing.pricing',
-                    { instanceKey: 'pricing', showBenefits: true },
+                    { showBenefits: true },
                     {
                         section: 'MarketingPageSection',
                         tiers: 'MarketingPagePricing',
@@ -977,6 +1059,7 @@ describe('validateMarketingSnapshotTransportLayouts', () => {
         snapshot.layoutZoneWidgets!.push({
             id: ids.secondWidget,
             layoutId: ids.layout,
+            instanceKey: 'language-switcher',
             zone: 'marketing-header',
             widgetKey: 'languageSwitcher',
             sortOrder: 1,

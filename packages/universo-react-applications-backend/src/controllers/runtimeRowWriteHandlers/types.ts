@@ -2,8 +2,8 @@ import type { DbExecutor } from '@universo-react/utils'
 
 import type { RuntimeRecordCommandService } from '../../services/runtimeRecordBehavior'
 import type { createQueryHelper, RuntimeTableChildComponentMeta } from '../../shared/runtimeHelpers'
-import type { readRuntimeCopyRelations } from '../runtimeRowSupport/access'
-import type { RuntimeObjectCollectionAttr } from '../runtimeRowSupport/contracts'
+import type { readRuntimeCopyRelations } from '../../services/runtimeRowSupport/access'
+import type { RuntimeObjectCollectionAttr } from '../../services/runtimeRowSupport/contracts'
 import type { resolveRuntimeObjectCollection } from '../runtimeRowSupport/objects'
 
 export type RuntimeWriteResolvedObjectCollection = NonNullable<

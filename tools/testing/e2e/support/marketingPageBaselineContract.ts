@@ -332,7 +332,7 @@ export function assertMarketingPageTemplateBaseline(manifest: TemplateManifest):
             const layoutMetadata = config.__layout === undefined ? undefined : readRecord(config.__layout, 'layout widget metadata')
             const bindings = summarizeBindings(layoutMetadata?.bindings)
             const instanceKey =
-                config.instanceKey === undefined ? undefined : readString(config.instanceKey, 'marketing widget instanceKey')
+                assignment.instanceKey === undefined ? undefined : readString(assignment.instanceKey, 'marketing widget instanceKey')
             const placement = layoutMetadata?.placement === undefined ? undefined : readString(layoutMetadata.placement, 'widget placement')
 
             assert.equal(config.source, undefined, 'marketing renderer config must not own Entity content sources')

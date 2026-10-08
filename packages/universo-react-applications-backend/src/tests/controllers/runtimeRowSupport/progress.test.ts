@@ -5,10 +5,12 @@ import {
     readRuntimeProgressSequencePolicy,
     readRuntimeProgressStatus,
     readRuntimeProgressString,
+    resolveRuntimeProgressItemStates,
     statusFromAggregatedProgress,
     toPositiveRuntimeWeight,
     toRuntimeBoolean
-} from '../../../controllers/runtimeRowSupport/progress'
+} from '../../../services/runtimeRowSupport/progress'
+import type { DbExecutor } from '@universo-react/utils'
 
 describe('readRuntimeProgressSequencePolicy', () => {
     it('returns null when runtimeProgress or the sequencePolicy key is absent', () => {
@@ -43,6 +45,33 @@ describe('readRuntimeProgressSequencePolicy', () => {
         expect(readRuntimeProgressSequencePolicy({ runtimeProgress: { sequencePolicy: { mode: 'sequential', bogus: true } } })).toEqual({
             invalid: true
         })
+    })
+})
+
+describe('resolveRuntimeProgressItemStates', () => {
+    it('fails closed when a scoped sequence item has no parent scope', async () => {
+        const manager = { query: jest.fn() } as unknown as DbExecutor
+
+        await expect(
+            resolveRuntimeProgressItemStates({
+                manager,
+                workspacesEnabled: false,
+                userId: null,
+                binding: null,
+                targetObjectCodename: 'CourseItems',
+                targetObjectConfig: {
+                    runtimeProgress: {
+                        sequencePolicy: {
+                            mode: 'sequential',
+                            scopeFieldCodename: 'CourseId',
+                            orderFieldCodename: 'SortOrder'
+                        }
+                    }
+                },
+                items: [{ id: '0190a9b5-3cde-7abc-8def-0123456789c5', order: 1 }]
+            })
+        ).rejects.toMatchObject({ statusCode: 409, body: { code: 'SEQUENCE_SCOPE_INVALID' } })
+        expect(manager.query).not.toHaveBeenCalled()
     })
 })
 

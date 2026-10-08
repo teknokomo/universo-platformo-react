@@ -2,8 +2,7 @@ import type { Request, Response } from 'express'
 import { z } from 'zod'
 import { reportDefinitionSchema, reportFilterSchema } from '@universo-react/types'
 import type { ReportDefinition } from '@universo-react/types'
-import type { DbExecutor } from '@universo-react/utils'
-import { resolveApplicationLifecycleContractFromConfig } from '@universo-react/utils'
+import { isUuidV7, resolveApplicationLifecycleContractFromConfig, type DbExecutor } from '@universo-react/utils'
 import { qColumn, qSchemaTable } from '@universo-react/database'
 import {
     buildRuntimeActiveRowCondition,
@@ -18,14 +17,27 @@ import {
 } from '../shared/runtimeHelpers'
 import { RuntimeReportsService, serializeRuntimeReportCsv, type RuntimeReportFieldMetadata } from '../services/runtimeReportsService'
 import { loadRuntimeObjectAttrs } from './runtimeRowSupport/objects'
-import { buildRuntimeRecordAccessClause } from './runtimeRowSupport/access'
-import { executeRuntimeRecordsUnionDatasource } from './runtimeRowSupport/union'
+import { buildRuntimeRecordAccessClause } from '../services/runtimeRowSupport/access'
+import { executeRuntimeRecordsUnionDatasource } from '../services/runtimeRowSupport/union/index'
+import {
+    loadSavedRuntimeReportSource,
+    loadSavedRuntimeReportSourceById,
+    SavedRuntimeReportSourceError
+} from '../persistence/savedRuntimeReportSourceStore'
 import type { RolePermission } from '../routes/guards'
+
+const reportCodenameSchema = z
+    .string()
+    .trim()
+    .min(1)
+    .max(128)
+    .regex(/^[A-Za-z][A-Za-z0-9._-]{0,127}$/u)
+const reportIdSchema = z.string().trim().refine(isUuidV7)
 
 const reportRunBodySchema = z
     .object({
-        reportId: z.string().trim().min(1).max(128).optional(),
-        reportCodename: z.string().trim().min(1).max(128).optional(),
+        reportId: reportIdSchema.optional(),
+        reportCodename: reportCodenameSchema.optional(),
         limit: z.coerce.number().int().positive().max(500).optional(),
         offset: z.coerce.number().int().min(0).optional(),
         filters: z.array(reportFilterSchema).max(32).optional().default([]),
@@ -45,8 +57,8 @@ const reportRunBodySchema = z
 
 const reportExportBodySchema = z
     .object({
-        reportId: z.string().trim().min(1).max(128).optional(),
-        reportCodename: z.string().trim().min(1).max(128).optional(),
+        reportId: reportIdSchema.optional(),
+        reportCodename: reportCodenameSchema.optional(),
         limit: z.coerce.number().int().positive().max(5000).optional(),
         offset: z.coerce.number().int().min(0).optional(),
         filters: z.array(reportFilterSchema).max(32).optional().default([]),
@@ -74,26 +86,11 @@ type RuntimeReportTarget = {
     fields: RuntimeReportFieldMetadata[]
 }
 
-type RuntimeReportObjectTarget = RuntimeReportTarget & {
-    definitionColumnName: string
-}
-
 type RuntimeReportExecutionResult = {
     rows: Array<Record<string, unknown>>
     total: number
     aggregations: Record<string, unknown>
     definition: ReportDefinition
-}
-
-const parseStoredReportDefinition = (value: unknown) => {
-    if (typeof value === 'string') {
-        try {
-            return JSON.parse(value) as unknown
-        } catch {
-            return value
-        }
-    }
-    return value
 }
 
 const mapRuntimeReportFields = (
@@ -372,126 +369,6 @@ const resolveReportTarget = async (params: {
     }
 }
 
-const resolveReportsObjectTarget = async (params: { executor: DbExecutor; schemaIdent: string }): Promise<RuntimeReportObjectTarget> => {
-    const targets = await params.executor.query<{
-        id: string
-        codename: unknown
-        table_name: string | null
-        config?: Record<string, unknown> | null
-    }>(
-        `
-        SELECT id, codename, table_name, config
-        FROM ${params.schemaIdent}._app_objects
-        WHERE _upl_deleted = false
-          AND _app_deleted = false
-          AND ${runtimeObjectFilterSql('kind', 'config')}
-          AND ${runtimeCodenameTextSql('codename')} = $1
-        ORDER BY id ASC
-        LIMIT 1
-        `,
-        ['Reports']
-    )
-
-    const target = targets[0]
-    if (!target) {
-        throw new UpdateFailure(404, {
-            error: 'Reports object was not found in the published application',
-            code: 'REPORTS_OBJECT_NOT_FOUND'
-        })
-    }
-    if (!target.table_name || !IDENTIFIER_REGEX.test(target.table_name)) {
-        throw new UpdateFailure(400, {
-            error: 'Reports object table is invalid',
-            code: 'REPORTS_OBJECT_TABLE_INVALID'
-        })
-    }
-
-    const rawFields = await params.executor.query<{
-        codename: unknown
-        column_name: string
-        data_type: RuntimeReportFieldMetadata['dataType']
-    }>(
-        `
-        SELECT codename, column_name, data_type
-        FROM ${params.schemaIdent}._app_components
-        WHERE object_id = $1
-          AND parent_component_id IS NULL
-          AND _upl_deleted = false
-          AND _app_deleted = false
-        ORDER BY sort_order ASC, _upl_created_at ASC NULLS LAST, id ASC
-        `,
-        [target.id]
-    )
-
-    const fields = mapRuntimeReportFields(rawFields)
-    const definitionField = fields.find((field) => field.codename === 'Definition' && field.dataType === 'JSON')
-    if (!definitionField) {
-        throw new UpdateFailure(400, {
-            error: 'Reports object does not expose a JSON Definition field',
-            code: 'REPORTS_OBJECT_DEFINITION_FIELD_MISSING'
-        })
-    }
-
-    return {
-        id: target.id,
-        codename: resolveRuntimeCodenameText(target.codename),
-        tableName: target.table_name,
-        config: target.config,
-        fields,
-        definitionColumnName: definitionField.columnName
-    }
-}
-
-const loadSavedReportDefinition = async (params: {
-    executor: DbExecutor
-    schemaName: string
-    reportObject: RuntimeReportObjectTarget
-    reportId?: string
-    reportCodename?: string
-    activeCondition?: string
-}) => {
-    const reportReference = params.reportId?.trim() || params.reportCodename?.trim()
-    if (!reportReference) {
-        throw new UpdateFailure(400, {
-            error: 'Report reference is required',
-            code: 'REPORT_REFERENCE_REQUIRED'
-        })
-    }
-
-    const tableSql = qSchemaTable(params.schemaName, params.reportObject.tableName)
-    const definitionColumnSql = qColumn(params.reportObject.definitionColumnName)
-    const rows = await params.executor.query<{ definition: unknown }>(
-        `
-        SELECT ${definitionColumnSql} AS definition
-        FROM ${tableSql}
-        WHERE ${params.activeCondition?.trim() || '_upl_deleted = false AND _app_deleted = false'}
-          AND (id::text = $1 OR ${definitionColumnSql}->>'codename' = $1)
-        ORDER BY CASE WHEN id::text = $1 THEN 0 ELSE 1 END, id ASC
-        LIMIT 1
-        `,
-        [reportReference]
-    )
-
-    const saved = rows[0]
-    if (!saved) {
-        throw new UpdateFailure(404, {
-            error: 'Saved report was not found',
-            code: 'REPORT_NOT_FOUND'
-        })
-    }
-
-    const parsed = reportDefinitionSchema.safeParse(parseStoredReportDefinition(saved.definition))
-    if (!parsed.success) {
-        throw new UpdateFailure(400, {
-            error: 'Saved report definition is invalid',
-            code: 'REPORT_DEFINITION_INVALID',
-            details: parsed.error.flatten()
-        })
-    }
-
-    return parsed.data
-}
-
 const buildCsvAttachmentFilename = (codename: string): string => {
     const normalized = codename
         .replace(/([a-z0-9])([A-Z])/g, '$1-$2')
@@ -506,24 +383,47 @@ export function createRuntimeReportsController(getDbExecutor: () => DbExecutor) 
     const service = new RuntimeReportsService()
 
     const resolveSavedReportExecution = async (ctx: RuntimeSchemaContext, reference: { reportId?: string; reportCodename?: string }) => {
-        const reportsObject = await resolveReportsObjectTarget({
-            executor: ctx.manager,
-            schemaIdent: ctx.schemaIdent
-        })
-        const reportsLifecycleContract = resolveApplicationLifecycleContractFromConfig(reportsObject.config)
-        const definition = await loadSavedReportDefinition({
-            executor: ctx.manager,
+        const sourceScope = {
             schemaName: ctx.schemaName,
-            reportObject: reportsObject,
-            reportId: reference.reportId,
-            reportCodename: reference.reportCodename,
-            activeCondition: buildRuntimeActiveRowCondition(
-                reportsLifecycleContract,
-                reportsObject.config,
-                undefined,
-                ctx.currentWorkspaceId
-            )
-        })
+            workspaceId: ctx.currentWorkspaceId,
+            workspacesEnabled: ctx.workspacesEnabled,
+            currentUserId: ctx.userId,
+            permissions: ctx.permissions
+        }
+        let definition: ReportDefinition
+
+        try {
+            if (reference.reportCodename) {
+                definition = await loadSavedRuntimeReportSource(ctx.manager, sourceScope, reference.reportCodename)
+            } else if (reference.reportId) {
+                definition = await loadSavedRuntimeReportSourceById(ctx.manager, sourceScope, reference.reportId)
+            } else {
+                throw new UpdateFailure(400, {
+                    error: 'Report reference is required',
+                    code: 'REPORT_REFERENCE_REQUIRED'
+                })
+            }
+        } catch (error) {
+            if (error instanceof SavedRuntimeReportSourceError) {
+                if (error.reason === 'permission-denied') {
+                    throw new UpdateFailure(403, {
+                        error: 'Insufficient permissions for this report',
+                        code: 'REPORT_PERMISSION_DENIED'
+                    })
+                }
+                if (error.reason === 'stale-source') {
+                    throw new UpdateFailure(404, {
+                        error: 'Saved report was not found',
+                        code: 'REPORT_NOT_FOUND'
+                    })
+                }
+                throw new UpdateFailure(400, {
+                    error: 'Saved report definition is invalid',
+                    code: 'REPORT_DEFINITION_INVALID'
+                })
+            }
+            throw error
+        }
         const target =
             definition.datasource.kind === 'records.list'
                 ? await resolveReportTarget({

@@ -1,4 +1,4 @@
-import { Divider, Menu, MenuItem } from '@mui/material'
+import { Divider, ListItemText, Menu, MenuItem } from '@mui/material'
 import ContentCopyRoundedIcon from '@mui/icons-material/ContentCopyRounded'
 import DeleteRoundedIcon from '@mui/icons-material/DeleteRounded'
 import EditRoundedIcon from '@mui/icons-material/EditRounded'
@@ -39,6 +39,7 @@ export function ApplicationLayoutListMenu({
     onToggleActive,
     onDelete
 }: ApplicationLayoutListMenuProps) {
+    const copyUnavailable = layout?.sourceKind === 'metahub'
     const runAction = (action: (selectedLayout: ApplicationLayout) => void) => {
         if (layout) action(layout)
         onClose()
@@ -60,9 +61,24 @@ export function ApplicationLayoutListMenu({
                 <EditRoundedIcon fontSize='small' style={{ marginRight: 8 }} />
                 {tc('actions.edit', 'Edit')}
             </MenuItem>
-            <MenuItem onClick={() => runAction(onCopy)}>
-                <ContentCopyRoundedIcon fontSize='small' style={{ marginRight: 8 }} />
-                {tc('actions.copy', 'Copy')}
+            <MenuItem disabled={copyUnavailable} onClick={() => runAction(onCopy)} sx={{ alignItems: 'flex-start' }}>
+                <ContentCopyRoundedIcon fontSize='small' style={{ marginRight: 8, marginTop: 4, flexShrink: 0 }} />
+                <ListItemText
+                    primary={tc('actions.copy', 'Copy')}
+                    secondary={
+                        copyUnavailable
+                            ? t(
+                                  'layouts.copyUnavailable',
+                                  'Source-managed layouts may contain widgets the application cannot own, so they cannot be copied.'
+                              )
+                            : undefined
+                    }
+                    sx={{
+                        minWidth: 0,
+                        whiteSpace: 'normal',
+                        '& .MuiListItemText-secondary': { maxWidth: 280, whiteSpace: 'normal' }
+                    }}
+                />
             </MenuItem>
             <Divider />
             <MenuItem disabled={!layout?.isActive || Boolean(layout?.isDefault)} onClick={() => runAction(onMakeDefault)}>

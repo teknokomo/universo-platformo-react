@@ -268,6 +268,18 @@ async function expectSingleSystemMatrixForLocale(page: Page, locale: Locale): Pr
     await expect(page.getByRole('button', { name: /Universe|Вселенная/ }).first()).toBeVisible({ timeout: 30_000 })
 }
 
+async function expectMultipleStructuresForLocale(page: Page, locale: Locale): Promise<void> {
+    const pane = page.getByTestId('interpretation-network-structure-pane')
+    await expect(page.getByTestId('interpretation-network-workspace')).toBeVisible({ timeout: 30_000 })
+    await expect(page.getByTestId('interpretation-network-matrix-workspace')).toHaveCount(0)
+    await expect(pane.getByRole('heading', { name: localized(locale, 'Structures', 'Структуры') })).toBeVisible()
+    await expect(pane.getByRole('tab', { name: localized(locale, 'Templates', 'Шаблоны') })).toBeVisible()
+    await expect(pane.getByRole('button', { name: localized(locale, 'Create', 'Создать'), exact: true })).toBeVisible()
+    await expect(
+        pane.getByText(localized(locale, 'Create a structure first.', 'Сначала создайте структуру.'), { exact: true })
+    ).toBeVisible()
+}
+
 async function waitForCellCreateResponse(page: Page, applicationId: string) {
     return waitForSettledMutationResponse(
         page,
@@ -366,7 +378,7 @@ async function captureLocaleGuide(page: Page, api: ApiContext, locale: Locale, a
     await captureDocsScreenshot(page, locale, 'overview', page.getByRole('main'))
     await captureDocsStepScreenshot(page, locale, 'overview', 1, page.locator('body'))
     await openStructuresForLocale(page, locale)
-    await expectSingleSystemMatrixForLocale(page, locale)
+    await expectMultipleStructuresForLocale(page, locale)
     await captureDocsStepScreenshot(page, locale, 'overview', 2, page.locator('body'))
 
     await page.goto(`/metahub/${metahubId}`)
@@ -393,11 +405,10 @@ async function captureLocaleGuide(page: Page, api: ApiContext, locale: Locale, a
     await page.getByRole('combobox', { name: localized(locale, 'Structure mode', 'Режим Структур') }).click()
     await captureDocsStepScreenshot(page, locale, 'application-settings', 2, page.locator('body'))
     await page.keyboard.press('Escape')
-    await setInterpretationNetworkWidgetConfig(api, applicationId, { structureMode: 'multiple' })
+    await setInterpretationNetworkWidgetConfig(api, applicationId, { structureMode: 'singleSystem' })
     await openApplicationMatrixSettings(page, locale, applicationId)
     await expect(page.getByTestId('application-settings-matrix-reset')).toBeVisible({ timeout: 30_000 })
     await captureDocsStepScreenshot(page, locale, 'application-settings', 3, page.locator('body'))
-    await setInterpretationNetworkWidgetConfig(api, applicationId, { structureMode: 'singleSystem' })
 
     await openPublishedApplication(page, locale, applicationId)
     await openStructuresForLocale(page, locale)

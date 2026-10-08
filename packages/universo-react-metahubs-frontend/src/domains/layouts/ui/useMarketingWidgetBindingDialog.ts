@@ -28,6 +28,7 @@ export function useMarketingWidgetBindingDialog(props: MarketingWidgetBindingDia
         metahubId,
         layoutId,
         widgetKey,
+        templateKey = 'marketing-page',
         zone,
         widgetId,
         sourceWidgetId = null,
@@ -94,6 +95,7 @@ export function useMarketingWidgetBindingDialog(props: MarketingWidgetBindingDia
         bindingQuery,
         hubsQuery,
         objectsQuery,
+        pagesQuery,
         componentsQuery,
         sourcesQuery,
         recordsQuery,
@@ -101,8 +103,10 @@ export function useMarketingWidgetBindingDialog(props: MarketingWidgetBindingDia
         relationCheckFailed,
         incompatibleRelationSlot,
         shouldLoadRecordMetadata,
+        sourceMetadataReady,
         treeEntityId,
         sourceEntity,
+        sourceEntityKind,
         recordComponents,
         recordFields,
         hasUnsupportedRequiredFields,
@@ -253,10 +257,24 @@ export function useMarketingWidgetBindingDialog(props: MarketingWidgetBindingDia
             sourceName: source.label,
             selectorKind,
             ...(source.sourceKey === activeDraft?.sourceKey && activeDraft.selectorKind === selectorKind
-                ? { semanticKey: activeDraft.semanticKey, selectionLabel: activeDraft.selectionLabel }
+                ? {
+                      entityKind: activeDraft.entityKind,
+                      semanticKey: activeDraft.semanticKey,
+                      selectionLabel: activeDraft.selectionLabel
+                  }
                 : {})
         })
     }
+
+    useEffect(() => {
+        if (!open || !activeSlot || !activeDraft || !sourceEntityKind || activeDraft.entityKind === sourceEntityKind) return
+        setDraftBindings((current) => {
+            const currentDraft = current[activeSlot.key]
+            if (!currentDraft || currentDraft.sourceKey !== activeDraft.sourceKey || currentDraft.entityKind === sourceEntityKind)
+                return current
+            return { ...current, [activeSlot.key]: { ...currentDraft, entityKind: sourceEntityKind } }
+        })
+    }, [activeDraft, activeSlot, open, sourceEntityKind])
 
     const sourceProvision = useMarketingWidgetBindingSourceProvision({
         metahubId,
@@ -305,6 +323,7 @@ export function useMarketingWidgetBindingDialog(props: MarketingWidgetBindingDia
         activeSlot,
         activeDraft,
         sourceEntity,
+        sourceEntityKind,
         treeEntityId,
         semanticKeyRequirement,
         recordComponents,
@@ -326,7 +345,7 @@ export function useMarketingWidgetBindingDialog(props: MarketingWidgetBindingDia
             return
         }
         if (
-            widgetKey !== 'marketing.hero' ||
+            definition?.authoring.metahub.contentEditing !== 'single-record' ||
             !widgetId ||
             !canEditContent ||
             !isBindingReady ||
@@ -342,6 +361,7 @@ export function useMarketingWidgetBindingDialog(props: MarketingWidgetBindingDia
         activeDraft?.semanticKey,
         canEditContent,
         componentsQuery.isSuccess,
+        definition?.authoring.metahub.contentEditing,
         identity,
         isBindingReady,
         open,
@@ -358,6 +378,7 @@ export function useMarketingWidgetBindingDialog(props: MarketingWidgetBindingDia
         shouldCloneRecord: Boolean(duplicateMode && definition?.authoring?.metahub.duplicate === 'clone-record'),
         slots,
         sourceEntity,
+        sourceEntityKind,
         treeEntityId
     })
 
@@ -368,16 +389,28 @@ export function useMarketingWidgetBindingDialog(props: MarketingWidgetBindingDia
             focusFirstInvalidSlot()
             return
         }
-        if (!canManageLayouts || !isBindingReady || sourcesQuery.isError || recordsQuery.isError || relationCheckFailed) return
+        if (
+            !canManageLayouts ||
+            !isBindingReady ||
+            !sourceMetadataReady ||
+            sourcesQuery.isError ||
+            recordsQuery.isError ||
+            relationCheckFailed
+        )
+            return
         setIsCreatingSelection(true)
         setSaveError(false)
         try {
-            const copyResult = await copySelectedRecord(draftBindings)
+            const draftSelections =
+                activeSlot && activeDraft && sourceEntityKind
+                    ? { ...draftBindings, [activeSlot.key]: { ...activeDraft, entityKind: sourceEntityKind } }
+                    : draftBindings
+            const copyResult = await copySelectedRecord(draftSelections)
             const selections = copyResult.selections
             const bindings = createBindingEnvelope(widgetKey, rendererConfig, slots, selections)
             const config = encodeWidgetConfigEnvelope(
                 { rendererConfig, neutral: { bindings } },
-                { templateKey: 'marketing-page', widgetKey, zone, rendererConfig }
+                { templateKey, widgetKey, zone, rendererConfig }
             )
             await onSelection({ bindings, config, ...(copyResult.recordCopy ? { recordCopy: copyResult.recordCopy } : {}) })
         } catch {
@@ -387,6 +420,8 @@ export function useMarketingWidgetBindingDialog(props: MarketingWidgetBindingDia
         }
     }, [
         canManageLayouts,
+        activeDraft,
+        activeSlot,
         copySelectedRecord,
         draftBindings,
         focusFirstInvalidSlot,
@@ -399,16 +434,23 @@ export function useMarketingWidgetBindingDialog(props: MarketingWidgetBindingDia
         rendererConfig,
         slots,
         sourcesQuery.isError,
+        sourceMetadataReady,
+        sourceEntityKind,
+        templateKey,
         widgetKey,
         zone
     ])
 
     const handleConfigurePresentation = () => {
-        if (!isSelectionValid || !onConfigurePresentation) return
-        const bindings = createBindingEnvelope(widgetKey, rendererConfig, slots, draftBindings)
+        if (!isSelectionValid || !sourceMetadataReady || !onConfigurePresentation) return
+        const selections =
+            activeSlot && activeDraft && sourceEntityKind
+                ? { ...draftBindings, [activeSlot.key]: { ...activeDraft, entityKind: sourceEntityKind } }
+                : draftBindings
+        const bindings = createBindingEnvelope(widgetKey, rendererConfig, slots, selections)
         const config = encodeWidgetConfigEnvelope(
             { rendererConfig, neutral: { bindings } },
-            { templateKey: 'marketing-page', widgetKey, zone, rendererConfig }
+            { templateKey, widgetKey, zone, rendererConfig }
         )
         onConfigurePresentation({ bindings, config })
     }
@@ -438,6 +480,7 @@ export function useMarketingWidgetBindingDialog(props: MarketingWidgetBindingDia
     const canCreatePlacement =
         canManageLayouts &&
         isBindingReady &&
+        sourceMetadataReady &&
         !isCreatingSelection &&
         !hasDiscoveryError &&
         relationChecksReady &&
@@ -497,6 +540,7 @@ export function useMarketingWidgetBindingDialog(props: MarketingWidgetBindingDia
             sourceProvisionMutation,
             hubsQuery,
             objectsQuery,
+            pagesQuery,
             componentsQuery
         },
         data: {

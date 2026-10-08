@@ -16,6 +16,7 @@ import {
 } from './editorDocumentBackupsStore'
 
 import { PlayCanvasProjectsServiceRealtime } from './playCanvasProjectsServiceRealtime'
+import { buildEditorCompatibilityAssetPathContext } from './playCanvasProjectsServiceHelpers'
 import { log } from './playCanvasProjectsServiceCommon'
 
 export class PlayCanvasProjectsServiceBackups extends PlayCanvasProjectsServiceRealtime {
@@ -186,6 +187,23 @@ export class PlayCanvasProjectsServiceBackups extends PlayCanvasProjectsServiceR
             }))
         ]
 
+        const assetEntries =
+            input.assetDocumentIds && input.assetDocumentIds.length > 0
+                ? await this.loadEditorCompatibilityAssetEntries(
+                      input.metahubId,
+                      input.projectId,
+                      input.userId,
+                      { sceneId: input.sceneId },
+                      executor
+                  )
+                : undefined
+        const assetContext = assetEntries
+            ? {
+                  entries: assetEntries,
+                  pathContextByAssetId: buildEditorCompatibilityAssetPathContext(assetEntries)
+              }
+            : undefined
+
         const rows: EditorDocumentBackupRow[] = []
         for (const document of documents) {
             const loaded = await this.loadEditorRealtimeDocument(
@@ -200,7 +218,8 @@ export class PlayCanvasProjectsServiceBackups extends PlayCanvasProjectsServiceR
                     numericSceneId: numericIds.sceneId,
                     numericUserId: numericIds.selfId
                 },
-                executor
+                executor,
+                assetContext
             )
             if (!loaded) {
                 continue

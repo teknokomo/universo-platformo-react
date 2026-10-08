@@ -21,7 +21,10 @@ export type CopyMetahubLayoutParams = {
 }
 
 export type SourceWidgetRow = {
-    id?: string
+    id: string
+    instance_key?: string
+    parent_widget_id?: string | null
+    slot_key?: string | null
     zone?: string
     widget_key?: string
     sort_order?: number
@@ -50,6 +53,10 @@ export type LayoutCopyOwnership = {
 
 export type PreparedWidgetCopy = {
     widget: SourceWidgetRow
+    id: string
+    instanceKey: string
+    parentWidgetId: string | null
+    slotKey: string | null
     config: Record<string, unknown>
     isActive: boolean
 }

@@ -3,37 +3,47 @@ import { describe, expect, it } from 'vitest'
 import { dashboardLayoutConfigSchema, defaultDashboardLayoutConfig } from '../common/dashboardLayout'
 
 describe('dashboard layout shared contract', () => {
-    it('accepts the runtime-enhanced layout fields', () => {
+    it('accepts only host-level side-menu presentation fields', () => {
         const parsed = dashboardLayoutConfigSchema.safeParse({
-            showLanguageSwitcher: false,
-            showRightSideMenu: false,
-            showViewToggle: true,
-            defaultViewMode: 'card',
             sideMenu: {
                 availableModes: ['wide', 'compact', 'overlay'],
                 primaryMode: 'compact',
                 rememberUserChoice: false
-            },
-            showFilterBar: true,
-            enableRowReordering: true,
-            cardColumns: 4,
-            rowHeight: 'auto'
+            }
         })
 
         expect(parsed.success).toBe(true)
+        expect(
+            dashboardLayoutConfigSchema.safeParse({
+                objectBehavior: {
+                    showCreateButton: false,
+                    createSurface: 'page'
+                }
+            }).success
+        ).toBe(true)
+        expect(dashboardLayoutConfigSchema.safeParse({ objectBehavior: { showViewToggle: true } }).success).toBe(false)
+        expect(dashboardLayoutConfigSchema.safeParse({ objectBehavior: { searchMode: 'server' } }).success).toBe(false)
+        for (const field of [
+            'showLanguageSwitcher',
+            'showRightSideMenu',
+            'showViewToggle',
+            'defaultViewMode',
+            'showFilterBar',
+            'enableRowReordering',
+            'cardColumns',
+            'rowHeight'
+        ]) {
+            expect(dashboardLayoutConfigSchema.safeParse({ [field]: field === 'defaultViewMode' ? 'table' : false }).success).toBe(false)
+        }
     })
 
     it('keeps the shared defaults aligned with runtime expectations', () => {
-        expect(defaultDashboardLayoutConfig.showLanguageSwitcher).toBe(true)
-        expect(defaultDashboardLayoutConfig.showRightSideMenu).toBe(false)
-        expect(defaultDashboardLayoutConfig.showViewToggle).toBe(false)
-        expect(defaultDashboardLayoutConfig.defaultViewMode).toBe('table')
         expect(defaultDashboardLayoutConfig.sideMenu).toEqual({
             availableModes: ['wide', 'compact', 'overlay'],
             primaryMode: 'wide',
             rememberUserChoice: true
         })
-        expect(defaultDashboardLayoutConfig.cardColumns).toBe(3)
+        expect(Object.keys(defaultDashboardLayoutConfig)).toEqual(['sideMenu'])
     })
 
     it('normalizes partial side menu config before runtime schema output', () => {

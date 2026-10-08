@@ -31,11 +31,7 @@ const createState = (overrides: Partial<CrudDashboardState> = {}): CrudDashboard
             },
             columns: [],
             rows: [{ id: 'row-1', _app_record_state: 'draft' }],
-            pagination: { total: 1, limit: 20, offset: 0 },
-            layoutConfig: {},
-            zoneWidgets: { left: [], right: [], center: [] },
-            menus: [],
-            activeMenuId: null
+            pagination: { total: 1, limit: 20, offset: 0 }
         },
         rows: [{ id: 'row-1', _app_record_state: 'draft' }],
         menuAnchorEl: document.body,
@@ -59,6 +55,38 @@ const labels = {
 }
 
 describe('RowActionsMenu record commands', () => {
+    it('uses the binding-aware host context for lifecycle commands and CRUD targets', async () => {
+        const user = userEvent.setup()
+        const externalRecordCommand = vi.fn()
+        const externalRowTargetAction = vi.fn()
+        const stateRecordCommand = vi.fn()
+        const state = createState({ handleRecordCommand: stateRecordCommand })
+        const runtimeContext = {
+            menuAnchorEl: document.body,
+            menuRowId: 'bound-row-1',
+            row: { id: 'bound-row-1', _app_record_state: 'draft', _upl_version: 9 },
+            columns: [],
+            recordBehavior,
+            workflowActions: [],
+            permissions: { canEdit: true, canCopy: true, canDelete: true },
+            isLoading: false,
+            hasError: false,
+            onCloseMenu: vi.fn(),
+            onRowTargetAction: externalRowTargetAction,
+            onRecordCommand: externalRecordCommand
+        }
+
+        render(<RowActionsMenu state={state} labels={labels} runtimeContext={runtimeContext} />)
+
+        expect(screen.getByText('Draft')).toBeInTheDocument()
+        await user.click(screen.getByRole('menuitem', { name: /^post$/i }))
+        expect(externalRecordCommand).toHaveBeenCalledExactlyOnceWith('bound-row-1', 'post')
+        expect(stateRecordCommand).not.toHaveBeenCalled()
+
+        await user.click(screen.getByRole('menuitem', { name: /^edit$/i }))
+        expect(externalRowTargetAction).toHaveBeenCalledExactlyOnceWith('bound-row-1', 'edit', 9)
+    })
+
     it('shows post and void for draft transactional records', async () => {
         const handleRecordCommand = vi.fn().mockResolvedValue(undefined)
         const handleCloseMenu = vi.fn()

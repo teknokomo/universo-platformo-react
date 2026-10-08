@@ -12,7 +12,7 @@ description: How to organize Learning Content with workspace projects.
 
 ## What You Need
 
--   Open Learning Content in the correct workspace.
+-   Open Content Projects in the correct workspace.
 -   Decide the project title and short purpose before creating it.
 -   Confirm whether content should stay in the current project or move to another one.
 
@@ -22,9 +22,9 @@ description: How to organize Learning Content with workspace projects.
    ![Projects step 1](../.gitbook/assets/lms-user-guide/projects-step-1.png)
 2. Enter a clear project title and description that other authors can recognize.
    ![Projects step 2](../.gitbook/assets/lms-user-guide/projects-step-2.png)
-3. Save the project and confirm that the Projects summary increases in the current workspace.
+3. Save the project and confirm that its readable title appears in the Move to project picker.
    ![Projects step 3](../.gitbook/assets/lms-user-guide/projects-step-3.png)
-4. Open the item actions menu and choose Move to project; the new project should appear by name in the picker.
+4. Select the new project and move the content item into it.
    ![Projects step 4](../.gitbook/assets/lms-user-guide/projects-step-4.png)
 5. Use Trash and Restore when a project or item was removed by mistake.
    ![Projects step 5](../.gitbook/assets/lms-user-guide/projects-step-5.png)
@@ -35,9 +35,9 @@ description: How to organize Learning Content with workspace projects.
 | ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Project purpose   | A project groups related resources, courses, and tracks inside the active workspace. Use a clear title that another author can recognize in filters and move dialogs. |
 | Create fields     | Fill the localized title and description before saving. The description should explain what belongs in the project and who maintains it.                              |
-| Project summary   | After saving, the Projects summary should increase for the current workspace. Use move and restore dialogs to choose a project by readable name.                      |
+| Project picker    | After saving, choose the new project by its readable title in the Move to project or Restore dialog.                                                                  |
 | Moving content    | Use Move to project from the item actions menu when an item belongs to another project. Choose the destination by title, not by technical value.                      |
-| Trash and restore | Deleted projects or items should stay recoverable from Trash. Restore to an existing valid project when the original container is no longer available.                |
+| Trash and restore | Deleted items should stay recoverable from Trash. Restore to an existing valid project when the original container is no longer available.                            |
 
 ## Result
 

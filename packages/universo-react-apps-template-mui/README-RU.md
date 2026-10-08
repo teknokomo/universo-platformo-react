@@ -20,10 +20,12 @@
 
 -   **Зонная компоновка**: 5 зон дашборда — left (боковая панель), top (заголовок/навбар), right (боковая панель), center (основной контент) и bottom (подвал/хвост основного контента)
 -   **Рендеринг на основе данных**: Виджеты рендерятся из конфигурации `ZoneWidgets`, а не из захардкоженного JSX
--   **DashboardDetailsContext**: React Context, предоставляющий данные таблицы (строки, колонки, пагинация) вложенным виджетам
+-   **DashboardDetailsContext**: Контекст host/runtime для содержимого standalone-страниц рабочих областей и настроек Page Player; данные сущностей передаются виджетам в проверенных runtime DTO.
 -   **Выбор макета в runtime**: Hosted и standalone используют один target-aware effective-layout ответ и отображают только активные макеты и виджеты
--   **Сохранённая композиция**: Когда runtime получает сохранённую композицию, источником истины являются активные строки виджетов, их зоны и порядок; существующие булевые флаги остаются fallback для прямого вызова компонента без сохранённой коллекции зон.
+-   **Сохранённая композиция**: Единственный источник видимости и размещения Dashboard-виджетов — effective placement graph. Дочерние виджеты являются отдельными размещениями, связанными семантическими `parentInstanceKey` и `slotKey`; при отсутствии размещений показывается локализованное пустое состояние. Булевого fallback видимости нет.
 -   **Многострочные данные runtime**: Семантические длинные строки безопасно переносятся и по умолчанию получают auto-height строки; настроенная числовая высота по-прежнему поддерживается.
+-   **Действия над исходными строками**: Hosted и standalone Dashboard используют общий `useDashboardBoundRowActions`: он однозначно разрешает Entity, проверяет её права, перечитывает строку в активной рабочей области и передаёт текущую версию существующим CRUD-, record-command- и workflow-обработчикам. Во время повторной загрузки старые данные строки скрыты типизированным load-state контрактом.
+-   **Разрешение Entity-target**: `resolveDashboardEntityTargetSectionId` предпочитает явный ID, принимает уникальный codename и отказывает при совпадении нескольких Entity.
 
 ### 📣 Управляемая данными маркетинговая страница
 
@@ -38,17 +40,18 @@
 ### 📊 Виджет ColumnsContainer
 
 -   **Многоколоночная сетка**: Рендерит `ColumnsContainerConfig` как MUI Grid с настраиваемой шириной колонок (12-юнитовая сетка)
--   **Вложенные виджеты**: Каждая колонка может содержать несколько виджетов через `ColumnsContainerColumnWidget[]`
--   **Защита от рекурсии**: `MAX_CONTAINER_DEPTH=1` предотвращает бесконечную вложенность columnsContainer
--   **Сид по умолчанию**: 2-колоночный макет — 9/12 `detailsTable` + 3/12 `productTree`
+-   **Вложенные виджеты**: Каждая колонка может содержать несколько отдельных размещений, связанных с контейнером через семантические `parentInstanceKey` и `slotKey`; конфиг виджета не содержит дочерние виджеты.
+-   **Защита от рекурсии**: `MAX_CONTAINER_DEPTH=8` ограничивает вложенность контейнеров и защищает от бесконечного рекурсивного рендера.
+-   **Композиция размещений**: базовый Dashboard задаётся явными размещениями и привязками к сущностям. Вложенные виджеты являются отдельными размещениями, связанными через `parentInstanceKey` и `slotKey`.
 
 ### 🧩 Рендерер виджетов
 
 -   **Общий рендерер**: `renderWidget()` маппит ключи виджетов в конкретные React-компоненты
--   **Поддерживаемые виджеты**: `brandSelector`, `workspaceSwitcher`, `divider`, `menuWidget`, `spacer`, `infoCard`, `userProfile`, `appNavbar`, `header`, `breadcrumbs`, `search`, `datePicker`, `optionsMenu`, `languageSwitcher`, `footer`, `productTree`, `usersByCountryChart`, `detailsTable`, `learnerPlayer`, `relationBuilder`, `detailsTabs`, `quizWidget`, `playcanvasCanvas`, `resourcePreview`, `columnsContainer`, `interpretationNetworkWorkspace`
+-   **Зарегистрированные виджеты**: `workspaceSwitcher`, `divider`, `menuWidget`, `spacer`, `infoCard`, `userProfile`, `appNavbar`, `header`, `breadcrumbs`, `search`, `datePicker`, `optionsMenu`, `languageSwitcher`, `colorModeSwitcher`, `overviewTitle`, `overviewCards`, `sessionsChart`, `pageViewsChart`, `detailsTitle`, `detailsTable`, `relationBuilder`, `columnsContainer`, `detailsTabs`, `interpretationNetworkWorkspace`, `quizWidget`, `playcanvasCanvas`, `resourcePreview`, `learnerPlayer`, `footer`
 -   **Union datasources**: `detailsTable` умеет рендерить `records.union`, резолвя несколько runtime-разделов из metadata и запрашивая их через обычный `fetchAppData`
 -   **Конструктор связей**: `relationBuilder` удерживает дочерние записи в контексте выбранной родительской строки и переиспользует общие CRUD-диалоги, picker-ы записей и сохранённую сортировку строк
--   **Резолвинг меню**: 2-уровневый фолбэк — ID виджета → карта menus → легаси одиночный menu проп
+-   **Данные меню**: `menuWidget` отображает только проверенные runtime-данные своего размещения; рендерер не генерирует содержимое меню по фолбэку.
+-   **Сгенерированная навигация Dashboard**: Видимые Страницы становятся пунктами меню и при необходимости группируются по связанным Хабам. Записи Объектов, включая регистры, остаются источниками содержимого и не становятся ссылками меню. Иконки Страниц и Хабов задаются ограниченной семантической метаинформацией и отображаются готовыми иконками MUI; для неизвестных значений используются безопасные иконки Страницы и Хаба.
 -   **Общие runtime-поверхности**: Агрегации сохранённых отчётов, предпросмотр ресурсов, политики последовательностей и workflow-действия задаются через общие метаданные, а не через LMS-специфичные форки виджетов
 
 ### 📝 CRUD-компоненты
@@ -93,7 +96,7 @@
 ## Добавления первого этапа (Трактовочная сеть)
 
 -   **Structure-first runtime**: приложение трактовочной сети открывается со стартовой локализованной страницы `InterpretationNetworkIntro`; центральный виджет `interpretationNetworkWorkspace` привязан к разделу `Structures` (`Concept`), поэтому пустая левая панель показывает только создание Структуры, а правая панель отвечает за стартовую памятку и добавление Материала к выбранной ячейке.
--   **Режим одной системной Структуры**: `structureMode: "singleSystem"` на сервере обеспечивает одну скрытую системную Структуру и сразу открывает Матрицу из пункта `Structures`, без каталога Структур, видимого названия Структуры и кнопки возврата. Вкладки Матрицы и Шаблонов остаются доступны согласно `templatePanel.showInMatrix`.
+-   **Режимы навигации по Структурам**: встроенный шаблон трактовочной сети по умолчанию использует `structureMode: "multiple"` и показывает список Структур. Автор может явно выбрать `singleSystem`, чтобы использовать одну скрытую серверную Структуру и сразу открывать её Матрицу из пункта `Structures`, без списка, видимого названия Структуры и кнопки возврата. Вкладки Матрицы и Шаблонов остаются доступны согласно `templatePanel.showInMatrix`.
 -   **Иерархическая Матрица**: `interpretationNetworkWorkspace.config.matrixMode` по умолчанию равен `hierarchicalCells`. Новая Структура получает корневую ячейку `Universe` / `Вселенная`, а следующие ячейки создаются через действие «Добавить». `independentRows` остаётся для совместимости со строками и колонками.
 -   **Шаблоны таблиц рабочего пространства**: редакторы с правами создания и редактирования содержимого могут сохранить текущую Структуру как шаблон и выбрать копирование только структуры или структуры вместе с Материалами ячеек. Развёртывания с несколькими Структурами позволяют создать новую видимую Структуру из шаблона; в режиме одной системной Структуры создание дополнительных Структур скрыто, но сохранение текущей Матрицы как шаблона остаётся доступным.
 -   **Размещение и доступ к шаблонам**: `templatePanel.showInStructureList` и `templatePanel.showInMatrix` по умолчанию равны `true`. Если оба флага равны `false`, шаблоны остаются изолированными данными рабочего пространства, но интерфейс шаблонов не показывается. Для сохранения и создания из шаблона нужны права создания и редактирования содержимого, для метаданных — редактирования, для удаления — удаления. Матрица и выбранные поля созданных Материалов копируются с новыми UUID v7; Связи, двоичные объекты и внешние файлы не клонируются, а обычные внешние URL в сохранённом `Body` Материала остаются пользовательским содержимым.
@@ -140,36 +143,21 @@ pnpm --filter @universo-react/apps-template-mui build
 
 ### Интеграция дашборда
 
+После загрузки published runtime передавайте в `AppsDashboard` проверенную
+effective-композицию Dashboard. Не вычисляйте видимость из булевых флагов и не
+встраивайте дочерние виджеты в конфиг контейнера:
+
 ```tsx
-import { AppsDashboard } from '@universo-react/apps-template-mui'
+import { AppsDashboard, fetchRuntimeEffectiveLayout, toDashboardZoneWidgets } from '@universo-react/apps-template-mui'
 import type { DashboardProps } from '@universo-react/apps-template-mui'
 
+const effectiveLayout = await fetchRuntimeEffectiveLayout({ apiBaseUrl, applicationId })
+if (effectiveLayout.status !== 'ok' || effectiveLayout.layout.templateKey !== 'dashboard') {
+  throw new Error('A Dashboard effective layout is required')
+}
+
 const props: DashboardProps = {
-  layoutConfig: {
-    showSideMenu: true,
-    showHeader: true,
-    showAppNavbar: true,
-    showDetailsTitle: true,
-    showColumnsContainer: true,
-  },
-  zoneWidgets: {
-    left: [
-      { id: 'w1', widgetKey: 'menuWidget', sortOrder: 1, config: {} },
-    ],
-    center: [
-      { id: 'w2', widgetKey: 'columnsContainer', sortOrder: 1, config: {
-        columns: [
-          { id: 'col1', width: 9, widgets: [{ widgetKey: 'detailsTable' }] },
-          { id: 'col2', width: 3, widgets: [{ widgetKey: 'productTree' }] },
-        ]
-      }},
-    ],
-  },
-  details: {
-    title: 'Товары',
-    rows: [{ id: '1', name: 'Элемент A' }],
-    columns: [{ field: 'name', headerName: 'Название', flex: 1 }],
-  },
+  zoneWidgets: toDashboardZoneWidgets(effectiveLayout),
 }
 
 <AppsDashboard {...props} />
@@ -193,16 +181,29 @@ const runtimeRoute = createAppRuntimeRoute({
 
 ### Хук CRUD-дашборда
 
-```tsx
-import { useCrudDashboard, CrudDialogs } from '@universo-react/apps-template-mui'
+Хуку нужны адаптер и локаль; он возвращает `CrudDashboardState`.
+`CrudDialogs` получает это состояние и локализованные подписи. Размещения
+виджетов и необязательный host/runtime-контекст передаёт host, а не CRUD-хук.
 
-function MyDashboard({ adapter }) {
-    const crud = useCrudDashboard({ adapter })
+```tsx
+import { AppsDashboard, CrudDialogs, useCrudDashboard } from '@universo-react/apps-template-mui'
+import type { CrudDataAdapter, CrudDialogsLabels, DashboardDetailsSlot, ZoneWidgets } from '@universo-react/apps-template-mui'
+
+type MyDashboardProps = {
+    adapter: CrudDataAdapter | null
+    locale: string
+    labels: CrudDialogsLabels
+    zoneWidgets?: ZoneWidgets
+    details?: DashboardDetailsSlot
+}
+
+function MyDashboard({ adapter, locale, labels, zoneWidgets, details }: MyDashboardProps) {
+    const state = useCrudDashboard({ adapter, locale })
 
     return (
         <>
-            <AppsDashboard details={crud.details} layoutConfig={crud.layoutConfig} zoneWidgets={crud.zoneWidgets} />
-            <CrudDialogs {...crud.dialogs} />
+            <AppsDashboard details={details} zoneWidgets={zoneWidgets} />
+            <CrudDialogs state={state} locale={locale} labels={labels} />
         </>
     )
 }
@@ -224,20 +225,14 @@ import { DashboardApp } from '@universo-react/apps-template-mui'
 ```
 Dashboard
 ├── SideMenu (зона left)
-│   └── [виджеты left: brandSelector, menuWidget, spacer, infoCard, userProfile]
+│   └── активные размещения зоны left с проверенными runtime-данными
 ├── AppNavbar (зона top, мобильная)
 ├── Основной контент (зона center)
 │   ├── Header (зона top)
-│   ├── MainGrid
-│   │   ├── Секция обзора (опционально: карточки, графики)
-│   │   └── Секция деталей
-│   │       ├── columnsContainer → renderWidget() для каждой колонки
-│   │       │   ├── Колонка 1 (ширина: 9/12) → detailsTable
-│   │       │   └── Колонка 2 (ширина: 3/12) → productTree
-│   │       └── ИЛИ отдельный detailsTable (фолбэк)
+│   ├── MainGrid отображает активные корневые размещения в effective-порядке
+│   │   └── контейнеры находят дочерние размещения по semantic parentInstanceKey + slotKey
 │   └── Виджеты bottom (зона bottom, опционально)
-└── SideMenuRight (зона right, опционально)
-    └── [виджеты right: productTree, usersByCountryChart]
+└── SideMenuRight отображает активные корневые размещения зоны right
 ```
 
 ### DashboardDetailsContext
@@ -245,13 +240,14 @@ Dashboard
 ```
 Dashboard (DashboardDetailsProvider value={details})
   └── MainGrid
-       └── renderWidget('detailsTable')
-            └── DetailsTableWidget
-                 └── useDashboardDetails() → { rows, columns, pagination, ... }
+       ├── необязательное host-содержимое standalone-рабочей области
+       └── renderWidget(placement.runtimeData)
+            └── проверенная типизированная проекция сущности
 ```
 
-Виджеты внутри `columnsContainer` получают данные таблицы через хук `useDashboardDetails()`,
-что устраняет необходимость прокидывания пропсов через множество уровней компонентов.
+Данные вложенного виджета поступают в его типизированном runtime DTO. Контекст
+сохранён для явного host-содержимого standalone-страниц и настроек Page Player;
+он не является параллельным хранилищем бизнес-данных виджетов.
 
 ### Поток данных
 
@@ -261,8 +257,7 @@ Dashboard (DashboardDetailsProvider value={details})
   ├── top[]    → явные top-размещения; Header показывает только controls без одноимённого явного размещения
   ├── right[]  → SideMenuRight (renderWidget для каждого элемента)
   ├── center[] → MainGrid
-       └── фильтр по widgetKey === 'columnsContainer'
-            → renderWidget(container) → Grid с вложенными вызовами renderWidget
+       └── рендер корневых размещений; контейнеры находят дочерние по semantic parent + slot
   └── bottom[] → подвал/хвост основного контента
 ```
 
@@ -317,17 +312,20 @@ packages/universo-react-apps-template-mui/
 │   │   └── RowActionsMenu.tsx          # Выпадающий список действий строки
 │   ├── dashboard/        # Ядро дашборда
 │   │   ├── Dashboard.tsx               # Главный компонент дашборда (оркестратор зон)
-│   │   ├── DashboardDetailsContext.tsx  # React Context для передачи данных таблицы
+│   │   ├── DashboardDetailsContext.tsx  # Host/runtime-контекст; данные Сущностей виджеты получают в типизированных runtime DTO
 │   │   └── components/
 │   │       ├── MainGrid.tsx            # Рендерер содержимого центральной зоны
-│   │       ├── widgetRenderer.tsx      # Маппер ключей виджетов → компоненты
+│   │       ├── widgetRenderer.tsx      # Диспетчер размещённых виджетов
+│   │       ├── DashboardDataWidget.tsx # Таблицы, связи и метрики из Сущностей
+│   │       ├── LibraryDetailsTableWidget.tsx # Библиотека и корзина пользователя
+│   │       ├── ReportDetailsTableWidget.tsx  # Представление сохранённого отчёта
+│   │       ├── LearnerPlayerWidget.tsx # Обучающий контент и прогресс по шагам
 │   │       ├── SideMenu.tsx            # Левая боковая панель
 │   │       ├── SideMenuRight.tsx       # Правая боковая панель
 │   │       ├── AppNavbar.tsx           # Мобильная панель навигации
 │   │       ├── Header.tsx              # Верхний заголовок
 │   │       ├── MenuContent.tsx         # Рендерер виджета меню
 │   │       ├── CustomizedDataGrid.tsx  # Обёртка MUI DataGrid
-│   │       ├── CustomizedTreeView.tsx  # Виджет дерева продуктов
 │   │       └── ...                     # Графики, карточки статистики и т.д.
 │   ├── hooks/            # Пользовательские React хуки
 │   │   └── useCrudDashboard.ts         # Headless CRUD-контроллер
@@ -353,15 +351,17 @@ packages/universo-react-apps-template-mui/
 
 ## Основные типы
 
+### Миграция типов меню Dashboard
+
+Прежние корневые экспорты `DashboardMenuItem`, `DashboardMenuSlot` и `DashboardMenusMap` удалены вместе с устаревшим путём передачи меню через props. У них нет прямой замены один к одному: содержимое меню теперь настраивается зарегистрированными размещениями виджетов Dashboard, а runtime-данные разрешаются из сущностей. Пользовательские host-компоненты Dashboard должны использовать проверенный `ZoneWidgets` и типы `ZoneWidgetItem` / `DashboardDetailsSlot` из `@universo-react/apps-template-mui`; не собирайте строки меню вручную из сырых ID сущностей.
+
 ### DashboardProps
 
 ```typescript
 interface DashboardProps {
-    layoutConfig?: DashboardLayoutConfig // Булевые флаги видимости
-    zoneWidgets?: ZoneWidgets // Конфиги зон left, top, right, center и bottom
-    details?: DashboardDetailsSlot // Данные таблицы для виджетов деталей
-    menu?: DashboardMenuSlot // Легаси одиночное меню (устарело)
-    menus?: DashboardMenusMap // Карта меню по ID виджетов
+    layoutConfig?: Pick<DashboardLayoutConfig, 'sideMenu'> // Только поведение бокового меню
+    zoneWidgets?: ZoneWidgets // Проверенные effective-размещения по зонам
+    details?: DashboardDetailsSlot // Контекст host/runtime; данные виджетов приходят в типизированных DTO
 }
 ```
 
@@ -369,11 +369,15 @@ interface DashboardProps {
 
 ```typescript
 interface ZoneWidgetItem {
-    id: string
-    widgetKey: string // Идентификатор типа виджета
+    id: string // UUID v7 размещения
+    instanceKey: string // Семантическая идентичность размещения
+    widgetKey: string // Тип виджета из реестра
+    zone: 'left' | 'top' | 'right' | 'bottom' | 'center'
     sortOrder: number
-    config: Record<string, unknown> // Конфигурация, специфичная для виджета
-    isActive?: boolean
+    config: Record<string, unknown> // Проверяется схемой виджета из общего реестра
+    isActive: boolean
+    parentInstanceKey: string | null
+    slotKey: string | null
 }
 ```
 
@@ -394,30 +398,21 @@ interface DashboardDetailsSlot {
 }
 ```
 
-### DashboardLayoutConfig — Настройки отображения
+### Настройки оболочки Dashboard
 
-Интерфейс `DashboardLayoutConfig` поддерживает опциональные настройки отображения,
-которые включают расширенные режимы отображения в секции деталей:
+Видимость Dashboard определяется effective-размещениями. Прямой компонент
+принимает в `layoutConfig` только параметры бокового меню; настройки отображения
+виджетов принадлежат их конфигурации, проверяемой схемами общего реестра:
 
 ```typescript
-interface DashboardLayoutConfig {
-    // ... существующие булевые флаги (showSideMenu, showHeader и т.д.)
+type DashboardShellLayoutConfig = Pick<DashboardLayoutConfig, 'sideMenu'>
 
-    // Настройки отображения (опционально — при отсутствии используется классический табличный режим)
-    showViewToggle?: boolean // Показать переключатель режима карточки/таблица
-    defaultViewMode?: 'table' | 'card' // Начальный режим отображения
-    showFilterBar?: boolean // Показать поле поиска в панели инструментов
-    cardColumns?: number // Количество колонок в карточном виде (2–4)
-    rowHeight?: number | 'auto' // Фиксированная высота в пикселях или 'auto' для авторазмера
+interface EffectiveChildPlacement {
+    instanceKey: string
+    parentInstanceKey: string
+    slotKey: string
 }
 ```
-
-Когда `showViewToggle` или `showFilterBar` установлены, секция деталей рендерит
-**EnhancedDetailsSection**, которая использует локальные runtime UI-примитивы пакета
-(`ViewHeaderMUI`, `ToolbarControls`, `ItemCard`, `PaginationControls`) вместе с DataGrid.
-
-Эти настройки валидируются во время выполнения Zod-схемой `dashboardLayoutConfigSchema`
-в `api/api.ts`.
 
 ## Разработка
 

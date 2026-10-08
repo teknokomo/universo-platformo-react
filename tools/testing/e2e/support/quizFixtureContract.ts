@@ -41,28 +41,25 @@ export type QuizUiCopy = {
 
 export const QUIZ_FIXTURE_FILENAME = 'metahubs-quiz-app-snapshot.json'
 export const QUIZ_MODULE_CODENAME = 'quiz-widget'
-export const QUIZ_CENTERED_LAYOUT_CONFIG = {
-    showFooter: false,
-    showHeader: true,
-    showSearch: false,
-    showSideMenu: false,
-    showAppNavbar: true,
-    showDatePicker: false,
-    showBreadcrumbs: false,
-    showOptionsMenu: false,
-    showProductTree: false,
-    showDetailsTable: false,
-    showDetailsTitle: false,
-    showOverviewCards: false,
-    showOverviewTitle: false,
-    showRightSideMenu: false,
-    showSessionsChart: false,
-    showPageViewsChart: false,
-    showColumnsContainer: false,
-    showLanguageSwitcher: false,
-    showUsersByCountryChart: false
-} as const
-export const QUIZ_REMOVED_LAYOUT_WIDGET_KEYS = ['detailsTable', 'detailsTitle', 'menuWidget'] as const
+export const QUIZ_REMOVED_LAYOUT_WIDGET_KEYS = [
+    'breadcrumbs',
+    'columnsContainer',
+    'datePicker',
+    'detailsTable',
+    'detailsTitle',
+    'footer',
+    'languageSwitcher',
+    'menuWidget',
+    'optionsMenu',
+    'overviewCards',
+    'overviewTitle',
+    'pageViewsChart',
+    'productTree',
+    'search',
+    'sessionsChart',
+    'usersByCountryChart',
+    'workspaceSwitcher'
+] as const
 
 export const QUIZ_CANONICAL_METAHUB = {
     name: {
@@ -633,6 +630,15 @@ const findDefaultLayout = (envelope: Record<string, any>) => {
 }
 
 const QUIZ_REMOVED_LAYOUT_WIDGET_KEY_SET = new Set<string>(QUIZ_REMOVED_LAYOUT_WIDGET_KEYS)
+const LEGACY_DASHBOARD_LAYOUT_CONFIG_KEYS = new Set(['cardColumns', 'defaultViewMode', 'enableRowReordering', 'rowHeight'])
+
+const findLegacyDashboardLayoutConfigKeys = (config: unknown) => {
+    if (!config || typeof config !== 'object' || Array.isArray(config)) {
+        return []
+    }
+
+    return Object.keys(config).filter((key) => /^show[A-Z]/u.test(key) || LEGACY_DASHBOARD_LAYOUT_CONFIG_KEYS.has(key))
+}
 
 const sortQuizWidgets = (widgets: Array<Record<string, any>>) =>
     [...widgets].sort((left, right) => {
@@ -785,33 +791,19 @@ export function assertQuizFixtureEnvelopeContract(envelope: Record<string, any>)
         errors.push('Quiz fixture is missing a default layout')
     } else {
         const defaultLayoutConfig = defaultLayout?.config && typeof defaultLayout.config === 'object' ? defaultLayout.config : {}
-        if (defaultLayoutConfig.showSideMenu !== false) {
-            errors.push('Quiz fixture default layout must disable the left side menu')
-        }
-        if (defaultLayoutConfig.showDetailsTable !== false) {
-            errors.push('Quiz fixture default layout must disable the center details table')
-        }
-        if (defaultLayoutConfig.showDetailsTitle !== false) {
-            errors.push('Quiz fixture default layout must disable the center details title')
-        }
-        if (defaultLayoutConfig.showRightSideMenu !== false) {
-            errors.push('Quiz fixture default layout must disable the right side menu')
+        const legacyConfigKeys = findLegacyDashboardLayoutConfigKeys(defaultLayoutConfig)
+        if (legacyConfigKeys.length > 0) {
+            errors.push(`Quiz fixture default layout must not store global Dashboard widget settings: ${legacyConfigKeys.join(', ')}`)
         }
     }
 
     const snapshotLayoutConfig =
         envelope?.snapshot?.layoutConfig && typeof envelope.snapshot.layoutConfig === 'object' ? envelope.snapshot.layoutConfig : {}
-    if (snapshotLayoutConfig.showSideMenu !== false) {
-        errors.push('Quiz fixture snapshot layoutConfig must disable the left side menu')
-    }
-    if (snapshotLayoutConfig.showDetailsTable !== false) {
-        errors.push('Quiz fixture snapshot layoutConfig must disable the center details table')
-    }
-    if (snapshotLayoutConfig.showDetailsTitle !== false) {
-        errors.push('Quiz fixture snapshot layoutConfig must disable the center details title')
-    }
-    if (snapshotLayoutConfig.showRightSideMenu !== false) {
-        errors.push('Quiz fixture snapshot layoutConfig must disable the right side menu')
+    const snapshotLegacyConfigKeys = findLegacyDashboardLayoutConfigKeys(snapshotLayoutConfig)
+    if (snapshotLegacyConfigKeys.length > 0) {
+        errors.push(
+            `Quiz fixture snapshot layoutConfig must not store global Dashboard widget settings: ${snapshotLegacyConfigKeys.join(', ')}`
+        )
     }
 
     const quizWidgets = Array.isArray(envelope?.snapshot?.layoutZoneWidgets)
@@ -830,18 +822,20 @@ export function assertQuizFixtureEnvelopeContract(envelope: Record<string, any>)
     }
 
     const defaultLayoutWidgets = Array.isArray(envelope?.snapshot?.layoutZoneWidgets)
-        ? envelope.snapshot.layoutZoneWidgets.filter((widget: Record<string, any>) => widget?.layoutId === defaultLayout?.id)
+        ? envelope.snapshot.layoutZoneWidgets.filter((widget: Record<string, unknown>) => widget?.layoutId === defaultLayout?.id)
         : []
-    const removedWidgets = defaultLayoutWidgets.filter((widget: Record<string, any>) =>
+    const removedWidgets = defaultLayoutWidgets.filter((widget: Record<string, unknown>) =>
         QUIZ_REMOVED_LAYOUT_WIDGET_KEY_SET.has(String(widget?.widgetKey ?? ''))
     )
     if (removedWidgets.length > 0) {
-        errors.push(`Quiz fixture default layout must not keep legacy menu/details widgets, received ${removedWidgets.length}`)
+        errors.push(`Quiz fixture default layout must not keep disabled widgets, received ${removedWidgets.length}`)
     }
 
-    const rightZoneWidgets = defaultLayoutWidgets.filter((widget: Record<string, any>) => widget?.zone === 'right')
-    if (rightZoneWidgets.length > 0) {
-        errors.push(`Quiz fixture default layout must not keep right-zone widgets, received ${rightZoneWidgets.length}`)
+    const sideZoneWidgets = defaultLayoutWidgets.filter(
+        (widget: Record<string, unknown>) => widget?.zone === 'left' || widget?.zone === 'right'
+    )
+    if (sideZoneWidgets.length > 0) {
+        errors.push(`Quiz fixture default layout must not keep side-zone widgets, received ${sideZoneWidgets.length}`)
     }
 
     const questionCountEn = QUIZ_CONTENT.en.questions.length

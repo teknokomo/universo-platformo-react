@@ -3,9 +3,8 @@ import { createRuntimeRowReadHandlers } from './runtimeRowReadHandlers'
 import { createRuntimeRowCommandHandlers } from './runtimeRowCommandHandlers'
 import { createRuntimeRowWriteHandlers } from './runtimeRowWriteHandlers'
 
-export { mapRuntimeZoneWidgets, partitionRuntimeMenuItems, type RuntimeObjectCollectionAttr } from './runtimeRowSupport/contracts'
-export { buildRuntimeRecordAccessClause } from './runtimeRowSupport/access'
-export { resolvePreferredScopeEntityIdFromGlobalMenu } from './runtimeRowSupport/menu'
+export { mapRuntimeZoneWidgets, type RuntimeObjectCollectionAttr } from '../services/runtimeRowSupport/contracts'
+export { buildRuntimeRecordAccessClause } from '../services/runtimeRowSupport/access'
 
 export function createRuntimeRowsController(getDbExecutor: () => DbExecutor) {
     const { postRow, unpostRow, voidRow, runWorkflowAction, updateContentProgress, setLibraryRelation, reorderRows } =

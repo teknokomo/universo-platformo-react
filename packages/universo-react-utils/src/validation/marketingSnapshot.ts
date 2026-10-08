@@ -6,6 +6,7 @@ import {
     decodeWidgetConfigEnvelope,
     getLayoutWidgetAllowedZones,
     getLayoutWidgetDefinition,
+    layoutInstanceKeySchema,
     marketingPageConfigSchema,
     marketingWidgetKeySchema,
     parseApplicationLayoutConfig,
@@ -48,6 +49,7 @@ export type MarketingSnapshotLayoutLike = {
 export type MarketingSnapshotWidgetLike = {
     id: string
     layoutId: string
+    instanceKey?: unknown
     zone: string
     widgetKey: string
     sortOrder: number
@@ -436,10 +438,10 @@ const parseWidget = (snapshot: MarketingSnapshotLike, widget: MarketingSnapshotW
 
     const { config, hasEntityBindings } = parseMarketingWidgetConfig(snapshot, widgetKey, widget.zone, widget.config, `widget:${widget.id}`)
 
-    const instanceKey =
-        typeof config.instanceKey === 'string' && config.instanceKey.length > 0
-            ? config.instanceKey
-            : fail('Marketing snapshot widget instance key is missing', { widgetId: widget.id, layoutId: widget.layoutId })
+    const parsedInstanceKey = layoutInstanceKeySchema.safeParse(widget.instanceKey)
+    const instanceKey = parsedInstanceKey.success
+        ? parsedInstanceKey.data
+        : fail('Marketing snapshot widget instance key is missing', { widgetId: widget.id, layoutId: widget.layoutId })
 
     const registryEntry = MARKETING_WIDGET_REGISTRY[widgetKey]
     if (!registryEntry.allowedZones.some((allowedZone) => allowedZone === widget.zone)) {
@@ -769,7 +771,13 @@ export const validateMarketingSnapshotLayouts = (snapshot: unknown): void => {
             instanceKeysByLayout.set(layout.id, instanceKeys)
         } else {
             try {
-                parseApplicationLayoutWidgetConfig(widget.widgetKey, widget.config)
+                const decoded = decodeWidgetConfigEnvelope(widget.config, {
+                    templateKey: layout.templateKey,
+                    widgetKey: widget.widgetKey,
+                    zone: widget.zone,
+                    rendererConfig: widget.config
+                })
+                parseApplicationLayoutWidgetConfig(widget.widgetKey, decoded.rendererConfig)
             } catch {
                 fail('Marketing snapshot widget configuration is invalid', {
                     widgetId: widget.id,
@@ -855,7 +863,7 @@ export const validateMarketingSnapshotLayouts = (snapshot: unknown): void => {
             fail('Marketing widget override placement is invalid', { overrideId: override.id, zone: override.zone })
         }
         if (override.config !== undefined && override.config !== null) {
-            const { config } = parseMarketingWidgetConfig(
+            parseMarketingWidgetConfig(
                 normalizedSnapshot,
                 baseWidget.widget.widgetKey,
                 override.zone ?? baseWidget.widget.zone,
@@ -863,9 +871,6 @@ export const validateMarketingSnapshotLayouts = (snapshot: unknown): void => {
                 `widget override:${override.id}`,
                 { bindingMode: 'inherited' }
             )
-            if (baseWidget.parsed && config.instanceKey !== baseWidget.parsed.instanceKey) {
-                fail('Marketing widget override cannot change the base instance key', { overrideId: override.id })
-            }
         }
     }
 }

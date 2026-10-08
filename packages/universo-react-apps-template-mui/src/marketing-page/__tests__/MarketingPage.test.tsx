@@ -319,7 +319,7 @@ describe('MarketingPage', () => {
                             zone: 'marketing-main',
                             sortOrder: 0,
                             isActive: true,
-                            config: { instanceKey: 'hero-image' },
+                            config: {},
                             data: {
                                 records: [
                                     {

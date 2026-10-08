@@ -189,12 +189,21 @@ export const assignLayoutZoneWidget = (
         zone: ApplicationLayoutZone
         widgetKey: ApplicationLayoutWidgetKey
         sortOrder?: number
+        parentInstanceKey?: string
+        slotKey?: string
         config?: Record<string, unknown>
         expectedVersion: number
     }
 ) => apiClient.put<MetahubLayoutZoneWidget>(`/metahub/${metahubId}/layout/${layoutId}/zone-widget`, data)
 
-/** Atomically copy a Marketing content record and create its duplicated placement. */
+/** Duplicate a placement and its complete nested subtree using registry copy policies. */
+export const duplicateLayoutZoneWidgetPlacement = (
+    metahubId: string,
+    layoutId: string,
+    data: { widgetId: string; expectedVersion: number; expectedLayoutVersion: number }
+) => apiClient.post<MetahubLayoutZoneWidget>(`/metahub/${metahubId}/layout/${layoutId}/zone-widget/placement-duplicate`, data)
+
+/** Atomically copy an Entity record and create its bound placement. */
 export const duplicateLayoutZoneWidgetWithRecordCopy = (
     metahubId: string,
     layoutId: string,
@@ -300,6 +309,8 @@ export const moveLayoutZoneWidget = (
         widgetId: string
         targetZone?: ApplicationLayoutZone
         targetIndex?: number
+        targetParentInstanceKey?: string
+        targetSlotKey?: string
         targetPlacement?: LayoutLogicalPlacement
         expectedVersion: number
     }

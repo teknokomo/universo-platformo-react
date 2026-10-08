@@ -55,11 +55,16 @@ export const dispatchRuntimeLifecycleAfterCommit = (
 ): void => {
     if (!request) return
 
-    void dispatchRuntimeLifecycle(manager, request).catch(() => {
-        console.error('[runtimeLifecycleDispatch] lifecycle hook failed', {
-            eventName: request.payload.eventName,
-            applicationId: request.applicationId,
-            objectId: request.objectCollection.id
+    // Keep the full multi-query dispatch inside one admitted request operation.
+    // The RLS middleware drains that operation before it closes the pinned connection
+    // and commits the outer request transaction.
+    void manager
+        .transaction((requestExecutor) => dispatchRuntimeLifecycle(requestExecutor, request))
+        .catch(() => {
+            console.error('[runtimeLifecycleDispatch] lifecycle hook failed', {
+                eventName: request.payload.eventName,
+                applicationId: request.applicationId,
+                objectId: request.objectCollection.id
+            })
         })
-    })
 }

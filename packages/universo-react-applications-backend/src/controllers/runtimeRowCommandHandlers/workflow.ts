@@ -6,10 +6,9 @@ import {
     resolveRuntimeCodenameText,
     resolveRuntimeSchema,
     UpdateFailure,
-    buildRuntimeActiveRowCondition,
-    UUID_REGEX
+    buildRuntimeActiveRowCondition
 } from '../../shared/runtimeHelpers'
-import { runtimeWorkflowActionBodySchema, runtimeWorkflowActionParamSchema } from '../runtimeRowSupport/contracts'
+import { runtimeWorkflowActionBodySchema, runtimeWorkflowActionParamSchema } from '../../services/runtimeRowSupport/contracts'
 import { resolveRuntimeObjectCollection } from '../runtimeRowSupport/objects'
 import { denyRuntimeEntityMutation } from '../../shared/entityMutationPolicy'
 import {
@@ -17,15 +16,16 @@ import {
     ensureWorkflowEnumStatusesConfigured,
     readConfiguredWorkflowActions,
     resolveWorkflowStatusColumnName
-} from '../runtimeRowSupport/workflow'
-import { loadRuntimeRowByIdWithRecordAccess } from '../runtimeRowSupport/access'
+} from '../../services/runtimeRowSupport/workflow'
+import { loadRuntimeRowByIdWithRecordAccess } from '../../services/runtimeRowSupport/access'
+import { isRuntimeRecordReference, resolveRuntimeRecordReference } from '../../services/runtimeRecordHandle'
 
 import type { RuntimeRowCommandHandlerDeps } from './types'
 
 export const createWorkflowActionHandler = ({ getDbExecutor, query }: RuntimeRowCommandHandlerDeps) => {
     const runWorkflowAction = async (req: Request, res: Response) => {
-        const { applicationId, rowId } = req.params
-        if (!UUID_REGEX.test(rowId)) return res.status(400).json({ error: 'Invalid row ID format' })
+        const { applicationId, rowId: rowReference } = req.params
+        if (!isRuntimeRecordReference(rowReference)) return res.status(400).json({ error: 'Invalid row reference format' })
 
         const parsedActionCodename = runtimeWorkflowActionParamSchema.safeParse(req.params.actionCodename)
         if (!parsedActionCodename.success) {
@@ -48,6 +48,13 @@ export const createWorkflowActionHandler = ({ getDbExecutor, query }: RuntimeRow
         } = await resolveRuntimeObjectCollection(ctx.manager, ctx.schemaIdent, parsedBody.data.objectCollectionId)
         if (!objectCollection) return res.status(404).json({ error: objectCollectionError })
         if (denyRuntimeEntityMutation(res, objectCollection.config)) return
+        const resolvedReference = resolveRuntimeRecordReference(rowReference, {
+            applicationId,
+            workspaceId: ctx.currentWorkspaceId,
+            entityCodename: resolveRuntimeCodenameText(objectCollection.codename)
+        })
+        if (!resolvedReference) return res.status(404).json({ error: 'Workflow action row not found', code: 'WORKFLOW_ROW_NOT_FOUND' })
+        const rowId = resolvedReference.recordId
 
         const action = readConfiguredWorkflowActions(objectCollection.config).find(
             (candidate) => candidate.codename === parsedActionCodename.data
@@ -118,7 +125,7 @@ export const createWorkflowActionHandler = ({ getDbExecutor, query }: RuntimeRow
                 })
             })
 
-            return res.json(result)
+            return res.json(resolvedReference.fromHandle && result && typeof result === 'object' ? { ...result, id: rowReference } : result)
         } catch (error) {
             if (error instanceof UpdateFailure) {
                 return res.status(error.statusCode).json(error.body)

@@ -6,18 +6,17 @@ import Box from '@mui/material/Box'
 import CircularProgress from '@mui/material/CircularProgress'
 import Typography from '@mui/material/Typography'
 import AddIcon from '@mui/icons-material/Add'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
+import { useSnackbar } from 'notistack'
 import { sanitizeApplicationLearningContentSettings } from '@universo-react/types'
 import type { LayoutRuntimeErrorCode } from '@universo-react/types'
 import Dashboard from '../dashboard/Dashboard'
+import { withoutWorkspaceDashboardContent } from '../dashboard/runtime/workspaceDashboardLayout'
 import type {
     DashboardCreateTarget,
     DashboardDetailsSlot,
     DashboardLayoutConfig,
-    DashboardMenuItem,
-    DashboardMenuSlot,
-    DashboardMenusMap,
     DashboardRowTarget,
     DashboardRowTargetAction
 } from '../dashboard/Dashboard'
@@ -32,21 +31,21 @@ import {
 } from '../api/api'
 import type { RuntimeEffectiveLayoutSuccess, RuntimeLayoutTarget } from '../api/api'
 import type { AppDataResponse } from '../api/api'
+import { resolveDashboardEntityTargetSectionId } from '../dashboard/runtime/resolveDashboardEntityTargetSectionId'
 import { useCrudDashboard } from '../hooks/useCrudDashboard'
+import { extractRuntimeErrorMessage } from '../utils/runtimeErrors'
 import { CrudDialogs } from '../components/CrudDialogs'
 import { RowActionsMenu } from '../components/RowActionsMenu'
 import { RuntimeWorkspacesPage } from '../workspaces/RuntimeWorkspacesPage'
 import MarketingRuntimeContent from '../marketing-page/MarketingRuntimeContent'
 import {
-    buildRouteProjectedAppData,
-    getLoadedRuntimeSectionId,
-    isWorkspaceRootMenuItem,
-    resolveSectionRecord,
-    resolveSingleSystemMatrixSectionId,
-    toStandaloneSectionLinkMenuItem
-} from './standaloneTargets'
+    useDashboardBoundRowActions,
+    type DashboardBoundRowActionGuardFailure,
+    type DashboardBoundRowMutationAction,
+    type PendingDashboardRowTarget
+} from '../dashboard/useDashboardBoundRowActions'
+import { buildRouteProjectedAppData, getLoadedRuntimeSectionId, resolveSectionRecord } from './standaloneTargets'
 import {
-    hasMatrixCellRouteParam,
     readCurrentRoutePathname,
     readCurrentRouteSource,
     readStandaloneMarketingTarget,
@@ -58,19 +57,10 @@ export interface DashboardAppProps {
     applicationId: string
     locale: string
     apiBaseUrl: string
+    footerMetadata?: DashboardDetailsSlot['footerMetadata']
 }
 
 const UUID_PATH_SEGMENT_REGEX = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/
-
-const WORKSPACE_ROUTE_LAYOUT_OVERRIDES: Partial<DashboardLayoutConfig> = {
-    showOverviewTitle: false,
-    showOverviewCards: false,
-    showSessionsChart: false,
-    showPageViewsChart: false,
-    showDetailsTitle: false,
-    showDetailsTable: false,
-    showFooter: false
-}
 
 const buildLearningContentCreateDefaultContext = (appData: AppDataResponse | undefined): Record<string, unknown> => {
     const learningContentSettings = sanitizeApplicationLearningContentSettings(
@@ -87,16 +77,32 @@ const buildLearningContentCreateDefaultContext = (appData: AppDataResponse | und
 
 type DashboardRuntimeContentProps = DashboardAppProps & {
     effectiveLayout?: RuntimeEffectiveLayoutSuccess
+    onRuntimeDataChanged?: () => void | Promise<unknown>
+    onNavigate?: (href: string) => void
 }
 
-function DashboardRuntimeContent({ effectiveLayout, ...props }: DashboardRuntimeContentProps) {
+function DashboardRuntimeContent({ effectiveLayout, onRuntimeDataChanged, onNavigate, ...props }: DashboardRuntimeContentProps) {
     const { t } = useTranslation('apps')
+    const { enqueueSnackbar } = useSnackbar()
+    const queryClient = useQueryClient()
     const [routeSource, setRouteSource] = useState(readCurrentRouteSource)
-    const navigate = useCallback((href: string) => {
-        if (typeof window === 'undefined') return
-        window.history.pushState(null, '', href)
-        setRouteSource(readCurrentRouteSource())
-    }, [])
+    const navigate = useCallback(
+        (href: string) => {
+            if (typeof window === 'undefined') return
+            if (onNavigate) {
+                onNavigate(href)
+                return
+            }
+            if (window.location.hash.startsWith('#/a/')) {
+                window.location.hash = href
+                return
+            }
+            window.history.pushState(null, '', href)
+            window.dispatchEvent(new PopStateEvent('popstate'))
+            setRouteSource(readCurrentRouteSource())
+        },
+        [onNavigate]
+    )
     useEffect(() => {
         if (typeof window === 'undefined') return undefined
 
@@ -105,8 +111,10 @@ function DashboardRuntimeContent({ effectiveLayout, ...props }: DashboardRuntime
         }
 
         window.addEventListener('popstate', handleRouteChange)
+        window.addEventListener('hashchange', handleRouteChange)
         return () => {
             window.removeEventListener('popstate', handleRouteChange)
+            window.removeEventListener('hashchange', handleRouteChange)
         }
     }, [])
 
@@ -136,37 +144,25 @@ function DashboardRuntimeContent({ effectiveLayout, ...props }: DashboardRuntime
         () => createStandaloneAdapter({ apiBaseUrl: props.apiBaseUrl, applicationId: props.applicationId }),
         [props.apiBaseUrl, props.applicationId]
     )
-    const resolveRoutePreferredSectionId = useCallback(
-        (appData: AppDataResponse): string | undefined => {
-            if (!hasMatrixCellRouteParam(routeSource)) return undefined
-            return resolveSingleSystemMatrixSectionId(appData) ?? undefined
-        },
-        [routeSource]
-    )
-
     const state = useCrudDashboard({
         adapter,
         locale: props.locale,
-        initialSectionId: routeSectionId,
+        initialSectionId: routeSectionId ?? effectiveLayout?.resolvedEntityTypeId ?? undefined,
         workspaceId: requestedWorkspaceId,
-        resolvePreferredSectionId: resolveRoutePreferredSectionId,
-        createDefaultContext: buildLearningContentCreateDefaultContext
+        createDefaultContext: buildLearningContentCreateDefaultContext,
+        onRuntimeDataChanged
     })
 
     const contentPermissions = state.appData?.permissions
     const canCreateContent = contentPermissions?.createContent === true
     const canEditContent = contentPermissions?.editContent === true
     const canDeleteContent = contentPermissions?.deleteContent === true
-    const showCreateButton = state.appData?.objectCollection.runtimeConfig?.showCreateButton !== false && canCreateContent
+    const showCreateButton = state.appData?.objectCollection?.runtimeConfig?.showCreateButton !== false && canCreateContent
     const currentWorkspaceId = state.appData?.currentWorkspaceId ?? null
     const runtimeAppData = state.rawAppData ?? state.appData
-    const matrixRouteSectionId = useMemo(
-        () => (hasMatrixCellRouteParam(routeSource) ? resolveSingleSystemMatrixSectionId(runtimeAppData) : null),
-        [routeSource, runtimeAppData]
-    )
     const currentRuntimeSectionId =
         routeSectionId ??
-        matrixRouteSectionId ??
+        effectiveLayout?.resolvedEntityTypeId ??
         state.selectedSectionId ??
         state.selectedObjectCollectionId ??
         state.activeSectionId ??
@@ -180,19 +176,22 @@ function DashboardRuntimeContent({ effectiveLayout, ...props }: DashboardRuntime
         () => buildRouteProjectedAppData(runtimeAppData, currentRuntimeSection, currentRuntimeSectionId),
         [currentRuntimeSection, currentRuntimeSectionId, runtimeAppData]
     )
-    const routeMatchesLoadedSection = !routeSectionId || getLoadedRuntimeSectionId(state.appData) === routeSectionId
+    const runtimeRouteSectionId = routeSectionId ?? effectiveLayout?.resolvedEntityTypeId ?? undefined
+    const routeMatchesLoadedSection = !runtimeRouteSectionId || getLoadedRuntimeSectionId(state.appData) === runtimeRouteSectionId
     const detailsAppData = routeProjectedAppData ?? (routeMatchesLoadedSection ? state.appData : undefined)
-    const hasResolvedDetailsAppData = Boolean(detailsAppData)
     const effectiveDashboardLayout = effectiveLayout?.layout.templateKey === 'dashboard' ? effectiveLayout : undefined
     const effectiveZoneWidgets = effectiveDashboardLayout ? toDashboardZoneWidgets(effectiveDashboardLayout) : undefined
-    const dashboardZoneWidgets = effectiveZoneWidgets
+    const dashboardZoneWidgets = useMemo(() => {
+        if (!effectiveZoneWidgets || !isWorkspacesRoute) return effectiveZoneWidgets
+        return withoutWorkspaceDashboardContent(effectiveZoneWidgets)
+    }, [effectiveZoneWidgets, isWorkspacesRoute])
     const detailsTitle = isWorkspacesRoute
         ? t('workspace.title', 'Workspaces')
-        : detailsAppData?.objectCollection.name ??
+        : detailsAppData?.objectCollection?.name ??
           currentRuntimeSection?.name ??
-          state.appData?.objectCollection.name ??
+          state.appData?.objectCollection?.name ??
           t('runtime.details', 'Details')
-    const activeObjectCollectionRuntimeConfig = detailsAppData?.objectCollection.runtimeConfig
+    const activeObjectCollectionRuntimeConfig = detailsAppData?.objectCollection?.runtimeConfig
     const currentRuntimeObjectCollectionId =
         currentRuntimeSection?.id ??
         routeSectionId ??
@@ -217,38 +216,96 @@ function DashboardRuntimeContent({ effectiveLayout, ...props }: DashboardRuntime
     const [pendingCreateTarget, setPendingCreateTarget] = useState<{
         sectionId: string
         createDefaults?: DashboardCreateTarget['createDefaults']
+        createDefaultContext?: DashboardCreateTarget['createDefaultContext']
+        createWizard?: DashboardCreateTarget['createWizard']
+        relationScope?: DashboardCreateTarget['relationScope']
     } | null>(null)
-    const [pendingRowTarget, setPendingRowTarget] = useState<{
-        sectionId: string
-        rowId: string
-        action: DashboardRowTargetAction
-    } | null>(null)
+    const [pendingRowTarget, setPendingRowTarget] = useState<PendingDashboardRowTarget | null>(null)
     const resolveCreateTargetSectionId = useCallback(
-        (target: DashboardCreateTarget): string | null => {
-            const directId = target.sectionId ?? target.objectCollectionId
-            if (directId) return directId
-
-            const targetCodename = target.sectionCodename ?? target.objectCollectionCodename
-            if (!targetCodename) return null
-
-            const candidates = [...(state.appData?.sections ?? []), ...(state.appData?.objectCollections ?? [])]
-            return candidates.find((candidate) => candidate.codename === targetCodename)?.id ?? null
-        },
+        (target: DashboardCreateTarget) =>
+            resolveDashboardEntityTargetSectionId(target, {
+                sections: state.appData?.sections,
+                objectCollections: state.appData?.objectCollections
+            }),
         [state.appData?.objectCollections, state.appData?.sections]
     )
     const resolveRowTargetSectionId = useCallback(
-        (target: DashboardRowTarget): string | null => {
-            const directId = target.sectionId ?? target.objectCollectionId
-            if (directId) return directId
-
-            const targetCodename = target.sectionCodename ?? target.objectCollectionCodename
-            if (!targetCodename) return null
-
-            const candidates = [...(state.appData?.sections ?? []), ...(state.appData?.objectCollections ?? [])]
-            return candidates.find((candidate) => candidate.codename === targetCodename)?.id ?? null
-        },
+        (target: DashboardRowTarget) =>
+            resolveDashboardEntityTargetSectionId(target, {
+                sections: state.appData?.sections,
+                objectCollections: state.appData?.objectCollections
+            }),
         [state.appData?.objectCollections, state.appData?.sections]
     )
+    const handleBoundRowActionGuardFailure = useCallback(
+        (failure: DashboardBoundRowActionGuardFailure) => {
+            const message =
+                failure === 'target'
+                    ? t('app.targetActionUnavailable', 'This action is not available for this row.')
+                    : failure === 'record-version'
+                    ? t('app.errorRuntimeRowVersionRequired', 'This record has no current version. Reload it and try again.')
+                    : t('app.errorWorkflowVersionRequired', 'Workflow action requires a current row version. Please reload and try again.')
+            enqueueSnackbar(message, { variant: 'error' })
+        },
+        [enqueueSnackbar, t]
+    )
+    const handleBoundRowMutationSuccess = useCallback(
+        async (action: DashboardBoundRowMutationAction) => {
+            await Promise.all([
+                queryClient.invalidateQueries({ queryKey: ['application-data', props.applicationId] }),
+                queryClient.invalidateQueries({ queryKey: ['applications', props.applicationId, 'runtime', 'effective-layout'] })
+            ])
+            if (action.kind === 'record') {
+                const messageKey =
+                    action.command === 'post' ? 'app.recordPosted' : action.command === 'unpost' ? 'app.recordUnposted' : 'app.recordVoided'
+                const fallback =
+                    action.command === 'post' ? 'Record posted.' : action.command === 'unpost' ? 'Record unposted.' : 'Record voided.'
+                enqueueSnackbar(t(messageKey, fallback), { variant: 'success' })
+                return
+            }
+            enqueueSnackbar(t('app.workflowActionCompleted', 'Workflow action completed.'), { variant: 'success' })
+        },
+        [enqueueSnackbar, props.applicationId, queryClient, t]
+    )
+    const handleBoundRowMutationError = useCallback(
+        (error: unknown, action: DashboardBoundRowMutationAction) => {
+            const fallback = t('app.targetActionUnavailable', 'This action is not available for this row.')
+            const message = extractRuntimeErrorMessage(error, fallback, props.locale)
+            const messageKey = action.kind === 'record' ? 'app.errorRecordCommand' : 'app.errorWorkflowAction'
+            enqueueSnackbar(
+                t(messageKey, {
+                    defaultValue: action.kind === 'record' ? 'Record command failed: {{message}}' : 'Workflow action failed: {{message}}',
+                    message
+                }),
+                { variant: 'error' }
+            )
+        },
+        [enqueueSnackbar, props.locale, t]
+    )
+    const {
+        boundRowActionMenu,
+        rowActionLoadState,
+        pendingRowActionKind,
+        closeBoundRowActionMenu,
+        handleOpenDashboardRowMenu,
+        handleOpenBoundRowTargetAction,
+        handleBoundRecordCommand,
+        handleBoundWorkflowAction
+    } = useDashboardBoundRowActions({
+        applicationId: props.applicationId,
+        locale: props.locale,
+        adapter,
+        currentWorkspaceId,
+        currentSectionId,
+        resolveRowTargetSectionId,
+        onSelectObjectCollection: state.onSelectObjectCollection,
+        setPendingRowTarget,
+        handleStateRowMenuOpen: state.handleOpenMenu,
+        onGuardFailure: handleBoundRowActionGuardFailure,
+        onMutationSuccess: handleBoundRowMutationSuccess,
+        onMutationError: handleBoundRowMutationError
+    })
+    const boundRowActionData = rowActionLoadState.status === 'ready' ? rowActionLoadState.data : null
     const handleOpenCreateTarget = useCallback(
         (target: DashboardCreateTarget) => {
             if (target.disabled) return
@@ -256,7 +313,13 @@ function DashboardRuntimeContent({ effectiveLayout, ...props }: DashboardRuntime
             const targetSectionId = resolveCreateTargetSectionId(target)
             if (!targetSectionId) return
 
-            setPendingCreateTarget({ sectionId: targetSectionId, createDefaults: target.createDefaults })
+            setPendingCreateTarget({
+                sectionId: targetSectionId,
+                createDefaults: target.createDefaults,
+                createDefaultContext: target.createDefaultContext,
+                createWizard: target.createWizard,
+                relationScope: target.relationScope
+            })
             if (targetSectionId !== currentSectionId) {
                 state.onSelectObjectCollection(targetSectionId)
             }
@@ -264,16 +327,24 @@ function DashboardRuntimeContent({ effectiveLayout, ...props }: DashboardRuntime
         [currentSectionId, resolveCreateTargetSectionId, state]
     )
     const handleOpenRowTargetAction = useCallback(
-        (rowId: string, action: DashboardRowTargetAction) => {
+        (
+            rowId: string,
+            action: DashboardRowTargetAction,
+            relationScope?: DashboardRowTarget['relationScope'],
+            expectedVersion?: number
+        ) => {
             if (action === 'edit') {
-                state.handleOpenEdit(rowId)
+                if (expectedVersion === undefined) state.handleOpenEdit(rowId, relationScope)
+                else state.handleOpenEdit(rowId, relationScope, expectedVersion)
                 return
             }
             if (action === 'copy') {
-                state.handleOpenCopy(rowId)
+                if (expectedVersion === undefined) state.handleOpenCopy(rowId, relationScope)
+                else state.handleOpenCopy(rowId, relationScope, expectedVersion)
                 return
             }
-            state.handleOpenDelete(rowId)
+            if (expectedVersion === undefined) state.handleOpenDelete(rowId, relationScope)
+            else state.handleOpenDelete(rowId, relationScope, expectedVersion)
         },
         [state]
     )
@@ -286,7 +357,13 @@ function DashboardRuntimeContent({ effectiveLayout, ...props }: DashboardRuntime
             if (action === 'copy' && !canCreateContent) return
             if (action === 'delete' && !canDeleteContent) return
 
-            setPendingRowTarget({ sectionId: targetSectionId, rowId: target.rowId, action })
+            setPendingRowTarget({
+                sectionId: targetSectionId,
+                rowId: target.rowId,
+                action,
+                expectedVersion: target.expectedVersion,
+                relationScope: target.relationScope
+            })
             if (targetSectionId !== currentSectionId) {
                 state.onSelectObjectCollection(targetSectionId)
             }
@@ -305,7 +382,12 @@ function DashboardRuntimeContent({ effectiveLayout, ...props }: DashboardRuntime
         if (state.isLoading || state.isFetching || loadedTargetId !== pendingCreateTarget.sectionId) return
 
         setPendingCreateTarget(null)
-        state.handleOpenCreate(pendingCreateTarget.createDefaults)
+        state.handleOpenCreate(
+            pendingCreateTarget.createDefaults,
+            pendingCreateTarget.createDefaultContext,
+            pendingCreateTarget.relationScope,
+            pendingCreateTarget.createWizard
+        )
     }, [
         pendingCreateTarget,
         state,
@@ -328,7 +410,12 @@ function DashboardRuntimeContent({ effectiveLayout, ...props }: DashboardRuntime
         if (state.isLoading || state.isFetching || loadedTargetId !== pendingRowTarget.sectionId) return
 
         setPendingRowTarget(null)
-        handleOpenRowTargetAction(pendingRowTarget.rowId, pendingRowTarget.action)
+        handleOpenRowTargetAction(
+            pendingRowTarget.rowId,
+            pendingRowTarget.action,
+            pendingRowTarget.relationScope,
+            pendingRowTarget.expectedVersion
+        )
     }, [
         handleOpenRowTargetAction,
         pendingRowTarget,
@@ -378,16 +465,18 @@ function DashboardRuntimeContent({ effectiveLayout, ...props }: DashboardRuntime
             ) : null,
         [isWorkspacesRoute, navigate, props.apiBaseUrl, props.applicationId, props.locale, routeWorkspaceId, workspaceRouteSection]
     )
-    const pageProgressTargetObjectCodename = detailsAppData?.objectCollection.codename ?? detailsAppData?.section?.codename ?? null
+    const pageProgressTargetObjectCodename = detailsAppData?.objectCollection?.codename ?? detailsAppData?.section?.codename ?? null
     const pageProgressTargetRecordId = detailsAppData?.section?.id ?? detailsAppData?.objectCollection?.id ?? currentRuntimeSectionId
     const handlePageProgressChange = useCallback(
-        async (payload: { action: 'view' | 'complete' }) => {
-            if (!pageProgressTargetObjectCodename || !pageProgressTargetRecordId) return
+        async (payload: { action: 'view' | 'complete'; target?: { objectCodename: string; recordHandle: string } }) => {
+            const targetObjectCodename = payload.target?.objectCodename ?? pageProgressTargetObjectCodename
+            const targetRecordId = payload.target?.recordHandle ?? pageProgressTargetRecordId
+            if (!targetObjectCodename || !targetRecordId) return
             await updateLearningContentProgress({
                 apiBaseUrl: props.apiBaseUrl,
                 applicationId: props.applicationId,
-                targetObjectCodename: pageProgressTargetObjectCodename,
-                targetRecordId: pageProgressTargetRecordId,
+                targetObjectCodename,
+                targetRecordId,
                 action: payload.action
             })
         },
@@ -401,32 +490,22 @@ function DashboardRuntimeContent({ effectiveLayout, ...props }: DashboardRuntime
             sectionId: currentRuntimeSectionId,
             sectionCodename: currentRuntimeSection?.codename ?? detailsAppData?.section?.codename ?? null,
             objectCollectionId: currentRuntimeObjectCollectionId,
-            objectCollectionCodename: currentRuntimeSection?.codename ?? detailsAppData?.objectCollection.codename ?? null,
+            objectCollectionCodename: currentRuntimeSection?.codename ?? detailsAppData?.objectCollection?.codename ?? null,
             sections: detailsAppData?.sections ?? [],
             objectCollections: detailsAppData?.objectCollections ?? [],
             apiBaseUrl: props.apiBaseUrl,
             locale: props.locale,
+            settings: detailsAppData?.settings,
             currentWorkspaceId,
+            footerMetadata: props.footerMetadata,
             runtimeAccessMode: 'member',
             runtimeQueryKeyPrefix: adapter?.queryKeyPrefix,
+            onRuntimeDataChanged,
             workspacesEnabled,
             permissions: detailsAppData?.permissions,
             content: workspacePageContent,
-            rows: hasResolvedDetailsAppData ? state.rows : [],
-            columns: hasResolvedDetailsAppData ? state.columns : [],
-            runtimeColumns: detailsAppData?.columns,
-            loading: state.isLoading,
-            rowCount: hasResolvedDetailsAppData ? state.rowCount : undefined,
-            paginationModel: state.paginationModel,
-            onPaginationModelChange: state.setPaginationModel,
-            sortModel: state.sortModel,
-            onSortModelChange: state.setSortModel,
-            filterModel: state.filterModel,
-            onFilterModelChange: state.setFilterModel,
-            searchValue: state.searchValue,
-            onSearchValueChange: state.setSearchValue,
             pageSizeOptions: state.pageSizeOptions,
-            pageBlocks: detailsAppData?.objectCollection.pageBlocks ?? detailsAppData?.section?.pageBlocks,
+            pageBlocks: detailsAppData?.objectCollection?.pageBlocks ?? detailsAppData?.section?.pageBlocks,
             pagePlayer: {
                 showOutline: learningContentSettings.playerPreset?.showOutline !== false,
                 showProgressHeader: learningContentSettings.playerPreset?.showProgressHeader !== false,
@@ -439,69 +518,58 @@ function DashboardRuntimeContent({ effectiveLayout, ...props }: DashboardRuntime
                 ].join(':'),
                 onProgressChange: handlePageProgressChange
             },
-            tableDefaults: {
-                defaultViewMode: learningContentSettings.defaultView === 'cards' ? 'card' : 'table',
-                columnPreset: learningContentSettings.columnPreset
-            },
             resourceSourceTypes: learningContentSettings.supportedResourceTypes,
             onOpenCreateTarget: handleOpenCreateTarget,
-            onOpenRowMenu: state.handleOpenMenu,
+            onOpenRowMenu: handleOpenDashboardRowMenu,
             onOpenRowTarget: handleOpenRowTarget,
             localeText: state.localeText,
             actions: createActions,
             navigate,
-            searchMode: state.appData?.objectCollection.runtimeConfig?.searchMode ?? 'page-local',
             rowReorder: state.canPersistRowReorder
                 ? {
                       onReorder: state.handlePersistRowReorder,
+                      isPending: state.isReordering
+                  }
+                : undefined,
+            relationRowReorder: state.canPersistRelationRowReorder
+                ? {
+                      onReorder: state.handlePersistRelationRowReorder,
                       isPending: state.isReordering
                   }
                 : undefined
         }),
         [
             detailsTitle,
-            hasResolvedDetailsAppData,
             currentRuntimeSection,
             currentRuntimeObjectCollectionId,
             currentRuntimeSectionId,
             detailsAppData?.section?.codename,
-            detailsAppData?.objectCollection.codename,
+            detailsAppData?.objectCollection?.codename,
             detailsAppData?.sections,
             detailsAppData?.objectCollections,
-            state.appData?.objectCollection.runtimeConfig?.searchMode,
+            detailsAppData?.settings,
             currentWorkspaceId,
+            props.footerMetadata,
             currentSectionId,
             workspacesEnabled,
             detailsAppData?.permissions,
             state.canPersistRowReorder,
-            state.rows,
-            state.columns,
-            detailsAppData?.columns,
-            state.isLoading,
+            state.canPersistRelationRowReorder,
             state.handlePersistRowReorder,
+            state.handlePersistRelationRowReorder,
             state.isReordering,
-            state.rowCount,
-            state.paginationModel,
-            state.setPaginationModel,
-            state.sortModel,
-            state.setSortModel,
-            state.filterModel,
-            state.setFilterModel,
-            state.searchValue,
-            state.setSearchValue,
             state.pageSizeOptions,
-            detailsAppData?.objectCollection.pageBlocks,
+            detailsAppData?.objectCollection?.pageBlocks,
             detailsAppData?.section?.pageBlocks,
             learningContentSettings.playerPreset?.showOutline,
             learningContentSettings.playerPreset?.showProgressHeader,
             learningContentSettings.playerPreset?.completeButtonMode,
-            learningContentSettings.defaultView,
-            learningContentSettings.columnPreset,
             learningContentSettings.supportedResourceTypes,
             handlePageProgressChange,
             handleOpenCreateTarget,
-            state.handleOpenMenu,
+            handleOpenDashboardRowMenu,
             handleOpenRowTarget,
+            onRuntimeDataChanged,
             state.localeText,
             createActions,
             adapter?.queryKeyPrefix,
@@ -514,9 +582,9 @@ function DashboardRuntimeContent({ effectiveLayout, ...props }: DashboardRuntime
     )
     const runtimeLayoutConfig = useMemo(() => {
         const selectedLayoutConfig = effectiveDashboardLayout?.layout.config
-        const baseLayoutConfig = selectedLayoutConfig ? (selectedLayoutConfig as Partial<DashboardLayoutConfig>) : state.layoutConfig
-        return isWorkspacesRoute ? { ...baseLayoutConfig, ...WORKSPACE_ROUTE_LAYOUT_OVERRIDES } : baseLayoutConfig
-    }, [effectiveDashboardLayout?.layout.config, isWorkspacesRoute, state.layoutConfig])
+        const baseLayoutConfig = selectedLayoutConfig as Partial<DashboardLayoutConfig> | undefined
+        return baseLayoutConfig?.sideMenu ? { sideMenu: baseLayoutConfig.sideMenu } : undefined
+    }, [effectiveDashboardLayout?.layout.config])
 
     if (!props.applicationId) {
         return (
@@ -526,102 +594,9 @@ function DashboardRuntimeContent({ effectiveLayout, ...props }: DashboardRuntime
         )
     }
 
-    const workspaceMenuItem: DashboardMenuItem | null =
-        state.appData?.workspacesEnabled && props.applicationId
-            ? {
-                  id: 'runtime-workspaces',
-                  label: t('workspace.title', 'Workspaces'),
-                  icon: 'folder',
-                  kind: 'link',
-                  href: `/a/${props.applicationId}/workspaces`,
-                  selected: isWorkspacesRoute
-              }
-            : null
-    const workspaceDashboardMenuItem: DashboardMenuItem | null =
-        workspaceMenuItem && routeWorkspaceId
-            ? {
-                  id: 'runtime-workspace-dashboard',
-                  label: t('workspace.dashboard', 'Dashboard'),
-                  icon: 'dashboard',
-                  kind: 'link',
-                  href: `/a/${props.applicationId}/workspaces/${routeWorkspaceId}`,
-                  selected: isWorkspacesRoute && workspaceRouteSection === 'dashboard'
-              }
-            : null
-    const workspaceAccessMenuItem: DashboardMenuItem | null =
-        workspaceMenuItem && routeWorkspaceId
-            ? {
-                  id: 'runtime-workspace-access',
-                  label: t('workspace.access', 'Access'),
-                  icon: 'users',
-                  kind: 'link',
-                  href: `/a/${props.applicationId}/workspaces/${routeWorkspaceId}/access`,
-                  selected: isWorkspacesRoute && workspaceRouteSection === 'access'
-              }
-            : null
-    const workspaceSettingsMenuItem: DashboardMenuItem | null =
-        workspaceMenuItem && routeWorkspaceId
-            ? {
-                  id: 'runtime-workspace-settings',
-                  label: t('workspace.settings', 'Settings'),
-                  icon: 'settings',
-                  kind: 'link',
-                  href: `/a/${props.applicationId}/workspaces/${routeWorkspaceId}/settings`,
-                  selected: isWorkspacesRoute && workspaceRouteSection === 'settings'
-              }
-            : null
-    const sectionLinksEnabled = state.appData?.settings?.sectionLinksEnabled !== false
-
-    const appendWorkspaceMenuItem = (slot?: DashboardMenuSlot): DashboardMenuSlot | undefined => {
-        if (!slot && !workspaceMenuItem) return slot
-        const baseItems = slot?.items ?? []
-        const hasWorkspaceRootItem = baseItems.some(isWorkspaceRootMenuItem)
-        const normalizedBaseItems = baseItems.map((item) => {
-            if (isWorkspaceRootMenuItem(item)) {
-                return {
-                    ...item,
-                    kind: 'link' as const,
-                    href: item.href ?? workspaceMenuItem?.href ?? null,
-                    selected: isWorkspacesRoute
-                }
-            }
-
-            return isWorkspacesRoute || sectionLinksEnabled
-                ? toStandaloneSectionLinkMenuItem(item, props.applicationId, sectionLinksEnabled, isWorkspacesRoute, state.appData)
-                : item
-        })
-
-        return {
-            ...slot,
-            title: slot?.title ?? null,
-            showTitle: slot?.showTitle ?? false,
-            items: [
-                ...normalizedBaseItems,
-                ...(workspaceMenuItem && !hasWorkspaceRootItem ? [workspaceMenuItem] : []),
-                ...(workspaceDashboardMenuItem ? [workspaceDashboardMenuItem] : []),
-                ...(workspaceAccessMenuItem ? [workspaceAccessMenuItem] : []),
-                ...(workspaceSettingsMenuItem ? [workspaceSettingsMenuItem] : [])
-            ]
-        }
-    }
-
-    const menuSlot = appendWorkspaceMenuItem(state.menuSlot)
-    const menusMap: DashboardMenusMap | undefined =
-        Object.keys(state.menusMap).length > 0
-            ? Object.fromEntries(
-                  Object.entries(state.menusMap).map(([key, slot]) => [key, appendWorkspaceMenuItem(slot) as DashboardMenuSlot])
-              )
-            : undefined
-
     return (
         <AppMainLayout>
-            <Dashboard
-                layoutConfig={runtimeLayoutConfig}
-                zoneWidgets={dashboardZoneWidgets}
-                menu={menuSlot}
-                menus={menusMap}
-                details={details}
-            />
+            <Dashboard layoutConfig={runtimeLayoutConfig} zoneWidgets={dashboardZoneWidgets} details={details} />
 
             {!isWorkspacesRoute ? (
                 <>
@@ -679,8 +654,36 @@ function DashboardRuntimeContent({ effectiveLayout, ...props }: DashboardRuntime
                             workflowConfirmationTitleText: t('app.workflowConfirmationTitle', 'Confirm action'),
                             workflowConfirmationMessageText: t('app.workflowConfirmationMessage', 'Run this action?'),
                             cancelText: t('app.cancel', 'Cancel'),
-                            confirmText: t('app.confirm', 'Confirm')
+                            confirmText: t('app.confirm', 'Confirm'),
+                            loadingText: t('app.rowActionsLoading', 'Loading actions…'),
+                            unavailableText: t('app.rowActionsUnavailable', 'Actions are unavailable for this record.')
                         }}
+                        runtimeContext={
+                            boundRowActionMenu
+                                ? {
+                                      menuAnchorEl: boundRowActionMenu.anchorEl,
+                                      menuRowId: boundRowActionMenu.target.recordHandle,
+                                      row: boundRowActionData?.row ?? null,
+                                      columns: boundRowActionData?.appData.columns ?? [],
+                                      recordBehavior: boundRowActionData?.appData.objectCollection.recordBehavior,
+                                      workflowActions: boundRowActionData?.appData.objectCollection.workflowActions ?? [],
+                                      workflowCapabilities: boundRowActionData?.appData.workflowCapabilities,
+                                      permissions: {
+                                          canEdit: boundRowActionData?.appData.permissions.editContent === true,
+                                          canCopy: boundRowActionData?.appData.permissions.createContent === true,
+                                          canDelete: boundRowActionData?.appData.permissions.deleteContent === true
+                                      },
+                                      isLoading: rowActionLoadState.status === 'loading',
+                                      hasError: rowActionLoadState.status === 'error',
+                                      isRecordCommandPending: pendingRowActionKind === 'record',
+                                      isWorkflowActionPending: pendingRowActionKind === 'workflow',
+                                      onCloseMenu: closeBoundRowActionMenu,
+                                      onRowTargetAction: handleOpenBoundRowTargetAction,
+                                      onRecordCommand: handleBoundRecordCommand,
+                                      onWorkflowAction: handleBoundWorkflowAction
+                                  }
+                                : undefined
+                        }
                     />
                 </>
             ) : null}
@@ -755,6 +758,28 @@ export default function DashboardApp(props: DashboardAppProps) {
         }
     }, [])
 
+    const navigate = useCallback((href: string) => {
+        if (typeof window === 'undefined') return
+        let targetUrl: URL
+        try {
+            targetUrl = new URL(href, window.location.origin)
+        } catch {
+            return
+        }
+        if (targetUrl.origin !== window.location.origin || !targetUrl.pathname.startsWith('/a/')) return
+
+        const nextRoute = `${targetUrl.pathname}${targetUrl.search}${targetUrl.hash}`
+        if (window.location.hash.startsWith('#/a/')) {
+            if (window.location.hash.slice(1) !== nextRoute) window.location.hash = nextRoute
+            return
+        }
+
+        const currentRoute = `${window.location.pathname}${window.location.search}${window.location.hash}`
+        if (nextRoute === currentRoute) return
+        window.history.pushState(null, '', nextRoute)
+        window.dispatchEvent(new PopStateEvent('popstate'))
+    }, [])
+
     const workspaceId = useMemo(() => readStandaloneWorkspaceId(routeSource), [routeSource])
     const { runtimeTarget, runtimeTargetError } = useMemo(() => {
         try {
@@ -777,6 +802,8 @@ export default function DashboardApp(props: DashboardAppProps) {
         enabled: Boolean(props.applicationId) && !runtimeTargetError,
         staleTime: 60_000
     })
+    const { refetch: refetchRuntimeLayout } = templateQuery
+    const refreshEffectiveLayout = useCallback(() => refetchRuntimeLayout(), [refetchRuntimeLayout])
     const runtimeLayoutErrorCode =
         getRuntimeLayoutErrorCode(templateQuery.error) ??
         (templateQuery.data?.status === 'failed' ? getRuntimeLayoutErrorCode(templateQuery.data) : null)
@@ -792,6 +819,7 @@ export default function DashboardApp(props: DashboardAppProps) {
             <MarketingRuntimeContent
                 {...props}
                 workspaceId={workspaceId}
+                themeVariant={runtimeTarget.themeVariant}
                 target={marketingTarget}
                 layoutIdentity={
                     templateQuery.data.effectiveHash
@@ -818,5 +846,12 @@ export default function DashboardApp(props: DashboardAppProps) {
             />
         )
     }
-    return <DashboardRuntimeContent {...props} effectiveLayout={templateQuery.data} />
+    return (
+        <DashboardRuntimeContent
+            {...props}
+            effectiveLayout={templateQuery.data}
+            onRuntimeDataChanged={refreshEffectiveLayout}
+            onNavigate={navigate}
+        />
+    )
 }

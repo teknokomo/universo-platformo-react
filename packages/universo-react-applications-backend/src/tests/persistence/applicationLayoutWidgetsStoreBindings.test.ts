@@ -1,21 +1,23 @@
-import { beforeEach, describe, expect, it, jest } from '@jest/globals'
+import { beforeEach, describe, expect, it } from '@jest/globals'
 import {
     buildSingleTargetWidgetBinding,
     decodeLayoutWidgetConfigEnvelope,
     encodeLayoutWidgetConfigEnvelope,
     getLayoutWidgetDefinition,
-    LAYOUT_WIDGET_DEFINITIONS
+    LAYOUT_WIDGET_DEFINITIONS,
+    validateWidgetBindings
 } from '@universo-react/types'
+import { encodeBoundCollectionConfig } from './applicationLayoutsStore.test-utils'
+import { createApplicationLayoutWidgetsStoreBindingsHarness } from './applicationLayoutWidgetsStoreBindings.test-utils'
 import * as layoutSupport from '../../persistence/applicationLayoutStoreSupport'
 import { createApplicationLayoutWidgetSourceState } from '../../services/applicationLayoutWidgetSourceState'
 import {
     moveApplicationLayoutWidget,
     resetApplicationLayoutWidgetConfigsBatch,
     updateApplicationLayoutWidgetConfig,
+    updateApplicationLayoutWidgetConfigsBatch,
     upsertApplicationLayoutWidget
 } from '../../persistence/applicationLayoutWidgetsStore'
-import * as structureModeGuard from '../../shared/interpretationNetworkStructureModeGuard'
-import { createMockDbExecutor } from '../utils/dbMocks'
 
 const layoutId = '0190a9b5-3cde-7abc-8def-012345678901'
 const heroId = '0190a9b5-3cde-7abc-8def-012345678902'
@@ -41,7 +43,7 @@ const sourceManagedMarketingVariants = LAYOUT_WIDGET_DEFINITIONS.flatMap((defini
     const variants = definition.bindingVariants ? Object.keys(definition.bindingVariants) : [undefined]
 
     return variants.flatMap((variant) => {
-        const config = { instanceKey: `application-copy-${definition.key}${variant ? `-${variant}` : ''}`, ...(variant ? { variant } : {}) }
+        const config = variant ? { variant } : {}
         const resolvedDefinition = getLayoutWidgetDefinition(definition.key, config)
         if (!(resolvedDefinition?.bindingSlots ?? []).some(({ cardinality }) => cardinality.min > 0)) return []
         if (!expectedSourceManagedWidgetKeys.has(definition.key)) {
@@ -61,10 +63,10 @@ const heroBinding = (semanticKey: string) =>
         semanticKey
     })
 
-const sourceConfig = (instanceKey: string, semanticKey: string) =>
+const sourceConfig = (semanticKey: string) =>
     encodeLayoutWidgetConfigEnvelope(
         {
-            rendererConfig: { instanceKey, showLeadForm: true },
+            rendererConfig: { showLeadForm: true },
             neutral: { bindings: heroBinding(semanticKey) }
         },
         { templateKey: 'marketing-page', widgetKey: 'marketing.hero', zone: 'marketing-main' }
@@ -75,7 +77,10 @@ const sourceState = (instanceKey: string, semanticKey: string, sortOrder: number
         zone: 'marketing-main',
         sortOrder,
         isActive: true,
-        config: sourceConfig(instanceKey, semanticKey)
+        config: sourceConfig(semanticKey),
+        instanceKey,
+        parentWidgetId: null,
+        slotKey: null
     })
 
 const widgetRow = (input: {
@@ -90,9 +95,12 @@ const widgetRow = (input: {
     layout_id: layoutId,
     zone: 'marketing-main',
     widget_key: 'marketing.hero',
+    instance_key: input.instanceKey,
+    parent_widget_id: null,
+    slot_key: null,
     sort_order: input.sortOrder,
-    config: { instanceKey: input.instanceKey, showLeadForm: input.showLeadForm },
-    source_config: sourceConfig(input.instanceKey, input.semanticKey),
+    config: { showLeadForm: input.showLeadForm },
+    source_config: sourceConfig(input.semanticKey),
     source_state: sourceState(input.instanceKey, input.semanticKey, input.sortOrder),
     source_widget_id: input.id,
     source_base_widget_id: null,
@@ -109,28 +117,20 @@ const layoutDetail = (widgets: ReturnType<typeof mapHero>[]) =>
         widgets
     } as never)
 
-const { executor, txExecutor } = createMockDbExecutor()
-const lockLayout = jest.spyOn(layoutSupport, 'lockApplicationLayoutMutation')
-const getLayoutDetail = jest.spyOn(layoutSupport, 'getApplicationLayoutDetail')
-const lockStructureMode = jest.spyOn(structureModeGuard, 'lockInterpretationNetworkStructureMode')
+const applicationLayoutWidgetsStoreHarness = createApplicationLayoutWidgetsStoreBindingsHarness(() =>
+    layoutDetail([
+        mapHero({
+            id: heroId,
+            instanceKey: 'hero-main',
+            semanticKey: 'default',
+            showLeadForm: false,
+            sortOrder: 1
+        })
+    ])
+)
+const { executor, txExecutor, lockLayout, reset } = applicationLayoutWidgetsStoreHarness
 
-beforeEach(() => {
-    jest.clearAllMocks()
-    txExecutor.query.mockReset().mockResolvedValue([])
-    lockLayout.mockResolvedValue(
-        layoutDetail([
-            mapHero({
-                id: heroId,
-                instanceKey: 'hero-main',
-                semanticKey: 'default',
-                showLeadForm: false,
-                sortOrder: 1
-            })
-        ])
-    )
-    getLayoutDetail.mockResolvedValue(null)
-    lockStructureMode.mockResolvedValue(undefined)
-})
+beforeEach(reset)
 
 describe('application layout widget source binding lifecycle', () => {
     it.each(sourceManagedMarketingVariants)(
@@ -146,7 +146,7 @@ describe('application layout widget source binding lifecycle', () => {
                 )
             ).rejects.toThrow('APPLICATION_LAYOUT_ENTITY_BACKED_WIDGET_COPY_CONFLICT')
 
-            expect(lockLayout).not.toHaveBeenCalled()
+            expect(lockLayout).toHaveBeenCalledTimes(1)
             expect(txExecutor.query).not.toHaveBeenCalled()
         }
     )
@@ -161,13 +161,13 @@ describe('application layout widget source binding lifecycle', () => {
                     expectedVersion: 3,
                     zone: 'marketing-main',
                     widgetKey: 'marketing.hero',
-                    config: { instanceKey: 'hero-copy', showLeadForm: true }
+                    config: { showLeadForm: true }
                 } as never,
                 'user-1'
             )
         ).rejects.toThrow('APPLICATION_LAYOUT_ENTITY_BACKED_WIDGET_COPY_CONFLICT')
 
-        expect(lockLayout).not.toHaveBeenCalled()
+        expect(lockLayout).toHaveBeenCalledTimes(1)
         expect(txExecutor.query).not.toHaveBeenCalled()
     })
 
@@ -181,18 +181,18 @@ describe('application layout widget source binding lifecycle', () => {
                     expectedVersion: 3,
                     zone: 'marketing-main',
                     widgetKey: 'marketing.collection',
-                    config: { instanceKey: 'logos-copy', variant: 'logos' }
+                    config: { variant: 'logos' }
                 } as never,
                 'user-1'
             )
         ).rejects.toThrow('APPLICATION_LAYOUT_ENTITY_BACKED_WIDGET_COPY_CONFLICT')
 
-        expect(lockLayout).not.toHaveBeenCalled()
+        expect(lockLayout).toHaveBeenCalledTimes(1)
         expect(txExecutor.query).not.toHaveBeenCalled()
     })
 
     it('rejects attempts to forge binding metadata through ordinary widget writes', async () => {
-        const forgedConfig = { instanceKey: 'hero-main', showLeadForm: true, __layout: { bindings: heroBinding('default') } }
+        const forgedConfig = { showLeadForm: true, __layout: { bindings: heroBinding('default') } }
 
         await expect(
             upsertApplicationLayoutWidget(
@@ -226,7 +226,7 @@ describe('application layout widget source binding lifecycle', () => {
             showLeadForm: true,
             sortOrder: 1
         })
-        const updated = { ...baseline, config: { instanceKey: 'hero-main', showLeadForm: false }, is_customized: true, version: 3 }
+        const updated = { ...baseline, config: { showLeadForm: false }, is_customized: true, version: 3 }
         txExecutor.query.mockResolvedValueOnce([updated])
 
         const saved = await updateApplicationLayoutWidgetConfig(
@@ -234,14 +234,15 @@ describe('application layout widget source binding lifecycle', () => {
             schemaName,
             layoutId,
             heroId,
-            { expectedVersion: 2, config: { instanceKey: 'hero-main', showLeadForm: false } } as never,
+            { expectedVersion: 2, config: { showLeadForm: false } } as never,
             'user-1'
         )
 
         expect(txExecutor.query.mock.calls[0]?.[0]).toContain('SET config = $2::jsonb')
         expect(txExecutor.query.mock.calls[0]?.[0]).not.toMatch(/SET[^;]*source_config\s*=/isu)
         expect(JSON.stringify(txExecutor.query.mock.calls[0]?.[1]?.[1])).not.toContain('bindings')
-        expect(saved?.config).toEqual({ instanceKey: 'hero-main', showLeadForm: false })
+        expect(saved?.instanceKey).toBe('hero-main')
+        expect(saved?.config).toEqual({ showLeadForm: false })
         expect(layoutSupport.getApplicationLayoutWidgetSourceBindingState(saved)).toEqual({
             persistedApplicationRow: true,
             bindings: heroBinding('default')
@@ -249,9 +250,222 @@ describe('application layout widget source binding lifecycle', () => {
         expect(JSON.stringify(saved)).not.toContain('bindings')
     })
 
+    it('rejects source-linked single and batch config changes outside registry presentation ownership', async () => {
+        const menuWidget = {
+            id: heroId,
+            layoutId,
+            zone: 'left',
+            widgetKey: 'menuWidget',
+            instanceKey: 'source-menu',
+            parentWidgetId: null,
+            slotKey: null,
+            sortOrder: 1,
+            config: { variant: 'generated' },
+            sourceConfig: { variant: 'generated' },
+            sourceWidgetId: secondHeroId,
+            sourceBaseWidgetId: null,
+            isCustomized: false,
+            isActive: true,
+            version: 2
+        }
+        lockLayout.mockResolvedValue({
+            item: { id: layoutId, templateKey: 'dashboard', isActive: true, version: 3 },
+            widgets: [menuWidget]
+        } as never)
+
+        await expect(
+            updateApplicationLayoutWidgetConfig(
+                executor,
+                schemaName,
+                layoutId,
+                heroId,
+                { expectedVersion: 2, config: { variant: 'manual' } } as never,
+                'user-1'
+            )
+        ).rejects.toThrow('APPLICATION_LAYOUT_WIDGET_INVALID')
+        expect(txExecutor.query).not.toHaveBeenCalled()
+
+        txExecutor.query.mockResolvedValueOnce([
+            {
+                id: heroId,
+                layout_id: layoutId,
+                zone: 'left',
+                widget_key: 'menuWidget',
+                instance_key: 'source-menu',
+                parent_widget_id: null,
+                slot_key: null,
+                sort_order: 1,
+                config: { variant: 'generated' },
+                source_config: { variant: 'generated' },
+                source_state: null,
+                source_widget_id: secondHeroId,
+                source_base_widget_id: null,
+                is_customized: false,
+                is_active: true,
+                version: 2
+            }
+        ])
+        await expect(
+            updateApplicationLayoutWidgetConfigsBatch(
+                executor,
+                schemaName,
+                {
+                    updates: [{ layoutId, widgetId: heroId, expectedVersion: 2, config: { variant: 'manual' } }]
+                } as never,
+                'user-1'
+            )
+        ).rejects.toThrow('APPLICATION_LAYOUT_WIDGET_INVALID')
+        expect(txExecutor.query.mock.calls.every(([sql]) => !/^\s*(?:INSERT|UPDATE|DELETE)\b/iu.test(String(sql)))).toBe(true)
+    })
+
+    it('rejects a source-linked Marketing collection variant change that would invalidate its inherited binding contract', async () => {
+        const sourceConfig = encodeBoundCollectionConfig('collection-main', 'logos')
+        const currentWidget = {
+            id: heroId,
+            layoutId,
+            zone: 'marketing-main',
+            widgetKey: 'marketing.collection',
+            instanceKey: 'collection-main',
+            parentWidgetId: null,
+            slotKey: null,
+            sortOrder: 1,
+            config: { variant: 'logos' },
+            sourceConfig,
+            sourceWidgetId: secondHeroId,
+            sourceBaseWidgetId: null,
+            isCustomized: false,
+            isActive: true,
+            version: 2
+        }
+        lockLayout.mockResolvedValue(layoutDetail([currentWidget as never]))
+
+        await expect(
+            updateApplicationLayoutWidgetConfig(
+                executor,
+                schemaName,
+                layoutId,
+                heroId,
+                { expectedVersion: 2, config: { variant: 'features' } } as never,
+                'user-1'
+            )
+        ).rejects.toThrow('APPLICATION_LAYOUT_WIDGET_INVALID')
+        expect(txExecutor.query).not.toHaveBeenCalled()
+
+        txExecutor.query.mockResolvedValueOnce([
+            {
+                id: heroId,
+                layout_id: layoutId,
+                zone: 'marketing-main',
+                widget_key: 'marketing.collection',
+                instance_key: 'collection-main',
+                parent_widget_id: null,
+                slot_key: null,
+                sort_order: 1,
+                config: sourceConfig,
+                source_config: sourceConfig,
+                source_widget_id: secondHeroId,
+                source_base_widget_id: null,
+                is_customized: false,
+                is_active: true,
+                version: 2
+            }
+        ])
+        await expect(
+            updateApplicationLayoutWidgetConfigsBatch(
+                executor,
+                schemaName,
+                { updates: [{ layoutId, widgetId: heroId, expectedVersion: 2, config: { variant: 'features' } }] } as never,
+                'user-1'
+            )
+        ).rejects.toThrow('APPLICATION_LAYOUT_WIDGET_INVALID')
+        expect(txExecutor.query.mock.calls.some(([sql]) => /SET\s+config\s*=/iu.test(String(sql)))).toBe(false)
+    })
+
+    it('allows batch updates to registry-owned presentation fields on source-linked widgets', async () => {
+        const current = widgetRow({
+            id: heroId,
+            instanceKey: 'hero-main',
+            semanticKey: 'default',
+            showLeadForm: true,
+            sortOrder: 1
+        })
+        lockLayout.mockResolvedValue(layoutDetail([layoutSupport.mapWidget(current, 'marketing-page')]))
+        const updated = { ...current, config: { showLeadForm: false }, is_customized: true, version: 3 }
+        txExecutor.query.mockResolvedValueOnce([current]).mockResolvedValueOnce([updated])
+
+        const saved = await updateApplicationLayoutWidgetConfigsBatch(
+            executor,
+            schemaName,
+            {
+                updates: [{ layoutId, widgetId: heroId, expectedVersion: 2, config: { showLeadForm: false } }]
+            } as never,
+            'user-1'
+        )
+
+        expect(saved[0]?.config).toEqual({ showLeadForm: false })
+        expect(txExecutor.query.mock.calls[1]?.[0]).toContain('SET config = $2::jsonb')
+        expect(JSON.stringify(txExecutor.query.mock.calls[1]?.[1]?.[1])).not.toContain('bindings')
+    })
+
+    it('allows a Marketing collection presentation change without persisting inherited bindings locally', async () => {
+        const sourceConfig = encodeBoundCollectionConfig('collection-main', 'logos')
+        const currentWidget = {
+            id: heroId,
+            layoutId,
+            zone: 'marketing-main',
+            widgetKey: 'marketing.collection',
+            instanceKey: 'collection-main',
+            parentWidgetId: null,
+            slotKey: null,
+            sortOrder: 1,
+            config: { variant: 'logos', maxItems: 100 },
+            sourceConfig,
+            sourceWidgetId: secondHeroId,
+            sourceBaseWidgetId: null,
+            isCustomized: false,
+            isActive: true,
+            version: 2
+        }
+        lockLayout.mockResolvedValue(layoutDetail([currentWidget as never]))
+        const updated = {
+            id: heroId,
+            layout_id: layoutId,
+            zone: 'marketing-main',
+            widget_key: 'marketing.collection',
+            instance_key: 'collection-main',
+            parent_widget_id: null,
+            slot_key: null,
+            sort_order: 1,
+            config: encodeLayoutWidgetConfigEnvelope(
+                { rendererConfig: { variant: 'logos', maxItems: 25, showTitle: true, showDescription: true } },
+                { templateKey: 'marketing-page', widgetKey: 'marketing.collection', zone: 'marketing-main' }
+            ),
+            source_config: sourceConfig,
+            source_widget_id: secondHeroId,
+            source_base_widget_id: null,
+            is_customized: true,
+            is_active: true,
+            version: 3
+        }
+        txExecutor.query.mockResolvedValueOnce([updated])
+
+        const saved = await updateApplicationLayoutWidgetConfig(
+            executor,
+            schemaName,
+            layoutId,
+            heroId,
+            { expectedVersion: 2, config: { variant: 'logos', maxItems: 25 } } as never,
+            'user-1'
+        )
+
+        expect(saved?.config).toMatchObject({ variant: 'logos', maxItems: 25 })
+        expect(JSON.stringify(txExecutor.query.mock.calls[0]?.[1]?.[1])).not.toContain('bindings')
+        expect(layoutSupport.getApplicationLayoutWidgetSourceBindingState(saved)).toMatchObject({ persistedApplicationRow: true })
+    })
+
     it('maps sparse Marketing overlay source configs without exposing inherited bindings', () => {
         const overlayConfig = encodeLayoutWidgetConfigEnvelope(
-            { rendererConfig: { instanceKey: 'hero-main', showLeadForm: true } },
+            { rendererConfig: { showLeadForm: true } },
             { templateKey: 'marketing-page', widgetKey: 'marketing.hero', zone: 'marketing-main' }
         )
         const overlay = {
@@ -262,25 +476,29 @@ describe('application layout widget source binding lifecycle', () => {
                 showLeadForm: true,
                 sortOrder: 1
             }),
-            config: { instanceKey: 'hero-main', showLeadForm: false },
+            config: { showLeadForm: false },
             source_config: overlayConfig,
             source_state: createApplicationLayoutWidgetSourceState('marketing-page', 'marketing.hero', {
                 zone: 'marketing-main',
                 sortOrder: 1,
                 isActive: true,
-                config: overlayConfig
+                config: overlayConfig,
+                instanceKey: 'hero-main',
+                parentWidgetId: null,
+                slotKey: null
             }),
-            source_widget_id: null,
+            source_widget_id: secondHeroId,
             source_base_widget_id: secondHeroId
         }
 
         const mapped = layoutSupport.mapWidget(overlay, 'marketing-page')
-        expect(mapped.config).toEqual({ instanceKey: 'hero-main', showLeadForm: false })
+        expect(mapped.instanceKey).toBe('hero-main')
+        expect(mapped.config).toEqual({ showLeadForm: false })
         expect(mapped.sourceBaseWidgetId).toBe(secondHeroId)
         expect(layoutSupport.getApplicationLayoutWidgetSourceBindingState(mapped)).toEqual({ persistedApplicationRow: true })
         expect(JSON.stringify(mapped)).not.toContain('bindings')
 
-        expect(() => layoutSupport.mapWidget({ ...overlay, source_config: sourceConfig('hero-main', 'forged') }, 'marketing-page')).toThrow(
+        expect(() => layoutSupport.mapWidget({ ...overlay, source_config: sourceConfig('forged') }, 'marketing-page')).toThrow(
             'APPLICATION_LAYOUT_WIDGET_INVALID'
         )
 
@@ -291,9 +509,40 @@ describe('application layout widget source binding lifecycle', () => {
             showLeadForm: true,
             sortOrder: 1
         })
-        expect(() => layoutSupport.mapWidget({ ...direct, config: sourceConfig('hero-main', 'forged') }, 'marketing-page')).toThrow(
+        expect(() => layoutSupport.mapWidget({ ...direct, config: sourceConfig('forged') }, 'marketing-page')).toThrow(
             'APPLICATION_LAYOUT_WIDGET_INVALID'
         )
+    })
+
+    it('rejects non-canonical base lineage at the persisted-row mapper boundary', () => {
+        const overlayConfig = encodeLayoutWidgetConfigEnvelope(
+            { rendererConfig: { showLeadForm: true } },
+            { templateKey: 'marketing-page', widgetKey: 'marketing.hero', zone: 'marketing-main' }
+        )
+        const overlay = {
+            ...widgetRow({ id: heroId, instanceKey: 'hero-main', semanticKey: 'default', showLeadForm: true, sortOrder: 1 }),
+            config: { showLeadForm: true },
+            source_config: overlayConfig,
+            source_state: createApplicationLayoutWidgetSourceState('marketing-page', 'marketing.hero', {
+                zone: 'marketing-main',
+                sortOrder: 1,
+                isActive: true,
+                config: overlayConfig,
+                instanceKey: 'hero-main',
+                parentWidgetId: null,
+                slotKey: null
+            }),
+            source_widget_id: secondHeroId,
+            source_base_widget_id: secondHeroId
+        }
+
+        expect(() => layoutSupport.mapWidget({ ...overlay, source_widget_id: null }, 'marketing-page')).toThrow(
+            'APPLICATION_LAYOUT_WIDGET_INVALID'
+        )
+        expect(() => layoutSupport.mapWidget({ ...overlay, source_widget_id: heroId }, 'marketing-page')).toThrow(
+            'APPLICATION_LAYOUT_WIDGET_INVALID'
+        )
+        expect(() => layoutSupport.mapWidget(overlay, 'marketing-page')).not.toThrow()
     })
 
     it('atomically restores the full source presentation baseline and preserves the trusted binding', async () => {
@@ -344,7 +593,8 @@ describe('application layout widget source binding lifecycle', () => {
         const storedResetConfig = JSON.parse(String(params?.[2])) as Record<string, unknown>
         expect(storedResetConfig).toEqual(resetConfig)
         expect(storedResetConfig).not.toHaveProperty('__layout.bindings')
-        expect(saved[0]?.config).toEqual({ instanceKey: 'hero-main', showLeadForm: true })
+        expect(saved[0]?.instanceKey).toBe('hero-main')
+        expect(saved[0]?.config).toEqual({ showLeadForm: true })
         expect(saved[0]?.sortOrder).toBe(1)
         expect(saved[0]?.isActive).toBe(true)
         expect(
@@ -370,14 +620,17 @@ describe('application layout widget source binding lifecycle', () => {
 
     it('resets a Marketing overlay sparse source config without requiring inherited bindings locally', async () => {
         const overlayConfig = encodeLayoutWidgetConfigEnvelope(
-            { rendererConfig: { instanceKey: 'hero-main', showLeadForm: true } },
+            { rendererConfig: { showLeadForm: true } },
             { templateKey: 'marketing-page', widgetKey: 'marketing.hero', zone: 'marketing-main' }
         )
         const baseline = createApplicationLayoutWidgetSourceState('marketing-page', 'marketing.hero', {
             zone: 'marketing-main',
             sortOrder: 1,
             isActive: true,
-            config: overlayConfig
+            config: overlayConfig,
+            instanceKey: 'hero-main',
+            parentWidgetId: null,
+            slotKey: null
         })
         const customized = {
             ...widgetRow({
@@ -387,15 +640,23 @@ describe('application layout widget source binding lifecycle', () => {
                 showLeadForm: true,
                 sortOrder: 1
             }),
-            config: { instanceKey: 'hero-main', showLeadForm: false },
+            config: { showLeadForm: false },
             source_config: overlayConfig,
             source_state: baseline,
-            source_widget_id: null,
+            source_widget_id: secondHeroId,
             source_base_widget_id: secondHeroId
         }
         const reset = { ...customized, config: overlayConfig, version: 3 }
         lockLayout.mockResolvedValue({
-            ...layoutDetail([]),
+            ...layoutDetail([
+                mapHero({
+                    id: heroId,
+                    instanceKey: 'hero-main',
+                    semanticKey: 'default',
+                    showLeadForm: false,
+                    sortOrder: 1
+                })
+            ]),
             item: { id: layoutId, templateKey: 'marketing-page', isActive: true, version: 3 } as never
         })
         txExecutor.query.mockResolvedValueOnce([customized]).mockResolvedValueOnce([reset])
@@ -408,7 +669,8 @@ describe('application layout widget source binding lifecycle', () => {
         )
 
         expect(saved[0]?.sourceBaseWidgetId).toBe(secondHeroId)
-        expect(saved[0]?.config).toEqual({ instanceKey: 'hero-main', showLeadForm: true })
+        expect(saved[0]?.instanceKey).toBe('hero-main')
+        expect(saved[0]?.config).toEqual({ showLeadForm: true })
         expect(layoutSupport.getApplicationLayoutWidgetSourceBindingState(saved[0])).toEqual({ persistedApplicationRow: true })
     })
 
@@ -477,5 +739,100 @@ describe('application layout widget source binding lifecycle', () => {
             bindings: heroBinding('default')
         })
         expect(JSON.stringify(moved)).not.toContain('bindings')
+    })
+
+    it('changes a source-linked header placement without rewriting sibling sort orders', async () => {
+        const navigationId = '0190a9b5-3cde-7abc-8def-012345678905'
+        const languageId = '0190a9b5-3cde-7abc-8def-012345678906'
+        const navigationDefinition = getLayoutWidgetDefinition('marketing.navigation', { maxItems: 24 })
+        const navigationSlot = navigationDefinition?.bindingSlots?.find(({ key }) => key === 'items')
+        if (!navigationDefinition || !navigationSlot) throw new Error('Marketing navigation binding contract is unavailable')
+        const navigationBindings = validateWidgetBindings(navigationDefinition, {
+            version: 1,
+            slots: [
+                {
+                    slot: 'items',
+                    targets: [
+                        {
+                            entityKind: 'object',
+                            entityCodename: 'MarketingPageNavigation',
+                            selector: { kind: 'record-set' },
+                            projection: navigationSlot.requirements.components.map(({ field, componentCodename }) => ({
+                                field,
+                                componentCodename
+                            }))
+                        }
+                    ]
+                }
+            ]
+        })
+        const storedConfig = (widgetKey: 'marketing.navigation' | 'languageSwitcher', placement: 'start' | 'end') =>
+            encodeLayoutWidgetConfigEnvelope(
+                {
+                    rendererConfig: widgetKey === 'marketing.navigation' ? { maxItems: 24 } : {},
+                    neutral: {
+                        placement,
+                        ...(widgetKey === 'marketing.navigation' ? { bindings: navigationBindings } : {})
+                    }
+                },
+                { templateKey: 'marketing-page', widgetKey, zone: 'marketing-header' }
+            )
+        const sourceLinkedHeaderRow = (
+            id: string,
+            widgetKey: 'marketing.navigation' | 'languageSwitcher',
+            instanceKey: string,
+            sortOrder: number,
+            placement: 'start' | 'end'
+        ) => ({
+            id,
+            layout_id: layoutId,
+            zone: 'marketing-header',
+            widget_key: widgetKey,
+            instance_key: instanceKey,
+            parent_widget_id: null,
+            slot_key: null,
+            sort_order: sortOrder,
+            config: storedConfig(widgetKey, placement),
+            source_config: storedConfig(widgetKey, placement),
+            source_widget_id: id,
+            source_base_widget_id: null,
+            is_customized: false,
+            is_active: true,
+            version: 1
+        })
+
+        const navigation = sourceLinkedHeaderRow(navigationId, 'marketing.navigation', 'navigation', 0, 'start')
+        const language = sourceLinkedHeaderRow(languageId, 'languageSwitcher', 'language-switcher', 1, 'end')
+        lockLayout.mockResolvedValue({
+            item: { id: layoutId, templateKey: 'marketing-page', isActive: true, version: 3 },
+            widgets: [navigation, language].map((row) => layoutSupport.mapWidget(row, 'marketing-page'))
+        } as never)
+
+        const movedNavigation = {
+            ...navigation,
+            config: storedConfig('marketing.navigation', 'end'),
+            is_customized: true,
+            version: 2
+        }
+        txExecutor.query.mockResolvedValueOnce([movedNavigation])
+
+        const moved = await moveApplicationLayoutWidget(
+            executor,
+            schemaName,
+            layoutId,
+            {
+                expectedVersion: 1,
+                widgetId: navigationId,
+                targetZone: 'marketing-header',
+                targetIndex: 0,
+                targetPlacement: 'end'
+            } as never,
+            'user-1'
+        )
+
+        expect(moved).toEqual(expect.objectContaining({ id: navigationId, placement: 'end', sortOrder: 0, version: 2 }))
+        expect(txExecutor.query).toHaveBeenCalledTimes(1)
+        expect(txExecutor.query.mock.calls[0]?.[0]).not.toContain('WITH updates AS')
+        expect(txExecutor.query.mock.calls[0]?.[1]?.[0]).toBe(navigationId)
     })
 })

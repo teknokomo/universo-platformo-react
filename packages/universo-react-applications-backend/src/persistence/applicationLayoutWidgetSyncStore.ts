@@ -1,6 +1,7 @@
 import { qSchemaTable } from '@universo-react/database'
 import { applicationTemplateKeySchema, type ApplicationTemplateKey } from '@universo-react/types'
 import type { DbExecutor } from '@universo-react/utils'
+import { orderApplicationWidgetGraph } from './applicationWidgetGraphOrder'
 import {
     assertInterpretationNetworkSingleSystemTransitionAllowed,
     lockInterpretationNetworkStructureMode
@@ -26,6 +27,7 @@ import {
     type SyncWidgetInput
 } from './applicationLayoutSyncStore'
 import { resolveSyncedApplicationLayoutWidgetState } from '../services/applicationLayoutWidgetSourceState'
+import { resolvePlacementRegistryDefinition, validatePlacementGraph, type PlacementGraphNode } from './applicationLayoutWidgetPlacement'
 
 type JsonRecord = Record<string, unknown>
 
@@ -62,6 +64,9 @@ const updateWidget = async (
             source_base_widget_id = $11,
             source_content_hash = $12,
             local_content_hash = $12,
+            instance_key = $14,
+            parent_widget_id = $15,
+            slot_key = $16,
             _upl_updated_at = NOW(),
             _upl_updated_by = $13,
             _upl_version = COALESCE(_upl_version, 1) + 1,
@@ -95,7 +100,10 @@ const updateWidget = async (
             widgetSourceId(row),
             row.sourceBaseWidgetId ?? null,
             sourceContentHash,
-            userId
+            userId,
+            row.instanceKey,
+            row.parentWidgetId,
+            row.slotKey
         ]
     )
     if (result.length !== 1) throw new Error('[SchemaSync] Widget update lost its target row')
@@ -193,11 +201,30 @@ export async function syncApplicationWidgets(
                 !row._app_deleted
         )
         const cleanLayoutIds = new Set(inheritedLayouts.filter((row) => row.sync_state === 'clean').map((row) => row.id))
-        const syncableRows = input.widgets
+        const candidateSyncableRows = input.widgets
             .map((row) => ({ row, physicalLayoutId: sourceToPhysical.get(row.layoutId) }))
             .filter((item): item is { row: SyncWidgetInput; physicalLayoutId: string } => item.physicalLayoutId !== undefined)
             .filter((item) => inheritedLayouts.some((layout) => layout.id === item.physicalLayoutId))
         const existingRows = await listApplicationLayoutSyncWidgets(tx, schemaName)
+        const applicationDeletedLineage = new Set<string>()
+        for (const row of existingRows) {
+            if (!row._app_deleted) continue
+            const lineage =
+                row.source_base_widget_id !== null
+                    ? `${row.layout_id}:base:${row.source_base_widget_id}`
+                    : row.source_widget_id === null
+                    ? null
+                    : `${row.layout_id}:source:${row.source_widget_id}`
+            if (lineage) applicationDeletedLineage.add(lineage)
+        }
+        // Application tombstones retain source lineage and instance_key; matching source rows stay excluded
+        // instead of being allocated a second physical row that violates the per-layout key constraint.
+        const syncableRows = candidateSyncableRows.filter(({ row, physicalLayoutId }) => {
+            const lineage = row.sourceBaseWidgetId
+                ? `${physicalLayoutId}:base:${row.sourceBaseWidgetId}`
+                : `${physicalLayoutId}:source:${widgetSourceId(row)}`
+            return !applicationDeletedLineage.has(lineage)
+        })
         const canonicalCurrentConfigById = new Map<string, JsonRecord>()
         for (const row of existingRows) {
             if (row._app_deleted) continue
@@ -260,6 +287,13 @@ export async function syncApplicationWidgets(
         const usedPhysicalIds = new Set(existingRows.filter((row) => !row._app_deleted).map((row) => row.id))
         const nextLineageKeys = new Set<string>()
         const touchedLayoutIds = new Set<string>()
+        const prepared: Array<{
+            physicalId: string
+            physicalLayoutId: string
+            row: SyncWidgetInput
+            current: ApplicationLayoutSyncWidgetRow | undefined
+        }> = []
+        const physicalIdBySnapshotWidgetId = new Map<string, string>()
 
         for (const { row, physicalLayoutId } of syncableRows) {
             const key = widgetLineageKey(physicalLayoutId, row)
@@ -290,17 +324,30 @@ export async function syncApplicationWidgets(
             if (current && current.layout_id !== physicalLayoutId) {
                 throw new Error('[SchemaSync] Snapshot widget identity collides with an unrelated application widget')
             }
-            const templateKey = templateByLayoutId.get(physicalLayoutId)
-            if (!templateKey) throw new Error(`[SchemaSync] Persisted widget ${row.id} references an invalid layout`)
-            const state = resolveSyncedApplicationLayoutWidgetState(templateKey, row, current)
-            touchedLayoutIds.add(physicalLayoutId)
-            pending.push({
+            if (physicalIdBySnapshotWidgetId.has(row.id)) throw new Error('[SchemaSync] Snapshot widget identity is duplicated')
+            physicalIdBySnapshotWidgetId.set(row.id, physicalId)
+            prepared.push({
                 physicalId,
                 physicalLayoutId,
                 row,
-                current,
-                state
+                current
             })
+        }
+
+        for (const item of prepared) {
+            const parentWidgetId =
+                item.row.parentWidgetId === null
+                    ? null
+                    : physicalIdBySnapshotWidgetId.get(item.row.parentWidgetId) ??
+                      (() => {
+                          throw new Error('[SchemaSync] Snapshot widget parent cannot be remapped')
+                      })()
+            const row = { ...item.row, parentWidgetId }
+            const templateKey = templateByLayoutId.get(item.physicalLayoutId)
+            if (!templateKey) throw new Error(`[SchemaSync] Persisted widget ${row.id} references an invalid layout`)
+            const state = resolveSyncedApplicationLayoutWidgetState(templateKey, row, item.current)
+            touchedLayoutIds.add(item.physicalLayoutId)
+            pending.push({ ...item, row, state })
         }
 
         const transitions: Parameters<typeof assertInterpretationNetworkSingleSystemTransitionAllowed>[2] = pending.map((item) => ({
@@ -317,7 +364,12 @@ export async function syncApplicationWidgets(
             await assertInterpretationNetworkSingleSystemTransitionAllowed(tx, schemaName, transitions, { lockAlreadyHeld: true })
         }
 
-        for (const item of pending) {
+        const orderedPending = orderApplicationWidgetGraph(pending, (item) => ({
+            id: item.physicalId,
+            layoutId: item.physicalLayoutId,
+            parentWidgetId: item.row.parentWidgetId
+        }))
+        for (const item of orderedPending) {
             if (item.current) {
                 await updateWidget(
                     tx,
@@ -438,6 +490,31 @@ export async function syncApplicationWidgets(
             for (const row of rows) {
                 if (row.layout_id) touchedLayoutIds.add(row.layout_id)
             }
+        }
+
+        const verifiedRows = await listApplicationLayoutSyncWidgets(tx, schemaName)
+        const effectiveNodesByLayout = new Map<string, PlacementGraphNode[]>()
+        for (const row of verifiedRows) {
+            if (row._upl_deleted || row._app_deleted || !row.is_active) continue
+            const templateKey = templateByLayoutId.get(row.layout_id)
+            if (!templateKey || !isRecord(row.config)) throw new Error('[SchemaSync] Synced widget row is invalid')
+            const decoded = readWidgetConfigEnvelope(templateKey, row.widget_key, row.zone, row.config)
+            const nodes = effectiveNodesByLayout.get(row.layout_id) ?? []
+            nodes.push({
+                id: row.id,
+                layoutId: row.layout_id,
+                templateKey,
+                widgetKey: row.widget_key,
+                zone: row.zone,
+                rendererConfig: decoded.rendererConfig,
+                instanceKey: row.instance_key,
+                parentWidgetId: row.parent_widget_id,
+                slotKey: row.slot_key
+            })
+            effectiveNodesByLayout.set(row.layout_id, nodes)
+        }
+        for (const nodes of effectiveNodesByLayout.values()) {
+            validatePlacementGraph(nodes, { effectiveGraph: true, resolveRegistryDefinition: resolvePlacementRegistryDefinition })
         }
 
         await touchApplicationLayoutVersions(tx, layoutsTable, touchedLayoutIds, input.userId)

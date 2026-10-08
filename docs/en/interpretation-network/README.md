@@ -24,13 +24,13 @@ This page is for an application owner or editor who needs to open the published 
 
 ![Start page](../.gitbook/assets/interpretation-network/overview-step-1.png)
 
-2. Open **Structures**. In the default single-system setup, the Matrix opens directly and the root cell is ready for selection.
+2. Open **Structures**. The default setup shows the Structure list; create or select a Structure to open its Matrix.
 
 ![Structures workspace](../.gitbook/assets/interpretation-network/overview-step-2.png)
 
 ## Expected Result
 
-You see the normal application shell, the **Start**, **Structures**, and **Workspaces** navigation items, and a Matrix workspace with **Matrix** and **Templates** tabs. The Materials pane is available next to the Matrix after a cell is selected.
+You see the normal application shell and the **Start**, **Structures**, and **Workspaces** navigation items. The **Structures** workspace starts with a list and a create action; opening a Structure shows its Matrix and Templates tabs. The Materials pane is available next to the Matrix after a cell is selected.
 
 ## What To Check
 

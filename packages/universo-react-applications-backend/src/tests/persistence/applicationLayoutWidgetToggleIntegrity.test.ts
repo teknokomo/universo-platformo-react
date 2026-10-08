@@ -42,6 +42,8 @@ const boundMarketingWidgetConfig = (
                       }
                     : selectorKind === 'relation-set'
                     ? { kind: selectorKind, parentSlot: slot.relation?.parentSlot ?? 'tiers' }
+                    : selectorKind === 'learner-enrollment-set'
+                    ? { kind: selectorKind, targetKind: 'course' as const }
                     : { kind: 'record-set' as const }
             const entityCodename = entityCodenames[slot.key]
             if (!entityCodename) throw new Error(`Expected ${widgetKey}/${slot.key} binding entity`)
@@ -66,12 +68,15 @@ const boundMarketingWidgetConfig = (
     )
 }
 
-const sourceStateFor = (widgetKey: string, config: unknown, sortOrder: number) =>
+const sourceStateFor = (widgetKey: string, config: unknown, sortOrder: number, instanceKey: string) =>
     createApplicationLayoutWidgetSourceState('marketing-page', widgetKey, {
         zone: 'marketing-main',
         sortOrder,
         isActive: true,
-        config
+        config,
+        instanceKey,
+        parentWidgetId: null,
+        slotKey: null
     })
 
 const layoutRow = {
@@ -104,7 +109,7 @@ const layoutRow = {
 const pricingWidget = (id: string, instanceKey = 'pricing') => {
     const sourceConfig = boundMarketingWidgetConfig(
         'marketing.pricing',
-        { instanceKey },
+        {},
         {
             section: 'MarketingPageSection',
             tiers: 'MarketingPagePricing',
@@ -117,10 +122,13 @@ const pricingWidget = (id: string, instanceKey = 'pricing') => {
         layout_id: layoutId,
         zone: 'marketing-main',
         widget_key: 'marketing.pricing',
+        instance_key: instanceKey,
+        parent_widget_id: null,
+        slot_key: null,
         sort_order: 1,
         config: sourceConfig,
         source_config: sourceConfig,
-        source_state: sourceStateFor('marketing.pricing', sourceConfig, 1),
+        source_state: sourceStateFor('marketing.pricing', sourceConfig, 1, instanceKey),
         source_widget_id: null,
         source_base_widget_id: null,
         is_customized: false,
@@ -133,7 +141,7 @@ const featuresWidgetId = '018f8a78-7b8f-7c1d-a111-2222333344a7'
 const featuresWidget = (() => {
     const sourceConfig = boundMarketingWidgetConfig(
         'marketing.collection',
-        { instanceKey: 'features', variant: 'features' },
+        { variant: 'features' },
         { section: 'MarketingPageSection', items: 'MarketingPageFeature' },
         { section: 'features' }
     )
@@ -142,10 +150,13 @@ const featuresWidget = (() => {
         layout_id: layoutId,
         zone: 'marketing-main',
         widget_key: 'marketing.collection',
+        instance_key: 'features',
+        parent_widget_id: null,
+        slot_key: null,
         sort_order: 2,
         config: sourceConfig,
         source_config: sourceConfig,
-        source_state: sourceStateFor('marketing.collection', sourceConfig, 2),
+        source_state: sourceStateFor('marketing.collection', sourceConfig, 2, 'features'),
         source_widget_id: null,
         source_base_widget_id: null,
         is_customized: false,
@@ -157,17 +168,18 @@ const featuresWidget = (() => {
 const customFeaturesWidget = (id: string, instanceKey: string, sortOrder: number) => {
     const sourceConfig = boundMarketingWidgetConfig(
         'marketing.collection',
-        { instanceKey, variant: 'features' },
+        { variant: 'features' },
         { section: 'MarketingPageSection', items: 'MarketingPageFeature' },
         { section: 'features' }
     )
     return {
         ...featuresWidget,
         id,
+        instance_key: instanceKey,
         sort_order: sortOrder,
         config: sourceConfig,
         source_config: sourceConfig,
-        source_state: sourceStateFor('marketing.collection', sourceConfig, sortOrder),
+        source_state: sourceStateFor('marketing.collection', sourceConfig, sortOrder, instanceKey),
         source_widget_id: null
     }
 }
@@ -175,7 +187,8 @@ const customFeaturesWidget = (id: string, instanceKey: string, sortOrder: number
 const heroWidget = (id: string, semanticKey: string, inherited = false) => {
     const definition = getLayoutWidgetDefinition('marketing.hero')
     if (!definition) throw new Error('Expected marketing.hero widget definition')
-    const rendererConfig = { instanceKey: inherited ? 'hero-inherited' : 'hero-primary', showLeadForm: true }
+    const instanceKey = semanticKey
+    const rendererConfig = { showLeadForm: true }
     const sourceConfig = encodeLayoutWidgetConfigEnvelope(
         {
             rendererConfig,
@@ -201,10 +214,13 @@ const heroWidget = (id: string, semanticKey: string, inherited = false) => {
         layout_id: layoutId,
         zone: 'marketing-main',
         widget_key: 'marketing.hero',
+        instance_key: instanceKey,
+        parent_widget_id: null,
+        slot_key: null,
         sort_order: inherited ? 4 : 3,
         config: baselineConfig,
         source_config: baselineConfig,
-        source_state: sourceStateFor('marketing.hero', baselineConfig, inherited ? 4 : 3),
+        source_state: sourceStateFor('marketing.hero', baselineConfig, inherited ? 4 : 3, instanceKey),
         source_widget_id: inherited ? inheritedHeroBaseId : null,
         source_base_widget_id: inherited ? inheritedHeroBaseId : null,
         is_customized: false,
@@ -213,7 +229,11 @@ const heroWidget = (id: string, semanticKey: string, inherited = false) => {
     }
 }
 
-const createScenario = (initialWidgets: Array<Record<string, unknown>>, heroRows: Array<Record<string, unknown>>) => {
+const createScenario = (
+    initialWidgets: Array<Record<string, unknown>>,
+    heroRows: Array<Record<string, unknown>>,
+    componentUiConfig: Record<string, Record<string, unknown>> = {}
+) => {
     const { executor, txExecutor } = createMockDbExecutor()
     let currentWidgets = initialWidgets
     const heroObjectId = '018f8a78-7b8f-7c1d-a111-2222333344a8'
@@ -246,22 +266,26 @@ const createScenario = (initialWidgets: Array<Record<string, unknown>>, heroRows
             ]
         }
         if (sql.includes('_app_components')) {
-            return getLayoutWidgetDefinition('marketing.hero')!.bindingSlots![0]!.requirements.components.map((component) => ({
-                codename: component.componentCodename,
-                columnName:
-                    ({ HeroKey: 'hero_key', PrimaryAction: 'primary_action', TermsAction: 'terms_action' } as Record<string, string>)[
-                        component.componentCodename
-                    ] ?? `unused_${component.componentCodename}`,
-                dataType: component.valueType === 'json' ? 'jsonb' : 'text',
-                is_required: component.required,
-                validation_rules: {
-                    ...(component.localized ? { localized: true } : {}),
-                    ...(component.maxLength !== undefined ? { maxLength: component.maxLength } : {}),
-                    ...(component.semanticKey ? { unique: true } : {}),
-                    ...(component.pattern === undefined ? {} : { pattern: component.pattern }),
-                    ...(component.format ? { format: component.format } : {})
-                }
-            }))
+            const componentRows = getLayoutWidgetDefinition('marketing.hero')!.bindingSlots![0]!.requirements.components.map(
+                (component) => ({
+                    codename: component.componentCodename,
+                    columnName:
+                        ({ HeroKey: 'hero_key', PrimaryAction: 'primary_action', TermsAction: 'terms_action' } as Record<string, string>)[
+                            component.componentCodename
+                        ] ?? `unused_${component.componentCodename}`,
+                    dataType: component.valueType === 'json' ? 'jsonb' : 'text',
+                    is_required: component.required,
+                    uiConfig: componentUiConfig[component.componentCodename] ?? {},
+                    validation_rules: {
+                        ...(component.localized ? { localized: true } : {}),
+                        ...(component.maxLength !== undefined ? { maxLength: component.maxLength } : {}),
+                        ...(component.semanticKey ? { unique: true } : {}),
+                        ...(component.pattern === undefined ? {} : { pattern: component.pattern }),
+                        ...(component.format ? { format: component.format } : {})
+                    }
+                })
+            )
+            return componentRows
         }
         if (sql.includes('marketing_page_hero')) {
             const selectedKeys = Array.isArray(parameters[0]) ? parameters[0] : []
@@ -397,9 +421,34 @@ describe('application layout marketing Hero action integrity on widget toggle', 
         expect(scenario.txExecutor.query.mock.calls.some(([query]) => String(query).includes('SET is_active = $2'))).toBe(true)
     })
 
+    it.each(['sensitive', 'private', 'serverOwned'] as const)(
+        'fails closed for a protected Hero action Component marked %s before reading records',
+        async (privacyFlag) => {
+            const scenario = createScenario(
+                [pricingWidget(widgetId), featuresWidget, heroWidget(primaryHeroId, 'hero-primary')],
+                [activeHeroRecord('018f8a78-7b8f-7c1d-a111-2222333344b6', 'hero-primary', { kind: 'anchor', href: '#features' })],
+                { PrimaryAction: { [privacyFlag]: true } }
+            )
+
+            await expect(
+                toggleApplicationLayoutWidget(
+                    scenario.executor,
+                    schemaName,
+                    layoutId,
+                    widgetId,
+                    { expectedVersion: 4, isActive: false },
+                    'user-1'
+                )
+            ).rejects.toThrow(APPLICATION_LAYOUT_MARKETING_HERO_ACTION_INTEGRITY_CONFLICT)
+
+            expect(scenario.txExecutor.query.mock.calls.some(([query]) => String(query).includes('marketing_page_hero'))).toBe(false)
+            expect(scenario.txExecutor.query.mock.calls.some(([query]) => String(query).includes('SET is_active = $2'))).toBe(false)
+        }
+    )
+
     it('allows hiding one of duplicate section targets while another active placement keeps the same anchor', async () => {
         const scenario = createScenario(
-            [pricingWidget(widgetId), pricingWidget(pricingDuplicateId), heroWidget(primaryHeroId, 'hero-primary')],
+            [pricingWidget(widgetId), pricingWidget(pricingDuplicateId, 'pricing-secondary'), heroWidget(primaryHeroId, 'hero-primary')],
             []
         )
 

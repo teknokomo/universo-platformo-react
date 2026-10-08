@@ -1,8 +1,6 @@
 import { z } from 'zod'
 import {
     COMPONENT_DATA_TYPES,
-    entityTypeCapabilitiesSchema,
-    validateCapabilityDependencies,
     FIXED_VALUE_DATA_TYPES,
     DASHBOARD_LAYOUT_ZONES,
     DASHBOARD_LAYOUT_WIDGETS,
@@ -21,18 +19,27 @@ import {
     marketingPricingWidgetConfigSchema,
     MARKETING_WIDGET_REGISTRY,
     marketingWidgetKeySchema,
+    dashboardWidgetConfigSchemaByKey,
+    getDashboardWidgetDefinition,
+    matchesWidgetBindingComponentValidationRules,
+    normalizeWidgetBindingDataType,
+    widgetEntityBindingEnvelopeSchema,
+    layoutInstanceKeySchema,
     decodeLayoutConfigEnvelope,
     decodeWidgetConfigEnvelope,
+    encodeWidgetConfigEnvelope,
     getLayoutWidgetDefinition,
     type EntityBehaviorConfig,
-    type MetahubTemplateSeed
+    type MetahubTemplateSeed,
+    type TemplateSeedZoneWidget
 } from '@universo-react/types'
 import {
-    CURRENT_STRUCTURE_VERSION,
-    CURRENT_STRUCTURE_VERSION_SEMVER,
-    semverToStructureVersion
-} from '../../metahubs/services/structureVersions'
-import { collectMarketingPageSeedIntegrityErrors } from './marketingPageSeedIntegrity'
+    validateMarketingPageSeedIntegrity,
+    validateTemplateMinimumStructureVersion,
+    validateTemplatePresetReferences
+} from './templateManifestRefinements'
+import { orderDashboardSeedPlacements, resolveDashboardSeedBindingSlots } from './dashboardSeedPlacement'
+import { behaviorConfigKindByKey, createEntityTypePresetSchemas } from './entityTypePresetSchemas'
 
 const widgetKeys = DASHBOARD_LAYOUT_WIDGETS.map((w) => w.key) as [DashboardLayoutWidgetKey, ...DashboardLayoutWidgetKey[]]
 const entityKindKeySchema = z
@@ -73,13 +80,27 @@ const seedScopedLayoutSchema = seedLayoutSchema.extend({
     scopeEntityKind: entityKindKeySchema.optional()
 })
 
-const seedZoneWidgetSchema = z.object({
-    zone: z.string().trim().min(1).max(20),
-    widgetKey: z.string().trim().min(1).max(100),
-    sortOrder: z.number().int(),
-    config: z.record(z.unknown()).optional(),
-    isActive: z.boolean().optional()
-})
+const seedZoneWidgetBaseSchema = z
+    .object({
+        zone: z.string().trim().min(1).max(64),
+        widgetKey: z.string().trim().min(1).max(100),
+        instanceKey: layoutInstanceKeySchema,
+        sortOrder: z.number().int(),
+        rendererConfig: z.record(z.unknown()),
+        bindings: widgetEntityBindingEnvelopeSchema.optional(),
+        isActive: z.boolean().optional()
+    })
+    .strict()
+
+const seedZoneWidgetSchema = z.union([
+    seedZoneWidgetBaseSchema.extend({ parentInstanceKey: z.null(), slotKey: z.null() }).strict(),
+    seedZoneWidgetBaseSchema
+        .extend({
+            parentInstanceKey: layoutInstanceKeySchema,
+            slotKey: z.string().trim().min(1).max(64)
+        })
+        .strict()
+])
 
 const seedSettingSchema = z.object({
     key: z.string().min(1),
@@ -209,19 +230,6 @@ const seedModuleSchema = z.object({
     config: z.record(z.unknown()).optional()
 })
 
-const presetDefaultInstanceSchema = z.object({
-    codename: z.string().min(1).max(100),
-    name: vlcSchema,
-    description: vlcSchema.optional(),
-    localizeCodenameFromName: z.boolean().optional(),
-    config: z.record(z.unknown()).optional(),
-    components: z.array(seedComponentSchema).optional(),
-    fixedValues: z.array(seedFixedValueSchema).optional(),
-    elements: z.array(seedElementSchema).optional(),
-    optionValues: z.array(seedEnumerationValueSchema).optional(),
-    hubs: z.array(z.string()).optional()
-})
-
 const seedSchema = z.object({
     layouts: z.array(seedLayoutSchema).min(1),
     scopedLayouts: z.array(seedScopedLayoutSchema).optional(),
@@ -233,54 +241,15 @@ const seedSchema = z.object({
     modules: z.array(seedModuleSchema).optional()
 })
 
-const templateMetaSchema = z.object({
-    author: z.string().optional(),
-    tags: z.array(z.string()).optional(),
-    icon: z.string().optional(),
-    previewUrl: z.string().optional()
+const entityTypePresetSchemas = createEntityTypePresetSchemas({
+    vlcSchema,
+    seedComponentSchema,
+    seedFixedValueSchema,
+    seedElementSchema,
+    seedEnumerationValueSchema
 })
-
-const behaviorConfigKindByKey: Record<(typeof ENTITY_BEHAVIOR_CONFIG_KEYS)[number], string> = {
-    singleValue: 'singleValue',
-    catalogBehavior: 'catalog',
-    documentBehavior: 'document',
-    documentPosting: 'documentPosting',
-    journalBehavior: 'journal',
-    registerBehavior: 'register',
-    accountChartBehavior: 'accountChart',
-    dynamicCharacteristic: 'dynamicCharacteristic',
-    calculationTypeGraph: 'calculationTypeGraph'
-}
-
-function validateTypedBehaviorConfig(
-    config: Record<string, unknown> | undefined,
-    ctx: z.RefinementCtx,
-    path: Array<string | number>
-): void {
-    for (const key of ENTITY_BEHAVIOR_CONFIG_KEYS) {
-        const value = config?.[key]
-        if (value === undefined) {
-            continue
-        }
-        const result = entityBehaviorConfigSchema.safeParse(value)
-        if (!result.success) {
-            ctx.addIssue({
-                code: z.ZodIssueCode.custom,
-                path: [...path, key],
-                message: `Invalid typed behavior config: ${key}`
-            })
-            continue
-        }
-
-        if (behaviorConfigKindByKey[key] !== result.data.kind) {
-            ctx.addIssue({
-                code: z.ZodIssueCode.custom,
-                path: [...path, key, 'kind'],
-                message: `Typed behavior config key "${key}" does not match kind "${result.data.kind}"`
-            })
-        }
-    }
-}
+const { templateMetaSchema } = entityTypePresetSchemas
+export const entityTypePresetManifestSchema = entityTypePresetSchemas.entityTypePresetManifestSchema
 
 const isRecord = (value: unknown): value is Record<string, unknown> => Boolean(value) && typeof value === 'object' && !Array.isArray(value)
 
@@ -360,31 +329,6 @@ export function validateTemplateSeedEntityBehaviorReferences(seed: MetahubTempla
     }
 }
 
-const entityTypeUiSchema = z.object({
-    iconName: z.string().min(1),
-    tabs: z.array(z.string().min(1)).min(1),
-    sidebarSection: z.enum(['objects', 'admin']),
-    sidebarOrder: z.number().int().min(0).optional(),
-    nameKey: z.string().min(1),
-    descriptionKey: z.string().min(1).optional(),
-    resourceSurfaces: z
-        .array(
-            z.object({
-                key: z.string().min(1).max(64),
-                capability: z.enum(['dataSchema', 'fixedValues', 'optionValues', 'projectBinding']),
-                routeSegment: z.string().min(1).max(64),
-                title: vlcSchema.optional(),
-                titleKey: z.string().min(1).optional(),
-                fallbackTitle: z.string().min(1).optional(),
-                sharedTitle: vlcSchema.optional(),
-                sharedTitleKey: z.string().min(1).optional(),
-                fallbackSharedTitle: z.string().min(1).optional()
-            })
-        )
-        .optional(),
-    treeAssignmentLabels: z.record(z.string(), vlcSchema).optional()
-})
-
 const baseTemplateManifestSchema = z.object({
     $schema: z.literal('metahub-template/v1'),
     codename: z
@@ -401,19 +345,10 @@ const baseTemplateManifestSchema = z.object({
     seed: seedSchema
 })
 
-/**
- * Zod schema for MetahubTemplateManifest validation.
- * Used by TemplateSeeder to validate manifest data before inserting into DB.
- */
-export const templateManifestSchema = baseTemplateManifestSchema.superRefine((manifest, ctx) => {
-    if (semverToStructureVersion(manifest.minStructureVersion) > CURRENT_STRUCTURE_VERSION) {
-        ctx.addIssue({
-            code: z.ZodIssueCode.custom,
-            path: ['minStructureVersion'],
-            message: `Template requires structure version ${manifest.minStructureVersion}, but current platform supports only ${CURRENT_STRUCTURE_VERSION_SEMVER}`
-        })
-    }
+type TemplateManifestValidationInput = z.infer<typeof baseTemplateManifestSchema>
+type TemplateScopedLayouts = NonNullable<TemplateManifestValidationInput['seed']['scopedLayouts']>
 
+function validateTemplateSeedLayouts(manifest: TemplateManifestValidationInput, ctx: z.RefinementCtx) {
     const layoutCodenameSet = new Set<string>()
     const layoutTemplateKeySet = new Set<string>()
     const layoutTemplateByCodename = new Map<string, string>()
@@ -488,6 +423,15 @@ export const templateManifestSchema = baseTemplateManifestSchema.superRefine((ma
         }
     }
 
+    return { layoutCodenameSet, layoutTemplateByCodename, scopedLayouts }
+}
+
+function validateTemplateSeedLayoutWidgets(
+    manifest: TemplateManifestValidationInput,
+    layoutValidation: ReturnType<typeof validateTemplateSeedLayouts>,
+    ctx: z.RefinementCtx
+): void {
+    const { layoutCodenameSet, layoutTemplateByCodename } = layoutValidation
     for (const layoutCodename of Object.keys(manifest.seed.layoutZoneWidgets)) {
         if (!layoutCodenameSet.has(layoutCodename)) {
             ctx.addIssue({
@@ -502,10 +446,27 @@ export const templateManifestSchema = baseTemplateManifestSchema.superRefine((ma
         const instanceKeys = new Set<string>()
         for (const [widgetIndex, widget] of widgets.entries()) {
             if (templateKey === 'marketing-page') {
+                const widgetPath = ['seed', 'layoutZoneWidgets', layoutCodename, widgetIndex]
+                if (widget.parentInstanceKey !== null || widget.slotKey !== null) {
+                    ctx.addIssue({
+                        code: z.ZodIssueCode.custom,
+                        path: [...widgetPath, 'parentInstanceKey'],
+                        message: 'Marketing seed placements must be root placements.'
+                    })
+                }
+                if (instanceKeys.has(widget.instanceKey)) {
+                    ctx.addIssue({
+                        code: z.ZodIssueCode.custom,
+                        path: [...widgetPath, 'instanceKey'],
+                        message: 'Marketing widget instance keys must be unique within a layout.'
+                    })
+                }
+                instanceKeys.add(widget.instanceKey)
+
                 if (!marketingLayoutZoneSchema.safeParse(widget.zone).success) {
                     ctx.addIssue({
                         code: z.ZodIssueCode.custom,
-                        path: ['seed', 'layoutZoneWidgets', layoutCodename, widgetIndex, 'zone'],
+                        path: [...widgetPath, 'zone'],
                         message: 'Marketing widgets must use a registered marketing placement.'
                     })
                 }
@@ -516,17 +477,35 @@ export const templateManifestSchema = baseTemplateManifestSchema.superRefine((ma
                     sharedWidgetDefinition.allowedZonesByTemplate['marketing-page']?.some((zone) => zone === widget.zone)
 
                 if (isSharedMarketingWidget) {
+                    const widgetKey = widget.widgetKey as DashboardLayoutWidgetKey
+                    const parsedConfig = dashboardWidgetConfigSchemaByKey[widgetKey].safeParse(widget.rendererConfig)
+                    if (!parsedConfig.success) {
+                        ctx.addIssue({
+                            code: z.ZodIssueCode.custom,
+                            path: [...widgetPath, 'rendererConfig'],
+                            message: 'Shared layout widget configuration is invalid.'
+                        })
+                        continue
+                    }
                     try {
-                        decodeWidgetConfigEnvelope(widget.config ?? {}, {
+                        const context = {
                             templateKey: 'marketing-page',
-                            widgetKey: widget.widgetKey,
+                            widgetKey,
                             zone: widget.zone,
                             requireBindings: true
-                        })
+                        }
+                        const config = encodeWidgetConfigEnvelope(
+                            {
+                                rendererConfig: parsedConfig.data,
+                                neutral: widget.bindings ? { bindings: widget.bindings } : {}
+                            },
+                            context
+                        )
+                        decodeWidgetConfigEnvelope(config, context)
                     } catch {
                         ctx.addIssue({
                             code: z.ZodIssueCode.custom,
-                            path: ['seed', 'layoutZoneWidgets', layoutCodename, widgetIndex, 'config'],
+                            path: [...widgetPath, 'bindings'],
                             message: 'Shared layout widget configuration is invalid.'
                         })
                     }
@@ -536,7 +515,7 @@ export const templateManifestSchema = baseTemplateManifestSchema.superRefine((ma
                 if (!marketingWidgetKeySchema.safeParse(widget.widgetKey).success) {
                     ctx.addIssue({
                         code: z.ZodIssueCode.custom,
-                        path: ['seed', 'layoutZoneWidgets', layoutCodename, widgetIndex, 'widgetKey'],
+                        path: [...widgetPath, 'widgetKey'],
                         message: 'Marketing widgets must use a registered widget key.'
                     })
                     continue
@@ -546,7 +525,7 @@ export const templateManifestSchema = baseTemplateManifestSchema.superRefine((ma
                 if (!registryEntry.allowedZones.includes(widget.zone as (typeof registryEntry.allowedZones)[number])) {
                     ctx.addIssue({
                         code: z.ZodIssueCode.custom,
-                        path: ['seed', 'layoutZoneWidgets', layoutCodename, widgetIndex, 'zone'],
+                        path: [...widgetPath, 'zone'],
                         message: 'Marketing widget is not allowed in this placement.'
                     })
                 }
@@ -561,41 +540,39 @@ export const templateManifestSchema = baseTemplateManifestSchema.superRefine((ma
                     'marketing.pricing': marketingPricingWidgetConfigSchema,
                     'marketing.footer': marketingFooterWidgetConfigSchema
                 } as const
-                let rendererConfig: Record<string, unknown>
-                try {
-                    rendererConfig = decodeWidgetConfigEnvelope(widget.config ?? {}, {
-                        templateKey: 'marketing-page',
-                        widgetKey: widget.widgetKey,
-                        zone: widget.zone,
-                        requireBindings: true
-                    }).rendererConfig
-                } catch {
+                const parsedConfig = configSchemas[widget.widgetKey as keyof typeof configSchemas].safeParse(widget.rendererConfig)
+                if (!parsedConfig.success) {
                     ctx.addIssue({
                         code: z.ZodIssueCode.custom,
-                        path: ['seed', 'layoutZoneWidgets', layoutCodename, widgetIndex, 'config'],
+                        path: [...widgetPath, 'rendererConfig'],
                         message: 'Marketing widget configuration is invalid.'
                     })
                     continue
                 }
 
-                const parsedConfig = configSchemas[widget.widgetKey as keyof typeof configSchemas].safeParse(rendererConfig)
-                if (!parsedConfig.success) {
+                try {
+                    const context = {
+                        templateKey: 'marketing-page',
+                        widgetKey: widget.widgetKey,
+                        zone: widget.zone,
+                        requireBindings: true
+                    }
+                    const config = encodeWidgetConfigEnvelope(
+                        {
+                            rendererConfig: parsedConfig.data,
+                            neutral: widget.bindings ? { bindings: widget.bindings } : {}
+                        },
+                        context
+                    )
+                    decodeWidgetConfigEnvelope(config, context)
+                } catch {
                     ctx.addIssue({
                         code: z.ZodIssueCode.custom,
-                        path: ['seed', 'layoutZoneWidgets', layoutCodename, widgetIndex, 'config'],
-                        message: 'Marketing widget configuration is invalid.'
+                        path: [...widgetPath, 'bindings'],
+                        message: 'Marketing widget bindings are invalid.'
                     })
                     continue
                 }
-                const instanceKey = String(parsedConfig.data.instanceKey)
-                if (instanceKeys.has(instanceKey)) {
-                    ctx.addIssue({
-                        code: z.ZodIssueCode.custom,
-                        path: ['seed', 'layoutZoneWidgets', layoutCodename, widgetIndex, 'config', 'instanceKey'],
-                        message: 'Marketing widget instance keys must be unique within a layout.'
-                    })
-                }
-                instanceKeys.add(instanceKey)
             } else {
                 const zoneValid = DASHBOARD_LAYOUT_ZONES.includes(widget.zone as (typeof DASHBOARD_LAYOUT_ZONES)[number])
                 const keyValid = widgetKeys.includes(widget.widgetKey as DashboardLayoutWidgetKey)
@@ -605,33 +582,101 @@ export const templateManifestSchema = baseTemplateManifestSchema.superRefine((ma
                         path: ['seed', 'layoutZoneWidgets', layoutCodename, widgetIndex],
                         message: 'Non-marketing templates may use only registered dashboard widgets and zones.'
                     })
+                    continue
+                }
+
+                const widgetKey = widget.widgetKey as DashboardLayoutWidgetKey
+                const definition = getDashboardWidgetDefinition(widgetKey)
+                const parsedConfig = dashboardWidgetConfigSchemaByKey[widgetKey].safeParse(widget.rendererConfig)
+                if (!definition || !parsedConfig.success) {
+                    ctx.addIssue({
+                        code: z.ZodIssueCode.custom,
+                        path: ['seed', 'layoutZoneWidgets', layoutCodename, widgetIndex, 'rendererConfig'],
+                        message: 'Dashboard renderer configuration must match its strict registered widget schema.'
+                    })
+                    continue
+                }
+
+                const slots = resolveDashboardSeedBindingSlots(definition, parsedConfig.data as Record<string, unknown>)
+                for (const binding of widget.bindings?.slots ?? []) {
+                    const slot = slots.find(({ key }) => key === binding.slot)
+                    if (!slot) continue
+                    for (const target of binding.targets) {
+                        const entity = manifest.seed.entities?.find(
+                            (candidate) => candidate.kind === target.entityKind && candidate.codename === target.entityCodename
+                        )
+                        const entityPath = ['seed', 'layoutZoneWidgets', layoutCodename, widgetIndex, 'bindings']
+                        if (!entity) {
+                            ctx.addIssue({
+                                code: z.ZodIssueCode.custom,
+                                path: entityPath,
+                                message: `Dashboard binding target Entity is missing from the seed: ${target.entityKind}/${target.entityCodename}.`
+                            })
+                            continue
+                        }
+
+                        for (const requirement of slot.requirements.components) {
+                            const component = entity.components?.find(({ codename }) => codename === requirement.componentCodename)
+                            if (
+                                !component ||
+                                normalizeWidgetBindingDataType(component.dataType)?.toLowerCase() !== requirement.valueType ||
+                                (component.isRequired ?? false) !== requirement.required ||
+                                !matchesWidgetBindingComponentValidationRules(requirement, component.validationRules)
+                            ) {
+                                ctx.addIssue({
+                                    code: z.ZodIssueCode.custom,
+                                    path: [...entityPath, 'slots', binding.slot],
+                                    message: `Dashboard binding Component does not satisfy its registered contract: ${entity.codename}.${requirement.componentCodename}.`
+                                })
+                            }
+                        }
+
+                        const selector = target.selector
+                        if (selector.kind === 'semantic-key') {
+                            const keyRequirement = slot.requirements.components.find(
+                                (requirement) => requirement.field === selector.field && requirement.semanticKey === true
+                            )
+                            const componentCodename = keyRequirement?.componentCodename
+                            const matches = (manifest.seed.elements?.[entity.codename] ?? []).filter(
+                                (element) => componentCodename !== undefined && element.data[componentCodename] === selector.value
+                            )
+                            if (matches.length !== 1) {
+                                ctx.addIssue({
+                                    code: z.ZodIssueCode.custom,
+                                    path: [...entityPath, 'slots', binding.slot],
+                                    message: `Dashboard semantic-key source must resolve to exactly one seeded record; found ${matches.length}.`
+                                })
+                            }
+                        } else if (target.selector.kind === 'record-set' && slot.maxResolvedRecords !== undefined) {
+                            const recordCount = (manifest.seed.elements?.[entity.codename] ?? []).length
+                            if (recordCount > slot.maxResolvedRecords) {
+                                ctx.addIssue({
+                                    code: z.ZodIssueCode.custom,
+                                    path: [...entityPath, 'slots', binding.slot],
+                                    message: `Dashboard record-set exceeds its registered seed bound of ${slot.maxResolvedRecords}.`
+                                })
+                            }
+                        }
+                    }
                 }
             }
         }
-    }
 
-    for (const error of collectMarketingPageSeedIntegrityErrors(manifest.seed)) {
-        ctx.addIssue({
-            code: z.ZodIssueCode.custom,
-            path: ['seed', 'layoutZoneWidgets'],
-            message: error
-        })
-    }
-
-    const presetCodenameSet = new Set<string>()
-    for (let index = 0; index < (manifest.presets?.length ?? 0); index++) {
-        const preset = manifest.presets?.[index]
-        if (!preset) continue
-        if (presetCodenameSet.has(preset.presetCodename)) {
-            ctx.addIssue({
-                code: z.ZodIssueCode.custom,
-                path: ['presets', index, 'presetCodename'],
-                message: `Duplicate preset reference: ${preset.presetCodename}`
-            })
+        if (templateKey !== 'marketing-page') {
+            try {
+                orderDashboardSeedPlacements(widgets as TemplateSeedZoneWidget[])
+            } catch (error) {
+                ctx.addIssue({
+                    code: z.ZodIssueCode.custom,
+                    path: ['seed', 'layoutZoneWidgets', layoutCodename],
+                    message: error instanceof Error ? error.message : 'Dashboard seed placement graph is invalid.'
+                })
+            }
         }
-        presetCodenameSet.add(preset.presetCodename)
     }
+}
 
+function validateSeedEntityIdentity(manifest: TemplateManifestValidationInput, ctx: z.RefinementCtx) {
     const entities = manifest.seed.entities ?? []
     const entityKeySet = new Set<string>()
     const entityByCodename = new Map<string, number>()
@@ -683,6 +728,16 @@ export const templateManifestSchema = baseTemplateManifestSchema.superRefine((ma
         }
     }
 
+    return { entities, entityByCodename, entityKindsByCodename, entityByKindCodename, setFixedValuesByEntityCodename }
+}
+
+function validateSeedEntityReferences(
+    manifest: TemplateManifestValidationInput,
+    scopedLayouts: TemplateScopedLayouts,
+    entityValidation: ReturnType<typeof validateSeedEntityIdentity>,
+    ctx: z.RefinementCtx
+): void {
+    const { entities, entityByCodename, entityKindsByCodename, entityByKindCodename, setFixedValuesByEntityCodename } = entityValidation
     const elementsByEntity = manifest.seed.elements ?? {}
     for (const entityCodename of Object.keys(elementsByEntity)) {
         const count = entityByCodename.get(entityCodename) ?? 0
@@ -880,170 +935,23 @@ export const templateManifestSchema = baseTemplateManifestSchema.superRefine((ma
             }
         }
     }
-})
+}
 
-const entityTypePresetManifestSchemaBase = z.object({
-    $schema: z.literal('entity-type-preset/v1'),
-    codename: z
-        .string()
-        .min(1)
-        .max(100)
-        .regex(/^[a-z0-9-]+$/, 'Codename must be lowercase alphanumeric with hyphens'),
-    version: z.string().regex(/^\d+\.\d+\.\d+$/, 'Version must be SemVer (e.g., 1.0.0)'),
-    minStructureVersion: z.string().regex(/^\d+\.\d+\.\d+$/, 'Structure version must be SemVer (e.g., 0.1.0)'),
-    name: vlcSchema,
-    description: vlcSchema.optional(),
-    meta: templateMetaSchema.optional(),
-    entityType: z.object({
-        kindKey: z
-            .string()
-            .min(1)
-            .max(64)
-            .regex(/^[a-z][a-z0-9._-]{0,63}$/, 'Kind key must be lowercase and start with a letter'),
-        codename: vlcSchema.optional(),
-        capabilities: entityTypeCapabilitiesSchema,
-        ui: entityTypeUiSchema,
-        presentation: z.record(z.unknown()).optional(),
-        config: z.record(z.unknown()).optional()
-    }),
-    defaultInstances: z.array(presetDefaultInstanceSchema).optional()
-})
+function validateTemplateManifestSemantics(manifest: TemplateManifestValidationInput, ctx: z.RefinementCtx): void {
+    validateTemplateMinimumStructureVersion(manifest, ctx)
+    const layoutValidation = validateTemplateSeedLayouts(manifest, ctx)
+    validateTemplateSeedLayoutWidgets(manifest, layoutValidation, ctx)
+    validateMarketingPageSeedIntegrity(manifest.seed as unknown as MetahubTemplateSeed, ctx)
+    validateTemplatePresetReferences(manifest, ctx)
+    const entityValidation = validateSeedEntityIdentity(manifest, ctx)
+    validateSeedEntityReferences(manifest, layoutValidation.scopedLayouts, entityValidation, ctx)
+}
 
-export const entityTypePresetManifestSchema = entityTypePresetManifestSchemaBase.superRefine((manifest, ctx) => {
-    if (semverToStructureVersion(manifest.minStructureVersion) > CURRENT_STRUCTURE_VERSION) {
-        ctx.addIssue({
-            code: z.ZodIssueCode.custom,
-            path: ['minStructureVersion'],
-            message: `Template requires structure version ${manifest.minStructureVersion}, but current platform supports only ${CURRENT_STRUCTURE_VERSION_SEMVER}`
-        })
-    }
-
-    const dependencyErrors = validateCapabilityDependencies(manifest.entityType.capabilities)
-    for (const [index, error] of dependencyErrors.entries()) {
-        ctx.addIssue({
-            code: z.ZodIssueCode.custom,
-            path: ['entityType', 'capabilities', index],
-            message: error
-        })
-    }
-
-    validateTypedBehaviorConfig(manifest.entityType.config, ctx, ['entityType', 'config'])
-
-    const resourceSurfaceKeyPattern = /^[a-z][a-zA-Z0-9._-]{0,63}$/
-    const resourceSurfaceRoutePattern = /^[a-z][a-z0-9-]{0,63}$/
-    const seenResourceSurfaceKeys = new Set<string>()
-    const seenResourceSurfaceCapabilities = new Set<string>()
-    const seenResourceSurfaceRouteSegments = new Set<string>()
-    for (const [index, surface] of (manifest.entityType.ui.resourceSurfaces ?? []).entries()) {
-        if (!resourceSurfaceKeyPattern.test(surface.key)) {
-            ctx.addIssue({
-                code: z.ZodIssueCode.custom,
-                path: ['entityType', 'ui', 'resourceSurfaces', index, 'key'],
-                message: `Resource surface key must start with a letter and use only letters, digits, dots, underscores, or hyphens: ${surface.key}`
-            })
-        }
-
-        if (seenResourceSurfaceKeys.has(surface.key)) {
-            ctx.addIssue({
-                code: z.ZodIssueCode.custom,
-                path: ['entityType', 'ui', 'resourceSurfaces', index, 'key'],
-                message: `Duplicate resource surface key: ${surface.key}`
-            })
-        }
-        seenResourceSurfaceKeys.add(surface.key)
-
-        if (seenResourceSurfaceCapabilities.has(surface.capability)) {
-            ctx.addIssue({
-                code: z.ZodIssueCode.custom,
-                path: ['entityType', 'ui', 'resourceSurfaces', index, 'capability'],
-                message: `Duplicate resource surface capability: ${surface.capability}`
-            })
-        }
-        seenResourceSurfaceCapabilities.add(surface.capability)
-
-        if (!resourceSurfaceRoutePattern.test(surface.routeSegment)) {
-            ctx.addIssue({
-                code: z.ZodIssueCode.custom,
-                path: ['entityType', 'ui', 'resourceSurfaces', index, 'routeSegment'],
-                message: `Resource surface routeSegment must be lowercase kebab-case: ${surface.routeSegment}`
-            })
-        }
-
-        if (seenResourceSurfaceRouteSegments.has(surface.routeSegment)) {
-            ctx.addIssue({
-                code: z.ZodIssueCode.custom,
-                path: ['entityType', 'ui', 'resourceSurfaces', index, 'routeSegment'],
-                message: `Duplicate resource surface routeSegment: ${surface.routeSegment}`
-            })
-        }
-        seenResourceSurfaceRouteSegments.add(surface.routeSegment)
-
-        if (manifest.entityType.capabilities[surface.capability] === false) {
-            ctx.addIssue({
-                code: z.ZodIssueCode.custom,
-                path: ['entityType', 'ui', 'resourceSurfaces', index, 'capability'],
-                message: `Resource surface capability ${surface.capability} requires the matching entity component to be enabled`
-            })
-        }
-    }
-
-    const defaultInstanceCodenameSet = new Set<string>()
-    for (let index = 0; index < (manifest.defaultInstances?.length ?? 0); index++) {
-        const instance = manifest.defaultInstances?.[index]
-        if (!instance) continue
-
-        if (defaultInstanceCodenameSet.has(instance.codename)) {
-            ctx.addIssue({
-                code: z.ZodIssueCode.custom,
-                path: ['defaultInstances', index, 'codename'],
-                message: `Duplicate default instance codename: ${instance.codename}`
-            })
-        }
-        defaultInstanceCodenameSet.add(instance.codename)
-        validateTypedBehaviorConfig(instance.config, ctx, ['defaultInstances', index, 'config'])
-
-        if (instance.components?.length && manifest.entityType.capabilities.dataSchema === false) {
-            ctx.addIssue({
-                code: z.ZodIssueCode.custom,
-                path: ['defaultInstances', index, 'components'],
-                message: 'Default instance components require the dataSchema component'
-            })
-        }
-
-        if (instance.fixedValues?.length && manifest.entityType.capabilities.fixedValues === false) {
-            ctx.addIssue({
-                code: z.ZodIssueCode.custom,
-                path: ['defaultInstances', index, 'fixedValues'],
-                message: 'Default instance constants require the constants component'
-            })
-        }
-
-        if (instance.elements?.length && manifest.entityType.capabilities.records === false) {
-            ctx.addIssue({
-                code: z.ZodIssueCode.custom,
-                path: ['defaultInstances', index, 'elements'],
-                message: 'Default instance elements require the records component'
-            })
-        }
-
-        if (instance.optionValues?.length && manifest.entityType.capabilities.optionValues === false) {
-            ctx.addIssue({
-                code: z.ZodIssueCode.custom,
-                path: ['defaultInstances', index, 'optionValues'],
-                message: 'Default instance optionValues require the optionValues component'
-            })
-        }
-
-        if (instance.hubs?.length && manifest.entityType.capabilities.treeAssignment === false) {
-            ctx.addIssue({
-                code: z.ZodIssueCode.custom,
-                path: ['defaultInstances', index, 'hubs'],
-                message: 'Default instance hub references require the treeAssignment component'
-            })
-        }
-    }
-})
-
+/**
+ * Zod schema for MetahubTemplateManifest validation.
+ * Used by TemplateSeeder to validate manifest data before inserting into DB.
+ */
+export const templateManifestSchema = baseTemplateManifestSchema.superRefine(validateTemplateManifestSemantics)
 export type ValidatedManifest = z.infer<typeof templateManifestSchema>
 export type ValidatedEntityTypePresetManifest = z.infer<typeof entityTypePresetManifestSchema>
 

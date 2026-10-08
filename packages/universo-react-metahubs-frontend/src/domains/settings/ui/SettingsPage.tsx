@@ -670,7 +670,6 @@ const SettingsPage = () => {
                         metahubId={metahubId}
                         layoutId={editingLayoutWidget.layout.id}
                         widgetId={editingLayoutWidget.widget.id}
-                        showSharedBehavior={false}
                         showScopeVisibility={false}
                         onSave={(config) => {
                             updateWidgetConfigMutation.mutate({

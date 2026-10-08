@@ -20,8 +20,8 @@ import {
     ENTITY_CAPABILITY_KEYS,
     entityTypeCapabilitiesSchema,
     METAHUB_SETTINGS_REGISTRY,
+    effectiveWidgetRuntimePayloadSchema,
     type EntityTypeCapabilities,
-    METAHUB_MENU_ITEM_KINDS,
     type MetahubSnapshotFormatVersion
 } from '../index'
 
@@ -38,16 +38,74 @@ describe('entity type contracts', () => {
         expect(Object.values(BuiltinEntityKinds)).not.toContain('document')
     })
 
-    it('preserves metahub snapshot format version through v3', () => {
-        const version: MetahubSnapshotFormatVersion = 3
+    it('preserves metahub snapshot format version through v4', () => {
+        const version: MetahubSnapshotFormatVersion = 4
 
-        expect(version).toBe(3)
+        expect(version).toBe(4)
     })
 
-    it('uses generic section menu items for first-class entity sections', () => {
-        expect(METAHUB_MENU_ITEM_KINDS).toEqual(['section', 'hub', 'link'])
-        expect(METAHUB_MENU_ITEM_KINDS).not.toContain('page')
-        expect(METAHUB_MENU_ITEM_KINDS).not.toContain('ledger')
+    it('validates projected dashboard menu items using semantic runtime kinds', () => {
+        const payload = {
+            kind: 'menu',
+            title: 'Navigation',
+            showTitle: true,
+            overflowLabel: 'More',
+            items: [
+                { key: 'nav.hub.main', label: 'Main', icon: null, kind: 'group', target: { kind: 'hub', codename: 'Main' } },
+                { key: 'nav.page.home', label: 'Home', icon: null, kind: 'section', target: { kind: 'page', codename: 'Home' } },
+                { key: 'manual.item-1', label: 'Help', icon: null, kind: 'link', href: '/help' },
+                { key: 'runtime-workspaces', label: 'Workspaces', icon: null, kind: 'workspaces' }
+            ],
+            overflowItems: []
+        }
+
+        expect(effectiveWidgetRuntimePayloadSchema.safeParse(payload).success).toBe(true)
+        expect(
+            effectiveWidgetRuntimePayloadSchema.safeParse({
+                ...payload,
+                items: [{ key: 'legacy.hub', label: 'Main', icon: null, kind: 'hub', target: { kind: 'hub', codename: 'Main' } }]
+            }).success
+        ).toBe(false)
+    })
+
+    it('requires learner-player progress identity on the projected item DTO', () => {
+        const payload = {
+            kind: 'learner-player',
+            parents: [
+                {
+                    key: 'course-1',
+                    label: 'Course one',
+                    target: { entityCodename: 'Courses', recordHandle: 'rh1.test-course-parent-handle' }
+                }
+            ],
+            items: [
+                {
+                    key: 'row-1',
+                    parentKey: 'course-1',
+                    title: 'Introduction',
+                    blocks: [],
+                    progressTarget: {
+                        objectCodename: 'CourseItems',
+                        recordHandle: 'rh1.test-course-item-progress-handle'
+                    },
+                    availability: 'available'
+                }
+            ]
+        }
+
+        expect(effectiveWidgetRuntimePayloadSchema.safeParse(payload).success).toBe(true)
+        expect(
+            effectiveWidgetRuntimePayloadSchema.safeParse({
+                ...payload,
+                items: [{ ...payload.items[0], progressTarget: { objectCodename: 'CourseItems', recordHandle: 'not-a-handle' } }]
+            }).success
+        ).toBe(false)
+        expect(
+            effectiveWidgetRuntimePayloadSchema.safeParse({
+                ...payload,
+                items: [{ ...payload.items[0], parentKey: 'unknown-course' }]
+            }).success
+        ).toBe(false)
     })
 
     it('exposes Page copy and delete settings through the shared entity settings registry', () => {

@@ -1,3 +1,118 @@
+# Dashboard Complete Entity-Backed Widgets — IMPLEMENT (2026-10-02)
+
+> The base implementation phases (DBW-00..28) were recorded complete. A follow-up QA remediation pass is active below and must pass its own gates before this work is considered fully closed. Clean cutover preserved: no legacy Dashboard readers/dual writes/adapters, schema or built-in metahub-template version bump, or `pnpm dev`. The earlier browser acceptance result remains historical evidence and does not replace the current rerun.
+
+-   [x] DBW-00 Phase 0: freeze the ownership contract; record complete Dashboard field, seed-manifest/helper, and `instanceKey` inventories; verify OntoIndex impact; define negative schema cases and unchanged versions. Evidence: `memory-bank/research/dashboard-complete-entity-backed-widgets-field-ownership-2026-10-02.md`; all seven Dashboard manifests and six snapshot producers inventoried; negative legacy shapes recorded; schema remains `1`/`0.1.0`, each template `0.1.0`.
+-   [x] DBW-01 Phase 1: complete the shared registry, strict per-widget schemas, retirement set, completeness gates, and real EN/RU registry coverage.
+-   [x] DBW-02 Phase 2: persist `instanceKey` + first-class parent/slot placements in fresh metahub/application DDL, shared DTOs, and graph validation with direct tests.
+-   [x] DBW-03 Phase 3: unify registry source policy/lineage, binding slots/families, source lifecycle and integrity decisions; remove template-key ownership branches.
+-   [x] DBW-04 Phase 4: implement UUID v7 single/subtree duplication, copy/binding policies, transaction-safe graph mutations, and identity-stability/rollback tests.
+-   [x] DBW-05 Phase 5: carry semantic identity and parent/slot through snapshot, publication and restore; remap physical parent IDs only after placement IDs exist.
+-   [x] DBW-06 Phase 6: implement Application materialization/sync/reset/effective graph and portable semantic hash with H1=H2=H3 round-trip proof.
+-   [x] DBW-07 Phase 7: deliver registry-driven Metahub authoring using existing UI primitives, nested placement controls, localized errors and component tests.
+-   [x] DBW-08 Phase 8: deliver registry-limited Application authoring, source reset/authority states, query synchronization and EN/RU tests.
+-   [x] DBW-09 Phase 9: deliver authorized bounded runtime source resolvers and strict allowlisted DTOs, with negative security/limit tests.
+-   [x] DBW-10 Phase 10: cut the isolated MUI runtime over to persisted placement graphs and typed DTOs; remove fallbacks, content blobs and retired widgets.
+-   [x] DBW-11 Phase 11: update all inventoried built-in Dashboard manifests/default seeds and test fresh Basic, Basic Demo, Empty, 1C-Compatible, LMS, Interpretation Network and PlayCanvas layouts.
+-   [x] DBW-12 Phase 12: complete common EN/RU localization and verify missing keys cannot be hidden by fallback.
+-   [x] DBW-13 Phase 13: canonically regenerate exactly six approved snapshots; run producer/contract/drift/import gates; preserve MMOOMM historical baseline checksum and parity.
+-   [x] DBW-14 Phase 14: complete required Jest/Vitest/PostgreSQL tests, ownership/completeness canaries, and meaningful isolation/runtime checks.
+-   [x] DBW-15 Phase 15: run the fresh minimal-Supabase Playwright wrapper, all required flows and viewport screenshots; visually inspect artifacts and accessibility/overflow evidence.
+-   [x] DBW-16 Phase 16: update package READMEs and bilingual GitBook pages using existing screenshot provenance tooling; pass link/i18n/assets gates.
+-   [x] DBW-17 Phase 17: prove no supported legacy path remains; run scoped package gates, fresh-Supabase/cross-template gates, package isolation, docs, root build, OntoIndex diff verification and Thermos review; record evidence in progress. Thermos was attempted on a bounded 20-file critical subset and ended `UNAVAILABLE` because local Codex is missing `@openai/codex-linux-x64`; OntoIndex was attempted and reported degraded dirty-worktree coverage rather than a clean graph verdict.
+-   [x] DBW-18 QA-driven authoring fix: initialize a new binding-backed Dashboard placement with its registry-declared variant; rebuild `@universo-react/types` and pass the focused metahub hook/API suites.
+-   [x] DBW-19 QA-driven learner behavior: make `sequenceMode` control preview navigation; flexible mode may preview a locked item but cannot submit progress or completion, while strict remains locked. Renderer tests, app-template build, lint, and formatting pass.
+-   [x] DBW-20 Close the independent application-layout mutation review: source-field ownership, lineage-aware move protection, candidate graph validation, and safe container descendant deletion; include direct store tests. Focused backend suites passed 67 tests; backend lint/build/typecheck, Prettier, and diff checks passed. OntoIndex impact was low risk against committed baseline `9bde9ea`; its graph does not include the dirty worktree. Thermos was unavailable because the Codex runner lacks `@openai/codex-linux-x64`; fresh-Supabase acceptance remains pending.
+-   [x] DBW-21 Close the saved-report runtime authorization review: use the same actor/workspace-scoped access policy for report readiness, execution, and export; add denial tests. The SQL-first source store enforces `readReports`, active lifecycle, request workspace, owner/shared ACL, UUID v7 ID identity, and validated definitions; focused Jest (74 source/store tests and 3 route tests), package lint/build/typecheck, root build (36 packages), Prettier, and diff checks passed. No live PostgreSQL check was part of the worker run; the fresh-Supabase acceptance remains pending.
+-   [x] DBW-22 Complete QA-discovered acceptance fixes: allow only self-contained structural primitives in application-owned layouts; keep host/entity additions source-managed. Registry/UI coverage and the focused backend suites pass; direct store mutations now prove `divider` insert succeeds while host `header` and entity-backed report `detailsTable` Adds fail closed without INSERT.
+-   [x] DBW-23 Align cross-template test fixtures with ownership: author dashboard host widgets in Metahub before publication and assert materialized application lineage.
+-   [x] DBW-24 Add the missing EN/RU top-level common nesting labels and prove the mobile source picker uses its visible option listbox.
+-   [x] DBW-25 Serialize Dashboard fixture regeneration with the shared E2E run lock and ensure lock contention has no Supabase/fixture side effects. The runner acquires the lock before fixture snapshots and any Supabase command; the no-side-effect contention test, shared lock tests, ESLint, Prettier and diff check pass (fixture test: `tools/testing/e2e/support/runDashboardFixtureRegenerationLocalSupabase.test.mjs`).
+-   [x] DBW-26 Repair the MMOOMM visual-linkup authoring helper to write entity metadata at the ShareDB-observed root path and regenerate all six fixtures under the official gate. The focused ShareDB metadata contract passes and all six tracked snapshot contracts pass.
+-   [x] DBW-27 Finish fresh minimal-Supabase Dashboard acceptance, inspect browser screenshots, and close any remaining functional regressions. Final acceptance artifact `tools/testing/e2e/.artifacts/dashboard-entity-backed/2026-10-06T21-47-30-457Z/status.json` is `passed` for all seven selected specs / 11 Playwright tests.
+-   [x] DBW-28 Complete final package/docs/fixture/version checks, OntoIndex diff verification, Thermos review, and progress records. Focused unit/integration reruns, six-fixture contract, catalog-version check, GitBook EN/RU and screenshot-asset checks, and `git diff --check` pass; review-tool limitations are recorded instead of being treated as PASS.
+
+### Post-implementation QA closure — 2026-10-07
+
+-   [x] DBW-29 Fix QA-confirmed Object navigation copy semantics: persist explicit hidden state through frontend/backend config normalization and prove copied Objects stay hidden while unrelated runtime config survives.
+-   [x] DBW-30 Strengthen LMS and MMOOMM generated-navigation fixture/runtime contracts: exact curated Object set, supported semantic icons, unique visible links, and rendered icon assertions.
+-   [x] DBW-31 Close runtime UX test gaps: localized EN/RU validation, default multiline long text without an explicit widget override, complex field-value display leakage, and RU header-control geometry.
+-   [x] DBW-32 Verify nested-placement delete roundtrip and canonical renderer integration with meaningful user-visible evidence; retain the existing standard UI primitives.
+-   [x] DBW-33 Repair CI workflow formatting/structure and ensure the focused Dashboard acceptance plus browser evidence are included.
+-   [x] DBW-34 Regenerate and verify canonical fixtures, run focused frontend/backend suites and the fresh minimal-Supabase Dashboard acceptance, inspect actual screenshots, and record only observed results.
+-   [x] DBW-35 Run targeted formatting/lint/build checks, bounded Thermos/autoreview, OntoIndex diff verification, and update `progress.md` with remaining tool limitations or a verified closeout. Full-worktree autoreview and graph verification remain inconclusive because of the documented runner/index limitations.
+-   [x] DBW-36 Harden runtime-generated selector and record-picker labels against UUID, technical-field and unsafe metadata leakage; resolve picker targets by an unambiguous field id/codename alias; preserve non-server-owned `formHidden` defaults in create payloads.
+-   [x] DBW-37 Repair the LMS Russian navigation E2E locator, capture viewport-sized UI evidence, and make the Page dialog's top screenshot prove the actual top-of-form state. Latest Dashboard form screenshots also capture the viewport rather than a stitched full page.
+-   [x] DBW-38 Rerun the focused form and published-navigation browser flows, inspect resulting screenshots, and record any remaining template regressions. The paired flow run passed 3/3; the final viewport-screenshot rerun passed 2/2.
+
+## Implementation notes
+
+### Resume checkpoint — 2026-10-02
+
+-   [x] Restore the accidentally removed SQL-store test fixture variable; the store and scoped-materialization suites pass 26 tests.
+-   [x] Keep PlayCanvas Editor full-boot backup bounded for realistic asset counts: enumerate compatibility assets and build their path index once per backup, with a regression covering 64 asset documents; retain the lifecycle lock and fail-closed backup-before-token ordering.
+-   [x] Preserve the table search/header after an unmatched query and restore rows when the input is cleared; EN/RU regression coverage passes.
+-   [x] Restore semantic create targets through the existing host creation callback, with permission/resource-policy checks and no physical datasource configuration; renderer coverage passes 43 tests.
+-   [x] Preserve authorized table column metadata for an empty bound source so the first record can be created; runtime projection coverage passes 15 tests, including flat localized presentation and regional locale resolution.
+-   [x] Split the Dashboard registry into ownership, strict config, policy helpers and definitions; each module is under 1,000 lines. Public exports and schema semantics are preserved; types coverage passes 253 tests.
+-   [x] Forward the requested theme variant through both hosted and standalone Marketing content requests and query keys, matching effective-layout identity. API/boundary coverage passes 12 tests; hosted dispatch coverage passes 36 tests.
+-   [x] Restore interactive workspace record sources and commands for tables/relation builders, saved reports, actor-scoped library/trash views and reference-based learner sequencing/progress. These supported behaviors remain behind the binding-aware runtime boundary and are exercised by the final LMS/runtime acceptance.
+-   [x] Schedule application widget inserts/updates in parent-before-child order without changing presentation order; remap copied subtree parent IDs to copied identities. Direct ordering and sync regression suites pass 34 tests; fresh PostgreSQL/browser confirmation remains pending.
+-   [x] Preserve non-enumerable trusted Entity binding state through effective runtime DTO projection. The fresh concurrency trace proved a Marketing binding-loss error after a successful hash check. Resolver coverage passes 22 tests and confirms the binding state remains absent from JSON.
+-   [x] Implement SQL-first canonical saved-report readiness with lifecycle/workspace/actor ACL checks, bounded duplicate detection and strict definition validation. Direct store coverage passes 45 tests; report renderer/registry integration and browser evidence remain pending.
+-   [x] Complete the stable-build browser rerun. The final Dashboard acceptance run on 2026-10-06 passed all seven selected specs / 11 tests after the ordering, trusted-binding and authoring-fixture fixes.
+-   [x] Complete all six canonical fixture producers and their strict runtime/import gates after the supported LMS source contracts are restored. The six tracked snapshots were regenerated and the final all-tracked snapshot contract passes.
+
+Final closeout evidence: Dashboard minimal-Supabase acceptance passed all seven selected specs / 11 Playwright tests; fresh screenshots cover Dashboard desktop/tablet/mobile, nested authoring, EN/RU application authoring, cross-template runtime/scoped precedence, and LMS runtime. Focused reruns passed Types 31 files / 268 tests, Metahubs backend 4 suites / 14 tests, Applications backend 4 suites / 63 tests, Apps Template MUI 4 files / 60 tests, and the MMOOMM ShareDB metadata contract 1/1. The six tracked snapshot contracts, catalog-version check, GitBook i18n (115 EN/RU pairs), screenshot-asset check and `git diff --check` pass. Autoreview/Thermos is `UNAVAILABLE` because the installed Codex CLI is missing `@openai/codex-linux-x64`; OntoIndex sees the committed HEAD but reports degraded authority over the 701-file dirty/untracked overlay, so neither tool is reported as a clean all-diff PASS.
+
+-   The working tree already contains user changes in `AGENTS.md`, `CLAUDE.md`, root READMEs, and `memory-bank/currentResearch.md`; leave them intact.
+-   Phase 0 is a hard gate: do not change shared schemas/registry until the exhaustive ownership and seed inventories are reconciled with direct source.
+-   Keep regular-editorial content in Entity/domain records; placement rows own composition/presentation; specialized runtime sources remain typed.
+-   Every persisted/effective placement has stable `instanceKey`; duplicate creates a new key; restore/sync preserves it.
+-   Test database is disposable. Never add compatibility behavior or bump schema/template versions for this cutover.
+
+## Dashboard QA Remediation — IMPLEMENT (2026-10-07)
+
+> Follow-up to the comprehensive Dashboard QA. Preserve the accumulated dirty worktree and unrelated changes. Keep schema/template versions unchanged and do not run `pnpm dev`.
+
+### Execution plan — 2026-10-08
+
+-   [ ] Reconcile the implementation plan's unchecked phase items and DBW-FU-01..18 against current source, tests, fixtures and artifacts; mark only evidence-backed work complete.
+-   [ ] Fix the published Dashboard desktop header offset and MMOOMM Russian content/status; add strict responsive and locale browser assertions.
+-   [ ] Restore Interpretation Network's default Start/Structures navigation from canonical Entity metadata, align template and fixture defaults, and repair navigation oracles/screenshots.
+-   [ ] Correct content-only authoring permissions and make disabled widget actions explain the permission/data state.
+-   [ ] Enforce parent record-level ACLs and safe component projection for nested child-row reads and mutations; close codename-lock and optimistic-concurrency cases.
+-   [ ] Complete layout placement delete/copy, parent-reference DDL, idempotent system-table creation and copy request contracts with PostgreSQL-backed tests.
+-   [ ] Resolve the remaining published-navigation, LMS sync, theme persistence, hosted-SPA routing, fixture producer/drift and package-isolation gaps that remain after source audit.
+-   [ ] Update affected package READMEs and root GitBook documentation; keep fixture and docs claims tied to verified behavior.
+-   [ ] Run formatting, package lint/build/tests, canonical fixture verification and focused local-minimal-Supabase browser flows; inspect screenshots at 1920×1080, 768×1024 and 390×844.
+-   [ ] Run OntoIndex diff verification and a bounded Thermos review where the installed review engine permits; record unavailable gates accurately and close the plan only with evidence.
+
+Interim verification (2026-10-08): `pnpm docs:i18n:check` initially found a one-line English/Russian paragraph-wrap mismatch in `guides/application-layouts.md`; the Russian paragraph was reflowed without changing meaning, and the checker now passes all 115 EN/RU page pairs. `pnpm docs:gitbook-screenshot-assets:check`, `pnpm docs:interpretation-network:check`, and `git diff --check` also pass.
+
+Execution order for this pass: (1) close the confirmed placement-delete/sync, nested-row concurrency, and runtime-copy transaction defects; (2) finish runtime form-label and published-navigation browser regressions; (3) run real-PostgreSQL, backend, frontend, fixture, and minimal-Supabase Playwright checks; (4) update documentation and record only verified closeout gates.
+
+-   [ ] DBW-FU-01 Reproduce the reported published-application sidebar/header regressions from current built-in templates or canonical E2E fixtures; inspect real browser screenshots and trace generated placement metadata to runtime rendering.
+-   [ ] DBW-FU-02 Correct Dashboard menu composition and header action placement/deduplication using existing MUI template primitives; add focused unit and browser regressions for labels, icons, locale/theme actions, and desktop/tablet/mobile geometry.
+-   [x] DBW-FU-03 Verified layout-local placement subtree deletion, version checks, fail-closed `RETURNING`, and no bound Entity deletion; store tests pass.
+-   [x] DBW-FU-04 Added a composite `(layout_id, parent_widget_id)` foreign key to `(layout_id, id)` plus parent/slot checks; fresh-schema PostgreSQL integration proves same-layout acceptance and cross-layout rejection without a version bump.
+-   [ ] DBW-FU-05 Complete Dashboard browser lifecycle coverage for source rebind, detailsTable copy isolation/delete, role denial, and stale mutation recovery; reuse existing E2E helpers and minimal local Supabase.
+-   [x] DBW-FU-06 Reassess the production dependency audit findings; `pnpm audit --prod --audit-level high` reports no known vulnerabilities, and every package production/optional dependency uses the workspace catalog or a workspace link, so no dependency change was indicated.
+-   [ ] DBW-FU-07 Resolve actionable maintainability findings from QA (oversized Dashboard runtime/contracts and duplicated source-policy/graph rules) within a focused, tested refactor.
+-   [ ] DBW-FU-08 Refresh affected package READMEs/GitBook documentation and correct plan/progress closeout claims to match actually completed gates.
+-   [ ] DBW-FU-09 Run focused tests, package lint/build/Prettier, minimal-Supabase Playwright with inspected screenshots, fixture verification, OntoIndex change verification, and a bounded Thermos review; record unavailable or capped results accurately.
+-   [x] DBW-FU-10 Verified bound Object codename changes fail closed under the existing graph lock (direct route tests plus binding/rename race coverage); nested child routes resolve the canonical Object codename before applying parent ACL.
+-   [x] DBW-FU-11 Verified `_app_widgets` existence checks and idempotent `ensureSystemTables` behavior in fresh-schema PostgreSQL integration; no schema-version bump or legacy migration.
+-   [ ] DBW-FU-12 Correct Dashboard binding E2E to select a genuinely different Entity source; strengthen the theme persistence/global deduplication oracle and test generated LMS menu contracts in the mobile navigation surface.
+-   [ ] DBW-FU-13 Resolve the direct LMS-template application-sync JSON failure with source-level diagnosis and a regression test, or remove only the redundant test path if the failure is proven outside this feature and preserve equivalent published-app coverage.
+-   [ ] DBW-FU-14 Route hosted dashboard menu links through the existing host-provided SPA navigator; keep standalone History API behavior and prove both contracts plus the imported-application Workspaces journey in Playwright.
+-   [x] DBW-FU-15 Nested child updates now derive a transaction-local version precondition when `expectedVersion` is absent; 30 controller tests include stale-write preservation, explicit-version conflicts, and a bounded list page size.
+-   [ ] DBW-FU-16 Add a copy-route regression proving hidden Object navigation state and unrelated runtime config survive Object copy.
+-   [x] DBW-FU-17 Verified the strict copy body, persisted-template derivation, and graph lock before inserts; added controller/store contract tests and passed the focused 65-test backend group.
+-   [ ] DBW-FU-18 Repair and complete published Dashboard navigation oracles: declare the selected Object link locator, cover desktop/tablet/mobile, and verify Workspaces-route shell controls and semantic icons.
+
+---
+
 # Marketing Page Complete Entity-Backed Widgets — IMPLEMENT (2026-09-28)
 
 > Active checklist for `memory-bank/plan/marketing-page-complete-entity-backed-widgets-plan-2026-09-27.md`. Clean cutover: preserve unrelated worktree changes; no legacy compatibility reader, schema/template version bump, or `pnpm dev`.

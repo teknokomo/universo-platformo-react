@@ -30,7 +30,23 @@ export interface SystemForeignKeyDef {
     /** Reference table name (without schema prefix — resolved at runtime). */
     referencesTable: string
     referencesColumn: string
+    name?: string
     onDelete?: 'CASCADE' | 'SET NULL' | 'RESTRICT' | 'NO ACTION'
+}
+
+export interface SystemCompositeForeignKeyDef {
+    columns: string[]
+    /** Reference table name (without schema prefix — resolved at runtime). */
+    referencesTable: string
+    referencesColumns: string[]
+    name?: string
+    onDelete?: 'CASCADE' | 'SET NULL' | 'RESTRICT' | 'NO ACTION'
+}
+
+export interface SystemCheckConstraintDef {
+    name: string
+    /** Static SQL predicate using columns from the containing table. */
+    expression: string
 }
 
 export interface SystemIndexDef {
@@ -54,6 +70,8 @@ export interface SystemTableDef {
     /** Own columns (excluding shared _upl_* / _mhb_* fields). */
     columns: SystemColumnDef[]
     foreignKeys?: SystemForeignKeyDef[]
+    compositeForeignKeys?: SystemCompositeForeignKeyDef[]
+    checkConstraints?: SystemCheckConstraintDef[]
     /** Named indexes (created as raw SQL). */
     indexes?: SystemIndexDef[]
     /** Unique constraints on column groups. */
@@ -364,13 +382,29 @@ const mhbWidgets: SystemTableDef = {
     columns: [
         { name: 'id', type: 'uuid', primary: true, defaultTo: '$uuid_v7' },
         { name: 'layout_id', type: 'uuid', nullable: false },
+        { name: 'instance_key', type: 'text', nullable: false },
+        { name: 'parent_widget_id', type: 'uuid', nullable: true },
+        { name: 'slot_key', type: 'text', nullable: true },
         { name: 'zone', type: 'string', length: 20, nullable: false },
         { name: 'widget_key', type: 'string', length: 100, nullable: false },
         { name: 'sort_order', type: 'integer', nullable: false, defaultTo: 1 },
         { name: 'config', type: 'jsonb', nullable: false, defaultTo: '{}' },
         { name: 'is_active', type: 'boolean', nullable: false, defaultTo: true }
     ],
-    foreignKeys: [{ column: 'layout_id', referencesTable: '_mhb_layouts', referencesColumn: 'id', onDelete: 'CASCADE' }],
+    foreignKeys: [
+        { column: 'layout_id', referencesTable: '_mhb_layouts', referencesColumn: 'id', onDelete: 'CASCADE' },
+        { column: 'parent_widget_id', referencesTable: '_mhb_widgets', referencesColumn: 'id', onDelete: 'CASCADE' }
+    ],
+    checkConstraints: [
+        {
+            name: 'chk_mhb_widgets_parent_slot_pair',
+            expression: '((parent_widget_id IS NULL AND slot_key IS NULL) OR (parent_widget_id IS NOT NULL AND slot_key IS NOT NULL))'
+        },
+        {
+            name: 'chk_mhb_widgets_parent_not_self',
+            expression: 'parent_widget_id IS NULL OR parent_widget_id <> id'
+        }
+    ],
     indexes: [
         { name: 'idx_mhb_widgets_layout_id', columns: ['layout_id'] },
         {
@@ -378,11 +412,16 @@ const mhbWidgets: SystemTableDef = {
             columns: ['layout_id', 'zone', 'sort_order']
         },
         {
+            name: 'idx_mhb_widgets_parent_graph',
+            columns: ['layout_id', 'parent_widget_id', 'slot_key', 'sort_order', 'id']
+        },
+        {
             name: 'idx_mhb_widgets_active_layout_zone_sort',
             columns: ['layout_id', 'zone', 'sort_order'],
             where: 'is_active = true'
         }
-    ]
+    ],
+    uniqueConstraints: [['layout_id', 'instance_key']]
 }
 
 const mhbLayoutWidgetOverrides: SystemTableDef = {
@@ -945,6 +984,8 @@ export interface SystemStructureSnapshotTable {
     columns: SystemColumnDef[]
     indexes: SystemIndexDef[]
     foreignKeys: SystemForeignKeyDef[]
+    compositeForeignKeys: SystemCompositeForeignKeyDef[]
+    checkConstraints: SystemCheckConstraintDef[]
     uniqueConstraints: string[][]
 }
 
@@ -955,7 +996,13 @@ export interface SystemStructureSnapshot {
 
 const cloneColumn = (column: SystemColumnDef): SystemColumnDef => ({ ...column })
 const cloneIndex = (index: SystemIndexDef): SystemIndexDef => ({ ...index, columns: [...index.columns] })
+const cloneCheckConstraint = (check: SystemCheckConstraintDef): SystemCheckConstraintDef => ({ ...check })
 const cloneForeignKey = (foreignKey: SystemForeignKeyDef): SystemForeignKeyDef => ({ ...foreignKey })
+const cloneCompositeForeignKey = (foreignKey: SystemCompositeForeignKeyDef): SystemCompositeForeignKeyDef => ({
+    ...foreignKey,
+    columns: [...foreignKey.columns],
+    referencesColumns: [...foreignKey.referencesColumns]
+})
 
 /**
  * Builds a JSON-safe structure snapshot from declarative system table definitions.
@@ -972,6 +1019,8 @@ export function buildSystemStructureSnapshot(version: number): SystemStructureSn
             columns: table.columns.map(cloneColumn),
             indexes: (table.indexes ?? []).map(cloneIndex),
             foreignKeys: (table.foreignKeys ?? []).map(cloneForeignKey),
+            compositeForeignKeys: (table.compositeForeignKeys ?? []).map(cloneCompositeForeignKey),
+            checkConstraints: (table.checkConstraints ?? []).map(cloneCheckConstraint),
             uniqueConstraints: (table.uniqueConstraints ?? []).map((constraint) => [...constraint])
         }))
     }

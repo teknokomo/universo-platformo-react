@@ -2,7 +2,9 @@ import {
     MissingRequiredWidgetBindingsError,
     applicationTemplateKeySchema,
     decodeLayoutConfigEnvelope,
-    decodeWidgetConfigEnvelope
+    decodeWidgetConfigEnvelope,
+    parseApplicationLayoutWidgetConfig,
+    parseApplicationLayoutConfig
 } from '@universo-react/types'
 
 type SnapshotMetadataFailure = (message: string, details: Record<string, unknown>) => never
@@ -33,7 +35,7 @@ export const readSnapshotTemplateKey = (value: unknown, scope: string, failSnaps
 
 export const decodeSnapshotLayoutRendererConfig = (config: unknown, templateKey: string): Record<string, unknown> => {
     const decoded = decodeLayoutConfigEnvelope(config === undefined ? {} : config, { templateKey })
-    return decoded.rendererConfig
+    return parseApplicationLayoutConfig(templateKey, decoded.rendererConfig)
 }
 
 /**
@@ -59,6 +61,11 @@ export const validateSnapshotLayoutNeutralMetadata = (snapshot: unknown, failSna
         } catch {
             failSnapshotLayout('Snapshot layout neutral metadata is invalid', { layoutId })
         }
+        try {
+            parseApplicationLayoutConfig(templateKey, decoded.rendererConfig)
+        } catch {
+            failSnapshotLayout('Snapshot layout renderer configuration is invalid', { layoutId })
+        }
         if (decoded.neutral.sourceZoneSettings !== undefined) {
             failSnapshotLayout('Snapshot layout metadata contains application-only source zone settings', { layoutId })
         }
@@ -83,6 +90,13 @@ export const validateSnapshotLayoutNeutralMetadata = (snapshot: unknown, failSna
         } catch {
             failSnapshotLayout('Snapshot default layout neutral metadata is invalid', { defaultLayoutId: snapshot.defaultLayoutId })
         }
+        try {
+            parseApplicationLayoutConfig(templateKey, decoded.rendererConfig)
+        } catch {
+            failSnapshotLayout('Snapshot default layout renderer configuration is invalid', {
+                defaultLayoutId: snapshot.defaultLayoutId
+            })
+        }
         if (decoded.neutral.composition !== undefined || decoded.neutral.sourceZoneSettings !== undefined) {
             failSnapshotLayout('Snapshot default layout config contains forbidden composition or source metadata', {
                 defaultLayoutId: snapshot.defaultLayoutId
@@ -97,12 +111,13 @@ export const validateSnapshotLayoutNeutralMetadata = (snapshot: unknown, failSna
         if (!layout) failSnapshotLayout('Snapshot widget references an unknown layout', { widgetId: widget.id })
         const templateKey = readSnapshotTemplateKey(layout.templateKey, `layout:${String(layout.id)}`, failSnapshotLayout)
         try {
-            decodeWidgetConfigEnvelope(widget.config === undefined ? {} : widget.config, {
+            const decoded = decodeWidgetConfigEnvelope(widget.config === undefined ? {} : widget.config, {
                 templateKey,
                 widgetKey: String(widget.widgetKey),
                 zone: String(widget.zone),
                 requireBindings: true
             })
+            parseApplicationLayoutWidgetConfig(String(widget.widgetKey), decoded.rendererConfig)
         } catch (error) {
             if (error instanceof MissingRequiredWidgetBindingsError) {
                 failSnapshotLayout('Snapshot widget binding is invalid', { widgetId: widget.id })
@@ -128,6 +143,7 @@ export const validateSnapshotLayoutNeutralMetadata = (snapshot: unknown, failSna
                 zone: String(override.zone ?? baseWidget.zone),
                 requireBindings: false
             })
+            parseApplicationLayoutWidgetConfig(String(baseWidget.widgetKey), decoded.rendererConfig)
         } catch (error) {
             if (error instanceof MissingRequiredWidgetBindingsError) {
                 failSnapshotLayout('Snapshot widget override binding is invalid', { overrideId: override.id })

@@ -1,57 +1,47 @@
+import { Children, type ReactNode } from 'react'
 import Stack from '@mui/material/Stack'
-import NotificationsRoundedIcon from '@mui/icons-material/NotificationsRounded'
-import { useTranslation } from 'react-i18next'
-import CustomDatePicker from './CustomDatePicker'
-import NavbarBreadcrumbs from './NavbarBreadcrumbs'
-import MenuButton from './MenuButton'
-import ColorModeIconDropdown from '../../shared-theme/ColorModeIconDropdown'
-import LanguageSwitcher from '../../components/LanguageSwitcher'
 
-import Search from './Search'
-
-export interface HeaderLayoutConfig {
-    showBreadcrumbs?: boolean
-    showSearch?: boolean
-    showDatePicker?: boolean
-    showOptionsMenu?: boolean
-    showLanguageSwitcher?: boolean
-    showColorMode?: boolean
+export interface HeaderProps {
+    leading?: ReactNode
+    actions?: ReactNode
 }
 
-export default function Header({ layoutConfig }: { layoutConfig?: HeaderLayoutConfig }) {
-    const { t } = useTranslation('apps')
-    const showBreadcrumbs = layoutConfig?.showBreadcrumbs ?? true
-    const showSearch = layoutConfig?.showSearch ?? true
-    const showDatePicker = layoutConfig?.showDatePicker ?? true
-    const showOptionsMenu = layoutConfig?.showOptionsMenu ?? true
-    const showLanguageSwitcher = layoutConfig?.showLanguageSwitcher ?? true
-    const showColorMode = layoutConfig?.showColorMode ?? true
+export default function Header({ leading, actions }: HeaderProps) {
+    const hasLeading = Children.toArray(leading).length > 0
+    const hasActions = Children.toArray(actions).length > 0
+    if (!hasLeading && !hasActions) return null
 
     return (
         <Stack
-            direction='row'
+            data-testid='runtime-header'
+            direction={{ xs: 'column', md: 'row' }}
             sx={{
-                display: { xs: 'none', md: 'flex' },
                 width: '100%',
-                alignItems: { xs: 'flex-start', md: 'center' },
-                justifyContent: 'space-between',
+                alignItems: { xs: 'stretch', md: 'center' },
+                justifyContent: hasLeading ? 'space-between' : 'flex-end',
                 maxWidth: { sm: '100%', md: '1700px' },
-                pt: 1.5
+                pt: 0.5
             }}
-            spacing={2}
+            spacing={1}
         >
-            {showBreadcrumbs && <NavbarBreadcrumbs />}
-            <Stack direction='row' sx={{ gap: 1 }}>
-                {showSearch && <Search />}
-                {showDatePicker && <CustomDatePicker />}
-                {showLanguageSwitcher && <LanguageSwitcher />}
-                {showOptionsMenu && (
-                    <MenuButton showBadge aria-label={t('runtime.notifications', 'Open notifications')}>
-                        <NotificationsRoundedIcon />
-                    </MenuButton>
-                )}
-                {showColorMode && <ColorModeIconDropdown aria-label={t('colorMode.label', 'Color mode')} />}
-            </Stack>
+            {hasLeading ? leading : null}
+            {hasActions ? (
+                <Stack
+                    data-testid='runtime-header-actions'
+                    direction='row'
+                    useFlexGap
+                    sx={{
+                        width: { xs: '100%', md: 'auto' },
+                        gap: 1,
+                        alignItems: 'center',
+                        justifyContent: 'flex-end',
+                        flexWrap: 'wrap',
+                        minWidth: 0
+                    }}
+                >
+                    {actions}
+                </Stack>
+            ) : null}
         </Stack>
     )
 }

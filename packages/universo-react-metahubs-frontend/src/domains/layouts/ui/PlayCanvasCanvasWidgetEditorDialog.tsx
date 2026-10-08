@@ -16,39 +16,31 @@ import { useTranslation } from 'react-i18next'
 import { EntityFormDialog, LocalizedInlineField } from '@universo-react/template-mui'
 import {
     isClientModuleMethodTarget,
-    isEnabledCapabilityConfig,
     isServerModuleMethodTarget,
     playcanvasCanvasWidgetConfigSchema,
     type MetahubModuleRecord,
     type VersionedLocalizedContent
 } from '@universo-react/types'
-import { createLocalizedContent } from '@universo-react/utils'
+import { createLocalizedContent, toLocalizedStringMap, updateLocalizedContentLocale } from '@universo-react/utils'
 import type { z } from 'zod'
 
-import { listEntityInstances } from '../../entities/api/entityInstances'
-import { listEntityTypes } from '../../entities/api/entityTypes'
 import { modulesApi } from '../../modules/api/modulesApi'
-import { fetchAllPaginatedItems, metahubsQueryKeys } from '../../shared'
+import { metahubsQueryKeys } from '../../shared'
 import { getVLCString } from '../../../types'
 import { packagesApi, playcanvasProjectsApi } from '../../packages/api'
-import LayoutWidgetSharedBehaviorFields from './LayoutWidgetSharedBehaviorFields'
 import WidgetScopeVisibilityPanel from './WidgetScopeVisibilityPanel'
 import { DropdownSelect as Select } from '@universo-react/template-mui/dropdowns'
 
 type PlayCanvasCanvasWidgetConfig = z.infer<typeof playcanvasCanvasWidgetConfigSchema>
+type LocalizedTitle = VersionedLocalizedContent<string>
+type PlayCanvasCanvasWidgetDraft = Omit<PlayCanvasCanvasWidgetConfig, 'title'> & {
+    title?: LocalizedTitle | string | Record<string, string>
+}
 
 type ModuleOption = {
     codename: string
     label: string
     description: string | null
-}
-
-type SectionOption = {
-    id: string
-    codename: string
-    label: string
-    kindKey: string
-    sortOrder: number
 }
 
 export interface PlayCanvasCanvasWidgetEditorDialogProps {
@@ -57,24 +49,52 @@ export interface PlayCanvasCanvasWidgetEditorDialogProps {
     config?: Record<string, unknown> | null
     layoutId?: string | null
     widgetId?: string | null
-    showSharedBehavior?: boolean
     showScopeVisibility?: boolean
-    onSave: (config: PlayCanvasCanvasWidgetConfig) => void
+    onSave: (config: PlayCanvasCanvasWidgetConfig) => Promise<void> | void
     onCancel: () => void
 }
 
-const normalizeConfig = (config: unknown): PlayCanvasCanvasWidgetConfig => {
-    const parsed = playcanvasCanvasWidgetConfigSchema.safeParse(config ?? {})
+const toEditorLocalizedTitle = (value: unknown, uiLocale: string): LocalizedTitle => {
+    const localizedValues = typeof value === 'string' ? { en: value } : toLocalizedStringMap(value)
+    if (!localizedValues || Object.keys(localizedValues).length === 0) {
+        return createLocalizedContent('en', 'Universo MMOOMM')
+    }
+
+    const configuredPrimary =
+        value && typeof value === 'object' && '_primary' in value && typeof value._primary === 'string' ? value._primary : undefined
+    const primaryLocale =
+        (configuredPrimary && localizedValues[configuredPrimary] !== undefined ? configuredPrimary : undefined) ??
+        (localizedValues[uiLocale] !== undefined ? uiLocale : undefined) ??
+        (localizedValues.en !== undefined ? 'en' : Object.keys(localizedValues)[0])
+    let localizedTitle = createLocalizedContent(primaryLocale, localizedValues[primaryLocale] ?? '')
+
+    for (const [locale, content] of Object.entries(localizedValues)) {
+        if (locale === primaryLocale) continue
+        localizedTitle = updateLocalizedContentLocale(localizedTitle, locale, content)
+    }
+
+    return localizedTitle
+}
+
+const normalizeConfig = (config: unknown, uiLocale: string): PlayCanvasCanvasWidgetDraft => {
+    const rawConfig = config && typeof config === 'object' && !Array.isArray(config) ? (config as Record<string, unknown>) : {}
+    const normalizedInput = {
+        ...rawConfig,
+        ...(Object.prototype.hasOwnProperty.call(rawConfig, 'title')
+            ? { title: toLocalizedStringMap(rawConfig.title) ?? rawConfig.title }
+            : {})
+    }
+    const parsed = playcanvasCanvasWidgetConfigSchema.safeParse(normalizedInput)
     if (parsed.success) {
         return {
             ...parsed.data,
-            title: parsed.data.title ?? createLocalizedContent('en', 'Universo MMOOMM'),
+            title: toEditorLocalizedTitle(parsed.data.title, uiLocale),
             minHeight: parsed.data.minHeight ?? 560,
             heightMode: parsed.data.heightMode ?? 'fitViewport'
         }
     }
     return {
-        title: createLocalizedContent('en', 'Universo MMOOMM'),
+        title: toEditorLocalizedTitle(undefined, uiLocale),
         minHeight: 560,
         heightMode: 'fitViewport'
     }
@@ -127,9 +147,6 @@ const createModuleOptions = (
         .sort((left, right) => left.label.localeCompare(right.label))
 }
 
-const isLayoutSectionEntityType = (entityType: { capabilities: { layoutConfig?: unknown } }): boolean =>
-    isEnabledCapabilityConfig(entityType.capabilities.layoutConfig)
-
 const readManifestMetadataText = (metadata: Record<string, unknown> | undefined, key: string): string => {
     const value = metadata?.[key]
     return typeof value === 'string' ? value.trim() : ''
@@ -141,7 +158,6 @@ export default function PlayCanvasCanvasWidgetEditorDialog({
     config,
     layoutId,
     widgetId,
-    showSharedBehavior = false,
     showScopeVisibility = false,
     onSave,
     onCancel
@@ -151,15 +167,14 @@ export default function PlayCanvasCanvasWidgetEditorDialog({
     const runtimeManifestLabelId = useId()
     const clientModuleLabelId = useId()
     const serverModuleLabelId = useId()
-    const sectionsLabelId = useId()
-    const [draft, setDraft] = useState<PlayCanvasCanvasWidgetConfig>(() => normalizeConfig(config))
+    const [draft, setDraft] = useState<PlayCanvasCanvasWidgetDraft>(() => normalizeConfig(config, uiLocale))
     const [submitError, setSubmitError] = useState<string | null>(null)
 
     useEffect(() => {
         if (!open) return
-        setDraft(normalizeConfig(config))
+        setDraft(normalizeConfig(config, uiLocale))
         setSubmitError(null)
-    }, [config, open])
+    }, [config, open, uiLocale])
 
     const manifestsQuery = useQuery({
         queryKey: metahubsQueryKeys.playcanvasPublishedRuntimeManifests(metahubId),
@@ -179,51 +194,6 @@ export default function PlayCanvasCanvasWidgetEditorDialog({
         enabled: Boolean(open && metahubId)
     })
 
-    const sectionTargetsQuery = useQuery({
-        queryKey: [...metahubsQueryKeys.detail(metahubId), 'playcanvasCanvasWidget', 'sectionTargets', uiLocale],
-        enabled: Boolean(open && metahubId),
-        queryFn: async (): Promise<SectionOption[]> => {
-            const entityTypesPage = await fetchAllPaginatedItems((params) => listEntityTypes(metahubId, params), {
-                limit: 1000,
-                sortOrder: 'asc'
-            })
-            const layoutCapableTypes = entityTypesPage.items.filter(isLayoutSectionEntityType)
-            const groups = await Promise.all(
-                layoutCapableTypes.map(async (entityType) => {
-                    const instancesPage = await fetchAllPaginatedItems(
-                        (params) => listEntityInstances(metahubId, { ...params, kind: entityType.kindKey }),
-                        { limit: 1000, sortOrder: 'asc' }
-                    )
-                    const typeLabel =
-                        getPreferredLocalizedText(entityType.codename, uiLocale) ||
-                        entityType.ui?.nameKey ||
-                        t('layouts.playcanvasCanvasEditor.sectionTypeFallback', 'Section')
-
-                    return instancesPage.items.map((entity, index) => {
-                        const name = getPreferredLocalizedText(entity.name, uiLocale)
-                        const codename = getPreferredLocalizedText(entity.codename, uiLocale)
-                        return {
-                            id: entity.id,
-                            codename,
-                            label: `${name || t('layouts.playcanvasCanvasEditor.unnamedSection', 'Unnamed section')} · ${typeLabel}`,
-                            kindKey: entityType.kindKey,
-                            sortOrder: typeof entity.sortOrder === 'number' ? entity.sortOrder : index
-                        }
-                    })
-                })
-            )
-
-            return groups
-                .flat()
-                .sort(
-                    (left, right) =>
-                        left.kindKey.localeCompare(right.kindKey) ||
-                        left.sortOrder - right.sortOrder ||
-                        left.label.localeCompare(right.label)
-                )
-        }
-    })
-
     const hasActivePlayCanvasDisplayPackage = useMemo(
         () => (packagesQuery.data ?? []).some((item) => item.isActive && item.config.kind === 'display'),
         [packagesQuery.data]
@@ -233,7 +203,6 @@ export default function PlayCanvasCanvasWidgetEditorDialog({
         [hasActivePlayCanvasDisplayPackage, manifestsQuery.data]
     )
     const modules = useMemo(() => modulesQuery.data ?? [], [modulesQuery.data])
-    const sectionTargets = sectionTargetsQuery.data ?? []
     const selectedManifestValue = toManifestSelectValue(
         draft.runtimeManifest?.projectId,
         draft.runtimeManifest?.sceneId,
@@ -298,13 +267,7 @@ export default function PlayCanvasCanvasWidgetEditorDialog({
     )
     const selectedClientModule = clientModuleOptions.find((module) => module.codename === draft.moduleCodename) ?? null
     const selectedServerModule = serverModuleOptions.find((module) => module.codename === draft.serverModuleCodename) ?? null
-    const selectedSectionIds =
-        draft.visibleFor?.sectionIds ??
-        sectionTargets
-            .filter((section) => (draft.visibleFor?.sectionCodenames ?? []).includes(section.codename))
-            .map((section) => section.id)
-
-    const updateDraft = (patch: Partial<PlayCanvasCanvasWidgetConfig>) => {
+    const updateDraft = (patch: Partial<PlayCanvasCanvasWidgetDraft>) => {
         setSubmitError(null)
         setDraft((current) => ({ ...current, ...patch }))
     }
@@ -324,23 +287,7 @@ export default function PlayCanvasCanvasWidgetEditorDialog({
         })
     }
 
-    const handleSectionChange = (sectionIds: string[]) => {
-        const selectedSections = sectionIds
-            .map((sectionId) => sectionTargets.find((section) => section.id === sectionId))
-            .filter((section): section is SectionOption => Boolean(section))
-
-        updateDraft({
-            visibleFor:
-                selectedSections.length > 0
-                    ? {
-                          sectionIds: selectedSections.map((section) => section.id),
-                          sectionCodenames: selectedSections.map((section) => section.codename)
-                      }
-                    : undefined
-        })
-    }
-
-    const handleSave = () => {
+    const handleSave = async () => {
         if (draft.runtimeManifest && !selectedManifestExists) {
             setSubmitError(
                 t(
@@ -350,7 +297,10 @@ export default function PlayCanvasCanvasWidgetEditorDialog({
             )
             return
         }
-        const parsed = playcanvasCanvasWidgetConfigSchema.safeParse(draft)
+        const parsed = playcanvasCanvasWidgetConfigSchema.safeParse({
+            ...draft,
+            title: toLocalizedStringMap(draft.title) ?? draft.title
+        })
         if (!parsed.success) {
             setSubmitError(
                 t('layouts.playcanvasCanvasEditor.validation.invalidConfig', 'Check the PlayCanvas canvas widget settings and try again.')
@@ -358,7 +308,7 @@ export default function PlayCanvasCanvasWidgetEditorDialog({
             return
         }
         setSubmitError(null)
-        onSave(parsed.data)
+        await onSave(parsed.data)
     }
 
     return (
@@ -371,6 +321,7 @@ export default function PlayCanvasCanvasWidgetEditorDialog({
             hideDefaultFields
             onClose={onCancel}
             onSave={handleSave}
+            autoCloseOnSuccess={false}
             saveButtonText={t('common:save', 'Save')}
             cancelButtonText={t('common:cancel', 'Cancel')}
             error={submitError ?? undefined}
@@ -499,46 +450,6 @@ export default function PlayCanvasCanvasWidgetEditorDialog({
                         }
                         label={t('layouts.playcanvasCanvasEditor.fields.fitViewport', 'Fit available viewport height')}
                     />
-                    <FormControl fullWidth size='small'>
-                        <InputLabel id={sectionsLabelId}>
-                            {t('layouts.playcanvasCanvasEditor.fields.sections', 'Visible in sections')}
-                        </InputLabel>
-                        <Select
-                            multiple
-                            labelId={sectionsLabelId}
-                            label={t('layouts.playcanvasCanvasEditor.fields.sections', 'Visible in sections')}
-                            value={selectedSectionIds}
-                            disabled={sectionTargetsQuery.isLoading}
-                            onChange={(event) => {
-                                const value = event.target.value
-                                handleSectionChange(typeof value === 'string' ? value.split(',') : value)
-                            }}
-                            renderValue={(selected) =>
-                                selected
-                                    .map((sectionId) => sectionTargets.find((section) => section.id === sectionId)?.label)
-                                    .filter(Boolean)
-                                    .join(', ')
-                            }
-                        >
-                            {sectionTargets.map((section) => (
-                                <MenuItem key={section.id} value={section.id}>
-                                    {section.label}
-                                </MenuItem>
-                            ))}
-                        </Select>
-                        <FormHelperText>
-                            {t(
-                                'layouts.playcanvasCanvasEditor.fields.sectionsHelp',
-                                'Leave empty to show the canvas in every section where this layout is active.'
-                            )}
-                        </FormHelperText>
-                    </FormControl>
-                    {sectionTargetsQuery.isError ? (
-                        <Alert severity='error'>
-                            {t('layouts.playcanvasCanvasEditor.sectionsLoadError', 'Failed to load available sections.')}
-                        </Alert>
-                    ) : null}
-                    {showSharedBehavior ? <LayoutWidgetSharedBehaviorFields value={draft} onChange={(value) => setDraft(value)} /> : null}
                     {showScopeVisibility && layoutId && widgetId ? (
                         <WidgetScopeVisibilityPanel metahubId={metahubId} layoutId={layoutId} widgetId={widgetId} />
                     ) : null}

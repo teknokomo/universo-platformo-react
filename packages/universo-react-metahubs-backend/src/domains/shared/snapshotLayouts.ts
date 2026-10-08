@@ -5,19 +5,82 @@ import {
     encodeLayoutConfigEnvelope,
     encodeWidgetConfigEnvelope,
     getLayoutZoneSettingDefault,
-    applicationTemplateKeySchema
+    applicationTemplateKeySchema,
+    layoutInstanceKeySchema,
+    parseApplicationLayoutWidgetConfig,
+    getLayoutWidgetDefinition,
+    expandWidgetBindingSlotFamilies,
+    validateWidgetBindings,
+    normalizeWidgetBindingDataType,
+    matchesWidgetBindingComponentValidationRules
 } from '@universo-react/types'
-import { validateSnapshotLayoutNeutralMetadata } from '@universo-react/utils'
+import { getCodenamePrimary, validateSnapshotLayoutNeutralMetadata } from '@universo-react/utils'
 import type { DbExecutor } from '@universo-react/utils/database'
 import type { MetahubSchemaService } from '../metahubs/services/MetahubSchemaService'
 import type { MetahubSnapshot } from '../publications/services/SnapshotSerializer'
 import { createLogger } from '../../utils/logger'
 import { findDuplicateActiveSingleInstanceWidgetKey } from '../layouts/widgetInvariants'
+import { validateLayoutWidgetPlacementGraph } from '../layouts/widgetPlacementGraph'
+import { assertNoWidgetSharedBehaviorConfig } from '../layouts/widgetOwnership'
 import { acquireMetahubLayoutGraphLock } from '../layouts/layoutGraphLocks'
+import { MetahubValidationError } from './domainErrors'
 
 const log = createLogger('snapshotLayouts')
 
 const isRecord = (value: unknown): value is Record<string, unknown> => Boolean(value) && typeof value === 'object' && !Array.isArray(value)
+
+const resolveSnapshotWidgetBindingRequirement = (value: unknown, templateKey: string, widgetKey: string, zone: string): boolean => {
+    const preview = decodeWidgetConfigEnvelope(value, { templateKey, widgetKey, zone, requireBindings: false })
+    const parsedTemplateKey = applicationTemplateKeySchema.parse(templateKey)
+    const definition = getLayoutWidgetDefinition(widgetKey, preview.rendererConfig)
+    if (!definition || !definition.supportedTemplates.includes(parsedTemplateKey)) {
+        throw new Error('Snapshot widget has no registered definition for its template')
+    }
+    return definition.sourcePolicy.sourceMode === 'required'
+}
+
+const validateSnapshotWidgetBindingComponents = (
+    snapshot: MetahubSnapshot,
+    widget: NonNullable<MetahubSnapshot['layoutZoneWidgets']>[number],
+    rendererConfig: Record<string, unknown>,
+    bindings: unknown
+): void => {
+    if (bindings === undefined) return
+    const baseDefinition = getLayoutWidgetDefinition(widget.widgetKey, rendererConfig)
+    if (!baseDefinition) throw new Error('Snapshot widget binding has no registered definition')
+    const definition = expandWidgetBindingSlotFamilies(baseDefinition, bindings)
+    const validatedBindings = validateWidgetBindings(definition, bindings)
+
+    for (const binding of validatedBindings.slots) {
+        const slotDefinition = definition.bindingSlots?.find(({ key }) => key === binding.slot)
+        if (!slotDefinition) throw new Error('Snapshot widget binding slot is not registered')
+        for (const target of binding.targets) {
+            const entities = Object.entries(snapshot.entities ?? {}).filter(([, entity]) => {
+                if (!isRecord(entity)) return false
+                return entity.kind === target.entityKind && getCodenamePrimary(entity.codename as never) === target.entityCodename
+            })
+            if (entities.length !== 1) throw new Error('Snapshot widget binding target entity is missing or ambiguous')
+
+            const entity = entities[0][1]
+            const fields = Array.isArray(entity.fields) ? entity.fields.filter(isRecord) : []
+            for (const requirement of slotDefinition.requirements.components) {
+                const matches = fields.filter((field) => getCodenamePrimary(field.codename as never) === requirement.componentCodename)
+                if (matches.length !== 1) throw new Error('Snapshot widget binding Component is missing or ambiguous')
+                const component = matches[0]
+                const dataType = normalizeWidgetBindingDataType(component.dataType)?.toLowerCase()
+                const rules = isRecord(component.validationRules) ? component.validationRules : {}
+                if (
+                    (component.parentComponentId !== undefined && component.parentComponentId !== null) ||
+                    dataType !== requirement.valueType ||
+                    component.isRequired !== requirement.required ||
+                    !matchesWidgetBindingComponentValidationRules(requirement, rules)
+                ) {
+                    throw new Error('Snapshot widget binding Component does not match its registered contract')
+                }
+            }
+        }
+    }
+}
 
 const readStoredString = (value: unknown, field: string): string => {
     if (typeof value !== 'string' || value.length === 0) {
@@ -43,6 +106,23 @@ const readStoredNullableRecord = (value: unknown, field: string): Record<string,
     return readStoredRecord(value, field)
 }
 
+const normalizeSnapshotWidgetConfig = (
+    value: unknown,
+    templateKey: string,
+    widgetKey: string,
+    zone: string,
+    instanceKey: string,
+    requireBindings: boolean
+): Record<string, unknown> => {
+    layoutInstanceKeySchema.parse(instanceKey)
+    const decoded = decodeWidgetConfigEnvelope(value, { templateKey, widgetKey, zone, requireBindings })
+    assertNoWidgetSharedBehaviorConfig(decoded.rendererConfig)
+    return encodeWidgetConfigEnvelope(
+        { rendererConfig: decoded.rendererConfig, neutral: decoded.neutral },
+        { templateKey, widgetKey, zone, requireBindings }
+    )
+}
+
 const readStoredBoolean = (value: unknown, field: string): boolean => {
     if (typeof value !== 'boolean') {
         throw new Error(`Stored layout snapshot field ${field} must be a boolean`)
@@ -59,17 +139,72 @@ const readStoredInteger = (value: unknown, field: string): number => {
 
 const getSafeErrorCode = (error: unknown): string => (error instanceof Error && error.name ? error.name : 'UNKNOWN_ERROR')
 
-const validateSnapshotWidgetMultiplicity = (snapshot: MetahubSnapshot): void => {
+export const validateSnapshotWidgetPlacements = (snapshot: MetahubSnapshot): void => {
     const layouts = [...(snapshot.layouts ?? []), ...(snapshot.scopedLayouts ?? [])]
     const widgetsByLayout = new Map<string, NonNullable<MetahubSnapshot['layoutZoneWidgets']>>()
+    const layoutsById = new Map(layouts.map((layout) => [layout.id, layout]))
+    const overridesByLayoutAndWidget = new Map<string, NonNullable<MetahubSnapshot['layoutWidgetOverrides']>[number]>()
+    for (const override of snapshot.layoutWidgetOverrides ?? []) {
+        overridesByLayoutAndWidget.set(`${override.layoutId}:${override.baseWidgetId}`, override)
+    }
     for (const widget of snapshot.layoutZoneWidgets ?? []) {
+        if (!layoutsById.has(widget.layoutId)) {
+            throw new MetahubValidationError('Snapshot widget references an unknown layout', {
+                operation: 'layout-widget-restore',
+                layoutId: widget.layoutId
+            })
+        }
         const rows = widgetsByLayout.get(widget.layoutId) ?? []
         rows.push(widget)
         widgetsByLayout.set(widget.layoutId, rows)
     }
-    const overridesByLayoutAndWidget = new Map<string, NonNullable<MetahubSnapshot['layoutWidgetOverrides']>[number]>()
-    for (const override of snapshot.layoutWidgetOverrides ?? []) {
-        overridesByLayoutAndWidget.set(`${override.layoutId}:${override.baseWidgetId}`, override)
+
+    for (const layout of layouts) {
+        const ownRows = widgetsByLayout.get(layout.id) ?? []
+        const baseRows = layout.baseLayoutId ? widgetsByLayout.get(layout.baseLayoutId) ?? [] : []
+        const effectivePlacementRows = layout.baseLayoutId
+            ? [
+                  ...baseRows.flatMap((widget) => {
+                      const override = overridesByLayoutAndWidget.get(`${layout.id}:${widget.id}`)
+                      if (override?.isDeletedOverride === true) return []
+                      return [
+                          {
+                              ...widget,
+                              zone: override?.zone ?? widget.zone,
+                              config: override?.config ?? widget.config
+                          }
+                      ]
+                  }),
+                  ...ownRows
+              ]
+            : ownRows
+        try {
+            const templateKey = applicationTemplateKeySchema.parse(layout.templateKey)
+            // Overlay-owned children may refer to a base placement until sync remaps it to
+            // the scoped clone. Validate that effective graph instead of rejecting the
+            // portable source reference as a missing same-layout parent.
+            validateLayoutWidgetPlacementGraph(templateKey, effectivePlacementRows)
+            for (const widget of ownRows) {
+                const requireBindings = resolveSnapshotWidgetBindingRequirement(widget.config, templateKey, widget.widgetKey, widget.zone)
+                const decoded = decodeWidgetConfigEnvelope(widget.config, {
+                    templateKey,
+                    widgetKey: widget.widgetKey,
+                    zone: widget.zone,
+                    requireBindings
+                })
+                assertNoWidgetSharedBehaviorConfig(decoded.rendererConfig)
+                const rendererConfig = parseApplicationLayoutWidgetConfig(widget.widgetKey, decoded.rendererConfig)
+                if (decoded.neutral.bindings !== undefined) {
+                    validateSnapshotWidgetBindingComponents(snapshot, widget, rendererConfig, decoded.neutral.bindings)
+                }
+            }
+        } catch (error) {
+            throw new MetahubValidationError('Snapshot contains an invalid layout widget placement graph', {
+                operation: 'layout-widget-restore',
+                layoutId: layout.id,
+                reason: error instanceof Error ? error.message : 'Invalid placement graph'
+            })
+        }
     }
 
     for (const layout of layouts) {
@@ -94,7 +229,38 @@ const validateSnapshotWidgetMultiplicity = (snapshot: MetahubSnapshot): void => 
             : ownRows
 
         if (findDuplicateActiveSingleInstanceWidgetKey(effectiveRows) !== null) {
-            throw new Error('Stored layout snapshot contains duplicate active single-instance widgets')
+            throw new MetahubValidationError('Snapshot contains duplicate active single-instance layout widgets', {
+                operation: 'layout-widget-restore'
+            })
+        }
+    }
+}
+
+export const validateSnapshotLayoutLineage = (snapshot: MetahubSnapshot): void => {
+    const layouts = [...(snapshot.layouts ?? []), ...(snapshot.scopedLayouts ?? [])]
+    const layoutsById = new Map(layouts.map((layout) => [layout.id, layout]))
+    if (layoutsById.size !== layouts.length) {
+        throw new MetahubValidationError('Snapshot contains duplicate layout identities', { operation: 'layout-lineage-restore' })
+    }
+
+    for (const layout of layouts) {
+        if ('scopeEntityId' in layout && !snapshot.entities?.[layout.scopeEntityId]) {
+            throw new MetahubValidationError('Scoped layout references an unresolved restored entity or base layout', {
+                layoutId: layout.id
+            })
+        }
+        if (!layout.baseLayoutId) continue
+
+        const baseLayout = layoutsById.get(layout.baseLayoutId)
+        if (
+            !baseLayout ||
+            ('scopeEntityId' in baseLayout && Boolean(baseLayout.scopeEntityId)) ||
+            baseLayout.templateKey !== layout.templateKey
+        ) {
+            throw new MetahubValidationError('Scoped layout references an unresolved restored entity or base layout', {
+                layoutId: layout.id,
+                baseLayoutId: layout.baseLayoutId
+            })
         }
     }
 }
@@ -104,21 +270,27 @@ const normalizeSnapshotLayoutConfig = (
     rawConfig: unknown,
     compositionMode: 'overlay' | 'independent'
 ): Record<string, unknown> => {
-    const decoded = decodeLayoutConfigEnvelope(rawConfig ?? {}, { templateKey, allowSourceZoneSettings: false })
+    const resolvedTemplateKey = applicationTemplateKeySchema.parse(templateKey)
+    const decoded = decodeLayoutConfigEnvelope(rawConfig ?? {}, { templateKey: resolvedTemplateKey, allowSourceZoneSettings: false })
     const neutral: Record<string, unknown> = { ...decoded.neutral }
     delete neutral.composition
-    if (compositionMode === 'independent' && templateKey === 'marketing-page') {
+    if (compositionMode === 'independent' && resolvedTemplateKey === 'marketing-page') {
         const currentZoneSettings = (neutral.zoneSettings as Record<string, Record<string, unknown>> | undefined)?.['marketing-header']
         neutral.zoneSettings = {
             ...((neutral.zoneSettings as Record<string, unknown> | undefined) ?? {}),
             'marketing-header': {
                 ...(currentZoneSettings ?? {}),
                 position:
-                    currentZoneSettings?.position ?? getLayoutZoneSettingDefault(templateKey, 'marketing-header', 'position') ?? 'fixed'
+                    currentZoneSettings?.position ??
+                    getLayoutZoneSettingDefault(resolvedTemplateKey, 'marketing-header', 'position') ??
+                    'fixed'
             }
         }
     }
-    return encodeLayoutConfigEnvelope({ rendererConfig: decoded.rendererConfig, neutral }, { templateKey, omitSourceZoneSettings: true })
+    return encodeLayoutConfigEnvelope(
+        { rendererConfig: decoded.rendererConfig, neutral },
+        { templateKey: resolvedTemplateKey, omitSourceZoneSettings: true }
+    )
 }
 
 export { validateSnapshotLayoutNeutralMetadata }
@@ -442,7 +614,7 @@ const attachLayoutsToSnapshotInTransaction = async (options: {
         const snapshotLayoutIds = [...(snapshot.layouts ?? []).map((l) => l.id), ...(snapshot.scopedLayouts ?? []).map((l) => l.id)]
         const widgetsTable = qSchemaTable(branchSchemaName, '_mhb_widgets')
 
-        let widgetSql = `SELECT id, layout_id, zone, widget_key, sort_order, config, is_active
+        let widgetSql = `SELECT id, layout_id, instance_key, parent_widget_id, slot_key, zone, widget_key, sort_order, config, is_active
                        FROM ${widgetsTable}
                        WHERE _upl_deleted = false AND _mhb_deleted = false`
         const widgetParams: unknown[] = []
@@ -458,6 +630,9 @@ const attachLayoutsToSnapshotInTransaction = async (options: {
         const zoneRows = await executor.query<{
             id: string
             layout_id: string
+            instance_key: string
+            parent_widget_id: string | null
+            slot_key: string | null
             zone: string
             widget_key: string
             sort_order: number | null
@@ -474,26 +649,23 @@ const attachLayoutsToSnapshotInTransaction = async (options: {
             const widgetConfig = readStoredRecord(row.config, 'widget config')
             const widgetKey = readStoredString(row.widget_key, 'widget key')
             const zone = readStoredString(row.zone, 'widget zone')
-            const decoded = decodeWidgetConfigEnvelope(widgetConfig, {
-                templateKey: layout.templateKey,
-                widgetKey,
-                zone,
-                requireBindings: true
-            })
+            const instanceKey = readStoredString(row.instance_key, 'widget instance key')
             return {
                 id: readStoredString(row.id, 'widget id'),
                 layoutId: layout.id,
+                instanceKey,
+                parentWidgetId: readStoredNullableString(row.parent_widget_id, 'widget parent id'),
+                slotKey: readStoredNullableString(row.slot_key, 'widget slot key'),
                 zone,
                 widgetKey,
                 sortOrder: readStoredInteger(row.sort_order, 'widget sort order'),
-                config: encodeWidgetConfigEnvelope(
-                    { rendererConfig: decoded.rendererConfig, neutral: decoded.neutral },
-                    {
-                        templateKey: layout.templateKey,
-                        widgetKey,
-                        zone,
-                        requireBindings: true
-                    }
+                config: normalizeSnapshotWidgetConfig(
+                    widgetConfig,
+                    layout.templateKey,
+                    widgetKey,
+                    zone,
+                    instanceKey,
+                    resolveSnapshotWidgetBindingRequirement(widgetConfig, layout.templateKey, widgetKey, zone)
                 ),
                 isActive: readStoredBoolean(row.is_active, 'widget active state')
             }
@@ -544,7 +716,7 @@ const attachLayoutsToSnapshotInTransaction = async (options: {
                 if (!layout || !baseWidget) throw new Error('Stored layout widget override references an unknown row')
                 const zone = readStoredNullableString(row.zone, 'widget override zone') ?? baseWidget.zone
                 const rawConfig = readStoredNullableRecord(row.config, 'widget override config')
-                const decoded =
+                const decodedOverride =
                     rawConfig === null
                         ? null
                         : decodeWidgetConfigEnvelope(rawConfig, {
@@ -553,22 +725,33 @@ const attachLayoutsToSnapshotInTransaction = async (options: {
                               zone,
                               requireBindings: false
                           })
-                if (decoded?.neutral.bindings !== undefined) {
+                if (decodedOverride?.neutral.bindings !== undefined) {
                     throw new Error('Stored layout widget override cannot contain entity bindings')
                 }
+                const normalizedConfig =
+                    rawConfig === null
+                        ? null
+                        : normalizeSnapshotWidgetConfig(
+                              rawConfig,
+                              layout.templateKey,
+                              baseWidget.widgetKey,
+                              zone,
+                              baseWidget.instanceKey,
+                              false
+                          )
                 return {
                     id: readStoredString(row.id, 'widget override id'),
                     layoutId,
                     baseWidgetId,
+                    // Overrides are sparse mutations of a base placement. Carry
+                    // the base semantic identity/composition in the snapshot so
+                    // sync can verify it without letting an override own it.
+                    instanceKey: baseWidget.instanceKey,
+                    parentWidgetId: baseWidget.parentWidgetId,
+                    slotKey: baseWidget.slotKey,
                     zone: readStoredNullableString(row.zone, 'widget override zone'),
                     sortOrder: row.sort_order === null ? null : readStoredInteger(row.sort_order, 'widget override sort order'),
-                    config:
-                        decoded === null
-                            ? rawConfig
-                            : encodeWidgetConfigEnvelope(
-                                  { rendererConfig: decoded.rendererConfig, neutral: decoded.neutral },
-                                  { templateKey: layout.templateKey, widgetKey: baseWidget.widgetKey, zone, requireBindings: false }
-                              ),
+                    config: normalizedConfig,
                     isActive: row.is_active === null ? null : readStoredBoolean(row.is_active, 'widget override active state'),
                     isDeletedOverride: readStoredBoolean(row.is_deleted_override, 'widget override deletion state')
                 }
@@ -578,5 +761,5 @@ const attachLayoutsToSnapshotInTransaction = async (options: {
     }
 
     validateSnapshotLayoutNeutralMetadata(snapshot)
-    validateSnapshotWidgetMultiplicity(snapshot)
+    validateSnapshotWidgetPlacements(snapshot)
 }

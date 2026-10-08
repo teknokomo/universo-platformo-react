@@ -14,6 +14,7 @@ import {
 import { type DbExecutor } from '@universo-react/utils'
 import { acquireAdvisoryXactLock, activeAppRowCondition, softDeleteSetClause } from '@universo-react/utils/database'
 import { hashApplicationLayoutContent } from '../utils/applicationLayoutHash'
+import { hashApplicationLayoutContentFromStore, resolveApplicationLayoutHashContext } from './applicationLayoutHashContext'
 import { runtimeObjectFilterSql } from '../shared/runtimeHelpers'
 import {
     strictApplicationLayoutConfigResetMutationSchema,
@@ -34,6 +35,7 @@ import {
     encodeLayoutConfigForStorage,
     getApplicationLayoutDetail as readApplicationLayoutDetail,
     getApplicationLayoutRawConfig,
+    getApplicationLayoutWidgetSourceBindingState,
     isRecord,
     layoutCompositionToNeutral,
     layoutSelect,
@@ -46,7 +48,7 @@ import {
     runApplicationLayoutTransaction,
     type LayoutRow
 } from './applicationLayoutStoreSupport'
-import { containsEntityBackedWidgetCopyConflict } from './applicationLayoutEntityBindingPolicy'
+import { containsApplicationOwnedWidgetCopyConflict } from './applicationLayoutEntityBindingPolicy'
 export { applicationLayoutTablesExist } from './applicationLayoutCapabilitiesStore'
 
 export {
@@ -354,7 +356,7 @@ export async function createApplicationLayout(
                 [scopeId, userId]
             )
         }
-        const localHash = hashApplicationLayoutContent({
+        const localHash = await hashApplicationLayoutContentFromStore(tx, schemaName, {
             layout: { ...data, templateKey, config, scopeEntityId: scopeId, isDefault, isActive },
             widgets: []
         })
@@ -442,7 +444,7 @@ export async function updateApplicationLayout(
                 throw new Error('APPLICATION_LAYOUT_LAST_DEFAULT')
             }
         }
-        const localHash = hashApplicationLayoutContent({ layout: next, widgets: current.widgets })
+        const localHash = await hashApplicationLayoutContentFromStore(tx, schemaName, { layout: next, widgets: current.widgets })
         const syncState = current.item.sourceKind === 'metahub' && localHash !== current.item.sourceContentHash ? 'local_modified' : 'clean'
         const rows = await tx.query<LayoutRow>(
             `
@@ -520,7 +522,10 @@ export async function resetApplicationLayoutConfig(
         const currentEnvelope = readCurrentLayoutEnvelope(current)
         if (!currentEnvelope) return null
         const config = encodeLayoutConfigForStorage('marketing-page', {}, currentEnvelope.neutral)
-        const localHash = hashApplicationLayoutContent({ layout: { ...current.item, config }, widgets: current.widgets })
+        const localHash = await hashApplicationLayoutContentFromStore(tx, schemaName, {
+            layout: { ...current.item, config },
+            widgets: current.widgets
+        })
         const syncState = current.item.sourceKind === 'metahub' && localHash !== current.item.sourceContentHash ? 'local_modified' : 'clean'
         const rows = await tx.query<LayoutRow>(
             `
@@ -574,7 +579,10 @@ const mutateApplicationLayoutZoneSetting = async (
         if (nextZoneSettings === undefined) delete nextNeutral.zoneSettings
         else nextNeutral.zoneSettings = nextZoneSettings
         const config = encodeLayoutConfigForStorage(current.item.templateKey, currentEnvelope.rendererConfig, nextNeutral)
-        const localHash = hashApplicationLayoutContent({ layout: { ...current.item, config }, widgets: current.widgets })
+        const localHash = await hashApplicationLayoutContentFromStore(tx, schemaName, {
+            layout: { ...current.item, config },
+            widgets: current.widgets
+        })
         const syncState = current.item.sourceKind === 'metahub' && localHash !== current.item.sourceContentHash ? 'local_modified' : 'clean'
         const rows = await tx.query<LayoutRow>(
             `
@@ -727,7 +735,18 @@ export async function copyApplicationLayout(
         }
         const currentEnvelope = readCurrentLayoutEnvelope(current)
         if (!currentEnvelope) return null
-        if (containsEntityBackedWidgetCopyConflict(current.item.templateKey, current.widgets)) {
+        if (
+            containsApplicationOwnedWidgetCopyConflict(
+                current.item.templateKey,
+                current.widgets.map((widget) => ({
+                    widgetKey: widget.widgetKey,
+                    zone: widget.zone,
+                    instanceKey: widget.instanceKey,
+                    config: widget.config,
+                    sourceBindings: getApplicationLayoutWidgetSourceBindingState(widget)?.bindings
+                }))
+            )
+        ) {
             throw new Error('APPLICATION_LAYOUT_ENTITY_BACKED_WIDGET_COPY_CONFLICT')
         }
         const copiedNeutral = {
@@ -737,11 +756,19 @@ export async function copyApplicationLayout(
         delete copiedNeutral.sourceZoneSettings
         const copiedLayoutConfig = encodeLayoutConfigForStorage(current.item.templateKey, currentEnvelope.rendererConfig, copiedNeutral)
         const copiedConfigByWidgetId = prepareCopiedWidgetConfigs(current.item.templateKey, current.widgets)
+        const { semanticScope } = await resolveApplicationLayoutHashContext(tx, schemaName, current.item)
         const localHash = hashApplicationLayoutContent({
-            layout: { ...current.item, isDefault: false, config: copiedLayoutConfig },
+            layout: {
+                ...current.item,
+                isDefault: false,
+                config: copiedLayoutConfig,
+                sourceComposition: layoutCompositionToNeutral({ compositionMode: 'independent', baseLayoutId: null }),
+                semanticScope,
+                baseLayoutContentHash: null
+            },
             widgets: current.widgets.map((widget) => ({
                 ...widget,
-                config: copiedConfigByWidgetId.get(widget.id) ?? widget.config,
+                ...(copiedConfigByWidgetId.get(widget.id) ?? {}),
                 sourceConfig: null,
                 sourceWidgetId: null,
                 sourceBaseWidgetId: null
@@ -776,17 +803,53 @@ export async function copyApplicationLayout(
         if (updatedConfigRows.length !== 1 || updatedConfigRows[0]?.id !== copied.id) {
             throw new Error('APPLICATION_LAYOUT_COPY_CONFIG_UPDATE_FAILED')
         }
+        const copiedPhysicalIdBySourceId = new Map<string, string>()
         for (const widget of current.widgets) {
-            const config = copiedConfigByWidgetId.get(widget.id) ?? widget.config
+            const placement = copiedConfigByWidgetId.get(widget.id)
+            if (!placement) throw new Error('APPLICATION_LAYOUT_COPY_WIDGET_INSERT_FAILED')
             const insertedWidgetRows = await tx.query<{ id: string }>(
                 `
-                INSERT INTO ${widgetsTable} (layout_id, zone, widget_key, sort_order, config, is_active, _upl_created_by, _upl_updated_by)
-                VALUES ($1, $2, $3, $4, $5::jsonb, $6, $7, $7)
+                INSERT INTO ${widgetsTable} (
+                  layout_id, zone, widget_key, instance_key, parent_widget_id, slot_key,
+                  sort_order, config, is_active, _upl_created_by, _upl_updated_by
+                )
+                VALUES ($1, $2, $3, $4, NULL, NULL, $5, $6::jsonb, $7, $8, $8)
                 RETURNING id
                 `,
-                [copied.id, widget.zone, widget.widgetKey, widget.sortOrder, JSON.stringify(config), widget.isActive, userId]
+                [
+                    copied.id,
+                    widget.zone,
+                    widget.widgetKey,
+                    placement.instanceKey,
+                    widget.sortOrder,
+                    JSON.stringify(placement.config),
+                    widget.isActive,
+                    userId
+                ]
             )
             if (insertedWidgetRows.length !== 1 || typeof insertedWidgetRows[0]?.id !== 'string') {
+                throw new Error('APPLICATION_LAYOUT_COPY_WIDGET_INSERT_FAILED')
+            }
+            copiedPhysicalIdBySourceId.set(widget.id, insertedWidgetRows[0].id)
+        }
+        for (const widget of current.widgets) {
+            const placement = copiedConfigByWidgetId.get(widget.id)
+            if (!placement || placement.parentWidgetId === null) continue
+            const parentWidgetId = copiedPhysicalIdBySourceId.get(placement.parentWidgetId)
+            const widgetId = copiedPhysicalIdBySourceId.get(widget.id)
+            if (!parentWidgetId || !widgetId || placement.slotKey === null) {
+                throw new Error('APPLICATION_LAYOUT_COPY_WIDGET_INSERT_FAILED')
+            }
+            const updatedRows = await tx.query<{ id: string }>(
+                `
+                UPDATE ${widgetsTable}
+                SET parent_widget_id = $2, slot_key = $3, _upl_updated_at = NOW(), _upl_updated_by = $4
+                WHERE id = $1 AND layout_id = $5 AND _upl_deleted = false AND _app_deleted = false
+                RETURNING id
+                `,
+                [widgetId, parentWidgetId, placement.slotKey, userId, copied.id]
+            )
+            if (updatedRows.length !== 1 || updatedRows[0]?.id !== widgetId) {
                 throw new Error('APPLICATION_LAYOUT_COPY_WIDGET_INSERT_FAILED')
             }
         }

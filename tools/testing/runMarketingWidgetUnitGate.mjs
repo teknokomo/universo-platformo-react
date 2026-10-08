@@ -16,7 +16,8 @@ export const marketingWidgetUnitGateCommands = [
             'tools/testing/e2e/support/localSupabaseE2eGateCoordinator.test.mjs',
             'tools/testing/e2e/support/managedE2eCommand.test.mjs',
             'tools/testing/e2e/support/stopSupabaseStackWithRunLock.test.mjs',
-            'tools/testing/e2e/support/env/localSupabaseE2eEnv.test.mjs'
+            'tools/testing/e2e/support/env/localSupabaseE2eEnv.test.mjs',
+            'tools/testing/backend/runPlatformMigrationsBeforeIntegration.test.mjs'
         ]
     ],
     [

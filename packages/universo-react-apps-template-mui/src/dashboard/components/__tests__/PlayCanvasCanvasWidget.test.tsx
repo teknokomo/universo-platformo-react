@@ -394,8 +394,6 @@ const renderWidget = (
                         locale: 'en',
                         runtimeAccessMode: 'member',
                         permissions: { editContent: true },
-                        rows: [],
-                        columns: [],
                         ...detailsOverrides
                     } as never
                 }
@@ -557,16 +555,24 @@ describe('PlayCanvasCanvasWidget', () => {
     it('keeps realtime failure and reconnect states localized in English and Russian resources', () => {
         const runtimeKeys = ['manifestLoading', 'manifestLoadFailed', 'manifestUnavailable', 'manifestSceneUnavailable'] as const
         const realtimeKeys = [
+            'connecting',
+            'connected',
             'unauthorized',
             'room_full',
             'version_mismatch',
             'reconnecting',
+            'restored',
             'failed_reconnect',
-            'unauthorizedDescription',
-            'roomFullDescription',
-            'versionMismatchDescription',
+            'disconnected',
+            'unavailable',
+            'disconnectedDescription',
             'reconnectingDescription',
-            'failedReconnectDescription'
+            'restoredDescription',
+            'failedReconnectDescription',
+            'unauthorizedDescription',
+            'unavailableDescription',
+            'roomFullDescription',
+            'versionMismatchDescription'
         ] as const
         const enRuntime = enApps.playcanvasCanvas as Record<(typeof runtimeKeys)[number], string>
         const ruRuntime = ruApps.playcanvasCanvas as Record<(typeof runtimeKeys)[number], string>
@@ -586,6 +592,7 @@ describe('PlayCanvasCanvasWidget', () => {
             expect(enRealtime[key], `English realtime key ${key}`).toEqual(expect.any(String))
             expect(ruRealtime[key], `Russian realtime key ${key}`).toEqual(expect.any(String))
             expect(ruRealtime[key], `Russian realtime key ${key} must be localized`).not.toBe(enRealtime[key])
+            expect(ruRealtime[key], `Russian realtime key ${key} must not contain English realtime wording`).not.toMatch(/\brealtime\b/i)
             expect(ruRealtime[key], `Russian realtime key ${key} must not expose protocol details`).not.toMatch(
                 /4003|4423|4214|4421|websocket|protocol|room-\d/i
             )

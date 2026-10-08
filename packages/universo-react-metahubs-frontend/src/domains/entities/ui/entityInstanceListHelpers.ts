@@ -1,7 +1,9 @@
 import {
     DEFAULT_OBJECT_RECORD_BEHAVIOR,
     DEFAULT_LEDGER_CONFIG,
+    DEFAULT_OBJECT_RUNTIME_MENU_ICON,
     isBuiltinEntityKind,
+    isObjectRuntimeMenuIcon,
     normalizeObjectRecordBehaviorFromConfig,
     normalizeLedgerConfigFromConfig,
     type BuiltinEntityKind,
@@ -273,6 +275,39 @@ export const getConfigTreeEntityIds = (config: Record<string, unknown>): string[
     Array.isArray(config.hubs) ? config.hubs.filter((value): value is string => typeof value === 'string' && value.trim().length > 0) : []
 
 export const getConfigBoolean = (config: Record<string, unknown>, key: 'isSingleHub' | 'isRequiredHub') => config[key] === true
+
+export const getObjectRuntimeNavigationValues = (config: Record<string, unknown>) => {
+    const runtime = isRecord(config.runtime) ? config.runtime : {}
+    return {
+        runtimeMenuVisible: runtime.menuVisibility === 'primary',
+        runtimeMenuIcon: isObjectRuntimeMenuIcon(runtime.icon) ? runtime.icon : DEFAULT_OBJECT_RUNTIME_MENU_ICON
+    }
+}
+
+export const applyObjectRuntimeNavigationConfig = (
+    config: Record<string, unknown>,
+    visible: boolean,
+    icon: unknown
+): Record<string, unknown> => {
+    const nextConfig = { ...config }
+    const runtime = isRecord(nextConfig.runtime) ? { ...nextConfig.runtime } : {}
+
+    if (visible) {
+        runtime.menuVisibility = 'primary'
+        runtime.icon = isObjectRuntimeMenuIcon(icon) ? icon : DEFAULT_OBJECT_RUNTIME_MENU_ICON
+    } else {
+        runtime.menuVisibility = 'hidden'
+        delete runtime.icon
+    }
+
+    if (Object.keys(runtime).length > 0) {
+        nextConfig.runtime = runtime
+    } else {
+        delete nextConfig.runtime
+    }
+
+    return nextConfig
+}
 
 export const toStrictLocalizedRecord = (value?: Record<string, unknown>): Record<string, string> | undefined => {
     if (!value) {

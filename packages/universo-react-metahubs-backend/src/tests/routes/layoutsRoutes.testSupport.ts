@@ -99,6 +99,21 @@ const createLayoutCopyTransactionTrx = (params?: {
     widgetInsertReturnCount?: number
     overrideInsertReturnCount?: number
 }) => {
+    const withPlacementIdentity = (widget: Record<string, unknown>, index: number, prefix: string) => {
+        const suffix = (Number.parseInt(prefix, 16) + index).toString(16).padStart(12, '0')
+        return {
+            ...widget,
+            id: widget.id ?? `0190a9b5-3cde-7abc-8def-${suffix}`,
+            instance_key: widget.instance_key ?? `0190a9b5-3cde-7abc-8def-${suffix}`,
+            parent_widget_id: widget.parent_widget_id ?? null,
+            slot_key: widget.slot_key ?? null,
+            ...(widget.widget_key === 'menuWidget' && Object.keys((widget.config as object) ?? {}).length === 0
+                ? { config: { variant: 'generated' } }
+                : {})
+        }
+    }
+    const sourceWidgets = (params?.sourceWidgets ?? []).map((widget, index) => withPlacementIdentity(widget, index, '100000'))
+    const baseWidgets = (params?.baseWidgets ?? []).map((widget, index) => withPlacementIdentity(widget, index, '200000'))
     const sourceLayout =
         params?.sourceLayout ??
         ({
@@ -112,7 +127,7 @@ const createLayoutCopyTransactionTrx = (params?: {
                 locales: { en: { content: 'Main dashboard' } }
             },
             description: null,
-            config: { showOverviewCards: true },
+            config: {},
             is_active: true,
             is_default: true,
             sort_order: 0,
@@ -136,7 +151,7 @@ const createLayoutCopyTransactionTrx = (params?: {
                 }
             },
             description: null,
-            config: { showOverviewCards: true },
+            config: {},
             is_active: true,
             is_default: false,
             sort_order: 0,
@@ -211,8 +226,8 @@ const createLayoutCopyTransactionTrx = (params?: {
         }
 
         if (normalizedSql.startsWith('select id') && normalizedSql.includes('_mhb_widgets')) {
-            if (parameterId === sourceLayout.id) return params?.sourceWidgets ?? []
-            if (parameterId === sourceLayout.base_layout_id) return params?.baseWidgets ?? []
+            if (parameterId === sourceLayout.id) return sourceWidgets
+            if (parameterId === sourceLayout.base_layout_id) return baseWidgets
             return []
         }
 
@@ -225,10 +240,9 @@ const createLayoutCopyTransactionTrx = (params?: {
         }
 
         if (normalizedSql.startsWith('insert into') && normalizedSql.includes('_mhb_widgets')) {
-            const widgetCount = params?.sourceWidgets?.length ?? 0
-            return Array.from({ length: params?.widgetInsertReturnCount ?? widgetCount }, (_, index) => ({
-                id: String(params?.sourceWidgets?.[index]?.id ?? `copied-widget-${index}`)
-            }))
+            const widgetCount = sourceWidgets.length
+            const count = params?.widgetInsertReturnCount ?? widgetCount
+            return Array.from({ length: count }, () => ({ id: String(queryParams[0]), instance_key: String(queryParams[2]) }))
         }
 
         if (normalizedSql.startsWith('insert into') && normalizedSql.includes('_mhb_layout_widget_overrides')) {
@@ -351,7 +365,7 @@ export const resetLayoutsRouteMocks = () => {
             }
         },
         description: null,
-        config: { showOverviewCards: true },
+        config: {},
         isActive: true,
         sortOrder: 0
     })

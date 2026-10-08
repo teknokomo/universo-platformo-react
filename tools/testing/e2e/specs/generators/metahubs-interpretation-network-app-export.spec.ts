@@ -23,6 +23,7 @@ import {
 } from '../../support/backend/api-session.mjs'
 import { recordCreatedMetahub } from '../../support/backend/run-manifest.mjs'
 import { repoRoot } from '../../support/env/load-e2e-env.mjs'
+import { resolveFixtureOutputPath as resolveSafeFixtureOutputPath } from '../../support/fixtureOutputPath'
 import { buildSnapshotEnvelope, buildVLC, createLocalizedContent, validateSnapshotEnvelope } from '@universo-react/utils'
 import {
     assertInterpretationNetworkFixtureEnvelopeContract,
@@ -35,11 +36,8 @@ import {
 type ApiContext = Awaited<ReturnType<typeof createLoggedInApiContext>>
 
 const FIXTURES_DIR = path.resolve(repoRoot, 'tools', 'fixtures')
-const explicitFixtureOutputPath = process.env.INTERPRETATION_NETWORK_FIXTURE_OUTPUT_PATH
 const resolveFixtureOutputPath = () =>
-    explicitFixtureOutputPath
-        ? path.resolve(repoRoot, explicitFixtureOutputPath)
-        : path.join(FIXTURES_DIR, INTERPRETATION_NETWORK_FIXTURE_FILENAME)
+    resolveSafeFixtureOutputPath('INTERPRETATION_NETWORK_FIXTURE_OUTPUT_PATH', INTERPRETATION_NETWORK_FIXTURE_FILENAME)
 
 const configureInterpretationNetworkProductFixture = async (api: ApiContext, metahubId: string) => {
     const layoutsPayload = await listLayouts(api, metahubId, { limit: 100, offset: 0 })
@@ -59,7 +57,7 @@ const configureInterpretationNetworkProductFixture = async (api: ApiContext, met
         {
             config: {
                 ...(workspaceWidget.config && typeof workspaceWidget.config === 'object' ? workspaceWidget.config : {}),
-                structureMode: 'singleSystem',
+                structureMode: 'multiple',
                 templatePanel: { showInStructureList: true, showInMatrix: true }
             },
             expectedVersion: workspaceWidget.version

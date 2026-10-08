@@ -32,7 +32,7 @@ const runtimeWidgetFrameSchema = z.object({
     isActive: z.boolean()
 })
 
-const widgetConfigBaseSchema = z.object({ instanceKey: marketingWidgetInstanceKeySchema }).strict()
+const widgetConfigBaseSchema = z.object({}).strict()
 
 const createMarketingRuntimeWidgetSchema = (recordSchema: z.ZodTypeAny) => {
     const runtimeRecordDataSchema = createRuntimeRecordDataSchema(recordSchema)

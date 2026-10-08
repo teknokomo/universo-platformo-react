@@ -13,7 +13,7 @@ const { RESERVED_LAYOUT_METADATA_KEY } = require('@universo-react/types')
 
 describe('generic Metahub widget binding service', () => {
     it('provisions an empty source model only from a compatible source on a top-level Marketing layout', async () => {
-        const harness = createHarness({ widgetKey: 'marketing.hero', rendererConfig: { instanceKey: 'hero' } })
+        const harness = createHarness({ widgetKey: 'marketing.hero', rendererConfig: {} })
         harness.chooseSource('content', 'MarketingPageHero')
         harness.store.loadSourceLayout = jest.fn(async () => ({
             id: layoutId,
@@ -28,7 +28,6 @@ describe('generic Metahub widget binding service', () => {
             { executor: harness.executor, metahubId, userId: 'user-1' },
             {
                 layoutId,
-                templateKey: 'marketing-page',
                 widgetKey: 'marketing.hero',
                 slot: 'content',
                 locale: 'en',
@@ -60,14 +59,14 @@ describe('generic Metahub widget binding service', () => {
         expect(harness.store.loadSourceLayout).toHaveBeenCalledWith(harness.savepointExecutor, schemaName, layoutId, true)
     })
 
-    it('rejects source provisioning outside the top-level Marketing source layout', async () => {
-        const harness = createHarness({ widgetKey: 'marketing.hero', rendererConfig: { instanceKey: 'hero' } })
+    it('rejects source provisioning on an inherited scoped layout', async () => {
+        const harness = createHarness({ widgetKey: 'marketing.hero', rendererConfig: {} })
         harness.chooseSource('content', 'MarketingPageHero')
         harness.store.loadSourceLayout = jest.fn(async () => ({
             id: layoutId,
             template_key: 'marketing-page',
             scope_entity_id: recordId,
-            base_layout_id: null
+            base_layout_id: objectId
         }))
         const provisionSource = jest.fn()
         const service = new WidgetBindingService({ schemaService: harness.schemaService, store: harness.store, provisionSource })
@@ -77,14 +76,13 @@ describe('generic Metahub widget binding service', () => {
                 { executor: harness.executor, metahubId },
                 {
                     layoutId,
-                    templateKey: 'marketing-page',
                     widgetKey: 'marketing.hero',
                     slot: 'content',
                     templateSourceKey: 'MarketingPageHero',
                     name: 'Alternative hero'
                 }
             )
-        ).rejects.toThrow('Marketing source layout')
+        ).rejects.toThrow('This placement inherits or specializes its Entity bindings')
         expect(provisionSource).not.toHaveBeenCalled()
     })
 
@@ -131,7 +129,6 @@ describe('generic Metahub widget binding service', () => {
             { executor: harness.executor, metahubId },
             {
                 layoutId,
-                templateKey: 'marketing-page',
                 widgetKey: 'marketing.collection',
                 slot: 'items',
                 variant: 'logos',

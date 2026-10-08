@@ -392,6 +392,39 @@ describe('MetahubRecordsService design-time record integrity', () => {
             expect((executor.query as jest.Mock).mock.calls.some(([sql]) => String(sql).includes('INSERT INTO'))).toBe(false)
         })
 
+        it('checks enumeration REF values in the option-value table and rejects missing values', async () => {
+            const enumerationId = '019d1234-5678-7abc-8def-123456789012'
+            const optionValueId = '019d1234-5678-7abc-8def-123456789013'
+            const enumerationComponents = [
+                {
+                    id: 'resource-type-component',
+                    codename: 'ResourceType',
+                    dataType: ComponentDefinitionDataType.REF,
+                    isRequired: true,
+                    parentComponentId: null,
+                    targetEntityId: enumerationId,
+                    targetEntityKind: 'enumeration',
+                    validationRules: {}
+                }
+            ]
+            const { executor, service } = createService({ components: enumerationComponents })
+            ;(executor.query as jest.Mock).mockImplementation(async (sql: string) => {
+                if (sql.includes('_mhb_values') && sql.includes('id = ANY(')) return []
+                return []
+            })
+
+            await expect(
+                service.create(metahubId, objectCollectionId, { data: { ResourceType: optionValueId } }, 'user-1')
+            ).rejects.toMatchObject({ code: 'RECORD_REF_TARGET_MISSING', statusCode: 400 })
+
+            const probe = (executor.query as jest.Mock).mock.calls.find(
+                ([sql]) => String(sql).includes('_mhb_values') && String(sql).includes('id = ANY(')
+            )
+            expect(String(probe?.[0])).toContain('FOR SHARE')
+            expect(probe?.[1]).toEqual([enumerationId, [optionValueId]])
+            expect((executor.query as jest.Mock).mock.calls.some(([sql]) => String(sql).includes('INSERT INTO'))).toBe(false)
+        })
+
         it('accepts creating a record whose REF targets exist', async () => {
             const { executor, service } = createService({ components: refComponents })
             ;(executor.query as jest.Mock).mockImplementation(async (sql: string) => {
@@ -416,9 +449,63 @@ describe('MetahubRecordsService design-time record integrity', () => {
 
             const probe = (executor.query as jest.Mock).mock.calls.find(([sql]) => String(sql).includes('id = ANY('))
             expect(probe?.[1]).toEqual([targetEntityId, [recordId]])
-            // The existence probe holds the referenced rows with FOR KEY SHARE
-            // so a concurrent delete of a target serializes against this write.
-            expect(String(probe?.[0])).toContain('FOR KEY SHARE')
+            // The existence probe holds the referenced rows with FOR SHARE so
+            // concurrent soft-deletes serialize against this write.
+            expect(String(probe?.[0])).toContain('FOR SHARE')
+        })
+
+        it('accepts a live option value for an enumeration REF', async () => {
+            const enumerationId = '019d1234-5678-7abc-8def-123456789012'
+            const optionValueId = '019d1234-5678-7abc-8def-123456789013'
+            const enumerationComponents = [
+                {
+                    id: 'resource-type-component',
+                    codename: 'ResourceType',
+                    dataType: ComponentDefinitionDataType.REF,
+                    isRequired: true,
+                    parentComponentId: null,
+                    targetEntityId: enumerationId,
+                    targetEntityKind: 'enumeration',
+                    validationRules: {}
+                }
+            ]
+            const { executor, service } = createService({ components: enumerationComponents })
+            ;(executor.query as jest.Mock).mockImplementation(async (sql: string) => {
+                if (sql.includes('_mhb_values') && sql.includes('id = ANY(')) return [{ id: optionValueId }]
+                if (sql.includes('SELECT MAX(sort_order)')) return [{ max: 0 }]
+                if (sql.includes('INSERT INTO')) {
+                    return [
+                        {
+                            id: 'record-new',
+                            object_id: objectCollectionId,
+                            data: { ResourceType: optionValueId },
+                            sort_order: 1,
+                            _upl_version: 1
+                        }
+                    ]
+                }
+                if (sql.includes('SELECT * FROM')) {
+                    return [
+                        {
+                            id: 'record-new',
+                            object_id: objectCollectionId,
+                            data: { ResourceType: optionValueId },
+                            sort_order: 1,
+                            _upl_version: 1
+                        }
+                    ]
+                }
+                return []
+            })
+
+            await expect(
+                service.create(metahubId, objectCollectionId, { data: { ResourceType: optionValueId } }, 'user-1')
+            ).resolves.toMatchObject({ id: 'record-new' })
+
+            const probe = (executor.query as jest.Mock).mock.calls.find(
+                ([sql]) => String(sql).includes('_mhb_values') && String(sql).includes('id = ANY(')
+            )
+            expect(probe?.[1]).toEqual([enumerationId, [optionValueId]])
         })
 
         it('rejects updating a record when the REF target disappeared', async () => {

@@ -12,7 +12,7 @@ export type {
     LayoutZoneSettingsDialogLabels,
     LayoutZoneSettingsDialogProps
 } from './LayoutZoneSettingsDialog'
-export { MarketingWidgetConfigDialog } from './MarketingWidgetConfigDialog'
+export { LayoutWidgetPresentationDialog, MarketingWidgetConfigDialog } from './MarketingWidgetConfigDialog'
 export type {
     LayoutAuthoringAvailableWidgetItem,
     LayoutAuthoringDetailsProps,
@@ -20,7 +20,7 @@ export type {
     LayoutAuthoringWidgetRow,
     LayoutAuthoringZoneGroup
 } from './LayoutAuthoringDetails'
-export type { MarketingWidgetConfigDialogProps } from './MarketingWidgetConfigDialog'
+export type { LayoutWidgetPresentationDialogProps, MarketingWidgetConfigDialogProps } from './MarketingWidgetConfigDialog'
 export { MenuWidgetSideMenuSettings } from './MenuWidgetSideMenuSettings'
 export type { MenuWidgetSideMenuSettingsProps } from './MenuWidgetSideMenuSettings'
 export {

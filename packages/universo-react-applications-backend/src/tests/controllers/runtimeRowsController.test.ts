@@ -1,5 +1,6 @@
-import { ApplicationMembershipState } from '@universo-react/types'
+import { ApplicationMembershipState, getLayoutWidgetDefinition, validateWidgetBindings } from '@universo-react/types'
 import type { Request, Response } from 'express'
+import { attachApplicationLayoutWidgetSourceBindingState } from '../../persistence/applicationLayoutStoreSupport'
 
 const mockResolveRuntimeSchema = jest.fn()
 const mockRuntimeQuery = jest.fn()
@@ -26,12 +27,12 @@ jest.mock('../../services/effectiveLayoutResolver', () => ({
     resolveEffectiveLayoutForRequest: (...args: unknown[]) => mockResolveEffectiveLayoutForRequest(...args)
 }))
 
-import {
-    createRuntimeRowsController,
-    mapRuntimeZoneWidgets,
-    partitionRuntimeMenuItems,
-    resolvePreferredScopeEntityIdFromGlobalMenu
-} from '../../controllers/runtimeRowsController'
+jest.mock('../../services/effectiveLayoutResolverCore', () => ({
+    __esModule: true,
+    resolveEffectiveLayoutStructureForRequest: (...args: unknown[]) => mockResolveEffectiveLayoutForRequest(...args)
+}))
+
+import { createRuntimeRowsController, mapRuntimeZoneWidgets } from '../../controllers/runtimeRowsController'
 import {
     UpdateFailure,
     coerceRuntimeValue,
@@ -135,12 +136,132 @@ const mutableRuntimeComponents = [
     }
 ]
 
+const relationParentId = '019f2000-0000-7000-8000-000000000201'
+const relationParentEntityId = '019f2000-0000-7000-8000-000000000202'
+const relationBoundRuntimeComponents = [
+    ...mutableRuntimeComponents,
+    {
+        id: 'course-component',
+        codename: 'CourseId',
+        column_name: 'course_id',
+        data_type: 'REF',
+        target_object_id: relationParentEntityId,
+        target_object_kind: 'object',
+        is_required: false,
+        validation_rules: {},
+        ui_config: {}
+    }
+]
+
+const relationBuilderSourceConfig = {
+    panels: [
+        {
+            slotKey: 'panel:items',
+            title: { en: 'Course items', ru: 'Элементы курса' },
+            parentFieldCodename: 'CourseId'
+        }
+    ]
+}
+const relationBuilderDefinition = getLayoutWidgetDefinition('relationBuilder', relationBuilderSourceConfig)
+if (!relationBuilderDefinition?.bindingSlots) throw new Error('Expected relationBuilder binding slots for runtime test fixture')
+const relationBuilderBindings = validateWidgetBindings(relationBuilderDefinition, {
+    version: 1,
+    slots: relationBuilderDefinition.bindingSlots.map((slot) => ({
+        slot: slot.key,
+        targets: [
+            {
+                entityKind: 'object',
+                entityCodename: slot.key === 'parent' ? 'Courses' : 'Structure',
+                selector: slot.key === 'parent' ? { kind: 'record-set' } : { kind: 'relation-set', parentSlot: 'parent' },
+                projection: slot.requirements.components.map(({ field, componentCodename }) => ({ field, componentCodename }))
+            }
+        ]
+    }))
+})
+
+const relationBoundEffectiveLayout = {
+    status: 'ok',
+    target: { applicationId: testApplicationId, targetKind: 'object', entityTypeId: mutableObjectCollectionId, locale: 'en' },
+    resolvedEntityTypeId: mutableObjectCollectionId,
+    scope: 'global',
+    layout: {
+        id: '019f2000-0000-7000-8000-000000000203',
+        scopeKind: 'application-global',
+        scopeEntityId: null,
+        templateKey: 'dashboard',
+        sourceKind: 'application',
+        sourceLayoutId: null,
+        sourceSnapshotHash: null,
+        sourceContentHash: null,
+        localContentHash: null,
+        syncState: 'clean',
+        name: { en: 'Dashboard' },
+        description: null,
+        config: {},
+        isActive: true,
+        isDefault: true,
+        sortOrder: 0,
+        version: 1,
+        compositionMode: 'independent',
+        baseLayoutId: null
+    },
+    widgets: [
+        {
+            id: 'relation-builder-widget',
+            layoutId: '019f2000-0000-7000-8000-000000000203',
+            instanceKey: 'instance-course-items',
+            parentWidgetId: null,
+            slotKey: null,
+            widgetKey: 'relationBuilder',
+            sortOrder: 0,
+            zone: 'center',
+            config: {
+                panels: [
+                    {
+                        slotKey: 'panel:items',
+                        title: { en: 'Course items', ru: 'Элементы курса' },
+                        parentFieldCodename: 'CourseId'
+                    }
+                ]
+            },
+            isActive: true,
+            runtimeData: {
+                status: 'ready',
+                data: {
+                    kind: 'relation',
+                    parents: [
+                        {
+                            key: 'course-one',
+                            label: 'Course One',
+                            target: { entityCodename: 'Courses', recordId: relationParentId }
+                        }
+                    ],
+                    panels: [
+                        {
+                            slotKey: 'panel:items',
+                            title: 'Course items',
+                            targetEntityCodename: 'Structure',
+                            parentFieldCodename: 'CourseId',
+                            rows: []
+                        }
+                    ]
+                }
+            }
+        }
+    ]
+}
+
+attachApplicationLayoutWidgetSourceBindingState(relationBoundEffectiveLayout.widgets[0]!, {
+    persistedApplicationRow: true,
+    bindings: relationBuilderBindings
+})
+
 describe('runtimeRowsController zone widget transport', () => {
     it('preserves all five Dashboard zones without positional remapping', () => {
         const zoneWidgets = mapRuntimeZoneWidgets([
             { id: 'left-widget', layout_id: 'layout-1', widget_key: 'menuWidget', sort_order: 0, config: {}, zone: 'left' },
             { id: 'top-widget', layout_id: 'layout-1', widget_key: 'header', sort_order: 1, config: {}, zone: 'top' },
-            { id: 'right-widget', layout_id: 'layout-1', widget_key: 'productTree', sort_order: 2, config: {}, zone: 'right' },
+            { id: 'right-widget', layout_id: 'layout-1', widget_key: 'overviewCards', sort_order: 2, config: {}, zone: 'right' },
             { id: 'bottom-widget', layout_id: 'layout-1', widget_key: 'footer', sort_order: 3, config: {}, zone: 'bottom' },
             { id: 'center-widget', layout_id: 'layout-1', widget_key: 'detailsTable', sort_order: 4, config: {}, zone: 'center' }
         ])
@@ -467,6 +588,72 @@ describe('runtimeRowsController Entity runtime mutation policy', () => {
         expect(executedSql).not.toMatch(/\bUPDATE\b/i)
         expect(executedSql).not.toMatch(/\bDELETE\b/i)
     })
+})
+
+describe('runtimeRowsController relation-bound reference writes', () => {
+    beforeEach(() => {
+        jest.clearAllMocks()
+        mockRuntimeQuery.mockReset()
+        mockRuntimeQuery.mockResolvedValue([])
+    })
+
+    it.each(['create', 'bulk update', 'single-cell update'] as const)(
+        'rejects an unscoped %s that supplies a projected relation parent reference',
+        async (mutation) => {
+            const { controller, executor } = createRuntimeMutationHarness()
+            const res = createResponse()
+            mockResolveInterpretationNetworkRuntimeSurface.mockResolvedValue({
+                featureState: 'ready',
+                structureMode: 'multiple',
+                resolvedObjects: { Structure: mutableObjectCollectionId }
+            })
+            mockResolveEffectiveLayoutForRequest.mockResolvedValue(relationBoundEffectiveLayout)
+            executor.query.mockImplementation(async (sql: string) => {
+                if (sql.includes('FROM runtime_schema._app_objects') && sql.includes('ORDER BY')) return runtimeObjectCollectionRows
+                if (sql.includes('FROM runtime_schema._app_components')) return relationBoundRuntimeComponents
+                return []
+            })
+
+            if (mutation === 'create') {
+                await controller.createRow(
+                    createRuntimeRequest({
+                        body: { objectCollectionId: mutableObjectCollectionId, data: { Name: 'Draft', CourseId: relationParentId } }
+                    }),
+                    res
+                )
+            } else if (mutation === 'bulk update') {
+                await controller.bulkUpdateRow(
+                    createRuntimeRequest({
+                        method: 'PATCH',
+                        body: { objectCollectionId: mutableObjectCollectionId, data: { CourseId: relationParentId }, expectedVersion: 1 }
+                    }),
+                    res
+                )
+            } else {
+                await controller.updateCell(
+                    createRuntimeRequest({
+                        method: 'PATCH',
+                        body: {
+                            objectCollectionId: mutableObjectCollectionId,
+                            field: 'course_id',
+                            value: relationParentId,
+                            expectedVersion: 1
+                        }
+                    }),
+                    res
+                )
+            }
+
+            expect(res.status).toHaveBeenCalledWith(409)
+            expect(res.status.mock.results[0]?.value.json).toHaveBeenCalledWith({
+                error: 'A verified relation scope is required to change this relationship',
+                code: 'RUNTIME_RELATION_SCOPE_REQUIRED'
+            })
+            const executedSql = executor.query.mock.calls.map(([sql]) => String(sql)).join('\n')
+            expect(executedSql).not.toMatch(/\bINSERT\b/i)
+            expect(executedSql).not.toMatch(/\bUPDATE\b/i)
+        }
+    )
 })
 
 describe('runtimeRowsController server-owned field enforcement', () => {
@@ -1316,210 +1503,6 @@ describe('runtimeRowsController single-system Structure protection', () => {
             expect.objectContaining({ code: 'INTERPRETATION_NETWORK_SYSTEM_STRUCTURE_IMMUTABLE' })
         )
         expect(executor.query.mock.calls.some(([sql]) => String(sql).includes('UPDATE runtime_schema."structure"'))).toBe(false)
-    })
-})
-
-describe('runtimeRowsController startup section resolution', () => {
-    it('prefers the menu startPage section before bound hub fallback', async () => {
-        const { executor } = createMockDbExecutor()
-
-        executor.query.mockImplementation(async (sql: string, params?: unknown[]) => {
-            if (sql.includes('information_schema.tables')) {
-                return [{ layoutsExists: true, widgetsExists: true }]
-            }
-
-            if (sql.includes('FROM runtime_schema._app_layouts')) {
-                return [{ id: 'global-layout-1' }]
-            }
-
-            if (sql.includes('FROM runtime_schema._app_widgets')) {
-                return [
-                    {
-                        config: {
-                            bindToHub: true,
-                            boundHubId: 'hub-1',
-                            startPage: 'LearningResources',
-                            items: [{ id: 'section', kind: 'section', sectionId: 'LearningResources' }]
-                        }
-                    }
-                ]
-            }
-
-            if (sql.includes('FROM runtime_schema._app_objects') && sql.includes('id::text = $1')) {
-                expect(params).toEqual(['LearningResources'])
-                expect(sql).toContain("config->'capabilities'->'layoutConfig'->>'enabled'")
-                expect(sql).not.toContain("COALESCE(kind, '') NOT IN")
-                expect(sql).not.toContain("= 'page'")
-                return [{ id: 'modules-object-id' }]
-            }
-
-            throw new Error(`Unexpected SQL: ${sql}`)
-        })
-
-        await expect(
-            resolvePreferredScopeEntityIdFromGlobalMenu({
-                manager: executor,
-                schemaName: 'runtime_schema',
-                schemaIdent: 'runtime_schema'
-            })
-        ).resolves.toBe('modules-object-id')
-
-        const executedSql = executor.query.mock.calls.map(([sql]) => String(sql)).join('\n')
-        expect(executedSql).not.toContain("config->'hubs' @>")
-    })
-
-    it('limits startup scope tokens to layout-capable runtime sections', async () => {
-        const { executor } = createMockDbExecutor()
-
-        executor.query.mockImplementation(async (sql: string, params?: unknown[]) => {
-            if (sql.includes('information_schema.tables')) {
-                return [{ layoutsExists: true, widgetsExists: true }]
-            }
-
-            if (sql.includes('FROM runtime_schema._app_layouts')) {
-                return [{ id: 'global-layout-1' }]
-            }
-
-            if (sql.includes('FROM runtime_schema._app_widgets')) {
-                return [{ config: { startPage: 'CustomLanding' } }]
-            }
-
-            if (sql.includes('FROM runtime_schema._app_objects') && sql.includes('id::text = $1')) {
-                expect(params).toEqual(['CustomLanding'])
-                expect(sql).toContain("config->'capabilities'->'layoutConfig'->>'enabled'")
-                expect(sql).not.toContain("COALESCE(kind, '') NOT IN")
-                expect(sql).not.toContain("= 'page'")
-                return [{ id: 'custom-layout-capable-entity-id' }]
-            }
-
-            throw new Error(`Unexpected SQL: ${sql}`)
-        })
-
-        await expect(
-            resolvePreferredScopeEntityIdFromGlobalMenu({
-                manager: executor,
-                schemaName: 'runtime_schema',
-                schemaIdent: 'runtime_schema'
-            })
-        ).resolves.toBe('custom-layout-capable-entity-id')
-    })
-
-    it('prefers UUID-backed startTarget over an unresolved startPage token', async () => {
-        const { executor } = createMockDbExecutor()
-
-        executor.query.mockImplementation(async (sql: string, params?: unknown[]) => {
-            if (sql.includes('information_schema.tables')) {
-                return [{ layoutsExists: true, widgetsExists: true }]
-            }
-
-            if (sql.includes('FROM runtime_schema._app_layouts')) {
-                return [{ id: 'global-layout-1' }]
-            }
-
-            if (sql.includes('FROM runtime_schema._app_widgets')) {
-                return [
-                    {
-                        config: {
-                            startPage: 'legacy-codename',
-                            startTarget: {
-                                kind: 'objectCollection',
-                                objectCollectionId: '019f15a0-0000-7000-8000-000000000001'
-                            }
-                        }
-                    }
-                ]
-            }
-
-            if (sql.includes('FROM runtime_schema._app_objects') && sql.includes('id::text = $1')) {
-                expect(params).toEqual(['019f15a0-0000-7000-8000-000000000001'])
-                return [{ id: '019f15a0-0000-7000-8000-000000000001' }]
-            }
-
-            throw new Error(`Unexpected SQL: ${sql}`)
-        })
-
-        await expect(
-            resolvePreferredScopeEntityIdFromGlobalMenu({
-                manager: executor,
-                schemaName: 'runtime_schema',
-                schemaIdent: 'runtime_schema'
-            })
-        ).resolves.toBe('019f15a0-0000-7000-8000-000000000001')
-    })
-
-    it('derives startup section bindings from the global default or active layout only with config-aware section filtering', async () => {
-        const { executor } = createMockDbExecutor()
-
-        executor.query.mockImplementation(async (sql: string) => {
-            if (sql.includes('information_schema.tables')) {
-                return [{ layoutsExists: true, widgetsExists: true }]
-            }
-
-            if (sql.includes('FROM runtime_schema._app_layouts')) {
-                expect(sql).toContain('scope_entity_id IS NULL')
-                return [{ id: 'global-layout-1' }]
-            }
-
-            if (sql.includes('FROM runtime_schema._app_widgets')) {
-                return [{ config: { bindToHub: true, boundHubId: 'hub-1' } }]
-            }
-
-            if (sql.includes("config->'hubs' @>")) {
-                expect(sql).toContain("COALESCE(kind, '') NOT IN ('hub', 'set', 'enumeration', 'page', 'ledger')")
-                expect(sql).not.toContain('custom.')
-                return [{ id: 'object-1' }]
-            }
-
-            throw new Error(`Unexpected SQL: ${sql}`)
-        })
-
-        await expect(
-            resolvePreferredScopeEntityIdFromGlobalMenu({
-                manager: executor,
-                schemaName: 'runtime_schema',
-                schemaIdent: 'runtime_schema'
-            })
-        ).resolves.toBe('object-1')
-
-        expect(executor.query).toHaveBeenCalled()
-    })
-})
-
-describe('partitionRuntimeMenuItems', () => {
-    const items = ['modules', 'knowledge', 'development', 'reports']
-    const workspaceItem = 'workspaces'
-
-    it('keeps the injected workspace item inside the primary menu limit', () => {
-        const result = partitionRuntimeMenuItems(items, 3, workspaceItem, 'primary')
-
-        expect(result.primaryItems).toEqual(['modules', 'knowledge', 'workspaces'])
-        expect(result.overflowItems).toEqual(['development', 'reports'])
-    })
-
-    it('handles a primary workspace item when the limit leaves no room for regular items', () => {
-        const result = partitionRuntimeMenuItems(items, 1, workspaceItem, 'primary')
-
-        expect(result.primaryItems).toEqual(['workspaces'])
-        expect(result.overflowItems).toEqual(items)
-    })
-
-    it('does not reserve primary capacity when the workspace item is in overflow or hidden', () => {
-        expect(partitionRuntimeMenuItems(items, 2, workspaceItem, 'overflow')).toEqual({
-            primaryItems: ['modules', 'knowledge'],
-            overflowItems: ['development', 'reports', 'workspaces']
-        })
-        expect(partitionRuntimeMenuItems(items, 2, workspaceItem, 'hidden')).toEqual({
-            primaryItems: ['modules', 'knowledge'],
-            overflowItems: ['development', 'reports']
-        })
-    })
-
-    it('does not mutate the source items when there is no primary limit', () => {
-        const result = partitionRuntimeMenuItems(items, null, workspaceItem, 'primary')
-
-        expect(result.primaryItems).toEqual(['modules', 'knowledge', 'development', 'reports', 'workspaces'])
-        expect(result.overflowItems).toEqual([])
-        expect(items).toEqual(['modules', 'knowledge', 'development', 'reports'])
     })
 })
 

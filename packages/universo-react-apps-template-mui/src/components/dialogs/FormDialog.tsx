@@ -47,7 +47,12 @@ import { normalizeTabularRowValues } from '../../utils/tabularCellValues'
 import { isSemanticLongTextRuntimeField } from '../../utils/fieldSemantics'
 import { buildDefaultResourceSourceForType } from '../../utils/resourceSourceDefaults'
 import { getDefaultResourceTypeLabel } from '../../utils/resourceSourceLabels'
-import { formatRuntimeSafeValue } from '../../utils/displayValue'
+import {
+    formatRuntimeSafeFieldLabel,
+    formatRuntimeSafeValue,
+    isRuntimeSensitiveFieldName,
+    isRuntimeTechnicalFieldName
+} from '../../utils/displayValue'
 import { extractRuntimeErrorMessage } from '../../utils/runtimeErrors'
 import PageContainer from '../../crud-dashboard/components/PageContainer'
 import { EditorJsBlockEditor } from '@universo-react/block-editor'
@@ -334,7 +339,7 @@ const isResourceSourceField = (field: FieldConfig): boolean => {
 
 const isStaticallyHiddenField = (field: FieldConfig): boolean => {
     const uiConfig = field.uiConfig ?? {}
-    return uiConfig.hidden === true || uiConfig.formHidden === true
+    return uiConfig.hidden === true || uiConfig.formHidden === true || uiConfig.serverOwned === true
 }
 
 const readFieldVisibilityCondition = (field: FieldConfig): FieldVisibilityCondition | null => {
@@ -604,16 +609,33 @@ const readStringSelectOptions = (field: FieldConfig, locale: string): StringSele
     const uiConfig = field.uiConfig ?? {}
     const rawOptions = uiConfig.stringOptions ?? uiConfig.options
     if (!Array.isArray(rawOptions)) return []
+    const technicalField = isRuntimeTechnicalFieldName(field.codename) || isRuntimeTechnicalFieldName(field.id)
+
+    const toSafeLabel = (value: unknown): string | null => {
+        return formatRuntimeSafeFieldLabel(value, locale) || null
+    }
 
     return rawOptions.flatMap((option): StringSelectOption[] => {
         if (typeof option === 'string' && option.trim().length > 0) {
-            return [{ value: option, label: option }]
+            const label = technicalField ? null : toSafeLabel(option)
+            return label ? [{ value: option, label }] : []
         }
         if (!isRecord(option) || typeof option.value !== 'string' || option.value.trim().length === 0) return []
-        const localizedLabel = getLocalizedStringValue(option.label, locale)
-        const plainLabel = typeof option.label === 'string' && option.label.trim().length > 0 ? option.label : null
-        return [{ value: option.value, label: localizedLabel ?? plainLabel ?? option.value }]
+        const explicitLabel = toSafeLabel(option.label)
+        const valueLabel = technicalField ? null : toSafeLabel(option.value)
+        const label = explicitLabel ?? valueLabel
+        return label ? [{ value: option.value, label }] : []
     })
+}
+
+const resolveRuntimeFieldLabel = (field: FieldConfig, locale: string, translate: (key: string, fallback: string) => string): string => {
+    const safeLabel = formatRuntimeSafeFieldLabel(field.label, locale)
+    if (safeLabel) return safeLabel
+    if (readRuntimeRecordPickerConfig(field)) return translate('recordPicker.fieldLabel', 'Related record')
+    if (field.type === 'STRING' && readStringSelectOptions(field, locale).length > 0) {
+        return translate('runtimeFieldLabel.selection', 'Selection')
+    }
+    return translate('runtimeFieldLabel.fallback', 'Field')
 }
 
 const readLocalizedOptionLabel = (value: unknown, locale: string): string | null => {
@@ -677,16 +699,31 @@ const buildResourceSourceTypeOptions = (
 
 const getRuntimeRecordPickerLabel = (
     row: Record<string, unknown>,
+    columns: Array<{ field?: unknown; codename?: unknown; headerName?: unknown; uiConfig?: Record<string, unknown> }>,
     labelFields: readonly string[],
     locale: string,
     fallback: string
 ): string => {
     for (const field of labelFields) {
-        const value = row[field]
-        const localizedValue = getLocalizedStringValue(value, locale)
-        if (localizedValue && localizedValue.trim().length > 0) return localizedValue
-        if (typeof value === 'string' && value.trim().length > 0) return value
-        if (typeof value === 'number' && Number.isFinite(value)) return String(value)
+        const normalizedField = field.trim().toLowerCase()
+        if (!normalizedField || isRuntimeTechnicalFieldName(field)) continue
+        const matchingColumns = columns.filter((candidate) =>
+            [candidate.codename, candidate.field].some((name) => typeof name === 'string' && name.trim().toLowerCase() === normalizedField)
+        )
+        if (matchingColumns.length !== 1) continue
+        const column = matchingColumns[0]
+        if (column.uiConfig?.sensitive === true || column.uiConfig?.private === true) continue
+        if (
+            [column.codename, column.field, column.headerName].some(
+                (name) => typeof name === 'string' && (isRuntimeTechnicalFieldName(name) || isRuntimeSensitiveFieldName(name))
+            )
+        )
+            continue
+        const physicalField = typeof column?.field === 'string' ? column.field : undefined
+        const codename = typeof column.codename === 'string' ? column.codename : undefined
+        const value = (physicalField ? row[physicalField] : undefined) ?? (codename ? row[codename] : undefined) ?? row[field]
+        const label = formatRuntimeSafeFieldLabel(value, locale)
+        if (label) return label
     }
 
     return fallback
@@ -1023,6 +1060,19 @@ export const FormDialog: React.FC<FormDialogProps> = ({
     const effectiveCancelButtonText = cancelButtonText ?? t('app.cancel', 'Cancel')
     const effectiveDeleteButtonText = deleteButtonText ?? t('app.delete', 'Delete')
 
+    const fieldIdByCodename = useMemo(() => {
+        const result = new Map<string, string | null>()
+        for (const field of fields) {
+            for (const alias of [field.id, field.codename]) {
+                if (typeof alias !== 'string' || alias.trim().length === 0) continue
+                const key = alias.trim().toLowerCase()
+                if (!result.has(key)) result.set(key, field.id)
+                else if (result.get(key) !== field.id) result.set(key, null)
+            }
+        }
+        return result
+    }, [fields])
+
     const recordPickerFields = useMemo(
         () =>
             fields
@@ -1034,12 +1084,14 @@ export const FormDialog: React.FC<FormDialogProps> = ({
     const recordPickerFieldIdsByTargetId = useMemo(() => {
         const result = new Map<string, string[]>()
         for (const { field, config } of recordPickerFields) {
-            const existing = result.get(config.targetObjectCodenameField) ?? []
+            const targetFieldId = fieldIdByCodename.get(config.targetObjectCodenameField.trim().toLowerCase())
+            if (!targetFieldId) continue
+            const existing = result.get(targetFieldId) ?? []
             existing.push(field.id)
-            result.set(config.targetObjectCodenameField, existing)
+            result.set(targetFieldId, existing)
         }
         return result
-    }, [recordPickerFields])
+    }, [fieldIdByCodename, recordPickerFields])
 
     const objectCollectionByCodename = useMemo(
         () => new Map(objectCollections.map((item) => [item.codename, item] as const)),
@@ -1050,10 +1102,9 @@ export const FormDialog: React.FC<FormDialogProps> = ({
         () =>
             recordPickerFields
                 .map(({ field, config }) => {
+                    const targetFieldId = fieldIdByCodename.get(config.targetObjectCodenameField.trim().toLowerCase())
                     const targetCodename =
-                        typeof formData[config.targetObjectCodenameField] === 'string'
-                            ? String(formData[config.targetObjectCodenameField]).trim()
-                            : ''
+                        targetFieldId && typeof formData[targetFieldId] === 'string' ? String(formData[targetFieldId]).trim() : ''
                     const isAllowed = !config.allowedObjectCodenames || config.allowedObjectCodenames.includes(targetCodename)
                     const targetObjectCollectionId = isAllowed ? objectCollectionByCodename.get(targetCodename)?.id ?? '' : ''
                     return [field.id, targetCodename, targetObjectCollectionId, config.labelFields.join(','), String(config.limit)].join(
@@ -1061,7 +1112,7 @@ export const FormDialog: React.FC<FormDialogProps> = ({
                     )
                 })
                 .join('|'),
-        [formData, objectCollectionByCodename, recordPickerFields]
+        [fieldIdByCodename, formData, objectCollectionByCodename, recordPickerFields]
     )
 
     const [recordPickerOptionsByFieldId, setRecordPickerOptionsByFieldId] = useState<
@@ -1077,14 +1128,13 @@ export const FormDialog: React.FC<FormDialogProps> = ({
         let isCancelled = false
 
         for (const { field, config } of recordPickerFields) {
+            const targetFieldId = fieldIdByCodename.get(config.targetObjectCodenameField.trim().toLowerCase())
             const targetCodename =
-                typeof formData[config.targetObjectCodenameField] === 'string'
-                    ? String(formData[config.targetObjectCodenameField]).trim()
-                    : ''
+                targetFieldId && typeof formData[targetFieldId] === 'string' ? String(formData[targetFieldId]).trim() : ''
             const isAllowed = !config.allowedObjectCodenames || config.allowedObjectCodenames.includes(targetCodename)
             const targetObjectCollectionId = isAllowed ? objectCollectionByCodename.get(targetCodename)?.id ?? null : null
 
-            if (!targetCodename || !targetObjectCollectionId) {
+            if (!targetFieldId || !targetCodename || !targetObjectCollectionId) {
                 setRecordPickerOptionsByFieldId((current) => ({
                     ...current,
                     [field.id]: { targetCodename, loading: false, error: null, options: [] }
@@ -1118,6 +1168,7 @@ export const FormDialog: React.FC<FormDialogProps> = ({
                                 id: row.id,
                                 label: getRuntimeRecordPickerLabel(
                                     row,
+                                    response.columns,
                                     config.labelFields,
                                     normalizedLocale,
                                     t('recordPicker.untitled', 'Untitled record')
@@ -1153,6 +1204,7 @@ export const FormDialog: React.FC<FormDialogProps> = ({
         applicationId,
         currentWorkspaceId,
         normalizedLocale,
+        fieldIdByCodename,
         objectCollectionByCodename,
         recordPickerFields,
         recordPickerRequestKey,
@@ -1342,25 +1394,32 @@ export const FormDialog: React.FC<FormDialogProps> = ({
             for (const [localeCode, entry] of Object.entries(locales)) {
                 const content = entry?.content
                 if (typeof content !== 'string' || content.length === 0) continue
+                const normalizedLocaleCode = localeCode.toLowerCase().split(/[-_]/u)[0]
+                const language =
+                    normalizedLocaleCode === 'en'
+                        ? t('validation.languages.en', { defaultValue: 'English' })
+                        : normalizedLocaleCode === 'ru'
+                        ? t('validation.languages.ru', { defaultValue: 'Russian' })
+                        : localeCode.toUpperCase()
                 if (minLength !== null && maxLength !== null && (content.length < minLength || content.length > maxLength)) {
                     return t('validation.vlcLengthBetween', {
-                        defaultValue: 'Language "{{locale}}": length must be between {{min}} and {{max}}',
-                        locale: localeCode.toUpperCase(),
+                        defaultValue: 'Enter between {{min}} and {{max}} characters in {{language}}.',
+                        language,
                         min: minLength,
                         max: maxLength
                     })
                 }
                 if (minLength !== null && content.length < minLength) {
                     return t('validation.vlcMinLength', {
-                        defaultValue: 'Language "{{locale}}": minimum length {{min}}',
-                        locale: localeCode.toUpperCase(),
+                        defaultValue: 'Enter at least {{min}} characters in {{language}}.',
+                        language,
                         min: minLength
                     })
                 }
                 if (maxLength !== null && content.length > maxLength) {
                     return t('validation.vlcMaxLength', {
-                        defaultValue: 'Language "{{locale}}": maximum length {{max}}',
-                        locale: localeCode.toUpperCase(),
+                        defaultValue: 'Enter no more than {{max}} characters in {{language}}.',
+                        language,
                         max: maxLength
                     })
                 }
@@ -1570,6 +1629,7 @@ export const FormDialog: React.FC<FormDialogProps> = ({
     const buildPayload = useCallback(() => {
         const payload: Record<string, unknown> = {}
         fields.forEach((field) => {
+            if (field.uiConfig?.serverOwned === true) return
             const dateOffsetDerivation = readFieldDateOffsetDerivation(field)
             const derivedValue = dateOffsetDerivation ? deriveDateOffsetValue(dateOffsetDerivation, formData) : undefined
             if (derivedValue !== undefined) {
@@ -1603,7 +1663,19 @@ export const FormDialog: React.FC<FormDialogProps> = ({
         await onSubmit(buildPayload())
     }
 
-    const renderField = (field: FieldConfig) => {
+    const renderField = (sourceField: FieldConfig) => {
+        const field: FieldConfig = {
+            ...sourceField,
+            label: resolveRuntimeFieldLabel(sourceField, normalizedLocale, t),
+            ...(sourceField.childFields
+                ? {
+                      childFields: sourceField.childFields.map((childField) => ({
+                          ...childField,
+                          label: resolveRuntimeFieldLabel(childField, normalizedLocale, t)
+                      }))
+                  }
+                : {})
+        }
         const value = formData[field.id]
         const disabled = isSubmitting
         const rules = field.validationRules
@@ -1709,10 +1781,9 @@ export const FormDialog: React.FC<FormDialogProps> = ({
 
                 const recordPickerConfig = readRuntimeRecordPickerConfig(field)
                 if (recordPickerConfig) {
+                    const targetFieldId = fieldIdByCodename.get(recordPickerConfig.targetObjectCodenameField.trim().toLowerCase())
                     const targetCodename =
-                        typeof formData[recordPickerConfig.targetObjectCodenameField] === 'string'
-                            ? String(formData[recordPickerConfig.targetObjectCodenameField]).trim()
-                            : ''
+                        targetFieldId && typeof formData[targetFieldId] === 'string' ? String(formData[targetFieldId]).trim() : ''
                     const isAllowed =
                         !recordPickerConfig.allowedObjectCodenames || recordPickerConfig.allowedObjectCodenames.includes(targetCodename)
                     const pickerState = recordPickerOptionsByFieldId[field.id]
@@ -1723,14 +1794,16 @@ export const FormDialog: React.FC<FormDialogProps> = ({
                     const pickerHelperText =
                         fieldError ??
                         pickerState?.error ??
-                        field.helperText ??
-                        (!targetCodename
-                            ? t('recordPicker.selectTargetObjectFirst', 'Select the target object first.')
-                            : !isAllowed
-                            ? t('recordPicker.unsupportedTargetObject', 'This target object is not available for selection.')
-                            : pickerState?.loading
-                            ? t('recordPicker.loading', 'Loading records...')
-                            : undefined)
+                        (!targetFieldId
+                            ? t('recordPicker.targetFieldUnavailable', 'The configured target field is unavailable.')
+                            : field.helperText ??
+                              (!targetCodename
+                                  ? t('recordPicker.selectTargetObjectFirst', 'Select the target object first.')
+                                  : !isAllowed
+                                  ? t('recordPicker.unsupportedTargetObject', 'This target object is not available for selection.')
+                                  : pickerState?.loading
+                                  ? t('recordPicker.loading', 'Loading records...')
+                                  : undefined))
 
                     return (
                         <FormControl fullWidth error={Boolean(fieldError || pickerState?.error)}>
@@ -1741,7 +1814,7 @@ export const FormDialog: React.FC<FormDialogProps> = ({
                                 label={field.label}
                                 onChange={(event) => handleFieldChange(field.id, event.target.value || null)}
                                 required={field.required}
-                                disabled={disabled || !targetCodename || !isAllowed || pickerState?.loading}
+                                disabled={disabled || !targetFieldId || !targetCodename || !isAllowed || pickerState?.loading}
                                 sx={{ bgcolor: 'background.default' }}
                                 MenuProps={{ slotProps: { paper: { sx: { '& .MuiMenuItem-root': { minHeight: 40 } } } } }}
                             >
@@ -2080,7 +2153,6 @@ export const FormDialog: React.FC<FormDialogProps> = ({
                     <TextField
                         fullWidth
                         type='text'
-                        inputMode='decimal'
                         label={field.label}
                         value={formatNumberValue(value)}
                         onChange={handleNumberChange}
@@ -2101,7 +2173,7 @@ export const FormDialog: React.FC<FormDialogProps> = ({
                             }
                         }}
                         slotProps={{
-                            htmlInput: { style: { textAlign: 'right' } },
+                            htmlInput: { inputMode: 'decimal', style: { textAlign: 'right' } },
                             input: {
                                 endAdornment: !disabled ? (
                                     <InputAdornment position='end'>
@@ -2818,6 +2890,7 @@ export const FormDialog: React.FC<FormDialogProps> = ({
         <Dialog
             open={open}
             onClose={onClose}
+            scroll='paper'
             maxWidth={dialogMaxWidth}
             fullWidth
             aria-labelledby={dialogTitleId}
@@ -2825,7 +2898,7 @@ export const FormDialog: React.FC<FormDialogProps> = ({
             slotProps={{ paper: { sx: { borderRadius: 1 } } }}
         >
             <DialogTitle id={dialogTitleId}>{title}</DialogTitle>
-            <DialogContent sx={{ overflowY: 'visible', overflowX: 'visible' }}>{formBody}</DialogContent>
+            <DialogContent sx={{ minHeight: 0 }}>{formBody}</DialogContent>
             <DialogActions sx={{ p: 3, pt: 2, justifyContent: showDeleteButton ? 'space-between' : 'flex-end' }}>
                 {actionButtons}
             </DialogActions>

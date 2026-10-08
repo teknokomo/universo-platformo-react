@@ -30,7 +30,7 @@ Gamification reports read ordinary Object rows such as `LeaderboardSnapshots` an
 
 The backend report runner validates the report definition with shared schemas from `@universo-react/types`.
 Runtime API calls do not send a raw report definition.
-They send exactly one saved report reference, either `reportId` or `reportCodename`, and the backend loads the JSON `Definition` from the published `Reports` Object in the current workspace.
+They send exactly one saved report reference: `reportId` is the report record's UUID v7, or `reportCodename` is its codename. The backend loads the JSON `Definition` from the published `Reports` Object in the current workspace.
 
 The runner receives table and column identifiers only from resolved published metadata.
 API payloads may reference saved report records, but they must not provide raw SQL identifiers or inline datasource definitions.

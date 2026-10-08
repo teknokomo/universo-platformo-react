@@ -1,392 +1,171 @@
-import { hashApplicationLayoutContent } from '../../utils/applicationLayoutHash'
-import { buildSingleTargetWidgetBinding, encodeLayoutWidgetConfigEnvelope, LAYOUT_WIDGET_DEFINITIONS } from '@universo-react/types'
-import { mapWidget } from '../../persistence/applicationLayoutStoreSupport'
+import { hashApplicationLayoutContent, normalizeApplicationLayoutForHash } from '../../utils/applicationLayoutHash'
+
+const uuid = (suffix: number) => `019f3100-0000-7000-8000-${String(suffix).padStart(12, '0')}`
+const baseHash = 'a'.repeat(64)
+
+const makeOverlayLayout = (scopeEntityId: string, baseLayoutId: string) => ({
+    scopeEntityId,
+    semanticScope: { entityKind: 'object', codename: 'Products' },
+    templateKey: 'dashboard' as const,
+    name: { en: 'Products' },
+    description: null,
+    config: { __layout: { composition: { mode: 'overlay', baseLayoutId } } },
+    sourceComposition: { mode: 'overlay' as const, baseLayoutId },
+    baseLayoutContentHash: baseHash,
+    isActive: true,
+    isDefault: false,
+    sortOrder: 2
+})
+
+const makeNestedWidgets = (layoutId: string, containerId: string, childId: string) => [
+    {
+        id: containerId,
+        layoutId,
+        zone: 'center',
+        widgetKey: 'columnsContainer',
+        instanceKey: 'product-grid',
+        parentWidgetId: null,
+        slotKey: null,
+        sortOrder: 1,
+        config: { columns: [{ slotKey: 'column:main', width: 12 }] },
+        isActive: true
+    },
+    {
+        id: childId,
+        layoutId,
+        zone: 'center',
+        widgetKey: 'detailsTable',
+        instanceKey: 'product-table',
+        parentWidgetId: containerId,
+        slotKey: 'column:main',
+        sortOrder: 1,
+        config: {},
+        isActive: true
+    }
+]
 
 describe('application layout content hash', () => {
-    const layout = {
-        scopeEntityId: null,
-        templateKey: 'dashboard',
-        name: { en: 'Main' },
-        description: null,
-        config: {
-            showHeader: true,
-            __layout: { composition: { mode: 'independent', baseLayoutId: null } }
-        },
-        isActive: true,
-        isDefault: true,
-        sortOrder: 0
-    }
+    it('keeps nested source, UUID-remapped restore, and materialized overlay hashes equal (H1=H2=H3)', () => {
+        const h1Input = {
+            layout: makeOverlayLayout(uuid(1), uuid(2)),
+            widgets: makeNestedWidgets(uuid(3), uuid(4), uuid(5))
+        }
+        const h2Input = {
+            layout: makeOverlayLayout(uuid(6), uuid(7)),
+            widgets: makeNestedWidgets(uuid(8), uuid(9), uuid(10)).map((widget) => ({
+                ...widget,
+                sourceWidgetId: uuid(widget.instanceKey === 'product-grid' ? 11 : 12),
+                sourceBaseWidgetId: uuid(widget.instanceKey === 'product-grid' ? 13 : 14)
+            }))
+        }
+        const h3Input = {
+            layout: makeOverlayLayout(uuid(15), uuid(16)),
+            widgets: makeNestedWidgets(uuid(17), uuid(18), uuid(19))
+                .reverse()
+                .map((widget) => ({
+                    ...widget,
+                    sourceWidgetId: uuid(widget.instanceKey === 'product-grid' ? 25 : 26),
+                    sourceBaseWidgetId: uuid(widget.instanceKey === 'product-grid' ? 27 : 28)
+                }))
+        }
 
-    const heroDefinition = LAYOUT_WIDGET_DEFINITIONS.find(({ key }) => key === 'marketing.hero')
-    if (!heroDefinition) throw new Error('The marketing hero widget must be registered')
+        const h1 = hashApplicationLayoutContent(h1Input)
+        const h2 = hashApplicationLayoutContent(h2Input)
+        const h3 = hashApplicationLayoutContent(h3Input)
+        const portable = JSON.stringify(normalizeApplicationLayoutForHash(h1Input))
 
-    const heroBinding = (semanticKey: string) =>
-        buildSingleTargetWidgetBinding(heroDefinition, 'content', {
-            entityKind: 'object',
-            entityCodename: 'MarketingPageHero',
-            semanticKey
-        })
+        expect(h1).toBe(h2)
+        expect(h2).toBe(h3)
+        expect(portable).toContain('"parent":{"instanceKey":"product-grid","slotKey":"column:main"}')
+        expect(portable).toContain('"sourceAuthority":"source-managed"')
+        for (const physicalId of [uuid(1), uuid(2), uuid(3), uuid(4), uuid(5)]) {
+            expect(portable).not.toContain(physicalId)
+        }
+        const inheritedPortable = JSON.stringify(normalizeApplicationLayoutForHash(h2Input))
+        expect(inheritedPortable).toContain('"sourceAuthority":"source-managed"')
+        for (const physicalId of [
+            uuid(6),
+            uuid(7),
+            uuid(8),
+            uuid(9),
+            uuid(10),
+            uuid(13),
+            uuid(14),
+            uuid(25),
+            uuid(26),
+            uuid(27),
+            uuid(28)
+        ]) {
+            expect(inheritedPortable).not.toContain(physicalId)
+        }
+    })
 
-    const mappedHero = (showLeadForm: boolean, semanticKey = 'default') =>
-        mapWidget(
-            {
-                id: '0190a9b5-3cde-7abc-8def-0123456789a1',
-                layout_id: '0190a9b5-3cde-7abc-8def-0123456789a2',
-                zone: 'marketing-main',
-                widget_key: 'marketing.hero',
-                sort_order: 1,
-                config: { instanceKey: 'hero', showLeadForm },
-                source_config: encodeLayoutWidgetConfigEnvelope(
+    it('requires placement identity and rejects renderer config identity', () => {
+        const layout = {
+            templateKey: 'dashboard' as const,
+            name: { en: 'Main' },
+            config: { __layout: { composition: { mode: 'independent', baseLayoutId: null } } },
+            sourceComposition: { mode: 'independent' as const, baseLayoutId: null }
+        }
+
+        expect(() =>
+            hashApplicationLayoutContent({
+                layout,
+                widgets: [
                     {
-                        rendererConfig: { instanceKey: 'hero', showLeadForm: true },
-                        neutral: { bindings: heroBinding(semanticKey) }
-                    },
-                    { templateKey: 'marketing-page', widgetKey: 'marketing.hero', zone: 'marketing-main' }
-                ),
-                source_widget_id: '0190a9b5-3cde-7abc-8def-0123456789a3',
-                source_base_widget_id: null,
-                is_customized: !showLeadForm,
-                is_active: true,
-                version: 2
-            },
-            'marketing-page'
-        )
-
-    it('is stable when widget input order changes', () => {
-        const first = hashApplicationLayoutContent({
-            layout,
-            widgets: [
-                { zone: 'center', widgetKey: 'detailsTable', sortOrder: 2, config: {}, isActive: true },
-                { zone: 'left', widgetKey: 'menuWidget', sortOrder: 1, config: {}, isActive: true }
-            ]
-        })
-        const second = hashApplicationLayoutContent({
-            layout,
-            widgets: [
-                { zone: 'left', widgetKey: 'menuWidget', sortOrder: 1, config: {}, isActive: true },
-                { zone: 'center', widgetKey: 'detailsTable', sortOrder: 2, config: {}, isActive: true }
-            ]
-        })
-
-        expect(second).toBe(first)
-    })
-
-    it('changes when widget activation changes', () => {
-        const active = hashApplicationLayoutContent({
-            layout,
-            widgets: [{ zone: 'left', widgetKey: 'menuWidget', sortOrder: 1, config: {}, isActive: true }]
-        })
-        const inactive = hashApplicationLayoutContent({
-            layout,
-            widgets: [{ zone: 'left', widgetKey: 'menuWidget', sortOrder: 1, config: {}, isActive: false }]
-        })
-
-        expect(inactive).not.toBe(active)
-    })
-
-    it('ignores physical row and lineage identifiers', () => {
-        const first = hashApplicationLayoutContent({
-            layout,
-            widgets: [
-                {
-                    id: '018f8a78-7b8f-7c1d-a111-2222333344a1',
-                    layoutId: '018f8a78-7b8f-7c1d-a111-2222333344a2',
-                    version: 4,
-                    zone: 'center',
-                    widgetKey: 'detailsTable',
-                    sortOrder: 1,
-                    config: {},
-                    sourceConfig: { showSearch: true },
-                    sourceWidgetId: '018f8a78-7b8f-7c1d-a111-2222333344a3',
-                    sourceBaseWidgetId: '018f8a78-7b8f-7c1d-a111-2222333344a4',
-                    isActive: true
-                }
-            ]
-        })
-        const second = hashApplicationLayoutContent({
-            layout,
-            widgets: [
-                {
-                    id: '018f8a78-7b8f-7c1d-a111-2222333344b1',
-                    layoutId: '018f8a78-7b8f-7c1d-a111-2222333344b2',
-                    version: 9,
-                    zone: 'center',
-                    widgetKey: 'detailsTable',
-                    sortOrder: 1,
-                    config: {},
-                    sourceConfig: { showSearch: true },
-                    sourceWidgetId: '018f8a78-7b8f-7c1d-a111-2222333344b3',
-                    sourceBaseWidgetId: '018f8a78-7b8f-7c1d-a111-2222333344b4',
-                    isActive: true
-                }
-            ]
-        })
-
-        expect(second).toBe(first)
-    })
-
-    it('ignores source baseline metadata when the effective widget config is unchanged', () => {
-        const first = hashApplicationLayoutContent({
-            layout,
-            widgets: [
-                {
-                    zone: 'center',
-                    widgetKey: 'detailsTable',
-                    sortOrder: 1,
-                    config: { datasource: { objectCodename: 'Products' } },
-                    sourceConfig: { datasource: { objectCodename: 'Products' } },
-                    isActive: true
-                }
-            ]
-        })
-        const second = hashApplicationLayoutContent({
-            layout,
-            widgets: [
-                {
-                    zone: 'center',
-                    widgetKey: 'detailsTable',
-                    sortOrder: 1,
-                    config: { datasource: { objectCodename: 'Products' } },
-                    sourceConfig: { datasource: { objectCodename: 'Orders' } },
-                    isActive: true
-                }
-            ]
-        })
-
-        expect(second).toBe(first)
-    })
-
-    it('uses the semantic instance key to order tied repeatable widgets', () => {
-        const first = hashApplicationLayoutContent({
-            layout,
-            widgets: [
-                { zone: 'center', widgetKey: 'detailsTable', sortOrder: 1, config: { instanceKey: 'b' }, isActive: true },
-                { zone: 'center', widgetKey: 'detailsTable', sortOrder: 1, config: { instanceKey: 'a' }, isActive: true }
-            ]
-        })
-        const second = hashApplicationLayoutContent({
-            layout,
-            widgets: [
-                { zone: 'center', widgetKey: 'detailsTable', sortOrder: 1, config: { instanceKey: 'a' }, isActive: true },
-                { zone: 'center', widgetKey: 'detailsTable', sortOrder: 1, config: { instanceKey: 'b' }, isActive: true }
-            ]
-        })
-
-        expect(second).toBe(first)
-    })
-
-    it('excludes source baseline changes when the effective zone setting stays fixed', () => {
-        const first = hashApplicationLayoutContent({
-            layout: {
-                ...layout,
-                templateKey: 'marketing-page',
-                config: {
-                    themeMode: 'light',
-                    __layout: {
-                        composition: { mode: 'independent', baseLayoutId: null },
-                        sourceZoneSettings: { 'marketing-header': { position: 'flow' } },
-                        zoneSettings: { 'marketing-header': { position: 'fixed' } }
-                    }
-                }
-            }
-        })
-        const second = hashApplicationLayoutContent({
-            layout: {
-                ...layout,
-                templateKey: 'marketing-page',
-                config: {
-                    themeMode: 'light',
-                    __layout: {
-                        composition: { mode: 'independent', baseLayoutId: null },
-                        sourceZoneSettings: { 'marketing-header': { position: 'fixed' } },
-                        zoneSettings: { 'marketing-header': { position: 'fixed' } }
-                    }
-                }
-            }
-        })
-
-        expect(second).toBe(first)
-    })
-
-    it('includes effective zone settings and logical placement', () => {
-        const sourceFlow = hashApplicationLayoutContent({
-            layout: {
-                ...layout,
-                templateKey: 'marketing-page',
-                config: {
-                    themeMode: 'light',
-                    __layout: {
-                        composition: { mode: 'independent', baseLayoutId: null },
-                        sourceZoneSettings: { 'marketing-header': { position: 'flow' } }
-                    }
-                }
-            },
-            widgets: [{ zone: 'marketing-header', widgetKey: 'languageSwitcher', sortOrder: 1, config: {}, isActive: true }]
-        })
-        const sourceFixedStart = hashApplicationLayoutContent({
-            layout: {
-                ...layout,
-                templateKey: 'marketing-page',
-                config: {
-                    themeMode: 'light',
-                    __layout: {
-                        composition: { mode: 'independent', baseLayoutId: null },
-                        sourceZoneSettings: { 'marketing-header': { position: 'fixed' } }
-                    }
-                }
-            },
-            widgets: [
-                {
-                    zone: 'marketing-header',
-                    widgetKey: 'languageSwitcher',
-                    sortOrder: 1,
-                    config: { __layout: { placement: 'start' } },
-                    isActive: true
-                }
-            ]
-        })
-        const sourceFixedEnd = hashApplicationLayoutContent({
-            layout: {
-                ...layout,
-                templateKey: 'marketing-page',
-                config: {
-                    themeMode: 'light',
-                    __layout: {
-                        composition: { mode: 'independent', baseLayoutId: null },
-                        sourceZoneSettings: { 'marketing-header': { position: 'fixed' } }
-                    }
-                }
-            },
-            widgets: [{ zone: 'marketing-header', widgetKey: 'languageSwitcher', sortOrder: 1, config: {}, isActive: true }]
-        })
-
-        expect(sourceFixedStart).not.toBe(sourceFlow)
-        expect(sourceFixedEnd).not.toBe(sourceFixedStart)
-    })
-
-    it('includes the trusted source binding while hashing a local presentation override', () => {
-        const marketingLayout = {
-            ...layout,
-            templateKey: 'marketing-page' as const,
-            config: {
-                themeMode: 'system',
-                __layout: { composition: { mode: 'independent', baseLayoutId: null } }
-            }
-        }
-        const localOverride = mappedHero(false)
-        const sourcePresentation = mappedHero(true)
-        const differentBinding = mappedHero(false, 'campaign')
-
-        const localHash = hashApplicationLayoutContent({ layout: marketingLayout, widgets: [localOverride] })
-        const presentationHash = hashApplicationLayoutContent({ layout: marketingLayout, widgets: [sourcePresentation] })
-        const bindingHash = hashApplicationLayoutContent({ layout: marketingLayout, widgets: [differentBinding] })
-
-        expect(localHash).not.toBe(presentationHash)
-        expect(localHash).not.toBe(bindingHash)
-    })
-
-    it('changes the semantic hash when only a trusted source binding changes', () => {
-        const marketingLayout = {
-            ...layout,
-            templateKey: 'marketing-page' as const,
-            config: { __layout: { composition: { mode: 'independent', baseLayoutId: null } } }
-        }
-        const defaultBinding = mappedHero(true, 'default')
-        const campaignBinding = mappedHero(true, 'campaign')
-
-        expect(hashApplicationLayoutContent({ layout: marketingLayout, widgets: [campaignBinding] })).not.toBe(
-            hashApplicationLayoutContent({ layout: marketingLayout, widgets: [defaultBinding] })
-        )
-    })
-
-    it('includes the complete overlay base lineage in the semantic hash', () => {
-        const baseLayoutId = '0190a9b5-3cde-7abc-8def-1123456789b1'
-        const nextBaseLayoutId = '0190a9b5-3cde-7abc-8def-1123456789b2'
-        const first = hashApplicationLayoutContent({
-            layout: {
-                ...layout,
-                scopeEntityId: '0190a9b5-3cde-7abc-8def-1123456789b3',
-                config: {
-                    __layout: { composition: { mode: 'overlay', baseLayoutId } }
-                }
-            }
-        })
-        const second = hashApplicationLayoutContent({
-            layout: {
-                ...layout,
-                scopeEntityId: '0190a9b5-3cde-7abc-8def-1123456789b3',
-                config: {
-                    __layout: { composition: { mode: 'overlay', baseLayoutId: nextBaseLayoutId } }
-                }
-            }
-        })
-
-        expect(second).not.toBe(first)
-    })
-
-    it('includes snapshot source composition mode and full base layout id in the semantic hash', () => {
-        const firstBaseLayoutId = '0190a9b5-3cde-7abc-8def-1123456789b1'
-        const secondBaseLayoutId = '0190a9b5-3cde-7abc-8def-1123456789b2'
-        const independent = hashApplicationLayoutContent({
-            layout: {
-                ...layout,
-                config: {},
-                sourceComposition: { mode: 'independent', baseLayoutId: null }
-            }
-        })
-        const firstOverlay = hashApplicationLayoutContent({
-            layout: {
-                ...layout,
-                config: {},
-                sourceComposition: { mode: 'overlay', baseLayoutId: firstBaseLayoutId }
-            }
-        })
-        const secondOverlay = hashApplicationLayoutContent({
-            layout: {
-                ...layout,
-                config: {},
-                sourceComposition: { mode: 'overlay', baseLayoutId: secondBaseLayoutId }
-            }
-        })
-
-        expect(firstOverlay).not.toBe(independent)
-        expect(secondOverlay).not.toBe(firstOverlay)
-    })
-
-    it('fails closed when neither persisted nor source composition metadata is present', () => {
-        expect(() =>
-            hashApplicationLayoutContent({
-                layout: {
-                    ...layout,
-                    config: { showHeader: true }
-                }
+                        zone: 'center',
+                        widgetKey: 'detailsTable',
+                        sortOrder: 1,
+                        config: {},
+                        isActive: true,
+                        parentWidgetId: null,
+                        slotKey: null
+                    } as never
+                ]
             })
         ).toThrow()
-    })
-
-    it('fails closed on a null layout config even when snapshot source composition is present', () => {
         expect(() =>
             hashApplicationLayoutContent({
-                layout: {
-                    ...layout,
-                    config: null as never,
-                    sourceComposition: { mode: 'independent', baseLayoutId: null }
-                }
-            })
-        ).toThrow()
-    })
-
-    it('fails closed when source and persisted composition metadata conflict', () => {
-        expect(() =>
-            hashApplicationLayoutContent({
-                layout: {
-                    ...layout,
-                    sourceComposition: {
-                        mode: 'overlay',
-                        baseLayoutId: '0190a9b5-3cde-7abc-8def-1123456789b1'
+                layout,
+                widgets: [
+                    {
+                        zone: 'center',
+                        widgetKey: 'detailsTable',
+                        instanceKey: 'table',
+                        parentWidgetId: null,
+                        slotKey: null,
+                        sortOrder: 1,
+                        config: { instanceKey: 'forged' },
+                        isActive: true
                     }
-                }
+                ]
             })
-        ).toThrow('conflicting composition metadata')
+        ).toThrow('APPLICATION_LAYOUT_WIDGET_CONFIG_IDENTITY_FORBIDDEN')
+    })
+
+    it('hashes scoped layouts by trusted semantic Entity scope and portable base content', () => {
+        const first = hashApplicationLayoutContent({
+            layout: makeOverlayLayout(uuid(21), uuid(22)),
+            widgets: []
+        })
+        const remapped = hashApplicationLayoutContent({
+            layout: makeOverlayLayout(uuid(23), uuid(24)),
+            widgets: []
+        })
+        const changedScope = hashApplicationLayoutContent({
+            layout: {
+                ...makeOverlayLayout(uuid(25), uuid(26)),
+                semanticScope: { entityKind: 'object', codename: 'Orders' }
+            },
+            widgets: []
+        })
+        const changedBase = hashApplicationLayoutContent({
+            layout: { ...makeOverlayLayout(uuid(27), uuid(28)), baseLayoutContentHash: 'b'.repeat(64) },
+            widgets: []
+        })
+
+        expect(remapped).toBe(first)
+        expect(changedScope).not.toBe(first)
+        expect(changedBase).not.toBe(first)
     })
 })

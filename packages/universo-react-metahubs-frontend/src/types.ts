@@ -245,7 +245,9 @@ export interface MetahubLayoutZoneWidget {
     layoutId: string
     zone: ApplicationLayoutZone
     widgetKey: ApplicationLayoutWidgetKey
-    instanceKey?: string
+    instanceKey: string
+    parentInstanceKey: string | null
+    slotKey: string | null
     sortOrder: number
     config: Record<string, unknown>
     placement?: LayoutLogicalPlacement
@@ -676,6 +678,7 @@ export interface ObjectCollectionLocalizedPayload {
     description?: SimpleLocalizedInput
     namePrimaryLocale?: string
     descriptionPrimaryLocale?: string
+    config?: Record<string, unknown>
     isSingleHub?: boolean
     isRequiredHub?: boolean
     treeEntityIds?: string[]

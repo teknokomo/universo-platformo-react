@@ -197,15 +197,7 @@ export function createTabularPartAdapter(params: TabularPartAdapterParams): Crud
                 permissions: normalizedPermissions,
                 workspacesEnabled: false,
                 currentWorkspaceId: null,
-                settings: {},
-                layoutConfig: {},
-                zoneWidgets: {
-                    left: [],
-                    right: [],
-                    center: []
-                },
-                menus: [],
-                activeMenuId: null
+                settings: {}
             }
         },
 
