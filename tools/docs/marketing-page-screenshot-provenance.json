@@ -1,16 +1,16 @@
 {
     "version": 3,
-    "generatedAt": "2026-10-01T06:29:54.371Z",
+    "generatedAt": "2026-10-08T08:50:35.679Z",
     "generator": "tools/testing/e2e/specs/generators/docs-marketing-page-screenshots.spec.ts",
     "generatorSha256": "161a2e517e169abffc98ff4f67c29d506a92f53e4a9bfa7ba5aaae1b926a9cad",
     "manifest": "tools/docs/marketing-page-screenshot-manifest.json",
     "manifestSha256": "9fa4f74e7a653423a124ad2dcf6eec1ec731b02c6e8a83d33270e66ce19ced75",
     "sourceTemplate": "packages/universo-react-metahubs-backend/src/domains/templates/data/marketing-page.template.ts",
-    "sourceTemplateSha256": "f6ecc15babe9d6be5395fcba07a02be807c3e6030f07e6e964d594507b269c8c",
+    "sourceTemplateSha256": "003a0007d4c5dccadca8aa6511d36e8d5b1d6f7b8d2f134876f9f56f75a7b5e5",
     "seedInputs": [
         {
             "path": "packages/universo-react-metahubs-backend/src/domains/templates/data/basic.template.ts",
-            "sha256": "868f3e3a7bd4ad6c5c14f705ec0c49ddf769b01ef013c324234244c2e721be22"
+            "sha256": "704f1849af9d45f70008595d8d52248e61c3f17501c83fb3261503dda4a313ca"
         },
         {
             "path": "packages/universo-react-metahubs-backend/src/domains/templates/data/marketing-page.hero.ts",
@@ -18,7 +18,7 @@
         },
         {
             "path": "packages/universo-react-metahubs-backend/src/domains/templates/data/marketing-page.layouts.ts",
-            "sha256": "e332098f95c50fff55aaa3b7eedd528e0d22f42a24d8df433ec3f36fa986f2b2"
+            "sha256": "ba635d8e10873a7d16559eed994b7e37b287bffb0610a525078b1ca328061ef8"
         },
         {
             "path": "packages/universo-react-metahubs-backend/src/domains/templates/data/marketing-page.seed-helpers.ts",
