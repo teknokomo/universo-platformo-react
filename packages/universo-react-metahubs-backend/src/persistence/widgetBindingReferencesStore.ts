@@ -67,9 +67,8 @@ export const listPersistedWidgetBindingReferences = async (
                FROM ${overridesTable} AS override
                JOIN ${widgetsTable} AS base_widget ON ${column('base_widget', 'id')} = ${column('override', 'base_widget_id')}
                JOIN ${layoutsTable} AS layout ON ${column('layout', 'id')} = ${column('override', 'layout_id')}
-               JOIN ${layoutsTable} AS base_layout ON ${column('base_layout', 'id')} = ${column('layout', 'base_layout_id')}
+              JOIN ${layoutsTable} AS base_layout ON ${column('base_layout', 'id')} = ${column('layout', 'base_layout_id')}
               WHERE ${column('base_widget', 'layout_id')} = ${column('layout', 'base_layout_id')}
-                AND ${column('layout', 'template_key')} = 'marketing-page'
                 AND ${column('layout', 'scope_entity_id')} IS NOT NULL
                 AND ${column('layout', 'base_layout_id')} IS NOT NULL
                 AND ${column('base_layout', 'scope_entity_id')} IS NULL

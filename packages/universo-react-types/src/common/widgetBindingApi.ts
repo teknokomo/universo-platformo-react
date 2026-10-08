@@ -1,7 +1,6 @@
 import { z } from 'zod'
 import { uuidV7Schema } from './applicationLayouts'
-import { marketingCollectionVariantSchema } from './marketingWidgetPrimitives'
-import { MAX_WIDGET_BINDING_SLOTS, type WidgetBindingSelector } from './widgetBindings'
+import { MAX_WIDGET_BINDING_SLOTS, widgetBindingVariantKeySchema, type WidgetBindingSelector } from './widgetBindings'
 
 /** Semantic Object codename used by the widget-binding HTTP contract. */
 export const widgetBindingSourceKeySchema = z
@@ -45,7 +44,7 @@ const containsControlCharacter = (value: string): boolean => {
 
 export const widgetBindingSourceProvisionPayloadSchema = z
     .object({
-        variant: marketingCollectionVariantSchema.optional(),
+        variant: widgetBindingVariantKeySchema.optional(),
         locale: z.string().trim().min(2).max(16).default('en'),
         templateSourceKey: widgetBindingSourceKeySchema,
         parentSourceKey: widgetBindingSourceKeySchema.optional(),

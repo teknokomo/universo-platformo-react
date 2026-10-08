@@ -20,7 +20,7 @@ export const createSnapshot = (): PublishedApplicationSnapshot => ({
             baseLayoutId: null,
             name: { en: 'Main' },
             description: null,
-            config: { showHeader: true },
+            config: {},
             isActive: true,
             isDefault: true,
             sortOrder: 0
@@ -31,9 +31,14 @@ export const createSnapshot = (): PublishedApplicationSnapshot => ({
             id: dashboardIds.widget,
             layoutId: dashboardIds.layout,
             zone: 'center',
-            widgetKey: 'detailsTable',
+            widgetKey: 'columnsContainer',
+            instanceKey: 'columns-main',
+            parentWidgetId: null,
+            slotKey: null,
+            sourceWidgetId: dashboardIds.widget,
+            sourceBaseWidgetId: null,
             sortOrder: 1,
-            config: { datasource: { kind: 'records.list', sectionCodename: 'object-1' } },
+            config: { columns: [{ slotKey: 'column:main', width: 12 }] },
             isActive: true
         }
     ],
@@ -93,7 +98,7 @@ export const marketingSectionKeyComponent = marketingCollectionDefinition.bindin
 if (!marketingSectionKeyComponent) throw new Error('Expected marketing.collection section semantic key')
 
 export const createBoundMarketingCollectionConfig = () => {
-    const rendererConfig = { instanceKey: 'logos', variant: 'logos' }
+    const rendererConfig = { variant: 'logos' }
     const definition = getLayoutWidgetDefinition('marketing.collection', rendererConfig)
     if (!definition) throw new Error('Expected marketing.collection widget definition')
 
@@ -107,6 +112,8 @@ export const createBoundMarketingCollectionConfig = () => {
                     ? { kind: selectorKind, field: semanticComponent?.field ?? 'key', value: 'logos' }
                     : selectorKind === 'relation-set'
                     ? { kind: selectorKind, parentSlot: slot.relation?.parentSlot ?? 'items' }
+                    : selectorKind === 'learner-enrollment-set'
+                    ? { kind: selectorKind, targetKind: 'course' as const }
                     : { kind: 'record-set' as const }
             return {
                 slot: slot.key,
@@ -229,6 +236,11 @@ export const createMarketingSnapshot = (): PublishedApplicationSnapshot =>
                 layoutId: marketingIds.layout,
                 zone: 'marketing-main',
                 widgetKey: 'marketing.collection',
+                instanceKey: 'logos',
+                parentWidgetId: null,
+                slotKey: null,
+                sourceWidgetId: marketingIds.widget,
+                sourceBaseWidgetId: null,
                 sortOrder: 0,
                 config: createBoundMarketingCollectionConfig(),
                 isActive: true
@@ -288,10 +300,15 @@ export const createBoundHeroSyncWidget = (): SyncWidgetInput => {
         layoutId: marketingIds.layout,
         zone: 'marketing-main',
         widgetKey: 'marketing.hero',
+        instanceKey: 'hero',
+        parentWidgetId: null,
+        slotKey: null,
+        sourceWidgetId: marketingIds.widget,
+        sourceBaseWidgetId: null,
         sortOrder: 0,
         config: encodeLayoutWidgetConfigEnvelope(
             {
-                rendererConfig: { instanceKey: 'hero', showLeadForm: true },
+                rendererConfig: { showLeadForm: true },
                 neutral: {
                     bindings: buildSingleTargetWidgetBinding(heroDefinition, 'content', {
                         entityKind: 'object',

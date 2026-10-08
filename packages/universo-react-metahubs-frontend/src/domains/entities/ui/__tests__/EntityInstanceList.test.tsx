@@ -186,6 +186,12 @@ vi.mock('react-i18next', () => ({
                     'Create ledger dimensions, resources, or properties through the shared component list.',
                 'hubs.title': 'Hubs',
                 'objects.tabs.layout': 'Layouts',
+                'objects.tabs.navigation': 'Navigation',
+                'objects.runtime.navigation.showInMenu': 'Show in application menu',
+                'objects.runtime.navigation.description': 'Only Objects enabled here appear in the published application menu.',
+                'objects.runtime.navigation.icon': 'Menu icon',
+                'objects.runtime.navigation.icons.apps': 'Applications',
+                'objects.runtime.navigation.icons.analytics': 'Analytics',
                 'pages.empty': 'No pages yet',
                 'pages.emptyDescription': 'Create the first page to configure structured application content',
                 'pages.searchPlaceholder': 'Search pages...',
@@ -384,10 +390,13 @@ vi.mock('../api', () => ({
 
 vi.mock('@universo-react/template-mui/components/dialogs', () => ({
     EntityFormDialog: ({ open, tabs, initialExtraValues, title, onSave, canSave, validate }: EntityFormDialogProps) => {
+        const ReactModule = React
+        const [values, setValues] = ReactModule.useState<Record<string, unknown>>(initialExtraValues ?? {})
+        ReactModule.useEffect(() => setValues(initialExtraValues ?? {}), [initialExtraValues, open])
         if (!open) return null
-        const values = initialExtraValues ?? {}
         const errors = validate?.(values) ?? {}
         const saveAllowed = canSave ? canSave(values) : true
+        const setValue = (name: string, value: unknown) => setValues((current) => ({ ...current, [name]: value }))
 
         return (
             <div data-testid='entity-form-dialog'>
@@ -399,7 +408,7 @@ vi.mock('@universo-react/template-mui/components/dialogs', () => ({
                         ?.content as string | undefined) ?? ''}
                 </div>
                 {tabs
-                    ? tabs({ values, setValue: vi.fn(), isLoading: false, errors }).map((tab) => (
+                    ? tabs({ values, setValue, isLoading: false, errors }).map((tab) => (
                           <div key={tab.id}>
                               <span>{tab.label}</span>
                               {tab.content}
@@ -934,6 +943,76 @@ describe('EntityInstanceList', () => {
         expect(await screen.findByTestId('entity-form-dialog')).toBeInTheDocument()
         expect(screen.getByTestId('dialog-description')).toHaveTextContent('Fresh shared description')
         expect(screen.getByText('Components')).toBeInTheDocument()
+    })
+
+    it('configures Object application-menu visibility and icon through the existing edit dialog', async () => {
+        const user = userEvent.setup()
+        const objectConfig = { sortOrder: 7, runtime: { customRuntimeFlag: 'keep-me' } }
+        const objectEntity = {
+            id: '0199f000-0000-7000-8000-000000000011',
+            kind: 'object',
+            codename: makeVlc('RuntimeObject'),
+            name: makeVlc('Runtime Object'),
+            description: makeVlc('Object used to verify application navigation authoring'),
+            config: objectConfig,
+            sortOrder: 7,
+            version: 3,
+            updatedAt: '2026-10-07T10:00:00.000Z',
+            _mhb_deleted: false
+        }
+        mockEntityTypesQuery.mockReturnValue({
+            data: {
+                items: [
+                    {
+                        id: 'object-type',
+                        kindKey: 'object',
+                        codename: makeVlc('Object'),
+                        ui: { tabs: ['general'], sidebarSection: 'objects' },
+                        capabilities: { dataSchema: { enabled: true }, layoutConfig: { enabled: true } }
+                    }
+                ]
+            },
+            isLoading: false
+        })
+        mockPaginatedResult.data = [objectEntity]
+        mockEntityInstancesQuery.mockReturnValue({ data: { items: mockPaginatedResult.data } })
+        mockEntityInstanceDetailQuery.mockReturnValue({ data: objectEntity, isLoading: false })
+
+        render(
+            <MemoryRouter initialEntries={['/metahub/metahub-1/entities/object/instances']}>
+                <Routes>
+                    <Route path='/metahub/:metahubId/entities/:kindKey/instances' element={<EntityInstanceListContent />} />
+                </Routes>
+            </MemoryRouter>
+        )
+
+        await user.click(screen.getByRole('button', { name: 'More actions' }))
+        await user.click(screen.getByRole('menuitem', { name: 'Edit' }))
+        expect(await screen.findByText('Edit Object')).toBeInTheDocument()
+        expect(screen.getByText('Navigation')).toBeInTheDocument()
+
+        const visibilityToggle = screen.getByRole('checkbox', { name: 'Show in application menu' })
+        expect(visibilityToggle).not.toBeChecked()
+        const menuIcon = screen.getByRole('combobox', { name: 'Menu icon' })
+        expect(menuIcon).toBeDisabled()
+        await user.click(visibilityToggle)
+        expect(visibilityToggle).toBeChecked()
+        await user.click(menuIcon)
+        await user.click(screen.getByRole('option', { name: 'Analytics', exact: true }))
+
+        await user.click(screen.getByRole('button', { name: 'Save dialog' }))
+        expect(mockUpdateEntityInstance).toHaveBeenCalledWith(
+            expect.objectContaining({
+                metahubId: 'metahub-1',
+                entityId: objectEntity.id,
+                data: expect.objectContaining({
+                    config: {
+                        sortOrder: 7,
+                        runtime: { customRuntimeFlag: 'keep-me', menuVisibility: 'primary', icon: 'analytics' }
+                    }
+                })
+            })
+        )
     })
 
     it('opens the dedicated content route for block-content entity kinds', async () => {

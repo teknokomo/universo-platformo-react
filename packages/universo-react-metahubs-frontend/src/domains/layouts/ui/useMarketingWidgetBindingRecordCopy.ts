@@ -9,6 +9,7 @@ type UseMarketingWidgetBindingRecordCopyParams = {
     shouldCloneRecord: boolean
     slots: readonly WidgetBindingSlotDefinition[]
     sourceEntity: { id: string } | null
+    sourceEntityKind?: 'object' | 'page'
     treeEntityId: string | null
 }
 
@@ -23,6 +24,7 @@ export function useMarketingWidgetBindingRecordCopy({
     shouldCloneRecord,
     slots,
     sourceEntity,
+    sourceEntityKind,
     treeEntityId
 }: UseMarketingWidgetBindingRecordCopyParams) {
     return useCallback(
@@ -42,7 +44,8 @@ export function useMarketingWidgetBindingRecordCopy({
                 treeEntityId,
                 sourceEntity.id,
                 keyRequirement.componentCodename,
-                selected.semanticKey
+                selected.semanticKey,
+                sourceEntityKind
             )
 
             return {
@@ -56,6 +59,6 @@ export function useMarketingWidgetBindingRecordCopy({
                 }
             }
         },
-        [metahubId, shouldCloneRecord, slots, sourceEntity, treeEntityId]
+        [metahubId, shouldCloneRecord, slots, sourceEntity, sourceEntityKind, treeEntityId]
     )
 }

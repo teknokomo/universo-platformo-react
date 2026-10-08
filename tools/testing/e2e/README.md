@@ -28,6 +28,8 @@ This directory contains the browser-testing foundation for agent-driven verifica
 -   `specs/flows/application-connector-board-migrations.spec.ts`: browser coverage for connector board schema state, navigation into application migration history, and rollback-analysis dialog state using real migration data.
 -   `specs/flows/application-list.spec.ts`: browser coverage for the shared applications list, direct runtime navigation, and control-panel navigation into application admin.
 -   `specs/flows/application-runtime-rows.spec.ts`: browser coverage for runtime row create, edit, copy, and delete through the existing application runtime UI with backend persistence checks.
+-   `specs/flows/app-runtime-views.spec.ts`: Dashboard Entity binding rebind, row CRUD/copy isolation, role denial, stale-version recovery, localized theme controls, and desktop/tablet/mobile geometry.
+-   `specs/flows/published-dashboard-navigation.spec.ts`: published LMS navigation contains visible Page entries only, groups them through Hub metadata, omits Object registers, and renders each configured semantic icon.
 -   `specs/flows/boards-overview.spec.ts`: browser coverage for metahub board, application board, admin board, and instance board counters with backend summary checks.
 -   `specs/flows/codename-mode.spec.ts`: browser coverage for codename UI mode switching at platform-default and per-metahub levels while keeping persisted codenames in VLC shape.
 -   `specs/flows/metahub-create-options-codename.spec.ts`: browser coverage for codename auto-fill UX, manual override reset behavior, and metahub create-options combinations with mandatory branch/layout defaults.
@@ -123,6 +125,21 @@ The wrapper owns minimal Supabase startup, environment/doctor checks, the
 production build, Playwright execution, artifact preservation, and teardown.
 Standalone deployment remains opt-in through the existing standalone flow
 because this repository does not configure a separate local deployed shell.
+
+Run the Dashboard entity-backed acceptance gate against a freshly nuked
+minimal Supabase database:
+
+```bash
+pnpm test:e2e:dashboard-entity-backed:verify:local-supabase
+```
+
+This gate runs Dashboard layout and Entity-record lifecycle flows, generated
+LMS navigation, cross-template runtime, scoped-layout, and concurrency flows.
+It captures responsive Dashboard screenshots plus the Russian theme menu and
+dark-theme states for browser inspection.
+It owns the full `nuke -> start -> build -> Playwright -> preserve -> stop`
+lifecycle; status and browser artifacts are stored under
+`tools/testing/e2e/.artifacts/dashboard-entity-backed/`.
 
 Run the dedicated standalone proof when a deployed shell is available:
 
@@ -274,7 +291,7 @@ Generator specs live in `specs/generators/` and produce persistent fixture files
 
 1.  The Playwright config defines a dedicated `generators` project that only matches `specs/generators/*.spec.ts`.
 2.  The `chromium` project explicitly ignores generator files via `testIgnore`, so they never run during `test:e2e:full` or any `--grep @flow`/`@smoke`/etc. command.
-3.  Generator specs write their output to `tools/fixtures/` — this directory is **not** cleaned by the E2E runner and is **not** in `.gitignore`, so fixture files persist until manually deleted and can be committed to the repository.
+3.  Generator specs write to `tools/testing/e2e/.artifacts/` by default. Only an explicit fixture-output environment variable can choose another repository-local path; the standard generators never overwrite tracked fixtures during an ordinary generator run.
 4.  Informational screenshots go to `test-results/self-hosted-app/` (or a similarly named generator-specific folder), which **is** cleaned on the next E2E run — this is expected.
 
 ### Running Generators
@@ -305,7 +322,15 @@ Validate the Interpretation Network fixture on the dedicated minimal local Supab
 pnpm run test:e2e:interpretation-network-fixture-gate:local-supabase
 ```
 
-The local gate starts the minimal E2E Supabase stack, builds the E2E app with the generated local profile, writes the new snapshot to `tools/testing/e2e/.artifacts/generated-metahubs-interpretation-network-app-snapshot.json`, validates the strict fixture contract, and compares the generated artifact with the committed fixture after normalizing volatile UUID v7 values, timestamps, and snapshot hashes. Regenerate the committed fixture only in a dedicated fixture-update change.
+The local gate starts the minimal E2E Supabase stack, builds the E2E app with the generated local profile, writes the new snapshot to `tools/testing/e2e/.artifacts/generated-metahubs-interpretation-network-app-snapshot.json`, validates the strict fixture contract, and compares the generated artifact with the committed fixture after normalizing volatile UUID v7 values, timestamps, and snapshot hashes.
+
+Regenerate the complete six-snapshot set through its canonical producers, then run each snapshot's import/runtime proof on the fresh minimal database:
+
+```bash
+pnpm run test:e2e:dashboard-fixtures:regenerate:verify:local-supabase
+```
+
+This single gate nukes and starts the disposable minimal E2E database, builds the app, writes generator output under a unique `.artifacts/dashboard-fixtures/` run directory, validates every fixture, checks normalized drift against the pre-run tracked snapshot copies, and only then replaces the six allowlisted tracked snapshots. It then runs the fixture runtime/import specs and confirms both the historical MMOOMM baseline checksum and its Git diff remain unchanged. Playwright reports and test results are preserved under that run directory.
 
 If the server is already running (e.g., from a previous E2E run), reuse it:
 
@@ -315,8 +340,9 @@ E2E_FULL_RESET_MODE=off E2E_ALLOW_REUSE_SERVER=true pnpm run test:e2e:generators
 
 ### Available Generators
 
-| Generator                                    | Output                                                             | Description                                                                                                                                                                                                          |
+| Generator                                    | Canonical fixture targeted by the six-fixture gate                 | Description                                                                                                                                                                                                          |
 | -------------------------------------------- | ------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `metahubs-73rd-meridian-app-export`          | `tools/fixtures/metahubs-73rd-meridian-app-snapshot.json`          | Creates the canonical 73rd Meridian product fixture and exports it for public runtime proof.                                                                                                                         |
 | `metahubs-self-hosted-app-export`            | `tools/fixtures/metahubs-self-hosted-app-snapshot.json`            | Creates the localized Metahubs Self-Hosted App fixture, seeds the runtime settings baseline, publishes it, and exports the snapshot used by the self-hosted parity flows.                                            |
 | `metahubs-quiz-app-export`                   | `tools/fixtures/metahubs-quiz-app-snapshot.json`                   | Creates the localized quiz application fixture and exports the snapshot used by quiz runtime import flows.                                                                                                           |
 | `metahubs-lms-app-export`                    | `tools/fixtures/metahubs-lms-app-snapshot.json`                    | Creates the localized LMS application fixture with Learning Content Projects, standalone resources, CourseItems, TrackStages, seeded library affordances, and exports the snapshot used by LMS runtime import flows. |
@@ -330,7 +356,7 @@ To add a new generator:
 1.  Create a spec file in `specs/generators/`, e.g., `admin-config-export.spec.ts`.
 2.  Tag the test with `@generator` (not `@flow`).
 3.  Use `createLoggedInApiContext` + API helpers from `support/backend/api-session.mjs` to create resources via API.
-4.  Write output fixtures to `tools/fixtures/` using `fs.writeFileSync`.
+4.  Write output fixtures under `.artifacts/` by default; use the shared `resolveFixtureOutputPath` helper for an explicit repository-local destination.
 5.  Use `recordCreatedMetahub` / `recordCreatedApplication` so the runner can clean up database resources after the generator finishes.
 6.  Set a generous `test.setTimeout()` (generators are long-running by nature, 300s+ is typical).
 

@@ -1,10 +1,10 @@
 import { createContext, useContext } from 'react'
-import type { DashboardDetailsSlot } from './Dashboard'
+import type { DashboardDetailsSlot } from './contracts'
 
 /**
  * React context providing DashboardDetailsSlot data to descendant widgets.
- * Used by data-driven center zone widgets (e.g. detailsTable inside columnsContainer)
- * that need access to table rows, columns, pagination, etc.
+ * Used by runtime widgets to access host capabilities, localized settings,
+ * entity navigation, and domain-specific actions.
  */
 const DashboardDetailsContext = createContext<DashboardDetailsSlot | undefined>(undefined)
 

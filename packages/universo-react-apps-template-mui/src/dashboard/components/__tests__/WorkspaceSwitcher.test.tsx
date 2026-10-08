@@ -215,8 +215,6 @@ describe('WorkspaceSwitcher', () => {
                             apiBaseUrl: '/api/v1',
                             currentWorkspaceId: personalWorkspaceId,
                             workspacesEnabled: true,
-                            rows: [],
-                            columns: [],
                             title: 'Runtime'
                         } as never
                     }
@@ -257,8 +255,6 @@ describe('WorkspaceSwitcher', () => {
                             apiBaseUrl: '/api/v1',
                             currentWorkspaceId: personalWorkspaceId,
                             workspacesEnabled: true,
-                            rows: [],
-                            columns: [],
                             title: 'Runtime'
                         } as never
                     }
@@ -321,8 +317,6 @@ describe('WorkspaceSwitcher', () => {
                             apiBaseUrl: '/api/v1',
                             currentWorkspaceId: rawWorkspaceId,
                             workspacesEnabled: true,
-                            rows: [],
-                            columns: [],
                             title: 'Runtime'
                         } as never
                     }
@@ -352,8 +346,6 @@ describe('WorkspaceSwitcher', () => {
                             currentWorkspaceId: personalWorkspaceId,
                             workspacesEnabled: true,
                             navigate,
-                            rows: [],
-                            columns: [],
                             title: 'Runtime'
                         } as never
                     }

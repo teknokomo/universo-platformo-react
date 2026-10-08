@@ -1,9 +1,35 @@
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen, within } from '@testing-library/react'
+import i18n from '@universo-react/i18n'
+import '../../../i18n'
 import { sanitizeHref } from '../MenuContent'
-import MenuContent from '../MenuContent'
+import MenuContent, { type RuntimeMenuViewModel } from '../MenuContent'
 
-describe('MenuContent sanitizeHref', () => {
+const viewModel = (overrides: Partial<RuntimeMenuViewModel> = {}): RuntimeMenuViewModel => ({
+    title: 'Application navigation',
+    showTitle: false,
+    overflowLabel: 'More',
+    items: [],
+    overflowItems: [],
+    ...overrides
+})
+
+describe('MenuContent', () => {
+    beforeEach(() => {
+        window.history.replaceState({}, '', '/')
+    })
+
+    afterEach(async () => {
+        await i18n.changeLanguage('en')
+    })
+
+    it('localizes the navigation landmark independently of a persisted default title', async () => {
+        await i18n.changeLanguage('ru')
+        render(<MenuContent viewModel={viewModel()} />)
+
+        expect(await screen.findByRole('navigation', { name: 'Навигация приложения' })).toBeInTheDocument()
+    })
+
     it('keeps safe internal, http, mail, tel, and hash links', () => {
         expect(sanitizeHref('/workspaces')).toBe('/workspaces')
         expect(sanitizeHref('#overview')).toBe('#overview')
@@ -20,251 +46,184 @@ describe('MenuContent sanitizeHref', () => {
         expect(sanitizeHref('//example.test/path')).toBeUndefined()
     })
 
-    it('marks the selected runtime menu item as the current page', () => {
+    it('selects only a link whose same-origin route exactly matches the current route', () => {
+        window.history.replaceState({}, '', '/a/app-1/reports?locale=ru')
         render(
             <MenuContent
-                menu={{
+                viewModel={viewModel({
                     items: [
-                        { id: 'home', label: 'Home', kind: 'section', sectionId: 'home', selected: false },
-                        { id: 'reports', label: 'Reports', kind: 'section', objectCollectionId: 'reports', selected: true }
+                        { key: 'home', label: 'Home', href: '/a/app-1/home' },
+                        { key: 'reports', label: 'Reports', href: '/a/app-1/reports?locale=ru' }
                     ]
-                }}
-            />
-        )
-
-        const reportsButton = screen.getByRole('button', { name: 'Reports' })
-        expect(reportsButton).toHaveAttribute('aria-current', 'page')
-        expect(reportsButton).toHaveClass('Mui-selected')
-        expect(reportsButton.querySelector('.MuiListItemIcon-root')).toHaveStyle({ minWidth: '0' })
-    })
-
-    it('keeps page-backed section clicks separate from object collection clicks', () => {
-        const onSelectSection = vi.fn()
-        const onSelectObjectCollection = vi.fn()
-
-        render(
-            <MenuContent
-                menu={{
-                    items: [
-                        { id: 'intro', label: 'Intro', kind: 'section', sectionId: 'page-intro', selected: false },
-                        {
-                            id: 'structures',
-                            label: 'Structures',
-                            kind: 'section',
-                            sectionId: 'object-structure',
-                            objectCollectionId: 'object-structure',
-                            selected: false
-                        }
-                    ],
-                    onSelectSection,
-                    onSelectObjectCollection
-                }}
-            />
-        )
-
-        fireEvent.click(screen.getByRole('button', { name: 'Intro' }))
-        expect(onSelectSection).toHaveBeenCalledWith('page-intro')
-        expect(onSelectObjectCollection).not.toHaveBeenCalled()
-
-        fireEvent.click(screen.getByRole('button', { name: 'Structures' }))
-        expect(onSelectObjectCollection).toHaveBeenCalledWith('object-structure')
-    })
-
-    it('does not run stale section callbacks after client-side runtime-link navigation', () => {
-        const onSelectSection = vi.fn()
-        const onSelectObjectCollection = vi.fn()
-        const onPopState = vi.fn()
-        window.history.pushState({}, '', '/a/app-1/intro')
-        window.addEventListener('popstate', onPopState)
-
-        render(
-            <MenuContent
-                menu={{
-                    items: [
-                        {
-                            id: 'learning-content',
-                            label: 'Learning Content',
-                            kind: 'link',
-                            href: '/a/app-1/learning-content-section',
-                            sectionId: 'learning-content-section',
-                            objectCollectionId: 'learning-content-object'
-                        }
-                    ],
-                    onSelectSection,
-                    onSelectObjectCollection
-                }}
-            />
-        )
-
-        fireEvent.click(screen.getByRole('link', { name: 'Learning Content' }))
-
-        expect(window.location.pathname).toBe('/a/app-1/learning-content-section')
-        expect(onPopState).toHaveBeenCalledTimes(1)
-        expect(onSelectSection).not.toHaveBeenCalled()
-        expect(onSelectObjectCollection).not.toHaveBeenCalled()
-        window.removeEventListener('popstate', onPopState)
-    })
-
-    it('reselects a runtime section when its link already matches the current route', () => {
-        const onSelectSection = vi.fn()
-        const onSelectObjectCollection = vi.fn()
-        const onPopState = vi.fn()
-        window.history.pushState({}, '', '/a/app-1/learning-content-section')
-        window.addEventListener('popstate', onPopState)
-
-        render(
-            <MenuContent
-                menu={{
-                    items: [
-                        {
-                            id: 'learning-content',
-                            label: 'Learning Content',
-                            kind: 'link',
-                            href: '/a/app-1/learning-content-section',
-                            sectionId: 'learning-content-section',
-                            objectCollectionId: 'learning-content-object'
-                        }
-                    ],
-                    onSelectSection,
-                    onSelectObjectCollection
-                }}
-            />
-        )
-
-        fireEvent.click(screen.getByRole('link', { name: 'Learning Content' }))
-
-        expect(window.location.pathname).toBe('/a/app-1/learning-content-section')
-        expect(onPopState).not.toHaveBeenCalled()
-        expect(onSelectObjectCollection).toHaveBeenCalledOnce()
-        expect(onSelectObjectCollection).toHaveBeenCalledWith('learning-content-object')
-        expect(onSelectSection).not.toHaveBeenCalled()
-        window.removeEventListener('popstate', onPopState)
-    })
-
-    it('reselects an overflow runtime section when its link already matches the current route', () => {
-        const onSelectSection = vi.fn()
-        const onPopState = vi.fn()
-        window.history.pushState({}, '', '/a/app-1/reports-section')
-        window.addEventListener('popstate', onPopState)
-
-        render(
-            <MenuContent
-                menu={{
-                    items: [],
-                    overflowItems: [
-                        {
-                            id: 'reports',
-                            label: 'Reports',
-                            kind: 'link',
-                            href: '/a/app-1/reports-section',
-                            sectionId: 'reports-section'
-                        }
-                    ],
-                    overflowLabel: 'More',
-                    onSelectSection
-                }}
-            />
-        )
-
-        fireEvent.click(screen.getByRole('button', { name: 'More' }))
-        fireEvent.click(screen.getByRole('menuitem', { name: 'Reports' }))
-
-        expect(window.location.pathname).toBe('/a/app-1/reports-section')
-        expect(onPopState).not.toHaveBeenCalled()
-        expect(onSelectSection).toHaveBeenCalledOnce()
-        expect(onSelectSection).toHaveBeenCalledWith('reports-section')
-        expect(screen.queryByRole('menuitem', { name: 'Reports' })).not.toBeInTheDocument()
-        window.removeEventListener('popstate', onPopState)
-    })
-
-    it('marks a safe link item as current when its href matches the current location', () => {
-        window.history.pushState({}, '', '/a/app-1/reports')
-
-        render(
-            <MenuContent
-                menu={{
-                    items: [{ id: 'reports', label: 'Reports', kind: 'link', href: '/a/app-1/reports', selected: false }]
-                }}
+                })}
             />
         )
 
         const reportsLink = screen.getByRole('link', { name: 'Reports' })
         expect(reportsLink).toHaveAttribute('aria-current', 'page')
         expect(reportsLink).toHaveClass('Mui-selected')
+        expect(screen.getByRole('link', { name: 'Home' })).not.toHaveAttribute('aria-current')
     })
 
-    it('marks the first runtime link as current on the root application URL', () => {
-        window.history.pushState({}, '', '/a/app-1')
-
+    it('does not implicitly select the first link at the application root', () => {
+        window.history.replaceState({}, '', '/a/app-1')
         render(
             <MenuContent
-                menu={{
+                viewModel={viewModel({
                     items: [
-                        { id: 'home', label: 'Home', kind: 'link', href: '/a/app-1/home-section', selected: false },
-                        { id: 'reports', label: 'Reports', kind: 'link', href: '/a/app-1/reports', selected: false }
+                        { key: 'home', label: 'Home', href: '/a/app-1/home' },
+                        { key: 'reports', label: 'Reports', href: '/a/app-1/reports' }
                     ]
-                }}
+                })}
             />
         )
 
-        const homeLink = screen.getByRole('link', { name: 'Home' })
-        const reportsLink = screen.getByRole('link', { name: 'Reports' })
-        expect(homeLink).toHaveAttribute('aria-current', 'page')
-        expect(homeLink).toHaveClass('Mui-selected')
-        expect(reportsLink).not.toHaveAttribute('aria-current')
+        expect(screen.getByRole('link', { name: 'Home' })).not.toHaveAttribute('aria-current')
+        expect(screen.getByRole('link', { name: 'Reports' })).not.toHaveAttribute('aria-current')
     })
 
-    it('keeps compact menu items accessible without rendering visible labels or title', () => {
+    it('keeps compact navigation accessible and renders group labels as non-interactive headings', () => {
         render(
             <MenuContent
                 variant='compact'
-                menu={{
+                viewModel={viewModel({
                     title: 'Main menu',
                     showTitle: true,
+                    overflowLabel: 'More actions',
                     items: [
-                        { id: 'home', label: 'Home', kind: 'section', sectionId: 'home', selected: false },
-                        { id: 'reports', label: 'Reports', kind: 'section', objectCollectionId: 'reports', selected: true }
+                        { key: 'group-0', label: 'Learning', kind: 'group', icon: 'folder' },
+                        { key: 'course-0', label: 'Courses', href: '/a/app-1?targetKind=object&entityTypeCodename=Courses', selected: true }
                     ],
-                    overflowItems: [{ id: 'settings', label: 'Settings', kind: 'link', href: '/settings' }],
-                    overflowLabel: 'More actions'
-                }}
+                    overflowItems: [{ key: 'settings-0', label: 'Settings', href: '/settings' }]
+                })}
             />
         )
 
-        const nav = screen.getByRole('navigation', { name: 'Main menu' })
-        const reportsButton = within(nav).getByRole('button', { name: 'Reports' })
-        expect(reportsButton).toHaveAttribute('aria-current', 'page')
+        const nav = screen.getByRole('navigation', { name: 'Application navigation' })
+        expect(within(nav).getByRole('heading', { name: 'Learning' })).toBeInTheDocument()
+        expect(within(nav).queryByRole('button', { name: 'Learning' })).not.toBeInTheDocument()
+        expect(within(nav).getByRole('link', { name: 'Courses' })).toHaveAttribute('aria-current', 'page')
         expect(within(nav).queryByText('Main menu')).not.toBeInTheDocument()
-        expect(within(nav).queryByText('Home')).not.toBeInTheDocument()
-        expect(within(nav).queryByText('Reports')).not.toBeInTheDocument()
+        expect(within(nav).queryByText('Courses')).not.toBeInTheDocument()
         expect(within(nav).getByRole('button', { name: 'More actions' })).toBeInTheDocument()
     })
 
-    it('does not render unresolved section and hub items as inert navigation entries', () => {
+    it('marks the workspace section boundary with the existing divider treatment', () => {
         render(
             <MenuContent
-                menu={{
+                viewModel={viewModel({
                     items: [
-                        { id: 'structure', label: 'Structure', kind: 'section', objectCollectionId: 'structure-id' },
-                        { id: 'hub-only', label: 'Hub by id', kind: 'hub', hubId: 'hub-id' },
-                        { id: 'stale-section', label: 'Deleted structure', kind: 'section' },
-                        { id: 'stale-hub', label: 'Deleted hub', kind: 'hub' },
-                        { id: 'safe-link', label: 'Help', kind: 'link', href: '/help' }
-                    ],
-                    overflowItems: [
-                        { id: 'stale-overflow-section', label: 'Deleted overflow structure', kind: 'section' },
-                        { id: 'stale-overflow-hub', label: 'Deleted overflow hub', kind: 'hub' }
-                    ],
-                    overflowLabel: 'More'
-                }}
+                        { key: 'runtime-menu-item-0', label: 'Courses', href: '/a/app-1?targetKind=object&entityTypeCodename=Courses' },
+                        { key: 'runtime-workspaces-list', label: 'Workspaces', href: '/a/app-1/workspaces', dividerBefore: true }
+                    ]
+                })}
             />
         )
 
-        expect(screen.getByRole('button', { name: 'Structure' })).toBeInTheDocument()
-        expect(screen.getByRole('button', { name: 'Hub by id' })).toBeInTheDocument()
-        expect(screen.getByRole('link', { name: 'Help' })).toBeInTheDocument()
-        expect(screen.queryByRole('button', { name: 'Deleted structure' })).not.toBeInTheDocument()
-        expect(screen.queryByRole('button', { name: 'Deleted hub' })).not.toBeInTheDocument()
-        expect(screen.queryByRole('button', { name: 'More' })).not.toBeInTheDocument()
+        expect(screen.getByRole('separator')).toBeInTheDocument()
+        expect(screen.getByRole('link', { name: 'Workspaces' })).toHaveAttribute('data-runtime-navigation-link')
+    })
+
+    it('navigates same-origin application links without a full page reload', () => {
+        window.history.replaceState({}, '', '/a/app-1')
+        render(<MenuContent viewModel={viewModel({ items: [{ key: 'reports', label: 'Reports', href: '/a/app-1/reports' }] })} />)
+        const onPopState = vi.fn()
+        window.addEventListener('popstate', onPopState)
+
+        fireEvent.click(screen.getByRole('link', { name: 'Reports' }))
+
+        expect(window.location.pathname).toBe('/a/app-1/reports')
+        expect(onPopState).toHaveBeenCalledOnce()
+        window.removeEventListener('popstate', onPopState)
+    })
+
+    it('delegates same-origin application navigation to the host router when provided', () => {
+        window.history.replaceState({}, '', '/a/app-1')
+        const onNavigate = vi.fn()
+        render(
+            <MenuContent
+                viewModel={viewModel({
+                    items: [{ key: 'workspaces', label: 'Workspaces', href: '/a/app-1/workspaces?locale=ru&workspaceId=workspace-1' }]
+                })}
+                onNavigate={onNavigate}
+            />
+        )
+
+        fireEvent.click(screen.getByRole('link', { name: 'Workspaces' }))
+
+        expect(onNavigate).toHaveBeenCalledOnce()
+        expect(onNavigate).toHaveBeenCalledWith('/a/app-1/workspaces?locale=ru&workspaceId=workspace-1')
+        expect(window.location.pathname).toBe('/a/app-1')
+    })
+
+    it('updates standalone hash routes without replacing the application pathname', () => {
+        window.history.replaceState({}, '', '/#/a/app-1')
+        render(<MenuContent viewModel={viewModel({ items: [{ key: 'workspaces', label: 'Workspaces', href: '/a/app-1/workspaces' }] })} />)
+
+        fireEvent.click(screen.getByRole('link', { name: 'Workspaces' }))
+
+        expect(window.location.pathname).toBe('/')
+        expect(window.location.hash).toBe('#/a/app-1/workspaces')
+    })
+
+    it('keeps browser modified-click behavior for same-origin application links', () => {
+        window.history.replaceState({}, '', '/a/app-1')
+        const onNavigate = vi.fn()
+        render(
+            <MenuContent
+                viewModel={viewModel({ items: [{ key: 'reports', label: 'Reports', href: '/a/app-1/reports' }] })}
+                onNavigate={onNavigate}
+            />
+        )
+        const reportsLink = screen.getByRole('link', { name: 'Reports' })
+
+        fireEvent.click(reportsLink, { ctrlKey: true })
+        fireEvent.click(reportsLink, { metaKey: true })
+
+        expect(onNavigate).not.toHaveBeenCalled()
+    })
+
+    it('closes the overflow menu after selecting a runtime link', () => {
+        window.history.replaceState({}, '', '/a/app-1')
+        render(
+            <MenuContent
+                viewModel={viewModel({
+                    overflowItems: [{ key: 'archive', label: 'Archive', href: '/a/app-1/archive' }]
+                })}
+            />
+        )
+
+        const moreButton = screen.getByRole('button', { name: 'More' })
+        expect(moreButton).toHaveAttribute('aria-haspopup', 'menu')
+        expect(moreButton).toHaveAttribute('aria-expanded', 'false')
+        fireEvent.click(moreButton)
+        expect(moreButton).toHaveAttribute('aria-expanded', 'true')
+        expect(moreButton).toHaveAttribute('aria-controls', screen.getByRole('menu').id)
+        fireEvent.click(screen.getByRole('menuitem', { name: 'Archive' }))
+
+        expect(window.location.pathname).toBe('/a/app-1/archive')
+        expect(screen.queryByRole('menuitem', { name: 'Archive' })).not.toBeInTheDocument()
+    })
+
+    it('preserves browser modified-click behavior for overflow runtime links', () => {
+        window.history.replaceState({}, '', '/a/app-1')
+        const onNavigate = vi.fn()
+        render(
+            <MenuContent
+                viewModel={viewModel({
+                    overflowItems: [{ key: 'archive', label: 'Archive', href: '/a/app-1/archive' }]
+                })}
+                onNavigate={onNavigate}
+            />
+        )
+
+        fireEvent.click(screen.getByRole('button', { name: 'More' }))
+        const archiveLink = screen.getByRole('menuitem', { name: 'Archive' })
+
+        expect(fireEvent.click(archiveLink, { ctrlKey: true })).toBe(true)
+        expect(fireEvent.click(archiveLink, { metaKey: true })).toBe(true)
+        expect(archiveLink).toHaveAttribute('href', '/a/app-1/archive')
+        expect(onNavigate).not.toHaveBeenCalled()
+        expect(screen.queryByRole('menuitem', { name: 'Archive' })).not.toBeInTheDocument()
     })
 })

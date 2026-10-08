@@ -17,6 +17,7 @@ import {
     type MetahubRuntimePolicySnapshot,
     type MetahubModuleDefinition,
     type MetahubSnapshotPackage,
+    CURRENT_METAHUB_SNAPSHOT_FORMAT_VERSION,
     type MetahubSnapshotVersionEnvelope,
     type PlayCanvasProjectSnapshotSection,
     type PlayCanvasRuntimeManifest,
@@ -220,6 +221,9 @@ export interface MetahubSharedEntityOverrideSnapshot {
 export interface MetahubLayoutZoneWidgetSnapshot {
     id: string
     layoutId: string
+    instanceKey: string
+    parentWidgetId: string | null
+    slotKey: string | null
     zone: string
     widgetKey: string
     sortOrder: number
@@ -1017,7 +1021,7 @@ export class SnapshotSerializer {
             versionEnvelope: {
                 structureVersion: versionEnvelope?.structureVersion ?? structureVersionToSemver(CURRENT_STRUCTURE_VERSION),
                 templateVersion: versionEnvelope?.templateVersion ?? null,
-                snapshotFormatVersion: 3
+                snapshotFormatVersion: CURRENT_METAHUB_SNAPSHOT_FORMAT_VERSION
             },
             entities,
             entityTypeDefinitions,
@@ -1183,7 +1187,7 @@ export class SnapshotSerializer {
             defaultVersionEnvelope: {
                 structureVersion: structureVersionToSemver(CURRENT_STRUCTURE_VERSION),
                 templateVersion: null,
-                snapshotFormatVersion: 3
+                snapshotFormatVersion: CURRENT_METAHUB_SNAPSHOT_FORMAT_VERSION
             }
         })
     }

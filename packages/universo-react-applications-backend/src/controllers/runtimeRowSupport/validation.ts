@@ -1,21 +1,24 @@
 import { type DbExecutor } from '@universo-react/utils'
 import { resolveApplicationLifecycleContractFromConfig } from '@universo-react/utils'
+import type { Response } from 'express'
 import { type RolePermission } from '../../routes/guards'
 import {
     IDENTIFIER_REGEX,
     UUID_REGEX,
     quoteIdentifier,
     resolveRuntimeCodenameText,
+    getRuntimeInputValue,
     formatRuntimeFieldLabel,
     buildRuntimeActiveRowCondition
 } from '../../shared/runtimeHelpers'
 import {
+    isRuntimeServerOwnedAttr,
     type RuntimeDateOffsetDerivationRule,
     type RuntimeDateOrderRule,
     type RuntimeFieldCondition,
     type RuntimeObjectCollectionAttr,
     type RuntimeRequiredWhenRule
-} from './contracts'
+} from '../../services/runtimeRowSupport/contracts'
 import {
     buildRuntimeAttrLookup,
     findRuntimeAttrByFieldKey,
@@ -30,7 +33,23 @@ import {
     isRecordValue,
     readRuntimeRecordParentAccessConfigs,
     readRuntimeRecordPickerReferenceConfig
-} from './access'
+} from '../../services/runtimeRowSupport/access'
+
+export const hasRuntimeServerOwnedInput = (
+    data: Record<string, unknown>,
+    attr: { column_name: string; codename: unknown; ui_config?: Record<string, unknown> | null }
+): boolean => isRuntimeServerOwnedAttr(attr) && getRuntimeInputValue(data, attr.column_name, attr.codename).hasUserValue
+
+export const rejectRuntimeServerOwnedInput = (
+    res: Response,
+    data: Record<string, unknown>,
+    attr: { column_name: string; codename: unknown; ui_config?: Record<string, unknown> | null },
+    fieldPath?: string
+): boolean => {
+    if (!hasRuntimeServerOwnedInput(data, attr)) return false
+    res.status(400).json({ error: `Field is server-owned: ${fieldPath ?? formatRuntimeFieldLabel(attr.codename)}` })
+    return true
+}
 
 export const readRuntimeDateOrderRules = (config: Record<string, unknown> | null | undefined): RuntimeDateOrderRule[] => {
     const validationRoot = isRecordValue(config?.runtimeValidations)

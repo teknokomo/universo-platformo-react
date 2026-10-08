@@ -8,6 +8,7 @@ import { assertMmoommAppFixtureEnvelopeContract, type SnapshotEnvelope } from '.
 type FixtureRecord = Record<string, unknown>
 
 type FixtureProjects = FixtureRecord & {
+    scenes: FixtureRecord[]
     assets: FixtureRecord[]
     scriptAssets: FixtureRecord[]
     sceneScriptBindings: FixtureRecord[]
@@ -27,6 +28,17 @@ const cloneFixture = (): Fixture => structuredClone(fixture)
 const withMutation = (mutate: (projects: FixtureProjects) => void): Fixture => {
     const envelope = cloneFixture()
     mutate(envelope.snapshot.playcanvasProjects)
+    envelope.snapshotHash = computeSnapshotHash(envelope.snapshot)
+    return envelope
+}
+
+const withEntityMutation = (mutate: (entities: Record<string, FixtureRecord>) => void): Fixture => {
+    const envelope = cloneFixture()
+    const entities = envelope.snapshot.entities
+    if (!entities || typeof entities !== 'object' || Array.isArray(entities)) {
+        throw new Error('Fixture test is missing snapshot entities')
+    }
+    mutate(entities as Record<string, FixtureRecord>)
     envelope.snapshotHash = computeSnapshotHash(envelope.snapshot)
     return envelope
 }
@@ -54,6 +66,68 @@ const requireOutputFile = (artifact: FixtureRecord): FixtureRecord => {
 
 test('accepts the canonical MMOOMM app fixture', () => {
     assertMmoommAppFixtureEnvelopeContract(fixture)
+})
+
+test('rejects invalid primary navigation icons and unapproved Object menu entries', () => {
+    const withInvalidIcon = withEntityMutation((entities) => {
+        const space = Object.values(entities).find((entity) => {
+            const codename = entity.codename
+            return Boolean(codename && typeof codename === 'object' && (codename as FixtureRecord).locales &&
+                (((codename as FixtureRecord).locales as FixtureRecord).en as FixtureRecord | undefined)?.content === 'FlightWorld')
+        })
+        if (!space) throw new Error('Fixture test is missing the Space Object')
+        const config = space.config as FixtureRecord
+        const runtime = config.runtime as FixtureRecord
+        runtime.icon = 'not-a-supported-menu-icon'
+    })
+    expectContractFailure(withInvalidIcon, 'must be explicitly selected for primary navigation with its semantic icon')
+
+    const withUnexpectedPrimaryObject = withEntityMutation((entities) => {
+        const flightShip = Object.values(entities).find((entity) => {
+            const codename = entity.codename
+            return Boolean(codename && typeof codename === 'object' && (codename as FixtureRecord).locales &&
+                (((codename as FixtureRecord).locales as FixtureRecord).en as FixtureRecord | undefined)?.content === 'FlightShip')
+        })
+        if (!flightShip) throw new Error('Fixture test is missing FlightShip')
+        flightShip.config = { ...(flightShip.config as FixtureRecord), runtime: { menuVisibility: 'primary', icon: 'apps' } }
+    })
+    expectContractFailure(withUnexpectedPrimaryObject, 'must expose exactly Space and Visual Linkup Lab')
+})
+
+test('rejects Visual Linkup Lab root child reordering', () => {
+    const envelope = withMutation((projects) => {
+        const scene = projects.scenes.find((candidate) => {
+            const payload = candidate.payload
+            if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return false
+            const entities = (payload as FixtureRecord).entities
+            return (
+                Array.isArray(entities) &&
+                entities.some(
+                    (entity) =>
+                        Boolean(entity) && typeof entity === 'object' && (entity as FixtureRecord).name === 'Linkup Lab 01 White Link Halo'
+                )
+            )
+        })
+        const payload = scene?.payload
+        if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
+            throw new Error('Fixture test is missing the Visual Linkup Lab scene payload')
+        }
+        const entities = (payload as FixtureRecord).entities
+        if (!Array.isArray(entities)) throw new Error('Fixture test is missing Visual Linkup Lab entities')
+        const root = entities.find(
+            (candidate): candidate is FixtureRecord => Boolean(candidate) && typeof candidate === 'object' && candidate.name === 'Root'
+        )
+        if (!root || !Array.isArray(root.children) || root.children.length < 2) {
+            throw new Error('Fixture test is missing Visual Linkup Lab root children')
+        }
+        ;[root.children[0], root.children[1]] = [root.children[1], root.children[0]]
+        const payloadFile = scene?.payloadFile
+        if (!payloadFile || typeof payloadFile !== 'object' || Array.isArray(payloadFile)) {
+            throw new Error('Fixture test is missing the Visual Linkup Lab bundled scene payload')
+        }
+        ;(payloadFile as FixtureRecord).snapshotContentBase64 = Buffer.from(JSON.stringify(payload), 'utf8').toString('base64')
+    })
+    expectContractFailure(envelope, 'root children must preserve deterministic semantic authoring order')
 })
 
 test('rejects duplicate script asset ids and names', () => {

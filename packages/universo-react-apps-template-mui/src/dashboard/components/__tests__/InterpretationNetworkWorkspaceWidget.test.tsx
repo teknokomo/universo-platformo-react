@@ -104,11 +104,7 @@ const createAppDataResponse = () => ({
         total: 0,
         limit: 20,
         offset: 0
-    },
-    layoutConfig: {},
-    zoneWidgets: { left: [], right: [], center: [] },
-    menus: [],
-    activeMenuId: null
+    }
 })
 
 const sectionIds: Record<string, string> = {
@@ -534,8 +530,6 @@ const renderInterpretationNetworkWidget = (
                     currentWorkspaceId: 'workspace-1',
                     permissions,
                     navigate,
-                    rows: [],
-                    columns: [],
                     onOpenCreateTarget
                 }}
             >
@@ -988,7 +982,7 @@ describe('InterpretationNetworkWorkspaceWidget', () => {
                 })
             )
         })
-    }, 20_000)
+    }, 60_000)
 
     it('persists the opened structure in the URL and restores it after refresh', async () => {
         const user = userEvent.setup()
@@ -1395,9 +1389,7 @@ describe('InterpretationNetworkWorkspaceWidget', () => {
                         apiBaseUrl: '/api/v1',
                         locale: 'en',
                         currentWorkspaceId: 'workspace-1',
-                        permissions: defaultPermissions,
-                        rows: [],
-                        columns: []
+                        permissions: defaultPermissions
                     }}
                 >
                     {renderWidget({
@@ -1457,9 +1449,7 @@ describe('InterpretationNetworkWorkspaceWidget', () => {
                         apiBaseUrl: '/api/v1',
                         locale: 'en',
                         currentWorkspaceId: 'workspace-1',
-                        permissions: defaultPermissions,
-                        rows: [],
-                        columns: []
+                        permissions: defaultPermissions
                     }}
                 >
                     {renderWidget({

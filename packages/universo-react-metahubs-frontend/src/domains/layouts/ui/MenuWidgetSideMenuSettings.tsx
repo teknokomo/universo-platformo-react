@@ -1,10 +1,10 @@
 import { useTranslation } from 'react-i18next'
 import { MenuWidgetSideMenuSettings as SharedMenuWidgetSideMenuSettings } from '@universo-react/template-mui'
-import { type DashboardSideMenuMode, type MenuWidgetConfig } from '@universo-react/types'
+import { type DashboardSideMenuConfig, type DashboardSideMenuMode } from '@universo-react/types'
 
 interface MenuWidgetSideMenuSettingsProps {
-    sideMenu: MenuWidgetConfig['sideMenu']
-    onChange: (sideMenu: NonNullable<MenuWidgetConfig['sideMenu']>) => void
+    sideMenu: DashboardSideMenuConfig
+    onChange: (sideMenu: DashboardSideMenuConfig) => void
 }
 
 export default function MenuWidgetSideMenuSettings({ sideMenu, onChange }: MenuWidgetSideMenuSettingsProps) {

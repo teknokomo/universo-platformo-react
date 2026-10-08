@@ -12,9 +12,10 @@ import {
     type DraftBinding,
     type MarketingWidgetBindingDialogProps
 } from './marketingWidgetBindingDialogModel'
-import { MARKETING_PAGE_HUB_CODENAME, type WidgetBindingSlotDefinition } from '@universo-react/types'
+import type { WidgetBindingSlotDefinition } from '@universo-react/types'
 
 type MarketingWidgetBindingTranslate = (key: string, options?: { defaultValue?: string }) => string
+const DEFAULT_SUPPORTED_SOURCE_KINDS = ['object'] as const
 
 type UseMarketingWidgetBindingDialogDataParams = Pick<
     MarketingWidgetBindingDialogProps,
@@ -67,24 +68,13 @@ export function useMarketingWidgetBindingDialogData({
     const shouldLoadRecordMetadata = Boolean(
         (canManageLayouts || canEditContent) && open && activeDraft?.sourceKey && activeSlot?.selectorKinds.includes('semantic-key')
     )
-    const hubsQuery = useEntityInstancesQuery(
-        metahubId,
-        shouldLoadRecordMetadata
-            ? { kind: 'hub', limit: 20, offset: 0, sortBy: 'codename', sortOrder: 'asc', search: MARKETING_PAGE_HUB_CODENAME, locale }
-            : undefined
-    )
-    const treeEntityId = useMemo(
-        () =>
-            (hubsQuery.data?.items ?? []).find((entity) => getCodenamePrimary(entity.codename) === MARKETING_PAGE_HUB_CODENAME)?.id ?? null,
-        [hubsQuery.data?.items]
-    )
+    const supportedSourceKinds = activeSlot?.requirements.entityKinds ?? DEFAULT_SUPPORTED_SOURCE_KINDS
     const objectsQuery = useEntityInstancesQuery(
         metahubId,
-        shouldLoadRecordMetadata && treeEntityId
+        shouldLoadRecordMetadata && supportedSourceKinds.includes('object')
             ? {
                   kind: 'object',
-                  treeEntityId,
-                  limit: 20,
+                  limit: 100,
                   offset: 0,
                   sortBy: 'codename',
                   sortOrder: 'asc',
@@ -93,10 +83,41 @@ export function useMarketingWidgetBindingDialogData({
               }
             : undefined
     )
-    const sourceEntity = useMemo(
-        () => (objectsQuery.data?.items ?? []).find((entity) => getCodenamePrimary(entity.codename) === activeDraft?.sourceKey) ?? null,
-        [activeDraft?.sourceKey, objectsQuery.data?.items]
+    const pagesQuery = useEntityInstancesQuery(
+        metahubId,
+        shouldLoadRecordMetadata && supportedSourceKinds.includes('page')
+            ? {
+                  kind: 'page',
+                  limit: 100,
+                  offset: 0,
+                  sortBy: 'codename',
+                  sortOrder: 'asc',
+                  search: activeDraft?.sourceKey,
+                  locale
+              }
+            : undefined
     )
+    const sourceEntityMatch = useMemo(() => {
+        if (supportedSourceKinds.includes('object')) {
+            const object = (objectsQuery.data?.items ?? []).find((entity) => getCodenamePrimary(entity.codename) === activeDraft?.sourceKey)
+            if (object) return { entity: object, kind: 'object' as const }
+        }
+        if (supportedSourceKinds.includes('page')) {
+            const page = (pagesQuery.data?.items ?? []).find((entity) => getCodenamePrimary(entity.codename) === activeDraft?.sourceKey)
+            if (page) return { entity: page, kind: 'page' as const }
+        }
+        return null
+    }, [activeDraft?.sourceKey, objectsQuery.data?.items, pagesQuery.data?.items, supportedSourceKinds])
+    const sourceEntity = sourceEntityMatch?.entity ?? null
+    const sourceEntityKind = sourceEntityMatch?.kind
+    const sourceMetadataReady = !shouldLoadRecordMetadata || Boolean(sourceEntityMatch)
+    const treeEntityId = useMemo(() => {
+        const hubs = sourceEntity?.config?.hubs
+        return Array.isArray(hubs)
+            ? hubs.find((value): value is string => typeof value === 'string' && value.trim().length > 0) ?? null
+            : null
+    }, [sourceEntity?.config])
+    const hubsQuery = { isLoading: false, isError: false } as const
     const componentParams = useMemo(
         () => ({
             limit: 100,
@@ -105,17 +126,28 @@ export function useMarketingWidgetBindingDialogData({
             sortOrder: 'asc' as const,
             locale,
             scope: 'all' as const,
-            includeShared: true
+            includeShared: true,
+            ...(sourceEntityKind && sourceEntityKind !== 'object' ? { kindKey: sourceEntityKind } : {})
         }),
-        [locale]
+        [locale, sourceEntityKind]
     )
     const componentsQuery = useQuery({
-        queryKey:
-            treeEntityId && sourceEntity
+        queryKey: sourceEntity
+            ? treeEntityId
                 ? metahubsQueryKeys.componentsList(metahubId, treeEntityId, sourceEntity.id, componentParams)
-                : ['metahubs', 'widgetBindingRecordComponents', 'empty'],
-        queryFn: () => componentsApi.listComponents(metahubId, treeEntityId!, sourceEntity!.id, componentParams),
-        enabled: Boolean(shouldLoadRecordMetadata && treeEntityId && sourceEntity)
+                : metahubsQueryKeys.componentsListDirect(metahubId, sourceEntity.id, {
+                      ...componentParams,
+                      ...(sourceEntityKind && sourceEntityKind !== 'object' ? { kindKey: sourceEntityKind } : {})
+                  })
+            : ['metahubs', 'widgetBindingRecordComponents', 'empty'],
+        queryFn: () =>
+            treeEntityId
+                ? componentsApi.listComponents(metahubId, treeEntityId, sourceEntity!.id, componentParams)
+                : componentsApi.listComponentsDirect(metahubId, sourceEntity!.id, {
+                      ...componentParams,
+                      ...(sourceEntityKind && sourceEntityKind !== 'object' ? { kindKey: sourceEntityKind } : {})
+                  }),
+        enabled: Boolean(shouldLoadRecordMetadata && sourceEntity)
     })
     const recordComponents = componentsQuery.data?.items ?? EMPTY_RECORD_COMPONENTS
     const semanticKeyComponents = useMemo(
@@ -297,6 +329,7 @@ export function useMarketingWidgetBindingDialogData({
         bindingQuery,
         hubsQuery,
         objectsQuery,
+        pagesQuery,
         componentsQuery,
         sourcesQuery,
         recordsQuery,
@@ -305,8 +338,10 @@ export function useMarketingWidgetBindingDialogData({
         relationCheckFailed,
         incompatibleRelationSlot,
         shouldLoadRecordMetadata,
+        sourceMetadataReady,
         treeEntityId,
         sourceEntity,
+        sourceEntityKind,
         recordComponents,
         recordFields,
         hasUnsupportedRequiredFields,

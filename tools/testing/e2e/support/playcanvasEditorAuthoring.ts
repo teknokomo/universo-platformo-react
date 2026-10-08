@@ -158,8 +158,10 @@ export const expectPlayCanvasEditorIframeLoaded = async (
     await expect(editorIframe).toHaveAttribute('src', new RegExp(`[?&]locale=${locale}(?:&|$)`), { timeout: frameTimeoutMs })
 
     const editorFrame = page.frameLocator('iframe[data-testid="playcanvas-editor-frame"]')
-    await expect(editorFrame.locator('body')).toHaveAttribute('data-universo-playcanvas-editor-hosted', 'true')
-    await expect(editorFrame.locator('body')).not.toContainText('Artifact Unavailable')
+    await expect(editorFrame.locator('body')).toHaveAttribute('data-universo-playcanvas-editor-hosted', 'true', {
+        timeout: frameTimeoutMs
+    })
+    await expect(editorFrame.locator('body')).not.toContainText('Artifact Unavailable', { timeout: frameTimeoutMs })
     await expectNoVisibleTextPatterns(
         editorFrame.locator('body'),
         [
@@ -192,6 +194,10 @@ export const expectPlayCanvasEditorIframeLoaded = async (
                                 hostedEntityAdapterInstalled?: boolean
                                 lastWebSocketErrorUrl?: unknown
                                 webSocketEvents?: unknown
+                                lastRealtimeSceneError?: unknown
+                                lastRealtimeSceneErrorEntityOpPath?: unknown
+                                lastRealtimeEntityOpPath?: unknown
+                                recentRealtimeEntityOps?: unknown
                             }
                         }
                     ).__UNIVERSO_PLAYCANVAS_EDITOR_BRIDGE__
@@ -208,6 +214,25 @@ export const expectPlayCanvasEditorIframeLoaded = async (
                         .filter((event): event is { type?: unknown; url?: unknown } => Boolean(event && typeof event === 'object'))
                         .filter((event) => event.type === 'open' && typeof event.url === 'string')
                         .map((event) => String(event.url))
+                    const normalizeEntityOpPath = (value: unknown) => {
+                        const segments = Array.isArray(value) ? value : typeof value === 'string' ? value.split('.') : null
+                        if (!segments) return undefined
+                        return segments
+                            .slice(0, 12)
+                            .map((segment, index) => (segments[0] === 'entities' && index === 1 ? '<entity>' : String(segment)))
+                            .join('.')
+                    }
+                    const recentRealtimeEntityOps = Array.isArray(bridge?.recentRealtimeEntityOps)
+                        ? bridge.recentRealtimeEntityOps.slice(-6).map((value) => {
+                              const operation = value && typeof value === 'object' ? (value as { p?: unknown; keys?: unknown }) : {}
+                              return {
+                                  path: normalizeEntityOpPath(operation.p),
+                                  keys: Array.isArray(operation.keys)
+                                      ? operation.keys.filter((key): key is string => typeof key === 'string').slice(0, 6)
+                                      : []
+                              }
+                          })
+                        : []
                     return {
                         ready: bridge?.ready === true,
                         initialized: bridge?.initialized === true,
@@ -222,7 +247,12 @@ export const expectPlayCanvasEditorIframeLoaded = async (
                         lastWebSocketErrorUrl: bridge?.lastWebSocketErrorUrl,
                         hasRealtimeWebSocketOpen: openedWebSocketUrls.some((url) => url.includes('/realtime')),
                         hasDisabledWebSocketOpen: openedWebSocketUrls.some((url) => url.includes('/disabled')),
-                        connectionOverlayText: document.querySelector('.connection-overlay')?.textContent?.trim() ?? ''
+                        connectionOverlayText: document.querySelector('.connection-overlay')?.textContent?.trim() ?? '',
+                        lastRealtimeSceneError:
+                            typeof bridge?.lastRealtimeSceneError === 'string' ? bridge.lastRealtimeSceneError : undefined,
+                        lastRealtimeSceneErrorEntityOpPath: normalizeEntityOpPath(bridge?.lastRealtimeSceneErrorEntityOpPath),
+                        lastRealtimeEntityOpPath: normalizeEntityOpPath(bridge?.lastRealtimeEntityOpPath),
+                        recentRealtimeEntityOps
                     }
                 }),
             { timeout: readyTimeoutMs }
@@ -333,44 +363,87 @@ const readPlayCanvasEditorBridgeDiagnostics = async (page: Page) => {
     })
 }
 
-const installPlayCanvasEditorShareDbProbe = async (page: Page) => {
+export const installPlayCanvasEditorShareDbProbe = async (page: Page) => {
     const editorFrame = page.frameLocator('iframe[data-testid="playcanvas-editor-frame"]')
-    await editorFrame.locator('body').evaluate(() => {
-        const marker = (window as unknown as { __UNIVERSO_PLAYCANVAS_EDITOR_BRIDGE__?: Record<string, unknown> })
-            .__UNIVERSO_PLAYCANVAS_EDITOR_BRIDGE__
-        if (!marker) return
-        marker.shareDbSubmittedOps = []
-        if (marker.shareDbSubmitProbeInstalled === true) return
-        marker.shareDbSubmitProbeInstalled = true
-        const editor = (
-            window as unknown as {
-                editor?: {
-                    api?: {
-                        globals?: {
-                            realtime?: {
-                                scenes?: {
-                                    current?: {
-                                        submitOp?: (...args: unknown[]) => unknown
-                                        _document?: { submitOp?: (...args: unknown[]) => unknown }
+    await expect
+        .poll(
+            () =>
+                editorFrame.locator('body').evaluate(() => {
+                    const marker = (window as unknown as { __UNIVERSO_PLAYCANVAS_EDITOR_BRIDGE__?: Record<string, unknown> })
+                        .__UNIVERSO_PLAYCANVAS_EDITOR_BRIDGE__
+                    if (!marker) return { documentReady: false, hydrationComplete: false, suppressionExpired: false }
+                    const editor = (
+                        window as unknown as {
+                            editor?: {
+                                api?: {
+                                    globals?: {
+                                        realtime?: {
+                                            scenes?: {
+                                                current?: {
+                                                    _document?: { submitOp?: (...args: unknown[]) => unknown }
+                                                }
+                                            }
+                                        }
                                     }
                                 }
                             }
                         }
+                    ).editor
+                    const document = editor?.api?.globals?.realtime?.scenes?.current?._document
+                    const documentReady = Boolean(document && typeof document.submitOp === 'function')
+                    if (!documentReady || !document) {
+                        return {
+                            documentReady: false,
+                            hydrationComplete: marker.initialHydrationComplete === true,
+                            suppressionExpired: false
+                        }
                     }
-                }
+                    if (marker.shareDbSubmitProbeDocument !== document) {
+                        marker.shareDbSubmittedOps = []
+                        marker.shareDbSubmitProbeDocument = document
+                        const original = document.submitOp.bind(document)
+                        document.submitOp = (...args: unknown[]) => {
+                            const record: Record<string, unknown> = { op: args[0], status: 'pending' }
+                            ;(marker.shareDbSubmittedOps as Array<unknown>).push(record)
+                            const callbackIndex = args.findIndex((argument, index) => index > 0 && typeof argument === 'function')
+                            const callback = callbackIndex >= 0 ? args[callbackIndex] : undefined
+                            const acknowledge = (...callbackArgs: unknown[]) => {
+                                const error = callbackArgs[0]
+                                record.status = error ? 'error' : 'acknowledged'
+                                record.errorType =
+                                    error && typeof error === 'object' && 'name' in error && typeof error.name === 'string'
+                                        ? error.name
+                                        : undefined
+                                if (typeof callback === 'function') return callback(...callbackArgs)
+                                return undefined
+                            }
+                            if (callbackIndex >= 0) args[callbackIndex] = acknowledge
+                            else args.push(acknowledge)
+                            try {
+                                return original(...args)
+                            } catch (error) {
+                                record.status = 'error'
+                                record.errorType = error instanceof Error ? error.name : typeof error
+                                throw error
+                            }
+                        }
+                    }
+                    return {
+                        documentReady: true,
+                        hydrationComplete: marker.initialHydrationComplete === true,
+                        suppressionExpired: Date.now() >= Number(marker.suppressHydrationRealtimeOpsUntil ?? 0)
+                    }
+                }),
+            {
+                timeout: 60_000,
+                message: 'PlayCanvas Editor scene hydration and ShareDB write suppression should finish before authoring starts'
             }
-        ).editor
-        const current = editor?.api?.globals?.realtime?.scenes?.current
-        const wrapSubmitOp = (target: { submitOp?: (...args: unknown[]) => unknown } | undefined, label: string) => {
-            if (!target || typeof target.submitOp !== 'function') return
-            const original = target.submitOp.bind(target)
-            target.submitOp = (...args: unknown[]) => {
-                ;(marker.shareDbSubmittedOps as Array<unknown>).push({ label, op: args[0] })
-                return original(...args)
-            }
-        }
-        wrapSubmitOp(current, 'scene')
-        wrapSubmitOp(current?._document, 'document')
+        )
+        .toMatchObject({ documentReady: true, hydrationComplete: true, suppressionExpired: true })
+    await editorFrame.locator('body').evaluate(() => {
+        const marker = (window as unknown as { __UNIVERSO_PLAYCANVAS_EDITOR_BRIDGE__?: Record<string, unknown> })
+            .__UNIVERSO_PLAYCANVAS_EDITOR_BRIDGE__
+        if (marker) marker.shareDbSubmittedOps = []
     })
 }
 
@@ -384,7 +457,9 @@ const expectPlayCanvasEditorShareDbEntitySubmitted = async (page: Page, createdE
                         .__UNIVERSO_PLAYCANVAS_EDITOR_BRIDGE__
                     const ops = marker?.shareDbSubmittedOps ?? []
                     return ops.some((entry) => {
-                        const serialized = JSON.stringify(entry)
+                        const operation = entry && typeof entry === 'object' ? (entry as { op?: unknown; status?: unknown }) : null
+                        if (operation?.status !== 'acknowledged') return false
+                        const serialized = JSON.stringify(operation.op)
                         return (
                             serialized.includes('"entities"') &&
                             (serialized.includes(expectedEntity.id) || serialized.includes(expectedEntity.name))
@@ -394,6 +469,134 @@ const expectPlayCanvasEditorShareDbEntitySubmitted = async (page: Page, createdE
             { timeout: 20_000 }
         )
         .toBe(true)
+}
+
+export const expectPlayCanvasEditorShareDbOperationsCommitted = async (page: Page, label: string): Promise<void> => {
+    const editorFrame = page.frameLocator('iframe[data-testid="playcanvas-editor-frame"]')
+    const readOperationSummary = () =>
+        editorFrame.locator('body').evaluate(() => {
+            const marker = (
+                window as unknown as {
+                    __UNIVERSO_PLAYCANVAS_EDITOR_BRIDGE__?: { shareDbSubmittedOps?: Array<{ status?: unknown }> }
+                }
+            ).__UNIVERSO_PLAYCANVAS_EDITOR_BRIDGE__
+            const operations = marker?.shareDbSubmittedOps ?? []
+            return {
+                submitted: operations.length,
+                acknowledged: operations.filter((operation) => operation.status === 'acknowledged').length,
+                failed: operations.filter((operation) => operation.status === 'error').length,
+                pending: operations.filter((operation) => operation.status === 'pending').length
+            }
+        })
+
+    await expect
+        .poll(readOperationSummary, { timeout: 60_000, message: `${label}: ShareDB operations should receive server acknowledgments` })
+        .toMatchObject({ pending: 0 })
+    const summary = await readOperationSummary()
+    expect(summary.submitted, `${label}: native authoring should submit scene operations`).toBeGreaterThan(0)
+    expect(summary.failed, `${label}: ShareDB must not reject scene operations`).toBe(0)
+    expect(summary.acknowledged, `${label}: every submitted scene operation must be committed`).toBe(summary.submitted)
+}
+
+export const expectPlayCanvasEditorShareDbEntityMetadata = async (
+    page: Page,
+    label: string,
+    expectations: Array<{ name: string; writeKind: 'created' | 'updated' }>
+): Promise<void> => {
+    const editorFrame = page.frameLocator('iframe[data-testid="playcanvas-editor-frame"]')
+    const observed = await editorFrame.locator('body').evaluate((_element, expectedEntities) => {
+        const isRecord = (value: unknown): value is Record<string, unknown> =>
+            Boolean(value && typeof value === 'object' && !Array.isArray(value))
+        const windowState = window as unknown as {
+            editor?: {
+                api?: {
+                    globals?: {
+                        realtime?: {
+                            scenes?: {
+                                current?: {
+                                    data?: { entities?: Record<string, unknown> }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            __UNIVERSO_PLAYCANVAS_EDITOR_BRIDGE__?: {
+                mmoommVisualLinkupEntityMetadataByName?: Record<string, { mmoomm?: unknown }>
+                shareDbSubmittedOps?: Array<{ op?: unknown; status?: unknown }>
+            }
+        }
+        const bridge = windowState.__UNIVERSO_PLAYCANVAS_EDITOR_BRIDGE__
+        const entities = windowState.editor?.api?.globals?.realtime?.scenes?.current?.data?.entities
+        if (!isRecord(entities)) {
+            throw new Error('Live ShareDB scene document does not expose its entity snapshot')
+        }
+
+        const operations = (bridge?.shareDbSubmittedOps ?? [])
+            .filter((entry) => entry.status === 'acknowledged')
+            .flatMap((entry) => (Array.isArray(entry.op) ? entry.op : [entry.op]))
+            .filter(isRecord)
+        const hasVisualMaterialMetadata = (value: unknown): boolean => {
+            if (!isRecord(value) || !isRecord(value.mmoomm)) return false
+            return isRecord(value.mmoomm.visualMaterial)
+        }
+
+        return expectedEntities.map((expectedEntity) => {
+            const entry = Object.entries(entities).find(([, value]) => isRecord(value) && value.name === expectedEntity.name)
+            const id = entry?.[0]
+            const entity = entry?.[1]
+            const expectedMetadata = bridge?.mmoommVisualLinkupEntityMetadataByName?.[expectedEntity.name]?.mmoomm
+            const entityOperations = operations.filter((operation) => {
+                const path = operation.p
+                return Array.isArray(path) && path[0] === 'entities' && String(path[1]) === id
+            })
+            const creationOperation = entityOperations.find((operation) => {
+                const path = operation.p
+                return Array.isArray(path) && path.length === 2 && isRecord(operation.oi) && operation.oi.name === expectedEntity.name
+            })
+            const metadataOperation = entityOperations.find((operation) => {
+                const path = operation.p
+                return Array.isArray(path) && path.length === 3 && path[2] === 'metadata' && hasVisualMaterialMetadata(operation.oi)
+            })
+            const creationMetadata = isRecord(creationOperation?.oi) ? creationOperation.oi.metadata : undefined
+            const creationMetadataOperation = hasVisualMaterialMetadata(creationMetadata) ? creationMetadata : undefined
+            const writePayload =
+                expectedEntity.writeKind === 'created' ? metadataOperation?.oi ?? creationMetadataOperation : metadataOperation?.oi
+            const writeMmoommMetadata = isRecord(writePayload) && isRecord(writePayload.mmoomm) ? writePayload.mmoomm : undefined
+
+            return {
+                name: expectedEntity.name,
+                exists: Boolean(entity),
+                shareDbDocumentId: id,
+                acknowledgedCreation: Boolean(creationOperation),
+                metadataWritePath: metadataOperation?.p,
+                metadata: isRecord(entity) ? entity.metadata : undefined,
+                expectedMetadata,
+                writeMmoommMetadata
+            }
+        })
+    }, expectations)
+
+    for (const entity of observed) {
+        expect(entity.exists, `${label}: ${entity.name} must exist in the live ShareDB scene document`).toBe(true)
+        if (expectations.find((item) => item.name === entity.name)?.writeKind === 'created') {
+            expect(entity.acknowledgedCreation, `${label}: ${entity.name} acknowledged create operation`).toBe(true)
+        }
+        expect(entity.expectedMetadata, `${label}: ${entity.name} must have staged linkup metadata`).toEqual(
+            expect.objectContaining({ visualMaterial: expect.any(Object) })
+        )
+        expect(entity.metadataWritePath, `${label}: ${entity.name} metadata write must target its ShareDB document root`).toEqual([
+            'entities',
+            entity.shareDbDocumentId,
+            'metadata'
+        ])
+        expect(
+            entity.writeMmoommMetadata,
+            `${label}: ${entity.name} acknowledged ${expectations.find((item) => item.name === entity.name)?.writeKind} metadata write`
+        ).toEqual(entity.expectedMetadata)
+        const metadata = entity.metadata as { mmoomm?: unknown } | undefined
+        expect(metadata?.mmoomm, `${label}: ${entity.name} metadata in the live ShareDB scene document`).toEqual(entity.expectedMetadata)
+    }
 }
 
 export const createSerializablePlayCanvasEditorEntity = async (page: Page): Promise<PlayCanvasEditorAuthoredEntity> => {

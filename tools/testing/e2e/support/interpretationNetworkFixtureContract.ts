@@ -44,6 +44,14 @@ const readRuntimeLabel = (value: unknown): string => {
     return locales.en?.content ?? locales.ru?.content ?? ''
 }
 
+const readLocalizedRuntimeLabel = (value: unknown, locale: 'en' | 'ru'): string => {
+    if (typeof value === 'string') return value
+    if (!value || typeof value !== 'object') return ''
+    const locales = (value as { locales?: Record<string, { content?: unknown }> }).locales
+    const content = locales?.[locale]?.content
+    return typeof content === 'string' ? content : ''
+}
+
 const findEntityByCodename = (entityList: Array<Record<string, unknown>>, codename: string): Record<string, unknown> | undefined =>
     entityList.find((e) => readRuntimeLabel(e?.codename) === codename)
 
@@ -200,14 +208,82 @@ const assertCellStylePreviewContract = (field: Record<string, unknown>, label: s
     }
 }
 
+const assertGeneratedNavigationSourceContract = (entities: Array<Record<string, unknown>>): void => {
+    const hub = findEntityByCodename(entities, 'Main')
+    const startPage = findEntityByCodename(entities, 'InterpretationNetworkIntro')
+    const structures = findEntityByCodename(entities, 'Structure')
+    const hubPresentation = hub?.presentation && typeof hub.presentation === 'object' ? (hub.presentation as Record<string, unknown>) : {}
+
+    if (
+        !hub ||
+        hub.kind !== 'hub' ||
+        readLocalizedRuntimeLabel(hubPresentation.name, 'en') !== 'Main' ||
+        readLocalizedRuntimeLabel(hubPresentation.name, 'ru') !== 'Основной'
+    ) {
+        throw new Error('Interpretation Network fixture contract failed: default Hub Main must have bilingual metadata')
+    }
+
+    const assertNavigationSource = (
+        entity: Record<string, unknown> | undefined,
+        codename: string,
+        kind: 'page' | 'object',
+        expectedName: { en: string; ru: string },
+        icon: string,
+        routeSegment?: string
+    ): void => {
+        const presentation =
+            entity?.presentation && typeof entity.presentation === 'object' ? (entity.presentation as Record<string, unknown>) : {}
+        const config = entity?.config && typeof entity.config === 'object' ? (entity.config as Record<string, unknown>) : {}
+        const runtime = config.runtime && typeof config.runtime === 'object' ? (config.runtime as Record<string, unknown>) : {}
+        const hubs = Array.isArray(config.hubs) ? config.hubs : []
+
+        if (
+            !entity ||
+            entity.kind !== kind ||
+            readLocalizedRuntimeLabel(presentation.name, 'en') !== expectedName.en ||
+            readLocalizedRuntimeLabel(presentation.name, 'ru') !== expectedName.ru
+        ) {
+            throw new Error(
+                `Interpretation Network fixture contract failed: generated navigation source ${kind} ${codename} must use bilingual labels ${expectedName.en}/${expectedName.ru}`
+            )
+        }
+        if (runtime.menuVisibility !== 'primary' || runtime.icon !== icon || (routeSegment && runtime.routeSegment !== routeSegment)) {
+            throw new Error(
+                `Interpretation Network fixture contract failed: generated navigation source ${codename} must have primary visibility, icon ${icon}, and its expected route`
+            )
+        }
+        if (hubs.length !== 0) {
+            throw new Error(
+                `Interpretation Network fixture contract failed: generated navigation source ${codename} must appear at the top level without a Hub group`
+            )
+        }
+    }
+
+    assertNavigationSource(startPage, 'InterpretationNetworkIntro', 'page', { en: 'Start', ru: 'Начало' }, 'home', 'home')
+    assertNavigationSource(structures, 'Structure', 'object', { en: 'Structures', ru: 'Структуры' }, 'object')
+}
+
 const assertInterpretationNetworkLayoutContract = (snapshot: Record<string, unknown>): void => {
     const layoutZoneWidgets = Array.isArray(snapshot.layoutZoneWidgets)
         ? (snapshot.layoutZoneWidgets as Array<Record<string, unknown>>)
         : []
-    const centerWidgets = layoutZoneWidgets.filter((widget) => widget.zone === 'center')
-    const workspaceWidget = centerWidgets.find((widget) => widget.widgetKey === 'interpretationNetworkWorkspace')
+    const layouts = Array.isArray(snapshot.layouts) ? (snapshot.layouts as Array<Record<string, unknown>>) : []
+    const defaultLayoutId = typeof snapshot.defaultLayoutId === 'string' ? snapshot.defaultLayoutId : null
+    const defaultLayout = layouts.find((layout) => layout.id === defaultLayoutId)
+    if (!defaultLayout || defaultLayout.templateKey !== 'dashboard') {
+        throw new Error('Interpretation Network fixture contract failed: defaultLayoutId must resolve to the Dashboard layout')
+    }
+    const defaultPlacements = layoutZoneWidgets.filter((widget) => widget.layoutId === defaultLayoutId)
+    const workspaceWidget = defaultPlacements.find(
+        (widget) => widget.zone === 'center' && widget.widgetKey === 'interpretationNetworkWorkspace'
+    )
     if (!workspaceWidget) {
-        throw new Error('Interpretation Network fixture contract failed: center zone must include interpretationNetworkWorkspace')
+        throw new Error(
+            'Interpretation Network fixture contract failed: default Dashboard layout center must include interpretationNetworkWorkspace'
+        )
+    }
+    if (workspaceWidget.isActive !== true) {
+        throw new Error('Interpretation Network fixture contract failed: interpretationNetworkWorkspace placement must be active')
     }
     const workspaceConfig =
         workspaceWidget.config && typeof workspaceWidget.config === 'object' ? (workspaceWidget.config as Record<string, unknown>) : {}
@@ -221,9 +297,14 @@ const assertInterpretationNetworkLayoutContract = (snapshot: Record<string, unkn
             'Interpretation Network fixture contract failed: interpretationNetworkWorkspace.config.matrixMode must be "hierarchicalCells"'
         )
     }
-    if (workspaceConfig.structureMode !== 'singleSystem') {
+    if (workspaceConfig.structureMode !== 'multiple') {
         throw new Error(
-            'Interpretation Network fixture contract failed: interpretationNetworkWorkspace.config.structureMode must be "singleSystem"'
+            'Interpretation Network fixture contract failed: interpretationNetworkWorkspace.config.structureMode must be "multiple"'
+        )
+    }
+    if (workspaceConfig.conceptCodename !== 'Structure') {
+        throw new Error(
+            'Interpretation Network fixture contract failed: interpretationNetworkWorkspace must resolve its Structure Object by semantic codename'
         )
     }
     const allowedMatrixViews = Array.isArray(workspaceConfig.allowedMatrixViews) ? workspaceConfig.allowedMatrixViews : []
@@ -314,53 +395,45 @@ const assertInterpretationNetworkLayoutContract = (snapshot: Record<string, unkn
             'Interpretation Network fixture contract failed: interpretationNetworkWorkspace.config.positionNumbering must enable root-inclusive numbering from 1'
         )
     }
-    const visibleFor =
-        workspaceConfig.visibleFor && typeof workspaceConfig.visibleFor === 'object'
-            ? (workspaceConfig.visibleFor as Record<string, unknown>)
-            : {}
-    const sectionCodenames = Array.isArray(visibleFor.sectionCodenames) ? visibleFor.sectionCodenames : []
-    const objectCollectionCodenames = Array.isArray(visibleFor.objectCollectionCodenames) ? visibleFor.objectCollectionCodenames : []
-    if (!sectionCodenames.includes('Structure') || !objectCollectionCodenames.includes('Structure')) {
+    if (Object.hasOwn(workspaceConfig, 'visibleFor')) {
         throw new Error(
-            'Interpretation Network fixture contract failed: interpretationNetworkWorkspace must be visible only on Structure entities'
+            'Interpretation Network fixture contract failed: interpretationNetworkWorkspace must not use the removed visibleFor config; its source is the default layout placement'
         )
     }
-    const menuWidget = layoutZoneWidgets.find((widget) => widget.widgetKey === 'menuWidget')
+    const menuWidget = defaultPlacements.find((widget) => widget.zone === 'left' && widget.widgetKey === 'menuWidget')
     if (!menuWidget) {
-        throw new Error('Interpretation Network fixture contract failed: left zone must include menuWidget')
+        throw new Error('Interpretation Network fixture contract failed: default Dashboard layout left zone must include menuWidget')
+    }
+    if (menuWidget.isActive !== true) {
+        throw new Error('Interpretation Network fixture contract failed: generated menu placement must be active')
     }
     const menuConfig = menuWidget.config && typeof menuWidget.config === 'object' ? (menuWidget.config as Record<string, unknown>) : {}
-    if (menuConfig.autoShowAllSections !== false) {
-        throw new Error('Interpretation Network fixture contract failed: menuWidget must not auto-render every object section')
+    if (menuConfig.variant !== 'generated' || Object.keys(menuConfig).length !== 1) {
+        throw new Error(
+            'Interpretation Network fixture contract failed: menuWidget config must select generated navigation without embedded menu content'
+        )
     }
-    if (menuConfig.showTitle !== false) {
-        throw new Error('Interpretation Network fixture contract failed: menuWidget must hide its title by default')
+    if (Object.hasOwn(menuConfig, 'startPage') || Object.hasOwn(menuConfig, 'items')) {
+        throw new Error('Interpretation Network fixture contract failed: generated menu config must not store startPage or menu items')
     }
-    if (menuConfig.startPage !== 'InterpretationNetworkIntro') {
-        throw new Error('Interpretation Network fixture contract failed: menuWidget must start from InterpretationNetworkIntro')
+    const entities = Object.values((snapshot.entities ?? {}) as Record<string, Record<string, unknown>>)
+    for (const [codename, kind] of [
+        ['WelcomePage', 'page'],
+        ['Main', 'hub'],
+        ['InterpretationNetworkIntro', 'page'],
+        ['Structure', 'object']
+    ] as const) {
+        const entity = findEntityByCodename(entities, codename)
+        const presentation =
+            entity?.presentation && typeof entity.presentation === 'object' ? (entity.presentation as Record<string, unknown>) : {}
+        const name = presentation.name
+        if (entity?.kind !== kind || !readLocalizedRuntimeLabel(name, 'en') || !readLocalizedRuntimeLabel(name, 'ru')) {
+            throw new Error(
+                `Interpretation Network fixture contract failed: generated navigation source ${kind} ${codename} must have bilingual Entity metadata`
+            )
+        }
     }
-    const menuItems = Array.isArray(menuConfig.items) ? (menuConfig.items as Array<Record<string, unknown>>) : []
-    const introItem = menuItems.find(
-        (item) =>
-            item.id === 'interpretationNetwork-nav-intro' &&
-            item.kind === 'section' &&
-            item.sectionId === 'InterpretationNetworkIntro' &&
-            readRuntimeLabel(item.title) === 'Start'
-    )
-    if (!introItem) {
-        throw new Error('Interpretation Network fixture contract failed: menuWidget must include the localized intro Page item')
-    }
-    const structuresItem = menuItems.find(
-        (item) =>
-            item.id === 'interpretationNetwork-nav-structures' &&
-            item.kind === 'section' &&
-            item.sectionId === 'Structure' &&
-            item.objectCollectionId === 'Structure' &&
-            readRuntimeLabel(item.title) === 'Structures'
-    )
-    if (!structuresItem) {
-        throw new Error('Interpretation Network fixture contract failed: menuWidget must include the localized Structures return item')
-    }
+    assertGeneratedNavigationSourceContract(entities)
 
     const forbiddenWidgetKeys = new Set([
         'overviewCards',
@@ -381,24 +454,20 @@ const assertInterpretationNetworkLayoutContract = (snapshot: Record<string, unkn
         const config = widget.config && typeof widget.config === 'object' ? (widget.config as Record<string, unknown>) : {}
         const columns = Array.isArray(config.columns) ? config.columns : []
         for (const [columnIndex, column] of columns.entries()) {
-            const nestedWidgets =
-                column && typeof column === 'object' && Array.isArray((column as { widgets?: unknown }).widgets)
-                    ? (column as { widgets: Array<Record<string, unknown>> }).widgets ?? []
-                    : []
-            nestedWidgets.forEach((nestedWidget, nestedIndex) =>
-                visitWidget(nestedWidget, `${path}.columns[${columnIndex}].widgets[${nestedIndex}]`)
-            )
+            if (column && typeof column === 'object' && Object.hasOwn(column, 'widgets')) {
+                throw new Error(
+                    `Interpretation Network fixture contract failed: ${path}.columns[${columnIndex}].widgets is retired; child widgets must be first-class placements`
+                )
+            }
         }
 
         const tabs = Array.isArray(config.tabs) ? config.tabs : []
         for (const [tabIndex, tab] of tabs.entries()) {
-            const nestedWidgets =
-                tab && typeof tab === 'object' && Array.isArray((tab as { widgets?: unknown }).widgets)
-                    ? (tab as { widgets: Array<Record<string, unknown>> }).widgets ?? []
-                    : []
-            nestedWidgets.forEach((nestedWidget, nestedIndex) =>
-                visitWidget(nestedWidget, `${path}.tabs[${tabIndex}].widgets[${nestedIndex}]`)
-            )
+            if (tab && typeof tab === 'object' && Object.hasOwn(tab, 'widgets')) {
+                throw new Error(
+                    `Interpretation Network fixture contract failed: ${path}.tabs[${tabIndex}].widgets is retired; child widgets must be first-class placements`
+                )
+            }
         }
     }
 

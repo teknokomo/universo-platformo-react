@@ -372,6 +372,7 @@ export const createPublicMarketingBindingRecordLoader = (
         const components = await readComponentMetadata(object, slot)
         const compatible = isCompatibleWidgetBindingEntity(slot, {
             kind: object.kind,
+            codename: object.codename,
             config: object.config,
             components: [...components.values()].map(({ codename, dataType, isRequired, validationRules }) => ({
                 codename,

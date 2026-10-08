@@ -29,11 +29,15 @@ import {
     assertNoClientSuppliedServerOwnedChildFields,
     assertNoGenericMatrixPlacement,
     buildChildRowUpdate,
+    getSafeRuntimeChildAttrs,
+    resolveHierarchyAttrs,
     prepareHierarchyCreateData,
     validateTabularCoordinates,
     validateTabularHierarchy
 } from './runtimeChildRowsValidation'
+import { loadRuntimeChildParentRecord } from './runtimeChildRowParentAccess'
 import { createRuntimeChildRowCopyDeleteHandlers } from './runtimeChildRowCopyDeleteHandlers'
+import { isRuntimeChildParentReference, resolveRuntimeChildParentRecordId } from './runtimeChildRowParentReference'
 import { createRuntimeVersionConflictFailure } from './runtimeVersionConflict'
 import { denyRuntimeEntityMutation } from '../shared/entityMutationPolicy'
 import { assertRuntimeRecordMutable } from '../services/runtimeRecordBehavior'
@@ -104,19 +108,26 @@ const tabularBatchUpdateBodySchema = z
 // Controller factory
 // ---------------------------------------------------------------------------
 
+const MAX_CHILD_ROW_PAGE_SIZE = 1000
+
 export function createRuntimeChildRowsController(getDbExecutor: () => DbExecutor) {
     const query = createQueryHelper(getDbExecutor)
 
     const listChildRows = async (req: Request, res: Response) => {
-        const { applicationId, recordId, componentId } = req.params
-        if (!UUID_REGEX.test(recordId)) return res.status(400).json({ error: 'Invalid record ID format' })
+        const { applicationId, recordId: parentRecordReference, componentId } = req.params
+        if (!isRuntimeChildParentReference(parentRecordReference)) {
+            return res.status(400).json({ error: 'Invalid record ID format' })
+        }
         const objectCollectionId = typeof req.query.objectCollectionId === 'string' ? req.query.objectCollectionId : undefined
         if (!objectCollectionId || !UUID_REGEX.test(objectCollectionId))
             return res.status(400).json({ error: 'objectCollectionId query parameter is required' })
 
         const limitParam = typeof req.query.limit === 'string' ? parseInt(req.query.limit, 10) : undefined
         const offsetParam = typeof req.query.offset === 'string' ? parseInt(req.query.offset, 10) : undefined
-        const limit = Number.isFinite(limitParam) && (limitParam as number) > 0 ? (limitParam as number) : 1000
+        const limit =
+            Number.isFinite(limitParam) && (limitParam as number) > 0
+                ? Math.min(limitParam as number, MAX_CHILD_ROW_PAGE_SIZE)
+                : MAX_CHILD_ROW_PAGE_SIZE
         const offset = Number.isFinite(offsetParam) && (offsetParam as number) >= 0 ? (offsetParam as number) : 0
 
         const ctx = await resolveRuntimeSchema(getDbExecutor, query, req, res, applicationId)
@@ -124,6 +135,21 @@ export function createRuntimeChildRowsController(getDbExecutor: () => DbExecutor
 
         const tc = await resolveTabularContext(ctx.manager, ctx.schemaIdent, objectCollectionId, componentId)
         if (tc.error !== null) return res.status(400).json({ error: tc.error })
+        const recordId = resolveRuntimeChildParentRecordId({
+            reference: parentRecordReference,
+            applicationId,
+            workspaceId: ctx.currentWorkspaceId,
+            entityCodename: tc.object.codename
+        })
+        if (!recordId) return res.status(400).json({ error: 'Invalid record ID format' })
+        const parentRow = await loadRuntimeChildParentRecord({
+            manager: ctx.manager,
+            ctx,
+            tc,
+            recordId,
+            minimumAccessLevel: 'read'
+        })
+        if (!parentRow) return res.status(404).json({ error: 'Parent record not found' })
         const runtimeRowCondition = buildRuntimeActiveRowCondition(
             tc.lifecycleContract,
             tc.object.config,
@@ -131,8 +157,15 @@ export function createRuntimeChildRowsController(getDbExecutor: () => DbExecutor
             ctx.currentWorkspaceId
         )
 
-        const safeChildAttrs = tc.childAttrs.filter((a) => IDENTIFIER_REGEX.test(a.column_name))
-        const selectCols = ['id', '_tp_sort_order', '_upl_version', ...safeChildAttrs.map((a) => quoteIdentifier(a.column_name))]
+        const safeChildAttrs = getSafeRuntimeChildAttrs(tc)
+        const hierarchyAttrs = resolveHierarchyAttrs(tc)
+        const selectedColumns = new Set(safeChildAttrs.map((attr) => attr.column_name))
+        const selectCols = ['id', '_tp_sort_order', '_upl_version', ...safeChildAttrs.map((attr) => quoteIdentifier(attr.column_name))]
+        if (hierarchyAttrs) {
+            for (const attr of [hierarchyAttrs.identityAttr, hierarchyAttrs.parentAttr]) {
+                if (!selectedColumns.has(attr.column_name)) selectCols.push(quoteIdentifier(attr.column_name))
+            }
+        }
 
         const countResult = (await ctx.manager.query(
             `
@@ -165,6 +198,14 @@ export function createRuntimeChildRowsController(getDbExecutor: () => DbExecutor
                 const raw = row[attr.column_name] ?? null
                 mapped[attr.column_name] = attr.data_type === 'NUMBER' && raw !== null ? pgNumericToNumber(raw) : raw
             }
+            if (hierarchyAttrs) {
+                const cellId = row[hierarchyAttrs.identityAttr.column_name]
+                const parentCellId = row[hierarchyAttrs.parentAttr.column_name]
+                mapped.matrixHierarchy = {
+                    cellId: typeof cellId === 'string' && UUID_REGEX.test(cellId) ? cellId : null,
+                    parentCellId: typeof parentCellId === 'string' && UUID_REGEX.test(parentCellId) ? parentCellId : null
+                }
+            }
             return mapped
         })
 
@@ -173,8 +214,10 @@ export function createRuntimeChildRowsController(getDbExecutor: () => DbExecutor
 
     // ============ CREATE CHILD ROW ============
     const createChildRow = async (req: Request, res: Response) => {
-        const { applicationId, recordId, componentId } = req.params
-        if (!UUID_REGEX.test(recordId)) return res.status(400).json({ error: 'Invalid record ID format' })
+        const { applicationId, recordId: parentRecordReference, componentId } = req.params
+        if (!isRuntimeChildParentReference(parentRecordReference)) {
+            return res.status(400).json({ error: 'Invalid record ID format' })
+        }
         const objectCollectionId = typeof req.query.objectCollectionId === 'string' ? req.query.objectCollectionId : undefined
         if (!objectCollectionId || !UUID_REGEX.test(objectCollectionId))
             return res.status(400).json({ error: 'objectCollectionId query parameter is required' })
@@ -186,6 +229,13 @@ export function createRuntimeChildRowsController(getDbExecutor: () => DbExecutor
 
         const tc = await resolveTabularContext(ctx.manager, ctx.schemaIdent, objectCollectionId, componentId)
         if (tc.error !== null) return res.status(400).json({ error: tc.error })
+        const recordId = resolveRuntimeChildParentRecordId({
+            reference: parentRecordReference,
+            applicationId,
+            workspaceId: ctx.currentWorkspaceId,
+            entityCodename: tc.object.codename
+        })
+        if (!recordId) return res.status(400).json({ error: 'Invalid record ID format' })
         if (denyRuntimeEntityMutation(res, tc.object.config)) return
         const runtimeRowCondition = buildRuntimeActiveRowCondition(
             tc.lifecycleContract,
@@ -324,24 +374,21 @@ export function createRuntimeChildRowsController(getDbExecutor: () => DbExecutor
         // FIX: replaced manual BEGIN/COMMIT/ROLLBACK with .transaction()
         try {
             const inserted = await ctx.manager.transaction(async (tx) => {
-                const parentRows = (await tx.query(
-                    `
-                    SELECT *
-            FROM ${tc.parentTableIdent}
-            WHERE id = $1
-              AND ${runtimeRowCondition}
-            FOR UPDATE
-          `,
-                    [recordId]
-                )) as Array<{ id: string; _upl_locked?: boolean }>
-
-                if (parentRows.length === 0) {
+                const parentRow = await loadRuntimeChildParentRecord({
+                    manager: tx,
+                    ctx,
+                    tc,
+                    recordId,
+                    minimumAccessLevel: 'edit',
+                    lock: true
+                })
+                if (!parentRow) {
                     throw new UpdateFailure(404, { error: 'Parent record not found' })
                 }
-                if (parentRows[0]._upl_locked) {
+                if (parentRow._upl_locked) {
                     throw new UpdateFailure(423, { error: 'Parent record is locked' })
                 }
-                assertRuntimeRecordMutable(tc.object.config, parentRows[0])
+                assertRuntimeRecordMutable(tc.object.config, parentRow)
                 await validateTabularHierarchy(tx, tc, recordId, runtimeRowCondition, [{ data: effectiveCreateData }])
                 await validateTabularCoordinates(tx, tc, recordId, runtimeRowCondition, [{ data: effectiveCreateData }])
 
@@ -364,7 +411,7 @@ export function createRuntimeChildRowsController(getDbExecutor: () => DbExecutor
                     throw new UpdateFailure(400, { error: maxRowsError })
                 }
 
-                const safeChildAttrs = tc.childAttrs.filter((attr) => IDENTIFIER_REGEX.test(attr.column_name))
+                const safeChildAttrs = getSafeRuntimeChildAttrs(tc)
                 const returningCols = [
                     'id',
                     '_tp_sort_order',
@@ -382,12 +429,16 @@ export function createRuntimeChildRowsController(getDbExecutor: () => DbExecutor
                     throw new UpdateFailure(500, { error: 'Failed to create child row' })
                 }
 
-                const item: Record<string, unknown> & { id: string } = { id: row.id }
-                for (const [key, value] of Object.entries(row)) {
-                    item[key] = value
+                const item: Record<string, unknown> & { id: string } = {
+                    id: String(row.id),
+                    _tp_sort_order: row._tp_sort_order ?? 0,
+                    _upl_version: Number(row._upl_version ?? 1)
                 }
                 for (const attr of safeChildAttrs) {
-                    item[attr.codename] = row[attr.column_name] ?? null
+                    const raw = row[attr.column_name] ?? null
+                    const value = attr.data_type === 'NUMBER' && raw !== null ? pgNumericToNumber(raw) : raw
+                    item[attr.column_name] = value
+                    if (attr.codename && attr.codename !== attr.column_name) item[attr.codename] = value
                 }
                 return item
             })
@@ -407,8 +458,8 @@ export function createRuntimeChildRowsController(getDbExecutor: () => DbExecutor
 
     // ============ UPDATE CHILD ROW ============
     const updateChildRow = async (req: Request, res: Response) => {
-        const { applicationId, recordId, componentId, childRowId } = req.params
-        if (!UUID_REGEX.test(recordId) || !UUID_REGEX.test(childRowId)) {
+        const { applicationId, recordId: parentRecordReference, componentId, childRowId } = req.params
+        if (!isRuntimeChildParentReference(parentRecordReference) || !UUID_REGEX.test(childRowId)) {
             return res.status(400).json({ error: 'Invalid ID format' })
         }
         const objectCollectionId = typeof req.query.objectCollectionId === 'string' ? req.query.objectCollectionId : undefined
@@ -421,6 +472,13 @@ export function createRuntimeChildRowsController(getDbExecutor: () => DbExecutor
 
         const tc = await resolveTabularContext(ctx.manager, ctx.schemaIdent, objectCollectionId, componentId)
         if (tc.error !== null) return res.status(400).json({ error: tc.error })
+        const recordId = resolveRuntimeChildParentRecordId({
+            reference: parentRecordReference,
+            applicationId,
+            workspaceId: ctx.currentWorkspaceId,
+            entityCodename: tc.object.codename
+        })
+        if (!recordId) return res.status(400).json({ error: 'Invalid ID format' })
         if (denyRuntimeEntityMutation(res, tc.object.config)) return
         const runtimeRowCondition = buildRuntimeActiveRowCondition(
             tc.lifecycleContract,
@@ -454,20 +512,36 @@ export function createRuntimeChildRowsController(getDbExecutor: () => DbExecutor
 
         try {
             await ctx.manager.transaction(async (tx) => {
-                const parentRows = (await tx.query(
-                    `
-          SELECT *
-          FROM ${tc.parentTableIdent}
-          WHERE id = $1
-            AND ${runtimeRowCondition}
-          FOR UPDATE
-        `,
-                    [recordId]
-                )) as Array<{ id: string; _upl_locked?: boolean }>
+                const parentRow = await loadRuntimeChildParentRecord({
+                    manager: tx,
+                    ctx,
+                    tc,
+                    recordId,
+                    minimumAccessLevel: 'edit',
+                    lock: true
+                })
+                if (!parentRow) throw new UpdateFailure(404, { error: 'Parent record not found' })
+                if (parentRow._upl_locked) throw new UpdateFailure(423, { error: 'Parent record is locked' })
+                assertRuntimeRecordMutable(tc.object.config, parentRow)
 
-                if (parentRows.length === 0) throw new UpdateFailure(404, { error: 'Parent record not found' })
-                if (parentRows[0]._upl_locked) throw new UpdateFailure(423, { error: 'Parent record is locked' })
-                assertRuntimeRecordMutable(tc.object.config, parentRows[0])
+                let versionPrecondition = expectedVersion
+                if (versionPrecondition === undefined) {
+                    const versionRows = (await tx.query(
+                        `
+          SELECT COALESCE(_upl_version, 1)::int AS version
+          FROM ${tc.tabTableIdent}
+          WHERE id = $1
+            AND _tp_parent_id = $2
+            AND ${runtimeRowCondition}
+          LIMIT 1
+        `,
+                        [childRowId, recordId]
+                    )) as Array<{ version: number }>
+
+                    if (versionRows.length === 0) throw new UpdateFailure(404, { error: 'Child row not found' })
+                    versionPrecondition = versionRows[0].version
+                }
+
                 await validateTabularHierarchy(tx, tc, recordId, runtimeRowCondition, [{ childRowId, data }])
                 await validateTabularCoordinates(tx, tc, recordId, runtimeRowCondition, [{ childRowId, data }])
 
@@ -479,11 +553,8 @@ export function createRuntimeChildRowsController(getDbExecutor: () => DbExecutor
                 values.push(recordId)
                 const childIdParam = pIdx
                 const parentIdParam = pIdx + 1
-                let expectedVersionClause = ''
-                if (expectedVersion !== undefined) {
-                    values.push(expectedVersion)
-                    expectedVersionClause = `AND COALESCE(_upl_version, 1) = $${parentIdParam + 1}`
-                }
+                values.push(versionPrecondition)
+                const versionPreconditionClause = `AND COALESCE(_upl_version, 1) = $${parentIdParam + 1}`
 
                 const updated = (await tx.query(
                     `
@@ -492,7 +563,7 @@ export function createRuntimeChildRowsController(getDbExecutor: () => DbExecutor
           WHERE id = $${childIdParam}
             AND _tp_parent_id = $${parentIdParam}
             AND ${runtimeRowCondition}
-            ${expectedVersionClause}
+            ${versionPreconditionClause}
           RETURNING id
         `,
                     values
@@ -512,11 +583,9 @@ export function createRuntimeChildRowsController(getDbExecutor: () => DbExecutor
                     [childRowId, recordId]
                 )) as Array<{ id: string; _upl_version?: number }>
                 if (childRows.length === 0) throw new UpdateFailure(404, { error: 'Child row not found' })
-                if (expectedVersion !== undefined) {
-                    const actualVersion = Number(childRows[0]._upl_version ?? 1)
-                    if (actualVersion !== expectedVersion) {
-                        throw createRuntimeVersionConflictFailure(expectedVersion, actualVersion)
-                    }
+                const actualVersion = Number(childRows[0]._upl_version ?? 1)
+                if (actualVersion !== versionPrecondition) {
+                    throw createRuntimeVersionConflictFailure(versionPrecondition, actualVersion)
                 }
                 throw new UpdateFailure(404, { error: 'Child row not found' })
             })
@@ -530,8 +599,8 @@ export function createRuntimeChildRowsController(getDbExecutor: () => DbExecutor
 
     // ============ BATCH UPDATE CHILD ROWS ============
     const batchUpdateChildRows = async (req: Request, res: Response) => {
-        const { applicationId, recordId, componentId } = req.params
-        if (!UUID_REGEX.test(recordId)) {
+        const { applicationId, recordId: parentRecordReference, componentId } = req.params
+        if (!isRuntimeChildParentReference(parentRecordReference)) {
             return res.status(400).json({ error: 'Invalid record ID format' })
         }
         const objectCollectionId = typeof req.query.objectCollectionId === 'string' ? req.query.objectCollectionId : undefined
@@ -565,6 +634,13 @@ export function createRuntimeChildRowsController(getDbExecutor: () => DbExecutor
 
         const tc = await resolveTabularContext(ctx.manager, ctx.schemaIdent, objectCollectionId, componentId)
         if (tc.error !== null) return res.status(400).json({ error: tc.error })
+        const recordId = resolveRuntimeChildParentRecordId({
+            reference: parentRecordReference,
+            applicationId,
+            workspaceId: ctx.currentWorkspaceId,
+            entityCodename: tc.object.codename
+        })
+        if (!recordId) return res.status(400).json({ error: 'Invalid record ID format' })
         if (denyRuntimeEntityMutation(res, tc.object.config)) return
         try {
             for (const update of parsedBody.data.updates) {
@@ -593,24 +669,21 @@ export function createRuntimeChildRowsController(getDbExecutor: () => DbExecutor
 
         try {
             const updatedIds = await ctx.manager.transaction(async (tx) => {
-                const parentRows = (await tx.query(
-                    `
-            SELECT *
-            FROM ${tc.parentTableIdent}
-            WHERE id = $1
-              AND ${runtimeRowCondition}
-            FOR UPDATE
-          `,
-                    [recordId]
-                )) as Array<{ id: string; _upl_locked?: boolean }>
-
-                if (parentRows.length === 0) {
+                const parentRow = await loadRuntimeChildParentRecord({
+                    manager: tx,
+                    ctx,
+                    tc,
+                    recordId,
+                    minimumAccessLevel: 'edit',
+                    lock: true
+                })
+                if (!parentRow) {
                     throw new UpdateFailure(404, { error: 'Parent record not found' })
                 }
-                if (parentRows[0]._upl_locked) {
+                if (parentRow._upl_locked) {
                     throw new UpdateFailure(423, { error: 'Parent record is locked' })
                 }
-                assertRuntimeRecordMutable(tc.object.config, parentRows[0])
+                assertRuntimeRecordMutable(tc.object.config, parentRow)
                 await validateTabularHierarchy(tx, tc, recordId, runtimeRowCondition, [
                     ...parsedBody.data.updates.map((update) => ({ childRowId: update.childRowId, data: update.data })),
                     ...uniformUpdates.flatMap((group) => group.rows.map((row) => ({ childRowId: row.childRowId, data: group.data })))

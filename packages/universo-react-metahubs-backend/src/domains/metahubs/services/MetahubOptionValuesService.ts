@@ -153,6 +153,13 @@ export class MetahubOptionValuesService {
         return row ? this.mapRow(row) : null
     }
 
+    async findByIdForUpdate(metahubId: string, id: string, userId: string | undefined, db: SqlQueryable) {
+        const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
+        const qt = qSchemaTable(schemaName, '_mhb_values')
+        const row = await queryOne<Record<string, unknown>>(db, `SELECT * FROM ${qt} WHERE id = $1 AND ${ACTIVE} LIMIT 1 FOR UPDATE`, [id])
+        return row ? this.mapRow(row) : null
+    }
+
     async findByCodename(metahubId: string, optionListId: string, codename: string, userId?: string) {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
         const qt = qSchemaTable(schemaName, '_mhb_values')
@@ -282,12 +289,14 @@ export class MetahubOptionValuesService {
         })
     }
 
-    async delete(metahubId: string, id: string, userId?: string) {
+    async delete(metahubId: string, id: string, userId?: string, db?: SqlQueryable) {
         const schemaName = await this.schemaService.ensureSchema(metahubId, userId)
         const qt = qSchemaTable(schemaName, '_mhb_values')
 
-        await this.exec.transaction(async (tx: SqlQueryable) => {
-            const row = await queryOne<Record<string, unknown>>(tx, `SELECT * FROM ${qt} WHERE id = $1 AND ${ACTIVE} LIMIT 1`, [id])
+        const deleteInTransaction = async (tx: SqlQueryable) => {
+            const row = await queryOne<Record<string, unknown>>(tx, `SELECT * FROM ${qt} WHERE id = $1 AND ${ACTIVE} LIMIT 1 FOR UPDATE`, [
+                id
+            ])
             if (!row) return
 
             await tx.query(
@@ -313,7 +322,10 @@ export class MetahubOptionValuesService {
                 await sharedOverridesService.cleanupForDeletedEntity(metahubId, 'value', id, userId, tx)
             }
             await this.ensureSequentialSortOrderInTransaction(schemaName, row.object_id as string, tx)
-        })
+        }
+
+        if (db) return deleteInTransaction(db)
+        return this.exec.transaction(deleteInTransaction)
     }
 
     async moveValue(metahubId: string, optionListId: string, valueId: string, direction: 'up' | 'down', userId?: string) {

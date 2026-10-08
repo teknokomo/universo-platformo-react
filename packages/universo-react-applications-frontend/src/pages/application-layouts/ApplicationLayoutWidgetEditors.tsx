@@ -1,40 +1,23 @@
 import { Alert, Box, Button, Stack, Typography } from '@mui/material'
 import type { TFunction } from 'i18next'
 import { StandardDialog } from '@universo-react/template-mui'
-import type { ApplicationLayoutWidget, ColumnsContainerConfig, DashboardLayoutZone, MenuWidgetConfig } from '@universo-react/types'
-
-import ApplicationColumnsContainerEditorDialog from '../../components/layouts/ApplicationColumnsContainerEditorDialog'
-import ApplicationMenuWidgetEditorDialog from '../../components/layouts/ApplicationMenuWidgetEditorDialog'
-import ApplicationWidgetBehaviorEditorDialog from '../../components/layouts/ApplicationWidgetBehaviorEditorDialog'
+import type { ApplicationLayoutWidget } from '@universo-react/types'
 import { MatrixSettingsPanel, type InterpretationNetworkMatrixSettings } from '../application-settings/MatrixSettingsPanel'
 
 type Translate = TFunction<'applications'>
 type CommonTranslate = TFunction
-type SectionOption = { id: string; label: string }
-type DatasourceSectionOption = SectionOption & { codename?: string | null }
 
 export interface ApplicationLayoutWidgetEditorsProps {
     t: Translate
     tc: CommonTranslate
-    menuEditorZone: DashboardLayoutZone | null
-    columnsEditorZone: DashboardLayoutZone | null
-    editingWidget: ApplicationLayoutWidget | null
-    behaviorEditingWidget: ApplicationLayoutWidget | null
     interpretationNetworkEditingWidget: ApplicationLayoutWidget | null
     interpretationNetworkInitialSettings: InterpretationNetworkMatrixSettings | null
     interpretationNetworkDraftHasChanges: boolean
     workspaceSwitcherEditingWidget: ApplicationLayoutWidget | null
-    sectionOptions: SectionOption[]
-    datasourceSectionOptions: DatasourceSectionOption[]
     isSavingWidget: boolean
     isResettingWidget: boolean
     isInterpretationNetworkCustomized: boolean
-    onSaveMenu: (config: MenuWidgetConfig) => void
-    onCancelMenu: () => void
-    onSaveColumns: (config: ColumnsContainerConfig) => void
-    onCancelColumns: () => void
-    onSaveBehavior: (config: Record<string, unknown>) => void
-    onCancelBehavior: () => void
+    canResetInterpretationNetwork: boolean
     onCloseInterpretationNetwork: () => void
     onSaveInterpretationNetwork: () => void
     onSaveInterpretationNetworkSettings: (settings: InterpretationNetworkMatrixSettings) => void
@@ -46,25 +29,14 @@ export interface ApplicationLayoutWidgetEditorsProps {
 export function ApplicationLayoutWidgetEditors({
     t,
     tc,
-    menuEditorZone,
-    columnsEditorZone,
-    editingWidget,
-    behaviorEditingWidget,
     interpretationNetworkEditingWidget,
     interpretationNetworkInitialSettings,
     interpretationNetworkDraftHasChanges,
     workspaceSwitcherEditingWidget,
-    sectionOptions,
-    datasourceSectionOptions,
     isSavingWidget,
     isResettingWidget,
     isInterpretationNetworkCustomized,
-    onSaveMenu,
-    onCancelMenu,
-    onSaveColumns,
-    onCancelColumns,
-    onSaveBehavior,
-    onCancelBehavior,
+    canResetInterpretationNetwork,
     onCloseInterpretationNetwork,
     onSaveInterpretationNetwork,
     onSaveInterpretationNetworkSettings,
@@ -74,30 +46,6 @@ export function ApplicationLayoutWidgetEditors({
 }: ApplicationLayoutWidgetEditorsProps) {
     return (
         <>
-            <ApplicationMenuWidgetEditorDialog
-                open={Boolean(menuEditorZone)}
-                config={editingWidget?.widgetKey === 'menuWidget' ? (editingWidget.config as MenuWidgetConfig) : null}
-                sectionOptions={sectionOptions}
-                onSave={onSaveMenu}
-                onCancel={onCancelMenu}
-            />
-
-            <ApplicationColumnsContainerEditorDialog
-                open={Boolean(columnsEditorZone)}
-                config={editingWidget?.widgetKey === 'columnsContainer' ? (editingWidget.config as ColumnsContainerConfig) : null}
-                onSave={onSaveColumns}
-                onCancel={onCancelColumns}
-            />
-
-            <ApplicationWidgetBehaviorEditorDialog
-                open={Boolean(behaviorEditingWidget)}
-                widgetKey={behaviorEditingWidget?.widgetKey}
-                config={behaviorEditingWidget?.config as Record<string, unknown> | undefined}
-                sectionOptions={datasourceSectionOptions}
-                onSave={onSaveBehavior}
-                onCancel={onCancelBehavior}
-            />
-
             <StandardDialog
                 open={Boolean(interpretationNetworkEditingWidget)}
                 onClose={onCloseInterpretationNetwork}
@@ -133,10 +81,7 @@ export function ApplicationLayoutWidgetEditors({
                                 isSaving={isSavingWidget}
                                 onSave={onSaveInterpretationNetworkSettings}
                                 renderSaveButton={false}
-                                showResetButton={
-                                    interpretationNetworkEditingWidget.sourceConfig != null &&
-                                    interpretationNetworkEditingWidget.isCustomized === true
-                                }
+                                showResetButton={canResetInterpretationNetwork}
                                 isResetting={isResettingWidget}
                                 onReset={onResetInterpretationNetwork}
                                 onDraftChange={onInterpretationNetworkDraftChange}

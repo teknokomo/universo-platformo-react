@@ -12,6 +12,8 @@ import {
     expectRuntimeUxViewportMatrix
 } from '../../support/browser/runtimeUx'
 import {
+    assignLayoutZoneWidget,
+    createLayout as createMetahubLayout,
     createApplicationLayout,
     createLoggedInApiContext,
     createMetahub,
@@ -19,6 +21,7 @@ import {
     createPublicationLinkedApplication,
     createApplicationWorkspace,
     disposeApiContext,
+    getLayout,
     getApplication,
     getApplicationEffectiveLayout,
     getApplicationLayout,
@@ -28,8 +31,11 @@ import {
     listApplicationLayoutWidgets,
     listApplicationWorkspaces,
     listEntityInstances,
+    listLayoutZoneWidgets,
     syncApplicationSchema,
     syncPublication,
+    sendWithCsrf,
+    updateApplicationLayout,
     updateApplicationLayoutZoneSetting,
     updateRuntimeRow,
     upsertApplicationLayoutWidget,
@@ -48,6 +54,15 @@ type LayoutRecord = {
     scopeEntityId?: string | null
     templateKey?: string
     version?: number
+    sourceLayoutId?: string | null
+}
+
+type SourceDashboardPlacement = {
+    id: string
+    widgetKey: string
+    zone: string
+    parentInstanceKey: string | null
+    slotKey: string | null
 }
 
 type BrowserIssue = {
@@ -121,6 +136,32 @@ const readMarketingNavigationGeometry = async (page: Page, allowMissingHero = fa
         }
     }, allowMissingHero)
 
+const readDashboardGeometry = async (page: Page) =>
+    page.evaluate(() => {
+        const mainContent = document.querySelector<HTMLElement>('[data-testid="runtime-main-content"]')
+        const main = mainContent?.closest<HTMLElement>('main')
+        const dockedMenuContent = document.querySelector<HTMLElement>('[data-testid="runtime-side-menu-docked"]')
+        const dockedMenu = dockedMenuContent?.closest<HTMLElement>('.MuiDrawer-root')
+        const toolbarContent = document.querySelector<HTMLElement>('[data-testid="runtime-app-toolbar"]')
+        const appBar = toolbarContent?.closest<HTMLElement>('.MuiAppBar-root')
+        if (!mainContent || !main) throw new Error('Dashboard geometry was not rendered')
+        const mainRect = main.getBoundingClientRect()
+        const contentRect = mainContent.getBoundingClientRect()
+        const menuRect = dockedMenu?.getBoundingClientRect()
+        const appBarRect = appBar?.getBoundingClientRect()
+        const frameHeight = Number.parseFloat(window.getComputedStyle(document.documentElement).getPropertyValue('--template-frame-height'))
+        return {
+            mainLeft: mainRect.left,
+            contentTop: contentRect.top,
+            contentPaddingLeft: Number.parseFloat(window.getComputedStyle(mainContent).paddingLeft),
+            dockedMenuWidth: menuRect?.width ?? null,
+            dockedMenuDisplay: dockedMenu ? window.getComputedStyle(dockedMenu).display : 'none',
+            appBarPosition: appBar ? window.getComputedStyle(appBar).position : null,
+            appBarTop: appBarRect?.top ?? null,
+            expectedAppBarTop: Number.isFinite(frameHeight) ? frameHeight : 0
+        }
+    })
+
 type MarketingBackgroundOwnership = {
     pageBackgroundImage: string
     heroBackgroundImage: string
@@ -155,42 +196,6 @@ async function waitForApplicationSchema(api: Awaited<ReturnType<typeof createLog
     await expect.poll(async () => (await getApplication(api, applicationId))?.schemaStatus).toBe('synced')
 }
 
-async function upsertApplicationLayoutWidgetWithRetry(
-    api: Awaited<ReturnType<typeof createLoggedInApiContext>>,
-    applicationId: string,
-    layoutId: string,
-    payload: {
-        widgetKey: string
-        zone: string
-        sortOrder: number
-        config: Record<string, unknown>
-    }
-): Promise<void> {
-    await expect
-        .poll(
-            async () => {
-                const detail = await getApplicationLayout(api, applicationId, layoutId)
-                const currentVersion = detail?.item?.version
-                if (!Number.isInteger(currentVersion) || currentVersion < 1) {
-                    throw new Error(`Layout ${layoutId} did not expose a writable version before adding ${payload.widgetKey}`)
-                }
-
-                try {
-                    await upsertApplicationLayoutWidget(api, applicationId, layoutId, {
-                        ...payload,
-                        expectedVersion: currentVersion
-                    })
-                    return true
-                } catch (error) {
-                    if (error instanceof Error && error.message.includes('APPLICATION_LAYOUT_VERSION_CONFLICT')) return false
-                    throw error
-                }
-            },
-            { timeout: 30_000 }
-        )
-        .toBe(true)
-}
-
 async function expectApplicationEntityBindingWriteDenied(
     api: Awaited<ReturnType<typeof createLoggedInApiContext>>,
     applicationId: string,
@@ -211,6 +216,7 @@ test('@flow @combined @cross-template resolves an entity-scoped template and sha
     runManifest
 }, testInfo) => {
     test.setTimeout(300_000)
+    await page.clock.setFixedTime(new Date('2026-10-08T12:00:00.000Z'))
     const browserIssues = watchBrowserIssues(page)
 
     const api = await createLoggedInApiContext({
@@ -231,6 +237,160 @@ test('@flow @combined @cross-template resolves an entity-scoped template and sha
         if (typeof metahub?.id !== 'string') throw new Error('Cross-template metahub creation did not return an id')
         await recordCreatedMetahub({ id: metahub.id, name: metahubName, codename: metahubCodename })
 
+        const sourceDashboardEntities = await listEntityInstances(api, metahub.id, { kind: 'object', limit: 200, offset: 0 })
+        const sourceDashboardScope = sourceDashboardEntities.items.find(
+            (item: EntityItem) => readCodename(item.codename) === 'MarketingPageSiteSettings'
+        )
+        expect(sourceDashboardScope?.id).toEqual(expect.any(String))
+        // Required table sources are authored in Metahub and published, never copied into Application config.
+        const sourceDashboardLayoutIds: string[] = []
+        let sourceDashboardPlacements: SourceDashboardPlacement[] = []
+        for (const scopeEntityId of [sourceDashboardScope.id]) {
+            const sourceDashboard = await createMetahubLayout(api, metahub.id, {
+                templateKey: 'dashboard',
+                scopeEntityId,
+                name: { en: `Published dashboard ${runManifest.runId}` },
+                namePrimaryLocale: 'en',
+                isActive: true,
+                isDefault: false
+            })
+            expect(sourceDashboard.id).toEqual(expect.any(String))
+            expect(sourceDashboard.version).toEqual(expect.any(Number))
+            sourceDashboardLayoutIds.push(sourceDashboard.id)
+            const currentSourceDashboard = await getLayout(api, metahub.id, sourceDashboard.id)
+            if (!Number.isInteger(currentSourceDashboard?.version) || currentSourceDashboard.version < 1) {
+                throw new Error('Scoped Dashboard layout did not return a current optimistic-lock version')
+            }
+            await assignLayoutZoneWidget(api, metahub.id, sourceDashboard.id, {
+                widgetKey: 'detailsTable',
+                zone: 'center',
+                sortOrder: 2,
+                expectedVersion: currentSourceDashboard.version,
+                config: {
+                    variant: 'records',
+                    __layout: {
+                        bindings: {
+                            version: 1,
+                            slots: [
+                                {
+                                    slot: 'rows',
+                                    targets: [
+                                        {
+                                            entityKind: 'object',
+                                            entityCodename: 'MarketingPageFeature',
+                                            selector: { kind: 'record-set' },
+                                            projection: []
+                                        }
+                                    ]
+                                }
+                            ]
+                        }
+                    }
+                }
+            })
+            for (const hostWidget of [
+                { widgetKey: 'appNavbar', zone: 'top', sortOrder: 1, config: {} },
+                { widgetKey: 'menuWidget', zone: 'left', sortOrder: 1, config: { variant: 'generated' } },
+                { widgetKey: 'languageSwitcher', zone: 'top', sortOrder: 2, config: {} },
+                { widgetKey: 'datePicker', zone: 'top', sortOrder: 3, config: { selection: 'range', showPresets: true } },
+                { widgetKey: 'footer', zone: 'bottom', sortOrder: 1, config: { alignment: 'left', spacing: 'compact' } }
+            ]) {
+                const latestSourceDashboard = await getLayout(api, metahub.id, sourceDashboard.id)
+                if (!Number.isInteger(latestSourceDashboard?.version) || latestSourceDashboard.version < 1) {
+                    throw new Error('Scoped Dashboard layout did not return a current version before source widget authoring')
+                }
+                await assignLayoutZoneWidget(api, metahub.id, sourceDashboard.id, {
+                    ...hostWidget,
+                    expectedVersion: latestSourceDashboard.version
+                })
+            }
+
+            const sourcePlacementsResponse = await listLayoutZoneWidgets(api, metahub.id, sourceDashboard.id)
+            sourceDashboardPlacements = (sourcePlacementsResponse.items ?? []).map((placement: Record<string, unknown>) => {
+                if (typeof placement.id !== 'string' || typeof placement.widgetKey !== 'string' || typeof placement.zone !== 'string') {
+                    throw new Error('The published Dashboard source did not persist complete widget placement metadata')
+                }
+                return {
+                    id: placement.id,
+                    widgetKey: placement.widgetKey,
+                    zone: placement.zone,
+                    parentInstanceKey: typeof placement.parentInstanceKey === 'string' ? placement.parentInstanceKey : null,
+                    slotKey: typeof placement.slotKey === 'string' ? placement.slotKey : null
+                }
+            })
+            expect(sourceDashboardPlacements.map(({ widgetKey }) => widgetKey).sort()).toEqual(
+                ['appNavbar', 'datePicker', 'detailsTable', 'footer', 'languageSwitcher', 'menuWidget'].sort()
+            )
+            expect(new Set(sourceDashboardPlacements.map(({ id }) => id)).size).toBe(sourceDashboardPlacements.length)
+        }
+
+        const concurrencyLayout = await createMetahubLayout(api, metahub.id, {
+            templateKey: 'dashboard',
+            scopeEntityId: sourceDashboardScope.id,
+            name: { en: `Dashboard placement concurrency ${runManifest.runId}` },
+            namePrimaryLocale: 'en',
+            isActive: false,
+            isDefault: false
+        })
+        const initialConcurrencyLayout = await getLayout(api, metahub.id, concurrencyLayout.id)
+        if (!Number.isInteger(initialConcurrencyLayout?.version) || initialConcurrencyLayout.version < 1) {
+            throw new Error('Concurrency-test Dashboard layout did not expose its current version')
+        }
+        await assignLayoutZoneWidget(api, metahub.id, concurrencyLayout.id, {
+            widgetKey: 'detailsTable',
+            zone: 'center',
+            sortOrder: 1,
+            expectedVersion: initialConcurrencyLayout.version,
+            config: {
+                variant: 'records',
+                __layout: {
+                    bindings: {
+                        version: 1,
+                        slots: [
+                            {
+                                slot: 'rows',
+                                targets: [
+                                    {
+                                        entityKind: 'object',
+                                        entityCodename: 'MarketingPageFeature',
+                                        selector: { kind: 'record-set' },
+                                        projection: []
+                                    }
+                                ]
+                            }
+                        ]
+                    }
+                }
+            }
+        })
+        const [concurrencyLayoutBeforeRace, concurrencyWidgetsBeforeRace] = await Promise.all([
+            getLayout(api, metahub.id, concurrencyLayout.id),
+            listLayoutZoneWidgets(api, metahub.id, concurrencyLayout.id)
+        ])
+        const concurrencySourceWidget = (concurrencyWidgetsBeforeRace.items ?? []).find(
+            (item: Record<string, unknown>) => item.widgetKey === 'detailsTable'
+        )
+        if (
+            !Number.isInteger(concurrencyLayoutBeforeRace?.version) ||
+            !Number.isInteger(concurrencySourceWidget?.version) ||
+            typeof concurrencySourceWidget?.id !== 'string'
+        ) {
+            throw new Error('Concurrency-test widget did not expose its current placement and layout versions')
+        }
+        const duplicatePlacementPath = `/api/v1/metahub/${metahub.id}/layout/${concurrencyLayout.id}/zone-widget/placement-duplicate`
+        const duplicatePlacementPayload = {
+            widgetId: concurrencySourceWidget.id,
+            expectedVersion: concurrencySourceWidget.version,
+            expectedLayoutVersion: concurrencyLayoutBeforeRace.version
+        }
+        const duplicatePlacementResponses = await Promise.all([
+            sendWithCsrf(api, 'POST', duplicatePlacementPath, duplicatePlacementPayload),
+            sendWithCsrf(api, 'POST', duplicatePlacementPath, duplicatePlacementPayload)
+        ])
+        expect(duplicatePlacementResponses.map(({ status }) => status).sort((left, right) => left - right)).toEqual([201, 409])
+        const concurrencyWidgetsAfterRace = await listLayoutZoneWidgets(api, metahub.id, concurrencyLayout.id)
+        expect(concurrencyWidgetsAfterRace.items).toHaveLength((concurrencyWidgetsBeforeRace.items ?? []).length + 1)
+
         const publication = await createPublication(api, metahub.id, {
             name: { en: publicationName },
             namePrimaryLocale: 'en',
@@ -246,7 +406,10 @@ test('@flow @combined @cross-template resolves an entity-scoped template and sha
         await waitForPublicationReady(api, metahub.id, publication.id)
 
         const linkedApplication = await createPublicationLinkedApplication(api, metahub.id, publication.id, {
-            name: { en: `E2E ${runManifest.runId} cross-template application` },
+            name: {
+                en: `E2E ${runManifest.runId} cross-template application`,
+                ru: `E2E ${runManifest.runId} кросс-шаблонное приложение`
+            },
             namePrimaryLocale: 'en',
             createApplicationSchema: false,
             isPublic: true
@@ -288,6 +451,8 @@ test('@flow @combined @cross-template resolves an entity-scoped template and sha
         ) as EntityItem | undefined
         if (typeof sourceEntity?.id !== 'string')
             throw new Error('The marketing source entity was not available for scoped layout coverage')
+        const sourceEntityCodename = readCodename(sourceEntity.codename)
+        if (!sourceEntityCodename) throw new Error('The marketing source Entity must expose its semantic codename')
 
         const scopesResponse = await listApplicationLayoutScopes(api, applicationId, 'en')
         const entityScope = (scopesResponse?.items ?? []).find(
@@ -296,6 +461,9 @@ test('@flow @combined @cross-template resolves an entity-scoped template and sha
         )
         if (typeof entityScope?.scopeEntityId !== 'string') {
             throw new Error('The application did not expose the marketing entity as a layout-capable scope')
+        }
+        if (entityScope.scopeEntityId !== sourceEntity.id) {
+            throw new Error('The marketing layout scope must resolve to the MarketingPageSiteSettings Object')
         }
 
         const navigationEntity = (entityResponse?.items ?? []).find(
@@ -321,9 +489,7 @@ test('@flow @combined @cross-template resolves an entity-scoped template and sha
             | (Record<string, unknown> & { id?: string })
             | undefined
         if (typeof navigationRow?.id !== 'string') throw new Error('The seeded marketing navigation row was not available')
-        const scopedDashboardHref = `/a/${applicationId}/${encodeURIComponent(
-            entityScope.scopeEntityId
-        )}?targetKind=object&entityTypeId=${encodeURIComponent(entityScope.scopeEntityId)}`
+        const scopedDashboardHref = `/a/${applicationId}?targetKind=object&entityTypeCodename=${encodeURIComponent(sourceEntityCodename)}`
         await updateRuntimeRow(api, applicationId, navigationRow.id, {
             objectCollectionId: navigationEntity.id,
             data: { [navigationHrefField]: scopedDashboardHref }
@@ -409,14 +575,10 @@ test('@flow @combined @cross-template resolves an entity-scoped template and sha
                 return (
                     url.pathname === `/api/v1/public/applications/${applicationId}/runtime` &&
                     url.searchParams.get('targetKind') === 'object' &&
-                    url.searchParams.get('entityTypeId') === entityScope.scopeEntityId
+                    url.searchParams.get('entityTypeCodename') === sourceEntityCodename
                 )
             })
-            await anonymousPage.goto(
-                `/a/${applicationId}/${encodeURIComponent(entityScope.scopeEntityId)}?targetKind=object&entityTypeId=${encodeURIComponent(
-                    entityScope.scopeEntityId
-                )}&locale=en&themeVariant=light`
-            )
+            await anonymousPage.goto(`${scopedDashboardHref}&locale=en&themeVariant=light`)
             const publicResponse = await publicRuntimeResponse
             expect(publicResponse.status()).toBe(200)
             await expect(anonymousPage.locator('#marketing-page-main')).toBeVisible()
@@ -443,11 +605,7 @@ test('@flow @combined @cross-template resolves an entity-scoped template and sha
             await anonymousContext.close()
         }
 
-        await page.goto(
-            `/a/${applicationId}/${encodeURIComponent(entityScope.scopeEntityId)}?targetKind=object&entityTypeId=${encodeURIComponent(
-                entityScope.scopeEntityId
-            )}&locale=en&themeVariant=light`
-        )
+        await page.goto(`${scopedDashboardHref}&locale=en&themeVariant=light`)
         await expect(page.locator('#marketing-page-main')).toBeVisible()
         await expect(page.locator('[data-marketing-widget-instance]')).toHaveCount(0)
         await expect(page.locator('[data-marketing-widget-instance="hero"]')).toHaveCount(0)
@@ -460,17 +618,21 @@ test('@flow @combined @cross-template resolves an entity-scoped template and sha
             forbiddenVisibleTextPatterns: [/marketing\.(?:navigation|footer|hero)/i]
         })
 
-        const scopedLayoutResponse = await createApplicationLayout(api, applicationId, {
-            templateKey: 'dashboard',
-            scopeEntityId: entityScope.scopeEntityId,
+        const publishedDashboardLayouts = await listApplicationLayouts(api, applicationId, { limit: 100, offset: 0 })
+        const publishedDashboard = publishedDashboardLayouts.items.find(
+            (layout: LayoutRecord & { sourceLayoutId?: string }) => layout.sourceLayoutId === sourceDashboardLayoutIds[0]
+        )
+        expect(publishedDashboard?.scopeEntityId).toBe(entityScope.scopeEntityId)
+        expect(publishedDashboard?.templateKey).toBe('dashboard')
+        expect(publishedDashboard?.id).toEqual(expect.any(String))
+        const scopedLayoutResponse = await updateApplicationLayout(api, applicationId, publishedDashboard.id, {
             name: {
                 en: `Dashboard settings ${runManifest.runId}`,
                 ru: `Настройки дашборда ${runManifest.runId}`
             },
             isActive: true,
             isDefault: true,
-            sortOrder: 10,
-            config: {}
+            expectedVersion: publishedDashboard.version
         })
         const scopedLayout = scopedLayoutResponse?.item as LayoutRecord | undefined
         expect(scopedLayout?.templateKey).toBe('dashboard')
@@ -478,28 +640,42 @@ test('@flow @combined @cross-template resolves an entity-scoped template and sha
         if (typeof scopedLayout?.id !== 'string' || typeof scopedLayout.version !== 'number') {
             throw new Error('The scoped Dashboard layout did not return a writable version')
         }
-        await upsertApplicationLayoutWidgetWithRetry(api, applicationId, scopedLayout.id, {
-            widgetKey: 'menuWidget',
-            zone: 'left',
-            sortOrder: 0,
-            config: {
-                autoShowAllSections: true,
-                showTitle: false,
-                items: []
-            }
-        })
-        const addScopedWidget = async (payload: {
-            widgetKey: string
-            zone: string
-            sortOrder: number
-            config: Record<string, unknown>
-        }) => {
-            await upsertApplicationLayoutWidgetWithRetry(api, applicationId, scopedLayout.id as string, payload)
+        const inheritedDashboardWidgets = await listApplicationLayoutWidgets(api, applicationId, scopedLayout.id)
+        expect(inheritedDashboardWidgets.items.map((widget: { widgetKey?: string }) => widget.widgetKey)).toEqual(
+            expect.arrayContaining(['appNavbar', 'menuWidget', 'languageSwitcher', 'datePicker', 'detailsTable', 'footer'])
+        )
+        expect(scopedLayout.sourceLayoutId).toBe(sourceDashboardLayoutIds[0])
+        const inheritedSourceWidgets = inheritedDashboardWidgets.items.filter((widget: Record<string, unknown>) =>
+            sourceDashboardPlacements.some(({ id }) => widget.sourceWidgetId === id)
+        )
+        expect(inheritedSourceWidgets).toHaveLength(sourceDashboardPlacements.length)
+        for (const sourcePlacement of sourceDashboardPlacements) {
+            const matches = inheritedDashboardWidgets.items.filter(
+                (widget: Record<string, unknown>) => widget.sourceWidgetId === sourcePlacement.id
+            )
+            expect(matches, `Metahub widget ${sourcePlacement.widgetKey} should materialize exactly once`).toHaveLength(1)
+            expect(matches[0]).toMatchObject({
+                sourceWidgetId: sourcePlacement.id,
+                widgetKey: sourcePlacement.widgetKey,
+                zone: sourcePlacement.zone,
+                parentWidgetId: null,
+                slotKey: sourcePlacement.slotKey
+            })
         }
-        await addScopedWidget({ widgetKey: 'appNavbar', zone: 'top', sortOrder: 0, config: {} })
-        await addScopedWidget({ widgetKey: 'languageSwitcher', zone: 'top', sortOrder: 1, config: {} })
-        await addScopedWidget({ widgetKey: 'detailsTitle', zone: 'center', sortOrder: 1, config: {} })
-        await addScopedWidget({ widgetKey: 'detailsTable', zone: 'center', sortOrder: 2, config: {} })
+        await expectApplicationEntityBindingWriteDenied(api, applicationId, scopedLayout.id, {
+            widgetKey: 'detailsTitle',
+            zone: 'center',
+            sortOrder: 1,
+            config: {}
+        })
+        await expectApplicationEntityBindingWriteDenied(api, applicationId, scopedLayout.id, {
+            widgetKey: 'detailsTable',
+            zone: 'center',
+            sortOrder: 2,
+            config: {}
+        })
+        const publishedTableWidgets = await listApplicationLayoutWidgets(api, applicationId, scopedLayout.id)
+        expect(publishedTableWidgets.items.filter((widget: { widgetKey?: string }) => widget.widgetKey === 'detailsTable')).toHaveLength(1)
 
         const scopedEffective = await getApplicationEffectiveLayout(api, applicationId, {
             targetKind: 'object',
@@ -664,6 +840,22 @@ test('@flow @combined @cross-template resolves an entity-scoped template and sha
             checkUuidSubstrings: true,
             forbiddenVisibleTextPatterns: [/marketing\.(?:navigation|footer|hero)/i]
         })
+        const { todayLabel, rangeStartLabel } = await page.evaluate(() => {
+            const formatter = new Intl.DateTimeFormat('en', { year: 'numeric', month: 'short', day: '2-digit' })
+            const today = new Date()
+            const sixDaysAgo = new Date(today)
+            sixDaysAgo.setDate(sixDaysAgo.getDate() - 6)
+            return { todayLabel: formatter.format(today), rangeStartLabel: formatter.format(sixDaysAgo) }
+        })
+        await expect(page.getByRole('button', { name: todayLabel, exact: true })).toHaveCount(2)
+        await expect(page.getByRole('button', { name: 'Today', exact: true })).toBeVisible()
+        await page.getByRole('button', { name: 'Last 7 days', exact: true }).click()
+        await expect(page.getByRole('button', { name: rangeStartLabel, exact: true })).toBeVisible()
+        await expect(page.getByRole('button', { name: todayLabel, exact: true })).toBeVisible()
+        await expect(page.locator('body')).not.toContainText('2023')
+        const dashboardFooter = page.getByTestId('runtime-footer-widget')
+        await expect(dashboardFooter).toContainText(`E2E ${runManifest.runId} cross-template application`)
+        await expect(dashboardFooter).not.toContainText('Sitemark')
         await expectNoPageHorizontalOverflow(page, 'Cross-template dashboard runtime')
         await expectLocalizedValidation(page.locator('body'), 'en', { label: 'Cross-template dashboard runtime' })
         if ((await page.locator('.MuiDataGrid-root:visible').count()) > 0) {
@@ -676,24 +868,60 @@ test('@flow @combined @cross-template resolves an entity-scoped template and sha
         }
         await page.screenshot({ path: testInfo.outputPath('cross-template-scoped-dashboard.png'), fullPage: true, animations: 'disabled' })
 
-        const visibleEntityLink = page
-            .locator(`nav[aria-label="Application navigation"] a[href*="entityTypeId=${entityScope.scopeEntityId}"]`)
-            .first()
-        await expect(visibleEntityLink).toBeVisible()
-        await expect(visibleEntityLink).toContainText(String(entityScope.name))
-        await expect(visibleEntityLink).toHaveAttribute('href', new RegExp(`targetKind=object.*entityTypeId=${entityScope.scopeEntityId}`))
-        await visibleEntityLink.click()
+        for (const viewport of [
+            { name: 'desktop', width: 1920, height: 1080, expectedMainLeft: 240, expectedContentTop: 64, expectedPadding: 24 },
+            { name: 'tablet', width: 768, height: 1024, expectedMainLeft: 0, expectedContentTop: 64, expectedPadding: 24 },
+            { name: 'mobile', width: 390, height: 844, expectedMainLeft: 0, expectedContentTop: 64, expectedPadding: 16 }
+        ]) {
+            await page.setViewportSize({ width: viewport.width, height: viewport.height })
+            await page.goto(`${scopedDashboardHref}&locale=en&themeVariant=light`)
+            await expect(page.getByTestId('runtime-main-content')).toBeVisible()
+            if (viewport.name !== 'desktop' && (await page.locator('.MuiDataGrid-root:visible').count()) > 0) {
+                await expectDataGridHorizontalScrollConstrained(page, `Dashboard reference ${viewport.name} runtime`)
+            }
+            await expectNoPageHorizontalOverflow(page, `Dashboard reference geometry ${viewport.name}`)
+            const geometry = await readDashboardGeometry(page)
+            expect(Math.abs(geometry.mainLeft - viewport.expectedMainLeft)).toBeLessThanOrEqual(1)
+            expect(Math.abs(geometry.contentTop - viewport.expectedContentTop)).toBeLessThanOrEqual(1)
+            expect(geometry.contentPaddingLeft).toBe(viewport.expectedPadding)
+            expect(geometry.appBarPosition).toBe('fixed')
+            expect(geometry.appBarTop).toBe(geometry.expectedAppBarTop)
+            if (viewport.width >= 900) {
+                expect(geometry.dockedMenuDisplay).not.toBe('none')
+                expect(Math.abs((geometry.dockedMenuWidth ?? 0) - 240)).toBeLessThanOrEqual(1)
+            } else {
+                expect(geometry.dockedMenuDisplay).toBe('none')
+            }
+            await page.screenshot({
+                path: testInfo.outputPath(`dashboard-reference-${viewport.name}.png`),
+                fullPage: true,
+                animations: 'disabled'
+            })
+        }
+
+        await page.setViewportSize({ width: 1440, height: 1000 })
+        await page.goto(`${scopedDashboardHref}&locale=en&themeVariant=light`)
+
+        const applicationNavigation = page.getByRole('navigation', { name: 'Application navigation', exact: true })
+        await expect(applicationNavigation.getByRole('link', { name: String(entityScope.name), exact: true })).toHaveCount(0)
+        await expect(applicationNavigation.getByRole('link', { name: sourceEntityCodename, exact: true })).toHaveCount(0)
+        const scopedRuntimeTarget = new URL(page.url())
+        expect(scopedRuntimeTarget.searchParams.get('targetKind')).toBe('object')
+        expect(scopedRuntimeTarget.searchParams.get('entityTypeCodename')).toBe(sourceEntityCodename)
+        expect(scopedRuntimeTarget.searchParams.has('entityTypeId')).toBe(false)
+        expect(page.url()).not.toContain(entityScope.scopeEntityId)
         await expect(page.getByTestId('runtime-main-content')).toBeVisible()
 
         await page.setViewportSize({ width: 390, height: 844 })
-        await page.goto(
-            `/a/${applicationId}/${encodeURIComponent(entityScope.scopeEntityId)}?targetKind=object&entityTypeId=${encodeURIComponent(
-                entityScope.scopeEntityId
-            )}&locale=ru&themeVariant=light`
-        )
+        await page.goto(`${scopedDashboardHref}&locale=ru&themeVariant=light`)
         await expect(page.getByTestId('runtime-main-content')).toBeVisible()
-        await expect(page.getByRole('button', { name: 'Создать', exact: true })).toBeVisible()
-        await expect(page.getByRole('heading', { name: 'Настройки маркетинговой страницы', exact: true })).toBeVisible()
+        await expect(page.getByRole('grid')).toBeVisible()
+        await expectDataGridHorizontalScrollConstrained(page, 'Cross-template dashboard mobile runtime')
+        await expect(page.getByRole('columnheader', { name: 'Заголовок', exact: true })).toBeVisible()
+        await expect(page.getByRole('button', { name: 'Создать', exact: true })).toHaveCount(0)
+        const ruDashboardFooter = page.getByTestId('runtime-footer-widget')
+        await expect(ruDashboardFooter).toContainText(`E2E ${runManifest.runId} кросс-шаблонное приложение`)
+        await expect(ruDashboardFooter).not.toContainText('Sitemark')
         await expectNoTechnicalLeakage(page.locator('body'), {
             label: 'Cross-template dashboard mobile runtime',
             checkUuidSubstrings: true,

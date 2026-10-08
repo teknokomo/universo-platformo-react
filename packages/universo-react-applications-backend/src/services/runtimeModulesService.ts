@@ -30,7 +30,7 @@ import {
 } from './runtimeRecordBehavior'
 import { evaluateRuntimeRecordRules } from './runtimeRecordRules'
 import { buildRuntimeRecordRuleLockKey } from './runtimeRecordRuleLockKey'
-import { assertMarketingRuntimeRowCap } from '../controllers/runtimeRowSupport/rows'
+import { assertMarketingRuntimeRowCap } from './marketingRowCap'
 import { assertRuntimeEntityMutationAllowed } from '../shared/entityMutationPolicy'
 import {
     IDENTIFIER_REGEX,

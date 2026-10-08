@@ -116,9 +116,9 @@ describe('public marketing runtime serialization', () => {
             zone: 'marketing-main',
             semanticRegion: 'main',
             widgetKey: 'marketing.hero',
+            instanceKey: 'hero-legacy',
             sortOrder: 0,
             config: {
-                instanceKey: 'hero-legacy',
                 source: { entityKind: 'object', entityCodename: 'MarketingPageHero' },
                 copySource: { entityKind: 'object', entityCodename: 'MarketingPageSection', recordKey: 'hero' }
             },

@@ -9,11 +9,13 @@ vi.mock('../../../shared', () => ({
 
 import {
     assignLayoutZoneWidget,
+    duplicateLayoutZoneWidgetPlacement,
     duplicateLayoutZoneWidgetWithRecordCopy,
     getLayoutZoneWidgetBindings,
     getLayoutZoneWidgetObjects,
     listWidgetBindingRecords,
     listWidgetBindingSources,
+    moveLayoutZoneWidget,
     provisionWidgetBindingSource,
     replaceLayoutZoneWidgetBindings,
     resetLayoutZoneSetting,
@@ -236,7 +238,7 @@ describe('layout metadata API wrapper', () => {
                 { slot: 'items', sourceKey: 'FeatureItems', selector: { kind: 'record-set' } }
             ],
             locale: 'en' as const,
-            rendererConfig: { instanceKey: '0190a9b5-3cde-7abc-8def-0123456789a6', variant: 'features' }
+            rendererConfig: { variant: 'features' }
         }
         patch.mockResolvedValueOnce({ data: result })
 
@@ -249,7 +251,7 @@ describe('layout metadata API wrapper', () => {
         const payload = {
             zone: 'marketing-main' as const,
             widgetKey: 'marketing.hero' as const,
-            config: { instanceKey: 'hero', showLeadForm: false },
+            config: { showLeadForm: false },
             expectedVersion: 3
         }
 
@@ -259,11 +261,48 @@ describe('layout metadata API wrapper', () => {
         expect(payload.config).not.toHaveProperty('bindings')
     })
 
+    it('sends semantic parent and slot keys when adding a nested placement', async () => {
+        const payload = {
+            zone: 'center' as const,
+            widgetKey: 'overviewTitle' as const,
+            parentInstanceKey: 'container-instance',
+            slotKey: 'column:main',
+            expectedVersion: 4
+        }
+
+        await assignLayoutZoneWidget('metahub-1', 'layout-1', payload)
+
+        expect(put).toHaveBeenCalledWith('/metahub/metahub-1/layout/layout-1/zone-widget', payload)
+    })
+
+    it('sends lane order and the optional semantic destination for nested moves', async () => {
+        const payload = {
+            widgetId: 'widget-1',
+            targetZone: 'center' as const,
+            targetIndex: 2,
+            targetParentInstanceKey: 'tabs-instance',
+            targetSlotKey: 'tab:overview',
+            expectedVersion: 5
+        }
+
+        await moveLayoutZoneWidget('metahub-1', 'layout-1', payload)
+
+        expect(patch).toHaveBeenCalledWith('/metahub/metahub-1/layout/layout-1/zone-widgets/move', payload)
+    })
+
+    it('uses the generic placement endpoint to duplicate a complete nested subtree', async () => {
+        const payload = { widgetId: 'container-placement', expectedVersion: 6, expectedLayoutVersion: 9 }
+
+        await duplicateLayoutZoneWidgetPlacement('metahub-1', 'layout-1', payload)
+
+        expect(post).toHaveBeenCalledWith('/metahub/metahub-1/layout/layout-1/zone-widget/placement-duplicate', payload)
+    })
+
     it('uses the atomic record-copy placement endpoint for Marketing duplicates', async () => {
         const payload = {
             zone: 'marketing-main' as const,
             widgetKey: 'marketing.image' as const,
-            config: { instanceKey: 'image-copy', bindings: { content: 'image-source' } },
+            config: {},
             expectedVersion: 7,
             recordCopy: {
                 entityId: '01a0eac4-0a52-7053-a127-9e8c3a0fd3bb',

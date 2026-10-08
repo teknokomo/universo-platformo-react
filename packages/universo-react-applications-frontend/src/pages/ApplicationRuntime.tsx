@@ -8,7 +8,8 @@ import { useQuery } from '@tanstack/react-query'
 import { Navigate, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { AppMainLayout, getRuntimeLayoutErrorCode, MarketingRuntimeContent, RuntimeWorkspacesPage } from '@universo-react/apps-template-mui'
-import { getApplicationEffectiveLayout } from '../api/applications'
+import { readLocalizedTextValue } from '@universo-react/types'
+import { getApplication, getApplicationEffectiveLayout } from '../api/applications'
 import { applicationsQueryKeys } from '../api/queryKeys'
 import { buildCanonicalApplicationRuntimePath, isPublicApplicationUnavailableError } from '../api/publicApplicationRuntime'
 import type { ApplicationRuntimeTargetKind, ApplicationRuntimeThemeVariant } from '../types'
@@ -183,6 +184,13 @@ const ApplicationRuntime = ({ applicationIdOverride }: ApplicationRuntimeProps =
         enabled: Boolean(applicationId) && !hasInvalidRuntimeTarget,
         staleTime: 60_000
     })
+    const applicationDetailsQuery = useQuery({
+        queryKey: applicationsQueryKeys.detail(applicationId ?? ''),
+        queryFn: async () => (await getApplication(applicationId as string)).data,
+        enabled: Boolean(applicationId) && effectiveLayoutQuery.data?.layout.templateKey === 'dashboard',
+        staleTime: 5 * 60_000
+    })
+    const dashboardSiteName = readLocalizedTextValue(applicationDetailsQuery.data?.name, requestedLocale)?.trim()
     const runtimeLayoutErrorCode = getRuntimeLayoutErrorCode(effectiveLayoutQuery.error)
     const runtimeLoadErrorMessage = runtimeLayoutErrorCode
         ? t(`app.errors.layout.${runtimeLayoutErrorCode}`, { defaultValue: t('app.errors.loadFailed', 'Failed to load runtime data') })
@@ -241,6 +249,7 @@ const ApplicationRuntime = ({ applicationIdOverride }: ApplicationRuntimeProps =
                 locale={requestedLocale}
                 apiBaseUrl='/api/v1'
                 workspaceId={requestedWorkspaceId}
+                themeVariant={requestedThemeVariant}
                 target={hasMarketingTarget ? requestedMarketingTarget : null}
                 layoutIdentity={
                     effectiveLayoutQuery.data.effectiveHash
@@ -262,7 +271,14 @@ const ApplicationRuntime = ({ applicationIdOverride }: ApplicationRuntimeProps =
             />
         )
     }
-    return <DashboardApplicationRuntime effectiveLayout={effectiveLayoutQuery.data} locale={requestedLocale} />
+    return (
+        <DashboardApplicationRuntime
+            effectiveLayout={effectiveLayoutQuery.data}
+            locale={requestedLocale}
+            footerMetadata={dashboardSiteName ? { siteName: dashboardSiteName } : undefined}
+            onRuntimeDataChanged={effectiveLayoutQuery.refetch}
+        />
+    )
 }
 
 export default ApplicationRuntime

@@ -2,13 +2,11 @@ import type {
     ApplicationLayoutWidgetKey,
     ApplicationLayoutZone,
     ApplicationTemplateKey,
-    ColumnsContainerConfig,
+    DashboardWidgetConfig,
     DashboardLayoutZone,
     DashboardSideMenuConfig,
     LayoutLogicalPlacement,
-    LayoutPosition,
-    MenuWidgetConfig,
-    QuizWidgetConfig
+    LayoutPosition
 } from '@universo-react/types'
 import {
     DASHBOARD_LAYOUT_ZONES,
@@ -24,18 +22,20 @@ import {
 import { normalizeSideMenuConfig } from '@universo-react/template-mui'
 import type { MetahubLayout, MetahubLayoutZoneWidget, DashboardLayoutWidgetItem } from '../../../types'
 
+type QuizWidgetConfig = DashboardWidgetConfig<'quizWidget'>
+
 export interface MenuEditorState {
     open: boolean
     zone: DashboardLayoutZone | null
     widgetId: string | null
-    config: MenuWidgetConfig | null
+    config: DashboardWidgetConfig<'menuWidget'> | null
 }
 
 export interface ColumnsEditorState {
     open: boolean
     zone: DashboardLayoutZone | null
     widgetId: string | null
-    config: ColumnsContainerConfig | null
+    config: DashboardWidgetConfig<'columnsContainer'> | null
 }
 
 export interface QuizEditorState {
@@ -61,6 +61,7 @@ export interface InterpretationNetworkEditorState {
 export interface WidgetBehaviorEditorState {
     open: boolean
     widgetId: string | null
+    widgetKey: ApplicationLayoutWidgetKey | null
     widgetLabel: string | null
     config: Record<string, unknown> | null
 }
@@ -81,7 +82,7 @@ export interface MarketingWidgetBindingEditorState {
     duplicateMode: boolean
     rendererConfigPending?: boolean
     openSelectedRecordOnOpen?: boolean
-    widgetKey: MarketingWidgetKey | null
+    widgetKey: ApplicationLayoutWidgetKey | null
     config: Record<string, unknown> | null
 }
 
@@ -128,12 +129,6 @@ export const getMarketingRendererConfig = (widget: MetahubLayoutZoneWidget): Rec
 
 export const getDefaultMarketingPresentationConfig = (widgetKey: MarketingWidgetKey): Record<string, unknown> =>
     Object.fromEntries((getLayoutWidgetDefinition(widgetKey)?.presentationFields ?? []).map(({ key, defaultValue }) => [key, defaultValue]))
-
-export const withoutInstanceKey = (config: Record<string, unknown>): Record<string, unknown> => {
-    const nextConfig = { ...config }
-    delete nextConfig.instanceKey
-    return nextConfig
-}
 
 export const readWidgetPlacement = (widget: MetahubLayoutZoneWidget): LayoutLogicalPlacement | undefined => {
     const placement = widget.placement
@@ -182,9 +177,7 @@ export const readMarketingHeaderPosition = (
 }
 
 export const normalizeEditableSideMenuConfig = (value: unknown): DashboardSideMenuConfig => {
-    return normalizeSideMenuConfig(
-        (value && typeof value === 'object' && !Array.isArray(value) ? value : undefined) as MenuWidgetConfig['sideMenu']
-    )
+    return normalizeSideMenuConfig(value)
 }
 
 export const EMPTY_ZONE_WIDGETS: MetahubLayoutZoneWidget[] = []

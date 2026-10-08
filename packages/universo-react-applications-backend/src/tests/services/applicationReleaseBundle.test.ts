@@ -23,7 +23,7 @@ describe('applicationReleaseBundle', () => {
         versionEnvelope: {
             structureVersion: '53.0.0',
             templateVersion: null,
-            snapshotFormatVersion: 1 as const
+            snapshotFormatVersion: 4 as const
         },
         entities: {
             object_products: {
@@ -67,7 +67,7 @@ describe('applicationReleaseBundle', () => {
             applicationKey: 'products-app',
             releaseVersion: 'publication-version-1',
             manifest: expect.objectContaining({
-                engineVersion: 'metahub-snapshot/v1',
+                engineVersion: 'metahub-snapshot/v4',
                 structureVersion: '53.0.0',
                 sourceKind: 'publication',
                 generatedAt: '2026-03-13T10:00:00.000Z',
@@ -400,7 +400,7 @@ describe('applicationReleaseBundle', () => {
             versionEnvelope: {
                 structureVersion: '0.1.0',
                 templateVersion: null,
-                snapshotFormatVersion: 1 as const
+                snapshotFormatVersion: 4 as const
             },
             metahubId: 'metahub-1',
             entities: {
@@ -501,7 +501,7 @@ describe('applicationReleaseBundle', () => {
             versionEnvelope: {
                 structureVersion: '53.0.0',
                 templateVersion: null,
-                snapshotFormatVersion: 1 as const
+                snapshotFormatVersion: 4 as const
             },
             entities: {
                 'object-compatible': {
@@ -583,7 +583,7 @@ describe('applicationReleaseBundle', () => {
             versionEnvelope: {
                 structureVersion: '53.0.0',
                 templateVersion: null,
-                snapshotFormatVersion: 1 as const
+                snapshotFormatVersion: 4 as const
             },
             entities: {
                 'object-alpha': {
@@ -650,7 +650,7 @@ describe('applicationReleaseBundle', () => {
                 versionEnvelope: {
                     structureVersion: '53.0.0',
                     templateVersion: null,
-                    snapshotFormatVersion: 1
+                    snapshotFormatVersion: 4
                 },
                 entities: {
                     'object-main': {
@@ -768,7 +768,7 @@ describe('applicationReleaseBundle', () => {
             versionEnvelope: {
                 structureVersion: '53.0.0',
                 templateVersion: null,
-                snapshotFormatVersion: 1 as const
+                snapshotFormatVersion: 4 as const
             },
             entities: {
                 'object-resources': {

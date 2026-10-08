@@ -19,7 +19,6 @@ import {
     type InterpretationNetworkWorkspaceWidgetConfig
 } from '@universo-react/types'
 
-import LayoutWidgetSharedBehaviorFields from './LayoutWidgetSharedBehaviorFields'
 import WidgetScopeVisibilityPanel from './WidgetScopeVisibilityPanel'
 import { DropdownSelect as Select } from '@universo-react/template-mui/dropdowns'
 
@@ -29,7 +28,6 @@ export interface InterpretationNetworkWorkspaceWidgetEditorDialogProps {
     metahubId?: string | null
     layoutId?: string | null
     widgetId?: string | null
-    showSharedBehavior?: boolean
     showScopeVisibility?: boolean
     onSave: (config: InterpretationNetworkWorkspaceWidgetConfig) => Promise<void> | void
     onCancel: () => void
@@ -47,7 +45,8 @@ const MATRIX_MODE_FALLBACK_LABELS: Record<InterpretationNetworkMatrixMode, strin
 }
 
 const normalizeConfig = (config?: InterpretationNetworkWorkspaceWidgetConfig | null): InterpretationNetworkWorkspaceWidgetConfig => {
-    const current = config ?? {}
+    const current = { ...(config ?? {}) } as InterpretationNetworkWorkspaceWidgetConfig & { sharedBehavior?: unknown }
+    delete current.sharedBehavior
     const matrixMode = current.matrixMode ?? 'hierarchicalCells'
     const defaultAllowedMatrixViews: InterpretationNetworkMatrixView[] =
         matrixMode === 'hierarchicalCells' ? ['table', 'horizontalRows', 'verticalTree'] : ['table', 'horizontalRows']
@@ -83,7 +82,6 @@ export default function InterpretationNetworkWorkspaceWidgetEditorDialog({
     metahubId,
     layoutId,
     widgetId,
-    showSharedBehavior = false,
     showScopeVisibility = false,
     onSave,
     onCancel
@@ -705,7 +703,6 @@ export default function InterpretationNetworkWorkspaceWidgetEditorDialog({
                         />
                     </Stack>
 
-                    {showSharedBehavior ? <LayoutWidgetSharedBehaviorFields value={draft} onChange={setDraft} /> : null}
                     {showScopeVisibility && metahubId && layoutId && widgetId ? (
                         <WidgetScopeVisibilityPanel metahubId={metahubId} layoutId={layoutId} widgetId={widgetId} />
                     ) : null}

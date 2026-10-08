@@ -11,6 +11,7 @@ import {
     getCodenamePrimary,
     parseWorkspaceModePolicy,
     validateSnapshotEnvelope,
+    validateSnapshotLayoutIdentities,
     WorkspacePolicyError
 } from '@universo-react/utils'
 import {
@@ -92,7 +93,8 @@ import { SharedEntityOverridesService } from '../../shared/services/SharedEntity
 import {
     alignPlayCanvasRuntimeManifestBindings,
     attachLayoutsToSnapshot,
-    collectPlayCanvasRuntimeManifestProjectIds
+    collectPlayCanvasRuntimeManifestProjectIds,
+    validateSnapshotWidgetPlacements
 } from '../../shared/snapshotLayouts'
 import {
     createPoolSnapshotRestoreService,
@@ -2095,6 +2097,14 @@ export function createMetahubsController(getDbExecutor: () => DbExecutor) {
                 return res.status(400).json({ error: 'Invalid snapshot envelope', code: 'INVALID_SNAPSHOT_METADATA' })
             }
             throw error
+        }
+
+        try {
+            const snapshot = importedSnapshot as unknown as import('../../publications/services/SnapshotSerializer').MetahubSnapshot
+            validateSnapshotLayoutIdentities(snapshot)
+            validateSnapshotWidgetPlacements(snapshot)
+        } catch {
+            return res.status(400).json({ error: 'Invalid snapshot layout', code: 'INVALID_LAYOUT_WIDGET_PLACEMENTS' })
         }
 
         let importedRuntimePolicy: MetahubRuntimePolicySnapshot | undefined

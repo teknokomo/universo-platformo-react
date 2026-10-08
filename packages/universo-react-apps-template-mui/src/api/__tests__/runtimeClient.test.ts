@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import {
     buildRuntimeLayoutQueryKey,
+    dashboardEffectiveLayoutResultSchema,
     effectiveLayoutResultSchema,
     fetchMarketingPageRuntime,
     fetchRuntimeEffectiveLayout,
@@ -63,50 +64,65 @@ const runtimeTemplate = {
     widgets: [
         {
             id: '0190a9b5-3cde-7abc-8def-0123456789b1',
+            instanceKey: 'main-menu',
             layoutId,
             zone: 'left',
             semanticRegion: 'sidebar',
             widgetKey: 'menuWidget',
+            parentInstanceKey: null,
+            slotKey: null,
             sortOrder: 1,
-            config: {},
+            config: { variant: 'generated' },
             isActive: true
         },
         {
             id: '0190a9b5-3cde-7abc-8def-0123456789b2',
+            instanceKey: 'language',
             layoutId,
             zone: 'top',
             semanticRegion: 'header',
             widgetKey: 'languageSwitcher',
+            parentInstanceKey: null,
+            slotKey: null,
             sortOrder: 1,
             config: {},
             isActive: true
         },
         {
             id: '0190a9b5-3cde-7abc-8def-0123456789b3',
+            instanceKey: 'resource',
             layoutId,
             zone: 'right',
             semanticRegion: 'auxiliary',
-            widgetKey: 'productTree',
+            widgetKey: 'resourcePreview',
+            parentInstanceKey: null,
+            slotKey: null,
             sortOrder: 1,
             config: {},
             isActive: true
         },
         {
             id: '0190a9b5-3cde-7abc-8def-0123456789b4',
+            instanceKey: 'footer',
             layoutId,
             zone: 'bottom',
             semanticRegion: 'footer',
             widgetKey: 'footer',
+            parentInstanceKey: null,
+            slotKey: null,
             sortOrder: 1,
             config: {},
             isActive: true
         },
         {
             id: '0190a9b5-3cde-7abc-8def-0123456789b5',
+            instanceKey: 'details',
             layoutId,
             zone: 'center',
             semanticRegion: 'main',
             widgetKey: 'detailsTable',
+            parentInstanceKey: null,
+            slotKey: null,
             sortOrder: 1,
             config: {},
             isActive: true
@@ -134,7 +150,7 @@ const marketingRuntimeTemplate = {
                 sortOrder: 0,
                 isActive: true,
                 widgetKey: 'marketing.hero' as const,
-                config: { instanceKey: 'hero', showLeadForm: true },
+                config: { showLeadForm: true },
                 data: heroData
             }
         ]
@@ -217,12 +233,14 @@ describe('target-aware runtime client', () => {
                 apiBaseUrl: '/api/v1',
                 applicationId,
                 locale: 'en',
-                expectedLayoutHash: 'b'.repeat(64)
+                expectedLayoutHash: 'b'.repeat(64),
+                themeVariant: 'light'
             })
         ).resolves.toMatchObject({ templateKey: 'marketing-page' })
 
         const requestUrl = new URL(String(fetchMock.mock.calls[0]?.[0]))
         expect(requestUrl.searchParams.get('expectedLayoutHash')).toBe('b'.repeat(64))
+        expect(requestUrl.searchParams.get('themeVariant')).toBe('light')
     })
 
     it('accepts all Dashboard zones and rejects an unknown zone', () => {
@@ -238,7 +256,46 @@ describe('target-aware runtime client', () => {
         ).toBe(false)
     })
 
-    it('does not pass disabled widgets to the Dashboard renderer', () => {
+    it('validates typed effective runtime data and maps malformed widget DTOs to a localized state', () => {
+        const response = {
+            ...runtimeTemplate,
+            widgets: runtimeTemplate.widgets.map((widget) =>
+                widget.widgetKey === 'detailsTable'
+                    ? {
+                          ...widget,
+                          runtimeData: {
+                              status: 'ready',
+                              data: {
+                                  kind: 'table',
+                                  columns: [{ key: 'title', label: 'Title' }],
+                                  rows: [{ key: 'course-1', cells: [{ key: 'title', value: 'Algebra' }] }]
+                              }
+                          }
+                      }
+                    : widget
+            )
+        }
+        const parsed = dashboardEffectiveLayoutResultSchema.parse(response)
+        expect(parsed.status).toBe('ok')
+        if (parsed.status !== 'ok') throw new Error('Expected a successful Dashboard effective layout')
+        expect(toDashboardZoneWidgets(parsed).center[0]?.runtimeData).toMatchObject({
+            status: 'ready',
+            data: { kind: 'table', rows: [{ key: 'course-1' }] }
+        })
+
+        const malformed = dashboardEffectiveLayoutResultSchema.parse({
+            ...response,
+            widgets: response.widgets.map((widget) =>
+                widget.widgetKey === 'detailsTable'
+                    ? { ...widget, runtimeData: { status: 'ready', data: { kind: 'table', rows: [] } } }
+                    : widget
+            )
+        })
+        if (malformed.status !== 'ok') throw new Error('Expected a successful Dashboard effective layout')
+        expect(toDashboardZoneWidgets(malformed).center[0]?.runtimeData).toEqual({ status: 'malformed-config' })
+    })
+
+    it('preserves disabled placements in the graph so child ownership remains resolvable', () => {
         const parsed = effectiveLayoutResultSchema.parse({
             ...runtimeTemplate,
             widgets: runtimeTemplate.widgets.map((widget, index) => (index === 2 ? { ...widget, isActive: false } : widget))
@@ -246,7 +303,8 @@ describe('target-aware runtime client', () => {
 
         const zones = toDashboardZoneWidgets(parsed as Extract<typeof parsed, { status: 'ok' }>)
 
-        expect(zones.right).toEqual([])
+        expect(zones.right).toHaveLength(1)
+        expect(zones.right[0]?.isActive).toBe(false)
         expect(zones.left).toHaveLength(1)
         expect(zones.center).toHaveLength(1)
     })

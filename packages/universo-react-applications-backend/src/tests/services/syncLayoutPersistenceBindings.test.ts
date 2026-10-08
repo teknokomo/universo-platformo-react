@@ -11,6 +11,7 @@ import {
     createMockSyncKnex,
     hasPublishedWidgetsChanges,
     mockEnsureSystemTables,
+    mockSqlQuery,
     mockSyncExecutor,
     persistPublishedLayouts,
     persistPublishedWidgets,
@@ -38,6 +39,143 @@ describe('syncLayoutPersistence widget bindings', () => {
     beforeEach(() => {
         resetSyncLayoutPersistenceMocks()
         currentKnex = createMockSyncKnex()
+    })
+
+    it.each([false, true])('inserts child-first snapshots with physical parents before children (application copy=%s)', async (copy) => {
+        const snapshot = createSnapshot()
+        const parent = { ...snapshot.layoutZoneWidgets[0]!, sortOrder: 9 }
+        const children = [dashboardIds.scopedWidget, dashboardIds.courseWidget].map((id, index) => ({
+            ...parent,
+            id,
+            widgetKey: 'resourcePreview',
+            instanceKey: `preview-${index}`,
+            parentWidgetId: parent.id,
+            slotKey: 'column:main',
+            sourceWidgetId: id,
+            sortOrder: index,
+            config: { displayMode: 'compact' }
+        }))
+        snapshot.layoutZoneWidgets = [...children, parent]
+        if (copy) {
+            currentKnex = createMockSyncKnex({
+                layoutRows: [modifiedSourceLayoutRow(dashboardIds.layout, 'dashboard', true)]
+            })
+        }
+        const query = mockSyncExecutor.query as jest.Mock
+        query.mockImplementation(async (sql: string, params: unknown[] = []) => {
+            if (/^\s*INSERT INTO\b/u.test(sql) && sql.includes('"_app_widgets"')) {
+                const parentId = params[5]
+                if (parentId !== null) {
+                    // Model the immediate parent FK and same-layout constraint at the SQL seam.
+                    expect(currentKnex.widgetRows).toEqual(
+                        expect.arrayContaining([expect.objectContaining({ id: parentId, layout_id: params[1] })])
+                    )
+                    expect(snapshot.layoutZoneWidgets.map(({ id }) => id)).not.toContain(parentId)
+                }
+            }
+            return mockSqlQuery(sql, params)
+        })
+        const options = {
+            schemaName: 'app_018f8a787b8f7c1da111222233334444',
+            snapshot,
+            snapshotHash: 'child-first-snapshot',
+            userId: 'user-1'
+        }
+        await persistPublishedLayouts({
+            ...options,
+            ...(copy ? { layoutResolutionPolicy: { default: 'copy_source_as_application' as const } } : {})
+        })
+        await persistPublishedWidgets(options)
+
+        const layouts = currentKnex.layoutRows.filter((row) => row.source_layout_id === dashboardIds.layout)
+        expect(layouts).toHaveLength(copy ? 2 : 1)
+        if (copy)
+            expect(layouts).toEqual(expect.arrayContaining([expect.objectContaining({ source_kind: 'application', is_default: false })]))
+        const snapshotIds = snapshot.layoutZoneWidgets.map(({ id }) => id)
+        for (const layout of layouts) {
+            const rows = currentKnex.widgetRows.filter((row) => row.layout_id === layout.id)
+            expect(rows).toHaveLength(3)
+            const root = rows.find((row) => row.instance_key === parent.instanceKey)!
+            expect(root).toMatchObject({ parent_widget_id: null, slot_key: null, sort_order: 9 })
+            const inserts = query.mock.calls.filter(
+                ([sql, params]) =>
+                    /^\s*INSERT INTO\b/u.test(String(sql)) && String(sql).includes('"_app_widgets"') && params[1] === layout.id
+            )
+            expect(inserts.map(([, params]) => params[4])).toEqual([parent.instanceKey, ...children.map(({ instanceKey }) => instanceKey)])
+            for (const child of children) {
+                expect(rows.find((row) => row.instance_key === child.instanceKey)).toMatchObject({
+                    parent_widget_id: root.id,
+                    slot_key: child.slotKey,
+                    sort_order: child.sortOrder,
+                    source_widget_id: layout.source_kind === 'application' ? null : child.id
+                })
+            }
+            for (const row of rows) expect(snapshotIds).not.toContain(row.id)
+        }
+        const identities = currentKnex.widgetRows.map((row) => row.id)
+        expect(new Set(identities).size).toBe(copy ? 6 : 3)
+        query.mockClear()
+        await persistPublishedWidgets(options)
+        expect(currentKnex.widgetRows.map((row) => row.id)).toEqual(identities)
+        expect(query.mock.calls.filter(([sql]) => /^\s*INSERT INTO\b/u.test(String(sql)))).toHaveLength(0)
+        expect(snapshot.layoutZoneWidgets.map(({ id }) => id)).toEqual([...children.map(({ id }) => id), parent.id])
+    })
+
+    it('keeps a deleted source placement tombstoned on the next sync without reinserting its instance key', async () => {
+        const snapshot = createSnapshot()
+        const sourceWidget = snapshot.layoutZoneWidgets[0]
+        if (!sourceWidget) throw new Error('Expected the dashboard source widget fixture')
+        const deletedPhysicalWidgetId = '0190a9b5-3cde-7abc-8def-0123456789b0'
+        currentKnex = createMockSyncKnex({
+            layoutRows: [modifiedSourceLayoutRow(dashboardIds.layout, 'dashboard', true)],
+            widgetRows: [
+                {
+                    id: deletedPhysicalWidgetId,
+                    layout_id: dashboardIds.layout,
+                    zone: sourceWidget.zone,
+                    widget_key: sourceWidget.widgetKey,
+                    instance_key: sourceWidget.instanceKey,
+                    parent_widget_id: sourceWidget.parentWidgetId,
+                    slot_key: sourceWidget.slotKey,
+                    sort_order: sourceWidget.sortOrder,
+                    config: sourceWidget.config,
+                    source_config: sourceWidget.config,
+                    source_widget_id: sourceWidget.sourceWidgetId,
+                    source_base_widget_id: sourceWidget.sourceBaseWidgetId,
+                    is_active: true,
+                    _upl_deleted: true,
+                    _app_deleted: true
+                }
+            ]
+        })
+
+        await expect(
+            persistPublishedWidgets({
+                schemaName: 'app_018f8a787b8f7c1da111222233334444',
+                snapshot,
+                userId: 'user-1'
+            })
+        ).resolves.toBeUndefined()
+
+        expect(currentKnex.widgetRows).toHaveLength(1)
+        expect(currentKnex.widgetRows[0]).toMatchObject({
+            id: deletedPhysicalWidgetId,
+            instance_key: sourceWidget.instanceKey,
+            source_widget_id: sourceWidget.sourceWidgetId,
+            _upl_deleted: true,
+            _app_deleted: true
+        })
+        const queries = (mockSyncExecutor.query as jest.Mock).mock.calls
+        expect(
+            queries.some(
+                ([sql, params]) =>
+                    /^\s*INSERT INTO\b/u.test(String(sql)) &&
+                    String(sql).includes('"_app_widgets"') &&
+                    params[4] === sourceWidget.instanceKey
+            )
+        ).toBe(false)
+        expect(queries.some(([sql]) => /DELETE\s+FROM\s+.*(?:_app_objects|_mhb_objects)/iu.test(String(sql)))).toBe(false)
+        expect(snapshot.layoutZoneWidgets).toHaveLength(1)
     })
 
     it('marks application copy unavailable for a locally modified entity-backed Hero conflict', async () => {
@@ -126,7 +264,7 @@ describe('syncLayoutPersistence widget bindings', () => {
         ]
 
         const overlayConfig = encodeLayoutWidgetConfigEnvelope(
-            { rendererConfig: { instanceKey: 'logos', variant: 'logos' }, neutral: {} },
+            { rendererConfig: { variant: 'logos' }, neutral: {} },
             { templateKey: 'marketing-page', widgetKey: 'marketing.collection', zone: 'marketing-main', requireBindings: false }
         )
         currentKnex = createMockSyncKnex({
@@ -178,6 +316,9 @@ describe('syncLayoutPersistence widget bindings', () => {
                     source_base_widget_id: null,
                     zone: 'marketing-main',
                     widget_key: 'marketing.collection',
+                    instance_key: 'logos',
+                    parent_widget_id: null,
+                    slot_key: null,
                     sort_order: 0,
                     config: createBoundMarketingCollectionConfig(),
                     source_config: createBoundMarketingCollectionConfig(),
@@ -192,6 +333,9 @@ describe('syncLayoutPersistence widget bindings', () => {
                     source_base_widget_id: marketingIds.widget,
                     zone: 'marketing-main',
                     widget_key: 'marketing.collection',
+                    instance_key: 'logos',
+                    parent_widget_id: null,
+                    slot_key: null,
                     sort_order: 0,
                     config: overlayConfig,
                     source_config: overlayConfig,
@@ -238,7 +382,7 @@ describe('syncLayoutPersistence widget bindings', () => {
                 snapshotHash: `snapshot-legacy-${field}`,
                 userId: 'user-1'
             })
-        ).rejects.toThrow('Marketing snapshot widget configuration is invalid')
+        ).rejects.toThrow('Snapshot widget configuration is invalid')
 
         expect(mockEnsureSystemTables).not.toHaveBeenCalled()
         expect(currentKnex.layoutRows).toHaveLength(0)
@@ -441,8 +585,13 @@ describe('syncLayoutPersistence widget bindings', () => {
                 layoutId: marketingIds.layout,
                 zone: 'marketing-header' as const,
                 widgetKey: 'marketing.auth' as const,
+                instanceKey: 'auth',
+                parentWidgetId: null,
+                slotKey: null,
+                sourceWidgetId: marketingIds.sharedWidget,
+                sourceBaseWidgetId: null,
                 sortOrder: 1,
-                config: { instanceKey: 'auth', showAuthActions: true },
+                config: { showAuthActions: true },
                 isActive: true
             }
             const scopeEntityId = dashboardIds.homeEntity
@@ -558,8 +707,13 @@ describe('syncLayoutPersistence widget bindings', () => {
             layoutId: marketingIds.layout,
             zone: 'marketing-header' as const,
             widgetKey: 'marketing.auth' as const,
+            instanceKey: 'auth',
+            parentWidgetId: null,
+            slotKey: null,
+            sourceWidgetId: marketingIds.sharedWidget,
+            sourceBaseWidgetId: null,
             sortOrder: 1,
-            config: { instanceKey: 'auth', showAuthActions: true },
+            config: { showAuthActions: true },
             isActive: true
         }
         const snapshot: PublishedApplicationSnapshot = {
@@ -627,8 +781,13 @@ describe('syncLayoutPersistence widget bindings', () => {
             layoutId: marketingIds.layout,
             zone: 'marketing-header' as const,
             widgetKey: 'marketing.auth' as const,
+            instanceKey: 'auth',
+            parentWidgetId: null,
+            slotKey: null,
+            sourceWidgetId: marketingIds.sharedWidget,
+            sourceBaseWidgetId: null,
             sortOrder: 1,
-            config: { instanceKey: 'auth', showAuthActions: true },
+            config: { showAuthActions: true },
             isActive: true
         }
         const snapshot: PublishedApplicationSnapshot = {
@@ -681,7 +840,10 @@ describe('syncLayoutPersistence widget bindings', () => {
                     config: sourceWidget.config,
                     source_config: sourceWidget.config,
                     source_state: {
-                        rendererConfig: {},
+                        rendererConfig: sourceWidget.config,
+                        instanceKey: sourceWidget.instanceKey,
+                        parentWidgetId: sourceWidget.parentWidgetId,
+                        slotKey: sourceWidget.slotKey,
                         isActive: true,
                         sortOrder: sourceWidget.sortOrder,
                         zone: sourceWidget.zone,
@@ -746,7 +908,7 @@ describe('syncLayoutPersistence widget bindings', () => {
         if (!heroDefinition) throw new Error('Expected marketing.hero to be registered')
         sourceWidget.config = encodeLayoutWidgetConfigEnvelope(
             {
-                rendererConfig: { instanceKey: 'hero', showLeadForm: true },
+                rendererConfig: { showLeadForm: true },
                 neutral: {
                     bindings: buildSingleTargetWidgetBinding(heroDefinition, 'content', {
                         entityKind: 'object',

@@ -12,23 +12,8 @@ export type StatCardProps = {
     value: string
     interval: string
     trend: 'up' | 'down' | 'neutral'
-    trendLabel?: string
+    trendLabel: string
     data: number[]
-}
-
-function getDaysInMonth(month: number, year: number) {
-    const date = new Date(year, month, 0)
-    const monthName = date.toLocaleDateString('en-US', {
-        month: 'short'
-    })
-    const daysInMonth = date.getDate()
-    const days = []
-    let i = 1
-    while (days.length < daysInMonth) {
-        days.push(`${monthName} ${i}`)
-        i += 1
-    }
-    return days
 }
 
 function AreaGradient({ color, id }: { color: string; id: string }) {
@@ -44,7 +29,6 @@ function AreaGradient({ color, id }: { color: string; id: string }) {
 
 export default function StatCard({ title, value, interval, trend, trendLabel, data }: StatCardProps) {
     const theme = useTheme()
-    const daysInWeek = getDaysInMonth(4, 2024)
 
     const trendColors = {
         up: theme.palette.mode === 'light' ? theme.palette.success.main : theme.palette.success.dark,
@@ -60,7 +44,6 @@ export default function StatCard({ title, value, interval, trend, trendLabel, da
 
     const color = labelColors[trend]
     const chartColor = trendColors[trend]
-    const trendValues = { up: '+25%', down: '-25%', neutral: '+5%' }
 
     return (
         <Card variant='outlined' sx={{ height: '100%', flexGrow: 1 }}>
@@ -74,32 +57,30 @@ export default function StatCard({ title, value, interval, trend, trendLabel, da
                             <Typography variant='h4' component='p'>
                                 {value}
                             </Typography>
-                            <Chip size='small' color={color} label={trendLabel ?? trendValues[trend]} />
+                            <Chip size='small' color={color} label={trendLabel} />
                         </Stack>
                         <Typography variant='caption' sx={{ color: 'text.secondary' }}>
                             {interval}
                         </Typography>
                     </Stack>
-                    <Box sx={{ width: '100%', height: 50 }}>
-                        <SparkLineChart
-                            color={chartColor}
-                            data={data}
-                            area
-                            showHighlight
-                            showTooltip
-                            xAxis={{
-                                scaleType: 'band',
-                                data: daysInWeek
-                            }}
-                            sx={{
-                                '& .MuiAreaElement-root': {
-                                    fill: `url(#area-gradient-${value})`
-                                }
-                            }}
-                        >
-                            <AreaGradient color={chartColor} id={`area-gradient-${value}`} />
-                        </SparkLineChart>
-                    </Box>
+                    {data.length > 0 ? (
+                        <Box sx={{ width: '100%', height: 50 }}>
+                            <SparkLineChart
+                                color={chartColor}
+                                data={data}
+                                area
+                                showHighlight
+                                showTooltip
+                                sx={{
+                                    '& .MuiAreaElement-root': {
+                                        fill: `url(#area-gradient-${value})`
+                                    }
+                                }}
+                            >
+                                <AreaGradient color={chartColor} id={`area-gradient-${value}`} />
+                            </SparkLineChart>
+                        </Box>
+                    ) : null}
                 </Stack>
             </CardContent>
         </Card>

@@ -18,7 +18,7 @@ import {
 } from '../../support/backend/api-session.mjs'
 import { recordCreatedApplication, recordCreatedMetahub, recordCreatedPublication } from '../../support/backend/run-manifest.mjs'
 import { expectNoPageHorizontalOverflow, expectNoTechnicalLeakage, expectNoVisibleTextPatterns } from '../../support/browser/runtimeUx'
-import { QUIZ_CENTERED_LAYOUT_CONFIG, QUIZ_REMOVED_LAYOUT_WIDGET_KEYS } from '../../support/quizFixtureContract'
+import { QUIZ_REMOVED_LAYOUT_WIDGET_KEYS } from '../../support/quizFixtureContract'
 
 type QuizLocale = 'en' | 'ru'
 
@@ -683,32 +683,15 @@ async function waitForLayoutId(api: Awaited<ReturnType<typeof createLoggedInApiC
 }
 
 async function applyCenteredQuizLayout(api: Awaited<ReturnType<typeof createLoggedInApiContext>>, metahubId: string, layoutId: string) {
-    const layout = await getLayout(api, metahubId, layoutId)
-    const currentConfig = layout?.config && typeof layout.config === 'object' ? layout.config : {}
     const removableWidgetKeys = new Set<string>(QUIZ_REMOVED_LAYOUT_WIDGET_KEYS)
 
-    await expectJsonResponse(
-        await sendWithCsrf(api, 'PATCH', `/api/v1/metahub/${metahubId}/layout/${layoutId}`, {
-            name: layout?.name,
-            namePrimaryLocale: layout?.name?._primary ?? 'en',
-            description: layout?.description,
-            descriptionPrimaryLocale: layout?.description?._primary ?? 'en',
-            config: {
-                ...currentConfig,
-                ...QUIZ_CENTERED_LAYOUT_CONFIG
-            },
-            expectedVersion: layout?.version
-        }),
-        'Applying centered quiz layout config'
-    )
-
-    // Removing one widget re-normalizes zone sort orders, which bumps the
-    // optimistic-lock versions of the remaining widgets. Re-read the list on
-    // every iteration so each delete uses the current version.
+    // Removing a placement can reorder siblings, so re-read current widget versions before each delete.
     let removableWidget = true
     while (removableWidget) {
         const zoneWidgets = await listLayoutZoneWidgets(api, metahubId, layoutId)
-        const widget = zoneWidgets?.items?.find((item) => removableWidgetKeys.has(String(item?.widgetKey ?? '')))
+        const widget = zoneWidgets?.items?.find(
+            (item) => item?.zone === 'left' || item?.zone === 'right' || removableWidgetKeys.has(String(item?.widgetKey ?? ''))
+        )
         if (!widget) {
             removableWidget = false
             continue
@@ -804,10 +787,10 @@ test('@flow quiz widget modules publish into runtime and execute through the rea
                 const items = response?.items ?? []
                 const quizWidget = items.find((item) => item.widgetKey === 'quizWidget' && item.config?.moduleCodename === moduleCodename)
                 const removableWidgetKeys = new Set<string>(QUIZ_REMOVED_LAYOUT_WIDGET_KEYS)
-                const hasLegacyWidgets = items.some((item) => removableWidgetKeys.has(String(item?.widgetKey ?? '')))
-                const hasRightZoneWidgets = items.some((item) => item.zone === 'right')
+                const hasDisabledWidgets = items.some((item) => removableWidgetKeys.has(String(item?.widgetKey ?? '')))
+                const hasSideZoneWidgets = items.some((item) => item.zone === 'left' || item.zone === 'right')
 
-                return quizWidget?.zone === 'center' && !hasLegacyWidgets && !hasRightZoneWidgets
+                return quizWidget?.zone === 'center' && !hasDisabledWidgets && !hasSideZoneWidgets
             })
             .toBe(true)
 

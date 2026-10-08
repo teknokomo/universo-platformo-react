@@ -777,9 +777,16 @@ export const DynamicEntityFormDialog: React.FC<DynamicEntityFormDialogProps> = (
                 if (isLocalizedContent(value) && minLength !== null) {
                     const failedLocale = getVlcMinLengthError(value, minLength)
                     if (failedLocale) {
+                        const normalizedFailedLocale = normalizeLocale(failedLocale)
+                        const language =
+                            normalizedFailedLocale === 'en'
+                                ? tCommon('layouts.widgetBindings.locales.en', { defaultValue: 'English' })
+                                : normalizedFailedLocale === 'ru'
+                                ? tCommon('layouts.widgetBindings.locales.ru', { defaultValue: 'Russian' })
+                                : failedLocale.toUpperCase()
                         return t('validation.vlcMinLength', {
-                            defaultValue: 'Language "{{locale}}": minimum length {{min}}',
-                            locale: failedLocale.toUpperCase(),
+                            defaultValue: 'Enter at least {{min}} characters for the {{language}} translation.',
+                            language,
                             min: minLength
                         })
                     }

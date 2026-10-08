@@ -16,6 +16,7 @@ function makeMinimalSnapshot(): MetahubSnapshotTransportEnvelope['snapshot'] {
     return {
         version: '1.0.0',
         metahubId: '00000000-0000-0000-0000-000000000001',
+        versionEnvelope: { structureVersion: '1.0.0', templateVersion: null, snapshotFormatVersion: 4 },
         entities: {
             'ent-1': {
                 id: 'ent-1',
@@ -206,6 +207,33 @@ describe('validateSnapshotEnvelope', () => {
         const result = validateSnapshotEnvelope(envelope)
         expect(result.kind).toBe('metahub_snapshot_bundle')
         expect(result.metahub.id).toBe('00000000-0000-0000-0000-000000000002')
+    })
+
+    it('rejects legacy snapshot format versions and envelopes without a version contract', () => {
+        const envelope = makeMinimalEnvelope()
+        const legacySnapshot = {
+            ...envelope.snapshot,
+            versionEnvelope: {
+                structureVersion: '1.0.0',
+                templateVersion: null,
+                snapshotFormatVersion: 3
+            }
+        }
+        const legacyEnvelope = {
+            ...envelope,
+            snapshot: legacySnapshot,
+            snapshotHash: computeSnapshotHash(legacySnapshot)
+        }
+        expect(() => validateSnapshotEnvelope(legacyEnvelope)).toThrow()
+
+        const snapshotWithoutVersion: Record<string, unknown> = { ...envelope.snapshot }
+        delete snapshotWithoutVersion.versionEnvelope
+        const missingVersionEnvelope = {
+            ...envelope,
+            snapshot: snapshotWithoutVersion,
+            snapshotHash: computeSnapshotHash(snapshotWithoutVersion)
+        }
+        expect(() => validateSnapshotEnvelope(missingVersionEnvelope)).toThrow()
     })
 
     it('rejects non-object input', () => {

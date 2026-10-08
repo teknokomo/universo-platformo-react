@@ -150,18 +150,17 @@ describe('marketing page contracts', () => {
     })
 
     it('keeps Entity bindings outside renderer configuration', () => {
-        expect(marketingNavigationWidgetConfigSchema.safeParse({ instanceKey: 'navigation', maxItems: 24 }).success).toBe(true)
-        expect(marketingCollectionWidgetConfigSchema.safeParse({ instanceKey: 'features', variant: 'features' }).success).toBe(true)
+        expect(marketingNavigationWidgetConfigSchema.safeParse({ maxItems: 24 }).success).toBe(true)
+        expect(marketingNavigationWidgetConfigSchema.safeParse({ instanceKey: 'navigation' }).success).toBe(false)
+        expect(marketingCollectionWidgetConfigSchema.safeParse({ variant: 'features' }).success).toBe(true)
         expect(
             marketingCollectionWidgetConfigSchema.safeParse({
-                instanceKey: 'features',
                 variant: 'features',
                 source: { entityCodename: 'MarketingPageFeature', entityKind: 'object' }
             }).success
         ).toBe(false)
         expect(
             marketingCollectionWidgetConfigSchema.safeParse({
-                instanceKey: 'features',
                 variant: 'features',
                 copySource: { entityCodename: 'MarketingPageSection', entityKind: 'object' }
             }).success
@@ -175,7 +174,7 @@ describe('marketing page contracts', () => {
             sortOrder: 0,
             isActive: true,
             widgetKey: 'marketing.navigation',
-            config: { instanceKey: 'navigation' }
+            config: {}
         }
         const navigationLink = {
             kind: 'navigationLink',
@@ -203,12 +202,8 @@ describe('marketing page contracts', () => {
     })
 
     it('uses the same safe item cap in Marketing Page authoring and public runtime contracts', () => {
-        expect(
-            marketingCollectionWidgetConfigSchema.safeParse({ instanceKey: 'features', variant: 'features', maxItems: 100 }).success
-        ).toBe(true)
-        expect(
-            marketingCollectionWidgetConfigSchema.safeParse({ instanceKey: 'features', variant: 'features', maxItems: 101 }).success
-        ).toBe(false)
+        expect(marketingCollectionWidgetConfigSchema.safeParse({ variant: 'features', maxItems: 100 }).success).toBe(true)
+        expect(marketingCollectionWidgetConfigSchema.safeParse({ variant: 'features', maxItems: 101 }).success).toBe(false)
         expect(
             publicMarketingCollectionWidgetSchema.safeParse({
                 instanceKey: 'features',
@@ -216,11 +211,11 @@ describe('marketing page contracts', () => {
                 sortOrder: 0,
                 isActive: true,
                 widgetKey: 'marketing.collection',
-                config: { instanceKey: 'features', variant: 'features', maxItems: 101 },
+                config: { variant: 'features', maxItems: 101 },
                 data: { records: [] }
             }).success
         ).toBe(false)
-        expect(marketingFooterWidgetConfigSchema.safeParse({ instanceKey: 'footer', maxItems: 101 }).success).toBe(false)
+        expect(marketingFooterWidgetConfigSchema.safeParse({ maxItems: 101 }).success).toBe(false)
 
         const footer = getLayoutWidgetDefinition('marketing.footer')
         expect(footer?.presentationFields?.find(({ key }) => key === 'maxItems')).toMatchObject({ max: 100 })
@@ -298,8 +293,8 @@ describe('marketing page contracts', () => {
             resource: { type: 'url' as const, url: 'https://example.test/hero.webp', launchMode: 'inline' as const },
             decorative: true
         }
-        expect(marketingImageWidgetConfigSchema.safeParse({ instanceKey: 'hero-image' }).success).toBe(true)
-        expect(marketingImageWidgetConfigSchema.safeParse({ instanceKey: 'hero-image', media }).success).toBe(false)
+        expect(marketingImageWidgetConfigSchema.safeParse({}).success).toBe(true)
+        expect(marketingImageWidgetConfigSchema.safeParse({ media }).success).toBe(false)
     })
 
     it('accepts only opaque theme colors with an accessible foreground choice', () => {
@@ -354,7 +349,6 @@ describe('marketing page contracts', () => {
             isActive: true,
             widgetKey: 'marketing.hero' as const,
             config: {
-                instanceKey: 'hero',
                 showLeadForm: true
             },
             data: heroData
@@ -372,7 +366,6 @@ describe('marketing page contracts', () => {
                     isActive: true,
                     widgetKey: 'marketing.collection' as const,
                     config: {
-                        instanceKey: 'faq',
                         variant: 'faq' as const
                     },
                     data: { records: [faqRecord] }
@@ -423,7 +416,6 @@ describe('marketing page contracts', () => {
                                 isActive: true,
                                 widgetKey: 'marketing.hero',
                                 config: {
-                                    instanceKey: 'hero',
                                     showLeadForm: true
                                 },
                                 data: heroData
@@ -476,7 +468,6 @@ describe('marketing widget primitive exports', () => {
 
 describe('marketing hero and image widget contracts', () => {
     const heroConfig = {
-        instanceKey: 'hero',
         showLeadForm: true
     }
 
@@ -532,9 +523,7 @@ describe('marketing hero and image widget contracts', () => {
             widgetKey: 'marketing.image',
             sortOrder: 1,
             isActive: true,
-            config: {
-                instanceKey: 'hero-image'
-            },
+            config: {},
             data: {
                 records: [
                     {
@@ -561,7 +550,7 @@ describe('marketing hero and image widget contracts', () => {
             widgetKey: 'marketing.hero',
             sortOrder: 0,
             isActive: true,
-            config: { instanceKey: 'hero', showLeadForm: true },
+            config: { showLeadForm: true },
             data: heroData
         }
 
@@ -585,10 +574,11 @@ describe('normalizeMarketingNumericText', () => {
 })
 
 describe('marketingBrandWidgetConfigSchema', () => {
-    const base = { instanceKey: 'brand' }
+    const base = {}
 
-    it('contains only the placement identity and rejects Entity-owned brand content', () => {
+    it('contains no placement identity and rejects Entity-owned brand content', () => {
         expect(marketingBrandWidgetConfigSchema.safeParse(base).success).toBe(true)
+        expect(marketingBrandWidgetConfigSchema.safeParse({ instanceKey: 'brand' }).success).toBe(false)
         expect(marketingBrandWidgetConfigSchema.safeParse({ ...base, brandName: 'Consortium' }).success).toBe(false)
         expect(marketingBrandWidgetConfigSchema.safeParse({ ...base, brandLogo: {} }).success).toBe(false)
     })
@@ -606,12 +596,12 @@ describe('publicMarketingHeaderWidgetSchema', () => {
         isActive: true
     } as const
 
-    it('accepts a shared switcher with the matching instance key config', () => {
+    it('accepts a shared switcher with placement identity outside renderer config', () => {
         expect(
             publicMarketingHeaderWidgetSchema.safeParse({
                 ...base,
                 widgetKey: 'languageSwitcher',
-                config: { instanceKey: 'language-switcher-1' }
+                config: {}
             }).success
         ).toBe(true)
     })
@@ -621,14 +611,14 @@ describe('publicMarketingHeaderWidgetSchema', () => {
             publicMarketingHeaderWidgetSchema.safeParse({
                 ...base,
                 widgetKey: 'marketing.auth',
-                config: { instanceKey: 'language-switcher-1' }
+                config: {}
             }).success
         ).toBe(false)
         expect(
             publicMarketingHeaderWidgetSchema.safeParse({
                 ...base,
                 widgetKey: 'marketing.auth',
-                config: { instanceKey: 'language-switcher-1', showAuthActions: false }
+                config: { showAuthActions: false }
             }).success
         ).toBe(true)
     })
@@ -639,7 +629,7 @@ describe('publicMarketingHeaderWidgetSchema', () => {
                 ...base,
                 widgetKey: 'languageSwitcher',
                 placement: 'start',
-                config: { instanceKey: 'language-switcher-1' }
+                config: {}
             }).success
         ).toBe(true)
         expect(
@@ -647,12 +637,12 @@ describe('publicMarketingHeaderWidgetSchema', () => {
                 ...base,
                 widgetKey: 'languageSwitcher',
                 placement: 'middle',
-                config: { instanceKey: 'language-switcher-1' }
+                config: {}
             }).success
         ).toBe(false)
     })
 
-    it('rejects unknown configuration keys and mismatched instance keys', () => {
+    it('rejects placement identity and other unknown configuration keys', () => {
         expect(
             publicMarketingHeaderWidgetSchema.safeParse({
                 ...base,

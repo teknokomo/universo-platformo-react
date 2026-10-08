@@ -44,7 +44,7 @@
     },
     "dependencies": {
         "@google-cloud/logging-winston": "^6.0.0",
-        "@oclif/core": "4.0.7",
+        "@oclif/core": "catalog:",
         "@supabase/supabase-js": "^2.45.4",
         "@universo-react/admin-backend": "workspace:*",
         "@universo-react/applications-backend": "workspace:*",
@@ -64,7 +64,7 @@
         "express": "^4.17.3",
         "express-rate-limit": "^6.9.0",
         "express-session": "^1.18.2",
-        "global-agent": "^3.0.0",
+        "global-agent": "catalog:",
         "helmet": "^7.1.0",
         "http-status-codes": "^2.3.0",
         "passport": "^0.7.0",
@@ -72,7 +72,7 @@
         "pg": "^8.11.1",
         "reflect-metadata": "^0.1.13",
         "s3-streamlogger": "^1.11.0",
-        "sanitize-html": "^2.11.0",
+        "sanitize-html": "catalog:",
         "winston": "^3.9.0",
         "@universo-react/modules-engine": "workspace:*"
     },

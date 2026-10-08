@@ -17,6 +17,7 @@ import {
     updateLearningContentProgress,
     appDataResponseSchema
 } from '../api'
+import { createStandaloneAdapter } from '../adapters'
 
 const runtimeListResponse = {
     objectCollection: {
@@ -36,14 +37,7 @@ const runtimeListResponse = {
         createContent: true,
         editContent: true,
         deleteContent: true
-    },
-    layoutConfig: {},
-    zoneWidgets: {
-        left: [],
-        right: [],
-        center: []
-    },
-    menus: []
+    }
 }
 
 describe('runtime row API helpers', () => {
@@ -52,10 +46,19 @@ describe('runtime row API helpers', () => {
         window.sessionStorage.clear()
     })
 
-    it('accepts a runtime response without the optional dashboard layout config', () => {
-        const { layoutConfig: _layoutConfig, ...legacyResponse } = runtimeListResponse
+    it('strips retired dashboard menu fields from runtime row payloads', () => {
+        const parsed = appDataResponseSchema.parse({
+            ...runtimeListResponse,
+            layoutConfig: {},
+            zoneWidgets: { left: [], right: [], center: [] },
+            menus: [],
+            activeMenuId: 'legacy-menu'
+        })
 
-        expect(appDataResponseSchema.parse(legacyResponse).layoutConfig).toBeUndefined()
+        expect(parsed).not.toHaveProperty('layoutConfig')
+        expect(parsed).not.toHaveProperty('zoneWidgets')
+        expect(parsed).not.toHaveProperty('menus')
+        expect(parsed).not.toHaveProperty('activeMenuId')
     })
 
     it('passes deleted lifecycle state to the runtime list endpoint', async () => {
@@ -688,6 +691,44 @@ describe('runtime row API helpers', () => {
         expect(runtimeUrls[2].searchParams.get('workspaceId')).toBe('workspace-1')
     })
 
+    it('validates the dedicated matrix hierarchy projection in tabular responses', async () => {
+        const fetchMock = vi.fn(
+            async () =>
+                new Response(
+                    JSON.stringify({
+                        items: [
+                            {
+                                id: '019f2000-0000-7000-8000-000000000008',
+                                matrixHierarchy: {
+                                    cellId: '019f2000-0000-7000-8000-000000000006',
+                                    parentCellId: null
+                                },
+                                CellValue: 'Root cell'
+                            }
+                        ],
+                        total: 1
+                    }),
+                    { status: 200, headers: { 'Content-Type': 'application/json' } }
+                )
+        )
+        vi.stubGlobal('fetch', fetchMock)
+
+        const rows = await fetchTabularRows({
+            apiBaseUrl: '/api/v1',
+            applicationId: 'app-1',
+            parentRecordId: 'record-1',
+            componentId: 'matrix-component',
+            objectCollectionId: 'collection-1'
+        })
+
+        expect(rows.items[0]?.matrixHierarchy).toEqual({
+            cellId: '019f2000-0000-7000-8000-000000000006',
+            parentCellId: null
+        })
+        expect(rows.items[0]).not.toHaveProperty('CellId')
+        expect(rows.items[0]).not.toHaveProperty('ParentCellId')
+    })
+
     it('persists Learning Content progress through the server-owned runtime endpoint', async () => {
         const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
             const url = String(input)
@@ -698,7 +739,7 @@ describe('runtime row API helpers', () => {
                 })
             }
 
-            expect(url).toBe('http://localhost:3000/api/v1/applications/app-1/runtime/progress/content')
+            expect(url).toBe('http://localhost:3000/api/v1/applications/app-1/runtime/progress/content?workspaceId=workspace-1')
             return new Response(JSON.stringify({ persisted: true, progressPercent: 100, status: 'completed' }), {
                 status: 200,
                 headers: { 'Content-Type': 'application/json' }
@@ -711,6 +752,7 @@ describe('runtime row API helpers', () => {
             applicationId: 'app-1',
             targetObjectCodename: 'LearningResources',
             targetRecordId: '017f22e2-79b0-7cc3-98c4-dc0c0c073997',
+            workspaceId: 'workspace-1',
             action: 'complete'
         })
 
@@ -790,6 +832,10 @@ describe('runtime row API helpers', () => {
             expectedVersionsByRowId: {
                 '017f22e2-79b0-7cc3-98c4-dc0c0c073997': 2,
                 '017f22e2-79b0-7cc3-98c4-dc0c0c073998': 3
+            },
+            parentScope: {
+                fieldCodename: 'CourseId',
+                parentRecordId: '017f22e2-79b0-7cc3-98c4-dc0c0c073999'
             }
         })
 
@@ -802,6 +848,10 @@ describe('runtime row API helpers', () => {
                 expectedVersionsByRowId: {
                     '017f22e2-79b0-7cc3-98c4-dc0c0c073997': 2,
                     '017f22e2-79b0-7cc3-98c4-dc0c0c073998': 3
+                },
+                parentScope: {
+                    fieldCodename: 'CourseId',
+                    parentRecordId: '017f22e2-79b0-7cc3-98c4-dc0c0c073999'
                 }
             })
         )
@@ -890,5 +940,74 @@ describe('runtime row API helpers', () => {
         expect(updateRequest.method).toBe('PATCH')
         expect(updateRequest.body).toBe(JSON.stringify({ data: { Title: 'Updated child' }, expectedVersion: 6 }))
         expect(new Headers(updateRequest.headers).get('X-CSRF-Token')).toBe('csrf-token')
+    })
+
+    it('forwards relationScope through create, update, copy, and delete requests', async () => {
+        const requests: Array<{ url: string; init: RequestInit }> = []
+        const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+            const url = String(input)
+            if (url.endsWith('/auth/csrf')) {
+                return new Response(JSON.stringify({ csrfToken: 'csrf-token' }), {
+                    status: 200,
+                    headers: { 'Content-Type': 'application/json' }
+                })
+            }
+
+            requests.push({ url, init: init ?? {} })
+            if (init?.method === 'DELETE') return new Response(null, { status: 204 })
+            return new Response(JSON.stringify({ id: 'row-result' }), {
+                status: 200,
+                headers: { 'Content-Type': 'application/json' }
+            })
+        })
+        vi.stubGlobal('fetch', fetchMock)
+
+        const relationScope = {
+            fieldCodename: 'CourseId',
+            parentRecordId: '018f8a78-7b8f-7c1d-a111-222233334401'
+        }
+        const adapter = createStandaloneAdapter({ apiBaseUrl: '/api/v1', applicationId: 'app-1' })
+        const target = {
+            objectCollectionId: 'collection-1',
+            sectionId: 'collection-1',
+            workspaceId: 'workspace-1',
+            relationScope
+        }
+
+        await adapter.createRow({ Title: 'Created' }, target)
+        await adapter.updateRow('row-1', { Title: 'Updated' }, target, 3)
+        await adapter.copyRow('row-1', {
+            ...target,
+            data: { Title: 'Copied' },
+            expectedVersion: 4
+        })
+        await adapter.deleteRow('row-1', target, 5)
+
+        expect(requests).toHaveLength(4)
+        expect(JSON.parse(String(requests[0]?.init.body))).toEqual({
+            data: { Title: 'Created' },
+            objectCollectionId: 'collection-1',
+            relationScope
+        })
+        expect(JSON.parse(String(requests[1]?.init.body))).toEqual({
+            data: { Title: 'Updated' },
+            objectCollectionId: 'collection-1',
+            expectedVersion: 3,
+            relationScope
+        })
+        expect(JSON.parse(String(requests[2]?.init.body))).toEqual({
+            copyChildTables: true,
+            objectCollectionId: 'collection-1',
+            data: { Title: 'Copied' },
+            expectedVersion: 4,
+            relationScope
+        })
+
+        const deleteUrl = new URL(requests[3]!.url)
+        expect(requests[3]?.init.method).toBe('DELETE')
+        expect(deleteUrl.searchParams.get('workspaceId')).toBe('workspace-1')
+        expect(deleteUrl.searchParams.get('objectCollectionId')).toBe('collection-1')
+        expect(deleteUrl.searchParams.get('expectedVersion')).toBe('5')
+        expect(deleteUrl.searchParams.get('relationScope')).toBe(JSON.stringify(relationScope))
     })
 })

@@ -3,9 +3,11 @@ import { buildVLC } from '@universo-react/utils'
 import {
     formatRuntimeColumnValue,
     formatRuntimeDateValue,
+    formatRuntimeSafeFieldLabel,
     formatRuntimeSafeValue,
     formatRuntimeValue,
     hasRuntimeTechnicalValueLeakage,
+    isRuntimeSensitiveFieldName,
     isRuntimeTechnicalFieldName
 } from '../displayValue'
 
@@ -25,6 +27,8 @@ describe('formatRuntimeValue', () => {
 
     it('keeps structured values without a display field out of normal runtime cells', () => {
         expect(formatRuntimeValue({ status: ['active'], score: { gte: 80 } }, 'en')).toBe('')
+        expect(formatRuntimeValue({ type: 'image', storageKey: 'private/course-cover.png', mimeType: 'image/png' }, 'en')).toBe('')
+        expect(formatRuntimeValue({ blocks: [{ type: 'paragraph', data: { text: 'Private lesson instructions' } }] }, 'en')).toBe('')
     })
 
     it('does not treat object-only codenames or IDs as user-facing display labels', () => {
@@ -58,10 +62,27 @@ describe('formatRuntimeValue', () => {
         expect(isRuntimeTechnicalFieldName('Title')).toBe(false)
     })
 
+    it('classifies common personal and credential fields as sensitive', () => {
+        for (const fieldName of ['Email', 'PrimaryEmail', 'Password', 'PasswordHash', 'PrivateKey', 'api_token', 'Home Address']) {
+            expect(isRuntimeSensitiveFieldName(fieldName)).toBe(true)
+        }
+        expect(isRuntimeSensitiveFieldName('Title')).toBe(false)
+    })
+
     it('suppresses raw UUID and JSON strings for safe runtime display values', () => {
         expect(hasRuntimeTechnicalValueLeakage('Project 017f22e2-79b0-7cc3-98c4-dc0c0c073990')).toBe(true)
         expect(formatRuntimeSafeValue('Project 017f22e2-79b0-7cc3-98c4-dc0c0c073990', 'en')).toBe('')
         expect(formatRuntimeSafeValue('Safety course', 'en')).toBe('Safety course')
+    })
+
+    it('suppresses technical and internal metadata from runtime field labels', () => {
+        expect(formatRuntimeSafeFieldLabel('Learning resource', 'en')).toBe('Learning resource')
+        expect(formatRuntimeSafeFieldLabel('TargetObjectCodename', 'en')).toBe('')
+        expect(formatRuntimeSafeFieldLabel('TargetRecordId', 'en')).toBe('')
+        expect(formatRuntimeSafeFieldLabel('019bbf00-0000-7000-8000-000000000006', 'en')).toBe('')
+        expect(formatRuntimeSafeFieldLabel('rh1.opaque-row-handle', 'en')).toBe('')
+        expect(formatRuntimeSafeFieldLabel('usr_internal_89321', 'en')).toBe('')
+        expect(formatRuntimeSafeFieldLabel('{"storageKey":"private/file.pdf"}', 'en')).toBe('')
     })
 
     it('renders metadata string option labels instead of stored codenames', () => {

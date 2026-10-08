@@ -457,7 +457,7 @@ export const writeBridgeBootstrap = (targetRoot) => {
       // payload. Large editor projects can legitimately take longer than the
       // short control-command budget, so keep a bounded but dedicated read budget
       // instead of treating a slow response as a failed bridge session.
-      const timeoutMs = ['scene.list', 'scene.read', 'scene.save', 'asset.listMinimalForScene'].includes(type) ? 60_000 : 15_000;
+      const timeoutMs = ['protocol.describe', 'scene.list', 'scene.read', 'scene.save', 'asset.listMinimalForScene'].includes(type) ? 60_000 : 15_000;
       const timeout = window.setTimeout(() => {
         pendingBridgeRequests.delete(requestId);
         reject(new Error('Bridge command timed out'));
@@ -803,6 +803,38 @@ export const writeBridgeBootstrap = (targetRoot) => {
 
     const root = normalized.find((entity) => entity.resource_id === 'root') || null;
     return [...(root ? [root] : []), ...normalized.filter((entity) => entity !== root)];
+  };
+
+  const readSceneEntityMetadataById = (...entitiesSources) => {
+    const metadataById = new Map();
+    const addMetadata = (fallbackId, candidate) => {
+      const wrapperId = isPlainObject(candidate) && typeof candidate.id === 'string' ? candidate.id : null;
+      const entity = isPlainObject(candidate) && isPlainObject(candidate.entity) ? candidate.entity : candidate;
+      if (!isPlainObject(entity)) return;
+      const id =
+        typeof entity.resource_id === 'string' && entity.resource_id
+          ? entity.resource_id
+          : typeof entity.id === 'string' && entity.id
+            ? entity.id
+            : wrapperId || (typeof fallbackId === 'string' && fallbackId ? fallbackId : null);
+      if (!id) return;
+      if (isPlainObject(entity.metadata)) {
+        metadataById.set(id, entity.metadata);
+      } else if (entity.metadata === null) {
+        metadataById.set(id, null);
+      }
+    };
+    for (const source of entitiesSources) {
+      if (Array.isArray(source)) {
+        for (const entity of source) addMetadata(null, entity);
+        continue;
+      }
+      if (!isPlainObject(source)) continue;
+      for (const fallbackId in source) {
+        if (Object.prototype.hasOwnProperty.call(source, fallbackId)) addMetadata(fallbackId, source[fallbackId]);
+      }
+    }
+    return metadataById;
   };
 
   const normalizeRealtimeSceneEntitiesForUpstream = (entitiesInput) =>
@@ -2808,11 +2840,24 @@ export const writeBridgeBootstrap = (targetRoot) => {
         realtimeSceneEntityObservers,
         cleanLoadedPayloadObservers
       );
+      const persistedEntityMetadataById = readSceneEntityMetadataById(fallbackPayload?.entities, realtimeSceneEntities);
       const entitySerializationErrors = [];
       const serializedEntities = rawEntityObservers
         .map((observer) => {
           try {
-            return serializeEntity(observer);
+            const entity = serializeEntity(observer);
+            if (!entity || !persistedEntityMetadataById.has(entity.id)) return entity;
+            const persistedMetadata = persistedEntityMetadataById.get(entity.id);
+            const observerMetadata = isPlainObject(entity.metadata) ? entity.metadata : null;
+            return {
+              ...entity,
+              metadata:
+                persistedMetadata === null
+                  ? undefined
+                  : isPlainObject(persistedMetadata)
+                    ? mergeSceneMetadataSnapshots(persistedMetadata, observerMetadata)
+                    : observerMetadata || undefined
+            };
           } catch (error) {
             entitySerializationErrors.push({
               id: getEntityObserverId(observer) || null,

@@ -104,9 +104,9 @@ describe('resolveLayoutCopyBindings', () => {
                 sourceOverrides: [],
                 copyOverrides: true,
                 copyMode: 'reuse',
-                isMarketingOverlay: true
+                isOverlayLayout: true
             })
-        ).toThrow('Marketing overlay copies cannot reuse Entity bindings from owned widget rows')
+        ).toThrow('Overlay copies cannot own Entity bindings for source-managed placements')
 
         expect(
             resolveLayoutCopyBindings({
@@ -116,7 +116,7 @@ describe('resolveLayoutCopyBindings', () => {
                 sourceOverrides: [],
                 copyOverrides: true,
                 copyMode: 'omit',
-                isMarketingOverlay: true
+                isOverlayLayout: true
             }).preparedWidgets
         ).toEqual([])
     })

@@ -1,14 +1,19 @@
+jest.mock('../../domains/layouts/widgetBindingSourceProvisioner', () => ({
+    createWidgetBindingSourceProvisioner: jest.fn(() => jest.fn())
+}))
+
 import {
-    LAYOUT_CONFIG_SKIP_DEFAULT_WIDGET_SEED_KEY,
     MetahubLayoutsService,
     assignLayoutZoneWidgetSchema,
     createLayoutSchema,
+    duplicateLayoutZoneWidgetSchema,
     moveLayoutZoneWidgetSchema,
     updateLayoutZoneWidgetConfigSchema
 } from '../../domains/layouts/services/MetahubLayoutsService'
 import { updateLayoutZoneWidgetBindingSchema } from '../../domains/layouts/widgetBindingSchemas'
 import {
     buildSingleTargetWidgetBinding,
+    encodeLayoutConfigEnvelope,
     encodeWidgetConfigEnvelope,
     getLayoutWidgetDefinition,
     validateWidgetBindings
@@ -32,8 +37,37 @@ describe('MetahubLayoutsService', () => {
         expect(createLayoutSchema.safeParse({ ...layoutInput, baseLayoutId: uuidV4 }).success).toBe(false)
         expect(createLayoutSchema.safeParse({ ...layoutInput, baseLayoutId: 'base-layout-1' }).success).toBe(false)
         expect(moveLayoutZoneWidgetSchema.safeParse({ widgetId: uuidV7, expectedVersion: 1 }).success).toBe(true)
+        expect(
+            moveLayoutZoneWidgetSchema.safeParse({
+                widgetId: uuidV7,
+                targetParentInstanceKey: 'parent-instance',
+                expectedVersion: 1
+            }).success
+        ).toBe(false)
+        expect(
+            moveLayoutZoneWidgetSchema.safeParse({
+                widgetId: uuidV7,
+                targetParentInstanceKey: 'parent-instance',
+                targetSlotKey: 'content',
+                expectedVersion: 1
+            }).success
+        ).toBe(true)
         expect(moveLayoutZoneWidgetSchema.safeParse({ widgetId: uuidV4, expectedVersion: 1 }).success).toBe(false)
         expect(moveLayoutZoneWidgetSchema.safeParse({ widgetId: 'widget-1', expectedVersion: 1 }).success).toBe(false)
+        expect(duplicateLayoutZoneWidgetSchema.safeParse({ widgetId: uuidV7, expectedVersion: 1 }).success).toBe(false)
+        expect(duplicateLayoutZoneWidgetSchema.safeParse({ widgetId: uuidV7, expectedVersion: 1, expectedLayoutVersion: 1 }).success).toBe(
+            true
+        )
+        expect(duplicateLayoutZoneWidgetSchema.safeParse({ widgetId: uuidV4, expectedVersion: 1 }).success).toBe(false)
+        expect(
+            duplicateLayoutZoneWidgetSchema.safeParse({
+                widgetId: uuidV7,
+                expectedVersion: 1,
+                templateKey: 'dashboard',
+                widgetKey: 'infoCard',
+                sourceRecordId: uuidV7
+            }).success
+        ).toBe(false)
         expect(
             assignLayoutZoneWidgetSchema.safeParse({
                 zone: 'marketing-main',
@@ -64,7 +98,7 @@ describe('MetahubLayoutsService', () => {
             ]
         })
         const heroConfig = encodeWidgetConfigEnvelope(
-            { rendererConfig: { instanceKey: uuidV7, showLeadForm: true }, neutral: { bindings: heroBindings } },
+            { rendererConfig: { showLeadForm: true }, neutral: { bindings: heroBindings } },
             { templateKey: 'marketing-page', widgetKey: 'marketing.hero', zone: 'marketing-main' }
         )
         expect(
@@ -112,6 +146,9 @@ describe('MetahubLayoutsService', () => {
             id: 'language-switcher-1',
             layout_id: layoutId,
             zone: 'marketing-header',
+            instance_key: '0190a9b5-3cde-7abc-8def-000000000001',
+            parent_widget_id: null,
+            slot_key: null,
             widget_key: 'languageSwitcher',
             sort_order: 1,
             config: {},
@@ -121,6 +158,7 @@ describe('MetahubLayoutsService', () => {
             _upl_updated_at: '2026-04-01T00:00:00.000Z'
         }
         const query = jest.fn(async (sql: string) => {
+            if (sql.includes('ORDER BY id ASC FOR UPDATE') && sql.includes('_mhb_widgets')) return []
             if (sql.includes('pg_advisory_xact_lock(hashtextextended($1::text, 0))')) return []
             if (sql.includes('SELECT id, scope_entity_id, base_layout_id') && sql.includes('_mhb_layouts')) return [layoutRow]
             if (sql.includes('SELECT id, widget_key, zone, is_active') && sql.includes('_mhb_widgets')) return [widgetRow]
@@ -141,31 +179,127 @@ describe('MetahubLayoutsService', () => {
         const result = await service.listLayoutZoneWidgets('metahub-1', layoutId, 'user-1')
 
         expect(result).toHaveLength(1)
-        expect(result[0]).toMatchObject({ widgetKey: 'languageSwitcher', zone: 'marketing-header', config: {} })
+        expect(result[0]).toMatchObject({
+            widgetKey: 'languageSwitcher',
+            zone: 'marketing-header',
+            instanceKey: '0190a9b5-3cde-7abc-8def-000000000001',
+            parentInstanceKey: null,
+            slotKey: null,
+            config: {}
+        })
     })
 
-    it('keeps marketing overlay bindings on the base widget when an API config override is written', async () => {
+    it('returns semantic parent identity and slot for nested Dashboard placements', async () => {
+        const layoutId = '0190a9b5-3cde-7abc-8def-000000000031'
+        const rootId = '0190a9b5-3cde-7abc-8def-000000000032'
+        const childId = '0190a9b5-3cde-7abc-8def-000000000033'
+        const root = {
+            id: rootId,
+            layout_id: layoutId,
+            zone: 'center',
+            instance_key: 'columns-root',
+            parent_widget_id: null,
+            slot_key: null,
+            widget_key: 'columnsContainer',
+            sort_order: 1,
+            config: { columns: [{ slotKey: 'column:main', width: 12 }] },
+            is_active: true,
+            _upl_version: 1,
+            _upl_created_at: '2026-04-01T00:00:00.000Z',
+            _upl_updated_at: '2026-04-01T00:00:00.000Z'
+        }
+        const child = {
+            id: childId,
+            layout_id: layoutId,
+            zone: 'center',
+            instance_key: 'canvas-child',
+            parent_widget_id: rootId,
+            slot_key: 'column:main',
+            widget_key: 'playcanvasCanvas',
+            sort_order: 2,
+            config: {},
+            is_active: true,
+            _upl_version: 1,
+            _upl_created_at: '2026-04-01T00:00:01.000Z',
+            _upl_updated_at: '2026-04-01T00:00:01.000Z'
+        }
+        const layoutRow = {
+            id: layoutId,
+            scope_entity_id: null,
+            base_layout_id: null,
+            template_key: 'dashboard',
+            config: {}
+        }
+        const query = jest.fn(async (sql: string) => {
+            if (sql.includes('ORDER BY id ASC FOR UPDATE') && sql.includes('_mhb_widgets')) return []
+            if (sql.includes('pg_advisory_xact_lock(hashtextextended($1::text, 0))')) return []
+            if (sql.includes('SELECT id, scope_entity_id, base_layout_id') && sql.includes('_mhb_layouts')) return [layoutRow]
+            if (sql.includes('SELECT id, widget_key, zone, is_active') && sql.includes('_mhb_widgets')) return [root, child]
+            if (sql.includes('SELECT * FROM') && sql.includes('_mhb_widgets')) return [root, child]
+            throw new Error(`Unexpected SQL in nested widget DTO test: ${sql}`)
+        })
+        const tx = { query }
+        const exec = {
+            query,
+            transaction: jest.fn(async (callback: (trx: typeof tx) => Promise<unknown>) => callback(tx)),
+            isReleased: () => false
+        }
+        const schemaService = { ensureSchema: jest.fn(async () => 'mhb_a1b2c3d4e5f67890abcdef1234567890_b1') }
+        const service = new MetahubLayoutsService(exec as never, schemaService as never)
+
+        const rows = await service.listLayoutZoneWidgets('metahub-1', layoutId, 'user-1')
+
+        expect(rows).toEqual([
+            expect.objectContaining({ instanceKey: 'columns-root', parentInstanceKey: null, slotKey: null }),
+            expect.objectContaining({ instanceKey: 'canvas-child', parentInstanceKey: 'columns-root', slotKey: 'column:main' })
+        ])
+    })
+
+    it.each([
+        {
+            name: 'Marketing',
+            templateKey: 'marketing-page',
+            widgetKey: 'marketing.image',
+            zone: 'marketing-main',
+            entityCodename: 'MarketingPageImage',
+            semanticKey: 'hero-image',
+            rendererConfig: {},
+            overrideConfig: {}
+        },
+        {
+            name: 'Dashboard',
+            templateKey: 'dashboard',
+            widgetKey: 'infoCard',
+            zone: 'left',
+            entityCodename: 'DashboardContent',
+            semanticKey: 'overview',
+            rendererConfig: {},
+            overrideConfig: { severity: 'warning' }
+        }
+    ] as const)('keeps inherited Entity bindings out of the scoped $name override row', async (scenario) => {
         const layoutId = '0190a9b5-3cde-7abc-8def-0123456789a2'
         const baseLayoutId = '0190a9b5-3cde-7abc-8def-0123456789a3'
         const scopeEntityId = '0190a9b5-3cde-7abc-8def-0123456789a4'
         const widgetId = '0190a9b5-3cde-7abc-8def-0123456789a5'
-        const definition = getLayoutWidgetDefinition('marketing.image')
-        if (!definition) throw new Error('Expected marketing.image to be registered')
+        const placementInstanceKey = '0190a9b5-3cde-7abc-8def-0123456789a7'
+        const definition = getLayoutWidgetDefinition(scenario.widgetKey)
+        if (!definition) throw new Error(`Expected ${scenario.widgetKey} to be registered`)
         const bindings = buildSingleTargetWidgetBinding(definition, 'content', {
             entityKind: 'object',
-            entityCodename: 'MarketingPageImage',
-            semanticKey: 'hero-image'
+            entityCodename: scenario.entityCodename,
+            semanticKey: scenario.semanticKey
         })
-        const widgetContext = { templateKey: 'marketing-page', widgetKey: 'marketing.image', zone: 'marketing-main' }
-        const baseConfig = encodeWidgetConfigEnvelope(
-            { rendererConfig: { instanceKey: 'hero-image' }, neutral: { bindings } },
-            widgetContext
-        )
+        const widgetContext = { templateKey: scenario.templateKey, widgetKey: scenario.widgetKey, zone: scenario.zone }
+        const baseConfig = encodeWidgetConfigEnvelope({ rendererConfig: scenario.rendererConfig, neutral: { bindings } }, widgetContext)
+        expect(baseConfig).toMatchObject({ __layout: { bindings } })
         const baseWidget = {
             id: widgetId,
+            instance_key: placementInstanceKey,
             layout_id: baseLayoutId,
-            zone: 'marketing-main',
-            widget_key: 'marketing.image',
+            zone: scenario.zone,
+            parent_widget_id: null,
+            slot_key: null,
+            widget_key: scenario.widgetKey,
             sort_order: 1,
             config: baseConfig,
             is_active: true,
@@ -176,6 +310,7 @@ describe('MetahubLayoutsService', () => {
         let storedOverride: Record<string, unknown> | null = null
         let storedOverrideConfig: Record<string, unknown> | null = null
         const query = jest.fn(async (sql: string, params?: unknown[]) => {
+            if (sql.includes('ORDER BY id ASC FOR UPDATE') && sql.includes('_mhb_widgets')) return []
             if (sql.includes('pg_advisory_xact_lock(hashtextextended($1::text, 0))')) return []
             if (sql.includes('SELECT id, scope_entity_id, base_layout_id') && sql.includes('_mhb_layouts')) {
                 return [
@@ -183,8 +318,8 @@ describe('MetahubLayoutsService', () => {
                         id: layoutId,
                         scope_entity_id: scopeEntityId,
                         base_layout_id: baseLayoutId,
-                        template_key: 'marketing-page',
-                        config: {}
+                        template_key: scenario.templateKey,
+                        config: { variant: 'generated' }
                     }
                 ]
             }
@@ -216,7 +351,7 @@ describe('MetahubLayoutsService', () => {
                 }
                 return [{ id: storedOverride.id }]
             }
-            throw new Error(`Unexpected SQL in marketing overlay binding test: ${sql}`)
+            throw new Error(`Unexpected SQL in ${scenario.name} overlay binding test: ${sql}`)
         })
         const tx = { query }
         const exec = {
@@ -231,36 +366,30 @@ describe('MetahubLayoutsService', () => {
 
         expect(
             updateLayoutZoneWidgetConfigSchema.safeParse({
-                config: { instanceKey: 'hero-image', __layout: { bindings } },
+                config: { __layout: { bindings } },
                 expectedVersion: 1
             }).success
         ).toBe(false)
 
-        const result = await service.updateLayoutZoneWidgetConfig(
-            'metahub-1',
-            layoutId,
-            widgetId,
-            { instanceKey: 'hero-image' },
-            'user-1',
-            1
-        )
+        const result = await service.updateLayoutZoneWidgetConfig('metahub-1', layoutId, widgetId, scenario.overrideConfig, 'user-1', 1)
 
         expect(storedOverrideConfig).toBeTruthy()
         expect(storedOverrideConfig).not.toHaveProperty('__layout.bindings')
-        expect(result.config).toMatchObject({ instanceKey: 'hero-image' })
+        const [resolvedPlacement] = await service.listLayoutZoneWidgets('metahub-1', layoutId, 'user-1')
+        expect(resolvedPlacement).toMatchObject({ isInherited: true, widgetKey: scenario.widgetKey })
+        if (scenario.widgetKey === 'infoCard') {
+            expect(storedOverrideConfig).toHaveProperty('severity', 'warning')
+            expect(resolvedPlacement?.config).toHaveProperty('severity', 'warning')
+        }
+        expect(storedOverrideConfig).not.toHaveProperty('instanceKey')
+        expect(result.instanceKey).toBe(placementInstanceKey)
+        expect(result.config).not.toHaveProperty('instanceKey')
 
         const insertCount = query.mock.calls.filter(
             ([sql]) => String(sql).includes('INSERT INTO') && String(sql).includes('_mhb_layout_widget_overrides')
         ).length
         await expect(
-            service.updateLayoutZoneWidgetConfig(
-                'metahub-1',
-                layoutId,
-                widgetId,
-                { instanceKey: 'hero-image', __layout: { bindings } },
-                'user-1',
-                1
-            )
+            service.updateLayoutZoneWidgetConfig('metahub-1', layoutId, widgetId, { __layout: { bindings } }, 'user-1', 1)
         ).rejects.toThrow()
         expect(
             query.mock.calls.filter(([sql]) => String(sql).includes('INSERT INTO') && String(sql).includes('_mhb_layout_widget_overrides'))
@@ -279,10 +408,11 @@ describe('MetahubLayoutsService', () => {
             semanticKey: 'overlay-image'
         })
         const config = encodeWidgetConfigEnvelope(
-            { rendererConfig: { instanceKey: 'overlay-image' }, neutral: { bindings } },
+            { rendererConfig: {}, neutral: { bindings } },
             { templateKey: 'marketing-page', widgetKey: 'marketing.image', zone: 'marketing-main' }
         )
         const query = jest.fn(async (sql: string) => {
+            if (sql.includes('ORDER BY id ASC FOR UPDATE') && sql.includes('_mhb_widgets')) return []
             if (sql.includes('pg_advisory_xact_lock(hashtextextended($1::text, 0))')) return []
             if (sql.includes('SELECT id, scope_entity_id, base_layout_id') && sql.includes('_mhb_layouts')) {
                 return [
@@ -321,13 +451,14 @@ describe('MetahubLayoutsService', () => {
                 },
                 'user-1'
             )
-        ).rejects.toThrow('Marketing overlay layouts must inherit Entity bindings from their base placements')
+        ).rejects.toThrow('This layout inherits Entity bindings from its source placement')
         expect(query.mock.calls.some(([sql]) => String(sql).includes('INSERT INTO'))).toBe(false)
     })
 
     it('fails closed when a stored metahub layout contains application-only source zone settings', async () => {
         const layoutId = '0190a9b5-3cde-7abc-8def-0123456789a2'
         const query = jest.fn(async (sql: string) => {
+            if (sql.includes('ORDER BY id ASC FOR UPDATE') && sql.includes('_mhb_widgets')) return []
             if (sql.includes('SELECT * FROM') && sql.includes('_mhb_layouts')) {
                 return [
                     {
@@ -369,6 +500,9 @@ describe('MetahubLayoutsService', () => {
             id: 'inactive-widget',
             layout_id: layoutId,
             zone: 'top',
+            instance_key: '0190a9b5-3cde-7abc-8def-000000000003',
+            parent_widget_id: null,
+            slot_key: null,
             widget_key: widgetKey,
             sort_order: 2,
             config: {},
@@ -378,6 +512,7 @@ describe('MetahubLayoutsService', () => {
             _upl_updated_at: '2026-04-01T00:00:00.000Z'
         }
         const query = jest.fn(async (sql: string) => {
+            if (sql.includes('ORDER BY id ASC FOR UPDATE') && sql.includes('_mhb_widgets')) return []
             if (sql.includes('pg_advisory_xact_lock(hashtextextended($1::text, 0))')) return []
             if (sql.includes('SELECT id, scope_entity_id, base_layout_id') && sql.includes('_mhb_layouts')) {
                 return [
@@ -498,7 +633,7 @@ describe('MetahubLayoutsService', () => {
     })
 
     it('persists the requested marketing widget order instead of restoring a creation-time tie', async () => {
-        const layoutId = 'marketing-layout-1'
+        const layoutId = '0190a9b5-3cde-7abc-8def-0123456789a8'
         const layoutRow = {
             id: layoutId,
             scope_entity_id: null,
@@ -548,25 +683,28 @@ describe('MetahubLayoutsService', () => {
         }
         const heroBindingConfig = makeConfig(
             'marketing.hero',
-            { instanceKey: 'hero', showLeadForm: true },
+            { showLeadForm: true },
             { content: 'MarketingPageHero' },
             {
                 content: 'default'
             }
         )
-        const collectionConfig = (instanceKey: string, variant: string, entityCodename: string) => ({
+        const collectionConfig = (variant: string, entityCodename: string) => ({
             ...makeConfig(
                 'marketing.collection',
-                { instanceKey, variant, maxItems: 24, showTitle: true, showDescription: true },
+                { variant, maxItems: 24, showTitle: true, showDescription: true },
                 { section: 'MarketingPageSection', items: entityCodename },
                 { section: variant }
             )
         })
         const initialRows = [
             {
-                id: 'hero-widget',
+                id: '0190a9b5-3cde-7abc-8def-0123456789b1',
                 layout_id: layoutId,
                 zone: 'marketing-main',
+                instance_key: '0190a9b5-3cde-7abc-8def-000000000006',
+                parent_widget_id: null,
+                slot_key: null,
                 widget_key: 'marketing.hero',
                 sort_order: 1,
                 config: heroBindingConfig,
@@ -576,62 +714,77 @@ describe('MetahubLayoutsService', () => {
                 _upl_updated_at: '2026-04-01T00:00:00.000Z'
             },
             {
-                id: 'logos-widget',
+                id: '0190a9b5-3cde-7abc-8def-0123456789b2',
                 layout_id: layoutId,
                 zone: 'marketing-main',
+                instance_key: '0190a9b5-3cde-7abc-8def-000000000007',
+                parent_widget_id: null,
+                slot_key: null,
                 widget_key: 'marketing.collection',
                 sort_order: 2,
-                config: collectionConfig('logos', 'logos', 'MarketingPageLogo'),
+                config: collectionConfig('logos', 'MarketingPageLogo'),
                 is_active: true,
                 _upl_version: 1,
                 _upl_created_at: '2026-04-01T00:00:01.000Z',
                 _upl_updated_at: '2026-04-01T00:00:01.000Z'
             },
             {
-                id: 'features-widget',
+                id: '0190a9b5-3cde-7abc-8def-0123456789b3',
                 layout_id: layoutId,
                 zone: 'marketing-main',
+                instance_key: '0190a9b5-3cde-7abc-8def-000000000008',
+                parent_widget_id: null,
+                slot_key: null,
                 widget_key: 'marketing.collection',
                 sort_order: 3,
-                config: collectionConfig('features', 'features', 'MarketingPageFeature'),
+                config: collectionConfig('features', 'MarketingPageFeature'),
                 is_active: true,
                 _upl_version: 1,
                 _upl_created_at: '2026-04-01T00:00:02.000Z',
                 _upl_updated_at: '2026-04-01T00:00:02.000Z'
             },
             {
-                id: 'testimonials-widget',
+                id: '0190a9b5-3cde-7abc-8def-0123456789b4',
                 layout_id: layoutId,
                 zone: 'marketing-main',
+                instance_key: '0190a9b5-3cde-7abc-8def-000000000009',
+                parent_widget_id: null,
+                slot_key: null,
                 widget_key: 'marketing.collection',
                 sort_order: 4,
-                config: collectionConfig('testimonials', 'testimonials', 'MarketingPageTestimonial'),
+                config: collectionConfig('testimonials', 'MarketingPageTestimonial'),
                 is_active: true,
                 _upl_version: 1,
                 _upl_created_at: '2026-04-01T00:00:03.000Z',
                 _upl_updated_at: '2026-04-01T00:00:03.000Z'
             },
             {
-                id: 'highlights-widget',
+                id: '0190a9b5-3cde-7abc-8def-0123456789b5',
                 layout_id: layoutId,
                 zone: 'marketing-main',
+                instance_key: '0190a9b5-3cde-7abc-8def-00000000000a',
+                parent_widget_id: null,
+                slot_key: null,
                 widget_key: 'marketing.collection',
                 sort_order: 5,
-                config: collectionConfig('highlights', 'highlights', 'MarketingPageHighlight'),
+                config: collectionConfig('highlights', 'MarketingPageHighlight'),
                 is_active: true,
                 _upl_version: 1,
                 _upl_created_at: '2026-04-01T00:00:04.000Z',
                 _upl_updated_at: '2026-04-01T00:00:04.000Z'
             },
             {
-                id: 'pricing-widget',
+                id: '0190a9b5-3cde-7abc-8def-0123456789b6',
                 layout_id: layoutId,
                 zone: 'marketing-main',
+                instance_key: '0190a9b5-3cde-7abc-8def-00000000000b',
+                parent_widget_id: null,
+                slot_key: null,
                 widget_key: 'marketing.pricing',
                 sort_order: 6,
                 config: makeConfig(
                     'marketing.pricing',
-                    { instanceKey: 'pricing', maxItems: 24, showBenefits: true },
+                    { maxItems: 24, showBenefits: true },
                     {
                         section: 'MarketingPageSection',
                         tiers: 'MarketingPagePricing',
@@ -645,12 +798,15 @@ describe('MetahubLayoutsService', () => {
                 _upl_updated_at: '2026-04-01T00:00:05.000Z'
             },
             {
-                id: 'faq-widget',
+                id: '0190a9b5-3cde-7abc-8def-0123456789b7',
                 layout_id: layoutId,
                 zone: 'marketing-main',
+                instance_key: '0190a9b5-3cde-7abc-8def-00000000000c',
+                parent_widget_id: null,
+                slot_key: null,
                 widget_key: 'marketing.collection',
                 sort_order: 7,
-                config: collectionConfig('faq', 'faq', 'MarketingPageFaq'),
+                config: collectionConfig('faq', 'MarketingPageFaq'),
                 is_active: true,
                 _upl_version: 1,
                 _upl_created_at: '2026-04-01T00:00:06.000Z',
@@ -659,6 +815,7 @@ describe('MetahubLayoutsService', () => {
         ]
         let persistedRows = initialRows.map((row) => ({ ...row }))
         const query = jest.fn(async (sql: string, params?: unknown[]) => {
+            if (sql.includes('ORDER BY id ASC FOR UPDATE') && sql.includes('_mhb_widgets')) return []
             if (
                 sql.includes('pg_advisory_xact_lock(hashtextextended($1::text, 0))') &&
                 String(params?.[0] ?? '').startsWith('mhb-layout-graph:')
@@ -667,8 +824,8 @@ describe('MetahubLayoutsService', () => {
             if (sql.includes('_mhb_layouts')) return [layoutRow]
 
             if (sql.includes('sort_order = sort_order +')) {
-                const layoutParam = params?.[3]
-                const zones = Array.isArray(params?.[4]) ? params?.[4] : []
+                const layoutParam = params?.[1]
+                const zones = Array.isArray(params?.[2]) ? params?.[2] : []
                 expect(layoutParam).toBe(layoutId)
                 persistedRows = persistedRows.map((row) =>
                     row.layout_id === layoutId && zones.includes(row.zone)
@@ -691,6 +848,9 @@ describe('MetahubLayoutsService', () => {
                 return ids.map((id) => ({ id }))
             }
 
+            if (sql.includes('SET parent_widget_id = $1') && sql.includes('RETURNING id'))
+                return [{ id: '0190a9b5-3cde-7abc-8def-0123456789b6' }]
+
             if (sql.includes('SELECT * FROM') && sql.includes('_mhb_widgets') && sql.includes('ORDER BY zone ASC')) {
                 return persistedRows.map((row) => ({ ...row }))
             }
@@ -711,7 +871,7 @@ describe('MetahubLayoutsService', () => {
         const result = await service.moveLayoutZoneWidget(
             'metahub-1',
             layoutId,
-            { widgetId: 'pricing-widget', targetZone: 'marketing-main', targetIndex: 4, expectedVersion: 3 },
+            { widgetId: '0190a9b5-3cde-7abc-8def-0123456789b6', targetZone: 'marketing-main', targetIndex: 4, expectedVersion: 3 },
             'user-1'
         )
 
@@ -720,12 +880,20 @@ describe('MetahubLayoutsService', () => {
                 .filter((widget) => widget.zone === 'marketing-main')
                 .sort((left, right) => left.sortOrder - right.sortOrder)
                 .map((widget) => widget.instanceKey)
-        ).toEqual(['hero', 'logos', 'features', 'testimonials', 'pricing', 'highlights', 'faq'])
+        ).toEqual([
+            '0190a9b5-3cde-7abc-8def-000000000006',
+            '0190a9b5-3cde-7abc-8def-000000000007',
+            '0190a9b5-3cde-7abc-8def-000000000008',
+            '0190a9b5-3cde-7abc-8def-000000000009',
+            '0190a9b5-3cde-7abc-8def-00000000000b',
+            '0190a9b5-3cde-7abc-8def-00000000000a',
+            '0190a9b5-3cde-7abc-8def-00000000000c'
+        ])
         const finalUpdate = query.mock.calls.find(([sql]) => String(sql).includes('WITH incoming'))
         expect(finalUpdate?.[1]?.[3]).toEqual([1, 2, 3, 4, 5, 6, 7])
     })
 
-    it('preserves authored runtime config keys when zone-widget sync rewrites layout widget flags', async () => {
+    it('does not reintroduce Dashboard visibility flags when syncing placement data', async () => {
         const layoutId = 'layout-1'
         const widgetId = 'widget-1'
         let persistedLayoutConfig: Record<string, unknown> | null = null
@@ -735,24 +903,11 @@ describe('MetahubLayoutsService', () => {
             scope_entity_id: null,
             base_layout_id: null,
             template_key: 'dashboard',
-            config: {
-                showViewToggle: true,
-                defaultViewMode: 'card',
-                showFilterBar: true,
-                enableRowReordering: true,
-                cardColumns: 3,
-                rowHeight: 'auto',
-                showOverviewTitle: false,
-                showOverviewCards: false,
-                showSessionsChart: false,
-                showPageViewsChart: false,
-                showDetailsTitle: true,
-                showDetailsTable: true,
-                showFooter: false
-            }
+            config: { __layout: { skipDefaultZoneWidgetSeed: true } }
         }
 
         const query = jest.fn(async (sql: string, params?: unknown[]) => {
+            if (sql.includes('ORDER BY id ASC FOR UPDATE') && sql.includes('_mhb_widgets')) return []
             if (
                 sql.includes('pg_advisory_xact_lock(hashtextextended($1::text, 0))') &&
                 String(params?.[0] ?? '').startsWith('mhb-layout-graph:')
@@ -776,6 +931,9 @@ describe('MetahubLayoutsService', () => {
                         id: widgetId,
                         layout_id: layoutId,
                         zone: 'left',
+                        instance_key: '0190a9b5-3cde-7abc-8def-00000000000d',
+                        parent_widget_id: null,
+                        slot_key: null,
                         widget_key: 'menuWidget',
                         sort_order: 1,
                         config: {},
@@ -804,7 +962,7 @@ describe('MetahubLayoutsService', () => {
             }
 
             if (sql.includes('INSERT INTO') && sql.includes('_mhb_widgets') && sql.includes('RETURNING id')) {
-                return [{ id: widgetId }]
+                return [{ id: params?.[0], instance_key: params?.[2] }]
             }
 
             if (sql.includes('INSERT INTO') && sql.includes('_mhb_widgets') && sql.includes('RETURNING *')) {
@@ -813,19 +971,12 @@ describe('MetahubLayoutsService', () => {
                         id: widgetId,
                         layout_id: layoutId,
                         zone: 'left',
+                        instance_key: '0190a9b5-3cde-7abc-8def-000000000012',
+                        parent_widget_id: null,
+                        slot_key: null,
                         widget_key: 'menuWidget',
                         sort_order: 1,
-                        config: {
-                            autoShowAllSections: true,
-                            showTitle: true,
-                            title: {
-                                _schema: '1',
-                                _primary: 'en',
-                                locales: {
-                                    en: { content: 'Objects', version: 1, isActive: true }
-                                }
-                            }
-                        },
+                        config: { variant: 'generated' },
                         is_active: true,
                         _upl_created_at: '2026-04-04T00:00:00.000Z',
                         _upl_updated_at: '2026-04-04T00:00:00.000Z'
@@ -844,25 +995,20 @@ describe('MetahubLayoutsService', () => {
                         id: widgetId,
                         layout_id: layoutId,
                         zone: 'left',
+                        instance_key: '0190a9b5-3cde-7abc-8def-000000000013',
+                        parent_widget_id: null,
+                        slot_key: null,
                         widget_key: 'menuWidget',
                         sort_order: 1,
-                        config: {
-                            autoShowAllSections: true,
-                            showTitle: true,
-                            title: {
-                                _schema: '1',
-                                _primary: 'en',
-                                locales: {
-                                    en: { content: 'Objects', version: 1, isActive: true }
-                                }
-                            }
-                        },
+                        config: { variant: 'generated' },
                         is_active: true,
                         _upl_created_at: '2026-04-04T00:00:00.000Z',
                         _upl_updated_at: '2026-04-04T00:00:00.000Z'
                     }
                 ]
             }
+
+            if (sql.includes('SELECT * FROM') && sql.includes('_mhb_widgets') && sql.includes('ORDER BY zone ASC')) return []
 
             throw new Error(`Unexpected SQL in MetahubLayoutsService test: ${sql}`)
         })
@@ -886,49 +1032,22 @@ describe('MetahubLayoutsService', () => {
                 zone: 'left',
                 widgetKey: 'menuWidget',
                 sortOrder: 1,
-                config: {
-                    autoShowAllSections: true,
-                    showTitle: true,
-                    title: {
-                        en: 'Objects',
-                        ru: 'Каталоги'
-                    }
-                },
+                config: { variant: 'generated' },
                 expectedVersion: 1
             },
             'user-1'
         )
 
-        expect(persistedLayoutConfig).toMatchObject({
-            showSideMenu: true,
-            showHeader: true,
-            showDetailsTitle: true,
-            showDetailsTable: true,
-            showViewToggle: true,
-            defaultViewMode: 'card',
-            showFilterBar: true,
-            enableRowReordering: true,
-            cardColumns: 3,
-            rowHeight: 'auto',
-            showFooter: false,
-            showOverviewTitle: false,
-            showOverviewCards: false,
-            showSessionsChart: false,
-            showPageViewsChart: false
-        })
+        expect(persistedLayoutConfig).toEqual({ __layout: { skipDefaultZoneWidgetSeed: true } })
     })
 
     it('creates entity-scoped layouts against the active global base layout without seeding default widgets', async () => {
         const layoutId = 'object-layout-1'
         const scopeEntityId = 'object-1'
         const baseLayoutConfig = {
-            showHeader: false,
-            showFooter: true,
-            showViewToggle: false,
-            defaultViewMode: 'card',
+            sideMenu: { availableModes: ['wide', 'compact', 'overlay'], primaryMode: 'wide', rememberUserChoice: true },
             objectBehavior: {
-                showCreateButton: false,
-                searchMode: 'server'
+                showCreateButton: false
             }
         }
         const createdRow = {
@@ -945,13 +1064,17 @@ describe('MetahubLayoutsService', () => {
             },
             description: null,
             config: {
-                showViewToggle: true,
-                defaultViewMode: 'card',
-                objectBehavior: {
-                    showCreateButton: false,
-                    searchMode: 'server'
+                __layout: {
+                    composition: {
+                        mode: 'overlay',
+                        baseLayoutId: globalLayoutIdV7
+                    }
                 },
-                rowHeight: 'auto'
+                sideMenu: baseLayoutConfig.sideMenu,
+                objectBehavior: {
+                    showCreateButton: true,
+                    createSurface: 'page'
+                }
             },
             is_active: true,
             is_default: false,
@@ -962,6 +1085,7 @@ describe('MetahubLayoutsService', () => {
         }
 
         const query = jest.fn(async (sql: string, params?: unknown[]) => {
+            if (sql.includes('ORDER BY id ASC FOR UPDATE') && sql.includes('_mhb_widgets')) return []
             if (sql.includes('pg_advisory_xact_lock(hashtextextended($1::text, 0))')) return []
             if (sql.includes('_mhb_objects') && sql.includes('_mhb_entity_type_definitions')) {
                 expect(params).toEqual([scopeEntityId])
@@ -991,14 +1115,11 @@ describe('MetahubLayoutsService', () => {
                             baseLayoutId: globalLayoutIdV7
                         }
                     },
-                    showViewToggle: true,
-                    defaultViewMode: 'card',
-                    showHeader: true,
+                    sideMenu: baseLayoutConfig.sideMenu,
                     objectBehavior: {
-                        showCreateButton: false,
-                        searchMode: 'server'
-                    },
-                    rowHeight: 'auto'
+                        showCreateButton: true,
+                        createSurface: 'page'
+                    }
                 })
                 return [createdRow]
             }
@@ -1035,7 +1156,7 @@ describe('MetahubLayoutsService', () => {
                     }
                 },
                 description: null,
-                config: { showHeader: true, showViewToggle: true, rowHeight: 'auto' },
+                config: { objectBehavior: { showCreateButton: true, createSurface: 'page' } },
                 isActive: true,
                 isDefault: false,
                 sortOrder: 0
@@ -1046,16 +1167,123 @@ describe('MetahubLayoutsService', () => {
         expect(created.scopeEntityId).toBe(scopeEntityId)
         expect(created.baseLayoutId).toBe(globalLayoutIdV7)
         expect(created.config).toEqual({
-            showViewToggle: true,
-            defaultViewMode: 'card',
+            sideMenu: baseLayoutConfig.sideMenu,
             objectBehavior: {
-                showCreateButton: false,
-                searchMode: 'server'
-            },
-            rowHeight: 'auto'
+                showCreateButton: true,
+                createSurface: 'page'
+            }
+        })
+        expect(created.neutral).toEqual({
+            composition: {
+                mode: 'overlay',
+                baseLayoutId: globalLayoutIdV7
+            }
         })
         expect(query).toHaveBeenCalledTimes(4)
         expect(query.mock.calls.some(([sql]) => String(sql).includes('_mhb_widgets'))).toBe(false)
+    })
+
+    it('creates an independent Dashboard scope without decoding a different-template global base', async () => {
+        const layoutId = '0190a9b5-3cde-7abc-8def-0123456789a4'
+        const scopeEntityId = '0190a9b5-3cde-7abc-8def-0123456789a5'
+        const marketingBaseId = '0190a9b5-3cde-7abc-8def-0123456789a6'
+        const marketingBaseConfig = encodeLayoutConfigEnvelope(
+            { rendererConfig: {}, neutral: { zoneSettings: { 'marketing-header': { position: 'fixed' } } } },
+            { templateKey: 'marketing-page' }
+        )
+        const createdRow = {
+            id: layoutId,
+            scope_entity_id: scopeEntityId,
+            base_layout_id: null,
+            template_key: 'dashboard',
+            name: {
+                _schema: '1',
+                _primary: 'en',
+                locales: { en: { content: 'Independent Dashboard', version: 1, isActive: true } }
+            },
+            description: null,
+            config: { __layout: { composition: { mode: 'independent', baseLayoutId: null } } },
+            is_active: true,
+            is_default: false,
+            sort_order: 0,
+            _upl_version: 1,
+            _upl_created_at: '2026-04-06T00:00:00.000Z',
+            _upl_updated_at: '2026-04-06T00:00:00.000Z'
+        }
+
+        const query = jest.fn(async (sql: string, params?: unknown[]) => {
+            if (sql.includes('pg_advisory_xact_lock(hashtextextended($1::text, 0))')) return []
+            if (sql.includes('_mhb_objects') && sql.includes('_mhb_entity_type_definitions')) {
+                expect(params).toEqual([scopeEntityId])
+                return [{ id: scopeEntityId, kind: 'object', capabilities: { layoutConfig: { enabled: true } } }]
+            }
+            if (sql.includes('scope_entity_id IS NULL') && sql.includes('is_active = true') && sql.includes('_mhb_layouts')) {
+                return [
+                    {
+                        id: marketingBaseId,
+                        scope_entity_id: null,
+                        base_layout_id: null,
+                        template_key: 'marketing-page',
+                        config: marketingBaseConfig
+                    }
+                ]
+            }
+            if (sql.includes('INSERT INTO') && sql.includes('_mhb_layouts') && sql.includes('RETURNING *')) {
+                expect(params?.[0]).toBe(scopeEntityId)
+                expect(params?.[1]).toBeNull()
+                expect(JSON.parse(String(params?.[5] ?? '{}'))).toEqual(createdRow.config)
+                return [createdRow]
+            }
+            if (sql.includes('SELECT id, scope_entity_id, base_layout_id') && sql.includes('_mhb_layouts')) return [createdRow]
+            if (sql.includes('SELECT *') && sql.includes('_mhb_widgets')) return []
+
+            throw new Error(`Unexpected SQL in independent cross-template layout test: ${sql}`)
+        })
+
+        const tx = { query }
+        const exec = {
+            query,
+            transaction: jest.fn(async (callback: (trx: typeof tx) => Promise<unknown>) => callback(tx)),
+            isReleased: () => false
+        }
+        const schemaService = { ensureSchema: jest.fn(async () => 'mhb_a1b2c3d4e5f67890abcdef1234567890_b1') }
+        const service = new MetahubLayoutsService(exec as never, schemaService as never)
+
+        const created = await service.createLayout(
+            'metahub-1',
+            {
+                scopeEntityId,
+                templateKey: 'dashboard',
+                name: {
+                    _schema: '1',
+                    _primary: 'en',
+                    locales: { en: { content: 'Independent Dashboard', version: 1, isActive: true } }
+                },
+                config: {},
+                isActive: true,
+                isDefault: false,
+                sortOrder: 0
+            },
+            'user-1'
+        )
+
+        expect(created.templateKey).toBe('dashboard')
+        expect(created.scopeEntityId).toBe(scopeEntityId)
+        expect(created.baseLayoutId).toBeNull()
+        expect(created.neutral).toEqual({ composition: { mode: 'independent', baseLayoutId: null } })
+        expect(query).toHaveBeenCalledTimes(4)
+        expect(query.mock.calls.some(([sql]) => String(sql).includes('_mhb_widgets'))).toBe(false)
+
+        const placements = await service.listLayoutZoneWidgets('metahub-1', layoutId, 'user-1')
+
+        expect(placements).toEqual([])
+        expect(
+            query.mock.calls.some(
+                ([sql]) =>
+                    (String(sql).includes('INSERT INTO') && String(sql).includes('_mhb_widgets')) ||
+                    (String(sql).includes('UPDATE') && String(sql).includes('_mhb_layouts') && String(sql).includes('SET config'))
+            )
+        ).toBe(false)
     })
 
     it('creates global layouts empty by default without seeding default widgets', async () => {
@@ -1074,26 +1302,10 @@ describe('MetahubLayoutsService', () => {
             },
             description: null,
             config: {
-                showSideMenu: false,
-                showRightSideMenu: false,
-                showAppNavbar: false,
-                showHeader: false,
-                showBreadcrumbs: false,
-                showSearch: false,
-                showDatePicker: false,
-                showOptionsMenu: false,
-                showLanguageSwitcher: false,
-                showOverviewTitle: false,
-                showOverviewCards: false,
-                showSessionsChart: false,
-                showPageViewsChart: false,
-                showDetailsTitle: false,
-                showDetailsTable: false,
-                showColumnsContainer: false,
-                showProductTree: false,
-                showUsersByCountryChart: false,
-                showFooter: false,
-                [LAYOUT_CONFIG_SKIP_DEFAULT_WIDGET_SEED_KEY]: true
+                __layout: {
+                    composition: { mode: 'independent', baseLayoutId: null },
+                    skipDefaultZoneWidgetSeed: true
+                }
             },
             is_active: true,
             is_default: false,
@@ -1104,18 +1316,17 @@ describe('MetahubLayoutsService', () => {
         }
 
         const query = jest.fn(async (sql: string, params?: unknown[]) => {
+            if (sql.includes('ORDER BY id ASC FOR UPDATE') && sql.includes('_mhb_widgets')) return []
             if (sql.includes('pg_advisory_xact_lock(hashtextextended($1::text, 0))')) return []
             if (sql.includes('INSERT INTO') && sql.includes('_mhb_layouts') && sql.includes('RETURNING *')) {
                 const config = JSON.parse(String(params?.[5] ?? '{}'))
                 expect(params?.[0]).toBeNull()
                 expect(params?.[1]).toBeNull()
-                expect(config).toMatchObject({
-                    showSideMenu: false,
-                    showHeader: false,
-                    showDetailsTitle: false,
-                    showDetailsTable: false,
-                    showFooter: false,
-                    [LAYOUT_CONFIG_SKIP_DEFAULT_WIDGET_SEED_KEY]: true
+                expect(config).toEqual({
+                    __layout: {
+                        composition: { mode: 'independent', baseLayoutId: null },
+                        skipDefaultZoneWidgetSeed: true
+                    }
                 })
                 return [createdRow]
             }
@@ -1156,12 +1367,10 @@ describe('MetahubLayoutsService', () => {
 
         expect(created.scopeEntityId).toBeNull()
         expect(created.baseLayoutId).toBeNull()
-        expect(created.config).toMatchObject({
-            showSideMenu: false,
-            showHeader: false,
-            showDetailsTitle: false,
-            showDetailsTable: false,
-            [LAYOUT_CONFIG_SKIP_DEFAULT_WIDGET_SEED_KEY]: true
+        expect(created.config).toEqual({})
+        expect(created.neutral).toEqual({
+            composition: { mode: 'independent', baseLayoutId: null },
+            skipDefaultZoneWidgetSeed: true
         })
         expect(query).toHaveBeenCalledTimes(2)
         expect(query.mock.calls.some(([sql]) => String(sql).includes('_mhb_widgets'))).toBe(false)
@@ -1169,6 +1378,7 @@ describe('MetahubLayoutsService', () => {
 
     it('rejects scoped layout creation when scopeEntityId points to an entity without layoutConfig support', async () => {
         const query = jest.fn(async (sql: string) => {
+            if (sql.includes('ORDER BY id ASC FOR UPDATE') && sql.includes('_mhb_widgets')) return []
             if (sql.includes('pg_advisory_xact_lock(hashtextextended($1::text, 0))')) return []
             if (sql.includes('_mhb_objects') && sql.includes('_mhb_entity_type_definitions')) {
                 return [{ id: 'object-1', kind: 'set', capabilities: { layoutConfig: false } }]
@@ -1216,7 +1426,7 @@ describe('MetahubLayoutsService', () => {
         })
     })
 
-    it('ignores stale inherited widget overrides when the base sharedBehavior forbids them', async () => {
+    it('applies inherited override policy from the widget registry', async () => {
         const layoutId = 'object-layout-1'
         const baseLayoutId = globalLayoutIdV7
         const baseWidgetId = 'base-widget-1'
@@ -1225,22 +1435,19 @@ describe('MetahubLayoutsService', () => {
             id: baseWidgetId,
             layout_id: baseLayoutId,
             zone: 'left',
+            instance_key: '0190a9b5-3cde-7abc-8def-000000000014',
+            parent_widget_id: null,
+            slot_key: null,
             widget_key: 'menuWidget',
             sort_order: 1,
-            config: {
-                title: 'Base menu',
-                sharedBehavior: {
-                    canDeactivate: false,
-                    canExclude: false,
-                    positionLocked: true
-                }
-            },
+            config: { variant: 'generated' },
             is_active: true,
             _upl_created_at: '2026-04-06T00:00:00.000Z',
             _upl_updated_at: '2026-04-06T00:00:00.000Z'
         }
 
         const query = jest.fn(async (sql: string, params?: unknown[]) => {
+            if (sql.includes('ORDER BY id ASC FOR UPDATE') && sql.includes('_mhb_widgets')) return []
             if (
                 sql.includes('pg_advisory_xact_lock(hashtextextended($1::text, 0))') &&
                 String(params?.[0] ?? '').startsWith('mhb-layout-graph:')
@@ -1280,7 +1487,7 @@ describe('MetahubLayoutsService', () => {
                         zone: 'right',
                         sort_order: 9,
                         is_active: false,
-                        is_deleted_override: true,
+                        is_deleted_override: false,
                         _upl_updated_at: '2026-04-06T01:00:00.000Z'
                     }
                 ]
@@ -1314,20 +1521,21 @@ describe('MetahubLayoutsService', () => {
                     widgetKey: 'menuWidget',
                     isInherited: true,
                     zone: 'left',
-                    sortOrder: 1,
-                    isActive: true,
-                    config: expect.objectContaining({ title: 'Base menu' })
+                    sortOrder: 9,
+                    isActive: false,
+                    config: expect.objectContaining({ variant: 'generated' })
                 })
             ])
         )
     })
 
-    it('rejects inherited object widget config edits', async () => {
+    it('rejects undeclared config fields on inherited placements before writing an override', async () => {
         const layoutId = 'object-layout-1'
         const baseLayoutId = globalLayoutIdV7
         const baseWidgetId = 'base-widget-1'
 
         const query = jest.fn(async (sql: string, params?: unknown[]) => {
+            if (sql.includes('ORDER BY id ASC FOR UPDATE') && sql.includes('_mhb_widgets')) return []
             if (
                 sql.includes('pg_advisory_xact_lock(hashtextextended($1::text, 0))') &&
                 String(params?.[0] ?? '').startsWith('mhb-layout-graph:')
@@ -1355,9 +1563,12 @@ describe('MetahubLayoutsService', () => {
                             id: baseWidgetId,
                             layout_id: baseLayoutId,
                             zone: 'left',
+                            instance_key: '0190a9b5-3cde-7abc-8def-000000000015',
+                            parent_widget_id: null,
+                            slot_key: null,
                             widget_key: 'menuWidget',
                             sort_order: 1,
-                            config: { title: 'Base menu' },
+                            config: { variant: 'generated' },
                             is_active: true,
                             _upl_created_at: '2026-04-06T00:00:00.000Z',
                             _upl_updated_at: '2026-04-06T00:00:00.000Z'
@@ -1391,10 +1602,7 @@ describe('MetahubLayoutsService', () => {
 
         await expect(
             service.updateLayoutZoneWidgetConfig('metahub-1', layoutId, baseWidgetId, { title: 'Custom menu' }, 'user-1')
-        ).rejects.toMatchObject({
-            message: 'Inherited widgets inherit config from the base layout and cannot be edited.',
-            statusCode: 400
-        })
+        ).rejects.toThrow()
         expect(
             query.mock.calls.some(([sql]) => String(sql).includes('UPDATE') && String(sql).includes('_mhb_layout_widget_overrides'))
         ).toBe(false)
@@ -1406,6 +1614,7 @@ describe('MetahubLayoutsService', () => {
         const baseWidgetId = 'base-widget-1'
 
         const query = jest.fn(async (sql: string, params?: unknown[]) => {
+            if (sql.includes('ORDER BY id ASC FOR UPDATE') && sql.includes('_mhb_widgets')) return []
             if (
                 sql.includes('pg_advisory_xact_lock(hashtextextended($1::text, 0))') &&
                 String(params?.[0] ?? '').startsWith('mhb-layout-graph:')
@@ -1432,10 +1641,13 @@ describe('MetahubLayoutsService', () => {
                         {
                             id: baseWidgetId,
                             layout_id: baseLayoutId,
-                            zone: 'left',
-                            widget_key: 'menuWidget',
+                            zone: 'top',
+                            instance_key: '0190a9b5-3cde-7abc-8def-000000000016',
+                            parent_widget_id: null,
+                            slot_key: null,
+                            widget_key: 'appNavbar',
                             sort_order: 1,
-                            config: { title: 'Base menu', sharedBehavior: { canExclude: false } },
+                            config: {},
                             is_active: true,
                             _upl_created_at: '2026-04-06T00:00:00.000Z',
                             _upl_updated_at: '2026-04-06T00:00:00.000Z'
@@ -1468,7 +1680,7 @@ describe('MetahubLayoutsService', () => {
         const service = new MetahubLayoutsService(exec as never, schemaService as never)
 
         await expect(service.removeLayoutZoneWidget('metahub-1', layoutId, baseWidgetId, 'user-1')).rejects.toMatchObject({
-            message: 'Inherited widget exclusion is disabled by the base layout and cannot be changed.',
+            message: 'An inherited subtree placement cannot be excluded by this layout.',
             statusCode: 400
         })
         expect(
@@ -1486,6 +1698,7 @@ describe('MetahubLayoutsService', () => {
         const overrideRows: Array<Record<string, unknown>> = []
 
         const query = jest.fn(async (sql: string, params?: unknown[]) => {
+            if (sql.includes('ORDER BY id ASC FOR UPDATE') && sql.includes('_mhb_widgets')) return []
             if (
                 sql.includes('pg_advisory_xact_lock(hashtextextended($1::text, 0))') &&
                 String(params?.[0] ?? '').startsWith('mhb-layout-graph:')
@@ -1513,9 +1726,12 @@ describe('MetahubLayoutsService', () => {
                             id: baseWidgetId,
                             layout_id: baseLayoutId,
                             zone: 'left',
+                            instance_key: '0190a9b5-3cde-7abc-8def-000000000017',
+                            parent_widget_id: null,
+                            slot_key: null,
                             widget_key: 'menuWidget',
                             sort_order: 1,
-                            config: { title: 'Base menu', sharedBehavior: { canExclude: true } },
+                            config: { variant: 'generated' },
                             is_active: true,
                             _upl_created_at: '2026-04-06T00:00:00.000Z',
                             _upl_updated_at: '2026-04-06T00:00:00.000Z'
@@ -1590,6 +1806,7 @@ describe('MetahubLayoutsService', () => {
         const baseWidgetId = 'base-widget-1'
 
         const query = jest.fn(async (sql: string, params?: unknown[]) => {
+            if (sql.includes('ORDER BY id ASC FOR UPDATE') && sql.includes('_mhb_widgets')) return []
             if (
                 sql.includes('pg_advisory_xact_lock(hashtextextended($1::text, 0))') &&
                 String(params?.[0] ?? '').startsWith('mhb-layout-graph:')
@@ -1613,10 +1830,13 @@ describe('MetahubLayoutsService', () => {
                         {
                             id: baseWidgetId,
                             layout_id: baseLayoutId,
-                            zone: 'left',
-                            widget_key: 'menuWidget',
+                            zone: 'top',
+                            instance_key: '0190a9b5-3cde-7abc-8def-000000000018',
+                            parent_widget_id: null,
+                            slot_key: null,
+                            widget_key: 'appNavbar',
                             sort_order: 1,
-                            config: { title: 'Base menu', sharedBehavior: { positionLocked: true } },
+                            config: {},
                             is_active: true,
                             _upl_created_at: '2026-04-06T00:00:00.000Z',
                             _upl_updated_at: '2026-04-06T00:00:00.000Z'
@@ -1662,6 +1882,7 @@ describe('MetahubLayoutsService', () => {
         const baseWidgetId = 'base-widget-1'
 
         const query = jest.fn(async (sql: string, params?: unknown[]) => {
+            if (sql.includes('ORDER BY id ASC FOR UPDATE') && sql.includes('_mhb_widgets')) return []
             if (
                 sql.includes('pg_advisory_xact_lock(hashtextextended($1::text, 0))') &&
                 String(params?.[0] ?? '').startsWith('mhb-layout-graph:')
@@ -1688,10 +1909,13 @@ describe('MetahubLayoutsService', () => {
                         {
                             id: baseWidgetId,
                             layout_id: baseLayoutId,
-                            zone: 'left',
-                            widget_key: 'menuWidget',
+                            zone: 'top',
+                            instance_key: '0190a9b5-3cde-7abc-8def-000000000019',
+                            parent_widget_id: null,
+                            slot_key: null,
+                            widget_key: 'appNavbar',
                             sort_order: 1,
-                            config: { title: 'Base menu', sharedBehavior: { canDeactivate: false } },
+                            config: {},
                             is_active: true,
                             _upl_created_at: '2026-04-06T00:00:00.000Z',
                             _upl_updated_at: '2026-04-06T00:00:00.000Z'
@@ -1733,6 +1957,7 @@ describe('MetahubLayoutsService', () => {
         const layoutId = globalLayoutIdV7
 
         const query = jest.fn(async (sql: string, params?: unknown[]) => {
+            if (sql.includes('ORDER BY id ASC FOR UPDATE') && sql.includes('_mhb_widgets')) return []
             if (sql.includes('pg_advisory_xact_lock(hashtextextended($1::text, 0))')) return []
             if (sql.includes('SELECT * FROM') && sql.includes('_mhb_layouts') && sql.includes('FOR UPDATE')) {
                 return [
@@ -1775,6 +2000,7 @@ describe('MetahubLayoutsService', () => {
 
     it('lists global widget visibility for every layout-capable entity scope', async () => {
         const query = jest.fn(async (sql: string, params?: unknown[]) => {
+            if (sql.includes('ORDER BY id ASC FOR UPDATE') && sql.includes('_mhb_widgets')) return []
             if (
                 sql.includes('pg_advisory_xact_lock(hashtextextended($1::text, 0))') &&
                 String(params?.[0] ?? '').startsWith('mhb-layout-graph:')
@@ -1897,9 +2123,12 @@ describe('MetahubLayoutsService', () => {
             id: 'base-widget',
             layout_id: 'global-layout',
             zone: 'left',
+            instance_key: '0190a9b5-3cde-7abc-8def-00000000001a',
+            parent_widget_id: null,
+            slot_key: null,
             widget_key: 'menuWidget',
             sort_order: 1,
-            config: {},
+            config: { variant: 'generated' },
             is_active: true,
             _upl_version: 3,
             _upl_created_at: '2026-04-04T00:00:00.000Z',
@@ -1920,6 +2149,7 @@ describe('MetahubLayoutsService', () => {
         }
         let overrideActive = true
         const query = jest.fn(async (sql: string, params?: unknown[]) => {
+            if (sql.includes('ORDER BY id ASC FOR UPDATE') && sql.includes('_mhb_widgets')) return []
             if (
                 sql.includes('pg_advisory_xact_lock(hashtextextended($1::text, 0))') &&
                 String(params?.[0] ?? '').startsWith('mhb-layout-graph:')
@@ -1972,6 +2202,7 @@ describe('MetahubLayoutsService', () => {
         let insertedOverride = false
 
         const query = jest.fn(async (sql: string, params?: unknown[]) => {
+            if (sql.includes('ORDER BY id ASC FOR UPDATE') && sql.includes('_mhb_widgets')) return []
             if (
                 sql.includes('pg_advisory_xact_lock(hashtextextended($1::text, 0))') &&
                 String(params?.[0] ?? '').startsWith('mhb-layout-graph:')
@@ -1995,7 +2226,7 @@ describe('MetahubLayoutsService', () => {
                             scope_entity_id: null,
                             base_layout_id: null,
                             template_key: 'dashboard',
-                            config: { showDetailsTable: true }
+                            config: {}
                         }
                     ]
                 }
@@ -2011,9 +2242,12 @@ describe('MetahubLayoutsService', () => {
                         id: 'base-widget-1',
                         layout_id: globalLayoutIdV7,
                         zone: 'left',
+                        instance_key: '0190a9b5-3cde-7abc-8def-00000000001b',
+                        parent_widget_id: null,
+                        slot_key: null,
                         widget_key: 'menuWidget',
                         is_active: true,
-                        config: {}
+                        config: { variant: 'generated' }
                     }
                 ]
             }
@@ -2164,6 +2398,7 @@ describe('MetahubLayoutsService', () => {
         let insertCount = 0
 
         const query = jest.fn(async (sql: string, params?: unknown[]) => {
+            if (sql.includes('ORDER BY id ASC FOR UPDATE') && sql.includes('_mhb_widgets')) return []
             if (sql.includes('pg_advisory_xact_lock(hashtextextended($1::text, 0))')) {
                 expect(params).toEqual([`mhb-layout-scope:${schemaName}:${baseLayoutId}:${scopeEntityId}`])
                 return []
@@ -2239,6 +2474,7 @@ describe('MetahubLayoutsService', () => {
         const createTransaction = () => {
             const releases: Array<() => void> = []
             const query = jest.fn(async (sql: string, params?: unknown[]) => {
+                if (sql.includes('ORDER BY id ASC FOR UPDATE') && sql.includes('_mhb_widgets')) return []
                 queryCalls.push([sql, params])
 
                 if (sql.includes('pg_advisory_xact_lock(hashtextextended($1::text, 0))')) {

@@ -50,12 +50,12 @@ const binding = (() => {
 })()
 
 const heroConfig = encodeWidgetConfigEnvelope(
-    { rendererConfig: { instanceKey: 'hero-default' }, neutral: { bindings: binding } },
+    { rendererConfig: {}, neutral: { bindings: binding } },
     { templateKey: 'marketing-page', widgetKey: 'marketing.hero', zone: 'marketing-main' }
 )
 
 const heroOverlayDeltaConfig = encodeWidgetConfigEnvelope(
-    { rendererConfig: { instanceKey: 'hero-default', showLeadForm: false } },
+    { rendererConfig: { showLeadForm: false } },
     { templateKey: 'marketing-page', widgetKey: 'marketing.hero', zone: 'marketing-main' }
 )
 
@@ -390,7 +390,7 @@ describe('Marketing Hero anchor integrity store', () => {
     it('allows removing a section when bound Hero actions do not target it', async () => {
         const { db } = createDb('#pricing')
         const heroWithExternalAction = encodeWidgetConfigEnvelope(
-            { rendererConfig: { instanceKey: 'hero-default' }, neutral: { bindings: binding } },
+            { rendererConfig: {}, neutral: { bindings: binding } },
             { templateKey: 'marketing-page', widgetKey: 'marketing.hero', zone: 'marketing-main' }
         )
         const heroWidgetQuery = db.query as jest.Mock

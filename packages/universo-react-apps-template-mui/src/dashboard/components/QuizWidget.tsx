@@ -18,7 +18,7 @@ import {
 } from '@mui/material'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { type QuizWidgetConfig } from '@universo-react/types'
+import { type DashboardWidgetConfig } from '@universo-react/types'
 import { useDashboardDetails } from '../DashboardDetailsContext'
 import { executeClientModuleMethod } from '../runtime/browserModuleRuntime'
 import {
@@ -201,7 +201,7 @@ const resolveDifficultyColor = (difficulty?: number): 'default' | 'success' | 'w
 export default function QuizWidget({ config }: { config?: Record<string, unknown> }) {
     const { t, i18n } = useTranslation('quiz')
     const details = useDashboardDetails()
-    const widgetConfig = (config ?? {}) as QuizWidgetConfig
+    const widgetConfig = (config ?? {}) as DashboardWidgetConfig<'quizWidget'>
     const [answers, setAnswers] = useState<Record<string, string[]>>({})
     const [submittedResponses, setSubmittedResponses] = useState<Record<string, string[]>>({})
     const [currentIndex, setCurrentIndex] = useState(0)
@@ -245,7 +245,7 @@ export default function QuizWidget({ config }: { config?: Record<string, unknown
 
             const selected = widgetConfig.moduleCodename
                 ? items.find((module) => module.codename === widgetConfig.moduleCodename) ?? null
-                : items[0] ?? null
+                : null
 
             return { items, selected }
         }
@@ -272,26 +272,30 @@ export default function QuizWidget({ config }: { config?: Record<string, unknown
     const clientBundle = clientBundleQuery.data
 
     const quizModelQuery = useQuery({
-        queryKey: ['quiz-widget-model', selectedModule?.id, objectCollectionId, mountMethodName, widgetConfig.quizId],
+        queryKey: ['quiz-widget-model', selectedModule?.id, objectCollectionId, mountMethodName],
         enabled: Boolean(applicationId && selectedModule && clientBundle),
         queryFn: async () => {
             if (!applicationId || !selectedModule || !clientBundle) {
                 return null
             }
 
-            if (!selectedModule.manifest.methods.some((method) => method.name === mountMethodName)) {
+            if (
+                !selectedModule.manifest.methods.some(
+                    (method) => method.name === mountMethodName && isClientModuleMethodTarget(method.target)
+                )
+            ) {
                 return null
             }
 
             const rawModel = await executeClientModuleMethod({
                 bundle: clientBundle,
                 methodName: mountMethodName,
-                args: widgetConfig.quizId ? [{ locale: i18n.language, quizId: widgetConfig.quizId }] : [i18n.language],
+                args: [i18n.language],
                 context: createClientModuleContext({ apiBaseUrl, applicationId, module: selectedModule })
             })
 
             return normalizeQuizModel(rawModel, i18n.language, {
-                title: readDisplayString(widgetConfig.title, i18n.language, t('defaultTitle', 'Space Quiz')),
+                title: t('defaultTitle', 'Space Quiz'),
                 question: (questionIndex) =>
                     t('fallbackQuestion', {
                         defaultValue: 'Question {{current}}',
@@ -376,7 +380,6 @@ export default function QuizWidget({ config }: { config?: Record<string, unknown
                             questionId: currentQuestion.id,
                             answerIds: currentAnswer,
                             responses: nextResponses,
-                            quizId: widgetConfig.quizId,
                             locale: i18n.language
                         }
                     ],
@@ -518,20 +521,9 @@ export default function QuizWidget({ config }: { config?: Record<string, unknown
     }
 
     if (!selectedModule || !quizModel) {
-        const emptyStateTitle = readDisplayString(
-            widgetConfig.emptyStateTitle,
-            i18n.language,
-            t('emptyTitle', 'Quiz widget is not configured')
-        )
-        const emptyStateDescription = readDisplayString(
-            widgetConfig.emptyStateDescription,
-            i18n.language,
-            t('emptyDescription', 'Choose an active quiz source for this page or application before publishing the quiz.')
-        )
-
         return (
             <Card variant='outlined'>
-                <CardHeader title={emptyStateTitle} />
+                <CardHeader title={t('emptyTitle', 'Quiz widget is not configured')} />
                 <CardContent>
                     <Typography
                         variant='body2'
@@ -539,7 +531,7 @@ export default function QuizWidget({ config }: { config?: Record<string, unknown
                             color: 'text.secondary'
                         }}
                     >
-                        {emptyStateDescription}
+                        {t('emptyDescription', 'Choose an active quiz source for this page or application before publishing the quiz.')}
                     </Typography>
                 </CardContent>
             </Card>

@@ -29,18 +29,7 @@ export const SELF_HOSTED_APP_LAYOUT = {
         en: 'Default dashboard layout for the self-hosted metahub application.',
         ru: 'Базовый макет панели для автономного приложения метахабов.'
     },
-    menuTitle: {
-        en: 'Objects',
-        ru: 'Объекты'
-    },
-    runtimeConfig: {
-        showOverviewTitle: false,
-        showOverviewCards: false,
-        showSessionsChart: false,
-        showPageViewsChart: false,
-        showDetailsTitle: true,
-        showDetailsTable: true,
-        showFooter: false,
+    detailsTableConfig: {
         showViewToggle: true,
         defaultViewMode: 'card',
         showFilterBar: true,
@@ -59,18 +48,33 @@ export const SELF_HOSTED_APP_SETTINGS_LAYOUT = {
         en: 'Object-specific layout override for the Settings object.',
         ru: 'Специальный макет объекта для объекта настроек.'
     },
-    runtimeConfig: {
-        showDetailsTitle: false,
+    detailsTableConfig: {
         showViewToggle: false,
         defaultViewMode: 'table',
         showFilterBar: false
     },
     objectBehavior: {
         showCreateButton: true,
-        searchMode: 'server',
         createSurface: 'page',
         editSurface: 'page',
         copySurface: 'page'
+    }
+}
+
+const LEGACY_DASHBOARD_LAYOUT_CONFIG_KEYS = new Set(['cardColumns', 'defaultViewMode', 'enableRowReordering', 'rowHeight'])
+
+const findLegacyDashboardLayoutConfigKeys = (config) => {
+    if (!config || typeof config !== 'object' || Array.isArray(config)) {
+        return []
+    }
+
+    return Object.keys(config).filter((key) => /^show[A-Z]/u.test(key) || LEGACY_DASHBOARD_LAYOUT_CONFIG_KEYS.has(key))
+}
+
+const assertNoLegacyDashboardLayoutConfig = (config, label, errors) => {
+    const legacyKeys = findLegacyDashboardLayoutConfigKeys(config)
+    if (legacyKeys.length > 0) {
+        errors.push(`${label} must not store global Dashboard widget settings: ${legacyKeys.join(', ')}`)
     }
 }
 
@@ -532,48 +536,11 @@ const flattenComponentRecords = (fields) => {
     })
 }
 
-const setLocalizedContent = (value, locale, content) => {
-    if (!value || typeof value !== 'object') {
-        return
-    }
-    if (!value.locales || typeof value.locales !== 'object') {
-        value.locales = {}
-    }
-    if (!value.locales[locale] || typeof value.locales[locale] !== 'object') {
-        value.locales[locale] = {}
-    }
-    value.locales[locale].content = content
-    if (!value._primary) {
-        value._primary = locale
-    }
-}
-
-const ensureLocalizedComponent = (container, key) => {
-    if (!container || typeof container !== 'object') {
-        return null
-    }
-    if (!container[key] || typeof container[key] !== 'object') {
-        container[key] = {
-            _schema: 'v1',
-            _primary: 'en',
-            locales: {}
-        }
-    }
-    return container[key]
-}
-
 const readCodenameText = (value) => {
     if (typeof value === 'string') {
         return value
     }
     return readLocalizedText(value, 'en')
-}
-
-const setEntityCodename = (entity, en, ru) => {
-    if (!entity || typeof entity !== 'object') {
-        return
-    }
-    entity.codename = buildVLC(en, ru)
 }
 
 const findSectionEntity = (entities, section) =>
@@ -891,22 +858,12 @@ export function assertSelfHostedAppEnvelopeContract(envelope, options = {}) {
             errors.push('Self-hosted app fixture default layout is missing the canonical Russian description')
         }
 
-        const runtimeConfig = defaultLayout?.config && typeof defaultLayout.config === 'object' ? defaultLayout.config : {}
-        for (const [key, expectedValue] of Object.entries(SELF_HOSTED_APP_LAYOUT.runtimeConfig)) {
-            if (runtimeConfig[key] !== expectedValue) {
-                errors.push(`Default layout runtime config drifted for ${key}: ${String(runtimeConfig[key])} != ${String(expectedValue)}`)
-            }
-        }
+        const defaultLayoutConfig = defaultLayout?.config && typeof defaultLayout.config === 'object' ? defaultLayout.config : {}
+        assertNoLegacyDashboardLayoutConfig(defaultLayoutConfig, 'Self-hosted app default layout config', errors)
 
         const topLevelLayoutConfig =
             envelope?.snapshot?.layoutConfig && typeof envelope.snapshot.layoutConfig === 'object' ? envelope.snapshot.layoutConfig : {}
-        for (const [key, expectedValue] of Object.entries(SELF_HOSTED_APP_LAYOUT.runtimeConfig)) {
-            if (topLevelLayoutConfig[key] !== expectedValue) {
-                errors.push(
-                    `Top-level snapshot layout config drifted for ${key}: ${String(topLevelLayoutConfig[key])} != ${String(expectedValue)}`
-                )
-            }
-        }
+        assertNoLegacyDashboardLayoutConfig(topLevelLayoutConfig, 'Self-hosted app snapshot layoutConfig', errors)
 
         const layoutWidgets = Array.isArray(envelope?.snapshot?.layoutZoneWidgets) ? envelope.snapshot.layoutZoneWidgets : []
         const menuWidgets = layoutWidgets.filter((widget) => widget?.layoutId === defaultLayout.id && widget?.widgetKey === 'menuWidget')
@@ -919,26 +876,50 @@ export function assertSelfHostedAppEnvelopeContract(envelope, options = {}) {
         }
         if (!menuWidget) {
             errors.push('Self-hosted app fixture default layout is missing the menuWidget zone widget')
-        } else {
-            if (menuWidget?.config?.autoShowAllSections !== true) {
-                errors.push('Self-hosted app fixture menuWidget must enable autoShowAllSections')
-            }
-            if (menuWidget?.config?.showTitle !== true) {
-                errors.push('Self-hosted app fixture menuWidget must show its title')
-            }
-            if (readLocalizedText(menuWidget?.config?.title, 'en') !== SELF_HOSTED_APP_LAYOUT.menuTitle.en) {
-                errors.push('Self-hosted app fixture menuWidget is missing the canonical English title')
-            }
-            if (readLocalizedText(menuWidget?.config?.title, 'ru') !== SELF_HOSTED_APP_LAYOUT.menuTitle.ru) {
-                errors.push('Self-hosted app fixture menuWidget is missing the canonical Russian title')
-            }
+        } else if (menuWidget?.config?.variant !== 'generated') {
+            errors.push('Self-hosted app fixture menuWidget must use the entity-generated menu variant')
         }
 
-        const detailsTableWidget = layoutWidgets.find(
-            (widget) => widget?.layoutId === defaultLayout.id && widget?.widgetKey === 'detailsTable'
+        const activeDetailsTableWidgets = layoutWidgets.filter(
+            (widget) => widget?.layoutId === defaultLayout.id && widget?.widgetKey === 'detailsTable' && widget?.isActive !== false
         )
+        if (activeDetailsTableWidgets.length !== 1) {
+            errors.push(
+                `Self-hosted app fixture must contain exactly one active detailsTable for the default layout, received ${activeDetailsTableWidgets.length}`
+            )
+        }
+        const detailsTableWidget = activeDetailsTableWidgets[0]
         if (!detailsTableWidget) {
             errors.push('Self-hosted app fixture default layout is missing the detailsTable widget')
+        } else {
+            for (const [key, expectedValue] of Object.entries(SELF_HOSTED_APP_LAYOUT.detailsTableConfig)) {
+                if (detailsTableWidget.config?.[key] !== expectedValue) {
+                    errors.push(
+                        `Default detailsTable presentation drifted for ${key}: ${String(detailsTableWidget.config?.[key])} != ${String(
+                            expectedValue
+                        )}`
+                    )
+                }
+            }
+
+            const detailsTableBindingSlots = Array.isArray(detailsTableWidget.config?.__layout?.bindings?.slots)
+                ? detailsTableWidget.config.__layout.bindings.slots
+                : []
+            const rowsBinding = detailsTableBindingSlots.find((binding) => binding?.slot === 'rows')
+            const rowsTargets = Array.isArray(rowsBinding?.targets) ? rowsBinding.targets : []
+            const hasRequiredRowsBinding = rowsTargets.some(
+                (target) =>
+                    target?.entityKind === 'object' &&
+                    typeof target?.entityCodename === 'string' &&
+                    target.entityCodename.length > 0 &&
+                    target?.selector?.kind === 'record-set' &&
+                    entities.some((entity) => entity?.kind === 'object' && readCodenameText(entity?.codename) === target.entityCodename)
+            )
+            if (!hasRequiredRowsBinding) {
+                errors.push(
+                    'Self-hosted app fixture detailsTable must keep its required rows Entity binding to an exported Object record-set'
+                )
+            }
         }
     }
 
@@ -1020,6 +1001,9 @@ export function assertSelfHostedAppEnvelopeContract(envelope, options = {}) {
         const layoutWidgetOverrides = Array.isArray(envelope?.snapshot?.layoutWidgetOverrides)
             ? envelope.snapshot.layoutWidgetOverrides
             : []
+        const defaultDetailsTableWidget = layoutWidgets.find(
+            (widget) => widget?.layoutId === defaultLayout?.id && widget?.widgetKey === 'detailsTable' && widget?.isActive !== false
+        )
 
         if (!settingsLayout) {
             errors.push('Self-hosted app fixture is missing the Settings entity-scoped layout override')
@@ -1041,19 +1025,7 @@ export function assertSelfHostedAppEnvelopeContract(envelope, options = {}) {
             }
 
             const settingsLayoutConfig = settingsLayout?.config && typeof settingsLayout.config === 'object' ? settingsLayout.config : {}
-            for (const [key, expectedValue] of Object.entries({
-                showViewToggle: SELF_HOSTED_APP_SETTINGS_LAYOUT.runtimeConfig.showViewToggle,
-                defaultViewMode: SELF_HOSTED_APP_SETTINGS_LAYOUT.runtimeConfig.defaultViewMode,
-                showFilterBar: SELF_HOSTED_APP_SETTINGS_LAYOUT.runtimeConfig.showFilterBar
-            })) {
-                if (settingsLayoutConfig[key] !== expectedValue) {
-                    errors.push(
-                        `Settings entity-scoped layout runtime config drifted for ${key}: ${String(settingsLayoutConfig[key])} != ${String(
-                            expectedValue
-                        )}`
-                    )
-                }
-            }
+            assertNoLegacyDashboardLayoutConfig(settingsLayoutConfig, 'Settings entity-scoped layout config', errors)
 
             const settingsObjectBehavior =
                 settingsLayoutConfig.objectBehavior && typeof settingsLayoutConfig.objectBehavior === 'object'
@@ -1067,6 +1039,36 @@ export function assertSelfHostedAppEnvelopeContract(envelope, options = {}) {
                             settingsObjectBehavior[key]
                         )} != ${String(expectedValue)}`
                     )
+                }
+            }
+
+            if (defaultLayout?.id && defaultDetailsTableWidget?.id) {
+                const detailsTableOverride = layoutWidgetOverrides.find(
+                    (override) =>
+                        override?.layoutId === settingsLayout.id &&
+                        override?.baseWidgetId === defaultDetailsTableWidget.id &&
+                        override?.isDeletedOverride !== true
+                )
+                if (!detailsTableOverride) {
+                    errors.push('Settings entity-scoped layout must store detailsTable presentation in a scoped widget override')
+                } else {
+                    const effectiveDetailsTableConfig = {
+                        ...(defaultDetailsTableWidget.config && typeof defaultDetailsTableWidget.config === 'object'
+                            ? defaultDetailsTableWidget.config
+                            : {}),
+                        ...(detailsTableOverride.config && typeof detailsTableOverride.config === 'object'
+                            ? detailsTableOverride.config
+                            : {})
+                    }
+                    for (const [key, expectedValue] of Object.entries(SELF_HOSTED_APP_SETTINGS_LAYOUT.detailsTableConfig)) {
+                        if (effectiveDetailsTableConfig[key] !== expectedValue) {
+                            errors.push(
+                                `Settings detailsTable presentation drifted for ${key}: ${String(
+                                    effectiveDetailsTableConfig[key]
+                                )} != ${String(expectedValue)}`
+                            )
+                        }
+                    }
                 }
             }
 

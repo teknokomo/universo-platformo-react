@@ -21,8 +21,10 @@ import { resolveRuntimeWorkspaceAccess, setRuntimeWorkspaceContext } from '../se
 import { resolveEffectiveApplicationSettingsForWorkspace } from '../services/workspaceSettingsService'
 import { getRequestDbExecutor, getRequestDbSession } from '../utils'
 import { UpdateFailure } from './updateFailure'
+import { IDENTIFIER_REGEX, quoteIdentifier } from './runtimeSqlIdentifiers'
 
 export { UpdateFailure } from './updateFailure'
+export { IDENTIFIER_REGEX, quoteIdentifier } from './runtimeSqlIdentifiers'
 
 /**
  * Safe, stable validation error for a closed metadata formatter.
@@ -45,15 +47,7 @@ export const toRuntimeInputFormatErrorBody = (error: unknown): { error: string; 
 // Security & identifier helpers
 // ---------------------------------------------------------------------------
 
-export const IDENTIFIER_REGEX = /^[a-z_][a-z0-9_]*$/
 export const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-
-export const quoteIdentifier = (identifier: string): string => {
-    if (!IDENTIFIER_REGEX.test(identifier)) {
-        throw new Error(`Unsafe identifier: ${identifier}`)
-    }
-    return `"${identifier}"`
-}
 
 // ---------------------------------------------------------------------------
 // Locale helpers

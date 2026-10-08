@@ -3,8 +3,10 @@ import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import type { ReactNode } from 'react'
+import { getLayoutWidgetDefinition } from '@universo-react/types'
 import {
     buildDynamicFields,
+    createBindingEnvelope,
     getRecordLabel,
     hasUnsupportedRequiredRecordComponents,
     resolveRequiredLocaleValidationError
@@ -19,6 +21,9 @@ const mocks = vi.hoisted(() => ({
     provisionWidgetBindingSource: vi.fn(),
     replaceLayoutZoneWidgetBindings: vi.fn(),
     listComponents: vi.fn(),
+    listComponentsDirect: vi.fn(),
+    listRecords: vi.fn(),
+    listRecordsDirect: vi.fn(),
     useEntityInstancesQuery: vi.fn(),
     language: 'en',
     onClose: vi.fn(),
@@ -35,11 +40,16 @@ vi.mock('../../api', () => ({
 }))
 
 vi.mock('../../../entities/hooks', () => ({ useEntityInstancesQuery: mocks.useEntityInstancesQuery }))
-vi.mock('../../../entities/metadata/component/api', () => ({ listComponents: mocks.listComponents }))
+vi.mock('../../../entities/metadata/component/api', () => ({
+    listComponents: mocks.listComponents,
+    listComponentsDirect: mocks.listComponentsDirect
+}))
 vi.mock('../../../entities/metadata/record/api', () => ({
     createRecord: vi.fn(),
     copyRecord: vi.fn(),
-    updateRecord: vi.fn()
+    updateRecord: vi.fn(),
+    listRecords: mocks.listRecords,
+    listRecordsDirect: mocks.listRecordsDirect
 }))
 vi.mock('@universo-react/i18n', () => ({
     useCommonTranslations: () => ({
@@ -54,7 +64,15 @@ vi.mock('@universo-react/i18n', () => ({
                 'layouts.marketing.actionAuthoring.actionAnchor': mocks.language === 'ru' ? 'Раздел страницы' : 'Page section',
                 'layouts.marketing.actionAuthoring.addAction': mocks.language === 'ru' ? 'Добавить действие ссылки' : 'Add link action',
                 'layouts.widgetBindings.items.label': 'Content collection',
-                'layouts.widgetBindings.section.label': 'Section content'
+                'layouts.widgetBindings.section.label': 'Section content',
+                'layouts.widgetBindings.managePermissionRequired':
+                    mocks.language === 'ru'
+                        ? 'Для изменения источников или привязок содержимого нужно право управления этим метахабом.'
+                        : 'Changing content sources or bindings requires permission to manage this Metahub.',
+                'layouts.widgetBindings.recordPermissionRequired':
+                    mocks.language === 'ru'
+                        ? 'Для изменения записей Сущности нужно право редактирования содержимого.'
+                        : 'Editing Entity records requires content editing permission.'
             }[key] ??
             options?.defaultValue ??
             key)
@@ -242,7 +260,11 @@ describe('marketing widget record fields', () => {
             makeComponent('OpaquePayload', 'JSON'),
             makeComponent('RelatedRecord', 'REF'),
             makeComponent('Rows', 'TABLE'),
-            makeComponent('Uuid', 'STRING', { isDisplayComponent: true })
+            makeComponent('Uuid', 'STRING', { isDisplayComponent: true }),
+            makeComponent('OwnerId', 'STRING', { isDisplayComponent: true }),
+            makeComponent('UserId', 'STRING'),
+            makeComponent('AssignedUserId', 'STRING'),
+            makeComponent('CreatedById', 'STRING')
         ]
 
         const fields = buildDynamicFields(components, 'en', (key) => key, new Set())
@@ -255,13 +277,25 @@ describe('marketing widget record fields', () => {
                     Title: 'Product tour',
                     OpaquePayload: { secret: true },
                     RelatedRecord: '0f8fad5b-d9cb-469f-a165-70867728950e',
-                    Uuid: '0f8fad5b-d9cb-469f-a165-70867728950e'
+                    Uuid: '0f8fad5b-d9cb-469f-a165-70867728950e',
+                    OwnerId: 'usr_internal_01a11977',
+                    UserId: 'usr_internal_01a11978',
+                    AssignedUserId: 'usr_internal_01a11979',
+                    CreatedById: 'usr_internal_01a11980'
                 },
                 components,
                 'en',
                 'Untitled'
             )
         ).toBe('Product tour')
+        expect(
+            getRecordLabel(
+                { OwnerId: 'usr_internal_01a11977', UserId: 'usr_internal_01a11978' },
+                components.filter(({ codename }) => ['OwnerId', 'UserId'].includes(String(codename))),
+                'en',
+                'Untitled record'
+            )
+        ).toBe('Untitled record')
     })
 
     it('maps only known required-locale record errors to localized field validation', () => {
@@ -326,14 +360,32 @@ describe('marketing widget record fields', () => {
             message: 'Add Alternative text in Russian before saving.'
         })
     })
+
+    it('keeps the registry-resolved Page kind in a Dashboard binding envelope', () => {
+        const definition = getLayoutWidgetDefinition('overviewTitle')
+        const bindings = createBindingEnvelope('overviewTitle', { align: 'left', level: 'h2' }, definition?.bindingSlots ?? [], {
+            content: {
+                sourceKey: 'DashboardPageContent',
+                sourceName: 'Dashboard page content',
+                selectorKind: 'semantic-key',
+                entityKind: 'page',
+                semanticKey: 'overview.primary'
+            }
+        })
+
+        expect(bindings.slots[0]?.targets[0]?.entityKind).toBe('page')
+    })
 })
 
 const renderDialog = (options?: {
     canManageLayouts?: boolean
     canEditContent?: boolean
-    widgetKey?: 'marketing.image' | 'marketing.hero' | 'marketing.collection'
+    widgetKey?: 'marketing.image' | 'marketing.hero' | 'marketing.collection' | 'overviewTitle'
+    templateKey?: 'marketing-page' | 'dashboard'
+    zone?: 'marketing-main' | 'center'
     widgetId?: string | null
     widgetVersion?: number | null
+    openSelectedRecordOnOpen?: boolean
     rendererConfigPending?: boolean
     variant?: string
     locale?: 'en' | 'ru'
@@ -350,14 +402,17 @@ const renderDialog = (options?: {
                 metahubId='metahub-1'
                 layoutId='layout-1'
                 widgetKey={widgetKey}
-                zone='marketing-main'
+                templateKey={options?.templateKey ?? 'marketing-page'}
+                zone={options?.zone ?? 'marketing-main'}
                 widgetId={options?.widgetId ?? null}
                 widgetVersion={options?.widgetVersion}
                 rendererConfig={{
-                    instanceKey: widgetKey === 'marketing.hero' ? 'test-hero' : 'test-image',
-                    ...(widgetKey === 'marketing.collection' ? { variant: options?.variant ?? 'logos' } : {})
+                    ...(widgetKey === 'overviewTitle' ? {} : { instanceKey: widgetKey === 'marketing.hero' ? 'test-hero' : 'test-image' }),
+                    ...(widgetKey === 'marketing.collection' ? { variant: options?.variant ?? 'logos' } : {}),
+                    ...(widgetKey === 'overviewTitle' ? { align: 'left', level: 'h2' } : {})
                 }}
                 rendererConfigPending={options?.rendererConfigPending}
+                openSelectedRecordOnOpen={options?.openSelectedRecordOnOpen}
                 sectionTargets={options?.sectionTargets}
                 locale={locale}
                 canManageLayouts={options?.canManageLayouts ?? true}
@@ -408,6 +463,9 @@ describe('MarketingWidgetBindingDialog', () => {
             }
         })
         mocks.listComponents.mockResolvedValue({ items: [] })
+        mocks.listComponentsDirect.mockResolvedValue({ items: [] })
+        mocks.listRecords.mockResolvedValue({ items: [], pagination: { total: 0 } })
+        mocks.listRecordsDirect.mockResolvedValue({ items: [], pagination: { total: 0 } })
         mocks.useEntityInstancesQuery.mockImplementation((_metahubId: string, params?: { kind?: string }) => {
             if (params?.kind === 'hub') {
                 return { data: { items: [{ id: 'hub-1', codename: 'MarketingPage' }] }, isLoading: false, isError: false }
@@ -416,8 +474,9 @@ describe('MarketingWidgetBindingDialog', () => {
                 return {
                     data: {
                         items: [
-                            { id: 'image-object', codename: 'MarketingPageImage' },
-                            { id: 'hero-object', codename: 'MarketingPageHero' }
+                            { id: 'image-object', codename: 'MarketingPageImage', config: { hubs: ['hub-1'] } },
+                            { id: 'hero-object', codename: 'MarketingPageHero', config: { hubs: ['hub-1'] } },
+                            { id: 'dashboard-title-object', codename: 'DashboardOverviewTitle', config: { hubs: ['dashboard-hub'] } }
                         ]
                     },
                     isLoading: false,
@@ -426,6 +485,288 @@ describe('MarketingWidgetBindingDialog', () => {
             }
             return { data: { items: [] }, isLoading: false, isError: false }
         })
+    })
+
+    it('uses the shared registry binding flow for Dashboard sources without a Marketing Hub lookup', async () => {
+        const user = userEvent.setup()
+        mocks.listWidgetBindingSources.mockResolvedValue({
+            data: {
+                widgetKey: 'overviewTitle',
+                slot: 'content',
+                selectorKinds: ['semantic-key'],
+                sources: [
+                    {
+                        sourceKey: 'DashboardOverviewTitle',
+                        label: 'Dashboard title content',
+                        recordsCount: 1,
+                        selectorKinds: ['semantic-key']
+                    }
+                ],
+                nextOffset: null,
+                truncated: false
+            }
+        })
+
+        renderDialog({ widgetKey: 'overviewTitle', templateKey: 'dashboard', zone: 'center' })
+
+        const sourceInput = await screen.findByRole('combobox', { name: 'Content source' })
+        await user.click(sourceInput)
+        await user.click(await screen.findByRole('option', { name: 'Dashboard title content' }))
+
+        await waitFor(() =>
+            expect(mocks.useEntityInstancesQuery).toHaveBeenCalledWith(
+                'metahub-1',
+                expect.objectContaining({ kind: 'object', search: 'DashboardOverviewTitle' })
+            )
+        )
+        expect(mocks.useEntityInstancesQuery.mock.calls.some(([, params]) => params?.kind === 'hub')).toBe(false)
+    })
+
+    it('loads Dashboard Page metadata and Components through the registry-selected kind', async () => {
+        const user = userEvent.setup()
+        mocks.listWidgetBindingSources.mockResolvedValue({
+            data: {
+                widgetKey: 'overviewTitle',
+                slot: 'content',
+                selectorKinds: ['semantic-key'],
+                sources: [
+                    {
+                        sourceKey: 'DashboardPageContent',
+                        label: 'Dashboard page content',
+                        recordsCount: 1,
+                        selectorKinds: ['semantic-key']
+                    }
+                ],
+                nextOffset: null,
+                truncated: false
+            }
+        })
+        mocks.useEntityInstancesQuery.mockImplementation((_metahubId: string, params?: { kind?: string }) => {
+            if (params?.kind === 'page') {
+                return {
+                    data: { items: [{ id: 'dashboard-page', codename: 'DashboardPageContent', config: { hubs: ['dashboard-hub'] } }] },
+                    isLoading: false,
+                    isError: false
+                }
+            }
+            return { data: { items: [] }, isLoading: false, isError: false }
+        })
+
+        renderDialog({ widgetKey: 'overviewTitle', templateKey: 'dashboard', zone: 'center' })
+
+        const sourceInput = await screen.findByRole('combobox', { name: 'Content source' })
+        await user.click(sourceInput)
+        await user.click(await screen.findByRole('option', { name: 'Dashboard page content' }))
+
+        await waitFor(() =>
+            expect(mocks.listComponents).toHaveBeenCalledWith(
+                'metahub-1',
+                'dashboard-hub',
+                'dashboard-page',
+                expect.objectContaining({ kindKey: 'page' })
+            )
+        )
+    })
+
+    it('loads and edits records from a Dashboard object that has no Hub association', async () => {
+        const semanticKeyComponent = getLayoutWidgetDefinition('overviewTitle')?.bindingSlots?.[0]?.requirements.components.find(
+            ({ semanticKey }) => semanticKey
+        )
+        if (!semanticKeyComponent) throw new Error('overviewTitle semantic-key component is required')
+
+        mocks.getLayoutZoneWidgetBindings.mockResolvedValue({
+            data: {
+                widgetKey: 'overviewTitle',
+                version: 1,
+                bindings: [
+                    {
+                        slot: 'content',
+                        sourceKey: 'DashboardOverviewTitle',
+                        sourceName: 'Dashboard overview content',
+                        selectorKind: 'semantic-key',
+                        semanticKey: 'mmoomm-welcome',
+                        selectionLabel: 'Welcome to Universo MMOOMM'
+                    }
+                ]
+            }
+        })
+        mocks.listWidgetBindingRecords.mockResolvedValue({
+            data: {
+                widgetKey: 'overviewTitle',
+                slot: 'content',
+                sourceKey: 'DashboardOverviewTitle',
+                records: [{ semanticKey: 'mmoomm-welcome', label: 'Welcome to Universo MMOOMM' }],
+                nextOffset: null,
+                truncated: false
+            }
+        })
+        mocks.useEntityInstancesQuery.mockImplementation((_metahubId: string, params?: { kind?: string }) =>
+            params?.kind === 'object'
+                ? {
+                      data: {
+                          items: [{ id: 'flat-dashboard-title', codename: 'DashboardOverviewTitle', config: { hubs: [] } }]
+                      },
+                      isLoading: false,
+                      isError: false
+                  }
+                : { data: { items: [] }, isLoading: false, isError: false }
+        )
+        mocks.listComponentsDirect.mockResolvedValue({
+            items: [
+                {
+                    id: 'title-semantic-key',
+                    objectCollectionId: 'flat-dashboard-title',
+                    codename: semanticKeyComponent.componentCodename,
+                    dataType: 'STRING',
+                    name: { _schema: 'v1', _primary: 'en', locales: { en: { content: 'Content key', isActive: true } } },
+                    validationRules: {},
+                    uiConfig: { hidden: true },
+                    isRequired: true,
+                    sortOrder: 0,
+                    createdAt: '',
+                    updatedAt: ''
+                },
+                {
+                    id: 'title-content',
+                    objectCollectionId: 'flat-dashboard-title',
+                    codename: 'Title',
+                    dataType: 'STRING',
+                    name: { _schema: 'v1', _primary: 'en', locales: { en: { content: 'Title', isActive: true } } },
+                    validationRules: { localized: true },
+                    uiConfig: {},
+                    isRequired: true,
+                    sortOrder: 1,
+                    createdAt: '',
+                    updatedAt: ''
+                }
+            ]
+        })
+        mocks.listRecordsDirect.mockResolvedValue({
+            items: [
+                { id: 'title-record', version: 2, data: { [semanticKeyComponent.componentCodename]: 'mmoomm-welcome', Title: 'Welcome' } }
+            ],
+            pagination: { total: 1 }
+        })
+
+        const user = userEvent.setup()
+        renderDialog({ widgetKey: 'overviewTitle', templateKey: 'dashboard', zone: 'center', widgetId: 'dashboard-widget-flat' })
+
+        const editButton = await screen.findByRole('button', { name: 'Edit selected record' })
+        await waitFor(() => expect(editButton).toBeEnabled())
+        expect(mocks.listComponentsDirect).toHaveBeenCalledWith(
+            'metahub-1',
+            'flat-dashboard-title',
+            expect.objectContaining({ scope: 'all', includeShared: true })
+        )
+        expect(mocks.listComponents).not.toHaveBeenCalled()
+
+        await user.click(editButton)
+        expect(await screen.findByRole('dialog', { name: 'Edit content record' })).toBeVisible()
+        expect(mocks.listRecordsDirect).toHaveBeenCalledWith(
+            'metahub-1',
+            'flat-dashboard-title',
+            expect.objectContaining({ exactValue: 'mmoomm-welcome' })
+        )
+        expect(mocks.listRecords).not.toHaveBeenCalled()
+    })
+
+    it('opens a selected Dashboard Entity record for content-only users', async () => {
+        const definition = getLayoutWidgetDefinition('overviewTitle')
+        const semanticKeyComponent = definition?.bindingSlots?.[0]?.requirements.components.find(({ semanticKey }) => semanticKey)
+        if (!semanticKeyComponent) throw new Error('overviewTitle semantic-key component is required')
+
+        mocks.getLayoutZoneWidgetBindings.mockResolvedValue({
+            data: {
+                widgetKey: 'overviewTitle',
+                version: 4,
+                bindings: [
+                    {
+                        slot: 'content',
+                        sourceKey: 'DashboardPageContent',
+                        sourceName: 'Dashboard page content',
+                        selectorKind: 'semantic-key',
+                        semanticKey: 'overview.primary',
+                        selectionLabel: 'Primary overview'
+                    }
+                ]
+            }
+        })
+        mocks.useEntityInstancesQuery.mockImplementation((_metahubId: string, params?: { kind?: string }) =>
+            params?.kind === 'page'
+                ? {
+                      data: {
+                          items: [
+                              {
+                                  id: 'dashboard-page',
+                                  codename: 'DashboardPageContent',
+                                  config: { hubs: ['dashboard-hub'] }
+                              }
+                          ]
+                      },
+                      isLoading: false,
+                      isError: false
+                  }
+                : { data: { items: [] }, isLoading: false, isError: false }
+        )
+        mocks.listComponents.mockResolvedValue({
+            items: [
+                {
+                    id: 'page-semantic-key',
+                    objectCollectionId: 'dashboard-page',
+                    codename: semanticKeyComponent.componentCodename,
+                    dataType: 'STRING',
+                    name: { _schema: 'v1', _primary: 'en', locales: { en: { content: 'Page key', isActive: true } } },
+                    validationRules: {},
+                    uiConfig: {},
+                    isRequired: true,
+                    sortOrder: 0,
+                    createdAt: '',
+                    updatedAt: ''
+                },
+                {
+                    id: 'page-heading',
+                    objectCollectionId: 'dashboard-page',
+                    codename: 'DisplayHeading',
+                    dataType: 'STRING',
+                    name: { _schema: 'v1', _primary: 'en', locales: { en: { content: 'Heading', isActive: true } } },
+                    validationRules: {},
+                    uiConfig: {},
+                    isRequired: false,
+                    sortOrder: 1,
+                    createdAt: '',
+                    updatedAt: ''
+                }
+            ] as Component[]
+        })
+        mocks.listRecords.mockResolvedValue({
+            items: [
+                {
+                    id: 'record-1',
+                    data: { [semanticKeyComponent.componentCodename]: 'overview.primary', DisplayHeading: 'Overview' },
+                    version: 2
+                }
+            ],
+            pagination: { total: 1 }
+        })
+
+        renderDialog({
+            canManageLayouts: false,
+            canEditContent: true,
+            widgetKey: 'overviewTitle',
+            templateKey: 'dashboard',
+            zone: 'center',
+            widgetId: 'dashboard-widget-1',
+            openSelectedRecordOnOpen: true
+        })
+
+        expect(await screen.findByRole('dialog', { name: 'Edit content record' })).toBeVisible()
+        expect(mocks.listRecords).toHaveBeenCalledWith(
+            'metahub-1',
+            'dashboard-hub',
+            'dashboard-page',
+            expect.objectContaining({ exactValue: 'overview.primary' })
+        )
+        expect(mocks.listWidgetBindingSources).not.toHaveBeenCalled()
     })
 
     it('opens the registry-declared initial source slot when adding a collection widget', async () => {
@@ -469,14 +810,148 @@ describe('MarketingWidgetBindingDialog', () => {
         expect(mocks.onSelection).not.toHaveBeenCalled()
     })
 
-    it('does not expose source selection or Add without layout and content permission', async () => {
-        renderDialog({ canManageLayouts: false })
+    it('explains why source selection is disabled without layout-management permission', async () => {
+        renderDialog({ canManageLayouts: false, canEditContent: true, locale: 'ru' })
 
         const sourceInput = await screen.findByRole('combobox', { name: 'Content source' })
         expect(sourceInput).toBeDisabled()
         expect(screen.getByRole('button', { name: 'Add' })).toBeDisabled()
+        expect(screen.getByText('Для изменения источников или привязок содержимого нужно право управления этим метахабом.')).toBeVisible()
         expect(mocks.listWidgetBindingSources).not.toHaveBeenCalled()
         expect(mocks.onSelection).not.toHaveBeenCalled()
+    })
+
+    it('explains why record actions are disabled without content-edit permission', async () => {
+        const user = userEvent.setup()
+        renderDialog({ canEditContent: false })
+
+        const sourceInput = await screen.findByRole('combobox', { name: 'Content source' })
+        await user.click(sourceInput)
+        await user.click(await screen.findByRole('option', { name: 'Image content' }))
+
+        expect(await screen.findByText('Editing Entity records requires content editing permission.')).toBeVisible()
+        expect(screen.getByRole('button', { name: 'Create content record' })).toBeDisabled()
+        expect(screen.getByRole('button', { name: 'Edit selected record' })).toBeDisabled()
+    })
+
+    it('explains when a bound Dashboard Entity has no editable content fields', async () => {
+        const semanticKeyComponent = getLayoutWidgetDefinition('overviewTitle')?.bindingSlots?.[0]?.requirements.components.find(
+            ({ semanticKey }) => semanticKey
+        )
+        if (!semanticKeyComponent) throw new Error('overviewTitle semantic-key component is required')
+
+        mocks.getLayoutZoneWidgetBindings.mockResolvedValue({
+            data: {
+                widgetKey: 'overviewTitle',
+                version: 4,
+                bindings: [
+                    {
+                        slot: 'content',
+                        sourceKey: 'DashboardOverviewTitle',
+                        sourceName: 'Dashboard overview content',
+                        selectorKind: 'semantic-key',
+                        semanticKey: 'overview.primary',
+                        selectionLabel: 'Primary overview'
+                    }
+                ]
+            }
+        })
+        mocks.listWidgetBindingRecords.mockResolvedValue({
+            data: {
+                widgetKey: 'overviewTitle',
+                slot: 'content',
+                sourceKey: 'DashboardOverviewTitle',
+                records: [{ semanticKey: 'overview.primary', label: 'Primary overview' }],
+                nextOffset: null,
+                truncated: false
+            }
+        })
+        mocks.listComponents.mockResolvedValue({
+            items: [
+                {
+                    id: 'overview-semantic-key',
+                    objectCollectionId: 'dashboard-title-object',
+                    codename: semanticKeyComponent.componentCodename,
+                    dataType: 'STRING',
+                    name: { _schema: 'v1', _primary: 'en', locales: { en: { content: 'Page key', isActive: true } } },
+                    validationRules: {},
+                    uiConfig: {},
+                    isRequired: true,
+                    sortOrder: 0,
+                    createdAt: '',
+                    updatedAt: ''
+                },
+                {
+                    id: 'overview-owner-id',
+                    objectCollectionId: 'dashboard-title-object',
+                    codename: 'OwnerId',
+                    dataType: 'STRING',
+                    name: { _schema: 'v1', _primary: 'en', locales: { en: { content: 'Owner ID', isActive: true } } },
+                    validationRules: {},
+                    uiConfig: {},
+                    isRequired: true,
+                    sortOrder: 1,
+                    createdAt: '',
+                    updatedAt: ''
+                }
+            ] as Component[]
+        })
+
+        renderDialog({ widgetKey: 'overviewTitle', templateKey: 'dashboard', zone: 'center', widgetId: 'dashboard-widget-1' })
+
+        expect(await screen.findByText('This content source has no editable fields.')).toBeVisible()
+        expect(screen.getByRole('button', { name: 'Create content record' })).toBeDisabled()
+        expect(screen.getByRole('button', { name: 'Edit selected record' })).toBeDisabled()
+    })
+
+    it('explains unsupported required fields when content-record creation is disabled', async () => {
+        const user = userEvent.setup()
+        mocks.listComponents.mockResolvedValue({
+            items: [
+                {
+                    id: 'required-json',
+                    objectCollectionId: 'image-object',
+                    codename: 'StructuredData',
+                    dataType: 'JSON',
+                    name: { _schema: 'v1', _primary: 'en', locales: { en: { content: 'Structured data', isActive: true } } },
+                    validationRules: {},
+                    uiConfig: {},
+                    isRequired: true,
+                    sortOrder: 0,
+                    createdAt: '',
+                    updatedAt: ''
+                }
+            ] as Component[]
+        })
+        renderDialog()
+
+        const sourceInput = await screen.findByRole('combobox', { name: 'Content source' })
+        await user.click(sourceInput)
+        await user.click(await screen.findByRole('option', { name: 'Image content' }))
+
+        expect(
+            await screen.findByText(
+                'This Entity has required field types this form cannot create. Use the Entity Records view to add records; existing values will be preserved when edited here.'
+            )
+        ).toBeVisible()
+        expect(screen.getByRole('button', { name: 'Create content record' })).toBeDisabled()
+    })
+
+    it('shows a retry action when Entity field metadata fails to load', async () => {
+        const user = userEvent.setup()
+        mocks.listComponents.mockRejectedValueOnce(new Error('metadata unavailable')).mockResolvedValue({ items: [] })
+        renderDialog()
+
+        const sourceInput = await screen.findByRole('combobox', { name: 'Content source' })
+        await user.click(sourceInput)
+        await user.click(await screen.findByRole('option', { name: 'Image content' }))
+
+        const message = await screen.findByText('Content fields could not be loaded. Try again.')
+        const alert = message.closest('[role="alert"]')
+        expect(alert).not.toBeNull()
+        const retry = within(alert as HTMLElement).getByRole('button', { name: 'Retry' })
+        await user.click(retry)
+        await waitFor(() => expect(mocks.listComponents).toHaveBeenCalledTimes(2))
     })
 
     it('creates a separate empty Entity source from the selected compatible source', async () => {

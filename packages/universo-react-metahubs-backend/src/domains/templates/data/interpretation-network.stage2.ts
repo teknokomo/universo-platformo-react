@@ -530,12 +530,12 @@ const INTERPRETATION_NETWORK_SEED_ENTITIES: TemplateSeedEntity[] = [
     {
         codename: 'InterpretationNetworkIntro',
         kind: 'page',
-        name: vlc('Interpretation Network', 'Трактовочная сеть'),
+        name: vlc('Start', 'Начало'),
         description: vlc(
             'Start page for the interpretation-network workspace.',
             'Стартовая страница рабочего пространства трактовочной сети.'
         ),
-        hubs: [INTERPRETATION_NETWORK_DEFAULT_HUB_CODENAME],
+        hubs: [],
         config: {
             blockContent: buildEditorBlockContent([
                 buildEditorHeaderBlock('interpretationNetwork-intro-title', 2, 'Interpretation Network', 'Трактовочная сеть'),
@@ -546,13 +546,14 @@ const INTERPRETATION_NETWORK_SEED_ENTITIES: TemplateSeedEntity[] = [
                 ),
                 buildEditorParagraphBlock(
                     'interpretationNetwork-intro-start',
-                    'Open Structures, create a new structure, and then add matrix cells. Materials for selected cells are created on the right side of the workspace.',
-                    'Откройте раздел «Структуры», создайте новую структуру и добавьте ячейки матрицы. Материалы для выбранных ячеек создаются в правой части рабочего пространства.'
+                    'Use the workspace below to build the matrix. Add cells, then attach materials to a selected cell in the pane on the right.',
+                    'Создавайте матрицу в рабочей области ниже. Добавляйте ячейки, затем прикрепляйте материалы к выбранной ячейке в правой панели.'
                 )
             ]),
             runtime: {
                 menuVisibility: 'primary',
-                routeSegment: 'start'
+                routeSegment: 'home',
+                icon: 'home'
             }
         }
     },
@@ -564,9 +565,15 @@ const INTERPRETATION_NETWORK_SEED_ENTITIES: TemplateSeedEntity[] = [
             'Dictionary of structures that can have multiple interpretations across contexts.',
             'Словарь структур, которые могут иметь несколько трактовок в разных контекстах.'
         ),
-        hubs: [INTERPRETATION_NETWORK_DEFAULT_HUB_CODENAME],
+        hubs: [],
         components: INTERPRETATION_NETWORK_STRUCTURE_OBJECT_COMPONENTS,
-        config: { recordBehavior: 'reference' }
+        config: {
+            recordBehavior: 'reference',
+            runtime: {
+                menuVisibility: 'primary',
+                icon: 'object'
+            }
+        }
     },
     {
         codename: 'Interpretation',

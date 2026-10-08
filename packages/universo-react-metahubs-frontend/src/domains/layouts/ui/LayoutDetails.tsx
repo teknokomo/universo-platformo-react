@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
@@ -15,7 +15,12 @@ import type {
     LayoutPosition,
     LayoutLogicalPlacement
 } from '@universo-react/types'
-import { DASHBOARD_LAYOUT_ZONES, getLayoutWidgetAllowedZones, MARKETING_LAYOUT_ZONES } from '@universo-react/types'
+import {
+    DASHBOARD_LAYOUT_ZONES,
+    getLayoutWidgetAllowedZones,
+    getLayoutWidgetDefinition,
+    MARKETING_LAYOUT_ZONES
+} from '@universo-react/types'
 import {
     LayoutAuthoringDetails,
     LayoutZoneSettingsDialog,
@@ -36,7 +41,7 @@ import { useMetahubDetails } from '../../metahubs/hooks'
 import * as layoutsApi from '../api'
 import type { Metahub, MetahubLayout, MetahubLayoutZoneWidget } from '../../../types'
 import { getVLCString } from '../../../types'
-import { getSharedBehaviorFromWidgetConfig } from './LayoutWidgetSharedBehaviorFields'
+import DashboardNestedPlacements, { countNestedPlacementDescendants } from './DashboardNestedPlacements'
 import LayoutRuntimeSettingsPanel from './LayoutRuntimeSettingsPanel'
 import LayoutWidgetEditorDialogs from './LayoutWidgetEditorDialogs'
 import {
@@ -54,7 +59,8 @@ import {
     readWidgetPlacement
 } from './layoutDetailsWidgetAuthoringModel'
 import { useLayoutWidgetAuthoring } from './useLayoutWidgetAuthoring'
-import { useLayoutAuthoringZones } from './useLayoutAuthoringZones'
+import { resolveLayoutWidgetPlacementCapabilities, useLayoutAuthoringZones } from './useLayoutAuthoringZones'
+import { useDashboardContentBindingIds } from './useDashboardContentBindingIds'
 
 export default function LayoutDetails() {
     const { metahubId, layoutId } = useParams<{ metahubId: string; layoutId: string }>()
@@ -147,12 +153,6 @@ export default function LayoutDetails() {
         () => normalizeObjectCollectionRuntimeViewConfig(extractObjectCollectionLayoutBehaviorConfig(layout?.config)),
         [layout?.config]
     )
-    const [reorderPersistenceFieldDraft, setReorderPersistenceFieldDraft] = useState('')
-
-    useEffect(() => {
-        setReorderPersistenceFieldDraft(objectBehaviorConfig.reorderPersistenceField ?? '')
-    }, [objectBehaviorConfig.reorderPersistenceField])
-
     const zoneToItems = useMemo(() => {
         const initial = [...DASHBOARD_LAYOUT_ZONES, ...MARKETING_LAYOUT_ZONES].reduce((acc, zone) => {
             acc[zone] = []
@@ -321,21 +321,6 @@ export default function LayoutDetails() {
         [canManageLayouts, layout, notifyLayoutError, persistLayoutConfig]
     )
 
-    const commitReorderPersistenceField = useCallback(async () => {
-        if (!layout || !canManageLayouts) return
-
-        const normalizedValue = reorderPersistenceFieldDraft.trim()
-        const currentValue = objectBehaviorConfig.reorderPersistenceField ?? ''
-
-        if (normalizedValue === currentValue) {
-            return
-        }
-
-        await handleObjectBehaviorChange({
-            reorderPersistenceField: normalizedValue || null
-        })
-    }, [canManageLayouts, objectBehaviorConfig.reorderPersistenceField, handleObjectBehaviorChange, layout, reorderPersistenceFieldDraft])
-
     const handleDragEnd = async (event: DragEndEvent) => {
         const { active, over } = event
         if (!metahubId || !layoutId || !layout || !canManageLayouts) return
@@ -347,9 +332,14 @@ export default function LayoutDetails() {
 
         const currentItem = zoneWidgets.find((item) => item.id === activeWidgetId)
         if (!currentItem) return
-        if (currentItem.isInherited && getSharedBehaviorFromWidgetConfig(currentItem.config).positionLocked) {
-            return
-        }
+        if (layout.templateKey === 'dashboard' && (currentItem.parentInstanceKey !== null || currentItem.slotKey !== null)) return
+        const getSortableZoneItems = (zone: ApplicationLayoutZone) =>
+            layout.templateKey === 'dashboard'
+                ? zoneToItems[zone].filter((item) => item.parentInstanceKey === null && item.slotKey === null)
+                : zoneToItems[zone]
+        const placementCapabilities = resolveLayoutWidgetPlacementCapabilities(
+            getLayoutWidgetDefinition(currentItem.widgetKey, currentItem.config)
+        )
 
         let targetZone = currentItem.zone
         let targetIndex = 0
@@ -361,18 +351,23 @@ export default function LayoutDetails() {
             if (!layoutZones.includes(zoneValue)) return
             targetZone = zoneValue
             targetPlacement = groupMatch?.[2] as LayoutLogicalPlacement | undefined
-            targetIndex = getWidgetDropIndex(zoneToItems[targetZone], activeWidgetId, targetPlacement)
+            targetIndex = getWidgetDropIndex(getSortableZoneItems(targetZone), activeWidgetId, targetPlacement)
         } else {
             const overItem = zoneWidgets.find((item) => item.id === overId)
             if (!overItem) return
+            if (layout.templateKey === 'dashboard' && (overItem.parentInstanceKey !== null || overItem.slotKey !== null)) return
             targetZone = overItem.zone
-            targetIndex = getWidgetDropIndex(zoneToItems[targetZone], activeWidgetId, undefined, overItem.id)
+            targetIndex = getWidgetDropIndex(getSortableZoneItems(targetZone), activeWidgetId, undefined, overItem.id)
             if (targetZone === 'marketing-header') targetPlacement = readWidgetPlacement(overItem)
         }
 
+        if (currentItem.isInherited) {
+            const canApplyMove = targetZone === currentItem.zone ? placementCapabilities.canReorder : placementCapabilities.canChangeZone
+            if (!canApplyMove) return
+        }
         if (!getLayoutWidgetAllowedZones(currentItem.widgetKey, layout.templateKey)?.includes(targetZone)) return
 
-        const sourceZoneItems = zoneToItems[currentItem.zone]
+        const sourceZoneItems = getSortableZoneItems(currentItem.zone)
         const sourceIndex = sourceZoneItems.findIndex((item) => item.id === currentItem.id)
         if (currentItem.zone === targetZone && sourceIndex === targetIndex) {
             return
@@ -380,29 +375,28 @@ export default function LayoutDetails() {
 
         // Optimistic update: reorder locally before API call
         const zoneWidgetsKey = metahubsQueryKeys.layoutZoneWidgets(metahubId, layoutId)
-        const previousData = queryClient.getQueryData<MetahubLayoutZoneWidget[]>(zoneWidgetsKey)
+        const previousData =
+            layout.templateKey === 'dashboard' ? undefined : queryClient.getQueryData<MetahubLayoutZoneWidget[]>(zoneWidgetsKey)
 
-        const optimistic = zoneWidgets.map((widget) => ({ ...widget }))
-        const draggedIdx = optimistic.findIndex((w) => w.id === activeWidgetId)
-        if (draggedIdx >= 0) {
-            const [moved] = optimistic.splice(draggedIdx, 1)
-            moved.zone = targetZone
-            if (targetPlacement) {
-                moved.placement = targetPlacement
-            }
-            // Recalculate insertion point in the target zone items
-            const targetItems = optimistic.filter((w) => w.zone === targetZone)
-            const insertBefore = targetItems[targetIndex]
-            const globalInsertIdx = insertBefore ? optimistic.indexOf(insertBefore) : optimistic.length
-            optimistic.splice(globalInsertIdx, 0, moved)
-            // Reassign sortOrders per zone
-            for (const zone of layoutZones) {
-                let order = 0
-                for (const w of optimistic) {
-                    if (w.zone === zone) w.sortOrder = order++
+        if (previousData) {
+            const optimistic = zoneWidgets.map((widget) => ({ ...widget }))
+            const draggedIdx = optimistic.findIndex((widget) => widget.id === activeWidgetId)
+            if (draggedIdx >= 0) {
+                const [moved] = optimistic.splice(draggedIdx, 1)
+                moved.zone = targetZone
+                if (targetPlacement) moved.placement = targetPlacement
+                const targetItems = optimistic.filter((widget) => widget.zone === targetZone)
+                const insertBefore = targetItems[targetIndex]
+                const globalInsertIdx = insertBefore ? optimistic.indexOf(insertBefore) : optimistic.length
+                optimistic.splice(globalInsertIdx, 0, moved)
+                for (const zone of layoutZones) {
+                    let order = 0
+                    for (const widget of optimistic) {
+                        if (widget.zone === zone) widget.sortOrder = order++
+                    }
                 }
+                queryClient.setQueryData(zoneWidgetsKey, optimistic)
             }
-            queryClient.setQueryData(zoneWidgetsKey, optimistic)
         }
 
         try {
@@ -426,9 +420,10 @@ export default function LayoutDetails() {
             if (!metahubId || !layoutId || !canManageLayouts) return
             const currentItem = zoneWidgets.find((item) => item.id === widgetId)
             if (!currentItem) return
-            if (currentItem.isInherited && !getSharedBehaviorFromWidgetConfig(currentItem.config).canExclude) {
-                return
-            }
+            const placementCapabilities = resolveLayoutWidgetPlacementCapabilities(
+                getLayoutWidgetDefinition(currentItem.widgetKey, currentItem.config)
+            )
+            if (currentItem.isInherited && !placementCapabilities.canExclude) return
             try {
                 await layoutsApi.removeLayoutZoneWidget(metahubId, layoutId, widgetId, currentItem.version)
                 await persistAndRefresh()
@@ -456,13 +451,19 @@ export default function LayoutDetails() {
     }, [handleRemoveWidget, removeWidgetId, t])
 
     const handleAddWidget = useCallback(
-        async (zone: ApplicationLayoutZone, widgetKey: ApplicationLayoutWidgetKey, config?: Record<string, unknown>) => {
+        async (
+            zone: ApplicationLayoutZone,
+            widgetKey: ApplicationLayoutWidgetKey,
+            config?: Record<string, unknown>,
+            target?: { parentInstanceKey: string; slotKey: string }
+        ) => {
             if (!metahubId || !layoutId || !layout || !canManageLayouts) return
             try {
                 await layoutsApi.assignLayoutZoneWidget(metahubId, layoutId, {
                     zone,
                     widgetKey,
                     ...(config ? { config } : {}),
+                    ...(target ?? {}),
                     expectedVersion: getExpectedLayoutVersion()
                 })
                 await persistAndRefresh()
@@ -491,7 +492,16 @@ export default function LayoutDetails() {
         getExpectedWidgetVersion,
         persistAndRefresh,
         upsertZoneWidgetInCache,
-        onAddWidget: (zone, widgetKey) => void handleAddWidget(zone, widgetKey)
+        onAddWidget: (zone, widgetKey, target) => void handleAddWidget(zone, widgetKey, undefined, target)
+    })
+
+    const dashboardContentBindingIds = useDashboardContentBindingIds({
+        metahubId,
+        layoutId,
+        layout,
+        placements: zoneWidgets,
+        locale: uiLocale,
+        enabled: canEditContent
     })
 
     const handleResetWidgetOverride = useCallback(
@@ -522,9 +532,10 @@ export default function LayoutDetails() {
             if (!metahubId || !layoutId || !canManageLayouts) return
             const currentItem = zoneWidgets.find((item) => item.id === widgetId)
             if (!currentItem) return
-            if (currentItem.isInherited && !getSharedBehaviorFromWidgetConfig(currentItem.config).canDeactivate) {
-                return
-            }
+            const placementCapabilities = resolveLayoutWidgetPlacementCapabilities(
+                getLayoutWidgetDefinition(currentItem.widgetKey, currentItem.config)
+            )
+            if (currentItem.isInherited && !placementCapabilities.canDeactivate) return
 
             const zoneWidgetsKey = metahubsQueryKeys.layoutZoneWidgets(metahubId, layoutId)
             const previousData = queryClient.getQueryData<MetahubLayoutZoneWidget[]>(zoneWidgetsKey)
@@ -556,7 +567,11 @@ export default function LayoutDetails() {
         setZoneSettingsError(null)
         setZoneSettingsOpen(true)
     }, [])
-    const { zoneLabels, zones: authoringZonesWithSettings } = useLayoutAuthoringZones({
+    const {
+        zoneLabels,
+        zones: authoringZonesWithSettings,
+        nestedPlacements
+    } = useLayoutAuthoringZones({
         metahubId,
         layoutId,
         layout,
@@ -566,6 +581,7 @@ export default function LayoutDetails() {
         authoring: widgetAuthoring,
         canManageLayouts,
         canEditContent,
+        dashboardContentBindingIds,
         isGlobalLayout,
         t,
         tc,
@@ -577,6 +593,30 @@ export default function LayoutDetails() {
         marketingHeaderSetting,
         onOpenMarketingHeaderSettings: openMarketingHeaderSettings
     })
+
+    const handleNestedPlacementMove = useCallback(
+        async (
+            placement: MetahubLayoutZoneWidget,
+            target: { targetIndex: number; targetParentInstanceKey?: string; targetSlotKey?: string }
+        ) => {
+            if (!metahubId || !layoutId || !canManageLayouts) return
+            try {
+                await layoutsApi.moveLayoutZoneWidget(metahubId, layoutId, {
+                    widgetId: placement.id,
+                    targetZone: placement.zone,
+                    targetIndex: target.targetIndex,
+                    ...(target.targetParentInstanceKey && target.targetSlotKey
+                        ? { targetParentInstanceKey: target.targetParentInstanceKey, targetSlotKey: target.targetSlotKey }
+                        : {}),
+                    expectedVersion: placement.version
+                })
+                await persistAndRefresh()
+            } catch (error: unknown) {
+                notifyLayoutError(error)
+            }
+        },
+        [canManageLayouts, layoutId, metahubId, notifyLayoutError, persistAndRefresh]
+    )
 
     if (!metahubId || !layoutId) {
         return (
@@ -642,22 +682,37 @@ export default function LayoutDetails() {
                                 onDragEnd={handleDragEnd}
                                 onAddWidgetRequest={widgetAuthoring.handleAddWidgetRequest}
                                 beforeZonesContent={
-                                    <LayoutRuntimeSettingsPanel
-                                        t={t}
-                                        templateKey={layout?.templateKey}
-                                        isScopedLayout={Boolean(layout?.scopeEntityId)}
-                                        layoutConfig={layoutConfig}
-                                        objectBehaviorConfig={objectBehaviorConfig}
-                                        sideMenuConfig={sideMenuConfig}
-                                        reorderPersistenceFieldDraft={reorderPersistenceFieldDraft}
-                                        viewSettingsSaving={viewSettingsSaving}
-                                        canManageLayouts={canManageLayouts}
-                                        onObjectBehaviorChange={(patch) => void handleObjectBehaviorChange(patch)}
-                                        onViewSettingChange={(key, value) => void handleViewSettingChange(key, value)}
-                                        onSideMenuConfigChange={(patch) => void handleSideMenuConfigChange(patch)}
-                                        onReorderPersistenceFieldDraftChange={setReorderPersistenceFieldDraft}
-                                        onCommitReorderPersistenceField={() => void commitReorderPersistenceField()}
-                                    />
+                                    <Stack spacing={2}>
+                                        <LayoutRuntimeSettingsPanel
+                                            t={t}
+                                            templateKey={layout?.templateKey}
+                                            isScopedLayout={Boolean(layout?.scopeEntityId)}
+                                            layoutConfig={layoutConfig}
+                                            objectBehaviorConfig={objectBehaviorConfig}
+                                            sideMenuConfig={sideMenuConfig}
+                                            viewSettingsSaving={viewSettingsSaving}
+                                            canManageLayouts={canManageLayouts}
+                                            onObjectBehaviorChange={(patch) => void handleObjectBehaviorChange(patch)}
+                                            onViewSettingChange={(key, value) => void handleViewSettingChange(key, value)}
+                                            onSideMenuConfigChange={(patch) => void handleSideMenuConfigChange(patch)}
+                                        />
+                                        {layout?.templateKey === 'dashboard' ? (
+                                            <DashboardNestedPlacements
+                                                layout={layout}
+                                                placements={zoneWidgets}
+                                                nestedPlacements={nestedPlacements}
+                                                zoneLabels={zoneLabels}
+                                                canManageLayouts={canManageLayouts}
+                                                locale={uiLocale}
+                                                tc={tc}
+                                                widgetLabelByKey={widgetAuthoring.widgetLabelByKey}
+                                                getWidgetChipLabel={widgetAuthoring.getWidgetChipLabel}
+                                                getAvailableWidgetsForZone={widgetAuthoring.getAvailableWidgetsForZone}
+                                                onAddWidget={widgetAuthoring.handleAddWidgetRequest}
+                                                onMove={(placement, target) => void handleNestedPlacementMove(placement, target)}
+                                            />
+                                        ) : null}
+                                    </Stack>
                                 }
                             />
                         </Stack>
@@ -713,10 +768,12 @@ export default function LayoutDetails() {
             <ConfirmDeleteDialog
                 open={Boolean(removeWidgetId)}
                 title={t('layouts.details.removeWidgetTitle', 'Remove widget?')}
-                description={t(
+                description={`${t(
                     'layouts.details.removeWidgetDescription',
                     'The widget will be removed from this layout. This does not delete its content records.'
-                )}
+                )} ${tc('nesting.children')}: ${new Intl.NumberFormat(uiLocale).format(
+                    removeWidgetId ? countNestedPlacementDescendants(removeWidgetId, zoneWidgets) : 0
+                )}.`}
                 confirmButtonText={t('layouts.details.removeWidgetConfirm', 'Remove')}
                 deletingButtonText={t('layouts.details.removingWidget', 'Removing...')}
                 cancelButtonText={t('common:actions.cancel', 'Cancel')}

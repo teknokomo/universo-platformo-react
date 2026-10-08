@@ -77,10 +77,12 @@ import {
 } from '../../ddl/snapshotRestoreAdapter'
 import { buildPlayCanvasMetahubLifecycleLockKey } from '../../playcanvas-projects/services/playCanvasLifecycleLocks'
 import type { MetahubSchemaService } from './MetahubSchemaService'
-import { validateMarketingSnapshotLayouts } from '../../publications/services/marketingSnapshotValidation'
-import { findDuplicateActiveSingleInstanceWidgetKey } from '../../layouts/widgetInvariants'
 import { acquireMetahubLayoutGraphLock } from '../../layouts/layoutGraphLocks'
-import { validateSnapshotLayoutNeutralMetadata } from '../../shared/snapshotLayouts'
+import {
+    validateSnapshotLayoutLineage,
+    validateSnapshotLayoutNeutralMetadata,
+    validateSnapshotWidgetPlacements
+} from '../../shared/snapshotLayouts'
 
 const log = createLogger('SnapshotRestoreService')
 
@@ -173,48 +175,6 @@ const getFieldCodenameText = (codename: MetaFieldSnapshot['codename']): string =
 
 const getSafeErrorCode = (error: unknown): string => (error instanceof Error && error.name ? error.name : 'UNKNOWN_ERROR')
 
-const validateSnapshotWidgetMultiplicity = (snapshot: MetahubSnapshot): void => {
-    const layouts = [...(snapshot.layouts ?? []), ...(snapshot.scopedLayouts ?? [])]
-    const widgetsByLayout = new Map<string, NonNullable<MetahubSnapshot['layoutZoneWidgets']>>()
-    for (const widget of snapshot.layoutZoneWidgets ?? []) {
-        const rows = widgetsByLayout.get(widget.layoutId) ?? []
-        rows.push(widget)
-        widgetsByLayout.set(widget.layoutId, rows)
-    }
-    const overridesByLayoutAndWidget = new Map<string, NonNullable<MetahubSnapshot['layoutWidgetOverrides']>[number]>()
-    for (const override of snapshot.layoutWidgetOverrides ?? []) {
-        overridesByLayoutAndWidget.set(`${override.layoutId}:${override.baseWidgetId}`, override)
-    }
-
-    for (const layout of layouts) {
-        const ownRows = widgetsByLayout.get(layout.id) ?? []
-        const baseRows = layout.baseLayoutId ? widgetsByLayout.get(layout.baseLayoutId) ?? [] : []
-        const effectiveRows = layout.baseLayoutId
-            ? [
-                  ...baseRows.map((widget) => {
-                      const override = overridesByLayoutAndWidget.get(`${layout.id}:${widget.id}`)
-                      return {
-                          widgetKey: widget.widgetKey,
-                          isActive:
-                              override?.isDeletedOverride === true
-                                  ? false
-                                  : typeof override?.isActive === 'boolean'
-                                  ? override.isActive
-                                  : widget.isActive
-                      }
-                  }),
-                  ...ownRows
-              ]
-            : ownRows
-
-        if (findDuplicateActiveSingleInstanceWidgetKey(effectiveRows) !== null) {
-            throw new MetahubValidationError('Snapshot contains duplicate active single-instance layout widgets', {
-                operation: 'layout-widget-restore'
-            })
-        }
-    }
-}
-
 const buildPageBlockContentValidationOptions = (component: Partial<BlockContentCapabilityConfig>): PageBlockContentValidationOptions => ({
     allowedBlockTypes: component.allowedBlockTypes,
     maxBlocks: component.maxBlocks
@@ -235,23 +195,6 @@ const resolveSnapshotPersistedId = (value: unknown, kind: 'enumeration value' | 
 
     return value
 }
-
-const LAYOUT_WIDGET_ENTITY_REFERENCE_KEYS = new Set([
-    'boundHubId',
-    'boundTreeEntityId',
-    'hubId',
-    'objectCollectionId',
-    'objectCollectionIds',
-    'sectionId',
-    'sectionIds',
-    'startPage',
-    'targetEntityId',
-    'targetObjectCollectionId',
-    'targetObjectCollectionIds',
-    'targetSectionId',
-    'targetSectionIds',
-    'treeEntityId'
-])
 
 /**
  * Restores metahub branch schema entities from a MetahubSnapshot.
@@ -298,6 +241,7 @@ export class SnapshotRestoreService {
         // Validate template-specific layout data before any destructive table
         // replacement. Dashboard snapshots keep their existing restore rules.
         validateSnapshotLayoutIdentities(snapshot)
+        validateSnapshotLayoutLineage(snapshot)
         try {
             validateSnapshotLayoutNeutralMetadata(snapshot)
         } catch (error) {
@@ -306,9 +250,8 @@ export class SnapshotRestoreService {
                 operation: 'layout-neutral-metadata-preflight'
             })
         }
-        validateSnapshotWidgetMultiplicity(snapshot)
+        validateSnapshotWidgetPlacements(snapshot)
         validateSnapshotActionIdentities(snapshot)
-        validateMarketingSnapshotLayouts(snapshot)
         const restoredModuleSourceBackups: RestoredModuleSourceBackup[] = []
         const restoredPlayCanvasFileBackups: RestoredPlayCanvasProjectFileBackup[] = []
         const staleModuleSourceCandidates = new Map<string, StaleModuleSourceCandidate>()
@@ -2031,15 +1974,13 @@ export class SnapshotRestoreService {
         templateKey: string,
         widgetKey: string,
         zone: string,
-        rawConfig: unknown
+        rawConfig: unknown,
+        requireBindings = true
     ): Record<string, unknown> {
-        const decoded = decodeWidgetConfigEnvelope(rawConfig ?? {}, { templateKey, widgetKey, zone, requireBindings: true })
+        const decoded = decodeWidgetConfigEnvelope(rawConfig ?? {}, { templateKey, widgetKey, zone, requireBindings })
         const rendererConfig =
             templateKey === 'dashboard' ? decoded.rendererConfig : parseApplicationLayoutWidgetConfig(widgetKey, decoded.rendererConfig)
-        return encodeWidgetConfigEnvelope(
-            { rendererConfig, neutral: decoded.neutral },
-            { templateKey, widgetKey, zone, requireBindings: true }
-        )
+        return encodeWidgetConfigEnvelope({ rendererConfig, neutral: decoded.neutral }, { templateKey, widgetKey, zone, requireBindings })
     }
 
     private async restoreLayouts(
@@ -2053,7 +1994,7 @@ export class SnapshotRestoreService {
             runtimeManifestChecksumMap: new Map()
         }
     ): Promise<void> {
-        validateSnapshotWidgetMultiplicity(snapshot)
+        validateSnapshotWidgetPlacements(snapshot)
         const layouts = snapshot.layouts ?? []
         const scopedLayouts = snapshot.scopedLayouts ?? []
         const layoutsById = new Map([...layouts, ...scopedLayouts].map((layout) => [layout.id, layout]))
@@ -2084,7 +2025,7 @@ export class SnapshotRestoreService {
                     description: layout.description ?? null,
                     config: this.normalizeRestoredLayoutConfig(
                         layout.templateKey,
-                        this.remapLayoutConfigReferences(layout.config ?? {}, entityIdMap, playCanvasRestoreResult),
+                        this.remapLayoutConfigReferences(layout.config ?? {}, playCanvasRestoreResult),
                         'independent',
                         null
                     ),
@@ -2135,7 +2076,7 @@ export class SnapshotRestoreService {
                     description: layout.description ?? null,
                     config: this.normalizeRestoredLayoutConfig(
                         layout.templateKey,
-                        this.remapLayoutConfigReferences(layout.config ?? {}, entityIdMap, playCanvasRestoreResult),
+                        this.remapLayoutConfigReferences(layout.config ?? {}, playCanvasRestoreResult),
                         layout.compositionMode,
                         newBaseLayoutId
                     ),
@@ -2179,6 +2120,9 @@ export class SnapshotRestoreService {
                 .into(widgetTableName)
                 .insert({
                     layout_id: newLayoutId,
+                    instance_key: widget.instanceKey,
+                    parent_widget_id: null,
+                    slot_key: null,
                     zone: widget.zone,
                     widget_key: widget.widgetKey,
                     sort_order: widget.sortOrder ?? 0,
@@ -2186,7 +2130,7 @@ export class SnapshotRestoreService {
                         layoutsById.get(widget.layoutId)?.templateKey ?? 'dashboard',
                         widget.widgetKey,
                         widget.zone,
-                        this.remapLayoutConfigReferences(widget.config ?? {}, entityIdMap, playCanvasRestoreResult)
+                        this.remapLayoutConfigReferences(widget.config ?? {}, playCanvasRestoreResult)
                     ),
                     is_active: widget.isActive !== false,
                     _upl_created_at: now,
@@ -2203,7 +2147,47 @@ export class SnapshotRestoreService {
                 })
                 .returning('id')
 
+            if (!inserted || typeof inserted.id !== 'string' || !isUuidV7(inserted.id)) {
+                throw new MetahubValidationError('Restored layout widget insert did not return a UUID v7 id', {
+                    widgetId: widget.id,
+                    layoutId: widget.layoutId
+                })
+            }
             widgetIdMap.set(widget.id, inserted.id)
+        }
+
+        for (const widget of widgets) {
+            if (widget.parentWidgetId === null) continue
+            const newWidgetId = widgetIdMap.get(widget.id)
+            const newParentWidgetId = widgetIdMap.get(widget.parentWidgetId)
+            const newLayoutId = layoutIdMap.get(widget.layoutId)
+            if (!newWidgetId || !newParentWidgetId || !newLayoutId || widget.slotKey === null) {
+                throw new MetahubValidationError('Snapshot placement parent could not be remapped', {
+                    widgetId: widget.id,
+                    parentWidgetId: widget.parentWidgetId,
+                    layoutId: widget.layoutId
+                })
+            }
+
+            const updated = await qb
+                .withSchema(this.schemaName)
+                .from(widgetTableName)
+                .where({ id: newWidgetId, layout_id: newLayoutId, _upl_version: 1 })
+                .update({
+                    parent_widget_id: newParentWidgetId,
+                    slot_key: widget.slotKey,
+                    _upl_updated_at: now,
+                    _upl_updated_by: userId,
+                    _upl_version: 2
+                })
+                .returning('id')
+
+            if (!Array.isArray(updated) || updated.length !== 1 || updated[0]?.id !== newWidgetId) {
+                throw new MetahubValidationError('Restored layout widget placement update did not affect exactly one row', {
+                    widgetId: widget.id,
+                    layoutId: widget.layoutId
+                })
+            }
         }
 
         if (!overrides.length) return
@@ -2235,7 +2219,8 @@ export class SnapshotRestoreService {
                                   layoutsById.get(override.layoutId)?.templateKey ?? 'dashboard',
                                   snapshotWidgetsById.get(override.baseWidgetId)?.widgetKey ?? '',
                                   override.zone ?? snapshotWidgetsById.get(override.baseWidgetId)?.zone ?? 'marketing-main',
-                                  this.remapLayoutConfigReferences(override.config, entityIdMap, playCanvasRestoreResult)
+                                  this.remapLayoutConfigReferences(override.config, playCanvasRestoreResult),
+                                  false
                               ),
                     is_active: typeof override.isActive === 'boolean' ? override.isActive : null,
                     is_deleted_override: override.isDeletedOverride === true,
@@ -2254,47 +2239,8 @@ export class SnapshotRestoreService {
         }
     }
 
-    private remapLayoutConfigReferences(
-        value: unknown,
-        entityIdMap: Map<string, string>,
-        playCanvasRestoreResult: PlayCanvasProjectSnapshotRestoreResult
-    ): unknown {
-        return this.remapPlayCanvasRuntimeManifestReferences(
-            this.remapEntityReferencesInLayoutConfig(value, entityIdMap),
-            playCanvasRestoreResult
-        )
-    }
-
-    private remapEntityReferencesInLayoutConfig(value: unknown, entityIdMap: Map<string, string>): unknown {
-        if (Array.isArray(value)) {
-            return value.map((item) => this.remapEntityReferencesInLayoutConfig(item, entityIdMap))
-        }
-        if (!value || typeof value !== 'object') {
-            return value
-        }
-        const record = value as Record<string, unknown>
-        const next: Record<string, unknown> = {}
-        for (const [key, item] of Object.entries(record)) {
-            if (LAYOUT_WIDGET_ENTITY_REFERENCE_KEYS.has(key)) {
-                next[key] = this.remapLayoutConfigReferenceValue(item, entityIdMap)
-                continue
-            }
-            next[key] = this.remapEntityReferencesInLayoutConfig(item, entityIdMap)
-        }
-        return next
-    }
-
-    private remapLayoutConfigReferenceValue(value: unknown, entityIdMap: Map<string, string>): unknown {
-        if (typeof value === 'string') {
-            return entityIdMap.get(value) ?? value
-        }
-        if (Array.isArray(value)) {
-            return value.map((item) => this.remapLayoutConfigReferenceValue(item, entityIdMap))
-        }
-        if (!value || typeof value !== 'object') {
-            return value
-        }
-        return this.remapEntityReferencesInLayoutConfig(value, entityIdMap)
+    private remapLayoutConfigReferences(value: unknown, playCanvasRestoreResult: PlayCanvasProjectSnapshotRestoreResult): unknown {
+        return this.remapPlayCanvasRuntimeManifestReferences(value, playCanvasRestoreResult)
     }
 
     private remapPlayCanvasRuntimeManifestReferences(

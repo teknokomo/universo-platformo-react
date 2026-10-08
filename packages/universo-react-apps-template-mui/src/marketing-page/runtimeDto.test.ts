@@ -103,7 +103,7 @@ describe('Marketing Page runtime DTOs', () => {
             zone: 'marketing-header',
             sortOrder: 0,
             isActive: true,
-            config: { instanceKey: 'auth' },
+            config: {},
             data: { records: [] }
         }
         const payload = {
@@ -135,7 +135,7 @@ describe('Marketing Page runtime DTOs', () => {
             zone: 'marketing-header',
             sortOrder: 0,
             isActive: true,
-            config: { instanceKey: 'marketing-navigation-0' },
+            config: { maxItems: 24 },
             data: {
                 records: [
                     {
@@ -155,7 +155,7 @@ describe('Marketing Page runtime DTOs', () => {
             zone: 'marketing-header',
             sortOrder: 1,
             isActive: true,
-            config: { instanceKey: 'language-switcher' }
+            config: {}
         }
         const payload = {
             templateKey: 'marketing-page',
@@ -244,7 +244,7 @@ describe('Marketing Page runtime DTOs', () => {
             zone: 'marketing-header',
             sortOrder: 0,
             isActive: true,
-            config: { instanceKey: 'navigation' },
+            config: { maxItems: 24 },
             data: {
                 records: [
                     {

@@ -1,37 +1,29 @@
-import { useEffect, useMemo, useRef, type MouseEvent, type RefObject } from 'react'
+import { useEffect, useRef, type RefObject } from 'react'
 import Drawer, { drawerClasses } from '@mui/material/Drawer'
 import Box from '@mui/material/Box'
 import Stack from '@mui/material/Stack'
-import MenuContent from './MenuContent'
 import { renderWidget } from './widgetRenderer'
-import type { DashboardMenuSlot, DashboardMenusMap, ZoneWidgets } from '../Dashboard'
+import type { ZoneWidgets } from '../contracts'
+import type { RuntimePlacement } from '../runtime/widgetPlacementGraph'
 
 interface SideMenuMobileProps {
     open: boolean | undefined
     drawerId?: string
     restoreFocusRef?: RefObject<HTMLButtonElement | null>
     toggleDrawer: (newOpen: boolean) => () => void
-    /** @deprecated Use `menus` map instead. */
-    menu?: DashboardMenuSlot
-    menus?: DashboardMenusMap
     zoneWidgets?: ZoneWidgets
+    placements?: readonly RuntimePlacement[]
 }
 
-export default function SideMenuMobile({ open, drawerId, restoreFocusRef, toggleDrawer, menu, menus, zoneWidgets }: SideMenuMobileProps) {
-    // Resolve effective menu for mobile: first from menus map (sorted by widget ID for stability), or fallback to legacy menu prop
-    const firstEntry = menus ? Object.values(menus).find((slot) => (slot?.items ?? []).length > 0) : undefined
-    const effectiveMenu = firstEntry ?? menu
+export default function SideMenuMobile({
+    open,
+    drawerId,
+    restoreFocusRef,
+    toggleDrawer,
+    zoneWidgets,
+    placements = []
+}: SideMenuMobileProps) {
     const leftWidgets = zoneWidgets?.left ?? []
-    const hasMenuWidget = leftWidgets.some((widget) => widget.widgetKey === 'menuWidget')
-    const menuSlots = useMemo(() => [effectiveMenu, ...Object.values(menus ?? {})].filter(Boolean), [effectiveMenu, menus])
-    const navigableMenuLabels = useMemo(
-        () => new Set(menuSlots.flatMap((slot) => slot?.items ?? []).map((item) => item.label)),
-        [menuSlots]
-    )
-    const overflowMenuLabels = useMemo(
-        () => new Set(menuSlots.flatMap((slot) => slot?.overflowItems ?? []).map((item) => item.label)),
-        [menuSlots]
-    )
     const wasOpenRef = useRef(Boolean(open))
 
     useEffect(() => {
@@ -43,29 +35,17 @@ export default function SideMenuMobile({ open, drawerId, restoreFocusRef, toggle
     }, [open, restoreFocusRef])
 
     useEffect(() => {
-        if (!open || overflowMenuLabels.size === 0 || typeof document === 'undefined') return undefined
+        if (!open || typeof document === 'undefined') return undefined
 
-        const closeAfterOverflowNavigation = (event: globalThis.MouseEvent) => {
+        const closeAfterRuntimeNavigation = (event: globalThis.MouseEvent) => {
             const target = event.target as HTMLElement | null
-            const menuItem = target?.closest<HTMLElement>('[role="menuitem"]')
-            if (!menuItem || !overflowMenuLabels.has(menuItem.textContent?.trim() ?? '')) return
-
+            if (!target?.closest<HTMLElement>('[data-runtime-navigation-link]')) return
             toggleDrawer(false)()
         }
 
-        document.addEventListener('click', closeAfterOverflowNavigation)
-        return () => document.removeEventListener('click', closeAfterOverflowNavigation)
-    }, [open, overflowMenuLabels, toggleDrawer])
-
-    const handleNavigationClick = (event: MouseEvent<HTMLElement>) => {
-        const target = event.target as HTMLElement | null
-        const interactive = target?.closest<HTMLElement>('a[href], button, [role="button"]')
-        if (!interactive || interactive.closest('nav') === null) return
-        if (interactive.hasAttribute('disabled') || interactive.getAttribute('aria-disabled') === 'true') return
-        if (!interactive.matches('a[href]') && !navigableMenuLabels.has(interactive.getAttribute('aria-label') ?? '')) return
-
-        toggleDrawer(false)()
-    }
+        document.addEventListener('click', closeAfterRuntimeNavigation)
+        return () => document.removeEventListener('click', closeAfterRuntimeNavigation)
+    }, [open, toggleDrawer])
 
     return (
         <Drawer
@@ -83,18 +63,10 @@ export default function SideMenuMobile({ open, drawerId, restoreFocusRef, toggle
                 }
             }}
         >
-            <Stack
-                onClick={handleNavigationClick}
-                sx={{
-                    maxWidth: '70dvw',
-                    minWidth: 240,
-                    height: '100%'
-                }}
-            >
+            <Stack sx={{ maxWidth: '70dvw', minWidth: 240, height: '100%' }}>
                 <Stack sx={{ flexGrow: 1 }}>
-                    {hasMenuWidget ? null : <MenuContent menu={effectiveMenu} />}
                     {leftWidgets.length > 0 ? (
-                        <Box sx={{ flexShrink: 0 }}>{leftWidgets.map((widget) => renderWidget(widget, menus, menu))}</Box>
+                        <Box sx={{ flexShrink: 0 }}>{leftWidgets.map((widget) => renderWidget(widget, { placements }))}</Box>
                     ) : null}
                 </Stack>
             </Stack>

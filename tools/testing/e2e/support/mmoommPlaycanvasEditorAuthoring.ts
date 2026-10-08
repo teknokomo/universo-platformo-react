@@ -5,13 +5,17 @@ import { validateSnapshotEnvelope } from '@universo-react/utils'
 import { expect } from '../fixtures/test'
 import { expectNoPageHorizontalOverflow } from './browser/runtimeUx'
 import { expectMmoommScriptAssetsVisibleInEditor } from './mmoommScriptAssetsProof'
+import { collectMmoommEntityMetadataEvidence } from './mmoommShareDbEntityMetadata'
 import {
     createPlayCanvasCompatibilityAuthHeaders,
     createSerializablePlayCanvasEditorEntity,
     expectPlayCanvasEditorCanvasPainted,
     expectPlayCanvasEditorFullscreenHost,
     expectPlayCanvasEditorIframeLoaded,
+    expectPlayCanvasEditorShareDbEntityMetadata,
+    expectPlayCanvasEditorShareDbOperationsCommitted,
     fetchPlayCanvasEditorCompatibilityConfig,
+    installPlayCanvasEditorShareDbProbe,
     playCanvasEditorVisibleMenuItemXPath,
     readSerializedPlayCanvasEditorScene,
     saveSerializedPlayCanvasEditorSceneThroughCompatibilityRest,
@@ -1798,6 +1802,15 @@ const configureMmoommVisualLinkupLabScene = async (page: Page): Promise<void> =>
                                     add?: (asset: unknown) => void
                                     get?: (id: string | number) => { observer?: unknown } | null
                                 }
+                                realtime?: {
+                                    scenes?: {
+                                        current?: {
+                                            _loaded?: boolean
+                                            loaded?: boolean
+                                            data?: { entities?: Record<string, unknown> }
+                                        }
+                                    }
+                                }
                             }
                             Asset?: new (data: Record<string, unknown>) => { observer?: unknown }
                         }
@@ -1919,6 +1932,11 @@ const configureMmoommVisualLinkupLabScene = async (page: Page): Promise<void> =>
             }) => {
                 stageMaterialAsset(input.visualMaterial)
                 const existing = findObserver(input.name)
+                const render = createRenderComponent(input.primitive, input.visualMaterial.materialAssetId)
+                const materialMetadata = {
+                    visualMaterial: input.visualMaterial,
+                    ...(Number.isFinite(input.lowPolyBands) ? { lowPolyBands: Number(input.lowPolyBands) } : {})
+                }
                 const observer =
                     existing ??
                     (editor.call?.('entities:new', {
@@ -1928,38 +1946,86 @@ const configureMmoommVisualLinkupLabScene = async (page: Page): Promise<void> =>
                         position: input.position,
                         rotation: input.rotation ?? [0, 0, 0],
                         scale: input.scale,
-                        components: { render: createRenderComponent(input.primitive, input.visualMaterial.materialAssetId) }
+                        components: { render }
                     }) as EditorEntityObserver | undefined)
                 if (!observer || typeof observer.set !== 'function') {
                     throw new Error(`Visual linkup lab entity ${input.name} observer is not available`)
                 }
-                const render = createRenderComponent(input.primitive, input.visualMaterial.materialAssetId)
-                try {
-                    editor.call?.('entities:addComponent', [observer], 'render', render)
-                } catch {
-                    // Existing render components are updated through observer paths below.
+                const entityIdValue = observer.get?.('resource_id')
+                if (typeof entityIdValue !== 'string' || entityIdValue.length === 0) {
+                    throw new Error(`Visual linkup lab entity ${input.name} has no ShareDB resource id`)
                 }
-                for (const [path, value] of Object.entries({
-                    name: input.name,
-                    enabled: true,
-                    position: input.position,
-                    rotation: input.rotation ?? [0, 0, 0],
-                    scale: input.scale,
-                    'components.render.enabled': true,
-                    'components.render.type': input.primitive,
-                    'components.render.materialAssets': [input.visualMaterial.materialAssetId]
-                })) {
-                    observer.set(path, value)
+                const realtimeScene = editor.api?.globals?.realtime?.scenes?.current
+                const sceneEntities = realtimeScene?.data?.entities
+                const entityDocumentId =
+                    sceneEntities &&
+                    typeof sceneEntities === 'object' &&
+                    !Array.isArray(sceneEntities) &&
+                    Object.prototype.hasOwnProperty.call(sceneEntities, String(entityIdValue))
+                        ? String(entityIdValue)
+                        : undefined
+                const sceneEntity = entityDocumentId ? sceneEntities?.[entityDocumentId] : undefined
+                if (!sceneEntity || typeof sceneEntity !== 'object' || Array.isArray(sceneEntity)) {
+                    throw new Error(`Visual linkup lab entity ${input.name} is not present in the live ShareDB scene document`)
                 }
-                observer.set('metadata.mmoomm.visualMaterial', input.visualMaterial)
-                if (Number.isFinite(input.lowPolyBands)) {
-                    observer.set('metadata.mmoomm.lowPolyBands', input.lowPolyBands)
-                }
-                entityMetadataByName[input.name] = {
-                    mmoomm: {
-                        visualMaterial: input.visualMaterial,
-                        ...(Number.isFinite(input.lowPolyBands) ? { lowPolyBands: Number(input.lowPolyBands) } : {})
+                const hasPersistedMetadata = Object.prototype.hasOwnProperty.call(sceneEntity, 'metadata')
+                const persistedMetadata = (sceneEntity as Record<string, unknown>).metadata
+                const observerMetadata = observer.get?.('metadata')
+                const currentMetadata = hasPersistedMetadata ? persistedMetadata : observerMetadata
+                const metadata =
+                    currentMetadata && typeof currentMetadata === 'object' && !Array.isArray(currentMetadata)
+                        ? (currentMetadata as Record<string, unknown>)
+                        : {}
+                const currentMmoommMetadata = metadata.mmoomm
+                const mmoommMetadata =
+                    currentMmoommMetadata && typeof currentMmoommMetadata === 'object' && !Array.isArray(currentMmoommMetadata)
+                        ? (currentMmoommMetadata as Record<string, unknown>)
+                        : {}
+                const nextMetadata = { ...metadata, mmoomm: { ...mmoommMetadata, ...materialMetadata } }
+                if (existing) {
+                    const currentComponents = observer.get?.('components')
+                    const components =
+                        currentComponents && typeof currentComponents === 'object' && !Array.isArray(currentComponents)
+                            ? (currentComponents as Record<string, unknown>)
+                            : {}
+                    const currentRender = components.render
+                    if (!currentRender || typeof currentRender !== 'object' || Array.isArray(currentRender)) {
+                        editor.call?.('entities:addComponent', [observer], 'render', render)
                     }
+                    const updatedRender = observer.get?.('components.render')
+                    if (!updatedRender || typeof updatedRender !== 'object' || Array.isArray(updatedRender)) {
+                        throw new Error(`Visual linkup lab entity ${input.name} render component could not be added`)
+                    }
+                    observer.set('name', input.name)
+                    observer.set('enabled', true)
+                    observer.set('position', input.position)
+                    observer.set('rotation', input.rotation ?? [0, 0, 0])
+                    observer.set('scale', input.scale)
+                    observer.set('components.render.enabled', true)
+                    observer.set('components.render.type', input.primitive)
+                    observer.set('components.render.materialAssets', [input.visualMaterial.materialAssetId])
+                }
+                // The upstream entity ObserverSync does not include metadata in its synced paths.
+                // Keep the local observer current for serialization, then submit the document-root op below.
+                observer.set('metadata', nextMetadata)
+                if (!entityDocumentId) {
+                    throw new Error(`Visual linkup lab entity ${input.name} has no ShareDB document root entry`)
+                }
+                if (typeof editor.call !== 'function') {
+                    throw new Error(`Visual linkup lab entity ${input.name} cannot submit metadata through the Editor API`)
+                }
+                const isRealtimeSceneLoaded = realtimeScene?._loaded === true || realtimeScene?.loaded === true
+                if (!isRealtimeSceneLoaded || editor.call('permissions:write') !== true) {
+                    throw new Error(`Visual linkup lab entity ${input.name} cannot write to the active ShareDB scene`)
+                }
+                const metadataOperation: Record<string, unknown> = {
+                    p: ['entities', entityDocumentId, 'metadata'],
+                    oi: nextMetadata
+                }
+                if (hasPersistedMetadata) metadataOperation.od = persistedMetadata
+                editor.call('realtime:scene:op', metadataOperation)
+                entityMetadataByName[input.name] = {
+                    mmoomm: materialMetadata
                 }
                 return observer
             }
@@ -1971,8 +2037,17 @@ const configureMmoommVisualLinkupLabScene = async (page: Page): Promise<void> =>
                 } catch {
                     light = null
                 }
+                const existing = findObserver(name)
+                const lightComponent = {
+                    ...(light ?? { enabled: true }),
+                    enabled: true,
+                    type: 'directional',
+                    color: [1, 1, 1],
+                    intensity,
+                    castShadows: false
+                }
                 const observer =
-                    findObserver(name) ??
+                    existing ??
                     (editor.call?.('entities:new', {
                         name,
                         parent: editor.call?.('entities:root'),
@@ -1980,20 +2055,27 @@ const configureMmoommVisualLinkupLabScene = async (page: Page): Promise<void> =>
                         position,
                         rotation: [45, 45, 0],
                         scale: [1, 1, 1],
-                        components: {
-                            light: {
-                                ...(light ?? { enabled: true }),
-                                enabled: true,
-                                type: 'directional',
-                                color: [1, 1, 1],
-                                intensity,
-                                castShadows: false
-                            }
-                        }
+                        components: { light: lightComponent }
                     }) as EditorEntityObserver | undefined)
-                observer?.set?.('components.light.type', 'directional')
-                observer?.set?.('components.light.color', [1, 1, 1])
-                observer?.set?.('components.light.intensity', intensity)
+                if (!observer || typeof observer.set !== 'function') {
+                    throw new Error(`Visual linkup lab light ${name} observer is not available`)
+                }
+                if (existing) {
+                    const currentComponents = observer.get?.('components')
+                    const components =
+                        currentComponents && typeof currentComponents === 'object' && !Array.isArray(currentComponents)
+                            ? (currentComponents as Record<string, unknown>)
+                            : {}
+                    const currentLight = components.light
+                    const existingLight =
+                        currentLight && typeof currentLight === 'object' && !Array.isArray(currentLight)
+                            ? (currentLight as Record<string, unknown>)
+                            : {}
+                    observer.set('name', name)
+                    observer.set('enabled', true)
+                    observer.set('position', position)
+                    observer.set('components.light', { ...existingLight, ...lightComponent })
+                }
             }
             const ensureCamera = (name: string, position: [number, number, number], rotation: [number, number, number]) => {
                 let camera: Record<string, unknown> | null = null
@@ -2003,8 +2085,22 @@ const configureMmoommVisualLinkupLabScene = async (page: Page): Promise<void> =>
                 } catch {
                     camera = null
                 }
+                const existing = findObserver(name)
+                const cameraComponent = {
+                    ...(camera ?? { enabled: true }),
+                    enabled: true,
+                    clearColor: cameraClearColor,
+                    clearColorBuffer: true,
+                    clearDepthBuffer: true,
+                    nearClip: 0.1,
+                    farClip: 520,
+                    fov: 58,
+                    projection: 0,
+                    priority: 0,
+                    rect: [0, 0, 1, 1]
+                }
                 const observer =
-                    findObserver(name) ??
+                    existing ??
                     (editor.call?.('entities:new', {
                         name,
                         parent: editor.call?.('entities:root'),
@@ -2012,55 +2108,34 @@ const configureMmoommVisualLinkupLabScene = async (page: Page): Promise<void> =>
                         position,
                         rotation,
                         scale: [1, 1, 1],
-                        components: {
-                            camera: {
-                                ...(camera ?? { enabled: true }),
-                                enabled: true,
-                                clearColor: cameraClearColor,
-                                clearColorBuffer: true,
-                                clearDepthBuffer: true,
-                                nearClip: 0.1,
-                                farClip: 520,
-                                fov: 58,
-                                projection: 0,
-                                priority: 0,
-                                rect: [0, 0, 1, 1]
-                            }
-                        }
+                        components: { camera: cameraComponent }
                     }) as EditorEntityObserver | undefined)
                 if (!observer || typeof observer.set !== 'function') {
                     throw new Error(`Visual linkup lab camera ${name} observer is not available`)
                 }
-                try {
-                    editor.call?.('entities:addComponent', [observer], 'camera', camera ?? { enabled: true })
-                } catch {
-                    // Existing camera components are updated through observer paths below.
-                }
-                for (const [path, value] of Object.entries({
-                    name,
-                    enabled: true,
-                    position,
-                    rotation,
-                    scale: [1, 1, 1],
-                    'components.camera.enabled': true,
-                    'components.camera.clearColor': cameraClearColor,
-                    'components.camera.clearColorBuffer': true,
-                    'components.camera.clearDepthBuffer': true,
-                    'components.camera.nearClip': 0.1,
-                    'components.camera.farClip': 520,
-                    'components.camera.fov': 58,
-                    'components.camera.projection': 0,
-                    'components.camera.priority': 0,
-                    'components.camera.rect': [0, 0, 1, 1]
-                })) {
-                    observer.set(path, value)
-                }
-                if (observer.has?.('components.render')) {
-                    try {
-                        editor.call?.('entities:removeComponent', [observer], 'render')
-                    } catch {
-                        observer.unset?.('components.render')
+                if (existing) {
+                    const currentComponents = observer.get?.('components')
+                    const components =
+                        currentComponents && typeof currentComponents === 'object' && !Array.isArray(currentComponents)
+                            ? { ...(currentComponents as Record<string, unknown>) }
+                            : {}
+                    const currentCamera = components.camera
+                    const existingCamera =
+                        currentCamera && typeof currentCamera === 'object' && !Array.isArray(currentCamera)
+                            ? (currentCamera as Record<string, unknown>)
+                            : {}
+                    if (components.render && typeof observer.unset !== 'function') {
+                        throw new Error(`Visual linkup lab camera ${name} cannot remove its render component`)
                     }
+                    if (components.render) {
+                        observer.unset('components.render')
+                    }
+                    observer.set('name', name)
+                    observer.set('enabled', true)
+                    observer.set('position', position)
+                    observer.set('rotation', rotation)
+                    observer.set('scale', [1, 1, 1])
+                    observer.set('components.camera', { ...existingCamera, ...cameraComponent })
                 }
             }
 
@@ -2161,6 +2236,27 @@ const configureMmoommVisualLinkupLabScene = async (page: Page): Promise<void> =>
             ensureCamera('MMOOMM Linkup Lab Camera', [0, 32, 135], [-14, 0, 0])
             ensureLight('MMOOMM Linkup Lab Key Light', [0, 52, 44], 5.8)
             ensureLight('MMOOMM Linkup Lab Fill Light', [-42, 34, 88], 2.4)
+
+            const root = editor.call?.('entities:root') as EditorEntityObserver | undefined
+            if (!root) {
+                throw new Error('Visual linkup lab root entity observer is not available')
+            }
+            const semanticRootChildNames = variants.flatMap((variant, index) => {
+                const prefix = `Linkup Lab ${String(index + 1).padStart(2, '0')}`
+                return [
+                    `${prefix} ${variant.title}`,
+                    ...objectTypes.flatMap((objectType) => [`${prefix} ${objectType} Core`, `${prefix} ${objectType} Glow`])
+                ]
+            })
+            semanticRootChildNames.push('MMOOMM Linkup Lab Camera', 'MMOOMM Linkup Lab Key Light', 'MMOOMM Linkup Lab Fill Light')
+            const orderedRootChildren = semanticRootChildNames.map((name, index) => {
+                const entity = findObserver(name)
+                if (!entity) {
+                    throw new Error(`Visual linkup lab root child ${name} is not available for deterministic ordering`)
+                }
+                return { entity, parent: root, index }
+            })
+            editor.call?.('entities:reparent', orderedRootChildren, false)
 
             const labMetadata = {
                 version: 1,
@@ -2285,7 +2381,13 @@ export const expectMmoommVisualLinkupLabScene = async (page: Page, label: string
     let scene = (await readSerializedPlayCanvasEditorScene(page)) as {
         settings?: { render?: Record<string, unknown> }
         assets?: Array<{ id?: unknown; type?: unknown; data?: unknown; metadata?: Record<string, unknown> }>
-        entities?: Array<{ name?: unknown; position?: unknown; scale?: unknown; components?: Record<string, unknown> }>
+        entities?: Array<{
+            name?: unknown
+            position?: unknown
+            scale?: unknown
+            components?: Record<string, unknown>
+            metadata?: Record<string, unknown>
+        }>
         metadata?: { mmoomm?: Record<string, unknown> }
     }
     const bridgeEvidence = await page
@@ -2297,6 +2399,7 @@ export const expectMmoommVisualLinkupLabScene = async (page: Page, label: string
                     __UNIVERSO_PLAYCANVAS_EDITOR_BRIDGE__?: {
                         mmoommVisualLinkupLabMetadata?: unknown
                         mmoommVisualLinkupMaterialAssets?: unknown[]
+                        mmoommVisualLinkupEntityMetadataByName?: Record<string, { mmoomm?: unknown }>
                     }
                 }
             ).__UNIVERSO_PLAYCANVAS_EDITOR_BRIDGE__
@@ -2305,6 +2408,7 @@ export const expectMmoommVisualLinkupLabScene = async (page: Page, label: string
                 : []
             return {
                 metadata: bridge?.mmoommVisualLinkupLabMetadata ?? null,
+                entityMetadataByName: bridge?.mmoommVisualLinkupEntityMetadataByName ?? {},
                 stagedMaterialAssets
             }
         })
@@ -2409,6 +2513,7 @@ export const expectMmoommVisualLinkupLabScene = async (page: Page, label: string
         throw new Error(`${message}. Asset bridge diagnostics: ${JSON.stringify(diagnostics)}`)
     }
     scene = (await readSerializedPlayCanvasEditorScene(page)) as typeof scene
+    const persistedEntities = scene.entities ?? []
     const materialAssetsById = readMaterialAssetsById(scene)
     const materialAssets = Array.from(materialAssetsById.values())
     expect(
@@ -2426,6 +2531,24 @@ export const expectMmoommVisualLinkupLabScene = async (page: Page, label: string
         )
         expect(asset?.metadata?.mmoomm, `${label} material ${materialId} must carry MMOOMM visual material metadata`).toEqual(
             expect.objectContaining({ visualMaterial: expect.any(Object) })
+        )
+    }
+    const entityMetadataEvidence = collectMmoommEntityMetadataEvidence(persistedEntities, [
+        ...(scene.assets ?? []),
+        ...bridgeEvidence.stagedMaterialAssets
+    ])
+    expect(entityMetadataEvidence, `${label} must retain metadata on every visual-linkup entity`).toHaveLength(expectedMaterialAssetCount)
+    for (const entityEvidence of entityMetadataEvidence) {
+        expect(
+            entityEvidence.actualVisualMaterial,
+            `${label} ${entityEvidence.entityName} metadata must match linked material ${entityEvidence.materialId}`
+        ).toEqual(entityEvidence.expectedVisualMaterial)
+    }
+    for (const [name, expectedMetadata] of Object.entries(bridgeEvidence.entityMetadataByName)) {
+        const entity = persistedEntities.find((candidate) => candidate.name === name)
+        expect(entity, `${label} ${name} must be serialized`).toBeTruthy()
+        expect(entity?.metadata?.mmoomm, `${label} ${name} ShareDB metadata must match staged authoring data`).toEqual(
+            expectedMetadata.mmoomm
         )
     }
     const visualLab = (scene.metadata?.mmoomm?.[MMOOMM_VISUAL_LINKUP_LAB_METADATA_KEY] ?? bridgeEvidence.metadata) as
@@ -2453,9 +2576,45 @@ export const expectMmoommVisualLinkupLabScene = async (page: Page, label: string
 
 export const authorMmoommVisualLinkupLabThroughPlayCanvasEditorAndExpectReload = async (page: Page, metahubId: string) => {
     const editorFrame = page.frameLocator('iframe[data-testid="playcanvas-editor-frame"]')
+    const updatedLinkupEntityName = 'Linkup Lab 01 White Link Halo'
+    const createdLinkupEntityName = 'Linkup Lab 01 ship Glow'
+    await installPlayCanvasEditorShareDbProbe(page)
+    await editorFrame.locator('body').evaluate((_element, name) => {
+        const editor = (window as unknown as { editor?: { call?: (method: string, ...args: unknown[]) => unknown } }).editor
+        if (typeof editor?.call !== 'function') {
+            throw new Error('PlayCanvas Editor API is not available to seed the linkup metadata update case')
+        }
+        const toArray = (value: unknown): Array<{ get?: (path: string) => unknown }> => {
+            if (Array.isArray(value)) return value as Array<{ get?: (path: string) => unknown }>
+            const list = value as { array?: () => unknown[] } | null | undefined
+            const items = list?.array?.()
+            return Array.isArray(items) ? (items as Array<{ get?: (path: string) => unknown }>) : []
+        }
+        const observers = [...toArray(editor.call('entities:list')), ...toArray(editor.call('entities:raw'))]
+        if (observers.some((observer) => observer.get?.('name') === name)) return
+        const seededEntity = editor.call('entities:new', {
+            name,
+            enabled: true,
+            position: [0, 0, 0],
+            rotation: [0, 0, 0],
+            scale: [1, 1, 1]
+        })
+        if (!seededEntity) throw new Error(`PlayCanvas Editor did not create the ${name} metadata update case`)
+    }, updatedLinkupEntityName)
     await configureMmoommVisualLinkupLabScene(page)
     await expectMmoommVisualLinkupLabScene(page, 'MMOOMM visual linkup lab after authoring')
     await removeEmptyDefaultPlayCanvasEditorEntities(page, 'MMOOMM visual linkup lab cleanup')
+    await expectPlayCanvasEditorShareDbOperationsCommitted(page, 'MMOOMM visual linkup authoring')
+    await expectPlayCanvasEditorShareDbEntityMetadata(page, 'MMOOMM visual linkup authoring', [
+        { name: createdLinkupEntityName, writeKind: 'created' },
+        { name: updatedLinkupEntityName, writeKind: 'updated' }
+    ])
+    const realtimeSceneError = await editorFrame.locator('body').evaluate(() => {
+        const bridge = (window as unknown as { __UNIVERSO_PLAYCANVAS_EDITOR_BRIDGE__?: { lastRealtimeSceneError?: unknown } })
+            .__UNIVERSO_PLAYCANVAS_EDITOR_BRIDGE__
+        return bridge?.lastRealtimeSceneError ?? null
+    })
+    expect(realtimeSceneError, 'MMOOMM visual linkup authoring must not emit ShareDB scene errors').toBeNull()
 
     const visualLabSavePayload = await editorFrame.locator('body').evaluate(
         (_, { metadataKey, sceneFog, globalAmbient }) => {
@@ -2465,10 +2624,6 @@ export const authorMmoommVisualLinkupLabThroughPlayCanvasEditorAndExpectReload =
                         serializeCurrentScene?: () => Record<string, unknown>
                         mmoommVisualLinkupLabMetadata?: unknown
                         mmoommVisualLinkupMaterialAssets?: unknown[]
-                        mmoommVisualLinkupEntityMetadataByName?: Record<
-                            string,
-                            { mmoomm?: { visualMaterial?: unknown; lowPolyBands?: unknown } }
-                        >
                     }
                 }
             ).__UNIVERSO_PLAYCANVAS_EDITOR_BRIDGE__
@@ -2488,41 +2643,6 @@ export const authorMmoommVisualLinkupLabThroughPlayCanvasEditorAndExpectReload =
             const stagedMaterialAssets = Array.isArray(bridge.mmoommVisualLinkupMaterialAssets)
                 ? bridge.mmoommVisualLinkupMaterialAssets.filter((asset) => asset && typeof asset === 'object')
                 : []
-            const entityMetadataByName =
-                bridge.mmoommVisualLinkupEntityMetadataByName && typeof bridge.mmoommVisualLinkupEntityMetadataByName === 'object'
-                    ? bridge.mmoommVisualLinkupEntityMetadataByName
-                    : {}
-            const entities = Array.isArray(serialized.entities)
-                ? serialized.entities.map((entity) => {
-                      if (!entity || typeof entity !== 'object' || Array.isArray(entity)) return entity
-                      const name =
-                          typeof (entity as { name?: unknown }).name === 'string' ? String((entity as { name?: unknown }).name) : ''
-                      const mmoommMetadata = name ? entityMetadataByName[name]?.mmoomm : null
-                      if (!mmoommMetadata || typeof mmoommMetadata !== 'object') return entity
-                      const existingEntityMetadata =
-                          (entity as { metadata?: unknown }).metadata &&
-                          typeof (entity as { metadata?: unknown }).metadata === 'object' &&
-                          !Array.isArray((entity as { metadata?: unknown }).metadata)
-                              ? ((entity as { metadata?: Record<string, unknown> }).metadata as Record<string, unknown>)
-                              : {}
-                      const existingEntityMmoomm =
-                          existingEntityMetadata.mmoomm &&
-                          typeof existingEntityMetadata.mmoomm === 'object' &&
-                          !Array.isArray(existingEntityMetadata.mmoomm)
-                              ? (existingEntityMetadata.mmoomm as Record<string, unknown>)
-                              : {}
-                      return {
-                          ...entity,
-                          metadata: {
-                              ...existingEntityMetadata,
-                              mmoomm: {
-                                  ...existingEntityMmoomm,
-                                  ...mmoommMetadata
-                              }
-                          }
-                      }
-                  })
-                : serialized.entities
             const assetsById = new Map<string, unknown>()
             if (Array.isArray(serialized.assets)) {
                 for (const asset of serialized.assets) {
@@ -2553,7 +2673,6 @@ export const authorMmoommVisualLinkupLabThroughPlayCanvasEditorAndExpectReload =
                         fog_density: sceneFog.density
                     }
                 },
-                entities,
                 assets: Array.from(assetsById.values()),
                 metadata: {
                     ...existingMetadata,
@@ -2568,10 +2687,14 @@ export const authorMmoommVisualLinkupLabThroughPlayCanvasEditorAndExpectReload =
     )
     await saveSerializedPlayCanvasEditorSceneThroughCompatibilityRest(page, metahubId, visualLabSavePayload)
     const savePayload = visualLabSavePayload as {
-        entities?: Array<{ name?: unknown }>
+        entities?: Array<{ name?: unknown; metadata?: { mmoomm?: Record<string, unknown> } }>
         metadata?: { mmoomm?: Record<string, unknown> }
     }
     expect(savePayload?.entities).toEqual(expect.arrayContaining([expect.objectContaining({ name: 'MMOOMM Linkup Lab Key Light' })]))
+    expect(
+        savePayload?.entities?.find((entity) => entity.name === 'Linkup Lab 01 ship Core')?.metadata?.mmoomm?.visualMaterial,
+        'saved scene payload must source visual entity metadata from its authored ShareDB-backed observer'
+    ).toEqual(expect.any(Object))
     expect(savePayload?.metadata?.mmoomm?.[MMOOMM_VISUAL_LINKUP_LAB_METADATA_KEY]).toEqual(
         expect.objectContaining({ variantCount: LINKUP_VARIANTS.length })
     )

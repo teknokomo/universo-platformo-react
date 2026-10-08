@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import type { RuntimeRecordCommand, RuntimeRestoreTarget } from './types'
+import type { RuntimeRecordCommand, RuntimeRelationScope, RuntimeRestoreTarget } from './types'
 import { buildRuntimeApiUrl, extractErrorMessage, fetchWithCsrf, throwAppsApiError } from './client'
 
 const appendWorkspaceId = (url: string, workspaceId?: string | null): string => {
@@ -44,14 +44,16 @@ export async function createAppRow(options: {
     objectCollectionId?: string
     sectionId?: string
     workspaceId?: string | null
+    relationScope?: RuntimeRelationScope
     data: Record<string, unknown>
 }): Promise<Record<string, unknown>> {
-    const { apiBaseUrl, applicationId, objectCollectionId, sectionId, workspaceId, data } = options
+    const { apiBaseUrl, applicationId, objectCollectionId, sectionId, workspaceId, relationScope, data } = options
     const resolvedSectionId = sectionId ?? objectCollectionId
     const url = appendWorkspaceId(buildRuntimeApiUrl(apiBaseUrl, applicationId, '/rows'), workspaceId)
 
     const body: Record<string, unknown> = { data }
     if (resolvedSectionId) body.objectCollectionId = resolvedSectionId
+    if (relationScope) body.relationScope = relationScope
 
     const res = await fetchWithCsrf(apiBaseUrl, url, {
         method: 'POST',
@@ -74,14 +76,16 @@ export async function updateAppRow(options: {
     workspaceId?: string | null
     data: Record<string, unknown>
     expectedVersion?: number
+    relationScope?: RuntimeRelationScope
 }): Promise<Record<string, unknown>> {
-    const { apiBaseUrl, applicationId, rowId, objectCollectionId, sectionId, workspaceId, data, expectedVersion } = options
+    const { apiBaseUrl, applicationId, rowId, objectCollectionId, sectionId, workspaceId, data, expectedVersion, relationScope } = options
     const resolvedSectionId = sectionId ?? objectCollectionId
     const url = appendWorkspaceId(buildRuntimeApiUrl(apiBaseUrl, applicationId, `/rows/${rowId}`), workspaceId)
 
     const body: Record<string, unknown> = { data }
     if (resolvedSectionId) body.objectCollectionId = resolvedSectionId
     if (typeof expectedVersion === 'number') body.expectedVersion = expectedVersion
+    if (relationScope) body.relationScope = relationScope
 
     const res = await fetchWithCsrf(apiBaseUrl, url, {
         method: 'PATCH',
@@ -103,8 +107,9 @@ export async function deleteAppRow(options: {
     sectionId?: string
     workspaceId?: string | null
     expectedVersion?: number
+    relationScope?: RuntimeRelationScope
 }): Promise<void> {
-    const { apiBaseUrl, applicationId, rowId, objectCollectionId, sectionId, workspaceId, expectedVersion } = options
+    const { apiBaseUrl, applicationId, rowId, objectCollectionId, sectionId, workspaceId, expectedVersion, relationScope } = options
     const resolvedSectionId = sectionId ?? objectCollectionId
     const params = new URLSearchParams()
     if (workspaceId?.trim()) {
@@ -115,6 +120,9 @@ export async function deleteAppRow(options: {
     }
     if (typeof expectedVersion === 'number') {
         params.set('expectedVersion', String(expectedVersion))
+    }
+    if (relationScope) {
+        params.set('relationScope', JSON.stringify(relationScope))
     }
     const queryString = params.toString()
     const url = `${buildRuntimeApiUrl(apiBaseUrl, applicationId, `/rows/${rowId}`)}${queryString ? `?${queryString}` : ''}`
@@ -196,6 +204,7 @@ export async function copyAppRow(options: {
     copyChildTables?: boolean
     data?: Record<string, unknown>
     expectedVersion?: number
+    relationScope?: RuntimeRelationScope
 }): Promise<Record<string, unknown>> {
     const {
         apiBaseUrl,
@@ -206,7 +215,8 @@ export async function copyAppRow(options: {
         workspaceId,
         copyChildTables = true,
         data,
-        expectedVersion
+        expectedVersion,
+        relationScope
     } = options
     const resolvedSectionId = sectionId ?? objectCollectionId
     const url = appendWorkspaceId(buildRuntimeApiUrl(apiBaseUrl, applicationId, `/rows/${rowId}/copy`), workspaceId)
@@ -214,6 +224,7 @@ export async function copyAppRow(options: {
     if (resolvedSectionId) body.objectCollectionId = resolvedSectionId
     if (data && Object.keys(data).length > 0) body.data = data
     if (typeof expectedVersion === 'number') body.expectedVersion = expectedVersion
+    if (relationScope) body.relationScope = relationScope
 
     const res = await fetchWithCsrf(apiBaseUrl, url, {
         method: 'POST',
@@ -289,10 +300,11 @@ export async function updateLearningContentProgress(options: {
     applicationId: string
     targetObjectCodename: string
     targetRecordId: string
+    workspaceId?: string | null
     action?: 'view' | 'complete'
 }): Promise<{ persisted: boolean; reason?: string; progressPercent?: number; status?: string }> {
-    const { apiBaseUrl, applicationId, targetObjectCodename, targetRecordId, action = 'view' } = options
-    const url = buildRuntimeApiUrl(apiBaseUrl, applicationId, '/progress/content')
+    const { apiBaseUrl, applicationId, targetObjectCodename, targetRecordId, workspaceId, action = 'view' } = options
+    const url = appendWorkspaceId(buildRuntimeApiUrl(apiBaseUrl, applicationId, '/progress/content'), workspaceId)
     const body: Record<string, unknown> = { targetObjectCodename, targetRecordId, action }
 
     const res = await fetchWithCsrf(apiBaseUrl, url, {
@@ -335,14 +347,17 @@ export async function reorderAppRows(options: {
     workspaceId?: string | null
     orderedRowIds: string[]
     expectedVersionsByRowId?: Record<string, number>
+    parentScope?: { fieldCodename: string; parentRecordId: string }
 }): Promise<void> {
-    const { apiBaseUrl, applicationId, objectCollectionId, sectionId, workspaceId, orderedRowIds, expectedVersionsByRowId } = options
+    const { apiBaseUrl, applicationId, objectCollectionId, sectionId, workspaceId, orderedRowIds, expectedVersionsByRowId, parentScope } =
+        options
     const resolvedSectionId = sectionId ?? objectCollectionId
     const body: Record<string, unknown> = { orderedRowIds }
     if (resolvedSectionId) body.objectCollectionId = resolvedSectionId
     if (expectedVersionsByRowId && Object.keys(expectedVersionsByRowId).length > 0) {
         body.expectedVersionsByRowId = expectedVersionsByRowId
     }
+    if (parentScope) body.parentScope = parentScope
 
     const url = appendWorkspaceId(buildRuntimeApiUrl(apiBaseUrl, applicationId, '/rows/reorder'), workspaceId)
 
@@ -358,7 +373,19 @@ export async function reorderAppRows(options: {
 
 /** Zod schema for the tabular child rows API response. */
 export const tabularRowsResponseSchema = z.object({
-    items: z.array(z.record(z.unknown()).and(z.object({ id: z.string() }))),
+    items: z.array(
+        z.record(z.unknown()).and(
+            z.object({
+                id: z.string(),
+                matrixHierarchy: z
+                    .object({
+                        cellId: z.string().uuid().nullable(),
+                        parentCellId: z.string().uuid().nullable()
+                    })
+                    .optional()
+            })
+        )
+    ),
     total: z.number()
 })
 

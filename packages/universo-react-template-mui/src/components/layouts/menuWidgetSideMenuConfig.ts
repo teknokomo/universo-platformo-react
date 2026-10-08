@@ -1,8 +1,8 @@
 import {
     DASHBOARD_SIDE_MENU_MODES,
     defaultDashboardSideMenuConfig,
-    type DashboardSideMenuMode,
-    type MenuWidgetConfig
+    type DashboardSideMenuConfig,
+    type DashboardSideMenuMode
 } from '@universo-react/types'
 
 export const EDITABLE_SIDE_MENU_MODES: DashboardSideMenuMode[] = [...DASHBOARD_SIDE_MENU_MODES]
@@ -13,10 +13,10 @@ export const SIDE_MENU_MODE_LABEL_FALLBACKS: Record<DashboardSideMenuMode, strin
     overlay: 'overlay'
 }
 
-export const normalizeSideMenuConfig = (
-    value: MenuWidgetConfig['sideMenu'] | null | undefined
-): NonNullable<MenuWidgetConfig['sideMenu']> => {
-    const source = value && typeof value === 'object' && !Array.isArray(value) ? value : undefined
+const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null && !Array.isArray(value)
+
+export const normalizeSideMenuConfig = (value: unknown): DashboardSideMenuConfig => {
+    const source = isRecord(value) ? value : undefined
     const availableModes = Array.isArray(source?.availableModes)
         ? source.availableModes
               .filter((mode): mode is DashboardSideMenuMode => EDITABLE_SIDE_MENU_MODES.includes(mode as DashboardSideMenuMode))
@@ -25,8 +25,8 @@ export const normalizeSideMenuConfig = (
     const nextAvailableModes = availableModes.length > 0 ? availableModes : [...defaultDashboardSideMenuConfig.availableModes]
     const requestedPrimaryMode = source?.primaryMode
     const primaryMode =
-        requestedPrimaryMode && nextAvailableModes.includes(requestedPrimaryMode)
-            ? requestedPrimaryMode
+        typeof requestedPrimaryMode === 'string' && nextAvailableModes.includes(requestedPrimaryMode as DashboardSideMenuMode)
+            ? (requestedPrimaryMode as DashboardSideMenuMode)
             : defaultDashboardSideMenuConfig.primaryMode
     return {
         availableModes: nextAvailableModes,
@@ -37,6 +37,6 @@ export const normalizeSideMenuConfig = (
 }
 
 export const applySideMenuPatch = (
-    current: MenuWidgetConfig['sideMenu'] | null | undefined,
-    patch: Partial<NonNullable<MenuWidgetConfig['sideMenu']>>
-): NonNullable<MenuWidgetConfig['sideMenu']> => normalizeSideMenuConfig({ ...normalizeSideMenuConfig(current), ...patch })
+    current: DashboardSideMenuConfig | null | undefined,
+    patch: Partial<DashboardSideMenuConfig>
+): DashboardSideMenuConfig => normalizeSideMenuConfig({ ...normalizeSideMenuConfig(current), ...patch })

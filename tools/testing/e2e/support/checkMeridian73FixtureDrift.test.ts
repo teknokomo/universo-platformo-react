@@ -53,7 +53,7 @@ test('rejects semantic layout drift after the snapshot hash is refreshed', () =>
         const generatedFixture = structuredClone(trackedFixture) as FixtureRecord
         const snapshot = generatedFixture.snapshot as FixtureRecord
         const widgets = snapshot.layoutZoneWidgets as FixtureRecord[]
-        const footerWidget = widgets.find((widget) => (widget.config as FixtureRecord | undefined)?.instanceKey === 'footer')
+        const footerWidget = widgets.find((widget) => widget.instanceKey === 'footer')
         assert.ok(footerWidget, 'fixture must contain the marketing footer widget')
         footerWidget.sortOrder = Number(footerWidget.sortOrder ?? 0) + 1
         generatedFixture.snapshotHash = computeSnapshotHash(snapshot)

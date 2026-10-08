@@ -68,7 +68,8 @@ import { enrichDefinitionsWithValueGroupFixedValues } from '../../shared/valueGr
 import {
     alignPlayCanvasRuntimeManifestBindings,
     attachLayoutsToSnapshot,
-    collectPlayCanvasRuntimeManifestProjectIds
+    collectPlayCanvasRuntimeManifestProjectIds,
+    validateSnapshotWidgetPlacements
 } from '../../shared/snapshotLayouts'
 import { createLogger } from '../../../utils/logger'
 
@@ -1588,7 +1589,9 @@ export function createPublicationsController(getDbExecutor: () => DbExecutor) {
                 // pointer. An invalid snapshot must leave the previous active
                 // version untouched.
                 validateSnapshotLayoutIdentities(versionToActivate.snapshotJson)
-                validateMarketingSnapshotLayouts(versionToActivate.snapshotJson as unknown as MetahubSnapshot)
+                const snapshot = versionToActivate.snapshotJson as unknown as MetahubSnapshot
+                validateSnapshotWidgetPlacements(snapshot)
+                validateMarketingSnapshotLayouts(snapshot)
 
                 await deactivatePublicationVersions(tx, publicationId)
                 await activatePublicationVersion(tx, versionId)
@@ -1734,8 +1737,10 @@ export function createPublicationsController(getDbExecutor: () => DbExecutor) {
         }
 
         try {
-            validatePublicationSnapshotLayoutIdentities(importedSnapshot as unknown as MetahubSnapshot)
-            validateMarketingSnapshotLayouts(importedSnapshot as unknown as MetahubSnapshot)
+            const snapshot = importedSnapshot as unknown as MetahubSnapshot
+            validatePublicationSnapshotLayoutIdentities(snapshot)
+            validateSnapshotWidgetPlacements(snapshot)
+            validateMarketingSnapshotLayouts(snapshot)
         } catch (error) {
             if (error instanceof MetahubValidationError) {
                 return res.status(400).json({ error: 'Invalid marketing layout snapshot', code: 'INVALID_MARKETING_LAYOUT_SNAPSHOT' })

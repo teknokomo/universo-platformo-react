@@ -15,6 +15,7 @@
         "deleting": "Удаление...",
         "noFields": "Нет настроенных полей для этого объекта.",
         "actions": "Действия",
+        "targetActionUnavailable": "Действие недоступно для этой строки.",
         "rowActionsFor": "Действия для {{name}}",
         "edit": "Редактировать",
         "copy": "Копировать",
@@ -23,6 +24,12 @@
         "emptyOption": "Пусто",
         "createTargetMenu": "Создать контент",
         "createTargetFallback": "Запись",
+        "createContextUnavailable": "Доступ к содержимому недоступен. Перезагрузите приложение и попробуйте снова.",
+        "createMemberRequired": "Создавать содержимое могут участники приложения.",
+        "createPermissionRequired": "У вас нет разрешения на создание содержимого.",
+        "createWorkflowUnavailable": "В этом приложении не настроен сценарий создания содержимого.",
+        "createTargetDisabled": "Действие отключено настройками содержимого.",
+        "createTargetSourceCreationDisabled": "Создание записей этого типа отключено в настройках приложения.",
         "createTargetResourceTypeDisabled": "{{type}} отключен в настройках приложения.",
         "createTargetResourceTypeDeferred": "{{type}} запланирован для следующего этапа.",
         "star": "Добавить в избранное",
@@ -54,6 +61,9 @@
         "workflowAction": "Выполнить действие",
         "workflowConfirmationTitle": "Подтвердите действие",
         "workflowConfirmationMessage": "Выполнить это действие?",
+        "rowActionsLoading": "Загрузка действий…",
+        "rowActionsUnavailable": "Действия для этой записи недоступны.",
+        "errorRuntimeRowVersionRequired": "Не удалось получить текущую версию записи. Перезагрузите её и попробуйте снова.",
         "confirm": "Подтвердить",
         "localSearchScope": "Поиск применяется только к уже загруженным строкам.",
         "reorderRequiresCompleteDataset": "Перестановка строк доступна только когда загружены все строки и очищен поиск.",
@@ -111,7 +121,13 @@
         "back": "Назад",
         "next": "Далее"
     },
+    "runtimeFieldLabel": {
+        "fallback": "Поле",
+        "selection": "Значение"
+    },
     "recordPicker": {
+        "fieldLabel": "Связанная запись",
+        "targetFieldUnavailable": "Настроенное поле целевого объекта недоступно.",
         "selectTargetObjectFirst": "Сначала выберите целевой объект.",
         "unsupportedTargetObject": "Этот целевой объект недоступен для выбора.",
         "loading": "Загрузка записей...",
@@ -209,9 +225,10 @@
         "targetNotFound": "Выбранная запись контента не найдена."
     },
     "validation": {
-        "vlcMinLength": "Язык \"{{locale}}\": минимальная длина {{min}}",
-        "vlcMaxLength": "Язык \"{{locale}}\": максимальная длина {{max}}",
-        "vlcLengthBetween": "Язык \"{{locale}}\": длина должна быть от {{min}} до {{max}}",
+        "languages": { "en": "английский", "ru": "русский" },
+        "vlcMinLength": "Введите не менее {{min}} символов в переводе на {{language}} язык.",
+        "vlcMaxLength": "Введите не более {{max}} символов в переводе на {{language}} язык.",
+        "vlcLengthBetween": "Введите от {{min}} до {{max}} символов в переводе на {{language}} язык.",
         "lengthBetween": "Длина должна быть от {{min}} до {{max}}",
         "minLength": "Минимальная длина: {{min}}",
         "maxLength": "Максимальная длина: {{max}}",
@@ -263,6 +280,55 @@
         "exportError": "Ошибка экспорта: {{message}}",
         "exportGenericError": "Не удалось экспортировать отчёт.",
         "exportUnsupported": "Скачивание CSV не поддерживается в этом браузере."
+    },
+    "dashboard": {
+        "empty": "Содержимое дашборда пока недоступно.",
+        "widget": {
+            "loading": "Загрузка содержимого виджета",
+            "requiredMissing": "Обязательный источник содержимого недоступен.",
+            "staleSource": "Этот источник содержимого больше недоступен.",
+            "permissionDenied": "У вас нет доступа к этому содержимому.",
+            "malformedConfig": "Настройки виджета некорректны.",
+            "networkError": "Не удалось подключиться к службе содержимого.",
+            "serverError": "Служба содержимого не смогла выполнить запрос.",
+            "empty": "Подходящее содержимое не найдено.",
+            "emptyValue": "—",
+            "resolvedSource": "Из выбранного источника",
+            "chartTitle": {
+                "sessions": "Сессии",
+                "pageViews": "Просмотры страниц"
+            },
+            "interval": {
+                "hour": "Почасовые точки",
+                "day": "Дневные точки",
+                "week": "Недельные точки",
+                "month": "Месячные точки",
+                "quarter": "Квартальные точки"
+            },
+            "relationParents": "Связанные записи",
+            "learningItems": "Учебные материалы",
+            "sequenceLocked": "Следующий учебный материал пока недоступен.",
+            "completed": "Завершено",
+            "complete": "Завершить",
+            "previewUnavailable": "Для этого учебного материала пока нет доступного предпросмотра.",
+            "progress": "Выполнено: {{percent}}%",
+            "tab": "Раздел",
+            "datePicker": {
+                "start": "Дата начала",
+                "end": "Дата окончания",
+                "today": "Сегодня",
+                "lastSevenDays": "Последние 7 дней"
+            },
+            "footer": {
+                "legal": "Правовые ссылки",
+                "contact": "Контакты"
+            },
+            "trend": {
+                "up": "Рост",
+                "down": "Снижение",
+                "neutral": "Нет данных о динамике"
+            }
+        }
     },
     "workspace": {
         "title": "Рабочие пространства",
@@ -433,6 +499,9 @@
     "runtime": {
         "retry": "Повторить",
         "loading": "Загрузка приложения",
+        "wizard": {
+            "step": "Шаг {{number}}"
+        },
         "loadError": "Не удалось загрузить приложение.",
         "invalidTarget": "Целевой runtime-объект в URL имеет недопустимый формат.",
         "layoutErrors": {
@@ -454,6 +523,7 @@
             "dashboard": "Дашборд",
             "home": "Главная"
         },
+        "preferences": "Настройки",
         "user": "Пользователь",
         "details": "Детали",
         "overview": "Обзор",
@@ -483,15 +553,18 @@
         "targetActionUpdateError": "Не удалось обновить запись.",
         "targetActionUntitled": "Цель без названия",
         "targetActionSubmit": "Применить",
+        "loadedRowsSummary": "Загружено {{loaded}} из {{total}} записей.",
         "shareTitle": "Поделиться",
         "shareTargetLabel": "Участник рабочего пространства",
         "shareLoading": "Загружаем участников рабочего пространства...",
         "shareEmpty": "Участники рабочего пространства не найдены.",
         "shareHelp": "Выберите, кому открыть доступ к этому элементу.",
+        "shareManageHelp": "Выберите участника рабочего пространства, затем откройте или уберите его доступ.",
         "shareError": "Не удалось загрузить участников рабочего пространства.",
         "shareUpdateError": "Не удалось обновить доступ.",
         "shareUntitledMember": "Участник рабочего пространства",
         "shareSubmit": "Поделиться",
+        "unshareSubmit": "Убрать доступ",
         "menu": {
             "changeMode": "Сменить режим бокового меню: {{mode}}",
             "enableCompactMenu": "Включить компактное меню",
@@ -576,24 +649,24 @@
             }
         },
         "realtime": {
-            "connecting": "Подключение realtime",
-            "connected": "Realtime подключён",
-            "reconnecting": "Переподключение realtime",
-            "restored": "Realtime восстановлен",
-            "failed_reconnect": "Не удалось переподключить realtime",
-            "disconnected": "Realtime отключён",
-            "unauthorized": "Realtime недоступен",
-            "unavailable": "Realtime недоступен",
-            "room_full": "Realtime-комната заполнена",
-            "version_mismatch": "Несовместимая версия realtime",
-            "disconnectedDescription": "Realtime-управление не подключено.",
-            "reconnectingDescription": "Realtime-управление переподключается.",
-            "restoredDescription": "Realtime-управление восстановлено.",
-            "failedReconnectDescription": "Не удалось переподключить realtime-управление.",
-            "unauthorizedDescription": "Realtime-управление недоступно для вашей учётной записи.",
-            "unavailableDescription": "Realtime-управление недоступно для этого приложения.",
-            "roomFullDescription": "Realtime-комната заполнена. Попробуйте позже.",
-            "versionMismatchDescription": "Версия realtime несовместима. Перезагрузите приложение."
+            "connecting": "Подключение…",
+            "connected": "Подключено",
+            "reconnecting": "Повторное подключение…",
+            "restored": "Соединение восстановлено",
+            "failed_reconnect": "Не удалось восстановить соединение",
+            "disconnected": "Соединение прервано",
+            "unauthorized": "Нет доступа",
+            "unavailable": "Недоступно",
+            "room_full": "Все места в комнате заняты",
+            "version_mismatch": "Версии не совпадают",
+            "disconnectedDescription": "Управление движением недоступно без подключения.",
+            "reconnectingDescription": "Восстанавливаем подключение к управлению движением.",
+            "restoredDescription": "Подключение к управлению движением восстановлено.",
+            "failedReconnectDescription": "Не удалось восстановить подключение к управлению движением.",
+            "unauthorizedDescription": "Управление в реальном времени недоступно для вашей учётной записи.",
+            "unavailableDescription": "Управление движением недоступно в этом приложении.",
+            "roomFullDescription": "В комнате нет свободных мест. Попробуйте позже.",
+            "versionMismatchDescription": "Версия приложения изменилась. Перезагрузите приложение."
         },
         "webglUnavailable": "3D-рендеринг недоступен на этом устройстве или в браузере."
     },
@@ -698,6 +771,8 @@
     },
     "errors": {
         "recordKeyDuplicate": "Запись с таким же значением уже существует. Измените дублирующееся значение и повторите попытку.",
-        "recordPatternMismatch": "Значение не соответствует требуемому формату поля. Проверьте значение и повторите попытку."
+        "recordPatternMismatch": "Значение не соответствует требуемому формату поля. Проверьте значение и повторите попытку.",
+        "relationScopeRequired": "Чтобы безопасно изменить связь, откройте запись из списка связанных записей.",
+        "recordVersionConflict": "Запись изменилась после открытия. Обновите её и повторите попытку."
     }
 }

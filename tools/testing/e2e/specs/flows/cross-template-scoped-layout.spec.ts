@@ -18,6 +18,8 @@ import {
     watchBrowserRuntimeIssues
 } from '../../support/browser/runtimeUx'
 import {
+    assignLayoutZoneWidget,
+    createLayout as createMetahubLayout,
     createApplicationLayout,
     createLoggedInApiContext,
     createMetahub,
@@ -25,12 +27,15 @@ import {
     createPublicationLinkedApplication,
     createApplicationWorkspace,
     disposeApiContext,
+    getLayout,
+    getLayoutZoneWidgetBindings,
     getApplication,
     getApplicationEffectiveLayout,
     getApplicationLayout,
     listApplicationLayoutScopes,
     listApplicationLayouts,
     listApplicationLayoutWidgets,
+    listLayoutZoneWidgets,
     listApplicationWorkspaces,
     listEntityInstances,
     setApplicationPublicEntryWorkspace,
@@ -48,6 +53,7 @@ type LayoutRecord = {
     version: number
     templateKey: 'dashboard' | 'marketing-page'
     scopeEntityId?: string | null
+    sourceLayoutId?: string | null
     name?: unknown
     description?: unknown
     isDefault?: boolean
@@ -57,9 +63,14 @@ type LayoutWidget = {
     id?: string
     widgetKey?: string
     zone?: string
+    instanceKey?: string
+    parentInstanceKey?: string | null
+    parentWidgetId?: string | null
+    slotKey?: string | null
     sortOrder?: number
     config?: unknown
     placement?: 'start' | 'end'
+    sourceWidgetId?: string | null
 }
 
 const readLayoutWidgetPlacement = (widget: LayoutWidget | undefined): 'start' | 'end' | undefined => {
@@ -101,8 +112,18 @@ type RuntimeFixture = {
     metahubId: string
     globalLayout: LayoutRecord
     sourceWidgets: LayoutWidget[]
+    dashboardLayouts: LayoutRecord[]
+    dashboardSourcePlacements: DashboardSourcePlacement[]
     objectScope: Required<Pick<LayoutScope, 'id' | 'name' | 'scopeEntityId'>> & LayoutScope
     pageScope: Required<Pick<LayoutScope, 'id' | 'name' | 'scopeEntityId'>> & LayoutScope
+}
+
+type DashboardSourcePlacement = {
+    sourceLayoutId: string
+    sourceWidgetIds: string[]
+    containerWidgetId: string
+    childWidgetId: string
+    childSlotKey: string
 }
 
 type RuntimeTarget = {
@@ -149,6 +170,154 @@ const createRuntimeFixture = async (runManifest: {
     })
     if (typeof metahub?.id !== 'string') throw new Error('Scoped-layout metahub creation did not return an id')
     await recordCreatedMetahub({ id: metahub.id, name: metahubName, codename: metahubCodename })
+
+    const [sourceDashboardObjects, sourceDashboardPages] = await Promise.all([
+        listEntityInstances(api, metahub.id, { kind: 'object', limit: 200, offset: 0 }),
+        listEntityInstances(api, metahub.id, { kind: 'page', limit: 200, offset: 0 })
+    ])
+    const sourceDashboardObject = sourceDashboardObjects.items.find(
+        (item: { kind?: string; codename?: unknown }) =>
+            item.kind === 'object' && readLocalizedText(item.codename) === 'MarketingPageSiteSettings'
+    )
+    const sourceDashboardPage = sourceDashboardPages.items[0]
+    const sourceDashboardObjectId = sourceDashboardObject?.id
+    const sourceDashboardPageId = sourceDashboardPage?.id
+    if (typeof sourceDashboardObjectId !== 'string' || typeof sourceDashboardPageId !== 'string') {
+        throw new Error('Scoped-layout fixture did not create both Dashboard scope Entities')
+    }
+    // Required table sources are authored in Metahub and published, never copied into Application config.
+    const sourceDashboardLayoutIds: string[] = []
+    const dashboardSourcePlacements: DashboardSourcePlacement[] = []
+    for (const scopeEntityId of [undefined, sourceDashboardObjectId, sourceDashboardPageId]) {
+        const sourceDashboard = await createMetahubLayout(api, metahub.id, {
+            templateKey: 'dashboard',
+            ...(scopeEntityId ? { scopeEntityId } : {}),
+            name: { en: `Published dashboard ${runManifest.runId}` },
+            namePrimaryLocale: 'en',
+            isActive: true,
+            isDefault: false
+        })
+        expect(sourceDashboard.id).toEqual(expect.any(String))
+        expect(sourceDashboard.version).toEqual(expect.any(Number))
+        sourceDashboardLayoutIds.push(sourceDashboard.id)
+        const currentSourceDashboard = await getLayout(api, metahub.id, sourceDashboard.id)
+        if (!Number.isInteger(currentSourceDashboard?.version) || currentSourceDashboard.version < 1) {
+            throw new Error('Scoped Dashboard layout did not return a current optimistic-lock version')
+        }
+        await assignLayoutZoneWidget(api, metahub.id, sourceDashboard.id, {
+            widgetKey: 'columnsContainer',
+            zone: 'center',
+            sortOrder: 2,
+            expectedVersion: currentSourceDashboard.version,
+            config: { columns: [{ slotKey: 'column:main', width: 12 }] }
+        })
+
+        const sourceContainerResponse = await listLayoutZoneWidgets(api, metahub.id, sourceDashboard.id)
+        const sourceContainer = (sourceContainerResponse?.items ?? []).find(
+            (widget: LayoutWidget) => widget.widgetKey === 'columnsContainer' && widget.parentInstanceKey == null
+        ) as LayoutWidget | undefined
+        if (typeof sourceContainer?.instanceKey !== 'string' || typeof sourceContainer.id !== 'string') {
+            throw new Error('Scoped Dashboard source did not persist its root columns container')
+        }
+
+        const latestSourceDashboard = await getLayout(api, metahub.id, sourceDashboard.id)
+        if (!Number.isInteger(latestSourceDashboard?.version) || latestSourceDashboard.version < 1) {
+            throw new Error('Scoped Dashboard layout did not return a current version before child widget authoring')
+        }
+        await assignLayoutZoneWidget(api, metahub.id, sourceDashboard.id, {
+            widgetKey: 'detailsTable',
+            zone: 'center',
+            sortOrder: 1,
+            parentInstanceKey: sourceContainer.instanceKey,
+            slotKey: 'column:main',
+            expectedVersion: latestSourceDashboard.version,
+            config: {
+                variant: 'records',
+                __layout: {
+                    bindings: {
+                        version: 1,
+                        slots: [
+                            {
+                                slot: 'rows',
+                                targets: [
+                                    {
+                                        entityKind: 'object',
+                                        entityCodename: 'MarketingPageFeature',
+                                        selector: { kind: 'record-set' },
+                                        projection: []
+                                    }
+                                ]
+                            }
+                        ]
+                    }
+                }
+            }
+        })
+        for (const hostWidget of [
+            { widgetKey: 'appNavbar', zone: 'top', sortOrder: 1, config: {} },
+            { widgetKey: 'menuWidget', zone: 'left', sortOrder: 1, config: { variant: 'generated' } },
+            { widgetKey: 'languageSwitcher', zone: 'top', sortOrder: 2, config: {} }
+        ]) {
+            const latestSourceDashboard = await getLayout(api, metahub.id, sourceDashboard.id)
+            if (!Number.isInteger(latestSourceDashboard?.version) || latestSourceDashboard.version < 1) {
+                throw new Error('Scoped Dashboard layout did not return a current version before source widget authoring')
+            }
+            await assignLayoutZoneWidget(api, metahub.id, sourceDashboard.id, {
+                ...hostWidget,
+                expectedVersion: latestSourceDashboard.version
+            })
+        }
+
+        const sourceDashboardWidgetsResponse = await listLayoutZoneWidgets(api, metahub.id, sourceDashboard.id)
+        const sourceDashboardWidgets = (sourceDashboardWidgetsResponse?.items ?? []) as LayoutWidget[]
+        const persistedContainer = sourceDashboardWidgets.find((widget) => widget.id === sourceContainer.id)
+        const persistedChild = sourceDashboardWidgets.find(
+            (widget) =>
+                widget.widgetKey === 'detailsTable' &&
+                widget.parentInstanceKey === sourceContainer.instanceKey &&
+                widget.slotKey === 'column:main'
+        )
+        if (typeof persistedChild?.id !== 'string' || typeof persistedChild.slotKey !== 'string') {
+            throw new Error('Scoped Dashboard source did not persist its bound details table in the container slot')
+        }
+        expect(persistedContainer).toMatchObject({
+            widgetKey: 'columnsContainer',
+            parentInstanceKey: null,
+            slotKey: null
+        })
+        expect(persistedChild).toMatchObject({
+            parentInstanceKey: sourceContainer.instanceKey,
+            slotKey: 'column:main'
+        })
+        expect(persistedChild.config).toMatchObject({ variant: 'records' })
+        const persistedChildBindings = await getLayoutZoneWidgetBindings(api, metahub.id, sourceDashboard.id, persistedChild.id, 'en')
+        expect(persistedChildBindings.bindings).toEqual(
+            expect.arrayContaining([
+                expect.objectContaining({
+                    slot: 'rows',
+                    sourceKey: 'MarketingPageFeature',
+                    selectorKind: 'record-set'
+                })
+            ])
+        )
+        expect(sourceDashboardWidgets.map((widget) => widget.widgetKey).sort()).toEqual(
+            ['appNavbar', 'columnsContainer', 'detailsTable', 'languageSwitcher', 'menuWidget'].sort()
+        )
+        const sourceWidgetIds = sourceDashboardWidgets.map((widget) => {
+            if (typeof widget.id !== 'string') {
+                throw new Error('Scoped Dashboard source placement did not expose every source widget id')
+            }
+            return widget.id
+        })
+        expect(new Set(sourceWidgetIds).size).toBe(sourceWidgetIds.length)
+        dashboardSourcePlacements.push({
+            sourceLayoutId: sourceDashboard.id,
+            sourceWidgetIds,
+            containerWidgetId: sourceContainer.id,
+            childWidgetId: persistedChild.id,
+            childSlotKey: persistedChild.slotKey ?? 'column:main'
+        })
+    }
 
     const publication = await createPublication(api, metahub.id, {
         name: { en: `E2E ${runManifest.runId} scoped-layout publication` },
@@ -226,7 +395,8 @@ const createRuntimeFixture = async (runManifest: {
             scope.scopeKind === 'entity' &&
             typeof scope.id === 'string' &&
             typeof scope.scopeEntityId === 'string' &&
-            scope.kind?.toLowerCase() === 'page'
+            scope.kind?.toLowerCase() === 'page' &&
+            scope.scopeEntityId === sourceDashboardPage.id
     )
     if (!objectScope?.id || !objectScope.scopeEntityId) {
         throw new Error('The scoped-layout application did not expose the Marketing site settings Object target')
@@ -249,12 +419,19 @@ const createRuntimeFixture = async (runManifest: {
     ) as LayoutWidget[]
     if (sourceWidgets.length === 0) throw new Error('The scoped-layout application did not expose marketing source widgets')
 
+    const dashboardLayouts = (layoutResponse.items ?? []).filter((layout: LayoutRecord) =>
+        sourceDashboardLayoutIds.includes(layout.sourceLayoutId ?? '')
+    ) as LayoutRecord[]
+    expect(dashboardLayouts).toHaveLength(dashboardSourcePlacements.length)
+
     return {
         api,
         applicationId,
         metahubId: metahub.id,
         globalLayout,
         sourceWidgets,
+        dashboardLayouts,
+        dashboardSourcePlacements,
         objectScope: {
             ...objectScope,
             name: objectScope.name ?? 'Marketing site settings'
@@ -264,32 +441,6 @@ const createRuntimeFixture = async (runManifest: {
             name: pageScope.name ?? 'Page'
         } as RuntimeFixture['pageScope']
     }
-}
-
-const addWidget = async (api: ApiContext, applicationId: string, layoutId: string, payload: Omit<LayoutWidget, 'id'>): Promise<void> => {
-    await expect
-        .poll(
-            async () => {
-                const detail = await getApplicationLayout(api, applicationId, layoutId)
-                const version = detail?.item?.version
-                if (!Number.isInteger(version) || version < 1) {
-                    throw new Error(`Layout ${layoutId} did not expose a writable version`)
-                }
-
-                try {
-                    await upsertApplicationLayoutWidget(api, applicationId, layoutId, {
-                        ...payload,
-                        expectedVersion: version
-                    })
-                    return true
-                } catch (error) {
-                    if (error instanceof Error && error.message.includes('APPLICATION_LAYOUT_VERSION_CONFLICT')) return false
-                    throw error
-                }
-            },
-            { timeout: 30_000 }
-        )
-        .toBe(true)
 }
 
 const expectApplicationEntityBindingWriteDenied = async (
@@ -322,37 +473,61 @@ const expectSourceWidgetBindingsRemainMetahubOwned = async (fixture: RuntimeFixt
     expect(persisted?.items ?? []).toHaveLength(0)
 }
 
-const addDashboardWidgets = async (fixture: RuntimeFixture, layoutId: string): Promise<void> => {
-    await addWidget(fixture.api, fixture.applicationId, layoutId, {
-        widgetKey: 'appNavbar',
-        zone: 'top',
-        sortOrder: 0,
-        config: {}
+const assertDashboardWidgetsMaterialized = async (fixture: RuntimeFixture, layoutId: string): Promise<void> => {
+    const widgets = await listApplicationLayoutWidgets(fixture.api, fixture.applicationId, layoutId)
+    const applicationWidgets = (widgets.items ?? []) as LayoutWidget[]
+    expect(applicationWidgets.map((widget) => widget.widgetKey)).toEqual(
+        expect.arrayContaining(['appNavbar', 'menuWidget', 'languageSwitcher', 'detailsTable'])
+    )
+    for (const widget of applicationWidgets.filter(
+        (item) => typeof item.widgetKey === 'string' && ['appNavbar', 'menuWidget', 'languageSwitcher'].includes(item.widgetKey)
+    )) {
+        expect(widget.sourceWidgetId).toEqual(expect.any(String))
+    }
+    const applicationLayout = fixture.dashboardLayouts.find((layout) => layout.id === layoutId)
+    const sourcePlacement = fixture.dashboardSourcePlacements.find(
+        (placement) => placement.sourceLayoutId === applicationLayout?.sourceLayoutId
+    )
+    if (!applicationLayout?.sourceLayoutId || !sourcePlacement) {
+        throw new Error(`Application Dashboard layout ${layoutId} did not retain its published source layout lineage`)
+    }
+    const sourceLinkedWidgets = applicationWidgets.filter(
+        (widget) => typeof widget.sourceWidgetId === 'string' && sourcePlacement.sourceWidgetIds.includes(widget.sourceWidgetId)
+    )
+    expect(sourceLinkedWidgets).toHaveLength(sourcePlacement.sourceWidgetIds.length)
+    expect(sourceLinkedWidgets.map((widget) => widget.sourceWidgetId).sort()).toEqual([...sourcePlacement.sourceWidgetIds].sort())
+
+    const materializedForSource = (sourceWidgetId: string): LayoutWidget => {
+        const matches = sourceLinkedWidgets.filter((widget) => widget.sourceWidgetId === sourceWidgetId)
+        expect(matches, `source widget ${sourceWidgetId} should materialize exactly once`).toHaveLength(1)
+        expect(matches[0].id).toEqual(expect.any(String))
+        return matches[0]
+    }
+    const materializedContainer = materializedForSource(sourcePlacement.containerWidgetId)
+    const materializedChild = materializedForSource(sourcePlacement.childWidgetId)
+    expect(materializedContainer).toMatchObject({
+        sourceWidgetId: sourcePlacement.containerWidgetId,
+        parentWidgetId: null,
+        slotKey: null
     })
-    await addWidget(fixture.api, fixture.applicationId, layoutId, {
-        widgetKey: 'menuWidget',
-        zone: 'left',
-        sortOrder: 0,
-        config: { autoShowAllSections: true, showTitle: false, items: [] }
+    expect(materializedChild).toMatchObject({
+        sourceWidgetId: sourcePlacement.childWidgetId,
+        parentWidgetId: materializedContainer.id,
+        slotKey: sourcePlacement.childSlotKey
     })
-    await addWidget(fixture.api, fixture.applicationId, layoutId, {
-        widgetKey: 'languageSwitcher',
-        zone: 'top',
-        sortOrder: 1,
-        config: {}
-    })
-    await addWidget(fixture.api, fixture.applicationId, layoutId, {
+    await expectApplicationEntityBindingWriteDenied(fixture.api, fixture.applicationId, layoutId, {
         widgetKey: 'detailsTitle',
         zone: 'center',
         sortOrder: 1,
         config: {}
     })
-    await addWidget(fixture.api, fixture.applicationId, layoutId, {
+    await expectApplicationEntityBindingWriteDenied(fixture.api, fixture.applicationId, layoutId, {
         widgetKey: 'detailsTable',
         zone: 'center',
         sortOrder: 2,
         config: {}
     })
+    expect(applicationWidgets.filter((widget) => widget.widgetKey === 'detailsTable')).toHaveLength(1)
 }
 
 const createLayout = async (
@@ -362,6 +537,18 @@ const createLayout = async (
     name: string,
     isDefault: boolean
 ): Promise<LayoutRecord> => {
+    if (templateKey === 'dashboard') {
+        const published = fixture.dashboardLayouts.filter((layout) => layout.scopeEntityId === scopeEntityId)
+        expect(published).toHaveLength(1)
+        const detail = await getApplicationLayout(fixture.api, fixture.applicationId, published[0].id)
+        const updated = await updateApplicationLayout(fixture.api, fixture.applicationId, published[0].id, {
+            name: { en: name, ru: name },
+            isActive: true,
+            isDefault,
+            expectedVersion: detail.item.version
+        })
+        return readLayoutItem(updated)
+    }
     const response = await createApplicationLayout(fixture.api, fixture.applicationId, {
         templateKey,
         scopeEntityId,
@@ -569,7 +756,7 @@ test('@flow @combined @cross-template @scoped-layout covers Page/Object preceden
 
     try {
         const globalDashboard = await createLayout(fixture, 'dashboard', null, `Global dashboard ${runManifest.runId}`, true)
-        await addDashboardWidgets(fixture, globalDashboard.id)
+        await assertDashboardWidgetsMaterialized(fixture, globalDashboard.id)
 
         const pageMarketing = await createLayout(
             fixture,
@@ -664,7 +851,7 @@ test('@flow @combined @cross-template @scoped-layout covers Page/Object preceden
         expect(globalMarketing.id).toBe(fixture.globalLayout.id)
         expect(globalMarketing.isDefault).toBe(true)
         const pageDashboard = await createLayout(fixture, 'dashboard', pageTarget.entityTypeId, `Page dashboard ${runManifest.runId}`, true)
-        await addDashboardWidgets(fixture, pageDashboard.id)
+        await assertDashboardWidgetsMaterialized(fixture, pageDashboard.id)
         const objectDashboard = await createLayout(
             fixture,
             'dashboard',
@@ -672,7 +859,7 @@ test('@flow @combined @cross-template @scoped-layout covers Page/Object preceden
             `Object dashboard ${runManifest.runId}`,
             true
         )
-        await addDashboardWidgets(fixture, objectDashboard.id)
+        await assertDashboardWidgetsMaterialized(fixture, objectDashboard.id)
 
         const directionTwoGlobal = await getApplicationEffectiveLayout(fixture.api, fixture.applicationId, {
             locale: 'en',
@@ -750,8 +937,10 @@ test('@flow @combined @cross-template @scoped-layout covers Page/Object preceden
             effectiveRequestKeys,
             marketingRequestKeys
         )
-        await expect(page.getByRole('button', { name: 'Создать', exact: true })).toBeVisible()
-        await expect(page.getByRole('heading', { name: 'Настройки маркетинговой страницы', exact: true })).toBeVisible()
+        // MarketingPageSiteSettings is a singleton Entity with runtime mutations denied.
+        await expect(page.getByTestId('application-runtime-create-row')).toHaveCount(0)
+        await expect(page.getByRole('heading', { name: 'Записи', exact: true })).toBeVisible()
+        await expect(page.getByRole('textbox', { name: 'Поиск записей', exact: true })).toBeVisible()
         await assertDashboardMobileDrawer(page, 'ru')
 
         expect([...effectiveRequestKeys]).toEqual(
@@ -981,6 +1170,10 @@ test('@flow @combined @cross-template @authoring covers localized layout CRUD, r
         await expectRuntimeUxViewportMatrix(page, 'Application layout card authoring responsive', {
             beforeEachViewport: async (viewport) => {
                 await expect(listSurface.getByText(updatedName, { exact: true })).toBeVisible()
+                const controlsBox = await page.getByTestId('view-header-controls-region').boundingBox()
+                const firstCardTitleBox = await listSurface.getByText(updatedName, { exact: true }).boundingBox()
+                if (!controlsBox || !firstCardTitleBox) throw new Error('Layout filters and first card must have visible geometry')
+                expect(firstCardTitleBox.y).toBeGreaterThanOrEqual(controlsBox.y + controlsBox.height - 1)
                 const description = listSurface.getByText(updatedDescriptionEn, { exact: true })
                 await expect(description).toBeVisible()
                 await expectDescriptionToWrap(description, `English layout description at ${viewport.name}`)
@@ -1010,6 +1203,10 @@ test('@flow @combined @cross-template @authoring covers localized layout CRUD, r
         await expectRuntimeUxViewportMatrix(page, 'Russian application layout card authoring responsive', {
             beforeEachViewport: async (viewport) => {
                 await expect(listSurface.getByText(updatedNameRu, { exact: true })).toBeVisible()
+                const controlsBox = await page.getByTestId('view-header-controls-region').boundingBox()
+                const firstCardTitleBox = await listSurface.getByText(updatedNameRu, { exact: true }).boundingBox()
+                if (!controlsBox || !firstCardTitleBox) throw new Error('Russian layout filters and first card must have visible geometry')
+                expect(firstCardTitleBox.y).toBeGreaterThanOrEqual(controlsBox.y + controlsBox.height - 1)
                 const description = listSurface.getByText(updatedDescriptionRu, { exact: true })
                 await expect(description).toBeVisible()
                 await expectDescriptionToWrap(description, `Russian layout description at ${viewport.name}`)

@@ -2,6 +2,7 @@ import {
     findEffectiveLayoutApplication,
     findEffectiveLayoutBaseWidgets,
     findEffectiveLayoutEntity,
+    findEffectiveLayoutHomePages,
     effectiveLayoutTablesExist,
     listEffectiveLayoutCandidates,
     listEffectiveLayoutWidgets
@@ -10,14 +11,18 @@ import {
     buildSingleTargetWidgetBinding,
     effectiveLayoutResultSchema,
     encodeLayoutWidgetConfigEnvelope,
-    LAYOUT_WIDGET_DEFINITIONS
+    getLayoutWidgetDefinition,
+    LAYOUT_WIDGET_DEFINITIONS,
+    validateWidgetBindings
 } from '@universo-react/types'
 import { resolveEffectiveLayoutForPublicTransaction, resolveEffectiveLayoutForRequest } from '../../services/effectiveLayoutResolver'
+import { resolveEffectiveLayoutStructureForRequest } from '../../services/effectiveLayoutResolverCore'
 import { EffectiveLayoutError } from '../../services/effectiveLayoutContract'
 import { createMockDbExecutor } from '../utils/dbMocks'
 import { resolveRuntimeWorkspaceAccess, setRuntimeWorkspaceContext } from '../../services/applicationWorkspaces'
-import { getApplicationLayoutWidgetSourceBindingState } from '../../persistence/applicationLayoutStoreSupport'
+import * as runtimeWidgetData from '../../services/effectiveWidgetRuntimeDataResolver'
 import { createApplicationLayoutWidgetSourceState } from '../../services/applicationLayoutWidgetSourceState'
+import { getApplicationLayoutWidgetSourceBindingState } from '../../persistence/applicationLayoutStoreSupport'
 
 jest.mock('../../services/applicationWorkspaces', () => ({
     __esModule: true,
@@ -30,6 +35,7 @@ jest.mock('../../persistence/effectiveLayoutStore', () => ({
     findEffectiveLayoutApplication: jest.fn(),
     findEffectiveLayoutBaseWidgets: jest.fn(),
     findEffectiveLayoutEntity: jest.fn(),
+    findEffectiveLayoutHomePages: jest.fn(),
     effectiveLayoutTablesExist: jest.fn(),
     listEffectiveLayoutCandidates: jest.fn(),
     listEffectiveLayoutWidgets: jest.fn()
@@ -38,6 +44,7 @@ jest.mock('../../persistence/effectiveLayoutStore', () => ({
 const mockFindApplication = findEffectiveLayoutApplication as jest.MockedFunction<typeof findEffectiveLayoutApplication>
 const mockFindBaseWidgets = findEffectiveLayoutBaseWidgets as jest.MockedFunction<typeof findEffectiveLayoutBaseWidgets>
 const mockFindEntity = findEffectiveLayoutEntity as jest.MockedFunction<typeof findEffectiveLayoutEntity>
+const mockFindHomePages = findEffectiveLayoutHomePages as jest.MockedFunction<typeof findEffectiveLayoutHomePages>
 const mockTablesExist = effectiveLayoutTablesExist as jest.MockedFunction<typeof effectiveLayoutTablesExist>
 const mockListCandidates = listEffectiveLayoutCandidates as jest.MockedFunction<typeof listEffectiveLayoutCandidates>
 const mockListWidgets = listEffectiveLayoutWidgets as jest.MockedFunction<typeof listEffectiveLayoutWidgets>
@@ -54,7 +61,23 @@ const publicationId = '0190a9b5-3cde-7abc-8def-0123456789b2'
 const publicationVersionId = '0190a9b5-3cde-7abc-8def-0123456789b3'
 const schemaName = 'app_018f8a787b8f7c1da111222233334444'
 const snapshotHash = 'a'.repeat(64)
-const { executor } = createMockDbExecutor()
+const { executor, txExecutor } = createMockDbExecutor()
+let hashBaseTemplateKey: 'dashboard' | 'marketing-page' = 'dashboard'
+
+const mockHashContextQuery = async (sql: string): Promise<unknown[]> => {
+    if (sql.includes('_app_objects')) return [{ kind: 'object', codename: 'Products' }]
+    if (sql.includes('_app_layouts')) {
+        return [
+            {
+                template_key: hashBaseTemplateKey,
+                scope_entity_id: null,
+                local_content_hash: snapshotHash,
+                source_content_hash: snapshotHash
+            }
+        ]
+    }
+    return []
+}
 
 const application = {
     id: applicationId,
@@ -120,6 +143,9 @@ const widgetRow = (overrides: Record<string, unknown> = {}) => {
         layout_id: globalLayoutId,
         zone: 'top',
         widget_key: 'header',
+        instance_key: 'widget-main',
+        parent_widget_id: null,
+        slot_key: null,
         sort_order: 0,
         config: {},
         source_config: null,
@@ -141,7 +167,10 @@ const widgetRow = (overrides: Record<string, unknown> = {}) => {
                     zone: String(row.zone),
                     sortOrder: Number(row.sort_order),
                     isActive: row.is_active === true,
-                    config: row.source_config
+                    config: row.source_config,
+                    instanceKey: String(row.instance_key),
+                    parentWidgetId: row.parent_widget_id === null ? null : String(row.parent_widget_id),
+                    slotKey: row.slot_key === null ? null : String(row.slot_key)
                 },
                 inheritsMarketingBindings ? { requireBindings: false, rejectBindings: true } : undefined
             )
@@ -172,7 +201,7 @@ const heroBinding = (semanticKey: string) =>
 const heroSourceConfig = (semanticKey: string) =>
     encodeLayoutWidgetConfigEnvelope(
         {
-            rendererConfig: { instanceKey: 'page-hero', showLeadForm: true },
+            rendererConfig: { showLeadForm: true },
             neutral: { bindings: heroBinding(semanticKey) }
         },
         { templateKey: 'marketing-page', widgetKey: 'marketing.hero', zone: 'marketing-main' }
@@ -180,14 +209,53 @@ const heroSourceConfig = (semanticKey: string) =>
 
 const heroOverlayConfig = (showLeadForm: boolean) =>
     encodeLayoutWidgetConfigEnvelope(
-        { rendererConfig: { instanceKey: 'page-hero', showLeadForm } },
+        { rendererConfig: { showLeadForm } },
         { templateKey: 'marketing-page', widgetKey: 'marketing.hero', zone: 'marketing-main' }
     )
 
+const relationBuilderConfig = () => {
+    const rendererConfig = {
+        panels: [
+            {
+                slotKey: 'panel:items',
+                title: { en: 'Items', ru: 'Элементы' },
+                parentFieldCodename: 'CourseId',
+                sortOrderFieldCodename: 'SortOrder',
+                enableRowReordering: true
+            }
+        ]
+    }
+    const definition = getLayoutWidgetDefinition('relationBuilder', rendererConfig)
+    if (!definition?.bindingSlots) throw new Error('Expected relationBuilder binding slots')
+    const bindings = validateWidgetBindings(definition, {
+        version: 1,
+        slots: definition.bindingSlots.map((slot) => ({
+            slot: slot.key,
+            targets: [
+                {
+                    entityKind: 'object',
+                    entityCodename: slot.key === 'parent' ? 'Courses' : 'CourseItems',
+                    selector: slot.key === 'parent' ? { kind: 'record-set' } : { kind: 'relation-set', parentSlot: 'parent' },
+                    projection: slot.requirements.components.map(({ field, componentCodename }) => ({ field, componentCodename }))
+                }
+            ]
+        }))
+    })
+
+    return encodeLayoutWidgetConfigEnvelope(
+        { rendererConfig, neutral: { bindings } },
+        { templateKey: 'dashboard', widgetKey: 'relationBuilder', zone: 'center' }
+    )
+}
+
 beforeEach(() => {
     jest.clearAllMocks()
+    hashBaseTemplateKey = 'dashboard'
+    executor.query.mockImplementation(mockHashContextQuery)
+    txExecutor.query.mockImplementation(mockHashContextQuery)
     mockFindApplication.mockResolvedValue(application as never)
     mockFindEntity.mockResolvedValue([{ id: entityId, kind: 'object', codename: 'Products' }])
+    mockFindHomePages.mockResolvedValue([])
     mockTablesExist.mockResolvedValue(true)
     mockFindBaseWidgets.mockResolvedValue([])
     mockResolveWorkspaceAccess.mockResolvedValue({
@@ -199,6 +267,126 @@ beforeEach(() => {
 })
 
 describe('effectiveLayoutResolver', () => {
+    it('resolves structural Dashboard layouts without loading widget runtime data', async () => {
+        const runtimeDataSpy = jest.spyOn(runtimeWidgetData, 'resolveEffectiveWidgetRuntimeData').mockResolvedValue(new Map())
+        mockListCandidates.mockResolvedValue([layoutRow()])
+        mockListWidgets.mockResolvedValue([widgetRow()])
+
+        const result = await resolveEffectiveLayoutStructureForRequest(
+            executor,
+            { applicationId, userId: 'member-user-id', role: 'member' },
+            resolverInput()
+        )
+
+        expect(result.widgets).toHaveLength(1)
+        expect(result.widgets[0]).not.toHaveProperty('runtimeData')
+        expect(runtimeDataSpy).not.toHaveBeenCalled()
+        runtimeDataSpy.mockRestore()
+    })
+
+    it('keeps validated relation bindings internal on an authenticated, role-scoped structure read', async () => {
+        const workspaceId = '0190a9b5-3cde-7abc-8def-0123456789d5'
+        const runtimeDataSpy = jest.spyOn(runtimeWidgetData, 'resolveEffectiveWidgetRuntimeData').mockResolvedValue(new Map())
+        mockFindApplication.mockResolvedValue({ ...application, workspacesEnabled: true } as never)
+        mockResolveWorkspaceAccess.mockResolvedValue({
+            membershipState: 'joined' as never,
+            defaultWorkspaceId: workspaceId,
+            allowedWorkspaceIds: [workspaceId]
+        })
+        mockListCandidates.mockResolvedValue([layoutRow()])
+        mockListWidgets.mockResolvedValue([
+            widgetRow({ zone: 'center', widget_key: 'relationBuilder', instance_key: 'course-items', config: relationBuilderConfig() })
+        ])
+
+        const result = await resolveEffectiveLayoutStructureForRequest(
+            executor,
+            { applicationId, userId: 'member-user-id', role: 'member' },
+            { ...resolverInput(), workspaceId }
+        )
+
+        expect(getApplicationLayoutWidgetSourceBindingState(result.widgets[0])?.bindings).toEqual(
+            expect.objectContaining({ version: 1, slots: expect.any(Array) })
+        )
+        expect(Object.keys(result.widgets[0]!)).not.toContain('bindings')
+        expect(JSON.stringify(result)).not.toContain('bindings')
+        expect(result.widgets[0]).not.toHaveProperty('runtimeData')
+        expect(runtimeDataSpy).not.toHaveBeenCalled()
+        expect(mockFindEntity).toHaveBeenCalledWith(
+            expect.anything(),
+            schemaName,
+            'object',
+            { kind: 'id', value: entityId },
+            'authenticated'
+        )
+        expect(mockListCandidates).toHaveBeenCalledWith(expect.anything(), schemaName, entityId, 'authenticated')
+        expect(mockListWidgets).toHaveBeenCalledWith(expect.anything(), schemaName, globalLayoutId, 'authenticated')
+        expect(mockResolveWorkspaceAccess).toHaveBeenCalledWith(
+            expect.anything(),
+            expect.objectContaining({ userId: 'member-user-id', allowUnassigned: false })
+        )
+        expect(mockSetWorkspaceContext).toHaveBeenCalledWith(expect.anything(), workspaceId)
+        expect(txExecutor.query.mock.calls.every(([sql]) => !sql.includes(`FROM "${schemaName}"."products"`))).toBe(true)
+        runtimeDataSpy.mockRestore()
+    })
+
+    it('passes authenticated user identity and effective role permissions to Dashboard widget reads', async () => {
+        const runtimeDataSpy = jest.spyOn(runtimeWidgetData, 'resolveEffectiveWidgetRuntimeData').mockResolvedValue(new Map())
+        mockListCandidates.mockResolvedValue([layoutRow()])
+        mockListWidgets.mockResolvedValue([widgetRow()])
+
+        await resolveEffectiveLayoutForRequest(executor, { applicationId, userId: 'member-user-id', role: 'member' }, resolverInput())
+
+        expect(runtimeDataSpy).toHaveBeenCalledWith(
+            expect.anything(),
+            expect.objectContaining({
+                schemaName,
+                workspaceId: null,
+                workspacesEnabled: false,
+                currentUserId: 'member-user-id',
+                permissions: {
+                    manageMembers: false,
+                    manageApplication: false,
+                    createContent: false,
+                    editContent: false,
+                    deleteContent: false,
+                    readReports: false
+                }
+            }),
+            expect.any(Array),
+            'en'
+        )
+        runtimeDataSpy.mockRestore()
+    })
+
+    it('passes an explicit anonymous deny context to public Dashboard widget reads', async () => {
+        const runtimeDataSpy = jest.spyOn(runtimeWidgetData, 'resolveEffectiveWidgetRuntimeData').mockResolvedValue(new Map())
+        mockListCandidates.mockResolvedValue([layoutRow()])
+        mockListWidgets.mockResolvedValue([widgetRow()])
+
+        await resolveEffectiveLayoutForPublicTransaction(executor, resolverInput(), null)
+
+        expect(runtimeDataSpy).toHaveBeenCalledWith(
+            expect.anything(),
+            expect.objectContaining({
+                schemaName,
+                workspaceId: null,
+                workspacesEnabled: false,
+                currentUserId: null,
+                permissions: {
+                    manageMembers: false,
+                    manageApplication: false,
+                    createContent: false,
+                    editContent: false,
+                    deleteContent: false,
+                    readReports: false
+                }
+            }),
+            expect.any(Array),
+            'en'
+        )
+        runtimeDataSpy.mockRestore()
+    })
+
     it('establishes workspace access before entity lookup and hides entity existence for forbidden workspaces', async () => {
         mockFindApplication.mockResolvedValue({ ...application, workspacesEnabled: true } as never)
         const forbiddenWorkspaceId = '0190a9b5-3cde-7abc-8def-0123456789c1'
@@ -245,7 +433,8 @@ describe('effectiveLayoutResolver', () => {
                           layout_id: scopedLayoutId,
                           zone: 'marketing-main',
                           widget_key: 'marketing.hero',
-                          config: { instanceKey: 'hero', showLeadForm: true },
+                          instance_key: 'hero',
+                          config: { showLeadForm: true },
                           source_config: heroSourceConfig('independent-scoped'),
                           source_widget_id: scopedWidgetId
                       })
@@ -299,7 +488,8 @@ describe('effectiveLayoutResolver', () => {
             widgetRow({
                 zone: 'marketing-main',
                 widget_key: 'marketing.hero',
-                config: { instanceKey: 'hero', showLeadForm: true },
+                instance_key: 'hero',
+                config: { showLeadForm: true },
                 source_config: { unexpected: true }
             })
         ])
@@ -372,44 +562,11 @@ describe('effectiveLayoutResolver', () => {
         ])
     })
 
-    it('selects the startup page layout when the root target omits an entity selector', async () => {
-        const scopedLayout = layoutRow({
-            id: scopedLayoutId,
-            scope_entity_id: entityId,
-            config: { __layout: { composition: { mode: 'independent', baseLayoutId: null } } },
-            source_kind: 'application',
-            source_layout_id: null,
-            source_snapshot_hash: null,
-            source_content_hash: null,
-            local_content_hash: null
-        })
-        const scopedWidget = widgetRow({
-            id: scopedWidgetId,
-            layout_id: scopedLayoutId,
-            zone: 'center',
-            widget_key: 'overviewCards',
-            config: { cards: [] },
-            source_widget_id: scopedWidgetId
-        })
-
-        mockFindEntity.mockImplementation(async (_executor, _schemaName, targetKind, selector) => {
-            if (targetKind === 'page' && selector.kind === 'codename' && selector.value === 'LearnerHome') {
-                return [{ id: entityId, kind: 'page', codename: 'LearnerHome' }]
-            }
-            return []
-        })
-        mockListCandidates
-            .mockResolvedValueOnce([layoutRow()] as never)
-            .mockResolvedValueOnce([layoutRow(), scopedLayout] as never)
-            .mockResolvedValueOnce([layoutRow(), scopedLayout] as never)
-        mockListWidgets
-            .mockResolvedValueOnce([
-                { ...widgetRow(), widget_key: 'menuWidget', config: { items: [] } },
-                {
-                    ...widgetRow({ id: publicationId, widget_key: 'menuWidget', config: { startPage: 'LearnerHome', items: [] } })
-                }
-            ] as never)
-            .mockResolvedValueOnce([scopedWidget] as never)
+    it('keeps the root target on the global layout when generated navigation has no persisted content selector', async () => {
+        mockListCandidates.mockResolvedValue([layoutRow()] as never)
+        mockListWidgets.mockResolvedValue([
+            widgetRow({ zone: 'left', widget_key: 'menuWidget', config: { variant: 'generated' }, source_widget_id: null })
+        ] as never)
 
         const result = await resolveEffectiveLayoutForRequest(
             executor,
@@ -417,20 +574,55 @@ describe('effectiveLayoutResolver', () => {
             { applicationId, targetKind: null, locale: 'en' }
         )
 
-        expect(result.scope).toBe('entity')
-        expect(result.resolvedEntityTypeId).toBe(entityId)
-        expect(result.layout.id).toBe(scopedLayoutId)
-        expect(result.widgets[0]?.widgetKey).toBe('overviewCards')
-        expect(mockFindEntity).toHaveBeenCalledWith(
-            expect.anything(),
-            schemaName,
-            'page',
-            {
-                kind: 'codename',
-                value: 'LearnerHome'
-            },
-            'authenticated'
+        expect(result.scope).toBe('global')
+        expect(result.layout.id).toBe(globalLayoutId)
+        expect(result.widgets[0]?.widgetKey).toBe('menuWidget')
+        expect(mockFindEntity).not.toHaveBeenCalled()
+    })
+
+    it('resolves the root target to the unique home Page and its scoped layout', async () => {
+        mockFindHomePages.mockResolvedValue([{ id: entityId, kind: 'page', codename: 'LearnerHome' }])
+        mockListCandidates.mockResolvedValue([
+            layoutRow(),
+            layoutRow({
+                id: scopedLayoutId,
+                scope_entity_id: entityId,
+                source_kind: 'application',
+                source_layout_id: null,
+                source_snapshot_hash: null,
+                source_content_hash: null,
+                local_content_hash: null
+            })
+        ] as never)
+        mockListWidgets.mockResolvedValue([])
+
+        const result = await resolveEffectiveLayoutForRequest(
+            executor,
+            { applicationId, userId: 'user-1', role: 'member' },
+            { applicationId, targetKind: null, locale: 'en' }
         )
+
+        expect(mockFindHomePages).toHaveBeenCalledTimes(2)
+        expect(result.target.targetKind).toBeNull()
+        expect(result.resolvedEntityTypeId).toBe(entityId)
+        expect(result.scope).toBe('entity')
+        expect(result.layout.id).toBe(scopedLayoutId)
+    })
+
+    it('fails closed when an application has multiple active home Pages', async () => {
+        mockFindHomePages.mockResolvedValue([
+            { id: entityId, kind: 'page', codename: 'LearnerHome' },
+            { id: scopedLayoutId, kind: 'page', codename: 'AnotherHome' }
+        ])
+
+        await expect(
+            resolveEffectiveLayoutForRequest(
+                executor,
+                { applicationId, userId: 'user-1', role: 'member' },
+                { applicationId, targetKind: null, locale: 'en' }
+            )
+        ).rejects.toMatchObject<Partial<EffectiveLayoutError>>({ code: 'LAYOUT_DEFAULT_INVALID', httpStatus: 409 })
+        expect(mockListCandidates).not.toHaveBeenCalled()
     })
 
     it('resolves a Page target with the same scoped-template precedence as an Object target', async () => {
@@ -457,7 +649,8 @@ describe('effectiveLayoutResolver', () => {
                           layout_id: scopedLayoutId,
                           zone: 'marketing-main',
                           widget_key: 'marketing.hero',
-                          config: { instanceKey: 'page-hero', showLeadForm: false },
+                          instance_key: 'page-hero',
+                          config: { showLeadForm: false },
                           source_config: heroSourceConfig('page-scoped'),
                           source_widget_id: null
                       })
@@ -492,7 +685,8 @@ describe('effectiveLayoutResolver', () => {
                 widgetRow({
                     zone: 'marketing-main',
                     widget_key: 'marketing.hero',
-                    config: { instanceKey: 'page-hero', showLeadForm: false },
+                    instance_key: 'page-hero',
+                    config: { showLeadForm: false },
                     source_config: heroSourceConfig(semanticKey),
                     source_widget_id: null
                 })
@@ -509,12 +703,9 @@ describe('effectiveLayoutResolver', () => {
         const second = await resolveBoundHero('campaign')
         const firstHero = first.widgets.find(({ widgetKey }) => widgetKey === 'marketing.hero')
 
-        expect(firstHero?.config).toEqual({ instanceKey: 'page-hero', showLeadForm: false })
-        expect(firstHero?.sourceConfig).toEqual({ instanceKey: 'page-hero', showLeadForm: true })
-        expect(firstHero && getApplicationLayoutWidgetSourceBindingState(firstHero)).toEqual({
-            persistedApplicationRow: true,
-            bindings: heroBinding('default')
-        })
+        expect(firstHero?.instanceKey).toBe('page-hero')
+        expect(firstHero?.config).toEqual({ showLeadForm: false })
+        expect(firstHero?.sourceConfig).toBeUndefined()
         expect(JSON.stringify(first)).not.toContain('bindings')
         expect(first.effectiveHash).not.toBe(second.effectiveHash)
         expect(effectiveLayoutResultSchema.safeParse(first).success).toBe(true)
@@ -600,6 +791,10 @@ describe('effectiveLayoutResolver', () => {
             widgetRow({
                 id: scopedWidgetId,
                 layout_id: scopedLayoutId,
+                zone: 'left',
+                widget_key: 'menuWidget',
+                instance_key: 'menu-main',
+                config: { variant: 'generated' },
                 source_widget_id: globalWidgetId,
                 source_base_widget_id: globalWidgetId
             })
@@ -612,7 +807,13 @@ describe('effectiveLayoutResolver', () => {
                 source_base_widget_id: null,
                 template_key: 'dashboard',
                 scope_entity_id: null,
-                widget_key: 'header'
+                widget_key: 'menuWidget',
+                instance_key: 'menu-main',
+                parent_widget_id: null,
+                slot_key: null,
+                zone: 'left',
+                config: { variant: 'generated' },
+                source_config: { variant: 'generated' }
             }
         ])
 
@@ -623,10 +824,81 @@ describe('effectiveLayoutResolver', () => {
         )
 
         expect(result.layout.compositionMode).toBe('overlay')
-        expect(result.widgets[0]?.sourceBaseWidgetId).toBe(globalWidgetId)
+        expect(result.widgets[0]?.sourceBaseWidgetId).toBeUndefined()
+        expect(JSON.stringify(result)).not.toContain('sourceBaseWidgetId')
+    })
+
+    it('resolves inherited host widgets without attaching Entity bindings', async () => {
+        const hostSourceConfig = encodeLayoutWidgetConfigEnvelope(
+            { rendererConfig: { variant: 'compact' } },
+            { templateKey: 'dashboard', widgetKey: 'workspaceSwitcher', zone: 'left' }
+        )
+        const hostSourceState = createApplicationLayoutWidgetSourceState('dashboard', 'workspaceSwitcher', {
+            zone: 'left',
+            sortOrder: 0,
+            isActive: true,
+            config: hostSourceConfig,
+            instanceKey: 'workspace-switcher',
+            parentWidgetId: null,
+            slotKey: null
+        })
+        mockListCandidates.mockResolvedValue([
+            layoutRow(),
+            layoutRow({
+                id: scopedLayoutId,
+                scope_entity_id: entityId,
+                config: { __layout: { composition: { mode: 'overlay', baseLayoutId: globalLayoutId } } }
+            })
+        ] as never)
+        mockListWidgets.mockResolvedValue([
+            {
+                ...widgetRow({
+                    id: scopedWidgetId,
+                    layout_id: scopedLayoutId,
+                    zone: 'left',
+                    widget_key: 'workspaceSwitcher',
+                    instance_key: 'workspace-switcher',
+                    config: { variant: 'compact' },
+                    source_config: hostSourceConfig,
+                    source_widget_id: globalWidgetId,
+                    source_base_widget_id: globalWidgetId
+                }),
+                source_state: hostSourceState
+            }
+        ])
+        mockFindBaseWidgets.mockResolvedValue([
+            {
+                id: globalWidgetId,
+                layout_id: globalLayoutId,
+                source_widget_id: globalWidgetId,
+                source_base_widget_id: null,
+                template_key: 'dashboard',
+                scope_entity_id: null,
+                widget_key: 'workspaceSwitcher',
+                instance_key: 'workspace-switcher',
+                parent_widget_id: null,
+                slot_key: null,
+                zone: 'left',
+                config: { variant: 'compact' },
+                source_config: null
+            }
+        ])
+
+        const result = await resolveEffectiveLayoutForRequest(
+            executor,
+            { applicationId, userId: 'user-1', role: 'member' },
+            resolverInput()
+        )
+
+        expect(result.layout.compositionMode).toBe('overlay')
+        expect(result.widgets).toHaveLength(1)
+        expect(result.widgets[0]?.widgetKey).toBe('workspaceSwitcher')
+        expect(getApplicationLayoutWidgetSourceBindingState(result.widgets[0])).toBeUndefined()
+        expect(JSON.stringify(result)).not.toContain('bindings')
     })
 
     it('attaches only the validated base Marketing binding to a binding-free overlay delta', async () => {
+        hashBaseTemplateKey = 'marketing-page'
         mockListCandidates.mockResolvedValue([
             layoutRow({
                 template_key: 'marketing-page',
@@ -645,6 +917,7 @@ describe('effectiveLayoutResolver', () => {
                 layout_id: scopedLayoutId,
                 zone: 'marketing-main',
                 widget_key: 'marketing.hero',
+                instance_key: 'page-hero',
                 config: heroOverlayConfig(false),
                 source_config: heroOverlayConfig(true),
                 source_widget_id: globalWidgetId,
@@ -660,6 +933,9 @@ describe('effectiveLayoutResolver', () => {
                 template_key: 'marketing-page',
                 scope_entity_id: null,
                 widget_key: 'marketing.hero',
+                instance_key: 'page-hero',
+                parent_widget_id: null,
+                slot_key: null,
                 zone: 'marketing-main',
                 config: heroSourceConfig('config-binding'),
                 source_config: heroSourceConfig('trusted-base-binding')
@@ -673,12 +949,12 @@ describe('effectiveLayoutResolver', () => {
         )
         const resolvedHero = result.widgets.find(({ widgetKey }) => widgetKey === 'marketing.hero')
 
-        expect(resolvedHero?.config).toEqual({ instanceKey: 'page-hero', showLeadForm: false })
-        expect(resolvedHero?.sourceConfig).toEqual({ instanceKey: 'page-hero', showLeadForm: true })
-        expect(resolvedHero && getApplicationLayoutWidgetSourceBindingState(resolvedHero)).toEqual({
-            persistedApplicationRow: true,
-            bindings: heroBinding('trusted-base-binding')
-        })
+        expect(resolvedHero?.instanceKey).toBe('page-hero')
+        expect(resolvedHero?.config).toEqual({ showLeadForm: false })
+        expect(resolvedHero?.sourceConfig).toBeUndefined()
+        expect(getApplicationLayoutWidgetSourceBindingState(resolvedHero)).toEqual(
+            expect.objectContaining({ bindings: heroBinding('trusted-base-binding') })
+        )
         expect(JSON.stringify(result)).not.toContain('bindings')
     })
 

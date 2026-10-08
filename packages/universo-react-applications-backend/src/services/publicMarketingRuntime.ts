@@ -46,8 +46,13 @@ const publicWidgetInstanceKey = (widgetKey: string, index: number): string =>
 const PERSISTED_WIDGET_UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/iu
 const UUID_SUBSTRING_PATTERN = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/iu
 
-const resolvePublicWidgetInstanceKey = (widgetKey: string, config: PublicRecord, index: number, usedInstanceKeys: Set<string>): string => {
-    const persisted = typeof config.instanceKey === 'string' ? config.instanceKey.trim() : ''
+const resolvePublicWidgetInstanceKey = (
+    widgetKey: string,
+    sourceInstanceKey: string,
+    index: number,
+    usedInstanceKeys: Set<string>
+): string => {
+    const persisted = sourceInstanceKey.trim()
     const persistedIsSemantic =
         Boolean(persisted) &&
         !PERSISTED_WIDGET_UUID_PATTERN.test(persisted) &&
@@ -94,28 +99,26 @@ const readMaxItems = (value: unknown, fallback: number, maximum: number): number
     return Math.max(1, Math.min(maximum, parsed))
 }
 
-const publicWidgetConfig = (widgetKey: string, config: PublicRecord, instanceKey: string): PublicRecord => {
+const publicWidgetConfig = (widgetKey: string, config: PublicRecord): PublicRecord => {
     switch (widgetKey) {
         case 'marketing.brand':
-            return { instanceKey }
+            return {}
         case 'marketing.auth':
-            return { instanceKey, showAuthActions: config.showAuthActions !== false }
+            return { showAuthActions: config.showAuthActions !== false }
         case 'marketing.navigation':
             return {
-                instanceKey,
                 maxItems: readMaxItems(config.maxItems, 24, 100)
             }
         case 'marketing.hero':
-            return { instanceKey, showLeadForm: config.showLeadForm !== false }
+            return { showLeadForm: config.showLeadForm !== false }
         case 'marketing.image':
-            return { instanceKey }
+            return {}
         case 'marketing.collection': {
             if (typeof config.variant !== 'string') {
                 throw new PublicMarketingMaterializationError('Public marketing collection variant is invalid')
             }
             const maxItems = readMaxItems(config.maxItems, 100, 100)
             return {
-                instanceKey,
                 variant: config.variant,
                 maxItems,
                 showTitle: config.showTitle !== false,
@@ -126,7 +129,6 @@ const publicWidgetConfig = (widgetKey: string, config: PublicRecord, instanceKey
         }
         case 'marketing.pricing':
             return {
-                instanceKey,
                 maxItems: readMaxItems(config.maxItems, 24, 100),
                 showBenefits: config.showBenefits !== false,
                 cardStyle: config.cardStyle === 'uniform' ? 'uniform' : 'featured',
@@ -134,7 +136,6 @@ const publicWidgetConfig = (widgetKey: string, config: PublicRecord, instanceKey
             }
         case 'marketing.footer':
             return {
-                instanceKey,
                 maxItems: readMaxItems(config.maxItems, 100, 100),
                 showNewsletter: config.showNewsletter !== false
             }
@@ -168,30 +169,35 @@ export const serializePublicMarketingRuntime = async ({
     if (!headerPosition.success) {
         throw new PublicMarketingMaterializationError('Public marketing header position is invalid')
     }
-    const publicWidgetIdentities: Array<{ widget: EffectiveLayoutSuccess['widgets'][number]; instanceKey: string }> = []
+    const publicWidgetIdentities: Array<{
+        widget: EffectiveLayoutSuccess['widgets'][number]
+        sourceInstanceKey: string
+        instanceKey: string
+    }> = []
     const usedPublicInstanceKeys = new Set<string>()
     let publicWidgetIndex = 0
     for (const widget of effectiveLayout.widgets) {
         const config = asRecord(widget.config)
         const definition = getLayoutWidgetDefinition(widget.widgetKey, config)
         if (definition?.shared || !widget.isActive) continue
-        const instanceKey = resolvePublicWidgetInstanceKey(widget.widgetKey, config, publicWidgetIndex, usedPublicInstanceKeys)
+        const sourceInstanceKey = widget.instanceKey
+        const instanceKey = resolvePublicWidgetInstanceKey(widget.widgetKey, sourceInstanceKey, publicWidgetIndex, usedPublicInstanceKeys)
         publicWidgetIndex += 1
-        publicWidgetIdentities.push({ widget, instanceKey })
+        publicWidgetIdentities.push({ widget, sourceInstanceKey, instanceKey })
     }
 
     const sourceAnchorEntries = getMarketingSectionAnchorEntries(
-        publicWidgetIdentities.map(({ widget, instanceKey }) => {
+        publicWidgetIdentities.map(({ widget, sourceInstanceKey }) => {
             const config = asRecord(widget.config)
-            const sourceInstanceKey = typeof config.instanceKey === 'string' && config.instanceKey.trim() ? config.instanceKey : instanceKey
-            return { widgetKey: widget.widgetKey, isActive: true, config: { ...config, instanceKey: sourceInstanceKey } }
+            return { widgetKey: widget.widgetKey, instanceKey: sourceInstanceKey, isActive: true, config }
         })
     )
     const publicAnchorEntries = getMarketingSectionAnchorEntries(
         publicWidgetIdentities.map(({ widget, instanceKey }) => ({
             widgetKey: widget.widgetKey,
+            instanceKey,
             isActive: true,
-            config: { ...asRecord(widget.config), instanceKey }
+            config: asRecord(widget.config)
         }))
     )
     if (sourceAnchorEntries.length !== publicAnchorEntries.length) {
@@ -256,7 +262,7 @@ export const serializePublicMarketingRuntime = async ({
             }
         }
 
-        const publicConfig = publicWidgetConfig(widget.widgetKey, config, instanceKey)
+        const publicConfig = publicWidgetConfig(widget.widgetKey, config)
         const data = remapPublicActionAnchors(widgetData, publicHrefBySourceAnchor, unavailablePublicAnchorHref)
         publicWidgets.push({
             instanceKey,
@@ -271,7 +277,6 @@ export const serializePublicMarketingRuntime = async ({
     }
 
     const publicHeaderWidgets: PublicRecord[] = []
-    const usedHeaderInstanceKeys = new Set<string>()
     const pendingResolvedKeys = new Map(resolvedKeysByWidgetKey)
     for (const widget of effectiveLayout.widgets) {
         if (widget.zone !== 'marketing-header' || !(MARKETING_HEADER_WIDGET_KEYS as readonly string[]).includes(widget.widgetKey)) continue
@@ -282,8 +287,13 @@ export const serializePublicMarketingRuntime = async ({
         const [nextResolvedKey, ...remainingKeys] = queuedKeys
         pendingResolvedKeys.set(widget.widgetKey, remainingKeys)
         const instanceKey =
-            nextResolvedKey ?? resolvePublicWidgetInstanceKey(widget.widgetKey, config, publicHeaderWidgets.length, usedHeaderInstanceKeys)
-        usedHeaderInstanceKeys.add(instanceKey)
+            nextResolvedKey ??
+            resolvePublicWidgetInstanceKey(
+                widget.widgetKey,
+                widget.instanceKey,
+                publicWidgetIndex + publicHeaderWidgets.length,
+                usedPublicInstanceKeys
+            )
         const placement = widget.placement === 'start' || widget.placement === 'end' ? widget.placement : undefined
         publicHeaderWidgets.push({
             widgetKey: widget.widgetKey as MarketingHeaderWidgetKey,
@@ -293,7 +303,6 @@ export const serializePublicMarketingRuntime = async ({
             isActive: true,
             ...(placement ? { placement } : {}),
             config: {
-                instanceKey,
                 ...(widget.widgetKey === 'marketing.auth' ? { showAuthActions: config.showAuthActions !== false } : {})
             }
         })

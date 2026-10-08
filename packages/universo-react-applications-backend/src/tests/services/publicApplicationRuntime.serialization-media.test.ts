@@ -64,9 +64,9 @@ describe('public marketing runtime media serialization', () => {
             zone: 'marketing-main',
             semanticRegion: 'main',
             widgetKey: 'marketing.image',
+            instanceKey: 'hero-image',
             sortOrder: 0,
             config: {
-                instanceKey: 'hero-image',
                 media: {
                     kind: 'hero',
                     resource: { type: 'url', url: 'https://cdn.example.test/legacy.webp', launchMode: 'inline' },

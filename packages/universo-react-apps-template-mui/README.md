@@ -20,10 +20,13 @@ Runtime dashboard template for published applications in the Universo Platformo 
 
 -   **Zone-Based Layout**: 5 dashboard zones — left (sidebar), top (header/navbar), right (sidebar), center (main content), and bottom (footer/content tail)
 -   **Data-Driven Rendering**: Widgets rendered from `ZoneWidgets` configuration, not hardcoded JSX
--   **DashboardDetailsContext**: React Context providing table data (rows, columns, pagination) to nested widgets
--   **Persisted Composition**: Active widget rows and their zone/order are authoritative when the runtime receives a persisted composition; the existing boolean flags remain the direct-component fallback when no persisted zone collection is supplied.
+-   **DashboardDetailsContext**: Scoped host context for Page metadata blocks, standalone workspace-page content, and page-player settings; Entity data is delivered to each widget through its validated runtime DTO.
+-   **Persisted Composition**: The effective placement graph is the only source of Dashboard widget visibility and placement. Child widgets are independent placements connected by semantic `parentInstanceKey` and `slotKey`; when no placements exist, the Dashboard shows its localized empty state. There is no boolean visibility fallback.
 -   **Multiline runtime data**: Semantic long-text cells wrap safely and use auto-height rows by default; configured numeric row heights remain supported.
 -   **Runtime Layout Selection**: Hosted and standalone runtimes consume the same target-aware effective-layout response and render only active layouts and active widgets
+-   **Entity-backed Dashboard data**: Source-backed placements consume typed, bounded runtime projections; bindings and datasource query logic stay outside renderer configuration, and missing, denied, or stale sources render localized states.
+-   **Scoped bound-row actions**: Hosted and standalone Dashboard runtimes share `useDashboardBoundRowActions`; it resolves source Entities unambiguously, checks their permissions, reloads the row in the active workspace, and carries its current version into the existing CRUD, record-command, and workflow handlers. Its public load-state contract hides stale row data while a refetch is pending.
+-   **Entity target resolution**: `resolveDashboardEntityTargetSectionId` prefers explicit Entity IDs, resolves unique codenames, and fails closed when a codename matches more than one Entity.
 
 ### 📣 Data-driven Marketing Page
 
@@ -41,19 +44,21 @@ Runtime dashboard template for published applications in the Universo Platformo 
 ### 📊 ColumnsContainer Widget
 
 -   **Multi-Column Grid**: Renders `ColumnsContainerConfig` as MUI Grid with configurable column widths (12-unit grid)
--   **Nested Widgets**: Each column can contain multiple widgets via `ColumnsContainerColumnWidget[]`
--   **Recursion Guard**: `MAX_CONTAINER_DEPTH=1` prevents infinite nesting of columnsContainer within columnsContainer
--   **Default Seed**: 2-column layout — 9/12 `detailsTable` + 3/12 `productTree`
+-   **Nested Widgets**: Each column can contain multiple independent placements linked to the container by semantic `parentInstanceKey` and `slotKey`; widget config never embeds child widgets.
+-   **Recursion Guard**: `MAX_CONTAINER_DEPTH=8` bounds nested containers and prevents unbounded recursive rendering.
+-   **Placement composition**: The default dashboard seed is defined by explicit placements and Entity bindings. Nested container children are independent placements linked by `parentInstanceKey` and `slotKey`.
 
 ### 🧩 Widget Renderer
 
 -   **Shared renderer**: `renderWidget()` maps widget keys to concrete React components
--   **Supported widgets**: `brandSelector`, `workspaceSwitcher`, `divider`, `menuWidget`, `spacer`, `infoCard`, `userProfile`, `appNavbar`, `header`, `breadcrumbs`, `search`, `datePicker`, `optionsMenu`, `languageSwitcher`, `footer`, `productTree`, `usersByCountryChart`, `detailsTable`, `learnerPlayer`, `relationBuilder`, `detailsTabs`, `quizWidget`, `playcanvasCanvas`, `resourcePreview`, `columnsContainer`, `interpretationNetworkWorkspace`
+-   **Registered widgets**: `workspaceSwitcher`, `divider`, `menuWidget`, `spacer`, `infoCard`, `userProfile`, `appNavbar`, `header`, `breadcrumbs`, `search`, `datePicker`, `optionsMenu`, `languageSwitcher`, `colorModeSwitcher`, `overviewTitle`, `overviewCards`, `sessionsChart`, `pageViewsChart`, `detailsTitle`, `detailsTable`, `relationBuilder`, `columnsContainer`, `detailsTabs`, `interpretationNetworkWorkspace`, `quizWidget`, `playcanvasCanvas`, `resourcePreview`, `learnerPlayer`, `footer`
 -   **Union datasources**: `detailsTable` can render `records.union` by resolving multiple runtime sections from metadata and querying them through the normal `fetchAppData` surface.
 -   **Relation builder**: `relationBuilder` keeps child records scoped to a selected parent row while reusing generic CRUD dialogs, record pickers, and persisted row ordering.
--   **Menu resolution**: 2-level fallback — widget ID → menus map → legacy single menu prop
+-   **Menu data**: Each `menuWidget` renders only its validated placement runtime data; the renderer does not synthesize fallback menu content.
+-   **Generated Dashboard navigation**: Visible Page entities become navigation entries, optionally grouped by their Hub memberships. Objects remain data sources by default; only explicitly selected primary-navigation Objects (`config.runtime.menuVisibility: "primary"`) become links. This keeps ordinary Objects and registers out of the sidebar. Page, Hub, and selected Object icons use bounded semantic metadata mapped to existing MUI icons, with safe defaults.
+-   **Hosted and standalone routing**: Published Dashboard menu links use the host application's navigation callback to keep the URL and loaded runtime target synchronized. Standalone deployments support both pathname-based History API navigation and `#/a/...` hash routes.
 -   **Curated menu contract**: Runtime menus support primary item limits, overflow items, start-page selection, and workspace entry placement without requiring LMS-only components.
--   **LMS fixture rule**: LMS published layouts use the shared MUI dashboard shell and generic data-driven widgets. Demo-only surfaces such as `brandSelector`, `productTree`, and `usersByCountryChart` are blocked by the LMS fixture contract unless they become real runtime-data surfaces.
+-   **Template parity**: Built-in templates use registered generic widgets for shared Dashboard behavior and keep specialized quiz, PlayCanvas, and Interpretation Network runtimes in their owning renderers.
 -   **Generic runtime data surfaces**: Saved-report aggregations, resource previews, sequence policies, and workflow actions are configured through shared widget/Object metadata instead of LMS-specific widget forks.
 
 ### 📝 CRUD Components
@@ -69,6 +74,7 @@ Runtime dashboard template for published applications in the Universo Platformo 
 -   **Reports and export**: Published runtime can render saved reports through generic details widgets and export server-defined CSV reports
 -   **Trash-aware operations**: Runtime lists can request `lifecycleState=deleted`, delete calls pass optimistic row versions, and adapters expose restore calls for generic soft-delete contracts.
 -   **Page player progress**: Metadata Pages can render Editor.js page blocks with outline/progress controls and persist completion through the generic runtime progress API.
+-   **Metadata Page display**: Validated Editor.js-compatible `Page.blockContent` renders through the existing `PageBlocksView` host-content slot before the persisted Dashboard placements; page text never enters widget configuration.
 
 ### 🧱 Runtime UI Primitives
 
@@ -80,6 +86,7 @@ Runtime dashboard template for published applications in the Universo Platformo 
 
 -   **WorkspaceSwitcher**: Header/mobile quick switch for the user's current workspace.
 -   **RuntimeWorkspacesPage**: Full workspace management section rendered inside the existing dashboard details content slot.
+-   **Workspace route shell**: Workspace management keeps registry-declared Dashboard host controls and filters content widgets from every shell zone; the content footer is hidden on this route.
 -   **Workspace APIs**: Typed helpers and query keys for paginated workspace lists, member lists, default switching, shared workspace creation, email-based member invitation, and member removal.
 -   **Navigation placement**: Published app menus can keep the workspace entry in the primary menu, move it to overflow, or hide it while preserving the standalone switcher.
 -   **Workspace Settings**: Allowed per-workspace overrides are rendered through the existing workspace page cards and use localized labels from the runtime `apps` bundle. Locked keys stay controlled by Application Settings.
@@ -99,7 +106,7 @@ Runtime dashboard template for published applications in the Universo Platformo 
 ## Stage-1 Additions (Interpretation Network)
 
 -   **Structure-first runtime**: the Interpretation Network app opens on the localized `InterpretationNetworkIntro` Page; the `interpretationNetworkWorkspace` center widget is scoped to the `Structures` (`Concept`) section so the empty left pane only exposes `Create structure`, while the right pane owns the start memo and selected-cell `Add material` flow.
--   **Single-system Structure mode**: `structureMode: "singleSystem"` is ensured server-side as one hidden system Structure and opens the Matrix directly from `Structures`, without the Structure catalog, visible Structure name, or back control. The Matrix and Templates tabs remain available according to `templatePanel.showInMatrix`.
+-   **Structure navigation modes**: the built-in Interpretation Network template defaults to `structureMode: "multiple"`, showing the Structure list. Authors can explicitly select `singleSystem` to use one server-owned hidden Structure and open its Matrix directly from `Structures`, without the catalog, visible Structure name, or back control. The Matrix and Templates tabs remain available according to `templatePanel.showInMatrix`.
 -   **Hierarchy-first Matrix**: `interpretationNetworkWorkspace.config.matrixMode` defaults to `hierarchicalCells`. New Structures seed one root cell named `Universe` / `Вселенная`, and users create further cells with the right-aligned `Add child` action. `independentRows` remains available for row/column compatibility.
 -   **Workspace table templates**: editors with create+edit content permissions can save the current Structure as a template, choosing structure-only copy or copy with attached cell Materials. Multi-Structure deployments can instantiate a new visible Structure from a saved template; single-system deployments keep creation hidden and still allow saving the current Matrix as a reusable template.
 -   **Template placement and access**: `templatePanel.showInStructureList` and `templatePanel.showInMatrix` default to `true`. If both are `false`, templates remain isolated workspace data but no template UI is exposed. Save/instantiate require create+edit content permissions, metadata changes require edit, and deletion requires delete. Matrix and optional authored Material fields are cloned with fresh UUID v7 identities; Relations, binary objects, and external files are not cloned, while ordinary external URLs already stored in Material `Body` remain authored content.
@@ -152,36 +159,21 @@ pnpm --filter @universo-react/apps-template-mui build
 
 ### Dashboard Integration
 
+Pass the validated effective Dashboard composition to `AppsDashboard` after the
+published runtime loader resolves it. Do not construct visibility from boolean
+flags or embed child widgets in container config:
+
 ```tsx
-import { AppsDashboard } from '@universo-react/apps-template-mui'
+import { AppsDashboard, fetchRuntimeEffectiveLayout, toDashboardZoneWidgets } from '@universo-react/apps-template-mui'
 import type { DashboardProps } from '@universo-react/apps-template-mui'
 
+const effectiveLayout = await fetchRuntimeEffectiveLayout({ apiBaseUrl, applicationId })
+if (effectiveLayout.status !== 'ok' || effectiveLayout.layout.templateKey !== 'dashboard') {
+  throw new Error('A Dashboard effective layout is required')
+}
+
 const props: DashboardProps = {
-  layoutConfig: {
-    showSideMenu: true,
-    showHeader: true,
-    showAppNavbar: true,
-    showDetailsTitle: true,
-    showColumnsContainer: true,
-  },
-  zoneWidgets: {
-    left: [
-      { id: 'w1', widgetKey: 'menuWidget', sortOrder: 1, config: {} },
-    ],
-    center: [
-      { id: 'w2', widgetKey: 'columnsContainer', sortOrder: 1, config: {
-        columns: [
-          { id: 'col1', width: 9, widgets: [{ widgetKey: 'detailsTable' }] },
-          { id: 'col2', width: 3, widgets: [{ widgetKey: 'productTree' }] },
-        ]
-      }},
-    ],
-  },
-  details: {
-    title: 'Products',
-    rows: [{ id: '1', name: 'Item A' }],
-    columns: [{ field: 'name', headerName: 'Name', flex: 1 }],
-  },
+  zoneWidgets: toDashboardZoneWidgets(effectiveLayout),
 }
 
 <AppsDashboard {...props} />
@@ -205,16 +197,32 @@ const runtimeRoute = createAppRuntimeRoute({
 
 ### CRUD Dashboard Hook
 
-```tsx
-import { useCrudDashboard, CrudDialogs } from '@universo-react/apps-template-mui'
+The hook requires an adapter and locale and returns `CrudDashboardState`.
+`CrudDialogs` receives that state plus localized labels. Dashboard placements
+and optional host/runtime details are supplied by the host, not by the CRUD hook.
+Entity-backed placements use the shared `useDashboardBoundRowActions` hook for
+permission-checked row actions and optimistic-version-aware record/workflow
+mutations; it reuses the existing runtime menu and CRUD dialogs.
 
-function MyDashboard({ adapter }) {
-    const crud = useCrudDashboard({ adapter })
+```tsx
+import { AppsDashboard, CrudDialogs, useCrudDashboard } from '@universo-react/apps-template-mui'
+import type { CrudDataAdapter, CrudDialogsLabels, DashboardDetailsSlot, ZoneWidgets } from '@universo-react/apps-template-mui'
+
+type MyDashboardProps = {
+    adapter: CrudDataAdapter | null
+    locale: string
+    labels: CrudDialogsLabels
+    zoneWidgets?: ZoneWidgets
+    details?: DashboardDetailsSlot
+}
+
+function MyDashboard({ adapter, locale, labels, zoneWidgets, details }: MyDashboardProps) {
+    const state = useCrudDashboard({ adapter, locale })
 
     return (
         <>
-            <AppsDashboard details={crud.details} layoutConfig={crud.layoutConfig} zoneWidgets={crud.zoneWidgets} />
-            <CrudDialogs {...crud.dialogs} />
+            <AppsDashboard details={details} zoneWidgets={zoneWidgets} />
+            <CrudDialogs state={state} locale={locale} labels={labels} />
         </>
     )
 }
@@ -236,20 +244,14 @@ import { DashboardApp } from '@universo-react/apps-template-mui'
 ```
 Dashboard
 ├── SideMenu (left zone)
-│   └── [left widgets: brandSelector, menuWidget, spacer, infoCard, userProfile]
+│   └── active left-zone placements, rendered from validated runtime data
 ├── AppNavbar (top zone, mobile)
 ├── Main Content (center zone)
 │   ├── Header (top zone)
-│   ├── MainGrid
-│   │   ├── Overview section (optional: cards, charts)
-│   │   └── Details section
-│   │       ├── columnsContainer → renderWidget() per column
-│   │       │   ├── Column 1 (width: 9/12) → detailsTable
-│   │       │   └── Column 2 (width: 3/12) → productTree
-│   │       └── OR standalone detailsTable (fallback)
+│   ├── MainGrid renders active root placements in effective order
+│   │   └── containers resolve children by semantic parentInstanceKey + slotKey
 │   └── Bottom widgets (bottom zone, optional)
-└── SideMenuRight (right zone, optional)
-    └── [right widgets: productTree, usersByCountryChart]
+└── SideMenuRight renders active root placements from the right zone
 ```
 
 ### DashboardDetailsContext
@@ -257,13 +259,14 @@ Dashboard
 ```
 Dashboard (DashboardDetailsProvider value={details})
   └── MainGrid
-       └── renderWidget('detailsTable')
-            └── DetailsTableWidget
-                 └── useDashboardDetails() → { rows, columns, pagination, ... }
+       ├── optional standalone workspace host content
+       └── renderWidget(placement.runtimeData)
+            └── validated typed Entity projection
 ```
 
-Widgets inside a `columnsContainer` access table data via `useDashboardDetails()` hook,
-eliminating the need to pass props through multiple component layers.
+Nested widget content comes from its typed runtime DTO. The context is retained for
+explicit standalone host content and Page Player settings; it is not a parallel
+store for widget business data.
 
 ### Data Flow
 
@@ -273,8 +276,7 @@ ZoneWidgets config → Dashboard → zones distribution
   ├── top[]    → explicit top placements; Header hosts only controls without an equivalent placement
   ├── right[]  → SideMenuRight (renderWidget per item)
   ├── center[] → MainGrid
-       └── filter by widgetKey === 'columnsContainer'
-            → renderWidget(container) → Grid with nested renderWidget calls
+       └── render root placements; containers resolve graph children by semantic parent + slot
   └── bottom[] → Main Content footer/content tail
 ```
 
@@ -328,17 +330,20 @@ packages/universo-react-apps-template-mui/
 │   │   └── RowActionsMenu.tsx          # Per-row actions dropdown
 │   ├── dashboard/        # Dashboard core
 │   │   ├── Dashboard.tsx               # Main dashboard component (zone orchestrator)
-│   │   ├── DashboardDetailsContext.tsx  # React Context for table data sharing
+│   │   ├── DashboardDetailsContext.tsx  # Host/runtime context; widget Entity data comes from typed runtime DTOs
 │   │   └── components/
 │   │       ├── MainGrid.tsx            # Center zone content renderer
-│   │       ├── widgetRenderer.tsx      # Shared widget key → component mapper
+│   │       ├── widgetRenderer.tsx      # Shared widget placement dispatcher
+│   │       ├── DashboardDataWidget.tsx # Entity-bound tables, relations, and metrics
+│   │       ├── LibraryDetailsTableWidget.tsx # Actor-scoped library and trash view
+│   │       ├── ReportDetailsTableWidget.tsx  # Saved report runtime view
+│   │       ├── LearnerPlayerWidget.tsx # Sequenced learning content and progress
 │   │       ├── SideMenu.tsx            # Left sidebar
 │   │       ├── SideMenuRight.tsx       # Right sidebar
 │   │       ├── AppNavbar.tsx           # Mobile navigation bar
 │   │       ├── Header.tsx              # Top header
 │   │       ├── MenuContent.tsx         # Menu widget renderer
 │   │       ├── CustomizedDataGrid.tsx  # MUI DataGrid wrapper
-│   │       ├── CustomizedTreeView.tsx  # Product tree widget
 │   │       └── ...                     # Charts, stat cards, etc.
 │   ├── hooks/            # Custom React hooks
 │   │   └── useCrudDashboard.ts         # Headless CRUD controller
@@ -364,15 +369,17 @@ packages/universo-react-apps-template-mui/
 
 ## Key Types
 
+### Dashboard menu type migration
+
+The former root exports `DashboardMenuItem`, `DashboardMenuSlot`, and `DashboardMenusMap` were removed with the legacy menu-prop path. They have no one-to-one replacement: menu content is now configured as registered Dashboard widget placements and resolved entity-backed runtime data. For custom Dashboard hosts, consume validated `ZoneWidgets` and the `ZoneWidgetItem` / `DashboardDetailsSlot` types exported from `@universo-react/apps-template-mui`; do not recreate menu rows from raw entity IDs.
+
 ### DashboardProps
 
 ```typescript
 interface DashboardProps {
-    layoutConfig?: DashboardLayoutConfig // Boolean visibility flags
-    zoneWidgets?: ZoneWidgets // Widget configs per zone: left, top, right, center, bottom
-    details?: DashboardDetailsSlot // Table data for details widgets
-    menu?: DashboardMenuSlot // Legacy single menu (deprecated)
-    menus?: DashboardMenusMap // Menu map keyed by widget ID
+    layoutConfig?: Pick<DashboardLayoutConfig, 'sideMenu'> // Side-menu behavior only
+    zoneWidgets?: ZoneWidgets // Validated effective placements grouped by zone
+    details?: DashboardDetailsSlot // Host/runtime context; widget data comes from typed runtime DTOs
 }
 ```
 
@@ -380,11 +387,15 @@ interface DashboardProps {
 
 ```typescript
 interface ZoneWidgetItem {
-    id: string
-    widgetKey: string // Widget type identifier
+    id: string // UUID v7 placement identity
+    instanceKey: string // Semantic placement identity
+    widgetKey: string // Registered widget type
+    zone: 'left' | 'top' | 'right' | 'bottom' | 'center'
     sortOrder: number
-    config: Record<string, unknown> // Widget-specific configuration
-    isActive?: boolean
+    config: Record<string, unknown> // Strictly validated by the canonical widget registry before rendering
+    isActive: boolean
+    parentInstanceKey: string | null
+    slotKey: string | null
 }
 ```
 
@@ -405,30 +416,21 @@ interface DashboardDetailsSlot {
 }
 ```
 
-### DashboardLayoutConfig — View Settings
+### Dashboard shell settings
 
-The `DashboardLayoutConfig` interface supports optional view settings that enable
-enhanced display modes in the details section:
+Dashboard visibility comes from effective widget placements. `layoutConfig` on
+the direct component accepts only side-menu behavior settings; widget presentation
+belongs to each widget's strict registry config:
 
 ```typescript
-interface DashboardLayoutConfig {
-    // ... existing boolean flags (showSideMenu, showHeader, etc.)
+type DashboardShellLayoutConfig = Pick<DashboardLayoutConfig, 'sideMenu'>
 
-    // View Settings (optional — when absent, classic table mode is used)
-    showViewToggle?: boolean // Show card/table view mode toggle
-    defaultViewMode?: 'table' | 'card' // Initial view mode
-    showFilterBar?: boolean // Show search input in toolbar
-    cardColumns?: number // Number of columns in card view (2–4)
-    rowHeight?: number | 'auto' // Fixed pixel height or 'auto' for content-based
+interface EffectiveChildPlacement {
+    instanceKey: string
+    parentInstanceKey: string
+    slotKey: string
 }
 ```
-
-When `showViewToggle` or `showFilterBar` is set, the details section renders an
-**EnhancedDetailsSection** that uses the package-local runtime UI primitives
-(`ViewHeaderMUI`, `ToolbarControls`, `ItemCard`, `PaginationControls`) alongside the DataGrid.
-
-These settings are validated at runtime by the `dashboardLayoutConfigSchema` Zod schema
-in `api/api.ts`.
 
 ## Development
 

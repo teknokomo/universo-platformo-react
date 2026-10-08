@@ -1,4 +1,5 @@
 import type { MetahubTemplateManifest, VersionedLocalizedContent, TemplateSeedZoneWidget } from '@universo-react/types'
+import { makeDashboardSeedPlacement } from '../services/dashboardSeedPlacement'
 
 /** ISO timestamp for seed data (epoch zero — marks as factory default). */
 const T0 = '1970-01-01T00:00:00.000Z'
@@ -41,35 +42,30 @@ export { vlc }
 export { T0 }
 
 /**
- * Build minimal seed zone widgets for the basic template.
- * Only essential widgets: menuWidget (left), appNavbar + header (top), detailsTitle + detailsTable (center).
+ * Build the minimal system shell shared by Dashboard templates.
+ * Content widgets are added only when a template owns real seeded records.
  */
 export function buildBasicMinimalSeedZoneWidgets(): TemplateSeedZoneWidget[] {
     return [
-        {
+        makeDashboardSeedPlacement({
+            zone: 'left',
+            widgetKey: 'workspaceSwitcher',
+            instanceKey: 'workspace-switcher',
+            sortOrder: 1,
+            rendererConfig: { variant: 'compact' }
+        }),
+        makeDashboardSeedPlacement({
             zone: 'left',
             widgetKey: 'menuWidget',
-            sortOrder: 3,
-            config: enrichConfigWithVlcTimestamps({
-                showTitle: true,
-                title: {
-                    _schema: '1',
-                    _primary: 'en',
-                    locales: {
-                        en: { content: 'Main', version: 1, isActive: true },
-                        ru: { content: 'Основное', version: 1, isActive: true }
-                    }
-                },
-                autoShowAllSections: true,
-                bindToHub: false,
-                boundTreeEntityId: null,
-                items: []
-            })
-        },
-        { zone: 'top', widgetKey: 'appNavbar', sortOrder: 1 },
-        { zone: 'top', widgetKey: 'header', sortOrder: 2 },
-        { zone: 'center', widgetKey: 'detailsTitle', sortOrder: 5 },
-        { zone: 'center', widgetKey: 'detailsTable', sortOrder: 6 }
+            instanceKey: 'main-menu',
+            sortOrder: 2,
+            rendererConfig: { variant: 'generated' }
+        }),
+        makeDashboardSeedPlacement({ zone: 'top', widgetKey: 'appNavbar', instanceKey: 'application-navbar', sortOrder: 1 }),
+        makeDashboardSeedPlacement({ zone: 'top', widgetKey: 'header', instanceKey: 'application-header', sortOrder: 2 }),
+        makeDashboardSeedPlacement({ zone: 'top', widgetKey: 'languageSwitcher', instanceKey: 'language-switcher', sortOrder: 3 }),
+        makeDashboardSeedPlacement({ zone: 'top', widgetKey: 'colorModeSwitcher', instanceKey: 'color-mode-switcher', sortOrder: 4 }),
+        makeDashboardSeedPlacement({ zone: 'top', widgetKey: 'optionsMenu', instanceKey: 'application-options', sortOrder: 5 })
     ]
 }
 

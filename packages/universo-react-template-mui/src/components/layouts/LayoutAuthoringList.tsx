@@ -138,6 +138,7 @@ export function LayoutAuthoringList({
                 onSearchChange={onSearchChange}
                 adaptiveSearch={adaptiveSearch}
                 controlsAlign={controlsAlign}
+                controlsWrap={Boolean(headerExtras)}
             >
                 <ToolbarControls
                     viewToggleEnabled

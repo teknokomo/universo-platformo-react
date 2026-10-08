@@ -2,57 +2,43 @@ import { useEffect, useId, useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { Alert, Button, Collapse, FormControl, FormHelperText, InputLabel, MenuItem, Stack, TextField, Typography } from '@mui/material'
-import type { MetahubModuleRecord, QuizWidgetConfig, VersionedLocalizedContent } from '@universo-react/types'
+import type { DashboardWidgetConfig, MetahubModuleRecord, VersionedLocalizedContent } from '@universo-react/types'
 import { isClientModuleMethodTarget } from '@universo-react/types'
 import { EntityFormDialog } from '@universo-react/template-mui'
 
 import { modulesApi } from '../../modules/api/modulesApi'
 import { getVLCString } from '../../../types'
-import LayoutWidgetSharedBehaviorFields, {
-    getSharedBehaviorFromWidgetConfig,
-    setSharedBehaviorInWidgetConfig
-} from './LayoutWidgetSharedBehaviorFields'
-import WidgetScopeVisibilityPanel from './WidgetScopeVisibilityPanel'
 import { DropdownSelect as Select } from '@universo-react/template-mui/dropdowns'
+
+type QuizWidgetConfig = DashboardWidgetConfig<'quizWidget'>
 
 export interface QuizWidgetEditorDialogProps {
     open: boolean
     metahubId: string
     config?: QuizWidgetConfig | null
-    layoutId?: string | null
-    widgetId?: string | null
-    showSharedBehavior?: boolean
-    showScopeVisibility?: boolean
     onSave: (config: QuizWidgetConfig) => void
     onCancel: () => void
 }
 
 type QuizWidgetDraft = {
-    title: string
-    description: string
     moduleCodename: string
     attachedToKind: 'metahub' | 'object'
     mountMethodName: string
     submitMethodName: string
-    emptyStateTitle: string
-    emptyStateDescription: string
 }
 
 type QuizWidgetModuleOption = {
     codename: string
     label: string
     description: string | null
+    methodNames: string[]
 }
 
 const createDraft = (config?: QuizWidgetConfig | null): QuizWidgetDraft => ({
-    title: config?.title ?? '',
-    description: config?.description ?? '',
     moduleCodename: config?.moduleCodename ?? '',
     attachedToKind: config?.attachedToKind === 'object' ? 'object' : 'metahub',
     mountMethodName: config?.mountMethodName ?? '',
-    submitMethodName: config?.submitMethodName ?? '',
-    emptyStateTitle: config?.emptyStateTitle ?? '',
-    emptyStateDescription: config?.emptyStateDescription ?? ''
+    submitMethodName: config?.submitMethodName ?? ''
 })
 
 const getPreferredLocalizedText = (value: unknown): string => {
@@ -72,47 +58,31 @@ const toModuleOption = (module: MetahubModuleRecord): QuizWidgetModuleOption => 
     return {
         codename,
         label: name ? `${name} (${codename})` : codename,
-        description
+        description,
+        methodNames: module.manifest.methods
+            .filter((method) => isClientModuleMethodTarget(method.target))
+            .map(({ name: methodName }) => methodName)
     }
 }
 
 const buildQuizWidgetConfig = (draft: QuizWidgetDraft): QuizWidgetConfig => {
-    const title = draft.title.trim()
-    const description = draft.description.trim()
     const moduleCodename = draft.moduleCodename.trim()
     const mountMethodName = draft.mountMethodName.trim()
     const submitMethodName = draft.submitMethodName.trim()
-    const emptyStateTitle = draft.emptyStateTitle.trim()
-    const emptyStateDescription = draft.emptyStateDescription.trim()
 
     return {
-        ...(title ? { title } : {}),
-        ...(description ? { description } : {}),
         ...(moduleCodename ? { moduleCodename } : {}),
         attachedToKind: draft.attachedToKind,
         ...(mountMethodName && mountMethodName !== 'mount' ? { mountMethodName } : {}),
-        ...(submitMethodName && submitMethodName !== 'submit' ? { submitMethodName } : {}),
-        ...(emptyStateTitle ? { emptyStateTitle } : {}),
-        ...(emptyStateDescription ? { emptyStateDescription } : {})
+        ...(submitMethodName && submitMethodName !== 'submit' ? { submitMethodName } : {})
     }
 }
 
-export default function QuizWidgetEditorDialog({
-    open,
-    metahubId,
-    config,
-    layoutId,
-    widgetId,
-    showSharedBehavior = false,
-    showScopeVisibility = false,
-    onSave,
-    onCancel
-}: QuizWidgetEditorDialogProps) {
+export default function QuizWidgetEditorDialog({ open, metahubId, config, onSave, onCancel }: QuizWidgetEditorDialogProps) {
     const { t } = useTranslation(['metahubs', 'common'])
     const attachmentKindLabelId = useId()
     const moduleLabelId = useId()
     const [draft, setDraft] = useState<QuizWidgetDraft>(() => createDraft(config))
-    const [sharedBehaviorValue, setSharedBehaviorValue] = useState(() => getSharedBehaviorFromWidgetConfig(config))
     const [showAdvancedActions, setShowAdvancedActions] = useState(false)
 
     useEffect(() => {
@@ -121,7 +91,6 @@ export default function QuizWidgetEditorDialog({
         }
 
         setDraft(createDraft(config))
-        setSharedBehaviorValue(getSharedBehaviorFromWidgetConfig(config))
         setShowAdvancedActions(false)
     }, [open, config])
 
@@ -179,7 +148,8 @@ export default function QuizWidgetEditorDialog({
             descriptionLabel={t('common:fields.description', 'Description')}
             hideDefaultFields
             onClose={onCancel}
-            onSave={() => onSave(setSharedBehaviorInWidgetConfig(buildQuizWidgetConfig(draft), sharedBehaviorValue) as QuizWidgetConfig)}
+            onSave={() => onSave(buildQuizWidgetConfig(draft))}
+            canSave={() => Boolean(draft.moduleCodename.trim() && selectedModule)}
             saveButtonText={t('common:save', 'Save')}
             cancelButtonText={t('common:cancel', 'Cancel')}
             extraFields={() => (
@@ -207,22 +177,6 @@ export default function QuizWidgetEditorDialog({
                             {t('layouts.quizEditor.noModules', 'No active quiz modules are available for the selected source yet.')}
                         </Alert>
                     ) : null}
-
-                    <TextField
-                        label={t('layouts.quizEditor.widgetTitle', 'Widget title override')}
-                        value={draft.title}
-                        onChange={(event) => setDraft((current) => ({ ...current, title: event.target.value }))}
-                        fullWidth
-                    />
-
-                    <TextField
-                        label={t('layouts.quizEditor.widgetDescription', 'Widget description override')}
-                        value={draft.description}
-                        onChange={(event) => setDraft((current) => ({ ...current, description: event.target.value }))}
-                        multiline
-                        minRows={2}
-                        fullWidth
-                    />
 
                     <FormControl fullWidth>
                         <InputLabel id={attachmentKindLabelId}>{t('layouts.quizEditor.attachmentKind', 'Quiz source')}</InputLabel>
@@ -256,7 +210,6 @@ export default function QuizWidgetEditorDialog({
                             label={t('layouts.quizEditor.moduleCodename', 'Quiz module')}
                             onChange={(event) => setDraft((current) => ({ ...current, moduleCodename: String(event.target.value) }))}
                         >
-                            <MenuItem value=''>{t('layouts.quizEditor.useFirstAvailable', 'Use the first available quiz module')}</MenuItem>
                             {availableModules.map((module) => (
                                 <MenuItem key={module.codename} value={module.codename}>
                                     {module.label}
@@ -267,7 +220,7 @@ export default function QuizWidgetEditorDialog({
                             {selectedModule?.description ||
                                 t(
                                     'layouts.quizEditor.moduleCodenameHelp',
-                                    'Leave this empty only when there is a single obvious quiz module for the selected source.'
+                                    'Select the active quiz module that owns this widget’s content and behavior.'
                                 )}
                         </FormHelperText>
                     </FormControl>
@@ -285,52 +238,45 @@ export default function QuizWidgetEditorDialog({
                         <Collapse in={showAdvancedActions} unmountOnExit>
                             <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
                                 <TextField
+                                    select
                                     label={t('layouts.quizEditor.mountMethodName', 'Content loader')}
                                     value={draft.mountMethodName}
-                                    onChange={(event) => setDraft((current) => ({ ...current, mountMethodName: event.target.value }))}
-                                    helperText={t('layouts.quizEditor.mountMethodHelp', 'Optional. Leave empty to use the default loader.')}
+                                    onChange={(event) =>
+                                        setDraft((current) => ({ ...current, mountMethodName: String(event.target.value) }))
+                                    }
+                                    helperText={t('layouts.quizEditor.mountMethodHelp', 'Choose a client method from the selected module.')}
                                     fullWidth
-                                />
+                                >
+                                    <MenuItem value=''>{t('layouts.quizEditor.defaultMountMethod', 'Default (mount)')}</MenuItem>
+                                    {(selectedModule?.methodNames ?? []).map((methodName) => (
+                                        <MenuItem key={methodName} value={methodName}>
+                                            {methodName}
+                                        </MenuItem>
+                                    ))}
+                                </TextField>
                                 <TextField
+                                    select
                                     label={t('layouts.quizEditor.submitMethodName', 'Answer checker')}
                                     value={draft.submitMethodName}
-                                    onChange={(event) => setDraft((current) => ({ ...current, submitMethodName: event.target.value }))}
+                                    onChange={(event) =>
+                                        setDraft((current) => ({ ...current, submitMethodName: String(event.target.value) }))
+                                    }
                                     helperText={t(
                                         'layouts.quizEditor.submitMethodHelp',
-                                        'Optional. Leave empty to use the default answer checker.'
+                                        'Choose a client method from the selected module, or keep the default.'
                                     )}
                                     fullWidth
-                                />
+                                >
+                                    <MenuItem value=''>{t('layouts.quizEditor.defaultSubmitMethod', 'Default (submit)')}</MenuItem>
+                                    {(selectedModule?.methodNames ?? []).map((methodName) => (
+                                        <MenuItem key={methodName} value={methodName}>
+                                            {methodName}
+                                        </MenuItem>
+                                    ))}
+                                </TextField>
                             </Stack>
                         </Collapse>
                     </Stack>
-
-                    <TextField
-                        label={t('layouts.quizEditor.emptyStateTitle', 'Empty state title')}
-                        value={draft.emptyStateTitle}
-                        onChange={(event) => setDraft((current) => ({ ...current, emptyStateTitle: event.target.value }))}
-                        fullWidth
-                    />
-
-                    <TextField
-                        label={t('layouts.quizEditor.emptyStateDescription', 'Empty state description')}
-                        value={draft.emptyStateDescription}
-                        onChange={(event) => setDraft((current) => ({ ...current, emptyStateDescription: event.target.value }))}
-                        multiline
-                        minRows={2}
-                        fullWidth
-                    />
-
-                    {showSharedBehavior ? (
-                        <LayoutWidgetSharedBehaviorFields
-                            value={{ sharedBehavior: sharedBehaviorValue }}
-                            onChange={(nextValue) => setSharedBehaviorValue(getSharedBehaviorFromWidgetConfig(nextValue))}
-                        />
-                    ) : null}
-
-                    {showScopeVisibility && layoutId && widgetId ? (
-                        <WidgetScopeVisibilityPanel metahubId={metahubId} layoutId={layoutId} widgetId={widgetId} />
-                    ) : null}
                 </Stack>
             )}
         />

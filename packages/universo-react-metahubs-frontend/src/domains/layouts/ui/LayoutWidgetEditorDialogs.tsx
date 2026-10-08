@@ -43,10 +43,6 @@ export default function LayoutWidgetEditorDialogs({
                 open={editors.menu.open}
                 metahubId={metahubId}
                 config={editors.menu.config}
-                layoutId={layoutId}
-                widgetId={editors.menu.widgetId}
-                showSharedBehavior={isGlobalLayout}
-                showScopeVisibility={isGlobalLayout && Boolean(editors.menu.widgetId)}
                 onSave={dialogs.saveMenu}
                 onCancel={dialogs.closeMenu}
             />
@@ -56,7 +52,6 @@ export default function LayoutWidgetEditorDialogs({
                 metahubId={metahubId}
                 layoutId={layoutId}
                 widgetId={editors.columns.widgetId}
-                showSharedBehavior={isGlobalLayout}
                 showScopeVisibility={isGlobalLayout && Boolean(editors.columns.widgetId)}
                 onSave={dialogs.saveColumns}
                 onCancel={dialogs.closeColumns}
@@ -65,10 +60,6 @@ export default function LayoutWidgetEditorDialogs({
                 open={editors.quiz.open}
                 metahubId={metahubId}
                 config={editors.quiz.config ?? undefined}
-                layoutId={layoutId}
-                widgetId={editors.quiz.widgetId}
-                showSharedBehavior={isGlobalLayout}
-                showScopeVisibility={isGlobalLayout && Boolean(editors.quiz.widgetId)}
                 onSave={dialogs.saveQuiz}
                 onCancel={dialogs.closeQuiz}
             />
@@ -78,7 +69,6 @@ export default function LayoutWidgetEditorDialogs({
                 config={editors.playCanvas.config ?? undefined}
                 layoutId={layoutId}
                 widgetId={editors.playCanvas.widgetId}
-                showSharedBehavior={isGlobalLayout}
                 showScopeVisibility={isGlobalLayout && Boolean(editors.playCanvas.widgetId)}
                 onSave={dialogs.savePlayCanvas}
                 onCancel={dialogs.closePlayCanvas}
@@ -90,7 +80,6 @@ export default function LayoutWidgetEditorDialogs({
                     metahubId={metahubId}
                     layoutId={layoutId}
                     widgetId={editors.interpretationNetwork.widgetId}
-                    showSharedBehavior={isGlobalLayout}
                     showScopeVisibility={isGlobalLayout && Boolean(editors.interpretationNetwork.widgetId)}
                     onSave={dialogs.saveInterpretationNetwork}
                     onCancel={dialogs.closeInterpretationNetwork}
@@ -102,6 +91,7 @@ export default function LayoutWidgetEditorDialogs({
                 metahubId={metahubId}
                 layoutId={layoutId}
                 widgetId={editors.behavior.widgetId}
+                widgetKey={editors.behavior.widgetKey}
                 widgetLabel={editors.behavior.widgetLabel}
                 showScopeVisibility={isGlobalLayout && Boolean(editors.behavior.widgetId)}
                 onSave={dialogs.saveBehavior}
@@ -109,10 +99,13 @@ export default function LayoutWidgetEditorDialogs({
             />
             <MarketingWidgetBindingDialog
                 open={editors.marketingBinding.open}
+                templateKey={authoring.templateKey}
                 metahubId={metahubId}
                 layoutId={layoutId}
-                zone={editors.marketingBinding.zone ?? 'marketing-main'}
-                widgetKey={editors.marketingBinding.widgetKey ?? 'marketing.hero'}
+                zone={editors.marketingBinding.zone ?? (authoring.templateKey === 'dashboard' ? 'center' : 'marketing-main')}
+                widgetKey={
+                    editors.marketingBinding.widgetKey ?? (authoring.templateKey === 'dashboard' ? 'overviewTitle' : 'marketing.hero')
+                }
                 widgetId={editors.marketingBinding.widgetId}
                 sourceWidgetId={editors.marketingBinding.sourceWidgetId}
                 duplicateMode={editors.marketingBinding.duplicateMode}

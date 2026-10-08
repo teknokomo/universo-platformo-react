@@ -1,4 +1,4 @@
-import { generateUuidV7, type DbExecutor } from '@universo-react/utils'
+import { generateUuidV7, isRuntimeSensitiveFieldName, isRuntimeTechnicalFieldName, type DbExecutor } from '@universo-react/utils'
 import {
     UpdateFailure,
     IDENTIFIER_REGEX,
@@ -14,6 +14,43 @@ import {
     toRuntimeInputFormatErrorBody
 } from '../shared/runtimeHelpers'
 import type { resolveTabularContext } from '../shared/runtimeHelpers'
+import { isRuntimeEnumerationKind, isRuntimeObjectTargetKind } from '../services/runtimeRowSupport/contracts'
+
+export const getSafeRuntimeChildAttrs = (
+    tc: Exclude<Awaited<ReturnType<typeof resolveTabularContext>>, { error: string }>
+): typeof tc.childAttrs =>
+    tc.childAttrs.filter((attr) => {
+        const uiConfig = attr.ui_config ?? {}
+        const codename = String(attr.codename ?? '')
+        const columnName = attr.column_name
+        const dataType = String(attr.data_type ?? '').toUpperCase()
+
+        if (
+            !IDENTIFIER_REGEX.test(columnName) ||
+            uiConfig.hidden === true ||
+            uiConfig.gridHidden === true ||
+            uiConfig.formHidden === true ||
+            uiConfig.serverOwned === true ||
+            uiConfig.sensitive === true ||
+            uiConfig.private === true ||
+            dataType === 'JSON' ||
+            dataType === 'TABLE' ||
+            isRuntimeTechnicalFieldName(codename) ||
+            isRuntimeTechnicalFieldName(columnName) ||
+            isRuntimeSensitiveFieldName(codename) ||
+            isRuntimeSensitiveFieldName(columnName) ||
+            uiConfig.widget === 'resourceSource' ||
+            uiConfig.widget === 'editorjsBlockContent' ||
+            uiConfig.resourceSource === true ||
+            uiConfig.resource === true ||
+            uiConfig.editor === 'editorjs' ||
+            uiConfig.blockContent === true
+        ) {
+            return false
+        }
+
+        return dataType !== 'REF' || isRuntimeEnumerationKind(attr.target_object_kind) || isRuntimeObjectTargetKind(attr.target_object_kind)
+    })
 
 export const resolveHierarchyAttrs = (
     tc: Exclude<Awaited<ReturnType<typeof resolveTabularContext>>, { error: string }>

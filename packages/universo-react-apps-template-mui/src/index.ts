@@ -1,17 +1,32 @@
 export { default as AppsDashboard } from './dashboard/Dashboard'
+export { useDashboardBoundRowActions } from './dashboard/useDashboardBoundRowActions'
+export { resolveDashboardEntityTargetSectionId } from './dashboard/runtime/resolveDashboardEntityTargetSectionId'
+export type {
+    DashboardBoundRowActionData,
+    DashboardBoundRowActionGuardFailure,
+    DashboardBoundRowActionLoadState,
+    DashboardBoundRowMutationAction,
+    DashboardBoundRowActionsResult,
+    PendingDashboardRowTarget,
+    UseDashboardBoundRowActionsOptions
+} from './dashboard/useDashboardBoundRowActions'
+export type {
+    DashboardEntityDescriptor,
+    DashboardEntityIndex,
+    DashboardEntityTarget
+} from './dashboard/runtime/resolveDashboardEntityTargetSectionId'
 export type {
     DashboardDetailsSlot,
     DashboardCreateTarget,
+    DashboardRowActionTarget,
     DashboardRowTarget,
     DashboardRowTargetAction,
     DashboardLayoutConfig,
-    DashboardMenuItem,
-    DashboardMenuSlot,
-    DashboardMenusMap,
     DashboardProps,
     ZoneWidgetItem,
     ZoneWidgets
 } from './dashboard/Dashboard'
+export { withoutWorkspaceDashboardContent } from './dashboard/runtime/workspaceDashboardLayout'
 
 export { default as MarketingPage } from './marketing-page/MarketingPage'
 export { default as MarketingRuntimeContent } from './marketing-page/MarketingRuntimeContent'
@@ -106,7 +121,14 @@ export type {
     MarketingPageRuntimeResponse
 } from './api/api'
 export type { EffectiveLayoutResult } from '@universo-react/types'
-export type { CrudDataAdapter, CellRendererOverrides, RuntimeRecordCommand, RuntimeRestoreTarget } from './api/types'
+export type {
+    CrudDataAdapter,
+    CellRendererOverrides,
+    RuntimeRecordCommand,
+    RuntimeRelationScope,
+    RuntimeRestoreTarget,
+    RuntimeRowTarget
+} from './api/types'
 export { createStandaloneAdapter } from './api/adapters'
 export { updateLearningContentProgress } from './api/api'
 

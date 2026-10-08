@@ -2,9 +2,15 @@ import {
     buildRuntimeListClauses,
     findUnsupportedRuntimeListFields,
     normalizeRuntimeFilterValue,
-    resolveRuntimeFilterValue
-} from '../../../controllers/runtimeRowSupport/list'
-import type { RuntimeListComponent } from '../../../controllers/runtimeRowSupport/contracts'
+    resolveRuntimeFilterValue,
+    resolveRuntimeRelationOwnedFieldCodenames,
+    resolveRuntimeRelationPanelAuthority,
+    resolveRuntimeRowReorderAuthority
+} from '../../../services/runtimeRowSupport/list'
+import { createEmptyRuntimeZoneWidgets, type RuntimeListComponent } from '../../../services/runtimeRowSupport/contracts'
+import { attachRuntimeRelationAuthorityProjection } from '../../../services/runtimeRowSupport/runtimeRelationAuthority'
+import { attachRuntimeTableReorderAuthorityProjection } from '../../../services/runtimeRowSupport/runtimeTableReorderAuthority'
+import { createDetailsTableEffectiveWidget, createRelationBuilderEffectiveWidget } from './runtimeRelationAuthorityFixture'
 import type { RuntimeDatasourceFilter, RuntimeDatasourceSort } from '@universo-react/types'
 
 const codename = (text: string) => ({ _primary: 'en', locales: { en: { content: text } } })
@@ -168,6 +174,137 @@ describe('findUnsupportedRuntimeListFields', () => {
                 ]
             )
         ).toEqual(['notes', 'missing', 'payload'])
+    })
+})
+
+describe('resolveRuntimeRowReorderAuthority', () => {
+    const project = (...widgets: ReturnType<typeof createDetailsTableEffectiveWidget>[]) =>
+        attachRuntimeTableReorderAuthorityProjection(createEmptyRuntimeZoneWidgets(), widgets)
+
+    it('authorizes only the Entity whose active detailsTable has a validated record-set binding', () => {
+        const zoneWidgets = project(createDetailsTableEffectiveWidget())
+
+        expect(resolveRuntimeRowReorderAuthority(zoneWidgets, 'Courses')).toEqual({
+            enableRowReordering: true,
+            reorderPersistenceField: 'SortOrder'
+        })
+        expect(resolveRuntimeRowReorderAuthority(zoneWidgets, 'OtherCourses')).toEqual({
+            enableRowReordering: false,
+            reorderPersistenceField: null
+        })
+        expect(JSON.stringify(zoneWidgets)).not.toContain('Courses')
+    })
+
+    const deniedWidgetCases: Array<[string, ReturnType<typeof createDetailsTableEffectiveWidget>]> = [
+        ['disabled', createDetailsTableEffectiveWidget({ enableRowReordering: false })],
+        ['inactive', createDetailsTableEffectiveWidget({ isActive: false })],
+        ['unbound', { ...createDetailsTableEffectiveWidget() }]
+    ]
+
+    it.each(deniedWidgetCases)('fails closed for %s widgets', (_reason, widget) => {
+        const zoneWidgets = project(widget)
+        expect(resolveRuntimeRowReorderAuthority(zoneWidgets, 'Courses')).toEqual({
+            enableRowReordering: false,
+            reorderPersistenceField: null
+        })
+    })
+
+    it('fails closed when more than one matching placement claims reorder authority', () => {
+        const zoneWidgets = project(createDetailsTableEffectiveWidget(), createDetailsTableEffectiveWidget())
+        expect(resolveRuntimeRowReorderAuthority(zoneWidgets, 'Courses')).toEqual({
+            enableRowReordering: false,
+            reorderPersistenceField: null
+        })
+    })
+})
+
+describe('resolveRuntimeRelationPanelAuthority', () => {
+    const parentRecordId = '0190a9b5-3cde-7abc-8def-0123456789d2'
+    const effectiveWidget = createRelationBuilderEffectiveWidget({ sortOrderFieldCodename: 'Position' })
+    const zoneWidgets = (...projectedWidgets: ReturnType<typeof createRelationBuilderEffectiveWidget>[]) => {
+        const widgets = createEmptyRuntimeZoneWidgets()
+        widgets.center.push({
+            id: effectiveWidget.id,
+            layoutId: 'layout-1',
+            widgetKey: effectiveWidget.widgetKey,
+            sortOrder: effectiveWidget.sortOrder,
+            config: effectiveWidget.config
+        })
+        return attachRuntimeRelationAuthorityProjection(widgets, projectedWidgets.length > 0 ? projectedWidgets : [effectiveWidget])
+    }
+
+    const scope = {
+        parentFieldCodename: 'CourseId',
+        parentEntityCodename: 'Courses',
+        parentRecordId,
+        childEntityCodename: 'CourseItems'
+    }
+
+    it('identifies relationship fields only for runtime-projected child Entities', () => {
+        const widgets = zoneWidgets()
+
+        expect(resolveRuntimeRelationOwnedFieldCodenames(widgets, 'CourseItems')).toEqual(['CourseId', 'Position'])
+        expect(resolveRuntimeRelationOwnedFieldCodenames(widgets, 'OtherItems')).toEqual([])
+        expect(JSON.stringify(widgets)).not.toContain('bindings')
+        expect(JSON.stringify(widgets)).not.toContain('Courses')
+    })
+
+    it('authorizes by the validated Entity binding and leaves exact record access to the parent lock', () => {
+        const widgets = zoneWidgets()
+
+        expect(resolveRuntimeRelationPanelAuthority(widgets, scope)).toEqual({
+            ...scope,
+            slotKey: 'panel:items',
+            sortOrderFieldCodename: 'Position',
+            enableRowReordering: true
+        })
+        expect(resolveRuntimeRelationPanelAuthority(widgets, { ...scope, childEntityCodename: 'OtherItems' })).toBeNull()
+        expect(resolveRuntimeRelationPanelAuthority(widgets, { ...scope, parentEntityCodename: 'OtherCourses' })).toBeNull()
+        expect(resolveRuntimeRelationPanelAuthority(widgets, { ...scope, parentFieldCodename: 'TrackId' })).toBeNull()
+        expect(
+            resolveRuntimeRelationPanelAuthority(widgets, { ...scope, parentRecordId: '0190a9b5-3cde-7abc-8def-0123456789d3' })
+        ).toMatchObject({
+            parentRecordId: '0190a9b5-3cde-7abc-8def-0123456789d3'
+        })
+    })
+
+    it('fails closed without validated source bindings and disables reorder when the panel opts out', () => {
+        const missingBindings = createEmptyRuntimeZoneWidgets()
+        missingBindings.center.push({
+            id: effectiveWidget.id,
+            layoutId: 'layout-1',
+            widgetKey: effectiveWidget.widgetKey,
+            sortOrder: effectiveWidget.sortOrder,
+            config: effectiveWidget.config
+        })
+        expect(resolveRuntimeRelationPanelAuthority(missingBindings, scope)).toBeNull()
+
+        const nonReorderableWidget = createRelationBuilderEffectiveWidget({
+            enableRowReordering: false,
+            sortOrderFieldCodename: 'Position'
+        })
+        const widgets = createEmptyRuntimeZoneWidgets()
+        widgets.center.push({
+            id: nonReorderableWidget.id,
+            layoutId: 'layout-1',
+            widgetKey: nonReorderableWidget.widgetKey,
+            sortOrder: nonReorderableWidget.sortOrder,
+            config: nonReorderableWidget.config
+        })
+        attachRuntimeRelationAuthorityProjection(widgets, [nonReorderableWidget])
+
+        expect(resolveRuntimeRelationPanelAuthority(widgets, scope)).toMatchObject({
+            parentRecordId,
+            childEntityCodename: 'CourseItems',
+            enableRowReordering: false
+        })
+    })
+
+    it('fails closed when multiple validated panels claim the same relation authority', () => {
+        const duplicate = createRelationBuilderEffectiveWidget({ sortOrderFieldCodename: 'Position' })
+        const widgets = zoneWidgets(effectiveWidget, duplicate)
+
+        expect(resolveRuntimeRelationPanelAuthority(widgets, scope)).toBeNull()
     })
 })
 

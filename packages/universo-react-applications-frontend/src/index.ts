@@ -54,8 +54,6 @@ export type {
     ApplicationEffectiveLayoutResponse,
     ApplicationRuntimeObjectCollection,
     ApplicationRuntimeColumn,
-    ApplicationRuntimeMenu,
-    ApplicationRuntimeMenuItem,
     PaginationParams,
     PaginationMeta,
     PaginatedResponse

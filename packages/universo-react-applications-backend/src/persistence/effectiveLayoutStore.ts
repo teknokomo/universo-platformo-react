@@ -38,6 +38,9 @@ export interface EffectiveLayoutWidgetRow {
     layout_id: unknown
     zone: unknown
     widget_key: unknown
+    instance_key: unknown
+    parent_widget_id: unknown
+    slot_key: unknown
     sort_order: unknown
     config: unknown
     source_config: unknown
@@ -53,6 +56,9 @@ export interface EffectiveLayoutBaseWidgetRow {
     layout_id: unknown
     source_widget_id: unknown
     source_base_widget_id: unknown
+    instance_key: unknown
+    parent_widget_id: unknown
+    slot_key: unknown
     template_key: unknown
     scope_entity_id: unknown
     widget_key: unknown
@@ -103,6 +109,29 @@ export async function findEffectiveLayoutEntity(
         LIMIT 2
         `,
         [targetKind, selector.value]
+    )
+}
+
+export async function findEffectiveLayoutHomePages(
+    executor: DbExecutor,
+    schemaName: string,
+    visibility: EffectiveLayoutReadVisibility = 'authenticated'
+): Promise<EffectiveLayoutEntityRow[]> {
+    const objectsTable = qSchemaTable(schemaName, '_app_objects')
+    return executor.query<EffectiveLayoutEntityRow>(
+        `
+        SELECT
+            o.id,
+            o.kind,
+            ${runtimeCodenameTextSql('o.codename')} AS codename
+        FROM ${objectsTable} o
+        WHERE o.kind = 'page'
+          AND o.config->'runtime'->>'routeSegment' = 'home'
+          AND ${effectiveLayoutLifecyclePredicate('o', visibility)}
+          AND ${runtimeLayoutCapableFilterSql('o.config')}
+        ORDER BY o.id ASC
+        LIMIT 2
+        `
     )
 }
 
@@ -163,12 +192,18 @@ export async function listEffectiveLayoutWidgets(
             w.layout_id,
             w.zone,
             w.widget_key,
+            w.instance_key,
+            w.parent_widget_id,
+            w.slot_key,
             w.sort_order,
             w.config,
             w.source_config,
             w.source_state,
             w.source_widget_id,
             w.source_base_widget_id,
+            w.instance_key,
+            w.parent_widget_id,
+            w.slot_key,
             w.is_active,
             COALESCE(w._upl_version, 1)::int AS version
         FROM ${widgetsTable} w
@@ -201,6 +236,7 @@ export async function findEffectiveLayoutBaseWidgets(
             l.template_key,
             l.scope_entity_id,
             w.widget_key,
+            w.instance_key,
             w.zone,
             w.config,
             w.source_config

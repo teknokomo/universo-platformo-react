@@ -63,7 +63,7 @@ Website: [https://universo.pro](https://universo.pro)
 
 ## Current Status
 
-**Current version**: 0.84.0-alpha (September 2026). The project remains in alpha and is being prepared for a more stable beta phase.
+**Current version**: 0.84.0-alpha (October 2026). The project remains in alpha and is being prepared for a more stable beta phase.
 
 ## Tech Stack
 

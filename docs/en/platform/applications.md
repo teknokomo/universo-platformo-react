@@ -64,6 +64,14 @@ After a widget is customized, published runtime behavior uses the application-le
 Workspace override policy is configured at the application layer.
 Only settings allowed by that policy are visible and mutable inside individual runtime workspaces; locked settings continue to use the application value.
 
+## Dashboard Data and Widget Placement
+
+Dashboard layouts use the shared widget registry and a persisted placement graph. A widget stores presentation and source-binding settings; business and content records remain owned by their Entity Types. Nested widgets are connected through parent-instance and slot references on placements rather than child arrays inside widget configuration.
+
+Applications inherit published placements and may change only the settings and placement controls allowed by the widget registry. Reset restores the published source state. At runtime, source resolvers return bounded, authorized data for the widget to render.
+
+See [Entity-Backed Widgets](../architecture/entity-backed-widgets.md) for ownership rules and [Application Layouts](../guides/application-layouts.md) for authoring and synchronization behavior.
+
 ## Workspace-Aware Runtime Model
 
 When `workspacesEnabled` is on, runtime working data is scoped to the user's current workspace.

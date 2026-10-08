@@ -44,8 +44,15 @@ import { createMockDbExecutor, createMockDataStore } from '../utils/dbMocks'
 import { createApplicationsRoutes } from '../../routes/applicationsRoutes'
 import { ROLE_PERMISSIONS } from '../../routes/guards'
 import { RuntimeModulesService } from '../../services/runtimeModulesService'
+import { issueRuntimeRecordHandle } from '../../services/runtimeRecordHandle'
 import { buildRuntimeRecordAccessClause, type RuntimeObjectCollectionAttr } from '../../controllers/runtimeRowsController'
 import { computePlayCanvasRuntimeManifestChecksum } from '../../controllers/runtimePlayCanvasController'
+import {
+    encodeLayoutWidgetConfigEnvelope,
+    getDashboardWidgetDefinition,
+    getLayoutWidgetDefinition,
+    validateWidgetBindings
+} from '@universo-react/types'
 
 describe('Applications Routes', () => {
     const effectiveLayoutId = '0190a9b5-3cde-7abc-8def-0123456789d0'
@@ -78,6 +85,9 @@ describe('Applications Routes', () => {
         layout_id: effectiveLayoutId,
         zone: 'center',
         widget_key: 'detailsTable',
+        instance_key: typeof overrides.id === 'string' ? overrides.id : 'widget-main',
+        parent_widget_id: null,
+        slot_key: null,
         sort_order: 0,
         config: {},
         source_config: null,
@@ -90,15 +100,97 @@ describe('Applications Routes', () => {
     })
 
     const enableCanonicalRowReorderingLayout = () => {
-        mockListEffectiveLayoutCandidates.mockResolvedValue([
-            buildEffectiveLayoutCandidate({
-                config: {
-                    __layout: { composition: { mode: 'independent', baseLayoutId: null } },
-                    objectBehavior: {
-                        enableRowReordering: true,
-                        reorderPersistenceField: 'SortOrder'
-                    }
+        const definition = getDashboardWidgetDefinition('detailsTable')
+        if (!definition) throw new Error('Expected detailsTable to be registered')
+        const rowsSlot = definition.bindingSlots?.find(({ key }) => key === 'rows')
+        if (!rowsSlot) throw new Error('Expected detailsTable rows binding slot')
+        const rendererConfig = { variant: 'records', enableRowReordering: true }
+        const bindings = validateWidgetBindings(definition, {
+            version: 1,
+            slots: [
+                {
+                    slot: 'rows',
+                    targets: [
+                        {
+                            entityKind: 'object',
+                            entityCodename: 'orders',
+                            selector: { kind: 'record-set' },
+                            projection: rowsSlot.requirements.components.map(({ field, componentCodename }) => ({
+                                field,
+                                componentCodename
+                            }))
+                        }
+                    ]
                 }
+            ]
+        })
+        mockListEffectiveLayoutCandidates.mockResolvedValue([buildEffectiveLayoutCandidate()])
+        mockListEffectiveLayoutWidgets.mockResolvedValue([
+            buildEffectiveLayoutWidget({
+                config: encodeLayoutWidgetConfigEnvelope(
+                    { rendererConfig, neutral: { bindings } },
+                    { templateKey: 'dashboard', widgetKey: 'detailsTable', zone: 'center', requireBindings: true }
+                )
+            })
+        ])
+    }
+
+    const enableCanonicalRelationReorderingLayout = () => {
+        const rendererConfig = {
+            panels: [
+                {
+                    slotKey: 'panel:items',
+                    title: { en: 'Course items', ru: 'Элементы курса' },
+                    parentFieldCodename: 'CourseId',
+                    sortOrderFieldCodename: 'SortOrder',
+                    enableRowReordering: true
+                }
+            ]
+        }
+        const definition = getLayoutWidgetDefinition('relationBuilder', rendererConfig)
+        if (!definition) throw new Error('Expected relationBuilder to be registered')
+        const project = (slotKey: string) =>
+            definition.bindingSlots
+                ?.find(({ key }) => key === slotKey)
+                ?.requirements.components.map(({ field, componentCodename }) => ({
+                    field,
+                    componentCodename
+                })) ?? []
+        const bindings = validateWidgetBindings(definition, {
+            version: 1,
+            slots: [
+                {
+                    slot: 'parent',
+                    targets: [
+                        {
+                            entityKind: 'object',
+                            entityCodename: 'Courses',
+                            selector: { kind: 'record-set' },
+                            projection: project('parent')
+                        }
+                    ]
+                },
+                {
+                    slot: 'panel:items',
+                    targets: [
+                        {
+                            entityKind: 'object',
+                            entityCodename: 'CourseItems',
+                            selector: { kind: 'relation-set', parentSlot: 'parent' },
+                            projection: project('panel:items')
+                        }
+                    ]
+                }
+            ]
+        })
+        mockListEffectiveLayoutCandidates.mockResolvedValue([buildEffectiveLayoutCandidate()])
+        mockListEffectiveLayoutWidgets.mockResolvedValue([
+            buildEffectiveLayoutWidget({
+                widget_key: 'relationBuilder',
+                config: encodeLayoutWidgetConfigEnvelope(
+                    { rendererConfig, neutral: { bindings } },
+                    { templateKey: 'dashboard', widgetKey: 'relationBuilder', zone: 'center', requireBindings: true }
+                )
             })
         ])
     }
@@ -562,7 +654,7 @@ describe('Applications Routes', () => {
             })
         })
 
-        it('keeps materialized page-backed menu items in runtime navigation', async () => {
+        it('keeps persisted layout and menu configuration out of the generic runtime row response', async () => {
             const runtimeApplicationId = '018f8a78-7b8f-7c1d-a111-2222333344a0'
             const runtimePageId = '018f8a78-7b8f-7c1d-a111-2222333344a1'
             const runtimeObjectId = '018f8a78-7b8f-7c1d-a111-2222333344a2'
@@ -590,31 +682,7 @@ describe('Applications Routes', () => {
                 primaryMode: 'compact',
                 rememberUserChoice: false
             }
-            const menuWidgetConfig = {
-                sideMenu: sideMenuConfig,
-                startPage: runtimePageId,
-                startTarget: { kind: 'section', sectionId: runtimePageId },
-                items: [
-                    {
-                        id: 'start-page',
-                        kind: 'section',
-                        title: { en: 'Start' },
-                        sectionId: runtimePageId,
-                        objectCollectionId: runtimePageId,
-                        sortOrder: 0,
-                        isActive: true
-                    },
-                    {
-                        id: 'structures',
-                        kind: 'section',
-                        title: { en: 'Structures' },
-                        sectionId: runtimeObjectId,
-                        objectCollectionId: runtimeObjectId,
-                        sortOrder: 1,
-                        isActive: true
-                    }
-                ]
-            }
+            const menuWidgetConfig = { variant: 'generated' as const }
             mockListEffectiveLayoutCandidates.mockResolvedValue([
                 buildEffectiveLayoutCandidate({
                     id: runtimeLayoutId,
@@ -641,7 +709,7 @@ describe('Applications Routes', () => {
                 buildEffectiveLayoutWidget({
                     id: runtimeRightWidgetId,
                     layout_id: runtimeLayoutId,
-                    widget_key: 'productTree',
+                    widget_key: 'divider',
                     sort_order: 2,
                     zone: 'right',
                     config: {}
@@ -657,10 +725,10 @@ describe('Applications Routes', () => {
                 buildEffectiveLayoutWidget({
                     id: runtimeCenterWidgetId,
                     layout_id: runtimeLayoutId,
-                    widget_key: 'detailsTable',
+                    widget_key: 'columnsContainer',
                     sort_order: 4,
                     zone: 'center',
-                    config: {}
+                    config: { columns: [{ slotKey: 'column:main', width: 12 }] }
                 })
             ])
             ;(dataSource.manager.query as jest.Mock).mockImplementation(async (sql: string, params?: unknown[]) => {
@@ -718,6 +786,9 @@ describe('Applications Routes', () => {
                         {
                             id: runtimeMenuWidgetId,
                             layout_id: runtimeLayoutId,
+                            instance_key: runtimeMenuWidgetId,
+                            parent_widget_id: null,
+                            slot_key: null,
                             widget_key: 'menuWidget',
                             sort_order: 0,
                             zone: 'left',
@@ -726,6 +797,9 @@ describe('Applications Routes', () => {
                         {
                             id: runtimeTopWidgetId,
                             layout_id: runtimeLayoutId,
+                            instance_key: runtimeTopWidgetId,
+                            parent_widget_id: null,
+                            slot_key: null,
                             widget_key: 'header',
                             sort_order: 1,
                             zone: 'top',
@@ -734,7 +808,10 @@ describe('Applications Routes', () => {
                         {
                             id: runtimeRightWidgetId,
                             layout_id: runtimeLayoutId,
-                            widget_key: 'productTree',
+                            instance_key: runtimeRightWidgetId,
+                            parent_widget_id: null,
+                            slot_key: null,
+                            widget_key: 'divider',
                             sort_order: 2,
                             zone: 'right',
                             config: {}
@@ -742,6 +819,9 @@ describe('Applications Routes', () => {
                         {
                             id: runtimeBottomWidgetId,
                             layout_id: runtimeLayoutId,
+                            instance_key: runtimeBottomWidgetId,
+                            parent_widget_id: null,
+                            slot_key: null,
                             widget_key: 'footer',
                             sort_order: 3,
                             zone: 'bottom',
@@ -750,10 +830,13 @@ describe('Applications Routes', () => {
                         {
                             id: runtimeCenterWidgetId,
                             layout_id: runtimeLayoutId,
-                            widget_key: 'detailsTable',
+                            instance_key: runtimeCenterWidgetId,
+                            parent_widget_id: null,
+                            slot_key: null,
+                            widget_key: 'columnsContainer',
                             sort_order: 4,
                             zone: 'center',
-                            config: {}
+                            config: { columns: [{ slotKey: 'column:main', width: 12 }] }
                         }
                     ]
                 }
@@ -771,169 +854,10 @@ describe('Applications Routes', () => {
 
             expect(response.body.activeSectionId).toBe(runtimePageId)
             expect(response.body.activeObjectCollectionId).toBeNull()
-            expect(response.body.layoutConfig.sideMenu).toEqual({
-                availableModes: ['compact', 'overlay'],
-                primaryMode: 'compact',
-                rememberUserChoice: false
-            })
-            expect(response.body.zoneWidgets.left[0]).toMatchObject({
-                id: runtimeMenuWidgetId,
-                layoutId: runtimeLayoutId,
-                widgetKey: 'menuWidget'
-            })
-            expect(response.body.zoneWidgets.top[0]).toMatchObject({
-                id: runtimeTopWidgetId,
-                layoutId: runtimeLayoutId,
-                widgetKey: 'header'
-            })
-            expect(response.body.zoneWidgets.right[0]).toMatchObject({
-                id: runtimeRightWidgetId,
-                layoutId: runtimeLayoutId,
-                widgetKey: 'productTree'
-            })
-            expect(response.body.zoneWidgets.bottom[0]).toMatchObject({
-                id: runtimeBottomWidgetId,
-                layoutId: runtimeLayoutId,
-                widgetKey: 'footer'
-            })
-            expect(response.body.zoneWidgets.center[0]).toMatchObject({
-                id: runtimeCenterWidgetId,
-                layoutId: runtimeLayoutId,
-                widgetKey: 'detailsTable'
-            })
-            expect(response.body.menus[0]).toMatchObject({
-                startPage: runtimePageId,
-                startSectionId: runtimePageId,
-                items: [
-                    expect.objectContaining({
-                        id: 'start-page',
-                        sectionId: runtimePageId,
-                        objectCollectionId: null
-                    }),
-                    expect.objectContaining({
-                        id: 'structures',
-                        sectionId: runtimeObjectId,
-                        objectCollectionId: runtimeObjectId
-                    })
-                ]
-            })
-        })
-
-        it('keeps application layout side-menu settings ahead of menu widget defaults', async () => {
-            const runtimeApplicationId = '018f8a78-7b8f-7c1d-a111-22223333446f'
-            const runtimeLayoutId = '018f8a78-7b8f-7c1d-a111-2222333344ff'
-            const runtimePageId = '018f8a78-7b8f-7c1d-a111-222233334471'
-            const runtimeMenuWidgetId = '018f8a78-7b8f-7c1d-a111-2222333344aa'
-            const { dataSource, applicationRepo, applicationUserRepo } = buildDataSource()
-
-            applicationRepo.findOne.mockResolvedValue({
-                id: runtimeApplicationId,
-                schemaName: 'app_deadbeef',
-                workspacesEnabled: false
-            })
-            applicationUserRepo.findOne.mockResolvedValue({
-                applicationId: runtimeApplicationId,
-                userId: 'test-user-id',
-                role: 'member'
-            })
-            mockListEffectiveLayoutCandidates.mockResolvedValue([
-                buildEffectiveLayoutCandidate({
-                    id: runtimeLayoutId,
-                    config: {
-                        sideMenu: {
-                            availableModes: ['overlay'],
-                            primaryMode: 'overlay',
-                            rememberUserChoice: false
-                        },
-                        __layout: { composition: { mode: 'independent', baseLayoutId: null } }
-                    }
-                })
-            ])
-            mockListEffectiveLayoutWidgets.mockResolvedValue([
-                buildEffectiveLayoutWidget({
-                    id: runtimeMenuWidgetId,
-                    layout_id: runtimeLayoutId,
-                    widget_key: 'menuWidget',
-                    sort_order: 0,
-                    zone: 'left',
-                    config: {
-                        sideMenu: {
-                            availableModes: ['compact', 'overlay'],
-                            primaryMode: 'compact',
-                            rememberUserChoice: true
-                        },
-                        items: []
-                    }
-                })
-            ])
-            ;(dataSource.manager.query as jest.Mock).mockImplementation(async (sql: string, params?: unknown[]) => {
-                if (sql.includes('FROM "app_deadbeef"._app_objects')) {
-                    return [
-                        {
-                            id: runtimePageId,
-                            kind: 'page',
-                            codename: 'Intro',
-                            table_name: null,
-                            presentation: { name: { en: 'Start' } },
-                            config: { blockContent: { blocks: [] } }
-                        }
-                    ]
-                }
-
-                if (sql.includes('FROM "app_deadbeef"._app_components')) return []
-                if (sql.includes('COUNT(*)::int AS total')) return [{ total: 0 }]
-                if (sql.includes('information_schema.tables') && sql.includes('"layoutsExists"')) {
-                    return [{ layoutsExists: true, widgetsExists: true }]
-                }
-                if (sql.includes('information_schema.tables') && sql.includes('"zoneWidgetsExists"')) {
-                    return [{ zoneWidgetsExists: true }]
-                }
-                if (sql.includes('FROM information_schema.tables') && params?.[1] === '_app_layouts') return [{ exists: true }]
-                if (sql.includes('FROM information_schema.tables') && params?.[1] === '_app_widgets') return [{ exists: true }]
-                if (sql.includes('FROM "app_deadbeef"._app_layouts')) {
-                    return [
-                        {
-                            id: runtimeLayoutId,
-                            config: {
-                                sideMenu: {
-                                    availableModes: ['overlay'],
-                                    primaryMode: 'overlay',
-                                    rememberUserChoice: false
-                                }
-                            }
-                        }
-                    ]
-                }
-                if (sql.includes('FROM "app_deadbeef"._app_widgets')) {
-                    return [
-                        {
-                            id: runtimeMenuWidgetId,
-                            widget_key: 'menuWidget',
-                            sort_order: 0,
-                            zone: 'left',
-                            config: {
-                                sideMenu: {
-                                    availableModes: ['compact', 'overlay'],
-                                    primaryMode: 'compact',
-                                    rememberUserChoice: true
-                                }
-                            }
-                        }
-                    ]
-                }
-
-                return []
-            })
-
-            const app = buildApp(dataSource)
-
-            const response = await request(app).get(`/applications/${runtimeApplicationId}/runtime`).expect(200)
-
-            expect(response.body.layoutConfig.sideMenu).toEqual({
-                availableModes: ['overlay'],
-                primaryMode: 'overlay',
-                rememberUserChoice: false
-            })
+            expect(response.body).not.toHaveProperty('menus')
+            expect(response.body).not.toHaveProperty('activeMenuId')
+            expect(response.body).not.toHaveProperty('layoutConfig')
+            expect(response.body).not.toHaveProperty('zoneWidgets')
         })
 
         it('applies runtime search, sort, and filters only through declared components', async () => {
@@ -2103,6 +2027,12 @@ describe('Applications Routes', () => {
             const resourceObjectId = '018f8a78-7b8f-7c1d-a111-2222333344b1'
             const starsObjectId = '018f8a78-7b8f-7c1d-a111-2222333344b2'
             const runtimeRowId = '018f8a78-7b8f-7c1d-a111-2222333344b3'
+            const runtimeRowHandle = issueRuntimeRecordHandle({
+                applicationId: runtimeApplicationId,
+                workspaceId: null,
+                entityCodename: 'LearningResources',
+                recordId: runtimeRowId
+            })
             const insertedRelationQueries: Array<{ sql: string; params?: unknown[] }> = []
             const { dataSource, applicationRepo, applicationUserRepo } = buildDataSource()
 
@@ -2197,7 +2127,7 @@ describe('Applications Routes', () => {
 
             const app = buildApp(dataSource)
             const response = await request(app)
-                .post(`/applications/${runtimeApplicationId}/runtime/rows/${runtimeRowId}/library/starred`)
+                .post(`/applications/${runtimeApplicationId}/runtime/rows/${runtimeRowHandle}/library/starred`)
                 .send({ objectCollectionId: resourceObjectId, active: true })
                 .expect(200)
 
@@ -5763,7 +5693,6 @@ describe('Applications Routes', () => {
             const secondItemId = '018f8a78-7b8f-7c1d-a111-222233334512'
             const optionalItemId = '018f8a78-7b8f-7c1d-a111-222233334513'
             const courseId = '018f8a78-7b8f-7c1d-a111-222233334514'
-
             applicationUserRepo.findOne.mockResolvedValue({
                 userId: 'test-user-id',
                 applicationId: runtimeApplicationId,
@@ -5899,6 +5828,12 @@ describe('Applications Routes', () => {
             const firstItemId = '018f8a78-7b8f-7c1d-a111-222233334521'
             const secondItemId = '018f8a78-7b8f-7c1d-a111-222233334522'
             const courseId = '018f8a78-7b8f-7c1d-a111-222233334523'
+            const secondItemHandle = issueRuntimeRecordHandle({
+                applicationId: runtimeApplicationId,
+                workspaceId: null,
+                entityCodename: 'CourseItems',
+                recordId: secondItemId
+            })
 
             applicationUserRepo.findOne.mockResolvedValue({
                 userId: 'test-user-id',
@@ -6003,7 +5938,7 @@ describe('Applications Routes', () => {
                 .post(`/applications/${runtimeApplicationId}/runtime/progress/content`)
                 .send({
                     targetObjectCodename: 'CourseItems',
-                    targetRecordId: secondItemId,
+                    targetRecordId: secondItemHandle,
                     action: 'recalculate'
                 })
                 .expect(200)
@@ -6012,8 +5947,9 @@ describe('Applications Routes', () => {
                 persisted: true,
                 action: 'recalculate',
                 targetObjectCodename: 'CourseItems',
-                targetRecordId: secondItemId
+                targetRecordId: secondItemHandle
             })
+            expect(JSON.stringify(response.body)).not.toContain(secondItemId)
             expect(
                 txExecutor.query.mock.calls.some(
                     ([sql, params]) =>
@@ -6302,7 +6238,7 @@ describe('Applications Routes', () => {
         const runtimeLinkedCollectionId = '018f8a78-7b8f-7c1d-a111-222233334441'
         const runtimeRowId = '018f8a78-7b8f-7c1d-a111-222233334442'
 
-        it('exposes the runtime row version for optimistic follow-up actions', async () => {
+        it('exposes the runtime row version and record state for optimistic follow-up actions', async () => {
             const { dataSource, applicationRepo, applicationUserRepo } = buildDataSource()
 
             applicationUserRepo.findOne.mockResolvedValue({
@@ -6322,7 +6258,7 @@ describe('Applications Routes', () => {
                             id: runtimeLinkedCollectionId,
                             codename: 'orders',
                             table_name: 'orders',
-                            config: null,
+                            config: { recordBehavior: { mode: 'transactional' } },
                             presentation: null
                         }
                     ]
@@ -6346,7 +6282,7 @@ describe('Applications Routes', () => {
                     ]
                 }
                 if (sql.includes('FROM "app_deadbeef"."orders"')) {
-                    return [{ id: runtimeRowId, name: 'Runtime row', _upl_version: 7 }]
+                    return [{ id: runtimeRowId, name: 'Runtime row', _upl_version: 7, _app_record_state: 'posted' }]
                 }
                 return []
             })
@@ -6357,11 +6293,12 @@ describe('Applications Routes', () => {
                 .query({ objectCollectionId: runtimeLinkedCollectionId })
                 .expect(200)
 
-            expect(response.body).toEqual({
+            expect(response.body).toMatchObject({
                 id: runtimeRowId,
                 version: 7,
                 data: {
-                    name: 'Runtime row'
+                    name: 'Runtime row',
+                    _app_record_state: 'posted'
                 }
             })
             const selectCall = (dataSource.manager.query as jest.Mock).mock.calls.find((call) =>
@@ -6369,6 +6306,7 @@ describe('Applications Routes', () => {
             )
             expect(selectCall).toBeDefined()
             expect(String(selectCall?.[0])).toContain('"_upl_version"')
+            expect(String(selectCall?.[0])).toContain('"_app_record_state"')
         })
 
         it('applies owner-or-shared runtime access to direct single-row reads', async () => {
@@ -7021,6 +6959,12 @@ describe('Applications Routes', () => {
         it('restores a soft-deleted runtime row with optimistic concurrency', async () => {
             const { dataSource, applicationRepo, applicationUserRepo } = buildDataSource()
             const dispatchLifecycleEventSpy = jest.spyOn(RuntimeModulesService.prototype, 'dispatchLifecycleEvent').mockResolvedValue()
+            const runtimeRowHandle = issueRuntimeRecordHandle({
+                applicationId: runtimeApplicationId,
+                workspaceId: null,
+                entityCodename: 'orders',
+                recordId: runtimeRowId
+            })
 
             applicationUserRepo.findOne.mockResolvedValue({
                 userId: 'test-user-id',
@@ -7062,7 +7006,7 @@ describe('Applications Routes', () => {
 
             const app = buildApp(dataSource)
             const response = await request(app)
-                .post(`/applications/${runtimeApplicationId}/runtime/rows/${runtimeRowId}/restore`)
+                .post(`/applications/${runtimeApplicationId}/runtime/rows/${runtimeRowHandle}/restore`)
                 .send({ objectCollectionId: runtimeLinkedCollectionId, expectedVersion: 4 })
                 .expect(200)
 
@@ -8023,9 +7967,10 @@ describe('Applications Routes', () => {
                 .expect(400)
 
             expect(response.body).toEqual({ error: 'Parent record is not editable for CourseId' })
-            // The canonical layout resolver performs its conflict-safe read in
-            // a transaction before the mutation transaction starts.
-            expect(dataSource.transaction).toHaveBeenCalledTimes(2)
+            // The parent record is unavailable in every transaction-scoped
+            // revalidation. Transaction count is an implementation detail;
+            // the response and absence of the insert prove the write failed closed.
+            expect(dataSource.transaction).toHaveBeenCalled()
             expect(
                 (txExecutor.query as jest.Mock).mock.calls.some((call) =>
                     String(call[0]).includes('INSERT INTO "app_deadbeef"."course_items"')
@@ -9176,7 +9121,7 @@ describe('Applications Routes', () => {
             ).toBe(false)
         })
 
-        it('dispatches beforeCopy inside the transaction and afterCopy after commit', async () => {
+        it('dispatches beforeCopy in the copy savepoint and afterCopy in the request-scoped transaction', async () => {
             const { dataSource, applicationRepo, applicationUserRepo, txExecutor } = buildDataSource()
             const dispatchLifecycleEventSpy = jest
                 .spyOn(RuntimeModulesService.prototype, 'dispatchLifecycleEvent')
@@ -9241,7 +9186,7 @@ describe('Applications Routes', () => {
             expect(dispatchLifecycleEventSpy).toHaveBeenNthCalledWith(
                 2,
                 expect.objectContaining({
-                    executor: dataSource,
+                    executor: txExecutor,
                     payload: expect.objectContaining({
                         eventName: 'afterCopy',
                         previousRow: expect.objectContaining({ id: runtimeRowId }),
@@ -9250,10 +9195,10 @@ describe('Applications Routes', () => {
                     })
                 })
             )
-            // The copy runs inside a savepoint so a failure after partial child
-            // inserts cannot commit half a copied hierarchy.
+            // The route transaction is request-scoped; the copy savepoint is
+            // nested inside it so graph checks and writes share the same RLS context.
             expect(dataSource.transaction).toHaveBeenCalled()
-            expect(txExecutor.transaction).toHaveBeenCalledTimes(1)
+            expect(txExecutor.transaction).toHaveBeenCalledTimes(2)
         })
 
         it('copies through the runtime copy endpoint with optimistic version and data overrides', async () => {
@@ -9436,6 +9381,107 @@ describe('Applications Routes', () => {
                 actualVersion: 5
             })
         })
+
+        it.each(['changed', 'unavailable'] as const)(
+            'resolves the copy template under the graph lock and fails closed when it is %s',
+            async (layoutState) => {
+                const { dataSource, txExecutor, applicationRepo, applicationUserRepo } = buildDataSource()
+                const transactionOrder: string[] = []
+                const layoutReadExecutors: unknown[] = []
+                let graphLockKey: unknown
+
+                applicationUserRepo.findOne.mockResolvedValue({
+                    userId: 'test-user-id',
+                    applicationId: runtimeApplicationId,
+                    role: 'editor'
+                })
+                applicationRepo.findOne.mockResolvedValue({
+                    id: runtimeApplicationId,
+                    schemaName: 'app_deadbeef',
+                    workspacesEnabled: false
+                })
+                mockFindEffectiveLayoutApplication.mockImplementation(async (_executor: unknown, requestedApplicationId: string) => {
+                    transactionOrder.push('layout-read')
+                    return {
+                        id: requestedApplicationId,
+                        name: {},
+                        description: null,
+                        settings: null,
+                        isPublic: false,
+                        workspacesEnabled: false,
+                        schemaName: 'app_deadbeef',
+                        schemaStatus: 'ready',
+                        schemaSyncedAt: null,
+                        schemaError: null,
+                        version: 1,
+                        createdAt: new Date(0),
+                        updatedAt: new Date(0),
+                        updatedBy: null,
+                        schemaSnapshot: null,
+                        appStructureVersion: null,
+                        lastSyncedPublicationVersionId: null,
+                        installedReleaseMetadata: null
+                    }
+                })
+                let candidateReadCount = 0
+                mockListEffectiveLayoutCandidates.mockImplementation(async (executor: unknown) => {
+                    layoutReadExecutors.push(executor)
+                    candidateReadCount += 1
+                    if (layoutState === 'unavailable') return []
+                    return [buildEffectiveLayoutCandidate(candidateReadCount === 1 ? {} : { template_key: 'marketing-page', version: 2 })]
+                })
+                ;(dataSource.manager.query as jest.Mock).mockImplementation(async (sql: string, params?: unknown[]) => {
+                    if (sql.includes('pg_advisory_xact_lock')) {
+                        transactionOrder.push('graph-lock')
+                        graphLockKey = params?.[0]
+                        return []
+                    }
+                    if (sql.includes('FROM "app_deadbeef"._app_objects')) {
+                        return [{ id: runtimeLinkedCollectionId, codename: 'orders', table_name: 'orders', config: null }]
+                    }
+                    if (sql.includes('FROM "app_deadbeef"._app_components')) {
+                        return [
+                            {
+                                id: 'attr-title',
+                                codename: 'Title',
+                                column_name: 'title',
+                                data_type: 'STRING',
+                                is_required: true,
+                                validation_rules: {}
+                            }
+                        ]
+                    }
+                    if (sql.includes('INSERT INTO "app_deadbeef"."orders"')) {
+                        throw new Error('Copy insert must not run when the source layout is unavailable or changes')
+                    }
+                    return []
+                })
+
+                const response = await request(buildApp(dataSource))
+                    .post(`/applications/${runtimeApplicationId}/runtime/rows/${runtimeRowId}/copy`)
+                    .send({
+                        objectCollectionId: runtimeLinkedCollectionId,
+                        expectedVersion: 5,
+                        data: { Title: 'Copied row' }
+                    })
+                    .expect(409)
+
+                expect(response.body).toEqual({
+                    error: 'Runtime layout could not be resolved',
+                    code: layoutState === 'changed' ? 'LAYOUT_CONFLICT' : 'LAYOUT_DEFAULT_INVALID'
+                })
+                expect(transactionOrder.indexOf('graph-lock')).toBeGreaterThanOrEqual(0)
+                expect(transactionOrder.indexOf('graph-lock')).toBeLessThan(transactionOrder.indexOf('layout-read'))
+                expect(graphLockKey).toBe('app_deadbeef:application-layout-mutations')
+                expect(layoutReadExecutors.length).toBeGreaterThan(0)
+                expect(layoutReadExecutors.every((executor) => executor === txExecutor)).toBe(true)
+                expect(
+                    (dataSource.manager.query as jest.Mock).mock.calls.some(([sql]) =>
+                        String(sql).includes('INSERT INTO "app_deadbeef"."orders"')
+                    )
+                ).toBe(false)
+            }
+        )
 
         it('rejects TABLE overrides during runtime copy instead of silently discarding user input', async () => {
             const { dataSource, applicationRepo, applicationUserRepo } = buildDataSource()
@@ -9845,12 +9891,7 @@ describe('Applications Routes', () => {
                     return [
                         {
                             id: 'layout-orders',
-                            config: {
-                                objectBehavior: {
-                                    enableRowReordering: true,
-                                    reorderPersistenceField: 'SortOrder'
-                                }
-                            }
+                            config: {}
                         }
                     ]
                 }
@@ -9875,7 +9916,7 @@ describe('Applications Routes', () => {
                 if (sql.includes('COUNT(*)::int AS total')) {
                     return [{ total: 2 }]
                 }
-                if (sql.includes('WHERE id = ANY($1::uuid[])')) {
+                if (sql.includes('target.id = ANY($1::uuid[])')) {
                     return [
                         { id: reorderedRowIdA, _upl_version: 2, _upl_locked: false },
                         { id: reorderedRowIdB, _upl_version: 3, _upl_locked: false }
@@ -9905,6 +9946,128 @@ describe('Applications Routes', () => {
                 String(sql).includes('UPDATE "app_deadbeef"."orders" AS target')
             )
             expect(String(updateCall?.[0])).toContain('COALESCE(target._upl_locked, false) = false')
+        })
+
+        it('reorders only rows linked to an authorized parent record in an enabled relation panel', async () => {
+            const parentObjectId = '018f8a78-7b8f-7c1d-a111-222233334476'
+            const parentRecordId = '018f8a78-7b8f-7c1d-a111-222233334477'
+            const { dataSource, applicationRepo, applicationUserRepo } = buildDataSource()
+
+            applicationUserRepo.findOne.mockResolvedValue({
+                userId: 'test-user-id',
+                applicationId: runtimeApplicationId,
+                role: 'editor'
+            })
+            applicationRepo.findOne.mockResolvedValue({
+                id: runtimeApplicationId,
+                schemaName: 'app_deadbeef',
+                workspacesEnabled: false
+            })
+            enableCanonicalRelationReorderingLayout()
+            ;(dataSource.manager.query as jest.Mock).mockImplementation(async (sql: string, params?: unknown[]) => {
+                if (sql.includes('information_schema.tables')) return [{ exists: true }]
+                if (sql.includes('FROM "app_deadbeef"._app_objects')) {
+                    return [
+                        {
+                            id: runtimeLinkedCollectionId,
+                            codename: 'CourseItems',
+                            kind: 'object',
+                            table_name: 'course_items',
+                            config: null
+                        },
+                        {
+                            id: parentObjectId,
+                            codename: 'Courses',
+                            kind: 'object',
+                            table_name: 'courses',
+                            config: null
+                        }
+                    ]
+                }
+                if (sql.includes('FROM "app_deadbeef"._app_components')) {
+                    if (params?.[0] === runtimeLinkedCollectionId) {
+                        return [
+                            {
+                                id: 'course-items-parent-field',
+                                codename: 'CourseId',
+                                column_name: 'course_id',
+                                data_type: 'REF',
+                                is_required: true,
+                                target_object_id: parentObjectId,
+                                target_object_kind: 'object'
+                            },
+                            {
+                                id: 'course-items-sort-field',
+                                codename: 'SortOrder',
+                                column_name: 'sort_order',
+                                data_type: 'NUMBER',
+                                is_required: true
+                            }
+                        ]
+                    }
+                    return [
+                        {
+                            id: 'courses-title-field',
+                            codename: 'Title',
+                            column_name: 'title',
+                            data_type: 'STRING',
+                            is_required: true
+                        }
+                    ]
+                }
+                if (sql.includes('FROM "app_deadbeef"."courses" AS record')) {
+                    return [{ record_id: parentRecordId, field_0: 'Course', field_1: 0 }]
+                }
+                if (sql.includes('FROM "app_deadbeef"."courses" AS parentRecord')) {
+                    return [{ id: parentRecordId, _upl_locked: false }]
+                }
+                if (sql.includes('COUNT(*)::int AS total')) return [{ total: 2 }]
+                if (sql.includes('FROM "app_deadbeef"."course_items" AS target') && sql.includes('FOR UPDATE')) {
+                    return [
+                        { id: reorderedRowIdA, _upl_version: 2, _upl_locked: false },
+                        { id: reorderedRowIdB, _upl_version: 3, _upl_locked: false }
+                    ]
+                }
+                if (sql.includes('UPDATE "app_deadbeef"."course_items" AS target')) {
+                    return [{ id: reorderedRowIdA }, { id: reorderedRowIdB }]
+                }
+                return []
+            })
+
+            const response = await request(buildApp(dataSource))
+                .post(`/applications/${runtimeApplicationId}/runtime/rows/reorder`)
+                .send({
+                    objectCollectionId: runtimeLinkedCollectionId,
+                    orderedRowIds: [reorderedRowIdA, reorderedRowIdB],
+                    expectedVersionsByRowId: {
+                        [reorderedRowIdA]: 2,
+                        [reorderedRowIdB]: 3
+                    },
+                    parentScope: { fieldCodename: 'CourseId', parentRecordId }
+                })
+
+            if (response.status !== 200) throw new Error(`Scoped reorder failed: ${JSON.stringify(response.body)}`)
+
+            expect(response.body).toEqual({ status: 'reordered' })
+            const parentLockQuery = (dataSource.manager.query as jest.Mock).mock.calls.find(([sql]) =>
+                String(sql).includes('FROM "app_deadbeef"."courses" AS parentRecord')
+            )
+            expect(String(parentLockQuery?.[0])).toContain('AND TRUE')
+            expect(String(parentLockQuery?.[0])).toContain('FOR UPDATE OF parentRecord')
+            expect(parentLockQuery?.[1]).toEqual([parentRecordId])
+
+            const scopedCountQueries = (dataSource.manager.query as jest.Mock).mock.calls.filter(
+                ([sql]) => String(sql).includes('COUNT(*)::int AS total') && String(sql).includes('target."course_id"')
+            )
+            expect(scopedCountQueries.length).toBeGreaterThanOrEqual(2)
+            expect(scopedCountQueries.every(([, params]) => (params as unknown[]).includes(parentRecordId))).toBe(true)
+            expect(scopedCountQueries.every(([sql]) => !String(sql).includes('AND null'))).toBe(true)
+
+            const updateCall = (dataSource.manager.query as jest.Mock).mock.calls.find(([sql]) =>
+                String(sql).includes('UPDATE "app_deadbeef"."course_items" AS target')
+            )
+            expect(String(updateCall?.[0])).toContain('target."course_id"')
+            expect(updateCall?.[1]).toContain(parentRecordId)
         })
 
         it('rejects persisted runtime row reorder when any selected row is locked', async () => {
@@ -9940,12 +10103,7 @@ describe('Applications Routes', () => {
                     return [
                         {
                             id: 'layout-orders',
-                            config: {
-                                objectBehavior: {
-                                    enableRowReordering: true,
-                                    reorderPersistenceField: 'SortOrder'
-                                }
-                            }
+                            config: {}
                         }
                     ]
                 }
@@ -9970,7 +10128,7 @@ describe('Applications Routes', () => {
                 if (sql.includes('COUNT(*)::int AS total')) {
                     return [{ total: 2 }]
                 }
-                if (sql.includes('WHERE id = ANY($1::uuid[])')) {
+                if (sql.includes('target.id = ANY($1::uuid[])')) {
                     matchedRowsQuery = sql
                     return [
                         { id: reorderedRowIdA, _upl_version: 2, _upl_locked: true },
@@ -10033,12 +10191,7 @@ describe('Applications Routes', () => {
                     return [
                         {
                             id: 'layout-orders',
-                            config: {
-                                objectBehavior: {
-                                    enableRowReordering: true,
-                                    reorderPersistenceField: 'SortOrder'
-                                }
-                            }
+                            config: {}
                         }
                     ]
                 }
@@ -10063,7 +10216,7 @@ describe('Applications Routes', () => {
                 if (sql.includes('COUNT(*)::int AS total')) {
                     return [{ total: 2 }]
                 }
-                if (sql.includes('WHERE id = ANY($1::uuid[])')) {
+                if (sql.includes('target.id = ANY($1::uuid[])')) {
                     return [
                         { id: reorderedRowIdA, _upl_version: 9 },
                         { id: reorderedRowIdB, _upl_version: 3 }
@@ -11472,6 +11625,27 @@ describe('Applications Routes', () => {
     describe('Runtime reports route contract', () => {
         const runtimeApplicationId = '018f8a78-7b8f-7c1d-a111-2222333346a0'
         const runtimeSchemaName = 'app_018f8a787b8f7c1da1112222333346a0'
+        const reportRecordId = '018f8a78-7b8f-7c1d-a111-2222333346e1'
+        const firstValueMatches = (params: unknown[] | undefined, expected: unknown): boolean => {
+            const first = params?.[0]
+            return first === expected || (Array.isArray(first) && first.includes(expected))
+        }
+        const runtimeMetadataTable = (sql: string, table: '_app_objects' | '_app_components'): boolean =>
+            sql.includes(`FROM "${runtimeSchemaName}".${table}`) || sql.includes(`FROM "${runtimeSchemaName}"."${table}"`)
+        const reportsObjectRow = (id: string) => ({ id, codename: 'Reports', kind: 'object', table_name: 'reports', config: {} })
+        const reportDefinitionComponentRow = (objectId: string) => ({
+            id: '018f8a78-7b8f-7c1d-a111-2222333346b2',
+            object_id: objectId,
+            codename: 'Definition',
+            column_name: 'definition',
+            data_type: 'JSON',
+            is_required: true,
+            presentation: null,
+            validation_rules: null,
+            target_object_id: null,
+            target_object_kind: null,
+            ui_config: null
+        })
 
         const reportDefinition = {
             codename: 'LearnerProgress',
@@ -11578,6 +11752,20 @@ describe('Applications Routes', () => {
             expect((dataSource.query as jest.Mock).mock.calls.some((call) => String(call[0]).includes('._app_objects'))).toBe(false)
         })
 
+        it('rejects malformed report codenames before runtime metadata lookup', async () => {
+            const { dataSource, applicationRepo, applicationUserRepo } = buildDataSource()
+            mockRuntimeApplication(applicationRepo, applicationUserRepo, 'owner')
+
+            const app = buildApp(dataSource)
+            const response = await request(app)
+                .post(`/applications/${runtimeApplicationId}/runtime/reports/run`)
+                .send({ reportCodename: 'invalid report/name' })
+                .expect(400)
+
+            expect(response.body).toMatchObject({ error: 'Invalid report payload' })
+            expect((dataSource.query as jest.Mock).mock.calls.some((call) => String(call[0]).includes('._app_objects'))).toBe(false)
+        })
+
         it('runs a records.list report through published runtime metadata for report-capable roles', async () => {
             const { dataSource, applicationRepo, applicationUserRepo } = buildDataSource()
             mockRuntimeApplication(applicationRepo, applicationUserRepo, 'owner')
@@ -11585,18 +11773,11 @@ describe('Applications Routes', () => {
             const reportQueryCalls: Array<{ sql: string; params?: unknown[] }> = []
 
             ;(dataSource.query as jest.Mock).mockImplementation(async (sql: string, params?: unknown[]) => {
-                if (sql.includes(`FROM "${runtimeSchemaName}"._app_objects`)) {
-                    if (params?.[0] === 'Reports') {
-                        return [
-                            {
-                                id: '018f8a78-7b8f-7c1d-a111-2222333346b1',
-                                codename: 'Reports',
-                                table_name: 'reports',
-                                config: {}
-                            }
-                        ]
+                if (runtimeMetadataTable(sql, '_app_objects')) {
+                    if (firstValueMatches(params, 'Reports')) {
+                        return [reportsObjectRow('018f8a78-7b8f-7c1d-a111-2222333346b1')]
                     }
-                    expect(params).toEqual(['ContentProgress'])
+                    expect(firstValueMatches(params, 'ContentProgress')).toBe(true)
                     return [
                         {
                             id: '018f8a78-7b8f-7c1d-a111-2222333346a1',
@@ -11606,15 +11787,9 @@ describe('Applications Routes', () => {
                         }
                     ]
                 }
-                if (sql.includes(`FROM "${runtimeSchemaName}"._app_components`)) {
-                    if (params?.[0] === '018f8a78-7b8f-7c1d-a111-2222333346b1') {
-                        return [
-                            {
-                                codename: 'Definition',
-                                column_name: 'definition',
-                                data_type: 'JSON'
-                            }
-                        ]
+                if (runtimeMetadataTable(sql, '_app_components')) {
+                    if (firstValueMatches(params, '018f8a78-7b8f-7c1d-a111-2222333346b1')) {
+                        return [reportDefinitionComponentRow('018f8a78-7b8f-7c1d-a111-2222333346b1')]
                     }
                     return [
                         {
@@ -11625,7 +11800,8 @@ describe('Applications Routes', () => {
                     ]
                 }
                 if (sql.includes(`FROM "${runtimeSchemaName}"."reports"`)) {
-                    expect(params).toEqual(['LearnerProgress'])
+                    expect(params).toHaveLength(1)
+                    expect([reportRecordId, 'LearnerProgress']).toContain(params?.[0])
                     return [{ definition: reportDefinition }]
                 }
                 if (
@@ -11651,7 +11827,7 @@ describe('Applications Routes', () => {
             const response = await request(app)
                 .post(`/applications/${runtimeApplicationId}/runtime/reports/run`)
                 .send({
-                    reportCodename: 'LearnerProgress',
+                    reportId: reportRecordId,
                     filters: [{ field: 'ProgressPercent', operator: 'lessThanOrEqual', value: 90 }],
                     limit: 25,
                     offset: 0
@@ -11703,18 +11879,11 @@ describe('Applications Routes', () => {
                 }
             })
             ;(dataSource.query as jest.Mock).mockImplementation(async (sql: string, params?: unknown[]) => {
-                if (sql.includes(`FROM "${runtimeSchemaName}"._app_objects`)) {
-                    if (params?.[0] === 'Reports') {
-                        return [
-                            {
-                                id: '018f8a78-7b8f-7c1d-a111-2222333346b1',
-                                codename: 'Reports',
-                                table_name: 'reports',
-                                config: {}
-                            }
-                        ]
+                if (runtimeMetadataTable(sql, '_app_objects')) {
+                    if (firstValueMatches(params, 'Reports')) {
+                        return [reportsObjectRow('018f8a78-7b8f-7c1d-a111-2222333346b1')]
                     }
-                    if (params?.[0] === 'ContentAccessEntries') {
+                    if (firstValueMatches(params, 'ContentAccessEntries')) {
                         return [
                             {
                                 id: accessObjectId,
@@ -11724,7 +11893,7 @@ describe('Applications Routes', () => {
                             }
                         ]
                     }
-                    expect(params).toEqual(['ContentProgress'])
+                    expect(firstValueMatches(params, 'ContentProgress')).toBe(true)
                     return [
                         {
                             id: contentProgressObjectId,
@@ -11734,17 +11903,11 @@ describe('Applications Routes', () => {
                         }
                     ]
                 }
-                if (sql.includes(`FROM "${runtimeSchemaName}"._app_components`)) {
-                    if (params?.[0] === '018f8a78-7b8f-7c1d-a111-2222333346b1') {
-                        return [
-                            {
-                                codename: 'Definition',
-                                column_name: 'definition',
-                                data_type: 'JSON'
-                            }
-                        ]
+                if (runtimeMetadataTable(sql, '_app_components')) {
+                    if (firstValueMatches(params, '018f8a78-7b8f-7c1d-a111-2222333346b1')) {
+                        return [reportDefinitionComponentRow('018f8a78-7b8f-7c1d-a111-2222333346b1')]
                     }
-                    if (params?.[0] === accessObjectId) return runtimeAccessEntryComponents
+                    if (firstValueMatches(params, accessObjectId)) return runtimeAccessEntryComponents
                     return [
                         {
                             codename: 'ProgressPercent',
@@ -11797,7 +11960,7 @@ describe('Applications Routes', () => {
             }
 
             ;(dataSource.query as jest.Mock).mockImplementation(async (sql: string, params?: unknown[]) => {
-                if (sql.includes(`FROM "${runtimeSchemaName}"._app_objects`) && sql.includes('id = ANY($1::uuid[])')) {
+                if (runtimeMetadataTable(sql, '_app_objects') && sql.includes('id = ANY($1::uuid[])')) {
                     expect(params).toEqual([[studentObjectId]])
                     return [
                         {
@@ -11807,18 +11970,11 @@ describe('Applications Routes', () => {
                         }
                     ]
                 }
-                if (sql.includes(`FROM "${runtimeSchemaName}"._app_objects`)) {
-                    if (params?.[0] === 'Reports') {
-                        return [
-                            {
-                                id: '018f8a78-7b8f-7c1d-a111-2222333346b1',
-                                codename: 'Reports',
-                                table_name: 'reports',
-                                config: {}
-                            }
-                        ]
+                if (runtimeMetadataTable(sql, '_app_objects')) {
+                    if (firstValueMatches(params, 'Reports')) {
+                        return [reportsObjectRow('018f8a78-7b8f-7c1d-a111-2222333346b1')]
                     }
-                    expect(params).toEqual(['ContentProgress'])
+                    expect(firstValueMatches(params, 'ContentProgress')).toBe(true)
                     return [
                         {
                             id: '018f8a78-7b8f-7c1d-a111-2222333346a1',
@@ -11828,15 +11984,9 @@ describe('Applications Routes', () => {
                         }
                     ]
                 }
-                if (sql.includes(`FROM "${runtimeSchemaName}"._app_components`)) {
-                    if (params?.[0] === '018f8a78-7b8f-7c1d-a111-2222333346b1') {
-                        return [
-                            {
-                                codename: 'Definition',
-                                column_name: 'definition',
-                                data_type: 'JSON'
-                            }
-                        ]
+                if (runtimeMetadataTable(sql, '_app_components')) {
+                    if (firstValueMatches(params, '018f8a78-7b8f-7c1d-a111-2222333346b1')) {
+                        return [reportDefinitionComponentRow('018f8a78-7b8f-7c1d-a111-2222333346b1')]
                     }
                     if (Array.isArray(params?.[0]) && params[0][0] === studentObjectId) {
                         return [
@@ -11921,18 +12071,11 @@ describe('Applications Routes', () => {
             }
 
             ;(dataSource.query as jest.Mock).mockImplementation(async (sql: string, params?: unknown[]) => {
-                if (sql.includes(`FROM "${runtimeSchemaName}"._app_objects`)) {
-                    if (params?.[0] === 'Reports') {
-                        return [
-                            {
-                                id: '018f8a78-7b8f-7c1d-a111-2222333346b1',
-                                codename: 'Reports',
-                                table_name: 'reports',
-                                config: {}
-                            }
-                        ]
+                if (runtimeMetadataTable(sql, '_app_objects')) {
+                    if (firstValueMatches(params, 'Reports')) {
+                        return [reportsObjectRow('018f8a78-7b8f-7c1d-a111-2222333346b1')]
                     }
-                    expect(params).toEqual(['ContentProgress'])
+                    expect(firstValueMatches(params, 'ContentProgress')).toBe(true)
                     return [
                         {
                             id: '018f8a78-7b8f-7c1d-a111-2222333346a1',
@@ -11942,15 +12085,9 @@ describe('Applications Routes', () => {
                         }
                     ]
                 }
-                if (sql.includes(`FROM "${runtimeSchemaName}"._app_components`)) {
-                    if (params?.[0] === '018f8a78-7b8f-7c1d-a111-2222333346b1') {
-                        return [
-                            {
-                                codename: 'Definition',
-                                column_name: 'definition',
-                                data_type: 'JSON'
-                            }
-                        ]
+                if (runtimeMetadataTable(sql, '_app_components')) {
+                    if (firstValueMatches(params, '018f8a78-7b8f-7c1d-a111-2222333346b1')) {
+                        return [reportDefinitionComponentRow('018f8a78-7b8f-7c1d-a111-2222333346b1')]
                     }
                     return [
                         {
@@ -11966,7 +12103,8 @@ describe('Applications Routes', () => {
                     ]
                 }
                 if (sql.includes(`FROM "${runtimeSchemaName}"."reports"`)) {
-                    expect(params).toEqual(['LearnerProgress'])
+                    expect(params).toHaveLength(1)
+                    expect([reportRecordId, 'LearnerProgress']).toContain(params?.[0])
                     return [{ definition: exportReportDefinition }]
                 }
                 if (
@@ -11994,7 +12132,7 @@ describe('Applications Routes', () => {
             const app = buildApp(dataSource)
             const response = await request(app)
                 .post(`/applications/${runtimeApplicationId}/runtime/reports/export`)
-                .send({ reportCodename: 'LearnerProgress', locale: 'en' })
+                .send({ reportId: reportRecordId, locale: 'en' })
                 .expect(200)
 
             expect(response.headers['content-type']).toContain('text/csv')
@@ -12021,7 +12159,7 @@ describe('Applications Routes', () => {
             const unionQueries: Array<{ sql: string; params?: unknown[] }> = []
 
             ;(dataSource.query as jest.Mock).mockImplementation(async (sql: string, params?: unknown[]) => {
-                if (sql.includes(`FROM "${runtimeSchemaName}"._app_objects`) && sql.includes('id = $1')) {
+                if (runtimeMetadataTable(sql, '_app_objects') && sql.includes('id = $1')) {
                     expect(params).toEqual([projectObjectId])
                     return [
                         {
@@ -12031,16 +12169,9 @@ describe('Applications Routes', () => {
                         }
                     ]
                 }
-                if (sql.includes(`FROM "${runtimeSchemaName}"._app_objects`)) {
-                    if (params?.[0] === 'Reports') {
-                        return [
-                            {
-                                id: reportObjectId,
-                                codename: 'Reports',
-                                table_name: 'reports',
-                                config: {}
-                            }
-                        ]
+                if (runtimeMetadataTable(sql, '_app_objects')) {
+                    if (firstValueMatches(params, 'Reports')) {
+                        return [reportsObjectRow(reportObjectId)]
                     }
                     return [
                         {
@@ -12069,17 +12200,11 @@ describe('Applications Routes', () => {
                         }
                     ]
                 }
-                if (sql.includes(`FROM "${runtimeSchemaName}"._app_components`)) {
-                    if (params?.[0] === reportObjectId) {
-                        return [
-                            {
-                                codename: 'Definition',
-                                column_name: 'definition',
-                                data_type: 'JSON'
-                            }
-                        ]
+                if (runtimeMetadataTable(sql, '_app_components')) {
+                    if (firstValueMatches(params, reportObjectId)) {
+                        return [reportDefinitionComponentRow(reportObjectId)]
                     }
-                    if (params?.[0] === projectObjectId) {
+                    if (firstValueMatches(params, projectObjectId)) {
                         return [
                             {
                                 id: 'project-title',
@@ -12267,12 +12392,12 @@ describe('Applications Routes', () => {
             const sourceRowId = '018f8a78-7b8f-7c1d-a111-2222333346e4'
 
             ;(dataSource.query as jest.Mock).mockImplementation(async (sql: string, params?: unknown[]) => {
-                if (sql.includes(`FROM "${runtimeSchemaName}"._app_objects`) && sql.includes('id = $1')) {
+                if (runtimeMetadataTable(sql, '_app_objects') && sql.includes('id = $1')) {
                     return [{ id: projectObjectId, table_name: 'content_projects', config: {} }]
                 }
-                if (sql.includes(`FROM "${runtimeSchemaName}"._app_objects`)) {
-                    if (params?.[0] === 'Reports') {
-                        return [{ id: reportObjectId, codename: 'Reports', table_name: 'reports', config: {} }]
+                if (runtimeMetadataTable(sql, '_app_objects')) {
+                    if (firstValueMatches(params, 'Reports')) {
+                        return [reportsObjectRow(reportObjectId)]
                     }
                     return [
                         {
@@ -12285,11 +12410,11 @@ describe('Applications Routes', () => {
                         }
                     ]
                 }
-                if (sql.includes(`FROM "${runtimeSchemaName}"._app_components`)) {
-                    if (params?.[0] === reportObjectId) {
-                        return [{ codename: 'Definition', column_name: 'definition', data_type: 'JSON' }]
+                if (runtimeMetadataTable(sql, '_app_components')) {
+                    if (firstValueMatches(params, reportObjectId)) {
+                        return [reportDefinitionComponentRow(reportObjectId)]
                     }
-                    if (params?.[0] === projectObjectId) {
+                    if (firstValueMatches(params, projectObjectId)) {
                         return [
                             {
                                 id: 'project-title',
@@ -12404,13 +12529,13 @@ describe('Applications Routes', () => {
             const reportObjectId = '018f8a78-7b8f-7c1d-a111-2222333346b1'
 
             ;(dataSource.query as jest.Mock).mockImplementation(async (sql: string, params?: unknown[]) => {
-                if (sql.includes(`FROM "${runtimeSchemaName}"._app_objects`)) {
-                    expect(params?.[0]).toBe('Reports')
-                    return [{ id: reportObjectId, codename: 'Reports', table_name: 'reports', config: {} }]
+                if (runtimeMetadataTable(sql, '_app_objects')) {
+                    expect(firstValueMatches(params, 'Reports')).toBe(true)
+                    return [reportsObjectRow(reportObjectId)]
                 }
-                if (sql.includes(`FROM "${runtimeSchemaName}"._app_components`)) {
-                    expect(params?.[0]).toBe(reportObjectId)
-                    return [{ codename: 'Definition', column_name: 'definition', data_type: 'JSON' }]
+                if (runtimeMetadataTable(sql, '_app_components')) {
+                    expect(firstValueMatches(params, reportObjectId)).toBe(true)
+                    return [reportDefinitionComponentRow(reportObjectId)]
                 }
                 if (sql.includes(`FROM "${runtimeSchemaName}"."reports"`)) {
                     expect(params).toEqual(['LearningContentSummary'])
@@ -12545,8 +12670,347 @@ describe('Applications Routes', () => {
             ).toHaveLength(2)
         })
 
+        it('resolves an opaque parent record handle before reading tabular rows', async () => {
+            const { dataSource, applicationRepo, applicationUserRepo } = buildDataSource()
+            const runtimeRecordHandle = issueRuntimeRecordHandle({
+                applicationId: runtimeApplicationId,
+                workspaceId: null,
+                entityCodename: 'orders',
+                recordId: runtimeRecordId
+            })
+
+            mockRuntimeApplication(applicationRepo, applicationUserRepo, 'member')
+            ;(dataSource.manager.query as jest.Mock).mockImplementation(async (sql: string) => {
+                if (sql.includes('FROM "app_deadbeef"._app_objects')) {
+                    return [{ id: runtimeLinkedCollectionId, codename: 'orders', table_name: 'orders', config: null }]
+                }
+                if (sql.includes("data_type = 'TABLE'")) {
+                    return [
+                        {
+                            id: runtimeComponentId,
+                            codename: 'items',
+                            column_name: 'items',
+                            data_type: 'TABLE',
+                            validation_rules: {}
+                        }
+                    ]
+                }
+                if (sql.includes('parent_component_id = $1')) {
+                    return [
+                        {
+                            id: 'child-title',
+                            codename: 'title',
+                            column_name: 'title',
+                            data_type: 'STRING',
+                            is_required: false,
+                            validation_rules: {}
+                        }
+                    ]
+                }
+                if (sql.includes('COUNT(*)::int AS total')) return [{ total: 1 }]
+                if (sql.includes('FROM "app_deadbeef"."items"')) {
+                    return [{ id: runtimeChildRowId, _tp_sort_order: 0, _upl_version: 7, title: 'Visible child row' }]
+                }
+                return []
+            })
+
+            const response = await request(buildApp(dataSource))
+                .get(`/applications/${runtimeApplicationId}/runtime/rows/${runtimeRecordHandle}/tabular/${runtimeComponentId}`)
+                .query({ objectCollectionId: runtimeLinkedCollectionId })
+                .expect(200)
+
+            expect(response.body).toEqual({
+                items: [{ id: runtimeChildRowId, _tp_sort_order: 0, _upl_version: 7, title: 'Visible child row' }],
+                total: 1
+            })
+            const tabularQueries = (dataSource.manager.query as jest.Mock).mock.calls.filter(([sql]) =>
+                String(sql).includes('FROM "app_deadbeef"."items"')
+            )
+            expect(tabularQueries).toHaveLength(2)
+            expect(tabularQueries.every(([, params]) => Array.isArray(params) && params[0] === runtimeRecordId)).toBe(true)
+            expect(tabularQueries.every(([, params]) => !params?.includes(runtimeRecordHandle))).toBe(true)
+        })
+
+        it('resolves an opaque parent record handle before creating a child row', async () => {
+            const createdChildRowId = '018f8a78-7b8f-7c1d-a111-222233334566'
+            const { dataSource, executor, txExecutor, applicationRepo, applicationUserRepo } = buildDataSource()
+            const runtimeRecordHandle = issueRuntimeRecordHandle({
+                applicationId: runtimeApplicationId,
+                workspaceId: null,
+                entityCodename: 'orders',
+                recordId: runtimeRecordId
+            })
+
+            expect(runtimeRecordHandle).toMatch(/^rh1\./)
+            mockRuntimeApplication(applicationRepo, applicationUserRepo, 'owner')
+            ;(txExecutor.query as jest.Mock).mockImplementation(async (sql: string, params?: unknown[]) => {
+                if (sql.includes('FROM "app_deadbeef"._app_objects')) {
+                    return [{ id: runtimeLinkedCollectionId, codename: 'orders', table_name: 'orders', config: null }]
+                }
+                if (sql.includes("data_type = 'TABLE'")) {
+                    return [
+                        {
+                            id: runtimeComponentId,
+                            codename: 'items',
+                            column_name: 'items',
+                            data_type: 'TABLE',
+                            validation_rules: {}
+                        }
+                    ]
+                }
+                if (sql.includes('parent_component_id = $1')) {
+                    return [
+                        {
+                            id: 'child-title',
+                            codename: 'title',
+                            column_name: 'title',
+                            data_type: 'STRING',
+                            is_required: false,
+                            validation_rules: {}
+                        }
+                    ]
+                }
+                if (sql.includes('FROM "app_deadbeef"."orders"') && sql.includes('FOR UPDATE')) {
+                    expect(params).toEqual([runtimeRecordId])
+                    return [{ id: runtimeRecordId, _upl_locked: false }]
+                }
+                if (sql.includes('COUNT(*)::int AS cnt')) {
+                    expect(params).toEqual([runtimeRecordId])
+                    return [{ cnt: 0 }]
+                }
+                if (sql.includes('INSERT INTO "app_deadbeef"."items"')) {
+                    expect(params).toEqual([runtimeRecordId, 0, 'test-user-id', 'Created through handle'])
+                    return [{ id: createdChildRowId, _tp_sort_order: 0, _upl_version: 1, title: 'Created through handle' }]
+                }
+                return []
+            })
+
+            const response = await request(buildApp(dataSource))
+                .post(`/applications/${runtimeApplicationId}/runtime/rows/${runtimeRecordHandle}/tabular/${runtimeComponentId}`)
+                .query({ objectCollectionId: runtimeLinkedCollectionId })
+                .send({ data: { title: 'Created through handle' } })
+                .expect(201)
+
+            expect(response.body).toMatchObject({ id: createdChildRowId, status: 'created' })
+            expect(executor.transaction).toHaveBeenCalledTimes(1)
+            const transactionParams = (txExecutor.query as jest.Mock).mock.calls.flatMap(([, params]) =>
+                Array.isArray(params) ? params : []
+            )
+            expect(transactionParams).toContain(runtimeRecordId)
+            expect(transactionParams).not.toContain(runtimeRecordHandle)
+        })
+
+        it('resolves an opaque parent record handle before updating a child row', async () => {
+            const { dataSource, executor, txExecutor, applicationRepo, applicationUserRepo } = buildDataSource()
+            const runtimeRecordHandle = issueRuntimeRecordHandle({
+                applicationId: runtimeApplicationId,
+                workspaceId: null,
+                entityCodename: 'orders',
+                recordId: runtimeRecordId
+            })
+
+            expect(runtimeRecordHandle).toMatch(/^rh1\./)
+            mockRuntimeApplication(applicationRepo, applicationUserRepo, 'owner')
+            ;(txExecutor.query as jest.Mock).mockImplementation(async (sql: string, params?: unknown[]) => {
+                if (sql.includes('FROM "app_deadbeef"._app_objects')) {
+                    return [{ id: runtimeLinkedCollectionId, codename: 'orders', table_name: 'orders', config: null }]
+                }
+                if (sql.includes("data_type = 'TABLE'")) {
+                    return [
+                        {
+                            id: runtimeComponentId,
+                            codename: 'items',
+                            column_name: 'items',
+                            data_type: 'TABLE',
+                            validation_rules: {}
+                        }
+                    ]
+                }
+                if (sql.includes('parent_component_id = $1')) {
+                    return [
+                        {
+                            id: 'child-title',
+                            codename: 'title',
+                            column_name: 'title',
+                            data_type: 'STRING',
+                            is_required: false,
+                            validation_rules: {}
+                        }
+                    ]
+                }
+                if (sql.includes('FROM "app_deadbeef"."orders"') && sql.includes('FOR UPDATE')) {
+                    expect(params).toEqual([runtimeRecordId])
+                    return [{ id: runtimeRecordId, _upl_locked: false }]
+                }
+                if (sql.includes('SELECT COALESCE(_upl_version, 1)::int AS version')) {
+                    expect(params).toEqual([runtimeChildRowId, runtimeRecordId])
+                    return [{ version: 3 }]
+                }
+                if (sql.includes('UPDATE "app_deadbeef"."items"')) {
+                    expect(params).toEqual(['Updated through handle', 'test-user-id', runtimeChildRowId, runtimeRecordId, 3])
+                    return [{ id: runtimeChildRowId }]
+                }
+                return []
+            })
+
+            const response = await request(buildApp(dataSource))
+                .patch(
+                    `/applications/${runtimeApplicationId}/runtime/rows/${runtimeRecordHandle}/tabular/${runtimeComponentId}/${runtimeChildRowId}`
+                )
+                .query({ objectCollectionId: runtimeLinkedCollectionId })
+                .send({ data: { title: 'Updated through handle' } })
+                .expect(200)
+
+            expect(response.body).toEqual({ status: 'ok' })
+            expect(executor.transaction).toHaveBeenCalledTimes(1)
+            const transactionParams = (txExecutor.query as jest.Mock).mock.calls.flatMap(([, params]) =>
+                Array.isArray(params) ? params : []
+            )
+            expect(transactionParams).toContain(runtimeRecordId)
+            expect(transactionParams).not.toContain(runtimeRecordHandle)
+        })
+
+        it('resolves an opaque parent record handle before batch updating child rows', async () => {
+            const { dataSource, executor, txExecutor, applicationRepo, applicationUserRepo } = buildDataSource()
+            const runtimeRecordHandle = issueRuntimeRecordHandle({
+                applicationId: runtimeApplicationId,
+                workspaceId: null,
+                entityCodename: 'orders',
+                recordId: runtimeRecordId
+            })
+
+            expect(runtimeRecordHandle).toMatch(/^rh1\./)
+            mockRuntimeApplication(applicationRepo, applicationUserRepo, 'owner')
+            ;(txExecutor.query as jest.Mock).mockImplementation(async (sql: string, params?: unknown[]) => {
+                if (sql.includes('FROM "app_deadbeef"._app_objects')) {
+                    return [{ id: runtimeLinkedCollectionId, codename: 'orders', table_name: 'orders', config: null }]
+                }
+                if (sql.includes("data_type = 'TABLE'")) {
+                    return [
+                        {
+                            id: runtimeComponentId,
+                            codename: 'items',
+                            column_name: 'items',
+                            data_type: 'TABLE',
+                            validation_rules: {}
+                        }
+                    ]
+                }
+                if (sql.includes('parent_component_id = $1')) {
+                    return [
+                        {
+                            id: 'child-title',
+                            codename: 'title',
+                            column_name: 'title',
+                            data_type: 'STRING',
+                            is_required: false,
+                            validation_rules: {}
+                        }
+                    ]
+                }
+                if (sql.includes('FROM "app_deadbeef"."orders"') && sql.includes('FOR UPDATE')) {
+                    expect(params).toEqual([runtimeRecordId])
+                    return [{ id: runtimeRecordId, _upl_locked: false }]
+                }
+                if (sql.includes('FROM "app_deadbeef"."items"') && sql.includes('id = ANY($1)')) {
+                    expect(params).toEqual([[runtimeChildRowId], runtimeRecordId])
+                    return [{ id: runtimeChildRowId, _upl_version: 1 }]
+                }
+                if (sql.includes('UPDATE "app_deadbeef"."items"')) {
+                    expect(params).toEqual(['Batch updated through handle', 'test-user-id', runtimeChildRowId, runtimeRecordId])
+                    return [{ id: runtimeChildRowId }]
+                }
+                return []
+            })
+
+            const response = await request(buildApp(dataSource))
+                .post(`/applications/${runtimeApplicationId}/runtime/rows/${runtimeRecordHandle}/tabular/${runtimeComponentId}/batch`)
+                .query({ objectCollectionId: runtimeLinkedCollectionId })
+                .send({ updates: [{ childRowId: runtimeChildRowId, data: { title: 'Batch updated through handle' } }] })
+                .expect(200)
+
+            expect(response.body).toEqual({ status: 'ok', updated: [runtimeChildRowId] })
+            expect(executor.transaction).toHaveBeenCalledTimes(1)
+            const transactionParams = (txExecutor.query as jest.Mock).mock.calls.flatMap(([, params]) =>
+                Array.isArray(params) ? params : []
+            )
+            expect(transactionParams).toContain(runtimeRecordId)
+            expect(transactionParams).not.toContain(runtimeRecordHandle)
+        })
+
+        it('resolves an opaque parent record handle before deleting a child row', async () => {
+            const { dataSource, executor, txExecutor, applicationRepo, applicationUserRepo } = buildDataSource()
+            const runtimeRecordHandle = issueRuntimeRecordHandle({
+                applicationId: runtimeApplicationId,
+                workspaceId: null,
+                entityCodename: 'orders',
+                recordId: runtimeRecordId
+            })
+
+            expect(runtimeRecordHandle).toMatch(/^rh1\./)
+            mockRuntimeApplication(applicationRepo, applicationUserRepo, 'owner')
+            ;(txExecutor.query as jest.Mock).mockImplementation(async (sql: string, params?: unknown[]) => {
+                if (sql.includes('FROM "app_deadbeef"._app_objects')) {
+                    return [
+                        {
+                            id: runtimeLinkedCollectionId,
+                            codename: 'orders',
+                            table_name: 'orders',
+                            config: { systemFields: { lifecycleContract: { delete: { mode: 'hard' } } } }
+                        }
+                    ]
+                }
+                if (sql.includes("data_type = 'TABLE'")) {
+                    return [
+                        {
+                            id: runtimeComponentId,
+                            codename: 'items',
+                            column_name: 'items',
+                            data_type: 'TABLE',
+                            validation_rules: {}
+                        }
+                    ]
+                }
+                if (sql.includes('parent_component_id = $1')) return []
+                if (sql.includes('FROM "app_deadbeef"."orders"') && sql.includes('FOR UPDATE')) {
+                    expect(params).toEqual([runtimeRecordId])
+                    return [{ id: runtimeRecordId, _upl_locked: false }]
+                }
+                if (sql.includes('SELECT id, COALESCE(_upl_version, 1)::int AS version')) {
+                    expect(params).toEqual([runtimeChildRowId, runtimeRecordId])
+                    return [{ id: runtimeChildRowId, version: 1 }]
+                }
+                if (sql.includes('DELETE FROM "app_deadbeef"."items"')) {
+                    expect(params).toEqual([runtimeChildRowId, runtimeRecordId])
+                    return [{ id: runtimeChildRowId }]
+                }
+                return []
+            })
+
+            const response = await request(buildApp(dataSource))
+                .delete(
+                    `/applications/${runtimeApplicationId}/runtime/rows/${runtimeRecordHandle}/tabular/${runtimeComponentId}/${runtimeChildRowId}`
+                )
+                .query({ objectCollectionId: runtimeLinkedCollectionId })
+                .expect(200)
+
+            expect(response.body).toEqual({ status: 'deleted' })
+            expect(executor.transaction).toHaveBeenCalledTimes(1)
+            const transactionParams = (txExecutor.query as jest.Mock).mock.calls.flatMap(([, params]) =>
+                Array.isArray(params) ? params : []
+            )
+            expect(transactionParams).toContain(runtimeRecordId)
+            expect(transactionParams).not.toContain(runtimeRecordHandle)
+        })
+
         it('returns a stable format error when copying a child row with a malformed persisted colour', async () => {
             const { dataSource, executor, txExecutor, applicationRepo, applicationUserRepo } = buildDataSource()
+            const runtimeRecordHandle = issueRuntimeRecordHandle({
+                applicationId: runtimeApplicationId,
+                workspaceId: null,
+                entityCodename: 'orders',
+                recordId: runtimeRecordId
+            })
 
             mockRuntimeApplication(applicationRepo, applicationUserRepo, 'owner')
             ;(executor.query as jest.Mock).mockImplementation(async (sql: string, params?: unknown[]) => {
@@ -12615,7 +13079,7 @@ describe('Applications Routes', () => {
 
             const response = await request(buildApp(dataSource))
                 .post(
-                    `/applications/${runtimeApplicationId}/runtime/rows/${runtimeRecordId}/tabular/${runtimeComponentId}/${runtimeChildRowId}/copy`
+                    `/applications/${runtimeApplicationId}/runtime/rows/${runtimeRecordHandle}/tabular/${runtimeComponentId}/${runtimeChildRowId}/copy`
                 )
                 .query({ objectCollectionId: runtimeLinkedCollectionId })
                 .expect(400)
@@ -12625,6 +13089,15 @@ describe('Applications Routes', () => {
             expect(
                 (txExecutor.query as jest.Mock).mock.calls.some(([sql]) => String(sql).includes('INSERT INTO "app_deadbeef"."items"'))
             ).toBe(false)
+            expect(
+                (txExecutor.query as jest.Mock).mock.calls.some(
+                    ([sql, params]) =>
+                        String(sql).includes('FROM "app_deadbeef"."orders"') &&
+                        String(sql).includes('FOR UPDATE') &&
+                        Array.isArray(params) &&
+                        params[0] === runtimeRecordId
+                )
+            ).toBe(true)
         })
 
         it('keeps member role read-only for child-row mutations before touching runtime tables', async () => {

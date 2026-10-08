@@ -65,6 +65,8 @@ const MARKETING_WIDGET_BINDING_KEYS = [
     'sourceLabel',
     'sourcePlaceholder',
     'sourceHelperText',
+    'managePermissionRequired',
+    'recordPermissionRequired',
     'requiredSourceError',
     'noSources',
     'loadingSources',

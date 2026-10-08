@@ -15,6 +15,7 @@
         "deleting": "Deleting...",
         "noFields": "No fields configured for this object.",
         "actions": "Actions",
+        "targetActionUnavailable": "This action is not available for this row.",
         "rowActionsFor": "Actions for {{name}}",
         "edit": "Edit",
         "copy": "Copy",
@@ -23,6 +24,12 @@
         "emptyOption": "Empty",
         "createTargetMenu": "Create content",
         "createTargetFallback": "Record",
+        "createContextUnavailable": "Content access is unavailable. Reload the application and try again.",
+        "createMemberRequired": "Content creation is available to application members.",
+        "createPermissionRequired": "You do not have permission to create content.",
+        "createWorkflowUnavailable": "This application does not provide a content creation workflow.",
+        "createTargetDisabled": "This action is disabled by its content settings.",
+        "createTargetSourceCreationDisabled": "Creation is disabled for this content type in application settings.",
         "createTargetResourceTypeDisabled": "{{type}} is disabled in application settings.",
         "createTargetResourceTypeDeferred": "{{type}} is planned for a later phase.",
         "star": "Add to starred",
@@ -54,6 +61,9 @@
         "workflowAction": "Run action",
         "workflowConfirmationTitle": "Confirm action",
         "workflowConfirmationMessage": "Run this action?",
+        "rowActionsLoading": "Loading actions…",
+        "rowActionsUnavailable": "Actions are unavailable for this record.",
+        "errorRuntimeRowVersionRequired": "This record has no current version. Reload it and try again.",
         "confirm": "Confirm",
         "localSearchScope": "Search applies to loaded rows only.",
         "reorderRequiresCompleteDataset": "Row reordering is available only when all rows are loaded and search is cleared.",
@@ -111,7 +121,13 @@
         "back": "Back",
         "next": "Next"
     },
+    "runtimeFieldLabel": {
+        "fallback": "Field",
+        "selection": "Selection"
+    },
     "recordPicker": {
+        "fieldLabel": "Related record",
+        "targetFieldUnavailable": "The configured target field is unavailable.",
         "selectTargetObjectFirst": "Select the target object first.",
         "unsupportedTargetObject": "This target object is not available for selection.",
         "loading": "Loading records...",
@@ -209,9 +225,10 @@
         "targetNotFound": "The selected content record was not found."
     },
     "validation": {
-        "vlcMinLength": "Language \"{{locale}}\": minimum length {{min}}",
-        "vlcMaxLength": "Language \"{{locale}}\": maximum length {{max}}",
-        "vlcLengthBetween": "Language \"{{locale}}\": length must be between {{min}} and {{max}}",
+        "languages": { "en": "English", "ru": "Russian" },
+        "vlcMinLength": "Enter at least {{min}} characters in {{language}}.",
+        "vlcMaxLength": "Enter no more than {{max}} characters in {{language}}.",
+        "vlcLengthBetween": "Enter between {{min}} and {{max}} characters in {{language}}.",
         "lengthBetween": "Length must be between {{min}} and {{max}}",
         "minLength": "Minimum length: {{min}}",
         "maxLength": "Maximum length: {{max}}",
@@ -263,6 +280,55 @@
         "exportError": "Export failed: {{message}}",
         "exportGenericError": "Report could not be exported.",
         "exportUnsupported": "CSV download is not supported in this browser."
+    },
+    "dashboard": {
+        "empty": "No dashboard content is available yet.",
+        "widget": {
+            "loading": "Loading widget content",
+            "requiredMissing": "A required content source is unavailable.",
+            "staleSource": "This content source is no longer available.",
+            "permissionDenied": "You do not have access to this content.",
+            "malformedConfig": "This widget is configured incorrectly.",
+            "networkError": "Could not reach the content service.",
+            "serverError": "The content service could not complete the request.",
+            "empty": "No matching content was found.",
+            "emptyValue": "—",
+            "resolvedSource": "From the selected source",
+            "chartTitle": {
+                "sessions": "Sessions",
+                "pageViews": "Page views"
+            },
+            "interval": {
+                "hour": "Hourly points",
+                "day": "Daily points",
+                "week": "Weekly points",
+                "month": "Monthly points",
+                "quarter": "Quarterly points"
+            },
+            "relationParents": "Related records",
+            "learningItems": "Learning items",
+            "sequenceLocked": "The next learning item is not available yet.",
+            "completed": "Completed",
+            "complete": "Complete",
+            "previewUnavailable": "This learning item has no previewable content yet.",
+            "progress": "{{percent}}% complete",
+            "tab": "Section",
+            "datePicker": {
+                "start": "Start date",
+                "end": "End date",
+                "today": "Today",
+                "lastSevenDays": "Last 7 days"
+            },
+            "footer": {
+                "legal": "Legal links",
+                "contact": "Contact links"
+            },
+            "trend": {
+                "up": "Upward trend",
+                "down": "Downward trend",
+                "neutral": "No trend data"
+            }
+        }
     },
     "workspace": {
         "title": "Workspaces",
@@ -433,6 +499,9 @@
     "runtime": {
         "retry": "Retry",
         "loading": "Loading application",
+        "wizard": {
+            "step": "Step {{number}}"
+        },
         "loadError": "The application could not be loaded.",
         "invalidTarget": "The runtime target in this URL is invalid.",
         "layoutErrors": {
@@ -454,6 +523,7 @@
             "dashboard": "Dashboard",
             "home": "Home"
         },
+        "preferences": "Preferences",
         "user": "User",
         "details": "Details",
         "overview": "Overview",
@@ -483,15 +553,18 @@
         "targetActionUpdateError": "Record could not be updated.",
         "targetActionUntitled": "Untitled target",
         "targetActionSubmit": "Apply",
+        "loadedRowsSummary": "Loaded {{loaded}} of {{total}} records.",
         "shareTitle": "Share",
         "shareTargetLabel": "Workspace member",
         "shareLoading": "Loading workspace members...",
         "shareEmpty": "No workspace members were found.",
         "shareHelp": "Choose who should get access to this item.",
+        "shareManageHelp": "Choose a workspace member, then share or remove their access.",
         "shareError": "Workspace members could not be loaded.",
         "shareUpdateError": "Access could not be updated.",
         "shareUntitledMember": "Workspace member",
         "shareSubmit": "Share",
+        "unshareSubmit": "Remove access",
         "menu": {
             "changeMode": "Change side menu mode: {{mode}}",
             "enableCompactMenu": "Enable compact menu",
@@ -698,6 +771,8 @@
     },
     "errors": {
         "recordKeyDuplicate": "A record with the same value already exists. Change the duplicate value and try again.",
-        "recordPatternMismatch": "The value does not match the required field format. Check the value and try again."
+        "recordPatternMismatch": "The value does not match the required field format. Check the value and try again.",
+        "relationScopeRequired": "Open this record from its related list to change the relationship safely.",
+        "recordVersionConflict": "This record changed after you opened it. Reload the record and try again."
     }
 }

@@ -3,8 +3,10 @@ import { describe, expect, it } from 'vitest'
 import {
     canonicalizeWidgetBindings,
     buildSingleTargetWidgetBinding,
+    expandWidgetBindingSlotFamilies,
     isCompatibleWidgetBindingEntity,
     normalizeWidgetBindingDataType,
+    resolveWidgetBindingSlotDefinition,
     validateWidgetBindings,
     widgetEntityBindingEnvelopeSchema,
     widgetBindingSlotDefinitionSchema,
@@ -85,7 +87,150 @@ const heroBinding = {
 
 const heroDefinition: WidgetBindingDefinitionContract = { bindingSlots: [heroSlot] }
 
+const familyBaseSlot = {
+    key: 'panel',
+    selectorKinds: ['relation-set'],
+    authoring: heroSlot.authoring,
+    cardinality: { min: 0, max: 1 },
+    maxResolvedRecords: 100,
+    orderByField: 'label',
+    relation: { field: 'parent', parentSlot: 'content' },
+    requirements: {
+        entityCapabilities: ['dataSchema', 'records'],
+        components: [
+            { field: 'parent', componentCodename: 'ParentRef', valueType: 'ref', localized: false, required: true },
+            { field: 'label', componentCodename: 'Label', valueType: 'string', localized: true, required: true }
+        ],
+        entityKinds: ['object']
+    }
+} as const
+
+const familyDefinition: WidgetBindingDefinitionContract = {
+    bindingSlots: [heroSlot, familyBaseSlot],
+    bindingSlotFamilies: [
+        {
+            familyKey: 'panel',
+            slotPrefix: 'panel:',
+            memberKeyPattern: '^[A-Za-z][A-Za-z0-9._-]{0,63}$',
+            selectorKinds: ['relation-set'],
+            cardinality: { min: 0, max: 1 },
+            maxMembers: 2,
+            requirements: familyBaseSlot.requirements,
+            relation: familyBaseSlot.relation
+        }
+    ]
+}
+
+const familyBinding = {
+    version: 1,
+    slots: [
+        ...heroBinding.slots,
+        {
+            slot: 'panel:primary',
+            targets: [
+                {
+                    entityKind: 'object',
+                    entityCodename: 'DashboardPanelItems',
+                    selector: { kind: 'relation-set', parentSlot: 'content' },
+                    projection: [
+                        { field: 'parent', componentCodename: 'ParentRef' },
+                        { field: 'label', componentCodename: 'Label' }
+                    ]
+                }
+            ]
+        }
+    ]
+} as const
+
 describe('entity-backed widget binding contracts', () => {
+    it('accepts an empty neutral envelope only when the widget declares no required bindings', () => {
+        const emptyEnvelope = { version: 1, slots: [] }
+        expect(widgetEntityBindingEnvelopeSchema.safeParse(emptyEnvelope).success).toBe(true)
+        expect(canonicalizeWidgetBindings(emptyEnvelope)).toEqual(emptyEnvelope)
+        expect(validateWidgetBindings({ bindingSlots: [] }, emptyEnvelope)).toEqual(emptyEnvelope)
+        expect(() => validateWidgetBindings(heroDefinition, emptyEnvelope)).toThrow(/Required binding slot is missing/u)
+    })
+
+    it('expands Dashboard-style binding slot families through the shared contract', () => {
+        const resolved = resolveWidgetBindingSlotDefinition(familyDefinition, 'panel:primary')
+        expect(resolved).toMatchObject({
+            key: 'panel:primary',
+            selectorKinds: ['relation-set'],
+            relation: { field: 'parent', parentSlot: 'content' }
+        })
+        expect(widgetBindingSlotDefinitionSchema.safeParse({ ...familyBaseSlot, key: 'panel:primary' }).success).toBe(true)
+        const expanded = expandWidgetBindingSlotFamilies(familyDefinition, familyBinding)
+        expect(expanded.bindingSlots.map(({ key }) => key)).toEqual(['content', 'panel', 'panel:primary'])
+        expect(validateWidgetBindings(familyDefinition, familyBinding)).toEqual(canonicalizeWidgetBindings(familyBinding))
+        expect(validateWidgetBindings(expanded, familyBinding)).toEqual(canonicalizeWidgetBindings(familyBinding))
+    })
+
+    it('fails closed for unknown, malformed, duplicate, ambiguous, colliding, and over-limit family slots', () => {
+        expect(() =>
+            validateWidgetBindings(familyDefinition, {
+                ...familyBinding,
+                slots: [...familyBinding.slots, { ...familyBinding.slots[1], slot: 'unknown' }]
+            })
+        ).toThrow(/not declared/u)
+        expect(() =>
+            validateWidgetBindings(familyDefinition, {
+                ...familyBinding,
+                slots: [familyBinding.slots[0], { ...familyBinding.slots[1], slot: 'panel:1bad' }]
+            })
+        ).toThrow(/member key is invalid/u)
+        expect(() =>
+            validateWidgetBindings(familyDefinition, {
+                ...familyBinding,
+                slots: [...familyBinding.slots, familyBinding.slots[1]]
+            })
+        ).toThrow(/unique/u)
+
+        const ambiguous: WidgetBindingDefinitionContract = {
+            ...familyDefinition,
+            bindingSlotFamilies: [
+                ...(familyDefinition.bindingSlotFamilies ?? []),
+                {
+                    ...(familyDefinition.bindingSlotFamilies?.[0] as NonNullable<
+                        WidgetBindingDefinitionContract['bindingSlotFamilies']
+                    >[number]),
+                    slotPrefix: 'panel:p'
+                }
+            ]
+        }
+        expect(() => resolveWidgetBindingSlotDefinition(ambiguous, 'panel:primary')).toThrow(/more than one/u)
+
+        const colliding: WidgetBindingDefinitionContract = {
+            bindingSlots: [heroSlot, familyBaseSlot, { ...familyBaseSlot, key: 'panel-primary' }],
+            bindingSlotFamilies: [
+                {
+                    ...(familyDefinition.bindingSlotFamilies?.[0] as NonNullable<
+                        WidgetBindingDefinitionContract['bindingSlotFamilies']
+                    >[number]),
+                    slotPrefix: 'panel-'
+                }
+            ]
+        }
+        expect(() => resolveWidgetBindingSlotDefinition(colliding, 'panel-primary')).toThrow(/collides/u)
+
+        const bounded: WidgetBindingDefinitionContract = {
+            ...familyDefinition,
+            bindingSlotFamilies: [
+                {
+                    ...(familyDefinition.bindingSlotFamilies?.[0] as NonNullable<
+                        WidgetBindingDefinitionContract['bindingSlotFamilies']
+                    >[number]),
+                    maxMembers: 1
+                }
+            ]
+        }
+        expect(() =>
+            validateWidgetBindings(bounded, {
+                version: 1,
+                slots: [familyBinding.slots[0], familyBinding.slots[1], { ...familyBinding.slots[1], slot: 'panel:secondary' }]
+            })
+        ).toThrow(/member limit/u)
+    })
+
     it('normalizes PostgreSQL Component data type aliases for binding validation', () => {
         expect(normalizeWidgetBindingDataType('character varying(255)')).toBe('STRING')
         expect(normalizeWidgetBindingDataType('citext')).toBe('STRING')
@@ -324,12 +469,144 @@ describe('entity-backed widget binding contracts', () => {
         ).toBe(false)
     })
 
+    it('supports schema-driven record tables without persisting Component projections', () => {
+        const definition = getLayoutWidgetDefinition('detailsTable', { variant: 'records' })
+        const slot = definition?.bindingSlots?.find(({ key }) => key === 'rows')
+        if (!definition || !slot) throw new Error('Generic records table contract is unavailable')
+
+        expect(slot).toMatchObject({
+            projectionMode: 'entity-schema',
+            selectorKinds: ['record-set'],
+            requirements: { components: [] }
+        })
+        const binding = {
+            version: 1 as const,
+            slots: [
+                {
+                    slot: 'rows',
+                    targets: [
+                        {
+                            entityKind: 'object' as const,
+                            entityCodename: 'Enrollments',
+                            selector: { kind: 'record-set' as const },
+                            projection: []
+                        }
+                    ]
+                }
+            ]
+        }
+
+        expect(validateWidgetBindings(definition, binding)).toEqual(binding)
+        expect(() =>
+            validateWidgetBindings(definition, {
+                ...binding,
+                slots: [
+                    {
+                        ...binding.slots[0],
+                        targets: [
+                            {
+                                ...binding.slots[0].targets[0],
+                                projection: [{ field: 'title', componentCodename: 'Title' }]
+                            }
+                        ]
+                    }
+                ]
+            })
+        ).toThrow(/must not persist Component projections/u)
+
+        const invalidSchemaSlot = {
+            ...slot,
+            orderByField: 'title',
+            requirements: {
+                ...slot.requirements,
+                components: [{ field: 'title', componentCodename: 'Title', valueType: 'string', localized: true, required: true }]
+            }
+        }
+        expect(widgetBindingSlotDefinitionSchema.safeParse(invalidSchemaSlot).success).toBe(false)
+        expect(
+            widgetBindingSlotDefinitionSchema.safeParse({
+                ...slot,
+                projectionMode: 'registered'
+            }).success
+        ).toBe(false)
+    })
+
+    it('accepts only the fixed learner Enrollment target kinds through the registered table slot', () => {
+        const definition = getLayoutWidgetDefinition('detailsTable', { variant: 'learner-enrollments' })
+        const slot = definition?.bindingSlots?.find(({ key }) => key === 'rows')
+        if (!definition || !slot) throw new Error('Learner Enrollment table contract is unavailable')
+
+        expect(slot.selectorKinds).toEqual(['learner-enrollment-set'])
+        expect(slot.requirements.entityCodenames).toEqual(['Enrollments'])
+        const target = {
+            entityKind: 'object' as const,
+            entityCodename: 'Enrollments',
+            selector: { kind: 'learner-enrollment-set' as const, targetKind: 'course' as const },
+            projection: slot.requirements.components.map(({ field, componentCodename }) => ({ field, componentCodename }))
+        }
+        const bindings = validateWidgetBindings(definition, { version: 1, slots: [{ slot: 'rows', targets: [target] }] })
+        expect(bindings.slots[0]?.targets[0]?.selector).toEqual({ kind: 'learner-enrollment-set', targetKind: 'course' })
+        expect(() =>
+            validateWidgetBindings(definition, {
+                version: 1,
+                slots: [{ slot: 'rows', targets: [{ ...target, entityCodename: 'OtherCompatibleEntity' }] }]
+            })
+        ).toThrow()
+        expect(
+            isCompatibleWidgetBindingEntity(slot, {
+                kind: 'object',
+                codename: 'OtherCompatibleEntity',
+                config: {},
+                components: slot.requirements.components.map((requirement) => ({
+                    codename: requirement.componentCodename,
+                    dataType: requirement.valueType.toUpperCase(),
+                    isRequired: requirement.required,
+                    validationRules: {
+                        ...(requirement.localized ? { localized: true } : {}),
+                        ...(requirement.maxLength === undefined ? {} : { maxLength: requirement.maxLength })
+                    }
+                }))
+            })
+        ).toBe(false)
+
+        expect(
+            widgetEntityBindingEnvelopeSchema.safeParse({
+                version: 1,
+                slots: [
+                    {
+                        slot: 'rows',
+                        targets: [
+                            {
+                                ...target,
+                                selector: { kind: 'learner-enrollment-set', targetKind: 'content' }
+                            }
+                        ]
+                    }
+                ]
+            }).success
+        ).toBe(false)
+        expect(() =>
+            validateWidgetBindings(definition, {
+                version: 1,
+                slots: [{ slot: 'rows', targets: [{ ...target, selector: { kind: 'record-set' } }] }]
+            })
+        ).toThrow()
+    })
+
     it('requires a relation-set to target its declared parent slot and REF role', () => {
-        const parentSlot = { ...heroSlot, key: 'tiers', selectorKinds: ['record-set'] as const, maxResolvedRecords: 24 }
+        const parentSlot = {
+            ...heroSlot,
+            key: 'tiers',
+            selectorKinds: ['record-set'] as const,
+            maxResolvedRecords: 24,
+            orderByField: 'key'
+        }
         const benefitsSlot = {
             ...heroSlot,
             key: 'benefits',
             selectorKinds: ['relation-set'] as const,
+            maxResolvedRecords: 100,
+            orderByField: 'key',
             relation: { field: 'tier', parentSlot: 'tiers' },
             requirements: {
                 ...heroSlot.requirements,
@@ -546,7 +823,7 @@ describe('entity-backed widget binding contracts', () => {
                 ...(requirement.format === undefined ? {} : { format: requirement.format })
             }
         }))
-        const customObject = { kind: 'object', config: {}, components }
+        const customObject = { kind: 'object', codename: 'CustomLogoItems', config: {}, components }
 
         expect(isCompatibleWidgetBindingEntity(slot, customObject)).toBe(true)
         expect(
@@ -634,6 +911,7 @@ describe('entity-backed widget binding contracts', () => {
         }))
         const entity = {
             kind: 'object',
+            codename: 'MarketingImages',
             config: { recordPolicy: { version: 1, ...slot.requirements.recordPolicy } },
             components
         }

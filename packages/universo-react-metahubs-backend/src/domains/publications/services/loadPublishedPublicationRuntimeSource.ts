@@ -6,6 +6,7 @@ import { MetahubComponentsService } from '../../metahubs/services/MetahubCompone
 import { enrichDefinitionsWithValueGroupFixedValues } from '../../shared/valueGroupFixedValueRefs'
 import { SnapshotSerializer, type MetahubSnapshot } from './SnapshotSerializer'
 import { validateMarketingSnapshotLayouts, validateSnapshotLayoutIdentities } from './marketingSnapshotValidation'
+import { validateSnapshotWidgetPlacements } from '../../shared/snapshotLayouts'
 
 export const loadPublishedPublicationRuntimeSource: LoadPublishedPublicationRuntimeSource = async (executor, publicationId) => {
     const publication = await findPublicationById(executor, publicationId)
@@ -23,6 +24,7 @@ export const loadPublishedPublicationRuntimeSource: LoadPublishedPublicationRunt
         return null
     }
     validateSnapshotLayoutIdentities(snapshot)
+    validateSnapshotWidgetPlacements(snapshot)
     validateMarketingSnapshotLayouts(snapshot)
 
     const schemaService = new MetahubSchemaService(executor)

@@ -69,6 +69,8 @@ const validBindings = (definition, omittedSlot) => {
                 ? { kind: 'semantic-key', field: key?.field ?? 'key', value: `${slot.key}-source` }
                 : slot.selectorKinds.includes('relation-set')
                 ? { kind: 'relation-set', parentSlot: slot.relation?.parentSlot ?? 'parent' }
+                : slot.selectorKinds.includes('learner-enrollment-set')
+                ? { kind: 'learner-enrollment-set', targetKind: 'course' }
                 : { kind: 'record-set' }
             return {
                 slot: slot.key,
@@ -128,6 +130,12 @@ const createHarness = (options) => {
 
     const store = {
         loadWidget: jest.fn(async () => row),
+        loadSourceLayout: jest.fn(async () => ({
+            id: layoutId,
+            template_key: 'marketing-page',
+            scope_entity_id: null,
+            base_layout_id: null
+        })),
         listCandidates: jest.fn(async () => (sourceObject ? [sourceObject] : [])),
         countRecords: jest.fn(async (_db, _schema, ids) => ids.map((id) => ({ object_id: id, records_count: 3 }))),
         listRelationCompatibleObjectIds: jest.fn(async (_db, _schema, childIds) => [...childIds]),

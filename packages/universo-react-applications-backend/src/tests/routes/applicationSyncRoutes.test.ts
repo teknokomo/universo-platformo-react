@@ -210,7 +210,7 @@ describe('applicationSyncRoutes', () => {
                 versionEnvelope: {
                     structureVersion: '53.0.0',
                     templateVersion: null,
-                    snapshotFormatVersion: 1 as const
+                    snapshotFormatVersion: 4 as const
                 },
                 entities: {
                     'object-products': baseCatalogEntity
@@ -224,7 +224,7 @@ describe('applicationSyncRoutes', () => {
             versionEnvelope: {
                 structureVersion: '53.0.0',
                 templateVersion: null,
-                snapshotFormatVersion: 1 as const
+                snapshotFormatVersion: 4 as const
             },
             entities: {
                 'object-products': baseCatalogEntity
@@ -237,7 +237,7 @@ describe('applicationSyncRoutes', () => {
             versionEnvelope: {
                 structureVersion: '53.0.0',
                 templateVersion: null,
-                snapshotFormatVersion: 1 as const
+                snapshotFormatVersion: 4 as const
             },
             entities: {
                 'object-products': baseCatalogEntity
@@ -710,7 +710,7 @@ describe('applicationSyncRoutes', () => {
             versionEnvelope: {
                 structureVersion: '53.0.0',
                 templateVersion: null,
-                snapshotFormatVersion: 1 as const
+                snapshotFormatVersion: 4 as const
             },
             entities: {
                 'hub-learning': {
@@ -1181,7 +1181,7 @@ describe('applicationSyncRoutes', () => {
             versionEnvelope: {
                 structureVersion: '53.0.0',
                 templateVersion: null,
-                snapshotFormatVersion: 1 as const
+                snapshotFormatVersion: 4 as const
             },
             entities: {
                 'object-resources': rawCatalogEntity
@@ -1349,7 +1349,7 @@ describe('applicationSyncRoutes', () => {
             versionEnvelope: {
                 structureVersion: '53.0.0',
                 templateVersion: null,
-                snapshotFormatVersion: 1 as const
+                snapshotFormatVersion: 4 as const
             },
             entities: {
                 'object-resources': rawCatalogEntity
@@ -1814,7 +1814,7 @@ describe('applicationSyncRoutes', () => {
             versionEnvelope: {
                 structureVersion: '7',
                 templateVersion: 'application-runtime-v7-snapshot-hash',
-                snapshotFormatVersion: 1
+                snapshotFormatVersion: 4
             },
             entities: {
                 'object-1': {

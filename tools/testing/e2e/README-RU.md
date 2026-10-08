@@ -124,6 +124,20 @@ production build, Playwright, сохраняет artifacts и останавли
 Standalone deployment остаётся opt-in через существующий standalone flow,
 поскольку отдельный локальный deployed shell в этом репозитории не настроен.
 
+Запускайте acceptance-проверку Dashboard entity-backed на заново очищенной
+минимальной Supabase:
+
+```bash
+pnpm test:e2e:dashboard-entity-backed:verify:local-supabase
+```
+
+Gate запускает сценарии Application layout, cross-template runtime, scoped
+layout и concurrency, включая скриншоты геометрии Dashboard относительно
+исходного MUI-шаблона. Он самостоятельно выполняет полный цикл
+`nuke -> start -> build -> Playwright -> preserve -> stop`; статусы и browser
+artifacts сохраняются в
+`tools/testing/e2e/.artifacts/dashboard-entity-backed/`.
+
 Запускайте выделенную проверку standalone, когда доступен развернутый shell:
 
 ```bash
@@ -274,7 +288,7 @@ Generator specs живут в `specs/generators/` и создают persistent f
 
 1.  Конфигурация Playwright определяет выделенный `generators` проект, который матчит только `specs/generators/*.spec.ts`.
 2.  Проект `chromium` явно игнорирует generator файлы через `testIgnore`, поэтому они никогда не запускаются при `test:e2e:full` или любой команде `--grep @flow`/`@smoke`/и т.д.
-3.  Generator specs записывают свой output в `tools/fixtures/` — эта директория **не** очищается E2E runner'ом и **не** находится в `.gitignore`, поэтому fixture файлы сохраняются до ручного удаления и могут быть закоммичены в репозиторий.
+3.  Generator specs по умолчанию записывают результаты в `tools/testing/e2e/.artifacts/`. Только явная переменная пути может выбрать другое расположение внутри репозитория; обычный запуск генераторов не перезаписывает tracked fixtures.
 4.  Информационные скриншоты попадают в `test-results/self-hosted-app/` (или аналогичную generator-specific директорию), которая **очищается** при следующем E2E прогоне — это ожидаемое поведение.
 
 ### Запуск генераторов
@@ -305,10 +319,19 @@ pnpm run check:lms-fixture-contract
 E2E_FULL_RESET_MODE=off E2E_ALLOW_REUSE_SERVER=true pnpm run test:e2e:generators
 ```
 
+Перегенерировать все шесть snapshot-файлов через канонические producers и выполнить import/runtime-проверку каждого fixture на новой минимальной локальной базе Supabase:
+
+```bash
+pnpm run test:e2e:dashboard-fixtures:regenerate:verify:local-supabase
+```
+
+Этот единый gate очищает и запускает временную минимальную базу E2E, собирает приложение, сохраняет результаты генераторов в уникальную папку `.artifacts/dashboard-fixtures/`, проверяет контракты всех файлов и нормализованный drift относительно tracked snapshots, сохранённых до начала прогона, и только после этого заменяет шесть разрешённых tracked snapshots. Затем он запускает runtime/import спецификации и проверяет, что контрольная сумма исторического MMOOMM baseline и его Git diff не изменились. Playwright отчёты и результаты тестов сохраняются в папке запуска.
+
 ### Доступные генераторы
 
-| Генератор                                    | Output                                                             | Описание                                                                                                                                                       |
+| Генератор                                    | Канонический fixture полного gate для шести файлов                 | Описание                                                                                                                                                       |
 | -------------------------------------------- | ------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `metahubs-73rd-meridian-app-export`          | `tools/fixtures/metahubs-73rd-meridian-app-snapshot.json`          | Создаёт канонический продуктовый fixture 73rd Meridian и экспортирует его для проверки публичного runtime.                                                     |
 | `metahubs-self-hosted-app-export`            | `tools/fixtures/metahubs-self-hosted-app-snapshot.json`            | Создаёт локализованный fixture Metahubs Self-Hosted App, сажает baseline runtime settings, публикует его и экспортирует snapshot для self-hosted parity flows. |
 | `metahubs-quiz-app-export`                   | `tools/fixtures/metahubs-quiz-app-snapshot.json`                   | Создаёт локализованный fixture quiz-приложения и экспортирует snapshot для quiz runtime import flows.                                                          |
 | `metahubs-lms-app-export`                    | `tools/fixtures/metahubs-lms-app-snapshot.json`                    | Создаёт локализованный fixture LMS-приложения и экспортирует snapshot для LMS runtime import flows.                                                            |
@@ -322,7 +345,7 @@ E2E_FULL_RESET_MODE=off E2E_ALLOW_REUSE_SERVER=true pnpm run test:e2e:generators
 1.  Создайте spec файл в `specs/generators/`, например `admin-config-export.spec.ts`.
 2.  Пометьте тест тегом `@generator` (не `@flow`).
 3.  Используйте `createLoggedInApiContext` + API helpers из `support/backend/api-session.mjs` для создания ресурсов через API.
-4.  Записывайте output fixtures в `tools/fixtures/` с помощью `fs.writeFileSync`.
+4.  По умолчанию записывайте fixtures в `.artifacts/`; для явного пути внутри репозитория используйте общий helper `resolveFixtureOutputPath`.
 5.  Используйте `recordCreatedMetahub` / `recordCreatedApplication` чтобы runner мог очистить ресурсы базы данных после завершения генератора.
 6.  Устанавливайте щедрый `test.setTimeout()` (генераторы — длительные операции, 300s+ — типичная продолжительность).
 

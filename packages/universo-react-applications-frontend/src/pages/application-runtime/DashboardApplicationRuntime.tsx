@@ -7,25 +7,25 @@ import Checkbox from '@mui/material/Checkbox'
 import AddIcon from '@mui/icons-material/Add'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
+import { useAuth } from '@universo-react/auth-frontend'
 import {
     AppsDashboard,
+    withoutWorkspaceDashboardContent,
     useCrudDashboard,
     CrudDialogs,
     RowActionsMenu,
     RuntimeWorkspacesPage,
     updateLearningContentProgress,
-    type AppDataResponse,
+    resolveDashboardEntityTargetSectionId,
     type CellRendererOverrides,
     type DashboardCreateTarget,
     type DashboardDetailsSlot,
     type DashboardLayoutConfig,
-    type DashboardMenuItem,
-    type DashboardMenuSlot,
-    type DashboardMenusMap,
     type DashboardRowTarget,
-    type DashboardRowTargetAction
+    type DashboardRowTargetAction,
+    type PendingDashboardRowTarget
 } from '@universo-react/apps-template-mui'
-import { sanitizeApplicationLearningContentSettings } from '@universo-react/types'
+import { APPLICATION_TEMPLATE_REGISTRY, sanitizeApplicationLearningContentSettings } from '@universo-react/types'
 import { createRuntimeAdapter } from '../../api/runtimeAdapter'
 import {
     buildPendingRuntimeCellMap,
@@ -34,25 +34,21 @@ import {
     useUpdateRuntimeCell
 } from '../../api/mutations'
 import type { ApplicationEffectiveLayoutResponse } from '../../types'
-import {
-    WORKSPACE_ROUTE_LAYOUT_OVERRIDES,
-    UUID_PATH_SEGMENT_REGEX,
-    buildLearningContentCreateDefaultContext,
-    isWorkspaceRootMenuItem,
-    resolveSingleSystemMatrixSectionId,
-    toDashboardZoneWidgets,
-    toRuntimeSectionLinkMenuItem,
-    withRuntimeLocale
-} from './runtimeLayout'
+import { useHostedDashboardBoundRowActions } from './useHostedDashboardBoundRowActions'
+import { UUID_PATH_SEGMENT_REGEX, buildLearningContentCreateDefaultContext, toDashboardZoneWidgets } from './runtimeLayout'
 
 const DEFAULT_PAGE_SIZE = 50
 
 export const DashboardApplicationRuntime = ({
     effectiveLayout,
-    locale
+    locale,
+    footerMetadata,
+    onRuntimeDataChanged
 }: {
     effectiveLayout: ApplicationEffectiveLayoutResponse
     locale: string
+    footerMetadata?: DashboardDetailsSlot['footerMetadata']
+    onRuntimeDataChanged?: () => void | Promise<unknown>
 }) => {
     const routeParams = useParams<{ applicationId: string; '*': string }>()
     const navigate = useNavigate()
@@ -61,6 +57,7 @@ export const DashboardApplicationRuntime = ({
     const runtimeRouteSegments = runtimeSubRoute.split('/').filter(Boolean)
     const [searchParams, setSearchParams] = useSearchParams()
     const { t } = useTranslation('applications')
+    const { user } = useAuth()
     const isWorkspacesRoute = runtimeRouteSegments[0] === 'workspaces'
     const routeSectionId =
         !isWorkspacesRoute && UUID_PATH_SEGMENT_REGEX.test(runtimeRouteSegments[0] ?? '') ? runtimeRouteSegments[0] : undefined
@@ -75,11 +72,6 @@ export const DashboardApplicationRuntime = ({
             : 'dashboard'
 
     const adapter = useMemo(() => (applicationId ? createRuntimeAdapter(applicationId) : null), [applicationId])
-    const hasMatrixCellRoute = searchParams.has('matrixCell')
-    const resolveRoutePreferredSectionId = useCallback(
-        (appData: AppDataResponse): string | undefined => (hasMatrixCellRoute ? resolveSingleSystemMatrixSectionId(appData) : undefined),
-        [hasMatrixCellRoute]
-    )
 
     // Inline cell mutation for BOOLEAN checkboxes (section id passed dynamically).
     const updateCellMutation = useUpdateRuntimeCell({ applicationId, workspaceId: requestedWorkspaceId })
@@ -142,19 +134,28 @@ export const DashboardApplicationRuntime = ({
         defaultPageSize: DEFAULT_PAGE_SIZE,
         pageSizeOptions: [10, 25, 50, 100],
         staleTime: 30_000,
-        initialSectionId: routeSectionId,
+        initialSectionId: routeSectionId ?? effectiveLayout.resolvedEntityTypeId ?? undefined,
+        onRuntimeDataChanged,
         workspaceId: requestedWorkspaceId,
-        resolvePreferredSectionId: resolveRoutePreferredSectionId,
         cellRenderers,
         createDefaultContext: buildLearningContentCreateDefaultContext
     })
 
-    const effectiveDashboardZoneWidgets = useMemo(() => toDashboardZoneWidgets(effectiveLayout), [effectiveLayout])
+    const effectiveDashboardZoneWidgets = useMemo(() => {
+        const placements = toDashboardZoneWidgets(effectiveLayout)
+        return isWorkspacesRoute ? withoutWorkspaceDashboardContent(placements) : placements
+    }, [effectiveLayout, isWorkspacesRoute])
 
     const activeRuntimeSection = state.appData?.section ?? state.appData?.objectCollection
     const activeRuntimeConfig = activeRuntimeSection?.runtimeConfig
     const currentSectionId =
-        state.selectedSectionId ?? state.activeSectionId ?? state.selectedObjectCollectionId ?? state.activeObjectCollectionId
+        state.selectedSectionId ??
+        state.activeSectionId ??
+        state.selectedObjectCollectionId ??
+        state.activeObjectCollectionId ??
+        routeSectionId ??
+        effectiveLayout.resolvedEntityTypeId ??
+        undefined
     const contentPermissions = state.appData?.permissions
     const canCreateContent = contentPermissions?.createContent === true
     const canEditContent = contentPermissions?.editContent === true
@@ -169,38 +170,42 @@ export const DashboardApplicationRuntime = ({
     const [pendingCreateTarget, setPendingCreateTarget] = useState<{
         sectionId: string
         createDefaults?: DashboardCreateTarget['createDefaults']
+        createDefaultContext?: DashboardCreateTarget['createDefaultContext']
+        createWizard?: DashboardCreateTarget['createWizard']
+        relationScope?: DashboardCreateTarget['relationScope']
     } | null>(null)
-    const [pendingRowTarget, setPendingRowTarget] = useState<{
-        sectionId: string
-        rowId: string
-        action: DashboardRowTargetAction
-    } | null>(null)
+    const [pendingRowTarget, setPendingRowTarget] = useState<PendingDashboardRowTarget | null>(null)
     const resolveCreateTargetSectionId = useCallback(
-        (target: DashboardCreateTarget): string | null => {
-            const directId = target.sectionId ?? target.objectCollectionId
-            if (directId) return directId
-
-            const targetCodename = target.sectionCodename ?? target.objectCollectionCodename
-            if (!targetCodename) return null
-
-            const candidates = [...(state.appData?.sections ?? []), ...(state.appData?.objectCollections ?? [])]
-            return candidates.find((candidate) => candidate.codename === targetCodename)?.id ?? null
-        },
+        (target: DashboardCreateTarget) =>
+            resolveDashboardEntityTargetSectionId(target, {
+                sections: state.appData?.sections,
+                objectCollections: state.appData?.objectCollections
+            }),
         [state.appData?.objectCollections, state.appData?.sections]
     )
-    const resolveRowTargetSectionId = useCallback(
-        (target: DashboardRowTarget): string | null => {
-            const directId = target.sectionId ?? target.objectCollectionId
-            if (directId) return directId
-
-            const targetCodename = target.sectionCodename ?? target.objectCollectionCodename
-            if (!targetCodename) return null
-
-            const candidates = [...(state.appData?.sections ?? []), ...(state.appData?.objectCollections ?? [])]
-            return candidates.find((candidate) => candidate.codename === targetCodename)?.id ?? null
-        },
-        [state.appData?.objectCollections, state.appData?.sections]
-    )
+    const {
+        boundRowActionMenu,
+        rowActionLoadState,
+        pendingRowActionKind,
+        closeBoundRowActionMenu,
+        handleOpenDashboardRowMenu,
+        handleOpenBoundRowTargetAction,
+        handleBoundRecordCommand,
+        handleBoundWorkflowAction
+    } = useHostedDashboardBoundRowActions({
+        applicationId: applicationId ?? '',
+        locale,
+        adapter,
+        currentWorkspaceId,
+        currentSectionId: currentSectionId ?? null,
+        sections: state.appData?.sections,
+        objectCollections: state.appData?.objectCollections,
+        onSelectObjectCollection: state.onSelectObjectCollection,
+        setPendingRowTarget,
+        handleStateRowMenuOpen: state.handleOpenMenu,
+        onRuntimeDataChanged
+    })
+    const boundRowActionData = rowActionLoadState.status === 'ready' ? rowActionLoadState.data : null
     const resolveFormSurface = useCallback(
         (mode: 'create' | 'edit' | 'copy') => {
             if (mode === 'create') return activeRuntimeConfig?.createSurface ?? 'dialog'
@@ -219,17 +224,33 @@ export const DashboardApplicationRuntime = ({
     }, [searchParams, setSearchParams])
 
     const pageCreateDefaultsRef = useRef<DashboardCreateTarget['createDefaults'] | undefined>(undefined)
+    const pageCreateDefaultContextRef = useRef<DashboardCreateTarget['createDefaultContext'] | undefined>(undefined)
+    const pageCreateWizardRef = useRef<DashboardCreateTarget['createWizard'] | undefined>(undefined)
+    const pageCreateRelationScopeRef = useRef<DashboardCreateTarget['relationScope'] | undefined>(undefined)
+    const pageRowRelationScopeRef = useRef<DashboardRowTarget['relationScope'] | undefined>(undefined)
+    const pageRowExpectedVersionRef = useRef<number | undefined>(undefined)
 
     const handleOpenCreateSurface = useCallback(
-        (createDefaults?: DashboardCreateTarget['createDefaults']) => {
+        (
+            createDefaults?: DashboardCreateTarget['createDefaults'],
+            createDefaultContext?: DashboardCreateTarget['createDefaultContext'],
+            relationScope?: DashboardCreateTarget['relationScope'],
+            createWizard?: DashboardCreateTarget['createWizard']
+        ) => {
             if (!showCreateButton) {
                 pageCreateDefaultsRef.current = undefined
+                pageCreateDefaultContextRef.current = undefined
+                pageCreateWizardRef.current = undefined
+                pageCreateRelationScopeRef.current = undefined
                 clearRuntimeFormParams()
                 return
             }
 
             if (resolveFormSurface('create') === 'page') {
                 pageCreateDefaultsRef.current = createDefaults
+                pageCreateDefaultContextRef.current = createDefaultContext
+                pageCreateWizardRef.current = createWizard
+                pageCreateRelationScopeRef.current = relationScope
                 const next = new URLSearchParams(searchParams)
                 next.set('surface', 'page')
                 next.set('mode', 'create')
@@ -237,19 +258,21 @@ export const DashboardApplicationRuntime = ({
                 setSearchParams(next)
                 return
             }
-            state.handleOpenCreate(createDefaults)
+            state.handleOpenCreate(createDefaults, createDefaultContext, relationScope, createWizard)
         },
         [clearRuntimeFormParams, resolveFormSurface, searchParams, setSearchParams, showCreateButton, state]
     )
 
     const handleOpenEditSurface = useCallback(
-        (rowId: string) => {
+        (rowId: string, relationScope?: DashboardRowTarget['relationScope'], expectedVersion?: number) => {
             if (!canEditContent) {
                 clearRuntimeFormParams()
                 return
             }
 
             if (resolveFormSurface('edit') === 'page') {
+                pageRowRelationScopeRef.current = relationScope
+                pageRowExpectedVersionRef.current = expectedVersion
                 const next = new URLSearchParams(searchParams)
                 next.set('surface', 'page')
                 next.set('mode', 'edit')
@@ -257,19 +280,22 @@ export const DashboardApplicationRuntime = ({
                 setSearchParams(next)
                 return
             }
-            state.handleOpenEdit(rowId)
+            if (expectedVersion === undefined) state.handleOpenEdit(rowId, relationScope)
+            else state.handleOpenEdit(rowId, relationScope, expectedVersion)
         },
         [canEditContent, clearRuntimeFormParams, resolveFormSurface, searchParams, setSearchParams, state]
     )
 
     const handleOpenCopySurface = useCallback(
-        (rowId: string) => {
+        (rowId: string, relationScope?: DashboardRowTarget['relationScope'], expectedVersion?: number) => {
             if (!canCreateContent) {
                 clearRuntimeFormParams()
                 return
             }
 
             if (resolveFormSurface('copy') === 'page') {
+                pageRowRelationScopeRef.current = relationScope
+                pageRowExpectedVersionRef.current = expectedVersion
                 const next = new URLSearchParams(searchParams)
                 next.set('surface', 'page')
                 next.set('mode', 'copy')
@@ -277,7 +303,8 @@ export const DashboardApplicationRuntime = ({
                 setSearchParams(next)
                 return
             }
-            state.handleOpenCopy(rowId)
+            if (expectedVersion === undefined) state.handleOpenCopy(rowId, relationScope)
+            else state.handleOpenCopy(rowId, relationScope, expectedVersion)
         },
         [canCreateContent, clearRuntimeFormParams, resolveFormSurface, searchParams, setSearchParams, state]
     )
@@ -302,16 +329,21 @@ export const DashboardApplicationRuntime = ({
         [searchParams, state]
     )
     const handleOpenRowTargetSurface = useCallback(
-        (rowId: string, action: DashboardRowTargetAction) => {
+        (
+            rowId: string,
+            action: DashboardRowTargetAction,
+            relationScope?: DashboardRowTarget['relationScope'],
+            expectedVersion?: number
+        ) => {
             if (action === 'edit') {
-                handleOpenEditSurface(rowId)
+                handleOpenEditSurface(rowId, relationScope, expectedVersion)
                 return
             }
             if (action === 'copy') {
-                handleOpenCopySurface(rowId)
+                handleOpenCopySurface(rowId, relationScope, expectedVersion)
                 return
             }
-            state.handleOpenDelete(rowId)
+            state.handleOpenDelete(rowId, relationScope, expectedVersion)
         },
         [handleOpenCopySurface, handleOpenEditSurface, state]
     )
@@ -323,7 +355,13 @@ export const DashboardApplicationRuntime = ({
             const targetSectionId = resolveCreateTargetSectionId(target)
             if (!targetSectionId) return
 
-            setPendingCreateTarget({ sectionId: targetSectionId, createDefaults: target.createDefaults })
+            setPendingCreateTarget({
+                sectionId: targetSectionId,
+                createDefaults: target.createDefaults,
+                createDefaultContext: target.createDefaultContext,
+                createWizard: target.createWizard,
+                relationScope: target.relationScope
+            })
             if (targetSectionId !== currentSectionId) {
                 state.onSelectObjectCollection(targetSectionId)
             }
@@ -332,21 +370,29 @@ export const DashboardApplicationRuntime = ({
     )
     const handleOpenRowTarget = useCallback(
         (target: DashboardRowTarget, action: DashboardRowTargetAction) => {
-            const targetSectionId = resolveRowTargetSectionId(target)
+            const targetSectionId = resolveDashboardEntityTargetSectionId(target, {
+                sections: state.appData?.sections,
+                objectCollections: state.appData?.objectCollections
+            })
             if (!targetSectionId || !target.rowId) return
 
             if (action === 'edit' && !canEditContent) return
             if (action === 'copy' && !canCreateContent) return
             if (action === 'delete' && !canDeleteContent) return
 
-            setPendingRowTarget({ sectionId: targetSectionId, rowId: target.rowId, action })
+            setPendingRowTarget({
+                sectionId: targetSectionId,
+                rowId: target.rowId,
+                action,
+                ...(target.expectedVersion === undefined ? {} : { expectedVersion: target.expectedVersion }),
+                relationScope: target.relationScope
+            })
             if (targetSectionId !== currentSectionId) {
                 state.onSelectObjectCollection(targetSectionId)
             }
         },
-        [canCreateContent, canDeleteContent, canEditContent, currentSectionId, resolveRowTargetSectionId, state]
+        [canCreateContent, canDeleteContent, canEditContent, currentSectionId, state]
     )
-
     useEffect(() => {
         if (!pendingCreateTarget) return
 
@@ -359,7 +405,12 @@ export const DashboardApplicationRuntime = ({
         if (state.isLoading || state.isFetching || loadedTargetId !== pendingCreateTarget.sectionId) return
 
         setPendingCreateTarget(null)
-        handleOpenCreateSurface(pendingCreateTarget.createDefaults)
+        handleOpenCreateSurface(
+            pendingCreateTarget.createDefaults,
+            pendingCreateTarget.createDefaultContext,
+            pendingCreateTarget.relationScope,
+            pendingCreateTarget.createWizard
+        )
     }, [
         handleOpenCreateSurface,
         pendingCreateTarget,
@@ -382,7 +433,12 @@ export const DashboardApplicationRuntime = ({
         if (state.isLoading || state.isFetching || loadedTargetId !== pendingRowTarget.sectionId) return
 
         setPendingRowTarget(null)
-        handleOpenRowTargetSurface(pendingRowTarget.rowId, pendingRowTarget.action)
+        handleOpenRowTargetSurface(
+            pendingRowTarget.rowId,
+            pendingRowTarget.action,
+            pendingRowTarget.relationScope,
+            pendingRowTarget.expectedVersion
+        )
     }, [
         handleOpenRowTargetSurface,
         pendingRowTarget,
@@ -400,6 +456,11 @@ export const DashboardApplicationRuntime = ({
             suppressPageSurfaceOpenRef.current = false
             pendingPageSurfaceCleanupRef.current = false
             pageCreateDefaultsRef.current = undefined
+            pageCreateDefaultContextRef.current = undefined
+            pageCreateWizardRef.current = undefined
+            pageCreateRelationScopeRef.current = undefined
+            pageRowRelationScopeRef.current = undefined
+            pageRowExpectedVersionRef.current = undefined
             return
         }
 
@@ -427,7 +488,12 @@ export const DashboardApplicationRuntime = ({
             handledPageSurfaceRequestRef.current = requestKey
 
             if (!state.formOpen) {
-                state.handleOpenCreate(pageCreateDefaultsRef.current)
+                state.handleOpenCreate(
+                    pageCreateDefaultsRef.current,
+                    pageCreateDefaultContextRef.current,
+                    pageCreateRelationScopeRef.current,
+                    pageCreateWizardRef.current
+                )
             }
             return
         }
@@ -452,12 +518,20 @@ export const DashboardApplicationRuntime = ({
         handledPageSurfaceRequestRef.current = requestKey
 
         if (mode === 'edit' && rowId && (!state.formOpen || state.editRowId !== rowId)) {
-            state.handleOpenEdit(rowId)
+            const relationScope = pageRowRelationScopeRef.current
+            const expectedVersion = pageRowExpectedVersionRef.current
+            pageRowExpectedVersionRef.current = undefined
+            if (expectedVersion === undefined) state.handleOpenEdit(rowId, relationScope)
+            else state.handleOpenEdit(rowId, relationScope, expectedVersion)
             return
         }
 
         if (mode === 'copy' && rowId && (!state.formOpen || state.copyRowId !== rowId)) {
-            state.handleOpenCopy(rowId)
+            const relationScope = pageRowRelationScopeRef.current
+            const expectedVersion = pageRowExpectedVersionRef.current
+            pageRowExpectedVersionRef.current = undefined
+            if (expectedVersion === undefined) state.handleOpenCopy(rowId, relationScope)
+            else state.handleOpenCopy(rowId, relationScope, expectedVersion)
         }
     }, [canCreateContent, canEditContent, clearRuntimeFormParams, searchParams, showCreateButton, state])
 
@@ -528,13 +602,13 @@ export const DashboardApplicationRuntime = ({
     const detailsTitle = isWorkspacesRoute
         ? t('workspace.title', 'Workspaces')
         : activeRuntimeSection?.name ?? t('common.details', 'Details')
-    const runtimeLayoutConfig = useMemo(() => {
-        const dashboardConfig =
+    const runtimeLayoutConfig = useMemo(
+        () =>
             effectiveLayout.layout.templateKey === 'dashboard'
                 ? (effectiveLayout.layout.config as Partial<DashboardLayoutConfig>)
-                : state.layoutConfig
-        return isWorkspacesRoute ? { ...dashboardConfig, ...WORKSPACE_ROUTE_LAYOUT_OVERRIDES } : dashboardConfig
-    }, [effectiveLayout.layout.config, effectiveLayout.layout.templateKey, isWorkspacesRoute, state.layoutConfig])
+                : undefined,
+        [effectiveLayout.layout.config, effectiveLayout.layout.templateKey]
+    )
 
     const runtimeHandleOpenCreate = runtimeState.handleOpenCreate
     const createActions = useMemo(
@@ -583,17 +657,20 @@ export const DashboardApplicationRuntime = ({
         [applicationId, isWorkspacesRoute, locale, navigate, routeWorkspaceId, workspaceRouteSection]
     )
     const handlePageProgressChange = useCallback(
-        async (payload: { action: 'view' | 'complete' }) => {
-            if (!applicationId || !activeRuntimeSection?.codename || !currentSectionId) return
+        async (payload: { action: 'view' | 'complete'; target?: { objectCodename: string; recordHandle: string } }) => {
+            const targetObjectCodename = payload.target?.objectCodename ?? activeRuntimeSection?.codename
+            const targetRecordId = payload.target?.recordHandle ?? currentSectionId
+            if (!applicationId || !targetObjectCodename || !targetRecordId) return
             await updateLearningContentProgress({
                 apiBaseUrl: '/api/v1',
                 applicationId,
-                targetObjectCodename: activeRuntimeSection.codename,
-                targetRecordId: currentSectionId,
+                targetObjectCodename,
+                targetRecordId,
+                workspaceId: currentWorkspaceId,
                 action: payload.action
             })
         },
-        [activeRuntimeSection?.codename, applicationId, currentSectionId]
+        [activeRuntimeSection?.codename, applicationId, currentSectionId, currentWorkspaceId]
     )
 
     const pageSurfaceContent = useMemo(
@@ -659,28 +736,30 @@ export const DashboardApplicationRuntime = ({
             objectCollections: state.appData?.objectCollections ?? [],
             apiBaseUrl: '/api/v1',
             locale,
+            settings: state.appData?.settings,
             currentWorkspaceId,
+            currentUser: user?.email ? { displayName: user.email } : null,
+            hostCapabilities: APPLICATION_TEMPLATE_REGISTRY.dashboard.hostCapabilities,
+            footerMetadata,
             runtimeAccessMode: 'member',
             runtimeQueryKeyPrefix: adapter?.queryKeyPrefix,
             workspacesEnabled: state.appData?.workspacesEnabled ?? false,
             permissions: state.appData?.permissions,
             banner: workspaceLimitBanner,
             content: pageSurfaceContent,
-            rows: state.rows,
-            columns: state.columns,
-            runtimeColumns: state.appData?.columns,
-            loading: state.isFetching,
-            rowCount: state.rowCount,
-            paginationModel: state.paginationModel,
-            onPaginationModelChange: state.setPaginationModel,
             pageSizeOptions: state.pageSizeOptions,
             localeText: state.localeText,
             actions: createActions,
             navigate,
-            searchMode: activeRuntimeConfig?.searchMode ?? 'page-local',
             rowReorder: state.canPersistRowReorder
                 ? {
                       onReorder: state.handlePersistRowReorder,
+                      isPending: state.isReordering
+                  }
+                : undefined,
+            relationRowReorder: state.canPersistRelationRowReorder
+                ? {
+                      onReorder: state.handlePersistRelationRowReorder,
                       isPending: state.isReordering
                   }
                 : undefined,
@@ -697,46 +776,39 @@ export const DashboardApplicationRuntime = ({
                 ].join(':'),
                 onProgressChange: handlePageProgressChange
             },
-            tableDefaults: {
-                defaultViewMode: learningContentSettings.defaultView === 'cards' ? 'card' : 'table',
-                columnPreset: learningContentSettings.columnPreset
-            },
             resourceSourceTypes: learningContentSettings.supportedResourceTypes,
             onOpenCreateTarget: handleOpenCreateTarget,
+            onOpenRowMenu: handleOpenDashboardRowMenu,
             onOpenRowTarget: handleOpenRowTarget
         }),
         [
-            activeRuntimeConfig?.searchMode,
             activeRuntimeSection?.codename,
             activeRuntimeSection?.pageBlocks,
             applicationId,
             currentWorkspaceId,
+            user?.email,
             currentSectionId,
             detailsTitle,
+            footerMetadata,
             handlePageProgressChange,
             learningContentSettings.playerPreset?.completeButtonMode,
             learningContentSettings.playerPreset?.showOutline,
             learningContentSettings.playerPreset?.showProgressHeader,
-            learningContentSettings.defaultView,
-            learningContentSettings.columnPreset,
             learningContentSettings.supportedResourceTypes,
             handleOpenCreateTarget,
+            handleOpenDashboardRowMenu,
             handleOpenRowTarget,
             state.appData?.permissions,
-            state.rows,
-            state.columns,
-            state.appData?.columns,
-            state.isFetching,
             state.canPersistRowReorder,
+            state.canPersistRelationRowReorder,
             state.handlePersistRowReorder,
+            state.handlePersistRelationRowReorder,
             state.isReordering,
-            state.rowCount,
-            state.paginationModel,
-            state.setPaginationModel,
             state.pageSizeOptions,
             state.localeText,
             state.appData?.sections,
             state.appData?.objectCollections,
+            state.appData?.settings,
             createActions,
             locale,
             navigate,
@@ -763,102 +835,9 @@ export const DashboardApplicationRuntime = ({
         return <Alert severity='error'>{t('app.errors.loadFailed', 'Failed to load runtime data')}</Alert>
     }
 
-    const workspaceMenuItem: DashboardMenuItem | null =
-        state.appData.workspacesEnabled && applicationId
-            ? {
-                  id: 'runtime-workspaces',
-                  label: t('workspace.title', 'Workspaces'),
-                  icon: 'folder',
-                  kind: 'link',
-                  href: withRuntimeLocale(`/a/${applicationId}/workspaces`, locale),
-                  selected: isWorkspacesRoute
-              }
-            : null
-    const workspaceDashboardMenuItem: DashboardMenuItem | null =
-        workspaceMenuItem && routeWorkspaceId
-            ? {
-                  id: 'runtime-workspace-dashboard',
-                  label: t('workspace.dashboard', 'Dashboard'),
-                  icon: 'dashboard',
-                  kind: 'link',
-                  href: withRuntimeLocale(`/a/${applicationId}/workspaces/${routeWorkspaceId}`, locale),
-                  selected: isWorkspacesRoute && workspaceRouteSection === 'dashboard'
-              }
-            : null
-    const workspaceAccessMenuItem: DashboardMenuItem | null =
-        workspaceMenuItem && routeWorkspaceId
-            ? {
-                  id: 'runtime-workspace-access',
-                  label: t('workspace.access', 'Access'),
-                  icon: 'users',
-                  kind: 'link',
-                  href: withRuntimeLocale(`/a/${applicationId}/workspaces/${routeWorkspaceId}/access`, locale),
-                  selected: isWorkspacesRoute && workspaceRouteSection === 'access'
-              }
-            : null
-    const workspaceSettingsMenuItem: DashboardMenuItem | null =
-        workspaceMenuItem && routeWorkspaceId
-            ? {
-                  id: 'runtime-workspace-settings',
-                  label: t('workspace.settings', 'Settings'),
-                  icon: 'settings',
-                  kind: 'link',
-                  href: withRuntimeLocale(`/a/${applicationId}/workspaces/${routeWorkspaceId}/settings`, locale),
-                  selected: isWorkspacesRoute && workspaceRouteSection === 'settings'
-              }
-            : null
-    const sectionLinksEnabled = state.appData.settings?.sectionLinksEnabled !== false
-
-    const appendWorkspaceMenuItem = (slot?: DashboardMenuSlot): DashboardMenuSlot | undefined => {
-        if (!slot && !workspaceMenuItem) return slot
-        const baseItems = slot?.items ?? []
-        const hasWorkspaceRootItem = baseItems.some(isWorkspaceRootMenuItem)
-        const normalizedBaseItems = baseItems.map((item) => {
-            if (isWorkspaceRootMenuItem(item)) {
-                return {
-                    ...item,
-                    kind: 'link' as const,
-                    href: item.href ? withRuntimeLocale(item.href, locale) : workspaceMenuItem?.href ?? null,
-                    selected: isWorkspacesRoute
-                }
-            }
-
-            return isWorkspacesRoute || sectionLinksEnabled
-                ? toRuntimeSectionLinkMenuItem(item, applicationId, locale, sectionLinksEnabled, isWorkspacesRoute)
-                : item
-        })
-        const items = [
-            ...normalizedBaseItems,
-            ...(workspaceMenuItem && !hasWorkspaceRootItem ? [workspaceMenuItem] : []),
-            ...(workspaceDashboardMenuItem ? [workspaceDashboardMenuItem] : []),
-            ...(workspaceAccessMenuItem ? [workspaceAccessMenuItem] : []),
-            ...(workspaceSettingsMenuItem ? [workspaceSettingsMenuItem] : [])
-        ]
-        return {
-            ...slot,
-            title: slot?.title ?? null,
-            showTitle: slot?.showTitle ?? false,
-            items
-        }
-    }
-
-    const runtimeMenuSlot = appendWorkspaceMenuItem(state.menuSlot)
-    const runtimeMenusMap: DashboardMenusMap | undefined =
-        Object.keys(state.menusMap).length > 0
-            ? Object.fromEntries(
-                  Object.entries(state.menusMap).map(([key, slot]) => [key, appendWorkspaceMenuItem(slot) as DashboardMenuSlot])
-              )
-            : undefined
-
     return (
         <>
-            <AppsDashboard
-                layoutConfig={runtimeLayoutConfig}
-                zoneWidgets={effectiveDashboardZoneWidgets ?? state.appData.zoneWidgets}
-                menus={runtimeMenusMap}
-                menu={runtimeMenuSlot}
-                details={details}
-            />
+            <AppsDashboard layoutConfig={runtimeLayoutConfig} zoneWidgets={effectiveDashboardZoneWidgets} details={details} />
 
             {!isWorkspacesRoute ? (
                 <>
@@ -917,8 +896,36 @@ export const DashboardApplicationRuntime = ({
                             workflowConfirmationTitleText: t('app.workflowConfirmationTitle', 'Confirm action'),
                             workflowConfirmationMessageText: t('app.workflowConfirmationMessage', 'Run this action?'),
                             cancelText: t('app.cancel', 'Cancel'),
-                            confirmText: t('app.confirm', 'Confirm')
+                            confirmText: t('app.confirm', 'Confirm'),
+                            loadingText: t('app.rowActionsLoading', 'Loading actions…'),
+                            unavailableText: t('app.rowActionsUnavailable', 'Actions are unavailable for this record.')
                         }}
+                        runtimeContext={
+                            boundRowActionMenu
+                                ? {
+                                      menuAnchorEl: boundRowActionMenu.anchorEl,
+                                      menuRowId: boundRowActionMenu.target.recordHandle,
+                                      row: boundRowActionData?.row ?? null,
+                                      columns: boundRowActionData?.appData.columns ?? [],
+                                      recordBehavior: boundRowActionData?.appData.objectCollection.recordBehavior,
+                                      workflowActions: boundRowActionData?.appData.objectCollection.workflowActions ?? [],
+                                      workflowCapabilities: boundRowActionData?.appData.workflowCapabilities,
+                                      permissions: {
+                                          canEdit: boundRowActionData?.appData.permissions.editContent === true,
+                                          canCopy: boundRowActionData?.appData.permissions.createContent === true,
+                                          canDelete: boundRowActionData?.appData.permissions.deleteContent === true
+                                      },
+                                      isLoading: rowActionLoadState.status === 'loading',
+                                      hasError: rowActionLoadState.status === 'error',
+                                      isRecordCommandPending: pendingRowActionKind === 'record',
+                                      isWorkflowActionPending: pendingRowActionKind === 'workflow',
+                                      onCloseMenu: closeBoundRowActionMenu,
+                                      onRowTargetAction: handleOpenBoundRowTargetAction,
+                                      onRecordCommand: handleBoundRecordCommand,
+                                      onWorkflowAction: handleBoundWorkflowAction
+                                  }
+                                : undefined
+                        }
                     />
                 </>
             ) : null}

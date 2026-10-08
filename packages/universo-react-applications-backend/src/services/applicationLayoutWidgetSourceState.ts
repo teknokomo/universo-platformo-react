@@ -4,31 +4,50 @@ import {
     decodeLayoutWidgetConfigEnvelope,
     encodeLayoutWidgetConfigEnvelope,
     getLayoutWidgetDefaultPlacement,
+    layoutInstanceKeySchema,
     layoutLogicalPlacementSchema,
-    parseApplicationLayoutWidgetConfig,
+    uuidV7Schema,
     type ApplicationTemplateKey,
     type LayoutLogicalPlacement
 } from '@universo-react/types'
+import {
+    classifyPlacementLineage,
+    decodePlacementWidgetConfigEnvelope,
+    parsePlacementRendererConfig,
+    resolvePlacementBindingValidation
+} from '../persistence/applicationLayoutWidgetPlacement'
 
 /** Application-only baseline for editable widget fields stored outside renderer config. */
 export const applicationLayoutWidgetSourceStateSchema = z
     .object({
         rendererConfig: z.record(z.string(), z.unknown()),
+        instanceKey: layoutInstanceKeySchema,
+        parentWidgetId: uuidV7Schema.nullable(),
+        slotKey: z.string().trim().min(1).max(128).nullable(),
         isActive: z.boolean(),
         sortOrder: z.number().int(),
         zone: z.string().trim().min(1),
         placement: layoutLogicalPlacementSchema.nullable()
     })
     .strict()
+    .superRefine((state, context) => {
+        if ((state.parentWidgetId === null) !== (state.slotKey === null)) {
+            context.addIssue({ code: z.ZodIssueCode.custom, message: 'Parent and slot must either both be set or both be null' })
+        }
+    })
 export type ApplicationLayoutWidgetSourceState = z.infer<typeof applicationLayoutWidgetSourceStateSchema>
 
 export interface ApplicationLayoutWidgetSourceInput {
     widgetKey: string
     zone: string
     sortOrder: number
+    instanceKey: string
+    parentWidgetId: string | null
+    slotKey: string | null
     isActive?: boolean
     config: unknown
     sourceBaseWidgetId?: string | null
+    sourceWidgetId?: string | null
 }
 
 interface WidgetPresentationInput {
@@ -36,6 +55,9 @@ interface WidgetPresentationInput {
     sortOrder: number
     isActive: boolean
     config: unknown
+    instanceKey: string
+    parentWidgetId: string | null
+    slotKey: string | null
 }
 
 interface CurrentApplicationLayoutWidgetSourceRow {
@@ -49,6 +71,9 @@ interface CurrentApplicationLayoutWidgetSourceRow {
     source_state: unknown
     source_widget_id: string | null
     source_base_widget_id: string | null
+    instance_key: string
+    parent_widget_id: string | null
+    slot_key: string | null
     _upl_deleted: boolean
     _app_deleted: boolean
 }
@@ -58,7 +83,7 @@ const canonicalWidgetSourceState = (
     widgetKey: string,
     input: WidgetPresentationInput & { rendererConfig?: unknown; placement?: LayoutLogicalPlacement | null }
 ): ApplicationLayoutWidgetSourceState => {
-    const rendererConfig = parseApplicationLayoutWidgetConfig(widgetKey, input.rendererConfig ?? {})
+    const rendererConfig = parsePlacementRendererConfig(widgetKey, input.rendererConfig ?? {})
     const placement =
         input.placement === undefined
             ? getLayoutWidgetDefaultPlacement({ templateKey, widgetKey, zone: input.zone, rendererConfig }) ?? null
@@ -70,6 +95,9 @@ const canonicalWidgetSourceState = (
     )
     return applicationLayoutWidgetSourceStateSchema.parse({
         rendererConfig,
+        instanceKey: input.instanceKey,
+        parentWidgetId: input.parentWidgetId,
+        slotKey: input.slotKey,
         isActive: input.isActive,
         sortOrder: input.sortOrder,
         zone: input.zone,
@@ -83,14 +111,15 @@ export const createApplicationLayoutWidgetSourceState = (
     input: WidgetPresentationInput,
     options: { requireBindings?: boolean; rejectBindings?: boolean } = {}
 ): ApplicationLayoutWidgetSourceState => {
-    const decoded = decodeLayoutWidgetConfigEnvelope(input.config, {
+    const decoded = decodePlacementWidgetConfigEnvelope(input.config, {
         templateKey,
         widgetKey,
         zone: input.zone,
+        instanceKey: input.instanceKey,
         requireBindings: options.requireBindings
     })
     if (options.rejectBindings && decoded.neutral.bindings !== undefined) {
-        throw new Error('[SchemaSync] Inherited Marketing widget config cannot contain entity bindings')
+        throw new Error('[SchemaSync] Inherited widget config cannot contain bindings')
     }
     return canonicalWidgetSourceState(templateKey, widgetKey, {
         ...input,
@@ -135,11 +164,15 @@ export const resolveSyncedApplicationLayoutWidgetState = (
     zone: string
     sortOrder: number
     isActive: boolean
+    instanceKey: string
+    parentWidgetId: string | null
+    slotKey: string | null
     sourceState: ApplicationLayoutWidgetSourceState
 } => {
-    const inheritsMarketingBindings =
-        templateKey === 'marketing-page' && row.sourceBaseWidgetId !== undefined && row.sourceBaseWidgetId !== null
-    const sourceConfigOptions = inheritsMarketingBindings ? { requireBindings: false, rejectBindings: true } : { requireBindings: true }
+    const rowLineage = classifyPlacementLineage(row.sourceWidgetId, row.sourceBaseWidgetId)
+    const rowSourceLinked = rowLineage.kind === 'source-linked'
+    const rowBindingsInheritedFromBase = row.sourceBaseWidgetId !== null && row.sourceBaseWidgetId !== undefined
+    const sourceBindingOptions = resolvePlacementBindingValidation(row.widgetKey, row.config, rowSourceLinked, rowBindingsInheritedFromBase)
     const sourceState = createApplicationLayoutWidgetSourceState(
         templateKey,
         row.widgetKey,
@@ -147,9 +180,12 @@ export const resolveSyncedApplicationLayoutWidgetState = (
             zone: row.zone,
             sortOrder: row.sortOrder,
             isActive: row.isActive !== false,
-            config: row.config
+            config: row.config,
+            instanceKey: row.instanceKey,
+            parentWidgetId: row.parentWidgetId,
+            slotKey: row.slotKey
         },
-        sourceConfigOptions
+        sourceBindingOptions
     )
     let resolved = sourceState
 
@@ -157,27 +193,30 @@ export const resolveSyncedApplicationLayoutWidgetState = (
         if (current.widget_key !== row.widgetKey) {
             throw new Error(`[SchemaSync] Widget ${current.id} changed its registered widget key`)
         }
-        const currentInheritsMarketingBindings =
-            templateKey === 'marketing-page' && current.source_base_widget_id !== null && current.source_base_widget_id !== undefined
-        if (currentInheritsMarketingBindings !== inheritsMarketingBindings) {
-            throw new Error(`[SchemaSync] Widget ${current.id} changed its base placement lineage`)
-        }
-        const currentConfigOptions = inheritsMarketingBindings
-            ? { requireBindings: false, rejectBindings: true }
-            : { requireBindings: false }
+        const currentLineage = classifyPlacementLineage(current.source_widget_id, current.source_base_widget_id)
+        const currentSourceLinked = currentLineage.kind === 'source-linked'
+        if (currentSourceLinked !== rowSourceLinked) throw new Error(`[SchemaSync] Widget ${current.id} changed its placement lineage`)
+        const currentBindingsInheritedFromBase = current.source_base_widget_id !== null && current.source_base_widget_id !== undefined
+        const currentBindingOptions = resolvePlacementBindingValidation(
+            current.widget_key,
+            current.config,
+            currentSourceLinked,
+            currentBindingsInheritedFromBase
+        )
         let currentSourceBindings: ReturnType<typeof decodeLayoutWidgetConfigEnvelope>['neutral']['bindings']
         if (current.source_config !== null && current.source_config !== undefined) {
-            const currentSourceConfig = decodeLayoutWidgetConfigEnvelope(current.source_config, {
+            const currentSourceConfig = decodePlacementWidgetConfigEnvelope(current.source_config, {
                 templateKey,
                 widgetKey: current.widget_key,
                 zone: current.zone,
-                requireBindings: !inheritsMarketingBindings
+                instanceKey: current.instance_key,
+                requireBindings: currentBindingOptions.requireBindings
             })
             currentSourceBindings = currentSourceConfig.neutral.bindings
-            if (inheritsMarketingBindings && currentSourceBindings !== undefined) {
-                throw new Error(`[SchemaSync] Inherited Marketing widget ${current.id} source config cannot contain entity bindings`)
+            if (currentBindingOptions.rejectBindings && currentSourceBindings !== undefined) {
+                throw new Error(`[SchemaSync] Widget ${current.id} source config cannot contain Entity bindings`)
             }
-        } else if (current.source_widget_id !== null && current.source_widget_id !== undefined) {
+        } else if (currentSourceLinked) {
             throw new Error(`[SchemaSync] Inherited widget ${current.id} is missing its source config baseline`)
         }
         if (current.source_state === null || current.source_state === undefined) {
@@ -190,17 +229,18 @@ export const resolveSyncedApplicationLayoutWidgetState = (
             }
         } else {
             const previousSourceState = parseApplicationLayoutWidgetSourceState(current.source_state, templateKey, current.widget_key)
-            const currentConfig = decodeLayoutWidgetConfigEnvelope(current.config, {
+            const currentConfig = decodePlacementWidgetConfigEnvelope(current.config, {
                 templateKey,
                 widgetKey: current.widget_key,
                 zone: current.zone,
+                instanceKey: current.instance_key,
                 requireBindings: false
             })
-            if (inheritsMarketingBindings && currentConfig.neutral.bindings !== undefined) {
-                throw new Error(`[SchemaSync] Inherited Marketing widget ${current.id} config cannot contain entity bindings`)
+            if (currentBindingOptions.rejectBindings && currentConfig.neutral.bindings !== undefined) {
+                throw new Error(`[SchemaSync] Widget ${current.id} config cannot contain Entity bindings`)
             }
             if (
-                !inheritsMarketingBindings &&
+                currentSourceLinked &&
                 currentConfig.neutral.bindings !== undefined &&
                 (currentSourceBindings === undefined ||
                     stableStringify(currentConfig.neutral.bindings) !== stableStringify(currentSourceBindings))
@@ -214,18 +254,28 @@ export const resolveSyncedApplicationLayoutWidgetState = (
                     zone: current.zone,
                     sortOrder: current.sort_order,
                     isActive: current.is_active,
-                    config: current.config
+                    config: current.config,
+                    instanceKey: current.instance_key,
+                    parentWidgetId: current.parent_widget_id,
+                    slotKey: current.slot_key
                 },
-                currentConfigOptions
+                { requireBindings: false, rejectBindings: currentBindingOptions.rejectBindings }
             )
-            const nextDecoded = decodeLayoutWidgetConfigEnvelope(row.config, {
+            const nextBindingOptions = resolvePlacementBindingValidation(
+                row.widgetKey,
+                row.config,
+                rowSourceLinked,
+                rowBindingsInheritedFromBase
+            )
+            const nextDecoded = decodePlacementWidgetConfigEnvelope(row.config, {
                 templateKey,
                 widgetKey: row.widgetKey,
                 zone: row.zone,
-                requireBindings: !inheritsMarketingBindings
+                instanceKey: row.instanceKey,
+                requireBindings: nextBindingOptions.requireBindings
             })
-            if (inheritsMarketingBindings && nextDecoded.neutral.bindings !== undefined) {
-                throw new Error('[SchemaSync] Inherited Marketing widget config cannot contain entity bindings')
+            if (nextBindingOptions.rejectBindings && nextDecoded.neutral.bindings !== undefined) {
+                throw new Error('[SchemaSync] Placement config cannot contain Entity bindings')
             }
             const sameRendererConfig = stableStringify(currentState.rendererConfig) === stableStringify(previousSourceState.rendererConfig)
             const sameZone = currentState.zone === previousSourceState.zone
@@ -238,9 +288,12 @@ export const resolveSyncedApplicationLayoutWidgetState = (
                 isActive: sameActiveState ? sourceState.isActive : currentState.isActive,
                 sortOrder: sameSortOrder ? sourceState.sortOrder : currentState.sortOrder,
                 zone: sameZone ? sourceState.zone : currentState.zone,
-                placement: samePlacement ? sourceState.placement : currentState.placement
+                placement: samePlacement ? sourceState.placement : currentState.placement,
+                instanceKey: sourceState.instanceKey,
+                parentWidgetId: sourceState.parentWidgetId,
+                slotKey: sourceState.slotKey
             }
-            const bindings = inheritsMarketingBindings ? undefined : nextDecoded.neutral.bindings
+            const bindings = nextBindingOptions.rejectBindings ? undefined : nextDecoded.neutral.bindings
             const config = encodeLayoutWidgetConfigEnvelope(
                 {
                     rendererConfig: resolved.rendererConfig,
@@ -249,38 +302,52 @@ export const resolveSyncedApplicationLayoutWidgetState = (
                         ...(bindings === undefined ? {} : { bindings })
                     }
                 },
-                { templateKey, widgetKey: row.widgetKey, zone: resolved.zone, requireBindings: !inheritsMarketingBindings }
+                { templateKey, widgetKey: row.widgetKey, zone: resolved.zone, requireBindings: nextBindingOptions.requireBindings }
             )
             return {
                 config,
                 zone: resolved.zone,
                 sortOrder: resolved.sortOrder,
                 isActive: resolved.isActive,
+                instanceKey: resolved.instanceKey,
+                parentWidgetId: resolved.parentWidgetId,
+                slotKey: resolved.slotKey,
                 sourceState
             }
         }
     }
 
-    const bindings = decodeLayoutWidgetConfigEnvelope(row.config, {
+    const bindingsOptions = resolvePlacementBindingValidation(row.widgetKey, row.config, rowSourceLinked, rowBindingsInheritedFromBase)
+    const bindings = decodePlacementWidgetConfigEnvelope(row.config, {
         templateKey,
         widgetKey: row.widgetKey,
         zone: row.zone,
-        requireBindings: !inheritsMarketingBindings
+        instanceKey: row.instanceKey,
+        requireBindings: bindingsOptions.requireBindings
     }).neutral.bindings
-    if (inheritsMarketingBindings && bindings !== undefined) {
-        throw new Error('[SchemaSync] Inherited Marketing widget config cannot contain entity bindings')
+    if (bindingsOptions.rejectBindings && bindings !== undefined) {
+        throw new Error('[SchemaSync] Placement config cannot contain Entity bindings')
     }
     const config = encodeLayoutWidgetConfigEnvelope(
         {
             rendererConfig: resolved.rendererConfig,
             neutral: {
                 ...(resolved.placement === null ? {} : { placement: resolved.placement }),
-                ...(bindings === undefined ? {} : { bindings })
+                ...(bindingsOptions.rejectBindings || bindings === undefined ? {} : { bindings })
             }
         },
-        { templateKey, widgetKey: row.widgetKey, zone: resolved.zone, requireBindings: !inheritsMarketingBindings }
+        { templateKey, widgetKey: row.widgetKey, zone: resolved.zone, requireBindings: bindingsOptions.requireBindings }
     )
-    return { config, zone: resolved.zone, sortOrder: resolved.sortOrder, isActive: resolved.isActive, sourceState }
+    return {
+        config,
+        zone: resolved.zone,
+        sortOrder: resolved.sortOrder,
+        isActive: resolved.isActive,
+        instanceKey: resolved.instanceKey,
+        parentWidgetId: resolved.parentWidgetId,
+        slotKey: resolved.slotKey,
+        sourceState
+    }
 }
 
 export const isApplicationLayoutWidgetCustomized = (

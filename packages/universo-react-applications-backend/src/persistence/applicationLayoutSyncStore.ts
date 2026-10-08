@@ -1,4 +1,5 @@
 import { qSchemaTable } from '@universo-react/database'
+import { orderApplicationWidgetGraph } from './applicationWidgetGraphOrder'
 import {
     applicationTemplateKeySchema,
     decodeLayoutConfigEnvelope,
@@ -243,6 +244,9 @@ const widgetRowsSelect = (table: string): string => `
       w.layout_id,
       w.zone,
       w.widget_key,
+      w.instance_key,
+      w.parent_widget_id,
+      w.slot_key,
       w.sort_order,
       w.config,
       w.source_config,
@@ -566,15 +570,15 @@ export const insertApplicationLayoutSyncWidget = async (
     const result = await executor.query<{ id: string }>(
         `
         INSERT INTO ${table} (
-            id, layout_id, zone, widget_key, sort_order, config, source_config, source_state, is_active,
+            id, layout_id, zone, widget_key, instance_key, parent_widget_id, slot_key, sort_order, config, source_config, source_state, is_active,
             source_widget_id, source_base_widget_id, source_content_hash, local_content_hash,
             _upl_created_at, _upl_created_by, _upl_updated_at, _upl_updated_by, _upl_version,
             _upl_archived, _upl_deleted, _upl_locked, _app_published, _app_archived, _app_deleted
         ) VALUES (
-            $1, $2, $3, $4, $5, $6::jsonb, ${isApplicationOwned ? 'NULL::jsonb' : '$6::jsonb'},
-            ${isApplicationOwned ? 'NULL::jsonb' : '$7::jsonb'}, $8,
-            ${isApplicationOwned ? 'NULL' : '$9'}, ${isApplicationOwned ? 'NULL' : '$10'}, ${isApplicationOwned ? 'NULL' : '$11'}, $11,
-            NOW(), $12, NOW(), $12, 1,
+            $1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, ${isApplicationOwned ? 'NULL::jsonb' : '$9::jsonb'},
+            ${isApplicationOwned ? 'NULL::jsonb' : '$10::jsonb'}, $11,
+            ${isApplicationOwned ? 'NULL' : '$12'}, ${isApplicationOwned ? 'NULL' : '$13'}, ${isApplicationOwned ? 'NULL' : '$14'}, $14,
+            NOW(), $15, NOW(), $15, 1,
             false, false, false, true, false, false
         )
         RETURNING id
@@ -584,6 +588,9 @@ export const insertApplicationLayoutSyncWidget = async (
             physicalLayoutId,
             row.zone,
             row.widgetKey,
+            row.instanceKey,
+            row.parentWidgetId,
+            row.slotKey,
             row.sortOrder,
             json(row.config),
             json(options.sourceState ?? null),
@@ -814,14 +821,20 @@ export async function syncApplicationLayouts(
                         const copyId = allocatePhysicalUuid(copyUsedIds)
                         const copyPayload = { ...applicationCopyPayload, physicalLayoutId: copyId, isDefault: false }
                         await insertLayout(tx, layoutsTable, copyPayload, input.userId, 'application', 'clean')
-                        for (const widget of widgetsByLayoutId.get(physicalLayoutId) ?? []) {
-                            const copiedWidgetId = allocatePhysicalUuid(copyUsedIds)
+                        const copyWidgets = orderApplicationWidgetGraph(widgetsByLayoutId.get(physicalLayoutId) ?? [], (widget) => widget)
+                        const copiedIds = new Map(copyWidgets.map((widget) => [widget.id, allocatePhysicalUuid(copyUsedIds)]))
+                        for (const widget of copyWidgets) {
+                            const copiedWidgetId = copiedIds.get(widget.id) as string
+                            const copiedWidget = {
+                                ...widget,
+                                parentWidgetId: widget.parentWidgetId === null ? null : (copiedIds.get(widget.parentWidgetId) as string)
+                            }
                             await insertApplicationLayoutSyncWidget(
                                 tx,
                                 widgetsTable,
                                 copiedWidgetId,
                                 copyId,
-                                widget,
+                                copiedWidget,
                                 widget.sourceContentHash,
                                 input.userId,
                                 { ownership: 'application' }
@@ -1033,7 +1046,8 @@ export async function getPersistedPublishedWidgets(executor: DbExecutor, schemaN
     const layoutsTable = qSchemaTable(schemaName, '_app_layouts')
     const rows = await executor.query<PersistedPublishedWidgetProjectionRow>(
         `
-        SELECT w.id, w.layout_id, w.zone, w.widget_key, w.sort_order, w.config, w.source_config, w.is_active,
+        SELECT w.id, w.layout_id, w.zone, w.widget_key, w.instance_key, w.parent_widget_id, w.slot_key,
+               w.sort_order, w.config, w.source_config, w.is_active,
                w.source_base_widget_id, w.source_widget_id, l.template_key
         FROM ${widgetsTable} w
         INNER JOIN ${layoutsTable} l ON l.id = w.layout_id

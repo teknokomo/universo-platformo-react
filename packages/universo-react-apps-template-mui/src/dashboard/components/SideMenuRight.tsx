@@ -2,7 +2,8 @@ import { styled } from '@mui/material/styles'
 import MuiDrawer, { drawerClasses } from '@mui/material/Drawer'
 import Box from '@mui/material/Box'
 import { renderWidget } from './widgetRenderer'
-import type { ZoneWidgetItem, DashboardMenusMap, DashboardMenuSlot } from '../Dashboard'
+import type { ZoneWidgetItem } from '../contracts'
+import type { RuntimePlacement } from '../runtime/widgetPlacementGraph'
 
 const RIGHT_DRAWER_WIDTH = 280
 
@@ -18,12 +19,10 @@ const Drawer = styled(MuiDrawer)({
 
 interface SideMenuRightProps {
     widgets: ZoneWidgetItem[]
-    /** @deprecated Use `menus` map instead. */
-    menu?: DashboardMenuSlot
-    menus?: DashboardMenusMap
+    placements?: readonly RuntimePlacement[]
 }
 
-export default function SideMenuRight({ widgets, menu, menus }: SideMenuRightProps) {
+export default function SideMenuRight({ widgets, placements = [] }: SideMenuRightProps) {
     if (widgets.length === 0) return null
 
     return (
@@ -46,7 +45,7 @@ export default function SideMenuRight({ widgets, menu, menus }: SideMenuRightPro
                     overflow: 'auto'
                 }}
             >
-                {widgets.map((widget) => renderWidget(widget, menus, menu))}
+                {widgets.map((widget) => renderWidget(widget, { placements }))}
             </Box>
         </Drawer>
     )

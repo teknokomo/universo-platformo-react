@@ -12,10 +12,10 @@ import {
 } from '../../support/backend/api-session.mjs'
 import { recordCreatedMetahub } from '../../support/backend/run-manifest.mjs'
 import { repoRoot } from '../../support/env/load-e2e-env.mjs'
+import { resolveFixtureOutputPath } from '../../support/fixtureOutputPath'
 import { validateSnapshotEnvelope } from '@universo-react/utils'
 import {
     QUIZ_CANONICAL_METAHUB,
-    QUIZ_CENTERED_LAYOUT_CONFIG,
     QUIZ_FIXTURE_FILENAME,
     QUIZ_REMOVED_LAYOUT_WIDGET_KEYS,
     QUIZ_MODULE_CODENAME,
@@ -28,6 +28,7 @@ import {
 type ApiContext = Awaited<ReturnType<typeof createLoggedInApiContext>>
 
 const FIXTURES_DIR = path.resolve(repoRoot, 'tools', 'fixtures')
+const FIXTURE_OUTPUT_PATH = resolveFixtureOutputPath('QUIZ_FIXTURE_OUTPUT_PATH', QUIZ_FIXTURE_FILENAME)
 
 async function apiGet(api: ApiContext, urlPath: string) {
     const cookieHeader = Array.from((api.cookies as Map<string, string>).entries())
@@ -73,33 +74,15 @@ async function expectJsonResponse(response: Response, label: string) {
 }
 
 async function applyCenteredQuizLayout(api: ApiContext, metahubId: string, layoutId: string) {
-    const layout = await getLayout(api, metahubId, layoutId)
-    const currentConfig = layout?.config && typeof layout.config === 'object' ? layout.config : {}
     const removableWidgetKeys = new Set<string>(QUIZ_REMOVED_LAYOUT_WIDGET_KEYS)
 
-    if (!Number.isSafeInteger(layout?.version) || layout.version < 1) {
-        throw new Error(`Quiz layout ${layoutId} did not return a valid optimistic-lock version`)
-    }
-
-    await expectJsonResponse(
-        await sendWithCsrf(api, 'PATCH', `/api/v1/metahub/${metahubId}/layout/${layoutId}`, {
-            name: layout?.name,
-            namePrimaryLocale: layout?.name?._primary ?? 'en',
-            description: layout?.description,
-            descriptionPrimaryLocale: layout?.description?._primary ?? 'en',
-            config: {
-                ...currentConfig,
-                ...QUIZ_CENTERED_LAYOUT_CONFIG
-            },
-            expectedVersion: layout.version
-        }),
-        'Applying centered quiz layout config'
-    )
-
+    // Removing a placement can reorder siblings, so re-read current widget versions before each delete.
     let hasRemovableWidget = true
     while (hasRemovableWidget) {
         const zoneWidgets = await listLayoutZoneWidgets(api, metahubId, layoutId)
-        const widget = zoneWidgets?.items?.find((item) => removableWidgetKeys.has(String(item?.widgetKey ?? '')))
+        const widget = zoneWidgets?.items?.find(
+            (item) => item?.zone === 'left' || item?.zone === 'right' || removableWidgetKeys.has(String(item?.widgetKey ?? ''))
+        )
         if (!widget) {
             hasRemovableWidget = false
             continue
@@ -204,10 +187,10 @@ test.describe('Metahubs Quiz App Export', () => {
                     (item) => item.widgetKey === 'quizWidget' && item.config?.moduleCodename === QUIZ_MODULE_CODENAME
                 )
                 const removableWidgetKeys = new Set<string>(QUIZ_REMOVED_LAYOUT_WIDGET_KEYS)
-                const hasLegacyWidgets = items.some((item) => removableWidgetKeys.has(String(item?.widgetKey ?? '')))
-                const hasRightZoneWidgets = items.some((item) => item.zone === 'right')
+                const hasDisabledWidgets = items.some((item) => removableWidgetKeys.has(String(item?.widgetKey ?? '')))
+                const hasSideZoneWidgets = items.some((item) => item.zone === 'left' || item.zone === 'right')
 
-                return quizWidget?.zone === 'center' && !hasLegacyWidgets && !hasRightZoneWidgets
+                return quizWidget?.zone === 'center' && !hasDisabledWidgets && !hasSideZoneWidgets
             })
             .toBe(true)
 
@@ -221,7 +204,8 @@ test.describe('Metahubs Quiz App Export', () => {
         validateSnapshotEnvelope(envelope)
         assertQuizFixtureEnvelopeContract(envelope)
 
-        const fixturePath = path.join(FIXTURES_DIR, QUIZ_FIXTURE_FILENAME)
+        const fixturePath = FIXTURE_OUTPUT_PATH
+        fs.mkdirSync(path.dirname(fixturePath), { recursive: true })
         fs.writeFileSync(fixturePath, `${JSON.stringify(envelope, null, 2)}\n`, 'utf8')
 
         expect(fs.existsSync(fixturePath)).toBe(true)

@@ -1,5 +1,18 @@
 # Current Research
 
+## 2026-10-02: Complete Entity-backed Dashboard widgets research
+
+-   Research artifact created and reviewed: `memory-bank/research/dashboard-complete-entity-backed-widgets-research-2026-10-02.md`.
+-   The QA-refined brief is directionally correct, but the implementation boundary is wider than stock Dashboard renderers: Dashboard bindings require template-neutral generalization of the currently Marketing-specific metahub binding API, application source-state/effective-overlay rules, copy/source-removal policy and frontend source-managed authoring.
+-   Current neutral placement metadata cannot represent nested Dashboard composition: `layoutLogicalPlacementSchema` only supports `start | end`, while `columnsContainer` and `detailsTabs` embed synthetic child widget instances inside parent config. PLAN must introduce one canonical first-class child placement plus stable parent/slot semantics that survive hash/snapshot/sync/effective-layout lifecycles.
+-   `show*` builders, `Dashboard.tsx`/`MainGrid.tsx` direct-component/demo fallbacks, `DashboardApp.tsx` workspace-route visibility overrides and runtime-injected workspace navigation are parallel composition authorities. The clean cutover must replace them with persisted/effective placements or an explicit host-projection contract.
+-   The affected built-in Dashboard templates include Basic, Basic Demo, Empty, 1C-Compatible, LMS, Interpretation Network and PlayCanvas. Basic Demo and LMS directly encode the old nested-widget payload model.
+-   Fixture research corrected one broad brief assumption: six application/metahub snapshot configurations under `tools/fixtures/` should be regenerated from canonical producers, while `mmoomm-runtime-pre-extraction-baseline.json` is an intentionally immutable historical parity artifact whose loader verifies commit/source SHA-256 specifically to prevent accidental current-versus-current re-baselining. Preserve it and rerun parity unless a separate explicit decision retires/replaces that historical contract.
+-   Current primary React/MUI/MUI X documentation and Context7 support the architectural direction: one source of truth for state, reusable MUI template composition, and a centralized server-side Data Source abstraction. Exact MUI X 9.8.0 APIs still need local/exact-version verification before implementation.
+-   Same-day QA expanded the genericization boundary: `widgetBindingSchemas.ts`/`widgetBindingValidation.ts`, `applicationLayoutStoreSupport.ts`, `applicationLayoutPublishedWidgetProjection.ts` and the scoped-overlay branch of `widgetBindingPolicyStore.ts` still encode Marketing-only source/binding semantics. PLAN must converge these on the same registry-driven ownership classifier.
+-   Duplicate semantics are already declared as `none | share-bindings | clone-record`; the existing atomic clone-record + placement backend path is Marketing-specific. Dashboard PLAN must classify each source-managed widget and generalize that atomic capability only where a Dashboard definition selects `clone-record`.
+-   No product code, schema/template version, fixture, Manager file or implementation plan was changed in RESEARCH mode. Remaining questions are bounded PLAN decisions: the physical parent/slot representation, per-widget retain/retire/ownership matrix, structural tab metadata, behavior-rich datasource splits and the host-navigation projection model.
+
 ## 2026-09-27: Complete Entity-backed Marketing Page widgets research
 
 -   Research artifact created and reviewed: `memory-bank/research/marketing-page-complete-entity-backed-widgets-research-2026-09-27.md`.

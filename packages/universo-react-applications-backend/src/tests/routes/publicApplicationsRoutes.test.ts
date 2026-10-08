@@ -1205,11 +1205,46 @@ describe('Public Applications Routes', () => {
             )
         )
 
+        const outerTransaction = dataSource.transaction.getMockImplementation()
+        if (!outerTransaction) {
+            throw new Error('Expected the public runtime test executor to expose a transaction implementation')
+        }
+
+        let releaseCommit: (() => void) | undefined
+        const commitBarrier = new Promise<void>((resolve) => {
+            releaseCommit = resolve
+        })
+        let resolveCallbackFinished: (() => void) | undefined
+        const callbackFinished = new Promise<void>((resolve) => {
+            resolveCallbackFinished = resolve
+        })
+        let transactionCommitted = false
+        dataSource.transaction.mockImplementation(async (callback) => {
+            const result = await outerTransaction(callback)
+            resolveCallbackFinished?.()
+            await commitBarrier
+            transactionCommitted = true
+            return result
+        })
+
         const app = buildApp(dataSource)
-        const response = await request(app)
+        let responseResolved = false
+        const responsePromise = request(app)
             .post(`/public/a/${applicationId}/guest-session`)
             .send({ displayName: 'Guest Learner', accessLinkId })
             .expect(201)
+            .then((response) => {
+                responseResolved = true
+                return response
+            })
+
+        await callbackFinished
+        await new Promise<void>((resolve) => setImmediate(resolve))
+        expect(responseResolved).toBe(false)
+
+        releaseCommit?.()
+        const response = await responsePromise
+        expect(transactionCommitted).toBe(true)
 
         const decodedToken = JSON.parse(Buffer.from(response.body.sessionToken, 'base64url').toString('utf8'))
         expect(decodedToken.workspaceId).toBe(workspaceId2)

@@ -328,6 +328,12 @@ export const readColumnValue = (
     columns: RuntimeColumnLike[] | undefined,
     codename: string
 ): unknown => {
+    const hierarchyKey = codename === 'CellId' ? 'cellId' : codename === 'ParentCellId' ? 'parentCellId' : null
+    const hierarchy = row?.matrixHierarchy
+    if (hierarchyKey && isRecord(hierarchy) && Object.prototype.hasOwnProperty.call(hierarchy, hierarchyKey)) {
+        return hierarchy[hierarchyKey]
+    }
+
     for (const key of resolveColumnKeys(columns, codename)) {
         const value = readRowValue(row, key)
         if (value !== undefined) return value

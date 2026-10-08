@@ -156,7 +156,7 @@ describe('PlayCanvas Editor artifact metadata', () => {
             expect(source).toMatch(/if\s*\(\s*marker\.fullBootMode\s*!==\s*true\s*\)\s*{\s*installHostedEntityAdapter\(editorInstance\);/)
             expect(source).toContain("sendBridgeCommand('scene.saveStatus'")
             expect(source).toContain(
-                "const timeoutMs = ['scene.list', 'scene.read', 'scene.save', 'asset.listMinimalForScene'].includes(type) ? 60_000 : 15_000;"
+                "const timeoutMs = ['protocol.describe', 'scene.list', 'scene.read', 'scene.save', 'asset.listMinimalForScene'].includes(type) ? 60_000 : 15_000;"
             )
             expect(source).toContain('const observerToJson = (value, visited = new Set()) => {')
             expect(source).toContain('if (!value || visited.has(value)) return null;')

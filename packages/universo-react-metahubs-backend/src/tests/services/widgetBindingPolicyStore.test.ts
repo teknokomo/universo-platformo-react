@@ -39,6 +39,7 @@ describe('widget binding policy store', () => {
         expect(sql).toContain('widget._mhb_deleted = false')
         expect(sql).toContain('layout._upl_deleted = false')
         expect(sql).toContain('layout._mhb_deleted = false')
+        expect(sql).not.toContain("'marketing-page'")
         expect(sql).not.toContain("AND NOT (\n                    layout.template_key = 'marketing-page'")
         expect(sql).toContain('FROM "' + schemaName + '"."_mhb_widgets" widget')
         expect(sql).toContain('layout_override._mhb_deleted = false')

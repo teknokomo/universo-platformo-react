@@ -4,18 +4,15 @@ export {
     extractObjectCollectionLayoutBehaviorConfig,
     normalizeObjectCollectionRuntimeViewConfig,
     resolveObjectCollectionLayoutBehaviorConfig,
-    resolveObjectCollectionRuntimeDashboardLayoutConfig,
     sanitizeObjectCollectionRuntimeViewConfig,
     setObjectCollectionLayoutBehaviorConfig
 } from './objectCollectionRuntimeConfig'
 
 export type {
     DashboardLayoutConfig,
-    DashboardLayoutRowHeight,
     DashboardViewMode,
     ObjectCollectionLayoutBehaviorConfig,
     ObjectCollectionRuntimeEditSurface,
-    ObjectCollectionRuntimeRowHeight,
     ObjectCollectionRuntimeSearchMode,
     ObjectCollectionRuntimeViewConfig,
     ResolvedObjectCollectionRuntimeViewConfig

@@ -46,11 +46,9 @@ export {
     normalizeObjectCollectionRuntimeViewConfig,
     resolveObjectCollectionLayoutBehaviorConfig,
     sanitizeObjectCollectionRuntimeViewConfig,
-    setObjectCollectionLayoutBehaviorConfig,
-    resolveObjectCollectionRuntimeDashboardLayoutConfig
+    setObjectCollectionLayoutBehaviorConfig
 } from './objectCollectionRuntimeConfig'
 export { normalizeDashboardLayoutConfig, normalizeDashboardSideMenuConfig } from './dashboardLayout'
-export { normalizeMenuWidgetConfigTargets, type RuntimeMenuTargetMaps } from './menuWidgetTargets'
 export {
     uuidV7Schema,
     normalizeRuntimeLayoutTarget,

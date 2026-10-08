@@ -504,41 +504,49 @@ export function createOptionValueHandlers(createHandler: ReturnType<typeof creat
                 return res.status(404).json({ error: 'Enumeration not found' })
             }
 
-            const value = await valuesService.findById(metahubId, req.params.valueId, userId)
-            if (!value || value.objectId !== req.params.optionListId) {
-                return res.status(404).json({ error: 'Option value not found' })
-            }
+            const deletion = await exec.transaction(async (tx) => {
+                const value = await valuesService.findByIdForUpdate(metahubId, req.params.valueId, userId, tx)
+                if (!value || value.objectId !== req.params.optionListId) return { kind: 'not-found' as const }
 
-            const blockingDefaults = await findBlockingDefaultValueReferences(
-                metahubId,
-                req.params.valueId,
-                compatibleKinds,
-                componentsService,
-                userId
-            )
-            if (blockingDefaults.length > 0) {
+                const blockingDefaults = await findBlockingDefaultValueReferences(
+                    metahubId,
+                    req.params.valueId,
+                    compatibleKinds,
+                    componentsService,
+                    userId,
+                    tx
+                )
+                if (blockingDefaults.length > 0) return { kind: 'default-blocked' as const, blockingDefaults }
+
+                const blockingElements = await findBlockingRecordValueReferences(
+                    metahubId,
+                    req.params.optionListId,
+                    req.params.valueId,
+                    compatibleKinds,
+                    componentsService,
+                    userId,
+                    tx
+                )
+                if (blockingElements.length > 0) return { kind: 'records-blocked' as const, blockingElements }
+
+                await valuesService.delete(metahubId, req.params.valueId, userId, tx)
+                return { kind: 'deleted' as const }
+            })
+
+            if (deletion.kind === 'not-found') return res.status(404).json({ error: 'Option value not found' })
+            if (deletion.kind === 'default-blocked') {
                 return res.status(409).json({
                     error: 'Cannot delete optionList value: it is configured as default in components',
-                    blockingDefaults
+                    blockingDefaults: deletion.blockingDefaults
                 })
             }
-
-            const blockingElements = await findBlockingRecordValueReferences(
-                metahubId,
-                req.params.optionListId,
-                req.params.valueId,
-                compatibleKinds,
-                componentsService,
-                userId
-            )
-            if (blockingElements.length > 0) {
+            if (deletion.kind === 'records-blocked') {
                 return res.status(409).json({
                     error: 'Cannot delete optionList value: it is used in predefined elements',
-                    blockingElements
+                    blockingElements: deletion.blockingElements
                 })
             }
 
-            await valuesService.delete(metahubId, req.params.valueId, userId)
             return res.status(204).send()
         },
         { permission: 'deleteContent' }

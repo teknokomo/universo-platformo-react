@@ -25,15 +25,15 @@ import {
     buildSingleTargetWidgetBinding,
     decodeWidgetConfigEnvelope,
     encodeWidgetConfigEnvelope,
-    LAYOUT_WIDGET_DEFINITIONS
+    LAYOUT_WIDGET_DEFINITIONS,
+    layoutWidgetMetadataResponseSchema
 } from '@universo-react/types'
-import { uuidV7Schema } from '@universo-react/utils'
 
 describe('Marketing widget binding and authoring routes', () => {
     beforeEach(resetLayoutsRouteMocks)
 
     describe('Marketing widget source discovery routes', () => {
-        it('supports Add discovery without a placement after validating the marketing layout and variant', async () => {
+        it('supports Add discovery for Marketing placements without an existing widget', async () => {
             mockGetLayoutById.mockResolvedValueOnce({ id: layoutIdV7, templateKey: 'marketing-page' })
             const sourceResponse = await request(buildApp())
                 .get(`/metahub/metahub-1/layout/${layoutIdV7}/widget-binding-sources/marketing.collection/items`)
@@ -41,7 +41,6 @@ describe('Marketing widget binding and authoring routes', () => {
                 .expect(200)
 
             expect(sourceResponse.body).toMatchObject({ widgetKey: 'marketing.collection', slot: 'items', sources: [] })
-            expect(mockGetLayoutById).toHaveBeenCalledWith('metahub-1', layoutIdV7, 'test-user-id')
             expect(mockDiscoverWidgetBindingSources).toHaveBeenCalledWith(
                 'metahub-1',
                 layoutIdV7,
@@ -89,24 +88,76 @@ describe('Marketing widget binding and authoring routes', () => {
             expect(JSON.stringify(recordResponse.body)).not.toContain('"_mhb_')
         })
 
-        it('rejects unbounded search, invalid variants, and non-marketing Add layouts before discovery', async () => {
+        it('discovers Dashboard manual-menu sources and records without a placement ID', async () => {
+            mockDiscoverWidgetBindingSources.mockResolvedValueOnce({
+                widgetKey: 'menuWidget',
+                slot: 'items',
+                selectorKinds: ['record-set'],
+                sources: [],
+                nextOffset: null,
+                truncated: false
+            })
+            const sources = await request(buildApp())
+                .get(`/metahub/metahub-1/layout/${layoutIdV7}/widget-binding-sources/menuWidget/items`)
+                .query({ variant: 'manual' })
+                .expect(200)
+            expect(sources.body).toMatchObject({ widgetKey: 'menuWidget', slot: 'items', sources: [] })
+            expect(mockDiscoverWidgetBindingSources).toHaveBeenCalledWith(
+                'metahub-1',
+                layoutIdV7,
+                {
+                    widgetKey: 'menuWidget',
+                    slot: 'items',
+                    variant: 'manual',
+                    locale: 'en',
+                    offset: 0
+                },
+                'test-user-id'
+            )
+
+            mockDiscoverWidgetBindingRecords.mockResolvedValueOnce({
+                widgetKey: 'menuWidget',
+                slot: 'items',
+                sourceKey: 'ManualDashboardMenu',
+                records: [],
+                selectedRecord: null,
+                nextOffset: null,
+                truncated: false
+            })
+            const records = await request(buildApp())
+                .get(`/metahub/metahub-1/layout/${layoutIdV7}/widget-binding-records/menuWidget/items`)
+                .query({ variant: 'manual', sourceKey: 'ManualDashboardMenu' })
+                .expect(200)
+            expect(records.body).toMatchObject({ widgetKey: 'menuWidget', slot: 'items', sourceKey: 'ManualDashboardMenu', records: [] })
+            expect(mockDiscoverWidgetBindingRecords).toHaveBeenCalledWith(
+                'metahub-1',
+                layoutIdV7,
+                {
+                    widgetKey: 'menuWidget',
+                    slot: 'items',
+                    variant: 'manual',
+                    sourceKey: 'ManualDashboardMenu',
+                    locale: 'en',
+                    offset: 0
+                },
+                'test-user-id'
+            )
+            expect(mockGetLayoutById).not.toHaveBeenCalled()
+        })
+
+        it('rejects unbounded search, malformed variants, and invalid selected keys before discovery', async () => {
             await request(buildApp())
                 .get(`/metahub/metahub-1/layout/${layoutIdV7}/widget-binding-sources/marketing.collection/items`)
                 .query({ search: 'x'.repeat(129), variant: 'logos' })
                 .expect(400)
             await request(buildApp())
                 .get(`/metahub/metahub-1/layout/${layoutIdV7}/widget-binding-sources/marketing.collection/items`)
-                .query({ variant: 'unsupported' })
+                .query({ variant: 'not a valid variant' })
                 .expect(400)
             await request(buildApp())
                 .get(`/metahub/metahub-1/layout/${layoutIdV7}/widget-binding-records/marketing.hero/content`)
                 .query({ sourceKey: 'MarketingPageHero', selectedSemanticKey: 'x'.repeat(129) })
                 .expect(400)
-
-            mockGetLayoutById.mockResolvedValueOnce({ id: layoutIdV7, templateKey: 'dashboard' })
-            await request(buildApp())
-                .get(`/metahub/metahub-1/layout/${layoutIdV7}/widget-binding-sources/marketing.hero/content`)
-                .expect(404)
             expect(mockDiscoverWidgetBindingSources).not.toHaveBeenCalled()
         })
     })
@@ -123,7 +174,7 @@ describe('Marketing widget binding and authoring routes', () => {
             })
             const widgetContext = { templateKey: 'marketing-page', widgetKey: 'marketing.hero', zone: 'marketing-main' }
             const sourceWidgetConfig = encodeWidgetConfigEnvelope(
-                { rendererConfig: { instanceKey: heroInstanceKey }, neutral: { bindings: heroBindings } },
+                { rendererConfig: {}, neutral: { bindings: heroBindings } },
                 widgetContext
             )
             const trx = createLayoutCopyTransactionTrx({
@@ -171,13 +222,10 @@ describe('Marketing widget binding and authoring routes', () => {
                 semanticKey: 'hero-inherited'
             })
             const widgetContext = { templateKey: 'marketing-page', widgetKey: 'marketing.hero', zone: 'marketing-main' }
-            const baseWidgetConfig = encodeWidgetConfigEnvelope(
-                { rendererConfig: { instanceKey: heroInstanceKey }, neutral: { bindings: heroBindings } },
-                widgetContext
-            )
+            const baseWidgetConfig = encodeWidgetConfigEnvelope({ rendererConfig: {}, neutral: { bindings: heroBindings } }, widgetContext)
             const sourceOverrideConfig = encodeWidgetConfigEnvelope(
                 {
-                    rendererConfig: { instanceKey: heroInstanceKey },
+                    rendererConfig: {},
                     ...(sourceOverrideContainsBindings ? { neutral: { bindings: heroBindings } } : {})
                 },
                 widgetContext
@@ -249,7 +297,7 @@ describe('Marketing widget binding and authoring routes', () => {
             return { trx, widgetContext, heroBindings, heroInstanceKey }
         }
 
-        it('copies a shared language switcher placed in the marketing header', async () => {
+        it('omits a shell-owned language switcher when its registry copy policy forbids placement copying', async () => {
             const trx = createLayoutCopyTransactionTrx({
                 sourceLayout: {
                     id: layoutIdV7,
@@ -307,8 +355,7 @@ describe('Marketing widget binding and authoring routes', () => {
                 .send({ copyWidgets: true, name: { en: 'Marketing page (copy)' } })
                 .expect(201)
 
-            const widgetInsertParams = findLayoutCopyQueryCalls(trx, 'INSERT', '_mhb_widgets')[0]?.[1] as unknown[]
-            expect(JSON.parse(widgetInsertParams?.[4] as string)).toEqual({})
+            expect(findLayoutCopyQueryCalls(trx, 'INSERT', '_mhb_widgets')).toHaveLength(0)
         })
 
         it('requires an explicit choice before copying an Entity-bound placement', async () => {
@@ -535,7 +582,7 @@ describe('Marketing widget binding and authoring routes', () => {
         })
 
         it('copies a sparse override while the scoped overlay inherits its Entity binding from the base', async () => {
-            const { trx, widgetContext, heroInstanceKey } = createOverlayWithInheritedBoundHeroTrx(true)
+            const { trx, widgetContext } = createOverlayWithInheritedBoundHeroTrx(true)
             ;(mockExec.transaction as jest.Mock).mockImplementationOnce(async (callback: (trx: unknown) => Promise<unknown>) =>
                 callback(trx)
             )
@@ -555,35 +602,25 @@ describe('Marketing widget binding and authoring routes', () => {
 
             const copiedOverrideConfig = JSON.parse(String(insertedOverrideParams?.[4])) as Record<string, unknown>
             const copiedOverride = decodeWidgetConfigEnvelope(copiedOverrideConfig, widgetContext)
-            expect(copiedOverride.rendererConfig.instanceKey).toBe(heroInstanceKey)
+            expect(copiedOverride.rendererConfig).not.toHaveProperty('instanceKey')
             expect(copiedOverride.neutral.bindings).toBeUndefined()
         })
 
-        it('copies an Entity-bound marketing layout when generic reuse is explicit', async () => {
-            const { trx, widgetContext, heroBindings, heroInstanceKey } = createBoundHeroMarketingLayoutTrx()
+        it('rejects generic copying for a Marketing binding whose registry policy requires record cloning', async () => {
+            const { trx } = createBoundHeroMarketingLayoutTrx()
             ;(mockExec.transaction as jest.Mock).mockImplementationOnce(async (callback: (trx: unknown) => Promise<unknown>) =>
                 callback(trx)
             )
 
             const app = buildApp()
-            await request(app)
+            const response = await request(app)
                 .post(`/metahub/metahub-1/layout/${layoutIdV7}/copy`)
                 .send({ name: { en: 'Marketing page (copy)' }, entityBindingCopyMode: 'reuse' })
-                .expect(201)
+                .expect(409)
 
+            expect(response.body.code).toBe('VALIDATION_ERROR')
             expect(mockEnsureSchema).toHaveBeenCalledWith('metahub-1', 'test-user-id')
-            const widgetInsert = (trx.query as jest.Mock).mock.calls.find(
-                ([sql]) => String(sql).includes('INSERT INTO') && String(sql).includes('_mhb_widgets')
-            )
-            expect(widgetInsert).toBeDefined()
-
-            const insertParams = widgetInsert?.[1] as unknown[]
-            const copiedWidgetConfig = JSON.parse(String(insertParams?.[4])) as Record<string, unknown>
-            const copiedWidget = decodeWidgetConfigEnvelope(copiedWidgetConfig, widgetContext)
-            expect(copiedWidget.neutral.bindings).toEqual(heroBindings)
-            expect(copiedWidget.rendererConfig.instanceKey).toBe(heroInstanceKey)
-            expect(uuidV7Schema.safeParse(copiedWidget.rendererConfig.instanceKey).success).toBe(true)
-            expect(JSON.stringify(copiedWidget.neutral.bindings)).not.toContain('0190a9b5-3cde-7abc-8def-0123456789c1')
+            expect((trx.query as jest.Mock).mock.calls.some(([sql]) => /^\s*INSERT\b/iu.test(String(sql)))).toBe(false)
         })
 
         it('rejects the obsolete Hero-only copy field before opening the database transaction', async () => {
@@ -693,6 +730,7 @@ describe('Marketing widget binding and authoring routes', () => {
 
             const response = await request(app).get(`/metahub/metahub-1/layout/${layoutIdV7}/zone-widgets/object`).expect(200)
 
+            expect(layoutWidgetMetadataResponseSchema.safeParse(response.body).success).toBe(true)
             expect(response.body.items).toEqual(
                 expect.arrayContaining([
                     expect.objectContaining({

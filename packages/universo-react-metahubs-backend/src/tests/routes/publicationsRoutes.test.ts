@@ -229,6 +229,7 @@ const makeSnapshotEnvelope = () =>
     buildSnapshotEnvelope({
         snapshot: {
             version: '1.0.0',
+            versionEnvelope: { structureVersion: '0.1.0', templateVersion: null, snapshotFormatVersion: 4 },
             metahubId: '00000000-0000-0000-0000-000000000001',
             entities: {}
         },
@@ -720,6 +721,7 @@ describe('Publications Routes', () => {
             const envelope = buildSnapshotEnvelope({
                 snapshot: {
                     version: '1.0.0',
+                    versionEnvelope: { structureVersion: '0.1.0', templateVersion: null, snapshotFormatVersion: 4 },
                     metahubId: '00000000-0000-0000-0000-000000000001',
                     entities: {
                         interpretation: {
@@ -747,6 +749,57 @@ describe('Publications Routes', () => {
                 .expect(400)
 
             expect(response.body).toEqual({ error: 'Invalid snapshot envelope', code: 'INVALID_SNAPSHOT_METADATA' })
+            expect(mockCreatePublicationVersion).not.toHaveBeenCalled()
+        })
+
+        it('rejects invalid Dashboard widget placement graphs before creating a publication version', async () => {
+            const layoutId = '0190a9b5-3cde-7abc-8def-0123456789b1'
+            const envelope = buildSnapshotEnvelope({
+                snapshot: {
+                    version: '1.0.0',
+                    versionEnvelope: { structureVersion: '0.1.0', templateVersion: null, snapshotFormatVersion: 4 },
+                    metahubId: '00000000-0000-0000-0000-000000000001',
+                    entities: {},
+                    layouts: [
+                        {
+                            id: layoutId,
+                            templateKey: 'dashboard',
+                            scopeEntityId: null,
+                            compositionMode: 'independent',
+                            baseLayoutId: null,
+                            config: {}
+                        }
+                    ],
+                    layoutZoneWidgets: [
+                        {
+                            id: '0190a9b5-3cde-7abc-8def-0123456789b2',
+                            layoutId,
+                            instanceKey: 'orphan-widget',
+                            parentWidgetId: '0190a9b5-3cde-7abc-8def-0123456789b3',
+                            slotKey: 'column:main',
+                            zone: 'center',
+                            widgetKey: 'detailsTable',
+                            sortOrder: 0,
+                            config: {},
+                            isActive: true
+                        }
+                    ]
+                },
+                metahub: {
+                    id: '00000000-0000-0000-0000-000000000001',
+                    name: { en: 'Imported metahub' },
+                    codename: { en: 'imported-metahub' }
+                }
+            })
+
+            const app = buildApp()
+            const response = await request(app)
+                .post('/metahub/metahub-1/publication/publication-1/versions/import')
+                .send(envelope)
+                .expect(400)
+
+            expect(response.body).toEqual({ error: 'Invalid marketing layout snapshot', code: 'INVALID_MARKETING_LAYOUT_SNAPSHOT' })
+            expect(mockFindPublicationById).not.toHaveBeenCalled()
             expect(mockCreatePublicationVersion).not.toHaveBeenCalled()
         })
 

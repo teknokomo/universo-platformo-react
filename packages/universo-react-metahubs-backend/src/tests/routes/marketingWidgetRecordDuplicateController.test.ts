@@ -38,7 +38,7 @@ const createRequest = () => {
         zone: 'marketing-main',
         widgetKey: 'marketing.image',
         config: encodeWidgetConfigEnvelope(
-            { rendererConfig: { instanceKey: '0190a9b5-3cde-7abc-8def-0123456789b1' }, neutral: { bindings } },
+            { rendererConfig: {}, neutral: { bindings } },
             { templateKey: 'marketing-page', widgetKey: 'marketing.image', zone: 'marketing-main' }
         ),
         expectedVersion: 4,
@@ -47,6 +47,32 @@ const createRequest = () => {
             recordId,
             sourceKey: 'MarketingPageImage',
             sourceSemanticKey,
+            slot: 'content'
+        }
+    }
+}
+
+const createDashboardRequest = () => {
+    const definition = getLayoutWidgetDefinition('detailsTitle')
+    if (!definition) throw new Error('detailsTitle must be registered')
+    const bindings = buildSingleTargetWidgetBinding(definition, 'content', {
+        entityKind: 'object',
+        entityCodename: 'DashboardContent',
+        semanticKey: 'dashboard-title'
+    })
+    return {
+        zone: 'center',
+        widgetKey: 'detailsTitle',
+        config: encodeWidgetConfigEnvelope(
+            { rendererConfig: {}, neutral: { bindings } },
+            { templateKey: 'dashboard', widgetKey: 'detailsTitle', zone: 'center' }
+        ),
+        expectedVersion: 2,
+        recordCopy: {
+            entityId,
+            recordId,
+            sourceKey: 'DashboardContent',
+            sourceSemanticKey: 'dashboard-title',
             slot: 'content'
         }
     }
@@ -117,6 +143,22 @@ describe('Marketing widget record duplicate controller', () => {
         })
         expect(call.getStatus()).toBe(201)
         expect(call.getBody()).toEqual({ id: '0190a9b5-3cde-7abc-8def-0123456789b2' })
+    })
+
+    it('accepts a registry-owned Dashboard record copy through the shared route', async () => {
+        const request = createDashboardRequest()
+        const call = createInvocation(request)
+
+        await call.invoke()
+
+        expect(call.getStatus()).toBe(201)
+        expect(mockDuplicateMarketingWidgetRecordAndPlace).toHaveBeenCalledWith({
+            executor: expect.anything(),
+            metahubId,
+            layoutId,
+            userId,
+            request
+        })
     })
 
     it('fails before copying when the caller lacks content edit permission', async () => {

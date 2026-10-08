@@ -80,7 +80,7 @@ describe('metahubs-frontend entry exports', () => {
 
         expect((en as any).general.title).toBe('Resources')
         expect((en as any).objects.tabs.layout).toBe('Layouts')
-        expect((en as any).objects.runtime.showSearch).toBe('Search/filter bar')
+        expect((en as any).objects.runtime).not.toHaveProperty('showSearch')
         expect((en as any).objects.runtime.createSurface).toBe('Create form type')
         expect((en as any).objects.runtime.surfacePage).toBe('Page')
         expect((en as any).entities.title).toBe('Entities')
@@ -93,7 +93,7 @@ describe('metahubs-frontend entry exports', () => {
 
         expect((ru as any).general.title).toBe('Ресурсы')
         expect((ru as any).objects.tabs.layout).toBe('Макеты')
-        expect((ru as any).objects.runtime.showSearch).toBe('Строка поиска/фильтрации')
+        expect((ru as any).objects.runtime).not.toHaveProperty('showSearch')
         expect((ru as any).objects.runtime.createSurface).toBe('Тип окна создания')
         expect((ru as any).entities.title).toBe('Сущности')
     })

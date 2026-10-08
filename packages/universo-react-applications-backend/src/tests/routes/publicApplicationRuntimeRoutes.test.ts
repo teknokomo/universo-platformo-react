@@ -79,15 +79,22 @@ const publicMarketingPayload = {
                 widgetKey: 'marketing.image',
                 sortOrder: 0,
                 isActive: true,
-                config: {
-                    instanceKey: 'marketing-image-0',
-                    media: {
-                        kind: 'hero',
-                        resource: { type: 'url', url: 'https://example.test/hero.webp', launchMode: 'inline' },
-                        decorative: true
-                    }
-                },
-                data: { records: [] }
+                config: {},
+                data: {
+                    records: [
+                        {
+                            kind: 'image',
+                            semanticKey: 'hero-image',
+                            order: 0,
+                            isVisible: true,
+                            media: {
+                                kind: 'hero',
+                                resource: { type: 'url', url: 'https://example.test/hero.webp', launchMode: 'inline' },
+                                decorative: true
+                            }
+                        }
+                    ]
+                }
             }
         ]
     }

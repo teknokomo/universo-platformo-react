@@ -4,23 +4,23 @@ import {
     applicationTemplateKeySchema,
     decodeWidgetConfigEnvelope,
     encodeWidgetConfigEnvelope,
+    expandWidgetBindingSlotFamilies,
     getLayoutWidgetDefinition,
     isCompatibleWidgetBindingEntity,
     isEnabledCapabilityConfig,
-    marketingCollectionVariantSchema,
-    marketingCollectionWidgetConfigSchema,
     normalizeWidgetBindingDataType,
+    parseApplicationLayoutWidgetConfig,
+    resolveWidgetBindingSlotDefinition,
     resolveEntityRecordPolicy,
     validateWidgetBindings,
     type ApplicationTemplateKey,
-    type MarketingWidgetKey,
     type WidgetBindingEntityKind,
     type WidgetBindingSelector,
     type WidgetBindingSlotDefinition,
     type WidgetEntityBindingEnvelope
 } from '@universo-react/types'
 import { z } from 'zod'
-import { uuidV7Schema } from '@universo-react/utils'
+import { serialization, uuidV7Schema } from '@universo-react/utils'
 import { MetahubNotFoundError, MetahubValidationError } from '../shared/domainErrors'
 import { validateEntityRecordPolicyData } from '../shared/entityRecordPolicy'
 import { MAX_WIDGET_BINDING_OFFSET, type WidgetBindingRequestContext, type WidgetBindingSelectorInput } from './widgetBindingSchemas'
@@ -140,6 +140,9 @@ export const validateSourceRequirements = (
     if (slot.requirements.entityKinds && !slot.requirements.entityKinds.includes(object.kind as WidgetBindingEntityKind)) {
         throw new MetahubValidationError('Source Entity kind does not match this widget binding slot')
     }
+    if (slot.requirements.entityCodenames && !slot.requirements.entityCodenames.includes(object.codename)) {
+        throw new MetahubValidationError('Source Entity codename does not match this widget binding slot')
+    }
     const capabilities = asRecord(object.capabilities)
     if (
         slot.requirements.entityCapabilities.some(
@@ -157,6 +160,7 @@ export const validateSourceRequirements = (
     if (
         !isCompatibleWidgetBindingEntity(slot, {
             kind: object.kind,
+            codename: object.codename,
             config: object.config,
             components: components.map((component) => ({
                 codename: component.codename,
@@ -186,6 +190,7 @@ export const isSourceCompatible = (
 
 export const bindingRequirements = (slot: WidgetBindingSlotDefinition): BindingSourceRequirements => ({
     entityKinds: slot.requirements.entityKinds,
+    entityCodenames: slot.requirements.entityCodenames,
     entityCapabilities: slot.requirements.entityCapabilities,
     components: slot.requirements.components
 })
@@ -232,7 +237,10 @@ export const parseResolvedWidget = (row: BindingWidgetRow): ResolvedWidgetContex
         const widgetKey = applicationLayoutWidgetKeySchema.parse(row.widget_key)
         const zone = applicationLayoutZoneSchema.parse(row.zone)
         const decoded = decodeWidgetConfigEnvelope(row.config, { templateKey, widgetKey, zone })
-        const definition = getLayoutWidgetDefinition(widgetKey, decoded.rendererConfig)
+        const rawDefinition = getLayoutWidgetDefinition(widgetKey, decoded.rendererConfig)
+        const definition = rawDefinition
+            ? expandWidgetBindingSlotFamilies(rawDefinition, decoded.neutral.bindings ?? { version: 1, slots: [] })
+            : undefined
         if (
             !definition ||
             !definition.bindingSlots?.length ||
@@ -255,7 +263,14 @@ export const parseResolvedWidget = (row: BindingWidgetRow): ResolvedWidgetContex
 }
 
 export const requireSlot = (widget: ResolvedWidgetContext, slotKey: string): WidgetBindingSlotDefinition => {
-    const slot = widget.definition.bindingSlots?.find(({ key }) => key === slotKey)
+    const persisted = widget.definition.bindingSlots?.find(({ key }) => key === slotKey)
+    if (persisted) return persisted
+    let slot: WidgetBindingSlotDefinition | undefined
+    try {
+        slot = resolveWidgetBindingSlotDefinition(widget.definition, slotKey)
+    } catch {
+        throw new MetahubValidationError('Widget binding family member is invalid')
+    }
     if (!slot) throw new MetahubNotFoundError('Widget binding slot')
     return slot
 }
@@ -264,31 +279,44 @@ export const requireDefinitionSlot = (
     definition: NonNullable<ReturnType<typeof getLayoutWidgetDefinition>>,
     slotKey: string
 ): WidgetBindingSlotDefinition => {
-    const slot = definition.bindingSlots?.find(({ key }) => key === slotKey)
+    const persisted = definition.bindingSlots?.find(({ key }) => key === slotKey)
+    if (persisted) return persisted
+    let slot: WidgetBindingSlotDefinition | undefined
+    try {
+        slot = resolveWidgetBindingSlotDefinition(definition, slotKey)
+    } catch {
+        throw new MetahubValidationError('Widget binding family member is invalid')
+    }
     if (!slot) throw new MetahubNotFoundError('Widget binding slot')
     return slot
 }
 
 export const discoveryDefinition = (
-    widgetKey: MarketingWidgetKey,
-    variant?: z.infer<typeof marketingCollectionVariantSchema>
+    templateKey: ApplicationTemplateKey,
+    widgetKey: string,
+    variant?: string
 ): NonNullable<ReturnType<typeof getLayoutWidgetDefinition>> => {
-    const rendererConfig = widgetKey === 'marketing.collection' ? { variant } : {}
+    const rendererConfig = variant === undefined ? {} : { variant }
     const definition = getLayoutWidgetDefinition(widgetKey, rendererConfig)
+    const variants = definition?.bindingVariants
     if (
         !definition ||
         !definition.bindingSlots?.length ||
-        definition.templateKey !== 'marketing-page' ||
-        !definition.supportedTemplates.includes('marketing-page')
+        (variants !== undefined && (variant === undefined || !Object.prototype.hasOwnProperty.call(variants, variant))) ||
+        (variants === undefined && variant !== undefined) ||
+        !definition.supportedTemplates.includes(templateKey) ||
+        definition.authoring?.metahub.add === 'none' ||
+        definition.authoring?.metahub.canRebind !== true
     ) {
-        throw new MetahubValidationError('Widget binding metadata is not valid for its registered template')
+        throw new MetahubValidationError('Widget source binding is not enabled by its registry policy')
     }
     return definition
 }
 
 export const assertPlacementVariant = (widget: ResolvedWidgetContext, variant?: string): void => {
     if (variant === undefined) return
-    if (widget.widgetKey !== 'marketing.collection' || widget.rendererConfig.variant !== variant) {
+    const variants = widget.definition.bindingVariants
+    if (!variants || !Object.prototype.hasOwnProperty.call(variants, variant) || widget.rendererConfig.variant !== variant) {
         throw new MetahubValidationError('Requested widget variant does not match the persisted placement')
     }
 }
@@ -370,28 +398,34 @@ export const encodeRegistryWidgetConfig = (
 }
 
 export const withValidatedRendererConfig = (widget: ResolvedWidgetContext, rawConfig: Record<string, unknown>): ResolvedWidgetContext => {
-    if (widget.widgetKey !== 'marketing.collection') {
-        throw new MetahubValidationError('Renderer configuration can only change the collection binding variant')
-    }
-    const currentResult = marketingCollectionWidgetConfigSchema.safeParse(widget.rendererConfig)
-    const nextResult = marketingCollectionWidgetConfigSchema.safeParse(rawConfig)
-    if (!currentResult.success || !nextResult.success) {
+    let currentConfig: Record<string, unknown>
+    let nextConfig: Record<string, unknown>
+    try {
+        currentConfig = parseApplicationLayoutWidgetConfig(widget.widgetKey, widget.rendererConfig)
+        nextConfig = parseApplicationLayoutWidgetConfig(widget.widgetKey, rawConfig)
+    } catch {
         throw new MetahubValidationError('Collection renderer configuration is invalid')
     }
-    const withoutVariant = (config: Record<string, unknown>) =>
-        JSON.stringify(
-            Object.fromEntries(
-                Object.entries(config)
-                    .filter(([key]) => key !== 'variant')
-                    .sort(([left], [right]) => left.localeCompare(right))
-            )
-        )
-    if (withoutVariant(currentResult.data) !== withoutVariant(nextResult.data)) {
-        throw new MetahubValidationError('Only the collection variant may change while replacing widget bindings')
+    const withoutVariant = (config: Record<string, unknown>) => {
+        const { variant: _variant, ...remainder } = config
+        return serialization.stableStringify(remainder)
     }
-    const definition = getLayoutWidgetDefinition(widget.widgetKey, nextResult.data)
-    if (!definition?.bindingSlots?.length || !definition.supportedTemplates.includes(widget.templateKey)) {
-        throw new MetahubValidationError('Collection variant has no registered binding contract')
+    const currentDefinition = getLayoutWidgetDefinition(widget.widgetKey, currentConfig)
+    const variants = currentDefinition?.bindingVariants
+    if (
+        serialization.stableStringify(currentConfig) !== serialization.stableStringify(nextConfig) &&
+        (!variants || withoutVariant(currentConfig) !== withoutVariant(nextConfig))
+    ) {
+        throw new MetahubValidationError('Only a registered widget binding variant may change while replacing bindings')
     }
-    return { ...widget, rendererConfig: nextResult.data, definition }
+    const nextVariant = nextConfig.variant
+    if (typeof nextVariant === 'string' && (!variants || !Object.prototype.hasOwnProperty.call(variants, nextVariant))) {
+        throw new MetahubValidationError('Widget binding variant is not registered')
+    }
+    const nextDefinition = getLayoutWidgetDefinition(widget.widgetKey, nextConfig)
+    if (!nextDefinition?.supportedTemplates.includes(widget.templateKey)) {
+        throw new MetahubValidationError('Widget binding variant is not supported by this template')
+    }
+    const definition = expandWidgetBindingSlotFamilies(nextDefinition, widget.neutral.bindings ?? { version: 1, slots: [] })
+    return { ...widget, rendererConfig: nextConfig, definition }
 }

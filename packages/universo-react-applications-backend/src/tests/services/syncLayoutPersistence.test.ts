@@ -79,7 +79,6 @@ describe('syncLayoutPersistence', () => {
                     name: { en: 'Main' },
                     description: null,
                     config: {
-                        showHeader: true,
                         __layout: {
                             composition: { mode: 'independent', baseLayoutId: null }
                         }
@@ -103,9 +102,12 @@ describe('syncLayoutPersistence', () => {
                     source_widget_id: dashboardIds.widget,
                     source_base_widget_id: null,
                     zone: 'center',
-                    widget_key: 'detailsTable',
+                    widget_key: 'columnsContainer',
+                    instance_key: 'columns-main',
+                    parent_widget_id: null,
+                    slot_key: null,
                     sort_order: 1,
-                    config: { datasource: { kind: 'records.list', sectionCodename: 'object-1' } },
+                    config: { columns: [{ slotKey: 'column:main', width: 12 }] },
                     is_active: true,
                     _upl_deleted: false,
                     _app_deleted: false
@@ -142,7 +144,6 @@ describe('syncLayoutPersistence', () => {
                     name: { en: 'Main' },
                     description: null,
                     config: {
-                        showHeader: true,
                         __layout: { composition: { mode: 'independent', baseLayoutId: null } }
                     },
                     is_active: true,
@@ -164,7 +165,10 @@ describe('syncLayoutPersistence', () => {
                     source_widget_id: dashboardIds.widget,
                     source_base_widget_id: null,
                     zone: 'center',
-                    widget_key: 'detailsTable',
+                    widget_key: 'columnsContainer',
+                    instance_key: 'columns-main',
+                    parent_widget_id: null,
+                    slot_key: null,
                     sort_order: 1,
                     config: { __layout: { placement: 'invalid' } },
                     is_active: true,
@@ -195,7 +199,6 @@ describe('syncLayoutPersistence', () => {
                     name: 'Main',
                     description: null,
                     config: {
-                        showHeader: true,
                         __layout: { composition: { mode: 'independent', baseLayoutId: null } }
                     },
                     is_active: true,
@@ -262,6 +265,9 @@ describe('syncLayoutPersistence', () => {
                 layoutId: dashboardIds.layout,
                 zone: 'top',
                 widgetKey: 'appNavbar',
+                instanceKey: 'app-navbar-primary',
+                parentWidgetId: null,
+                slotKey: null,
                 sortOrder: 0,
                 config: {},
                 isActive: true
@@ -271,6 +277,9 @@ describe('syncLayoutPersistence', () => {
                 layoutId: dashboardIds.layout,
                 zone: 'top',
                 widgetKey: 'appNavbar',
+                instanceKey: 'app-navbar-secondary',
+                parentWidgetId: null,
+                slotKey: null,
                 sortOrder: 1,
                 config: {},
                 isActive: true
@@ -317,8 +326,11 @@ describe('syncLayoutPersistence', () => {
             layoutId: marketingIds.layout,
             zone: 'marketing-header',
             widgetKey: 'languageSwitcher',
+            instanceKey: 'language-switcher',
+            parentWidgetId: null,
+            slotKey: null,
             sortOrder: 1,
-            config: { __layout: { placement: 'end' } },
+            config: {},
             isActive: true
         })
 
@@ -345,7 +357,8 @@ describe('syncLayoutPersistence', () => {
             expect.arrayContaining([
                 expect.objectContaining({
                     widget_key: 'languageSwitcher',
-                    config: { __layout: { placement: 'end' } }
+                    config: {},
+                    source_state: expect.objectContaining({ placement: 'end' })
                 })
             ])
         )
@@ -462,7 +475,12 @@ describe('syncLayoutPersistence', () => {
                     id: dashboardIds.widget,
                     layout_id: dashboardIds.layout,
                     widget_key: 'appNavbar',
+                    instance_key: 'app-navbar-primary',
+                    parent_widget_id: null,
+                    slot_key: null,
                     zone: 'top',
+                    sort_order: 0,
+                    config: {},
                     is_active: true,
                     _upl_deleted: false,
                     _app_deleted: false
@@ -471,7 +489,12 @@ describe('syncLayoutPersistence', () => {
                     id: dashboardIds.scopedWidget,
                     layout_id: dashboardIds.layout,
                     widget_key: 'appNavbar',
+                    instance_key: 'app-navbar-secondary',
+                    parent_widget_id: null,
+                    slot_key: null,
                     zone: 'top',
+                    sort_order: 1,
+                    config: {},
                     is_active: true,
                     _upl_deleted: false,
                     _app_deleted: false

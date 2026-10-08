@@ -43,11 +43,7 @@ const publicMarketingRuntimeWidgetBaseSchema = z
     })
     .strict()
 
-const publicMarketingEntityWidgetConfigBaseSchema = z
-    .object({
-        instanceKey: publicMarketingWidgetInstanceKeySchema
-    })
-    .strict()
+const publicMarketingEntityWidgetConfigBaseSchema = z.object({}).strict()
 
 export const publicMarketingNavigationWidgetSchema = publicMarketingRuntimeWidgetBaseSchema
     .extend({
@@ -84,7 +80,7 @@ export const publicMarketingHeroWidgetSchema = publicMarketingRuntimeWidgetBaseS
 export const publicMarketingImageWidgetSchema = publicMarketingRuntimeWidgetBaseSchema
     .extend({
         widgetKey: z.literal('marketing.image'),
-        config: z.object({ instanceKey: publicMarketingWidgetInstanceKeySchema }).strict(),
+        config: z.object({}).strict(),
         data: marketingImageWidgetDataSchema
     })
     .superRefine((value, context) => {
@@ -159,14 +155,23 @@ export type PublicMarketingRuntimeWidget =
     | z.infer<typeof publicMarketingPricingWidgetSchema>
     | z.infer<typeof publicMarketingFooterWidgetSchema>
 
-export const publicMarketingRuntimeWidgetSchema: z.ZodType<PublicMarketingRuntimeWidget> = z.union([
-    publicMarketingNavigationWidgetSchema,
-    publicMarketingHeroWidgetSchema,
-    publicMarketingImageWidgetSchema,
-    publicMarketingCollectionWidgetSchema,
-    publicMarketingPricingWidgetSchema,
-    publicMarketingFooterWidgetSchema
-])
+type PublicMarketingRuntimeWidgetInput =
+    | z.input<typeof publicMarketingNavigationWidgetSchema>
+    | z.input<typeof publicMarketingHeroWidgetSchema>
+    | z.input<typeof publicMarketingImageWidgetSchema>
+    | z.input<typeof publicMarketingCollectionWidgetSchema>
+    | z.input<typeof publicMarketingPricingWidgetSchema>
+    | z.input<typeof publicMarketingFooterWidgetSchema>
+
+export const publicMarketingRuntimeWidgetSchema: z.ZodType<PublicMarketingRuntimeWidget, z.ZodTypeDef, PublicMarketingRuntimeWidgetInput> =
+    z.union([
+        publicMarketingNavigationWidgetSchema,
+        publicMarketingHeroWidgetSchema,
+        publicMarketingImageWidgetSchema,
+        publicMarketingCollectionWidgetSchema,
+        publicMarketingPricingWidgetSchema,
+        publicMarketingFooterWidgetSchema
+    ])
 
 const publicMarketingAtomicHeaderWidgetBaseSchema = z.object({
     instanceKey: publicMarketingWidgetInstanceKeySchema,
@@ -179,7 +184,7 @@ const publicMarketingAtomicHeaderWidgetBaseSchema = z.object({
 export const publicMarketingBrandWidgetSchema = publicMarketingAtomicHeaderWidgetBaseSchema
     .extend({
         widgetKey: z.literal('marketing.brand'),
-        config: z.object({ instanceKey: publicMarketingWidgetInstanceKeySchema }).strict()
+        config: z.object({}).strict()
     })
     .superRefine((value, context) => {
         if (value.data.records.some((record) => record.kind !== 'siteSettings')) {
@@ -190,7 +195,7 @@ export const publicMarketingBrandWidgetSchema = publicMarketingAtomicHeaderWidge
 export const publicMarketingAuthWidgetSchema = publicMarketingAtomicHeaderWidgetBaseSchema
     .extend({
         widgetKey: z.literal('marketing.auth'),
-        config: z.object({ instanceKey: publicMarketingWidgetInstanceKeySchema, showAuthActions: z.boolean().default(true) }).strict()
+        config: z.object({ showAuthActions: z.boolean().default(true) }).strict()
     })
     .superRefine((value, context) => {
         if (value.data.records.length > 0) {
@@ -206,15 +211,23 @@ export type PublicMarketingAtomicHeaderWidget =
     | z.infer<typeof publicMarketingBrandWidgetSchema>
     | z.infer<typeof publicMarketingAuthWidgetSchema>
 
-export const publicMarketingAtomicHeaderWidgetSchema: z.ZodType<PublicMarketingAtomicHeaderWidget> = z.union([
-    publicMarketingBrandWidgetSchema,
-    publicMarketingAuthWidgetSchema
-])
+type PublicMarketingAtomicHeaderWidgetInput =
+    | z.input<typeof publicMarketingBrandWidgetSchema>
+    | z.input<typeof publicMarketingAuthWidgetSchema>
 
-export const publicMarketingPageWidgetSchema: z.ZodType<PublicMarketingRuntimeWidget | PublicMarketingAtomicHeaderWidget> = z.union([
-    publicMarketingRuntimeWidgetSchema,
-    publicMarketingAtomicHeaderWidgetSchema
-])
+export const publicMarketingAtomicHeaderWidgetSchema: z.ZodType<
+    PublicMarketingAtomicHeaderWidget,
+    z.ZodTypeDef,
+    PublicMarketingAtomicHeaderWidgetInput
+> = z.union([publicMarketingBrandWidgetSchema, publicMarketingAuthWidgetSchema])
+
+type PublicMarketingPageWidgetInput = PublicMarketingRuntimeWidgetInput | PublicMarketingAtomicHeaderWidgetInput
+
+export const publicMarketingPageWidgetSchema: z.ZodType<
+    PublicMarketingRuntimeWidget | PublicMarketingAtomicHeaderWidget,
+    z.ZodTypeDef,
+    PublicMarketingPageWidgetInput
+> = z.union([publicMarketingRuntimeWidgetSchema, publicMarketingAtomicHeaderWidgetSchema])
 
 /**
  * Header capabilities whose presence, order and visibility are decided by the
@@ -247,14 +260,12 @@ const publicMarketingHeaderWidgetBaseShape = {
     placement: marketingHeaderPlacementSchema.optional()
 } as const
 
-const publicMarketingHeaderWidgetConfigShape = {
-    instanceKey: publicMarketingWidgetInstanceKeySchema
-} as const
+const publicMarketingHeaderWidgetConfigShape = {} as const
 
 /**
  * Each header row carries exactly the config its renderer consumes: the shared
- * switchers and the brand/navigation rows have no settings beyond the instance
- * key, while the auth row may hide its actions. A per-widget schema keeps the
+ * switchers and the brand/navigation rows have no settings, while the auth row
+ * may hide its actions. A per-widget schema keeps the
  * payload from silently shipping renderer-unknown configuration.
  */
 /**
@@ -270,53 +281,43 @@ export const PUBLIC_HEADER_WIDGET_CONFIG_COVERAGE = {
     colorModeSwitcher: true
 } as const satisfies Record<MarketingHeaderWidgetKey, true>
 
-export const publicMarketingHeaderWidgetSchema = z
-    .discriminatedUnion('widgetKey', [
-        z
-            .object({
-                widgetKey: z.literal('marketing.auth'),
-                ...publicMarketingHeaderWidgetBaseShape,
-                config: z.object({ ...publicMarketingHeaderWidgetConfigShape, showAuthActions: z.boolean() }).strict()
-            })
-            .strict(),
-        z
-            .object({
-                widgetKey: z.literal('marketing.brand'),
-                ...publicMarketingHeaderWidgetBaseShape,
-                config: z.object(publicMarketingHeaderWidgetConfigShape).strict()
-            })
-            .strict(),
-        z
-            .object({
-                widgetKey: z.literal('marketing.navigation'),
-                ...publicMarketingHeaderWidgetBaseShape,
-                config: z.object(publicMarketingHeaderWidgetConfigShape).strict()
-            })
-            .strict(),
-        z
-            .object({
-                widgetKey: z.literal('languageSwitcher'),
-                ...publicMarketingHeaderWidgetBaseShape,
-                config: z.object(publicMarketingHeaderWidgetConfigShape).strict()
-            })
-            .strict(),
-        z
-            .object({
-                widgetKey: z.literal('colorModeSwitcher'),
-                ...publicMarketingHeaderWidgetBaseShape,
-                config: z.object(publicMarketingHeaderWidgetConfigShape).strict()
-            })
-            .strict()
-    ])
-    .superRefine((value, context) => {
-        if (value.config.instanceKey !== value.instanceKey) {
-            context.addIssue({
-                code: z.ZodIssueCode.custom,
-                path: ['config', 'instanceKey'],
-                message: 'Header widget config must repeat the row instance key.'
-            })
-        }
-    })
+export const publicMarketingHeaderWidgetSchema = z.discriminatedUnion('widgetKey', [
+    z
+        .object({
+            widgetKey: z.literal('marketing.auth'),
+            ...publicMarketingHeaderWidgetBaseShape,
+            config: z.object({ ...publicMarketingHeaderWidgetConfigShape, showAuthActions: z.boolean() }).strict()
+        })
+        .strict(),
+    z
+        .object({
+            widgetKey: z.literal('marketing.brand'),
+            ...publicMarketingHeaderWidgetBaseShape,
+            config: z.object(publicMarketingHeaderWidgetConfigShape).strict()
+        })
+        .strict(),
+    z
+        .object({
+            widgetKey: z.literal('marketing.navigation'),
+            ...publicMarketingHeaderWidgetBaseShape,
+            config: z.object(publicMarketingHeaderWidgetConfigShape).strict()
+        })
+        .strict(),
+    z
+        .object({
+            widgetKey: z.literal('languageSwitcher'),
+            ...publicMarketingHeaderWidgetBaseShape,
+            config: z.object(publicMarketingHeaderWidgetConfigShape).strict()
+        })
+        .strict(),
+    z
+        .object({
+            widgetKey: z.literal('colorModeSwitcher'),
+            ...publicMarketingHeaderWidgetBaseShape,
+            config: z.object(publicMarketingHeaderWidgetConfigShape).strict()
+        })
+        .strict()
+])
 export type PublicMarketingHeaderWidget = z.infer<typeof publicMarketingHeaderWidgetSchema>
 
 export const marketingHeaderPositionSchema = z.enum(['fixed', 'flow'])
@@ -333,7 +334,16 @@ export type PublicMarketingPageData = {
     headerWidgets: PublicMarketingHeaderWidget[]
 }
 
-export const publicMarketingPageDataSchema: z.ZodType<PublicMarketingPageData> = z
+type PublicMarketingPageDataInput = {
+    templateKey: typeof MARKETING_PAGE_TEMPLATE_KEY
+    locale: z.input<typeof marketingLocaleCodeSchema>
+    config: z.input<typeof marketingPageConfigSchema>
+    headerPosition: z.input<typeof marketingHeaderPositionSchema>
+    widgets: PublicMarketingPageWidgetInput[]
+    headerWidgets: z.input<typeof publicMarketingHeaderWidgetSchema>[]
+}
+
+export const publicMarketingPageDataSchema: z.ZodType<PublicMarketingPageData, z.ZodTypeDef, PublicMarketingPageDataInput> = z
     .object({
         templateKey: z.literal(MARKETING_PAGE_TEMPLATE_KEY),
         locale: marketingLocaleCodeSchema,
@@ -373,12 +383,23 @@ export type PublicMarketingPageRuntimeViewModel = {
     marketingPage: PublicMarketingPageData
 }
 
-export const publicMarketingPageRuntimeViewModelSchema: z.ZodType<PublicMarketingPageRuntimeViewModel> = z
+type PublicMarketingPageRuntimeViewModelInput = {
+    templateKey: typeof MARKETING_PAGE_TEMPLATE_KEY
+    marketingPage: PublicMarketingPageDataInput
+}
+
+const publicMarketingPageRuntimeViewModelObjectSchema = z
     .object({
         templateKey: z.literal(MARKETING_PAGE_TEMPLATE_KEY),
         marketingPage: publicMarketingPageDataSchema
     })
     .strict()
+
+export const publicMarketingPageRuntimeViewModelSchema: z.ZodType<
+    PublicMarketingPageRuntimeViewModel,
+    z.ZodTypeDef,
+    PublicMarketingPageRuntimeViewModelInput
+> = publicMarketingPageRuntimeViewModelObjectSchema
 
 export type MarketingPageRendererViewModel = MarketingPageRuntimeViewModel | PublicMarketingPageRuntimeViewModel
 
@@ -386,14 +407,17 @@ export type MarketingPageRendererViewModel = MarketingPageRuntimeViewModel | Pub
  * Build the complete runtime envelope without importing the dashboard package.
  * The caller supplies the dashboard-owned schema, keeping this package neutral.
  */
-export const createRuntimeViewModelSchema = <TDashboardPayload extends z.ZodTypeAny>(dashboardPayloadSchema: TDashboardPayload) =>
-    z.discriminatedUnion('templateKey', [
+export const createRuntimeViewModelSchema = <TDashboardPayload extends z.ZodTypeAny>(
+    dashboardPayloadSchema: TDashboardPayload
+): z.ZodType<RuntimeViewModel<z.output<TDashboardPayload>>, z.ZodTypeDef, unknown> =>
+    z.union([
         z
             .object({
                 templateKey: z.literal('dashboard'),
                 dashboard: dashboardPayloadSchema
             })
-            .strict(),
+            .strict()
+            .transform(({ dashboard }) => ({ templateKey: 'dashboard' as const, dashboard })),
         marketingPageRuntimeViewModelSchema
     ])
 

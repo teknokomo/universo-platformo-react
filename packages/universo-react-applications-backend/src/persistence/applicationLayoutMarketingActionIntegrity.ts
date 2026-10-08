@@ -1,7 +1,6 @@
 import { qColumn, qSchemaTable } from '@universo-react/database'
 import {
     getLayoutWidgetDefinition,
-    getMarketingActionSectionTargets,
     getMarketingSectionAnchorEntries,
     marketingActionSchema,
     validateWidgetBindings,
@@ -201,8 +200,8 @@ export const assertMarketingHeroActionsRemainValidAfterToggle = async (
     if (!current || current.isActive === isActive) return
 
     const nextWidgets = layout.widgets.map((widget) => (widget.id === widgetId ? { ...widget, isActive } : widget))
-    const currentTargets = new Set(getMarketingActionSectionTargets(layout.widgets).map(({ href }) => href))
-    const nextTargets = new Set(getMarketingActionSectionTargets(nextWidgets).map(({ href }) => href))
+    const currentTargets = new Set(getMarketingSectionAnchorEntries(layout.widgets).map(([key]) => `#${key}`))
+    const nextTargets = new Set(getMarketingSectionAnchorEntries(nextWidgets).map(([key]) => `#${key}`))
     const removedTargets = new Set([...currentTargets].filter((href) => !nextTargets.has(href)))
     const activatingHero = current.widgetKey === 'marketing.hero' && isActive
     if (removedTargets.size === 0 && !activatingHero) return

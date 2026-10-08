@@ -111,7 +111,7 @@ describe('marketing page validation utilities', () => {
                         sortOrder: 0,
                         isActive: true,
                         widgetKey: 'marketing.hero',
-                        config: { instanceKey: 'hero', showLeadForm: true },
+                        config: { showLeadForm: true },
                         data: {
                             records: [
                                 {

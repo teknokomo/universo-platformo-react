@@ -6,6 +6,7 @@ import { describe, expect, it, vi } from 'vitest'
 import '../../../i18n'
 import { ConfirmDeleteDialog } from '../ConfirmDeleteDialog'
 import { FormDialog, type FieldConfig } from '../FormDialog'
+import { StandardDialog } from '../StandardDialog'
 
 vi.mock('@universo-react/block-editor', () => ({
     EditorJsBlockEditor: () => null
@@ -14,6 +15,35 @@ vi.mock('@universo-react/block-editor', () => ({
 const formFields: FieldConfig[] = [{ id: 'title', label: 'Название', type: 'STRING' }]
 
 describe('runtime dialog accessibility', () => {
+    it('links StandardDialog title and closes on Escape unless busy', async () => {
+        const user = userEvent.setup()
+        const onClose = vi.fn()
+        const { rerender } = render(
+            <StandardDialog open title='Choose target' onClose={onClose} actions={<button type='button'>Apply</button>}>
+                Dialog content
+            </StandardDialog>
+        )
+        const dialog = screen.getByRole('dialog', { name: 'Choose target' })
+        const titleId = dialog.getAttribute('aria-labelledby')
+
+        expect(titleId).toBeTruthy()
+        expect(document.getElementById(titleId ?? '')).toHaveTextContent('Choose target')
+        expect(screen.getByRole('button', { name: 'Apply' })).toBeInTheDocument()
+
+        await user.keyboard('{Escape}')
+        expect(onClose).toHaveBeenCalledTimes(1)
+
+        onClose.mockClear()
+        rerender(
+            <StandardDialog open title='Choose target' onClose={onClose} isBusy actions={<button type='button'>Apply</button>}>
+                Dialog content
+            </StandardDialog>
+        )
+        expect(screen.getByRole('dialog', { name: 'Choose target' })).toHaveAttribute('aria-labelledby', titleId)
+        await user.keyboard('{Escape}')
+        expect(onClose).not.toHaveBeenCalled()
+    })
+
     it('links FormDialog title and description with stable IDs and closes on Escape', async () => {
         const user = userEvent.setup()
         const onClose = vi.fn()

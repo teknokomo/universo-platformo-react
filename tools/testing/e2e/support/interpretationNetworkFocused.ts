@@ -1,7 +1,7 @@
 import { expect, type Locator, type Page, type TestInfo } from '@playwright/test'
 import {
-    getApplicationRuntime,
     getRuntimeAppData,
+    listApplicationLayouts,
     listApplicationLayoutWidgets,
     listApplicationWorkspaces,
     sendWithCsrf
@@ -173,38 +173,49 @@ export const setInterpretationNetworkWidgetConfig = async (
     applicationId: string,
     patch: Record<string, unknown>
 ): Promise<void> => {
-    const runtime = (await getApplicationRuntime(api, applicationId)) as {
-        zoneWidgets?: Record<string, Array<{ id?: string; widgetKey?: string; config?: Record<string, unknown>; layoutId?: string }>>
+    const layoutCollection = (await listApplicationLayouts(api, applicationId, { limit: 100, offset: 0 })) as {
+        items?: Array<{ id?: string; scopeEntityId?: string | null; isActive?: boolean; isDefault?: boolean }>
     }
-    const targetWidgets = Object.values(runtime.zoneWidgets ?? {})
-        .flat()
+    const widgetCollections = await Promise.all(
+        (layoutCollection.items ?? [])
+            .filter(
+                (layout): layout is { id: string; scopeEntityId?: string | null; isActive?: boolean; isDefault?: boolean } =>
+                    typeof layout.id === 'string' && layout.scopeEntityId === null && layout.isActive === true && layout.isDefault === true
+            )
+            .map((layout) => listApplicationLayoutWidgets(api, applicationId, layout.id))
+    )
+    const targetWidgets = widgetCollections
+        .flatMap(
+            (collection) =>
+                (
+                    collection as {
+                        items?: Array<{
+                            id?: string
+                            layoutId?: string
+                            widgetKey?: string
+                            config?: Record<string, unknown>
+                            isActive?: boolean
+                            version?: number
+                        }>
+                    }
+                ).items ?? []
+        )
         .filter(
             (widget) =>
                 widget.widgetKey === 'interpretationNetworkWorkspace' &&
+                widget.isActive === true &&
                 typeof widget.id === 'string' &&
                 typeof widget.layoutId === 'string'
         )
     expect(targetWidgets.length, 'Interpretation Network widget config updates').toBeGreaterThan(0)
 
-    const versionByWidgetId = new Map<string, number>()
-    for (const layoutId of new Set(targetWidgets.map((widget) => String(widget.layoutId)))) {
-        const layoutWidgets = await listApplicationLayoutWidgets(api, applicationId, layoutId)
-        for (const widget of layoutWidgets?.items ?? []) {
-            if (typeof widget?.id !== 'string' || !Number.isInteger(widget?.version)) {
-                continue
-            }
-            versionByWidgetId.set(widget.id, widget.version)
-        }
-    }
-
     const updates = targetWidgets.map((widget) => {
-        const expectedVersion = versionByWidgetId.get(String(widget.id))
-        expect(expectedVersion, `Widget ${widget.id} exposes a persisted version`).toBeGreaterThan(0)
+        expect(widget.version, `Widget ${widget.id} exposes a persisted version`).toBeGreaterThan(0)
         return {
             layoutId: widget.layoutId,
             widgetId: widget.id,
             config: { ...(widget.config ?? {}), ...patch },
-            expectedVersion
+            expectedVersion: widget.version
         }
     })
 

@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import Dashboard from '../Dashboard'
+import type { ZoneWidgetItem } from '../contracts'
 
 vi.mock('../components/Header', () => ({
     default: () => <div data-testid='dashboard-header' />
@@ -17,35 +18,44 @@ vi.mock('../components/WorkspaceSwitcher', () => ({
     default: () => <div data-testid='workspace-switcher' />
 }))
 
-const menu = {
-    title: 'Runtime menu',
-    showTitle: true,
-    items: [
-        {
-            id: 'structures',
-            label: 'Structures',
-            kind: 'section' as const,
-            objectCollectionId: 'structure-section',
-            selected: true
-        }
-    ]
-}
+const runtimeMenuData = {
+    status: 'ready',
+    data: {
+        kind: 'menu',
+        title: 'Runtime menu',
+        showTitle: true,
+        overflowLabel: 'More',
+        items: [{ key: 'structures', label: 'Structures', icon: null, kind: 'link', href: '/' }],
+        overflowItems: []
+    }
+} as unknown as ZoneWidgetItem['runtimeData']
 
 const zoneWidgets = {
     left: [
         {
-            id: 'menu-widget',
+            id: '018f0000-0000-7000-8000-000000000001',
+            instanceKey: 'menu-widget',
             widgetKey: 'menuWidget',
+            zone: 'left' as const,
             sortOrder: 1,
-            config: {}
+            config: {},
+            isActive: true,
+            parentInstanceKey: null,
+            slotKey: null,
+            runtimeData: runtimeMenuData
         }
     ],
     top: [
         {
-            id: 'app-navbar-widget',
+            id: '018f0000-0000-7000-8000-000000000002',
+            instanceKey: 'app-navbar-widget',
             widgetKey: 'appNavbar',
+            zone: 'top' as const,
             sortOrder: 1,
-            config: {}
+            config: {},
+            isActive: true,
+            parentInstanceKey: null,
+            slotKey: null
         }
     ],
     center: []
@@ -54,33 +64,46 @@ const zoneWidgets = {
 const zoneWidgetsWithoutMenu = {
     left: [
         {
-            id: 'workspace-switcher',
+            id: '018f0000-0000-7000-8000-000000000003',
+            instanceKey: 'workspace-switcher',
             widgetKey: 'workspaceSwitcher',
+            zone: 'left' as const,
             sortOrder: 1,
-            config: {}
+            config: {},
+            isActive: true,
+            parentInstanceKey: null,
+            slotKey: null
         },
         {
-            id: 'divider',
+            id: '018f0000-0000-7000-8000-000000000004',
+            instanceKey: 'divider',
             widgetKey: 'divider',
+            zone: 'left' as const,
             sortOrder: 2,
-            config: {}
+            config: {},
+            isActive: true,
+            parentInstanceKey: null,
+            slotKey: null
         }
     ],
     top: [
         {
-            id: 'app-navbar-widget',
+            id: '018f0000-0000-7000-8000-000000000005',
+            instanceKey: 'app-navbar-widget',
             widgetKey: 'appNavbar',
+            zone: 'top' as const,
             sortOrder: 1,
-            config: {}
+            config: {},
+            isActive: true,
+            parentInstanceKey: null,
+            slotKey: null
         }
     ],
     center: []
 }
 
 const details = {
-    title: 'Runtime',
-    rows: [],
-    columns: []
+    title: 'Runtime'
 }
 
 const setupUser = () => userEvent.setup({ skipHover: true })
@@ -88,6 +111,7 @@ const setupUser = () => userEvent.setup({ skipHover: true })
 describe('Dashboard side menu modes', () => {
     beforeEach(() => {
         ;(globalThis as typeof globalThis & { MUI_TEST_ENV?: boolean }).MUI_TEST_ENV = true
+        window.history.replaceState({}, '', '/')
         window.localStorage.clear()
         Object.defineProperty(window, 'matchMedia', {
             configurable: true,
@@ -113,7 +137,6 @@ describe('Dashboard side menu modes', () => {
         render(
             <Dashboard
                 details={details}
-                menu={menu}
                 zoneWidgets={zoneWidgets}
                 layoutConfig={{
                     sideMenu: {
@@ -125,8 +148,8 @@ describe('Dashboard side menu modes', () => {
             />
         )
 
-        const nav = screen.getByRole('navigation', { name: 'Runtime menu' })
-        expect(within(nav).getByRole('button', { name: 'Structures' })).toHaveAttribute('aria-current', 'page')
+        const nav = screen.getByRole('navigation', { name: 'Application navigation' })
+        expect(within(nav).getByRole('link', { name: 'Structures' })).toHaveAttribute('aria-current', 'page')
         expect(within(nav).queryByText('Runtime menu')).not.toBeInTheDocument()
         expect(within(nav).queryByText('Structures')).not.toBeInTheDocument()
     })
@@ -136,7 +159,6 @@ describe('Dashboard side menu modes', () => {
         render(
             <Dashboard
                 details={{ ...details, applicationId: 'app-side-menu' }}
-                menu={menu}
                 zoneWidgets={zoneWidgets}
                 layoutConfig={{
                     sideMenu: {
@@ -167,7 +189,6 @@ describe('Dashboard side menu modes', () => {
         render(
             <Dashboard
                 details={{ ...details, applicationId: 'app-side-menu' }}
-                menu={menu}
                 zoneWidgets={zoneWidgets}
                 layoutConfig={{
                     sideMenu: {
@@ -199,7 +220,6 @@ describe('Dashboard side menu modes', () => {
             render(
                 <Dashboard
                     details={{ ...details, applicationId: 'app-storage-disabled' }}
-                    menu={menu}
                     zoneWidgets={zoneWidgets}
                     layoutConfig={{
                         sideMenu: {
@@ -228,7 +248,6 @@ describe('Dashboard side menu modes', () => {
         render(
             <Dashboard
                 details={{ ...details, applicationId: 'app-side-menu' }}
-                menu={menu}
                 zoneWidgets={zoneWidgets}
                 layoutConfig={{
                     sideMenu: {
@@ -251,7 +270,6 @@ describe('Dashboard side menu modes', () => {
         render(
             <Dashboard
                 details={{ ...details, applicationId: 'app-side-menu' }}
-                menu={menu}
                 zoneWidgets={zoneWidgets}
                 layoutConfig={{
                     sideMenu: {
@@ -272,7 +290,6 @@ describe('Dashboard side menu modes', () => {
         render(
             <Dashboard
                 details={{ ...details, applicationId: 'app-side-menu' }}
-                menu={menu}
                 zoneWidgets={zoneWidgets}
                 layoutConfig={{
                     sideMenu: {
@@ -286,14 +303,13 @@ describe('Dashboard side menu modes', () => {
 
         expect(window.localStorage.getItem('universo:apps-template:side-menu-mode:app-side-menu')).toBeNull()
         expect(screen.queryAllByRole('button', { name: /Enable (compact|wide) menu/i })).toHaveLength(0)
-        expect(screen.getByRole('navigation', { name: 'Runtime menu' })).toBeInTheDocument()
+        expect(screen.getByRole('navigation', { name: 'Application navigation' })).toBeInTheDocument()
     })
 
     it('renders the desktop navbar for wide and compact side-menu switching', () => {
         render(
             <Dashboard
                 details={details}
-                menu={menu}
                 zoneWidgets={zoneWidgets}
                 layoutConfig={{
                     sideMenu: {
@@ -313,12 +329,47 @@ describe('Dashboard side menu modes', () => {
         expect(screen.getByTestId('dashboard-main-grid')).toHaveAttribute('data-full-width', 'false')
     })
 
+    it('does not reserve a desktop top offset when the app navbar is hidden at desktop widths', () => {
+        render(
+            <Dashboard
+                details={details}
+                zoneWidgets={zoneWidgets}
+                layoutConfig={{
+                    sideMenu: {
+                        availableModes: ['wide'],
+                        primaryMode: 'wide',
+                        rememberUserChoice: false
+                    }
+                }}
+            />
+        )
+
+        expect(screen.getByTestId('runtime-main-content')).toHaveStyle({ marginTop: '0px' })
+    })
+
+    it('keeps the desktop top offset when the app navbar is visible in overlay mode', () => {
+        render(
+            <Dashboard
+                details={details}
+                zoneWidgets={zoneWidgets}
+                layoutConfig={{
+                    sideMenu: {
+                        availableModes: ['overlay'],
+                        primaryMode: 'overlay',
+                        rememberUserChoice: false
+                    }
+                }}
+            />
+        )
+
+        expect(screen.getByTestId('runtime-main-content')).toHaveStyle({ marginTop: '56px' })
+    })
+
     it('lets compact side-menu mode use the full content rail', async () => {
         const user = setupUser()
         render(
             <Dashboard
                 details={details}
-                menu={menu}
                 zoneWidgets={zoneWidgets}
                 layoutConfig={{
                     sideMenu: {
@@ -341,7 +392,6 @@ describe('Dashboard side menu modes', () => {
         render(
             <Dashboard
                 details={details}
-                menu={menu}
                 zoneWidgets={zoneWidgets}
                 layoutConfig={{
                     sideMenu: {
@@ -355,23 +405,21 @@ describe('Dashboard side menu modes', () => {
 
         await user.click(screen.getByRole('button', { name: 'Open menu' }))
 
-        const navigations = screen.getAllByRole('navigation', { name: 'Runtime menu' })
+        const navigations = screen.getAllByRole('navigation', { name: 'Application navigation' })
         expect(navigations).toHaveLength(1)
-        expect(within(navigations[0]).getByRole('button', { name: 'Structures' })).toBeInTheDocument()
+        expect(within(navigations[0]).getByRole('link', { name: 'Structures' })).toBeInTheDocument()
         const drawerPaper = navigations[0].closest('.MuiDrawer-paper')
         expect(drawerPaper).toHaveStyle({ width: '240px' })
         expect(drawerPaper?.parentElement).not.toHaveStyle({ width: '0px' })
     })
 
-    it('keeps the overlay opener available when the layout hides the app navbar', async () => {
+    it('keeps the overlay opener available when the app navbar placement is absent', async () => {
         const user = setupUser()
         render(
             <Dashboard
                 details={details}
-                menu={menu}
                 zoneWidgets={zoneWidgets}
                 layoutConfig={{
-                    showAppNavbar: false,
                     sideMenu: {
                         availableModes: ['overlay'],
                         primaryMode: 'overlay',
@@ -383,18 +431,16 @@ describe('Dashboard side menu modes', () => {
 
         await user.click(screen.getByRole('button', { name: 'Open menu' }))
 
-        const drawerNavigation = screen.getByRole('navigation', { name: 'Runtime menu' })
-        expect(within(drawerNavigation).getByRole('button', { name: 'Structures' })).toBeInTheDocument()
+        const drawerNavigation = screen.getByRole('navigation', { name: 'Application navigation' })
+        expect(within(drawerNavigation).getByRole('link', { name: 'Structures' })).toBeInTheDocument()
     })
 
     it('keeps the side menu mode switcher available when the layout hides the app navbar', () => {
         render(
             <Dashboard
                 details={details}
-                menu={menu}
                 zoneWidgets={zoneWidgets}
                 layoutConfig={{
-                    showAppNavbar: false,
                     sideMenu: {
                         availableModes: ['wide', 'compact', 'overlay'],
                         primaryMode: 'wide',
@@ -411,11 +457,8 @@ describe('Dashboard side menu modes', () => {
         render(
             <Dashboard
                 details={details}
-                menu={menu}
                 zoneWidgets={{ left: [], center: [] }}
                 layoutConfig={{
-                    showSideMenu: false,
-                    showAppNavbar: false,
                     sideMenu: {
                         availableModes: ['wide', 'compact', 'overlay'],
                         primaryMode: 'wide',
@@ -427,7 +470,7 @@ describe('Dashboard side menu modes', () => {
 
         expect(screen.queryByRole('button', { name: /Enable (compact|wide) menu/i })).not.toBeInTheDocument()
         expect(screen.queryByRole('button', { name: 'Open overlay menu' })).not.toBeInTheDocument()
-        expect(screen.queryByRole('navigation', { name: 'Runtime menu' })).not.toBeInTheDocument()
+        expect(screen.queryByRole('navigation', { name: 'Application navigation' })).not.toBeInTheDocument()
     })
 
     it('switches overlay mode from the side-menu controls and restores the previous docked mode', async () => {
@@ -435,7 +478,6 @@ describe('Dashboard side menu modes', () => {
         render(
             <Dashboard
                 details={{ ...details, applicationId: 'app-side-menu' }}
-                menu={menu}
                 zoneWidgets={zoneWidgets}
                 layoutConfig={{
                     sideMenu: {
@@ -461,7 +503,7 @@ describe('Dashboard side menu modes', () => {
         expect(screen.getByRole('button', { name: 'Use docked menu' })).toBeInTheDocument()
         expect(screen.getByTestId('runtime-overlay-menu-edge-control')).toBeInTheDocument()
         expect(screen.getByTestId('dashboard-main-grid')).toHaveAttribute('data-full-width', 'true')
-        expect(document.body.querySelectorAll('nav[aria-label="Runtime menu"]')).toHaveLength(1)
+        expect(document.body.querySelectorAll('nav[aria-label="Application navigation"]')).toHaveLength(1)
 
         await user.click(screen.getByRole('button', { name: 'Use docked menu' }))
 
@@ -477,7 +519,6 @@ describe('Dashboard side menu modes', () => {
         render(
             <Dashboard
                 details={details}
-                menu={menu}
                 zoneWidgets={zoneWidgets}
                 layoutConfig={{
                     sideMenu: {
@@ -513,7 +554,6 @@ describe('Dashboard side menu modes', () => {
         render(
             <Dashboard
                 details={details}
-                menu={menu}
                 zoneWidgets={zoneWidgets}
                 layoutConfig={{
                     sideMenu: {
@@ -527,17 +567,16 @@ describe('Dashboard side menu modes', () => {
 
         await user.click(screen.getByRole('button', { name: 'Open menu' }))
 
-        const navigations = screen.getAllByRole('navigation', { name: 'Runtime menu' })
+        const navigations = screen.getAllByRole('navigation', { name: 'Application navigation' })
         expect(navigations).toHaveLength(1)
-        expect(within(navigations[0]).getByRole('button', { name: 'Structures' })).toBeInTheDocument()
+        expect(within(navigations[0]).getByRole('link', { name: 'Structures' })).toBeInTheDocument()
     })
 
-    it('keeps fallback mobile navigation when left widgets do not include a menu widget', async () => {
+    it('does not synthesize mobile navigation when the effective left placement graph has no menu widget', async () => {
         const user = setupUser()
         render(
             <Dashboard
                 details={details}
-                menu={menu}
                 zoneWidgets={zoneWidgetsWithoutMenu}
                 layoutConfig={{
                     sideMenu: {
@@ -551,8 +590,8 @@ describe('Dashboard side menu modes', () => {
 
         await user.click(screen.getByRole('button', { name: 'Open menu' }))
 
-        const drawerNavigation = screen.getByRole('navigation', { name: 'Runtime menu' })
-        expect(within(drawerNavigation).getByRole('button', { name: 'Structures' })).toBeInTheDocument()
+        expect(screen.queryByRole('navigation', { name: 'Application navigation' })).not.toBeInTheDocument()
+        expect(screen.queryByText('Structures')).not.toBeInTheDocument()
         expect(screen.getByTestId('workspace-switcher')).toBeInTheDocument()
     })
 })

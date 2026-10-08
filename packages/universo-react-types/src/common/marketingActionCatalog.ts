@@ -179,9 +179,7 @@ export const getMarketingActionSectionTargets = (widgets: readonly MarketingSect
 
         const instanceNumber = (instanceNumbers.get(definition.sectionId) ?? 0) + 1
         instanceNumbers.set(definition.sectionId, instanceNumber)
-        const config = readRecord(widget.config)
-        const instanceKey = widget.instanceKey ?? (typeof config.instanceKey === 'string' ? config.instanceKey : undefined)
-        const sectionId = getMarketingSectionId(definition.sectionId, instanceKey)
+        const sectionId = getMarketingSectionId(definition.sectionId, widget.instanceKey)
         return [
             {
                 href: `#${sectionId}`,
@@ -207,8 +205,7 @@ export const getMarketingSectionAnchorEntries = (
         const definition = sectionDefinition(widget)
         if (!definition) continue
 
-        const config = readRecord(widget.config)
-        const instanceKey = widget.instanceKey ?? (typeof config.instanceKey === 'string' ? config.instanceKey : undefined)
+        const instanceKey = widget.instanceKey
         const sectionId = getMarketingSectionId(definition.sectionId, instanceKey)
         sectionEntries.push([sectionId, sectionId])
         for (const alias of definition.aliases) {

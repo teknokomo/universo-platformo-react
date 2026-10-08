@@ -7,10 +7,10 @@ import MenuOpenRoundedIcon from '@mui/icons-material/MenuOpenRounded'
 import ViewSidebarRoundedIcon from '@mui/icons-material/ViewSidebarRounded'
 import { useTranslation } from 'react-i18next'
 import i18n from '@universo-react/i18n'
-import MenuContent from './MenuContent'
 import MenuButton from './MenuButton'
 import { renderWidget } from './widgetRenderer'
-import type { DashboardMenuSlot, DashboardMenusMap, ZoneWidgets } from '../Dashboard'
+import type { ZoneWidgets } from '../contracts'
+import type { RuntimePlacement } from '../runtime/widgetPlacementGraph'
 import type { DashboardSideMenuMode } from '@universo-react/types'
 
 const drawerWidth = 240
@@ -30,10 +30,8 @@ const Drawer = styled(MuiDrawer, {
 }))
 
 interface SideMenuProps {
-    /** @deprecated Use `menus` map instead. */
-    menu?: DashboardMenuSlot
-    menus?: DashboardMenusMap
     zoneWidgets?: ZoneWidgets
+    placements?: readonly RuntimePlacement[]
     mode?: DashboardSideMenuMode
     availableModes?: DashboardSideMenuMode[]
     onToggleDockedMode?: () => void
@@ -43,9 +41,8 @@ interface SideMenuProps {
 }
 
 export default function SideMenu({
-    menu,
-    menus,
     zoneWidgets,
+    placements = [],
     mode = 'wide',
     availableModes = ['wide'],
     onToggleDockedMode,
@@ -55,8 +52,6 @@ export default function SideMenu({
 }: SideMenuProps) {
     const { t } = useTranslation('apps', { i18n })
     const leftWidgets = zoneWidgets?.left
-    const hasWidgets = Array.isArray(leftWidgets) && leftWidgets.length > 0
-    const hasMenuWidget = Array.isArray(leftWidgets) && leftWidgets.some((widget) => widget.widgetKey === 'menuWidget')
     const isOverlay = mode === 'overlay'
     const menuVariant = mode === 'compact' ? 'compact' : 'wide'
     const canSwitchMode =
@@ -107,30 +102,13 @@ export default function SideMenu({
             </Box>
         )
     }
-    const drawerContent = hasWidgets ? (
+    const drawerContent = (
         <Box
             data-testid={sideMenuTestId}
             sx={{ display: 'flex', flexDirection: 'column', height: '100%', mt: 'calc(var(--template-frame-height, 0px) + 4px)' }}
         >
             <Box sx={{ flex: '1 1 auto', minHeight: 0, overflowY: 'auto' }}>
-                {hasMenuWidget ? null : <MenuContent menu={menu} variant={menuVariant} />}
-                {leftWidgets.map((widget) => renderWidget(widget, menus, menu, 0, menuVariant))}
-            </Box>
-            {renderControls()}
-        </Box>
-    ) : (
-        <Box
-            data-testid={sideMenuTestId}
-            sx={{
-                overflow: 'auto',
-                height: '100%',
-                display: 'flex',
-                flexDirection: 'column',
-                mt: 'calc(var(--template-frame-height, 0px) + 4px)'
-            }}
-        >
-            <Box sx={{ flex: '1 1 auto', minHeight: 0, overflowY: 'auto' }}>
-                <MenuContent menu={menu} variant={menuVariant} />
+                {leftWidgets?.map((widget) => renderWidget(widget, { menuVariant, placements }))}
             </Box>
             {renderControls()}
         </Box>

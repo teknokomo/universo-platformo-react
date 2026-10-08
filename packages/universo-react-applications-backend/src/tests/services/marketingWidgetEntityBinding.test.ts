@@ -620,9 +620,10 @@ describe('shared marketing widget binding projection', () => {
         ).rejects.toThrow('MARKETING_WIDGET_MEDIA_INVALID')
     })
 
-    it('requires the complete registered Object and Component contract for public Hero sources', () => {
+    it('requires the complete registered Component contract and accepts canonical custom Hero sources', () => {
         const object = {
             kind: 'object',
+            codename: 'MarketingPageHero',
             config: {
                 recordPolicy: {
                     version: 1,
@@ -649,6 +650,12 @@ describe('shared marketing widget binding projection', () => {
         }))
 
         expect(isCompatibleMarketingWidgetObject(object, components, 'marketing.hero', 'content')).toBe(true)
+        expect(
+            isCompatibleMarketingWidgetObject({ ...object, codename: 'MarketingPageImage' }, components, 'marketing.hero', 'content')
+        ).toBe(true)
+        expect(
+            isCompatibleMarketingWidgetObject({ ...object, codename: ' MarketingPageHero ' }, components, 'marketing.hero', 'content')
+        ).toBe(false)
         expect(
             isCompatibleMarketingWidgetObject(
                 object,

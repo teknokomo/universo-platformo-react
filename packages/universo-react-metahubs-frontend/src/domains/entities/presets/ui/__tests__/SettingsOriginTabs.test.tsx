@@ -23,7 +23,9 @@ vi.mock('../../../../modules/ui/EntityModulesTab', () => ({
 
 import {
     default as objectCollectionActions,
+    buildInitialValues as buildObjectCollectionInitialValues,
     buildFormTabs as buildObjectCollectionFormTabs,
+    toPayload as buildObjectCollectionPayload,
     type ObjectCollectionActionContext,
     type ObjectCollectionDisplayWithContainer
 } from '../ObjectCollectionActions'
@@ -133,7 +135,7 @@ describe('Settings-origin shared form tabs', () => {
             errors: {}
         })
 
-        expect(tabs.map((tab) => tab.id)).toEqual(['general', 'treeEntities', 'layout', 'modules'])
+        expect(tabs.map((tab) => tab.id)).toEqual(['general', 'navigation', 'treeEntities', 'layout', 'modules'])
 
         const layoutTab = tabs.find((tab) => tab.id === 'layout')
         renderWithProviders(layoutTab?.content)
@@ -159,7 +161,7 @@ describe('Settings-origin shared form tabs', () => {
             errors: {}
         })
 
-        expect(tabs.map((tab) => tab.id)).toEqual(['general', 'treeEntities', 'layout', 'modules'])
+        expect(tabs.map((tab) => tab.id)).toEqual(['general', 'navigation', 'treeEntities', 'layout', 'modules'])
 
         const layoutTab = tabs.find((tab) => tab.id === 'layout')
         renderWithProviders(layoutTab?.content)
@@ -198,6 +200,53 @@ describe('Settings-origin shared form tabs', () => {
         )
     })
 
+    it('hydrates and persists Object navigation settings through the existing edit form', () => {
+        const context = createObjectCollectionContext('metahub-1', {
+            objectMap: new Map([
+                [
+                    'object-1',
+                    {
+                        id: 'object-1',
+                        config: {
+                            runtime: {
+                                menuVisibility: 'primary',
+                                icon: 'analytics',
+                                customRuntimeFlag: true
+                            }
+                        },
+                        treeEntities: [baseHub]
+                    }
+                ]
+            ]) as never
+        })
+        const initial = buildObjectCollectionInitialValues(context)
+        const tabs = buildObjectCollectionFormTabs(
+            context,
+            [baseHub] as never[],
+            'object-1'
+        )({
+            values: initial,
+            setValue: vi.fn(),
+            isLoading: false,
+            errors: {}
+        })
+        const navigationTab = tabs.find((tab) => tab.id === 'navigation')
+
+        expect(initial).toEqual(expect.objectContaining({ runtimeMenuVisible: true, runtimeMenuIcon: 'analytics' }))
+        expect(navigationTab).toBeDefined()
+        renderWithProviders(navigationTab?.content)
+        expect(screen.getByRole('checkbox', { name: 'Show in application menu' })).toBeChecked()
+        expect(screen.getByRole('combobox', { name: 'Menu icon' })).toHaveTextContent('analytics')
+
+        const disabledPayload = buildObjectCollectionPayload({ ...initial, runtimeMenuVisible: false })
+        expect(disabledPayload.config).toEqual({ runtime: { menuVisibility: 'hidden', customRuntimeFlag: true } })
+
+        const enabledPayload = buildObjectCollectionPayload({ ...initial, runtimeMenuIcon: 'users' })
+        expect(enabledPayload.config).toEqual({
+            runtime: { menuVisibility: 'primary', icon: 'users', customRuntimeFlag: true }
+        })
+    })
+
     it('preserves edited record behavior in the object-collection copy payload config', async () => {
         const copyEntity = vi.fn()
         const context = createObjectCollectionContext('metahub-1', {
@@ -213,7 +262,7 @@ describe('Settings-origin shared form tabs', () => {
               }
             | undefined
 
-        await props?.onSave?.({
+        const copyValues = {
             nameVlc: {
                 _schema: 'v1',
                 _primary: 'en',
@@ -227,6 +276,9 @@ describe('Settings-origin shared form tabs', () => {
             treeEntityIds: ['hub-1'],
             copyComponents: true,
             copyRecords: false,
+            _objectRuntimeConfig: { runtime: { customRuntimeFlag: true } },
+            runtimeMenuVisible: true,
+            runtimeMenuIcon: 'analytics',
             recordBehavior: {
                 mode: 'transactional',
                 posting: {
@@ -235,12 +287,14 @@ describe('Settings-origin shared form tabs', () => {
                     moduleCodename: 'EnrollmentPostingModule'
                 }
             }
-        })
+        }
+        await props?.onSave?.(copyValues)
 
         expect(copyEntity).toHaveBeenCalledWith(
             'object-1',
             expect.objectContaining({
                 config: {
+                    runtime: { menuVisibility: 'primary', icon: 'analytics', customRuntimeFlag: true },
                     recordBehavior: expect.objectContaining({
                         mode: 'transactional',
                         posting: expect.objectContaining({
@@ -250,6 +304,18 @@ describe('Settings-origin shared form tabs', () => {
                         })
                     })
                 },
+                copyComponents: true,
+                copyRecords: false
+            })
+        )
+
+        await props?.onSave?.({ ...copyValues, runtimeMenuVisible: false })
+        expect(copyEntity).toHaveBeenLastCalledWith(
+            'object-1',
+            expect.objectContaining({
+                config: expect.objectContaining({
+                    runtime: { menuVisibility: 'hidden', customRuntimeFlag: true }
+                }),
                 copyComponents: true,
                 copyRecords: false
             })

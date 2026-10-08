@@ -39,7 +39,6 @@ import {
     toWorkspaceAwareSchemaSnapshot,
     withWorkspaceRuntimeLayoutWidgets,
     remapSnapshotLayoutScopeEntityIds,
-    remapSnapshotMenuWidgetTargets,
     toStructuralSchemaSnapshot
 } from './syncHelpers'
 import { seedPredefinedElements, syncEnumerationValues } from './syncSeeding'
@@ -79,10 +78,7 @@ export const buildRuntimeSnapshotForApplicationSync = (
     entities: EntityDefinition[],
     workspacesEnabled?: boolean
 ): PublishedApplicationSnapshot =>
-    withWorkspaceRuntimeLayoutWidgets(
-        remapSnapshotMenuWidgetTargets(remapSnapshotLayoutScopeEntityIds(snapshot, entities), entities),
-        workspacesEnabled === true
-    )
+    withWorkspaceRuntimeLayoutWidgets(remapSnapshotLayoutScopeEntityIds(snapshot, entities), workspacesEnabled === true)
 
 export async function syncApplicationSchemaFromSource(options: {
     application: SyncableApplicationRecord

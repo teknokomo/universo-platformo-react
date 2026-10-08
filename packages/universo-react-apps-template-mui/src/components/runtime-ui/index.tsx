@@ -288,6 +288,8 @@ export interface FlowListTableProps<T extends FlowListTableData> {
     sortableRows?: boolean
     onSortableDragEnd?: (event: DragEndEvent) => void
     sortStateId?: string
+    tableAriaLabel?: string
+    sortableColumnLabel?: string
 }
 
 const StyledTableCell = styled(TableCell)(({ theme }) => ({
@@ -314,7 +316,9 @@ export function FlowListTable<T extends FlowListTableData>({
     isLoading = false,
     renderActions,
     sortableRows = false,
-    onSortableDragEnd
+    onSortableDragEnd,
+    tableAriaLabel,
+    sortableColumnLabel
 }: FlowListTableProps<T>) {
     const { t } = useTranslation('apps', { i18n })
     const locale = i18n.language || 'en'
@@ -357,10 +361,10 @@ export function FlowListTable<T extends FlowListTableData>({
                 overflowX: 'auto'
             }}
         >
-            <Table size='small' aria-busy={isLoading} sx={{ minWidth: minimumTableWidth }}>
+            <Table size='small' aria-busy={isLoading} aria-label={tableAriaLabel} sx={{ minWidth: minimumTableWidth }}>
                 <TableHead>
                     <TableRow>
-                        {sortableRows ? <StyledTableCell width={88} /> : null}
+                        {sortableRows ? <StyledTableCell width={88} aria-label={sortableColumnLabel} /> : null}
                         {columns.map((column) => (
                             <StyledTableCell key={column.id} align={column.align} width={column.width}>
                                 {column.label}

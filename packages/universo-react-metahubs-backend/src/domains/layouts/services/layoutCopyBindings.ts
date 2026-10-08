@@ -1,5 +1,6 @@
-import { decodeWidgetConfigEnvelope, getLayoutWidgetDefinition, type ApplicationTemplateKey } from '@universo-react/types'
+import { decodeWidgetConfigEnvelope, type ApplicationTemplateKey } from '@universo-react/types'
 import { MetahubDomainError } from '../../shared/domainErrors'
+import { requireLayoutWidgetOwnership } from '../widgetOwnership'
 
 type LayoutCopyWidgetRow = {
     id?: string
@@ -22,7 +23,13 @@ type PreparedLayoutCopyWidget<TWidget extends LayoutCopyWidgetRow> = {
     widget: TWidget
     config: unknown
     isActive: boolean
+    id?: string
+    instanceKey?: string
+    parentWidgetId?: string | null
+    slotKey?: string | null
 }
+
+const isRecord = (value: unknown): value is Record<string, unknown> => Boolean(value && typeof value === 'object' && !Array.isArray(value))
 
 type EntityBindingCopyMode = 'reuse' | 'omit'
 
@@ -33,7 +40,7 @@ interface ResolveLayoutCopyBindingsInput<TWidget extends LayoutCopyWidgetRow, TB
     sourceOverrides: readonly LayoutCopyOverrideRow[]
     copyOverrides: boolean
     copyMode: EntityBindingCopyMode | undefined
-    isMarketingOverlay?: boolean
+    isOverlayLayout?: boolean
 }
 
 /** Classify direct and inherited Entity bindings before the copy transaction writes any rows. */
@@ -44,7 +51,7 @@ export const resolveLayoutCopyBindings = <TWidget extends LayoutCopyWidgetRow, T
     sourceOverrides,
     copyOverrides,
     copyMode,
-    isMarketingOverlay = false
+    isOverlayLayout = false
 }: ResolveLayoutCopyBindingsInput<TWidget, TBase>) => {
     const baseWidgetIds = new Set(baseWidgets.map(({ id }) => id))
     const sourceOverrideByWidgetId = new Map<string, LayoutCopyOverrideRow>()
@@ -65,21 +72,39 @@ export const resolveLayoutCopyBindings = <TWidget extends LayoutCopyWidgetRow, T
         }
         sourceOverrideByWidgetId.set(baseWidgetId, override)
     }
-    const hasBindings = (widget: LayoutCopyWidgetRow, config: unknown): boolean => {
+    const hasBindings = (widget: LayoutCopyWidgetRow, config: unknown, inheritedSourceBindings = false): boolean => {
         if (typeof widget.widget_key !== 'string' || typeof widget.zone !== 'string') return false
-        const definition = getLayoutWidgetDefinition(widget.widget_key, config)
-        if (!definition?.bindingSlots?.length) return false
-        const requiresBindings = definition.bindingSlots.some(({ cardinality }) => cardinality.min > 0)
+        const definition = requireLayoutWidgetOwnership(templateKey, widget.widget_key, isRecord(config) ? config : undefined)
+        const requiresBindings = definition.sourcePolicy.sourceMode === 'required'
         const envelope = decodeWidgetConfigEnvelope(config ?? {}, {
             templateKey,
             widgetKey: widget.widget_key,
             zone: widget.zone,
             requireBindings: requiresBindings
         })
-        return envelope.neutral.bindings !== undefined
+        const hasEntityBindings = envelope.neutral.bindings !== undefined
+        if (hasEntityBindings && definition.copyPolicy.binding === 'none') {
+            throw new MetahubDomainError({
+                message: 'This widget policy does not permit copying Entity bindings',
+                statusCode: 409,
+                code: 'VALIDATION_ERROR',
+                details: { operation: 'copy-layout', widgetKey: widget.widget_key }
+            })
+        }
+        if (hasEntityBindings && definition.copyPolicy.binding === 'clone-record' && copyMode === 'reuse' && !inheritedSourceBindings) {
+            throw new MetahubDomainError({
+                message: 'This widget requires the registered record-copy flow before its placement can be copied',
+                statusCode: 409,
+                code: 'VALIDATION_ERROR',
+                details: { operation: 'copy-layout', widgetKey: widget.widget_key }
+            })
+        }
+        return hasEntityBindings
     }
-    const assertMarketingOverrideIsSparse = (widget: LayoutCopyWidgetRow, config: unknown): void => {
-        if (templateKey !== 'marketing-page' || typeof widget.widget_key !== 'string' || typeof widget.zone !== 'string') return
+    const assertSourceOverrideIsSparse = (widget: LayoutCopyWidgetRow, config: unknown): void => {
+        if (typeof widget.widget_key !== 'string' || typeof widget.zone !== 'string') return
+        const definition = requireLayoutWidgetOwnership(templateKey, widget.widget_key, isRecord(config) ? config : undefined)
+        if (!definition.sourcePolicy.inheritBindings) return
         const envelope = decodeWidgetConfigEnvelope(config ?? {}, {
             templateKey,
             widgetKey: widget.widget_key,
@@ -88,7 +113,7 @@ export const resolveLayoutCopyBindings = <TWidget extends LayoutCopyWidgetRow, T
         })
         if (envelope.neutral.bindings !== undefined) {
             throw new MetahubDomainError({
-                message: 'Marketing overlay widget overrides cannot contain Entity bindings',
+                message: 'Source-managed widget overrides cannot contain Entity bindings',
                 statusCode: 409,
                 code: 'VALIDATION_ERROR',
                 details: { operation: 'copy-layout' }
@@ -106,14 +131,20 @@ export const resolveLayoutCopyBindings = <TWidget extends LayoutCopyWidgetRow, T
                 const sourceOverride = copyOverrides ? sourceOverrideByWidgetId.get(widget.id) : undefined
                 if (sourceOverride?.is_deleted_override === true) return false
                 try {
-                    if (templateKey === 'marketing-page' && sourceOverride?.config !== null && sourceOverride?.config !== undefined) {
-                        assertMarketingOverrideIsSparse(
-                            { ...widget, zone: String(sourceOverride.zone ?? widget.zone) },
-                            sourceOverride.config
-                        )
+                    if (sourceOverride?.config !== null && sourceOverride?.config !== undefined) {
+                        assertSourceOverrideIsSparse({ ...widget, zone: String(sourceOverride.zone ?? widget.zone) }, sourceOverride.config)
                     }
-                    const inheritedConfig = templateKey === 'marketing-page' ? widget.config : sourceOverride?.config ?? widget.config
-                    return hasBindings({ ...widget, zone: widget.zone }, inheritedConfig)
+                    const ownership = requireLayoutWidgetOwnership(
+                        templateKey,
+                        widget.widget_key ?? '',
+                        isRecord(widget.config) ? widget.config : undefined
+                    )
+                    const inheritedConfig = ownership.sourcePolicy.inheritBindings ? widget.config : sourceOverride?.config ?? widget.config
+                    return hasBindings(
+                        { ...widget, zone: widget.zone },
+                        inheritedConfig,
+                        isOverlayLayout && ownership.sourcePolicy.inheritBindings
+                    )
                 } catch (error) {
                     if (error instanceof MetahubDomainError) throw error
                     throw new MetahubDomainError({
@@ -139,9 +170,9 @@ export const resolveLayoutCopyBindings = <TWidget extends LayoutCopyWidgetRow, T
             details: { operation: 'copy-layout' }
         })
     }
-    if (isMarketingOverlay && copyMode === 'reuse' && boundWidgets.size > 0) {
+    if (isOverlayLayout && copyMode === 'reuse' && boundWidgets.size > 0) {
         throw new MetahubDomainError({
-            message: 'Marketing overlay copies cannot reuse Entity bindings from owned widget rows',
+            message: 'Overlay copies cannot own Entity bindings for source-managed placements',
             statusCode: 409,
             code: 'VALIDATION_ERROR',
             details: { operation: 'copy-layout' }

@@ -7,11 +7,12 @@ import {
     isRuntimeServerOwnedAttr,
     isRuntimeSetKind,
     mapRuntimeZoneWidgets,
-    partitionRuntimeMenuItems,
     readRuntimeRecordAccessConfig,
+    runtimeRelationScopeSchema,
+    runtimeReorderBodySchema,
     resolveRuntimeStandardKind,
     type RuntimeZoneWidgetRow
-} from '../../../controllers/runtimeRowSupport/contracts'
+} from '../../../services/runtimeRowSupport/contracts'
 import { UpdateFailure } from '../../../shared/runtimeHelpers'
 
 const zoneRow = (overrides: Partial<RuntimeZoneWidgetRow> = {}): RuntimeZoneWidgetRow => ({
@@ -77,45 +78,6 @@ describe('isRuntimeDashboardZone', () => {
     })
 })
 
-describe('partitionRuntimeMenuItems', () => {
-    it('keeps every item in primary when there is no limit', () => {
-        expect(partitionRuntimeMenuItems(['a', 'b'], null, null, 'overflow')).toEqual({
-            primaryItems: ['a', 'b'],
-            overflowItems: []
-        })
-        expect(partitionRuntimeMenuItems(['a'], null, 'workspace', 'overflow')).toEqual({
-            primaryItems: ['a'],
-            overflowItems: ['workspace']
-        })
-    })
-
-    it('splits items at the primary limit and appends the workspace to overflow', () => {
-        expect(partitionRuntimeMenuItems(['a', 'b', 'c'], 2, 'workspace', 'overflow')).toEqual({
-            primaryItems: ['a', 'b'],
-            overflowItems: ['c', 'workspace']
-        })
-    })
-
-    it('reserves one primary slot for the workspace item', () => {
-        expect(partitionRuntimeMenuItems(['a', 'b'], 2, 'workspace', 'primary')).toEqual({
-            primaryItems: ['a', 'workspace'],
-            overflowItems: ['b']
-        })
-    })
-
-    it('drops the workspace item when its placement is hidden', () => {
-        expect(partitionRuntimeMenuItems(['a'], 1, 'workspace', 'hidden')).toEqual({ primaryItems: ['a'], overflowItems: [] })
-    })
-
-    it('moves every item to overflow at a zero limit', () => {
-        expect(partitionRuntimeMenuItems(['a', 'b'], 0, null, 'primary')).toEqual({ primaryItems: [], overflowItems: ['a', 'b'] })
-        expect(partitionRuntimeMenuItems(['a', 'b'], 0, 'workspace', 'primary')).toEqual({
-            primaryItems: ['workspace'],
-            overflowItems: ['a', 'b']
-        })
-    })
-})
-
 describe('runtime standard kind helpers', () => {
     it('resolves builtin kinds and rejects unknown or non-string values', () => {
         expect(resolveRuntimeStandardKind('hub')).toBe('hub')
@@ -169,6 +131,65 @@ describe('readRuntimeRecordAccessConfig', () => {
         expect(
             readRuntimeRecordAccessConfig({ runtimeRecordAccess: { mode: 'ownerOrShared', ownerColumnName: 'owner_id', extra: 1 } })
         ).toBeNull()
+    })
+})
+
+describe('runtimeRelationScopeSchema', () => {
+    it('accepts only strict semantic scopes with UUID v7 parent identities', () => {
+        expect(
+            runtimeRelationScopeSchema.safeParse({
+                fieldCodename: 'CourseId',
+                parentRecordId: '0190a9b5-3cde-7abc-8def-0123456789d2'
+            }).success
+        ).toBe(true)
+        expect(
+            runtimeRelationScopeSchema.safeParse({
+                fieldCodename: 'CourseId',
+                parentRecordId: '550e8400-e29b-41d4-a716-446655440000'
+            }).success
+        ).toBe(false)
+        expect(
+            runtimeRelationScopeSchema.safeParse({
+                fieldCodename: 'CourseId',
+                parentRecordId: '0190a9b5-3cde-7abc-8def-0123456789d2',
+                layoutId: 'untrusted'
+            }).success
+        ).toBe(false)
+    })
+})
+
+describe('runtimeReorderBodySchema', () => {
+    const baseBody = {
+        objectCollectionId: '018f8a78-7b8f-7c1d-a111-222233334401',
+        orderedRowIds: ['018f8a78-7b8f-7c1d-a111-222233334402'],
+        parentScope: {
+            fieldCodename: 'CourseId',
+            parentRecordId: '018f8a78-7b8f-7c1d-a111-222233334403'
+        }
+    }
+
+    it('accepts an optional, semantic parent scope', () => {
+        expect(runtimeReorderBodySchema.safeParse(baseBody).success).toBe(true)
+        expect(
+            runtimeReorderBodySchema.safeParse({ objectCollectionId: baseBody.objectCollectionId, orderedRowIds: baseBody.orderedRowIds })
+                .success
+        ).toBe(true)
+    })
+
+    it('rejects malformed scope fields and unknown scope properties', () => {
+        expect(
+            runtimeReorderBodySchema.safeParse({ ...baseBody, parentScope: { ...baseBody.parentScope, fieldCodename: 'Course Id' } })
+                .success
+        ).toBe(false)
+        expect(
+            runtimeReorderBodySchema.safeParse({ ...baseBody, parentScope: { ...baseBody.parentScope, unexpected: true } }).success
+        ).toBe(false)
+        expect(
+            runtimeReorderBodySchema.safeParse({
+                ...baseBody,
+                parentScope: { ...baseBody.parentScope, parentRecordId: '550e8400-e29b-41d4-a716-446655440000' }
+            }).success
+        ).toBe(false)
     })
 })
 

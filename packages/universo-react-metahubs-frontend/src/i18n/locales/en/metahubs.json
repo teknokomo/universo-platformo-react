@@ -67,7 +67,7 @@
         "validation": {
             "codenameRequired": "Codename is required",
             "codenameDuplicateVlc": "Codename \"{{value}}\" already used by another entity",
-            "vlcMinLength": "Language \"{{locale}}\": minimum length {{min}}",
+            "vlcMinLength": "Enter at least {{min}} characters for the {{language}} translation.",
             "lengthBetween": "Length must be between {{min}} and {{max}}",
             "minLength": "Minimum length: {{min}}",
             "maxLength": "Maximum length: {{max}}",
@@ -420,20 +420,8 @@
             "resetWidgetConfirm": "Reset override",
             "objectBehaviorTitleGlobal": "Default entity runtime behavior",
             "objectBehaviorTitleObject": "Entity runtime behavior",
-            "objectBehaviorDescriptionGlobal": "These settings define the default create/search behavior for entities that use this global layout until an entity-specific layout overrides it.",
-            "objectBehaviorDescriptionObject": "This scoped layout overrides the create/search behavior inherited from its global base layout.",
-            "viewSettings": "Application View Settings",
-            "showViewToggle": "Card/table view toggle",
-            "defaultViewMode": "Default view mode",
-            "viewModeTable": "Table",
-            "viewModeCard": "Card",
-            "showFilterBar": "Search/filter bar",
-            "enableRowReordering": "Enable row reordering",
-            "cardColumns": "Card columns",
-            "rowHeight": "Row height",
-            "rowHeightCompact": "Compact (default)",
-            "rowHeightNormal": "Normal (52px)",
-            "rowHeightAuto": "Auto (multi-line)",
+            "objectBehaviorDescriptionGlobal": "These settings define default record creation and form behavior until an entity-specific layout overrides them.",
+            "objectBehaviorDescriptionObject": "This layout controls record creation and form behavior for its selected entity.",
             "sideMenu": {
                 "title": "Side menu display",
                 "primaryMode": "Primary display mode",
@@ -520,29 +508,16 @@
             "invalidColor": "Enter a valid contrast-safe hex color."
         },
         "menuEditor": {
-            "title": "Menu configuration",
-            "createTitle": "Create menu",
-            "editTitle": "Edit menu",
-            "titleLabel": "Menu title",
-            "showTitle": "Show title",
-            "bindToHub": "Bind menu to hub",
-            "boundHubLabel": "Bound hub",
-            "boundHubPlaceholder": "Select a hub",
-            "boundHubInfo": "When menu-to-hub binding is enabled, only sections directly linked to the selected hub are shown.",
-            "autoShowAllSections": "Automatically show all sections",
-            "autoShowAllSectionsHint": "When enabled, all renderable Entity sections will be automatically added to the menu at runtime.",
-            "autoShowAllSectionsDisabledByBinding": "This option is disabled while direct menu-to-hub binding is enabled.",
-            "maxPrimaryItems": "Primary menu item limit",
-            "maxPrimaryItemsHint": "Extra active menu items are moved into the overflow menu.",
-            "overflowLabelKey": "Overflow label i18n key",
-            "startPage": "Start page",
-            "startPageHint": "Choose the hub or entity section that should open first.",
-            "workspacePlacement": "Workspace menu placement",
-            "workspacePlacements": {
-                "primary": "Primary menu",
-                "overflow": "Overflow menu",
-                "hidden": "Hidden"
+            "title": "Navigation menu",
+            "continueToSource": "Continue to content source",
+            "description": "Choose whether navigation is generated from the published application or authored from an Entity-backed source.",
+            "variant": "Navigation source",
+            "variants": {
+                "generated": "Generated navigation",
+                "manual": "Manual navigation"
             },
+            "manualHint": "Menu items are stored in an Entity source. Continue to select or edit that source; no menu content is stored in widget configuration.",
+            "generatedHint": "Navigation is generated from published application metadata and does not use an authored content source.",
             "sideMenu": {
                 "title": "Side menu display",
                 "primaryMode": "Primary display mode",
@@ -552,56 +527,11 @@
                     "compact": "Compact icons",
                     "overlay": "Overlay drawer"
                 }
-            },
-            "items": "Menu items",
-            "itemsEmpty": "No menu items yet. Add the first item.",
-            "addItem": "Add item",
-            "editItem": "Edit item",
-            "editItemNamed": "Edit menu item: {{label}}",
-            "removeItemNamed": "Remove menu item: {{label}}",
-            "reorderItem": "Reorder menu item: {{label}}",
-            "deleteItem": "Delete item?",
-            "deleteItemDescription": "This item will be removed from the menu.",
-            "itemKind": "Item type",
-            "itemTitle": "Title",
-            "itemIcon": "Icon",
-            "itemHref": "Link URL",
-            "itemSection": "Entity section",
-            "itemSectionHint": "Select a layout-capable Entity instance.",
-            "unnamedSection": "Unnamed section",
-            "itemHub": "Hub",
-            "itemActive": "Active",
-            "noHubs": "No hubs available",
-            "kindSection": "Entity section",
-            "kindHub": "Hub",
-            "kindLink": "Link",
-            "validation": {
-                "titleRequired": "Name is required.",
-                "sectionRequired": "Select an entity section for this menu item.",
-                "hubRequired": "Select a hub for this menu item.",
-                "boundHubRequired": "Select a hub to bind this menu to.",
-                "hrefRequired": "Link URL is required for link items.",
-                "hrefUnsafeScheme": "This link type is not allowed. Use https, mailto, tel, #, or an internal path."
-            },
-            "saveSuccess": "Menu configuration saved",
-            "saveError": "Failed to save menu configuration",
-            "itemIconPlaceholder": "database, link, shopping_cart...",
-            "itemHrefPlaceholder": "https://...",
-            "defaultTitle": "Main",
-            "defaultTitleRu": "Основное",
-            "unresolvedStartPage": "Unavailable configured section",
-            "startPageDefault": "Layout default"
+            }
         },
-        "sharedBehavior": {
-            "title": "Shared behavior",
-            "description": "Controls whether inherited layouts can deactivate, exclude, or move this widget.",
-            "canDeactivate": "Can be deactivated",
-            "canExclude": "Can be excluded",
-            "positionLocked": "Position locked"
-        },
-        "widgetBehaviorEditor": {
-            "title": "Widget behavior",
-            "description": "Configure how inherited entity layouts can override this inherited widget."
+        "widgetPresentationEditor": {
+            "title": "Presentation settings",
+            "description": "Configure the presentation options registered for this widget."
         },
         "interpretationNetworkEditor": {
             "title": "Interpretation network workspace",
@@ -712,8 +642,10 @@
             "advancedActions": "Advanced actions",
             "mountMethodName": "Content loader",
             "mountMethodHelp": "Optional. Leave empty to use the default loader.",
+            "defaultMountMethod": "Default (mount)",
             "submitMethodName": "Answer checker",
             "submitMethodHelp": "Optional. Leave empty to use the default answer checker.",
+            "defaultSubmitMethod": "Default (submit)",
             "emptyStateTitle": "Empty state title",
             "emptyStateDescription": "Empty state description"
         },
@@ -756,28 +688,6 @@
         "zoneErrors": {
             "load": "Failed to load layout zones",
             "save": "Failed to save layout zones"
-        },
-        "dashboard": {
-            "sections": {
-                "showSideMenu": "Left menu",
-                "showAppNavbar": "Top navbar",
-                "showHeader": "Header",
-                "showBreadcrumbs": "Breadcrumbs",
-                "showSearch": "Search",
-                "showDatePicker": "Date picker",
-                "showOptionsMenu": "Notifications & theme",
-                "showOverviewTitle": "Overview title",
-                "showOverviewCards": "Overview cards",
-                "showSessionsChart": "Sessions chart",
-                "showPageViewsChart": "Page views chart",
-                "showDetailsTitle": "Details title",
-                "showDetailsTable": "Details table",
-                "showColumnsContainer": "Columns container",
-                "showProductTree": "Product tree",
-                "showUsersByCountryChart": "Users by country chart",
-                "showRightSideMenu": "Right side panel",
-                "showFooter": "Footer"
-            }
         },
         "copyInProgress": "Copying…",
         "moveToZone": "Move to {{zone}}"
@@ -1919,6 +1829,7 @@
             "general": "General",
             "treeEntities": "Hubs",
             "layout": "Layouts",
+            "navigation": "Navigation",
             "options": "Options"
         },
         "layoutTab": {
@@ -1928,30 +1839,34 @@
             "unavailable": "Entity layouts are available when this entity is opened inside a metahub context."
         },
         "runtime": {
-            "showSearch": "Search/filter bar",
-            "searchMode": "Search mode",
-            "searchModePageLocal": "Page-local",
-            "searchModeServer": "Server",
             "showCreateButton": "Show create button",
             "showViewToggle": "Card/table view toggle",
-            "enableRowReordering": "Enable row reordering",
-            "reorderPersistenceField": "Reorder persistence field",
-            "reorderPersistenceFieldHelper": "Enter the numeric field codename or column key that stores the persisted row order, for example sort_order.",
-            "useLayoutOverrides": "Override application layout settings",
-            "useLayoutOverridesHelper": "When disabled, this object inherits search, view, card, and row layout settings from the application layout.",
-            "defaultViewMode": "Default view mode",
-            "viewModeTable": "Table",
-            "viewModeCard": "Card",
-            "cardColumns": "Card columns",
-            "rowHeight": "Row height",
-            "rowHeightCompact": "Compact (default)",
-            "rowHeightNormal": "Normal (52px)",
-            "rowHeightAuto": "Auto (multi-line)",
             "createSurface": "Create form type",
             "editSurface": "Edit form type",
             "copySurface": "Copy form type",
             "surfaceDialog": "Dialog",
-            "surfacePage": "Page"
+            "surfacePage": "Page",
+            "navigation": {
+                "showInMenu": "Show in application menu",
+                "description": "Only Objects enabled here appear in the published application menu.",
+                "icon": "Menu icon",
+                "icons": {
+                    "home": "Home",
+                    "analytics": "Analytics",
+                    "users": "People",
+                    "tasks": "Tasks",
+                    "database": "Database",
+                    "folder": "Folder",
+                    "apps": "Applications",
+                    "dashboard": "Dashboard",
+                    "page": "Page",
+                    "school": "Learning",
+                    "recent": "Recent",
+                    "star": "Favorites",
+                    "settings": "Settings",
+                    "more": "More"
+                }
+            }
         },
         "copy": {
             "action": "Copy",

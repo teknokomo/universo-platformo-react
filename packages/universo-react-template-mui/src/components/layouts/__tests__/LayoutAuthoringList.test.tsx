@@ -9,12 +9,38 @@ jest.mock('../../../assets', () => ({ APIEmptySVG: 'mock-api-empty.svg' }))
 jest.mock('../../toolbar/ToolbarControls', () => ({ __esModule: true, default: () => null }))
 jest.mock('../../headers/ViewHeader', () => ({
     __esModule: true,
-    default: ({ children }: { children: ReactNode }) => children
+    default: ({ children, controlsWrap }: { children: ReactNode; controlsWrap?: boolean }) => (
+        <div data-testid='view-header' data-controls-wrap={String(Boolean(controlsWrap))}>
+            {children}
+        </div>
+    )
 }))
 
 const theme = createTheme()
 
 describe('LayoutAuthoringList card actions', () => {
+    it('lets the shared header grow when layout filters are present', () => {
+        render(
+            <ThemeProvider theme={theme}>
+                <LayoutAuthoringList
+                    headerExtras={<button type='button'>Target filter</button>}
+                    viewMode='card'
+                    onViewModeChange={() => undefined}
+                    cardViewTitle='Card view'
+                    listViewTitle='List view'
+                    items={[]}
+                    errorTitle='Could not load layouts'
+                    emptyTitle='No layouts'
+                    metaColumnLabel='Meta'
+                    statusColumnLabel='Status'
+                    listContentTestId='layout-list'
+                />
+            </ThemeProvider>
+        )
+
+        expect(screen.getByTestId('view-header')).toHaveAttribute('data-controls-wrap', 'true')
+    })
+
     it('opens a named layout card with Enter and Space while keeping its header action usable', async () => {
         const user = userEvent.setup()
         const openLayout = jest.fn()

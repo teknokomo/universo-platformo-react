@@ -16,6 +16,7 @@ import {
     updateLayoutZoneSettingSchema,
     resetLayoutZoneSettingSchema,
     assignLayoutZoneWidgetSchema,
+    duplicateLayoutZoneWidgetSchema,
     moveLayoutZoneWidgetSchema,
     updateLayoutZoneWidgetConfigSchema,
     toggleLayoutZoneWidgetActiveSchema
@@ -369,22 +370,7 @@ export function createLayoutsController(createHandler: ReturnType<typeof createM
     const widgetsObject = createHandler(async ({ req, res }) => {
         if (!parseUuidV7Param(req.params.layoutId)) return res.status(400).json({ error: 'Invalid layout ID' })
 
-        const items = LAYOUT_WIDGET_DEFINITIONS.map((widget) => ({
-            key: widget.key,
-            templateKey: widget.templateKey,
-            supportedTemplates: [...widget.supportedTemplates],
-            allowedZones: [...widget.allowedZones],
-            allowedZonesByTemplate: Object.fromEntries(
-                Object.entries(widget.allowedZonesByTemplate).map(([supportedTemplateKey, zones]) => [supportedTemplateKey, [...zones]])
-            ),
-            multiInstance: widget.multiInstance,
-            requiredHostCapabilities: [...widget.requiredHostCapabilities],
-            shared: widget.shared,
-            labelKey: widget.labelKey,
-            defaultLabel: widget.defaultLabel,
-            ...(widget.defaultPlacement ? { defaultPlacement: widget.defaultPlacement } : {}),
-            ...(widget.mobileProjection ? { mobileProjection: widget.mobileProjection } : {})
-        }))
+        const items = LAYOUT_WIDGET_DEFINITIONS.map((widget) => ({ ...widget }))
         const templates = (Object.keys(APPLICATION_TEMPLATE_REGISTRY) as ApplicationTemplateKey[]).map((templateKey) => ({
             ...APPLICATION_TEMPLATE_REGISTRY[templateKey],
             zones: LAYOUT_ZONE_DEFINITIONS.filter((zone) => zone.templateKey === templateKey),
@@ -441,6 +427,19 @@ export function createLayoutsController(createHandler: ReturnType<typeof createM
             const layoutsService = new MetahubLayoutsService(exec, schemaService)
             const items = await layoutsService.moveLayoutZoneWidget(metahubId, layoutId, parsed.data, userId)
             return res.json({ items })
+        },
+        { permission: 'manageMetahub' }
+    )
+
+    const duplicateZoneWidgetPlacement = createHandler(
+        async ({ req, res, metahubId, userId, exec, schemaService }) => {
+            const layoutId = parseUuidV7Param(req.params.layoutId)
+            if (!layoutId) return res.status(400).json({ error: 'Invalid layout ID' })
+            const parsed = duplicateLayoutZoneWidgetSchema.safeParse(req.body)
+            if (!parsed.success) return res.status(400).json({ error: 'Invalid input', details: parsed.error.flatten() })
+            const layoutsService = new MetahubLayoutsService(exec, schemaService)
+            const item = await layoutsService.duplicateLayoutZoneWidget(metahubId, layoutId, parsed.data, userId)
+            return res.status(201).json(item)
         },
         { permission: 'manageMetahub' }
     )
@@ -590,6 +589,7 @@ export function createLayoutsController(createHandler: ReturnType<typeof createM
         widgetsObject,
         listZoneWidgets,
         assignZoneWidget,
+        duplicateZoneWidgetPlacement,
         moveZoneWidget,
         removeZoneWidget,
         resetZoneWidgetOverride,

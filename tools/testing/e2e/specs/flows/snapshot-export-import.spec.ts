@@ -407,13 +407,17 @@ test.describe('Snapshot Export/Import Flow', () => {
         expect(settingsLayouts).toHaveLength(1)
         const settingsLayout = settingsLayouts[0]
         expect(readLocalizedText(settingsLayout?.name)).toBe(SELF_HOSTED_APP_SETTINGS_LAYOUT.name.en)
-        expect(settingsLayout?.config).toMatchObject({
-            showViewToggle: SELF_HOSTED_APP_SETTINGS_LAYOUT.runtimeConfig.showViewToggle,
-            defaultViewMode: SELF_HOSTED_APP_SETTINGS_LAYOUT.runtimeConfig.defaultViewMode,
-            showFilterBar: SELF_HOSTED_APP_SETTINGS_LAYOUT.runtimeConfig.showFilterBar,
-            objectBehavior: SELF_HOSTED_APP_SETTINGS_LAYOUT.objectBehavior
-        })
+        expect(settingsLayout?.config).toMatchObject({ objectBehavior: SELF_HOSTED_APP_SETTINGS_LAYOUT.objectBehavior })
         expect(typeof settingsLayout?.baseLayoutId).toBe('string')
+
+        const baseDetailsTableWidget = importedLayoutZoneWidgets.find(
+            (widget) => widget?.layoutId === settingsLayout?.baseLayoutId && widget?.widgetKey === 'detailsTable'
+        )
+        expect(typeof baseDetailsTableWidget?.id).toBe('string')
+        const detailsTableWidgetOverride = importedLayoutWidgetOverrides.find(
+            (widget) => widget?.layoutId === settingsLayout?.id && widget?.baseWidgetId === baseDetailsTableWidget?.id
+        )
+        expect(detailsTableWidgetOverride?.config).toMatchObject(SELF_HOSTED_APP_SETTINGS_LAYOUT.detailsTableConfig)
 
         const baseDetailsTitleWidget = importedLayoutZoneWidgets.find(
             (widget) => widget?.layoutId === settingsLayout?.baseLayoutId && widget?.widgetKey === 'detailsTitle'

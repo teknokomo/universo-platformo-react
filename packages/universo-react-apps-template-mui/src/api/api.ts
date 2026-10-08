@@ -1,22 +1,16 @@
 import { z } from 'zod'
-import type {
-    EffectiveLayoutResult,
-    RecordsUnionDatasource,
-    ReportFilter,
-    RuntimeDatasourceFilter,
-    RuntimeDatasourceSort
-} from '@universo-react/types'
+import type { RecordsUnionDatasource, ReportFilter, RuntimeDatasourceFilter, RuntimeDatasourceSort } from '@universo-react/types'
 import {
     objectRecordBehaviorSchema,
     objectCollectionRuntimeViewConfigSchema,
-    dashboardLayoutConfigSchema,
-    effectiveLayoutResultSchema,
+    effectiveLayoutResultSchema as canonicalEffectiveLayoutResultSchema,
     playCanvasRuntimeManifestSchema,
     runtimePageBlockSchema,
     reportDefinitionSchema,
     workflowActionSchema,
     readLocalizedTextValue
 } from '@universo-react/types'
+import { runtimePlacementGraphSchema, runtimePlacementSchema, runtimeWidgetDataSchema } from '../dashboard/runtime/widgetPlacementGraph'
 import {
     buildRuntimeApiUrl,
     createRuntimeFetcher,
@@ -104,14 +98,7 @@ const runtimeColumnSchema = runtimeColumnChildSchema.extend({
     childColumns: z.array(runtimeColumnChildSchema).optional()
 })
 
-const runtimeZoneWidgetSchema = z.object({
-    id: z.string(),
-    layoutId: z.string().optional(),
-    widgetKey: z.string(),
-    sortOrder: z.number(),
-    config: z.record(z.unknown()).optional().default({}),
-    isActive: z.boolean().optional().default(true)
-})
+const runtimeZoneWidgetSchema = runtimePlacementSchema
 
 export const runtimeZoneWidgetsSchema = z
     .object({
@@ -122,20 +109,12 @@ export const runtimeZoneWidgetsSchema = z
         center: z.array(runtimeZoneWidgetSchema).default([])
     })
     .strict()
-
-const runtimeMenuItemSchema = z.object({
-    id: z.string(),
-    kind: z.enum(['section', 'hub', 'link']),
-    title: z.string(),
-    icon: z.string().nullable().optional(),
-    href: z.string().nullable().optional(),
-    sectionId: z.string().nullable().optional(),
-    objectCollectionId: z.string().nullable().optional(),
-    hubId: z.string().nullable().optional(),
-    treeEntityId: z.string().nullable().optional(),
-    sortOrder: z.number().optional().default(0),
-    isActive: z.boolean().optional().default(true)
-})
+    .superRefine((zones, context) => {
+        const parsed = runtimePlacementGraphSchema.safeParse(Object.values(zones).flatMap((widgets) => widgets ?? []))
+        if (!parsed.success) {
+            context.addIssue({ code: z.ZodIssueCode.custom, path: [], message: 'Dashboard placement graph is invalid.' })
+        }
+    })
 
 export const appDataResponseSchema = z.object({
     section: runtimeObjectCollectionSchema.optional(),
@@ -166,36 +145,73 @@ export const appDataResponseSchema = z.object({
     workspacesEnabled: z.boolean().optional().default(false),
     currentWorkspaceId: z.string().nullable().optional(),
     permissions: runtimePermissionsSchema,
-    workflowCapabilities: z.record(z.boolean()).optional(),
-    // Added by backend for dashboard rendering; optional for backward compatibility.
-    layoutConfig: dashboardLayoutConfigSchema.optional(),
-    zoneWidgets: runtimeZoneWidgetsSchema.optional(),
-    menus: z
-        .array(
-            z.object({
-                id: z.string(),
-                widgetId: z.string(),
-                showTitle: z.boolean().optional().default(true),
-                title: z.string(),
-                autoShowAllSections: z.boolean().optional().default(false),
-                startPage: z.string().nullable().optional(),
-                startSectionId: z.string().nullable().optional(),
-                maxPrimaryItems: z.number().nullable().optional(),
-                overflowLabelKey: z.string().nullable().optional(),
-                workspacePlacement: z.enum(['primary', 'overflow', 'hidden']).optional().default('primary'),
-                items: z.array(runtimeMenuItemSchema),
-                overflowItems: z.array(runtimeMenuItemSchema).optional().default([])
-            })
-        )
-        .optional()
-        .default([]),
-    activeMenuId: z.string().nullable().optional()
+    workflowCapabilities: z.record(z.boolean()).optional()
 })
 
 export type AppDataResponse = z.infer<typeof appDataResponseSchema>
 
-export type RuntimeEffectiveLayoutResponse = EffectiveLayoutResult
-export type RuntimeEffectiveLayoutSuccess = Extract<EffectiveLayoutResult, { status: 'ok' }>
+const isRecord = (value: unknown): value is Record<string, unknown> => Boolean(value && typeof value === 'object' && !Array.isArray(value))
+
+type CanonicalRuntimeEffectiveLayoutResponse = z.infer<typeof canonicalEffectiveLayoutResultSchema>
+type CanonicalRuntimeEffectiveLayoutSuccess = Extract<CanonicalRuntimeEffectiveLayoutResponse, { status: 'ok' }>
+
+export type RuntimeEffectiveLayoutSuccess = Omit<CanonicalRuntimeEffectiveLayoutSuccess, 'widgets'> & {
+    widgets: Array<CanonicalRuntimeEffectiveLayoutSuccess['widgets'][number] & { runtimeData?: z.infer<typeof runtimeWidgetDataSchema> }>
+}
+export type RuntimeEffectiveLayoutResponse =
+    | RuntimeEffectiveLayoutSuccess
+    | Exclude<CanonicalRuntimeEffectiveLayoutResponse, { status: 'ok' }>
+
+/** Strict package-local adapter for the published Dashboard runtime DTO extension. */
+export const dashboardEffectiveLayoutResultSchema = z.unknown().transform((input, context): RuntimeEffectiveLayoutResponse => {
+    const isDashboardSuccess =
+        isRecord(input) &&
+        input.status === 'ok' &&
+        isRecord(input.layout) &&
+        input.layout.templateKey === 'dashboard' &&
+        Array.isArray(input.widgets)
+
+    if (!isDashboardSuccess) {
+        const parsed = canonicalEffectiveLayoutResultSchema.safeParse(input)
+        if (!parsed.success) {
+            context.addIssue({ code: z.ZodIssueCode.custom, message: 'Effective layout response is invalid.' })
+            return z.NEVER
+        }
+        return parsed.data
+    }
+
+    const widgets = input.widgets as unknown[]
+    const runtimeDataByIndex = widgets.map((widget) => ({
+        present: isRecord(widget) && Object.prototype.hasOwnProperty.call(widget, 'runtimeData'),
+        value: isRecord(widget) ? widget.runtimeData : undefined
+    }))
+    const canonicalInput = {
+        ...input,
+        widgets: widgets.map((widget) => {
+            if (!isRecord(widget)) return widget
+            const { runtimeData: _runtimeData, ...canonicalWidget } = widget
+            return canonicalWidget
+        })
+    }
+    const parsed = canonicalEffectiveLayoutResultSchema.safeParse(canonicalInput)
+    if (!parsed.success || parsed.data.status !== 'ok') {
+        context.addIssue({ code: z.ZodIssueCode.custom, message: 'Effective Dashboard layout response is invalid.' })
+        return z.NEVER
+    }
+
+    return {
+        ...parsed.data,
+        widgets: parsed.data.widgets.map((widget, index) => {
+            const runtimeDataInput = runtimeDataByIndex[index]
+            if (!runtimeDataInput?.present) return widget
+            const runtimeData = runtimeWidgetDataSchema.safeParse(runtimeDataInput.value)
+            return runtimeData.success
+                ? { ...widget, runtimeData: runtimeData.data }
+                : { ...widget, runtimeData: { status: 'malformed-config' as const } }
+        })
+    }
+})
+
 export type MarketingPageRuntimeResponse = AuthenticatedMarketingPageRuntimePayload
 
 /** @deprecated Use AppDataResponse instead */
@@ -270,7 +286,7 @@ export async function fetchRuntimeEffectiveLayout(options: {
         applicationId: options.applicationId,
         target: options.target
     })
-    return fetchRuntime('/effective-layout', effectiveLayoutResultSchema, 'Effective layout API request failed')
+    return fetchRuntime('/effective-layout', dashboardEffectiveLayoutResultSchema, 'Effective layout API request failed')
 }
 
 const DASHBOARD_ZONES = ['left', 'top', 'right', 'bottom', 'center'] as const
@@ -293,7 +309,6 @@ export const toDashboardZoneWidgets = (result: RuntimeEffectiveLayoutSuccess): z
     }
 
     for (const widget of result.widgets) {
-        if (!widget.isActive) continue
         if (!isDashboardZone(widget.zone)) {
             throw new Error(`Effective layout contains an unsupported Dashboard zone: ${widget.zone}`)
         }
@@ -304,7 +319,12 @@ export const toDashboardZoneWidgets = (result: RuntimeEffectiveLayoutSuccess): z
             widgetKey: widget.widgetKey,
             sortOrder: widget.sortOrder,
             config: widget.config,
-            isActive: widget.isActive
+            isActive: widget.isActive,
+            instanceKey: widget.instanceKey,
+            zone: widget.zone,
+            parentInstanceKey: widget.parentInstanceKey,
+            slotKey: widget.slotKey,
+            ...(widget.runtimeData === undefined ? {} : { runtimeData: widget.runtimeData })
         })
     }
 
@@ -312,7 +332,7 @@ export const toDashboardZoneWidgets = (result: RuntimeEffectiveLayoutSuccess): z
         grouped[zone].sort((left, right) => left.sortOrder - right.sortOrder || left.id.localeCompare(right.id))
     }
 
-    return grouped
+    return runtimeZoneWidgetsSchema.parse(grouped)
 }
 
 export async function fetchMarketingPageRuntime(options: {
@@ -322,20 +342,24 @@ export async function fetchMarketingPageRuntime(options: {
     workspaceId?: string | null
     target?: MarketingRuntimeTarget | null
     expectedLayoutHash?: string | null
+    themeVariant?: import('./client').RuntimeLayoutTarget['themeVariant']
 }): Promise<MarketingPageRuntimeResponse> {
     const url = new URL(buildRuntimeApiUrl(options.apiBaseUrl, options.applicationId, '/marketing-page'))
     url.searchParams.set('locale', options.locale)
     if (options.workspaceId?.trim()) url.searchParams.set('workspaceId', options.workspaceId.trim())
-    const target = options.target
-        ? normalizeRuntimeLayoutTarget({
-              targetKind: options.target.targetKind,
-              entityTypeId: options.target.entityTypeId,
-              entityTypeCodename: options.target.entityTypeCodename
-          })
-        : null
+    const target =
+        options.target || options.themeVariant
+            ? normalizeRuntimeLayoutTarget({
+                  targetKind: options.target?.targetKind,
+                  entityTypeId: options.target?.entityTypeId,
+                  entityTypeCodename: options.target?.entityTypeCodename,
+                  themeVariant: options.themeVariant
+              })
+            : null
     if (target?.targetKind) url.searchParams.set('targetKind', target.targetKind)
     if (target?.entityTypeId) url.searchParams.set('entityTypeId', target.entityTypeId)
     if (target?.entityTypeCodename) url.searchParams.set('entityTypeCodename', target.entityTypeCodename)
+    if (target?.themeVariant) url.searchParams.set('themeVariant', target.themeVariant)
     if (options.target?.recordKey?.trim()) url.searchParams.set('recordKey', options.target.recordKey.trim())
     if (options.expectedLayoutHash?.trim()) url.searchParams.set('expectedLayoutHash', options.expectedLayoutHash.trim())
     const res = await fetch(url.toString(), { credentials: 'include' })

@@ -1,9 +1,9 @@
 import { createMockDbExecutor } from '../utils/dbMocks'
 import { encodeLayoutWidgetConfigEnvelope, getLayoutWidgetDefinition, validateWidgetBindings } from '@universo-react/types'
 
-export const encodeBoundCollectionConfig = (instanceKey: string, variant: 'logos' | 'features') => {
+export const encodeBoundCollectionConfig = (_instanceKey: string, variant: 'logos' | 'features') => {
     const widgetKey = 'marketing.collection'
-    const rendererConfig = { instanceKey, variant }
+    const rendererConfig = { variant }
     const definition = getLayoutWidgetDefinition(widgetKey, rendererConfig)
     if (!definition) throw new Error('Expected marketing.collection widget definition')
 
@@ -17,6 +17,8 @@ export const encodeBoundCollectionConfig = (instanceKey: string, variant: 'logos
                     ? { kind: selectorKind, field: semanticComponent?.field ?? 'key', value: variant }
                     : selectorKind === 'relation-set'
                     ? { kind: selectorKind, parentSlot: slot.relation?.parentSlot ?? 'items' }
+                    : selectorKind === 'learner-enrollment-set'
+                    ? { kind: selectorKind, targetKind: 'course' as const }
                     : { kind: 'record-set' as const }
             return {
                 slot: slot.key,
@@ -51,6 +53,7 @@ export const primeLockedLayout = (
         layoutId: string
         scopeEntityId?: string | null
         templateKey: 'dashboard' | 'marketing-page'
+        sourceKind?: 'metahub' | 'application'
         version?: number
         config?: Record<string, unknown>
         widgets?: Array<Record<string, unknown>>
@@ -69,7 +72,7 @@ export const primeLockedLayout = (
         is_active: true,
         is_default: true,
         sort_order: 0,
-        source_kind: 'application',
+        source_kind: options.sourceKind ?? 'application',
         source_layout_id: null,
         source_snapshot_hash: null,
         source_content_hash: null,
@@ -89,7 +92,15 @@ export const primeLockedLayout = (
         .mockResolvedValueOnce([])
         .mockResolvedValueOnce([layoutRow])
         .mockResolvedValueOnce([])
-        .mockResolvedValueOnce((options.widgets ?? []).map((widget) => ({ is_customized: false, ...widget })))
+        .mockResolvedValueOnce(
+            (options.widgets ?? []).map((widget) => ({
+                instance_key: String(widget.instance_key ?? widget.id ?? 'fixture-widget'),
+                parent_widget_id: widget.parent_widget_id ?? null,
+                slot_key: widget.slot_key ?? null,
+                is_customized: false,
+                ...widget
+            }))
+        )
 
     return layoutRow
 }

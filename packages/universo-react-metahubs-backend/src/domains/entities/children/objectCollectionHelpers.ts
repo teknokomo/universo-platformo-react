@@ -3,7 +3,15 @@ import type { DbExecutor, SqlQueryable } from '@universo-react/utils'
 import { localizedContent, validation, database } from '@universo-react/utils'
 const { sanitizeLocalizedInput, buildLocalizedContent } = localizedContent
 const { normalizeCodenameForStyle, isValidCodenameForStyle } = validation
-import { MetaEntityKind, normalizeObjectRecordBehavior, normalizeLedgerConfig, validateLedgerConfigReferences } from '@universo-react/types'
+import {
+    DEFAULT_OBJECT_RUNTIME_MENU_ICON,
+    MetaEntityKind,
+    OBJECT_RUNTIME_MENU_ICON_KEYS,
+    isObjectRuntimeMenuIcon,
+    normalizeObjectRecordBehavior,
+    normalizeLedgerConfig,
+    validateLedgerConfigReferences
+} from '@universo-react/types'
 import type { LedgerConfig } from '@universo-react/types'
 import { MetahubSchemaService } from '../../metahubs/services/MetahubSchemaService'
 import { MetahubObjectsService } from '../../metahubs/services/MetahubObjectsService'
@@ -24,7 +32,9 @@ import {
     syncOptionalCodenamePayloadText
 } from '../../shared/codenamePayload'
 import { getCodenameText } from '../../shared/codename'
+import { MetahubConflictError } from '../../shared/domainErrors'
 import { readPlatformSystemComponentsPolicy } from '../../shared'
+import { acquireWidgetBindingObjectLock, isEntityBoundByCodename } from '../../layouts/widgetBindingPolicyStore'
 import { executeHubScopedDelete } from '../services/entityDeletePatterns'
 import {
     resolveEntityMetadataSettingKeys,
@@ -57,12 +67,11 @@ type ObjectCollectionObjectRow = {
         name?: unknown
         description?: unknown
     }
-    config?: {
+    config?: Record<string, unknown> & {
         hubs?: unknown
         isSingleHub?: boolean
         isRequiredHub?: boolean
         sortOrder?: number
-        runtimeConfig?: unknown
         recordBehavior?: unknown
         ledger?: unknown
     }
@@ -230,6 +239,8 @@ const createObjectCollectionSchema = z
         treeEntityIds: z.array(z.string().uuid()).optional(),
         recordBehavior: z.record(z.unknown()).optional(),
         ledgerConfig: z.union([z.record(z.unknown()), z.null()]).optional(),
+        runtimeMenuVisible: z.boolean().optional(),
+        runtimeMenuIcon: z.enum(OBJECT_RUNTIME_MENU_ICON_KEYS).optional(),
         kindKey: z.string().trim().min(1).max(128).optional()
     })
     .strict()
@@ -247,9 +258,43 @@ const updateObjectCollectionSchema = z
         treeEntityIds: z.array(z.string().uuid()).optional(),
         recordBehavior: z.record(z.unknown()).optional(),
         ledgerConfig: z.union([z.record(z.unknown()), z.null()]).optional(),
+        runtimeMenuVisible: z.boolean().optional(),
+        runtimeMenuIcon: z.enum(OBJECT_RUNTIME_MENU_ICON_KEYS).optional(),
         expectedVersion: z.number().int().positive().optional()
     })
     .strict()
+
+const isRuntimeRecord = (value: unknown): value is Record<string, unknown> =>
+    Boolean(value && typeof value === 'object' && !Array.isArray(value))
+
+const applyRuntimeMenuSettings = (
+    config: Record<string, unknown>,
+    visible: boolean | undefined,
+    icon: unknown
+): Record<string, unknown> => {
+    if (visible === undefined) return config
+
+    const runtime = isRuntimeRecord(config.runtime) ? { ...config.runtime } : {}
+    if (visible) {
+        runtime.menuVisibility = 'primary'
+        runtime.icon = isObjectRuntimeMenuIcon(icon)
+            ? icon
+            : isObjectRuntimeMenuIcon(runtime.icon)
+            ? runtime.icon
+            : DEFAULT_OBJECT_RUNTIME_MENU_ICON
+    } else {
+        runtime.menuVisibility = 'hidden'
+        delete runtime.icon
+    }
+
+    const nextConfig = { ...config }
+    if (Object.keys(runtime).length > 0) {
+        nextConfig.runtime = runtime
+    } else {
+        delete nextConfig.runtime
+    }
+    return nextConfig
+}
 
 const normalizeOptionalLedgerConfig = (value: unknown): LedgerConfig | null | undefined => {
     if (value === undefined) return undefined
@@ -552,6 +597,8 @@ export const createObjectCollectionByHub = async ({ req, res, metahubId, userId,
         treeEntityIds,
         recordBehavior,
         ledgerConfig,
+        runtimeMenuVisible,
+        runtimeMenuIcon,
         kindKey
     } = parsed.data
     const normalizedLedgerConfig = normalizeOptionalLedgerConfig(ledgerConfig)
@@ -626,6 +673,18 @@ export const createObjectCollectionByHub = async ({ req, res, metahubId, userId,
     let object
     try {
         object = await exec.transaction(async (trx: SqlQueryable) => {
+            const config = applyRuntimeMenuSettings(
+                {
+                    hubs: targetTreeEntityIds,
+                    isSingleHub: isSingleHub ?? false,
+                    isRequiredHub: effectiveIsRequired,
+                    sortOrder,
+                    recordBehavior: normalizeObjectRecordBehavior(recordBehavior),
+                    ...(normalizedLedgerConfig ? { ledger: normalizedLedgerConfig } : {})
+                },
+                runtimeMenuVisible,
+                runtimeMenuIcon
+            )
             const nextObject = await objectsService.createObject(
                 metahubId,
                 targetKind,
@@ -633,14 +692,7 @@ export const createObjectCollectionByHub = async ({ req, res, metahubId, userId,
                     codename: codenamePayload,
                     name: nameVlc,
                     description: descriptionVlc,
-                    config: {
-                        hubs: targetTreeEntityIds,
-                        isSingleHub: isSingleHub ?? false,
-                        isRequiredHub: effectiveIsRequired,
-                        sortOrder,
-                        recordBehavior: normalizeObjectRecordBehavior(recordBehavior),
-                        ...(normalizedLedgerConfig ? { ledger: normalizedLedgerConfig } : {})
-                    },
+                    config,
                     createdBy: userId
                 },
                 userId,
@@ -713,8 +765,11 @@ export const updateObjectCollectionByHub = async ({ req, res, metahubId, userId,
         treeEntityIds,
         recordBehavior,
         ledgerConfig,
+        runtimeMenuVisible,
+        runtimeMenuIcon,
         expectedVersion
     } = parsed.data
+    const updateExpectedVersion = expectedVersion ?? object._upl_version ?? 1
     const normalizedLedgerConfig = normalizeOptionalLedgerConfig(ledgerConfig)
     const ledgerValidationError = await validateObjectCollectionLedgerConfig({
         componentsService,
@@ -804,18 +859,21 @@ export const updateObjectCollectionByHub = async ({ req, res, metahubId, userId,
                 : undefined
     }
 
-    const nextConfig = {
-        ...currentConfig,
-        hubs: targetTreeEntityIds,
-        isSingleHub: isSingleHub ?? currentConfig.isSingleHub,
-        isRequiredHub: isRequiredHub ?? currentConfig.isRequiredHub,
-        sortOrder: sortOrder ?? currentConfig.sortOrder,
-        recordBehavior:
-            recordBehavior !== undefined
-                ? normalizeObjectRecordBehavior(recordBehavior)
-                : normalizeObjectRecordBehavior(currentConfig.recordBehavior),
-        runtimeConfig: currentConfig.runtimeConfig
-    }
+    const nextConfig = applyRuntimeMenuSettings(
+        {
+            ...currentConfig,
+            hubs: targetTreeEntityIds,
+            isSingleHub: isSingleHub ?? currentConfig.isSingleHub,
+            isRequiredHub: isRequiredHub ?? currentConfig.isRequiredHub,
+            sortOrder: sortOrder ?? currentConfig.sortOrder,
+            recordBehavior:
+                recordBehavior !== undefined
+                    ? normalizeObjectRecordBehavior(recordBehavior)
+                    : normalizeObjectRecordBehavior(currentConfig.recordBehavior)
+        },
+        runtimeMenuVisible,
+        runtimeMenuIcon
+    )
     if (normalizedLedgerConfig !== undefined) {
         if (normalizedLedgerConfig === null) {
             delete nextConfig.ledger
@@ -824,20 +882,37 @@ export const updateObjectCollectionByHub = async ({ req, res, metahubId, userId,
         }
     }
 
-    const updated = (await objectsService.updateObject(
-        metahubId,
-        objectCollectionId,
-        resolveObjectCollectionObjectKind(object),
-        {
-            codename: finalCodenameText !== getObjectCollectionCodenameText(object.codename) ? finalCodename : undefined,
-            name: finalName,
-            description: finalDescription,
-            config: nextConfig,
-            updatedBy: userId,
-            expectedVersion
-        },
-        userId
-    )) as ObjectCollectionObjectRow
+    const codenameChanged = finalCodenameText !== getObjectCollectionCodenameText(object.codename)
+    const updateObject = (db?: SqlQueryable) =>
+        objectsService.updateObject(
+            metahubId,
+            objectCollectionId,
+            resolveObjectCollectionObjectKind(object),
+            {
+                codename: codenameChanged ? finalCodename : undefined,
+                name: finalName,
+                description: finalDescription,
+                config: nextConfig,
+                updatedBy: userId,
+                expectedVersion: updateExpectedVersion
+            },
+            userId,
+            db
+        )
+
+    let updated: ObjectCollectionObjectRow
+    if (codenameChanged) {
+        const schemaName = await schemaService.ensureSchema(metahubId, userId)
+        updated = (await exec.transaction(async (tx: SqlQueryable) => {
+            const lockedObject = await acquireWidgetBindingObjectLock(tx, schemaName, objectCollectionId)
+            if (await isEntityBoundByCodename(tx, schemaName, lockedObject.kind, lockedObject.codename)) {
+                throw new MetahubConflictError('An Entity codename used by a live layout binding cannot be changed.')
+            }
+            return updateObject(tx)
+        })) as ObjectCollectionObjectRow
+    } else {
+        updated = (await updateObject()) as ObjectCollectionObjectRow
+    }
 
     const persistedUpdated = (await objectsService.findById(metahubId, updated.id, userId)) as ObjectCollectionObjectRow | null
     const responseObject = persistedUpdated ?? updated

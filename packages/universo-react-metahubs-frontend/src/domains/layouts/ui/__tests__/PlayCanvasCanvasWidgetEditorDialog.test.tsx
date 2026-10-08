@@ -9,10 +9,7 @@ import PlayCanvasCanvasWidgetEditorDialog from '../PlayCanvasCanvasWidgetEditorD
 const mocks = vi.hoisted(() => ({
     listModules: vi.fn(),
     listPublishedRuntimeManifests: vi.fn(),
-    listAttachedPackages: vi.fn(),
-    fetchAllPaginatedItems: vi.fn(),
-    listEntityTypes: vi.fn(),
-    listEntityInstances: vi.fn()
+    listAttachedPackages: vi.fn()
 }))
 
 vi.mock('react-i18next', async (importOriginal) => {
@@ -46,22 +43,6 @@ vi.mock('../../../packages/api', () => ({
     playcanvasProjectsApi: {
         listPublishedRuntimeManifests: mocks.listPublishedRuntimeManifests
     }
-}))
-
-vi.mock('../../../shared', async (importOriginal) => {
-    const actual = await importOriginal<typeof import('../../../shared')>()
-    return {
-        ...actual,
-        fetchAllPaginatedItems: mocks.fetchAllPaginatedItems
-    }
-})
-
-vi.mock('../../../entities/api/entityTypes', () => ({
-    listEntityTypes: mocks.listEntityTypes
-}))
-
-vi.mock('../../../entities/api/entityInstances', () => ({
-    listEntityInstances: mocks.listEntityInstances
 }))
 
 const createQueryClient = () =>
@@ -204,37 +185,11 @@ describe('PlayCanvasCanvasWidgetEditorDialog', () => {
                 isActive: true
             }
         ])
-        mocks.fetchAllPaginatedItems.mockImplementation(async (fetchPage: (params: Record<string, unknown>) => Promise<unknown>) =>
-            fetchPage({})
-        )
-        mocks.listEntityTypes.mockResolvedValue({
-            items: [
-                {
-                    kindKey: 'object',
-                    codename: vlc('Object'),
-                    ui: {},
-                    capabilities: { layoutConfig: { enabled: true } }
-                }
-            ],
-            pagination: { hasMore: false }
-        })
-        mocks.listEntityInstances.mockResolvedValue({
-            items: [
-                {
-                    id: 'section-space-id',
-                    kind: 'object',
-                    codename: vlc('FlightWorld'),
-                    name: vlc('Space'),
-                    sortOrder: 1
-                }
-            ],
-            pagination: { hasMore: false }
-        })
     })
 
     it('uses user-facing selectors while keeping internal identifiers out of visible labels', async () => {
         const user = userEvent.setup()
-        const { onSave } = renderDialog()
+        renderDialog()
 
         await waitFor(() => {
             expect(mocks.listModules).toHaveBeenCalledWith('metahub-1')
@@ -253,30 +208,53 @@ describe('PlayCanvasCanvasWidgetEditorDialog', () => {
         await user.click(screen.getByRole('combobox', { name: 'Published scene' }))
         expect(screen.getByRole('option', { name: 'Unserialized Scene' })).toBeInTheDocument()
         await user.click(screen.getByRole('option', { name: /Flight Arena · MMOOMM Authoring/ }))
-
-        await user.click(screen.getByRole('combobox', { name: 'Visible in sections' }))
-        await user.click(screen.getByRole('option', { name: 'Space · Object' }))
         await user.keyboard('{Escape}')
+
+        expect(screen.queryByRole('combobox', { name: 'Visible in sections' })).not.toBeInTheDocument()
 
         const dialog = screen.getByRole('dialog', { name: 'PlayCanvas canvas widget' })
         expect(
             within(dialog).queryByText(/mmoomm-flight-widget|fixed-tick-flight-runtime|FlightWorld|019e8afa|aaaaaaaaaaaa/i)
         ).not.toBeInTheDocument()
+    })
+
+    it('does not expose or save the retired section visibility config', async () => {
+        const user = userEvent.setup()
+        const { onSave } = renderDialog({ config: { title: 'Flight arena' } })
+
+        expect(screen.queryByRole('combobox', { name: 'Visible in sections' })).not.toBeInTheDocument()
 
         await user.click(screen.getByRole('button', { name: 'Save' }))
 
-        expect(onSave).toHaveBeenCalledWith(
-            expect.objectContaining({
-                moduleCodename: 'mmoomm-flight-widget',
-                serverModuleCodename: 'fixed-tick-flight-runtime',
-                visibleFor: { sectionIds: ['section-space-id'], sectionCodenames: ['FlightWorld'] },
-                runtimeManifest: expect.objectContaining({
-                    projectId: '019e8afa-0000-7000-8000-000000000001',
-                    sceneId: '019e8afa-0000-7000-8000-000000000002',
-                    checksum: 'a'.repeat(64)
-                })
-            })
-        )
+        expect(onSave).toHaveBeenCalledOnce()
+        expect(onSave.mock.calls[0]?.[0]).not.toHaveProperty('visibleFor')
+    })
+
+    it('serializes the localized editor title into the widget config locale map', async () => {
+        const user = userEvent.setup()
+        const { onSave } = renderDialog()
+
+        await user.click(screen.getByRole('button', { name: 'Save' }))
+
+        await waitFor(() => expect(onSave).toHaveBeenCalledOnce())
+        expect(onSave.mock.calls[0]?.[0]).toMatchObject({
+            title: { en: 'Universo MMOOMM' },
+            minHeight: 560,
+            heightMode: 'fitViewport'
+        })
+        expect(screen.getByRole('dialog', { name: 'PlayCanvas canvas widget' })).toBeInTheDocument()
+    })
+
+    it('hydrates and preserves every saved title locale while editing', async () => {
+        const user = userEvent.setup()
+        const { onSave } = renderDialog({ config: { title: { en: 'Flight arena', ru: 'Полётная арена' } } })
+
+        const englishTitleRow = await screen.findByTestId('localized-inline-row-en')
+        expect(within(englishTitleRow).getByRole('textbox', { name: 'Widget title' })).toHaveValue('Flight arena')
+        await user.click(screen.getByRole('button', { name: 'Save' }))
+
+        await waitFor(() => expect(onSave).toHaveBeenCalledOnce())
+        expect(onSave.mock.calls[0]?.[0].title).toEqual({ en: 'Flight arena', ru: 'Полётная арена' })
     })
 
     it('shows published manifests from every PlayCanvas project, not only the default editor project', async () => {
@@ -291,7 +269,7 @@ describe('PlayCanvasCanvasWidgetEditorDialog', () => {
 
     it('shows a localized validation error instead of silently ignoring invalid saved config', async () => {
         const user = userEvent.setup()
-        renderDialog()
+        const { onSave, onCancel } = renderDialog()
 
         await user.clear(screen.getByLabelText('Minimum height'))
         await user.type(screen.getByLabelText('Minimum height'), '128')
@@ -299,5 +277,8 @@ describe('PlayCanvasCanvasWidgetEditorDialog', () => {
         await user.click(screen.getByRole('button', { name: 'Save' }))
 
         expect(screen.getByText('Check the PlayCanvas canvas widget settings and try again.')).toBeInTheDocument()
+        expect(onSave).not.toHaveBeenCalled()
+        expect(onCancel).not.toHaveBeenCalled()
+        expect(screen.getByRole('dialog', { name: 'PlayCanvas canvas widget' })).toBeInTheDocument()
     })
 })

@@ -1,5 +1,5 @@
 import { getLayoutWidgetDefinition, type WidgetBindingSlotDefinition } from '@universo-react/types'
-import { resolveWidgetBindingTargets } from '../../services/widgetBindingResolver'
+import { getWidgetBindingRuntimeMutationIdentity, resolveWidgetBindingTargets } from '../../services/widgetBindingResolver'
 import type { WidgetBindingRecordQuery } from '../../services/widgetBindingQuery'
 
 const projectionFor = (slot: WidgetBindingSlotDefinition) =>
@@ -118,6 +118,7 @@ describe('resolveWidgetBindingTargets', () => {
             return [
                 {
                     recordId: 'logo-1',
+                    version: 9,
                     data: {
                         key: 'sydney',
                         imageLight: { type: 'url', url: 'https://example.test/sydney.svg' },
@@ -136,6 +137,9 @@ describe('resolveWidgetBindingTargets', () => {
             ['section', 'logos'],
             ['items', 'sydney']
         ])
+        const itemTarget = resolved.find(({ slot }) => slot === 'items')
+        expect(itemTarget).toBeDefined()
+        if (itemTarget) expect(getWidgetBindingRuntimeMutationIdentity(itemTarget)).toEqual({ recordId: 'logo-1', version: 9 })
     })
 
     it('resolves relation sets against parent UUIDs and exposes only parent semantic keys', async () => {

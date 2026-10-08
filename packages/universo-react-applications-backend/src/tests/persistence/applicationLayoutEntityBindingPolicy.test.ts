@@ -3,7 +3,8 @@ import {
     buildSingleTargetWidgetBinding,
     encodeLayoutWidgetConfigEnvelope,
     getLayoutWidgetDefinition,
-    LAYOUT_WIDGET_DEFINITIONS
+    LAYOUT_WIDGET_DEFINITIONS,
+    validateWidgetBindings
 } from '@universo-react/types'
 import {
     containsEntityBackedWidgetCopyConflict,
@@ -18,7 +19,7 @@ if (!heroDefinition) throw new Error('The marketing hero widget must be register
 
 const imageConfig = encodeLayoutWidgetConfigEnvelope(
     {
-        rendererConfig: { instanceKey: 'image' },
+        rendererConfig: {},
         neutral: {
             bindings: buildSingleTargetWidgetBinding(imageDefinition, 'content', {
                 entityKind: 'object',
@@ -31,20 +32,50 @@ const imageConfig = encodeLayoutWidgetConfigEnvelope(
 )
 
 const overlayConfig = encodeLayoutWidgetConfigEnvelope(
-    { rendererConfig: { instanceKey: 'hero' } },
+    { rendererConfig: {} },
     { templateKey: 'marketing-page', widgetKey: 'marketing.hero', zone: 'marketing-main' }
 )
 
 const persistedOverlay = {
     id: '0190a9b5-3cde-7000-8000-000000000071',
+    instance_key: 'hero',
     widget_key: 'marketing.hero',
     zone: 'marketing-main',
     config: overlayConfig,
     source_config: overlayConfig,
+    source_widget_id: '0190a9b5-3cde-7000-8000-000000000073',
     source_base_widget_id: '0190a9b5-3cde-7000-8000-000000000073',
     _upl_deleted: false,
     _app_deleted: false
 }
+
+const registryBindings = (definition: NonNullable<ReturnType<typeof getLayoutWidgetDefinition>>) =>
+    validateWidgetBindings(definition, {
+        version: 1,
+        slots: (definition.bindingSlots ?? []).map((slot, index) => {
+            const selectorKind = slot.selectorKinds[0]
+            const semanticComponent = slot.requirements.components.find(({ semanticKey }) => semanticKey === true)
+            const selector =
+                selectorKind === 'semantic-key'
+                    ? { kind: selectorKind, field: semanticComponent?.field ?? 'key', value: `fixture-${index}` }
+                    : selectorKind === 'relation-set'
+                    ? { kind: selectorKind, parentSlot: slot.relation?.parentSlot ?? 'content' }
+                    : selectorKind === 'learner-enrollment-set'
+                    ? { kind: selectorKind, targetKind: 'course' as const }
+                    : { kind: 'record-set' as const }
+            return {
+                slot: slot.key,
+                targets: [
+                    {
+                        entityKind: 'object' as const,
+                        entityCodename: `FixtureEntity${index}`,
+                        selector,
+                        projection: slot.requirements.components.map(({ field, componentCodename }) => ({ field, componentCodename }))
+                    }
+                ]
+            }
+        })
+    })
 
 describe('application layout Entity binding policy', () => {
     it('blocks source-to-application copies for every registry variant with required source-owned bindings', () => {
@@ -64,10 +95,8 @@ describe('application layout Entity binding policy', () => {
 
             const variants = definition.bindingVariants ? Object.keys(definition.bindingVariants) : [undefined]
             return variants.map((variant) => {
-                const rendererConfig = {
-                    instanceKey: `copy-policy-${definition.key}${variant ? `-${variant}` : ''}`,
-                    ...(variant ? { variant } : {})
-                }
+                const instanceKey = `copy-policy-${definition.key}${variant ? `-${variant}` : ''}`
+                const rendererConfig = variant ? { variant } : {}
                 const resolvedDefinition = getLayoutWidgetDefinition(definition.key, rendererConfig)
                 const expectedConflict =
                     resolvedDefinition?.authoring?.application.presentationOnly === true &&
@@ -79,8 +108,12 @@ describe('application layout Entity binding policy', () => {
                     widget: {
                         widgetKey: definition.key,
                         zone,
+                        instanceKey,
                         config: encodeLayoutWidgetConfigEnvelope(
-                            { rendererConfig },
+                            {
+                                rendererConfig,
+                                neutral: expectedConflict && resolvedDefinition ? { bindings: registryBindings(resolvedDefinition) } : {}
+                            },
                             { templateKey: 'marketing-page', widgetKey: definition.key, zone, requireBindings: false }
                         )
                     },
@@ -99,20 +132,20 @@ describe('application layout Entity binding policy', () => {
     it('classifies required Entity-backed source widgets as unavailable for application-owned copies', () => {
         expect(
             containsEntityBackedWidgetCopyConflict('marketing-page', [
-                { widgetKey: 'marketing.image', zone: 'marketing-main', config: imageConfig }
+                { widgetKey: 'marketing.image', zone: 'marketing-main', instanceKey: 'image', config: imageConfig }
             ])
         ).toBe(true)
     })
 
     it('allows copying source widgets without required Entity binding slots', () => {
         const authConfig = encodeLayoutWidgetConfigEnvelope(
-            { rendererConfig: { instanceKey: 'auth' }, neutral: {} },
+            { rendererConfig: {}, neutral: {} },
             { templateKey: 'marketing-page', widgetKey: 'marketing.auth', zone: 'marketing-header' }
         )
 
         expect(
             containsEntityBackedWidgetCopyConflict('marketing-page', [
-                { widgetKey: 'marketing.auth', zone: 'marketing-header', config: authConfig }
+                { widgetKey: 'marketing.auth', zone: 'marketing-header', instanceKey: 'auth', config: authConfig }
             ])
         ).toBe(false)
     })
@@ -138,7 +171,7 @@ describe('application layout Entity binding policy', () => {
             ...persistedOverlay,
             source_config: encodeLayoutWidgetConfigEnvelope(
                 {
-                    rendererConfig: { instanceKey: 'hero', showLeadForm: true },
+                    rendererConfig: { showLeadForm: true },
                     neutral: {
                         bindings: buildSingleTargetWidgetBinding(heroDefinition, 'content', {
                             entityKind: 'object',
@@ -152,7 +185,7 @@ describe('application layout Entity binding policy', () => {
         }
 
         expect(() => containsPersistedRequiredEntityBackedWidget('marketing-page', [forgedOverlay])).toThrow(
-            'cannot contain entity bindings'
+            'violates its registry source policy'
         )
     })
 

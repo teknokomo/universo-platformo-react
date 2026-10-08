@@ -65,7 +65,7 @@
     "peerDependencies": {
         "react": ">=18",
         "react-dom": ">=18",
-        "react-router-dom": "^6.0.0"
+        "react-router-dom": "^7.18.2"
     },
     "devDependencies": {
         "@types/node": "catalog:",
@@ -82,7 +82,7 @@
         "jest-axe": "^9.0.0",
         "axe-core": "^4.8.0",
         "notistack": "catalog:",
-        "react-router-dom": "^6.0.0",
+        "react-router-dom": "catalog:",
         "@mui/icons-material": "catalog:",
         "@mui/x-charts": "catalog:",
         "@mui/x-data-grid": "catalog:",

@@ -464,6 +464,21 @@ describe('MetahubSchemaService create options', () => {
             ])
         )
         expect(entityCodenames).not.toContain('Modules')
+        const primaryNavigationContracts = [
+            ['ContentProjects', 'folder'],
+            ['Courses', 'school'],
+            ['LearningTracks', 'tasks'],
+            ['Reports', 'analytics']
+        ] as const
+        for (const [codename, icon] of primaryNavigationContracts) {
+            const entity = bundle.seed.entities.find((value: { codename: string }) => value.codename === codename)
+            expect(entity).toMatchObject({
+                hubs: ['Learning'],
+                config: { runtime: { menuVisibility: 'primary', icon } }
+            })
+        }
+        const reportsEntity = bundle.seed.entities.find((value: { codename: string }) => value.codename === 'Reports')
+        expect(reportsEntity).toMatchObject({ config: { runtime: { requiresPermission: 'readReports' } } })
     })
 
     it('builds the 1C-Compatible full preset graph with valid behavior references', async () => {

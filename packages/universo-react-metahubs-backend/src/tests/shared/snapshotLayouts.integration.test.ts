@@ -51,6 +51,9 @@ describeIntegration('layout snapshot transaction integration (requires PostgreSQ
             CREATE TABLE ${widgetsTable} (
                 id uuid PRIMARY KEY,
                 layout_id uuid NOT NULL,
+                instance_key text NOT NULL,
+                parent_widget_id uuid NULL,
+                slot_key text NULL,
                 zone text NOT NULL,
                 widget_key text NOT NULL,
                 sort_order integer NOT NULL,
@@ -58,7 +61,12 @@ describeIntegration('layout snapshot transaction integration (requires PostgreSQ
                 is_active boolean NOT NULL,
                 _upl_deleted boolean NOT NULL DEFAULT false,
                 _mhb_deleted boolean NOT NULL DEFAULT false,
-                _upl_created_at timestamptz NOT NULL DEFAULT now()
+                _upl_created_at timestamptz NOT NULL DEFAULT now(),
+                UNIQUE (layout_id, instance_key),
+                FOREIGN KEY (layout_id) REFERENCES ${layoutsTable}(id),
+                FOREIGN KEY (parent_widget_id) REFERENCES ${widgetsTable}(id),
+                CHECK ((parent_widget_id IS NULL AND slot_key IS NULL) OR (parent_widget_id IS NOT NULL AND slot_key IS NOT NULL)),
+                CHECK (parent_widget_id IS NULL OR parent_widget_id <> id)
             )
         `)
         await knex.raw(`
@@ -93,15 +101,35 @@ describeIntegration('layout snapshot transaction integration (requires PostgreSQ
         )
         await knex.raw(
             `INSERT INTO ${widgetsTable}
-                (id, layout_id, zone, widget_key, sort_order, config, is_active)
-             VALUES (?, ?, ?, ?, ?, ?::jsonb, ?)`,
+                (id, layout_id, instance_key, parent_widget_id, slot_key, zone, widget_key, sort_order, config, is_active)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?::jsonb, ?)`,
             [
                 '019e8afa-0000-7000-8000-000000000002',
                 '019e8afa-0000-7000-8000-000000000001',
-                'left',
-                'menuWidget',
+                'dashboard-columns',
+                null,
+                null,
+                'center',
+                'columnsContainer',
                 0,
-                JSON.stringify({ showTitle: true }),
+                JSON.stringify({ columns: [{ slotKey: 'column:primary', width: 12 }] }),
+                true
+            ]
+        )
+        await knex.raw(
+            `INSERT INTO ${widgetsTable}
+                (id, layout_id, instance_key, parent_widget_id, slot_key, zone, widget_key, sort_order, config, is_active)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?::jsonb, ?)`,
+            [
+                '019e8afa-0000-7000-8000-000000000003',
+                '019e8afa-0000-7000-8000-000000000001',
+                'dashboard-canvas',
+                '019e8afa-0000-7000-8000-000000000002',
+                'column:primary',
+                'center',
+                'playcanvasCanvas',
+                1,
+                JSON.stringify({}),
                 true
             ]
         )
@@ -170,7 +198,17 @@ describeIntegration('layout snapshot transaction integration (requires PostgreSQ
         expect(snapshot.layoutZoneWidgets).toEqual([
             expect.objectContaining({
                 id: '019e8afa-0000-7000-8000-000000000002',
-                widgetKey: 'menuWidget'
+                instanceKey: 'dashboard-columns',
+                parentWidgetId: null,
+                slotKey: null,
+                widgetKey: 'columnsContainer'
+            }),
+            expect.objectContaining({
+                id: '019e8afa-0000-7000-8000-000000000003',
+                instanceKey: 'dashboard-canvas',
+                parentWidgetId: '019e8afa-0000-7000-8000-000000000002',
+                slotKey: 'column:primary',
+                widgetKey: 'playcanvasCanvas'
             })
         ])
 

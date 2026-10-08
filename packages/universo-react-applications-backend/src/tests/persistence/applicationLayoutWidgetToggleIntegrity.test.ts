@@ -42,6 +42,8 @@ const boundMarketingWidgetConfig = (
                       }
                     : selectorKind === 'relation-set'
                     ? { kind: selectorKind, parentSlot: slot.relation?.parentSlot ?? 'tiers' }
+                    : selectorKind === 'learner-enrollment-set'
+                    ? { kind: selectorKind, targetKind: 'course' as const }
                     : { kind: 'record-set' as const }
             const entityCodename = entityCodenames[slot.key]
             if (!entityCodename) throw new Error(`Expected ${widgetKey}/${slot.key} binding entity`)
@@ -66,12 +68,15 @@ const boundMarketingWidgetConfig = (
     )
 }
 
-const sourceStateFor = (widgetKey: string, config: unknown, sortOrder: number) =>
+const sourceStateFor = (widgetKey: string, config: unknown, sortOrder: number, instanceKey: string) =>
     createApplicationLayoutWidgetSourceState('marketing-page', widgetKey, {
         zone: 'marketing-main',
         sortOrder,
         isActive: true,
-        config
+        config,
+        instanceKey,
+        parentWidgetId: null,
+        slotKey: null
     })
 
 const layoutRow = {
@@ -104,7 +109,7 @@ const layoutRow = {
 const pricingWidget = (id: string, instanceKey = 'pricing') => {
     const sourceConfig = boundMarketingWidgetConfig(
         'marketing.pricing',
-        { instanceKey },
+        {},
         {
             section: 'MarketingPageSection',
             tiers: 'MarketingPagePricing',
@@ -117,10 +122,13 @@ const pricingWidget = (id: string, instanceKey = 'pricing') => {
         layout_id: layoutId,
         zone: 'marketing-main',
         widget_key: 'marketing.pricing',
+        instance_key: instanceKey,
+        parent_widget_id: null,
+        slot_key: null,
         sort_order: 1,
         config: sourceConfig,
         source_config: sourceConfig,
-        source_state: sourceStateFor('marketing.pricing', sourceConfig, 1),
+        source_state: sourceStateFor('marketing.pricing', sourceConfig, 1, instanceKey),
         source_widget_id: null,
         source_base_widget_id: null,
         is_customized: false,
@@ -133,7 +141,7 @@ const featuresWidgetId = '018f8a78-7b8f-7c1d-a111-2222333344a7'
 const featuresWidget = (() => {
     const sourceConfig = boundMarketingWidgetConfig(
         'marketing.collection',
-        { instanceKey: 'features', variant: 'features' },
+        { variant: 'features' },
         { section: 'MarketingPageSection', items: 'MarketingPageFeature' },
         { section: 'features' }
     )
@@ -142,10 +150,13 @@ const featuresWidget = (() => {
         layout_id: layoutId,
         zone: 'marketing-main',
         widget_key: 'marketing.collection',
+        instance_key: 'features',
+        parent_widget_id: null,
+        slot_key: null,
         sort_order: 2,
         config: sourceConfig,
         source_config: sourceConfig,
-        source_state: sourceStateFor('marketing.collection', sourceConfig, 2),
+        source_state: sourceStateFor('marketing.collection', sourceConfig, 2, 'features'),
         source_widget_id: null,
         source_base_widget_id: null,
         is_customized: false,
@@ -157,17 +168,18 @@ const featuresWidget = (() => {
 const customFeaturesWidget = (id: string, instanceKey: string, sortOrder: number) => {
     const sourceConfig = boundMarketingWidgetConfig(
         'marketing.collection',
-        { instanceKey, variant: 'features' },
+        { variant: 'features' },
         { section: 'MarketingPageSection', items: 'MarketingPageFeature' },
         { section: 'features' }
     )
     return {
         ...featuresWidget,
         id,
+        instance_key: instanceKey,
         sort_order: sortOrder,
         config: sourceConfig,
         source_config: sourceConfig,
-        source_state: sourceStateFor('marketing.collection', sourceConfig, sortOrder),
+        source_state: sourceStateFor('marketing.collection', sourceConfig, sortOrder, instanceKey),
         source_widget_id: null
     }
 }
@@ -175,7 +187,8 @@ const customFeaturesWidget = (id: string, instanceKey: string, sortOrder: number
 const heroWidget = (id: string, semanticKey: string, inherited = false) => {
     const definition = getLayoutWidgetDefinition('marketing.hero')
     if (!definition) throw new Error('Expected marketing.hero widget definition')
-    const rendererConfig = { instanceKey: inherited ? 'hero-inherited' : 'hero-primary', showLeadForm: true }
+    const instanceKey = semanticKey
+    const rendererConfig = { showLeadForm: true }
     const sourceConfig = encodeLayoutWidgetConfigEnvelope(
         {
             rendererConfig,
@@ -201,10 +214,13 @@ const heroWidget = (id: string, semanticKey: string, inherited = false) => {
         layout_id: layoutId,
         zone: 'marketing-main',
         widget_key: 'marketing.hero',
+        instance_key: instanceKey,
+        parent_widget_id: null,
+        slot_key: null,
         sort_order: inherited ? 4 : 3,
         config: baselineConfig,
         source_config: baselineConfig,
-        source_state: sourceStateFor('marketing.hero', baselineConfig, inherited ? 4 : 3),
+        source_state: sourceStateFor('marketing.hero', baselineConfig, inherited ? 4 : 3, instanceKey),
         source_widget_id: inherited ? inheritedHeroBaseId : null,
         source_base_widget_id: inherited ? inheritedHeroBaseId : null,
         is_customized: false,
@@ -399,7 +415,7 @@ describe('application layout marketing Hero action integrity on widget toggle', 
 
     it('allows hiding one of duplicate section targets while another active placement keeps the same anchor', async () => {
         const scenario = createScenario(
-            [pricingWidget(widgetId), pricingWidget(pricingDuplicateId), heroWidget(primaryHeroId, 'hero-primary')],
+            [pricingWidget(widgetId), pricingWidget(pricingDuplicateId, 'pricing-secondary'), heroWidget(primaryHeroId, 'hero-primary')],
             []
         )
 

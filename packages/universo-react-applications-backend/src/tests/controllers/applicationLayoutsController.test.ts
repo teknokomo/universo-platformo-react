@@ -482,7 +482,7 @@ describe('applicationLayoutsController', () => {
         await controller.copy(
             {
                 params: { applicationId: 'app-1', layoutId: '018f8a78-7b8f-7c1d-a111-2222333344a1' },
-                body: { unexpected: true }
+                body: { expectedVersion: 7, templateKey: 'marketing-page' }
             } as unknown as Request,
             res
         )
@@ -529,14 +529,16 @@ describe('applicationLayoutsController', () => {
         })
     })
 
-    it('maps a duplicate marketing instance key to HTTP 409 and preserves both route ids', async () => {
+    it('maps a duplicate generated placement instance key to HTTP 409 and preserves both route ids', async () => {
         const controller = createApplicationLayoutsController(() => executor as never)
         const res = createResponse()
         const body = {
             zone: 'marketing-main',
             widgetKey: 'marketing.hero',
+            parentWidgetId: null,
+            slotKey: null,
             expectedVersion: 3,
-            config: { instanceKey: 'hero', showLeadForm: false }
+            config: { showLeadForm: false }
         }
         mockUpsertApplicationLayoutWidget.mockRejectedValue(new Error('APPLICATION_LAYOUT_WIDGET_DUPLICATE_INSTANCE'))
 
@@ -564,7 +566,7 @@ describe('applicationLayoutsController', () => {
     it('passes the route layout id to widget config updates', async () => {
         const controller = createApplicationLayoutsController(() => executor as never)
         const res = createResponse()
-        const body = { expectedVersion: 3, config: { instanceKey: 'hero', showLeadForm: true } }
+        const body = { expectedVersion: 3, config: { showLeadForm: true } }
         mockUpdateApplicationLayoutWidgetConfig.mockResolvedValue({ id: 'widget-1' })
 
         await controller.updateWidgetConfig(

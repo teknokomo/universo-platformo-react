@@ -390,7 +390,8 @@ export const PAGE_DEFAULT_INSTANCES: PresetDefaultInstance[] = [
             },
             runtime: {
                 routeSegment: 'welcome',
-                menuVisibility: 'visible'
+                menuVisibility: 'visible',
+                icon: 'home'
             }
         }
     }
@@ -407,8 +408,9 @@ export const OBJECT_DEFAULT_INSTANCES: PresetDefaultInstance[] = [
                 dataType: 'STRING',
                 name: vlc('Title', 'Название'),
                 sortOrder: 1,
+                isRequired: true,
                 isDisplayComponent: true,
-                validationRules: { maxLength: 255 },
+                validationRules: { maxLength: 255, localized: true },
                 uiConfig: { isDisplay: true }
             },
             {

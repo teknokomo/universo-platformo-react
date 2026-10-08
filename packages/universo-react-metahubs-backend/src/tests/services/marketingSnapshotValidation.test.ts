@@ -97,7 +97,7 @@ const heroRecordData = () => ({
 
 const collectionWidget = (id: string, instanceKey: string, sourceCodename: string, variant: 'logos' | 'features', sortOrder: number) => {
     const widgetKey = 'marketing.collection'
-    const rendererConfig = { instanceKey, variant, maxItems: 12, showTitle: true, showDescription: true }
+    const rendererConfig = { variant, maxItems: 12, showTitle: true, showDescription: true }
     const definition = getLayoutWidgetDefinition(widgetKey, rendererConfig)
     if (!definition) throw new Error('Expected marketing.collection widget definition')
 
@@ -129,6 +129,9 @@ const collectionWidget = (id: string, instanceKey: string, sourceCodename: strin
     return {
         id,
         layoutId: ids.layout,
+        instanceKey,
+        parentWidgetId: null,
+        slotKey: null,
         zone: 'marketing-main',
         widgetKey,
         sortOrder,
@@ -314,12 +317,15 @@ describe('validateMarketingSnapshotLayouts', () => {
         const heroWidget = (id: string, instanceKey = 'hero') => ({
             id,
             layoutId: ids.layout,
+            instanceKey,
+            parentWidgetId: null,
+            slotKey: null,
             zone: 'marketing-main',
             widgetKey: 'marketing.hero',
             sortOrder: 0,
             config: encodeWidgetConfigEnvelope(
                 {
-                    rendererConfig: { instanceKey, showLeadForm: false },
+                    rendererConfig: { showLeadForm: false },
                     neutral: {
                         bindings: buildSingleTargetWidgetBinding(heroDefinition, 'content', {
                             entityKind: 'object',

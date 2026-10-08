@@ -3,6 +3,7 @@ import { queryMany, queryOne, withTransactionSavepoint, type SqlQueryable } from
 import { validation } from '@universo-react/utils'
 import { MetahubDomainError } from '../../shared/domainErrors'
 import { acquireMetahubLayoutGraphLock } from '../layoutGraphLocks'
+import { validateLayoutWidgetPlacementGraph } from '../widgetPlacementGraph'
 import {
     assertCopyScopeOwnerSupportsLayout,
     assertExpectedLayoutVersion,
@@ -58,7 +59,7 @@ export const copyMetahubLayout = async ({ executor, schemaName, layoutId, userId
         const sourceWidgets = copyOptions.copyWidgets
             ? await queryMany<SourceWidgetRow>(
                   trx,
-                  `SELECT id, zone, widget_key, sort_order, config, is_active
+                  `SELECT id, instance_key, parent_widget_id, slot_key, zone, widget_key, sort_order, config, is_active
                          FROM ${widgetsQt}
                         WHERE layout_id = $1 AND _upl_deleted = false AND _mhb_deleted = false
                         ORDER BY zone ASC, sort_order ASC, _upl_created_at ASC
@@ -81,10 +82,10 @@ export const copyMetahubLayout = async ({ executor, schemaName, layoutId, userId
         const baseWidgets = ownership.isOverlayLayout
             ? await queryMany<SourceBaseWidgetRow>(
                   trx,
-                  `SELECT id, widget_key, zone, sort_order, config, is_active FROM ${widgetsQt}
+                  `SELECT id, instance_key, parent_widget_id, slot_key, widget_key, zone, sort_order, config, is_active FROM ${widgetsQt}
                          WHERE layout_id = $1 AND _upl_deleted = false AND _mhb_deleted = false
                          ORDER BY zone ASC, sort_order ASC, _upl_created_at ASC
-                         FOR UPDATE`,
+                        FOR UPDATE`,
                   [ownership.baseLayoutId]
               )
             : []
@@ -99,7 +100,42 @@ export const copyMetahubLayout = async ({ executor, schemaName, layoutId, userId
             input,
             isOverlayLayout: ownership.isOverlayLayout
         })
-        const preparedLayout = prepareLayoutCopy(sourceLayout, input, ownership, copyOptions.copyWidgets, shouldDeactivateWidgets)
+        const preparedLayout = prepareLayoutCopy(sourceLayout, input, ownership, copyOptions.copyWidgets)
+        const overrides = ownership.isOverlayLayout
+            ? prepareOverrideCopies({
+                  templateKey: ownership.templateKey,
+                  copyWidgets: copyOptions.copyWidgets,
+                  shouldDeactivateWidgets,
+                  sourceOverrides,
+                  baseWidgets,
+                  sourceOverrideByWidgetId: widgetGraph.sourceOverrideByWidgetId,
+                  boundInheritedWidgets: widgetGraph.boundInheritedWidgets,
+                  entityBindingCopyMode: input.entityBindingCopyMode,
+                  copiedWidgetRows: widgetGraph.copiedWidgetRows
+              })
+            : []
+
+        if (ownership.isOverlayLayout && copyOptions.copyWidgets) {
+            const copiedOverridesByWidgetId = new Map(overrides.map((override) => [override.baseWidgetId, override]))
+            const effectiveBaseWidgets = baseWidgets.flatMap((widget) => {
+                const override = copiedOverridesByWidgetId.get(widget.id)
+                if (override?.isDeletedOverride === true) return []
+                return [{ ...widget, zone: override?.zone ?? widget.zone, config: override?.config ?? widget.config }]
+            })
+            validateLayoutWidgetPlacementGraph(ownership.templateKey, [
+                ...effectiveBaseWidgets,
+                ...widgetGraph.preparedWidgets.map(({ widget, id, instanceKey, parentWidgetId, slotKey, config }) => ({
+                    id,
+                    instanceKey,
+                    parentWidgetId,
+                    slotKey,
+                    widget_key: widget.widget_key,
+                    zone: widget.zone,
+                    config
+                }))
+            ])
+        }
+
         const now = new Date()
         const createdLayout = await insertCopiedLayout({
             trx,
@@ -123,17 +159,6 @@ export const copyMetahubLayout = async ({ executor, schemaName, layoutId, userId
         }
 
         if (ownership.isOverlayLayout) {
-            const overrides = prepareOverrideCopies({
-                templateKey: ownership.templateKey,
-                copyWidgets: copyOptions.copyWidgets,
-                shouldDeactivateWidgets,
-                sourceOverrides,
-                baseWidgets,
-                sourceOverrideByWidgetId: widgetGraph.sourceOverrideByWidgetId,
-                boundInheritedWidgets: widgetGraph.boundInheritedWidgets,
-                entityBindingCopyMode: input.entityBindingCopyMode,
-                copiedWidgetRows: widgetGraph.copiedWidgetRows
-            })
             await insertCopiedOverrides({
                 trx,
                 overridesQt,

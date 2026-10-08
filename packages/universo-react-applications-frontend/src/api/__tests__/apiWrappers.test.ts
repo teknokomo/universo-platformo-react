@@ -9,7 +9,7 @@ describe('applications-frontend api wrappers', () => {
     it('propagates explicit workspace scope to runtime list and row mutations', async () => {
         const get = vi
             .fn()
-            .mockResolvedValueOnce({ data: {} })
+            .mockResolvedValueOnce({ data: { columns: [] } })
             .mockResolvedValueOnce({
                 data: {
                     status: 'ok',
@@ -51,6 +51,8 @@ describe('applications-frontend api wrappers', () => {
                             semanticRegion: 'header',
                             widgetKey: 'header',
                             instanceKey: 'header-primary',
+                            parentInstanceKey: null,
+                            slotKey: null,
                             sortOrder: 0,
                             config: {},
                             sourceConfig: null,
@@ -88,7 +90,11 @@ describe('applications-frontend api wrappers', () => {
             rowId: 'row-1',
             objectCollectionId: 'object-1',
             workspaceId: 'workspace-b',
-            data: { title: 'Updated' }
+            data: { title: 'Updated' },
+            relationScope: {
+                fieldCodename: 'CourseId',
+                parentRecordId: '0190a9b5-3cde-7abc-8def-0123456789ad'
+            }
         })
 
         expect(get).toHaveBeenCalledWith('/applications/app-1/runtime', {
@@ -105,7 +111,28 @@ describe('applications-frontend api wrappers', () => {
         })
         expect(patch).toHaveBeenCalledWith(
             '/applications/app-1/runtime/rows/row-1',
-            { data: { title: 'Updated' }, objectCollectionId: 'object-1' },
+            {
+                data: { title: 'Updated' },
+                objectCollectionId: 'object-1',
+                relationScope: { fieldCodename: 'CourseId', parentRecordId: '0190a9b5-3cde-7abc-8def-0123456789ad' }
+            },
+            { params: { workspaceId: 'workspace-b' } }
+        )
+
+        await api.createApplicationRuntimeRow({
+            applicationId: 'app-1',
+            objectCollectionId: 'items-1',
+            workspaceId: 'workspace-b',
+            data: { name: 'New item' },
+            relationScope: { fieldCodename: 'CourseId', parentRecordId: '0190a9b5-3cde-7abc-8def-0123456789ad' }
+        })
+        expect(post).toHaveBeenCalledWith(
+            '/applications/app-1/runtime/rows',
+            {
+                data: { name: 'New item' },
+                objectCollectionId: 'items-1',
+                relationScope: { fieldCodename: 'CourseId', parentRecordId: '0190a9b5-3cde-7abc-8def-0123456789ad' }
+            },
             { params: { workspaceId: 'workspace-b' } }
         )
 
@@ -141,6 +168,52 @@ describe('applications-frontend api wrappers', () => {
             'Runtime target kind is required'
         )
         expect(get).toHaveBeenCalledTimes(2)
+    })
+
+    it('normalizes versioned localized enum codenames in hosted runtime columns', async () => {
+        const localizedUrlCodename = {
+            _schema: '1',
+            locales: {
+                en: { content: 'Url', version: 1 },
+                ru: { content: 'Url', version: 1 }
+            },
+            _primary: 'en'
+        } as unknown as string
+        const get = vi.fn().mockResolvedValue({
+            data: {
+                columns: [
+                    {
+                        id: 'resource-type',
+                        codename: 'ResourceType',
+                        field: 'resource_type',
+                        dataType: 'REF',
+                        headerName: 'Тип ресурса',
+                        refOptions: [{ id: 'url-option', label: 'URL', codename: localizedUrlCodename }],
+                        enumOptions: [{ id: 'url-option', label: 'URL', codename: localizedUrlCodename }],
+                        childColumns: [
+                            {
+                                id: 'nested-resource-type',
+                                codename: 'NestedResourceType',
+                                field: 'nested_resource_type',
+                                dataType: 'REF',
+                                headerName: 'Тип ресурса',
+                                enumOptions: [{ id: 'nested-url-option', label: 'URL', codename: localizedUrlCodename }]
+                            }
+                        ]
+                    }
+                ]
+            }
+        })
+
+        vi.doMock('../apiClient', () => ({ default: { get } }))
+
+        const api = await import('../applications')
+        const runtime = await api.getApplicationRuntime('app-1', { locale: 'ru' })
+        const resourceType = runtime.columns[0]
+
+        expect(resourceType?.enumOptions?.[0]?.codename).toBe('Url')
+        expect(resourceType?.refOptions?.[0]?.codename).toBe('Url')
+        expect(resourceType?.childColumns?.[0]?.enumOptions?.[0]?.codename).toBe('Url')
     })
 
     it('applications api: list + CRUD wrappers call correct endpoints', async () => {
@@ -183,6 +256,10 @@ describe('applications-frontend api wrappers', () => {
                 return Promise.resolve({
                     data: { members: [{ id: 'u1' }], total: 1 }
                 })
+            }
+
+            if (url === '/applications/app-1/runtime') {
+                return Promise.resolve({ data: { columns: [] }, headers: {} })
             }
 
             return Promise.resolve({ data: {}, headers: {} })
@@ -229,6 +306,9 @@ describe('applications-frontend api wrappers', () => {
             layoutId: '0190a9b5-3cde-7abc-8def-0123456789ae',
             zone: 'top',
             widgetKey: 'header',
+            instanceKey: 'header-primary',
+            parentWidgetId: null,
+            slotKey: null,
             sortOrder: 0,
             config: {},
             sourceConfig: null,
@@ -492,7 +572,45 @@ describe('applications-frontend api wrappers', () => {
                         requiredHostCapabilities: [],
                         shared: true,
                         labelKey: 'layouts.widgets.languageSwitcher',
-                        defaultLabel: 'Language Switcher'
+                        defaultLabel: 'Language Switcher',
+                        defaultPlacement: 'end',
+                        mobileProjection: 'compact-header',
+                        sourceClass: 'host',
+                        sourcePolicy: {
+                            authority: 'metahub-source',
+                            sourceMode: 'none',
+                            inheritBindings: false,
+                            inheritComposition: false
+                        },
+                        identity: { instanceKey: 'required' },
+                        presentationFields: [],
+                        configFields: [],
+                        authoring: {
+                            metahub: {
+                                add: 'select-source',
+                                duplicate: 'none',
+                                contentEditing: 'none',
+                                canRebind: false
+                            },
+                            application: {
+                                presentationOnly: true,
+                                canAdd: false,
+                                canDuplicate: false,
+                                canEditContent: false,
+                                canRebind: false,
+                                resetToSource: true
+                            }
+                        },
+                        copyPolicy: { placement: 'none', binding: 'none' },
+                        applicationPlacementOverrides: {
+                            active: false,
+                            order: 'none',
+                            zone: false,
+                            parentSlot: false
+                        },
+                        placementPolicy: { parent: 'root-or-compatible-container-slot' },
+                        capabilities: ['dashboard.host'],
+                        seedPolicies: ['shell']
                     }
                 ]
             }
@@ -514,4 +632,5 @@ describe('applications-frontend api wrappers', () => {
             'APPLICATION_LAYOUT_WIDGET_METADATA_INVALID'
         )
     })
+
 })

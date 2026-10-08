@@ -1,5 +1,6 @@
 import { MetahubObjectsService } from '../../domains/metahubs/services/MetahubObjectsService'
 import { MetahubConflictError, MetahubNotFoundError } from '../../domains/shared/domainErrors'
+import { OptimisticLockError } from '@universo-react/utils'
 
 describe('MetahubObjectsService mutation fail-closed behavior', () => {
     type MockExecutor = {
@@ -306,6 +307,47 @@ describe('MetahubObjectsService mutation fail-closed behavior', () => {
             sortOrder: 9,
             projectBinding: { provider: 'playcanvasEditor', projectCodename: 'mmoomm_world', projectId: 'proj-1' }
         })
+    })
+
+    it('rejects an update when the row changed after the request source snapshot was read', async () => {
+        const sourceSnapshot = {
+            id: 'object-1',
+            kind: 'object',
+            codename: { _schema: '1', _primary: 'en', locales: { en: { content: 'Products' } } },
+            presentation: { name: { en: 'Products' } },
+            config: { runtime: { menuVisibility: 'primary' } },
+            _upl_version: 3
+        } as never
+        jest.spyOn(service, 'findById').mockResolvedValueOnce(sourceSnapshot)
+        mockQuery.mockResolvedValueOnce([
+            {
+                id: 'object-1',
+                kind: 'object',
+                codename: sourceSnapshot.codename,
+                presentation: sourceSnapshot.presentation,
+                config: { runtime: { menuVisibility: 'hidden' }, concurrentlyChanged: true },
+                _upl_version: 4,
+                _upl_updated_at: '2026-10-07T10:00:00.000Z',
+                _upl_updated_by: 'another-user'
+            }
+        ])
+
+        await expect(
+            service.updateObject(
+                'metahub-1',
+                'object-1',
+                'object',
+                {
+                    config: { runtime: { customRuntimeFlag: 'stale-write' } },
+                    expectedVersion: 3
+                },
+                'user-1'
+            )
+        ).rejects.toBeInstanceOf(OptimisticLockError)
+
+        expect(mockQuery).toHaveBeenCalledTimes(1)
+        expect(mockQuery.mock.calls[0]?.[0]).toContain('FOR UPDATE')
+        expect(mockQuery.mock.calls.some(([sql]) => String(sql).trimStart().startsWith('UPDATE'))).toBe(false)
     })
 
     it('filters virtual shared containers out of standard object lists and counts', async () => {

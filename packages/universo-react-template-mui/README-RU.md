@@ -10,7 +10,7 @@
 ## Package Surface
 
 -   `MainLayoutMUI` и `MainRoutesMUI` предоставляют общий layout и route shell.
--   Экспорты dashboard, такие как `Dashboard`, `StatCard` и `HighlightedCard`, дают общие примитивы композиции страниц.
+-   `StatCard` и `HighlightedCard` дают переиспользуемое отображение метрик в административных интерфейсах. Виджеты и композиция Dashboard опубликованных приложений находятся в изолированном пакете `@universo-react/apps-template-mui`.
 -   Dialog, table, selection, pagination и card-компоненты переэкспортируются из корня пакета.
 -   Фабричные хелперы вроде `createEntityActions()` и `createMemberActions()` уменьшают дублирование CRUD-action wiring.
 -   Хуки вроде `usePaginated()`, `useDebouncedSearch()`, `useUserSettings()`, `useListDialogs()` и optimistic CRUD helpers поддерживают общие frontend-сценарии.
@@ -33,6 +33,18 @@ pnpm --filter @universo-react/template-mui test
 -   Держите экспортируемые компоненты универсальными и пригодными для повторного использования в нескольких frontend-модулях.
 -   Добавляйте новые translation keys через общие или consumer namespaces с EN/RU parity.
 -   Здесь лучше документировать ответственность пакета, а module-specific workflows оставлять README consumer-пакетов.
+
+## Перенос импортов Dashboard опубликованных приложений
+
+UI Dashboard опубликованных приложений находится в изолированном пакете `@universo-react/apps-template-mui`. Старые импорты из этого общего пакета нужно перенести:
+
+| Старый импорт           | Новый импорт                                                   |
+| ----------------------- | -------------------------------------------------------------- |
+| `Dashboard`             | `AppsDashboard` из `@universo-react/apps-template-mui`         |
+| `DashboardLayoutConfig` | `DashboardLayoutConfig` из `@universo-react/apps-template-mui` |
+| `DashboardDetailsSlot`  | `DashboardDetailsSlot` из `@universo-react/apps-template-mui`  |
+
+`SessionsChart` и `PageViewsBarChart` больше не являются публичными экспортами пакета. Используйте зарегистрированные Dashboard-виджеты через `AppsDashboard`: отрисовка графиков остаётся внутри шаблона опубликованных приложений, где данные runtime и размещение согласованы с effective layout.
 
 ## Related Documentation
 

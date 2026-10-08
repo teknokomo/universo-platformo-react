@@ -5,7 +5,10 @@ import {
     encodeWidgetConfigEnvelope,
     getLayoutWidgetDefinition
 } from '@universo-react/types'
-import { duplicateMarketingWidgetRecordAndPlace } from '../../domains/layouts/services/marketingWidgetRecordDuplicate'
+import {
+    duplicateMarketingWidgetRecordAndPlace,
+    marketingWidgetRecordDuplicateRequestSchema
+} from '../../domains/layouts/services/marketingWidgetRecordDuplicate'
 
 const mockPersisted = { records: [] as Array<Record<string, unknown>>, placements: [] as Array<Record<string, unknown>> }
 const mockLockForCopy = jest.fn()
@@ -13,6 +16,7 @@ const mockSuggestUniqueComponentValue = jest.fn()
 const mockCreateRecord = jest.fn()
 const mockFindComponents = jest.fn()
 const mockAssignPlacement = jest.fn()
+const mockGetLayoutById = jest.fn()
 
 const runFakeSavepoint = async (work: (tx: typeof mockTx) => Promise<unknown>) => {
     const recordsBefore = [...mockPersisted.records]
@@ -84,6 +88,9 @@ jest.mock('../../domains/layouts/services/MetahubLayoutsService', () => ({
     __esModule: true,
     MetahubLayoutsService: class {
         constructor(private readonly executor: typeof mockTx, _schemaService: unknown) {}
+        getLayoutById(...args: unknown[]) {
+            return mockGetLayoutById(...args)
+        }
         assignLayoutZoneWidget(...args: unknown[]) {
             return this.executor.transaction(() => mockAssignPlacement(...args))
         }
@@ -109,7 +116,7 @@ const widgetConfig = () => {
         semanticKey: sourceSemanticKey
     })
     return encodeWidgetConfigEnvelope(
-        { rendererConfig: { instanceKey: '0190a9b5-3cde-7abc-8def-0123456789b1', height: 320 }, neutral: { bindings } },
+        { rendererConfig: {}, neutral: { bindings } },
         { templateKey: 'marketing-page', widgetKey: 'marketing.image', zone: 'marketing-main' }
     )
 }
@@ -128,6 +135,32 @@ const request = () => ({
     }
 })
 
+const dashboardRequest = () => {
+    const definition = getLayoutWidgetDefinition('detailsTitle')
+    if (!definition) throw new Error('detailsTitle must be registered')
+    const bindings = buildSingleTargetWidgetBinding(definition, 'content', {
+        entityKind: 'object',
+        entityCodename: 'DashboardContent',
+        semanticKey: 'dashboard-title'
+    })
+    return {
+        zone: 'center' as const,
+        widgetKey: 'detailsTitle' as const,
+        config: encodeWidgetConfigEnvelope(
+            { rendererConfig: {}, neutral: { bindings } },
+            { templateKey: 'dashboard', widgetKey: 'detailsTitle', zone: 'center' }
+        ),
+        expectedVersion: 3,
+        recordCopy: {
+            entityId,
+            recordId: sourceRecordId,
+            sourceKey: 'DashboardContent',
+            sourceSemanticKey: 'dashboard-title',
+            slot: 'content'
+        }
+    }
+}
+
 // This fake checks transaction orchestration/savepoint nesting only; the E2E
 // stale-version case verifies rollback against persisted Supabase rows.
 const transactionExecutor = {
@@ -141,6 +174,7 @@ describe('duplicateMarketingWidgetRecordAndPlace', () => {
         mockPersisted.records.length = 0
         mockPersisted.placements.length = 0
         jest.clearAllMocks()
+        mockGetLayoutById.mockResolvedValue({ templateKey: 'marketing-page' })
 
         mockLockForCopy.mockResolvedValue({
             object: { id: entityId, kind: 'object', codename: 'MarketingPageImage' },
@@ -182,6 +216,11 @@ describe('duplicateMarketingWidgetRecordAndPlace', () => {
             mockPersisted.placements.push(placement)
             return placement
         })
+    })
+
+    it('keeps the established request shape and rejects a client-supplied template', () => {
+        expect(marketingWidgetRecordDuplicateRequestSchema.safeParse(request()).success).toBe(true)
+        expect(marketingWidgetRecordDuplicateRequestSchema.safeParse({ ...request(), templateKey: 'marketing-page' }).success).toBe(false)
     })
 
     it('copies the source and binds the normal placement DTO to the copied semantic key', async () => {
@@ -232,11 +271,88 @@ describe('duplicateMarketingWidgetRecordAndPlace', () => {
             field: 'key',
             value: copiedSemanticKey
         })
-        expect(decoded.rendererConfig).toEqual({ instanceKey: '0190a9b5-3cde-7abc-8def-0123456789b1', height: 320 })
+        expect(decoded.rendererConfig).toEqual({})
         expect(result).toMatchObject({ id: placementId, layoutId, zone: 'marketing-main', widgetKey: 'marketing.image' })
         expect(result).not.toHaveProperty('copyOptions')
         expect(mockPersisted.records).toHaveLength(1)
         expect(mockPersisted.placements).toHaveLength(1)
+    })
+
+    it('copies and places a Dashboard single-record widget through the shared contract', async () => {
+        mockGetLayoutById.mockResolvedValueOnce({ templateKey: 'dashboard' })
+        mockLockForCopy.mockResolvedValueOnce({
+            object: { id: entityId, kind: 'object', codename: 'DashboardContent' },
+            policy: undefined,
+            record: { id: sourceRecordId, data: { Key: 'dashboard-title', Title: 'Dashboard welcome' } }
+        })
+        mockFindComponents.mockResolvedValueOnce([
+            {
+                codename: 'Key',
+                dataType: 'STRING',
+                parentComponentId: null,
+                isRequired: true,
+                validationRules: { unique: true, maxLength: 128, pattern: '^[a-z][a-z0-9]*(?:[._-][a-z0-9]+)*$' }
+            }
+        ])
+        mockSuggestUniqueComponentValue.mockResolvedValueOnce('dashboard-title-copy')
+
+        const result = await duplicateMarketingWidgetRecordAndPlace({
+            executor: transactionExecutor,
+            metahubId,
+            layoutId,
+            userId,
+            request: dashboardRequest()
+        })
+
+        expect(mockLockForCopy).toHaveBeenCalledWith(metahubId, entityId, sourceRecordId, userId, mockTx)
+        expect(mockGetLayoutById).toHaveBeenCalledWith(metahubId, layoutId, userId)
+        expect(mockCreateRecord).toHaveBeenCalledWith(
+            metahubId,
+            entityId,
+            { data: { Key: 'dashboard-title-copy', Title: 'Dashboard welcome' }, createdBy: userId },
+            userId,
+            mockTx
+        )
+        expect(mockAssignPlacement).toHaveBeenCalledWith(
+            metahubId,
+            layoutId,
+            expect.objectContaining({ expectedVersion: 3, zone: 'center', widgetKey: 'detailsTitle' }),
+            userId
+        )
+
+        const assignedConfig = mockAssignPlacement.mock.calls[0][2].config
+        const decoded = decodeWidgetConfigEnvelope(assignedConfig, {
+            templateKey: 'dashboard',
+            widgetKey: 'detailsTitle',
+            zone: 'center',
+            requireBindings: true
+        })
+        expect(decoded.neutral.bindings?.slots.find(({ slot }) => slot === 'content')?.targets[0]?.selector).toEqual({
+            kind: 'semantic-key',
+            field: 'key',
+            value: 'dashboard-title-copy'
+        })
+        expect(result).toMatchObject({ widgetKey: 'detailsTitle', zone: 'center' })
+        expect(mockPersisted.records).toHaveLength(1)
+        expect(mockPersisted.placements).toHaveLength(1)
+    })
+
+    it('fails closed before copying when the target layout is missing', async () => {
+        mockGetLayoutById.mockResolvedValueOnce(null)
+
+        await expect(
+            duplicateMarketingWidgetRecordAndPlace({
+                executor: transactionExecutor,
+                metahubId,
+                layoutId,
+                userId,
+                request: request()
+            })
+        ).rejects.toMatchObject({ statusCode: 404, code: 'NOT_FOUND' })
+
+        expect(mockLockForCopy).not.toHaveBeenCalled()
+        expect(mockCreateRecord).not.toHaveBeenCalled()
+        expect(mockAssignPlacement).not.toHaveBeenCalled()
     })
 
     it('rolls back the copied record and inserted placement when assignment fails after the copy', async () => {

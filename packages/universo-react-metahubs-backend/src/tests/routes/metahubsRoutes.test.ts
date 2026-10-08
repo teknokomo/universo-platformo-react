@@ -127,7 +127,9 @@ jest.mock('../../domains/shared/snapshotLayouts', () => ({
     __esModule: true,
     alignPlayCanvasRuntimeManifestBindings: (...args: unknown[]) => mockAlignPlayCanvasRuntimeManifestBindings(...args),
     attachLayoutsToSnapshot: (...args: unknown[]) => mockAttachLayoutsToSnapshot(...args),
-    collectPlayCanvasRuntimeManifestProjectIds: (...args: unknown[]) => mockCollectPlayCanvasRuntimeManifestProjectIds(...args)
+    collectPlayCanvasRuntimeManifestProjectIds: (...args: unknown[]) => mockCollectPlayCanvasRuntimeManifestProjectIds(...args),
+    validateSnapshotWidgetPlacements: (...args: unknown[]) =>
+        jest.requireActual('../../domains/shared/snapshotLayouts').validateSnapshotWidgetPlacements(...args)
 }))
 
 const mockEnsureMetahubAccess = jest.fn(async () => ({
@@ -291,6 +293,8 @@ describe('Metahubs Routes', () => {
 
     beforeEach(() => {
         jest.clearAllMocks()
+        mockFindMetahubById.mockReset().mockResolvedValue(null)
+        mockFindBranchByIdAndMetahub.mockReset().mockResolvedValue(null)
         jest.spyOn(MetahubSchemaService.prototype, 'rewriteBaselineMigrationVersion').mockResolvedValue(undefined)
         jest.spyOn(MetahubSchemaService.prototype, 'resolvePublicStructureVersion').mockImplementation(
             async (_schemaName, fallbackVersion) => {
@@ -1957,6 +1961,7 @@ describe('Metahubs Routes', () => {
             const snapshot = {
                 version: '1.0.0',
                 metahubId,
+                versionEnvelope: { structureVersion: '0.1.0', templateVersion: null, snapshotFormatVersion: 4 },
                 entities: {
                     '00000000-0000-0000-0000-000000000010': {
                         kind: 'object',
@@ -2314,7 +2319,7 @@ describe('Metahubs Routes', () => {
                 versionEnvelope: {
                     structureVersion: '0.1.0',
                     templateVersion: null,
-                    snapshotFormatVersion: 3
+                    snapshotFormatVersion: 4
                 }
             })
 
@@ -2704,7 +2709,7 @@ describe('Metahubs Routes', () => {
                     versionEnvelope: {
                         structureVersion: versionEnvelope?.structureVersion ?? '0.1.0',
                         templateVersion: null,
-                        snapshotFormatVersion: 3
+                        snapshotFormatVersion: 4
                     },
                     entities: {}
                 })

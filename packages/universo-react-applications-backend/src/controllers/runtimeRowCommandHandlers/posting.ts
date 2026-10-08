@@ -13,14 +13,14 @@ import {
     resolveRuntimeCodenameText,
     resolveRuntimeSchema,
     UpdateFailure,
-    buildRuntimeActiveRowCondition,
-    UUID_REGEX
+    buildRuntimeActiveRowCondition
 } from '../../shared/runtimeHelpers'
 import { createRuntimeVersionConflictFailure } from '../runtimeVersionConflict'
-import { runtimeRecordCommandBodySchema, type RuntimePostingMovementWriteResult } from '../runtimeRowSupport/contracts'
+import { runtimeRecordCommandBodySchema, type RuntimePostingMovementWriteResult } from '../../services/runtimeRowSupport/contracts'
 import { resolveRuntimeObjectCollection } from '../runtimeRowSupport/objects'
 import { denyRuntimeEntityMutation } from '../../shared/entityMutationPolicy'
-import { buildRuntimeRecordAccessClause } from '../runtimeRowSupport/access'
+import { buildRuntimeRecordAccessClause } from '../../services/runtimeRowSupport/access'
+import { isRuntimeRecordReference, resolveRuntimeRecordReference } from '../../services/runtimeRecordHandle'
 
 import type { RuntimeRowCommandHandlerDeps } from './types'
 
@@ -88,8 +88,8 @@ export const createRecordStateCommandHandlers = ({
         postingReversals: movementResult.postingReversals
     })
     const runRecordStateCommand = async (req: Request, res: Response, command: 'post' | 'unpost' | 'void') => {
-        const { applicationId, rowId } = req.params
-        if (!UUID_REGEX.test(rowId)) return res.status(400).json({ error: 'Invalid row ID format' })
+        const { applicationId, rowId: rowReference } = req.params
+        if (!isRuntimeRecordReference(rowReference)) return res.status(400).json({ error: 'Invalid row reference format' })
 
         const parsedBody = runtimeRecordCommandBodySchema.safeParse(req.body ?? {})
         if (!parsedBody.success) {
@@ -108,6 +108,13 @@ export const createRecordStateCommandHandlers = ({
         } = await resolveRuntimeObjectCollection(ctx.manager, ctx.schemaIdent, parsedBody.data.objectCollectionId)
         if (!objectCollection) return res.status(404).json({ error: objectCollectionError })
         if (denyRuntimeEntityMutation(res, objectCollection.config)) return
+        const resolvedReference = resolveRuntimeRecordReference(rowReference, {
+            applicationId,
+            workspaceId: ctx.currentWorkspaceId,
+            entityCodename: resolveRuntimeCodenameText(objectCollection.codename)
+        })
+        if (!resolvedReference) return res.status(404).json({ error: 'Row not found' })
+        const rowId = resolvedReference.recordId
 
         const behavior = normalizeRuntimeRecordBehavior(objectCollection.config)
         if (!isRuntimeRecordBehaviorEnabled(behavior) || behavior.posting.mode === 'disabled') {
@@ -284,7 +291,8 @@ export const createRecordStateCommandHandlers = ({
         }
 
         dispatchRuntimeLifecycleAfterCommit(ctx.manager, afterLifecycleRequest)
-        return res.json(responsePayload ?? { id: rowId, status: command })
+        const response = responsePayload ?? { id: rowId, status: command }
+        return res.json(resolvedReference.fromHandle ? { ...response, id: rowReference } : response)
     }
     const postRow = async (req: Request, res: Response) => runRecordStateCommand(req, res, 'post')
     const unpostRow = async (req: Request, res: Response) => runRecordStateCommand(req, res, 'unpost')

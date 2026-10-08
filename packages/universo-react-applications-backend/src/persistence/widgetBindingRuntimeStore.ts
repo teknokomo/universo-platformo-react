@@ -1,4 +1,4 @@
-import { qColumn, qSchemaTable } from '@universo-react/database'
+import { qColumn, qSchema, qSchemaTable } from '@universo-react/database'
 import {
     isCompatibleWidgetBindingEntity,
     MAX_WIDGET_BINDING_COMPONENTS,
@@ -8,8 +8,11 @@ import {
     type WidgetBindingEntityMetadata,
     type WidgetBindingSlotDefinition
 } from '@universo-react/types'
-import { isUuidV7, type DbExecutor } from '@universo-react/utils'
+import { isUuidV7, isValidUuid, type DbExecutor } from '@universo-react/utils'
 import { resolveRuntimeCodenameText, runtimeCodenameTextSql, runtimeObjectFilterSql } from '../shared/runtimeHelpers'
+import { buildRuntimeRecordAccessClause, readRuntimeRecordParentAccessConfigs } from '../services/runtimeRowSupport/access'
+import { readRuntimeRecordAccessConfig, type RuntimeObjectCollectionAttr } from '../services/runtimeRowSupport/contracts'
+import type { RolePermission } from '../routes/guards'
 import type { WidgetBindingRecordQuery } from '../services/widgetBindingQuery'
 import { isWidgetBindingSemanticKeyValid } from './widgetBindingSemanticKey'
 
@@ -22,18 +25,31 @@ export interface RuntimeWidgetBindingObjectMetadata {
 }
 
 export interface RuntimeWidgetBindingComponentMetadata {
+    readonly id?: unknown
     readonly objectId: unknown
     readonly codename: unknown
     readonly columnName: unknown
     readonly dataType: unknown
+    readonly presentation?: unknown
     readonly isRequired: unknown
     readonly validationRules: unknown
     readonly targetObjectId?: unknown
+    readonly targetObjectKind?: unknown
+    readonly uiConfig?: unknown
 }
 
 export interface RuntimeWidgetBindingMetadata {
     readonly objectsByCodename: ReadonlyMap<string, RuntimeWidgetBindingObjectMetadata>
     readonly componentsByObjectId: ReadonlyMap<string, readonly RuntimeWidgetBindingComponentMetadata[]>
+}
+
+export interface PublishedDashboardMenuEntityMetadata {
+    readonly id: unknown
+    readonly codename: unknown
+    readonly kind: unknown
+    readonly presentation: unknown
+    readonly config: unknown
+    readonly tableName: unknown
 }
 
 export class WidgetBindingRuntimeDataError extends Error {
@@ -46,6 +62,15 @@ export class WidgetBindingRuntimeDataError extends Error {
 const MAX_RUNTIME_WIDGET_BINDING_OBJECTS = MAX_WIDGET_BINDING_SLOTS * MAX_WIDGET_BINDING_TARGETS
 const MAX_RUNTIME_WIDGET_BINDING_COMPONENT_ROWS = 8192
 const MAX_COMPONENTS_PER_OBJECT = MAX_WIDGET_BINDING_COMPONENTS * MAX_WIDGET_BINDING_SLOTS
+const MAX_PUBLISHED_DASHBOARD_MENU_ENTITIES = 256
+const NO_RUNTIME_PERMISSIONS: Record<RolePermission, boolean> = {
+    manageMembers: false,
+    manageApplication: false,
+    createContent: false,
+    editContent: false,
+    deleteContent: false,
+    readReports: false
+}
 
 const isRecord = (value: unknown): value is Record<string, unknown> => Boolean(value && typeof value === 'object' && !Array.isArray(value))
 
@@ -61,6 +86,45 @@ const lifecyclePredicate = (alias: string): string =>
         AND ${alias}.${qColumn('_upl_archived')} = false
         AND ${alias}.${qColumn('_app_archived')} = false
         AND ${alias}.${qColumn('_app_published')} = true`
+
+/** Load published Page and Hub metadata plus Objects explicitly selected for primary navigation. */
+export const loadPublishedDashboardMenuEntities = async (
+    executor: DbExecutor,
+    schemaName: string
+): Promise<readonly PublishedDashboardMenuEntityMetadata[]> => {
+    const table = qSchemaTable(schemaName, '_app_objects')
+    const rows = await executor.query<Record<string, unknown>>(
+        `SELECT ${qColumn('id')}, ${runtimeCodenameTextSql(qColumn('codename'))} AS ${qColumn('codename')},
+                ${qColumn('kind')}, ${qColumn('presentation')}, ${qColumn('config')}, ${qColumn('table_name')}
+         FROM ${table}
+         WHERE (
+                ${qColumn('kind')} IN ('hub', 'page')
+                OR (
+                    ${qColumn('kind')} = 'object'
+                    AND ${qColumn('config')} -> 'runtime' ->> 'menuVisibility' = 'primary'
+                )
+           )
+           AND ${qColumn('_upl_deleted')} = false
+           AND ${qColumn('_app_deleted')} = false
+           AND ${qColumn('_upl_archived')} = false
+           AND ${qColumn('_app_archived')} = false
+           AND ${qColumn('_app_published')} = true
+         ORDER BY ${runtimeCodenameTextSql(qColumn('codename'))} ASC, ${qColumn('id')} ASC
+         LIMIT $1`,
+        [MAX_PUBLISHED_DASHBOARD_MENU_ENTITIES + 1]
+    )
+    if (rows.length > MAX_PUBLISHED_DASHBOARD_MENU_ENTITIES) {
+        throw new WidgetBindingRuntimeDataError('Published Dashboard menu metadata exceeds its limit')
+    }
+    return rows.map((row) => ({
+        id: row.id,
+        codename: row.codename,
+        kind: row.kind,
+        presentation: row.presentation,
+        config: row.config,
+        tableName: row.table_name
+    }))
+}
 
 const assertSlotQuery = (query: WidgetBindingRecordQuery, slot: WidgetBindingSlotDefinition): void => {
     if (
@@ -133,6 +197,25 @@ const assertSlotQuery = (query: WidgetBindingRecordQuery, slot: WidgetBindingSlo
             throw new WidgetBindingRuntimeDataError('Widget binding relation selector is invalid')
         }
     }
+
+    if (query.kind === 'learner-enrollment-set') {
+        const targetSelector = query.target.selector
+        const requiredProjection = new Map([
+            ['title', 'TargetTitle'],
+            ['assignedUser', 'AssignedUserId'],
+            ['targetKind', 'TargetType']
+        ])
+        if (
+            targetSelector.kind !== 'learner-enrollment-set' ||
+            !['course', 'track'].includes(query.selector.targetKind) ||
+            query.selector.targetKind !== targetSelector.targetKind ||
+            slot.key !== 'rows' ||
+            slot.requirements.components.length !== requiredProjection.size ||
+            slot.requirements.components.some(({ field, componentCodename }) => requiredProjection.get(field) !== componentCodename)
+        ) {
+            throw new WidgetBindingRuntimeDataError('Widget binding learner enrollment selector is invalid')
+        }
+    }
 }
 
 /** Read only live Object/Component metadata named by registered layout bindings. */
@@ -150,7 +233,6 @@ export const loadRuntimeWidgetBindingMetadata = async (
         requests.some(
             ([codename, componentCodenames]) =>
                 !/^[A-Za-z][A-Za-z0-9._-]*$/u.test(codename) ||
-                componentCodenames.length === 0 ||
                 componentCodenames.length > MAX_COMPONENTS_PER_OBJECT ||
                 new Set(componentCodenames).size !== componentCodenames.length ||
                 componentCodenames.some((componentCodename) => !/^[A-Za-z][A-Za-z0-9._-]*$/u.test(componentCodename))
@@ -158,7 +240,6 @@ export const loadRuntimeWidgetBindingMetadata = async (
     ) {
         throw new WidgetBindingRuntimeDataError('Widget binding Entity codename is invalid')
     }
-    const requestedComponents = [...new Set(requests.flatMap(([, components]) => [...components]))]
     const requestedComponentsByEntity = new Map(requests.map(([codename, components]) => [codename, new Set(components)]))
     const objectsTable = qSchemaTable(schemaName, '_app_objects')
     const objectRows = await executor.query<Record<string, unknown>>(
@@ -190,6 +271,27 @@ export const loadRuntimeWidgetBindingMetadata = async (
         objectIds.push(id)
         objectCodenameById.set(id, codename)
         objectsByCodename.set(codename, { id, codename, kind: row.kind, tableName: row.table_name, config: row.config })
+        const config = isRecord(row.config) ? row.config : null
+        const requestedForObject = requestedComponentsByEntity.get(codename)
+        if (!requestedForObject) continue
+        const accessConfig = readRuntimeRecordAccessConfig(config)
+        if (accessConfig?.ownerFieldCodename) requestedForObject.add(accessConfig.ownerFieldCodename)
+        for (const parentAccessConfig of readRuntimeRecordParentAccessConfigs(config) ?? []) {
+            requestedForObject.add(parentAccessConfig.parentFieldCodename)
+        }
+    }
+
+    const requestedComponents = [...new Set([...requestedComponentsByEntity.values()].flatMap((components) => [...components]))]
+    if (
+        requestedComponents.some((codename) => !/^[A-Za-z][A-Za-z0-9._-]*$/u.test(codename)) ||
+        [...requestedComponentsByEntity.values()].some((components) => components.size > MAX_COMPONENTS_PER_OBJECT)
+    ) {
+        throw new WidgetBindingRuntimeDataError('Widget binding Component metadata exceeds its limit')
+    }
+    const requestedComponentsByObjectId = new Map<string, ReadonlySet<string>>()
+    for (const [codename, components] of requestedComponentsByEntity) {
+        const object = objectsByCodename.get(codename)
+        if (object && typeof object.id === 'string') requestedComponentsByObjectId.set(object.id, components)
     }
 
     const componentsByObjectId = new Map<string, RuntimeWidgetBindingComponentMetadata[]>()
@@ -198,8 +300,10 @@ export const loadRuntimeWidgetBindingMetadata = async (
         const rows = await executor.query<Record<string, unknown>>(
             `SELECT ${qColumn('id')}, ${qColumn('object_id')},
                     ${runtimeCodenameTextSql(qColumn('codename'))} AS ${qColumn('codename')},
-                    ${qColumn('column_name')}, ${qColumn('data_type')}, ${qColumn('is_required')},
-                    ${qColumn('validation_rules')}, ${qColumn('target_object_id')}
+                    ${qColumn('column_name')}, ${qColumn('data_type')}, ${qColumn('presentation')}, ${qColumn('is_required')},
+                    ${qColumn('validation_rules')}, ${qColumn('target_object_id')}, ${qColumn('target_object_kind')}, ${qColumn(
+                'ui_config'
+            )}
              FROM ${componentsTable}
              WHERE ${qColumn('object_id')} = ANY($1::uuid[])
                AND ${runtimeCodenameTextSql(qColumn('codename'))} = ANY($2::text[])
@@ -222,15 +326,19 @@ export const loadRuntimeWidgetBindingMetadata = async (
             }
             const objectCodename = objectCodenameById.get(objectId)
             const codename = resolveRuntimeCodenameText(row.codename)
-            if (!objectCodename || !requestedComponentsByEntity.get(objectCodename)?.has(codename)) continue
+            if (!objectCodename || !requestedComponentsByObjectId.get(objectId)?.has(codename)) continue
             const component = {
+                id: row.id,
                 objectId,
                 codename,
                 columnName: row.column_name,
                 dataType: row.data_type,
+                presentation: row.presentation,
                 isRequired: row.is_required,
                 validationRules: row.validation_rules,
-                targetObjectId: row.target_object_id
+                targetObjectId: row.target_object_id,
+                targetObjectKind: row.target_object_kind,
+                uiConfig: row.ui_config
             }
             const list = componentsByObjectId.get(objectId) ?? []
             list.push(component)
@@ -247,11 +355,14 @@ export const loadWidgetBindingRuntimeRecords = async (
         schemaName: string
         workspaceId: string | null
         workspacesEnabled: boolean
+        currentUserId?: string | null
+        permissions?: Record<RolePermission, boolean>
         query: WidgetBindingRecordQuery
         object: RuntimeWidgetBindingObjectMetadata
         components: readonly RuntimeWidgetBindingComponentMetadata[]
         slot: WidgetBindingSlotDefinition
         parentObject?: RuntimeWidgetBindingObjectMetadata
+        parentComponents?: readonly RuntimeWidgetBindingComponentMetadata[]
         parentSlot?: WidgetBindingSlotDefinition
         parentObjectId?: string
     }
@@ -281,6 +392,7 @@ export const loadWidgetBindingRuntimeRecords = async (
 
     const entity: WidgetBindingEntityMetadata = {
         kind: 'object',
+        codename: object.codename,
         config: object.config,
         components: input.components.map((component) => ({
             codename: resolveRuntimeCodenameText(component.codename),
@@ -322,6 +434,8 @@ export const loadWidgetBindingRuntimeRecords = async (
         ({ componentCodename }, index) => `${readColumn(componentCodename)} AS ${qColumn(`field_${index}`)}`
     )
     if (new Set(selected).size !== selected.length) throw new WidgetBindingRuntimeDataError('Widget binding projection is ambiguous')
+    const runtimeVersionSelection =
+        query.kind !== 'semantic-key' ? `, COALESCE(record.${qColumn('_upl_version')}, 1)::int AS ${qColumn('_upl_version')}` : ''
 
     const parameters: unknown[] = []
     const predicates = [lifecyclePredicate('record')]
@@ -330,6 +444,59 @@ export const loadWidgetBindingRuntimeRecords = async (
             throw new WidgetBindingRuntimeDataError('Widget binding workspace is unavailable')
         parameters.push(input.workspaceId)
         predicates.push(`${qColumn('workspace_id')} = $${parameters.length}`)
+    }
+
+    const toRuntimeAttrs = (components: readonly RuntimeWidgetBindingComponentMetadata[]): RuntimeObjectCollectionAttr[] =>
+        components.map((component) => ({
+            id: String(component.id ?? ''),
+            codename: component.codename,
+            column_name: String(component.columnName ?? ''),
+            data_type: String(component.dataType ?? ''),
+            is_required: component.isRequired === true,
+            validation_rules: isRecord(component.validationRules) ? component.validationRules : undefined,
+            target_object_id: typeof component.targetObjectId === 'string' ? component.targetObjectId : null,
+            target_object_kind: typeof component.targetObjectKind === 'string' ? component.targetObjectKind : null,
+            ui_config: isRecord(component.uiConfig) ? component.uiConfig : undefined
+        }))
+    const permissions = input.permissions ?? NO_RUNTIME_PERMISSIONS
+    const recordAccessClause = await buildRuntimeRecordAccessClause({
+        manager: executor,
+        schemaIdent: qSchema(input.schemaName),
+        currentWorkspaceId: input.workspaceId,
+        currentUserId: input.currentUserId ?? null,
+        permissions,
+        objectCodename: String(object.codename),
+        attrs: toRuntimeAttrs(input.components),
+        config: isRecord(object.config) ? object.config : null,
+        outerRowIdSql: 'record.id',
+        values: parameters,
+        minimumAccessLevel: 'read'
+    })
+    if (recordAccessClause) predicates.push(`(${recordAccessClause})`)
+
+    if (query.kind === 'learner-enrollment-set') {
+        const actorId = input.currentUserId
+        const actorComponent = componentsByCodename.get('AssignedUserId')
+        const targetKindComponent = componentsByCodename.get('TargetType')
+        if (
+            String(object.codename) !== 'Enrollments' ||
+            !actorId ||
+            !isValidUuid(actorId) ||
+            !actorComponent ||
+            String(actorComponent.dataType ?? '')
+                .trim()
+                .toUpperCase() !== 'STRING' ||
+            !targetKindComponent ||
+            String(targetKindComponent.dataType ?? '')
+                .trim()
+                .toUpperCase() !== 'STRING'
+        ) {
+            throw new WidgetBindingRuntimeDataError('Learner enrollment scope is unavailable')
+        }
+        parameters.push(actorId)
+        predicates.push(`${readColumn('AssignedUserId')} = $${parameters.length}`)
+        parameters.push(query.selector.targetKind)
+        predicates.push(`${readColumn('TargetType')} = $${parameters.length}`)
     }
 
     let parentTable: string | undefined
@@ -393,6 +560,19 @@ export const loadWidgetBindingRuntimeRecords = async (
             throw new WidgetBindingRuntimeDataError('Widget binding parent table metadata is invalid')
         }
         parentWorkspacePredicate = input.workspacesEnabled ? `AND parent_record.${qColumn('workspace_id')} = $1` : ''
+        const parentRecordAccessClause = await buildRuntimeRecordAccessClause({
+            manager: executor,
+            schemaIdent: qSchema(input.schemaName),
+            currentWorkspaceId: input.workspaceId,
+            currentUserId: input.currentUserId ?? null,
+            permissions,
+            objectCodename: String(parentObject.codename),
+            attrs: toRuntimeAttrs(input.parentComponents ?? []),
+            config: isRecord(parentObject.config) ? parentObject.config : null,
+            outerRowIdSql: 'parent_record.id',
+            values: parameters,
+            minimumAccessLevel: 'read'
+        })
         const relationComponent = componentsByCodename.get(query.selector.relationComponentCodename)
         if (
             !relationComponent ||
@@ -414,6 +594,7 @@ export const loadWidgetBindingRuntimeRecords = async (
                 WHERE parent_record.${qColumn('id')} = record.${readColumn(query.selector.relationComponentCodename)}
                   AND ${lifecyclePredicate('parent_record')}
                   ${parentWorkspacePredicate}
+                  ${parentRecordAccessClause ? `AND (${parentRecordAccessClause})` : ''}
             )`
         )
     }
@@ -433,7 +614,7 @@ export const loadWidgetBindingRuntimeRecords = async (
     parameters.push(limit + 1)
 
     const rows = await executor.query<Record<string, unknown>>(
-        `SELECT ${qColumn('id')} AS ${qColumn('record_id')}, ${selected.join(', ')}
+        `SELECT record.${qColumn('id')} AS ${qColumn('record_id')}, ${selected.join(', ')}${runtimeVersionSelection}
          FROM ${table} AS record
          WHERE ${predicates.join(' AND ')}
          ORDER BY ${orderColumn} ASC NULLS LAST, ${qColumn('id')} ASC
@@ -444,9 +625,18 @@ export const loadWidgetBindingRuntimeRecords = async (
     return rows.map((row) => {
         const recordId = typeof row.record_id === 'string' ? row.record_id : ''
         if (!isUuidV7(recordId)) throw new WidgetBindingRuntimeDataError('Widget binding record id is invalid')
+        const data = Object.fromEntries(query.projection.map(({ field }, index) => [field, row[`field_${index}`]]))
+        if (query.kind === 'semantic-key') return { recordId, data }
+        const rawVersion = row._upl_version
+        const version = typeof rawVersion === 'number' ? rawVersion : typeof rawVersion === 'string' ? Number(rawVersion) : NaN
+        if (!Number.isSafeInteger(version) || version < 1) {
+            if (query.kind === 'record-set' && (rawVersion === undefined || rawVersion === null)) return { recordId, data }
+            throw new WidgetBindingRuntimeDataError('Widget binding record version is invalid')
+        }
         return {
             recordId,
-            data: Object.fromEntries(query.projection.map(({ field }, index) => [field, row[`field_${index}`]]))
+            version,
+            data: query.kind === 'relation-set' ? { ...data, _upl_version: version } : data
         }
     })
 }

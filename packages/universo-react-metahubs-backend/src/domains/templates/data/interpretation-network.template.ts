@@ -8,7 +8,8 @@
 // published application workspace, not prefilled by the product fixture.
 
 import type { MetahubTemplateManifest, TemplateSeedLayout, TemplateSeedZoneWidget } from '@universo-react/types'
-import { enrichConfigWithVlcTimestamps, vlc } from './basic.template'
+import { makeDashboardSeedPlacement } from '../services/dashboardSeedPlacement'
+import { vlc } from './basic.template'
 import { INTERPRETATION_NETWORK_STAGE2 } from './interpretation-network.stage2'
 
 /**
@@ -26,95 +27,56 @@ const INTERPRETATION_NETWORK_SEED_LAYOUT: TemplateSeedLayout = {
     ),
     isDefault: true,
     isActive: true,
-    sortOrder: 0,
-    config: enrichConfigWithVlcTimestamps({
-        showOverviewTitle: false,
-        showOverviewCards: false,
-        showSessionsChart: false,
-        showPageViewsChart: false,
-        showDetailsTitle: false,
-        showDetailsTable: false,
-        showColumnsContainer: false,
-        showHeader: false,
-        showFooter: false
-    })
+    sortOrder: 0
 }
 
 const INTERPRETATION_NETWORK_SEED_ZONE_WIDGETS: TemplateSeedZoneWidget[] = [
-    {
+    makeDashboardSeedPlacement({
         zone: 'left',
         widgetKey: 'workspaceSwitcher',
+        instanceKey: 'workspace-switcher',
         sortOrder: 1,
         isActive: true
-    },
-    {
+    }),
+    makeDashboardSeedPlacement({
         zone: 'left',
         widgetKey: 'menuWidget',
+        instanceKey: 'main-menu',
         sortOrder: 2,
         isActive: true,
-        config: enrichConfigWithVlcTimestamps({
-            showTitle: false,
-            title: {
-                _schema: '1',
-                _primary: 'en',
-                locales: {
-                    en: { content: 'Interpretation Network', version: 1, isActive: true },
-                    ru: { content: 'Трактовочная сеть', version: 1, isActive: true }
-                }
-            },
-            autoShowAllSections: false,
-            bindToHub: true,
-            boundTreeEntityId: null,
-            startPage: 'InterpretationNetworkIntro',
-            items: [
-                {
-                    id: 'interpretationNetwork-nav-intro',
-                    kind: 'section',
-                    title: {
-                        _schema: '1',
-                        _primary: 'en',
-                        locales: {
-                            en: { content: 'Start', version: 1, isActive: true },
-                            ru: { content: 'Начало', version: 1, isActive: true }
-                        }
-                    },
-                    icon: 'home',
-                    href: null,
-                    sectionId: 'InterpretationNetworkIntro',
-                    sortOrder: 0,
-                    isActive: true
-                },
-                {
-                    id: 'interpretationNetwork-nav-structures',
-                    kind: 'section',
-                    title: {
-                        _schema: '1',
-                        _primary: 'en',
-                        locales: {
-                            en: { content: 'Structures', version: 1, isActive: true },
-                            ru: { content: 'Структуры', version: 1, isActive: true }
-                        }
-                    },
-                    icon: 'object',
-                    href: null,
-                    sectionId: 'Structure',
-                    objectCollectionId: 'Structure',
-                    sortOrder: 1,
-                    isActive: true
-                }
-            ]
-        })
-    },
-    {
+        rendererConfig: { variant: 'generated' }
+    }),
+    makeDashboardSeedPlacement({
+        zone: 'top',
+        widgetKey: 'appNavbar',
+        instanceKey: 'application-navbar',
+        sortOrder: 1
+    }),
+    makeDashboardSeedPlacement({
+        zone: 'top',
+        widgetKey: 'header',
+        instanceKey: 'application-header',
+        sortOrder: 2
+    }),
+    makeDashboardSeedPlacement({
+        zone: 'top',
+        widgetKey: 'languageSwitcher',
+        instanceKey: 'language-switcher',
+        sortOrder: 3
+    }),
+    makeDashboardSeedPlacement({
+        zone: 'top',
+        widgetKey: 'colorModeSwitcher',
+        instanceKey: 'color-mode-switcher',
+        sortOrder: 4
+    }),
+    makeDashboardSeedPlacement({
         zone: 'center',
         widgetKey: 'interpretationNetworkWorkspace',
+        instanceKey: 'interpretation-workspace',
         sortOrder: 1,
         isActive: true,
-        config: enrichConfigWithVlcTimestamps({
-            visibleFor: {
-                sectionCodenames: ['Structure'],
-                objectCollectionCodenames: ['Structure']
-            },
+        rendererConfig: {
             structureMode: 'multiple',
             templatePanel: {
                 showInStructureList: true,
@@ -150,8 +112,8 @@ const INTERPRETATION_NETWORK_SEED_ZONE_WIDGETS: TemplateSeedZoneWidget[] = [
             conceptNameField: 'Name',
             conceptDescriptionField: 'Description',
             interpretationParentField: 'ParentStructure'
-        })
-    }
+        }
+    })
 ]
 
 export const interpretationNetworkTemplate: MetahubTemplateManifest = {

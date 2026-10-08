@@ -2,19 +2,18 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Alert, Button, FormControl, FormControlLabel, FormHelperText, InputLabel, MenuItem, Stack, Switch, TextField } from '@mui/material'
 import { DropdownSelect as Select } from '../dropdowns'
 import {
-    LAYOUT_WIDGET_DEFINITIONS,
     getLayoutWidgetDefinition,
     parseApplicationLayoutWidgetConfig,
-    type LayoutWidgetPresentationField,
-    type MarketingWidgetKey
+    type ApplicationLayoutWidgetKey,
+    type LayoutWidgetPresentationField
 } from '@universo-react/types'
 import { StandardDialog } from '../dialogs/StandardDialog'
 import { useCommonTranslations } from '@universo-react/i18n'
 import { useConfirm } from '../../hooks/useConfirm'
 
-export type MarketingWidgetConfigDialogProps = {
+export type LayoutWidgetPresentationDialogProps = {
     open: boolean
-    widgetKey: MarketingWidgetKey
+    widgetKey: ApplicationLayoutWidgetKey
     initialConfig?: Record<string, unknown> | null
     title: string
     t: (key: string, defaultValue?: string, options?: Record<string, unknown>) => string
@@ -22,8 +21,10 @@ export type MarketingWidgetConfigDialogProps = {
     onCancel: () => void
 }
 
-const getPresentationFields = (widgetKey: MarketingWidgetKey): readonly LayoutWidgetPresentationField[] =>
-    LAYOUT_WIDGET_DEFINITIONS.find((definition) => definition.key === widgetKey)?.presentationFields ?? []
+const getPresentationFields = (
+    widgetKey: ApplicationLayoutWidgetKey,
+    config?: Record<string, unknown> | null
+): readonly LayoutWidgetPresentationField[] => getLayoutWidgetDefinition(widgetKey, config)?.presentationFields ?? []
 
 const normalizeValue = (field: LayoutWidgetPresentationField, value: unknown): unknown => {
     if (field.kind === 'switch') return typeof value === 'boolean' ? value : field.defaultValue
@@ -32,25 +33,20 @@ const normalizeValue = (field: LayoutWidgetPresentationField, value: unknown): u
     return typeof value === 'string' && field.options.some((option) => option.value === value) ? value : field.defaultValue
 }
 
-const buildInitialConfig = (widgetKey: MarketingWidgetKey, config?: Record<string, unknown> | null): Record<string, unknown> => {
-    const fields = getPresentationFields(widgetKey)
-    const existingInstanceKey =
-        typeof config?.instanceKey === 'string' && config.instanceKey.trim().length > 0 ? config.instanceKey : undefined
-    return {
-        ...(existingInstanceKey ? { instanceKey: existingInstanceKey } : {}),
-        ...Object.fromEntries(fields.map((field) => [field.key, normalizeValue(field, config?.[field.key])]))
-    }
+const buildInitialConfig = (widgetKey: ApplicationLayoutWidgetKey, config?: Record<string, unknown> | null): Record<string, unknown> => {
+    const fields = getPresentationFields(widgetKey, config)
+    return Object.fromEntries(fields.map((field) => [field.key, normalizeValue(field, config?.[field.key])]))
 }
 
 const buildConfigSignature = (config: Record<string, unknown>): string =>
     JSON.stringify(Object.fromEntries(Object.entries(config).sort(([left], [right]) => left.localeCompare(right))))
 
-const widgetOwnsEntityContent = (widgetKey: MarketingWidgetKey, config: Record<string, unknown>): boolean =>
+const widgetOwnsEntityContent = (widgetKey: ApplicationLayoutWidgetKey, config: Record<string, unknown>): boolean =>
     Boolean(getLayoutWidgetDefinition(widgetKey, config)?.bindingSlots?.length)
 
 const numberValue = (value: unknown, fallback: number): number => (typeof value === 'number' && Number.isFinite(value) ? value : fallback)
 
-export function MarketingWidgetConfigDialog({
+export function LayoutWidgetPresentationDialog({
     open,
     widgetKey,
     initialConfig,
@@ -58,12 +54,12 @@ export function MarketingWidgetConfigDialog({
     t,
     onSave,
     onCancel
-}: MarketingWidgetConfigDialogProps) {
+}: LayoutWidgetPresentationDialogProps) {
     const [draft, setDraft] = useState<Record<string, unknown>>(() => buildInitialConfig(widgetKey, initialConfig))
     const initialDraftSignatureRef = useRef(buildConfigSignature(buildInitialConfig(widgetKey, initialConfig)))
     const [submitError, setSubmitError] = useState<string | null>(null)
     const [isSaving, setIsSaving] = useState(false)
-    const presentationFields = useMemo(() => getPresentationFields(widgetKey), [widgetKey])
+    const presentationFields = useMemo(() => getPresentationFields(widgetKey, initialConfig), [initialConfig, widgetKey])
     const { t: tCommon } = useCommonTranslations()
     const { confirm } = useConfirm()
 
@@ -77,6 +73,8 @@ export function MarketingWidgetConfigDialog({
     }, [initialConfig, open, widgetKey])
 
     const isDirty = open && buildConfigSignature(draft) !== initialDraftSignatureRef.current
+    const translateField = (key: string, fallback: string) =>
+        key.startsWith('layouts.widgetPresentation.') ? tCommon(key, { defaultValue: fallback }) : t(key, fallback)
 
     const updateDraft = (key: string, value: unknown) => {
         setDraft((current) => ({ ...current, [key]: value }))
@@ -102,14 +100,9 @@ export function MarketingWidgetConfigDialog({
 
     const handleSave = async () => {
         if (isSaving) return
-        const hasPersistedInstanceKey = typeof draft.instanceKey === 'string' && draft.instanceKey.trim().length > 0
         let config: Record<string, unknown>
         try {
-            config = parseApplicationLayoutWidgetConfig(widgetKey, {
-                ...draft,
-                instanceKey: hasPersistedInstanceKey ? draft.instanceKey : 'draft'
-            })
-            if (!hasPersistedInstanceKey) delete config.instanceKey
+            config = parseApplicationLayoutWidgetConfig(widgetKey, draft)
         } catch {
             setSubmitError(t('layouts.marketing.widget.invalidConfig', 'Review the settings and try again.'))
             return
@@ -144,7 +137,7 @@ export function MarketingWidgetConfigDialog({
                 </>
             }
         >
-            <Stack spacing={2} data-testid='marketing-widget-config-dialog'>
+            <Stack spacing={2} data-testid='layout-widget-presentation-dialog'>
                 {submitError ? <Alert severity='error'>{submitError}</Alert> : null}
                 {widgetOwnsEntityContent(widgetKey, draft) ? (
                     <Alert severity='info'>
@@ -156,9 +149,9 @@ export function MarketingWidgetConfigDialog({
                 ) : null}
                 {presentationFields.map((field) => {
                     const value = draft[field.key]
-                    const helperText = t(field.helperTextKey, field.defaultHelperText)
+                    const helperText = translateField(field.helperTextKey, field.defaultHelperText)
                     if (field.kind === 'switch') {
-                        const helperId = `marketing-widget-${field.key}-helper`
+                        const helperId = `layout-widget-${field.key}-helper`
                         return (
                             <FormControl key={field.key} component='fieldset'>
                                 <FormControlLabel
@@ -169,7 +162,7 @@ export function MarketingWidgetConfigDialog({
                                             slotProps={{ input: { 'aria-describedby': helperId } }}
                                         />
                                     }
-                                    label={t(field.labelKey, field.defaultLabel)}
+                                    label={translateField(field.labelKey, field.defaultLabel)}
                                 />
                                 <FormHelperText id={helperId}>{helperText}</FormHelperText>
                             </FormControl>
@@ -182,7 +175,7 @@ export function MarketingWidgetConfigDialog({
                                 fullWidth
                                 size='small'
                                 type='number'
-                                label={t(field.labelKey, field.defaultLabel)}
+                                label={translateField(field.labelKey, field.defaultLabel)}
                                 helperText={helperText}
                                 value={numberValue(value, field.defaultValue)}
                                 slotProps={{ htmlInput: { min: field.min, max: field.max, step: 1 } }}
@@ -197,7 +190,7 @@ export function MarketingWidgetConfigDialog({
                                 fullWidth
                                 size='small'
                                 required={field.required}
-                                label={t(field.labelKey, field.defaultLabel)}
+                                label={translateField(field.labelKey, field.defaultLabel)}
                                 helperText={helperText}
                                 value={typeof value === 'string' ? value : field.defaultValue}
                                 slotProps={{ htmlInput: { maxLength: field.maxLength } }}
@@ -205,8 +198,8 @@ export function MarketingWidgetConfigDialog({
                             />
                         )
                     }
-                    const label = t(field.labelKey, field.defaultLabel)
-                    const labelId = `marketing-widget-${field.key}-label`
+                    const label = translateField(field.labelKey, field.defaultLabel)
+                    const labelId = `layout-widget-${field.key}-label`
                     return (
                         <FormControl key={field.key} fullWidth size='small'>
                             <InputLabel id={labelId}>{label}</InputLabel>
@@ -218,7 +211,7 @@ export function MarketingWidgetConfigDialog({
                             >
                                 {field.options.map((option) => (
                                     <MenuItem key={option.value} value={option.value}>
-                                        {t(option.labelKey, option.defaultLabel)}
+                                        {translateField(option.labelKey, option.defaultLabel)}
                                     </MenuItem>
                                 ))}
                             </Select>
@@ -226,15 +219,13 @@ export function MarketingWidgetConfigDialog({
                         </FormControl>
                     )
                 })}
-                <FormHelperText>
-                    {t(
-                        'layouts.marketing.widget.instanceKeyHelper',
-                        'Widget identity is assigned when this widget is created and stays the same when its settings are edited.'
-                    )}
-                </FormHelperText>
             </Stack>
         </StandardDialog>
     )
 }
 
-export default MarketingWidgetConfigDialog
+/** Backward-compatible name for existing Marketing authoring consumers. */
+export const MarketingWidgetConfigDialog = LayoutWidgetPresentationDialog
+export type MarketingWidgetConfigDialogProps = LayoutWidgetPresentationDialogProps
+
+export default LayoutWidgetPresentationDialog

@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import type { ReactNode } from 'react'
 import { metahubsQueryKeys } from '../../../shared'
+import { getLayoutWidgetDefinition } from '@universo-react/types'
 
 const {
     getLayout,
@@ -25,7 +26,15 @@ const mockUseMetahubDetails = vi.fn()
 vi.mock('react-i18next', () => ({
     initReactI18next: { type: '3rdParty', init: vi.fn() },
     useTranslation: () => ({
-        t: (key: string, defaultValue?: string) => defaultValue ?? key,
+        t: (key: string, options?: string | Record<string, unknown>) => {
+            const parameters = typeof options === 'object' && options !== null ? options : {}
+            const fallback = typeof options === 'string' ? options : parameters.defaultValue
+            return Object.entries(parameters).reduce(
+                (message, [name, replacement]) =>
+                    name === 'defaultValue' ? message : message.replaceAll(`{{${name}}}`, String(replacement)),
+                typeof fallback === 'string' ? fallback : key
+            )
+        },
         i18n: { language: 'en' }
     })
 }))
@@ -199,36 +208,38 @@ describe('LayoutDetails inherited widget contract', () => {
             {
                 id: 'widget-inherited-locked',
                 layoutId: 'layout-1',
-                zone: 'left',
-                widgetKey: 'menuWidget',
+                instanceKey: 'widget-inherited-locked-instance',
+                zone: 'top',
+                widgetKey: 'header',
                 sortOrder: 1,
-                config: {
-                    title: 'Objects',
-                    sharedBehavior: {
-                        canDeactivate: false,
-                        canExclude: false,
-                        positionLocked: true
-                    }
-                },
+                parentInstanceKey: null,
+                slotKey: null,
+                config: {},
                 isActive: true,
                 isInherited: true
             },
             {
                 id: 'widget-inherited-flexible',
                 layoutId: 'layout-1',
-                zone: 'top',
-                widgetKey: 'header',
+                instanceKey: 'widget-inherited-flexible-instance',
+                zone: 'left',
+                widgetKey: 'menuWidget',
                 sortOrder: 1,
-                config: {},
+                parentInstanceKey: null,
+                slotKey: null,
+                config: { variant: 'generated' },
                 isActive: true,
                 isInherited: true
             },
             {
                 id: 'widget-owned',
                 layoutId: 'layout-1',
-                zone: 'right',
+                instanceKey: 'widget-owned-instance',
+                zone: 'center',
                 widgetKey: 'columnsContainer',
                 sortOrder: 1,
+                parentInstanceKey: null,
+                slotKey: null,
                 config: { columns: [] },
                 isActive: true,
                 isInherited: false
@@ -236,34 +247,13 @@ describe('LayoutDetails inherited widget contract', () => {
         ])
 
         getLayoutZoneWidgetObjects.mockResolvedValue([
-            {
-                key: 'menuWidget',
-                allowedZones: ['left', 'right'],
-                allowedZonesByTemplate: { dashboard: ['left', 'right'] },
-                multiInstance: true,
-                templateKey: 'dashboard',
-                supportedTemplates: ['dashboard']
-            },
-            {
-                key: 'header',
-                allowedZones: ['top'],
-                allowedZonesByTemplate: { dashboard: ['top'] },
-                multiInstance: true,
-                templateKey: 'dashboard',
-                supportedTemplates: ['dashboard']
-            },
-            {
-                key: 'columnsContainer',
-                allowedZones: ['left', 'center', 'right'],
-                allowedZonesByTemplate: { dashboard: ['left', 'center', 'right'] },
-                multiInstance: true,
-                templateKey: 'dashboard',
-                supportedTemplates: ['dashboard']
-            }
+            getLayoutWidgetDefinition('menuWidget')!,
+            getLayoutWidgetDefinition('header')!,
+            getLayoutWidgetDefinition('columnsContainer')!
         ])
     })
 
-    it('shows only the inherited widget controls allowed by sharedBehavior', async () => {
+    it('shows inherited widget controls allowed by registry placement policy', async () => {
         const queryClient = new QueryClient({
             defaultOptions: {
                 queries: { retry: false },
@@ -329,8 +319,9 @@ describe('LayoutDetails inherited widget contract', () => {
                 layoutId: 'layout-global',
                 zone: 'marketing-main',
                 widgetKey: 'marketing.hero',
+                instanceKey: 'hero',
                 sortOrder: 1,
-                config: { instanceKey: 'hero', __layout: 'invalid-envelope' },
+                config: { __layout: 'invalid-envelope' },
                 isActive: true,
                 isInherited: false
             }
@@ -376,23 +367,15 @@ describe('LayoutDetails inherited widget contract', () => {
                 layoutId: 'layout-global',
                 zone: 'marketing-main',
                 widgetKey: 'marketing.hero',
+                instanceKey: 'hero-source-instance',
                 sortOrder: 1,
-                config: { instanceKey: 'hero-source-instance', showLeadForm: true },
+                config: { showLeadForm: true },
                 isActive: true,
                 version: 2,
                 isInherited: false
             }
         ])
-        getLayoutZoneWidgetObjects.mockResolvedValueOnce([
-            {
-                key: 'marketing.hero',
-                allowedZones: ['marketing-main'],
-                allowedZonesByTemplate: { 'marketing-page': ['marketing-main'] },
-                multiInstance: true,
-                templateKey: 'marketing-page',
-                supportedTemplates: ['marketing-page']
-            }
-        ])
+        getLayoutZoneWidgetObjects.mockResolvedValueOnce([getLayoutWidgetDefinition('marketing.hero')!])
         assignLayoutZoneWidget.mockResolvedValueOnce({
             data: {
                 id: 'hero-new',
@@ -473,22 +456,14 @@ describe('LayoutDetails inherited widget contract', () => {
                 layoutId: 'layout-global',
                 zone: 'marketing-main',
                 widgetKey: 'marketing.hero',
+                instanceKey: 'hero-a',
                 sortOrder: 1,
-                config: { instanceKey: 'hero-a', showLeadForm: true },
+                config: { showLeadForm: true },
                 isActive: true,
                 version: 2
             }
         ])
-        getLayoutZoneWidgetObjects.mockResolvedValueOnce([
-            {
-                key: 'marketing.hero',
-                allowedZones: ['marketing-main'],
-                allowedZonesByTemplate: { 'marketing-page': ['marketing-main'] },
-                multiInstance: true,
-                templateKey: 'marketing-page',
-                supportedTemplates: ['marketing-page']
-            }
-        ])
+        getLayoutZoneWidgetObjects.mockResolvedValueOnce([getLayoutWidgetDefinition('marketing.hero')!])
         assignLayoutZoneWidget.mockResolvedValueOnce({
             data: {
                 id: 'hero-copy',
@@ -573,16 +548,7 @@ describe('LayoutDetails inherited widget contract', () => {
                 isInherited: false
             }
         ])
-        getLayoutZoneWidgetObjects.mockResolvedValueOnce([
-            {
-                key: 'marketing.hero',
-                allowedZones: ['marketing-main'],
-                allowedZonesByTemplate: { 'marketing-page': ['marketing-main'] },
-                multiInstance: true,
-                templateKey: 'marketing-page',
-                supportedTemplates: ['marketing-page']
-            }
-        ])
+        getLayoutZoneWidgetObjects.mockResolvedValueOnce([getLayoutWidgetDefinition('marketing.hero')!])
 
         render(
             <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
@@ -622,9 +588,12 @@ describe('LayoutDetails inherited widget contract', () => {
             {
                 id: 'widget-awaiting-layout',
                 layoutId: 'layout-1',
+                instanceKey: 'widget-awaiting-layout-instance',
                 zone: 'center',
                 widgetKey: 'columnsContainer',
                 sortOrder: 1,
+                parentInstanceKey: null,
+                slotKey: null,
                 config: { columns: [] },
                 isActive: true,
                 isInherited: false
@@ -750,16 +719,7 @@ describe('LayoutDetails inherited widget contract', () => {
                 version: 13
             }
         ])
-        getLayoutZoneWidgetObjects.mockResolvedValueOnce([
-            {
-                key: 'marketing.hero',
-                allowedZones: ['marketing-main'],
-                allowedZonesByTemplate: { 'marketing-page': ['marketing-main'] },
-                multiInstance: true,
-                templateKey: 'marketing-page',
-                supportedTemplates: ['marketing-page']
-            }
-        ])
+        getLayoutZoneWidgetObjects.mockResolvedValueOnce([getLayoutWidgetDefinition('marketing.hero')!])
 
         render(
             <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
@@ -825,16 +785,7 @@ describe('LayoutDetails inherited widget contract', () => {
                 isInherited: true
             }
         ])
-        getLayoutZoneWidgetObjects.mockResolvedValueOnce([
-            {
-                key: 'marketing.hero',
-                allowedZones: ['marketing-main'],
-                allowedZonesByTemplate: { 'marketing-page': ['marketing-main'] },
-                multiInstance: true,
-                templateKey: 'marketing-page',
-                supportedTemplates: ['marketing-page']
-            }
-        ])
+        getLayoutZoneWidgetObjects.mockResolvedValueOnce([getLayoutWidgetDefinition('marketing.hero')!])
 
         render(
             <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>

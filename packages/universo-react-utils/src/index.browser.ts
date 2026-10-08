@@ -25,6 +25,7 @@ export {
 // Date formatting utilities (UI-only)
 export { formatDate, formatRange } from './ui-utils/formatDate'
 export { isSemanticLongTextRuntimeField, type RuntimeFieldSemanticInput } from './ui-utils/fieldSemantics'
+export { isRuntimeSensitiveFieldName, isRuntimeTechnicalFieldName } from './ui-utils/runtimeFieldVisibility'
 
 // API error handling utilities
 export * as api from './api/error-handlers'
@@ -85,11 +86,9 @@ export {
     normalizeObjectCollectionRuntimeViewConfig,
     resolveObjectCollectionLayoutBehaviorConfig,
     sanitizeObjectCollectionRuntimeViewConfig,
-    setObjectCollectionLayoutBehaviorConfig,
-    resolveObjectCollectionRuntimeDashboardLayoutConfig
+    setObjectCollectionLayoutBehaviorConfig
 } from './validation/objectCollectionRuntimeConfig'
 export { normalizeDashboardLayoutConfig, normalizeDashboardSideMenuConfig } from './validation/dashboardLayout'
-export { normalizeMenuWidgetConfigTargets, type RuntimeMenuTargetMaps } from './validation/menuWidgetTargets'
 export {
     uuidV7Schema,
     normalizeRuntimeLayoutTarget,

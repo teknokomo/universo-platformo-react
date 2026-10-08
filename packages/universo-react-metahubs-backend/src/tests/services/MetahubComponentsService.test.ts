@@ -222,6 +222,17 @@ describe('MetahubComponentsService active-row filtering', () => {
         expect(mockExecQuery.mock.calls[0][1]).toEqual(['enum-1', 'value-1', ['enumeration', 'custom.option-list']])
     })
 
+    it('runs option-value blocker queries on the caller transaction when supplied', async () => {
+        const transactionQuery = jest.fn().mockResolvedValue([])
+        const transaction = { query: transactionQuery } as any
+
+        await service.findDefaultEnumValueBlockers('metahub-1', 'value-1', 'user-1', ['enumeration'], transaction)
+        await service.findElementEnumValueBlockers('metahub-1', 'enum-1', 'value-1', 'user-1', ['enumeration'], transaction)
+
+        expect(transactionQuery).toHaveBeenCalledTimes(2)
+        expect(mockExecQuery).not.toHaveBeenCalled()
+    })
+
     it('matches compatible target kinds when finding reference blockers by target', async () => {
         await service.findReferenceBlockersByTarget('metahub-1', 'enum-1', ['enumeration', 'custom.option-list'], 'user-1')
 

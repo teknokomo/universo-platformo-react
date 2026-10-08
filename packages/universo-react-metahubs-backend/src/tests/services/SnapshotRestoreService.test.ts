@@ -73,11 +73,20 @@ function createMockKnex(
             insertedRows[table].push(row)
             return this
         }),
-        where: jest.fn().mockReturnThis(),
+        where: jest.fn().mockImplementation(function (this: any, condition: unknown) {
+            this._where = condition
+            return this
+        }),
         whereNotNull: jest.fn().mockReturnThis(),
         select: jest.fn().mockImplementation(() => Promise.resolve(existingModuleSourceRows)),
         first: jest.fn().mockResolvedValue(undefined),
-        update: jest.fn().mockResolvedValue(1),
+        update: jest.fn().mockImplementation(function (this: any) {
+            if (this._currentTable === '_mhb_widgets') {
+                this._pendingUpdate = true
+                return this
+            }
+            return Promise.resolve(1)
+        }),
         raw: jest.fn((sql: string, params?: unknown[]) => {
             activeTransactionRawCalls?.push({ sql, params: params ?? [] })
             if (sql.includes('information_schema.columns')) {
@@ -97,10 +106,16 @@ function createMockKnex(
             return { raw: sql }
         }),
         returning: jest.fn().mockImplementation(function (this: any) {
+            if (this._pendingUpdate) {
+                this._pendingUpdate = false
+                const updatedId = this._where && typeof this._where === 'object' ? (this._where as { id?: unknown }).id : undefined
+                return Promise.resolve(typeof updatedId === 'string' ? [{ id: updatedId }] : [])
+            }
             const table = this._currentTable || '_unknown'
             const currentId = idCounter++
-            const newId =
-                table === '_mhb_layouts' ? `019e8afa-0000-7000-8000-${String(currentId).padStart(12, '0')}` : `generated-id-${currentId}`
+            const newId = ['_mhb_layouts', '_mhb_widgets'].includes(table)
+                ? `019e8afa-0000-7000-8000-${String(currentId).padStart(12, '0')}`
+                : `generated-id-${currentId}`
             const tableRows = insertedRows[table]
             const lastInsertedRow = Array.isArray(tableRows) ? tableRows[tableRows.length - 1] : null
             if (lastInsertedRow && typeof lastInsertedRow === 'object') {
@@ -140,8 +155,25 @@ describe('SnapshotRestoreService', () => {
         mockReplaceMetahubPackagesFromSnapshot.mockResolvedValue(0)
     })
 
-    const makeMinimalSnapshot = (overrides?: Partial<MetahubSnapshot>): MetahubSnapshot =>
-        ({
+    type SnapshotWidgetFixture = Omit<
+        NonNullable<MetahubSnapshot['layoutZoneWidgets']>[number],
+        'instanceKey' | 'parentWidgetId' | 'slotKey'
+    > &
+        Partial<Pick<NonNullable<MetahubSnapshot['layoutZoneWidgets']>[number], 'instanceKey' | 'parentWidgetId' | 'slotKey'>>
+    type SnapshotFixtureOverrides = Omit<Partial<MetahubSnapshot>, 'layoutZoneWidgets'> & {
+        layoutZoneWidgets?: SnapshotWidgetFixture[]
+    }
+
+    const makeMinimalSnapshot = (overrides?: SnapshotFixtureOverrides): MetahubSnapshot => {
+        const normalizedWidgets = overrides?.layoutZoneWidgets?.map((widget, index) => {
+            return {
+                ...widget,
+                instanceKey: widget.instanceKey ?? `snapshot-widget-${index}`,
+                parentWidgetId: widget.parentWidgetId ?? null,
+                slotKey: widget.slotKey ?? null
+            }
+        })
+        return {
             version: '1.0.0',
             metahubId: '00000000-0000-0000-0000-000000000001',
             entities: {
@@ -169,8 +201,10 @@ describe('SnapshotRestoreService', () => {
             optionValues: {},
             elements: {},
             systemFields: {},
-            ...overrides
-        } as unknown as MetahubSnapshot)
+            ...overrides,
+            ...(normalizedWidgets === undefined ? {} : { layoutZoneWidgets: normalizedWidgets })
+        } as unknown as MetahubSnapshot
+    }
 
     const deletedTablesWithLayouts = ['_mhb_modules', '_mhb_widgets', '_mhb_layout_widget_overrides', '_mhb_layouts']
     const validLayoutIds = {
@@ -226,7 +260,7 @@ describe('SnapshotRestoreService', () => {
         }
     }
 
-    const marketingHeroWidget = (layoutId: string, id: string, instanceKey = 'hero') => ({
+    const marketingHeroWidget = (layoutId: string, id: string) => ({
         id,
         layoutId,
         zone: 'marketing-main',
@@ -234,7 +268,7 @@ describe('SnapshotRestoreService', () => {
         sortOrder: 0,
         config: encodeWidgetConfigEnvelope(
             {
-                rendererConfig: { instanceKey, showLeadForm: false },
+                rendererConfig: { showLeadForm: false },
                 neutral: {
                     bindings: buildSingleTargetWidgetBinding(marketingHeroDefinition, 'content', {
                         entityKind: 'object',
@@ -546,6 +580,7 @@ describe('SnapshotRestoreService', () => {
                         sortOrder: 0,
                         config: {
                             runtimeManifest: {
+                                source: 'publishedManifest',
                                 projectId: sourceProjectId,
                                 sceneId: sourceSceneId,
                                 checksum: sourceChecksum,
@@ -1130,7 +1165,7 @@ describe('SnapshotRestoreService', () => {
         })
     })
 
-    it('restores layouts and zone widgets', async () => {
+    it('restores root and nested placements after remapping physical parent ids', async () => {
         const snapshot = makeMinimalSnapshot({
             layouts: [
                 {
@@ -1138,7 +1173,7 @@ describe('SnapshotRestoreService', () => {
                     templateKey: 'dashboard',
                     name: { en: 'Default' },
                     description: null,
-                    config: { showHeader: true },
+                    config: {},
                     isActive: true,
                     isDefault: true,
                     sortOrder: 0,
@@ -1150,16 +1185,31 @@ describe('SnapshotRestoreService', () => {
                 {
                     id: validLayoutIds.dashboardWidget,
                     layoutId: validLayoutIds.dashboard,
+                    instanceKey: 'columns-root',
+                    parentWidgetId: null,
+                    slotKey: null,
                     zone: 'center',
-                    widgetKey: 'detailsTable',
+                    widgetKey: 'columnsContainer',
                     sortOrder: 0,
+                    config: { columns: [{ slotKey: 'column:main', width: 12 }] },
+                    isActive: true
+                },
+                {
+                    id: validLayoutIds.referencesWidget,
+                    layoutId: validLayoutIds.dashboard,
+                    instanceKey: 'table-child',
+                    parentWidgetId: validLayoutIds.dashboardWidget,
+                    slotKey: 'column:main',
+                    zone: 'center',
+                    widgetKey: 'playcanvasCanvas',
+                    sortOrder: 1,
                     config: {},
                     isActive: true
                 }
             ]
-        } as unknown as Partial<MetahubSnapshot>)
+        })
 
-        const { knex, insertedRows, deletedTables, transactionRawCalls } = createMockKnex()
+        const { knex, mockBuilder, insertedRows, deletedTables, transactionRawCalls } = createMockKnex()
         const service = new SnapshotRestoreService(knex as any, 'mhb_a1b2c3d4e5f67890abcdef1234567890_b1')
 
         await service.restoreFromSnapshot('metahub-1', snapshot, 'user-1')
@@ -1172,11 +1222,31 @@ describe('SnapshotRestoreService', () => {
             template_key: 'dashboard',
             is_default: true
         })
-        expect(insertedRows['_mhb_widgets']).toHaveLength(1)
-        expect(insertedRows['_mhb_widgets']![0]).toMatchObject({
+        expect(insertedRows['_mhb_widgets']).toHaveLength(2)
+        const [restoredRoot, restoredChild] = insertedRows['_mhb_widgets'] as Array<Record<string, unknown>>
+        expect(restoredRoot).toMatchObject({
+            instance_key: 'columns-root',
+            parent_widget_id: null,
+            slot_key: null,
             zone: 'center',
-            widget_key: 'detailsTable'
+            widget_key: 'columnsContainer'
         })
+        expect(restoredChild).toMatchObject({
+            instance_key: 'table-child',
+            parent_widget_id: null,
+            slot_key: null,
+            zone: 'center',
+            widget_key: 'playcanvasCanvas'
+        })
+        expect(restoredRoot.id).not.toBe(validLayoutIds.dashboardWidget)
+        expect(restoredChild.id).not.toBe(validLayoutIds.referencesWidget)
+        expect(mockBuilder.update).toHaveBeenCalledWith(
+            expect.objectContaining({
+                parent_widget_id: restoredRoot.id,
+                slot_key: 'column:main',
+                _upl_version: 2
+            })
+        )
         expect(transactionRawCalls[0]).toEqual(
             expect.arrayContaining([
                 expect.objectContaining({
@@ -1184,6 +1254,93 @@ describe('SnapshotRestoreService', () => {
                     params: [expect.stringContaining('mhb-layout-graph:')]
                 })
             ])
+        )
+    })
+
+    it('restores an overlay child that references its base-layout parent', async () => {
+        const snapshot = makeMinimalSnapshot({
+            entities: {
+                [validLayoutIds.scopedEntity]: {
+                    kind: 'object',
+                    codename: 'product-detail',
+                    presentation: { name: { en: 'Product detail' }, description: {} },
+                    config: {},
+                    fields: []
+                }
+            },
+            layouts: [
+                {
+                    id: validLayoutIds.dashboard,
+                    templateKey: 'dashboard',
+                    name: { en: 'Default' },
+                    description: null,
+                    config: {},
+                    isActive: true,
+                    isDefault: true,
+                    sortOrder: 0,
+                    compositionMode: 'independent',
+                    baseLayoutId: null
+                }
+            ],
+            scopedLayouts: [
+                {
+                    id: validLayoutIds.scoped,
+                    scopeEntityId: validLayoutIds.scopedEntity,
+                    templateKey: 'dashboard',
+                    compositionMode: 'overlay',
+                    baseLayoutId: validLayoutIds.dashboard,
+                    name: { en: 'Product detail' },
+                    description: null,
+                    config: {},
+                    isActive: true,
+                    isDefault: false,
+                    sortOrder: 0
+                }
+            ],
+            layoutZoneWidgets: [
+                {
+                    id: validLayoutIds.dashboardWidget,
+                    layoutId: validLayoutIds.dashboard,
+                    instanceKey: 'base-columns',
+                    parentWidgetId: null,
+                    slotKey: null,
+                    zone: 'center',
+                    widgetKey: 'columnsContainer',
+                    sortOrder: 0,
+                    config: { columns: [{ slotKey: 'column:main', width: 12 }] },
+                    isActive: true
+                },
+                {
+                    id: validLayoutIds.referencesWidget,
+                    layoutId: validLayoutIds.scoped,
+                    instanceKey: 'overlay-canvas',
+                    parentWidgetId: validLayoutIds.dashboardWidget,
+                    slotKey: 'column:main',
+                    zone: 'center',
+                    widgetKey: 'playcanvasCanvas',
+                    sortOrder: 0,
+                    config: {},
+                    isActive: true
+                }
+            ]
+        })
+        const { knex, mockBuilder, insertedRows } = createMockKnex()
+        const service = new SnapshotRestoreService(knex as any, 'mhb_a1b2c3d4e5f67890abcdef1234567890_b1')
+
+        await expect(service.restoreFromSnapshot('metahub-1', snapshot, 'user-1')).resolves.toBeUndefined()
+
+        const [restoredBaseLayout, restoredScopedLayout] = insertedRows['_mhb_layouts'] as Array<Record<string, unknown>>
+        const [restoredParent, restoredChild] = insertedRows['_mhb_widgets'] as Array<Record<string, unknown>>
+        expect(restoredScopedLayout).toMatchObject({ base_layout_id: restoredBaseLayout.id })
+        expect(restoredParent).toMatchObject({ layout_id: restoredBaseLayout.id, parent_widget_id: null })
+        expect(restoredChild).toMatchObject({ layout_id: restoredScopedLayout.id, parent_widget_id: null, slot_key: null })
+        expect(mockBuilder.where).toHaveBeenCalledWith({
+            id: restoredChild.id,
+            layout_id: restoredScopedLayout.id,
+            _upl_version: 1
+        })
+        expect(mockBuilder.update).toHaveBeenCalledWith(
+            expect.objectContaining({ parent_widget_id: restoredParent.id, slot_key: 'column:main', _upl_version: 2 })
         )
     })
 
@@ -1201,7 +1358,11 @@ describe('SnapshotRestoreService', () => {
                 },
                 [heroEntityId]: marketingHeroEntity()
             },
-            elements: { [heroEntityId]: [{ codename: 'default', sortOrder: 1, data: marketingHeroRecordData() }] },
+            elements: {
+                [heroEntityId]: [
+                    { id: '019e8afa-0000-7000-8000-000000000023', codename: 'default', sortOrder: 1, data: marketingHeroRecordData() }
+                ]
+            },
             layouts: [
                 {
                     id: validLayoutIds.global,
@@ -1244,30 +1405,23 @@ describe('SnapshotRestoreService', () => {
             ]
         } as unknown as Partial<MetahubSnapshot>)
 
-        const { knex, insertedRows } = createMockKnex()
+        const { knex, insertedRows, deletedTables, trxFn } = createMockKnex()
         const service = new SnapshotRestoreService(knex as any, 'mhb_a1b2c3d4e5f67890abcdef1234567890_b1')
 
         await expect(service.restoreFromSnapshot('metahub-1', snapshot, 'user-1')).rejects.toMatchObject({
             message: 'Scoped layout references an unresolved restored entity or base layout',
             details: { layoutId: validLayoutIds.scoped, baseLayoutId: validLayoutIds.global }
         })
-        expect(insertedRows['_mhb_layouts']).toHaveLength(1)
+        expect(insertedRows['_mhb_layouts']).toBeUndefined()
+        expect(deletedTables).toEqual([])
+        expect(trxFn).not.toHaveBeenCalled()
     })
 
-    it('remaps entity references inside restored layout widget configs', async () => {
-        const sourceHubId = 'old-hub-id'
+    it('restores semantic Dashboard presentation config without entity-id remapping', async () => {
         const sourcePageId = 'old-page-id'
         const sourceObjectId = 'old-object-id'
-        const sourceTreeId = 'old-tree-id'
         const snapshot = makeMinimalSnapshot({
             entities: {
-                [sourceHubId]: {
-                    kind: 'hub',
-                    codename: 'main-hub',
-                    presentation: { name: { en: 'Main Hub' }, description: {} },
-                    config: {},
-                    fields: []
-                },
                 [sourceObjectId]: {
                     kind: 'object',
                     codename: 'sections',
@@ -1281,13 +1435,6 @@ describe('SnapshotRestoreService', () => {
                     presentation: { name: { en: 'Welcome' }, description: {} },
                     config: {},
                     fields: []
-                },
-                [sourceTreeId]: {
-                    kind: 'object',
-                    codename: 'tree',
-                    presentation: { name: { en: 'Tree' }, description: {} },
-                    config: {},
-                    fields: []
                 }
             },
             layouts: [
@@ -1297,12 +1444,7 @@ describe('SnapshotRestoreService', () => {
                     name: { en: 'Default' },
                     description: null,
                     config: {
-                        targetEntityId: sourceObjectId,
-                        targetSectionId: sourcePageId,
-                        targetObjectCollectionId: sourceObjectId,
-                        targetSectionIds: [sourcePageId, 'stable-codename'],
-                        targetObjectCollectionIds: [sourceObjectId],
-                        unrelatedId: sourceObjectId
+                        sideMenu: { availableModes: ['compact'], primaryMode: 'compact', rememberUserChoice: false }
                     },
                     isActive: true,
                     isDefault: true,
@@ -1315,30 +1457,13 @@ describe('SnapshotRestoreService', () => {
                 {
                     id: validLayoutIds.referencesWidget,
                     layoutId: validLayoutIds.references,
+                    instanceKey: 'main-menu',
+                    parentWidgetId: null,
+                    slotKey: null,
                     zone: 'left',
                     widgetKey: 'menuWidget',
                     sortOrder: 0,
-                    config: {
-                        startPage: sourcePageId,
-                        boundHubId: sourceHubId,
-                        hubId: sourceHubId,
-                        items: [
-                            {
-                                id: 'menu-item-keeps-own-id',
-                                title: 'Welcome',
-                                sectionId: sourcePageId,
-                                treeEntityId: sourceTreeId,
-                                objectCollectionId: sourceObjectId,
-                                objectCollectionIds: [sourceObjectId],
-                                sectionIds: [sourcePageId, 'stable-codename']
-                            }
-                        ],
-                        metadata: {
-                            targetEntityId: sourceObjectId,
-                            targetSectionId: sourcePageId,
-                            targetObjectCollectionId: sourceObjectId
-                        }
-                    },
+                    config: { variant: 'generated' },
                     isActive: true
                 }
             ]
@@ -1350,45 +1475,16 @@ describe('SnapshotRestoreService', () => {
         await service.restoreFromSnapshot('metahub-1', snapshot, 'user-1')
 
         const objectRows = insertedRows['_mhb_objects'] as Array<Record<string, unknown>>
-        const restoredHubId = objectRows.find((row) => getCodenameText(row) === 'main-hub')?.id
         const restoredObjectId = objectRows.find((row) => getCodenameText(row) === 'sections')?.id
         const restoredPageId = objectRows.find((row) => getCodenameText(row) === 'welcome')?.id
-        const restoredTreeId = objectRows.find((row) => getCodenameText(row) === 'tree')?.id
         const layoutConfig = (insertedRows['_mhb_layouts']?.[0] as { config?: Record<string, unknown> } | undefined)?.config
         const widgetConfig = (insertedRows['_mhb_widgets']?.[0] as { config?: Record<string, unknown> } | undefined)?.config
 
-        expect(restoredHubId).toBeTruthy()
         expect(restoredObjectId).toBeTruthy()
         expect(restoredPageId).toBeTruthy()
-        expect(restoredTreeId).toBeTruthy()
-        expect(layoutConfig).toMatchObject({
-            targetEntityId: restoredObjectId,
-            targetSectionId: restoredPageId,
-            targetObjectCollectionId: restoredObjectId,
-            targetSectionIds: [restoredPageId, 'stable-codename'],
-            targetObjectCollectionIds: [restoredObjectId],
-            unrelatedId: sourceObjectId
-        })
-        expect(widgetConfig).toMatchObject({
-            startPage: restoredPageId,
-            boundHubId: restoredHubId,
-            hubId: restoredHubId,
-            items: [
-                {
-                    id: 'menu-item-keeps-own-id',
-                    sectionId: restoredPageId,
-                    treeEntityId: restoredTreeId,
-                    objectCollectionId: restoredObjectId,
-                    objectCollectionIds: [restoredObjectId],
-                    sectionIds: [restoredPageId, 'stable-codename']
-                }
-            ],
-            metadata: {
-                targetEntityId: restoredObjectId,
-                targetSectionId: restoredPageId,
-                targetObjectCollectionId: restoredObjectId
-            }
-        })
+        expect(layoutConfig?.sideMenu).toEqual({ availableModes: ['compact'], primaryMode: 'compact', rememberUserChoice: false })
+        expect(widgetConfig).toMatchObject({ variant: 'generated' })
+        expect(widgetConfig).not.toHaveProperty('instanceKey')
     })
 
     it('restores modules with sourceCode and remaps attachment ids', async () => {
@@ -1749,6 +1845,117 @@ describe('SnapshotRestoreService', () => {
         expect(insertedRows['_mhb_widgets']).toBeUndefined()
     })
 
+    it('rejects an invalid snapshot parent-slot pair before deleting seeded layouts', async () => {
+        const snapshot = makeMinimalSnapshot({
+            layouts: [
+                {
+                    id: validLayoutIds.dashboard,
+                    templateKey: 'dashboard',
+                    name: { en: 'Default' },
+                    description: null,
+                    config: {},
+                    isActive: true,
+                    isDefault: true,
+                    sortOrder: 0,
+                    compositionMode: 'independent',
+                    baseLayoutId: null
+                }
+            ],
+            layoutZoneWidgets: [
+                {
+                    id: validLayoutIds.dashboardWidget,
+                    layoutId: validLayoutIds.dashboard,
+                    instanceKey: 'invalid-root',
+                    parentWidgetId: null,
+                    slotKey: 'column:orphan',
+                    zone: 'center',
+                    widgetKey: 'columnsContainer',
+                    sortOrder: 0,
+                    config: { columns: [{ slotKey: 'column:orphan', width: 12 }] },
+                    isActive: true
+                }
+            ]
+        })
+        const { knex, deletedTables, trxFn } = createMockKnex()
+        const service = new SnapshotRestoreService(knex as any, 'mhb_a1b2c3d4e5f67890abcdef1234567890_b1')
+
+        await expect(service.restoreFromSnapshot('metahub-1', snapshot, 'user-1')).rejects.toMatchObject({
+            code: 'VALIDATION_ERROR',
+            statusCode: 400
+        })
+        expect(deletedTables).toEqual([])
+        expect(trxFn).not.toHaveBeenCalled()
+    })
+
+    it.each(['missing parent', 'unknown slot', 'cycle', 'missing instance key'] as const)(
+        'rejects a snapshot placement graph with a %s before restore writes',
+        async (invalidCase) => {
+            const snapshot = makeMinimalSnapshot({
+                layouts: [
+                    {
+                        id: validLayoutIds.dashboard,
+                        templateKey: 'dashboard',
+                        name: { en: 'Default' },
+                        description: null,
+                        config: {},
+                        isActive: true,
+                        isDefault: true,
+                        sortOrder: 0,
+                        compositionMode: 'independent',
+                        baseLayoutId: null
+                    }
+                ],
+                layoutZoneWidgets: [
+                    {
+                        id: validLayoutIds.dashboardWidget,
+                        layoutId: validLayoutIds.dashboard,
+                        instanceKey: 'columns-root',
+                        parentWidgetId: null,
+                        slotKey: null,
+                        zone: 'center',
+                        widgetKey: 'columnsContainer',
+                        sortOrder: 0,
+                        config: { columns: [{ slotKey: 'column:primary', width: 12 }] },
+                        isActive: true
+                    },
+                    {
+                        id: validLayoutIds.referencesWidget,
+                        layoutId: validLayoutIds.dashboard,
+                        instanceKey: 'canvas-child',
+                        parentWidgetId: validLayoutIds.dashboardWidget,
+                        slotKey: 'column:primary',
+                        zone: 'center',
+                        widgetKey: 'playcanvasCanvas',
+                        sortOrder: 1,
+                        config: {},
+                        isActive: true
+                    }
+                ]
+            })
+            const [root, child] = snapshot.layoutZoneWidgets!
+
+            if (invalidCase === 'missing parent') {
+                child.parentWidgetId = '019e8afa-0000-7000-8000-000000000099'
+            } else if (invalidCase === 'unknown slot') {
+                child.slotKey = 'column:missing'
+            } else if (invalidCase === 'cycle') {
+                root.parentWidgetId = child.id
+                root.slotKey = 'column:primary'
+            } else {
+                delete (child as unknown as { instanceKey?: string }).instanceKey
+            }
+
+            const { knex, deletedTables, trxFn } = createMockKnex()
+            const service = new SnapshotRestoreService(knex as any, 'mhb_a1b2c3d4e5f67890abcdef1234567890_b1')
+
+            await expect(service.restoreFromSnapshot('metahub-1', snapshot, 'user-1')).rejects.toMatchObject({
+                message: 'Snapshot contains an invalid layout widget placement graph'
+            })
+            expect(deletedTables).toEqual([])
+            expect(trxFn).not.toHaveBeenCalled()
+        }
+    )
+
     it('rejects malformed marketing layout data before destructive restore writes', async () => {
         const layoutId = '018f3f98-7a63-7b4a-9a5a-20c9a5b2d104'
         const widgetId = '018f3f98-7a63-7b4a-9a5a-20c9a5b2d105'
@@ -1781,7 +1988,7 @@ describe('SnapshotRestoreService', () => {
                     sortOrder: 0,
                     config: encodeWidgetConfigEnvelope(
                         {
-                            rendererConfig: { instanceKey: 'hero', showLeadForm: false, unexpected: true },
+                            rendererConfig: { showLeadForm: false, unexpected: true },
                             neutral: {
                                 bindings: buildSingleTargetWidgetBinding(marketingHeroDefinition, 'content', {
                                     entityKind: 'object',
@@ -1966,7 +2173,11 @@ describe('SnapshotRestoreService', () => {
         const heroEntityId = '019e8afa-0000-7000-8000-000000000022'
         const snapshot = makeMinimalSnapshot({
             entities: { [heroEntityId]: marketingHeroEntity() },
-            elements: { [heroEntityId]: [{ codename: 'default', sortOrder: 1, data: marketingHeroRecordData() }] },
+            elements: {
+                [heroEntityId]: [
+                    { id: '019e8afa-0000-7000-8000-000000000024', codename: 'default', sortOrder: 1, data: marketingHeroRecordData() }
+                ]
+            },
             layouts: [
                 {
                     id: layoutId,
@@ -2012,6 +2223,13 @@ describe('SnapshotRestoreService', () => {
         })
         expect(restoredConfig).not.toHaveProperty('compositionMode')
         expect(restoredConfig).not.toHaveProperty('baseLayoutId')
+        const restoredWidget = (insertedRows['_mhb_widgets']?.[0] ?? {}) as Record<string, unknown>
+        expect(restoredWidget).toMatchObject({
+            instance_key: 'snapshot-widget-0',
+            parent_widget_id: null,
+            slot_key: null
+        })
+        expect(restoredWidget.config).not.toHaveProperty('instanceKey')
     })
 
     it('rejects legacy root composition fields before restore writes', async () => {
@@ -2663,7 +2881,7 @@ describe('SnapshotRestoreService', () => {
                     templateKey: 'dashboard',
                     name: { en: 'Global default' },
                     description: null,
-                    config: { showHeader: true },
+                    config: {},
                     isActive: true,
                     isDefault: true,
                     sortOrder: 0,
@@ -2679,7 +2897,7 @@ describe('SnapshotRestoreService', () => {
                     templateKey: 'dashboard',
                     name: { en: 'Entity override' },
                     description: null,
-                    config: { showHeader: false },
+                    config: {},
                     isActive: true,
                     isDefault: true,
                     sortOrder: 0,
@@ -2690,19 +2908,25 @@ describe('SnapshotRestoreService', () => {
                 {
                     id: validLayoutIds.globalWidget,
                     layoutId: validLayoutIds.global,
+                    instanceKey: 'main-menu',
+                    parentWidgetId: null,
+                    slotKey: null,
                     zone: 'left',
                     widgetKey: 'menuWidget',
                     sortOrder: 1,
-                    config: { showTitle: true },
+                    config: { variant: 'generated' },
                     isActive: true
                 },
                 {
                     id: validLayoutIds.ownedWidget,
                     layoutId: validLayoutIds.scoped,
+                    instanceKey: 'resource-preview',
+                    parentWidgetId: null,
+                    slotKey: null,
                     zone: 'right',
                     widgetKey: 'resourcePreview',
                     sortOrder: 1,
-                    config: { compact: true },
+                    config: { displayMode: 'compact' },
                     isActive: true
                 }
             ],
@@ -2713,7 +2937,7 @@ describe('SnapshotRestoreService', () => {
                     baseWidgetId: validLayoutIds.globalWidget,
                     zone: 'left',
                     sortOrder: 2,
-                    config: { showTitle: false },
+                    config: { variant: 'generated' },
                     isActive: true,
                     isDeletedOverride: false
                 }
@@ -2766,6 +2990,112 @@ describe('SnapshotRestoreService', () => {
             is_active: true,
             is_deleted_override: false
         })
+    })
+
+    it('restores sparse Dashboard overrides without duplicating inherited Entity bindings', async () => {
+        const detailsTableConfig = encodeWidgetConfigEnvelope(
+            {
+                rendererConfig: { defaultViewMode: 'card' },
+                neutral: {
+                    bindings: {
+                        version: 1,
+                        slots: [
+                            {
+                                slot: 'rows',
+                                targets: [
+                                    {
+                                        entityKind: 'object',
+                                        entityCodename: 'products',
+                                        selector: { kind: 'record-set' },
+                                        projection: []
+                                    }
+                                ]
+                            }
+                        ]
+                    }
+                }
+            },
+            { templateKey: 'dashboard', widgetKey: 'detailsTable', zone: 'center', requireBindings: true }
+        )
+        const snapshot = makeMinimalSnapshot({
+            entities: {
+                [validLayoutIds.scopedEntity]: {
+                    kind: 'object',
+                    codename: 'products',
+                    presentation: { name: { en: 'Products' }, description: {} },
+                    config: {},
+                    fields: []
+                }
+            },
+            layouts: [
+                {
+                    id: validLayoutIds.global,
+                    templateKey: 'dashboard',
+                    name: { en: 'Global default' },
+                    description: null,
+                    config: {},
+                    isActive: true,
+                    isDefault: true,
+                    sortOrder: 0,
+                    compositionMode: 'independent',
+                    baseLayoutId: null
+                }
+            ],
+            scopedLayouts: [
+                {
+                    id: validLayoutIds.scoped,
+                    scopeEntityId: validLayoutIds.scopedEntity,
+                    baseLayoutId: validLayoutIds.global,
+                    templateKey: 'dashboard',
+                    name: { en: 'Products override' },
+                    description: null,
+                    config: {},
+                    isActive: true,
+                    isDefault: true,
+                    sortOrder: 0,
+                    compositionMode: 'overlay'
+                }
+            ],
+            layoutZoneWidgets: [
+                {
+                    id: validLayoutIds.globalWidget,
+                    layoutId: validLayoutIds.global,
+                    zone: 'center',
+                    widgetKey: 'detailsTable',
+                    sortOrder: 0,
+                    config: detailsTableConfig,
+                    isActive: true
+                }
+            ],
+            layoutWidgetOverrides: [
+                {
+                    id: validLayoutIds.override,
+                    layoutId: validLayoutIds.scoped,
+                    baseWidgetId: validLayoutIds.globalWidget,
+                    zone: null,
+                    sortOrder: null,
+                    config: { defaultViewMode: 'table' },
+                    isActive: null,
+                    isDeletedOverride: false
+                }
+            ]
+        } as unknown as Partial<MetahubSnapshot>)
+
+        const { knex, insertedRows } = createMockKnex()
+        const service = new SnapshotRestoreService(knex as any, 'mhb_a1b2c3d4e5f67890abcdef1234567890_b1')
+
+        await service.restoreFromSnapshot('metahub-1', snapshot, 'user-1')
+
+        const baseWidgetRow = insertedRows['_mhb_widgets']![0] as Record<string, unknown>
+        const overrideRow = insertedRows['_mhb_layout_widget_overrides']![0] as Record<string, unknown>
+        expect(baseWidgetRow.config).toMatchObject({
+            __layout: {
+                bindings: {
+                    slots: [expect.objectContaining({ slot: 'rows' })]
+                }
+            }
+        })
+        expect(overrideRow.config).toEqual({ defaultViewMode: 'table' })
     })
 
     it('skips entities with missing entityIdMap (with warning)', async () => {

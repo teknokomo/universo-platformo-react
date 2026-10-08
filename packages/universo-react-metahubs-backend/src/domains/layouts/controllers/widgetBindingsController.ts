@@ -1,10 +1,10 @@
 import { z } from 'zod'
-import { marketingCollectionVariantSchema, marketingWidgetKeySchema } from '@universo-react/types'
+import { applicationLayoutWidgetKeySchema } from '@universo-react/types'
 import { uuidV7Schema } from '@universo-react/utils'
 import type { createMetahubHandlerFactory } from '../../shared/createMetahubHandler'
 import { MetahubLayoutsService } from '../services/MetahubLayoutsService'
 import { widgetBindingSourceProvisionPayloadSchema } from '../widgetBindingService'
-import { updateLayoutZoneWidgetBindingSchema, type WidgetBindingSourcesDto } from '../widgetBindingSchemas'
+import { updateLayoutZoneWidgetBindingSchema, widgetBindingVariantSchema, type WidgetBindingSourcesDto } from '../widgetBindingSchemas'
 
 const parseUuidV7Param = (value: unknown): string | null => {
     const parsed = uuidV7Schema.safeParse(value)
@@ -14,7 +14,7 @@ const parseUuidV7Param = (value: unknown): string | null => {
 const widgetBindingLookupQuerySchema = z
     .object({
         widgetId: z.string().optional(),
-        variant: marketingCollectionVariantSchema.optional(),
+        variant: widgetBindingVariantSchema.optional(),
         parentSourceKey: z
             .string()
             .trim()
@@ -70,7 +70,7 @@ export function createWidgetBindingsController(createHandler: ReturnType<typeof 
             const parsedQuery = widgetBindingLookupQuerySchema.safeParse(req.query)
             if (!parsedQuery.success) return res.status(400).json({ error: 'Invalid query' })
             const query = parsedQuery.data
-            const widgetKey = marketingWidgetKeySchema.safeParse(req.params.widgetKey)
+            const widgetKey = applicationLayoutWidgetKeySchema.safeParse(req.params.widgetKey)
             if (!widgetKey.success) return res.status(400).json({ error: 'Invalid widget key' })
             const widgetId = query.widgetId === undefined ? null : parseUuidV7Param(query.widgetId)
             if (query.widgetId !== undefined && !widgetId) return res.status(400).json({ error: 'Invalid widget ID' })
@@ -95,10 +95,6 @@ export function createWidgetBindingsController(createHandler: ReturnType<typeof 
                     userId
                 )
             } else {
-                const layout = await layoutsService.getLayoutById(metahubId, layoutId, userId)
-                if (!layout || layout.templateKey !== 'marketing-page') {
-                    return res.status(404).json({ error: 'Binding source slot not found' })
-                }
                 result = await layoutsService.widgetBindings.discoverWidgetBindingSources(
                     metahubId,
                     layoutId,
@@ -153,10 +149,8 @@ export function createWidgetBindingsController(createHandler: ReturnType<typeof 
                 return res.json(records)
             }
 
-            const widgetKey = marketingWidgetKeySchema.safeParse(req.params.widgetKey)
+            const widgetKey = applicationLayoutWidgetKeySchema.safeParse(req.params.widgetKey)
             if (!widgetKey.success) return res.status(400).json({ error: 'Invalid widget key' })
-            const layout = await layoutsService.getLayoutById(metahubId, layoutId, userId)
-            if (!layout || layout.templateKey !== 'marketing-page') return res.status(404).json({ error: 'Binding source slot not found' })
             const records = await layoutsService.widgetBindings.discoverWidgetBindingRecords(
                 metahubId,
                 layoutId,
@@ -181,7 +175,7 @@ export function createWidgetBindingsController(createHandler: ReturnType<typeof 
         async ({ req, res, metahubId, userId, exec, schemaService }) => {
             const layoutId = parseUuidV7Param(req.params.layoutId)
             if (!layoutId) return res.status(400).json({ error: 'Invalid layout ID' })
-            const widgetKey = marketingWidgetKeySchema.safeParse(req.params.widgetKey)
+            const widgetKey = applicationLayoutWidgetKeySchema.safeParse(req.params.widgetKey)
             if (!widgetKey.success) return res.status(400).json({ error: 'Invalid widget key' })
             const parsed = widgetBindingSourceProvisionPayloadSchema.safeParse(req.body)
             if (!parsed.success) return res.status(400).json({ error: 'Invalid input', details: parsed.error.flatten() })

@@ -1,6 +1,10 @@
 import type { DbExecutor } from '@universo-react/utils'
 import { generateChildTableName } from '@universo-react/schema-ddl'
-import { resolveApplicationLifecycleContractFromConfig, resolveObjectCollectionLayoutBehaviorConfig } from '@universo-react/utils'
+import {
+    resolveApplicationLifecycleContractFromConfig,
+    resolveObjectCollectionLayoutBehaviorConfig,
+    resolvePlatformSystemFieldsContractFromConfig
+} from '@universo-react/utils'
 import { getObjectWorkspaceLimit, getObjectWorkspaceUsage } from '../../services/applicationWorkspaces'
 import { isRuntimeRecordBehaviorEnabled, normalizeRuntimeRecordBehavior } from '../../services/runtimeRecordBehavior'
 import {
@@ -24,17 +28,18 @@ import {
     isRuntimeEnumerationKind,
     isRuntimeObjectTargetKind,
     resolveRuntimeStandardKind
-} from '../runtimeRowSupport/contracts'
+} from '../../services/runtimeRowSupport/contracts'
 import { mapRuntimeComponentToColumnDefinition } from '../runtimeRowSupport/objects'
-import { readConfiguredWorkflowActions } from '../runtimeRowSupport/workflow'
+import { readConfiguredWorkflowActions } from '../../services/runtimeRowSupport/workflow'
 import {
     buildRuntimeListClauses,
     buildRuntimeRowsOrderBy,
     findUnsupportedRuntimeListFields,
-    resolveRuntimeReorderField
-} from '../runtimeRowSupport/list'
-import { buildRuntimeLibraryViewClause, buildRuntimeRecordAccessClause } from '../runtimeRowSupport/access'
-import { resolvePreferredScopeEntityIdFromGlobalMenu, resolveRuntimeEffectiveLayout } from '../runtimeRowSupport/menu'
+    resolveRuntimeReorderField,
+    resolveRuntimeRowReorderAuthority
+} from '../../services/runtimeRowSupport/list'
+import { buildRuntimeLibraryViewClause, buildRuntimeRecordAccessClause } from '../../services/runtimeRowSupport/access'
+import { resolveRuntimeEffectiveLayout } from '../runtimeRowSupport/menu'
 
 import type {
     RuntimeReadChildComponent,
@@ -42,7 +47,8 @@ import type {
     RuntimeReadComponent,
     RuntimeReadFailure,
     RuntimeReadObjectCollection,
-    RuntimeReadQuery
+    RuntimeReadQuery,
+    RuntimeReadRuntimeConfig
 } from './types'
 
 export const loadRuntimeReadObjectCollections = async (params: { manager: DbExecutor; schemaIdent: string }) => {
@@ -75,9 +81,6 @@ export const loadRuntimeReadObjectCollections = async (params: { manager: DbExec
 }
 
 export const resolveRuntimeReadActiveObjectCollection = async (params: {
-    manager: DbExecutor
-    schemaName: string
-    schemaIdent: string
     runtimeObjects: RuntimeReadObjectCollection[]
     requestedSectionId: string | null
     requestedObjectCollectionId: string | null
@@ -96,20 +99,9 @@ export const resolveRuntimeReadActiveObjectCollection = async (params: {
 > => {
     const requestedObjectCollectionId = params.requestedObjectCollectionId
     const requestedObjectCollectionCodename = params.requestedObjectCollectionCodename
-    const preferredObjectCollectionIdFromMenu =
-        requestedObjectCollectionId || requestedObjectCollectionCodename
-            ? null
-            : await resolvePreferredScopeEntityIdFromGlobalMenu({
-                  manager: params.manager,
-                  schemaName: params.schemaName,
-                  schemaIdent: params.schemaIdent
-              })
-
     const hasExplicitObjectSelector = Boolean(requestedObjectCollectionId || requestedObjectCollectionCodename)
-    // Default and menu-derived selections must skip collections without a
-    // runtime table (for example clones of set/enumeration presets with
-    // physicalTable disabled); only an explicit selector may address them and
-    // receive the fail-closed table-name error below.
+    // The default target is selected from the runtime entity inventory. Menu
+    // sources are projected independently by the effective-layout endpoint.
     const isRuntimeTableBackedCollection = (objectRow: RuntimeReadObjectCollection): boolean =>
         resolveRuntimeStandardKind(objectRow.kind) === 'page' || IDENTIFIER_REGEX.test(objectRow.table_name ?? '')
     const matchedObjectCollection =
@@ -121,11 +113,6 @@ export const resolveRuntimeReadActiveObjectCollection = async (params: {
                   (objectRow) =>
                       resolveRuntimeCodenameText(objectRow.codename).trim().toLowerCase() ===
                       requestedObjectCollectionCodename.toLowerCase()
-              )
-            : undefined) ??
-        (preferredObjectCollectionIdFromMenu
-            ? params.runtimeObjects.find(
-                  (objectRow) => objectRow.id === preferredObjectCollectionIdFromMenu && isRuntimeTableBackedCollection(objectRow)
               )
             : undefined)
     const activeObjectCollection =
@@ -154,7 +141,9 @@ export const resolveRuntimeReadActiveObjectCollection = async (params: {
     const activeRecordBehavior = normalizeRuntimeRecordBehavior(activeObjectCollection.config)
     const activeRecordBehaviorEnabled = !isActivePage && isRuntimeRecordBehaviorEnabled(activeRecordBehavior)
     const activeWorkflowActions = isActivePage ? [] : readConfiguredWorkflowActions(activeObjectCollection.config)
-    const includeRuntimeRowVersion = activeWorkflowActions.length > 0
+    // CRUD forms need the current row revision to send expectedVersion on any
+    // update, even when the Object has no workflow actions configured.
+    const includeRuntimeRowVersion = !isActivePage
 
     return {
         activeObjectCollection,
@@ -447,7 +436,7 @@ export const resolveRuntimeReadLayout = async (params: {
 }): Promise<
     | {
           selectedLayout: Awaited<ReturnType<typeof resolveRuntimeEffectiveLayout>>
-          activeObjectCollectionRuntimeConfig: ReturnType<typeof resolveObjectCollectionLayoutBehaviorConfig>
+          activeObjectCollectionRuntimeConfig: RuntimeReadRuntimeConfig
           reorderFieldAttr: ReturnType<typeof resolveRuntimeReorderField>
       }
     | { failure: RuntimeReadFailure }
@@ -470,9 +459,11 @@ export const resolveRuntimeReadLayout = async (params: {
         }
         throw error
     }
-    const activeObjectCollectionRuntimeConfig = resolveObjectCollectionLayoutBehaviorConfig({
-        layoutConfig: selectedLayout.layoutConfig
-    })
+    const objectBehaviorConfig = resolveObjectCollectionLayoutBehaviorConfig({ layoutConfig: selectedLayout.layoutConfig })
+    const activeObjectCollectionRuntimeConfig = {
+        ...objectBehaviorConfig,
+        ...resolveRuntimeRowReorderAuthority(selectedLayout.zoneWidgets, resolveRuntimeCodenameText(params.activeObjectCollection.codename))
+    }
     const reorderFieldAttr = resolveRuntimeReorderField(
         params.safeComponents,
         activeObjectCollectionRuntimeConfig.enableRowReordering ? activeObjectCollectionRuntimeConfig.reorderPersistenceField : null
@@ -492,17 +483,39 @@ export const loadRuntimeReadRows = async (params: {
     activeRecordBehaviorEnabled: boolean
     includeRuntimeRowVersion: boolean
     reorderFieldAttr: ReturnType<typeof resolveRuntimeReorderField>
-    activeObjectCollectionRuntimeConfig: ReturnType<typeof resolveObjectCollectionLayoutBehaviorConfig>
+    activeObjectCollectionRuntimeConfig: RuntimeReadRuntimeConfig
     query: RuntimeReadQuery
     requestedLocale: string
-}): Promise<
-    | { total: number; rows: Array<Record<string, unknown> & { id: string }>; canPersistRowReordering: boolean }
-    | { failure: RuntimeReadFailure }
-> => {
+}): Promise<{ total: number; rows: Array<Record<string, unknown> & { id: string }> } | { failure: RuntimeReadFailure }> => {
     const currentWorkspaceId = params.runtimeContext.currentWorkspaceId
     const { lifecycleState, libraryView, search, sort, filters, limit, offset } = params.query
     const tableName = params.activeObjectCollection.table_name as string
     const dataTableIdent = `${params.schemaIdent}.${quoteIdentifier(tableName)}`
+    if (lifecycleState === 'deleted') {
+        if (typeof params.runtimeContext.userId !== 'string' || params.runtimeContext.userId.trim().length === 0) {
+            return {
+                failure: {
+                    statusCode: 401,
+                    body: {
+                        error: 'Authenticated actor is required to view deleted runtime rows',
+                        code: 'RUNTIME_TRASH_ACTOR_REQUIRED'
+                    }
+                }
+            }
+        }
+
+        if (!resolvePlatformSystemFieldsContractFromConfig(params.activeObjectCollection.config).delete.trackBy) {
+            return {
+                failure: {
+                    statusCode: 409,
+                    body: {
+                        error: 'Platform deletion owner tracking is required to view deleted runtime rows',
+                        code: 'RUNTIME_TRASH_OWNER_TRACKING_REQUIRED'
+                    }
+                }
+            }
+        }
+    }
     const activeObjectRowCondition =
         lifecycleState === 'deleted'
             ? buildRuntimeDeletedRowCondition(
@@ -562,7 +575,15 @@ export const loadRuntimeReadRows = async (params: {
         outerRowIdSql: `${dataTableIdent}.id`,
         values: runtimeListClauses.values
     })
-    const runtimeListWhereSql = [runtimeListClauses.whereSql, recordAccessClause, libraryViewClause].filter(Boolean).join(' AND ')
+    let trashOwnerClause: string | null = null
+    if (lifecycleState === 'deleted') {
+        const ownerParamIndex = runtimeListClauses.values.length + 1
+        runtimeListClauses.values.push(params.runtimeContext.userId)
+        trashOwnerClause = `${quoteIdentifier('_upl_deleted_by')} = $${ownerParamIndex}`
+    }
+    const runtimeListWhereSql = [runtimeListClauses.whereSql, recordAccessClause, libraryViewClause, trashOwnerClause]
+        .filter(Boolean)
+        .join(' AND ')
     // Use physicalComponents for SQL because TABLE attrs have no physical column in the parent table.
     const selectColumns = [
         'id',
@@ -606,14 +627,6 @@ export const loadRuntimeReadRows = async (params: {
         pageValues
     )) as Array<Record<string, unknown>>
 
-    const hasRuntimeListModifiers = Boolean(search?.trim() || sort?.length || filters?.length)
-    const canPersistRowReordering =
-        params.activeObjectCollectionRuntimeConfig.enableRowReordering &&
-        Boolean(params.reorderFieldAttr) &&
-        offset === 0 &&
-        total <= limit &&
-        !hasRuntimeListModifiers
-
     const rows = rawRows.map((row) => {
         const mappedRow: Record<string, unknown> & { id: string } = {
             id: String(row.id)
@@ -642,7 +655,7 @@ export const loadRuntimeReadRows = async (params: {
         return mappedRow
     })
 
-    return { total, rows, canPersistRowReordering }
+    return { total, rows }
 }
 
 export const loadRuntimeReadWorkspaceLimit = async (params: {

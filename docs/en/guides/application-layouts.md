@@ -33,6 +33,13 @@ Administrators can:
 Deleting a metahub layout in the application does not hard-delete it. The application marks it as excluded, inactive, and non-default so the next synchronization does not silently restore it.
 Deleting an application-owned layout uses the standard application soft-delete path.
 
+Deleting an allowed widget placement soft-deletes only its placement subtree in
+the current application layout; it never deletes the bound Object or Component
+records. Source-managed placements remain protected from direct deletion,
+except for a base-linked placement in an application overlay, where deletion is
+a local exclusion. The retained source lineage makes synchronization preserve
+that exclusion without allocating a duplicate placement identity.
+
 ## Synchronization
 
 When a connector synchronization imports a newer metahub publication:
@@ -119,32 +126,33 @@ standalone Playwright proof is opt-in and reports
 `BLOCKED` when no deployed shell is configured; a skipped standalone test is not
 treated as evidence.
 
-## Marketing Page source-owned widget settings
+## Source-managed widget settings
 
-For a metahub-sourced <code>marketing-page</code> layout, bindings stay owned by
-the source placement. Application edits are limited to the widget's registered
-presentation fields and permitted active state, order, and placement. Entity
-content and source selection remain in Metahub authoring.
+The shared widget registry identifies placements whose source, Entity
+bindings, or composition remain owned by the metahub publication. Application
+edits are limited to each widget's registered presentation fields and
+permitted activation, order, and placement changes. Entity content and source
+selection remain in Metahub authoring.
 
-Synchronization stores a trusted source config and a complete source-state
-baseline for renderer presentation, activation, sort order, zone, and logical
-placement. A reset restores that latest baseline while retaining the inherited
-binding. Source-owned baseline metadata is not part of the public runtime DTO.
+Synchronization stores trusted source state and a complete baseline for
+presentation, activation, order, zone, and logical placement. Reset restores
+the latest baseline while retaining source identity and bindings. Internal
+source-state metadata is not included in public runtime DTOs.
 
-The Application editor hides Add and Duplicate for source-managed Marketing
-placements. A customized placement with an available source baseline exposes
-Reset to source, which restores its current presentation and placement state
-while retaining the inherited binding. The Marketing header zone setting has
-its own reset control.
+The Application editor follows the registry's add and duplicate policies for
+source-managed placements. When a placement has local changes and a source
+baseline, Reset to source restores its current allowed presentation and
+placement state. Template-specific controls, such as the Marketing Page header
+zone reset, remain specific to that template.
 
 Application permissions and server-side layout validation remain authoritative.
 The Application UI cannot create a binding by submitting renderer config, and
 content or binding changes must be made in Metahub, then published and synced
 to the already linked application.
 
-See [Entity-backed widgets](../architecture/entity-backed-widgets.md) and the
-[Marketing Page Template](../platform/marketing-page-template.md) for the full
-ownership and binding contract.
+See [Entity-backed widgets](../architecture/entity-backed-widgets.md) for the
+shared ownership and binding contract, and the [Marketing Page Template](../platform/marketing-page-template.md)
+for its template-specific controls.
 
 ## Side Menu Modes
 

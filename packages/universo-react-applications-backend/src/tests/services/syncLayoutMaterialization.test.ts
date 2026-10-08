@@ -2,6 +2,7 @@ import {
     buildSingleTargetWidgetBinding,
     decodeWidgetConfigEnvelope,
     encodeWidgetConfigEnvelope,
+    getDashboardWidgetDefinition,
     getLayoutWidgetDefinition,
     normalizeSnapshotLayoutZoneWidgets,
     normalizeSnapshotLayouts,
@@ -11,6 +12,93 @@ import {
 import type { EntityDefinition, PublishedApplicationSnapshot } from './syncLayoutMaterializationHarness'
 
 describe('sync layout snapshot normalization and marketing overlays', () => {
+    it('remaps nested parent UUIDs while preserving placement keys and slots in scoped materialization', () => {
+        const baseLayoutId = '019f3100-0000-7000-8000-000000000101'
+        const scopedLayoutId = '019f3100-0000-7000-8000-000000000102'
+        const containerId = '019f3100-0000-7000-8000-000000000103'
+        const childId = '019f3100-0000-7000-8000-000000000104'
+        const tableDefinition = getDashboardWidgetDefinition('overviewTitle')
+        if (!tableDefinition) throw new Error('Expected overviewTitle to be registered')
+        const tableBindings = buildSingleTargetWidgetBinding(tableDefinition, 'content', {
+            entityKind: 'object',
+            entityCodename: 'Products',
+            semanticKey: 'default'
+        })
+        const tableConfig = encodeWidgetConfigEnvelope(
+            { rendererConfig: {}, neutral: { bindings: tableBindings } },
+            { templateKey: 'dashboard', widgetKey: 'overviewTitle', zone: 'center', requireBindings: true }
+        )
+        const snapshot: PublishedApplicationSnapshot = {
+            entities: {},
+            layouts: [
+                {
+                    id: baseLayoutId,
+                    templateKey: 'dashboard',
+                    compositionMode: 'independent',
+                    baseLayoutId: null,
+                    name: { en: 'Base' },
+                    config: {},
+                    isActive: true,
+                    isDefault: true,
+                    sortOrder: 0
+                }
+            ],
+            scopedLayouts: [
+                {
+                    id: scopedLayoutId,
+                    scopeEntityId: '019f3100-0000-7000-8000-000000000105',
+                    templateKey: 'dashboard',
+                    compositionMode: 'overlay',
+                    baseLayoutId,
+                    name: { en: 'Scoped' },
+                    config: {},
+                    isActive: true,
+                    isDefault: true,
+                    sortOrder: 0
+                }
+            ],
+            layoutZoneWidgets: [
+                {
+                    id: containerId,
+                    layoutId: baseLayoutId,
+                    instanceKey: 'product-grid',
+                    parentWidgetId: null,
+                    slotKey: null,
+                    zone: 'center',
+                    widgetKey: 'columnsContainer',
+                    sortOrder: 0,
+                    config: { columns: [{ slotKey: 'column:main', width: 12 }] },
+                    isActive: true
+                },
+                {
+                    id: childId,
+                    layoutId: baseLayoutId,
+                    instanceKey: 'product-table',
+                    parentWidgetId: containerId,
+                    slotKey: 'column:main',
+                    zone: 'center',
+                    widgetKey: 'overviewTitle',
+                    sortOrder: 0,
+                    config: tableConfig,
+                    isActive: true
+                }
+            ],
+            layoutWidgetOverrides: [],
+            defaultLayoutId: baseLayoutId
+        }
+
+        const materialized = materializeSnapshotLayoutsAndWidgets(snapshot).widgets
+        const baseContainer = materialized.find((widget) => widget.layoutId === baseLayoutId && widget.instanceKey === 'product-grid')
+        const scopedContainer = materialized.find((widget) => widget.layoutId === scopedLayoutId && widget.instanceKey === 'product-grid')
+        const scopedChild = materialized.find((widget) => widget.layoutId === scopedLayoutId && widget.instanceKey === 'product-table')
+
+        expect(baseContainer).toBeDefined()
+        expect(scopedContainer).toBeDefined()
+        expect(scopedContainer?.id).not.toBe(containerId)
+        expect(scopedChild).toMatchObject({ parentWidgetId: scopedContainer?.id, slotKey: 'column:main' })
+        expect(scopedChild?.config).not.toHaveProperty('instanceKey')
+    })
+
     it('fails closed when a global snapshot layout omits explicit composition metadata', () => {
         const snapshot: PublishedApplicationSnapshot = {
             entities: {},
@@ -89,12 +177,15 @@ describe('sync layout snapshot normalization and marketing overlays', () => {
                 {
                     id: 'marketing-hero',
                     layoutId: 'marketing-layout',
+                    instanceKey: 'hero',
+                    parentWidgetId: null,
+                    slotKey: null,
                     zone: 'marketing-main',
                     widgetKey: 'marketing.hero',
                     sortOrder: 0,
                     config: encodeWidgetConfigEnvelope(
                         {
-                            rendererConfig: { instanceKey: 'hero', showLeadForm: true },
+                            rendererConfig: { showLeadForm: true },
                             neutral: { bindings: heroBindings }
                         },
                         heroConfigContext
@@ -117,7 +208,8 @@ describe('sync layout snapshot normalization and marketing overlays', () => {
         const normalizedWidgetConfig = decodeWidgetConfigEnvelope(widgets[0]?.config, {
             ...heroConfigContext
         })
-        expect(normalizedWidgetConfig.rendererConfig).toMatchObject({ instanceKey: 'hero', showLeadForm: true })
+        expect(normalizedWidgetConfig.rendererConfig).toEqual({ showLeadForm: true })
+        expect(widgets[0]?.instanceKey).toBe('hero')
         expect(normalizedWidgetConfig.neutral.bindings).toEqual(heroBindings)
     })
 
@@ -133,31 +225,31 @@ describe('sync layout snapshot normalization and marketing overlays', () => {
             semanticKey: 'base-hero'
         })
         const context = { templateKey: 'marketing-page', widgetKey: 'marketing.hero', zone: 'marketing-main' }
-        const baseConfig = encodeWidgetConfigEnvelope(
-            { rendererConfig: { instanceKey: 'hero-placement', showLeadForm: true }, neutral: { bindings } },
-            context
-        )
+        const baseConfig = encodeWidgetConfigEnvelope({ rendererConfig: { showLeadForm: true }, neutral: { bindings } }, context)
         const authContext = { templateKey: 'marketing-page', widgetKey: 'marketing.auth', zone: 'marketing-header' }
         const baseAuthConfig = encodeWidgetConfigEnvelope(
-            { rendererConfig: { instanceKey: 'auth', showAuthActions: true }, neutral: { placement: 'end' } },
+            { rendererConfig: { showAuthActions: true }, neutral: { placement: 'end' } },
             authContext
         )
         const baseOverride = {
             layoutId: scopedLayoutId,
             baseWidgetId,
+            instanceKey: 'hero-placement',
+            parentWidgetId: null,
+            slotKey: null,
             zone: 'marketing-main',
-            config: {
-                instanceKey: 'hero-placement',
-                showLeadForm: false
-            },
+            config: { showLeadForm: false },
             isDeletedOverride: false
         }
         const authOverride = {
             layoutId: scopedLayoutId,
             baseWidgetId: 'marketing-auth',
+            instanceKey: 'auth',
+            parentWidgetId: null,
+            slotKey: null,
             zone: 'marketing-header',
             config: encodeWidgetConfigEnvelope(
-                { rendererConfig: { instanceKey: 'auth', showAuthActions: false }, neutral: { placement: 'start' } },
+                { rendererConfig: { showAuthActions: false }, neutral: { placement: 'start' } },
                 authContext
             ),
             isDeletedOverride: false
@@ -197,6 +289,9 @@ describe('sync layout snapshot normalization and marketing overlays', () => {
                 {
                     id: baseWidgetId,
                     layoutId: baseLayoutId,
+                    instanceKey: 'hero-placement',
+                    parentWidgetId: null,
+                    slotKey: null,
                     zone: 'marketing-main',
                     widgetKey: 'marketing.hero',
                     sortOrder: 0,
@@ -206,6 +301,9 @@ describe('sync layout snapshot normalization and marketing overlays', () => {
                 {
                     id: 'marketing-auth',
                     layoutId: baseLayoutId,
+                    instanceKey: 'auth',
+                    parentWidgetId: null,
+                    slotKey: null,
                     zone: 'marketing-header',
                     widgetKey: 'marketing.auth',
                     sortOrder: 1,
@@ -222,7 +320,8 @@ describe('sync layout snapshot normalization and marketing overlays', () => {
             (widget) => widget.layoutId === scopedLayoutId && widget.widgetKey === 'marketing.hero'
         )
         const scopedConfig = decodeWidgetConfigEnvelope(scopedWidget?.config, context)
-        expect(scopedConfig.rendererConfig).toMatchObject({ instanceKey: 'hero-placement', showLeadForm: false })
+        expect(scopedConfig.rendererConfig).toEqual({ showLeadForm: false })
+        expect(scopedWidget?.instanceKey).toBe('hero-placement')
         expect(scopedConfig.neutral.placement).toBeUndefined()
         expect(scopedConfig.neutral.bindings).toBeUndefined()
         expect(decodeWidgetConfigEnvelope(baseConfig, context).neutral.bindings).toEqual(bindings)
@@ -230,7 +329,8 @@ describe('sync layout snapshot normalization and marketing overlays', () => {
             (widget) => widget.layoutId === scopedLayoutId && widget.widgetKey === 'marketing.auth'
         )
         const scopedAuthConfig = decodeWidgetConfigEnvelope(scopedAuth?.config, authContext)
-        expect(scopedAuthConfig.rendererConfig).toEqual({ instanceKey: 'auth', showAuthActions: false })
+        expect(scopedAuthConfig.rendererConfig).toEqual({ showAuthActions: false })
+        expect(scopedAuth?.instanceKey).toBe('auth')
         expect(scopedAuthConfig.neutral.placement).toBe('start')
         expect(scopedAuthConfig.neutral.bindings).toBeUndefined()
 
@@ -246,7 +346,7 @@ describe('sync layout snapshot normalization and marketing overlays', () => {
                     ...baseOverride,
                     config: encodeWidgetConfigEnvelope(
                         {
-                            rendererConfig: { instanceKey: 'hero-placement', showLeadForm: false },
+                            rendererConfig: { showLeadForm: false },
                             neutral: { bindings: differentBindings }
                         },
                         context
@@ -254,7 +354,9 @@ describe('sync layout snapshot normalization and marketing overlays', () => {
                 }
             ]
         }
-        expect(() => materializeSnapshotLayoutsAndWidgets(snapshotWithOverlayBinding)).toThrow('cannot contain entity bindings')
+        expect(() => materializeSnapshotLayoutsAndWidgets(snapshotWithOverlayBinding)).toThrow(
+            `Scoped layout ${scopedLayoutId} contains invalid marketing-page widget configuration`
+        )
 
         const snapshotWithOverlayOwnedBinding: PublishedApplicationSnapshot = {
             ...snapshot,
@@ -263,20 +365,18 @@ describe('sync layout snapshot normalization and marketing overlays', () => {
                 {
                     id: '0190a9b5-3cde-7abc-8def-0123456789a7',
                     layoutId: scopedLayoutId,
+                    instanceKey: 'overlay-owned-hero',
+                    parentWidgetId: null,
+                    slotKey: null,
                     zone: 'marketing-main',
                     widgetKey: 'marketing.hero',
                     sortOrder: 2,
-                    config: encodeWidgetConfigEnvelope(
-                        { rendererConfig: { instanceKey: 'overlay-owned-hero' }, neutral: { bindings } },
-                        context
-                    ),
+                    config: encodeWidgetConfigEnvelope({ rendererConfig: {}, neutral: { bindings } }, context),
                     isActive: true
                 }
             ]
         }
-        expect(() => materializeSnapshotLayoutsAndWidgets(snapshotWithOverlayOwnedBinding)).toThrow(
-            `Marketing overlay layout ${scopedLayoutId} cannot own Entity bindings`
-        )
+        expect(() => materializeSnapshotLayoutsAndWidgets(snapshotWithOverlayOwnedBinding)).not.toThrow()
     })
 
     it('rejects dashboard widgets attached to a marketing layout instead of silently rendering them', () => {
@@ -355,7 +455,7 @@ describe('sync layout snapshot normalization and marketing overlays', () => {
         expect(() => materializeSnapshotLayoutsAndWidgets(snapshot)).toThrow('duplicate singleton widget appNavbar')
     })
 
-    it('builds the same runtime snapshot for sync apply and preview comparisons', () => {
+    it('keeps Dashboard Entity references out of runtime widget renderer config', () => {
         const snapshot: PublishedApplicationSnapshot = {
             entities: {
                 'snapshot-intro-page': {
@@ -379,7 +479,7 @@ describe('sync layout snapshot normalization and marketing overlays', () => {
                     baseLayoutId: null,
                     name: { en: 'Global default' },
                     description: null,
-                    config: { showSideMenu: true },
+                    config: {},
                     isActive: true,
                     isDefault: true,
                     sortOrder: 0
@@ -393,31 +493,7 @@ describe('sync layout snapshot normalization and marketing overlays', () => {
                     widgetKey: 'menuWidget',
                     sortOrder: 1,
                     isActive: true,
-                    config: {
-                        showTitle: false,
-                        title: { _primary: 'en', locales: { en: { content: 'Menu' } } },
-                        autoShowAllSections: false,
-                        startPage: 'InterpretationNetworkIntro',
-                        items: [
-                            {
-                                id: 'intro',
-                                kind: 'section',
-                                title: { _primary: 'en', locales: { en: { content: 'Intro' } } },
-                                sectionId: 'InterpretationNetworkIntro',
-                                sortOrder: 1,
-                                isActive: true
-                            },
-                            {
-                                id: 'structures',
-                                kind: 'section',
-                                title: { _primary: 'en', locales: { en: { content: 'Structures' } } },
-                                sectionId: 'Structure',
-                                objectCollectionId: 'Structure',
-                                sortOrder: 2,
-                                isActive: true
-                            }
-                        ]
-                    }
+                    config: { variant: 'generated' }
                 },
                 {
                     id: 'non-menu-widget',
@@ -448,19 +524,8 @@ describe('sync layout snapshot normalization and marketing overlays', () => {
         const widgets = normalizeSnapshotLayoutZoneWidgets(runtimeSnapshot)
         const menu = widgets.find((item) => item.id === 'menu-widget')
 
-        expect(menu?.config).toMatchObject({
-            startPage: 'runtime-intro-page',
-            startTarget: { kind: 'section', sectionId: 'runtime-intro-page' },
-            items: [
-                expect.objectContaining({
-                    sectionId: 'runtime-intro-page',
-                    objectCollectionId: null
-                }),
-                expect.objectContaining({
-                    sectionId: null,
-                    objectCollectionId: 'runtime-structure-object'
-                })
-            ]
-        })
+        expect(menu?.config).toEqual({ variant: 'generated' })
+        expect(JSON.stringify(menu?.config)).not.toContain('runtime-intro-page')
+        expect(JSON.stringify(menu?.config)).not.toContain('runtime-structure-object')
     })
 })

@@ -2,6 +2,8 @@ import { act, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import { getLayoutWidgetDefinition, LAYOUT_WIDGET_DEFINITIONS } from '@universo-react/types'
+import enApplicationsLocale from '../../i18n/locales/en/applications.json'
+import ruApplicationsLocale from '../../i18n/locales/ru/applications.json'
 import {
     apiMocks,
     confirmMocks,
@@ -14,6 +16,21 @@ import {
     resetApplicationLayoutsMocks,
     snackbarMocks
 } from './ApplicationLayouts.test-support'
+
+const widgetAuthoringLocaleCases = [
+    {
+        language: 'en' as const,
+        inheritedLabel: enApplicationsLocale.applications.layouts.widgetCustomization.metahub,
+        conflictLabel: enApplicationsLocale.applications.layouts.state.conflict,
+        sourceRemovedLabel: enApplicationsLocale.applications.layouts.state.source_removed
+    },
+    {
+        language: 'ru' as const,
+        inheritedLabel: ruApplicationsLocale.applications.layouts.widgetCustomization.metahub,
+        conflictLabel: ruApplicationsLocale.applications.layouts.state.conflict,
+        sourceRemovedLabel: ruApplicationsLocale.applications.layouts.state.source_removed
+    }
+]
 
 describe('ApplicationLayouts marketing', () => {
     beforeAll(initializeApplicationLayouts, 30_000)
@@ -101,13 +118,13 @@ describe('ApplicationLayouts marketing', () => {
 
         renderPage()
 
-        const deactivateButton = await screen.findByRole('button', { name: 'Deactivate widget: Menu: Training' })
+        const deactivateButton = await screen.findByRole('button', { name: 'Deactivate widget: Menu' })
         await user.click(deactivateButton)
 
         const conflictMessage = await screen.findByText(message)
         expect(conflictMessage.closest('[role="alert"]')).not.toBeNull()
         expect(snackbarMocks.enqueueSnackbar).not.toHaveBeenCalledWith(message, { variant: 'error' })
-        expect(screen.getByRole('button', { name: 'Deactivate widget: Menu: Training' })).toBeInTheDocument()
+        expect(screen.getByRole('button', { name: 'Deactivate widget: Menu' })).toBeInTheDocument()
         expect(snackbarMocks.enqueueSnackbar.mock.calls.flat().join(' ')).not.toContain('APPLICATION_LAYOUT_MARKETING_HERO_ACTION')
     })
 
@@ -124,7 +141,7 @@ describe('ApplicationLayouts marketing', () => {
 
         renderPage()
 
-        await user.click(await screen.findByRole('button', { name: 'Deactivate widget: Menu: Training' }))
+        await user.click(await screen.findByRole('button', { name: 'Deactivate widget: Menu' }))
 
         const conflictMessage = await screen.findByText(
             'Этот раздел используется в действии первого экрана. Измените действие или оставьте раздел включённым.'
@@ -370,9 +387,10 @@ describe('ApplicationLayouts marketing', () => {
                 zone: 'marketing-main',
                 widgetKey: 'marketing.hero',
                 instanceKey: '018f8a78-7b8f-7c1d-a111-2222333344a2',
+                slotKey: null,
                 sortOrder: 0,
-                config: { instanceKey: '018f8a78-7b8f-7c1d-a111-2222333344a2', showLeadForm: true },
-                sourceConfig: { instanceKey: '018f8a78-7b8f-7c1d-a111-2222333344a2', showLeadForm: true },
+                config: { showLeadForm: true },
+                sourceConfig: { showLeadForm: true },
                 sourceWidgetId: 'source-widget-hero',
                 isCustomized: false,
                 isActive: true,
@@ -383,9 +401,10 @@ describe('ApplicationLayouts marketing', () => {
                 layoutId: 'layout-1',
                 zone: 'marketing-main',
                 widgetKey: 'marketing.collection',
+                instanceKey: 'collection-one',
                 sortOrder: 1,
-                config: { instanceKey: 'collection-one', variant: 'features' },
-                sourceConfig: { instanceKey: 'collection-one', variant: 'features' },
+                config: { variant: 'features' },
+                sourceConfig: { variant: 'features' },
                 sourceWidgetId: 'source-widget-collection',
                 isCustomized: false,
                 isActive: true,
@@ -396,9 +415,10 @@ describe('ApplicationLayouts marketing', () => {
                 layoutId: 'layout-1',
                 zone: 'marketing-header',
                 widgetKey: 'marketing.brand',
+                instanceKey: 'brand',
                 sortOrder: 0,
-                config: { instanceKey: 'brand' },
-                sourceConfig: { instanceKey: 'brand' },
+                config: {},
+                sourceConfig: {},
                 sourceWidgetId: 'source-widget-brand',
                 isCustomized: false,
                 isActive: true,
@@ -409,9 +429,10 @@ describe('ApplicationLayouts marketing', () => {
                 layoutId: 'layout-1',
                 zone: 'marketing-main',
                 widgetKey: 'marketing.image',
+                instanceKey: 'hero-image',
                 sortOrder: 2,
-                config: { instanceKey: 'hero-image' },
-                sourceConfig: { instanceKey: 'hero-image' },
+                config: {},
+                sourceConfig: {},
                 sourceWidgetId: 'source-widget-image',
                 isCustomized: false,
                 isActive: true,
@@ -449,21 +470,12 @@ describe('ApplicationLayouts marketing', () => {
         expect(screen.queryByTestId('layout-widget-duplicate-widget-marketing-collection')).not.toBeInTheDocument()
         expect(screen.queryByRole('button', { name: 'Edit widget: Brand', exact: true })).not.toBeInTheDocument()
         expect(screen.queryByRole('button', { name: 'Edit widget: Image', exact: true })).not.toBeInTheDocument()
-        expect(screen.getByTestId('layout-widget-duplicate-widget-marketing-language')).toBeInTheDocument()
+        expect(screen.queryByTestId('layout-widget-duplicate-widget-marketing-language')).not.toBeInTheDocument()
+        expect(screen.queryByRole('button', { name: 'add-Language switcher' })).not.toBeInTheDocument()
 
-        await user.click(screen.getByRole('button', { name: 'add-Language switcher' }))
-        await waitFor(() => {
-            expect(apiMocks.upsertApplicationLayoutWidget).toHaveBeenCalledWith('app-1', 'layout-1', {
-                zone: 'marketing-header',
-                widgetKey: 'languageSwitcher',
-                expectedVersion: 7,
-                config: {}
-            })
-        })
-
-        await user.click(screen.getByRole('button', { name: 'Hero' }))
-        expect(screen.getByTestId('marketing-widget-config-dialog-mock')).toBeInTheDocument()
-        await user.click(screen.getByRole('button', { name: 'save-marketing-widget' }))
+        await user.click(screen.getByTestId('layout-widget-edit-widget-marketing-hero'))
+        expect(screen.getByTestId('layout-widget-presentation-dialog-mock')).toBeInTheDocument()
+        await user.click(screen.getByRole('button', { name: 'save-widget-presentation' }))
 
         await waitFor(() => {
             expect(apiMocks.updateApplicationLayoutWidgetConfig).toHaveBeenCalledWith(
@@ -472,13 +484,137 @@ describe('ApplicationLayouts marketing', () => {
                 'widget-marketing-hero',
                 expect.objectContaining({
                     expectedVersion: 2,
-                    config: expect.objectContaining({
-                        instanceKey: '018f8a78-7b8f-7c1d-a111-2222333344a2',
-                        showLeadForm: false
-                    })
+                    config: { showLeadForm: false }
                 })
             )
         })
+    })
+
+    it.each(widgetAuthoringLocaleCases)(
+        'allows only declared inherited presentation and root overrides in $language',
+        async ({ language, inheritedLabel }) => {
+            localeMocks.language = language
+            const user = userEvent.setup()
+            prepareMarketingLayout([
+                {
+                    id: 'widget-inherited-hero',
+                    layoutId: 'layout-1',
+                    zone: 'marketing-main',
+                    widgetKey: 'marketing.hero',
+                    instanceKey: '018f8a78-7b8f-7c1d-a111-2222333344a2',
+                    slotKey: null,
+                    sortOrder: 0,
+                    config: { showLeadForm: true },
+                    sourceConfig: { showLeadForm: true },
+                    sourceWidgetId: 'source-widget-hero',
+                    sourceBaseWidgetId: 'source-widget-hero',
+                    isCustomized: false,
+                    isActive: true,
+                    version: 2
+                },
+                {
+                    id: 'widget-inherited-collection',
+                    layoutId: 'layout-1',
+                    zone: 'marketing-main',
+                    widgetKey: 'marketing.collection',
+                    instanceKey: 'collection-one',
+                    slotKey: null,
+                    sortOrder: 1,
+                    config: { variant: 'features' },
+                    sourceConfig: { variant: 'features' },
+                    sourceWidgetId: 'source-widget-collection',
+                    sourceBaseWidgetId: 'source-widget-collection',
+                    isCustomized: false,
+                    isActive: true,
+                    version: 4
+                }
+            ])
+            apiMocks.updateApplicationLayoutWidgetConfig.mockResolvedValueOnce({})
+
+            renderPage()
+
+            expect((await screen.findAllByText(inheritedLabel)).length).toBeGreaterThan(0)
+            expect(screen.getByTestId('layout-widget-edit-widget-inherited-hero')).toBeInTheDocument()
+            expect(screen.queryByTestId('layout-widget-duplicate-widget-inherited-hero')).not.toBeInTheDocument()
+            expect(screen.queryByTestId('layout-widget-remove-widget-inherited-hero')).not.toBeInTheDocument()
+            expect(screen.getByTestId('layout-widget-toggle-widget-inherited-hero')).toBeInTheDocument()
+            expect(screen.getByTestId('layout-widget-drag-widget-inherited-hero')).toBeInTheDocument()
+            expect(screen.queryByTestId('layout-widget-move-widget-inherited-hero-marketing-footer')).not.toBeInTheDocument()
+
+            await user.click(screen.getByTestId('layout-widget-edit-widget-inherited-hero'))
+            expect(screen.getByTestId('layout-widget-presentation-dialog-mock')).toHaveAttribute(
+                'data-renderer-config-has-instance-key',
+                'false'
+            )
+            await user.click(screen.getByRole('button', { name: 'save-widget-presentation' }))
+            await waitFor(() => {
+                expect(apiMocks.updateApplicationLayoutWidgetConfig).toHaveBeenCalledWith('app-1', 'layout-1', 'widget-inherited-hero', {
+                    expectedVersion: 2,
+                    config: { showLeadForm: false }
+                })
+            })
+            expect(apiMocks.updateApplicationLayoutWidgetConfig.mock.calls[0]?.[3].config).not.toHaveProperty('instanceKey')
+
+            await user.click(screen.getByTestId('layout-widget-toggle-widget-inherited-hero'))
+            await waitFor(() => {
+                expect(apiMocks.toggleApplicationLayoutWidget).toHaveBeenCalledWith('app-1', 'layout-1', 'widget-inherited-hero', {
+                    isActive: false,
+                    expectedVersion: 2
+                })
+            })
+
+            await user.click(screen.getByTestId('layout-widget-drag-widget-inherited-hero'))
+            await waitFor(() => {
+                expect(apiMocks.moveApplicationLayoutWidget).toHaveBeenCalledWith('app-1', 'layout-1', {
+                    widgetId: 'widget-inherited-hero',
+                    targetZone: 'marketing-main',
+                    targetIndex: 1,
+                    targetPlacement: undefined,
+                    expectedVersion: 2
+                })
+            })
+        }
+    )
+
+    it.each(
+        widgetAuthoringLocaleCases.flatMap((labels) => [
+            { ...labels, state: 'source_removed' as const, stateLabel: labels.sourceRemovedLabel },
+            { ...labels, state: 'conflict' as const, stateLabel: labels.conflictLabel }
+        ])
+    )('locks source-managed controls for $state in $language', async ({ language, state, stateLabel }) => {
+        localeMocks.language = language
+        prepareMarketingLayout(
+            [
+                {
+                    id: `widget-${state}-hero`,
+                    layoutId: 'layout-1',
+                    zone: 'marketing-main',
+                    widgetKey: 'marketing.hero',
+                    instanceKey: '018f8a78-7b8f-7c1d-a111-2222333344a2',
+                    slotKey: null,
+                    sortOrder: 0,
+                    config: { showLeadForm: false },
+                    sourceConfig: { showLeadForm: true },
+                    sourceWidgetId: 'source-widget-hero',
+                    sourceBaseWidgetId: 'source-widget-hero',
+                    isCustomized: true,
+                    isActive: true,
+                    version: 3
+                }
+            ],
+            state
+        )
+
+        renderPage()
+
+        expect(await screen.findByText(stateLabel)).toBeInTheDocument()
+        expect(screen.queryByTestId(`layout-widget-edit-widget-${state}-hero`)).not.toBeInTheDocument()
+        expect(screen.queryByTestId(`layout-widget-reset-widget-${state}-hero`)).not.toBeInTheDocument()
+        expect(screen.queryByTestId(`layout-widget-duplicate-widget-${state}-hero`)).not.toBeInTheDocument()
+        expect(screen.queryByTestId(`layout-widget-remove-widget-${state}-hero`)).not.toBeInTheDocument()
+        expect(screen.queryByTestId(`layout-widget-toggle-widget-${state}-hero`)).not.toBeInTheDocument()
+        expect(screen.queryByTestId(`layout-widget-drag-widget-${state}-hero`)).not.toBeInTheDocument()
+        expect(screen.queryByTestId('layout-widget-presentation-dialog-mock')).not.toBeInTheDocument()
     })
 
     it.each(marketingResetLocaleCases)(
@@ -492,9 +628,10 @@ describe('ApplicationLayouts marketing', () => {
                     layoutId: 'layout-1',
                     zone: 'marketing-main',
                     widgetKey: 'marketing.collection',
+                    instanceKey: 'collection-one',
                     sortOrder: 0,
-                    config: { instanceKey: 'collection-one', variant: 'features' },
-                    sourceConfig: { instanceKey: 'collection-one', variant: 'logos' },
+                    config: { variant: 'features' },
+                    sourceConfig: { variant: 'logos' },
                     sourceWidgetId: 'source-widget-collection',
                     sourceBaseWidgetId: 'source-widget-collection',
                     isCustomized: true,
@@ -506,9 +643,10 @@ describe('ApplicationLayouts marketing', () => {
                     layoutId: 'layout-1',
                     zone: 'marketing-main',
                     widgetKey: 'marketing.hero',
+                    instanceKey: 'hero-one',
                     sortOrder: 1,
-                    config: { instanceKey: 'hero-one', showLeadForm: true },
-                    sourceConfig: { instanceKey: 'hero-one', showLeadForm: true },
+                    config: { showLeadForm: true },
+                    sourceConfig: { showLeadForm: true },
                     sourceWidgetId: 'source-widget-hero',
                     isCustomized: false,
                     isActive: true,
@@ -519,8 +657,9 @@ describe('ApplicationLayouts marketing', () => {
                     layoutId: 'layout-1',
                     zone: 'marketing-main',
                     widgetKey: 'marketing.image',
+                    instanceKey: 'image-one',
                     sortOrder: 2,
-                    config: { instanceKey: 'image-one' },
+                    config: {},
                     sourceConfig: null,
                     isCustomized: true,
                     isActive: true,
@@ -565,9 +704,10 @@ describe('ApplicationLayouts marketing', () => {
                 layoutId: 'layout-1',
                 zone: 'marketing-main',
                 widgetKey: 'marketing.collection',
+                instanceKey: 'collection-one',
                 sortOrder: 0,
-                config: { instanceKey: 'collection-one', variant: 'features' },
-                sourceConfig: { instanceKey: 'collection-one', variant: 'logos' },
+                config: { variant: 'features' },
+                sourceConfig: { variant: 'logos' },
                 sourceWidgetId: 'source-widget-collection',
                 isCustomized: true,
                 isActive: true,

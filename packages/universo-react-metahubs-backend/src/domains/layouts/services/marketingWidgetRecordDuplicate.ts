@@ -1,10 +1,11 @@
 import { z } from 'zod'
 import {
     applicationLayoutZoneSchema,
+    applicationLayoutWidgetKeySchema,
+    applicationTemplateKeySchema,
     decodeWidgetConfigEnvelope,
     encodeWidgetConfigEnvelope,
     getLayoutWidgetDefinition,
-    marketingWidgetKeySchema,
     marketingWidgetRecordCopyIntentSchema,
     type WidgetBindingSlotDefinition
 } from '@universo-react/types'
@@ -22,7 +23,7 @@ import { MetahubLayoutsService } from './MetahubLayoutsService'
 export const marketingWidgetRecordDuplicateRequestSchema = z
     .object({
         zone: applicationLayoutZoneSchema,
-        widgetKey: marketingWidgetKeySchema,
+        widgetKey: applicationLayoutWidgetKeySchema,
         config: z.record(z.string(), z.unknown()),
         expectedVersion: z.number().int().positive(),
         recordCopy: marketingWidgetRecordCopyIntentSchema
@@ -30,19 +31,21 @@ export const marketingWidgetRecordDuplicateRequestSchema = z
     .strict()
 
 type DuplicateRequest = z.infer<typeof marketingWidgetRecordDuplicateRequestSchema>
+type DuplicateTemplateKey = z.infer<typeof applicationTemplateKeySchema>
 
 interface DuplicateBindingContext {
+    readonly templateKey: DuplicateTemplateKey
     readonly definition: NonNullable<ReturnType<typeof getLayoutWidgetDefinition>>
     readonly slot: WidgetBindingSlotDefinition
     readonly semanticKeyComponentCodename: string
     readonly decoded: ReturnType<typeof decodeWidgetConfigEnvelope>
 }
 
-const resolveDuplicateBinding = (input: DuplicateRequest): DuplicateBindingContext => {
+const resolveDuplicateBinding = (input: DuplicateRequest, templateKey: DuplicateTemplateKey): DuplicateBindingContext => {
     let decoded: ReturnType<typeof decodeWidgetConfigEnvelope>
     try {
         decoded = decodeWidgetConfigEnvelope(input.config, {
-            templateKey: 'marketing-page',
+            templateKey,
             widgetKey: input.widgetKey,
             zone: input.zone,
             requireBindings: true
@@ -57,8 +60,8 @@ const resolveDuplicateBinding = (input: DuplicateRequest): DuplicateBindingConte
     const authoring = definition?.authoring?.metahub
     if (
         !definition ||
-        definition.templateKey !== 'marketing-page' ||
-        !definition.supportedTemplates.includes('marketing-page') ||
+        !definition.supportedTemplates.includes(templateKey) ||
+        definition.copyPolicy.binding !== 'clone-record' ||
         authoring?.duplicate !== 'clone-record' ||
         authoring.contentEditing !== 'single-record'
     ) {
@@ -94,6 +97,7 @@ const resolveDuplicateBinding = (input: DuplicateRequest): DuplicateBindingConte
     }
 
     return {
+        templateKey,
         definition,
         slot,
         semanticKeyComponentCodename: semanticKeyComponent.componentCodename,
@@ -131,7 +135,7 @@ const rewriteCopiedRecordBinding = (
                 rendererConfig: context.decoded.rendererConfig,
                 neutral: { ...context.decoded.neutral, bindings: rewrittenBindings }
             },
-            { templateKey: 'marketing-page', widgetKey: input.widgetKey, zone: input.zone }
+            { templateKey: context.templateKey, widgetKey: input.widgetKey, zone: input.zone }
         )
     } catch (error) {
         throw new MetahubValidationError('Copied widget configuration is invalid', {
@@ -148,14 +152,17 @@ export const duplicateMarketingWidgetRecordAndPlace = async (input: {
     userId: string
     request: DuplicateRequest
 }) => {
-    const bindingContext = resolveDuplicateBinding(input.request)
-
     return withTransactionSavepoint(input.executor, async (tx) => {
         const schemaService = new MetahubSchemaService(tx)
         const schemaName = await schemaService.ensureSchema(input.metahubId, input.userId)
 
         // Follow the shared graph -> entity -> record lock order before any copy work.
         await acquireMetahubLayoutGraphLock(tx, schemaName)
+
+        const layoutsService = new MetahubLayoutsService(tx, schemaService)
+        const layout = await layoutsService.getLayoutById(input.metahubId, input.layoutId, input.userId)
+        if (!layout) throw new MetahubNotFoundError('Layout')
+        const bindingContext = resolveDuplicateBinding(input.request, layout.templateKey)
 
         const objectsService = new MetahubObjectsService(tx, schemaService)
         const componentsService = new MetahubComponentsService(tx, schemaService)
@@ -194,7 +201,6 @@ export const duplicateMarketingWidgetRecordAndPlace = async (input: {
         }
 
         const config = rewriteCopiedRecordBinding(input.request, bindingContext, copiedSemanticKey)
-        const layoutsService = new MetahubLayoutsService(tx, schemaService)
         return layoutsService.assignLayoutZoneWidget(
             input.metahubId,
             input.layoutId,

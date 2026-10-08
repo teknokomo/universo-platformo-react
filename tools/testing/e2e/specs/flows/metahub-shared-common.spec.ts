@@ -20,7 +20,6 @@ import {
     createPublicationVersion,
     disposeApiContext,
     getApplicationRuntime,
-    getLayout,
     listComponents,
     listOptionValues,
     listLayoutZoneWidgets,
@@ -37,7 +36,7 @@ import {
     waitForPublicationReady
 } from '../../support/backend/api-session.mjs'
 import { recordCreatedApplication, recordCreatedMetahub, recordCreatedPublication } from '../../support/backend/run-manifest.mjs'
-import { QUIZ_CENTERED_LAYOUT_CONFIG, QUIZ_REMOVED_LAYOUT_WIDGET_KEYS } from '../../support/quizFixtureContract'
+import { QUIZ_REMOVED_LAYOUT_WIDGET_KEYS } from '../../support/quizFixtureContract'
 import {
     applicationSelectors,
     buildEntityMenuItemSelector,
@@ -396,33 +395,15 @@ async function waitForLayoutId(api: ApiContext, metahubId: string) {
 }
 
 async function applyCenteredQuizLayout(api: ApiContext, metahubId: string, layoutId: string) {
-    const layout = await getLayout(api, metahubId, layoutId)
-    if (!Number.isInteger(layout?.version) || layout.version < 1) {
-        throw new Error(`Layout ${layoutId} did not return an optimistic-lock version for quiz layout coverage`)
-    }
-    const currentConfig = layout?.config && typeof layout.config === 'object' ? layout.config : {}
     const removableWidgetKeys = new Set<string>(QUIZ_REMOVED_LAYOUT_WIDGET_KEYS)
 
-    const response = await sendWithCsrf(api, 'PATCH', `/api/v1/metahub/${metahubId}/layout/${layoutId}`, {
-        name: layout?.name,
-        namePrimaryLocale: layout?.name?._primary ?? 'en',
-        description: layout?.description,
-        descriptionPrimaryLocale: layout?.description?._primary ?? 'en',
-        config: {
-            ...currentConfig,
-            ...QUIZ_CENTERED_LAYOUT_CONFIG
-        },
-        expectedVersion: layout.version
-    })
-    expect(response.ok).toBe(true)
-
-    // Removing one widget re-normalizes zone sort orders, which bumps the
-    // optimistic-lock versions of the remaining widgets. Re-read the list on
-    // every iteration so each delete uses the current version.
+    // Removing a placement can reorder siblings, so re-read current widget versions before each delete.
     let removableWidget = true
     while (removableWidget) {
         const zoneWidgets = await listLayoutZoneWidgets(api, metahubId, layoutId)
-        const widget = zoneWidgets?.items?.find((item) => removableWidgetKeys.has(String(item?.widgetKey ?? '')))
+        const widget = zoneWidgets?.items?.find(
+            (item) => item?.zone === 'left' || item?.zone === 'right' || removableWidgetKeys.has(String(item?.widgetKey ?? ''))
+        )
         if (!widget) {
             removableWidget = false
             continue

@@ -31,6 +31,7 @@ import {
 } from '../common/layoutEnvelope'
 
 const marketingContext = { templateKey: 'marketing-page' as const }
+const dashboardContext = { templateKey: 'dashboard' as const }
 
 const marketingWidgetContext = {
     ...marketingContext,
@@ -68,6 +69,22 @@ const heroBinding = {
 }
 
 describe('neutral layout and widget envelopes', () => {
+    it('keeps the default-widget seeding control in neutral layout metadata', () => {
+        const config = {
+            [RESERVED_LAYOUT_METADATA_KEY]: { skipDefaultZoneWidgetSeed: true }
+        }
+        const decoded = decodeLayoutConfigEnvelope(config, dashboardContext)
+
+        expect(decoded.rendererConfig).toEqual({})
+        expect(decoded.neutral.skipDefaultZoneWidgetSeed).toBe(true)
+        expect(encodeLayoutConfigEnvelope({ rendererConfig: decoded.rendererConfig, neutral: decoded.neutral }, dashboardContext)).toEqual(
+            config
+        )
+        expect(
+            encodeSnapshotLayoutConfigEnvelope({ rendererConfig: decoded.rendererConfig, neutral: decoded.neutral }, dashboardContext)
+        ).toEqual(config)
+    })
+
     it('round-trips neutral layout metadata and strips it before renderer parsing', () => {
         const rawConfig = {
             themeMode: 'dark',
@@ -269,19 +286,24 @@ describe('neutral layout and widget envelopes', () => {
 
     it('round-trips widget placement and keeps it out of renderer config', () => {
         const rawConfig = {
-            instanceKey: 'primary-navigation',
             enabled: true,
             [RESERVED_LAYOUT_METADATA_KEY]: { placement: 'start' }
         }
         const decoded = decodeWidgetConfigEnvelope(rawConfig, marketingWidgetContext)
 
-        expect(decoded.rendererConfig).toEqual({ instanceKey: 'primary-navigation', enabled: true })
+        expect(decoded.rendererConfig).toEqual({ enabled: true })
         expect(decoded.neutral).toEqual({ placement: 'start' })
         expect(encodeWidgetConfigEnvelope(decoded, marketingWidgetContext)).toEqual(rawConfig)
-        expect(replaceWidgetRendererConfig(rawConfig, { instanceKey: 'secondary-navigation' }, marketingWidgetContext)).toEqual({
-            instanceKey: 'secondary-navigation',
+        expect(replaceWidgetRendererConfig(rawConfig, { enabled: false }, marketingWidgetContext)).toEqual({
+            enabled: false,
             [RESERVED_LAYOUT_METADATA_KEY]: { placement: 'start' }
         })
+        expect(() => decodeWidgetConfigEnvelope({ instanceKey: 'legacy-placement-key' }, marketingWidgetContext)).toThrow(
+            'placement identity'
+        )
+        expect(() =>
+            encodeWidgetConfigEnvelope({ rendererConfig: { instanceKey: 'legacy-placement-key' } }, marketingWidgetContext)
+        ).toThrow('placement identity')
         expect(() => encodeWidgetConfigEnvelope({ rendererConfig: { [RESERVED_LAYOUT_METADATA_KEY]: {} } })).toThrow(
             'reserved layout metadata'
         )
@@ -290,13 +312,12 @@ describe('neutral layout and widget envelopes', () => {
     it('round-trips semantic bindings as neutral metadata when replacing renderer config', () => {
         const heroContext = { ...marketingContext, widgetKey: 'marketing.hero', zone: 'marketing-main' } as const
         const rawConfig = {
-            instanceKey: 'hero',
             showLeadForm: true,
             [RESERVED_LAYOUT_METADATA_KEY]: { bindings: heroBinding }
         }
 
         const decoded = decodeWidgetConfigEnvelope(rawConfig, heroContext)
-        expect(decoded.rendererConfig).toEqual({ instanceKey: 'hero', showLeadForm: true })
+        expect(decoded.rendererConfig).toEqual({ showLeadForm: true })
         expect(decoded.neutral.bindings?.slots[0]?.targets[0]?.selector).toEqual({
             kind: 'semantic-key',
             field: 'key',
@@ -306,8 +327,7 @@ describe('neutral layout and widget envelopes', () => {
             ...rawConfig,
             [RESERVED_LAYOUT_METADATA_KEY]: { bindings: decoded.neutral.bindings }
         })
-        expect(replaceWidgetRendererConfig(rawConfig, { instanceKey: 'hero-secondary', showLeadForm: false }, heroContext)).toEqual({
-            instanceKey: 'hero-secondary',
+        expect(replaceWidgetRendererConfig(rawConfig, { showLeadForm: false }, heroContext)).toEqual({
             showLeadForm: false,
             [RESERVED_LAYOUT_METADATA_KEY]: { bindings: decoded.neutral.bindings }
         })
@@ -324,26 +344,22 @@ describe('neutral layout and widget envelopes', () => {
             requireBindings: true
         } as const
 
-        expect(() => decodeWidgetConfigEnvelope({ instanceKey: 'hero' }, heroContext)).toThrow(MissingRequiredWidgetBindingsError)
-        expect(() => encodeWidgetConfigEnvelope({ rendererConfig: { instanceKey: 'hero' } }, heroContext)).toThrow(
-            MissingRequiredWidgetBindingsError
-        )
+        expect(() => decodeWidgetConfigEnvelope({}, heroContext)).toThrow(MissingRequiredWidgetBindingsError)
+        expect(() => encodeWidgetConfigEnvelope({ rendererConfig: {} }, heroContext)).toThrow(MissingRequiredWidgetBindingsError)
     })
 
     it('rejects strict binding validation when the widget placement context is missing', () => {
         const incompleteContext = { requireBindings: true } as const
 
-        expect(() => decodeWidgetConfigEnvelope({ instanceKey: 'hero' }, incompleteContext)).toThrow(
-            'Widget placement validation context is incomplete.'
-        )
-        expect(() => encodeWidgetConfigEnvelope({ rendererConfig: { instanceKey: 'hero' } }, incompleteContext)).toThrow(
+        expect(() => decodeWidgetConfigEnvelope({}, incompleteContext)).toThrow('Widget placement validation context is incomplete.')
+        expect(() => encodeWidgetConfigEnvelope({ rendererConfig: {} }, incompleteContext)).toThrow(
             'Widget placement validation context is incomplete.'
         )
     })
 
     it('allows renderer-only Hero projections when the caller does not own binding metadata', () => {
         const heroContext = { ...marketingContext, widgetKey: 'marketing.hero', zone: 'marketing-main' } as const
-        const rendererConfig = { instanceKey: 'hero', showLeadForm: true }
+        const rendererConfig = { showLeadForm: true }
 
         expect(decodeWidgetConfigEnvelope(rendererConfig, heroContext).rendererConfig).toEqual(rendererConfig)
         expect(encodeWidgetConfigEnvelope({ rendererConfig }, heroContext)).toEqual(rendererConfig)

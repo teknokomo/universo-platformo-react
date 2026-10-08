@@ -24,40 +24,18 @@ export type PageViewsBarChartProps = {
     noDataText?: string
 }
 
-const DEFAULT_X_AXIS_DATA = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul']
-const DEFAULT_SERIES: PageViewsBarChartSeries[] = [
-    {
-        id: 'page-views',
-        label: 'Page views',
-        data: [2234, 3872, 2998, 4125, 3357, 2789, 2998],
-        stack: 'A'
-    },
-    {
-        id: 'downloads',
-        label: 'Downloads',
-        data: [3098, 4215, 2384, 2101, 4752, 3593, 2384],
-        stack: 'A'
-    },
-    {
-        id: 'conversions',
-        label: 'Conversions',
-        data: [4051, 2275, 3129, 4693, 3904, 2038, 2275],
-        stack: 'A'
-    }
-]
-
 export default function PageViewsBarChart({
-    title = 'Page views and downloads',
-    value = '1.3M',
-    interval = 'Page views and downloads for the last 6 months',
-    trendLabel = '-8%',
-    trend = 'down',
-    xAxisData,
-    series = DEFAULT_SERIES,
+    title = '',
+    value = '',
+    interval = '',
+    trendLabel = '',
+    trend = 'neutral',
+    xAxisData = [],
+    series = [],
     noDataText
 }: PageViewsBarChartProps) {
     const theme = useTheme()
-    const data = xAxisData === undefined ? DEFAULT_X_AXIS_DATA : xAxisData
+    const data = xAxisData
     const colorPalette = [
         (theme.vars || theme).palette.primary.dark,
         (theme.vars || theme).palette.primary.main,

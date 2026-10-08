@@ -5,8 +5,6 @@ import type { ReactNode } from 'react'
 // Raw MUI templates will be added under ./views (not yet exported here).
 
 export { templateConfig as config } from './config'
-export { default as Dashboard } from './views/dashboard/Dashboard'
-export type { DashboardLayoutConfig, DashboardDetailsSlot } from './components/dashboard/runtimeTypes'
 
 // Shared layouts for host applications
 export { default as MainLayoutMUI } from './layout/MainLayoutMUI'
@@ -74,6 +72,7 @@ export {
     LayoutAuthoringList,
     LayoutAuthoringDetails,
     LayoutZoneSettingsDialog,
+    LayoutWidgetPresentationDialog,
     MarketingWidgetConfigDialog,
     LayoutStateChips,
     MenuWidgetSideMenuSettings,
@@ -97,6 +96,7 @@ export type {
     LayoutZoneSettingsDialogValues,
     LayoutZoneSettingsDialogLabels,
     LayoutZoneSettingsDialogProps,
+    LayoutWidgetPresentationDialogProps,
     MarketingWidgetConfigDialogProps,
     LayoutStateChipsProps,
     LayoutChipLabels,
@@ -285,7 +285,3 @@ export { default as StatCard, buildRealisticTrendData } from './components/dashb
 export type { StatCardProps } from './components/dashboard/StatCard'
 export { default as HighlightedCard } from './components/dashboard/HighlightedCard'
 export type { HighlightedCardProps } from './components/dashboard/HighlightedCard'
-export { default as SessionsChart } from './components/dashboard/SessionsChart'
-export type { SessionsChartProps } from './components/dashboard/SessionsChart'
-export { default as PageViewsBarChart } from './components/dashboard/PageViewsBarChart'
-export type { PageViewsBarChartProps } from './components/dashboard/PageViewsBarChart'

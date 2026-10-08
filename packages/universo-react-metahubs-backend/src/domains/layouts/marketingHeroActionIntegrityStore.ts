@@ -7,7 +7,6 @@ import {
     isCompatibleWidgetBindingEntity,
     LAYOUT_WIDGET_DEFINITIONS,
     parseApplicationLayoutWidgetConfig,
-    resolveSharedBehavior,
     widgetEntityBindingEnvelopeSchema,
     type WidgetEntityBindingEnvelope
 } from '@universo-react/types'
@@ -19,6 +18,7 @@ import { MetahubValidationError } from '../shared/domainErrors'
 import { projectMarketingHeroContentData } from './marketingHeroContentProjection'
 import { readEntityRecordPolicy, validateEntityRecordPolicyData } from '../shared/entityRecordPolicy'
 import { validateMarketingHeroActionTargets } from './marketingHeroActionPolicy'
+import { requireLayoutWidgetOwnership, resolveLayoutWidgetPlacementPolicy } from './widgetOwnership'
 
 const ACTIVE = '_upl_deleted = false AND _mhb_deleted = false'
 const MARKETING_TEMPLATE = 'marketing-page'
@@ -60,6 +60,10 @@ type IgnoredWidgetOverride = { layoutId: string; baseWidgetId: string }
 
 const isRecord = (value: unknown): value is Record<string, unknown> => Boolean(value && typeof value === 'object' && !Array.isArray(value))
 
+const parseMarketingRendererConfig = (widgetKey: string, config: Record<string, unknown>): Record<string, unknown> => {
+    return parseApplicationLayoutWidgetConfig(widgetKey, config)
+}
+
 const decodeWidget = (row: DbWidget): EffectiveWidget => {
     const widgetKey = applicationLayoutWidgetKeySchema.parse(row.widget_key)
     const zone = applicationLayoutZoneSchema.parse(row.zone)
@@ -74,7 +78,7 @@ const decodeWidget = (row: DbWidget): EffectiveWidget => {
         widgetKey,
         zone,
         sortOrder: row.sort_order,
-        config: parseApplicationLayoutWidgetConfig(widgetKey, envelope.rendererConfig),
+        config: parseMarketingRendererConfig(widgetKey, envelope.rendererConfig),
         isActive: row.is_active !== false,
         ...(envelope.neutral.bindings ? { bindings: widgetEntityBindingEnvelopeSchema.parse(envelope.neutral.bindings) } : {})
     }
@@ -92,7 +96,7 @@ const decodeMarketingOverlayWidget = (base: EffectiveWidget, config: unknown): E
     }
     return {
         ...base,
-        config: parseApplicationLayoutWidgetConfig(base.widgetKey, envelope.rendererConfig)
+        config: parseMarketingRendererConfig(base.widgetKey, envelope.rendererConfig)
     }
 }
 
@@ -163,27 +167,26 @@ const getEffectiveLayouts = async (
         const inherited = (widgetsByLayout.get(layout.base_layout_id) ?? []).flatMap((row) => {
             const base = decodeWidget(row)
             const override = overrides.get(base.id)
-            const shared = resolveSharedBehavior(isRecord(base.config.sharedBehavior) ? base.config.sharedBehavior : undefined)
-            if (override?.is_deleted_override === true && shared.canExclude) return []
+            const placementPolicy = resolveLayoutWidgetPlacementPolicy(
+                requireLayoutWidgetOwnership(MARKETING_TEMPLATE, base.widgetKey, base.config)
+            )
+            if (override?.is_deleted_override === true && placementPolicy.canExclude) return []
 
             let resolved = base
             if (override?.config !== null && override?.config !== undefined) {
                 const configured = decodeMarketingOverlayWidget(base, override.config)
-                const baseInstanceKey = typeof base.config.instanceKey === 'string' ? base.config.instanceKey : undefined
-                const overrideInstanceKey = typeof configured.config.instanceKey === 'string' ? configured.config.instanceKey : undefined
-                if (baseInstanceKey !== overrideInstanceKey) {
-                    throw new MetahubValidationError('Marketing widget instance key is immutable', { widgetKey: base.widgetKey })
-                }
                 resolved = configured
             }
 
-            const activeOverride = shared.canDeactivate && typeof override?.is_active === 'boolean' ? override.is_active : undefined
+            const activeOverride =
+                placementPolicy.canDeactivate && typeof override?.is_active === 'boolean' ? override.is_active : undefined
             return [
                 {
                     ...resolved,
                     id: base.id,
-                    zone: shared.positionLocked || !override?.zone ? base.zone : applicationLayoutZoneSchema.parse(override.zone),
-                    sortOrder: !shared.positionLocked && typeof override?.sort_order === 'number' ? override.sort_order : base.sortOrder,
+                    zone: !placementPolicy.canChangeZone || !override?.zone ? base.zone : applicationLayoutZoneSchema.parse(override.zone),
+                    sortOrder:
+                        placementPolicy.canReorder && typeof override?.sort_order === 'number' ? override.sort_order : base.sortOrder,
                     isActive: activeOverride ?? base.isActive,
                     ...(override?.config !== null && override?.config !== undefined ? { configOverridden: true } : {}),
                     ...(activeOverride === undefined ? {} : { activeOverride })
@@ -278,9 +281,9 @@ const loadBoundHeroContent = async (
     })
     const result: Array<{ target: BindingTarget; content: ReturnType<typeof projectMarketingHeroContentData> }> = []
     for (const { target, semanticKey } of semanticTargets) {
-        const object = await queryOne<{ id: string; config: unknown }>(
+        const object = await queryOne<{ id: string; codename: string; config: unknown }>(
             db,
-            `SELECT id, config FROM ${qSchemaTable(schemaName, '_mhb_objects')}
+            `SELECT id, ${codenamePrimaryTextSql('codename')} AS codename, config FROM ${qSchemaTable(schemaName, '_mhb_objects')}
               WHERE kind = 'object' AND ${codenamePrimaryTextSql('codename')} = $1 AND ${ACTIVE} LIMIT 1`,
             [target.entityCodename]
         )
@@ -300,6 +303,7 @@ const loadBoundHeroContent = async (
         if (
             !isCompatibleWidgetBindingEntity(slot, {
                 kind: 'object',
+                codename: object.codename,
                 config: object.config,
                 components: components.map((component) => ({
                     codename: component.codename,
@@ -418,7 +422,7 @@ export const assertMarketingHeroLayoutMutationPreservesActions = async (
                       })
                       return {
                           ...widget,
-                          config: parseApplicationLayoutWidgetConfig(widget.widgetKey, envelope.rendererConfig),
+                          config: parseMarketingRendererConfig(widget.widgetKey, envelope.rendererConfig),
                           ...(envelope.neutral.bindings ? { bindings: envelope.neutral.bindings } : { bindings: undefined })
                       }
                   })

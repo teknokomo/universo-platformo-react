@@ -7,7 +7,6 @@ import {
     resolveRuntimeSchema,
     UpdateFailure,
     buildRuntimeActiveRowCondition,
-    UUID_REGEX,
     type RuntimeSchemaContext
 } from '../../shared/runtimeHelpers'
 import {
@@ -17,7 +16,7 @@ import {
     type RuntimeLibraryRelationKey,
     type RuntimeObjectCollectionAttr,
     type RuntimeRelationBinding
-} from '../runtimeRowSupport/contracts'
+} from '../../services/runtimeRowSupport/contracts'
 import { resolveRuntimeObjectCollection, resolveRuntimeRecordOwnerColumnName } from '../runtimeRowSupport/objects'
 import { denyRuntimeEntityMutation } from '../../shared/entityMutationPolicy'
 import {
@@ -25,9 +24,10 @@ import {
     readRuntimeLibraryConfig,
     resolveRuntimeRelationBinding,
     validateRuntimeSharedRelationPrincipal
-} from '../runtimeRowSupport/access'
+} from '../../services/runtimeRowSupport/access'
 
 import { deactivateLibraryRelationRow, insertLibraryRelationRow, updateExistingLibraryRelationRow } from './actorRelations'
+import { isRuntimeRecordReference, resolveRuntimeRecordReference } from '../../services/runtimeRecordHandle'
 import type {
     RuntimeCommandGuardFailure,
     RuntimeLibraryRelationColumns,
@@ -214,13 +214,13 @@ export const buildLibraryRelationPredicates = (params: {
 
 export const createLibraryRelationHandler = ({ getDbExecutor, query }: RuntimeRowCommandHandlerDeps) => {
     const setLibraryRelation = async (req: Request, res: Response) => {
-        const { applicationId, rowId } = req.params
+        const { applicationId, rowId: rowReference } = req.params
         const parsedRelationKey = runtimeLibraryRelationKeyParamSchema.safeParse(req.params.relationKey)
         if (!parsedRelationKey.success) {
             return res.status(404).json({ error: 'Runtime library relation action is not configured' })
         }
-        if (!UUID_REGEX.test(rowId)) {
-            return res.status(400).json({ error: 'Invalid row id' })
+        if (!isRuntimeRecordReference(rowReference)) {
+            return res.status(400).json({ error: 'Invalid row reference' })
         }
 
         const parsedBody = runtimeLibraryRelationActionBodySchema.safeParse(req.body)
@@ -245,6 +245,15 @@ export const createLibraryRelationHandler = ({ getDbExecutor, query }: RuntimeRo
         if (denyRuntimeEntityMutation(res, objectCollection.config)) return
 
         const objectCodename = resolveRuntimeCodenameText(objectCollection.codename)
+        const resolvedReference = resolveRuntimeRecordReference(rowReference, {
+            applicationId,
+            workspaceId: ctx.currentWorkspaceId,
+            entityCodename: objectCodename
+        })
+        if (!resolvedReference) {
+            return res.status(404).json({ error: 'Runtime library target row not found', code: 'RUNTIME_LIBRARY_TARGET_NOT_FOUND' })
+        }
+        const rowId = resolvedReference.recordId
         const relationKey = parsedRelationKey.data
         const relationResult = resolveLibraryRelationRequest({
             objectConfig: objectCollection.config,

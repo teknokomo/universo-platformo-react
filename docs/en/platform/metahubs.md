@@ -54,7 +54,7 @@ Metahub behavior is controlled by more than one settings layer, and the layers a
 | ----------------------- | ----------------------------- | ------------------------------------------------------------------------------------------------------------ |
 | Metahub dialog settings | Metahub settings storage      | Authoring dialog size, fullscreen, resize, and close behavior for metahub-scoped dialogs.                    |
 | Shared layout behavior  | Selected shared layout config | Default runtime view settings and create/edit/copy behavior before an entity gets its first layout override. |
-| Entity layout behavior  | Selected entity layout config | `showCreateButton`, `searchMode`, and create/edit/copy behavior for the chosen entity layout.                |
+| Entity layout behavior  | Selected entity layout config | `showCreateButton` and create/edit/copy form behavior for the chosen entity layout.                          |
 | Application settings    | Application record            | Application control-panel dialogs only, not metahub authoring dialogs.                                       |
 
 ## Unified Layout And Widget Settings

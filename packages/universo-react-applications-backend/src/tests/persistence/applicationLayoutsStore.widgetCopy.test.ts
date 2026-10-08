@@ -4,22 +4,50 @@ import {
     encodeLayoutWidgetConfigEnvelope,
     getLayoutWidgetDefinition,
     LAYOUT_WIDGET_DEFINITIONS,
-    parseApplicationLayoutWidgetConfig
+    parseApplicationLayoutWidgetConfig,
+    validateWidgetBindings
 } from '@universo-react/types'
 import { createMockDbExecutor } from '../utils/dbMocks'
 import { independentLayoutConfig, primeLockedLayout } from './applicationLayoutsStore.test-utils'
 
+const registryBindings = (definition: NonNullable<ReturnType<typeof getLayoutWidgetDefinition>>) =>
+    validateWidgetBindings(definition, {
+        version: 1,
+        slots: (definition.bindingSlots ?? []).map((slot, index) => {
+            const selectorKind = slot.selectorKinds[0]
+            const semanticComponent = slot.requirements.components.find(({ semanticKey }) => semanticKey === true)
+            const selector =
+                selectorKind === 'semantic-key'
+                    ? { kind: selectorKind, field: semanticComponent?.field ?? 'key', value: `fixture-${index}` }
+                    : selectorKind === 'relation-set'
+                    ? { kind: selectorKind, parentSlot: slot.relation?.parentSlot ?? 'content' }
+                    : selectorKind === 'learner-enrollment-set'
+                    ? { kind: selectorKind, targetKind: 'course' as const }
+                    : { kind: 'record-set' as const }
+            return {
+                slot: slot.key,
+                targets: [
+                    {
+                        entityKind: 'object' as const,
+                        entityCodename: `FixtureEntity${index}`,
+                        selector,
+                        projection: slot.requirements.components.map(({ field, componentCodename }) => ({ field, componentCodename }))
+                    }
+                ]
+            }
+        })
+    })
+
 describe('applicationLayoutsStore layout copy and overlay behavior', () => {
-    it('copies a marketing layout with validated placement and a fresh UUID v7 instance key', async () => {
+    it('copies a source layout with a structural widget and a fresh UUID v7 instance key', async () => {
         const { executor, txExecutor } = createMockDbExecutor()
         const layoutRow = {
             id: '018f8a78-7b8f-7c1d-a111-2222333344a1',
             scope_entity_id: '018f8a78-7b8f-7c1d-a111-2222333344a2',
-            template_key: 'marketing-page',
-            name: { en: 'Marketing' },
+            template_key: 'dashboard',
+            name: { en: 'Dashboard' },
             description: null,
             config: {
-                themeMode: 'light',
                 __layout: {
                     composition: { mode: 'overlay', baseLayoutId: '018f8a78-7b8f-7c1d-a111-2222333344a3' }
                 }
@@ -41,15 +69,18 @@ describe('applicationLayoutsStore layout copy and overlay behavior', () => {
         const widgetRow = {
             id: '018f8a78-7b8f-7c1d-a111-2222333344a4',
             layout_id: '018f8a78-7b8f-7c1d-a111-2222333344a1',
-            zone: 'marketing-header',
-            widget_key: 'marketing.auth',
+            zone: 'top',
+            widget_key: 'divider',
+            instance_key: 'divider',
+            parent_widget_id: null,
+            slot_key: null,
             sort_order: 0,
             config: encodeLayoutWidgetConfigEnvelope(
-                { rendererConfig: { instanceKey: 'auth', showAuthActions: false } },
-                { templateKey: 'marketing-page', widgetKey: 'marketing.auth', zone: 'marketing-header' }
+                { rendererConfig: { orientation: 'vertical' } },
+                { templateKey: 'dashboard', widgetKey: 'divider', zone: 'top' }
             ),
             source_config: null,
-            source_widget_id: null,
+            source_widget_id: '018f8a78-7b8f-7c1d-a111-2222333344a5',
             source_base_widget_id: '018f8a78-7b8f-7c1d-a111-2222333344a5',
             is_customized: false,
             is_active: true,
@@ -63,6 +94,15 @@ describe('applicationLayoutsStore layout copy and overlay behavior', () => {
             .mockResolvedValueOnce([layoutRow])
             .mockResolvedValueOnce([])
             .mockResolvedValueOnce([widgetRow])
+            .mockResolvedValueOnce([{ kind: 'page', codename: 'MarketingLanding' }])
+            .mockResolvedValueOnce([
+                {
+                    template_key: 'dashboard',
+                    scope_entity_id: null,
+                    local_content_hash: 'b'.repeat(64),
+                    source_content_hash: null
+                }
+            ])
             .mockResolvedValueOnce([{ ...layoutRow, id: '0190a9b5-3cde-7abc-8def-2123456789de', is_default: false, version: 1 }])
             .mockResolvedValueOnce([{ id: '0190a9b5-3cde-7abc-8def-2123456789de' }])
             .mockResolvedValueOnce([{ id: '0190a9b5-3cde-7abc-8def-2123456789df' }])
@@ -92,13 +132,28 @@ describe('applicationLayoutsStore layout copy and overlay behavior', () => {
         const insertWidgetCall = txExecutor.query.mock.calls.find(
             ([sql]) => String(sql).includes('INSERT INTO') && String(sql).includes('_app_widgets')
         )
-        const insertedConfig = decodeLayoutWidgetConfigEnvelope(JSON.parse(String(insertWidgetCall?.[1]?.[4])), {
-            templateKey: 'marketing-page',
-            widgetKey: 'marketing.auth',
-            zone: 'marketing-header'
+        const lockedLayoutIndex = txExecutor.query.mock.calls.findIndex(
+            ([sql]) => String(sql).includes('_app_layouts') && String(sql).includes('FOR UPDATE')
+        )
+        const lockedWidgetsIndex = txExecutor.query.mock.calls.findIndex(
+            ([sql]) => String(sql).includes('_app_widgets') && String(sql).includes('FOR UPDATE')
+        )
+        const copiedLayoutIndex = txExecutor.query.mock.calls.findIndex(
+            ([sql]) => String(sql).includes('INSERT INTO') && String(sql).includes('_app_layouts')
+        )
+        expect(lockedLayoutIndex).toBeGreaterThanOrEqual(0)
+        expect(lockedWidgetsIndex).toBeGreaterThan(lockedLayoutIndex)
+        expect(copiedLayoutIndex).toBeGreaterThan(lockedWidgetsIndex)
+        expect(insertWidgetCall?.[1]?.[3]).toEqual(
+            expect.stringMatching(/^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i)
+        )
+        const insertedConfig = decodeLayoutWidgetConfigEnvelope(JSON.parse(String(insertWidgetCall?.[1]?.[5])), {
+            templateKey: 'dashboard',
+            widgetKey: 'divider',
+            zone: 'top'
         })
-        expect(insertedConfig.rendererConfig.showAuthActions).toBe(false)
-        expect(insertedConfig.rendererConfig.instanceKey).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i)
+        expect(insertedConfig.rendererConfig.orientation).toBe('vertical')
+        expect(insertedConfig.rendererConfig).not.toHaveProperty('instanceKey')
         expect(insertedConfig.neutral.bindings).toBeUndefined()
     })
 
@@ -134,6 +189,15 @@ describe('applicationLayoutsStore layout copy and overlay behavior', () => {
             .mockResolvedValueOnce([{ id: inheritedWidgetId, layout_id: layoutId }])
             .mockResolvedValueOnce([updatedLayoutRow])
             .mockResolvedValueOnce([])
+            .mockResolvedValueOnce([{ kind: 'page', codename: 'ScopedDashboard' }])
+            .mockResolvedValueOnce([
+                {
+                    template_key: 'dashboard',
+                    scope_entity_id: null,
+                    local_content_hash: 'a'.repeat(64),
+                    source_content_hash: null
+                }
+            ])
             .mockResolvedValueOnce([{ id: layoutId }])
 
         await expect(
@@ -159,10 +223,9 @@ describe('applicationLayoutsStore layout copy and overlay behavior', () => {
             if (!zone) return []
 
             const variants = definition.bindingVariants ? Object.keys(definition.bindingVariants) : [undefined]
-            return variants.flatMap((variant, index) => {
+            return variants.flatMap((variant) => {
                 const widgetKey = definition.key
                 const rendererConfig = parseApplicationLayoutWidgetConfig(widgetKey, {
-                    instanceKey: `copy-${widgetKey}-${variant ?? 'default'}`,
                     ...(variant ? { variant } : {})
                 })
                 const resolvedDefinition = getLayoutWidgetDefinition(widgetKey, rendererConfig)
@@ -171,21 +234,25 @@ describe('applicationLayoutsStore layout copy and overlay behavior', () => {
                     (resolvedDefinition.bindingSlots ?? []).some(({ cardinality }) => cardinality.min > 0)
                 if (!isEntityBackedSourceWidget) return []
 
-                const widgetId = `0190a9b5-3cde-7abc-8def-${(0x2123456789e0 + index + entityBackedWidgetsCount).toString(16)}`
+                const widgetId = `0190a9b5-3cde-7abc-8def-${(0x2123456789e0 + entityBackedWidgetsCount).toString(16)}`
                 entityBackedWidgetsCount += 1
+                const storedConfig = encodeLayoutWidgetConfigEnvelope(
+                    { rendererConfig, neutral: { bindings: registryBindings(resolvedDefinition) } },
+                    { templateKey: 'marketing-page', widgetKey, zone, requireBindings: false }
+                )
                 return [
                     {
                         id: widgetId,
                         layout_id: layoutId,
                         zone,
                         widget_key: widgetKey,
+                        instance_key: `copy-${widgetKey}-${variant ?? 'default'}`,
+                        parent_widget_id: null,
+                        slot_key: null,
                         sort_order: entityBackedWidgetsCount,
-                        config: encodeLayoutWidgetConfigEnvelope(
-                            { rendererConfig },
-                            { templateKey: 'marketing-page', widgetKey, zone, requireBindings: false }
-                        ),
-                        source_config: null,
-                        source_widget_id: null,
+                        config: storedConfig,
+                        source_config: storedConfig,
+                        source_widget_id: widgetId,
                         source_base_widget_id: null,
                         is_customized: false,
                         is_active: true,
@@ -205,7 +272,44 @@ describe('applicationLayoutsStore layout copy and overlay behavior', () => {
         await expect(
             copyApplicationLayout(executor, 'app_018f8a787b8f7c1da111222233334444', layoutId, { expectedVersion: 1 }, 'user-1')
         ).rejects.toThrow('APPLICATION_LAYOUT_ENTITY_BACKED_WIDGET_COPY_CONFLICT')
-        expect(txExecutor.query.mock.calls.some(([sql]) => String(sql).includes('INSERT INTO'))).toBe(false)
+        expect(txExecutor.query.mock.calls.some(([sql]) => /^\s*(INSERT|UPDATE|DELETE)\b/i.test(String(sql)))).toBe(false)
+    })
+
+    it('rejects copying a source-managed layout containing only a host widget before writing rows', async () => {
+        const { executor, txExecutor } = createMockDbExecutor()
+        const layoutId = '0190a9b5-3cde-7abc-8def-2123456789d7'
+        const widgetId = '0190a9b5-3cde-7abc-8def-2123456789d6'
+        const hostWidgetConfig = encodeLayoutWidgetConfigEnvelope(
+            { rendererConfig: {} },
+            { templateKey: 'dashboard', widgetKey: 'workspaceSwitcher', zone: 'left' }
+        )
+        primeLockedLayout(txExecutor, {
+            layoutId,
+            templateKey: 'dashboard',
+            sourceKind: 'metahub',
+            includeStructureLock: false,
+            widgets: [
+                {
+                    id: widgetId,
+                    layout_id: layoutId,
+                    zone: 'left',
+                    widget_key: 'workspaceSwitcher',
+                    instance_key: 'workspace-switcher',
+                    sort_order: 0,
+                    config: hostWidgetConfig,
+                    source_config: hostWidgetConfig,
+                    source_widget_id: widgetId,
+                    source_base_widget_id: widgetId,
+                    is_active: true,
+                    version: 1
+                }
+            ]
+        })
+
+        await expect(
+            copyApplicationLayout(executor, 'app_018f8a787b8f7c1da111222233334444', layoutId, { expectedVersion: 1 }, 'user-1')
+        ).rejects.toThrow('APPLICATION_LAYOUT_ENTITY_BACKED_WIDGET_COPY_CONFLICT')
+        expect(txExecutor.query.mock.calls.some(([sql]) => /^\s*(INSERT|UPDATE|DELETE)\b/i.test(String(sql)))).toBe(false)
     })
 
     it('rejects a stale marketing layout copy before creating any rows', async () => {

@@ -100,8 +100,7 @@ const hasLiveEntityBinding = async (db: SqlQueryable, schemaName: string, lookup
                JOIN ${layoutsTable} layout ON layout.id = layout_override.layout_id
                JOIN ${layoutsTable} base_layout ON base_layout.id = layout.base_layout_id
                JOIN ${widgetsTable} base_widget ON base_widget.id = layout_override.base_widget_id
-              WHERE layout.template_key = 'marketing-page'
-                AND layout.scope_entity_id IS NOT NULL
+              WHERE layout.scope_entity_id IS NOT NULL
                 AND base_widget.layout_id = base_layout.id
                 AND base_layout.scope_entity_id IS NULL
                 AND base_layout.template_key = layout.template_key

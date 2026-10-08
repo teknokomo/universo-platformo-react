@@ -15,7 +15,6 @@ import {
     DASHBOARD_LAYOUT_ZONES,
     MARKETING_LAYOUT_ZONES,
     decodeLayoutConfigEnvelope,
-    decodeLayoutWidgetConfigEnvelope,
     encodeLayoutConfigEnvelope,
     encodeLayoutWidgetConfigEnvelope,
     parseApplicationLayoutWidgetConfig,
@@ -26,7 +25,7 @@ import {
 import { validateMarketingSnapshotTransportLayouts, type DbExecutor } from '@universo-react/utils'
 import type { PublishedApplicationSnapshot } from '../../services/applicationSyncContracts'
 import { type ApplicationSyncTransaction, getApplicationSyncDdlServices } from '../../ddl'
-import { hashApplicationLayoutContent } from '../../utils/applicationLayoutHash'
+import { hashApplicationLayoutContent, type SemanticLayoutScope } from '../../utils/applicationLayoutHash'
 import {
     applicationLayoutsTableExists,
     containsEntityBackedWidgetCopyConflict,
@@ -45,6 +44,11 @@ import {
     type SyncWidgetInput
 } from '../../persistence/applicationLayoutSyncStore'
 import { syncApplicationWidgets } from '../../persistence/applicationLayoutWidgetSyncStore'
+import {
+    classifyPlacementLineage,
+    decodePlacementWidgetConfigEnvelope,
+    resolvePlacementBindingValidation
+} from '../../persistence/applicationLayoutWidgetPlacement'
 import { buildMergedDashboardLayoutConfig, isRecord, parseApplicationTemplateKey } from './syncHelpers'
 import type { PersistedAppLayout, PersistedAppLayoutZoneWidget } from './syncTypes'
 import { materializeTrustedSnapshotLayoutsAndWidgets } from './trustedLayoutResolver'
@@ -78,11 +82,18 @@ const createSyncExecutor = ({ trx, requestExecutor }: SyncExecutorOptions = {}):
     throw new Error('[SchemaSync] Request-scoped executor or trusted sync transaction is required')
 }
 
-const hashApplicationLayoutWidgetContent = (widget: PersistedAppLayoutZoneWidget): string => {
+const hashApplicationLayoutWidgetContent = (
+    widget: PersistedAppLayoutZoneWidget,
+    layoutWidgets: readonly PersistedAppLayoutZoneWidget[]
+): string => {
+    const parent = widget.parentWidgetId === null ? undefined : layoutWidgets.find((candidate) => candidate.id === widget.parentWidgetId)
+    if (widget.parentWidgetId !== null && !parent) throw new Error('[SchemaSync] Widget placement parent is unavailable')
     const payload = stableStringify({
         zone: widget.zone,
         widgetKey: widget.widgetKey,
         sortOrder: widget.sortOrder,
+        instanceKey: widget.instanceKey,
+        parent: parent ? { instanceKey: parent.instanceKey, slotKey: widget.slotKey } : null,
         config: widget.config,
         isActive: widget.isActive !== false
     })
@@ -102,7 +113,7 @@ const buildSyncInputs = (
     const materialized = materializeTrustedSnapshotLayoutsAndWidgets(snapshot)
     const widgets: SyncWidgetInput[] = materialized.widgets.map((widget) => ({
         ...widget,
-        sourceContentHash: hashApplicationLayoutWidgetContent(widget)
+        sourceContentHash: ''
     }))
     const widgetsBySourceLayoutId = new Map<string, SyncWidgetInput[]>()
     for (const widget of widgets) {
@@ -111,11 +122,71 @@ const buildSyncInputs = (
         widgetsBySourceLayoutId.set(widget.layoutId, bucket)
     }
 
+    const entityScope = (row: PersistedAppLayout): SemanticLayoutScope | null => {
+        if (!row.scopeEntityId) return null
+        const entity = snapshot.entities[row.scopeEntityId]
+        if (!entity || typeof entity.kind !== 'string' || !entity.kind.trim()) {
+            throw new Error(`[SchemaSync] Scoped layout ${row.id} has no trusted Entity definition`)
+        }
+        const rawCodename = entity.codename
+        const codename =
+            typeof rawCodename === 'string'
+                ? rawCodename.trim()
+                : (() => {
+                      const primary = rawCodename._primary ?? 'en'
+                      const primaryContent = rawCodename.locales[primary]?.content
+                      const englishContent = rawCodename.locales.en?.content
+                      const fallback = Object.values(rawCodename.locales).find((locale) => locale.content.trim())?.content
+                      return (primaryContent ?? englishContent ?? fallback ?? '').trim()
+                  })()
+        if (!/^[A-Za-z][A-Za-z0-9._-]{0,127}$/u.test(codename)) {
+            throw new Error(`[SchemaSync] Scoped layout ${row.id} has an invalid semantic Entity codename`)
+        }
+        return { entityKind: entity.kind.trim(), codename }
+    }
+    const layoutsById = new Map(materialized.layouts.map((layout) => [layout.id, layout]))
+    const layoutHashById = new Map<string, string>()
+    const visiting = new Set<string>()
+    const resolveLayoutHash = (layoutId: string): string => {
+        const cached = layoutHashById.get(layoutId)
+        if (cached) return cached
+        const row = layoutsById.get(layoutId)
+        if (!row) throw new Error('[SchemaSync] Overlay base layout is missing from the trusted snapshot')
+        if (visiting.has(layoutId)) throw new Error('[SchemaSync] Layout composition graph contains a cycle')
+        visiting.add(layoutId)
+        const sourceComposition =
+            row.sourceComposition ?? decodeLayoutConfigEnvelope(row.config, { templateKey: row.templateKey }).neutral.composition
+        if (!sourceComposition) throw new Error(`[SchemaSync] Layout ${row.id} is missing composition metadata`)
+        const baseLayoutContentHash =
+            sourceComposition.mode === 'overlay'
+                ? sourceComposition.baseLayoutId
+                    ? resolveLayoutHash(sourceComposition.baseLayoutId)
+                    : null
+                : null
+        if (sourceComposition.mode === 'overlay' && !baseLayoutContentHash) {
+            throw new Error('[SchemaSync] Overlay base layout content hash is unavailable')
+        }
+        const hash = hashApplicationLayoutContent({
+            layout: {
+                ...row,
+                semanticScope: entityScope(row),
+                sourceComposition,
+                baseLayoutContentHash
+            },
+            widgets: widgetsBySourceLayoutId.get(row.id) ?? []
+        })
+        visiting.delete(layoutId)
+        layoutHashById.set(layoutId, hash)
+        return hash
+    }
     const layouts = materialized.layouts.map((row) => ({
         row,
-        sourceContentHash: hashApplicationLayoutContent({ layout: row, widgets: widgetsBySourceLayoutId.get(row.id) ?? [] }),
+        sourceContentHash: resolveLayoutHash(row.id),
         sourceSnapshotHash: snapshotHash
     }))
+    for (const widget of widgets) {
+        widget.sourceContentHash = hashApplicationLayoutWidgetContent(widget, widgetsBySourceLayoutId.get(widget.layoutId) ?? [])
+    }
     return { layouts, widgets, widgetsBySourceLayoutId }
 }
 
@@ -170,7 +241,12 @@ const buildComparableLayout = (row: ApplicationLayoutSyncLayoutRow, physicalToSo
 
 const buildComparableWidget = (
     row: {
+        id: string
         layout_id: string
+        instance_key: string
+        parent_widget_id: string | null
+        slot_key: string | null
+        source_widget_id: string | null
         source_base_widget_id: string | null
         zone: string
         widget_key: string
@@ -179,18 +255,27 @@ const buildComparableWidget = (
         is_active: boolean
     },
     physicalToSource: ReadonlyMap<string, string>,
-    templateKey: ApplicationTemplateKey
+    templateKey: ApplicationTemplateKey,
+    parentInstanceKey: string | null
 ): Record<string, unknown> => {
     const zone = normalizeLayoutZone(row.zone, templateKey)
-    const inheritsMarketingBindings = templateKey === 'marketing-page' && row.source_base_widget_id !== null
-    const decoded = decodeLayoutWidgetConfigEnvelope(row.config, {
+    const lineage = classifyPlacementLineage(row.source_widget_id, row.source_base_widget_id)
+    const bindingsInheritedFromBase = row.source_base_widget_id !== null
+    const bindingValidation = resolvePlacementBindingValidation(
+        row.widget_key,
+        row.config,
+        lineage.kind === 'source-linked',
+        bindingsInheritedFromBase
+    )
+    const decoded = decodePlacementWidgetConfigEnvelope(row.config, {
         templateKey,
         widgetKey: row.widget_key,
         zone,
-        requireBindings: !inheritsMarketingBindings
+        instanceKey: row.instance_key,
+        requireBindings: bindingValidation.requireBindings
     })
-    if (inheritsMarketingBindings && decoded.neutral.bindings !== undefined) {
-        throw new Error('[SchemaSync] Persisted Marketing overlay widget comparison cannot contain entity bindings')
+    if (bindingValidation.rejectBindings && decoded.neutral.bindings !== undefined) {
+        throw new Error('[SchemaSync] Persisted widget comparison violates registry binding policy')
     }
     const rendererConfig = parseApplicationLayoutWidgetConfig(row.widget_key, decoded.rendererConfig)
     const config = encodeLayoutWidgetConfigEnvelope(
@@ -199,9 +284,10 @@ const buildComparableWidget = (
     )
     return {
         layoutId: physicalToSource.get(row.layout_id) ?? row.layout_id,
-        sourceBaseWidgetId: row.source_base_widget_id,
         zone,
         widgetKey: row.widget_key,
+        instanceKey: row.instance_key,
+        parent: parentInstanceKey === null ? null : { instanceKey: parentInstanceKey, slotKey: row.slot_key },
         sortOrder: row.sort_order,
         config,
         isActive: row.is_active
@@ -244,7 +330,7 @@ export async function buildApplicationLayoutChanges(options: {
     const changes: ApplicationLayoutChange[] = []
     for (const input of nextLayouts) {
         const row = input.row
-        const sourceHash = hashApplicationLayoutContent({ layout: row, widgets: widgetsBySourceLayoutId.get(row.id) ?? [] })
+        const sourceHash = input.sourceContentHash
         const scope = resolveLayoutScope(row.scopeEntityId)
         const existing = existingBySourceId.get(row.id)
         const entityBackedWidgetCopyUnavailable = containsEntityBackedWidgetCopyConflict(
@@ -475,9 +561,15 @@ export async function hasPublishedWidgetsChanges(options: {
     )
     const currentRows = await (async () => {
         const widgets = await readPersistedPublishedWidgets(executor, schemaName)
+        const instanceKeyById = new Map(widgets.map((widget) => [widget.id, widget.instanceKey]))
         return widgets
             .map((row) => ({
+                id: row.id,
                 layout_id: row.layoutId,
+                instance_key: row.instanceKey,
+                parent_widget_id: row.parentWidgetId,
+                slot_key: row.slotKey,
+                source_widget_id: row.sourceWidgetId ?? null,
                 source_base_widget_id: row.sourceBaseWidgetId ?? null,
                 zone: row.zone,
                 widget_key: row.widgetKey,
@@ -488,17 +580,27 @@ export async function hasPublishedWidgetsChanges(options: {
             .map((row) => {
                 const templateKey = persistedTemplateByLayoutId.get(row.layout_id)
                 if (!templateKey) throw new Error(`[SchemaSync] Persisted widget references missing layout ${row.layout_id}`)
-                return buildComparableWidget(row, physicalToSource, templateKey)
+                const parentInstanceKey = row.parent_widget_id === null ? null : instanceKeyById.get(row.parent_widget_id) ?? null
+                if (row.parent_widget_id !== null && parentInstanceKey === null) {
+                    throw new Error('[SchemaSync] Persisted widget comparison has an unresolved placement parent')
+                }
+                return buildComparableWidget(row, physicalToSource, templateKey, parentInstanceKey)
             })
     })()
     const materialized = materializeTrustedSnapshotLayoutsAndWidgets(snapshot)
+    const instanceKeyById = new Map(materialized.widgets.map((widget) => [widget.id, widget.instanceKey]))
     const sourceTemplateByLayoutId = new Map(materialized.layouts.map((row) => [row.id, row.templateKey] as const))
     const nextRows = materialized.widgets
         .filter((row) => row.isActive !== false)
         .map((row) =>
             buildComparableWidget(
                 {
+                    id: row.id,
                     layout_id: row.layoutId,
+                    instance_key: row.instanceKey,
+                    parent_widget_id: row.parentWidgetId,
+                    slot_key: row.slotKey,
+                    source_widget_id: row.sourceWidgetId ?? null,
                     source_base_widget_id: row.sourceBaseWidgetId ?? null,
                     zone: row.zone,
                     widget_key: row.widgetKey,
@@ -510,7 +612,8 @@ export async function hasPublishedWidgetsChanges(options: {
                 sourceTemplateByLayoutId.get(row.layoutId) ??
                     (() => {
                         throw new Error(`[SchemaSync] Snapshot widget references missing layout ${row.layoutId}`)
-                    })()
+                    })(),
+                row.parentWidgetId === null ? null : instanceKeyById.get(row.parentWidgetId) ?? null
             )
         )
     const sort = (rows: Array<Record<string, unknown>>) =>

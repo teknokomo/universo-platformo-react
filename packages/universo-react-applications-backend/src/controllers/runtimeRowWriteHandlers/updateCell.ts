@@ -9,7 +9,6 @@ import {
 import {
     IDENTIFIER_REGEX,
     RUNTIME_WRITABLE_TYPES,
-    UUID_REGEX,
     UpdateFailure,
     buildRuntimeActiveRowCondition,
     coerceRuntimeValue,
@@ -32,8 +31,12 @@ import {
     isRuntimeSetKind,
     runtimeUpdateBodySchema,
     isRuntimeServerOwnedAttr
-} from '../runtimeRowSupport/contracts'
-import { resolveRuntimeObjectCollection } from '../runtimeRowSupport/objects'
+} from '../../services/runtimeRowSupport/contracts'
+import {
+    findRuntimeAttrByFieldKey,
+    resolveRuntimeObjectCollection,
+    resolveRuntimeObjectCollectionConfig
+} from '../runtimeRowSupport/objects'
 import { denyRuntimeEntityMutation } from '../../shared/entityMutationPolicy'
 import {
     validateRuntimeDateOrderRules,
@@ -46,15 +49,17 @@ import {
     buildRuntimeRecordAccessClause,
     loadRuntimeRowByIdWithRecordAccess,
     validateRuntimeAccessEntryMembership
-} from '../runtimeRowSupport/access'
+} from '../../services/runtimeRowSupport/access'
 import { loadRuntimeRowById } from '../runtimeRowSupport/rows'
+import { resolveRuntimeRelationOwnedFieldCodenames } from '../../services/runtimeRowSupport/list'
+import { isRuntimeRecordReference, resolveRuntimeRecordReference } from '../../services/runtimeRecordHandle'
 
 import type { RuntimeRowWriteDeps } from './types'
 
 export const createUpdateCellHandler = ({ getDbExecutor, query }: RuntimeRowWriteDeps) => {
     const updateCell = async (req: Request, res: Response) => {
-        const { applicationId, rowId } = req.params
-        if (!UUID_REGEX.test(rowId)) return res.status(400).json({ error: 'Invalid row ID format' })
+        const { applicationId, rowId: rowReference } = req.params
+        if (!isRuntimeRecordReference(rowReference)) return res.status(400).json({ error: 'Invalid row reference format' })
 
         const ctx = await resolveRuntimeSchema(getDbExecutor, query, req, res, applicationId)
         if (!ctx) return
@@ -77,6 +82,13 @@ export const createUpdateCellHandler = ({ getDbExecutor, query }: RuntimeRowWrit
         } = await resolveRuntimeObjectCollection(ctx.manager, ctx.schemaIdent, requestedObjectCollectionId)
         if (!objectCollection) return res.status(404).json({ error: objectCollectionError })
         if (denyRuntimeEntityMutation(res, objectCollection.config)) return
+        const resolvedReference = resolveRuntimeRecordReference(rowReference, {
+            applicationId,
+            workspaceId: ctx.currentWorkspaceId,
+            entityCodename: resolveRuntimeCodenameText(objectCollection.codename)
+        })
+        if (!resolvedReference) return res.status(404).json({ error: 'Row not found' })
+        const rowId = resolvedReference.recordId
         const runtimeRowCondition = buildRuntimeActiveRowCondition(
             objectCollection.lifecycleContract,
             objectCollection.config,
@@ -86,6 +98,30 @@ export const createUpdateCellHandler = ({ getDbExecutor, query }: RuntimeRowWrit
 
         const cmp = attrs.find((a) => a.column_name === field)
         if (!cmp) return res.status(404).json({ error: 'Component not found' })
+        if (cmp.data_type === 'REF') {
+            const { selectedLayout } = await resolveRuntimeObjectCollectionConfig({
+                manager: ctx.manager,
+                applicationId,
+                userId: ctx.userId,
+                role: ctx.role,
+                workspaceId: ctx.currentWorkspaceId,
+                objectCollectionId: objectCollection.id,
+                objectCollectionCodename: resolveRuntimeCodenameText(objectCollection.codename)
+            })
+            const relationOwnedFields = resolveRuntimeRelationOwnedFieldCodenames(
+                selectedLayout.zoneWidgets,
+                resolveRuntimeCodenameText(objectCollection.codename)
+            )
+            const isRelationOwnedField = relationOwnedFields.some(
+                (fieldCodename) => findRuntimeAttrByFieldKey(attrs, fieldCodename)?.column_name === cmp.column_name
+            )
+            if (isRelationOwnedField) {
+                return res.status(409).json({
+                    error: 'A verified relation scope is required to change this relationship',
+                    code: 'RUNTIME_RELATION_SCOPE_REQUIRED'
+                })
+            }
+        }
         if (isRuntimeServerOwnedAttr(cmp)) {
             return res.status(400).json({
                 error: `Field is server-owned: ${formatRuntimeFieldLabel(cmp.codename)}`

@@ -15,7 +15,12 @@ import CheckCircleOutlineRoundedIcon from '@mui/icons-material/CheckCircleOutlin
 import UndoRoundedIcon from '@mui/icons-material/UndoRounded'
 import BlockRoundedIcon from '@mui/icons-material/BlockRounded'
 import { useState, type MouseEvent, type ReactNode } from 'react'
-import { evaluateWorkflowActionAvailability, readLocalizedTextValue, type WorkflowAction } from '@universo-react/types'
+import {
+    evaluateWorkflowActionAvailability,
+    readLocalizedTextValue,
+    type ObjectRecordBehavior,
+    type WorkflowAction
+} from '@universo-react/types'
 import type { CrudDashboardState } from '../hooks/useCrudDashboard'
 import { RuntimeRecordStateChip, canRunRuntimeRecordCommand, isRuntimeRecordBehaviorCommandable } from './RuntimeRecordState'
 
@@ -32,6 +37,8 @@ export interface RowActionsMenuProps {
     }
     /** Optional feature-specific actions rendered before the standard CRUD actions. */
     customActions?: ReactNode
+    /** Optional binding-aware row context supplied by the Dashboard host. */
+    runtimeContext?: ExternalRowActionsContext
 }
 
 export interface RowActionsMenuLabels {
@@ -50,6 +57,8 @@ export interface RowActionsMenuLabels {
     workflowActionText?: string
     workflowConfirmationTitleText?: string
     workflowConfirmationMessageText?: string
+    loadingText?: string
+    unavailableText?: string
 }
 
 type PendingWorkflowConfirmation = {
@@ -58,11 +67,31 @@ type PendingWorkflowConfirmation = {
     title: string
     message: string
     confirmLabel: string
+    run: (rowId: string, actionCodename: string) => Promise<void> | void
 }
 
 const readLocalizedWorkflowText = (value: unknown): string | undefined => readLocalizedTextValue(value)
 
 type RuntimeColumn = NonNullable<CrudDashboardState['appData']>['columns'][number]
+
+type ExternalRowActionsContext = {
+    menuAnchorEl: HTMLElement | null
+    menuRowId: string | null
+    row: Record<string, unknown> | null
+    columns: RuntimeColumn[]
+    recordBehavior?: ObjectRecordBehavior
+    workflowActions: WorkflowAction[]
+    workflowCapabilities?: Record<string, boolean>
+    permissions: { canEdit: boolean; canCopy: boolean; canDelete: boolean }
+    isLoading: boolean
+    hasError: boolean
+    isRecordCommandPending?: boolean
+    isWorkflowActionPending?: boolean
+    onCloseMenu: () => void
+    onRowTargetAction?: (rowId: string, action: 'edit' | 'copy' | 'delete', expectedVersion: number | null) => void
+    onRecordCommand?: (rowId: string, command: 'post' | 'unpost' | 'void') => Promise<void> | void
+    onWorkflowAction?: (rowId: string, actionCodename: string) => Promise<void> | void
+}
 
 const resolveWorkflowStatusColumnName = (action: WorkflowAction, columns: RuntimeColumn[]): string => {
     if (action.statusColumnName) return action.statusColumnName
@@ -103,12 +132,14 @@ const readWorkflowStatusValue = (row: Record<string, unknown> | null, action: Wo
     return statusValue.toLowerCase()
 }
 
-const hasRuntimeRowVersion = (row: Record<string, unknown> | null): boolean => {
+const readRuntimeRowVersion = (row: Record<string, unknown> | null): number | null => {
     const rawValue = row?._upl_version
     const value =
         typeof rawValue === 'number' ? rawValue : typeof rawValue === 'string' && rawValue.trim().length > 0 ? Number(rawValue) : Number.NaN
-    return Number.isInteger(value) && value > 0
+    return Number.isSafeInteger(value) && value > 0 ? value : null
 }
+
+const hasRuntimeRowVersion = (row: Record<string, unknown> | null): boolean => readRuntimeRowVersion(row) !== null
 
 const isWorkflowActionVisible = (
     row: Record<string, unknown> | null,
@@ -132,25 +163,45 @@ const isWorkflowActionVisible = (
  * Extracts the duplicated `<Menu>` JSX from both `DashboardApp`
  * and `ApplicationRuntime`.
  */
-export function RowActionsMenu({ state, labels, permissions, customActions }: RowActionsMenuProps) {
+export function RowActionsMenu({ state, labels, permissions, customActions, runtimeContext }: RowActionsMenuProps) {
     const [pendingWorkflowConfirmation, setPendingWorkflowConfirmation] = useState<PendingWorkflowConfirmation | null>(null)
-    const canEdit = permissions?.canEdit === true
-    const canCopy = permissions?.canCopy === true
-    const canDelete = permissions?.canDelete === true
-    const selectedRow = state.menuRowId ? state.rows.find((row) => row.id === state.menuRowId) ?? null : null
-    const recordBehavior = state.appData?.objectCollection.recordBehavior
-    const canShowRecordCommands = Boolean(state.handleRecordCommand && isRuntimeRecordBehaviorCommandable(recordBehavior) && selectedRow)
-    const isRecordCommandPending = Boolean(state.isRecordCommandPending)
-    const canShowWorkflowActions = Boolean(state.handleWorkflowAction && selectedRow)
-    const workflowCapabilities = state.appData?.workflowCapabilities
+    const canEdit = runtimeContext ? runtimeContext.permissions.canEdit : permissions?.canEdit === true
+    const canCopy = runtimeContext ? runtimeContext.permissions.canCopy : permissions?.canCopy === true
+    const canDelete = runtimeContext ? runtimeContext.permissions.canDelete : permissions?.canDelete === true
+    const menuAnchorEl = runtimeContext ? runtimeContext.menuAnchorEl : state.menuAnchorEl
+    const menuRowId = runtimeContext ? runtimeContext.menuRowId : state.menuRowId
+    const selectedRow = runtimeContext
+        ? runtimeContext.row
+        : state.menuRowId
+        ? state.rows.find((row) => row.id === state.menuRowId) ?? null
+        : null
+    const columns = runtimeContext ? runtimeContext.columns : state.appData?.columns ?? []
+    const recordBehavior = runtimeContext ? runtimeContext.recordBehavior : state.appData?.objectCollection.recordBehavior
+    const workflowActionsSource = runtimeContext ? runtimeContext.workflowActions : state.appData?.objectCollection.workflowActions ?? []
+    const recordCommandHandler = runtimeContext ? runtimeContext.onRecordCommand : state.handleRecordCommand
+    const workflowActionHandler = runtimeContext ? runtimeContext.onWorkflowAction : state.handleWorkflowAction
+    const closeMenu = runtimeContext ? runtimeContext.onCloseMenu : state.handleCloseMenu
+    const canShowRecordCommands = Boolean(recordCommandHandler && isRuntimeRecordBehaviorCommandable(recordBehavior) && selectedRow)
+    const isRecordCommandPending = runtimeContext ? Boolean(runtimeContext.isRecordCommandPending) : Boolean(state.isRecordCommandPending)
+    const canShowWorkflowActions = Boolean(workflowActionHandler && selectedRow)
+    const workflowCapabilities = runtimeContext ? runtimeContext.workflowCapabilities : state.appData?.workflowCapabilities
     const workflowActions = canShowWorkflowActions
-        ? (state.appData?.objectCollection.workflowActions ?? []).filter((action) =>
-              isWorkflowActionVisible(selectedRow, action, state.appData?.columns ?? [], workflowCapabilities)
-          )
+        ? workflowActionsSource.filter((action) => isWorkflowActionVisible(selectedRow, action, columns, workflowCapabilities))
         : []
-    const isWorkflowActionPending = Boolean(state.isWorkflowActionPending)
+    const isWorkflowActionPending = runtimeContext
+        ? Boolean(runtimeContext.isWorkflowActionPending)
+        : Boolean(state.isWorkflowActionPending)
 
-    if (!canEdit && !canCopy && !canDelete && !canShowRecordCommands && workflowActions.length === 0 && !customActions) {
+    if (
+        !canEdit &&
+        !canCopy &&
+        !canDelete &&
+        !canShowRecordCommands &&
+        workflowActions.length === 0 &&
+        !customActions &&
+        !runtimeContext?.isLoading &&
+        !runtimeContext?.hasError
+    ) {
         return null
     }
 
@@ -164,19 +215,19 @@ export function RowActionsMenu({ state, labels, permissions, customActions }: Ro
         event.preventDefault()
         event.stopPropagation()
 
-        const rowId = state.menuRowId
-        state.handleCloseMenu()
+        const rowId = menuRowId
+        closeMenu()
 
-        if (!rowId || !state.handleRecordCommand) return
-        void state.handleRecordCommand(rowId, command)
+        if (!rowId || !recordCommandHandler) return
+        void recordCommandHandler(rowId, command)
     }
     const runWorkflowAction = (event: MouseEvent<HTMLElement>, action: WorkflowAction) => {
         event.preventDefault()
         event.stopPropagation()
 
-        const rowId = state.menuRowId
-        if (!rowId || !state.handleWorkflowAction) {
-            state.handleCloseMenu()
+        const rowId = menuRowId
+        if (!rowId || !workflowActionHandler) {
+            closeMenu()
             return
         }
 
@@ -194,24 +245,40 @@ export function RowActionsMenu({ state, labels, permissions, customActions }: Ro
                 labels.workflowConfirmationMessageText ??
                 actionLabel
             const confirmLabel = readLocalizedWorkflowText(confirmation.confirmLabel) ?? labels.confirmText ?? actionLabel
-            setPendingWorkflowConfirmation({ rowId, action, title, message, confirmLabel })
-            state.handleCloseMenu()
+            setPendingWorkflowConfirmation({ rowId, action, title, message, confirmLabel, run: workflowActionHandler })
+            closeMenu()
             return
         }
 
-        state.handleCloseMenu()
-        void state.handleWorkflowAction(rowId, action.codename)
+        closeMenu()
+        void workflowActionHandler(rowId, action.codename)
+    }
+    const runRowTargetAction = (action: 'edit' | 'copy' | 'delete') => {
+        const rowId = menuRowId
+        closeMenu()
+        if (!rowId) return
+        if (runtimeContext) {
+            runtimeContext.onRowTargetAction?.(rowId, action, readRuntimeRowVersion(selectedRow))
+            return
+        }
+        if (action === 'edit') state.handleOpenEdit(rowId)
+        else if (action === 'copy') state.handleOpenCopy(rowId)
+        else state.handleOpenDelete(rowId)
     }
 
     return (
         <>
             <Menu
-                open={Boolean(state.menuAnchorEl?.isConnected)}
-                anchorEl={state.menuAnchorEl?.isConnected ? state.menuAnchorEl : null}
-                onClose={state.handleCloseMenu}
+                open={Boolean(menuAnchorEl?.isConnected)}
+                anchorEl={menuAnchorEl?.isConnected ? menuAnchorEl : null}
+                onClose={closeMenu}
                 anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
                 transformOrigin={{ vertical: 'top', horizontal: 'right' }}
             >
+                {runtimeContext?.isLoading ? <MenuItem disabled>{labels.loadingText ?? 'Loading actions…'}</MenuItem> : null}
+                {runtimeContext?.hasError ? (
+                    <MenuItem disabled>{labels.unavailableText ?? 'Actions are unavailable for this record.'}</MenuItem>
+                ) : null}
                 {canShowRecordCommands ? (
                     <Box sx={{ px: 2, py: 1, display: 'flex', alignItems: 'center', justifyContent: 'flex-start' }}>
                         <RuntimeRecordStateChip
@@ -281,8 +348,7 @@ export function RowActionsMenu({ state, labels, permissions, customActions }: Ro
                 {canEdit ? (
                     <MenuItem
                         onClick={() => {
-                            if (state.menuRowId) state.handleOpenEdit(state.menuRowId)
-                            state.handleCloseMenu()
+                            runRowTargetAction('edit')
                         }}
                     >
                         <EditIcon fontSize='small' sx={{ mr: 1 }} />
@@ -292,8 +358,7 @@ export function RowActionsMenu({ state, labels, permissions, customActions }: Ro
                 {canCopy ? (
                     <MenuItem
                         onClick={() => {
-                            if (state.menuRowId) state.handleOpenCopy(state.menuRowId)
-                            state.handleCloseMenu()
+                            runRowTargetAction('copy')
                         }}
                     >
                         <ContentCopyRoundedIcon fontSize='small' sx={{ mr: 1 }} />
@@ -304,8 +369,7 @@ export function RowActionsMenu({ state, labels, permissions, customActions }: Ro
                 {canDelete ? (
                     <MenuItem
                         onClick={() => {
-                            if (state.menuRowId) state.handleOpenDelete(state.menuRowId)
-                            state.handleCloseMenu()
+                            runRowTargetAction('delete')
                         }}
                         sx={{ color: 'error.main' }}
                     >
@@ -330,9 +394,9 @@ export function RowActionsMenu({ state, labels, permissions, customActions }: Ro
                         variant='contained'
                         onClick={() => {
                             const pending = pendingWorkflowConfirmation
-                            if (!pending || !state.handleWorkflowAction) return
+                            if (!pending) return
                             setPendingWorkflowConfirmation(null)
-                            void state.handleWorkflowAction(pending.rowId, pending.action.codename)
+                            void pending.run(pending.rowId, pending.action.codename)
                         }}
                     >
                         {pendingWorkflowConfirmation?.confirmLabel ?? labels.confirmText ?? 'Confirm'}

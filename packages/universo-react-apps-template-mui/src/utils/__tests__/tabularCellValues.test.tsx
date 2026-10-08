@@ -238,6 +238,8 @@ describe('tabularCellValues', () => {
     it('exposes the same hidden TABLE child field predicate used by tabular columns', () => {
         expect(isHiddenTabularField({ id: 'CellId', label: 'Cell ID', type: 'STRING', uiConfig: { hidden: true } })).toBe(true)
         expect(isHiddenTabularField({ id: 'CellValue', label: 'Cell Value', type: 'STRING' })).toBe(false)
+        expect(isHiddenTabularField({ id: 'ContactEmail', label: 'Contact email', type: 'STRING' })).toBe(true)
+        expect(isHiddenTabularField({ id: 'AccessToken', label: 'Access token', type: 'STRING' })).toBe(true)
     })
 
     it('generates stable UUID v7 CellId values for new matrix rows without exposing hidden fields', () => {

@@ -65,14 +65,12 @@ export type MarketingPageConfig = z.infer<typeof marketingPageConfigSchema>
 
 export const marketingNavigationWidgetConfigSchema = z
     .object({
-        instanceKey: marketingWidgetInstanceKeySchema,
         maxItems: z.number().int().min(1).max(100).default(24)
     })
     .strict()
 
 export const marketingHeroWidgetConfigSchema = z
     .object({
-        instanceKey: marketingWidgetInstanceKeySchema,
         showLeadForm: z.boolean().default(true)
     })
     .strict()
@@ -187,7 +185,6 @@ export type MarketingHeroWidgetData = z.infer<typeof marketingHeroWidgetDataSche
 
 export const marketingCollectionWidgetConfigSchema = z
     .object({
-        instanceKey: marketingWidgetInstanceKeySchema,
         variant: marketingCollectionVariantSchema,
         maxItems: z.number().int().min(1).max(100).default(100),
         showTitle: z.boolean().default(true),
@@ -201,7 +198,6 @@ export const marketingCollectionWidgetConfigSchema = z
 
 export const marketingPricingWidgetConfigSchema = z
     .object({
-        instanceKey: marketingWidgetInstanceKeySchema,
         maxItems: z.number().int().min(1).max(100).default(24),
         showBenefits: z.boolean().default(true),
         cardStyle: marketingPricingCardStyleSchema.default('featured'),
@@ -211,20 +207,18 @@ export const marketingPricingWidgetConfigSchema = z
 
 export const marketingFooterWidgetConfigSchema = z
     .object({
-        instanceKey: marketingWidgetInstanceKeySchema,
         maxItems: z.number().int().min(1).max(100).default(100),
         showNewsletter: z.boolean().default(true)
     })
     .strict()
 
 /** Brand content is resolved from the bound SiteSettings record. */
-export const marketingBrandWidgetConfigSchema = z.object({ instanceKey: marketingWidgetInstanceKeySchema }).strict()
+export const marketingBrandWidgetConfigSchema = z.object({}).strict()
 
-export const marketingImageWidgetConfigSchema = z.object({ instanceKey: marketingWidgetInstanceKeySchema }).strict()
+export const marketingImageWidgetConfigSchema = z.object({}).strict()
 
 export const marketingAuthWidgetConfigSchema = z
     .object({
-        instanceKey: marketingWidgetInstanceKeySchema,
         showAuthActions: z.boolean().default(true)
     })
     .strict()
@@ -354,7 +348,15 @@ export type MarketingRuntimeWidget =
     | z.infer<typeof marketingPricingWidgetSchema>
     | z.infer<typeof marketingFooterWidgetSchema>
 
-export const marketingRuntimeWidgetSchema: z.ZodType<MarketingRuntimeWidget> = z.union([
+type MarketingRuntimeWidgetInput =
+    | z.input<typeof marketingNavigationWidgetSchema>
+    | z.input<typeof marketingHeroWidgetSchema>
+    | z.input<typeof marketingImageWidgetSchema>
+    | z.input<typeof marketingCollectionWidgetSchema>
+    | z.input<typeof marketingPricingWidgetSchema>
+    | z.input<typeof marketingFooterWidgetSchema>
+
+export const marketingRuntimeWidgetSchema: z.ZodType<MarketingRuntimeWidget, z.ZodTypeDef, MarketingRuntimeWidgetInput> = z.union([
     marketingNavigationWidgetSchema,
     marketingHeroWidgetSchema,
     marketingImageWidgetSchema,
@@ -403,9 +405,18 @@ export const marketingAuthWidgetSchema = marketingAtomicHeaderWidgetBaseSchema
 
 export type MarketingAtomicHeaderWidget = z.infer<typeof marketingBrandWidgetSchema> | z.infer<typeof marketingAuthWidgetSchema>
 
-export const marketingAtomicHeaderWidgetSchema = z.union([marketingBrandWidgetSchema, marketingAuthWidgetSchema])
+type MarketingAtomicHeaderWidgetInput = z.input<typeof marketingBrandWidgetSchema> | z.input<typeof marketingAuthWidgetSchema>
 
-export const marketingPageWidgetSchema = z.union([marketingRuntimeWidgetSchema, marketingAtomicHeaderWidgetSchema])
+export const marketingAtomicHeaderWidgetSchema: z.ZodType<MarketingAtomicHeaderWidget, z.ZodTypeDef, MarketingAtomicHeaderWidgetInput> =
+    z.union([marketingBrandWidgetSchema, marketingAuthWidgetSchema])
+
+type MarketingPageWidgetInput = MarketingRuntimeWidgetInput | MarketingAtomicHeaderWidgetInput
+
+export const marketingPageWidgetSchema: z.ZodType<
+    MarketingRuntimeWidget | MarketingAtomicHeaderWidget,
+    z.ZodTypeDef,
+    MarketingPageWidgetInput
+> = z.union([marketingRuntimeWidgetSchema, marketingAtomicHeaderWidgetSchema])
 
 export type MarketingPageData = {
     templateKey: typeof MARKETING_PAGE_TEMPLATE_KEY
@@ -417,7 +428,17 @@ export type MarketingPageData = {
     richContent?: z.infer<typeof pageBlockContentSchema>
 }
 
-export const marketingPageDataSchema: z.ZodType<MarketingPageData> = z
+type MarketingPageDataInput = {
+    templateKey: typeof MARKETING_PAGE_TEMPLATE_KEY
+    locale: z.input<typeof marketingLocaleCodeSchema>
+    config: z.input<typeof marketingPageConfigSchema>
+    widgets: MarketingPageWidgetInput[]
+    runtime: z.input<typeof marketingRuntimeIdentitySchema>
+    provenance?: z.input<typeof marketingProvenanceSchema>
+    richContent?: z.input<typeof pageBlockContentSchema>
+}
+
+export const marketingPageDataSchema: z.ZodType<MarketingPageData, z.ZodTypeDef, MarketingPageDataInput> = z
     .object({
         templateKey: z.literal(MARKETING_PAGE_TEMPLATE_KEY),
         locale: marketingLocaleCodeSchema,
@@ -448,7 +469,16 @@ export type MarketingPageRuntimeViewModel = {
     marketingPage: MarketingPageData
 }
 
-export const marketingPageRuntimeViewModelSchema: z.ZodType<MarketingPageRuntimeViewModel> = z
+export type MarketingPageRuntimeViewModelInput = {
+    templateKey: typeof MARKETING_PAGE_TEMPLATE_KEY
+    marketingPage: MarketingPageDataInput
+}
+
+export const marketingPageRuntimeViewModelSchema: z.ZodType<
+    MarketingPageRuntimeViewModel,
+    z.ZodTypeDef,
+    MarketingPageRuntimeViewModelInput
+> = z
     .object({
         templateKey: z.literal(MARKETING_PAGE_TEMPLATE_KEY),
         marketingPage: marketingPageDataSchema

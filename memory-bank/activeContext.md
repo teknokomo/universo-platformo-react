@@ -2,11 +2,14 @@
 
 > Current-focus memory only. Completed implementation history lives in [progress.md](progress.md); actionable checklists live in [tasks.md](tasks.md).
 
-## Current Focus: PR #912 complete Entity-backed Marketing Page closeout (2026-10-01)
+## Current Focus: Dashboard Complete Entity-Backed Widgets (2026-10-07)
 
--   Stabilize the existing complete Entity-backed Marketing Page PR after implementation and QA; fix confirmed CI/reviewer findings while preserving the clean-cutover architecture.
--   Keep the regenerated 73rd Meridian fixture aligned with the current Marketing Page contract: all content-bearing Marketing widgets resolve through Entity records, and `MarketingPageSiteSettings` owns only site-level settings.
--   Preserve the existing feature branch/PR, avoid unrelated refactors or schema/template version bumps, and do not launch `pnpm dev`.
+-   Implementation is complete and ready for commit/PR. The plan, implementation checklist and active brief status now reflect the completed state; archival remains a separate explicit post-PR action.
+-   Entity Types own durable content/domain data; persisted widget placements own composition/presentation and semantic `instanceKey`; registry metadata owns binding/authoring/runtime contracts. Nested Dashboard composition uses first-class parent/slot placement relationships.
+-   The clean cutover is preserved: no supported Dashboard legacy reader, dual write, embedded child-widget array, schema-version bump, built-in template-version bump, or `pnpm dev` dependency was introduced.
+-   Canonical minimal-Supabase Dashboard acceptance passed all seven selected specs / 11 Playwright tests in `tools/testing/e2e/.artifacts/dashboard-entity-backed/2026-10-06T21-47-30-457Z/`, covering nested authoring, application layout sync, Dashboard runtime, cross-template runtime/scoped precedence/concurrency and LMS snapshot runtime.
+-   Final focused reruns passed Types 31 files / 268 tests, Metahubs backend 4 suites / 14 tests, Applications backend 4 suites / 63 tests, Apps Template MUI 4 files / 60 tests, the MMOOMM ShareDB metadata contract, all six tracked snapshot contracts, catalog-version validation, GitBook EN/RU parity and screenshot-asset checks, plus `git diff --check`.
+-   Autoreview/Thermos was attempted on an isolated 20-file critical subset and ended `UNAVAILABLE` because the local Codex CLI is missing `@openai/codex-linux-x64`. OntoIndex sees the committed HEAD but reports degraded authority over the accumulated 701-file dirty/untracked overlay; these are recorded tooling limitations, not clean review verdicts.
 
 ## Preserved platform/runtime baseline
 
@@ -28,10 +31,9 @@
 
 ## Immediate Next Step / Blocker
 
--   The only unchecked historical task is the final independent review gate for the MUI 9 marketing-page upgrade from an environment where OntoIndex and Thermos/autoreview can complete; product implementation and feasible local/browser/docs gates are already complete.
--   Treat unavailable standalone deployment proof separately: hosted runtime is verified; standalone browser acceptance remains opt-in/BLOCKED when no authenticated standalone shell and target/template environment variables are configured.
--   Before new product edits, re-baseline the real worktree and current task scope; preserve unrelated dirty changes.
--   If a new feature starts, replace this section with that feature's current state and move completed context to `progress.md`.
+-   No implementation blocker remains for the original Dashboard Entity-backed brief. The next repository lifecycle step is commit/PR preparation when requested.
+-   Preserve the current dirty worktree and the final E2E artifact directory until the commit/PR diff and screenshot references have been reviewed.
+-   Do not represent Thermos/autoreview or OntoIndex dirty-tree graph review as PASS unless their infrastructure is repaired and a fresh terminal verdict is observed.
 
 ## Runtime / Layout Contracts To Preserve
 

@@ -6,6 +6,7 @@ import { lmsTemplate } from '../../domains/templates/data/lms.template'
 import { interpretationNetworkTemplate } from '../../domains/templates/data/interpretation-network.template'
 import { marketingPageTemplate } from '../../domains/templates/data/marketing-page.template'
 import { oneCCompatibleTemplate } from '../../domains/templates/data/one-c-compatible.template'
+import { playcanvasTemplate } from '../../domains/templates/data/playcanvas.template'
 import {
     oneCCompatibleAllPresets,
     oneCCompatibleCorePresets,
@@ -17,7 +18,6 @@ import { ledgerEntityPreset } from '../../domains/templates/data/ledger.entity-p
 import { hubEntityPreset } from '../../domains/templates/data/tree-entity.entity-preset'
 import { setEntityPreset } from '../../domains/templates/data/value-group.entity-preset'
 import {
-    decodeWidgetConfigEnvelope,
     entityRecordPolicySchema,
     getLayoutWidgetDefinition,
     matchesWidgetBindingComponentValidationRules,
@@ -53,6 +53,133 @@ describe('TemplateManifestValidator', () => {
 
     it('accepts the built-in lms template', () => {
         expect(() => validateTemplateManifest(cloneTemplate(lmsTemplate))).not.toThrow()
+    })
+
+    it('validates every built-in Dashboard template against the strict registry contracts', () => {
+        const templates = [
+            basicTemplate,
+            basicDemoTemplate,
+            emptyTemplate,
+            oneCCompatibleTemplate,
+            lmsTemplate,
+            interpretationNetworkTemplate,
+            playcanvasTemplate
+        ]
+        const retiredWidgetKeys = new Set(['brandSelector', 'productTree', 'usersByCountryChart'])
+
+        for (const template of templates) {
+            expect(() => validateTemplateManifest(cloneTemplate(template))).not.toThrow()
+            const placements = Object.values(template.seed.layoutZoneWidgets).flat()
+            const menuPlacements = placements.filter((placement) => placement.widgetKey === 'menuWidget')
+            expect(menuPlacements).not.toHaveLength(0)
+
+            for (const placement of placements) {
+                expect(retiredWidgetKeys.has(placement.widgetKey)).toBe(false)
+                expect('rendererConfig' in placement).toBe(true)
+                expect('config' in placement).toBe(false)
+                if (!('rendererConfig' in placement)) continue
+
+                expect(placement.rendererConfig).not.toHaveProperty('datasource')
+                expect(placement.rendererConfig).not.toHaveProperty('widgets')
+                if (placement.widgetKey === 'menuWidget') {
+                    expect(placement.rendererConfig).toEqual({
+                        variant: expect.stringMatching(/^(generated|manual)$/u)
+                    })
+                    if (placement.rendererConfig.variant === 'generated') {
+                        expect(placement.bindings).toBeUndefined()
+                    } else {
+                        expect(placement.bindings?.slots).toEqual(expect.arrayContaining([expect.objectContaining({ slot: 'items' })]))
+                    }
+                    for (const target of placement.bindings?.slots.flatMap(({ targets }) => targets) ?? []) {
+                        expect(target).not.toHaveProperty('id')
+                        expect(target).toHaveProperty('entityCodename')
+                    }
+                }
+                if (placement.widgetKey === 'appNavbar' || placement.widgetKey === 'header') {
+                    expect(placement.rendererConfig).toEqual({})
+                }
+                if (placement.widgetKey === 'infoCard') {
+                    expect(Object.keys(placement.rendererConfig).every((key) => key === 'severity')).toBe(true)
+                    expect(placement.bindings?.slots).toEqual(expect.arrayContaining([expect.objectContaining({ slot: 'content' })]))
+                }
+            }
+        }
+    })
+
+    it('binds Basic Demo information, headings, metrics, charts, and table rows to Object records', () => {
+        const manifest = cloneTemplate(basicDemoTemplate)
+        const widgets = manifest.seed.layoutZoneWidgets.main ?? []
+        const metricEntity = manifest.seed.entities.find((entity) => entity.codename === 'DashboardDemoMetrics')
+        const seriesEntity = manifest.seed.entities.find((entity) => entity.codename === 'DashboardDemoSeries')
+        const tableEntity = manifest.seed.entities.find((entity) => entity.codename === 'DashboardDemoRecords')
+        const contentEntity = manifest.seed.entities.find((entity) => entity.codename === 'DashboardDemoContent')
+        const metricWidget = widgets.find((widget) => widget.widgetKey === 'overviewCards')
+        const seriesWidget = widgets.find((widget) => widget.widgetKey === 'sessionsChart')
+        const container = widgets.find((widget) => widget.widgetKey === 'columnsContainer')
+        const table = widgets.find((widget) => widget.widgetKey === 'detailsTable')
+        const infoCard = widgets.find((widget) => widget.widgetKey === 'infoCard')
+        const headings = widgets.filter((widget) => widget.widgetKey === 'overviewTitle' || widget.widgetKey === 'detailsTitle')
+
+        expect(metricEntity?.kind).toBe('object')
+        expect(seriesEntity?.kind).toBe('object')
+        expect(tableEntity?.kind).toBe('object')
+        expect(contentEntity?.kind).toBe('object')
+        expect(contentEntity?.hubs).toEqual(['Main'])
+        expect(contentEntity?.config).toMatchObject({
+            recordBehavior: 'reference',
+            recordPolicy: {
+                version: 1,
+                semanticKey: {
+                    componentCodename: 'Key',
+                    creationPrefix: 'dashboard-content',
+                    protectedValues: ['welcome', 'overview-heading', 'records-heading']
+                },
+                denyDeleteWhenBound: true,
+                immutableSemanticKeyWhenBound: true,
+                runtimeMutation: 'deny'
+            }
+        })
+        expect(() => entityRecordPolicySchema.parse(contentEntity?.config?.recordPolicy)).not.toThrow()
+        expect(manifest.seed.elements?.DashboardDemoMetrics).toHaveLength(4)
+        expect(manifest.seed.elements?.DashboardDemoSeries).toHaveLength(7)
+        expect(manifest.seed.elements?.DashboardDemoRecords).toHaveLength(3)
+        expect(manifest.seed.elements?.DashboardDemoContent).toHaveLength(3)
+        expect(infoCard?.bindings?.slots[0]?.targets[0]).toMatchObject({
+            entityKind: 'object',
+            entityCodename: 'DashboardDemoContent',
+            selector: { kind: 'semantic-key', value: 'welcome' }
+        })
+        expect(headings).toHaveLength(2)
+        expect(headings.every((widget) => widget.bindings?.slots[0]?.targets[0]?.entityCodename === 'DashboardDemoContent')).toBe(true)
+        expect(infoCard?.bindings?.slots[0]?.targets[0]?.selector).toEqual({ kind: 'semantic-key', field: 'key', value: 'welcome' })
+        expect(manifest.seed.elements?.DashboardDemoContent?.[0]?.data).toHaveProperty('Key', 'welcome')
+        expect(manifest.seed.elements?.DashboardDemoContent?.[0]?.data).not.toHaveProperty('key')
+        expect(metricWidget?.bindings?.slots[0]?.targets[0]).toMatchObject({
+            entityKind: 'object',
+            entityCodename: 'DashboardDemoMetrics',
+            selector: { kind: 'record-set' }
+        })
+        expect(seriesWidget?.bindings?.slots[0]?.targets[0]).toMatchObject({
+            entityKind: 'object',
+            entityCodename: 'DashboardDemoSeries',
+            selector: { kind: 'record-set' }
+        })
+        expect(container?.instanceKey).toBe('demo-records-container')
+        expect(table).toMatchObject({ parentInstanceKey: 'demo-records-container', slotKey: 'column:records' })
+        expect(container?.rendererConfig).not.toHaveProperty('instanceKey')
+        expect(table?.rendererConfig).not.toHaveProperty('instanceKey')
+        expect(widgets.some((widget) => widget.widgetKey === 'infoCard')).toBe(true)
+    })
+
+    it('rejects a Dashboard semantic-key binding that does not resolve through its registered Component', () => {
+        const manifest = cloneTemplate(basicDemoTemplate)
+        const content = manifest.seed.elements?.DashboardDemoContent?.find((element) => element.codename === 'welcome')
+        if (!content) throw new Error('Basic Demo must seed the welcome content record')
+        content.data.Key = 'changed-key'
+
+        expect(() => validateTemplateManifest(manifest)).toThrow(
+            'Dashboard semantic-key source must resolve to exactly one seeded record; found 0.'
+        )
     })
 
     it('accepts registered Marketing formats and hexColor metadata and rejects unknown semantic formats', () => {
@@ -134,12 +261,10 @@ describe('TemplateManifestValidator', () => {
 
         for (const widgets of Object.values(marketingPageTemplate.seed.layoutZoneWidgets)) {
             for (const widget of widgets) {
-                const context = { templateKey: 'marketing-page', widgetKey: widget.widgetKey, zone: widget.zone }
-                const envelope = decodeWidgetConfigEnvelope(widget.config ?? {}, context)
-                const definition = getLayoutWidgetDefinition(widget.widgetKey, envelope.rendererConfig)
+                const definition = getLayoutWidgetDefinition(widget.widgetKey, widget.rendererConfig)
                 if (!definition?.bindingSlots?.length) continue
 
-                for (const binding of envelope.neutral.bindings?.slots ?? []) {
+                for (const binding of widget.bindings?.slots ?? []) {
                     const slot = definition.bindingSlots.find(({ key }) => key === binding.slot)
                     const entityCodename = binding.targets[0]?.entityCodename
                     const entity = entityCodename ? entitiesByCodename.get(entityCodename) : undefined
@@ -206,14 +331,9 @@ describe('TemplateManifestValidator', () => {
         expect(heroWidget).toBeDefined()
         if (!heroWidget) return
 
-        heroWidget.config = {
-            ...(heroWidget.config ?? {}),
-            __layout: {
-                bindings: {
-                    version: 1,
-                    slots: [{ slot: 'content', targets: [] }]
-                }
-            }
+        heroWidget.bindings = {
+            version: 1,
+            slots: [{ slot: 'content', targets: [] }]
         }
 
         expect(() => validateTemplateManifest(manifest)).toThrow()
@@ -225,18 +345,13 @@ describe('TemplateManifestValidator', () => {
         expect(heroWidget).toBeDefined()
         if (!heroWidget) return
 
-        const context = { templateKey: 'marketing-page', widgetKey: 'marketing.hero', zone: 'marketing-main' }
-        const decoded = decodeWidgetConfigEnvelope(heroWidget.config, context)
-        const bindings = JSON.parse(JSON.stringify(decoded.neutral.bindings)) as NonNullable<typeof decoded.neutral.bindings>
+        const bindings = JSON.parse(JSON.stringify(heroWidget.bindings)) as NonNullable<typeof heroWidget.bindings>
         const titleProjection = bindings.slots[0]?.targets[0]?.projection.find((projection) => projection.field === 'title')
         expect(titleProjection).toBeDefined()
         if (!titleProjection) return
         titleProjection.componentCodename = 'UnregisteredHeroTitle'
 
-        heroWidget.config = {
-            ...decoded.rendererConfig,
-            __layout: { ...decoded.neutral, bindings }
-        }
+        heroWidget.bindings = bindings
 
         expect(() => validateTemplateManifest(manifest)).toThrow()
     })
@@ -248,7 +363,12 @@ describe('TemplateManifestValidator', () => {
         expect(heroWidget).toBeDefined()
         if (!heroWidget) return
 
-        expect(() => parseApplicationLayoutWidgetConfig('marketing.hero', heroWidget.config ?? {})).toThrow()
+        expect(() =>
+            parseApplicationLayoutWidgetConfig('marketing.hero', {
+                ...heroWidget.rendererConfig,
+                bindings: heroWidget.bindings
+            })
+        ).toThrow()
     })
 
     it('seeds marketing content entities and record policies required by bound Hero and Image content', () => {
@@ -354,17 +474,16 @@ describe('TemplateManifestValidator', () => {
         const heroWidget = marketingPageTemplate.seed.layoutZoneWidgets['marketing-main']?.find(
             (widget) => widget.widgetKey === 'marketing.hero'
         )
-        expect(heroWidget?.config).not.toHaveProperty('source')
-        expect(heroWidget?.config).not.toHaveProperty('copySource')
+        expect(heroWidget?.instanceKey).toBe('hero')
+        expect(heroWidget?.rendererConfig).toEqual({ showLeadForm: true })
+        expect(heroWidget?.rendererConfig).not.toHaveProperty('source')
+        expect(heroWidget?.rendererConfig).not.toHaveProperty('copySource')
         expect(getLayoutWidgetDefinition('marketing.hero')?.multiInstance).toBe(true)
-        expect(
-            decodeWidgetConfigEnvelope(heroWidget?.config, {
-                templateKey: 'marketing-page',
-                widgetKey: 'marketing.hero',
-                zone: 'marketing-main'
-            })
-        ).toEqual({
-            rendererConfig: { instanceKey: 'hero', showLeadForm: true },
+        expect({
+            rendererConfig: heroWidget?.rendererConfig,
+            neutral: { bindings: heroWidget?.bindings }
+        }).toEqual({
+            rendererConfig: { showLeadForm: true },
             neutral: {
                 bindings: {
                     version: 1,
@@ -442,6 +561,8 @@ describe('TemplateManifestValidator', () => {
 
     it('preserves record behavior component flags in the built-in object entity preset', () => {
         const validated = validateEntityTypePresetManifest(cloneTemplate(objectEntityPreset))
+        const mainObject = validated.defaultInstances?.find(({ codename }) => codename === 'Main')
+        const titleComponent = mainObject?.components?.find(({ codename }) => codename === 'Title')
 
         expect(validated.entityType.ui.tabs).toContain('behavior')
         expect(validated.entityType.capabilities.identityFields).toEqual({
@@ -457,6 +578,11 @@ describe('TemplateManifestValidator', () => {
             enabled: true,
             allowManualPosting: true,
             allowAutomaticPosting: true
+        })
+        expect(titleComponent).toMatchObject({
+            isRequired: true,
+            isDisplayComponent: true,
+            validationRules: { maxLength: 255, localized: true }
         })
     })
 
@@ -692,19 +818,23 @@ describe('TemplateManifestValidator', () => {
         expect(enumerationManifest.entityType.capabilities.events).toEqual({ enabled: true })
     })
 
-    it('keeps the basic template default widgets limited to app navbar, header, details title, and details table', () => {
+    it('keeps the Basic default to a valid shell without unbound content widgets', () => {
         const manifest = cloneTemplate(basicTemplate)
         const widgets = manifest.seed.layoutZoneWidgets.main ?? []
 
-        expect(widgets).toEqual([
-            expect.objectContaining({ zone: 'left', widgetKey: 'menuWidget', sortOrder: 3 }),
-            expect.objectContaining({ zone: 'top', widgetKey: 'appNavbar', sortOrder: 1 }),
-            expect.objectContaining({ zone: 'top', widgetKey: 'header', sortOrder: 2 }),
-            expect.objectContaining({ zone: 'center', widgetKey: 'detailsTitle', sortOrder: 5 }),
-            expect.objectContaining({ zone: 'center', widgetKey: 'detailsTable', sortOrder: 6 })
+        expect(widgets.map((widget) => widget.widgetKey)).toEqual([
+            'workspaceSwitcher',
+            'menuWidget',
+            'appNavbar',
+            'header',
+            'languageSwitcher',
+            'colorModeSwitcher',
+            'optionsMenu'
         ])
+        expect(widgets.find((widget) => widget.widgetKey === 'menuWidget')?.rendererConfig).toEqual({ variant: 'generated' })
         expect(widgets.some((widget) => widget.widgetKey === 'columnsContainer')).toBe(false)
         expect(widgets.some((widget) => widget.widgetKey === 'productTree')).toBe(false)
+        expect(widgets.some((widget) => widget.widgetKey === 'detailsTitle' || widget.widgetKey === 'detailsTable')).toBe(false)
     })
 
     it('keeps the lms template aligned with curated navigation and canonical entities', () => {
@@ -717,7 +847,6 @@ describe('TemplateManifestValidator', () => {
         const entityCodenames = manifest.seed.entities.map((entity) => entity.codename)
         const entityByCodename = new Map(manifest.seed.entities.map((entity) => [entity.codename, entity]))
         const menuWidget = widgets.find((widget) => widget.widgetKey === 'menuWidget')
-        const learningContentTable = learningContentWidgets.find((widget) => widget.widgetKey === 'detailsTable')
         const courseBuilderTabs = courseBuilderWidgets.find((widget) => widget.widgetKey === 'detailsTabs')
         const trackBuilderTabs = trackBuilderWidgets.find((widget) => widget.widgetKey === 'detailsTabs')
 
@@ -758,25 +887,145 @@ describe('TemplateManifestValidator', () => {
                 })
             ])
         )
-        expect(widgets).not.toEqual(
-            expect.arrayContaining([
-                expect.objectContaining({ zone: 'center', widgetKey: 'overviewCards' }),
-                expect.objectContaining({ zone: 'center', widgetKey: 'sessionsChart' }),
-                expect.objectContaining({ zone: 'center', widgetKey: 'pageViewsChart' }),
-                expect.objectContaining({ zone: 'center', widgetKey: 'columnsContainer' })
-            ])
+        const dashboardPlacements = Object.values(manifest.seed.layoutZoneWidgets).flat()
+        expect(dashboardPlacements.map((placement) => placement.widgetKey)).not.toEqual(
+            expect.arrayContaining(['brandSelector', 'productTree', 'usersByCountryChart'])
         )
-        expect(homeWidgets).toEqual(
-            expect.arrayContaining([
-                expect.objectContaining({ zone: 'center', widgetKey: 'overviewCards' }),
-                expect.objectContaining({ zone: 'center', widgetKey: 'sessionsChart' }),
-                expect.objectContaining({ zone: 'center', widgetKey: 'pageViewsChart' })
-            ])
-        )
-        expect(homeWidgets.some((widget) => widget.widgetKey === 'columnsContainer')).toBe(false)
-        const learningContentTableConfig = parseApplicationLayoutWidgetConfig('detailsTable', learningContentTable?.config ?? {})
-        expect(learningContentTableConfig.createTargets).toHaveLength(8)
-        expect(learningContentTableConfig.createTargets?.map((target) => target.id)).toEqual([
+        for (const placement of dashboardPlacements) {
+            expect('config' in placement).toBe(false)
+            if (!('rendererConfig' in placement)) continue
+            expect(placement.rendererConfig).not.toHaveProperty('datasource')
+            expect(placement.rendererConfig).not.toHaveProperty('widgets')
+            for (const collectionKey of ['columns', 'tabs']) {
+                const children = placement.rendererConfig[collectionKey]
+                if (Array.isArray(children)) {
+                    expect(children.every((child) => !Object.hasOwn(child as object, 'widgets'))).toBe(true)
+                }
+            }
+        }
+        expect(widgets.map((widget) => widget.widgetKey)).toEqual([
+            'workspaceSwitcher',
+            'menuWidget',
+            'appNavbar',
+            'header',
+            'languageSwitcher',
+            'colorModeSwitcher',
+            'optionsMenu'
+        ])
+        const learnerHomeTabGroups = homeWidgets.filter((widget) => widget.widgetKey === 'detailsTabs')
+        expect(learnerHomeTabGroups.map((widget) => widget.instanceKey)).toEqual([
+            'learner-home-assignment-tabs',
+            'learner-home-content-tabs'
+        ])
+        const learnerHomeAssignmentTabs = learnerHomeTabGroups.find((widget) => widget.instanceKey === 'learner-home-assignment-tabs')
+        expect(learnerHomeAssignmentTabs?.rendererConfig.tabs).toEqual([
+            expect.objectContaining({ slotKey: 'tab:my-courses', label: { en: 'My Courses', ru: 'Мои курсы' }, isDefault: true }),
+            expect.objectContaining({ slotKey: 'tab:my-tracks', label: { en: 'My Tracks', ru: 'Мои треки' } })
+        ])
+        const learnerHomeContentTabs = learnerHomeTabGroups.find((widget) => widget.instanceKey === 'learner-home-content-tabs')
+        expect(learnerHomeContentTabs?.rendererConfig.tabs).toEqual([
+            expect.objectContaining({ slotKey: 'tab:recent', isDefault: true }),
+            expect.objectContaining({ slotKey: 'tab:starred' }),
+            expect.objectContaining({ slotKey: 'tab:shared' })
+        ])
+        const learnerHomeTables = homeWidgets.filter((widget) => widget.widgetKey === 'detailsTable')
+        expect(learnerHomeTables).toHaveLength(5)
+        const learnerHomeEnrollmentTables = learnerHomeTables.filter((widget) => widget.rendererConfig.variant === 'learner-enrollments')
+        expect(learnerHomeEnrollmentTables).toHaveLength(2)
+        expect(
+            learnerHomeEnrollmentTables.map((widget) => ({
+                instanceKey: widget.instanceKey,
+                parentInstanceKey: widget.parentInstanceKey,
+                slotKey: widget.slotKey,
+                targetSelector: widget.bindings?.slots[0]?.targets[0]?.selector,
+                targets: widget.bindings?.slots[0]?.targets.map((target) => target.entityCodename)
+            }))
+        ).toEqual([
+            {
+                instanceKey: 'learner-home-my-courses',
+                parentInstanceKey: 'learner-home-assignment-tabs',
+                slotKey: 'tab:my-courses',
+                targetSelector: { kind: 'learner-enrollment-set', targetKind: 'course' },
+                targets: ['Enrollments']
+            },
+            {
+                instanceKey: 'learner-home-my-tracks',
+                parentInstanceKey: 'learner-home-assignment-tabs',
+                slotKey: 'tab:my-tracks',
+                targetSelector: { kind: 'learner-enrollment-set', targetKind: 'track' },
+                targets: ['Enrollments']
+            }
+        ])
+        const learnerHomeLibraryTables = learnerHomeTables.filter((widget) => widget.rendererConfig.variant === 'library')
+        expect(learnerHomeLibraryTables).toHaveLength(3)
+        expect(
+            learnerHomeLibraryTables.map((widget) => ({
+                instanceKey: widget.instanceKey,
+                parentInstanceKey: widget.parentInstanceKey,
+                slotKey: widget.slotKey,
+                variant: widget.rendererConfig.variant,
+                libraryView: widget.rendererConfig.libraryView,
+                targets: widget.bindings?.slots[0]?.targets.map((target) => target.entityCodename).sort()
+            }))
+        ).toEqual([
+            {
+                instanceKey: 'learner-home-recent',
+                parentInstanceKey: 'learner-home-content-tabs',
+                slotKey: 'tab:recent',
+                variant: 'library',
+                libraryView: 'recent',
+                targets: ['Courses', 'LearningResources', 'LearningTracks']
+            },
+            {
+                instanceKey: 'learner-home-starred',
+                parentInstanceKey: 'learner-home-content-tabs',
+                slotKey: 'tab:starred',
+                variant: 'library',
+                libraryView: 'starred',
+                targets: ['Courses', 'LearningResources', 'LearningTracks']
+            },
+            {
+                instanceKey: 'learner-home-shared',
+                parentInstanceKey: 'learner-home-content-tabs',
+                slotKey: 'tab:shared',
+                variant: 'library',
+                libraryView: 'shared',
+                targets: ['Courses', 'LearningResources', 'LearningTracks']
+            }
+        ])
+        expect(menuWidget?.rendererConfig).toMatchObject({ variant: 'generated' })
+        expect(learningContentWidgets).toHaveLength(1)
+        const learningContentTables = learningContentWidgets.filter((widget) => widget.widgetKey === 'detailsTable')
+        expect(learningContentTables).toHaveLength(1)
+        const learningResourceTable = learningContentTables[0]
+        expect(learningResourceTable).toBeDefined()
+        expect(learningResourceTable?.parentInstanceKey).toBeNull()
+        expect(learningResourceTable?.slotKey).toBeNull()
+        expect(learningResourceTable?.rendererConfig).toMatchObject({
+            variant: 'library',
+            libraryView: 'all',
+            lifecycleState: 'active',
+            showSearch: true,
+            showViewToggle: true
+        })
+        expect(learningResourceTable?.bindings?.slots).toEqual([
+            expect.objectContaining({
+                slot: 'rows',
+                targets: expect.arrayContaining([
+                    expect.objectContaining({ entityCodename: 'LearningResources' }),
+                    expect.objectContaining({ entityCodename: 'Courses' }),
+                    expect.objectContaining({ entityCodename: 'LearningTracks' })
+                ])
+            })
+        ])
+        const learningContentTableConfig = learningResourceTable?.rendererConfig ?? {}
+        const createTargets = learningContentTableConfig.createTargets as Array<{
+            id: string
+            disabled?: boolean
+            disabledReason?: unknown
+        }>
+        expect(createTargets).toHaveLength(8)
+        expect(createTargets.map((target) => target.id)).toEqual([
             'learning-content-create-project',
             'learning-content-create-page',
             'learning-content-create-link',
@@ -786,132 +1035,190 @@ describe('TemplateManifestValidator', () => {
             'learning-content-create-assignment-lite',
             'learning-content-create-package'
         ])
-        expect(learningContentTableConfig.createTargets?.filter((target) => target.disabled).map((target) => target.id)).toEqual([
+        expect(createTargets.filter((target) => target.disabled).map((target) => target.id)).toEqual([
             'learning-content-create-quiz-lite',
             'learning-content-create-assignment-lite',
             'learning-content-create-package'
         ])
-        const createTargetById = new Map(learningContentTableConfig.createTargets?.map((target) => [target.id, target]) ?? [])
-        expect(readVlcContent(createTargetById.get('learning-content-create-quiz-lite')?.disabledReason, 'en')).toBe(
-            'Quiz authoring is planned for a later Learning Content phase.'
-        )
-        expect(readVlcContent(createTargetById.get('learning-content-create-quiz-lite')?.disabledReason, 'ru')).toBe(
-            'Создание тестов запланировано на следующий этап учебного контента.'
-        )
-        expect(readVlcContent(createTargetById.get('learning-content-create-assignment-lite')?.disabledReason, 'en')).toBe(
-            'Assignment authoring is planned for a later Learning Content phase.'
-        )
-        expect(readVlcContent(createTargetById.get('learning-content-create-assignment-lite')?.disabledReason, 'ru')).toBe(
-            'Создание заданий запланировано на следующий этап учебного контента.'
-        )
-        expect(readVlcContent(createTargetById.get('learning-content-create-package')?.disabledReason, 'en')).toBe(
-            'File import support is planned for a later phase.'
-        )
-        expect(readVlcContent(createTargetById.get('learning-content-create-package')?.disabledReason, 'ru')).toBe(
-            'Импорт файлов запланирован на следующий этап.'
-        )
+        const createTargetById = new Map(createTargets.map((target) => [target.id, target]))
+        expect(createTargetById.get('learning-content-create-quiz-lite')?.disabledReason).toEqual({
+            en: 'Quiz authoring is planned for a later Learning Content phase.',
+            ru: 'Создание тестов запланировано на следующий этап учебного контента.'
+        })
+        expect(createTargetById.get('learning-content-create-assignment-lite')?.disabledReason).toEqual({
+            en: 'Assignment authoring is planned for a later Learning Content phase.',
+            ru: 'Создание заданий запланировано на следующий этап учебного контента.'
+        })
+        expect(createTargetById.get('learning-content-create-package')?.disabledReason).toEqual({
+            en: 'File import support is planned for a later phase.',
+            ru: 'Импорт файлов запланирован на следующий этап.'
+        })
         expect(courseBuilderTabs).toBeDefined()
         expect(trackBuilderTabs).toBeDefined()
-        expect(() => parseApplicationLayoutWidgetConfig('detailsTabs', courseBuilderTabs?.config ?? {})).not.toThrow()
-        expect(() => parseApplicationLayoutWidgetConfig('detailsTabs', trackBuilderTabs?.config ?? {})).not.toThrow()
-        expect((courseBuilderTabs?.config?.tabs as Array<{ id: string }> | undefined)?.map((tab) => tab.id)).toEqual([
-            'outline',
-            'general',
-            'completion',
-            'player',
-            'enrollments',
-            'reports'
+        expect((courseBuilderTabs?.rendererConfig.tabs as Array<{ slotKey: string }> | undefined)?.map((tab) => tab.slotKey)).toEqual([
+            'tab:sections',
+            'tab:items',
+            'tab:player',
+            'tab:reports'
         ])
-        expect((trackBuilderTabs?.config?.tabs as Array<{ id: string }> | undefined)?.map((tab) => tab.id)).toEqual([
-            'outline',
-            'general',
-            'completion',
-            'player',
-            'enrollments',
-            'reports'
+        expect((trackBuilderTabs?.rendererConfig.tabs as Array<{ slotKey: string }> | undefined)?.map((tab) => tab.slotKey)).toEqual([
+            'tab:stages',
+            'tab:steps',
+            'tab:player',
+            'tab:reports'
         ])
-        const courseOutlineWidgets = (
-            courseBuilderTabs?.config?.tabs as Array<{
-                id: string
-                widgets?: Array<{ widgetKey: string; config?: Record<string, unknown> }>
-            }>
-        )?.find((tab) => tab.id === 'outline')?.widgets
-        const trackOutlineWidgets = (
-            trackBuilderTabs?.config?.tabs as Array<{
-                id: string
-                widgets?: Array<{ widgetKey: string; config?: Record<string, unknown> }>
-            }>
-        )?.find((tab) => tab.id === 'outline')?.widgets
-        const courseRelationBuilder = courseOutlineWidgets?.find((widget) => widget.widgetKey === 'relationBuilder')
-        const trackRelationBuilder = trackOutlineWidgets?.find((widget) => widget.widgetKey === 'relationBuilder')
-        expect(() => parseApplicationLayoutWidgetConfig('relationBuilder', courseRelationBuilder?.config ?? {})).not.toThrow()
-        expect(() => parseApplicationLayoutWidgetConfig('relationBuilder', trackRelationBuilder?.config ?? {})).not.toThrow()
-        expect(courseRelationBuilder?.config).toMatchObject({
-            parentDatasource: { sectionCodename: 'Courses' },
-            panels: expect.arrayContaining([
-                expect.objectContaining({
-                    id: 'course-sections',
-                    parentFieldCodename: 'CourseId',
-                    datasource: expect.objectContaining({ sectionCodename: 'CourseSections' })
-                }),
-                expect.objectContaining({
-                    id: 'course-items',
-                    parentFieldCodename: 'CourseId',
-                    datasource: expect.objectContaining({ sectionCodename: 'CourseItems' })
-                })
-            ])
-        })
-        expect(trackRelationBuilder?.config).toMatchObject({
-            parentDatasource: { sectionCodename: 'LearningTracks' },
-            panels: expect.arrayContaining([
-                expect.objectContaining({
-                    id: 'track-stages',
-                    parentFieldCodename: 'TrackId',
-                    datasource: expect.objectContaining({ sectionCodename: 'TrackStages' })
-                }),
-                expect.objectContaining({
-                    id: 'track-steps',
-                    parentFieldCodename: 'TrackId',
-                    datasource: expect.objectContaining({ sectionCodename: 'TrackSteps' })
-                })
-            ])
-        })
-        for (const widget of homeWidgets.filter((item) => ['overviewCards', 'sessionsChart', 'pageViewsChart'].includes(item.widgetKey))) {
-            expect(() => parseApplicationLayoutWidgetConfig(widget.widgetKey, widget.config ?? {})).not.toThrow()
-        }
-        expect(menuWidget?.config).toMatchObject(
+        expect(courseBuilderWidgets).toContainEqual(
             expect.objectContaining({
-                autoShowAllSections: false,
-                maxPrimaryItems: 12,
-                overflowLabelKey: 'runtime.menu.more',
-                startPage: 'LearnerHome',
-                workspacePlacement: 'primary'
+                instanceKey: 'course-builder-player',
+                widgetKey: 'learnerPlayer',
+                parentInstanceKey: 'course-builder-tabs',
+                slotKey: 'tab:player',
+                rendererConfig: { variant: 'course', displayMode: 'player', sequenceMode: 'strict' },
+                bindings: expect.objectContaining({
+                    slots: expect.arrayContaining([
+                        expect.objectContaining({ slot: 'parent', targets: [expect.objectContaining({ entityCodename: 'Courses' })] }),
+                        expect.objectContaining({ slot: 'items', targets: [expect.objectContaining({ entityCodename: 'CourseItems' })] })
+                    ])
+                })
             })
         )
-        const menuItems = Array.isArray(menuWidget?.config?.items) ? menuWidget.config.items : []
-        expect(menuItems).not.toEqual(expect.arrayContaining([expect.objectContaining({ kind: 'link', href: null })]))
-        expect(menuItems).toEqual(
+        expect(trackBuilderWidgets).toContainEqual(
+            expect.objectContaining({
+                instanceKey: 'track-builder-player',
+                widgetKey: 'learnerPlayer',
+                parentInstanceKey: 'track-builder-tabs',
+                slotKey: 'tab:player',
+                rendererConfig: { variant: 'track', displayMode: 'player', sequenceMode: 'strict' },
+                bindings: expect.objectContaining({
+                    slots: expect.arrayContaining([
+                        expect.objectContaining({
+                            slot: 'parent',
+                            targets: [expect.objectContaining({ entityCodename: 'LearningTracks' })]
+                        }),
+                        expect.objectContaining({ slot: 'items', targets: [expect.objectContaining({ entityCodename: 'TrackSteps' })] })
+                    ])
+                })
+            })
+        )
+        expect(courseBuilderWidgets.filter((widget) => widget.widgetKey === 'relationBuilder')).toEqual(
             expect.arrayContaining([
-                expect.objectContaining({ id: 'lms-nav-home', kind: 'section', sectionId: 'LearnerHome' }),
-                expect.objectContaining({ id: 'lms-nav-learning-content', kind: 'section', sectionId: 'ContentProjects' }),
-                expect.objectContaining({ id: 'lms-nav-recent-content', kind: 'section', sectionId: 'RecentContentViews' }),
-                expect.objectContaining({ id: 'lms-nav-starred-content', kind: 'section', sectionId: 'ContentStars' }),
-                expect.objectContaining({ id: 'lms-nav-shared-content', kind: 'section', sectionId: 'ContentAccessEntries' }),
-                expect.objectContaining({ id: 'lms-nav-courses', kind: 'section', sectionId: 'Courses' }),
-                expect.objectContaining({ id: 'lms-nav-tracks', kind: 'section', sectionId: 'LearningTracks' }),
-                expect.objectContaining({ id: 'lms-nav-trash-content', kind: 'section', sectionId: 'TrashEntries' }),
-                expect.objectContaining({ id: 'lms-nav-knowledge', kind: 'section', sectionId: 'KnowledgeArticles' }),
-                expect.objectContaining({ id: 'lms-nav-development', kind: 'section', sectionId: 'DevelopmentPlans' }),
-                expect.objectContaining({ id: 'lms-nav-reports', kind: 'section', sectionId: 'Reports' })
+                expect.objectContaining({
+                    instanceKey: 'course-builder-sections',
+                    parentInstanceKey: 'course-builder-tabs',
+                    slotKey: 'tab:sections',
+                    rendererConfig: expect.objectContaining({
+                        panels: expect.arrayContaining([
+                            expect.objectContaining({ parentFieldCodename: 'CourseId', enableRowReordering: true })
+                        ])
+                    }),
+                    bindings: expect.objectContaining({
+                        slots: expect.arrayContaining([
+                            expect.objectContaining({
+                                slot: 'panel:sections',
+                                targets: expect.arrayContaining([
+                                    expect.objectContaining({
+                                        entityCodename: 'CourseSections',
+                                        selector: { kind: 'relation-set', parentSlot: 'parent' }
+                                    })
+                                ])
+                            })
+                        ])
+                    })
+                }),
+                expect.objectContaining({
+                    instanceKey: 'course-builder-items',
+                    parentInstanceKey: 'course-builder-tabs',
+                    slotKey: 'tab:items',
+                    rendererConfig: expect.objectContaining({
+                        panels: expect.arrayContaining([
+                            expect.objectContaining({ parentFieldCodename: 'CourseId', enableRowReordering: true })
+                        ])
+                    }),
+                    bindings: expect.objectContaining({
+                        slots: expect.arrayContaining([
+                            expect.objectContaining({
+                                slot: 'panel:items',
+                                targets: expect.arrayContaining([
+                                    expect.objectContaining({
+                                        entityCodename: 'CourseItems',
+                                        selector: { kind: 'relation-set', parentSlot: 'parent' }
+                                    })
+                                ])
+                            })
+                        ])
+                    })
+                })
             ])
         )
-        const learningContentMenuItem = menuItems.find((item) => item?.id === 'lms-nav-learning-content')
-        expect(learningContentMenuItem?.title).toMatchObject({
-            locales: {
-                en: { content: 'Learning Content' },
-                ru: { content: 'Учебный контент' }
-            }
-        })
+        expect(trackBuilderWidgets.filter((widget) => widget.widgetKey === 'relationBuilder')).toEqual(
+            expect.arrayContaining([
+                expect.objectContaining({
+                    instanceKey: 'track-builder-stages',
+                    parentInstanceKey: 'track-builder-tabs',
+                    slotKey: 'tab:stages',
+                    rendererConfig: expect.objectContaining({
+                        panels: expect.arrayContaining([
+                            expect.objectContaining({ parentFieldCodename: 'TrackId', enableRowReordering: true })
+                        ])
+                    }),
+                    bindings: expect.objectContaining({
+                        slots: expect.arrayContaining([
+                            expect.objectContaining({
+                                slot: 'panel:stages',
+                                targets: expect.arrayContaining([
+                                    expect.objectContaining({
+                                        entityCodename: 'TrackStages',
+                                        selector: { kind: 'relation-set', parentSlot: 'parent' }
+                                    })
+                                ])
+                            })
+                        ])
+                    })
+                }),
+                expect.objectContaining({
+                    instanceKey: 'track-builder-steps',
+                    parentInstanceKey: 'track-builder-tabs',
+                    slotKey: 'tab:steps',
+                    rendererConfig: expect.objectContaining({
+                        panels: expect.arrayContaining([
+                            expect.objectContaining({ parentFieldCodename: 'TrackId', enableRowReordering: true })
+                        ])
+                    }),
+                    bindings: expect.objectContaining({
+                        slots: expect.arrayContaining([
+                            expect.objectContaining({
+                                slot: 'panel:steps',
+                                targets: expect.arrayContaining([
+                                    expect.objectContaining({
+                                        entityCodename: 'TrackSteps',
+                                        selector: { kind: 'relation-set', parentSlot: 'parent' }
+                                    })
+                                ])
+                            })
+                        ])
+                    })
+                })
+            ])
+        )
+        for (const [placementKey, entityCodename, fieldCodename] of [
+            ['courseSectionsOrdering', 'CourseSections', 'CourseId'],
+            ['courseItemsOrdering', 'CourseItems', 'CourseId'],
+            ['trackStagesOrdering', 'TrackStages', 'TrackId'],
+            ['trackStepsOrdering', 'TrackSteps', 'TrackId']
+        ] as const) {
+            const relationWidget = manifest.seed.layoutZoneWidgets[placementKey]?.[0]
+            expect(relationWidget).toMatchObject({
+                widgetKey: 'relationBuilder',
+                rendererConfig: { panels: [expect.objectContaining({ parentFieldCodename: fieldCodename, enableRowReordering: true })] },
+                bindings: {
+                    slots: expect.arrayContaining([
+                        expect.objectContaining({
+                            targets: expect.arrayContaining([expect.objectContaining({ entityCodename })])
+                        })
+                    ])
+                }
+            })
+        }
         expect(entityCodenames).toEqual(
             expect.arrayContaining([
                 'Learning',

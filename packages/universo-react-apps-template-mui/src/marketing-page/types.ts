@@ -6,7 +6,7 @@ import type {
     MarketingWidgetInstanceKey,
     ResourceSource,
     EffectiveLayoutMetadata,
-    EffectiveWidget,
+    EffectiveLayoutWidget,
     PageBlockContent
 } from '@universo-react/types'
 
@@ -279,7 +279,7 @@ export interface MarketingPageData {
 }
 
 /** Runtime effective-layout input supplied by the host application. */
-export type MarketingEffectiveLayoutWidgets = readonly EffectiveWidget[]
+export type MarketingEffectiveLayoutWidgets = readonly EffectiveLayoutWidget[]
 export type MarketingEffectiveLayoutConfig = Pick<EffectiveLayoutMetadata, 'templateKey' | 'zoneSettings'>
 
 export interface MarketingRenderOptions {

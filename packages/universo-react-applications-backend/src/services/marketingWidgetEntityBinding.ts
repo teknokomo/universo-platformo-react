@@ -442,9 +442,11 @@ export const isCompatibleMarketingWidgetObject = (
     rendererConfig?: unknown
 ): boolean => {
     const slot = getLayoutWidgetDefinition(widgetKey, rendererConfig)?.bindingSlots?.find(({ key }) => key === slotKey)
-    if (!slot || object.kind !== 'object') return false
+    const codename = typeof object.codename === 'string' ? object.codename : undefined
+    if (!slot || object.kind !== 'object' || !codename || codename.trim() !== codename) return false
     return isCompatibleWidgetBindingEntity(slot, {
         kind: 'object',
+        codename,
         config: object.config,
         components: components.map((component) => ({
             codename: getVLCString(component.codename as Parameters<typeof getVLCString>[0], 'en').trim(),

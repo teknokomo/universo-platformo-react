@@ -1,15 +1,19 @@
 # Dashboard template
 
-## Usage
+This directory contains the isolated MUI Dashboard runtime used by published Universo applications.
 
-<!-- #target-branch-reference -->
+## Ownership
 
-1. Copy these folders (`dashboard` and `shared-theme`) into your project, or one of the [example projects](https://github.com/mui/material-ui/tree/master/examples).
-2. Make sure your project has the required dependencies: @mui/material, @mui/icons-material, @emotion/styled, @emotion/react, @mui/x-charts, @mui/x-date-pickers, @mui/x-data-grid, @mui/x-tree-view, dayjs
-3. Import and use the `Dashboard` component.
+-   Entity/domain data owns durable business and editorial content.
+-   Layout placements own widget identity, ordering, nesting and presentation configuration.
+-   @universo-react/types owns the Dashboard widget registry and strict widget config schemas.
+-   Host-owned widgets receive only typed, allowlisted runtime context through DashboardDetailsSlot.
+-   Runtime widgets must not contain upstream MUI demo business data.
 
-## Demo
+## Runtime
 
-<!-- #host-reference -->
+Dashboard.tsx renders the effective placement graph supplied by the application runtime. widgetRenderer.tsx maps registered widget keys to the existing Dashboard primitives and validates presentation configuration before rendering.
 
-View the demo at https://mui.com/material-ui/getting-started/templates/dashboard/.
+Entity-backed widgets consume typed runtime DTOs attached to placements. Host widgets such as the date picker and footer use local interaction state or allowlisted host metadata and do not invent persisted business data.
+
+All user-facing strings are localized through the apps namespace. Responsive behavior and visible runtime changes are verified with the repository Dashboard Playwright acceptance suite.

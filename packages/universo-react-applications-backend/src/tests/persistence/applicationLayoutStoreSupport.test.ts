@@ -25,7 +25,7 @@ const heroBinding = (semanticKey = 'default') =>
 const heroSourceConfig = (semanticKey = 'default') =>
     encodeLayoutWidgetConfigEnvelope(
         {
-            rendererConfig: { instanceKey: 'hero', showLeadForm: true },
+            rendererConfig: { showLeadForm: true },
             neutral: { bindings: heroBinding(semanticKey) }
         },
         { templateKey: 'marketing-page', widgetKey: 'marketing.hero', zone: 'marketing-main' }
@@ -36,8 +36,11 @@ const baseRow = {
     layout_id: '0190a9b5-3cde-7abc-8def-012345678902',
     zone: 'marketing-main',
     widget_key: 'marketing.hero',
+    instance_key: 'hero',
+    parent_widget_id: null,
+    slot_key: null,
     sort_order: 0,
-    config: { instanceKey: 'hero', showLeadForm: true },
+    config: { showLeadForm: true },
     source_config: null,
     source_widget_id: null,
     source_base_widget_id: null,
@@ -52,7 +55,7 @@ const baseLayoutRow = {
     template_key: 'dashboard',
     name: { en: 'Dashboard' },
     description: null,
-    config: { showHeader: true },
+    config: {},
     is_active: true,
     is_default: true,
     sort_order: 0,
@@ -152,14 +155,15 @@ describe('applicationLayoutStoreSupport', () => {
         const widget = mapWidget(
             {
                 ...baseRow,
-                config: { instanceKey: 'hero', showLeadForm: false },
+                config: { showLeadForm: false },
                 source_config: heroSourceConfig()
             },
             'marketing-page'
         )
 
-        expect(widget.config).toEqual({ instanceKey: 'hero', showLeadForm: false })
-        expect(widget.sourceConfig).toEqual({ instanceKey: 'hero', showLeadForm: true })
+        expect(widget.instanceKey).toBe('hero')
+        expect(widget.config).toEqual({ showLeadForm: false })
+        expect(widget.sourceConfig).toEqual({ showLeadForm: true })
         expect(widget.config).not.toHaveProperty('__layout')
         expect(widget.sourceConfig).not.toHaveProperty('__layout')
         expect(JSON.stringify(widget)).not.toContain('bindings')
@@ -178,12 +182,13 @@ describe('applicationLayoutStoreSupport', () => {
                 __layout: { composition: { mode: 'independent', baseLayoutId: null } }
             }
         }
-        const row = { ...baseRow, config: { instanceKey: 'hero', showLeadForm: false }, source_config: heroSourceConfig() }
+        const row = { ...baseRow, config: { showLeadForm: false }, source_config: heroSourceConfig() }
         const query = jest.fn().mockResolvedValueOnce([layoutRow]).mockResolvedValueOnce([row])
 
         const detail = await getApplicationLayoutDetail({ query } as never, 'app_018f8a787b8f7c1da111222233334444', baseRow.layout_id)
 
-        expect(detail?.widgets[0]?.config).toEqual({ instanceKey: 'hero', showLeadForm: false })
+        expect(detail?.widgets[0]?.instanceKey).toBe('hero')
+        expect(detail?.widgets[0]?.config).toEqual({ showLeadForm: false })
         expect(getApplicationLayoutWidgetSourceBindingState(detail?.widgets[0])).toEqual({
             persistedApplicationRow: true,
             bindings: heroBinding()
@@ -204,13 +209,16 @@ describe('applicationLayoutStoreSupport', () => {
             zone: 'marketing-main',
             sortOrder: 1,
             isActive: true,
-            config: heroSourceConfig()
+            config: heroSourceConfig(),
+            instanceKey: 'hero',
+            parentWidgetId: null,
+            slotKey: null
         })
         const row = {
             ...baseRow,
             zone: 'marketing-main',
             sort_order: 2,
-            config: { instanceKey: 'hero', showLeadForm: true },
+            config: { showLeadForm: true },
             source_config: heroSourceConfig(),
             source_state: sourceState
         }
@@ -223,7 +231,7 @@ describe('applicationLayoutStoreSupport', () => {
     })
 
     it('rejects client-supplied binding metadata and does not copy a trusted source binding into an app-owned layout', () => {
-        expect(() => assertRendererConfigInput({ instanceKey: 'hero', __layout: { bindings: heroBinding() } })).toThrow(
+        expect(() => assertRendererConfigInput({ showLeadForm: true, __layout: { bindings: heroBinding() } })).toThrow(
             'APPLICATION_LAYOUT_RESERVED_METADATA'
         )
 
@@ -236,7 +244,7 @@ describe('applicationLayoutStoreSupport', () => {
             mapWidget(
                 {
                     ...baseRow,
-                    config: { instanceKey: 'hero', unexpected: { nested: true } }
+                    config: { unexpected: { nested: true } }
                 },
                 'marketing-page'
             )
@@ -248,7 +256,7 @@ describe('applicationLayoutStoreSupport', () => {
             mapWidget(
                 {
                     ...baseRow,
-                    source_config: { instanceKey: 'hero', unexpected: { nested: true } }
+                    source_config: { unexpected: { nested: true } }
                 },
                 'marketing-page'
             )

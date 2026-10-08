@@ -35,7 +35,13 @@ import {
 } from '@universo-react/types'
 import type { FieldConfig } from '../components/dialogs/FormDialog'
 import { getTabularStringDisplayValue, isLocalizedStringField, updateLocalizedTabularStringValue } from './tabularCellValues'
-import { formatRuntimeDateValue, formatRuntimeSafeValue, formatRuntimeValue } from './displayValue'
+import {
+    formatRuntimeDateValue,
+    formatRuntimeSafeValue,
+    formatRuntimeValue,
+    isRuntimeSensitiveFieldName,
+    isRuntimeTechnicalFieldName
+} from './displayValue'
 import { isSemanticLongTextRuntimeField } from './fieldSemantics'
 
 type RefOption = { id: string; label: string; codename?: string }
@@ -118,7 +124,32 @@ const resolveSafeCellTextColor = (fill: MatrixColor | null, text: MatrixColor | 
 
 export const isHiddenTabularField = (field: FieldConfig): boolean => {
     const uiConfig = field.uiConfig ?? {}
-    return uiConfig.hidden === true || uiConfig.gridHidden === true
+    const widget = uiConfig.widget
+    const isStructuredValue = field.type === 'TABLE' || widget === 'resourceSource' || widget === 'editorjsBlockContent'
+    const hasHumanReadableReferenceOptions =
+        field.type === 'REF' &&
+        (field.refOptions ?? field.enumOptions ?? []).some((option) => {
+            const label = formatRuntimeSafeValue(option.label)
+            return Boolean(label) && !isRuntimeTechnicalFieldName(label) && !/\b(?:rh1\.|usr_internal_)/i.test(label)
+        })
+    const isTechnicalIdentity = isRuntimeTechnicalFieldName(field.id) || isRuntimeTechnicalFieldName(field.codename)
+    const isTechnicalField = isRuntimeTechnicalFieldName(field.label) || (isTechnicalIdentity && !hasHumanReadableReferenceOptions)
+
+    const isSensitive =
+        uiConfig.sensitive === true ||
+        uiConfig.private === true ||
+        isRuntimeSensitiveFieldName(field.id) ||
+        isRuntimeSensitiveFieldName(field.codename) ||
+        isRuntimeSensitiveFieldName(field.label)
+
+    return (
+        uiConfig.hidden === true ||
+        uiConfig.gridHidden === true ||
+        uiConfig.formHidden === true ||
+        isTechnicalField ||
+        isStructuredValue ||
+        isSensitive
+    )
 }
 
 export const buildCellStylePreviewSx = (

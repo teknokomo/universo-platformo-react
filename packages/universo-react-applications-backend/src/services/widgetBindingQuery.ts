@@ -24,6 +24,14 @@ export type WidgetBindingRecordQuery =
           readonly ordered: WidgetBindingOrderedQuery
       }
     | {
+          readonly kind: 'learner-enrollment-set'
+          readonly target: WidgetBindingTarget
+          readonly slot: string
+          readonly projection: readonly WidgetBindingProjectionField[]
+          readonly selector: { readonly targetKind: 'course' | 'track' }
+          readonly ordered: WidgetBindingOrderedQuery
+      }
+    | {
           readonly kind: 'relation-set'
           readonly target: WidgetBindingTarget
           readonly slot: string

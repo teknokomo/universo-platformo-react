@@ -63,7 +63,7 @@ description: Как экспортировать и импортировать �
     "versionEnvelope": {
       "structureVersion": "0.1.0",
       "templateVersion": null,
-      "snapshotFormatVersion": 3
+      "snapshotFormatVersion": 4
     },
     "entities": { ... },
     "sharedComponents": [ ... ],

@@ -1,8 +1,9 @@
 /**
  * Application Sync - Data Loaders
  *
- * Functions for loading application runtime data from the database,
- * building release bundles, and resolving release lineage.
+ * Functions for loading application runtime data and exporting an existing
+ * application as a release bundle. Publication and bundle source builders
+ * live in syncReleaseBundleSources.
  */
 
 import {
@@ -10,19 +11,17 @@ import {
     generateColumnName,
     generateChildTableName,
     hasPhysicalRuntimeTable,
-    type EntityDefinition,
-    type SchemaSnapshot
+    type EntityDefinition
 } from '@universo-react/schema-ddl'
 import stableStringify from 'json-stable-stringify'
 import { quoteQualifiedIdentifier } from '@universo-react/migrations-core'
 import {
     ComponentDefinitionDataType,
+    CURRENT_METAHUB_SNAPSHOT_FORMAT_VERSION,
     decodeLayoutConfigEnvelope,
-    decodeLayoutWidgetConfigEnvelope,
     encodeLayoutWidgetConfigEnvelope,
     encodeSnapshotLayoutConfigEnvelope,
     parseApplicationLayoutConfig,
-    parseApplicationLayoutWidgetConfig,
     type ApplicationPackageDefinition,
     type PackageSourceDescriptor
 } from '@universo-react/types'
@@ -31,14 +30,12 @@ import {
     createApplicationReleaseBundle,
     extractInstalledReleaseVersion,
     resolveApplicationReleaseSnapshotHash,
-    validateApplicationReleaseBundleArtifacts,
     type ApplicationReleaseBundle
 } from '../../services/applicationReleaseBundle'
 import type { PublishedApplicationSnapshot, SnapshotEnumerationValueDefinition } from '../../services/applicationSyncContracts'
 import { TARGET_APP_STRUCTURE_VERSION } from '../../constants'
 import {
     type SyncableApplicationRecord,
-    type ApplicationSchemaSyncSource,
     type RuntimeApplicationObjectRow,
     type RuntimeApplicationComponentRow,
     type RuntimeApplicationEnumerationValueRow,
@@ -55,12 +52,26 @@ import {
     normalizeRuntimePresentation,
     normalizeRuntimeSnapshotValue,
     resolveEntityLifecycleContract,
-    extractInstalledReleaseMetadataString,
-    extractInstalledReleaseMetadataSchemaSnapshot,
     extractSetConstantRefConfig,
-    resolveApplicationReleaseVersion,
     parseApplicationTemplateKey
 } from './syncHelpers'
+import { resolveRuntimeApplicationReleaseBaseSnapshot, resolveRuntimeApplicationReleaseLineage } from './syncReleaseBundleSources'
+import {
+    classifyPlacementLineage,
+    decodePlacementWidgetConfigEnvelope,
+    resolvePlacementBindingPolicy,
+    resolvePlacementBindingValidation,
+    resolvePlacementRegistryDefinition,
+    validatePlacementGraph
+} from '../../persistence/applicationLayoutWidgetPlacement'
+
+export {
+    buildApplicationSyncSourceFromBundle,
+    buildApplicationSyncSourceFromPublication,
+    createPublicationApplicationReleaseBundle,
+    resolveRuntimeApplicationReleaseBaseSnapshot,
+    resolveRuntimeApplicationReleaseLineage
+} from './syncReleaseBundleSources'
 
 // --- Runtime data loaders ---
 
@@ -594,7 +605,10 @@ export async function loadApplicationRuntimeLayouts(
 
     const widgets = await exec.query<RuntimeApplicationWidgetRow>(
         `
-            SELECT id, layout_id, zone, widget_key, sort_order, config, source_config, is_active, source_widget_id, source_base_widget_id
+            SELECT
+              id, layout_id, instance_key, parent_widget_id, slot_key,
+              zone, widget_key, sort_order, config, source_config, is_active,
+              source_widget_id, source_base_widget_id
             FROM ${schemaIdent}._app_widgets
             WHERE _upl_deleted = false
               AND _app_deleted = false
@@ -608,35 +622,59 @@ export async function loadApplicationRuntimeLayouts(
         if (!layout) throw new Error(`[SchemaSync] Runtime widget ${id} references an unknown layout ${layoutId}`)
         const zone = requireString(row.zone, 'zone', `widget ${id}`)
         const widgetKey = requireString(row.widget_key, 'widgetKey', `widget ${id}`)
+        const instanceKey = requireString(row.instance_key, 'instanceKey', `widget ${id}`)
+        const parentWidgetId =
+            row.parent_widget_id === null || row.parent_widget_id === undefined
+                ? null
+                : requireString(row.parent_widget_id, 'parentWidgetId', `widget ${id}`)
+        const slotKey = row.slot_key === null || row.slot_key === undefined ? null : requireString(row.slot_key, 'slotKey', `widget ${id}`)
+        const sourceWidgetId =
+            row.source_widget_id === null || row.source_widget_id === undefined
+                ? null
+                : requireString(row.source_widget_id, 'sourceWidgetId', `widget ${id}`)
         const sourceBaseWidgetId =
             row.source_base_widget_id === null || row.source_base_widget_id === undefined
                 ? null
                 : requireString(row.source_base_widget_id, 'sourceBaseWidgetId', `widget ${id}`)
-        const isMarketingOverlayWidget =
-            layout.templateKey === 'marketing-page' &&
-            layout.scopeEntityId !== null &&
-            layout.composition.mode === 'overlay' &&
-            sourceBaseWidgetId !== null
+        const lineage = classifyPlacementLineage(sourceWidgetId, sourceBaseWidgetId)
+        const bindingsInheritedFromBase =
+            layout.scopeEntityId !== null && layout.composition.mode === 'overlay' && sourceBaseWidgetId !== null
+        const configRecord = requireRecord(row.config, 'config', `widget ${id}`)
+        const bindingValidation = resolvePlacementBindingValidation(
+            widgetKey,
+            configRecord,
+            lineage.kind === 'source-linked',
+            bindingsInheritedFromBase
+        )
         const hasSourceConfig = row.source_config !== null && row.source_config !== undefined
-        const decoded = decodeLayoutWidgetConfigEnvelope(requireRecord(row.config, 'config', `widget ${id}`), {
+        const decoded = decodePlacementWidgetConfigEnvelope(configRecord, {
             templateKey: layout.templateKey,
             widgetKey,
             zone,
-            requireBindings: !isMarketingOverlayWidget && !hasSourceConfig
+            instanceKey,
+            requireBindings: bindingValidation.requireBindings && !hasSourceConfig
         })
-        if (isMarketingOverlayWidget && decoded.neutral.bindings !== undefined) {
-            throw new Error(`[SchemaSync] Runtime Marketing overlay widget ${id} cannot contain entity bindings`)
+        if (bindingValidation.rejectBindings && decoded.neutral.bindings !== undefined) {
+            throw new Error(`[SchemaSync] Runtime widget ${id} bindings violate its registered source policy`)
         }
         const neutral = { ...decoded.neutral }
         if (hasSourceConfig) {
-            const sourceDecoded = decodeLayoutWidgetConfigEnvelope(requireRecord(row.source_config, 'source_config', `widget ${id}`), {
+            const sourceConfigRecord = requireRecord(row.source_config, 'source_config', `widget ${id}`)
+            const sourceBindingValidation = resolvePlacementBindingValidation(
+                widgetKey,
+                sourceConfigRecord,
+                lineage.kind === 'source-linked',
+                bindingsInheritedFromBase
+            )
+            const sourceDecoded = decodePlacementWidgetConfigEnvelope(sourceConfigRecord, {
                 templateKey: layout.templateKey,
                 widgetKey,
                 zone,
-                requireBindings: !isMarketingOverlayWidget
+                instanceKey,
+                requireBindings: sourceBindingValidation.requireBindings
             })
-            if (isMarketingOverlayWidget && sourceDecoded.neutral.bindings !== undefined) {
-                throw new Error(`[SchemaSync] Runtime Marketing overlay widget ${id} source config cannot contain entity bindings`)
+            if (sourceBindingValidation.rejectBindings && sourceDecoded.neutral.bindings !== undefined) {
+                throw new Error(`[SchemaSync] Runtime widget ${id} source bindings violate its registered source policy`)
             }
             if (
                 decoded.neutral.bindings !== undefined &&
@@ -647,25 +685,52 @@ export async function loadApplicationRuntimeLayouts(
             if (sourceDecoded.neutral.bindings === undefined) delete neutral.bindings
             else neutral.bindings = sourceDecoded.neutral.bindings
         }
-        const rendererConfig = parseApplicationLayoutWidgetConfig(widgetKey, decoded.rendererConfig)
         return {
             id,
             layoutId,
+            instanceKey,
+            parentWidgetId,
+            slotKey,
             zone,
             widgetKey,
             sortOrder: requireInteger(row.sort_order, 'sortOrder', `widget ${id}`),
             config: encodeLayoutWidgetConfigEnvelope(
-                { rendererConfig, neutral },
-                { templateKey: layout.templateKey, widgetKey, zone, requireBindings: !isMarketingOverlayWidget }
+                { rendererConfig: decoded.rendererConfig, neutral },
+                { templateKey: layout.templateKey, widgetKey, zone, requireBindings: bindingValidation.requireBindings }
             ),
             isActive: requireBoolean(row.is_active, 'isActive', `widget ${id}`),
-            sourceWidgetId:
-                row.source_widget_id === null || row.source_widget_id === undefined
-                    ? null
-                    : requireString(row.source_widget_id, 'sourceWidgetId', `widget ${id}`),
+            sourceWidgetId,
             sourceBaseWidgetId
         }
     })
+
+    for (const layout of normalizedLayouts) {
+        const layoutWidgets = normalizedWidgets.filter((widget) => widget.layoutId === layout.id)
+        if (layoutWidgets.length === 0) continue
+        validatePlacementGraph(
+            layoutWidgets.map((widget) => {
+                const decoded = decodePlacementWidgetConfigEnvelope(widget.config, {
+                    templateKey: layout.templateKey,
+                    widgetKey: widget.widgetKey,
+                    zone: widget.zone,
+                    instanceKey: widget.instanceKey,
+                    requireBindings: false
+                })
+                return {
+                    id: widget.id,
+                    layoutId: widget.layoutId,
+                    instanceKey: widget.instanceKey,
+                    parentWidgetId: widget.parentWidgetId,
+                    slotKey: widget.slotKey,
+                    templateKey: layout.templateKey,
+                    widgetKey: widget.widgetKey,
+                    zone: widget.zone,
+                    rendererConfig: decoded.rendererConfig
+                }
+            }),
+            { resolveRegistryDefinition: resolvePlacementRegistryDefinition }
+        )
+    }
 
     const snapshotWidgetIdBySourceId = new Map<string, string>()
     for (const widget of normalizedWidgets) {
@@ -676,6 +741,19 @@ export async function loadApplicationRuntimeLayouts(
         if (widget.sourceWidgetId) snapshotWidgetIdBySourceId.set(widget.sourceWidgetId, widget.id)
     }
     const widgetById = new Map(normalizedWidgets.map((widget) => [widget.id, widget]))
+    const resolveSnapshotParentWidgetId = (widget: (typeof normalizedWidgets)[number]): string | null => {
+        if (widget.parentWidgetId === null) return null
+        const parent = widgetById.get(widget.parentWidgetId)
+        if (!parent || parent.layoutId !== widget.layoutId) {
+            throw new Error(`[SchemaSync] Runtime widget ${widget.id} references a missing parent placement`)
+        }
+        if (!parent.sourceBaseWidgetId) return parent.id
+        const mappedBaseParent = snapshotWidgetIdBySourceId.get(parent.sourceBaseWidgetId)
+        if (!mappedBaseParent) {
+            throw new Error(`[SchemaSync] Runtime widget ${widget.id} references an unmappable inherited parent placement`)
+        }
+        return mappedBaseParent
+    }
     const layoutZoneWidgets: unknown[] = []
     const layoutWidgetOverrides: unknown[] = []
     for (const widget of normalizedWidgets) {
@@ -687,28 +765,27 @@ export async function loadApplicationRuntimeLayouts(
             if (!baseWidget || baseWidget.layoutId !== layout.composition.baseLayoutId) {
                 throw new Error(`[SchemaSync] Runtime widget ${widget.id} references a missing overlay base widget`)
             }
-            let inheritedBaseConfig = baseWidget.config
-            if (layout.templateKey === 'marketing-page') {
-                const decodedBase = decodeLayoutWidgetConfigEnvelope(baseWidget.config, {
-                    templateKey: 'marketing-page',
-                    widgetKey: baseWidget.widgetKey,
-                    zone: baseWidget.zone,
-                    requireBindings: true
-                })
-                const neutral = { ...decodedBase.neutral }
-                delete neutral.bindings
-                inheritedBaseConfig = encodeLayoutWidgetConfigEnvelope(
-                    {
-                        rendererConfig: parseApplicationLayoutWidgetConfig(baseWidget.widgetKey, decodedBase.rendererConfig),
-                        neutral
-                    },
-                    { templateKey: 'marketing-page', widgetKey: baseWidget.widgetKey, zone: widget.zone, requireBindings: false }
-                )
-            }
+            const baseDecoded = decodePlacementWidgetConfigEnvelope(baseWidget.config, {
+                templateKey: layout.templateKey,
+                widgetKey: baseWidget.widgetKey,
+                zone: baseWidget.zone,
+                instanceKey: baseWidget.instanceKey,
+                requireBindings: resolvePlacementBindingPolicy(baseWidget.widgetKey, baseWidget.config).sourceMode === 'required'
+            })
+            const inheritedNeutral = { ...baseDecoded.neutral }
+            if (resolvePlacementBindingPolicy(baseWidget.widgetKey, baseWidget.config).inheritBindings) delete inheritedNeutral.bindings
+            const inheritedBaseConfig = encodeLayoutWidgetConfigEnvelope(
+                { rendererConfig: baseDecoded.rendererConfig, neutral: inheritedNeutral },
+                { templateKey: layout.templateKey, widgetKey: baseWidget.widgetKey, zone: widget.zone, requireBindings: false }
+            )
+            const parentSnapshotId = resolveSnapshotParentWidgetId(widget)
             if (
                 widget.isActive === baseWidget.isActive &&
                 widget.zone === baseWidget.zone &&
                 widget.sortOrder === baseWidget.sortOrder &&
+                widget.instanceKey === baseWidget.instanceKey &&
+                parentSnapshotId === baseWidget.parentWidgetId &&
+                widget.slotKey === baseWidget.slotKey &&
                 stableStringify(widget.config) === stableStringify(inheritedBaseConfig)
             ) {
                 continue
@@ -717,6 +794,9 @@ export async function loadApplicationRuntimeLayouts(
                 id: widget.id,
                 layoutId: widget.layoutId,
                 baseWidgetId,
+                instanceKey: widget.instanceKey,
+                parentWidgetId: parentSnapshotId,
+                slotKey: widget.slotKey,
                 zone: widget.zone,
                 sortOrder: widget.sortOrder,
                 config: widget.config,
@@ -728,6 +808,9 @@ export async function loadApplicationRuntimeLayouts(
         layoutZoneWidgets.push({
             id: widget.id,
             layoutId: widget.layoutId,
+            instanceKey: widget.instanceKey,
+            parentWidgetId: resolveSnapshotParentWidgetId(widget),
+            slotKey: widget.slotKey,
             zone: widget.zone,
             widgetKey: widget.widgetKey,
             sortOrder: widget.sortOrder,
@@ -743,156 +826,6 @@ export async function loadApplicationRuntimeLayouts(
         layoutWidgetOverrides,
         defaultLayoutId,
         layoutConfig: isRecord(layoutConfig) ? layoutConfig : {}
-    }
-}
-
-// --- Release lineage ---
-
-export function resolveRuntimeApplicationReleaseLineage(
-    application: SyncableApplicationRecord,
-    snapshotHash: string
-): { releaseVersion: string; previousReleaseVersion: string | null } {
-    const installedReleaseVersion = extractInstalledReleaseVersion(application.installedReleaseMetadata)
-    const installedSourceKind = extractInstalledReleaseMetadataString(application.installedReleaseMetadata, 'sourceKind')
-    const installedSnapshotHash = extractInstalledReleaseMetadataString(application.installedReleaseMetadata, 'snapshotHash')
-    const previousReleaseVersion = extractInstalledReleaseMetadataString(application.installedReleaseMetadata, 'previousReleaseVersion')
-
-    if (installedSourceKind === 'release_bundle' && installedReleaseVersion && installedSnapshotHash === snapshotHash) {
-        return {
-            releaseVersion: installedReleaseVersion,
-            previousReleaseVersion
-        }
-    }
-
-    const structureVersion =
-        typeof application.appStructureVersion === 'number' && Number.isFinite(application.appStructureVersion)
-            ? application.appStructureVersion
-            : TARGET_APP_STRUCTURE_VERSION
-
-    return {
-        releaseVersion: `application-runtime-v${structureVersion}-${snapshotHash.slice(0, 12)}`,
-        previousReleaseVersion: installedReleaseVersion
-    }
-}
-
-export function resolveRuntimeApplicationReleaseBaseSnapshot(options: {
-    application: SyncableApplicationRecord
-    releaseLineage: { releaseVersion: string; previousReleaseVersion: string | null }
-    snapshotHash: string
-}): { snapshot: SchemaSnapshot | null; expectedKey: 'baseSchemaSnapshot' | 'releaseSchemaSnapshot' | null } {
-    const { application, releaseLineage, snapshotHash } = options
-
-    if (!releaseLineage.previousReleaseVersion) {
-        return {
-            snapshot: null,
-            expectedKey: null
-        }
-    }
-
-    const installedReleaseVersion = extractInstalledReleaseVersion(application.installedReleaseMetadata)
-    const installedSourceKind = extractInstalledReleaseMetadataString(application.installedReleaseMetadata, 'sourceKind')
-    const installedSnapshotHash = extractInstalledReleaseMetadataString(application.installedReleaseMetadata, 'snapshotHash')
-    const reusesStoredBundleLineage =
-        installedSourceKind === 'release_bundle' &&
-        installedReleaseVersion === releaseLineage.releaseVersion &&
-        installedSnapshotHash === snapshotHash
-
-    const expectedKey = reusesStoredBundleLineage ? 'baseSchemaSnapshot' : 'releaseSchemaSnapshot'
-
-    return {
-        snapshot: extractInstalledReleaseMetadataSchemaSnapshot(application.installedReleaseMetadata, expectedKey),
-        expectedKey
-    }
-}
-
-// --- Bundle creation + source building ---
-
-export function createPublicationApplicationReleaseBundle(options: {
-    application: SyncableApplicationRecord
-    syncContext: {
-        publicationId: string
-        publicationVersionId: string
-        snapshotHash: string | null
-        snapshot: PublishedApplicationSnapshot
-    }
-}): ApplicationReleaseBundle {
-    const previousReleaseVersion = extractInstalledReleaseVersion(options.application.installedReleaseMetadata)
-
-    return createApplicationReleaseBundle({
-        applicationId: options.application.id,
-        applicationKey: options.application.id,
-        releaseVersion: resolveApplicationReleaseVersion({
-            publicationVersionId: options.syncContext.publicationVersionId,
-            snapshot: options.syncContext.snapshot,
-            snapshotHash: options.syncContext.snapshotHash
-        }),
-        sourceKind: 'publication',
-        snapshot: options.syncContext.snapshot,
-        snapshotHash: options.syncContext.snapshotHash,
-        publicationId: options.syncContext.publicationId,
-        publicationVersionId: options.syncContext.publicationVersionId,
-        previousReleaseVersion,
-        previousSchemaSnapshot: (options.application.schemaSnapshot as SchemaSnapshot | null) ?? null
-    })
-}
-
-export function buildApplicationSyncSourceFromPublication(options: {
-    application: SyncableApplicationRecord
-    syncContext: {
-        publicationId: string
-        publicationVersionId: string
-        snapshotHash: string | null
-        snapshot: PublishedApplicationSnapshot
-        entities: EntityDefinition[]
-        publicationSnapshot: Record<string, unknown>
-    }
-}): ApplicationSchemaSyncSource {
-    validateMarketingSnapshotTransportLayouts(options.syncContext.snapshot)
-    validateSnapshotLayoutIdentities(options.syncContext.snapshot)
-    const bundle = createPublicationApplicationReleaseBundle({
-        application: options.application,
-        syncContext: options.syncContext
-    })
-    const artifacts = validateApplicationReleaseBundleArtifacts(bundle)
-
-    return {
-        bundle,
-        bootstrapPayload: artifacts.bootstrapPayload,
-        incrementalPayload: artifacts.incrementalPayload,
-        incrementalBaseSchemaSnapshot: artifacts.incrementalBaseSchemaSnapshot,
-        incrementalDiff: artifacts.incrementalDiff,
-        installSourceKind: 'publication',
-        snapshotHash: artifacts.snapshotHash,
-        snapshot: options.syncContext.snapshot,
-        entities: artifacts.incrementalPayload.entities,
-        publicationSnapshot: options.syncContext.publicationSnapshot,
-        publicationId: options.syncContext.publicationId,
-        publicationVersionId: options.syncContext.publicationVersionId
-    }
-}
-
-export function buildApplicationSyncSourceFromBundle(bundle: ApplicationReleaseBundle): ApplicationSchemaSyncSource {
-    const snapshot = bundle.snapshot
-    if (!snapshot || typeof snapshot !== 'object' || !snapshot.entities || typeof snapshot.entities !== 'object') {
-        throw new Error('Invalid application release bundle snapshot')
-    }
-    validateMarketingSnapshotTransportLayouts(snapshot)
-    validateSnapshotLayoutIdentities(snapshot)
-    const artifacts = validateApplicationReleaseBundleArtifacts(bundle)
-
-    return {
-        bundle,
-        bootstrapPayload: artifacts.bootstrapPayload,
-        incrementalPayload: artifacts.incrementalPayload,
-        incrementalBaseSchemaSnapshot: artifacts.incrementalBaseSchemaSnapshot,
-        incrementalDiff: artifacts.incrementalDiff,
-        installSourceKind: 'release_bundle',
-        snapshotHash: artifacts.snapshotHash,
-        snapshot,
-        entities: artifacts.incrementalPayload.entities,
-        publicationSnapshot: snapshot as unknown as Record<string, unknown>,
-        publicationId: bundle.manifest.publicationId ?? null,
-        publicationVersionId: bundle.manifest.publicationVersionId ?? null
     }
 }
 
@@ -925,7 +858,7 @@ export async function createExistingApplicationReleaseBundle(options: {
                     : TARGET_APP_STRUCTURE_VERSION
             ),
             templateVersion: installedReleaseVersion,
-            snapshotFormatVersion: 1
+            snapshotFormatVersion: CURRENT_METAHUB_SNAPSHOT_FORMAT_VERSION
         },
         entities: Object.fromEntries(entities.map((entity) => [entity.id, entity]))
     }

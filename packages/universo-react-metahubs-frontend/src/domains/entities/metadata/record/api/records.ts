@@ -156,7 +156,7 @@ export const reorderRecord = (
 export const listRecordsDirect = async (
     metahubId: string,
     objectCollectionId: string,
-    params?: PaginationParams & { kindKey?: string }
+    params?: PaginationParams & { kindKey?: string; exactComponentCodename?: string; exactValue?: string }
 ): Promise<PaginatedResponse<RecordItem>> => {
     const response = await apiClient.get<{ items: RecordItem[]; pagination: { total: number; limit: number; offset: number } }>(
         `${buildCollectionInstancePath(metahubId, objectCollectionId, params?.kindKey)}/records`,
@@ -166,7 +166,9 @@ export const listRecordsDirect = async (
                 offset: params?.offset,
                 sortBy: params?.sortBy,
                 sortOrder: params?.sortOrder,
-                search: params?.search
+                search: params?.search,
+                exactComponentCodename: params?.exactComponentCodename,
+                exactValue: params?.exactValue
             }
         }
     )

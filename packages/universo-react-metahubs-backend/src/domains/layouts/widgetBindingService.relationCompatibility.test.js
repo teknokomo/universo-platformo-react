@@ -60,7 +60,6 @@ describe('generic Metahub widget binding service', () => {
             { executor: harness.executor, metahubId },
             {
                 layoutId,
-                templateKey: 'marketing-page',
                 widgetKey: 'marketing.pricing',
                 slot: 'benefits',
                 parentSourceKey: 'PricingTiers',

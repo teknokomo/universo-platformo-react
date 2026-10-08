@@ -4,6 +4,7 @@ import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
+import { getLayoutWidgetDefinition } from '@universo-react/types'
 
 const {
     getLayout,
@@ -31,11 +32,15 @@ const mockUseMetahubDetails = vi.fn()
 vi.mock('react-i18next', () => ({
     initReactI18next: { type: '3rdParty', init: vi.fn() },
     useTranslation: () => ({
-        t: (_key: string, fallback?: string, options?: Record<string, unknown>) =>
-            Object.entries(options ?? {}).reduce(
-                (value, [name, replacement]) => value.replaceAll(`{{${name}}}`, String(replacement)),
-                fallback ?? _key
-            ),
+        t: (key: string, fallbackOrOptions?: string | Record<string, unknown>, options?: Record<string, unknown>) => {
+            const parameters = options ?? (typeof fallbackOrOptions === 'object' && fallbackOrOptions !== null ? fallbackOrOptions : {})
+            const fallback = typeof fallbackOrOptions === 'string' ? fallbackOrOptions : parameters.defaultValue
+            return Object.entries(parameters).reduce(
+                (message, [name, replacement]) =>
+                    name === 'defaultValue' ? message : message.replaceAll(`{{${name}}}`, String(replacement)),
+                typeof fallback === 'string' ? fallback : key
+            )
+        },
         i18n: { language: 'en' }
     })
 }))
@@ -198,9 +203,12 @@ describe('LayoutDetails interpretation network widget editor', () => {
             {
                 id: 'widget-network',
                 layoutId: 'layout-1',
+                instanceKey: 'widget-network-instance',
                 zone: 'center',
                 widgetKey: 'interpretationNetworkWorkspace',
                 sortOrder: 1,
+                parentInstanceKey: null,
+                slotKey: null,
                 config: {
                     matrixMode: 'hierarchicalCells',
                     allowedMatrixViews: ['horizontalRows'],
@@ -216,24 +224,18 @@ describe('LayoutDetails interpretation network widget editor', () => {
                 isInherited: false
             }
         ])
-        getLayoutZoneWidgetObjects.mockResolvedValue([
-            {
-                key: 'interpretationNetworkWorkspace',
-                allowedZones: ['center'],
-                allowedZonesByTemplate: { dashboard: ['center'] },
-                multiInstance: true,
-                templateKey: 'dashboard',
-                supportedTemplates: ['dashboard']
-            }
-        ])
+        getLayoutZoneWidgetObjects.mockResolvedValue([getLayoutWidgetDefinition('interpretationNetworkWorkspace')!])
         updateLayoutZoneWidgetConfig.mockResolvedValue({
             data: {
                 item: {
                     id: 'widget-network',
                     layoutId: 'layout-1',
+                    instanceKey: 'widget-network-instance',
                     zone: 'center',
                     widgetKey: 'interpretationNetworkWorkspace',
                     sortOrder: 1,
+                    parentInstanceKey: null,
+                    slotKey: null,
                     config: {
                         matrixMode: 'hierarchicalCells',
                         allowedMatrixViews: ['table', 'horizontalRows'],

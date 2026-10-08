@@ -104,8 +104,7 @@ const readPlacement = (value: RecordLike, widgetKey: string): MarketingHeaderPla
 
 const readString = (value: unknown): string | undefined => (typeof value === 'string' && value.trim() ? value : undefined)
 
-const effectiveWidgetInstanceKey = (value: RecordLike, widgetKey: string, index: number): string =>
-    readString(value.instanceKey) ?? readString(value.id) ?? `${widgetKey}-${index}`
+const effectiveWidgetInstanceKey = (value: RecordLike): string | undefined => readString(value.instanceKey)
 
 const effectiveWidgetSortOrder = (value: RecordLike, index: number): number => {
     const sortOrder = typeof value.sortOrder === 'number' && Number.isFinite(value.sortOrder) ? value.sortOrder : index
@@ -129,7 +128,8 @@ const toProjection = (
         return undefined
     }
 
-    const instanceKey = effectiveWidgetInstanceKey(row, widgetKey, index)
+    const instanceKey = effectiveWidgetInstanceKey(row)
+    if (!instanceKey) return undefined
     const base = {
         instanceKey,
         sortOrder: effectiveWidgetSortOrder(row, index),
