@@ -632,5 +632,4 @@ describe('applications-frontend api wrappers', () => {
             'APPLICATION_LAYOUT_WIDGET_METADATA_INVALID'
         )
     })
-
 })

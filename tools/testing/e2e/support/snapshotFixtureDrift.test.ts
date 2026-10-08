@@ -156,7 +156,10 @@ test('normalizes generator compile time and derived runtime manifest checksum on
     assert.equal((normalizedGenerated as typeof regenerated).sourceStorage.lastCompileAt, '<timestamp>')
     assert.equal((normalizedTracked as typeof tracked).runtimeManifest.checksum, '<runtime-manifest-checksum>')
     assert.equal((normalizedGenerated as typeof regenerated).runtimeManifest.checksum, '<runtime-manifest-checksum>')
-    assert.notEqual((normalizedTracked as typeof tracked).authored.lastCompileAt, (normalizedGenerated as typeof regenerated).authored.lastCompileAt)
+    assert.notEqual(
+        (normalizedTracked as typeof tracked).authored.lastCompileAt,
+        (normalizedGenerated as typeof regenerated).authored.lastCompileAt
+    )
     assert.notEqual((normalizedTracked as typeof tracked).authored.checksum, (normalizedGenerated as typeof regenerated).authored.checksum)
 })
 
@@ -202,14 +205,19 @@ test('normalizes PlayCanvas editor document ids only inside generated asset meta
     const normalizedGenerated = normalizeSnapshotFixtureVolatileValues(regenerated)
 
     assert.equal(
-        (normalizedTracked as unknown as { snapshot: { playcanvasProjects: { assets: Array<{ metadata: { editorDocumentId: string } }> } } })
-            .snapshot.playcanvasProjects.assets[0].metadata.editorDocumentId,
+        (
+            normalizedTracked as unknown as {
+                snapshot: { playcanvasProjects: { assets: Array<{ metadata: { editorDocumentId: string } }> } }
+            }
+        ).snapshot.playcanvasProjects.assets[0].metadata.editorDocumentId,
         '<editor-document-id>'
     )
     assert.equal(
-        (normalizedGenerated as unknown as {
-            snapshot: { playcanvasProjects: { assets: Array<{ metadata: { editorDocumentId: string } }> } }
-        }).snapshot.playcanvasProjects.assets[0].metadata.editorDocumentId,
+        (
+            normalizedGenerated as unknown as {
+                snapshot: { playcanvasProjects: { assets: Array<{ metadata: { editorDocumentId: string } }> } }
+            }
+        ).snapshot.playcanvasProjects.assets[0].metadata.editorDocumentId,
         '<editor-document-id>'
     )
     assert.notEqual(
@@ -514,9 +522,7 @@ test('normalizes scene entity stable ids only inside PlayCanvas scene-script bin
     const tracked = {
         snapshot: {
             playcanvasProjects: {
-                sceneScriptBindings: [
-                    { sceneEntityStableId: '019a1111-1111-7111-8111-111111111111', scriptName: 'flightControl' }
-                ]
+                sceneScriptBindings: [{ sceneEntityStableId: '019a1111-1111-7111-8111-111111111111', scriptName: 'flightControl' }]
             }
         },
         authored: { sceneEntityStableId: '019a1111-1111-7111-8111-111111111111' }
@@ -524,9 +530,7 @@ test('normalizes scene entity stable ids only inside PlayCanvas scene-script bin
     const regenerated = {
         snapshot: {
             playcanvasProjects: {
-                sceneScriptBindings: [
-                    { sceneEntityStableId: '019b1111-1111-7111-8111-111111111111', scriptName: 'flightControl' }
-                ]
+                sceneScriptBindings: [{ sceneEntityStableId: '019b1111-1111-7111-8111-111111111111', scriptName: 'flightControl' }]
             }
         },
         authored: { sceneEntityStableId: '019b1111-1111-7111-8111-111111111111' }

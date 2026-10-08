@@ -72,8 +72,12 @@ test('rejects invalid primary navigation icons and unapproved Object menu entrie
     const withInvalidIcon = withEntityMutation((entities) => {
         const space = Object.values(entities).find((entity) => {
             const codename = entity.codename
-            return Boolean(codename && typeof codename === 'object' && (codename as FixtureRecord).locales &&
-                (((codename as FixtureRecord).locales as FixtureRecord).en as FixtureRecord | undefined)?.content === 'FlightWorld')
+            return Boolean(
+                codename &&
+                    typeof codename === 'object' &&
+                    (codename as FixtureRecord).locales &&
+                    (((codename as FixtureRecord).locales as FixtureRecord).en as FixtureRecord | undefined)?.content === 'FlightWorld'
+            )
         })
         if (!space) throw new Error('Fixture test is missing the Space Object')
         const config = space.config as FixtureRecord
@@ -85,8 +89,12 @@ test('rejects invalid primary navigation icons and unapproved Object menu entrie
     const withUnexpectedPrimaryObject = withEntityMutation((entities) => {
         const flightShip = Object.values(entities).find((entity) => {
             const codename = entity.codename
-            return Boolean(codename && typeof codename === 'object' && (codename as FixtureRecord).locales &&
-                (((codename as FixtureRecord).locales as FixtureRecord).en as FixtureRecord | undefined)?.content === 'FlightShip')
+            return Boolean(
+                codename &&
+                    typeof codename === 'object' &&
+                    (codename as FixtureRecord).locales &&
+                    (((codename as FixtureRecord).locales as FixtureRecord).en as FixtureRecord | undefined)?.content === 'FlightShip'
+            )
         })
         if (!flightShip) throw new Error('Fixture test is missing FlightShip')
         flightShip.config = { ...(flightShip.config as FixtureRecord), runtime: { menuVisibility: 'primary', icon: 'apps' } }
