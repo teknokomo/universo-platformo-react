@@ -1062,6 +1062,8 @@
             "errorDelete": "Delete failed: {{message}}",
             "errorCopy": "Copy failed: {{message}}",
             "errorRecordCommand": "Record command failed: {{message}}",
+            "errorRuntimeRowVersionRequired": "This record has no current version. Reload it and try again.",
+            "errorWorkflowVersionRequired": "Workflow action requires a current row version. Please reload and try again.",
             "errorSchemaChanged": "Schema has changed since this form was opened. Please close and try again.",
             "workspaceLimitReached": "The workspace limit for this section has been reached ({{current}} / {{max}}).",
             "runtime": {
