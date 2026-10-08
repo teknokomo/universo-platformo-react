@@ -18,23 +18,23 @@ description: User guide for working inside the published LMS application.
 
 ## Workflow
 
-1. Open the LMS application and confirm that the left sidebar shows Dashboard, Learning Content, Courses, Tracks, Knowledge, Development, Reports, and Workspaces.
+1. Open Workspaces and review the workspaces available to you.
    ![LMS User Guide step 1](../.gitbook/assets/lms-user-guide/dashboard-overview-step-1.png)
-2. Check the workspace menu near the top of the sidebar before creating or editing content.
+2. Select Main to confirm the workspace context before creating or editing content.
    ![LMS User Guide step 2](../.gitbook/assets/lms-user-guide/dashboard-overview-step-2.png)
-3. Open the page that matches your task: Learning Content for authoring, Courses or Tracks for builders, Reports for analysis, or Guest Access for public links.
+3. Open Content Projects and search for a safety resource to see the unified list narrow to a matching result.
    ![LMS User Guide step 3](../.gitbook/assets/lms-user-guide/dashboard-overview-step-3.png)
-4. Use the related links at the bottom of each page when you need more detail.
+4. Open Reports to review the learning activity available in the current workspace.
    ![LMS User Guide step 4](../.gitbook/assets/lms-user-guide/dashboard-overview-step-4.png)
 
 ## Screen Details
 
-| Area              | How to use it                                                                                                                                                                                                   |
-| ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Dashboard numbers | Use the dashboard cards as a quick health check before opening a detailed area. The cards count learners, projects, assignments, certificates, progress records, and task grades for the active workspace.      |
-| Workspace menu    | The menu in the sidebar defines where new records and reports are read from. Change it before authoring content when a team uses separate workspaces.                                                           |
-| Sidebar modules   | Dashboard, Learning Content, Courses, Tracks, Knowledge, Development, Reports, and Workspaces are the main entry points. Open the module that matches the task instead of editing records from unrelated lists. |
-| Quality check     | If a page shows unreadable technical values or incorrectly formatted dates, clipped controls, or an unexpected language, stop and report the visible screen before changing production content.                 |
+| Area              | How to use it                                                                                                                                                                                              |
+| ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Dashboard numbers | Use the dashboard cards as a quick health check before opening a detailed area. The cards count learners, projects, assignments, certificates, progress records, and task grades for the active workspace. |
+| Workspace menu    | The menu in the sidebar defines where new records and reports are read from. Change it before authoring content when a team uses separate workspaces.                                                      |
+| Sidebar modules   | Content Projects, Courses, Learning Tracks, Reports, and Workspaces are the main entry points for everyday LMS work. Open the area that matches the task instead of editing records from unrelated lists.  |
+| Quality check     | If a page shows unreadable technical values or incorrectly formatted dates, clipped controls, or an unexpected language, stop and report the visible screen before changing production content.            |
 
 ## Result
 

@@ -12,9 +12,11 @@ export const OBJECT_RUNTIME_MENU_ICON_KEYS = [
     'apps',
     'dashboard',
     'page',
+    'article',
     'school',
     'recent',
     'star',
+    'trash',
     'settings',
     'more'
 ] as const

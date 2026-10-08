@@ -12,13 +12,13 @@ description: How to use library affordances around content lifecycle.
 
 ## What You Need
 
--   Open Learning Content or the dedicated Recent, Starred, Shared with me, or Trash section.
+-   Open Content Projects from the application navigation. Recent, Starred, and Shared with me are tabs on Welcome; Trash is a separate navigation item.
 -   Confirm that the item actions menu belongs to the item you intend to change.
 -   Use restore only when you understand where the item should return.
 
 ## Workflow
 
-1. Open a content row and use Star when you want it in your personal starred list.
+1. Filter to Resources, then open a content row and add it to your personal starred list.
    ![Sharing, Recent, Starred, and Trash step 1](../.gitbook/assets/lms-user-guide/sharing-recent-favorites-trash-step-1.png)
 2. Use Share when another workspace member needs access to the item.
    ![Sharing, Recent, Starred, and Trash step 2](../.gitbook/assets/lms-user-guide/sharing-recent-favorites-trash-step-2.png)

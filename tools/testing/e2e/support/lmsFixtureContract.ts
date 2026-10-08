@@ -533,11 +533,13 @@ export const LMS_PRODUCT_ACCEPTANCE_MATRIX = lmsAcceptanceMatrixSchema.parse([
             'workspace-isolated': true,
             'covered-by-e2e': true
         }),
-        requiredEntities: ['ContentProjects', 'LearningResources', 'Courses', 'LearningTracks', 'TrashEntries'],
-        browserEvidence: ['snapshot-import-lms-runtime captures Library, Recent, Starred, Shared with me, and Trash runtime views'],
+        requiredEntities: ['ContentProjects', 'KnowledgeArticles', 'LearningResources', 'Courses', 'LearningTracks', 'TrashEntries'],
+        browserEvidence: [
+            'snapshot-import-lms-runtime captures the entity-backed Knowledge Articles table and Library, Recent, Starred, Shared with me, and Trash runtime views'
+        ],
         evidence: [
-            'Primary LMS navigation targets ContentProjects and LearningResources',
-            'snapshot-import-lms-runtime captures Learning Content, Recent, Starred, Shared with me, and Trash screenshots'
+            'Primary LMS navigation targets ContentProjects, KnowledgeArticles, and LearningResources',
+            'snapshot-import-lms-runtime captures Knowledge Articles, Learning Content, Recent, Starred, Shared with me, and Trash screenshots'
         ]
     },
     {

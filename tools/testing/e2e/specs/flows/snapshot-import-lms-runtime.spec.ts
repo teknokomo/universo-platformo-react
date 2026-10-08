@@ -95,7 +95,14 @@ const UUID_SUBSTRING_PATTERN = /[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][
 const UUID_V7_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu
 const RUNTIME_RECORD_HANDLE_PATTERN = /^rh1\.[A-Za-z0-9_-]+$/u
 const RUNTIME_NAVIGATION_ACCESSIBLE_NAME = /^(?:Application navigation|Навигация приложения)$/u
-const LMS_PRIMARY_NAV_OBJECT_CODENAMES = new Set(['ContentProjects', 'Courses', 'LearningTracks', 'Reports'])
+const LMS_PRIMARY_NAV_OBJECT_CODENAMES = new Set([
+    'ContentProjects',
+    'Courses',
+    'KnowledgeArticles',
+    'LearningTracks',
+    'Reports',
+    'TrashEntries'
+])
 const LMS_OBJECT_RUNTIME_TARGETS = new Map<string, string>([
     ['Content Projects', 'ContentProjects'],
     ['Проекты контента', 'ContentProjects'],
@@ -109,7 +116,7 @@ const LMS_OBJECT_RUNTIME_TARGETS = new Map<string, string>([
     ['Избранный контент', 'ContentStars'],
     ['Content Access Entries', 'ContentAccessEntries'],
     ['Записи доступа к контенту', 'ContentAccessEntries'],
-    ['Trash Entries', 'TrashEntries'],
+    ['Trash', 'TrashEntries'],
     ['Корзина', 'TrashEntries'],
     ['Knowledge Articles', 'KnowledgeArticles'],
     ['Статьи базы знаний', 'KnowledgeArticles'],
@@ -2132,8 +2139,8 @@ async function expectPublishedTrashRestoreTargetFlow(options: {
     }
 }): Promise<void> {
     const { page, api, applicationId, workspaceId, screenshotPath, deletedRecord } = options
-    await clickRuntimeNavigationItem(page, 'Trash Entries')
-    await expectRuntimeNavigationItemSelected(page, 'Trash Entries')
+    await clickRuntimeNavigationItem(page, 'Trash')
+    await expectRuntimeNavigationItemSelected(page, 'Trash')
 
     const trashUnionWidget = page.getByTestId('records-union-details-table').first()
     const hasVisibleTrashUnionWidget = await trashUnionWidget.isVisible().catch(() => false)
@@ -3101,7 +3108,7 @@ test.describe('LMS Snapshot Import Runtime Flow', () => {
         const deletedLearningContent = await deleteFirstPublishedLearningContentRowForTrashProof(page, api, applicationId, mainWorkspaceId)
         await expectPublishedLearningContentView({
             page,
-            navigationItem: 'Trash Entries',
+            navigationItem: 'Trash',
             label: 'Learning Content Trash',
             surfaceMode: 'saved-table',
             screenshotPath: testInfo.outputPath('lms-learning-content-trash-en.png')

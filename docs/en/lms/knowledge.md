@@ -12,15 +12,15 @@ description: How to use the Knowledge section for article-style learning support
 
 ## What You Need
 
--   Open Knowledge from the sidebar.
+-   Open Knowledge Articles from the sidebar.
 -   Choose the folder where the article belongs.
 -   Prepare article title and body content.
 
 ## Workflow
 
-1. Open Knowledge and sort or review existing folders and articles by a readable title.
+1. Open Knowledge Articles and sort or review existing articles by a readable title.
    ![Knowledge step 1](../.gitbook/assets/lms-user-guide/knowledge-step-1.png)
-2. Choose Create when you need a new article.
+2. Open Create and choose Article.
    ![Knowledge step 2](../.gitbook/assets/lms-user-guide/knowledge-step-2.png)
 3. Select a folder by readable name and enter the localized title.
    ![Knowledge step 3](../.gitbook/assets/lms-user-guide/knowledge-step-3.png)

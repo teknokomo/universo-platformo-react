@@ -322,6 +322,14 @@ export const lmsSeedOperationsEntities: LmsTemplateEntity[] = [
             'Workspace-scoped articles authored directly inside the published application.',
             'Статьи рабочего пространства, создаваемые прямо в опубликованном приложении.'
         ),
+        hubs: ['Learning'],
+        config: {
+            runtime: {
+                menuVisibility: 'primary',
+                icon: 'article',
+                requiresPermission: 'editContent'
+            }
+        },
         components: [
             {
                 codename: 'FolderId',

@@ -1,4 +1,5 @@
 import './effectiveWidgetRuntimeDataResolver.testMocks'
+import { UpdateFailure } from '../../shared/runtimeHelpers'
 import {
     createMockDbExecutor,
     resetEffectiveWidgetRuntimeDataResolverMocks,
@@ -125,6 +126,21 @@ describe('resolveEffectiveWidgetRuntimeData menu projection', () => {
         )
         const offline = await resolveEffectiveWidgetRuntimeData(executor, scope, [candidate()], 'en')
         expect(offline.get('placement-menu-1')).toEqual({ status: 'network-error' })
+    })
+
+    it.each([
+        [403, 'permission-denied'],
+        [404, 'stale-source'],
+        [409, 'malformed-config']
+    ] as const)('maps typed widget runtime failure %i to %s', async (statusCode, expectedStatus) => {
+        const { executor } = createMockDbExecutor()
+        ;(runtimeStore.loadWidgetBindingRuntimeRecords as jest.Mock).mockRejectedValueOnce(
+            new UpdateFailure(statusCode, { error: 'typed widget runtime failure' })
+        )
+
+        const resolved = await resolveEffectiveWidgetRuntimeData(executor, scope, [candidate()], 'en')
+
+        expect(resolved.get('placement-menu-1')).toEqual({ status: expectedStatus })
     })
 
     it('builds generated menus from published host metadata and returns semantic targets only', async () => {

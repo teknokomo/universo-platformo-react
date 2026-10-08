@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter } from 'react-router-dom'
 
@@ -41,6 +42,14 @@ import {
 } from '../OptionListActions'
 
 const translate = (key: string, options?: string | { defaultValue?: string }) => {
+    const translations: Record<string, string> = {
+        'objects.runtime.navigation.icons.article': 'Article'
+    }
+
+    if (translations[key]) {
+        return translations[key]
+    }
+
     if (typeof options === 'string') {
         return options
     }
@@ -200,7 +209,8 @@ describe('Settings-origin shared form tabs', () => {
         )
     })
 
-    it('hydrates and persists Object navigation settings through the existing edit form', () => {
+    it('hydrates and persists Object navigation settings through the existing edit form', async () => {
+        const user = userEvent.setup()
         const context = createObjectCollectionContext('metahub-1', {
             objectMap: new Map([
                 [
@@ -220,13 +230,14 @@ describe('Settings-origin shared form tabs', () => {
             ]) as never
         })
         const initial = buildObjectCollectionInitialValues(context)
+        const setValue = vi.fn()
         const tabs = buildObjectCollectionFormTabs(
             context,
             [baseHub] as never[],
             'object-1'
         )({
             values: initial,
-            setValue: vi.fn(),
+            setValue,
             isLoading: false,
             errors: {}
         })
@@ -237,13 +248,16 @@ describe('Settings-origin shared form tabs', () => {
         renderWithProviders(navigationTab?.content)
         expect(screen.getByRole('checkbox', { name: 'Show in application menu' })).toBeChecked()
         expect(screen.getByRole('combobox', { name: 'Menu icon' })).toHaveTextContent('analytics')
+        await user.click(screen.getByRole('combobox', { name: 'Menu icon' }))
+        await user.click(screen.getByRole('option', { name: 'Article', exact: true }))
+        expect(setValue).toHaveBeenCalledWith('runtimeMenuIcon', 'article')
 
         const disabledPayload = buildObjectCollectionPayload({ ...initial, runtimeMenuVisible: false })
         expect(disabledPayload.config).toEqual({ runtime: { menuVisibility: 'hidden', customRuntimeFlag: true } })
 
-        const enabledPayload = buildObjectCollectionPayload({ ...initial, runtimeMenuIcon: 'users' })
+        const enabledPayload = buildObjectCollectionPayload({ ...initial, runtimeMenuIcon: 'article' })
         expect(enabledPayload.config).toEqual({
-            runtime: { menuVisibility: 'primary', icon: 'users', customRuntimeFlag: true }
+            runtime: { menuVisibility: 'primary', icon: 'article', customRuntimeFlag: true }
         })
     })
 

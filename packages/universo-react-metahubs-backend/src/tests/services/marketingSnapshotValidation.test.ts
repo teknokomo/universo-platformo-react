@@ -299,7 +299,7 @@ describe('validateMarketingSnapshotLayouts', () => {
             { templateKey: 'marketing-page', widgetKey: 'marketing.collection', zone: 'marketing-main' }
         )
 
-        expect(() => validateMarketingSnapshotLayouts(snapshot)).toThrow('Marketing snapshot widget configuration is invalid')
+        expect(() => validateMarketingSnapshotLayouts(snapshot)).toThrow('Snapshot widget configuration is invalid')
     })
 
     it('rejects an empty marketing composition with an explicit contract error', () => {

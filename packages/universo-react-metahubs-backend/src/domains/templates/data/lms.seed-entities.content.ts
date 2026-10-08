@@ -351,11 +351,19 @@ export const lmsSeedContentEntities: LmsTemplateEntity[] = [
     {
         codename: 'TrashEntries',
         kind: 'object',
-        name: vlc('Trash Entries', 'Корзина'),
+        name: vlc('Trash', 'Корзина'),
         description: vlc(
             'Object projection for deleted Learning Content records that can be restored from the workspace Trash.',
             'Объектная проекция удаленного учебного контента для восстановления из корзины рабочего пространства.'
         ),
+        hubs: ['Learning'],
+        config: {
+            runtime: {
+                menuVisibility: 'primary',
+                icon: 'trash',
+                requiresPermission: 'editContent'
+            }
+        },
         components: [
             {
                 codename: 'TargetObjectCodename',
@@ -363,7 +371,8 @@ export const lmsSeedContentEntities: LmsTemplateEntity[] = [
                 name: vlc('Target Object', 'Целевой объект'),
                 isRequired: true,
                 sortOrder: 1,
-                validationRules: { maxLength: 128 }
+                validationRules: { maxLength: 128 },
+                uiConfig: { hidden: true }
             },
             {
                 codename: 'TargetRecordId',
@@ -371,14 +380,16 @@ export const lmsSeedContentEntities: LmsTemplateEntity[] = [
                 name: vlc('Target Record ID', 'ID целевой записи'),
                 isRequired: true,
                 sortOrder: 2,
-                validationRules: { maxLength: 128 }
+                validationRules: { maxLength: 128 },
+                uiConfig: { hidden: true }
             },
             {
                 codename: 'DeletedBy',
                 dataType: 'STRING',
                 name: vlc('Deleted By', 'Удалил'),
                 sortOrder: 3,
-                validationRules: { maxLength: 128 }
+                validationRules: { maxLength: 128 },
+                uiConfig: { hidden: true }
             },
             {
                 codename: 'DeletedAt',
@@ -400,7 +411,8 @@ export const lmsSeedContentEntities: LmsTemplateEntity[] = [
                 dataType: 'STRING',
                 name: vlc('Restore State', 'Состояние восстановления'),
                 sortOrder: 6,
-                validationRules: { maxLength: 64 }
+                validationRules: { maxLength: 64 },
+                uiConfig: { hidden: true }
             }
         ]
     }

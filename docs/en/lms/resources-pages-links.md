@@ -24,9 +24,9 @@ description: How to create standalone page and link resources.
    ![Page and Link Resources step 2](../.gitbook/assets/lms-user-guide/resources-pages-links-step-2.png)
 3. Use the resource summary to confirm the page content before saving.
    ![Page and Link Resources step 3](../.gitbook/assets/lms-user-guide/resources-pages-links-step-3.png)
-4. Open Create and choose Link when the learning item points to an external web page.
+4. Open Create, choose Link, add a title, and enter the complete approved `https://` address before saving.
    ![Page and Link Resources step 4](../.gitbook/assets/lms-user-guide/resources-pages-links-step-4.png)
-5. Test validation with an incomplete address, read the localized message, then replace it with a full `https://` URL before saving.
+5. Test validation with an incomplete address, read the localized message, then restore the full `https://` URL and confirm the error clears.
    ![Page and Link Resources step 5](../.gitbook/assets/lms-user-guide/resources-pages-links-step-5.png)
 
 ## Screen Details

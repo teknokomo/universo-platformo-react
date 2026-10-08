@@ -468,14 +468,14 @@ export const lmsSeedInitialEntities: LmsTemplateEntity[] = [
     }),
     buildLmsPageEntity({
         codename: 'KnowledgeArticle',
-        nameEn: 'Knowledge Article',
-        nameRu: 'Статья базы знаний',
-        descriptionEn: 'Reusable knowledge-base article page for learning materials.',
-        descriptionRu: 'Переиспользуемая статья базы знаний для учебных материалов.',
+        nameEn: 'Knowledge Article Guide',
+        nameRu: 'Руководство по статьям базы знаний',
+        descriptionEn: 'Guide page for creating and maintaining reusable knowledge-base articles.',
+        descriptionRu: 'Страница-руководство по созданию и сопровождению статей базы знаний.',
         routeSegment: 'knowledge-article',
         icon: 'page',
         blocks: [
-            buildEditorHeaderBlock('knowledge-article-title', 2, 'Knowledge article', 'Статья базы знаний'),
+            buildEditorHeaderBlock('knowledge-article-title', 2, 'Knowledge article guide', 'Руководство по статьям базы знаний'),
             buildEditorParagraphBlock(
                 'knowledge-article-summary',
                 'Use this page for reference material that supports learning resources, assignments, and instructor-led events. Keep facts, examples, and source links in the article, and keep operational state in content records and Ledgers.',

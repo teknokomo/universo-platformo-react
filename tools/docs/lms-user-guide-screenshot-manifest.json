@@ -27,8 +27,8 @@
             },
             "pairedContextId": null,
             "requiredVisibleText": {
-                "en": ["Learners"],
-                "ru": ["Учащиеся"]
+                "en": ["Welcome to your learning portal"],
+                "ru": ["Добро пожаловать в учебный портал"]
             },
             "forbiddenVisibleText": {
                 "en": ["E2E", "[object Object]", "2061-02-01T08:00:00.000Z"],
@@ -72,8 +72,8 @@
             "workflowStepEvidence": {
                 "README-step-1": {
                     "requiredVisibleText": {
-                        "en": ["Learners"],
-                        "ru": ["Учащиеся"]
+                        "en": ["Workspaces"],
+                        "ru": ["Рабочие пространства"]
                     }
                 },
                 "README-step-2": {
@@ -84,14 +84,14 @@
                 },
                 "README-step-3": {
                     "requiredVisibleText": {
-                        "en": ["Learning Content"],
-                        "ru": ["Учебный контент"]
+                        "en": ["Content Projects"],
+                        "ru": ["Проекты контента"]
                     }
                 },
                 "README-step-4": {
                     "requiredVisibleText": {
-                        "en": ["Reports"],
-                        "ru": ["Отчёты"]
+                        "en": ["Learning Content summary"],
+                        "ru": ["Сводка учебного контента"]
                     }
                 }
             }
@@ -174,20 +174,20 @@
                 },
                 "getting-around-step-2": {
                     "requiredVisibleText": {
-                        "en": ["Learning Content"],
-                        "ru": ["Учебный контент"]
+                        "en": ["Stages"],
+                        "ru": ["Этапы"]
                     }
                 },
                 "getting-around-step-3": {
                     "requiredVisibleText": {
-                        "en": ["Courses"],
-                        "ru": ["Курсы"]
+                        "en": ["Safety intro video"],
+                        "ru": ["Вводное видео по безопасности"]
                     }
                 },
                 "getting-around-step-4": {
                     "requiredVisibleText": {
-                        "en": ["Card view"],
-                        "ru": ["Карточный вид"]
+                        "en": ["Safety intro video"],
+                        "ru": ["Вводное видео по безопасности"]
                     }
                 },
                 "getting-around-step-5": {
@@ -225,8 +225,8 @@
             },
             "pairedContextId": null,
             "requiredVisibleText": {
-                "en": ["Create"],
-                "ru": ["Создать"]
+                "en": ["Safety intro video"],
+                "ru": ["Вводное видео по безопасности"]
             },
             "forbiddenVisibleText": {
                 "en": ["E2E", "[object Object]", "2061-02-01T08:00:00.000Z"],
@@ -270,20 +270,20 @@
             "workflowStepEvidence": {
                 "learning-content-library-step-1": {
                     "requiredVisibleText": {
-                        "en": ["Create"],
-                        "ru": ["Создать"]
+                        "en": ["Compliance Refresh Course"],
+                        "ru": ["Курс обновления требований"]
                     }
                 },
                 "learning-content-library-step-2": {
                     "requiredVisibleText": {
-                        "en": ["Courses"],
-                        "ru": ["Курсы"]
+                        "en": ["Courses", "Compliance Refresh Course"],
+                        "ru": ["Курсы", "Курс обновления требований"]
                     }
                 },
                 "learning-content-library-step-3": {
                     "requiredVisibleText": {
-                        "en": ["Columns"],
-                        "ru": ["Колонки"]
+                        "en": ["Compliance Refresh Course"],
+                        "ru": ["Курс обновления требований"]
                     }
                 },
                 "learning-content-library-step-4": {
@@ -339,8 +339,8 @@
                 },
                 "projects-step-3": {
                     "requiredVisibleText": {
-                        "en": ["Projects", "3"],
-                        "ru": ["Проекты", "3"]
+                        "en": ["Documentation workspace project"],
+                        "ru": ["Проект документации"]
                     }
                 },
                 "projects-step-4": {
@@ -519,8 +519,8 @@
             },
             "pairedContextId": null,
             "requiredVisibleText": {
-                "en": ["Courses"],
-                "ru": ["Курсы"]
+                "en": ["Sections"],
+                "ru": ["Разделы"]
             },
             "forbiddenVisibleText": {
                 "en": ["E2E", "[object Object]", "2061-02-01T08:00:00.000Z"],
@@ -564,14 +564,14 @@
             "workflowStepEvidence": {
                 "courses-step-1": {
                     "requiredVisibleText": {
-                        "en": ["General"],
-                        "ru": ["Общее"]
+                        "en": ["Compliance Refresh Course", "Read the certificate policy"],
+                        "ru": ["Курс обновления требований", "Изучите политику сертификатов"]
                     }
                 },
                 "courses-step-2": {
                     "requiredVisibleText": {
-                        "en": ["Items"],
-                        "ru": ["Элементы"]
+                        "en": ["Course items"],
+                        "ru": ["Элементы курса"]
                     }
                 },
                 "courses-step-3": {
@@ -582,14 +582,14 @@
                 },
                 "courses-step-4": {
                     "requiredVisibleText": {
-                        "en": ["Completion"],
-                        "ru": ["Завершение"]
+                        "en": ["Edit"],
+                        "ru": ["Редактировать"]
                     }
                 },
                 "courses-step-5": {
                     "requiredVisibleText": {
-                        "en": ["Learner Onboarding Course"],
-                        "ru": ["Курс адаптации учащегося"]
+                        "en": ["Reports"],
+                        "ru": ["Отчёты"]
                     }
                 }
             }
@@ -621,8 +621,8 @@
             },
             "pairedContextId": null,
             "requiredVisibleText": {
-                "en": ["Tracks"],
-                "ru": ["Треки"]
+                "en": ["Stages"],
+                "ru": ["Этапы"]
             },
             "forbiddenVisibleText": {
                 "en": ["E2E", "[object Object]", "2061-02-01T08:00:00.000Z"],
@@ -666,14 +666,14 @@
             "workflowStepEvidence": {
                 "learning-tracks-step-1": {
                     "requiredVisibleText": {
-                        "en": ["General"],
-                        "ru": ["Общее"]
+                        "en": ["Stages"],
+                        "ru": ["Этапы"]
                     }
                 },
                 "learning-tracks-step-2": {
                     "requiredVisibleText": {
-                        "en": ["Steps"],
-                        "ru": ["Шаги"]
+                        "en": ["Track steps"],
+                        "ru": ["Шаги трека"]
                     }
                 },
                 "learning-tracks-step-3": {
@@ -684,14 +684,14 @@
                 },
                 "learning-tracks-step-4": {
                     "requiredVisibleText": {
-                        "en": ["Completion"],
-                        "ru": ["Завершение"]
+                        "en": ["Compliance refresh track"],
+                        "ru": ["Трек обновления требований"]
                     }
                 },
                 "learning-tracks-step-5": {
                     "requiredVisibleText": {
-                        "en": ["New learner onboarding track"],
-                        "ru": ["Трек адаптации нового учащегося"]
+                        "en": ["Reports"],
+                        "ru": ["Отчёты"]
                     }
                 }
             }
@@ -831,26 +831,26 @@
             "workflowStepEvidence": {
                 "learner-experience-step-1": {
                     "requiredVisibleText": {
-                        "en": ["Learner Onboarding Course"],
-                        "ru": ["Курс адаптации учащегося"]
+                        "en": ["Compliance Refresh Course"],
+                        "ru": ["Курс обновления требований"]
                     }
                 },
                 "learner-experience-step-2": {
                     "requiredVisibleText": {
-                        "en": ["Complete"],
-                        "ru": ["Завершить"]
+                        "en": ["Mark complete"],
+                        "ru": ["Отметить завершенным"]
                     }
                 },
                 "learner-experience-step-3": {
                     "requiredVisibleText": {
-                        "en": ["completed"],
-                        "ru": ["Завершено"]
+                        "en": ["Reading progress 100%"],
+                        "ru": ["Прогресс чтения 100%"]
                     }
                 },
                 "learner-experience-step-4": {
                     "requiredVisibleText": {
-                        "en": ["Next"],
-                        "ru": ["Далее"]
+                        "en": ["Learner Onboarding Course"],
+                        "ru": ["Курс адаптации учащегося"]
                     }
                 },
                 "learner-experience-step-5": {
@@ -921,8 +921,8 @@
             },
             "pairedContextId": null,
             "requiredVisibleText": {
-                "en": ["Knowledge Articles"],
-                "ru": ["Статьи базы знаний"]
+                "en": ["Records"],
+                "ru": ["Записи"]
             },
             "forbiddenVisibleText": {
                 "en": ["E2E", "[object Object]", "2061-02-01T08:00:00.000Z"],
@@ -984,8 +984,8 @@
                 },
                 "knowledge-step-4": {
                     "requiredVisibleText": {
-                        "en": ["Body"],
-                        "ru": ["Содержимое"]
+                        "en": ["Operations handbook"],
+                        "ru": ["Справочник операций"]
                     }
                 },
                 "knowledge-step-5": {
@@ -1017,8 +1017,8 @@
             },
             "pairedContextId": null,
             "requiredVisibleText": {
-                "en": ["Reports"],
-                "ru": ["Отчёты"]
+                "en": ["Learning Content summary"],
+                "ru": ["Сводка учебного контента"]
             },
             "forbiddenVisibleText": {
                 "en": ["E2E", "[object Object]", "2061-02-01T08:00:00.000Z"],
@@ -1062,8 +1062,8 @@
             "workflowStepEvidence": {
                 "reports-step-1": {
                     "requiredVisibleText": {
-                        "en": ["Reports"],
-                        "ru": ["Отчёты"]
+                        "en": ["Title", "Type"],
+                        "ru": ["Заголовок", "Тип"]
                     }
                 },
                 "reports-step-2": {
@@ -1086,8 +1086,8 @@
                 },
                 "reports-step-5": {
                     "requiredVisibleText": {
-                        "en": ["Learning Content"],
-                        "ru": ["Учебный контент"]
+                        "en": ["Certificate policy page"],
+                        "ru": ["Страница политики сертификатов"]
                     }
                 }
             }

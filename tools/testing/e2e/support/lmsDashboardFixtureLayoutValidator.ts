@@ -15,7 +15,9 @@ export const LMS_DASHBOARD_PRIMARY_OBJECT_RUNTIME_ICONS = [
     ['ContentProjects', 'folder'],
     ['Courses', 'school'],
     ['LearningTracks', 'tasks'],
-    ['Reports', 'analytics']
+    ['Reports', 'analytics'],
+    ['KnowledgeArticles', 'article'],
+    ['TrashEntries', 'trash']
 ] as const
 
 const expectedPageRuntimeIcons = new Map(LMS_DASHBOARD_PAGE_RUNTIME_ICONS)
@@ -166,6 +168,12 @@ export const assertDashboardNavigationAndKnowledgeLayout = (context: DashboardFi
         }
         if (codename === 'Reports' && runtime.requiresPermission !== 'readReports') {
             errors.push('LMS Reports navigation must require the readReports application permission')
+        }
+        if (codename === 'TrashEntries' && runtime.requiresPermission !== 'editContent') {
+            errors.push('LMS Trash navigation must require the editContent application permission')
+        }
+        if (codename === 'KnowledgeArticles' && runtime.requiresPermission !== 'editContent') {
+            errors.push('LMS Knowledge Articles navigation must require the editContent application permission')
         }
     }
 

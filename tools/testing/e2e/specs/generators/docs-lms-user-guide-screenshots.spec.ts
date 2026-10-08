@@ -421,8 +421,24 @@ async function clickNavigation(page: Page, label: string) {
         .or(page.getByRole('button', { name: label }))
         .first()
     await expect(navigationItem, `Navigation item ${label}`).toBeVisible({ timeout: 30_000 })
+    const href = await navigationItem.getAttribute('href')
+    if (!href) {
+        throw new Error(`Navigation item ${label} must expose its destination`)
+    }
+    const targetUrl = new URL(href, page.url())
     await navigationItem.click()
-    await expect(page.getByRole('progressbar')).toHaveCount(0, { timeout: 30_000 })
+    await expect(navigationItem, `Navigation item ${label} must be selected`).toHaveAttribute('aria-current', 'page', {
+        timeout: 30_000
+    })
+    await expect(
+        page,
+        `Navigation item ${label} must reach its destination while page-level reading progress may remain visible`
+    ).toHaveURL(
+        (currentUrl) =>
+            currentUrl.pathname === targetUrl.pathname &&
+            Array.from(targetUrl.searchParams.entries()).every(([key, value]) => currentUrl.searchParams.get(key) === value),
+        { timeout: 30_000 }
+    )
 }
 
 async function clickNavigationAndExpectText(page: Page, label: string, expectedText: string) {
@@ -432,14 +448,12 @@ async function clickNavigationAndExpectText(page: Page, label: string, expectedT
     })
 }
 
-async function openNavigation(page: Page, label: string) {
-    const item = page
-        .getByRole('link', { name: label })
-        .or(page.getByRole('button', { name: label }))
-        .first()
-    await expect(item, `Navigation item ${label} must be visible`).toBeVisible({ timeout: 30_000 })
-    await item.focus()
-    await expect(item, `Navigation item ${label} must receive keyboard focus`).toBeFocused()
+async function selectBuilderTab(page: Page, label: string, description: string) {
+    const tab = page.getByRole('tab', { name: label, exact: true })
+    await expect(tab, `${description} tab`).toBeVisible({ timeout: 30_000 })
+    await expect(tab, `${description} tab`).toBeEnabled()
+    await tab.click()
+    await expect(tab, `${description} tab selection`).toHaveAttribute('aria-selected', 'true')
 }
 
 async function fillVisibleSearch(page: Page, locale: Locale, value: string) {
@@ -460,10 +474,22 @@ function localizedPattern(locale: Locale, en: RegExp, ru: RegExp): RegExp {
 }
 
 async function openFirstRuntimeRowActions(page: Page, label: string): Promise<void> {
-    const firstRowAction = page.locator('[data-testid^="grid-row-actions-trigger-"], [data-testid^="records-union-card-actions-"]').first()
+    const firstRowAction = page.getByRole('button', { name: /^(?:Actions for|Действия для) .+$/ }).first()
     await expect(firstRowAction, `${label} row action`).toBeVisible({ timeout: 30_000 })
     await firstRowAction.click()
     await expect(page.getByRole('menu'), `${label} row action menu`).toBeVisible({ timeout: 30_000 })
+}
+
+async function selectRuntimeCardView(page: Page, locale: Locale, label: string): Promise<void> {
+    const cardViewButton = page.getByRole('button', {
+        name: localizedPattern(locale, /card view/i, /карточками/i)
+    })
+    await expect(cardViewButton, `${label} card view toggle`).toBeEnabled()
+    await cardViewButton.click()
+    await expect(cardViewButton, `${label} card view selection`).toHaveAttribute('aria-pressed', 'true')
+    await expect(page.getByRole('button', { name: /^(?:Actions for|Действия для) .+$/ }).first(), `${label} card actions`).toBeVisible({
+        timeout: 30_000
+    })
 }
 
 async function selectRuntimeRowAction(page: Page, locale: Locale, en: string, ru: string, label: string): Promise<void> {
@@ -493,6 +519,38 @@ async function openTrashRestoreDialog(page: Page, locale: Locale, label: string)
     return dialog
 }
 
+async function selectTrashRestoreTarget(page: Page, locale: Locale, label: string): Promise<Locator> {
+    const dialog = await openTrashRestoreDialog(page, locale, label)
+    const projectPicker = dialog.getByRole('combobox', { name: localized(locale, 'Project', 'Проект') })
+    await projectPicker.click()
+    const projectList = page.getByRole('listbox')
+    await expect(projectList, `${label} restore project choices`).toBeVisible({ timeout: 30_000 })
+    await expectNoTechnicalLeakage(projectList, { label: `${label} restore project choices`, checkUuidSubstrings: true })
+    const projectOption = projectList.getByRole('option').first()
+    await expect(projectOption, `${label} restore project choice`).toBeVisible({ timeout: 30_000 })
+    const projectName = (await projectOption.innerText()).trim()
+    expect(projectName, `${label} restore project name`).not.toBe('')
+    await projectOption.click()
+    await expect(projectPicker, `${label} selected restore project`).toContainText(projectName)
+    return dialog
+}
+
+async function submitTrashRestore(page: Page, applicationId: string, locale: Locale, dialog: Locator, label: string): Promise<void> {
+    const restoreResponsePromise = page.waitForResponse(
+        (response) => {
+            if (response.request().method() !== 'POST') return false
+            const pathname = new URL(response.url()).pathname
+            return pathname.startsWith(`/api/v1/applications/${applicationId}/runtime/rows/`) && pathname.endsWith('/restore')
+        },
+        { timeout: 30_000 }
+    )
+    await dialog.getByRole('button', { name: localized(locale, 'Restore', 'Восстановить') }).click()
+    const restoreResponse = await restoreResponsePromise
+    expect(restoreResponse.ok(), `${label} restore request`).toBe(true)
+    await expect(dialog, `${label} restore dialog closed`).toHaveCount(0, { timeout: 30_000 })
+    await expect(page.getByRole('progressbar'), `${label} restore completion`).toHaveCount(0, { timeout: 30_000 })
+}
+
 async function verifyRuntimeRowFormLifecycle(page: Page, locale: Locale, action: 'edit' | 'copy', label: string): Promise<void> {
     await openFirstRuntimeRowActions(page, label)
     await selectRuntimeRowAction(
@@ -517,7 +575,7 @@ async function captureDashboardGuide(page: Page, locale: Locale, applicationId: 
     await page.goto(`/a/${applicationId}`)
     await expect(page.getByTestId('runtime-page-blocks')).toBeVisible({ timeout: 30_000 })
     await captureDocsScreenshot(page, locale, 'dashboard-overview', page.locator('main').first())
-    await openNavigation(page, labels.workspaces)
+    await clickNavigation(page, labels.workspaces)
     await captureDocsStepScreenshot(page, locale, 'dashboard-overview', 1, page.locator('body'))
     await page
         .getByText(locale === 'en' ? 'Main' : 'Основное')
@@ -525,9 +583,19 @@ async function captureDashboardGuide(page: Page, locale: Locale, applicationId: 
         .click()
     await captureDocsStepScreenshot(page, locale, 'dashboard-overview', 2, page.locator('body'))
     await page.keyboard.press('Escape')
-    await openNavigation(page, labels.learningContent)
+    await clickNavigation(page, labels.learningContent)
+    const safetySearch = localized(locale, 'safety', 'безопасности')
+    await fillVisibleSearch(page, locale, safetySearch)
+    await expect(
+        page.locator('main').getByText(localized(locale, 'Safety intro video', 'Вводное видео по безопасности'), { exact: false }).first(),
+        `${locale} dashboard guide safety search result`
+    ).toBeVisible({ timeout: 30_000 })
     await captureDocsStepScreenshot(page, locale, 'dashboard-overview', 3, page.locator('body'))
-    await openNavigation(page, labels.reports)
+    await clickNavigation(page, labels.reports)
+    await expect(
+        page.getByText(localized(locale, 'Learning Content summary', 'Сводка учебного контента'), { exact: true }).first(),
+        `${locale} dashboard guide reports view`
+    ).toBeVisible({ timeout: 30_000 })
     await captureDocsStepScreenshot(page, locale, 'dashboard-overview', 4, page.locator('body'))
 }
 
@@ -550,18 +618,22 @@ async function captureGettingAroundGuide(page: Page, locale: Locale, application
     }
     await expect(workspaceDialog, `${locale} workspace create dialog closed`).toHaveCount(0, { timeout: 30_000 })
     await captureDocsStepScreenshot(page, locale, 'getting-around', 1, page.locator('body'))
-    await clickNavigationAndExpectText(page, labels.courses, locale === 'en' ? 'General' : 'Общее')
-    await clickNavigationAndExpectText(page, labels.tracks, locale === 'en' ? 'Steps' : 'Шаги')
+    await clickNavigationAndExpectText(page, labels.courses, locale === 'en' ? 'Sections' : 'Разделы')
+    await clickNavigationAndExpectText(page, labels.tracks, locale === 'en' ? 'Stages' : 'Этапы')
     await captureDocsStepScreenshot(page, locale, 'getting-around', 2, page.locator('body'))
     await clickNavigation(page, labels.learningContent)
-    await fillVisibleSearch(page, locale, locale === 'en' ? 'course' : 'курс')
+    await fillVisibleSearch(page, locale, locale === 'en' ? 'video' : 'видео')
+    await expect(
+        page.locator('main').getByText(localized(locale, 'Safety intro video', 'Вводное видео по безопасности'), { exact: false }).first(),
+        `${locale} getting-around video search result`
+    ).toBeVisible({ timeout: 30_000 })
     await captureDocsStepScreenshot(page, locale, 'getting-around', 3, page.locator('body'))
-    await fillVisibleSearch(page, locale, '')
-    await page.getByRole('button', { name: locale === 'en' ? 'Card view' : 'Карточный вид' }).click()
-    await expect(page.locator('[data-testid^="records-union-card-actions-"]').first()).toBeVisible({ timeout: 30_000 })
+    await selectRuntimeCardView(page, locale, `${locale} getting-around`)
     await captureDocsStepScreenshot(page, locale, 'getting-around', 4, page.locator('body'))
-    await page.locator('[data-testid^="records-union-card-actions-"]').first().click()
-    await expect(page.getByRole('menu')).toBeVisible({ timeout: 30_000 })
+    await openFirstRuntimeRowActions(page, `${locale} getting-around`)
+    await expect(page.getByRole('menuitem', { name: localized(locale, 'Edit', 'Редактировать'), exact: true })).toBeVisible({
+        timeout: 30_000
+    })
     await captureDocsStepScreenshot(page, locale, 'getting-around', 5, page.locator('body'))
     await page.keyboard.press('Escape')
 }
@@ -569,32 +641,43 @@ async function captureGettingAroundGuide(page: Page, locale: Locale, application
 async function captureLearningContentGuide(page: Page, locale: Locale, applicationId: string, labels: Record<string, string>) {
     await page.goto(`/a/${applicationId}`)
     await clickNavigation(page, labels.learningContent)
-    const surface = page.getByTestId('records-union-details-table').first()
+    const surface = page.getByTestId('library-details-table').first()
     await expect(surface).toBeVisible({ timeout: 30_000 })
+    const tableViewButton = page.getByRole('button', { name: localized(locale, 'Table view', 'Табличный вид') })
+    await expect(tableViewButton, `${locale} table view`).toHaveAttribute('aria-pressed', 'true')
+    await expectDataGridHorizontalScrollConstrained(page, `${locale} Learning Content library`)
     await captureDocsScreenshot(page, locale, 'learning-content-library', surface)
     await fillVisibleSearch(page, locale, locale === 'en' ? 'course' : 'курс')
+    const complianceCourseTitle = localized(locale, 'Compliance Refresh Course', 'Курс обновления требований')
+    await expect(
+        surface.getByText(complianceCourseTitle, { exact: false }).first(),
+        `${locale} Learning Content title search result`
+    ).toBeVisible({ timeout: 30_000 })
     await captureDocsStepScreenshot(page, locale, 'learning-content-library', 1, page.locator('body'))
-    await surface.getByTestId('records-union-target-filter').first().click()
+    await fillVisibleSearch(page, locale, '')
+    const targetFilter = surface.getByTestId('library-target-filter').getByRole('combobox')
+    await targetFilter.click()
     await expect(page.getByRole('listbox')).toBeVisible({ timeout: 30_000 })
+    await page.getByRole('option', { name: localized(locale, 'Courses', 'Курсы'), exact: true }).click()
+    await expect(targetFilter, `${locale} selected course filter`).toContainText(localized(locale, 'Courses', 'Курсы'))
+    await expect(surface.getByText(complianceCourseTitle, { exact: false }).first()).toBeVisible({ timeout: 30_000 })
+    await expect(surface.getByText(localized(locale, 'Safety intro video', 'Вводное видео по безопасности'))).toHaveCount(0)
     await captureDocsStepScreenshot(page, locale, 'learning-content-library', 2, page.locator('body'))
-    await page.keyboard.press('Escape')
-    await fillVisibleSearch(page, locale, '')
-    await page.getByRole('button', { name: localized(locale, 'Table view', 'Табличный вид') }).click()
-    const columnsButton = page.getByRole('button', { name: locale === 'en' ? /columns/i : /колонки/i })
-    await expect(columnsButton, `${locale} columns button`).toBeVisible({ timeout: 30_000 })
-    await expectDataGridHorizontalScrollConstrained(page, `${locale} Learning Content library`)
-    await columnsButton.click()
+    await targetFilter.click()
+    await page.getByRole('option', { name: localized(locale, 'All types', 'Все типы'), exact: true }).click()
+    await expect(surface.getByText(localized(locale, 'Safety intro video', 'Вводное видео по безопасности'))).toBeVisible({
+        timeout: 30_000
+    })
+    await selectRuntimeCardView(page, locale, `${locale} Learning Content library`)
     await captureDocsStepScreenshot(page, locale, 'learning-content-library', 3, page.locator('body'))
-    await page.keyboard.press('Escape')
-    await fillVisibleSearch(page, locale, '')
     await surface.getByTestId('records-union-create-target-menu-button').click()
     await expect(page.getByRole('menu')).toBeVisible({ timeout: 30_000 })
     await captureDocsStepScreenshot(page, locale, 'learning-content-library', 4, page.locator('body'))
     await page.keyboard.press('Escape')
-    const firstRowAction = page.locator('[data-testid^="grid-row-actions-trigger-"], [data-testid^="records-union-card-actions-"]').first()
-    await expect(firstRowAction).toBeVisible({ timeout: 30_000 })
-    await firstRowAction.click()
-    await expect(page.getByRole('menu')).toBeVisible({ timeout: 30_000 })
+    await openFirstRuntimeRowActions(page, `${locale} Learning Content library`)
+    await expect(page.getByRole('menuitem', { name: localized(locale, 'Edit', 'Редактировать'), exact: true })).toBeVisible({
+        timeout: 30_000
+    })
     await captureDocsStepScreenshot(page, locale, 'learning-content-library', 5, page.locator('body'))
     await page.keyboard.press('Escape')
     await verifyRuntimeRowFormLifecycle(page, locale, 'edit', `${locale} Learning Content edit lifecycle`)
@@ -604,7 +687,7 @@ async function captureLearningContentGuide(page: Page, locale: Locale, applicati
 async function captureProjectsGuide(page: Page, locale: Locale, applicationId: string, labels: Record<string, string>) {
     await page.goto(`/a/${applicationId}`)
     await clickNavigation(page, labels.learningContent)
-    const surface = page.getByTestId('records-union-details-table').first()
+    const surface = page.getByTestId('library-details-table').first()
     await expect(surface).toBeVisible({ timeout: 30_000 })
     await fillVisibleSearch(page, locale, localized(locale, 'project', 'проект'))
     await captureDocsScreenshot(page, locale, 'projects', surface)
@@ -635,45 +718,43 @@ async function captureProjectsGuide(page: Page, locale: Locale, applicationId: s
     await projectDialog.getByTestId(entityDialogSelectors.submitButton).click()
     await expect(projectDialog, `${locale} project create dialog closed`).toHaveCount(0, { timeout: 30_000 })
     await expect(page.getByRole('progressbar')).toHaveCount(0, { timeout: 30_000 })
-    await expect(
-        page.locator('main').getByText(localized(locale, 'Current workspace', 'Текущее рабочее пространство')).first(),
-        `${locale} project metric card`
-    ).toBeVisible({ timeout: 30_000 })
-    const projectMetric = page
-        .locator('main')
-        .getByText(localized(locale, 'Current workspace', 'Текущее рабочее пространство'))
-        .first()
-        .locator('..')
-    await expect(projectMetric.getByText('3', { exact: true }), `${locale} project count after create`).toBeVisible({ timeout: 30_000 })
-    await expect(page.getByText(projectTitle, { exact: true }), `${locale} created project`).toBeVisible({ timeout: 30_000 })
-    await captureDocsStepScreenshot(page, locale, 'projects', 3, page.locator('body'))
     await fillVisibleSearch(page, locale, '')
     await openFirstRuntimeRowActions(page, `${locale} projects move`)
     await selectRuntimeRowAction(page, locale, 'Move to project', 'Переместить в проект', `${locale} projects move`)
     const moveDialog = page.getByRole('dialog', { name: localizedPattern(locale, /Move to project/i, /Переместить в проект/i) }).first()
     await expect(moveDialog, `${locale} move to project dialog`).toBeVisible({ timeout: 30_000 })
-    await moveDialog.getByRole('combobox', { name: localized(locale, 'Project', 'Проект') }).click()
+    const projectField = moveDialog.getByRole('combobox', { name: localized(locale, 'Project', 'Проект') })
+    await projectField.click()
     await expect(page.getByRole('listbox'), `${locale} project picker list`).toBeVisible({ timeout: 30_000 })
-    await expect(page.getByRole('option', { name: new RegExp(projectTitle) }), `${locale} created project in move dialog`).toBeVisible({
-        timeout: 30_000
-    })
+    const projectOption = page.getByRole('option', { name: projectTitle, exact: true })
+    await expect(projectOption, `${locale} created project in move dialog`).toBeVisible({ timeout: 30_000 })
+    await captureDocsStepScreenshot(page, locale, 'projects', 3, page.locator('body'))
+    await projectOption.click()
+    await expect(projectField, `${locale} selected project`).toContainText(projectTitle)
     await captureDocsStepScreenshot(page, locale, 'projects', 4, page.locator('body'))
-    await page.keyboard.press('Escape')
-    await moveDialog.getByRole('button', { name: localized(locale, 'Cancel', 'Отмена') }).click()
+    const moveResponsePromise = page.waitForResponse(
+        (response) =>
+            response.request().method() === 'PATCH' && response.url().includes(`/api/v1/applications/${applicationId}/runtime/rows/`),
+        { timeout: 30_000 }
+    )
+    await moveDialog.getByRole('button', { name: localized(locale, 'Move to project', 'Переместить в проект') }).click()
+    const moveResponse = await moveResponsePromise
+    expect(moveResponse.ok(), `${locale} content move to the created project`).toBe(true)
     await expect(moveDialog, `${locale} move to project dialog closed`).toHaveCount(0, { timeout: 30_000 })
+    await expect(page.getByRole('progressbar')).toHaveCount(0, { timeout: 30_000 })
     await openFirstRuntimeRowActions(page, `${locale} projects delete`)
     await selectRuntimeRowAction(page, locale, 'Delete', 'Удалить', `${locale} projects delete`)
     await confirmVisibleDelete(page, `${locale} projects delete`)
-    await clickNavigation(page, locale === 'en' ? 'Trash' : 'Корзина')
-    await openTrashRestoreDialog(page, locale, `${locale} projects`)
+    await clickNavigation(page, labels.trash)
+    const restoreDialog = await selectTrashRestoreTarget(page, locale, `${locale} projects`)
     await captureDocsStepScreenshot(page, locale, 'projects', 5, page.locator('body'))
-    await page.keyboard.press('Escape')
+    await submitTrashRestore(page, applicationId, locale, restoreDialog, `${locale} projects`)
 }
 
 async function captureResourcesGuide(page: Page, locale: Locale, applicationId: string, labels: Record<string, string>) {
     await page.goto(`/a/${applicationId}`)
     await clickNavigation(page, labels.learningContent)
-    const surface = page.getByTestId('records-union-details-table').first()
+    const surface = page.getByTestId('library-details-table').first()
     await expect(surface).toBeVisible({ timeout: 30_000 })
     await surface.getByTestId('records-union-create-target-menu-button').click()
     await page.getByRole('menuitem', { name: locale === 'en' ? 'Page' : 'Страница', exact: true }).click()
@@ -698,88 +779,150 @@ async function captureResourcesGuide(page: Page, locale: Locale, applicationId: 
     await expect(dialog).toHaveCount(0)
 
     await clickNavigation(page, labels.learningContent)
-    const refreshedSurface = page.getByTestId('records-union-details-table').first()
+    const refreshedSurface = page.getByTestId('library-details-table').first()
     await expect(refreshedSurface).toBeVisible({ timeout: 30_000 })
     await refreshedSurface.getByTestId('records-union-create-target-menu-button').click()
     await page.getByRole('menuitem', { name: locale === 'en' ? 'Link' : 'Ссылка', exact: true }).click()
     dialog = page.getByRole('dialog').first()
     await expect(dialog).toBeVisible({ timeout: 30_000 })
-    await captureDocsStepScreenshot(page, locale, 'resources-pages-links', 4, dialog)
     await dialog
-        .getByLabel(locale === 'en' ? 'Source URL *' : 'URL источника *', { exact: true })
-        .fill('https://example.test/training/operations-handbook')
-    await dialog.getByLabel(locale === 'en' ? 'Source URL *' : 'URL источника *', { exact: true }).fill('example.test/training')
+        .getByLabel(locale === 'en' ? 'Title *' : 'Заголовок *', { exact: true })
+        .fill(locale === 'en' ? 'Operations handbook' : 'Справочник операций')
+    const sourceUrlField = dialog.getByLabel(locale === 'en' ? 'Source URL *' : 'URL источника *', { exact: true })
+    await sourceUrlField.fill('https://example.test/training/operations-handbook')
+    await expect(sourceUrlField).toHaveValue('https://example.test/training/operations-handbook')
+    await expect(dialog.getByTestId(entityDialogSelectors.submitButton)).toBeEnabled()
+    await captureDocsStepScreenshot(page, locale, 'resources-pages-links', 4, dialog)
+    await sourceUrlField.fill('example.test/training')
     await expectLocalizedValidation(dialog, locale, { label: `${locale} link validation` })
+    const invalidUrlMessage = localized(locale, 'Enter an absolute http or https URL.', 'Введите абсолютный URL http или https.')
+    await expect(dialog.getByText(invalidUrlMessage, { exact: true }), `${locale} visible invalid URL message`).toBeVisible()
     await captureDocsStepScreenshot(page, locale, 'resources-pages-links', 5, dialog)
+    await sourceUrlField.fill('https://example.test/training/operations-handbook')
+    await expect(dialog.getByText(invalidUrlMessage, { exact: true }), `${locale} corrected URL validation`).toHaveCount(0)
     await dialog.getByTestId(entityDialogSelectors.cancelButton).click()
     await expect(dialog).toHaveCount(0)
 }
 
 async function captureCoursesGuide(page: Page, locale: Locale, applicationId: string, labels: Record<string, string>) {
     await page.goto(`/a/${applicationId}`)
-    await clickNavigationAndExpectText(page, labels.courses, locale === 'en' ? 'General' : 'Общее')
+    const sectionsLabel = localized(locale, 'Sections', 'Разделы')
+    const courseItemsLabel = localized(locale, 'Course items', 'Элементы курса')
+    await clickNavigationAndExpectText(page, labels.courses, sectionsLabel)
+    await selectBuilderTab(page, sectionsLabel, `${locale} course sections`)
     await captureDocsScreenshot(page, locale, 'courses', page.locator('main').first())
-    await page.getByRole('tab', { name: locale === 'en' ? 'General' : 'Общее' }).click()
+    const complianceCourse = page.getByRole('tab', {
+        name: localized(locale, 'Compliance Refresh Course', 'Курс обновления требований'),
+        exact: true
+    })
+    await expect(complianceCourse, `${locale} compliance course selection`).toBeVisible({ timeout: 30_000 })
+    await complianceCourse.click()
+    await expect(complianceCourse).toHaveAttribute('aria-selected', 'true')
+    await expect(
+        page.getByText(localized(locale, 'Read the certificate policy', 'Изучите политику сертификатов'), { exact: true }).first()
+    ).toBeVisible({ timeout: 30_000 })
     await captureDocsStepScreenshot(page, locale, 'courses', 1, page.locator('body'))
-    await page.getByRole('tab', { name: locale === 'en' ? 'Outline' : 'Структура' }).click()
+    await selectBuilderTab(page, courseItemsLabel, `${locale} course items`)
+    await expect(page.getByRole('heading', { name: courseItemsLabel, exact: true })).toBeVisible({ timeout: 30_000 })
     await captureDocsStepScreenshot(page, locale, 'courses', 2, page.locator('body'))
-    await page
-        .getByRole('heading', { name: locale === 'en' ? 'Items' : 'Элементы', exact: true })
-        .locator('..')
-        .getByRole('button', { name: locale === 'en' ? 'Create' : 'Создать' })
-        .click()
+    const createButton = page.getByRole('button', { name: localized(locale, 'Create', 'Создать'), exact: true }).first()
+    await expect(createButton, `${locale} course item create action`).toBeVisible({ timeout: 30_000 })
+    await createButton.click()
     const dialog = page.getByRole('dialog').first()
     await expect(dialog).toBeVisible({ timeout: 30_000 })
     await expectOptionalMultilineTextControls(dialog, locale, `${locale} course item`)
     await captureDocsStepScreenshot(page, locale, 'courses', 3, page.locator('body'))
     await dialog.getByTestId(entityDialogSelectors.cancelButton).click()
     await expect(dialog).toHaveCount(0)
-    await page.getByRole('tab', { name: locale === 'en' ? 'Completion' : 'Завершение' }).click()
+    await selectBuilderTab(page, sectionsLabel, `${locale} course section actions`)
+    await complianceCourse.click()
+    await expect(complianceCourse).toHaveAttribute('aria-selected', 'true')
+    await expect(
+        page.getByText(localized(locale, 'Read the certificate policy', 'Изучите политику сертификатов'), { exact: true }).first()
+    ).toBeVisible({ timeout: 30_000 })
+    await openFirstRuntimeRowActions(page, `${locale} course section actions`)
+    await expect(page.getByRole('menuitem', { name: localized(locale, 'Edit', 'Редактировать'), exact: true })).toBeVisible({
+        timeout: 30_000
+    })
     await captureDocsStepScreenshot(page, locale, 'courses', 4, page.locator('body'))
-    await page.getByRole('tab', { name: locale === 'en' ? 'Player' : 'Проигрыватель' }).click()
+    await page.keyboard.press('Escape')
+    await expect(page.getByRole('menu')).toHaveCount(0, { timeout: 30_000 })
+    await selectBuilderTab(page, localized(locale, 'Reports', 'Отчёты'), `${locale} course reports`)
+    await expect(page.getByTestId('runtime-report-details-table').first(), `${locale} course report details`).toBeVisible({
+        timeout: 30_000
+    })
     await captureDocsStepScreenshot(page, locale, 'courses', 5, page.locator('body'))
 }
 
 async function captureTracksGuide(page: Page, locale: Locale, applicationId: string, labels: Record<string, string>) {
     await page.goto(`/a/${applicationId}`)
-    await clickNavigation(page, labels.tracks)
+    const stagesLabel = localized(locale, 'Stages', 'Этапы')
+    const trackStepsLabel = localized(locale, 'Track steps', 'Шаги трека')
+    await clickNavigationAndExpectText(page, labels.tracks, stagesLabel)
+    await selectBuilderTab(page, stagesLabel, `${locale} track stages`)
     await captureDocsScreenshot(page, locale, 'learning-tracks', page.locator('main').first())
-    await page.getByRole('tab', { name: locale === 'en' ? 'General' : 'Общее' }).click()
     await captureDocsStepScreenshot(page, locale, 'learning-tracks', 1, page.locator('body'))
-    await page.getByRole('tab', { name: locale === 'en' ? 'Outline' : 'Структура' }).click()
+    await selectBuilderTab(page, trackStepsLabel, `${locale} track steps`)
+    await expect(page.getByRole('heading', { name: trackStepsLabel, exact: true })).toBeVisible({ timeout: 30_000 })
     await captureDocsStepScreenshot(page, locale, 'learning-tracks', 2, page.locator('body'))
-    await page
-        .getByRole('heading', { name: locale === 'en' ? 'Steps' : 'Шаги', exact: true })
-        .locator('..')
-        .getByRole('button', { name: locale === 'en' ? 'Create' : 'Создать' })
-        .click()
+    const createButton = page.getByRole('button', { name: localized(locale, 'Create', 'Создать'), exact: true }).first()
+    await expect(createButton, `${locale} track step create action`).toBeVisible({ timeout: 30_000 })
+    await createButton.click()
     const dialog = page.getByRole('dialog').first()
     await expect(dialog).toBeVisible({ timeout: 30_000 })
     await expectOptionalMultilineTextControls(dialog, locale, `${locale} track step`)
     await captureDocsStepScreenshot(page, locale, 'learning-tracks', 3, page.locator('body'))
     await dialog.getByTestId(entityDialogSelectors.cancelButton).click()
     await expect(dialog).toHaveCount(0)
-    await page.getByRole('tab', { name: locale === 'en' ? 'Completion' : 'Завершение' }).click()
+    const complianceTrack = page.getByRole('tab', {
+        name: localized(locale, 'Compliance refresh track', 'Трек обновления требований'),
+        exact: true
+    })
+    await expect(complianceTrack, `${locale} second learning track selection`).toBeVisible({ timeout: 30_000 })
+    await complianceTrack.click()
+    await expect(complianceTrack).toHaveAttribute('aria-selected', 'true')
     await captureDocsStepScreenshot(page, locale, 'learning-tracks', 4, page.locator('body'))
-    await page.getByRole('tab', { name: locale === 'en' ? 'Player' : 'Проигрыватель' }).click()
+    await selectBuilderTab(page, localized(locale, 'Player', 'Проигрыватель'), `${locale} learning track player`)
+    await selectBuilderTab(page, localized(locale, 'Reports', 'Отчёты'), `${locale} learning track reports`)
+    await expect(page.getByTestId('runtime-report-details-table').first(), `${locale} track report details`).toBeVisible({
+        timeout: 30_000
+    })
     await captureDocsStepScreenshot(page, locale, 'learning-tracks', 5, page.locator('body'))
 }
 
 async function captureSharingGuide(page: Page, locale: Locale, applicationId: string, labels: Record<string, string>) {
     await page.goto(`/a/${applicationId}`)
     await clickNavigation(page, labels.learningContent)
-    const surface = page.getByTestId('records-union-details-table').first()
+    const surface = page.getByTestId('library-details-table').first()
     await expect(surface).toBeVisible({ timeout: 30_000 })
+    const targetFilter = surface.getByTestId('library-target-filter').getByRole('combobox')
+    await targetFilter.click()
+    await page.getByRole('option', { name: localized(locale, 'Resources', 'Ресурсы'), exact: true }).click()
+    await expect(surface.getByText(localized(locale, 'Safety intro video', 'Вводное видео по безопасности'))).toBeVisible({
+        timeout: 30_000
+    })
     await captureDocsScreenshot(page, locale, 'sharing-recent-favorites-trash', surface)
     await openFirstRuntimeRowActions(page, `${locale} sharing star`)
+    await expect(page.getByRole('menuitem', { name: localized(locale, 'Add to starred', 'Добавить в избранное') })).toBeVisible({
+        timeout: 30_000
+    })
     await captureDocsStepScreenshot(page, locale, 'sharing-recent-favorites-trash', 1, page.locator('body'))
+    await selectRuntimeRowAction(page, locale, 'Add to starred', 'Добавить в избранное', `${locale} sharing star`)
+    await openFirstRuntimeRowActions(page, `${locale} sharing starred state`)
+    await expect(page.getByRole('menuitem', { name: localized(locale, 'Remove from starred', 'Убрать из избранного') })).toBeVisible({
+        timeout: 30_000
+    })
     await selectRuntimeRowAction(page, locale, 'Share', 'Поделиться', `${locale} sharing share`)
     const shareDialog = page.getByRole('dialog', { name: localizedPattern(locale, /Share content/i, /Поделиться контентом/i) }).first()
     await expect(shareDialog, `${locale} share dialog`).toBeVisible({ timeout: 30_000 })
     await captureDocsStepScreenshot(page, locale, 'sharing-recent-favorites-trash', 2, page.locator('body'))
     await shareDialog.getByRole('button', { name: localized(locale, 'Cancel', 'Отмена') }).click()
     await expect(shareDialog, `${locale} share dialog closed`).toHaveCount(0, { timeout: 30_000 })
-    await clickNavigation(page, labels.recent)
+    await clickNavigation(page, labels.home)
+    await selectBuilderTab(page, labels.recent, `${locale} recent learning content`)
+    await expect(page.getByTestId('library-details-table').first(), `${locale} recent learning content view`).toBeVisible({
+        timeout: 30_000
+    })
     await captureDocsStepScreenshot(page, locale, 'sharing-recent-favorites-trash', 3, page.locator('body'))
     await clickNavigation(page, labels.learningContent)
     await openFirstRuntimeRowActions(page, `${locale} sharing delete`)
@@ -793,114 +936,115 @@ async function captureSharingGuide(page: Page, locale: Locale, applicationId: st
     await deleteDialog.getByTestId(confirmDeleteSelectors.confirmButton).click()
     await expect(deleteDialog, `${locale} sharing delete confirmation closed`).toHaveCount(0, { timeout: 30_000 })
     await expect(page.getByRole('progressbar')).toHaveCount(0, { timeout: 30_000 })
-    await clickNavigation(page, locale === 'en' ? 'Trash' : 'Корзина')
-    await openTrashRestoreDialog(page, locale, `${locale} sharing`)
+    await clickNavigation(page, labels.trash)
+    const restoreDialog = await selectTrashRestoreTarget(page, locale, `${locale} sharing`)
     await captureDocsStepScreenshot(page, locale, 'sharing-recent-favorites-trash', 5, page.locator('body'))
-    await page.keyboard.press('Escape')
+    await submitTrashRestore(page, applicationId, locale, restoreDialog, `${locale} sharing`)
 }
 
 async function captureLearnerExperienceGuide(page: Page, locale: Locale, applicationId: string, labels: Record<string, string>) {
     const courseTitle = localized(locale, 'Learner Onboarding Course', 'Курс адаптации учащегося')
-    const ensureLearnerCourseSelected = async (player: Locator, label: string) => {
-        const heading = player.getByRole('heading', { name: courseTitle })
-        if (await heading.isVisible().catch(() => false)) return
-
-        await player.getByRole('combobox', { name: localized(locale, 'Course', 'Курс') }).click()
-        await page.getByRole('option', { name: courseTitle }).click()
-        await expect(heading, label).toBeVisible({ timeout: 30_000 })
+    const playerTabName = localized(locale, 'Player', 'Проигрыватель')
+    const parentTabsLabel = localized(locale, 'Content', 'Контент')
+    const learningItemsLabel = localized(locale, 'Learning items', 'Учебные материалы')
+    const courseTabs = (player: Locator) => player.getByRole('tablist', { name: parentTabsLabel })
+    const learningItemTabs = (player: Locator) => player.getByRole('tablist', { name: learningItemsLabel }).getByRole('tab')
+    const openPlayerForCourse = async () => {
+        await page.reload()
+        await expect(page.getByRole('progressbar')).toHaveCount(0, { timeout: 30_000 })
+        await selectBuilderTab(page, playerTabName, `${locale} learner player`)
+        const currentPlayer = page.getByTestId('runtime-learner-player')
+        await expect(currentPlayer, `${locale} learner player`).toBeVisible({ timeout: 30_000 })
+        const courseTab = courseTabs(currentPlayer).getByRole('tab', { name: courseTitle, exact: true })
+        await expect(courseTab, `${locale} assigned course`).toBeVisible({ timeout: 30_000 })
+        await courseTab.click()
+        await expect(courseTab).toHaveAttribute('aria-selected', 'true')
+        return currentPlayer
     }
 
     await page.goto(`/a/${applicationId}`)
     await clickNavigation(page, labels.courses)
-    await page.getByRole('tab', { name: localized(locale, 'Player', 'Проигрыватель') }).click()
-    let player = page.getByTestId('learner-player')
+    await selectBuilderTab(page, playerTabName, `${locale} learner player`)
+    let player = page.getByTestId('runtime-learner-player')
     await expect(player, `${locale} learner player`).toBeVisible({ timeout: 30_000 })
-    await ensureLearnerCourseSelected(player, `${locale} learner course heading`)
-    await page.getByRole('button', { name: localized(locale, 'Enable compact menu', 'Включить компактное меню') }).click()
-    await expect(
-        page.getByRole('button', { name: localized(locale, 'Enable wide menu', 'Включить широкое меню') }),
-        `${locale} compact learner navigation`
-    ).toBeVisible({ timeout: 30_000 })
-    await captureDocsScreenshot(page, locale, 'learner-experience', page.locator('main').first())
-    await page.getByRole('button', { name: localized(locale, 'Enable wide menu', 'Включить широкое меню') }).click()
-    await player.getByRole('combobox', { name: localized(locale, 'Course', 'Курс') }).click()
-    await captureDocsStepScreenshot(page, locale, 'learner-experience', 1, page.locator('body'))
-    await page.keyboard.press('Escape')
-    const outline = player.getByTestId('learner-player-outline')
-    await expect(outline).toBeVisible({ timeout: 30_000 })
-    const outlineButtons = outline.getByRole('button')
-    if ((await outlineButtons.count()) > 1) {
-        await outlineButtons.nth(1).click()
-    }
-    await captureDocsStepScreenshot(page, locale, 'learner-experience', 2, page.locator('body'))
-    await outlineButtons.first().click()
-    let completeButton = player.getByRole('button', { name: localized(locale, 'Complete', 'Завершить') }).first()
-    for (let attempt = 0; attempt < 5 && !(await completeButton.isEnabled().catch(() => false)); attempt += 1) {
-        const nextButton = player.getByRole('button', { name: localized(locale, 'Next', 'Далее') }).first()
-        if (!(await nextButton.isEnabled().catch(() => false))) break
-        await nextButton.click()
-        await expect(player, `${locale} learner player after moving to next item`).toBeVisible({ timeout: 30_000 })
-        completeButton = player.getByRole('button', { name: localized(locale, 'Complete', 'Завершить') }).first()
-    }
-    const progressPattern = localizedPattern(locale, /\b[1-9]\d* of \d+ completed\b/i, /Завершено [1-9]\d* из \d+/i)
-    if (await completeButton.isEnabled().catch(() => false)) {
-        await completeButton.click()
-    } else {
-        await expect(player.getByText(progressPattern).first(), `${locale} learner progress before complete fallback`).toBeVisible({
-            timeout: 30_000
-        })
-    }
-    await expect(player.getByText(progressPattern).first(), `${locale} learner progress after complete`).toBeVisible({ timeout: 30_000 })
-    await captureDocsStepScreenshot(page, locale, 'learner-experience', 3, page.locator('body'))
-    const nextButton = player.getByRole('button', { name: localized(locale, 'Next', 'Далее') }).first()
-    if (await nextButton.isEnabled().catch(() => false)) {
-        await nextButton.click()
-    } else {
-        const buttons = player.getByTestId('learner-player-outline').getByRole('button')
-        if ((await buttons.count()) > 1) {
-            await buttons.first().click()
-        } else {
-            await buttons.first().click()
-        }
-    }
-    await expect(player.getByText(progressPattern).first(), `${locale} learner progress remains visible after next`).toBeVisible({
-        timeout: 30_000
+    const courseTab = courseTabs(player).getByRole('tab', { name: courseTitle, exact: true })
+    await expect(courseTab, `${locale} assigned course`).toBeVisible({ timeout: 30_000 })
+    const comparisonCourseTab = courseTabs(player).getByRole('tab', {
+        name: localized(locale, 'Compliance Refresh Course', 'Курс обновления требований'),
+        exact: true
     })
+    await expect(comparisonCourseTab, `${locale} comparison course`).toBeVisible({ timeout: 30_000 })
+    await comparisonCourseTab.click()
+    await expect(comparisonCourseTab).toHaveAttribute('aria-selected', 'true')
+    await captureDocsStepScreenshot(page, locale, 'learner-experience', 1, page.locator('body'))
+    await courseTab.click()
+    await expect(courseTab).toHaveAttribute('aria-selected', 'true')
+    await captureDocsScreenshot(page, locale, 'learner-experience', page.locator('main').first())
+    const itemTabs = learningItemTabs(player)
+    await expect(itemTabs, `${locale} course learning items`).toHaveCount(2, { timeout: 30_000 })
+    await expect(itemTabs.first()).toHaveAttribute('aria-selected', 'true')
+    await expect(itemTabs.nth(1), `${locale} next course item starts locked`).toBeDisabled()
+    await captureDocsStepScreenshot(page, locale, 'learner-experience', 2, page.locator('body'))
+
+    const completeButton = player.getByRole('button', {
+        name: localized(locale, 'Mark complete', 'Отметить завершенным'),
+        exact: true
+    })
+    await expect(completeButton, `${locale} current item completion action`).toBeEnabled({ timeout: 30_000 })
+    const completionResponsePromise = page.waitForResponse(
+        (response) =>
+            response.request().method() === 'POST' &&
+            new URL(response.url()).pathname === `/api/v1/applications/${applicationId}/runtime/progress/content` &&
+            response.ok(),
+        { timeout: 30_000 }
+    )
+    await completeButton.click()
+    const completionResponse = await completionResponsePromise
+    const completionPayload = (await completionResponse.json()) as Record<string, unknown>
+    expect(completionPayload).toMatchObject({
+        persisted: true,
+        targetObjectCodename: 'CourseItems',
+        status: 'completed',
+        progressPercent: 100
+    })
+    await expect(
+        player.getByText(localizedPattern(locale, /Reading progress 100%/i, /Прогресс чтения 100%/i)),
+        `${locale} completed item reading progress`
+    ).toBeVisible({ timeout: 30_000 })
+    await captureDocsStepScreenshot(page, locale, 'learner-experience', 3, page.locator('body'))
+
+    player = await openPlayerForCourse()
+    const reloadedItemTabs = learningItemTabs(player)
+    await expect(reloadedItemTabs.nth(1), `${locale} completion unlocks the next course item`).toBeEnabled({ timeout: 30_000 })
+    await reloadedItemTabs.nth(1).click()
+    await expect(reloadedItemTabs.nth(1)).toHaveAttribute('aria-selected', 'true')
     await captureDocsStepScreenshot(page, locale, 'learner-experience', 4, page.locator('body'))
 
-    const finalCompleteButton = player.getByRole('button', { name: localized(locale, 'Complete', 'Завершить') }).first()
-    if (await finalCompleteButton.isEnabled().catch(() => false)) {
-        await finalCompleteButton.click()
-        await expect(
-            player.getByText(localizedPattern(locale, /\b2 of 2 completed\b/i, /Завершено 2 из 2/i)).first(),
-            `${locale} learner final progress before reload`
-        ).toBeVisible({ timeout: 30_000 })
-    }
-
-    await page.reload()
-    await page.getByRole('tab', { name: localized(locale, 'Player', 'Проигрыватель') }).click()
-    player = page.getByTestId('learner-player')
-    await expect(player, `${locale} learner player after reload`).toBeVisible({ timeout: 30_000 })
-    await ensureLearnerCourseSelected(player, `${locale} learner course heading after reload`)
-    await expect(player.getByText(progressPattern)).toBeVisible({ timeout: 30_000 })
+    player = await openPlayerForCourse()
+    await expect(player.getByText(localized(locale, 'Completed', 'Завершено'), { exact: true })).toBeVisible({ timeout: 30_000 })
+    await expect(learningItemTabs(player).nth(1), `${locale} completed progress survives reload`).toBeEnabled()
     await captureDocsStepScreenshot(page, locale, 'learner-experience', 5, page.locator('body'))
 }
 
 async function captureKnowledgeGuide(page: Page, locale: Locale, applicationId: string, labels: Record<string, string>) {
     await page.goto(`/a/${applicationId}`)
     await clickNavigation(page, labels.knowledge)
+    const knowledgeArticlesTable = page.getByTestId('dashboard-entity-table').first()
+    await expect(knowledgeArticlesTable, `${locale} Knowledge Articles table`).toBeVisible({ timeout: 30_000 })
     await captureDocsScreenshot(page, locale, 'knowledge', page.locator('main').first())
     await page.getByRole('columnheader', { name: locale === 'en' ? /title/i : /заголовок/i }).click()
     await captureDocsStepScreenshot(page, locale, 'knowledge', 1, page.locator('body'))
-    const createButton = page.getByTestId(applicationSelectors.runtimeCreateButton).first()
-    await expect(createButton).toBeVisible({ timeout: 30_000 })
-    await createButton.click()
+    const createMenu = knowledgeArticlesTable.getByTestId('records-union-create-target-menu-button')
+    await expect(createMenu, `${locale} Knowledge Article create menu`).toBeEnabled({ timeout: 30_000 })
+    await createMenu.click()
+    await page.getByRole('menuitem', { name: localized(locale, 'Article', 'Статья'), exact: true }).click()
     let dialog = page.getByRole('dialog').first()
     await expect(dialog).toBeVisible({ timeout: 30_000 })
     await captureDocsStepScreenshot(page, locale, 'knowledge', 2, page.locator('body'))
-    await dialog
-        .getByLabel(locale === 'en' ? 'Title *' : 'Заголовок *', { exact: true })
-        .fill(locale === 'en' ? 'Operations handbook' : 'Справочник операций')
+    await dialog.getByLabel(localized(locale, 'Knowledge Folder', 'Папка знаний')).click()
+    await page.getByRole('option', { name: /Getting started articles|Статьи для старта/i }).click()
+    const articleTitle = locale === 'en' ? 'Operations handbook' : 'Справочник операций'
+    await dialog.getByLabel(localized(locale, 'Title', 'Заголовок'), { exact: false }).first().fill(articleTitle)
     await captureDocsStepScreenshot(page, locale, 'knowledge', 3, page.locator('body'))
     const bodyEditor = await expectBlockEditorBodyControl(dialog, locale, `${locale} knowledge article`)
     await bodyEditor.fill(
@@ -908,14 +1052,17 @@ async function captureKnowledgeGuide(page: Page, locale: Locale, applicationId: 
             ? 'Keep operating procedures short and easy to scan.'
             : 'Делайте рабочие инструкции короткими и удобными для просмотра.'
     )
+    await dialog.getByTestId(entityDialogSelectors.submitButton).click()
+    await expect(dialog, `${locale} saved Knowledge Article dialog closed`).toHaveCount(0, { timeout: 30_000 })
+    await expect(page.getByRole('progressbar')).toHaveCount(0, { timeout: 30_000 })
+    const createdArticleRow = knowledgeArticlesTable.getByRole('row').filter({ hasText: articleTitle }).first()
+    await expect(createdArticleRow, `${locale} saved Knowledge Article row`).toBeVisible({ timeout: 30_000 })
     await captureDocsStepScreenshot(page, locale, 'knowledge', 4, page.locator('body'))
-    await dialog.getByTestId(entityDialogSelectors.cancelButton).click()
-    await expect(dialog).toHaveCount(0)
-    await page
-        .getByRole('button', { name: locale === 'en' ? 'Actions' : 'Действия' })
-        .first()
-        .click()
-    await expect(page.getByRole('menu')).toBeVisible({ timeout: 30_000 })
+    await createdArticleRow.getByRole('button', { name: /^(?:Actions for|Действия для) .+$/ }).click()
+    await expect(page.getByRole('menu'), `${locale} saved Knowledge Article actions`).toBeVisible({ timeout: 30_000 })
+    await expect(page.getByRole('menuitem', { name: localized(locale, 'Edit', 'Редактировать'), exact: true })).toBeVisible({
+        timeout: 30_000
+    })
     await captureDocsStepScreenshot(page, locale, 'knowledge', 5, page.locator('body'))
     await page.keyboard.press('Escape')
 }
@@ -927,16 +1074,31 @@ async function captureReportsGuide(page: Page, locale: Locale, applicationId: st
     const firstReportRow = page.locator('main [role="row"]').nth(1)
     await expect(firstReportRow, `${locale} reports first data row`).toBeVisible({ timeout: 30_000 })
     await firstReportRow.click()
-    await captureDocsStepScreenshot(page, locale, 'reports', 1, page.locator('body'))
-    const reportDetailsTable = page.getByTestId('runtime-report-details-table')
+    const reportDetailsTable = page.getByTestId('runtime-report-details-table').first()
     await expect(reportDetailsTable).toBeVisible({ timeout: 30_000 })
-    await reportDetailsTable.getByRole('columnheader', { name: locale === 'en' ? 'Title' : 'Заголовок', exact: true }).click()
+    const titleHeader = reportDetailsTable.getByRole('columnheader', { name: locale === 'en' ? /^Title/ : /^Заголовок/ })
+    const typeHeader = reportDetailsTable.getByRole('columnheader', { name: locale === 'en' ? /^Type/ : /^Тип/ })
+    await expect(titleHeader).toBeVisible()
+    await expect(typeHeader).toBeVisible()
+    await captureDocsStepScreenshot(page, locale, 'reports', 1, page.locator('body'))
+    await titleHeader.click()
+    await expect(titleHeader, `${locale} report title sort state`).toHaveAttribute('aria-sort', /ascending|descending/)
     await captureDocsStepScreenshot(page, locale, 'reports', 2, page.locator('body'))
-    await reportDetailsTable.getByRole('columnheader', { name: locale === 'en' ? 'Type' : 'Тип', exact: true }).click()
+    await typeHeader.click()
+    await expect(typeHeader, `${locale} report type sort state`).toHaveAttribute('aria-sort', /ascending|descending/)
     await captureDocsStepScreenshot(page, locale, 'reports', 3, page.locator('body'))
-    await page.getByRole('button', { name: locale === 'en' ? /export csv/i : /экспорт csv/i }).focus()
+    await reportDetailsTable.getByRole('button', { name: locale === 'en' ? /export csv/i : /экспорт csv/i }).focus()
     await captureDocsStepScreenshot(page, locale, 'reports', 4, page.locator('body'))
     await clickNavigation(page, labels.learningContent)
+    const librarySurface = page.getByTestId('library-details-table').first()
+    await expect(librarySurface, `${locale} report source library`).toBeVisible({ timeout: 30_000 })
+    const resourceFilter = librarySurface.getByTestId('library-target-filter').getByRole('combobox')
+    await resourceFilter.click()
+    await page.getByRole('option', { name: localized(locale, 'Resources', 'Ресурсы'), exact: true }).click()
+    await expect(resourceFilter).toContainText(localized(locale, 'Resources', 'Ресурсы'))
+    const reportSourceTitle = localized(locale, 'Certificate policy page', 'Страница политики сертификатов')
+    await fillVisibleSearch(page, locale, reportSourceTitle)
+    await expect(librarySurface.getByText(reportSourceTitle, { exact: false }).first()).toBeVisible({ timeout: 30_000 })
     await captureDocsStepScreenshot(page, locale, 'reports', 5, page.locator('body'))
     await clickNavigation(page, labels.reports)
 }
@@ -1040,7 +1202,7 @@ async function captureTroubleshootingGuide(page: Page, locale: Locale, applicati
     await fillVisibleSearch(page, locale, locale === 'en' ? 'missing item' : 'нет материала')
     await captureDocsStepScreenshot(page, locale, 'troubleshooting', 1, page.locator('body'))
     await fillVisibleSearch(page, locale, '')
-    const surface = page.getByTestId('records-union-details-table').first()
+    const surface = page.getByTestId('library-details-table').first()
     await surface.getByTestId('records-union-create-target-menu-button').click()
     await page.getByRole('menuitem', { name: locale === 'en' ? 'Link' : 'Ссылка', exact: true }).click()
     const dialog = page.getByRole('dialog').first()
@@ -1054,7 +1216,7 @@ async function captureTroubleshootingGuide(page: Page, locale: Locale, applicati
     await captureDocsScreenshot(page, locale, 'troubleshooting', dialog)
     await dialog.getByTestId(entityDialogSelectors.cancelButton).click()
     await expect(dialog).toHaveCount(0)
-    await clickNavigation(page, locale === 'en' ? 'Trash' : 'Корзина')
+    await clickNavigation(page, labels.trash)
     await captureDocsStepScreenshot(page, locale, 'troubleshooting', 4, page.locator('body'))
     await page.setViewportSize({ width: 390, height: 844 })
     await expectNoPageHorizontalOverflow(page, `${locale} troubleshooting mobile`)
@@ -1120,21 +1282,25 @@ test.describe('LMS user guide documentation screenshots', () => {
                 locale === 'en'
                     ? {
                           workspaces: 'Workspaces',
-                          learningContent: 'Learning Content',
+                          home: 'Welcome',
+                          learningContent: 'Content Projects',
                           courses: 'Courses',
-                          tracks: 'Tracks',
+                          tracks: 'Learning Tracks',
                           recent: 'Recent',
-                          knowledge: 'Knowledge',
+                          trash: 'Trash',
+                          knowledge: 'Knowledge Articles',
                           reports: 'Reports',
                           startLearning: 'Start learning'
                       }
                     : {
                           workspaces: 'Рабочие пространства',
-                          learningContent: 'Учебный контент',
+                          home: 'Добро пожаловать',
+                          learningContent: 'Проекты контента',
                           courses: 'Курсы',
-                          tracks: 'Треки',
+                          tracks: 'Учебные треки',
                           recent: 'Недавние',
-                          knowledge: 'Знания',
+                          trash: 'Корзина',
+                          knowledge: 'Статьи базы знаний',
                           reports: 'Отчёты',
                           startLearning: 'Начать обучение'
                       }

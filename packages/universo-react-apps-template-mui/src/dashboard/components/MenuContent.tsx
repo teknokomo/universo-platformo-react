@@ -79,6 +79,7 @@ const resolveIcon = (iconName?: string | null) => {
         case 'dashboard':
             return <DashboardRoundedIcon />
         case 'page':
+        case 'article':
             return <ArticleRoundedIcon />
         case 'school':
         case 'learning':

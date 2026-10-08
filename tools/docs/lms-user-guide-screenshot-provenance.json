@@ -1,10 +1,10 @@
 {
     "version": 1,
-    "generatedAt": "2026-09-19T15:53:25.676Z",
+    "generatedAt": "2026-10-08T17:12:35.310Z",
     "generator": "tools/testing/e2e/specs/generators/docs-lms-user-guide-screenshots.spec.ts",
-    "generatorSha256": "3c225ef9d9cb833c6af4070fe5a281916bb35252077ba5601fda24f8e2d3097d",
+    "generatorSha256": "703cb469ec6638271db12d9f14d196331fd032c3471c0a721d82f249d6843dff",
     "manifest": "tools/docs/lms-user-guide-screenshot-manifest.json",
-    "manifestSha256": "92da203f9527c214cfe7a3a79e24c1a8f8003faed100ce1149c442a9fa3632a8",
+    "manifestSha256": "c35fa68697314bbc3be4b5c413fc51c9d7ad8201bc81d54a1622ddf9ffeec23e",
     "viewport": {
         "width": 1920,
         "height": 1080
@@ -576,7 +576,7 @@
             "captureType": "workflow-step",
             "stepIndex": 1,
             "stepId": "README-step-1",
-            "route": "/a/{applicationId}",
+            "route": "/a/{applicationId}/workspaces?locale=en&workspaceId={routeId}",
             "viewport": {
                 "width": 1920,
                 "height": 1080
@@ -589,7 +589,7 @@
             "captureType": "workflow-step",
             "stepIndex": 2,
             "stepId": "README-step-2",
-            "route": "/a/{applicationId}",
+            "route": "/a/{applicationId}/workspaces?locale=en&workspaceId={routeId}",
             "viewport": {
                 "width": 1920,
                 "height": 1080
@@ -602,7 +602,7 @@
             "captureType": "workflow-step",
             "stepIndex": 3,
             "stepId": "README-step-3",
-            "route": "/a/{applicationId}",
+            "route": "/a/{applicationId}?targetKind=object&entityTypeCodename=ContentProjects&locale=en&workspaceId={routeId}",
             "viewport": {
                 "width": 1920,
                 "height": 1080
@@ -615,7 +615,7 @@
             "captureType": "workflow-step",
             "stepIndex": 4,
             "stepId": "README-step-4",
-            "route": "/a/{applicationId}",
+            "route": "/a/{applicationId}?targetKind=object&entityTypeCodename=Reports&locale=en&workspaceId={routeId}",
             "viewport": {
                 "width": 1920,
                 "height": 1080
@@ -626,7 +626,7 @@
             "locale": "en",
             "path": "docs/en/.gitbook/assets/lms-user-guide/getting-around.png",
             "captureType": "overview",
-            "route": "/a/{applicationId}/workspaces?locale=en",
+            "route": "/a/{applicationId}/workspaces?locale=en&workspaceId={routeId}",
             "viewport": {
                 "width": 1920,
                 "height": 1080
@@ -639,7 +639,7 @@
             "captureType": "workflow-step",
             "stepIndex": 1,
             "stepId": "getting-around-step-1",
-            "route": "/a/{applicationId}/workspaces?locale=en",
+            "route": "/a/{applicationId}/workspaces?locale=en&workspaceId={routeId}",
             "viewport": {
                 "width": 1920,
                 "height": 1080
@@ -652,7 +652,7 @@
             "captureType": "workflow-step",
             "stepIndex": 2,
             "stepId": "getting-around-step-2",
-            "route": "/a/{applicationId}/{routeId}?targetKind=object&entityTypeId={routeId}&locale=en",
+            "route": "/a/{applicationId}?targetKind=object&entityTypeCodename=LearningTracks&locale=en&workspaceId={routeId}",
             "viewport": {
                 "width": 1920,
                 "height": 1080
@@ -665,7 +665,7 @@
             "captureType": "workflow-step",
             "stepIndex": 3,
             "stepId": "getting-around-step-3",
-            "route": "/a/{applicationId}/{routeId}?targetKind=object&entityTypeId={routeId}&locale=en",
+            "route": "/a/{applicationId}?targetKind=object&entityTypeCodename=ContentProjects&locale=en&workspaceId={routeId}",
             "viewport": {
                 "width": 1920,
                 "height": 1080
@@ -678,7 +678,7 @@
             "captureType": "workflow-step",
             "stepIndex": 4,
             "stepId": "getting-around-step-4",
-            "route": "/a/{applicationId}/{routeId}?targetKind=object&entityTypeId={routeId}&locale=en",
+            "route": "/a/{applicationId}?targetKind=object&entityTypeCodename=ContentProjects&locale=en&workspaceId={routeId}",
             "viewport": {
                 "width": 1920,
                 "height": 1080
@@ -691,7 +691,7 @@
             "captureType": "workflow-step",
             "stepIndex": 5,
             "stepId": "getting-around-step-5",
-            "route": "/a/{applicationId}/{routeId}?targetKind=object&entityTypeId={routeId}&locale=en",
+            "route": "/a/{applicationId}?targetKind=object&entityTypeCodename=ContentProjects&locale=en&workspaceId={routeId}",
             "viewport": {
                 "width": 1920,
                 "height": 1080
@@ -702,7 +702,7 @@
             "locale": "en",
             "path": "docs/en/.gitbook/assets/lms-user-guide/learning-content-library.png",
             "captureType": "overview",
-            "route": "/a/{applicationId}/{routeId}?targetKind=object&entityTypeId={routeId}&locale=en",
+            "route": "/a/{applicationId}?targetKind=object&entityTypeCodename=ContentProjects&locale=en&workspaceId={routeId}",
             "viewport": {
                 "width": 1920,
                 "height": 1080
@@ -715,7 +715,7 @@
             "captureType": "workflow-step",
             "stepIndex": 1,
             "stepId": "learning-content-library-step-1",
-            "route": "/a/{applicationId}/{routeId}?targetKind=object&entityTypeId={routeId}&locale=en",
+            "route": "/a/{applicationId}?targetKind=object&entityTypeCodename=ContentProjects&locale=en&workspaceId={routeId}",
             "viewport": {
                 "width": 1920,
                 "height": 1080
@@ -728,7 +728,7 @@
             "captureType": "workflow-step",
             "stepIndex": 2,
             "stepId": "learning-content-library-step-2",
-            "route": "/a/{applicationId}/{routeId}?targetKind=object&entityTypeId={routeId}&locale=en",
+            "route": "/a/{applicationId}?targetKind=object&entityTypeCodename=ContentProjects&locale=en&workspaceId={routeId}",
             "viewport": {
                 "width": 1920,
                 "height": 1080
@@ -741,7 +741,7 @@
             "captureType": "workflow-step",
             "stepIndex": 3,
             "stepId": "learning-content-library-step-3",
-            "route": "/a/{applicationId}/{routeId}?targetKind=object&entityTypeId={routeId}&locale=en",
+            "route": "/a/{applicationId}?targetKind=object&entityTypeCodename=ContentProjects&locale=en&workspaceId={routeId}",
             "viewport": {
                 "width": 1920,
                 "height": 1080
@@ -754,7 +754,7 @@
             "captureType": "workflow-step",
             "stepIndex": 4,
             "stepId": "learning-content-library-step-4",
-            "route": "/a/{applicationId}/{routeId}?targetKind=object&entityTypeId={routeId}&locale=en",
+            "route": "/a/{applicationId}?targetKind=object&entityTypeCodename=ContentProjects&locale=en&workspaceId={routeId}",
             "viewport": {
                 "width": 1920,
                 "height": 1080
@@ -767,7 +767,7 @@
             "captureType": "workflow-step",
             "stepIndex": 5,
             "stepId": "learning-content-library-step-5",
-            "route": "/a/{applicationId}/{routeId}?targetKind=object&entityTypeId={routeId}&locale=en",
+            "route": "/a/{applicationId}?targetKind=object&entityTypeCodename=ContentProjects&locale=en&workspaceId={routeId}",
             "viewport": {
                 "width": 1920,
                 "height": 1080
@@ -778,7 +778,7 @@
             "locale": "en",
             "path": "docs/en/.gitbook/assets/lms-user-guide/projects.png",
             "captureType": "overview",
-            "route": "/a/{applicationId}/{routeId}?targetKind=object&entityTypeId={routeId}&locale=en",
+            "route": "/a/{applicationId}?targetKind=object&entityTypeCodename=ContentProjects&locale=en&workspaceId={routeId}",
             "viewport": {
                 "width": 1920,
                 "height": 1080
@@ -791,7 +791,7 @@
             "captureType": "workflow-step",
             "stepIndex": 1,
             "stepId": "projects-step-1",
-            "route": "/a/{applicationId}/{routeId}?targetKind=object&entityTypeId={routeId}&locale=en",
+            "route": "/a/{applicationId}?targetKind=object&entityTypeCodename=ContentProjects&locale=en&workspaceId={routeId}",
             "viewport": {
                 "width": 1920,
                 "height": 1080
@@ -804,7 +804,7 @@
             "captureType": "workflow-step",
             "stepIndex": 2,
             "stepId": "projects-step-2",
-            "route": "/a/{applicationId}/{routeId}?targetKind=object&entityTypeId={routeId}&locale=en",
+            "route": "/a/{applicationId}?targetKind=object&entityTypeCodename=ContentProjects&locale=en&workspaceId={routeId}",
             "viewport": {
                 "width": 1920,
                 "height": 1080
@@ -817,7 +817,7 @@
             "captureType": "workflow-step",
             "stepIndex": 3,
             "stepId": "projects-step-3",
-            "route": "/a/{applicationId}/{routeId}?targetKind=object&entityTypeId={routeId}&locale=en",
+            "route": "/a/{applicationId}?targetKind=object&entityTypeCodename=ContentProjects&locale=en&workspaceId={routeId}",
             "viewport": {
                 "width": 1920,
                 "height": 1080
@@ -830,7 +830,7 @@
             "captureType": "workflow-step",
             "stepIndex": 4,
             "stepId": "projects-step-4",
-            "route": "/a/{applicationId}/{routeId}?targetKind=object&entityTypeId={routeId}&locale=en",
+            "route": "/a/{applicationId}?targetKind=object&entityTypeCodename=ContentProjects&locale=en&workspaceId={routeId}",
             "viewport": {
                 "width": 1920,
                 "height": 1080
@@ -843,7 +843,7 @@
             "captureType": "workflow-step",
             "stepIndex": 5,
             "stepId": "projects-step-5",
-            "route": "/a/{applicationId}/{routeId}?targetKind=object&entityTypeId={routeId}&locale=en",
+            "route": "/a/{applicationId}?targetKind=object&entityTypeCodename=TrashEntries&locale=en&workspaceId={routeId}",
             "viewport": {
                 "width": 1920,
                 "height": 1080
@@ -856,7 +856,7 @@
             "captureType": "workflow-step",
             "stepIndex": 1,
             "stepId": "resources-pages-links-step-1",
-            "route": "/a/{applicationId}/{routeId}?targetKind=object&entityTypeId={routeId}&locale=en",
+            "route": "/a/{applicationId}?targetKind=object&entityTypeCodename=ContentProjects&locale=en&workspaceId={routeId}",
             "viewport": {
                 "width": 1920,
                 "height": 1080
@@ -869,7 +869,7 @@
             "captureType": "workflow-step",
             "stepIndex": 2,
             "stepId": "resources-pages-links-step-2",
-            "route": "/a/{applicationId}/{routeId}?targetKind=object&entityTypeId={routeId}&locale=en",
+            "route": "/a/{applicationId}?targetKind=object&entityTypeCodename=ContentProjects&locale=en&workspaceId={routeId}",
             "viewport": {
                 "width": 1920,
                 "height": 1080
@@ -880,7 +880,7 @@
             "locale": "en",
             "path": "docs/en/.gitbook/assets/lms-user-guide/resources-pages-links.png",
             "captureType": "overview",
-            "route": "/a/{applicationId}/{routeId}?targetKind=object&entityTypeId={routeId}&locale=en",
+            "route": "/a/{applicationId}?targetKind=object&entityTypeCodename=ContentProjects&locale=en&workspaceId={routeId}",
             "viewport": {
                 "width": 1920,
                 "height": 1080
@@ -893,7 +893,7 @@
             "captureType": "workflow-step",
             "stepIndex": 3,
             "stepId": "resources-pages-links-step-3",
-            "route": "/a/{applicationId}/{routeId}?targetKind=object&entityTypeId={routeId}&locale=en",
+            "route": "/a/{applicationId}?targetKind=object&entityTypeCodename=ContentProjects&locale=en&workspaceId={routeId}",
             "viewport": {
                 "width": 1920,
                 "height": 1080
@@ -906,7 +906,7 @@
             "captureType": "workflow-step",
             "stepIndex": 4,
             "stepId": "resources-pages-links-step-4",
-            "route": "/a/{applicationId}/{routeId}?targetKind=object&entityTypeId={routeId}&locale=en",
+            "route": "/a/{applicationId}?targetKind=object&entityTypeCodename=ContentProjects&locale=en&workspaceId={routeId}",
             "viewport": {
                 "width": 1920,
                 "height": 1080
@@ -919,7 +919,7 @@
             "captureType": "workflow-step",
             "stepIndex": 5,
             "stepId": "resources-pages-links-step-5",
-            "route": "/a/{applicationId}/{routeId}?targetKind=object&entityTypeId={routeId}&locale=en",
+            "route": "/a/{applicationId}?targetKind=object&entityTypeCodename=ContentProjects&locale=en&workspaceId={routeId}",
             "viewport": {
                 "width": 1920,
                 "height": 1080
@@ -930,7 +930,7 @@
             "locale": "en",
             "path": "docs/en/.gitbook/assets/lms-user-guide/courses.png",
             "captureType": "overview",
-            "route": "/a/{applicationId}/{routeId}?targetKind=object&entityTypeId={routeId}&locale=en",
+            "route": "/a/{applicationId}?targetKind=object&entityTypeCodename=Courses&locale=en&workspaceId={routeId}",
             "viewport": {
                 "width": 1920,
                 "height": 1080
@@ -943,7 +943,7 @@
             "captureType": "workflow-step",
             "stepIndex": 1,
             "stepId": "courses-step-1",
-            "route": "/a/{applicationId}/{routeId}?targetKind=object&entityTypeId={routeId}&locale=en",
+            "route": "/a/{applicationId}?targetKind=object&entityTypeCodename=Courses&locale=en&workspaceId={routeId}",
             "viewport": {
                 "width": 1920,
                 "height": 1080
@@ -956,7 +956,7 @@
             "captureType": "workflow-step",
             "stepIndex": 2,
             "stepId": "courses-step-2",
-            "route": "/a/{applicationId}/{routeId}?targetKind=object&entityTypeId={routeId}&locale=en",
+            "route": "/a/{applicationId}?targetKind=object&entityTypeCodename=Courses&locale=en&workspaceId={routeId}",
             "viewport": {
                 "width": 1920,
                 "height": 1080
@@ -969,7 +969,7 @@
             "captureType": "workflow-step",
             "stepIndex": 3,
             "stepId": "courses-step-3",
-            "route": "/a/{applicationId}/{routeId}?targetKind=object&entityTypeId={routeId}&locale=en",
+            "route": "/a/{applicationId}?targetKind=object&entityTypeCodename=Courses&locale=en&workspaceId={routeId}",
             "viewport": {
                 "width": 1920,
                 "height": 1080
@@ -982,7 +982,7 @@
             "captureType": "workflow-step",
             "stepIndex": 4,
             "stepId": "courses-step-4",
-            "route": "/a/{applicationId}/{routeId}?targetKind=object&entityTypeId={routeId}&locale=en",
+            "route": "/a/{applicationId}?targetKind=object&entityTypeCodename=Courses&locale=en&workspaceId={routeId}",
             "viewport": {
                 "width": 1920,
                 "height": 1080
@@ -995,7 +995,7 @@
             "captureType": "workflow-step",
             "stepIndex": 5,
             "stepId": "courses-step-5",
-            "route": "/a/{applicationId}/{routeId}?targetKind=object&entityTypeId={routeId}&locale=en",
+            "route": "/a/{applicationId}?targetKind=object&entityTypeCodename=Courses&locale=en&workspaceId={routeId}",
             "viewport": {
                 "width": 1920,
                 "height": 1080
@@ -1006,7 +1006,7 @@
             "locale": "en",
             "path": "docs/en/.gitbook/assets/lms-user-guide/learning-tracks.png",
             "captureType": "overview",
-            "route": "/a/{applicationId}/{routeId}?targetKind=object&entityTypeId={routeId}&locale=en",
+            "route": "/a/{applicationId}?targetKind=object&entityTypeCodename=LearningTracks&locale=en&workspaceId={routeId}",
             "viewport": {
                 "width": 1920,
                 "height": 1080
@@ -1019,7 +1019,7 @@
             "captureType": "workflow-step",
             "stepIndex": 1,
             "stepId": "learning-tracks-step-1",
-            "route": "/a/{applicationId}/{routeId}?targetKind=object&entityTypeId={routeId}&locale=en",
+            "route": "/a/{applicationId}?targetKind=object&entityTypeCodename=LearningTracks&locale=en&workspaceId={routeId}",
             "viewport": {
                 "width": 1920,
                 "height": 1080
@@ -1032,7 +1032,7 @@
             "captureType": "workflow-step",
             "stepIndex": 2,
             "stepId": "learning-tracks-step-2",
-            "route": "/a/{applicationId}/{routeId}?targetKind=object&entityTypeId={routeId}&locale=en",
+            "route": "/a/{applicationId}?targetKind=object&entityTypeCodename=LearningTracks&locale=en&workspaceId={routeId}",
             "viewport": {
                 "width": 1920,
                 "height": 1080
@@ -1045,7 +1045,7 @@
             "captureType": "workflow-step",
             "stepIndex": 3,
             "stepId": "learning-tracks-step-3",
-            "route": "/a/{applicationId}/{routeId}?targetKind=object&entityTypeId={routeId}&locale=en",
+            "route": "/a/{applicationId}?targetKind=object&entityTypeCodename=LearningTracks&locale=en&workspaceId={routeId}",
             "viewport": {
                 "width": 1920,
                 "height": 1080
@@ -1058,7 +1058,7 @@
             "captureType": "workflow-step",
             "stepIndex": 4,
             "stepId": "learning-tracks-step-4",
-            "route": "/a/{applicationId}/{routeId}?targetKind=object&entityTypeId={routeId}&locale=en",
+            "route": "/a/{applicationId}?targetKind=object&entityTypeCodename=LearningTracks&locale=en&workspaceId={routeId}",
             "viewport": {
                 "width": 1920,
                 "height": 1080
@@ -1071,7 +1071,7 @@
             "captureType": "workflow-step",
             "stepIndex": 5,
             "stepId": "learning-tracks-step-5",
-            "route": "/a/{applicationId}/{routeId}?targetKind=object&entityTypeId={routeId}&locale=en",
+            "route": "/a/{applicationId}?targetKind=object&entityTypeCodename=LearningTracks&locale=en&workspaceId={routeId}",
             "viewport": {
                 "width": 1920,
                 "height": 1080
@@ -1082,7 +1082,7 @@
             "locale": "en",
             "path": "docs/en/.gitbook/assets/lms-user-guide/sharing-recent-favorites-trash.png",
             "captureType": "overview",
-            "route": "/a/{applicationId}/{routeId}?targetKind=object&entityTypeId={routeId}&locale=en",
+            "route": "/a/{applicationId}?targetKind=object&entityTypeCodename=ContentProjects&locale=en&workspaceId={routeId}",
             "viewport": {
                 "width": 1920,
                 "height": 1080
@@ -1095,7 +1095,7 @@
             "captureType": "workflow-step",
             "stepIndex": 1,
             "stepId": "sharing-recent-favorites-trash-step-1",
-            "route": "/a/{applicationId}/{routeId}?targetKind=object&entityTypeId={routeId}&locale=en",
+            "route": "/a/{applicationId}?targetKind=object&entityTypeCodename=ContentProjects&locale=en&workspaceId={routeId}",
             "viewport": {
                 "width": 1920,
                 "height": 1080
@@ -1108,7 +1108,7 @@
             "captureType": "workflow-step",
             "stepIndex": 2,
             "stepId": "sharing-recent-favorites-trash-step-2",
-            "route": "/a/{applicationId}/{routeId}?targetKind=object&entityTypeId={routeId}&locale=en",
+            "route": "/a/{applicationId}?targetKind=object&entityTypeCodename=ContentProjects&locale=en&workspaceId={routeId}",
             "viewport": {
                 "width": 1920,
                 "height": 1080
@@ -1121,7 +1121,7 @@
             "captureType": "workflow-step",
             "stepIndex": 3,
             "stepId": "sharing-recent-favorites-trash-step-3",
-            "route": "/a/{applicationId}/{routeId}?targetKind=object&entityTypeId={routeId}&locale=en",
+            "route": "/a/{applicationId}?targetKind=page&entityTypeCodename=LearnerHome&locale=en&workspaceId={routeId}",
             "viewport": {
                 "width": 1920,
                 "height": 1080
@@ -1134,7 +1134,7 @@
             "captureType": "workflow-step",
             "stepIndex": 4,
             "stepId": "sharing-recent-favorites-trash-step-4",
-            "route": "/a/{applicationId}/{routeId}?targetKind=object&entityTypeId={routeId}&locale=en",
+            "route": "/a/{applicationId}?targetKind=object&entityTypeCodename=ContentProjects&locale=en&workspaceId={routeId}",
             "viewport": {
                 "width": 1920,
                 "height": 1080
@@ -1147,18 +1147,7 @@
             "captureType": "workflow-step",
             "stepIndex": 5,
             "stepId": "sharing-recent-favorites-trash-step-5",
-            "route": "/a/{applicationId}/{routeId}?targetKind=object&entityTypeId={routeId}&locale=en",
-            "viewport": {
-                "width": 1920,
-                "height": 1080
-            }
-        },
-        {
-            "id": "learner-experience",
-            "locale": "en",
-            "path": "docs/en/.gitbook/assets/lms-user-guide/learner-experience.png",
-            "captureType": "overview",
-            "route": "/a/{applicationId}/{routeId}?targetKind=object&entityTypeId={routeId}&locale=en",
+            "route": "/a/{applicationId}?targetKind=object&entityTypeCodename=TrashEntries&locale=en&workspaceId={routeId}",
             "viewport": {
                 "width": 1920,
                 "height": 1080
@@ -1171,7 +1160,18 @@
             "captureType": "workflow-step",
             "stepIndex": 1,
             "stepId": "learner-experience-step-1",
-            "route": "/a/{applicationId}/{routeId}?targetKind=object&entityTypeId={routeId}&locale=en",
+            "route": "/a/{applicationId}?targetKind=object&entityTypeCodename=Courses&locale=en&workspaceId={routeId}",
+            "viewport": {
+                "width": 1920,
+                "height": 1080
+            }
+        },
+        {
+            "id": "learner-experience",
+            "locale": "en",
+            "path": "docs/en/.gitbook/assets/lms-user-guide/learner-experience.png",
+            "captureType": "overview",
+            "route": "/a/{applicationId}?targetKind=object&entityTypeCodename=Courses&locale=en&workspaceId={routeId}",
             "viewport": {
                 "width": 1920,
                 "height": 1080
@@ -1184,7 +1184,7 @@
             "captureType": "workflow-step",
             "stepIndex": 2,
             "stepId": "learner-experience-step-2",
-            "route": "/a/{applicationId}/{routeId}?targetKind=object&entityTypeId={routeId}&locale=en",
+            "route": "/a/{applicationId}?targetKind=object&entityTypeCodename=Courses&locale=en&workspaceId={routeId}",
             "viewport": {
                 "width": 1920,
                 "height": 1080
@@ -1197,7 +1197,7 @@
             "captureType": "workflow-step",
             "stepIndex": 3,
             "stepId": "learner-experience-step-3",
-            "route": "/a/{applicationId}/{routeId}?targetKind=object&entityTypeId={routeId}&locale=en",
+            "route": "/a/{applicationId}?targetKind=object&entityTypeCodename=Courses&locale=en&workspaceId={routeId}",
             "viewport": {
                 "width": 1920,
                 "height": 1080
@@ -1210,7 +1210,7 @@
             "captureType": "workflow-step",
             "stepIndex": 4,
             "stepId": "learner-experience-step-4",
-            "route": "/a/{applicationId}/{routeId}?targetKind=object&entityTypeId={routeId}&locale=en",
+            "route": "/a/{applicationId}?targetKind=object&entityTypeCodename=Courses&locale=en&workspaceId={routeId}",
             "viewport": {
                 "width": 1920,
                 "height": 1080
@@ -1223,7 +1223,7 @@
             "captureType": "workflow-step",
             "stepIndex": 5,
             "stepId": "learner-experience-step-5",
-            "route": "/a/{applicationId}/{routeId}?targetKind=object&entityTypeId={routeId}&locale=en",
+            "route": "/a/{applicationId}?targetKind=object&entityTypeCodename=Courses&locale=en&workspaceId={routeId}",
             "viewport": {
                 "width": 1920,
                 "height": 1080
@@ -1234,7 +1234,7 @@
             "locale": "en",
             "path": "docs/en/.gitbook/assets/lms-user-guide/knowledge.png",
             "captureType": "overview",
-            "route": "/a/{applicationId}/{routeId}?targetKind=object&entityTypeId={routeId}&locale=en",
+            "route": "/a/{applicationId}?targetKind=object&entityTypeCodename=KnowledgeArticles&locale=en&workspaceId={routeId}",
             "viewport": {
                 "width": 1920,
                 "height": 1080
@@ -1247,7 +1247,7 @@
             "captureType": "workflow-step",
             "stepIndex": 1,
             "stepId": "knowledge-step-1",
-            "route": "/a/{applicationId}/{routeId}?targetKind=object&entityTypeId={routeId}&locale=en",
+            "route": "/a/{applicationId}?targetKind=object&entityTypeCodename=KnowledgeArticles&locale=en&workspaceId={routeId}",
             "viewport": {
                 "width": 1920,
                 "height": 1080
@@ -1260,7 +1260,7 @@
             "captureType": "workflow-step",
             "stepIndex": 2,
             "stepId": "knowledge-step-2",
-            "route": "/a/{applicationId}/{routeId}?targetKind=object&entityTypeId={routeId}&locale=en",
+            "route": "/a/{applicationId}?targetKind=object&entityTypeCodename=KnowledgeArticles&locale=en&workspaceId={routeId}",
             "viewport": {
                 "width": 1920,
                 "height": 1080
@@ -1273,7 +1273,7 @@
             "captureType": "workflow-step",
             "stepIndex": 3,
             "stepId": "knowledge-step-3",
-            "route": "/a/{applicationId}/{routeId}?targetKind=object&entityTypeId={routeId}&locale=en",
+            "route": "/a/{applicationId}?targetKind=object&entityTypeCodename=KnowledgeArticles&locale=en&workspaceId={routeId}",
             "viewport": {
                 "width": 1920,
                 "height": 1080
@@ -1286,7 +1286,7 @@
             "captureType": "workflow-step",
             "stepIndex": 4,
             "stepId": "knowledge-step-4",
-            "route": "/a/{applicationId}/{routeId}?targetKind=object&entityTypeId={routeId}&locale=en",
+            "route": "/a/{applicationId}?targetKind=object&entityTypeCodename=KnowledgeArticles&locale=en&workspaceId={routeId}",
             "viewport": {
                 "width": 1920,
                 "height": 1080
@@ -1299,7 +1299,7 @@
             "captureType": "workflow-step",
             "stepIndex": 5,
             "stepId": "knowledge-step-5",
-            "route": "/a/{applicationId}/{routeId}?targetKind=object&entityTypeId={routeId}&locale=en",
+            "route": "/a/{applicationId}?targetKind=object&entityTypeCodename=KnowledgeArticles&locale=en&workspaceId={routeId}",
             "viewport": {
                 "width": 1920,
                 "height": 1080
@@ -1310,7 +1310,7 @@
             "locale": "en",
             "path": "docs/en/.gitbook/assets/lms-user-guide/reports.png",
             "captureType": "overview",
-            "route": "/a/{applicationId}/{routeId}?targetKind=object&entityTypeId={routeId}&locale=en",
+            "route": "/a/{applicationId}?targetKind=object&entityTypeCodename=Reports&locale=en&workspaceId={routeId}",
             "viewport": {
                 "width": 1920,
                 "height": 1080
@@ -1323,7 +1323,7 @@
             "captureType": "workflow-step",
             "stepIndex": 1,
             "stepId": "reports-step-1",
-            "route": "/a/{applicationId}/{routeId}?targetKind=object&entityTypeId={routeId}&locale=en",
+            "route": "/a/{applicationId}?targetKind=object&entityTypeCodename=Reports&locale=en&workspaceId={routeId}",
             "viewport": {
                 "width": 1920,
                 "height": 1080
@@ -1336,7 +1336,7 @@
             "captureType": "workflow-step",
             "stepIndex": 2,
             "stepId": "reports-step-2",
-            "route": "/a/{applicationId}/{routeId}?targetKind=object&entityTypeId={routeId}&locale=en",
+            "route": "/a/{applicationId}?targetKind=object&entityTypeCodename=Reports&locale=en&workspaceId={routeId}",
             "viewport": {
                 "width": 1920,
                 "height": 1080
@@ -1349,7 +1349,7 @@
             "captureType": "workflow-step",
             "stepIndex": 3,
             "stepId": "reports-step-3",
-            "route": "/a/{applicationId}/{routeId}?targetKind=object&entityTypeId={routeId}&locale=en",
+            "route": "/a/{applicationId}?targetKind=object&entityTypeCodename=Reports&locale=en&workspaceId={routeId}",
             "viewport": {
                 "width": 1920,
                 "height": 1080
@@ -1362,7 +1362,7 @@
             "captureType": "workflow-step",
             "stepIndex": 4,
             "stepId": "reports-step-4",
-            "route": "/a/{applicationId}/{routeId}?targetKind=object&entityTypeId={routeId}&locale=en",
+            "route": "/a/{applicationId}?targetKind=object&entityTypeCodename=Reports&locale=en&workspaceId={routeId}",
             "viewport": {
                 "width": 1920,
                 "height": 1080
@@ -1375,7 +1375,7 @@
             "captureType": "workflow-step",
             "stepIndex": 5,
             "stepId": "reports-step-5",
-            "route": "/a/{applicationId}/{routeId}?targetKind=object&entityTypeId={routeId}&locale=en",
+            "route": "/a/{applicationId}?targetKind=object&entityTypeCodename=ContentProjects&locale=en&workspaceId={routeId}",
             "viewport": {
                 "width": 1920,
                 "height": 1080
@@ -1464,7 +1464,7 @@
             "captureType": "workflow-step",
             "stepIndex": 1,
             "stepId": "troubleshooting-step-1",
-            "route": "/a/{applicationId}/{routeId}?targetKind=object&entityTypeId={routeId}&locale=en",
+            "route": "/a/{applicationId}?targetKind=object&entityTypeCodename=ContentProjects&locale=en&workspaceId={routeId}",
             "viewport": {
                 "width": 1920,
                 "height": 1080
@@ -1477,7 +1477,7 @@
             "captureType": "workflow-step",
             "stepIndex": 2,
             "stepId": "troubleshooting-step-2",
-            "route": "/a/{applicationId}/{routeId}?targetKind=object&entityTypeId={routeId}&locale=en",
+            "route": "/a/{applicationId}?targetKind=object&entityTypeCodename=ContentProjects&locale=en&workspaceId={routeId}",
             "viewport": {
                 "width": 1920,
                 "height": 1080
@@ -1490,7 +1490,7 @@
             "captureType": "workflow-step",
             "stepIndex": 3,
             "stepId": "troubleshooting-step-3",
-            "route": "/a/{applicationId}/{routeId}?targetKind=object&entityTypeId={routeId}&locale=en",
+            "route": "/a/{applicationId}?targetKind=object&entityTypeCodename=ContentProjects&locale=en&workspaceId={routeId}",
             "viewport": {
                 "width": 1920,
                 "height": 1080
@@ -1501,7 +1501,7 @@
             "locale": "en",
             "path": "docs/en/.gitbook/assets/lms-user-guide/troubleshooting.png",
             "captureType": "overview",
-            "route": "/a/{applicationId}/{routeId}?targetKind=object&entityTypeId={routeId}&locale=en",
+            "route": "/a/{applicationId}?targetKind=object&entityTypeCodename=ContentProjects&locale=en&workspaceId={routeId}",
             "viewport": {
                 "width": 1920,
                 "height": 1080
@@ -1514,7 +1514,7 @@
             "captureType": "workflow-step",
             "stepIndex": 4,
             "stepId": "troubleshooting-step-4",
-            "route": "/a/{applicationId}/{routeId}?targetKind=object&entityTypeId={routeId}&locale=en",
+            "route": "/a/{applicationId}?targetKind=object&entityTypeCodename=TrashEntries&locale=en&workspaceId={routeId}",
             "viewport": {
                 "width": 1920,
                 "height": 1080
@@ -1527,7 +1527,7 @@
             "captureType": "workflow-step",
             "stepIndex": 5,
             "stepId": "troubleshooting-step-5",
-            "route": "/a/{applicationId}/{routeId}?targetKind=object&entityTypeId={routeId}&locale=en",
+            "route": "/a/{applicationId}?targetKind=object&entityTypeCodename=TrashEntries&locale=en&workspaceId={routeId}",
             "viewport": {
                 "width": 1920,
                 "height": 1080
@@ -1551,7 +1551,7 @@
             "captureType": "workflow-step",
             "stepIndex": 1,
             "stepId": "README-step-1",
-            "route": "/a/{applicationId}",
+            "route": "/a/{applicationId}/workspaces?locale=ru&workspaceId={routeId}",
             "viewport": {
                 "width": 1920,
                 "height": 1080
@@ -1564,7 +1564,7 @@
             "captureType": "workflow-step",
             "stepIndex": 2,
             "stepId": "README-step-2",
-            "route": "/a/{applicationId}",
+            "route": "/a/{applicationId}/workspaces?locale=ru&workspaceId={routeId}",
             "viewport": {
                 "width": 1920,
                 "height": 1080
@@ -1577,7 +1577,7 @@
             "captureType": "workflow-step",
             "stepIndex": 3,
             "stepId": "README-step-3",
-            "route": "/a/{applicationId}",
+            "route": "/a/{applicationId}?targetKind=object&entityTypeCodename=ContentProjects&locale=ru&workspaceId={routeId}",
             "viewport": {
                 "width": 1920,
                 "height": 1080
@@ -1590,7 +1590,7 @@
             "captureType": "workflow-step",
             "stepIndex": 4,
             "stepId": "README-step-4",
-            "route": "/a/{applicationId}",
+            "route": "/a/{applicationId}?targetKind=object&entityTypeCodename=Reports&locale=ru&workspaceId={routeId}",
             "viewport": {
                 "width": 1920,
                 "height": 1080
@@ -1601,7 +1601,7 @@
             "locale": "ru",
             "path": "docs/ru/.gitbook/assets/lms-user-guide/getting-around.png",
             "captureType": "overview",
-            "route": "/a/{applicationId}/workspaces?locale=ru",
+            "route": "/a/{applicationId}/workspaces?locale=ru&workspaceId={routeId}",
             "viewport": {
                 "width": 1920,
                 "height": 1080
@@ -1614,7 +1614,7 @@
             "captureType": "workflow-step",
             "stepIndex": 1,
             "stepId": "getting-around-step-1",
-            "route": "/a/{applicationId}/workspaces?locale=ru",
+            "route": "/a/{applicationId}/workspaces?locale=ru&workspaceId={routeId}",
             "viewport": {
                 "width": 1920,
                 "height": 1080
@@ -1627,7 +1627,7 @@
             "captureType": "workflow-step",
             "stepIndex": 2,
             "stepId": "getting-around-step-2",
-            "route": "/a/{applicationId}/{routeId}?targetKind=object&entityTypeId={routeId}&locale=ru",
+            "route": "/a/{applicationId}?targetKind=object&entityTypeCodename=LearningTracks&locale=ru&workspaceId={routeId}",
             "viewport": {
                 "width": 1920,
                 "height": 1080
@@ -1640,7 +1640,7 @@
             "captureType": "workflow-step",
             "stepIndex": 3,
             "stepId": "getting-around-step-3",
-            "route": "/a/{applicationId}/{routeId}?targetKind=object&entityTypeId={routeId}&locale=ru",
+            "route": "/a/{applicationId}?targetKind=object&entityTypeCodename=ContentProjects&locale=ru&workspaceId={routeId}",
             "viewport": {
                 "width": 1920,
                 "height": 1080
@@ -1653,7 +1653,7 @@
             "captureType": "workflow-step",
             "stepIndex": 4,
             "stepId": "getting-around-step-4",
-            "route": "/a/{applicationId}/{routeId}?targetKind=object&entityTypeId={routeId}&locale=ru",
+            "route": "/a/{applicationId}?targetKind=object&entityTypeCodename=ContentProjects&locale=ru&workspaceId={routeId}",
             "viewport": {
                 "width": 1920,
                 "height": 1080
@@ -1666,7 +1666,7 @@
             "captureType": "workflow-step",
             "stepIndex": 5,
             "stepId": "getting-around-step-5",
-            "route": "/a/{applicationId}/{routeId}?targetKind=object&entityTypeId={routeId}&locale=ru",
+            "route": "/a/{applicationId}?targetKind=object&entityTypeCodename=ContentProjects&locale=ru&workspaceId={routeId}",
             "viewport": {
                 "width": 1920,
                 "height": 1080
@@ -1677,7 +1677,7 @@
             "locale": "ru",
             "path": "docs/ru/.gitbook/assets/lms-user-guide/learning-content-library.png",
             "captureType": "overview",
-            "route": "/a/{applicationId}/{routeId}?targetKind=object&entityTypeId={routeId}&locale=ru",
+            "route": "/a/{applicationId}?targetKind=object&entityTypeCodename=ContentProjects&locale=ru&workspaceId={routeId}",
             "viewport": {
                 "width": 1920,
                 "height": 1080
@@ -1690,7 +1690,7 @@
             "captureType": "workflow-step",
             "stepIndex": 1,
             "stepId": "learning-content-library-step-1",
-            "route": "/a/{applicationId}/{routeId}?targetKind=object&entityTypeId={routeId}&locale=ru",
+            "route": "/a/{applicationId}?targetKind=object&entityTypeCodename=ContentProjects&locale=ru&workspaceId={routeId}",
             "viewport": {
                 "width": 1920,
                 "height": 1080
@@ -1703,7 +1703,7 @@
             "captureType": "workflow-step",
             "stepIndex": 2,
             "stepId": "learning-content-library-step-2",
-            "route": "/a/{applicationId}/{routeId}?targetKind=object&entityTypeId={routeId}&locale=ru",
+            "route": "/a/{applicationId}?targetKind=object&entityTypeCodename=ContentProjects&locale=ru&workspaceId={routeId}",
             "viewport": {
                 "width": 1920,
                 "height": 1080
@@ -1716,7 +1716,7 @@
             "captureType": "workflow-step",
             "stepIndex": 3,
             "stepId": "learning-content-library-step-3",
-            "route": "/a/{applicationId}/{routeId}?targetKind=object&entityTypeId={routeId}&locale=ru",
+            "route": "/a/{applicationId}?targetKind=object&entityTypeCodename=ContentProjects&locale=ru&workspaceId={routeId}",
             "viewport": {
                 "width": 1920,
                 "height": 1080
@@ -1729,7 +1729,7 @@
             "captureType": "workflow-step",
             "stepIndex": 4,
             "stepId": "learning-content-library-step-4",
-            "route": "/a/{applicationId}/{routeId}?targetKind=object&entityTypeId={routeId}&locale=ru",
+            "route": "/a/{applicationId}?targetKind=object&entityTypeCodename=ContentProjects&locale=ru&workspaceId={routeId}",
             "viewport": {
                 "width": 1920,
                 "height": 1080
@@ -1742,7 +1742,7 @@
             "captureType": "workflow-step",
             "stepIndex": 5,
             "stepId": "learning-content-library-step-5",
-            "route": "/a/{applicationId}/{routeId}?targetKind=object&entityTypeId={routeId}&locale=ru",
+            "route": "/a/{applicationId}?targetKind=object&entityTypeCodename=ContentProjects&locale=ru&workspaceId={routeId}",
             "viewport": {
                 "width": 1920,
                 "height": 1080
@@ -1753,7 +1753,7 @@
             "locale": "ru",
             "path": "docs/ru/.gitbook/assets/lms-user-guide/projects.png",
             "captureType": "overview",
-            "route": "/a/{applicationId}/{routeId}?targetKind=object&entityTypeId={routeId}&locale=ru",
+            "route": "/a/{applicationId}?targetKind=object&entityTypeCodename=ContentProjects&locale=ru&workspaceId={routeId}",
             "viewport": {
                 "width": 1920,
                 "height": 1080
@@ -1766,7 +1766,7 @@
             "captureType": "workflow-step",
             "stepIndex": 1,
             "stepId": "projects-step-1",
-            "route": "/a/{applicationId}/{routeId}?targetKind=object&entityTypeId={routeId}&locale=ru",
+            "route": "/a/{applicationId}?targetKind=object&entityTypeCodename=ContentProjects&locale=ru&workspaceId={routeId}",
             "viewport": {
                 "width": 1920,
                 "height": 1080
@@ -1779,7 +1779,7 @@
             "captureType": "workflow-step",
             "stepIndex": 2,
             "stepId": "projects-step-2",
-            "route": "/a/{applicationId}/{routeId}?targetKind=object&entityTypeId={routeId}&locale=ru",
+            "route": "/a/{applicationId}?targetKind=object&entityTypeCodename=ContentProjects&locale=ru&workspaceId={routeId}",
             "viewport": {
                 "width": 1920,
                 "height": 1080
@@ -1792,7 +1792,7 @@
             "captureType": "workflow-step",
             "stepIndex": 3,
             "stepId": "projects-step-3",
-            "route": "/a/{applicationId}/{routeId}?targetKind=object&entityTypeId={routeId}&locale=ru",
+            "route": "/a/{applicationId}?targetKind=object&entityTypeCodename=ContentProjects&locale=ru&workspaceId={routeId}",
             "viewport": {
                 "width": 1920,
                 "height": 1080
@@ -1805,7 +1805,7 @@
             "captureType": "workflow-step",
             "stepIndex": 4,
             "stepId": "projects-step-4",
-            "route": "/a/{applicationId}/{routeId}?targetKind=object&entityTypeId={routeId}&locale=ru",
+            "route": "/a/{applicationId}?targetKind=object&entityTypeCodename=ContentProjects&locale=ru&workspaceId={routeId}",
             "viewport": {
                 "width": 1920,
                 "height": 1080
@@ -1818,7 +1818,7 @@
             "captureType": "workflow-step",
             "stepIndex": 5,
             "stepId": "projects-step-5",
-            "route": "/a/{applicationId}/{routeId}?targetKind=object&entityTypeId={routeId}&locale=ru",
+            "route": "/a/{applicationId}?targetKind=object&entityTypeCodename=TrashEntries&locale=ru&workspaceId={routeId}",
             "viewport": {
                 "width": 1920,
                 "height": 1080
@@ -1831,7 +1831,7 @@
             "captureType": "workflow-step",
             "stepIndex": 1,
             "stepId": "resources-pages-links-step-1",
-            "route": "/a/{applicationId}/{routeId}?targetKind=object&entityTypeId={routeId}&locale=ru",
+            "route": "/a/{applicationId}?targetKind=object&entityTypeCodename=ContentProjects&locale=ru&workspaceId={routeId}",
             "viewport": {
                 "width": 1920,
                 "height": 1080
@@ -1844,7 +1844,7 @@
             "captureType": "workflow-step",
             "stepIndex": 2,
             "stepId": "resources-pages-links-step-2",
-            "route": "/a/{applicationId}/{routeId}?targetKind=object&entityTypeId={routeId}&locale=ru",
+            "route": "/a/{applicationId}?targetKind=object&entityTypeCodename=ContentProjects&locale=ru&workspaceId={routeId}",
             "viewport": {
                 "width": 1920,
                 "height": 1080
@@ -1855,7 +1855,7 @@
             "locale": "ru",
             "path": "docs/ru/.gitbook/assets/lms-user-guide/resources-pages-links.png",
             "captureType": "overview",
-            "route": "/a/{applicationId}/{routeId}?targetKind=object&entityTypeId={routeId}&locale=ru",
+            "route": "/a/{applicationId}?targetKind=object&entityTypeCodename=ContentProjects&locale=ru&workspaceId={routeId}",
             "viewport": {
                 "width": 1920,
                 "height": 1080
@@ -1868,7 +1868,7 @@
             "captureType": "workflow-step",
             "stepIndex": 3,
             "stepId": "resources-pages-links-step-3",
-            "route": "/a/{applicationId}/{routeId}?targetKind=object&entityTypeId={routeId}&locale=ru",
+            "route": "/a/{applicationId}?targetKind=object&entityTypeCodename=ContentProjects&locale=ru&workspaceId={routeId}",
             "viewport": {
                 "width": 1920,
                 "height": 1080
@@ -1881,7 +1881,7 @@
             "captureType": "workflow-step",
             "stepIndex": 4,
             "stepId": "resources-pages-links-step-4",
-            "route": "/a/{applicationId}/{routeId}?targetKind=object&entityTypeId={routeId}&locale=ru",
+            "route": "/a/{applicationId}?targetKind=object&entityTypeCodename=ContentProjects&locale=ru&workspaceId={routeId}",
             "viewport": {
                 "width": 1920,
                 "height": 1080
@@ -1894,7 +1894,7 @@
             "captureType": "workflow-step",
             "stepIndex": 5,
             "stepId": "resources-pages-links-step-5",
-            "route": "/a/{applicationId}/{routeId}?targetKind=object&entityTypeId={routeId}&locale=ru",
+            "route": "/a/{applicationId}?targetKind=object&entityTypeCodename=ContentProjects&locale=ru&workspaceId={routeId}",
             "viewport": {
                 "width": 1920,
                 "height": 1080
@@ -1905,7 +1905,7 @@
             "locale": "ru",
             "path": "docs/ru/.gitbook/assets/lms-user-guide/courses.png",
             "captureType": "overview",
-            "route": "/a/{applicationId}/{routeId}?targetKind=object&entityTypeId={routeId}&locale=ru",
+            "route": "/a/{applicationId}?targetKind=object&entityTypeCodename=Courses&locale=ru&workspaceId={routeId}",
             "viewport": {
                 "width": 1920,
                 "height": 1080
@@ -1918,7 +1918,7 @@
             "captureType": "workflow-step",
             "stepIndex": 1,
             "stepId": "courses-step-1",
-            "route": "/a/{applicationId}/{routeId}?targetKind=object&entityTypeId={routeId}&locale=ru",
+            "route": "/a/{applicationId}?targetKind=object&entityTypeCodename=Courses&locale=ru&workspaceId={routeId}",
             "viewport": {
                 "width": 1920,
                 "height": 1080
@@ -1931,7 +1931,7 @@
             "captureType": "workflow-step",
             "stepIndex": 2,
             "stepId": "courses-step-2",
-            "route": "/a/{applicationId}/{routeId}?targetKind=object&entityTypeId={routeId}&locale=ru",
+            "route": "/a/{applicationId}?targetKind=object&entityTypeCodename=Courses&locale=ru&workspaceId={routeId}",
             "viewport": {
                 "width": 1920,
                 "height": 1080
@@ -1944,7 +1944,7 @@
             "captureType": "workflow-step",
             "stepIndex": 3,
             "stepId": "courses-step-3",
-            "route": "/a/{applicationId}/{routeId}?targetKind=object&entityTypeId={routeId}&locale=ru",
+            "route": "/a/{applicationId}?targetKind=object&entityTypeCodename=Courses&locale=ru&workspaceId={routeId}",
             "viewport": {
                 "width": 1920,
                 "height": 1080
@@ -1957,7 +1957,7 @@
             "captureType": "workflow-step",
             "stepIndex": 4,
             "stepId": "courses-step-4",
-            "route": "/a/{applicationId}/{routeId}?targetKind=object&entityTypeId={routeId}&locale=ru",
+            "route": "/a/{applicationId}?targetKind=object&entityTypeCodename=Courses&locale=ru&workspaceId={routeId}",
             "viewport": {
                 "width": 1920,
                 "height": 1080
@@ -1970,7 +1970,7 @@
             "captureType": "workflow-step",
             "stepIndex": 5,
             "stepId": "courses-step-5",
-            "route": "/a/{applicationId}/{routeId}?targetKind=object&entityTypeId={routeId}&locale=ru",
+            "route": "/a/{applicationId}?targetKind=object&entityTypeCodename=Courses&locale=ru&workspaceId={routeId}",
             "viewport": {
                 "width": 1920,
                 "height": 1080
@@ -1981,7 +1981,7 @@
             "locale": "ru",
             "path": "docs/ru/.gitbook/assets/lms-user-guide/learning-tracks.png",
             "captureType": "overview",
-            "route": "/a/{applicationId}/{routeId}?targetKind=object&entityTypeId={routeId}&locale=ru",
+            "route": "/a/{applicationId}?targetKind=object&entityTypeCodename=LearningTracks&locale=ru&workspaceId={routeId}",
             "viewport": {
                 "width": 1920,
                 "height": 1080
@@ -1994,7 +1994,7 @@
             "captureType": "workflow-step",
             "stepIndex": 1,
             "stepId": "learning-tracks-step-1",
-            "route": "/a/{applicationId}/{routeId}?targetKind=object&entityTypeId={routeId}&locale=ru",
+            "route": "/a/{applicationId}?targetKind=object&entityTypeCodename=LearningTracks&locale=ru&workspaceId={routeId}",
             "viewport": {
                 "width": 1920,
                 "height": 1080
@@ -2007,7 +2007,7 @@
             "captureType": "workflow-step",
             "stepIndex": 2,
             "stepId": "learning-tracks-step-2",
-            "route": "/a/{applicationId}/{routeId}?targetKind=object&entityTypeId={routeId}&locale=ru",
+            "route": "/a/{applicationId}?targetKind=object&entityTypeCodename=LearningTracks&locale=ru&workspaceId={routeId}",
             "viewport": {
                 "width": 1920,
                 "height": 1080
@@ -2020,7 +2020,7 @@
             "captureType": "workflow-step",
             "stepIndex": 3,
             "stepId": "learning-tracks-step-3",
-            "route": "/a/{applicationId}/{routeId}?targetKind=object&entityTypeId={routeId}&locale=ru",
+            "route": "/a/{applicationId}?targetKind=object&entityTypeCodename=LearningTracks&locale=ru&workspaceId={routeId}",
             "viewport": {
                 "width": 1920,
                 "height": 1080
@@ -2033,7 +2033,7 @@
             "captureType": "workflow-step",
             "stepIndex": 4,
             "stepId": "learning-tracks-step-4",
-            "route": "/a/{applicationId}/{routeId}?targetKind=object&entityTypeId={routeId}&locale=ru",
+            "route": "/a/{applicationId}?targetKind=object&entityTypeCodename=LearningTracks&locale=ru&workspaceId={routeId}",
             "viewport": {
                 "width": 1920,
                 "height": 1080
@@ -2046,7 +2046,7 @@
             "captureType": "workflow-step",
             "stepIndex": 5,
             "stepId": "learning-tracks-step-5",
-            "route": "/a/{applicationId}/{routeId}?targetKind=object&entityTypeId={routeId}&locale=ru",
+            "route": "/a/{applicationId}?targetKind=object&entityTypeCodename=LearningTracks&locale=ru&workspaceId={routeId}",
             "viewport": {
                 "width": 1920,
                 "height": 1080
@@ -2057,7 +2057,7 @@
             "locale": "ru",
             "path": "docs/ru/.gitbook/assets/lms-user-guide/sharing-recent-favorites-trash.png",
             "captureType": "overview",
-            "route": "/a/{applicationId}/{routeId}?targetKind=object&entityTypeId={routeId}&locale=ru",
+            "route": "/a/{applicationId}?targetKind=object&entityTypeCodename=ContentProjects&locale=ru&workspaceId={routeId}",
             "viewport": {
                 "width": 1920,
                 "height": 1080
@@ -2070,7 +2070,7 @@
             "captureType": "workflow-step",
             "stepIndex": 1,
             "stepId": "sharing-recent-favorites-trash-step-1",
-            "route": "/a/{applicationId}/{routeId}?targetKind=object&entityTypeId={routeId}&locale=ru",
+            "route": "/a/{applicationId}?targetKind=object&entityTypeCodename=ContentProjects&locale=ru&workspaceId={routeId}",
             "viewport": {
                 "width": 1920,
                 "height": 1080
@@ -2083,7 +2083,7 @@
             "captureType": "workflow-step",
             "stepIndex": 2,
             "stepId": "sharing-recent-favorites-trash-step-2",
-            "route": "/a/{applicationId}/{routeId}?targetKind=object&entityTypeId={routeId}&locale=ru",
+            "route": "/a/{applicationId}?targetKind=object&entityTypeCodename=ContentProjects&locale=ru&workspaceId={routeId}",
             "viewport": {
                 "width": 1920,
                 "height": 1080
@@ -2096,7 +2096,7 @@
             "captureType": "workflow-step",
             "stepIndex": 3,
             "stepId": "sharing-recent-favorites-trash-step-3",
-            "route": "/a/{applicationId}/{routeId}?targetKind=object&entityTypeId={routeId}&locale=ru",
+            "route": "/a/{applicationId}?targetKind=page&entityTypeCodename=LearnerHome&locale=ru&workspaceId={routeId}",
             "viewport": {
                 "width": 1920,
                 "height": 1080
@@ -2109,7 +2109,7 @@
             "captureType": "workflow-step",
             "stepIndex": 4,
             "stepId": "sharing-recent-favorites-trash-step-4",
-            "route": "/a/{applicationId}/{routeId}?targetKind=object&entityTypeId={routeId}&locale=ru",
+            "route": "/a/{applicationId}?targetKind=object&entityTypeCodename=ContentProjects&locale=ru&workspaceId={routeId}",
             "viewport": {
                 "width": 1920,
                 "height": 1080
@@ -2122,18 +2122,7 @@
             "captureType": "workflow-step",
             "stepIndex": 5,
             "stepId": "sharing-recent-favorites-trash-step-5",
-            "route": "/a/{applicationId}/{routeId}?targetKind=object&entityTypeId={routeId}&locale=ru",
-            "viewport": {
-                "width": 1920,
-                "height": 1080
-            }
-        },
-        {
-            "id": "learner-experience",
-            "locale": "ru",
-            "path": "docs/ru/.gitbook/assets/lms-user-guide/learner-experience.png",
-            "captureType": "overview",
-            "route": "/a/{applicationId}/{routeId}?targetKind=object&entityTypeId={routeId}&locale=ru",
+            "route": "/a/{applicationId}?targetKind=object&entityTypeCodename=TrashEntries&locale=ru&workspaceId={routeId}",
             "viewport": {
                 "width": 1920,
                 "height": 1080
@@ -2146,7 +2135,18 @@
             "captureType": "workflow-step",
             "stepIndex": 1,
             "stepId": "learner-experience-step-1",
-            "route": "/a/{applicationId}/{routeId}?targetKind=object&entityTypeId={routeId}&locale=ru",
+            "route": "/a/{applicationId}?targetKind=object&entityTypeCodename=Courses&locale=ru&workspaceId={routeId}",
+            "viewport": {
+                "width": 1920,
+                "height": 1080
+            }
+        },
+        {
+            "id": "learner-experience",
+            "locale": "ru",
+            "path": "docs/ru/.gitbook/assets/lms-user-guide/learner-experience.png",
+            "captureType": "overview",
+            "route": "/a/{applicationId}?targetKind=object&entityTypeCodename=Courses&locale=ru&workspaceId={routeId}",
             "viewport": {
                 "width": 1920,
                 "height": 1080
@@ -2159,7 +2159,7 @@
             "captureType": "workflow-step",
             "stepIndex": 2,
             "stepId": "learner-experience-step-2",
-            "route": "/a/{applicationId}/{routeId}?targetKind=object&entityTypeId={routeId}&locale=ru",
+            "route": "/a/{applicationId}?targetKind=object&entityTypeCodename=Courses&locale=ru&workspaceId={routeId}",
             "viewport": {
                 "width": 1920,
                 "height": 1080
@@ -2172,7 +2172,7 @@
             "captureType": "workflow-step",
             "stepIndex": 3,
             "stepId": "learner-experience-step-3",
-            "route": "/a/{applicationId}/{routeId}?targetKind=object&entityTypeId={routeId}&locale=ru",
+            "route": "/a/{applicationId}?targetKind=object&entityTypeCodename=Courses&locale=ru&workspaceId={routeId}",
             "viewport": {
                 "width": 1920,
                 "height": 1080
@@ -2185,7 +2185,7 @@
             "captureType": "workflow-step",
             "stepIndex": 4,
             "stepId": "learner-experience-step-4",
-            "route": "/a/{applicationId}/{routeId}?targetKind=object&entityTypeId={routeId}&locale=ru",
+            "route": "/a/{applicationId}?targetKind=object&entityTypeCodename=Courses&locale=ru&workspaceId={routeId}",
             "viewport": {
                 "width": 1920,
                 "height": 1080
@@ -2198,7 +2198,7 @@
             "captureType": "workflow-step",
             "stepIndex": 5,
             "stepId": "learner-experience-step-5",
-            "route": "/a/{applicationId}/{routeId}?targetKind=object&entityTypeId={routeId}&locale=ru",
+            "route": "/a/{applicationId}?targetKind=object&entityTypeCodename=Courses&locale=ru&workspaceId={routeId}",
             "viewport": {
                 "width": 1920,
                 "height": 1080
@@ -2209,7 +2209,7 @@
             "locale": "ru",
             "path": "docs/ru/.gitbook/assets/lms-user-guide/knowledge.png",
             "captureType": "overview",
-            "route": "/a/{applicationId}/{routeId}?targetKind=object&entityTypeId={routeId}&locale=ru",
+            "route": "/a/{applicationId}?targetKind=object&entityTypeCodename=KnowledgeArticles&locale=ru&workspaceId={routeId}",
             "viewport": {
                 "width": 1920,
                 "height": 1080
@@ -2222,7 +2222,7 @@
             "captureType": "workflow-step",
             "stepIndex": 1,
             "stepId": "knowledge-step-1",
-            "route": "/a/{applicationId}/{routeId}?targetKind=object&entityTypeId={routeId}&locale=ru",
+            "route": "/a/{applicationId}?targetKind=object&entityTypeCodename=KnowledgeArticles&locale=ru&workspaceId={routeId}",
             "viewport": {
                 "width": 1920,
                 "height": 1080
@@ -2235,7 +2235,7 @@
             "captureType": "workflow-step",
             "stepIndex": 2,
             "stepId": "knowledge-step-2",
-            "route": "/a/{applicationId}/{routeId}?targetKind=object&entityTypeId={routeId}&locale=ru",
+            "route": "/a/{applicationId}?targetKind=object&entityTypeCodename=KnowledgeArticles&locale=ru&workspaceId={routeId}",
             "viewport": {
                 "width": 1920,
                 "height": 1080
@@ -2248,7 +2248,7 @@
             "captureType": "workflow-step",
             "stepIndex": 3,
             "stepId": "knowledge-step-3",
-            "route": "/a/{applicationId}/{routeId}?targetKind=object&entityTypeId={routeId}&locale=ru",
+            "route": "/a/{applicationId}?targetKind=object&entityTypeCodename=KnowledgeArticles&locale=ru&workspaceId={routeId}",
             "viewport": {
                 "width": 1920,
                 "height": 1080
@@ -2261,7 +2261,7 @@
             "captureType": "workflow-step",
             "stepIndex": 4,
             "stepId": "knowledge-step-4",
-            "route": "/a/{applicationId}/{routeId}?targetKind=object&entityTypeId={routeId}&locale=ru",
+            "route": "/a/{applicationId}?targetKind=object&entityTypeCodename=KnowledgeArticles&locale=ru&workspaceId={routeId}",
             "viewport": {
                 "width": 1920,
                 "height": 1080
@@ -2274,7 +2274,7 @@
             "captureType": "workflow-step",
             "stepIndex": 5,
             "stepId": "knowledge-step-5",
-            "route": "/a/{applicationId}/{routeId}?targetKind=object&entityTypeId={routeId}&locale=ru",
+            "route": "/a/{applicationId}?targetKind=object&entityTypeCodename=KnowledgeArticles&locale=ru&workspaceId={routeId}",
             "viewport": {
                 "width": 1920,
                 "height": 1080
@@ -2285,7 +2285,7 @@
             "locale": "ru",
             "path": "docs/ru/.gitbook/assets/lms-user-guide/reports.png",
             "captureType": "overview",
-            "route": "/a/{applicationId}/{routeId}?targetKind=object&entityTypeId={routeId}&locale=ru",
+            "route": "/a/{applicationId}?targetKind=object&entityTypeCodename=Reports&locale=ru&workspaceId={routeId}",
             "viewport": {
                 "width": 1920,
                 "height": 1080
@@ -2298,7 +2298,7 @@
             "captureType": "workflow-step",
             "stepIndex": 1,
             "stepId": "reports-step-1",
-            "route": "/a/{applicationId}/{routeId}?targetKind=object&entityTypeId={routeId}&locale=ru",
+            "route": "/a/{applicationId}?targetKind=object&entityTypeCodename=Reports&locale=ru&workspaceId={routeId}",
             "viewport": {
                 "width": 1920,
                 "height": 1080
@@ -2311,7 +2311,7 @@
             "captureType": "workflow-step",
             "stepIndex": 2,
             "stepId": "reports-step-2",
-            "route": "/a/{applicationId}/{routeId}?targetKind=object&entityTypeId={routeId}&locale=ru",
+            "route": "/a/{applicationId}?targetKind=object&entityTypeCodename=Reports&locale=ru&workspaceId={routeId}",
             "viewport": {
                 "width": 1920,
                 "height": 1080
@@ -2324,7 +2324,7 @@
             "captureType": "workflow-step",
             "stepIndex": 3,
             "stepId": "reports-step-3",
-            "route": "/a/{applicationId}/{routeId}?targetKind=object&entityTypeId={routeId}&locale=ru",
+            "route": "/a/{applicationId}?targetKind=object&entityTypeCodename=Reports&locale=ru&workspaceId={routeId}",
             "viewport": {
                 "width": 1920,
                 "height": 1080
@@ -2337,7 +2337,7 @@
             "captureType": "workflow-step",
             "stepIndex": 4,
             "stepId": "reports-step-4",
-            "route": "/a/{applicationId}/{routeId}?targetKind=object&entityTypeId={routeId}&locale=ru",
+            "route": "/a/{applicationId}?targetKind=object&entityTypeCodename=Reports&locale=ru&workspaceId={routeId}",
             "viewport": {
                 "width": 1920,
                 "height": 1080
@@ -2350,7 +2350,7 @@
             "captureType": "workflow-step",
             "stepIndex": 5,
             "stepId": "reports-step-5",
-            "route": "/a/{applicationId}/{routeId}?targetKind=object&entityTypeId={routeId}&locale=ru",
+            "route": "/a/{applicationId}?targetKind=object&entityTypeCodename=ContentProjects&locale=ru&workspaceId={routeId}",
             "viewport": {
                 "width": 1920,
                 "height": 1080
@@ -2439,7 +2439,7 @@
             "captureType": "workflow-step",
             "stepIndex": 1,
             "stepId": "troubleshooting-step-1",
-            "route": "/a/{applicationId}/{routeId}?targetKind=object&entityTypeId={routeId}&locale=ru",
+            "route": "/a/{applicationId}?targetKind=object&entityTypeCodename=ContentProjects&locale=ru&workspaceId={routeId}",
             "viewport": {
                 "width": 1920,
                 "height": 1080
@@ -2452,7 +2452,7 @@
             "captureType": "workflow-step",
             "stepIndex": 2,
             "stepId": "troubleshooting-step-2",
-            "route": "/a/{applicationId}/{routeId}?targetKind=object&entityTypeId={routeId}&locale=ru",
+            "route": "/a/{applicationId}?targetKind=object&entityTypeCodename=ContentProjects&locale=ru&workspaceId={routeId}",
             "viewport": {
                 "width": 1920,
                 "height": 1080
@@ -2465,7 +2465,7 @@
             "captureType": "workflow-step",
             "stepIndex": 3,
             "stepId": "troubleshooting-step-3",
-            "route": "/a/{applicationId}/{routeId}?targetKind=object&entityTypeId={routeId}&locale=ru",
+            "route": "/a/{applicationId}?targetKind=object&entityTypeCodename=ContentProjects&locale=ru&workspaceId={routeId}",
             "viewport": {
                 "width": 1920,
                 "height": 1080
@@ -2476,7 +2476,7 @@
             "locale": "ru",
             "path": "docs/ru/.gitbook/assets/lms-user-guide/troubleshooting.png",
             "captureType": "overview",
-            "route": "/a/{applicationId}/{routeId}?targetKind=object&entityTypeId={routeId}&locale=ru",
+            "route": "/a/{applicationId}?targetKind=object&entityTypeCodename=ContentProjects&locale=ru&workspaceId={routeId}",
             "viewport": {
                 "width": 1920,
                 "height": 1080
@@ -2489,7 +2489,7 @@
             "captureType": "workflow-step",
             "stepIndex": 4,
             "stepId": "troubleshooting-step-4",
-            "route": "/a/{applicationId}/{routeId}?targetKind=object&entityTypeId={routeId}&locale=ru",
+            "route": "/a/{applicationId}?targetKind=object&entityTypeCodename=TrashEntries&locale=ru&workspaceId={routeId}",
             "viewport": {
                 "width": 1920,
                 "height": 1080
@@ -2502,7 +2502,7 @@
             "captureType": "workflow-step",
             "stepIndex": 5,
             "stepId": "troubleshooting-step-5",
-            "route": "/a/{applicationId}/{routeId}?targetKind=object&entityTypeId={routeId}&locale=ru",
+            "route": "/a/{applicationId}?targetKind=object&entityTypeCodename=TrashEntries&locale=ru&workspaceId={routeId}",
             "viewport": {
                 "width": 1920,
                 "height": 1080
@@ -2513,7 +2513,7 @@
         {
             "locale": "en",
             "path": "docs/en/.gitbook/assets/lms-user-guide/dashboard-overview.png",
-            "sha256": "2a13681046045fbfa680dcaddd504304678440b28051ceafb83d4bc985554e69",
+            "sha256": "929fc73ce2b83dd7b0a970ba72fae7c3fd20c2bed2fa6fb0a1b1ce05adde495b",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -2522,7 +2522,7 @@
         {
             "locale": "en",
             "path": "docs/en/.gitbook/assets/lms-user-guide/dashboard-overview-step-1.png",
-            "sha256": "3f1b92991e0fa42b363978dc22e0b8d0a537ed3ffeaff440f8eccd9090cf68d6",
+            "sha256": "b003e348b76eaba432884bc49299d209e34e59902ede49b39e4da4b323aa2527",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -2531,7 +2531,7 @@
         {
             "locale": "en",
             "path": "docs/en/.gitbook/assets/lms-user-guide/dashboard-overview-step-2.png",
-            "sha256": "a2e5f174c918eb396abf89d79af790bc31f857851e6df75f722f509d3e755d94",
+            "sha256": "d27d06d61bffc022c1941d406230b9d34b55e60d458c608578a43f1766aec70c",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -2540,7 +2540,7 @@
         {
             "locale": "en",
             "path": "docs/en/.gitbook/assets/lms-user-guide/dashboard-overview-step-3.png",
-            "sha256": "5f3b24a22189797a64e2bfd283ea787b20005b211f8dc0edb6dce813c31047b9",
+            "sha256": "f162f30de925aecb7caae4601d2ef65d0359f2a00f943d40d61abdcca4bfa64b",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -2549,7 +2549,7 @@
         {
             "locale": "en",
             "path": "docs/en/.gitbook/assets/lms-user-guide/dashboard-overview-step-4.png",
-            "sha256": "a6c291f7a1fcf42919722738c5c57f3453cfaef7baca0ae1802e4cce851e62f2",
+            "sha256": "deb3721bc1ad6e02e19eb46be29575feb726e24bf8348532858ac03ce05e74b5",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -2558,7 +2558,7 @@
         {
             "locale": "en",
             "path": "docs/en/.gitbook/assets/lms-user-guide/getting-around.png",
-            "sha256": "224962cefc4b380e133775025a55323f578ba02668be5b1c1199ae112d985c6b",
+            "sha256": "931a40bfdec31874772dbb2babb65a55de434bd5a1450aad1cfd374fb20bdaa5",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -2567,7 +2567,7 @@
         {
             "locale": "en",
             "path": "docs/en/.gitbook/assets/lms-user-guide/getting-around-step-1.png",
-            "sha256": "69e45b0ce65c9bb8a238106572e4c3232979ca87203d475265881053d318e9d9",
+            "sha256": "8b7afa66278e1fc8382de6f02ffa4df113195d4382724ff8d795001a687e6863",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -2576,7 +2576,7 @@
         {
             "locale": "en",
             "path": "docs/en/.gitbook/assets/lms-user-guide/getting-around-step-2.png",
-            "sha256": "3657d071a7a4a5c2b02db0914dd80e6d8fe58fec061779d8742c34fb6b2d6816",
+            "sha256": "0dc9eb8ed01bea816e75b515ea4703ef7b4962977f97272c7219931899363055",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -2585,7 +2585,7 @@
         {
             "locale": "en",
             "path": "docs/en/.gitbook/assets/lms-user-guide/getting-around-step-3.png",
-            "sha256": "3301651426127fc4bfbe949b44a9cffc75e0cec78ad918ce1fce09820e80e2d1",
+            "sha256": "5bb1e4dd12a612ec0db6182470bfc26dc4b85d9b246e2aee63fe874266b3e522",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -2594,7 +2594,7 @@
         {
             "locale": "en",
             "path": "docs/en/.gitbook/assets/lms-user-guide/getting-around-step-4.png",
-            "sha256": "9565cfd57d848f478e71d547aba1fdba9c8f3de36af4f69083f2ba3ead6e5497",
+            "sha256": "cf2d3ffc704ae71ba780e2643746064492ffccc5931e769e65cfc64f62127d4c",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -2603,7 +2603,7 @@
         {
             "locale": "en",
             "path": "docs/en/.gitbook/assets/lms-user-guide/getting-around-step-5.png",
-            "sha256": "fe62139860b35793665997b2075e39c3494357e78326034baa4d0d549e8606cf",
+            "sha256": "6a6ef9aa90c155240ec680df83f5c352d4d875e70cff4c285a60274516d499c4",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -2612,7 +2612,7 @@
         {
             "locale": "en",
             "path": "docs/en/.gitbook/assets/lms-user-guide/learning-content-library.png",
-            "sha256": "83654838b4ca7106a9b5f38a16017b65fb8eb4ab96b17e299de2b25355af78e2",
+            "sha256": "de99e3da823d585cf90c4082483baf614266f9c23ab5e1ce874e7c37c153903c",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -2621,7 +2621,7 @@
         {
             "locale": "en",
             "path": "docs/en/.gitbook/assets/lms-user-guide/learning-content-library-step-1.png",
-            "sha256": "ccd13027655434ed5e253413f0681667774a59f4c02d51087c10d6668a55f4ee",
+            "sha256": "274985e0bc038d53cae04f1c73ff6a07f320852e80436a0f0993153572787ab0",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -2630,7 +2630,7 @@
         {
             "locale": "en",
             "path": "docs/en/.gitbook/assets/lms-user-guide/learning-content-library-step-2.png",
-            "sha256": "ef020b3c73a20047741f443605357c7884e764182edd579f91b1241037a08b20",
+            "sha256": "386a287befd490b2c9698cf96d4d669c6a8c460b37b518667c23bc1130c70461",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -2639,7 +2639,7 @@
         {
             "locale": "en",
             "path": "docs/en/.gitbook/assets/lms-user-guide/learning-content-library-step-3.png",
-            "sha256": "58fda96ea6ca9a22910e44a460ccece315900efb88cfe49dd286f9306a24c874",
+            "sha256": "409074f979d6b73288e5225db3ee4cee0b26a0ebbe4d23afd3aa84052029c213",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -2648,7 +2648,7 @@
         {
             "locale": "en",
             "path": "docs/en/.gitbook/assets/lms-user-guide/learning-content-library-step-4.png",
-            "sha256": "b8fadc7ccc4a6e9e42c9e869146c198055ac938eb5e2696dd94391aa8e2159e2",
+            "sha256": "3502f5a054b57ddb7948ae078f9abf6a17186179a0e48a71cf594a0220e951c8",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -2657,7 +2657,7 @@
         {
             "locale": "en",
             "path": "docs/en/.gitbook/assets/lms-user-guide/learning-content-library-step-5.png",
-            "sha256": "a9b36f348aa713fdc73eae463366277a6bd006598e651bae70e29dd23d7449b5",
+            "sha256": "5525f5e5b6604df29bd171e9f6f8cb22da55c1b4d58d9f498d22ce469300576f",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -2666,7 +2666,7 @@
         {
             "locale": "en",
             "path": "docs/en/.gitbook/assets/lms-user-guide/projects.png",
-            "sha256": "717bbd3281d5dbf2cbc0725976076939e2e400442a2bb1bd3feecf41239970c1",
+            "sha256": "df1b83b1f80df17cda49385e00f93748bb70b05e184be5b752f526ded85d138f",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -2675,7 +2675,7 @@
         {
             "locale": "en",
             "path": "docs/en/.gitbook/assets/lms-user-guide/projects-step-1.png",
-            "sha256": "f9c6495c35624e4f649e5c1e552ccf09a8cd2270ad0dec1417322a68eb71a0df",
+            "sha256": "edd3c2fd7674bdaef49c6b729fd44a6e16627aa3cb21610a04931b4272aca3ff",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -2684,7 +2684,7 @@
         {
             "locale": "en",
             "path": "docs/en/.gitbook/assets/lms-user-guide/projects-step-2.png",
-            "sha256": "d53b5b775a254731cf77662958d4dab5ffede1e1bc2c69e7bea08a4104ec7802",
+            "sha256": "a523ff04ba922ec54969513273ee3e02ca3be9c5f89d3ec85c9c7893ccfba9a8",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -2693,7 +2693,7 @@
         {
             "locale": "en",
             "path": "docs/en/.gitbook/assets/lms-user-guide/projects-step-3.png",
-            "sha256": "338a3b80872632fe3ca3bbdc69499fb486cd346170d97fe5675a6ebd29e73284",
+            "sha256": "2c02da497480009f6a94964994b976bba79cf60f715bcaf3554d456eff1e70c9",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -2702,7 +2702,7 @@
         {
             "locale": "en",
             "path": "docs/en/.gitbook/assets/lms-user-guide/projects-step-4.png",
-            "sha256": "7cf99375c7044c735675d868cda2aaeb9f9d6ea33304e2935058d26f7e63c88d",
+            "sha256": "82e75230052046690df9c10ccb5606e6c39eed32a553b69ccf4623c8deb51451",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -2711,7 +2711,7 @@
         {
             "locale": "en",
             "path": "docs/en/.gitbook/assets/lms-user-guide/projects-step-5.png",
-            "sha256": "ceadba74b883c107aab59d53cfa093493abc969d50e7860cfb09486a9a822d1d",
+            "sha256": "df7464fb34af070dac43ba3741f9569c4726161a64701c2144001cdb10dfc483",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -2720,7 +2720,7 @@
         {
             "locale": "en",
             "path": "docs/en/.gitbook/assets/lms-user-guide/resources-pages-links.png",
-            "sha256": "32f8fa70730a41de6d94d6dda07ece736b566aed2e1bf1b8ccb2fd8074b24f8d",
+            "sha256": "3dd9bae34f38fd7f560dadc6fcc14475b88badd35f0a2875d68dd0365797f0b1",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -2729,7 +2729,7 @@
         {
             "locale": "en",
             "path": "docs/en/.gitbook/assets/lms-user-guide/resources-pages-links-step-1.png",
-            "sha256": "700c8382fe137807bca64750940720dd6e47a469352c17d79989c9f86ac0086e",
+            "sha256": "b8e76a20dc4a4d063fc73cca39c136175337224eefaffd2907bd5d0bef0ea552",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -2738,7 +2738,7 @@
         {
             "locale": "en",
             "path": "docs/en/.gitbook/assets/lms-user-guide/resources-pages-links-step-2.png",
-            "sha256": "aeed49747fe79cdb0e1dff9fc01e76a625de5d9c1decc17f08eea4775468b249",
+            "sha256": "bf333a12380b67a0216f9ac88031cad9d94c968ec70f8936fe782ec6a3a5c4fd",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -2747,7 +2747,7 @@
         {
             "locale": "en",
             "path": "docs/en/.gitbook/assets/lms-user-guide/resources-pages-links-step-3.png",
-            "sha256": "c3c2af9f589e0b6d9604675de80241496863c6239a357a4c4d939542f9acf38b",
+            "sha256": "958cb417da54a6e663d7f1efa7ee3a320dc624948059a025aa8349fb1fed022c",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -2756,7 +2756,7 @@
         {
             "locale": "en",
             "path": "docs/en/.gitbook/assets/lms-user-guide/resources-pages-links-step-4.png",
-            "sha256": "7824548281ad52815950fe01107688bf95aff50bc5d4e050ea50b430037302e4",
+            "sha256": "e90b4607f76c24165d1ca186983e583ac30fe50a736d8f815fb41d7f99bd68ca",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -2765,7 +2765,7 @@
         {
             "locale": "en",
             "path": "docs/en/.gitbook/assets/lms-user-guide/resources-pages-links-step-5.png",
-            "sha256": "8d240218579f783dc33a77946ab8c91babad98333a6f358a3b967762248546f5",
+            "sha256": "5ff3644d7a51b6d3703a7b0ce74dc1b2da9d5f418405603f5b6f4c79bbdee950",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -2774,7 +2774,7 @@
         {
             "locale": "en",
             "path": "docs/en/.gitbook/assets/lms-user-guide/courses.png",
-            "sha256": "f603dc775e5a707b48b3011ca712e485c1081b6f48fc7b49c12ea429f8c89a76",
+            "sha256": "9e2ca6307bbb40a46b471696a78310eb0193cef4477ae5f241ec9feb5fae64e3",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -2783,7 +2783,7 @@
         {
             "locale": "en",
             "path": "docs/en/.gitbook/assets/lms-user-guide/courses-step-1.png",
-            "sha256": "259baa77cfa6bbc5d1c2e54d9930d001c5760195b03679e18462be616633f8d5",
+            "sha256": "acf9c814ecfcb6c2c243d1739a96f3c928acfed8051102e53d5b10294067e66c",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -2792,7 +2792,7 @@
         {
             "locale": "en",
             "path": "docs/en/.gitbook/assets/lms-user-guide/courses-step-2.png",
-            "sha256": "0f72393afe77438012ac7d0b37f3186bd26d6efcae4ac6ff825d950b168a4695",
+            "sha256": "70cf52dcb23a046232b31727c31ffdf0d33c2b4374a15bf6b0582383528cbfe6",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -2801,7 +2801,7 @@
         {
             "locale": "en",
             "path": "docs/en/.gitbook/assets/lms-user-guide/courses-step-3.png",
-            "sha256": "c830e0466419ec6b6c32632ff60cbe1a967fbd33b89082c7cfdefa8688d2dc7e",
+            "sha256": "c5af4c44f19564e83e69951bc51ffc5cf6ed29eb387893fb249c729ba32cc273",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -2810,7 +2810,7 @@
         {
             "locale": "en",
             "path": "docs/en/.gitbook/assets/lms-user-guide/courses-step-4.png",
-            "sha256": "fc8b829ecf356c80a681ba7d72464668ec607adc17bd5c58934bddf935137bbc",
+            "sha256": "28a40fb72ed4edf6c3a3272cad195ffc8aeef931cc958c648295d0520a873a63",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -2819,7 +2819,7 @@
         {
             "locale": "en",
             "path": "docs/en/.gitbook/assets/lms-user-guide/courses-step-5.png",
-            "sha256": "1cef4824d932836ec92b821ce203ad786ca939dce4b82be311ee0ccdc577e044",
+            "sha256": "27c77982d0e3052191d0c2060d8b464b0db45d644de641f4bbaf141ba08e6bc4",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -2828,7 +2828,7 @@
         {
             "locale": "en",
             "path": "docs/en/.gitbook/assets/lms-user-guide/learning-tracks.png",
-            "sha256": "0caeff7f7c4cb2c576f1e66241e881c41a7900d3de199d3d4f497e61aa490efc",
+            "sha256": "c69e42b734ae5a470adb8744348b9ac9bab45b7432f37753ef8edcb601c9c4c3",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -2837,7 +2837,7 @@
         {
             "locale": "en",
             "path": "docs/en/.gitbook/assets/lms-user-guide/learning-tracks-step-1.png",
-            "sha256": "ff232b24a9facc9ecb877fb2e76f79411a545afb1c13be192c1163d6412cd565",
+            "sha256": "22689393e29eb201a8b95917afa7c0ffc5f6fba57bfd2124c53454f7e929ed26",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -2846,7 +2846,7 @@
         {
             "locale": "en",
             "path": "docs/en/.gitbook/assets/lms-user-guide/learning-tracks-step-2.png",
-            "sha256": "68e893e11ee374cc665ac8b3538a94ff5a8998f535b9f983596e0e4e2314a0b5",
+            "sha256": "29e08ee64a1a0a64515e61b44ceefef8019c99d822516c0f282780ae8833da18",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -2855,7 +2855,7 @@
         {
             "locale": "en",
             "path": "docs/en/.gitbook/assets/lms-user-guide/learning-tracks-step-3.png",
-            "sha256": "80e05019737ceb4471f261db61bdb3ab707718df12596568e98828325331f1df",
+            "sha256": "e0dd3486e764a5dec05117890d86e95be31f8800c8eb3fa72e6dbcac32fc4005",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -2864,7 +2864,7 @@
         {
             "locale": "en",
             "path": "docs/en/.gitbook/assets/lms-user-guide/learning-tracks-step-4.png",
-            "sha256": "447efcd00a5508946c88ea41b473c93a03ec7f319c989e58f17e0dd1083346b5",
+            "sha256": "6b5b1b476c53b77f3a0a90140fccc8f310476b62114569812cc06a7affa71bdc",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -2873,7 +2873,7 @@
         {
             "locale": "en",
             "path": "docs/en/.gitbook/assets/lms-user-guide/learning-tracks-step-5.png",
-            "sha256": "395ce65dbe609a8125a0975107a85d626ca2cb310458c8bad0d8bfad3fdeee96",
+            "sha256": "6e35db7c962f903c861965580c89b45cf4a9251632b3b111103366e48653c7a1",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -2882,7 +2882,7 @@
         {
             "locale": "en",
             "path": "docs/en/.gitbook/assets/lms-user-guide/sharing-recent-favorites-trash.png",
-            "sha256": "dcce0386dff2c924cfc8fa57f0e087aebe8353f61cb7f3902879a8f6a24290f6",
+            "sha256": "e9c4f8512a2c6f12bb5b1ce658ca955733a4182222e90580c44ae80dcde34e9d",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -2891,7 +2891,7 @@
         {
             "locale": "en",
             "path": "docs/en/.gitbook/assets/lms-user-guide/sharing-recent-favorites-trash-step-1.png",
-            "sha256": "0a67c3ba8115b477e6c1b3b32de955968b868d214ef7ee9ae3d94d705b4f9918",
+            "sha256": "7a17405ade90245a263ddcf6b42a41f30dba5de03800208ab8aae91bab66b8a7",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -2900,7 +2900,7 @@
         {
             "locale": "en",
             "path": "docs/en/.gitbook/assets/lms-user-guide/sharing-recent-favorites-trash-step-2.png",
-            "sha256": "43c74c135b086ce74104f3d583520f5a14b1ac3dd25d524c2d9751ed066b40ef",
+            "sha256": "33c25fa86b43dd56ab0048aa3b553df8cd590c52e3ae16f25aebbc2cc88d5df6",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -2909,7 +2909,7 @@
         {
             "locale": "en",
             "path": "docs/en/.gitbook/assets/lms-user-guide/sharing-recent-favorites-trash-step-3.png",
-            "sha256": "1d9e52ebe503998b7ac3e876aa9efd6842cdd38d0d16239dd0e8b6bb5112e885",
+            "sha256": "092f6d88f27f591af04ea664e7feaadc34220e16358c7bd2f6b1758c904c0f68",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -2918,7 +2918,7 @@
         {
             "locale": "en",
             "path": "docs/en/.gitbook/assets/lms-user-guide/sharing-recent-favorites-trash-step-4.png",
-            "sha256": "7bee875a7010f6c6b777d0828512581a7b7885139eca29b3be64d2e806ad7c19",
+            "sha256": "6bd8fcff3dc78c8491b4ec93cc360cb6e68758a6a8bd885a3a3c21e54da3e813",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -2927,7 +2927,7 @@
         {
             "locale": "en",
             "path": "docs/en/.gitbook/assets/lms-user-guide/sharing-recent-favorites-trash-step-5.png",
-            "sha256": "22e72acd19443e0746e77f464ddc545765c088e3f9ddfbc7972fcdcca302d986",
+            "sha256": "fac753c7807ea486d524fdf9dbc4a4921f3af735785c9459200e40fdd5caf7bf",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -2936,7 +2936,7 @@
         {
             "locale": "en",
             "path": "docs/en/.gitbook/assets/lms-user-guide/learner-experience.png",
-            "sha256": "57c1d22da140466fda86a843348ebc878eb4823d7423194fa1ae1f99256d964f",
+            "sha256": "c4e98a0c20df5fa1bafc4983015953ee9a735147b3562a3e3329f729f89da5ef",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -2945,7 +2945,7 @@
         {
             "locale": "en",
             "path": "docs/en/.gitbook/assets/lms-user-guide/learner-experience-step-1.png",
-            "sha256": "a3478fffac94edb5a67ae7d45f5fdcdc7386a9c7c895bc15f314371a8696131a",
+            "sha256": "af4a328cf431c624c1661e327285b56d9e34df08bd9091a1d130c5d1be29adc3",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -2954,7 +2954,7 @@
         {
             "locale": "en",
             "path": "docs/en/.gitbook/assets/lms-user-guide/learner-experience-step-2.png",
-            "sha256": "c385d4112935c79bcb8ec388978d7367de326d5b65cdf5d482730335549cb529",
+            "sha256": "5546849b7f63e319bd6a2160cf97fe38abdfa3735140791c06deb17c6291dfca",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -2963,7 +2963,7 @@
         {
             "locale": "en",
             "path": "docs/en/.gitbook/assets/lms-user-guide/learner-experience-step-3.png",
-            "sha256": "ab4c93f8787002d7a308174d6e5d6a722d211c1f1d5970f8601e4149edcd7459",
+            "sha256": "4161b9e76b6f98019bd3b6f92ba95f15f58a695cc8870ff32bb4020415bd06bd",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -2972,7 +2972,7 @@
         {
             "locale": "en",
             "path": "docs/en/.gitbook/assets/lms-user-guide/learner-experience-step-4.png",
-            "sha256": "95d40270fa88d3300b81c0b85035ce93dcf3f1629ccbe9917d1f477dd90d86b9",
+            "sha256": "13ae87d6cbcbf1f98fd68b20b6f3c52c80d0731fe7ef4711b19d189935ee1d8f",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -2981,7 +2981,7 @@
         {
             "locale": "en",
             "path": "docs/en/.gitbook/assets/lms-user-guide/learner-experience-step-5.png",
-            "sha256": "d68744a7aff17162f5a41560a5dc650adb331926524f00956231b7159d036f93",
+            "sha256": "dc952f4be6f5e9d856b892e5eae7750f73f4f739f4e93f826153c119c778376a",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -2990,7 +2990,7 @@
         {
             "locale": "en",
             "path": "docs/en/.gitbook/assets/lms-user-guide/knowledge.png",
-            "sha256": "ffd128679ca97fb7461adc10d0f7327c682106ffbe748440f61c28e181af1949",
+            "sha256": "d728a8e649ba52f7067d8fa122b2bb9d6edfa5b0c91962ba87ac7cbc7b09bd89",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -2999,7 +2999,7 @@
         {
             "locale": "en",
             "path": "docs/en/.gitbook/assets/lms-user-guide/knowledge-step-1.png",
-            "sha256": "9ecf426be92606008084a93424bc4cf0f7a9f3c8e50ec13cb15b1cc100fd7da8",
+            "sha256": "62a7841df24c4f393c105bc14d098472a9d589c57a469f664ae0955b6922d6ed",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -3008,7 +3008,7 @@
         {
             "locale": "en",
             "path": "docs/en/.gitbook/assets/lms-user-guide/knowledge-step-2.png",
-            "sha256": "2c7b976db25a445d2571f5b8bae319dcb924c1713f7fb1e46697b849d75e13fd",
+            "sha256": "98b9718cb27b8965b05ee9fb1009cd2bc0977c1b4953f5c9fe934eb4791fdb5a",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -3017,7 +3017,7 @@
         {
             "locale": "en",
             "path": "docs/en/.gitbook/assets/lms-user-guide/knowledge-step-3.png",
-            "sha256": "3a90f37e09452a06f321cabb3c4af0012a0279c91385457a568a24d34b6578a7",
+            "sha256": "380839ec60220f7c2cf38ad1696ca97068890325fde40bb004295c239acf9d03",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -3026,7 +3026,7 @@
         {
             "locale": "en",
             "path": "docs/en/.gitbook/assets/lms-user-guide/knowledge-step-4.png",
-            "sha256": "67cb7614c1331de14ee97fcc418853bcf7de3afb20b74c73a1d7b9ffe6d28d7d",
+            "sha256": "46a8bdae1ac45e2cc30c14c002349bc30e3fe67944c6145efbb535a42a1faa25",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -3035,7 +3035,7 @@
         {
             "locale": "en",
             "path": "docs/en/.gitbook/assets/lms-user-guide/knowledge-step-5.png",
-            "sha256": "3b4245da12b831c5a44b3de3fc99c0a50852d9fc4d53973b5c6477b154d0dcb8",
+            "sha256": "cf7158d15f5fee291c4779725edf6464b9ac8b47f0030cda6b23237482d86e4f",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -3044,7 +3044,7 @@
         {
             "locale": "en",
             "path": "docs/en/.gitbook/assets/lms-user-guide/reports.png",
-            "sha256": "f67d65df483f37954af2dc26487daadf8e184c5d9d5fe04e01e052a8451f1029",
+            "sha256": "a8215051cae1bec841d49a976a2661b961abe2b306961e9670dbb879b68c55df",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -3053,7 +3053,7 @@
         {
             "locale": "en",
             "path": "docs/en/.gitbook/assets/lms-user-guide/reports-step-1.png",
-            "sha256": "d58f609f4fdf0d3e23dd780f0d2f95a05716587edec6a3db2d2c7a69461361fc",
+            "sha256": "a599ae6bb0bc5fbce5fc28afbc586ac164164b34592487636ba9342ab6f6ef79",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -3062,7 +3062,7 @@
         {
             "locale": "en",
             "path": "docs/en/.gitbook/assets/lms-user-guide/reports-step-2.png",
-            "sha256": "6af31fd54069984d7fd3e45c38e2a400e243fadfdb65eea4f4edf16bbf85c149",
+            "sha256": "1b3e620751651e5067018e91b82d114405da3296253b2205fb798371b68c1cb3",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -3071,7 +3071,7 @@
         {
             "locale": "en",
             "path": "docs/en/.gitbook/assets/lms-user-guide/reports-step-3.png",
-            "sha256": "051f84fc267c7ac8a2c6888e29dd1835dda2f86aeb319442c860da731970438c",
+            "sha256": "8d6edc25ce45b615d3ac4fd7784ed146553563261019b000a92a417f4659e497",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -3080,7 +3080,7 @@
         {
             "locale": "en",
             "path": "docs/en/.gitbook/assets/lms-user-guide/reports-step-4.png",
-            "sha256": "cca63cc71a7be8f5f2f160b1f9b7ae1a5e94b66535f0109daf96be1169eec1ea",
+            "sha256": "8255391158459e3a64327d8b8ba261f5726f4173742950daa36d14a7878caee6",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -3089,7 +3089,7 @@
         {
             "locale": "en",
             "path": "docs/en/.gitbook/assets/lms-user-guide/reports-step-5.png",
-            "sha256": "1b275157a6672ca862b3d71f88186529a9a22b5f39325c573ac81e3a7c4c13bb",
+            "sha256": "876ce65097493a4a8519cf6d34183893030fc43949d17644ae62bb43fc46ade6",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -3107,7 +3107,7 @@
         {
             "locale": "en",
             "path": "docs/en/.gitbook/assets/lms-user-guide/guest-access-step-1.png",
-            "sha256": "62d21838c868724d5164219d434f63541cf6527cc89a8a3164e0bba6ff706742",
+            "sha256": "fb1585351ee5b7425d36640a7856a4bb95ee490a12e0954b77f804757b902f58",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -3125,7 +3125,7 @@
         {
             "locale": "en",
             "path": "docs/en/.gitbook/assets/lms-user-guide/guest-access-step-3.png",
-            "sha256": "7fbf1d45b9e094627cb747ad6b77347771cb4d837431fefc55f35fd468b45d6e",
+            "sha256": "442ce96c8e378d416f25be88dd32c2ed9ade0f6355d2408a840a163f3e22bc78",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -3134,7 +3134,7 @@
         {
             "locale": "en",
             "path": "docs/en/.gitbook/assets/lms-user-guide/guest-access-step-4.png",
-            "sha256": "3d9480081bcc77c21c42eed659779a116446a9f414a8a94c4e4bf5fecfffb02d",
+            "sha256": "6d1f0adb2f280471400efce62625b81e7b69529df24d058d21b44d56d2e9df10",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -3152,7 +3152,7 @@
         {
             "locale": "en",
             "path": "docs/en/.gitbook/assets/lms-user-guide/troubleshooting.png",
-            "sha256": "04d91fe02ffd888e369b190891ecaabc259c28b1603dbf6a091f11b91237dbf4",
+            "sha256": "eb138be4d12cfd2dc12c90615ae61aec772b11cbbd2660397b4e258f4d041618",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -3161,7 +3161,7 @@
         {
             "locale": "en",
             "path": "docs/en/.gitbook/assets/lms-user-guide/troubleshooting-step-1.png",
-            "sha256": "7d3025a9f76977a6632205e5887804b72c3292c19d3b0d4def53feda348c66ed",
+            "sha256": "b618637c844887ee8a5902167779c909dc989029d04539335ada24f1e32b5c57",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -3170,7 +3170,7 @@
         {
             "locale": "en",
             "path": "docs/en/.gitbook/assets/lms-user-guide/troubleshooting-step-2.png",
-            "sha256": "50c43108390165014990f86db793198bad36582bc95250ee6ee9b0bb2118aa5b",
+            "sha256": "938e4df2377c1b3d4a64c9508c72da4a93661b641112460169f86ffa94b37af0",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -3179,7 +3179,7 @@
         {
             "locale": "en",
             "path": "docs/en/.gitbook/assets/lms-user-guide/troubleshooting-step-3.png",
-            "sha256": "e6fd762e2dd0283ad97ffa8147f0efbb089541c80249561eac598b0edf85239d",
+            "sha256": "96a516c580f3e93cb3da40b85dee6af4022325149e8603432cf5af2191f8832e",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -3188,7 +3188,7 @@
         {
             "locale": "en",
             "path": "docs/en/.gitbook/assets/lms-user-guide/troubleshooting-step-4.png",
-            "sha256": "192be6f1e0ffc64859e8dd25ba2af845376ef9c31f262ec24b736f47867105a0",
+            "sha256": "097743f76e4856a00d71905e50d1f397a9d58149ce48649b31aaa798e93744ec",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -3197,7 +3197,7 @@
         {
             "locale": "en",
             "path": "docs/en/.gitbook/assets/lms-user-guide/troubleshooting-step-5.png",
-            "sha256": "9cd3777178349299d7f3df96e3947f77f944d8bb8507f1edbb98fbb96ef79da1",
+            "sha256": "5c0ab8b29a69db2482248f3801e926061df60946aea19b15c2f11ced075538cb",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -3206,7 +3206,7 @@
         {
             "locale": "ru",
             "path": "docs/ru/.gitbook/assets/lms-user-guide/dashboard-overview.png",
-            "sha256": "8cae1f68844f82a420b339c1d7be8c538e04e417dc6e09e8bd00d09a680db4df",
+            "sha256": "a5236625db9f06349a186d09bdac765eb13841e1091f8ecf9c3d7faacc1dd0d0",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -3215,7 +3215,7 @@
         {
             "locale": "ru",
             "path": "docs/ru/.gitbook/assets/lms-user-guide/dashboard-overview-step-1.png",
-            "sha256": "2a635e1852cfbccb7c9f604b6e9dbf2d6ae79b87d82f8dfa26e71467574db68c",
+            "sha256": "f794220c1d0f9caf5d6edc47371fbb6de912875c755059d0e4f7c891ab1ae3d7",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -3224,7 +3224,7 @@
         {
             "locale": "ru",
             "path": "docs/ru/.gitbook/assets/lms-user-guide/dashboard-overview-step-2.png",
-            "sha256": "071b5618c444231784542fcaeab23d9d7d60fc300e8f5e69c1f3e890ae692238",
+            "sha256": "36fc65dba38aec0ec45f7e863926dc38a2dd89866ab1de9998cf7dd263c6817e",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -3233,7 +3233,7 @@
         {
             "locale": "ru",
             "path": "docs/ru/.gitbook/assets/lms-user-guide/dashboard-overview-step-3.png",
-            "sha256": "33dd8aa6d017d7f943b9f3c7da6cc3ce1c531693aa11d118e5a4f3946cf2f251",
+            "sha256": "4692cb1682f1a995c16c37a0209351e607d613b4be24fc471a78eb2dd6aebc91",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -3242,7 +3242,7 @@
         {
             "locale": "ru",
             "path": "docs/ru/.gitbook/assets/lms-user-guide/dashboard-overview-step-4.png",
-            "sha256": "fccd7307bea8916718bf62251b0f6c5f6eb2c7c5610747bcbc60ba407a2de7d3",
+            "sha256": "332fb60e0c4235c11eaf269583c0b1c02f40245350f6a67f6e77e780eb607add",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -3251,7 +3251,7 @@
         {
             "locale": "ru",
             "path": "docs/ru/.gitbook/assets/lms-user-guide/getting-around.png",
-            "sha256": "b89443d0e7556e7e93348a24e5cf368d0f10433522d0180546a8f7f65f0bc51b",
+            "sha256": "78956a8fa69bd7cd964626139ac1a2636b10e2718824f1c743488da935b1a9fc",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -3260,7 +3260,7 @@
         {
             "locale": "ru",
             "path": "docs/ru/.gitbook/assets/lms-user-guide/getting-around-step-1.png",
-            "sha256": "efc8867bfb00b735a94f6f978e8e107a60671bc2174f069893b939f51e766290",
+            "sha256": "17c96721464d979db5815041a1b0436f9847ae5543ad808daf1d64a42bb74103",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -3269,7 +3269,7 @@
         {
             "locale": "ru",
             "path": "docs/ru/.gitbook/assets/lms-user-guide/getting-around-step-2.png",
-            "sha256": "dd212d32f13715fedcb995f498cbcf2a7897e7f6b1fc4d4ed0169596a22400f0",
+            "sha256": "b1df632d983ac108c4cd5c721f741d377b3671704ef52086bd10ec11e0d05d54",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -3278,7 +3278,7 @@
         {
             "locale": "ru",
             "path": "docs/ru/.gitbook/assets/lms-user-guide/getting-around-step-3.png",
-            "sha256": "5a811f7a9ab9d1a4428df2af766f83d58cb372e939fcaa8e56d2fa5b2b370d6d",
+            "sha256": "baa85cdeda8d19bbef61329924cd8577b58f0134932a392aabead59383aad30a",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -3287,7 +3287,7 @@
         {
             "locale": "ru",
             "path": "docs/ru/.gitbook/assets/lms-user-guide/getting-around-step-4.png",
-            "sha256": "40ba816b3a3bf0ad0335c9f65837b5ba685cfc167120df75e92ee50032df975f",
+            "sha256": "53735297bc9dcc3089160e23466abe4e2021ab5d981b2703e7a06fc1432c0a1f",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -3296,7 +3296,7 @@
         {
             "locale": "ru",
             "path": "docs/ru/.gitbook/assets/lms-user-guide/getting-around-step-5.png",
-            "sha256": "858c89b4cf210f1baae1d9031fc186e9151ee066e56843142a0550643ed3d114",
+            "sha256": "4efe3585090fd778d500c471537e327c8cd3fd76a219508d5f08ed33cca8d692",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -3305,7 +3305,7 @@
         {
             "locale": "ru",
             "path": "docs/ru/.gitbook/assets/lms-user-guide/learning-content-library.png",
-            "sha256": "dbd1a625a20de554f86f4af378c60bfe4612b314aa51bc745f2b567723633f9f",
+            "sha256": "3ad9ad282d304e9e29a1fae0925ad7bdbc35a9c7109f49fa5c746234ca425452",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -3314,7 +3314,7 @@
         {
             "locale": "ru",
             "path": "docs/ru/.gitbook/assets/lms-user-guide/learning-content-library-step-1.png",
-            "sha256": "4c1afac16ca5a2a8ca38df82475e927696f6317b5c3ddabcb32e811f608a16f4",
+            "sha256": "520671baef84c65039cf535a71c2195b16125bf990c3918c4bd2979851844d6d",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -3323,7 +3323,7 @@
         {
             "locale": "ru",
             "path": "docs/ru/.gitbook/assets/lms-user-guide/learning-content-library-step-2.png",
-            "sha256": "10aa684516bfd61e5819f0d6982db59e7a4264d5d80aaaab055c2baeabf84242",
+            "sha256": "39a60ac0373c0e63bf9d171719c8a967817579010632cd8377790ddd29aaeb68",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -3332,7 +3332,7 @@
         {
             "locale": "ru",
             "path": "docs/ru/.gitbook/assets/lms-user-guide/learning-content-library-step-3.png",
-            "sha256": "22bbd8f25d8b04a97303d3e93f39afccf1dbe3a339bee242f48aceef42252df4",
+            "sha256": "20eb5b69dd123f13f34fba21ba8d497c4856ce0e48df7be717c028de91f7bec8",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -3341,7 +3341,7 @@
         {
             "locale": "ru",
             "path": "docs/ru/.gitbook/assets/lms-user-guide/learning-content-library-step-4.png",
-            "sha256": "ea36c8379a98397d1cbdc6c5b03f81d1836e01b2b0b34940876f7207440e150b",
+            "sha256": "ed2ae2569140589b52ebaaac239b679fa727b9f768c5068ae54f0798a4c5eee0",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -3350,7 +3350,7 @@
         {
             "locale": "ru",
             "path": "docs/ru/.gitbook/assets/lms-user-guide/learning-content-library-step-5.png",
-            "sha256": "55c070db07879ce281c2d2773f604a9757c398df22b28b5ee15ee4241d1a06c1",
+            "sha256": "f2bee5db7f57ad144d3d14760b5b5cac3d0600820aebfd48cf6828b76ca74f7f",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -3359,7 +3359,7 @@
         {
             "locale": "ru",
             "path": "docs/ru/.gitbook/assets/lms-user-guide/projects.png",
-            "sha256": "8a3d9cdae4bb444df93a27f8b5fc0656b32532a8beab98d007d1729f5f1173e0",
+            "sha256": "9dbd7363811c752bc751f520eb2646a9f16ba11a9dbc373693520414f154c4f6",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -3368,7 +3368,7 @@
         {
             "locale": "ru",
             "path": "docs/ru/.gitbook/assets/lms-user-guide/projects-step-1.png",
-            "sha256": "c1e0e0e9eb966ad83856304ababfc679003fb4ab69960ab2b0d3d35bf194a5d9",
+            "sha256": "d655b7a13e3ab8d82f2f7ff1581fc2d6fe4434c90a91ed1b90b1e93d06be2c62",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -3377,7 +3377,7 @@
         {
             "locale": "ru",
             "path": "docs/ru/.gitbook/assets/lms-user-guide/projects-step-2.png",
-            "sha256": "751309f5cc527c0ab76e15021196ab4646b35b371b5bba2e81fbeb736374f1ce",
+            "sha256": "ef9c43c996bc1f55716b077474bd5605f1a5962d27ce4556b5e3b2960e0eb5ee",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -3386,7 +3386,7 @@
         {
             "locale": "ru",
             "path": "docs/ru/.gitbook/assets/lms-user-guide/projects-step-3.png",
-            "sha256": "b24f747049f42bb39a12934186723cfd89b2fb39039fc2b0368c108db643ca7a",
+            "sha256": "1d9de73b990c5fc958d49e5b9268e9ef85a64a71beac80007ff6ac0de6ec832f",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -3395,7 +3395,7 @@
         {
             "locale": "ru",
             "path": "docs/ru/.gitbook/assets/lms-user-guide/projects-step-4.png",
-            "sha256": "ddf66d5d08cc2ebf8ce0186fa18d77afe0c3cd139a1982c69e4268eec167b13e",
+            "sha256": "dece1c2b67dc810a5e5be923b3caae5868cb5a07a6f428c11962de43e57f71ad",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -3404,7 +3404,7 @@
         {
             "locale": "ru",
             "path": "docs/ru/.gitbook/assets/lms-user-guide/projects-step-5.png",
-            "sha256": "56aa8711258c6bd785b984b2023da1d22504f3e450c21c7e3378c276d4cfe035",
+            "sha256": "8a191c09d5347f6cbab117d44c16eece979064f4a65b06ebc69ba85bd23405ad",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -3413,7 +3413,7 @@
         {
             "locale": "ru",
             "path": "docs/ru/.gitbook/assets/lms-user-guide/resources-pages-links.png",
-            "sha256": "669a7f0715060c4d2043825ae4df902b30dccb35f9d5bcb2949b7da1a57078ff",
+            "sha256": "70ff7d8148104e83654437cfd5e34c325d02fee77ac7f2ccad65a38e1ae7fa24",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -3422,7 +3422,7 @@
         {
             "locale": "ru",
             "path": "docs/ru/.gitbook/assets/lms-user-guide/resources-pages-links-step-1.png",
-            "sha256": "32c8f5240ee5a63a5d3e15e44e0ae47cb979cdd6ae3497b81d8c5906369bb140",
+            "sha256": "f8cbf7ac797496e42eb7b7623394896c28502aa590978d3bb7e39331fc4158e2",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -3431,7 +3431,7 @@
         {
             "locale": "ru",
             "path": "docs/ru/.gitbook/assets/lms-user-guide/resources-pages-links-step-2.png",
-            "sha256": "306cce03801f76f25f717f03678a2e252f331c7418594b6d1918cd809ac01d7f",
+            "sha256": "d78603c75f6e93119efefd905910d05ad9ea7aaa7a63acc33c65cc7f32d600cf",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -3440,7 +3440,7 @@
         {
             "locale": "ru",
             "path": "docs/ru/.gitbook/assets/lms-user-guide/resources-pages-links-step-3.png",
-            "sha256": "eb49f94448df36d7e90511e781ca1ecf7b3209b11060e79383066ee6f4b2a140",
+            "sha256": "ba85afce278ee1d5cf06f4d0884f7218f2fe45504c998ec6a35b100cb83860ac",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -3449,7 +3449,7 @@
         {
             "locale": "ru",
             "path": "docs/ru/.gitbook/assets/lms-user-guide/resources-pages-links-step-4.png",
-            "sha256": "f904f2a913d914337f43edaafa6f8b2861025e37ca4c80132d72f2c0d44c4fab",
+            "sha256": "b2a058f5ea0f7f2ac0024a4de982eae8ee74e0aebc62266e32cddd750aee565e",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -3458,7 +3458,7 @@
         {
             "locale": "ru",
             "path": "docs/ru/.gitbook/assets/lms-user-guide/resources-pages-links-step-5.png",
-            "sha256": "5c1c0e43ffca44c3aa942e6684b3866c088e44d76f0ef1e7af055536d26e59ad",
+            "sha256": "208440b3c18c75fcf4e550d1eeed98794cc8282556d5825bae6a02df28020aa2",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -3467,7 +3467,7 @@
         {
             "locale": "ru",
             "path": "docs/ru/.gitbook/assets/lms-user-guide/courses.png",
-            "sha256": "7f84a1da44ee963ff80ecb779da69c0224d62cc01a5359a701fc4250c8ef4eab",
+            "sha256": "ac194721a704e930643367612aa9734f35183a509ae801a16657c1c162e66311",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -3476,7 +3476,7 @@
         {
             "locale": "ru",
             "path": "docs/ru/.gitbook/assets/lms-user-guide/courses-step-1.png",
-            "sha256": "5c73929ce2a4c0254fd4bad209efad691184a232dad9bd496fbd13c08e4db8e1",
+            "sha256": "18bfc7abeedb19a8b7d493aafb18e5b896c759c5e647c3a1439012fb154867e3",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -3485,7 +3485,7 @@
         {
             "locale": "ru",
             "path": "docs/ru/.gitbook/assets/lms-user-guide/courses-step-2.png",
-            "sha256": "e35a329072d12b3a38220d8110b577979ea130e25afb8f5714638d72937bde2f",
+            "sha256": "d7da4716807280eeb5abfeb8855ac902a51a8b482de6e43da67edd640c245dff",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -3494,7 +3494,7 @@
         {
             "locale": "ru",
             "path": "docs/ru/.gitbook/assets/lms-user-guide/courses-step-3.png",
-            "sha256": "6ef8d5324937c5a50b5b8a3df48516f5f1a5eb4ea7156b5a963c6b04138ab65c",
+            "sha256": "7dcd47696bfb9196681fcc513413f80b1b3c8362536af5edd285cb2441317441",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -3503,7 +3503,7 @@
         {
             "locale": "ru",
             "path": "docs/ru/.gitbook/assets/lms-user-guide/courses-step-4.png",
-            "sha256": "a0727897b08b3720f3eb8c52831e7243691673ff97e05d139fd1fdf26509d1a9",
+            "sha256": "abf7d32e957ccb3124c96456e5b7a06d7d97466c07bdf99c02f52bd3f7fa76fc",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -3512,7 +3512,7 @@
         {
             "locale": "ru",
             "path": "docs/ru/.gitbook/assets/lms-user-guide/courses-step-5.png",
-            "sha256": "2a74533112efe0ddeb92fda702e0f1a361edd709c81af5cd9c68efb0fb50175f",
+            "sha256": "7bac2d0a004b0864aee040f80ab7e834dffc7be22d77b0e0977ff62ded525b64",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -3521,7 +3521,7 @@
         {
             "locale": "ru",
             "path": "docs/ru/.gitbook/assets/lms-user-guide/learning-tracks.png",
-            "sha256": "712cb1fa2967bcf4c59bacc2acb337a23ac86ffc4d02c878eed2df4ac7fc5035",
+            "sha256": "87ef2ba91602cf16f78667a882cfcf898e81b654e0456932244b9e0f5f296990",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -3530,7 +3530,7 @@
         {
             "locale": "ru",
             "path": "docs/ru/.gitbook/assets/lms-user-guide/learning-tracks-step-1.png",
-            "sha256": "00a9cf7c655da7196245d5ff838144c97a02c605d12b122a45a77fa6cc0e947d",
+            "sha256": "e1fc413ce743d5e6eb0be8f3a74a55022d5ca21256e4a1f035445dd53886b014",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -3539,7 +3539,7 @@
         {
             "locale": "ru",
             "path": "docs/ru/.gitbook/assets/lms-user-guide/learning-tracks-step-2.png",
-            "sha256": "44277074fdce59dc819f2b1d9420967af9d18444d62d00bb3591709a2641a98e",
+            "sha256": "d78a6154cb96c3b61e89c6967fe009a89165ee31f2ad2b19a47f4cc668d4fd23",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -3548,7 +3548,7 @@
         {
             "locale": "ru",
             "path": "docs/ru/.gitbook/assets/lms-user-guide/learning-tracks-step-3.png",
-            "sha256": "231e4d3e6ce8dc285fa0a409431a574bffa158af2f55beec1740cc8f9d54df29",
+            "sha256": "1e5ac334a835a9b348d26ab6f5522320e06ac7e63582e7a87e8072d98d907686",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -3557,7 +3557,7 @@
         {
             "locale": "ru",
             "path": "docs/ru/.gitbook/assets/lms-user-guide/learning-tracks-step-4.png",
-            "sha256": "d4afbeb380f5eced2ce288fbec562e5486f041356205ae8d5fa6f57e0a5f3966",
+            "sha256": "522c40830389f6b416db40b7381535837c7fd31b86cd4711a1d4778319c72f83",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -3566,7 +3566,7 @@
         {
             "locale": "ru",
             "path": "docs/ru/.gitbook/assets/lms-user-guide/learning-tracks-step-5.png",
-            "sha256": "1075fb171f9a2c30a5f0f8682af35c91152086e149b98f1f04b0a7addcf09696",
+            "sha256": "c614581b767ff8c8413891063f92a64df7cedc2c8199eca343c16e26103c7866",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -3575,7 +3575,7 @@
         {
             "locale": "ru",
             "path": "docs/ru/.gitbook/assets/lms-user-guide/sharing-recent-favorites-trash.png",
-            "sha256": "643601b84e7d732a1907fc4b10aab1dd4343e1a607fa7b350b261581a3af43ef",
+            "sha256": "1a0a0c885441b68d64904b628644720a84760536a2904812d14d035631790d4f",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -3584,7 +3584,7 @@
         {
             "locale": "ru",
             "path": "docs/ru/.gitbook/assets/lms-user-guide/sharing-recent-favorites-trash-step-1.png",
-            "sha256": "1834e7bf043407bd6a7485bf495ed62b3cf4371a3c0d94fabe73a52e21db92c0",
+            "sha256": "eeb57a8ae641972ccd916d9939816525c2c795e35a52d0ba63961f820841d398",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -3593,7 +3593,7 @@
         {
             "locale": "ru",
             "path": "docs/ru/.gitbook/assets/lms-user-guide/sharing-recent-favorites-trash-step-2.png",
-            "sha256": "1187e52ce60a9c14561d8ab813707d6ce68cc9bf1200f8f419d4bc1dae61c8e8",
+            "sha256": "e1468fc854ffe0589046cfaca5fb7a652d1dc99164114f462facb29ab148c8e7",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -3602,7 +3602,7 @@
         {
             "locale": "ru",
             "path": "docs/ru/.gitbook/assets/lms-user-guide/sharing-recent-favorites-trash-step-3.png",
-            "sha256": "6049096616a110a063d35c78bcff800a498cc0ea7a13467177e796b2310dee10",
+            "sha256": "bdd3c5a5ce7bc7a46becee6dfc6647f5582eb973def48b9a557dcb99b8b142a3",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -3611,7 +3611,7 @@
         {
             "locale": "ru",
             "path": "docs/ru/.gitbook/assets/lms-user-guide/sharing-recent-favorites-trash-step-4.png",
-            "sha256": "7162076eac5172e9d640baebbd13cda8cf51bdfe9e8609f070ce48b4c3b94dd8",
+            "sha256": "d381423eaafe9ae5ba4f8bcadebe63993bc712c3330153813f0abbb9a23362e3",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -3620,7 +3620,7 @@
         {
             "locale": "ru",
             "path": "docs/ru/.gitbook/assets/lms-user-guide/sharing-recent-favorites-trash-step-5.png",
-            "sha256": "cb2f13e689669b592015fd388541b34a81e9b547e561d4ef350ce2a9304605a8",
+            "sha256": "fc8de4576fe9918f926574519055b7b1c5f570e82b7c3d8e5827e26da612ea69",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -3629,7 +3629,7 @@
         {
             "locale": "ru",
             "path": "docs/ru/.gitbook/assets/lms-user-guide/learner-experience.png",
-            "sha256": "7a41aa26a76110d2c4a66a74caf0f0738386e740f8a5abee6d4e7b3a75708532",
+            "sha256": "2de85723f257f7db5a88b38ba70b17331d0ede3bd5aefb482d254b784f4308ed",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -3638,7 +3638,7 @@
         {
             "locale": "ru",
             "path": "docs/ru/.gitbook/assets/lms-user-guide/learner-experience-step-1.png",
-            "sha256": "19c992485b74c97517f009d63c8cdc5997e15c8d33e8159958b77cd662105314",
+            "sha256": "3ac6664c4f18cddfc56f28eae06e3e3de55a2d6f981a1929efe99ca44f0e6815",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -3647,7 +3647,7 @@
         {
             "locale": "ru",
             "path": "docs/ru/.gitbook/assets/lms-user-guide/learner-experience-step-2.png",
-            "sha256": "244c36da06778fa01741d2086c9966a41534fc848c9371b8a1a2d99723e58ec0",
+            "sha256": "c71e28a1cf3d117fe97513b4e689d48d3ce8dabccfe5e5c1e26b61c667322bad",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -3656,7 +3656,7 @@
         {
             "locale": "ru",
             "path": "docs/ru/.gitbook/assets/lms-user-guide/learner-experience-step-3.png",
-            "sha256": "6047a539717fcf44191d447d9683414c97ee82d9613fd329db71ad05e3637375",
+            "sha256": "34c38d82f7b461bdfabe4e04345491b070b3375a4ee74dc5c06e7f36527ef494",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -3665,7 +3665,7 @@
         {
             "locale": "ru",
             "path": "docs/ru/.gitbook/assets/lms-user-guide/learner-experience-step-4.png",
-            "sha256": "f6b9836c399c7c1fb94a5a9357d50f46d95e4ed05376f7381fd93854cd14becf",
+            "sha256": "e4b15cd119b492e6fcae65a056d47981865e5d09799cc3815e912246987167a5",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -3674,7 +3674,7 @@
         {
             "locale": "ru",
             "path": "docs/ru/.gitbook/assets/lms-user-guide/learner-experience-step-5.png",
-            "sha256": "095905871dbd104bd01f38196c6e4c19459b6c2ff1480a4a56db5ddcafc865cd",
+            "sha256": "28206a68b3bb85cae6f1e10d7ca383be4b856d35f5a7ed051e07beb3ad1dffdb",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -3683,7 +3683,7 @@
         {
             "locale": "ru",
             "path": "docs/ru/.gitbook/assets/lms-user-guide/knowledge.png",
-            "sha256": "81e67970908a4c339ad677a1a2be3cc3d75e1057c2c10b539742a04c0ec1980f",
+            "sha256": "376afcf69ebff0cd4aeaff0233859fda02dc06f646c9260cb4c9a224c4e80750",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -3692,7 +3692,7 @@
         {
             "locale": "ru",
             "path": "docs/ru/.gitbook/assets/lms-user-guide/knowledge-step-1.png",
-            "sha256": "f8a3afe1a8d23e1edcba75e809c7c4f3c681c49d29e700e88ec4dab2ca952499",
+            "sha256": "b1f5dac8d0d3183f74ae89b70dc4eb35a0bcadf2d4275446c7ceb2c048c0a01f",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -3701,7 +3701,7 @@
         {
             "locale": "ru",
             "path": "docs/ru/.gitbook/assets/lms-user-guide/knowledge-step-2.png",
-            "sha256": "0fbafb050f8bc9c12e663287896a81d9c12f1d57daba7b7c4412333e21c23242",
+            "sha256": "192a7a556ed6618e074682194e5207738f1499925f830b1c337908f3e61a9940",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -3710,7 +3710,7 @@
         {
             "locale": "ru",
             "path": "docs/ru/.gitbook/assets/lms-user-guide/knowledge-step-3.png",
-            "sha256": "e3db9a4d0978eebfc626bd3941a1e9d5d79cab90ac16b607c3026efcfa32dc28",
+            "sha256": "44102ed550c876b4820ec2b102b3c57615c0b610961256220c3f970a356c0c5b",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -3719,7 +3719,7 @@
         {
             "locale": "ru",
             "path": "docs/ru/.gitbook/assets/lms-user-guide/knowledge-step-4.png",
-            "sha256": "079ffcecb8f3f5ee88db8b7a43889881f3e76f2a125b04a34b149730e30f0742",
+            "sha256": "ec3da63d850d6b853d6c36f50f9c78442d908a8e8b01499e3729742badaa3b5b",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -3728,7 +3728,7 @@
         {
             "locale": "ru",
             "path": "docs/ru/.gitbook/assets/lms-user-guide/knowledge-step-5.png",
-            "sha256": "9705ef7152c78bc880c13622fef466ce8a2e55b32e2d7ac46fd0b7fc083d9578",
+            "sha256": "64feb65c9a01f4065f1e17688d5fb8d6e706244e3807b10b0e69d2cb911af3ab",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -3737,7 +3737,7 @@
         {
             "locale": "ru",
             "path": "docs/ru/.gitbook/assets/lms-user-guide/reports.png",
-            "sha256": "52b74cddec5af57360242890d84adc68ba083f0297cc088457a477f2198b8749",
+            "sha256": "88f26fc4d4c7b70766185789825373671bd9732fdff32181efc9a2799d911df0",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -3746,7 +3746,7 @@
         {
             "locale": "ru",
             "path": "docs/ru/.gitbook/assets/lms-user-guide/reports-step-1.png",
-            "sha256": "cfb4f1cdcc8d9efa5e454b546cd5ccb529d8e2b0a09f79bf4d7e932d306df795",
+            "sha256": "cf6dab897d8a30080ae85b0740ab779a762858e3ca9c340da7d25a3c24c2951b",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -3755,7 +3755,7 @@
         {
             "locale": "ru",
             "path": "docs/ru/.gitbook/assets/lms-user-guide/reports-step-2.png",
-            "sha256": "6e31ee9e93e6138bc1df33ff8d1e49bc3fb65ccd97455ade268feedf8a70f8a5",
+            "sha256": "213d5bb70da9377668d7a3aa9309c4a415004e436be5b6758579ba936d91b7af",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -3764,7 +3764,7 @@
         {
             "locale": "ru",
             "path": "docs/ru/.gitbook/assets/lms-user-guide/reports-step-3.png",
-            "sha256": "5e71b6ce0b464122a308dd66856c87ce7ae860acee0527c68937abb94d0a13ec",
+            "sha256": "9712f9f0a30cb796df40979050ee3d6a7084fe84a1407df4b7de59ed111cb4cf",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -3773,7 +3773,7 @@
         {
             "locale": "ru",
             "path": "docs/ru/.gitbook/assets/lms-user-guide/reports-step-4.png",
-            "sha256": "8bf9d3d3475d33d769fe0c725f10a6b0eae6455dc1954506d672c4969dddd1ca",
+            "sha256": "5029c2a4189c3a6cd4fabb609ba7c19a294a0800dff0c93d0372edbdf3215ccd",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -3782,7 +3782,7 @@
         {
             "locale": "ru",
             "path": "docs/ru/.gitbook/assets/lms-user-guide/reports-step-5.png",
-            "sha256": "2927fe22a5269518cc62df07bef1750c61507bac7547a8a80bfbc5e057315240",
+            "sha256": "13d6a0afe0720cf4aa6435bc715a91b427584633faa65301daa698941bd79e2e",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -3800,7 +3800,7 @@
         {
             "locale": "ru",
             "path": "docs/ru/.gitbook/assets/lms-user-guide/guest-access-step-1.png",
-            "sha256": "6db6b7dff7ffd546eb4b05a79e9ed9d1110a52a3f7826597dc4846dc6b394955",
+            "sha256": "29997346809c0d1f530ffcc38e130f460d1bb9b619a9cdd092060793eb2ca7d6",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -3818,7 +3818,7 @@
         {
             "locale": "ru",
             "path": "docs/ru/.gitbook/assets/lms-user-guide/guest-access-step-3.png",
-            "sha256": "13d0e2fa2dc3284289ea61158af4e7469efa6ad60dafb7c4e5ae1e4105bffdbf",
+            "sha256": "11297531c0b615eeba9c4c01f1e9b7bde1bbbca0d5f41be58d3f55c8a488f40f",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -3845,7 +3845,7 @@
         {
             "locale": "ru",
             "path": "docs/ru/.gitbook/assets/lms-user-guide/troubleshooting.png",
-            "sha256": "3b19e72715d5524b48a2bed671516973f1f32b9f19593c6cedb65bba881115b9",
+            "sha256": "a024b9328a5c2583ac25a32c0fbc669937d73ea878b53c4d7f24801a00fa5e28",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -3854,7 +3854,7 @@
         {
             "locale": "ru",
             "path": "docs/ru/.gitbook/assets/lms-user-guide/troubleshooting-step-1.png",
-            "sha256": "fcb6e53c53afa56f98a867be594e8b169aaf13c27ac0b71e7cb4d9f38da1ad59",
+            "sha256": "96472f41b9c68c8d1adf5be04b055fa76ac55540b878f4db54b00d73d9c683a9",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -3863,7 +3863,7 @@
         {
             "locale": "ru",
             "path": "docs/ru/.gitbook/assets/lms-user-guide/troubleshooting-step-2.png",
-            "sha256": "20334a3cee7299bd83ba32608800a70d934af107907709aeb83a46b23bbf050c",
+            "sha256": "c015b2db342835ac2bc9d5baf0247bbb57f51e1fbbeaed941bcf158f68f1a2d3",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -3872,7 +3872,7 @@
         {
             "locale": "ru",
             "path": "docs/ru/.gitbook/assets/lms-user-guide/troubleshooting-step-3.png",
-            "sha256": "111c36ab58117eda0c1cc2aad3e07f680ed6f1b3ca703bfc8aa820f46b473ad1",
+            "sha256": "f346df6d6e4332100fbcd89520cda457d7756a268372185c410cea9495dfcdf1",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -3881,7 +3881,7 @@
         {
             "locale": "ru",
             "path": "docs/ru/.gitbook/assets/lms-user-guide/troubleshooting-step-4.png",
-            "sha256": "324125302396453fafb7a69ddc12718132dc001224eddd74f4980c3a08559127",
+            "sha256": "c92278e4b723047739c2ff5afa0050be3d9c1a13b76cf915862a063b60a5ae7b",
             "dimensions": {
                 "width": 1920,
                 "height": 1080
@@ -3890,7 +3890,7 @@
         {
             "locale": "ru",
             "path": "docs/ru/.gitbook/assets/lms-user-guide/troubleshooting-step-5.png",
-            "sha256": "5ea885ca3782cd90dab46042c5e839caea1fd4db0169adbaacc0ca6a59d99565",
+            "sha256": "91a5f93fb4973cab8fbe5d03f95fce433a3f539286140b4589930352802e8a20",
             "dimensions": {
                 "width": 1920,
                 "height": 1080

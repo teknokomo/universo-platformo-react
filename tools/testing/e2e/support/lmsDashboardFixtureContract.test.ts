@@ -58,6 +58,8 @@ const applySeededRuntimeNavigation = (fixture: FixtureRecord): void => {
         setEntityRuntime(findEntityByCodename(fixture, codename), { menuVisibility: 'primary', icon })
     }
     setEntityRuntime(findEntityByCodename(fixture, 'Reports'), { requiresPermission: 'readReports' })
+    setEntityRuntime(findEntityByCodename(fixture, 'TrashEntries'), { requiresPermission: 'editContent' })
+    setEntityRuntime(findEntityByCodename(fixture, 'KnowledgeArticles'), { requiresPermission: 'editContent' })
 }
 
 const makeContractArguments = (envelope: FixtureRecord): ContractArguments => {
@@ -124,7 +126,7 @@ test('accepts the canonical fixture dashboard with scoped layouts, entity bindin
     assert.deepEqual(assertDashboardFixture(cloneSourceFixture()), [])
 })
 
-test('accepts the seven seeded Page icons and exactly four seeded primary Object icons', () => {
+test('accepts the seven seeded Page icons and exactly six seeded primary Object icons', () => {
     const fixture = cloneSourceFixture()
     applySeededRuntimeNavigation(fixture)
     assert.deepEqual(assertDashboardFixture(fixture), [])
@@ -142,7 +144,7 @@ test('rejects an unrelated Object added to primary navigation and an unsupported
     assert.ok(errors.includes('LMS Page CourseOverview must have a supported runtime icon'))
     assert.ok(
         errors.includes(
-            'LMS primary Object navigation must contain exactly ContentProjects, Courses, LearningTracks, Reports; found ContentProjects, ContentStars, Courses, LearningTracks, Reports'
+            'LMS primary Object navigation must contain exactly ContentProjects, Courses, KnowledgeArticles, LearningTracks, Reports, TrashEntries; found ContentProjects, ContentStars, Courses, KnowledgeArticles, LearningTracks, Reports, TrashEntries'
         )
     )
 })
@@ -173,6 +175,14 @@ test('rejects a Reports Object without the readReports menu permission', () => {
     removeEntityRuntimeProperty(findEntityByCodename(fixture, 'Reports'), 'requiresPermission')
 
     assert.ok(assertDashboardFixture(fixture).includes('LMS Reports navigation must require the readReports application permission'))
+})
+
+test('rejects a Trash Object without the editContent menu permission', () => {
+    const fixture = cloneSourceFixture()
+    applySeededRuntimeNavigation(fixture)
+    removeEntityRuntimeProperty(findEntityByCodename(fixture, 'TrashEntries'), 'requiresPermission')
+
+    assert.ok(assertDashboardFixture(fixture).includes('LMS Trash navigation must require the editContent application permission'))
 })
 
 test('rejects a changed supported icon on a seeded Page', () => {

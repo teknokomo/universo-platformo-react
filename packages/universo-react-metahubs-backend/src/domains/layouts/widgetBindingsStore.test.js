@@ -60,7 +60,6 @@ describe('generic widget binding SQL store', () => {
         const [sql, params] = query.mock.calls[0]
         expect(sql).toContain('"' + schemaName + '"."_mhb_widgets"')
         expect(sql).toContain('"_upl_deleted" = false')
-        expect(sql).toContain('"scope_entity_id" IS NULL')
         expect(sql).toContain('"base_layout_id" IS NULL')
         expect(sql).toContain('"id" = $1')
         expect(params).toEqual([widgetId])

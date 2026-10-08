@@ -220,6 +220,7 @@ const createStandardEntityThroughBrowser = async (
             apps: 'Applications',
             dashboard: 'Dashboard',
             page: 'Page',
+            article: 'Article',
             school: 'Learning',
             recent: 'Recent',
             star: 'Favorites',

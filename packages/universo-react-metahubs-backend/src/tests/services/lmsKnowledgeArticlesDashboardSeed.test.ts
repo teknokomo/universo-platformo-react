@@ -6,6 +6,13 @@ describe('LMS Knowledge Articles Dashboard seed', () => {
     it('provides localized Entity-backed records and creation for the published object route', () => {
         const layout = lmsTemplate.seed.scopedLayouts?.find(({ codename }) => codename === 'knowledgeArticles')
         const articleEntity = lmsTemplate.seed.entities.find(({ codename }) => codename === 'KnowledgeArticles')
+        expect(articleEntity?.config).toMatchObject({
+            runtime: {
+                menuVisibility: 'primary',
+                icon: 'article',
+                requiresPermission: 'editContent'
+            }
+        })
         expect(layout).toMatchObject({
             templateKey: 'dashboard',
             baseLayoutCodename: 'main',

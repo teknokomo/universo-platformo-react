@@ -107,7 +107,7 @@ async function expectDashboardHeaderControls(page: Page, label: string): Promise
 }
 
 test.describe('Published Dashboard navigation', () => {
-    test('@flow excludes Hub-linked Object registers and renders each LMS Page with its configured icon', async ({
+    test('@flow keeps navigation curated, permission-gates authoring, and renders semantic LMS icons', async ({
         page,
         browser,
         runManifest
@@ -122,6 +122,11 @@ test.describe('Published Dashboard navigation', () => {
         const metahubCodename = `${runManifest.runId}-generated-lms-navigation`
         const publicationName = `E2E ${runManifest.runId} Generated LMS Navigation Publication`
         const applicationName = `E2E ${runManifest.runId} Generated LMS Navigation Application`
+        const waitForRuntimeResponse = (targetPage: Page, runtimeApplicationId: string) =>
+            targetPage.waitForResponse((response) => {
+                const url = new URL(response.url())
+                return response.request().method() === 'GET' && url.pathname === `/api/v1/applications/${runtimeApplicationId}/runtime`
+            })
         const memberCredentials = {
             email: `e2e+${runManifest.runId}.lms-navigation-member@example.test`,
             password: process.env.E2E_TEST_USER_PASSWORD || 'ChangeMe_E2E-123456!'
@@ -191,10 +196,14 @@ test.describe('Published Dashboard navigation', () => {
             await waitForUser(memberCredentials)
             await addApplicationMember(api, applicationId, { email: memberCredentials.email, role: 'member' })
             memberBrowser = await createLoggedInBrowserContext(browser, memberCredentials)
+            const memberRuntimeResponsePromise = waitForRuntimeResponse(memberBrowser.page, applicationId)
             await memberBrowser.page.goto(`/a/${applicationId}`)
+            const memberRuntimeResponse = await memberRuntimeResponsePromise
+            expect(memberRuntimeResponse.ok(), 'Member published application runtime response').toBe(true)
             const memberNavigation = memberBrowser.page.getByRole('navigation', { name: 'Application navigation', exact: true })
             await expect(memberNavigation).toBeVisible()
             await expect(memberNavigation.getByRole('link', { name: 'Reports', exact: true })).toHaveCount(0)
+            await expect(memberNavigation.getByRole('link', { name: 'Knowledge Articles', exact: true })).toHaveCount(0)
             await expect(memberNavigation.getByRole('link', { name: 'Courses', exact: true })).toBeVisible()
             await expectNoTechnicalLeakage(memberNavigation, {
                 label: 'Published LMS Dashboard member navigation',
@@ -212,9 +221,14 @@ test.describe('Published Dashboard navigation', () => {
                     url.pathname === `/api/v1/applications/${applicationId}/runtime/effective-layout`
                 )
             })
+            const initialRuntimeResponsePromise = waitForRuntimeResponse(page, applicationId)
             await page.goto(`/a/${applicationId}`)
-            const effectiveLayoutResponse = await effectiveLayoutResponsePromise
+            const [effectiveLayoutResponse, initialRuntimeResponse] = await Promise.all([
+                effectiveLayoutResponsePromise,
+                initialRuntimeResponsePromise
+            ])
             expect(effectiveLayoutResponse.ok()).toBe(true)
+            expect(initialRuntimeResponse.ok(), 'Initial published application runtime response').toBe(true)
             const effectiveLayout = (await effectiveLayoutResponse.json()) as {
                 widgets?: Array<{ widgetKey?: string; runtimeData?: { status?: string; data?: unknown } }>
             }
@@ -244,7 +258,7 @@ test.describe('Published Dashboard navigation', () => {
                 ].sort()
             )
             const objectTargets = menuItems.filter((item) => item.target?.kind === 'object')
-            const primaryObjectCodenames = ['ContentProjects', 'Courses', 'LearningTracks', 'Reports']
+            const primaryObjectCodenames = ['ContentProjects', 'Courses', 'KnowledgeArticles', 'LearningTracks', 'Reports', 'TrashEntries']
             expect(objectTargets.map((item) => item.target?.codename).sort()).toEqual([...primaryObjectCodenames].sort())
             for (const codename of objectCodenames.filter((value) => !primaryObjectCodenames.includes(value))) {
                 expect(JSON.stringify(generatedMenu), `Generated navigation must not expose Object ${codename}`).not.toContain(codename)
@@ -257,7 +271,7 @@ test.describe('Published Dashboard navigation', () => {
                 { label: 'Welcome', icon: 'HomeRoundedIcon' },
                 { label: 'Course Overview', icon: 'AnalyticsRoundedIcon' },
                 { label: 'Knowledge Home', icon: 'AppsRoundedIcon' },
-                { label: 'Knowledge Article', icon: 'ArticleRoundedIcon' },
+                { label: 'Knowledge Article Guide', icon: 'ArticleRoundedIcon' },
                 { label: 'Development Home', icon: 'AssignmentRoundedIcon' },
                 { label: 'Assignment Instructions', icon: 'SchoolRoundedIcon' },
                 { label: 'Certificate Policy', icon: 'StarRoundedIcon' }
@@ -265,8 +279,10 @@ test.describe('Published Dashboard navigation', () => {
             const objectIconContracts = [
                 { label: 'Content Projects', codename: 'ContentProjects', icon: 'FolderRoundedIcon' },
                 { label: 'Courses', codename: 'Courses', icon: 'SchoolRoundedIcon' },
+                { label: 'Knowledge Articles', codename: 'KnowledgeArticles', icon: 'ArticleRoundedIcon' },
                 { label: 'Learning Tracks', codename: 'LearningTracks', icon: 'AssignmentRoundedIcon' },
-                { label: 'Reports', codename: 'Reports', icon: 'AnalyticsRoundedIcon' }
+                { label: 'Reports', codename: 'Reports', icon: 'AnalyticsRoundedIcon' },
+                { label: 'Trash', codename: 'TrashEntries', icon: 'DeleteRoundedIcon' }
             ]
             await expect(navigation.locator('a[href*="targetKind=page"]')).toHaveCount(pageIconContracts.length)
             for (const { label } of pageIconContracts) {
@@ -287,10 +303,16 @@ test.describe('Published Dashboard navigation', () => {
             await expect(navigation.getByRole('button', { name: 'Learning', exact: true })).toHaveCount(0)
             const contentProjectsLink = navigation.getByRole('link', { name: 'Content Projects', exact: true })
             await expect(contentProjectsLink).toBeVisible()
+            const contentProjectsRuntimeResponsePromise = waitForRuntimeResponse(page, applicationId)
             await contentProjectsLink.click()
             await expect(page).toHaveURL(/targetKind=object&entityTypeCodename=ContentProjects/u)
+            const contentProjectsRuntimeResponse = await contentProjectsRuntimeResponsePromise
+            expect(contentProjectsRuntimeResponse.ok(), 'Content Projects runtime response').toBe(true)
             await expect(page.getByTestId('runtime-main-content')).toBeVisible()
+            const returnHomeRuntimeResponsePromise = waitForRuntimeResponse(page, applicationId)
             await page.goto(`/a/${applicationId}`)
+            const returnHomeRuntimeResponse = await returnHomeRuntimeResponsePromise
+            expect(returnHomeRuntimeResponse.ok(), 'Return-to-home runtime response').toBe(true)
             await expect(navigation.getByRole('link', { name: 'Welcome', exact: true })).toBeVisible()
             await expectNoTechnicalLeakage(navigation, {
                 label: 'Published LMS Dashboard desktop navigation',
@@ -301,7 +323,10 @@ test.describe('Published Dashboard navigation', () => {
                 { name: 'tablet', width: 768, height: 1024, openDrawer: true }
             ]) {
                 await page.setViewportSize({ width: viewport.width, height: viewport.height })
+                const viewportRuntimeResponsePromise = waitForRuntimeResponse(page, applicationId)
                 await page.goto(`/a/${applicationId}`)
+                const viewportRuntimeResponse = await viewportRuntimeResponsePromise
+                expect(viewportRuntimeResponse.ok(), `Published LMS Dashboard ${viewport.name} runtime response`).toBe(true)
                 await expectDashboardHeaderControls(page, `Published LMS Dashboard ${viewport.name}`)
                 let viewportNavigation = page.getByRole('navigation', { name: 'Application navigation', exact: true })
                 if (viewport.openDrawer) {
@@ -384,8 +409,11 @@ test.describe('Published Dashboard navigation', () => {
             await expectNoPageHorizontalOverflow(page, 'Published LMS Dashboard mobile navigation after closing the drawer')
 
             await page.getByTestId('runtime-language-switcher').click()
+            const russianRuntimeResponsePromise = waitForRuntimeResponse(page, applicationId)
             await page.getByRole('menuitem', { name: 'Russian', exact: true }).click()
             await expect(page).toHaveURL(/(?:\?|&)locale=ru(?:&|$)/u)
+            const russianRuntimeResponse = await russianRuntimeResponsePromise
+            expect(russianRuntimeResponse.ok(), 'Russian locale runtime response').toBe(true)
             const russianOpenMenuButton = page.getByRole('button', { name: 'Открыть меню', exact: true })
             await expect(russianOpenMenuButton).toBeVisible()
             await russianOpenMenuButton.focus()
@@ -396,7 +424,7 @@ test.describe('Published Dashboard navigation', () => {
                 { label: 'Добро пожаловать', icon: 'HomeRoundedIcon' },
                 { label: 'Обзор курса', icon: 'AnalyticsRoundedIcon' },
                 { label: 'Раздел знаний', icon: 'AppsRoundedIcon' },
-                { label: 'Статья базы знаний', icon: 'ArticleRoundedIcon' },
+                { label: 'Руководство по статьям базы знаний', icon: 'ArticleRoundedIcon' },
                 { label: 'Раздел развития', icon: 'AssignmentRoundedIcon' },
                 { label: 'Инструкции к заданию', icon: 'SchoolRoundedIcon' },
                 { label: 'Правила сертификатов', icon: 'StarRoundedIcon' }
@@ -404,8 +432,10 @@ test.describe('Published Dashboard navigation', () => {
             const russianObjectIconContracts = [
                 { label: 'Проекты контента', codename: 'ContentProjects', icon: 'FolderRoundedIcon' },
                 { label: 'Курсы', codename: 'Courses', icon: 'SchoolRoundedIcon' },
+                { label: 'Статьи базы знаний', codename: 'KnowledgeArticles', icon: 'ArticleRoundedIcon' },
                 { label: 'Учебные треки', codename: 'LearningTracks', icon: 'AssignmentRoundedIcon' },
-                { label: 'Отчёты', codename: 'Reports', icon: 'AnalyticsRoundedIcon' }
+                { label: 'Отчёты', codename: 'Reports', icon: 'AnalyticsRoundedIcon' },
+                { label: 'Корзина', codename: 'TrashEntries', icon: 'DeleteRoundedIcon' }
             ]
             await expect(russianNavigation.locator('a[href*="targetKind=page"]')).toHaveCount(russianPageIconContracts.length)
             await expect(russianNavigation.locator('a[href*="targetKind=object"]')).toHaveCount(russianObjectIconContracts.length)

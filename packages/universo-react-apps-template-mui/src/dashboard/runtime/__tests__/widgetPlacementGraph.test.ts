@@ -116,6 +116,24 @@ describe('Dashboard runtime placement graph', () => {
             },
             {
                 ...root,
+                id: '018f0000-0000-7000-8000-000000000009',
+                instanceKey: 'language-in-header-zeta',
+                widgetKey: 'languageSwitcher',
+                zone: 'top',
+                sortOrder: 8,
+                config: {}
+            },
+            {
+                ...root,
+                id: '018f0000-0000-7000-8000-00000000000a',
+                instanceKey: 'language-in-header-alpha',
+                widgetKey: 'languageSwitcher',
+                zone: 'top',
+                sortOrder: 8,
+                config: {}
+            },
+            {
+                ...root,
                 id: '018f0000-0000-7000-8000-000000000005',
                 instanceKey: 'theme-in-center',
                 widgetKey: 'colorModeSwitcher',
@@ -152,7 +170,10 @@ describe('Dashboard runtime placement graph', () => {
             }
         ])
 
-        expect(rootPlacements(parsed, 'top').map((placement) => placement.instanceKey)).toEqual(['language-in-header', 'theme-in-header'])
+        expect(rootPlacements(parsed, 'top').map((placement) => placement.instanceKey)).toEqual([
+            'language-in-header-alpha',
+            'theme-in-header'
+        ])
         expect(rootPlacements(parsed, 'center').map((placement) => placement.instanceKey)).toEqual([])
         expect(rootPlacements(parsed, 'left').map((placement) => placement.instanceKey)).toEqual(['first-menu', 'second-menu'])
     })

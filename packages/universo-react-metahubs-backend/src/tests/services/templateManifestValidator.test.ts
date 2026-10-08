@@ -846,6 +846,7 @@ describe('TemplateManifestValidator', () => {
         const trackBuilderWidgets = manifest.seed.layoutZoneWidgets.trackBuilder ?? []
         const entityCodenames = manifest.seed.entities.map((entity) => entity.codename)
         const entityByCodename = new Map(manifest.seed.entities.map((entity) => [entity.codename, entity]))
+        const trashEntity = entityByCodename.get('TrashEntries')
         const menuWidget = widgets.find((widget) => widget.widgetKey === 'menuWidget')
         const courseBuilderTabs = courseBuilderWidgets.find((widget) => widget.widgetKey === 'detailsTabs')
         const trackBuilderTabs = trackBuilderWidgets.find((widget) => widget.widgetKey === 'detailsTabs')
@@ -994,6 +995,25 @@ describe('TemplateManifestValidator', () => {
             }
         ])
         expect(menuWidget?.rendererConfig).toMatchObject({ variant: 'generated' })
+        expect(trashEntity).toMatchObject({
+            name: {
+                locales: {
+                    en: { content: 'Trash' },
+                    ru: { content: 'Корзина' }
+                }
+            },
+            hubs: ['Learning'],
+            config: {
+                runtime: {
+                    menuVisibility: 'primary',
+                    icon: 'trash',
+                    requiresPermission: 'editContent'
+                }
+            }
+        })
+        for (const codename of ['TargetObjectCodename', 'TargetRecordId', 'DeletedBy', 'RestoreState']) {
+            expect(trashEntity?.components.find((component) => component.codename === codename)?.uiConfig).toMatchObject({ hidden: true })
+        }
         expect(learningContentWidgets).toHaveLength(1)
         const learningContentTables = learningContentWidgets.filter((widget) => widget.widgetKey === 'detailsTable')
         expect(learningContentTables).toHaveLength(1)

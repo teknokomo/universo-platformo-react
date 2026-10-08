@@ -1860,9 +1860,11 @@
                     "apps": "Applications",
                     "dashboard": "Dashboard",
                     "page": "Page",
+                    "article": "Article",
                     "school": "Learning",
                     "recent": "Recent",
                     "star": "Favorites",
+                    "trash": "Trash",
                     "settings": "Settings",
                     "more": "More"
                 }
