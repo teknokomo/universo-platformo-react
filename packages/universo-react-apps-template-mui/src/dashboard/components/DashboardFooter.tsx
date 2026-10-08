@@ -64,7 +64,7 @@ export default function DashboardFooter({ config }: { config: unknown }) {
             }}
         >
             {siteName ? (
-                <Typography variant='body2' color='text.secondary'>
+                <Typography variant='body2' sx={{ color: 'text.secondary' }}>
                     © {new Date().getFullYear()} {siteName}
                 </Typography>
             ) : null}

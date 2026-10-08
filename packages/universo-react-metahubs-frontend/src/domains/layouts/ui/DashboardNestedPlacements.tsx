@@ -254,20 +254,23 @@ export default function DashboardNestedPlacements({
                         <Stack
                             direction={{ xs: 'column', sm: 'row' }}
                             spacing={1}
-                            alignItems={{ sm: 'center' }}
-                            justifyContent='space-between'
+                            sx={{ alignItems: { sm: 'center' }, justifyContent: 'space-between' }}
                         >
                             <Box sx={{ minWidth: 0 }}>
-                                <Typography variant='body2' fontWeight={600} sx={{ overflowWrap: 'anywhere' }}>
+                                <Typography variant='body2' sx={{ fontWeight: 600, overflowWrap: 'anywhere' }}>
                                     {rowLabel}
                                 </Typography>
                                 {placement.isInherited ? (
-                                    <Typography variant='caption' color='text.secondary'>
+                                    <Typography variant='caption' sx={{ color: 'text.secondary' }}>
                                         {tc('nesting.sourceManaged')}
                                     </Typography>
                                 ) : null}
                             </Box>
-                            <Stack direction='row' spacing={0.25} flexWrap='wrap' alignItems='center' justifyContent='flex-end'>
+                            <Stack
+                                direction='row'
+                                spacing={0.25}
+                                sx={{ flexWrap: 'wrap', alignItems: 'center', justifyContent: 'flex-end' }}
+                            >
                                 {placement.parentInstanceKey && canManageLayouts && canReorder && siblingIndex > 0 ? (
                                     <Tooltip title={tc('nesting.moveUp')}>
                                         <IconButton
@@ -355,7 +358,9 @@ export default function DashboardNestedPlacements({
                                             size='small'
                                             checked={row.isActive}
                                             onChange={(_event, checked) => row.onToggleActive?.(checked)}
-                                            inputProps={{ 'aria-label': `${row.toggleActiveTooltip ?? tc('actions.edit')}: ${rowLabel}` }}
+                                            slotProps={{
+                                                input: { 'aria-label': `${row.toggleActiveTooltip ?? tc('actions.edit')}: ${rowLabel}` }
+                                            }}
                                         />
                                     </Tooltip>
                                 ) : null}
@@ -395,8 +400,7 @@ export default function DashboardNestedPlacements({
                                                 <Stack
                                                     direction={{ xs: 'column', sm: 'row' }}
                                                     spacing={1}
-                                                    alignItems={{ sm: 'center' }}
-                                                    justifyContent='space-between'
+                                                    sx={{ alignItems: { sm: 'center' }, justifyContent: 'space-between' }}
                                                 >
                                                     <Typography variant='subtitle2'>{slot.label}</Typography>
                                                     {mayAdd ? (
@@ -418,7 +422,7 @@ export default function DashboardNestedPlacements({
                                                         </Button>
                                                     ) : placement.isInherited &&
                                                       !ownsCompositionInCurrentLayout(placement, configured.definition) ? (
-                                                        <Typography variant='caption' color='text.secondary'>
+                                                        <Typography variant='caption' sx={{ color: 'text.secondary' }}>
                                                             {tc('nesting.sourceManaged')}
                                                         </Typography>
                                                     ) : null}
@@ -428,7 +432,7 @@ export default function DashboardNestedPlacements({
                                                         {children.map((child) => renderPlacement(child, nextPath))}
                                                     </Stack>
                                                 ) : (
-                                                    <Typography variant='body2' color='text.secondary'>
+                                                    <Typography variant='body2' sx={{ color: 'text.secondary' }}>
                                                         {tc('nesting.emptySlot')}
                                                     </Typography>
                                                 )}
@@ -459,7 +463,7 @@ export default function DashboardNestedPlacements({
                 {rootsWithSlots.map(({ placement, configured }) => (
                     <Paper key={placement.instanceKey} variant='outlined' sx={{ p: 1.5 }}>
                         <Stack spacing={1.25}>
-                            <Typography variant='subtitle1' fontWeight={600}>
+                            <Typography variant='subtitle1' sx={{ fontWeight: 600 }}>
                                 {zoneLabels[placement.zone]} · {getWidgetChipLabel(placement)}
                             </Typography>
                             {configured.slots.map((slot) => {
@@ -481,8 +485,7 @@ export default function DashboardNestedPlacements({
                                             <Stack
                                                 direction={{ xs: 'column', sm: 'row' }}
                                                 spacing={1}
-                                                alignItems={{ sm: 'center' }}
-                                                justifyContent='space-between'
+                                                sx={{ alignItems: { sm: 'center' }, justifyContent: 'space-between' }}
                                             >
                                                 <Typography variant='subtitle2'>{slot.label}</Typography>
                                                 {mayAdd ? (
@@ -498,7 +501,7 @@ export default function DashboardNestedPlacements({
                                                         {tc('nesting.addChild')}
                                                     </Button>
                                                 ) : placement.isInherited && !canEditComposition ? (
-                                                    <Typography variant='caption' color='text.secondary'>
+                                                    <Typography variant='caption' sx={{ color: 'text.secondary' }}>
                                                         {tc('nesting.sourceManaged')}
                                                     </Typography>
                                                 ) : null}
@@ -508,7 +511,7 @@ export default function DashboardNestedPlacements({
                                                     {children.map((child) => renderPlacement(child, new Set([placement.instanceKey])))}
                                                 </Stack>
                                             ) : (
-                                                <Typography variant='body2' color='text.secondary'>
+                                                <Typography variant='body2' sx={{ color: 'text.secondary' }}>
                                                     {tc('nesting.emptySlot')}
                                                 </Typography>
                                             )}

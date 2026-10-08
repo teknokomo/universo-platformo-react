@@ -30,7 +30,7 @@ export default function ObjectRuntimeNavigationFields({ visible, icon, setValue,
                 }
                 label={t('objects.runtime.navigation.showInMenu', 'Show in application menu')}
             />
-            <Typography variant='body2' color='text.secondary'>
+            <Typography variant='body2' sx={{ color: 'text.secondary' }}>
                 {t('objects.runtime.navigation.description', 'Only Objects enabled here appear in the published application menu.')}
             </Typography>
             <TextField
