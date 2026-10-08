@@ -224,6 +224,7 @@ const createStandardEntityThroughBrowser = async (
             school: 'Learning',
             recent: 'Recent',
             star: 'Favorites',
+            trash: 'Trash',
             settings: 'Settings',
             more: 'More'
         }

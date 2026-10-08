@@ -179,7 +179,13 @@ export const cloneRecordWidgetBindingsInSubtree = async (input: {
         }
         const entityComponents = components
             .filter(({ parentComponentId }) => parentComponentId === null)
-            .map(({ codename, dataType, isRequired, validationRules }) => ({ codename, dataType, isRequired, validationRules }))
+            .map(({ codename, dataType, isRequired, validationRules, uiConfig }) => ({
+                codename,
+                dataType,
+                isRequired,
+                validationRules,
+                uiConfig
+            }))
         if (
             !isCompatibleWidgetBindingEntity(plan.slot, {
                 kind: object.kind,

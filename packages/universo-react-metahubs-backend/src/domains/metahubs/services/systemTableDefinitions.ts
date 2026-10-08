@@ -391,15 +391,9 @@ const mhbWidgets: SystemTableDef = {
         { name: 'config', type: 'jsonb', nullable: false, defaultTo: '{}' },
         { name: 'is_active', type: 'boolean', nullable: false, defaultTo: true }
     ],
-    foreignKeys: [{ column: 'layout_id', referencesTable: '_mhb_layouts', referencesColumn: 'id', onDelete: 'CASCADE' }],
-    compositeForeignKeys: [
-        {
-            columns: ['layout_id', 'parent_widget_id'],
-            referencesTable: '_mhb_widgets',
-            referencesColumns: ['layout_id', 'id'],
-            name: 'fk_mhb_widgets_parent_layout',
-            onDelete: 'CASCADE'
-        }
+    foreignKeys: [
+        { column: 'layout_id', referencesTable: '_mhb_layouts', referencesColumn: 'id', onDelete: 'CASCADE' },
+        { column: 'parent_widget_id', referencesTable: '_mhb_widgets', referencesColumn: 'id', onDelete: 'CASCADE' }
     ],
     checkConstraints: [
         {
@@ -427,10 +421,7 @@ const mhbWidgets: SystemTableDef = {
             where: 'is_active = true'
         }
     ],
-    uniqueConstraints: [
-        ['layout_id', 'instance_key'],
-        ['layout_id', 'id']
-    ]
+    uniqueConstraints: [['layout_id', 'instance_key']]
 }
 
 const mhbLayoutWidgetOverrides: SystemTableDef = {

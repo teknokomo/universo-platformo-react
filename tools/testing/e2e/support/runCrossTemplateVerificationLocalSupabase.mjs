@@ -3,6 +3,7 @@ import path from 'path'
 import { spawn } from 'child_process'
 import { repoRoot } from './env/load-e2e-env.mjs'
 import { acquireE2eRunLock, releaseE2eRunLock } from './e2eRunLock.mjs'
+import { loadLocalSupabaseDatabaseUrl } from '../../backend/localSupabaseEnv.mjs'
 
 const run = (args, options = {}) =>
     new Promise((resolve, reject) => {
@@ -97,8 +98,25 @@ try {
     }
     await run(['supabase:e2e:start:minimal'])
     await run(['env:e2e:local-supabase'])
+    const localDatabase = dashboardAcceptance ? loadLocalSupabaseDatabaseUrl() : null
     await run(['doctor:e2e:local-supabase'])
     await run(['build:e2e'], { env: localSupabaseEnv })
+    if (localDatabase) {
+        await run(
+            [
+                '--filter',
+                '@universo-react/metahubs-backend',
+                'exec',
+                'node',
+                '../../tools/testing/backend/run-jest.cjs',
+                '--config',
+                './jest.config.js',
+                '--runInBand',
+                'src/tests/services/widgetPlacementDdl.integration.test.ts'
+            ],
+            { env: { DATABASE_TEST_URL: localDatabase.databaseUrl } }
+        )
+    }
     await run(['exec', 'node', 'tools/testing/e2e/run-playwright-suite.mjs', ...acceptanceSpecs, '--project', 'chromium'], {
         env: {
             ...localSupabaseEnv,

@@ -193,10 +193,7 @@ describe('sync layout workspace and scoped materialization', () => {
                                                     entityKind: 'object',
                                                     entityCodename: 'Courses',
                                                     selector: { kind: 'record-set' },
-                                                    projection: [
-                                                        { field: 'title', componentCodename: 'Title' },
-                                                        { field: 'order', componentCodename: 'SortOrder' }
-                                                    ]
+                                                    projection: []
                                                 }
                                             ]
                                         }

@@ -29,9 +29,10 @@ describe('SystemTableDDLGenerator widget placement DDL', () => {
         }
         const mockKnex = {
             schema: { withSchema: jest.fn(() => schemaBuilder) },
-            raw: jest.fn((sql: string) => {
-                rawSql.push(sql)
-                return sql === 'public.uuid_generate_v7()' ? realKnex.raw(sql) : Promise.resolve(undefined)
+            raw: jest.fn((sql: string, bindings?: unknown[]) => {
+                if (sql === 'public.uuid_generate_v7()') return realKnex.raw(sql)
+                rawSql.push(realKnex.raw(sql, bindings).toQuery())
+                return Promise.resolve(undefined)
             }),
             fn: { now: () => realKnex.fn.now() }
         } as unknown as Knex
@@ -48,23 +49,25 @@ describe('SystemTableDDLGenerator widget placement DDL', () => {
         expect(createSql).toContain('"parent_widget_id" uuid null')
         expect(createSql).toContain('"slot_key" text null')
         expect(createSql).toContain('unique ("layout_id", "instance_key")')
-        expect(createSql).toContain('unique ("layout_id", "id")')
-        expect(createSql).not.toContain('foreign key ("parent_widget_id")')
-        expect(alterTableCallback).toBeDefined()
-        const alterSql = realKnex.schema
-            .withSchema(schemaName)
-            .alterTable('_mhb_widgets', (table) => alterTableCallback!(table))
-            .toSQL()
-            .map((statement) => statement.sql)
-            .join('\n')
-        expect(alterSql).toContain('foreign key ("layout_id", "parent_widget_id")')
-        expect(alterSql).toContain('references "safe_schema"."_mhb_widgets" ("layout_id", "id") on delete CASCADE')
+        expect(createSql).not.toContain('unique ("layout_id", "id")')
+        expect(createSql).toContain('foreign key ("parent_widget_id")')
+        expect(createSql).toContain('references "safe_schema"."_mhb_widgets" ("id") on delete CASCADE')
+        expect(alterTableCallback).toBeUndefined()
         expect(createSql).toContain(
             'check (((parent_widget_id IS NULL AND slot_key IS NULL) OR (parent_widget_id IS NOT NULL AND slot_key IS NOT NULL)))'
         )
         expect(createSql).toContain('check (parent_widget_id IS NULL OR parent_widget_id <> id)')
         expect(rawSql).toContain(
             'CREATE INDEX IF NOT EXISTS "idx_mhb_widgets_parent_graph" ON "safe_schema"."_mhb_widgets"("layout_id", "parent_widget_id", "slot_key", "sort_order", "id")'
+        )
+        expect(rawSql.some((sql) => sql.includes('CREATE OR REPLACE FUNCTION "safe_schema"."validate_mhb_widget_parent_layout"'))).toBe(
+            true
+        )
+        expect(
+            rawSql.some((sql) => sql.includes('CREATE OR REPLACE TRIGGER "trg_mhb_widgets_parent_layout" AFTER INSERT OR UPDATE OF'))
+        ).toBe(true)
+        expect(rawSql.some((sql) => sql.includes('CREATE OR REPLACE TRIGGER "trg_mhb_layouts_widget_parent_layout" AFTER UPDATE OF'))).toBe(
+            true
         )
         expect(compiledDdl.every((statement) => statement.bindings.length === 0)).toBe(true)
     })

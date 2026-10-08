@@ -170,6 +170,25 @@ describe('publicApplicationRuntimeStore', () => {
         expect(executor.query.mock.calls[3]?.[1]).toEqual([workspaceId, selectedHeroKey, 3])
     })
 
+    it('rejects a public binding to a protected Component before issuing a record query', async () => {
+        const { executor } = createMockDbExecutor()
+        const slot = slotFor('marketing.brand', 'site')
+        const query = queryForSemantic(slot, 'CustomSiteSettings', 'site-default')
+        const components = componentMetadata(slot, objectIds.child).map((component) =>
+            component.codename === 'BrandName' ? { ...component, uiConfig: { private: true } } : component
+        )
+        executor.query
+            .mockResolvedValueOnce([objectMetadata(slot, 'CustomSiteSettings', objectIds.child, 'custom_site_settings')])
+            .mockResolvedValueOnce(components)
+
+        const loadRecords = createPublicMarketingBindingRecordLoader(executor, { schemaName, workspaceId })
+        await expect(loadRecords({ widgetKey: 'marketing.brand', rendererConfig: {}, query })).rejects.toThrow(
+            'Object/Component contract is incompatible'
+        )
+        expect(executor.query).toHaveBeenCalledTimes(2)
+        expect(executor.query.mock.calls.some(([sql]) => String(sql).includes('custom_site_settings'))).toBe(false)
+    })
+
     it('filters record-set visibility, order, workspace, and the registered limit in SQL', async () => {
         const { executor } = createMockDbExecutor()
         const slot = slotFor('marketing.navigation', 'items')

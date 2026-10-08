@@ -826,6 +826,14 @@ describe('entity-backed widget binding contracts', () => {
         const customObject = { kind: 'object', codename: 'CustomLogoItems', config: {}, components }
 
         expect(isCompatibleWidgetBindingEntity(slot, customObject)).toBe(true)
+        for (const uiConfig of [{ sensitive: true }, { private: true }, { serverOwned: true }]) {
+            expect(
+                isCompatibleWidgetBindingEntity(slot, {
+                    ...customObject,
+                    components: components.map((component) => (component.codename === 'AltText' ? { ...component, uiConfig } : component))
+                })
+            ).toBe(false)
+        }
         expect(
             isCompatibleWidgetBindingEntity(slot, {
                 ...customObject,

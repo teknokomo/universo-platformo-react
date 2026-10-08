@@ -93,13 +93,13 @@ describe('systemTableDefinitions', () => {
             expect(columns.get('parent_widget_id')).toMatchObject({ type: 'uuid', nullable: true })
             expect(columns.get('slot_key')).toMatchObject({ type: 'text', nullable: true })
             expect(widgetsTable?.uniqueConstraints).toEqual(expect.arrayContaining([['layout_id', 'instance_key']]))
-            expect(widgetsTable?.compositeForeignKeys).toContainEqual({
-                columns: ['layout_id', 'parent_widget_id'],
+            expect(widgetsTable?.foreignKeys).toContainEqual({
+                column: 'parent_widget_id',
                 referencesTable: '_mhb_widgets',
-                referencesColumns: ['layout_id', 'id'],
+                referencesColumn: 'id',
                 onDelete: 'CASCADE'
             })
-            expect(widgetsTable?.uniqueConstraints).toEqual(expect.arrayContaining([['layout_id', 'id']]))
+            expect(widgetsTable?.compositeForeignKeys ?? []).toEqual([])
             expect(widgetsTable?.checkConstraints).toEqual(
                 expect.arrayContaining([
                     expect.objectContaining({
@@ -321,18 +321,16 @@ describe('systemTableDefinitions', () => {
             const widgetDefinition = SYSTEM_TABLES.find((table) => table.name === '_mhb_widgets')!
             const widgetSnapshot = snapshot.tables.find((table) => table.name === '_mhb_widgets')!
             const originalExpression = widgetDefinition.checkConstraints![0].expression
-            const originalParentColumns = [
-                ...widgetDefinition.compositeForeignKeys!.find(({ columns }) => columns.includes('parent_widget_id'))!.columns
-            ]
+            const originalParentReference = {
+                ...widgetDefinition.foreignKeys!.find(({ column }) => column === 'parent_widget_id')!
+            }
 
             widgetSnapshot.name = 'MODIFIED'
             widgetSnapshot.checkConstraints[0].expression = 'modified expression'
-            widgetSnapshot.compositeForeignKeys.find(({ columns }) => columns.includes('parent_widget_id'))!.columns[1] = 'modified_column'
+            widgetSnapshot.foreignKeys.find(({ column }) => column === 'parent_widget_id')!.referencesColumn = 'modified_column'
             expect(widgetDefinition.name).toBe('_mhb_widgets')
             expect(widgetDefinition.checkConstraints![0].expression).toBe(originalExpression)
-            expect(widgetDefinition.compositeForeignKeys!.find(({ columns }) => columns.includes('parent_widget_id'))!.columns).toEqual(
-                originalParentColumns
-            )
+            expect(widgetDefinition.foreignKeys!.find(({ column }) => column === 'parent_widget_id')).toEqual(originalParentReference)
         })
     })
 

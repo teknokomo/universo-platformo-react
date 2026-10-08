@@ -54,6 +54,7 @@ export interface BindingComponentRow {
     data_type: string
     is_required: boolean
     validation_rules: unknown
+    ui_config: unknown
     target_object_id: string | null
     target_object_kind: string | null
     target_object_codename: string | null
@@ -262,6 +263,7 @@ export const listWidgetBindingComponents = async (
                 ${column('component', 'data_type')} AS data_type,
                 ${column('component', 'is_required')} AS is_required,
                 ${column('component', 'validation_rules')} AS validation_rules,
+                ${column('component', 'ui_config')} AS ui_config,
                 ${column('component', 'target_object_id')} AS target_object_id,
                 ${column('component', 'target_object_kind')} AS target_object_kind,
                 ${codename('target_object')} AS target_object_codename

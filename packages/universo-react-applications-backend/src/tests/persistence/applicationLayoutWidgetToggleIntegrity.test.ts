@@ -229,7 +229,11 @@ const heroWidget = (id: string, semanticKey: string, inherited = false) => {
     }
 }
 
-const createScenario = (initialWidgets: Array<Record<string, unknown>>, heroRows: Array<Record<string, unknown>>) => {
+const createScenario = (
+    initialWidgets: Array<Record<string, unknown>>,
+    heroRows: Array<Record<string, unknown>>,
+    componentUiConfig: Record<string, Record<string, unknown>> = {}
+) => {
     const { executor, txExecutor } = createMockDbExecutor()
     let currentWidgets = initialWidgets
     const heroObjectId = '018f8a78-7b8f-7c1d-a111-2222333344a8'
@@ -262,22 +266,26 @@ const createScenario = (initialWidgets: Array<Record<string, unknown>>, heroRows
             ]
         }
         if (sql.includes('_app_components')) {
-            return getLayoutWidgetDefinition('marketing.hero')!.bindingSlots![0]!.requirements.components.map((component) => ({
-                codename: component.componentCodename,
-                columnName:
-                    ({ HeroKey: 'hero_key', PrimaryAction: 'primary_action', TermsAction: 'terms_action' } as Record<string, string>)[
-                        component.componentCodename
-                    ] ?? `unused_${component.componentCodename}`,
-                dataType: component.valueType === 'json' ? 'jsonb' : 'text',
-                is_required: component.required,
-                validation_rules: {
-                    ...(component.localized ? { localized: true } : {}),
-                    ...(component.maxLength !== undefined ? { maxLength: component.maxLength } : {}),
-                    ...(component.semanticKey ? { unique: true } : {}),
-                    ...(component.pattern === undefined ? {} : { pattern: component.pattern }),
-                    ...(component.format ? { format: component.format } : {})
-                }
-            }))
+            const componentRows = getLayoutWidgetDefinition('marketing.hero')!.bindingSlots![0]!.requirements.components.map(
+                (component) => ({
+                    codename: component.componentCodename,
+                    columnName:
+                        ({ HeroKey: 'hero_key', PrimaryAction: 'primary_action', TermsAction: 'terms_action' } as Record<string, string>)[
+                            component.componentCodename
+                        ] ?? `unused_${component.componentCodename}`,
+                    dataType: component.valueType === 'json' ? 'jsonb' : 'text',
+                    is_required: component.required,
+                    uiConfig: componentUiConfig[component.componentCodename] ?? {},
+                    validation_rules: {
+                        ...(component.localized ? { localized: true } : {}),
+                        ...(component.maxLength !== undefined ? { maxLength: component.maxLength } : {}),
+                        ...(component.semanticKey ? { unique: true } : {}),
+                        ...(component.pattern === undefined ? {} : { pattern: component.pattern }),
+                        ...(component.format ? { format: component.format } : {})
+                    }
+                })
+            )
+            return componentRows
         }
         if (sql.includes('marketing_page_hero')) {
             const selectedKeys = Array.isArray(parameters[0]) ? parameters[0] : []
@@ -412,6 +420,31 @@ describe('application layout marketing Hero action integrity on widget toggle', 
         )
         expect(scenario.txExecutor.query.mock.calls.some(([query]) => String(query).includes('SET is_active = $2'))).toBe(true)
     })
+
+    it.each(['sensitive', 'private', 'serverOwned'] as const)(
+        'fails closed for a protected Hero action Component marked %s before reading records',
+        async (privacyFlag) => {
+            const scenario = createScenario(
+                [pricingWidget(widgetId), featuresWidget, heroWidget(primaryHeroId, 'hero-primary')],
+                [activeHeroRecord('018f8a78-7b8f-7c1d-a111-2222333344b6', 'hero-primary', { kind: 'anchor', href: '#features' })],
+                { PrimaryAction: { [privacyFlag]: true } }
+            )
+
+            await expect(
+                toggleApplicationLayoutWidget(
+                    scenario.executor,
+                    schemaName,
+                    layoutId,
+                    widgetId,
+                    { expectedVersion: 4, isActive: false },
+                    'user-1'
+                )
+            ).rejects.toThrow(APPLICATION_LAYOUT_MARKETING_HERO_ACTION_INTEGRITY_CONFLICT)
+
+            expect(scenario.txExecutor.query.mock.calls.some(([query]) => String(query).includes('marketing_page_hero'))).toBe(false)
+            expect(scenario.txExecutor.query.mock.calls.some(([query]) => String(query).includes('SET is_active = $2'))).toBe(false)
+        }
+    )
 
     it('allows hiding one of duplicate section targets while another active placement keeps the same anchor', async () => {
         const scenario = createScenario(

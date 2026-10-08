@@ -42,7 +42,8 @@ const isCompatibleTarget = (
                 codename: String(component.codename),
                 dataType: String(component.dataType ?? ''),
                 isRequired: component.isRequired === true,
-                validationRules: component.validationRules
+                validationRules: component.validationRules,
+                uiConfig: component.uiConfig
             }))
         })
     ) {

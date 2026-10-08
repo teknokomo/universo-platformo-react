@@ -260,6 +260,30 @@ describe('widgetBindingRuntimeStore', () => {
         ])
     })
 
+    it.each([{ private: true }, { sensitive: true }, { serverOwned: true }])(
+        'rejects protected bound Components before reading record data (%o)',
+        async (uiConfig) => {
+            const { executor } = createMockDbExecutor()
+            const { slot } = definitionAndSlot()
+            const components = componentsFor(object, slot).map((component) =>
+                component.codename === 'AltText' ? { ...component, uiConfig } : component
+            )
+
+            await expect(
+                loadWidgetBindingRuntimeRecords(executor, {
+                    schemaName,
+                    workspaceId,
+                    workspacesEnabled: true,
+                    query: recordSetQuery(slot, 'CustomLogos'),
+                    object,
+                    components,
+                    slot
+                })
+            ).rejects.toThrow()
+            expect(executor.query).not.toHaveBeenCalled()
+        }
+    )
+
     it('scopes learner Enrollment rows to the trusted actor and fixed target kind in parameterized SQL', async () => {
         const { executor } = createMockDbExecutor()
         const actorId = '550e8400-e29b-41d4-a716-446655440000'

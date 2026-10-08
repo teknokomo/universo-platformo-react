@@ -452,7 +452,8 @@ export const isCompatibleMarketingWidgetObject = (
             codename: getVLCString(component.codename as Parameters<typeof getVLCString>[0], 'en').trim(),
             dataType: String(component.data_type ?? component.dataType ?? ''),
             isRequired: (component.is_required ?? component.isRequired) === true,
-            validationRules: component.validation_rules ?? component.validationRules
+            validationRules: component.validation_rules ?? component.validationRules,
+            uiConfig: component.ui_config ?? component.uiConfig
         }))
     })
 }

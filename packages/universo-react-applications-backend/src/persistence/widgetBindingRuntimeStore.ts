@@ -398,7 +398,8 @@ export const loadWidgetBindingRuntimeRecords = async (
             codename: resolveRuntimeCodenameText(component.codename),
             dataType: String(component.dataType ?? ''),
             isRequired: component.isRequired === true,
-            validationRules: component.validationRules
+            validationRules: component.validationRules,
+            uiConfig: component.uiConfig
         }))
     }
     if (!isCompatibleWidgetBindingEntity(slot, entity)) throw new WidgetBindingRuntimeDataError()

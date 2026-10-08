@@ -16,7 +16,14 @@ const MAX_BOUND_HERO_RECORDS = 1000
 export const APPLICATION_LAYOUT_MARKETING_HERO_ACTION_INTEGRITY_CONFLICT = 'APPLICATION_LAYOUT_MARKETING_HERO_ACTION_INTEGRITY_CONFLICT'
 
 type RuntimeObjectRow = { id: unknown; tableName: unknown; codename: unknown; kind: unknown; config: unknown }
-type RuntimeComponentRow = { codename: unknown; columnName: unknown; dataType: unknown; is_required: unknown; validation_rules: unknown }
+type RuntimeComponentRow = {
+    codename: unknown
+    columnName: unknown
+    dataType: unknown
+    is_required: unknown
+    validation_rules: unknown
+    uiConfig: unknown
+}
 type RuntimeHeroRow = Record<string, unknown>
 type HeroTargetProjection = {
     entityCodename: string
@@ -123,7 +130,8 @@ const loadBoundHeroRows = async (
     ]
     const componentRows = await executor.query<RuntimeComponentRow>(
         `
-        SELECT c.codename, c.column_name AS "columnName", c.data_type AS "dataType", c.is_required, c.validation_rules
+        SELECT c.codename, c.column_name AS "columnName", c.data_type AS "dataType", c.is_required, c.validation_rules,
+               c.ui_config AS "uiConfig"
         FROM ${qSchemaTable(schemaName, '_app_components')} c
         WHERE c.object_id = $1
           AND c.parent_component_id IS NULL
@@ -137,13 +145,14 @@ const loadBoundHeroRows = async (
 
     if (
         !isCompatibleMarketingWidgetObject(
-            { kind: object.kind, config: object.config },
-            componentRows.map((row) => ({ ...row, codename: resolveRuntimeCodenameText(row.codename) })),
+            { kind: object.kind, codename: resolveRuntimeCodenameText(object.codename), config: object.config },
+            componentRows.map((row) => ({ ...row, codename: resolveRuntimeCodenameText(row.codename), uiConfig: row.uiConfig })),
             HERO_WIDGET_KEY,
             'content'
         )
-    )
+    ) {
         return failIntegrity()
+    }
     const columns = new Map<string, string>()
     const physicalColumns = new Set<string>()
     for (const row of componentRows) {

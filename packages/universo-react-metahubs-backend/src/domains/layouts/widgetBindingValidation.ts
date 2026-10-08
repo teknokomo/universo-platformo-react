@@ -166,7 +166,8 @@ export const validateSourceRequirements = (
                 codename: component.codename,
                 dataType: normalizeWidgetBindingDataType(component.data_type) ?? '',
                 isRequired: component.is_required,
-                validationRules: component.validation_rules
+                validationRules: component.validation_rules,
+                uiConfig: component.ui_config
             }))
         })
     ) {

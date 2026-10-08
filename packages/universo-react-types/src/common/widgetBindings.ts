@@ -495,6 +495,7 @@ export interface WidgetBindingEntityComponentMetadata {
     readonly dataType: string
     readonly isRequired: boolean
     readonly validationRules: unknown
+    readonly uiConfig?: unknown
 }
 
 export interface WidgetBindingEntityMetadata {
@@ -515,6 +516,13 @@ const matchesBindingValueType = (actualType: string, expectedType: WidgetBinding
     return normalizeWidgetBindingDataType(actualType) === expectedCanonicalType[expectedType]
 }
 
+const isSafeWidgetBindingComponentUiConfig = (value: unknown): boolean => {
+    if (value === undefined || value === null) return true
+    if (typeof value !== 'object' || Array.isArray(value)) return false
+    const uiConfig = value as Record<string, unknown>
+    return uiConfig.sensitive !== true && uiConfig.private !== true && uiConfig.serverOwned !== true
+}
+
 /** Check persisted Entity metadata against the exact registry contract for one binding slot. */
 export const isCompatibleWidgetBindingEntity = (slot: WidgetBindingSlotDefinition, entity: WidgetBindingEntityMetadata): boolean => {
     if (slot.requirements.entityKinds && !slot.requirements.entityKinds.includes(entity.kind as WidgetBindingEntityKind)) return false
@@ -531,7 +539,8 @@ export const isCompatibleWidgetBindingEntity = (slot: WidgetBindingSlotDefinitio
             !component ||
             !matchesBindingValueType(component.dataType, requirement.valueType) ||
             component.isRequired !== requirement.required ||
-            !matchesWidgetBindingComponentValidationRules(requirement, component.validationRules)
+            !matchesWidgetBindingComponentValidationRules(requirement, component.validationRules) ||
+            !isSafeWidgetBindingComponentUiConfig(component.uiConfig)
         ) {
             return false
         }

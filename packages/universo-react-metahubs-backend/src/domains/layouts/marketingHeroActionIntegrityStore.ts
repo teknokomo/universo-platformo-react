@@ -294,9 +294,15 @@ const loadBoundHeroContent = async (
         if (!slot || !policy || semanticKeyComponent !== semanticKeyDefinition.componentCodename) {
             throw new MetahubValidationError('Hero Entity record policy does not match its registered binding slot')
         }
-        const components = await queryMany<{ codename: string; data_type: string; is_required: boolean; validation_rules: unknown }>(
+        const components = await queryMany<{
+            codename: string
+            data_type: string
+            is_required: boolean
+            validation_rules: unknown
+            ui_config: unknown
+        }>(
             db,
-            `SELECT ${codenamePrimaryTextSql('codename')} AS codename, data_type, is_required, validation_rules
+            `SELECT ${codenamePrimaryTextSql('codename')} AS codename, data_type, is_required, validation_rules, ui_config
                FROM ${qSchemaTable(schemaName, '_mhb_components')} WHERE object_id = $1 AND parent_component_id IS NULL AND ${ACTIVE}`,
             [object.id]
         )
@@ -309,7 +315,8 @@ const loadBoundHeroContent = async (
                     codename: component.codename,
                     dataType: component.data_type,
                     isRequired: component.is_required,
-                    validationRules: component.validation_rules
+                    validationRules: component.validation_rules,
+                    uiConfig: component.ui_config
                 }))
             })
         ) {
