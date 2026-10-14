@@ -78,7 +78,14 @@ export const runtimeRelationScopeSchema = z
             .min(1)
             .max(128)
             .regex(/^[A-Za-z][A-Za-z0-9._-]*$/u),
-        parentRecordId: runtimeRecordReferenceSchema
+        parentRecordId: runtimeRecordReferenceSchema,
+        layoutTarget: z
+            .object({
+                targetKind: z.enum(['page', 'object']),
+                entityTypeId: uuidV7Schema
+            })
+            .strict()
+            .optional()
     })
     .strict()
 
@@ -116,7 +123,14 @@ export const runtimeReorderBodySchema = z
                     .min(1)
                     .max(128)
                     .regex(/^[A-Za-z][A-Za-z0-9._-]*$/u),
-                parentRecordId: runtimeRecordReferenceSchema
+                parentRecordId: runtimeRecordReferenceSchema,
+                layoutTarget: z
+                    .object({
+                        targetKind: z.enum(['page', 'object']),
+                        entityTypeId: uuidV7Schema
+                    })
+                    .strict()
+                    .optional()
             })
             .strict()
             .optional()

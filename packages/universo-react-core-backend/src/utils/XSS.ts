@@ -2,6 +2,15 @@ import { Request, Response, NextFunction } from 'express'
 import type { CorsOptions } from 'cors'
 import sanitizeHtml from 'sanitize-html'
 
+const sanitizeQueryValue = (value: unknown): unknown => {
+    if (typeof value === 'string') return sanitizeHtml(value)
+    if (Array.isArray(value)) return value.map(sanitizeQueryValue)
+    if (value && typeof value === 'object') {
+        return Object.fromEntries(Object.entries(value).map(([key, nestedValue]) => [key, sanitizeQueryValue(nestedValue)]))
+    }
+    return value
+}
+
 export function sanitizeMiddleware(req: Request, res: Response, next: NextFunction): void {
     // Decoding is necessary because the browser encodes the URL. Malformed
     // percent-encoding must fail as a controlled 400 instead of an unhandled
@@ -14,16 +23,9 @@ export function sanitizeMiddleware(req: Request, res: Response, next: NextFuncti
         return
     }
     req.url = sanitizeHtml(decodedURI)
-    for (let p in req.query) {
-        if (Array.isArray(req.query[p])) {
-            const sanitizedQ = []
-            for (const q of req.query[p] as string[]) {
-                sanitizedQ.push(sanitizeHtml(q))
-            }
-            req.query[p] = sanitizedQ
-        } else {
-            req.query[p] = sanitizeHtml(req.query[p] as string)
-        }
+    const query = req.query as Record<string, unknown>
+    for (const parameterName of Object.keys(query)) {
+        query[parameterName] = sanitizeQueryValue(query[parameterName])
     }
     next()
 }

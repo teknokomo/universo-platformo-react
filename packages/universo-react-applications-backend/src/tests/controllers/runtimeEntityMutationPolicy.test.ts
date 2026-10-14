@@ -1,4 +1,8 @@
-import { assertRuntimeEntityMutationAllowed, resolveValidatedRuntimeEntityRecordPolicy } from '../../shared/entityMutationPolicy'
+import {
+    assertRuntimeEntityMutationAllowed,
+    resolveValidatedRuntimeEntityRecordPolicy,
+    validateRuntimeEntityRecordPolicy
+} from '../../shared/entityMutationPolicy'
 
 const allowedPolicy = {
     version: 1,
@@ -41,5 +45,21 @@ describe('runtime Entity mutation policy', () => {
     it('preserves a valid deny policy for trusted maintenance decisions without permitting runtime writes', () => {
         expect(resolveValidatedRuntimeEntityRecordPolicy({ recordPolicy: deniedPolicy })).toEqual(deniedPolicy)
         expect(() => assertRuntimeEntityMutationAllowed({ recordPolicy: deniedPolicy })).toThrow()
+    })
+
+    it('allows dedicated server-owned workflows to use valid protected Entities while rejecting malformed policy metadata', () => {
+        const response = { status: jest.fn().mockReturnThis(), json: jest.fn() }
+
+        expect(validateRuntimeEntityRecordPolicy(response as never, { recordPolicy: deniedPolicy })).toBe(false)
+        expect(response.status).not.toHaveBeenCalled()
+
+        expect(validateRuntimeEntityRecordPolicy(response as never, { recordPolicy: { version: 1, runtimeMutation: 'sometimes' } })).toBe(
+            true
+        )
+        expect(response.status).toHaveBeenCalledWith(409)
+        expect(response.json).toHaveBeenCalledWith({
+            error: 'Entity runtime mutation policy is invalid.',
+            code: 'RUNTIME_ENTITY_POLICY_INVALID'
+        })
     })
 })

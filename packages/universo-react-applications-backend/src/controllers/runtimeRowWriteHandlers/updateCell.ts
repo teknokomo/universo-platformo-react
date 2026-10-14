@@ -40,6 +40,7 @@ import {
 import { denyRuntimeEntityMutation } from '../../shared/entityMutationPolicy'
 import {
     validateRuntimeDateOrderRules,
+    validateRuntimeAccessLinkTarget,
     validateRuntimeParentRecordAccessReferences,
     validateRuntimeRecordPickerReferences,
     validateRuntimeRequiredWhenRules
@@ -52,6 +53,8 @@ import {
 } from '../../services/runtimeRowSupport/access'
 import { loadRuntimeRowById } from '../runtimeRowSupport/rows'
 import { resolveRuntimeRelationOwnedFieldCodenames } from '../../services/runtimeRowSupport/list'
+import { lockGuestAccessLinkWorkspace, revokeGuestSessionsForAccessLink } from '../../services/guestAccessLinkRevocation'
+import { resolveAccessLinkIntakePolicy } from '../../services/guestAccessLinkIntakePolicy'
 import { isRuntimeRecordReference, resolveRuntimeRecordReference } from '../../services/runtimeRecordHandle'
 
 import type { RuntimeRowWriteDeps } from './types'
@@ -200,6 +203,14 @@ export const createUpdateCellHandler = ({ getDbExecutor, query }: RuntimeRowWrit
         try {
             await withTransactionSavepoint(ctx.manager, async (txManager) => {
                 const objectCodename = resolveRuntimeCodenameText(objectCollection.codename)
+                if (objectCodename === 'AccessLinks') {
+                    await lockGuestAccessLinkWorkspace({
+                        executor: txManager,
+                        schemaName: ctx.schemaName,
+                        workspacesEnabled: ctx.workspacesEnabled,
+                        workspaceId: ctx.currentWorkspaceId
+                    })
+                }
                 const previousRow = await loadRuntimeRowByIdWithRecordAccess({
                     manager: txManager,
                     schemaIdent: ctx.schemaIdent,
@@ -234,6 +245,33 @@ export const createUpdateCellHandler = ({ getDbExecutor, query }: RuntimeRowWrit
                 })
                 if (referenceValidationError) {
                     throw new UpdateFailure(400, { error: referenceValidationError })
+                }
+                const accessLinkIntakePolicy = resolveAccessLinkIntakePolicy({
+                    objectCodename,
+                    fields: attrs.map((attr) => ({
+                        codename: attr.codename,
+                        columnName: attr.column_name,
+                        dataType: attr.data_type,
+                        defaultValue: attr.ui_config?.defaultValue
+                    })),
+                    row: { ...previousRow, [field]: coerced }
+                })
+                if (!accessLinkIntakePolicy.valid) {
+                    throw new UpdateFailure(400, { error: accessLinkIntakePolicy.error, code: accessLinkIntakePolicy.code })
+                }
+                const accessLinkTargetError = await validateRuntimeAccessLinkTarget({
+                    manager: txManager,
+                    schemaIdent: ctx.schemaIdent,
+                    currentWorkspaceId: ctx.currentWorkspaceId,
+                    currentUserId: ctx.userId,
+                    permissions: ctx.permissions,
+                    objectCodename,
+                    attrs,
+                    row: { ...previousRow, [field]: coerced },
+                    lockTarget: true
+                })
+                if (accessLinkTargetError) {
+                    throw new UpdateFailure(400, { error: accessLinkTargetError })
                 }
                 const accessEntryValidationError = await validateRuntimeAccessEntryMembership({
                     manager: txManager,
@@ -367,6 +405,19 @@ export const createUpdateCellHandler = ({ getDbExecutor, query }: RuntimeRowWrit
                     }
 
                     throw new UpdateFailure(404, { error: 'Row not found' })
+                }
+
+                if (objectCodename === 'AccessLinks' && resolveRuntimeCodenameText(cmp.codename) === 'IsActive' && coerced === false) {
+                    await revokeGuestSessionsForAccessLink({
+                        executor: txManager,
+                        applicationId,
+                        schemaName: ctx.schemaName,
+                        settings: ctx.applicationSettings,
+                        workspacesEnabled: ctx.workspacesEnabled,
+                        workspaceId: ctx.currentWorkspaceId,
+                        accessLinkId: rowId,
+                        actorUserId: ctx.userId
+                    })
                 }
 
                 const nextRow = await loadRuntimeRowById(txManager, dataTableIdent, rowId, runtimeRowCondition)

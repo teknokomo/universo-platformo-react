@@ -139,7 +139,7 @@ export default function AppNavbar({
         <AppBar
             position='fixed'
             sx={{
-                display: { xs: 'block', md: sideMenuMode === 'overlay' || showModeSwitcher ? 'block' : 'none' },
+                display: { xs: 'block', md: sideMenuMode === 'overlay' || hasRightWidgets ? 'block' : 'none' },
                 right: 0,
                 left: { xs: 0, md: appBarLeft },
                 boxShadow: 0,

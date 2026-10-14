@@ -75,7 +75,7 @@ describe('applicationWorkspaces lifecycle and seed reset', () => {
                 return [
                     {
                         objectId: '018f8a78-7b8f-7c1d-a111-222233334470',
-                        codename: 'accesslinks',
+                        codename: 'Courses',
                         tableName: 'obj_018f8a787b8f7c1da111222233334470'
                     }
                 ]
@@ -123,7 +123,7 @@ describe('applicationWorkspaces lifecycle and seed reset', () => {
             entities: [
                 {
                     id: '018f8a78-7b8f-7c1d-a111-222233334470',
-                    codename: 'accesslinks',
+                    codename: 'Courses',
                     kind: 'object',
                     fields: []
                 } as never

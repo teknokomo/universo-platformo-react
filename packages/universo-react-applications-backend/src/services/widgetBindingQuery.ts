@@ -1,7 +1,8 @@
 import type { WidgetBindingProjectionField, WidgetBindingTarget } from '@universo-react/types'
 
 export interface WidgetBindingOrderedQuery {
-    readonly orderByComponentCodename: string
+    /** Null is reserved for schema-projected record sets, which use the row UUID as their stable order. */
+    readonly orderByComponentCodename: string | null
     readonly visibilityComponentCodename?: string
     readonly limit: number
 }

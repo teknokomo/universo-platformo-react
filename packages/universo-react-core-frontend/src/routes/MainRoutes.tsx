@@ -1,4 +1,4 @@
-import { lazy } from 'react'
+import { lazy, useEffect } from 'react'
 import { Navigate, Outlet, useLocation, useParams } from 'react-router-dom'
 import Alert from '@mui/material/Alert'
 import Button from '@mui/material/Button'
@@ -30,9 +30,11 @@ import { AdminDialogSettingsProvider } from '@universo-react/admin-frontend'
 import {
     ApplicationDialogSettingsProvider,
     applicationsQueryKeys,
-    resolveApplicationRuntimeReference
+    resolveApplicationRuntimeReference,
+    resolvePublicGlobalShortLink
 } from '@universo-react/applications-frontend'
 import { resolvePublicGuestRuntimeLocale } from './publicGuestRuntimeLocale'
+import { getPublicGlobalShortLinkPath } from './publicGlobalShortLinkTarget'
 import { isUuidV7 } from '@universo-react/utils'
 
 const StartPage = Loadable(lazy(() => import('@universo-react/start-frontend/views/StartPage')))
@@ -49,6 +51,7 @@ const ApplicationsApplicationRuntimeEntry = Loadable(
     lazy(() => import('@universo-react/applications-frontend/pages/ApplicationRuntimeEntry'))
 )
 const ApplicationsApplicationSettings = Loadable(lazy(() => import('@universo-react/applications-frontend/pages/ApplicationSettings')))
+const ApplicationsApplicationShortLinks = Loadable(lazy(() => import('@universo-react/applications-frontend/pages/ApplicationShortLinks')))
 const ApplicationsApplicationAdminGuard = Loadable(
     lazy(() => import('@universo-react/applications-frontend/components/ApplicationAdminGuard'))
 )
@@ -116,6 +119,19 @@ const ApplicationAdminResolver = () => {
     return <MainLayoutMUI />
 }
 
+const usePublicRuntimeLocale = () => {
+    const { i18n } = useTranslation()
+    const locale = resolvePublicGuestRuntimeLocale()
+
+    useEffect(() => {
+        if (i18n.resolvedLanguage !== locale) {
+            void i18n.changeLanguage(locale)
+        }
+    }, [i18n, locale])
+
+    return locale
+}
+
 const PublicAwareApplicationRuntime = () => {
     return <ApplicationsApplicationRuntimeEntry />
 }
@@ -140,10 +156,44 @@ const ApplicationAdminEntry = () => {
 
 const PublicGuestRuntime = () => {
     const { applicationId = '', slug = '' } = useParams<{ applicationId: string; slug: string }>()
+    const locale = usePublicRuntimeLocale()
 
-    return (
-        <PublicGuestRuntimePage applicationId={applicationId} slug={slug} locale={resolvePublicGuestRuntimeLocale()} apiBaseUrl='/api/v1' />
-    )
+    return <PublicGuestRuntimePage applicationId={applicationId} slug={slug} locale={locale} apiBaseUrl='/api/v1' />
+}
+
+const PublicGlobalShortLink = () => {
+    const { slug = '' } = useParams<{ slug: string }>()
+    const { t } = useTranslation('applications')
+    const locale = usePublicRuntimeLocale()
+    const shortLinkQuery = useQuery({
+        queryKey: ['public-global-short-link', slug],
+        queryFn: () => resolvePublicGlobalShortLink(slug),
+        enabled: Boolean(slug),
+        retry: 1,
+        staleTime: 0
+    })
+
+    if (shortLinkQuery.isLoading) return <Loader />
+    if (shortLinkQuery.isError || !shortLinkQuery.data) {
+        return <Alert severity='warning'>{t('shortLinks.publicUnavailable')}</Alert>
+    }
+
+    const target = shortLinkQuery.data
+    if (target.kind === 'lms-access-link') {
+        return (
+            <PublicGuestRuntimePage
+                applicationId={target.applicationId}
+                slug={target.accessLinkSlug}
+                accessLinkId={target.accessLinkId}
+                workspaceId={target.workspaceId}
+                locale={locale}
+                apiBaseUrl='/api/v1'
+            />
+        )
+    }
+
+    const destination = getPublicGlobalShortLinkPath(target)
+    return destination ? <Navigate to={destination} replace /> : <Alert severity='warning'>{t('shortLinks.publicUnavailable')}</Alert>
 }
 
 const AdminDialogScope = () => (
@@ -262,7 +312,8 @@ const ApplicationAdminRoute = {
                 { path: 'layouts', element: <ApplicationsApplicationLayouts /> },
                 { path: 'layouts/:layoutId', element: <ApplicationsApplicationLayouts /> },
                 { path: 'access', element: <ApplicationsApplicationMembers /> },
-                { path: 'settings', element: <ApplicationsApplicationSettings /> }
+                { path: 'settings', element: <ApplicationsApplicationSettings /> },
+                { path: 'short-links', element: <ApplicationsApplicationShortLinks /> }
             ]
         }
     ]
@@ -276,6 +327,10 @@ const PublicRuntimeRoutes = {
         </ErrorBoundary>
     ),
     children: [
+        createPublicAppRuntimeRoute({
+            path: 'l/:slug',
+            component: PublicGlobalShortLink
+        }),
         createPublicAppRuntimeRoute({
             component: PublicGuestRuntime
         })

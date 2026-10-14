@@ -19,8 +19,8 @@ import {
     createLoggedInApiContext,
     createMetahub,
     disposeApiContext,
-    createEntity,
-    listEntities
+    createObjectCollection,
+    listEntityInstances
 } from '../../support/backend/api-session.mjs'
 import { recordCreatedMetahub } from '../../support/backend/run-manifest.mjs'
 import { repoRoot } from '../../support/env/load-e2e-env.mjs'
@@ -104,13 +104,13 @@ test('@generator capture Pages and LMS documentation screenshots for EN and RU l
         const metahubId = metahub.id
 
         // Create a Page entity for screenshots
-        const pageEntity = await createEntity(ctx, metahubId, {
+        const pageEntity = await createObjectCollection(ctx, metahubId, {
             kindKey: 'page',
             codename: createLocalizedContent('en', 'sample-page'),
-            presentation: {
-                name: { en: 'Sample Page', ru: 'Пример страницы' },
-                description: { en: 'A sample page for documentation', ru: 'Пример страницы для документации' }
-            }
+            name: { en: 'Sample Page', ru: 'Пример страницы' },
+            namePrimaryLocale: 'en',
+            description: { en: 'A sample page for documentation', ru: 'Пример страницы для документации' },
+            descriptionPrimaryLocale: 'en'
         })
 
         for (const locale of ['en', 'ru'] as const) {
@@ -135,7 +135,7 @@ test('@generator capture Pages and LMS documentation screenshots for EN and RU l
             }
 
             // 3. Ledgers list (if any exist)
-            const ledgers = await listEntities(ctx, metahubId, { kindKey: 'ledger', limit: 10, offset: 0 })
+            const ledgers = await listEntityInstances(ctx, metahubId, { kindKey: 'ledger', limit: 10, offset: 0 })
             if (ledgers?.items?.length > 0) {
                 await page.goto(`/metahub/${metahubId}/entities/ledger/instances`)
                 await expect(page.getByRole('heading', { name: uiCopy.ledgers })).toBeVisible({ timeout: 30_000 })

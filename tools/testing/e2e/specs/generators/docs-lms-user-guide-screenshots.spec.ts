@@ -34,12 +34,15 @@ import { recordCreatedApplication, recordCreatedMetahub, recordCreatedPublicatio
 import { repoRoot } from '../../support/env/load-e2e-env.mjs'
 import { importLmsSnapshotThroughUi } from '../../support/lmsSnapshotImport'
 import {
-    LMS_DEMO_CONTENT_NODE,
+    assertPublicAssessmentAttemptState,
+    expectCurrentAttemptQuestion,
+    selectGuestQuizAnswer
+} from '../../support/lmsMarathonGuestShortLinkAssertions'
+import {
     LMS_DEMO_CONTENT_NODES,
-    LMS_DEMO_QUIZ,
-    LMS_DEMO_QUIZZES,
-    LMS_SAMPLE_LINK,
-    LMS_SECONDARY_LINK
+    LMS_LYCEUM_MARATHON_ACCESS_LINKS,
+    LMS_LYCEUM_MARATHON_QUIZZES,
+    LMS_LYCEUM_MARATHON_TIME_LIMIT_SECONDS
 } from '../../support/lmsFixtureContract'
 import { applicationSelectors, confirmDeleteSelectors, entityDialogSelectors } from '../../support/selectors/contracts'
 
@@ -180,18 +183,6 @@ function readLocalizedText(value: unknown, locale = 'en'): string | undefined {
 
     const fallbackValue = Object.values(locales).find((entry) => typeof entry?.content === 'string' && entry.content.length > 0)?.content
     return typeof fallbackValue === 'string' ? fallbackValue : undefined
-}
-
-async function checkQuizOption(page: Page, value: unknown, locale: Locale): Promise<void> {
-    const label = readLocalizedText(value, locale)
-    if (!label) {
-        throw new Error(`LMS docs screenshot generator could not resolve quiz option label for locale ${locale}`)
-    }
-
-    const option = page.getByLabel(label).first()
-    await expect(option, `Quiz option ${label} must be visible for ${locale}`).toBeVisible({ timeout: 30_000 })
-    await option.check()
-    await expect(option, `Quiz option ${label} must be checked for ${locale}`).toBeChecked()
 }
 
 async function ensureDocsAssetDirectory(locale: Locale) {
@@ -861,6 +852,13 @@ async function captureTracksGuide(page: Page, locale: Locale, applicationId: str
     await clickNavigationAndExpectText(page, labels.tracks, stagesLabel)
     await selectBuilderTab(page, stagesLabel, `${locale} track stages`)
     await captureDocsScreenshot(page, locale, 'learning-tracks', page.locator('main').first())
+    const complianceTrack = page.getByRole('tab', {
+        name: localized(locale, 'Compliance refresh track', 'Трек обновления требований'),
+        exact: true
+    })
+    await expect(complianceTrack, `${locale} first learning track selection`).toBeVisible({ timeout: 30_000 })
+    await complianceTrack.click()
+    await expect(complianceTrack).toHaveAttribute('aria-selected', 'true')
     await captureDocsStepScreenshot(page, locale, 'learning-tracks', 1, page.locator('body'))
     await selectBuilderTab(page, trackStepsLabel, `${locale} track steps`)
     await expect(page.getByRole('heading', { name: trackStepsLabel, exact: true })).toBeVisible({ timeout: 30_000 })
@@ -874,13 +872,13 @@ async function captureTracksGuide(page: Page, locale: Locale, applicationId: str
     await captureDocsStepScreenshot(page, locale, 'learning-tracks', 3, page.locator('body'))
     await dialog.getByTestId(entityDialogSelectors.cancelButton).click()
     await expect(dialog).toHaveCount(0)
-    const complianceTrack = page.getByRole('tab', {
-        name: localized(locale, 'Compliance refresh track', 'Трек обновления требований'),
+    const onboardingTrack = page.getByRole('tab', {
+        name: localized(locale, 'New learner onboarding track', 'Трек адаптации нового учащегося'),
         exact: true
     })
-    await expect(complianceTrack, `${locale} second learning track selection`).toBeVisible({ timeout: 30_000 })
-    await complianceTrack.click()
-    await expect(complianceTrack).toHaveAttribute('aria-selected', 'true')
+    await expect(onboardingTrack, `${locale} second learning track selection`).toBeVisible({ timeout: 30_000 })
+    await onboardingTrack.click()
+    await expect(onboardingTrack).toHaveAttribute('aria-selected', 'true')
     await captureDocsStepScreenshot(page, locale, 'learning-tracks', 4, page.locator('body'))
     await selectBuilderTab(page, localized(locale, 'Player', 'Проигрыватель'), `${locale} learning track player`)
     await selectBuilderTab(page, localized(locale, 'Reports', 'Отчёты'), `${locale} learning track reports`)
@@ -908,6 +906,8 @@ async function captureSharingGuide(page: Page, locale: Locale, applicationId: st
     })
     await captureDocsStepScreenshot(page, locale, 'sharing-recent-favorites-trash', 1, page.locator('body'))
     await selectRuntimeRowAction(page, locale, 'Add to starred', 'Добавить в избранное', `${locale} sharing star`)
+    await page.reload()
+    await expect(surface, `${locale} refreshed sharing library after saving a favorite`).toBeVisible({ timeout: 30_000 })
     await openFirstRuntimeRowActions(page, `${locale} sharing starred state`)
     await expect(page.getByRole('menuitem', { name: localized(locale, 'Remove from starred', 'Убрать из избранного') })).toBeVisible({
         timeout: 30_000
@@ -1134,8 +1134,8 @@ async function createDocsPublicWorkspace(api: ApiContext, applicationId: string)
     throw new Error('LMS docs screenshot generator could not resolve a workspace for public guest content')
 }
 
-async function verifyDocsPublicGuestContent(api: ApiContext, page: Page, applicationId: string): Promise<void> {
-    await createDocsPublicWorkspace(api, applicationId)
+async function verifyDocsPublicGuestContent(api: ApiContext, page: Page, applicationId: string): Promise<string> {
+    const publicWorkspaceId = await createDocsPublicWorkspace(api, applicationId)
     const publicContentNodes = LMS_DEMO_CONTENT_NODES.filter((content) => typeof content.accessLinkSlug === 'string')
 
     for (const seededContent of publicContentNodes) {
@@ -1158,41 +1158,151 @@ async function verifyDocsPublicGuestContent(api: ApiContext, page: Page, applica
             )
             .toEqual({ idPresent: true, slug: seededContent.accessLinkSlug, targetPresent: true })
     }
-}
 
-async function captureGuestGuide(page: Page, locale: Locale, applicationId: string) {
-    const isRu = locale === 'ru'
-    const content = isRu ? LMS_DEMO_CONTENT_NODES.find((node) => node.accessLinkSlug === LMS_SECONDARY_LINK.slug) : LMS_DEMO_CONTENT_NODE
-    const quiz = isRu ? LMS_DEMO_QUIZZES.find((item) => item.key === 'docking-corridor') : LMS_DEMO_QUIZ
-    if (!content || !quiz) {
-        throw new Error(`LMS docs guest guide cannot resolve public content for ${locale}`)
+    for (const seededLink of LMS_LYCEUM_MARATHON_ACCESS_LINKS) {
+        await expect
+            .poll(
+                async () => {
+                    const response = await page.request.get(`/api/v1/public/a/${applicationId}/links/${seededLink.slug}`)
+                    if (response.status() !== 200) return `${response.status()}:${await response.text()}`
+                    const payload = await response.json()
+                    return {
+                        idPresent: typeof payload?.id === 'string' && payload.id.length > 0,
+                        slug: payload?.slug,
+                        targetType: payload?.targetType,
+                        targetPresent: typeof payload?.targetId === 'string' && payload.targetId.length > 0
+                    }
+                },
+                { timeout: 30_000, intervals: [500, 1_000, 2_000] }
+            )
+            .toEqual({ idPresent: true, slug: seededLink.slug, targetType: 'quiz', targetPresent: true })
     }
 
-    await page.goto(`/public/a/${applicationId}/links/${isRu ? LMS_SECONDARY_LINK.slug : LMS_SAMPLE_LINK.slug}${isRu ? '?locale=ru' : ''}`)
+    return publicWorkspaceId
+}
+
+async function captureGuestGuide(page: Page, locale: Locale, applicationId: string, workspaceId: string) {
+    const isRu = locale === 'ru'
+    const accessLink = LMS_LYCEUM_MARATHON_ACCESS_LINKS.find((item) => item.key === 'lyceum-marathon-grade-5')
+    const quiz = LMS_LYCEUM_MARATHON_QUIZZES.find((item) => item.key === accessLink?.quizKey)
+    if (!accessLink || !quiz) {
+        throw new Error(`LMS docs guest guide cannot resolve the grade 5 Marathon quiz for ${locale}`)
+    }
+
+    await page.goto(`/public/a/${applicationId}/links/${accessLink.slug}?locale=${locale}`)
     await expect(page.getByRole('button', { name: isRu ? 'Начать обучение' : 'Start learning' })).toBeVisible({ timeout: 30_000 })
     await captureDocsScreenshot(page, locale, 'guest-access')
-    await page.getByLabel(isRu ? 'Ваше имя' : 'Your name').fill(isRu ? 'Гость обучения' : 'Learning guest')
+    const firstName = isRu ? 'Анна' : 'Learning'
+    const lastName = isRu ? 'Марафона' : 'Guest'
+    const participantName = `${firstName} ${lastName}`
+    await page.getByLabel(isRu ? 'Имя' : 'First name').fill(firstName)
+    await page.getByLabel(isRu ? 'Фамилия' : 'Last name').fill(lastName)
+    await page.getByRole('checkbox').nth(0).check()
+    await page.getByRole('checkbox').nth(1).check()
     await captureDocsStepScreenshot(page, locale, 'guest-access', 1, page.locator('body'))
+    const attemptStartResponsePromise = page.waitForResponse((response) => {
+        const responseUrl = new URL(response.url())
+        return response.request().method() === 'POST' && responseUrl.pathname === `/api/v1/public/a/${applicationId}/runtime/attempts/start`
+    })
     await page.getByRole('button', { name: isRu ? 'Начать обучение' : 'Start learning' }).click()
-    await expect(page.getByText(content.title[locale])).toBeVisible({ timeout: 30_000 })
+    const attemptStartResponse = await attemptStartResponsePromise
+    expect(attemptStartResponse.status(), `${locale} docs guest quiz attempt must start`).toBe(200)
+    const startedAttempt = await attemptStartResponse.json()
+    assertPublicAssessmentAttemptState(startedAttempt, `${locale} docs guest attempt start`)
+    expectCurrentAttemptQuestion(startedAttempt, quiz.questions[0]!, 0, quiz.questions.length, locale, `${locale} docs first question`)
+    let currentAttempt = startedAttempt
+    const timeLimitMinutes = LMS_LYCEUM_MARATHON_TIME_LIMIT_SECONDS / 60
+    const expectedTimeText = isRu
+        ? `На прохождение теста отведено ${timeLimitMinutes} мин.`
+        : `You have ${timeLimitMinutes} minutes to complete this quiz.`
+    await expect(page.getByText(expectedTimeText, { exact: true })).toBeVisible({ timeout: 30_000 })
+    await expect(page.getByRole('timer')).toHaveText(/^\d{1,2}:\d{2}$/)
+    await expect(page.getByText(isRu ? 'Вопрос 1 из 30' : 'Question 1 of 30', { exact: true })).toBeVisible({ timeout: 30_000 })
     await captureDocsStepScreenshot(page, locale, 'guest-access', 2, page.locator('body'))
-    await page.getByRole('button', { name: isRu ? 'Далее' : 'Next' }).click()
-    await expect(page.getByText(content.contentItems[locale][1].itemTitle)).toBeVisible({ timeout: 30_000 })
-    await captureDocsStepScreenshot(page, locale, 'guest-access', 3, page.locator('body'))
-    await page.getByRole('button', { name: isRu ? 'Открыть тест' : 'Open quiz' }).click()
-    await expect(page.getByText(quiz.questions[locale][0].prompt)).toBeVisible({ timeout: 30_000 })
-    await checkQuizOption(page, quiz.questions[locale][0].options[0].label, locale)
-    await checkQuizOption(page, quiz.questions[locale][1].options[0].label, locale)
-    await captureDocsStepScreenshot(page, locale, 'guest-access', 4, page.locator('body'))
-    await page.getByRole('button', { name: isRu ? 'Отправить тест' : 'Submit quiz' }).click()
-    await expect(page.getByText(isRu ? 'Результат 2 / 2' : 'Score 2 / 2')).toBeVisible({ timeout: 30_000 })
-    await page.getByRole('button', { name: isRu ? 'Назад к контенту' : 'Back to content' }).click()
-    await page.getByRole('button', { name: isRu ? 'Завершить контент' : 'Complete content' }).click()
-    await expect(
-        page.getByText(
-            isRu ? 'Контент завершён. Прогресс записан для этой сессии.' : 'Content complete. Progress has been recorded for this session.'
+    const questionsByPrompt = new Map<string, (typeof quiz.questions)[number]>()
+    for (const question of quiz.questions) {
+        const prompt = readLocalizedText(question.prompt, locale)?.trim()
+        if (!prompt) throw new Error(`LMS docs Marathon question ${question.id} has no ${locale} prompt`)
+        if (questionsByPrompt.has(prompt)) {
+            throw new Error(`LMS docs Marathon quiz has duplicate source prompt: ${prompt}`)
+        }
+        questionsByPrompt.set(prompt, question)
+    }
+    const answeredQuestionIds = new Set<string>()
+    const questionHeading = page.getByRole('heading', { level: 2 })
+    for (let index = 0; index < quiz.questions.length; index += 1) {
+        const expectedQuestion = quiz.questions[index]
+        if (!expectedQuestion) throw new Error(`LMS docs Marathon fixture is missing question ${index + 1}`)
+        const currentQuestion = expectCurrentAttemptQuestion(
+            currentAttempt,
+            expectedQuestion,
+            index,
+            quiz.questions.length,
+            locale,
+            `${locale} docs question ${index + 1}`
         )
-    ).toBeVisible({ timeout: 30_000 })
+        await expect(page.getByText(isRu ? `Вопрос ${index + 1} из 30` : `Question ${index + 1} of 30`, { exact: true })).toBeVisible({
+            timeout: 30_000
+        })
+        const renderedPrompt = (await questionHeading.innerText()).trim()
+        expect(renderedPrompt, `${locale} docs UI must render the current attempt prompt`).toBe(
+            readLocalizedText(currentQuestion.prompt, locale)
+        )
+        const question = questionsByPrompt.get(renderedPrompt)
+        if (!question) {
+            throw new Error(`LMS docs Marathon runtime displayed an unknown source question: ${renderedPrompt}`)
+        }
+        if (answeredQuestionIds.has(question.id)) {
+            throw new Error(`LMS docs Marathon runtime repeated source question ${question.id}`)
+        }
+        const correctOption = question.options.find(({ isCorrect }) => isCorrect)
+        if (!correctOption) throw new Error(`LMS docs Marathon question ${question.id} has no correct source option`)
+        const answerLabel = readLocalizedText(correctOption.label, locale)
+        if (!answerLabel) throw new Error(`LMS docs Marathon answer has no ${locale} label`)
+        const savedAttempt = await selectGuestQuizAnswer({
+            page,
+            applicationId,
+            attemptId: startedAttempt.attemptId,
+            option: page.getByRole('radiogroup').getByRole('radio', { name: answerLabel, exact: true }),
+            label: `${locale} docs quiz answer ${index + 1}`
+        })
+        expect(savedAttempt.currentQuestionIndex).toBe(index + 1)
+        expect(savedAttempt.totalQuestions).toBe(quiz.questions.length)
+        expect(savedAttempt.answeredCount).toBe(index + 1)
+        expect(savedAttempt.questions).toHaveLength(index + 1 < quiz.questions.length ? 1 : 0)
+        answeredQuestionIds.add(question.id)
+        currentAttempt = savedAttempt
+        if (index === 0) {
+            await expect(page.getByText(isRu ? 'Вопрос 2 из 30' : 'Question 2 of 30', { exact: true })).toBeVisible({ timeout: 30_000 })
+            await captureDocsStepScreenshot(page, locale, 'guest-access', 3, page.locator('body'))
+        }
+    }
+    if (answeredQuestionIds.size !== quiz.questions.length) {
+        const unanswered = quiz.questions
+            .filter(({ id }) => !answeredQuestionIds.has(id))
+            .map(({ sourceQuestion }) => sourceQuestion.prompt)
+        throw new Error(`LMS docs Marathon runtime did not show every source question: ${unanswered.join(' | ')}`)
+    }
+    await expect(page.getByRole('status')).toContainText(isRu ? 'Правильных ответов: 30 из 30' : 'Correct answers: 30 of 30', {
+        timeout: 30_000
+    })
+    await captureDocsStepScreenshot(page, locale, 'guest-access', 4, page.locator('body'))
+
+    await page.goto(`/a/${applicationId}?locale=${locale}&workspaceId=${encodeURIComponent(workspaceId)}`)
+    await clickNavigation(page, isRu ? 'Отчёты' : 'Reports')
+    const reportTitle = isRu ? 'Результаты попыток тестов' : 'Quiz attempt results'
+    const reportHeading = page.getByRole('heading', { name: reportTitle, exact: true })
+    await expect(reportHeading, `${locale} Marathon quiz report`).toBeVisible({ timeout: 30_000 })
+    await reportHeading.scrollIntoViewIfNeeded()
+    const resultTable = page.getByTestId('runtime-report-details-table').filter({ hasText: participantName })
+    await expect(resultTable, `${locale} saved guest result in the authorized report`).toBeVisible({ timeout: 60_000 })
+    const resultRow = resultTable.getByRole('row').filter({ hasText: participantName })
+    await expect(resultRow, `${locale} saved Marathon participant row`).toBeVisible()
+    const resultCells = resultRow.getByRole('gridcell')
+    await expect(resultCells.nth(0)).toContainText(isRu ? quiz.title.ru : quiz.title.en)
+    await expect(resultCells.nth(1)).toHaveText(participantName)
+    await expect(resultCells.nth(4)).toHaveText('30')
+    await expect(resultCells.nth(6)).toHaveText('30')
     await captureDocsStepScreenshot(page, locale, 'guest-access', 5, page.locator('body'))
 }
 
@@ -1275,7 +1385,7 @@ test.describe('LMS user guide documentation screenshots', () => {
                     acknowledgeIrreversibleWorkspaceEnablement: true
                 }
             })
-            await verifyDocsPublicGuestContent(api, page, applicationId)
+            const publicWorkspaceId = await verifyDocsPublicGuestContent(api, page, applicationId)
 
             await applyBrowserPreferences(page, { language: locale, isDarkMode: false })
             const labels =
@@ -1316,7 +1426,7 @@ test.describe('LMS user guide documentation screenshots', () => {
             await captureLearnerExperienceGuide(page, locale, applicationId, labels)
             await captureKnowledgeGuide(page, locale, applicationId, labels)
             await captureReportsGuide(page, locale, applicationId, labels)
-            await captureGuestGuide(page, locale, applicationId)
+            await captureGuestGuide(page, locale, applicationId, publicWorkspaceId)
             await captureTroubleshootingGuide(page, locale, applicationId, labels)
         }
 

@@ -73,7 +73,12 @@ const objectMetadata = (slot: WidgetBindingSlotDefinition, codename: string, id:
     config: objectConfig(slot)
 })
 
-const componentMetadata = (slot: WidgetBindingSlotDefinition, objectId: string, relationTarget?: { id: string; codename: string }) =>
+const componentMetadata = (
+    slot: WidgetBindingSlotDefinition,
+    objectId: string,
+    relationTarget?: { id: string; codename: string },
+    relationDataType: 'REF' | 'UUID' = 'REF'
+) =>
     slot.requirements.components.map((component) => ({
         objectId,
         codename: component.componentCodename,
@@ -86,7 +91,7 @@ const componentMetadata = (slot: WidgetBindingSlotDefinition, objectId: string, 
                 : component.valueType === 'boolean'
                 ? 'BOOLEAN'
                 : component.valueType === 'ref'
-                ? 'REF'
+                ? relationDataType
                 : 'JSONB',
         isRequired: component.required,
         validationRules: {
@@ -221,69 +226,74 @@ describe('publicApplicationRuntimeStore', () => {
         expect(executor.query.mock.calls[3]?.[1]).toEqual([workspaceId, slot.maxResolvedRecords! + 1])
     })
 
-    it('validates relation metadata and constrains both child and parent rows before returning records', async () => {
-        const { executor } = createMockDbExecutor()
-        const childSlot = slotFor('marketing.pricing', 'benefits')
-        const parentSlot = slotFor('marketing.pricing', 'tiers')
-        const parentCodename = 'CustomPricingTiers'
-        const childCodename = 'CustomPricingBenefits'
-        const relation = childSlot.relation!
-        const relationComponent = childSlot.requirements.components.find(({ field }) => field === relation.field)!
-        const parentTarget = targetFor(parentSlot, parentCodename, { kind: 'record-set' })
-        const query: WidgetBindingRecordQuery = {
-            kind: 'relation-set',
-            slot: childSlot.key,
-            target: targetFor(childSlot, childCodename, { kind: 'relation-set', parentSlot: relation.parentSlot }),
-            projection: childSlot.requirements.components.map(({ field, componentCodename }) => ({ field, componentCodename })),
-            selector: {
-                relationComponentCodename: relationComponent.componentCodename,
-                parentRecordIds: [tierRecordId],
-                parentTarget
-            },
-            ordered: {
-                orderByComponentCodename: childSlot.requirements.components.find(({ field }) => field === childSlot.orderByField)!
-                    .componentCodename,
-                visibilityComponentCodename: childSlot.requirements.components.find(({ field }) => field === childSlot.visibilityField)!
-                    .componentCodename,
-                limit: childSlot.maxResolvedRecords!
+    it.each(['REF', 'UUID'] as const)(
+        'validates %s relation metadata and constrains both child and parent rows before returning records',
+        async (relationDataType) => {
+            const { executor } = createMockDbExecutor()
+            const childSlot = slotFor('marketing.pricing', 'benefits')
+            const parentSlot = slotFor('marketing.pricing', 'tiers')
+            const parentCodename = 'CustomPricingTiers'
+            const childCodename = 'CustomPricingBenefits'
+            const relation = childSlot.relation!
+            const relationComponent = childSlot.requirements.components.find(({ field }) => field === relation.field)!
+            const parentTarget = targetFor(parentSlot, parentCodename, { kind: 'record-set' })
+            const query: WidgetBindingRecordQuery = {
+                kind: 'relation-set',
+                slot: childSlot.key,
+                target: targetFor(childSlot, childCodename, { kind: 'relation-set', parentSlot: relation.parentSlot }),
+                projection: childSlot.requirements.components.map(({ field, componentCodename }) => ({ field, componentCodename })),
+                selector: {
+                    relationComponentCodename: relationComponent.componentCodename,
+                    parentRecordIds: [tierRecordId],
+                    parentTarget
+                },
+                ordered: {
+                    orderByComponentCodename: childSlot.requirements.components.find(({ field }) => field === childSlot.orderByField)!
+                        .componentCodename,
+                    visibilityComponentCodename: childSlot.requirements.components.find(({ field }) => field === childSlot.visibilityField)!
+                        .componentCodename,
+                    limit: childSlot.maxResolvedRecords!
+                }
             }
-        }
-        executor.query
-            .mockResolvedValueOnce([objectMetadata(childSlot, childCodename, objectIds.child, 'custom_pricing_benefits')])
-            .mockResolvedValueOnce(componentMetadata(childSlot, objectIds.child, { id: objectIds.parent, codename: parentCodename }))
-            .mockResolvedValueOnce([{ workspaceScoped: true }])
-            .mockResolvedValueOnce([objectMetadata(parentSlot, parentCodename, objectIds.parent, 'custom_pricing_tiers')])
-            .mockResolvedValueOnce(componentMetadata(parentSlot, objectIds.parent))
-            .mockResolvedValueOnce([{ workspaceScoped: true }])
-            .mockResolvedValueOnce([
+            executor.query
+                .mockResolvedValueOnce([objectMetadata(parentSlot, parentCodename, objectIds.parent, 'custom_pricing_tiers')])
+                .mockResolvedValueOnce(componentMetadata(parentSlot, objectIds.parent))
+                .mockResolvedValueOnce([objectMetadata(childSlot, childCodename, objectIds.child, 'custom_pricing_benefits')])
+                .mockResolvedValueOnce(
+                    componentMetadata(childSlot, objectIds.child, { id: objectIds.parent, codename: parentCodename }, relationDataType)
+                )
+                .mockResolvedValueOnce([{ workspaceScoped: true }])
+                .mockResolvedValueOnce([{ workspaceScoped: true }])
+                .mockResolvedValueOnce([
+                    {
+                        record_id: benefitRecordId,
+                        binding_0: 'pro-benefit',
+                        binding_1: tierRecordId,
+                        binding_2: { en: 'Priority support' },
+                        binding_3: 1,
+                        binding_4: true
+                    }
+                ])
+
+            const loadRecords = createPublicMarketingBindingRecordLoader(executor, { schemaName, workspaceId })
+            const records = await loadRecords({ widgetKey: 'marketing.pricing', rendererConfig: {}, query })
+
+            expect(records).toEqual([
                 {
-                    record_id: benefitRecordId,
-                    binding_0: 'pro-benefit',
-                    binding_1: tierRecordId,
-                    binding_2: { en: 'Priority support' },
-                    binding_3: 1,
-                    binding_4: true
+                    recordId: benefitRecordId,
+                    data: { key: 'pro-benefit', tier: tierRecordId, label: { en: 'Priority support' }, order: 1, visible: true }
                 }
             ])
-
-        const loadRecords = createPublicMarketingBindingRecordLoader(executor, { schemaName, workspaceId })
-        const records = await loadRecords({ widgetKey: 'marketing.pricing', rendererConfig: {}, query })
-
-        expect(records).toEqual([
-            {
-                recordId: benefitRecordId,
-                data: { key: 'pro-benefit', tier: tierRecordId, label: { en: 'Priority support' }, order: 1, visible: true }
-            }
-        ])
-        const sql = String(executor.query.mock.calls[6]?.[0])
-        expect(sql).toContain('record."cmp_tierref" = ANY($2::uuid[])')
-        expect(sql).toContain('EXISTS (')
-        expect(sql).toContain('FROM "app_019ccefc2f7b7b3682f485cdb1312268"."custom_pricing_tiers" parent_record')
-        expect(sql).toContain('parent_record."workspace_id" = $1')
-        expect(sql).toContain('"parent_record"."_app_published" = true')
-        expect(sql).toContain('record."cmp_isvisible" = true')
-        expect(executor.query.mock.calls[6]?.[1]).toEqual([workspaceId, [tierRecordId], childSlot.maxResolvedRecords! + 1])
-    })
+            const sql = String(executor.query.mock.calls[6]?.[0])
+            expect(sql).toContain('record."cmp_tierref" = ANY($2::uuid[])')
+            expect(sql).toContain('EXISTS (')
+            expect(sql).toContain('FROM "app_019ccefc2f7b7b3682f485cdb1312268"."custom_pricing_tiers" parent_record')
+            expect(sql).toContain('parent_record."workspace_id" = $1')
+            expect(sql).toContain('"parent_record"."_app_published" = true')
+            expect(sql).toContain('record."cmp_isvisible" = true')
+            expect(executor.query.mock.calls[6]?.[1]).toEqual([workspaceId, [tierRecordId], childSlot.maxResolvedRecords! + 1])
+        }
+    )
 
     it('rejects an over-limit or altered projection before issuing any SQL', async () => {
         const { executor } = createMockDbExecutor()
@@ -309,6 +319,16 @@ describe('publicApplicationRuntimeStore', () => {
                 }
             })
         ).rejects.toThrow('binding projection is invalid')
+        await expect(
+            loadRecords({
+                widgetKey: 'marketing.navigation',
+                rendererConfig: {},
+                query: {
+                    ...validQuery,
+                    ordered: { ...validQuery.ordered, orderByComponentCodename: null }
+                }
+            })
+        ).rejects.toThrow('ordered selector does not match its query')
         expect(executor.query).not.toHaveBeenCalled()
     })
 

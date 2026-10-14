@@ -11,6 +11,7 @@ import {
 import { isRuntimeRecordBehaviorEnabled, normalizeRuntimeRecordBehavior } from '../../services/runtimeRecordBehavior'
 import { RUNTIME_RECORD_SYSTEM_FIELDS } from '../../services/runtimeRowSupport/contracts'
 import { resolveRuntimeObjectCollection } from '../runtimeRowSupport/objects'
+import { isRuntimeComponentHidden } from './componentVisibility'
 import { buildRuntimeRecordAccessClause } from '../../services/runtimeRowSupport/access'
 import { isRuntimeRecordReference, resolveRuntimeRecordReference } from '../../services/runtimeRecordHandle'
 
@@ -59,7 +60,9 @@ export const createGetRowHandler = ({ getDbExecutor, query }: RuntimeRowReadHand
             outerRowIdSql: `${dataTableIdent}.id`,
             values: rowValues
         })
-        const safeAttrs = attrs.filter((a) => IDENTIFIER_REGEX.test(a.column_name) && a.data_type !== 'TABLE')
+        const safeAttrs = attrs.filter(
+            (a) => IDENTIFIER_REGEX.test(a.column_name) && a.data_type !== 'TABLE' && !isRuntimeComponentHidden(a)
+        )
         const recordBehavior = normalizeRuntimeRecordBehavior(objectCollection.config)
         const includeRecordSystemFields = isRuntimeRecordBehaviorEnabled(recordBehavior)
         const selectColumns = [

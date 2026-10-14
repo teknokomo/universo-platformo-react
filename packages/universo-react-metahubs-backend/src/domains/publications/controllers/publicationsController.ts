@@ -327,27 +327,23 @@ export function createPublicationsController(getDbExecutor: () => DbExecutor) {
         )
     }
 
-    const loadLinkedApplicationSettings = async (
-        exec: DbExecutor,
-        schemaService: MetahubSchemaService,
-        metahubId: string,
-        userId: string
-    ): Promise<Record<string, unknown>> => {
-        try {
-            const settingsService = new MetahubSettingsService(exec, schemaService)
-            const guestRuntimeSetting = await settingsService.findByKey(metahubId, PUBLIC_GUEST_RUNTIME_SETTING_KEY, userId)
-            const guestRuntimeConfig = unwrapSettingValue(guestRuntimeSetting?.value)
-            if (!isPlainRecord(guestRuntimeConfig)) {
-                return {}
-            }
-            return {
-                publicRuntime: {
-                    guest: guestRuntimeConfig
-                }
-            }
-        } catch (error) {
-            log.warn('Failed to load linked application runtime settings, continuing with empty settings:', error)
+    const getLinkedApplicationSettings = (snapshot: unknown): Record<string, unknown> => {
+        if (!isPlainRecord(snapshot) || !Array.isArray(snapshot.settings)) {
             return {}
+        }
+
+        const guestRuntimeSetting = snapshot.settings.find(
+            (setting): setting is Record<string, unknown> => isPlainRecord(setting) && setting.key === PUBLIC_GUEST_RUNTIME_SETTING_KEY
+        )
+        const guestRuntimeConfig = unwrapSettingValue(guestRuntimeSetting?.value)
+        if (!isPlainRecord(guestRuntimeConfig)) {
+            return {}
+        }
+
+        return {
+            publicRuntime: {
+                guest: guestRuntimeConfig
+            }
         }
     }
 
@@ -569,7 +565,6 @@ export function createPublicationsController(getDbExecutor: () => DbExecutor) {
         const optionValuesService = new MetahubOptionValuesService(exec, schemaService)
         const fixedValuesService = new MetahubFixedValuesService(exec, schemaService)
         const modulesService = new MetahubModulesService(exec, schemaService)
-        const linkedApplicationSettings = await loadLinkedApplicationSettings(exec, schemaService, metahubId, userId)
         const serializer = createSnapshotSerializer({
             exec,
             schemaService,
@@ -602,6 +597,7 @@ export function createPublicationsController(getDbExecutor: () => DbExecutor) {
         )
         alignPlayCanvasRuntimeManifestBindings(snapshot)
         const snapshotHash = serializer.calculateHash(snapshot)
+        const linkedApplicationSettings = getLinkedApplicationSettings(snapshot)
 
         const result = await runCommittedRlsTransaction(rootExec, accessToken, async (tx) => {
             const lockedMetahubRows = await tx.query<{ id: string }>(
@@ -1008,9 +1004,17 @@ export function createPublicationsController(getDbExecutor: () => DbExecutor) {
             return res.status(404).json({ error: 'Publication not found in this Metahub' })
         }
 
+        if (!publication.activeVersionId) {
+            return res.status(409).json({ error: 'Publication does not have an active version' })
+        }
+
+        const activeVersion = await findPublicationVersionById(exec, publication.activeVersionId)
+        if (!activeVersion || activeVersion.publicationId !== publication.id || !activeVersion.isActive) {
+            return res.status(409).json({ error: 'Publication active version is unavailable' })
+        }
+
         const { name, description, namePrimaryLocale, descriptionPrimaryLocale, isPublic } = parsed.data
-        const schemaService = new MetahubSchemaService(exec)
-        const linkedApplicationSettings = await loadLinkedApplicationSettings(exec, schemaService, metahubId, userId)
+        const linkedApplicationSettings = getLinkedApplicationSettings(activeVersion.snapshotJson)
 
         const appName =
             name && Object.keys(name).length > 0

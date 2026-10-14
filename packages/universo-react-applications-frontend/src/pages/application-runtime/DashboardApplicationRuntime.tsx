@@ -17,6 +17,7 @@ import {
     RuntimeWorkspacesPage,
     updateLearningContentProgress,
     resolveDashboardEntityTargetSectionId,
+    resolveDashboardRuntimeLayoutTarget,
     type CellRendererOverrides,
     type DashboardCreateTarget,
     type DashboardDetailsSlot,
@@ -732,6 +733,10 @@ export const DashboardApplicationRuntime = ({
             sectionCodename: activeRuntimeSection?.codename ?? null,
             objectCollectionId: currentSectionId ?? null,
             objectCollectionCodename: activeRuntimeSection?.codename ?? null,
+            runtimeLayoutTarget: resolveDashboardRuntimeLayoutTarget(
+                effectiveLayout.target.targetKind,
+                effectiveLayout.resolvedEntityTypeId
+            ),
             sections: state.appData?.sections ?? [],
             objectCollections: state.appData?.objectCollections ?? [],
             apiBaseUrl: '/api/v1',
@@ -786,6 +791,8 @@ export const DashboardApplicationRuntime = ({
             activeRuntimeSection?.pageBlocks,
             applicationId,
             currentWorkspaceId,
+            effectiveLayout.resolvedEntityTypeId,
+            effectiveLayout.target.targetKind,
             user?.email,
             currentSectionId,
             detailsTitle,

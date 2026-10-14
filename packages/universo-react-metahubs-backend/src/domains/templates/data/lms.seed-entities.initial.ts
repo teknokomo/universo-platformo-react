@@ -735,6 +735,9 @@ export const lmsSeedInitialEntities: LmsTemplateEntity[] = [
         kind: 'object',
         name: vlc('Students', 'Студенты'),
         description: vlc('Registered and guest students.', 'Зарегистрированные и гостевые студенты.'),
+        config: {
+            recordPolicy: { version: 1, workspaceCopy: 'exclude', runtimeMutation: 'allow' }
+        },
         components: [
             {
                 codename: 'DisplayName',
@@ -746,23 +749,45 @@ export const lmsSeedInitialEntities: LmsTemplateEntity[] = [
                 validationRules: { maxLength: 255, localized: true, versioned: true }
             },
             {
+                codename: 'FirstName',
+                dataType: 'STRING',
+                name: vlc('First Name', 'Имя'),
+                sortOrder: 2,
+                validationRules: { maxLength: 100 }
+            },
+            {
+                codename: 'LastName',
+                dataType: 'STRING',
+                name: vlc('Last Name', 'Фамилия'),
+                sortOrder: 3,
+                validationRules: { maxLength: 100 }
+            },
+            {
                 codename: 'Email',
                 dataType: 'STRING',
                 name: vlc('Email', 'Электронная почта'),
-                sortOrder: 2,
+                sortOrder: 4,
                 validationRules: { maxLength: 320 }
+            },
+            {
+                codename: 'Phone',
+                dataType: 'STRING',
+                name: vlc('Phone', 'Телефон'),
+                sortOrder: 5,
+                validationRules: { maxLength: 32 }
             },
             {
                 codename: 'IsGuest',
                 dataType: 'BOOLEAN',
                 name: vlc('Is Guest', 'Гость'),
-                sortOrder: 3
+                sortOrder: 6,
+                uiConfig: { hidden: true, serverOwned: true, defaultValue: false, resetOnCopy: true }
             },
             {
                 codename: 'DepartmentId',
                 dataType: 'REF',
                 name: vlc('Department', 'Подразделение'),
-                sortOrder: 4,
+                sortOrder: 7,
                 targetEntityCodename: 'Departments',
                 targetEntityKind: 'object'
             },
@@ -770,7 +795,38 @@ export const lmsSeedInitialEntities: LmsTemplateEntity[] = [
                 codename: 'GuestSessionToken',
                 dataType: 'STRING',
                 name: vlc('Guest Session Token', 'Токен гостевой сессии'),
-                sortOrder: 5
+                sortOrder: 8,
+                uiConfig: { hidden: true, serverOwned: true, defaultValue: null, resetOnCopy: true }
+            },
+            {
+                codename: 'TermsVersion',
+                dataType: 'STRING',
+                name: vlc('Accepted Terms Version', 'Принятая версия условий'),
+                sortOrder: 9,
+                validationRules: { maxLength: 100 },
+                uiConfig: { hidden: true, serverOwned: true, defaultValue: null, resetOnCopy: true }
+            },
+            {
+                codename: 'TermsAcceptedAt',
+                dataType: 'DATE',
+                name: vlc('Terms Accepted At', 'Дата принятия условий'),
+                sortOrder: 10,
+                uiConfig: { hidden: true, serverOwned: true, defaultValue: null, resetOnCopy: true }
+            },
+            {
+                codename: 'PrivacyVersion',
+                dataType: 'STRING',
+                name: vlc('Accepted Privacy Version', 'Принятая версия политики конфиденциальности'),
+                sortOrder: 11,
+                validationRules: { maxLength: 100 },
+                uiConfig: { hidden: true, serverOwned: true, defaultValue: null, resetOnCopy: true }
+            },
+            {
+                codename: 'PrivacyAcceptedAt',
+                dataType: 'DATE',
+                name: vlc('Privacy Accepted At', 'Дата принятия политики конфиденциальности'),
+                sortOrder: 12,
+                uiConfig: { hidden: true, serverOwned: true, defaultValue: null, resetOnCopy: true }
             }
         ]
     },

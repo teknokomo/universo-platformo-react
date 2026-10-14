@@ -110,15 +110,10 @@ const learningContentCreateTargets = [
         createDefaults: [{ fieldCodename: 'OrderMode', contextPath: 'learningContent.trackOrderPolicy.orderMode' }]
     },
     {
-        id: 'learning-content-create-quiz-lite',
+        id: 'learning-content-create-quiz',
         label: dashboardText('Quiz', 'Тест'),
         objectCollectionCodename: 'Quizzes',
-        icon: 'quiz',
-        disabled: true,
-        disabledReason: dashboardText(
-            'Quiz authoring is planned for a later Learning Content phase.',
-            'Создание тестов запланировано на следующий этап учебного контента.'
-        )
+        icon: 'quiz'
     },
     {
         id: 'learning-content-create-assignment-lite',
@@ -347,20 +342,127 @@ export function buildLmsHomeSeedZoneWidgets(): TemplateSeedZoneWidget[] {
 export function buildLmsLearningContentSeedZoneWidgets(
     libraryView: 'all' | 'recent' | 'starred' | 'shared' = 'all'
 ): TemplateSeedZoneWidget[] {
+    const libraryTable = makeLmsLibraryTable(`learning-content-${libraryView}`, 1, {
+        variant: 'library',
+        libraryView,
+        lifecycleState: 'active',
+        maxRows: 500,
+        showSearch: true,
+        showViewToggle: true,
+        targetFilters: learningContentTargetFilters,
+        rowActions: libraryView === 'all' ? [...learningContentRowActions, learningContentMoveProjectAction] : learningContentRowActions,
+        ...(libraryView === 'all' ? { createTargets: learningContentCreateTargets } : {})
+    })
+
+    if (libraryView !== 'all') return [libraryTable]
+
+    const tabsInstanceKey = 'learning-content-tabs'
+
     return [
-        makeLmsLibraryTable(`learning-content-${libraryView}`, 1, {
-            variant: 'library',
-            libraryView,
-            lifecycleState: 'active',
-            maxRows: 500,
-            showSearch: true,
-            showViewToggle: true,
-            targetFilters: learningContentTargetFilters,
-            rowActions:
-                libraryView === 'all' ? [...learningContentRowActions, learningContentMoveProjectAction] : learningContentRowActions,
-            ...(libraryView === 'all' ? { createTargets: learningContentCreateTargets } : {})
-        })
+        makeDashboardSeedPlacement({
+            zone: 'center',
+            widgetKey: 'detailsTabs',
+            instanceKey: tabsInstanceKey,
+            sortOrder: 1,
+            rendererConfig: {
+                tabs: [
+                    { slotKey: 'tab:library', label: dashboardText('Library', 'Библиотека'), isDefault: true },
+                    { slotKey: 'tab:quizzes', label: dashboardText('Quizzes', 'Тесты') },
+                    { slotKey: 'tab:guest-links', label: dashboardText('Guest links', 'Ссылки для гостей') }
+                ]
+            }
+        }),
+        { ...libraryTable, parentInstanceKey: tabsInstanceKey, slotKey: 'tab:library' },
+        makeLmsQuizListPlacement('learning-content-quizzes', 2, { parentInstanceKey: tabsInstanceKey, slotKey: 'tab:quizzes' }),
+        makeLmsRelationBuilder(
+            'learning-content-quiz-guest-links',
+            3,
+            'Quizzes',
+            [
+                {
+                    slotKey: 'panel:guest-links',
+                    title: dashboardText('Guest access links', 'Ссылки гостевого доступа'),
+                    entityCodename: 'AccessLinks',
+                    parentFieldCodename: 'TargetId',
+                    parentFieldRequired: false,
+                    titleFieldCodename: 'LinkTitle',
+                    sortOrderFieldCodename: 'SortOrder',
+                    displayFields: [{ fieldCodename: 'Slug', valueType: 'string', localized: false, required: true }],
+                    rowLink: {
+                        fieldCodename: 'Slug',
+                        pathTemplate: '/public/a/{applicationId}/links/{value}',
+                        label: dashboardText('Full guest link', 'Полная гостевая ссылка')
+                    },
+                    createWizard: {
+                        steps: [
+                            {
+                                id: 'link',
+                                label: dashboardText('Link', 'Ссылка'),
+                                helperText: dashboardText(
+                                    'Set an access key and a title. The selected quiz is linked automatically.',
+                                    'Укажите ключ доступа и заголовок. Выбранный тест будет связан автоматически.'
+                                ),
+                                fieldCodenames: ['Slug', 'LinkTitle', 'IsActive', 'ExpiresAt', 'MaxUses']
+                            },
+                            {
+                                id: 'guest-form',
+                                label: dashboardText('Guest form', 'Анкета гостя'),
+                                helperText: dashboardText(
+                                    'Choose which identity fields guests see and which are required. Terms and Privacy remain required.',
+                                    'Выберите видимые и обязательные поля анкеты. Согласие с условиями и политикой конфиденциальности обязательно.'
+                                ),
+                                fieldCodenames: [
+                                    'ShowFirstName',
+                                    'RequireFirstName',
+                                    'ShowLastName',
+                                    'RequireLastName',
+                                    'ShowEmail',
+                                    'RequireEmail',
+                                    'ShowPhone',
+                                    'RequirePhone',
+                                    'CaptchaEnabled'
+                                ]
+                            }
+                        ]
+                    }
+                }
+            ],
+            { parentInstanceKey: tabsInstanceKey, slotKey: 'tab:guest-links' }
+        )
     ]
+}
+
+const lmsQuizListRendererConfig = {
+    variant: 'records',
+    maxRows: 50,
+    showSearch: true,
+    createTargets: [
+        {
+            id: 'learning-content-quizzes-create',
+            label: dashboardText('Quiz', 'Тест'),
+            objectCollectionCodename: 'Quizzes',
+            icon: 'quiz'
+        }
+    ]
+}
+
+const makeLmsQuizListPlacement = (
+    instanceKey: string,
+    sortOrder: number,
+    placement?: { parentInstanceKey: string; slotKey: string }
+): TemplateSeedZoneWidget =>
+    makeDashboardSeedPlacement({
+        zone: 'center',
+        widgetKey: 'detailsTable',
+        instanceKey,
+        sortOrder,
+        rendererConfig: lmsQuizListRendererConfig,
+        bindings: buildDashboardRecordSetBindings('detailsTable', 'rows', ['Quizzes'], lmsQuizListRendererConfig),
+        ...(placement ? { parentInstanceKey: placement.parentInstanceKey, slotKey: placement.slotKey } : {})
+    })
+
+export function buildLmsQuizzesSeedZoneWidgets(): TemplateSeedZoneWidget[] {
+    return [makeLmsQuizListPlacement('quizzes-index', 1)]
 }
 
 export function buildLmsTrashSeedZoneWidgets(): TemplateSeedZoneWidget[] {
@@ -388,7 +490,7 @@ export function buildLmsTrashSeedZoneWidgets(): TemplateSeedZoneWidget[] {
 }
 
 export function buildLmsReportsSeedZoneWidgets(): TemplateSeedZoneWidget[] {
-    return ['LearningContentSummary', 'LearnerProgress'].map((reportCodename, index) =>
+    return ['LearningContentSummary', 'LearnerProgress', 'QuizAttemptResults'].map((reportCodename, index) =>
         makeDashboardSeedPlacement({
             zone: 'center',
             widgetKey: 'detailsTable',
@@ -404,7 +506,11 @@ type LmsRelationPanelSeed = {
     title: { en: string; ru: string }
     entityCodename: string
     parentFieldCodename: string
+    parentFieldRequired?: boolean
+    titleFieldCodename?: string
     sortOrderFieldCodename?: string
+    displayFields?: RelationBuilderPanelConfig['displayFields']
+    rowLink?: RelationBuilderPanelConfig['rowLink']
     createWizard?: RelationBuilderPanelConfig['createWizard']
 }
 
@@ -417,14 +523,30 @@ function makeLmsRelationBuilder(
 ): TemplateSeedZoneWidget {
     const rendererConfig = {
         parentTitleFieldCodename: 'Title',
-        panels: panels.map(({ slotKey, title, parentFieldCodename, sortOrderFieldCodename, createWizard }) => ({
-            slotKey,
-            title,
-            parentFieldCodename,
-            sortOrderFieldCodename: sortOrderFieldCodename ?? 'SortOrder',
-            enableRowReordering: true,
-            ...(createWizard ? { createWizard } : {})
-        }))
+        panels: panels.map(
+            ({
+                slotKey,
+                title,
+                parentFieldCodename,
+                parentFieldRequired,
+                titleFieldCodename,
+                sortOrderFieldCodename,
+                displayFields,
+                rowLink,
+                createWizard
+            }) => ({
+                slotKey,
+                title,
+                parentFieldCodename,
+                ...(parentFieldRequired === undefined ? {} : { parentFieldRequired }),
+                ...(titleFieldCodename ? { titleFieldCodename } : {}),
+                ...(displayFields ? { displayFields } : {}),
+                ...(rowLink ? { rowLink } : {}),
+                sortOrderFieldCodename: sortOrderFieldCodename ?? 'SortOrder',
+                enableRowReordering: true,
+                ...(createWizard ? { createWizard } : {})
+            })
+        )
     }
 
     return makeDashboardSeedPlacement({

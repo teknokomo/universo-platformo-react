@@ -208,7 +208,7 @@ export function useCrudDashboardMutations({
             orderedRowIds: string[]
             expectedVersionsByRowId?: Record<string, number>
             objectCollectionId?: string
-            parentScope?: { fieldCodename: string; parentRecordId: string }
+            parentScope?: RuntimeRelationScope
         }) => {
             if (!adapter?.reorderRows) {
                 throw new Error('Row reordering is not available for this runtime adapter')

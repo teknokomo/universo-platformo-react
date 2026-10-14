@@ -1,8 +1,20 @@
 import { ensurePersonalWorkspaceForUser } from '../../services/applicationWorkspaces'
 import { createMockDbExecutor } from '../utils/dbMocks'
 
+const accessLinkPolicyCodenames = [
+    'ShowFirstName',
+    'RequireFirstName',
+    'ShowLastName',
+    'RequireLastName',
+    'ShowEmail',
+    'RequireEmail',
+    'ShowPhone',
+    'RequirePhone',
+    'CaptchaEnabled'
+]
+
 describe('applicationWorkspaces seed reference remapping', () => {
-    it('remaps public access-link target ids to workspace-scoped learning resource rows', async () => {
+    it('remaps content access-link references through ContentNodeIdRef', async () => {
         const { executor } = createMockDbExecutor()
         const schemaName = 'app_018f8a787b8f7c1da111222233334850'
         const generatedIds = [
@@ -54,7 +66,7 @@ describe('applicationWorkspaces seed reference remapping', () => {
                                         id: 'access-seed-row',
                                         data: {
                                             TargetType: 'content',
-                                            TargetId: 'content-seed-row'
+                                            ContentNodeIdRef: 'content-seed-row'
                                         }
                                     }
                                 ]
@@ -75,6 +87,11 @@ describe('applicationWorkspaces seed reference remapping', () => {
                         objectId: 'contentObject',
                         codename: 'LearningResources',
                         tableName: 'obj_content_object'
+                    },
+                    {
+                        objectId: 'quizObject',
+                        codename: 'Quizzes',
+                        tableName: 'obj_quiz_object'
                     }
                 ]
             }
@@ -98,11 +115,33 @@ describe('applicationWorkspaces seed reference remapping', () => {
                         parentComponentId: null,
                         codename: 'TargetId',
                         columnName: 'col_target_id',
-                        dataType: 'STRING',
+                        dataType: 'REF',
                         uiConfig: null,
+                        targetObjectId: 'quizObject',
+                        targetObjectKind: 'object'
+                    },
+                    {
+                        objectId: 'accessObject',
+                        componentId: 'access-content-node-cmp',
+                        parentComponentId: null,
+                        codename: 'ContentNodeIdRef',
+                        columnName: 'col_content_node_id_ref',
+                        dataType: 'REF',
+                        uiConfig: null,
+                        targetObjectId: 'contentObject',
+                        targetObjectKind: 'object'
+                    },
+                    ...accessLinkPolicyCodenames.map((codename, index) => ({
+                        objectId: 'accessObject',
+                        componentId: `access-policy-${index}`,
+                        parentComponentId: null,
+                        codename,
+                        columnName: `col_policy_${index}`,
+                        dataType: 'BOOLEAN',
+                        uiConfig: { defaultValue: index < 4 },
                         targetObjectId: null,
                         targetObjectKind: null
-                    },
+                    })),
                     {
                         objectId: 'contentObject',
                         componentId: 'content-title-cmp',
@@ -127,8 +166,18 @@ describe('applicationWorkspaces seed reference remapping', () => {
                     {
                         tableName: 'obj_access_object',
                         columnName: 'col_target_id',
-                        udtName: 'text'
+                        udtName: 'uuid'
                     },
+                    {
+                        tableName: 'obj_access_object',
+                        columnName: 'col_content_node_id_ref',
+                        udtName: 'uuid'
+                    },
+                    ...accessLinkPolicyCodenames.map((_codename, index) => ({
+                        tableName: 'obj_access_object',
+                        columnName: `col_policy_${index}`,
+                        udtName: 'bool'
+                    })),
                     {
                         tableName: 'obj_content_object',
                         columnName: 'col_title',
@@ -162,6 +211,7 @@ describe('applicationWorkspaces seed reference remapping', () => {
         expect(accessInsertCall).toBeDefined()
         const contentRowId = contentInsertCall?.[1]?.[0]
         expect(accessInsertCall?.[1]).toEqual(expect.arrayContaining(['access-seed-row', 'content', contentRowId]))
+        expect(accessInsertCall?.[1]).toEqual(expect.arrayContaining([true, true, true, true, false, false, false, false, false]))
         expect(accessInsertCall?.[1]).not.toEqual(expect.arrayContaining(['content-seed-row']))
     })
 

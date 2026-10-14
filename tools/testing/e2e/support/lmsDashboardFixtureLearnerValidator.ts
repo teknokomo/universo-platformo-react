@@ -90,7 +90,7 @@ export const assertLmsLearningContentLibrary = (context: DashboardFixtureValidat
                     })
                     .filter((value): value is string => typeof value === 'string')
             )
-            for (const requiredCreateTarget of ['ContentProjects', 'LearningResources', 'Courses', 'LearningTracks']) {
+            for (const requiredCreateTarget of ['ContentProjects', 'LearningResources', 'Courses', 'LearningTracks', 'Quizzes']) {
                 if (!createTargetCodenames.has(requiredCreateTarget)) {
                     errors.push(`LMS Learning Content create menu must expose ${requiredCreateTarget} through generic createTargets`)
                 }
@@ -114,7 +114,7 @@ export const assertLmsLearningContentLibrary = (context: DashboardFixtureValidat
             const linkDefaults = createTargetById.get('learning-content-create-link')?.createDefaults
             const courseDefaults = createTargetById.get('learning-content-create-course')?.createDefaults
             const trackDefaults = createTargetById.get('learning-content-create-track')?.createDefaults
-            const quizLiteTarget = createTargetById.get('learning-content-create-quiz-lite')
+            const quizTarget = createTargetById.get('learning-content-create-quiz')
             const assignmentLiteTarget = createTargetById.get('learning-content-create-assignment-lite')
             const packageTarget = createTargetById.get('learning-content-create-package')
             const hasCreateDefault = (defaults: unknown, expected: Record<string, unknown>): boolean =>
@@ -165,18 +165,8 @@ export const assertLmsLearningContentLibrary = (context: DashboardFixtureValidat
             ) {
                 errors.push('LMS Learning Track create target must derive order defaults from the generic runtime create context')
             }
-            if (quizLiteTarget?.objectCollectionCodename !== 'Quizzes' || quizLiteTarget.disabled !== true) {
-                errors.push('LMS Quiz create target must stay an explicitly disabled generic createTargets entry for Quizzes')
-            } else {
-                assertLocalizedFixtureValue(
-                    errors,
-                    quizLiteTarget.disabledReason,
-                    {
-                        en: 'Quiz authoring is planned for a later Learning Content phase.',
-                        ru: 'Создание тестов запланировано на следующий этап учебного контента.'
-                    },
-                    'LMS Quiz (planned) create target disabled reason'
-                )
+            if (quizTarget?.objectCollectionCodename !== 'Quizzes' || quizTarget.disabled === true) {
+                errors.push('LMS Quiz create target must enable generic authoring for Quizzes')
             }
             if (assignmentLiteTarget?.objectCollectionCodename !== 'Assignments' || assignmentLiteTarget.disabled !== true) {
                 errors.push('LMS Assignment create target must stay an explicitly disabled generic createTargets entry for Assignments')

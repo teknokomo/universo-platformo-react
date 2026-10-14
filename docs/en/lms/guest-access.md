@@ -1,53 +1,55 @@
 ---
-description: How guests enter public learning links and complete content.
+description: How participants take a timed Lyceum Marathon quiz without creating a platform account.
 ---
 
 # Guest Access
 
-**Role:** Guest learner or teacher checking a public link.
+Each class has its own public link to the Lyceum Intellectual Marathon. Participants open the link in a browser, enter their name, and take the quiz without registering on the platform. The example below uses the grade 5 quiz; the other grades follow the same steps and use their own questions.
 
-**Goal:** Start a public learning session without a platform account and record completion safely.
+![Lyceum Marathon guest form before the participant starts the quiz](../.gitbook/assets/lms-user-guide/guest-access.png)
 
-![Guest learning session with quiz and completion](../.gitbook/assets/lms-user-guide/guest-access.png)
+## Take the Quiz
 
-## What You Need
+1. Open the link shared for your class. Check that the page names the Lyceum Marathon and shows the guest form. You do not need to sign in or create an account. If the organizer sent a short link, open it directly; it takes you to the same quiz entry page.
+   ![Guest entry form with the first-name and last-name fields](../.gitbook/assets/lms-user-guide/guest-access-step-1.png)
 
--   Open the public LMS access link provided by a teacher or administrator.
--   Use the language option or URL locale when a localized guest path is needed.
--   Enter a recognizable guest display name.
+2. Enter your first and last name, then accept both the Terms of Service and the Privacy Policy. Both confirmations are required to begin. The organizer has turned off the “I am not a robot” check for this event. Select **Start learning** once the form is complete; the quiz opens in the same browser tab.
+   ![The first Marathon question with four choices and a 45-minute timer](../.gitbook/assets/lms-user-guide/guest-access-step-2.png)
 
-## Workflow
+3. Answer one question at a time. Each question has four choices, and the timer gives you 45 minutes for the whole quiz. Select one option; the answer is saved automatically, and the next question appears after the server confirms it. If saving fails, keep the page open and retry the selected answer. The quiz does not show which option is correct while you are answering.
+   ![The second question after the first answer has been saved](../.gitbook/assets/lms-user-guide/guest-access-step-3.png)
 
-1. Open the public link and enter your display name.
-   ![Guest Access step 1](../.gitbook/assets/lms-user-guide/guest-access-step-1.png)
-2. Choose Start learning to create a guest session for the browser tab.
-   ![Guest Access step 2](../.gitbook/assets/lms-user-guide/guest-access-step-2.png)
-3. Read each content item and use Next to move through the sequence.
-   ![Guest Access step 3](../.gitbook/assets/lms-user-guide/guest-access-step-3.png)
-4. Open and submit the quiz if the content includes one.
-   ![Guest Access step 4](../.gitbook/assets/lms-user-guide/guest-access-step-4.png)
-5. Choose Complete content and confirm that completion is recorded.
-   ![Guest Access step 5](../.gitbook/assets/lms-user-guide/guest-access-step-5.png)
+4. Continue until all 30 questions are answered. The final answer completes the attempt and opens your result, including the number of correct answers and the organizer’s closing message. The result is saved with your name and completion time. If the timer expires first, the application scores answers that were already saved.
+   ![The saved result and score for a completed Marathon quiz](../.gitbook/assets/lms-user-guide/guest-access-step-4.png)
+
+5. If the page reloads or the connection briefly drops, reopen the same class link in the same browser. An unfinished attempt resumes with its saved answers and original deadline. After the quiz is complete, authorized staff can review the saved participant name, class, completion time, and score in the application’s quiz results report.
+   ![An authorized staff member viewing the saved Marathon result](../.gitbook/assets/lms-user-guide/guest-access-step-5.png)
+
+## For Organizers
+
+Prepare and publish one quiz for each class in the application workspace:
+
+-   Open **Quizzes** in the application sidebar, or choose **Content Projects → Quizzes**. Create a quiz, add its questions and four answer choices, mark the correct choice, set the time limit, and add the completion message.
+-   Open **Guest links**, select the quiz, and choose **Create**. Set a readable title and access key, then choose which identity fields to show and require. The Terms of Service and Privacy Policy confirmations remain mandatory. For the Marathon, first and last name are required, email and phone are hidden, and the robot check is off.
+-   Make the application public in **Application settings** so anonymous visitors can open its guest URLs.
+-   Open the application board and select **Guest and short links**. The **Full guest quiz links** table shows each complete direct URL and a **Copy link** button. Copy the appropriate class link and share it with participants. To create an optional shorter `/l/<slug>` address, use the form on the same page and choose the quiz access link as its destination. A QR code can be generated from either URL using an external QR-code service.
+
+The guest link controls the intake policy and access to the attempt. A short `/l/<slug>` address is an optional alias to that guest link. Keep the application public and the guest link active while participants are testing. Managing these settings requires the application’s **Manage application** permission; ask an application owner or administrator if the controls are unavailable.
+
+The application records each completed attempt for staff who have permission to view reports. A participant using a public link can see their own attempt and result, but cannot browse other participants' results or open staff reports. Disabling a quiz guest link or withdrawing the application revokes guest access while retaining saved results for authorized reports. Deleting the workspace archives its quiz results with the workspace; the normal report only lists active workspaces.
 
 ## Screen Details
 
-| Area               | How to use it                                                                                                            |
-| ------------------ | ------------------------------------------------------------------------------------------------------------------------ |
-| Display name       | The guest name identifies progress for the current public session. Use a real training name when testing with a teacher. |
-| Session start      | Start learning creates a guest session for the browser tab. Do not share session URLs after starting.                    |
-| Content navigation | Use Next only after reading the current item. The next item should show a readable title and body.                       |
-| Quiz submission    | Answer all visible questions before submitting. The result screen should show a localized score summary.                 |
-| Completion         | Complete content records progress for this session. The final message should confirm that progress was saved.            |
-
-## Result
-
-The guest can complete the assigned path without logging in as a platform user.
-
-## What To Check
-
-Guest pages should show only the public learning path, learner progress, and clear completion messages.
+| Screen         | What it shows                                       |
+| -------------- | --------------------------------------------------- |
+| Guest entry    | The public quiz link and participant form.          |
+| First question | Four choices, the question counter, and the timer.  |
+| Next question  | Appears after the selected answer is saved.         |
+| Final result   | The participant’s score and closing message.        |
+| Staff report   | Saved participant, completion time, and quiz score. |
 
 ## Related Pages
 
 -   [Learner Experience](learner-experience.md)
--   [Troubleshooting](troubleshooting.md)
+-   [LMS Reports](reports.md)
+-   [Technical guest-access guide](../guides/lms-guest-access.md)

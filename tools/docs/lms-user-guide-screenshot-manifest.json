@@ -1164,32 +1164,32 @@
             "workflowStepEvidence": {
                 "guest-access-step-1": {
                     "requiredVisibleText": {
-                        "en": ["Start learning"],
-                        "ru": ["Начать обучение"]
+                        "en": ["First name", "Last name", "Start learning"],
+                        "ru": ["Имя", "Фамилия", "Начать обучение"]
                     }
                 },
                 "guest-access-step-2": {
                     "requiredVisibleText": {
-                        "en": ["Learning Path 101"],
-                        "ru": ["Основы стыковочного коридора"]
+                        "en": ["Question 1 of 30", "45 minutes"],
+                        "ru": ["Вопрос 1 из 30", "45 мин."]
                     }
                 },
                 "guest-access-step-3": {
                     "requiredVisibleText": {
-                        "en": ["Open quiz"],
-                        "ru": ["Открыть тест"]
+                        "en": ["Question 2 of 30", "Choose an answer to continue."],
+                        "ru": ["Вопрос 2 из 30", "Выберите ответ, чтобы продолжить."]
                     }
                 },
                 "guest-access-step-4": {
                     "requiredVisibleText": {
-                        "en": ["Submit quiz"],
-                        "ru": ["Отправить тест"]
+                        "en": ["Quiz completed", "Correct answers: 30 of 30"],
+                        "ru": ["Тест завершён", "Правильных ответов: 30 из 30"]
                     }
                 },
                 "guest-access-step-5": {
                     "requiredVisibleText": {
-                        "en": ["Content complete"],
-                        "ru": ["Контент завершён"]
+                        "en": ["Quiz attempt results", "Learning Guest"],
+                        "ru": ["Результаты попыток тестов", "Анна Марафона"]
                     }
                 }
             }

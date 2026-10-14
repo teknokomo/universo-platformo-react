@@ -12,6 +12,80 @@ const {
 } = require('./widgetBindingService.fixtures')
 
 describe('generic Metahub widget binding service', () => {
+    it('discovers a dynamic RelationBuilder source only when its server-owned REF matches the selected parent', async () => {
+        const harness = createHarness({
+            widgetKey: 'relationBuilder',
+            templateKey: 'dashboard',
+            omitSlot: 'panel:items',
+            rendererConfig: {
+                parentTitleFieldCodename: 'Title',
+                panels: [
+                    {
+                        slotKey: 'panel:items',
+                        title: 'Items',
+                        parentFieldCodename: 'InternalReference',
+                        parentFieldRequired: true,
+                        titleFieldCodename: 'Title',
+                        sortOrderFieldCodename: 'SortOrder',
+                        displayFields: []
+                    }
+                ]
+            }
+        })
+        const parentId = sectionObjectId
+        const childId = objectId
+        const fixtures = configureSourceFixtures(harness, [
+            { slotKey: 'parent', sourceKey: 'ParentRecords', id: parentId },
+            { slotKey: 'panel:items', sourceKey: 'CustomItems', id: childId }
+        ])
+        const panelSlot = fixtures.slotsByKey.get('panel:items')
+        const parentRequirement = panelSlot.requirements.components.find(({ field }) => field === 'parent')
+        expect(parentRequirement).toMatchObject({ componentCodename: 'InternalReference', requireServerOwned: true })
+
+        const parent = fixtures.sourcesByCodename.get('ParentRecords')
+        const child = fixtures.sourcesByCodename.get('CustomItems')
+        harness.store.listCandidates = jest.fn(async () => [child])
+        harness.store.listRelationCompatibleObjectIds = jest.fn(async (_db, _schema, childIds, selectedParentId) =>
+            selectedParentId === parent.id ? [...childIds] : []
+        )
+
+        const request = {
+            layoutId,
+            widgetId,
+            slot: 'panel:items',
+            parentSourceKey: 'ParentRecords',
+            locale: 'en'
+        }
+        const compatible = await harness.service.listSources({ executor: harness.executor, metahubId }, request)
+        expect(compatible.sources.map(({ sourceKey }) => sourceKey)).toEqual(['CustomItems'])
+
+        const listComponents = harness.store.listComponents
+        overrideRelationTarget(harness, childId, {
+            id: recordId,
+            kind: 'object',
+            codename: parent.codename
+        })
+        const mismatchedTarget = await harness.service.listSources({ executor: harness.executor, metahubId }, request)
+        expect(mismatchedTarget.sources).toEqual([])
+
+        harness.store.listComponents = jest.fn(async (...args) =>
+            (await listComponents(...args)).map((component) =>
+                component.codename === 'InternalReference' ? { ...component, ui_config: null } : component
+            )
+        )
+        overrideRelationTarget(harness, childId, {
+            id: parent.id,
+            kind: parent.kind,
+            codename: parent.codename
+        })
+        const unownedTarget = await harness.service.listSources(
+            { executor: harness.executor, metahubId },
+            { ...request, selectedSourceKey: 'CustomItems' }
+        )
+        expect(unownedTarget.sources).toEqual([])
+        expect(unownedTarget.selectedSource).toMatchObject({ sourceKey: 'CustomItems', compatible: false })
+    })
+
     it('rejects assignment when an empty relation source declares a different parent Object', async () => {
         const harness = createHarness({ widgetKey: 'marketing.pricing' })
         const fixtures = configureSourceFixtures(harness, [

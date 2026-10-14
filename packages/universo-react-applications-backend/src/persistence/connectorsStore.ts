@@ -191,6 +191,43 @@ export async function findApplicationStatus(executor: SqlQueryable, applicationI
     return rows[0] ?? null
 }
 
+export async function findPublicationGuestRuntimeConfig(
+    executor: SqlQueryable,
+    publicationId: string
+): Promise<Record<string, unknown> | null> {
+    const rows = await executor.query<{ settingValue: unknown }>(
+        `
+        SELECT setting_entry->'value' AS "settingValue"
+        FROM metahubs.doc_publications AS publication
+        JOIN metahubs.doc_publication_versions AS version
+          ON version.id = publication.active_version_id
+         AND version.publication_id = publication.id
+         AND ${metahubActiveRowPredicate('version')}
+        CROSS JOIN LATERAL jsonb_array_elements(
+            CASE
+                WHEN jsonb_typeof(version.snapshot_json->'settings') = 'array' THEN version.snapshot_json->'settings'
+                ELSE '[]'::jsonb
+            END
+        ) AS setting_entry
+        WHERE publication.id = $1
+          AND ${metahubActiveRowPredicate('publication')}
+          AND setting_entry->>'key' = $2
+        LIMIT 1
+        `,
+        [publicationId, 'application.publicRuntime.guest']
+    )
+
+    const settingValue = rows[0]?.settingValue
+    const unwrappedValue =
+        settingValue && typeof settingValue === 'object' && !Array.isArray(settingValue) && '_value' in settingValue
+            ? (settingValue as Record<string, unknown>)._value
+            : settingValue
+
+    return unwrappedValue && typeof unwrappedValue === 'object' && !Array.isArray(unwrappedValue)
+        ? (unwrappedValue as Record<string, unknown>)
+        : null
+}
+
 export async function insertConnector(
     executor: SqlQueryable,
     input: {

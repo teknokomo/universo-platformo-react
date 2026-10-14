@@ -219,6 +219,98 @@ describe('saved report details table', () => {
         expect(screen.queryByText('internal SQL error')).not.toBeInTheDocument()
     })
 
+    it.each([
+        { locale: 'en', expectedStatus: 'Status:Passed', expectedReason: 'Finish reason:Time expired' },
+        { locale: 'ru', expectedStatus: 'Статус:Пройдено', expectedReason: 'Причина завершения:Время истекло' }
+    ])('localizes declared status columns for $locale reports', async ({ locale, expectedStatus, expectedReason }) => {
+        await i18n.changeLanguage(locale)
+        const attemptDefinition = reportDefinitionSchema.parse({
+            codename: 'TrainingCompliance',
+            title: { en: 'Quiz results', ru: 'Результаты тестов' },
+            datasource: { kind: 'records.list', sectionCodename: 'QuizAttempts' },
+            columns: [
+                { field: 'Status', label: { en: 'Status', ru: 'Статус' }, type: 'status' },
+                { field: 'FinishedReason', label: { en: 'Finish reason', ru: 'Причина завершения' }, type: 'status' }
+            ]
+        })
+        vi.mocked(runRuntimeReport).mockResolvedValue({
+            definition: attemptDefinition,
+            rows: [{ Status: 'Passed', FinishedReason: 'timed_out' }],
+            total: 1,
+            aggregations: {}
+        })
+
+        renderReport(widget, { ...details, locale })
+
+        expect(await screen.findByText(expectedStatus)).toBeInTheDocument()
+        expect(screen.getByText(expectedReason)).toBeInTheDocument()
+    })
+
+    it('preserves a readable unknown report status', async () => {
+        const attemptDefinition = reportDefinitionSchema.parse({
+            codename: 'TrainingCompliance',
+            title: { en: 'Quiz results', ru: 'Результаты тестов' },
+            datasource: { kind: 'records.list', sectionCodename: 'QuizAttempts' },
+            columns: [{ field: 'Status', label: { en: 'Status', ru: 'Статус' }, type: 'status' }]
+        })
+        vi.mocked(runRuntimeReport).mockResolvedValue({
+            definition: attemptDefinition,
+            rows: [{ Status: 'Awaiting review' }],
+            total: 1,
+            aggregations: {}
+        })
+
+        renderReport()
+
+        expect(await screen.findByText('Status:Awaiting review')).toBeInTheDocument()
+    })
+
+    it('hides UUID and JSON-like unknown report statuses', async () => {
+        const attemptDefinition = reportDefinitionSchema.parse({
+            codename: 'TrainingCompliance',
+            title: { en: 'Quiz results', ru: 'Результаты тестов' },
+            datasource: { kind: 'records.list', sectionCodename: 'QuizAttempts' },
+            columns: [{ field: 'Status', label: { en: 'Status', ru: 'Статус' }, type: 'status' }]
+        })
+        const uuidStatus = '019e44fc-a16a-760c-8190-280c4d9dc720'
+        const jsonLikeStatus = '{"type":"document","url":"https://internal.example/status"}'
+        vi.mocked(runRuntimeReport).mockResolvedValue({
+            definition: attemptDefinition,
+            rows: [{ Status: uuidStatus }, { Status: jsonLikeStatus }],
+            total: 2,
+            aggregations: {}
+        })
+
+        renderReport()
+
+        const reportGrid = await screen.findByTestId('report-grid')
+        expect(reportGrid).not.toHaveTextContent(uuidStatus)
+        expect(reportGrid).not.toHaveTextContent(jsonLikeStatus)
+    })
+
+    it.each([
+        { locale: 'en', expectedValue: 'Passed:No' },
+        { locale: 'ru', expectedValue: 'Тест пройден:Нет' }
+    ])('localizes boolean report columns for $locale reports', async ({ locale, expectedValue }) => {
+        await i18n.changeLanguage(locale)
+        const attemptDefinition = reportDefinitionSchema.parse({
+            codename: 'QuizAttemptResults',
+            title: { en: 'Quiz results', ru: 'Результаты тестов' },
+            datasource: { kind: 'records.list', sectionCodename: 'QuizAttempts' },
+            columns: [{ field: 'Passed', label: { en: 'Passed', ru: 'Тест пройден' }, type: 'boolean' }]
+        })
+        vi.mocked(runRuntimeReport).mockResolvedValue({
+            definition: attemptDefinition,
+            rows: [{ Passed: false }],
+            total: 1,
+            aggregations: {}
+        })
+
+        renderReport(widget, { ...details, locale })
+
+        expect(await screen.findByText(expectedValue)).toBeInTheDocument()
+    })
+
     it('preserves safe report cells and hides technical IDs', async () => {
         vi.mocked(runRuntimeReport).mockResolvedValue({
             definition: { ...definition, columns: [...definition.columns, { field: 'OwnerId', label: 'OwnerId', type: 'text' }] },

@@ -33,6 +33,11 @@ import { buildRuntimeRecordRuleLockKey } from './runtimeRecordRuleLockKey'
 import { assertMarketingRuntimeRowCap } from './marketingRowCap'
 import { assertRuntimeEntityMutationAllowed } from '../shared/entityMutationPolicy'
 import {
+    ACCESS_LINK_INTAKE_POLICY_ERROR,
+    resolveAccessLinkIntakePolicy,
+    RUNTIME_ACCESS_LINK_INTAKE_POLICY_INVALID
+} from './guestAccessLinkIntakePolicy'
+import {
     IDENTIFIER_REGEX,
     RUNTIME_WRITABLE_TYPES,
     buildRuntimeActiveRowCondition,
@@ -95,6 +100,47 @@ type RuntimeModuleComponentRow = {
     target_object_id?: string | null
     target_object_kind?: string | null
     ui_config?: Record<string, unknown>
+}
+
+type RuntimeModuleWritableColumnValue = { column: string; value: unknown }
+
+const resolveRuntimeModuleAccessLinkPolicy = (input: {
+    objectCodename: unknown
+    attrs: RuntimeModuleComponentRow[]
+    row: Record<string, unknown>
+    applyDefaults: boolean
+}): Record<string, boolean> => {
+    const resolution = resolveAccessLinkIntakePolicy({
+        objectCodename: resolveRuntimeCodenameText(input.objectCodename),
+        fields: input.attrs.map((attr) => ({
+            codename: attr.codename,
+            columnName: attr.column_name,
+            dataType: attr.data_type,
+            defaultValue: attr.ui_config?.defaultValue
+        })),
+        row: input.row,
+        applyDefaults: input.applyDefaults
+    })
+
+    if (!resolution.valid) {
+        throw Object.assign(new Error(ACCESS_LINK_INTAKE_POLICY_ERROR), {
+            statusCode: 400,
+            code: RUNTIME_ACCESS_LINK_INTAKE_POLICY_INVALID
+        })
+    }
+
+    return resolution.valuesByColumn
+}
+
+const mergeRuntimeModulePolicyValues = (
+    values: RuntimeModuleWritableColumnValue[],
+    policyValues: Record<string, boolean>
+): RuntimeModuleWritableColumnValue[] => {
+    const merged = new Map(values.map(({ column, value }) => [column, value]))
+    for (const [column, value] of Object.entries(policyValues)) {
+        merged.set(column, value)
+    }
+    return [...merged].map(([column, value]) => ({ column, value }))
 }
 
 type RuntimeModuleRecordBinding = {
@@ -1178,6 +1224,16 @@ export class RuntimeModulesService {
             const { hasUserValue, value: inputValue } = getRuntimeInputValue(params.payload, cmp.column_name, cmp.codename)
             let raw = inputValue
 
+            if (cmp.ui_config?.serverOwned === true) {
+                if (hasUserValue) {
+                    throw new Error(`Field is server-owned: ${attrLabel}`)
+                }
+                if (params.mode === 'update') {
+                    continue
+                }
+                raw = cmp.ui_config.defaultValue
+            }
+
             const isEnumRef = cmp.data_type === 'REF' && cmp.target_object_kind === 'enumeration'
             const enumMode = getEnumPresentationMode(cmp.ui_config)
 
@@ -1281,13 +1337,22 @@ export class RuntimeModulesService {
             })
 
             const touchedComponentIds = collectTouchedRecordComponentIds(binding.attrs, params.data)
-            const columnValues = await this.buildWritableColumnValues({
+            const writableColumnValues = await this.buildWritableColumnValues({
                 executor: txExecutor,
                 schemaName: params.schemaName,
                 attrs: binding.attrs,
                 payload: params.data,
                 mode: 'create'
             })
+            const columnValues = mergeRuntimeModulePolicyValues(
+                writableColumnValues,
+                resolveRuntimeModuleAccessLinkPolicy({
+                    objectCodename: binding.object.codename,
+                    attrs: binding.attrs,
+                    row: Object.fromEntries(writableColumnValues.map(({ column, value }) => [column, value])),
+                    applyDefaults: true
+                })
+            )
 
             // Fail-closed rule validation runs before lifecycle handlers: the
             // request-scoped executor reuses the middleware transaction, so a
@@ -1439,6 +1504,7 @@ export class RuntimeModulesService {
           WHERE id = $1
             AND ${binding.activeRowCondition}
           LIMIT 1
+          FOR UPDATE
         `,
                 [params.recordId]
             )) as Array<Record<string, unknown>>
@@ -1468,6 +1534,16 @@ export class RuntimeModulesService {
                 attrs: binding.attrs,
                 payload: params.patch,
                 mode: 'update'
+            })
+
+            resolveRuntimeModuleAccessLinkPolicy({
+                objectCodename: binding.object.codename,
+                attrs: binding.attrs,
+                row: {
+                    ...currentRow[0],
+                    ...Object.fromEntries(columnValues.map(({ column, value }) => [column, value]))
+                },
+                applyDefaults: false
             })
 
             if (columnValues.length === 0) {

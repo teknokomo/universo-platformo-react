@@ -9,7 +9,12 @@
  *
  * @see https://yandex.cloud/en/docs/smartcaptcha/concepts/validation
  */
-import { createRegistrationCaptchaService, createLoginCaptchaService } from '@universo-react/utils/captcha'
+import {
+    createRegistrationCaptchaService,
+    createLoginCaptchaService,
+    getGuestCaptchaConfig as getSharedGuestCaptchaConfig,
+    validateCaptchaToken
+} from '@universo-react/utils/captcha'
 
 // Re-export types for backwards compatibility
 export type { CaptchaValidationResult, CaptchaConfig } from '@universo-react/utils/captcha'
@@ -41,6 +46,14 @@ export const isCaptchaRequired = registrationCaptchaService.isCaptchaRequired
  */
 export const validateCaptcha = registrationCaptchaService.validateCaptcha
 
+/** Always validate a link-configured guest CAPTCHA, independent of site-wide auth settings. */
+export const validateRequiredGuestCaptcha = (token: string, ip: string) =>
+    validateCaptchaToken(token, ip, {
+        enabledEnvVar: 'SMARTCAPTCHA_GUEST_INTAKE_ENABLED',
+        logPrefix: '[captcha-guest]',
+        forceRequired: true
+    })
+
 // ============================================================================
 // Login Captcha (new functionality)
 // ============================================================================
@@ -50,6 +63,9 @@ export const validateCaptcha = registrationCaptchaService.validateCaptcha
  * Returns configuration based on environment variables
  */
 export const getLoginCaptchaConfig = loginCaptchaService.getLoginCaptchaConfig
+
+/** Public SmartCaptcha widget settings for per-link guest intake protection. */
+export const getGuestCaptchaConfig = getSharedGuestCaptchaConfig
 
 /**
  * Check if captcha validation is required for login

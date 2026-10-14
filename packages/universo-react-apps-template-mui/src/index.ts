@@ -1,4 +1,5 @@
 export { default as AppsDashboard } from './dashboard/Dashboard'
+export { DashboardWidgetSelectionProvider, useDashboardWidgetSelection } from './dashboard/DashboardWidgetSelectionContext'
 export { useDashboardBoundRowActions } from './dashboard/useDashboardBoundRowActions'
 export { resolveDashboardEntityTargetSectionId } from './dashboard/runtime/resolveDashboardEntityTargetSectionId'
 export type {
@@ -107,6 +108,7 @@ export {
     getRuntimeLayoutErrorCode,
     normalizeRuntimeLayoutTarget,
     parseRuntimeResponse,
+    resolveDashboardRuntimeLayoutTarget,
     toDashboardZoneWidgets,
     runtimeZoneWidgetsSchema
 } from './api/api'

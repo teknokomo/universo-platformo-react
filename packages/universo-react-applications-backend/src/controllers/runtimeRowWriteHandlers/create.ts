@@ -36,6 +36,8 @@ import {
 } from '../../shared/runtimeHelpers'
 import { assertRuntimeRecordRules } from '../../services/runtimeRecordRules'
 import { assertMarketingRuntimeRowCap } from '../../services/marketingRowCap'
+import { lockGuestAccessLinkWorkspace } from '../../services/guestAccessLinkRevocation'
+import { resolveAccessLinkIntakePolicy } from '../../services/guestAccessLinkIntakePolicy'
 import {
     isRuntimeEnumerationKind,
     isRuntimeSetKind,
@@ -54,6 +56,7 @@ import {
     applyRuntimeDateOffsetDerivations,
     validateRuntimeDateOrderRules,
     validateRuntimeParentRecordAccessReferences,
+    validateRuntimeAccessLinkTarget,
     validateRuntimeRecordPickerReferences,
     validateRuntimeRequiredWhenRules,
     hasRuntimeServerOwnedInput
@@ -61,6 +64,7 @@ import {
 import { resolveRuntimeRelationOwnedFieldCodenames, resolveRuntimeReorderField } from '../../services/runtimeRowSupport/list'
 import {
     lockRuntimeRelationParentRecord,
+    resolveRuntimeRelationAuthorityLayout,
     resolveRuntimeRelationWriteScope,
     revalidateRuntimeRelationWriteScope,
     type ResolvedRuntimeRelationScope
@@ -69,6 +73,7 @@ import {
     assertInterpretationNetworkGenericCreateAllowed,
     validateRuntimeAccessEntryMembership
 } from '../../services/runtimeRowSupport/access'
+import { getRuntimeRelationAuthorityProjection } from '../../services/runtimeRowSupport/runtimeRelationAuthority'
 import { collectTouchedComponentIds, loadRuntimeRowById } from '../runtimeRowSupport/rows'
 
 import { insertRuntimeChildRowsBatch } from './tableChildren'
@@ -85,6 +90,7 @@ export const buildCreateScalarColumnValues = async (params: {
     schemaIdent: string
     data: Record<string, unknown>
     safeAttrs: RuntimeObjectCollectionAttr[]
+    serverOwnedDefaults?: ReadonlyMap<string, unknown>
 }): Promise<
     { kind: 'ok'; columnValues: RuntimeWriteColumnValue[] } | { kind: 'failure'; statusCode: number; body: Record<string, unknown> }
 > => {
@@ -94,6 +100,10 @@ export const buildCreateScalarColumnValues = async (params: {
         const attrLabel = formatRuntimeFieldLabel(cmp.codename)
         const { hasUserValue, value: inputValue } = getRuntimeInputValue(params.data, cmp.column_name, cmp.codename)
         let raw = inputValue
+
+        if (raw === undefined && params.serverOwnedDefaults?.has(cmp.column_name)) {
+            raw = params.serverOwnedDefaults.get(cmp.column_name)
+        }
 
         const isEnumRef = cmp.data_type === 'REF' && isRuntimeEnumerationKind(cmp.target_object_kind)
         const enumMode = getEnumPresentationMode(cmp.ui_config)
@@ -190,6 +200,26 @@ export const validateCreatePendingRow = async (params: {
     if (accessEntryValidationError) {
         return { kind: 'failure', statusCode: 400, body: { error: accessEntryValidationError } }
     }
+    const accessLinkIntakePolicy = resolveAccessLinkIntakePolicy({
+        objectCodename: resolveRuntimeCodenameText(params.objectCollection.codename),
+        fields: params.attrs.map((attr) => ({
+            codename: attr.codename,
+            columnName: attr.column_name,
+            dataType: attr.data_type,
+            defaultValue: attr.ui_config?.defaultValue
+        })),
+        row: pendingCreateRow,
+        applyDefaults: true
+    })
+    if (!accessLinkIntakePolicy.valid) {
+        return { kind: 'failure', statusCode: 400, body: { error: accessLinkIntakePolicy.error, code: accessLinkIntakePolicy.code } }
+    }
+    for (const [column, value] of Object.entries(accessLinkIntakePolicy.valuesByColumn)) {
+        pendingCreateRow[column] = value
+        const existing = params.columnValues.find((item) => item.column === column)
+        if (existing) existing.value = value
+        else params.columnValues.push({ column, value })
+    }
     const referenceValidationError = await validateRuntimeRecordPickerReferences({
         manager: params.ctx.manager,
         schemaIdent: params.ctx.schemaIdent,
@@ -201,6 +231,19 @@ export const validateCreatePendingRow = async (params: {
     })
     if (referenceValidationError) {
         return { kind: 'failure', statusCode: 400, body: { error: referenceValidationError } }
+    }
+    const accessLinkTargetError = await validateRuntimeAccessLinkTarget({
+        manager: params.ctx.manager,
+        schemaIdent: params.ctx.schemaIdent,
+        currentWorkspaceId: params.ctx.currentWorkspaceId,
+        currentUserId: params.ctx.userId,
+        permissions: params.ctx.permissions,
+        objectCodename: resolveRuntimeCodenameText(params.objectCollection.codename),
+        attrs: params.attrs,
+        row: pendingCreateRow
+    })
+    if (accessLinkTargetError) {
+        return { kind: 'failure', statusCode: 400, body: { error: accessLinkTargetError } }
     }
     const parentAccessValidationError = await validateRuntimeParentRecordAccessReferences({
         manager: params.ctx.manager,
@@ -498,12 +541,19 @@ export const executeCreateRowTransaction = async (params: {
     relationScope?: ResolvedRuntimeRelationScope
 }): Promise<{ parentId: string; afterCreateLifecycleRequest: RuntimeLifecycleDispatchRequest }> => {
     const mgr = params.executor
+    if (resolveRuntimeCodenameText(params.objectCollection.codename) === 'AccessLinks') {
+        await lockGuestAccessLinkWorkspace({
+            executor: mgr,
+            schemaName: params.ctx.schemaName,
+            workspacesEnabled: params.ctx.workspacesEnabled,
+            workspaceId: params.ctx.currentWorkspaceId
+        })
+    }
     const relationScope = params.relationScope
         ? await revalidateRuntimeRelationWriteScope({
               executor: mgr,
               ctx: params.ctx,
               applicationId: params.applicationId,
-              objectCollectionId: params.objectCollection.id,
               childEntity: params.objectCollection,
               childAttrs: params.attrs,
               scope: params.relationScope
@@ -533,6 +583,35 @@ export const executeCreateRowTransaction = async (params: {
                 }
             })
             params.columnValues.push({ column: relationScope.sortOrderAttr.column_name, value: nextSortValue })
+        }
+    }
+    if (resolveRuntimeCodenameText(params.objectCollection.codename) === 'AccessLinks') {
+        const accessLinkIntakePolicy = resolveAccessLinkIntakePolicy({
+            objectCodename: 'AccessLinks',
+            fields: params.attrs.map((attr) => ({
+                codename: attr.codename,
+                columnName: attr.column_name,
+                dataType: attr.data_type,
+                defaultValue: attr.ui_config?.defaultValue
+            })),
+            row: Object.fromEntries(params.columnValues.map(({ column, value }) => [column, value]))
+        })
+        if (!accessLinkIntakePolicy.valid) {
+            throw new UpdateFailure(400, { error: accessLinkIntakePolicy.error, code: accessLinkIntakePolicy.code })
+        }
+        const accessLinkTargetError = await validateRuntimeAccessLinkTarget({
+            manager: mgr,
+            schemaIdent: params.ctx.schemaIdent,
+            currentWorkspaceId: params.ctx.currentWorkspaceId,
+            currentUserId: params.ctx.userId,
+            permissions: params.ctx.permissions,
+            objectCodename: 'AccessLinks',
+            attrs: params.attrs,
+            row: Object.fromEntries(params.columnValues.map(({ column, value }) => [column, value])),
+            lockTarget: true
+        })
+        if (accessLinkTargetError) {
+            throw new UpdateFailure(400, { error: accessLinkTargetError })
         }
     }
     await assertInterpretationNetworkGenericCreateAllowed(mgr, params.ctx, params.applicationId, params.objectCollection.id)
@@ -709,17 +788,37 @@ export const createCreateRowHandler = ({ getDbExecutor, query, recordCommandServ
         )
             .map((fieldCodename) => findRuntimeAttrByFieldKey(attrs, fieldCodename))
             .filter((attr): attr is RuntimeObjectCollectionAttr => Boolean(attr))
-        const relationScope = requestedRelationScope
-            ? await resolveRuntimeRelationWriteScope({
+        const relationParentColumns = new Set(
+            getRuntimeRelationAuthorityProjection(selectedLayout.zoneWidgets)
+                .filter((projection) => projection.childEntityCodename === resolveRuntimeCodenameText(objectCollection.codename))
+                .map((projection) => findRuntimeAttrByFieldKey(attrs, projection.parentFieldCodename)?.column_name)
+                .filter((columnName): columnName is string => Boolean(columnName))
+        )
+        const relationAuthorityLayout = requestedRelationScope
+            ? await resolveRuntimeRelationAuthorityLayout({
                   manager: ctx.manager,
                   applicationId,
+                  userId: ctx.userId,
+                  role: ctx.role,
                   workspaceId: ctx.currentWorkspaceId,
-                  schemaIdent: ctx.schemaIdent,
-                  zoneWidgets: selectedLayout.zoneWidgets,
+                  target: requestedRelationScope.layoutTarget,
                   childEntity: objectCollection,
-                  childAttrs: attrs,
-                  request: requestedRelationScope
+                  locale: typeof req.query.locale === 'string' ? req.query.locale : 'en'
               })
+            : null
+        const relationScope = requestedRelationScope
+            ? relationAuthorityLayout
+                ? await resolveRuntimeRelationWriteScope({
+                      manager: ctx.manager,
+                      applicationId,
+                      workspaceId: ctx.currentWorkspaceId,
+                      schemaIdent: ctx.schemaIdent,
+                      zoneWidgets: relationAuthorityLayout.zoneWidgets,
+                      childEntity: objectCollection,
+                      childAttrs: attrs,
+                      request: requestedRelationScope
+                  })
+                : null
             : null
         if (requestedRelationScope && !relationScope) {
             return res.status(409).json({ error: 'The requested relation scope is unavailable', code: 'RUNTIME_RELATION_SCOPE_INVALID' })
@@ -742,7 +841,10 @@ export const createCreateRowHandler = ({ getDbExecutor, query, recordCommandServ
             ? [relationScope.parentFieldAttr, relationScope.sortOrderAttr].filter((attr): attr is NonNullable<typeof attr> => attr !== null)
             : []
         const relationOwnedColumns = new Set(scopedRelationOwnedAttrs.map(({ column_name }) => column_name))
-        const suppliedRelationOwnedAttr = relationOwnedAttrs.find(
+        const ownedAttrs = new Map(
+            [...relationOwnedAttrs, ...(relationScope?.ownedFieldAttrs ?? [])].map((attr) => [attr.column_name, attr])
+        )
+        const suppliedRelationOwnedAttr = [...ownedAttrs.values()].find(
             (attr) => getRuntimeInputValue(data, attr.column_name, attr.codename).hasUserValue
         )
         if (suppliedRelationOwnedAttr) {
@@ -772,11 +874,41 @@ export const createCreateRowHandler = ({ getDbExecutor, query, recordCommandServ
                   ...(relationScope.sortOrderAttr ? { [relationScope.sortOrderAttr.column_name]: 0 } : {})
               }
             : data
+        const serverOwnedDefaultAttrs = attrs.filter((attr) => {
+            const uiConfig = attr.ui_config ?? {}
+            return (
+                isRuntimeServerOwnedAttr(attr) &&
+                !relationParentColumns.has(attr.column_name) &&
+                !relationScope?.ownedFieldAttrs.some((ownedAttr) => ownedAttr.column_name === attr.column_name) &&
+                !relationOwnedColumns.has(attr.column_name) &&
+                IDENTIFIER_REGEX.test(attr.column_name) &&
+                RUNTIME_WRITABLE_TYPES.has(attr.data_type) &&
+                attr.data_type !== 'TABLE' &&
+                Object.prototype.hasOwnProperty.call(uiConfig, 'defaultValue') &&
+                uiConfig.defaultValue !== undefined
+            )
+        })
+        const serverOwnedDefaults = new Map(serverOwnedDefaultAttrs.map((attr) => [attr.column_name, attr.ui_config?.defaultValue]))
+        if (resolveRuntimeCodenameText(objectCollection.codename) === 'AccessLinks' && !relationScope) {
+            const targetTypeAttr = findRuntimeAttrByFieldKey(attrs, 'TargetType')
+            const contentTargetAttr = findRuntimeAttrByFieldKey(attrs, 'ContentNodeIdRef')
+            const contentTargetId = contentTargetAttr
+                ? resolveRefId(getRuntimeInputValue(data, contentTargetAttr.column_name, contentTargetAttr.codename).value)
+                : null
+            if (targetTypeAttr && contentTargetId) {
+                serverOwnedDefaults.set(targetTypeAttr.column_name, 'content')
+            }
+        }
+        const createScalarAttrs = [
+            ...safeAttrs,
+            ...serverOwnedDefaultAttrs.filter((attr) => !safeAttrs.some((safeAttr) => safeAttr.column_name === attr.column_name))
+        ]
         const scalarColumnValuesResult = await buildCreateScalarColumnValues({
             manager: ctx.manager,
             schemaIdent: ctx.schemaIdent,
             data: validationData,
-            safeAttrs
+            safeAttrs: createScalarAttrs,
+            serverOwnedDefaults
         })
         if (scalarColumnValuesResult.kind === 'failure') {
             return res.status(scalarColumnValuesResult.statusCode).json(scalarColumnValuesResult.body)
@@ -804,7 +936,10 @@ export const createCreateRowHandler = ({ getDbExecutor, query, recordCommandServ
             })
         }
 
-        const touchedComponentIds = collectTouchedComponentIds(attrs, validationData)
+        const touchedComponentIds = collectTouchedComponentIds(attrs, {
+            ...validationData,
+            ...Object.fromEntries(serverOwnedDefaults)
+        })
         const recordBehavior = normalizeRuntimeRecordBehavior(objectCollection.config)
 
         const tableAttrsForCreate = attrs.filter((a) => a.data_type === 'TABLE')

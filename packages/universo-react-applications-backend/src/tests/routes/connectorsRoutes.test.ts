@@ -24,6 +24,10 @@ const defaultMembershipRow = {
     user_id: 'test-user-id',
     role: 'owner'
 }
+const guestRuntimeConfig = {
+    objects: { quizzes: 'Quizzes', accessLinks: 'AccessLinks' },
+    fields: { accessLink: { slug: 'Slug' } }
+}
 
 const ensureAuth = (req: Request, _res: Response, next: NextFunction) => {
     ;(req as Request & { user?: { id: string } }).user = { id: 'test-user-id' }
@@ -235,6 +239,42 @@ describe('Connectors Routes', () => {
             })
         })
 
+        it('copies guest runtime settings when a publication is attached during connector creation', async () => {
+            const dataSource = buildDataSource((sql, params, scope) => {
+                if (scope === 'root' && sql.includes('FROM applications.obj_applications') && sql.includes('schema_status')) {
+                    return [{ id: 'application-1', schemaStatus: null }]
+                }
+                if (scope === 'tx' && sql.includes('INSERT INTO applications.obj_connectors')) {
+                    return [{ id: 'connector-1', applicationId: 'application-1', name: { en: 'LMS' }, description: null, sortOrder: 0 }]
+                }
+                if (scope === 'tx' && sql.includes('INSERT INTO applications.rel_connector_publications')) {
+                    return [
+                        { id: 'connector-publication-1', connectorId: 'connector-1', publicationId: '019ccefc-2f7b-7b36-82f4-85cdb1312274' }
+                    ]
+                }
+                if (scope === 'tx' && sql.includes('metahubs.doc_publications')) {
+                    return [{ settingValue: { _value: guestRuntimeConfig } }]
+                }
+                if (scope === 'tx' && sql.includes('UPDATE applications.obj_applications AS application')) {
+                    expect(params).toEqual(['application-1', JSON.stringify(guestRuntimeConfig), 'test-user-id'])
+                    return [{ id: 'application-1' }]
+                }
+                return undefined
+            })
+
+            const response = await request(buildApp(dataSource))
+                .post('/applications/application-1/connectors')
+                .send({ name: 'LMS', publicationId: '019ccefc-2f7b-7b36-82f4-85cdb1312274' })
+                .expect(201)
+
+            expect(response.body.id).toBe('connector-1')
+            expect(
+                dataSource.manager.query.mock.calls.some(([sql]) =>
+                    String(sql).includes('UPDATE applications.obj_applications AS application')
+                )
+            ).toBe(true)
+        })
+
         it('should return 404 when application does not exist', async () => {
             const dataSource = buildDataSource((sql, _params, scope) => {
                 if (scope === 'root' && sql.includes('FROM applications.obj_applications') && sql.includes('schema_status')) {
@@ -294,6 +334,48 @@ describe('Connectors Routes', () => {
 
             const app = buildApp(dataSource)
             await request(app).post('/applications/application-1/connectors').send({ name: 'New Connector' }).expect(201)
+        })
+    })
+
+    describe('POST /applications/:applicationId/connectors/:connectorId/publications', () => {
+        it('copies guest runtime settings when linking a publication to an existing connector', async () => {
+            const publicationId = '019ccefc-2f7b-7b36-82f4-85cdb1312275'
+            const dataSource = buildDataSource((sql, params, scope) => {
+                if (scope === 'root' && sql.includes('FROM applications.obj_connectors')) {
+                    return [
+                        {
+                            id: 'connector-1',
+                            applicationId: 'application-1',
+                            isSingleMetahub: false,
+                            isRequiredMetahub: false
+                        }
+                    ]
+                }
+                if (scope === 'root' && sql.includes('FROM applications.rel_connector_publications')) return []
+                if (scope === 'tx' && sql.includes('INSERT INTO applications.rel_connector_publications')) {
+                    return [{ id: 'connector-publication-1', connectorId: 'connector-1', publicationId }]
+                }
+                if (scope === 'tx' && sql.includes('metahubs.doc_publications')) {
+                    return [{ settingValue: { _value: guestRuntimeConfig } }]
+                }
+                if (scope === 'tx' && sql.includes('UPDATE applications.obj_applications AS application')) {
+                    expect(params).toEqual(['application-1', JSON.stringify(guestRuntimeConfig), 'test-user-id'])
+                    return [{ id: 'application-1' }]
+                }
+                return undefined
+            })
+
+            const response = await request(buildApp(dataSource))
+                .post('/applications/application-1/connectors/connector-1/publications')
+                .send({ publicationId })
+                .expect(201)
+
+            expect(response.body.publicationId).toBe(publicationId)
+            expect(
+                dataSource.manager.query.mock.calls.some(([sql]) =>
+                    String(sql).includes('UPDATE applications.obj_applications AS application')
+                )
+            ).toBe(true)
         })
     })
 

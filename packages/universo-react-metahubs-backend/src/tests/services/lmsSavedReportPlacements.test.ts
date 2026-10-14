@@ -49,7 +49,8 @@ describe('LMS saved report placements', () => {
             const reports = placements.filter(({ rendererConfig }) => rendererConfig?.variant === 'report')
             expect(reports.map(({ rendererConfig }) => rendererConfig?.reportCodename)).toEqual([
                 'LearningContentSummary',
-                'LearnerProgress'
+                'LearnerProgress',
+                'QuizAttemptResults'
             ])
             for (const report of reports) {
                 expect(report.widgetKey).toBe('detailsTable')

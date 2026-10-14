@@ -4281,6 +4281,7 @@ describe('Applications Routes', () => {
 
     describe('DELETE /applications/:applicationId', () => {
         it('should delete application for owner', async () => {
+            const deletionApplicationId = '018f8a78-7b8f-7c1d-a111-222233334564'
             const { dataSource, applicationUserRepo } = buildDataSource()
             applicationUserRepo.findOne.mockResolvedValue({
                 user_id: 'test-user-id',
@@ -4292,7 +4293,7 @@ describe('Applications Routes', () => {
                         {
                             id: 'membership-id',
                             userId: 'test-user-id',
-                            applicationId: 'application-1',
+                            applicationId: deletionApplicationId,
                             role: 'owner',
                             _uplCreatedAt: new Date()
                         }
@@ -4301,7 +4302,7 @@ describe('Applications Routes', () => {
 
                 return [
                     {
-                        id: 'application-1',
+                        id: deletionApplicationId,
                         name: 'Test Application',
                         description: null,
                         isPublic: false,
@@ -4318,11 +4319,17 @@ describe('Applications Routes', () => {
                     }
                 ]
             })
-            ;(dataSource.manager.query as jest.Mock).mockResolvedValueOnce([]).mockResolvedValueOnce([{ id: 'application-1' }])
+            ;(dataSource.manager.query as jest.Mock).mockImplementation(async (sql: string) => {
+                if (sql.includes('SELECT id') && sql.includes('FROM applications.obj_applications')) {
+                    return [{ id: deletionApplicationId }]
+                }
+                if (sql.includes('UPDATE applications.obj_applications')) return [{ id: deletionApplicationId }]
+                return []
+            })
 
             const app = buildApp(dataSource)
 
-            await request(app).delete('/applications/application-1').expect(204)
+            await request(app).delete(`/applications/${deletionApplicationId}`).expect(204)
 
             expect(dataSource.transaction).toHaveBeenCalled()
             expect(dataSource.manager.query).toHaveBeenCalled()
@@ -7327,6 +7334,99 @@ describe('Applications Routes', () => {
             expect(updateCall?.[1]).toEqual(['test-user-id', runtimeRowId, 4, targetProjectRowId])
         })
 
+        it('does not allow restore to reassign a server-owned relationship', async () => {
+            const { dataSource, applicationRepo, applicationUserRepo } = buildDataSource()
+            const targetProjectObjectId = '018f8a78-7b8f-7c1d-a111-222233334590'
+            const targetProjectRowId = '018f8a78-7b8f-7c1d-a111-222233334591'
+
+            applicationUserRepo.findOne.mockResolvedValue({
+                userId: 'test-user-id',
+                applicationId: runtimeApplicationId,
+                role: 'owner'
+            })
+            applicationRepo.findOne.mockResolvedValue({
+                id: runtimeApplicationId,
+                schemaName: 'app_deadbeef'
+            })
+            ;(dataSource.manager.query as jest.Mock).mockImplementation(async (sql: string, params?: unknown[]) => {
+                if (sql.includes('FROM "app_deadbeef"._app_objects')) {
+                    return [
+                        {
+                            id: runtimeLinkedCollectionId,
+                            codename: 'orders',
+                            table_name: 'orders',
+                            config: {
+                                systemFields: {
+                                    lifecycleContract: {
+                                        delete: { mode: 'soft' }
+                                    }
+                                }
+                            }
+                        },
+                        {
+                            id: targetProjectObjectId,
+                            codename: 'projects',
+                            table_name: 'projects',
+                            config: {
+                                systemFields: {
+                                    lifecycleContract: {
+                                        delete: { mode: 'soft' }
+                                    }
+                                }
+                            }
+                        }
+                    ]
+                }
+                if (sql.includes('FROM "app_deadbeef"._app_components') && params?.[0] === runtimeLinkedCollectionId) {
+                    return [
+                        {
+                            id: 'project-id-component',
+                            codename: 'ProjectId',
+                            column_name: 'project_id',
+                            data_type: 'REF',
+                            is_required: false,
+                            validation_rules: {},
+                            target_object_id: targetProjectObjectId,
+                            target_object_kind: 'object',
+                            ui_config: { serverOwned: true }
+                        }
+                    ]
+                }
+                if (sql.includes('FROM "app_deadbeef"._app_components')) return []
+                if (sql.includes('SELECT *') && sql.includes('FROM "app_deadbeef"."orders"')) {
+                    return [{ id: runtimeRowId, _upl_locked: false, _upl_version: 4, _app_deleted: true }]
+                }
+                if (sql.includes('SELECT id') && sql.includes('FROM "app_deadbeef"."projects"')) {
+                    return [{ id: targetProjectRowId }]
+                }
+                if (sql.includes('UPDATE "app_deadbeef"."orders"')) {
+                    throw new Error('Restore must not reassign a server-owned relationship')
+                }
+                return []
+            })
+
+            const response = await request(buildApp(dataSource))
+                .post(`/applications/${runtimeApplicationId}/runtime/rows/${runtimeRowId}/restore`)
+                .send({
+                    objectCollectionId: runtimeLinkedCollectionId,
+                    expectedVersion: 4,
+                    restoreTarget: {
+                        mode: 'target',
+                        targetObjectCollectionId: targetProjectObjectId,
+                        targetRecordId: targetProjectRowId,
+                        parentFieldCodename: 'ProjectId'
+                    }
+                })
+                .expect(400)
+
+            expect(response.body).toMatchObject({ code: 'RUNTIME_RESTORE_TARGET_FIELD_INVALID' })
+            expect(
+                (dataSource.manager.query as jest.Mock).mock.calls.some((call) =>
+                    String(call[0]).includes('UPDATE "app_deadbeef"."orders"')
+                )
+            ).toBe(false)
+        })
+
         it('fails closed when restoring to the original parent that is no longer editable', async () => {
             const { dataSource, applicationRepo, applicationUserRepo } = buildDataSource()
             const targetProjectObjectId = '018f8a78-7b8f-7c1d-a111-222233334590'
@@ -9992,6 +10092,7 @@ describe('Applications Routes', () => {
                                 codename: 'CourseId',
                                 column_name: 'course_id',
                                 data_type: 'REF',
+                                ui_config: { serverOwned: true },
                                 is_required: true,
                                 target_object_id: parentObjectId,
                                 target_object_kind: 'object'
@@ -10001,6 +10102,7 @@ describe('Applications Routes', () => {
                                 codename: 'SortOrder',
                                 column_name: 'sort_order',
                                 data_type: 'NUMBER',
+                                ui_config: { serverOwned: true },
                                 is_required: true
                             }
                         ]
@@ -10043,7 +10145,11 @@ describe('Applications Routes', () => {
                         [reorderedRowIdA]: 2,
                         [reorderedRowIdB]: 3
                     },
-                    parentScope: { fieldCodename: 'CourseId', parentRecordId }
+                    parentScope: {
+                        fieldCodename: 'CourseId',
+                        parentRecordId,
+                        layoutTarget: { targetKind: 'object', entityTypeId: runtimeLinkedCollectionId }
+                    }
                 })
 
             if (response.status !== 200) throw new Error(`Scoped reorder failed: ${JSON.stringify(response.body)}`)
@@ -11363,7 +11469,7 @@ describe('Applications Routes', () => {
                         }
                     ]
                 }
-                if (sql.includes('SELECT *') && sql.includes('FROM "app_deadbeef"."documents"')) {
+                if (sql.includes('parentRecord.*') && sql.includes('FROM "app_deadbeef"."documents"')) {
                     return [{ id: runtimeRowId, _upl_locked: false, _app_record_state: 'posted' }]
                 }
                 if (sql.includes('UPDATE "app_deadbeef"."items"')) {
@@ -12614,6 +12720,9 @@ describe('Applications Routes', () => {
                 if (sql.includes('FROM "app_deadbeef"._app_objects')) {
                     return [{ id: runtimeLinkedCollectionId, codename: 'orders', table_name: 'orders', config: null }]
                 }
+                if (sql.includes('parentRecord.*') && sql.includes('FROM "app_deadbeef"."orders"')) {
+                    return [{ id: runtimeRecordId, _upl_locked: false }]
+                }
                 if (sql.includes("data_type = 'TABLE'")) {
                     return [
                         {
@@ -12683,6 +12792,9 @@ describe('Applications Routes', () => {
             ;(dataSource.manager.query as jest.Mock).mockImplementation(async (sql: string) => {
                 if (sql.includes('FROM "app_deadbeef"._app_objects')) {
                     return [{ id: runtimeLinkedCollectionId, codename: 'orders', table_name: 'orders', config: null }]
+                }
+                if (sql.includes('parentRecord.*') && sql.includes('FROM "app_deadbeef"."orders"')) {
+                    return [{ id: runtimeRecordId, _upl_locked: false }]
                 }
                 if (sql.includes("data_type = 'TABLE'")) {
                     return [
@@ -14210,13 +14322,13 @@ describe('Applications Routes', () => {
                     id: runtimeChildRowId,
                     _tp_sort_order: 0,
                     _upl_version: 1,
-                    cell_id: generatedCellId,
-                    CellId: generatedCellId,
-                    parent_cell_id: null,
-                    ParentCellId: null,
                     title: 'Root'
                 }
             })
+            expect(response.body.item).not.toHaveProperty('cell_id')
+            expect(response.body.item).not.toHaveProperty('CellId')
+            expect(response.body.item).not.toHaveProperty('parent_cell_id')
+            expect(response.body.item).not.toHaveProperty('ParentCellId')
             expect(generatedCellId).toEqual(expect.stringMatching(/^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/))
             expect(generatedCellId).not.toBe(forgedCellId)
             expect(executor.transaction).toHaveBeenCalledTimes(1)
@@ -15173,7 +15285,7 @@ describe('Applications Routes', () => {
                         }
                     ]
                 }
-                if (sql.includes('FROM "app_deadbeef"."orders"') && (sql.includes('SELECT id, _upl_locked') || sql.includes('SELECT *'))) {
+                if (sql.includes('parentRecord.*') && sql.includes('FROM "app_deadbeef"."orders"')) {
                     return [{ id: runtimeRecordId, _upl_locked: false }]
                 }
                 if (sql.includes('SELECT *') && sql.includes('FROM "app_deadbeef"."items"')) {

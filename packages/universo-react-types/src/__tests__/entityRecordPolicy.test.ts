@@ -33,6 +33,39 @@ describe('Entity record policy', () => {
         ).toThrow()
     })
 
+    it('accepts explicit workspace-copy dispositions while defaulting omitted dispositions to include', () => {
+        const excludedGuestPolicy = {
+            version: 1,
+            runtimeMutation: 'deny',
+            workspaceCopy: 'exclude'
+        } as const
+        const parsedExcludedPolicy = entityRecordPolicySchema.parse(excludedGuestPolicy)
+
+        expect(parsedExcludedPolicy).toEqual({
+            ...excludedGuestPolicy,
+            denyDeleteWhenBound: false,
+            immutableSemanticKeyWhenBound: false
+        })
+        expect(resolveEntityRecordPolicy({ recordPolicy: excludedGuestPolicy })).toEqual(parsedExcludedPolicy)
+
+        const defaultIncludePolicy = entityRecordPolicySchema.parse({
+            version: 1,
+            denyDeleteWhenBound: false,
+            immutableSemanticKeyWhenBound: false,
+            runtimeMutation: 'deny'
+        })
+        expect(defaultIncludePolicy.workspaceCopy).toBeUndefined()
+        expect(entityRecordPolicySchema.parse({ ...excludedGuestPolicy, workspaceCopy: 'include' }).workspaceCopy).toBe('include')
+        expect(entityRecordPolicySchema.safeParse({ ...excludedGuestPolicy, workspaceCopy: 'invalid' }).success).toBe(false)
+        expect(entityRecordPolicySchema.safeParse({ version: 1, runtimeMutation: 'deny' }).success).toBe(false)
+        expect(
+            entityRecordPolicySchema.safeParse({
+                ...excludedGuestPolicy,
+                denyDeleteWhenBound: false
+            }).success
+        ).toBe(false)
+    })
+
     it('rejects key immutability without a semantic key and duplicate locale policies', () => {
         expect(
             entityRecordPolicySchema.safeParse({

@@ -9,6 +9,12 @@ import {
     resolveRuntimeRuleErrorMessage
 } from '../runtimeErrors'
 
+const readNestedValue = (value: unknown, path: string): unknown =>
+    path.split('.').reduce<unknown>((current, part) => {
+        if (!current || typeof current !== 'object') return undefined
+        return (current as Record<string, unknown>)[part]
+    }, value)
+
 describe('runtimeErrors', () => {
     it('keeps short user-facing messages in English runtime surfaces', () => {
         expect(extractRuntimeErrorMessage(new Error('Posting is blocked by the current state.'), 'Try again.', 'en')).toBe(
@@ -41,10 +47,12 @@ describe('runtimeErrors', () => {
 
     it('resolves the rule codes from the shared apps bundles in both locales', () => {
         for (const code of Object.keys(RUNTIME_RULE_ERROR_KEYS)) {
-            const leaf = (RUNTIME_RULE_ERROR_KEYS[code] ?? '').split('.').pop() as keyof typeof appsEn.errors
-            expect(typeof appsEn.errors[leaf]).toBe('string')
-            expect(typeof appsRu.errors[leaf]).toBe('string')
-            expect(appsRu.errors[leaf]).not.toBe(appsEn.errors[leaf])
+            const key = RUNTIME_RULE_ERROR_KEYS[code] ?? ''
+            const english = readNestedValue(appsEn, key)
+            const russian = readNestedValue(appsRu, key)
+            expect(typeof english, `${code} English translation`).toBe('string')
+            expect(typeof russian, `${code} Russian translation`).toBe('string')
+            expect(russian).not.toBe(english)
         }
     })
 
@@ -65,6 +73,12 @@ describe('runtimeErrors', () => {
         expect(resolveRuntimeRuleErrorMessage({ code: 'RUNTIME_RELATION_SCOPE_REQUIRED' }, 'ru')).toContain('связанных записей')
         expect(resolveRuntimeRuleErrorMessage({ code: 'RUNTIME_RECORD_VERSION_CONFLICT' }, 'en')).toContain('changed after you opened it')
         expect(resolveRuntimeRuleErrorMessage({ code: 'RUNTIME_RECORD_VERSION_CONFLICT' }, 'ru')).toContain('изменилась после открытия')
+        expect(resolveRuntimeRuleErrorMessage({ code: 'GUEST_QUIZ_INTAKE_REQUIRED' }, 'en')).toContain('does not include quiz consent')
+        expect(resolveRuntimeRuleErrorMessage({ code: 'GUEST_QUIZ_INTAKE_REQUIRED' }, 'ru')).toContain('нет согласия')
+        expect(resolveRuntimeRuleErrorMessage({ code: 'RUNTIME_ACCESS_LINK_INTAKE_POLICY_INVALID' }, 'en')).toContain(
+            'at least one guest identity field'
+        )
+        expect(resolveRuntimeRuleErrorMessage({ code: 'RUNTIME_ACCESS_LINK_INTAKE_POLICY_INVALID' }, 'ru')).toContain('хотя бы одно поле')
         expect(
             extractRuntimeErrorMessage(
                 {

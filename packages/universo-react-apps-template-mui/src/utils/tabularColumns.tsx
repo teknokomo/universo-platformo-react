@@ -34,6 +34,8 @@ import {
     type MatrixColor
 } from '@universo-react/types'
 import type { FieldConfig } from '../components/dialogs/FormDialog'
+import { AssessmentOptionsCell } from '../components/AssessmentOptionsCell'
+import { getAssessmentOptionCount } from './assessmentOptions'
 import { getTabularStringDisplayValue, isLocalizedStringField, updateLocalizedTabularStringValue } from './tabularCellValues'
 import {
     formatRuntimeDateValue,
@@ -199,6 +201,8 @@ const renderCellStylePreview = (text: string, row: unknown, config: CellStylePre
 
 /** Props for the inline NUMBER edit cell. */
 interface NumberEditCellProps extends GridRenderEditCellParams {
+    /** Localized field label for the textbox. */
+    accessibleLabel: string
     nonNegative: boolean
     scale: number
     maxIntegerDigits: number
@@ -238,6 +242,7 @@ function NumberEditCell({
     field,
     value,
     api,
+    accessibleLabel,
     nonNegative,
     scale,
     maxIntegerDigits,
@@ -487,6 +492,7 @@ function NumberEditCell({
                 sx={{ fontSize: 'inherit', '& input': { textAlign: 'right', px: 0.5, py: 0 } }}
                 inputProps={{
                     inputMode: scale > 0 ? 'decimal' : 'numeric',
+                    'aria-label': accessibleLabel,
                     'aria-invalid': error ? 'true' : undefined,
                     'aria-describedby': helperId
                 }}
@@ -525,12 +531,14 @@ function NumberEditCell({
 }
 
 interface StringEditCellProps extends GridRenderEditCellParams {
+    /** Localized field label for the textbox. */
+    accessibleLabel: string
     locale: string
     localized: boolean
     multiline: boolean
 }
 
-function StringEditCell({ id, field, value, api, locale, localized, multiline }: StringEditCellProps) {
+function StringEditCell({ id, field, value, api, accessibleLabel, locale, localized, multiline }: StringEditCellProps) {
     const [inputValue, setInputValue] = useState<string>(() => getTabularStringDisplayValue(value, locale))
     const currentValueRef = useRef<unknown>(value)
 
@@ -558,6 +566,7 @@ function StringEditCell({ id, field, value, api, locale, localized, multiline }:
             fullWidth
             multiline={multiline}
             minRows={multiline ? 3 : undefined}
+            inputProps={{ 'aria-label': accessibleLabel }}
             sx={{
                 fontSize: 'inherit',
                 alignItems: multiline ? 'flex-start' : 'center',
@@ -664,6 +673,27 @@ export function buildTabularColumns({
             renderCell: (params) => rowNumberById.get(String(params.id)) ?? ''
         },
         ...visibleChildFields.map((field): GridColDef => {
+            if (field.type === 'JSON' && field.uiConfig?.widget === 'assessmentOptions') {
+                return {
+                    field: field.id,
+                    headerName: field.label,
+                    flex: 1,
+                    minWidth: 220,
+                    editable: false,
+                    renderCell: (params) => (
+                        <AssessmentOptionsCell
+                            value={params.value}
+                            locale={locale}
+                            minOptions={field.uiConfig?.minOptions}
+                            maxOptions={field.uiConfig?.maxOptions}
+                            tabIndex={params.tabIndex}
+                            onSave={onSelectChange ? (options) => onSelectChange(String(params.id), field.id, options) : undefined}
+                        />
+                    ),
+                    valueFormatter: (value: unknown) => getAssessmentOptionCount(value)
+                }
+            }
+
             // REF fields with options → singleSelect dropdown
             const refOptions = field.refOptions ?? field.enumOptions ?? []
             if (field.type === 'REF' && refOptions.length > 0) {
@@ -709,6 +739,7 @@ export function buildTabularColumns({
                             return (
                                 <RadioGroup
                                     value={selectedId}
+                                    aria-label={field.label}
                                     onChange={(event) => {
                                         onSelectChange?.(String(params.id), field.id, event.target.value || null)
                                     }}
@@ -742,6 +773,7 @@ export function buildTabularColumns({
                             <Select
                                 size='small'
                                 variant='standard'
+                                inputProps={{ 'aria-label': field.label }}
                                 value={selectedValue}
                                 onChange={(event) => {
                                     const newValue = event.target.value === '' ? null : event.target.value
@@ -849,7 +881,13 @@ export function buildTabularColumns({
 
                 if (localized || isLongText) {
                     colDef.renderEditCell = (params) => (
-                        <StringEditCell {...params} locale={locale} localized={localized} multiline={isLongText} />
+                        <StringEditCell
+                            {...params}
+                            accessibleLabel={field.label}
+                            locale={locale}
+                            localized={localized}
+                            multiline={isLongText}
+                        />
                     )
                 }
             }
@@ -882,6 +920,7 @@ export function buildTabularColumns({
                 colDef.renderEditCell = (params) => (
                     <NumberEditCell
                         {...params}
+                        accessibleLabel={field.label}
                         nonNegative={nonNeg}
                         scale={sc}
                         maxIntegerDigits={maxInt}

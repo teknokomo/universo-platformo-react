@@ -416,6 +416,18 @@ describe('Publications Routes', () => {
     })
 
     it('creates a linked application without generating schema directly from publication creation', async () => {
+        const guestRuntimeConfig = { objects: { assessments: 'Quizzes' } }
+        mockSerializeMetahub.mockResolvedValue({
+            entities: {},
+            layouts: [],
+            layoutZoneWidgets: [],
+            settings: [
+                {
+                    key: 'application.publicRuntime.guest',
+                    value: { _value: guestRuntimeConfig }
+                }
+            ]
+        })
         mockCreatePublication.mockResolvedValue({
             id: 'publication-1',
             name: { en: 'Publication' },
@@ -469,6 +481,7 @@ describe('Publications Routes', () => {
                 publicationId: 'publication-1',
                 isPublic: true,
                 workspacesEnabled: false,
+                settings: { publicRuntime: { guest: guestRuntimeConfig } },
                 userId: 'user-1'
             })
         )
@@ -478,6 +491,163 @@ describe('Publications Routes', () => {
         expect(mockApplyRlsContext.mock.invocationCallOrder[0]).toBeLessThan(mockCreatePublication.mock.invocationCallOrder[0])
         expect(mockPersistApplicationSchemaSyncState).not.toHaveBeenCalled()
         expect(mockSoftDelete).not.toHaveBeenCalled()
+    })
+
+    it('creates a linked application from the active publication snapshot settings', async () => {
+        const guestRuntimeConfig = { objects: { assessments: 'Quizzes' } }
+        mockFindPublicationById.mockResolvedValue({
+            id: 'publication-1',
+            metahubId: 'metahub-1',
+            name: { en: 'Publication' },
+            description: null,
+            activeVersionId: 'version-1'
+        })
+        mockFindPublicationVersionById.mockResolvedValue({
+            id: 'version-1',
+            publicationId: 'publication-1',
+            branchId: 'branch-1',
+            snapshotHash: 'snapshot-hash',
+            isActive: true,
+            snapshotJson: {
+                settings: [
+                    {
+                        key: 'application.publicRuntime.guest',
+                        value: { _value: guestRuntimeConfig }
+                    }
+                ]
+            }
+        })
+        mockCreateLinkedApplication.mockResolvedValue({
+            application: {
+                id: 'application-1',
+                name: { en: 'Application' },
+                description: null
+            },
+            connector: { id: 'connector-1' },
+            appSchemaName: TEST_APP_SCHEMA_NAME
+        })
+
+        const app = buildApp()
+        await request(app).post('/metahub/metahub-1/publication/publication-1/applications').send({ isPublic: true }).expect(201)
+
+        expect(mockFindPublicationVersionById).toHaveBeenCalledWith(mockExec, 'version-1')
+        expect(mockCreateLinkedApplication).toHaveBeenCalledWith(
+            expect.objectContaining({
+                publicationId: 'publication-1',
+                settings: { publicRuntime: { guest: guestRuntimeConfig } },
+                userId: 'user-1'
+            })
+        )
+    })
+
+    it('uses empty application settings when the active snapshot has malformed guest settings', async () => {
+        mockFindPublicationById.mockResolvedValue({
+            id: 'publication-1',
+            metahubId: 'metahub-1',
+            name: { en: 'Publication' },
+            description: null,
+            activeVersionId: 'version-1'
+        })
+        mockFindPublicationVersionById.mockResolvedValue({
+            id: 'version-1',
+            publicationId: 'publication-1',
+            branchId: 'branch-1',
+            snapshotHash: 'snapshot-hash',
+            isActive: true,
+            snapshotJson: {
+                settings: [
+                    {
+                        key: 'application.publicRuntime.guest',
+                        value: { _value: 'malformed-guest-config' }
+                    }
+                ]
+            }
+        })
+        mockCreateLinkedApplication.mockResolvedValue({
+            application: {
+                id: 'application-1',
+                name: { en: 'Application' },
+                description: null
+            },
+            connector: { id: 'connector-1' },
+            appSchemaName: TEST_APP_SCHEMA_NAME
+        })
+
+        const app = buildApp()
+        await request(app).post('/metahub/metahub-1/publication/publication-1/applications').send({ isPublic: true }).expect(201)
+
+        expect(mockCreateLinkedApplication).toHaveBeenCalledWith(
+            expect.objectContaining({
+                publicationId: 'publication-1',
+                settings: {},
+                userId: 'user-1'
+            })
+        )
+    })
+
+    it('does not create a linked application without an active publication version', async () => {
+        mockFindPublicationById.mockResolvedValue({
+            id: 'publication-1',
+            metahubId: 'metahub-1',
+            name: { en: 'Publication' },
+            description: null,
+            activeVersionId: null
+        })
+
+        const app = buildApp()
+        const response = await request(app)
+            .post('/metahub/metahub-1/publication/publication-1/applications')
+            .send({ isPublic: true })
+            .expect(409)
+
+        expect(response.body.error).toBe('Publication does not have an active version')
+        expect(mockFindPublicationVersionById).not.toHaveBeenCalled()
+        expect(mockCreateLinkedApplication).not.toHaveBeenCalled()
+    })
+
+    it.each([
+        ['a missing version row', null],
+        [
+            'an inactive version row',
+            {
+                id: 'version-1',
+                publicationId: 'publication-1',
+                branchId: 'branch-1',
+                snapshotHash: 'snapshot-hash',
+                isActive: false,
+                snapshotJson: { settings: [] }
+            }
+        ],
+        [
+            'a version row owned by another publication',
+            {
+                id: 'version-1',
+                publicationId: 'other-publication',
+                branchId: 'branch-1',
+                snapshotHash: 'snapshot-hash',
+                isActive: true,
+                snapshotJson: { settings: [] }
+            }
+        ]
+    ])('does not create a linked application when the active pointer resolves to %s', async (_scenario, activeVersion) => {
+        mockFindPublicationById.mockResolvedValue({
+            id: 'publication-1',
+            metahubId: 'metahub-1',
+            name: { en: 'Publication' },
+            description: null,
+            activeVersionId: 'version-1'
+        })
+        mockFindPublicationVersionById.mockResolvedValue(activeVersion)
+
+        const app = buildApp()
+        const response = await request(app)
+            .post('/metahub/metahub-1/publication/publication-1/applications')
+            .send({ isPublic: true })
+            .expect(409)
+
+        expect(response.body.error).toBe('Publication active version is unavailable')
+        expect(mockFindPublicationVersionById).toHaveBeenCalledWith(mockExec, 'version-1')
+        expect(mockCreateLinkedApplication).not.toHaveBeenCalled()
     })
 
     it('rejects direct schema creation during publication application creation', async () => {

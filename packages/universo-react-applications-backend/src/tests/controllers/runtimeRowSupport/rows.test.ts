@@ -205,6 +205,46 @@ describe('assertMarketingRuntimeRowCap', () => {
 })
 
 describe('copyRuntimeConfiguredRelations Entity policy', () => {
+    it('rejects nested AccessLinks copies to preserve unique public access keys', async () => {
+        const manager = {
+            query: jest.fn().mockResolvedValue([
+                {
+                    id: 'access-links-object',
+                    kind: 'object',
+                    codename: 'AccessLinks',
+                    table_name: 'access_links',
+                    config: null
+                }
+            ])
+        }
+
+        await expect(
+            copyRuntimeConfiguredRelations({
+                manager: manager as never,
+                schemaIdent: '"runtime_schema"',
+                currentWorkspaceId: null,
+                workspacesEnabled: false,
+                userId: 'user-1',
+                sourceParentId: 'source-id',
+                copiedParentId: 'copy-id',
+                relations: [
+                    {
+                        objectCodename: 'AccessLinks',
+                        parentFieldCodename: 'TargetId',
+                        orderFieldCodename: null,
+                        refRemaps: []
+                    }
+                ]
+            })
+        ).rejects.toMatchObject({
+            statusCode: 409,
+            body: expect.objectContaining({ code: 'RUNTIME_COPY_RELATION_INVALID' })
+        })
+
+        expect(manager.query).toHaveBeenCalledTimes(1)
+        expect(manager.query.mock.calls.some(([sql]) => String(sql).includes('INSERT INTO'))).toBe(false)
+    })
+
     it('rejects a denied related Object before inserting any copied relation rows', async () => {
         const manager = {
             query: jest.fn().mockResolvedValue([

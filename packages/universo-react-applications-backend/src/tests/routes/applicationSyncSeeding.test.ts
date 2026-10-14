@@ -7,7 +7,7 @@ jest.mock('@universo-react/database', () => ({
 
 import type { Knex } from 'knex'
 import { createKnexExecutor } from '@universo-react/database'
-import { generateColumnName, type EntityDefinition } from '@universo-react/schema-ddl'
+import { generateChildTableName, generateColumnName, type EntityDefinition } from '@universo-react/schema-ddl'
 import { ComponentDefinitionDataType } from '@universo-react/types'
 import { seedPredefinedElements, syncEnumerationValues } from '../../routes/applicationSyncRoutes'
 import { createMarketingCollectionConfig, createMarketingPricingConfig } from '../utils/marketingWidgetBindings'
@@ -99,6 +99,249 @@ describe('application sync predefined seeding', () => {
         expect(insertedRows[0]?.[generateColumnName(fields[2]!.id)]).toBe(JSON.stringify(savedFilters))
         expect(onConflict).toHaveBeenCalledWith('id')
         expect(merge).toHaveBeenCalled()
+    })
+
+    it('applies AccessLinks boolean metadata defaults before required-field checks and insert', async () => {
+        const merge = jest.fn().mockResolvedValue(undefined)
+        const onConflict = jest.fn().mockReturnValue({ merge })
+        const insert = jest.fn().mockReturnValue({ onConflict })
+        const table = jest.fn().mockReturnValue({ insert })
+        const withSchema = jest.fn().mockReturnValue({ table })
+        const trx = { withSchema } as unknown as Knex.Transaction
+        const objectId = '019ccefc-2f7b-7b36-82f4-85cdb1312268'
+        const fieldCodenames = [
+            'ShowFirstName',
+            'RequireFirstName',
+            'ShowLastName',
+            'RequireLastName',
+            'ShowEmail',
+            'RequireEmail',
+            'ShowPhone',
+            'RequirePhone',
+            'CaptchaEnabled'
+        ]
+        const intakeFields = fieldCodenames.map((codename, index) => ({
+            id: `019ccefc-2f7b-7b36-82f4-85cdb13122${String(70 + index).padStart(2, '0')}`,
+            codename,
+            dataType: ComponentDefinitionDataType.BOOLEAN,
+            isRequired: true,
+            uiConfig: { defaultValue: index < 4 }
+        }))
+        const useCountField = {
+            id: '019ccefc-2f7b-7b36-82f4-85cdb1312290',
+            codename: 'UseCount',
+            dataType: ComponentDefinitionDataType.NUMBER,
+            isRequired: false,
+            uiConfig: { serverOwned: true, resetOnCopy: true, defaultValue: 0 }
+        }
+        const targetTypeField = {
+            id: '019ccefc-2f7b-7b36-82f4-85cdb1312293',
+            codename: 'TargetType',
+            dataType: ComponentDefinitionDataType.STRING,
+            isRequired: true,
+            uiConfig: { serverOwned: true, defaultValue: 'quiz' }
+        }
+        const trustedSeedFieldWithoutDefault = {
+            id: '019ccefc-2f7b-7b36-82f4-85cdb1312291',
+            codename: 'CourseId',
+            dataType: ComponentDefinitionDataType.STRING,
+            isRequired: true,
+            uiConfig: { serverOwned: true }
+        }
+        const fields = [...intakeFields, useCountField, targetTypeField, trustedSeedFieldWithoutDefault]
+        const entities = [{ id: objectId, kind: 'object', codename: 'AccessLinks', fields }] as unknown as EntityDefinition[]
+
+        await seedPredefinedElements(
+            'app_019ccefc2f7b7b3682f485cdb1312268',
+            {
+                elements: {
+                    [objectId]: [
+                        {
+                            id: '019ccefc-2f7b-7b39-82f4-85cdb131226b',
+                            data: { UseCount: 99, TargetType: 'content', CourseId: 'trusted-course-source-id' }
+                        }
+                    ]
+                }
+            } as never,
+            entities,
+            'user-1',
+            trx
+        )
+
+        const insertedRows = insert.mock.calls[0]?.[0] as Array<Record<string, unknown>>
+        expect(insertedRows).toHaveLength(1)
+        for (const [index, field] of intakeFields.entries()) {
+            expect(insertedRows[0]?.[generateColumnName(field.id)]).toBe(index < 4)
+        }
+        expect(insertedRows[0]?.[generateColumnName(useCountField.id)]).toBe(0)
+        expect(insertedRows[0]?.[generateColumnName(targetTypeField.id)]).toBe('content')
+        expect(insertedRows[0]?.[generateColumnName(trustedSeedFieldWithoutDefault.id)]).toBe('trusted-course-source-id')
+        expect(merge.mock.calls[0]?.[0]).not.toContain(generateColumnName(useCountField.id))
+        expect(merge.mock.calls[0]?.[0]).not.toContain(generateColumnName(trustedSeedFieldWithoutDefault.id))
+    })
+
+    it('rejects an AccessLinks seed snapshot with required fields hidden before row writes', async () => {
+        const withSchema = jest.fn()
+        const trx = { withSchema } as unknown as Knex.Transaction
+        const objectId = '019ccefc-2f7b-7b36-82f4-85cdb1312268'
+        const fieldCodenames = [
+            'ShowFirstName',
+            'RequireFirstName',
+            'ShowLastName',
+            'RequireLastName',
+            'ShowEmail',
+            'RequireEmail',
+            'ShowPhone',
+            'RequirePhone',
+            'CaptchaEnabled'
+        ]
+        const fields = fieldCodenames.map((codename, index) => ({
+            id: `019ccefc-2f7b-7b36-82f4-85cdb13123${String(10 + index).padStart(2, '0')}`,
+            codename,
+            dataType: ComponentDefinitionDataType.BOOLEAN,
+            isRequired: true,
+            uiConfig: { defaultValue: false }
+        }))
+        const entities = [{ id: objectId, kind: 'object', codename: 'AccessLinks', fields }] as unknown as EntityDefinition[]
+
+        await expect(
+            seedPredefinedElements(
+                'app_019ccefc2f7b7b3682f485cdb1312268',
+                {
+                    elements: {
+                        [objectId]: [
+                            {
+                                id: '019ccefc-2f7b-7b39-82f4-85cdb131226b',
+                                data: { ShowFirstName: false, RequireFirstName: true }
+                            }
+                        ]
+                    }
+                } as never,
+                entities,
+                'user-1',
+                trx
+            )
+        ).rejects.toThrow('Invalid guest access-link intake policy in application snapshot')
+
+        expect(withSchema).not.toHaveBeenCalled()
+    })
+
+    it('uses server-owned defaults and trusted values for snapshot TABLE children while leaving absent optional fields to the database', async () => {
+        const merge = jest.fn().mockResolvedValue(undefined)
+        const onConflict = jest.fn().mockReturnValue({ merge })
+        const insert = jest.fn().mockReturnValue({ onConflict })
+        const del = jest.fn().mockResolvedValue(undefined)
+        const where = jest.fn().mockReturnValue({ del })
+        const table = jest.fn().mockReturnValue({ insert, onConflict, where })
+        const withSchema = jest.fn().mockReturnValue({ table })
+        const raw = jest.fn().mockReturnValue('uuid-v7-expression')
+        const trx = { withSchema, raw } as unknown as Knex.Transaction
+        const objectId = '019ccefc-2f7b-7b36-82f4-85cdb1312268'
+        const tableFieldId = '019ccefc-2f7b-7b36-82f4-85cdb1312292'
+        const sortOrderField = {
+            id: '019ccefc-2f7b-7b36-82f4-85cdb1312293',
+            codename: 'SortOrder',
+            dataType: ComponentDefinitionDataType.NUMBER,
+            isRequired: true,
+            uiConfig: { serverOwned: true, defaultValue: 0 }
+        }
+        const courseIdField = {
+            id: '019ccefc-2f7b-7b36-82f4-85cdb1312294',
+            codename: 'CourseId',
+            dataType: ComponentDefinitionDataType.STRING,
+            isRequired: true,
+            uiConfig: { serverOwned: true }
+        }
+        const optionalRuntimeField = {
+            id: '019ccefc-2f7b-7b36-82f4-85cdb1312295',
+            codename: 'RuntimeMarker',
+            dataType: ComponentDefinitionDataType.STRING,
+            isRequired: false,
+            uiConfig: { serverOwned: true }
+        }
+        const tableField = {
+            id: tableFieldId,
+            codename: 'Sections',
+            dataType: ComponentDefinitionDataType.TABLE,
+            childFields: [sortOrderField, courseIdField, optionalRuntimeField]
+        }
+        const entities = [{ id: objectId, kind: 'object', codename: 'Courses', fields: [tableField] }] as unknown as EntityDefinition[]
+
+        await seedPredefinedElements(
+            'app_019ccefc2f7b7b3682f485cdb1312268',
+            {
+                elements: {
+                    [objectId]: [
+                        {
+                            id: '019ccefc-2f7b-7b39-82f4-85cdb131226b',
+                            data: {
+                                Sections: [{ SortOrder: 99, CourseId: 'trusted-course-id' }]
+                            }
+                        }
+                    ]
+                }
+            } as never,
+            entities,
+            'user-1',
+            trx
+        )
+
+        const childTable = generateChildTableName(tableFieldId)
+        const childRows = insert.mock.calls[1]?.[0] as Array<Record<string, unknown>>
+        expect(childRows).toHaveLength(1)
+        expect(childRows[0]?.[generateColumnName(sortOrderField.id)]).toBe(99)
+        expect(childRows[0]?.[generateColumnName(courseIdField.id)]).toBe('trusted-course-id')
+        expect(childRows[0]).not.toHaveProperty(generateColumnName(optionalRuntimeField.id))
+        expect(table).toHaveBeenCalledWith(childTable)
+        expect(del).toHaveBeenCalledTimes(1)
+    })
+
+    it.each([
+        { caseName: 'missing value', seedData: {}, uiConfig: { serverOwned: true } },
+        { caseName: 'explicit null value', seedData: { CourseId: null }, uiConfig: { serverOwned: true } },
+        { caseName: 'null metadata default', seedData: {}, uiConfig: { serverOwned: true, defaultValue: null } }
+    ])('fails before deleting snapshot TABLE child rows with $caseName', async ({ seedData, uiConfig }) => {
+        const del = jest.fn()
+        const where = jest.fn().mockReturnValue({ del })
+        const insert = jest.fn().mockReturnValue({ onConflict: jest.fn().mockReturnValue({ merge: jest.fn() }) })
+        const table = jest.fn().mockReturnValue({ insert, where })
+        const withSchema = jest.fn().mockReturnValue({ table })
+        const trx = { withSchema, raw: jest.fn().mockReturnValue('uuid-v7-expression') } as unknown as Knex.Transaction
+        const objectId = '019ccefc-2f7b-7b36-82f4-85cdb1312268'
+        const tableFieldId = '019ccefc-2f7b-7b36-82f4-85cdb1312292'
+        const requiredField = {
+            id: '019ccefc-2f7b-7b36-82f4-85cdb1312294',
+            codename: 'CourseId',
+            dataType: ComponentDefinitionDataType.STRING,
+            isRequired: true,
+            uiConfig
+        }
+        const entities = [
+            {
+                id: objectId,
+                kind: 'object',
+                codename: 'Courses',
+                fields: [
+                    { id: tableFieldId, codename: 'Sections', dataType: ComponentDefinitionDataType.TABLE, childFields: [requiredField] }
+                ]
+            }
+        ] as unknown as EntityDefinition[]
+
+        await expect(
+            seedPredefinedElements(
+                'app_019ccefc2f7b7b3682f485cdb1312268',
+                {
+                    elements: {
+                        [objectId]: [{ id: '019ccefc-2f7b-7b39-82f4-85cdb131226b', data: { Sections: [seedData] } }]
+                    }
+                } as never,
+                entities,
+                'user-1',
+                trx
+            )
+        ).rejects.toThrow('Required server-owned child seed field has no trusted value: Sections.CourseId')
+
+        expect(del).not.toHaveBeenCalled()
     })
 
     it('fails the sync when a semantic-key Marketing binding exceeds the public runtime row limit', async () => {

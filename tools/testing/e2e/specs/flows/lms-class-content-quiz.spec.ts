@@ -1,5 +1,5 @@
 import { expect, test } from '../../fixtures/test'
-import { createLocalizedContent } from '@universo-react/utils'
+import { createLocalizedContent, generateUuidV7 } from '@universo-react/utils'
 import { createLoggedInApiContext, createRuntimeRow, disposeApiContext, sendWithCsrf } from '../../support/backend/api-session.mjs'
 import { recordCreatedApplication, recordCreatedMetahub, recordCreatedPublication } from '../../support/backend/run-manifest.mjs'
 import {
@@ -101,8 +101,8 @@ test('@flow lms public guest runtime completes a class learning resource quiz an
                         Difficulty: 1,
                         Explanation: 'Photosynthesis occurs in chloroplasts.',
                         Options: [
-                            { id: 'q1-opt-a', label: 'Chloroplast', isCorrect: true },
-                            { id: 'q1-opt-b', label: 'Mitochondrion', isCorrect: false }
+                            { id: generateUuidV7(), label: 'Chloroplast', isCorrect: true },
+                            { id: generateUuidV7(), label: 'Mitochondrion', isCorrect: false }
                         ],
                         SortOrder: 1
                     },
@@ -113,8 +113,8 @@ test('@flow lms public guest runtime completes a class learning resource quiz an
                         Difficulty: 1,
                         Explanation: 'Carbon dioxide is consumed during photosynthesis.',
                         Options: [
-                            { id: 'q2-opt-a', label: 'Carbon dioxide', isCorrect: true },
-                            { id: 'q2-opt-b', label: 'Nitrogen', isCorrect: false }
+                            { id: generateUuidV7(), label: 'Carbon dioxide', isCorrect: true },
+                            { id: generateUuidV7(), label: 'Nitrogen', isCorrect: false }
                         ],
                         SortOrder: 2
                     }
@@ -128,6 +128,7 @@ test('@flow lms public guest runtime completes a class learning resource quiz an
             workspaceId,
             objectCollectionId: learningResourcesObjectId,
             data: {
+                SortOrder: 1,
                 Title: `Photosynthesis Learning Resource ${runManifest.runId}`,
                 Description: 'Guest LMS lesson with embedded quiz hand-off',
                 ResourceType: pageResourceTypeValueId,
@@ -157,14 +158,13 @@ test('@flow lms public guest runtime completes a class learning resource quiz an
             objectCollectionId: accessLinksObjectId,
             data: {
                 Slug: contentSlug,
-                TargetType: 'content',
-                TargetId: contentRow.id,
                 ContentNodeIdRef: contentRow.id,
                 LinkClassId: classRow.id,
                 IsActive: true,
                 MaxUses: 20,
-                UseCount: 0,
-                LinkTitle: 'Photosynthesis journey'
+                LinkTitle: 'Photosynthesis journey',
+                ShowFirstName: true,
+                RequireFirstName: true
             }
         })
         await waitForApplicationRuntimeRow(api, lms.applicationId, accessLinksObjectId, accessLinkRow.id, { workspaceId })
@@ -190,8 +190,11 @@ test('@flow lms public guest runtime completes a class learning resource quiz an
         )
 
         await page.goto(`/public/a/${lms.applicationId}/links/${contentSlug}`)
-        await expect(page.getByLabel('Your name')).toBeVisible({ timeout: 30_000 })
-        await page.getByLabel('Your name').fill('Guest learner journey')
+        await expect(page.getByLabel('First name')).toBeVisible({ timeout: 30_000 })
+        await page.getByLabel('First name').fill('Guest learner journey')
+        await page.getByLabel('Last name').fill('Class quiz')
+        await page.getByRole('checkbox', { name: 'I agree to the Terms of Service' }).check()
+        await page.getByRole('checkbox', { name: 'I have read and accept the Privacy Policy' }).check()
         await page.getByRole('button', { name: 'Start learning' }).click()
 
         const guestSessionResponse = await guestSessionResponsePromise
@@ -210,9 +213,14 @@ test('@flow lms public guest runtime completes a class learning resource quiz an
 
         await expect(page.getByText('Which organelle is primarily responsible for photosynthesis?')).toBeVisible({ timeout: 30_000 })
         await page.getByLabel('Chloroplast').check()
+        await expect(page.getByText('Plants need sunlight, water, and which gas to complete photosynthesis?')).toBeVisible({
+            timeout: 30_000
+        })
         await page.getByLabel('Carbon dioxide').check()
-        await page.getByRole('button', { name: 'Submit quiz' }).click()
-        await expect(page.getByText('Score 2 / 2')).toBeVisible({ timeout: 30_000 })
+        await expect(page.getByRole('heading', { name: 'Quiz completed' })).toBeVisible({ timeout: 30_000 })
+        const quizResultStatus = page.getByRole('status')
+        await expect(quizResultStatus).toContainText('Correct answers: 2 of 2')
+        await expect(quizResultStatus).toContainText('Passed')
 
         await page.getByRole('button', { name: 'Back to content' }).click()
         await page.getByRole('button', { name: 'Complete content' }).click()

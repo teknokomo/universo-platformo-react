@@ -25,7 +25,8 @@ const isCompatibleTarget = (
     target: WidgetBindingTarget,
     slotKey: string,
     widget: PreparedWidget,
-    metadata: Awaited<ReturnType<typeof loadRuntimeWidgetBindingMetadata>>
+    metadata: Awaited<ReturnType<typeof loadRuntimeWidgetBindingMetadata>>,
+    relationParentObject?: RuntimeWidgetBindingObjectMetadata
 ): RuntimeWidgetBindingObjectMetadata | null => {
     if (target.entityKind !== 'object') return null
     const slot = widget.slotByKey.get(slotKey)
@@ -34,18 +35,36 @@ const isCompatibleTarget = (
     if (!slot || !object || object.kind !== 'object' || codename !== target.entityCodename) return null
     const components = metadata.componentsByObjectId.get(String(object.id)) ?? []
     if (
-        !isCompatibleWidgetBindingEntity(slot, {
-            kind: 'object',
-            codename,
-            config: object.config,
-            components: components.map((component) => ({
-                codename: String(component.codename),
-                dataType: String(component.dataType ?? ''),
-                isRequired: component.isRequired === true,
-                validationRules: component.validationRules,
-                uiConfig: component.uiConfig
-            }))
-        })
+        !isCompatibleWidgetBindingEntity(
+            slot,
+            {
+                kind: 'object',
+                codename,
+                config: object.config,
+                components: components.map((component) => ({
+                    codename: String(component.codename),
+                    dataType: String(component.dataType ?? ''),
+                    isRequired: component.isRequired === true,
+                    validationRules: component.validationRules,
+                    targetObjectId: typeof component.targetObjectId === 'string' ? component.targetObjectId : null,
+                    targetObjectKind: typeof component.targetObjectKind === 'string' ? component.targetObjectKind : null,
+                    targetObjectCodename: typeof component.targetObjectCodename === 'string' ? component.targetObjectCodename : null,
+                    uiConfig: component.uiConfig
+                }))
+            },
+            relationParentObject &&
+                typeof relationParentObject.id === 'string' &&
+                typeof relationParentObject.kind === 'string' &&
+                typeof relationParentObject.codename === 'string'
+                ? {
+                      relationParent: {
+                          id: relationParentObject.id,
+                          kind: relationParentObject.kind,
+                          codename: relationParentObject.codename
+                      }
+                  }
+                : undefined
+        )
     ) {
         return null
     }
@@ -57,8 +76,10 @@ export const authorizeWidgetTargets = (
     metadata: Awaited<ReturnType<typeof loadRuntimeWidgetBindingMetadata>>
 ): boolean => {
     for (const { slot, target } of widget.targets) {
-        if (!isCompatibleTarget(target, slot, widget, metadata)) return false
-        if (target.selector.kind !== 'relation-set') continue
+        if (target.selector.kind !== 'relation-set') {
+            if (!isCompatibleTarget(target, slot, widget, metadata)) return false
+            continue
+        }
 
         const parentSlotKey = target.selector.parentSlot
         const relation = widget.slotByKey.get(slot)?.relation
@@ -66,23 +87,23 @@ export const authorizeWidgetTargets = (
         const parentTarget = parentBinding?.targets.length === 1 ? parentBinding.targets[0] : undefined
         const parentSlot = relation ? widget.slotByKey.get(relation.parentSlot) : undefined
         const parentObject = parentTarget && parentSlot ? isCompatibleTarget(parentTarget, parentSlot.key, widget, metadata) : null
-        if (!relation || !parentTarget || !parentObject) return false
+        if (!relation || relation.parentSlot !== parentSlotKey || !parentTarget || !parentObject) return false
+        const childObject = isCompatibleTarget(target, slot, widget, metadata, parentObject)
+        if (!childObject) return false
 
-        const childObject = metadata.objectsByCodename.get(target.entityCodename)
         const relationComponent =
-            (childObject &&
-                metadata.componentsByObjectId
-                    .get(String(childObject.id))
-                    ?.find(
-                        (component) =>
-                            String(component.codename) ===
-                            widget.slotByKey.get(slot)?.requirements.components.find(({ field }) => field === relation.field)
-                                ?.componentCodename
-                    )) ??
-            null
+            metadata.componentsByObjectId
+                .get(String(childObject.id))
+                ?.find(
+                    (component) =>
+                        String(component.codename) ===
+                        widget.slotByKey.get(slot)?.requirements.components.find(({ field }) => field === relation.field)?.componentCodename
+                ) ?? null
         if (
             !relationComponent ||
             String(relationComponent.targetObjectId) !== String(parentObject.id) ||
+            String(relationComponent.targetObjectKind) !== String(parentObject.kind) ||
+            String(relationComponent.targetObjectCodename) !== String(parentObject.codename) ||
             !['REF', 'UUID'].includes(
                 String(relationComponent.dataType ?? '')
                     .trim()

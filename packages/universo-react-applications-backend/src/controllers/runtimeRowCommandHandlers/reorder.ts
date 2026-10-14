@@ -16,6 +16,7 @@ import {
     resolveRuntimeObjectCollectionConfig
 } from '../runtimeRowSupport/objects'
 import { denyRuntimeEntityMutation } from '../../shared/entityMutationPolicy'
+import { lockGuestAccessLinkWorkspace } from '../../services/guestAccessLinkRevocation'
 import {
     resolveRuntimeRelationOwnedFieldCodenames,
     resolveRuntimeRelationPanelAuthority,
@@ -24,6 +25,7 @@ import {
 } from '../../services/runtimeRowSupport/list'
 import {
     lockRuntimeRelationParentRecord,
+    resolveRuntimeRelationAuthorityLayout,
     resolveRuntimeRelationWriteScope,
     type ResolvedRuntimeRelationScope
 } from '../runtimeRowSupport/relationScope'
@@ -148,9 +150,21 @@ export const createReorderRowsHandler = ({ getDbExecutor, query }: RuntimeRowCom
         }
         if (parentCollection?.objectCollection && denyRuntimeEntityMutation(res, parentCollection.objectCollection.config)) return
 
+        const relationAuthorityLayout = parentScope
+            ? await resolveRuntimeRelationAuthorityLayout({
+                  manager: ctx.manager,
+                  applicationId,
+                  userId: ctx.userId,
+                  role: ctx.role,
+                  workspaceId: ctx.currentWorkspaceId,
+                  target: parentScope.layoutTarget,
+                  childEntity: objectCollection,
+                  locale: typeof req.query.locale === 'string' ? req.query.locale : 'en'
+              })
+            : null
         const relationPanelAuthority =
-            parentScope && parentCollection?.objectCollection
-                ? resolveRuntimeRelationPanelAuthority(selectedLayout.zoneWidgets, {
+            parentScope && parentCollection?.objectCollection && relationAuthorityLayout
+                ? resolveRuntimeRelationPanelAuthority(relationAuthorityLayout.zoneWidgets, {
                       parentFieldCodename: parentScope.fieldCodename,
                       parentEntityCodename: resolveRuntimeCodenameText(parentCollection.objectCollection.codename),
                       parentRecordId: parentScope.parentRecordId,
@@ -192,36 +206,38 @@ export const createReorderRowsHandler = ({ getDbExecutor, query }: RuntimeRowCom
 
         try {
             await withTransactionSavepoint(ctx.manager, async (tx) => {
+                if (resolveRuntimeCodenameText(objectCollection.codename) === 'AccessLinks') {
+                    await lockGuestAccessLinkWorkspace({
+                        executor: tx,
+                        schemaName: ctx.schemaName,
+                        workspacesEnabled: ctx.workspacesEnabled,
+                        workspaceId: ctx.currentWorkspaceId
+                    })
+                }
                 let transactionRelationScope: ResolvedRuntimeRelationScope | null = null
 
                 if (parentScope) {
-                    const { selectedLayout: transactionLayout } = await resolveRuntimeObjectCollectionConfig({
+                    const transactionRelationLayout = await resolveRuntimeRelationAuthorityLayout({
                         manager: tx,
                         applicationId,
                         userId: ctx.userId,
                         role: ctx.role,
                         workspaceId: ctx.currentWorkspaceId,
-                        objectCollectionId: objectCollection.id,
-                        objectCollectionCodename: objectCodename
+                        target: parentScope.layoutTarget,
+                        childEntity: objectCollection,
+                        locale: typeof req.query.locale === 'string' ? req.query.locale : 'en'
                     })
                     transactionRelationScope = await resolveRuntimeRelationWriteScope({
                         manager: tx,
                         applicationId,
                         workspaceId: ctx.currentWorkspaceId,
                         schemaIdent: ctx.schemaIdent,
-                        zoneWidgets: transactionLayout.zoneWidgets,
+                        zoneWidgets: transactionRelationLayout.zoneWidgets,
                         childEntity: objectCollection,
                         childAttrs: attrs,
                         request: parentScope
                     })
-                    const transactionAuthority = transactionRelationScope
-                        ? resolveRuntimeRelationPanelAuthority(transactionLayout.zoneWidgets, {
-                              parentFieldCodename: parentScope.fieldCodename,
-                              parentEntityCodename: resolveRuntimeCodenameText(transactionRelationScope.parentCollection.codename),
-                              parentRecordId: parentScope.parentRecordId,
-                              childEntityCodename: objectCodename
-                          })
-                        : null
+                    const transactionAuthority = transactionRelationScope?.authority ?? null
                     const transactionReorderField = transactionAuthority
                         ? resolveRuntimeReorderField(attrs, transactionAuthority.sortOrderFieldCodename)
                         : null

@@ -105,6 +105,7 @@ export interface CrudDashboardState {
     }) => Promise<void>
     handlePersistRelationRowReorder: (params: {
         objectCollectionCodename: string
+        layoutTarget: RuntimeRelationScope['layoutTarget']
         parentFieldCodename: string
         parentRecordId: string
         orderedRowIds: string[]

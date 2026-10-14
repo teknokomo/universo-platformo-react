@@ -1,8 +1,8 @@
 ---
-description: Public application runtime, deployment-wide aliases, and the 73rd Meridian Consortium marketing fixture.
+description: Public application runtime, deployment-wide aliases, global short links, and the 73rd Meridian Consortium marketing fixture.
 ---
 
-# Public applications and aliases
+# Public applications, aliases, and global short links
 
 An application can expose a published marketing page to anonymous visitors. The public entry is resolved from either the immutable application UUID or a deployment-wide alias:
 
@@ -51,6 +51,28 @@ Two routing policies are available:
 | Canonical | The primary alias is the public address; other active aliases redirect to it while preserving the path suffix and query string. |
 
 The stable UUID address remains usable in both policies. Canonicalization uses same-origin SPA navigation with history replacement, so a mutable alias does not create a permanent external redirect.
+
+## Global `/l` short links
+
+A global short link uses a deployment-wide slug and the public path `/l/<slug>`. Create and manage links from an application's **Short links** screen at `/a/<applicationId>/admin/short-links`. The slug is normalized to lowercase and accepts 1–63 ASCII letters, digits, and interior hyphens; reserved platform route names are rejected. Users need the target application's `manageApplication` membership role (`owner` or `admin`), or the existing root `Superuser` bypass, to list, create, and release links. Listing requires the target `applicationId`, and release checks the link's own target application.
+
+The public browser route resolves the slug through `GET /api/v1/public/l/:slug`. The server returns a validated target object rather than an arbitrary redirect URL, and the SPA dispatches that target:
+
+| Target                    | Current destination                                                                                       |
+| ------------------------- | --------------------------------------------------------------------------------------------------------- |
+| Application entry         | `/a/<applicationId>`                                                                                      |
+| Dashboard section         | `/a/<applicationId>`                                                                                      |
+| Workspace section         | `/a/<applicationId>/workspaces`, only when workspaces are enabled                                        |
+| Published runtime resource | `/a/<applicationId>?targetKind=page\|object&entityTypeCodename=<codename>` for an eligible page or object |
+| LMS access link           | Opens the guest runtime for that application's access-link slug                                           |
+
+The target application must be public and ready. A quiz access-link target must still resolve to an active, available public quiz when the short link is created and opened. The short-link screen exposes a **Quiz access link** choice and loads its eligible options through `GET /api/v1/global-short-links/applications/:applicationId/quiz-access-options?locale=en|ru`. The route requires `manageApplication` for the requested application and returns only that application's link slugs and localized labels.
+
+Published resource targets are limited to layout-capable pages and object views. The server resolves each resource codename against current published application metadata and the public effective-layout resolver when creating and opening a link. The browser URL uses the validated codename instead of an entity UUID; arbitrary URLs, table names, paths, and record IDs are rejected. A direct quiz link uses the separate validated LMS access-link target, which retains the quiz's guest-access policy.
+
+The application short-link UI offers quiz access links, application entry and section choices, and eligible published resources with localized labels. The resource options route is `GET /api/v1/global-short-links/applications/:applicationId/application-resource-options?locale=en|ru`; it requires `manageApplication` for that application and returns only current public runtime targets.
+
+Global short-link routes are composed by `createGlobalShortLinksRoutes()`. Management routes include `GET /api/v1/global-short-links`, the quiz and resource options routes above, `POST /api/v1/global-short-links`, and `POST /api/v1/global-short-links/:id/release`; each management action requires the target application's `manageApplication` membership role or the root `Superuser` bypass. Releasing a link disables its public resolution and makes its slug available for reuse. Soft-deleting an application releases all of its active global short links in the same transaction. Short links do not make application administration or private runtime data public.
 
 ## Marketing image widget
 

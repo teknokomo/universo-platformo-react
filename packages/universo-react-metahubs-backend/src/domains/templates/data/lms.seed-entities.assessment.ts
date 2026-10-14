@@ -2,6 +2,24 @@ import type { LmsTemplateEntity } from './lms.seed-entity-helpers'
 import { vlc } from './basic.template'
 import { LMS_ASSIGNMENT_SUBMISSION_WORKFLOW_ACTIONS } from './lms.seed-workflows'
 import { buildTransactionalObjectConfig } from './lms.seed-entity-helpers'
+import { DEFAULT_GUEST_INTAKE_POLICY } from '@universo-react/types'
+
+export const createLmsAccessLinkIntakeDefaults = (
+    policy: typeof DEFAULT_GUEST_INTAKE_POLICY = DEFAULT_GUEST_INTAKE_POLICY
+): Record<string, boolean> => ({
+    IsActive: true,
+    ShowFirstName: policy.showFirstName,
+    RequireFirstName: policy.requireFirstName,
+    ShowLastName: policy.showLastName,
+    RequireLastName: policy.requireLastName,
+    ShowEmail: policy.showEmail,
+    RequireEmail: policy.requireEmail,
+    ShowPhone: policy.showPhone,
+    RequirePhone: policy.requirePhone,
+    CaptchaEnabled: policy.captchaEnabled
+})
+
+const accessLinkIntakeDefaults = createLmsAccessLinkIntakeDefaults()
 
 export const lmsSeedAssessmentEntities: LmsTemplateEntity[] = [
     {
@@ -9,6 +27,12 @@ export const lmsSeedAssessmentEntities: LmsTemplateEntity[] = [
         kind: 'object',
         name: vlc('Quizzes', 'Тесты'),
         description: vlc('Quiz assessments with questions stored as JSON.', 'Тестовые задания с вопросами, хранящимися как JSON.'),
+        config: {
+            runtime: {
+                menuVisibility: 'primary',
+                icon: 'school'
+            }
+        },
         components: [
             {
                 codename: 'Title',
@@ -17,7 +41,7 @@ export const lmsSeedAssessmentEntities: LmsTemplateEntity[] = [
                 isRequired: true,
                 isDisplayComponent: true,
                 sortOrder: 1,
-                validationRules: { maxLength: 500, localized: true, versioned: true }
+                validationRules: { maxLength: 255, localized: true, versioned: true }
             },
             {
                 codename: 'Description',
@@ -41,10 +65,25 @@ export const lmsSeedAssessmentEntities: LmsTemplateEntity[] = [
                 validationRules: { min: 1 }
             },
             {
+                codename: 'TimeLimitSeconds',
+                dataType: 'NUMBER',
+                name: vlc('Time Limit (seconds)', 'Ограничение времени (секунды)'),
+                sortOrder: 5,
+                validationRules: { min: 0, max: 86400 }
+            },
+            {
+                codename: 'CompletionText',
+                dataType: 'STRING',
+                name: vlc('Completion Message', 'Текст завершения'),
+                sortOrder: 6,
+                validationRules: { maxLength: 2000, localized: true, versioned: true },
+                uiConfig: { widget: 'textarea', rows: 4 }
+            },
+            {
                 codename: 'Questions',
                 dataType: 'TABLE',
                 name: vlc('Questions', 'Вопросы'),
-                sortOrder: 5,
+                sortOrder: 7,
                 childComponents: [
                     {
                         codename: 'Prompt',
@@ -52,14 +91,16 @@ export const lmsSeedAssessmentEntities: LmsTemplateEntity[] = [
                         name: vlc('Prompt', 'Текст вопроса'),
                         isRequired: true,
                         sortOrder: 1,
-                        validationRules: { localized: true, versioned: true }
+                        validationRules: { localized: true, versioned: true },
+                        uiConfig: { widget: 'textarea', rows: 4 }
                     },
                     {
                         codename: 'QuestionDescription',
                         dataType: 'STRING',
                         name: vlc('Description', 'Описание'),
                         sortOrder: 2,
-                        validationRules: { localized: true, versioned: true }
+                        validationRules: { localized: true, versioned: true },
+                        uiConfig: { widget: 'textarea', rows: 4 }
                     },
                     {
                         codename: 'QuestionType',
@@ -82,13 +123,15 @@ export const lmsSeedAssessmentEntities: LmsTemplateEntity[] = [
                         dataType: 'STRING',
                         name: vlc('Explanation', 'Пояснение'),
                         sortOrder: 5,
-                        validationRules: { localized: true, versioned: true }
+                        validationRules: { localized: true, versioned: true },
+                        uiConfig: { widget: 'textarea', rows: 4 }
                     },
                     {
                         codename: 'Options',
                         dataType: 'JSON',
                         name: vlc('Options', 'Варианты ответов'),
-                        sortOrder: 6
+                        sortOrder: 6,
+                        uiConfig: { widget: 'assessmentOptions', minOptions: 2, maxOptions: 20 }
                     },
                     {
                         codename: 'SortOrder',
@@ -97,6 +140,15 @@ export const lmsSeedAssessmentEntities: LmsTemplateEntity[] = [
                         sortOrder: 7
                     }
                 ]
+            },
+            {
+                codename: 'SortOrder',
+                dataType: 'NUMBER',
+                name: vlc('Sort Order', 'Порядок'),
+                isRequired: true,
+                sortOrder: 8,
+                validationRules: { min: 0 },
+                uiConfig: { hidden: true, serverOwned: true, defaultValue: 1 }
             }
         ]
     },
@@ -105,11 +157,14 @@ export const lmsSeedAssessmentEntities: LmsTemplateEntity[] = [
         kind: 'object',
         name: vlc('Quiz Responses', 'Ответы на тесты'),
         description: vlc('Individual quiz answer records for scoring.', 'Записи ответов на тесты для подсчёта баллов.'),
-        config: buildTransactionalObjectConfig({
-            prefix: 'QAR-',
-            effectiveDateField: 'SubmittedAt',
-            targetLedgers: ['ScoreLedger']
-        }),
+        config: {
+            ...buildTransactionalObjectConfig({
+                prefix: 'QAR-',
+                effectiveDateField: 'SubmittedAt',
+                targetLedgers: ['ScoreLedger']
+            }),
+            recordPolicy: { version: 1, workspaceCopy: 'exclude', runtimeMutation: 'deny' }
+        },
         components: [
             {
                 codename: 'StudentId',
@@ -137,29 +192,39 @@ export const lmsSeedAssessmentEntities: LmsTemplateEntity[] = [
                 sortOrder: 3
             },
             {
+                codename: 'AttemptId',
+                dataType: 'REF',
+                name: vlc('Attempt', 'Попытка'),
+                isRequired: true,
+                sortOrder: 4,
+                targetEntityCodename: 'QuizAttempts',
+                targetEntityKind: 'object',
+                uiConfig: { hidden: true }
+            },
+            {
                 codename: 'SelectedOptionIds',
                 dataType: 'JSON',
                 name: vlc('Selected Options', 'Выбранные варианты'),
-                sortOrder: 4
+                sortOrder: 5
             },
             {
                 codename: 'IsCorrect',
                 dataType: 'BOOLEAN',
                 name: vlc('Is Correct', 'Правильно'),
-                sortOrder: 5
+                sortOrder: 6
             },
             {
                 codename: 'AttemptNumber',
                 dataType: 'NUMBER',
                 name: vlc('Attempt Number', 'Номер попытки'),
-                sortOrder: 6,
+                sortOrder: 7,
                 validationRules: { min: 1 }
             },
             {
                 codename: 'SubmittedAt',
                 dataType: 'DATE',
                 name: vlc('Submitted At', 'Отправлено'),
-                sortOrder: 7
+                sortOrder: 8
             }
         ]
     },
@@ -171,18 +236,23 @@ export const lmsSeedAssessmentEntities: LmsTemplateEntity[] = [
             'Submitted quiz attempts with score and pass/fail state.',
             'Отправленные попытки тестов с баллом и состоянием прохождения.'
         ),
-        config: buildTransactionalObjectConfig({
-            prefix: 'QAT-',
-            effectiveDateField: 'SubmittedAt',
-            stateField: 'Status',
-            states: [
-                { codename: 'Started', title: 'Started', isInitial: true },
-                { codename: 'Submitted', title: 'Submitted' },
-                { codename: 'Passed', title: 'Passed', isFinal: true },
-                { codename: 'Failed', title: 'Failed', isFinal: true }
-            ],
-            targetLedgers: ['ScoreLedger', 'LearningActivityLedger']
-        }),
+        config: {
+            ...buildTransactionalObjectConfig({
+                prefix: 'QAT-',
+                effectiveDateField: 'StartedAt',
+                stateField: 'Status',
+                states: [
+                    { codename: 'Started', title: 'Started', isInitial: true },
+                    { codename: 'Submitted', title: 'Submitted' },
+                    { codename: 'TimedOut', title: 'Timed Out', isFinal: true },
+                    { codename: 'Revoked', title: 'Revoked', isFinal: true },
+                    { codename: 'Passed', title: 'Passed', isFinal: true },
+                    { codename: 'Failed', title: 'Failed', isFinal: true }
+                ],
+                targetLedgers: ['ScoreLedger', 'LearningActivityLedger']
+            }),
+            recordPolicy: { version: 1, workspaceCopy: 'exclude', runtimeMutation: 'deny' }
+        },
         components: [
             {
                 codename: 'StudentId',
@@ -220,28 +290,86 @@ export const lmsSeedAssessmentEntities: LmsTemplateEntity[] = [
                 codename: 'SubmittedAt',
                 dataType: 'DATE',
                 name: vlc('Submitted At', 'Отправлено'),
-                isRequired: true,
                 sortOrder: 5
+            },
+            {
+                codename: 'DeadlineAt',
+                dataType: 'DATE',
+                name: vlc('Deadline', 'Срок завершения'),
+                sortOrder: 6
+            },
+            {
+                codename: 'EffectiveTimeLimitSeconds',
+                dataType: 'NUMBER',
+                name: vlc('Time Limit (seconds)', 'Ограничение времени (секунды)'),
+                sortOrder: 7,
+                validationRules: { min: 0, max: 86400 }
+            },
+            {
+                codename: 'PassingScorePercentSnapshot',
+                dataType: 'NUMBER',
+                name: vlc('Passing Score Snapshot (%)', 'Снимок проходного балла (%)'),
+                sortOrder: 8,
+                validationRules: { min: 0, max: 100 },
+                uiConfig: { hidden: true }
+            },
+            {
+                codename: 'AccessLinkId',
+                dataType: 'REF',
+                name: vlc('Access Link', 'Ссылка доступа'),
+                sortOrder: 9,
+                targetEntityCodename: 'AccessLinks',
+                targetEntityKind: 'object',
+                uiConfig: { hidden: true }
+            },
+            {
+                codename: 'FinishedReason',
+                dataType: 'STRING',
+                name: vlc('Finished Reason', 'Причина завершения'),
+                sortOrder: 10,
+                validationRules: { maxLength: 30 }
+            },
+            {
+                codename: 'QuestionsSnapshot',
+                dataType: 'JSON',
+                name: vlc('Question Snapshot', 'Снимок вопросов'),
+                sortOrder: 11,
+                uiConfig: { hidden: true }
+            },
+            {
+                codename: 'QuestionSetDigest',
+                dataType: 'STRING',
+                name: vlc('Question Set Digest', 'Контрольная сумма набора вопросов'),
+                sortOrder: 12,
+                validationRules: { maxLength: 128 },
+                uiConfig: { hidden: true }
             },
             {
                 codename: 'Score',
                 dataType: 'NUMBER',
                 name: vlc('Score', 'Балл'),
-                sortOrder: 6,
+                sortOrder: 13,
                 validationRules: { min: 0 }
+            },
+            {
+                codename: 'TotalQuestions',
+                dataType: 'NUMBER',
+                name: vlc('Total Questions', 'Всего вопросов'),
+                sortOrder: 14,
+                validationRules: { min: 0, max: 1000 }
             },
             {
                 codename: 'Passed',
                 dataType: 'BOOLEAN',
                 name: vlc('Passed', 'Пройдено'),
-                sortOrder: 7
+                sortOrder: 15
             },
             {
                 codename: 'Status',
                 dataType: 'STRING',
                 name: vlc('Status', 'Статус'),
                 isRequired: true,
-                sortOrder: 8,
+                sortOrder: 16,
                 validationRules: { maxLength: 30 }
             }
         ]
@@ -250,19 +378,17 @@ export const lmsSeedAssessmentEntities: LmsTemplateEntity[] = [
         codename: 'AccessLinks',
         kind: 'object',
         name: vlc('Access Links', 'Ссылки доступа'),
-        description: vlc(
-            'Direct access links and QR codes for learning content and quizzes.',
-            'Прямые ссылки и QR-коды для учебного контента и тестов.'
-        ),
+        description: vlc('Application access links and guest intake policy.', 'Ссылки доступа приложения и настройки гостевой анкеты.'),
         components: [
             {
                 codename: 'Slug',
                 dataType: 'STRING',
-                name: vlc('Slug', 'Слаг'),
+                name: vlc('Access Key', 'Ключ доступа'),
                 isRequired: true,
                 isDisplayComponent: true,
                 sortOrder: 1,
-                validationRules: { maxLength: 255 }
+                validationRules: { maxLength: 255, unique: true },
+                uiConfig: { widget: 'text', maxLength: 255 }
             },
             {
                 codename: 'TargetType',
@@ -270,14 +396,18 @@ export const lmsSeedAssessmentEntities: LmsTemplateEntity[] = [
                 name: vlc('Target Type', 'Тип цели'),
                 isRequired: true,
                 sortOrder: 2,
-                validationRules: { maxLength: 30 }
+                validationRules: { maxLength: 30 },
+                uiConfig: { hidden: true, serverOwned: true, defaultValue: 'quiz' }
             },
             {
                 codename: 'TargetId',
-                dataType: 'STRING',
+                dataType: 'REF',
                 name: vlc('Target ID', 'ID цели'),
-                isRequired: true,
-                sortOrder: 3
+                isRequired: false,
+                sortOrder: 3,
+                targetEntityCodename: 'Quizzes',
+                targetEntityKind: 'object',
+                uiConfig: { hidden: true, serverOwned: true }
             },
             {
                 codename: 'ContentNodeIdRef',
@@ -300,7 +430,8 @@ export const lmsSeedAssessmentEntities: LmsTemplateEntity[] = [
                 codename: 'IsActive',
                 dataType: 'BOOLEAN',
                 name: vlc('Is Active', 'Активна'),
-                sortOrder: 6
+                sortOrder: 6,
+                uiConfig: { defaultValue: accessLinkIntakeDefaults.IsActive }
             },
             {
                 codename: 'ExpiresAt',
@@ -320,14 +451,88 @@ export const lmsSeedAssessmentEntities: LmsTemplateEntity[] = [
                 dataType: 'NUMBER',
                 name: vlc('Use Count', 'Счётчик'),
                 sortOrder: 9,
-                validationRules: { min: 0 }
+                validationRules: { min: 0 },
+                uiConfig: { serverOwned: true, hidden: true, defaultValue: 0, resetOnCopy: true }
             },
             {
                 codename: 'LinkTitle',
                 dataType: 'STRING',
                 name: vlc('Title', 'Заголовок'),
+                isRequired: true,
                 sortOrder: 10,
-                validationRules: { maxLength: 500, localized: true, versioned: true }
+                validationRules: { maxLength: 255, localized: true, versioned: true }
+            },
+            {
+                codename: 'ShowFirstName',
+                dataType: 'BOOLEAN',
+                name: vlc('Show First Name', 'Показывать поле «Имя»'),
+                sortOrder: 11,
+                uiConfig: { defaultValue: accessLinkIntakeDefaults.ShowFirstName }
+            },
+            {
+                codename: 'RequireFirstName',
+                dataType: 'BOOLEAN',
+                name: vlc('Require First Name', 'Запрашивать имя'),
+                sortOrder: 12,
+                uiConfig: { defaultValue: accessLinkIntakeDefaults.RequireFirstName }
+            },
+            {
+                codename: 'ShowLastName',
+                dataType: 'BOOLEAN',
+                name: vlc('Show Last Name', 'Показывать поле «Фамилия»'),
+                sortOrder: 13,
+                uiConfig: { defaultValue: accessLinkIntakeDefaults.ShowLastName }
+            },
+            {
+                codename: 'RequireLastName',
+                dataType: 'BOOLEAN',
+                name: vlc('Require Last Name', 'Запрашивать фамилию'),
+                sortOrder: 14,
+                uiConfig: { defaultValue: accessLinkIntakeDefaults.RequireLastName }
+            },
+            {
+                codename: 'ShowEmail',
+                dataType: 'BOOLEAN',
+                name: vlc('Show Email', 'Показывать поле электронной почты'),
+                sortOrder: 15,
+                uiConfig: { defaultValue: accessLinkIntakeDefaults.ShowEmail }
+            },
+            {
+                codename: 'RequireEmail',
+                dataType: 'BOOLEAN',
+                name: vlc('Require Email', 'Запрашивать электронную почту'),
+                sortOrder: 16,
+                uiConfig: { defaultValue: accessLinkIntakeDefaults.RequireEmail }
+            },
+            {
+                codename: 'ShowPhone',
+                dataType: 'BOOLEAN',
+                name: vlc('Show Phone', 'Показывать поле телефона'),
+                sortOrder: 17,
+                uiConfig: { defaultValue: accessLinkIntakeDefaults.ShowPhone }
+            },
+            {
+                codename: 'RequirePhone',
+                dataType: 'BOOLEAN',
+                name: vlc('Require Phone', 'Запрашивать телефон'),
+                sortOrder: 18,
+                uiConfig: { defaultValue: accessLinkIntakeDefaults.RequirePhone }
+            },
+            {
+                codename: 'CaptchaEnabled',
+                dataType: 'BOOLEAN',
+                name: vlc('Enable CAPTCHA', 'Включить CAPTCHA'),
+                sortOrder: 19,
+                uiConfig: { defaultValue: accessLinkIntakeDefaults.CaptchaEnabled }
+            },
+            {
+                codename: 'SortOrder',
+                dataType: 'NUMBER',
+                name: vlc('Sort Order', 'Порядок'),
+                isRequired: true,
+                sortOrder: 20,
+                validationRules: { min: 0 },
+                uiConfig: { hidden: true, serverOwned: true, defaultValue: 1 }
             }
         ]
     },

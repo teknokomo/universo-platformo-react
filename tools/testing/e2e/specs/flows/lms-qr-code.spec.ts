@@ -76,6 +76,7 @@ test('@flow lms contextual access link enables guest journey without legacy QR w
             workspaceId,
             objectCollectionId: learningResourcesObjectId,
             data: {
+                SortOrder: 1,
                 Title: `Access Link Learning Resource ${runManifest.runId}`,
                 Description: 'Learning resource opened through contextual access link',
                 ResourceType: pageResourceTypeValueId,
@@ -98,13 +99,12 @@ test('@flow lms contextual access link enables guest journey without legacy QR w
             objectCollectionId: accessLinksObjectId,
             data: {
                 Slug: accessSlug,
-                TargetType: 'content',
-                TargetId: contentRow.id,
                 ContentNodeIdRef: contentRow.id,
                 IsActive: true,
                 MaxUses: 20,
-                UseCount: 0,
-                LinkTitle: 'Access link content test'
+                LinkTitle: 'Access link content test',
+                ShowFirstName: true,
+                RequireFirstName: true
             }
         })
         await waitForApplicationRuntimeRow(api, lms.applicationId, accessLinksObjectId, accessLinkRow.id, { workspaceId })
@@ -131,8 +131,11 @@ test('@flow lms contextual access link enables guest journey without legacy QR w
         expect(widgetKeys).not.toContain('statsViewerWidget')
 
         await page.goto(`/public/a/${lms.applicationId}/links/${accessSlug}`)
-        await expect(page.getByLabel('Your name')).toBeVisible({ timeout: 30_000 })
-        await page.getByLabel('Your name').fill('Access link learner')
+        await expect(page.getByLabel('First name')).toBeVisible({ timeout: 30_000 })
+        await page.getByLabel('First name').fill('Access link learner')
+        await page.getByLabel('Last name').fill('QR code')
+        await page.getByRole('checkbox', { name: 'I agree to the Terms of Service' }).check()
+        await page.getByRole('checkbox', { name: 'I have read and accept the Privacy Policy' }).check()
         await page.getByRole('button', { name: 'Start learning' }).click()
 
         await expect(page.getByText(`Access Link Learning Resource ${runManifest.runId}`)).toBeVisible({ timeout: 30_000 })

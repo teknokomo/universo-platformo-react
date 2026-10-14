@@ -416,6 +416,9 @@ const resolveRelationBuilderBindingSlots = (
         const panel = value as Record<string, unknown>
         const slotKey = typeof panel.slotKey === 'string' ? panel.slotKey.trim() : ''
         const parentFieldCodename = typeof panel.parentFieldCodename === 'string' ? panel.parentFieldCodename.trim() : ''
+        const parentFieldRequired = panel.parentFieldRequired !== false
+        const titleFieldCodename =
+            typeof panel.titleFieldCodename === 'string' && panel.titleFieldCodename.trim() ? panel.titleFieldCodename.trim() : 'Title'
         if (!slotKey || !parentFieldCodename) return []
         const sortOrderFieldCodename =
             typeof panel.sortOrderFieldCodename === 'string' && panel.sortOrderFieldCodename.trim()
@@ -447,8 +450,21 @@ const resolveRelationBuilderBindingSlots = (
                     ...panelTemplate.requirements,
                     components: [
                         ...panelTemplate.requirements.components.map((component) => {
-                            if (component.field === 'parent') return { ...component, componentCodename: parentFieldCodename }
-                            if (component.field === 'order') return { ...component, componentCodename: sortOrderFieldCodename }
+                            if (component.field === 'parent') {
+                                return {
+                                    ...component,
+                                    componentCodename: parentFieldCodename,
+                                    required: parentFieldRequired,
+                                    requireServerOwned: true
+                                }
+                            }
+                            if (component.field === 'title') return { ...component, componentCodename: titleFieldCodename }
+                            if (component.field === 'order') {
+                                return {
+                                    ...component,
+                                    componentCodename: sortOrderFieldCodename
+                                }
+                            }
                             return component
                         }),
                         ...displayRequirements

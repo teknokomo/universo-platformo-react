@@ -6,6 +6,9 @@ import {
 import { ComponentDefinitionDataType } from '@universo-react/types'
 import {
     addApplicationSettingsMigrationDefinition,
+    bindGlobalShortLinksToAccessLinkIdentityMigrationDefinition,
+    createGlobalShortLinksMigrationDefinition,
+    createGuestSessionIdempotencyMigrationDefinition,
     finalizeApplicationsSchemaSupportMigrationDefinition,
     prepareApplicationsSchemaSupportMigrationDefinition
 } from './migrations'
@@ -283,6 +286,21 @@ export const applicationsSystemAppDefinition: SystemAppDefinition = {
         {
             kind: 'sql',
             definition: addApplicationSettingsMigrationDefinition,
+            bootstrapPhase: 'post_schema_generation'
+        },
+        {
+            kind: 'sql',
+            definition: createGlobalShortLinksMigrationDefinition,
+            bootstrapPhase: 'post_schema_generation'
+        },
+        {
+            kind: 'sql',
+            definition: createGuestSessionIdempotencyMigrationDefinition,
+            bootstrapPhase: 'post_schema_generation'
+        },
+        {
+            kind: 'sql',
+            definition: bindGlobalShortLinksToAccessLinkIdentityMigrationDefinition,
             bootstrapPhase: 'post_schema_generation'
         }
     ],

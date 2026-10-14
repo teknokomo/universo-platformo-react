@@ -40,7 +40,8 @@ jest.mock('../../services/runtimeWorkspaceService', () => ({
         memberNotFound: 'WORKSPACE_MEMBER_NOT_FOUND',
         personalWorkspaceMutationBlocked: 'PERSONAL_WORKSPACE_MUTATION_BLOCKED',
         lastOwnerRemovalBlocked: 'LAST_WORKSPACE_OWNER_REMOVAL_BLOCKED',
-        workspaceCopyReferenceUnresolved: 'WORKSPACE_COPY_REFERENCE_UNRESOLVED'
+        workspaceCopyReferenceUnresolved: 'WORKSPACE_COPY_REFERENCE_UNRESOLVED',
+        workspaceCopyAccessLinkIntakeInvalid: 'WORKSPACE_COPY_ACCESS_LINK_INTAKE_INVALID'
     },
     RuntimeWorkspaceError: class RuntimeWorkspaceError extends Error {
         code: string
@@ -363,6 +364,42 @@ describe('runtimeWorkspaceController', () => {
             expect.objectContaining({
                 error: 'Workspace copy contains a required reference to a row that was not copied',
                 code: 'WORKSPACE_COPY_REFERENCE_UNRESOLVED'
+            })
+        )
+    })
+
+    it('maps invalid copied guest intake settings to a conflict response', async () => {
+        const controller = createRuntimeWorkspaceController(() => manager as never)
+        const res = createResponse()
+        mockGetWorkspaceMembership.mockResolvedValue({
+            id: 'membership-1',
+            userId: 'user-1',
+            workspaceId,
+            roleCodename: 'owner',
+            isDefault: true,
+            workspaceType: 'shared',
+            personalUserId: null
+        })
+        mockCopyWorkspace.mockRejectedValue(
+            new RuntimeWorkspaceError(
+                RUNTIME_WORKSPACE_ERROR_CODES.workspaceCopyAccessLinkIntakeInvalid,
+                'Workspace copy contains an invalid guest intake configuration'
+            )
+        )
+
+        await controller.copyWorkspaceDetails(
+            {
+                params: { applicationId: 'app-1', workspaceId },
+                body: { name: vlc('Workspace copy'), description: vlc('Description') }
+            } as unknown as Request,
+            res
+        )
+
+        expect(res.status).toHaveBeenCalledWith(409)
+        expect(res.status.mock.results[0]?.value.json).toHaveBeenCalledWith(
+            expect.objectContaining({
+                error: 'Workspace copy contains an invalid guest intake configuration',
+                code: 'WORKSPACE_COPY_ACCESS_LINK_INTAKE_INVALID'
             })
         )
     })

@@ -15,6 +15,7 @@ const childAttrs: RuntimeObjectCollectionAttr[] = [
         codename: 'CourseId',
         column_name: 'course_id',
         data_type: 'REF',
+        ui_config: { serverOwned: true },
         is_required: true,
         target_object_id: parentObjectId,
         target_object_kind: 'object'
@@ -24,6 +25,7 @@ const childAttrs: RuntimeObjectCollectionAttr[] = [
         codename: 'SortOrder',
         column_name: 'sort_order',
         data_type: 'NUMBER',
+        ui_config: { serverOwned: true },
         is_required: true
     }
 ]
@@ -60,14 +62,31 @@ const zoneWidgets: RuntimeZoneWidgets = attachRuntimeRelationAuthorityProjection
 
 const makeExecutor = (query: jest.Mock): DbExecutor => ({ query } as unknown as DbExecutor)
 
-const resolveScope = async (query: jest.Mock, overrides: Partial<{ parentRecordId: string; childCodename: string }> = {}) =>
+const resolveScope = async (
+    query: jest.Mock,
+    overrides: Partial<{
+        parentRecordId: string
+        childCodename: string
+        parentFieldServerOwned: boolean
+        childAttrs: RuntimeObjectCollectionAttr[]
+        zoneWidgets: RuntimeZoneWidgets
+    }> = {}
+) =>
     resolveRuntimeRelationWriteScope({
         manager: makeExecutor(query),
         schemaIdent: '"app_test"',
-        zoneWidgets,
-        childEntity: { codename: overrides.childCodename ?? 'CourseItems' },
-        childAttrs,
-        request: { fieldCodename: 'CourseId', parentRecordId: overrides.parentRecordId ?? parentRecordId }
+        zoneWidgets: overrides.zoneWidgets ?? zoneWidgets,
+        childEntity: { id: '0190a9b5-3cde-7abc-8def-0123456789d4', codename: overrides.childCodename ?? 'CourseItems' },
+        childAttrs:
+            overrides.childAttrs ??
+            (overrides.parentFieldServerOwned === false
+                ? childAttrs.map((attr, index) => (index === 0 ? { ...attr, ui_config: null } : attr))
+                : childAttrs),
+        request: {
+            fieldCodename: 'CourseId',
+            parentRecordId: overrides.parentRecordId ?? parentRecordId,
+            layoutTarget: { targetKind: 'object', entityTypeId: parentObjectId }
+        }
     })
 
 describe('resolveRuntimeRelationWriteScope', () => {
@@ -90,6 +109,7 @@ describe('resolveRuntimeRelationWriteScope', () => {
             parentCollection: { id: parentObjectId, codename: 'Courses', table_name: 'courses' },
             sortOrderAttr: { column_name: 'sort_order', data_type: 'NUMBER' }
         })
+        expect(scope?.ownedFieldAttrs.map(({ column_name }) => column_name)).toEqual(['course_id', 'sort_order'])
         expect(query.mock.calls.every(([sql]) => !sql.includes('FROM "app_test".courses'))).toBe(true)
     })
 
@@ -123,6 +143,79 @@ describe('resolveRuntimeRelationWriteScope', () => {
         expect(unavailableParentQuery).toHaveBeenCalledWith(expect.stringContaining('FOR UPDATE OF parentRecord'), [
             requestedParentRecordId
         ])
+    })
+
+    it('rejects relation scopes when the parent field is not server-owned', async () => {
+        await expect(resolveScope(makeMetadataQuery(), { parentFieldServerOwned: false })).resolves.toBeNull()
+    })
+
+    it('requires the panel ordering field to be server-owned even when manual reordering is disabled', async () => {
+        const noReorderWidget = createRelationBuilderEffectiveWidget({ enableRowReordering: false })
+        const noReorderZoneWidgets = attachRuntimeRelationAuthorityProjection(
+            {
+                left: [],
+                top: [],
+                right: [],
+                bottom: [],
+                center: [{ ...noReorderWidget, layoutId: 'layout-1' }]
+            },
+            [noReorderWidget]
+        )
+        const attrs = childAttrs.map((attr, index) => (index === 1 ? { ...attr, ui_config: null } : attr))
+
+        await expect(resolveScope(makeMetadataQuery(), { zoneWidgets: noReorderZoneWidgets, childAttrs: attrs })).resolves.toBeNull()
+    })
+
+    it('requires every relationBuilder-owned field in the host layout to be server-owned', async () => {
+        const siblingWidget = createRelationBuilderEffectiveWidget({
+            parentFieldCodename: 'AlternateCourseId',
+            sortOrderFieldCodename: 'AlternateSortOrder'
+        })
+        const widgets = attachRuntimeRelationAuthorityProjection(
+            {
+                left: [],
+                top: [],
+                right: [],
+                bottom: [],
+                center: [...zoneWidgets.center, { ...siblingWidget, layoutId: 'layout-1' }]
+            },
+            [effectiveRelationWidget, siblingWidget]
+        )
+        const siblingAttrs: RuntimeObjectCollectionAttr[] = [
+            {
+                id: 'alternate-course-ref',
+                codename: 'AlternateCourseId',
+                column_name: 'alternate_course_id',
+                data_type: 'REF',
+                ui_config: { serverOwned: true },
+                is_required: false,
+                target_object_id: parentObjectId,
+                target_object_kind: 'object'
+            },
+            {
+                id: 'alternate-sort-order',
+                codename: 'AlternateSortOrder',
+                column_name: 'alternate_sort_order',
+                data_type: 'NUMBER',
+                ui_config: { serverOwned: true },
+                is_required: false
+            }
+        ]
+
+        await expect(
+            resolveScope(makeMetadataQuery(), {
+                zoneWidgets: widgets,
+                childAttrs: [...childAttrs, { ...siblingAttrs[0]!, ui_config: null }, siblingAttrs[1]!]
+            })
+        ).resolves.toBeNull()
+        await expect(
+            resolveScope(makeMetadataQuery(), { zoneWidgets: widgets, childAttrs: [...childAttrs, ...siblingAttrs] })
+        ).resolves.toMatchObject({
+            ownedFieldAttrs: expect.arrayContaining([
+                expect.objectContaining({ column_name: 'alternate_course_id' }),
+                expect.objectContaining({ column_name: 'alternate_sort_order' })
+            ])
+        })
     })
 })
 
@@ -169,7 +262,17 @@ describe('lockRuntimeRelationParentRecord', () => {
                 lifecycleContract: resolveApplicationLifecycleContractFromConfig(null)
             },
             parentAttrs,
-            sortOrderAttr: childAttrs[1]!
+            sortOrderAttr: childAttrs[1]!,
+            ownedFieldAttrs: childAttrs,
+            authority: {
+                slotKey: 'panel:items',
+                parentFieldCodename: 'CourseId',
+                parentEntityCodename: 'Courses',
+                parentRecordId,
+                childEntityCodename: 'CourseItems',
+                sortOrderFieldCodename: 'SortOrder',
+                enableRowReordering: true
+            }
         }
 
         await expect(

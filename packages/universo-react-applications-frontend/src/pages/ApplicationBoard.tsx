@@ -169,9 +169,14 @@ const ApplicationBoard = () => {
                     sx={{
                         display: 'flex',
                         justifyContent: 'center',
+                        flexWrap: 'wrap',
+                        gap: 1,
                         mt: 2
                     }}
                 >
+                    <Button variant='outlined' onClick={() => navigate(`/a/${applicationId}/admin/short-links`)} disabled={!applicationId}>
+                        {t('board.shortLinksButton')}
+                    </Button>
                     <Button variant='text' startIcon={<ArrowBackRoundedIcon />} onClick={() => navigate('/applications')}>
                         {t('actions.backToList', 'Back to Applications')}
                     </Button>

@@ -16,6 +16,10 @@ import {
     UpdateFailure
 } from '../shared/runtimeHelpers'
 import { RuntimeReportsService, serializeRuntimeReportCsv, type RuntimeReportFieldMetadata } from '../services/runtimeReportsService'
+import { resolvePublicGuestRuntimeConfig } from '../services/publicGuestRuntimeConfig'
+import { resolveGuestAssessmentRuntimeTables } from '../services/guestAssessmentRuntimeTables'
+import { reconcileExpiredGuestAssessmentAttempts } from '../services/guestAssessmentAttemptLifecycleService'
+import { lockActiveRuntimeWorkspaceContext } from '../services/runtimeWorkspaceContext'
 import { loadRuntimeObjectAttrs } from './runtimeRowSupport/objects'
 import { buildRuntimeRecordAccessClause } from '../services/runtimeRowSupport/access'
 import { executeRuntimeRecordsUnionDatasource } from '../services/runtimeRowSupport/union/index'
@@ -525,6 +529,20 @@ export function createRuntimeReportsController(getDbExecutor: () => DbExecutor) 
             outerRowIdSql: `${targetTableSql}.id`,
             values: accessConditionValues
         })
+        const guestRuntimeConfig = resolvePublicGuestRuntimeConfig(params.ctx.applicationSettings)
+        const assessmentAttemptObject = guestRuntimeConfig?.assessment?.objects.assessmentAttempts
+        if (assessmentAttemptObject && params.target.codename === assessmentAttemptObject) {
+            const persistence = await resolveGuestAssessmentRuntimeTables(
+                params.ctx.manager,
+                params.ctx.schemaName,
+                guestRuntimeConfig,
+                params.ctx.currentWorkspaceId
+            )
+            if (persistence) {
+                await reconcileExpiredGuestAssessmentAttempts(params.ctx.manager, persistence.attemptTable, persistence.responseTable)
+            }
+        }
+
         return service.runRecordsListReport({
             executor: params.ctx.manager,
             schemaName: params.ctx.schemaName,
@@ -548,6 +566,37 @@ export function createRuntimeReportsController(getDbExecutor: () => DbExecutor) 
         })
     }
 
+    const runResolvedReportWithWorkspaceLock = async (params: Parameters<typeof runResolvedReport>[0]) => {
+        const guestRuntimeConfig = resolvePublicGuestRuntimeConfig(params.ctx.applicationSettings)
+        const attemptObject = guestRuntimeConfig?.assessment?.objects.assessmentAttempts
+        const readsAssessmentAttempts = params.definition.datasource.kind === 'records.list' && params.target?.codename === attemptObject
+        if (!readsAssessmentAttempts || !params.ctx.workspacesEnabled) {
+            return runResolvedReport(params)
+        }
+
+        const workspaceId = params.ctx.currentWorkspaceId
+        if (!workspaceId) {
+            throw new UpdateFailure(403, {
+                error: 'Report workspace is unavailable',
+                code: 'REPORT_WORKSPACE_UNAVAILABLE'
+            })
+        }
+
+        return params.ctx.manager.transaction(async (tx: DbExecutor) => {
+            if (!(await lockActiveRuntimeWorkspaceContext(tx, params.ctx.schemaName, workspaceId))) {
+                throw new UpdateFailure(404, {
+                    error: 'Report workspace is unavailable',
+                    code: 'REPORT_WORKSPACE_UNAVAILABLE'
+                })
+            }
+
+            return runResolvedReport({
+                ...params,
+                ctx: { ...params.ctx, manager: tx }
+            })
+        })
+    }
+
     const runReport = async (req: Request, res: Response) => {
         const parsed = reportRunBodySchema.safeParse(req.body ?? {})
         if (!parsed.success) {
@@ -561,7 +610,7 @@ export function createRuntimeReportsController(getDbExecutor: () => DbExecutor) 
 
         try {
             const { definition, target } = await resolveSavedReportExecution(ctx, parsed.data)
-            const result = await runResolvedReport({
+            const result = await runResolvedReportWithWorkspaceLock({
                 ctx,
                 applicationId: req.params.applicationId,
                 definition,
@@ -595,7 +644,7 @@ export function createRuntimeReportsController(getDbExecutor: () => DbExecutor) 
 
         try {
             const { definition, target } = await resolveSavedReportExecution(ctx, parsed.data)
-            const result = await runResolvedReport({
+            const result = await runResolvedReportWithWorkspaceLock({
                 ctx,
                 applicationId: req.params.applicationId,
                 definition,

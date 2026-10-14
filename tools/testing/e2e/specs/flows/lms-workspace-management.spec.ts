@@ -127,6 +127,7 @@ async function switchWorkspace(page: Page, workspace: WorkspaceTarget | string) 
             .inputValue()
             .catch(() => '')
         if (currentWorkspaceId === workspaceId) {
+            await expect.poll(() => new URL(page.url()).searchParams.get('workspaceId')).toBe(workspaceId)
             return
         }
     } else {
@@ -140,6 +141,7 @@ async function switchWorkspace(page: Page, workspace: WorkspaceTarget | string) 
     if (workspaceId) {
         await page.locator(`[role="option"][data-value="${workspaceId}"]`).click()
         await expect(switcher.locator('input').first()).toHaveValue(workspaceId, { timeout: 30_000 })
+        await expect.poll(() => new URL(page.url()).searchParams.get('workspaceId')).toBe(workspaceId)
         return
     }
 
@@ -247,6 +249,8 @@ test('@flow lms workspace management isolates learning resource rows across pers
         )
         const learningResourcesObjectId = await waitForApplicationObjectId(ownerApi, lms.applicationId, 'Learning Resources')
         const contentAccessEntriesObjectId = await waitForApplicationObjectId(ownerApi, lms.applicationId, 'Content Access Entries')
+        const contentProjectsUrl = (workspaceId: string) =>
+            `/a/${lms.applicationId}?targetKind=object&entityTypeCodename=ContentProjects&locale=en&workspaceId=${workspaceId}`
         const resourceTypeEnumerationId = await waitForMetahubEnumerationId(ownerApi, lms.metahub.id, 'Resource Type')
         const publicationStatusEnumerationId = await waitForMetahubEnumerationId(ownerApi, lms.metahub.id, 'Publication Status')
         const pageResourceTypeValueId = await waitForOptionValueId(ownerApi, lms.metahub.id, resourceTypeEnumerationId, 'Page')
@@ -267,7 +271,7 @@ test('@flow lms workspace management isolates learning resource rows across pers
         await expect(page.getByText('Plan about to expire', { exact: true })).toHaveCount(0)
         await expect(page.getByText('Riley Carter', { exact: true })).toHaveCount(0)
         await expect(page.getByText('Sitemark-web', { exact: true })).toHaveCount(0)
-        await expect(page.getByRole('link', { name: 'Learning Content', exact: true })).toBeVisible({ timeout: 30_000 })
+        await expect(page.getByRole('link', { name: 'Content Projects', exact: true })).toBeVisible({ timeout: 30_000 })
         await expect(page.getByText('Workspaces', { exact: true }).first()).toBeVisible({ timeout: 30_000 })
         await expect(page.getByTestId('runtime-workspaces-card-view')).toBeVisible({ timeout: 30_000 })
         await expect(page.getByText(memberEmail, { exact: true })).toHaveCount(0)
@@ -286,14 +290,25 @@ test('@flow lms workspace management isolates learning resource rows across pers
         await expect(page.getByTestId('runtime-workspaces-page')).toBeVisible({ timeout: 30_000 })
         await expect(page.getByRole('button', { name: 'Manage workspaces' })).toHaveCount(0)
         const sidebarWorkspaceSwitcher = page.getByTestId('runtime-workspace-switcher').first()
-        await sidebarWorkspaceSwitcher.getByRole('combobox').click()
+        const workspaceCombobox = sidebarWorkspaceSwitcher.getByRole('combobox')
+        await expect(workspaceCombobox).toHaveAccessibleName('Switch workspace')
+        await workspaceCombobox.focus()
+        await page.keyboard.press('Enter')
         await expect(page.getByRole('option', { name: /Manage workspaces/ })).toBeVisible({ timeout: 30_000 })
+        const accessibleWorkspaceOptionText = (await page.getByRole('option').allTextContents()).join(' ')
+        expect(accessibleWorkspaceOptionText).not.toMatch(/\b[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\b/i)
         await page.screenshot({ path: testInfo.outputPath('runtime-workspace-switcher-menu.png'), fullPage: true })
         await page.keyboard.press('Escape')
-        await page.getByRole('link', { name: 'Learning Content', exact: true }).click()
-        await expect(page).toHaveURL(new RegExp(`/a/${lms.applicationId}/`))
-        await expect(page.getByRole('heading', { name: 'Content Projects' })).toBeVisible({ timeout: 30_000 })
-        await expect(page.getByRole('heading', { name: 'Pages and links' })).toBeVisible({ timeout: 30_000 })
+        await page.getByRole('link', { name: 'Content Projects', exact: true }).click()
+        await expect.poll(() => new URL(page.url()).pathname).toBe(`/a/${lms.applicationId}`)
+        await expect.poll(() => new URL(page.url()).searchParams.get('targetKind')).toBe('object')
+        await expect.poll(() => new URL(page.url()).searchParams.get('entityTypeCodename')).toBe('ContentProjects')
+        await expect.poll(() => new URL(page.url()).searchParams.get('workspaceId')).toBe(ownerPersonalWorkspace.id)
+        const contentProjectTabs = page.getByRole('tablist')
+        await expect(contentProjectTabs).toBeVisible({ timeout: 30_000 })
+        await expect(contentProjectTabs.getByRole('tab', { name: 'Library', exact: true })).toBeVisible()
+        await expect(contentProjectTabs.getByRole('tab', { name: 'Quizzes', exact: true })).toBeVisible()
+        await expect(contentProjectTabs.getByRole('tab', { name: 'Guest links', exact: true })).toBeVisible()
         await expect(page.getByTestId('runtime-workspace-switcher').filter({ visible: true })).toHaveCount(1)
         await page.goto(`/a/${lms.applicationId}/workspaces`)
         await expect(page.getByTestId('runtime-workspaces-page')).toBeVisible({ timeout: 30_000 })
@@ -434,8 +449,8 @@ test('@flow lms workspace management isolates learning resource rows across pers
         await setApplicationDefaultWorkspace(ownerApi, lms.applicationId, ownerPersonalWorkspace.id)
         await setApplicationDefaultWorkspace(memberApi, lms.applicationId, memberPersonalWorkspace.id)
 
-        await page.goto(`/a/${lms.applicationId}/${learningResourcesObjectId}`)
-        await expect(page.getByRole('heading', { name: 'Learning Resources' })).toBeVisible({ timeout: 30_000 })
+        await page.goto(contentProjectsUrl(ownerPersonalWorkspace.id))
+        await expect(page.getByRole('tab', { name: 'Library', exact: true })).toBeVisible({ timeout: 30_000 })
 
         await setApplicationDefaultWorkspace(ownerApi, lms.applicationId, sharedWorkspace.id)
         const sharedContentRow = await createRuntimeRow(ownerApi, lms.applicationId, {
@@ -447,6 +462,7 @@ test('@flow lms workspace management isolates learning resource rows across pers
                 Body: buildBlockContent(`Workspace isolation proof ${runManifest.runId}`),
                 PublicationStatus: publishedPublicationStatusValueId,
                 EstimatedTimeMinutes: 5,
+                SortOrder: 0,
                 Language: 'en',
                 Version: '1.0'
             }
@@ -475,7 +491,7 @@ test('@flow lms workspace management isolates learning resource rows across pers
         await memberPage.goto(`/a/${lms.applicationId}/workspaces`)
         await expect(memberPage.getByTestId('runtime-workspaces-page')).toBeVisible({ timeout: 30_000 })
         await expect(memberPage.getByRole('heading', { name: 'Overview' })).toHaveCount(0)
-        await expect(memberPage.getByRole('link', { name: 'Learning Content', exact: true })).toBeVisible({ timeout: 30_000 })
+        await expect(memberPage.getByRole('link', { name: 'Content Projects', exact: true })).toBeVisible({ timeout: 30_000 })
         await memberPage.getByText(sharedWorkspaceName, { exact: true }).first().click()
         await expect(memberPage).toHaveURL(new RegExp(`/a/${lms.applicationId}/workspaces/${sharedWorkspace.id}`), { timeout: 30_000 })
         await memberPage.getByRole('link', { name: 'Access', exact: true }).click()
@@ -485,14 +501,22 @@ test('@flow lms workspace management isolates learning resource rows across pers
         await expect(memberPage.getByRole('button', { name: 'Add' })).toBeDisabled({ timeout: 30_000 })
         await expect(memberPage.getByRole('button', { name: 'Remove member' })).toHaveCount(0)
 
-        await memberPage.goto(`/a/${lms.applicationId}/${learningResourcesObjectId}`)
-        await expect(memberPage.getByRole('heading', { name: 'Learning Resources' })).toBeVisible({ timeout: 30_000 })
+        await memberPage.goto(contentProjectsUrl(memberPersonalWorkspace.id))
+        await expect(memberPage.getByRole('tab', { name: 'Library', exact: true })).toBeVisible({ timeout: 30_000 })
         await expect(memberPage.getByText(sharedContentTitle, { exact: true })).toHaveCount(0)
 
         await switchWorkspace(memberPage, sharedWorkspace)
         await expect(memberPage.getByText(sharedContentTitle, { exact: true })).toBeVisible({ timeout: 30_000 })
         await expect(memberPage.getByTestId(applicationSelectors.runtimeCreateButton)).toHaveCount(0)
-        await expect(memberPage.getByLabel('Actions')).toHaveCount(0)
+        const sharedRowActions = memberPage.getByRole('button', { name: `Actions for ${sharedContentTitle}`, exact: true })
+        await expect(sharedRowActions).toBeVisible()
+        await sharedRowActions.click()
+        const sharedRowMenu = memberPage.getByRole('menu')
+        await expect(sharedRowMenu.getByRole('menuitem', { name: 'Add to starred', exact: true })).toBeVisible()
+        await expect(sharedRowMenu.getByRole('menuitem', { name: 'Edit', exact: true })).toHaveCount(0)
+        await expect(sharedRowMenu.getByRole('menuitem', { name: 'Copy', exact: true })).toHaveCount(0)
+        await expect(sharedRowMenu.getByRole('menuitem', { name: 'Delete', exact: true })).toHaveCount(0)
+        await memberPage.keyboard.press('Escape')
 
         await switchWorkspace(memberPage, memberPersonalWorkspace)
         await expect(memberPage.getByText(sharedContentTitle, { exact: true })).toHaveCount(0)

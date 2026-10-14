@@ -7,7 +7,13 @@ import Stack from '@mui/material/Stack'
 import { useQuery } from '@tanstack/react-query'
 import { Navigate, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { AppMainLayout, getRuntimeLayoutErrorCode, MarketingRuntimeContent, RuntimeWorkspacesPage } from '@universo-react/apps-template-mui'
+import {
+    AppMainLayout,
+    DashboardWidgetSelectionProvider,
+    getRuntimeLayoutErrorCode,
+    MarketingRuntimeContent,
+    RuntimeWorkspacesPage
+} from '@universo-react/apps-template-mui'
 import { readLocalizedTextValue } from '@universo-react/types'
 import { getApplication, getApplicationEffectiveLayout } from '../api/applications'
 import { applicationsQueryKeys } from '../api/queryKeys'
@@ -272,12 +278,14 @@ const ApplicationRuntime = ({ applicationIdOverride }: ApplicationRuntimeProps =
         )
     }
     return (
-        <DashboardApplicationRuntime
-            effectiveLayout={effectiveLayoutQuery.data}
-            locale={requestedLocale}
-            footerMetadata={dashboardSiteName ? { siteName: dashboardSiteName } : undefined}
-            onRuntimeDataChanged={effectiveLayoutQuery.refetch}
-        />
+        <DashboardWidgetSelectionProvider>
+            <DashboardApplicationRuntime
+                effectiveLayout={effectiveLayoutQuery.data}
+                locale={requestedLocale}
+                footerMetadata={dashboardSiteName ? { siteName: dashboardSiteName } : undefined}
+                onRuntimeDataChanged={effectiveLayoutQuery.refetch}
+            />
+        </DashboardWidgetSelectionProvider>
     )
 }
 

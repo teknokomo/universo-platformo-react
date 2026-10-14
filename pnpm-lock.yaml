@@ -1128,6 +1128,9 @@ importers:
       '@universo-react/utils':
         specifier: workspace:*
         version: link:../universo-react-utils
+      '@yandex/smart-captcha':
+        specifier: 'catalog:'
+        version: 2.9.1(react@18.3.1)
       dayjs:
         specifier: 'catalog:'
         version: 1.11.19

@@ -19,6 +19,7 @@ import ManageAccountsRoundedIcon from '@mui/icons-material/ManageAccountsRounded
 import { useDashboardDetails } from '../DashboardDetailsContext'
 import { fetchRuntimeWorkspaces, updateDefaultRuntimeWorkspace, type RuntimeWorkspace } from '../../api/workspaces'
 import { appQueryKeys, workspaceQueryKeys } from '../../api/mutations'
+import { buildWorkspaceSwitchHref } from './workspaceSwitcherNavigation'
 
 const readName = (name: unknown, locale: string): string => {
     if (typeof name === 'string') return name
@@ -96,6 +97,17 @@ export default function WorkspaceSwitcher({ variant = 'inline' }: WorkspaceSwitc
         onSuccess: async (_data, workspaceId) => {
             if (!applicationId) return
             setSelectedWorkspaceId(workspaceId)
+            const route = buildWorkspaceSwitchHref(workspaceId)
+            if (route && details?.navigate) {
+                details.navigate(route)
+            } else if (route && typeof window !== 'undefined') {
+                if (window.location.hash.startsWith('#/a/')) {
+                    window.location.hash = route
+                } else {
+                    window.history.pushState(null, '', route)
+                    window.dispatchEvent(new PopStateEvent('popstate'))
+                }
+            }
             const invalidations = [
                 queryClient.invalidateQueries({ queryKey: workspaceQueryKeys.all(applicationId) }),
                 queryClient.invalidateQueries({ queryKey: appQueryKeys.list(applicationId) }),

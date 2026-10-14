@@ -41,6 +41,7 @@
         "@mui/x-tree-view": "catalog:",
         "@react-spring/web": "catalog:",
         "@tanstack/react-query": "catalog:",
+        "@yandex/smart-captcha": "catalog:",
         "@universo-react/block-editor": "workspace:*",
         "@universo-react/i18n": "workspace:*",
         "@universo-react/modules-engine": "workspace:*",

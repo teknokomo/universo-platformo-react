@@ -37,6 +37,7 @@ const runtimeMocks = vi.hoisted(() => ({
     effectiveLayoutZone: undefined as string | undefined,
     effectiveLayoutWidgets: undefined as unknown[] | undefined,
     resolvedEntityTypeId: undefined as string | undefined,
+    resolvedTargetKind: null as 'page' | 'object' | null,
     capturedDashboardProps: null as {
         layoutConfig?: Record<string, unknown>
         zoneWidgets?: unknown
@@ -136,6 +137,11 @@ vi.mock('@tanstack/react-query', async () => {
                 refetch: runtimeMocks.effectiveLayoutRefetch,
                 data: {
                     status: 'ok',
+                    target: {
+                        applicationId: 'app-1',
+                        targetKind: runtimeMocks.resolvedTargetKind,
+                        locale: 'en'
+                    },
                     resolvedEntityTypeId: runtimeMocks.resolvedEntityTypeId,
                     layout: {
                         templateKey: runtimeMocks.templateKey,
@@ -304,9 +310,20 @@ vi.mock('@universo-react/apps-template-mui', async (importOriginal) => {
             layoutConfig?: Record<string, unknown>
             zoneWidgets?: unknown
         }) => {
+            const widgetSelection = actual.useDashboardWidgetSelection()
             runtimeMocks.capturedDashboardProps = { layoutConfig, zoneWidgets, details }
             return (
                 <div data-testid='apps-dashboard'>
+                    <div data-testid='runtime-selected-details-tab'>
+                        {widgetSelection?.selectedDetailsTabs['test-details-widget'] ?? ''}
+                    </div>
+                    <button
+                        data-testid='runtime-select-details-tab'
+                        onClick={() => widgetSelection?.setDetailsTab('test-details-widget', 'guest-links')}
+                        type='button'
+                    >
+                        select guest links
+                    </button>
                     <div data-testid='apps-dashboard-layout'>{JSON.stringify(layoutConfig ?? {})}</div>
                     <div data-testid='apps-dashboard-zone-widgets'>{JSON.stringify(zoneWidgets ?? {})}</div>
                     <div data-testid='apps-dashboard-runtime-navigation'>
@@ -653,6 +670,7 @@ describe('ApplicationRuntime pending interaction safety', () => {
         runtimeMocks.effectiveLayoutZone = undefined
         runtimeMocks.effectiveLayoutWidgets = undefined
         runtimeMocks.resolvedEntityTypeId = undefined
+        runtimeMocks.resolvedTargetKind = null
         runtimeMocks.capturedDashboardProps = null
         runtimeMocks.capturedMarketingProps = null
         runtimeMocks.triggerRerender = undefined
@@ -711,6 +729,26 @@ describe('ApplicationRuntime pending interaction safety', () => {
         expect(screen.getByTestId('apps-dashboard-layout')).toHaveTextContent('"primaryMode":"compact"')
         expect(screen.getByTestId('apps-dashboard-zone-widgets')).toHaveTextContent('effective-widget-1')
         expect(runtimeMocks.capturedDashboardProps?.details?.footerMetadata).toEqual({ siteName: 'Test application' })
+    })
+
+    it('preserves hosted dashboard tab selection while runtime content temporarily unmounts', async () => {
+        const user = userEvent.setup()
+        renderRuntimeHarness('/applications/app-1/runtime')
+
+        await user.click(screen.getByTestId('runtime-select-details-tab'))
+        expect(screen.getByTestId('runtime-selected-details-tab')).toHaveTextContent('guest-links')
+
+        act(() => {
+            runtimeMocks.dashboardStateOverrides = { appData: null }
+            runtimeMocks.triggerRerender?.()
+        })
+        expect(screen.queryByTestId('apps-dashboard')).not.toBeInTheDocument()
+
+        act(() => {
+            runtimeMocks.dashboardStateOverrides = {}
+            runtimeMocks.triggerRerender?.()
+        })
+        expect(screen.getByTestId('runtime-selected-details-tab')).toHaveTextContent('guest-links')
     })
 
     it('localizes application metadata passed to the Dashboard footer', () => {
@@ -783,10 +821,15 @@ describe('ApplicationRuntime pending interaction safety', () => {
     it('uses the server-resolved Entity UUID for row loading from a semantic route target', async () => {
         const resolvedEntityTypeId = '019fa968-aac3-7ce7-9717-79e7c6c6e77e'
         runtimeMocks.resolvedEntityTypeId = resolvedEntityTypeId
+        runtimeMocks.resolvedTargetKind = 'object'
 
         renderRuntimePageAt('/applications/app-1/runtime?targetKind=object&entityTypeCodename=Structure&locale=ru')
 
         expect(runtimeMocks.capturedCrudOptions.initialSectionId).toBe(resolvedEntityTypeId)
+        expect(runtimeMocks.capturedDashboardProps?.details?.runtimeLayoutTarget).toEqual({
+            targetKind: 'object',
+            entityTypeId: resolvedEntityTypeId
+        })
         await act(async () => {
             await runtimeMocks.templateQueryOptions?.queryFn?.()
         })
@@ -794,6 +837,18 @@ describe('ApplicationRuntime pending interaction safety', () => {
             'app-1',
             expect.objectContaining({ targetKind: 'object', entityTypeCodename: 'Structure', entityTypeId: null, locale: 'ru' })
         )
+    })
+
+    it('passes the resolved homepage Page context to the relation builder on the application root', () => {
+        const resolvedHomepageId = '019fa968-aac3-7ce7-9717-79e7c6c6e77f'
+        runtimeMocks.resolvedEntityTypeId = resolvedHomepageId
+
+        renderRuntimePageAt('/applications/app-1/runtime')
+
+        expect(runtimeMocks.capturedDashboardProps?.details?.runtimeLayoutTarget).toEqual({
+            targetKind: 'page',
+            entityTypeId: resolvedHomepageId
+        })
     })
 
     it('shows loading state before runtime data is available', () => {

@@ -1,4 +1,6 @@
 import { act, render } from '@testing-library/react'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import type { ReactNode } from 'react'
 import i18n from '@universo-react/i18n'
 import type { DashboardWidgetConfig } from '@universo-react/types'
 import '../../../i18n'
@@ -23,10 +25,27 @@ export const placement = (
     runtimeData
 })
 
-export const renderRuntimeWidget = (widget: ZoneWidgetItem, details: Partial<DashboardDetailsSlot> = {}) =>
-    render(
-        <DashboardDetailsProvider value={{ title: 'Runtime', locale: 'en', ...details }}>{renderWidget(widget)}</DashboardDetailsProvider>
+export const defaultRuntimeLayoutTarget = {
+    targetKind: 'object' as const,
+    entityTypeId: '018f0000-0000-7000-8000-000000000010'
+}
+
+export const renderRuntimeWidget = (widget: ZoneWidgetItem, details: Partial<DashboardDetailsSlot> = {}) => {
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    const result = render(
+        <QueryClientProvider client={queryClient}>
+            <DashboardDetailsProvider
+                value={{ title: 'Runtime', locale: 'en', runtimeLayoutTarget: defaultRuntimeLayoutTarget, ...details }}
+            >
+                {renderWidget(widget)}
+            </DashboardDetailsProvider>
+        </QueryClientProvider>
     )
+    return {
+        ...result,
+        rerender: (ui: ReactNode) => result.rerender(<QueryClientProvider client={queryClient}>{ui}</QueryClientProvider>)
+    }
+}
 
 export const createTarget: NonNullable<Extract<DashboardWidgetConfig<'detailsTable'>, { variant?: 'records' }>['createTargets']>[number] = {
     id: 'create-course',

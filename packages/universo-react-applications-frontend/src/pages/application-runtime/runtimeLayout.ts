@@ -34,6 +34,11 @@ export const buildLearningContentCreateDefaultContext = (appData: AppDataRespons
     }
 }
 
+/**
+ * The effective-layout resolver may resolve a default homepage while the
+ * requested target is the application root (targetKind: null). In that case,
+ * a non-null resolvedEntityTypeId is guaranteed to identify the homepage Page.
+ */
 const DASHBOARD_LAYOUT_ZONES = ['left', 'top', 'right', 'bottom', 'center'] as const
 type DashboardLayoutZone = (typeof DASHBOARD_LAYOUT_ZONES)[number]
 

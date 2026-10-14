@@ -140,6 +140,100 @@
                 "conflict": "This public address is already claimed by another application."
             }
         },
+        "shortLinks": {
+            "title": "Guest and short links",
+            "description": "View and copy full guest quiz links, or create short /l/ addresses for public destinations.",
+            "noPermission": "You need the Manage application permission for this application to view and manage its guest and short links.",
+            "empty": "No short links have been created for this application.",
+            "emptyImageAlt": "No short links",
+            "tableAriaLabel": "Application short links",
+            "guestLinks": {
+                "title": "Full guest quiz links",
+                "description": "Share these links with learners. They open the guest form and quiz without requiring a site account.",
+                "tableAriaLabel": "Full guest quiz links",
+                "quiz": "Quiz",
+                "url": "Full guest link",
+                "actions": "Actions",
+                "copy": "Copy link",
+                "loading": "Loading guest quiz links...",
+                "publicApplicationRequired": "Make this application public before sharing guest links. Change its visibility in application settings.",
+                "openSettings": "Application settings",
+                "empty": "No active guest links are available. Open Content Projects → Guest links to create one."
+            },
+            "columns": {
+                "link": "Short link",
+                "destination": "Destination",
+                "status": "Status",
+                "actions": "Actions"
+            },
+            "fields": {
+                "shortSlug": "Short link name",
+                "shortSlugHelp": "Use a short Latin name; it will open at /l/<name>.",
+                "target": "Destination type",
+                "quizAccessLink": "Published quiz",
+                "quizAccessHelp": "Choose an active public quiz access link.",
+                "quizInWorkspace": "{{quiz}} — {{workspace}}",
+                "quizOptionsLoading": "Loading available quizzes...",
+                "quizOptionsEmpty": "No active public quiz links are available.",
+                "applicationResource": "Published resource",
+                "applicationResourceHelp": "Choose an available published page or object view.",
+                "resourceOptionsLoading": "Loading published resources...",
+                "resourceOptionsEmpty": "No available published resources were found.",
+                "section": "Application section",
+                "applicationEntryHelp": "This link opens the application's public entry page."
+            },
+            "targets": {
+                "application-entry": "Application entry",
+                "application-section": "Application section",
+                "application-resource": "Published resource",
+                "lms-access-link": "Quiz access link",
+                "applicationEntry": "Public application entry",
+                "applicationResourceFallback": "Published resource",
+                "quiz": "Quiz access: {{slug}}"
+            },
+            "sections": {
+                "dashboard": "Dashboard",
+                "workspace": "Workspaces"
+            },
+            "states": {
+                "active": "Active",
+                "released": "Released"
+            },
+            "filters": {
+                "includeReleased": "Show released links"
+            },
+            "actions": {
+                "create": "Create link",
+                "copy": "Copy",
+                "release": "Release",
+                "retry": "Retry"
+            },
+            "release": {
+                "confirmTitle": "Release this short link?",
+                "confirmDescription": "/l/{{slug}} will stop opening its destination."
+            },
+            "messages": {
+                "created": "Short link created.",
+                "copied": "Short link copied.",
+                "guestLinkCopied": "Full guest link copied.",
+                "released": "Short link released."
+            },
+            "errors": {
+                "conflict": "This short link name is already in use.",
+                "slugRequired": "Enter a short link name.",
+                "format": "Use a valid short name with lowercase Latin letters, numbers, or hyphens.",
+                "reserved": "This short link name is reserved by the platform.",
+                "uuid": "UUID-shaped values cannot be used as short link names.",
+                "targetUnavailable": "This destination is no longer available. Refresh the page and choose another.",
+                "quizOptionsLoad": "Could not load available quizzes. Refresh the page and try again.",
+                "resourceOptionsLoad": "Could not load published resources. Refresh the page and try again.",
+                "save": "Could not save the short link.",
+                "copy": "Could not copy the short link.",
+                "copyGuestLink": "Could not copy the guest link.",
+                "load": "Could not load short links."
+            },
+            "publicUnavailable": "This short link is unavailable or its destination is no longer public."
+        },
         "join": {
             "action": "Join",
             "dialogTitle": "Join \"{{name}}\"?",
@@ -977,6 +1071,7 @@
                 "description": "Learn about application features, API and best practices",
                 "button": "Open Documentation"
             },
+            "shortLinksButton": "Guest and short links",
             "charts": {
                 "activity": {
                     "title": "User Activity",

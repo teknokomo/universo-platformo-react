@@ -329,7 +329,9 @@ const loadAuthorizedWidgetMetadataBatch = async (
     const authorizedWidgets: PreparedWidget[] = []
     for (const widget of widgets) {
         if (authorizeWidgetTargets(widget, metadata)) authorizedWidgets.push(widget)
-        else result.set(widget.candidate.id, state('stale-source'))
+        else {
+            result.set(widget.candidate.id, state('stale-source'))
+        }
     }
     return { metadata, widgets: authorizedWidgets }
 }

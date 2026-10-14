@@ -1,6 +1,7 @@
 import {
     applicationTemplateKeySchema,
     semanticEntitySelectorSchema,
+    type WidgetBindingEntityCompatibilityContext,
     type WidgetBindingEntityKind,
     type WidgetBindingSlotDefinition,
     type WidgetEntityBindingEnvelope
@@ -26,11 +27,12 @@ import {
     loadWidgetBindingWidget,
     updateWidgetBindingConfig,
     MAX_WIDGET_BINDING_RECORD_OPTIONS,
-    MAX_WIDGET_BINDING_SOURCE_OPTIONS,
     type BindingComponentRow,
     type BindingObjectRow,
     type BindingLayoutRow
 } from './widgetBindingsStore'
+import { discoverWidgetBindingSourcesForSlot } from './widgetBindingSourceDiscovery'
+import { relationTargetMatchesParent } from './widgetBindingRelationCompatibility'
 import type { MetahubSchemaService } from '../metahubs/services/MetahubSchemaService'
 import {
     discoverRecordPageInputSchema,
@@ -47,7 +49,6 @@ import {
     type WidgetBindingReadItem,
     type WidgetBindingSelectionInput,
     widgetBindingSelectionInputSchema,
-    type WidgetBindingSelectedSourceOption,
     type WidgetBindingSourceOption,
     type WidgetBindingSourceProvisioner,
     type WidgetBindingSourcesDto
@@ -59,7 +60,6 @@ import {
     bindingRequirements,
     discoveryDefinition,
     encodeRegistryWidgetConfig,
-    isSourceCompatible,
     asRecord,
     normalizeLocale,
     parseContext,
@@ -134,30 +134,20 @@ const storeDefaults: WidgetBindingServiceStore = {
     updateConfig: updateWidgetBindingConfig
 }
 
-const relationTargetMatchesParent = (
-    components: readonly BindingComponentRow[],
-    slot: WidgetBindingSlotDefinition,
-    parent: BindingObjectRow
-): boolean => {
-    const reference = relationReferenceRequirement(slot)
-    const component = components.find(({ codename }) => codename === reference.componentCodename)
-    return (
-        component?.data_type.trim().toUpperCase() === 'REF' &&
-        component.target_object_id === parent.id &&
-        component.target_object_kind === parent.kind &&
-        component.target_object_codename === parent.codename
-    )
-}
-
 const assertRelationTargetMatchesParent = (
     components: readonly BindingComponentRow[],
     slot: WidgetBindingSlotDefinition,
-    parent: BindingObjectRow
+    parent: Pick<BindingObjectRow, 'id' | 'kind' | 'codename'>
 ): void => {
     if (!relationTargetMatchesParent(components, slot, parent)) {
         throw new MetahubValidationError('Relation Component target does not match the selected parent source')
     }
 }
+
+const compatibilityContextForParent = (
+    parent: Pick<BindingObjectRow, 'id' | 'kind' | 'codename'> | undefined
+): WidgetBindingEntityCompatibilityContext =>
+    parent ? { relationParent: { id: parent.id, kind: parent.kind, codename: parent.codename } } : {}
 
 export class WidgetBindingService {
     private readonly store: WidgetBindingServiceStore
@@ -211,7 +201,8 @@ export class WidgetBindingService {
         schemaName: string,
         sourceKey: string,
         slot: WidgetBindingSlotDefinition,
-        expectedKind?: string
+        expectedKind?: string,
+        compatibilityContext: WidgetBindingEntityCompatibilityContext = {}
     ): Promise<ValidatedBindingObject> {
         const requirements = bindingRequirements(slot)
         const candidate = await this.store.findObjectByCodename(db, schemaName, requirements, sourceKey)
@@ -222,7 +213,10 @@ export class WidgetBindingService {
         const object = await this.store.loadObject(db, schemaName, locked.id)
         if (object.kind !== candidate.kind || object.codename !== sourceKey) throw new MetahubNotFoundError('Compatible binding source')
         const components = await this.store.listComponents(db, schemaName, [object.id])
-        const policy = validateSourceRequirements(object, components, slot)
+        if (slot.relation && compatibilityContext.relationParent) {
+            assertRelationTargetMatchesParent(components, slot, compatibilityContext.relationParent)
+        }
+        const policy = validateSourceRequirements(object, components, slot, compatibilityContext)
         return { object, components, policy }
     }
 
@@ -255,13 +249,16 @@ export class WidgetBindingService {
         for (const slot of widget.definition.bindingSlots ?? []) {
             const binding = slotBindings.get(slot.key)
             if (!binding) continue
+            const parentSource = slot.relation ? objectsBySlot.get(slot.relation.parentSlot)?.[0]?.object : undefined
+            const compatibilityContext = compatibilityContextForParent(parentSource)
             for (const target of binding.targets) {
                 const { object, components, policy } = await this.lockAndValidateObject(
                     db,
                     schemaName,
                     target.entityCodename,
                     slot,
-                    target.entityKind
+                    target.entityKind,
+                    compatibilityContext
                 )
                 const slotObjects = objectsBySlot.get(slot.key) ?? []
                 slotObjects.push({ object, components })
@@ -323,101 +320,17 @@ export class WidgetBindingService {
         parentObject?: BindingObjectRow,
         selectedSourceKey?: string
     ): Promise<WidgetBindingSourcesDto> {
-        if (slot.relation && !parentObject) {
-            throw new MetahubValidationError('Select the parent source before discovering relation sources')
-        }
-        if (!slot.relation && parentObject) {
-            throw new MetahubValidationError('This slot does not use a parent source')
-        }
-        const candidates = await this.store.listCandidates(db, schemaName, bindingRequirements(slot), offset, search)
-        const hasMore = candidates.length > MAX_WIDGET_BINDING_SOURCE_OPTIONS
-        const visible = candidates.slice(0, MAX_WIDGET_BINDING_SOURCE_OPTIONS)
-        const components = await this.store.listComponents(
+        return discoverWidgetBindingSourcesForSlot(this.store, {
             db,
             schemaName,
-            visible.map(({ id }) => id)
-        )
-        const componentsByObject = new Map<string, BindingComponentRow[]>()
-        for (const component of components) {
-            const rows = componentsByObject.get(component.object_id) ?? []
-            rows.push(component)
-            componentsByObject.set(component.object_id, rows)
-        }
-
-        const selectorKinds = slot.selectorKinds.filter((kind) => kind !== 'relation-set' || Boolean(slot.relation))
-        let compatibleSources = visible.filter((object) => isSourceCompatible(object, componentsByObject.get(object.id) ?? [], slot))
-        let relationCompatibleObjectIds: Set<string> | undefined
-        if (slot.relation && parentObject) {
-            const reference = relationReferenceRequirement(slot)
-            compatibleSources = compatibleSources.filter((object) =>
-                relationTargetMatchesParent(componentsByObject.get(object.id) ?? [], slot, parentObject)
-            )
-            relationCompatibleObjectIds = new Set(
-                await this.store.listRelationCompatibleObjectIds(
-                    db,
-                    schemaName,
-                    compatibleSources.map(({ id }) => id),
-                    parentObject.id,
-                    reference.componentCodename,
-                    reference.required
-                )
-            )
-            compatibleSources = compatibleSources.filter(({ id }) => relationCompatibleObjectIds?.has(id))
-        }
-        const recordCounts = await this.store.countRecords(
-            db,
-            schemaName,
-            compatibleSources.map(({ id }) => id)
-        )
-        const recordCountByObject = new Map(recordCounts.map(({ object_id, records_count }) => [object_id, records_count]))
-        const sources = compatibleSources.map((object) => ({
-            sourceKey: object.codename,
-            label: resolveSourceName(object, locale),
-            recordsCount: recordCountByObject.get(object.id) ?? 0,
-            selectorKinds
-        }))
-        let selectedSource: WidgetBindingSelectedSourceOption | null | undefined
-        if (selectedSourceKey !== undefined) {
-            const object = await this.store.findObjectByCodename(db, schemaName, bindingRequirements(slot), selectedSourceKey)
-            if (!object) {
-                selectedSource = null
-            } else {
-                const objectComponents = await this.store.listComponents(db, schemaName, [object.id])
-                const metadataCompatible = isSourceCompatible(object, objectComponents, slot)
-                let relationCompatible = true
-                if (metadataCompatible && slot.relation && parentObject) {
-                    const reference = relationReferenceRequirement(slot)
-                    relationCompatible = relationTargetMatchesParent(objectComponents, slot, parentObject)
-                    if (relationCompatible) {
-                        const compatibleIds = await this.store.listRelationCompatibleObjectIds(
-                            db,
-                            schemaName,
-                            [object.id],
-                            parentObject.id,
-                            reference.componentCodename,
-                            reference.required
-                        )
-                        relationCompatible = compatibleIds.includes(object.id)
-                    }
-                }
-                const selectedCounts = await this.store.countRecords(db, schemaName, [object.id])
-                selectedSource = {
-                    sourceKey: object.codename,
-                    label: resolveSourceName(object, locale),
-                    recordsCount: selectedCounts[0]?.records_count ?? 0,
-                    selectorKinds,
-                    compatible: metadataCompatible && relationCompatible
-                }
-            }
-        }
-        return {
             widgetKey,
-            slot: slot.key,
-            selectorKinds,
-            sources,
-            ...(selectedSourceKey === undefined ? {} : { selectedSource: selectedSource ?? null }),
-            ...resolvePageInfo(offset, MAX_WIDGET_BINDING_SOURCE_OPTIONS, hasMore)
-        }
+            slot,
+            locale,
+            offset,
+            ...(search === undefined ? {} : { search }),
+            ...(parentObject === undefined ? {} : { parentObject }),
+            ...(selectedSourceKey === undefined ? {} : { selectedSourceKey })
+        })
     }
 
     private async listRecordsForSlot(
@@ -650,7 +563,14 @@ export class WidgetBindingService {
             const templateSource = compatibleTemplates.selectedSource
             if (!templateSource?.compatible) throw new MetahubNotFoundError('Compatible content source')
 
-            const source = await this.lockAndValidateObject(db, schemaName, input.templateSourceKey, slot)
+            const source = await this.lockAndValidateObject(
+                db,
+                schemaName,
+                input.templateSourceKey,
+                slot,
+                undefined,
+                compatibilityContextForParent(parentObject)
+            )
             const created = await provisioner({
                 db,
                 metahubId: context.metahubId,
@@ -761,6 +681,25 @@ export class WidgetBindingService {
             const widget = await this.loadWidgetInLayout(db, schemaName, input.layoutId, input.widgetId)
             const binding: WidgetEntityBindingEnvelope | undefined = widget.neutral.bindings
             const items: WidgetBindingReadItem[] = []
+            const compatibilityContextBySlot = new Map<string, WidgetBindingEntityCompatibilityContext>()
+            for (const slotBinding of binding?.slots ?? []) {
+                const slot = requireSlot(widget, slotBinding.slot)
+                if (!slot.relation) continue
+                const parentSlot = requireSlot(widget, slot.relation.parentSlot)
+                const parentBinding = binding?.slots.find(({ slot: key }) => key === parentSlot.key)
+                const parentTarget = parentBinding?.targets.length === 1 ? parentBinding.targets[0] : undefined
+                if (!parentTarget || parentTarget.entityKind !== 'object') {
+                    throw new MetahubValidationError('Select the parent source before reading the relation')
+                }
+                const parentObject = await this.store.findObjectByCodename(
+                    db,
+                    schemaName,
+                    bindingRequirements(parentSlot),
+                    parentTarget.entityCodename
+                )
+                if (!parentObject) throw new MetahubNotFoundError('Relation parent source')
+                compatibilityContextBySlot.set(slot.key, compatibilityContextForParent(parentObject))
+            }
             for (const slotBinding of binding?.slots ?? []) {
                 const slot = requireSlot(widget, slotBinding.slot)
                 for (const target of slotBinding.targets) {
@@ -769,7 +708,8 @@ export class WidgetBindingService {
                         schemaName,
                         target.entityCodename,
                         slot,
-                        target.entityKind
+                        target.entityKind,
+                        compatibilityContextBySlot.get(slot.key)
                     )
                     let selectionLabel = resolveSourceName(object, input.locale)
                     let semanticKey: string | undefined
@@ -848,13 +788,36 @@ export class WidgetBindingService {
             const slotTargets = new Map<string, WidgetEntityBindingEnvelope['slots'][number]['targets']>()
             const objectsBySlot = new Map<string, BindingObjectRow>()
             const componentsBySlot = new Map<string, readonly BindingComponentRow[]>()
+            const compatibilityContextBySlot = new Map<string, WidgetBindingEntityCompatibilityContext>()
+            for (const selection of selections.values()) {
+                const slot = requireSlot(targetWidget, selection.slot)
+                if (!slot.relation) continue
+                const parentSelection = selections.get(slot.relation.parentSlot)
+                if (!parentSelection) throw new MetahubValidationError('Select the parent binding before configuring this relation')
+                const parentSlot = requireSlot(targetWidget, slot.relation.parentSlot)
+                const parentObject = await this.store.findObjectByCodename(
+                    db,
+                    schemaName,
+                    bindingRequirements(parentSlot),
+                    parentSelection.sourceKey
+                )
+                if (!parentObject) throw new MetahubNotFoundError('Compatible relation parent source')
+                compatibilityContextBySlot.set(slot.key, compatibilityContextForParent(parentObject))
+            }
             const orderedSelections = [...selections.values()].sort((left, right) =>
                 `${left.sourceKey}\u0000${left.slot}`.localeCompare(`${right.sourceKey}\u0000${right.slot}`)
             )
             for (const selection of orderedSelections) {
                 const slot = requireSlot(targetWidget, selection.slot)
                 const selector = selectorFor(slot, selection.selector)
-                const { object, components, policy } = await this.lockAndValidateObject(db, schemaName, selection.sourceKey, slot)
+                const { object, components, policy } = await this.lockAndValidateObject(
+                    db,
+                    schemaName,
+                    selection.sourceKey,
+                    slot,
+                    undefined,
+                    compatibilityContextBySlot.get(slot.key)
+                )
                 objectsBySlot.set(slot.key, object)
                 componentsBySlot.set(slot.key, components)
                 if (selector.kind === 'semantic-key') {
@@ -956,7 +919,24 @@ export class WidgetBindingService {
             await acquireMetahubLayoutGraphLock(db, schemaName)
             const widget = await this.loadWidgetInLayout(db, schemaName, input.layoutId, input.widgetId)
             const slot = requireSlot(widget, input.slot)
-            const { object } = await this.lockAndValidateObject(db, schemaName, input.sourceKey, slot)
+            let compatibilityContext: WidgetBindingEntityCompatibilityContext | undefined
+            if (slot.relation) {
+                const parentSlot = requireSlot(widget, slot.relation.parentSlot)
+                const parentBinding = widget.neutral.bindings?.slots.find(({ slot: key }) => key === parentSlot.key)
+                const parentTarget = parentBinding?.targets.length === 1 ? parentBinding.targets[0] : undefined
+                if (!parentTarget || parentTarget.entityKind !== 'object') {
+                    throw new MetahubValidationError('Select the parent source before checking relation usage')
+                }
+                const parentObject = await this.store.findObjectByCodename(
+                    db,
+                    schemaName,
+                    bindingRequirements(parentSlot),
+                    parentTarget.entityCodename
+                )
+                if (!parentObject) throw new MetahubNotFoundError('Relation parent source')
+                compatibilityContext = compatibilityContextForParent(parentObject)
+            }
+            const { object } = await this.lockAndValidateObject(db, schemaName, input.sourceKey, slot, undefined, compatibilityContext)
             if (input.semanticKey !== undefined) {
                 if (!slot.selectorKinds.includes('semantic-key')) {
                     throw new MetahubValidationError('This slot does not bind individual semantic records')

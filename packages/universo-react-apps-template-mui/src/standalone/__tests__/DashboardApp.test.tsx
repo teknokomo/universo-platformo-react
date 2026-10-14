@@ -29,6 +29,7 @@ const dashboardMocks = vi.hoisted(() => ({
     templateKey: 'dashboard',
     effectiveLayoutConfig: {} as Record<string, unknown>,
     effectiveLayoutWidgets: [] as Array<Record<string, unknown>>,
+    effectiveLayoutTargetKind: 'object' as string | null,
     resolvedEntityTypeId: null as string | null,
     capturedDashboardDetails: null as Record<string, unknown> | null,
     onOpenRowMenu: null as
@@ -108,6 +109,7 @@ vi.mock('@tanstack/react-query', async () => {
                     data: {
                         status: 'ok',
                         resolvedEntityTypeId: dashboardMocks.resolvedEntityTypeId,
+                        target: { targetKind: dashboardMocks.effectiveLayoutTargetKind, entityTypeId: dashboardMocks.resolvedEntityTypeId },
                         layout: { templateKey: dashboardMocks.templateKey, config: dashboardMocks.effectiveLayoutConfig },
                         widgets: dashboardMocks.effectiveLayoutWidgets
                     }
@@ -141,6 +143,7 @@ vi.mock('../../dashboard/Dashboard', () => ({
             sectionCodename?: string
             objectCollectionId?: string
             objectCollectionCodename?: string
+            runtimeLayoutTarget?: { targetKind: 'page' | 'object'; entityTypeId: string }
             settings?: unknown
             actions?: ReactNode
             content?: ReactNode
@@ -225,7 +228,11 @@ vi.mock('../../dashboard/Dashboard', () => ({
                         details?.onOpenRowMenu?.(event, 'rh1.test-bound-row-target-0001', {
                             entityCodename: 'Courses',
                             recordHandle: 'rh1.test-bound-row-target-0001',
-                            relationScope: { fieldCodename: 'CourseId', parentRecordId: 'parent-1' }
+                            relationScope: {
+                                fieldCodename: 'CourseId',
+                                parentRecordId: 'parent-1',
+                                layoutTarget: { targetKind: 'object', entityTypeId: '018f8a78-7b8f-7c1d-a111-222233334410' }
+                            }
                         })
                     }
                     type='button'
@@ -361,6 +368,7 @@ describe('DashboardApp', () => {
         dashboardMocks.templateKey = 'dashboard'
         dashboardMocks.effectiveLayoutConfig = {}
         dashboardMocks.effectiveLayoutWidgets = []
+        dashboardMocks.effectiveLayoutTargetKind = 'object'
         dashboardMocks.resolvedEntityTypeId = null
         dashboardMocks.capturedDashboardDetails = null
         dashboardMocks.onOpenRowMenu = null
@@ -389,6 +397,19 @@ describe('DashboardApp', () => {
         expect(dashboardMocks.marketingProps).not.toHaveProperty('sharedLayoutWidgets')
     })
 
+    it('passes the server-resolved homepage Page as the runtime relation target on the application root', () => {
+        const homePageId = '0190a9b5-3cde-7abc-8def-0123456789b1'
+        dashboardMocks.effectiveLayoutTargetKind = null
+        dashboardMocks.resolvedEntityTypeId = homePageId
+        window.history.pushState({}, '', '/a/app-1')
+
+        render(<DashboardApp applicationId='app-1' locale='en' apiBaseUrl='http://localhost:3000' />)
+
+        expect(dashboardMocks.capturedDashboardDetails).toMatchObject({
+            runtimeLayoutTarget: { targetKind: 'page', entityTypeId: homePageId }
+        })
+    })
+
     it('renders a scoped marketing layout on a standalone entity route', () => {
         dashboardMocks.templateKey = 'marketing-page'
         window.history.pushState({}, '', '/a/app-1?targetKind=page&entityTypeCodename=Landing')
@@ -409,7 +430,11 @@ describe('DashboardApp', () => {
     })
 
     it('loads the selected entity row context before reusing the host CRUD action flow', async () => {
-        const relationScope = { fieldCodename: 'CourseId', parentRecordId: 'parent-1' }
+        const relationScope = {
+            fieldCodename: 'CourseId',
+            parentRecordId: 'parent-1',
+            layoutTarget: { targetKind: 'object' as const, entityTypeId: '018f8a78-7b8f-7c1d-a111-222233334410' }
+        }
         const permissions = {
             manageMembers: false,
             manageApplication: false,
@@ -488,22 +513,87 @@ describe('DashboardApp', () => {
         await waitFor(() => expect(dashboardMocks.handleOpenEdit).toHaveBeenCalledWith('rh1.test-bound-row-target-0001', relationScope, 5))
     })
 
+    it('returns to the source entity after a deferred row form closes', async () => {
+        const permissions = {
+            manageMembers: false,
+            manageApplication: false,
+            createContent: true,
+            editContent: true,
+            deleteContent: true,
+            readReports: false
+        }
+        const sourceEntity = { id: 'object-1', name: 'Guest links', codename: 'GuestLinks' }
+        const targetEntity = { id: 'object-2', name: 'Quizzes', codename: 'Quizzes' }
+        const setLoadedEntity = (entity: typeof sourceEntity) => {
+            dashboardMocks.dashboardStateOverrides = {
+                appData: {
+                    settings: {},
+                    workspacesEnabled: true,
+                    permissions,
+                    objectCollection: entity,
+                    section: entity,
+                    activeObjectCollectionId: entity.id,
+                    activeSectionId: entity.id,
+                    objectCollections: [sourceEntity, targetEntity],
+                    sections: [sourceEntity, targetEntity]
+                },
+                activeObjectCollectionId: entity.id,
+                activeSectionId: entity.id,
+                selectedObjectCollectionId: entity.id,
+                selectedSectionId: entity.id,
+                isLoading: false,
+                isFetching: false
+            }
+        }
+
+        setLoadedEntity(sourceEntity)
+        const view = render(<DashboardApp applicationId='app-1' locale='en' apiBaseUrl='http://localhost:3000' />)
+        act(() => {
+            dashboardMocks.onOpenRowTarget?.({ rowId: 'row-1', objectCollectionId: targetEntity.id }, 'copy')
+        })
+
+        expect(dashboardMocks.onSelectObjectCollection).toHaveBeenLastCalledWith(targetEntity.id)
+        setLoadedEntity(targetEntity)
+        view.rerender(<DashboardApp applicationId='app-1' locale='en' apiBaseUrl='http://localhost:3000' />)
+        await waitFor(() => expect(dashboardMocks.handleOpenCopy).toHaveBeenCalledWith('row-1', undefined))
+
+        dashboardMocks.dashboardStateOverrides = {
+            ...dashboardMocks.dashboardStateOverrides,
+            formOpen: true,
+            copyRowId: 'row-1'
+        }
+        view.rerender(<DashboardApp applicationId='app-1' locale='en' apiBaseUrl='http://localhost:3000' />)
+
+        dashboardMocks.dashboardStateOverrides = {
+            ...dashboardMocks.dashboardStateOverrides,
+            formOpen: false,
+            copyRowId: null
+        }
+        view.rerender(<DashboardApp applicationId='app-1' locale='en' apiBaseUrl='http://localhost:3000' />)
+
+        await waitFor(() => expect(dashboardMocks.onSelectObjectCollection).toHaveBeenLastCalledWith(sourceEntity.id))
+    })
+
     it('retains action-specific relationScope across deferred row targets while changing sections', async () => {
         const createRelationScope = {
             fieldCodename: 'CourseId',
-            parentRecordId: 'rh1.test-relation-parent-0001'
+            parentRecordId: 'rh1.test-relation-parent-0001',
+            layoutTarget: { targetKind: 'object' as const, entityTypeId: '018f8a78-7b8f-7c1d-a111-222233334410' }
         }
         const editRelationScope = {
             fieldCodename: 'CourseId',
-            parentRecordId: 'rh1.test-relation-parent-0002'
+            parentRecordId: 'rh1.test-relation-parent-0002',
+            layoutTarget: createRelationScope.layoutTarget
         }
         const copyRelationScope = {
             fieldCodename: 'CourseId',
-            parentRecordId: 'rh1.test-relation-parent-0003'
+            parentRecordId: 'rh1.test-relation-parent-0003',
+            layoutTarget: createRelationScope.layoutTarget
         }
         const deleteRelationScope = {
             fieldCodename: 'CourseId',
-            parentRecordId: 'rh1.test-relation-parent-0004'
+            parentRecordId: 'rh1.test-relation-parent-0004',
+            layoutTarget: createRelationScope.layoutTarget
         }
         const createDefaults = [{ fieldCodename: 'CourseId', contextPath: 'relation.parentRecordId' }]
         const createDefaultContext = { relation: { parentRecordId: createRelationScope.parentRecordId } }

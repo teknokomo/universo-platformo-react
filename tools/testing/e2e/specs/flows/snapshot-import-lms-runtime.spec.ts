@@ -1,11 +1,22 @@
 import fs from 'node:fs/promises'
 import path from 'node:path'
-import type { Locator, Page, Response } from '@playwright/test'
+import type { Locator, Page, Request, Response } from '@playwright/test'
 import { buildVLC, createLocalizedContent } from '@universo-react/utils'
 import { expect, test } from '../../fixtures/test'
 import { waitForSettledMutationResponse } from '../../support/browser/network'
 import { createLmsRuntimeBuilderHelpers, expectLmsLinkSortOrderDefault } from '../../support/lmsRuntimeBuilderHelpers'
 import { createLmsRuntimePlayerHelpers } from '../../support/lmsRuntimePlayerHelpers'
+import { expectImportedLmsMarathonRuntime } from '../../support/lmsMarathonImportedRuntimeAssertions'
+import {
+    acceptGuestLegalConsents,
+    assertPublicGuestAnswerResponse,
+    expectNoGuestQuizAnswerRequest
+} from '../../support/lmsMarathonGuestShortLinkAssertions'
+import {
+    readApplicationTabularChildFieldMetadata,
+    readGuestAssessmentResponseRecords,
+    readPublishedQuizAccessLinkTargets
+} from '../../support/lmsMarathonGuestShortLinkDatabase'
 import {
     expectNoVisibleLearningContentTechnicalText,
     expectPublishedLearnerHomeAssignments,
@@ -17,7 +28,6 @@ import {
     expectDataGridHorizontalScrollConstrained,
     expectElementFitsViewport,
     expectLocatorFullyFitsViewport,
-    expectLocatorFitsViewport,
     expectLocatorHasNoInlineOverflow,
     expectLocalizedValidation,
     expectNoDataGridTechnicalLeakage,
@@ -26,7 +36,8 @@ import {
     expectTableHorizontalScrollConstrained,
     expectNoTechnicalLeakage,
     expectNoVisibleTextPatterns,
-    expectSemanticFieldControls
+    expectSemanticFieldControls,
+    waitForLayoutFrame
 } from '../../support/browser/runtimeUx'
 import {
     createLoggedInApiContext,
@@ -53,16 +64,19 @@ import {
 } from '../../support/selectors/contracts'
 import {
     assertLmsFixtureEnvelopeContract,
+    LMS_DEMO_ACCESS_LINKS,
     LMS_DEMO_ENROLLMENTS,
     LMS_DEMO_CONTENT_NODE,
     LMS_DEMO_CONTENT_PROGRESS,
     LMS_DEMO_CONTENT_NODES,
     LMS_DEMO_QUIZ,
     LMS_DEMO_QUIZZES,
-    LMS_DEMO_QUIZ_RESPONSES,
     LMS_DEMO_REPORTS,
     LMS_DEMO_STUDENTS,
     LMS_FIXTURE_FILENAME,
+    LMS_LYCEUM_MARATHON_ACCESS_LINKS,
+    LMS_LYCEUM_MARATHON_QUIZ_COUNT,
+    LMS_LYCEUM_MARATHON_SEEDED_RESULT_COUNTS,
     LMS_PUBLICATION,
     LMS_SAMPLE_LINK,
     LMS_SECONDARY_LINK,
@@ -94,18 +108,56 @@ type RuntimeMutationResponse = {
 const UUID_SUBSTRING_PATTERN = /[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}/i
 const UUID_V7_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu
 const RUNTIME_RECORD_HANDLE_PATTERN = /^rh1\.[A-Za-z0-9_-]+$/u
+
+async function readImportedQuizQuestionRows(
+    api: ApiContext,
+    applicationId: string,
+    quizzesObjectId: string,
+    workspaceId: string,
+    quizIds: string[]
+): Promise<Map<string, Array<Record<string, unknown>>>> {
+    const [{ tableComponentId, childColumnName: optionsColumn }, { childColumnName: promptColumn }] = await Promise.all([
+        readApplicationTabularChildFieldMetadata(applicationId, 'Quizzes', 'Questions', 'Options'),
+        readApplicationTabularChildFieldMetadata(applicationId, 'Quizzes', 'Questions', 'Prompt')
+    ])
+    const rowsByQuiz = await Promise.all(
+        quizIds.map(async (quizId) => {
+            const params = new URLSearchParams({ objectCollectionId: quizzesObjectId, workspaceId })
+            const response = await sendWithCsrf(
+                api,
+                'GET',
+                `/api/v1/applications/${applicationId}/runtime/rows/${quizId}/tabular/${tableComponentId}?${params.toString()}`
+            )
+            expect(response.status, `Imported quiz ${quizId} questions must be readable through runtime tabular data`).toBe(200)
+            const payload = (await response.json()) as { items?: Array<Record<string, unknown>> }
+            const items = Array.isArray(payload.items) ? payload.items : []
+            return [
+                quizId,
+                items.map((item) => ({
+                    ...item,
+                    Prompt: item[promptColumn],
+                    Options: item[optionsColumn]
+                }))
+            ] as const
+        })
+    )
+    return new Map(rowsByQuiz)
+}
 const RUNTIME_NAVIGATION_ACCESSIBLE_NAME = /^(?:Application navigation|Навигация приложения)$/u
 const LMS_PRIMARY_NAV_OBJECT_CODENAMES = new Set([
     'ContentProjects',
     'Courses',
     'KnowledgeArticles',
     'LearningTracks',
+    'Quizzes',
     'Reports',
     'TrashEntries'
 ])
 const LMS_OBJECT_RUNTIME_TARGETS = new Map<string, string>([
     ['Content Projects', 'ContentProjects'],
     ['Проекты контента', 'ContentProjects'],
+    ['Quizzes', 'Quizzes'],
+    ['Тесты', 'Quizzes'],
     ['Courses', 'Courses'],
     ['Курсы', 'Courses'],
     ['Learning Tracks', 'LearningTracks'],
@@ -279,13 +331,19 @@ async function seedSharedPublicGuestContent(options: {
             objectCollectionId: options.accessLinksObjectId,
             data: {
                 Slug: seededContent.accessLinkSlug,
-                TargetType: 'content',
-                TargetId: contentRow.id,
                 ContentNodeIdRef: contentRow.id,
                 IsActive: true,
                 MaxUses: 20,
-                UseCount: 0,
-                LinkTitle: buildVLC(linkTitle.en, linkTitle.ru)
+                LinkTitle: buildVLC(linkTitle.en, linkTitle.ru),
+                ShowFirstName: true,
+                RequireFirstName: true,
+                ShowLastName: true,
+                RequireLastName: true,
+                ShowEmail: false,
+                RequireEmail: false,
+                ShowPhone: false,
+                RequirePhone: false,
+                CaptchaEnabled: false
             }
         })
         await waitForApplicationRuntimeRow(options.api, options.applicationId, options.accessLinksObjectId, accessLinkRow.id, {
@@ -309,33 +367,57 @@ async function seedSharedPublicGuestContent(options: {
             )
             .toBe(accessLinkRow.id)
     }
+
+    return quizRowsByKey
 }
 
-async function checkQuizOption(page: Page, value: unknown, locale: string): Promise<void> {
+async function checkQuizOption(page: Page, value: unknown, locale: 'en' | 'ru', applicationId: string, label: string): Promise<void> {
     const primaryLabel = readLocalizedText(value, locale)
-    let option: Locator | null = null
-    if (primaryLabel) {
-        const primaryLocator = page.getByLabel(primaryLabel)
-        if (await primaryLocator.count()) {
-            option = primaryLocator.first()
-        }
-    }
-
-    if (!option && locale === 'en') {
-        const fallbackLabel = readLocalizedText(value, 'en')
-        if (fallbackLabel) {
-            option = page.getByLabel(fallbackLabel).first()
-        }
-    }
-
-    if (!option) {
+    if (!primaryLabel) {
         throw new Error(`Quiz option label is missing for locale ${locale}`)
     }
+    const option = page.getByLabel(primaryLabel, { exact: true }).first()
+    await expect(option, `Quiz option must render with its exact ${locale} label`).toBeVisible({ timeout: 30_000 })
 
-    await option.focus()
-    await expect(option, `Quiz option must be keyboard-focusable for locale ${locale}`).toBeFocused()
-    await page.keyboard.press('Space')
-    await expect(option, `Quiz option must be checked after keyboard activation for locale ${locale}`).toBeChecked()
+    const answerPathPrefix = `/api/v1/public/a/${applicationId}/runtime/attempts/`
+    const isAnswerRequest = (request: { method(): string; url(): string }) => {
+        const pathname = new URL(request.url()).pathname
+        return request.method() === 'PUT' && pathname.startsWith(answerPathPrefix) && pathname.endsWith('/answers')
+    }
+    let answerRequestCount = 0
+    const observeAnswerRequest = (request: Request) => {
+        if (isAnswerRequest(request)) answerRequestCount += 1
+    }
+    page.on('request', observeAnswerRequest)
+
+    try {
+        await option.focus()
+        await expect(option, `Quiz option must be keyboard-focusable for locale ${locale}`).toBeFocused()
+        await page.keyboard.press('Space')
+        await expect(option, `Quiz option must be checked after keyboard activation for locale ${locale}`).toBeChecked()
+        await expect(
+            page.getByText(
+                locale === 'ru'
+                    ? 'Ответ выбран. Нажмите кнопку «Отправить ответ», чтобы продолжить.'
+                    : 'Answer selected. Use the Submit answer button to continue.'
+            )
+        ).toBeVisible()
+        expect(answerRequestCount, `${label} must not save the keyboard selection automatically`).toBe(0)
+        await expectNoGuestQuizAnswerRequest({ page, applicationId, label })
+        expect(answerRequestCount, `${label} must remain unsaved until the user confirms`).toBe(0)
+
+        const submitLabel = locale === 'ru' ? 'Отправить ответ' : 'Submit answer'
+        const answerResponsePromise = page.waitForResponse((response) => isAnswerRequest(response.request()), { timeout: 30_000 })
+        await activateButtonByKeyboard(page, page.getByRole('button', { name: submitLabel }), label)
+        const answerResponse = await answerResponsePromise
+        expect(answerResponse.status(), `${label} must be durably saved after confirmation`).toBe(200)
+        await expect.poll(() => answerRequestCount, { message: `${label} must send exactly one answer write` }).toBe(1)
+        assertPublicGuestAnswerResponse(await answerResponse.json(), `${label} response`)
+        await expectNoGuestQuizAnswerRequest({ page, applicationId, label: `${label} duplicate-write check` })
+        expect(answerRequestCount, `${label} must persist exactly one answer`).toBe(1)
+    } finally {
+        page.off('request', observeAnswerRequest)
+    }
 }
 
 const RU_LMS_ENGLISH_FALLBACK_PATTERNS = [
@@ -1070,6 +1152,7 @@ const { expectPublishedLearnerPlayer, expectPublishedTrackLearnerPlayer } = crea
 
 async function assertCreateTargetDefaults(options: {
     page: Page
+    tableSurface: Locator
     api?: ApiContext
     applicationId?: string
     workspaceId?: string
@@ -1079,9 +1162,19 @@ async function assertCreateTargetDefaults(options: {
     screenshotSuffix: string
     returnToCreateTargetSurface: () => Promise<void>
 }): Promise<void> {
-    const { page, api, applicationId, workspaceId, label, screenshotPath, targetLabel, screenshotSuffix, returnToCreateTargetSurface } =
-        options
-    const getCreateButton = () => page.getByTestId('records-union-create-target-menu-button')
+    const {
+        page,
+        tableSurface,
+        api,
+        applicationId,
+        workspaceId,
+        label,
+        screenshotPath,
+        targetLabel,
+        screenshotSuffix,
+        returnToCreateTargetSurface
+    } = options
+    const getCreateButton = () => tableSurface.getByTestId('records-union-create-target-menu-button')
     if (!api || !applicationId || !workspaceId) {
         throw new Error(`${targetLabel} create target persistence proof requires api, applicationId, and workspaceId`)
     }
@@ -1438,8 +1531,8 @@ async function expectPublishedLearningContentCreateTargets(options: {
             `${label} create menu must include ${targetLabel}`
         ).toBeVisible()
     }
-    await expect(page.getByRole('menuitem', { name: /^Quiz\b/ })).toBeDisabled()
-    await expect(page.getByText('Quiz authoring is planned for a later Learning Content phase.')).toBeVisible()
+    await expect(page.getByRole('menuitem', { name: /^Quiz\b/ })).toBeEnabled()
+    await expect(page.getByText('Quiz authoring is planned for a later Learning Content phase.')).toHaveCount(0)
     await expect(page.getByRole('menuitem', { name: /^Assignment\b/ })).toBeDisabled()
     await expect(page.getByText('Assignment authoring is planned for a later Learning Content phase.')).toBeVisible()
     await expect(page.getByRole('menuitem', { name: /^Package\b/ })).toBeDisabled()
@@ -1450,6 +1543,7 @@ async function expectPublishedLearningContentCreateTargets(options: {
     await assertProjectCreateTargetDialog()
     await assertCreateTargetDefaults({
         page,
+        tableSurface: genericRuntimeSurface,
         api,
         applicationId,
         workspaceId,
@@ -1461,6 +1555,7 @@ async function expectPublishedLearningContentCreateTargets(options: {
     })
     await assertCreateTargetDefaults({
         page,
+        tableSurface: genericRuntimeSurface,
         api,
         applicationId,
         workspaceId,
@@ -1812,6 +1907,66 @@ async function expectPublishedLearningContentTableActions(options: {
     await expectPublishedLearningContentCopyIsolation({ page, api, applicationId, workspaceId, label, rowActionScope })
 }
 
+async function expectRuntimeControlFitsViewport(locator: Locator, label: string, expectedViewportWidth: number): Promise<void> {
+    await expect(locator, `${label} must be visible before measuring its responsive bounds`).toBeVisible()
+    await expect(async () => {
+        const metrics = await locator.evaluate((element) => {
+            const rect = element.getBoundingClientRect()
+            const ancestors: Array<Record<string, number | string | null>> = []
+            let ancestor = element.parentElement
+
+            while (ancestor && ancestors.length < 8) {
+                const ancestorRect = ancestor.getBoundingClientRect()
+                const style = window.getComputedStyle(ancestor)
+                ancestors.push({
+                    tag: ancestor.tagName.toLowerCase(),
+                    testId: ancestor.getAttribute('data-testid'),
+                    className: typeof ancestor.className === 'string' ? ancestor.className.slice(0, 120) : null,
+                    left: Math.round(ancestorRect.left),
+                    right: Math.round(ancestorRect.right),
+                    width: Math.round(ancestorRect.width),
+                    clientWidth: ancestor.clientWidth,
+                    scrollWidth: ancestor.scrollWidth,
+                    overflowX: style.overflowX,
+                    display: style.display,
+                    flex: style.flex,
+                    minWidth: style.minWidth
+                })
+                ancestor = ancestor.parentElement
+            }
+
+            return {
+                control: {
+                    left: Math.round(rect.left),
+                    right: Math.round(rect.right),
+                    top: Math.round(rect.top),
+                    bottom: Math.round(rect.bottom),
+                    width: Math.round(rect.width),
+                    height: Math.round(rect.height)
+                },
+                viewport: {
+                    innerWidth: window.innerWidth,
+                    innerHeight: window.innerHeight,
+                    documentClientWidth: document.documentElement.clientWidth,
+                    documentScrollWidth: document.documentElement.scrollWidth,
+                    bodyClientWidth: document.body?.clientWidth ?? 0,
+                    bodyScrollWidth: document.body?.scrollWidth ?? 0
+                },
+                ancestors
+            }
+        })
+        const details = JSON.stringify(metrics)
+
+        expect(metrics.viewport.innerWidth, `${label} must measure the requested browser viewport. ${details}`).toBe(expectedViewportWidth)
+        expect(metrics.control.left, `${label} must start inside the viewport. ${details}`).toBeGreaterThanOrEqual(0)
+        expect(metrics.control.right, `${label} must fit inside the viewport. ${details}`).toBeLessThanOrEqual(expectedViewportWidth + 1)
+        expect(metrics.control.top, `${label} must start inside the visible viewport. ${details}`).toBeGreaterThanOrEqual(0)
+        expect(metrics.control.bottom, `${label} must fit inside the visible viewport. ${details}`).toBeLessThanOrEqual(
+            metrics.viewport.innerHeight + 1
+        )
+    }).toPass({ timeout: 5_000 })
+}
+
 async function expectPublishedLearningContentTableView(options: {
     page: Page
     api?: ApiContext
@@ -1837,10 +1992,10 @@ async function expectPublishedLearningContentTableView(options: {
         hasVisibleLibrarySurface
     } = options
     const isLibraryTable = surfaceMode === 'library-table'
-    const getCreateButton = () => page.getByTestId('records-union-create-target-menu-button')
     const unionWidget = page.getByTestId('records-union-details-table').first()
     const hasVisibleUnionWidget = await unionWidget.isVisible().catch(() => false)
     const tableSurface = hasVisibleUnionWidget ? unionWidget : hasVisibleLibrarySurface ? librarySurface : page.getByRole('main')
+    const getCreateButton = () => tableSurface.getByTestId('records-union-create-target-menu-button')
     const grid = tableSurface.getByRole('grid').first()
     const searchInput = tableSurface.getByRole('textbox', { name: /Search records|Поиск записей/i }).first()
     await expect(searchInput, `${label} table view must expose generic runtime search`).toBeVisible({ timeout: 30_000 })
@@ -1984,6 +2139,12 @@ async function expectPublishedLearningContentTableView(options: {
         try {
             for (const viewport of toolbarViewports) {
                 await page.setViewportSize({ width: viewport.width, height: viewport.height })
+                await waitForLayoutFrame(page)
+                await page.screenshot({
+                    path: screenshotPath.replace(/\.png$/i, `-${viewport.name}-toolbar.png`),
+                    fullPage: true
+                })
+                await expectNoPageHorizontalOverflow(page, `${label} ${viewport.name} toolbar`)
                 const createButton = getCreateButton().first()
                 const typeFilter = tableSurface
                     .getByTestId(hasVisibleLibrarySurface ? 'library-target-filter' : 'records-union-target-filter')
@@ -1998,6 +2159,7 @@ async function expectPublishedLearningContentTableView(options: {
                 await expect(createButton, `${label} ${viewport.name} toolbar must keep the create menu visible`).toBeVisible({
                     timeout: 30_000
                 })
+                await expect(createButton, `${label} ${viewport.name} toolbar must expose exactly one create menu`).toHaveCount(1)
                 await expect(typeFilter, `${label} ${viewport.name} toolbar must keep the type filter visible`).toBeVisible({
                     timeout: 30_000
                 })
@@ -2017,24 +2179,26 @@ async function expectPublishedLearningContentTableView(options: {
                 if (!hasVisibleLibrarySurface) await expectHeightsAligned(createButton, columnVisibilityButton, 2)
                 await expectHeightsAligned(createButton, cardViewButton, 2)
                 await expectHeightsAligned(createButton, tableViewButton, 2)
-                await expectLocatorFitsViewport(createButton, `${label} ${viewport.name} create button`)
-                await expectLocatorFitsViewport(typeFilter, `${label} ${viewport.name} type filter`)
+                await expectRuntimeControlFitsViewport(createButton, `${label} ${viewport.name} create button`, viewport.width)
+                await expectRuntimeControlFitsViewport(typeFilter, `${label} ${viewport.name} type filter`, viewport.width)
                 if (!hasVisibleLibrarySurface) {
-                    await expectLocatorFitsViewport(columnVisibilityButton, `${label} ${viewport.name} column visibility button`)
+                    await expectRuntimeControlFitsViewport(
+                        columnVisibilityButton,
+                        `${label} ${viewport.name} column visibility button`,
+                        viewport.width
+                    )
                 }
+                await expectRuntimeControlFitsViewport(cardViewButton, `${label} ${viewport.name} card view button`, viewport.width)
+                await expectRuntimeControlFitsViewport(tableViewButton, `${label} ${viewport.name} table view button`, viewport.width)
                 await expectLocatorHasNoInlineOverflow(createButton, `${label} ${viewport.name} create button`)
                 if (!hasVisibleLibrarySurface) {
                     await expectLocatorHasNoInlineOverflow(columnVisibilityButton, `${label} ${viewport.name} column visibility button`)
-                }
-                await expectNoPageHorizontalOverflow(page, `${label} ${viewport.name} toolbar`)
-
-                if (viewport.name === 'mobile') {
-                    await page.screenshot({ path: screenshotPath.replace(/\.png$/i, '-mobile-toolbar.png'), fullPage: true })
                 }
             }
         } finally {
             if (originalViewport) {
                 await page.setViewportSize(originalViewport)
+                await waitForLayoutFrame(page)
             }
         }
     }
@@ -2477,6 +2641,13 @@ function readRuntimeRowValue(
     return undefined
 }
 
+function readRuntimeReferenceId(value: unknown): string | undefined {
+    if (typeof value === 'string' && value.length > 0) return value
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return undefined
+    const id = (value as Record<string, unknown>).id
+    return typeof id === 'string' && id.length > 0 ? id : undefined
+}
+
 async function createWorkflowRuntimeRow(
     api: ApiContext,
     applicationId: string,
@@ -2860,6 +3031,7 @@ test.describe('LMS Snapshot Import Runtime Flow', () => {
             accessLinksObjectId,
             studentsObjectId,
             quizResponsesObjectId,
+            quizAttemptsObjectId,
             enrollmentsObjectId,
             assignmentsObjectId,
             assignmentSubmissionsObjectId,
@@ -2879,6 +3051,7 @@ test.describe('LMS Snapshot Import Runtime Flow', () => {
             waitForApplicationObjectId(api, applicationId, 'AccessLinks'),
             waitForApplicationObjectId(api, applicationId, 'Students'),
             waitForApplicationObjectId(api, applicationId, 'Quiz Responses'),
+            waitForApplicationObjectId(api, applicationId, 'Quiz Attempts'),
             waitForApplicationObjectId(api, applicationId, 'Enrollments'),
             waitForApplicationObjectId(api, applicationId, 'Assignments'),
             waitForApplicationObjectId(api, applicationId, 'AssignmentSubmissions'),
@@ -2903,6 +3076,75 @@ test.describe('LMS Snapshot Import Runtime Flow', () => {
         if (typeof mainWorkspaceId !== 'string' || mainWorkspaceId.length === 0) {
             throw new Error('Main application workspace was not found for runtime verification')
         }
+
+        const [seededQuizRows, seededAccessLinkRows, seededStudents, seededQuizAttempts, seededQuizResponses] = await Promise.all([
+            waitForApplicationRuntimeRowCount(api, applicationId, quizzesObjectId, LMS_LYCEUM_MARATHON_QUIZ_COUNT, {
+                workspaceId: mainWorkspaceId
+            }),
+            waitForApplicationRuntimeRowCount(
+                api,
+                applicationId,
+                accessLinksObjectId,
+                LMS_DEMO_ACCESS_LINKS.length + LMS_LYCEUM_MARATHON_ACCESS_LINKS.length,
+                { workspaceId: mainWorkspaceId }
+            ),
+            waitForApplicationRuntimeRowCount(api, applicationId, studentsObjectId, LMS_DEMO_STUDENTS.length, {
+                workspaceId: mainWorkspaceId
+            }),
+            waitForApplicationRuntimeRowCount(
+                api,
+                applicationId,
+                quizAttemptsObjectId,
+                LMS_LYCEUM_MARATHON_SEEDED_RESULT_COUNTS.quizAttempts,
+                {
+                    workspaceId: mainWorkspaceId
+                }
+            ),
+            waitForApplicationRuntimeRowCount(
+                api,
+                applicationId,
+                quizResponsesObjectId,
+                LMS_LYCEUM_MARATHON_SEEDED_RESULT_COUNTS.quizResponses,
+                {
+                    workspaceId: mainWorkspaceId
+                }
+            )
+        ])
+        const [marathonQuizRuntime, studentRuntime] = (await Promise.all([
+            getApplicationRuntime(api, applicationId, {
+                objectId: quizzesObjectId,
+                workspaceId: mainWorkspaceId,
+                limit: 100,
+                offset: 0
+            }),
+            getApplicationRuntime(api, applicationId, {
+                objectId: studentsObjectId,
+                workspaceId: mainWorkspaceId,
+                limit: 100,
+                offset: 0
+            })
+        ])) as Array<{
+            columns?: Array<{ field?: unknown; codename?: unknown }>
+            rows?: Array<Record<string, unknown>>
+        }>
+        const quizAccessLinkTargets = await readPublishedQuizAccessLinkTargets(applicationId, mainWorkspaceId)
+        const quizIds = (marathonQuizRuntime.rows ?? []).flatMap((row) => (typeof row.id === 'string' ? [row.id] : []))
+        const quizQuestionsById = await readImportedQuizQuestionRows(api, applicationId, quizzesObjectId, mainWorkspaceId, quizIds)
+        expectImportedLmsMarathonRuntime({
+            quizTable: marathonQuizRuntime,
+            quizQuestionsById,
+            quizAccessLinkTargets,
+            studentTable: studentRuntime,
+            seededQuizRows,
+            seededAccessLinkRows,
+            seededStudents,
+            seededQuizAttempts,
+            seededQuizResponses,
+            demoAccessLinkCount: LMS_DEMO_ACCESS_LINKS.length,
+            demoStudentCount: LMS_DEMO_STUDENTS.length,
+            readRuntimeRowValue,
+            readLocalizedText
+        })
 
         const [contentTypeEnumerationId, resourceTypeEnumerationId, publicationStatusEnumerationId, questionTypeEnumerationId] =
             await Promise.all([
@@ -2935,7 +3177,7 @@ test.describe('LMS Snapshot Import Runtime Flow', () => {
             mainWorkspaceId
         )
 
-        await seedSharedPublicGuestContent({
+        const publicGuestQuizRowsByKey = await seedSharedPublicGuestContent({
             api,
             page,
             applicationId,
@@ -2949,6 +3191,28 @@ test.describe('LMS Snapshot Import Runtime Flow', () => {
             publishedPublicationStatusValueId,
             singleChoiceValueId
         })
+        const publicGuestQuizQuestionsById = await readImportedQuizQuestionRows(
+            api,
+            applicationId,
+            quizzesObjectId,
+            publicGuestWorkspaceId,
+            [...publicGuestQuizRowsByKey.values()].map(({ id }) => id)
+        )
+
+        const [initialPublicGuestStudents, initialPublicGuestAttempts, initialPublicGuestResponses] = await Promise.all([
+            waitForApplicationRuntimeRowCount(api, applicationId, studentsObjectId, LMS_DEMO_STUDENTS.length, {
+                workspaceId: publicGuestWorkspaceId
+            }),
+            waitForApplicationRuntimeRowCount(api, applicationId, quizAttemptsObjectId, 0, {
+                workspaceId: publicGuestWorkspaceId
+            }),
+            waitForApplicationRuntimeRowCount(api, applicationId, quizResponsesObjectId, 0, {
+                workspaceId: publicGuestWorkspaceId
+            })
+        ])
+        expect(initialPublicGuestStudents).toHaveLength(LMS_DEMO_STUDENTS.length)
+        expect(initialPublicGuestAttempts).toHaveLength(0)
+        expect(initialPublicGuestResponses).toHaveLength(0)
 
         const restoreMainWorkspaceResponse = await sendWithCsrf(
             api,
@@ -3001,6 +3265,23 @@ test.describe('LMS Snapshot Import Runtime Flow', () => {
         await expect(page.getByText('Learning portal stats')).toHaveCount(0)
         await expect(page.getByText('Dashboard preview of the canonical learning lesson')).toHaveCount(0)
         await expect(page.getByRole('button', { name: 'Copy link' })).toHaveCount(0)
+        await clickRuntimeNavigationItem(page, 'Quizzes')
+        await expectRuntimeNavigationItemSelected(page, 'Quizzes')
+        await expect(page.getByTestId('runtime-main-content')).toHaveCSS(
+            'margin-top',
+            '0px',
+            'A docked desktop menu has no fixed navbar controls and must not leave a blank top strip'
+        )
+        const quizzesSurface = page.getByRole('grid').first()
+        await expect(quizzesSurface, 'The direct Quizzes navigation item must open the quiz records table').toBeVisible({ timeout: 30_000 })
+        await expect(
+            quizzesSurface.getByText('Lyceum Intellectual Marathon — Grade 5', { exact: true }),
+            'The imported quiz must be visible without navigating through an internal entity ID'
+        ).toBeVisible({ timeout: 30_000 })
+        await expectNoTechnicalLeakage(quizzesSurface, { label: 'LMS quiz authoring records', checkUuidSubstrings: true })
+        await page.screenshot({ path: testInfo.outputPath('lms-quiz-authoring-navigation-en.png'), fullPage: true })
+        await page.goto(`/a/${applicationId}`)
+        await expect(page.getByRole('heading', { name: LMS_WELCOME_PAGE.title.en })).toBeVisible({ timeout: 30_000 })
         await expect(page.getByTestId('runtime-page-progress')).toContainText('Reading progress 0%', { timeout: 30_000 })
         const pageProgressResponsePromise = page.waitForResponse(
             (response) =>
@@ -3130,7 +3411,7 @@ test.describe('LMS Snapshot Import Runtime Flow', () => {
                 { name: 'Sections', kind: 'relation', expectedColumnHeader: 'Name' },
                 { name: 'Course items', kind: 'relation', expectedColumnHeader: 'Name' },
                 { name: 'Player', kind: 'learner-player' },
-                { name: 'Reports', kind: 'reports' }
+                { name: 'Reports', kind: 'reports', expectedCount: 3 }
             ],
             screenshotPath: testInfo.outputPath('lms-course-builder-tabs-en.png')
         })
@@ -3142,7 +3423,7 @@ test.describe('LMS Snapshot Import Runtime Flow', () => {
                 { name: 'Stages', kind: 'relation', expectedColumnHeader: 'Name' },
                 { name: 'Track steps', kind: 'relation', expectedColumnHeader: 'Name' },
                 { name: 'Player', kind: 'learner-player' },
-                { name: 'Reports', kind: 'reports' }
+                { name: 'Reports', kind: 'reports', expectedCount: 3 }
             ],
             screenshotPath: testInfo.outputPath('lms-track-builder-tabs-en.png')
         })
@@ -3485,12 +3766,15 @@ test.describe('LMS Snapshot Import Runtime Flow', () => {
         await applyBrowserPreferences(page, { language: 'en' })
         await page.goto(`/public/a/${applicationId}/links/${LMS_SAMPLE_LINK.slug}`)
 
-        await expect(page.getByLabel('Your name')).toBeVisible({ timeout: 30_000 })
+        await expect(page.getByLabel('First name')).toBeVisible({ timeout: 30_000 })
+        await expect(page.getByLabel('Last name')).toBeVisible({ timeout: 30_000 })
         await expectNoTechnicalLeakage(page.locator('body'), {
             label: 'Snapshot LMS public guest start page',
             checkUuidSubstrings: true
         })
-        await page.getByLabel('Your name').fill('Learning guest learner')
+        await page.getByLabel('First name').fill('Learning guest')
+        await page.getByLabel('Last name').fill('Learner')
+        await acceptGuestLegalConsents(page, 'en')
         await activateButtonByKeyboard(page, page.getByRole('button', { name: 'Start learning' }), 'Start learning')
 
         await expect(page.getByText(LMS_DEMO_CONTENT_NODE.title.en)).toBeVisible({ timeout: 30_000 })
@@ -3504,10 +3788,10 @@ test.describe('LMS Snapshot Import Runtime Flow', () => {
         await activateButtonByKeyboard(page, page.getByRole('button', { name: 'Open quiz' }), 'Open quiz')
 
         await expect(page.getByText(LMS_DEMO_QUIZ.questions.en[0].prompt)).toBeVisible({ timeout: 30_000 })
-        await checkQuizOption(page, LMS_DEMO_QUIZ.questions.en[0].options[0].label, 'en')
-        await checkQuizOption(page, LMS_DEMO_QUIZ.questions.en[1].options[0].label, 'en')
-        await activateButtonByKeyboard(page, page.getByRole('button', { name: 'Submit quiz' }), 'Submit quiz')
-        await expect(page.getByText('Score 2 / 2')).toBeVisible({ timeout: 30_000 })
+        await checkQuizOption(page, LMS_DEMO_QUIZ.questions.en[0].options[0].label, 'en', applicationId, 'Submit first quiz answer')
+        await expect(page.getByText(LMS_DEMO_QUIZ.questions.en[1].prompt)).toBeVisible({ timeout: 30_000 })
+        await checkQuizOption(page, LMS_DEMO_QUIZ.questions.en[1].options[0].label, 'en', applicationId, 'Submit second quiz answer')
+        await expect(page.getByText('Correct answers: 2 of 2')).toBeVisible({ timeout: 30_000 })
         await activateButtonByKeyboard(page, page.getByRole('button', { name: 'Back to content' }), 'Back to content')
         await activateButtonByKeyboard(page, page.getByRole('button', { name: 'Complete content' }), 'Complete content')
         await expect(page.getByText('Content complete. Progress has been recorded for this session.')).toBeVisible({ timeout: 30_000 })
@@ -3516,14 +3800,17 @@ test.describe('LMS Snapshot Import Runtime Flow', () => {
         await applyBrowserPreferences(page, { language: 'ru' })
         await page.goto(`/public/a/${applicationId}/links/${LMS_SECONDARY_LINK.slug}?locale=ru`)
 
-        await expect(page.getByLabel('Ваше имя')).toBeVisible({ timeout: 30_000 })
+        await expect(page.getByLabel('Имя')).toBeVisible({ timeout: 30_000 })
+        await expect(page.getByLabel('Фамилия')).toBeVisible({ timeout: 30_000 })
         await expectNoTechnicalLeakage(page.locator('body'), {
             label: 'Snapshot LMS public guest start page RU',
             checkUuidSubstrings: true
         })
         await expectNoRussianLmsFallbackText(page.locator('body'), 'Snapshot LMS public guest start page RU')
         await assertNoHorizontalOverflow(page, 'Snapshot LMS public guest start page RU')
-        await page.getByLabel('Ваше имя').fill('Русский гость')
+        await page.getByLabel('Имя').fill('Русский')
+        await page.getByLabel('Фамилия').fill('Гость')
+        await acceptGuestLegalConsents(page, 'ru')
         await page.getByRole('button', { name: 'Начать обучение' }).click()
 
         const secondaryContent = LMS_DEMO_CONTENT_NODES.find((content) => content.accessLinkSlug === LMS_SECONDARY_LINK.slug)
@@ -3549,10 +3836,10 @@ test.describe('LMS Snapshot Import Runtime Flow', () => {
         }
 
         await expect(page.getByText(secondaryQuiz.questions.ru[0].prompt)).toBeVisible({ timeout: 30_000 })
-        await checkQuizOption(page, secondaryQuiz.questions.ru[0].options[0].label, 'ru')
-        await checkQuizOption(page, secondaryQuiz.questions.ru[1].options[0].label, 'ru')
-        await page.getByRole('button', { name: 'Отправить тест' }).click()
-        await expect(page.getByText('Результат 2 / 2')).toBeVisible({ timeout: 30_000 })
+        await checkQuizOption(page, secondaryQuiz.questions.ru[0].options[0].label, 'ru', applicationId, 'Отправить первый ответ на тест')
+        await expect(page.getByText(secondaryQuiz.questions.ru[1].prompt)).toBeVisible({ timeout: 30_000 })
+        await checkQuizOption(page, secondaryQuiz.questions.ru[1].options[0].label, 'ru', applicationId, 'Отправить второй ответ на тест')
+        await expect(page.getByText('Правильных ответов: 2 из 2')).toBeVisible({ timeout: 30_000 })
         await page.getByRole('button', { name: 'Назад к контенту' }).click()
         await expect(page.getByRole('button', { name: 'Завершить контент' })).toBeVisible({ timeout: 30_000 })
         await page.getByRole('button', { name: 'Завершить контент' }).click()
@@ -3641,13 +3928,12 @@ test.describe('LMS Snapshot Import Runtime Flow', () => {
         )
         const expectedContentProgressRuntimeRows = LMS_DEMO_CONTENT_PROGRESS.length + expectedContentProgressSemanticRows
 
-        // Creating the shared public guest workspace re-seeds the published snapshot
-        // demo elements (students, quiz responses, content progress) into it, exactly
-        // like the default workspace. The public guest journey adds one student per
-        // locale run, two quiz answers per run, and one completed content progress row
-        // per run on top of the seeded demo rows.
+        // The shared workspace starts with the same non-guest LMS learners and content
+        // progress as the snapshot, but no quiz attempts or responses. Each real guest
+        // session below creates one attempt and answers the two regression quiz items.
         const expectedPublicGuestStudentRows = LMS_DEMO_STUDENTS.length + 2
-        const expectedPublicGuestQuizResponseRows = LMS_DEMO_QUIZ_RESPONSES.length + 4
+        const expectedPublicGuestQuizAttemptRows = 2
+        const expectedPublicGuestQuizResponseRows = 4
         const expectedPublicGuestContentProgressSemanticTargetCounts = {
             LearnerHome: 1,
             CourseItems: 3,
@@ -3663,22 +3949,40 @@ test.describe('LMS Snapshot Import Runtime Flow', () => {
 
         const [
             studentRows,
+            quizAttemptRows,
             quizResponseRows,
             contentProgressRows,
             publicGuestStudentRows,
+            publicGuestQuizAttemptRows,
             publicGuestQuizResponseRows,
             publicGuestContentProgressRows
         ] = await Promise.all([
             waitForApplicationRuntimeRowCount(api, applicationId, studentsObjectId, LMS_DEMO_STUDENTS.length, {
                 workspaceId: mainWorkspaceId
             }),
-            waitForApplicationRuntimeRowCount(api, applicationId, quizResponsesObjectId, LMS_DEMO_QUIZ_RESPONSES.length, {
-                workspaceId: mainWorkspaceId
-            }),
+            waitForApplicationRuntimeRowCount(
+                api,
+                applicationId,
+                quizAttemptsObjectId,
+                LMS_LYCEUM_MARATHON_SEEDED_RESULT_COUNTS.quizAttempts,
+                { workspaceId: mainWorkspaceId }
+            ),
+            waitForApplicationRuntimeRowCount(
+                api,
+                applicationId,
+                quizResponsesObjectId,
+                LMS_LYCEUM_MARATHON_SEEDED_RESULT_COUNTS.quizResponses,
+                {
+                    workspaceId: mainWorkspaceId
+                }
+            ),
             waitForApplicationRuntimeRowCount(api, applicationId, contentProgressObjectId, expectedContentProgressRuntimeRows, {
                 workspaceId: mainWorkspaceId
             }),
             waitForApplicationRuntimeRowCount(api, applicationId, studentsObjectId, expectedPublicGuestStudentRows, {
+                workspaceId: publicGuestWorkspaceId
+            }),
+            waitForApplicationRuntimeRowCount(api, applicationId, quizAttemptsObjectId, expectedPublicGuestQuizAttemptRows, {
                 workspaceId: publicGuestWorkspaceId
             }),
             waitForApplicationRuntimeRowCount(api, applicationId, quizResponsesObjectId, expectedPublicGuestQuizResponseRows, {
@@ -3690,15 +3994,154 @@ test.describe('LMS Snapshot Import Runtime Flow', () => {
         ])
 
         expect(studentRows).toHaveLength(LMS_DEMO_STUDENTS.length)
-        expect(quizResponseRows).toHaveLength(LMS_DEMO_QUIZ_RESPONSES.length)
+        expect(quizAttemptRows).toHaveLength(LMS_LYCEUM_MARATHON_SEEDED_RESULT_COUNTS.quizAttempts)
+        expect(quizResponseRows).toHaveLength(LMS_LYCEUM_MARATHON_SEEDED_RESULT_COUNTS.quizResponses)
+        expect(seededQuizAttempts).toHaveLength(LMS_LYCEUM_MARATHON_SEEDED_RESULT_COUNTS.quizAttempts)
         expect(contentProgressRows).toHaveLength(expectedContentProgressRuntimeRows)
         expect(new Set(contentProgressRows.map((row) => requireRuntimeRowId(row, 'ContentProgress'))).size).toBe(contentProgressRows.length)
         expect(publicGuestStudentRows).toHaveLength(expectedPublicGuestStudentRows)
+        expect(publicGuestQuizAttemptRows).toHaveLength(expectedPublicGuestQuizAttemptRows)
         expect(publicGuestQuizResponseRows).toHaveLength(expectedPublicGuestQuizResponseRows)
         expect(publicGuestContentProgressRows).toHaveLength(expectedPublicGuestContentProgressRows)
         expect(new Set(publicGuestContentProgressRows.map((row) => requireRuntimeRowId(row, 'Public ContentProgress'))).size).toBe(
             publicGuestContentProgressRows.length
         )
+
+        const [publicGuestStudentRuntime, publicGuestAttemptRuntime] = await Promise.all([
+            getApplicationRuntime(api, applicationId, {
+                objectId: studentsObjectId,
+                workspaceId: publicGuestWorkspaceId,
+                limit: 100,
+                offset: 0
+            }),
+            getApplicationRuntime(api, applicationId, {
+                objectId: quizAttemptsObjectId,
+                workspaceId: publicGuestWorkspaceId,
+                limit: 100,
+                offset: 0
+            })
+        ])
+        const studentColumns = Array.isArray(publicGuestStudentRuntime.columns)
+            ? (publicGuestStudentRuntime.columns as Array<{ field?: unknown; codename?: unknown }>)
+            : []
+        const attemptColumns = Array.isArray(publicGuestAttemptRuntime.columns)
+            ? (publicGuestAttemptRuntime.columns as Array<{ field?: unknown; codename?: unknown }>)
+            : []
+        const persistedPublicGuestStudents = Array.isArray(publicGuestStudentRuntime.rows)
+            ? (publicGuestStudentRuntime.rows as Array<Record<string, unknown>>)
+            : []
+        const persistedPublicGuestAttempts = Array.isArray(publicGuestAttemptRuntime.rows)
+            ? (publicGuestAttemptRuntime.rows as Array<Record<string, unknown>>)
+            : []
+        const sampleGuestContent = LMS_DEMO_CONTENT_NODES.find((content) => content.accessLinkSlug === LMS_SAMPLE_LINK.slug)
+        const secondaryGuestContent = LMS_DEMO_CONTENT_NODES.find((content) => content.accessLinkSlug === LMS_SECONDARY_LINK.slug)
+        const expectedGuestIdentities = [
+            { firstName: 'Learning guest', lastName: 'Learner', content: sampleGuestContent },
+            { firstName: 'Русский', lastName: 'Гость', content: secondaryGuestContent }
+        ]
+        const expectedAttemptsByStudent = new Map<string, { quizId: string; expectedOptionByQuestionId: Map<string, string> }>()
+
+        for (const identity of expectedGuestIdentities) {
+            const quizKey = identity.content?.linkedQuizKey
+            if (typeof quizKey !== 'string') {
+                throw new Error(`Snapshot LMS fixture is missing the quiz linked to ${identity.firstName} ${identity.lastName}`)
+            }
+            const quizRow = publicGuestQuizRowsByKey.get(quizKey)
+            const quiz = LMS_DEMO_QUIZZES.find((candidate) => candidate.key === quizKey)
+            if (!quizRow || !quiz) throw new Error(`Snapshot LMS fixture is missing the seeded quiz ${quizKey}`)
+
+            const studentRow = persistedPublicGuestStudents.find(
+                (row) =>
+                    readRuntimeRowValue(row, studentColumns, 'FirstName', 'first_name') === identity.firstName &&
+                    readRuntimeRowValue(row, studentColumns, 'LastName', 'last_name') === identity.lastName
+            )
+            if (!studentRow) throw new Error(`Snapshot LMS guest student ${identity.firstName} ${identity.lastName} was not persisted`)
+            const studentId = requireRuntimeRowId(studentRow, `${identity.firstName} ${identity.lastName} guest student`)
+
+            const expectedOptionByQuestionId = new Map<string, string>()
+            const persistedQuestions = publicGuestQuizQuestionsById.get(quizRow.id) ?? []
+            expect(persistedQuestions, `${quizKey} persisted runtime questions`).toHaveLength(quiz.questions.en.length)
+            for (const [questionIndex, question] of quiz.questions.en.entries()) {
+                const correctOptions = question.options.filter((option) => option.isCorrect)
+                expect(correctOptions, `${quizKey} question ${questionIndex + 1} must have one correct option`).toHaveLength(1)
+                const persistedQuestion = persistedQuestions[questionIndex]
+                if (!persistedQuestion || typeof persistedQuestion.id !== 'string') {
+                    throw new Error(`Snapshot LMS fixture is missing the persisted runtime ID for ${quizKey} question ${questionIndex + 1}`)
+                }
+                expectedOptionByQuestionId.set(persistedQuestion.id, correctOptions[0]!.id)
+            }
+
+            expect(expectedAttemptsByStudent.has(studentId), 'Guest identity must map to one distinct attempt').toBe(false)
+            expectedAttemptsByStudent.set(studentId, { quizId: quizRow.id, expectedOptionByQuestionId })
+        }
+
+        expect(persistedPublicGuestAttempts).toHaveLength(expectedPublicGuestQuizAttemptRows)
+        const attemptById = new Map<string, { studentId: string; quizId: string; expectedOptionByQuestionId: Map<string, string> }>()
+
+        for (const attempt of persistedPublicGuestAttempts) {
+            const attemptId = requireRuntimeRowId(attempt, 'Public guest quiz attempt')
+            const studentId = readRuntimeReferenceId(readRuntimeRowValue(attempt, attemptColumns, 'StudentId', 'student_id'))
+            const quizId = readRuntimeReferenceId(readRuntimeRowValue(attempt, attemptColumns, 'QuizId', 'quiz_id'))
+            if (!studentId || !quizId) throw new Error(`Public guest quiz attempt ${attemptId} is missing its student or quiz reference`)
+            const expected = expectedAttemptsByStudent.get(studentId)
+            if (!expected) throw new Error(`Public guest quiz attempt ${attemptId} is linked to an unexpected guest student`)
+
+            expect(quizId, `Public guest quiz attempt ${attemptId} must target the quiz linked from its access link`).toBe(expected.quizId)
+            expect(Number(readRuntimeRowValue(attempt, attemptColumns, 'Score', 'score'))).toBe(expected.expectedOptionByQuestionId.size)
+            expect(Number(readRuntimeRowValue(attempt, attemptColumns, 'TotalQuestions', 'total_questions'))).toBe(
+                expected.expectedOptionByQuestionId.size
+            )
+            expect(readRuntimeRowValue(attempt, attemptColumns, 'Passed', 'passed')).toBe(true)
+            expect(readRuntimeRowValue(attempt, attemptColumns, 'Status', 'status')).toBe('Passed')
+            expect(readRuntimeRowValue(attempt, attemptColumns, 'FinishedReason', 'finished_reason')).toBe('submitted')
+            expect(Number(readRuntimeRowValue(attempt, attemptColumns, 'AttemptNumber', 'attempt_number'))).toBe(1)
+            const submittedAt = readRuntimeRowValue(attempt, attemptColumns, 'SubmittedAt', 'submitted_at')
+            expect(typeof submittedAt === 'string' && Number.isFinite(Date.parse(submittedAt))).toBe(true)
+
+            attemptById.set(attemptId, {
+                studentId,
+                quizId,
+                expectedOptionByQuestionId: expected.expectedOptionByQuestionId
+            })
+        }
+
+        expect(attemptById.size).toBe(expectedPublicGuestQuizAttemptRows)
+        const persistedPublicGuestResponses = (
+            await Promise.all([...attemptById.keys()].map((attemptId) => readGuestAssessmentResponseRecords(applicationId, attemptId)))
+        ).flat()
+        expect(persistedPublicGuestResponses).toHaveLength(expectedPublicGuestQuizResponseRows)
+        const responseQuestionKeys = new Set<string>()
+        const responseIds = new Set<string>()
+        const responseCountByAttempt = new Map<string, number>()
+
+        for (const response of persistedPublicGuestResponses) {
+            const responseId = response.id
+            expect(responseIds.has(responseId), 'Public guest quiz response identities must be unique').toBe(false)
+            responseIds.add(responseId)
+            expect(responseId).toMatch(UUID_V7_PATTERN)
+
+            const { attemptId, studentId, quizId, questionId } = response
+            const attempt = attemptById.get(attemptId)
+            if (!attempt) throw new Error(`Public guest quiz response ${responseId} is not linked to a saved guest attempt`)
+            expect(studentId, `Public guest quiz response ${responseId} must match its attempt guest`).toBe(attempt.studentId)
+            expect(quizId, `Public guest quiz response ${responseId} must match its attempt quiz`).toBe(attempt.quizId)
+
+            const expectedOptionId = attempt.expectedOptionByQuestionId.get(questionId)
+            if (!expectedOptionId) throw new Error(`Public guest quiz response ${responseId} targets an unexpected question`)
+            const questionKey = `${attemptId}:${questionId}`
+            expect(
+                responseQuestionKeys.has(questionKey),
+                `Public guest quiz attempt ${attemptId} must not duplicate a question response`
+            ).toBe(false)
+            responseQuestionKeys.add(questionKey)
+            expect(response.selectedOptionIds).toEqual([expectedOptionId])
+            expect(response.isCorrect).toBe(true)
+            expect(response.attemptNumber).toBe(1)
+            expect(Number.isFinite(Date.parse(response.submittedAt))).toBe(true)
+            responseCountByAttempt.set(attemptId, (responseCountByAttempt.get(attemptId) ?? 0) + 1)
+        }
+
+        expect([...responseCountByAttempt.values()].sort((left, right) => left - right)).toEqual([2, 2])
 
         const assertContentProgressSemanticTargets = async (
             rows: Array<Record<string, unknown>>,

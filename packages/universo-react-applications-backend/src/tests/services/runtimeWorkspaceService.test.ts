@@ -1,7 +1,6 @@
 import {
     addWorkspaceMember,
     createSharedWorkspace,
-    copyWorkspace,
     deleteSharedWorkspace,
     getUserWorkspace,
     getWorkspaceMembership,
@@ -12,6 +11,14 @@ import {
     updateWorkspace
 } from '../../services/runtimeWorkspaceService'
 import { createMockDbExecutor } from '../utils/dbMocks'
+
+const mockRevokeGuestSessionSecretsForWorkspace = jest.fn()
+const mockRevokeGuestAssessmentAttemptsForWorkspace = jest.fn()
+
+jest.mock('../../services/guestAssessmentApplicationRevocation', () => ({
+    revokeGuestSessionSecretsForWorkspace: (...args: unknown[]) => mockRevokeGuestSessionSecretsForWorkspace(...args),
+    revokeGuestAssessmentAttemptsForWorkspace: (...args: unknown[]) => mockRevokeGuestAssessmentAttemptsForWorkspace(...args)
+}))
 
 const vlc = (content: string) => ({
     _schema: '1',
@@ -235,30 +242,62 @@ describe('runtimeWorkspaceService', () => {
         await expect(
             deleteSharedWorkspace(executor, {
                 schemaName,
+                applicationId: '018f8a78-7b8f-7c1d-a111-222233334441',
                 workspaceId: 'workspace-personal',
-                actorUserId: 'user-1'
+                actorUserId: '550e8400-e29b-41d4-a716-446655440000'
             })
         ).rejects.toThrow('Personal workspace cannot be deleted')
     })
 
     it('clears the public-entry marker when a shared workspace is deleted', async () => {
         const { executor, txExecutor } = createMockDbExecutor()
+        const applicationSettings = { publicRuntime: { guest: {} } }
+        const applicationId = '018f8a78-7b8f-7c1d-a111-222233334441'
+        const workspaceId = '019ccefc-2f7b-7b36-82f4-85cdb1312273'
+        const actorUserId = '550e8400-e29b-41d4-a716-446655440000'
 
+        mockRevokeGuestSessionSecretsForWorkspace.mockResolvedValue(0)
+        mockRevokeGuestAssessmentAttemptsForWorkspace.mockResolvedValue(1)
         txExecutor.query.mockImplementation(async (sql: string) => {
             if (sql.includes('SELECT id, workspace_type')) {
-                return [{ id: 'workspace-shared', workspace_type: 'shared' }]
+                return [{ id: workspaceId, workspace_type: 'shared' }]
             }
             if (sql.includes('UPDATE') && sql.includes('RETURNING id')) {
-                return [{ id: 'workspace-shared' }]
+                return [{ id: '019ccefc-2f7b-7b36-82f4-85cdb1312274' }]
             }
             return []
         })
 
         await deleteSharedWorkspace(executor, {
             schemaName,
-            workspaceId: 'workspace-shared',
-            actorUserId: 'user-1'
+            applicationId,
+            workspaceId,
+            applicationSettings,
+            actorUserId
         })
+
+        expect(mockRevokeGuestSessionSecretsForWorkspace).toHaveBeenCalledWith(
+            txExecutor,
+            schemaName,
+            applicationId,
+            applicationSettings,
+            workspaceId
+        )
+        expect(mockRevokeGuestAssessmentAttemptsForWorkspace).toHaveBeenCalledWith(txExecutor, schemaName, applicationSettings, workspaceId)
+        const linkReleaseIndex = txExecutor.query.mock.calls.findIndex(([sql]) =>
+            String(sql).includes('UPDATE "applications"."obj_global_short_links"')
+        )
+        const tableDiscoveryIndex = txExecutor.query.mock.calls.findIndex(([sql]) => String(sql).includes('information_schema.columns'))
+        expect(linkReleaseIndex).toBeGreaterThanOrEqual(0)
+        expect(txExecutor.query.mock.calls[linkReleaseIndex]?.[1]).toEqual([applicationId, workspaceId, actorUserId])
+        expect(tableDiscoveryIndex).toBeGreaterThanOrEqual(0)
+        expect(linkReleaseIndex).toBeLessThan(tableDiscoveryIndex)
+        expect(mockRevokeGuestSessionSecretsForWorkspace.mock.invocationCallOrder[0]).toBeLessThan(
+            txExecutor.query.mock.invocationCallOrder[tableDiscoveryIndex]
+        )
+        expect(mockRevokeGuestAssessmentAttemptsForWorkspace.mock.invocationCallOrder[0]).toBeLessThan(
+            txExecutor.query.mock.invocationCallOrder[tableDiscoveryIndex]
+        )
 
         const workspaceUpdate = txExecutor.query.mock.calls
             .map(([sql]) => String(sql))
@@ -268,589 +307,66 @@ describe('runtimeWorkspaceService', () => {
         expect(workspaceUpdate).toContain('= false')
     })
 
-    it('copies workspace rows with a temporary id mapping and remaps uuid references after insert', async () => {
+    it('stops workspace archival when guest session-secret cleanup fails', async () => {
         const { executor, txExecutor } = createMockDbExecutor()
-        const generatedIds = ['workspace-copy', 'relation-copy', 'setting-copy']
-
+        const cleanupError = new Error('guest session-secret cleanup failed')
+        const applicationId = '018f8a78-7b8f-7c1d-a111-222233334441'
+        const workspaceId = '019ccefc-2f7b-7b36-82f4-85cdb1312273'
+        const actorUserId = '550e8400-e29b-41d4-a716-446655440000'
         txExecutor.query.mockImplementation(async (sql: string) => {
-            if (sql.includes('SELECT id') && sql.includes(`FROM "${schemaName}"."_app_workspaces"`) && sql.includes('WHERE id = $1')) {
-                return [{ id: 'workspace-source' }]
-            }
-
-            if (sql.includes('SELECT id') && sql.includes(`FROM "${schemaName}"."_app_workspaces"`)) {
-                return []
-            }
-
-            if (sql.includes('SELECT public.uuid_generate_v7() AS id')) {
-                return [{ id: generatedIds.shift() }]
-            }
-
-            if (sql.includes(`FROM "${schemaName}"."_app_workspace_roles"`)) {
-                return [{ id: 'role-owner' }]
-            }
-
-            if (sql.includes('information_schema.columns') && sql.includes("column_name = 'workspace_id'")) {
-                return [{ tableName: 'obj_lessons', objectId: '018f8a78-7b8f-7c1d-a111-222233334470' }]
-            }
-
-            if (sql.includes(`FROM "${schemaName}"."_app_components"`)) {
-                return [{ componentId: '018f8a78-7b8f-7c1d-a111-222233334471' }]
-            }
-
-            if (sql.includes('FROM information_schema.tables')) {
-                return [{ tableName: 'obj_lessons' }, { tableName: 'tbl_018f8a787b8f7c1da111222233334471' }]
-            }
-
-            if (sql.includes('information_schema.columns') && sql.includes("column_name NOT IN ('id', 'workspace_id')")) {
-                return [
-                    { column_name: 'title' },
-                    { column_name: 'module_id' },
-                    { column_name: '_seed_source_key' },
-                    { column_name: '_seed_source_owned' },
-                    { column_name: '_upl_created_at' },
-                    { column_name: '_upl_updated_at' },
-                    { column_name: '_upl_version' },
-                    { column_name: '_upl_created_by' },
-                    { column_name: '_upl_updated_by' },
-                    { column_name: '_upl_deleted' },
-                    { column_name: '_upl_deleted_at' },
-                    { column_name: '_upl_deleted_by' },
-                    { column_name: '_app_deleted' },
-                    { column_name: '_app_deleted_at' },
-                    { column_name: '_app_deleted_by' },
-                    { column_name: '_upl_locked' }
-                ]
-            }
-
-            if (sql.includes('information_schema.columns') && sql.includes("udt_name = 'uuid'")) {
-                return [{ column_name: 'module_id' }]
-            }
-
-            if (sql.includes(`FROM "${schemaName}"."_app_workspace_settings"`)) {
-                return [{ key: 'sectionLinksEnabled', value: false }]
-            }
-
-            return []
-        })
-
-        const result = await copyWorkspace(executor, {
-            schemaName,
-            sourceWorkspaceId: 'workspace-source',
-            name: vlc('Workspace copy'),
-            description: vlc('Workspace copy description'),
-            userId: 'user-1',
-            applicationSettings: {
-                sectionLinksEnabled: true,
-                workspaceOverrides: { allowedKeys: ['sectionLinksEnabled'], lockedKeys: [] }
-            },
-            actorUserId: 'user-1'
-        })
-
-        expect(result).toEqual({ id: 'workspace-copy' })
-        expect(txExecutor.query).toHaveBeenCalledWith(expect.stringContaining('CREATE TEMP TABLE workspace_copy_id_map'))
-        expect(txExecutor.query).toHaveBeenCalledWith(expect.stringContaining('INNER JOIN workspace_copy_id_map'), [
-            'workspace-source',
-            'workspace-copy',
-            'user-1'
-        ])
-        const insertCall = txExecutor.query.mock.calls.find(([sql]) => String(sql).includes(`INSERT INTO "${schemaName}"."obj_lessons"`))
-        expect(insertCall?.[0]).toEqual(expect.not.stringContaining('source."_upl_created_at"'))
-        expect(insertCall?.[0]).toEqual(expect.not.stringContaining('source."_upl_created_by"'))
-        expect(insertCall?.[0]).toEqual(expect.not.stringContaining('source."_upl_version"'))
-        expect(insertCall?.[0]).toEqual(expect.stringContaining('source."_seed_source_key"'))
-        expect(insertCall?.[0]).toEqual(expect.not.stringContaining('source."_seed_source_owned"'))
-        expect(insertCall?.[0]).toEqual(expect.stringContaining('"_seed_source_key"'))
-        expect(insertCall?.[0]).toEqual(expect.stringContaining('"_seed_source_owned"'))
-        expect(insertCall?.[0]).toMatch(/source\."module_id",\s*source\."_seed_source_key",\s*false,\s*NOW\(\)/)
-        expect(insertCall?.[0]).toEqual(expect.stringContaining('NOW()'))
-        expect(insertCall?.[0]).toEqual(expect.stringContaining('$3::uuid'))
-        expect(insertCall?.[0]).toEqual(expect.stringContaining('false'))
-        const childInsertCall = txExecutor.query.mock.calls.find(([sql]) =>
-            String(sql).includes(`INSERT INTO "${schemaName}"."tbl_018f8a787b8f7c1da111222233334471"`)
-        )
-        expect(childInsertCall).toBeDefined()
-        expect(childInsertCall?.[0]).toContain('INNER JOIN workspace_copy_id_map')
-        expect(childInsertCall?.[0]).toContain('source."_seed_source_key"')
-        expect(childInsertCall?.[0]).not.toContain('source."_seed_source_owned"')
-        expect(childInsertCall?.[0]).toContain('"_seed_source_key"')
-        expect(childInsertCall?.[0]).toContain('"_seed_source_owned"')
-        expect(txExecutor.query).toHaveBeenCalledWith(expect.stringContaining('target."module_id" = id_map.old_id'), ['workspace-copy'])
-        expect(txExecutor.query).toHaveBeenCalledWith(
-            expect.stringContaining(`SELECT key, value\n        FROM "${schemaName}"."_app_workspace_settings"`),
-            ['workspace-source']
-        )
-        expect(txExecutor.query).toHaveBeenCalledWith(
-            expect.stringContaining(`INSERT INTO "${schemaName}"."_app_workspace_settings"`),
-            expect.arrayContaining(['workspace-copy', 'sectionLinksEnabled', 'false', 'user-1'])
-        )
-    })
-
-    it('fails closed before inserting when a required workspace-local reference is not copied', async () => {
-        const { executor, txExecutor } = createMockDbExecutor()
-
-        txExecutor.query.mockImplementation(async (sql: string) => {
-            if (sql.includes('SELECT id') && sql.includes(`FROM "${schemaName}"."_app_workspaces"`) && sql.includes('WHERE id = $1')) {
-                return [{ id: 'workspace-source' }]
-            }
-            if (sql.includes('SELECT id') && sql.includes(`FROM "${schemaName}"."_app_workspaces"`)) {
-                return []
-            }
-            if (sql.includes('SELECT public.uuid_generate_v7() AS id')) {
-                return [
-                    { id: sql.includes(`INSERT INTO "${schemaName}"."_app_workspace_user_roles"`) ? 'relation-copy' : 'workspace-copy' }
-                ]
-            }
-            if (sql.includes(`FROM "${schemaName}"."_app_workspace_roles"`)) {
-                return [{ id: 'role-owner' }]
-            }
-            if (sql.includes('information_schema.columns') && sql.includes("column_name = 'workspace_id'")) {
-                return [
-                    { tableName: 'obj_source', objectId: 'source-object' },
-                    { tableName: 'obj_target', objectId: 'target-object' }
-                ]
-            }
-            if (sql.includes('SELECT DISTINCT c.id') && sql.includes(`FROM "${schemaName}"."_app_components"`)) {
-                return []
-            }
-            if (sql.includes('FROM information_schema.tables')) {
-                return [{ tableName: 'obj_source' }, { tableName: 'obj_target' }]
-            }
-            if (sql.includes('source_object.table_name')) {
-                return [
-                    {
-                        sourceTableName: 'obj_source',
-                        parentComponentId: null,
-                        columnName: 'related_id',
-                        targetTableName: 'obj_target',
-                        isRequired: true
-                    }
-                ]
-            }
-            if (sql.includes('udt_name AS')) {
-                return [
-                    { tableName: 'obj_source', columnName: 'workspace_id', udtName: 'uuid' },
-                    { tableName: 'obj_source', columnName: 'related_id', udtName: 'uuid' },
-                    { tableName: 'obj_target', columnName: 'workspace_id', udtName: 'uuid' }
-                ]
-            }
-            if (sql.includes('COUNT(*)::text AS "unresolvedCount"')) {
-                return [{ unresolvedCount: '1' }]
+            if (sql.includes('SELECT id, workspace_type')) {
+                return [{ id: workspaceId, workspace_type: 'shared' }]
             }
             return []
         })
+        mockRevokeGuestSessionSecretsForWorkspace.mockRejectedValue(cleanupError)
 
         await expect(
-            copyWorkspace(executor, {
+            deleteSharedWorkspace(executor, {
                 schemaName,
-                sourceWorkspaceId: 'workspace-source',
-                name: vlc('Workspace copy'),
-                description: vlc('Workspace copy description'),
-                userId: 'user-1',
-                actorUserId: 'user-1'
+                applicationId,
+                workspaceId,
+                actorUserId
             })
-        ).rejects.toMatchObject({
-            code: 'WORKSPACE_COPY_REFERENCE_UNRESOLVED',
-            message: 'Workspace copy contains a required reference to a row that was not copied'
-        })
+        ).rejects.toBe(cleanupError)
 
-        expect(txExecutor.query.mock.calls.some(([sql]) => String(sql).includes(`INSERT INTO "${schemaName}"."obj_source"`))).toBe(false)
-        expect(txExecutor.query.mock.calls.some(([sql]) => String(sql).includes(`INSERT INTO "${schemaName}"."obj_target"`))).toBe(false)
-        const validationCall = txExecutor.query.mock.calls.find(([sql]) => String(sql).includes('COUNT(*)::text AS "unresolvedCount"'))
-        expect(String(validationCall?.[0])).toContain('source."related_id" IS NULL')
+        expect(executor.transaction).toHaveBeenCalledTimes(1)
+        expect(mockRevokeGuestSessionSecretsForWorkspace.mock.invocationCallOrder[0]).toBeGreaterThan(
+            txExecutor.query.mock.invocationCallOrder[0]
+        )
+        expect(txExecutor.query.mock.calls.some(([sql]) => String(sql).includes('information_schema.columns'))).toBe(false)
+        expect(txExecutor.query.mock.calls.some(([sql]) => String(sql).includes("SET status = 'archived'"))).toBe(false)
     })
 
-    it('fails closed when a required REF target table is missing physically', async () => {
+    it('stops workspace archival when active quiz attempts cannot be finalized', async () => {
         const { executor, txExecutor } = createMockDbExecutor()
-
+        const finalizationError = new Error('guest assessment finalization failed')
+        const applicationId = '018f8a78-7b8f-7c1d-a111-222233334441'
+        const workspaceId = '019ccefc-2f7b-7b36-82f4-85cdb1312273'
+        const actorUserId = '550e8400-e29b-41d4-a716-446655440000'
         txExecutor.query.mockImplementation(async (sql: string) => {
-            if (sql.includes('SELECT id') && sql.includes(`FROM "${schemaName}"."_app_workspaces"`) && sql.includes('WHERE id = $1')) {
-                return [{ id: 'workspace-source' }]
-            }
-            if (sql.includes('SELECT id') && sql.includes(`FROM "${schemaName}"."_app_workspaces"`)) {
-                return []
-            }
-            if (sql.includes('information_schema.columns') && sql.includes("column_name = 'workspace_id'")) {
-                return [{ tableName: 'obj_source', objectId: 'source-object' }]
-            }
-            if (sql.includes('SELECT DISTINCT c.id') && sql.includes(`FROM "${schemaName}"."_app_components"`)) {
-                return []
-            }
-            if (sql.includes('FROM information_schema.tables')) {
-                return [{ tableName: 'obj_source' }]
-            }
-            if (sql.includes('source_object.table_name')) {
-                return [
-                    {
-                        sourceTableName: 'obj_source',
-                        parentComponentId: null,
-                        columnName: 'related_id',
-                        targetTableName: 'obj_missing',
-                        isRequired: true
-                    }
-                ]
-            }
-            if (sql.includes('udt_name AS')) {
-                return [
-                    { tableName: 'obj_source', columnName: 'workspace_id', udtName: 'uuid' },
-                    { tableName: 'obj_source', columnName: 'related_id', udtName: 'uuid' }
-                ]
-            }
-            if (sql.includes('COUNT(*)::text AS "unresolvedCount"')) {
-                return [{ unresolvedCount: '1' }]
+            if (sql.includes('SELECT id, workspace_type')) {
+                return [{ id: workspaceId, workspace_type: 'shared' }]
             }
             return []
         })
+        mockRevokeGuestSessionSecretsForWorkspace.mockResolvedValue(0)
+        mockRevokeGuestAssessmentAttemptsForWorkspace.mockRejectedValue(finalizationError)
 
         await expect(
-            copyWorkspace(executor, {
+            deleteSharedWorkspace(executor, {
                 schemaName,
-                sourceWorkspaceId: 'workspace-source',
-                name: vlc('Workspace copy'),
-                description: vlc('Workspace copy description'),
-                userId: 'user-1',
-                actorUserId: 'user-1'
+                applicationId,
+                workspaceId,
+                actorUserId
             })
-        ).rejects.toMatchObject({
-            code: 'WORKSPACE_COPY_REFERENCE_UNRESOLVED',
-            message: 'Workspace copy contains a required reference to a row that was not copied'
-        })
+        ).rejects.toBe(finalizationError)
 
-        expect(txExecutor.query.mock.calls.some(([sql]) => String(sql).includes(`INSERT INTO "${schemaName}"."obj_source"`))).toBe(false)
-        expect(txExecutor.query.mock.calls.some(([sql]) => String(sql).includes(`INSERT INTO "${schemaName}"."_app_workspaces"`))).toBe(
-            false
-        )
-    })
-
-    it('nulls optional workspace-local references that point to rows omitted from the copy map', async () => {
-        const { executor, txExecutor } = createMockDbExecutor()
-
-        txExecutor.query.mockImplementation(async (sql: string) => {
-            if (sql.includes('SELECT id') && sql.includes(`FROM "${schemaName}"."_app_workspaces"`) && sql.includes('WHERE id = $1')) {
-                return [{ id: 'workspace-source' }]
-            }
-            if (sql.includes('SELECT id') && sql.includes(`FROM "${schemaName}"."_app_workspaces"`)) {
-                return []
-            }
-            if (sql.includes('SELECT public.uuid_generate_v7() AS id')) {
-                return [{ id: 'workspace-copy' }]
-            }
-            if (sql.includes(`FROM "${schemaName}"."_app_workspace_roles"`)) {
-                return [{ id: 'role-owner' }]
-            }
-            if (sql.includes('information_schema.columns') && sql.includes("column_name = 'workspace_id'")) {
-                return [
-                    { tableName: 'obj_source', objectId: 'source-object' },
-                    { tableName: 'obj_target', objectId: 'target-object' }
-                ]
-            }
-            if (sql.includes('SELECT DISTINCT c.id') && sql.includes(`FROM "${schemaName}"."_app_components"`)) {
-                return []
-            }
-            if (sql.includes('FROM information_schema.tables')) {
-                return [{ tableName: 'obj_source' }, { tableName: 'obj_target' }]
-            }
-            if (sql.includes('source_object.table_name')) {
-                return [
-                    {
-                        sourceTableName: 'obj_source',
-                        parentComponentId: null,
-                        columnName: 'related_id',
-                        targetTableName: 'obj_target',
-                        isRequired: false
-                    }
-                ]
-            }
-            if (sql.includes('udt_name AS')) {
-                return [
-                    { tableName: 'obj_source', columnName: 'workspace_id', udtName: 'uuid' },
-                    { tableName: 'obj_source', columnName: 'related_id', udtName: 'uuid' },
-                    { tableName: 'obj_target', columnName: 'workspace_id', udtName: 'uuid' }
-                ]
-            }
-            if (sql.includes('column_name NOT IN')) {
-                return [{ column_name: 'related_id' }]
-            }
-            if (sql.includes("udt_name = 'uuid'")) {
-                return [{ column_name: 'related_id' }]
-            }
-            return []
-        })
-
-        await expect(
-            copyWorkspace(executor, {
-                schemaName,
-                sourceWorkspaceId: 'workspace-source',
-                name: vlc('Workspace copy'),
-                description: vlc('Workspace copy description'),
-                userId: 'user-1',
-                actorUserId: 'user-1'
-            })
-        ).resolves.toEqual({ id: 'workspace-copy' })
-
-        const clearReferenceCall = txExecutor.query.mock.calls.find(
-            ([sql]) => String(sql).includes(`UPDATE "${schemaName}"."obj_source" target`) && String(sql).includes('SET "related_id" = NULL')
-        )
-        expect(clearReferenceCall).toBeDefined()
-        expect(String(clearReferenceCall?.[0])).toContain('id_map.old_id = target."related_id"')
-        expect(String(clearReferenceCall?.[0])).toContain('id_map.new_id = target."related_id"')
-        expect(clearReferenceCall?.[1]).toEqual(['workspace-copy'])
-    })
-
-    it('nulls an optional REF when its target table is missing physically', async () => {
-        const { executor, txExecutor } = createMockDbExecutor()
-
-        txExecutor.query.mockImplementation(async (sql: string) => {
-            if (sql.includes('SELECT id') && sql.includes(`FROM "${schemaName}"."_app_workspaces"`) && sql.includes('WHERE id = $1')) {
-                return [{ id: 'workspace-source' }]
-            }
-            if (sql.includes('SELECT id') && sql.includes(`FROM "${schemaName}"."_app_workspaces"`)) {
-                return []
-            }
-            if (sql.includes('SELECT public.uuid_generate_v7() AS id')) {
-                return [{ id: 'workspace-copy' }]
-            }
-            if (sql.includes(`FROM "${schemaName}"."_app_workspace_roles"`)) {
-                return [{ id: 'role-owner' }]
-            }
-            if (sql.includes('information_schema.columns') && sql.includes("column_name = 'workspace_id'")) {
-                return [{ tableName: 'obj_source', objectId: 'source-object' }]
-            }
-            if (sql.includes('SELECT DISTINCT c.id') && sql.includes(`FROM "${schemaName}"."_app_components"`)) {
-                return []
-            }
-            if (sql.includes('FROM information_schema.tables')) {
-                return [{ tableName: 'obj_source' }]
-            }
-            if (sql.includes('source_object.table_name')) {
-                return [
-                    {
-                        sourceTableName: 'obj_source',
-                        parentComponentId: null,
-                        columnName: 'related_id',
-                        targetTableName: 'obj_missing',
-                        isRequired: false
-                    }
-                ]
-            }
-            if (sql.includes('udt_name AS')) {
-                return [
-                    { tableName: 'obj_source', columnName: 'workspace_id', udtName: 'uuid' },
-                    { tableName: 'obj_source', columnName: 'related_id', udtName: 'uuid' }
-                ]
-            }
-            if (sql.includes('column_name NOT IN')) {
-                return [{ column_name: 'related_id' }]
-            }
-            if (sql.includes("udt_name = 'uuid'")) {
-                return [{ column_name: 'related_id' }]
-            }
-            return []
-        })
-
-        await expect(
-            copyWorkspace(executor, {
-                schemaName,
-                sourceWorkspaceId: 'workspace-source',
-                name: vlc('Workspace copy'),
-                description: vlc('Workspace copy description'),
-                userId: 'user-1',
-                actorUserId: 'user-1'
-            })
-        ).resolves.toEqual({ id: 'workspace-copy' })
-
-        const clearReferenceCall = txExecutor.query.mock.calls.find(
-            ([sql]) => String(sql).includes(`UPDATE "${schemaName}"."obj_source" target`) && String(sql).includes('SET "related_id" = NULL')
-        )
-        expect(clearReferenceCall).toBeDefined()
-    })
-
-    it('propagates a post-create copy failure so the transaction can roll back', async () => {
-        const { executor, txExecutor } = createMockDbExecutor()
-        const generatedIds = ['workspace-copy', 'relation-copy', 'setting-copy']
-        const copyFailure = new Error('workspace settings write failed')
-        let rollbackObserved = false
-
-        executor.transaction.mockImplementation(async (fn: (exec: typeof txExecutor) => Promise<unknown>) => {
-            try {
-                return await fn(txExecutor)
-            } catch (error) {
-                rollbackObserved = true
-                throw error
-            }
-        })
-
-        txExecutor.query.mockImplementation(async (sql: string) => {
-            if (sql.includes('SELECT id') && sql.includes(`FROM "${schemaName}"."_app_workspaces"`) && sql.includes('WHERE id = $1')) {
-                return [{ id: 'workspace-source' }]
-            }
-            if (sql.includes('information_schema.columns') && sql.includes("column_name = 'workspace_id'")) return []
-            if (sql.includes('SELECT public.uuid_generate_v7() AS id')) {
-                const id = generatedIds.shift()
-                return id ? [{ id }] : []
-            }
-            if (sql.includes(`FROM "${schemaName}"."_app_workspace_roles"`)) return [{ id: 'role-owner' }]
-            if (sql.includes(`INSERT INTO "${schemaName}"."_app_workspace_settings"`)) throw copyFailure
-            if (sql.includes(`FROM "${schemaName}"."_app_workspace_settings"`)) return [{ key: 'sectionLinksEnabled', value: true }]
-            return []
-        })
-
-        await expect(
-            copyWorkspace(executor, {
-                schemaName,
-                sourceWorkspaceId: 'workspace-source',
-                name: vlc('Workspace copy'),
-                description: vlc('Workspace copy description'),
-                userId: 'user-1',
-                applicationSettings: {
-                    sectionLinksEnabled: true,
-                    workspaceOverrides: { allowedKeys: ['sectionLinksEnabled'], lockedKeys: [] }
-                },
-                actorUserId: 'user-1'
-            })
-        ).rejects.toBe(copyFailure)
-
-        expect(rollbackObserved).toBe(true)
-        expect(txExecutor.query.mock.calls.some(([sql]) => String(sql).includes(`INSERT INTO "${schemaName}"."_app_workspaces"`))).toBe(
-            true
-        )
-    })
-
-    it('validates tabular parent links and clears omitted ledger reversals without REF metadata', async () => {
-        const { executor, txExecutor } = createMockDbExecutor()
-        const generatedIds = ['workspace-copy', 'relation-copy']
-
-        txExecutor.query.mockImplementation(async (sql: string, params: unknown[] = []) => {
-            if (sql.includes('SELECT id') && sql.includes(`FROM "${schemaName}"."_app_workspaces"`) && sql.includes('WHERE id = $1')) {
-                return [{ id: 'workspace-source' }]
-            }
-            if (sql.includes('SELECT id') && sql.includes(`FROM "${schemaName}"."_app_workspaces"`)) {
-                return []
-            }
-            if (sql.includes('SELECT public.uuid_generate_v7() AS id')) {
-                return [{ id: generatedIds.shift() }]
-            }
-            if (sql.includes(`FROM "${schemaName}"."_app_workspace_roles"`)) {
-                return [{ id: 'role-owner' }]
-            }
-            if (sql.includes('information_schema.columns') && sql.includes("column_name = 'workspace_id'")) {
-                return [{ tableName: 'obj_parent', objectId: 'parent-object' }]
-            }
-            if (sql.includes('SELECT DISTINCT c.id') && sql.includes(`FROM "${schemaName}"."_app_components"`)) {
-                return [{ componentId: '018f8a78-7b8f-7c1d-a111-222233334471' }]
-            }
-            if (sql.includes('FROM information_schema.tables')) {
-                return [{ tableName: 'obj_parent' }, { tableName: 'tbl_018f8a787b8f7c1da111222233334471' }]
-            }
-            if (sql.includes('source_object.table_name')) {
-                return []
-            }
-            if (sql.includes('udt_name AS')) {
-                return [
-                    { tableName: 'obj_parent', columnName: 'workspace_id', udtName: 'uuid' },
-                    { tableName: 'obj_parent', columnName: '_app_reversal_of_fact_id', udtName: 'uuid' },
-                    { tableName: 'tbl_018f8a787b8f7c1da111222233334471', columnName: 'workspace_id', udtName: 'uuid' },
-                    { tableName: 'tbl_018f8a787b8f7c1da111222233334471', columnName: '_tp_parent_id', udtName: 'uuid' }
-                ]
-            }
-            if (sql.includes('COUNT(*)::text AS "unresolvedCount"')) {
-                return [{ unresolvedCount: '0' }]
-            }
-            if (sql.includes('column_name NOT IN')) {
-                return params[1] === 'obj_parent' ? [{ column_name: '_app_reversal_of_fact_id' }] : [{ column_name: '_tp_parent_id' }]
-            }
-            if (sql.includes("udt_name = 'uuid'")) {
-                return params[1] === 'obj_parent' ? [{ column_name: '_app_reversal_of_fact_id' }] : [{ column_name: '_tp_parent_id' }]
-            }
-            return []
-        })
-
-        await expect(
-            copyWorkspace(executor, {
-                schemaName,
-                sourceWorkspaceId: 'workspace-source',
-                name: vlc('Workspace copy'),
-                description: vlc('Workspace copy description'),
-                userId: 'user-1',
-                actorUserId: 'user-1'
-            })
-        ).resolves.toEqual({ id: 'workspace-copy' })
-
-        const parentValidationCall = txExecutor.query.mock.calls.find(
-            ([sql]) =>
-                String(sql).includes('COUNT(*)::text AS "unresolvedCount"') && String(sql).includes('tbl_018f8a787b8f7c1da111222233334471')
-        )
-        expect(parentValidationCall).toBeDefined()
-
-        const clearReversalCall = txExecutor.query.mock.calls.find(
-            ([sql]) =>
-                String(sql).includes(`UPDATE "${schemaName}"."obj_parent" target`) &&
-                String(sql).includes('SET "_app_reversal_of_fact_id" = NULL')
-        )
-        expect(clearReversalCall).toBeDefined()
-
-        const childInsertCall = txExecutor.query.mock.calls.find(([sql]) =>
-            String(sql).includes(`INSERT INTO "${schemaName}"."tbl_018f8a787b8f7c1da111222233334471"`)
-        )
-        expect(String(childInsertCall?.[0])).not.toContain('SELECT ref_map.new_id')
-    })
-
-    it('filters locked workspace setting overrides while copying a workspace', async () => {
-        const { executor, txExecutor } = createMockDbExecutor()
-        const generatedIds = ['workspace-copy', 'relation-copy', 'setting-copy']
-
-        txExecutor.query.mockImplementation(async (sql: string) => {
-            if (sql.includes('SELECT id') && sql.includes(`FROM "${schemaName}"."_app_workspaces"`) && sql.includes('WHERE id = $1')) {
-                return [{ id: 'workspace-source' }]
-            }
-
-            if (sql.includes('SELECT id') && sql.includes(`FROM "${schemaName}"."_app_workspaces"`)) {
-                return []
-            }
-
-            if (sql.includes('SELECT public.uuid_generate_v7() AS id')) {
-                return [{ id: generatedIds.shift() }]
-            }
-
-            if (sql.includes(`FROM "${schemaName}"."_app_workspace_roles"`)) {
-                return [{ id: 'role-owner' }]
-            }
-
-            if (sql.includes('information_schema.columns') && sql.includes("column_name = 'workspace_id'")) {
-                return []
-            }
-
-            if (sql.includes(`FROM "${schemaName}"."_app_workspace_settings"`)) {
-                return [
-                    { key: 'sectionLinksEnabled', value: false },
-                    { key: 'dashboardDefaultMode', value: 'first-menu-item' },
-                    { key: 'unknownSetting', value: true }
-                ]
-            }
-
-            return []
-        })
-
-        await copyWorkspace(executor, {
-            schemaName,
-            sourceWorkspaceId: 'workspace-source',
-            name: vlc('Workspace copy'),
-            description: vlc('Workspace copy description'),
-            userId: 'user-1',
-            applicationSettings: {
-                sectionLinksEnabled: true,
-                dashboardDefaultMode: 'layout-default',
-                workspaceOverrides: { allowedKeys: ['sectionLinksEnabled'], lockedKeys: ['dashboardDefaultMode'] }
-            },
-            actorUserId: 'user-1'
-        })
-
-        const workspaceSettingInsertCalls = txExecutor.query.mock.calls.filter(([sql]) =>
-            String(sql).includes(`INSERT INTO "${schemaName}"."_app_workspace_settings"`)
-        )
-        expect(workspaceSettingInsertCalls).toHaveLength(1)
-        expect(workspaceSettingInsertCalls[0]?.[1]).toEqual(
-            expect.arrayContaining(['workspace-copy', 'sectionLinksEnabled', 'false', 'user-1'])
-        )
+        expect(executor.transaction).toHaveBeenCalledTimes(1)
+        expect(mockRevokeGuestSessionSecretsForWorkspace).toHaveBeenCalledTimes(1)
+        expect(mockRevokeGuestAssessmentAttemptsForWorkspace).toHaveBeenCalledTimes(1)
+        expect(txExecutor.query.mock.calls.some(([sql]) => String(sql).includes('information_schema.columns'))).toBe(false)
+        expect(txExecutor.query.mock.calls.some(([sql]) => String(sql).includes("SET status = 'archived'"))).toBe(false)
     })
 
     it('fails closed when setting a default workspace for a non-member', async () => {

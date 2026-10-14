@@ -147,6 +147,10 @@ export function createRuntimeWorkspaceController(getDbExecutor: () => DbExecutor
             sendRuntimeWorkspaceError(res, 409, error, code)
             return true
         }
+        if (code === RUNTIME_WORKSPACE_ERROR_CODES.workspaceCopyAccessLinkIntakeInvalid) {
+            sendRuntimeWorkspaceError(res, 409, error, code)
+            return true
+        }
         return false
     }
 
@@ -464,7 +468,9 @@ export function createRuntimeWorkspaceController(getDbExecutor: () => DbExecutor
         try {
             await deleteSharedWorkspace(ctx.manager, {
                 schemaName: ctx.schemaName,
+                applicationId,
                 workspaceId,
+                applicationSettings: ctx.baseApplicationSettings,
                 actorUserId: ctx.userId
             })
         } catch (error) {

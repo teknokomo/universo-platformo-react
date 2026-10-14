@@ -104,6 +104,7 @@ export const sameEntityRecordPolicyConditionalRequired = (
 export const entityRecordPolicySchema = z
     .object({
         version: z.literal(1),
+        workspaceCopy: z.enum(['include', 'exclude']).optional(),
         semanticKey: z
             .object({
                 componentCodename: policyCodenameSchema,
@@ -112,8 +113,8 @@ export const entityRecordPolicySchema = z
             })
             .strict()
             .optional(),
-        denyDeleteWhenBound: z.boolean(),
-        immutableSemanticKeyWhenBound: z.boolean(),
+        denyDeleteWhenBound: z.boolean().optional(),
+        immutableSemanticKeyWhenBound: z.boolean().optional(),
         runtimeMutation: z.enum(['allow', 'deny']),
         requiredLocales: z.array(z.string().trim().min(2).max(16)).min(1).max(8).optional(),
         coRequiredGroups: entityRecordPolicyCoRequiredGroupsSchema.optional(),
@@ -121,6 +122,30 @@ export const entityRecordPolicySchema = z
     })
     .strict()
     .superRefine((policy, context) => {
+        const hasDeleteProtection = policy.denyDeleteWhenBound !== undefined
+        const hasSemanticKeyProtection = policy.immutableSemanticKeyWhenBound !== undefined
+        if (policy.workspaceCopy === undefined && !hasDeleteProtection) {
+            context.addIssue({
+                code: z.ZodIssueCode.custom,
+                path: ['denyDeleteWhenBound'],
+                message: 'Delete protection must be explicit when workspace copy behavior is not configured.'
+            })
+        }
+        if (policy.workspaceCopy === undefined && !hasSemanticKeyProtection) {
+            context.addIssue({
+                code: z.ZodIssueCode.custom,
+                path: ['immutableSemanticKeyWhenBound'],
+                message: 'Semantic-key protection must be explicit when workspace copy behavior is not configured.'
+            })
+        }
+        if (policy.workspaceCopy !== undefined && hasDeleteProtection !== hasSemanticKeyProtection) {
+            context.addIssue({
+                code: z.ZodIssueCode.custom,
+                path: ['denyDeleteWhenBound'],
+                message: 'Delete and semantic-key protection flags must be provided together.'
+            })
+        }
+
         const protectedValues = policy.semanticKey?.protectedValues ?? []
         if (new Set(protectedValues).size !== protectedValues.length) {
             context.addIssue({
@@ -144,6 +169,11 @@ export const entityRecordPolicySchema = z
             })
         }
     })
+    .transform((policy) => ({
+        ...policy,
+        denyDeleteWhenBound: policy.denyDeleteWhenBound ?? false,
+        immutableSemanticKeyWhenBound: policy.immutableSemanticKeyWhenBound ?? false
+    }))
 export type EntityRecordPolicy = z.infer<typeof entityRecordPolicySchema>
 
 const isRecord = (value: unknown): value is Record<string, unknown> => Boolean(value && typeof value === 'object' && !Array.isArray(value))

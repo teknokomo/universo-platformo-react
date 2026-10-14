@@ -14,6 +14,7 @@ import {
     resolveEntityRecordPolicy,
     validateWidgetBindings,
     type ApplicationTemplateKey,
+    type WidgetBindingEntityCompatibilityContext,
     type WidgetBindingEntityKind,
     type WidgetBindingSelector,
     type WidgetBindingSlotDefinition,
@@ -135,7 +136,8 @@ export const validateBoundRecord = (
 export const validateSourceRequirements = (
     object: BindingObjectRow,
     components: readonly BindingComponentRow[],
-    slot: WidgetBindingSlotDefinition
+    slot: WidgetBindingSlotDefinition,
+    compatibilityContext: WidgetBindingEntityCompatibilityContext = {}
 ): ReturnType<typeof resolveEntityRecordPolicy> => {
     if (slot.requirements.entityKinds && !slot.requirements.entityKinds.includes(object.kind as WidgetBindingEntityKind)) {
         throw new MetahubValidationError('Source Entity kind does not match this widget binding slot')
@@ -158,18 +160,25 @@ export const validateSourceRequirements = (
         throw new MetahubValidationError('Source Entity record policy is invalid')
     }
     if (
-        !isCompatibleWidgetBindingEntity(slot, {
-            kind: object.kind,
-            codename: object.codename,
-            config: object.config,
-            components: components.map((component) => ({
-                codename: component.codename,
-                dataType: normalizeWidgetBindingDataType(component.data_type) ?? '',
-                isRequired: component.is_required,
-                validationRules: component.validation_rules,
-                uiConfig: component.ui_config
-            }))
-        })
+        !isCompatibleWidgetBindingEntity(
+            slot,
+            {
+                kind: object.kind,
+                codename: object.codename,
+                config: object.config,
+                components: components.map((component) => ({
+                    codename: component.codename,
+                    dataType: normalizeWidgetBindingDataType(component.data_type) ?? '',
+                    isRequired: component.is_required,
+                    validationRules: component.validation_rules,
+                    targetObjectId: component.target_object_id,
+                    targetObjectKind: component.target_object_kind,
+                    targetObjectCodename: component.target_object_codename,
+                    uiConfig: component.ui_config
+                }))
+            },
+            compatibilityContext
+        )
     ) {
         throw new MetahubValidationError('Source Entity metadata does not match the registered widget binding slot')
     }
@@ -179,10 +188,11 @@ export const validateSourceRequirements = (
 export const isSourceCompatible = (
     object: BindingObjectRow,
     components: readonly BindingComponentRow[],
-    slot: WidgetBindingSlotDefinition
+    slot: WidgetBindingSlotDefinition,
+    compatibilityContext: WidgetBindingEntityCompatibilityContext = {}
 ): boolean => {
     try {
-        validateSourceRequirements(object, components, slot)
+        validateSourceRequirements(object, components, slot, compatibilityContext)
         return true
     } catch {
         return false

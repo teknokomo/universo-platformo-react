@@ -45,6 +45,8 @@ import {
     collectMarketingWidgetBindingSources
 } from '../../services/marketingSeedGuard'
 import { acquireMarketingRowCapLock } from '../../services/marketingRowCap'
+import { resolveAccessLinkIntakePolicy } from '../../services/guestAccessLinkIntakePolicy'
+import { resolveTrustedServerOwnedSeedValue } from '../../services/trustedSeedValues'
 
 // --- Element seeding ---
 
@@ -124,6 +126,11 @@ export async function seedPredefinedElements(
                     .map((field: EntityField) => [field.codename, { columnName: generateColumnName(field.id), field }])
             )
             const dataColumns = Array.from(fieldByCodename.values()).map((v) => v.columnName)
+            const serverOwnedColumns = new Set(
+                Array.from(fieldByCodename.values())
+                    .filter(({ field }) => field.uiConfig?.serverOwned === true)
+                    .map(({ columnName }) => columnName)
+            )
             // Collect TABLE-type fields for child row seeding
             const tableFields = entity.fields.filter(
                 (field: EntityField) =>
@@ -132,14 +139,54 @@ export async function seedPredefinedElements(
 
             const rows = elements.map((element: SnapshotElementRow) => {
                 const data = element.data ?? {}
+                const normalizedData = { ...(data as Record<string, unknown>) }
+                for (const { columnName, field } of fieldByCodename.values()) {
+                    if (field.uiConfig?.serverOwned !== true) continue
+                    const trustedSnapshotValue = Object.prototype.hasOwnProperty.call(normalizedData, field.codename)
+                        ? normalizedData[field.codename]
+                        : normalizedData[columnName]
+                    delete normalizedData[field.codename]
+                    delete normalizedData[columnName]
+                    const seedValue = resolveTrustedServerOwnedSeedValue({
+                        hasTrustedValue: trustedSnapshotValue !== undefined,
+                        trustedValue: trustedSnapshotValue,
+                        hasMetadataDefault: Object.prototype.hasOwnProperty.call(field.uiConfig, 'defaultValue'),
+                        metadataDefault: field.uiConfig.defaultValue,
+                        resetOnCopy: field.uiConfig.resetOnCopy === true
+                    })
+                    if (seedValue.hasValue) normalizedData[field.codename] = seedValue.value
+                }
+                const accessLinkIntakePolicy = resolveAccessLinkIntakePolicy({
+                    objectCodename: entity.codename,
+                    fields: entity.fields
+                        .filter((field: EntityField) => !field.parentComponentId && field.dataType !== ComponentDefinitionDataType.TABLE)
+                        .map((field: EntityField) => ({
+                            codename: field.codename,
+                            columnName: generateColumnName(field.id),
+                            dataType: field.dataType,
+                            defaultValue: field.uiConfig?.defaultValue
+                        })),
+                    row: normalizedData,
+                    applyDefaults: true
+                })
+                if (!accessLinkIntakePolicy.valid) {
+                    throw new Error('Invalid guest access-link intake policy in application snapshot')
+                }
+
+                for (const field of entity.fields) {
+                    const columnName = generateColumnName(field.id)
+                    if (Object.prototype.hasOwnProperty.call(accessLinkIntakePolicy.valuesByColumn, columnName)) {
+                        normalizedData[field.codename] = accessLinkIntakePolicy.valuesByColumn[columnName]
+                    }
+                }
                 const missingRequired = entity.fields
                     .filter(
                         (field: EntityField) =>
                             field.isRequired && field.dataType !== ComponentDefinitionDataType.TABLE && !field.parentComponentId
                     )
                     .filter((field: EntityField) => {
-                        if (!Object.prototype.hasOwnProperty.call(data, field.codename)) return true
-                        const value = (data as Record<string, unknown>)[field.codename]
+                        if (!Object.prototype.hasOwnProperty.call(normalizedData, field.codename)) return true
+                        const value = normalizedData[field.codename]
                         return value === null || value === undefined
                     })
 
@@ -161,8 +208,8 @@ export async function seedPredefinedElements(
                 }
 
                 for (const [codename, { columnName, field }] of fieldByCodename.entries()) {
-                    if (Object.prototype.hasOwnProperty.call(data, codename)) {
-                        const rawValue = (data as Record<string, unknown>)[codename]
+                    if (Object.prototype.hasOwnProperty.call(normalizedData, codename)) {
+                        const rawValue = normalizedData[codename]
                         // VLC fields (versioned/localized STRING) are JSONB columns
                         if (isVLCField(field)) {
                             row[columnName] = prepareJsonbValue(rawValue)
@@ -187,6 +234,7 @@ export async function seedPredefinedElements(
                             row[columnName] = rawValue
                         }
                     } else {
+                        if (field.uiConfig?.serverOwned === true) continue
                         row[columnName] = null
                     }
                 }
@@ -197,7 +245,7 @@ export async function seedPredefinedElements(
             const validRows = rows.filter((row): row is Record<string, unknown> => row !== null)
             if (validRows.length === 0) continue
 
-            const mergeColumns = ['_upl_updated_at', '_upl_updated_by', ...dataColumns]
+            const mergeColumns = ['_upl_updated_at', '_upl_updated_by', ...dataColumns.filter((column) => !serverOwnedColumns.has(column))]
             await activeTrx.withSchema(schemaName).table(tableName).insert(validRows).onConflict('id').merge(mergeColumns)
 
             // Seed TABLE child rows
@@ -214,17 +262,49 @@ export async function seedPredefinedElements(
                         )
 
                         const childRows = tableData.map((rowData, index) => {
+                            const trustedChildData = isRecord(rowData) ? rowData : {}
                             const childRow: Record<string, unknown> = {
                                 id: executor.raw('public.uuid_generate_v7()'),
                                 _tp_parent_id: element.id,
-                                _tp_sort_order: (rowData as Record<string, unknown>)?._tp_sort_order ?? index,
+                                _tp_sort_order: trustedChildData._tp_sort_order ?? index,
                                 _upl_created_at: now,
                                 _upl_created_by: userId ?? null,
                                 _upl_updated_at: now,
                                 _upl_updated_by: userId ?? null
                             }
                             for (const [codename, { columnName, field: childField }] of childFieldMap) {
-                                const value = (rowData as Record<string, unknown>)[codename]
+                                const hasTrustedCodename = Object.prototype.hasOwnProperty.call(trustedChildData, codename)
+                                const hasTrustedColumn = Object.prototype.hasOwnProperty.call(trustedChildData, columnName)
+                                const hasTrustedValue = hasTrustedCodename || hasTrustedColumn
+                                const trustedValue = hasTrustedCodename ? trustedChildData[codename] : trustedChildData[columnName]
+                                const hasMetadataDefault = Boolean(
+                                    childField.uiConfig && Object.prototype.hasOwnProperty.call(childField.uiConfig, 'defaultValue')
+                                )
+                                const seedValue =
+                                    childField.uiConfig?.serverOwned === true
+                                        ? resolveTrustedServerOwnedSeedValue({
+                                              hasTrustedValue,
+                                              trustedValue,
+                                              hasMetadataDefault,
+                                              metadataDefault: childField.uiConfig?.defaultValue,
+                                              resetOnCopy: childField.uiConfig?.resetOnCopy === true
+                                          })
+                                        : null
+                                const hasSeedValue = seedValue?.hasValue ?? hasTrustedValue
+                                const value = seedValue?.hasValue ? seedValue.value : trustedValue
+
+                                if (
+                                    childField.uiConfig?.serverOwned === true &&
+                                    childField.isRequired &&
+                                    (value === null || value === undefined)
+                                ) {
+                                    throw new Error(
+                                        `Required server-owned child seed field has no trusted value: ${tableField.codename}.${codename}`
+                                    )
+                                }
+                                if (childField.uiConfig?.serverOwned === true && !hasSeedValue) {
+                                    continue
+                                }
                                 childRow[columnName] = normalizeChildFieldValue(value, childField, codename, tableName, element.id)
                             }
                             return childRow

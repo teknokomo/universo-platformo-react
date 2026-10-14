@@ -469,6 +469,7 @@ describe('tabularCellValues', () => {
 
         const textbox = screen.getByRole('textbox')
         expect(textbox.tagName).toBe('TEXTAREA')
+        expect(textbox).toHaveAccessibleName('Item Content')
 
         fireEvent.change(textbox, { target: { value: 'Long content\nwith a second paragraph' } })
 
@@ -521,6 +522,7 @@ describe('tabularCellValues', () => {
 
         expect(screen.getByRole('button', { name: 'Увеличить' })).toBeInTheDocument()
         expect(screen.getByRole('button', { name: 'Уменьшить' })).toBeInTheDocument()
+        expect(screen.getByRole('textbox', { name: 'Sort Order' })).toBeInTheDocument()
         expect(screen.queryByRole('button', { name: 'Increase value' })).not.toBeInTheDocument()
         expect(screen.queryByRole('button', { name: 'Decrease value' })).not.toBeInTheDocument()
     })

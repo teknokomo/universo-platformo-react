@@ -120,9 +120,25 @@ describe('local Supabase env writer', () => {
         expect(env.E2E_LOCAL_SUPABASE_STACK).toBe('minimal')
         expect(env.E2E_ALLOW_MAIN_SUPABASE).toBe('false')
         expect(env.AUTH_LOGIN_RATE_LIMIT_MAX).toBe('300')
+        expect(env.LEGAL_TERMS_VERSION).toBe('terms-e2e')
+        expect(env.LEGAL_PRIVACY_VERSION).toBe('privacy-e2e')
         expect(env.API_RATE_LIMIT_READ_MAX).toBe('5000')
         expect(env.API_RATE_LIMIT_WRITE_MAX).toBe('2500')
         expect(env.PLAYCANVAS_EDITOR_FULL_BOOT_WS_ORIGINS).toBe('http://127.0.0.1:3100,http://localhost:3100')
+    })
+
+    it('preserves explicitly configured legal consent versions for E2E profiles', () => {
+        const env = buildBackendEnv({
+            statusEnv,
+            target: 'e2e',
+            existingEnv: {
+                LEGAL_TERMS_VERSION: 'terms-2026.10',
+                LEGAL_PRIVACY_VERSION: 'privacy-2026.10'
+            }
+        })
+
+        expect(env.LEGAL_TERMS_VERSION).toBe('terms-2026.10')
+        expect(env.LEGAL_PRIVACY_VERSION).toBe('privacy-2026.10')
     })
 
     it('normalizes E2E user email domains from accidental full email values', () => {

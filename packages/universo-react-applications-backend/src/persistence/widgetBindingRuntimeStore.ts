@@ -35,6 +35,7 @@ export interface RuntimeWidgetBindingComponentMetadata {
     readonly validationRules: unknown
     readonly targetObjectId?: unknown
     readonly targetObjectKind?: unknown
+    readonly targetObjectCodename?: unknown
     readonly uiConfig?: unknown
 }
 
@@ -163,12 +164,15 @@ const assertSlotQuery = (query: WidgetBindingRecordQuery, slot: WidgetBindingSlo
         return
     }
 
-    const order = slot.requirements.components.find(({ field }) => field === slot.orderByField)
+    const order = slot.orderByField ? slot.requirements.components.find(({ field }) => field === slot.orderByField) : undefined
     const visibility = slot.requirements.components.find(({ field }) => field === slot.visibilityField)
+    const entitySchemaDefaultOrder =
+        query.kind === 'record-set' && slot.projectionMode === 'entity-schema' && !slot.orderByField && !slot.visibilityField
     if (
         !slot.maxResolvedRecords ||
-        !order ||
-        query.ordered.orderByComponentCodename !== order.componentCodename ||
+        (entitySchemaDefaultOrder
+            ? query.ordered.orderByComponentCodename !== null
+            : !order || query.ordered.orderByComponentCodename !== order.componentCodename) ||
         query.ordered.limit < 1 ||
         query.ordered.limit > slot.maxResolvedRecords ||
         query.ordered.limit > MAX_WIDGET_BINDING_RESOLVED_RECORDS ||
@@ -307,6 +311,7 @@ export const loadRuntimeWidgetBindingMetadata = async (
              FROM ${componentsTable}
              WHERE ${qColumn('object_id')} = ANY($1::uuid[])
                AND ${runtimeCodenameTextSql(qColumn('codename'))} = ANY($2::text[])
+               AND ${qColumn('parent_component_id')} IS NULL
                AND ${qColumn('_upl_deleted')} = false
                AND ${qColumn('_app_deleted')} = false
                AND ${qColumn('_upl_archived')} = false
@@ -327,6 +332,7 @@ export const loadRuntimeWidgetBindingMetadata = async (
             const objectCodename = objectCodenameById.get(objectId)
             const codename = resolveRuntimeCodenameText(row.codename)
             if (!objectCodename || !requestedComponentsByObjectId.get(objectId)?.has(codename)) continue
+            const targetObjectId = typeof row.target_object_id === 'string' ? row.target_object_id : null
             const component = {
                 id: row.id,
                 objectId,
@@ -336,8 +342,9 @@ export const loadRuntimeWidgetBindingMetadata = async (
                 presentation: row.presentation,
                 isRequired: row.is_required,
                 validationRules: row.validation_rules,
-                targetObjectId: row.target_object_id,
+                targetObjectId,
                 targetObjectKind: row.target_object_kind,
+                targetObjectCodename: targetObjectId ? objectCodenameById.get(targetObjectId) ?? null : null,
                 uiConfig: row.ui_config
             }
             const list = componentsByObjectId.get(objectId) ?? []
@@ -399,10 +406,47 @@ export const loadWidgetBindingRuntimeRecords = async (
             dataType: String(component.dataType ?? ''),
             isRequired: component.isRequired === true,
             validationRules: component.validationRules,
+            targetObjectId: typeof component.targetObjectId === 'string' ? component.targetObjectId : null,
+            targetObjectKind: typeof component.targetObjectKind === 'string' ? component.targetObjectKind : null,
+            targetObjectCodename: typeof component.targetObjectCodename === 'string' ? component.targetObjectCodename : null,
             uiConfig: component.uiConfig
         }))
     }
-    if (!isCompatibleWidgetBindingEntity(slot, entity)) throw new WidgetBindingRuntimeDataError()
+    const componentsByCodename = new Map<string, RuntimeWidgetBindingComponentMetadata>()
+    for (const component of input.components) {
+        const codename = resolveRuntimeCodenameText(component.codename)
+        if (!codename || componentsByCodename.has(codename))
+            throw new WidgetBindingRuntimeDataError('Widget binding Components are ambiguous')
+        componentsByCodename.set(codename, component)
+    }
+    const parentObject = input.parentObject
+    const compatibilityContext =
+        query.kind === 'relation-set' &&
+        parentObject &&
+        typeof parentObject.id === 'string' &&
+        String(parentObject.id) === input.parentObjectId &&
+        typeof parentObject.kind === 'string' &&
+        typeof parentObject.codename === 'string'
+            ? { relationParent: { id: String(parentObject.id), kind: parentObject.kind, codename: parentObject.codename } }
+            : undefined
+    if (query.kind === 'relation-set' && compatibilityContext?.relationParent) {
+        const relationParent = compatibilityContext.relationParent
+        const relationComponent = componentsByCodename.get(query.selector.relationComponentCodename)
+        if (
+            !relationComponent ||
+            String(relationComponent.targetObjectId) !== relationParent.id ||
+            String(relationComponent.targetObjectKind) !== relationParent.kind ||
+            String(relationComponent.targetObjectCodename) !== relationParent.codename ||
+            !['REF', 'UUID'].includes(
+                String(relationComponent.dataType ?? '')
+                    .trim()
+                    .toUpperCase()
+            )
+        ) {
+            throw new WidgetBindingRuntimeDataError('Widget binding REF targets another Object')
+        }
+    }
+    if (!isCompatibleWidgetBindingEntity(slot, entity, compatibilityContext)) throw new WidgetBindingRuntimeDataError()
 
     const tableName = typeof object.tableName === 'string' ? object.tableName : ''
     let table: string
@@ -412,13 +456,6 @@ export const loadWidgetBindingRuntimeRecords = async (
         throw new WidgetBindingRuntimeDataError('Widget binding table metadata is invalid')
     }
 
-    const componentsByCodename = new Map<string, RuntimeWidgetBindingComponentMetadata>()
-    for (const component of input.components) {
-        const codename = resolveRuntimeCodenameText(component.codename)
-        if (!codename || componentsByCodename.has(codename))
-            throw new WidgetBindingRuntimeDataError('Widget binding Components are ambiguous')
-        componentsByCodename.set(codename, component)
-    }
     const readColumn = (codename: string): string => {
         const component = componentsByCodename.get(codename)
         if (!component || typeof component.columnName !== 'string' || !component.columnName) {
@@ -436,7 +473,12 @@ export const loadWidgetBindingRuntimeRecords = async (
     )
     if (new Set(selected).size !== selected.length) throw new WidgetBindingRuntimeDataError('Widget binding projection is ambiguous')
     const runtimeVersionSelection =
-        query.kind !== 'semantic-key' ? `, COALESCE(record.${qColumn('_upl_version')}, 1)::int AS ${qColumn('_upl_version')}` : ''
+        query.kind !== 'semantic-key' ? `COALESCE(record.${qColumn('_upl_version')}, 1)::int AS ${qColumn('_upl_version')}` : null
+    const selectedColumns = [
+        `record.${qColumn('id')} AS ${qColumn('record_id')}`,
+        ...selected,
+        ...(runtimeVersionSelection ? [runtimeVersionSelection] : [])
+    ]
 
     const parameters: unknown[] = []
     const predicates = [lifecyclePredicate('record')]
@@ -539,9 +581,10 @@ export const loadWidgetBindingRuntimeRecords = async (
                       }
                     : {
                           ordered: {
-                              orderByComponentCodename:
-                                  parentSlot.requirements.components.find(({ field }) => field === parentSlot.orderByField)
-                                      ?.componentCodename ?? '',
+                              orderByComponentCodename: parentSlot.orderByField
+                                  ? parentSlot.requirements.components.find(({ field }) => field === parentSlot.orderByField)
+                                        ?.componentCodename ?? ''
+                                  : null,
                               ...(parentSlot.visibilityField
                                   ? {
                                         visibilityComponentCodename: parentSlot.requirements.components.find(
@@ -574,18 +617,6 @@ export const loadWidgetBindingRuntimeRecords = async (
             values: parameters,
             minimumAccessLevel: 'read'
         })
-        const relationComponent = componentsByCodename.get(query.selector.relationComponentCodename)
-        if (
-            !relationComponent ||
-            String(relationComponent.targetObjectId) !== input.parentObjectId ||
-            !['REF', 'UUID'].includes(
-                String(relationComponent.dataType ?? '')
-                    .trim()
-                    .toUpperCase()
-            )
-        ) {
-            throw new WidgetBindingRuntimeDataError('Widget binding REF targets another Object')
-        }
         parameters.push(query.selector.parentRecordIds)
         predicates.push(`${readColumn(query.selector.relationComponentCodename)} = ANY($${parameters.length}::uuid[])`)
         predicates.push(
@@ -600,7 +631,7 @@ export const loadWidgetBindingRuntimeRecords = async (
         )
     }
 
-    let orderColumn = qColumn('id')
+    let orderBy = `${qColumn('id')} ASC`
     const limit = query.kind === 'semantic-key' ? query.limit : query.ordered.limit
     const visibilityCodename =
         query.kind === 'semantic-key'
@@ -609,16 +640,16 @@ export const loadWidgetBindingRuntimeRecords = async (
                 : undefined
             : query.ordered.visibilityComponentCodename
     if (visibilityCodename) predicates.push(`${readColumn(visibilityCodename)} = true`)
-    if (query.kind !== 'semantic-key') {
-        orderColumn = readColumn(query.ordered.orderByComponentCodename)
+    if (query.kind !== 'semantic-key' && query.ordered.orderByComponentCodename !== null) {
+        orderBy = `${readColumn(query.ordered.orderByComponentCodename)} ASC NULLS LAST, ${qColumn('id')} ASC`
     }
     parameters.push(limit + 1)
 
     const rows = await executor.query<Record<string, unknown>>(
-        `SELECT record.${qColumn('id')} AS ${qColumn('record_id')}, ${selected.join(', ')}${runtimeVersionSelection}
+        `SELECT ${selectedColumns.join(', ')}
          FROM ${table} AS record
          WHERE ${predicates.join(' AND ')}
-         ORDER BY ${orderColumn} ASC NULLS LAST, ${qColumn('id')} ASC
+         ORDER BY ${orderBy}
          LIMIT $${parameters.length}`,
         parameters
     )

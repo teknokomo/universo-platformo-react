@@ -6,7 +6,8 @@ import {
     quoteIdentifier,
     getRuntimeInputValue,
     buildRuntimeActiveRowCondition,
-    RUNTIME_WRITABLE_TYPES
+    RUNTIME_WRITABLE_TYPES,
+    resolveRuntimeCodenameText
 } from '../../shared/runtimeHelpers'
 import { type RuntimeCopyRelation } from '../../services/runtimeRowSupport/contracts'
 import { buildRuntimeAttrLookup, loadRuntimeObjectAttrs, resolveRuntimeObjectByCodename } from './objects'
@@ -68,6 +69,12 @@ export const copyRuntimeConfiguredRelations = async ({
         if (!relationObject?.table_name) {
             throw new UpdateFailure(409, {
                 error: 'Runtime copy relation is not configured',
+                code: 'RUNTIME_COPY_RELATION_INVALID'
+            })
+        }
+        if (resolveRuntimeCodenameText(relationObject.codename).toLowerCase() === 'accesslinks') {
+            throw new UpdateFailure(409, {
+                error: 'Access links cannot be copied as configured child relations',
                 code: 'RUNTIME_COPY_RELATION_INVALID'
             })
         }

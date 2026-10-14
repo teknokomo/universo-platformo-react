@@ -677,21 +677,26 @@ describe('useCrudDashboard optimistic mutations', () => {
         const updateRow = vi.fn().mockResolvedValue({ id: 'row-2', name: 'Updated' })
         const deleteRow = vi.fn().mockResolvedValue(undefined)
         const copyRow = vi.fn().mockResolvedValue({ id: 'copied-row', name: 'Copied' })
+        const layoutTarget = { targetKind: 'object' as const, entityTypeId: '018f8a78-7b8f-7c1d-a111-222233334410' }
         const createRelationScope = {
             fieldCodename: 'CourseId',
-            parentRecordId: '018f8a78-7b8f-7c1d-a111-222233334401'
+            parentRecordId: '018f8a78-7b8f-7c1d-a111-222233334401',
+            layoutTarget
         }
         const copyRelationScope = {
             fieldCodename: 'CourseId',
-            parentRecordId: '018f8a78-7b8f-7c1d-a111-222233334402'
+            parentRecordId: '018f8a78-7b8f-7c1d-a111-222233334402',
+            layoutTarget
         }
         const updateRelationScope = {
             fieldCodename: 'CourseId',
-            parentRecordId: '018f8a78-7b8f-7c1d-a111-222233334403'
+            parentRecordId: '018f8a78-7b8f-7c1d-a111-222233334403',
+            layoutTarget
         }
         const deleteRelationScope = {
             fieldCodename: 'CourseId',
-            parentRecordId: '018f8a78-7b8f-7c1d-a111-222233334404'
+            parentRecordId: '018f8a78-7b8f-7c1d-a111-222233334404',
+            layoutTarget
         }
         const createWizard = {
             steps: [
@@ -1226,6 +1231,7 @@ describe('useCrudDashboard optimistic mutations', () => {
         await act(async () => {
             await getState().handlePersistRelationRowReorder({
                 objectCollectionCodename: 'CourseItems',
+                layoutTarget: { targetKind: 'object', entityTypeId: '018f8a78-7b8f-7c1d-a111-222233334410' },
                 parentFieldCodename: 'CourseId',
                 parentRecordId: '018f8a78-7b8f-7c1d-a111-222233334401',
                 orderedRowIds: ['018f8a78-7b8f-7c1d-a111-222233334402', '018f8a78-7b8f-7c1d-a111-222233334403'],
@@ -1246,7 +1252,8 @@ describe('useCrudDashboard optimistic mutations', () => {
             },
             parentScope: {
                 fieldCodename: 'CourseId',
-                parentRecordId: '018f8a78-7b8f-7c1d-a111-222233334401'
+                parentRecordId: '018f8a78-7b8f-7c1d-a111-222233334401',
+                layoutTarget: { targetKind: 'object', entityTypeId: '018f8a78-7b8f-7c1d-a111-222233334410' }
             }
         })
     })

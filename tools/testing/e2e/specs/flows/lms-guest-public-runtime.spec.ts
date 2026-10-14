@@ -1,4 +1,4 @@
-import { createLocalizedContent } from '@universo-react/utils'
+import { createLocalizedContent, generateUuidV7 } from '@universo-react/utils'
 import { expect, test } from '../../fixtures/test'
 import { expectNoPageHorizontalOverflow, expectNoTechnicalLeakage, expectRuntimeUxViewportMatrix } from '../../support/browser/runtimeUx'
 import {
@@ -18,6 +18,7 @@ import {
 } from '../../support/backend/api-session.mjs'
 import { recordCreatedApplication, recordCreatedMetahub, recordCreatedPublication } from '../../support/backend/run-manifest.mjs'
 import { waitForMetahubEnumerationId, waitForOptionValueId } from '../../support/lmsRuntime'
+import { navigateGuestQuizOptionWithKeyboard } from '../../support/browser/guestQuizKeyboard'
 
 type ApiContext = Awaited<ReturnType<typeof createLoggedInApiContext>>
 
@@ -234,8 +235,8 @@ test('@flow public lms guest links enforce the guest journey through the browser
                         Difficulty: 1,
                         Explanation: 'Photosynthesis occurs in chloroplasts.',
                         Options: [
-                            { id: 'q1-opt-a', label: 'Chloroplast', isCorrect: true },
-                            { id: 'q1-opt-b', label: 'Mitochondrion', isCorrect: false }
+                            { id: generateUuidV7(), label: 'Chloroplast', isCorrect: true },
+                            { id: generateUuidV7(), label: 'Mitochondrion', isCorrect: false }
                         ],
                         SortOrder: 1
                     },
@@ -246,8 +247,8 @@ test('@flow public lms guest links enforce the guest journey through the browser
                         Difficulty: 1,
                         Explanation: 'Carbon dioxide is consumed during photosynthesis.',
                         Options: [
-                            { id: 'q2-opt-a', label: 'Carbon dioxide', isCorrect: true },
-                            { id: 'q2-opt-b', label: 'Nitrogen', isCorrect: false }
+                            { id: generateUuidV7(), label: 'Carbon dioxide', isCorrect: true },
+                            { id: generateUuidV7(), label: 'Nitrogen', isCorrect: false }
                         ],
                         SortOrder: 2
                     }
@@ -260,6 +261,7 @@ test('@flow public lms guest links enforce the guest journey through the browser
             workspaceId,
             objectCollectionId: learningResourcesCatalogId,
             data: {
+                SortOrder: 1,
                 Title: 'Guest photosynthesis lesson',
                 Description: 'Public LMS lesson with embedded quiz',
                 ResourceType: pageResourceTypeValueId,
@@ -295,13 +297,12 @@ test('@flow public lms guest links enforce the guest journey through the browser
             objectCollectionId: accessLinksCatalogId,
             data: {
                 Slug: 'guest-lms-demo',
-                TargetType: 'content',
-                TargetId: contentRow.id,
                 ContentNodeIdRef: contentRow.id,
                 IsActive: true,
                 MaxUses: 3,
-                UseCount: 0,
-                LinkTitle: 'Guest LMS demo'
+                LinkTitle: 'Guest LMS demo',
+                ShowFirstName: true,
+                RequireFirstName: true
             }
         })
         await waitForApplicationRuntimeRow(api, applicationId, accessLinksCatalogId, accessLinkRow.id, workspaceId)
@@ -327,7 +328,7 @@ test('@flow public lms guest links enforce the guest journey through the browser
         )
 
         await page.goto(`/public/a/${applicationId}/links/guest-lms-demo`)
-        await expect(page.getByLabel('Your name')).toBeVisible({ timeout: 30_000 })
+        await expect(page.getByLabel('First name')).toBeVisible({ timeout: 30_000 })
         await expectNoTechnicalLeakage(page.locator('body'), {
             label: 'Public LMS guest start page',
             checkUuidSubstrings: true
@@ -335,7 +336,7 @@ test('@flow public lms guest links enforce the guest journey through the browser
         await expectNoPageHorizontalOverflow(page, 'Public LMS guest start page')
         await expectRuntimeUxViewportMatrix(page, 'Public LMS guest start page', {
             beforeEachViewport: async (viewport) => {
-                await expect(page.getByLabel('Your name')).toBeVisible({ timeout: 30_000 })
+                await expect(page.getByLabel('First name')).toBeVisible({ timeout: 30_000 })
                 await expectNoTechnicalLeakage(page.locator('body'), {
                     label: `Public LMS guest start page ${viewport.name}`,
                     checkUuidSubstrings: true
@@ -343,10 +344,28 @@ test('@flow public lms guest links enforce the guest journey through the browser
                 await page.screenshot({ path: testInfo.outputPath(`lms-guest-start-${viewport.name}.png`), fullPage: true })
             }
         })
-        await page.getByLabel('Your name').fill('Guest learner')
+        await page.getByLabel('First name').fill('Guest learner')
+        await page.getByLabel('Last name').fill('Public runtime')
         await expect(page.getByRole('button', { name: 'Start learning' })).toBeEnabled({ timeout: 30_000 })
-        await page.getByLabel('Your name').press('Tab')
+        const termsConsent = page.getByRole('checkbox', { name: 'I agree to the Terms of Service' })
+        const privacyConsent = page.getByRole('checkbox', { name: 'I have read and accept the Privacy Policy' })
         const startLearningButton = page.getByRole('button', { name: 'Start learning' })
+        await page.getByLabel('First name').focus()
+        await page.keyboard.press('Tab')
+        await expect(page.getByLabel('Last name'), 'Last name must be reachable by keyboard').toBeFocused()
+        await page.keyboard.press('Tab')
+        await expect(termsConsent, 'Terms acceptance must be reachable by keyboard').toBeFocused()
+        await termsConsent.press('Space')
+        await expect(termsConsent).toBeChecked()
+        await page.keyboard.press('Tab')
+        await expect(page.getByRole('link', { name: 'Terms of Service', exact: true })).toBeFocused()
+        await page.keyboard.press('Tab')
+        await expect(privacyConsent, 'Privacy acceptance must be reachable by keyboard').toBeFocused()
+        await privacyConsent.press('Space')
+        await expect(privacyConsent).toBeChecked()
+        await page.keyboard.press('Tab')
+        await expect(page.getByRole('link', { name: 'Privacy Policy', exact: true })).toBeFocused()
+        await page.keyboard.press('Tab')
         await expect(startLearningButton, 'Public guest start action must be reachable by keyboard').toBeFocused()
         await page.keyboard.press('Enter')
 
@@ -383,16 +402,59 @@ test('@flow public lms guest links enforce the guest journey through the browser
 
         await expect(page.getByText('Knowledge check')).toBeVisible({ timeout: 30_000 })
         await page.getByRole('button', { name: 'Open quiz' }).click()
-        await expect(page.getByText('Which organelle is primarily responsible for photosynthesis?')).toBeVisible({ timeout: 30_000 })
-        await expect(page.getByText('Plants need sunlight, water, and which gas to complete photosynthesis?')).toBeVisible()
-        await page.getByLabel('Chloroplast').check()
-        await page.getByLabel('Carbon dioxide').check()
+        const firstQuestion = page.getByText('Which organelle is primarily responsible for photosynthesis?')
+        const secondQuestion = page.getByText('Plants need sunlight, water, and which gas to complete photosynthesis?')
+        await expect(firstQuestion).toBeVisible({ timeout: 30_000 })
+        await expect(secondQuestion).toBeHidden()
+        await expect(firstQuestion, 'Opening a quiz must move keyboard focus to its first question').toBeFocused()
 
-        const submitQuizButton = page.getByRole('button', { name: 'Submit quiz' })
-        await submitQuizButton.focus()
-        await expect(submitQuizButton, 'Public guest submit action must support keyboard activation').toBeFocused()
-        await page.keyboard.press('Enter')
-        await expect(page.getByText('Score 2 / 2')).toBeVisible({ timeout: 30_000 })
+        const chloroplastAnswer = page.getByLabel('Chloroplast')
+        const firstKeyboardRequests = await navigateGuestQuizOptionWithKeyboard(page, chloroplastAnswer)
+        try {
+            const submitFirstAnswer = page.getByRole('button', { name: 'Submit answer', exact: true })
+            await expect(submitFirstAnswer).toBeVisible()
+            await expect(page.getByText('Answer selected. Use the Submit answer button to continue.')).toBeVisible()
+            expect(firstKeyboardRequests.getCount()).toBe(0)
+            await page.keyboard.press('Tab')
+            await expect(submitFirstAnswer, 'The selected answer must have a keyboard-accessible confirmation').toBeFocused()
+            expect(firstKeyboardRequests.getCount()).toBe(0)
+            const firstAnswerResponsePromise = page.waitForResponse((response) => {
+                const path = new URL(response.url()).pathname
+                return response.request().method() === 'PUT' && /\/runtime\/attempts\/[^/]+\/answers$/u.test(path)
+            })
+            await page.keyboard.press('Space')
+            expect((await firstAnswerResponsePromise).status()).toBe(200)
+            expect(firstKeyboardRequests.getCount()).toBe(1)
+        } finally {
+            firstKeyboardRequests.stop()
+        }
+        await expect(secondQuestion).toBeVisible({ timeout: 30_000 })
+        await expect(firstQuestion).toBeHidden()
+        await expect(secondQuestion, 'Advancing a quiz must move keyboard focus to its next question').toBeFocused()
+
+        const carbonDioxideAnswer = page.getByLabel('Carbon dioxide')
+        const secondKeyboardRequests = await navigateGuestQuizOptionWithKeyboard(page, carbonDioxideAnswer)
+        try {
+            const submitSecondAnswer = page.getByRole('button', { name: 'Submit answer', exact: true })
+            await expect(submitSecondAnswer).toBeVisible()
+            expect(secondKeyboardRequests.getCount()).toBe(0)
+            await page.keyboard.press('Tab')
+            await expect(submitSecondAnswer, 'The selected answer must have a keyboard-accessible confirmation').toBeFocused()
+            expect(secondKeyboardRequests.getCount()).toBe(0)
+            const secondAnswerResponsePromise = page.waitForResponse((response) => {
+                const path = new URL(response.url()).pathname
+                return response.request().method() === 'PUT' && /\/runtime\/attempts\/[^/]+\/answers$/u.test(path)
+            })
+            await page.keyboard.press('Space')
+            expect((await secondAnswerResponsePromise).status()).toBe(200)
+            expect(secondKeyboardRequests.getCount()).toBe(1)
+        } finally {
+            secondKeyboardRequests.stop()
+        }
+        await expect(page.getByRole('heading', { name: 'Quiz completed' })).toBeVisible({ timeout: 30_000 })
+        const quizResultStatus = page.getByRole('status')
+        await expect(quizResultStatus).toContainText('Correct answers: 2 of 2')
+        await expect(quizResultStatus).toContainText('Passed')
         await expectNoTechnicalLeakage(page.locator('body'), {
             label: 'Public LMS guest quiz result page',
             checkUuidSubstrings: true
@@ -400,7 +462,8 @@ test('@flow public lms guest links enforce the guest journey through the browser
         await expectNoPageHorizontalOverflow(page, 'Public LMS guest quiz result page')
         await expectRuntimeUxViewportMatrix(page, 'Public LMS guest quiz result page', {
             beforeEachViewport: async (viewport) => {
-                await expect(page.getByText('Score 2 / 2')).toBeVisible({ timeout: 30_000 })
+                await expect(page.getByRole('heading', { name: 'Quiz completed' })).toBeVisible({ timeout: 30_000 })
+                await expect(quizResultStatus).toContainText('Correct answers: 2 of 2')
                 await expectNoTechnicalLeakage(page.locator('body'), {
                     label: `Public LMS guest quiz result page ${viewport.name}`,
                     checkUuidSubstrings: true

@@ -90,6 +90,18 @@ export const assertLmsBuilderPlacements = (context: DashboardFixtureValidationCo
                     )
                 }
 
+                if (childEntityCodename === 'AccessLinks' && panelSlot === 'panel:guest-links') {
+                    const rowLink = readRecord(panel?.rowLink)
+                    const displayFields = Array.isArray(panel?.displayFields) ? panel.displayFields.map(readRecord) : []
+                    if (
+                        rowLink?.fieldCodename !== 'Slug' ||
+                        rowLink.pathTemplate !== '/public/a/{applicationId}/links/{value}' ||
+                        !displayFields.some((field) => field?.fieldCodename === 'Slug' && field.valueType === 'string')
+                    ) {
+                        errors.push(`${label} guest-link relationBuilder must expose and safely link the AccessLinks.Slug field`)
+                    }
+                }
+
                 const expectedWizard = expectedTab.relation.createWizard
                 if (expectedWizard) {
                     const actualWizard = readRecord(panel?.createWizard)

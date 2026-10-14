@@ -169,6 +169,10 @@ Consumed by `packages/universo-react-core-backend`.
 -   `SESSION_SECRET` - Secret key for session signing and encryption
 -   `SUPABASE_URL` - Supabase project URL for authentication
 -   `SUPABASE_PUBLISHABLE_DEFAULT_KEY` or `SUPABASE_ANON_KEY` - Supabase public client key. New projects should prefer `SUPABASE_PUBLISHABLE_DEFAULT_KEY`; legacy projects may keep `SUPABASE_ANON_KEY`.
+-   `LEGAL_TERMS_VERSION` - Current Terms of Service version recorded for registration and required guest consent.
+-   `LEGAL_PRIVACY_VERSION` - Current Privacy Policy version recorded for registration and required guest consent.
+
+Both legal version values must be non-empty, contain at most 50 characters, and have no surrounding whitespace or control characters. Configure them in the core backend environment alongside the legal document URLs. Registration and guest-session creation fail closed when either value is missing or invalid. Increment a version when its corresponding legal document changes.
 
 ### JWT Verification Variables
 
@@ -191,6 +195,8 @@ Consumed by `packages/universo-react-core-backend`.
 SESSION_SECRET=your-strong-secret-key-here
 SUPABASE_URL=https://your-project.supabase.co
 SUPABASE_PUBLISHABLE_DEFAULT_KEY=sb_publishable_key
+LEGAL_TERMS_VERSION=terms-v1
+LEGAL_PRIVACY_VERSION=privacy-v1
 # Optional legacy alias for older environments:
 # SUPABASE_ANON_KEY=sb_publishable_or_legacy_anon_key
 # Legacy HS256-only projects:

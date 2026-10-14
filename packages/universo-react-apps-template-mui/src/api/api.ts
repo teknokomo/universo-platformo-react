@@ -162,6 +162,22 @@ export type RuntimeEffectiveLayoutResponse =
     | RuntimeEffectiveLayoutSuccess
     | Exclude<CanonicalRuntimeEffectiveLayoutResponse, { status: 'ok' }>
 
+/** Resolve the server-selected Page/Object that owns the active dashboard layout. */
+export const resolveDashboardRuntimeLayoutTarget = (
+    requestedTargetKind: RuntimeEffectiveLayoutSuccess['target']['targetKind'] | undefined,
+    entityTypeId: RuntimeEffectiveLayoutSuccess['resolvedEntityTypeId'] | undefined
+): { targetKind: 'page' | 'object'; entityTypeId: string } | undefined => {
+    if (!entityTypeId) return undefined
+
+    if (requestedTargetKind === 'page' || requestedTargetKind === 'object') {
+        return { targetKind: requestedTargetKind, entityTypeId }
+    }
+    if (requestedTargetKind === null) {
+        return { targetKind: 'page', entityTypeId }
+    }
+    return undefined
+}
+
 /** Strict package-local adapter for the published Dashboard runtime DTO extension. */
 export const dashboardEffectiveLayoutResultSchema = z.unknown().transform((input, context): RuntimeEffectiveLayoutResponse => {
     const isDashboardSuccess =

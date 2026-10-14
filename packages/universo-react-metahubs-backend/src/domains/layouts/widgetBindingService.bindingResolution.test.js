@@ -59,11 +59,11 @@ describe('generic Metahub widget binding service', () => {
                 const source = sourceById.get(id)
                 const slot =
                     source?.codename === 'MarketingSections' ? sectionSlot : source?.codename === 'PricingTiers' ? tiersSlot : benefitsSlot
-                return source && slot
-                    ? componentRows(source.id, slot).map((component) =>
-                          component.codename === 'TierRef' ? { ...component, data_type: 'UUID' } : component
-                      )
-                    : []
+                if (!source || !slot) return []
+                const relationTarget = slot.relation?.parentSlot === 'tiers' ? sourceByCodename.get('PricingTiers') : undefined
+                return componentRows(source.id, slot, relationTarget).map((component) =>
+                    component.codename === 'TierRef' ? { ...component, data_type: 'UUID' } : component
+                )
             })
         )
         harness.store.findRecord = jest.fn(async (_db, _schema, id, _keyCodename, semanticKey) =>

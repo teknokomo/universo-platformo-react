@@ -5,6 +5,7 @@ import {
     buildLmsBaseSeedZoneWidgets,
     buildLmsHomeSeedZoneWidgets,
     buildLmsLearningContentSeedZoneWidgets,
+    buildLmsQuizzesSeedZoneWidgets,
     buildLmsTrashSeedZoneWidgets,
     buildLmsReportsSeedZoneWidgets,
     buildLmsCourseBuilderSeedZoneWidgets,
@@ -88,8 +89,8 @@ export const lmsTemplate: MetahubTemplateManifest = {
                 scopeEntityKind: 'object',
                 name: vlc('Learning Content Library', 'Библиотека учебного контента'),
                 description: vlc(
-                    'Workspace Learning Content layout with project metrics and a unified active content table.',
-                    'Макет учебного контента рабочего пространства с метриками проектов и единой таблицей активного контента.'
+                    'Workspace Learning Content layout with a unified content library and a Quizzes authoring tab.',
+                    'Макет учебного контента рабочего пространства с общей библиотекой и вкладкой создания тестов.'
                 ),
                 isDefault: true,
                 isActive: true,
@@ -253,8 +254,8 @@ export const lmsTemplate: MetahubTemplateManifest = {
                 scopeEntityKind: 'object',
                 name: vlc('Reports Dashboard', 'Панель отчётов'),
                 description: vlc(
-                    'Reports layout with saved report definitions and the primary Learning Content summary report surface.',
-                    'Макет отчётов со списком сохраненных определений и основным отчётом по учебному контенту.'
+                    'Reports layout with saved definitions, Learning Content summaries, and quiz attempt results.',
+                    'Макет отчётов с сохранёнными определениями, сводками по учебному контенту и результатами тестов.'
                 ),
                 isDefault: true,
                 isActive: true,
@@ -364,12 +365,28 @@ export const lmsTemplate: MetahubTemplateManifest = {
                 isDefault: true,
                 isActive: true,
                 sortOrder: 16
+            },
+            {
+                codename: 'quizzes',
+                templateKey: 'dashboard',
+                baseLayoutCodename: 'main',
+                scopeEntityCodename: 'Quizzes',
+                scopeEntityKind: 'object',
+                name: vlc('Quiz Management', 'Управление тестами'),
+                description: vlc(
+                    'Entity-backed quiz list for creating and editing assessments.',
+                    'Список тестов для создания и редактирования заданий.'
+                ),
+                isDefault: true,
+                isActive: true,
+                sortOrder: 17
             }
         ],
         layoutZoneWidgets: {
             main: buildLmsBaseSeedZoneWidgets(),
             learnerHome: buildLmsHomeSeedZoneWidgets(),
             learningContent: buildLmsLearningContentSeedZoneWidgets(),
+            quizzes: buildLmsQuizzesSeedZoneWidgets(),
             learningContentRecent: buildLmsLearningContentSeedZoneWidgets('recent'),
             learningContentStarred: buildLmsLearningContentSeedZoneWidgets('starred'),
             learningContentShared: buildLmsLearningContentSeedZoneWidgets('shared'),

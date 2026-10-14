@@ -15,7 +15,10 @@ import {
     resolveRuntimeRecordOwnerColumnName
 } from '../../../controllers/runtimeRowSupport/objects'
 import { resolveRuntimeRelationOwnedFieldCodenames } from '../../../services/runtimeRowSupport/list'
-import { resolveRuntimeRelationWriteScope } from '../../../controllers/runtimeRowSupport/relationScope'
+import {
+    resolveRuntimeRelationAuthorityLayout,
+    resolveRuntimeRelationWriteScope
+} from '../../../controllers/runtimeRowSupport/relationScope'
 import type { RuntimeObjectCollectionAttr } from '../../../services/runtimeRowSupport/contracts'
 import { createRelationBuilderEffectiveWidget } from './runtimeRelationAuthorityFixture'
 import type { DbExecutor } from '@universo-react/utils'
@@ -120,17 +123,29 @@ describe('resolveRuntimeObjectCollectionConfig relation authority', () => {
             objectCollectionId,
             objectCollectionCodename: 'CourseItems'
         })
+        const relationLayoutTarget = { targetKind: 'object' as const, entityTypeId: parentEntityId }
+        const relationLayout = await resolveRuntimeRelationAuthorityLayout({
+            manager,
+            applicationId,
+            userId: '019f2000-0000-7000-8000-000000000006',
+            role: 'member',
+            workspaceId: null,
+            target: relationLayoutTarget,
+            childEntity: { id: objectCollectionId, codename: 'CourseItems' },
+            locale: 'en'
+        })
         const scope = await resolveRuntimeRelationWriteScope({
             manager,
             schemaIdent: '"app_test"',
-            zoneWidgets: result.selectedLayout.zoneWidgets,
-            childEntity: { codename: 'CourseItems' },
+            zoneWidgets: relationLayout.zoneWidgets,
+            childEntity: { id: objectCollectionId, codename: 'CourseItems' },
             childAttrs: [
                 {
                     id: 'course-ref',
                     codename: 'CourseId',
                     column_name: 'course_id',
                     data_type: 'REF',
+                    ui_config: { serverOwned: true },
                     is_required: true,
                     target_object_id: parentEntityId,
                     target_object_kind: 'object'
@@ -140,17 +155,22 @@ describe('resolveRuntimeObjectCollectionConfig relation authority', () => {
                     codename: 'SortOrder',
                     column_name: 'sort_order',
                     data_type: 'NUMBER',
+                    ui_config: { serverOwned: true },
                     is_required: true
                 }
             ],
-            request: { fieldCodename: 'CourseId', parentRecordId }
+            request: {
+                fieldCodename: 'CourseId',
+                parentRecordId,
+                layoutTarget: relationLayoutTarget
+            }
         })
-        const ownedFields = resolveRuntimeRelationOwnedFieldCodenames(result.selectedLayout.zoneWidgets, 'CourseItems')
+        const ownedFields = resolveRuntimeRelationOwnedFieldCodenames(relationLayout.zoneWidgets, 'CourseItems')
 
-        expect(mockResolveEffectiveLayoutStructureForRequest).toHaveBeenCalledWith(
+        expect(mockResolveEffectiveLayoutStructureForRequest).toHaveBeenLastCalledWith(
             expect.anything(),
             { applicationId, userId: '019f2000-0000-7000-8000-000000000006', role: 'member' },
-            { applicationId, targetKind: 'object', entityTypeId: objectCollectionId, locale: 'en' }
+            { applicationId, targetKind: 'object', entityTypeId: parentEntityId, locale: 'en' }
         )
         expect(scope).toMatchObject({
             request: { fieldCodename: 'CourseId', parentRecordId },
@@ -161,6 +181,34 @@ describe('resolveRuntimeObjectCollectionConfig relation authority', () => {
         expect(ownedFields).toEqual(['CourseId', 'SortOrder'])
         expect(result.selectedLayout.zoneWidgets.center[0]).not.toHaveProperty('runtimeData')
         expect(query.mock.calls.every(([sql]) => !sql.includes('FROM "app_test".courses'))).toBe(true)
+    })
+
+    it('resolves a missing layout target from the child Entity for older clients', async () => {
+        const applicationId = '019f2000-0000-7000-8000-000000000001'
+        const objectCollectionId = '019f2000-0000-7000-8000-000000000002'
+        const manager = { query: jest.fn() } as unknown as DbExecutor
+        mockResolveEffectiveLayoutStructureForRequest.mockClear()
+        mockResolveEffectiveLayoutStructureForRequest.mockResolvedValue({
+            status: 'ok',
+            layout: { id: '019f2000-0000-7000-8000-000000000004', templateKey: 'dashboard', config: {} },
+            widgets: []
+        })
+
+        await resolveRuntimeRelationAuthorityLayout({
+            manager,
+            applicationId,
+            userId: '019f2000-0000-7000-8000-000000000006',
+            role: 'member',
+            workspaceId: null,
+            childEntity: { id: objectCollectionId, codename: 'CourseItems' },
+            locale: 'ru'
+        })
+
+        expect(mockResolveEffectiveLayoutStructureForRequest).toHaveBeenCalledWith(
+            manager,
+            { applicationId, userId: '019f2000-0000-7000-8000-000000000006', role: 'member' },
+            { applicationId, targetKind: 'object', entityTypeId: objectCollectionId, locale: 'ru' }
+        )
     })
 })
 

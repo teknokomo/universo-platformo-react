@@ -121,11 +121,14 @@ const retainRuntimeMutationIdentity = (row: LoadedWidgetBindingRecord, value: Re
 }
 
 const getOrderedQuery = (slot: WidgetBindingSlotDefinition): Extract<WidgetBindingRecordQuery, { kind: 'record-set' }>['ordered'] => {
-    if (!slot.maxResolvedRecords || !slot.orderByField) throw new WidgetBindingResolutionError('projection-invalid')
-    const order = getProjection(slot, slot.orderByField)
+    if (!slot.maxResolvedRecords) throw new WidgetBindingResolutionError('projection-invalid')
+    const order = slot.orderByField ? getProjection(slot, slot.orderByField) : null
+    if (!order && (slot.projectionMode !== 'entity-schema' || slot.visibilityField)) {
+        throw new WidgetBindingResolutionError('projection-invalid')
+    }
     const visibility = slot.visibilityField ? getProjection(slot, slot.visibilityField) : undefined
     return {
-        orderByComponentCodename: order.componentCodename,
+        orderByComponentCodename: order?.componentCodename ?? null,
         ...(visibility ? { visibilityComponentCodename: visibility.componentCodename } : {}),
         limit: slot.maxResolvedRecords
     }
