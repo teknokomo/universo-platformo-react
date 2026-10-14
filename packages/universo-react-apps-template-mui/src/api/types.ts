@@ -23,6 +23,10 @@ export interface RuntimeListQueryParams {
 export interface RuntimeRelationScope {
     fieldCodename: string
     parentRecordId: string
+    layoutTarget: {
+        targetKind: 'page' | 'object'
+        entityTypeId: string
+    }
 }
 
 export interface RuntimeRowTarget {
@@ -120,7 +124,7 @@ export interface CrudDataAdapter {
         workspaceId?: string | null
         orderedRowIds: string[]
         expectedVersionsByRowId?: Record<string, number>
-        parentScope?: { fieldCodename: string; parentRecordId: string }
+        parentScope?: RuntimeRelationScope
     }): Promise<void>
 }
 

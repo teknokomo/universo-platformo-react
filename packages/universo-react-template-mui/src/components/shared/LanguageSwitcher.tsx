@@ -72,27 +72,28 @@ export default function LanguageSwitcher() {
     return (
         <>
             <Tooltip title={t('language.tooltip')}>
-                <span>
+                <IconButton
+                    aria-label={t('language.tooltip')}
+                    aria-haspopup='menu'
+                    aria-expanded={open}
+                    onClick={handleOpen}
+                    size='small'
+                    sx={{
+                        borderRadius: 1,
+                        color: theme.palette.text.primary,
+                        '&:hover': {
+                            backgroundColor: theme.palette.action.hover
+                        }
+                    }}
+                >
                     <LangBadge
                         overlap='rectangular'
                         badgeContent={currentLang.toUpperCase()}
                         anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
                     >
-                        <IconButton
-                            onClick={handleOpen}
-                            size='small'
-                            sx={{
-                                borderRadius: 1,
-                                color: theme.palette.text.primary,
-                                '&:hover': {
-                                    backgroundColor: theme.palette.action.hover
-                                }
-                            }}
-                        >
-                            <LanguageIcon />
-                        </IconButton>
+                        <LanguageIcon />
                     </LangBadge>
-                </span>
+                </IconButton>
             </Tooltip>
             <Menu
                 anchorEl={anchorEl}

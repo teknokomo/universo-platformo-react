@@ -1,9 +1,11 @@
 import {
     applyRuntimeDateOffsetDerivations,
     validateRuntimeDateOrderRules,
-    validateRuntimeRequiredWhenRules
+    validateRuntimeRequiredWhenRules,
+    validateRuntimeAccessLinkTarget
 } from '../../../controllers/runtimeRowSupport/validation'
 import type { RuntimeObjectCollectionAttr } from '../../../services/runtimeRowSupport/contracts'
+import { createMockDbExecutor } from '../../utils/dbMocks'
 
 const codename = (text: string) => ({ _primary: 'en', locales: { en: { content: text } } })
 
@@ -23,6 +25,125 @@ const attrs = [
     attr('has_end', 'BOOLEAN', 'HasEnd'),
     attr('clear_flag', 'BOOLEAN', 'ClearFlag')
 ]
+
+const accessLinkAttrs: RuntimeObjectCollectionAttr[] = [
+    {
+        id: 'target-type',
+        codename: codename('TargetType'),
+        column_name: 'target_type',
+        data_type: 'STRING',
+        is_required: true
+    },
+    {
+        id: 'target-id',
+        codename: codename('TargetId'),
+        column_name: 'target_id',
+        data_type: 'REF',
+        target_object_id: '019f2000-0000-7000-8000-000000000201',
+        target_object_kind: 'object',
+        is_required: false
+    },
+    {
+        id: 'content-target',
+        codename: codename('ContentNodeIdRef'),
+        column_name: 'content_node_id_ref',
+        data_type: 'REF',
+        target_object_id: '019f2000-0000-7000-8000-000000000202',
+        target_object_kind: 'object',
+        is_required: false
+    }
+]
+
+describe('validateRuntimeAccessLinkTarget', () => {
+    const workspaceId = '019f2000-0000-7000-8000-000000000301'
+    const userId = '019f2000-0000-7000-8000-000000000302'
+    const contentId = '019f2000-0000-7000-8000-000000000303'
+    const quizId = '019f2000-0000-7000-8000-000000000304'
+    const permissions = {
+        manageMembers: false,
+        manageApplication: true,
+        createContent: true,
+        editContent: true,
+        deleteContent: true,
+        readReports: true
+    }
+
+    const createValidator = (targetRows: Array<{ id: string }> = [{ id: contentId }]) => {
+        const { executor } = createMockDbExecutor()
+        executor.query.mockImplementation(async (sql: string, params?: unknown[]) => {
+            if (sql.includes('FROM runtime_schema._app_objects') && params?.[0] === 'LearningResources') {
+                return [
+                    {
+                        id: '019f2000-0000-7000-8000-000000000202',
+                        codename: 'LearningResources',
+                        table_name: 'learning_resources',
+                        config: {}
+                    }
+                ]
+            }
+            if (sql.includes('FROM runtime_schema._app_objects') && params?.[0] === 'Quizzes') {
+                return [{ id: '019f2000-0000-7000-8000-000000000201', codename: 'Quizzes', table_name: 'quizzes', config: {} }]
+            }
+            if (sql.includes('FROM runtime_schema._app_components')) return []
+            if (sql.includes('FROM runtime_schema."learning_resources"') || sql.includes('FROM runtime_schema."quizzes"')) {
+                return targetRows
+            }
+            return []
+        })
+
+        return executor
+    }
+
+    const validate = (row: Record<string, unknown>, targetRows?: Array<{ id: string }>) =>
+        validateRuntimeAccessLinkTarget({
+            manager: createValidator(targetRows),
+            schemaIdent: 'runtime_schema',
+            currentWorkspaceId: workspaceId,
+            currentUserId: userId,
+            permissions,
+            objectCodename: 'AccessLinks',
+            attrs: accessLinkAttrs,
+            row
+        })
+
+    it('accepts a content target only when the linked LearningResources row exists in the active scope', async () => {
+        await expect(validate({ target_type: 'content', content_node_id_ref: contentId })).resolves.toBeNull()
+        await expect(validate({ target_type: 'content', content_node_id_ref: contentId }, [])).resolves.toBe('Invalid access-link target')
+    })
+
+    it('accepts a quiz target through its typed Quizzes reference', async () => {
+        await expect(validate({ target_type: 'quiz', target_id: quizId }, [{ id: quizId }])).resolves.toBeNull()
+    })
+
+    it('locks an active target row when validation runs inside a write transaction', async () => {
+        const manager = createValidator([{ id: quizId }])
+        await expect(
+            validateRuntimeAccessLinkTarget({
+                manager,
+                schemaIdent: 'runtime_schema',
+                currentWorkspaceId: workspaceId,
+                currentUserId: userId,
+                permissions,
+                objectCodename: 'AccessLinks',
+                attrs: accessLinkAttrs,
+                row: { target_type: 'quiz', target_id: quizId },
+                lockTarget: true
+            })
+        ).resolves.toBeNull()
+
+        const targetQuery = manager.query.mock.calls.find(([sql]) => String(sql).includes('FROM runtime_schema."quizzes"'))
+        expect(targetQuery?.[0]).toContain('FOR SHARE')
+    })
+
+    it.each([
+        ['unknown type', { target_type: 'external', content_node_id_ref: contentId }],
+        ['missing target', { target_type: 'content' }],
+        ['conflicting targets', { target_type: 'content', content_node_id_ref: contentId, target_id: quizId }],
+        ['invalid reference', { target_type: 'content', content_node_id_ref: 'not-a-uuid' }]
+    ])('rejects an %s before a public link can be persisted', async (_label, row) => {
+        await expect(validate(row)).resolves.toBe('Invalid access-link target')
+    })
+})
 
 describe('validateRuntimeRequiredWhenRules', () => {
     const validate = (config: Record<string, unknown> | null | undefined, row: Record<string, unknown>) =>

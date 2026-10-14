@@ -26,7 +26,7 @@ import {
     runtimeCompensateCreateBodySchema,
     runtimeRelationScopeSchema
 } from '../../services/runtimeRowSupport/contracts'
-import { resolveRuntimeObjectCollection, resolveRuntimeObjectCollectionConfig } from '../runtimeRowSupport/objects'
+import { resolveRuntimeObjectCollection } from '../runtimeRowSupport/objects'
 import { denyRuntimeEntityMutation } from '../../shared/entityMutationPolicy'
 import { assertNotProtectedSystemStructureRuntimeRow, buildRuntimeRecordAccessClause } from '../../services/runtimeRowSupport/access'
 import { loadRuntimeRowById } from '../runtimeRowSupport/rows'
@@ -34,11 +34,14 @@ import {
     buildRuntimeRelationRowPredicate,
     lockRuntimeRelationParentRecord,
     revalidateRuntimeRelationWriteScope,
+    resolveRuntimeRelationAuthorityLayout,
     resolveRuntimeRelationWriteScope
 } from '../runtimeRowSupport/relationScope'
 
 import type { RuntimeRowWriteDeps } from './types'
 import { isRuntimeRecordReference, resolveRuntimeRecordReference } from '../../services/runtimeRecordHandle'
+import { lockGuestAccessLinkWorkspace, revokeGuestSessionsForAccessLink } from '../../services/guestAccessLinkRevocation'
+import { releaseActiveGlobalShortLinksForAccessLink } from '../../persistence/globalShortLinksStore'
 
 export const createDeleteRowHandler = ({ getDbExecutor, query }: RuntimeRowWriteDeps) => {
     const deleteRow = async (req: Request, res: Response) => {
@@ -97,14 +100,15 @@ export const createDeleteRowHandler = ({ getDbExecutor, query }: RuntimeRowWrite
         if (!resolvedReference) return res.status(404).json({ error: 'Row not found' })
         const rowId = resolvedReference.recordId
         const relationLayout = requestedRelationScope
-            ? await resolveRuntimeObjectCollectionConfig({
+            ? await resolveRuntimeRelationAuthorityLayout({
                   manager: ctx.manager,
                   applicationId,
                   userId: ctx.userId,
                   role: ctx.role,
                   workspaceId: ctx.currentWorkspaceId,
-                  objectCollectionId: objectCollection.id,
-                  objectCollectionCodename: resolveRuntimeCodenameText(objectCollection.codename)
+                  target: requestedRelationScope.layoutTarget,
+                  childEntity: objectCollection,
+                  locale: typeof req.query.locale === 'string' ? req.query.locale : 'en'
               })
             : null
         const relationScope =
@@ -114,7 +118,7 @@ export const createDeleteRowHandler = ({ getDbExecutor, query }: RuntimeRowWrite
                       applicationId,
                       workspaceId: ctx.currentWorkspaceId,
                       schemaIdent: ctx.schemaIdent,
-                      zoneWidgets: relationLayout.selectedLayout.zoneWidgets,
+                      zoneWidgets: relationLayout.zoneWidgets,
                       childEntity: objectCollection,
                       childAttrs: attrs,
                       request: requestedRelationScope
@@ -141,12 +145,19 @@ export const createDeleteRowHandler = ({ getDbExecutor, query }: RuntimeRowWrite
         let afterDeleteLifecycleRequest: RuntimeLifecycleDispatchRequest | null = null
 
         const performDelete = async (mgr: DbExecutor) => {
+            if (resolveRuntimeCodenameText(objectCollection.codename) === 'AccessLinks') {
+                await lockGuestAccessLinkWorkspace({
+                    executor: mgr,
+                    schemaName: ctx.schemaName,
+                    workspacesEnabled: ctx.workspacesEnabled,
+                    workspaceId: ctx.currentWorkspaceId
+                })
+            }
             const transactionRelationScope = relationScope
                 ? await revalidateRuntimeRelationWriteScope({
                       executor: mgr,
                       ctx,
                       applicationId,
-                      objectCollectionId: objectCollection.id,
                       childEntity: objectCollection,
                       childAttrs: attrs,
                       scope: relationScope
@@ -296,6 +307,20 @@ export const createDeleteRowHandler = ({ getDbExecutor, query }: RuntimeRowWrite
                 }
                 throw new UpdateFailure(404, {
                     error: 'Row not found'
+                })
+            }
+
+            if (resolveRuntimeCodenameText(objectCollection.codename) === 'AccessLinks') {
+                await releaseActiveGlobalShortLinksForAccessLink(mgr, applicationId, rowId, ctx.userId)
+                await revokeGuestSessionsForAccessLink({
+                    executor: mgr,
+                    applicationId,
+                    schemaName: ctx.schemaName,
+                    settings: ctx.applicationSettings,
+                    workspacesEnabled: ctx.workspacesEnabled,
+                    workspaceId: ctx.currentWorkspaceId,
+                    accessLinkId: rowId,
+                    actorUserId: ctx.userId
                 })
             }
 

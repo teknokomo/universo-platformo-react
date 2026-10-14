@@ -27,5 +27,22 @@
     "excellent": "Excellent! You really know your space.",
     "good": "Good job! Keep exploring the cosmos.",
     "tryAgain": "Nice try! Study up and try again.",
-    "explanation": "Explanation"
+    "explanation": "Explanation",
+    "optionsEditor": {
+        "editAnswers": "Edit answers ({{count}})",
+        "dialogTitle": "Answer options",
+        "optionLabel": "Option {{number}}",
+        "correctAnswerGroup": "Correct answer",
+        "correctAnswerOption": "Option {{number}} is correct",
+        "correctAnswerRequired": "Select exactly one correct answer.",
+        "optionRequired": "Enter an answer option.",
+        "moveUp": "Move option {{number}} up",
+        "moveDown": "Move option {{number}} down",
+        "remove": "Remove option {{number}}",
+        "add": "Add option",
+        "help": "Use {{min}} to {{max}} options. Fill in every option and select exactly one correct answer.",
+        "helpExact": "Add exactly {{count}} non-empty options and mark exactly one correct answer.",
+        "save": "Save",
+        "cancel": "Cancel"
+    }
 }

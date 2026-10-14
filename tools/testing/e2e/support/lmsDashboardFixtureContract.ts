@@ -2,6 +2,7 @@ import { createDashboardFixtureValidationContext, type DashboardFixtureContractA
 import { assertDashboardLayoutWidgetOwnership, assertDashboardNavigationAndKnowledgeLayout } from './lmsDashboardFixtureLayoutValidator.ts'
 import { assertLmsLearningContentLibrary, assertLmsLearnerHomePlacements } from './lmsDashboardFixtureLearnerValidator.ts'
 import { assertLmsBuilderPlacements } from './lmsDashboardFixtureBuilderValidator.ts'
+import { assertLmsGuestAccessRelationFields } from './lmsDashboardFixtureGuestAccessValidator.ts'
 import { assertLmsReportsLayout } from './lmsDashboardFixtureReportsValidator.ts'
 import { assertLmsLearningResourcesSortOrder } from './lmsDashboardFixtureLearningResourcesValidator.ts'
 
@@ -13,6 +14,7 @@ export const assertLmsDashboardFixtureContract = (arguments_: DashboardFixtureCo
     assertDashboardNavigationAndKnowledgeLayout(context)
     assertLmsLearnerHomePlacements(context)
     assertLmsBuilderPlacements(context)
+    assertLmsGuestAccessRelationFields(context)
     assertLmsReportsLayout(context)
     assertLmsLearningResourcesSortOrder(context)
 }

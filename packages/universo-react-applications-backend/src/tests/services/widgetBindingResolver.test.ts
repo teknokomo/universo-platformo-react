@@ -6,6 +6,46 @@ const projectionFor = (slot: WidgetBindingSlotDefinition) =>
     slot.requirements.components.map(({ field, componentCodename }) => ({ field, componentCodename }))
 
 describe('resolveWidgetBindingTargets', () => {
+    it('uses stable persistence identity ordering for schema-projected record sets without Component order fields', async () => {
+        const definition = getLayoutWidgetDefinition('detailsTable', { variant: 'records' })
+        const slot = definition?.bindingSlots?.find(({ key }) => key === 'rows')
+        if (!definition || !slot) throw new Error('Generic records table contract is unavailable')
+        const bindings = {
+            version: 1 as const,
+            slots: [
+                {
+                    slot: 'rows',
+                    targets: [
+                        {
+                            entityKind: 'object' as const,
+                            entityCodename: 'Quizzes',
+                            selector: { kind: 'record-set' as const },
+                            projection: []
+                        }
+                    ]
+                }
+            ]
+        }
+        const loadRecords = jest.fn((query: WidgetBindingRecordQuery) => {
+            expect(query.kind).toBe('record-set')
+            if (query.kind !== 'record-set') throw new Error('Expected record-set query')
+            expect(query.ordered).toEqual({ orderByComponentCodename: null, limit: 500 })
+            return [{ recordId: '0190a9b5-3cde-7abc-8def-0123456789b2', data: {} }]
+        })
+
+        const resolved = await resolveWidgetBindingTargets(definition, bindings, loadRecords)
+
+        expect(resolved).toEqual([
+            {
+                slot: 'rows',
+                entityKind: 'object',
+                entityCodename: 'Quizzes',
+                semanticKey: 'row-1',
+                data: {}
+            }
+        ])
+    })
+
     it('resolves one semantic record and returns only registered logical fields', async () => {
         const definition = getLayoutWidgetDefinition('marketing.hero')
         const slot = definition?.bindingSlots?.find(({ key }) => key === 'content')

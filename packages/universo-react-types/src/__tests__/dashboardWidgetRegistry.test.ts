@@ -650,7 +650,13 @@ describe('canonical Dashboard widget registry', () => {
         )
         expect(courseRelationBuilder?.bindingSlots?.find(({ key }) => key === 'panel:items')?.requirements.components).toEqual(
             expect.arrayContaining([
-                expect.objectContaining({ field: 'parent', componentCodename: 'CourseId', valueType: 'ref', allowServerOwnedRead: true }),
+                expect.objectContaining({
+                    field: 'parent',
+                    componentCodename: 'CourseId',
+                    valueType: 'ref',
+                    required: true,
+                    allowServerOwnedRead: true
+                }),
                 expect.objectContaining({ field: 'title', componentCodename: 'Title', localized: true }),
                 expect.objectContaining({
                     field: 'order',
@@ -665,6 +671,30 @@ describe('canonical Dashboard widget registry', () => {
                     localized: true,
                     required: false
                 })
+            ])
+        )
+
+        const quizGuestLinksBuilder = getLayoutWidgetDefinition('relationBuilder', {
+            parentTitleFieldCodename: 'Title',
+            panels: [
+                {
+                    slotKey: 'panel:guest-links',
+                    title: { en: 'Guest links', ru: 'Гостевые ссылки' },
+                    parentFieldCodename: 'TargetId',
+                    parentFieldRequired: false,
+                    titleFieldCodename: 'LinkTitle',
+                    sortOrderFieldCodename: 'SortOrder',
+                    displayFields: [{ fieldCodename: 'Slug', valueType: 'string', localized: false, required: true }],
+                    rowLink: { fieldCodename: 'Slug', pathTemplate: '/public/a/{applicationId}/links/{value}' }
+                }
+            ]
+        })
+        expect(quizGuestLinksBuilder?.bindingSlots?.find(({ key }) => key === 'panel:guest-links')?.requirements.components).toEqual(
+            expect.arrayContaining([
+                expect.objectContaining({ field: 'parent', componentCodename: 'TargetId', valueType: 'ref', required: false }),
+                expect.objectContaining({ field: 'title', componentCodename: 'LinkTitle', valueType: 'string', localized: true }),
+                expect.objectContaining({ field: 'order', componentCodename: 'SortOrder', valueType: 'number' }),
+                expect.objectContaining({ field: 'display1', componentCodename: 'Slug', valueType: 'string', required: true })
             ])
         )
 

@@ -12,7 +12,11 @@ const onMutationSuccess = vi.fn()
 const onMutationError = vi.fn()
 const handleStateRowMenuOpen = vi.fn()
 
-const relationScope = { fieldCodename: 'customer', parentRecordId: 'parent-row-1' }
+const relationScope = {
+    fieldCodename: 'customer',
+    parentRecordId: 'parent-row-1',
+    layoutTarget: { targetKind: 'object' as const, entityTypeId: '018f8a78-7b8f-7c1d-a111-222233334410' }
+}
 const rowTarget = { entityCodename: 'orders', recordHandle: 'row-1', relationScope }
 
 const createAppData = (permissions = { createContent: true, editContent: true, deleteContent: true }) =>

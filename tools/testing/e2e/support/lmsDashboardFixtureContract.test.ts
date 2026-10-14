@@ -122,11 +122,51 @@ const findLearningResourcesSortOrder = (fixture: FixtureRecord): FixtureRecord |
         : undefined
 }
 
+const findAccessLinksSortOrder = (fixture: FixtureRecord): FixtureRecord | undefined => {
+    const snapshot = readRecord(fixture.snapshot)
+    const entities = readRecord(snapshot?.entities)
+    const accessLinks = Object.values(entities ?? {})
+        .map(readRecord)
+        .find((entity) => readLocalizedText(entity?.codename) === 'AccessLinks')
+    return Array.isArray(accessLinks?.fields)
+        ? accessLinks.fields.map(readRecord).find((field) => readLocalizedText(field?.codename) === 'SortOrder') ?? undefined
+        : undefined
+}
+
+const findAccessLinksField = (fixture: FixtureRecord, codename: string): FixtureRecord | undefined => {
+    const snapshot = readRecord(fixture.snapshot)
+    const entities = readRecord(snapshot?.entities)
+    const accessLinks = Object.values(entities ?? {})
+        .map(readRecord)
+        .find((entity) => readLocalizedText(entity?.codename) === 'AccessLinks')
+    return Array.isArray(accessLinks?.fields)
+        ? accessLinks.fields.map(readRecord).find((field) => readLocalizedText(field?.codename) === codename) ?? undefined
+        : undefined
+}
+
 test('accepts the canonical fixture dashboard with scoped layouts, entity bindings, and seeded runtime navigation', () => {
     assert.deepEqual(assertDashboardFixture(cloneSourceFixture()), [])
 })
 
-test('accepts the seven seeded Page icons and exactly six seeded primary Object icons', () => {
+test('requires AccessLinks relation fields to stay server-owned in the published LMS fixture', () => {
+    const fixture = cloneSourceFixture()
+    const targetType = findAccessLinksField(fixture, 'TargetType')
+    const useCount = findAccessLinksField(fixture, 'UseCount')
+    const sortOrder = findAccessLinksSortOrder(fixture)
+    assert.ok(targetType)
+    assert.ok(useCount)
+    assert.ok(sortOrder)
+    targetType.uiConfig = { ...readRecord(targetType.uiConfig), serverOwned: false }
+    useCount.uiConfig = { ...readRecord(useCount.uiConfig), serverOwned: false }
+    sortOrder.uiConfig = { ...readRecord(sortOrder.uiConfig), serverOwned: false }
+
+    const errors = assertDashboardFixture(fixture)
+    assert.ok(errors.includes('LMS AccessLinks.TargetType must be a server-owned STRING defaulting to quiz'))
+    assert.ok(errors.includes('LMS AccessLinks.UseCount must be a server-owned NUMBER defaulting to zero and reset on copy'))
+    assert.ok(errors.includes('LMS AccessLinks.SortOrder must be a server-owned NUMBER for relationBuilder writes'))
+})
+
+test('accepts the seven seeded Page icons and exactly seven seeded primary Object icons', () => {
     const fixture = cloneSourceFixture()
     applySeededRuntimeNavigation(fixture)
     assert.deepEqual(assertDashboardFixture(fixture), [])
@@ -144,7 +184,7 @@ test('rejects an unrelated Object added to primary navigation and an unsupported
     assert.ok(errors.includes('LMS Page CourseOverview must have a supported runtime icon'))
     assert.ok(
         errors.includes(
-            'LMS primary Object navigation must contain exactly ContentProjects, Courses, KnowledgeArticles, LearningTracks, Reports, TrashEntries; found ContentProjects, ContentStars, Courses, KnowledgeArticles, LearningTracks, Reports, TrashEntries'
+            'LMS primary Object navigation must contain exactly ContentProjects, Courses, KnowledgeArticles, LearningTracks, Quizzes, Reports, TrashEntries; found ContentProjects, ContentStars, Courses, KnowledgeArticles, LearningTracks, Quizzes, Reports, TrashEntries'
         )
     )
 })

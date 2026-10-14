@@ -44,6 +44,9 @@ export interface CaptchaServiceOptions {
      * @default 5000
      */
     timeout?: number
+
+    /** Require token validation even when the application-wide CAPTCHA toggle is off. */
+    forceRequired?: boolean
 }
 
 // ============================================================================
@@ -92,6 +95,18 @@ export function getCaptchaConfig(enabledEnvVar: string, logPrefix: string): Capt
     }
 }
 
+/** Returns only the public widget configuration when server-side verification is also configured. */
+export function getGuestCaptchaConfig(): CaptchaConfig {
+    const siteKey = process.env.SMARTCAPTCHA_SITE_KEY || null
+    const configured = Boolean(siteKey && process.env.SMARTCAPTCHA_SERVER_KEY)
+
+    return {
+        enabled: configured,
+        siteKey: configured ? siteKey : null,
+        testMode: process.env.SMARTCAPTCHA_TEST_MODE === 'true'
+    }
+}
+
 /**
  * Validates captcha token against Yandex SmartCaptcha API
  *
@@ -117,7 +132,7 @@ export async function validateCaptchaToken(token: string, ip: string, options: C
     const { enabledEnvVar, logPrefix, timeout = DEFAULT_TIMEOUT } = options
 
     // If captcha is disabled, allow the request
-    if (!isCaptchaRequired(enabledEnvVar)) {
+    if (!options.forceRequired && !isCaptchaRequired(enabledEnvVar)) {
         // eslint-disable-next-line no-console
         console.info(`${logPrefix} Captcha is disabled, skipping validation`)
         return { success: true }

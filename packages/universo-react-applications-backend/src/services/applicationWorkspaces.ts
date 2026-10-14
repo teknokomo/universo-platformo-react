@@ -10,11 +10,18 @@ import { buildPublicMarketingLifecyclePredicate } from '../shared/marketingRunti
 import { acquireAdvisoryXactLock, withTransactionSavepoint } from '@universo-react/utils/database'
 import { resolveValidatedRuntimeEntityRecordPolicy } from '../shared/entityMutationPolicy'
 import {
+    applyWorkspaceServerOwnedSeedValues,
+    normalizeWorkspaceSeedTemplateAccessLinks,
+    resolveWorkspaceSeedIntakePolicy,
+    type WorkspaceSeedComponentMetadata as RuntimeObjectSeedComponentRow
+} from './workspaceSeedTemplatePolicy'
+import {
     ensureLedgerIdempotencyIndex,
     ensureWorkspaceScopedColumn,
     ensureWorkspaceScopedPolicies,
     ensureWorkspaceSupportTables
 } from '../ddl/applicationWorkspacesSchema'
+export { lockActiveRuntimeWorkspaceContext, setRuntimeWorkspaceContext } from './runtimeWorkspaceContext'
 
 const WORKSPACES_TABLE = '_app_workspaces'
 const WORKSPACE_ROLES_TABLE = '_app_workspace_roles'
@@ -127,19 +134,6 @@ type RuntimeObjectSeedObjectRow = {
     objectId: string
     codename: string
     tableName: string
-}
-
-type RuntimeObjectSeedComponentRow = {
-    objectId: string
-    componentId: string
-    parentComponentId: string | null
-    codename: string
-    columnName: string
-    dataType: string
-    uiConfig: Record<string, unknown> | null
-    validationRules: Record<string, unknown> | null
-    targetObjectId: string | null
-    targetObjectKind: string | null
 }
 
 class WorkspaceSeedReferenceResolutionError extends Error {
@@ -594,9 +588,13 @@ export async function persistWorkspaceSeedTemplate(
     }
 ): Promise<void> {
     const settingsQt = qSchemaTable(input.schemaName, APP_SETTINGS_TABLE)
+    const sourceElements = input.elements ?? {}
+    const seedMetadata = Object.keys(sourceElements).length > 0 ? await loadRuntimeObjectSeedMetadata(executor, input.schemaName) : null
     const template: RuntimeWorkspaceSeedTemplate = {
         version: 1,
-        elements: input.elements ?? {}
+        elements: seedMetadata
+            ? normalizeWorkspaceSeedTemplateAccessLinks(sourceElements, seedMetadata.objects, seedMetadata.components)
+            : sourceElements
     }
 
     const existingRows = await executor.query<{ id: string }>(
@@ -920,6 +918,7 @@ async function loadRuntimeObjectSeedMetadata(
                 ${runtimeCodenameTextSql('codename')} AS codename,
                 column_name AS "columnName",
                 data_type AS "dataType",
+                is_required AS "isRequired",
                 ui_config AS "uiConfig",
                 validation_rules AS "validationRules",
                 target_object_id AS "targetObjectId",
@@ -979,6 +978,7 @@ async function upsertWorkspaceSeedRow(
         seedSourceKey: string
         existingSeedSourceOwned?: boolean
         values: Array<{ columnName: string; value: unknown; columnType: string }>
+        preserveExistingColumns?: string[]
         actorUserId?: string | null
         parentRowId?: string | null
         sortOrder?: number | null
@@ -1001,18 +1001,24 @@ async function upsertWorkspaceSeedRow(
         throw new Error(`Failed to allocate runtime seed row id for ${input.tableName}`)
     }
 
-    const assignments: string[] = []
     const columns: string[] = [qColumn('id'), qWorkspaceColumn(), qColumn('_seed_source_key'), qColumn('_seed_source_owned')]
     const placeholders: string[] = ['$1', '$2', '$3', '$4']
     const parameters: unknown[] = [rowId, input.workspaceId, input.seedSourceKey, true]
+    const updateParameters: unknown[] = [rowId, input.workspaceId, input.seedSourceKey, true]
+    const valueUpdateAssignments: string[] = []
+    const preservedColumns = new Set(input.preserveExistingColumns ?? [])
     let parentPlaceholder: string | null = null
     let sortOrderPlaceholder: string | null = null
+    let updateParentPlaceholder: string | null = null
+    let updateSortOrderPlaceholder: string | null = null
 
     if (input.parentRowId) {
         columns.push(qColumn('_tp_parent_id'))
         parameters.push(input.parentRowId)
         parentPlaceholder = `$${parameters.length}`
         placeholders.push(parentPlaceholder)
+        updateParameters.push(input.parentRowId)
+        updateParentPlaceholder = `$${updateParameters.length}`
     }
 
     if (input.sortOrder !== null && input.sortOrder !== undefined) {
@@ -1020,31 +1026,35 @@ async function upsertWorkspaceSeedRow(
         parameters.push(input.sortOrder)
         sortOrderPlaceholder = `$${parameters.length}`
         placeholders.push(sortOrderPlaceholder)
+        updateParameters.push(input.sortOrder)
+        updateSortOrderPlaceholder = `$${updateParameters.length}`
     }
 
     for (const value of input.values) {
         columns.push(qColumn(value.columnName))
         parameters.push(value.value)
         placeholders.push(value.columnType === 'jsonb' ? `$${parameters.length}::jsonb` : `$${parameters.length}`)
-        assignments.push(
-            `${qColumn(value.columnName)} = ${value.columnType === 'jsonb' ? `$${parameters.length}::jsonb` : `$${parameters.length}`}`
-        )
+        if (!preservedColumns.has(value.columnName)) {
+            updateParameters.push(value.value)
+            const updatePlaceholder = `$${updateParameters.length}${value.columnType === 'jsonb' ? '::jsonb' : ''}`
+            valueUpdateAssignments.push(`${qColumn(value.columnName)} = ${updatePlaceholder}`)
+        }
     }
 
     if (existingId) {
-        parameters.push(input.actorUserId ?? null)
+        updateParameters.push(input.actorUserId ?? null)
         const updateAssignments = [
             `${qWorkspaceColumn()} = $2`,
             `${qColumn('_seed_source_key')} = $3`,
             `${qColumn('_seed_source_owned')} = true`,
-            ...(parentPlaceholder ? [`${qColumn('_tp_parent_id')} = ${parentPlaceholder}`] : []),
-            ...(sortOrderPlaceholder ? [`${qColumn('_tp_sort_order')} = ${sortOrderPlaceholder}`] : []),
-            ...assignments,
+            ...(updateParentPlaceholder ? [`${qColumn('_tp_parent_id')} = ${updateParentPlaceholder}`] : []),
+            ...(updateSortOrderPlaceholder ? [`${qColumn('_tp_sort_order')} = ${updateSortOrderPlaceholder}`] : []),
+            ...valueUpdateAssignments,
             '_upl_deleted = false',
             '_upl_deleted_at = NULL',
             '_upl_deleted_by = NULL',
             '_upl_updated_at = NOW()',
-            `_upl_updated_by = $${parameters.length}`,
+            `_upl_updated_by = $${updateParameters.length}`,
             '_upl_version = COALESCE(_upl_version, 1) + 1',
             '_app_deleted = false',
             '_app_deleted_at = NULL',
@@ -1058,7 +1068,7 @@ async function upsertWorkspaceSeedRow(
               AND ${qWorkspaceColumn()} = $2
             RETURNING id
             `,
-            parameters
+            updateParameters
         )
 
         if (updatedRows.length === 0) {
@@ -1123,22 +1133,35 @@ async function syncWorkspaceSeededChildRows(
     for (const [index, rawChildRow] of input.childRows.entries()) {
         const rowData = isRecord(rawChildRow) ? rawChildRow : {}
         const seedSourceKey = buildChildSeedSourceKey(input.parentSeedSourceKey, input.tableComponent.componentId, index)
+        const { seedData, serverOwnedComponents } = applyWorkspaceServerOwnedSeedValues(
+            rowData,
+            input.childComponents,
+            'workspace child seed'
+        )
+        const serverOwnedColumns = new Set(serverOwnedComponents.map((component) => component.columnName))
+        const values = input.childComponents.flatMap((component) => {
+            const hasSeedValue = Object.prototype.hasOwnProperty.call(seedData, component.codename)
+            if (serverOwnedColumns.has(component.columnName) && !hasSeedValue) return []
 
-        const values = input.childComponents.map((component) => ({
-            columnName: component.columnName,
-            value: normalizeWorkspaceSeedValueWithReferences(
-                rowData[component.codename],
-                component,
-                input.columnTypes.get(`${childTableName}.${component.columnName}`) ?? 'text',
-                input.seedRowIdByObjectAndSourceKey,
-                input.seedRowIdBySourceKey,
-                input.duplicateSeedSourceKeys,
-                rowData,
-                input.objectIdByCodename,
-                input.currentUserId
-            ),
-            columnType: input.columnTypes.get(`${childTableName}.${component.columnName}`) ?? 'text'
-        }))
+            const columnType = input.columnTypes.get(`${childTableName}.${component.columnName}`) ?? 'text'
+            return [
+                {
+                    columnName: component.columnName,
+                    value: normalizeWorkspaceSeedValueWithReferences(
+                        seedData[component.codename],
+                        component,
+                        columnType,
+                        input.seedRowIdByObjectAndSourceKey,
+                        input.seedRowIdBySourceKey,
+                        input.duplicateSeedSourceKeys,
+                        seedData,
+                        input.objectIdByCodename,
+                        input.currentUserId
+                    ),
+                    columnType
+                }
+            ]
+        })
 
         await upsertWorkspaceSeedRow(executor, {
             schemaName: input.schemaName,
@@ -1148,6 +1171,7 @@ async function syncWorkspaceSeededChildRows(
             seedSourceKey,
             existingSeedSourceOwned: existingBySeedSourceKey.get(seedSourceKey)?.seedSourceOwned,
             values,
+            preserveExistingColumns: Array.from(serverOwnedColumns),
             actorUserId: input.actorUserId,
             parentRowId: input.parentRowId,
             sortOrder: typeof rowData._tp_sort_order === 'number' ? rowData._tp_sort_order : index,
@@ -1259,21 +1283,46 @@ export async function syncWorkspaceSeededElements(
             }
 
             const rowData = isRecord(element.data) ? element.data : {}
-            const values = topLevelComponents.map((component) => ({
-                columnName: component.columnName,
-                value: normalizeWorkspaceSeedValueWithReferences(
-                    rowData[component.codename],
-                    component,
-                    columnTypes.get(`${object.tableName}.${component.columnName}`) ?? 'text',
-                    seedRowIdByObjectAndSourceKey,
-                    seedRowIdBySourceKey,
-                    duplicateSeedSourceKeys,
-                    rowData,
-                    objectIdByCodename,
-                    input.currentUserId
-                ),
-                columnType: columnTypes.get(`${object.tableName}.${component.columnName}`) ?? 'text'
-            }))
+            const { seedData: seedRowData, serverOwnedComponents } = applyWorkspaceServerOwnedSeedValues(
+                rowData,
+                topLevelComponents,
+                'workspace seed'
+            )
+            const accessLinkIntakePolicy = resolveWorkspaceSeedIntakePolicy({
+                objectCodename: object.codename,
+                components: topLevelComponents,
+                row: seedRowData,
+                applyDefaults: true
+            })
+            if (!accessLinkIntakePolicy.valid) {
+                throw new Error('Invalid guest access-link intake policy in workspace seed')
+            }
+            const values = topLevelComponents.flatMap((component) => {
+                const hasPolicyValue = Object.prototype.hasOwnProperty.call(accessLinkIntakePolicy.valuesByColumn, component.columnName)
+                const hasSeedValue = Object.prototype.hasOwnProperty.call(seedRowData, component.codename)
+                if (component.uiConfig?.serverOwned === true && !hasPolicyValue && !hasSeedValue) return []
+
+                const columnType = columnTypes.get(`${object.tableName}.${component.columnName}`) ?? 'text'
+                return [
+                    {
+                        columnName: component.columnName,
+                        value: hasPolicyValue
+                            ? accessLinkIntakePolicy.valuesByColumn[component.columnName]
+                            : normalizeWorkspaceSeedValueWithReferences(
+                                  seedRowData[component.codename],
+                                  component,
+                                  columnType,
+                                  seedRowIdByObjectAndSourceKey,
+                                  seedRowIdBySourceKey,
+                                  duplicateSeedSourceKeys,
+                                  seedRowData,
+                                  objectIdByCodename,
+                                  input.currentUserId
+                              ),
+                        columnType
+                    }
+                ]
+            })
 
             const rowId = await upsertWorkspaceSeedRow(executor, {
                 schemaName: input.schemaName,
@@ -1283,6 +1332,7 @@ export async function syncWorkspaceSeededElements(
                 seedSourceKey,
                 existingSeedSourceOwned: existingBySeedSourceKey.get(seedSourceKey)?.seedSourceOwned,
                 values,
+                preserveExistingColumns: serverOwnedComponents.map((component) => component.columnName),
                 actorUserId: input.actorUserId,
                 overwriteExisting: input.overwriteExisting
             })
@@ -1389,6 +1439,7 @@ export async function resetWorkspaceSeededElements(
             WHERE id = $1
               AND ${ACTIVE_ROW_SQL}
             LIMIT 1
+            FOR UPDATE
             `,
             [input.workspaceId]
         )
@@ -2041,10 +2092,6 @@ export async function resolveRuntimeWorkspaceAccess(
         defaultWorkspaceId,
         allowedWorkspaceIds: uniqueWorkspaceIds
     }
-}
-
-export async function setRuntimeWorkspaceContext(executor: DbExecutor, workspaceId: string | null): Promise<void> {
-    await executor.query(`SELECT set_config('app.current_workspace_id', $1::text, true)`, [workspaceId ?? ''])
 }
 
 export async function getObjectWorkspaceLimit(

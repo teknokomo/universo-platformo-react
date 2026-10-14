@@ -1040,6 +1040,98 @@ describe('application layout widget config contracts', () => {
     })
 
     it('accepts strict presentation-only renderer configs and rejects inventoried legacy payloads', () => {
+        const relationBuilderConfig = {
+            panels: [
+                {
+                    slotKey: 'panel:guest-links',
+                    title: 'Guest links',
+                    parentFieldCodename: 'TargetId',
+                    parentFieldRequired: false,
+                    titleFieldCodename: 'LinkTitle',
+                    sortOrderFieldCodename: 'SortOrder'
+                }
+            ]
+        }
+        expect(parseApplicationLayoutWidgetConfig('relationBuilder', relationBuilderConfig)).toEqual(relationBuilderConfig)
+        const guestLinkConfig = {
+            panels: [
+                {
+                    ...relationBuilderConfig.panels[0],
+                    displayFields: [{ fieldCodename: 'Slug', valueType: 'string', localized: false, required: true }],
+                    rowLink: {
+                        fieldCodename: 'Slug',
+                        pathTemplate: '/public/a/{applicationId}/links/{value}',
+                        label: { en: 'Full guest link', ru: 'Полная гостевая ссылка' }
+                    }
+                }
+            ]
+        }
+        expect(parseApplicationLayoutWidgetConfig('relationBuilder', guestLinkConfig)).toEqual(guestLinkConfig)
+        for (const invalidConfig of [
+            {
+                panels: [{ ...relationBuilderConfig.panels[0], titleFieldCodename: 'TargetId' }]
+            },
+            {
+                panels: [{ ...relationBuilderConfig.panels[0], titleFieldCodename: 'targetid' }]
+            },
+            {
+                panels: [{ ...relationBuilderConfig.panels[0], titleFieldCodename: 'SortOrder' }]
+            },
+            {
+                panels: [{ ...relationBuilderConfig.panels[0], titleFieldCodename: 'sortorder' }]
+            },
+            {
+                panels: [{ ...relationBuilderConfig.panels[0], parentFieldCodename: 'SortOrder' }]
+            },
+            {
+                panels: [{ ...relationBuilderConfig.panels[0], parentFieldCodename: 'sortorder' }]
+            },
+            {
+                panels: [
+                    {
+                        ...relationBuilderConfig.panels[0],
+                        displayFields: [
+                            { fieldCodename: 'Status', valueType: 'string', localized: false, required: false },
+                            { fieldCodename: 'status', valueType: 'string', localized: false, required: false }
+                        ]
+                    }
+                ]
+            },
+            {
+                panels: [
+                    {
+                        ...relationBuilderConfig.panels[0],
+                        displayFields: [{ fieldCodename: 'targetid', valueType: 'string', localized: false, required: false }]
+                    }
+                ]
+            },
+            ...[
+                '//external.example/{applicationId}/{value}',
+                'https://external.example/{applicationId}/{value}',
+                '/public/a/{applicationId}/links/{value}?next=https://external.example',
+                '/public/a/{applicationId}/../{value}',
+                '/public/a/{applicationId}/links/{value}/{value}'
+            ].map((pathTemplate) => ({
+                panels: [
+                    {
+                        ...guestLinkConfig.panels[0],
+                        rowLink: { ...guestLinkConfig.panels[0].rowLink, pathTemplate }
+                    }
+                ]
+            })),
+            {
+                panels: [
+                    {
+                        ...guestLinkConfig.panels[0],
+                        displayFields: [],
+                        rowLink: guestLinkConfig.panels[0].rowLink
+                    }
+                ]
+            }
+        ]) {
+            expect(() => parseApplicationLayoutWidgetConfig('relationBuilder', invalidConfig)).toThrow()
+        }
+
         expect(parseApplicationLayoutWidgetConfig('playcanvasCanvas', { minHeight: 560, heightMode: 'fitViewport' })).toEqual({
             minHeight: 560,
             heightMode: 'fitViewport'

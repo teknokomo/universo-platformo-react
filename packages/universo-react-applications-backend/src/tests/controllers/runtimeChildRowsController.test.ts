@@ -21,7 +21,7 @@ jest.mock('../../services/interpretationNetwork/runtimeInterpretationNetworkSurf
 }))
 
 import { createRuntimeChildRowsController } from '../../controllers/runtimeChildRowsController'
-import { buildChildRowUpdate } from '../../controllers/runtimeChildRowsValidation'
+import { buildChildRowUpdate, getSafeRuntimeChildAttrs } from '../../controllers/runtimeChildRowsValidation'
 import { issueRuntimeRecordHandle } from '../../services/runtimeRecordHandle'
 import { resolveApplicationLifecycleContractFromConfig } from '@universo-react/utils'
 import { createMockDbExecutor } from '../utils/dbMocks'
@@ -644,6 +644,126 @@ describe('runtimeChildRowsController safe child field projection', () => {
         expect(JSON.stringify(createdItem)).not.toMatch(
             /hidden|email|private|owned|record_id|json_value|nested_rows|resource_value|unselected_driver_column/
         )
+    })
+
+    it('exposes only the typed assessment-options JSON field to users allowed to edit content', async () => {
+        const optionsValue = [
+            {
+                id: '019f2000-0000-7000-8000-000000000006',
+                label: { _schema: '1', _primary: 'en', locales: { en: { content: 'Safe option' } } },
+                isCorrect: true
+            }
+        ]
+        const typedAssessmentOptions = {
+            id: 'assessment-options',
+            codename: 'Options',
+            column_name: 'assessment_options',
+            data_type: 'JSON',
+            is_required: false,
+            validation_rules: {},
+            ui_config: { widget: 'assessmentOptions' }
+        }
+        const arbitraryJson = {
+            id: 'private-json',
+            codename: 'PrivatePayload',
+            column_name: 'private_payload',
+            data_type: 'JSON',
+            is_required: false,
+            validation_rules: {},
+            ui_config: {}
+        }
+        const sensitiveAssessmentOptions = {
+            ...typedAssessmentOptions,
+            id: 'sensitive-assessment-options',
+            codename: 'SensitiveOptions',
+            column_name: 'sensitive_options',
+            ui_config: { widget: 'assessmentOptions', sensitive: true }
+        }
+        const context = {
+            ...tabularContext,
+            childAttrs: [typedAssessmentOptions, arbitraryJson, sensitiveAssessmentOptions]
+        }
+
+        expect(getSafeRuntimeChildAttrs(context, { allowAssessmentOptions: false })).toEqual([])
+        expect(getSafeRuntimeChildAttrs(context, { allowAssessmentOptions: true })).toEqual([typedAssessmentOptions])
+
+        mockResolveTabularContext.mockResolvedValue(context)
+        executor.query.mockImplementation(async (sql: string) => {
+            if (sql.includes('FROM runtime_schema."interpretation" AS parentRecord')) return [{ id: recordId, _upl_locked: false }]
+            if (sql.includes('COUNT(*)::int AS total')) return [{ total: 1 }]
+            if (sql.includes('FROM runtime_schema."interpretation_matrix_rows"') && sql.includes('ORDER BY')) {
+                return [
+                    {
+                        id: childRowId,
+                        _tp_sort_order: 0,
+                        _upl_version: 1,
+                        assessment_options: optionsValue,
+                        private_payload: { token: 'must-not-be-read' },
+                        sensitive_options: optionsValue
+                    }
+                ]
+            }
+            return []
+        })
+
+        const memberResponse = createResponse()
+        mockResolveRuntimeSchema.mockResolvedValue({
+            schemaName: 'runtime_schema',
+            schemaIdent: 'runtime_schema',
+            manager: executor,
+            userId: 'user-1',
+            permissions: { createContent: false, editContent: false, deleteContent: false, manageApplication: false },
+            currentWorkspaceId: null,
+            workspacesEnabled: false
+        })
+        await createRuntimeChildRowsController(() => executor).listChildRows(createRequest(undefined), memberResponse)
+        expect(memberResponse.json).toHaveBeenCalledWith({
+            items: [{ id: childRowId, _tp_sort_order: 0, _upl_version: 1 }],
+            total: 1
+        })
+        const memberSelect = executor.query.mock.calls.find(([sql]) => String(sql).includes('ORDER BY _tp_sort_order'))
+        expect(String(memberSelect?.[0])).not.toContain('"assessment_options"')
+
+        jest.clearAllMocks()
+        executor = createMockDbExecutor().executor
+        mockResolveRuntimeSchema.mockResolvedValue({
+            schemaName: 'runtime_schema',
+            schemaIdent: 'runtime_schema',
+            manager: executor,
+            userId: 'owner-1',
+            permissions: { createContent: true, editContent: true, deleteContent: true, manageApplication: true },
+            currentWorkspaceId: null,
+            workspacesEnabled: false
+        })
+        mockResolveTabularContext.mockResolvedValue(context)
+        executor.query.mockImplementation(async (sql: string) => {
+            if (sql.includes('FROM runtime_schema."interpretation" AS parentRecord')) return [{ id: recordId, _upl_locked: false }]
+            if (sql.includes('COUNT(*)::int AS total')) return [{ total: 1 }]
+            if (sql.includes('FROM runtime_schema."interpretation_matrix_rows"') && sql.includes('ORDER BY')) {
+                return [
+                    {
+                        id: childRowId,
+                        _tp_sort_order: 0,
+                        _upl_version: 1,
+                        assessment_options: optionsValue,
+                        private_payload: { token: 'must-not-be-read' },
+                        sensitive_options: optionsValue
+                    }
+                ]
+            }
+            return []
+        })
+
+        const editorResponse = createResponse()
+        await createRuntimeChildRowsController(() => executor).listChildRows(createRequest(undefined), editorResponse)
+        expect(editorResponse.json).toHaveBeenCalledWith({
+            items: [{ id: childRowId, _tp_sort_order: 0, _upl_version: 1, assessment_options: optionsValue }],
+            total: 1
+        })
+        const editorSelect = executor.query.mock.calls.find(([sql]) => String(sql).includes('ORDER BY _tp_sort_order'))
+        expect(String(editorSelect?.[0])).toContain('"assessment_options"')
+        expect(String(editorSelect?.[0])).not.toContain('"private_payload"')
+        expect(String(editorSelect?.[0])).not.toContain('"sensitive_options"')
     })
 
     it('projects hidden server-owned hierarchy identities only as matrix structure metadata', async () => {

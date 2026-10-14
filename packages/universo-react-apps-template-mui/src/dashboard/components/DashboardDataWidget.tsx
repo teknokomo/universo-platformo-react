@@ -119,7 +119,7 @@ export default function DashboardDataWidget({ widget }: { widget: ZoneWidgetItem
         return <ResourcePreview source={payload.source} title={payload.title} />
     }
     if (widget.widgetKey === 'relationBuilder' && payload.kind === 'relation') {
-        return <DashboardRelationBuilderWidget config={widget.config} payload={payload} />
+        return <DashboardRelationBuilderWidget instanceKey={widget.instanceKey} config={widget.config} payload={payload} />
     }
     return <RuntimeWidgetStatus invalid />
 }

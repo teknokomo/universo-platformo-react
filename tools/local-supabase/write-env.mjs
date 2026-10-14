@@ -143,6 +143,8 @@ export function buildBackendEnv({ statusEnv, target, existingEnv = {} }) {
         BOOTSTRAP_SUPERUSER_PASSWORD: existingEnv.BOOTSTRAP_SUPERUSER_PASSWORD || 'UniversoLocal_123456!',
         AUTH_REGISTRATION_ENABLED: existingEnv.AUTH_REGISTRATION_ENABLED || 'true',
         AUTH_LOGIN_ENABLED: existingEnv.AUTH_LOGIN_ENABLED || 'true',
+        LEGAL_TERMS_VERSION: target === 'e2e' ? existingEnv.LEGAL_TERMS_VERSION || 'terms-e2e' : existingEnv.LEGAL_TERMS_VERSION,
+        LEGAL_PRIVACY_VERSION: target === 'e2e' ? existingEnv.LEGAL_PRIVACY_VERSION || 'privacy-e2e' : existingEnv.LEGAL_PRIVACY_VERSION,
         AUTH_EMAIL_CONFIRMATION_REQUIRED: target === 'e2e' ? 'false' : existingEnv.AUTH_EMAIL_CONFIRMATION_REQUIRED || 'false',
         AUTH_LOGIN_RATE_LIMIT_WINDOW_MS: existingEnv.AUTH_LOGIN_RATE_LIMIT_WINDOW_MS || '60000',
         AUTH_LOGIN_RATE_LIMIT_MAX: target === 'e2e' ? '300' : existingEnv.AUTH_LOGIN_RATE_LIMIT_MAX || '100',

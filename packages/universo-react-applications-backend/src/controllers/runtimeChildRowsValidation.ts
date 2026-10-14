@@ -17,13 +17,16 @@ import type { resolveTabularContext } from '../shared/runtimeHelpers'
 import { isRuntimeEnumerationKind, isRuntimeObjectTargetKind } from '../services/runtimeRowSupport/contracts'
 
 export const getSafeRuntimeChildAttrs = (
-    tc: Exclude<Awaited<ReturnType<typeof resolveTabularContext>>, { error: string }>
+    tc: Exclude<Awaited<ReturnType<typeof resolveTabularContext>>, { error: string }>,
+    options: { allowAssessmentOptions?: boolean } = {}
 ): typeof tc.childAttrs =>
     tc.childAttrs.filter((attr) => {
         const uiConfig = attr.ui_config ?? {}
         const codename = String(attr.codename ?? '')
         const columnName = attr.column_name
         const dataType = String(attr.data_type ?? '').toUpperCase()
+        const isReadableAssessmentOptions =
+            options.allowAssessmentOptions === true && dataType === 'JSON' && uiConfig.widget === 'assessmentOptions'
 
         if (
             !IDENTIFIER_REGEX.test(columnName) ||
@@ -33,7 +36,7 @@ export const getSafeRuntimeChildAttrs = (
             uiConfig.serverOwned === true ||
             uiConfig.sensitive === true ||
             uiConfig.private === true ||
-            dataType === 'JSON' ||
+            (dataType === 'JSON' && !isReadableAssessmentOptions) ||
             dataType === 'TABLE' ||
             isRuntimeTechnicalFieldName(codename) ||
             isRuntimeTechnicalFieldName(columnName) ||

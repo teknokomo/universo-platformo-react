@@ -367,6 +367,31 @@ const relationBuilderDisplayFieldSchema = z
         }
     })
 
+const normalizeRelationBuilderComponentCodename = (codename: string): string => codename.trim().toLowerCase()
+
+const containsControlCharacter = (value: string): boolean =>
+    [...value].some((character) => {
+        const codePoint = character.codePointAt(0)
+        return codePoint !== undefined && (codePoint < 0x20 || (codePoint >= 0x7f && codePoint <= 0x9f))
+    })
+
+const isSafeApplicationPathTemplate = (value: string): boolean => {
+    if (!value.startsWith('/') || value.startsWith('//') || /[\\?#]/u.test(value) || containsControlCharacter(value)) return false
+    if (!/^[A-Za-z0-9/_{}.-]+$/u.test(value)) return false
+
+    const placeholders = value.match(/\{[^{}]+\}/gu) ?? []
+    if (
+        placeholders.length !== 2 ||
+        placeholders.filter((placeholder) => placeholder === '{applicationId}').length !== 1 ||
+        placeholders.filter((placeholder) => placeholder === '{value}').length !== 1
+    ) {
+        return false
+    }
+
+    const staticPath = value.replace('{applicationId}', 'application-id').replace('{value}', 'value')
+    return staticPath.split('/').every((segment) => segment !== '.' && segment !== '..')
+}
+
 const quizWidgetConfigSchema = moduleBackedWidgetConfigSchema
     .pick({ moduleCodename: true, attachedToKind: true, serverModuleCodename: true })
     .extend({
@@ -386,8 +411,18 @@ export const relationBuilderPanelSchema = z
         width: z.number().int().min(1).max(12).optional(),
         order: z.number().int().min(0).max(31).optional(),
         parentFieldCodename: widgetCodenameSchema,
+        parentFieldRequired: z.boolean().optional(),
+        titleFieldCodename: widgetCodenameSchema.optional(),
         sortOrderFieldCodename: widgetCodenameSchema.optional(),
         displayFields: z.array(relationBuilderDisplayFieldSchema).max(8).optional(),
+        rowLink: z
+            .object({
+                fieldCodename: widgetCodenameSchema,
+                pathTemplate: z.string().trim().min(1).max(512).refine(isSafeApplicationPathTemplate),
+                label: localizedTextSchema.optional()
+            })
+            .strict()
+            .optional(),
         enableRowReordering: z.boolean().optional(),
         createDefaults: z.array(createTargetDefaultSchema).max(12).optional(),
         createWizard: z
@@ -413,14 +448,42 @@ export const relationBuilderPanelSchema = z
     .strict()
     .superRefine((panel, context) => {
         const displayFields = panel.displayFields ?? []
-        const fieldCodenames = displayFields.map(({ fieldCodename }) => fieldCodename)
+        const fieldCodenames = displayFields.map(({ fieldCodename }) => normalizeRelationBuilderComponentCodename(fieldCodename))
         if (new Set(fieldCodenames).size !== fieldCodenames.length) {
             context.addIssue({ code: z.ZodIssueCode.custom, path: ['displayFields'], message: 'Display field Codenames must be unique.' })
         }
 
-        const reservedCodenames = new Set(['Title', panel.parentFieldCodename, panel.sortOrderFieldCodename ?? 'SortOrder'])
+        if (panel.rowLink) {
+            const linkField = displayFields.find(
+                ({ fieldCodename }) =>
+                    normalizeRelationBuilderComponentCodename(fieldCodename) ===
+                    normalizeRelationBuilderComponentCodename(panel.rowLink.fieldCodename)
+            )
+            if (!linkField || linkField.valueType !== 'string') {
+                context.addIssue({
+                    code: z.ZodIssueCode.custom,
+                    path: ['rowLink', 'fieldCodename'],
+                    message: 'A relation row link must use a configured string display field.'
+                })
+            }
+        }
+
+        const bindingCodenames = [
+            panel.titleFieldCodename ?? 'Title',
+            panel.parentFieldCodename,
+            panel.sortOrderFieldCodename ?? 'SortOrder'
+        ].map(normalizeRelationBuilderComponentCodename)
+        if (new Set(bindingCodenames).size !== bindingCodenames.length) {
+            context.addIssue({
+                code: z.ZodIssueCode.custom,
+                path: [],
+                message: 'Relation binding Component Codenames must be unique.'
+            })
+        }
+
+        const reservedCodenames = new Set(bindingCodenames)
         displayFields.forEach(({ fieldCodename }, index) => {
-            if (reservedCodenames.has(fieldCodename)) {
+            if (reservedCodenames.has(normalizeRelationBuilderComponentCodename(fieldCodename))) {
                 context.addIssue({
                     code: z.ZodIssueCode.custom,
                     path: ['displayFields', index, 'fieldCodename'],

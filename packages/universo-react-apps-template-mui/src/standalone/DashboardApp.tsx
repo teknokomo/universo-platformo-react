@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import Alert from '@mui/material/Alert'
 import Button from '@mui/material/Button'
@@ -12,6 +12,7 @@ import { useSnackbar } from 'notistack'
 import { sanitizeApplicationLearningContentSettings } from '@universo-react/types'
 import type { LayoutRuntimeErrorCode } from '@universo-react/types'
 import Dashboard from '../dashboard/Dashboard'
+import { DashboardWidgetSelectionProvider } from '../dashboard/DashboardWidgetSelectionContext'
 import { withoutWorkspaceDashboardContent } from '../dashboard/runtime/workspaceDashboardLayout'
 import type {
     DashboardCreateTarget,
@@ -26,6 +27,7 @@ import {
     buildRuntimeLayoutQueryKey,
     fetchRuntimeEffectiveLayout,
     getRuntimeLayoutErrorCode,
+    resolveDashboardRuntimeLayoutTarget,
     toDashboardZoneWidgets,
     updateLearningContentProgress
 } from '../api/api'
@@ -152,6 +154,16 @@ function DashboardRuntimeContent({ effectiveLayout, onRuntimeDataChanged, onNavi
         createDefaultContext: buildLearningContentCreateDefaultContext,
         onRuntimeDataChanged
     })
+    const {
+        selectedObjectCollectionId,
+        onSelectObjectCollection,
+        onSelectSection,
+        formOpen,
+        deleteRowId,
+        isSubmitting,
+        isCopying,
+        isDeleting
+    } = state
 
     const contentPermissions = state.appData?.permissions
     const canCreateContent = contentPermissions?.createContent === true
@@ -221,6 +233,11 @@ function DashboardRuntimeContent({ effectiveLayout, onRuntimeDataChanged, onNavi
         relationScope?: DashboardCreateTarget['relationScope']
     } | null>(null)
     const [pendingRowTarget, setPendingRowTarget] = useState<PendingDashboardRowTarget | null>(null)
+    const rowActionReturnTargetRef = useRef<{
+        sectionId: string
+        selectionKind: 'objectCollection' | 'section'
+        dialogOpened: boolean
+    } | null>(null)
     const resolveCreateTargetSectionId = useCallback(
         (target: DashboardCreateTarget) =>
             resolveDashboardEntityTargetSectionId(target, {
@@ -365,10 +382,27 @@ function DashboardRuntimeContent({ effectiveLayout, onRuntimeDataChanged, onNavi
                 relationScope: target.relationScope
             })
             if (targetSectionId !== currentSectionId) {
-                state.onSelectObjectCollection(targetSectionId)
+                const sourceSectionId = currentSectionId
+                if (sourceSectionId) {
+                    rowActionReturnTargetRef.current = {
+                        sectionId: sourceSectionId,
+                        selectionKind: routeSectionId || !selectedObjectCollectionId ? 'section' : 'objectCollection',
+                        dialogOpened: false
+                    }
+                }
+                onSelectObjectCollection(targetSectionId)
             }
         },
-        [canCreateContent, canDeleteContent, canEditContent, currentSectionId, resolveRowTargetSectionId, state]
+        [
+            canCreateContent,
+            canDeleteContent,
+            canEditContent,
+            currentSectionId,
+            onSelectObjectCollection,
+            resolveRowTargetSectionId,
+            routeSectionId,
+            selectedObjectCollectionId
+        ]
     )
     useEffect(() => {
         if (!pendingCreateTarget) return
@@ -426,6 +460,23 @@ function DashboardRuntimeContent({ effectiveLayout, onRuntimeDataChanged, onNavi
         state.isFetching,
         state.isLoading
     ])
+    useEffect(() => {
+        const returnTarget = rowActionReturnTargetRef.current
+        if (!returnTarget) return
+
+        const rowActionPending = pendingRowTarget !== null
+        const rowActionOpen = formOpen || Boolean(deleteRowId)
+        const rowActionSubmitting = isSubmitting || isCopying || isDeleting
+        if (rowActionPending || rowActionOpen || rowActionSubmitting) {
+            if (rowActionOpen) returnTarget.dialogOpened = true
+            return
+        }
+        if (!returnTarget.dialogOpened) return
+
+        rowActionReturnTargetRef.current = null
+        if (returnTarget.selectionKind === 'objectCollection') onSelectObjectCollection(returnTarget.sectionId)
+        else onSelectSection(returnTarget.sectionId)
+    }, [deleteRowId, formOpen, isCopying, isDeleting, isSubmitting, onSelectObjectCollection, onSelectSection, pendingRowTarget])
     const workspacesEnabled = state.appData?.workspacesEnabled ?? false
     const activeFormSurface = !state.formOpen
         ? 'dialog'
@@ -491,6 +542,10 @@ function DashboardRuntimeContent({ effectiveLayout, onRuntimeDataChanged, onNavi
             sectionCodename: currentRuntimeSection?.codename ?? detailsAppData?.section?.codename ?? null,
             objectCollectionId: currentRuntimeObjectCollectionId,
             objectCollectionCodename: currentRuntimeSection?.codename ?? detailsAppData?.objectCollection?.codename ?? null,
+            runtimeLayoutTarget: resolveDashboardRuntimeLayoutTarget(
+                effectiveLayout?.target.targetKind,
+                effectiveLayout?.resolvedEntityTypeId
+            ),
             sections: detailsAppData?.sections ?? [],
             objectCollections: detailsAppData?.objectCollections ?? [],
             apiBaseUrl: props.apiBaseUrl,
@@ -561,6 +616,8 @@ function DashboardRuntimeContent({ effectiveLayout, onRuntimeDataChanged, onNavi
             state.pageSizeOptions,
             detailsAppData?.objectCollection?.pageBlocks,
             detailsAppData?.section?.pageBlocks,
+            effectiveLayout?.target.targetKind,
+            effectiveLayout?.resolvedEntityTypeId,
             learningContentSettings.playerPreset?.showOutline,
             learningContentSettings.playerPreset?.showProgressHeader,
             learningContentSettings.playerPreset?.completeButtonMode,
@@ -741,6 +798,14 @@ function RuntimeBoundary({
 }
 
 export default function DashboardApp(props: DashboardAppProps) {
+    return (
+        <DashboardWidgetSelectionProvider>
+            <DashboardAppContent {...props} />
+        </DashboardWidgetSelectionProvider>
+    )
+}
+
+function DashboardAppContent(props: DashboardAppProps) {
     const { t } = useTranslation('apps')
     const [routeSource, setRouteSource] = useState(readCurrentRouteSource)
     useEffect(() => {

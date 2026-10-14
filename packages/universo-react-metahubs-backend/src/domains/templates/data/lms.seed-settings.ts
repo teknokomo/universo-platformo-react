@@ -5,6 +5,7 @@ export const LMS_PUBLIC_GUEST_RUNTIME_CONFIG = {
         assessments: 'Quizzes',
         contentNodes: 'LearningResources',
         assessmentResponses: 'QuizResponses',
+        assessmentAttempts: 'QuizAttempts',
         contentProgress: 'ContentProgress'
     },
     fields: {
@@ -18,12 +19,29 @@ export const LMS_PUBLIC_GUEST_RUNTIME_CONFIG = {
             maxUses: 'MaxUses',
             useCount: 'UseCount',
             title: 'LinkTitle',
-            classId: 'LinkClassId'
+            classId: 'LinkClassId',
+            showFirstName: 'ShowFirstName',
+            requireFirstName: 'RequireFirstName',
+            showLastName: 'ShowLastName',
+            requireLastName: 'RequireLastName',
+            showEmail: 'ShowEmail',
+            requireEmail: 'RequireEmail',
+            showPhone: 'ShowPhone',
+            requirePhone: 'RequirePhone',
+            captchaEnabled: 'CaptchaEnabled'
         },
         participant: {
             displayName: 'DisplayName',
+            firstName: 'FirstName',
+            lastName: 'LastName',
+            email: 'Email',
+            phone: 'Phone',
             isGuest: 'IsGuest',
-            guestSessionToken: 'GuestSessionToken'
+            guestSessionToken: 'GuestSessionToken',
+            termsVersion: 'TermsVersion',
+            termsAcceptedAt: 'TermsAcceptedAt',
+            privacyVersion: 'PrivacyVersion',
+            privacyAcceptedAt: 'PrivacyAcceptedAt'
         },
         contentNode: {
             title: 'Title',
@@ -41,6 +59,9 @@ export const LMS_PUBLIC_GUEST_RUNTIME_CONFIG = {
             title: 'Title',
             description: 'Description',
             passingScorePercent: 'PassingScorePercent',
+            maxAttempts: 'MaxAttempts',
+            timeLimitSeconds: 'TimeLimitSeconds',
+            completionText: 'CompletionText',
             questions: 'Questions'
         },
         assessmentQuestion: {
@@ -54,11 +75,30 @@ export const LMS_PUBLIC_GUEST_RUNTIME_CONFIG = {
         assessmentResponse: {
             studentId: 'StudentId',
             quizId: 'QuizId',
+            attemptId: 'AttemptId',
             questionId: 'QuestionId',
             selectedOptionIds: 'SelectedOptionIds',
             isCorrect: 'IsCorrect',
             attemptNumber: 'AttemptNumber',
             submittedAt: 'SubmittedAt'
+        },
+        assessmentAttempt: {
+            studentId: 'StudentId',
+            quizId: 'QuizId',
+            attemptNumber: 'AttemptNumber',
+            startedAt: 'StartedAt',
+            submittedAt: 'SubmittedAt',
+            deadlineAt: 'DeadlineAt',
+            effectiveTimeLimitSeconds: 'EffectiveTimeLimitSeconds',
+            passingScorePercentSnapshot: 'PassingScorePercentSnapshot',
+            finishedReason: 'FinishedReason',
+            questionsSnapshot: 'QuestionsSnapshot',
+            questionSetDigest: 'QuestionSetDigest',
+            accessLinkId: 'AccessLinkId',
+            score: 'Score',
+            totalQuestions: 'TotalQuestions',
+            passed: 'Passed',
+            status: 'Status'
         },
         contentProgress: {
             studentId: 'ProgressStudentId',

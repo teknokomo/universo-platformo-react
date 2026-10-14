@@ -61,6 +61,10 @@ Runtime dashboard template for published applications in the Universo Platformo 
 -   **Template parity**: Built-in templates use registered generic widgets for shared Dashboard behavior and keep specialized quiz, PlayCanvas, and Interpretation Network runtimes in their owning renderers.
 -   **Generic runtime data surfaces**: Saved-report aggregations, resource previews, sequence policies, and workflow actions are configured through shared widget/Object metadata instead of LMS-specific widget forks.
 
+### Guest LMS assessments
+
+`GuestApp` renders public LMS access-link intake and quiz attempts. It requires Terms and Privacy consent, follows the access link's name-field policy (first and last name are required by the built-in defaults), and renders CAPTCHA only when the link enables it. Quiz questions progress one at a time; the server persists the deadline and each answer, then calculates and stores the result. See the [Guest Access guide](../../docs/en/lms/guest-access.md).
+
 ### 📝 CRUD Components
 
 -   **FormDialog**: Generic modal form with configurable fields, validation rules, and Zod integration

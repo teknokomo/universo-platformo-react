@@ -8,6 +8,8 @@ import { createApplicationSyncRoutes } from './applicationSyncRoutes'
 import { createConnectorsRoutes } from './connectorsRoutes'
 import { createPublicApplicationsRoutes } from './publicApplicationsRoutes'
 import { createPublicApplicationRuntimeRoutes } from './publicApplicationRuntimeRoutes'
+import { createRuntimeGuestController } from '../controllers/runtimeGuestController'
+import { createGlobalShortLinksRoutes } from './globalShortLinksRoutes'
 import { createLoadPublishedApplicationSyncContext, type LoadPublishedPublicationRuntimeSource } from '../services'
 
 let rateLimiters: Awaited<ReturnType<typeof createRateLimiters>> | null = null
@@ -87,12 +89,15 @@ export function createApplicationsServiceRoutes(
     // Public runtime access for guest/anonymous flows
     router.use('/', createPublicApplicationRuntimeRoutes(getDbExecutor, publicRuntime))
 
+    const guestRuntime = createRuntimeGuestController(getDbExecutor)
+
     // Anonymous guest/access-link routes must stay mounted before any
     // router-level `ensureAuth` sub-router: Express runs `use` middleware for
     // every '/'-mounted router, so an authenticated alias/sync router mounted
     // earlier would 401 anonymous guest requests before they reach their own
-    // router.
-    router.use('/', createPublicApplicationsRoutes(getDbExecutor, read, write))
+    // router. The global short-link resolver follows the same public-first order.
+    router.use('/', createPublicApplicationsRoutes(getDbExecutor, read, write, guestRuntime))
+    router.use('/', createGlobalShortLinksRoutes(ensureAuth, getDbExecutor, read, write, getRequestScopedDbExecutor, guestRuntime))
 
     // Deployment-global application aliases. Authorization is capability-based
     // inside the controller; request-scoped RLS is preserved for every query.
@@ -112,4 +117,5 @@ export { createApplicationAliasesRoutes } from './applicationAliasesRoutes'
 export { createApplicationSyncRoutes } from './applicationSyncRoutes'
 export { createConnectorsRoutes } from './connectorsRoutes'
 export { createPublicApplicationRuntimeRoutes } from './publicApplicationRuntimeRoutes'
+export { createGlobalShortLinksRoutes } from './globalShortLinksRoutes'
 export * from './guards'

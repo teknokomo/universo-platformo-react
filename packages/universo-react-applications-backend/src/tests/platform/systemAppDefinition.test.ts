@@ -13,7 +13,10 @@ describe('applications system-app definition', () => {
         ).toEqual([
             'PrepareApplicationsSchemaSupport1800000000000',
             'FinalizeApplicationsSchemaSupport1800000000001',
-            'AddApplicationSettings1800000000100'
+            'AddApplicationSettings1800000000100',
+            'CreateGlobalShortLinks1800000000290',
+            'CreateGuestSessionIdempotency1800000000300',
+            'BindGlobalShortLinksToAccessLinkIdentity1800000000310'
         ])
     })
 

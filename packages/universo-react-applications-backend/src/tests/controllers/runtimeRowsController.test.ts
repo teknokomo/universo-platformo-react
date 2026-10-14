@@ -734,6 +734,93 @@ describe('runtimeRowsController server-owned field enforcement', () => {
         expect(executedSql).not.toMatch(/\bUPDATE\s+runtime_schema\."structure"/i)
     })
 
+    it('persists trusted metadata defaults for required server-owned fields', async () => {
+        const { controller, executor } = createRuntimeMutationHarness()
+        const res = createResponse()
+        const serverOwnedDefaultComponents = [
+            ...relationBoundRuntimeComponents,
+            {
+                id: 'target-type-component',
+                codename: 'TargetType',
+                column_name: 'target_type',
+                data_type: 'STRING',
+                is_required: true,
+                validation_rules: {},
+                ui_config: { hidden: true, serverOwned: true, defaultValue: 'quiz' }
+            }
+        ]
+        mockResolveEffectiveLayoutForRequest.mockResolvedValue(relationBoundEffectiveLayout)
+
+        executor.query.mockImplementation(async (sql: string) => {
+            if (sql.includes('FROM runtime_schema._app_objects') && sql.includes('ORDER BY')) return runtimeObjectCollectionRows
+            if (sql.includes('FROM runtime_schema._app_components')) return serverOwnedDefaultComponents
+            if (sql.includes('INSERT INTO runtime_schema."structure"')) {
+                return [{ id: '019f2000-0000-7000-8000-000000000003' }]
+            }
+            return []
+        })
+        executor.transaction.mockImplementation(async (fn: (manager: typeof executor) => Promise<unknown>) => fn(executor))
+
+        await controller.createRow(
+            createRuntimeRequest({ body: { objectCollectionId: mutableObjectCollectionId, data: { Name: 'Ordered structure' } } }),
+            res
+        )
+
+        expect(res.status).toHaveBeenCalledWith(201)
+        const insertCall = executor.query.mock.calls.find(([sql]) => String(sql).includes('INSERT INTO runtime_schema."structure"'))
+        expect(insertCall?.[1]).toContain('quiz')
+    })
+
+    it.each([
+        ['TargetType', 'content'],
+        ['UseCount', 1]
+    ])('rejects a client override for server-owned %s even when it has a metadata default', async (field, value) => {
+        const { controller, executor } = createRuntimeMutationHarness()
+        const res = createResponse()
+        const serverOwnedDefaultComponents = [
+            ...relationBoundRuntimeComponents,
+            {
+                id: 'target-type-component',
+                codename: 'TargetType',
+                column_name: 'target_type',
+                data_type: 'STRING',
+                is_required: true,
+                validation_rules: {},
+                ui_config: { hidden: true, serverOwned: true, defaultValue: 'quiz' }
+            },
+            {
+                id: 'use-count-component',
+                codename: 'UseCount',
+                column_name: 'use_count',
+                data_type: 'NUMBER',
+                is_required: false,
+                validation_rules: { min: 0 },
+                ui_config: { hidden: true, serverOwned: true, defaultValue: 0 }
+            }
+        ]
+        mockResolveEffectiveLayoutForRequest.mockResolvedValue(relationBoundEffectiveLayout)
+
+        executor.query.mockImplementation(async (sql: string) => {
+            if (sql.includes('FROM runtime_schema._app_objects') && sql.includes('ORDER BY')) return runtimeObjectCollectionRows
+            if (sql.includes('FROM runtime_schema._app_components')) return serverOwnedDefaultComponents
+            return []
+        })
+
+        await controller.createRow(
+            createRuntimeRequest({
+                body: { objectCollectionId: mutableObjectCollectionId, data: { Name: 'Forged server-owned value', [field]: value } }
+            }),
+            res
+        )
+
+        expect(res.status).toHaveBeenCalledWith(400)
+        expect(res.status.mock.results[0]?.value.json).toHaveBeenCalledWith({
+            error: `Field is server-owned: ${field}`
+        })
+        expect(executor.transaction).not.toHaveBeenCalled()
+        expect(executor.query.mock.calls.some(([sql]) => String(sql).includes('INSERT INTO runtime_schema."structure"'))).toBe(false)
+    })
+
     it('preserves generic copy behavior when no Interpretation Network widget is active', async () => {
         const { controller, executor } = createRuntimeMutationHarness()
         const res = createResponse()

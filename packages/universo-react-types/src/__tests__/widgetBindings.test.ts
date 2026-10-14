@@ -676,6 +676,12 @@ describe('entity-backed widget binding contracts', () => {
                 }
             }).success
         ).toBe(false)
+        expect(
+            widgetBindingSlotDefinitionSchema.safeParse({
+                ...benefitsSlot,
+                selectorKinds: ['relation-set', 'record-set']
+            }).success
+        ).toBe(false)
     })
 
     it('allows an optional slot to be absent without encoding an empty target array', () => {

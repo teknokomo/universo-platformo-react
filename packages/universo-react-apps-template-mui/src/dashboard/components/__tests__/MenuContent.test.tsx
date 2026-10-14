@@ -30,6 +30,14 @@ describe('MenuContent', () => {
         expect(await screen.findByRole('navigation', { name: 'Навигация приложения' })).toBeInTheDocument()
     })
 
+    it('keeps navigation list items inside a semantic list', () => {
+        render(<MenuContent viewModel={viewModel({ items: [{ key: 'reports', label: 'Reports', href: '/a/app-1/reports' }] })} />)
+
+        const navigation = screen.getByRole('navigation', { name: 'Application navigation' })
+        const list = within(navigation).getByRole('list')
+        expect(within(list).getByRole('listitem')).toContainElement(within(list).getByRole('link', { name: 'Reports' }))
+    })
+
     it('keeps safe internal, http, mail, tel, and hash links', () => {
         expect(sanitizeHref('/workspaces')).toBe('/workspaces')
         expect(sanitizeHref('#overview')).toBe('#overview')
@@ -120,7 +128,11 @@ describe('MenuContent', () => {
             />
         )
 
-        expect(screen.getByRole('separator')).toBeInTheDocument()
+        const separator = screen.getByRole('separator')
+        const list = screen.getByRole('list')
+        expect(separator).toBeInTheDocument()
+        expect(within(list).getAllByRole('listitem')).toContain(separator.closest('li'))
+        expect(list.querySelector(':scope > [role="separator"]')).toBeNull()
         expect(screen.getByRole('link', { name: 'Workspaces' })).toHaveAttribute('data-runtime-navigation-link')
     })
 

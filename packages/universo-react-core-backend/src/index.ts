@@ -32,7 +32,9 @@ import { isPlayCanvasEditorFullBootUpgradeRequest } from '@universo-react/playca
 import { getKnex, destroyKnex, checkDatabaseHealth, registerGracefulShutdown, getPoolExecutor } from '@universo-react/database'
 import {
     attachApplicationsRealtimeRuntime,
-    initializeRateLimiters as initializeApplicationsRateLimiters
+    initializeRateLimiters as initializeApplicationsRateLimiters,
+    startGuestSessionIdempotencyCleanup,
+    type GuestSessionIdempotencyCleanupHandle
 } from '@universo-react/applications-backend'
 import { assertIsolatedVmRuntimeAvailable } from '@universo-react/modules-engine'
 import {
@@ -267,6 +269,7 @@ type AuthenticatedRequest = Request & {
 export class App {
     app: express.Application
     realtimeMatchmakeMiddleware?: RequestHandler
+    private guestSessionIdempotencyCleanup?: GuestSessionIdempotencyCleanupHandle
 
     constructor() {
         this.app = express()
@@ -384,6 +387,19 @@ export class App {
             }
             throw error
         }
+    }
+
+    startBackgroundMaintenance(): void {
+        this.guestSessionIdempotencyCleanup = startGuestSessionIdempotencyCleanup(getPoolExecutor, {
+            onCleanup: (deletedCount) => {
+                if (deletedCount > 0) logger.info('[server]: Expired guest-session replay records removed', { deletedCount })
+            },
+            onError: (error) => {
+                logger.warn('[server]: Failed to clean expired guest-session replay records', {
+                    errorName: error instanceof Error ? error.name : 'UnknownError'
+                })
+            }
+        })
     }
 
     async config() {
@@ -618,7 +634,8 @@ export class App {
     }
 
     async stopApp() {
-        // Reserved for future cleanup tasks
+        await this.guestSessionIdempotencyCleanup?.stop()
+        this.guestSessionIdempotencyCleanup = undefined
     }
 }
 
@@ -634,6 +651,7 @@ export async function start(): Promise<void> {
     const server = http.createServer(serverApp.app)
 
     await serverApp.initDatabase()
+    serverApp.startBackgroundMaintenance()
     const realtimeRuntime = await attachApplicationsRealtimeRuntime(server, {
         shouldHandleUpgrade: (request) => !isPlayCanvasEditorFullBootUpgradeRequest(request),
         isOriginAllowed: isApplicationRealtimeUpgradeOriginAllowed

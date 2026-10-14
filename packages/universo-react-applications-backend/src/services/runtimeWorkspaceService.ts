@@ -1,8 +1,9 @@
 import type { DbExecutor } from '@universo-react/utils'
+import { copyWorkspaceOperation, type RuntimeWorkspaceCopyInput } from './runtimeWorkspaceCopyService'
 import { qColumn, qSchemaTable } from '@universo-react/database'
-import { generateChildTableName } from '@universo-react/schema-ddl'
-import { isWorkspaceSettingAllowed, parseUnifiedSettingValue } from '@universo-react/types'
-import { archiveWorkspaceScopedBusinessRows, listWorkspaceScopedBusinessTables, syncWorkspaceSeededElements } from './applicationWorkspaces'
+import { releaseActiveGlobalShortLinksForWorkspace } from '../persistence/globalShortLinksStore'
+import { archiveWorkspaceScopedBusinessRows, syncWorkspaceSeededElements } from './applicationWorkspaces'
+import { revokeGuestAssessmentAttemptsForWorkspace, revokeGuestSessionSecretsForWorkspace } from './guestAssessmentApplicationRevocation'
 
 type WorkspaceRow = {
     id: string
@@ -37,75 +38,7 @@ type WorkspaceMembershipRow = {
     personal_user_id?: string | null
 }
 
-type WorkspaceCopyReferenceMetadataRow = {
-    sourceTableName: string | null
-    parentComponentId: string | null
-    columnName: string
-    targetTableName: string | null
-    isRequired: boolean | string | null
-}
-
-type WorkspaceCopyReference = {
-    tableName: string
-    columnName: string
-    isRequired: boolean
-}
-
-type WorkspaceCopyPhysicalColumnRow = {
-    tableName: string
-    columnName: string
-    udtName: string
-    isNullable?: string | null
-}
-
 const ACTIVE_ROW_SQL = '_upl_deleted = false AND _app_deleted = false'
-const WORKSPACE_SETTINGS_TABLE = '_app_workspace_settings'
-const SYSTEM_COPY_COLUMN_EXPRESSIONS: Record<string, string> = {
-    // A workspace copy is a new authored workspace. Preserve the stable seed
-    // key so the next synchronization reconciles the copied row instead of
-    // inserting a duplicate, but never carry source ownership across that
-    // boundary.
-    _seed_source_key: 'source."_seed_source_key"',
-    _seed_source_owned: 'false',
-    _upl_created_at: 'NOW()',
-    _upl_updated_at: 'NOW()',
-    _upl_version: '1',
-    _upl_created_by: '$3::uuid',
-    _upl_updated_by: '$3::uuid',
-    _upl_deleted: 'false',
-    _upl_deleted_at: 'NULL',
-    _upl_deleted_by: 'NULL',
-    _upl_purge_after: 'NULL',
-    _upl_archived: 'false',
-    _upl_archived_at: 'NULL',
-    _upl_archived_by: 'NULL',
-    _upl_locked: 'false',
-    _upl_locked_at: 'NULL',
-    _upl_locked_by: 'NULL',
-    _upl_locked_reason: 'NULL',
-    _app_deleted: 'false',
-    _app_deleted_at: 'NULL',
-    _app_deleted_by: 'NULL',
-    _app_published: 'true',
-    _app_published_at: 'NULL',
-    _app_published_by: 'NULL',
-    _app_archived: 'false',
-    _app_archived_at: 'NULL',
-    _app_archived_by: 'NULL',
-    _app_record_number: 'NULL',
-    _app_record_date: 'NULL',
-    _app_record_state: "'draft'",
-    _app_posted_at: 'NULL',
-    _app_posted_by: 'NULL',
-    _app_posting_batch_id: 'NULL',
-    _app_posting_movements: 'NULL',
-    _app_voided_at: 'NULL',
-    _app_voided_by: 'NULL',
-    _app_owner_id: '$3::uuid',
-    _app_access_level: "'private'"
-}
-const SYSTEM_COPY_COLUMNS = new Set(Object.keys(SYSTEM_COPY_COLUMN_EXPRESSIONS))
-
 const toJsonbParam = (value: unknown): string => JSON.stringify(value ?? null)
 
 export const RUNTIME_WORKSPACE_ERROR_CODES = {
@@ -115,7 +48,8 @@ export const RUNTIME_WORKSPACE_ERROR_CODES = {
     memberNotFound: 'WORKSPACE_MEMBER_NOT_FOUND',
     personalWorkspaceMutationBlocked: 'PERSONAL_WORKSPACE_MUTATION_BLOCKED',
     lastOwnerRemovalBlocked: 'LAST_WORKSPACE_OWNER_REMOVAL_BLOCKED',
-    workspaceCopyReferenceUnresolved: 'WORKSPACE_COPY_REFERENCE_UNRESOLVED'
+    workspaceCopyReferenceUnresolved: 'WORKSPACE_COPY_REFERENCE_UNRESOLVED',
+    workspaceCopyAccessLinkIntakeInvalid: 'WORKSPACE_COPY_ACCESS_LINK_INTAKE_INVALID'
 } as const
 
 export type RuntimeWorkspaceErrorCode = (typeof RUNTIME_WORKSPACE_ERROR_CODES)[keyof typeof RUNTIME_WORKSPACE_ERROR_CODES]
@@ -492,8 +426,10 @@ export async function deleteSharedWorkspace(
     executor: DbExecutor,
     input: {
         schemaName: string
+        applicationId: string
         workspaceId: string
-        actorUserId?: string | null
+        applicationSettings?: Record<string, unknown> | null
+        actorUserId: string
     }
 ): Promise<void> {
     await executor.transaction(async (tx) => {
@@ -522,6 +458,10 @@ export async function deleteSharedWorkspace(
                 'Personal workspace cannot be deleted'
             )
         }
+
+        await revokeGuestSessionSecretsForWorkspace(tx, input.schemaName, input.applicationId, input.applicationSettings, input.workspaceId)
+        await revokeGuestAssessmentAttemptsForWorkspace(tx, input.schemaName, input.applicationSettings, input.workspaceId)
+        await releaseActiveGlobalShortLinksForWorkspace(tx, input.applicationId, input.workspaceId, input.actorUserId)
 
         await archiveWorkspaceScopedBusinessRows(tx, {
             schemaName: input.schemaName,
@@ -574,461 +514,11 @@ export async function deleteSharedWorkspace(
     })
 }
 
-/**
- * Return REF fields whose target is another workspace-scoped runtime table.
- *
- * References to global metadata (for example enumeration values and set
- * constants) are deliberately excluded: those rows are shared by all
- * workspaces and must keep their identity. Runtime REF metadata is used to
- * distinguish those values from row references instead of treating every UUID
- * column as a business relation (user/audit IDs are not business relations).
- */
-async function loadWorkspaceCopyReferences(
-    executor: DbExecutor,
-    schemaName: string,
-    scopedTables: string[]
-): Promise<WorkspaceCopyReference[]> {
-    if (scopedTables.length === 0) {
-        return []
-    }
-
-    const objectsQt = qSchemaTable(schemaName, '_app_objects')
-    const componentsQt = qSchemaTable(schemaName, '_app_components')
-    const metadataRows = await executor.query<WorkspaceCopyReferenceMetadataRow>(
-        `
-        SELECT
-            source_object.table_name AS "sourceTableName",
-            component.parent_component_id AS "parentComponentId",
-            component.column_name AS "columnName",
-            target_object.table_name AS "targetTableName",
-            component.is_required AS "isRequired"
-        FROM ${componentsQt} component
-        INNER JOIN ${objectsQt} source_object ON source_object.id = component.object_id
-        LEFT JOIN ${objectsQt} target_object ON target_object.id = component.target_object_id
-        WHERE component.data_type = 'REF'
-          AND component.${qColumn('_upl_deleted')} = false
-          AND component.${qColumn('_app_deleted')} = false
-          AND source_object.${qColumn('_upl_deleted')} = false
-          AND source_object.${qColumn('_app_deleted')} = false
-          AND source_object.table_name = ANY($1::text[])
-        ORDER BY source_object.table_name ASC, component.column_name ASC, component.id ASC
-        `,
-        [scopedTables]
-    )
-
-    const sourceTableNames = Array.from(
-        new Set(
-            [
-                ...scopedTables,
-                ...metadataRows.map((row) => (row.parentComponentId ? generateChildTableName(row.parentComponentId) : row.sourceTableName))
-            ].filter((tableName): tableName is string => typeof tableName === 'string' && scopedTables.includes(tableName))
-        )
-    )
-    if (sourceTableNames.length === 0) {
-        return []
-    }
-
-    const targetTableNames = Array.from(
-        new Set(
-            metadataRows
-                .map((row) => row.targetTableName)
-                .filter((tableName): tableName is string => typeof tableName === 'string' && tableName.length > 0)
-        )
-    )
-    const physicalTableNames = Array.from(new Set([...sourceTableNames, ...targetTableNames]))
-
-    const physicalColumns = await executor.query<WorkspaceCopyPhysicalColumnRow>(
-        `
-        SELECT
-            table_name AS "tableName",
-            column_name AS "columnName",
-            udt_name AS "udtName",
-            is_nullable AS "isNullable"
-        FROM information_schema.columns
-        WHERE table_schema = $1
-          AND table_name = ANY($2::text[])
-        `,
-        [schemaName, physicalTableNames]
-    )
-    const physicalUuidColumns = new Set(
-        physicalColumns.filter((column) => column.udtName === 'uuid').map((column) => `${column.tableName}.${column.columnName}`)
-    )
-    const physicalTablesWithColumns = new Set(physicalColumns.map((column) => column.tableName))
-    const workspaceScopedPhysicalTables = new Set(
-        physicalColumns.filter((column) => column.columnName === 'workspace_id').map((column) => column.tableName)
-    )
-
-    const metadataReferences = metadataRows.flatMap((row) => {
-        const tableName = row.parentComponentId ? generateChildTableName(row.parentComponentId) : row.sourceTableName
-        // A target with a physical workspace_id is workspace-scoped even when
-        // its metadata is archived and therefore absent from scopedTables.
-        // Such rows are intentionally not copied, so retaining their source ID
-        // would leak a stale workspace reference. A target object whose
-        // physical table is missing is treated as workspace-local as well: a
-        // required reference must fail closed and an optional one is cleared,
-        // never preserved as a source-workspace UUID. Existing tables without
-        // workspace_id remain shared/external references and keep their identity.
-        const targetIsMissingPhysicalTable = !physicalTablesWithColumns.has(row.targetTableName ?? '')
-        const targetIsWorkspaceScoped = workspaceScopedPhysicalTables.has(row.targetTableName ?? '') || targetIsMissingPhysicalTable
-        if (
-            !tableName ||
-            !row.targetTableName ||
-            !scopedTables.includes(tableName) ||
-            !targetIsWorkspaceScoped ||
-            !physicalUuidColumns.has(`${tableName}.${row.columnName}`)
-        ) {
-            return []
-        }
-
-        const metadataRequired = row.isRequired === true || ['true', 't', '1'].includes(String(row.isRequired).toLowerCase())
-        const physicalRequired = physicalColumns.some(
-            (column) => column.tableName === tableName && column.columnName === row.columnName && column.isNullable === 'NO'
-        )
-
-        return [
-            {
-                tableName,
-                columnName: row.columnName,
-                isRequired: metadataRequired || physicalRequired
-            }
-        ]
+export async function copyWorkspace(executor: DbExecutor, input: RuntimeWorkspaceCopyInput): Promise<{ id: string }> {
+    return copyWorkspaceOperation(executor, input, {
+        createWorkspace: createSharedWorkspace,
+        createError: (code, message) => new RuntimeWorkspaceError(code, message)
     })
-
-    // These system-owned links are not represented by REF components. Child
-    // rows have a required parent FK; ledger reversal links are nullable. Both
-    // need the same copy-map policy so a stale source-workspace ID can never
-    // survive a successful copy.
-    const systemReferences = physicalColumns
-        .filter(
-            (column) =>
-                column.udtName === 'uuid' &&
-                ['_tp_parent_id', '_app_reversal_of_fact_id'].includes(column.columnName) &&
-                scopedTables.includes(column.tableName)
-        )
-        .map((column) => ({
-            tableName: column.tableName,
-            columnName: column.columnName,
-            isRequired: column.columnName === '_tp_parent_id'
-        }))
-
-    const referencesByColumn = new Map<string, WorkspaceCopyReference>()
-    for (const reference of [...metadataReferences, ...systemReferences]) {
-        const key = `${reference.tableName}.${reference.columnName}`
-        const existing = referencesByColumn.get(key)
-        referencesByColumn.set(key, existing ? { ...existing, isRequired: existing.isRequired || reference.isRequired } : reference)
-    }
-
-    return Array.from(referencesByColumn.values())
-}
-
-/**
- * Required workspace-local references must resolve to a copied row. Running
- * this check both before and after inserts keeps copy fail-closed if source
- * data changes between the map build and the row insert statements.
- */
-async function assertWorkspaceCopyReferencesResolve(
-    executor: DbExecutor,
-    schemaName: string,
-    workspaceId: string,
-    references: WorkspaceCopyReference[],
-    options: { acceptMappedIds?: boolean } = {}
-): Promise<void> {
-    for (const reference of references) {
-        if (!reference.isRequired) {
-            continue
-        }
-
-        const tableIdent = qSchemaTable(schemaName, reference.tableName)
-        const columnIdent = qColumn(reference.columnName)
-        const mapMatchSql = options.acceptMappedIds
-            ? `(id_map.old_id = source.${columnIdent} OR id_map.new_id = source.${columnIdent})`
-            : `id_map.old_id = source.${columnIdent}`
-        const rows = await executor.query<{ unresolvedCount: string | number }>(
-            `
-            SELECT COUNT(*)::text AS "unresolvedCount"
-            FROM ${tableIdent} source
-            WHERE source.${qColumn('workspace_id')} = $1
-              AND source.${qColumn('_upl_deleted')} = false
-              AND source.${qColumn('_app_deleted')} = false
-              AND (
-                  source.${columnIdent} IS NULL
-                  OR NOT EXISTS (
-                      SELECT 1
-                      FROM workspace_copy_id_map id_map
-                      WHERE ${mapMatchSql}
-                  )
-              )
-            `,
-            [workspaceId]
-        )
-        const unresolvedCount = Number(rows[0]?.unresolvedCount)
-        if (!Number.isFinite(unresolvedCount) || unresolvedCount < 0) {
-            throw new RuntimeWorkspaceError(
-                RUNTIME_WORKSPACE_ERROR_CODES.workspaceCopyReferenceUnresolved,
-                'Workspace copy reference validation returned an invalid result'
-            )
-        }
-        if (unresolvedCount > 0) {
-            throw new RuntimeWorkspaceError(
-                RUNTIME_WORKSPACE_ERROR_CODES.workspaceCopyReferenceUnresolved,
-                'Workspace copy contains a required reference to a row that was not copied'
-            )
-        }
-    }
-}
-
-/**
- * Optional workspace-local references to rows omitted from the map become
- * NULL. This prevents copied rows from retaining source-workspace IDs while
- * preserving global/external references that are intentionally not copied.
- */
-async function clearUnresolvedOptionalWorkspaceCopyReferences(
-    executor: DbExecutor,
-    schemaName: string,
-    workspaceId: string,
-    references: WorkspaceCopyReference[]
-): Promise<void> {
-    for (const reference of references) {
-        if (reference.isRequired) {
-            continue
-        }
-
-        const tableIdent = qSchemaTable(schemaName, reference.tableName)
-        const columnIdent = qColumn(reference.columnName)
-        await executor.query(
-            `
-            UPDATE ${tableIdent} target
-            SET ${columnIdent} = NULL
-            WHERE target.${qColumn('workspace_id')} = $1
-              AND target.${qColumn('_upl_deleted')} = false
-              AND target.${qColumn('_app_deleted')} = false
-              AND target.${columnIdent} IS NOT NULL
-              AND NOT EXISTS (
-                SELECT 1
-                FROM workspace_copy_id_map id_map
-                WHERE id_map.old_id = target.${columnIdent}
-                   OR id_map.new_id = target.${columnIdent}
-            )
-            `,
-            [workspaceId]
-        )
-    }
-}
-
-export async function copyWorkspace(
-    executor: DbExecutor,
-    input: {
-        schemaName: string
-        sourceWorkspaceId: string
-        name: unknown
-        description: unknown
-        userId: string
-        applicationSettings?: Record<string, unknown> | null
-        actorUserId?: string | null
-    }
-): Promise<{ id: string }> {
-    return executor.transaction(async (tx) => {
-        await assertWorkspaceExists(tx, {
-            schemaName: input.schemaName,
-            workspaceId: input.sourceWorkspaceId
-        })
-        const scopedTables = await listWorkspaceScopedBusinessTables(tx, input.schemaName)
-
-        // Copying is owner-authorized workspace management, not a runtime row
-        // mutation. Preserve protected seed Entities and their records in the
-        // destination while ordinary runtime writes remain policy-gated.
-        await tx.query('CREATE TEMP TABLE workspace_copy_id_map (old_id UUID PRIMARY KEY, new_id UUID NOT NULL) ON COMMIT DROP')
-        for (const tableName of scopedTables) {
-            const tableIdent = qSchemaTable(input.schemaName, tableName)
-            await tx.query(
-                `
-                INSERT INTO workspace_copy_id_map (old_id, new_id)
-                SELECT id, public.uuid_generate_v7()
-                FROM ${tableIdent}
-                WHERE ${qColumn('workspace_id')} = $1
-                  AND ${ACTIVE_ROW_SQL}
-                ON CONFLICT (old_id) DO NOTHING
-            `,
-                [input.sourceWorkspaceId]
-            )
-        }
-
-        const workspaceCopyReferences = await loadWorkspaceCopyReferences(tx, input.schemaName, scopedTables)
-        await assertWorkspaceCopyReferencesResolve(tx, input.schemaName, input.sourceWorkspaceId, workspaceCopyReferences)
-
-        // Validate all required workspace-local references before creating the
-        // target workspace. A failed copy therefore leaves no partially-created
-        // workspace or membership row even when the caller retries.
-        const created = await createSharedWorkspace(tx, {
-            schemaName: input.schemaName,
-            name: input.name,
-            description: input.description,
-            userId: input.userId,
-            actorUserId: input.actorUserId,
-            seedElements: false
-        })
-
-        for (const tableName of scopedTables) {
-            const tableIdent = qSchemaTable(input.schemaName, tableName)
-            const columns = await tx.query<{ column_name: string }>(
-                `
-                SELECT column_name
-                FROM information_schema.columns
-                WHERE table_schema = $1
-                  AND table_name = $2
-                  AND column_name NOT IN ('id', 'workspace_id')
-                ORDER BY ordinal_position ASC
-            `,
-                [input.schemaName, tableName]
-            )
-            const userColumnNames = columns.map((column) => column.column_name).filter((column) => !SYSTEM_COPY_COLUMNS.has(column))
-            const systemColumnNames = columns.map((column) => column.column_name).filter((column) => SYSTEM_COPY_COLUMNS.has(column))
-            const insertColumnNames = [...userColumnNames, ...systemColumnNames]
-            const quotedColumns = insertColumnNames.map((column) => qColumn(column))
-            const selectExpressions = [
-                ...userColumnNames.map((column) => `source.${qColumn(column)}`),
-                ...systemColumnNames.map((column) => SYSTEM_COPY_COLUMN_EXPRESSIONS[column])
-            ]
-            const queryParameters: unknown[] = [input.sourceWorkspaceId, created.id]
-            if (systemColumnNames.some((columnName) => SYSTEM_COPY_COLUMN_EXPRESSIONS[columnName].includes('$3'))) {
-                queryParameters.push(input.actorUserId ?? null)
-            }
-            // Keep source UUID references during insertion. Existing source
-            // rows satisfy non-deferrable FKs even when a referenced table is
-            // copied later; all local IDs are remapped after every table is
-            // present in the target workspace.
-            await tx.query(
-                `
-                INSERT INTO ${tableIdent} (id, ${qColumn('workspace_id')}${quotedColumns.length > 0 ? `, ${quotedColumns.join(', ')}` : ''})
-                SELECT id_map.new_id, $2::uuid${selectExpressions.length > 0 ? `, ${selectExpressions.join(', ')}` : ''}
-                FROM ${tableIdent} source
-                INNER JOIN workspace_copy_id_map id_map ON id_map.old_id = source.id
-                WHERE source.${qColumn('workspace_id')} = $1
-                  AND source.${qColumn('_upl_deleted')} = false
-                  AND source.${qColumn('_app_deleted')} = false
-            `,
-                queryParameters
-            )
-        }
-
-        for (const tableName of scopedTables) {
-            const tableIdent = qSchemaTable(input.schemaName, tableName)
-            const uuidColumns = await tx.query<{ column_name: string }>(
-                `
-                SELECT column_name
-                FROM information_schema.columns
-                WHERE table_schema = $1
-                  AND table_name = $2
-                  AND udt_name = 'uuid'
-                  AND column_name NOT IN (
-                      'id',
-                      'workspace_id',
-                      '_upl_created_by',
-                      '_upl_updated_by',
-                      '_upl_deleted_by',
-                      '_app_deleted_by',
-                      '_app_owner_id'
-                  )
-                ORDER BY ordinal_position ASC
-            `,
-                [input.schemaName, tableName]
-            )
-
-            for (const column of uuidColumns) {
-                const columnName = qColumn(column.column_name)
-                await tx.query(
-                    `
-                    UPDATE ${tableIdent} target
-                    SET ${columnName} = id_map.new_id
-                    FROM workspace_copy_id_map id_map
-                    WHERE target.${qColumn('workspace_id')} = $1
-                      AND target.${columnName} = id_map.old_id
-                      AND target.${qColumn('_upl_deleted')} = false
-                      AND target.${qColumn('_app_deleted')} = false
-                `,
-                    [created.id]
-                )
-            }
-        }
-
-        await clearUnresolvedOptionalWorkspaceCopyReferences(tx, input.schemaName, created.id, workspaceCopyReferences)
-        await assertWorkspaceCopyReferencesResolve(tx, input.schemaName, created.id, workspaceCopyReferences, { acceptMappedIds: true })
-
-        await copyAllowedWorkspaceSettings(tx, {
-            schemaName: input.schemaName,
-            sourceWorkspaceId: input.sourceWorkspaceId,
-            targetWorkspaceId: created.id,
-            applicationSettings: input.applicationSettings,
-            actorUserId: input.actorUserId
-        })
-
-        return created
-    })
-}
-
-async function copyAllowedWorkspaceSettings(
-    executor: DbExecutor,
-    input: {
-        schemaName: string
-        sourceWorkspaceId: string
-        targetWorkspaceId: string
-        applicationSettings?: Record<string, unknown> | null
-        actorUserId?: string | null
-    }
-): Promise<void> {
-    const workspaceSettingsQt = qSchemaTable(input.schemaName, WORKSPACE_SETTINGS_TABLE)
-    const sourceRows = await executor.query<{ key: string; value: unknown }>(
-        `
-        SELECT key, value
-        FROM ${workspaceSettingsQt}
-        WHERE workspace_id = $1
-          AND ${ACTIVE_ROW_SQL}
-        ORDER BY key ASC
-        `,
-        [input.sourceWorkspaceId]
-    )
-
-    for (const row of sourceRows) {
-        if (!isWorkspaceSettingAllowed(input.applicationSettings ?? {}, row.key)) {
-            continue
-        }
-
-        let normalizedValue: unknown
-        try {
-            normalizedValue = parseUnifiedSettingValue(row.key, row.value)
-        } catch {
-            continue
-        }
-
-        const [{ id }] = await executor.query<{ id: string }>('SELECT public.uuid_generate_v7() AS id')
-        await executor.query(
-            `
-            INSERT INTO ${workspaceSettingsQt} (
-                id,
-                workspace_id,
-                key,
-                value,
-                ${qColumn('_upl_created_at')},
-                ${qColumn('_upl_created_by')},
-                ${qColumn('_upl_updated_at')},
-                ${qColumn('_upl_updated_by')},
-                ${qColumn('_upl_version')},
-                ${qColumn('_upl_deleted')},
-                ${qColumn('_app_deleted')},
-                ${qColumn('_upl_locked')}
-            )
-            VALUES ($1, $2, $3, $4::jsonb, NOW(), $5, NOW(), $6, 1, false, false, false)
-            `,
-            [
-                id,
-                input.targetWorkspaceId,
-                row.key,
-                JSON.stringify(normalizedValue ?? null),
-                input.actorUserId ?? null,
-                input.actorUserId ?? null
-            ]
-        )
-    }
 }
 
 export async function setDefaultWorkspace(

@@ -30,6 +30,7 @@ import {
     resolveRuntimeStandardKind
 } from '../../services/runtimeRowSupport/contracts'
 import { mapRuntimeComponentToColumnDefinition } from '../runtimeRowSupport/objects'
+import { isRuntimeComponentHidden } from './componentVisibility'
 import { readConfiguredWorkflowActions } from '../../services/runtimeRowSupport/workflow'
 import {
     buildRuntimeListClauses,
@@ -645,6 +646,7 @@ export const loadRuntimeReadRows = async (params: {
         }
 
         for (const component of params.safeComponents) {
+            if (isRuntimeComponentHidden(component)) continue
             if (component.data_type === 'TABLE') {
                 mappedRow[component.column_name] = typeof row[component.column_name] === 'number' ? row[component.column_name] : 0
                 continue
@@ -700,14 +702,16 @@ export const buildRuntimeReadColumnDefinitions = (params: {
     childAttrsByTableId: Map<string, RuntimeReadChildComponent[]>
     requestedLocale: string
 }): RuntimeReadColumnDefinition[] => {
-    return params.safeComponents.map((component) =>
-        mapRuntimeComponentToColumnDefinition({
-            component,
-            enumOptionsMap: params.enumOptionsMap,
-            objectRefOptionsMap: params.objectRefOptionsMap,
-            childAttrsByTableId: params.childAttrsByTableId,
-            includeChildColumns: true,
-            locale: params.requestedLocale
-        })
-    )
+    return params.safeComponents
+        .filter((component) => !isRuntimeComponentHidden(component))
+        .map((component) =>
+            mapRuntimeComponentToColumnDefinition({
+                component,
+                enumOptionsMap: params.enumOptionsMap,
+                objectRefOptionsMap: params.objectRefOptionsMap,
+                childAttrsByTableId: params.childAttrsByTableId,
+                includeChildColumns: true,
+                locale: params.requestedLocale
+            })
+        )
 }

@@ -48,9 +48,7 @@ export const resolveRuntimeRelationOwnedFieldCodenames = (zoneWidgets: RuntimeZo
     for (const projection of getRuntimeRelationAuthorityProjection(zoneWidgets)) {
         if (projection.childEntityCodename !== childEntityCodename) continue
         ownedFields.add(projection.parentFieldCodename)
-        if (projection.enableRowReordering) {
-            ownedFields.add(projection.sortOrderFieldCodename)
-        }
+        ownedFields.add(projection.sortOrderFieldCodename)
     }
     return [...ownedFields]
 }
@@ -86,7 +84,12 @@ export const resolveRuntimeRelationPanelAuthority = (
 }
 
 export const resolveRuntimeReorderField = (
-    attrs: Array<{ codename: unknown; column_name: string; data_type: string }>,
+    attrs: Array<{
+        codename: unknown
+        column_name: string
+        data_type: string
+        ui_config?: Record<string, unknown> | null
+    }>,
     reorderPersistenceField: string | null
 ) => {
     if (!reorderPersistenceField) return null

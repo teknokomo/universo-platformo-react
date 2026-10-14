@@ -7,8 +7,12 @@ export { createApplicationAliasesRoutes } from './routes/applicationAliasesRoute
 export { createConnectorsRoutes } from './routes/connectorsRoutes'
 export { createApplicationSyncRoutes } from './routes/applicationSyncRoutes'
 export { createPublicApplicationRuntimeRoutes } from './routes/publicApplicationRuntimeRoutes'
+export { createGlobalShortLinksRoutes } from './routes/globalShortLinksRoutes'
+export { globalShortLinkResolveResponseSchema, type GlobalShortLinkResolveResponse } from '@universo-react/types'
 export { runPublishedApplicationRuntimeSync, seedPredefinedElements } from './routes/applicationSyncRoutes'
 export { initializeRateLimiters, getRateLimiters, createApplicationsServiceRoutes } from './routes/index'
+export { runGuestSessionIdempotencyCleanup, startGuestSessionIdempotencyCleanup } from './services/guestSessionIdempotencyMaintenance'
+export type { GuestSessionIdempotencyCleanupHandle } from './services/guestSessionIdempotencyMaintenance'
 export { attachApplicationsRealtimeRuntime } from './realtime/applicationsRealtimeRuntime'
 export type { ApplicationsRealtimeRuntimeHandle } from './realtime/applicationsRealtimeRuntime'
 

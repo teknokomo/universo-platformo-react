@@ -11,6 +11,7 @@ import {
     createPublicationVersion,
     createRuntimeRow,
     disposeApiContext,
+    getApplicationRuntime,
     listObjectCollections,
     sendWithCsrf,
     syncApplicationSchema,
@@ -18,6 +19,7 @@ import {
     waitForPublicationReady
 } from '../../support/backend/api-session.mjs'
 import { recordCreatedApplication, recordCreatedMetahub, recordCreatedPublication } from '../../support/backend/run-manifest.mjs'
+import { seedAccessLinkUseCountForTest } from '../../support/lmsMarathonGuestShortLinkDatabase'
 
 type ApiContext = Awaited<ReturnType<typeof createLoggedInApiContext>>
 
@@ -148,6 +150,7 @@ async function setupPublicGuestApplication(api: ApiContext, runManifest, suffix:
 
     const quizzesCatalogId = await waitForMetahubCatalogId(api, metahub.id, 'Quizzes')
     const accessLinksCatalogId = await waitForMetahubCatalogId(api, metahub.id, 'AccessLinks')
+    const contentProjectsCatalogId = await waitForMetahubCatalogId(api, metahub.id, 'ContentProjects')
 
     const linkedApplication = await createPublicationLinkedApplication(api, metahub.id, publication.id, {
         name: { en: `E2E ${runManifest.runId} LMS Guest ${suffix} App` },
@@ -196,6 +199,7 @@ async function setupPublicGuestApplication(api: ApiContext, runManifest, suffix:
     return {
         applicationId,
         accessLinksCatalogId,
+        contentProjectsCatalogId,
         workspaceId,
         quizId: quizRow.id
     }
@@ -210,36 +214,87 @@ test('@flow public lms guest links reject wrong slug, expired links, and exhaust
     })
 
     try {
-        const { applicationId, accessLinksCatalogId, workspaceId, quizId } = await setupPublicGuestApplication(api, runManifest, 'Negative')
+        const { applicationId, accessLinksCatalogId, contentProjectsCatalogId, workspaceId, quizId } = await setupPublicGuestApplication(
+            api,
+            runManifest,
+            'Negative'
+        )
+
+        const invalidIntakeResponse = await sendWithCsrf(
+            api,
+            'POST',
+            `/api/v1/applications/${applicationId}/runtime/rows?workspaceId=${encodeURIComponent(workspaceId)}`,
+            {
+                objectCollectionId: accessLinksCatalogId,
+                relationScope: {
+                    fieldCodename: 'TargetId',
+                    parentRecordId: quizId,
+                    layoutTarget: { targetKind: 'object', entityTypeId: contentProjectsCatalogId }
+                },
+                data: {
+                    Slug: 'invalid-intake-link',
+                    IsActive: true,
+                    LinkTitle: 'Invalid intake link',
+                    ShowFirstName: false,
+                    RequireFirstName: true,
+                    ShowLastName: false,
+                    RequireLastName: false,
+                    ShowEmail: false,
+                    RequireEmail: false,
+                    ShowPhone: false,
+                    RequirePhone: false,
+                    CaptchaEnabled: false
+                }
+            }
+        )
+        expect(invalidIntakeResponse.status).toBe(400)
+        expect(await invalidIntakeResponse.json()).toMatchObject({
+            code: 'RUNTIME_ACCESS_LINK_INTAKE_POLICY_INVALID',
+            error: expect.any(String)
+        })
+        const afterRejectedCreate = await getApplicationRuntime(api, applicationId, {
+            objectCollectionId: accessLinksCatalogId,
+            workspaceId
+        })
+        expect(JSON.stringify(afterRejectedCreate.rows ?? [])).not.toContain('invalid-intake-link')
 
         await createRuntimeRow(api, applicationId, {
             workspaceId,
             objectCollectionId: accessLinksCatalogId,
+            relationScope: {
+                fieldCodename: 'TargetId',
+                parentRecordId: quizId,
+                layoutTarget: { targetKind: 'object', entityTypeId: contentProjectsCatalogId }
+            },
             data: {
                 Slug: 'expired-link',
-                TargetType: 'quiz',
-                TargetId: quizId,
                 IsActive: true,
                 MaxUses: 3,
-                UseCount: 0,
                 ExpiresAt: new Date(Date.now() - 60_000).toISOString(),
-                LinkTitle: 'Expired link'
+                LinkTitle: 'Expired link',
+                ShowFirstName: true,
+                RequireFirstName: true
             }
         })
 
-        await createRuntimeRow(api, applicationId, {
+        const maxedLink = await createRuntimeRow(api, applicationId, {
             workspaceId,
             objectCollectionId: accessLinksCatalogId,
+            relationScope: {
+                fieldCodename: 'TargetId',
+                parentRecordId: quizId,
+                layoutTarget: { targetKind: 'object', entityTypeId: contentProjectsCatalogId }
+            },
             data: {
                 Slug: 'maxed-link',
-                TargetType: 'quiz',
-                TargetId: quizId,
                 IsActive: true,
                 MaxUses: 1,
-                UseCount: 1,
-                LinkTitle: 'Maxed link'
+                LinkTitle: 'Maxed link',
+                ShowFirstName: true,
+                RequireFirstName: true
             }
         })
+        await seedAccessLinkUseCountForTest(applicationId, workspaceId, maxedLink.id, 1)
 
         const missingResponse = await page.request.get(`/api/v1/public/a/${applicationId}/links/wrong-slug`)
         expect(missingResponse.status()).toBe(404)
@@ -264,22 +319,26 @@ test('@flow public lms guest links reject wrong slug, expired links, and exhaust
         const expiredResponse = await page.request.get(`/api/v1/public/a/${applicationId}/links/expired-link`)
         expect(expiredResponse.status()).toBe(403)
 
-        await page.goto(`/public/a/${applicationId}/links/expired-link`)
+        await applyBrowserPreferences(page, { language: 'ru' })
+        await page.goto(`/public/a/${applicationId}/links/expired-link?locale=ru`)
         await assertPublicLinkErrorPage(
             page,
-            'Public LMS guest expired-link error page',
-            testInfo.outputPath('lms-guest-expired-link-error.png')
+            'Public LMS guest expired-link RU error page',
+            testInfo.outputPath('lms-guest-expired-link-error-ru.png'),
+            'Ссылка доступа не найдена или больше не активна.'
         )
 
         const maxedResponse = await page.request.get(`/api/v1/public/a/${applicationId}/links/maxed-link`)
         expect(maxedResponse.status()).toBe(403)
 
-        await page.goto(`/public/a/${applicationId}/links/maxed-link`)
+        await page.goto(`/public/a/${applicationId}/links/maxed-link?locale=ru`)
         await assertPublicLinkErrorPage(
             page,
-            'Public LMS guest maxed-link error page',
-            testInfo.outputPath('lms-guest-maxed-link-error.png')
+            'Public LMS guest maxed-link RU error page',
+            testInfo.outputPath('lms-guest-maxed-link-error-ru.png'),
+            'Ссылка доступа не найдена или больше не активна.'
         )
+        await applyBrowserPreferences(page, { language: 'en' })
     } finally {
         await disposeApiContext(api)
     }

@@ -95,9 +95,17 @@ const createTrackPlayerHarness = (courseItems = trackCourseItemRows()) => {
 
     const metadata = metadataEnvelope([
         metadataForSlot(parentObjectId, 'LearningTracks', trackParentSlot),
-        metadataForSlot(childObjectId, 'TrackSteps', trackItemsSlot, parentObjectId),
+        metadataForSlot(childObjectId, 'TrackSteps', trackItemsSlot, {
+            id: parentObjectId,
+            kind: 'object',
+            codename: 'LearningTracks'
+        }),
         metadataForSlot(trackCourseObjectId, 'Courses', courseParentSlot),
-        metadataForSlot(trackCourseItemsObjectId, 'CourseItems', courseItemsSlot, trackCourseObjectId)
+        metadataForSlot(trackCourseItemsObjectId, 'CourseItems', courseItemsSlot, {
+            id: trackCourseObjectId,
+            kind: 'object',
+            codename: 'Courses'
+        })
     ])
     const trackStepComponents = metadata.componentsByObjectId.get(childObjectId) ?? []
     metadata.componentsByObjectId.set(
@@ -202,7 +210,11 @@ describe('resolveEffectiveWidgetRuntimeData learnerPlayer projection', () => {
         if (!parent || !items) throw new Error('learnerPlayer slots are missing')
         const metadata = metadataEnvelope([
             metadataForSlot(parentObjectId, 'Courses', parent),
-            metadataForSlot(childObjectId, 'CourseItems', items, parentObjectId)
+            metadataForSlot(childObjectId, 'CourseItems', items, {
+                id: parentObjectId,
+                kind: 'object',
+                codename: 'Courses'
+            })
         ])
         const courseItemComponents = metadata.componentsByObjectId.get(childObjectId) ?? []
         metadata.componentsByObjectId.set(
@@ -348,7 +360,11 @@ describe('resolveEffectiveWidgetRuntimeData learnerPlayer projection', () => {
 
         const metadata = metadataEnvelope([
             metadataForSlot(parentObjectId, 'Courses', parent),
-            metadataForSlot(childObjectId, 'CourseItems', items, parentObjectId)
+            metadataForSlot(childObjectId, 'CourseItems', items, {
+                id: parentObjectId,
+                kind: 'object',
+                codename: 'Courses'
+            })
         ])
         const courseItemsObject = metadata.objectsByCodename.get('CourseItems')
         if (!courseItemsObject) throw new Error('CourseItems runtime metadata is missing')

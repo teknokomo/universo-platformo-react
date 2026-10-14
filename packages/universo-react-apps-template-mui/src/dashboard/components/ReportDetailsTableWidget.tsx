@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
+import type { TFunction } from 'i18next'
 import type { GridColDef, GridFilterModel, GridPaginationModel } from '@mui/x-data-grid'
 import Alert from '@mui/material/Alert'
 import Button from '@mui/material/Button'
@@ -45,6 +46,26 @@ const formatReportGridValue = (value: unknown, field: string, locale: string): s
     return formatRuntimeSafeValue(value, locale)
 }
 
+const reportStatusKeys: Record<string, string> = {
+    started: 'started',
+    submitted: 'submitted',
+    completed: 'completed',
+    timedout: 'timedOut',
+    revoked: 'revoked',
+    passed: 'passed',
+    failed: 'failed'
+}
+
+const formatReportStatus = (value: unknown, locale: string, t: TFunction<'apps'>): string => {
+    if (typeof value !== 'string') return formatReportGridValue(value, '', locale)
+    const normalized = value
+        .trim()
+        .replace(/[\s_-]+/g, '')
+        .toLowerCase()
+    const statusKey = reportStatusKeys[normalized]
+    return statusKey ? t(`reports.statusValues.${statusKey}`, { defaultValue: value }) : formatRuntimeSafeValue(value, locale)
+}
+
 const normalizeRuntimeLabel = (value: string): string =>
     value
         .trim()
@@ -66,7 +87,7 @@ const isSafeExplicitReportLabel = (label: unknown, field: string, locale: string
 const shouldRenderReportColumn = (column: ReportDefinition['columns'][number], locale: string): boolean =>
     !isRuntimeTechnicalFieldName(column.field) || isSafeExplicitReportLabel(column.label, column.field, locale)
 
-const toReportGridColumns = (definition: ReportDefinition, locale: string): GridColDef[] =>
+const toReportGridColumns = (definition: ReportDefinition, locale: string, t: TFunction<'apps'>): GridColDef[] =>
     definition.columns
         .filter((column) => shouldRenderReportColumn(column, locale))
         .map((column) => ({
@@ -75,7 +96,14 @@ const toReportGridColumns = (definition: ReportDefinition, locale: string): Grid
             flex: 1,
             minWidth: column.type === 'number' ? 120 : 160,
             type: column.type === 'number' || column.type === 'boolean' ? column.type : 'string',
-            renderCell: (params) => formatReportGridValue(params.value, column.field, locale)
+            renderCell: (params) =>
+                column.type === 'status'
+                    ? formatReportStatus(params.value, locale, t)
+                    : column.type === 'boolean' && typeof params.value === 'boolean'
+                    ? t(params.value ? 'reports.booleanValues.yes' : 'reports.booleanValues.no', {
+                          defaultValue: params.value ? 'Yes' : 'No'
+                      })
+                    : formatReportGridValue(params.value, column.field, locale)
         }))
 
 const sanitizeReportFilenameSegment = (value: string): string => {
@@ -136,8 +164,8 @@ function AuthorizedReportTable({ reportCodename, rowHeight }: { reportCodename: 
     const rows = useMemo(() => toReportGridRows(query.data?.rows ?? []), [query.data?.rows])
     const resolvedDefinition = query.data?.definition
     const columns = useMemo(
-        () => (resolvedDefinition ? toReportGridColumns(resolvedDefinition, details?.locale ?? 'en') : []),
-        [details?.locale, resolvedDefinition]
+        () => (resolvedDefinition ? toReportGridColumns(resolvedDefinition, details?.locale ?? 'en', t) : []),
+        [details?.locale, resolvedDefinition, t]
     )
     const locale = details?.locale ?? 'en'
     const reportLoadError = query.isError

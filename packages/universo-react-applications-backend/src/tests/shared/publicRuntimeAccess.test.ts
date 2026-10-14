@@ -1,9 +1,11 @@
 import {
     listActivePublicWorkspaceIds,
+    lockPublicWorkspaceForMutation,
     loadPublicRuntimeRecord,
     loadPublicTableRows,
     resolvePublicRuntimeObject,
-    resolvePublicRuntimeSchema
+    resolvePublicRuntimeSchema,
+    setPublicWorkspaceContext
 } from '../../shared/publicRuntimeAccess'
 import { createMockDbExecutor } from '../utils/dbMocks'
 
@@ -48,6 +50,30 @@ describe('publicRuntimeAccess helpers', () => {
         })
 
         await expect(listActivePublicWorkspaceIds(executor, schemaName)).resolves.toEqual([mainWorkspaceId, sharedWorkspaceId])
+    })
+
+    it('sets the public workspace context without retaining a row lock', async () => {
+        const { executor } = createMockDbExecutor()
+        const workspaceId = '018f8a78-7b8f-7c1d-a111-222233334441'
+        executor.query.mockResolvedValueOnce([{ id: workspaceId }]).mockResolvedValueOnce([])
+
+        await expect(setPublicWorkspaceContext(executor, schemaName, workspaceId)).resolves.toBe(true)
+
+        expect(executor.query.mock.calls[0]?.[0]).not.toContain('FOR SHARE')
+        expect(executor.query.mock.calls[0]?.[1]).toEqual([workspaceId])
+        expect(executor.query.mock.calls[1]?.[0]).toContain("set_config('app.current_workspace_id'")
+    })
+
+    it('locks an active shared workspace before public runtime mutations', async () => {
+        const { executor } = createMockDbExecutor()
+        const workspaceId = '018f8a78-7b8f-7c1d-a111-222233334441'
+        executor.query.mockResolvedValue([{ id: workspaceId }])
+
+        await expect(lockPublicWorkspaceForMutation(executor, schemaName, workspaceId)).resolves.toBe(true)
+
+        expect(executor.query.mock.calls[0]?.[0]).toContain('FOR UPDATE')
+        expect(executor.query.mock.calls[0]?.[0]).toContain("workspace_type <> 'personal'")
+        expect(executor.query.mock.calls[0]?.[1]).toEqual([workspaceId])
     })
 
     it('loads a public runtime object definition and exposes top-level components', async () => {
@@ -201,6 +227,35 @@ describe('publicRuntimeAccess helpers', () => {
                 item_title: 'Welcome'
             })
         ])
+    })
+
+    it('locks the active public runtime record in its resolved workspace when requested', async () => {
+        const { executor } = createMockDbExecutor()
+        const recordId = '018f8a78-7b8f-7c1d-a111-222233334421'
+        const workspaceId = '018f8a78-7b8f-7c1d-a111-222233334422'
+        executor.query.mockResolvedValue([{ id: recordId }])
+
+        await expect(
+            loadPublicRuntimeRecord(
+                executor,
+                schemaName,
+                {
+                    id: 'object-1',
+                    codename: 'LearningResources',
+                    kind: 'object',
+                    tableName: 'learning_resources_table',
+                    attrs: []
+                },
+                recordId,
+                workspaceId,
+                { lockForUpdate: true }
+            )
+        ).resolves.toEqual({ id: recordId })
+
+        const [sql, params] = executor.query.mock.calls[0] as [string, unknown[]]
+        expect(sql).toContain('AND "workspace_id" = $2')
+        expect(sql).toMatch(/LIMIT 1\s+FOR UPDATE/)
+        expect(params).toEqual([recordId, workspaceId])
     })
 
     it('loads public child table rows using canonical runtime parent and sort columns', async () => {

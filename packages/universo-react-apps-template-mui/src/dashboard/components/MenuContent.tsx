@@ -181,7 +181,7 @@ export default function MenuContent({ viewModel, variant = 'wide', onNavigate }:
         )
 
     return (
-        <List component='nav' aria-label={t('runtime.menu.navigation', 'Application navigation')} dense sx={{ p: 1 }}>
+        <Box component='nav' aria-label={t('runtime.menu.navigation', 'Application navigation')} sx={{ p: 1 }}>
             {viewModel.showTitle && viewModel.title && !isCompact ? (
                 <Typography
                     variant='caption'
@@ -190,48 +190,126 @@ export default function MenuContent({ viewModel, variant = 'wide', onNavigate }:
                     {viewModel.title}
                 </Typography>
             ) : null}
-            {viewModel.items.map((item) => {
-                const safeHref = sanitizeHref(item.href)
-                const disabled = item.disabled === true || !safeHref
-                const selected = item.selected ?? (!disabled && isCurrentHref(safeHref))
+            <List dense disablePadding>
+                {viewModel.items.map((item) => {
+                    const safeHref = sanitizeHref(item.href)
+                    const disabled = item.disabled === true || !safeHref
+                    const selected = item.selected ?? (!disabled && isCurrentHref(safeHref))
 
-                return (
-                    <Fragment key={item.key}>
-                        {item.dividerBefore ? <Divider sx={{ my: 0.5 }} /> : null}
-                        {item.kind === 'group' ? (
-                            <ListItem disablePadding sx={{ display: 'block' }}>
-                                {wrapCompactTooltip(
-                                    item.label,
-                                    <Box
-                                        role='heading'
-                                        aria-level={2}
-                                        aria-label={item.label}
-                                        sx={{
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            minHeight: 36,
-                                            justifyContent: isCompact ? 'center' : 'flex-start',
-                                            gap: 1,
-                                            px: isCompact ? 1 : 2,
-                                            color: 'text.secondary',
-                                            fontWeight: 600
-                                        }}
-                                    >
-                                        <ListItemIcon aria-hidden='true' sx={{ minWidth: 0 }}>
-                                            {resolveIcon(item.icon)}
-                                        </ListItemIcon>
-                                        {renderText(item.label)}
-                                    </Box>
-                                )}
-                            </ListItem>
-                        ) : (
-                            <ListItem disablePadding sx={{ display: 'block' }}>
-                                {wrapCompactTooltip(
-                                    item.label,
-                                    <ListItemButton
-                                        disabled={disabled}
+                    return (
+                        <Fragment key={item.key}>
+                            {item.dividerBefore ? (
+                                <ListItem disablePadding sx={{ my: 0.5 }}>
+                                    <Divider sx={{ width: '100%' }} />
+                                </ListItem>
+                            ) : null}
+                            {item.kind === 'group' ? (
+                                <ListItem disablePadding sx={{ display: 'block' }}>
+                                    {wrapCompactTooltip(
+                                        item.label,
+                                        <Box
+                                            role='heading'
+                                            aria-level={2}
+                                            aria-label={item.label}
+                                            sx={{
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                minHeight: 36,
+                                                justifyContent: isCompact ? 'center' : 'flex-start',
+                                                gap: 1,
+                                                px: isCompact ? 1 : 2,
+                                                color: 'text.secondary',
+                                                fontWeight: 600
+                                            }}
+                                        >
+                                            <ListItemIcon aria-hidden='true' sx={{ minWidth: 0 }}>
+                                                {resolveIcon(item.icon)}
+                                            </ListItemIcon>
+                                            {renderText(item.label)}
+                                        </Box>
+                                    )}
+                                </ListItem>
+                            ) : (
+                                <ListItem disablePadding sx={{ display: 'block' }}>
+                                    {wrapCompactTooltip(
+                                        item.label,
+                                        <ListItemButton
+                                            disabled={disabled}
+                                            selected={selected}
+                                            aria-label={item.label}
+                                            aria-current={selected ? 'page' : undefined}
+                                            {...(!disabled && safeHref
+                                                ? { component: 'a' as const, href: safeHref, 'data-runtime-navigation-link': '' }
+                                                : {})}
+                                            onClick={(event) => {
+                                                const modifiedClick =
+                                                    event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey
+                                                const runtimeLinkResult =
+                                                    disabled || modifiedClick ? 'unhandled' : tryNavigateRuntimeLink(safeHref, onNavigate)
+                                                if (runtimeLinkResult !== 'unhandled') event.preventDefault()
+                                            }}
+                                            sx={{
+                                                borderRadius: 1,
+                                                minHeight: 36,
+                                                justifyContent: isCompact ? 'center' : 'flex-start',
+                                                px: isCompact ? 1 : undefined,
+                                                '&.Mui-selected': {
+                                                    bgcolor: 'action.selected',
+                                                    color: 'text.primary',
+                                                    '& .MuiListItemIcon-root': {
+                                                        color: 'text.primary'
+                                                    },
+                                                    '& .MuiListItemText-primary': {
+                                                        fontWeight: 700
+                                                    },
+                                                    '&:hover': {
+                                                        bgcolor: 'action.selected'
+                                                    }
+                                                }
+                                            }}
+                                        >
+                                            <ListItemIcon sx={{ minWidth: 0 }}>{resolveIcon(item.icon)}</ListItemIcon>
+                                            {renderText(item.label)}
+                                        </ListItemButton>
+                                    )}
+                                </ListItem>
+                            )}
+                        </Fragment>
+                    )
+                })}
+                {viewModel.overflowItems.length > 0 ? (
+                    <ListItem disablePadding sx={{ display: 'block' }}>
+                        {wrapCompactTooltip(
+                            overflowLabel,
+                            <ListItemButton
+                                id={overflowButtonId}
+                                aria-label={overflowLabel}
+                                aria-haspopup='menu'
+                                aria-expanded={Boolean(overflowAnchor)}
+                                aria-controls={overflowAnchor ? overflowMenuId : undefined}
+                                onClick={(event) => setOverflowAnchor(event.currentTarget)}
+                                sx={{ justifyContent: isCompact ? 'center' : 'flex-start', px: isCompact ? 1 : undefined }}
+                            >
+                                <ListItemIcon sx={{ minWidth: 0 }}>{resolveIcon('more')}</ListItemIcon>
+                                {renderText(overflowLabel)}
+                            </ListItemButton>
+                        )}
+                        <Menu
+                            anchorEl={overflowAnchor}
+                            open={Boolean(overflowAnchor)}
+                            onClose={() => setOverflowAnchor(null)}
+                            slotProps={{ list: { id: overflowMenuId, 'aria-labelledby': overflowButtonId } }}
+                        >
+                            {viewModel.overflowItems.map((item) => {
+                                const safeHref = sanitizeHref(item.href)
+                                const disabled = item.disabled === true || !safeHref
+                                const selected = item.selected ?? (!disabled && isCurrentHref(safeHref))
+
+                                return (
+                                    <MenuItem
+                                        key={item.key}
                                         selected={selected}
-                                        aria-label={item.label}
+                                        disabled={disabled}
                                         aria-current={selected ? 'page' : undefined}
                                         {...(!disabled && safeHref
                                             ? { component: 'a' as const, href: safeHref, 'data-runtime-navigation-link': '' }
@@ -242,90 +320,18 @@ export default function MenuContent({ viewModel, variant = 'wide', onNavigate }:
                                             const runtimeLinkResult =
                                                 disabled || modifiedClick ? 'unhandled' : tryNavigateRuntimeLink(safeHref, onNavigate)
                                             if (runtimeLinkResult !== 'unhandled') event.preventDefault()
-                                        }}
-                                        sx={{
-                                            borderRadius: 1,
-                                            minHeight: 36,
-                                            justifyContent: isCompact ? 'center' : 'flex-start',
-                                            px: isCompact ? 1 : undefined,
-                                            '&.Mui-selected': {
-                                                bgcolor: 'action.selected',
-                                                color: 'text.primary',
-                                                '& .MuiListItemIcon-root': {
-                                                    color: 'text.primary'
-                                                },
-                                                '& .MuiListItemText-primary': {
-                                                    fontWeight: 700
-                                                },
-                                                '&:hover': {
-                                                    bgcolor: 'action.selected'
-                                                }
-                                            }
+                                            setOverflowAnchor(null)
                                         }}
                                     >
-                                        <ListItemIcon sx={{ minWidth: 0 }}>{resolveIcon(item.icon)}</ListItemIcon>
-                                        {renderText(item.label)}
-                                    </ListItemButton>
-                                )}
-                            </ListItem>
-                        )}
-                    </Fragment>
-                )
-            })}
-            {viewModel.overflowItems.length > 0 ? (
-                <ListItem disablePadding sx={{ display: 'block' }}>
-                    {wrapCompactTooltip(
-                        overflowLabel,
-                        <ListItemButton
-                            id={overflowButtonId}
-                            aria-label={overflowLabel}
-                            aria-haspopup='menu'
-                            aria-expanded={Boolean(overflowAnchor)}
-                            aria-controls={overflowAnchor ? overflowMenuId : undefined}
-                            onClick={(event) => setOverflowAnchor(event.currentTarget)}
-                            sx={{ justifyContent: isCompact ? 'center' : 'flex-start', px: isCompact ? 1 : undefined }}
-                        >
-                            <ListItemIcon sx={{ minWidth: 0 }}>{resolveIcon('more')}</ListItemIcon>
-                            {renderText(overflowLabel)}
-                        </ListItemButton>
-                    )}
-                    <Menu
-                        anchorEl={overflowAnchor}
-                        open={Boolean(overflowAnchor)}
-                        onClose={() => setOverflowAnchor(null)}
-                        slotProps={{ list: { id: overflowMenuId, 'aria-labelledby': overflowButtonId } }}
-                    >
-                        {viewModel.overflowItems.map((item) => {
-                            const safeHref = sanitizeHref(item.href)
-                            const disabled = item.disabled === true || !safeHref
-                            const selected = item.selected ?? (!disabled && isCurrentHref(safeHref))
-
-                            return (
-                                <MenuItem
-                                    key={item.key}
-                                    selected={selected}
-                                    disabled={disabled}
-                                    aria-current={selected ? 'page' : undefined}
-                                    {...(!disabled && safeHref
-                                        ? { component: 'a' as const, href: safeHref, 'data-runtime-navigation-link': '' }
-                                        : {})}
-                                    onClick={(event) => {
-                                        const modifiedClick =
-                                            event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey
-                                        const runtimeLinkResult =
-                                            disabled || modifiedClick ? 'unhandled' : tryNavigateRuntimeLink(safeHref, onNavigate)
-                                        if (runtimeLinkResult !== 'unhandled') event.preventDefault()
-                                        setOverflowAnchor(null)
-                                    }}
-                                >
-                                    <ListItemIcon>{resolveIcon(item.icon)}</ListItemIcon>
-                                    <ListItemText primary={item.label} />
-                                </MenuItem>
-                            )
-                        })}
-                    </Menu>
-                </ListItem>
-            ) : null}
-        </List>
+                                        <ListItemIcon>{resolveIcon(item.icon)}</ListItemIcon>
+                                        <ListItemText primary={item.label} />
+                                    </MenuItem>
+                                )
+                            })}
+                        </Menu>
+                    </ListItem>
+                ) : null}
+            </List>
+        </Box>
     )
 }

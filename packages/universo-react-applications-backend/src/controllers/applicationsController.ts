@@ -19,6 +19,7 @@ import type { ApplicationRole, RolePermission } from '../routes/guards'
 import { validateListQuery } from '../schemas/queryParams'
 import { ApplicationSchemaStatus } from '../persistence/contracts'
 import {
+    type ApplicationRecord,
     type ApplicationMemberRecord,
     copyApplicationWithOptions,
     createApplicationWithOwner,
@@ -36,6 +37,9 @@ import {
     updateApplicationMember,
     updateApplication
 } from '../persistence/applicationsStore'
+import { lockApplicationForPublicGuestWithdrawal } from '../persistence/publicGuestApplicationStore'
+import { revokeGuestSessionIdempotencyForApplication } from '../persistence/guestSessionIdempotencyStore'
+import { revokeGuestAssessmentAttemptsForApplication } from '../services/guestAssessmentApplicationRevocation'
 import {
     archivePersonalWorkspaceForUser,
     ensurePersonalWorkspaceForUser,
@@ -622,54 +626,116 @@ export function createApplicationsController(getDbExecutor: () => DbExecutor) {
             }
         }
 
-        let nextName = application.name
-        if (name !== undefined) {
-            const sanitizedName = sanitizeLocalizedInput(name)
-            if (Object.keys(sanitizedName).length === 0) {
-                return res.status(400).json({ error: 'Validation failed', details: { name: ['Name is required'] } })
-            }
-            const primary = namePrimaryLocale ?? application.name?._primary ?? 'en'
-            const nameVlc = buildLocalizedContent(sanitizedName, primary, primary)
-            if (nameVlc) {
-                nextName = nameVlc
-            }
-        }
-
-        let nextDescription = application.description
-        if (description !== undefined) {
-            const sanitizedDescription = sanitizeLocalizedInput(description)
-            if (Object.keys(sanitizedDescription).length > 0) {
-                const primary =
-                    descriptionPrimaryLocale ?? application.description?._primary ?? nextName?._primary ?? namePrimaryLocale ?? 'en'
-                const descriptionVlc = buildLocalizedContent(sanitizedDescription, primary, primary)
-                if (descriptionVlc) {
-                    nextDescription = descriptionVlc
+        const buildUpdateValues = (base: typeof application) => {
+            let nextName = base.name
+            if (name !== undefined) {
+                const sanitizedName = sanitizeLocalizedInput(name)
+                if (Object.keys(sanitizedName).length === 0) {
+                    return { error: 'Name is required' as const }
                 }
-            } else {
-                nextDescription = null
+                const primary = namePrimaryLocale ?? base.name?._primary ?? 'en'
+                const nameVlc = buildLocalizedContent(sanitizedName, primary, primary)
+                if (nameVlc) nextName = nameVlc
             }
-        }
 
-        const sanitizedSettings = settings !== undefined ? sanitizeApplicationSettingsUpdate(settings) : undefined
-        const nextSettings =
-            sanitizedSettings !== undefined
-                ? mergeApplicationSettingsForUpdate(application.settings ?? {}, sanitizedSettings)
-                : application.settings ?? {}
+            let nextDescription = base.description
+            if (description !== undefined) {
+                const sanitizedDescription = sanitizeLocalizedInput(description)
+                if (Object.keys(sanitizedDescription).length > 0) {
+                    const primary =
+                        descriptionPrimaryLocale ?? base.description?._primary ?? nextName?._primary ?? namePrimaryLocale ?? 'en'
+                    const descriptionVlc = buildLocalizedContent(sanitizedDescription, primary, primary)
+                    if (descriptionVlc) nextDescription = descriptionVlc
+                } else {
+                    nextDescription = null
+                }
+            }
 
-        let saved = await updateApplication(
-            {
-                query: <TRow = unknown>(sql: string, parameters?: unknown[]) => query<TRow>(req, sql, parameters ?? [])
-            },
-            {
-                applicationId,
+            const sanitizedSettings = settings !== undefined ? sanitizeApplicationSettingsUpdate(settings) : undefined
+            const nextSettings =
+                sanitizedSettings !== undefined
+                    ? mergeApplicationSettingsForUpdate(base.settings ?? {}, sanitizedSettings)
+                    : base.settings ?? {}
+
+            return {
                 name: name !== undefined ? nextName : undefined,
                 description: description !== undefined ? nextDescription : undefined,
-                settings: sanitizedSettings !== undefined ? nextSettings : undefined,
+                settings: sanitizedSettings !== undefined ? nextSettings : undefined
+            }
+        }
+
+        const initialUpdateValues = buildUpdateValues(application)
+        if ('error' in initialUpdateValues) {
+            return res.status(400).json({ error: 'Validation failed', details: { name: [initialUpdateValues.error] } })
+        }
+
+        const queryable = {
+            query: <TRow = unknown>(sql: string, parameters?: unknown[]) => query<TRow>(req, sql, parameters ?? [])
+        }
+        let responseRole: ApplicationRole = ctx.membership.role as ApplicationRole
+        let saved: ApplicationRecord | null
+        if (isPublic === false) {
+            const withdrawalResult = await ds.transaction(async (transaction) => {
+                const lockedApplication = await lockApplicationForPublicGuestWithdrawal(transaction, applicationId)
+                if (!lockedApplication) return { kind: 'missing' as const }
+
+                const currentAccess = await ensureApplicationAccess(transaction, userId, applicationId, ['admin', 'owner'])
+                responseRole = currentAccess.membership.role as ApplicationRole
+                const currentApplication = await findApplicationDetails(transaction, applicationId)
+                if (!currentApplication) return { kind: 'missing' as const }
+
+                if (expectedVersion !== undefined && currentApplication.version !== expectedVersion) {
+                    throw new OptimisticLockError({
+                        entityId: applicationId,
+                        entityType: 'application',
+                        expectedVersion,
+                        actualVersion: currentApplication.version,
+                        updatedAt: currentApplication.updatedAt,
+                        updatedBy: currentApplication.updatedBy ?? null
+                    })
+                }
+
+                const currentUpdateValues = buildUpdateValues(currentApplication)
+                if ('error' in currentUpdateValues) {
+                    return { kind: 'validation_error' as const, message: currentUpdateValues.error }
+                }
+
+                const updated = await updateApplication(transaction, {
+                    applicationId,
+                    ...currentUpdateValues,
+                    isPublic: false,
+                    userId,
+                    expectedVersion
+                })
+                if (!updated) {
+                    throw new UpdateFailure(404, { error: 'Application could not be withdrawn' })
+                }
+
+                await revokeGuestSessionIdempotencyForApplication(transaction, applicationId)
+                await revokeGuestAssessmentAttemptsForApplication(
+                    transaction,
+                    lockedApplication.schemaName,
+                    lockedApplication.workspacesEnabled,
+                    lockedApplication.settings
+                )
+                return { kind: 'saved' as const, application: updated }
+            })
+            if (withdrawalResult.kind === 'validation_error') {
+                return res.status(400).json({
+                    error: 'Validation failed',
+                    details: { name: [withdrawalResult.message] }
+                })
+            }
+            saved = withdrawalResult.kind === 'saved' ? withdrawalResult.application : null
+        } else {
+            saved = await updateApplication(queryable, {
+                applicationId,
+                ...initialUpdateValues,
                 isPublic,
                 userId,
                 expectedVersion
-            }
-        )
+            })
+        }
 
         if (!saved && expectedVersion !== undefined) {
             const latest = await findApplicationDetails(
@@ -699,7 +765,7 @@ export function createApplicationsController(getDbExecutor: () => DbExecutor) {
             )
         }
         if (!saved) return res.status(404).json({ error: 'Application not found' })
-        const role = ctx.membership.role as ApplicationRole
+        const role = responseRole
         const permissions = resolveEffectiveRolePermissions(role, saved.settings ?? {})
 
         return res.json({

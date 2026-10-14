@@ -8,6 +8,7 @@ import {
 
 test('runtime UX oracles inspect visible control values and compact structured cells', async ({ page }) => {
     const exposedId = '0190a9b5-3cde-7abc-8def-0123456789a2'
+    const exposedRuntimeHandle = `rh1.${'A'.repeat(32)}`
     await page.setContent(`
       <main>
         <section data-testid="visible-id-surface">
@@ -20,6 +21,7 @@ test('runtime UX oracles inspect visible control values and compact structured c
         <section data-testid="accessible-name-surface">
           <button aria-label="Open record ${exposedId}">Open record</button>
         </section>
+        <section data-testid="runtime-handle-surface">${exposedRuntimeHandle}</section>
         <section data-testid="image-alt-surface">
           <img alt="Preview of record ${exposedId}" src="/preview.png" />
         </section>
@@ -49,6 +51,13 @@ test('runtime UX oracles inspect visible control values and compact structured c
             checkUuidSubstrings: true
         })
     ).rejects.toThrow('visible raw UUID value')
+
+    await expect(
+        expectNoTechnicalLeakage(page.getByTestId('runtime-handle-surface'), {
+            label: 'Visible opaque runtime record handle',
+            checkOpaqueRuntimeHandles: true
+        })
+    ).rejects.toThrow('visible opaque runtime record handle')
 
     await expect(
         expectNoTechnicalLeakage(page.getByTestId('image-alt-surface'), {

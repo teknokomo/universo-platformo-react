@@ -121,6 +121,10 @@ const WORKSPACE_ERROR_TRANSLATIONS: Record<string, WorkspaceErrorTranslation> = 
         key: 'workspace.errors.copyReferenceUnresolved',
         fallback: 'Workspace copy contains a required reference that could not be copied.'
     },
+    WORKSPACE_COPY_ACCESS_LINK_INTAKE_INVALID: {
+        key: 'workspace.errors.copyAccessLinkIntakeInvalid',
+        fallback: 'This workspace has invalid guest intake settings and could not be copied.'
+    },
     PERSONAL_WORKSPACE_MUTATION_BLOCKED: {
         key: 'workspace.errors.personalMutationBlocked',
         fallback: 'Personal workspace cannot be changed'

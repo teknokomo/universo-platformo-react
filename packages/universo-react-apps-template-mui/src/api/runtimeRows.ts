@@ -347,7 +347,7 @@ export async function reorderAppRows(options: {
     workspaceId?: string | null
     orderedRowIds: string[]
     expectedVersionsByRowId?: Record<string, number>
-    parentScope?: { fieldCodename: string; parentRecordId: string }
+    parentScope?: RuntimeRelationScope
 }): Promise<void> {
     const { apiBaseUrl, applicationId, objectCollectionId, sectionId, workspaceId, orderedRowIds, expectedVersionsByRowId, parentScope } =
         options

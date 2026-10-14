@@ -113,7 +113,9 @@ describe('buildTabularColumns', () => {
         )
 
         const user = userEvent.setup()
-        await user.click(screen.getByRole('combobox'))
+        const projectSelect = screen.getByRole('combobox', { name: 'Project' })
+        expect(projectSelect).toBeInTheDocument()
+        await user.click(projectSelect)
         expect(screen.getByRole('option', { name: 'Project one' })).toBeVisible()
         expect(screen.queryByRole('option', { name: rawUuid })).not.toBeInTheDocument()
         await user.click(screen.getByRole('option', { name: 'Project one' }))

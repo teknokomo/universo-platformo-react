@@ -25,6 +25,7 @@ import Search from './Search'
 import InterpretationNetworkWorkspaceWidget from './InterpretationNetworkWorkspaceWidget'
 import type { ZoneWidgetItem } from '../contracts'
 import { useDashboardDetails } from '../DashboardDetailsContext'
+import { useDashboardWidgetSelection } from '../DashboardWidgetSelectionContext'
 import { childrenForSlot, type RuntimePlacement } from '../runtime/widgetPlacementGraph'
 import DashboardDataWidget from './DashboardDataWidget'
 import RuntimeMenuWidget from './RuntimeMenuWidget'
@@ -39,6 +40,7 @@ const MAX_CONTAINER_DEPTH = 8
 
 function DetailsTabsWidget({ widget, options }: { widget: ZoneWidgetItem; options: Required<RenderWidgetOptions> }) {
     const details = useDashboardDetails()
+    const widgetSelection = useDashboardWidgetSelection()
     const { t } = useTranslation('apps')
     const parsed = useMemo(() => dashboardWidgetConfigSchemaByKey.detailsTabs.safeParse(widget.config), [widget.config])
     const tabs = useMemo(
@@ -46,11 +48,19 @@ function DetailsTabsWidget({ widget, options }: { widget: ZoneWidgetItem; option
         [parsed]
     )
     const defaultTab = tabs.find((tab) => tab.isDefault)?.slotKey ?? tabs[0]?.slotKey ?? false
-    const [activeSlot, setActiveSlot] = useState<string | false>(defaultTab)
+    const selectedSlot = widgetSelection?.selectedDetailsTabs[widget.instanceKey]
+    const [localActiveSlot, setLocalActiveSlot] = useState<string | false>(defaultTab)
+    const activeSlot = widgetSelection
+        ? selectedSlot && tabs.some((tab) => tab.slotKey === selectedSlot)
+            ? selectedSlot
+            : defaultTab
+        : localActiveSlot
 
     useEffect(() => {
-        if (!tabs.some((tab) => tab.slotKey === activeSlot)) setActiveSlot(defaultTab)
-    }, [activeSlot, defaultTab, tabs])
+        if (!widgetSelection && localActiveSlot !== false && !tabs.some((tab) => tab.slotKey === localActiveSlot)) {
+            setLocalActiveSlot(defaultTab)
+        }
+    }, [defaultTab, localActiveSlot, tabs, widgetSelection])
 
     if (!parsed.success) return <RuntimeWidgetStatus invalid />
     if (tabs.length === 0 || activeSlot === false) return <RuntimeWidgetStatus state={{ status: 'empty' }} />
@@ -59,7 +69,15 @@ function DetailsTabsWidget({ widget, options }: { widget: ZoneWidgetItem; option
 
     return (
         <Box data-testid='runtime-details-tabs'>
-            <Tabs value={activeSlot} onChange={(_, value: string) => setActiveSlot(value)} variant='scrollable' scrollButtons='auto'>
+            <Tabs
+                value={activeSlot}
+                onChange={(_, value: string) => {
+                    if (widgetSelection) widgetSelection.setDetailsTab(widget.instanceKey, value)
+                    else setLocalActiveSlot(value)
+                }}
+                variant='scrollable'
+                scrollButtons='auto'
+            >
                 {tabs.map((tab) => (
                     <Tab
                         key={tab.slotKey}
@@ -73,7 +91,9 @@ function DetailsTabsWidget({ widget, options }: { widget: ZoneWidgetItem; option
                     <RuntimeWidgetStatus state={{ status: 'empty' }} />
                 ) : (
                     children.map((child) => (
-                        <Box key={child.id}>{renderWidget(child, { ...options, depth: options.depth + 1, menuVariant: 'wide' })}</Box>
+                        <Box key={child.id} sx={{ minWidth: 0, maxWidth: '100%' }}>
+                            {renderWidget(child, { ...options, depth: options.depth + 1, menuVariant: 'wide' })}
+                        </Box>
                     ))
                 )}
             </Box>

@@ -3314,12 +3314,26 @@
             "addRow": "Add Row",
             "noRows": "No rows yet. Click \"Add Row\" to add data.",
             "edit": "Edit",
+            "editCell": "Edit {{field}} in row {{row}}",
             "copy": "Copy",
             "delete": "Delete",
             "deleteTitle": "Delete Row",
             "deleteDescription": "Are you sure you want to delete this row?",
             "cancel": "Cancel",
-            "actions": "Actions"
+            "actions": "Actions",
+            "assessmentOptions": {
+                "title": "Answer options",
+                "help": "Add between {{minOptions}} and {{maxOptions}} non-empty options and mark exactly one correct answer.",
+                "helpExact": "Add exactly {{count}} non-empty options and mark exactly one correct answer.",
+                "correctAnswer": "Correct answer",
+                "correct": "Option {{number}} is correct",
+                "optionLabel": "Option {{number}}",
+                "open": "Edit answers ({{count}})",
+                "add": "Add option",
+                "remove": "Remove option {{number}}",
+                "moveUp": "Move option {{number}} up",
+                "moveDown": "Move option {{number}} down"
+            }
         },
         "parentCollectionTabsLabel": "Object tabs",
         "parentCollectionMissingTitle": "No object selected",

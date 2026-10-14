@@ -835,7 +835,8 @@ describe('runtime row API helpers', () => {
             },
             parentScope: {
                 fieldCodename: 'CourseId',
-                parentRecordId: '017f22e2-79b0-7cc3-98c4-dc0c0c073999'
+                parentRecordId: '017f22e2-79b0-7cc3-98c4-dc0c0c073999',
+                layoutTarget: { targetKind: 'object', entityTypeId: '017f22e2-79b0-7cc3-98c4-dc0c0c073990' }
             }
         })
 
@@ -851,7 +852,8 @@ describe('runtime row API helpers', () => {
                 },
                 parentScope: {
                     fieldCodename: 'CourseId',
-                    parentRecordId: '017f22e2-79b0-7cc3-98c4-dc0c0c073999'
+                    parentRecordId: '017f22e2-79b0-7cc3-98c4-dc0c0c073999',
+                    layoutTarget: { targetKind: 'object', entityTypeId: '017f22e2-79b0-7cc3-98c4-dc0c0c073990' }
                 }
             })
         )
@@ -964,7 +966,8 @@ describe('runtime row API helpers', () => {
 
         const relationScope = {
             fieldCodename: 'CourseId',
-            parentRecordId: '018f8a78-7b8f-7c1d-a111-222233334401'
+            parentRecordId: '018f8a78-7b8f-7c1d-a111-222233334401',
+            layoutTarget: { targetKind: 'object' as const, entityTypeId: '018f8a78-7b8f-7c1d-a111-222233334410' }
         }
         const adapter = createStandaloneAdapter({ apiBaseUrl: '/api/v1', applicationId: 'app-1' })
         const target = {

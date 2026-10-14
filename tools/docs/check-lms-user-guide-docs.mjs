@@ -82,7 +82,7 @@ const LEGACY_LMS_USER_NAV_PATTERN =
 const RU_FALLBACK_PATTERN =
     /\b(?:Learning Content|Create element|Edit element|No data to display|String must contain|Invalid input|What You Need|Workflow|Result|What To Check|Related Pages|Role|Goal)\b/
 const RU_ALLOWED_LATIN_TOKEN =
-    /^(?:LMS|CSV|URL|ID|JSON|UUID|HTTP|HTTPS|GitBook|TanStack|Query|React|Devtools|SCORM|xAPI|PDF|PPTX|DOCX|XLSX|MP3|MP4|FLV|MOV|Editor|js)$/i
+    /^(?:LMS|CSV|URL|ID|JSON|UUID|HTTP|HTTPS|GitBook|TanStack|Query|React|Devtools|SCORM|xAPI|QR|PDF|PPTX|DOCX|XLSX|MP3|MP4|FLV|MOV|Editor|js)$/i
 const RU_TECHNICAL_MARKUP_LINE = /^\s*(?:---|description:|!\[|<!--)/
 const RU_LINK_ONLY_LINE = /^\s*-\s+\[[^\]]+]\([^)]+\.md\)\s*$/
 const MIN_RU_EN_WORD_RATIO = 0.75

@@ -9,7 +9,8 @@ const expectedReportCodenames = [
     'CourseBuilderOutline',
     'TrackBuilderOutline',
     'Leaderboard',
-    'Achievements'
+    'Achievements',
+    'QuizAttemptResults'
 ]
 
 describe('LMS saved report seed', () => {
@@ -52,6 +53,45 @@ describe('LMS saved report seed', () => {
                     ])
                 )
             }
+
+            if (element.codename === 'QuizAttemptResults') {
+                expect(definition.datasource).toMatchObject({
+                    kind: 'records.list',
+                    sectionCodename: 'QuizAttempts',
+                    query: { sort: [{ field: 'SubmittedAt', direction: 'desc' }] }
+                })
+                expect(definition.filters).toEqual([{ field: 'SubmittedAt', operator: 'isNotEmpty' }])
+                expect(definition.columns).toEqual([
+                    { field: 'QuizId', label: expect.any(Object), type: 'text' },
+                    { field: 'StudentId', label: expect.any(Object), type: 'text' },
+                    { field: 'StartedAt', label: expect.any(Object), type: 'date' },
+                    { field: 'SubmittedAt', label: expect.any(Object), type: 'date' },
+                    { field: 'Score', label: expect.any(Object), type: 'number' },
+                    { field: 'Passed', label: expect.any(Object), type: 'boolean' },
+                    { field: 'TotalQuestions', label: expect.any(Object), type: 'number' },
+                    { field: 'Status', label: expect.any(Object), type: 'status' },
+                    { field: 'FinishedReason', label: expect.any(Object), type: 'status' }
+                ])
+                expect(definition.columns.map(({ label }) => label)).toEqual([
+                    expect.objectContaining({ locales: expect.objectContaining({ en: expect.any(Object), ru: expect.any(Object) }) }),
+                    expect.objectContaining({ locales: expect.objectContaining({ en: expect.any(Object), ru: expect.any(Object) }) }),
+                    expect.objectContaining({ locales: expect.objectContaining({ en: expect.any(Object), ru: expect.any(Object) }) }),
+                    expect.objectContaining({ locales: expect.objectContaining({ en: expect.any(Object), ru: expect.any(Object) }) }),
+                    expect.objectContaining({ locales: expect.objectContaining({ en: expect.any(Object), ru: expect.any(Object) }) }),
+                    expect.objectContaining({ locales: expect.objectContaining({ en: expect.any(Object), ru: expect.any(Object) }) }),
+                    expect.objectContaining({ locales: expect.objectContaining({ en: expect.any(Object), ru: expect.any(Object) }) }),
+                    expect.objectContaining({ locales: expect.objectContaining({ en: expect.any(Object), ru: expect.any(Object) }) }),
+                    expect.objectContaining({ locales: expect.objectContaining({ en: expect.any(Object), ru: expect.any(Object) }) })
+                ])
+
+                const quizEntity = lmsTemplate.seed.entities?.find((entity) => entity.codename === 'Quizzes')
+                const studentEntity = lmsTemplate.seed.entities?.find((entity) => entity.codename === 'Students')
+                expect(quizEntity?.components.find((component) => component.codename === 'Title')?.isDisplayComponent).toBe(true)
+                expect(studentEntity?.components.find((component) => component.codename === 'DisplayName')?.isDisplayComponent).toBe(true)
+                expect(studentEntity?.components.map((component) => component.codename)).toEqual(
+                    expect.arrayContaining(['FirstName', 'LastName'])
+                )
+            }
         }
 
         const placedReportCodenames = Object.values(lmsTemplate.seed.layoutZoneWidgets)
@@ -59,7 +99,7 @@ describe('LMS saved report seed', () => {
             .map((placement) => placement.rendererConfig?.reportCodename)
             .filter((codename): codename is string => typeof codename === 'string')
         expect(new Set(placedReportCodenames).size).toBeGreaterThan(0)
-        expect(placedReportCodenames).toEqual(expect.arrayContaining(['LearningContentSummary', 'LearnerProgress']))
+        expect(placedReportCodenames).toEqual(expect.arrayContaining(['LearningContentSummary', 'LearnerProgress', 'QuizAttemptResults']))
         expect(reportElements.map(({ codename }) => codename)).toEqual(expect.arrayContaining(placedReportCodenames))
     })
 

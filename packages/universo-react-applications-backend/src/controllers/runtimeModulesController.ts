@@ -6,6 +6,7 @@ import { createQueryHelper, resolveRuntimeSchema } from '../shared/runtimeHelper
 import { RuntimeModulesService } from '../services/runtimeModulesService'
 import { RUNTIME_RECORD_RULE_CODES } from '../services/runtimeRecordRules'
 import { RUNTIME_ENTITY_MUTATION_POLICY_CODES } from '../shared/entityMutationPolicy'
+import { RUNTIME_ACCESS_LINK_INTAKE_POLICY_INVALID } from '../services/guestAccessLinkIntakePolicy'
 
 const moduleAttachmentKindSchema = z
     .string()
@@ -31,6 +32,7 @@ export function createRuntimeModulesController(getDbExecutor: () => DbExecutor) 
 
     const resolveRuntimeModuleErrorStatus = (error: unknown): number => {
         const message = error instanceof Error ? error.message : String(error)
+        const databaseCode = error && typeof error === 'object' ? (error as Record<string, unknown>).code : null
 
         if (message === 'Runtime module not found') return 404
         if (message.includes('Insufficient permissions')) return 403
@@ -38,6 +40,7 @@ export function createRuntimeModulesController(getDbExecutor: () => DbExecutor) 
         if (message.includes('public RPC')) return 403
         if (message.includes('circuit breaker')) return 503
         if (message.includes('timed out')) return 504
+        if (typeof databaseCode === 'string' && /^[0-9A-Z]{5}$/.test(databaseCode)) return 500
         return 400
     }
 
@@ -45,7 +48,8 @@ export function createRuntimeModulesController(getDbExecutor: () => DbExecutor) 
      * database codes must stay behind the generic response body. */
     const FORWARDABLE_MODULE_ERROR_CODES = new Set<string>([
         ...Object.values(RUNTIME_RECORD_RULE_CODES),
-        ...Object.values(RUNTIME_ENTITY_MUTATION_POLICY_CODES)
+        ...Object.values(RUNTIME_ENTITY_MUTATION_POLICY_CODES),
+        RUNTIME_ACCESS_LINK_INTAKE_POLICY_INVALID
     ])
 
     /**

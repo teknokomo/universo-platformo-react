@@ -131,7 +131,7 @@ export default function Dashboard(props: DashboardProps) {
     const showHeader = hasActiveTopWidget('header')
     const dockedSideMenuModes = availableSideMenuModes.filter((mode): mode is 'wide' | 'compact' => mode === 'wide' || mode === 'compact')
     const canToggleDockedSideMenuMode = sideMenuEnabled && dockedSideMenuModes.length > 1
-    const showAppNavbarOnDesktop = showAppNavbar && (sideMenuMode === 'overlay' || canToggleDockedSideMenuMode)
+    const showAppNavbarOnDesktop = showAppNavbar && (sideMenuMode === 'overlay' || rightWidgets.length > 0)
     const canOpenOverlaySideMenu = sideMenuEnabled && availableSideMenuModes.includes('overlay')
     const canToggleOverlaySideMenuMode = canOpenOverlaySideMenu && dockedSideMenuModes.length > 0
     const headerLeadingWidgets = showHeader ? activeTopWidgets.filter((widget) => HEADER_LEADING_WIDGET_KEYS.has(widget.widgetKey)) : []

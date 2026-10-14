@@ -8,6 +8,7 @@ export type E2ERunManifest = {
         email: string
         password: string
         userId: string
+        roleIds: string[]
     }
     createdGlobalUsers?: Array<{
         userId: string

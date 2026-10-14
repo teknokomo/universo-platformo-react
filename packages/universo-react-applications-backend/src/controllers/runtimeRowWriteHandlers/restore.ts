@@ -23,10 +23,16 @@ import {
 import { assertRuntimeRecordRules } from '../../services/runtimeRecordRules'
 import { createRuntimeVersionConflictFailure } from '../runtimeVersionConflict'
 import { assertMarketingRuntimeRowCap } from '../../services/marketingRowCap'
-import { buildRuntimeExpectedVersionPredicate, runtimeRestoreBodySchema } from '../../services/runtimeRowSupport/contracts'
+import { lockGuestAccessLinkWorkspace } from '../../services/guestAccessLinkRevocation'
+import { resolveAccessLinkIntakePolicy } from '../../services/guestAccessLinkIntakePolicy'
+import {
+    buildRuntimeExpectedVersionPredicate,
+    isRuntimeServerOwnedAttr,
+    runtimeRestoreBodySchema
+} from '../../services/runtimeRowSupport/contracts'
 import { resolveRuntimeObjectCollection } from '../runtimeRowSupport/objects'
 import { denyRuntimeEntityMutation, assertRuntimeEntityMutationAllowed } from '../../shared/entityMutationPolicy'
-import { validateRuntimeParentRecordAccessReferences } from '../runtimeRowSupport/validation'
+import { validateRuntimeAccessLinkTarget, validateRuntimeParentRecordAccessReferences } from '../runtimeRowSupport/validation'
 import {
     assertInterpretationNetworkGenericCreateAllowed,
     assertNotProtectedSystemStructureRuntimeRow,
@@ -94,6 +100,14 @@ export const createRestoreRowHandler = ({ getDbExecutor, query }: RuntimeRowWrit
 
         try {
             await withTransactionSavepoint(ctx.manager, async (txManager) => {
+                if (resolveRuntimeCodenameText(objectCollection.codename) === 'AccessLinks') {
+                    await lockGuestAccessLinkWorkspace({
+                        executor: txManager,
+                        schemaName: ctx.schemaName,
+                        workspacesEnabled: ctx.workspacesEnabled,
+                        workspaceId: ctx.currentWorkspaceId
+                    })
+                }
                 const sourceValues: unknown[] = [rowId]
                 const sourceAccessClause = await buildRuntimeRecordAccessClause({
                     manager: txManager,
@@ -131,6 +145,33 @@ export const createRestoreRowHandler = ({ getDbExecutor, query }: RuntimeRowWrit
                     throw new UpdateFailure(423, {
                         error: 'Record is locked'
                     })
+                }
+                const accessLinkIntakePolicy = resolveAccessLinkIntakePolicy({
+                    objectCodename: resolveRuntimeCodenameText(objectCollection.codename),
+                    fields: attrs.map((attr) => ({
+                        codename: attr.codename,
+                        columnName: attr.column_name,
+                        dataType: attr.data_type,
+                        defaultValue: attr.ui_config?.defaultValue
+                    })),
+                    row: sourceRow
+                })
+                if (!accessLinkIntakePolicy.valid) {
+                    throw new UpdateFailure(400, { error: accessLinkIntakePolicy.error, code: accessLinkIntakePolicy.code })
+                }
+                const accessLinkTargetError = await validateRuntimeAccessLinkTarget({
+                    manager: txManager,
+                    schemaIdent: ctx.schemaIdent,
+                    currentWorkspaceId: ctx.currentWorkspaceId,
+                    currentUserId: ctx.userId,
+                    permissions: ctx.permissions,
+                    objectCodename: resolveRuntimeCodenameText(objectCollection.codename),
+                    attrs,
+                    row: sourceRow,
+                    lockTarget: true
+                })
+                if (accessLinkTargetError) {
+                    throw new UpdateFailure(400, { error: accessLinkTargetError })
                 }
                 await assertNotProtectedSystemStructureRuntimeRow(txManager, ctx, applicationId, objectCollection.id, attrs, sourceRow)
                 await assertInterpretationNetworkGenericCreateAllowed(txManager, ctx, applicationId, objectCollection.id)
@@ -228,7 +269,8 @@ export const createRestoreRowHandler = ({ getDbExecutor, query }: RuntimeRowWrit
                         if (
                             !parentAttr ||
                             parentAttr.data_type !== 'REF' ||
-                            parentAttr.target_object_id !== restoreTarget.targetObjectCollectionId
+                            parentAttr.target_object_id !== restoreTarget.targetObjectCollectionId ||
+                            isRuntimeServerOwnedAttr(parentAttr)
                         ) {
                             throw new UpdateFailure(400, {
                                 error: 'Restore target parent field does not reference the target object',

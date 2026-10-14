@@ -4,6 +4,7 @@ import {
     isCompatibleWidgetBindingEntity,
     MARKETING_MAX_RUNTIME_RECORDS,
     MAX_WIDGET_BINDING_RESOLVED_RECORDS,
+    normalizeWidgetBindingDataType,
     type LayoutWidgetDefinition,
     type WidgetBindingSlotDefinition,
     type WidgetBindingTarget
@@ -363,7 +364,11 @@ export const createPublicMarketingBindingRecordLoader = (
         return pending
     }
 
-    const getCompatibleObject = async (slot: WidgetBindingSlotDefinition, entityCodename: string): Promise<CompatiblePublishedObject> => {
+    const getCompatibleObject = async (
+        slot: WidgetBindingSlotDefinition,
+        entityCodename: string,
+        relationParent?: PublishedObjectMetadata
+    ): Promise<CompatiblePublishedObject> => {
         assertCodename(entityCodename)
         const object = await readObjectMetadata(entityCodename)
         if (
@@ -374,18 +379,38 @@ export const createPublicMarketingBindingRecordLoader = (
             throw new PublicMarketingMaterializationError('Published marketing Object capabilities are incompatible')
         }
         const components = await readComponentMetadata(object, slot)
-        const compatible = isCompatibleWidgetBindingEntity(slot, {
-            kind: object.kind,
-            codename: object.codename,
-            config: object.config,
-            components: [...components.values()].map(({ codename, dataType, isRequired, validationRules, uiConfig }) => ({
-                codename,
-                dataType,
-                isRequired,
-                validationRules,
-                uiConfig
-            }))
-        })
+        const compatible = isCompatibleWidgetBindingEntity(
+            slot,
+            {
+                kind: object.kind,
+                codename: object.codename,
+                config: object.config,
+                components: [...components.values()].map(
+                    ({
+                        codename,
+                        dataType,
+                        isRequired,
+                        validationRules,
+                        targetObjectId,
+                        targetObjectKind,
+                        targetObjectCodename,
+                        uiConfig
+                    }) => ({
+                        codename,
+                        dataType,
+                        isRequired,
+                        validationRules,
+                        targetObjectId,
+                        targetObjectKind,
+                        targetObjectCodename,
+                        uiConfig
+                    })
+                )
+            },
+            relationParent
+                ? { relationParent: { id: relationParent.id, kind: relationParent.kind, codename: relationParent.codename } }
+                : undefined
+        )
         if (!compatible) throw new PublicMarketingMaterializationError('Published marketing Object/Component contract is incompatible')
 
         const physicalColumns = new Set<string>()
@@ -425,7 +450,14 @@ export const createPublicMarketingBindingRecordLoader = (
         const slot = getBindingSlot(definition, query.slot)
         assertProjection(definition, slot, query)
 
-        const compatible = await getCompatibleObject(slot, query.target.entityCodename)
+        let parent: CompatiblePublishedObject | undefined
+        if (query.kind === 'relation-set') {
+            const relation = slot.relation
+            if (!relation) throw new PublicMarketingMaterializationError('Published marketing relation is not registered')
+            const parentSlot = getBindingSlot(definition, relation.parentSlot)
+            parent = await getCompatibleObject(parentSlot, query.selector.parentTarget.entityCodename)
+        }
+        const compatible = await getCompatibleObject(slot, query.target.entityCodename, parent?.object)
         const componentByCodename = compatible.components
         const componentByField = new Map(
             slot.requirements.components.map((requirement) => {
@@ -441,18 +473,15 @@ export const createPublicMarketingBindingRecordLoader = (
             throw new PublicMarketingMaterializationError('Published marketing Object is missing workspace isolation')
         }
 
-        let parent: CompatiblePublishedObject | undefined
         let parentWorkspaceScoped = false
         if (query.kind === 'relation-set') {
             const relation = slot.relation
-            if (!relation) throw new PublicMarketingMaterializationError('Published marketing relation is not registered')
-            const parentSlot = getBindingSlot(definition, relation.parentSlot)
-            parent = await getCompatibleObject(parentSlot, query.selector.parentTarget.entityCodename)
+            if (!relation || !parent) throw new PublicMarketingMaterializationError('Published marketing relation is not registered')
             const relationRequirement = getComponentRequirement(slot, relation.field)
             const relationComponent = componentByCodename.get(relationRequirement.componentCodename)
             if (
                 !relationComponent ||
-                relationComponent.dataType.trim().toUpperCase() !== 'REF' ||
+                normalizeWidgetBindingDataType(relationComponent.dataType) !== 'REF' ||
                 relationComponent.targetObjectId !== parent.object.id ||
                 relationComponent.targetObjectKind !== 'object' ||
                 relationComponent.targetObjectCodename !== parent.object.codename
@@ -528,6 +557,9 @@ export const createPublicMarketingBindingRecordLoader = (
         let orderBy = `record.${qColumn('id')} ASC`
         let requestedLimit = query.kind === 'semantic-key' ? query.limit : query.ordered.limit
         if (query.kind !== 'semantic-key') {
+            if (query.ordered.orderByComponentCodename === null) {
+                throw new PublicMarketingMaterializationError('Published marketing order Component is unavailable')
+            }
             const orderComponent = componentByCodename.get(query.ordered.orderByComponentCodename)
             if (!orderComponent) throw new PublicMarketingMaterializationError('Published marketing order Component is unavailable')
             orderBy = `record.${qColumn(orderComponent.columnName)} ASC NULLS LAST, record.${qColumn('id')} ASC`

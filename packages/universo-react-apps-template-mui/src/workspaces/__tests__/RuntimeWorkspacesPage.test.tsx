@@ -48,11 +48,14 @@ const i18nState = vi.hoisted(() => ({
             'workspace.settingKeys.dashboardDefaultMode.description':
                 'Controls which dashboard section opens first in the published application.',
             'workspace.errors.copyReferenceUnresolved': 'A required workspace reference could not be copied.',
+            'workspace.errors.copyAccessLinkIntakeInvalid': 'This workspace has invalid guest intake settings and could not be copied.',
             'workspace.errors.seedResetFailed': 'Seeded workspace content could not be reset.'
         },
         ru: {
             'workspace.errors.userNotFound': 'Пользователь не найден',
             'workspace.errors.copyReferenceUnresolved': 'Не удалось скопировать обязательную связь рабочего пространства.',
+            'workspace.errors.copyAccessLinkIntakeInvalid':
+                'В рабочем пространстве настроена некорректная гостевая анкета, поэтому его нельзя скопировать.',
             'workspace.errors.seedResetFailed': 'Не удалось сбросить исходные данные рабочего пространства.'
         }
     } as Record<string, string>
@@ -643,6 +646,26 @@ describe('RuntimeWorkspacesPage', () => {
 
         expect(await within(dialog).findByRole('alert')).toHaveTextContent(
             'Не удалось скопировать обязательную связь рабочего пространства.'
+        )
+        expect(within(dialog).queryByText('Backend copy details')).not.toBeInTheDocument()
+    })
+
+    it('localizes invalid guest intake settings when copying a workspace', async () => {
+        i18nState.language = 'ru'
+        apiMocks.copyRuntimeWorkspace.mockRejectedValueOnce(
+            Object.assign(new Error('Backend copy details'), { code: 'WORKSPACE_COPY_ACCESS_LINK_INTAKE_INVALID' })
+        )
+
+        renderPage({ locale: 'ru' })
+        await screen.findByRole('button', { name: 'Class A' })
+
+        fireEvent.click(screen.getAllByRole('button', { name: 'Workspace actions' })[1])
+        fireEvent.click(await screen.findByRole('menuitem', { name: 'Copy' }))
+        const dialog = await screen.findByRole('dialog')
+        fireEvent.click(within(dialog).getByRole('button', { name: 'Copy' }))
+
+        expect(await within(dialog).findByRole('alert')).toHaveTextContent(
+            'В рабочем пространстве настроена некорректная гостевая анкета, поэтому его нельзя скопировать.'
         )
         expect(within(dialog).queryByText('Backend copy details')).not.toBeInTheDocument()
     })

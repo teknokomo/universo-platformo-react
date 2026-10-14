@@ -6,6 +6,7 @@ import {
     resolveWidgetBindingSlotDefinition,
     runtimeStore,
     resolveEffectiveWidgetRuntimeData,
+    metricObjectId,
     parentObjectId,
     childObjectId,
     parentRecordId,
@@ -54,7 +55,11 @@ describe('resolveEffectiveWidgetRuntimeData relationBuilder projection', () => {
         ;(runtimeStore.loadRuntimeWidgetBindingMetadata as jest.Mock).mockResolvedValueOnce(
             metadataEnvelope([
                 metadataForSlot(parentObjectId, 'ParentRecords', parent),
-                metadataForSlot(childObjectId, 'MaterialRecords', panel, parentObjectId)
+                metadataForSlot(childObjectId, 'MaterialRecords', panel, {
+                    id: parentObjectId,
+                    kind: 'object',
+                    codename: 'ParentRecords'
+                })
             ])
         )
         ;(runtimeStore.loadWidgetBindingRuntimeRecords as jest.Mock).mockImplementation(
@@ -128,6 +133,129 @@ describe('resolveEffectiveWidgetRuntimeData relationBuilder projection', () => {
         expect(serialized).not.toContain(`Lesson 1 ${childRecordId}`)
     })
 
+    it('rejects a server-owned dynamic parent REF when its target differs from the selected parent Object', async () => {
+        const { executor } = createMockDbExecutor()
+        const candidate = relationBuilderCandidate()
+        const definition = getLayoutWidgetDefinition('relationBuilder', candidate.config)
+        const parent = definition?.bindingSlots?.find(({ key }) => key === 'parent')
+        const panel = definition ? resolveWidgetBindingSlotDefinition(definition, 'panel:materials') : undefined
+        if (!parent || !panel) throw new Error('relationBuilder slots are missing')
+        ;(runtimeStore.loadRuntimeWidgetBindingMetadata as jest.Mock).mockResolvedValueOnce(
+            metadataEnvelope([
+                metadataForSlot(parentObjectId, 'ParentRecords', parent),
+                metadataForSlot(childObjectId, 'MaterialRecords', panel, {
+                    id: metricObjectId,
+                    kind: 'object',
+                    codename: 'OtherParents'
+                })
+            ])
+        )
+
+        const resolved = await resolveEffectiveWidgetRuntimeData(executor, scope, [candidate], 'en')
+
+        expect(resolved.get(candidate.id)).toEqual({ status: 'stale-source' })
+        expect(runtimeStore.loadWidgetBindingRuntimeRecords).not.toHaveBeenCalled()
+    })
+
+    it('resolves LMS guest-link panels when their optional ordering projection is required and server-owned', async () => {
+        const { executor } = createMockDbExecutor()
+        const config = {
+            panels: [
+                {
+                    slotKey: 'panel:guest-links',
+                    title: { en: 'Guest access links', ru: 'Ссылки гостевого доступа' },
+                    parentFieldCodename: 'TargetId',
+                    parentFieldRequired: false,
+                    titleFieldCodename: 'LinkTitle',
+                    sortOrderFieldCodename: 'SortOrder'
+                }
+            ]
+        }
+        const definition = getLayoutWidgetDefinition('relationBuilder', config)
+        const parentSlot = definition?.bindingSlots?.find(({ key }) => key === 'parent')
+        const panelSlot = definition?.bindingSlots?.find(({ key }) => key === 'panel:guest-links')
+        if (!parentSlot || !panelSlot) throw new Error('LMS guest-link relationBuilder slots are missing')
+        const projectSlot = (slot: typeof parentSlot) =>
+            slot.requirements.components.map(({ field, componentCodename }) => ({ field, componentCodename }))
+        const relationCandidate = {
+            ...relationBuilderCandidate(),
+            config,
+            bindings: {
+                version: 1 as const,
+                slots: [
+                    {
+                        slot: 'parent',
+                        targets: [
+                            {
+                                entityKind: 'object' as const,
+                                entityCodename: 'Quizzes',
+                                selector: { kind: 'record-set' as const },
+                                projection: projectSlot(parentSlot)
+                            }
+                        ]
+                    },
+                    {
+                        slot: 'panel:guest-links',
+                        targets: [
+                            {
+                                entityKind: 'object' as const,
+                                entityCodename: 'AccessLinks',
+                                selector: { kind: 'relation-set' as const, parentSlot: 'parent' },
+                                projection: projectSlot(panelSlot)
+                            }
+                        ]
+                    }
+                ]
+            }
+        }
+        const markActualOrderingMetadata = (metadata: ReturnType<typeof metadataForSlot>) => ({
+            ...metadata,
+            components: metadata.components.map((component) =>
+                component.codename === 'SortOrder'
+                    ? { ...component, isRequired: true, uiConfig: { hidden: true, serverOwned: true, defaultValue: 1 } }
+                    : component
+            )
+        })
+        ;(runtimeStore.loadRuntimeWidgetBindingMetadata as jest.Mock).mockResolvedValueOnce(
+            metadataEnvelope([
+                markActualOrderingMetadata(metadataForSlot(parentObjectId, 'Quizzes', parentSlot)),
+                markActualOrderingMetadata(
+                    metadataForSlot(childObjectId, 'AccessLinks', panelSlot, {
+                        id: parentObjectId,
+                        kind: 'object',
+                        codename: 'Quizzes'
+                    })
+                )
+            ])
+        )
+        ;(runtimeStore.loadWidgetBindingRuntimeRecords as jest.Mock).mockImplementation(
+            (_executor: unknown, input: { query: { slot: string } }) =>
+                input.query.slot === 'parent'
+                    ? [
+                          {
+                              recordId: parentRecordId,
+                              data: { title: { locales: { en: { content: 'Grade 5 quiz' } } }, order: 1 }
+                          }
+                      ]
+                    : [
+                          {
+                              recordId: childRecordId,
+                              data: {
+                                  parent: parentRecordId,
+                                  title: { locales: { en: { content: 'Grade 5 access link' } } },
+                                  order: 1,
+                                  _upl_version: 1
+                              }
+                          }
+                      ]
+        )
+
+        const resolved = await resolveEffectiveWidgetRuntimeData(executor, scope, [relationCandidate], 'en')
+
+        expect(resolved.get('placement-relation-1')).toMatchObject({ status: 'ready', data: { kind: 'relation' } })
+        expect(runtimeStore.loadWidgetBindingRuntimeRecords).toHaveBeenCalledTimes(2)
+    })
+
     it('projects localized, bounded relation display columns from the authorized relation-set projection', async () => {
         const { executor } = createMockDbExecutor()
         const candidate = relationBuilderCandidate([
@@ -144,7 +272,11 @@ describe('resolveEffectiveWidgetRuntimeData relationBuilder projection', () => {
         ;(runtimeStore.loadRuntimeWidgetBindingMetadata as jest.Mock).mockResolvedValueOnce(
             metadataEnvelope([
                 metadataForSlot(parentObjectId, 'ParentRecords', parent),
-                metadataForSlot(childObjectId, 'MaterialRecords', panel, parentObjectId)
+                metadataForSlot(childObjectId, 'MaterialRecords', panel, {
+                    id: parentObjectId,
+                    kind: 'object',
+                    codename: 'ParentRecords'
+                })
             ])
         )
         ;(runtimeStore.loadWidgetBindingRuntimeRecords as jest.Mock).mockImplementation(

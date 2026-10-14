@@ -13,13 +13,16 @@ vi.mock('../../../components/resource-preview', async () => {
     return { ResourcePreview: MockResourcePreview }
 })
 
-import { placement, renderRuntimeWidget, resetRuntimeLanguage } from './widgetRenderer.test-support'
+import { defaultRuntimeLayoutTarget, placement, renderRuntimeWidget, resetRuntimeLanguage } from './widgetRenderer.test-support'
 import i18n from '@universo-react/i18n'
 import { DashboardDetailsProvider } from '../../DashboardDetailsContext'
 import { renderWidget } from '../widgetRenderer'
 
 describe('Dashboard runtime widget ownership renderers', () => {
-    afterEach(resetRuntimeLanguage)
+    afterEach(async () => {
+        vi.unstubAllGlobals()
+        await resetRuntimeLanguage()
+    })
 
     it('allows a content-only member to create a related record and explains a denied create action', async () => {
         const user = userEvent.setup()
@@ -62,6 +65,7 @@ describe('Dashboard runtime widget ownership renderers', () => {
         )
         const details = {
             runtimeAccessMode: 'member' as const,
+            runtimeLayoutTarget: defaultRuntimeLayoutTarget,
             permissions: { createContent: true },
             onOpenCreateTarget
         }
@@ -77,7 +81,7 @@ describe('Dashboard runtime widget ownership renderers', () => {
                 objectCollectionCodename: 'CourseItems',
                 createDefaults: [{ fieldCodename: 'CourseId', contextPath: 'relation.parentRecordId' }],
                 createDefaultContext: { relation: { parentRecordId: parentRecordHandle } },
-                relationScope: { fieldCodename: 'CourseId', parentRecordId: parentRecordHandle }
+                relationScope: { fieldCodename: 'CourseId', parentRecordId: parentRecordHandle, layoutTarget: defaultRuntimeLayoutTarget }
             })
         )
 
@@ -200,12 +204,12 @@ describe('Dashboard runtime widget ownership renderers', () => {
                         }
                     ]
                 },
-                relationScope: { fieldCodename: 'CourseId', parentRecordId }
+                relationScope: { fieldCodename: 'CourseId', parentRecordId, layoutTarget: defaultRuntimeLayoutTarget }
             })
         )
         await user.click(screen.getByRole('button', { name: 'Actions for Lesson One' }))
         await user.click(screen.getByRole('menuitem', { name: 'Edit' }))
-        const relationScope = { fieldCodename: 'CourseId', parentRecordId }
+        const relationScope = { fieldCodename: 'CourseId', parentRecordId, layoutTarget: defaultRuntimeLayoutTarget }
         expect(onOpenRowTarget).toHaveBeenNthCalledWith(
             1,
             { rowId: childRecordId, objectCollectionCodename: 'CourseItems', relationScope },
@@ -222,6 +226,7 @@ describe('Dashboard runtime widget ownership renderers', () => {
         expect(onReorderRelationRows).toHaveBeenCalledExactlyOnceWith({
             objectCollectionCodename: 'CourseItems',
             parentFieldCodename: 'CourseId',
+            layoutTarget: defaultRuntimeLayoutTarget,
             parentRecordId,
             orderedRowIds: [secondChildRecordId, childRecordId],
             expectedVersionsByRowId: { [childRecordId]: 4, [secondChildRecordId]: 9 }
@@ -305,7 +310,7 @@ describe('Dashboard runtime widget ownership renderers', () => {
         expect(onOpenRowMenu).toHaveBeenCalledWith(expect.anything(), childRecordId, {
             entityCodename: 'CourseItems',
             recordHandle: childRecordId,
-            relationScope: { fieldCodename: 'CourseId', parentRecordId }
+            relationScope: { fieldCodename: 'CourseId', parentRecordId, layoutTarget: defaultRuntimeLayoutTarget }
         })
         expect(document.body).not.toHaveTextContent(parentRecordId)
         expect(document.body).not.toHaveTextContent(childRecordId)
@@ -388,7 +393,11 @@ describe('Dashboard runtime widget ownership renderers', () => {
             {
                 rowId: selectedChildRecordId,
                 objectCollectionCodename: 'CourseItems',
-                relationScope: { fieldCodename: 'CourseId', parentRecordId: selectedParentRecordId }
+                relationScope: {
+                    fieldCodename: 'CourseId',
+                    parentRecordId: selectedParentRecordId,
+                    layoutTarget: defaultRuntimeLayoutTarget
+                }
             },
             'delete'
         )
@@ -503,5 +512,264 @@ describe('Dashboard runtime widget ownership renderers', () => {
         )
 
         expect(screen.getByRole('status')).toHaveTextContent('Сначала выберите курс.')
+    })
+
+    it('shows the full same-application guest URL and copies it from the relation table', async () => {
+        const user = userEvent.setup()
+        const applicationId = '0190a9b5-3cde-7abc-8def-0123456789b1'
+        const workspaceId = '0190a9b5-3cde-7abc-8def-0123456789b2'
+        vi.stubGlobal(
+            'fetch',
+            vi.fn().mockResolvedValue({
+                ok: true,
+                json: async () => ({
+                    id: workspaceId,
+                    name: 'Public workspace',
+                    description: null,
+                    workspaceType: 'shared',
+                    personalUserId: null,
+                    status: 'active',
+                    isDefault: true,
+                    roleCodename: 'owner'
+                })
+            })
+        )
+        const writeText = vi.fn().mockResolvedValue(undefined)
+        const clipboardDescriptor = Object.getOwnPropertyDescriptor(navigator, 'clipboard')
+        Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } })
+
+        try {
+            const widget = placement(
+                'relationBuilder',
+                {
+                    status: 'ready',
+                    data: {
+                        kind: 'relation',
+                        parents: [
+                            {
+                                key: 'quiz-five',
+                                label: 'Marathon — Grade 5',
+                                target: { entityCodename: 'Quizzes', recordHandle: 'rh1.test-0190a9b53cde7abc8def0123456789b1' }
+                            }
+                        ],
+                        panels: [
+                            {
+                                slotKey: 'panel:guest-links',
+                                title: 'Guest access links',
+                                targetEntityCodename: 'AccessLinks',
+                                parentFieldCodename: 'TargetId',
+                                displayColumns: [{ key: 'display1', label: 'Access key' }],
+                                rows: [
+                                    {
+                                        key: 'guest-link-one',
+                                        parentKey: 'quiz-five',
+                                        label: 'Marathon — Grade 5',
+                                        cells: [{ key: 'display1', value: 'grade 5' }],
+                                        target: {
+                                            entityCodename: 'AccessLinks',
+                                            recordHandle: 'rh1.test-0190a9b53cde7abc8def0123456789b2',
+                                            version: 1
+                                        }
+                                    }
+                                ]
+                            }
+                        ]
+                    }
+                },
+                {
+                    panels: [
+                        {
+                            slotKey: 'panel:guest-links',
+                            title: { en: 'Guest access links', ru: 'Ссылки гостевого доступа' },
+                            parentFieldCodename: 'TargetId',
+                            displayFields: [{ fieldCodename: 'Slug', valueType: 'string', localized: false, required: true }],
+                            rowLink: {
+                                fieldCodename: 'Slug',
+                                pathTemplate: '/public/a/{applicationId}/links/{value}',
+                                label: { en: 'Full guest link', ru: 'Полная гостевая ссылка' }
+                            }
+                        }
+                    ]
+                }
+            )
+            renderRuntimeWidget(widget, { applicationId, workspacesEnabled: true, currentWorkspaceId: workspaceId })
+
+            const fullUrl = `${window.location.origin}/public/a/${applicationId}/links/grade%205?workspaceId=${workspaceId}`
+            const link = await screen.findByRole('link', { name: fullUrl })
+            expect(link).toHaveAttribute('href', fullUrl)
+            expect(screen.queryByText('Access key')).not.toBeInTheDocument()
+            await user.click(screen.getByRole('button', { name: 'Copy guest link for Marathon — Grade 5' }))
+
+            expect(writeText).toHaveBeenCalledExactlyOnceWith(fullUrl)
+            expect(screen.getByText('Guest link copied to clipboard.').closest('[role="status"]')).not.toBeNull()
+        } finally {
+            if (clipboardDescriptor) Object.defineProperty(navigator, 'clipboard', clipboardDescriptor)
+            else Reflect.deleteProperty(navigator, 'clipboard')
+        }
+    })
+
+    it('does not expose guest links from a personal workspace', async () => {
+        const applicationId = '0190a9b5-3cde-7abc-8def-0123456789b1'
+        const workspaceId = '0190a9b5-3cde-7abc-8def-0123456789b2'
+        vi.stubGlobal(
+            'fetch',
+            vi.fn().mockResolvedValue({
+                ok: true,
+                json: async () => ({
+                    id: workspaceId,
+                    name: 'Main',
+                    description: null,
+                    workspaceType: 'personal',
+                    personalUserId: '0190a9b5-3cde-7abc-8def-0123456789b3',
+                    status: 'active',
+                    isDefault: true,
+                    roleCodename: 'owner'
+                })
+            })
+        )
+        const widget = placement(
+            'relationBuilder',
+            {
+                status: 'ready',
+                data: {
+                    kind: 'relation',
+                    parents: [
+                        {
+                            key: 'quiz-five',
+                            label: 'Marathon — Grade 5',
+                            target: { entityCodename: 'Quizzes', recordHandle: 'rh1.test-0190a9b53cde7abc8def0123456789b1' }
+                        }
+                    ],
+                    panels: [
+                        {
+                            slotKey: 'panel:guest-links',
+                            title: 'Guest access links',
+                            targetEntityCodename: 'AccessLinks',
+                            parentFieldCodename: 'TargetId',
+                            rows: [
+                                {
+                                    key: 'guest-link-one',
+                                    parentKey: 'quiz-five',
+                                    label: 'Marathon — Grade 5',
+                                    cells: [{ key: 'display1', value: 'grade-5' }],
+                                    target: {
+                                        entityCodename: 'AccessLinks',
+                                        recordHandle: 'rh1.test-0190a9b53cde7abc8def0123456789b2',
+                                        version: 1
+                                    }
+                                }
+                            ]
+                        }
+                    ]
+                }
+            },
+            {
+                panels: [
+                    {
+                        slotKey: 'panel:guest-links',
+                        title: { en: 'Guest access links', ru: 'Ссылки гостевого доступа' },
+                        parentFieldCodename: 'TargetId',
+                        displayFields: [{ fieldCodename: 'Slug', valueType: 'string', localized: false, required: true }],
+                        rowLink: {
+                            fieldCodename: 'Slug',
+                            pathTemplate: '/public/a/{applicationId}/links/{value}',
+                            label: { en: 'Full guest link', ru: 'Полная гостевая ссылка' }
+                        }
+                    }
+                ]
+            }
+        )
+
+        renderRuntimeWidget(widget, {
+            applicationId,
+            workspacesEnabled: true,
+            currentWorkspaceId: workspaceId,
+            runtimeAccessMode: 'member',
+            permissions: { createContent: true },
+            onOpenCreateTarget: vi.fn()
+        })
+
+        const workspaceWarning =
+            'Guest links are available from a shared workspace. Open Workspaces, create a shared workspace, then copy the link there.'
+        expect(await screen.findAllByText(workspaceWarning)).toHaveLength(2)
+        expect(screen.getByRole('button', { name: 'Create' })).toBeDisabled()
+        expect(screen.queryByRole('link', { name: /\/public\/a\//u })).not.toBeInTheDocument()
+        expect(screen.queryByRole('button', { name: /Copy guest link/u })).not.toBeInTheDocument()
+    })
+
+    it('shows a localized actionable message when the guest URL cannot be copied', async () => {
+        const user = userEvent.setup()
+        const writeText = vi.fn().mockRejectedValue(new Error('clipboard denied'))
+        const clipboardDescriptor = Object.getOwnPropertyDescriptor(navigator, 'clipboard')
+        Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } })
+
+        try {
+            await act(async () => {
+                await i18n.changeLanguage('ru')
+            })
+            const widget = placement(
+                'relationBuilder',
+                {
+                    status: 'ready',
+                    data: {
+                        kind: 'relation',
+                        parents: [
+                            {
+                                key: 'quiz-five',
+                                label: 'Марафон — 5 класс',
+                                target: { entityCodename: 'Quizzes', recordHandle: 'rh1.test-0190a9b53cde7abc8def0123456789b1' }
+                            }
+                        ],
+                        panels: [
+                            {
+                                slotKey: 'panel:guest-links',
+                                title: 'Ссылки гостевого доступа',
+                                targetEntityCodename: 'AccessLinks',
+                                parentFieldCodename: 'TargetId',
+                                rows: [
+                                    {
+                                        key: 'guest-link-one',
+                                        parentKey: 'quiz-five',
+                                        label: 'Марафон — 5 класс',
+                                        cells: [{ key: 'display1', value: 'grade-5' }],
+                                        target: {
+                                            entityCodename: 'AccessLinks',
+                                            recordHandle: 'rh1.test-0190a9b53cde7abc8def0123456789b2',
+                                            version: 1
+                                        }
+                                    }
+                                ]
+                            }
+                        ]
+                    }
+                },
+                {
+                    panels: [
+                        {
+                            slotKey: 'panel:guest-links',
+                            title: { en: 'Guest access links', ru: 'Ссылки гостевого доступа' },
+                            parentFieldCodename: 'TargetId',
+                            displayFields: [{ fieldCodename: 'Slug', valueType: 'string', localized: false, required: true }],
+                            rowLink: {
+                                fieldCodename: 'Slug',
+                                pathTemplate: '/public/a/{applicationId}/links/{value}',
+                                label: { en: 'Full guest link', ru: 'Полная гостевая ссылка' }
+                            }
+                        }
+                    ]
+                }
+            )
+            renderRuntimeWidget(widget, { applicationId: '0190a9b5-3cde-7abc-8def-0123456789b1', locale: 'ru' })
+
+            await user.click(screen.getByRole('button', { name: 'Скопировать гостевую ссылку для записи «Марафон — 5 класс»' }))
+
+            expect(writeText).toHaveBeenCalledOnce()
+            expect(
+                screen.getByText('Не удалось скопировать ссылку. Скопируйте показанный URL вручную.').closest('[role="status"]')
+            ).not.toBeNull()
+        } finally {
+            if (clipboardDescriptor) Object.defineProperty(navigator, 'clipboard', clipboardDescriptor)
+            else Reflect.deleteProperty(navigator, 'clipboard')
+        }
     })
 })

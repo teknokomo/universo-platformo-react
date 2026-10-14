@@ -72,6 +72,10 @@ and permission contracts, and use package-local English/Russian translations.
 -   **TanStack Query Hook**: `useTemplates()` hook with caching and loading states
 -   **Default Template**: When no template is explicitly selected, the default "basic" template is auto-assigned by the backend
 
+### LMS assessment authoring
+
+Quiz questions, timer settings, and access-link intake remain Entity record data. The record `InlineTableEditor` uses `AssessmentOptionsEditorDialog` for structured answer options; deployment-wide `/l` short-link management belongs to the Applications package. See the [Guest Access guide](../../docs/en/lms/guest-access.md).
+
 ### 🧭 Interpretation Network Widget Editing
 
 -   The Metahub layout editor configures the canonical `interpretationNetworkWorkspace` widget with user-facing controls, not raw JSON.

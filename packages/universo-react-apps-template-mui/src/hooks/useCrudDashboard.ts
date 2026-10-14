@@ -769,6 +769,7 @@ export function useCrudDashboard(options: UseCrudDashboardOptions): CrudDashboar
     const handlePersistRelationRowReorder = useCallback(
         async (params: {
             objectCollectionCodename: string
+            layoutTarget: RuntimeRelationScope['layoutTarget']
             parentFieldCodename: string
             parentRecordId: string
             orderedRowIds: string[]
@@ -797,7 +798,8 @@ export function useCrudDashboard(options: UseCrudDashboardOptions): CrudDashboar
                     expectedVersionsByRowId: params.expectedVersionsByRowId,
                     parentScope: {
                         fieldCodename: params.parentFieldCodename,
-                        parentRecordId: params.parentRecordId
+                        parentRecordId: params.parentRecordId,
+                        layoutTarget: params.layoutTarget
                     }
                 })
             } catch (err) {

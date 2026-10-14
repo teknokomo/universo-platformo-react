@@ -306,7 +306,7 @@ describe('Dashboard side menu modes', () => {
         expect(screen.getByRole('navigation', { name: 'Application navigation' })).toBeInTheDocument()
     })
 
-    it('renders the desktop navbar for wide and compact side-menu switching', () => {
+    it('does not reserve desktop navbar space for the docked menu switcher hidden at desktop widths', () => {
         render(
             <Dashboard
                 details={details}
@@ -326,7 +326,41 @@ describe('Dashboard side menu modes', () => {
         expect(toolbarActions).toBeInTheDocument()
         expect(toolbarActions.querySelector('button[aria-label="Enable compact menu"]')).toBeInTheDocument()
         expect(screen.queryByTestId('runtime-color-mode-button')).not.toBeInTheDocument()
+        expect(screen.getByTestId('runtime-main-content')).toHaveStyle({ marginTop: '0px' })
         expect(screen.getByTestId('dashboard-main-grid')).toHaveAttribute('data-full-width', 'false')
+    })
+
+    it('reserves desktop toolbar space when a context panel is configured', () => {
+        render(
+            <Dashboard
+                details={details}
+                zoneWidgets={{
+                    ...zoneWidgets,
+                    right: [
+                        {
+                            id: '018f0000-0000-7000-8000-000000000009',
+                            instanceKey: 'right-panel-workspace-switcher',
+                            widgetKey: 'divider',
+                            zone: 'right',
+                            sortOrder: 1,
+                            config: {},
+                            isActive: true,
+                            parentInstanceKey: null,
+                            slotKey: null
+                        }
+                    ]
+                }}
+                layoutConfig={{
+                    sideMenu: {
+                        availableModes: ['wide', 'compact'],
+                        primaryMode: 'wide',
+                        rememberUserChoice: false
+                    }
+                }}
+            />
+        )
+
+        expect(screen.getByTestId('runtime-main-content')).toHaveStyle({ marginTop: '64px' })
     })
 
     it('does not reserve a desktop top offset when the app navbar is hidden at desktop widths', () => {

@@ -46,6 +46,7 @@ const componentRows = (sourceObjectId, slot, relationTarget) =>
         target_object_id: slot.relation && component.valueType === 'ref' ? relationTarget?.id ?? null : null,
         target_object_kind: slot.relation && component.valueType === 'ref' ? relationTarget?.kind ?? null : null,
         target_object_codename: slot.relation && component.valueType === 'ref' ? relationTarget?.codename ?? null : null,
+        ui_config: component.requireServerOwned ? { serverOwned: true } : null,
         validation_rules: {
             localized: component.localized,
             ...(component.semanticKey ? { unique: true } : {}),
@@ -87,18 +88,15 @@ const validBindings = (definition, omittedSlot) => {
     return validateWidgetBindings(definition, { version: 1, slots })
 }
 
-const widgetRow = (widgetKey, rendererConfig, bindings, version = 5, zone = 'marketing-main') => ({
+const widgetRow = (widgetKey, rendererConfig, bindings, version = 5, zone = 'marketing-main', templateKey = 'marketing-page') => ({
     id: widgetId,
     layout_id: layoutId,
-    template_key: 'marketing-page',
+    template_key: templateKey,
     scope_entity_id: null,
     base_layout_id: null,
     widget_key: widgetKey,
     zone,
-    config: encodeWidgetConfigEnvelope(
-        { rendererConfig, neutral: { bindings } },
-        { templateKey: 'marketing-page', widgetKey, zone, rendererConfig }
-    ),
+    config: encodeWidgetConfigEnvelope({ rendererConfig, neutral: { bindings } }, { templateKey, widgetKey, zone, rendererConfig }),
     widget_version: version
 })
 
@@ -120,8 +118,9 @@ const createHarness = (options) => {
     const rendererConfig = options.rendererConfig ?? {}
     const definition = getLayoutWidgetDefinition(options.widgetKey, rendererConfig)
     if (!definition) throw new Error(`Missing widget definition: ${options.widgetKey}`)
-    const zone = definition.allowedZonesByTemplate['marketing-page']?.[0] ?? 'marketing-main'
-    const row = widgetRow(options.widgetKey, rendererConfig, validBindings(definition, options.omitSlot), 5, zone)
+    const templateKey = options.templateKey ?? 'marketing-page'
+    const zone = definition.allowedZonesByTemplate[templateKey]?.[0] ?? 'marketing-main'
+    const row = widgetRow(options.widgetKey, rendererConfig, validBindings(definition, options.omitSlot), 5, zone, templateKey)
     let sourceObject
     let sourceSlot
     let selectedRecord

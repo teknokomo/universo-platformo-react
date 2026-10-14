@@ -5,6 +5,7 @@ export type TechnicalLeakageOptions = {
     allowTextPatterns?: RegExp[]
     checkUuidOnlyLines?: boolean
     checkUuidSubstrings?: boolean
+    checkOpaqueRuntimeHandles?: boolean
     checkJsonLikeText?: boolean
     checkInternalValidationText?: boolean
     checkIsoDateText?: boolean
@@ -104,6 +105,7 @@ export const RUNTIME_UX_VIEWPORT_MATRIX: RuntimeUxViewport[] = [
 
 const UUID_ONLY_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 const UUID_SUBSTRING_PATTERN = /[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}/gi
+const OPAQUE_RUNTIME_HANDLE_PATTERN = /(?:^|[^A-Za-z0-9_-])(rh1\.[A-Za-z0-9_-]{20,1020})(?=$|[^A-Za-z0-9_-])/gu
 const JSON_LIKE_PATTERN =
     /(?:^|[\s:=])\{\s*"[^"\n]{1,120}"\s*:\s*(?:"|-|\d|\{|\[|true\b|false\b|null\b)[\s\S]{0,700}\}|(?:^|[\s:=])\[\s*\{\s*"[^"\n]{1,120}"\s*:\s*(?:"|-|\d|\{|\[|true\b|false\b|null\b)[\s\S]{0,700}\}[\s\S]{0,120}\]|\[object Object\]/i
 const INTERNAL_VALIDATION_PATTERN =
@@ -201,6 +203,7 @@ const collectTechnicalLeakageIssues = (text: string, options: Required<Technical
         allowTextPatterns,
         checkUuidOnlyLines,
         checkUuidSubstrings,
+        checkOpaqueRuntimeHandles,
         checkJsonLikeText,
         checkInternalValidationText,
         checkIsoDateText,
@@ -252,6 +255,15 @@ const collectTechnicalLeakageIssues = (text: string, options: Required<Technical
         }
     }
 
+    if (checkOpaqueRuntimeHandles) {
+        const handleMatches = Array.from(text.matchAll(OPAQUE_RUNTIME_HANDLE_PATTERN))
+            .map((match) => match[1])
+            .filter((match) => !isAllowedText(match, allowTextPatterns))
+        if (handleMatches.length > 0) {
+            issues.push(`visible opaque runtime record handle(s): ${handleMatches.slice(0, 3).join(', ')}`)
+        }
+    }
+
     return issues
 }
 
@@ -260,6 +272,7 @@ const normalizeTechnicalLeakageOptions = (options: TechnicalLeakageOptions = {})
     allowTextPatterns: options.allowTextPatterns ?? [],
     checkUuidOnlyLines: options.checkUuidOnlyLines ?? true,
     checkUuidSubstrings: options.checkUuidSubstrings ?? false,
+    checkOpaqueRuntimeHandles: options.checkOpaqueRuntimeHandles ?? false,
     checkJsonLikeText: options.checkJsonLikeText ?? true,
     checkInternalValidationText: options.checkInternalValidationText ?? true,
     checkIsoDateText: options.checkIsoDateText ?? true,
@@ -272,6 +285,7 @@ export async function expectNoTechnicalLeakage(surface: Locator, options: Techni
         allowTextPatterns = [],
         checkUuidOnlyLines = true,
         checkUuidSubstrings = false,
+        checkOpaqueRuntimeHandles = false,
         checkJsonLikeText = true,
         checkInternalValidationText = true,
         checkIsoDateText = true,
@@ -283,6 +297,7 @@ export async function expectNoTechnicalLeakage(surface: Locator, options: Techni
         allowTextPatterns,
         checkUuidOnlyLines,
         checkUuidSubstrings,
+        checkOpaqueRuntimeHandles,
         checkJsonLikeText,
         checkInternalValidationText,
         checkIsoDateText,
@@ -519,6 +534,14 @@ export async function expectNoDataGridTechnicalLeakage(surface: Locator, options
     }
 }
 
+export async function expectDataGridCellTextByColumn(grid: Locator, row: Locator, columnName: string, expectedText: string): Promise<void> {
+    const header = grid.getByRole('columnheader', { name: columnName, exact: true })
+    await expect(header, `${columnName} must be exposed as an accessible report column`).toBeVisible()
+    const columnIndex = await header.getAttribute('aria-colindex')
+    expect(columnIndex, `${columnName} must expose its accessible grid column index`).toMatch(/^\d+$/u)
+    await expect(row.locator(`[role="gridcell"][aria-colindex="${columnIndex}"]`)).toHaveText(expectedText)
+}
+
 export async function expectDataGridHorizontalScrollConstrained(page: Page, label: string): Promise<void> {
     const metrics = await page.locator('.MuiDataGrid-root').evaluateAll((nodes) => {
         const viewportWidth = document.documentElement.clientWidth
@@ -530,10 +553,13 @@ export async function expectDataGridHorizontalScrollConstrained(page: Page, labe
                 const rootRect = root.getBoundingClientRect()
                 const scroller = root.querySelector('.MuiDataGrid-virtualScroller') as HTMLElement | null
                 const scrollerOverflowPx = scroller ? Math.max(0, scroller.scrollWidth - scroller.clientWidth) : 0
+                const style = window.getComputedStyle(root)
+                const isExposed =
+                    !root.closest('[aria-hidden="true"], [inert]') && style.display !== 'none' && style.visibility !== 'hidden'
 
                 return {
                     index,
-                    visible: rootRect.width > 0 && rootRect.height > 0,
+                    visible: isExposed && rootRect.width > 0 && rootRect.height > 0,
                     pageOverflowPx,
                     rootLeft: rootRect.left,
                     rootRight: rootRect.right,

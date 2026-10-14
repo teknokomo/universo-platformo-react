@@ -1014,13 +1014,19 @@ describe('TemplateManifestValidator', () => {
         for (const codename of ['TargetObjectCodename', 'TargetRecordId', 'DeletedBy', 'RestoreState']) {
             expect(trashEntity?.components.find((component) => component.codename === codename)?.uiConfig).toMatchObject({ hidden: true })
         }
-        expect(learningContentWidgets).toHaveLength(1)
+        expect(learningContentWidgets).toHaveLength(4)
+        const learningContentTabs = learningContentWidgets.find((widget) => widget.widgetKey === 'detailsTabs')
+        expect(learningContentTabs?.rendererConfig.tabs).toEqual([
+            expect.objectContaining({ slotKey: 'tab:library', label: { en: 'Library', ru: 'Библиотека' }, isDefault: true }),
+            expect.objectContaining({ slotKey: 'tab:quizzes', label: { en: 'Quizzes', ru: 'Тесты' } }),
+            expect.objectContaining({ slotKey: 'tab:guest-links', label: { en: 'Guest links', ru: 'Ссылки для гостей' } })
+        ])
         const learningContentTables = learningContentWidgets.filter((widget) => widget.widgetKey === 'detailsTable')
-        expect(learningContentTables).toHaveLength(1)
-        const learningResourceTable = learningContentTables[0]
+        expect(learningContentTables).toHaveLength(2)
+        const learningResourceTable = learningContentTables.find((widget) => widget.rendererConfig.variant === 'library')
         expect(learningResourceTable).toBeDefined()
-        expect(learningResourceTable?.parentInstanceKey).toBeNull()
-        expect(learningResourceTable?.slotKey).toBeNull()
+        expect(learningResourceTable?.parentInstanceKey).toBe('learning-content-tabs')
+        expect(learningResourceTable?.slotKey).toBe('tab:library')
         expect(learningResourceTable?.rendererConfig).toMatchObject({
             variant: 'library',
             libraryView: 'all',
@@ -1051,20 +1057,15 @@ describe('TemplateManifestValidator', () => {
             'learning-content-create-link',
             'learning-content-create-course',
             'learning-content-create-track',
-            'learning-content-create-quiz-lite',
+            'learning-content-create-quiz',
             'learning-content-create-assignment-lite',
             'learning-content-create-package'
         ])
         expect(createTargets.filter((target) => target.disabled).map((target) => target.id)).toEqual([
-            'learning-content-create-quiz-lite',
             'learning-content-create-assignment-lite',
             'learning-content-create-package'
         ])
         const createTargetById = new Map(createTargets.map((target) => [target.id, target]))
-        expect(createTargetById.get('learning-content-create-quiz-lite')?.disabledReason).toEqual({
-            en: 'Quiz authoring is planned for a later Learning Content phase.',
-            ru: 'Создание тестов запланировано на следующий этап учебного контента.'
-        })
         expect(createTargetById.get('learning-content-create-assignment-lite')?.disabledReason).toEqual({
             en: 'Assignment authoring is planned for a later Learning Content phase.',
             ru: 'Создание заданий запланировано на следующий этап учебного контента.'

@@ -1,3 +1,5 @@
+import { GLOBAL_SHORT_LINK_SLUG_PATTERN } from '@universo-react/types'
+
 /**
  * Universo Platformo | Public Routes Constants
  *
@@ -43,6 +45,29 @@ export const API_WHITELIST_URLS = [
     '/api/v1/publish/render/'
 ] as const
 
+const globalShortLinkSlugRoutePattern = GLOBAL_SHORT_LINK_SLUG_PATTERN.source
+    .replace(/^\^/, '')
+    .replace(/\$$/, '')
+    .replace(/\[a-z/g, '[A-Za-z')
+const publicApplicationIdPathSegment = '[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}'
+const publicRuntimeRecordIdPathSegment = publicApplicationIdPathSegment
+const publicAccessLinkSlugPathSegment = '[A-Za-z0-9][A-Za-z0-9_-]{0,254}'
+const publicApplicationRuntimePaths = [
+    `links/${publicAccessLinkSlugPathSegment}`,
+    'guest-session',
+    'runtime',
+    'runtime/attempts/start',
+    `runtime/attempts/${publicRuntimeRecordIdPathSegment}`,
+    `runtime/attempts/${publicRuntimeRecordIdPathSegment}/answers`,
+    `runtime/attempts/${publicRuntimeRecordIdPathSegment}/finalize`,
+    'runtime/guest-progress',
+    'runtime/modules',
+    `runtime/modules/${publicRuntimeRecordIdPathSegment}/client`
+] as const
+const publicApplicationRuntimePathPatterns = publicApplicationRuntimePaths.map(
+    (routePath) => new RegExp(`^/api/v1/public/a/${publicApplicationIdPathSegment}/${routePath}$`)
+)
+
 /**
  * Backend API path patterns that don't require JWT authentication.
  * Use only for public routes with dynamic path segments and route-local
@@ -50,7 +75,9 @@ export const API_WHITELIST_URLS = [
  */
 export const API_WHITELIST_PATH_PATTERNS = [
     /^\/api\/v1\/metahub\/[^/]+\/packages\/[^/]+\/editor-artifact-token\/[^/]+\//,
-    /^\/api\/v1\/public\/applications\/[^/]+\/runtime$/
+    /^\/api\/v1\/public\/applications\/[^/]+\/runtime$/,
+    new RegExp(`^/api/v1/public/l/${globalShortLinkSlugRoutePattern}$`),
+    ...publicApplicationRuntimePathPatterns
 ] as const
 
 /**

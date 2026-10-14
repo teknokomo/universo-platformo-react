@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import WorkspaceSwitcher from '../WorkspaceSwitcher'
+import { buildWorkspaceSwitchHref } from '../workspaceSwitcherNavigation'
 import { DashboardDetailsProvider } from '../../DashboardDetailsContext'
 
 const mocks = vi.hoisted(() => ({
@@ -205,6 +206,12 @@ describe('WorkspaceSwitcher', () => {
 
     it('renders the current workspace and switches to another workspace', async () => {
         const queryClient = createQueryClient()
+        const navigate = vi.fn()
+        window.history.replaceState(
+            {},
+            '',
+            `/a/app-1?targetKind=object&entityTypeCodename=Quizzes&locale=en&workspaceId=${personalWorkspaceId}`
+        )
 
         render(
             <QueryClientProvider client={queryClient}>
@@ -215,6 +222,7 @@ describe('WorkspaceSwitcher', () => {
                             apiBaseUrl: '/api/v1',
                             currentWorkspaceId: personalWorkspaceId,
                             workspacesEnabled: true,
+                            navigate,
                             title: 'Runtime'
                         } as never
                     }
@@ -240,6 +248,29 @@ describe('WorkspaceSwitcher', () => {
                 expect.objectContaining({ method: 'PATCH' })
             )
         })
+        await waitFor(() => {
+            expect(navigate).toHaveBeenCalledWith(
+                `/a/app-1?targetKind=object&entityTypeCodename=Quizzes&locale=en&workspaceId=${sharedWorkspaceId}`
+            )
+        })
+    })
+
+    it('updates the workspace segment when switching from a workspace detail route', () => {
+        window.history.replaceState({}, '', `/a/app-1/workspaces/${personalWorkspaceId}/access?locale=ru`)
+
+        expect(buildWorkspaceSwitchHref(sharedWorkspaceId)).toBe(
+            `/a/app-1/workspaces/${sharedWorkspaceId}/access?locale=ru&workspaceId=${sharedWorkspaceId}`
+        )
+    })
+
+    it('preserves hash-routed application context while switching workspaces', () => {
+        window.history.replaceState({}, '', '/')
+        window.location.hash = `/a/app-1?targetKind=object&entityTypeCodename=Quizzes&locale=en&workspaceId=${personalWorkspaceId}`
+
+        expect(buildWorkspaceSwitchHref(sharedWorkspaceId)).toBe(
+            `/a/app-1?targetKind=object&entityTypeCodename=Quizzes&locale=en&workspaceId=${sharedWorkspaceId}`
+        )
+        window.location.hash = ''
     })
 
     it('uses the active UI locale when rendering localized workspace names', async () => {

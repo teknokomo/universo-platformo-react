@@ -4,10 +4,12 @@ import { z } from 'zod'
 import { createClient } from '@supabase/supabase-js'
 import { ensureAuthenticated, getSupabaseForReq, ensureAndRefresh, type AuthenticatedRequest } from '../services/supabaseSession'
 import { createPermissionService } from '../services/permissionService'
+import { getLegalConsentDocumentVersions } from '../services/legalConsentPolicy'
 import { resolveSupabasePublicKey } from '../utils/resolveSupabasePublicKey'
 import {
     validateCaptcha,
     getCaptchaConfig,
+    getGuestCaptchaConfig,
     isCaptchaRequired,
     validateLoginCaptcha,
     getLoginCaptchaConfig,
@@ -128,12 +130,13 @@ export const createAuthRouter: RouterFactory = (csrfProtection, loginLimiter, op
     router.get('/captcha-config', (req, res) => {
         const registrationConfig = getCaptchaConfig()
         const loginConfig = getLoginCaptchaConfig()
+        const guestConfig = getGuestCaptchaConfig()
         console.info('[captcha] /captcha-config', {
             hostname: req.hostname,
             origin: req.get('origin'),
-            referer: req.get('referer'),
             registration: { enabled: registrationConfig.enabled, hasSiteKey: Boolean(registrationConfig.siteKey) },
             login: { enabled: loginConfig.enabled, hasSiteKey: Boolean(loginConfig.siteKey) },
+            guest: { enabled: guestConfig.enabled, hasSiteKey: Boolean(guestConfig.siteKey) },
             testMode: registrationConfig.testMode
         })
         return res.json({
@@ -143,7 +146,8 @@ export const createAuthRouter: RouterFactory = (csrfProtection, loginLimiter, op
             testMode: registrationConfig.testMode,
             // New format with separate configs
             registration: registrationConfig,
-            login: loginConfig
+            login: loginConfig,
+            guest: guestConfig
         })
     })
 
@@ -188,13 +192,12 @@ export const createAuthRouter: RouterFactory = (csrfProtection, loginLimiter, op
         let createdUserId: string | null = null
 
         try {
+            const { termsVersion, privacyVersion } = getLegalConsentDocumentVersions()
             const supa = createClient(process.env.SUPABASE_URL as string, resolveSupabasePublicKey(), {
                 auth: { persistSession: false }
             })
 
             const now = new Date()
-            const termsVersion = process.env.LEGAL_TERMS_VERSION
-            const privacyVersion = process.env.LEGAL_PRIVACY_VERSION
             const { data, error } = await supa.auth.signUp({
                 email: parsed.data.email,
                 password: parsed.data.password,

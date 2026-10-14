@@ -22,9 +22,11 @@ import { resolveEffectiveApplicationSettingsForWorkspace } from '../services/wor
 import { getRequestDbExecutor, getRequestDbSession } from '../utils'
 import { UpdateFailure } from './updateFailure'
 import { IDENTIFIER_REGEX, quoteIdentifier } from './runtimeSqlIdentifiers'
+import { resolveRuntimeCodenameText } from './runtimeCodenameText'
 
 export { UpdateFailure } from './updateFailure'
 export { IDENTIFIER_REGEX, quoteIdentifier } from './runtimeSqlIdentifiers'
+export { resolveRuntimeCodenameText } from './runtimeCodenameText'
 
 /**
  * Safe, stable validation error for a closed metadata formatter.
@@ -146,37 +148,6 @@ export const runtimeObjectFilterSql = (kindColumn = 'kind', configColumn = 'conf
 
 export const runtimeLayoutCapableFilterSql = (configColumn = 'config'): string =>
     `COALESCE(lower(${configColumn}->'capabilities'->'layoutConfig'->>'enabled') = 'true', false)`
-
-export const resolveRuntimeCodenameText = (codename: unknown): string => {
-    if (typeof codename === 'string') {
-        return codename
-    }
-
-    if (codename && typeof codename === 'object') {
-        const localized = codename as {
-            _primary?: string
-            locales?: Record<string, { content?: string }>
-        }
-        const primaryLocale = typeof localized._primary === 'string' ? localized._primary : 'en'
-        const primaryValue = localized.locales?.[primaryLocale]?.content
-        if (typeof primaryValue === 'string' && primaryValue.trim().length > 0) {
-            return primaryValue
-        }
-
-        const englishValue = localized.locales?.en?.content
-        if (typeof englishValue === 'string' && englishValue.trim().length > 0) {
-            return englishValue
-        }
-
-        for (const entry of Object.values(localized.locales ?? {})) {
-            if (typeof entry?.content === 'string' && entry.content.trim().length > 0) {
-                return entry.content
-            }
-        }
-    }
-
-    return ''
-}
 
 export const formatRuntimeFieldLabel = (codename: unknown): string => resolveRuntimeCodenameText(codename) || 'field'
 

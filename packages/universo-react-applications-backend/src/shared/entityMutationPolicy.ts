@@ -63,6 +63,20 @@ export const denyRuntimeEntityMutation = (res: Response, config: unknown): boole
     return true
 }
 
+/** Validate policy metadata without blocking an explicitly authorized server-owned workflow. */
+export const validateRuntimeEntityRecordPolicy = (res: Response, config: unknown): boolean => {
+    try {
+        resolveEntityRecordPolicy(config)
+        return false
+    } catch {
+        res.status(409).json({
+            error: 'Entity runtime mutation policy is invalid.',
+            code: RUNTIME_ENTITY_MUTATION_POLICY_CODES.invalid
+        })
+        return true
+    }
+}
+
 /** Throw the same policy failure from service and transactional mutation boundaries. */
 export const assertRuntimeEntityMutationAllowed = (config: unknown): void => {
     const failure = resolveRuntimeEntityMutationPolicyFailure(config)

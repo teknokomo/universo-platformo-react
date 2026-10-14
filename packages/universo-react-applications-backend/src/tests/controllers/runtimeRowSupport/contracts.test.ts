@@ -139,6 +139,13 @@ describe('runtimeRelationScopeSchema', () => {
         expect(
             runtimeRelationScopeSchema.safeParse({
                 fieldCodename: 'CourseId',
+                parentRecordId: '0190a9b5-3cde-7abc-8def-0123456789d2',
+                layoutTarget: { targetKind: 'object', entityTypeId: '0190a9b5-3cde-7abc-8def-0123456789d3' }
+            }).success
+        ).toBe(true)
+        expect(
+            runtimeRelationScopeSchema.safeParse({
+                fieldCodename: 'CourseId',
                 parentRecordId: '0190a9b5-3cde-7abc-8def-0123456789d2'
             }).success
         ).toBe(true)
@@ -152,6 +159,7 @@ describe('runtimeRelationScopeSchema', () => {
             runtimeRelationScopeSchema.safeParse({
                 fieldCodename: 'CourseId',
                 parentRecordId: '0190a9b5-3cde-7abc-8def-0123456789d2',
+                layoutTarget: { targetKind: 'object', entityTypeId: '0190a9b5-3cde-7abc-8def-0123456789d3' },
                 layoutId: 'untrusted'
             }).success
         ).toBe(false)
@@ -164,12 +172,19 @@ describe('runtimeReorderBodySchema', () => {
         orderedRowIds: ['018f8a78-7b8f-7c1d-a111-222233334402'],
         parentScope: {
             fieldCodename: 'CourseId',
-            parentRecordId: '018f8a78-7b8f-7c1d-a111-222233334403'
+            parentRecordId: '018f8a78-7b8f-7c1d-a111-222233334403',
+            layoutTarget: { targetKind: 'object', entityTypeId: '018f8a78-7b8f-7c1d-a111-222233334404' }
         }
     }
 
     it('accepts an optional, semantic parent scope', () => {
         expect(runtimeReorderBodySchema.safeParse(baseBody).success).toBe(true)
+        expect(
+            runtimeReorderBodySchema.safeParse({
+                ...baseBody,
+                parentScope: { fieldCodename: baseBody.parentScope.fieldCodename, parentRecordId: baseBody.parentScope.parentRecordId }
+            }).success
+        ).toBe(true)
         expect(
             runtimeReorderBodySchema.safeParse({ objectCollectionId: baseBody.objectCollectionId, orderedRowIds: baseBody.orderedRowIds })
                 .success

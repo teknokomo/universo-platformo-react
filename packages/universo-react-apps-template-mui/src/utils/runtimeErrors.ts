@@ -44,7 +44,9 @@ export const RUNTIME_RULE_ERROR_KEYS: Record<string, string> = {
     RECORD_KEY_DUPLICATE: 'errors.recordKeyDuplicate',
     RECORD_PATTERN_MISMATCH: 'errors.recordPatternMismatch',
     RUNTIME_RELATION_SCOPE_REQUIRED: 'errors.relationScopeRequired',
-    RUNTIME_RECORD_VERSION_CONFLICT: 'errors.recordVersionConflict'
+    RUNTIME_RECORD_VERSION_CONFLICT: 'errors.recordVersionConflict',
+    GUEST_QUIZ_INTAKE_REQUIRED: 'guest.errors.quizIntakeRequired',
+    RUNTIME_ACCESS_LINK_INTAKE_POLICY_INVALID: 'errors.accessLinkIntakePolicyInvalid'
 }
 
 export type RuntimeRuleTranslator = (key: string, locale: string) => string | null
@@ -76,6 +78,14 @@ export const RUNTIME_RULE_ERROR_MESSAGES: Record<string, { en: string; ru: strin
     RUNTIME_RECORD_VERSION_CONFLICT: {
         en: 'This record changed after you opened it. Reload the record and try again.',
         ru: 'Запись изменилась после открытия. Обновите её и повторите попытку.'
+    },
+    GUEST_QUIZ_INTAKE_REQUIRED: {
+        en: 'This guest session does not include quiz consent. Open the access link again and submit the consent form to continue.',
+        ru: 'В этой гостевой сессии нет согласия на участие в тесте. Откройте ссылку доступа и заново заполните анкету с подтверждением согласий.'
+    },
+    RUNTIME_ACCESS_LINK_INTAKE_POLICY_INVALID: {
+        en: 'Show at least one guest identity field and make every required field visible.',
+        ru: 'Покажите хотя бы одно поле с данными гостя и сделайте видимыми все обязательные поля.'
     }
 }
 

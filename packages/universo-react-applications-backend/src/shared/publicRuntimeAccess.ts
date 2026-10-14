@@ -36,9 +36,9 @@ export const listActivePublicWorkspaceIds = async (executor: DbExecutor, schemaN
 
 /**
  * When workspaces are enabled, RLS policies on object tables require
- * workspace_id to match current_setting('app.current_workspace_id').
- * Public runtime must therefore bind itself to each candidate active workspace
- * while resolving an explicit access-link slug or guest session token.
+ * workspace_id to match current_setting('app.current_workspace_id'). Public
+ * runtime validates and binds the workspace without retaining a row lock;
+ * mutations must acquire an explicit FOR UPDATE lock before writing.
  */
 export const setPublicWorkspaceContext = async (executor: DbExecutor, schemaName: string, workspaceId: string | null): Promise<boolean> => {
     if (!workspaceId) {
@@ -67,6 +67,33 @@ export const setPublicWorkspaceContext = async (executor: DbExecutor, schemaName
 
     await executor.query(`SELECT set_config('app.current_workspace_id', $1::text, true)`, [workspaceId])
     return true
+}
+
+/** Serialize a public runtime write with workspace archival and guest-session writes. */
+export const lockPublicWorkspaceForMutation = async (
+    executor: DbExecutor,
+    schemaName: string,
+    workspaceId: string | null
+): Promise<boolean> => {
+    if (!workspaceId || !UUID_REGEX.test(workspaceId)) return false
+
+    const workspacesQt = qSchemaTable(schemaName, '_app_workspaces')
+    const rows = await executor.query<{ id: string }>(
+        `
+        SELECT id
+        FROM ${workspacesQt}
+        WHERE id = $1
+          AND COALESCE(status, 'active') = 'active'
+          AND workspace_type <> 'personal'
+          AND personal_user_id IS NULL
+          AND ${ACTIVE_ROW_SQL}
+        LIMIT 1
+        FOR UPDATE
+        `,
+        [workspaceId]
+    )
+
+    return rows[0]?.id === workspaceId
 }
 
 export interface ResolvePublicRuntimeSchemaOptions {
@@ -234,7 +261,8 @@ export const loadPublicRuntimeRecord = async (
     schemaName: string,
     binding: PublicRuntimeObjectBinding,
     recordId: string,
-    workspaceId: string | null = null
+    workspaceId: string | null = null,
+    options: { lockForUpdate?: boolean } = {}
 ): Promise<Record<string, unknown> | null> => {
     if (!UUID_REGEX.test(recordId)) {
         return null
@@ -260,6 +288,7 @@ export const loadPublicRuntimeRecord = async (
           ${workspaceId ? 'AND "workspace_id" = $2' : ''}
           AND ${ACTIVE_ROW_SQL}
         LIMIT 1
+        ${options.lockForUpdate ? 'FOR UPDATE' : ''}
         `,
         workspaceId ? [recordId, workspaceId] : [recordId]
     )

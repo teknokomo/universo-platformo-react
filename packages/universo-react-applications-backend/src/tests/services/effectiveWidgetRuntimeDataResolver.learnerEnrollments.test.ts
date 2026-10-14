@@ -86,7 +86,7 @@ describe('resolveEffectiveWidgetRuntimeData learner Enrollment tables', () => {
             status: 'ready',
             data: {
                 kind: 'table',
-                columns: [{ key: 'title', label: 'TargetTitle' }],
+                columns: [{ key: 'title', label: 'TargetTitle', valueType: 'string' }],
                 rows: [{ key: 'row-1', cells: [{ key: 'title', value: titleEn }] }]
             }
         })

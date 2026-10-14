@@ -2,6 +2,8 @@ import { activeAppRowCondition, softDeleteSetClause, type DbExecutor, type SqlQu
 import type { VersionedLocalizedContent } from '@universo-react/types'
 import { quoteIdentifier } from '@universo-react/migrations-core'
 import { isValidSchemaName } from '@universo-react/schema-ddl'
+import { releaseActiveGlobalShortLinksForApplication } from './globalShortLinksStore'
+import { revokeGuestSessionIdempotencyForApplication } from './guestSessionIdempotencyStore'
 
 export interface ApplicationRecord {
     id: string
@@ -882,6 +884,49 @@ export async function updateApplication(
     return rows[0] ?? null
 }
 
+export async function mergeApplicationGuestRuntimeConfig(
+    executor: SqlQueryable,
+    input: {
+        applicationId: string
+        guestRuntimeConfig: Record<string, unknown>
+        userId: string
+    }
+): Promise<boolean> {
+    const rows = await executor.query<{ id: string }>(
+        `
+        UPDATE applications.obj_applications AS application
+        SET settings = jsonb_set(
+                CASE
+                    WHEN jsonb_typeof(application.settings) = 'object' THEN application.settings
+                    ELSE '{}'::jsonb
+                END,
+                '{publicRuntime}',
+                (
+                    CASE
+                        WHEN jsonb_typeof(application.settings->'publicRuntime') = 'object' THEN application.settings->'publicRuntime'
+                        ELSE '{}'::jsonb
+                    END
+                ) || jsonb_build_object('guest', $2::jsonb),
+                true
+            ),
+            _upl_updated_by = $3,
+            _upl_updated_at = NOW(),
+            _upl_version = COALESCE(application._upl_version, 1) + 1
+        WHERE application.id = $1
+          AND ${activeRowPredicate('application')}
+          AND (
+              application.settings #> '{publicRuntime,guest}' IS NULL
+              OR application.settings #> '{publicRuntime,guest}' = 'null'::jsonb
+              OR application.settings #> '{publicRuntime,guest}' = $2::jsonb
+          )
+        RETURNING application.id
+        `,
+        [input.applicationId, JSON.stringify(input.guestRuntimeConfig), input.userId]
+    )
+
+    return rows.length > 0
+}
+
 export async function updateApplicationSyncFields(
     executor: SqlQueryable,
     input: {
@@ -971,8 +1016,24 @@ export async function deleteApplicationWithSchema(
     input: { applicationId: string; schemaName: string | null; userId?: string }
 ): Promise<boolean> {
     return executor.transaction(async (trx) => {
+        if (input.schemaName) assertApplicationSchemaName(input.schemaName)
+
+        const applicationRows = await trx.query<{ id: string }>(
+            `
+            SELECT id
+            FROM applications.obj_applications
+            WHERE id = $1
+              AND ${activeRowPredicate()}
+            FOR UPDATE
+            `,
+            [input.applicationId]
+        )
+
+        if (applicationRows.length === 0) {
+            throw new Error('Application was not found or is already deleted')
+        }
+
         if (input.schemaName) {
-            assertApplicationSchemaName(input.schemaName)
             await trx.query(`DROP SCHEMA IF EXISTS ${quoteIdentifier(input.schemaName)} CASCADE`)
         }
 
@@ -1001,18 +1062,17 @@ export async function deleteApplicationWithSchema(
             [input.applicationId, input.userId ?? null]
         )
 
-        await trx.query(
-            `
-            UPDATE applications.rel_application_users
-                        SET ${softDeleteSetClause('$2')},
-                _upl_version = COALESCE(_upl_version, 1) + 1
-            WHERE application_id = $1
-              AND ${activeRowPredicate()}
-            `,
-            [input.applicationId, input.userId ?? null]
-        )
+        // Release links through their owning store before the application tombstone,
+        // while RLS still recognizes the deleting actor as an active application manager.
+        await releaseActiveGlobalShortLinksForApplication(trx, input.applicationId, input.userId ?? null)
 
-        // Soft-delete the application itself
+        // The replay table stores encrypted session secrets centrally and is
+        // soft-delete-owned by neither the application nor its runtime schema.
+        // Purge those records atomically before tombstoning the application.
+        await revokeGuestSessionIdempotencyForApplication(trx, input.applicationId)
+
+        // Soft-delete the application while the active manager membership is
+        // still present for the application's UPDATE RLS policy.
         const rows = await trx.query<{ id: string }>(
             `
             UPDATE applications.obj_applications
@@ -1025,6 +1085,23 @@ export async function deleteApplicationWithSchema(
             [input.applicationId, input.userId ?? null]
         )
 
-        return rows.length > 0
+        if (rows.length === 0) {
+            throw new Error('Application was not soft-deleted')
+        }
+
+        // Membership policies authorize this cascade from the still-active
+        // membership snapshot; run it only after the application tombstone.
+        await trx.query(
+            `
+            UPDATE applications.rel_application_users
+                        SET ${softDeleteSetClause('$2')},
+                _upl_version = COALESCE(_upl_version, 1) + 1
+            WHERE application_id = $1
+              AND ${activeRowPredicate()}
+            `,
+            [input.applicationId, input.userId ?? null]
+        )
+
+        return true
     })
 }

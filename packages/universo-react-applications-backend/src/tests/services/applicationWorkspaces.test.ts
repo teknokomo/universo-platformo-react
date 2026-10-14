@@ -4,9 +4,40 @@ import {
     resetWorkspaceSeededElements,
     resolveRuntimeWorkspaceAccess
 } from '../../services/applicationWorkspaces'
+import { lockActiveRuntimeWorkspaceContext } from '../../services/runtimeWorkspaceContext'
 import { createMockDbExecutor } from '../utils/dbMocks'
 
 describe('applicationWorkspaces access and schema behavior', () => {
+    it('locks an active personal workspace for authenticated scoped reports', async () => {
+        const { executor } = createMockDbExecutor()
+        const schemaName = 'app_018f8a787b8f7c1da111222233334480'
+        const workspaceId = '018f8a78-7b8f-7c1d-a111-222233334481'
+        executor.query.mockImplementation(async (sql: string) => {
+            if (sql.includes(`FROM "${schemaName}"."_app_workspaces"`)) return [{ id: workspaceId }]
+            return []
+        })
+
+        await expect(lockActiveRuntimeWorkspaceContext(executor, schemaName, workspaceId)).resolves.toBe(true)
+
+        const [lookupSql, lookupParams] = executor.query.mock.calls[0]
+        expect(String(lookupSql)).toContain("COALESCE(status, 'active') = 'active'")
+        expect(String(lookupSql)).toContain('FOR SHARE')
+        expect(String(lookupSql)).not.toContain("workspace_type <> 'personal'")
+        expect(lookupParams).toEqual([workspaceId])
+        expect(executor.query.mock.calls[1][0]).toContain("set_config('app.current_workspace_id'")
+        expect(executor.query.mock.calls[1][1]).toEqual([workspaceId])
+    })
+
+    it('does not bind an inactive or missing workspace context', async () => {
+        const { executor } = createMockDbExecutor()
+        executor.query.mockResolvedValue([])
+
+        await expect(
+            lockActiveRuntimeWorkspaceContext(executor, 'app_018f8a787b8f7c1da111222233334480', '018f8a78-7b8f-7c1d-a111-222233334481')
+        ).resolves.toBe(false)
+        expect(executor.query).toHaveBeenCalledTimes(1)
+    })
+
     it('keeps read-only Entity tables and their TABLE children untouched during an owner seed reset', async () => {
         const { executor, txExecutor } = createMockDbExecutor()
         const schemaName = 'app_018f8a787b8f7c1da111222233334480'

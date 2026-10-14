@@ -23,7 +23,11 @@ const object: RuntimeWidgetBindingObjectMetadata = {
     config: { capabilities: { dataSchema: { enabled: true }, records: { enabled: true } } }
 }
 
-const componentsFor = (owner: RuntimeWidgetBindingObjectMetadata, slot: WidgetBindingSlotDefinition, relationTargetObjectId?: string) =>
+const componentsFor = (
+    owner: RuntimeWidgetBindingObjectMetadata,
+    slot: WidgetBindingSlotDefinition,
+    relationTargetObject?: RuntimeWidgetBindingObjectMetadata
+) =>
     slot.requirements.components.map(
         (requirement, index): RuntimeWidgetBindingComponentMetadata => ({
             objectId: owner.id,
@@ -44,7 +48,13 @@ const componentsFor = (owner: RuntimeWidgetBindingObjectMetadata, slot: WidgetBi
                     locales: { en: { content: requirement.componentCodename }, ru: { content: `RU ${requirement.componentCodename}` } }
                 }
             },
-            ...(requirement.valueType === 'ref' ? { targetObjectId: relationTargetObjectId ?? parentObjectId } : {})
+            ...(requirement.valueType === 'ref' && relationTargetObject
+                ? {
+                      targetObjectId: relationTargetObject.id,
+                      targetObjectKind: relationTargetObject.kind,
+                      targetObjectCodename: relationTargetObject.codename
+                  }
+                : {})
         })
     )
 
@@ -58,7 +68,8 @@ const definitionAndSlot = () => {
 const recordSetQuery = (slot: WidgetBindingSlotDefinition, entityCodename: string): WidgetBindingRecordQuery => {
     const order = slot.requirements.components.find(({ field }) => field === slot.orderByField)
     const visibility = slot.requirements.components.find(({ field }) => field === slot.visibilityField)
-    if (!order || !slot.maxResolvedRecords) throw new Error(`Missing ordered contract for ${slot.key}`)
+    if ((!order && slot.projectionMode !== 'entity-schema') || !slot.maxResolvedRecords)
+        throw new Error(`Missing ordered contract for ${slot.key}`)
     const target = {
         entityKind: 'object' as const,
         entityCodename,
@@ -71,7 +82,7 @@ const recordSetQuery = (slot: WidgetBindingSlotDefinition, entityCodename: strin
         slot: slot.key,
         projection: target.projection,
         ordered: {
-            orderByComponentCodename: order.componentCodename,
+            orderByComponentCodename: order?.componentCodename ?? null,
             ...(visibility ? { visibilityComponentCodename: visibility.componentCodename } : {}),
             limit: slot.maxResolvedRecords
         }
@@ -98,6 +109,63 @@ const learnerEnrollmentQuery = (slot: WidgetBindingSlotDefinition, targetKind: '
 }
 
 describe('widgetBindingRuntimeStore', () => {
+    it('loads entity-schema record sets in stable UUID order without requiring a Component sort field', async () => {
+        const { executor } = createMockDbExecutor()
+        const definition = getLayoutWidgetDefinition('detailsTable', { variant: 'records' })
+        const slot = definition?.bindingSlots?.find(({ key }) => key === 'rows')
+        if (!slot) throw new Error('Generic records table rows slot is missing')
+        const quizObject: RuntimeWidgetBindingObjectMetadata = {
+            ...object,
+            codename: 'Quizzes',
+            tableName: 'quiz_records'
+        }
+        executor.query.mockResolvedValueOnce([{ record_id: rowId, _upl_version: 4 }])
+
+        const rows = await loadWidgetBindingRuntimeRecords(executor, {
+            schemaName,
+            workspaceId,
+            workspacesEnabled: true,
+            query: recordSetQuery(slot, 'Quizzes'),
+            object: quizObject,
+            components: [],
+            slot
+        })
+
+        const [sql, parameters] = executor.query.mock.calls[0] ?? []
+        expect(String(sql)).toContain(`FROM "${schemaName}"."quiz_records" AS record`)
+        expect(String(sql)).toContain('SELECT record."id" AS "record_id", COALESCE(record."_upl_version", 1)::int AS "_upl_version"')
+        expect(String(sql)).not.toContain(', ,')
+        expect(String(sql)).toContain('"workspace_id" = $1')
+        expect(String(sql)).toContain('ORDER BY "id" ASC')
+        expect(String(sql)).not.toContain('NULLS LAST')
+        expect(String(sql)).not.toContain('SELECT *')
+        expect(parameters).toEqual([workspaceId, 501])
+        expect(rows).toEqual([{ recordId: rowId, version: 4, data: {} }])
+    })
+
+    it('rejects a missing Component sort field for ordinary projected record sets before querying', async () => {
+        const { executor } = createMockDbExecutor()
+        const { slot } = definitionAndSlot()
+        const query = recordSetQuery(slot, 'CustomLogos')
+        if (query.kind !== 'record-set') throw new Error('Expected record-set query')
+
+        await expect(
+            loadWidgetBindingRuntimeRecords(executor, {
+                schemaName,
+                workspaceId,
+                workspacesEnabled: true,
+                query: {
+                    ...query,
+                    ordered: { ...query.ordered, orderByComponentCodename: null }
+                },
+                object,
+                components: componentsFor(object, slot),
+                slot
+            })
+        ).rejects.toThrow('Widget binding ordered selector is invalid')
+        expect(executor.query).not.toHaveBeenCalled()
+    })
+
     it('loads published Page and Hub metadata plus explicitly primary Objects through a bounded schema-qualified query', async () => {
         const { executor } = createMockDbExecutor()
         executor.query.mockResolvedValueOnce([
@@ -179,6 +247,7 @@ describe('widgetBindingRuntimeStore', () => {
         expect(String(componentSql)).toContain('"_app_published" = true')
         expect(String(componentSql)).toContain('"presentation"')
         expect(String(componentSql)).toContain('= ANY($2::text[])')
+        expect(String(componentSql)).toContain('"parent_component_id" IS NULL')
         expect(String(componentSql)).toContain('LIMIT $3')
         expect(componentParameters).toEqual([[objectId], requestedNames, 8193])
     })
@@ -492,7 +561,7 @@ describe('widgetBindingRuntimeStore', () => {
             }
         }
         const ownerComponent: RuntimeWidgetBindingComponentMetadata = {
-            id: '019ccefc-2f7b-7b36-82f4-85cdb1312292',
+            id: '019ccefc-2f7b-7b36-82f4-85cdb1312297',
             objectId,
             codename: 'OwnerId',
             columnName: 'owner_id',
@@ -703,7 +772,7 @@ describe('widgetBindingRuntimeStore', () => {
                 }
             }
         }
-        const components = componentsFor({ ...object, codename: 'MarketingPagePricingBenefit' }, slot, parentObjectId)
+        const components = componentsFor({ ...object, codename: 'MarketingPagePricingBenefit' }, slot, parentObject)
         const relation = slot.relation!
         const relationComponent = slot.requirements.components.find(({ field }) => field === relation.field)!
         const parentTarget = {
@@ -840,24 +909,32 @@ describe('widgetBindingRuntimeStore', () => {
         expect(String(invalidParentSql)).toContain('EXISTS (')
         expect(String(invalidParentSql)).toContain('AND (FALSE)')
 
-        const mismatchedExecutor = createMockDbExecutor().executor
-        await expect(
-            loadWidgetBindingRuntimeRecords(mismatchedExecutor, {
-                schemaName,
-                workspaceId: null,
-                workspacesEnabled: false,
-                query,
-                object: { ...object, codename: 'MarketingPagePricingBenefit' },
-                components: components.map((component) =>
-                    component.codename === 'TierRef' ? { ...component, targetObjectId: workspaceId } : component
-                ),
-                slot,
-                parentObject,
-                parentSlot,
-                parentObjectId
-            })
-        ).rejects.toThrow('Widget binding REF targets another Object')
-        expect(mismatchedExecutor.query).not.toHaveBeenCalled()
+        // The shared compatibility policy also rejects these target triples.
+        // Keep the runtime's earlier guard first to preserve the specific REF error.
+        for (const mismatchedTarget of [
+            { targetObjectId: workspaceId },
+            { targetObjectKind: 'set' },
+            { targetObjectCodename: 'Workspace' }
+        ]) {
+            const mismatchedExecutor = createMockDbExecutor().executor
+            await expect(
+                loadWidgetBindingRuntimeRecords(mismatchedExecutor, {
+                    schemaName,
+                    workspaceId: null,
+                    workspacesEnabled: false,
+                    query,
+                    object: { ...object, codename: 'MarketingPagePricingBenefit' },
+                    components: components.map((component) =>
+                        component.codename === 'TierRef' ? { ...component, ...mismatchedTarget } : component
+                    ),
+                    slot,
+                    parentObject,
+                    parentSlot,
+                    parentObjectId
+                })
+            ).rejects.toThrow('Widget binding REF targets another Object')
+            expect(mismatchedExecutor.query).not.toHaveBeenCalled()
+        }
     })
 
     it('rejects malformed projections, excessive limits, missing workspace, and disabled Object capabilities before SQL', async () => {

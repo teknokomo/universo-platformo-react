@@ -676,7 +676,7 @@ export function createLmsRuntimeBuilderHelpers(dependencies: LmsRuntimeBuilderHe
         tabs: Array<
             | { name: string; kind: 'relation'; expectedColumnHeader: string }
             | { name: string; kind: 'learner-player' }
-            | { name: string; kind: 'reports' }
+            | { name: string; kind: 'reports'; expectedCount: number }
         >
     }): Promise<void> {
         const { page, navigationItem, label, screenshotPath, tabs: expectedTabs } = options
@@ -717,7 +717,9 @@ export function createLmsRuntimeBuilderHelpers(dependencies: LmsRuntimeBuilderHe
             }
 
             const reportSurfaces = tabsSurface.getByTestId('runtime-report-details-table')
-            await expect(reportSurfaces, `${label} Reports must render both first-class report placements`).toHaveCount(2)
+            await expect(reportSurfaces, `${label} Reports must render all configured report placements`).toHaveCount(
+                expectedTab.expectedCount
+            )
             const reportSurface = reportSurfaces.first()
             await expect(reportSurface, `${label} Reports must render a generic report surface`).toBeVisible({ timeout: 30_000 })
             await expectNoTechnicalLeakage(reportSurface, { label: `${label} Reports`, checkUuidSubstrings: true })

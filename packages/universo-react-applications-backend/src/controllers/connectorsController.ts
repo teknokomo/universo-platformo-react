@@ -7,6 +7,7 @@ import { sanitizeLocalizedInput, buildLocalizedContent } from '@universo-react/u
 import { validateListQuery } from '../schemas/queryParams'
 import { escapeLikeWildcards, getRequestDbExecutor, getRequestDbSession } from '../utils'
 import { ensureApplicationAccess, type ApplicationRole } from '../routes/guards'
+import { mergeApplicationGuestRuntimeConfig } from '../persistence/applicationsStore'
 import {
     countConnectorPublicationLinks,
     deleteConnector,
@@ -15,6 +16,7 @@ import {
     findConnector,
     findConnectorPublicationLink,
     findConnectorPublicationLinkById,
+    findPublicationGuestRuntimeConfig,
     insertConnector,
     insertConnectorPublicationLink,
     listConnectorPublicationLinks,
@@ -51,6 +53,30 @@ const createConnectorSchema = z.object({
     sortOrder: z.number().int().optional(),
     publicationId: z.string().uuid().optional()
 })
+
+class GuestRuntimeConfigurationConflictError extends Error {
+    readonly statusCode = 409
+
+    constructor() {
+        super('This application is already connected to a different public guest runtime configuration')
+        this.name = 'GuestRuntimeConfigurationConflictError'
+    }
+}
+
+const syncPublicationGuestRuntimeConfig = async (
+    executor: DbExecutor,
+    input: { applicationId: string; publicationId: string; userId: string }
+): Promise<void> => {
+    const guestRuntimeConfig = await findPublicationGuestRuntimeConfig(executor, input.publicationId)
+    if (!guestRuntimeConfig) return
+
+    const updated = await mergeApplicationGuestRuntimeConfig(executor, {
+        applicationId: input.applicationId,
+        guestRuntimeConfig,
+        userId: input.userId
+    })
+    if (!updated) throw new GuestRuntimeConfigurationConflictError()
+}
 
 const updateConnectorSchema = z.object({
     name: localizedInputSchema.optional(),
@@ -233,6 +259,7 @@ export function createConnectorsController(getDbExecutor: () => DbExecutor) {
                         sortOrder: 0,
                         userId
                     })
+                    await syncPublicationGuestRuntimeConfig(trx, { applicationId, publicationId, userId })
                 }
 
                 return savedConnector
@@ -458,17 +485,16 @@ export function createConnectorsController(getDbExecutor: () => DbExecutor) {
                 })
             }
 
-            const link = await insertConnectorPublicationLink(
-                {
-                    query: <TRow = unknown>(sql: string, parameters?: unknown[]) => query<TRow>(req, sql, parameters ?? [])
-                },
-                {
+            const link = await getRequestDbExecutor(req, getDbExecutor()).transaction(async (trx) => {
+                const createdLink = await insertConnectorPublicationLink(trx, {
                     connectorId,
                     publicationId,
                     sortOrder,
                     userId
-                }
-            )
+                })
+                await syncPublicationGuestRuntimeConfig(trx, { applicationId, publicationId, userId })
+                return createdLink
+            })
 
             return res.status(201).json(link)
         },

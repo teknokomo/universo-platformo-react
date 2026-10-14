@@ -41,6 +41,7 @@ import { isRuntimeChildParentReference, resolveRuntimeChildParentRecordId } from
 import { createRuntimeVersionConflictFailure } from './runtimeVersionConflict'
 import { denyRuntimeEntityMutation } from '../shared/entityMutationPolicy'
 import { assertRuntimeRecordMutable } from '../services/runtimeRecordBehavior'
+import { isRuntimeServerOwnedAttr } from '../services/runtimeRowSupport/contracts'
 
 // ---------------------------------------------------------------------------
 // Zod schema
@@ -157,7 +158,9 @@ export function createRuntimeChildRowsController(getDbExecutor: () => DbExecutor
             ctx.currentWorkspaceId
         )
 
-        const safeChildAttrs = getSafeRuntimeChildAttrs(tc)
+        const safeChildAttrs = getSafeRuntimeChildAttrs(tc, {
+            allowAssessmentOptions: ctx.permissions.editContent === true || ctx.permissions.manageApplication === true
+        })
         const hierarchyAttrs = resolveHierarchyAttrs(tc)
         const selectedColumns = new Set(safeChildAttrs.map((attr) => attr.column_name))
         const selectCols = ['id', '_tp_sort_order', '_upl_version', ...safeChildAttrs.map((attr) => quoteIdentifier(attr.column_name))]
@@ -266,6 +269,7 @@ export function createRuntimeChildRowsController(getDbExecutor: () => DbExecutor
         const placeholders: string[] = ['$1', '$2']
         const values: unknown[] = [recordId, sortOrder]
         let pIdx = 3
+        let requiredServerOwnedFieldError: string | null = null
         const effectiveCreateData: Record<string, unknown> = { ...data }
 
         if (ctx.workspacesEnabled && ctx.currentWorkspaceId) {
@@ -287,7 +291,13 @@ export function createRuntimeChildRowsController(getDbExecutor: () => DbExecutor
             const childFieldPath = formatRuntimeFieldPath(tc.tableAttr.codename, cAttr.codename)
             const isEnumRef = cAttr.data_type === 'REF' && cAttr.target_object_kind === 'enumeration'
             const { hasUserValue, value: inputValue } = getRuntimeInputValue(data, cAttr.column_name, cAttr.codename)
+            const isServerOwned = isRuntimeServerOwnedAttr(cAttr)
+            const uiConfig = cAttr.ui_config ?? {}
+            const hasTrustedDefault =
+                isServerOwned && Object.prototype.hasOwnProperty.call(uiConfig, 'defaultValue') && uiConfig.defaultValue !== undefined
             let raw = inputValue
+
+            if (raw === undefined && hasTrustedDefault) raw = uiConfig.defaultValue
 
             if (isEnumRef && getEnumPresentationMode(cAttr.ui_config) === 'label' && hasUserValue) {
                 return res.status(400).json({ error: `Field is read-only: ${childFieldPath}` })
@@ -327,7 +337,12 @@ export function createRuntimeChildRowsController(getDbExecutor: () => DbExecutor
                 }
             }
 
-            if (raw === undefined || raw === null) {
+            if (raw === undefined || (raw === null && !hasTrustedDefault)) {
+                if (isServerOwned && cAttr.is_required && cAttr.data_type !== 'BOOLEAN') {
+                    const error = raw === null ? 'Required field cannot be set to null' : 'Required field missing'
+                    requiredServerOwnedFieldError ??= `${error}: ${childFieldPath}`
+                    continue
+                }
                 if (cAttr.is_required && cAttr.data_type !== 'BOOLEAN') {
                     let defaultValue: unknown
                     switch (cAttr.data_type) {
@@ -347,6 +362,10 @@ export function createRuntimeChildRowsController(getDbExecutor: () => DbExecutor
                     if (cAttr.codename) effectiveCreateData[cAttr.codename] = defaultValue
                     pIdx++
                 }
+                continue
+            }
+            if (isServerOwned && cAttr.is_required && cAttr.data_type !== 'BOOLEAN' && raw === null) {
+                requiredServerOwnedFieldError ??= `Required field cannot be set to null: ${childFieldPath}`
                 continue
             }
             try {
@@ -389,6 +408,9 @@ export function createRuntimeChildRowsController(getDbExecutor: () => DbExecutor
                     throw new UpdateFailure(423, { error: 'Parent record is locked' })
                 }
                 assertRuntimeRecordMutable(tc.object.config, parentRow)
+                if (requiredServerOwnedFieldError) {
+                    throw new UpdateFailure(400, { error: requiredServerOwnedFieldError })
+                }
                 await validateTabularHierarchy(tx, tc, recordId, runtimeRowCondition, [{ data: effectiveCreateData }])
                 await validateTabularCoordinates(tx, tc, recordId, runtimeRowCondition, [{ data: effectiveCreateData }])
 
@@ -411,7 +433,9 @@ export function createRuntimeChildRowsController(getDbExecutor: () => DbExecutor
                     throw new UpdateFailure(400, { error: maxRowsError })
                 }
 
-                const safeChildAttrs = getSafeRuntimeChildAttrs(tc)
+                const safeChildAttrs = getSafeRuntimeChildAttrs(tc, {
+                    allowAssessmentOptions: ctx.permissions.editContent === true || ctx.permissions.manageApplication === true
+                })
                 const returningCols = [
                     'id',
                     '_tp_sort_order',

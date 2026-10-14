@@ -7,6 +7,7 @@ import {
     fetchMarketingPageRuntime,
     fetchRuntimeEffectiveLayout,
     normalizeRuntimeLayoutTarget,
+    resolveDashboardRuntimeLayoutTarget,
     runtimeZoneWidgetsSchema,
     toDashboardZoneWidgets
 } from '../api'
@@ -160,6 +161,16 @@ const marketingRuntimeTemplate = {
 describe('target-aware runtime client', () => {
     afterEach(() => {
         vi.unstubAllGlobals()
+    })
+
+    it('uses the resolved homepage Page for an implicit application-root layout target', () => {
+        const entityTypeId = '0190a9b5-3cde-7abc-8def-0123456789b1'
+
+        expect(resolveDashboardRuntimeLayoutTarget(null, entityTypeId)).toEqual({ targetKind: 'page', entityTypeId })
+        expect(resolveDashboardRuntimeLayoutTarget('page', entityTypeId)).toEqual({ targetKind: 'page', entityTypeId })
+        expect(resolveDashboardRuntimeLayoutTarget('object', entityTypeId)).toEqual({ targetKind: 'object', entityTypeId })
+        expect(resolveDashboardRuntimeLayoutTarget(null, null)).toBeUndefined()
+        expect(resolveDashboardRuntimeLayoutTarget(undefined, entityTypeId)).toBeUndefined()
     })
 
     it('normalizes layout identity and keeps content record selection out of the layout key', () => {

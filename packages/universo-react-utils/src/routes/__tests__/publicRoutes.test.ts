@@ -29,6 +29,42 @@ describe('public API route matching', () => {
         expect(isWhitelistedApiPath('/api/v1/public/applications/consortium/runtime-malicious')).toBe(false)
     })
 
+    it('allows only a valid single-segment global short-link resolver path', () => {
+        expect(isWhitelistedApiPath('/api/v1/public/l/marathon-grade-5')).toBe(true)
+        expect(isWhitelistedApiPath('/api/v1/public/l/a')).toBe(true)
+        expect(isWhitelistedApiPath('/api/v1/public/l/MARATHON')).toBe(true)
+        expect(isWhitelistedApiPath('/api/v1/public/l/Marathon-Grade-5')).toBe(true)
+        expect(isWhitelistedApiPath('/api/v1/public/l/-marathon')).toBe(false)
+        expect(isWhitelistedApiPath('/api/v1/public/l/marathon/extra')).toBe(false)
+        expect(isWhitelistedApiPath('/api/v1/public/l/marathon/release')).toBe(false)
+    })
+
+    it('allows only the explicitly published guest application routes', () => {
+        const applicationId = '019e8381-8c57-7d73-9f15-a9c27237c703'
+        const attemptId = '019e8381-8c57-7d73-9f15-a9c27237c704'
+        const moduleId = '019e8381-8c57-7d73-9f15-a9c27237c705'
+
+        for (const route of [
+            `links/lyceum-grade-5`,
+            'guest-session',
+            'runtime',
+            'runtime/attempts/start',
+            `runtime/attempts/${attemptId}`,
+            `runtime/attempts/${attemptId}/answers`,
+            `runtime/attempts/${attemptId}/finalize`,
+            'runtime/guest-progress',
+            'runtime/modules',
+            `runtime/modules/${moduleId}/client`
+        ]) {
+            expect(isWhitelistedApiPath(`/api/v1/public/a/${applicationId}/${route}`)).toBe(true)
+        }
+
+        expect(isWhitelistedApiPath('/api/v1/public/a/not-an-uuid/guest-session')).toBe(false)
+        expect(isWhitelistedApiPath(`/api/v1/public/a/${applicationId}/runtime/admin`)).toBe(false)
+        expect(isWhitelistedApiPath(`/api/v1/public/a/${applicationId}/runtime/attempts/${attemptId}/answers/extra`)).toBe(false)
+        expect(isWhitelistedApiPath(`/api/v1/public/a/${applicationId}/links/invalid%2fsegment`)).toBe(false)
+    })
+
     it('allows signed PlayCanvas Editor artifact asset URLs without whitelisting neighboring package routes', () => {
         expect(
             isWhitelistedApiPath(

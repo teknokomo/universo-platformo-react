@@ -17,11 +17,12 @@ export const LMS_DASHBOARD_PRIMARY_OBJECT_RUNTIME_ICONS = [
     ['LearningTracks', 'tasks'],
     ['Reports', 'analytics'],
     ['KnowledgeArticles', 'article'],
+    ['Quizzes', 'school'],
     ['TrashEntries', 'trash']
 ] as const
 
-const expectedPageRuntimeIcons = new Map(LMS_DASHBOARD_PAGE_RUNTIME_ICONS)
-const expectedPrimaryObjectRuntimeIcons = new Map(LMS_DASHBOARD_PRIMARY_OBJECT_RUNTIME_ICONS)
+const expectedPageRuntimeIcons = new Map<string, string>(LMS_DASHBOARD_PAGE_RUNTIME_ICONS)
+const expectedPrimaryObjectRuntimeIcons = new Map<string, string>(LMS_DASHBOARD_PRIMARY_OBJECT_RUNTIME_ICONS)
 
 export const assertDashboardLayoutWidgetOwnership = (context: DashboardFixtureValidationContext): void => {
     const { modules, errors, readRecord, readWidgetConfig, readLocalizedText } = context

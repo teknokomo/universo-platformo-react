@@ -30,6 +30,8 @@ export interface DashboardDetailsSlot {
     sectionCodename?: string | null
     objectCollectionId?: string | null
     objectCollectionCodename?: string | null
+    /** Server-resolved target of the effective layout hosting this dashboard. */
+    runtimeLayoutTarget?: { targetKind: 'page' | 'object'; entityTypeId: string }
     sections?: Array<{ id: string; codename: string }>
     objectCollections?: Array<{ id: string; codename: string }>
     apiBaseUrl?: string
@@ -69,6 +71,7 @@ export interface DashboardDetailsSlot {
     relationRowReorder?: {
         onReorder: (params: {
             objectCollectionCodename: string
+            layoutTarget: { targetKind: 'page' | 'object'; entityTypeId: string }
             parentFieldCodename: string
             parentRecordId: string
             orderedRowIds: string[]

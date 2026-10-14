@@ -15,7 +15,6 @@ import {
     LMS_DEMO_ACCESS_LINKS,
     LMS_DEMO_BADGE_ISSUES,
     LMS_DEMO_BADGES,
-    LMS_DEMO_CLASSES,
     LMS_DEMO_COURSES,
     LMS_DEMO_DEVELOPMENT_PLAN,
     LMS_DEMO_ENROLLMENTS,
@@ -27,10 +26,13 @@ import {
     LMS_DEMO_CONTENT_NODES,
     LMS_DEMO_POINT_AWARD_RULES,
     LMS_DEMO_POINT_TRANSACTIONS,
-    LMS_DEMO_QUIZ_RESPONSES,
-    LMS_DEMO_QUIZZES,
     LMS_DEMO_RESOURCES,
     LMS_DEMO_STUDENTS,
+    LMS_FIXTURE_CLASSES,
+    LMS_LYCEUM_MARATHON_ACCESS_LINKS,
+    LMS_LYCEUM_MARATHON_ACCESS_POLICY,
+    LMS_LYCEUM_MARATHON_QUIZZES,
+    LMS_LYCEUM_MARATHON_TIME_LIMIT_SECONDS,
     LMS_RUNTIME_CURRENT_USER_ID_TOKEN,
     LMS_FIXTURE_FILENAME,
     type SnapshotEnvelope
@@ -77,7 +79,6 @@ async function seedCanonicalLmsRecords(api: ApiContext, metahubId: string) {
         trackStagesObjectId,
         trackStepsObjectId,
         quizzesObjectId,
-        quizResponsesObjectId,
         contentProgressObjectId,
         accessLinksObjectId,
         enrollmentsObjectId,
@@ -117,7 +118,6 @@ async function seedCanonicalLmsRecords(api: ApiContext, metahubId: string) {
         waitForMetahubObjectId(api, metahubId, 'Track Stages'),
         waitForMetahubObjectId(api, metahubId, 'Track Steps'),
         waitForMetahubObjectId(api, metahubId, 'Quizzes'),
-        waitForMetahubObjectId(api, metahubId, 'Quiz Responses'),
         waitForMetahubObjectId(api, metahubId, 'Content Progress'),
         waitForMetahubObjectId(api, metahubId, 'Access Links'),
         waitForMetahubObjectId(api, metahubId, 'Enrollments'),
@@ -201,7 +201,7 @@ async function seedCanonicalLmsRecords(api: ApiContext, metahubId: string) {
     ])
 
     const classRowsByKey = new Map<string, Awaited<ReturnType<typeof createRecord>>>()
-    for (const seededClass of LMS_DEMO_CLASSES) {
+    for (const seededClass of LMS_FIXTURE_CLASSES) {
         const classRow = await createRecord(api, metahubId, classesObjectId, {
             data: {
                 Name: buildVLC(seededClass.name.en, seededClass.name.ru),
@@ -217,7 +217,7 @@ async function seedCanonicalLmsRecords(api: ApiContext, metahubId: string) {
     for (const seededStudent of LMS_DEMO_STUDENTS) {
         const studentRow = await createRecord(api, metahubId, studentsObjectId, {
             data: {
-                DisplayName: seededStudent.displayName.en,
+                DisplayName: buildVLC(seededStudent.displayName.en, seededStudent.displayName.ru),
                 Email: seededStudent.email,
                 IsGuest: false,
                 GuestSessionToken: null
@@ -359,21 +359,27 @@ async function seedCanonicalLmsRecords(api: ApiContext, metahubId: string) {
     }
 
     const quizRowsByKey = new Map<string, Awaited<ReturnType<typeof createRecord>>>()
-    for (const seededQuiz of LMS_DEMO_QUIZZES) {
+    for (const [quizIndex, seededQuiz] of LMS_LYCEUM_MARATHON_QUIZZES.entries()) {
         const quizRow = await createRecord(api, metahubId, quizzesObjectId, {
             data: {
+                SortOrder: quizIndex + 1,
                 Title: buildVLC(seededQuiz.title.en, seededQuiz.title.ru),
                 Description: buildVLC(seededQuiz.description.en, seededQuiz.description.ru),
+                CompletionText: buildVLC(seededQuiz.completionText.en, seededQuiz.completionText.ru),
                 PassingScorePercent: seededQuiz.passingScorePercent,
                 MaxAttempts: seededQuiz.maxAttempts,
-                Questions: seededQuiz.questions.en.map((question, index) => ({
-                    Id: `${seededQuiz.key}-question-${index + 1}`,
-                    Prompt: buildVLC(question.prompt, seededQuiz.questions.ru[index].prompt),
-                    QuestionDescription: buildVLC(question.description, seededQuiz.questions.ru[index].description),
+                TimeLimitSeconds: LMS_LYCEUM_MARATHON_TIME_LIMIT_SECONDS,
+                Questions: seededQuiz.questions.map((question) => ({
+                    Id: question.id,
+                    Prompt: question.prompt,
+                    QuestionDescription: question.description,
                     QuestionType: singleChoiceValueId,
                     Difficulty: 1,
-                    Explanation: buildVLC(question.explanation, seededQuiz.questions.ru[index].explanation),
-                    Options: question.options,
+                    Options: question.options.map((option) => ({
+                        id: option.id,
+                        label: option.label,
+                        isCorrect: option.isCorrect
+                    })),
                     SortOrder: question.sortOrder
                 }))
             }
@@ -576,18 +582,54 @@ async function seedCanonicalLmsRecords(api: ApiContext, metahubId: string) {
         })
     }
 
-    for (const seededLink of LMS_DEMO_ACCESS_LINKS) {
+    for (const [linkIndex, seededLink] of LMS_DEMO_ACCESS_LINKS.entries()) {
         await createRecord(api, metahubId, accessLinksObjectId, {
             data: {
+                SortOrder: linkIndex + 1,
                 Slug: seededLink.slug,
                 TargetType: 'content',
-                TargetId: guestContentRowsByKey.get(seededLink.contentKey)?.id ?? null,
                 ContentNodeIdRef: guestContentRowsByKey.get(seededLink.contentKey)?.id ?? null,
                 LinkClassId: classRowsByKey.get(seededLink.classKey)?.id ?? null,
                 IsActive: true,
                 MaxUses: 50,
                 UseCount: 0,
-                LinkTitle: buildVLC(seededLink.title.en, seededLink.title.ru)
+                LinkTitle: buildVLC(seededLink.title.en, seededLink.title.ru),
+                ShowFirstName: true,
+                RequireFirstName: true,
+                ShowLastName: true,
+                RequireLastName: true,
+                ShowEmail: false,
+                RequireEmail: false,
+                ShowPhone: false,
+                RequirePhone: false,
+                CaptchaEnabled: false
+            }
+        })
+    }
+
+    for (const [linkIndex, seededLink] of LMS_LYCEUM_MARATHON_ACCESS_LINKS.entries()) {
+        await createRecord(api, metahubId, accessLinksObjectId, {
+            data: {
+                SortOrder: LMS_DEMO_ACCESS_LINKS.length + linkIndex + 1,
+                Slug: seededLink.slug,
+                TargetType: 'quiz',
+                TargetId: quizRowsByKey.get(seededLink.quizKey)?.id ?? null,
+                ContentNodeIdRef: null,
+                LinkClassId: classRowsByKey.get(seededLink.classKey)?.id ?? null,
+                IsActive: LMS_LYCEUM_MARATHON_ACCESS_POLICY.isActive,
+                ExpiresAt: null,
+                MaxUses: LMS_LYCEUM_MARATHON_ACCESS_POLICY.maxUses,
+                UseCount: 0,
+                LinkTitle: buildVLC(seededLink.title.en, seededLink.title.ru),
+                ShowFirstName: LMS_LYCEUM_MARATHON_ACCESS_POLICY.showFirstName,
+                RequireFirstName: LMS_LYCEUM_MARATHON_ACCESS_POLICY.requireFirstName,
+                ShowLastName: LMS_LYCEUM_MARATHON_ACCESS_POLICY.showLastName,
+                RequireLastName: LMS_LYCEUM_MARATHON_ACCESS_POLICY.requireLastName,
+                ShowEmail: LMS_LYCEUM_MARATHON_ACCESS_POLICY.showEmail,
+                RequireEmail: LMS_LYCEUM_MARATHON_ACCESS_POLICY.requireEmail,
+                ShowPhone: LMS_LYCEUM_MARATHON_ACCESS_POLICY.showPhone,
+                RequirePhone: LMS_LYCEUM_MARATHON_ACCESS_POLICY.requirePhone,
+                CaptchaEnabled: LMS_LYCEUM_MARATHON_ACCESS_POLICY.captchaEnabled
             }
         })
     }
@@ -663,20 +705,6 @@ async function seedCanonicalLmsRecords(api: ApiContext, metahubId: string) {
                 StartedAt: '2061-02-01T08:15:00.000Z',
                 CompletedAt: seededProgress.status === 'completed' ? '2061-02-01T10:00:00.000Z' : null,
                 LastAccessedItemIndex: seededProgress.status === 'completed' ? 2 : 1
-            }
-        })
-    }
-
-    for (const seededResponse of LMS_DEMO_QUIZ_RESPONSES) {
-        await createRecord(api, metahubId, quizResponsesObjectId, {
-            data: {
-                StudentId: studentRowsByKey.get(seededResponse.studentKey)?.id ?? null,
-                QuizId: quizRowsByKey.get(seededResponse.quizKey)?.id ?? null,
-                QuestionId: seededResponse.questionId,
-                SelectedOptionIds: seededResponse.selectedOptionIds,
-                IsCorrect: seededResponse.isCorrect,
-                AttemptNumber: seededResponse.attemptNumber,
-                SubmittedAt: '2061-02-01T08:20:00.000Z'
             }
         })
     }

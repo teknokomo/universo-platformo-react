@@ -6,8 +6,15 @@ import {
     sameEntityRecordPolicyConditionalRequired
 } from './entityRecordPolicy'
 import { createWidgetBindingSlotFamilyHandlers, type WidgetBindingSlotFamilyDefinitionContract } from './widgetBindingSlotFamilies'
+import {
+    isWidgetBindingRelationTargetCompatible,
+    isSafeWidgetBindingComponentUiConfig,
+    isTrustedServerOwnedStructuralComponent
+} from './widgetBindingServerOwnedPolicy'
+import type { WidgetBindingEntityCompatibilityContext, WidgetBindingEntityComponentMetadata } from './widgetBindingPolicyTypes'
 
 export type { WidgetBindingSlotFamilyDefinitionContract } from './widgetBindingSlotFamilies'
+export type { WidgetBindingEntityCompatibilityContext, WidgetBindingEntityComponentMetadata } from './widgetBindingPolicyTypes'
 
 export const MAX_WIDGET_BINDING_SLOTS = 16
 export const MAX_WIDGET_BINDING_TARGETS = 32
@@ -200,6 +207,8 @@ const bindingComponentRequirementSchema = z
         required: z.boolean(),
         // Trusted registry opt-in for structural values; server-owned fields remain denied by default.
         allowServerOwnedRead: z.literal(true).optional(),
+        // Requires server-owned metadata for registry-authorized structural parent references.
+        requireServerOwned: z.literal(true).optional(),
         semanticKey: z.boolean().optional(),
         maxLength: z.number().int().positive().max(4096).optional(),
         pattern: z.string().trim().min(1).max(256).optional(),
@@ -207,6 +216,16 @@ const bindingComponentRequirementSchema = z
     })
     .strict()
     .superRefine((component, context) => {
+        if (
+            component.requireServerOwned === true &&
+            (component.field !== 'parent' || component.valueType !== 'ref' || component.allowServerOwnedRead !== true)
+        ) {
+            context.addIssue({
+                code: z.ZodIssueCode.custom,
+                path: ['requireServerOwned'],
+                message: 'Only a readable parent reference can require server-owned metadata.'
+            })
+        }
         if (
             component.semanticKey &&
             (component.valueType !== 'string' || component.localized || !component.required || !component.pattern)
@@ -457,11 +476,11 @@ export const widgetBindingSlotDefinitionSchema = z
         }
         if (slot.relation) {
             const relationComponent = slot.requirements.components.find(({ field }) => field === slot.relation?.field)
-            if (!slot.selectorKinds.includes('relation-set') || relationComponent?.valueType !== 'ref') {
+            if (slot.selectorKinds.length !== 1 || slot.selectorKinds[0] !== 'relation-set' || relationComponent?.valueType !== 'ref') {
                 context.addIssue({
                     code: z.ZodIssueCode.custom,
-                    path: ['relation'],
-                    message: 'Relation slots require a declared REF Component.'
+                    path: ['selectorKinds'],
+                    message: 'Relation slots must use only the relation-set selector and declare its REF Component.'
                 })
             }
         }
@@ -492,14 +511,6 @@ export const widgetBindingSlotDefinitionSchema = z
     })
 export type WidgetBindingSlotDefinition = z.infer<typeof widgetBindingSlotDefinitionSchema>
 
-export interface WidgetBindingEntityComponentMetadata {
-    readonly codename: string
-    readonly dataType: string
-    readonly isRequired: boolean
-    readonly validationRules: unknown
-    readonly uiConfig?: unknown
-}
-
 export interface WidgetBindingEntityMetadata {
     readonly kind: string
     readonly codename: string
@@ -518,34 +529,12 @@ const matchesBindingValueType = (actualType: string, expectedType: WidgetBinding
     return normalizeWidgetBindingDataType(actualType) === expectedCanonicalType[expectedType]
 }
 
-const serverOwnedStructuralComponentCodenamesByEntityAndRole: Readonly<Record<string, Readonly<Record<string, readonly string[]>>>> = {
-    Courses: { order: ['SortOrder'] },
-    LearningTracks: { order: ['SortOrder'] },
-    CourseItems: { parent: ['CourseId'], order: ['SortOrder'] },
-    CourseSections: { parent: ['CourseId'], order: ['SortOrder'] },
-    TrackStages: { parent: ['TrackId'], order: ['SortOrder'] },
-    TrackSteps: { parent: ['TrackId'], order: ['SortOrder'] }
-}
-
-const isSafeWidgetBindingComponentUiConfig = (
-    value: unknown,
-    requirement: WidgetBindingComponentRequirement,
-    entityCodename: string
+/** Check persisted Entity metadata satisfies the registry contract for one binding slot. */
+export const isCompatibleWidgetBindingEntity = (
+    slot: WidgetBindingSlotDefinition,
+    entity: WidgetBindingEntityMetadata,
+    context: WidgetBindingEntityCompatibilityContext = {}
 ): boolean => {
-    if (value === undefined || value === null) return true
-    if (typeof value !== 'object' || Array.isArray(value)) return false
-    const uiConfig = value as Record<string, unknown>
-    const isTrustedStructuralField =
-        requirement.allowServerOwnedRead === true &&
-        (serverOwnedStructuralComponentCodenamesByEntityAndRole[entityCodename]?.[requirement.field]?.includes(
-            requirement.componentCodename
-        ) ??
-            false)
-    return uiConfig.sensitive !== true && uiConfig.private !== true && (uiConfig.serverOwned !== true || isTrustedStructuralField)
-}
-
-/** Check persisted Entity metadata against the exact registry contract for one binding slot. */
-export const isCompatibleWidgetBindingEntity = (slot: WidgetBindingSlotDefinition, entity: WidgetBindingEntityMetadata): boolean => {
     if (slot.requirements.entityKinds && !slot.requirements.entityKinds.includes(entity.kind as WidgetBindingEntityKind)) return false
     if (slot.requirements.entityCodenames && !slot.requirements.entityCodenames.includes(entity.codename)) return false
     const componentsByCodename = new Map<string, WidgetBindingEntityComponentMetadata>()
@@ -554,14 +543,25 @@ export const isCompatibleWidgetBindingEntity = (slot: WidgetBindingSlotDefinitio
         componentsByCodename.set(component.codename, component)
     }
 
+    if (!isWidgetBindingRelationTargetCompatible(slot, componentsByCodename, context)) return false
+
     for (const requirement of slot.requirements.components) {
         const component = componentsByCodename.get(requirement.componentCodename)
         if (
             !component ||
             !matchesBindingValueType(component.dataType, requirement.valueType) ||
-            component.isRequired !== requirement.required ||
+            typeof component.isRequired !== 'boolean' ||
+            (component.isRequired !== requirement.required &&
+                !(
+                    component.isRequired &&
+                    !requirement.required &&
+                    requirement.requireServerOwned === true &&
+                    isTrustedServerOwnedStructuralComponent(slot, requirement, entity.codename, component, context)
+                )) ||
             !matchesWidgetBindingComponentValidationRules(requirement, component.validationRules) ||
-            !isSafeWidgetBindingComponentUiConfig(component.uiConfig, requirement, entity.codename)
+            (requirement.requireServerOwned === true &&
+                !isTrustedServerOwnedStructuralComponent(slot, requirement, entity.codename, component, context)) ||
+            !isSafeWidgetBindingComponentUiConfig(component, requirement, entity.codename, slot, context)
         ) {
             return false
         }

@@ -473,6 +473,98 @@ export const validateRuntimeRecordPickerReferences = async ({
     return null
 }
 
+export const validateRuntimeAccessLinkTarget = async ({
+    manager,
+    schemaIdent,
+    currentWorkspaceId,
+    currentUserId,
+    permissions,
+    objectCodename,
+    attrs,
+    row,
+    lockTarget = false
+}: {
+    manager: DbExecutor
+    schemaIdent: string
+    currentWorkspaceId: string | null
+    currentUserId: string | null
+    permissions: Record<RolePermission, boolean>
+    objectCodename: string
+    attrs: RuntimeObjectCollectionAttr[]
+    row: Record<string, unknown>
+    lockTarget?: boolean
+}): Promise<string | null> => {
+    if (objectCodename !== 'AccessLinks') return null
+
+    const targetTypeAttr = findRuntimeAttrByFieldKey(attrs, 'TargetType')
+    const quizTargetAttr = findRuntimeAttrByFieldKey(attrs, 'TargetId')
+    const contentTargetAttr = findRuntimeAttrByFieldKey(attrs, 'ContentNodeIdRef')
+    const targetType = readRuntimeAttrStringValue(row, targetTypeAttr)
+    const quizTargetId = readRuntimeAttrStringValue(row, quizTargetAttr)
+    const contentTargetId = readRuntimeAttrStringValue(row, contentTargetAttr)
+
+    if (!targetTypeAttr || targetTypeAttr.data_type !== 'STRING' || !targetType) return 'Invalid access-link target'
+
+    const normalizedTargetType = targetType
+    const target =
+        normalizedTargetType === 'content'
+            ? { attr: contentTargetAttr, id: contentTargetId, objectCodename: 'LearningResources' }
+            : normalizedTargetType === 'quiz' || normalizedTargetType === 'assessment'
+            ? { attr: quizTargetAttr, id: quizTargetId, objectCodename: 'Quizzes' }
+            : null
+
+    if (!target || !target.attr || target.attr.data_type !== 'REF' || target.attr.target_object_kind !== 'object' || !target.id) {
+        return 'Invalid access-link target'
+    }
+    if ((normalizedTargetType === 'content' && quizTargetId) || (normalizedTargetType !== 'content' && contentTargetId)) {
+        return 'Invalid access-link target'
+    }
+    if (!UUID_REGEX.test(target.id)) return 'Invalid access-link target'
+
+    const targetObject = await resolveRuntimeObjectCollectionByCodename(manager, schemaIdent, target.objectCodename)
+    if (!targetObject || target.attr.target_object_id !== targetObject.id) return 'Invalid access-link target'
+
+    const targetTableIdent = `${schemaIdent}.${quoteIdentifier(targetObject.tableName)}`
+    const targetValues: unknown[] = [target.id]
+    const targetAccessClause = await buildRuntimeRecordAccessClause({
+        manager,
+        schemaIdent,
+        currentWorkspaceId,
+        currentUserId,
+        permissions,
+        objectCodename: targetObject.codename,
+        attrs: targetObject.attrs,
+        config: targetObject.config,
+        outerRowIdSql: `${targetTableIdent}.id`,
+        values: targetValues,
+        minimumAccessLevel: 'read'
+    })
+    const targetWhereSql = [
+        'id = $1',
+        buildRuntimeActiveRowCondition(
+            resolveApplicationLifecycleContractFromConfig(targetObject.config),
+            targetObject.config,
+            undefined,
+            currentWorkspaceId
+        ),
+        targetAccessClause
+    ]
+        .filter((clause): clause is string => typeof clause === 'string' && clause.length > 0)
+        .join(' AND ')
+    const targetRows = (await manager.query(
+        `
+      SELECT id
+      FROM ${targetTableIdent}
+      WHERE ${targetWhereSql}
+      LIMIT 1
+      ${lockTarget ? 'FOR SHARE' : ''}
+    `,
+        targetValues
+    )) as Array<{ id: string }>
+
+    return targetRows[0]?.id ? null : 'Invalid access-link target'
+}
+
 export const validateRuntimeParentRecordAccessReferences = async ({
     manager,
     schemaIdent,

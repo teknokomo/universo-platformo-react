@@ -37,6 +37,7 @@ import {
 } from '../../shared/runtimeHelpers'
 import { assertRuntimeRecordRules } from '../../services/runtimeRecordRules'
 import { createRuntimeVersionConflictFailure } from '../runtimeVersionConflict'
+import { resolveAccessLinkIntakePolicy } from '../../services/guestAccessLinkIntakePolicy'
 import {
     isRuntimeEnumerationKind,
     isRuntimeSetKind,
@@ -51,6 +52,7 @@ import {
 import { denyRuntimeEntityMutation } from '../../shared/entityMutationPolicy'
 import {
     validateRuntimeDateOrderRules,
+    validateRuntimeAccessLinkTarget,
     validateRuntimeParentRecordAccessReferences,
     validateRuntimeRecordPickerReferences,
     validateRuntimeRequiredWhenRules,
@@ -66,11 +68,13 @@ import { collectTouchedComponentIds, loadRuntimeRowById } from '../runtimeRowSup
 import {
     buildRuntimeRelationRowPredicate,
     lockRuntimeRelationParentRecord,
+    resolveRuntimeRelationAuthorityLayout,
     resolveRuntimeRelationWriteScope,
     revalidateRuntimeRelationWriteScope,
     type ResolvedRuntimeRelationScope
 } from '../runtimeRowSupport/relationScope'
 import { resolveRuntimeRelationOwnedFieldCodenames } from '../../services/runtimeRowSupport/list'
+import { lockGuestAccessLinkWorkspace, revokeGuestSessionsForAccessLink } from '../../services/guestAccessLinkRevocation'
 
 import { insertRuntimeChildRowsBatch } from './tableChildren'
 import type {
@@ -533,13 +537,18 @@ export const applyBulkUpdateInTransaction = async (params: {
               executor: params.executor,
               ctx: params.ctx,
               applicationId: params.applicationId,
-              objectCollectionId: params.objectCollection.id,
               childEntity: params.objectCollection,
               childAttrs: params.attrs,
               scope: params.relationScope
           })
         : undefined
     if (relationScope) {
+        const changedRelationOwnedField = relationScope.ownedFieldAttrs.find((attr) =>
+            Object.prototype.hasOwnProperty.call(params.normalizedPatchByColumn, attr.column_name)
+        )
+        if (changedRelationOwnedField) {
+            throw new UpdateFailure(400, { error: 'Relation parent and ordering fields are server-owned' })
+        }
         await lockRuntimeRelationParentRecord({ executor: params.executor, ctx: params.ctx, scope: relationScope })
     }
     const previousRow = await loadRuntimeRowByIdWithRecordAccess({
@@ -590,6 +599,33 @@ export const applyBulkUpdateInTransaction = async (params: {
     })
     if (referenceValidationError) {
         throw new UpdateFailure(400, { error: referenceValidationError })
+    }
+    const accessLinkIntakePolicy = resolveAccessLinkIntakePolicy({
+        objectCodename: resolveRuntimeCodenameText(params.objectCollection.codename),
+        fields: params.attrs.map((attr) => ({
+            codename: attr.codename,
+            columnName: attr.column_name,
+            dataType: attr.data_type,
+            defaultValue: attr.ui_config?.defaultValue
+        })),
+        row: { ...previousRow, ...params.normalizedPatchByColumn }
+    })
+    if (!accessLinkIntakePolicy.valid) {
+        throw new UpdateFailure(400, { error: accessLinkIntakePolicy.error, code: accessLinkIntakePolicy.code })
+    }
+    const accessLinkTargetError = await validateRuntimeAccessLinkTarget({
+        manager: params.executor,
+        schemaIdent: params.ctx.schemaIdent,
+        currentWorkspaceId: params.ctx.currentWorkspaceId,
+        currentUserId: params.ctx.userId,
+        permissions: params.ctx.permissions,
+        objectCodename: resolveRuntimeCodenameText(params.objectCollection.codename),
+        attrs: params.attrs,
+        row: { ...previousRow, ...params.normalizedPatchByColumn },
+        lockTarget: true
+    })
+    if (accessLinkTargetError) {
+        throw new UpdateFailure(400, { error: accessLinkTargetError })
     }
     const accessEntryValidationError = await validateRuntimeAccessEntryMembership({
         manager: params.executor,
@@ -760,22 +796,39 @@ export const createBulkUpdateRowHandler = ({ getDbExecutor, query }: RuntimeRowW
         )
             .map((fieldCodename) => findRuntimeAttrByFieldKey(attrs, fieldCodename))
             .filter((attr): attr is RuntimeObjectCollectionAttr => Boolean(attr))
-        const relationScope = requestedRelationScope
-            ? await resolveRuntimeRelationWriteScope({
+        const relationAuthorityLayout = requestedRelationScope
+            ? await resolveRuntimeRelationAuthorityLayout({
                   manager: ctx.manager,
                   applicationId,
+                  userId: ctx.userId,
+                  role: ctx.role,
                   workspaceId: ctx.currentWorkspaceId,
-                  schemaIdent: ctx.schemaIdent,
-                  zoneWidgets: selectedLayout.zoneWidgets,
+                  target: requestedRelationScope.layoutTarget,
                   childEntity: objectCollection,
-                  childAttrs: attrs,
-                  request: requestedRelationScope
+                  locale: typeof req.query.locale === 'string' ? req.query.locale : 'en'
               })
+            : null
+        const relationScope = requestedRelationScope
+            ? relationAuthorityLayout
+                ? await resolveRuntimeRelationWriteScope({
+                      manager: ctx.manager,
+                      applicationId,
+                      workspaceId: ctx.currentWorkspaceId,
+                      schemaIdent: ctx.schemaIdent,
+                      zoneWidgets: relationAuthorityLayout.zoneWidgets,
+                      childEntity: objectCollection,
+                      childAttrs: attrs,
+                      request: requestedRelationScope
+                  })
+                : null
             : null
         if (requestedRelationScope && !relationScope) {
             return res.status(409).json({ error: 'The requested relation scope is unavailable', code: 'RUNTIME_RELATION_SCOPE_INVALID' })
         }
-        const suppliedRelationOwnedAttr = relationOwnedAttrs.find(
+        const ownedAttrs = new Map(
+            [...relationOwnedAttrs, ...(relationScope?.ownedFieldAttrs ?? [])].map((attr) => [attr.column_name, attr])
+        )
+        const suppliedRelationOwnedAttr = [...ownedAttrs.values()].find(
             (attr) => getRuntimeInputValue(data, attr.column_name, attr.codename).hasUserValue
         )
         if (suppliedRelationOwnedAttr && !relationScope) {
@@ -825,6 +878,7 @@ export const createBulkUpdateRowHandler = ({ getDbExecutor, query }: RuntimeRowW
             return res.status(tableEntriesResult.statusCode).json(tableEntriesResult.body)
         }
         const tableDataEntries = tableEntriesResult.entries
+        const accessLinkActiveAttr = attrs.find((attr) => resolveRuntimeCodenameText(attr.codename) === 'IsActive')
 
         if (setClauses.length === 0 && tableDataEntries.length === 0) {
             return res.status(400).json({ error: 'No valid fields to update' })
@@ -857,6 +911,14 @@ export const createBulkUpdateRowHandler = ({ getDbExecutor, query }: RuntimeRowW
 
         try {
             await withTransactionSavepoint(ctx.manager, async (txManager) => {
+                if (resolveRuntimeCodenameText(objectCollection.codename) === 'AccessLinks') {
+                    await lockGuestAccessLinkWorkspace({
+                        executor: txManager,
+                        schemaName: ctx.schemaName,
+                        workspacesEnabled: ctx.workspacesEnabled,
+                        workspaceId: ctx.currentWorkspaceId
+                    })
+                }
                 afterUpdateLifecycleRequest = await applyBulkUpdateInTransaction({
                     executor: txManager,
                     ctx,
@@ -878,6 +940,22 @@ export const createBulkUpdateRowHandler = ({ getDbExecutor, query }: RuntimeRowW
                     tableDataEntries,
                     relationScope: relationScope ?? undefined
                 })
+                if (
+                    resolveRuntimeCodenameText(objectCollection.codename) === 'AccessLinks' &&
+                    accessLinkActiveAttr &&
+                    normalizedPatchByColumn[accessLinkActiveAttr.column_name] === false
+                ) {
+                    await revokeGuestSessionsForAccessLink({
+                        executor: txManager,
+                        applicationId,
+                        schemaName: ctx.schemaName,
+                        settings: ctx.applicationSettings,
+                        workspacesEnabled: ctx.workspacesEnabled,
+                        workspaceId: ctx.currentWorkspaceId,
+                        accessLinkId: rowId,
+                        actorUserId: ctx.userId
+                    })
+                }
             })
 
             dispatchRuntimeLifecycleAfterCommit(ctx.manager, afterUpdateLifecycleRequest)

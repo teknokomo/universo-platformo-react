@@ -8,20 +8,32 @@ import {
     type RuntimeSchemaContext
 } from '../../shared/runtimeHelpers'
 import {
+    isRuntimeServerOwnedAttr,
     isRuntimeObjectTargetKind,
     type RuntimeObjectCollectionAttr,
     type RuntimeZoneWidgets
 } from '../../services/runtimeRowSupport/contracts'
 import { buildRuntimeRecordAccessClause } from '../../services/runtimeRowSupport/access'
-import { findRuntimeAttrByFieldKey, resolveRuntimeObjectCollection } from './objects'
-import { resolveRuntimeObjectCollectionConfig } from './objects'
-import { resolveRuntimeRelationPanelAuthority, resolveRuntimeReorderField } from '../../services/runtimeRowSupport/list'
+import { findRuntimeAttrByFieldKey, resolveRuntimeObjectCollection, resolveRuntimeObjectCollectionConfig } from './objects'
+import {
+    resolveRuntimeRelationPanelAuthority,
+    resolveRuntimeReorderField,
+    type RuntimeRelationPanelAuthority
+} from '../../services/runtimeRowSupport/list'
+import { getRuntimeRelationAuthorityProjection } from '../../services/runtimeRowSupport/runtimeRelationAuthority'
 import { resolveRuntimeRecordReference } from '../../services/runtimeRecordHandle'
+import { resolveRuntimeEffectiveLayout } from './menu'
 
 export type RuntimeRelationScope = {
     fieldCodename: string
     parentRecordId: string
+    layoutTarget?: {
+        targetKind: 'page' | 'object'
+        entityTypeId: string
+    }
 }
+
+export type RuntimeRelationLayoutTarget = NonNullable<RuntimeRelationScope['layoutTarget']>
 
 type RuntimeParentCollection = NonNullable<Awaited<ReturnType<typeof resolveRuntimeObjectCollection>>['objectCollection']>
 
@@ -31,6 +43,48 @@ export type ResolvedRuntimeRelationScope = {
     parentCollection: RuntimeParentCollection
     parentAttrs: RuntimeObjectCollectionAttr[]
     sortOrderAttr: ReturnType<typeof resolveRuntimeReorderField>
+    ownedFieldAttrs: RuntimeObjectCollectionAttr[]
+    authority: RuntimeRelationPanelAuthority
+}
+
+/** Resolve the authorized host layout that declares the relationBuilder panel. */
+export const resolveRuntimeRelationAuthorityLayout = async (params: {
+    manager: DbExecutor
+    applicationId: string
+    userId: string
+    role: RuntimeSchemaContext['role']
+    workspaceId: string | null
+    target?: RuntimeRelationLayoutTarget
+    childEntity: { id: string; codename: unknown }
+    locale?: string
+}) => {
+    if (params.target) {
+        return resolveRuntimeEffectiveLayout({
+            manager: params.manager,
+            applicationId: params.applicationId,
+            userId: params.userId,
+            role: params.role,
+            targetKind: params.target.targetKind,
+            entityTypeId: params.target.entityTypeId,
+            workspaceId: params.workspaceId,
+            locale: params.locale ?? 'en'
+        })
+    }
+
+    // Older clients did not send the layout target. Their relation panels lived
+    // on the child Entity layout, so resolve that canonical layout server-side.
+    return (
+        await resolveRuntimeObjectCollectionConfig({
+            manager: params.manager,
+            applicationId: params.applicationId,
+            userId: params.userId,
+            role: params.role,
+            workspaceId: params.workspaceId,
+            locale: params.locale ?? 'en',
+            objectCollectionId: params.childEntity.id,
+            objectCollectionCodename: resolveRuntimeCodenameText(params.childEntity.codename)
+        })
+    ).selectedLayout
 }
 
 /** Resolve Entity-level authority from validated layout bindings; the exact parent record is rechecked by the row lock. */
@@ -40,7 +94,7 @@ export const resolveRuntimeRelationWriteScope = async (params: {
     workspaceId: string | null
     schemaIdent: string
     zoneWidgets: RuntimeZoneWidgets
-    childEntity: { codename: unknown }
+    childEntity: { id: string; codename: unknown }
     childAttrs: RuntimeObjectCollectionAttr[]
     request: RuntimeRelationScope
 }): Promise<ResolvedRuntimeRelationScope | null> => {
@@ -48,6 +102,7 @@ export const resolveRuntimeRelationWriteScope = async (params: {
     if (
         !parentFieldAttr ||
         parentFieldAttr.data_type !== 'REF' ||
+        !isRuntimeServerOwnedAttr(parentFieldAttr) ||
         !parentFieldAttr.target_object_id ||
         !isRuntimeObjectTargetKind(parentFieldAttr.target_object_kind) ||
         !IDENTIFIER_REGEX.test(parentFieldAttr.column_name)
@@ -76,14 +131,42 @@ export const resolveRuntimeRelationWriteScope = async (params: {
     if (!authority) return null
 
     const sortOrderAttr = resolveRuntimeReorderField(params.childAttrs, authority.sortOrderFieldCodename)
-    if (authority.enableRowReordering && !sortOrderAttr) return null
+    if (!sortOrderAttr || !isRuntimeServerOwnedAttr(sortOrderAttr)) return null
+    const childEntityCodename = resolveRuntimeCodenameText(params.childEntity.codename)
+    const ownedProjections = getRuntimeRelationAuthorityProjection(params.zoneWidgets).filter(
+        (projection) => projection.childEntityCodename.trim().toLowerCase() === childEntityCodename.trim().toLowerCase()
+    )
+    const ownedAttrsByColumn = new Map<string, RuntimeObjectCollectionAttr>()
+    for (const projection of ownedProjections) {
+        const parentAttr = findRuntimeAttrByFieldKey(params.childAttrs, projection.parentFieldCodename)
+        if (
+            !parentAttr ||
+            parentAttr.data_type !== 'REF' ||
+            !isRuntimeServerOwnedAttr(parentAttr) ||
+            !parentAttr.target_object_id ||
+            !isRuntimeObjectTargetKind(parentAttr.target_object_kind) ||
+            !IDENTIFIER_REGEX.test(parentAttr.column_name)
+        ) {
+            return null
+        }
+        ownedAttrsByColumn.set(parentAttr.column_name, parentAttr)
+
+        const orderAttr = resolveRuntimeReorderField(params.childAttrs, projection.sortOrderFieldCodename)
+        if (!orderAttr || !isRuntimeServerOwnedAttr(orderAttr)) return null
+        const ownedOrderAttr = findRuntimeAttrByFieldKey(params.childAttrs, projection.sortOrderFieldCodename)
+        if (!ownedOrderAttr || ownedOrderAttr.column_name !== orderAttr.column_name) return null
+        ownedAttrsByColumn.set(ownedOrderAttr.column_name, ownedOrderAttr)
+    }
+    const ownedFieldAttrs = [...ownedAttrsByColumn.values()]
 
     return {
         request,
         parentFieldAttr,
         parentCollection,
         parentAttrs: parentResult.attrs,
-        sortOrderAttr
+        sortOrderAttr,
+        ownedFieldAttrs,
+        authority
     }
 }
 
@@ -92,26 +175,25 @@ export const revalidateRuntimeRelationWriteScope = async (params: {
     executor: DbExecutor
     ctx: RuntimeSchemaContext
     applicationId: string
-    objectCollectionId: string
-    childEntity: { codename: unknown }
+    childEntity: { id: string; codename: unknown }
     childAttrs: RuntimeObjectCollectionAttr[]
     scope: ResolvedRuntimeRelationScope
 }): Promise<ResolvedRuntimeRelationScope> => {
-    const { selectedLayout } = await resolveRuntimeObjectCollectionConfig({
+    const relationLayout = await resolveRuntimeRelationAuthorityLayout({
         manager: params.executor,
         applicationId: params.applicationId,
         userId: params.ctx.userId,
         role: params.ctx.role,
         workspaceId: params.ctx.currentWorkspaceId,
-        objectCollectionId: params.objectCollectionId,
-        objectCollectionCodename: resolveRuntimeCodenameText(params.childEntity.codename)
+        target: params.scope.request.layoutTarget,
+        childEntity: params.childEntity
     })
     const currentScope = await resolveRuntimeRelationWriteScope({
         manager: params.executor,
         applicationId: params.applicationId,
         workspaceId: params.ctx.currentWorkspaceId,
         schemaIdent: params.ctx.schemaIdent,
-        zoneWidgets: selectedLayout.zoneWidgets,
+        zoneWidgets: relationLayout.zoneWidgets,
         childEntity: params.childEntity,
         childAttrs: params.childAttrs,
         request: params.scope.request

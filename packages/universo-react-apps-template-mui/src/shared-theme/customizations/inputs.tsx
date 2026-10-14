@@ -463,7 +463,10 @@ export const inputsCustomizations: Components<Theme> = {
             root: ({ theme }) => ({
                 fontWeight: 500,
                 '&.Mui-focused': {
-                    color: brand[400]
+                    color: brand[500],
+                    ...theme.applyStyles('dark', {
+                        color: brand[200]
+                    })
                 },
                 '&.MuiInputLabel-shrink': {
                     padding: '0 4px',

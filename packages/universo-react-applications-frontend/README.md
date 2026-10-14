@@ -25,6 +25,7 @@ Frontend application for managing applications and connectors in the Universo Pl
 -   **Public Discovery + Join**: Public applications are visible to regular users and support explicit join / leave flows
 -   **Anonymous Published Runtime**: Public, ready applications can render through a credential-free UUID or alias URL without exposing control-plane APIs
 -   **Application Addresses**: Superusers and users with the assignable `applicationAliases` capability can manage multiple deployment-wide aliases, primary routing, and direct/canonical behavior
+-   **Global Short Links**: The Application Board opens `ApplicationShortLinks` at `/a/:applicationId/admin/short-links` to create `/l/:slug` links for application and LMS destinations. The quiz selector loads eligible public quiz access links through the authenticated application-scoped options route.
 -   **Workspace Isolation**: Workspace-enabled applications isolate runtime object rows per user workspace
 -   **Workspace Limits**: Admin settings expose per-object row limits at the workspace boundary
 
@@ -112,7 +113,8 @@ import {
   ApplicationBoard,
   ConnectorList,
   ApplicationLayouts,
-  ApplicationMembers
+  ApplicationMembers,
+  ApplicationShortLinks
 } from '@universo-react/applications-frontend'
 
 // Import i18n resources (auto-registers namespace)
@@ -124,6 +126,7 @@ import '@universo-react/applications-frontend/i18n'
 <Route path="/application/:applicationId/connectors" element={<ConnectorList />} />
 <Route path="/application/:applicationId/layouts" element={<ApplicationLayouts />} />
 <Route path="/application/:applicationId/access" element={<ApplicationMembers />} />
+<Route path="/a/:applicationId/admin/short-links" element={<ApplicationShortLinks />} />
 ```
 
 ## Architecture
@@ -142,6 +145,7 @@ Application (top-level organizational unit)
 -   **ConnectorList**: Manage connectors within an application
 -   **ApplicationLayouts**: Manage application-side layouts, layout sources, defaults, activation, and widget zones
 -   **ApplicationMembers**: Manage user access and roles
+-   **ApplicationShortLinks**: Manage application-scoped public `/l/<slug>` links to quizzes, published page/object layouts, and application sections
 
 ### Directory Structure
 

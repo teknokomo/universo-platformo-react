@@ -1,36 +1,29 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useMemo } from 'react'
 import Alert from '@mui/material/Alert'
 import Box from '@mui/material/Box'
-import Button from '@mui/material/Button'
 import Card from '@mui/material/Card'
 import CardContent from '@mui/material/CardContent'
 import CardHeader from '@mui/material/CardHeader'
 import CircularProgress from '@mui/material/CircularProgress'
-import LinearProgress from '@mui/material/LinearProgress'
-import Radio from '@mui/material/Radio'
-import RadioGroup from '@mui/material/RadioGroup'
-import FormControlLabel from '@mui/material/FormControlLabel'
 import Stack from '@mui/material/Stack'
-import TextField from '@mui/material/TextField'
 import Typography from '@mui/material/Typography'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import AppMainLayout from '../layouts/AppMainLayout'
-import { extractRuntimeErrorMessage } from '../utils/runtimeErrors'
-
-const PUBLIC_CSRF_STORAGE_KEY_PREFIX = 'apps-template-mui:public-csrf'
-const GUEST_PARTICIPANT_ID_HEADER = 'X-Guest-Participant-Id'
-const GUEST_SESSION_TOKEN_HEADER = 'X-Guest-Session-Token'
-
-const getPublicCsrfStorageKey = (applicationId?: string) =>
-    applicationId ? `${PUBLIC_CSRF_STORAGE_KEY_PREFIX}:${applicationId}` : PUBLIC_CSRF_STORAGE_KEY_PREFIX
+import GuestContentPanel from './GuestContentPanel'
+import GuestIntakeForm from './GuestIntakeForm'
+import GuestQuizPanel from './GuestQuizPanel'
+import { normalizeAttemptLimit } from './guestRuntimeUtils'
+import type { GuestTranslate } from './guestRuntimeTypes'
+import { useGuestContent } from './useGuestContent'
+import { useGuestQuizAttempt } from './useGuestQuizAttempt'
+import { isValidGuestEmail, useGuestSession } from './useGuestSession'
 
 const resolvePathParams = () => {
     if (typeof window === 'undefined') {
         return { applicationId: '', slug: '' }
     }
 
-    const source = `${window.location.pathname}${window.location.hash}`
+    const source = window.location.pathname + window.location.hash
     const match = source.match(/\/public\/a\/([^/]+)\/links\/([^/?#]+)/)
     return {
         applicationId: match?.[1] ?? '',
@@ -65,459 +58,54 @@ const resolveGuestRuntimeLocale = (fallbackLocale: string) => {
     return normalizeLocale(fallbackLocale) ?? 'en'
 }
 
-type GuestSession = {
-    participantId: string
-    studentId?: string
-    sessionToken: string
-}
-
-type GuestRuntimeContent = {
-    type: 'content'
-    id: string
-    title: string
-    description?: string
-    contentItems: Array<{
-        id: string
-        itemType: string
-        itemTitle?: string
-        itemContent?: string
-        quizId?: string
-        sortOrder: number
-    }>
-}
-
-type GuestRuntimeQuiz = {
-    type: 'quiz'
-    id: string
-    title: string
-    description?: string
-    passingScorePercent?: number
-    questions: Array<{
-        id: string
-        prompt: string
-        description?: string
-        explanation?: string
-        options: Array<{ id: string; label: string }>
-    }>
-}
-
-type GuestRuntimePayload = GuestRuntimeContent | GuestRuntimeQuiz
-
-const normalizeGuestSession = (value: unknown): GuestSession | null => {
-    if (!value || typeof value !== 'object' || Array.isArray(value)) {
-        return null
-    }
-
-    const raw = value as Partial<GuestSession>
-    const participantId = typeof raw.participantId === 'string' ? raw.participantId : typeof raw.studentId === 'string' ? raw.studentId : ''
-    const sessionToken = typeof raw.sessionToken === 'string' ? raw.sessionToken : ''
-    if (!participantId || !sessionToken) {
-        return null
-    }
-
-    return {
-        participantId,
-        studentId: typeof raw.studentId === 'string' ? raw.studentId : participantId,
-        sessionToken
-    }
-}
-
 export interface GuestAppProps {
     applicationId?: string
     slug?: string
+    accessLinkId?: string | null
+    workspaceId?: string | null
     apiBaseUrl: string
     locale: string
 }
 
 export default function GuestApp(props: GuestAppProps) {
     const { t } = useTranslation('apps')
-    const queryClient = useQueryClient()
     const pathParams = resolvePathParams()
     const applicationId = props.applicationId ?? pathParams.applicationId
     const slug = props.slug ?? pathParams.slug
+    const accessLinkId = props.accessLinkId ?? null
+    const workspaceId = props.workspaceId ?? null
     const apiBaseUrl = props.apiBaseUrl
     const locale = useMemo(() => resolveGuestRuntimeLocale(props.locale), [props.locale])
-    const storageKey = `apps-template-mui:guest-session:${applicationId}:${slug}`
+    const translate = useCallback<GuestTranslate>((key, fallback) => t(key, fallback), [t])
 
-    const [displayName, setDisplayName] = useState('')
-    const [storedSession, setStoredSession] = useState<GuestSession | null>(null)
-    const [sessionScope, setSessionScope] = useState('')
-    const [currentItemIndex, setCurrentItemIndex] = useState(0)
-    const [activeQuizId, setActiveQuizId] = useState<string | null>(null)
-    const [answers, setAnswers] = useState<Record<string, string[]>>({})
-    const [contentCompleted, setContentCompleted] = useState(false)
-    const publicCsrfStorageKey = getPublicCsrfStorageKey(applicationId)
-    const formatGuestError = (error: unknown, key: string, fallback: string) => extractRuntimeErrorMessage(error, t(key, fallback), locale)
-    const session = sessionScope === storageKey ? storedSession : null
-
-    const resolveCsrfToken = async (forceRefresh = false) => {
-        if (typeof window !== 'undefined' && !forceRefresh) {
-            const storedToken = window.sessionStorage.getItem(publicCsrfStorageKey)
-            if (storedToken) {
-                return storedToken
-            }
-        }
-
-        const response = await fetch(`${apiBaseUrl}/auth/csrf`, {
-            method: 'GET',
-            credentials: 'same-origin'
-        })
-        if (!response.ok) {
-            throw new Error(t('guest.errors.sessionCreate', 'Failed to create guest session.'))
-        }
-
-        const payload = (await response.json()) as { csrfToken?: string }
-        if (typeof payload.csrfToken !== 'string' || payload.csrfToken.length === 0) {
-            throw new Error(t('guest.errors.sessionCreate', 'Failed to create guest session.'))
-        }
-
-        if (typeof window !== 'undefined') {
-            window.sessionStorage.setItem(publicCsrfStorageKey, payload.csrfToken)
-        }
-
-        return payload.csrfToken
-    }
-
-    const fetchWithPublicCsrf = async (input: RequestInfo | URL, init: RequestInit) => {
-        const execute = async (forceRefresh = false) => {
-            const csrfToken = await resolveCsrfToken(forceRefresh)
-            const headers = new Headers(init.headers ?? {})
-            headers.set('X-CSRF-Token', csrfToken)
-            return fetch(input, {
-                ...init,
-                headers
-            })
-        }
-
-        const response = await execute(false)
-        if (response.status === 419) {
-            return execute(true)
-        }
-
-        return response
-    }
-
-    useEffect(() => {
-        setStoredSession(null)
-        setSessionScope(storageKey)
-        setActiveQuizId(null)
-        setCurrentItemIndex(0)
-        setAnswers({})
-        setContentCompleted(false)
-
-        if (typeof window === 'undefined' || !applicationId || !slug) return
-        try {
-            const stored = window.sessionStorage.getItem(storageKey)
-            if (!stored) return
-            const parsed = normalizeGuestSession(JSON.parse(stored))
-            if (parsed) {
-                setStoredSession(parsed)
-            }
-        } catch {
-            window.sessionStorage.removeItem(storageKey)
-        }
-    }, [applicationId, slug, storageKey])
-
-    const linkQuery = useQuery({
-        queryKey: ['guest-link', applicationId, slug, locale],
-        enabled: Boolean(applicationId && slug),
-        queryFn: async () => {
-            const params = new URLSearchParams({ locale })
-            const response = await fetch(`${apiBaseUrl}/public/a/${applicationId}/links/${encodeURIComponent(slug)}?${params.toString()}`)
-            if (!response.ok) {
-                throw new Error(t('guest.errors.linkNotFound', 'Access link was not found or is no longer active.'))
-            }
-            return (await response.json()) as {
-                id: string
-                title?: string
-                targetType: 'content' | 'quiz'
-                targetId: string
-            }
-        }
+    const guestSession = useGuestSession({ applicationId, slug, accessLinkId, workspaceId, apiBaseUrl, locale, translate })
+    const guestContent = useGuestContent({
+        applicationId,
+        slug,
+        apiBaseUrl,
+        locale,
+        session: guestSession.session,
+        linkResolved: Boolean(guestSession.linkQuery.data),
+        fetchWithPublicCsrf: guestSession.fetchWithPublicCsrf,
+        translate
     })
-
-    const sessionMutation = useMutation({
-        mutationFn: async () => {
-            const accessLinkId = linkQuery.data?.id
-            if (!accessLinkId) {
-                throw new Error(t('guest.errors.linkNotFound', 'Access link was not found or is no longer active.'))
-            }
-
-            const response = await fetchWithPublicCsrf(`${apiBaseUrl}/public/a/${applicationId}/guest-session`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    displayName,
-                    accessLinkId
-                })
-            })
-            if (!response.ok) {
-                throw new Error(t('guest.errors.sessionCreate', 'Failed to create guest session.'))
-            }
-            const payload = normalizeGuestSession(await response.json())
-            if (!payload) {
-                throw new Error(t('guest.errors.sessionCreate', 'Failed to create guest session.'))
-            }
-            return payload
-        },
-        onSuccess: (nextSession) => {
-            setStoredSession(nextSession)
-            setSessionScope(storageKey)
-            setActiveQuizId(null)
-            setCurrentItemIndex(0)
-            if (typeof window !== 'undefined') {
-                window.sessionStorage.setItem(storageKey, JSON.stringify(nextSession))
-            }
-        }
+    const quizController = useGuestQuizAttempt({
+        applicationId,
+        slug,
+        apiBaseUrl,
+        locale,
+        session: guestSession.session,
+        activeQuizId: guestContent.activeQuizId,
+        runtimeId: guestContent.runtime?.type === 'quiz' ? guestContent.runtime.id : null,
+        fetchWithPublicCsrf: guestSession.fetchWithPublicCsrf,
+        translate,
+        onBackToContent: guestContent.handleBackToContent
     })
-
-    const runtimeQuery = useQuery({
-        queryKey: ['guest-runtime', applicationId, slug, locale, session?.participantId ?? null, activeQuizId],
-        enabled: Boolean(applicationId && slug && linkQuery.data && session?.participantId && session?.sessionToken),
-        queryFn: async () => {
-            const params = new URLSearchParams({ slug, locale })
-            if (activeQuizId) {
-                params.set('targetType', 'quiz')
-                params.set('targetId', activeQuizId)
-            }
-            const headers = new Headers()
-            if (session?.participantId && session?.sessionToken) {
-                headers.set(GUEST_PARTICIPANT_ID_HEADER, session.participantId)
-                headers.set(GUEST_SESSION_TOKEN_HEADER, session.sessionToken)
-            }
-            const response = await fetch(`${apiBaseUrl}/public/a/${applicationId}/runtime?${params.toString()}`, {
-                headers
-            })
-            if (!response.ok) {
-                throw new Error(t('guest.errors.runtimeLoad', 'Failed to load public learning content.'))
-            }
-            return (await response.json()) as GuestRuntimePayload
-        }
-    })
-
-    const progressMutation = useMutation({
-        mutationFn: async (input: { contentNodeId: string; action: 'view' | 'complete' | 'recalculate'; contentItemId?: string }) => {
-            if (!session) return
-            const response = await fetchWithPublicCsrf(`${apiBaseUrl}/public/a/${applicationId}/runtime/guest-progress`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    participantId: session.participantId,
-                    sessionToken: session.sessionToken,
-                    contentNodeId: input.contentNodeId,
-                    action: input.action,
-                    ...(input.contentItemId ? { contentItemId: input.contentItemId } : {})
-                })
-            })
-
-            if (!response.ok) {
-                throw new Error(t('guest.errors.progressSave', 'Failed to save content progress.'))
-            }
-
-            return (await response.json()) as { ok: boolean }
-        }
-    })
-
-    const submitQuizMutation = useMutation({
-        mutationFn: async (quizId: string) => {
-            if (!session) {
-                throw new Error(t('guest.errors.sessionMissing', 'Guest session is required before submitting a quiz.'))
-            }
-
-            const response = await fetchWithPublicCsrf(`${apiBaseUrl}/public/a/${applicationId}/runtime/guest-submit`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    participantId: session.participantId,
-                    sessionToken: session.sessionToken,
-                    assessmentId: quizId,
-                    answers
-                })
-            })
-            if (!response.ok) {
-                throw new Error(t('guest.errors.quizSubmit', 'Failed to submit the quiz.'))
-            }
-            return (await response.json()) as { score: number; total: number; passed: boolean }
-        },
-        onSuccess: () => {
-            setAnswers({})
-            void queryClient.invalidateQueries({ queryKey: ['guest-runtime', applicationId, slug] })
-        }
-    })
-
-    const handleOpenQuiz = (quizId: string) => {
-        submitQuizMutation.reset()
-        setAnswers({})
-        setActiveQuizId(quizId)
-    }
-
-    const handleBackToContent = () => {
-        submitQuizMutation.reset()
-        setAnswers({})
-        setActiveQuizId(null)
-    }
-
-    const runtime = runtimeQuery.data
-    const currentItem = runtime?.type === 'content' ? runtime.contentItems[currentItemIndex] ?? null : null
-    const totalItems = runtime?.type === 'content' ? runtime.contentItems.length : 0
-
-    useEffect(() => {
-        if (runtime?.type !== 'content') {
-            setContentCompleted(false)
-            return
-        }
-
-        setContentCompleted(false)
-    }, [runtime?.id, runtime?.type])
-
-    const handleStartGuestSession = () => {
-        if (!displayName.trim()) return
-        sessionMutation.mutate()
-    }
-
-    const handleMoveContent = (nextIndex: number) => {
-        if (!runtime || runtime.type !== 'content') return
-        const boundedIndex = Math.max(0, Math.min(nextIndex, runtime.contentItems.length - 1))
-        setContentCompleted(false)
-        setCurrentItemIndex(boundedIndex)
-        if (session) {
-            const contentItemId = runtime.contentItems[boundedIndex]?.id
-            progressMutation.mutate({
-                contentNodeId: runtime.id,
-                action: 'view',
-                ...(contentItemId ? { contentItemId } : {})
-            })
-        }
-    }
-
-    const handleAnswerChange = (questionId: string, optionId: string) => {
-        setAnswers((prev) => ({
-            ...prev,
-            [questionId]: [optionId]
-        }))
-    }
-
-    const handleCompleteContent = async () => {
-        if (!runtime || runtime.type !== 'content') return
-
-        if (!session) {
-            setContentCompleted(true)
-            return
-        }
-
-        try {
-            await progressMutation.mutateAsync({
-                contentNodeId: runtime.id,
-                action: 'complete'
-            })
-
-            setContentCompleted(true)
-        } catch {
-            setContentCompleted(false)
-        }
-    }
-
-    const renderContentItem = () => {
-        if (!currentItem) return null
-
-        if (currentItem.itemType === 'text') {
-            return <Typography sx={{ whiteSpace: 'pre-wrap' }}>{currentItem.itemContent}</Typography>
-        }
-
-        if (currentItem.itemType === 'image') {
-            return (
-                <Box
-                    component='img'
-                    src={currentItem.itemContent}
-                    alt={currentItem.itemTitle || 'content item'}
-                    sx={{ width: '100%', borderRadius: 2 }}
-                />
-            )
-        }
-
-        if (currentItem.itemType === 'video_url') {
-            return (
-                <Box sx={{ position: 'relative', paddingBottom: '56.25%', height: 0 }}>
-                    <iframe
-                        src={currentItem.itemContent}
-                        title={currentItem.itemTitle || 'video'}
-                        allow='accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture'
-                        allowFullScreen
-                        style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', border: 0, borderRadius: 12 }}
-                    />
-                </Box>
-            )
-        }
-
-        const quizId = currentItem.quizId
-
-        if (currentItem.itemType === 'quiz_ref' && quizId) {
-            return (
-                <Button variant='contained' onClick={() => handleOpenQuiz(quizId)}>
-                    {t('guest.openQuiz', 'Open quiz')}
-                </Button>
-            )
-        }
-
-        return <Alert severity='info'>{t('guest.unsupportedContent', 'This content item type is not supported in guest mode yet.')}</Alert>
-    }
-
-    const renderQuiz = (quiz: GuestRuntimeQuiz) => (
-        <Stack spacing={2}>
-            {quiz.questions.map((question) => (
-                <Card key={question.id} variant='outlined'>
-                    <CardContent>
-                        <Stack spacing={1.5}>
-                            <Typography variant='h6'>{question.prompt}</Typography>
-                            {question.description ? (
-                                <Typography
-                                    sx={{
-                                        color: 'text.secondary'
-                                    }}
-                                >
-                                    {question.description}
-                                </Typography>
-                            ) : null}
-                            <RadioGroup
-                                value={answers[question.id]?.[0] ?? ''}
-                                onChange={(event) => handleAnswerChange(question.id, event.target.value)}
-                            >
-                                {question.options.map((option) => (
-                                    <FormControlLabel key={option.id} value={option.id} control={<Radio />} label={option.label} />
-                                ))}
-                            </RadioGroup>
-                        </Stack>
-                    </CardContent>
-                </Card>
-            ))}
-
-            <Stack direction='row' spacing={1} sx={{ justifyContent: 'flex-end' }}>
-                {activeQuizId ? (
-                    <Button variant='text' onClick={handleBackToContent}>
-                        {t('guest.backToContent', 'Back to content')}
-                    </Button>
-                ) : null}
-                <Button variant='contained' onClick={() => submitQuizMutation.mutate(quiz.id)} disabled={submitQuizMutation.isPending}>
-                    {submitQuizMutation.isPending ? t('guest.submittingQuiz', 'Submitting...') : t('guest.submitQuiz', 'Submit quiz')}
-                </Button>
-            </Stack>
-
-            {submitQuizMutation.data ? (
-                <Alert severity={submitQuizMutation.data.passed ? 'success' : 'warning'}>
-                    {t('guest.quizResult', {
-                        defaultValue: 'Score {{score}} / {{total}}',
-                        score: submitQuizMutation.data.score,
-                        total: submitQuizMutation.data.total
-                    })}
-                </Alert>
-            ) : null}
-        </Stack>
-    )
 
     if (!applicationId || !slug) {
         return (
             <AppMainLayout>
-                <Box sx={{ p: 3 }}>
+                <Box component='main' sx={{ p: 3 }}>
                     <Alert severity='warning'>{t('guest.invalidLink', 'Public guest link is invalid.')}</Alert>
                 </Box>
             </AppMainLayout>
@@ -526,129 +114,75 @@ export default function GuestApp(props: GuestAppProps) {
 
     return (
         <AppMainLayout>
-            <Box sx={{ width: '100%', maxWidth: 960, mx: 'auto', py: 4, px: 2 }}>
-                {!session ? (
-                    <Card>
-                        <CardHeader title={linkQuery.data?.title ?? t('guest.enterNameTitle', 'Enter your name to continue')} />
-                        <CardContent>
-                            <Stack spacing={2}>
-                                {linkQuery.isLoading ? (
-                                    <Stack direction='row' spacing={1} sx={{ alignItems: 'center' }}>
-                                        <CircularProgress size={20} />
-                                        <Typography>{t('guest.loadingLink', 'Loading access link...')}</Typography>
-                                    </Stack>
-                                ) : null}
-                                {linkQuery.error ? (
-                                    <Alert severity='error'>
-                                        {formatGuestError(
-                                            linkQuery.error,
-                                            'guest.errors.linkNotFound',
-                                            'Access link was not found or is no longer active.'
-                                        )}
-                                    </Alert>
-                                ) : null}
-                                <TextField
-                                    value={displayName}
-                                    onChange={(event) => setDisplayName(event.target.value)}
-                                    label={t('guest.displayName', 'Your name')}
-                                />
-                                <Button
-                                    variant='contained'
-                                    onClick={handleStartGuestSession}
-                                    disabled={!displayName.trim() || sessionMutation.isPending || linkQuery.isLoading || !linkQuery.data}
-                                >
-                                    {sessionMutation.isPending ? t('guest.starting', 'Starting...') : t('guest.start', 'Start learning')}
-                                </Button>
-                                {sessionMutation.error ? (
-                                    <Alert severity='error'>
-                                        {formatGuestError(
-                                            sessionMutation.error,
-                                            'guest.errors.sessionCreate',
-                                            'Failed to create guest session.'
-                                        )}
-                                    </Alert>
-                                ) : null}
-                            </Stack>
-                        </CardContent>
-                    </Card>
+            <Box component='main' sx={{ width: '100%', maxWidth: 960, mx: 'auto', py: 4, px: 2 }}>
+                {!guestSession.session ? (
+                    <GuestIntakeForm
+                        applicationId={applicationId}
+                        slug={slug}
+                        guestSession={guestSession}
+                        isValidGuestEmail={isValidGuestEmail}
+                    />
                 ) : (
                     <Card>
                         <CardHeader
-                            title={runtime?.title ?? linkQuery.data?.title ?? t('guest.loadingContent', 'Loading content...')}
-                            subheader={runtime?.description}
+                            title={
+                                guestContent.runtime?.title ??
+                                guestSession.linkQuery.data?.title ??
+                                t('guest.loadingContent', 'Loading content...')
+                            }
+                            subheader={guestContent.runtime?.description}
                         />
                         <CardContent>
-                            {runtimeQuery.isLoading ? (
+                            {guestContent.runtimeQuery.isLoading ? (
                                 <Stack direction='row' spacing={1} sx={{ alignItems: 'center' }}>
                                     <CircularProgress size={20} />
                                     <Typography>{t('guest.loadingContent', 'Loading content...')}</Typography>
                                 </Stack>
                             ) : null}
 
-                            {runtimeQuery.error ? (
+                            {guestContent.runtimeQuery.error ? (
                                 <Alert severity='error'>
-                                    {formatGuestError(
-                                        runtimeQuery.error,
+                                    {guestSession.formatGuestError(
+                                        guestContent.runtimeQuery.error,
                                         'guest.errors.runtimeLoad',
                                         'Failed to load public learning content.'
                                     )}
                                 </Alert>
                             ) : null}
 
-                            {runtime?.type === 'content' ? (
-                                contentCompleted ? (
-                                    <Stack spacing={2}>
-                                        <Alert severity='success'>
-                                            {t('guest.contentCompleted', 'Content complete. Progress has been recorded for this session.')}
-                                        </Alert>
-                                        <Stack direction='row' spacing={1} sx={{ justifyContent: 'flex-end' }}>
-                                            <Button
-                                                variant='outlined'
-                                                onClick={() => {
-                                                    setContentCompleted(false)
-                                                    setCurrentItemIndex(0)
-                                                }}
-                                            >
-                                                {t('guest.restartContent', 'Restart content')}
-                                            </Button>
-                                        </Stack>
-                                    </Stack>
-                                ) : (
-                                    <Stack spacing={2}>
-                                        <LinearProgress
-                                            variant='determinate'
-                                            value={totalItems > 0 ? ((currentItemIndex + 1) / totalItems) * 100 : 0}
-                                        />
-                                        {currentItem?.itemTitle ? <Typography variant='h6'>{currentItem.itemTitle}</Typography> : null}
-                                        {renderContentItem()}
-                                        <Stack direction='row' spacing={1} sx={{ justifyContent: 'space-between' }}>
-                                            <Button
-                                                variant='outlined'
-                                                onClick={() => handleMoveContent(currentItemIndex - 1)}
-                                                disabled={currentItemIndex === 0}
-                                            >
-                                                {t('guest.previous', 'Previous')}
-                                            </Button>
-                                            {currentItemIndex >= totalItems - 1 ? (
-                                                <Button variant='contained' onClick={handleCompleteContent}>
-                                                    {t('guest.completeContent', 'Complete content')}
-                                                </Button>
-                                            ) : (
-                                                <Button variant='contained' onClick={() => handleMoveContent(currentItemIndex + 1)}>
-                                                    {t('guest.next', 'Next')}
-                                                </Button>
-                                            )}
-                                        </Stack>
-                                    </Stack>
-                                )
+                            {guestContent.runtime?.type === 'content' ? (
+                                <GuestContentPanel
+                                    runtime={guestContent.runtime}
+                                    currentItemIndex={guestContent.currentItemIndex}
+                                    contentCompleted={guestContent.contentCompleted}
+                                    setCurrentItemIndex={guestContent.setCurrentItemIndex}
+                                    setContentCompleted={guestContent.setContentCompleted}
+                                    handleMoveContent={guestContent.handleMoveContent}
+                                    handleCompleteContent={guestContent.handleCompleteContent}
+                                    handleOpenQuiz={guestContent.handleOpenQuiz}
+                                />
                             ) : null}
 
-                            {runtime?.type === 'quiz' ? renderQuiz(runtime) : null}
-
-                            {submitQuizMutation.error ? (
-                                <Alert severity='error' sx={{ mt: 2 }}>
-                                    {formatGuestError(submitQuizMutation.error, 'guest.errors.quizSubmit', 'Failed to submit the quiz.')}
-                                </Alert>
+                            {guestContent.runtime?.type === 'quiz' ? (
+                                <GuestQuizPanel
+                                    activeQuizId={guestContent.activeQuizId}
+                                    runtime={guestContent.runtime}
+                                    quizAttempt={quizController.quizAttempt}
+                                    currentQuestionIndex={quizController.currentQuestionIndex}
+                                    currentQuestion={quizController.currentQuestion}
+                                    selectedOptionId={quizController.selectedOptionId}
+                                    timeRemaining={quizController.timeRemaining}
+                                    isRefreshingAttempt={quizController.isRefreshingAttempt}
+                                    initializeQuizAttemptMutation={quizController.initializeQuizAttemptMutation}
+                                    saveAnswerMutation={quizController.saveAnswerMutation}
+                                    finalizeQuizMutation={quizController.finalizeQuizMutation}
+                                    handleRetryQuiz={quizController.handleRetryQuiz}
+                                    handleBackToContent={quizController.handleBackToContent}
+                                    handleSelectOption={quizController.handleSelectOption}
+                                    handleRetryAnswer={quizController.handleRetryAnswer}
+                                    formatGuestError={guestSession.formatGuestError}
+                                    normalizeAttemptLimit={normalizeAttemptLimit}
+                                />
                             ) : null}
                         </CardContent>
                     </Card>

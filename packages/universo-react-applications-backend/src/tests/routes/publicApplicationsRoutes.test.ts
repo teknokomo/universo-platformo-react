@@ -1,3130 +1,349 @@
-import type { NextFunction, Request, Response } from 'express'
-import type { RateLimitRequestHandler } from 'express-rate-limit'
-import { createHash } from 'node:crypto'
-
-const express = require('express') as typeof import('express')
-const request = require('supertest') as typeof import('supertest')
-
-import { createMockDbExecutor } from '../utils/dbMocks'
-import { createPublicApplicationsRoutes } from '../../routes/publicApplicationsRoutes'
-
-type QueryScope = 'root' | 'tx'
-type QueryHandler = (sql: string, params: unknown[], scope: QueryScope) => unknown[] | undefined
-
-const hashGuestSecret = (secret: string): string => createHash('sha256').update(secret, 'utf8').digest('hex')
-
-const mockRateLimiter: RateLimitRequestHandler = ((_req: Request, _res: Response, next: NextFunction) => {
-    next()
-}) as RateLimitRequestHandler
-
-const errorHandler = (err: Error & { statusCode?: number; status?: number }, _req: Request, res: Response, _next: NextFunction) => {
-    if (res.headersSent) {
-        return _next(err)
-    }
-    res.status(err.statusCode ?? err.status ?? 500).json({ error: err.message || 'Internal Server Error' })
-}
-
-const buildDataSource = (handler?: QueryHandler) => {
-    const { executor, txExecutor } = createMockDbExecutor()
-    let generatedUuidIndex = 0
-    const transactionSql: string[] = []
-    const respond = async (sql: string, params: unknown[] = [], scope: QueryScope) => {
-        if (scope === 'tx') transactionSql.push(sql)
-        if (sql.includes('SELECT public.uuid_generate_v7() AS id')) {
-            generatedUuidIndex += 1
-            return [{ id: `018f8a78-7b8f-7c1d-a111-22223333${String(4000 + generatedUuidIndex).padStart(4, '0')}` }]
-        }
-        const override = handler?.(sql, params, scope)
-        if (override !== undefined) {
-            return override
-        }
-        return []
-    }
-
-    ;(executor.query as jest.Mock).mockImplementation((sql: string, params: unknown[] = []) => respond(sql, params, 'root'))
-    ;(txExecutor.query as jest.Mock).mockImplementation((sql: string, params: unknown[] = []) => respond(sql, params, 'tx'))
-    ;(executor.transaction as jest.Mock).mockImplementation(async (callback: (trx: typeof txExecutor) => Promise<unknown>) =>
-        callback(txExecutor)
-    )
-
-    return Object.assign(executor, { transactionSql })
-}
-
-const buildApp = (dataSource: ReturnType<typeof buildDataSource>) => {
-    const app = express()
-    app.use(express.json())
-    app.use(
-        '/',
-        createPublicApplicationsRoutes(() => dataSource, mockRateLimiter, mockRateLimiter)
-    )
-    app.use(errorHandler)
-    return app
-}
-
-const codenameVlc = (value: string) => ({
-    _primary: 'en',
-    locales: {
-        en: { content: value }
-    }
-})
-
-const localizedTextVlc = (en: string, ru: string) => ({
-    _primary: 'en',
-    locales: {
-        en: { content: en },
-        ru: { content: ru }
-    }
-})
-
-const publicGuestRuntimeSettings = {
-    publicRuntime: {
-        guest: {
-            objects: {
-                accessLinks: 'AccessLinks',
-                participants: 'Students',
-                assessments: 'Quizzes',
-                contentNodes: 'LearningResources',
-                assessmentResponses: 'QuizResponses',
-                contentProgress: 'ContentProgress'
-            },
-            fields: {
-                accessLink: {
-                    slug: 'Slug',
-                    targetType: 'TargetType',
-                    targetId: 'TargetId',
-                    contentNodeIdRef: 'ContentNodeIdRef',
-                    isActive: 'IsActive',
-                    expiresAt: 'ExpiresAt',
-                    maxUses: 'MaxUses',
-                    useCount: 'UseCount',
-                    title: 'LinkTitle',
-                    classId: 'LinkClassId'
-                },
-                participant: {
-                    displayName: 'DisplayName',
-                    isGuest: 'IsGuest',
-                    guestSessionToken: 'GuestSessionToken'
-                },
-                contentNode: {
-                    title: 'Title',
-                    description: 'Description',
-                    contentItems: 'ContentItems'
-                },
-                contentPart: {
-                    itemType: 'ItemType',
-                    itemTitle: 'ItemTitle',
-                    itemContent: 'ItemContent',
-                    quizId: 'QuizId',
-                    sortOrder: 'SortOrder'
-                },
-                assessment: {
-                    title: 'Title',
-                    description: 'Description',
-                    passingScorePercent: 'PassingScorePercent',
-                    questions: 'Questions'
-                },
-                assessmentQuestion: {
-                    prompt: 'Prompt',
-                    description: 'QuestionDescription',
-                    questionType: 'QuestionType',
-                    explanation: 'Explanation',
-                    sortOrder: 'SortOrder',
-                    options: 'Options'
-                },
-                assessmentResponse: {
-                    studentId: 'StudentId',
-                    quizId: 'QuizId',
-                    questionId: 'QuestionId',
-                    selectedOptionIds: 'SelectedOptionIds',
-                    isCorrect: 'IsCorrect',
-                    attemptNumber: 'AttemptNumber',
-                    submittedAt: 'SubmittedAt'
-                },
-                contentProgress: {
-                    studentId: 'ProgressStudentId',
-                    contentNodeId: 'ContentNodeId',
-                    status: 'ProgressStatus',
-                    progressPercent: 'ProgressPercent',
-                    startedAt: 'StartedAt',
-                    completedAt: 'CompletedAt',
-                    lastAccessedItemIndex: 'LastAccessedItemIndex'
-                }
-            }
-        }
-    }
-}
+import { createRuntimeGuestController } from '../../controllers/runtimeGuestController'
+import { asyncHandler } from '../../shared/asyncHandler'
+import {
+    applicationId,
+    schemaName,
+    withPublicApplication,
+    buildDataSource,
+    buildApp,
+    express,
+    request,
+    errorHandler,
+    codenameVlc,
+    localizedTextVlc,
+    installPublicApplicationsTestHooks
+} from './publicApplicationsRoutes.testSupport'
 
 describe('Public Applications Routes', () => {
-    const applicationId = '2a15af4d-54ef-4b65-b5fd-8274d0d1de1b'
-    const schemaName = 'app_018f8a787b8f7c1da111222233334442'
-    const contentNodeId = '8f1c1880-2b67-4d79-b02b-a53db0a85453'
-    const quizId = '16fe6f92-497d-47dd-a1bc-faf7fe55d765'
-    const accessLinkId = '3ea1c528-0868-44b6-a30b-7e63a9f963da'
-    const workspaceId1 = '018f8a78-7b8f-7c1d-a111-222233334441'
-    const workspaceId2 = '018f8a78-7b8f-7c1d-a111-222233334442'
+    installPublicApplicationsTestHooks()
 
-    beforeEach(() => {
-        jest.clearAllMocks()
-    })
-
-    const withPublicApplication =
-        (handler: QueryHandler, applicationOverrides: Record<string, unknown> = {}): QueryHandler =>
-        (sql, params, scope) => {
-            if (sql.includes('FROM applications.obj_applications')) {
-                return [
-                    {
-                        id: 'application-1',
-                        schemaName,
-                        isPublic: true,
-                        workspacesEnabled: false,
-                        settings: publicGuestRuntimeSettings,
-                        ...applicationOverrides
-                    }
-                ]
+    it('fails closed with one generic response before validating every direct guest route for an unpublished application', async () => {
+        const dataSource = buildDataSource(withPublicApplication(() => undefined, { appPublished: false }))
+        const app = buildApp(dataSource)
+        const routes: Array<{ name: string; send: () => Promise<{ status: number; body: unknown }> }> = [
+            {
+                name: 'resolve access link',
+                send: async () => request(app).get(`/public/a/${applicationId}/links/quiz-link`)
+            },
+            {
+                name: 'create guest session',
+                send: async () => request(app).post(`/public/a/${applicationId}/guest-session`).send({})
+            },
+            {
+                name: 'read runtime payload',
+                send: async () => request(app).get(`/public/a/${applicationId}/runtime?unexpected=1`)
+            },
+            {
+                name: 'start assessment attempt',
+                send: async () => request(app).post(`/public/a/${applicationId}/runtime/attempts/start`).send({})
+            },
+            {
+                name: 'read assessment attempt',
+                send: async () => request(app).get(`/public/a/${applicationId}/runtime/attempts/not-a-uuid`)
+            },
+            {
+                name: 'save assessment answer',
+                send: async () => request(app).put(`/public/a/${applicationId}/runtime/attempts/not-a-uuid/answers`).send({})
+            },
+            {
+                name: 'finalize assessment attempt',
+                send: async () => request(app).post(`/public/a/${applicationId}/runtime/attempts/not-a-uuid/finalize`).send({})
+            },
+            {
+                name: 'update guest progress',
+                send: async () => request(app).post(`/public/a/${applicationId}/runtime/guest-progress`).send({})
+            },
+            {
+                name: 'list runtime modules',
+                send: async () => request(app).get(`/public/a/${applicationId}/runtime/modules`)
+            },
+            {
+                name: 'read runtime module bundle',
+                send: async () => request(app).get(`/public/a/${applicationId}/runtime/modules/not-a-uuid/client`)
             }
-            return handler(sql, params, scope)
+        ]
+
+        for (const route of routes) {
+            const response = await route.send()
+            expect({ route: route.name, status: response.status, body: response.body }).toEqual({
+                route: route.name,
+                status: 404,
+                body: { error: 'Public guest runtime is unavailable' }
+            })
         }
-
-    it('resolves a public access link from the workspace that actually owns the link', async () => {
-        let currentWorkspaceId = ''
-
-        const dataSource = buildDataSource(
-            withPublicApplication(
-                (sql, params) => {
-                    if (sql.includes(`FROM "${schemaName}"."_app_workspaces"`)) {
-                        return [{ id: workspaceId2 }, { id: workspaceId1 }]
-                    }
-
-                    if (sql.includes("set_config('app.current_workspace_id'")) {
-                        currentWorkspaceId = String(params[0] ?? '')
-                        return []
-                    }
-
-                    if (sql.includes(`FROM "${schemaName}"."_app_objects"`)) {
-                        return [{ id: 'object-1', codename: codenameVlc('AccessLinks'), kind: 'object', table_name: 'access_links_table' }]
-                    }
-
-                    if (sql.includes(`FROM "${schemaName}"."_app_components"`)) {
-                        return [
-                            {
-                                id: 'attr-1',
-                                codename: codenameVlc('Slug'),
-                                column_name: 'slug',
-                                data_type: 'STRING',
-                                parent_component_id: null
-                            },
-                            {
-                                id: 'attr-2',
-                                codename: codenameVlc('TargetType'),
-                                column_name: 'target_type',
-                                data_type: 'STRING',
-                                parent_component_id: null
-                            },
-                            {
-                                id: 'attr-3',
-                                codename: codenameVlc('TargetId'),
-                                column_name: 'target_id',
-                                data_type: 'STRING',
-                                parent_component_id: null
-                            },
-                            {
-                                id: 'attr-content-ref',
-                                codename: codenameVlc('ContentNodeIdRef'),
-                                column_name: 'content_node_id_ref',
-                                data_type: 'REF',
-                                parent_component_id: null
-                            },
-                            {
-                                id: 'attr-4',
-                                codename: codenameVlc('IsActive'),
-                                column_name: 'is_active',
-                                data_type: 'BOOLEAN',
-                                parent_component_id: null
-                            }
-                        ]
-                    }
-
-                    if (sql.includes(`FROM "${schemaName}"."access_links_table"`)) {
-                        return currentWorkspaceId === workspaceId2
-                            ? [
-                                  {
-                                      id: accessLinkId,
-                                      slug: 'demo-content',
-                                      target_type: 'content',
-                                      target_id: quizId,
-                                      content_node_id_ref: contentNodeId,
-                                      is_active: true
-                                  }
-                              ]
-                            : []
-                    }
-
-                    return undefined
-                },
-                { workspacesEnabled: true }
-            )
-        )
-
-        const app = buildApp(dataSource)
-        const response = await request(app).get(`/public/a/${applicationId}/links/demo-content`).expect(200)
-
-        expect(response.body.id).toBe(accessLinkId)
-        expect(response.body.targetId).toBe(contentNodeId)
-        expect(currentWorkspaceId).toBe(workspaceId2)
+        expect(dataSource.query.mock.calls.some(([sql]) => String(sql).includes('FROM applications.obj_applications\n'))).toBe(false)
     })
 
-    it('fails closed when the same public access-link slug exists in multiple active public workspaces', async () => {
-        let currentWorkspaceId = ''
-
-        const dataSource = buildDataSource(
-            withPublicApplication(
-                (sql, params) => {
-                    if (sql.includes(`FROM "${schemaName}"."_app_workspaces"`)) {
-                        return [{ id: workspaceId2 }, { id: workspaceId1 }]
-                    }
-
-                    if (sql.includes("set_config('app.current_workspace_id'")) {
-                        currentWorkspaceId = String(params[0] ?? '')
-                        return []
-                    }
-
-                    if (sql.includes(`FROM "${schemaName}"."_app_objects"`)) {
-                        return [{ id: 'object-1', codename: codenameVlc('AccessLinks'), kind: 'object', table_name: 'access_links_table' }]
-                    }
-
-                    if (sql.includes(`FROM "${schemaName}"."_app_components"`)) {
-                        return [
-                            {
-                                id: 'attr-1',
-                                codename: codenameVlc('Slug'),
-                                column_name: 'slug',
-                                data_type: 'STRING',
-                                parent_component_id: null
-                            },
-                            {
-                                id: 'attr-2',
-                                codename: codenameVlc('TargetType'),
-                                column_name: 'target_type',
-                                data_type: 'STRING',
-                                parent_component_id: null
-                            },
-                            {
-                                id: 'attr-3',
-                                codename: codenameVlc('TargetId'),
-                                column_name: 'target_id',
-                                data_type: 'STRING',
-                                parent_component_id: null
-                            },
-                            {
-                                id: 'attr-4',
-                                codename: codenameVlc('IsActive'),
-                                column_name: 'is_active',
-                                data_type: 'BOOLEAN',
-                                parent_component_id: null
-                            }
-                        ]
-                    }
-
-                    if (sql.includes(`FROM "${schemaName}"."access_links_table"`)) {
-                        return [
-                            {
-                                id: currentWorkspaceId === workspaceId2 ? accessLinkId : '4ea1c528-0868-44b6-a30b-7e63a9f963db',
-                                slug: 'demo-content',
-                                target_type: 'content',
-                                target_id: contentNodeId,
-                                is_active: true
-                            }
-                        ]
-                    }
-
-                    return undefined
-                },
-                { workspacesEnabled: true }
-            )
-        )
-
-        const app = buildApp(dataSource)
-        await request(app).get(`/public/a/${applicationId}/links/demo-content`).expect(404)
-
-        expect(currentWorkspaceId).toBe('')
-    })
-
-    it('fails closed when the same public access-link slug exists more than once in one public workspace', async () => {
-        let currentWorkspaceId = ''
-
-        const dataSource = buildDataSource(
-            withPublicApplication(
-                (sql, params) => {
-                    if (sql.includes(`FROM "${schemaName}"."_app_workspaces"`)) {
-                        return [{ id: workspaceId1 }]
-                    }
-
-                    if (sql.includes("set_config('app.current_workspace_id'")) {
-                        currentWorkspaceId = String(params[0] ?? '')
-                        return []
-                    }
-
-                    if (sql.includes(`FROM "${schemaName}"."_app_objects"`)) {
-                        return [{ id: 'object-1', codename: codenameVlc('AccessLinks'), kind: 'object', table_name: 'access_links_table' }]
-                    }
-
-                    if (sql.includes(`FROM "${schemaName}"."_app_components"`)) {
-                        return [
-                            {
-                                id: 'attr-1',
-                                codename: codenameVlc('Slug'),
-                                column_name: 'slug',
-                                data_type: 'STRING',
-                                parent_component_id: null
-                            },
-                            {
-                                id: 'attr-2',
-                                codename: codenameVlc('TargetType'),
-                                column_name: 'target_type',
-                                data_type: 'STRING',
-                                parent_component_id: null
-                            },
-                            {
-                                id: 'attr-3',
-                                codename: codenameVlc('TargetId'),
-                                column_name: 'target_id',
-                                data_type: 'STRING',
-                                parent_component_id: null
-                            },
-                            {
-                                id: 'attr-4',
-                                codename: codenameVlc('IsActive'),
-                                column_name: 'is_active',
-                                data_type: 'BOOLEAN',
-                                parent_component_id: null
-                            }
-                        ]
-                    }
-
-                    if (sql.includes(`FROM "${schemaName}"."access_links_table"`)) {
-                        return [
-                            {
-                                id: accessLinkId,
-                                slug: 'demo-content',
-                                target_type: 'content',
-                                target_id: contentNodeId,
-                                is_active: true
-                            },
-                            {
-                                id: '4ea1c528-0868-44b6-a30b-7e63a9f963db',
-                                slug: 'demo-content',
-                                target_type: 'quiz',
-                                target_id: quizId,
-                                is_active: true
-                            }
-                        ]
-                    }
-
-                    return undefined
-                },
-                { workspacesEnabled: true }
-            )
-        )
-
-        const app = buildApp(dataSource)
-        await request(app).get(`/public/a/${applicationId}/links/demo-content`).expect(404)
-
-        expect(currentWorkspaceId).toBe('')
-    })
-
-    it('pins workspace-aware public link resolution to one transaction-scoped executor', async () => {
-        let rootWorkspaceId = ''
-        let txWorkspaceId = ''
-
-        const dataSource = buildDataSource(
-            withPublicApplication(
-                (sql, params, scope) => {
-                    if (sql.includes(`FROM "${schemaName}"."_app_workspaces"`)) {
-                        return [{ id: workspaceId2 }, { id: workspaceId1 }]
-                    }
-
-                    if (sql.includes("set_config('app.current_workspace_id'")) {
-                        if (scope === 'tx') {
-                            txWorkspaceId = String(params[0] ?? '')
-                        } else {
-                            rootWorkspaceId = String(params[0] ?? '')
-                        }
-                        return []
-                    }
-
-                    if (sql.includes(`FROM "${schemaName}"."_app_objects"`)) {
-                        return [{ id: 'object-1', codename: codenameVlc('AccessLinks'), kind: 'object', table_name: 'access_links_table' }]
-                    }
-
-                    if (sql.includes(`FROM "${schemaName}"."_app_components"`)) {
-                        return [
-                            {
-                                id: 'attr-1',
-                                codename: codenameVlc('Slug'),
-                                column_name: 'slug',
-                                data_type: 'STRING',
-                                parent_component_id: null
-                            },
-                            {
-                                id: 'attr-2',
-                                codename: codenameVlc('TargetType'),
-                                column_name: 'target_type',
-                                data_type: 'STRING',
-                                parent_component_id: null
-                            },
-                            {
-                                id: 'attr-3',
-                                codename: codenameVlc('TargetId'),
-                                column_name: 'target_id',
-                                data_type: 'STRING',
-                                parent_component_id: null
-                            },
-                            {
-                                id: 'attr-4',
-                                codename: codenameVlc('IsActive'),
-                                column_name: 'is_active',
-                                data_type: 'BOOLEAN',
-                                parent_component_id: null
-                            }
-                        ]
-                    }
-
-                    if (sql.includes(`FROM "${schemaName}"."access_links_table"`)) {
-                        return scope === 'tx' && txWorkspaceId === workspaceId2
-                            ? [
-                                  {
-                                      id: accessLinkId,
-                                      slug: 'demo-content',
-                                      target_type: 'content',
-                                      target_id: contentNodeId,
-                                      is_active: true
-                                  }
-                              ]
-                            : []
-                    }
-
-                    return undefined
-                },
-                { workspacesEnabled: true }
-            )
-        )
-
-        const app = buildApp(dataSource)
-        const response = await request(app).get(`/public/a/${applicationId}/links/demo-content`).expect(200)
-
-        expect(response.body.id).toBe(accessLinkId)
-        expect(txWorkspaceId).toBe(workspaceId2)
-        expect(rootWorkspaceId).toBe('')
-    })
-
-    it('does not resolve public access links from personal workspaces', async () => {
-        let currentWorkspaceId = ''
-
-        const dataSource = buildDataSource(
-            withPublicApplication(
-                (sql, params) => {
-                    if (sql.includes(`FROM "${schemaName}"."_app_workspaces"`)) {
-                        expect(sql).toContain("workspace_type <> 'personal'")
-                        expect(sql).toContain('personal_user_id IS NULL')
-                        return []
-                    }
-
-                    if (sql.includes("set_config('app.current_workspace_id'")) {
-                        currentWorkspaceId = String(params[0] ?? '')
-                        return []
-                    }
-
-                    if (sql.includes(`FROM "${schemaName}"."_app_objects"`)) {
-                        return [{ id: 'object-1', codename: codenameVlc('AccessLinks'), kind: 'object', table_name: 'access_links_table' }]
-                    }
-
-                    if (sql.includes(`FROM "${schemaName}"."_app_components"`)) {
-                        return [
-                            {
-                                id: 'attr-1',
-                                codename: codenameVlc('Slug'),
-                                column_name: 'slug',
-                                data_type: 'STRING',
-                                parent_component_id: null
-                            },
-                            {
-                                id: 'attr-2',
-                                codename: codenameVlc('TargetType'),
-                                column_name: 'target_type',
-                                data_type: 'STRING',
-                                parent_component_id: null
-                            },
-                            {
-                                id: 'attr-3',
-                                codename: codenameVlc('TargetId'),
-                                column_name: 'target_id',
-                                data_type: 'STRING',
-                                parent_component_id: null
-                            },
-                            {
-                                id: 'attr-4',
-                                codename: codenameVlc('IsActive'),
-                                column_name: 'is_active',
-                                data_type: 'BOOLEAN',
-                                parent_component_id: null
-                            }
-                        ]
-                    }
-
-                    if (sql.includes(`FROM "${schemaName}"."access_links_table"`)) {
-                        return currentWorkspaceId === workspaceId1
-                            ? [
-                                  {
-                                      id: accessLinkId,
-                                      slug: 'demo-content',
-                                      target_type: 'content',
-                                      target_id: contentNodeId,
-                                      is_active: true
-                                  }
-                              ]
-                            : []
-                    }
-
-                    return undefined
-                },
-                { workspacesEnabled: true }
-            )
-        )
-
-        const app = buildApp(dataSource)
-        await request(app).get(`/public/a/${applicationId}/links/demo-content`).expect(404)
-    })
-
-    it('resolves an active public access link by slug', async () => {
-        const dataSource = buildDataSource(
-            withPublicApplication((sql) => {
-                if (sql.includes(`FROM "${schemaName}"."_app_objects"`)) {
-                    return [
-                        {
-                            id: 'object-1',
-                            codename: codenameVlc('AccessLinks'),
-                            kind: 'object',
-                            table_name: 'access_links_table',
-                            config: {
-                                recordPolicy: {
-                                    version: 1,
-                                    denyDeleteWhenBound: false,
-                                    immutableSemanticKeyWhenBound: false,
-                                    runtimeMutation: 'deny'
-                                }
-                            }
-                        }
-                    ]
-                }
-
-                if (sql.includes(`FROM "${schemaName}"."_app_components"`)) {
-                    return [
-                        {
-                            id: 'attr-1',
-                            codename: codenameVlc('Slug'),
-                            column_name: 'slug',
-                            data_type: 'STRING',
-                            parent_component_id: null
-                        },
-                        {
-                            id: 'attr-2',
-                            codename: codenameVlc('TargetType'),
-                            column_name: 'target_type',
-                            data_type: 'STRING',
-                            parent_component_id: null
-                        },
-                        {
-                            id: 'attr-3',
-                            codename: codenameVlc('TargetId'),
-                            column_name: 'target_id',
-                            data_type: 'STRING',
-                            parent_component_id: null
-                        },
-                        {
-                            id: 'attr-4',
-                            codename: codenameVlc('IsActive'),
-                            column_name: 'is_active',
-                            data_type: 'BOOLEAN',
-                            parent_component_id: null
-                        },
-                        {
-                            id: 'attr-5',
-                            codename: codenameVlc('UseCount'),
-                            column_name: 'use_count',
-                            data_type: 'NUMBER',
-                            parent_component_id: null
-                        },
-                        {
-                            id: 'attr-6',
-                            codename: codenameVlc('MaxUses'),
-                            column_name: 'max_uses',
-                            data_type: 'NUMBER',
-                            parent_component_id: null
-                        },
-                        {
-                            id: 'attr-7',
-                            codename: codenameVlc('LinkTitle'),
-                            column_name: 'title',
-                            data_type: 'STRING',
-                            parent_component_id: null
-                        }
-                    ]
-                }
-
-                if (sql.includes(`FROM "${schemaName}"."access_links_table"`)) {
-                    return [
-                        {
-                            id: accessLinkId,
-                            slug: 'demo-content',
-                            target_type: 'content',
-                            target_id: contentNodeId,
-                            is_active: true,
-                            expires_at: null,
-                            max_uses: 5,
-                            use_count: 0,
-                            title: localizedTextVlc('Demo content', 'Демо-модуль'),
-                            class_id: null
-                        }
-                    ]
-                }
-
-                return undefined
-            })
-        )
-
-        const app = buildApp(dataSource)
-        const response = await request(app).get(`/public/a/${applicationId}/links/demo-content`).expect(200)
-
-        expect(response.body).toMatchObject({
-            id: accessLinkId,
-            slug: 'demo-content',
-            targetType: 'content',
-            title: 'Demo content'
-        })
-    })
-
-    it('localizes public access link titles when locale is provided', async () => {
-        const dataSource = buildDataSource(
-            withPublicApplication((sql) => {
-                if (sql.includes(`FROM "${schemaName}"."_app_objects"`)) {
-                    return [{ id: 'object-1', codename: codenameVlc('AccessLinks'), kind: 'object', table_name: 'access_links_table' }]
-                }
-
-                if (sql.includes(`FROM "${schemaName}"."_app_components"`)) {
-                    return [
-                        {
-                            id: 'attr-1',
-                            codename: codenameVlc('Slug'),
-                            column_name: 'slug',
-                            data_type: 'STRING',
-                            parent_component_id: null
-                        },
-                        {
-                            id: 'attr-2',
-                            codename: codenameVlc('TargetType'),
-                            column_name: 'target_type',
-                            data_type: 'STRING',
-                            parent_component_id: null
-                        },
-                        {
-                            id: 'attr-3',
-                            codename: codenameVlc('TargetId'),
-                            column_name: 'target_id',
-                            data_type: 'STRING',
-                            parent_component_id: null
-                        },
-                        {
-                            id: 'attr-4',
-                            codename: codenameVlc('IsActive'),
-                            column_name: 'is_active',
-                            data_type: 'BOOLEAN',
-                            parent_component_id: null
-                        },
-                        {
-                            id: 'attr-5',
-                            codename: codenameVlc('LinkTitle'),
-                            column_name: 'title',
-                            data_type: 'STRING',
-                            parent_component_id: null
-                        }
-                    ]
-                }
-
-                if (sql.includes(`FROM "${schemaName}"."access_links_table"`)) {
-                    return [
-                        {
-                            id: accessLinkId,
-                            slug: 'demo-content',
-                            target_type: 'content',
-                            target_id: contentNodeId,
-                            is_active: true,
-                            title: localizedTextVlc('Docking drill', 'Стыковочная тренировка')
-                        }
-                    ]
-                }
-
-                return undefined
-            })
-        )
-
-        const app = buildApp(dataSource)
-        const response = await request(app).get(`/public/a/${applicationId}/links/demo-content?locale=ru`).expect(200)
-
-        expect(response.body.title).toBe('Стыковочная тренировка')
-    })
-
-    it('rejects inactive access links', async () => {
-        const dataSource = buildDataSource(
-            withPublicApplication((sql) => {
-                if (sql.includes(`FROM "${schemaName}"."_app_objects"`)) {
-                    return [{ id: 'object-1', codename: 'AccessLinks', kind: 'object', table_name: 'access_links_table' }]
-                }
-                if (sql.includes(`FROM "${schemaName}"."_app_components"`)) {
-                    return [
-                        { id: 'attr-1', codename: 'Slug', column_name: 'slug', data_type: 'STRING', parent_component_id: null },
-                        {
-                            id: 'attr-2',
-                            codename: 'TargetType',
-                            column_name: 'target_type',
-                            data_type: 'STRING',
-                            parent_component_id: null
-                        },
-                        { id: 'attr-3', codename: 'TargetId', column_name: 'target_id', data_type: 'STRING', parent_component_id: null },
-                        { id: 'attr-4', codename: 'IsActive', column_name: 'is_active', data_type: 'BOOLEAN', parent_component_id: null }
-                    ]
-                }
-                if (sql.includes(`FROM "${schemaName}"."access_links_table"`)) {
-                    return [{ id: accessLinkId, slug: 'demo-content', target_type: 'content', target_id: contentNodeId, is_active: false }]
-                }
-                return undefined
-            })
-        )
-
-        const app = buildApp(dataSource)
-        await request(app).get(`/public/a/${applicationId}/links/demo-content`).expect(403)
-    })
-
-    it('rejects expired access links', async () => {
-        const dataSource = buildDataSource(
-            withPublicApplication((sql) => {
-                if (sql.includes(`FROM "${schemaName}"."_app_objects"`)) {
-                    return [{ id: 'object-1', codename: 'AccessLinks', kind: 'object', table_name: 'access_links_table' }]
-                }
-                if (sql.includes(`FROM "${schemaName}"."_app_components"`)) {
-                    return [
-                        { id: 'attr-1', codename: 'Slug', column_name: 'slug', data_type: 'STRING', parent_component_id: null },
-                        {
-                            id: 'attr-2',
-                            codename: 'TargetType',
-                            column_name: 'target_type',
-                            data_type: 'STRING',
-                            parent_component_id: null
-                        },
-                        { id: 'attr-3', codename: 'TargetId', column_name: 'target_id', data_type: 'STRING', parent_component_id: null },
-                        { id: 'attr-4', codename: 'IsActive', column_name: 'is_active', data_type: 'BOOLEAN', parent_component_id: null },
-                        { id: 'attr-5', codename: 'ExpiresAt', column_name: 'expires_at', data_type: 'DATETIME', parent_component_id: null }
-                    ]
-                }
-                if (sql.includes(`FROM "${schemaName}"."access_links_table"`)) {
-                    return [
-                        {
-                            id: accessLinkId,
-                            slug: 'demo-content',
-                            target_type: 'content',
-                            target_id: contentNodeId,
-                            is_active: true,
-                            expires_at: new Date('2000-01-01T00:00:00.000Z')
-                        }
-                    ]
-                }
-                return undefined
-            })
-        )
-
-        const app = buildApp(dataSource)
-        await request(app).get(`/public/a/${applicationId}/links/demo-content`).expect(403)
-    })
-
-    it('rejects exhausted access links before creating a guest session', async () => {
-        const dataSource = buildDataSource(
-            withPublicApplication((sql) => {
-                if (sql.includes(`FROM "${schemaName}"."_app_objects"`)) {
-                    return [{ id: 'object-1', codename: 'AccessLinks', kind: 'object', table_name: 'access_links_table' }]
-                }
-                if (sql.includes(`FROM "${schemaName}"."_app_components"`)) {
-                    return [
-                        { id: 'attr-1', codename: 'Slug', column_name: 'slug', data_type: 'STRING', parent_component_id: null },
-                        {
-                            id: 'attr-2',
-                            codename: 'TargetType',
-                            column_name: 'target_type',
-                            data_type: 'STRING',
-                            parent_component_id: null
-                        },
-                        { id: 'attr-3', codename: 'TargetId', column_name: 'target_id', data_type: 'STRING', parent_component_id: null },
-                        { id: 'attr-4', codename: 'IsActive', column_name: 'is_active', data_type: 'BOOLEAN', parent_component_id: null },
-                        { id: 'attr-5', codename: 'UseCount', column_name: 'use_count', data_type: 'NUMBER', parent_component_id: null },
-                        { id: 'attr-6', codename: 'MaxUses', column_name: 'max_uses', data_type: 'NUMBER', parent_component_id: null }
-                    ]
-                }
-                if (sql.includes(`FROM "${schemaName}"."access_links_table"`)) {
-                    return [
-                        {
-                            id: accessLinkId,
-                            slug: 'demo-content',
-                            target_type: 'content',
-                            target_id: contentNodeId,
-                            is_active: true,
-                            max_uses: 1,
-                            use_count: 1
-                        }
-                    ]
-                }
-                return undefined
-            })
-        )
-
-        const app = buildApp(dataSource)
-        await request(app).post(`/public/a/${applicationId}/guest-session`).send({ displayName: 'Guest Learner', accessLinkId }).expect(403)
-    })
-
-    it('rejects a guest-session mutation on a denied AccessLink Entity before consuming quota or creating a participant', async () => {
-        const dataSource = buildDataSource(
-            withPublicApplication((sql) => {
-                if (sql.includes(`FROM "${schemaName}"."_app_objects"`)) {
-                    return [
-                        {
-                            id: 'object-links',
-                            codename: 'AccessLinks',
-                            kind: 'object',
-                            table_name: 'access_links_table',
-                            config: {
-                                recordPolicy: {
-                                    version: 1,
-                                    denyDeleteWhenBound: false,
-                                    immutableSemanticKeyWhenBound: false,
-                                    runtimeMutation: 'deny'
-                                }
-                            }
-                        }
-                    ]
-                }
-                if (sql.includes(`FROM "${schemaName}"."_app_components"`)) {
-                    return [
-                        { id: 'slug', codename: 'Slug', column_name: 'slug', data_type: 'STRING', parent_component_id: null },
-                        {
-                            id: 'target-type',
-                            codename: 'TargetType',
-                            column_name: 'target_type',
-                            data_type: 'STRING',
-                            parent_component_id: null
-                        },
-                        { id: 'target-id', codename: 'TargetId', column_name: 'target_id', data_type: 'STRING', parent_component_id: null },
-                        { id: 'active', codename: 'IsActive', column_name: 'is_active', data_type: 'BOOLEAN', parent_component_id: null },
-                        { id: 'max-uses', codename: 'MaxUses', column_name: 'max_uses', data_type: 'NUMBER', parent_component_id: null },
-                        { id: 'use-count', codename: 'UseCount', column_name: 'use_count', data_type: 'NUMBER', parent_component_id: null }
-                    ]
-                }
-                if (sql.includes(`FROM "${schemaName}"."access_links_table"`)) {
-                    return [
-                        {
-                            id: accessLinkId,
-                            slug: 'protected-link',
-                            target_type: 'content',
-                            target_id: contentNodeId,
-                            is_active: true,
-                            max_uses: 5,
-                            use_count: 0
-                        }
-                    ]
-                }
-                return undefined
-            })
-        )
-
-        const app = buildApp(dataSource)
-        const response = await request(app)
-            .post(`/public/a/${applicationId}/guest-session`)
-            .send({ displayName: 'Guest Learner', accessLinkId })
-            .expect(403)
-
-        expect(response.body.code).toBe('RUNTIME_ENTITY_MUTATION_DENIED')
-        const transactionSql = (dataSource as typeof dataSource & { transactionSql: string[] }).transactionSql.join('\n')
-        expect(transactionSql).not.toContain(`UPDATE "${schemaName}"."access_links_table"`)
-        expect(transactionSql).not.toContain('INSERT INTO')
-    })
-
-    it('requires an accessLinkId to create a guest session', async () => {
-        const dataSource = buildDataSource(withPublicApplication(() => undefined))
-        const app = buildApp(dataSource)
-
-        await request(app).post(`/public/a/${applicationId}/guest-session`).send({ displayName: 'Guest Learner' }).expect(400)
-    })
-
-    it('creates a guest session for an active link and stores only a secret hash server-side', async () => {
-        let persistedState: unknown = null
-        let persistedDisplayName: unknown = null
-
+    it('lists only eligible quiz links using public slugs and localized titles', async () => {
+        const eligibleId = '018f8a78-7b8f-7c1d-a111-222233334410'
+        const expiredId = '018f8a78-7b8f-7c1d-a111-222233334411'
+        const exhaustedId = '018f8a78-7b8f-7c1d-a111-222233334412'
+        const inactiveId = '018f8a78-7b8f-7c1d-a111-222233334413'
+        const nonQuizId = '018f8a78-7b8f-7c1d-a111-222233334414'
+        const invalidTargetId = '018f8a78-7b8f-7c1d-a111-222233334415'
+        const questionId = '018f8a78-7b8f-7c1d-a111-222233334416'
+        const quizIdForList = '018f8a78-7b8f-7c1d-a111-222233334417'
+        const safeEligibleId = '018f8a78-7b8f-7c1d-a111-222233334418'
+        const accessLinkComponents = [
+            ['Slug', 'slug', 'STRING'],
+            ['TargetType', 'target_type', 'STRING'],
+            ['TargetId', 'target_id', 'STRING'],
+            ['IsActive', 'is_active', 'BOOLEAN'],
+            ['ExpiresAt', 'expires_at', 'DATE'],
+            ['MaxUses', 'max_uses', 'NUMBER'],
+            ['UseCount', 'use_count', 'NUMBER'],
+            ['LinkTitle', 'title', 'STRING']
+        ].map(([codename, column_name, data_type], index) => ({
+            id: `link-component-${index}`,
+            codename: codenameVlc(codename),
+            column_name,
+            data_type,
+            parent_component_id: null
+        }))
+        const quizComponents = [
+            { id: 'quiz-title', codename: codenameVlc('Title'), column_name: 'title', data_type: 'STRING', parent_component_id: null },
+            {
+                id: 'quiz-description',
+                codename: codenameVlc('Description'),
+                column_name: 'description',
+                data_type: 'STRING',
+                parent_component_id: null
+            },
+            {
+                id: 'quiz-passing-score',
+                codename: codenameVlc('PassingScorePercent'),
+                column_name: 'passing_score_percent',
+                data_type: 'NUMBER',
+                parent_component_id: null
+            },
+            {
+                id: 'quiz-max-attempts',
+                codename: codenameVlc('MaxAttempts'),
+                column_name: 'max_attempts',
+                data_type: 'NUMBER',
+                parent_component_id: null
+            },
+            {
+                id: 'quiz-time-limit',
+                codename: codenameVlc('TimeLimitSeconds'),
+                column_name: 'time_limit_seconds',
+                data_type: 'NUMBER',
+                parent_component_id: null
+            },
+            {
+                id: 'quiz-completion-text',
+                codename: codenameVlc('CompletionText'),
+                column_name: 'completion_text',
+                data_type: 'STRING',
+                parent_component_id: null
+            },
+            {
+                id: 'quiz-questions',
+                codename: codenameVlc('Questions'),
+                column_name: 'quiz_questions',
+                data_type: 'TABLE',
+                parent_component_id: null
+            },
+            {
+                id: 'question-prompt',
+                codename: codenameVlc('Prompt'),
+                column_name: 'prompt',
+                data_type: 'STRING',
+                parent_component_id: 'quiz-questions'
+            },
+            {
+                id: 'question-description',
+                codename: codenameVlc('QuestionDescription'),
+                column_name: 'question_description',
+                data_type: 'STRING',
+                parent_component_id: 'quiz-questions'
+            },
+            {
+                id: 'question-type',
+                codename: codenameVlc('QuestionType'),
+                column_name: 'question_type',
+                data_type: 'STRING',
+                parent_component_id: 'quiz-questions'
+            },
+            {
+                id: 'question-explanation',
+                codename: codenameVlc('Explanation'),
+                column_name: 'explanation',
+                data_type: 'STRING',
+                parent_component_id: 'quiz-questions'
+            },
+            {
+                id: 'question-sort-order',
+                codename: codenameVlc('SortOrder'),
+                column_name: 'sort_order',
+                data_type: 'NUMBER',
+                parent_component_id: 'quiz-questions'
+            },
+            {
+                id: 'question-options',
+                codename: codenameVlc('Options'),
+                column_name: 'options',
+                data_type: 'JSON',
+                parent_component_id: 'quiz-questions'
+            }
+        ]
+        const candidateRows = [
+            {
+                id: eligibleId,
+                slug: 'public-quiz',
+                target_type: 'quiz',
+                target_id: quizIdForList,
+                is_active: true,
+                expires_at: null,
+                max_uses: null,
+                use_count: 0,
+                title: localizedTextVlc('Ambiguous link', 'Неоднозначная ссылка')
+            },
+            {
+                id: safeEligibleId,
+                slug: 'safe-quiz',
+                target_type: 'quiz',
+                target_id: quizIdForList,
+                is_active: true,
+                expires_at: null,
+                max_uses: null,
+                use_count: 0,
+                title: localizedTextVlc('Assessment link', 'Ссылка на проверку')
+            },
+            {
+                id: '018f8a78-7b8f-7c1d-a111-222233334419',
+                slug: 'public-quiz',
+                target_type: 'quiz',
+                target_id: quizIdForList,
+                is_active: false,
+                expires_at: null,
+                max_uses: null,
+                use_count: 0,
+                title: localizedTextVlc('Inactive duplicate', 'Неактивный дубликат')
+            },
+            {
+                id: expiredId,
+                slug: 'expired-quiz',
+                target_type: 'quiz',
+                target_id: quizIdForList,
+                is_active: true,
+                expires_at: '2000-01-01T00:00:00.000Z',
+                max_uses: null,
+                use_count: 0
+            },
+            {
+                id: exhaustedId,
+                slug: 'exhausted-quiz',
+                target_type: 'quiz',
+                target_id: quizIdForList,
+                is_active: true,
+                expires_at: null,
+                max_uses: 2,
+                use_count: 2
+            },
+            {
+                id: inactiveId,
+                slug: 'inactive-quiz',
+                target_type: 'quiz',
+                target_id: quizIdForList,
+                is_active: false,
+                expires_at: null,
+                max_uses: null,
+                use_count: 0
+            },
+            {
+                id: nonQuizId,
+                slug: 'content-link',
+                target_type: 'content',
+                target_id: quizIdForList,
+                is_active: true,
+                expires_at: null,
+                max_uses: null,
+                use_count: 0
+            },
+            {
+                id: invalidTargetId,
+                slug: 'broken-quiz',
+                target_type: 'quiz',
+                target_id: 'not-a-uuid',
+                is_active: true,
+                expires_at: null,
+                max_uses: null,
+                use_count: 0
+            }
+        ]
         const dataSource = buildDataSource(
             withPublicApplication((sql, params) => {
                 if (sql.includes(`FROM "${schemaName}"."_app_objects"`)) {
                     if (params[0] === 'AccessLinks') {
-                        return [{ id: 'object-links', codename: 'AccessLinks', kind: 'object', table_name: 'access_links_table' }]
-                    }
-                    return [{ id: 'object-students', codename: 'Students', kind: 'object', table_name: 'students_table' }]
-                }
-
-                if (sql.includes(`FROM "${schemaName}"."_app_components"`)) {
-                    if (params[0] === 'object-links') {
                         return [
-                            { id: 'attr-1', codename: 'Slug', column_name: 'slug', data_type: 'STRING', parent_component_id: null },
-                            {
-                                id: 'attr-2',
-                                codename: 'TargetType',
-                                column_name: 'target_type',
-                                data_type: 'STRING',
-                                parent_component_id: null
-                            },
-                            {
-                                id: 'attr-3',
-                                codename: 'TargetId',
-                                column_name: 'target_id',
-                                data_type: 'STRING',
-                                parent_component_id: null
-                            },
-                            {
-                                id: 'attr-4',
-                                codename: 'IsActive',
-                                column_name: 'is_active',
-                                data_type: 'BOOLEAN',
-                                parent_component_id: null
-                            },
-                            {
-                                id: 'attr-5',
-                                codename: 'UseCount',
-                                column_name: 'use_count',
-                                data_type: 'NUMBER',
-                                parent_component_id: null
-                            },
-                            { id: 'attr-6', codename: 'MaxUses', column_name: 'max_uses', data_type: 'NUMBER', parent_component_id: null }
+                            { id: 'object-links', codename: codenameVlc('AccessLinks'), kind: 'object', table_name: 'access_links_table' }
                         ]
                     }
-
-                    return [
-                        {
-                            id: 'attr-1',
-                            codename: 'DisplayName',
-                            column_name: 'display_name',
-                            data_type: 'STRING',
-                            validation_rules: { localized: true, versioned: true },
-                            parent_component_id: null
-                        },
-                        { id: 'attr-2', codename: 'IsGuest', column_name: 'is_guest', data_type: 'BOOLEAN', parent_component_id: null },
-                        {
-                            id: 'attr-3',
-                            codename: 'GuestSessionToken',
-                            column_name: 'guest_session_token',
-                            data_type: 'STRING',
-                            parent_component_id: null
-                        }
-                    ]
+                    if (params[0] === 'Quizzes') {
+                        return [{ id: 'object-quizzes', codename: codenameVlc('Quizzes'), kind: 'object', table_name: 'quiz_table' }]
+                    }
                 }
-
+                if (sql.includes(`FROM "${schemaName}"."_app_components"`)) {
+                    if (params[0] === 'object-links') return accessLinkComponents
+                    if (params[0] === 'object-quizzes') return quizComponents
+                }
                 if (sql.includes(`FROM "${schemaName}"."access_links_table"`)) {
+                    if (sql.includes('LIMIT 500')) return candidateRows
+                    return candidateRows.filter((row) => row.slug === String(params[0]))
+                }
+                if (sql.includes(`FROM "${schemaName}"."quiz_table"`)) {
                     return [
                         {
-                            id: accessLinkId,
-                            slug: 'demo-content',
-                            target_type: 'content',
-                            target_id: contentNodeId,
-                            is_active: true,
-                            expires_at: null,
-                            max_uses: 5,
-                            use_count: 0,
-                            title: 'Demo content',
-                            class_id: null
+                            id: quizIdForList,
+                            title: localizedTextVlc('Planetary Science Quiz', 'Тест по планетологии'),
+                            description: localizedTextVlc('Description', 'Описание'),
+                            passing_score_percent: 70,
+                            max_attempts: 3,
+                            time_limit_seconds: null,
+                            completion_text: localizedTextVlc('Complete', 'Готово')
                         }
                     ]
                 }
-
-                if (sql.includes(`UPDATE "${schemaName}"."access_links_table"`)) {
-                    return [{ id: accessLinkId }]
+                if (sql.includes(`FROM "${schemaName}"."quiz_questions"`)) {
+                    return [
+                        {
+                            id: questionId,
+                            prompt: localizedTextVlc('Which planet has rings?', 'У какой планеты есть кольца?'),
+                            question_description: null,
+                            question_type: 'single_choice',
+                            explanation: null,
+                            sort_order: 0,
+                            options: [
+                                {
+                                    id: '018f8a78-7b8f-7c1d-a111-222233334424',
+                                    label: localizedTextVlc('Saturn', 'Сатурн'),
+                                    isCorrect: true
+                                },
+                                { id: '018f8a78-7b8f-7c1d-a111-222233334425', label: localizedTextVlc('Mars', 'Марс'), isCorrect: false }
+                            ]
+                        }
+                    ]
                 }
-
-                if (sql.includes(`INSERT INTO "${schemaName}"."students_table"`)) {
-                    persistedDisplayName = params[1]
-                    persistedState = params[2]
-                    return []
-                }
-
                 return undefined
             })
         )
+        const guest = createRuntimeGuestController(() => dataSource)
+        const app = express()
+        app.use(express.json())
+        app.get(
+            '/global-short-links/applications/:applicationId/quiz-access-options',
+            asyncHandler(guest.listEligiblePublicQuizAccessLinks)
+        )
+        app.use(errorHandler)
 
-        const app = buildApp(dataSource)
         const response = await request(app)
-            .post(`/public/a/${applicationId}/guest-session`)
-            .send({ displayName: 'Guest Learner', accessLinkId })
-            .expect(201)
-
-        expect(response.body.participantId).toEqual(expect.any(String))
-        expect(response.body.studentId).toEqual(expect.any(String))
-        expect(response.body.participantId).toBe(response.body.studentId)
-        expect(response.body.sessionToken).toEqual(expect.any(String))
-        expect(typeof persistedState).toBe('string')
-        expect(persistedDisplayName).toEqual(
-            expect.objectContaining({
-                _primary: 'en',
-                locales: expect.objectContaining({
-                    en: expect.objectContaining({ content: 'Guest Learner' })
-                })
-            })
-        )
-        expect(persistedState).not.toBe(response.body.sessionToken)
-        expect(JSON.parse(String(persistedState))).toEqual(
-            expect.objectContaining({
-                linkId: accessLinkId,
-                secretHash: expect.stringMatching(/^[a-f0-9]{64}$/),
-                expiresAt: expect.any(String),
-                workspaceId: null
-            })
-        )
-        expect(JSON.parse(String(persistedState))).not.toEqual(expect.objectContaining({ secret: expect.any(String) }))
-    })
-
-    it('includes the resolved workspace id inside guest session transport tokens for workspace-enabled apps', async () => {
-        let currentWorkspaceId = ''
-
-        const dataSource = buildDataSource(
-            withPublicApplication(
-                (sql, params) => {
-                    if (sql.includes(`FROM "${schemaName}"."_app_workspaces"`)) {
-                        return [{ id: workspaceId2 }, { id: workspaceId1 }]
-                    }
-
-                    if (sql.includes("set_config('app.current_workspace_id'")) {
-                        currentWorkspaceId = String(params[0] ?? '')
-                        return []
-                    }
-
-                    if (sql.includes(`FROM "${schemaName}"."_app_objects"`)) {
-                        if (params[0] === 'AccessLinks') {
-                            return [{ id: 'object-links', codename: 'AccessLinks', kind: 'object', table_name: 'access_links_table' }]
-                        }
-                        return [{ id: 'object-students', codename: 'Students', kind: 'object', table_name: 'students_table' }]
-                    }
-
-                    if (sql.includes(`FROM "${schemaName}"."_app_components"`)) {
-                        if (params[0] === 'object-links') {
-                            return [
-                                { id: 'attr-1', codename: 'Slug', column_name: 'slug', data_type: 'STRING', parent_component_id: null },
-                                {
-                                    id: 'attr-2',
-                                    codename: 'TargetType',
-                                    column_name: 'target_type',
-                                    data_type: 'STRING',
-                                    parent_component_id: null
-                                },
-                                {
-                                    id: 'attr-3',
-                                    codename: 'TargetId',
-                                    column_name: 'target_id',
-                                    data_type: 'STRING',
-                                    parent_component_id: null
-                                },
-                                {
-                                    id: 'attr-4',
-                                    codename: 'IsActive',
-                                    column_name: 'is_active',
-                                    data_type: 'BOOLEAN',
-                                    parent_component_id: null
-                                },
-                                {
-                                    id: 'attr-5',
-                                    codename: 'UseCount',
-                                    column_name: 'use_count',
-                                    data_type: 'NUMBER',
-                                    parent_component_id: null
-                                },
-                                {
-                                    id: 'attr-6',
-                                    codename: 'MaxUses',
-                                    column_name: 'max_uses',
-                                    data_type: 'NUMBER',
-                                    parent_component_id: null
-                                }
-                            ]
-                        }
-
-                        return [
-                            {
-                                id: 'attr-1',
-                                codename: 'DisplayName',
-                                column_name: 'display_name',
-                                data_type: 'STRING',
-                                parent_component_id: null
-                            },
-                            { id: 'attr-2', codename: 'IsGuest', column_name: 'is_guest', data_type: 'BOOLEAN', parent_component_id: null },
-                            {
-                                id: 'attr-3',
-                                codename: 'GuestSessionToken',
-                                column_name: 'guest_session_token',
-                                data_type: 'STRING',
-                                parent_component_id: null
-                            }
-                        ]
-                    }
-
-                    if (sql.includes(`FROM "${schemaName}"."access_links_table"`)) {
-                        return currentWorkspaceId === workspaceId2
-                            ? [
-                                  {
-                                      id: accessLinkId,
-                                      slug: 'demo-content',
-                                      target_type: 'content',
-                                      target_id: contentNodeId,
-                                      is_active: true,
-                                      max_uses: 5,
-                                      use_count: 0
-                                  }
-                              ]
-                            : []
-                    }
-
-                    if (sql.includes(`UPDATE "${schemaName}"."access_links_table"`)) {
-                        return currentWorkspaceId === workspaceId2 ? [{ id: accessLinkId }] : []
-                    }
-
-                    if (sql.includes(`INSERT INTO "${schemaName}"."students_table"`)) {
-                        return []
-                    }
-
-                    return undefined
-                },
-                { workspacesEnabled: true }
-            )
-        )
-
-        const outerTransaction = dataSource.transaction.getMockImplementation()
-        if (!outerTransaction) {
-            throw new Error('Expected the public runtime test executor to expose a transaction implementation')
-        }
-
-        let releaseCommit: (() => void) | undefined
-        const commitBarrier = new Promise<void>((resolve) => {
-            releaseCommit = resolve
-        })
-        let resolveCallbackFinished: (() => void) | undefined
-        const callbackFinished = new Promise<void>((resolve) => {
-            resolveCallbackFinished = resolve
-        })
-        let transactionCommitted = false
-        dataSource.transaction.mockImplementation(async (callback) => {
-            const result = await outerTransaction(callback)
-            resolveCallbackFinished?.()
-            await commitBarrier
-            transactionCommitted = true
-            return result
-        })
-
-        const app = buildApp(dataSource)
-        let responseResolved = false
-        const responsePromise = request(app)
-            .post(`/public/a/${applicationId}/guest-session`)
-            .send({ displayName: 'Guest Learner', accessLinkId })
-            .expect(201)
-            .then((response) => {
-                responseResolved = true
-                return response
-            })
-
-        await callbackFinished
-        await new Promise<void>((resolve) => setImmediate(resolve))
-        expect(responseResolved).toBe(false)
-
-        releaseCommit?.()
-        const response = await responsePromise
-        expect(transactionCommitted).toBe(true)
-
-        const decodedToken = JSON.parse(Buffer.from(response.body.sessionToken, 'base64url').toString('utf8'))
-        expect(decodedToken.workspaceId).toBe(workspaceId2)
-    })
-
-    it('accepts guest runtime session credentials from headers and binds reads to the token workspace', async () => {
-        let currentWorkspaceId = workspaceId1
-        const studentId = 'af8a5659-4155-4681-aa2f-a7605809cbf0'
-        const sessionToken = Buffer.from(
-            JSON.stringify({
-                linkId: accessLinkId,
-                secret: 'guest-secret',
-                workspaceId: workspaceId2
-            }),
-            'utf8'
-        ).toString('base64url')
-
-        const dataSource = buildDataSource(
-            withPublicApplication(
-                (sql, params) => {
-                    if (sql.includes(`FROM "${schemaName}"."_app_workspaces"`)) {
-                        return [{ id: workspaceId2 }, { id: workspaceId1 }]
-                    }
-
-                    if (sql.includes("set_config('app.current_workspace_id'")) {
-                        currentWorkspaceId = String(params[0] ?? '')
-                        return []
-                    }
-
-                    if (sql.includes(`FROM "${schemaName}"."_app_objects"`)) {
-                        if (params[0] === 'AccessLinks') {
-                            return [
-                                {
-                                    id: 'object-links',
-                                    codename: codenameVlc('AccessLinks'),
-                                    kind: 'object',
-                                    table_name: 'access_links_table'
-                                }
-                            ]
-                        }
-
-                        if (params[0] === 'Students') {
-                            return [
-                                { id: 'object-students', codename: codenameVlc('Students'), kind: 'object', table_name: 'students_table' }
-                            ]
-                        }
-
-                        return [
-                            {
-                                id: 'object-learning-resources',
-                                codename: codenameVlc('LearningResources'),
-                                kind: 'object',
-                                table_name: 'learning_resources_table'
-                            }
-                        ]
-                    }
-
-                    if (sql.includes(`FROM "${schemaName}"."_app_components"`)) {
-                        if (params[0] === 'object-links') {
-                            return [
-                                {
-                                    id: 'attr-1',
-                                    codename: codenameVlc('Slug'),
-                                    column_name: 'slug',
-                                    data_type: 'STRING',
-                                    parent_component_id: null
-                                },
-                                {
-                                    id: 'attr-2',
-                                    codename: codenameVlc('TargetType'),
-                                    column_name: 'target_type',
-                                    data_type: 'STRING',
-                                    parent_component_id: null
-                                },
-                                {
-                                    id: 'attr-3',
-                                    codename: codenameVlc('TargetId'),
-                                    column_name: 'target_id',
-                                    data_type: 'STRING',
-                                    parent_component_id: null
-                                },
-                                {
-                                    id: 'attr-4',
-                                    codename: codenameVlc('IsActive'),
-                                    column_name: 'is_active',
-                                    data_type: 'BOOLEAN',
-                                    parent_component_id: null
-                                }
-                            ]
-                        }
-
-                        if (params[0] === 'object-students') {
-                            return [
-                                {
-                                    id: 'attr-1',
-                                    codename: codenameVlc('GuestSessionToken'),
-                                    column_name: 'guest_session_token',
-                                    data_type: 'STRING',
-                                    parent_component_id: null
-                                },
-                                {
-                                    id: 'attr-2',
-                                    codename: codenameVlc('IsGuest'),
-                                    column_name: 'is_guest',
-                                    data_type: 'BOOLEAN',
-                                    parent_component_id: null
-                                }
-                            ]
-                        }
-
-                        return [
-                            {
-                                id: 'attr-title',
-                                codename: codenameVlc('Title'),
-                                column_name: 'title',
-                                data_type: 'STRING',
-                                parent_component_id: null
-                            },
-                            {
-                                id: 'attr-description',
-                                codename: codenameVlc('Description'),
-                                column_name: 'description',
-                                data_type: 'STRING',
-                                parent_component_id: null
-                            },
-                            {
-                                id: 'attr-content',
-                                codename: codenameVlc('ContentItems'),
-                                column_name: 'content_items',
-                                data_type: 'TABLE',
-                                parent_component_id: null
-                            },
-                            {
-                                id: 'child-type',
-                                codename: codenameVlc('ItemType'),
-                                column_name: 'item_type',
-                                data_type: 'REF',
-                                parent_component_id: 'attr-content',
-                                target_object_id: 'enum-content-type',
-                                target_object_kind: 'enumeration'
-                            },
-                            {
-                                id: 'child-title',
-                                codename: codenameVlc('ItemTitle'),
-                                column_name: 'item_title',
-                                data_type: 'STRING',
-                                parent_component_id: 'attr-content'
-                            },
-                            {
-                                id: 'child-content',
-                                codename: codenameVlc('ItemContent'),
-                                column_name: 'item_content',
-                                data_type: 'STRING',
-                                parent_component_id: 'attr-content'
-                            },
-                            {
-                                id: 'child-sort',
-                                codename: codenameVlc('SortOrder'),
-                                column_name: 'sort_order',
-                                data_type: 'NUMBER',
-                                parent_component_id: 'attr-content'
-                            }
-                        ]
-                    }
-
-                    if (sql.includes(`FROM "${schemaName}"."students_table"`)) {
-                        return currentWorkspaceId === workspaceId2
-                            ? [
-                                  {
-                                      id: studentId,
-                                      guest_session_token: JSON.stringify({
-                                          linkId: accessLinkId,
-                                          secretHash: hashGuestSecret('guest-secret'),
-                                          expiresAt: '2099-01-01T00:00:00.000Z',
-                                          workspaceId: workspaceId2
-                                      })
-                                  }
-                              ]
-                            : []
-                    }
-
-                    if (sql.includes(`FROM "${schemaName}"."access_links_table"`)) {
-                        return currentWorkspaceId === workspaceId2
-                            ? [
-                                  {
-                                      id: accessLinkId,
-                                      slug: 'demo-content',
-                                      target_type: 'content',
-                                      target_id: contentNodeId,
-                                      is_active: true
-                                  }
-                              ]
-                            : []
-                    }
-
-                    if (sql.includes(`FROM "${schemaName}"."learning_resources_table"`)) {
-                        return currentWorkspaceId === workspaceId2
-                            ? [{ id: contentNodeId, title: 'Header-auth content', description: 'Shared lesson' }]
-                            : []
-                    }
-
-                    if (sql.includes(`FROM "${schemaName}"."_app_values"`)) {
-                        return [{ id: 'value-text', object_id: 'enum-content-type', codename: codenameVlc('Text') }]
-                    }
-
-                    if (sql.includes(`FROM "${schemaName}"."content_items"`)) {
-                        return currentWorkspaceId === workspaceId2
-                            ? [
-                                  {
-                                      id: 'row-1',
-                                      _tp_parent_id: contentNodeId,
-                                      _tp_sort_order: 1,
-                                      item_type: 'value-text',
-                                      item_title: 'Header-auth item',
-                                      item_content: 'Workspace-safe content'
-                                  }
-                              ]
-                            : []
-                    }
-
-                    return undefined
-                },
-                { workspacesEnabled: true }
-            )
-        )
-
-        const app = buildApp(dataSource)
-        const response = await request(app)
-            .get(`/public/a/${applicationId}/runtime?slug=demo-content`)
-            .set('X-Guest-Participant-Id', studentId)
-            .set('X-Guest-Session-Token', sessionToken)
+            .get(`/global-short-links/applications/${applicationId}/quiz-access-options?locale=ru`)
             .expect(200)
 
-        expect(response.body).toMatchObject({
-            type: 'content',
-            id: contentNodeId,
-            title: 'Header-auth content'
+        expect(response.body).toEqual({
+            items: [{ id: safeEligibleId, slug: 'safe-quiz', label: 'Ссылка на проверку', workspaceId: null, workspaceLabel: null }]
         })
-        expect(response.body.contentItems).toEqual([
-            expect.objectContaining({
-                itemType: 'text',
-                itemTitle: 'Header-auth item',
-                itemContent: 'Workspace-safe content'
-            })
-        ])
-        expect(currentWorkspaceId).toBe(workspaceId2)
-    })
-
-    it('rejects guest runtime tokens when the transport link id is tampered', async () => {
-        const studentId = 'af8a5659-4155-4681-aa2f-a7605809cbf0'
-        const tamperedLinkId = 'f3a1c528-0868-44b6-a30b-7e63a9f963da'
-        const sessionToken = Buffer.from(
-            JSON.stringify({
-                linkId: tamperedLinkId,
-                secret: 'guest-secret',
-                workspaceId: null
-            }),
-            'utf8'
-        ).toString('base64url')
-
-        const dataSource = buildDataSource(
-            withPublicApplication((sql, params) => {
-                if (sql.includes(`FROM "${schemaName}"."_app_objects"`)) {
-                    if (params[0] === 'Students') {
-                        return [{ id: 'object-students', codename: codenameVlc('Students'), kind: 'object', table_name: 'students_table' }]
-                    }
-                    return []
-                }
-
-                if (sql.includes(`FROM "${schemaName}"."_app_components"`)) {
-                    return [
-                        {
-                            id: 'attr-1',
-                            codename: codenameVlc('GuestSessionToken'),
-                            column_name: 'guest_session_token',
-                            data_type: 'STRING',
-                            parent_component_id: null
-                        },
-                        {
-                            id: 'attr-2',
-                            codename: codenameVlc('IsGuest'),
-                            column_name: 'is_guest',
-                            data_type: 'BOOLEAN',
-                            parent_component_id: null
-                        }
-                    ]
-                }
-
-                if (sql.includes(`FROM "${schemaName}"."students_table"`)) {
-                    return [
-                        {
-                            id: studentId,
-                            guest_session_token: JSON.stringify({
-                                linkId: accessLinkId,
-                                secretHash: hashGuestSecret('guest-secret'),
-                                expiresAt: '2099-01-01T00:00:00.000Z',
-                                workspaceId: null
-                            })
-                        }
-                    ]
-                }
-
-                return undefined
-            })
-        )
-
-        const app = buildApp(dataSource)
-        await request(app)
-            .get(`/public/a/${applicationId}/runtime?slug=demo-content`)
-            .set('X-Guest-Student-Id', studentId)
-            .set('X-Guest-Session-Token', sessionToken)
-            .expect(403)
-    })
-
-    it('rejects oversized guest assessment answer payloads before touching runtime storage', async () => {
-        const dataSource = buildDataSource(withPublicApplication(() => undefined))
-        const app = buildApp(dataSource)
-        const answers = Object.fromEntries(
-            Array.from({ length: 201 }, (_value, index) => [
-                `018f8a78-7b8f-7c1d-a111-22223333${String(5000 + index).padStart(4, '0')}`,
-                ['018f8a78-7b8f-7c1d-a111-222233334999']
-            ])
-        )
-
-        const response = await request(app)
-            .post(`/public/a/${applicationId}/runtime/guest-submit`)
-            .send({
-                participantId: 'af8a5659-4155-4681-aa2f-a7605809cbf0',
-                sessionToken: 'session-token',
-                assessmentId: quizId,
-                answers
-            })
-            .expect(400)
-
-        expect(response.body).toMatchObject({ error: 'Invalid request body' })
-        expect(JSON.stringify(response.body.details)).toContain('answers')
-    })
-
-    it('locks guest assessment attempts and calculates the next attempt inside the transaction', async () => {
-        const studentId = 'af8a5659-4155-4681-aa2f-a7605809cbf0'
-        const sessionToken = Buffer.from(
-            JSON.stringify({
-                linkId: accessLinkId,
-                secret: 'guest-secret',
-                workspaceId: null
-            }),
-            'utf8'
-        ).toString('base64url')
-        let assessmentLockAttempted = false
-        let attemptQueryScope: QueryScope | null = null
-
-        const dataSource = buildDataSource(
-            withPublicApplication((sql, params, scope) => {
-                if (sql.includes('pg_advisory_xact_lock')) {
-                    assessmentLockAttempted = true
-                    expect(String(params[0])).toContain('guest-assessment')
-                    return []
-                }
-
-                if (sql.includes(`FROM "${schemaName}"."_app_objects"`)) {
-                    const objectByCodename: Record<string, { id: string; tableName: string }> = {
-                        AccessLinks: { id: 'object-links', tableName: 'access_links_table' },
-                        Students: { id: 'object-students', tableName: 'students_table' },
-                        Quizzes: { id: 'object-quizzes', tableName: 'quizzes_table' },
-                        QuizResponses: { id: 'object-quiz-responses', tableName: 'quiz_responses_table' }
-                    }
-                    const match = objectByCodename[String(params[0])]
-                    return match
-                        ? [
-                              {
-                                  id: match.id,
-                                  codename: String(params[0]),
-                                  kind: 'object',
-                                  table_name: match.tableName
-                              }
-                          ]
-                        : []
-                }
-
-                if (sql.includes(`FROM "${schemaName}"."_app_components"`)) {
-                    if (params[0] === 'object-links') {
-                        return [
-                            { id: 'link-slug', codename: 'Slug', column_name: 'slug', data_type: 'STRING', parent_component_id: null },
-                            {
-                                id: 'link-target-type',
-                                codename: 'TargetType',
-                                column_name: 'target_type',
-                                data_type: 'STRING',
-                                parent_component_id: null
-                            },
-                            {
-                                id: 'link-target-id',
-                                codename: 'TargetId',
-                                column_name: 'target_id',
-                                data_type: 'STRING',
-                                parent_component_id: null
-                            },
-                            {
-                                id: 'link-active',
-                                codename: 'IsActive',
-                                column_name: 'is_active',
-                                data_type: 'BOOLEAN',
-                                parent_component_id: null
-                            }
-                        ]
-                    }
-
-                    if (params[0] === 'object-students') {
-                        return [
-                            {
-                                id: 'student-token',
-                                codename: 'GuestSessionToken',
-                                column_name: 'guest_session_token',
-                                data_type: 'STRING',
-                                parent_component_id: null
-                            },
-                            {
-                                id: 'student-guest',
-                                codename: 'IsGuest',
-                                column_name: 'is_guest',
-                                data_type: 'BOOLEAN',
-                                parent_component_id: null
-                            }
-                        ]
-                    }
-
-                    if (params[0] === 'object-quizzes') {
-                        return [
-                            { id: 'quiz-title', codename: 'Title', column_name: 'title', data_type: 'STRING', parent_component_id: null },
-                            {
-                                id: 'quiz-description',
-                                codename: 'Description',
-                                column_name: 'description',
-                                data_type: 'STRING',
-                                parent_component_id: null
-                            },
-                            {
-                                id: 'quiz-passing',
-                                codename: 'PassingScorePercent',
-                                column_name: 'passing_score_percent',
-                                data_type: 'NUMBER',
-                                parent_component_id: null
-                            }
-                        ]
-                    }
-
-                    if (params[0] === 'object-quiz-responses') {
-                        return [
-                            {
-                                id: 'response-student',
-                                codename: 'StudentId',
-                                column_name: 'student_id',
-                                data_type: 'STRING',
-                                parent_component_id: null
-                            },
-                            {
-                                id: 'response-quiz',
-                                codename: 'QuizId',
-                                column_name: 'quiz_id',
-                                data_type: 'STRING',
-                                parent_component_id: null
-                            },
-                            {
-                                id: 'response-question',
-                                codename: 'QuestionId',
-                                column_name: 'question_id',
-                                data_type: 'STRING',
-                                parent_component_id: null
-                            },
-                            {
-                                id: 'response-options',
-                                codename: 'SelectedOptionIds',
-                                column_name: 'selected_option_ids',
-                                data_type: 'JSON',
-                                parent_component_id: null
-                            },
-                            {
-                                id: 'response-correct',
-                                codename: 'IsCorrect',
-                                column_name: 'is_correct',
-                                data_type: 'BOOLEAN',
-                                parent_component_id: null
-                            },
-                            {
-                                id: 'response-attempt',
-                                codename: 'AttemptNumber',
-                                column_name: 'attempt_number',
-                                data_type: 'NUMBER',
-                                parent_component_id: null
-                            },
-                            {
-                                id: 'response-submitted',
-                                codename: 'SubmittedAt',
-                                column_name: 'submitted_at',
-                                data_type: 'DATE',
-                                parent_component_id: null
-                            }
-                        ]
-                    }
-
-                    return []
-                }
-
-                if (sql.includes(`FROM "${schemaName}"."students_table"`)) {
-                    return [
-                        {
-                            id: studentId,
-                            guest_session_token: JSON.stringify({
-                                linkId: accessLinkId,
-                                secretHash: hashGuestSecret('guest-secret'),
-                                expiresAt: '2099-01-01T00:00:00.000Z',
-                                workspaceId: null
-                            })
-                        }
-                    ]
-                }
-
-                if (sql.includes(`FROM "${schemaName}"."access_links_table"`)) {
-                    return [{ id: accessLinkId, slug: 'quiz-link', target_type: 'quiz', target_id: quizId, is_active: true }]
-                }
-
-                if (sql.includes(`FROM "${schemaName}"."quizzes_table"`)) {
-                    return [{ id: quizId, title: 'Guest quiz', description: 'Public guest quiz', passing_score_percent: 80 }]
-                }
-
-                if (sql.includes('SELECT MAX("attempt_number")')) {
-                    attemptQueryScope = scope
-                    return [{ attemptNumber: 2 }]
-                }
-
-                return undefined
-            })
-        )
-
-        const app = buildApp(dataSource)
-        await request(app)
-            .post(`/public/a/${applicationId}/runtime/guest-submit`)
-            .send({
-                participantId: studentId,
-                sessionToken,
-                assessmentId: quizId,
-                answers: {}
-            })
-            .expect(200)
-
-        expect(assessmentLockAttempted).toBe(true)
-        expect(attemptQueryScope).toBe('tx')
-    })
-
-    it('rejects mismatched legacy guest aliases at the request boundary', async () => {
-        const dataSource = buildDataSource(withPublicApplication(() => undefined))
-        const app = buildApp(dataSource)
-
-        const response = await request(app)
-            .post(`/public/a/${applicationId}/runtime/guest-progress`)
-            .send({
-                participantId: 'af8a5659-4155-4681-aa2f-a7605809cbf0',
-                studentId: 'bf8a5659-4155-4681-aa2f-a7605809cbf0',
-                sessionToken: 'session-token',
-                contentNodeId: contentNodeId,
-                action: 'view'
-            })
-            .expect(400)
-
-        expect(response.body).toMatchObject({ error: 'Invalid request body' })
-        expect(JSON.stringify(response.body.details)).toContain('studentId')
-    })
-
-    it('rejects browser-owned guest progress status and percent at the request boundary', async () => {
-        const dataSource = buildDataSource(withPublicApplication(() => undefined))
-        const app = buildApp(dataSource)
-
-        const response = await request(app)
-            .post(`/public/a/${applicationId}/runtime/guest-progress`)
-            .send({
-                participantId: 'af8a5659-4155-4681-aa2f-a7605809cbf0',
-                sessionToken: 'session-token',
-                contentNodeId,
-                action: 'complete',
-                progressPercent: 50,
-                status: 'completed'
-            })
-            .expect(400)
-
-        expect(response.body).toMatchObject({ error: 'Invalid request body' })
-        expect(JSON.stringify(response.body.details)).toContain('progressPercent')
-        expect(JSON.stringify(response.body.details)).toContain('status')
-    })
-
-    it('preserves existing guest progress item index when recalculation update fails closed', async () => {
-        const studentId = 'af8a5659-4155-4681-aa2f-a7605809cbf0'
-        const progressRowId = '018f8a78-7b8f-7c1d-a111-222233334550'
-        const sessionToken = Buffer.from(
-            JSON.stringify({
-                linkId: accessLinkId,
-                secret: 'guest-secret',
-                workspaceId: null
-            }),
-            'utf8'
-        ).toString('base64url')
-        let updateAttempted = false
-        let progressLockAttempted = false
-
-        const dataSource = buildDataSource(
-            withPublicApplication((sql, params) => {
-                if (sql.includes('pg_advisory_xact_lock')) {
-                    progressLockAttempted = true
-                    expect(String(params[0])).toContain('guest-progress')
-                    return []
-                }
-
-                if (sql.includes(`FROM "${schemaName}"."_app_objects"`)) {
-                    const objectByCodename: Record<string, { id: string; tableName: string }> = {
-                        AccessLinks: { id: 'object-links', tableName: 'access_links_table' },
-                        Students: { id: 'object-students', tableName: 'students_table' },
-                        LearningResources: { id: 'object-learning-resources', tableName: 'learning_resources_table' },
-                        ContentProgress: { id: 'object-content-progress', tableName: 'content_progress_table' }
-                    }
-                    const match = objectByCodename[String(params[0])]
-                    return match
-                        ? [
-                              {
-                                  id: match.id,
-                                  codename: String(params[0]),
-                                  kind: 'object',
-                                  table_name: match.tableName
-                              }
-                          ]
-                        : []
-                }
-
-                if (sql.includes(`FROM "${schemaName}"."_app_components"`)) {
-                    if (params[0] === 'object-links') {
-                        return [
-                            { id: 'link-slug', codename: 'Slug', column_name: 'slug', data_type: 'STRING', parent_component_id: null },
-                            {
-                                id: 'link-target-type',
-                                codename: 'TargetType',
-                                column_name: 'target_type',
-                                data_type: 'STRING',
-                                parent_component_id: null
-                            },
-                            {
-                                id: 'link-target-id',
-                                codename: 'TargetId',
-                                column_name: 'target_id',
-                                data_type: 'STRING',
-                                parent_component_id: null
-                            },
-                            {
-                                id: 'link-active',
-                                codename: 'IsActive',
-                                column_name: 'is_active',
-                                data_type: 'BOOLEAN',
-                                parent_component_id: null
-                            }
-                        ]
-                    }
-
-                    if (params[0] === 'object-students') {
-                        return [
-                            {
-                                id: 'student-name',
-                                codename: 'DisplayName',
-                                column_name: 'display_name',
-                                data_type: 'STRING',
-                                parent_component_id: null
-                            },
-                            {
-                                id: 'student-guest',
-                                codename: 'IsGuest',
-                                column_name: 'is_guest',
-                                data_type: 'BOOLEAN',
-                                parent_component_id: null
-                            },
-                            {
-                                id: 'student-token',
-                                codename: 'GuestSessionToken',
-                                column_name: 'guest_session_token',
-                                data_type: 'STRING',
-                                parent_component_id: null
-                            }
-                        ]
-                    }
-
-                    if (params[0] === 'object-content-progress') {
-                        return [
-                            {
-                                id: 'progress-student',
-                                codename: 'ProgressStudentId',
-                                column_name: 'student_id',
-                                data_type: 'STRING',
-                                parent_component_id: null
-                            },
-                            {
-                                id: 'progress-content',
-                                codename: 'ContentNodeId',
-                                column_name: 'content_node_id',
-                                data_type: 'STRING',
-                                parent_component_id: null
-                            },
-                            {
-                                id: 'progress-status',
-                                codename: 'ProgressStatus',
-                                column_name: 'status',
-                                data_type: 'STRING',
-                                parent_component_id: null
-                            },
-                            {
-                                id: 'progress-percent',
-                                codename: 'ProgressPercent',
-                                column_name: 'progress_percent',
-                                data_type: 'NUMBER',
-                                parent_component_id: null
-                            },
-                            {
-                                id: 'progress-started',
-                                codename: 'StartedAt',
-                                column_name: 'started_at',
-                                data_type: 'DATE',
-                                parent_component_id: null
-                            },
-                            {
-                                id: 'progress-completed',
-                                codename: 'CompletedAt',
-                                column_name: 'completed_at',
-                                data_type: 'DATE',
-                                parent_component_id: null
-                            },
-                            {
-                                id: 'progress-item',
-                                codename: 'LastAccessedItemIndex',
-                                column_name: 'last_accessed_item_index',
-                                data_type: 'NUMBER',
-                                parent_component_id: null
-                            }
-                        ]
-                    }
-
-                    if (params[0] === 'object-learning-resources') {
-                        return [
-                            {
-                                id: 'resource-title',
-                                codename: 'Title',
-                                column_name: 'title',
-                                data_type: 'STRING',
-                                parent_component_id: null
-                            },
-                            {
-                                id: 'resource-description',
-                                codename: 'Description',
-                                column_name: 'description',
-                                data_type: 'STRING',
-                                parent_component_id: null
-                            },
-                            {
-                                id: 'resource-content-items',
-                                codename: 'ContentItems',
-                                column_name: 'content_items',
-                                data_type: 'TABLE',
-                                parent_component_id: null
-                            },
-                            {
-                                id: 'content-item-title',
-                                codename: 'ItemTitle',
-                                column_name: 'item_title',
-                                data_type: 'STRING',
-                                parent_component_id: 'resource-content-items'
-                            },
-                            {
-                                id: 'content-item-type',
-                                codename: 'ItemType',
-                                column_name: 'item_type',
-                                data_type: 'STRING',
-                                parent_component_id: 'resource-content-items'
-                            },
-                            {
-                                id: 'content-item-content',
-                                codename: 'ItemContent',
-                                column_name: 'item_content',
-                                data_type: 'STRING',
-                                parent_component_id: 'resource-content-items'
-                            },
-                            {
-                                id: 'content-item-quiz',
-                                codename: 'QuizId',
-                                column_name: 'quiz_id',
-                                data_type: 'STRING',
-                                parent_component_id: 'resource-content-items'
-                            },
-                            {
-                                id: 'content-item-sort-order',
-                                codename: 'SortOrder',
-                                column_name: 'sort_order',
-                                data_type: 'NUMBER',
-                                parent_component_id: 'resource-content-items'
-                            }
-                        ]
-                    }
-
-                    return []
-                }
-
-                if (sql.includes(`FROM "${schemaName}"."students_table"`)) {
-                    return [
-                        {
-                            id: studentId,
-                            guest_session_token: JSON.stringify({
-                                linkId: accessLinkId,
-                                secretHash: hashGuestSecret('guest-secret'),
-                                expiresAt: '2099-01-01T00:00:00.000Z',
-                                workspaceId: null
-                            })
-                        }
-                    ]
-                }
-
-                if (sql.includes(`FROM "${schemaName}"."access_links_table"`)) {
-                    return [{ id: accessLinkId, slug: 'demo-content', target_type: 'content', target_id: contentNodeId, is_active: true }]
-                }
-
-                if (sql.includes(`FROM "${schemaName}"."learning_resources_table"`)) {
-                    return [{ id: contentNodeId, title: 'Guest content', description: 'Guest content description' }]
-                }
-
-                if (sql.includes(`FROM "${schemaName}"."content_items"`)) {
-                    return [
-                        { id: '018f8a78-7b8f-7c1d-a111-222233334551', item_title: 'Intro' },
-                        { id: '018f8a78-7b8f-7c1d-a111-222233334552', item_title: 'Practice' }
-                    ]
-                }
-
-                if (sql.includes(`FROM "${schemaName}"."content_progress_table"`)) {
-                    return [{ id: progressRowId, lastAccessedItemIndex: 1 }]
-                }
-
-                if (sql.includes(`UPDATE "${schemaName}"."content_progress_table"`)) {
-                    updateAttempted = true
-                    expect(sql).toContain('RETURNING id')
-                    expect(sql).toContain('_upl_deleted = false AND _app_deleted = false')
-                    expect(params.slice(2, 5)).toEqual(['completed', 100, 1])
-                    return []
-                }
-
-                return undefined
-            })
-        )
-
-        const app = buildApp(dataSource)
-        const response = await request(app)
-            .post(`/public/a/${applicationId}/runtime/guest-progress`)
-            .send({
-                participantId: studentId,
-                sessionToken,
-                contentNodeId,
-                action: 'recalculate'
-            })
-            .expect(409)
-
-        expect(response.body).toMatchObject({
-            error: 'Guest progress row was not updated',
-            code: 'GUEST_PROGRESS_UPDATE_FAILED'
-        })
-        expect(updateAttempted).toBe(true)
-        expect(progressLockAttempted).toBe(true)
-    })
-
-    it('rejects direct runtime access without a slug', async () => {
-        const dataSource = buildDataSource(withPublicApplication(() => undefined))
-        const app = buildApp(dataSource)
-
-        await request(app).get(`/public/a/${applicationId}/runtime?targetType=content&targetId=${contentNodeId}`).expect(400)
-    })
-
-    it('rejects runtime targets that are not linked from the requested access link', async () => {
-        const dataSource = buildDataSource(
-            withPublicApplication((sql, params) => {
-                if (sql.includes(`FROM "${schemaName}"."_app_objects"`)) {
-                    if (params[0] === 'AccessLinks') {
-                        return [{ id: 'object-links', codename: 'AccessLinks', kind: 'object', table_name: 'access_links_table' }]
-                    }
-                    return [
-                        {
-                            id: 'object-learning-resources',
-                            codename: 'LearningResources',
-                            kind: 'object',
-                            table_name: 'learning_resources_table'
-                        }
-                    ]
-                }
-
-                if (sql.includes(`FROM "${schemaName}"."_app_components"`)) {
-                    if (params[0] === 'object-links') {
-                        return [
-                            { id: 'attr-1', codename: 'Slug', column_name: 'slug', data_type: 'STRING', parent_component_id: null },
-                            {
-                                id: 'attr-2',
-                                codename: 'TargetType',
-                                column_name: 'target_type',
-                                data_type: 'STRING',
-                                parent_component_id: null
-                            },
-                            {
-                                id: 'attr-3',
-                                codename: 'TargetId',
-                                column_name: 'target_id',
-                                data_type: 'STRING',
-                                parent_component_id: null
-                            },
-                            {
-                                id: 'attr-4',
-                                codename: 'IsActive',
-                                column_name: 'is_active',
-                                data_type: 'BOOLEAN',
-                                parent_component_id: null
-                            }
-                        ]
-                    }
-
-                    return [
-                        { id: 'attr-title', codename: 'Title', column_name: 'title', data_type: 'STRING', parent_component_id: null },
-                        {
-                            id: 'attr-description',
-                            codename: 'Description',
-                            column_name: 'description',
-                            data_type: 'STRING',
-                            parent_component_id: null
-                        },
-                        {
-                            id: 'attr-content',
-                            codename: 'ContentItems',
-                            column_name: 'content_items',
-                            data_type: 'TABLE',
-                            parent_component_id: null
-                        },
-                        {
-                            id: 'child-type',
-                            codename: 'ItemType',
-                            column_name: 'item_type',
-                            data_type: 'REF',
-                            parent_component_id: 'attr-content',
-                            target_object_id: 'enum-content-type',
-                            target_object_kind: 'enumeration'
-                        },
-                        {
-                            id: 'child-title',
-                            codename: 'ItemTitle',
-                            column_name: 'item_title',
-                            data_type: 'STRING',
-                            parent_component_id: 'attr-content'
-                        },
-                        {
-                            id: 'child-content',
-                            codename: 'ItemContent',
-                            column_name: 'item_content',
-                            data_type: 'STRING',
-                            parent_component_id: 'attr-content'
-                        },
-                        {
-                            id: 'child-quiz',
-                            codename: 'QuizId',
-                            column_name: 'quiz_id',
-                            data_type: 'STRING',
-                            parent_component_id: 'attr-content'
-                        },
-                        {
-                            id: 'child-sort',
-                            codename: 'SortOrder',
-                            column_name: 'sort_order',
-                            data_type: 'NUMBER',
-                            parent_component_id: 'attr-content'
-                        }
-                    ]
-                }
-
-                if (sql.includes(`FROM "${schemaName}"."access_links_table"`)) {
-                    return [{ id: accessLinkId, slug: 'demo-content', target_type: 'content', target_id: contentNodeId, is_active: true }]
-                }
-
-                if (sql.includes(`FROM "${schemaName}"."learning_resources_table"`)) {
-                    return [{ id: contentNodeId, title: 'Demo content', description: 'Lesson' }]
-                }
-
-                if (sql.includes(`FROM "${schemaName}"."_app_values"`)) {
-                    return [{ id: 'value-quiz-ref', object_id: 'enum-content-type', codename: 'QuizRef' }]
-                }
-
-                if (sql.includes(`FROM "${schemaName}"."content_items"`)) {
-                    return [
-                        {
-                            id: 'row-1',
-                            parent_record_id: contentNodeId,
-                            item_type: 'value-quiz-ref',
-                            item_title: 'Allowed quiz',
-                            item_content: '',
-                            quiz_id: quizId,
-                            sort_order: 1
-                        }
-                    ]
-                }
-
-                return undefined
-            })
-        )
-
-        const app = buildApp(dataSource)
-        await request(app)
-            .get(`/public/a/${applicationId}/runtime?slug=demo-content&targetType=quiz&targetId=018f8a78-7b8f-7c1d-a111-222233334444`)
-            .expect(403)
-    })
-
-    it('returns content with an empty child list when its optional TABLE component is absent', async () => {
-        const executedSql: string[] = []
-        const dataSource = buildDataSource(
-            withPublicApplication((sql, params) => {
-                executedSql.push(sql)
-
-                if (sql.includes(`FROM "${schemaName}"."_app_objects"`)) {
-                    if (params[0] === 'AccessLinks') {
-                        return [
-                            { id: 'object-links', codename: codenameVlc('AccessLinks'), kind: 'object', table_name: 'access_links_table' }
-                        ]
-                    }
-                    return [
-                        {
-                            id: 'object-learning-resources',
-                            codename: codenameVlc('LearningResources'),
-                            kind: 'object',
-                            table_name: 'learning_resources_table'
-                        }
-                    ]
-                }
-
-                if (sql.includes(`FROM "${schemaName}"."_app_components"`)) {
-                    if (params[0] === 'object-links') {
-                        return [
-                            {
-                                id: 'attr-slug',
-                                codename: codenameVlc('Slug'),
-                                column_name: 'slug',
-                                data_type: 'STRING',
-                                parent_component_id: null
-                            },
-                            {
-                                id: 'attr-target-type',
-                                codename: codenameVlc('TargetType'),
-                                column_name: 'target_type',
-                                data_type: 'STRING',
-                                parent_component_id: null
-                            },
-                            {
-                                id: 'attr-target-id',
-                                codename: codenameVlc('TargetId'),
-                                column_name: 'target_id',
-                                data_type: 'STRING',
-                                parent_component_id: null
-                            },
-                            {
-                                id: 'attr-active',
-                                codename: codenameVlc('IsActive'),
-                                column_name: 'is_active',
-                                data_type: 'BOOLEAN',
-                                parent_component_id: null
-                            }
-                        ]
-                    }
-
-                    return [
-                        {
-                            id: 'attr-title',
-                            codename: codenameVlc('Title'),
-                            column_name: 'title',
-                            data_type: 'STRING',
-                            parent_component_id: null
-                        },
-                        {
-                            id: 'attr-description',
-                            codename: codenameVlc('Description'),
-                            column_name: 'description',
-                            data_type: 'STRING',
-                            parent_component_id: null
-                        }
-                    ]
-                }
-
-                if (sql.includes(`FROM "${schemaName}"."access_links_table"`)) {
-                    return [{ id: accessLinkId, slug: 'demo-content', target_type: 'content', target_id: contentNodeId, is_active: true }]
-                }
-
-                if (sql.includes(`FROM "${schemaName}"."learning_resources_table"`)) {
-                    return [{ id: contentNodeId, title: 'Content without optional items', description: 'A standalone lesson' }]
-                }
-
-                return undefined
-            })
-        )
-
-        const response = await request(buildApp(dataSource)).get(`/public/a/${applicationId}/runtime?slug=demo-content`).expect(200)
-
-        expect(response.body).toMatchObject({
-            type: 'content',
-            id: contentNodeId,
-            title: 'Content without optional items',
-            contentItems: []
-        })
-        expect(executedSql.some((sql) => sql.includes(`FROM "${schemaName}"."content_items"`))).toBe(false)
-    })
-
-    it('keeps runtime reads bound to the workspace resolved from the access link', async () => {
-        let currentWorkspaceId = ''
-
-        const dataSource = buildDataSource(
-            withPublicApplication(
-                (sql, params) => {
-                    if (sql.includes(`FROM "${schemaName}"."_app_workspaces"`)) {
-                        return [{ id: workspaceId2 }, { id: workspaceId1 }]
-                    }
-
-                    if (sql.includes("set_config('app.current_workspace_id'")) {
-                        currentWorkspaceId = String(params[0] ?? '')
-                        return []
-                    }
-
-                    if (sql.includes(`FROM "${schemaName}"."_app_objects"`)) {
-                        if (params[0] === 'AccessLinks') {
-                            return [{ id: 'object-links', codename: 'AccessLinks', kind: 'object', table_name: 'access_links_table' }]
-                        }
-                        return [
-                            {
-                                id: 'object-learning-resources',
-                                codename: 'LearningResources',
-                                kind: 'object',
-                                table_name: 'learning_resources_table'
-                            }
-                        ]
-                    }
-
-                    if (sql.includes(`FROM "${schemaName}"."_app_components"`)) {
-                        if (params[0] === 'object-links') {
-                            return [
-                                { id: 'attr-1', codename: 'Slug', column_name: 'slug', data_type: 'STRING', parent_component_id: null },
-                                {
-                                    id: 'attr-2',
-                                    codename: 'TargetType',
-                                    column_name: 'target_type',
-                                    data_type: 'STRING',
-                                    parent_component_id: null
-                                },
-                                {
-                                    id: 'attr-3',
-                                    codename: 'TargetId',
-                                    column_name: 'target_id',
-                                    data_type: 'STRING',
-                                    parent_component_id: null
-                                },
-                                {
-                                    id: 'attr-4',
-                                    codename: 'IsActive',
-                                    column_name: 'is_active',
-                                    data_type: 'BOOLEAN',
-                                    parent_component_id: null
-                                }
-                            ]
-                        }
-
-                        return [
-                            { id: 'attr-title', codename: 'Title', column_name: 'title', data_type: 'STRING', parent_component_id: null },
-                            {
-                                id: 'attr-description',
-                                codename: 'Description',
-                                column_name: 'description',
-                                data_type: 'STRING',
-                                parent_component_id: null
-                            },
-                            {
-                                id: 'attr-content',
-                                codename: 'ContentItems',
-                                column_name: 'content_items',
-                                data_type: 'TABLE',
-                                parent_component_id: null
-                            },
-                            {
-                                id: 'child-type',
-                                codename: 'ItemType',
-                                column_name: 'item_type',
-                                data_type: 'REF',
-                                parent_component_id: 'attr-content',
-                                target_object_id: 'enum-content-type',
-                                target_object_kind: 'enumeration'
-                            },
-                            {
-                                id: 'child-title',
-                                codename: 'ItemTitle',
-                                column_name: 'item_title',
-                                data_type: 'STRING',
-                                parent_component_id: 'attr-content'
-                            },
-                            {
-                                id: 'child-content',
-                                codename: 'ItemContent',
-                                column_name: 'item_content',
-                                data_type: 'STRING',
-                                parent_component_id: 'attr-content'
-                            },
-                            {
-                                id: 'child-sort',
-                                codename: 'SortOrder',
-                                column_name: 'sort_order',
-                                data_type: 'NUMBER',
-                                parent_component_id: 'attr-content'
-                            }
-                        ]
-                    }
-
-                    if (sql.includes(`FROM "${schemaName}"."access_links_table"`)) {
-                        return currentWorkspaceId === workspaceId2
-                            ? [
-                                  {
-                                      id: accessLinkId,
-                                      slug: 'demo-content',
-                                      target_type: 'content',
-                                      target_id: contentNodeId,
-                                      is_active: true
-                                  }
-                              ]
-                            : []
-                    }
-
-                    if (sql.includes(`FROM "${schemaName}"."learning_resources_table"`)) {
-                        return currentWorkspaceId === workspaceId2
-                            ? [{ id: contentNodeId, title: 'Scoped content', description: 'Scoped lesson' }]
-                            : []
-                    }
-
-                    if (sql.includes(`FROM "${schemaName}"."_app_values"`)) {
-                        return [{ id: 'value-text', object_id: 'enum-content-type', codename: 'Text' }]
-                    }
-
-                    if (sql.includes(`FROM "${schemaName}"."content_items"`)) {
-                        return currentWorkspaceId === workspaceId2
-                            ? [
-                                  {
-                                      id: 'row-1',
-                                      _tp_parent_id: contentNodeId,
-                                      _tp_sort_order: 1,
-                                      item_type: 'value-text',
-                                      item_title: 'Scoped item',
-                                      item_content: 'Workspace-bound content',
-                                      quiz_id: null
-                                  }
-                              ]
-                            : []
-                    }
-
-                    return undefined
-                },
-                { workspacesEnabled: true }
-            )
-        )
-
-        const app = buildApp(dataSource)
-        const response = await request(app).get(`/public/a/${applicationId}/runtime?slug=demo-content`).expect(200)
-
-        expect(response.body).toMatchObject({
-            type: 'content',
-            id: contentNodeId,
-            title: 'Scoped content'
-        })
-        expect(response.body.contentItems).toEqual([
-            expect.objectContaining({
-                itemType: 'text',
-                itemTitle: 'Scoped item',
-                itemContent: 'Workspace-bound content'
-            })
-        ])
-    })
-
-    it('rebinds runtime payload assembly to the shared public link workspace when ambient workspace state drifts', async () => {
-        let currentWorkspaceId = workspaceId1
-        const personalContentNodeId = '31b2d8e1-2b7c-4f9f-8b8e-4f1c8f1d55aa'
-        const personalQuizId = '64ab92e2-a4c2-44b3-8e94-2a71c4c3a9d9'
-
-        const dataSource = buildDataSource(
-            withPublicApplication(
-                (sql, params) => {
-                    if (sql.includes(`FROM "${schemaName}"."_app_workspaces"`)) {
-                        return [{ id: workspaceId2 }]
-                    }
-
-                    if (sql.includes("set_config('app.current_workspace_id'")) {
-                        currentWorkspaceId = String(params[0] ?? '')
-                        return []
-                    }
-
-                    if (sql.includes(`FROM "${schemaName}"."_app_objects"`)) {
-                        if (params[0] === 'AccessLinks') {
-                            return [{ id: 'object-links', codename: 'AccessLinks', kind: 'object', table_name: 'access_links_table' }]
-                        }
-                        return [
-                            {
-                                id: 'object-learning-resources',
-                                codename: 'LearningResources',
-                                kind: 'object',
-                                table_name: 'learning_resources_table'
-                            }
-                        ]
-                    }
-
-                    if (sql.includes(`FROM "${schemaName}"."_app_components"`)) {
-                        if (params[0] === 'object-links') {
-                            return [
-                                { id: 'attr-1', codename: 'Slug', column_name: 'slug', data_type: 'STRING', parent_component_id: null },
-                                {
-                                    id: 'attr-2',
-                                    codename: 'TargetType',
-                                    column_name: 'target_type',
-                                    data_type: 'STRING',
-                                    parent_component_id: null
-                                },
-                                {
-                                    id: 'attr-3',
-                                    codename: 'TargetId',
-                                    column_name: 'target_id',
-                                    data_type: 'STRING',
-                                    parent_component_id: null
-                                },
-                                {
-                                    id: 'attr-4',
-                                    codename: 'IsActive',
-                                    column_name: 'is_active',
-                                    data_type: 'BOOLEAN',
-                                    parent_component_id: null
-                                }
-                            ]
-                        }
-
-                        return [
-                            { id: 'attr-title', codename: 'Title', column_name: 'title', data_type: 'STRING', parent_component_id: null },
-                            {
-                                id: 'attr-description',
-                                codename: 'Description',
-                                column_name: 'description',
-                                data_type: 'STRING',
-                                parent_component_id: null
-                            },
-                            {
-                                id: 'attr-content',
-                                codename: 'ContentItems',
-                                column_name: 'content_items',
-                                data_type: 'TABLE',
-                                parent_component_id: null
-                            },
-                            {
-                                id: 'child-type',
-                                codename: 'ItemType',
-                                column_name: 'item_type',
-                                data_type: 'REF',
-                                parent_component_id: 'attr-content',
-                                target_object_id: 'enum-content-type',
-                                target_object_kind: 'enumeration'
-                            },
-                            {
-                                id: 'child-title',
-                                codename: 'ItemTitle',
-                                column_name: 'item_title',
-                                data_type: 'STRING',
-                                parent_component_id: 'attr-content'
-                            },
-                            {
-                                id: 'child-content',
-                                codename: 'ItemContent',
-                                column_name: 'item_content',
-                                data_type: 'STRING',
-                                parent_component_id: 'attr-content'
-                            },
-                            {
-                                id: 'child-quiz',
-                                codename: 'QuizId',
-                                column_name: 'quiz_id',
-                                data_type: 'STRING',
-                                parent_component_id: 'attr-content'
-                            },
-                            {
-                                id: 'child-sort',
-                                codename: 'SortOrder',
-                                column_name: 'sort_order',
-                                data_type: 'NUMBER',
-                                parent_component_id: 'attr-content'
-                            }
-                        ]
-                    }
-
-                    if (sql.includes(`FROM "${schemaName}"."access_links_table"`)) {
-                        if (currentWorkspaceId === workspaceId2) {
-                            currentWorkspaceId = workspaceId1
-                            return [
-                                {
-                                    id: accessLinkId,
-                                    slug: 'demo-content',
-                                    target_type: 'content',
-                                    target_id: contentNodeId,
-                                    is_active: true
-                                }
-                            ]
-                        }
-
-                        if (currentWorkspaceId === workspaceId1) {
-                            return [
-                                {
-                                    id: 'personal-link',
-                                    slug: 'demo-content',
-                                    target_type: 'content',
-                                    target_id: personalContentNodeId,
-                                    is_active: true
-                                }
-                            ]
-                        }
-
-                        return []
-                    }
-
-                    if (sql.includes(`FROM "${schemaName}"."learning_resources_table"`)) {
-                        return currentWorkspaceId === workspaceId2
-                            ? [{ id: contentNodeId, title: 'Shared content', description: 'Shared lesson' }]
-                            : [{ id: personalContentNodeId, title: 'Personal content', description: 'Personal lesson' }]
-                    }
-
-                    if (sql.includes(`FROM "${schemaName}"."_app_values"`)) {
-                        return [{ id: 'value-quiz-ref', object_id: 'enum-content-type', codename: 'QuizRef' }]
-                    }
-
-                    if (sql.includes(`FROM "${schemaName}"."content_items"`)) {
-                        return currentWorkspaceId === workspaceId2
-                            ? [
-                                  {
-                                      id: 'shared-row',
-                                      _tp_parent_id: contentNodeId,
-                                      _tp_sort_order: 1,
-                                      item_type: 'value-quiz-ref',
-                                      item_title: 'Shared quiz',
-                                      item_content: '',
-                                      quiz_id: quizId
-                                  }
-                              ]
-                            : [
-                                  {
-                                      id: 'personal-row',
-                                      _tp_parent_id: personalContentNodeId,
-                                      _tp_sort_order: 1,
-                                      item_type: 'value-quiz-ref',
-                                      item_title: 'Personal quiz',
-                                      item_content: '',
-                                      quiz_id: personalQuizId
-                                  }
-                              ]
-                    }
-
-                    return undefined
-                },
-                { workspacesEnabled: true }
-            )
-        )
-
-        const app = buildApp(dataSource)
-        const response = await request(app).get(`/public/a/${applicationId}/runtime?slug=demo-content`).expect(200)
-
-        expect(response.body).toMatchObject({
-            type: 'content',
-            id: contentNodeId,
-            title: 'Shared content'
-        })
-        expect(response.body.contentItems).toEqual([
-            expect.objectContaining({
-                itemType: 'quiz_ref',
-                itemTitle: 'Shared quiz',
-                quizId
-            })
-        ])
-        expect(currentWorkspaceId).toBe(workspaceId2)
-    })
-
-    it('resolves public runtime enumeration codenames from localized value objects', async () => {
-        const dataSource = buildDataSource(
-            withPublicApplication((sql, params) => {
-                if (sql.includes(`FROM "${schemaName}"."_app_objects"`)) {
-                    if (params[0] === 'AccessLinks') {
-                        return [
-                            { id: 'object-links', codename: codenameVlc('AccessLinks'), kind: 'object', table_name: 'access_links_table' }
-                        ]
-                    }
-                    return [
-                        {
-                            id: 'object-learning-resources',
-                            codename: codenameVlc('LearningResources'),
-                            kind: 'object',
-                            table_name: 'learning_resources_table'
-                        }
-                    ]
-                }
-
-                if (sql.includes(`FROM "${schemaName}"."_app_components"`)) {
-                    if (params[0] === 'object-links') {
-                        return [
-                            {
-                                id: 'attr-1',
-                                codename: codenameVlc('Slug'),
-                                column_name: 'slug',
-                                data_type: 'STRING',
-                                parent_component_id: null
-                            },
-                            {
-                                id: 'attr-2',
-                                codename: codenameVlc('TargetType'),
-                                column_name: 'target_type',
-                                data_type: 'STRING',
-                                parent_component_id: null
-                            },
-                            {
-                                id: 'attr-3',
-                                codename: codenameVlc('TargetId'),
-                                column_name: 'target_id',
-                                data_type: 'STRING',
-                                parent_component_id: null
-                            },
-                            {
-                                id: 'attr-4',
-                                codename: codenameVlc('IsActive'),
-                                column_name: 'is_active',
-                                data_type: 'BOOLEAN',
-                                parent_component_id: null
-                            }
-                        ]
-                    }
-
-                    return [
-                        {
-                            id: 'attr-title',
-                            codename: codenameVlc('Title'),
-                            column_name: 'title',
-                            data_type: 'STRING',
-                            parent_component_id: null
-                        },
-                        {
-                            id: 'attr-description',
-                            codename: codenameVlc('Description'),
-                            column_name: 'description',
-                            data_type: 'STRING',
-                            parent_component_id: null
-                        },
-                        {
-                            id: 'attr-content',
-                            codename: codenameVlc('ContentItems'),
-                            column_name: 'content_items',
-                            data_type: 'TABLE',
-                            parent_component_id: null
-                        },
-                        {
-                            id: 'child-type',
-                            codename: codenameVlc('ItemType'),
-                            column_name: 'item_type',
-                            data_type: 'REF',
-                            parent_component_id: 'attr-content',
-                            target_object_id: 'enum-content-type',
-                            target_object_kind: 'enumeration'
-                        },
-                        {
-                            id: 'child-title',
-                            codename: codenameVlc('ItemTitle'),
-                            column_name: 'item_title',
-                            data_type: 'STRING',
-                            parent_component_id: 'attr-content'
-                        },
-                        {
-                            id: 'child-quiz',
-                            codename: codenameVlc('QuizId'),
-                            column_name: 'quiz_id',
-                            data_type: 'STRING',
-                            parent_component_id: 'attr-content'
-                        },
-                        {
-                            id: 'child-content',
-                            codename: codenameVlc('ItemContent'),
-                            column_name: 'item_content',
-                            data_type: 'STRING',
-                            parent_component_id: 'attr-content'
-                        },
-                        {
-                            id: 'child-sort',
-                            codename: codenameVlc('SortOrder'),
-                            column_name: 'sort_order',
-                            data_type: 'NUMBER',
-                            parent_component_id: 'attr-content'
-                        }
-                    ]
-                }
-
-                if (sql.includes(`FROM "${schemaName}"."access_links_table"`)) {
-                    return [{ id: accessLinkId, slug: 'demo-content', target_type: 'content', target_id: contentNodeId, is_active: true }]
-                }
-
-                if (sql.includes(`FROM "${schemaName}"."learning_resources_table"`)) {
-                    return [{ id: contentNodeId, title: 'Localized content', description: 'Localized lesson' }]
-                }
-
-                if (sql.includes(`FROM "${schemaName}"."_app_values"`)) {
-                    return [{ id: 'value-quiz-ref', object_id: 'enum-content-type', codename: codenameVlc('QuizRef') }]
-                }
-
-                if (sql.includes(`FROM "${schemaName}"."content_items"`)) {
-                    return [
-                        {
-                            id: 'row-1',
-                            _tp_parent_id: contentNodeId,
-                            _tp_sort_order: 1,
-                            item_type: 'value-quiz-ref',
-                            item_title: 'Localized quiz',
-                            item_content: '',
-                            quiz_id: quizId
-                        }
-                    ]
-                }
-
-                return undefined
-            })
-        )
-
-        const app = buildApp(dataSource)
-        const response = await request(app).get(`/public/a/${applicationId}/runtime?slug=demo-content`).expect(200)
-
-        expect(response.body).toMatchObject({
-            type: 'content',
-            id: contentNodeId,
-            title: 'Localized content'
-        })
-        expect(response.body.contentItems).toEqual([
-            expect.objectContaining({
-                itemType: 'quiz_ref',
-                itemTitle: 'Localized quiz'
-            })
-        ])
-    })
-
-    it('localizes runtime learning content payloads when locale is provided', async () => {
-        const dataSource = buildDataSource(
-            withPublicApplication((sql, params) => {
-                if (sql.includes(`FROM "${schemaName}"."_app_objects"`)) {
-                    if (params[0] === 'AccessLinks') {
-                        return [
-                            { id: 'object-links', codename: codenameVlc('AccessLinks'), kind: 'object', table_name: 'access_links_table' }
-                        ]
-                    }
-                    return [
-                        {
-                            id: 'object-learning-resources',
-                            codename: codenameVlc('LearningResources'),
-                            kind: 'object',
-                            table_name: 'learning_resources_table'
-                        }
-                    ]
-                }
-
-                if (sql.includes(`FROM "${schemaName}"."_app_components"`)) {
-                    if (params[0] === 'object-links') {
-                        return [
-                            {
-                                id: 'attr-1',
-                                codename: codenameVlc('Slug'),
-                                column_name: 'slug',
-                                data_type: 'STRING',
-                                parent_component_id: null
-                            },
-                            {
-                                id: 'attr-2',
-                                codename: codenameVlc('TargetType'),
-                                column_name: 'target_type',
-                                data_type: 'STRING',
-                                parent_component_id: null
-                            },
-                            {
-                                id: 'attr-3',
-                                codename: codenameVlc('TargetId'),
-                                column_name: 'target_id',
-                                data_type: 'STRING',
-                                parent_component_id: null
-                            },
-                            {
-                                id: 'attr-4',
-                                codename: codenameVlc('IsActive'),
-                                column_name: 'is_active',
-                                data_type: 'BOOLEAN',
-                                parent_component_id: null
-                            }
-                        ]
-                    }
-
-                    return [
-                        {
-                            id: 'attr-title',
-                            codename: codenameVlc('Title'),
-                            column_name: 'title',
-                            data_type: 'STRING',
-                            parent_component_id: null
-                        },
-                        {
-                            id: 'attr-description',
-                            codename: codenameVlc('Description'),
-                            column_name: 'description',
-                            data_type: 'STRING',
-                            parent_component_id: null
-                        },
-                        {
-                            id: 'attr-content',
-                            codename: codenameVlc('ContentItems'),
-                            column_name: 'content_items',
-                            data_type: 'TABLE',
-                            parent_component_id: null
-                        },
-                        {
-                            id: 'child-type',
-                            codename: codenameVlc('ItemType'),
-                            column_name: 'item_type',
-                            data_type: 'REF',
-                            parent_component_id: 'attr-content',
-                            target_object_id: 'enum-content-type',
-                            target_object_kind: 'enumeration'
-                        },
-                        {
-                            id: 'child-title',
-                            codename: codenameVlc('ItemTitle'),
-                            column_name: 'item_title',
-                            data_type: 'STRING',
-                            parent_component_id: 'attr-content'
-                        },
-                        {
-                            id: 'child-quiz',
-                            codename: codenameVlc('QuizId'),
-                            column_name: 'quiz_id',
-                            data_type: 'STRING',
-                            parent_component_id: 'attr-content'
-                        },
-                        {
-                            id: 'child-content',
-                            codename: codenameVlc('ItemContent'),
-                            column_name: 'item_content',
-                            data_type: 'STRING',
-                            parent_component_id: 'attr-content'
-                        },
-                        {
-                            id: 'child-sort',
-                            codename: codenameVlc('SortOrder'),
-                            column_name: 'sort_order',
-                            data_type: 'NUMBER',
-                            parent_component_id: 'attr-content'
-                        }
-                    ]
-                }
-
-                if (sql.includes(`FROM "${schemaName}"."access_links_table"`)) {
-                    return [{ id: accessLinkId, slug: 'demo-content', target_type: 'content', target_id: contentNodeId, is_active: true }]
-                }
-
-                if (sql.includes(`FROM "${schemaName}"."learning_resources_table"`)) {
-                    return [
-                        {
-                            id: contentNodeId,
-                            title: localizedTextVlc('Orbital lesson', 'Орбитальный урок'),
-                            description: localizedTextVlc('English lesson body', 'Русское описание урока')
-                        }
-                    ]
-                }
-
-                if (sql.includes(`FROM "${schemaName}"."_app_values"`)) {
-                    return [{ id: 'value-text', object_id: 'enum-content-type', codename: codenameVlc('Text') }]
-                }
-
-                if (sql.includes(`FROM "${schemaName}"."content_items"`)) {
-                    return [
-                        {
-                            id: 'row-1',
-                            _tp_parent_id: contentNodeId,
-                            _tp_sort_order: 1,
-                            item_type: 'value-text',
-                            item_title: localizedTextVlc('Mission brief', 'Брифинг миссии'),
-                            item_content: localizedTextVlc('English content', 'Русский контент'),
-                            quiz_id: null
-                        }
-                    ]
-                }
-
-                return undefined
-            })
-        )
-
-        const app = buildApp(dataSource)
-        const response = await request(app).get(`/public/a/${applicationId}/runtime?slug=demo-content&locale=ru`).expect(200)
-
-        expect(response.body).toMatchObject({
-            type: 'content',
-            id: contentNodeId,
-            title: 'Орбитальный урок',
-            description: 'Русское описание урока'
-        })
-        expect(response.body.contentItems).toEqual([
-            expect.objectContaining({
-                itemType: 'text',
-                itemTitle: 'Брифинг миссии',
-                itemContent: 'Русский контент'
-            })
-        ])
-    })
-
-    it('rejects a malformed module id with a generic body before any module lookup', async () => {
-        const moduleLookupQueries: string[] = []
-        const dataSource = buildDataSource(
-            withPublicApplication((sql) => {
-                if (sql.includes('_app_modules') || sql.includes('to_regclass')) {
-                    moduleLookupQueries.push(sql)
-                }
-                return undefined
-            })
-        )
-
-        const app = buildApp(dataSource)
-        const response = await request(app).get(`/public/a/${applicationId}/runtime/modules/not-a-uuid/client`).expect(404)
-
-        expect(response.body).toEqual({ error: 'Runtime module not found' })
-        expect(JSON.stringify(response.body)).not.toMatch(/invalid input syntax|pg_|constraint/i)
-        expect(moduleLookupQueries).toEqual([])
-    })
-
-    it('returns the existing generic not-found contract for a valid but missing module id', async () => {
-        const missingModuleId = '019ccefc-2f7b-7b36-82f4-85cdb1312272'
-        let moduleLookupRan = false
-        const dataSource = buildDataSource(
-            withPublicApplication((sql) => {
-                if (sql.includes('to_regclass')) {
-                    return [{ table_name: `${schemaName}._app_modules` }]
-                }
-                if (sql.includes(`FROM "${schemaName}"."_app_modules"`)) {
-                    moduleLookupRan = true
-                    return []
-                }
-                return undefined
-            })
-        )
-
-        const app = buildApp(dataSource)
-        const response = await request(app).get(`/public/a/${applicationId}/runtime/modules/${missingModuleId}/client`).expect(404)
-
-        expect(moduleLookupRan).toBe(true)
-        expect(response.body).toEqual({ error: 'Runtime module not found' })
-        expect(JSON.stringify(response.body)).not.toMatch(/invalid input syntax|pg_|constraint/i)
-    })
-
-    it('redacts raw database errors from anonymous client bundle requests and logs them server-side', async () => {
-        const moduleId = '019ccefc-2f7b-7b36-82f4-85cdb1312272'
-        const dataSource = buildDataSource(
-            withPublicApplication((sql) => {
-                if (sql.includes('to_regclass')) {
-                    return [{ table_name: `${schemaName}._app_modules` }]
-                }
-                if (sql.includes(`FROM "${schemaName}"."_app_modules"`)) {
-                    throw new Error(
-                        'invalid input syntax for type uuid: "019ccefc" (relation "pg_catalog.pg_class" constraint "obj_application_aliases_pkey")'
-                    )
-                }
-                return undefined
-            })
-        )
-        const consoleError = jest.spyOn(console, 'error').mockImplementation(() => undefined)
-
-        try {
-            const app = buildApp(dataSource)
-            const response = await request(app).get(`/public/a/${applicationId}/runtime/modules/${moduleId}/client`).expect(404)
-
-            expect(response.body).toEqual({ error: 'Runtime module not found' })
-            expect(JSON.stringify(response.body)).not.toMatch(/invalid input syntax|pg_|constraint/i)
-            expect(consoleError).toHaveBeenCalledWith(expect.stringContaining(moduleId), expect.any(Error))
-        } finally {
-            consoleError.mockRestore()
-        }
+        expect(JSON.stringify(response.body)).not.toMatch(/guest|participant|student|isCorrect|explanation/i)
     })
 })

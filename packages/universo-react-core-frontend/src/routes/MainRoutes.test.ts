@@ -59,4 +59,18 @@ describe('MainRoutes route ordering', () => {
         expect(runtimeRouteSource).toContain('component: PublicAwareApplicationRuntime')
         expect(runtimeRouteSource).not.toContain('guard: AuthGuard')
     })
+
+    it('mounts the global short-link route outside authentication and keeps the legacy LMS route available', () => {
+        const source = readMainRoutesSource()
+        const publicRoutes = source.slice(source.indexOf('const PublicRuntimeRoutes'), source.indexOf('const MainRoutes'))
+
+        expect(publicRoutes).toContain("path: 'l/:slug'")
+        expect(publicRoutes).toContain('component: PublicGlobalShortLink')
+        expect(publicRoutes).toContain('component: PublicGuestRuntime')
+        expect(source).toContain('accessLinkId={target.accessLinkId}')
+        expect(source).toContain('workspaceId={target.workspaceId}')
+        expect(source).toContain('resolvePublicGlobalShortLink')
+        expect(source).toContain("path: 'short-links'")
+        expect(source).not.toContain('window.location =')
+    })
 })

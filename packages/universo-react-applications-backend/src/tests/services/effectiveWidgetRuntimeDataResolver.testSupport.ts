@@ -376,7 +376,12 @@ export const dataTypeFor = (valueType: string) =>
 
 export type RuntimeBindingSlot = NonNullable<NonNullable<ReturnType<typeof getLayoutWidgetDefinition>>['bindingSlots']>[number]
 
-export const metadataForSlot = (objectIdValue: string, codename: string, slot: RuntimeBindingSlot, refTargetObjectId?: string) => ({
+export const metadataForSlot = (
+    objectIdValue: string,
+    codename: string,
+    slot: RuntimeBindingSlot,
+    refTargetObject?: { id: string; kind: string; codename: string }
+) => ({
     id: objectIdValue,
     codename,
     kind: 'object',
@@ -388,14 +393,21 @@ export const metadataForSlot = (objectIdValue: string, codename: string, slot: R
         columnName: `cmp_${index}`,
         dataType: dataTypeFor(requirement.valueType),
         isRequired: requirement.required,
+        ...(requirement.valueType === 'ref' && refTargetObject
+            ? {
+                  targetObjectId: refTargetObject.id,
+                  targetObjectKind: refTargetObject.kind,
+                  targetObjectCodename: refTargetObject.codename
+              }
+            : {}),
+        ...(requirement.requireServerOwned === true ? { uiConfig: { serverOwned: true } } : {}),
         presentation: {
             name: {
                 _primary: 'en',
                 locales: { en: { content: requirement.componentCodename }, ru: { content: `RU ${requirement.componentCodename}` } }
             }
         },
-        validationRules: validationRulesFor(requirement),
-        ...(requirement.valueType === 'ref' && refTargetObjectId ? { targetObjectId: refTargetObjectId } : {})
+        validationRules: validationRulesFor(requirement)
     }))
 })
 

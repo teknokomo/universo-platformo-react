@@ -36,7 +36,7 @@ import {
     syncRegisteredPlatformDefinitionsToObject
 } from '../platformMigrations'
 import { optimizeRlsPoliciesMigration } from '../rlsPolicyOptimization'
-import { loadPlatformMigrationsFromSystemApps } from '../systemAppDefinitions'
+import { loadPlatformMigrationsFromSystemApps, systemAppDefinitions } from '../systemAppDefinitions'
 
 const ORIGINAL_GLOBAL_MIGRATION_OBJECT_ENABLED = process.env.UPL_GLOBAL_MIGRATION_OBJECT_ENABLED
 
@@ -292,6 +292,14 @@ const createObjectStateRows = (
     }))
 
 describe('platformMigrations', () => {
+    it('keeps migration versions globally unique across all registered system apps', () => {
+        const versions = systemAppDefinitions.flatMap((definition) =>
+            definition.migrations.map((entry) => (entry.kind === 'file' ? entry.migration.version : entry.definition.version))
+        )
+
+        expect(new Set(versions).size).toBe(versions.length)
+    })
+
     beforeEach(() => {
         process.env.UPL_GLOBAL_MIGRATION_OBJECT_ENABLED = 'true'
     })
@@ -438,7 +446,10 @@ describe('platformMigrations', () => {
             'SeedBuiltinMetahubTemplates1800000000250',
             'SeedBuiltinMetahubPackages1800000000260',
             'AddMetahubPackageAuthoringSettings1800000000270',
-            'CreatePlayCanvasEditorDocumentBackups1800000000280'
+            'CreatePlayCanvasEditorDocumentBackups1800000000280',
+            'CreateGlobalShortLinks1800000000290',
+            'CreateGuestSessionIdempotency1800000000300',
+            'BindGlobalShortLinksToAccessLinkIdentity1800000000310'
         ])
     })
 
