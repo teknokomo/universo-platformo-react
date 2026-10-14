@@ -410,6 +410,19 @@ test('@flow public lms guest links enforce the guest journey through the browser
         await expect(firstQuestion).toBeVisible({ timeout: 30_000 })
         await expect(secondQuestion).toBeHidden()
         await expect(firstQuestion, 'Opening a quiz must move keyboard focus to its first question').toBeFocused()
+        await expectRuntimeUxViewportMatrix(page, 'Public LMS guest quiz question', {
+            beforeEachViewport: async (viewport) => {
+                await expect(firstQuestion).toBeVisible({ timeout: 30_000 })
+                await expect(page.getByRole('radiogroup')).toBeVisible()
+                await expect(page.getByLabel('Chloroplast')).toBeVisible()
+                await expect(page.getByLabel('Mitochondrion')).toBeVisible()
+                await expectNoTechnicalLeakage(page.locator('body'), {
+                    label: `Public LMS guest quiz question ${viewport.name}`,
+                    checkUuidSubstrings: true
+                })
+                await page.screenshot({ path: testInfo.outputPath(`lms-guest-quiz-${viewport.name}.png`), fullPage: true })
+            }
+        })
 
         const chloroplastAnswer = page.getByLabel('Chloroplast')
         const firstKeyboardRequests = await navigateGuestQuizOptionWithKeyboard(page, chloroplastAnswer)

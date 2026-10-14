@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import type { TFunction } from 'i18next'
@@ -37,6 +37,7 @@ const formatReportGridValue = (value: unknown, locale: string): string => format
 
 const reportStatusKeys: Record<string, string> = {
     started: 'started',
+    inprogress: 'started',
     submitted: 'submitted',
     completed: 'completed',
     timedout: 'timedOut',
@@ -137,6 +138,7 @@ function AuthorizedReportTable({ reportCodename, rowHeight }: { reportCodename: 
     const [paginationModel, setPaginationModelState] = useState<GridPaginationModel>({ page: 0, pageSize: 20 })
     const [filterModel, setFilterModelState] = useState<GridFilterModel>({ items: [] })
     const [sortModelState, setSortModelState] = useState<GridSortModel | null>(null)
+    const [sortReadyColumns, setSortReadyColumns] = useState<GridColDef[] | null>(null)
     const [isExporting, setIsExporting] = useState(false)
     const [exportError, setExportError] = useState<string | null>(null)
     const limit = paginationModel.pageSize
@@ -192,6 +194,9 @@ function AuthorizedReportTable({ reportCodename, rowHeight }: { reportCodename: 
         () => (resolvedDefinition ? toReportGridColumns(resolvedDefinition, details?.locale ?? 'en', t) : []),
         [details?.locale, resolvedDefinition, t]
     )
+    useEffect(() => {
+        setSortReadyColumns(columns)
+    }, [columns])
     const locale = details?.locale ?? 'en'
     const reportLoadError = query.isError
         ? extractRuntimeErrorMessage(query.error, t('reports.loadError', 'Report could not be loaded.'), locale)
@@ -245,6 +250,24 @@ function AuthorizedReportTable({ reportCodename, rowHeight }: { reportCodename: 
         setPaginationModelState((current) => ({ ...current, page: 0 }))
     }
 
+    const handleSortModelChange = (model: GridSortModel) => {
+        if (sortReadyColumns !== columns) {
+            const visibleFields = new Set(columns.map((column) => column.field))
+            const visibleConfiguredSort = configuredSortModel.filter((item) => visibleFields.has(item.field))
+            const preservesConfiguredSort =
+                sortModelState === null &&
+                model.length === visibleConfiguredSort.length &&
+                model.every(
+                    (item, index) => item.field === visibleConfiguredSort[index]?.field && item.sort === visibleConfiguredSort[index]?.sort
+                )
+            if (preservesConfiguredSort) return
+
+            queueMicrotask(() => setSortModel(model))
+            return
+        }
+        setSortModel(model)
+    }
+
     if (!canFetch) {
         return <Alert severity='error'>{t('dashboard.widget.requiredMissing')}</Alert>
     }
@@ -275,7 +298,7 @@ function AuthorizedReportTable({ reportCodename, rowHeight }: { reportCodename: 
                 filterModel={filterModel}
                 onFilterModelChange={setFilterModel}
                 sortModel={sortModel}
-                onSortModelChange={supportsServerSort ? setSortModel : undefined}
+                onSortModelChange={supportsServerSort ? handleSortModelChange : undefined}
                 pageSizeOptions={DATASOURCE_TABLE_PAGE_SIZE_OPTIONS}
                 localeText={details?.localeText}
                 rowHeight={rowHeight}

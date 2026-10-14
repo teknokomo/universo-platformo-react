@@ -594,6 +594,7 @@ export function createRuntimeReportsController(getDbExecutor: () => DbExecutor) 
             fields: params.target.fields,
             definition: params.definition,
             permissions: params.ctx.permissions,
+            locale: params.locale,
             activeCondition: buildRuntimeActiveRowCondition(
                 lifecycleContract,
                 params.target.config,

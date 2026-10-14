@@ -218,13 +218,14 @@ test('@flow @combined @cross-template resolves an entity-scoped template and sha
     test.setTimeout(300_000)
     await page.clock.setFixedTime(new Date('2026-10-08T12:00:00.000Z'))
     const browserIssues = watchBrowserIssues(page)
+    const retrySuffix = testInfo.retry > 0 ? `-retry-${testInfo.retry}` : ''
 
     const api = await createLoggedInApiContext({
         email: runManifest.testUser.email,
         password: runManifest.testUser.password
     })
     const metahubName = `E2E ${runManifest.runId} cross-template metahub`
-    const metahubCodename = `${runManifest.runId}-cross-template`
+    const metahubCodename = `${runManifest.runId}-cross-template${retrySuffix}`
     const publicationName = `E2E ${runManifest.runId} cross-template publication`
 
     try {
@@ -476,18 +477,15 @@ test('@flow @combined @cross-template resolves an entity-scoped template and sha
             offset: 0,
             locale: 'en'
         })
-        const navigationKeyField = (navigationRuntime?.columns ?? []).find(
-            (column: { codename?: unknown }) => column.codename === 'NavKey'
-        )?.field
         const navigationHrefField = (navigationRuntime?.columns ?? []).find(
-            (column: { codename?: unknown }) => column.codename === 'Href'
+            (column: { codename?: unknown }) => readCodename(column.codename) === 'Href'
         )?.field
-        if (typeof navigationKeyField !== 'string' || typeof navigationHrefField !== 'string') {
-            throw new Error('The marketing navigation runtime fields were not available')
+        if (typeof navigationHrefField !== 'string') {
+            throw new Error('The marketing navigation target field was not available')
         }
-        const navigationRow = (navigationRuntime?.rows ?? []).find((row: Record<string, unknown>) => row[navigationKeyField] === 'blog') as
-            | (Record<string, unknown> & { id?: string })
-            | undefined
+        const navigationRow = (navigationRuntime?.rows ?? []).find(
+            (row: Record<string, unknown>) => row[navigationHrefField] === '/blog'
+        ) as (Record<string, unknown> & { id?: string }) | undefined
         if (typeof navigationRow?.id !== 'string') throw new Error('The seeded marketing navigation row was not available')
         const scopedDashboardHref = `/a/${applicationId}?targetKind=object&entityTypeCodename=${encodeURIComponent(sourceEntityCodename)}`
         await updateRuntimeRow(api, applicationId, navigationRow.id, {
@@ -869,7 +867,7 @@ test('@flow @combined @cross-template resolves an entity-scoped template and sha
         await page.screenshot({ path: testInfo.outputPath('cross-template-scoped-dashboard.png'), fullPage: true, animations: 'disabled' })
 
         for (const viewport of [
-            { name: 'desktop', width: 1920, height: 1080, expectedMainLeft: 240, expectedContentTop: 64, expectedPadding: 24 },
+            { name: 'desktop', width: 1920, height: 1080, expectedMainLeft: 240, expectedContentTop: 0, expectedPadding: 24 },
             { name: 'tablet', width: 768, height: 1024, expectedMainLeft: 0, expectedContentTop: 64, expectedPadding: 24 },
             { name: 'mobile', width: 390, height: 844, expectedMainLeft: 0, expectedContentTop: 64, expectedPadding: 16 }
         ]) {

@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { act } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import {
     resetGuestAppTestHarness,
@@ -38,7 +39,7 @@ describe('GuestApp quiz attempts', () => {
 
         const firstOption = screen.getByLabelText('Correct option')
         const chosenOption = screen.getByLabelText('Wrong option')
-        firstOption.focus()
+        act(() => firstOption.focus())
         await user.keyboard('{ArrowDown}')
 
         expect(chosenOption).toBeChecked()
@@ -85,6 +86,45 @@ describe('GuestApp quiz attempts', () => {
         await user.click(screen.getByRole('button', { name: enApps.guest.quizSubmitAnswer }))
 
         expect(await screen.findByText('Second question')).toBeInTheDocument()
+        expect(guestTestState.guestSavedAnswerIds).toEqual(['question-1'])
+    })
+
+    it('retries the currently staged choice after a confirmed answer save fails', async () => {
+        const user = userEvent.setup()
+        guestTestState.guestConfirmAnswerBeforeNext = true
+        guestTestState.guestAnswerResponseOverride = { ok: false, payload: { error: 'temporary failure' } }
+        render(
+            <QueryClientProvider client={createQueryClient()}>
+                <GuestApp applicationId='app-1' slug='demo-content' locale='en' apiBaseUrl='/api/v1' />
+            </QueryClientProvider>
+        )
+
+        expect(await screen.findByText('Demo content')).toBeInTheDocument()
+        fillGuestIntake('Guest learner')
+        clickStartLearning()
+        expect(await screen.findByText('Content title')).toBeInTheDocument()
+        fireEvent.click(screen.getByRole('button', { name: 'Next' }))
+        expect(await screen.findByText('Knowledge check')).toBeInTheDocument()
+        fireEvent.click(screen.getByRole('button', { name: 'Open quiz' }))
+        expect(await screen.findByRole('heading', { name: 'Question prompt' })).toBeInTheDocument()
+
+        await user.click(screen.getByLabelText('Wrong option'))
+        await user.click(screen.getByRole('button', { name: enApps.guest.quizSubmitAnswer }))
+        expect(await screen.findByText('Failed to save your answer.')).toBeInTheDocument()
+
+        const correctOption = screen.getByLabelText('Correct option')
+        await user.click(correctOption)
+        expect(correctOption).toBeChecked()
+        guestTestState.guestAnswerResponseOverride = null
+        await user.click(screen.getByRole('button', { name: 'Retry saving answer' }))
+
+        expect(await screen.findByText('Second question')).toBeInTheDocument()
+        const answerCalls = (
+            globalThis.fetch as unknown as { mock: { calls: Array<[RequestInfo | URL, RequestInit?]> } }
+        ).mock.calls.filter(([input]) => getRequestPathname(input) === '/public/a/app-1/runtime/attempts/attempt-1/answers')
+        expect(answerCalls).toHaveLength(2)
+        expect(JSON.parse(String(answerCalls[0][1]?.body))).toMatchObject({ questionId: 'question-1', optionId: 'option-2' })
+        expect(JSON.parse(String(answerCalls[1][1]?.body))).toMatchObject({ questionId: 'question-1', optionId: 'option-1' })
         expect(guestTestState.guestSavedAnswerIds).toEqual(['question-1'])
     })
 
@@ -370,6 +410,7 @@ describe('GuestApp quiz attempts', () => {
         )
         window.sessionStorage.setItem('apps-template-mui:guest-attempt:app-1:demo-content:student-1:quiz-1', 'attempt-resume')
         let answerPersisted = false
+        let finalizeRequestCount = 0
         const fetchMock = vi.fn(async (input: string | URL, init?: RequestInit) => {
             const url = String(input)
             const pathname = getRequestPathname(url)
@@ -396,8 +437,8 @@ describe('GuestApp quiz attempts', () => {
                     json: async () => ({
                         attemptId: 'attempt-resume',
                         attemptNumber: 1,
-                        deadlineAt: null,
-                        serverNow: '2030-01-01T00:00:00.000Z',
+                        deadlineAt: '2030-01-01T00:45:00.000Z',
+                        serverNow: answerPersisted ? '2030-01-01T00:45:00.000Z' : '2030-01-01T00:00:00.000Z',
                         status: 'in_progress',
                         currentQuestionIndex,
                         totalQuestions: 2,
@@ -414,6 +455,10 @@ describe('GuestApp quiz attempts', () => {
             }
             if (pathname === '/public/a/app-1/runtime/attempts/attempt-resume/finalize') {
                 expect(answerPersisted).toBe(true)
+                finalizeRequestCount += 1
+                if (finalizeRequestCount === 1) {
+                    return { ok: false, status: 500, json: async () => ({}) } as Response
+                }
                 return {
                     ok: true,
                     json: async () => ({
@@ -443,6 +488,9 @@ describe('GuestApp quiz attempts', () => {
         expect(await screen.findByText('Failed to save your answer.')).toBeInTheDocument()
 
         window.dispatchEvent(new Event('online'))
+        expect(await screen.findByText('Failed to finish the quiz.')).toBeInTheDocument()
+        expect(finalizeRequestCount).toBe(1)
+        window.dispatchEvent(new Event('online'))
 
         expect(await screen.findByRole('heading', { name: enApps.guest.quizResultTitle })).toBeInTheDocument()
         expect(await screen.findByText('Correct answers: 1 of 2')).toBeInTheDocument()
@@ -450,7 +498,7 @@ describe('GuestApp quiz attempts', () => {
         const finalizeCalls = fetchMock.mock.calls.filter(
             ([input]) => getRequestPathname(input) === '/public/a/app-1/runtime/attempts/attempt-resume/finalize'
         )
-        expect(finalizeCalls).toHaveLength(1)
+        expect(finalizeCalls).toHaveLength(2)
     })
 
     it('refetches runtime only after the guest session is created', async () => {

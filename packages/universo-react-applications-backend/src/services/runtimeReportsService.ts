@@ -34,6 +34,7 @@ export interface RuntimeReportRecordsListParams {
     fields: RuntimeReportFieldMetadata[]
     definition: unknown
     permissions: { readReports?: boolean }
+    locale?: string
     activeCondition?: string
     accessCondition?: string
     accessConditionValues?: unknown[]
@@ -171,6 +172,39 @@ const normalizeFilterValue = (field: RuntimeReportFieldMetadata, rawValue: unkno
     return rawValue
 }
 
+const normalizeReportLocale = (locale: string | undefined): string => locale?.split(/[-_]/u)[0]?.trim().toLowerCase() || 'en'
+
+const localizedJsonTextSql = (sourceSql: string, keySql: string): string => {
+    const localeValueSql = `${sourceSql} -> ${keySql}`
+    const contentValueSql = `${localeValueSql} -> 'content'`
+    const contentTextSql = `${localeValueSql} ->> 'content'`
+    const localeTextSql = `${sourceSql} ->> ${keySql}`
+    return `COALESCE(
+        NULLIF(BTRIM(CASE WHEN jsonb_typeof(${contentValueSql}) = 'string' THEN ${contentTextSql} END), ''),
+        NULLIF(BTRIM(CASE WHEN jsonb_typeof(${localeValueSql}) = 'string' THEN ${localeTextSql} END), '')
+    )`
+}
+
+const buildLocalizedReferenceSortExpression = (referenceAlias: string, localePlaceholder: string): string => {
+    const labelSql = `to_jsonb(${qColumn(referenceAlias)}.label_value)`
+    const localesSql = `${labelSql} -> 'locales'`
+    const requestedLocaleSql = `${localePlaceholder}::text`
+    const primaryLocaleSql = `split_part(replace(lower(COALESCE(${labelSql} ->> '_primary', 'en')), '_', '-'), '-', 1)`
+    const candidates = [
+        localizedJsonTextSql(localesSql, requestedLocaleSql),
+        localizedJsonTextSql(localesSql, primaryLocaleSql),
+        localizedJsonTextSql(localesSql, "'en'"),
+        localizedJsonTextSql(localesSql, "'ru'"),
+        localizedJsonTextSql(labelSql, requestedLocaleSql),
+        localizedJsonTextSql(labelSql, primaryLocaleSql),
+        localizedJsonTextSql(labelSql, "'en'"),
+        localizedJsonTextSql(labelSql, "'ru'")
+    ]
+    const scalarLabelSql = `CASE WHEN jsonb_typeof(${labelSql}) = 'string' THEN ${labelSql} #>> '{}' END`
+
+    return `COALESCE(${candidates.join(', ')}, ${scalarLabelSql})`
+}
+
 const escapeLikeWildcards = (value: string): string => value.replace(/[\\%_]/g, (match) => `\\${match}`)
 
 const buildReportFilterTextExpression = (field: RuntimeReportFieldMetadata, referenceAlias?: string | null): string => {
@@ -231,8 +265,10 @@ const buildReportFilterClause = (
     if (filter.operator === 'equals') {
         if (field.dataType === 'DATE' && typeof normalizedValue === 'string') {
             const start = new Date(normalizedValue)
-            start.setUTCSeconds(0, 0)
-            const end = new Date(start.getTime() + 60_000)
+            const dateOnly = typeof filter.value === 'string' && /^\d{4}-\d{2}-\d{2}$/u.test(filter.value)
+            if (dateOnly) start.setUTCHours(0, 0, 0, 0)
+            else start.setUTCSeconds(0, 0)
+            const end = new Date(start.getTime() + (dateOnly ? 86_400_000 : 60_000))
             values.push(start.toISOString(), end.toISOString())
             const startPlaceholder = `$${values.length - 1}`
             const endPlaceholder = `$${values.length}`
@@ -569,21 +605,15 @@ export class RuntimeReportsService {
         })
         const configuredSort = definition.datasource.query?.sort ?? []
         const effectiveSort = requestSort ?? configuredSort
-        const orderClauses = effectiveSort.map((item) => {
+        const resolvedSort = effectiveSort.map((item) => {
             if (item.direction !== 'asc' && item.direction !== 'desc') {
                 throw new UpdateFailure(400, { error: 'Invalid report sort direction', code: 'REPORT_SORT_INVALID' })
             }
             const field = resolveReportField(params.fields, item.field)
             const referenceAlias = ensureReferenceAlias(field)
             if (referenceAlias && field.referenceLabel) sortReferenceAliases.add(referenceAlias)
-            const columnSql = qColumn(field.columnName)
-            const orderExpression = referenceAlias
-                ? `COALESCE(${qColumn(referenceAlias)}.label_value::text, ${columnSql}::text)`
-                : columnSql
-            return `${orderExpression} ${item.direction.toUpperCase()} NULLS LAST`
+            return { item, field, referenceAlias }
         })
-        if (effectiveSort.length === 0 && requestSort === undefined) orderClauses.push('_upl_created_at DESC')
-        orderClauses.push('id ASC')
         const selectReferenceAliases = new Set([...filterReferenceAliases, ...selectedReferenceAliases, ...sortReferenceAliases])
 
         const outputAliases = new Set<string>()
@@ -623,6 +653,21 @@ export class RuntimeReportsService {
             aliases: selectReferenceAliases,
             values: selectValues
         })
+        const orderClauses = resolvedSort.map(({ item, field, referenceAlias }) => {
+            const columnSql = qColumn(field.columnName)
+            let orderExpression = columnSql
+            if (referenceAlias && field.referenceLabel) {
+                const localePlaceholder = `$${selectValues.length + 1}`
+                selectValues.push(normalizeReportLocale(params.locale))
+                orderExpression = `COALESCE(${buildLocalizedReferenceSortExpression(
+                    referenceAlias,
+                    localePlaceholder
+                )}, ${columnSql}::text)`
+            }
+            return `${orderExpression} ${item.direction.toUpperCase()} NULLS LAST`
+        })
+        if (effectiveSort.length === 0 && requestSort === undefined) orderClauses.push('_upl_created_at DESC')
+        orderClauses.push('id ASC')
         const limitPlaceholder = `$${selectValues.length + 1}`
         const offsetPlaceholder = `$${selectValues.length + 2}`
         const rawRows = await params.executor.query<Record<string, unknown>>(

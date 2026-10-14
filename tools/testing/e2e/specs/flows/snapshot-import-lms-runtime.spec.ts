@@ -371,7 +371,14 @@ async function seedSharedPublicGuestContent(options: {
     return quizRowsByKey
 }
 
-async function checkQuizOption(page: Page, value: unknown, locale: 'en' | 'ru', applicationId: string, label: string): Promise<void> {
+async function checkQuizOption(
+    page: Page,
+    value: unknown,
+    locale: 'en' | 'ru',
+    applicationId: string,
+    label: string,
+    confirmAnswerBeforeNext = false
+): Promise<void> {
     const primaryLabel = readLocalizedText(value, locale)
     if (!primaryLabel) {
         throw new Error(`Quiz option label is missing for locale ${locale}`)
@@ -393,22 +400,23 @@ async function checkQuizOption(page: Page, value: unknown, locale: 'en' | 'ru', 
     try {
         await option.focus()
         await expect(option, `Quiz option must be keyboard-focusable for locale ${locale}`).toBeFocused()
+        const answerResponsePromise = page.waitForResponse((response) => isAnswerRequest(response.request()), { timeout: 30_000 })
         await page.keyboard.press('Space')
         await expect(option, `Quiz option must be checked after keyboard activation for locale ${locale}`).toBeChecked()
-        await expect(
-            page.getByText(
-                locale === 'ru'
-                    ? 'Ответ выбран. Нажмите кнопку «Отправить ответ», чтобы продолжить.'
-                    : 'Answer selected. Use the Submit answer button to continue.'
-            )
-        ).toBeVisible()
-        expect(answerRequestCount, `${label} must not save the keyboard selection automatically`).toBe(0)
-        await expectNoGuestQuizAnswerRequest({ page, applicationId, label })
-        expect(answerRequestCount, `${label} must remain unsaved until the user confirms`).toBe(0)
-
         const submitLabel = locale === 'ru' ? 'Отправить ответ' : 'Submit answer'
-        const answerResponsePromise = page.waitForResponse((response) => isAnswerRequest(response.request()), { timeout: 30_000 })
-        await activateButtonByKeyboard(page, page.getByRole('button', { name: submitLabel }), label)
+        if (confirmAnswerBeforeNext) {
+            await expect(
+                page.getByText(
+                    locale === 'ru' ? 'Ответ выбран. Подтвердите его, чтобы продолжить.' : 'Answer selected. Confirm to continue.'
+                )
+            ).toBeVisible()
+            expect(answerRequestCount, `${label} must not save the keyboard selection automatically`).toBe(0)
+            await expectNoGuestQuizAnswerRequest({ page, applicationId, label })
+            expect(answerRequestCount, `${label} must remain unsaved until the user confirms`).toBe(0)
+            await activateButtonByKeyboard(page, page.getByRole('button', { name: submitLabel }), label)
+        } else {
+            await expect(page.getByRole('button', { name: submitLabel })).toHaveCount(0)
+        }
         const answerResponse = await answerResponsePromise
         expect(answerResponse.status(), `${label} must be durably saved after confirmation`).toBe(200)
         await expect.poll(() => answerRequestCount, { message: `${label} must send exactly one answer write` }).toBe(1)

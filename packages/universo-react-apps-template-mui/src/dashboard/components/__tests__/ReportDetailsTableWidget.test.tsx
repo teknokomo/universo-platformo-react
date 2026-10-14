@@ -12,45 +12,87 @@ import type { CustomizedDataGridProps } from '../CustomizedDataGrid'
 import type { GridRenderCellParams } from '@mui/x-data-grid'
 
 vi.mock('../../../api/api', () => ({ runRuntimeReport: vi.fn(), exportRuntimeReportCsv: vi.fn() }))
-vi.mock('../CustomizedDataGrid', () => ({
-    default: (props: CustomizedDataGridProps) => (
-        <div data-testid='report-grid'>
-            <span>
-                {props.paginationModel?.page}:{props.rowCount}
-            </span>
-            {props.rows.map((row) =>
-                props.columns.map((column) => (
-                    <span key={`${row.id}:${column.field}`}>
-                        {column.headerName}:
-                        {column.renderCell
-                            ? column.renderCell({
-                                  value: column.valueGetter
-                                      ? column.valueGetter(row[column.field], row, column, {} as never)
-                                      : row[column.field],
-                                  row
-                              } as GridRenderCellParams)
-                            : String(
-                                  column.valueGetter
-                                      ? column.valueGetter(row[column.field], row, column, {} as never) ?? ''
-                                      : row[column.field] ?? ''
-                              )}
-                    </span>
-                ))
-            )}
-            <button onClick={() => props.onPaginationModelChange?.({ page: 1, pageSize: 20 })}>Next page</button>
-            <button onClick={() => props.onSortModelChange?.([{ field: 'Title', sort: 'asc' }])}>Sort</button>
-            <button onClick={() => props.onFilterModelChange?.({ items: [{ field: 'Title', operator: 'contains', value: 'Course' }] })}>
-                Filter
-            </button>
-        </div>
-    )
-}))
+vi.mock('../CustomizedDataGrid', async () => {
+    const { useEffect, useRef } = await import('react')
+    const MockCustomizedDataGrid = (props: CustomizedDataGridProps) => {
+        const { columns, onSortModelChange, sortModel } = props
+        const previousColumns = useRef(columns)
+        useEffect(() => {
+            if (previousColumns.current === columns) return
+            previousColumns.current = columns
+            if (sortModelDuringColumnReconciliation.current) {
+                const userSortModel = sortModelDuringColumnReconciliation.current
+                sortModelDuringColumnReconciliation.current = null
+                onSortModelChange?.(userSortModel)
+                return
+            }
+            const currentSortModel = sortModel ?? []
+            const availableFields = new Set(columns.map((column) => column.field))
+            const sanitizedSortModel = currentSortModel.filter((item) => availableFields.has(item.field))
+            if (sanitizedSortModel.length < currentSortModel.length) onSortModelChange?.(sanitizedSortModel)
+        }, [columns, onSortModelChange, sortModel])
+
+        return (
+            <div data-testid='report-grid'>
+                <span>
+                    {props.paginationModel?.page}:{props.rowCount}
+                </span>
+                <span data-testid='report-sort-model'>{JSON.stringify(props.sortModel ?? [])}</span>
+                {props.rows.map((row) =>
+                    props.columns.map((column) => (
+                        <span key={`${row.id}:${column.field}`}>
+                            {column.headerName}:
+                            {column.renderCell
+                                ? column.renderCell({
+                                      value: column.valueGetter
+                                          ? column.valueGetter(row[column.field], row, column, {} as never)
+                                          : row[column.field],
+                                      row
+                                  } as GridRenderCellParams)
+                                : String(
+                                      column.valueGetter
+                                          ? column.valueGetter(row[column.field], row, column, {} as never) ?? ''
+                                          : row[column.field] ?? ''
+                                  )}
+                        </span>
+                    ))
+                )}
+                <button onClick={() => props.onPaginationModelChange?.({ page: 1, pageSize: 20 })}>Next page</button>
+                <button onClick={() => props.onSortModelChange?.([{ field: 'Title', sort: 'asc' }])}>Sort</button>
+                <button onClick={() => props.onFilterModelChange?.({ items: [{ field: 'Title', operator: 'contains', value: 'Course' }] })}>
+                    Filter
+                </button>
+            </div>
+        )
+    }
+    return { default: MockCustomizedDataGrid }
+})
 
 const definition = reportDefinitionSchema.parse({
     codename: 'LearningContentSummary',
     title: { en: 'Content summary', ru: 'Сводка контента' },
     datasource: { kind: 'records.list', objectCollectionCodename: 'LearningContent' },
     columns: [{ field: 'Title', label: { en: 'Content title', ru: 'Название контента' }, type: 'text' }]
+})
+const definitionWithHiddenSort = reportDefinitionSchema.parse({
+    ...definition,
+    datasource: {
+        ...definition.datasource,
+        query: { sort: [{ field: 'IssuedAt', direction: 'desc' }] }
+    }
+})
+const definitionWithVisibleMultiSort = reportDefinitionSchema.parse({
+    ...definition,
+    columns: [...definition.columns, { field: 'Description', label: { en: 'Description', ru: 'Описание' }, type: 'text' }],
+    datasource: {
+        ...definition.datasource,
+        query: {
+            sort: [
+                { field: 'Title', direction: 'asc' },
+                { field: 'Description', direction: 'desc' }
+            ]
+        }
+    }
 })
 const widget: ZoneWidgetItem = {
     id: '019e44fc-a16a-760c-8190-280c4d9dc720',
@@ -82,6 +124,9 @@ const details: DashboardDetailsSlot = {
     permissions
 }
 const clients: QueryClient[] = []
+const sortModelDuringColumnReconciliation = vi.hoisted(() => ({
+    current: null as Array<{ field: string; sort: 'asc' | 'desc' }> | null
+}))
 const renderReport = (
     placement = widget,
     context: DashboardDetailsSlot = details,
@@ -104,6 +149,7 @@ beforeEach(async () => {
     vi.mocked(exportRuntimeReportCsv).mockResolvedValue(new Blob(['Title\nCourse overview']))
 })
 afterEach(() => {
+    sortModelDuringColumnReconciliation.current = null
     clients.forEach((client) => client.clear())
     clients.length = 0
     vi.restoreAllMocks()
@@ -112,6 +158,41 @@ afterEach(() => {
 })
 
 describe('saved report details table', () => {
+    it('preserves configured server sorting for a non-displayed field during column reconciliation', async () => {
+        vi.mocked(runRuntimeReport).mockResolvedValueOnce({
+            definition: definitionWithHiddenSort,
+            rows: [{ Title: 'Course overview' }],
+            total: 1,
+            aggregations: {}
+        })
+        const { client } = renderReport()
+
+        await screen.findByText('Content title:Course overview')
+        await waitFor(() => expect(screen.getByTestId('report-sort-model')).toHaveTextContent('IssuedAt'))
+
+        expect(runRuntimeReport).toHaveBeenCalledTimes(1)
+        expect(runRuntimeReport).toHaveBeenLastCalledWith(expect.objectContaining({ sort: undefined }))
+
+        client.clear()
+    })
+
+    it('applies a user-selected subset of visible configured sorting during column reconciliation', async () => {
+        sortModelDuringColumnReconciliation.current = [{ field: 'Title', sort: 'asc' }]
+        vi.mocked(runRuntimeReport).mockResolvedValueOnce({
+            definition: definitionWithVisibleMultiSort,
+            rows: [{ Title: 'Course overview', Description: 'Introductory material' }],
+            total: 1,
+            aggregations: {}
+        })
+
+        renderReport()
+
+        await waitFor(() =>
+            expect(runRuntimeReport).toHaveBeenLastCalledWith(expect.objectContaining({ sort: [{ field: 'Title', direction: 'asc' }] }))
+        )
+        expect(await screen.findByTestId('report-sort-model')).toHaveTextContent(JSON.stringify([{ field: 'Title', sort: 'asc' }]))
+    })
+
     it('executes existing API, paginates and resets pagination when filtering', async () => {
         renderReport()
         await screen.findByText('Content title:Course overview')
@@ -260,6 +341,30 @@ describe('saved report details table', () => {
 
         expect(await screen.findByText(expectedStatus)).toBeInTheDocument()
         expect(screen.getByText(expectedReason)).toBeInTheDocument()
+    })
+
+    it.each([
+        { locale: 'en', expectedStatus: 'Status:In progress' },
+        { locale: 'ru', expectedStatus: 'Статус:В процессе' }
+    ])('localizes in-progress status codenames for $locale reports', async ({ locale, expectedStatus }) => {
+        await i18n.changeLanguage(locale)
+        const attemptDefinition = reportDefinitionSchema.parse({
+            codename: 'TrainingCompliance',
+            title: { en: 'Quiz results', ru: 'Результаты тестов' },
+            datasource: { kind: 'records.list', sectionCodename: 'ContentProgress' },
+            columns: [{ field: 'Status', label: { en: 'Status', ru: 'Статус' }, type: 'status' }]
+        })
+        vi.mocked(runRuntimeReport).mockResolvedValue({
+            definition: attemptDefinition,
+            rows: [{ Status: 'in_progress' }],
+            total: 1,
+            aggregations: {}
+        })
+
+        renderReport(widget, { ...details, locale })
+
+        expect(await screen.findByText(expectedStatus)).toBeInTheDocument()
+        expect(screen.queryByText(/in_progress/u)).not.toBeInTheDocument()
     })
 
     it('preserves a readable unknown report status', async () => {

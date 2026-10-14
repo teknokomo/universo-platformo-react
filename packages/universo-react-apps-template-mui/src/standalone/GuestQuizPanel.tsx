@@ -34,7 +34,7 @@ type GuestQuizPanelProps = {
     handleRetryQuiz: () => void
     handleBackToContent: () => void
     handleSelectOption: (optionId: string) => void | Promise<void>
-    handleRetryAnswer: () => void | Promise<void>
+    handleRetryAnswer: (optionId?: string) => void | Promise<void>
     formatGuestError: (error: unknown, key: string, fallback: string) => string
     normalizeAttemptLimit: (value: unknown) => number | null
 }
@@ -375,7 +375,7 @@ export default function GuestQuizPanel({
                             {selectedOptionId ? (
                                 <Button
                                     variant='contained'
-                                    onClick={() => void handleRetryAnswer()}
+                                    onClick={() => void handleRetryAnswer(pendingAnswerId ?? selectedOptionId)}
                                     disabled={saveAnswerMutation.isPending || isRefreshingAttempt || timeRemaining === 0}
                                 >
                                     {t('guest.retryAnswerSave', 'Retry saving answer')}

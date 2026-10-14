@@ -1,4 +1,4 @@
-> **Last Reviewed**: 2026-10-01 (refreshed: repository 0.83.0-alpha; complete Entity-backed Marketing Page authoring/runtime and shared non-published MUI dropdown baseline; package/template inventory rechecked)
+> **Last Reviewed**: 2026-10-14 (refreshed: repository 0.85.0-alpha; LMS guest quiz, reporting, and runtime baseline rechecked)
 
 # Project Brief - Universo Platformo
 
@@ -45,7 +45,7 @@ The platform is also the foundation for two larger initiatives:
 
 ## Current Status
 
--   **Repository version**: `0.83.0-alpha`.
+-   **Repository version**: `0.85.0-alpha`.
 -   **Architecture status**: in active transition from a "feature packages
     on `universo-template-mui`" layout to an "everything is an Application
     on `apps-template-mui`" layout. Legacy packages remain functional and

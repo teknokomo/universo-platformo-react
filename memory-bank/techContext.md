@@ -1,4 +1,4 @@
-> **Last Reviewed**: 2026-10-01 (refreshed: repository 0.83.0-alpha; complete Entity-backed Marketing Page architecture, pnpm/Turbo/MUI, and PlayCanvas baselines rechecked)
+> **Last Reviewed**: 2026-10-14 (refreshed: repository 0.85.0-alpha; LMS runtime/report architecture, pnpm/Turbo/MUI, and PlayCanvas baselines rechecked)
 
 # Technical Context
 

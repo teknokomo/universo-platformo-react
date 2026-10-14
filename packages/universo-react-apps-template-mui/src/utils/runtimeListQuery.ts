@@ -42,6 +42,11 @@ const mapGridFilterOperator = (operator: string | undefined): RuntimeDatasourceF
     }
 }
 
+const serializeDateTimeFilterValue = (value: unknown): unknown => {
+    if (value instanceof Date) return Number.isFinite(value.getTime()) ? value.toISOString() : value
+    return value
+}
+
 export const mapGridFilterModel = (model: GridFilterModel): RuntimeDatasourceFilter[] =>
     (model.items ?? [])
         .map((item) => {
@@ -53,7 +58,7 @@ export const mapGridFilterModel = (model: GridFilterModel): RuntimeDatasourceFil
                 operator
             }
             if (item.value !== undefined) {
-                filter.value = item.value
+                filter.value = serializeDateTimeFilterValue(item.value)
             }
             return filter
         })

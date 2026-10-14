@@ -1,12 +1,12 @@
 {
     "version": 3,
-    "generatedAt": "2026-10-08T08:50:35.679Z",
+    "generatedAt": "2026-10-14T21:22:35.189Z",
     "generator": "tools/testing/e2e/specs/generators/docs-marketing-page-screenshots.spec.ts",
     "generatorSha256": "161a2e517e169abffc98ff4f67c29d506a92f53e4a9bfa7ba5aaae1b926a9cad",
     "manifest": "tools/docs/marketing-page-screenshot-manifest.json",
     "manifestSha256": "9fa4f74e7a653423a124ad2dcf6eec1ec731b02c6e8a83d33270e66ce19ced75",
     "sourceTemplate": "packages/universo-react-metahubs-backend/src/domains/templates/data/marketing-page.template.ts",
-    "sourceTemplateSha256": "003a0007d4c5dccadca8aa6511d36e8d5b1d6f7b8d2f134876f9f56f75a7b5e5",
+    "sourceTemplateSha256": "330b0ac9b36bb6ba2db72721709a1741a69c097fb71ad61c89789d923383d2ea",
     "seedInputs": [
         {
             "path": "packages/universo-react-metahubs-backend/src/domains/templates/data/basic.template.ts",

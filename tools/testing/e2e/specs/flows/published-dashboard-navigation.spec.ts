@@ -113,13 +113,14 @@ test.describe('Published Dashboard navigation', () => {
         runManifest
     }, testInfo) => {
         test.setTimeout(240_000)
+        const retrySuffix = testInfo.retry > 0 ? `-retry-${testInfo.retry}` : ''
 
         const api = await createLoggedInApiContext({
             email: runManifest.testUser.email,
             password: runManifest.testUser.password
         })
         const metahubName = `E2E ${runManifest.runId} generated LMS navigation`
-        const metahubCodename = `${runManifest.runId}-generated-lms-navigation`
+        const metahubCodename = `${runManifest.runId}-generated-lms-navigation${retrySuffix}`
         const publicationName = `E2E ${runManifest.runId} Generated LMS Navigation Publication`
         const applicationName = `E2E ${runManifest.runId} Generated LMS Navigation Application`
         const waitForRuntimeResponse = (targetPage: Page, runtimeApplicationId: string) =>
@@ -258,7 +259,15 @@ test.describe('Published Dashboard navigation', () => {
                 ].sort()
             )
             const objectTargets = menuItems.filter((item) => item.target?.kind === 'object')
-            const primaryObjectCodenames = ['ContentProjects', 'Courses', 'KnowledgeArticles', 'LearningTracks', 'Reports', 'TrashEntries']
+            const primaryObjectCodenames = [
+                'ContentProjects',
+                'Courses',
+                'KnowledgeArticles',
+                'LearningTracks',
+                'Quizzes',
+                'Reports',
+                'TrashEntries'
+            ]
             expect(objectTargets.map((item) => item.target?.codename).sort()).toEqual([...primaryObjectCodenames].sort())
             for (const codename of objectCodenames.filter((value) => !primaryObjectCodenames.includes(value))) {
                 expect(JSON.stringify(generatedMenu), `Generated navigation must not expose Object ${codename}`).not.toContain(codename)
@@ -281,6 +290,7 @@ test.describe('Published Dashboard navigation', () => {
                 { label: 'Courses', codename: 'Courses', icon: 'SchoolRoundedIcon' },
                 { label: 'Knowledge Articles', codename: 'KnowledgeArticles', icon: 'ArticleRoundedIcon' },
                 { label: 'Learning Tracks', codename: 'LearningTracks', icon: 'AssignmentRoundedIcon' },
+                { label: 'Quizzes', codename: 'Quizzes', icon: 'SchoolRoundedIcon' },
                 { label: 'Reports', codename: 'Reports', icon: 'AnalyticsRoundedIcon' },
                 { label: 'Trash', codename: 'TrashEntries', icon: 'DeleteRoundedIcon' }
             ]
@@ -434,6 +444,7 @@ test.describe('Published Dashboard navigation', () => {
                 { label: 'Курсы', codename: 'Courses', icon: 'SchoolRoundedIcon' },
                 { label: 'Статьи базы знаний', codename: 'KnowledgeArticles', icon: 'ArticleRoundedIcon' },
                 { label: 'Учебные треки', codename: 'LearningTracks', icon: 'AssignmentRoundedIcon' },
+                { label: 'Тесты', codename: 'Quizzes', icon: 'SchoolRoundedIcon' },
                 { label: 'Отчёты', codename: 'Reports', icon: 'AnalyticsRoundedIcon' },
                 { label: 'Корзина', codename: 'TrashEntries', icon: 'DeleteRoundedIcon' }
             ]

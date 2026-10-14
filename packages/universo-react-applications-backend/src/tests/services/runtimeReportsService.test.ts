@@ -203,6 +203,32 @@ describe('RuntimeReportsService', () => {
         expect(executor.query.mock.calls[0][1]).toEqual(['2026-10-14T08:30:00.000Z', '2026-10-14T08:31:00.000Z', 100, 0])
     })
 
+    it('matches date-only equality across the full UTC day', async () => {
+        const { executor } = createMockDbExecutor()
+        const service = new RuntimeReportsService()
+        executor.query.mockResolvedValueOnce([]).mockResolvedValueOnce([{ total: '0' }])
+
+        await service.runRecordsListReport({
+            executor,
+            schemaName,
+            tableName: 'obj_content_progress',
+            fields,
+            definition: {
+                codename: 'CompletionTimes',
+                title: 'Completion times',
+                datasource: { kind: 'records.list', sectionCodename: 'ContentProgress' },
+                columns: [{ field: 'CompletedAt', label: 'Completed at', type: 'date' }],
+                filters: [],
+                aggregations: []
+            },
+            permissions: { readReports: true },
+            filters: [{ field: 'CompletedAt', operator: 'equals', value: '2026-10-14' }]
+        })
+
+        expect(String(executor.query.mock.calls[0][0])).toContain('("completed_at" >= $1 AND "completed_at" < $2)')
+        expect(executor.query.mock.calls[0][1]).toEqual(['2026-10-14T00:00:00.000Z', '2026-10-15T00:00:00.000Z', 100, 0])
+    })
+
     it('rejects malformed date filters and invalid or duplicate sort directions before SQL execution', async () => {
         const { executor } = createMockDbExecutor()
         const service = new RuntimeReportsService()
@@ -366,6 +392,62 @@ describe('RuntimeReportsService', () => {
         const csv = serializeRuntimeReportCsv(result, 'en')
         expect(csv).toBe('Learner,Progress\r\nAva Learner,75\r\n')
         expect(csv).not.toContain('018f8a78-7b8f-7c1d-a111-2222333346')
+    })
+
+    it('sorts reference fields by the requested localized label without serializing JSON objects', async () => {
+        const { executor } = createMockDbExecutor()
+        const service = new RuntimeReportsService()
+        executor.query.mockResolvedValueOnce([]).mockResolvedValueOnce([{ total: '0' }])
+
+        await service.runRecordsListReport({
+            executor,
+            schemaName,
+            tableName: 'obj_content_progress',
+            fields: [
+                {
+                    codename: 'ProgressStudentId',
+                    columnName: 'progress_student_id',
+                    dataType: 'REF',
+                    refTargetObjectId: '018f8a78-7b8f-7c1d-a111-2222333346aa',
+                    refTargetObjectKind: 'object',
+                    referenceLabel: {
+                        tableName: 'obj_students',
+                        columnName: 'display_name',
+                        dataType: 'STRING',
+                        activeCondition: '_upl_deleted = false AND _app_deleted = false'
+                    }
+                }
+            ],
+            definition: {
+                codename: 'LearnerNames',
+                title: 'Learner names',
+                datasource: { kind: 'records.list', sectionCodename: 'ContentProgress' },
+                columns: [{ field: 'ProgressStudentId', label: { en: 'Learner', ru: 'Учащийся' }, type: 'text' }],
+                filters: [],
+                aggregations: []
+            },
+            permissions: { readReports: true },
+            locale: 'ru-RU',
+            sort: [{ field: 'ProgressStudentId', direction: 'asc' }],
+            limit: 10,
+            offset: 0
+        })
+
+        const listSql = String(executor.query.mock.calls[0][0])
+        expect(listSql).toContain('to_jsonb("report_ref_label_1".label_value) -> \'locales\'')
+        expect(listSql).toContain('-> $1::text')
+        expect(listSql).toContain('->> $1::text')
+        expect(listSql).toContain("jsonb_typeof(to_jsonb(\"report_ref_label_1\".label_value) -> 'locales' -> $1::text) = 'string'")
+        expect(listSql).toContain(
+            "jsonb_typeof(to_jsonb(\"report_ref_label_1\".label_value) -> 'locales' -> $1::text -> 'content') = 'string'"
+        )
+        expect(listSql).toContain(
+            'CASE WHEN jsonb_typeof(to_jsonb("report_ref_label_1".label_value)) = \'string\' THEN to_jsonb("report_ref_label_1".label_value) #>> \'{}\' END'
+        )
+        expect(listSql).not.toContain('label_value::text')
+        expect(listSql).toContain('ORDER BY COALESCE(COALESCE(')
+        expect(executor.query.mock.calls[0][1]).toEqual(['ru', 10, 0])
+        expect(executor.query.mock.calls[1][1]).toEqual([])
     })
 
     it('filters REF report fields by resolved labels in list, count, and aggregation queries', async () => {

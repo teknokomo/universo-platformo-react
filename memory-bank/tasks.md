@@ -2,13 +2,13 @@
 
 > Preserve the existing dirty worktree. Keep immediate answer submission as the default, add optional answer confirmation, and close the independently verified guest-runtime QA defects without changing schema or metahub-template versions.
 
--   [ ] LMS-QA-22 Add the quiz-level confirmation setting with a false default; expose only the public runtime boolean and support both immediate and confirm-before-save interaction modes.
--   [ ] LMS-QA-23 Add focused UI/runtime tests and update browser keyboard/touch coverage for both modes, including proving that an unconfirmed choice is not persisted and can be changed.
--   [ ] LMS-QA-24 Correct the guest-intake E2E consent assertions so the primary action remains disabled until all required fields and consent checkboxes are satisfied.
--   [ ] LMS-QA-25 Change SmartCaptcha server validation to the current official POST form contract; prove token/secret are absent from the request URL and run focused tests.
--   [ ] LMS-QA-26 Reconcile the quiz-attempt report implementation with the approved report requirements; implement the smallest safe generic report changes supported by the existing query contract and cover sorting/filtering/labels server-side.
--   [ ] LMS-QA-27 Update the English/Russian guest-access documentation and generated LMS fixture through its canonical generator; reconcile stale QA checklist/source-review status without claiming disputed answer attribution as verified.
--   [ ] LMS-QA-28 Run formatter, focused package tests/lints/builds, fixture/docs guards, minimal-Supabase Playwright flows, inspect the resulting screenshots, run bounded Thermos and OntoIndex diff verification, and record exact evidence in progress.md.
+-   [x] LMS-QA-22 Add the quiz-level confirmation setting with a false default; expose only the public runtime boolean and support both immediate and confirm-before-save interaction modes.
+-   [x] LMS-QA-23 Add focused UI/runtime tests and update browser keyboard/touch coverage for both modes, including proving that an unconfirmed choice is not persisted and can be changed.
+-   [x] LMS-QA-24 Correct the guest-intake E2E consent assertions so the primary action remains disabled until all required fields and consent checkboxes are satisfied.
+-   [x] LMS-QA-25 Change SmartCaptcha server validation to the current official POST form contract; prove token/secret are absent from the request URL and run focused tests.
+-   [x] LMS-QA-26 Reconcile the quiz-attempt report implementation with the approved report requirements; implement the smallest safe generic report changes supported by the existing query contract and cover sorting/filtering/labels server-side.
+-   [x] LMS-QA-27 Update the English/Russian guest-access documentation and generated LMS fixture through its canonical generator; reconcile stale QA checklist/source-review status without claiming disputed answer attribution as verified.
+-   [x] LMS-QA-28 Run formatter, focused package tests/lints/builds, fixture/docs guards, minimal-Supabase Playwright flows, inspect the resulting screenshots, run bounded Thermos and OntoIndex diff verification, and record exact evidence in progress.md.
 
 # LMS Guest Quiz QA Remediation — IMPLEMENT (2026-10-12)
 
