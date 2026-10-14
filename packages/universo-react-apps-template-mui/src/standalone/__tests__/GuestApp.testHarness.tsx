@@ -37,6 +37,7 @@ const guestMockState = vi.hoisted(() => ({
     guestSessionUnavailable: false,
     guestSavedAnswerIds: [],
     guestRuntimeMaxAttempts: 3,
+    guestConfirmAnswerBeforeNext: false,
     guestDirectQuizLink: false,
     guestAttemptNumber: 1,
     guestAttemptStartCalls: 0,
@@ -69,6 +70,7 @@ const guestMockState = vi.hoisted(() => ({
     guestSessionUnavailable: boolean
     guestSavedAnswerIds: string[]
     guestRuntimeMaxAttempts: unknown
+    guestConfirmAnswerBeforeNext: boolean
     guestDirectQuizLink: boolean
     guestAttemptNumber: number
     guestAttemptStartCalls: number
@@ -109,7 +111,9 @@ export const guestTranslations = {
         'guest.quizTimeRemaining': 'Time remaining',
         'guest.quizProgress': 'Question {{current}} of {{total}}',
         'guest.quizSelectAnswer': 'Choose an answer to continue.',
-        'guest.quizKeyboardAnswerSelected': enApps.guest.quizKeyboardAnswerSelected,
+        'guest.quizKeyboardSubmitHint': enApps.guest.quizKeyboardSubmitHint,
+        'guest.quizChooseAnswerToConfirm': enApps.guest.quizChooseAnswerToConfirm,
+        'guest.quizAnswerSelectedToConfirm': enApps.guest.quizAnswerSelectedToConfirm,
         'guest.quizSubmitAnswer': enApps.guest.quizSubmitAnswer,
         'guest.savingAnswer': 'Saving answer...',
         'guest.syncingQuizAttempt': 'Checking your saved progress...',
@@ -164,7 +168,9 @@ export const guestTranslations = {
         'guest.quizTimeRemaining': 'Осталось времени',
         'guest.quizProgress': 'Вопрос {{current}} из {{total}}',
         'guest.quizSelectAnswer': 'Выберите ответ, чтобы продолжить.',
-        'guest.quizKeyboardAnswerSelected': ruApps.guest.quizKeyboardAnswerSelected,
+        'guest.quizKeyboardSubmitHint': ruApps.guest.quizKeyboardSubmitHint,
+        'guest.quizChooseAnswerToConfirm': ruApps.guest.quizChooseAnswerToConfirm,
+        'guest.quizAnswerSelectedToConfirm': ruApps.guest.quizAnswerSelectedToConfirm,
         'guest.quizSubmitAnswer': ruApps.guest.quizSubmitAnswer,
         'guest.savingAnswer': 'Сохранение ответа...',
         'guest.syncingQuizAttempt': 'Проверяем сохранённый прогресс...',
@@ -304,6 +310,7 @@ export const resetGuestAppTestHarness = () => {
     guestTestState.guestSessionUnavailable = false
     guestTestState.guestSavedAnswerIds = []
     guestTestState.guestRuntimeMaxAttempts = 3
+    guestTestState.guestConfirmAnswerBeforeNext = false
     guestTestState.guestDirectQuizLink = false
     guestTestState.guestAttemptNumber = 1
     guestTestState.guestAttemptStartCalls = 0
@@ -394,6 +401,7 @@ export const resetGuestAppTestHarness = () => {
                         id: 'quiz-1',
                         title: 'Quiz title',
                         maxAttempts: guestTestState.guestRuntimeMaxAttempts,
+                        confirmAnswerBeforeNext: guestTestState.guestConfirmAnswerBeforeNext,
                         timeLimitSeconds: 2700,
                         questionCount: 2,
                         questions: []

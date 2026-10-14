@@ -594,6 +594,38 @@ describe('shared marketing widget binding projection', () => {
         expect(publicMarketingPageRecordSchema.safeParse(tier).success).toBe(true)
     })
 
+    it('keeps a Pricing tier without a call-to-action and still requires its title', async () => {
+        const pricingFixture = marketingWidgetDtoFixtures.find(({ name }) => name === 'Pricing')
+        if (!pricingFixture) throw new Error('Missing Marketing Pricing projection fixture')
+        const tierSource = pricingFixture.sources.tiers
+        const tierRecord = tierSource?.records[0]
+        if (!tierSource || !tierRecord) throw new Error('Missing Marketing Pricing tier fixture')
+
+        const tierWithoutAction = {
+            ...tierRecord,
+            data: { ...tierRecord.data, actionLabel: '', actionHref: '' }
+        }
+        const projectedWithoutAction = await projectMarketingWidgetFixture({
+            ...pricingFixture,
+            sources: { ...pricingFixture.sources, tiers: { ...tierSource, records: [tierWithoutAction] } }
+        })
+        const projectedTier = projectedWithoutAction?.records.find((item) => item.kind === 'pricingTier')
+
+        expect(projectedTier).toMatchObject({ kind: 'pricingTier', semanticKey: 'starter' })
+        expect(projectedTier).not.toHaveProperty('action')
+
+        const tierWithoutTitleData = { ...tierRecord.data, title: '' }
+        await expect(
+            projectMarketingWidgetFixture({
+                ...pricingFixture,
+                sources: {
+                    ...pricingFixture.sources,
+                    tiers: { ...tierSource, records: [{ ...tierRecord, data: tierWithoutTitleData }] }
+                }
+            })
+        ).rejects.toThrow('MARKETING_WIDGET_CONTENT_INVALID')
+    })
+
     it('rejects a string Resource instead of coercing it into a canonical media reference', async () => {
         const imageFixture = marketingWidgetDtoFixtures.find(({ name }) => name === 'Image')
         if (!imageFixture) throw new Error('Missing Marketing Image projection fixture')

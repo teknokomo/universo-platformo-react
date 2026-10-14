@@ -53,6 +53,7 @@ export type GuestRuntimeQuiz = {
     passingScorePercent?: number
     maxAttempts?: number | string | null
     timeLimitSeconds?: number | null
+    confirmAnswerBeforeNext?: boolean
     questionCount: number
     questions: Array<{
         id: string

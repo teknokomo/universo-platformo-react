@@ -48,6 +48,14 @@ describe('marketing page initial layout seed', () => {
         }
     })
 
+    it('keeps pricing call-to-action seed Components optional', () => {
+        const pricing = marketingPageTemplate.seed.entities?.find(({ codename }) => codename === 'MarketingPagePricing')
+
+        expect(pricing?.components?.find(({ codename }) => codename === 'ActionLabel')?.isRequired).toBe(false)
+        expect(pricing?.components?.find(({ codename }) => codename === 'ActionHref')?.isRequired).toBe(false)
+        expect(pricing?.components?.find(({ codename }) => codename === 'Title')?.isRequired).toBe(true)
+    })
+
     it('preserves auto-generated hidden semantic keys for Hero and Image records', () => {
         for (const [entity, keyCodename] of [
             [marketingPageHeroEntity, 'HeroKey'],

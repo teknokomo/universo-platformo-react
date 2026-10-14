@@ -303,7 +303,7 @@ export const ShortLinkCreator = ({ applicationId, canCreate, workspacesEnabled, 
                     </FormHelperText>
                 </FormControl>
             ) : (
-                <Typography variant='body2' color='text.secondary' sx={{ alignSelf: 'center' }}>
+                <Typography variant='body2' sx={{ color: 'text.secondary', alignSelf: 'center' }}>
                     {t('shortLinks.fields.applicationEntryHelp')}
                 </Typography>
             )}
@@ -417,7 +417,7 @@ export const ShortLinksTable = ({
                         <Typography variant='body2' sx={{ overflowWrap: 'anywhere' }}>
                             /l/{record.slug}
                         </Typography>
-                        <Typography variant='caption' color='text.secondary' sx={{ overflowWrap: 'anywhere' }}>
+                        <Typography variant='caption' sx={{ color: 'text.secondary', overflowWrap: 'anywhere' }}>
                             {t(`shortLinks.targets.${record.target.kind}`)}
                         </Typography>
                     </Stack>

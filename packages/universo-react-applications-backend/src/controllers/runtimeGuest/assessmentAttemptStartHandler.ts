@@ -238,7 +238,9 @@ export const createStartGuestAssessmentAttemptHandler = (
                             [fields.questionsSnapshot]: JSON.stringify(questionSnapshot),
                             [fields.questionSetDigest]: createAssessmentQuestionSetDigest(questionSnapshot),
                             [fields.accessLinkId]: currentLink.id,
+                            [fields.classIdSnapshot]: currentLink.classId,
                             [fields.score]: 0,
+                            [fields.scorePercent]: null,
                             [fields.totalQuestions]: questionSnapshot.length,
                             [fields.passed]: false,
                             [fields.status]: 'Started'

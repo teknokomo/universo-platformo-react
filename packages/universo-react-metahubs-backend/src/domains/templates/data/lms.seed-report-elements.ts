@@ -151,8 +151,8 @@ const reportDefinitions = [
         codename: 'QuizAttemptResults',
         title: vlc('Quiz attempt results', 'Результаты попыток тестов'),
         description: vlc(
-            'Review quiz, student, submission time, score, pass status, and completion details for each attempt.',
-            'Просматривайте тест, студента, время отправки, балл, результат прохождения и сведения о завершении каждой попытки.'
+            'Review quiz, student, class, submission time, score percentage, pass status, and completion details for each attempt.',
+            'Просматривайте тест, студента, класс, время отправки, процент результата, статус прохождения и сведения о завершении каждой попытки.'
         ),
         datasource: {
             kind: 'records.list',
@@ -162,9 +162,11 @@ const reportDefinitions = [
         columns: [
             { field: 'QuizId', label: vlc('Quiz', 'Тест'), type: 'text' },
             { field: 'StudentId', label: vlc('Student name', 'Имя студента'), type: 'text' },
+            { field: 'ClassIdSnapshot', label: vlc('Class', 'Класс'), type: 'text' },
             { field: 'StartedAt', label: vlc('Started at', 'Начало'), type: 'date' },
             { field: 'SubmittedAt', label: vlc('Completed at', 'Завершено'), type: 'date' },
             { field: 'Score', label: vlc('Score', 'Балл'), type: 'number' },
+            { field: 'ScorePercent', label: vlc('Score (%)', 'Результат (%)'), type: 'number' },
             { field: 'Passed', label: vlc('Passed', 'Тест пройден'), type: 'boolean' },
             { field: 'TotalQuestions', label: vlc('Total questions', 'Всего вопросов'), type: 'number' },
             { field: 'Status', label: vlc('Status', 'Статус'), type: 'status' },

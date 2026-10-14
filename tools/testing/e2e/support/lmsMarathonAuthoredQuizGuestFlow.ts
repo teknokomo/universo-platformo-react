@@ -121,11 +121,11 @@ export async function runLmsMarathonAuthoredQuizGuestFlow(flow: LmsMarathonPrepa
         })
 
         const startButton = page.getByRole('button', { name: 'Start learning', exact: true })
-        await startButton.click()
-        await expect(page.getByText('Accept the Terms of Service to continue.', { exact: true })).toBeVisible()
-        await expect(page.getByText('Accept the Privacy Policy to continue.', { exact: true })).toBeVisible()
+        await expect(startButton, 'Required consent must disable the guest start action').toBeDisabled()
         await termsConsent.check()
+        await expect(startButton, 'Both required consent checkboxes must be accepted').toBeDisabled()
         await privacyConsent.check()
+        await expect(startButton).toBeEnabled()
 
         const sessionRequestPromise = page.waitForRequest((request) => {
             const requestUrl = new URL(request.url())

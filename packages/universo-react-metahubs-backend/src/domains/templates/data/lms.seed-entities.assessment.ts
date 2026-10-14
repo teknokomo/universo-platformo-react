@@ -72,10 +72,17 @@ export const lmsSeedAssessmentEntities: LmsTemplateEntity[] = [
                 validationRules: { min: 0, max: 86400 }
             },
             {
+                codename: 'ConfirmAnswerBeforeNext',
+                dataType: 'BOOLEAN',
+                name: vlc('Confirm answer before continuing', 'Подтверждать ответ перед переходом'),
+                sortOrder: 6,
+                uiConfig: { defaultValue: false }
+            },
+            {
                 codename: 'CompletionText',
                 dataType: 'STRING',
                 name: vlc('Completion Message', 'Текст завершения'),
-                sortOrder: 6,
+                sortOrder: 7,
                 validationRules: { maxLength: 2000, localized: true, versioned: true },
                 uiConfig: { widget: 'textarea', rows: 4 }
             },
@@ -83,7 +90,7 @@ export const lmsSeedAssessmentEntities: LmsTemplateEntity[] = [
                 codename: 'Questions',
                 dataType: 'TABLE',
                 name: vlc('Questions', 'Вопросы'),
-                sortOrder: 7,
+                sortOrder: 8,
                 childComponents: [
                     {
                         codename: 'Prompt',
@@ -146,7 +153,7 @@ export const lmsSeedAssessmentEntities: LmsTemplateEntity[] = [
                 dataType: 'NUMBER',
                 name: vlc('Sort Order', 'Порядок'),
                 isRequired: true,
-                sortOrder: 8,
+                sortOrder: 9,
                 validationRules: { min: 0 },
                 uiConfig: { hidden: true, serverOwned: true, defaultValue: 1 }
             }
@@ -371,6 +378,23 @@ export const lmsSeedAssessmentEntities: LmsTemplateEntity[] = [
                 isRequired: true,
                 sortOrder: 16,
                 validationRules: { maxLength: 30 }
+            },
+            {
+                codename: 'ClassIdSnapshot',
+                dataType: 'REF',
+                name: vlc('Class Snapshot', 'Снимок класса'),
+                sortOrder: 17,
+                targetEntityCodename: 'Classes',
+                targetEntityKind: 'object',
+                uiConfig: { hidden: true, serverOwned: true, resetOnCopy: true }
+            },
+            {
+                codename: 'ScorePercent',
+                dataType: 'NUMBER',
+                name: vlc('Score (%)', 'Результат (%)'),
+                sortOrder: 18,
+                validationRules: { min: 0, max: 100, precision: 5, scale: 2 },
+                uiConfig: { hidden: true, serverOwned: true, defaultValue: null, resetOnCopy: true }
             }
         ]
     },

@@ -111,6 +111,139 @@ describe('RuntimeReportsService', () => {
         expect(executor.query.mock.calls[1][1]).toEqual([50, '%Ava%', 90])
     })
 
+    it('restricts interactive filters and sort to configured report columns', async () => {
+        const { executor } = createMockDbExecutor()
+        const service = new RuntimeReportsService()
+
+        await expect(
+            service.runRecordsListReport({
+                executor,
+                schemaName,
+                tableName: 'obj_content_progress',
+                fields,
+                definition: { ...definition, datasource: { kind: 'records.list', sectionCodename: 'ContentProgress' } },
+                permissions: { readReports: true },
+                filters: [{ field: 'CompletedAt', operator: 'isNotEmpty' }]
+            })
+        ).rejects.toMatchObject({ body: expect.objectContaining({ code: 'REPORT_FIELD_NOT_CONFIGURED' }) })
+
+        await expect(
+            service.runRecordsListReport({
+                executor,
+                schemaName,
+                tableName: 'obj_content_progress',
+                fields,
+                definition: { ...definition, datasource: { kind: 'records.list', sectionCodename: 'ContentProgress' } },
+                permissions: { readReports: true },
+                sort: [{ field: 'CompletedAt', direction: 'desc' }]
+            })
+        ).rejects.toMatchObject({ body: expect.objectContaining({ code: 'REPORT_FIELD_NOT_CONFIGURED' }) })
+
+        expect(executor.query).not.toHaveBeenCalled()
+    })
+
+    it('uses validated server sort, a UUID tie-break, and normalized inclusive date range filters', async () => {
+        const { executor } = createMockDbExecutor()
+        const service = new RuntimeReportsService()
+        executor.query.mockResolvedValueOnce([{ report_field_1: '2026-10-14T08:30:00.000Z' }]).mockResolvedValueOnce([{ total: '1' }])
+
+        await service.runRecordsListReport({
+            executor,
+            schemaName,
+            tableName: 'obj_content_progress',
+            fields,
+            definition: {
+                codename: 'CompletionTimes',
+                title: 'Completion times',
+                datasource: { kind: 'records.list', sectionCodename: 'ContentProgress' },
+                columns: [{ field: 'CompletedAt', label: 'Completed at', type: 'date' }],
+                filters: [],
+                aggregations: []
+            },
+            permissions: { readReports: true },
+            filters: [
+                { field: 'CompletedAt', operator: 'greaterThanOrEqual', value: '2026-10-14T08:00:00+00:00' },
+                { field: 'CompletedAt', operator: 'lessThanOrEqual', value: '2026-10-14T09:00:00Z' }
+            ],
+            sort: [{ field: 'CompletedAt', direction: 'desc' }],
+            limit: 10,
+            offset: 0
+        })
+
+        const listSql = String(executor.query.mock.calls[0][0])
+        expect(listSql).toContain('"completed_at" >= $1')
+        expect(listSql).toContain('"completed_at" <= $2')
+        expect(listSql).toContain('ORDER BY "completed_at" DESC NULLS LAST, id ASC')
+        expect(executor.query.mock.calls[0][1]).toEqual(['2026-10-14T08:00:00.000Z', '2026-10-14T09:00:00.000Z', 10, 0])
+    })
+
+    it('matches date-time equality within the selected minute', async () => {
+        const { executor } = createMockDbExecutor()
+        const service = new RuntimeReportsService()
+        executor.query.mockResolvedValueOnce([]).mockResolvedValueOnce([{ total: '0' }])
+
+        await service.runRecordsListReport({
+            executor,
+            schemaName,
+            tableName: 'obj_content_progress',
+            fields,
+            definition: {
+                codename: 'CompletionTimes',
+                title: 'Completion times',
+                datasource: { kind: 'records.list', sectionCodename: 'ContentProgress' },
+                columns: [{ field: 'CompletedAt', label: 'Completed at', type: 'date' }],
+                filters: [],
+                aggregations: []
+            },
+            permissions: { readReports: true },
+            filters: [{ field: 'CompletedAt', operator: 'equals', value: '2026-10-14T08:30:45.789Z' }]
+        })
+
+        expect(String(executor.query.mock.calls[0][0])).toContain('("completed_at" >= $1 AND "completed_at" < $2)')
+        expect(executor.query.mock.calls[0][1]).toEqual(['2026-10-14T08:30:00.000Z', '2026-10-14T08:31:00.000Z', 100, 0])
+    })
+
+    it('rejects malformed date filters and invalid or duplicate sort directions before SQL execution', async () => {
+        const { executor } = createMockDbExecutor()
+        const service = new RuntimeReportsService()
+        const dateDefinition = {
+            codename: 'CompletionTimes',
+            title: 'Completion times',
+            datasource: { kind: 'records.list', sectionCodename: 'ContentProgress' },
+            columns: [{ field: 'CompletedAt', label: 'Completed at', type: 'date' }],
+            filters: [],
+            aggregations: []
+        }
+        const params = {
+            executor,
+            schemaName,
+            tableName: 'obj_content_progress',
+            fields,
+            definition: dateDefinition,
+            permissions: { readReports: true }
+        }
+
+        await expect(
+            service.runRecordsListReport({
+                ...params,
+                filters: [{ field: 'CompletedAt', operator: 'greaterThanOrEqual', value: '2026-02-31T08:00:00Z' }]
+            })
+        ).rejects.toMatchObject({ body: expect.objectContaining({ code: 'REPORT_FILTER_VALUE_INVALID' }) })
+        await expect(
+            service.runRecordsListReport({ ...params, sort: [{ field: 'CompletedAt', direction: 'DROP' } as never] })
+        ).rejects.toMatchObject({ body: expect.objectContaining({ code: 'REPORT_SORT_INVALID' }) })
+        await expect(
+            service.runRecordsListReport({
+                ...params,
+                sort: [
+                    { field: 'CompletedAt', direction: 'asc' },
+                    { field: 'CompletedAt', direction: 'desc' }
+                ]
+            })
+        ).rejects.toMatchObject({ body: expect.objectContaining({ code: 'REPORT_SORT_INVALID' }) })
+        expect(executor.query).not.toHaveBeenCalled()
+    })
+
     it('applies supplied row-level access conditions to list, count, and aggregation queries', async () => {
         const { executor } = createMockDbExecutor()
         const service = new RuntimeReportsService()

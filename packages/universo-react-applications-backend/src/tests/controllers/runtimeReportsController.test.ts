@@ -131,6 +131,29 @@ describe('runtimeReportsController saved report access', () => {
     )
 
     it.each([
+        { sort: [{ field: 'Score', direction: 'DESC' }] },
+        { sort: [{ field: 'Score', direction: 'sideways' }] },
+        {
+            sort: [
+                { field: 'Score', direction: 'asc' },
+                { field: 'Score', direction: 'desc' }
+            ]
+        }
+    ])('rejects malformed report sorting before runtime lookup: %j', async ({ sort }) => {
+        const { executor } = createMockDbExecutor()
+        const controller = createRuntimeReportsController(() => executor)
+        const req = { params: { applicationId }, body: { reportCodename: 'LearnerProgress', sort } } as unknown as Request
+        const res = createResponse()
+
+        await controller.runReport(req, res)
+
+        expect(res.status).toHaveBeenCalledWith(400)
+        expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: 'Invalid report payload' }))
+        expect(mockResolveRuntimeSchema).not.toHaveBeenCalled()
+        expect(executor.query).not.toHaveBeenCalled()
+    })
+
+    it.each([
         ['run', 'codename'],
         ['export', 'codename'],
         ['run', 'id'],

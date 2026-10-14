@@ -1,7 +1,7 @@
 import type { Request, Response } from 'express'
 import { z } from 'zod'
-import { reportDefinitionSchema, reportFilterSchema } from '@universo-react/types'
-import type { ReportDefinition } from '@universo-react/types'
+import { reportDefinitionSchema, reportFilterSchema, runtimeDatasourceSortSchema } from '@universo-react/types'
+import type { ReportDefinition, RuntimeDatasourceSort } from '@universo-react/types'
 import { isUuidV7, resolveApplicationLifecycleContractFromConfig, type DbExecutor } from '@universo-react/utils'
 import { qColumn, qSchemaTable } from '@universo-react/database'
 import {
@@ -37,6 +37,22 @@ const reportCodenameSchema = z
     .max(128)
     .regex(/^[A-Za-z][A-Za-z0-9._-]{0,127}$/u)
 const reportIdSchema = z.string().trim().refine(isUuidV7)
+const reportSortSchema = z
+    .array(runtimeDatasourceSortSchema)
+    .max(5)
+    .superRefine((sort, ctx) => {
+        const fields = new Set<string>()
+        sort.forEach((item, index) => {
+            if (fields.has(item.field)) {
+                ctx.addIssue({
+                    code: z.ZodIssueCode.custom,
+                    message: 'Sort fields must be unique',
+                    path: [index, 'field']
+                })
+            }
+            fields.add(item.field)
+        })
+    })
 
 const reportRunBodySchema = z
     .object({
@@ -45,6 +61,7 @@ const reportRunBodySchema = z
         limit: z.coerce.number().int().positive().max(500).optional(),
         offset: z.coerce.number().int().min(0).optional(),
         filters: z.array(reportFilterSchema).max(32).optional().default([]),
+        sort: reportSortSchema.optional(),
         locale: z.string().trim().min(2).max(16).optional().default('en')
     })
     .strict()
@@ -66,6 +83,7 @@ const reportExportBodySchema = z
         limit: z.coerce.number().int().positive().max(5000).optional(),
         offset: z.coerce.number().int().min(0).optional(),
         filters: z.array(reportFilterSchema).max(32).optional().default([]),
+        sort: reportSortSchema.optional(),
         locale: z.string().trim().min(2).max(16).optional().default('en')
     })
     .strict()
@@ -287,6 +305,24 @@ const assertReportColumnsAvailable = (definition: ReportDefinition, availableFie
     }
 }
 
+const assertReportRequestFieldsConfigured = (
+    definition: ReportDefinition,
+    filters: ReportDefinition['filters'],
+    sort: RuntimeDatasourceSort[] | undefined
+): void => {
+    const configuredFields = new Set(definition.columns.map((column) => column.field))
+    const invalidField = [...filters.map((filter) => filter.field), ...(sort ?? []).map((item) => item.field)].find(
+        (field) => !configuredFields.has(field)
+    )
+    if (invalidField) {
+        throw new UpdateFailure(400, {
+            error: 'Report filters and sorting must use configured columns',
+            code: 'REPORT_FIELD_NOT_CONFIGURED',
+            field: invalidField
+        })
+    }
+}
+
 const resolveReportTarget = async (params: {
     executor: DbExecutor
     schemaIdent: string
@@ -454,15 +490,23 @@ export function createRuntimeReportsController(getDbExecutor: () => DbExecutor) 
         defaultLimit?: number
         locale?: string
         filters?: ReportDefinition['filters']
+        sort?: RuntimeDatasourceSort[]
     }): Promise<RuntimeReportExecutionResult> => {
         const requestFilters = params.filters ?? []
+        assertReportRequestFieldsConfigured(params.definition, requestFilters, params.sort)
         const unionDatasource =
-            params.definition.datasource.kind === 'records.union' && (params.definition.filters.length > 0 || requestFilters.length > 0)
+            params.definition.datasource.kind === 'records.union' &&
+            (params.definition.filters.length > 0 || requestFilters.length > 0 || params.sort !== undefined)
                 ? {
                       ...params.definition.datasource,
                       query: {
                           ...(params.definition.datasource.query ?? {}),
-                          filters: [...(params.definition.datasource.query?.filters ?? []), ...params.definition.filters, ...requestFilters]
+                          filters: [
+                              ...(params.definition.datasource.query?.filters ?? []),
+                              ...params.definition.filters,
+                              ...requestFilters
+                          ],
+                          ...(params.sort !== undefined ? { sort: params.sort } : {})
                       }
                   }
                 : params.definition.datasource
@@ -562,7 +606,8 @@ export function createRuntimeReportsController(getDbExecutor: () => DbExecutor) 
             offset: params.offset,
             maxLimit: params.maxLimit,
             defaultLimit: params.defaultLimit,
-            filters: requestFilters
+            filters: requestFilters,
+            sort: params.sort
         })
     }
 
@@ -618,7 +663,8 @@ export function createRuntimeReportsController(getDbExecutor: () => DbExecutor) 
                 limit: parsed.data.limit,
                 offset: parsed.data.offset,
                 locale: parsed.data.locale,
-                filters: parsed.data.filters
+                filters: parsed.data.filters,
+                sort: parsed.data.sort
             })
 
             res.json(result)
@@ -654,7 +700,8 @@ export function createRuntimeReportsController(getDbExecutor: () => DbExecutor) 
                 maxLimit: 5000,
                 defaultLimit: 5000,
                 locale: parsed.data.locale,
-                filters: parsed.data.filters
+                filters: parsed.data.filters,
+                sort: parsed.data.sort
             })
             const csv = serializeRuntimeReportCsv(result, parsed.data.locale)
             const filename = buildCsvAttachmentFilename(definition.codename)

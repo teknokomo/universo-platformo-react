@@ -23,12 +23,22 @@ vi.mock('../CustomizedDataGrid', () => ({
                     <span key={`${row.id}:${column.field}`}>
                         {column.headerName}:
                         {column.renderCell
-                            ? column.renderCell({ value: row[column.field], row } as GridRenderCellParams)
-                            : String(row[column.field] ?? '')}
+                            ? column.renderCell({
+                                  value: column.valueGetter
+                                      ? column.valueGetter(row[column.field], row, column, {} as never)
+                                      : row[column.field],
+                                  row
+                              } as GridRenderCellParams)
+                            : String(
+                                  column.valueGetter
+                                      ? column.valueGetter(row[column.field], row, column, {} as never) ?? ''
+                                      : row[column.field] ?? ''
+                              )}
                     </span>
                 ))
             )}
             <button onClick={() => props.onPaginationModelChange?.({ page: 1, pageSize: 20 })}>Next page</button>
+            <button onClick={() => props.onSortModelChange?.([{ field: 'Title', sort: 'asc' }])}>Sort</button>
             <button onClick={() => props.onFilterModelChange?.({ items: [{ field: 'Title', operator: 'contains', value: 'Course' }] })}>
                 Filter
             </button>
@@ -121,6 +131,12 @@ describe('saved report details table', () => {
         await waitFor(() =>
             expect(runRuntimeReport).toHaveBeenLastCalledWith(
                 expect.objectContaining({ offset: 0, filters: [expect.objectContaining({ field: 'Title', value: 'Course' })] })
+            )
+        )
+        fireEvent.click(screen.getByText('Sort'))
+        await waitFor(() =>
+            expect(runRuntimeReport).toHaveBeenLastCalledWith(
+                expect.objectContaining({ offset: 0, sort: [{ field: 'Title', direction: 'asc' }] })
             )
         )
     })
@@ -260,7 +276,14 @@ describe('saved report details table', () => {
             aggregations: {}
         })
 
-        renderReport()
+        renderReport({
+            ...widget,
+            config: { variant: 'report', reportCodename: 'QuizAttemptResults' },
+            runtimeData: {
+                status: 'ready',
+                data: { kind: 'report', codename: 'QuizAttemptResults', title: 'Quiz results' }
+            }
+        })
 
         expect(await screen.findByText('Status:Awaiting review')).toBeInTheDocument()
     })
@@ -321,6 +344,67 @@ describe('saved report details table', () => {
         renderReport()
         expect(await screen.findByText('Content title:Readable course')).toBeInTheDocument()
         expect(screen.queryByText(/OwnerId|019e44fc|\[object Object\]/)).not.toBeInTheDocument()
+    })
+
+    it('renders resolved labels for technical reference columns while hiding raw identifiers', async () => {
+        const attemptDefinition = reportDefinitionSchema.parse({
+            codename: 'QuizAttemptResults',
+            title: { en: 'Quiz results', ru: 'Результаты тестов' },
+            datasource: { kind: 'records.list', sectionCodename: 'QuizAttempts' },
+            columns: [
+                { field: 'QuizId', label: { en: 'Quiz', ru: 'Тест' }, type: 'text' },
+                { field: 'StudentId', label: { en: 'Student name', ru: 'Имя студента' }, type: 'text' },
+                { field: 'ClassIdSnapshot', label: { en: 'Class', ru: 'Класс' }, type: 'text' }
+            ]
+        })
+        const quizId = '019e44fc-a16a-760c-8190-280c4d9dc720'
+        const studentId = '019e44fc-a16a-760c-8190-280c4d9dc721'
+        const classId = '019e44fc-a16a-760c-8190-280c4d9dc722'
+        vi.mocked(runRuntimeReport).mockResolvedValue({
+            definition: attemptDefinition,
+            rows: [
+                {
+                    QuizId: { id: quizId, label: 'Marathon — Grade 5' },
+                    StudentId: { id: studentId, label: 'Alex Example' },
+                    ClassIdSnapshot: { id: classId, label: { en: 'Grade 5', ru: '5 класс' } }
+                }
+            ],
+            total: 1,
+            aggregations: {}
+        })
+
+        renderReport()
+
+        expect(await screen.findByText('Quiz:Marathon — Grade 5')).toBeInTheDocument()
+        const reportGrid = screen.getByTestId('report-grid')
+        expect(reportGrid).toHaveTextContent('Quiz:Marathon — Grade 5')
+        expect(reportGrid).toHaveTextContent('Student name:Alex Example')
+        expect(reportGrid).toHaveTextContent('Class:Grade 5')
+        expect(reportGrid).not.toHaveTextContent(quizId)
+        expect(reportGrid).not.toHaveTextContent(studentId)
+        expect(reportGrid).not.toHaveTextContent(classId)
+    })
+
+    it('formats date columns as date-time cells instead of rendering raw ISO values', async () => {
+        const submittedAt = '2026-10-14T08:30:00.000Z'
+        const dateDefinition = reportDefinitionSchema.parse({
+            codename: 'QuizAttemptResults',
+            title: { en: 'Quiz results' },
+            datasource: { kind: 'records.list', sectionCodename: 'QuizAttempts' },
+            columns: [{ field: 'SubmittedAt', label: { en: 'Completed at' }, type: 'date' }]
+        })
+        vi.mocked(runRuntimeReport).mockResolvedValue({
+            definition: dateDefinition,
+            rows: [{ SubmittedAt: submittedAt }],
+            total: 1,
+            aggregations: {}
+        })
+
+        renderReport()
+
+        expect(await screen.findByText(/^Completed at:/u)).toBeInTheDocument()
+        expect(screen.getByTestId('report-grid')).not.toHaveTextContent(submittedAt)
+        expect(screen.getByTestId('report-grid')).not.toHaveTextContent('Invalid Date')
     })
 
     it('localizes CSV failure and permits retry', async () => {

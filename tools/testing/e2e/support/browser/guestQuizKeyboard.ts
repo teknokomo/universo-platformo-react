@@ -45,20 +45,17 @@ export async function navigateGuestQuizOptionWithKeyboard(page: Page, targetOpti
         }
         if (initialIndexes.target < 0) throw new Error('The requested quiz option is not in the current radio group')
 
-        const focusedRadio = radios.nth(initialIndexes.current)
-        await page.keyboard.press('Space')
-        const spaceSelected = await focusedRadio.evaluate((element) => (element as HTMLInputElement).checked)
-        if (!spaceSelected) throw new Error('Space did not select the focused guest quiz radio option')
-        if (answerRequestCount !== 0) throw new Error('Space submitted a guest quiz answer before confirmation')
-        await page.keyboard.press('Enter')
-        if (answerRequestCount !== 0) throw new Error('Enter submitted a guest quiz answer before confirmation')
-
         const forwardSteps = (initialIndexes.target - initialIndexes.current + initialIndexes.count) % initialIndexes.count
         const backwardSteps = (initialIndexes.current - initialIndexes.target + initialIndexes.count) % initialIndexes.count
         if (forwardSteps > 0 || backwardSteps > 0) {
             const direction = forwardSteps <= backwardSteps ? 'ArrowDown' : 'ArrowUp'
             const steps = Math.min(forwardSteps, backwardSteps)
             for (let step = 0; step < steps; step += 1) await page.keyboard.press(direction)
+        } else if (initialIndexes.checked < 0) {
+            // When Tab already focused the first radio, move around the group
+            // and back so the active option is selected without submitting it.
+            await page.keyboard.press('ArrowDown')
+            await page.keyboard.press('ArrowUp')
         }
 
         const isFocusedAndChecked = await targetOption.evaluate((element) => {

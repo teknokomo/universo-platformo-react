@@ -1,7 +1,6 @@
 import { expect } from '../fixtures/test'
-import { expectLocalizedValidation, expectNoPageHorizontalOverflow, expectNoTechnicalLeakage } from './browser/runtimeUx'
+import { expectNoPageHorizontalOverflow, expectNoTechnicalLeakage } from './browser/runtimeUx'
 import {
-    acceptGuestLegalConsents,
     assertPublicAssessmentAttemptState,
     expectCurrentAttemptQuestion,
     expectNoAccessibilityViolations,
@@ -47,31 +46,45 @@ export async function runLmsMarathonRussianGuestQuiz(flow: LmsMarathonPreparedFl
     await expect(russianPage.getByLabel('Имя')).toBeVisible()
     await expect(russianPage.getByLabel('Фамилия')).toBeVisible()
     await expect(russianStartButton).toBeVisible()
+    await expect(russianStartButton, 'Empty required fields and consents must keep guest intake disabled').toBeDisabled()
+    expect(russianGuestSessionRequestCount, 'The guest session must wait for required identity data and consents').toBe(0)
     await russianPage.screenshot({
         path: testInfo.outputPath('lms-marathon-guest-intro-mobile-ru.png'),
         fullPage: true,
         animations: 'disabled'
     })
-    await russianStartButton.click()
-    await expect(russianPage.getByText('Примите Пользовательское соглашение, чтобы продолжить.', { exact: true })).toBeVisible()
-    await expect(russianPage.getByText('Примите Политику конфиденциальности, чтобы продолжить.', { exact: true })).toBeVisible()
-    await expectLocalizedValidation(russianPage.getByRole('main'), 'ru', { label: 'Russian guest consent validation' })
+
+    const firstNameInput = russianPage.getByLabel('Имя')
+    const lastNameInput = russianPage.getByLabel('Фамилия')
+    const termsConsent = russianPage.getByRole('checkbox', { name: 'Я принимаю Пользовательское соглашение' })
+    const privacyConsent = russianPage.getByRole('checkbox', { name: 'Я принимаю Политику конфиденциальности' })
+    await firstNameInput.fill('Мария')
+    await lastNameInput.fill('Марафон')
+    await expect(russianStartButton, 'Both legal consents are required before continuing').toBeDisabled()
+    await termsConsent.check()
+    await expect(russianStartButton, 'Accepting only the terms must keep guest intake disabled').toBeDisabled()
     await expectNoPageHorizontalOverflow(russianPage, 'Russian LMS Marathon consent validation at 390px')
-    expect(russianGuestSessionRequestCount, 'Russian legal consent must be required before a guest session is created').toBe(0)
+    expect(russianGuestSessionRequestCount, 'Incomplete legal consent must not create a guest session').toBe(0)
     await russianPage.screenshot({
         path: testInfo.outputPath('lms-marathon-guest-consent-validation-mobile-ru.png'),
         fullPage: true,
         animations: 'disabled'
     })
-    await acceptGuestLegalConsents(russianPage, 'ru')
-    await russianStartButton.click()
-    await expect(russianPage.getByText('Введите имя.', { exact: true })).toBeVisible()
-    await expect(russianPage.getByText('Введите фамилию.', { exact: true })).toBeVisible()
-    await expectLocalizedValidation(russianPage.getByRole('main'), 'ru', { label: 'Russian guest name validation' })
-    await expectNoPageHorizontalOverflow(russianPage, 'Russian LMS Marathon name validation at 390px')
-    expect(russianGuestSessionRequestCount, 'Russian required names must be validated before creating a guest session').toBe(0)
-    await russianPage.getByLabel('Имя').fill('Мария')
-    await russianPage.getByLabel('Фамилия').fill('Марафон')
+    await privacyConsent.check()
+    await termsConsent.uncheck()
+    await expect(russianStartButton, 'Accepting only the privacy policy must keep guest intake disabled').toBeDisabled()
+    await termsConsent.check()
+    await expect(russianStartButton, 'Complete identity data and both consents must enable guest intake').toBeEnabled()
+    await firstNameInput.fill('')
+    await expect(russianStartButton, 'A missing required name must disable guest intake even after consent').toBeDisabled()
+    expect(russianGuestSessionRequestCount, 'Incomplete guest intake must not create a session').toBe(0)
+    await firstNameInput.fill('Мария')
+    await expect(russianStartButton).toBeEnabled()
+    await lastNameInput.fill('')
+    await expect(russianStartButton, 'A missing required surname must disable guest intake even after consent').toBeDisabled()
+    expect(russianGuestSessionRequestCount, 'An incomplete guest identity must not create a session').toBe(0)
+    await lastNameInput.fill('Марафон')
+    await expect(russianStartButton).toBeEnabled()
     await expectNoPageHorizontalOverflow(russianPage, 'Russian LMS Marathon guest introduction at 390px')
     await russianPage.screenshot({
         path: testInfo.outputPath('lms-marathon-guest-intro-filled-mobile-ru.png'),
@@ -176,15 +189,7 @@ export async function runLmsMarathonRussianGuestQuiz(flow: LmsMarathonPreparedFl
             applicationId,
             attemptId: russianAttempt.attemptId,
             option: correctAnswer,
-            label: `Russian quiz answer ${index + 1}`,
-            ...(index === 0
-                ? {
-                      activate: async () => {
-                          await correctAnswer.focus()
-                          await russianPage.keyboard.press('Space')
-                      }
-                  }
-                : {})
+            label: `Russian quiz answer ${index + 1}`
         })
         expect(nextAttempt.currentQuestionIndex).toBe(index + 1)
         expect(nextAttempt.totalQuestions).toBe(gradeQuestionCount)

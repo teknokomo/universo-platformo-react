@@ -26,12 +26,16 @@ const mapGridFilterOperator = (operator: string | undefined): RuntimeDatasourceF
         case 'isNotEmpty':
             return 'isNotEmpty'
         case '>':
+        case 'after':
             return 'greaterThan'
         case '>=':
+        case 'onOrAfter':
             return 'greaterThanOrEqual'
         case '<':
+        case 'before':
             return 'lessThan'
         case '<=':
+        case 'onOrBefore':
             return 'lessThanOrEqual'
         default:
             return null

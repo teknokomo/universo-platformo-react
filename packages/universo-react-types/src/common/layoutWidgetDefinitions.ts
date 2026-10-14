@@ -462,7 +462,8 @@ const resolveRelationBuilderBindingSlots = (
                             if (component.field === 'order') {
                                 return {
                                     ...component,
-                                    componentCodename: sortOrderFieldCodename
+                                    componentCodename: sortOrderFieldCodename,
+                                    requireServerOwned: true
                                 }
                             }
                             return component

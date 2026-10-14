@@ -9,7 +9,7 @@
  *
  * @see https://yandex.cloud/en/docs/smartcaptcha/concepts/validation
  */
-import axios, { AxiosError } from 'axios'
+import axios from 'axios'
 
 // ============================================================================
 // Types
@@ -53,7 +53,7 @@ export interface CaptchaServiceOptions {
 // Constants
 // ============================================================================
 
-const SMARTCAPTCHA_VALIDATE_URL = 'https://smartcaptcha.yandexcloud.net/validate'
+const SMARTCAPTCHA_VALIDATE_URL = 'https://smartcaptcha.cloud.yandex.ru/validate'
 const DEFAULT_TIMEOUT = 5000
 
 // ============================================================================
@@ -151,18 +151,18 @@ export async function validateCaptchaToken(token: string, ip: string, options: C
         return { success: false, error: 'Captcha token is required' }
     }
 
-    // Build query parameters
-    const params: Record<string, string> = {
+    // Keep credentials and user data out of URLs, where proxies and access logs may record them.
+    const formData = new URLSearchParams({
         secret: serverKey,
         token
-    }
+    })
     if (ip) {
-        params.ip = ip
+        formData.set('ip', ip)
     }
 
     try {
-        const response = await axios.get<{ status: string; message?: string }>(SMARTCAPTCHA_VALIDATE_URL, {
-            params,
+        const response = await axios.post<{ status: string; message?: string }>(SMARTCAPTCHA_VALIDATE_URL, formData.toString(), {
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
             timeout,
             // Don't throw on non-2xx status - we handle it manually
             validateStatus: () => true
@@ -186,10 +186,10 @@ export async function validateCaptchaToken(token: string, ip: string, options: C
             return { success: false, error: 'Captcha verification failed' }
         }
     } catch (error: unknown) {
-        const axiosError = error as AxiosError
+        const errorCode = axios.isAxiosError(error) ? error.code : undefined
 
         // Check for timeout
-        if (axiosError.code === 'ECONNABORTED' || axiosError.code === 'ETIMEDOUT') {
+        if (errorCode === 'ECONNABORTED' || errorCode === 'ETIMEDOUT') {
             // eslint-disable-next-line no-console
             console.error(`${logPrefix} Request timeout`)
             return { success: false, error: 'Captcha service timeout' }
@@ -197,7 +197,7 @@ export async function validateCaptchaToken(token: string, ip: string, options: C
 
         // Network or other error
         // eslint-disable-next-line no-console
-        console.error(`${logPrefix} Request failed`, { error: axiosError.message })
+        console.error(`${logPrefix} Request failed`)
         // Fail-closed: reject on network error
         return { success: false, error: 'Captcha service unavailable' }
     }

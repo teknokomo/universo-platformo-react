@@ -4,7 +4,7 @@ const INTERNAL_ERROR_PATTERNS: RegExp[] = [
     /\b(?:sql|postgres|postgresql|knex|supabase)\b/i,
     /\b(?:constraint|violates|violation|duplicate key|foreign key|not-null|null value|relation|schema|table|column)\b/i,
     /\b(?:syntax error|stack trace|at Object\.|at async|TypeError|ReferenceError|RangeError)\b/i,
-    /\b(?:ECONN|ENOTFOUND|ETIMEDOUT|fetch failed|NetworkError)\b/i,
+    /\b(?:ECONN|ENOTFOUND|ETIMEDOUT|fetch failed|failed to fetch|load failed|NetworkError)\b/i,
     /\b(?:adapter is not available|not available for this runtime adapter)\b/i,
     /\b(?:backend exploded|delete exploded)\b/i
 ]

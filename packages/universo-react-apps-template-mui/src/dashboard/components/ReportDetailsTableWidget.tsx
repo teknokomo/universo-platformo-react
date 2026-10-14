@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import type { TFunction } from 'i18next'
-import type { GridColDef, GridFilterModel, GridPaginationModel } from '@mui/x-data-grid'
+import { getGridDateOperators, type GridColDef, type GridFilterModel, type GridPaginationModel, type GridSortModel } from '@mui/x-data-grid'
 import Alert from '@mui/material/Alert'
 import Button from '@mui/material/Button'
 import Stack from '@mui/material/Stack'
@@ -12,7 +12,7 @@ import { dashboardWidgetConfigSchemaByKey, readLocalizedTextValue, type ReportDe
 import { exportRuntimeReportCsv, runRuntimeReport } from '../../api/api'
 import { formatRuntimeSafeValue, isRuntimeTechnicalFieldName } from '../../utils/displayValue'
 import { extractRuntimeErrorMessage } from '../../utils/runtimeErrors'
-import { mapGridFilterModel } from '../../utils/runtimeListQuery'
+import { mapGridFilterModel, mapGridSortModel } from '../../utils/runtimeListQuery'
 import { useDashboardDetails } from '../DashboardDetailsContext'
 import type { ZoneWidgetItem } from '../contracts'
 import CustomizedDataGrid from './CustomizedDataGrid'
@@ -33,18 +33,7 @@ const toReportGridRows = (rows: Array<Record<string, unknown>>): Array<Record<st
         id: typeof row.id === 'string' ? row.id : `report-row-${index}`
     }))
 
-const isPrimitiveReportValue = (value: unknown): boolean =>
-    value === null ||
-    value === undefined ||
-    typeof value === 'string' ||
-    typeof value === 'number' ||
-    typeof value === 'boolean' ||
-    typeof value === 'bigint'
-
-const formatReportGridValue = (value: unknown, field: string, locale: string): string => {
-    if (isRuntimeTechnicalFieldName(field) && isPrimitiveReportValue(value)) return ''
-    return formatRuntimeSafeValue(value, locale)
-}
+const formatReportGridValue = (value: unknown, locale: string): string => formatRuntimeSafeValue(value, locale)
 
 const reportStatusKeys: Record<string, string> = {
     started: 'started',
@@ -57,13 +46,20 @@ const reportStatusKeys: Record<string, string> = {
 }
 
 const formatReportStatus = (value: unknown, locale: string, t: TFunction<'apps'>): string => {
-    if (typeof value !== 'string') return formatReportGridValue(value, '', locale)
+    if (typeof value !== 'string') return formatReportGridValue(value, locale)
     const normalized = value
         .trim()
         .replace(/[\s_-]+/g, '')
         .toLowerCase()
     const statusKey = reportStatusKeys[normalized]
     return statusKey ? t(`reports.statusValues.${statusKey}`, { defaultValue: value }) : formatRuntimeSafeValue(value, locale)
+}
+
+const toValidDate = (value: unknown): Date | null => {
+    if (value instanceof Date) return Number.isFinite(value.getTime()) ? value : null
+    if (typeof value !== 'string' || value.length === 0) return null
+    const date = new Date(value)
+    return Number.isFinite(date.getTime()) ? date : null
 }
 
 const normalizeRuntimeLabel = (value: string): string =>
@@ -95,15 +91,26 @@ const toReportGridColumns = (definition: ReportDefinition, locale: string, t: TF
             headerName: readLocalizedWidgetText(column.label, locale) ?? humanizeRuntimeCodename(column.field) ?? column.field,
             flex: 1,
             minWidth: column.type === 'number' ? 120 : 160,
-            type: column.type === 'number' || column.type === 'boolean' ? column.type : 'string',
+            type: column.type === 'date' ? 'dateTime' : column.type === 'number' || column.type === 'boolean' ? column.type : 'string',
+            ...(column.type === 'date'
+                ? {
+                      valueGetter: (value: unknown) => toValidDate(value),
+                      filterOperators: getGridDateOperators(true).filter((operator) => operator.value !== 'not')
+                  }
+                : {
+                      valueGetter: (value: unknown) =>
+                          value !== null && typeof value === 'object' ? formatRuntimeSafeValue(value, locale) : value
+                  }),
             renderCell: (params) =>
-                column.type === 'status'
+                column.type === 'date'
+                    ? formatRuntimeSafeValue(params.value, locale)
+                    : column.type === 'status'
                     ? formatReportStatus(params.value, locale, t)
                     : column.type === 'boolean' && typeof params.value === 'boolean'
                     ? t(params.value ? 'reports.booleanValues.yes' : 'reports.booleanValues.no', {
                           defaultValue: params.value ? 'Yes' : 'No'
                       })
-                    : formatReportGridValue(params.value, column.field, locale)
+                    : formatReportGridValue(params.value, locale)
         }))
 
 const sanitizeReportFilenameSegment = (value: string): string => {
@@ -129,6 +136,7 @@ function AuthorizedReportTable({ reportCodename, rowHeight }: { reportCodename: 
     const { t } = useTranslation('apps')
     const [paginationModel, setPaginationModelState] = useState<GridPaginationModel>({ page: 0, pageSize: 20 })
     const [filterModel, setFilterModelState] = useState<GridFilterModel>({ items: [] })
+    const [sortModelState, setSortModelState] = useState<GridSortModel | null>(null)
     const [isExporting, setIsExporting] = useState(false)
     const [exportError, setExportError] = useState<string | null>(null)
     const limit = paginationModel.pageSize
@@ -137,6 +145,7 @@ function AuthorizedReportTable({ reportCodename, rowHeight }: { reportCodename: 
         details?.apiBaseUrl && details.applicationId && details.runtimeAccessMode !== 'public' && details.permissions?.readReports === true
     )
     const runtimeFilters = useMemo(() => mapGridFilterModel(filterModel), [filterModel])
+    const runtimeSort = useMemo(() => (sortModelState === null ? undefined : mapGridSortModel(sortModelState)), [sortModelState])
 
     const query = useQuery({
         queryKey: [
@@ -145,7 +154,14 @@ function AuthorizedReportTable({ reportCodename, rowHeight }: { reportCodename: 
             details?.apiBaseUrl,
             details?.applicationId,
             reportCodename,
-            { limit, offset, filters: runtimeFilters, locale: details?.locale ?? 'en', workspaceId: details?.currentWorkspaceId ?? null }
+            {
+                limit,
+                offset,
+                filters: runtimeFilters,
+                sort: runtimeSort ?? null,
+                locale: details?.locale ?? 'en',
+                workspaceId: details?.currentWorkspaceId ?? null
+            }
         ],
         queryFn: () =>
             runRuntimeReport({
@@ -153,6 +169,7 @@ function AuthorizedReportTable({ reportCodename, rowHeight }: { reportCodename: 
                 applicationId: details!.applicationId!,
                 reportCodename,
                 filters: runtimeFilters,
+                sort: runtimeSort,
                 limit,
                 offset,
                 locale: details?.locale ?? 'en',
@@ -163,6 +180,14 @@ function AuthorizedReportTable({ reportCodename, rowHeight }: { reportCodename: 
 
     const rows = useMemo(() => toReportGridRows(query.data?.rows ?? []), [query.data?.rows])
     const resolvedDefinition = query.data?.definition
+    const configuredSortModel = useMemo(() => {
+        const datasource = resolvedDefinition?.datasource
+        if (!datasource || (datasource.kind !== 'records.list' && datasource.kind !== 'records.union')) return []
+        return (datasource.query?.sort ?? []).map((item) => ({ field: item.field, sort: item.direction }))
+    }, [resolvedDefinition])
+    const sortModel = sortModelState ?? configuredSortModel
+    const supportsServerSort =
+        resolvedDefinition?.datasource.kind === 'records.list' || resolvedDefinition?.datasource.kind === 'records.union'
     const columns = useMemo(
         () => (resolvedDefinition ? toReportGridColumns(resolvedDefinition, details?.locale ?? 'en', t) : []),
         [details?.locale, resolvedDefinition, t]
@@ -183,6 +208,7 @@ function AuthorizedReportTable({ reportCodename, rowHeight }: { reportCodename: 
                 applicationId: details.applicationId,
                 reportCodename,
                 filters: runtimeFilters,
+                sort: runtimeSort,
                 limit: 5000,
                 offset: 0,
                 locale: details.locale ?? 'en',
@@ -211,6 +237,11 @@ function AuthorizedReportTable({ reportCodename, rowHeight }: { reportCodename: 
 
     const setFilterModel = (model: GridFilterModel) => {
         setFilterModelState(model)
+        setPaginationModelState((current) => ({ ...current, page: 0 }))
+    }
+
+    const setSortModel = (model: GridSortModel) => {
+        setSortModelState(model)
         setPaginationModelState((current) => ({ ...current, page: 0 }))
     }
 
@@ -243,6 +274,8 @@ function AuthorizedReportTable({ reportCodename, rowHeight }: { reportCodename: 
                 onPaginationModelChange={setPaginationModelState}
                 filterModel={filterModel}
                 onFilterModelChange={setFilterModel}
+                sortModel={sortModel}
+                onSortModelChange={supportsServerSort ? setSortModel : undefined}
                 pageSizeOptions={DATASOURCE_TABLE_PAGE_SIZE_OPTIONS}
                 localeText={details?.localeText}
                 rowHeight={rowHeight}

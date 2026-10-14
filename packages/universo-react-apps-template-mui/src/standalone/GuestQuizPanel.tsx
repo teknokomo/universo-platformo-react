@@ -60,17 +60,23 @@ export default function GuestQuizPanel({
 }: GuestQuizPanelProps) {
     const { t } = useTranslation('apps')
     const questionHeadingRef = useRef<HTMLHeadingElement | null>(null)
-    const [pendingKeyboardOption, setPendingKeyboardOption] = useState<{ questionId: string; optionId: string } | null>(null)
+    const [pendingAnswer, setPendingAnswer] = useState<{ questionId: string; optionId: string } | null>(null)
     const currentQuestionId = currentQuestion?.id ?? null
-    const pendingKeyboardOptionId = pendingKeyboardOption?.questionId === currentQuestionId ? pendingKeyboardOption.optionId : null
+    const pendingAnswerId = pendingAnswer?.questionId === currentQuestionId ? pendingAnswer.optionId : null
+    const confirmationRequired = runtime?.type === 'quiz' && runtime.confirmAnswerBeforeNext === true
     const quizAttemptStatus = quizAttempt?.status
 
     useEffect(() => {
-        setPendingKeyboardOption(null)
+        setPendingAnswer(null)
         if (currentQuestionId || quizAttemptStatus === 'completed') {
             questionHeadingRef.current?.focus()
         }
     }, [currentQuestionId, quizAttemptStatus])
+
+    const submitAnswer = (optionId: string) => {
+        setPendingAnswer(null)
+        void handleSelectOption(optionId)
+    }
 
     const handleRadioGroupKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
         const target = event.target
@@ -85,14 +91,18 @@ export default function GuestQuizPanel({
             const nextIndex = (currentIndex + direction + radios.length) % radios.length
             const nextRadio = radios[nextIndex]
             if (!nextRadio) return
-            setPendingKeyboardOption({ questionId: currentQuestionId ?? '', optionId: nextRadio.value })
+            setPendingAnswer({ questionId: currentQuestionId ?? '', optionId: nextRadio.value })
             nextRadio.focus()
             return
         }
 
         if (event.key === ' ' || event.key === 'Spacebar' || event.key === 'Enter') {
             event.preventDefault()
-            setPendingKeyboardOption({ questionId: currentQuestionId ?? '', optionId: target.value })
+            if (confirmationRequired) {
+                setPendingAnswer({ questionId: currentQuestionId ?? '', optionId: target.value })
+            } else {
+                submitAnswer(pendingAnswerId ?? target.value)
+            }
         }
     }
 
@@ -257,11 +267,15 @@ export default function GuestQuizPanel({
                                     <RadioGroup
                                         aria-labelledby='guest-quiz-current-question'
                                         aria-required='true'
-                                        value={pendingKeyboardOptionId || selectedOptionId || ''}
+                                        value={pendingAnswerId || selectedOptionId || ''}
                                         onKeyDown={handleRadioGroupKeyDown}
                                         onChange={(event) => {
-                                            setPendingKeyboardOption(null)
-                                            void handleSelectOption(event.target.value)
+                                            const optionId = event.target.value
+                                            if (confirmationRequired) {
+                                                setPendingAnswer({ questionId: currentQuestionId ?? '', optionId })
+                                            } else {
+                                                submitAnswer(optionId)
+                                            }
                                         }}
                                     >
                                         {currentQuestion.options.map((option) => (
@@ -283,20 +297,18 @@ export default function GuestQuizPanel({
                                         ))}
                                     </RadioGroup>
                                     <FormHelperText>
-                                        {pendingKeyboardOptionId
-                                            ? t(
-                                                  'guest.quizKeyboardAnswerSelected',
-                                                  'Answer selected. Use the Submit answer button to continue.'
-                                              )
+                                        {confirmationRequired
+                                            ? pendingAnswerId
+                                                ? t('guest.quizAnswerSelectedToConfirm', 'Answer selected. Confirm to continue.')
+                                                : t('guest.quizChooseAnswerToConfirm', 'Choose an answer, then confirm to continue.')
+                                            : pendingAnswerId
+                                            ? t('guest.quizKeyboardSubmitHint', 'Use Space or Enter to submit the focused answer.')
                                             : t('guest.quizSelectAnswer', 'Choose an answer to continue.')}
                                     </FormHelperText>
-                                    {pendingKeyboardOptionId ? (
+                                    {confirmationRequired && pendingAnswerId ? (
                                         <Button
                                             variant='contained'
-                                            onClick={() => {
-                                                setPendingKeyboardOption(null)
-                                                void handleSelectOption(pendingKeyboardOptionId)
-                                            }}
+                                            onClick={() => submitAnswer(pendingAnswerId)}
                                             disabled={
                                                 timeRemaining === 0 ||
                                                 finalizeQuizMutation.isPending ||
@@ -350,26 +362,27 @@ export default function GuestQuizPanel({
                     </Stack>
                 ) : null}
 
-                {sessionUnavailable ? (
-                    <Alert severity='info' role='status' aria-live='polite'>
-                        {sessionUnavailableError.message}
-                    </Alert>
-                ) : saveAnswerMutation.error ? (
-                    <Stack spacing={1}>
-                        <Alert severity='error' role='alert'>
-                            {formatGuestError(saveAnswerMutation.error, 'guest.errors.quizAnswerSave', 'Failed to save your answer.')}
+                {!result &&
+                    (sessionUnavailable ? (
+                        <Alert severity='info' role='status' aria-live='polite'>
+                            {sessionUnavailableError.message}
                         </Alert>
-                        {selectedOptionId ? (
-                            <Button
-                                variant='contained'
-                                onClick={() => void handleRetryAnswer()}
-                                disabled={saveAnswerMutation.isPending || isRefreshingAttempt || timeRemaining === 0}
-                            >
-                                {t('guest.retryAnswerSave', 'Retry saving answer')}
-                            </Button>
-                        ) : null}
-                    </Stack>
-                ) : null}
+                    ) : saveAnswerMutation.error ? (
+                        <Stack spacing={1}>
+                            <Alert severity='error' role='alert'>
+                                {formatGuestError(saveAnswerMutation.error, 'guest.errors.quizAnswerSave', 'Failed to save your answer.')}
+                            </Alert>
+                            {selectedOptionId ? (
+                                <Button
+                                    variant='contained'
+                                    onClick={() => void handleRetryAnswer()}
+                                    disabled={saveAnswerMutation.isPending || isRefreshingAttempt || timeRemaining === 0}
+                                >
+                                    {t('guest.retryAnswerSave', 'Retry saving answer')}
+                                </Button>
+                            ) : null}
+                        </Stack>
+                    ) : null)}
                 {finalizeQuizMutation.error ? (
                     <Alert severity='error' role='alert'>
                         {formatGuestError(finalizeQuizMutation.error, 'guest.errors.quizFinalize', 'Failed to finish the quiz.')}

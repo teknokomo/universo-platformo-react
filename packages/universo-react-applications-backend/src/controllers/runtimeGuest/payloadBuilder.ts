@@ -107,6 +107,14 @@ export const createGuestRuntimePayloadBuilder = (accessLinkService: GuestAccessL
         const attrByCodename = indexByCodename(attrs)
         const quizFields = assessmentConfig.fields.assessment
         const questionFields = assessmentConfig.fields.assessmentQuestion
+        const confirmAnswerBeforeNextValue = readAttrValue(
+            row,
+            attrByCodename[quizFields.confirmAnswerBeforeNext]?.column_name ?? 'confirm_answer_before_next'
+        )
+        const confirmAnswerBeforeNext =
+            confirmAnswerBeforeNextValue === true ||
+            confirmAnswerBeforeNextValue === 1 ||
+            (typeof confirmAnswerBeforeNextValue === 'string' && confirmAnswerBeforeNextValue.trim().toLowerCase() === 'true')
         const questionsTable = attrByCodename[quizFields.questions]
         const questionAttrs = questionsTable ? resolveChildComponents(binding, questionsTable.id) : []
         const questionAttrByCodename = indexByCodename(questionAttrs)
@@ -159,6 +167,7 @@ export const createGuestRuntimePayloadBuilder = (accessLinkService: GuestAccessL
             timeLimitSeconds: normalizeAccessLinkNumber(
                 readAttrValue(row, attrByCodename[quizFields.timeLimitSeconds]?.column_name ?? 'time_limit_seconds')
             ),
+            confirmAnswerBeforeNext,
             completionText: resolveLocalizedContent(
                 readAttrValue(row, attrByCodename[quizFields.completionText]?.column_name ?? 'completion_text'),
                 locale,

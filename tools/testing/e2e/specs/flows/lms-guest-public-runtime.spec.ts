@@ -227,6 +227,7 @@ test('@flow public lms guest links enforce the guest journey through the browser
                 Description: 'Public guest quiz',
                 PassingScorePercent: 50,
                 MaxAttempts: 3,
+                ConfirmAnswerBeforeNext: true,
                 Questions: [
                     {
                         Prompt: 'Which organelle is primarily responsible for photosynthesis?',
@@ -346,10 +347,10 @@ test('@flow public lms guest links enforce the guest journey through the browser
         })
         await page.getByLabel('First name').fill('Guest learner')
         await page.getByLabel('Last name').fill('Public runtime')
-        await expect(page.getByRole('button', { name: 'Start learning' })).toBeEnabled({ timeout: 30_000 })
         const termsConsent = page.getByRole('checkbox', { name: 'I agree to the Terms of Service' })
         const privacyConsent = page.getByRole('checkbox', { name: 'I have read and accept the Privacy Policy' })
         const startLearningButton = page.getByRole('button', { name: 'Start learning' })
+        await expect(startLearningButton, 'Required consent keeps guest intake disabled').toBeDisabled()
         await page.getByLabel('First name').focus()
         await page.keyboard.press('Tab')
         await expect(page.getByLabel('Last name'), 'Last name must be reachable by keyboard').toBeFocused()
@@ -357,12 +358,14 @@ test('@flow public lms guest links enforce the guest journey through the browser
         await expect(termsConsent, 'Terms acceptance must be reachable by keyboard').toBeFocused()
         await termsConsent.press('Space')
         await expect(termsConsent).toBeChecked()
+        await expect(startLearningButton, 'Both required consents are needed before continuing').toBeDisabled()
         await page.keyboard.press('Tab')
         await expect(page.getByRole('link', { name: 'Terms of Service', exact: true })).toBeFocused()
         await page.keyboard.press('Tab')
         await expect(privacyConsent, 'Privacy acceptance must be reachable by keyboard').toBeFocused()
         await privacyConsent.press('Space')
         await expect(privacyConsent).toBeChecked()
+        await expect(startLearningButton).toBeEnabled()
         await page.keyboard.press('Tab')
         await expect(page.getByRole('link', { name: 'Privacy Policy', exact: true })).toBeFocused()
         await page.keyboard.press('Tab')
@@ -413,7 +416,14 @@ test('@flow public lms guest links enforce the guest journey through the browser
         try {
             const submitFirstAnswer = page.getByRole('button', { name: 'Submit answer', exact: true })
             await expect(submitFirstAnswer).toBeVisible()
-            await expect(page.getByText('Answer selected. Use the Submit answer button to continue.')).toBeVisible()
+            await expect(page.getByText('Answer selected. Confirm to continue.')).toBeVisible()
+            expect(firstKeyboardRequests.getCount()).toBe(0)
+            const mitochondrionAnswer = page.getByLabel('Mitochondrion')
+            await mitochondrionAnswer.click()
+            await expect(mitochondrionAnswer).toBeChecked()
+            expect(firstKeyboardRequests.getCount(), 'Changing a staged answer must not save it').toBe(0)
+            await chloroplastAnswer.click()
+            await expect(chloroplastAnswer).toBeChecked()
             expect(firstKeyboardRequests.getCount()).toBe(0)
             await page.keyboard.press('Tab')
             await expect(submitFirstAnswer, 'The selected answer must have a keyboard-accessible confirmation').toBeFocused()
@@ -437,6 +447,7 @@ test('@flow public lms guest links enforce the guest journey through the browser
         try {
             const submitSecondAnswer = page.getByRole('button', { name: 'Submit answer', exact: true })
             await expect(submitSecondAnswer).toBeVisible()
+            await expect(page.getByText('Answer selected. Confirm to continue.')).toBeVisible()
             expect(secondKeyboardRequests.getCount()).toBe(0)
             await page.keyboard.press('Tab')
             await expect(submitSecondAnswer, 'The selected answer must have a keyboard-accessible confirmation').toBeFocused()

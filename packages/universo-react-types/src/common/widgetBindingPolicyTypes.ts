@@ -29,6 +29,7 @@ export interface WidgetBindingPolicyRequirement {
 /** Minimal structural contract keeps the compatibility policy below the Zod registry module. */
 export interface WidgetBindingPolicySlot {
     readonly selectorKinds: readonly string[]
+    readonly orderByField?: string
     readonly relation?: { readonly field: string }
     readonly requirements: { readonly components: readonly WidgetBindingPolicyRequirement[] }
 }

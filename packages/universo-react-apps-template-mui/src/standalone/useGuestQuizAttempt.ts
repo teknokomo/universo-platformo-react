@@ -267,6 +267,14 @@ export function useGuestQuizAttempt({
                 if (currentAttemptRef.current.questions[0]?.id !== serverAttempt.questions[0]?.id) setSelectedOptionId('')
                 setQuizAttempt(serverAttempt)
                 setTimeRemaining(serverAttempt.status === 'in_progress' ? getInitialRemainingSeconds(serverAttempt) : 0)
+                if (
+                    serverAttempt.status === 'in_progress' &&
+                    serverAttempt.currentQuestionIndex >= serverAttempt.totalQuestions &&
+                    finalizedDeadlineAttemptRef.current !== attemptId
+                ) {
+                    finalizedDeadlineAttemptRef.current = attemptId
+                    finalizeAttempt(attemptId)
+                }
             } catch {
                 // The server remains authoritative and rejects answers after the deadline.
             } finally {
@@ -274,7 +282,7 @@ export function useGuestQuizAttempt({
                 setIsRefreshingAttempt(false)
             }
         },
-        [apiBaseUrl, applicationId, attemptScope, locale, session]
+        [apiBaseUrl, applicationId, attemptScope, finalizeAttempt, locale, session]
     )
 
     useEffect(() => {

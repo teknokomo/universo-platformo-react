@@ -11,6 +11,7 @@ export type PublicGuestAssessmentRuntimeConfig = {
             passingScorePercent: string
             maxAttempts: string
             timeLimitSeconds: string
+            confirmAnswerBeforeNext: string
             completionText: string
             questions: string
         }
@@ -45,7 +46,9 @@ export type PublicGuestAssessmentRuntimeConfig = {
             questionsSnapshot: string
             questionSetDigest: string
             accessLinkId: string
+            classIdSnapshot: string
             score: string
+            scorePercent: string
             totalQuestions: string
             passed: string
             status: string
@@ -167,7 +170,16 @@ const PUBLIC_GUEST_RUNTIME_FIELD_KEYS = {
     ],
     contentNode: ['title', 'description', 'contentItems'],
     contentPart: ['itemType', 'itemTitle', 'itemContent', 'quizId', 'sortOrder'],
-    assessment: ['title', 'description', 'passingScorePercent', 'maxAttempts', 'timeLimitSeconds', 'completionText', 'questions'],
+    assessment: [
+        'title',
+        'description',
+        'passingScorePercent',
+        'maxAttempts',
+        'timeLimitSeconds',
+        'confirmAnswerBeforeNext',
+        'completionText',
+        'questions'
+    ],
     assessmentQuestion: ['prompt', 'description', 'questionType', 'explanation', 'sortOrder', 'options'],
     assessmentResponse: [
         'studentId',
@@ -192,7 +204,9 @@ const PUBLIC_GUEST_RUNTIME_FIELD_KEYS = {
         'questionsSnapshot',
         'questionSetDigest',
         'accessLinkId',
+        'classIdSnapshot',
         'score',
+        'scorePercent',
         'totalQuestions',
         'passed',
         'status'

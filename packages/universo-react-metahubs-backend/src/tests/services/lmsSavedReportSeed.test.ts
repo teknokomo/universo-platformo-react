@@ -14,6 +14,17 @@ const expectedReportCodenames = [
 ]
 
 describe('LMS saved report seed', () => {
+    it('preserves hundredth precision for server-owned quiz attempt percentages', () => {
+        const quizAttemptsEntity = lmsTemplate.seed.entities?.find((entity) => entity.codename === 'QuizAttempts')
+        const scorePercentComponent = quizAttemptsEntity?.components?.find((component) => component.codename === 'ScorePercent')
+
+        expect(scorePercentComponent).toMatchObject({
+            dataType: 'NUMBER',
+            validationRules: { min: 0, max: 100, precision: 5, scale: 2 },
+            uiConfig: { hidden: true, serverOwned: true }
+        })
+    })
+
     it('stores runtime-schema-valid report definitions as stable Reports entity seed elements', () => {
         const reportElements = lmsTemplate.seed.elements?.Reports ?? []
         const reportsEntity = lmsTemplate.seed.entities?.find((entity) => entity.codename === 'Reports')
@@ -64,15 +75,19 @@ describe('LMS saved report seed', () => {
                 expect(definition.columns).toEqual([
                     { field: 'QuizId', label: expect.any(Object), type: 'text' },
                     { field: 'StudentId', label: expect.any(Object), type: 'text' },
+                    { field: 'ClassIdSnapshot', label: expect.any(Object), type: 'text' },
                     { field: 'StartedAt', label: expect.any(Object), type: 'date' },
                     { field: 'SubmittedAt', label: expect.any(Object), type: 'date' },
                     { field: 'Score', label: expect.any(Object), type: 'number' },
+                    { field: 'ScorePercent', label: expect.any(Object), type: 'number' },
                     { field: 'Passed', label: expect.any(Object), type: 'boolean' },
                     { field: 'TotalQuestions', label: expect.any(Object), type: 'number' },
                     { field: 'Status', label: expect.any(Object), type: 'status' },
                     { field: 'FinishedReason', label: expect.any(Object), type: 'status' }
                 ])
                 expect(definition.columns.map(({ label }) => label)).toEqual([
+                    expect.objectContaining({ locales: expect.objectContaining({ en: expect.any(Object), ru: expect.any(Object) }) }),
+                    expect.objectContaining({ locales: expect.objectContaining({ en: expect.any(Object), ru: expect.any(Object) }) }),
                     expect.objectContaining({ locales: expect.objectContaining({ en: expect.any(Object), ru: expect.any(Object) }) }),
                     expect.objectContaining({ locales: expect.objectContaining({ en: expect.any(Object), ru: expect.any(Object) }) }),
                     expect.objectContaining({ locales: expect.objectContaining({ en: expect.any(Object), ru: expect.any(Object) }) }),

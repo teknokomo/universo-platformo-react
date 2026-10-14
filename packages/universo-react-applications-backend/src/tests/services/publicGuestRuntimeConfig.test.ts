@@ -36,7 +36,16 @@ const fields = {
     ],
     contentNode: ['title', 'description', 'contentItems'],
     contentPart: ['itemType', 'itemTitle', 'itemContent', 'quizId', 'sortOrder'],
-    assessment: ['title', 'description', 'passingScorePercent', 'maxAttempts', 'timeLimitSeconds', 'completionText', 'questions'],
+    assessment: [
+        'title',
+        'description',
+        'passingScorePercent',
+        'maxAttempts',
+        'timeLimitSeconds',
+        'confirmAnswerBeforeNext',
+        'completionText',
+        'questions'
+    ],
     assessmentQuestion: ['prompt', 'description', 'questionType', 'explanation', 'sortOrder', 'options'],
     assessmentResponse: [
         'studentId',
@@ -61,7 +70,9 @@ const fields = {
         'questionsSnapshot',
         'questionSetDigest',
         'accessLinkId',
+        'classIdSnapshot',
         'score',
+        'scorePercent',
         'totalQuestions',
         'passed',
         'status'

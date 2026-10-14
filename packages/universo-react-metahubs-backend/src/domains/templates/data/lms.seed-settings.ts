@@ -61,6 +61,7 @@ export const LMS_PUBLIC_GUEST_RUNTIME_CONFIG = {
             passingScorePercent: 'PassingScorePercent',
             maxAttempts: 'MaxAttempts',
             timeLimitSeconds: 'TimeLimitSeconds',
+            confirmAnswerBeforeNext: 'ConfirmAnswerBeforeNext',
             completionText: 'CompletionText',
             questions: 'Questions'
         },
@@ -95,7 +96,9 @@ export const LMS_PUBLIC_GUEST_RUNTIME_CONFIG = {
             questionsSnapshot: 'QuestionsSnapshot',
             questionSetDigest: 'QuestionSetDigest',
             accessLinkId: 'AccessLinkId',
+            classIdSnapshot: 'ClassIdSnapshot',
             score: 'Score',
+            scorePercent: 'ScorePercent',
             totalQuestions: 'TotalQuestions',
             passed: 'Passed',
             status: 'Status'

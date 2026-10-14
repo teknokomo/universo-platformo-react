@@ -1,5 +1,11 @@
 import { qColumn, qSchemaTable } from '@universo-react/database'
-import { readLocalizedTextValue, reportDefinitionSchema, type ReportDefinition, type ReportFilter } from '@universo-react/types'
+import {
+    readLocalizedTextValue,
+    reportDefinitionSchema,
+    type ReportDefinition,
+    type ReportFilter,
+    type RuntimeDatasourceSort
+} from '@universo-react/types'
 import type { DbExecutor } from '@universo-react/utils'
 import { UpdateFailure } from '../shared/runtimeHelpers'
 
@@ -36,6 +42,7 @@ export interface RuntimeReportRecordsListParams {
     maxLimit?: number
     defaultLimit?: number
     filters?: ReportFilter[]
+    sort?: RuntimeDatasourceSort[]
 }
 
 export interface RuntimeReportRecordsListResult {
@@ -70,6 +77,68 @@ const resolveReportField = (fields: RuntimeReportFieldMetadata[], codename: stri
     return field
 }
 
+const assertRequestedReportFields = (definition: ReportDefinition, filters: ReportFilter[], sort: RuntimeDatasourceSort[]): void => {
+    const allowedFields = new Set(definition.columns.map((column) => column.field))
+    const invalidField = [...filters.map((filter) => filter.field), ...sort.map((item) => item.field)].find(
+        (field) => !allowedFields.has(field)
+    )
+    if (invalidField) {
+        throw new UpdateFailure(400, {
+            error: 'Report filters and sorting must use configured columns',
+            code: 'REPORT_FIELD_NOT_CONFIGURED',
+            field: invalidField
+        })
+    }
+}
+
+const validateRequestedSort = (sort: RuntimeDatasourceSort[] | undefined): RuntimeDatasourceSort[] | undefined => {
+    if (sort === undefined) return undefined
+    if (!Array.isArray(sort) || sort.length > 5) {
+        throw new UpdateFailure(400, {
+            error: 'Invalid report sort configuration',
+            code: 'REPORT_SORT_INVALID'
+        })
+    }
+
+    const fields = new Set<string>()
+    for (const item of sort) {
+        if (
+            !item ||
+            typeof item.field !== 'string' ||
+            item.field.length === 0 ||
+            item.field.length > 128 ||
+            (item.direction !== 'asc' && item.direction !== 'desc') ||
+            fields.has(item.field)
+        ) {
+            throw new UpdateFailure(400, {
+                error: 'Invalid report sort configuration',
+                code: 'REPORT_SORT_INVALID'
+            })
+        }
+        fields.add(item.field)
+    }
+    return sort
+}
+
+const normalizeDateFilterValue = (rawValue: unknown): string | undefined => {
+    if (rawValue instanceof Date) {
+        return Number.isFinite(rawValue.getTime()) ? rawValue.toISOString() : undefined
+    }
+    if (
+        typeof rawValue !== 'string' ||
+        !/^\d{4}-\d{2}-\d{2}(?:T\d{2}:\d{2}(?::\d{2}(?:\.\d{1,3})?)?(?:Z|[+-]\d{2}:\d{2}))?$/iu.test(rawValue)
+    ) {
+        return undefined
+    }
+    const [year, month, day] = rawValue.slice(0, 10).split('-').map(Number)
+    const calendarDate = new Date(Date.UTC(year, month - 1, day))
+    if (calendarDate.getUTCFullYear() !== year || calendarDate.getUTCMonth() !== month - 1 || calendarDate.getUTCDate() !== day) {
+        return undefined
+    }
+    const timestamp = Date.parse(rawValue)
+    return Number.isFinite(timestamp) ? new Date(timestamp).toISOString() : undefined
+}
+
 const normalizeFilterValue = (field: RuntimeReportFieldMetadata, rawValue: unknown): unknown => {
     if (rawValue === null || rawValue === undefined) return rawValue
 
@@ -86,6 +155,17 @@ const normalizeFilterValue = (field: RuntimeReportFieldMetadata, rawValue: unkno
             if (normalized === 'false') return false
         }
         return undefined
+    }
+
+    if (field.dataType === 'DATE') {
+        const normalized = normalizeDateFilterValue(rawValue)
+        if (normalized) return normalized
+        if (typeof rawValue === 'string' && rawValue.trim().length === 0) return undefined
+        throw new UpdateFailure(400, {
+            error: 'Report date filter must be a valid ISO date or timestamp',
+            code: 'REPORT_FILTER_VALUE_INVALID',
+            field: field.codename
+        })
     }
 
     return rawValue
@@ -149,6 +229,15 @@ const buildReportFilterClause = (
         return `${textExpressionSql} ILIKE ${addValue(`%${escapeLikeWildcards(String(normalizedValue))}`)} ESCAPE '\\'`
     }
     if (filter.operator === 'equals') {
+        if (field.dataType === 'DATE' && typeof normalizedValue === 'string') {
+            const start = new Date(normalizedValue)
+            start.setUTCSeconds(0, 0)
+            const end = new Date(start.getTime() + 60_000)
+            values.push(start.toISOString(), end.toISOString())
+            const startPlaceholder = `$${values.length - 1}`
+            const endPlaceholder = `$${values.length}`
+            return `(${columnSql} >= ${startPlaceholder} AND ${columnSql} < ${endPlaceholder})`
+        }
         return buildReportFilterEqualityExpression(field, addValue(normalizedValue), referenceAlias)
     }
 
@@ -421,7 +510,10 @@ export class RuntimeReportsService {
             ...(params.accessCondition?.trim() ? [params.accessCondition.trim()] : [])
         ]
 
-        const filters = [...(definition.datasource.query?.filters ?? []), ...definition.filters, ...(params.filters ?? [])]
+        const requestFilters = params.filters ?? []
+        const requestSort = validateRequestedSort(params.sort)
+        assertRequestedReportFields(definition, requestFilters, requestSort ?? [])
+        const filters = [...(definition.datasource.query?.filters ?? []), ...definition.filters, ...requestFilters]
         const resolvedFilters = filters.map((filter) => ({ filter, field: resolveReportField(params.fields, filter.field) }))
 
         const selectedFields = definition.columns.map((column) => {
@@ -433,6 +525,7 @@ export class RuntimeReportsService {
         const referenceJoinSpecs: Array<{ field: RuntimeReportFieldMetadata; alias: string }> = []
         const selectedReferenceAliases = new Set<string>()
         const filterReferenceAliases = new Set<string>()
+        const sortReferenceAliases = new Set<string>()
         const ensureReferenceAlias = (field: RuntimeReportFieldMetadata): string | null => {
             if (!field.referenceLabel) return null
 
@@ -474,12 +567,24 @@ export class RuntimeReportsService {
                 })
             }
         })
-        const selectReferenceAliases = new Set([...filterReferenceAliases, ...selectedReferenceAliases])
-        const orderClauses = (definition.datasource.query?.sort ?? []).map((sort) => {
-            const field = resolveReportField(params.fields, sort.field)
-            return `${qColumn(field.columnName)} ${sort.direction.toUpperCase()} NULLS LAST`
+        const configuredSort = definition.datasource.query?.sort ?? []
+        const effectiveSort = requestSort ?? configuredSort
+        const orderClauses = effectiveSort.map((item) => {
+            if (item.direction !== 'asc' && item.direction !== 'desc') {
+                throw new UpdateFailure(400, { error: 'Invalid report sort direction', code: 'REPORT_SORT_INVALID' })
+            }
+            const field = resolveReportField(params.fields, item.field)
+            const referenceAlias = ensureReferenceAlias(field)
+            if (referenceAlias && field.referenceLabel) sortReferenceAliases.add(referenceAlias)
+            const columnSql = qColumn(field.columnName)
+            const orderExpression = referenceAlias
+                ? `COALESCE(${qColumn(referenceAlias)}.label_value::text, ${columnSql}::text)`
+                : columnSql
+            return `${orderExpression} ${item.direction.toUpperCase()} NULLS LAST`
         })
-        orderClauses.push('_upl_created_at DESC', 'id ASC')
+        if (effectiveSort.length === 0 && requestSort === undefined) orderClauses.push('_upl_created_at DESC')
+        orderClauses.push('id ASC')
+        const selectReferenceAliases = new Set([...filterReferenceAliases, ...selectedReferenceAliases, ...sortReferenceAliases])
 
         const outputAliases = new Set<string>()
         const sqlAliases = new Set<string>()
