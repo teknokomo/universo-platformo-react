@@ -3779,7 +3779,7 @@ test.describe('LMS Snapshot Import Runtime Flow', () => {
             await expect(filterColumnSelect).toHaveText('Started at')
             await expect(filterOperatorSelect).toHaveText('is')
             await expect(dateTimeFilterInput).toHaveValue('2026-10-14T08:30')
-            await expectNoPageHorizontalOverflow(timezoneReportPage)
+            await expectNoPageHorizontalOverflow(timezoneReportPage, 'LMS quiz attempt report in Europe/Moscow')
             await timezoneReportPage.screenshot({
                 path: testInfo.outputPath('lms-report-datetime-filter-europe-moscow.png'),
                 fullPage: true
@@ -3798,7 +3798,10 @@ test.describe('LMS Snapshot Import Runtime Flow', () => {
             await expect(dateTimeFilterInput).toHaveValue('')
             await expect(filterColumnSelect).toHaveText('Started at')
             await expect(filterOperatorSelect).toHaveText('is')
-            await expectNoPageHorizontalOverflow(timezoneReportPage)
+            await expectNoPageHorizontalOverflow(
+                timezoneReportPage,
+                'LMS quiz attempt report after clearing the date-time filter in Europe/Moscow'
+            )
         } finally {
             await timezoneReportContext.close()
         }
