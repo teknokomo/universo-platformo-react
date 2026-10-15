@@ -62,6 +62,7 @@ function holdAnswerResponse(page: Page, answerPath: string) {
     const captured = deferred<HeldAnswerResponse>()
     const releaseResponse = deferred<void>()
     const matchesAnswer = (url: URL) => url.pathname === answerPath
+    let shouldDropResponse = false
     const handler = async (route: Route) => {
         try {
             const response = await route.fetch()
@@ -72,6 +73,10 @@ function holdAnswerResponse(page: Page, answerPath: string) {
                 body: responseText ? JSON.parse(responseText) : null
             })
             await releaseResponse.promise
+            if (shouldDropResponse) {
+                await route.abort('connectionfailed')
+                return
+            }
             await route.fulfill({ response })
         } catch (error) {
             captured.reject(error)
@@ -85,6 +90,12 @@ function holdAnswerResponse(page: Page, answerPath: string) {
         release: () => {
             if (released) return
             released = true
+            releaseResponse.resolve(undefined)
+        },
+        drop: () => {
+            if (released) return
+            released = true
+            shouldDropResponse = true
             releaseResponse.resolve(undefined)
         },
         remove: () => page.unroute(matchesAnswer, handler)
@@ -376,20 +387,16 @@ test('@flow LMS guest quiz submits touch and keyboard answers one at a time and 
         let secondAnswerResponse: Response
         try {
             await expect(secondAnswer, 'Arrow keys must select the requested answer without submitting it').toBeChecked()
-            const submitKeyboardAnswer = guestPage.getByRole('button', { name: 'Submit answer', exact: true })
-            await expect(submitKeyboardAnswer).toBeVisible()
-            await expect(guestPage.getByText('Answer selected. Use the Submit answer button to continue.')).toBeVisible()
-            expect(keyboardAnswerRequests.getCount()).toBe(0)
-            await guestPage.keyboard.press('Tab')
-            await expect(submitKeyboardAnswer, 'The selected answer must have a keyboard-accessible confirmation').toBeFocused()
+            await expect(guestPage.getByRole('button', { name: 'Submit answer', exact: true })).toHaveCount(0)
+            await expect(guestPage.getByText('Use Space or Enter to submit the focused answer.')).toBeVisible()
             expect(keyboardAnswerRequests.getCount()).toBe(0)
             const secondAnswerResponsePromise = guestPage.waitForResponse((response) => {
                 const url = new URL(response.url())
                 return response.request().method() === 'PUT' && url.pathname === firstAnswerPath
             })
-            await guestPage.keyboard.press('Enter')
+            await guestPage.keyboard.press('Space')
             secondAnswerResponse = await secondAnswerResponsePromise
-            expect(secondAnswerResponse.status(), 'Keyboard confirmation must submit the selected answer').toBe(200)
+            expect(secondAnswerResponse.status(), 'The default answer action must save and advance immediately').toBe(200)
             expect(keyboardAnswerRequests.getCount()).toBe(1)
         } finally {
             keyboardAnswerRequests.stop()
@@ -431,6 +438,114 @@ test('@flow LMS guest quiz submits touch and keyboard answers one at a time and 
                 await expectNoAccessibilityViolations(guestPage, `LMS guest quiz ${viewport.name}`)
             }
         })
+
+        for (let questionIndex = 2; questionIndex < expectedQuestions.length - 1; questionIndex += 1) {
+            const currentCanonicalQuestion = expectedQuestions[questionIndex]
+            const nextCanonicalQuestion = expectedQuestions[questionIndex + 1]
+            const option = currentCanonicalQuestion?.options[0]
+            const currentPrompt = currentCanonicalQuestion ? readLocalizedText(currentCanonicalQuestion.prompt, 'en') : undefined
+            const nextPrompt = nextCanonicalQuestion ? readLocalizedText(nextCanonicalQuestion.prompt, 'en') : undefined
+            if (!option || !currentPrompt || !nextPrompt) {
+                throw new Error(`The guest quiz fixture is incomplete at question ${questionIndex + 1}`)
+            }
+
+            await expect(guestPage.getByRole('heading', { name: currentPrompt, exact: true })).toBeVisible()
+            await expect(
+                guestPage.getByText(`Question ${questionIndex + 1} of ${application.gradeQuestionCount}`, { exact: true })
+            ).toBeVisible()
+            const answerResponsePromise = guestPage.waitForResponse((response) => {
+                const url = new URL(response.url())
+                return response.request().method() === 'PUT' && url.pathname === firstAnswerPath
+            })
+            await guestPage.getByRole('radiogroup').getByRole('radio', { name: option.text, exact: true }).tap()
+            const answerResponse = await answerResponsePromise
+            expect(answerResponse.status(), `Answer ${questionIndex + 1} must be saved before advancing`).toBe(200)
+            const answerPayload = await answerResponse.json()
+            assertPublicGuestAnswerResponse(answerPayload, `answer ${questionIndex + 1} response`)
+            const answeredAttempt = asRecord(
+                asRecord(answerPayload, `Answer ${questionIndex + 1} envelope`).attempt,
+                `Answer ${questionIndex + 1} attempt`
+            )
+            expect(getRuntimeField(answeredAttempt, 'AnsweredCount')).toBe(questionIndex + 1)
+            getCurrentQuestion(answeredAttempt, `Answer ${questionIndex + 1} response`, questionIndex + 1, nextPrompt)
+            await expect(guestPage.getByRole('heading', { name: nextPrompt, exact: true })).toBeVisible()
+        }
+
+        const lastQuestionIndex = expectedQuestions.length - 1
+        const lastCanonicalQuestion = expectedQuestions[lastQuestionIndex]
+        const lastOption = lastCanonicalQuestion?.options[0]
+        const lastPrompt = lastCanonicalQuestion ? readLocalizedText(lastCanonicalQuestion.prompt, 'en') : undefined
+        if (!lastOption || !lastPrompt) throw new Error('The guest quiz fixture is missing its final question or answer option')
+        await expect(guestPage.getByRole('heading', { name: lastPrompt, exact: true })).toBeVisible()
+        await expect(
+            guestPage.getByText(`Question ${application.gradeQuestionCount} of ${application.gradeQuestionCount}`, { exact: true })
+        ).toBeVisible()
+
+        const finalAnswer = guestPage.getByRole('radiogroup').getByRole('radio', { name: lastOption.text, exact: true })
+        const heldFinalAnswer = await holdAnswerResponse(guestPage, firstAnswerPath)
+        const finalAnswerFailurePromise = guestPage.waitForEvent('requestfailed', {
+            predicate: (request) => request.method() === 'PUT' && new URL(request.url()).pathname === firstAnswerPath
+        })
+        const finalAnswerActivation = finalAnswer.tap()
+        try {
+            const finalAnswerResponse = await heldFinalAnswer.response
+            expect(finalAnswerResponse.status, 'The final answer must be accepted by the server before its response is lost').toBe(200)
+            assertPublicGuestAnswerResponse(finalAnswerResponse.body, 'persisted final answer response')
+            const finalAnsweredAttempt = asRecord(
+                asRecord(finalAnswerResponse.body, 'Persisted final answer envelope').attempt,
+                'Persisted final answer attempt'
+            )
+            expect(getRuntimeField(finalAnsweredAttempt, 'AnsweredCount')).toBe(application.gradeQuestionCount)
+            expect(getRuntimeField(finalAnsweredAttempt, 'CurrentQuestionIndex')).toBe(application.gradeQuestionCount)
+
+            heldFinalAnswer.drop()
+            await finalAnswerFailurePromise
+            await finalAnswerActivation
+            await testInfo.attach('lms-guest-quiz-final-answer-save-error.png', {
+                body: await guestPage.screenshot({ fullPage: true, animations: 'disabled' }),
+                contentType: 'image/png'
+            })
+            await expect(guestPage.getByRole('alert')).toContainText('Failed to save your answer.')
+
+            const finalizeResponsePromise = guestPage.waitForResponse((response) => {
+                const url = new URL(response.url())
+                return response.request().method() === 'POST' && url.pathname === `${attemptPath}/finalize`
+            })
+            await guestContext.setOffline(true)
+            await expect.poll(() => guestPage.evaluate(() => navigator.onLine)).toBe(false)
+            const recoveredAttemptResponsePromise = guestPage.waitForResponse((response) => {
+                const url = new URL(response.url())
+                return response.request().method() === 'GET' && url.pathname === attemptPath
+            })
+            await guestContext.setOffline(false)
+            const recoveredAttemptResponse = await recoveredAttemptResponsePromise
+            expect(recoveredAttemptResponse.status(), 'Returning online must recover the persisted final answer').toBe(200)
+            const recoveredAttempt = asRecord(await recoveredAttemptResponse.json(), 'Recovered final answer attempt')
+            assertPublicAssessmentAttemptState(recoveredAttempt, 'recovered final answer attempt')
+            expect(getRuntimeField(recoveredAttempt, 'AnsweredCount')).toBe(application.gradeQuestionCount)
+            expect(getRuntimeField(recoveredAttempt, 'CurrentQuestionIndex')).toBe(application.gradeQuestionCount)
+
+            const finalizeResponse = await finalizeResponsePromise
+            expect(finalizeResponse.status(), 'The recovered complete attempt must be finalized').toBe(200)
+            await expect(guestPage.getByRole('heading', { name: 'Quiz completed', exact: true })).toBeVisible()
+            const resultStatus = guestPage.getByRole('status')
+            await expect(resultStatus).toContainText(new RegExp(`Correct answers: \\d+ of ${application.gradeQuestionCount}`, 'u'))
+            await expect(guestPage.getByRole('alert')).toHaveCount(0)
+            await expectNoTechnicalLeakage(guestPage.getByRole('main'), {
+                label: 'LMS guest quiz result after recovering the final answer',
+                checkUuidSubstrings: true
+            })
+            await expectNoPageHorizontalOverflow(guestPage, 'LMS guest quiz recovered result at 390px')
+            await expectNoAccessibilityViolations(guestPage, 'LMS guest quiz recovered final result')
+            await testInfo.attach('lms-guest-quiz-recovered-final-result.png', {
+                body: await guestPage.screenshot({ fullPage: true, animations: 'disabled' }),
+                contentType: 'image/png'
+            })
+        } finally {
+            heldFinalAnswer.drop()
+            await finalAnswerActivation.catch(() => undefined)
+            await heldFinalAnswer.remove()
+        }
     } finally {
         await cleanupLmsMarathonGuestFlow(resources)
     }

@@ -1,4 +1,4 @@
-> **Last Reviewed**: 2026-10-01 (refreshed: repository 0.83.0-alpha; complete Entity-backed Marketing Page authoring/runtime; shared non-published MUI dropdown baseline; active configuration set rechecked)
+> **Last Reviewed**: 2026-10-14 (refreshed: repository 0.85.0-alpha; LMS guest quiz, reporting, and published runtime baseline rechecked)
 
 # Product Context
 
@@ -164,8 +164,8 @@ product.
 
 ## Current Status
 
--   **Repository version**: `0.83.0-alpha`.
--   **Recent focus**: complete Entity-backed Marketing Page authoring/runtime, unified application-template widgets/scoped layouts, and shared MUI selection controls for non-published management surfaces; Interpretation Network and PlayCanvas/MMOOMM remain major runtime workloads, and LMS remains an active product configuration.
+-   **Repository version**: `0.85.0-alpha`.
+-   **Recent focus**: LMS guest quiz delivery, answer persistence/retries, and workspace-scoped reporting; preserve the completed Entity-backed Marketing Page authoring/runtime, unified application-template widgets/scoped layouts, and shared MUI selection controls. Interpretation Network and PlayCanvas/MMOOMM remain major runtime workloads.
 -   **Platform groundwork**: ongoing consolidation of the metahub
     configuration model, the entity type constructor, and the
     metahub-as-application transition.

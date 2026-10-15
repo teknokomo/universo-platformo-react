@@ -12,7 +12,7 @@ const {
 } = require('./widgetBindingService.fixtures')
 
 describe('generic Metahub widget binding service', () => {
-    it('discovers a dynamic RelationBuilder source only when its server-owned REF matches the selected parent', async () => {
+    it('discovers a custom RelationBuilder source only when its parent REF and order field satisfy the scoped server-owned contract', async () => {
         const harness = createHarness({
             widgetKey: 'relationBuilder',
             templateKey: 'dashboard',
@@ -26,7 +26,7 @@ describe('generic Metahub widget binding service', () => {
                         parentFieldCodename: 'InternalReference',
                         parentFieldRequired: true,
                         titleFieldCodename: 'Title',
-                        sortOrderFieldCodename: 'SortOrder',
+                        sortOrderFieldCodename: 'InternalRank',
                         displayFields: []
                     }
                 ]

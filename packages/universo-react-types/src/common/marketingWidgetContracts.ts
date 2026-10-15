@@ -419,8 +419,8 @@ export const MARKETING_WIDGET_CONTRACTS: Readonly<Record<MarketingWidgetKey, Mar
                     text('subheader', 'Subheader', 255, false),
                     numeric('price', 'Price'),
                     text('period', 'Period', 120),
-                    text('actionLabel', 'ActionLabel', 120),
-                    safeHref('actionHref', 'ActionHref'),
+                    text('actionLabel', 'ActionLabel', 120, false),
+                    safeHref('actionHref', 'ActionHref', false),
                     boolean('featured', 'Featured'),
                     numeric('order', 'SortOrder'),
                     boolean('visible', 'IsVisible')

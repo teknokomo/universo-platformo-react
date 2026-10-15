@@ -74,9 +74,20 @@ export const isTrustedServerOwnedStructuralComponent = (
         ) ?? false
     const isRelationParentRequirement =
         requirement.field === 'parent' && matchesWidgetBindingRelationParent(slot, requirement, component, context)
+    const isRelationScopedOrderRequirement =
+        requirement.field === 'order' &&
+        requirement.valueType === 'number' &&
+        requirement.requireServerOwned === true &&
+        slot.selectorKinds.length === 1 &&
+        slot.selectorKinds[0] === 'relation-set' &&
+        slot.relation !== undefined &&
+        slot.orderByField === requirement.field
 
     if (requirement.field === 'parent' && requirement.valueType === 'ref') {
         return isRelationParentRequirement && (isRegisteredStructuralField || requirement.requireServerOwned === true)
+    }
+    if (requirement.field === 'order' && requirement.valueType === 'number') {
+        return isRegisteredStructuralField || isRelationScopedOrderRequirement
     }
 
     return isRegisteredStructuralField

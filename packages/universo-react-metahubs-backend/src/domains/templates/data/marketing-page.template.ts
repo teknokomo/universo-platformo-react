@@ -409,8 +409,8 @@ const pricingComponents: TemplateSeedComponent[] = [
         validationRules: { min: 0, max: 1000000, precision: 10, scale: 2 }
     }),
     localizedComponent('Period', 'Billing period', 'Период оплаты', 120, true),
-    localizedComponent('ActionLabel', 'Action label', 'Подпись кнопки', 120, true),
-    marketingHrefComponent('ActionHref', 'Action target', 'Цель кнопки', 500, true),
+    localizedComponent('ActionLabel', 'Action label', 'Подпись кнопки', 120),
+    marketingHrefComponent('ActionHref', 'Action target', 'Цель кнопки', 500),
     marketingComponent('Featured', 'Featured', 'Рекомендуемый', { dataType: 'BOOLEAN', isRequired: true }),
     marketingComponent('SortOrder', 'Order', 'Порядок', { dataType: 'NUMBER', isRequired: true, validationRules: { min: 0, max: 100 } }),
     marketingComponent('IsVisible', 'Visible', 'Видимость', { dataType: 'BOOLEAN', isRequired: true })

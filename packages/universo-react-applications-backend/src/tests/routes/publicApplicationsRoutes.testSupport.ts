@@ -187,6 +187,7 @@ const publicGuestRuntimeSettings = {
                     passingScorePercent: 'PassingScorePercent',
                     maxAttempts: 'MaxAttempts',
                     timeLimitSeconds: 'TimeLimitSeconds',
+                    confirmAnswerBeforeNext: 'ConfirmAnswerBeforeNext',
                     completionText: 'CompletionText',
                     questions: 'Questions'
                 },
@@ -221,7 +222,9 @@ const publicGuestRuntimeSettings = {
                     questionsSnapshot: 'QuestionsSnapshot',
                     questionSetDigest: 'QuestionSetDigest',
                     accessLinkId: 'AccessLinkId',
+                    classIdSnapshot: 'ClassIdSnapshot',
                     score: 'Score',
+                    scorePercent: 'ScorePercent',
                     totalQuestions: 'TotalQuestions',
                     passed: 'Passed',
                     status: 'Status'

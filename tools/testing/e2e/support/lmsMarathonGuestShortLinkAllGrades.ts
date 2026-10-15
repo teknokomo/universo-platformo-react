@@ -127,15 +127,15 @@ export async function runLmsMarathonAllGradesGuestSmoke(flow: LmsMarathonPrepare
             })
 
             const startButton = page.getByRole('button', { name: 'Start learning' })
-            await startButton.click()
-            await expect(page.getByText('Accept the Terms of Service to continue.', { exact: true })).toBeVisible()
-            await expect(page.getByText('Accept the Privacy Policy to continue.', { exact: true })).toBeVisible()
+            await expect(startButton, 'Required fields and consents keep guest intake disabled').toBeDisabled()
             expect(guestSessionRequestCount, 'The guest session must wait for both required consents').toBe(0)
 
             await termsConsent.check()
+            await expect(startButton, 'Both required consents are needed before continuing').toBeDisabled()
             await privacyConsent.check()
             await expect(termsConsent).toBeChecked()
             await expect(privacyConsent).toBeChecked()
+            await expect(startButton).toBeEnabled()
 
             const guestSessionRequestPromise = page.waitForRequest((request) => {
                 const requestUrl = new URL(request.url())

@@ -64,10 +64,25 @@ export async function verifyLmsMarathonAuthorizedReport(
         return studentId === submittedStudentId || studentId === timedOutStudentId
     })
     expect(matchingReportRows, 'The saved authorized report must include the submitted and timed-out guests').toHaveLength(2)
+    expect(reportPayload.definition.columns.map((column: { field: string }) => column.field)).toEqual(
+        expect.arrayContaining(['ClassIdSnapshot', 'ScorePercent'])
+    )
     const submittedReportRow = matchingReportRows.find(
         (row) => getRuntimeReferenceId(getRuntimeField(row, 'StudentId')) === submittedStudentId
     )
     expect(submittedReportRow, 'The saved report must keep the one intentionally incorrect answer').toBeTruthy()
+    const submittedQuizId = getRuntimeReferenceId(getRuntimeField(submittedReportRow as RuntimeRecord, 'QuizId'))
+    const submittedClassSnapshot = getRuntimeField(submittedReportRow as RuntimeRecord, 'ClassIdSnapshot')
+    const submittedClassId = getRuntimeReferenceId(submittedClassSnapshot)
+    const submittedClassLabel = readLocalizedText(getRuntimeField(submittedClassSnapshot as RuntimeRecord, 'Label'))
+    const submittedScorePercent = Number(getRuntimeField(submittedReportRow as RuntimeRecord, 'ScorePercent'))
+    expect(submittedQuizId, 'The report must resolve the quiz reference').toBeTruthy()
+    expect(submittedClassId, 'The attempt must retain its class snapshot reference').toBeTruthy()
+    expect(submittedClassLabel, 'The class snapshot must have a human-readable label').toBeTruthy()
+    expect(submittedScorePercent, 'The report must expose the percentage score').toBeCloseTo(
+        ((gradeQuestionCount - 1) / gradeQuestionCount) * 100,
+        2
+    )
     expect(Number(getRuntimeField(submittedReportRow as RuntimeRecord, 'TotalQuestions'))).toBe(gradeQuestionCount)
     expect(getRuntimeField(submittedReportRow as RuntimeRecord, 'Passed')).toBe(true)
     expect(readLocalizedText(getRuntimeField(submittedReportRow as RuntimeRecord, 'Status'))).toBe('Passed')
@@ -75,6 +90,56 @@ export async function verifyLmsMarathonAuthorizedReport(
         readLocalizedText(getRuntimeField(submittedReportRow as RuntimeRecord, 'SubmittedAt')) ??
         String(getRuntimeField(submittedReportRow as RuntimeRecord, 'SubmittedAt') ?? '')
     expect(Number.isFinite(Date.parse(submittedAt)), 'The submitted attempt must have a completion timestamp').toBe(true)
+
+    const sortPayload = {
+        reportCodename: 'QuizAttemptResults',
+        limit: 100,
+        offset: 0,
+        sort: [{ field: 'ScorePercent', direction: 'desc' }]
+    }
+    const [sortedReportResponse, repeatedSortedReportResponse] = await Promise.all([
+        sendWithCsrf(
+            api,
+            'POST',
+            `/api/v1/applications/${applicationId}/runtime/reports/run?workspaceId=${encodeURIComponent(publicWorkspaceId)}`,
+            sortPayload
+        ),
+        sendWithCsrf(
+            api,
+            'POST',
+            `/api/v1/applications/${applicationId}/runtime/reports/run?workspaceId=${encodeURIComponent(publicWorkspaceId)}`,
+            sortPayload
+        )
+    ])
+    expect(sortedReportResponse.status, 'The report API must accept validated server sorting').toBe(200)
+    expect(repeatedSortedReportResponse.status).toBe(200)
+    const sortedRows = runtimeRecords((await sortedReportResponse.json()).rows)
+    const repeatedSortedRows = runtimeRecords((await repeatedSortedReportResponse.json()).rows)
+    const sortedPercentages = sortedRows.map((row) => Number(getRuntimeField(row, 'ScorePercent')))
+    expect(sortedPercentages).toEqual([...sortedPercentages].sort((left, right) => right - left))
+    expect(repeatedSortedRows).toEqual(sortedRows)
+
+    const submittedAtMillis = Date.parse(submittedAt)
+    const filterResponse = await sendWithCsrf(
+        api,
+        'POST',
+        `/api/v1/applications/${applicationId}/runtime/reports/run?workspaceId=${encodeURIComponent(publicWorkspaceId)}`,
+        {
+            reportCodename: 'QuizAttemptResults',
+            limit: 100,
+            offset: 0,
+            filters: [
+                { field: 'QuizId', operator: 'equals', value: submittedQuizId },
+                { field: 'ClassIdSnapshot', operator: 'equals', value: submittedClassId },
+                { field: 'SubmittedAt', operator: 'greaterThanOrEqual', value: new Date(submittedAtMillis - 100).toISOString() },
+                { field: 'SubmittedAt', operator: 'lessThanOrEqual', value: new Date(submittedAtMillis + 100).toISOString() }
+            ]
+        }
+    )
+    expect(filterResponse.status, 'Quiz, class, and date-range filters must be supported server-side').toBe(200)
+    const filteredRows = runtimeRecords((await filterResponse.json()).rows)
+    expect(filteredRows).toHaveLength(1)
+    expect(getRuntimeReferenceId(getRuntimeField(filteredRows[0] as RuntimeRecord, 'StudentId'))).toBe(submittedStudentId)
 
     const timedOutReportRow = matchingReportRows.find(
         (row) => getRuntimeReferenceId(getRuntimeField(row, 'StudentId')) === timedOutStudentId
@@ -130,6 +195,8 @@ export async function verifyLmsMarathonAuthorizedReport(
     })
     await expect(participantReportTable).toBeVisible({ timeout: 60_000 })
     await expect(participantReportTable).toHaveCount(1)
+    await expect(participantReportTable.getByRole('columnheader', { name: 'Class', exact: true })).toBeVisible()
+    await expect(participantReportTable.getByRole('columnheader', { name: 'Score (%)', exact: true })).toBeVisible()
     const submittedParticipantCell = participantReportTable.getByRole('gridcell', {
         name: submittedParticipant.participantName,
         exact: true
@@ -148,17 +215,33 @@ export async function verifyLmsMarathonAuthorizedReport(
     await expect(timeoutReportRow).toHaveRole('row')
     await expect(participantReportRow).toBeVisible()
     await expect(timeoutReportRow).toBeVisible()
+    await expect(participantReportRow.locator('[data-field="SubmittedAt"]')).not.toHaveText(submittedAt)
     await expectDataGridCellTextByColumn(participantReportTable, participantReportRow, 'Score', String(gradeQuestionCount - 1))
+    await expectDataGridCellTextByColumn(participantReportTable, participantReportRow, 'Score (%)', String(submittedScorePercent))
+    await expectDataGridCellTextByColumn(participantReportTable, participantReportRow, 'Class', submittedClassLabel as string)
     await expectDataGridCellTextByColumn(participantReportTable, participantReportRow, 'Passed', 'Yes')
     await expectDataGridCellTextByColumn(participantReportTable, timeoutReportRow, 'Score', '0')
     await expectDataGridCellTextByColumn(participantReportTable, timeoutReportRow, 'Passed', 'No')
     await expectDataGridCellTextByColumn(participantReportTable, participantReportRow, 'Total questions', String(gradeQuestionCount))
+
+    const sortedRun = page.waitForResponse((response) => {
+        if (!response.url().includes('/runtime/reports/run') || response.request().method() !== 'POST') return false
+        const requestBody = response.request().postDataJSON() as { sort?: Array<{ field?: string }> } | null
+        return requestBody?.sort?.[0]?.field === 'ScorePercent'
+    })
+    await participantReportTable.getByRole('columnheader', { name: 'Score (%)', exact: true }).click()
+    const sortedBrowserResponse = await sortedRun
+    expect(sortedBrowserResponse.status(), 'The score percentage header must request server sorting').toBe(200)
+    const sortedBrowserRows = runtimeRecords((await sortedBrowserResponse.json()).rows)
+    const browserPercentages = sortedBrowserRows.map((row) => Number(getRuntimeField(row, 'ScorePercent')))
+    expect(browserPercentages).toEqual([...browserPercentages].sort((left, right) => left - right))
     for (const viewport of [
         { width: 1920, height: 1080 },
         { width: 768, height: 1024 },
         { width: 390, height: 844 }
     ]) {
         await page.setViewportSize(viewport)
+        await page.mouse.move(0, 0)
         await expectNoPageHorizontalOverflow(page, `Authorized LMS Marathon quiz results report at ${viewport.width}px`)
         await expect(participantReportRow).toBeVisible()
         await expect(timeoutReportRow).toBeVisible()
@@ -203,6 +286,8 @@ export async function verifyLmsMarathonAuthorizedReport(
     })
     await expect(russianParticipantCell, 'The Russian report must show the exact participant name').toBeVisible()
     await expect(russianParticipantReportTable.getByRole('columnheader', { name: 'Балл', exact: true })).toBeVisible()
+    await expect(russianParticipantReportTable.getByRole('columnheader', { name: 'Класс', exact: true })).toBeVisible()
+    await expect(russianParticipantReportTable.getByRole('columnheader', { name: 'Результат (%)', exact: true })).toBeVisible()
     await expectNoTechnicalLeakage(russianParticipantReportTable, {
         label: 'Authorized Russian LMS Marathon result report',
         checkUuidSubstrings: true

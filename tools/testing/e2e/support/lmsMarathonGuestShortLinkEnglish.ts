@@ -1,7 +1,6 @@
 import { expect } from '../fixtures/test'
 import { expectNoPageHorizontalOverflow, expectNoTechnicalLeakage } from './browser/runtimeUx'
 import {
-    acceptGuestLegalConsents,
     assertPublicAssessmentAttemptState,
     expectNoAccessibilityViolations,
     expectCurrentAttemptQuestion,
@@ -154,21 +153,35 @@ export async function runLmsMarathonEnglishGuestQuiz(flow: LmsMarathonPreparedFl
         }
     })
     const startLearningButton = guestPage.getByRole('button', { name: 'Start learning' })
-    await startLearningButton.click()
-    await expect(guestPage.getByText('Accept the Terms of Service to continue.', { exact: true })).toBeVisible()
-    await expect(guestPage.getByText('Accept the Privacy Policy to continue.', { exact: true })).toBeVisible()
-    expect(guestSessionRequestCount, 'Required legal consent must be checked before a guest session is created').toBe(0)
+    const firstNameInput = guestPage.getByLabel('First name')
+    const lastNameInput = guestPage.getByLabel('Last name')
+    const termsConsent = guestPage.getByRole('checkbox', { name: 'I agree to the Terms of Service' })
+    const privacyConsent = guestPage.getByRole('checkbox', { name: 'I have read and accept the Privacy Policy' })
+    await expect(startLearningButton, 'Empty required fields and consents must keep guest intake disabled').toBeDisabled()
+    expect(guestSessionRequestCount, 'The guest session must wait for required identity data and consents').toBe(0)
 
-    await acceptGuestLegalConsents(guestPage, 'en')
-    await guestPage.getByLabel('First name').fill('')
-    await guestPage.getByLabel('Last name').fill('')
-    await startLearningButton.click()
-    await expect(guestPage.getByText('Enter your first name.', { exact: true })).toBeVisible()
-    await expect(guestPage.getByText('Enter your last name.', { exact: true })).toBeVisible()
-    expect(guestSessionRequestCount, 'Required names must be validated before creating a guest session').toBe(0)
+    await firstNameInput.fill(participantFirstName)
+    await lastNameInput.fill(participantLastName)
+    await expect(startLearningButton, 'Both legal consents are required before continuing').toBeDisabled()
+    await termsConsent.check()
+    await expect(startLearningButton, 'Accepting only the terms must keep guest intake disabled').toBeDisabled()
+    await termsConsent.uncheck()
+    await privacyConsent.check()
+    await expect(startLearningButton, 'Accepting only the privacy policy must keep guest intake disabled').toBeDisabled()
+    await termsConsent.check()
+    await expect(startLearningButton, 'Complete identity data and both consents must enable guest intake').toBeEnabled()
 
-    await guestPage.getByLabel('First name').fill(participantFirstName)
-    await guestPage.getByLabel('Last name').fill(participantLastName)
+    await firstNameInput.fill('')
+    await expect(startLearningButton, 'A missing required name must disable guest intake even after consent').toBeDisabled()
+    expect(guestSessionRequestCount, 'Incomplete guest intake must not create a session').toBe(0)
+    await firstNameInput.fill(participantFirstName)
+    await expect(startLearningButton).toBeEnabled()
+    await lastNameInput.fill('')
+    await expect(startLearningButton, 'A missing required surname must disable guest intake even after consent').toBeDisabled()
+    expect(guestSessionRequestCount, 'An incomplete guest identity must not create a session').toBe(0)
+    await lastNameInput.fill(participantLastName)
+    await expect(startLearningButton).toBeEnabled()
+
     const guestSessionRequestPromise = guestPage.waitForRequest((request) => {
         const requestUrl = new URL(request.url())
         return request.method() === 'POST' && requestUrl.pathname === `/api/v1/public/a/${applicationId}/guest-session`
@@ -393,19 +406,7 @@ export async function runLmsMarathonEnglishGuestQuiz(flow: LmsMarathonPreparedFl
             applicationId,
             attemptId: startedAttempt.attemptId,
             option: selectedAnswer,
-            label: `grade quiz answer ${index + 1}`,
-            ...(index === 1
-                ? {
-                      activate: async () => {
-                          await selectedAnswer.focus()
-                          await guestPage.keyboard.press('Space')
-                      },
-                      confirm: async (submitButton) => {
-                          await submitButton.focus()
-                          await guestPage.keyboard.press('Enter')
-                      }
-                  }
-                : {})
+            label: `grade quiz answer ${index + 1}`
         })
         expect(nextAttempt.currentQuestionIndex).toBe(index + 1)
         expect(nextAttempt.totalQuestions).toBe(gradeQuestionCount)

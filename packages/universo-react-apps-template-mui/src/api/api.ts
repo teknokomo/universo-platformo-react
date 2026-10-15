@@ -656,12 +656,13 @@ export async function runRuntimeReport(options: {
     reportId?: string
     reportCodename?: string
     filters?: ReportFilter[]
+    sort?: RuntimeDatasourceSort[]
     limit?: number
     offset?: number
     locale?: string
     workspaceId?: string | null
 }): Promise<RuntimeReportRunResponse> {
-    const { apiBaseUrl, applicationId, reportId, reportCodename, filters, limit, offset, locale, workspaceId } = options
+    const { apiBaseUrl, applicationId, reportId, reportCodename, filters, sort, limit, offset, locale, workspaceId } = options
     const url = new URL(buildAppApiUrl(apiBaseUrl, applicationId, '/reports/run'))
     if (workspaceId?.trim()) {
         url.searchParams.set('workspaceId', workspaceId.trim())
@@ -674,6 +675,7 @@ export async function runRuntimeReport(options: {
             reportId,
             reportCodename,
             ...(filters?.length ? { filters } : {}),
+            ...(sort !== undefined ? { sort } : {}),
             limit,
             offset,
             locale
@@ -696,12 +698,13 @@ export async function exportRuntimeReportCsv(options: {
     reportId?: string
     reportCodename?: string
     filters?: ReportFilter[]
+    sort?: RuntimeDatasourceSort[]
     limit?: number
     offset?: number
     locale?: string
     workspaceId?: string | null
 }): Promise<Blob> {
-    const { apiBaseUrl, applicationId, reportId, reportCodename, filters, limit, offset, locale, workspaceId } = options
+    const { apiBaseUrl, applicationId, reportId, reportCodename, filters, sort, limit, offset, locale, workspaceId } = options
     const url = new URL(buildAppApiUrl(apiBaseUrl, applicationId, '/reports/export'))
     if (workspaceId?.trim()) {
         url.searchParams.set('workspaceId', workspaceId.trim())
@@ -714,6 +717,7 @@ export async function exportRuntimeReportCsv(options: {
             reportId,
             reportCodename,
             ...(filters?.length ? { filters } : {}),
+            ...(sort !== undefined ? { sort } : {}),
             limit,
             offset,
             locale

@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { act } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import {
     resetGuestAppTestHarness,
@@ -19,7 +20,7 @@ import {
 describe('GuestApp quiz attempts', () => {
     beforeEach(resetGuestAppTestHarness)
 
-    it('lets keyboard users move through radio options before submitting the chosen answer', async () => {
+    it('submits the selected answer and advances automatically in the default mode', async () => {
         const user = userEvent.setup()
         render(
             <QueryClientProvider client={createQueryClient()}>
@@ -38,29 +39,92 @@ describe('GuestApp quiz attempts', () => {
 
         const firstOption = screen.getByLabelText('Correct option')
         const chosenOption = screen.getByLabelText('Wrong option')
-        firstOption.focus()
+        act(() => firstOption.focus())
         await user.keyboard('{ArrowDown}')
 
         expect(chosenOption).toBeChecked()
         expect(chosenOption).toHaveFocus()
         expect(guestTestState.guestSavedAnswerIds).toEqual([])
-        expect(screen.getByRole('button', { name: enApps.guest.quizSubmitAnswer })).toBeVisible()
-        expect(screen.getByText(enApps.guest.quizKeyboardAnswerSelected)).toBeVisible()
+        expect(screen.queryByRole('button', { name: enApps.guest.quizSubmitAnswer })).not.toBeInTheDocument()
+        expect(screen.getByText(enApps.guest.quizKeyboardSubmitHint)).toBeVisible()
 
-        await user.keyboard(' ')
-        await user.keyboard('{Enter}')
-
-        expect(chosenOption).toBeChecked()
-        expect(chosenOption).toHaveFocus()
-        expect(screen.getByRole('heading', { name: 'Question prompt' })).toBeInTheDocument()
-        expect(guestTestState.guestSavedAnswerIds).toEqual([])
-
-        const submitAnswer = screen.getByRole('button', { name: enApps.guest.quizSubmitAnswer })
-        await user.tab()
-        expect(submitAnswer).toHaveFocus()
         await user.keyboard(' ')
 
         expect(await screen.findByText('Second question')).toBeInTheDocument()
+        expect(guestTestState.guestSavedAnswerIds).toEqual(['question-1'])
+    })
+
+    it('lets learners change a staged answer until they confirm it', async () => {
+        const user = userEvent.setup()
+        guestTestState.guestConfirmAnswerBeforeNext = true
+        render(
+            <QueryClientProvider client={createQueryClient()}>
+                <GuestApp applicationId='app-1' slug='demo-content' locale='en' apiBaseUrl='/api/v1' />
+            </QueryClientProvider>
+        )
+
+        expect(await screen.findByText('Demo content')).toBeInTheDocument()
+        fillGuestIntake('Guest learner')
+        clickStartLearning()
+        expect(await screen.findByText('Content title')).toBeInTheDocument()
+        fireEvent.click(screen.getByRole('button', { name: 'Next' }))
+        expect(await screen.findByText('Knowledge check')).toBeInTheDocument()
+        fireEvent.click(screen.getByRole('button', { name: 'Open quiz' }))
+        expect(await screen.findByRole('heading', { name: 'Question prompt' })).toBeInTheDocument()
+
+        const correctOption = screen.getByLabelText('Correct option')
+        const wrongOption = screen.getByLabelText('Wrong option')
+        await user.click(wrongOption)
+        expect(wrongOption).toBeChecked()
+        expect(guestTestState.guestSavedAnswerIds).toEqual([])
+        expect(screen.getByRole('button', { name: enApps.guest.quizSubmitAnswer })).toBeVisible()
+        expect(screen.getByText(enApps.guest.quizAnswerSelectedToConfirm)).toBeVisible()
+
+        await user.click(correctOption)
+        expect(correctOption).toBeChecked()
+        expect(guestTestState.guestSavedAnswerIds).toEqual([])
+        await user.click(screen.getByRole('button', { name: enApps.guest.quizSubmitAnswer }))
+
+        expect(await screen.findByText('Second question')).toBeInTheDocument()
+        expect(guestTestState.guestSavedAnswerIds).toEqual(['question-1'])
+    })
+
+    it('retries the currently staged choice after a confirmed answer save fails', async () => {
+        const user = userEvent.setup()
+        guestTestState.guestConfirmAnswerBeforeNext = true
+        guestTestState.guestAnswerResponseOverride = { ok: false, payload: { error: 'temporary failure' } }
+        render(
+            <QueryClientProvider client={createQueryClient()}>
+                <GuestApp applicationId='app-1' slug='demo-content' locale='en' apiBaseUrl='/api/v1' />
+            </QueryClientProvider>
+        )
+
+        expect(await screen.findByText('Demo content')).toBeInTheDocument()
+        fillGuestIntake('Guest learner')
+        clickStartLearning()
+        expect(await screen.findByText('Content title')).toBeInTheDocument()
+        fireEvent.click(screen.getByRole('button', { name: 'Next' }))
+        expect(await screen.findByText('Knowledge check')).toBeInTheDocument()
+        fireEvent.click(screen.getByRole('button', { name: 'Open quiz' }))
+        expect(await screen.findByRole('heading', { name: 'Question prompt' })).toBeInTheDocument()
+
+        await user.click(screen.getByLabelText('Wrong option'))
+        await user.click(screen.getByRole('button', { name: enApps.guest.quizSubmitAnswer }))
+        expect(await screen.findByText('Failed to save your answer.')).toBeInTheDocument()
+
+        const correctOption = screen.getByLabelText('Correct option')
+        await user.click(correctOption)
+        expect(correctOption).toBeChecked()
+        guestTestState.guestAnswerResponseOverride = null
+        await user.click(screen.getByRole('button', { name: 'Retry saving answer' }))
+
+        expect(await screen.findByText('Second question')).toBeInTheDocument()
+        const answerCalls = (
+            globalThis.fetch as unknown as { mock: { calls: Array<[RequestInfo | URL, RequestInit?]> } }
+        ).mock.calls.filter(([input]) => getRequestPathname(input) === '/public/a/app-1/runtime/attempts/attempt-1/answers')
+        expect(answerCalls).toHaveLength(2)
+        expect(JSON.parse(String(answerCalls[0][1]?.body))).toMatchObject({ questionId: 'question-1', optionId: 'option-2' })
+        expect(JSON.parse(String(answerCalls[1][1]?.body))).toMatchObject({ questionId: 'question-1', optionId: 'option-1' })
         expect(guestTestState.guestSavedAnswerIds).toEqual(['question-1'])
     })
 
@@ -337,6 +401,104 @@ describe('GuestApp quiz attempts', () => {
         expect(guestLinkQueryKeys).toContainEqual(['guest-link', 'app-1', 'demo-content', null, null, 'en', 'student-1'])
         expect(JSON.stringify(guestLinkQueryKeys)).not.toContain('token-1')
         expect(fetchMock.mock.calls.some(([input]) => getRequestPathname(input) === '/public/a/app-1/runtime/attempts/start')).toBe(false)
+    })
+
+    it('finalizes a fully answered attempt restored after the last answer response was lost', async () => {
+        window.sessionStorage.setItem(
+            'apps-template-mui:guest-session:app-1:demo-content',
+            JSON.stringify({ participantId: 'student-1', sessionToken: 'token-1' })
+        )
+        window.sessionStorage.setItem('apps-template-mui:guest-attempt:app-1:demo-content:student-1:quiz-1', 'attempt-resume')
+        let answerPersisted = false
+        let finalizeRequestCount = 0
+        const fetchMock = vi.fn(async (input: string | URL, init?: RequestInit) => {
+            const url = String(input)
+            const pathname = getRequestPathname(url)
+
+            if (url.endsWith('/api/v1/auth/csrf')) {
+                return { ok: true, json: async () => ({ csrfToken: 'csrf-token' }) } as Response
+            }
+            if (url.includes('/public/a/app-1/links/demo-content?locale=en')) {
+                return {
+                    ok: true,
+                    json: async () => ({ id: 'link-1', title: 'Demo quiz', targetType: 'quiz', targetId: 'quiz-1' })
+                } as Response
+            }
+            if (url.includes('/public/a/app-1/runtime?')) {
+                return {
+                    ok: true,
+                    json: async () => ({ type: 'quiz', id: 'quiz-1', title: 'Quiz title', questionCount: 2, questions: [] })
+                } as Response
+            }
+            if (pathname === '/public/a/app-1/runtime/attempts/attempt-resume') {
+                const currentQuestionIndex = answerPersisted ? 2 : 1
+                return {
+                    ok: true,
+                    json: async () => ({
+                        attemptId: 'attempt-resume',
+                        attemptNumber: 1,
+                        deadlineAt: '2030-01-01T00:45:00.000Z',
+                        serverNow: answerPersisted ? '2030-01-01T00:45:00.000Z' : '2030-01-01T00:00:00.000Z',
+                        status: 'in_progress',
+                        currentQuestionIndex,
+                        totalQuestions: 2,
+                        answeredCount: currentQuestionIndex,
+                        questions: answerPersisted
+                            ? []
+                            : [{ id: 'question-2', prompt: 'Question two', options: [{ id: 'option-2', label: 'Second option' }] }]
+                    })
+                } as Response
+            }
+            if (pathname === '/public/a/app-1/runtime/attempts/attempt-resume/answers') {
+                answerPersisted = true
+                return { ok: false, status: 500, json: async () => ({}) } as Response
+            }
+            if (pathname === '/public/a/app-1/runtime/attempts/attempt-resume/finalize') {
+                expect(answerPersisted).toBe(true)
+                finalizeRequestCount += 1
+                if (finalizeRequestCount === 1) {
+                    return { ok: false, status: 500, json: async () => ({}) } as Response
+                }
+                return {
+                    ok: true,
+                    json: async () => ({
+                        attemptId: 'attempt-resume',
+                        attemptNumber: 1,
+                        status: 'completed',
+                        currentQuestionIndex: 2,
+                        totalQuestions: 2,
+                        answeredCount: 2,
+                        questions: [],
+                        result: { score: 1, total: 2, passed: false, finishedReason: 'submitted' }
+                    })
+                } as Response
+            }
+            throw new Error(`Unexpected fetch request: ${url} ${init?.method ?? 'GET'}`)
+        })
+        vi.stubGlobal('fetch', fetchMock)
+
+        render(
+            <QueryClientProvider client={createQueryClient()}>
+                <GuestApp applicationId='app-1' slug='demo-content' locale='en' apiBaseUrl='/api/v1' />
+            </QueryClientProvider>
+        )
+
+        expect(await screen.findByRole('heading', { name: 'Question two' })).toBeInTheDocument()
+        fireEvent.click(screen.getByLabelText('Second option'))
+        expect(await screen.findByText('Failed to save your answer.')).toBeInTheDocument()
+
+        window.dispatchEvent(new Event('online'))
+        expect(await screen.findByText('Failed to finish the quiz.')).toBeInTheDocument()
+        expect(finalizeRequestCount).toBe(1)
+        window.dispatchEvent(new Event('online'))
+
+        expect(await screen.findByRole('heading', { name: enApps.guest.quizResultTitle })).toBeInTheDocument()
+        expect(await screen.findByText('Correct answers: 1 of 2')).toBeInTheDocument()
+        expect(screen.queryByText('Failed to save your answer.')).not.toBeInTheDocument()
+        const finalizeCalls = fetchMock.mock.calls.filter(
+            ([input]) => getRequestPathname(input) === '/public/a/app-1/runtime/attempts/attempt-resume/finalize'
+        )
+        expect(finalizeCalls).toHaveLength(2)
     })
 
     it('refetches runtime only after the guest session is created', async () => {

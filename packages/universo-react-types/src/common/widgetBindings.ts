@@ -207,7 +207,7 @@ const bindingComponentRequirementSchema = z
         required: z.boolean(),
         // Trusted registry opt-in for structural values; server-owned fields remain denied by default.
         allowServerOwnedRead: z.literal(true).optional(),
-        // Requires server-owned metadata for registry-authorized structural parent references.
+        // Requires server-owned metadata for registry-authorized structural relation fields.
         requireServerOwned: z.literal(true).optional(),
         semanticKey: z.boolean().optional(),
         maxLength: z.number().int().positive().max(4096).optional(),
@@ -216,14 +216,14 @@ const bindingComponentRequirementSchema = z
     })
     .strict()
     .superRefine((component, context) => {
-        if (
-            component.requireServerOwned === true &&
-            (component.field !== 'parent' || component.valueType !== 'ref' || component.allowServerOwnedRead !== true)
-        ) {
+        const isStructuralRelationField =
+            (component.field === 'parent' && component.valueType === 'ref') ||
+            (component.field === 'order' && component.valueType === 'number')
+        if (component.requireServerOwned === true && (!isStructuralRelationField || component.allowServerOwnedRead !== true)) {
             context.addIssue({
                 code: z.ZodIssueCode.custom,
                 path: ['requireServerOwned'],
-                message: 'Only a readable parent reference can require server-owned metadata.'
+                message: 'Only readable structural relation fields can require server-owned metadata.'
             })
         }
         if (
@@ -435,6 +435,19 @@ export const widgetBindingSlotDefinitionSchema = z
         const projectionMode = slot.projectionMode ?? 'registered'
         const usesEntitySchemaProjection = projectionMode === 'entity-schema'
         const fields = new Set(slot.requirements.components.map(({ field }) => field))
+        for (const [componentIndex, component] of slot.requirements.components.entries()) {
+            if (component.requireServerOwned !== true) continue
+            const isRelationSet = slot.selectorKinds.length === 1 && slot.selectorKinds[0] === 'relation-set'
+            const isScopedParent = component.field === 'parent' && slot.relation?.field === component.field
+            const isScopedOrder = component.field === 'order' && slot.relation !== undefined && slot.orderByField === component.field
+            if (!isRelationSet || (!isScopedParent && !isScopedOrder)) {
+                context.addIssue({
+                    code: z.ZodIssueCode.custom,
+                    path: ['requirements', 'components', componentIndex, 'requireServerOwned'],
+                    message: 'Only relation-scoped parent and order Components can require server-owned metadata.'
+                })
+            }
+        }
         if (usesEntitySchemaProjection) {
             if (slot.selectorKinds.length !== 1 || slot.selectorKinds[0] !== 'record-set') {
                 context.addIssue({

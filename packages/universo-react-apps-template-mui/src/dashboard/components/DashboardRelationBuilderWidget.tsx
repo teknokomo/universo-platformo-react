@@ -269,7 +269,7 @@ export default function DashboardRelationBuilderWidget({ instanceKey, config, pa
                                       width: 460,
                                       render: (row: (typeof listRows)[number]) =>
                                           guestLinkWorkspaceStatus === 'personal' ? (
-                                              <Typography variant='body2' color='text.secondary'>
+                                              <Typography variant='body2' sx={{ color: 'text.secondary' }}>
                                                   {t('relationBuilder.sharedWorkspaceOnly', 'Available in a shared workspace')}
                                               </Typography>
                                           ) : row.applicationUrl ? (
@@ -308,7 +308,7 @@ export default function DashboardRelationBuilderWidget({ instanceKey, config, pa
                                                   </Button>
                                               </Stack>
                                           ) : (
-                                              <Typography variant='body2' color='text.secondary'>
+                                              <Typography variant='body2' sx={{ color: 'text.secondary' }}>
                                                   {t('relationBuilder.linkUnavailable', 'Guest link unavailable')}
                                               </Typography>
                                           )

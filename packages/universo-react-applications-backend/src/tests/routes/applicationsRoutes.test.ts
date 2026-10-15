@@ -1283,6 +1283,7 @@ describe('Applications Routes', () => {
             const projectRowId = '018f8a78-7b8f-7c1d-a111-2222333344a7'
             const { dataSource, applicationRepo, applicationUserRepo } = buildDataSource()
             const listQueries: Array<{ sql: string; params?: unknown[] }> = []
+            let includeTimeOnlyComponent = false
 
             applicationRepo.findOne.mockResolvedValue({
                 id: runtimeApplicationId,
@@ -1349,7 +1350,7 @@ describe('Applications Routes', () => {
                         ]
                     }
 
-                    return [
+                    const sourceComponents = [
                         {
                             id: '018f8a78-7b8f-7c1d-a111-2222333344a3',
                             codename: 'Title',
@@ -1379,6 +1380,25 @@ describe('Applications Routes', () => {
                             target_object_kind: 'object'
                         }
                     ]
+                    return includeTimeOnlyComponent
+                        ? [
+                              ...sourceComponents,
+                              {
+                                  id: '018f8a78-7b8f-7c1d-a111-2222333344aa',
+                                  codename: 'StartedAt',
+                                  column_name: 'started_at',
+                                  data_type: 'DATE',
+                                  is_required: false,
+                                  is_display_component: false,
+                                  presentation: null,
+                                  validation_rules: { dateComposition: 'time' },
+                                  sort_order: 3,
+                                  ui_config: null,
+                                  target_object_id: null,
+                                  target_object_kind: null
+                              }
+                          ]
+                        : sourceComponents
                 }
 
                 if (sql.includes('FROM information_schema.tables')) {
@@ -1477,6 +1497,43 @@ describe('Applications Routes', () => {
             expect(listQueries.some((entry) => entry.sql.includes('ILIKE'))).toBe(true)
             expect(listQueries.some((entry) => entry.sql.includes('"content_projects"'))).toBe(true)
             expect(listQueries.some((entry) => entry.sql.includes("->'locales'->'ru'->>'content'"))).toBe(true)
+
+            includeTimeOnlyComponent = true
+            listQueries.length = 0
+            await request(app)
+                .post(`/applications/${runtimeApplicationId}/runtime/datasources/records/union`)
+                .send({
+                    datasource: {
+                        kind: 'records.union',
+                        targets: [{ sectionId: resourceObjectId }],
+                        query: { filters: [{ field: 'StartedAt', operator: 'equals', value: '08:30' }] }
+                    },
+                    limit: 20,
+                    offset: 0
+                })
+                .expect(200)
+
+            const timeFilterQuery = listQueries.find((entry) => entry.sql.includes('COUNT(*)::int AS total'))
+            expect(timeFilterQuery?.sql).toContain('"started_at" =')
+            expect(timeFilterQuery?.params).toContain('08:30:00')
+
+            listQueries.length = 0
+            const invalidTimeFilterResponse = await request(app)
+                .post(`/applications/${runtimeApplicationId}/runtime/datasources/records/union`)
+                .send({
+                    datasource: {
+                        kind: 'records.union',
+                        targets: [{ sectionId: resourceObjectId }],
+                        query: { filters: [{ field: 'StartedAt', operator: 'equals', value: 'abc' }] }
+                    },
+                    limit: 20,
+                    offset: 0
+                })
+                .expect(400)
+
+            expect(invalidTimeFilterResponse.body).toMatchObject({ code: 'RUNTIME_FILTER_VALUE_INVALID', field: 'StartedAt' })
+            expect(listQueries.some((entry) => entry.sql.includes('COUNT(*)::int AS total'))).toBe(false)
+            includeTimeOnlyComponent = false
 
             listQueries.length = 0
             await request(app)

@@ -46,7 +46,9 @@ const attemptTable: GuestAssessmentAttemptTable = {
         questionsSnapshot: 'questions_snapshot',
         questionSetDigest: 'question_set_digest',
         accessLinkId: 'access_link_id',
+        classIdSnapshot: 'class_id_snapshot',
         score: 'score',
+        scorePercent: 'score_percent',
         totalQuestions: 'total_questions',
         passed: 'passed',
         status: 'status'
@@ -127,6 +129,7 @@ describe('guest assessment attempt lifecycle service', () => {
                 status: 'TimedOut',
                 finished_reason: 'timed_out',
                 score: 1,
+                score_percent: 100,
                 total_questions: 1,
                 passed: true,
                 submitted_at: now.toISOString()
@@ -168,13 +171,20 @@ describe('guest assessment attempt lifecycle service', () => {
             now
         )
 
-        expect(result).toMatchObject({ status: 'Passed', finishedReason: 'submitted', score: 1, totalQuestions: 1, passed: true })
+        expect(result).toMatchObject({
+            status: 'Passed',
+            finishedReason: 'submitted',
+            score: 1,
+            scorePercent: 100,
+            totalQuestions: 1,
+            passed: true
+        })
         expect(mockUpdateAttempt).toHaveBeenCalledWith(
             executor,
             attemptTable,
             attemptId,
             participantId,
-            expect.objectContaining({ status: 'Passed', finished_reason: 'submitted', passed: true }),
+            expect.objectContaining({ status: 'Passed', finished_reason: 'submitted', score_percent: 100, passed: true }),
             participantId
         )
     })
@@ -193,13 +203,20 @@ describe('guest assessment attempt lifecycle service', () => {
             now
         )
 
-        expect(result).toMatchObject({ status: 'Failed', finishedReason: 'submitted', score: 0, totalQuestions: 1, passed: false })
+        expect(result).toMatchObject({
+            status: 'Failed',
+            finishedReason: 'submitted',
+            score: 0,
+            scorePercent: 0,
+            totalQuestions: 1,
+            passed: false
+        })
         expect(mockUpdateAttempt).toHaveBeenCalledWith(
             executor,
             attemptTable,
             attemptId,
             participantId,
-            expect.objectContaining({ status: 'Failed', finished_reason: 'submitted', passed: false }),
+            expect.objectContaining({ status: 'Failed', finished_reason: 'submitted', score_percent: 0, passed: false }),
             participantId
         )
     })

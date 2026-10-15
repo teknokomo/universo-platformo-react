@@ -1,5 +1,11 @@
 import { qColumn, qSchemaTable } from '@universo-react/database'
-import { readLocalizedTextValue, reportDefinitionSchema, type ReportDefinition, type ReportFilter } from '@universo-react/types'
+import {
+    readLocalizedTextValue,
+    reportDefinitionSchema,
+    type ReportDefinition,
+    type ReportFilter,
+    type RuntimeDatasourceSort
+} from '@universo-react/types'
 import type { DbExecutor } from '@universo-react/utils'
 import { UpdateFailure } from '../shared/runtimeHelpers'
 
@@ -9,6 +15,7 @@ export interface RuntimeReportFieldMetadata {
     codename: string
     columnName: string
     dataType: ReportFieldDataType
+    dateComposition?: 'date' | 'time' | 'datetime'
     refTargetObjectId?: string | null
     refTargetObjectKind?: string | null
     referenceLabel?: {
@@ -28,6 +35,7 @@ export interface RuntimeReportRecordsListParams {
     fields: RuntimeReportFieldMetadata[]
     definition: unknown
     permissions: { readReports?: boolean }
+    locale?: string
     activeCondition?: string
     accessCondition?: string
     accessConditionValues?: unknown[]
@@ -36,6 +44,7 @@ export interface RuntimeReportRecordsListParams {
     maxLimit?: number
     defaultLimit?: number
     filters?: ReportFilter[]
+    sort?: RuntimeDatasourceSort[]
 }
 
 export interface RuntimeReportRecordsListResult {
@@ -70,6 +79,76 @@ const resolveReportField = (fields: RuntimeReportFieldMetadata[], codename: stri
     return field
 }
 
+const assertRequestedReportFields = (definition: ReportDefinition, filters: ReportFilter[], sort: RuntimeDatasourceSort[]): void => {
+    const allowedFields = new Set(definition.columns.map((column) => column.field))
+    const invalidField = [...filters.map((filter) => filter.field), ...sort.map((item) => item.field)].find(
+        (field) => !allowedFields.has(field)
+    )
+    if (invalidField) {
+        throw new UpdateFailure(400, {
+            error: 'Report filters and sorting must use configured columns',
+            code: 'REPORT_FIELD_NOT_CONFIGURED',
+            field: invalidField
+        })
+    }
+}
+
+const validateRequestedSort = (sort: RuntimeDatasourceSort[] | undefined): RuntimeDatasourceSort[] | undefined => {
+    if (sort === undefined) return undefined
+    if (!Array.isArray(sort) || sort.length > 5) {
+        throw new UpdateFailure(400, {
+            error: 'Invalid report sort configuration',
+            code: 'REPORT_SORT_INVALID'
+        })
+    }
+
+    const fields = new Set<string>()
+    for (const item of sort) {
+        if (
+            !item ||
+            typeof item.field !== 'string' ||
+            item.field.length === 0 ||
+            item.field.length > 128 ||
+            (item.direction !== 'asc' && item.direction !== 'desc') ||
+            fields.has(item.field)
+        ) {
+            throw new UpdateFailure(400, {
+                error: 'Invalid report sort configuration',
+                code: 'REPORT_SORT_INVALID'
+            })
+        }
+        fields.add(item.field)
+    }
+    return sort
+}
+
+const normalizeDateFilterValue = (rawValue: unknown): string | undefined => {
+    if (rawValue instanceof Date) {
+        return Number.isFinite(rawValue.getTime()) ? rawValue.toISOString() : undefined
+    }
+    if (
+        typeof rawValue !== 'string' ||
+        !/^\d{4}-\d{2}-\d{2}(?:T\d{2}:\d{2}(?::\d{2}(?:\.\d{1,3})?)?(?:Z|[+-]\d{2}:\d{2}))?$/iu.test(rawValue)
+    ) {
+        return undefined
+    }
+    const [year, month, day] = rawValue.slice(0, 10).split('-').map(Number)
+    const calendarDate = new Date(Date.UTC(year, month - 1, day))
+    if (calendarDate.getUTCFullYear() !== year || calendarDate.getUTCMonth() !== month - 1 || calendarDate.getUTCDate() !== day) {
+        return undefined
+    }
+    const timestamp = Date.parse(rawValue)
+    return Number.isFinite(timestamp) ? new Date(timestamp).toISOString() : undefined
+}
+
+const normalizeTimeFilterValue = (rawValue: unknown): string | undefined => {
+    if (typeof rawValue !== 'string') return undefined
+    const match = /^(?:([01]\d|2[0-3]):([0-5]\d))(?::([0-5]\d)(?:\.(\d{1,6}))?)?$/u.exec(rawValue.trim())
+    if (!match) return undefined
+    const [, hour, minute, second = '00', fraction] = match
+    return `${hour}:${minute}:${second}${fraction ? `.${fraction}` : ''}`
+}
+
 const normalizeFilterValue = (field: RuntimeReportFieldMetadata, rawValue: unknown): unknown => {
     if (rawValue === null || rawValue === undefined) return rawValue
 
@@ -88,7 +167,62 @@ const normalizeFilterValue = (field: RuntimeReportFieldMetadata, rawValue: unkno
         return undefined
     }
 
+    if (field.dataType === 'DATE') {
+        if (field.dateComposition === 'time') {
+            const normalized = normalizeTimeFilterValue(rawValue)
+            if (normalized) return normalized
+            if (typeof rawValue === 'string' && rawValue.trim().length === 0) return undefined
+            throw new UpdateFailure(400, {
+                error: 'Report time filter must be a valid 24-hour time',
+                code: 'REPORT_FILTER_VALUE_INVALID',
+                field: field.codename
+            })
+        }
+
+        const normalized = normalizeDateFilterValue(rawValue)
+        if (normalized) return normalized
+        if (typeof rawValue === 'string' && rawValue.trim().length === 0) return undefined
+        throw new UpdateFailure(400, {
+            error: 'Report date filter must be a valid ISO date or timestamp',
+            code: 'REPORT_FILTER_VALUE_INVALID',
+            field: field.codename
+        })
+    }
+
     return rawValue
+}
+
+const normalizeReportLocale = (locale: string | undefined): string => locale?.split(/[-_]/u)[0]?.trim().toLowerCase() || 'en'
+
+const localizedJsonTextSql = (sourceSql: string, keySql: string): string => {
+    const localeValueSql = `${sourceSql} -> ${keySql}`
+    const contentValueSql = `${localeValueSql} -> 'content'`
+    const contentTextSql = `${localeValueSql} ->> 'content'`
+    const localeTextSql = `${sourceSql} ->> ${keySql}`
+    return `COALESCE(
+        NULLIF(BTRIM(CASE WHEN jsonb_typeof(${contentValueSql}) = 'string' THEN ${contentTextSql} END), ''),
+        NULLIF(BTRIM(CASE WHEN jsonb_typeof(${localeValueSql}) = 'string' THEN ${localeTextSql} END), '')
+    )`
+}
+
+const buildLocalizedReferenceSortExpression = (referenceAlias: string, localePlaceholder: string): string => {
+    const labelSql = `to_jsonb(${qColumn(referenceAlias)}.label_value)`
+    const localesSql = `${labelSql} -> 'locales'`
+    const requestedLocaleSql = `${localePlaceholder}::text`
+    const primaryLocaleSql = `split_part(replace(lower(COALESCE(${labelSql} ->> '_primary', 'en')), '_', '-'), '-', 1)`
+    const candidates = [
+        localizedJsonTextSql(localesSql, requestedLocaleSql),
+        localizedJsonTextSql(localesSql, primaryLocaleSql),
+        localizedJsonTextSql(localesSql, "'en'"),
+        localizedJsonTextSql(localesSql, "'ru'"),
+        localizedJsonTextSql(labelSql, requestedLocaleSql),
+        localizedJsonTextSql(labelSql, primaryLocaleSql),
+        localizedJsonTextSql(labelSql, "'en'"),
+        localizedJsonTextSql(labelSql, "'ru'")
+    ]
+    const scalarLabelSql = `CASE WHEN jsonb_typeof(${labelSql}) = 'string' THEN ${labelSql} #>> '{}' END`
+
+    return `COALESCE(${candidates.join(', ')}, ${scalarLabelSql})`
 }
 
 const escapeLikeWildcards = (value: string): string => value.replace(/[\\%_]/g, (match) => `\\${match}`)
@@ -129,7 +263,9 @@ const buildReportFilterClause = (
         return `(${columnSql} IS NOT NULL AND ${columnSql}::text <> '')`
     }
 
-    const normalizedValue = normalizeFilterValue(field, filter.value)
+    const usesTextComparison = ['contains', 'startsWith', 'endsWith'].includes(filter.operator)
+    const isTimeOnlyTextComparison = field.dataType === 'DATE' && field.dateComposition === 'time' && usesTextComparison
+    const normalizedValue = isTimeOnlyTextComparison ? filter.value : normalizeFilterValue(field, filter.value)
     if (normalizedValue === undefined || normalizedValue === null || normalizedValue === '') {
         return null
     }
@@ -149,6 +285,17 @@ const buildReportFilterClause = (
         return `${textExpressionSql} ILIKE ${addValue(`%${escapeLikeWildcards(String(normalizedValue))}`)} ESCAPE '\\'`
     }
     if (filter.operator === 'equals') {
+        if (field.dataType === 'DATE' && field.dateComposition !== 'time' && typeof normalizedValue === 'string') {
+            const start = new Date(normalizedValue)
+            const dateOnly = typeof filter.value === 'string' && /^\d{4}-\d{2}-\d{2}$/u.test(filter.value)
+            if (dateOnly) start.setUTCHours(0, 0, 0, 0)
+            else start.setUTCSeconds(0, 0)
+            const end = new Date(start.getTime() + (dateOnly ? 86_400_000 : 60_000))
+            values.push(start.toISOString(), end.toISOString())
+            const startPlaceholder = `$${values.length - 1}`
+            const endPlaceholder = `$${values.length}`
+            return `(${columnSql} >= ${startPlaceholder} AND ${columnSql} < ${endPlaceholder})`
+        }
         return buildReportFilterEqualityExpression(field, addValue(normalizedValue), referenceAlias)
     }
 
@@ -421,7 +568,10 @@ export class RuntimeReportsService {
             ...(params.accessCondition?.trim() ? [params.accessCondition.trim()] : [])
         ]
 
-        const filters = [...(definition.datasource.query?.filters ?? []), ...definition.filters, ...(params.filters ?? [])]
+        const requestFilters = params.filters ?? []
+        const requestSort = validateRequestedSort(params.sort)
+        assertRequestedReportFields(definition, requestFilters, requestSort ?? [])
+        const filters = [...(definition.datasource.query?.filters ?? []), ...definition.filters, ...requestFilters]
         const resolvedFilters = filters.map((filter) => ({ filter, field: resolveReportField(params.fields, filter.field) }))
 
         const selectedFields = definition.columns.map((column) => {
@@ -433,6 +583,7 @@ export class RuntimeReportsService {
         const referenceJoinSpecs: Array<{ field: RuntimeReportFieldMetadata; alias: string }> = []
         const selectedReferenceAliases = new Set<string>()
         const filterReferenceAliases = new Set<string>()
+        const sortReferenceAliases = new Set<string>()
         const ensureReferenceAlias = (field: RuntimeReportFieldMetadata): string | null => {
             if (!field.referenceLabel) return null
 
@@ -474,12 +625,18 @@ export class RuntimeReportsService {
                 })
             }
         })
-        const selectReferenceAliases = new Set([...filterReferenceAliases, ...selectedReferenceAliases])
-        const orderClauses = (definition.datasource.query?.sort ?? []).map((sort) => {
-            const field = resolveReportField(params.fields, sort.field)
-            return `${qColumn(field.columnName)} ${sort.direction.toUpperCase()} NULLS LAST`
+        const configuredSort = definition.datasource.query?.sort ?? []
+        const effectiveSort = requestSort ?? configuredSort
+        const resolvedSort = effectiveSort.map((item) => {
+            if (item.direction !== 'asc' && item.direction !== 'desc') {
+                throw new UpdateFailure(400, { error: 'Invalid report sort direction', code: 'REPORT_SORT_INVALID' })
+            }
+            const field = resolveReportField(params.fields, item.field)
+            const referenceAlias = ensureReferenceAlias(field)
+            if (referenceAlias && field.referenceLabel) sortReferenceAliases.add(referenceAlias)
+            return { item, field, referenceAlias }
         })
-        orderClauses.push('_upl_created_at DESC', 'id ASC')
+        const selectReferenceAliases = new Set([...filterReferenceAliases, ...selectedReferenceAliases, ...sortReferenceAliases])
 
         const outputAliases = new Set<string>()
         const sqlAliases = new Set<string>()
@@ -518,6 +675,21 @@ export class RuntimeReportsService {
             aliases: selectReferenceAliases,
             values: selectValues
         })
+        const orderClauses = resolvedSort.map(({ item, field, referenceAlias }) => {
+            const columnSql = qColumn(field.columnName)
+            let orderExpression = columnSql
+            if (referenceAlias && field.referenceLabel) {
+                const localePlaceholder = `$${selectValues.length + 1}`
+                selectValues.push(normalizeReportLocale(params.locale))
+                orderExpression = `COALESCE(${buildLocalizedReferenceSortExpression(
+                    referenceAlias,
+                    localePlaceholder
+                )}, ${columnSql}::text)`
+            }
+            return `${orderExpression} ${item.direction.toUpperCase()} NULLS LAST`
+        })
+        if (effectiveSort.length === 0 && requestSort === undefined) orderClauses.push('_upl_created_at DESC')
+        orderClauses.push('id ASC')
         const limitPlaceholder = `$${selectValues.length + 1}`
         const offsetPlaceholder = `$${selectValues.length + 2}`
         const rawRows = await params.executor.query<Record<string, unknown>>(

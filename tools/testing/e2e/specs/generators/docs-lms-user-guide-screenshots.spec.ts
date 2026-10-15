@@ -1081,8 +1081,25 @@ async function captureReportsGuide(page: Page, locale: Locale, applicationId: st
     await expect(titleHeader).toBeVisible()
     await expect(typeHeader).toBeVisible()
     await captureDocsStepScreenshot(page, locale, 'reports', 1, page.locator('body'))
+    const titleSortField = await titleHeader.getAttribute('data-field')
+    if (!titleSortField) throw new Error(`${locale} report title column has no runtime field`)
+    const titleSortRequestPromise = page.waitForRequest((request) => {
+        const url = new URL(request.url())
+        if (request.method() !== 'POST' || url.pathname !== `/api/v1/applications/${applicationId}/runtime/reports/run`) return false
+        const payload = request.postDataJSON() as { sort?: Array<{ field?: string }> }
+        return payload.sort?.some((item) => item.field === titleSortField) === true
+    })
     await titleHeader.click()
     await expect(titleHeader, `${locale} report title sort state`).toHaveAttribute('aria-sort', /ascending|descending/)
+    const titleSortRequest = await titleSortRequestPromise
+    const titleSortDirection = (await titleHeader.getAttribute('aria-sort')) === 'ascending' ? 'asc' : 'desc'
+    expect(titleSortRequest.postDataJSON()).toEqual({
+        reportCodename: expect.any(String),
+        sort: [{ field: titleSortField, direction: titleSortDirection }],
+        limit: expect.any(Number),
+        offset: expect.any(Number),
+        locale
+    })
     await captureDocsStepScreenshot(page, locale, 'reports', 2, page.locator('body'))
     await typeHeader.click()
     await expect(typeHeader, `${locale} report type sort state`).toHaveAttribute('aria-sort', /ascending|descending/)
@@ -1298,11 +1315,10 @@ async function captureGuestGuide(page: Page, locale: Locale, applicationId: stri
     await expect(resultTable, `${locale} saved guest result in the authorized report`).toBeVisible({ timeout: 60_000 })
     const resultRow = resultTable.getByRole('row').filter({ hasText: participantName })
     await expect(resultRow, `${locale} saved Marathon participant row`).toBeVisible()
-    const resultCells = resultRow.getByRole('gridcell')
-    await expect(resultCells.nth(0)).toContainText(isRu ? quiz.title.ru : quiz.title.en)
-    await expect(resultCells.nth(1)).toHaveText(participantName)
-    await expect(resultCells.nth(4)).toHaveText('30')
-    await expect(resultCells.nth(6)).toHaveText('30')
+    await expect(resultRow.locator('[role="gridcell"][data-field="QuizId"]')).toHaveText(isRu ? quiz.title.ru : quiz.title.en)
+    await expect(resultRow.locator('[role="gridcell"][data-field="StudentId"]')).toHaveText(participantName)
+    await expect(resultRow.locator('[role="gridcell"][data-field="Score"]')).toHaveText('30')
+    await expect(resultRow.locator('[role="gridcell"][data-field="TotalQuestions"]')).toHaveText('30')
     await captureDocsStepScreenshot(page, locale, 'guest-access', 5, page.locator('body'))
 }
 

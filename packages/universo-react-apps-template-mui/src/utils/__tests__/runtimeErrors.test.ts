@@ -26,6 +26,8 @@ describe('runtimeErrors', () => {
         const fallback = 'Please try again or reload the page.'
 
         expect(extractRuntimeErrorMessage(new Error('backend exploded'), fallback, 'en')).toBe(fallback)
+        expect(extractRuntimeErrorMessage(new Error('Failed to fetch'), fallback, 'en')).toBe(fallback)
+        expect(extractRuntimeErrorMessage(new Error('Load failed'), fallback, 'en')).toBe(fallback)
         expect(extractRuntimeErrorMessage(new Error('duplicate key value violates unique constraint "rows_pkey"'), fallback, 'en')).toBe(
             fallback
         )

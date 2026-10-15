@@ -133,7 +133,17 @@ describe('server-owned widget binding policy', () => {
             },
             { CourseId: courseTarget }
         )
-        expect(isCompatibleWidgetBindingEntity(panelSlot, unownedOrder, { relationParent: courseTarget })).toBe(true)
+        expect(isCompatibleWidgetBindingEntity(panelSlot, unownedOrder, { relationParent: courseTarget })).toBe(false)
+        const serverOwnedOrder = createEntity(
+            panelSlot,
+            'CourseItems',
+            {
+                CourseId: { serverOwned: true },
+                SortOrder: { serverOwned: true }
+            },
+            { CourseId: courseTarget }
+        )
+        expect(isCompatibleWidgetBindingEntity(panelSlot, serverOwnedOrder, { relationParent: courseTarget })).toBe(true)
 
         const customParentFieldSlot = getRelationBuilderSlots('InternalReference').panelSlot
         const customParentField = createEntity(customParentFieldSlot, 'CourseItems', {
@@ -142,12 +152,35 @@ describe('server-owned widget binding policy', () => {
         })
         expect(isCompatibleWidgetBindingEntity(customParentFieldSlot, customParentField)).toBe(false)
 
-        const customOrderFieldSlot = getRelationBuilderSlots('CourseId', 'InternalRank').panelSlot
-        const customOrderField = createEntity(customOrderFieldSlot, 'CourseItems', {
-            CourseId: { serverOwned: true },
-            InternalRank: { serverOwned: true }
-        })
+        const customOrderFieldSlot = getRelationBuilderSlots('InternalReference', 'InternalRank').panelSlot
+        const customOrderParent = {
+            id: '0190a9b5-3cde-7abc-8def-0123456789c8',
+            kind: 'object',
+            codename: 'ParentRecords'
+        }
+        const customOrderField = createEntity(
+            customOrderFieldSlot,
+            'CustomCourseItems',
+            {
+                InternalReference: { serverOwned: true },
+                InternalRank: { serverOwned: true }
+            },
+            { InternalReference: customOrderParent }
+        )
         expect(isCompatibleWidgetBindingEntity(customOrderFieldSlot, customOrderField)).toBe(false)
+        expect(
+            isCompatibleWidgetBindingEntity(customOrderFieldSlot, customOrderField, {
+                relationParent: { ...customOrderParent, id: '0190a9b5-3cde-7abc-8def-0123456789c9' }
+            })
+        ).toBe(false)
+        expect(isCompatibleWidgetBindingEntity(customOrderFieldSlot, customOrderField, { relationParent: customOrderParent })).toBe(true)
+        const unownedCustomOrder = createEntity(
+            customOrderFieldSlot,
+            'CustomCourseItems',
+            { InternalReference: { serverOwned: true }, InternalRank: {} },
+            { InternalReference: customOrderParent }
+        )
+        expect(isCompatibleWidgetBindingEntity(customOrderFieldSlot, unownedCustomOrder, { relationParent: customOrderParent })).toBe(false)
 
         for (const uiConfig of [
             { serverOwned: true, private: true },
@@ -169,9 +202,9 @@ describe('server-owned widget binding policy', () => {
         const relationParent = { id: '0190a9b5-3cde-7abc-8def-0123456789c2', kind: 'object', codename: 'ParentRecords' }
         const wrongRelationParent = { ...relationParent, id: '0190a9b5-3cde-7abc-8def-0123456789c3' }
         const { panelSlot } = getRelationBuilderSlots('InternalReference')
-        const componentUiConfig = { InternalReference: { serverOwned: true } }
+        const componentUiConfig = { InternalReference: { serverOwned: true }, SortOrder: { serverOwned: true } }
         const targetByCodename = { InternalReference: relationParent }
-        const customEntity = createEntity(panelSlot, 'CustomCourseItems', componentUiConfig, targetByCodename)
+        const customEntity = createEntity(panelSlot, 'CourseItems', componentUiConfig, targetByCodename)
 
         expect(isCompatibleWidgetBindingEntity(panelSlot, customEntity)).toBe(false)
         expect(isCompatibleWidgetBindingEntity(panelSlot, customEntity, { relationParent: wrongRelationParent })).toBe(false)
@@ -196,7 +229,7 @@ describe('server-owned widget binding policy', () => {
             expect(
                 isCompatibleWidgetBindingEntity(
                     panelSlot,
-                    createEntity(panelSlot, 'CustomCourseItems', { InternalReference: uiConfig }, targetByCodename),
+                    createEntity(panelSlot, 'CourseItems', { ...componentUiConfig, InternalReference: uiConfig }, targetByCodename),
                     { relationParent }
                 )
             ).toBe(false)
@@ -228,7 +261,7 @@ describe('server-owned widget binding policy', () => {
         expect(isCompatibleWidgetBindingEntity(slot, ordinaryRelation, { relationParent })).toBe(true)
     })
 
-    it('requires the AccessLinks parent and allows safe order fields with either ownership mode', () => {
+    it('requires server-owned parent and order fields for configured RelationBuilder panels', () => {
         const definition = getLayoutWidgetDefinition('relationBuilder', {
             panels: [
                 {
@@ -252,13 +285,13 @@ describe('server-owned widget binding policy', () => {
             { TargetId: quizTarget }
         )
         expect(isCompatibleWidgetBindingEntity(panelSlot, accessLinks)).toBe(false)
-        expect(isCompatibleWidgetBindingEntity(panelSlot, accessLinks, { relationParent: quizTarget })).toBe(true)
+        expect(isCompatibleWidgetBindingEntity(panelSlot, accessLinks, { relationParent: quizTarget })).toBe(false)
         expect(isCompatibleWidgetBindingEntity(panelSlot, setComponentRequiredness(accessLinks, 'TargetId', true))).toBe(false)
         expect(
             isCompatibleWidgetBindingEntity(panelSlot, setComponentRequiredness(accessLinks, 'TargetId', true), {
                 relationParent: quizTarget
             })
-        ).toBe(true)
+        ).toBe(false)
         const unregisteredParentSlot: WidgetBindingSlotDefinition = {
             ...panelSlot,
             requirements: {
@@ -295,7 +328,7 @@ describe('server-owned widget binding policy', () => {
         )
         expect(isCompatibleWidgetBindingEntity(panelSlot, accessLinksWithServerOwnedOrder, { relationParent: quizTarget })).toBe(true)
         const accessLinksWithTarget = createEntity(panelSlot, 'AccessLinks', { TargetId: { serverOwned: true } }, { TargetId: quizTarget })
-        expect(isCompatibleWidgetBindingEntity(panelSlot, accessLinksWithTarget, { relationParent: quizTarget })).toBe(true)
+        expect(isCompatibleWidgetBindingEntity(panelSlot, accessLinksWithTarget, { relationParent: quizTarget })).toBe(false)
         expect(
             isCompatibleWidgetBindingEntity(panelSlot, accessLinksWithTarget, {
                 relationParent: { ...quizTarget, id: '0190a9b5-3cde-7abc-8def-0123456789c3' }
@@ -324,7 +357,7 @@ describe('server-owned widget binding policy', () => {
             isCompatibleWidgetBindingEntity(optionalOrderSlot, setComponentRequiredness(optionalOrderEntity, 'SortOrder', true), {
                 relationParent: quizTarget
             })
-        ).toBe(false)
+        ).toBe(true)
         const missingSortOrder = {
             ...accessLinks,
             components: accessLinks.components.filter((component) => component.codename !== 'SortOrder')
@@ -358,7 +391,7 @@ describe('server-owned widget binding policy', () => {
                 ),
                 { relationParent: quizTarget }
             )
-        ).toBe(false)
+        ).toBe(true)
     })
 
     it('accepts registered server-owned Quizzes ordering while retaining the required order contract', () => {
@@ -432,7 +465,7 @@ describe('server-owned widget binding policy', () => {
         expect(widgetBindingSlotDefinitionSchema.safeParse(forgedServerOwnedAccent).success).toBe(false)
     })
 
-    it('allows server-owned order fields only for registered LMS child entities', () => {
+    it('allows opted-in order fields for relationBuilder panels and rejects unscoped use', () => {
         const variants = [
             { entityCodename: 'CourseItems', parentField: 'CourseId' },
             { entityCodename: 'CourseSections', parentField: 'CourseId' },
@@ -471,7 +504,35 @@ describe('server-owned widget binding policy', () => {
                     { relationParent }
                 ),
                 `${entityCodename} must not trust the same fields on another entity`
-            ).toBe(false)
+            ).toBe(true)
         }
+
+        const { panelSlot } = getRelationBuilderSlots('CourseId')
+        const unscopedOrderSlot: WidgetBindingSlotDefinition = {
+            ...panelSlot,
+            selectorKinds: ['record-set'],
+            relation: undefined,
+            requirements: {
+                ...panelSlot.requirements,
+                components: panelSlot.requirements.components.map((component) =>
+                    component.field === 'order' ? { ...component, requireServerOwned: true as const } : component
+                )
+            }
+        }
+        expect(widgetBindingSlotDefinitionSchema.safeParse(unscopedOrderSlot).success).toBe(false)
+    })
+
+    it('keeps static learnerPlayer order fields limited to registered entity codenames', () => {
+        const slot = getLayoutWidgetDefinition('learnerPlayer', { variant: 'course' })?.bindingSlots?.find(({ key }) => key === 'items')
+        if (!slot) throw new Error('Course learnerPlayer item slot is missing')
+        const courseTarget = { id: '0190a9b5-3cde-7abc-8def-0123456789ca', kind: 'object', codename: 'Courses' }
+        const unregisteredEntity = createEntity(
+            slot,
+            'UntrustedCourseItems',
+            { CourseId: { serverOwned: true }, SortOrder: { serverOwned: true } },
+            { CourseId: courseTarget }
+        )
+
+        expect(isCompatibleWidgetBindingEntity(slot, unregisteredEntity, { relationParent: courseTarget })).toBe(false)
     })
 })

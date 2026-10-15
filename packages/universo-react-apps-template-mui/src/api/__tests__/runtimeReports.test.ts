@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { exportRuntimeReportCsv, runRuntimeReport } from '../api'
-import type { ReportDefinition } from '@universo-react/types'
+import type { ReportDefinition, RuntimeDatasourceSort } from '@universo-react/types'
 
 const reportDefinition: ReportDefinition = {
     codename: 'LearnerProgress',
@@ -97,12 +97,18 @@ describe('runtime report API helpers', () => {
         })
         vi.stubGlobal('fetch', fetchMock)
 
-        const filters = [{ field: 'ProgressPercent', operator: 'greaterThanOrEqual' as const, value: 50 }]
+        const filters = [
+            { field: 'ProgressPercent', operator: 'greaterThanOrEqual' as const, value: 50 },
+            { field: 'SubmittedOn', operator: 'equals' as const, value: '2026-10-14' },
+            { field: 'SubmittedAt', operator: 'equals' as const, value: '2026-10-14T05:30:00.000Z' }
+        ]
+        const sort: RuntimeDatasourceSort[] = [{ field: 'ProgressPercent', direction: 'desc' }]
         await runRuntimeReport({
             apiBaseUrl: '/api/v1',
             applicationId: 'app-1',
             reportCodename: 'LearnerProgress',
             filters,
+            sort,
             limit: 25,
             offset: 0,
             workspaceId: 'workspace-1'
@@ -112,6 +118,7 @@ describe('runtime report API helpers', () => {
             applicationId: 'app-1',
             reportCodename: 'LearnerProgress',
             filters,
+            sort,
             limit: 5000,
             offset: 0,
             locale: 'en',
@@ -121,9 +128,9 @@ describe('runtime report API helpers', () => {
         const reportRequests = fetchMock.mock.calls
             .filter(([input]) => !String(input).endsWith('/auth/csrf'))
             .map(([, init]) => init as RequestInit)
-        expect(reportRequests[0]?.body).toBe(JSON.stringify({ reportCodename: 'LearnerProgress', filters, limit: 25, offset: 0 }))
+        expect(reportRequests[0]?.body).toBe(JSON.stringify({ reportCodename: 'LearnerProgress', filters, sort, limit: 25, offset: 0 }))
         expect(reportRequests[1]?.body).toBe(
-            JSON.stringify({ reportCodename: 'LearnerProgress', filters, limit: 5000, offset: 0, locale: 'en' })
+            JSON.stringify({ reportCodename: 'LearnerProgress', filters, sort, limit: 5000, offset: 0, locale: 'en' })
         )
     })
 

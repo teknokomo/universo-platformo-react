@@ -35,7 +35,9 @@ const attemptTable: GuestAssessmentAttemptTable = {
         questionsSnapshot: 'questions_snapshot',
         questionSetDigest: 'question_set_digest',
         accessLinkId: 'access_link_id',
+        classIdSnapshot: 'class_id_snapshot',
         score: 'score',
+        scorePercent: 'score_percent',
         totalQuestions: 'total_questions',
         passed: 'passed',
         status: 'status'

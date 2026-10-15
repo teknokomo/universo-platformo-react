@@ -70,6 +70,7 @@ export const finalizeGuestAssessmentAttempt = async (
     }
 
     const score = scoreAssessmentAttempt(questions, responseMap)
+    const scorePercent = Math.round((score.score / Math.max(score.total, 1)) * 10_000) / 100
     const passingScorePercent = normalizeNumber(attempt.passingScorePercentSnapshot)
     const passed = passingScorePercent === null || (score.score / Math.max(score.total, 1)) * 100 >= passingScorePercent
     const status = effectiveReason === 'timed_out' ? 'TimedOut' : effectiveReason === 'revoked' ? 'Revoked' : passed ? 'Passed' : 'Failed'
@@ -85,6 +86,7 @@ export const finalizeGuestAssessmentAttempt = async (
             [columns.status]: status,
             [columns.finishedReason]: effectiveReason,
             [columns.score]: score.score,
+            [columns.scorePercent]: scorePercent,
             [columns.totalQuestions]: score.total,
             [columns.passed]: passed,
             [columns.submittedAt]: submittedAt
@@ -97,6 +99,7 @@ export const finalizeGuestAssessmentAttempt = async (
         status,
         finishedReason: effectiveReason,
         score: score.score,
+        scorePercent,
         totalQuestions: score.total,
         passed,
         submittedAt

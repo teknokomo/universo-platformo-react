@@ -196,7 +196,7 @@ const ApplicationShortLinks = () => {
                     <Typography id='short-links-guest-links-title' variant='h6'>
                         {t('shortLinks.guestLinks.title')}
                     </Typography>
-                    <Typography variant='body2' color='text.secondary'>
+                    <Typography variant='body2' sx={{ color: 'text.secondary' }}>
                         {t('shortLinks.guestLinks.description')}
                     </Typography>
                     {!isPublicApplication ? (

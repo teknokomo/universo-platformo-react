@@ -1,7 +1,7 @@
 import type { Request, Response } from 'express'
 import { z } from 'zod'
-import { reportDefinitionSchema, reportFilterSchema } from '@universo-react/types'
-import type { ReportDefinition } from '@universo-react/types'
+import { reportDefinitionSchema, reportFilterSchema, runtimeDatasourceSortSchema } from '@universo-react/types'
+import type { ReportDefinition, RuntimeDatasourceSort } from '@universo-react/types'
 import { isUuidV7, resolveApplicationLifecycleContractFromConfig, type DbExecutor } from '@universo-react/utils'
 import { qColumn, qSchemaTable } from '@universo-react/database'
 import {
@@ -37,6 +37,58 @@ const reportCodenameSchema = z
     .max(128)
     .regex(/^[A-Za-z][A-Za-z0-9._-]{0,127}$/u)
 const reportIdSchema = z.string().trim().refine(isUuidV7)
+type RuntimeReportDateComposition = NonNullable<ReportDefinition['columns'][number]['dateComposition']>
+
+const readRuntimeReportDateComposition = (validationRules?: Record<string, unknown> | null): RuntimeReportDateComposition | undefined => {
+    const composition = validationRules?.dateComposition
+    return composition === 'date' || composition === 'time' || composition === 'datetime' ? composition : undefined
+}
+
+const applyRuntimeReportDateCompositions = (
+    definition: ReportDefinition,
+    fields: readonly {
+        field: string
+        dataType: string
+        dateComposition?: RuntimeReportDateComposition
+        validationRules?: Record<string, unknown> | null
+    }[]
+): ReportDefinition => {
+    const dateCompositionsByField = new Map(
+        fields.flatMap((field) => {
+            const dateComposition = field.dateComposition ?? readRuntimeReportDateComposition(field.validationRules)
+            return field.dataType === 'DATE' && dateComposition ? [[field.field, dateComposition] as const] : []
+        })
+    )
+
+    return {
+        ...definition,
+        columns: definition.columns.map((column) =>
+            column.type === 'date'
+                ? {
+                      ...column,
+                      dateComposition: dateCompositionsByField.get(column.field) ?? column.dateComposition ?? 'datetime'
+                  }
+                : column
+        )
+    }
+}
+
+const reportSortSchema = z
+    .array(runtimeDatasourceSortSchema)
+    .max(5)
+    .superRefine((sort, ctx) => {
+        const fields = new Set<string>()
+        sort.forEach((item, index) => {
+            if (fields.has(item.field)) {
+                ctx.addIssue({
+                    code: z.ZodIssueCode.custom,
+                    message: 'Sort fields must be unique',
+                    path: [index, 'field']
+                })
+            }
+            fields.add(item.field)
+        })
+    })
 
 const reportRunBodySchema = z
     .object({
@@ -45,6 +97,7 @@ const reportRunBodySchema = z
         limit: z.coerce.number().int().positive().max(500).optional(),
         offset: z.coerce.number().int().min(0).optional(),
         filters: z.array(reportFilterSchema).max(32).optional().default([]),
+        sort: reportSortSchema.optional(),
         locale: z.string().trim().min(2).max(16).optional().default('en')
     })
     .strict()
@@ -66,6 +119,7 @@ const reportExportBodySchema = z
         limit: z.coerce.number().int().positive().max(5000).optional(),
         offset: z.coerce.number().int().min(0).optional(),
         filters: z.array(reportFilterSchema).max(32).optional().default([]),
+        sort: reportSortSchema.optional(),
         locale: z.string().trim().min(2).max(16).optional().default('en')
     })
     .strict()
@@ -102,6 +156,7 @@ const mapRuntimeReportFields = (
         codename: unknown
         column_name: string
         data_type: RuntimeReportFieldMetadata['dataType']
+        validation_rules?: Record<string, unknown> | null
         target_object_id?: string | null
         target_object_kind?: string | null
     }>
@@ -112,6 +167,9 @@ const mapRuntimeReportFields = (
             codename: resolveRuntimeCodenameText(field.codename) || field.column_name,
             columnName: field.column_name,
             dataType: field.data_type,
+            ...(field.data_type === 'DATE' && readRuntimeReportDateComposition(field.validation_rules)
+                ? { dateComposition: readRuntimeReportDateComposition(field.validation_rules) }
+                : {}),
             refTargetObjectId: field.target_object_id ?? null,
             refTargetObjectKind: field.target_object_kind ?? null
         }))
@@ -287,6 +345,24 @@ const assertReportColumnsAvailable = (definition: ReportDefinition, availableFie
     }
 }
 
+const assertReportRequestFieldsConfigured = (
+    definition: ReportDefinition,
+    filters: ReportDefinition['filters'],
+    sort: RuntimeDatasourceSort[] | undefined
+): void => {
+    const configuredFields = new Set(definition.columns.map((column) => column.field))
+    const invalidField = [...filters.map((filter) => filter.field), ...(sort ?? []).map((item) => item.field)].find(
+        (field) => !configuredFields.has(field)
+    )
+    if (invalidField) {
+        throw new UpdateFailure(400, {
+            error: 'Report filters and sorting must use configured columns',
+            code: 'REPORT_FIELD_NOT_CONFIGURED',
+            field: invalidField
+        })
+    }
+}
+
 const resolveReportTarget = async (params: {
     executor: DbExecutor
     schemaIdent: string
@@ -340,11 +416,12 @@ const resolveReportTarget = async (params: {
         codename: unknown
         column_name: string
         data_type: RuntimeReportFieldMetadata['dataType']
+        validation_rules?: Record<string, unknown> | null
         target_object_id?: string | null
         target_object_kind?: string | null
     }>(
         `
-        SELECT codename, column_name, data_type, target_object_id, target_object_kind
+        SELECT codename, column_name, data_type, validation_rules, target_object_id, target_object_kind
         FROM ${params.schemaIdent}._app_components
         WHERE object_id = $1
           AND parent_component_id IS NULL
@@ -440,6 +517,13 @@ export function createRuntimeReportsController(getDbExecutor: () => DbExecutor) 
                   })
                 : undefined
 
+        if (target) {
+            definition = applyRuntimeReportDateCompositions(
+                definition,
+                target.fields.map(({ codename, dataType, dateComposition }) => ({ field: codename, dataType, dateComposition }))
+            )
+        }
+
         return { definition, target }
     }
 
@@ -454,15 +538,23 @@ export function createRuntimeReportsController(getDbExecutor: () => DbExecutor) 
         defaultLimit?: number
         locale?: string
         filters?: ReportDefinition['filters']
+        sort?: RuntimeDatasourceSort[]
     }): Promise<RuntimeReportExecutionResult> => {
         const requestFilters = params.filters ?? []
+        assertReportRequestFieldsConfigured(params.definition, requestFilters, params.sort)
         const unionDatasource =
-            params.definition.datasource.kind === 'records.union' && (params.definition.filters.length > 0 || requestFilters.length > 0)
+            params.definition.datasource.kind === 'records.union' &&
+            (params.definition.filters.length > 0 || requestFilters.length > 0 || params.sort !== undefined)
                 ? {
                       ...params.definition.datasource,
                       query: {
                           ...(params.definition.datasource.query ?? {}),
-                          filters: [...(params.definition.datasource.query?.filters ?? []), ...params.definition.filters, ...requestFilters]
+                          filters: [
+                              ...(params.definition.datasource.query?.filters ?? []),
+                              ...params.definition.filters,
+                              ...requestFilters
+                          ],
+                          ...(params.sort !== undefined ? { sort: params.sort } : {})
                       }
                   }
                 : params.definition.datasource
@@ -485,16 +577,20 @@ export function createRuntimeReportsController(getDbExecutor: () => DbExecutor) 
                 offset,
                 locale: params.locale ?? 'en'
             })
-            assertReportColumnsAvailable(
+            const definition = applyRuntimeReportDateCompositions(
                 params.definition,
+                payload.columns.map(({ field, dataType, validationRules }) => ({ field, dataType, validationRules }))
+            )
+            assertReportColumnsAvailable(
+                definition,
                 payload.columns.map((column: { field: string }) => column.field)
             )
 
             return {
-                rows: pickRecordsUnionReportRows(payload.rows, params.definition),
+                rows: pickRecordsUnionReportRows(payload.rows, definition),
                 total: payload.pagination.total,
                 aggregations: {},
-                definition: params.definition
+                definition
             }
         }
 
@@ -550,6 +646,7 @@ export function createRuntimeReportsController(getDbExecutor: () => DbExecutor) 
             fields: params.target.fields,
             definition: params.definition,
             permissions: params.ctx.permissions,
+            locale: params.locale,
             activeCondition: buildRuntimeActiveRowCondition(
                 lifecycleContract,
                 params.target.config,
@@ -562,7 +659,8 @@ export function createRuntimeReportsController(getDbExecutor: () => DbExecutor) 
             offset: params.offset,
             maxLimit: params.maxLimit,
             defaultLimit: params.defaultLimit,
-            filters: requestFilters
+            filters: requestFilters,
+            sort: params.sort
         })
     }
 
@@ -618,7 +716,8 @@ export function createRuntimeReportsController(getDbExecutor: () => DbExecutor) 
                 limit: parsed.data.limit,
                 offset: parsed.data.offset,
                 locale: parsed.data.locale,
-                filters: parsed.data.filters
+                filters: parsed.data.filters,
+                sort: parsed.data.sort
             })
 
             res.json(result)
@@ -654,7 +753,8 @@ export function createRuntimeReportsController(getDbExecutor: () => DbExecutor) 
                 maxLimit: 5000,
                 defaultLimit: 5000,
                 locale: parsed.data.locale,
-                filters: parsed.data.filters
+                filters: parsed.data.filters,
+                sort: parsed.data.sort
             })
             const csv = serializeRuntimeReportCsv(result, parsed.data.locale)
             const filename = buildCsvAttachmentFilename(definition.codename)

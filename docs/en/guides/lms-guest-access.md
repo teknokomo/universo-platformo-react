@@ -50,7 +50,7 @@ For a quiz or assessment target, `POST /public/a/:applicationId/guest-session` r
 
 ## Quiz Attempts, Scores, and Reports
 
-A quiz attempt is started on the server and keeps its saved deadline and question snapshot. The guest runtime saves each selected answer before moving to the next unanswered question and can restore the same attempt after a reload. Correct answers are not included in the question data shown during the quiz. On submission or timeout, the server scores the saved answers and stores the score, total questions, pass state, completion time, and finish reason with the attempt.
+A quiz attempt is started on the server and keeps its saved deadline and question snapshot. The `ConfirmAnswerBeforeNext` quiz setting defaults to `false`: selecting an answer saves it and advances after the server confirms it. When enabled, the guest runtime stages the choice locally, lets the participant change it, and saves it only after **Submit answer** is activated. The runtime can restore the same attempt after a reload. Correct answers are not included in the question data shown during the quiz. On submission or timeout, the server scores the saved answers and stores the score, score percentage, total questions, pass state, completion time, and finish reason with the attempt.
 
 For the Lyceum Marathon, each of the seven quizzes has 30 questions, four choices per question, and a 2,700-second time limit. The timer uses the server deadline; expired attempts are finalized before an authorized report is read. Locale is passed to the attempt lifecycle endpoints so both the interface and the closing message match the participant's selected language.
 

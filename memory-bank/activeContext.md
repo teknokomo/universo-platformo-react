@@ -2,9 +2,10 @@
 
 > Current-focus memory only. Completed implementation history lives in [progress.md](progress.md); actionable checklists live in [tasks.md](tasks.md).
 
-## Current Focus: Dashboard Complete Entity-Backed Widgets (2026-10-07)
+## Current Focus: PR #918 LMS QA and CI Remediation (2026-10-15)
 
--   Implementation is complete and ready for commit/PR. The plan, implementation checklist and active brief status now reflect the completed state; archival remains a separate explicit post-PR action.
+-   The PR #918 review remediation is complete and locally validated on branch `fix/gh917-lms-runtime-stability`. The previously failing CI causes have matching source/test/provenance fixes; commit and push these changes to the existing PR, then distinguish fresh checks from the old red runs on `fbf8bc0`.
+-   Preserve the clean-cutover constraints: no legacy quiz path, no database-schema or metahub-template version bump, and no `pnpm dev`.
 -   Entity Types own durable content/domain data; persisted widget placements own composition/presentation and semantic `instanceKey`; registry metadata owns binding/authoring/runtime contracts. Nested Dashboard composition uses first-class parent/slot placement relationships.
 -   The clean cutover is preserved: no supported Dashboard legacy reader, dual write, embedded child-widget array, schema-version bump, built-in template-version bump, or `pnpm dev` dependency was introduced.
 -   Canonical minimal-Supabase Dashboard acceptance passed all seven selected specs / 11 Playwright tests in `tools/testing/e2e/.artifacts/dashboard-entity-backed/2026-10-06T21-47-30-457Z/`, covering nested authoring, application layout sync, Dashboard runtime, cross-template runtime/scoped precedence/concurrency and LMS snapshot runtime.
@@ -31,9 +32,9 @@
 
 ## Immediate Next Step / Blocker
 
--   No implementation blocker remains for the original Dashboard Entity-backed brief. The next repository lifecycle step is commit/PR preparation when requested.
--   Preserve the current dirty worktree and the final E2E artifact directory until the commit/PR diff and screenshot references have been reviewed.
--   Do not represent Thermos/autoreview or OntoIndex dirty-tree graph review as PASS unless their infrastructure is repaired and a fresh terminal verdict is observed.
+-   Create one Conventional Commit for the validated LMS PR follow-up and push it to `fix/gh917-lms-runtime-stability`; monitor Actions and the external Kilo review on the new commit SHA.
+-   Local Thermos passed with no actionable findings, OntoIndex file/test verification passed, and two independent read-only reviewers found no actionable issue. The previous failed Actions belong to the older PR head and are not evidence about the new source until fresh runs complete.
+-   Preserve the clean cutover: no legacy quiz path, schema-version bump, metahub-template version bump, or `pnpm dev` dependency.
 
 ## Runtime / Layout Contracts To Preserve
 
@@ -65,7 +66,7 @@
 
 ## Current Platform Baseline
 
--   Repository version: `0.83.0-alpha`; latest published GitHub release in the Memory Bank table is `0.81.0-alpha` (2026-09-14).
+-   Repository version: `0.85.0-alpha`; latest published GitHub release in the Memory Bank table is `0.81.0-alpha` (2026-09-14).
 -   Package manager: `pnpm@12.4.1`; Turbo: `2.10.12`; Node root requirement: `>=22.12.0` (Vite 7 compatibility).
 -   UI baseline: React 18.3.1, Material UI Core 9.2.0, MUI X 9.8.0.
 -   Built-in templates: `basic`, `basic-demo`, `empty`, `lms`, `1c-compatible`, `playcanvas`, `interpretation-network`, `marketing-page`.

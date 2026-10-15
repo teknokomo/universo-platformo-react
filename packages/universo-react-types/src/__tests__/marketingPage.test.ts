@@ -69,6 +69,17 @@ const heroData = {
 }
 
 describe('marketing page contracts', () => {
+    it('keeps Pricing call-to-action fields optional while preserving its required title', () => {
+        const tiersSlot = getLayoutWidgetDefinition('marketing.pricing')?.bindingSlots?.find(({ key }) => key === 'tiers')
+        const actionLabel = tiersSlot?.requirements.components.find(({ field }) => field === 'actionLabel')
+        const actionHref = tiersSlot?.requirements.components.find(({ field }) => field === 'actionHref')
+        const title = tiersSlot?.requirements.components.find(({ field }) => field === 'title')
+
+        expect(actionLabel?.required).toBe(false)
+        expect(actionHref?.required).toBe(false)
+        expect(title?.required).toBe(true)
+    })
+
     it('preserves template-owned layout config and validates it by template key', () => {
         const config = {
             themeMode: 'dark' as const,

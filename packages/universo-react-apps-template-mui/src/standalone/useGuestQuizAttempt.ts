@@ -29,7 +29,7 @@ export type GuestQuizAttemptController = {
     handleRetryQuiz: () => void
     handleBackToContent: () => void
     handleSelectOption: (optionId: string) => Promise<void>
-    handleRetryAnswer: () => Promise<void>
+    handleRetryAnswer: (optionId?: string) => Promise<void>
 }
 
 type UseGuestQuizAttemptOptions = {
@@ -66,6 +66,7 @@ export function useGuestQuizAttempt({
     const currentAttemptRef = useRef<GuestQuizAttempt | null>(null)
     const initializedAttemptScopeRef = useRef('')
     const finalizedDeadlineAttemptRef = useRef('')
+    const failedFinalizationAttemptRef = useRef('')
     const attemptScope =
         runtimeId && session?.participantId && session.sessionToken ? `${applicationId}:${slug}:${session.participantId}:${runtimeId}` : ''
     const attemptScopeRef = useRef(attemptScope)
@@ -112,6 +113,12 @@ export function useGuestQuizAttempt({
         onSuccess: (completedAttempt, attemptId) => {
             setQuizAttempt((current) => (current?.attemptId === attemptId ? completedAttempt : current))
             setTimeRemaining(0)
+        },
+        onError: (_error, attemptId) => {
+            if (finalizedDeadlineAttemptRef.current === attemptId) {
+                finalizedDeadlineAttemptRef.current = ''
+            }
+            failedFinalizationAttemptRef.current = attemptId
         }
     })
 
@@ -264,9 +271,19 @@ export function useGuestQuizAttempt({
                 if (!serverAttempt || attemptScopeRef.current !== requestScope || currentAttemptRef.current?.attemptId !== attemptId) {
                     return
                 }
+                failedFinalizationAttemptRef.current = ''
                 if (currentAttemptRef.current.questions[0]?.id !== serverAttempt.questions[0]?.id) setSelectedOptionId('')
                 setQuizAttempt(serverAttempt)
-                setTimeRemaining(serverAttempt.status === 'in_progress' ? getInitialRemainingSeconds(serverAttempt) : 0)
+                const remainingSeconds = serverAttempt.status === 'in_progress' ? getInitialRemainingSeconds(serverAttempt) : 0
+                setTimeRemaining(remainingSeconds)
+                if (
+                    serverAttempt.status === 'in_progress' &&
+                    (serverAttempt.currentQuestionIndex >= serverAttempt.totalQuestions || remainingSeconds === 0) &&
+                    finalizedDeadlineAttemptRef.current !== attemptId
+                ) {
+                    finalizedDeadlineAttemptRef.current = attemptId
+                    finalizeAttempt(attemptId)
+                }
             } catch {
                 // The server remains authoritative and rejects answers after the deadline.
             } finally {
@@ -274,7 +291,7 @@ export function useGuestQuizAttempt({
                 setIsRefreshingAttempt(false)
             }
         },
-        [apiBaseUrl, applicationId, attemptScope, locale, session]
+        [apiBaseUrl, applicationId, attemptScope, finalizeAttempt, locale, session]
     )
 
     useEffect(() => {
@@ -294,6 +311,7 @@ export function useGuestQuizAttempt({
         currentAttemptRef.current = null
         answerSaveContinuationRef.current = false
         finalizedDeadlineAttemptRef.current = ''
+        failedFinalizationAttemptRef.current = ''
         setQuizAttempt(null)
         setSelectedOptionId('')
         setTimeRemaining(null)
@@ -347,6 +365,7 @@ export function useGuestQuizAttempt({
             isSavingAnswer ||
             answerSaveContinuationRef.current ||
             isFinalizing ||
+            failedFinalizationAttemptRef.current === quizAttemptId ||
             finalizedDeadlineAttemptRef.current === quizAttemptId
         ) {
             return
@@ -404,9 +423,12 @@ export function useGuestQuizAttempt({
     )
 
     const handleSelectOption = useCallback(async (optionId: string) => saveSelectedAnswer(optionId), [saveSelectedAnswer])
-    const handleRetryAnswer = useCallback(async () => {
-        if (selectedOptionId) await saveSelectedAnswer(selectedOptionId)
-    }, [selectedOptionId, saveSelectedAnswer])
+    const handleRetryAnswer = useCallback(
+        async (optionId = selectedOptionId) => {
+            if (optionId) await saveSelectedAnswer(optionId)
+        },
+        [selectedOptionId, saveSelectedAnswer]
+    )
 
     const handleRetryQuiz = () => {
         const retryQuizId = activeQuizId ?? runtimeId
@@ -417,6 +439,7 @@ export function useGuestQuizAttempt({
         removeGuestSessionStorage(getGuestAttemptStorageKey(applicationId, slug, session.participantId, retryQuizId))
         answerSaveContinuationRef.current = false
         finalizedDeadlineAttemptRef.current = ''
+        failedFinalizationAttemptRef.current = ''
         currentAttemptRef.current = null
         initializeQuizAttemptMutation.reset()
         saveAnswerMutation.reset()
@@ -432,6 +455,7 @@ export function useGuestQuizAttempt({
         currentAttemptRef.current = null
         answerSaveContinuationRef.current = false
         finalizedDeadlineAttemptRef.current = ''
+        failedFinalizationAttemptRef.current = ''
         setQuizAttempt(null)
         setSelectedOptionId('')
         setTimeRemaining(null)

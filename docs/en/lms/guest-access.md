@@ -16,7 +16,7 @@ Each class has its own public link to the Lyceum Intellectual Marathon. Particip
 2. Enter your first and last name, then accept both the Terms of Service and the Privacy Policy. Both confirmations are required to begin. The organizer has turned off the “I am not a robot” check for this event. Select **Start learning** once the form is complete; the quiz opens in the same browser tab.
    ![The first Marathon question with four choices and a 45-minute timer](../.gitbook/assets/lms-user-guide/guest-access-step-2.png)
 
-3. Answer one question at a time. Each question has four choices, and the timer gives you 45 minutes for the whole quiz. Select one option; the answer is saved automatically, and the next question appears after the server confirms it. If saving fails, keep the page open and retry the selected answer. The quiz does not show which option is correct while you are answering.
+3. Answer one question at a time. Each question has four choices, and the timer gives you 45 minutes for the whole quiz. By default, selecting an option saves it automatically and advances after the server confirms it. The organizer can enable answer confirmation in the quiz settings; in that mode, you can change your selection until you choose **Submit answer**. If saving fails, keep the page open and retry the selected answer. The quiz does not show which option is correct while you are answering.
    ![The second question after the first answer has been saved](../.gitbook/assets/lms-user-guide/guest-access-step-3.png)
 
 4. Continue until all 30 questions are answered. The final answer completes the attempt and opens your result, including the number of correct answers and the organizer’s closing message. The result is saved with your name and completion time. If the timer expires first, the application scores answers that were already saved.
@@ -29,7 +29,7 @@ Each class has its own public link to the Lyceum Intellectual Marathon. Particip
 
 Prepare and publish one quiz for each class in the application workspace:
 
--   Open **Quizzes** in the application sidebar, or choose **Content Projects → Quizzes**. Create a quiz, add its questions and four answer choices, mark the correct choice, set the time limit, and add the completion message.
+-   Open **Quizzes** in the application sidebar, or choose **Content Projects → Quizzes**. Create a quiz, add its questions and four answer choices, mark the correct choice, set the time limit, and add the completion message. The **Confirm answer before continuing** setting is off by default; enable it when participants should choose **Submit answer** after selecting an option.
 -   Open **Guest links**, select the quiz, and choose **Create**. Set a readable title and access key, then choose which identity fields to show and require. The Terms of Service and Privacy Policy confirmations remain mandatory. For the Marathon, first and last name are required, email and phone are hidden, and the robot check is off.
 -   Make the application public in **Application settings** so anonymous visitors can open its guest URLs.
 -   Open the application board and select **Guest and short links**. The **Full guest quiz links** table shows each complete direct URL and a **Copy link** button. Copy the appropriate class link and share it with participants. To create an optional shorter `/l/<slug>` address, use the form on the same page and choose the quiz access link as its destination. A QR code can be generated from either URL using an external QR-code service.
@@ -40,13 +40,13 @@ The application records each completed attempt for staff who have permission to 
 
 ## Screen Details
 
-| Screen         | What it shows                                       |
-| -------------- | --------------------------------------------------- |
-| Guest entry    | The public quiz link and participant form.          |
-| First question | Four choices, the question counter, and the timer.  |
-| Next question  | Appears after the selected answer is saved.         |
-| Final result   | The participant’s score and closing message.        |
-| Staff report   | Saved participant, completion time, and quiz score. |
+| Screen         | What it shows                                                                                             |
+| -------------- | --------------------------------------------------------------------------------------------------------- |
+| Guest entry    | The public quiz link and participant form.                                                                |
+| First question | Four choices, the question counter, and the timer.                                                        |
+| Next question  | Appears after the answer is saved, immediately by default or after participant confirmation when enabled. |
+| Final result   | The participant’s score and closing message.                                                              |
+| Staff report   | Saved participant, completion time, and quiz score.                                                       |
 
 ## Related Pages
 

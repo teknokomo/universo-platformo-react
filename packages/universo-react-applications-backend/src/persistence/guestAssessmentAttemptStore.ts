@@ -17,7 +17,9 @@ export type GuestAssessmentAttemptColumns = {
     questionsSnapshot: string
     questionSetDigest: string
     accessLinkId: string
+    classIdSnapshot: string
     score: string
+    scorePercent: string
     totalQuestions: string
     passed: string
     status: string

@@ -5,6 +5,7 @@ import {
     quoteIdentifier,
     runtimeCodenameTextSql,
     resolveRuntimeCodenameText,
+    UpdateFailure,
     type RuntimeDataType
 } from '../../shared/runtimeHelpers'
 import { RUNTIME_CURRENT_USER_ID_TOKEN, type RuntimeListComponent, type RuntimeZoneWidgets } from './contracts'
@@ -166,6 +167,18 @@ export const normalizeRuntimeFilterValue = (cmp: { data_type: RuntimeDataType },
     return rawValue
 }
 
+const normalizeRuntimeTimeFilterValue = (rawValue: unknown): string | undefined => {
+    if (typeof rawValue !== 'string') return undefined
+    const trimmedValue = rawValue.trim()
+    if (!trimmedValue) return undefined
+
+    const match = /^(?:([01]\d|2[0-3]):([0-5]\d))(?::([0-5]\d)(?:\.(\d{1,6}))?)?$/u.exec(trimmedValue)
+    if (!match) return undefined
+
+    const [, hour, minute, second = '00', fraction] = match
+    return `${hour}:${minute}:${second}${fraction ? `.${fraction}` : ''}`
+}
+
 export const resolveRuntimeFilterValue = (rawValue: unknown, context: { currentUserId?: string | null }): unknown => {
     if (typeof rawValue === 'string' && rawValue.trim() === RUNTIME_CURRENT_USER_ID_TOKEN) {
         return context.currentUserId ?? null
@@ -193,7 +206,29 @@ export const buildRuntimeListFilterClause = (
         return `(${columnSql} IS NOT NULL AND ${columnSql}::text <> '')`
     }
 
-    const normalizedValue = normalizeRuntimeFilterValue(cmp, resolveRuntimeFilterValue(filter.value, context))
+    const resolvedValue = resolveRuntimeFilterValue(filter.value, context)
+    const usesTextComparison = ['contains', 'startsWith', 'endsWith'].includes(filter.operator)
+    const isTimeOnlyField = cmp.data_type === 'DATE' && cmp.validation_rules?.dateComposition === 'time'
+    const normalizedValue =
+        isTimeOnlyField && !usesTextComparison
+            ? normalizeRuntimeTimeFilterValue(resolvedValue)
+            : normalizeRuntimeFilterValue(cmp, resolvedValue)
+
+    if (
+        isTimeOnlyField &&
+        !usesTextComparison &&
+        resolvedValue !== null &&
+        resolvedValue !== undefined &&
+        !(typeof resolvedValue === 'string' && resolvedValue.trim() === '') &&
+        normalizedValue === undefined
+    ) {
+        throw new UpdateFailure(400, {
+            error: 'Runtime time filter must be a valid 24-hour time',
+            code: 'RUNTIME_FILTER_VALUE_INVALID',
+            field: resolveRuntimeCodenameText(cmp.codename)
+        })
+    }
+
     if (normalizedValue === undefined || normalizedValue === null || normalizedValue === '') {
         return null
     }
