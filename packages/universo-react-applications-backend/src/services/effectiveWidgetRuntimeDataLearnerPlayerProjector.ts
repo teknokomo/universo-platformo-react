@@ -16,6 +16,7 @@ import {
     resolveRuntimeObjectCollectionByCodename
 } from './runtimeRowSupport/objectMetadata'
 import {
+    readRuntimeProgressNumber,
     readRuntimeProgressSequencePolicy,
     resolveProgressStoreBinding,
     resolveRuntimeProgressItemStates
@@ -291,7 +292,7 @@ export const projectLearnerPlayer = async (
     const progressBinding = await resolveProgressStoreBinding(executor, qSchema(scope.schemaName), scope.applicationSettings)
     const progressItems = resolvedItemTargets.map(({ target, recordId }) => ({
         id: recordId,
-        order: typeof target.data.order === 'number' && Number.isFinite(target.data.order) ? target.data.order : undefined,
+        order: readRuntimeProgressNumber(target.data.order),
         ...(scopeFieldCodename
             ? { scopeKey: typeof target.parentSemanticKey === 'string' ? parentRecordIdsByKey.get(target.parentSemanticKey) : undefined }
             : {})

@@ -10,7 +10,7 @@ import Typography from '@mui/material/Typography'
 import FileDownloadRoundedIcon from '@mui/icons-material/FileDownloadRounded'
 import { dashboardWidgetConfigSchemaByKey, readLocalizedTextValue, type ReportDefinition } from '@universo-react/types'
 import { exportRuntimeReportCsv, runRuntimeReport } from '../../api/api'
-import { formatRuntimeSafeValue, isRuntimeTechnicalFieldName } from '../../utils/displayValue'
+import { formatRuntimeDateValue, formatRuntimeSafeValue, isRuntimeTechnicalFieldName } from '../../utils/displayValue'
 import { extractRuntimeErrorMessage } from '../../utils/runtimeErrors'
 import { mapGridFilterModel, mapGridSortModel } from '../../utils/runtimeListQuery'
 import { useDashboardDetails } from '../DashboardDetailsContext'
@@ -87,32 +87,46 @@ const shouldRenderReportColumn = (column: ReportDefinition['columns'][number], l
 const toReportGridColumns = (definition: ReportDefinition, locale: string, t: TFunction<'apps'>): GridColDef[] =>
     definition.columns
         .filter((column) => shouldRenderReportColumn(column, locale))
-        .map((column) => ({
-            field: column.field,
-            headerName: readLocalizedWidgetText(column.label, locale) ?? humanizeRuntimeCodename(column.field) ?? column.field,
-            flex: 1,
-            minWidth: column.type === 'number' ? 120 : 160,
-            type: column.type === 'date' ? 'dateTime' : column.type === 'number' || column.type === 'boolean' ? column.type : 'string',
-            ...(column.type === 'date'
-                ? {
-                      valueGetter: (value: unknown) => toValidDate(value),
-                      filterOperators: getGridDateOperators(true).filter((operator) => operator.value !== 'not')
-                  }
-                : {
-                      valueGetter: (value: unknown) =>
-                          value !== null && typeof value === 'object' ? formatRuntimeSafeValue(value, locale) : value
-                  }),
-            renderCell: (params) =>
-                column.type === 'date'
-                    ? formatRuntimeSafeValue(params.value, locale)
-                    : column.type === 'status'
-                    ? formatReportStatus(params.value, locale, t)
-                    : column.type === 'boolean' && typeof params.value === 'boolean'
-                    ? t(params.value ? 'reports.booleanValues.yes' : 'reports.booleanValues.no', {
-                          defaultValue: params.value ? 'Yes' : 'No'
-                      })
-                    : formatReportGridValue(params.value, locale)
-        }))
+        .map((column) => {
+            const isDateColumn = column.type === 'date'
+            const isTimeOnlyColumn = isDateColumn && column.dateComposition === 'time'
+
+            return {
+                field: column.field,
+                headerName: readLocalizedWidgetText(column.label, locale) ?? humanizeRuntimeCodename(column.field) ?? column.field,
+                flex: 1,
+                minWidth: column.type === 'number' ? 120 : 160,
+                type:
+                    isDateColumn && !isTimeOnlyColumn
+                        ? column.dateComposition === 'date'
+                            ? 'date'
+                            : 'dateTime'
+                        : column.type === 'number' || column.type === 'boolean'
+                        ? column.type
+                        : 'string',
+                ...(isDateColumn && !isTimeOnlyColumn
+                    ? {
+                          valueGetter: (value: unknown) => toValidDate(value),
+                          filterOperators: getGridDateOperators(column.dateComposition !== 'date').filter(
+                              (operator) => operator.value !== 'not'
+                          )
+                      }
+                    : {
+                          valueGetter: (value: unknown) =>
+                              value !== null && typeof value === 'object' ? formatRuntimeSafeValue(value, locale) : value
+                      }),
+                renderCell: (params) =>
+                    isDateColumn
+                        ? formatRuntimeDateValue(params.value, locale, column.dateComposition ?? 'datetime')
+                        : column.type === 'status'
+                        ? formatReportStatus(params.value, locale, t)
+                        : column.type === 'boolean' && typeof params.value === 'boolean'
+                        ? t(params.value ? 'reports.booleanValues.yes' : 'reports.booleanValues.no', {
+                              defaultValue: params.value ? 'Yes' : 'No'
+                          })
+                        : formatReportGridValue(params.value, locale)
+            }
+        })
 
 const sanitizeReportFilenameSegment = (value: string): string => {
     const normalized = value.trim().replace(/[_-]+/g, ' ').replace(/\s+/g, ' ')
@@ -137,6 +151,8 @@ function AuthorizedReportTable({ reportCodename, rowHeight }: { reportCodename: 
     const { t } = useTranslation('apps')
     const [paginationModel, setPaginationModelState] = useState<GridPaginationModel>({ page: 0, pageSize: 20 })
     const [filterModel, setFilterModelState] = useState<GridFilterModel>({ items: [] })
+    const [runtimeFilters, setRuntimeFilters] = useState<ReturnType<typeof mapGridFilterModel>>([])
+    const [retainedDefinition, setRetainedDefinition] = useState<ReportDefinition>()
     const [sortModelState, setSortModelState] = useState<GridSortModel | null>(null)
     const [sortReadyColumns, setSortReadyColumns] = useState<GridColDef[] | null>(null)
     const [isExporting, setIsExporting] = useState(false)
@@ -146,7 +162,6 @@ function AuthorizedReportTable({ reportCodename, rowHeight }: { reportCodename: 
     const canFetch = Boolean(
         details?.apiBaseUrl && details.applicationId && details.runtimeAccessMode !== 'public' && details.permissions?.readReports === true
     )
-    const runtimeFilters = useMemo(() => mapGridFilterModel(filterModel), [filterModel])
     const runtimeSort = useMemo(() => (sortModelState === null ? undefined : mapGridSortModel(sortModelState)), [sortModelState])
 
     const query = useQuery({
@@ -181,7 +196,19 @@ function AuthorizedReportTable({ reportCodename, rowHeight }: { reportCodename: 
     })
 
     const rows = useMemo(() => toReportGridRows(query.data?.rows ?? []), [query.data?.rows])
-    const resolvedDefinition = query.data?.definition
+    useEffect(() => {
+        if (query.data?.definition) setRetainedDefinition(query.data.definition)
+    }, [query.data?.definition])
+    const resolvedDefinition = query.data?.definition ?? retainedDefinition
+    const dateCompositions = useMemo(
+        () =>
+            new Map(
+                (resolvedDefinition?.columns ?? [])
+                    .filter((column) => column.type === 'date')
+                    .map((column) => [column.field, column.dateComposition ?? 'datetime'] as const)
+            ),
+        [resolvedDefinition]
+    )
     const configuredSortModel = useMemo(() => {
         const datasource = resolvedDefinition?.datasource
         if (!datasource || (datasource.kind !== 'records.list' && datasource.kind !== 'records.union')) return []
@@ -242,6 +269,7 @@ function AuthorizedReportTable({ reportCodename, rowHeight }: { reportCodename: 
 
     const setFilterModel = (model: GridFilterModel) => {
         setFilterModelState(model)
+        setRuntimeFilters(mapGridFilterModel(model, dateCompositions))
         setPaginationModelState((current) => ({ ...current, page: 0 }))
     }
 

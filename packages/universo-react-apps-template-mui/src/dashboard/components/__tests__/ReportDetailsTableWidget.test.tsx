@@ -38,6 +38,19 @@ vi.mock('../CustomizedDataGrid', async () => {
                     {props.paginationModel?.page}:{props.rowCount}
                 </span>
                 <span data-testid='report-sort-model'>{JSON.stringify(props.sortModel ?? [])}</span>
+                <span data-testid='report-grid-fields'>{props.columns.map(({ field }) => field).join(',')}</span>
+                <span data-testid='report-grid-column-types'>
+                    {JSON.stringify(
+                        props.columns.map(({ field, type, filterOperators }) => ({
+                            field,
+                            type,
+                            operators: filterOperators?.map((operator) => ({
+                                value: operator.value,
+                                inputType: (operator as unknown as { InputComponentProps?: { type?: string } }).InputComponentProps?.type
+                            }))
+                        }))
+                    )}
+                </span>
                 {props.rows.map((row) =>
                     props.columns.map((column) => (
                         <span key={`${row.id}:${column.field}`}>
@@ -62,6 +75,33 @@ vi.mock('../CustomizedDataGrid', async () => {
                 <button onClick={() => props.onFilterModelChange?.({ items: [{ field: 'Title', operator: 'contains', value: 'Course' }] })}>
                     Filter
                 </button>
+                <button
+                    onClick={() =>
+                        props.onFilterModelChange?.({
+                            items: [{ field: 'SubmittedOn', operator: 'is', value: new Date('2026-10-14') }]
+                        })
+                    }
+                >
+                    Date filter
+                </button>
+                <button
+                    onClick={() =>
+                        props.onFilterModelChange?.({
+                            items: [{ field: 'SubmittedAt', operator: 'is', value: new Date('2026-10-14T08:30') }]
+                        })
+                    }
+                >
+                    Date-time filter
+                </button>
+                <button
+                    onClick={() =>
+                        props.onFilterModelChange?.({
+                            items: [{ field: 'TimeOfDay', operator: 'equals', value: '08:30' }]
+                        })
+                    }
+                >
+                    Time filter
+                </button>
             </div>
         )
     }
@@ -80,6 +120,21 @@ const definitionWithHiddenSort = reportDefinitionSchema.parse({
         ...definition.datasource,
         query: { sort: [{ field: 'IssuedAt', direction: 'desc' }] }
     }
+})
+const definitionWithDateOnlyColumn = reportDefinitionSchema.parse({
+    ...definition,
+    columns: [{ field: 'SubmittedOn', label: { en: 'Submitted on', ru: 'Дата отправки' }, type: 'date', dateComposition: 'date' }]
+})
+const definitionWithDateAndDateTimeColumns = reportDefinitionSchema.parse({
+    ...definition,
+    columns: [
+        { field: 'SubmittedOn', label: { en: 'Submitted on', ru: 'Дата отправки' }, type: 'date', dateComposition: 'date' },
+        { field: 'SubmittedAt', label: { en: 'Submitted at', ru: 'Время отправки' }, type: 'date', dateComposition: 'datetime' }
+    ]
+})
+const definitionWithTimeOnlyColumn = reportDefinitionSchema.parse({
+    ...definition,
+    columns: [{ field: 'TimeOfDay', label: { en: 'Time of day', ru: 'Время суток' }, type: 'date', dateComposition: 'time' }]
 })
 const definitionWithVisibleMultiSort = reportDefinitionSchema.parse({
     ...definition,
@@ -218,6 +273,124 @@ describe('saved report details table', () => {
         await waitFor(() =>
             expect(runRuntimeReport).toHaveBeenLastCalledWith(
                 expect.objectContaining({ offset: 0, sort: [{ field: 'Title', direction: 'asc' }] })
+            )
+        )
+    })
+
+    it('keeps report columns available while a server filter refetch is pending', async () => {
+        let resolveFilteredReport: ((value: Awaited<ReturnType<typeof runRuntimeReport>>) => void) | undefined
+        vi.mocked(runRuntimeReport)
+            .mockResolvedValueOnce({ definition, rows: [{ Title: 'Course overview' }], total: 1, aggregations: {} })
+            .mockReturnValueOnce(
+                new Promise((resolve) => {
+                    resolveFilteredReport = resolve
+                })
+            )
+
+        renderReport()
+        await screen.findByText('Content title:Course overview')
+        fireEvent.click(screen.getByText('Filter'))
+
+        await waitFor(() => expect(runRuntimeReport).toHaveBeenCalledTimes(2))
+        expect(screen.getByTestId('report-grid-fields')).toHaveTextContent('Title')
+        expect(screen.getByTestId('report-grid-column-types')).toHaveTextContent('"field":"Title"')
+
+        resolveFilteredReport?.({ definition, rows: [], total: 0, aggregations: {} })
+        await waitFor(() => expect(screen.getByTestId('report-grid')).toBeInTheDocument())
+        expect(screen.getByTestId('report-grid-fields')).toHaveTextContent('Title')
+    })
+
+    it('sends date-only report filters as calendar dates', async () => {
+        vi.stubEnv('TZ', 'Europe/Moscow')
+        vi.mocked(runRuntimeReport).mockResolvedValueOnce({
+            definition: definitionWithDateOnlyColumn,
+            rows: [],
+            total: 0,
+            aggregations: {}
+        })
+
+        try {
+            renderReport()
+
+            await waitFor(() => expect(screen.getByTestId('report-grid-fields')).toHaveTextContent('SubmittedOn'))
+            fireEvent.click(screen.getByText('Date filter'))
+
+            await waitFor(() =>
+                expect(runRuntimeReport).toHaveBeenLastCalledWith(
+                    expect.objectContaining({
+                        filters: [{ field: 'SubmittedOn', operator: 'equals', value: '2026-10-14' }]
+                    })
+                )
+            )
+        } finally {
+            vi.unstubAllEnvs()
+        }
+    })
+
+    it('configures date and datetime column operators and submits their typed values', async () => {
+        vi.stubEnv('TZ', 'Europe/Moscow')
+        vi.mocked(runRuntimeReport).mockResolvedValueOnce({
+            definition: definitionWithDateAndDateTimeColumns,
+            rows: [],
+            total: 0,
+            aggregations: {}
+        })
+
+        try {
+            renderReport()
+
+            await waitFor(() => expect(screen.getByTestId('report-grid-fields')).toHaveTextContent('SubmittedOn,SubmittedAt'))
+            const columns = JSON.parse(screen.getByTestId('report-grid-column-types').textContent ?? '[]') as Array<{
+                field: string
+                type: string
+                operators: Array<{ value: string; inputType?: string }>
+            }>
+            expect(columns).toEqual([
+                expect.objectContaining({ field: 'SubmittedOn', type: 'date' }),
+                expect.objectContaining({ field: 'SubmittedAt', type: 'dateTime' })
+            ])
+            expect(columns[0]?.operators.find(({ value }) => value === 'is')?.inputType).toBe('date')
+            expect(columns[1]?.operators.find(({ value }) => value === 'is')?.inputType).toBe('datetime-local')
+            expect(columns.flatMap(({ operators }) => operators.map(({ value }) => value))).not.toContain('not')
+
+            fireEvent.click(screen.getByText('Date-time filter'))
+            await waitFor(() =>
+                expect(runRuntimeReport).toHaveBeenLastCalledWith(
+                    expect.objectContaining({
+                        filters: [{ field: 'SubmittedAt', operator: 'equals', value: '2026-10-14T08:30:00.000Z' }]
+                    })
+                )
+            )
+        } finally {
+            vi.unstubAllEnvs()
+        }
+    })
+
+    it('treats time-only report columns as text filters instead of datetime inputs', async () => {
+        vi.mocked(runRuntimeReport).mockResolvedValueOnce({
+            definition: definitionWithTimeOnlyColumn,
+            rows: [{ TimeOfDay: '08:30:00' }],
+            total: 1,
+            aggregations: {}
+        })
+
+        renderReport()
+
+        await waitFor(() => expect(screen.getByTestId('report-grid-fields')).toHaveTextContent('TimeOfDay'))
+        const columns = JSON.parse(screen.getByTestId('report-grid-column-types').textContent ?? '[]') as Array<{
+            field: string
+            type: string
+            operators?: Array<{ inputType?: string }>
+        }>
+        expect(columns).toEqual([{ field: 'TimeOfDay', type: 'string' }])
+        expect(screen.getByText('Time of day:08:30:00')).toBeInTheDocument()
+
+        fireEvent.click(screen.getByText('Time filter'))
+        await waitFor(() =>
+            expect(runRuntimeReport).toHaveBeenLastCalledWith(
+                expect.objectContaining({
+                    filters: [{ field: 'TimeOfDay', operator: 'equals', value: '08:30' }]
+                })
             )
         )
     })

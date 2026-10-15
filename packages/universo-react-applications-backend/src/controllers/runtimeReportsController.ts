@@ -37,6 +37,42 @@ const reportCodenameSchema = z
     .max(128)
     .regex(/^[A-Za-z][A-Za-z0-9._-]{0,127}$/u)
 const reportIdSchema = z.string().trim().refine(isUuidV7)
+type RuntimeReportDateComposition = NonNullable<ReportDefinition['columns'][number]['dateComposition']>
+
+const readRuntimeReportDateComposition = (validationRules?: Record<string, unknown> | null): RuntimeReportDateComposition | undefined => {
+    const composition = validationRules?.dateComposition
+    return composition === 'date' || composition === 'time' || composition === 'datetime' ? composition : undefined
+}
+
+const applyRuntimeReportDateCompositions = (
+    definition: ReportDefinition,
+    fields: readonly {
+        field: string
+        dataType: string
+        dateComposition?: RuntimeReportDateComposition
+        validationRules?: Record<string, unknown> | null
+    }[]
+): ReportDefinition => {
+    const dateCompositionsByField = new Map(
+        fields.flatMap((field) => {
+            const dateComposition = field.dateComposition ?? readRuntimeReportDateComposition(field.validationRules)
+            return field.dataType === 'DATE' && dateComposition ? [[field.field, dateComposition] as const] : []
+        })
+    )
+
+    return {
+        ...definition,
+        columns: definition.columns.map((column) =>
+            column.type === 'date'
+                ? {
+                      ...column,
+                      dateComposition: dateCompositionsByField.get(column.field) ?? column.dateComposition ?? 'datetime'
+                  }
+                : column
+        )
+    }
+}
+
 const reportSortSchema = z
     .array(runtimeDatasourceSortSchema)
     .max(5)
@@ -120,6 +156,7 @@ const mapRuntimeReportFields = (
         codename: unknown
         column_name: string
         data_type: RuntimeReportFieldMetadata['dataType']
+        validation_rules?: Record<string, unknown> | null
         target_object_id?: string | null
         target_object_kind?: string | null
     }>
@@ -130,6 +167,9 @@ const mapRuntimeReportFields = (
             codename: resolveRuntimeCodenameText(field.codename) || field.column_name,
             columnName: field.column_name,
             dataType: field.data_type,
+            ...(field.data_type === 'DATE' && readRuntimeReportDateComposition(field.validation_rules)
+                ? { dateComposition: readRuntimeReportDateComposition(field.validation_rules) }
+                : {}),
             refTargetObjectId: field.target_object_id ?? null,
             refTargetObjectKind: field.target_object_kind ?? null
         }))
@@ -376,11 +416,12 @@ const resolveReportTarget = async (params: {
         codename: unknown
         column_name: string
         data_type: RuntimeReportFieldMetadata['dataType']
+        validation_rules?: Record<string, unknown> | null
         target_object_id?: string | null
         target_object_kind?: string | null
     }>(
         `
-        SELECT codename, column_name, data_type, target_object_id, target_object_kind
+        SELECT codename, column_name, data_type, validation_rules, target_object_id, target_object_kind
         FROM ${params.schemaIdent}._app_components
         WHERE object_id = $1
           AND parent_component_id IS NULL
@@ -476,6 +517,13 @@ export function createRuntimeReportsController(getDbExecutor: () => DbExecutor) 
                   })
                 : undefined
 
+        if (target) {
+            definition = applyRuntimeReportDateCompositions(
+                definition,
+                target.fields.map(({ codename, dataType, dateComposition }) => ({ field: codename, dataType, dateComposition }))
+            )
+        }
+
         return { definition, target }
     }
 
@@ -529,16 +577,20 @@ export function createRuntimeReportsController(getDbExecutor: () => DbExecutor) 
                 offset,
                 locale: params.locale ?? 'en'
             })
-            assertReportColumnsAvailable(
+            const definition = applyRuntimeReportDateCompositions(
                 params.definition,
+                payload.columns.map(({ field, dataType, validationRules }) => ({ field, dataType, validationRules }))
+            )
+            assertReportColumnsAvailable(
+                definition,
                 payload.columns.map((column: { field: string }) => column.field)
             )
 
             return {
-                rows: pickRecordsUnionReportRows(payload.rows, params.definition),
+                rows: pickRecordsUnionReportRows(payload.rows, definition),
                 total: payload.pagination.total,
                 aggregations: {},
-                definition: params.definition
+                definition
             }
         }
 

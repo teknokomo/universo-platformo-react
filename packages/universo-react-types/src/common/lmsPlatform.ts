@@ -467,7 +467,8 @@ export const reportColumnSchema = z
     .object({
         field: codenameSchema,
         label: localizedContractTextSchema,
-        type: z.enum(['text', 'number', 'date', 'status', 'boolean'])
+        type: z.enum(['text', 'number', 'date', 'status', 'boolean']),
+        dateComposition: z.enum(['date', 'time', 'datetime']).optional()
     })
     .strict()
 export type ReportColumn = z.infer<typeof reportColumnSchema>

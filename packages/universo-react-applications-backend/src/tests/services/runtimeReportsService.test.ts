@@ -6,6 +6,7 @@ const fields = [
     { codename: 'Learner', columnName: 'learner', dataType: 'STRING' as const },
     { codename: 'ProgressPercent', columnName: 'progress_percent', dataType: 'NUMBER' as const },
     { codename: 'CompletedAt', columnName: 'completed_at', dataType: 'DATE' as const },
+    { codename: 'TimeOfDay', columnName: 'time_of_day', dataType: 'DATE' as const, dateComposition: 'time' as const },
     { codename: 'Payload', columnName: 'payload', dataType: 'JSON' as const }
 ]
 
@@ -229,6 +230,88 @@ describe('RuntimeReportsService', () => {
         expect(executor.query.mock.calls[0][1]).toEqual(['2026-10-14T00:00:00.000Z', '2026-10-15T00:00:00.000Z', 100, 0])
     })
 
+    it('validates and binds time-only filters without treating SQL TIME as a timestamp', async () => {
+        const { executor } = createMockDbExecutor()
+        const service = new RuntimeReportsService()
+        executor.query.mockResolvedValueOnce([]).mockResolvedValueOnce([{ total: '0' }])
+
+        await service.runRecordsListReport({
+            executor,
+            schemaName,
+            tableName: 'obj_content_progress',
+            fields,
+            definition: {
+                codename: 'DailySchedule',
+                title: 'Daily schedule',
+                datasource: { kind: 'records.list', sectionCodename: 'ContentProgress' },
+                columns: [{ field: 'TimeOfDay', label: 'Time of day', type: 'date', dateComposition: 'time' }],
+                filters: [],
+                aggregations: []
+            },
+            permissions: { readReports: true },
+            filters: [{ field: 'TimeOfDay', operator: 'equals', value: '08:30' }]
+        })
+
+        expect(String(executor.query.mock.calls[0][0])).toContain('"time_of_day" = $1')
+        expect(executor.query.mock.calls[0][1]).toEqual(['08:30:00', 100, 0])
+    })
+
+    it.each([
+        { operator: 'contains', value: '08', pattern: '%08%' },
+        { operator: 'startsWith', value: '08', pattern: '08%' },
+        { operator: 'endsWith', value: '30', pattern: '%30' }
+    ] as const)('keeps partial time-only text filter values for $operator', async ({ operator, value, pattern }) => {
+        const { executor } = createMockDbExecutor()
+        const service = new RuntimeReportsService()
+        executor.query.mockResolvedValueOnce([]).mockResolvedValueOnce([{ total: '0' }])
+
+        await service.runRecordsListReport({
+            executor,
+            schemaName,
+            tableName: 'obj_content_progress',
+            fields,
+            definition: {
+                codename: 'DailySchedule',
+                title: 'Daily schedule',
+                datasource: { kind: 'records.list', sectionCodename: 'ContentProgress' },
+                columns: [{ field: 'TimeOfDay', label: 'Time of day', type: 'date', dateComposition: 'time' }],
+                filters: [],
+                aggregations: []
+            },
+            permissions: { readReports: true },
+            filters: [{ field: 'TimeOfDay', operator, value }]
+        })
+
+        const textFilterQuery = executor.query.mock.calls.find(([sql]) => String(sql).includes('"time_of_day"::text ILIKE'))
+        expect(textFilterQuery?.[0]).toContain('"time_of_day"::text ILIKE')
+        expect(textFilterQuery?.[1]).toContain(pattern)
+    })
+
+    it.each(['24:00', '12:60', '08:30:61', '2026-10-14T08:30:00Z'])('rejects invalid time-only report filter %s', async (value) => {
+        const { executor } = createMockDbExecutor()
+        const service = new RuntimeReportsService()
+
+        await expect(
+            service.runRecordsListReport({
+                executor,
+                schemaName,
+                tableName: 'obj_content_progress',
+                fields,
+                definition: {
+                    codename: 'DailySchedule',
+                    title: 'Daily schedule',
+                    datasource: { kind: 'records.list', sectionCodename: 'ContentProgress' },
+                    columns: [{ field: 'TimeOfDay', label: 'Time of day', type: 'date', dateComposition: 'time' }],
+                    filters: [],
+                    aggregations: []
+                },
+                permissions: { readReports: true },
+                filters: [{ field: 'TimeOfDay', operator: 'equals', value }]
+            })
+        ).rejects.toMatchObject({ body: expect.objectContaining({ code: 'REPORT_FILTER_VALUE_INVALID' }) })
+        expect(executor.query).not.toHaveBeenCalled()
+    })
+
     it('rejects malformed date filters and invalid or duplicate sort directions before SQL execution', async () => {
         const { executor } = createMockDbExecutor()
         const service = new RuntimeReportsService()
@@ -253,6 +336,12 @@ describe('RuntimeReportsService', () => {
             service.runRecordsListReport({
                 ...params,
                 filters: [{ field: 'CompletedAt', operator: 'greaterThanOrEqual', value: '2026-02-31T08:00:00Z' }]
+            })
+        ).rejects.toMatchObject({ body: expect.objectContaining({ code: 'REPORT_FILTER_VALUE_INVALID' }) })
+        await expect(
+            service.runRecordsListReport({
+                ...params,
+                filters: [{ field: 'CompletedAt', operator: 'greaterThanOrEqual', value: '2026-10-14T08:30' }]
             })
         ).rejects.toMatchObject({ body: expect.objectContaining({ code: 'REPORT_FILTER_VALUE_INVALID' }) })
         await expect(

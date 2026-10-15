@@ -1,8 +1,10 @@
 import type { Request, Response } from 'express'
+import { reportDefinitionSchema, type ReportDefinition } from '@universo-react/types'
 
 const mockResolveRuntimeSchema = jest.fn()
 const mockRuntimeQuery = jest.fn()
 const mockCreateQueryHelper = jest.fn(() => mockRuntimeQuery)
+const mockExecuteRuntimeRecordsUnionDatasource = jest.fn()
 
 jest.mock('../../shared/runtimeHelpers', () => {
     const actual = jest.requireActual('../../shared/runtimeHelpers')
@@ -14,7 +16,13 @@ jest.mock('../../shared/runtimeHelpers', () => {
     }
 })
 
+jest.mock('../../services/runtimeRowSupport/union/index', () => ({
+    __esModule: true,
+    executeRuntimeRecordsUnionDatasource: (...args: unknown[]) => mockExecuteRuntimeRecordsUnionDatasource(...args)
+}))
+
 import { createRuntimeReportsController } from '../../controllers/runtimeReportsController'
+import { RuntimeReportsService } from '../../services/runtimeReportsService'
 import { createMockDbExecutor } from '../utils/dbMocks'
 
 const applicationId = '019ccefc-2f7b-7b36-82f4-85cdb1312200'
@@ -26,6 +34,7 @@ const reportsObjectId = '019ccefc-2f7b-7b36-82f4-85cdb1312211'
 const reportDefinitionComponentId = '019ccefc-2f7b-7b36-82f4-85cdb1312212'
 const ownerComponentId = '019ccefc-2f7b-7b36-82f4-85cdb1312213'
 const sharesObjectId = '019ccefc-2f7b-7b36-82f4-85cdb1312214'
+const targetObjectId = '019ccefc-2f7b-7b36-82f4-85cdb1312215'
 
 const reportsAccessConfig = {
     runtimeRecordAccess: { mode: 'ownerOrShared', ownerFieldCodename: 'OwnerId' },
@@ -218,5 +227,156 @@ describe('runtimeReportsController saved report access', () => {
             referenceKind === 'codename' ? 'LearnerProgress' : reportRecordId
         ])
         expect(executor.query.mock.calls.some(([sql]) => String(sql).includes('"obj_content_progress"'))).toBe(false)
+    })
+
+    it('derives date composition from persisted field metadata before running and returning the report', async () => {
+        const { executor } = createMockDbExecutor()
+        const reportDefinition = reportDefinitionSchema.parse({
+            codename: 'CompletionTimes',
+            title: { en: 'Completion times' },
+            datasource: { kind: 'records.list', objectCollectionCodename: 'CompletionRecords' },
+            columns: [{ field: 'SubmittedAt', label: { en: 'Submitted at' }, type: 'date' }],
+            filters: [],
+            aggregations: []
+        })
+        executor.query
+            .mockResolvedValueOnce([reportsObject])
+            .mockResolvedValueOnce(reportComponents)
+            .mockResolvedValueOnce([sharesObject])
+            .mockResolvedValueOnce(sharesComponents)
+            .mockResolvedValueOnce([{ definition: reportDefinition }])
+            .mockResolvedValueOnce([
+                { id: targetObjectId, codename: 'CompletionRecords', table_name: 'obj_completion_records', config: {} }
+            ])
+            .mockResolvedValueOnce([
+                {
+                    codename: 'SubmittedAt',
+                    column_name: 'submitted_at',
+                    data_type: 'DATE',
+                    validation_rules: { dateComposition: 'date' }
+                }
+            ])
+            .mockResolvedValueOnce([])
+
+        mockResolveRuntimeSchema.mockResolvedValue({
+            schemaName,
+            schemaIdent: `"${schemaName}"`,
+            manager: executor,
+            userId,
+            role: 'member',
+            permissions: {
+                manageMembers: false,
+                manageApplication: false,
+                createContent: false,
+                editContent: false,
+                deleteContent: false,
+                readReports: true
+            },
+            workflowCapabilities: {},
+            currentWorkspaceId: workspaceId,
+            workspacesEnabled: true,
+            baseApplicationSettings: {},
+            applicationSettings: {}
+        })
+        const runRecordsListReport = jest
+            .spyOn(RuntimeReportsService.prototype, 'runRecordsListReport')
+            .mockImplementationOnce(async (params) => ({
+                rows: [],
+                total: 0,
+                aggregations: {},
+                definition: params.definition as ReportDefinition
+            }))
+        const controller = createRuntimeReportsController(() => executor)
+        const req = { params: { applicationId }, body: { reportCodename: 'CompletionTimes' } } as unknown as Request
+        const res = createResponse()
+
+        await controller.runReport(req, res)
+
+        expect(runRecordsListReport).toHaveBeenCalledWith(
+            expect.objectContaining({
+                fields: expect.arrayContaining([expect.objectContaining({ codename: 'SubmittedAt', dateComposition: 'date' })]),
+                definition: expect.objectContaining({
+                    columns: [expect.objectContaining({ field: 'SubmittedAt', dateComposition: 'date' })]
+                })
+            })
+        )
+        expect(res.json).toHaveBeenCalledWith(
+            expect.objectContaining({
+                definition: expect.objectContaining({
+                    columns: [expect.objectContaining({ field: 'SubmittedAt', dateComposition: 'date' })]
+                })
+            })
+        )
+        expect(
+            executor.query.mock.calls.some(([sql]) => String(sql).includes('SELECT codename, column_name, data_type, validation_rules'))
+        ).toBe(true)
+    })
+
+    it('derives date composition from records.union component metadata', async () => {
+        const { executor } = createMockDbExecutor()
+        const reportDefinition = reportDefinitionSchema.parse({
+            codename: 'CompletionTimesUnion',
+            title: { en: 'Completion times' },
+            datasource: { kind: 'records.union', targets: [{ sectionCodename: 'CompletionRecords' }] },
+            columns: [
+                { field: 'SubmittedOn', label: { en: 'Submitted on' }, type: 'date' },
+                { field: 'SubmittedAt', label: { en: 'Submitted at' }, type: 'date' }
+            ],
+            filters: [],
+            aggregations: []
+        })
+        executor.query
+            .mockResolvedValueOnce([reportsObject])
+            .mockResolvedValueOnce(reportComponents)
+            .mockResolvedValueOnce([sharesObject])
+            .mockResolvedValueOnce(sharesComponents)
+            .mockResolvedValueOnce([{ definition: reportDefinition }])
+        mockExecuteRuntimeRecordsUnionDatasource.mockResolvedValueOnce({
+            columns: [
+                { field: 'SubmittedOn', dataType: 'DATE', validationRules: { dateComposition: 'date' } },
+                { field: 'SubmittedAt', dataType: 'DATE', validationRules: { dateComposition: 'datetime' } }
+            ],
+            rows: [{ SubmittedOn: '2026-10-14', SubmittedAt: '2026-10-14T08:30:00.000Z' }],
+            pagination: { total: 1 }
+        })
+
+        mockResolveRuntimeSchema.mockResolvedValue({
+            schemaName,
+            schemaIdent: `"${schemaName}"`,
+            manager: executor,
+            userId,
+            role: 'member',
+            permissions: {
+                manageMembers: false,
+                manageApplication: false,
+                createContent: false,
+                editContent: false,
+                deleteContent: false,
+                readReports: true
+            },
+            workflowCapabilities: {},
+            currentWorkspaceId: workspaceId,
+            workspacesEnabled: true,
+            baseApplicationSettings: {},
+            applicationSettings: {}
+        })
+
+        const controller = createRuntimeReportsController(() => executor)
+        const req = { params: { applicationId }, body: { reportCodename: 'CompletionTimesUnion' } } as unknown as Request
+        const res = createResponse()
+
+        await controller.runReport(req, res)
+
+        expect(mockExecuteRuntimeRecordsUnionDatasource).toHaveBeenCalledTimes(1)
+        expect(res.json).toHaveBeenCalledWith(
+            expect.objectContaining({
+                definition: expect.objectContaining({
+                    columns: [
+                        expect.objectContaining({ field: 'SubmittedOn', dateComposition: 'date' }),
+                        expect.objectContaining({ field: 'SubmittedAt', dateComposition: 'datetime' })
+                    ]
+                })
+            })
+        )
     })
 })

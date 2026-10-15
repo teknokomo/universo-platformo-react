@@ -15,6 +15,7 @@ export interface RuntimeReportFieldMetadata {
     codename: string
     columnName: string
     dataType: ReportFieldDataType
+    dateComposition?: 'date' | 'time' | 'datetime'
     refTargetObjectId?: string | null
     refTargetObjectKind?: string | null
     referenceLabel?: {
@@ -140,6 +141,14 @@ const normalizeDateFilterValue = (rawValue: unknown): string | undefined => {
     return Number.isFinite(timestamp) ? new Date(timestamp).toISOString() : undefined
 }
 
+const normalizeTimeFilterValue = (rawValue: unknown): string | undefined => {
+    if (typeof rawValue !== 'string') return undefined
+    const match = /^(?:([01]\d|2[0-3]):([0-5]\d))(?::([0-5]\d)(?:\.(\d{1,6}))?)?$/u.exec(rawValue.trim())
+    if (!match) return undefined
+    const [, hour, minute, second = '00', fraction] = match
+    return `${hour}:${minute}:${second}${fraction ? `.${fraction}` : ''}`
+}
+
 const normalizeFilterValue = (field: RuntimeReportFieldMetadata, rawValue: unknown): unknown => {
     if (rawValue === null || rawValue === undefined) return rawValue
 
@@ -159,6 +168,17 @@ const normalizeFilterValue = (field: RuntimeReportFieldMetadata, rawValue: unkno
     }
 
     if (field.dataType === 'DATE') {
+        if (field.dateComposition === 'time') {
+            const normalized = normalizeTimeFilterValue(rawValue)
+            if (normalized) return normalized
+            if (typeof rawValue === 'string' && rawValue.trim().length === 0) return undefined
+            throw new UpdateFailure(400, {
+                error: 'Report time filter must be a valid 24-hour time',
+                code: 'REPORT_FILTER_VALUE_INVALID',
+                field: field.codename
+            })
+        }
+
         const normalized = normalizeDateFilterValue(rawValue)
         if (normalized) return normalized
         if (typeof rawValue === 'string' && rawValue.trim().length === 0) return undefined
@@ -243,7 +263,9 @@ const buildReportFilterClause = (
         return `(${columnSql} IS NOT NULL AND ${columnSql}::text <> '')`
     }
 
-    const normalizedValue = normalizeFilterValue(field, filter.value)
+    const usesTextComparison = ['contains', 'startsWith', 'endsWith'].includes(filter.operator)
+    const isTimeOnlyTextComparison = field.dataType === 'DATE' && field.dateComposition === 'time' && usesTextComparison
+    const normalizedValue = isTimeOnlyTextComparison ? filter.value : normalizeFilterValue(field, filter.value)
     if (normalizedValue === undefined || normalizedValue === null || normalizedValue === '') {
         return null
     }
@@ -263,7 +285,7 @@ const buildReportFilterClause = (
         return `${textExpressionSql} ILIKE ${addValue(`%${escapeLikeWildcards(String(normalizedValue))}`)} ESCAPE '\\'`
     }
     if (filter.operator === 'equals') {
-        if (field.dataType === 'DATE' && typeof normalizedValue === 'string') {
+        if (field.dataType === 'DATE' && field.dateComposition !== 'time' && typeof normalizedValue === 'string') {
             const start = new Date(normalizedValue)
             const dateOnly = typeof filter.value === 'string' && /^\d{4}-\d{2}-\d{2}$/u.test(filter.value)
             if (dateOnly) start.setUTCHours(0, 0, 0, 0)

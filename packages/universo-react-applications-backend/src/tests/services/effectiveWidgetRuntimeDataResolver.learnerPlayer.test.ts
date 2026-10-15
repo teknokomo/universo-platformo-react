@@ -204,6 +204,8 @@ describe('resolveEffectiveWidgetRuntimeData learnerPlayer projection', () => {
         const secondParentRecordId = '0190a9b5-3cde-7abc-8def-0123456789d1'
         const secondChildRecordId = '0190a9b5-3cde-7abc-8def-0123456789d2'
         const secondTargetRecordId = '0190a9b5-3cde-7abc-8def-0123456789d3'
+        const siblingTargetRecordId = '0190a9b5-3cde-7abc-8def-0123456789d4'
+        const secondParentChildRecordId = '0190a9b5-3cde-7abc-8def-0123456789d5'
         const definition = getLayoutWidgetDefinition('learnerPlayer', learnerCandidate.config)
         const parent = definition?.bindingSlots?.find(({ key }) => key === 'parent')
         const items = definition?.bindingSlots?.find(({ key }) => key === 'items')
@@ -251,23 +253,33 @@ describe('resolveEffectiveWidgetRuntimeData learnerPlayer projection', () => {
                 if (input.query.slot === 'items') {
                     return [
                         {
-                            recordId: childRecordId,
+                            recordId: secondChildRecordId,
                             data: {
                                 parent: parentRecordId,
                                 title: { locales: { en: { content: 'Introduction' } } },
                                 targetObjectCodename: 'LearningResources',
                                 targetRecordId: learnerTargetRecordId,
-                                order: 1
+                                order: '1'
                             }
                         },
                         {
-                            recordId: secondChildRecordId,
+                            recordId: childRecordId,
+                            data: {
+                                parent: parentRecordId,
+                                title: 'Advanced introduction',
+                                targetObjectCodename: 'LearningResources',
+                                targetRecordId: siblingTargetRecordId,
+                                order: '2'
+                            }
+                        },
+                        {
+                            recordId: secondParentChildRecordId,
                             data: {
                                 parent: secondParentRecordId,
                                 title: 'Second introduction',
                                 targetObjectCodename: 'LearningResources',
                                 targetRecordId: secondTargetRecordId,
-                                order: 1
+                                order: '1'
                             }
                         }
                     ]
@@ -331,6 +343,14 @@ describe('resolveEffectiveWidgetRuntimeData learnerPlayer projection', () => {
                     },
                     {
                         key: 'row-2',
+                        parentKey: 'row-1',
+                        title: 'Advanced introduction',
+                        blocks: [{ id: 'intro', type: 'paragraph', data: { text: 'Hello' } }],
+                        progressTarget: { objectCodename: 'CourseItems', recordHandle: expect.stringMatching(/^rh1\./u) },
+                        availability: 'locked'
+                    },
+                    {
+                        key: 'row-3',
                         parentKey: 'row-2',
                         title: 'Second introduction',
                         blocks: [{ id: 'intro', type: 'paragraph', data: { text: 'Hello' } }],
@@ -341,10 +361,12 @@ describe('resolveEffectiveWidgetRuntimeData learnerPlayer projection', () => {
             }
         })
         const serialized = JSON.stringify(resolved.get('placement-learner-player'))
-        for (const physicalId of [parentRecordId, secondParentRecordId, childRecordId, secondChildRecordId]) {
+        for (const physicalId of [parentRecordId, secondParentRecordId, childRecordId, secondChildRecordId, secondParentChildRecordId]) {
             expect(serialized).not.toContain(physicalId)
         }
         expect(serialized).not.toContain(learnerTargetRecordId)
+        expect(serialized).not.toContain(siblingTargetRecordId)
+        expect(serialized).not.toContain(secondTargetRecordId)
         expect(runtimeAccess.loadRuntimeRowByIdWithRecordAccess).toHaveBeenCalledWith(
             expect.objectContaining({ rowId: learnerTargetRecordId, objectCodename: 'LearningResources', minimumAccessLevel: 'read' })
         )

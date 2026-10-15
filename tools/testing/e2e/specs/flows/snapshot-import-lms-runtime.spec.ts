@@ -2758,6 +2758,7 @@ test.describe('LMS Snapshot Import Runtime Flow', () => {
     })
 
     test('@flow lms snapshot fixture imports through the browser UI and is immediately usable after linked app creation', async ({
+        browser,
         page,
         runManifest
     }, testInfo) => {
@@ -3711,6 +3712,96 @@ test.describe('LMS Snapshot Import Runtime Flow', () => {
             'Reports Learning Content summary report',
             testInfo.outputPath('lms-reports-learning-content-summary-viewport.png')
         )
+
+        const timezoneReportContext = await browser.newContext({
+            storageState: await page.context().storageState(),
+            timezoneId: 'Europe/Moscow',
+            viewport: { width: 1920, height: 1080 }
+        })
+        try {
+            const timezoneReportPage = await timezoneReportContext.newPage()
+            await timezoneReportPage.goto(page.url())
+            const quizAttemptResultsSurface = timezoneReportPage
+                .getByTestId('runtime-report-details-table')
+                .filter({ has: timezoneReportPage.getByRole('columnheader', { name: 'Started at', exact: true }) })
+            await expect(quizAttemptResultsSurface).toBeVisible({ timeout: 30_000 })
+            const startedAtHeader = quizAttemptResultsSurface.getByRole('columnheader', { name: 'Started at', exact: true })
+            await startedAtHeader.focus()
+            await startedAtHeader.press('Control+Enter')
+            await timezoneReportPage.getByRole('menuitem', { name: 'Filter', exact: true }).click()
+
+            const filterColumnSelect = timezoneReportPage.getByRole('combobox', { name: 'Column' })
+            await filterColumnSelect.click()
+            await timezoneReportPage.getByRole('option', { name: 'Started at', exact: true }).click()
+            const filterOperatorSelect = timezoneReportPage.getByRole('combobox', { name: 'Operator' })
+            await filterOperatorSelect.click()
+            await timezoneReportPage.getByRole('option', { name: 'is', exact: true }).click()
+
+            const dateTimeFilterInput = timezoneReportPage.getByLabel('Value')
+            await expect(dateTimeFilterInput).toHaveAttribute('type', 'datetime-local')
+            const expectedStartedAt = await timezoneReportPage.evaluate(() => new Date(Date.UTC(2026, 9, 14, 8, 30)).toISOString())
+            expect(expectedStartedAt).toBe('2026-10-14T08:30:00.000Z')
+
+            const waitForQuizAttemptFilterResponse = (expectedValue: string) =>
+                timezoneReportPage.waitForResponse(
+                    (response) => {
+                        const request = response.request()
+                        if (request.method() !== 'POST') return false
+                        const requestUrl = new URL(request.url())
+                        if (!requestUrl.pathname.endsWith('/runtime/reports/run')) return false
+                        try {
+                            const body = request.postDataJSON() as {
+                                reportCodename?: string
+                                filters?: Array<{ field?: string; operator?: string; value?: unknown }>
+                            }
+                            if (body.reportCodename !== 'QuizAttemptResults') return false
+                            return (
+                                body.filters?.length === 1 &&
+                                body.filters[0]?.field === 'StartedAt' &&
+                                body.filters[0]?.operator === 'equals' &&
+                                body.filters[0]?.value === expectedValue
+                            )
+                        } catch {
+                            return false
+                        }
+                    },
+                    { timeout: 30_000 }
+                )
+
+            const firstFilterResponse = waitForQuizAttemptFilterResponse(expectedStartedAt)
+            await dateTimeFilterInput.fill('2026-10-14T08:30')
+            const firstFilterResult = await firstFilterResponse
+            expect(firstFilterResult.status()).toBe(200)
+            expect(firstFilterResult.request().postDataJSON()).toMatchObject({
+                reportCodename: 'QuizAttemptResults',
+                filters: [{ field: 'StartedAt', operator: 'equals', value: expectedStartedAt }]
+            })
+            await expect(filterColumnSelect).toHaveText('Started at')
+            await expect(filterOperatorSelect).toHaveText('is')
+            await expect(dateTimeFilterInput).toHaveValue('2026-10-14T08:30')
+            await expectNoPageHorizontalOverflow(timezoneReportPage)
+            await timezoneReportPage.screenshot({
+                path: testInfo.outputPath('lms-report-datetime-filter-europe-moscow.png'),
+                fullPage: true
+            })
+
+            const changedStartedAt = '2026-10-14T09:15:00.000Z'
+            const changedFilterResponse = waitForQuizAttemptFilterResponse(changedStartedAt)
+            await dateTimeFilterInput.fill('2026-10-14T09:15')
+            const changedFilterResult = await changedFilterResponse
+            expect(changedFilterResult.status()).toBe(200)
+            await expect(filterColumnSelect).toHaveText('Started at')
+            await expect(filterOperatorSelect).toHaveText('is')
+            await expect(dateTimeFilterInput).toHaveValue('2026-10-14T09:15')
+
+            await dateTimeFilterInput.fill('')
+            await expect(dateTimeFilterInput).toHaveValue('')
+            await expect(filterColumnSelect).toHaveText('Started at')
+            await expect(filterOperatorSelect).toHaveText('is')
+            await expectNoPageHorizontalOverflow(timezoneReportPage)
+        } finally {
+            await timezoneReportContext.close()
+        }
         await assertLearnerHomeCompositionHidden()
 
         await applyBrowserPreferences(page, { language: 'ru' })

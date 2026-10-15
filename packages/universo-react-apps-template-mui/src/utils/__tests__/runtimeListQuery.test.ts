@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { mapGridFilterModel } from '../runtimeListQuery'
 
 describe('mapGridFilterModel date-time operators', () => {
@@ -34,7 +34,7 @@ describe('mapGridFilterModel date-time operators', () => {
         ).toEqual(values)
     })
 
-    it('converts valid Date instances to ISO timestamps and leaves string and invalid Date values unchanged', () => {
+    it('converts valid Date instances to ISO timestamps and drops invalid Date values', () => {
         const validDate = new Date('2026-10-14T08:30:00.000Z')
         const invalidDate = new Date(Number.NaN)
         expect(
@@ -45,7 +45,73 @@ describe('mapGridFilterModel date-time operators', () => {
                     { field: 'SubmittedAt', operator: 'is', value: invalidDate }
                 ]
             }).map(({ value }) => value)
-        ).toEqual([validDate.toISOString(), '2026-02-31T08:30', invalidDate])
+        ).toEqual([validDate.toISOString(), '2026-02-31T08:30'])
+    })
+
+    it('serializes date-only columns as calendar dates and datetime filter wall times as UTC instants', () => {
+        const date = new Date('2026-10-14T00:00:00.000Z')
+        const datetime = new Date('2026-10-14T08:30')
+
+        expect(
+            mapGridFilterModel(
+                {
+                    items: [
+                        { field: 'SubmittedOn', operator: 'is', value: date },
+                        { field: 'SubmittedAt', operator: 'is', value: datetime },
+                        { field: 'SubmittedOn', operator: 'is', value: '2026-10-14' }
+                    ]
+                },
+                new Map([
+                    ['SubmittedOn', 'date'],
+                    ['SubmittedAt', 'datetime']
+                ])
+            )
+        ).toEqual([
+            { field: 'SubmittedOn', operator: 'equals', value: '2026-10-14' },
+            { field: 'SubmittedAt', operator: 'equals', value: '2026-10-14T08:30:00.000Z' },
+            { field: 'SubmittedOn', operator: 'equals', value: '2026-10-14' }
+        ])
+    })
+
+    it('preserves the selected MUI calendar day west of UTC', () => {
+        vi.stubEnv('TZ', 'America/Los_Angeles')
+        try {
+            const muiDateInput = new Date('2026-10-14')
+            expect(
+                mapGridFilterModel(
+                    { items: [{ field: 'SubmittedOn', operator: 'is', value: muiDateInput }] },
+                    new Map([['SubmittedOn', 'date']])
+                )
+            ).toEqual([{ field: 'SubmittedOn', operator: 'equals', value: '2026-10-14' }])
+        } finally {
+            vi.unstubAllEnvs()
+        }
+    })
+
+    it('interprets report datetime-local filters in UTC to match displayed timestamps', () => {
+        vi.stubEnv('TZ', 'Europe/Moscow')
+        const localDateTime = '2026-10-14T05:30'
+        const dateCompositions = new Map([
+            ['SubmittedAt', 'datetime' as const],
+            ['SubmittedOn', 'date' as const]
+        ])
+        try {
+            const muiDateTimeInput = new Date(localDateTime)
+            expect(
+                mapGridFilterModel(
+                    {
+                        items: [
+                            { field: 'SubmittedAt', operator: 'is', value: muiDateTimeInput },
+                            { field: 'SubmittedAt', operator: 'is', value: '2026-02-31T08:30' },
+                            { field: 'SubmittedOn', operator: 'is', value: '2026-10-14T08:30' }
+                        ]
+                    },
+                    dateCompositions
+                )
+            ).toEqual([{ field: 'SubmittedAt', operator: 'equals', value: '2026-10-14T05:30:00.000Z' }])
+        } finally {
+            vi.unstubAllEnvs()
+        }
     })
 
     it('does not emit the unsupported MUI date-time negation operator', () => {

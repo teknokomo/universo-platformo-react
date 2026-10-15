@@ -86,6 +86,41 @@ describe('buildRuntimeListClauses', () => {
         expect(invalid.values).toEqual([])
     })
 
+    it('normalizes valid time-only comparisons and rejects malformed values before SQL execution', () => {
+        const timeAttrs = [component('started_at', 'DATE', { dateComposition: 'time' })]
+        const valid = buildRuntimeListClauses({
+            ...baseParams,
+            attrs: timeAttrs,
+            filters: [{ field: 'started_at', operator: 'equals', value: '08:30' }]
+        })
+
+        expect(valid.whereSql).toBe('_upl_deleted = false AND "started_at" = $1')
+        expect(valid.values).toEqual(['08:30:00'])
+
+        let thrown: unknown
+        try {
+            buildRuntimeListClauses({
+                ...baseParams,
+                attrs: timeAttrs,
+                filters: [{ field: 'started_at', operator: 'equals', value: 'abc' }]
+            })
+        } catch (error) {
+            thrown = error
+        }
+
+        expect(thrown).toMatchObject({
+            statusCode: 400,
+            body: { code: 'RUNTIME_FILTER_VALUE_INVALID', field: 'started_at' }
+        })
+
+        const textSearch = buildRuntimeListClauses({
+            ...baseParams,
+            attrs: timeAttrs,
+            filters: [{ field: 'started_at', operator: 'contains', value: 'abc' }]
+        })
+        expect(textSearch.values).toEqual(['%abc%'])
+    })
+
     it('substitutes the runtime current user token and drops it for anonymous requests', () => {
         const tokenFilter: RuntimeDatasourceFilter = { field: 'owner_id', operator: 'equals', value: '{{runtime.currentUserId}}' }
         const withUser = buildRuntimeListClauses({ ...baseParams, filters: [tokenFilter], currentUserId: 'user-42' })

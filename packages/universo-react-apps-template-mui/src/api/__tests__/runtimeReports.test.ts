@@ -97,7 +97,11 @@ describe('runtime report API helpers', () => {
         })
         vi.stubGlobal('fetch', fetchMock)
 
-        const filters = [{ field: 'ProgressPercent', operator: 'greaterThanOrEqual' as const, value: 50 }]
+        const filters = [
+            { field: 'ProgressPercent', operator: 'greaterThanOrEqual' as const, value: 50 },
+            { field: 'SubmittedOn', operator: 'equals' as const, value: '2026-10-14' },
+            { field: 'SubmittedAt', operator: 'equals' as const, value: '2026-10-14T05:30:00.000Z' }
+        ]
         const sort: RuntimeDatasourceSort[] = [{ field: 'ProgressPercent', direction: 'desc' }]
         await runRuntimeReport({
             apiBaseUrl: '/api/v1',
