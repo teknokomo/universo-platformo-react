@@ -4,8 +4,8 @@ import { createMockDbExecutor } from '../utils/dbMocks'
 const schemaName = 'app_018f8a787b8f7c1da111222233334441'
 
 const vlc = (content: string) => ({
-    _schema: '1',
-    _primary: 'en',
+    _schema: '1' as const,
+    _primary: 'en' as const,
     locales: {
         en: {
             content,
@@ -73,6 +73,7 @@ describe('workspace copy transaction behavior', () => {
         await expect(
             copyWorkspace(executor, {
                 schemaName,
+                applicationId: '018f8a78-7b8f-7c1d-a111-222233334444',
                 sourceWorkspaceId: 'workspace-source',
                 name: vlc('Workspace copy'),
                 description: vlc('Workspace copy description'),

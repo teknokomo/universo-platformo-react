@@ -1,3 +1,4 @@
+import type { ModulePresentation } from '@universo-react/types'
 import type { ApplicationLifecycleContract, ApplicationModuleDefinition } from '@universo-react/types'
 import { RuntimeModulesService } from '../../services/runtimeModulesService'
 import { createMockDbExecutor } from '../utils/dbMocks'
@@ -42,17 +43,20 @@ const createRecordBinding = (overrides: Record<string, unknown> = {}) => ({
     ...overrides
 })
 
+const modulePresentation = (name: string): ModulePresentation => ({
+    name: {
+        _schema: '1',
+        _primary: 'en',
+        locales: {
+            en: { content: name, version: 1, isActive: true, createdAt: '1970-01-01T00:00:00.000Z', updatedAt: '1970-01-01T00:00:00.000Z' }
+        }
+    }
+})
+
 const createModuleDefinition = (overrides: Partial<ApplicationModuleDefinition> = {}): ApplicationModuleDefinition => ({
     id: overrides.id ?? 'module-1',
     codename: overrides.codename ?? 'quiz-widget',
-    presentation: overrides.presentation ?? {
-        name: {
-            _primary: 'en',
-            locales: {
-                en: { content: 'Quiz widget' }
-            }
-        }
-    },
+    presentation: overrides.presentation ?? modulePresentation('Quiz widget'),
     attachedToKind: overrides.attachedToKind ?? 'object',
     attachedToId: overrides.attachedToId ?? 'object-1',
     moduleRole: overrides.moduleRole ?? 'widget',
@@ -119,7 +123,7 @@ describe('RuntimeModulesService', () => {
             jest.spyOn(service as never as { resolveRecordBinding: () => Promise<unknown> }, 'resolveRecordBinding').mockResolvedValue(
                 binding
             )
-            const dispatchLifecycleEventSpy = jest.spyOn(service, 'dispatchLifecycleEvent').mockResolvedValue()
+            const dispatchLifecycleEventSpy = jest.spyOn(service, 'dispatchLifecycleEvent').mockResolvedValue([])
             const params: Record<string, unknown> = {
                 executor,
                 applicationId: 'application-1',
@@ -781,7 +785,7 @@ describe('RuntimeModulesService', () => {
             'buildWritableColumnValues'
         ).mockResolvedValue([{ column: 'name', value: 'Order A' }])
         jest.spyOn(service as never as { getRecordById: () => Promise<unknown> }, 'getRecordById').mockResolvedValue(createdRow)
-        const dispatchLifecycleEventSpy = jest.spyOn(service, 'dispatchLifecycleEvent').mockResolvedValue()
+        const dispatchLifecycleEventSpy = jest.spyOn(service, 'dispatchLifecycleEvent').mockResolvedValue([])
 
         txExecutor.query.mockResolvedValueOnce([{ id: 'row-1' }])
 
@@ -937,7 +941,7 @@ describe('RuntimeModulesService', () => {
             'buildWritableColumnValues'
         ).mockResolvedValue([{ column: 'name', value: 'Document A' }])
         jest.spyOn(service as never as { getRecordById: () => Promise<unknown> }, 'getRecordById').mockResolvedValue(createdRow)
-        const dispatchLifecycleEventSpy = jest.spyOn(service, 'dispatchLifecycleEvent').mockResolvedValue()
+        const dispatchLifecycleEventSpy = jest.spyOn(service, 'dispatchLifecycleEvent').mockResolvedValue([])
 
         txExecutor.query.mockResolvedValueOnce([{ id: 'row-1' }])
 
@@ -989,7 +993,7 @@ describe('RuntimeModulesService', () => {
 
         jest.spyOn(service as never as { resolveRecordBinding: () => Promise<unknown> }, 'resolveRecordBinding').mockResolvedValue(binding)
         jest.spyOn(service as never as { getRecordById: () => Promise<unknown> }, 'getRecordById').mockResolvedValue(previousRow)
-        const dispatchLifecycleEventSpy = jest.spyOn(service, 'dispatchLifecycleEvent').mockResolvedValue()
+        const dispatchLifecycleEventSpy = jest.spyOn(service, 'dispatchLifecycleEvent').mockResolvedValue([])
 
         txExecutor.query.mockResolvedValueOnce([{ id: 'row-1', _upl_locked: false }]).mockResolvedValueOnce([{ id: 'row-1' }])
 

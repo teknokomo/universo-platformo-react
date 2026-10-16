@@ -2,6 +2,66 @@
 
 > Completed work only. Active tasks live in tasks.md; reusable implementation rules live in systemPatterns.md.
 
+## 2026-10-16 — Workspace conversion QA remediation (PQA-1…PQA-11)
+
+Closed every finding from the independent QA review of the personal→shared conversion feature (checklist `PQA-1…PQA-11` in `memory-bank/tasks.md`).
+
+Backend:
+
+-   PQA-1 Personal-workspace isolation: `resolveRuntimeWorkspaceAccess`/`getUserWorkspace`/`listUserWorkspaces` no longer expose other users' `personal` rows through `allowUnassigned` (`workspace_type <> 'personal' AND personal_user_id IS NULL`); affected unit suites updated.
+-   PQA-2 `addMember` enrolls the invited member into existing shared workspaces in the same transaction; route test covers a workspace-enabled LMS app (member enrolls with baseline `member` role and the converted/created workspace row).
+-   PQA-3/PQA-5 Locking: baseline enrollment, membership mutations and personal-workspace archiving serialize behind advisory locks (`workspace-baseline:<schema>:<applicationId>`, `personal-workspace:<schema>:<userId>` + `SELECT … FOR UPDATE`), locking order shared with conversion; concurrency unit tests pinned.
+-   PQA-4 Last-owner guard: `assertUserIsNotLastSharedWorkspaceOwner` requires the second owner row's user to still be an active application member (`rel_application_users` predicate with `applicationId`), self-demotion/removal guards added (`addWorkspaceMember`/`removeWorkspaceMember` + controller wiring); route-level 409 evidence.
+-   PQA-6 Conversion contract: `z.object({}).strict()` rejects unexpected bodies (400 `INVALID_REQUEST_BODY`), unused `workspaceConversionOwnerRequired` error code removed; the dialog error mapping moved to the frontend copy.
+-   PQA-7 Test type debt: new `packages/universo-react-applications-backend/tsconfig.test.json` typechecks all tests; 444 pre-existing test TS errors fixed to 0 across ~30 files (VLC/snapshot fixtures, jest mock typing, opaque DB executor seams). Full backend Jest green (170 suites / 1862 tests, 27 skipped).
+
+Frontend:
+
+-   PQA-8 `RuntimeWorkspacesPage` gains `currentUserId` gating (Make shared only renders enabled for the personal-workspace owner; shared-row members see no affordance), conversion dialog error message mapping for `WORKSPACE_OWNER_REQUIRED` (`conversionOwnerRequired` EN/RU), dialog `aria-describedby` moved to a `<Stack>` that covers the one-way warning Alert and bullets; keyboard-only conversion path test added; runtime suites green (specialist file 68/68, package 947/947).
+
+Docs (PQA-9):
+
+-   EN/RU GitBook guides no longer conflate guest links with the application public entry: guest links keep their own eligibility rules and the public entry stays an administrator selection. `packages/universo-react-applications-backend/README-RU.md` header localized. No other place repeats the conflation.
+
+E2E (PQA-10, minimal local Supabase, 3 passed / 1.1m):
+
+-   The member path uses the real UI: conversion menu is absent for the baseline member (`Make shared` count 0 in the workspace row menu), the switcher selects the converted workspace by workspace id, workspace-card click opens the converted dashboard with 3 metric cards, the member runtime read resolves with HTTP 200 under `LearningResources` owner-or-shared semantics (baseline membership is workspace-level; author curation remains row-level), the UUID leakage oracle and 1920/390 overflow checks pass.
+-   The short-link proof now targets a real AccessLink: a quiz row + question are authored through the runtime API inside the converted workspace, the quiz AccessLink row is inserted through the documented DB seam (`TargetId`/`TargetType` are server-owned; runtime authoring only accepts content links), `POST /api/v1/global-short-links` resolves it and `GET /public/l/<slug>` returns the exact `lms-access-link` target; `GET /public/a/:id/links/<slug>` resolves both content and quiz links anonymously.
+-   The closed-app flow denies anonymous public runtime (`/api/v1/public/applications/:id/runtime`), public links, and short-link resolution.
+
+Gates:
+
+-   Repo checks: `check:i18n-coverage`, `check:apps-template-isolation`, `check:runtime-ux-agents`, `check:mui-v9-policy`, `check:package-naming`, `check:runtime-no-lms-forks`, module-cycle guard — all pass. Root `pnpm run build:e2e` green (36/36). Prettier clean over the whole dirty set; `git diff --check` clean.
+-   Full root Vitest in the cold state: 332/337 files, 2701/2723 tests with 17 timeout failures and 2 worker-fork crashes under parallel load; isolated reruns of the affected files are green (applications-frontend 7/7, InterpretationNetworkWorkspaceWidget 68/68) — same contention profile documented in the 2026-10-13 closeout. The copy-drift fix (`Language "EN": maximum length 255` → current `Enter no more than 255 characters in English.`) landed on top; isolated passes confirm it.
+-   The full E2E suite regressed to green after aligning the conversion dialog EN/RU consequence copies in the spec to the exact deployed i18n strings.
+-   Unrelated pre-existing items verified unchanged: 32 production `tsc` errors in applications-backend are identical with and without this diff (stash probe), and the applications-frontend carries 63 pre-existing `tsc` errors (1 pre-existing in `ApplicationRuntime.tsx`); they belong to other in-flight work and were not touched.
+
+## 2026-10-15 — In-place personal-to-shared workspace conversion closeout
+
+Implemented the approved plan `memory-bank/plan/personal-to-shared-workspace-conversion-plan-2026-10-15.md` (PWS-0…PWS-7).
+
+Backend:
+
+-   DDL: `converted_from_user_id UUID NULL` on `_app_workspaces`, partial unique `_app_workspaces_converted_user_active_uidx`, audit CHECK extended to `('seed_reset','personal_to_shared_conversion')`, all idempotent (`ddl/applicationWorkspacesSchema.ts`).
+-   Services: set-based `ensureSharedWorkspaceBaselineMembership` / `removeSharedWorkspaceBaselineMembership`; in-place one-way `convertPersonalWorkspaceToShared` with per-user advisory lock (`personal-workspace:<schema>:<userId>`), guarded UPDATE, baseline enrollment and fail-closed audit row via the extracted `recordWorkspaceOperationAudit` helper; wiring into create/copy/join/addMember/leave/removeMember/schema-sync; sole-owner app-leave guard (`APPLICATION_MEMBER_WORKSPACE_OWNERSHIP_REQUIRED`, HTTP 409); extraction `recordWorkspaceOperationAudit` keeps the `isUuidV7` fail-closed check.
+-   API: `POST /applications/:applicationId/runtime/workspaces/:workspaceId/convert` with `writeLimiter`, owner-only gate, conversion-specific 403 message, 404/403/409 error mapping; `applicationId` threading through `createSharedWorkspace`, copy flows and controller calls.
+-   Jest: full applications-backend suite green (1855+ tests, incl. new DDL, conversion, guard, lifecycle, controller and route pins).
+
+Frontend:
+
+-   `convertRuntimeWorkspaceToShared` API helper reusing the existing response schema; "Make shared" menu item (owner-gated, disabled-in-place for non-personal workspaces); `ConvertToSharedDialog` on `StandardDialog` (destructive framing, Cancel DOM-first with explicit focus handling because MUI Dialog autofocuses the container, four consequence bullets, error Alert keeps the dialog open, `aria-describedby` linkage added additively to `StandardDialog`), EN/RU i18n keys without bundle parity breaks.
+-   Vitest: workspaces/api/dialogs suites green (76/76).
+
+E2E (minimal local Supabase):
+
+-   New `tools/testing/e2e/specs/flows/lms-workspace-conversion.spec.ts`: public + closed application conversion flows (UI dialog → in-place conversion → API negatives 403/409 → baseline member visibility without invitation → guest link eligibility → public entry select → screenshots 1920/768/390 EN+RU + member 390, overflow checks) — green, screenshots inspected visually.
+-   Existing `lms-workspace-management` green.
+-   Pre-existing failures (verified identical on a stash-clean HEAD before our changes): `application-workspace-regressions.spec.ts` (2 of 3 fail) and `marketing-page-workspace-management.spec.ts` (`Runtime component SiteKey must be available`) — out of this scope.
+
+Docs: two-tier model, conversion contract, audit and leave-guard documented in applications-backend README (EN + new RU parity section), apps-template-mui README, GitBook guides and platform pages (EN+RU).
+
+Gates: lint (touched packages) 0 errors, Prettier clean, `check:i18n-coverage` parity, `check:apps-template-isolation`, `check:runtime-ux-agents`, `check:mui-v9-policy`, `check:package-naming`, `check:runtime-no-lms-forks` all pass, root `build:e2e` green, mandatory `gn_verify_diff` ran (changed-file list matches the feature). No database-schema or metahub-template version bump.
+
 ## 2026-10-08 — Dashboard QA remediation and browser closeout
 
 -   Closed the post-implementation QA items DBW-29..38. Object navigation copy now preserves explicit hidden state and unrelated runtime config; generated Dashboard navigation is constrained to curated targets with semantic icons; the nested-placement lifecycle and canonical renderer are covered by focused backend/runtime tests.

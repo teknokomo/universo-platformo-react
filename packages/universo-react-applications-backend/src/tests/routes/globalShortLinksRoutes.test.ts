@@ -92,7 +92,8 @@ const poolExecutor = {
         callback(publicTxExecutor as unknown as DbExecutor)
     )
 } as unknown as DbExecutor
-const requestExecutor = { query: jest.fn() } as unknown as DbExecutor
+const requestExecutorQuery = jest.fn(async (_sql: string, _params?: unknown[]): Promise<unknown[]> => [])
+const requestExecutor = { query: requestExecutorQuery } as unknown as DbExecutor
 requestExecutor.transaction = async <T>(callback: (executor: DbExecutor) => Promise<T>) => callback(requestExecutor)
 requestExecutor.isReleased = () => false
 const mockLimiter: RateLimitRequestHandler = ((_req: Request, _res: Response, next: NextFunction) => next()) as RateLimitRequestHandler
@@ -238,7 +239,7 @@ describe('global short-link HTTP routes', () => {
             accessLinkSlug: 'grade-5',
             workspaceId: '019ccefc-2f7b-7b36-82f4-85cdb1312269'
         }
-        requestExecutor.query.mockResolvedValue([{ id: quizTarget.workspaceId }])
+        requestExecutorQuery.mockResolvedValueOnce([{ id: quizTarget.workspaceId }])
 
         await request(buildApp())
             .post('/api/v1/global-short-links')

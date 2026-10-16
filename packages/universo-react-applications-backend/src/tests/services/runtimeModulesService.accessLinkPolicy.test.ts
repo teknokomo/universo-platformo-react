@@ -94,7 +94,7 @@ describe('RuntimeModulesService AccessLinks write boundary', () => {
         const service = new RuntimeModulesService(engine as never)
         const binding = createAccessLinkBinding()
         jest.spyOn(service as never as { resolveRecordBinding: () => Promise<unknown> }, 'resolveRecordBinding').mockResolvedValue(binding)
-        const lifecycle = jest.spyOn(service, 'dispatchLifecycleEvent').mockResolvedValue()
+        const lifecycle = jest.spyOn(service, 'dispatchLifecycleEvent').mockResolvedValue([])
 
         await expect(
             (
@@ -133,7 +133,7 @@ describe('RuntimeModulesService AccessLinks write boundary', () => {
         jest.spyOn(service as never as { resolveRecordBinding: () => Promise<unknown> }, 'resolveRecordBinding').mockResolvedValue(binding)
         jest.spyOn(service as never as { getRecordById: () => Promise<unknown> }, 'getRecordById').mockResolvedValue(currentRow)
         txExecutor.query.mockImplementation(async (sql: string) => (String(sql).includes('SELECT *') ? [currentRow] : []))
-        const lifecycle = jest.spyOn(service, 'dispatchLifecycleEvent').mockResolvedValue()
+        const lifecycle = jest.spyOn(service, 'dispatchLifecycleEvent').mockResolvedValue([])
 
         await expect(
             (

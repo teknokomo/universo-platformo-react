@@ -3833,7 +3833,7 @@ describe('InterpretationNetworkWorkspaceWidget', () => {
         const dialog = await screen.findByRole('dialog', { name: 'Add material' })
         fireEvent.change(within(dialog).getByRole('textbox', { name: 'Title' }), { target: { value: 'A'.repeat(260) } })
 
-        expect(await within(dialog).findByText('Language "EN": maximum length 255')).toBeInTheDocument()
+        expect(await within(dialog).findByText('Enter no more than 255 characters in English.')).toBeInTheDocument()
         expect(within(dialog).getByRole('button', { name: 'Create' })).toBeDisabled()
         await user.click(within(dialog).getByRole('button', { name: 'Cancel' }))
     }, 20_000)

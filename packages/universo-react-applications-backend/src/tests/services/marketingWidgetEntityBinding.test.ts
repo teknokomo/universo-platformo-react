@@ -721,7 +721,7 @@ describe('shared marketing widget binding projection', () => {
         projectMarketingWidgetBindingData({
             widgetKey: 'marketing.hero',
             bindings: rawBindings,
-            loadRecords: () => rows,
+            loadRecords: (() => rows) as unknown as Parameters<typeof projectMarketingWidgetBindingData>[0]['loadRecords'],
             config
         })
 

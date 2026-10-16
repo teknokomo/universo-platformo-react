@@ -409,10 +409,10 @@ describe('runtime marketing page controller', () => {
 
         await controller.getMarketingPage({ params: { applicationId }, query: { workspaceId } } as unknown as Request, res)
 
-        const [sql, params] =
-            manager.query.mock.calls.find(([query]) =>
-                String(query).includes('FROM "app_0190a9b53cde7abc8def0123456789a0"."marketing_page_hero"')
-            ) ?? []
+        const foundCall = manager.query.mock.calls.find(([query]: unknown[]) =>
+            String(query).includes('FROM "app_0190a9b53cde7abc8def0123456789a0"."marketing_page_hero"')
+        )
+        const [sql, params] = (foundCall ?? []) as unknown as [string, unknown[]]
         expect(String(sql)).toContain('"workspace_id" = $1')
         expect(params).toContain(workspaceId)
     })

@@ -220,7 +220,7 @@ export async function ensureWorkspaceSupportTables(executor: DbExecutor, schemaN
             _app_deleted_at TIMESTAMPTZ NULL,
             _app_deleted_by UUID NULL,
             CONSTRAINT ${qTable(`${WORKSPACE_OPERATIONS_TABLE}_kind_ck`)}
-                CHECK (operation_kind IN ('seed_reset'))
+                CHECK (operation_kind IN ('seed_reset', 'personal_to_shared_conversion'))
         )
         `
     )
@@ -239,6 +239,9 @@ export async function ensureWorkspaceSupportTables(executor: DbExecutor, schemaN
 
         ALTER TABLE ${workspacesQt}
         ADD COLUMN IF NOT EXISTS is_public_entry BOOLEAN NOT NULL DEFAULT false;
+
+        ALTER TABLE ${workspacesQt}
+        ADD COLUMN IF NOT EXISTS converted_from_user_id UUID NULL;
 
         ALTER TABLE ${workspacesQt}
         DROP CONSTRAINT IF EXISTS ${qTable('_app_workspaces_public_entry_ck')};
@@ -290,6 +293,13 @@ export async function ensureWorkspaceSupportTables(executor: DbExecutor, schemaN
         ALTER TABLE ${workspaceOperationsQt}
         ADD CONSTRAINT ${qTable('_app_workspace_operation_audit_workspace_fk')}
         FOREIGN KEY (workspace_id) REFERENCES ${workspacesQt}(id) ON DELETE CASCADE;
+
+        ALTER TABLE ${workspaceOperationsQt}
+        DROP CONSTRAINT IF EXISTS ${qTable(`${WORKSPACE_OPERATIONS_TABLE}_kind_ck`)};
+
+        ALTER TABLE ${workspaceOperationsQt}
+        ADD CONSTRAINT ${qTable(`${WORKSPACE_OPERATIONS_TABLE}_kind_ck`)}
+        CHECK (operation_kind IN ('seed_reset', 'personal_to_shared_conversion'));
         `
     )
 
@@ -326,6 +336,10 @@ export async function ensureWorkspaceSupportTables(executor: DbExecutor, schemaN
         CREATE UNIQUE INDEX IF NOT EXISTS ${qTable(`${WORKSPACES_TABLE}_personal_user_active_uidx`)}
         ON ${workspacesQt}(personal_user_id)
         WHERE workspace_type = 'personal' AND _upl_deleted = false AND _app_deleted = false;
+
+        CREATE UNIQUE INDEX IF NOT EXISTS ${qTable(`${WORKSPACES_TABLE}_converted_user_active_uidx`)}
+        ON ${workspacesQt}(converted_from_user_id)
+        WHERE converted_from_user_id IS NOT NULL AND _upl_deleted = false AND _app_deleted = false;
 
         CREATE UNIQUE INDEX IF NOT EXISTS ${qTable(`${WORKSPACES_TABLE}_codename_active_uidx`)}
         ON ${workspacesQt}(codename)

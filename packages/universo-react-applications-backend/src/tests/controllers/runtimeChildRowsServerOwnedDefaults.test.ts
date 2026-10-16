@@ -17,7 +17,7 @@ jest.mock('../../shared/runtimeHelpers', () => {
 })
 
 jest.mock('../../services/interpretationNetwork/runtimeInterpretationNetworkSurface', () => ({
-    resolveRuntimeInterpretationNetworkSurface: (...args: unknown[]) => mockResolveInterpretationNetworkSurface(...args)
+    resolveRuntimeInterpretationNetworkSurface: (...args: unknown[]) => mockResolveInterpretationNetworkRuntimeSurface(...args)
 }))
 
 import { createRuntimeChildRowsController } from '../../controllers/runtimeChildRowsController'

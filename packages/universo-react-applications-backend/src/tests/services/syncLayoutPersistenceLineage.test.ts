@@ -1,3 +1,4 @@
+import type { DbExecutor } from '@universo-react/utils'
 import type { PublishedApplicationSnapshot } from '../../services/applicationSyncContracts'
 import { isUuidV7 } from '@universo-react/utils'
 import { decodeLayoutWidgetConfigEnvelope, encodeLayoutWidgetConfigEnvelope } from '@universo-react/types'
@@ -20,6 +21,17 @@ import {
 
 let currentKnex: MockSyncKnex
 configureSyncLayoutPersistenceKnexAccessor(() => currentKnex)
+
+type ZoneWidgetRow = Record<string, unknown> & {
+    id: string
+    zone: string
+    widgetKey: string
+    instanceKey: string
+    sortOrder: number
+    config: unknown
+    isActive: boolean
+}
+const snapshotWidgets = (snapshot: PublishedApplicationSnapshot): ZoneWidgetRow[] => (snapshot.layoutZoneWidgets ?? []) as ZoneWidgetRow[]
 
 describe('syncLayoutPersistenceLineage', () => {
     beforeEach(() => {
@@ -73,7 +85,7 @@ describe('syncLayoutPersistenceLineage', () => {
         expect(firstSourceWidgetHash).toEqual(expect.stringMatching(/^[0-9a-f]{64}$/u))
 
         const changedSnapshot = createMarketingHeroSnapshot()
-        const changedWidget = changedSnapshot.layoutZoneWidgets[0]
+        const changedWidget = snapshotWidgets(changedSnapshot)[0]
         if (!changedWidget) throw new Error('Expected marketing widget fixture')
         const currentWidgetConfig = decodeLayoutWidgetConfigEnvelope(changedWidget.config, {
             templateKey: 'marketing-page',
@@ -99,6 +111,27 @@ describe('syncLayoutPersistenceLineage', () => {
         expect(Number(currentKnex.layoutRows[0]?._upl_version)).toBeGreaterThan(firstLayoutVersion)
     })
 
+    it('preserves physical identity when republishing widgets without redundant sourceWidgetId transport fields', async () => {
+        const snapshot = createSnapshot()
+        for (const widget of snapshotWidgets(snapshot)) {
+            delete widget.sourceWidgetId
+        }
+        const schemaName = 'app_018f8a787b8f7c1da111222233334444'
+        await persistPublishedLayouts({ schemaName, snapshot, snapshotHash: 'first-publication' })
+        await persistPublishedWidgets({ schemaName, snapshot })
+        const physicalId = currentKnex.widgetRows[0]?.id
+        expect(physicalId).toBeDefined()
+
+        await persistPublishedWidgets({ schemaName, snapshot })
+
+        expect(currentKnex.widgetRows).toHaveLength(1)
+        expect(currentKnex.widgetRows[0]).toMatchObject({
+            id: physicalId,
+            source_widget_id: dashboardIds.widget,
+            instance_key: 'columns-main'
+        })
+    })
+
     it('does not attach inherited lineage metadata to application-owned copied widgets', async () => {
         const query = jest.fn().mockResolvedValue([{ id: dashboardIds.widget }])
         const executor = { query } as unknown as DbExecutor
@@ -106,7 +139,7 @@ describe('syncLayoutPersistenceLineage', () => {
             id: dashboardIds.widget,
             layoutId: dashboardIds.layout,
             sourceLineageKey: 'copy:dashboard:widget',
-            zone: 'center',
+            zone: 'center' as const,
             widgetKey: 'columnsContainer',
             instanceKey: 'columns-main',
             parentWidgetId: null,
@@ -217,7 +250,7 @@ describe('syncLayoutPersistenceLineage', () => {
         const firstSnapshot = createSnapshot()
         firstSnapshot.layoutZoneWidgets = [
             {
-                ...firstSnapshot.layoutZoneWidgets[0],
+                ...snapshotWidgets(firstSnapshot)[0],
                 sourceLineageKey: 'workspace:global:workspaceSwitcher'
             }
         ] as typeof firstSnapshot.layoutZoneWidgets
@@ -239,7 +272,7 @@ describe('syncLayoutPersistenceLineage', () => {
             ...firstSnapshot,
             layoutZoneWidgets: [
                 {
-                    ...firstSnapshot.layoutZoneWidgets[0],
+                    ...snapshotWidgets(firstSnapshot)[0],
                     id: dashboardIds.scopedWidget
                 }
             ]

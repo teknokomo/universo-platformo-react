@@ -1,4 +1,5 @@
 import { getLayoutWidgetDefinition, type WidgetBindingSlotDefinition } from '@universo-react/types'
+import type { WidgetBindingTarget } from '@universo-react/types'
 import type { WidgetBindingRecordQuery } from '../../services/widgetBindingQuery'
 import { createMockDbExecutor } from '../utils/dbMocks'
 import {
@@ -389,7 +390,7 @@ describe('widgetBindingRuntimeStore', () => {
         expect(String(sql)).toContain('"workspace_id" = $1')
         expect(String(sql)).toContain('"_app_published" = true')
         expect(String(sql)).toContain('LIMIT $4')
-        expect(parameters).toEqual([workspaceId, actorId, 'course', slot.maxResolvedRecords + 1])
+        expect(parameters).toEqual([workspaceId, actorId, 'course', (slot.maxResolvedRecords ?? 0) + 1])
         expect(rows).toEqual([
             {
                 recordId: rowId,
@@ -775,16 +776,16 @@ describe('widgetBindingRuntimeStore', () => {
         const components = componentsFor({ ...object, codename: 'MarketingPagePricingBenefit' }, slot, parentObject)
         const relation = slot.relation!
         const relationComponent = slot.requirements.components.find(({ field }) => field === relation.field)!
-        const parentTarget = {
-            entityKind: 'object' as const,
-            entityCodename: parentObject.codename,
-            selector: { kind: 'record-set' as const },
+        const parentTarget: WidgetBindingTarget = {
+            entityKind: 'object',
+            entityCodename: String(parentObject.codename),
+            selector: { kind: 'record-set' },
             projection: parentSlot.requirements.components.map(({ field, componentCodename }) => ({ field, componentCodename }))
         }
-        const target = {
-            entityKind: 'object' as const,
+        const target: WidgetBindingTarget = {
+            entityKind: 'object',
             entityCodename: 'MarketingPagePricingBenefit',
-            selector: { kind: 'relation-set' as const, parentSlot: 'tiers' },
+            selector: { kind: 'relation-set', parentSlot: 'tiers' },
             projection: slot.requirements.components.map(({ field, componentCodename }) => ({ field, componentCodename }))
         }
         const query: WidgetBindingRecordQuery = {

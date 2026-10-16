@@ -1,8 +1,14 @@
-import type { DbExecutor } from '@universo-react/utils'
+import { acquireAdvisoryXactLock } from '@universo-react/utils/database'
+import type { DbExecutor, SqlQueryable } from '@universo-react/utils'
 import { copyWorkspaceOperation, type RuntimeWorkspaceCopyInput } from './runtimeWorkspaceCopyService'
 import { qColumn, qSchemaTable } from '@universo-react/database'
 import { releaseActiveGlobalShortLinksForWorkspace } from '../persistence/globalShortLinksStore'
-import { archiveWorkspaceScopedBusinessRows, syncWorkspaceSeededElements } from './applicationWorkspaces'
+import {
+    archiveWorkspaceScopedBusinessRows,
+    ensureSharedWorkspaceBaselineMembership,
+    recordWorkspaceOperationAudit,
+    syncWorkspaceSeededElements
+} from './applicationWorkspaces'
 import { revokeGuestAssessmentAttemptsForWorkspace, revokeGuestSessionSecretsForWorkspace } from './guestAssessmentApplicationRevocation'
 
 type WorkspaceRow = {
@@ -47,6 +53,8 @@ export const RUNTIME_WORKSPACE_ERROR_CODES = {
     roleNotFound: 'WORKSPACE_ROLE_NOT_FOUND',
     memberNotFound: 'WORKSPACE_MEMBER_NOT_FOUND',
     personalWorkspaceMutationBlocked: 'PERSONAL_WORKSPACE_MUTATION_BLOCKED',
+    workspaceConversionBlocked: 'WORKSPACE_CONVERSION_BLOCKED',
+    memberWorkspaceOwnershipBlocked: 'APPLICATION_MEMBER_WORKSPACE_OWNERSHIP_REQUIRED',
     lastOwnerRemovalBlocked: 'LAST_WORKSPACE_OWNER_REMOVAL_BLOCKED',
     workspaceCopyReferenceUnresolved: 'WORKSPACE_COPY_REFERENCE_UNRESOLVED',
     workspaceCopyAccessLinkIntakeInvalid: 'WORKSPACE_COPY_ACCESS_LINK_INTAKE_INVALID'
@@ -171,12 +179,15 @@ export async function listUserWorkspaces(
             WHERE w.${qColumn('_upl_deleted')} = false
               AND w.${qColumn('_app_deleted')} = false
               AND COALESCE(w.status, 'active') = 'active'
-              AND (wur.id IS NOT NULL OR $5::boolean = true)
-                  AND (
-                      $4::text IS NULL
-                      OR w.name::text ILIKE $4
-                      OR w.description::text ILIKE $4
-                  )
+              AND (
+                  wur.id IS NOT NULL
+                  OR ($5::boolean = true AND w.workspace_type <> 'personal' AND w.personal_user_id IS NULL)
+              )
+              AND (
+                  $4::text IS NULL
+                  OR w.name::text ILIKE $4
+                  OR w.description::text ILIKE $4
+              )
         ),
         filtered AS (
             SELECT *
@@ -221,7 +232,12 @@ export async function getUserWorkspace(
         schemaName: string
         userId: string
         workspaceId: string
-        /** Application administrators may inspect an unassigned workspace. */
+        /**
+         * Application administrators may inspect an unassigned shared
+         * workspace. A `personal` workspace of another user stays invisible
+         * regardless of this flag unless the admin explicitly holds an active
+         * membership row in it.
+         */
         allowUnassigned?: boolean
     }
 ): Promise<RuntimeWorkspace | null> {
@@ -249,7 +265,10 @@ export async function getUserWorkspace(
          AND wur.${qColumn('_app_deleted')} = false
         LEFT JOIN ${workspaceRolesQt} r ON r.id = wur.role_id
         WHERE w.id = $2
-          AND (wur.id IS NOT NULL OR $3::boolean = true)
+          AND (
+              wur.id IS NOT NULL
+              OR ($3::boolean = true AND w.workspace_type <> 'personal' AND w.personal_user_id IS NULL)
+          )
           AND w.${qColumn('_upl_deleted')} = false
           AND w.${qColumn('_app_deleted')} = false
           AND COALESCE(w.status, 'active') = 'active'
@@ -280,6 +299,8 @@ export async function createSharedWorkspace(
     executor: DbExecutor,
     input: {
         schemaName: string
+        /** Required: baseline membership enrollment needs the application member set. */
+        applicationId: string
         name: unknown
         description: unknown
         userId: string
@@ -348,6 +369,14 @@ export async function createSharedWorkspace(
                 currentUserId: input.userId
             })
         }
+
+        // Two-tier access model: every active application member gets baseline
+        // `member` access to the new shared workspace in the same transaction.
+        await ensureSharedWorkspaceBaselineMembership(tx, {
+            schemaName: input.schemaName,
+            applicationId: input.applicationId,
+            actorUserId: input.actorUserId
+        })
 
         return { id: workspaceId }
     })
@@ -420,6 +449,168 @@ export async function updateWorkspace(
             throw new RuntimeWorkspaceError(RUNTIME_WORKSPACE_ERROR_CODES.workspaceNotFound, 'Workspace not found')
         }
     })
+}
+
+/**
+ * One-way, in-place `personal` → `shared` conversion for the caller-owned
+ * workspace. Preserves the workspace `id`, all business rows, references,
+ * `_seed_source_*` metadata, settings overrides, and membership rows; only the
+ * `workspace_type` / `personal_user_id` / `converted_from_user_id` triplet
+ * changes. Fail-closed: any zero-row mutation aborts the transaction.
+ */
+export async function convertPersonalWorkspaceToShared(
+    executor: DbExecutor,
+    input: {
+        schemaName: string
+        applicationId: string
+        workspaceId: string
+        userId: string
+        actorUserId?: string | null
+    }
+): Promise<{ id: string }> {
+    return executor.transaction(async (tx) => {
+        const workspacesQt = qSchemaTable(input.schemaName, '_app_workspaces')
+
+        // Serialize with ensurePersonalWorkspaceForUser: without this lock,
+        // a runtime request racing the conversion could still re-provision a
+        // duplicate `Main` personal workspace for the same user.
+        await acquireAdvisoryXactLock(tx, `personal-workspace:${input.schemaName}:${input.userId}`)
+
+        const workspaceRows = await tx.query<{ id: string; workspace_type: string; personal_user_id: string | null }>(
+            `
+            SELECT id, workspace_type, personal_user_id
+            FROM ${workspacesQt}
+            WHERE id = $1
+              AND ${ACTIVE_ROW_SQL}
+            LIMIT 1
+            FOR UPDATE
+            `,
+            [input.workspaceId]
+        )
+
+        const workspace = workspaceRows[0]
+        if (!workspace) {
+            throw new RuntimeWorkspaceError(RUNTIME_WORKSPACE_ERROR_CODES.workspaceNotFound, 'Workspace not found')
+        }
+        if (workspace.workspace_type !== 'personal' || workspace.personal_user_id !== input.userId) {
+            throw new RuntimeWorkspaceError(
+                RUNTIME_WORKSPACE_ERROR_CODES.workspaceConversionBlocked,
+                'Only the caller-owned personal workspace can be converted to shared'
+            )
+        }
+
+        const updatedRows = await tx.query<{ id: string }>(
+            `
+            UPDATE ${workspacesQt}
+            SET workspace_type = 'shared',
+                personal_user_id = NULL,
+                converted_from_user_id = $2,
+                ${qColumn('_upl_updated_at')} = NOW(),
+                ${qColumn('_upl_updated_by')} = $3,
+                ${qColumn('_upl_version')} = COALESCE(${qColumn('_upl_version')}, 1) + 1
+            WHERE id = $1
+              AND workspace_type = 'personal'
+              AND personal_user_id = $2
+              AND ${ACTIVE_ROW_SQL}
+            RETURNING id
+            `,
+            [input.workspaceId, input.userId, input.actorUserId ?? input.userId]
+        )
+        if (updatedRows.length === 0) {
+            throw new RuntimeWorkspaceError(
+                RUNTIME_WORKSPACE_ERROR_CODES.workspaceConversionBlocked,
+                'Workspace conversion raced with another mutation; retry'
+            )
+        }
+
+        const baselineRows = await ensureSharedWorkspaceBaselineMembership(tx, {
+            schemaName: input.schemaName,
+            applicationId: input.applicationId,
+            actorUserId: input.actorUserId ?? input.userId
+        })
+
+        await recordWorkspaceOperationAudit(tx, {
+            schemaName: input.schemaName,
+            workspaceId: input.workspaceId,
+            operationKind: 'personal_to_shared_conversion',
+            affectedRows: baselineRows,
+            actorUserId: input.actorUserId ?? input.userId,
+            sourceKey: input.workspaceId
+        })
+
+        return { id: updatedRows[0].id }
+    })
+}
+
+/**
+ * Fail-closed departure guard: rejects application leave/removal when the
+ * departing user holds the only active `owner` row of any active shared
+ * workspace. Member management is owner-gated, so losing that row would strand
+ * the workspace without any manager. Another `owner` row only counts as a
+ * protecting owner while its user is still an active application member —
+ * stale rows of users who already left (or were removed) do not keep the
+ * workspace manageable. No auto-transfer UX is introduced; the caller resolves
+ * ownership (transfer or workspace deletion) first.
+ */
+export async function assertUserIsNotLastSharedWorkspaceOwner(
+    executor: DbExecutor,
+    input: {
+        schemaName: string
+        applicationId: string
+        userId: string
+    }
+): Promise<void> {
+    const workspacesQt = qSchemaTable(input.schemaName, '_app_workspaces')
+    const workspaceUserRolesQt = qSchemaTable(input.schemaName, '_app_workspace_user_roles')
+    const workspaceRolesQt = qSchemaTable(input.schemaName, '_app_workspace_roles')
+
+    const rows = await executor.query<{ id: string }>(
+        `
+        SELECT w.id
+        FROM ${workspacesQt} w
+        WHERE w.workspace_type <> 'personal'
+          AND w.personal_user_id IS NULL
+          AND COALESCE(w.status, 'active') = 'active'
+          AND ${ACTIVE_ROW_SQL}
+          AND EXISTS (
+              SELECT 1
+              FROM ${workspaceUserRolesQt} wur
+              INNER JOIN ${workspaceRolesQt} r ON r.id = wur.role_id
+              WHERE wur.workspace_id = w.id
+                AND wur.user_id = $1
+                AND r.codename = 'owner'
+                AND wur.${qColumn('_upl_deleted')} = false
+                AND wur.${qColumn('_app_deleted')} = false
+          )
+          AND NOT EXISTS (
+              SELECT 1
+              FROM ${workspaceUserRolesQt} other
+              INNER JOIN ${workspaceRolesQt} orRole ON orRole.id = other.role_id
+              WHERE other.workspace_id = w.id
+                AND other.user_id <> $1
+                AND orRole.codename = 'owner'
+                AND other.${qColumn('_upl_deleted')} = false
+                AND other.${qColumn('_app_deleted')} = false
+                AND EXISTS (
+                    SELECT 1
+                    FROM applications.rel_application_users au
+                    WHERE au.user_id = other.user_id
+                      AND au.application_id = $2
+                      AND ${ACTIVE_ROW_SQL}
+                )
+          )
+        ORDER BY w.id ASC
+        LIMIT 1
+        `,
+        [input.userId, input.applicationId]
+    )
+
+    if (rows.length > 0) {
+        throw new RuntimeWorkspaceError(
+            RUNTIME_WORKSPACE_ERROR_CODES.memberWorkspaceOwnershipBlocked,
+            'Transfer or delete your shared workspace before leaving the application'
+        )
+    }
 }
 
 export async function deleteSharedWorkspace(
@@ -582,10 +773,58 @@ export async function setDefaultWorkspace(
     })
 }
 
+/**
+ * Counts the *effective* owner rows of a workspace besides `userId`. A row
+ * counts only while both relation rows stay active **and** its user is still
+ * an active application member (when `applicationId` is provided) — stale rows
+ * of users who already left or were removed do not keep a workspace
+ * manageable.
+ */
+async function countOtherActiveOwnerRows(
+    executor: SqlQueryable,
+    input: {
+        schemaName: string
+        workspaceId: string
+        userId: string
+        applicationId?: string
+    }
+): Promise<number> {
+    const workspaceUserRolesQt = qSchemaTable(input.schemaName, '_app_workspace_user_roles')
+    const workspaceRolesQt = qSchemaTable(input.schemaName, '_app_workspace_roles')
+
+    const rows = await executor.query<{ id: string }>(
+        `
+        SELECT wur.id
+        FROM ${workspaceUserRolesQt} wur
+        INNER JOIN ${workspaceRolesQt} r ON r.id = wur.role_id
+        WHERE wur.workspace_id = $1
+          AND wur.user_id <> $2
+          AND r.codename = 'owner'
+          AND wur.${qColumn('_upl_deleted')} = false
+          AND wur.${qColumn('_app_deleted')} = false
+          ${
+              input.applicationId
+                  ? `AND EXISTS (
+              SELECT 1
+              FROM applications.rel_application_users au
+              WHERE au.user_id = wur.user_id
+                AND au.application_id = $3
+                AND ${ACTIVE_ROW_SQL}
+          )`
+                  : ''
+          }
+        FOR UPDATE OF wur
+        `,
+        input.applicationId ? [input.workspaceId, input.userId, input.applicationId] : [input.workspaceId, input.userId]
+    )
+    return rows.length
+}
+
 export async function addWorkspaceMember(
     executor: DbExecutor,
     input: {
         schemaName: string
+        applicationId?: string
         workspaceId: string
         userId: string
         roleCodename: string
@@ -660,6 +899,25 @@ export async function addWorkspaceMember(
                 return
             }
 
+            // Self-demotion guard: demoting the last `owner` row of a
+            // workspace would strand it without any owner able to manage
+            // members. An invite-side flow first targets itself or a
+            // co-owner, so both directions must fail-closed here.
+            if (existing[0].role_codename === 'owner' && input.roleCodename !== 'owner') {
+                const remainingOwnerRows = await countOtherActiveOwnerRows(tx, {
+                    schemaName: input.schemaName,
+                    workspaceId: input.workspaceId,
+                    userId: input.userId,
+                    applicationId: input.applicationId
+                })
+                if (remainingOwnerRows < 1) {
+                    throw new RuntimeWorkspaceError(
+                        RUNTIME_WORKSPACE_ERROR_CODES.lastOwnerRemovalBlocked,
+                        'Cannot demote the last workspace owner'
+                    )
+                }
+            }
+
             await tx.query(
                 `
                 UPDATE ${workspaceUserRolesQt}
@@ -692,6 +950,7 @@ export async function removeWorkspaceMember(
     executor: DbExecutor,
     input: {
         schemaName: string
+        applicationId?: string
         workspaceId: string
         userId: string
         actorUserId?: string | null
@@ -730,22 +989,14 @@ export async function removeWorkspaceMember(
         }
 
         if (membershipRows.some((row) => row.role_codename === 'owner')) {
-            const remainingOwnerRows = await tx.query<{ id: string }>(
-                `
-                SELECT wur.id
-                FROM ${workspaceUserRolesQt} wur
-                INNER JOIN ${workspaceRolesQt} r ON r.id = wur.role_id
-                WHERE wur.workspace_id = $1
-                  AND wur.user_id <> $2
-                  AND r.codename = 'owner'
-                  AND wur.${qColumn('_upl_deleted')} = false
-                  AND wur.${qColumn('_app_deleted')} = false
-                FOR UPDATE OF wur
-            `,
-                [input.workspaceId, input.userId]
-            )
+            const remainingOwnerRows = await countOtherActiveOwnerRows(tx, {
+                schemaName: input.schemaName,
+                workspaceId: input.workspaceId,
+                userId: input.userId,
+                applicationId: input.applicationId
+            })
 
-            if (remainingOwnerRows.length < 1) {
+            if (remainingOwnerRows < 1) {
                 throw new RuntimeWorkspaceError(
                     RUNTIME_WORKSPACE_ERROR_CODES.lastOwnerRemovalBlocked,
                     'Cannot remove the last workspace owner'

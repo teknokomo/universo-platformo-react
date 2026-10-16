@@ -111,22 +111,25 @@ const widgetRow = (input: {
 
 const mapHero = (input: Parameters<typeof widgetRow>[0]) => layoutSupport.mapWidget(widgetRow(input), 'marketing-page')
 
-const layoutDetail = (widgets: ReturnType<typeof mapHero>[]) =>
-    ({
-        item: { id: layoutId, templateKey: 'marketing-page', isActive: true, version: 3 },
-        widgets
-    } as never)
+const layoutDetail = (widgets: ReturnType<typeof mapHero>[]) => ({
+    item: { id: layoutId, templateKey: 'marketing-page', isActive: true, version: 3 },
+    widgets
+})
 
-const applicationLayoutWidgetsStoreHarness = createApplicationLayoutWidgetsStoreBindingsHarness(() =>
-    layoutDetail([
-        mapHero({
-            id: heroId,
-            instanceKey: 'hero-main',
-            semanticKey: 'default',
-            showLeadForm: false,
-            sortOrder: 1
-        })
-    ])
+// Detail fixtures feed jest.spyOn seams whose production type is the zod DTO; tests pass runtime-equivalent shapes.
+const layoutDetailFixture = (widgets: Parameters<typeof layoutDetail>[0]) => layoutDetail(widgets) as never
+
+const applicationLayoutWidgetsStoreHarness = createApplicationLayoutWidgetsStoreBindingsHarness(
+    () =>
+        layoutDetailFixture([
+            mapHero({
+                id: heroId,
+                instanceKey: 'hero-main',
+                semanticKey: 'default',
+                showLeadForm: false,
+                sortOrder: 1
+            })
+        ]) as unknown as Record<string, unknown>
 )
 const { executor, txExecutor, lockLayout, reset } = applicationLayoutWidgetsStoreHarness
 
@@ -337,7 +340,7 @@ describe('application layout widget source binding lifecycle', () => {
             isActive: true,
             version: 2
         }
-        lockLayout.mockResolvedValue(layoutDetail([currentWidget as never]))
+        lockLayout.mockResolvedValue(layoutDetailFixture([currentWidget as never]))
 
         await expect(
             updateApplicationLayoutWidgetConfig(
@@ -389,7 +392,7 @@ describe('application layout widget source binding lifecycle', () => {
             showLeadForm: true,
             sortOrder: 1
         })
-        lockLayout.mockResolvedValue(layoutDetail([layoutSupport.mapWidget(current, 'marketing-page')]))
+        lockLayout.mockResolvedValue(layoutDetailFixture([layoutSupport.mapWidget(current, 'marketing-page')]))
         const updated = { ...current, config: { showLeadForm: false }, is_customized: true, version: 3 }
         txExecutor.query.mockResolvedValueOnce([current]).mockResolvedValueOnce([updated])
 
@@ -426,7 +429,7 @@ describe('application layout widget source binding lifecycle', () => {
             isActive: true,
             version: 2
         }
-        lockLayout.mockResolvedValue(layoutDetail([currentWidget as never]))
+        lockLayout.mockResolvedValue(layoutDetailFixture([currentWidget as never]))
         const updated = {
             id: heroId,
             layout_id: layoutId,
@@ -647,8 +650,8 @@ describe('application layout widget source binding lifecycle', () => {
             source_base_widget_id: secondHeroId
         }
         const reset = { ...customized, config: overlayConfig, version: 3 }
-        lockLayout.mockResolvedValue({
-            ...layoutDetail([
+        lockLayout.mockResolvedValue(
+            layoutDetailFixture([
                 mapHero({
                     id: heroId,
                     instanceKey: 'hero-main',
@@ -656,9 +659,8 @@ describe('application layout widget source binding lifecycle', () => {
                     showLeadForm: false,
                     sortOrder: 1
                 })
-            ]),
-            item: { id: layoutId, templateKey: 'marketing-page', isActive: true, version: 3 } as never
-        })
+            ])
+        )
         txExecutor.query.mockResolvedValueOnce([customized]).mockResolvedValueOnce([reset])
 
         const saved = await resetApplicationLayoutWidgetConfigsBatch(
@@ -690,7 +692,10 @@ describe('application layout widget source binding lifecycle', () => {
             sortOrder: 2
         })
         lockLayout.mockResolvedValue(
-            layoutDetail([layoutSupport.mapWidget(firstHero, 'marketing-page'), layoutSupport.mapWidget(secondHero, 'marketing-page')])
+            layoutDetailFixture([
+                layoutSupport.mapWidget(firstHero, 'marketing-page'),
+                layoutSupport.mapWidget(secondHero, 'marketing-page')
+            ])
         )
         const movedFirst = { ...firstHero, sort_order: 2, version: 3 }
         const movedSecond = { ...secondHero, sort_order: 1, version: 3 }
@@ -723,7 +728,7 @@ describe('application layout widget source binding lifecycle', () => {
             showLeadForm: false,
             sortOrder: 1
         })
-        lockLayout.mockResolvedValue(layoutDetail([hero]))
+        lockLayout.mockResolvedValue(layoutDetailFixture([hero]))
 
         const moved = await moveApplicationLayoutWidget(
             executor,

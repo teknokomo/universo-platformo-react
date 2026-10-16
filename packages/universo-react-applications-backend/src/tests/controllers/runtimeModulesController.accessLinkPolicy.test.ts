@@ -6,8 +6,8 @@ const mockCreateQueryHelper = jest.fn(() => jest.fn())
 
 jest.mock('../../shared/runtimeHelpers', () => ({
     __esModule: true,
-    createQueryHelper: (...args: unknown[]) => mockCreateQueryHelper(...args),
-    resolveRuntimeSchema: (...args: unknown[]) => mockResolveRuntimeSchema(...args)
+    createQueryHelper: (...args: unknown[]) => (mockCreateQueryHelper as (...callArgs: unknown[]) => unknown)(...args),
+    resolveRuntimeSchema: (...args: unknown[]) => (mockResolveRuntimeSchema as (...callArgs: unknown[]) => unknown)(...args)
 }))
 
 jest.mock('../../services/runtimeModulesService', () => ({

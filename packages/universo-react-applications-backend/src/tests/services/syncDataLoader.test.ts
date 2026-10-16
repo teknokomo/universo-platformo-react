@@ -82,6 +82,9 @@ const createExecutor = (options: { rejectWidgets?: boolean; layouts?: unknown[];
     })
 })
 
+type RuntimeLayoutOverride = { baseWidgetId: string; zone: string; config: unknown }
+type RuntimeLayoutWidget = { id: string; config: unknown }
+
 describe('loadApplicationRuntimeLayouts', () => {
     it('exports canonical global/scoped composition and sparse widget overrides', async () => {
         const result = await loadApplicationRuntimeLayouts(createExecutor() as never, 'app_019f3100000070008000000000000001')
@@ -236,12 +239,16 @@ describe('loadApplicationRuntimeLayouts', () => {
             }) as never,
             'app_019f3100000070008000000000000001'
         )
-        const heroOverride = result.layoutWidgetOverrides?.find(({ baseWidgetId }) => baseWidgetId === ids.globalWidget)
+        const heroOverride = (result.layoutWidgetOverrides as RuntimeLayoutOverride[]).find(
+            ({ baseWidgetId }) => baseWidgetId === ids.globalWidget
+        )
         const decodedHeroOverride = decodeLayoutWidgetConfigEnvelope(heroOverride?.config, { ...widgetContext, requireBindings: false })
-        const authOverride = result.layoutWidgetOverrides?.find(({ baseWidgetId }) => baseWidgetId === ids.authGlobalWidget)
+        const authOverride = (result.layoutWidgetOverrides as RuntimeLayoutOverride[]).find(
+            ({ baseWidgetId }) => baseWidgetId === ids.authGlobalWidget
+        )
         const decodedAuthOverride = decodeLayoutWidgetConfigEnvelope(authOverride?.config, { ...authContext, requireBindings: false })
         const decodedBaseHero = decodeLayoutWidgetConfigEnvelope(
-            result.layoutZoneWidgets?.find(({ id }) => id === ids.globalWidget)?.config,
+            (result.layoutZoneWidgets as RuntimeLayoutWidget[]).find(({ id }) => id === ids.globalWidget)?.config,
             widgetContext
         )
 
@@ -357,7 +364,7 @@ describe('loadApplicationRuntimeLayouts', () => {
         })
 
         const result = await loadApplicationRuntimeLayouts(executor as never, 'app_019f3100000070008000000000000001')
-        const exported = result.layoutZoneWidgets[0]?.config
+        const exported = (result.layoutZoneWidgets as RuntimeLayoutWidget[])[0]?.config
         const decoded = decodeLayoutWidgetConfigEnvelope(exported, widgetContext)
         expect(decoded.rendererConfig).toEqual({ showLeadForm: false })
         expect(decoded.neutral.bindings).toEqual(sourceBinding)

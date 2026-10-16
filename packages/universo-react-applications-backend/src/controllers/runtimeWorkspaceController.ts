@@ -13,6 +13,7 @@ import {
     updateWorkspace,
     copyWorkspace,
     deleteSharedWorkspace,
+    convertPersonalWorkspaceToShared,
     setDefaultWorkspace,
     addWorkspaceMember,
     removeWorkspaceMember,
@@ -86,6 +87,10 @@ const copyWorkspaceSchema = z.object({
     description: LocalizedStringAllowEmptySchema.default(defaultWorkspaceDescription)
 })
 
+// The conversion endpoint takes no input: a one-way personal→shared flip must
+// not accept invented future payload keys silently.
+const convertToSharedSchema = z.object({}).strict()
+
 const addMemberSchema = z
     .object({
         userId: z.string().uuid().optional(),
@@ -140,6 +145,10 @@ export function createRuntimeWorkspaceController(getDbExecutor: () => DbExecutor
             return true
         }
         if (code === RUNTIME_WORKSPACE_ERROR_CODES.personalWorkspaceMutationBlocked) {
+            sendRuntimeWorkspaceError(res, 409, error, code)
+            return true
+        }
+        if (code === RUNTIME_WORKSPACE_ERROR_CODES.workspaceConversionBlocked) {
             sendRuntimeWorkspaceError(res, 409, error, code)
             return true
         }
@@ -325,6 +334,7 @@ export function createRuntimeWorkspaceController(getDbExecutor: () => DbExecutor
 
         const workspace = await createSharedWorkspace(ctx.manager, {
             schemaName: ctx.schemaName,
+            applicationId,
             name: parsed.data.name,
             description: parsed.data.description,
             userId: ctx.userId,
@@ -430,6 +440,7 @@ export function createRuntimeWorkspaceController(getDbExecutor: () => DbExecutor
         try {
             workspace = await copyWorkspace(ctx.manager, {
                 schemaName: ctx.schemaName,
+                applicationId,
                 sourceWorkspaceId: workspaceId,
                 name: parsed.data.name,
                 description: parsed.data.description,
@@ -444,6 +455,61 @@ export function createRuntimeWorkspaceController(getDbExecutor: () => DbExecutor
         }
 
         return res.status(201).json({ id: workspace.id })
+    }
+
+    const convertWorkspaceToShared = async (req: Request, res: Response) => {
+        const { applicationId } = req.params
+        const params = workspaceParamSchema.safeParse(req.params)
+        if (!params.success) {
+            return sendInvalidParams(res, params.error)
+        }
+        const parsedBody = convertToSharedSchema.safeParse(req.body ?? {})
+        if (!parsedBody.success) {
+            return sendError(
+                res,
+                400,
+                'Invalid request body',
+                RUNTIME_WORKSPACE_API_ERROR_CODES.invalidRequestBody,
+                parsedBody.error.flatten()
+            )
+        }
+        const { workspaceId } = params.data
+        const ctx = await resolveRuntimeSchema(getDbExecutor, query, req, res, applicationId, workspaceId)
+        if (!ctx) return
+
+        if (!ctx.workspacesEnabled) {
+            return sendWorkspacesDisabled(res)
+        }
+
+        const membershipState = await requireWorkspaceMembership(ctx, workspaceId, { requireOwner: true })
+        if (membershipState?.error) {
+            const { status, code } = membershipState.error
+            // The membership gate uses the generic member-management copy; the
+            // conversion action needs its own explanation (a personal workspace
+            // of another user, or a non-owned workspace, can never be converted).
+            return sendError(
+                res,
+                status,
+                code === RUNTIME_WORKSPACE_API_ERROR_CODES.workspaceOwnerRequired
+                    ? 'Only the personal workspace owner can convert it to shared'
+                    : membershipState.error.message,
+                code
+            )
+        }
+
+        try {
+            const workspace = await convertPersonalWorkspaceToShared(ctx.manager, {
+                schemaName: ctx.schemaName,
+                applicationId,
+                workspaceId,
+                userId: ctx.userId,
+                actorUserId: ctx.userId
+            })
+            return res.status(200).json({ id: workspace.id })
+        } catch (error) {
+            if (sendWorkspaceMutationError(res, error)) return
+            throw error
+        }
     }
 
     const deleteWorkspaceDetails = async (req: Request, res: Response) => {
@@ -563,6 +629,7 @@ export function createRuntimeWorkspaceController(getDbExecutor: () => DbExecutor
         try {
             await addWorkspaceMember(ctx.manager, {
                 schemaName: ctx.schemaName,
+                applicationId,
                 workspaceId,
                 userId: targetUserId,
                 roleCodename: parsed.data.roleCodename,
@@ -601,6 +668,7 @@ export function createRuntimeWorkspaceController(getDbExecutor: () => DbExecutor
         try {
             await removeWorkspaceMember(ctx.manager, {
                 schemaName: ctx.schemaName,
+                applicationId,
                 workspaceId,
                 userId: targetUserId,
                 actorUserId: ctx.userId
@@ -802,6 +870,7 @@ export function createRuntimeWorkspaceController(getDbExecutor: () => DbExecutor
         updateWorkspaceDetails,
         copyWorkspaceDetails,
         deleteWorkspaceDetails,
+        convertWorkspaceToShared,
         updateDefaultWorkspace,
         inviteMember,
         deleteMember,

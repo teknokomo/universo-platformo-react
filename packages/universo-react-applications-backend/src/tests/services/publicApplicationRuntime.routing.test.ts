@@ -1,3 +1,4 @@
+import type { PublicRuntimeApplicationRow } from '../../services/publicApplicationRuntime'
 import { type DbExecutor } from '@universo-react/utils'
 import {
     parsePublicApplicationRef,

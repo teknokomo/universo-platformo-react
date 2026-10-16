@@ -8,18 +8,40 @@ import {
     validateApplicationReleaseBundleArtifacts
 } from '../../services/applicationReleaseBundle'
 import { createLoadPublishedApplicationSyncContext } from '../../services/applicationSyncContracts'
+import type { PublishedApplicationSnapshot } from '../../services/applicationSyncContracts'
+import type { VersionedLocalizedContent } from '@universo-react/types'
+import type { SnapshotEnumerationValueDefinition, SnapshotEntityDefinition } from '../../services/applicationSyncContracts'
+import type { PublishedApplicationSyncContext } from '../../services/applicationSyncContracts'
 
-const createCodenameVlc = (primary: string, secondary?: string) => ({
+const createCodenameVlc = (primary: string, secondary?: string): VersionedLocalizedContent<string> => ({
     _schema: '1',
     _primary: 'en',
     locales: {
-        en: { content: primary, version: 1, isActive: true },
-        ...(secondary ? { ru: { content: secondary, version: 1, isActive: true } } : {})
+        en: { content: primary, version: 1, isActive: true, createdAt: '1970-01-01T00:00:00.000Z', updatedAt: '1970-01-01T00:00:00.000Z' },
+        ...(secondary
+            ? {
+                  ru: {
+                      content: secondary,
+                      version: 1,
+                      isActive: true,
+                      createdAt: '1970-01-01T00:00:00.000Z',
+                      updatedAt: '1970-01-01T00:00:00.000Z'
+                  }
+              }
+            : {})
+    }
+})
+
+const createRuVlc = (content: string): VersionedLocalizedContent<string> => ({
+    _schema: '1',
+    _primary: 'ru',
+    locales: {
+        ru: { content, version: 1, isActive: true, createdAt: '1970-01-01T00:00:00.000Z', updatedAt: '1970-01-01T00:00:00.000Z' }
     }
 })
 
 describe('applicationReleaseBundle', () => {
-    const snapshot = {
+    const snapshot: PublishedApplicationSnapshot = {
         versionEnvelope: {
             structureVersion: '53.0.0',
             templateVersion: null,
@@ -30,6 +52,7 @@ describe('applicationReleaseBundle', () => {
                 id: 'object-products',
                 codename: createCodenameVlc('products', 'продукты'),
                 kind: 'object',
+                presentation: { name: createCodenameVlc('Products') },
                 physicalTableEnabled: true,
                 fields: []
             }
@@ -127,50 +150,48 @@ describe('applicationReleaseBundle', () => {
     })
 
     it('preserves entity type resource labels as metadata without changing executable schema payload', () => {
-        const snapshotWithResourceLabel = {
+        const objectEntityType = {
+            id: 'standard-type-object',
+            kindKey: 'object',
+            codename: createCodenameVlc('object'),
+            presentation: {},
+            capabilities: { dataSchema: { enabled: true } },
+            ui: {
+                iconName: 'IconDatabase',
+                tabs: ['general'],
+                sidebarSection: 'objects',
+                nameKey: 'metahubs:objects.title',
+                resourceSurfaces: [
+                    {
+                        key: 'components',
+                        capability: 'dataSchema',
+                        routeSegment: 'components',
+                        title: createCodenameVlc('Properties', 'Свойства'),
+                        fallbackTitle: 'Properties'
+                    }
+                ]
+            },
+            config: {},
+            published: true
+        }
+
+        const renamedResourceSurfaces = [
+            {
+                ...objectEntityType.ui.resourceSurfaces[0],
+                title: createCodenameVlc('Components', 'Атрибуты'),
+                fallbackTitle: 'Components'
+            }
+        ]
+        const snapshotWithResourceLabel: PublishedApplicationSnapshot = {
+            ...snapshot,
+            entityTypeDefinitions: { object: objectEntityType }
+        }
+        const snapshotWithRenamedResourceLabel: PublishedApplicationSnapshot = {
             ...snapshot,
             entityTypeDefinitions: {
                 object: {
-                    id: 'standard-type-object',
-                    kindKey: 'object',
-                    codename: createCodenameVlc('object'),
-                    presentation: {},
-                    capabilities: { dataSchema: { enabled: true } },
-                    ui: {
-                        iconName: 'IconDatabase',
-                        tabs: ['general'],
-                        sidebarSection: 'objects',
-                        nameKey: 'metahubs:objects.title',
-                        resourceSurfaces: [
-                            {
-                                key: 'components',
-                                capability: 'dataSchema',
-                                routeSegment: 'components',
-                                title: createCodenameVlc('Properties', 'Свойства'),
-                                fallbackTitle: 'Properties'
-                            }
-                        ]
-                    },
-                    config: {},
-                    published: true
-                }
-            }
-        }
-        const snapshotWithRenamedResourceLabel = {
-            ...snapshotWithResourceLabel,
-            entityTypeDefinitions: {
-                object: {
-                    ...snapshotWithResourceLabel.entityTypeDefinitions.object,
-                    ui: {
-                        ...snapshotWithResourceLabel.entityTypeDefinitions.object.ui,
-                        resourceSurfaces: [
-                            {
-                                ...snapshotWithResourceLabel.entityTypeDefinitions.object.ui.resourceSurfaces[0],
-                                title: createCodenameVlc('Components', 'Атрибуты'),
-                                fallbackTitle: 'Components'
-                            }
-                        ]
-                    }
+                    ...objectEntityType,
+                    ui: { ...objectEntityType.ui, resourceSurfaces: renamedResourceSurfaces }
                 }
             }
         }
@@ -197,9 +218,10 @@ describe('applicationReleaseBundle', () => {
         })
 
         expect(firstHash).not.toBe(secondHash)
-        expect(firstBundle.snapshot.entityTypeDefinitions?.object?.ui?.resourceSurfaces?.[0]?.title).toEqual(
-            createCodenameVlc('Properties', 'Свойства')
-        )
+        const entityTypeObject = firstBundle.snapshot.entityTypeDefinitions as
+            | { object?: { ui?: { resourceSurfaces?: { title?: unknown }[] } } }
+            | undefined
+        expect(entityTypeObject?.object?.ui?.resourceSurfaces?.[0]?.title).toEqual(createCodenameVlc('Properties', 'Свойства'))
         expect(firstBundle.bootstrap.payload.entities).toEqual(secondBundle.bootstrap.payload.entities)
         expect(firstBundle.bootstrap.payload.schemaSnapshot.entities).toEqual(secondBundle.bootstrap.payload.schemaSnapshot.entities)
     })
@@ -395,7 +417,7 @@ describe('applicationReleaseBundle', () => {
     })
 
     it('matches serializer-compatible hashes when layout optional keys are omitted', () => {
-        const snapshotWithOmittedLayoutKeys = {
+        const snapshotWithOmittedLayoutKeys: PublishedApplicationSnapshot = {
             version: 1 as const,
             versionEnvelope: {
                 structureVersion: '0.1.0',
@@ -408,6 +430,7 @@ describe('applicationReleaseBundle', () => {
                     id: 'object-products',
                     codename: 'products',
                     kind: 'object',
+                    presentation: { name: createCodenameVlc('Products') },
                     tableName: 'obj_products',
                     fields: []
                 }
@@ -509,7 +532,7 @@ describe('applicationReleaseBundle', () => {
                     codename: createCodenameVlc('products_legacy', 'продукты_legacy'),
                     kind: 'custom.product-registry',
                     tableName: 'obj_products_legacy',
-                    presentation: { name: {} },
+                    presentation: { name: createCodenameVlc('products_legacy') },
                     config: {
                         compatibility: { legacyObjectKind: 'object' },
                         viewMode: 'grid'
@@ -521,7 +544,7 @@ describe('applicationReleaseBundle', () => {
                     codename: createCodenameVlc('tags_legacy', 'теги_legacy'),
                     kind: 'custom.value-group',
                     tableName: 'set_tags_legacy',
-                    presentation: { name: {} },
+                    presentation: { name: createCodenameVlc('products_legacy') },
                     config: {
                         compatibility: { legacyObjectKind: 'set', scope: 'workspace' },
                         displayMode: 'chips'
@@ -570,16 +593,16 @@ describe('applicationReleaseBundle', () => {
         const sharedField = {
             id: repeatedFieldId,
             codename: createCodenameVlc('SharedTitle', 'ОбщийЗаголовок'),
-            dataType: 'STRING',
+            dataType: 'STRING' as const,
             isRequired: false,
             isDisplayComponent: false,
-            presentation: { name: {} },
+            presentation: { name: createCodenameVlc('products_legacy') },
             validationRules: {},
             uiConfig: {},
             sortOrder: 1
         }
 
-        const repeatedFieldSnapshot = {
+        const repeatedFieldSnapshot: PublishedApplicationSnapshot = {
             versionEnvelope: {
                 structureVersion: '53.0.0',
                 templateVersion: null,
@@ -590,7 +613,7 @@ describe('applicationReleaseBundle', () => {
                     id: 'object-alpha',
                     codename: createCodenameVlc('alpha', 'альфа'),
                     kind: 'object',
-                    presentation: { name: {} },
+                    presentation: { name: createCodenameVlc('products_legacy') },
                     config: {},
                     fields: [sharedField]
                 },
@@ -598,7 +621,7 @@ describe('applicationReleaseBundle', () => {
                     id: 'object-beta',
                     codename: createCodenameVlc('beta', 'бета'),
                     kind: 'object',
-                    presentation: { name: {} },
+                    presentation: { name: createCodenameVlc('products_legacy') },
                     config: {},
                     fields: [sharedField]
                 }
@@ -640,103 +663,106 @@ describe('applicationReleaseBundle', () => {
 
     it('scopes repeated shared enumeration value ids per target object and rewrites element refs', async () => {
         const duplicateValueId = '019d6a25-9427-72a1-856b-56205dffad46'
-        const loadSyncContext = createLoadPublishedApplicationSyncContext(async () => ({
-            publicationId: 'publication-1',
-            publicationVersionId: 'publication-version-1',
-            snapshotHash: 'stale-runtime-hash',
-            publicationSnapshot: {},
-            entities: [],
-            snapshot: {
-                versionEnvelope: {
-                    structureVersion: '53.0.0',
-                    templateVersion: null,
-                    snapshotFormatVersion: 4
-                },
-                entities: {
-                    'object-main': {
-                        id: 'object-main',
-                        codename: createCodenameVlc('Main', 'Главная'),
-                        kind: 'object',
-                        presentation: { name: {} },
-                        config: {},
-                        fields: [
-                            {
-                                id: 'field-status-a',
-                                codename: createCodenameVlc('StatusA', 'СтатусА'),
-                                dataType: 'REF',
-                                isRequired: false,
-                                targetEntityId: 'enum-a',
-                                targetEntityKind: 'enumeration',
-                                presentation: { name: {} },
-                                validationRules: {},
-                                uiConfig: {},
-                                sortOrder: 1
+        const loadSyncContext = createLoadPublishedApplicationSyncContext(
+            async () =>
+                ({
+                    publicationId: 'publication-1',
+                    publicationVersionId: 'publication-version-1',
+                    snapshotHash: 'stale-runtime-hash',
+                    publicationSnapshot: {},
+                    entities: [],
+                    snapshot: {
+                        versionEnvelope: {
+                            structureVersion: '53.0.0',
+                            templateVersion: null,
+                            snapshotFormatVersion: 4
+                        },
+                        entities: {
+                            'object-main': {
+                                id: 'object-main',
+                                codename: createCodenameVlc('Main', 'Главная'),
+                                kind: 'object',
+                                presentation: { name: createCodenameVlc('products_legacy') },
+                                config: {},
+                                fields: [
+                                    {
+                                        id: 'field-status-a',
+                                        codename: createCodenameVlc('StatusA', 'СтатусА'),
+                                        dataType: 'REF',
+                                        isRequired: false,
+                                        targetEntityId: 'enum-a',
+                                        targetEntityKind: 'enumeration',
+                                        presentation: { name: createCodenameVlc('products_legacy') },
+                                        validationRules: {},
+                                        uiConfig: {},
+                                        sortOrder: 1
+                                    },
+                                    {
+                                        id: 'field-status-b',
+                                        codename: createCodenameVlc('StatusB', 'СтатусБ'),
+                                        dataType: 'REF',
+                                        isRequired: false,
+                                        targetEntityId: 'enum-b',
+                                        targetEntityKind: 'enumeration',
+                                        presentation: { name: createCodenameVlc('products_legacy') },
+                                        validationRules: {},
+                                        uiConfig: {},
+                                        sortOrder: 2
+                                    }
+                                ]
                             },
-                            {
-                                id: 'field-status-b',
-                                codename: createCodenameVlc('StatusB', 'СтатусБ'),
-                                dataType: 'REF',
-                                isRequired: false,
-                                targetEntityId: 'enum-b',
-                                targetEntityKind: 'enumeration',
-                                presentation: { name: {} },
-                                validationRules: {},
-                                uiConfig: {},
-                                sortOrder: 2
+                            'enum-a': {
+                                id: 'enum-a',
+                                codename: createCodenameVlc('EnumA', 'ПеречислениеА'),
+                                kind: 'enumeration',
+                                presentation: { name: createCodenameVlc('products_legacy') },
+                                config: { compatibility: { legacyObjectKind: 'enumeration' } },
+                                fields: []
+                            },
+                            'enum-b': {
+                                id: 'enum-b',
+                                codename: createCodenameVlc('EnumB', 'ПеречислениеБ'),
+                                kind: 'enumeration',
+                                presentation: { name: createCodenameVlc('products_legacy') },
+                                config: { compatibility: { legacyObjectKind: 'enumeration' } },
+                                fields: []
                             }
-                        ]
-                    },
-                    'enum-a': {
-                        id: 'enum-a',
-                        codename: createCodenameVlc('EnumA', 'ПеречислениеА'),
-                        kind: 'enumeration',
-                        presentation: { name: {} },
-                        config: { compatibility: { legacyObjectKind: 'enumeration' } },
-                        fields: []
-                    },
-                    'enum-b': {
-                        id: 'enum-b',
-                        codename: createCodenameVlc('EnumB', 'ПеречислениеБ'),
-                        kind: 'enumeration',
-                        presentation: { name: {} },
-                        config: { compatibility: { legacyObjectKind: 'enumeration' } },
-                        fields: []
+                        },
+                        optionValues: {
+                            'enum-a': [
+                                {
+                                    id: duplicateValueId,
+                                    codename: createCodenameVlc('Open', 'Открыто'),
+                                    presentation: { name: createCodenameVlc('products_legacy') },
+                                    sortOrder: 1,
+                                    isDefault: true
+                                }
+                            ],
+                            'enum-b': [
+                                {
+                                    id: duplicateValueId,
+                                    codename: createCodenameVlc('Open', 'Открыто'),
+                                    presentation: { name: createCodenameVlc('products_legacy') },
+                                    sortOrder: 1,
+                                    isDefault: true
+                                }
+                            ]
+                        },
+                        elements: {
+                            'object-main': [
+                                {
+                                    id: 'row-1',
+                                    sortOrder: 1,
+                                    data: {
+                                        StatusA: duplicateValueId,
+                                        StatusB: { id: duplicateValueId }
+                                    }
+                                }
+                            ]
+                        }
                     }
-                },
-                optionValues: {
-                    'enum-a': [
-                        {
-                            id: duplicateValueId,
-                            codename: createCodenameVlc('Open', 'Открыто'),
-                            presentation: { name: {} },
-                            sortOrder: 1,
-                            isDefault: true
-                        }
-                    ],
-                    'enum-b': [
-                        {
-                            id: duplicateValueId,
-                            codename: createCodenameVlc('Open', 'Открыто'),
-                            presentation: { name: {} },
-                            sortOrder: 1,
-                            isDefault: true
-                        }
-                    ]
-                },
-                elements: {
-                    'object-main': [
-                        {
-                            id: 'row-1',
-                            sortOrder: 1,
-                            data: {
-                                StatusA: duplicateValueId,
-                                StatusB: { id: duplicateValueId }
-                            }
-                        }
-                    ]
-                }
-            }
-        }))
+                } as unknown as PublishedApplicationSyncContext)
+        )
 
         const syncContext = await loadSyncContext({} as never, 'publication-1')
         if (!syncContext) {
@@ -764,7 +790,7 @@ describe('applicationReleaseBundle', () => {
         const valueGroupId = '019d0d8e-ddb0-7c8f-93f4-11048896d993'
         const constantId = '019d10d1-79ec-78bf-a0d9-1768ee647b33'
 
-        const complexSnapshot = {
+        const complexSnapshot: PublishedApplicationSnapshot = {
             versionEnvelope: {
                 structureVersion: '53.0.0',
                 templateVersion: null,
@@ -775,7 +801,7 @@ describe('applicationReleaseBundle', () => {
                     id: 'object-resources',
                     codename: createCodenameVlc('resources', 'ресурсы'),
                     kind: 'object',
-                    presentation: { name: {} },
+                    presentation: { name: createCodenameVlc('products_legacy') },
                     config: {},
                     fields: [
                         {
@@ -784,10 +810,9 @@ describe('applicationReleaseBundle', () => {
                             dataType: 'TABLE',
                             isRequired: false,
                             isDisplayComponent: false,
-                            presentation: { name: {} },
+                            presentation: { name: createCodenameVlc('products_legacy') },
                             validationRules: {},
                             uiConfig: {},
-                            sortOrder: 1,
                             childFields: [
                                 {
                                     id: childFieldId,
@@ -795,10 +820,9 @@ describe('applicationReleaseBundle', () => {
                                     dataType: 'STRING',
                                     isRequired: true,
                                     isDisplayComponent: true,
-                                    presentation: { name: {} },
+                                    presentation: { name: createCodenameVlc('products_legacy') },
                                     validationRules: { localized: true, versioned: true },
                                     uiConfig: {},
-                                    sortOrder: 1,
                                     parentComponentId: tableFieldId
                                 }
                             ]
@@ -812,10 +836,9 @@ describe('applicationReleaseBundle', () => {
                             targetEntityId: valueGroupId,
                             targetEntityKind: 'set',
                             targetConstantId: constantId,
-                            presentation: { name: {} },
+                            presentation: { name: createCodenameVlc('products_legacy') },
                             validationRules: {},
-                            uiConfig: {},
-                            sortOrder: 2
+                            uiConfig: {}
                         }
                     ]
                 }
@@ -827,24 +850,10 @@ describe('applicationReleaseBundle', () => {
                         objectId: valueGroupId,
                         codename: createCodenameVlc('MottoConstant', 'КонстантаДевиз'),
                         dataType: 'STRING',
-                        presentation: {
-                            name: {
-                                _schema: '1',
-                                _primary: 'ru',
-                                locales: {
-                                    ru: { content: 'Девиз', version: 1, isActive: true }
-                                }
-                            }
-                        },
+                        presentation: { name: createRuVlc('Девиз') },
                         validationRules: {},
                         uiConfig: {},
-                        value: {
-                            _schema: '1',
-                            _primary: 'ru',
-                            locales: {
-                                ru: { content: 'Все миры будут нашими!', version: 1, isActive: true }
-                            }
-                        },
+                        value: createRuVlc('Все миры будут нашими!'),
                         sortOrder: 0
                     }
                 ]

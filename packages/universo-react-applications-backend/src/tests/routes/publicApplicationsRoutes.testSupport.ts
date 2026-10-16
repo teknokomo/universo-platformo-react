@@ -34,7 +34,7 @@ export const buildDataSource = (handler?: QueryHandler, options: { serializeAdvi
     const advisoryLockTails = new Map<string, Promise<void>>()
     const acquireTestAdvisoryLock = async (key: string): Promise<() => void> => {
         const previous = advisoryLockTails.get(key) ?? Promise.resolve()
-        let releaseLock = () => undefined
+        let releaseLock: () => void = () => undefined
         const lockHeld = new Promise<void>((resolve) => {
             releaseLock = resolve
         })

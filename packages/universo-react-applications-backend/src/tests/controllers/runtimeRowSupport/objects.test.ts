@@ -136,6 +136,8 @@ describe('resolveRuntimeObjectCollectionConfig relation authority', () => {
         })
         const scope = await resolveRuntimeRelationWriteScope({
             manager,
+            applicationId,
+            workspaceId: null,
             schemaIdent: '"app_test"',
             zoneWidgets: relationLayout.zoneWidgets,
             childEntity: { id: objectCollectionId, codename: 'CourseItems' },

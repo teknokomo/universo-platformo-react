@@ -54,7 +54,7 @@ describe('sync persistence helpers', () => {
         await expect(
             persistApplicationSchemaSyncState(mock.trx as never, {
                 applicationId: 'missing-application',
-                schemaStatus: ApplicationSchemaStatus.FAILED,
+                schemaStatus: ApplicationSchemaStatus.ERROR,
                 schemaError: 'boom',
                 schemaSyncedAt: null,
                 schemaSnapshot: null,

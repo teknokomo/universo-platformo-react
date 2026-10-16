@@ -12,6 +12,7 @@ import {
     resetSyncLayoutPersistenceMocks,
     type MockSyncKnex
 } from './syncLayoutPersistenceHarness'
+import type { PublishedApplicationSnapshot } from '../../services/applicationSyncContracts'
 import {
     createMarketingHeroSnapshot,
     createMarketingSnapshot,
@@ -22,6 +23,11 @@ import {
 
 let currentKnex: MockSyncKnex
 configureSyncLayoutPersistenceKnexAccessor(() => currentKnex)
+
+const snapshotLayouts = (snapshot: PublishedApplicationSnapshot): Record<string, unknown>[] =>
+    (snapshot.layouts ?? []) as Record<string, unknown>[]
+const snapshotWidgets = (snapshot: PublishedApplicationSnapshot): Record<string, unknown>[] =>
+    (snapshot.layoutZoneWidgets ?? []) as Record<string, unknown>[]
 
 describe('syncLayoutPersistence', () => {
     beforeEach(() => {
@@ -319,9 +325,9 @@ describe('syncLayoutPersistence', () => {
                 }
             }
         }
-        snapshot.layouts[0]!.config = neutralConfig
+        snapshotLayouts(snapshot)[0]!.config = neutralConfig
         snapshot.layoutConfig = neutralConfig
-        snapshot.layoutZoneWidgets.push({
+        snapshot.layoutZoneWidgets!.push({
             id: marketingIds.sharedWidget,
             layoutId: marketingIds.layout,
             zone: 'marketing-header',
@@ -366,7 +372,7 @@ describe('syncLayoutPersistence', () => {
 
     it('rejects application-only neutral metadata before application sync writes', async () => {
         const snapshot = createMarketingSnapshot()
-        snapshot.layouts[0]!.config = {
+        snapshotLayouts(snapshot)[0]!.config = {
             __layout: {
                 sourceZoneSettings: {
                     'marketing-header': { position: 'fixed' }
@@ -391,8 +397,8 @@ describe('syncLayoutPersistence', () => {
     it('rejects UUID v4 snapshot identities before bootstrapping or mutating application layout tables', async () => {
         const v4LayoutId = '018f8a78-7b8f-4c1d-a111-2222333344a1'
         const snapshot = createSnapshot()
-        snapshot.layouts = [{ ...snapshot.layouts[0], id: v4LayoutId }]
-        snapshot.layoutZoneWidgets = [{ ...snapshot.layoutZoneWidgets[0], layoutId: v4LayoutId }]
+        snapshot.layouts = [{ ...snapshotLayouts(snapshot)[0], id: v4LayoutId }]
+        snapshot.layoutZoneWidgets = [{ ...snapshotWidgets(snapshot)[0], layoutId: v4LayoutId }]
         snapshot.defaultLayoutId = v4LayoutId
 
         await expect(

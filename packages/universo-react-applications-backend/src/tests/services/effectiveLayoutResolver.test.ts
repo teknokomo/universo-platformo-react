@@ -17,6 +17,7 @@ import {
 } from '@universo-react/types'
 import { resolveEffectiveLayoutForPublicTransaction, resolveEffectiveLayoutForRequest } from '../../services/effectiveLayoutResolver'
 import { resolveEffectiveLayoutStructureForRequest } from '../../services/effectiveLayoutResolverCore'
+import type { EffectiveLayoutWidget } from '../../services/effectiveLayoutContract'
 import { EffectiveLayoutError } from '../../services/effectiveLayoutContract'
 import { createMockDbExecutor } from '../utils/dbMocks'
 import { resolveRuntimeWorkspaceAccess, setRuntimeWorkspaceContext } from '../../services/applicationWorkspaces'
@@ -265,6 +266,11 @@ beforeEach(() => {
     })
     mockSetWorkspaceContext.mockResolvedValue(undefined)
 })
+
+type EffectiveLayoutWidgetPrivate = EffectiveLayoutWidget & {
+    sourceConfig?: unknown
+    sourceBaseWidgetId?: unknown
+}
 
 describe('effectiveLayoutResolver', () => {
     it('resolves structural Dashboard layouts without loading widget runtime data', async () => {
@@ -701,7 +707,7 @@ describe('effectiveLayoutResolver', () => {
 
         const first = await resolveBoundHero('default')
         const second = await resolveBoundHero('campaign')
-        const firstHero = first.widgets.find(({ widgetKey }) => widgetKey === 'marketing.hero')
+        const firstHero = (first.widgets as EffectiveLayoutWidgetPrivate[]).find(({ widgetKey }) => widgetKey === 'marketing.hero')
 
         expect(firstHero?.instanceKey).toBe('page-hero')
         expect(firstHero?.config).toEqual({ showLeadForm: false })
@@ -824,7 +830,7 @@ describe('effectiveLayoutResolver', () => {
         )
 
         expect(result.layout.compositionMode).toBe('overlay')
-        expect(result.widgets[0]?.sourceBaseWidgetId).toBeUndefined()
+        expect((result.widgets as EffectiveLayoutWidgetPrivate[])[0]?.sourceBaseWidgetId).toBeUndefined()
         expect(JSON.stringify(result)).not.toContain('sourceBaseWidgetId')
     })
 
@@ -947,7 +953,7 @@ describe('effectiveLayoutResolver', () => {
             { applicationId, userId: 'user-1', role: 'member' },
             resolverInput()
         )
-        const resolvedHero = result.widgets.find(({ widgetKey }) => widgetKey === 'marketing.hero')
+        const resolvedHero = (result.widgets as EffectiveLayoutWidgetPrivate[]).find(({ widgetKey }) => widgetKey === 'marketing.hero')
 
         expect(resolvedHero?.instanceKey).toBe('page-hero')
         expect(resolvedHero?.config).toEqual({ showLeadForm: false })

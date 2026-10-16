@@ -43,10 +43,17 @@ import { revokeGuestAssessmentAttemptsForApplication } from '../services/guestAs
 import {
     archivePersonalWorkspaceForUser,
     ensurePersonalWorkspaceForUser,
+    ensureSharedWorkspaceBaselineMembership,
     listObjectWorkspaceLimits,
+    removeSharedWorkspaceBaselineMembership,
     runtimeWorkspaceTablesExist,
     upsertObjectWorkspaceLimits
 } from '../services/applicationWorkspaces'
+import {
+    assertUserIsNotLastSharedWorkspaceOwner,
+    RUNTIME_WORKSPACE_ERROR_CODES,
+    RuntimeWorkspaceError
+} from '../services/runtimeWorkspaceService'
 import { escapeLikeWildcards, getRequestDbExecutor } from '../utils'
 import {
     UpdateFailure,
@@ -869,6 +876,14 @@ export function createApplicationsController(getDbExecutor: () => DbExecutor) {
                     actorUserId: userId,
                     defaultRoleCodename: 'owner'
                 })
+
+                // The new member accesses every shared workspace of the
+                // application with baseline `member` rights.
+                await ensureSharedWorkspaceBaselineMembership(trx, {
+                    schemaName: application.schemaName,
+                    applicationId,
+                    actorUserId: userId
+                })
             }
 
             return member
@@ -899,22 +914,45 @@ export function createApplicationsController(getDbExecutor: () => DbExecutor) {
             return res.status(404).json({ error: 'Application not found' })
         }
 
-        await ds.transaction(async (trx) => {
-            await deleteApplicationMember(trx, { applicationId, memberId: member.id, userId })
+        try {
+            await ds.transaction(async (trx) => {
+                await deleteApplicationMember(trx, { applicationId, memberId: member.id, userId })
 
-            if (
-                application.workspacesEnabled &&
-                application.schemaName &&
-                IDENTIFIER_REGEX.test(application.schemaName) &&
-                (await runtimeWorkspaceTablesExist(trx, application.schemaName))
-            ) {
-                await archivePersonalWorkspaceForUser(trx, {
-                    schemaName: application.schemaName,
-                    userId,
-                    actorUserId: userId
-                })
+                if (
+                    application.workspacesEnabled &&
+                    application.schemaName &&
+                    IDENTIFIER_REGEX.test(application.schemaName) &&
+                    (await runtimeWorkspaceTablesExist(trx, application.schemaName))
+                ) {
+                    // A shared workspace whose only `owner` row belongs to the
+                    // departing user would become unmanageable (member management
+                    // is owner-gated). Reject the exit instead of stranding it.
+                    await assertUserIsNotLastSharedWorkspaceOwner(trx, {
+                        schemaName: application.schemaName,
+                        applicationId,
+                        userId
+                    })
+
+                    await removeSharedWorkspaceBaselineMembership(trx, {
+                        schemaName: application.schemaName,
+                        applicationId,
+                        userId,
+                        actorUserId: userId
+                    })
+
+                    await archivePersonalWorkspaceForUser(trx, {
+                        schemaName: application.schemaName,
+                        userId,
+                        actorUserId: userId
+                    })
+                }
+            })
+        } catch (error) {
+            if (error instanceof RuntimeWorkspaceError && error.code === RUNTIME_WORKSPACE_ERROR_CODES.memberWorkspaceOwnershipBlocked) {
+                return res.status(409).json({ error: error.message, code: error.code })
             }
-        })
+            throw error
+        }
 
         return res.json({ status: 'left' })
     }
@@ -1187,6 +1225,14 @@ export function createApplicationsController(getDbExecutor: () => DbExecutor) {
                         actorUserId: userId,
                         defaultRoleCodename: 'owner'
                     })
+
+                    // The added member accesses every shared workspace of the
+                    // application with baseline `member` rights (same as join).
+                    await ensureSharedWorkspaceBaselineMembership(trx, {
+                        schemaName: application.schemaName,
+                        applicationId,
+                        actorUserId: userId
+                    })
                 }
 
                 return insertedMember
@@ -1307,22 +1353,42 @@ export function createApplicationsController(getDbExecutor: () => DbExecutor) {
             return res.status(404).json({ error: 'Application not found' })
         }
 
-        await ds.transaction(async (trx) => {
-            await deleteApplicationMember(trx, { applicationId, memberId, userId })
+        try {
+            await ds.transaction(async (trx) => {
+                await deleteApplicationMember(trx, { applicationId, memberId, userId })
 
-            if (
-                application.workspacesEnabled &&
-                application.schemaName &&
-                IDENTIFIER_REGEX.test(application.schemaName) &&
-                (await runtimeWorkspaceTablesExist(trx, application.schemaName))
-            ) {
-                await archivePersonalWorkspaceForUser(trx, {
-                    schemaName: application.schemaName,
-                    userId: member.userId,
-                    actorUserId: userId
-                })
+                if (
+                    application.workspacesEnabled &&
+                    application.schemaName &&
+                    IDENTIFIER_REGEX.test(application.schemaName) &&
+                    (await runtimeWorkspaceTablesExist(trx, application.schemaName))
+                ) {
+                    await assertUserIsNotLastSharedWorkspaceOwner(trx, {
+                        schemaName: application.schemaName,
+                        applicationId,
+                        userId: member.userId
+                    })
+
+                    await removeSharedWorkspaceBaselineMembership(trx, {
+                        schemaName: application.schemaName,
+                        applicationId,
+                        userId: member.userId,
+                        actorUserId: userId
+                    })
+
+                    await archivePersonalWorkspaceForUser(trx, {
+                        schemaName: application.schemaName,
+                        userId: member.userId,
+                        actorUserId: userId
+                    })
+                }
+            })
+        } catch (error) {
+            if (error instanceof RuntimeWorkspaceError && error.code === RUNTIME_WORKSPACE_ERROR_CODES.memberWorkspaceOwnershipBlocked) {
+                return res.status(409).json({ error: error.message, code: error.code })
             }
-        })
+            throw error
+        }
         return res.status(204).send()
     }
 

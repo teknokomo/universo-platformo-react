@@ -652,10 +652,11 @@ export const DashboardApplicationRuntime = ({
                     locale={locale}
                     routeWorkspaceId={routeWorkspaceId}
                     routeSection={workspaceRouteSection}
+                    currentUserId={user?.id ?? null}
                     onNavigate={navigate}
                 />
             ) : null,
-        [applicationId, isWorkspacesRoute, locale, navigate, routeWorkspaceId, workspaceRouteSection]
+        [applicationId, isWorkspacesRoute, locale, navigate, routeWorkspaceId, user?.id, workspaceRouteSection]
     )
     const handlePageProgressChange = useCallback(
         async (payload: { action: 'view' | 'complete'; target?: { objectCodename: string; recordHandle: string } }) => {

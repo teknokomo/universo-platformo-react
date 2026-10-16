@@ -115,7 +115,7 @@ describe('application access guards', () => {
             'assignment.review': true,
             'certificate.issue': true
         })
-        expect(capabilities['workflow.execute']).toBeUndefined()
+        expect((capabilities as Record<string, boolean>)['workflow.execute']).toBeUndefined()
         expect((capabilities as Record<string, boolean>)['department:assignment.review']).toBeUndefined()
     })
 
@@ -138,7 +138,7 @@ describe('application access guards', () => {
             'records.edit': false,
             'assignment.review': true
         })
-        expect(resolveEffectiveRoleCapabilities('member', settings)['workflow.execute']).toBeUndefined()
+        expect((resolveEffectiveRoleCapabilities('member', settings) as Record<string, boolean>)['workflow.execute']).toBeUndefined()
     })
 
     it('lets deny role-policy rules revoke exact workflow capabilities', () => {

@@ -1501,33 +1501,66 @@ export async function resetWorkspaceSeededElements(
             throw error
         }
 
-        const operationRows = await tx.query<{ id: string }>(
-            `
-            INSERT INTO ${qSchemaTable(input.schemaName, WORKSPACE_OPERATIONS_TABLE)} (
-                id,
-                workspace_id,
-                operation_kind,
-                affected_rows,
-                actor_user_id,
-                source_key,
-                _upl_created_by,
-                _upl_updated_by
-            )
-            VALUES (public.uuid_generate_v7(), $1, $2, $3, $4, $5, $4, $4)
-            RETURNING id
-            `,
-            [input.workspaceId, 'seed_reset', resetRows, input.actorUserId ?? null, WORKSPACE_SEED_TEMPLATE_KEY]
-        )
-        const operationId = operationRows[0]?.id
-        if (!isUuidV7(operationId)) {
+        const operationId = await recordWorkspaceOperationAudit(tx, {
+            schemaName: input.schemaName,
+            workspaceId: input.workspaceId,
+            operationKind: 'seed_reset',
+            affectedRows: resetRows,
+            actorUserId: input.actorUserId,
+            sourceKey: WORKSPACE_SEED_TEMPLATE_KEY
+        }).catch((error) => {
+            const cause = error instanceof Error ? error : undefined
             throw new WorkspaceSeedResetError(
                 WORKSPACE_SEED_RESET_ERROR_CODES.resetFailed,
-                'Workspace seeded content reset could not be recorded'
+                'Workspace seeded content reset could not be recorded',
+                cause
             )
-        }
+        })
 
         return { resetRows, operationId }
     }
+}
+
+/**
+ * Persist one row in `_app_workspace_operation_audit` for a long-lived
+ * workspace-scope operation. The write is fail-closed: an unrecordable audit
+ * row must abort the surrounding transaction because audit trails for
+ * access-scope changes are mandatory.
+ */
+export async function recordWorkspaceOperationAudit(
+    executor: DbExecutor,
+    input: {
+        schemaName: string
+        workspaceId: string
+        operationKind: 'seed_reset' | 'personal_to_shared_conversion'
+        affectedRows: number
+        actorUserId?: string | null
+        sourceKey?: string | null
+    }
+): Promise<string> {
+    const operationRows = await executor.query<{ id: string }>(
+        `
+        INSERT INTO ${qSchemaTable(input.schemaName, WORKSPACE_OPERATIONS_TABLE)} (
+            id,
+            workspace_id,
+            operation_kind,
+            affected_rows,
+            actor_user_id,
+            source_key,
+            _upl_created_by,
+            _upl_updated_by
+        )
+        VALUES (public.uuid_generate_v7(), $1, $2, $3, $4, $5, $4, $4)
+        RETURNING id
+        `,
+        [input.workspaceId, input.operationKind, input.affectedRows, input.actorUserId ?? null, input.sourceKey ?? null]
+    )
+    const operationId = operationRows[0]?.id
+    if (!isUuidV7(operationId)) {
+        throw new Error('Workspace operation audit could not be recorded')
+    }
+
+    return operationId
 }
 
 export async function syncWorkspaceSeededElementsForAllActiveWorkspaces(
@@ -1576,44 +1609,20 @@ export async function ensurePersonalWorkspaceForUser(
         [userId]
     )
 
-    let workspaceId = existingWorkspaceRows[0]?.id
     let createdWorkspace = false
+    let convertedWorkspace = false
+    let workspaceId = existingWorkspaceRows[0]?.id
 
     if (!workspaceId) {
-        const [{ id: generatedWorkspaceId }] = await executor.query<{ id: string }>('SELECT public.uuid_generate_v7() AS id')
-        const insertedWorkspaceRows = await executor.query<{ id: string }>(
-            `
-            INSERT INTO ${workspacesQt} (
-                id,
-                name,
-                description,
-                workspace_type,
-                personal_user_id,
-                status,
-                _upl_created_by,
-                _upl_updated_by
-            )
-            VALUES ($1, $2::jsonb, $3::jsonb, 'personal', $4, 'active', $5, $6)
-            ON CONFLICT (personal_user_id)
-                WHERE workspace_type = 'personal' AND _upl_deleted = false AND _app_deleted = false
-                DO NOTHING
-            RETURNING id
-            `,
-            [
-                generatedWorkspaceId,
-                JSON.stringify(MAIN_WORKSPACE_NAME),
-                JSON.stringify(MAIN_WORKSPACE_DESCRIPTION),
-                userId,
-                actorUserId ?? null,
-                actorUserId ?? null
-            ]
-        )
+        // Serialize the rare "creation actually needed" path against an in-flight
+        // personal→shared conversion. The conversion transaction takes the same
+        // key, so either this instance sees the pre-conversion personal row
+        // (real arbiter still protects the INSERT) or it sees the marker and
+        // skips creation entirely instead of re-seeding a duplicate `Main`.
+        workspaceId = await withTransactionSavepoint(executor, async (tx) => {
+            await acquireAdvisoryXactLock(tx, `personal-workspace:${schemaName}:${userId}`)
 
-        workspaceId = insertedWorkspaceRows[0]?.id
-        if (workspaceId) {
-            createdWorkspace = true
-        } else {
-            const concurrentWorkspaceRows = await executor.query<{ id: string }>(
+            const lockedWorkspaceRows = await tx.query<{ id: string }>(
                 `
                 SELECT id
                 FROM ${workspacesQt}
@@ -1625,13 +1634,89 @@ export async function ensurePersonalWorkspaceForUser(
                 `,
                 [userId]
             )
-            workspaceId = concurrentWorkspaceRows[0]?.id ?? generatedWorkspaceId
-            createdWorkspace = concurrentWorkspaceRows.length === 0
-        }
+            if (lockedWorkspaceRows[0]?.id) {
+                return lockedWorkspaceRows[0].id
+            }
+
+            // A converted personal workspace already represents this user's
+            // runtime scope: keep it, create no new personal workspace.
+            const convertedRows = await tx.query<{ id: string }>(
+                `
+                SELECT id
+                FROM ${workspacesQt}
+                WHERE converted_from_user_id = $1
+                  AND ${ACTIVE_ROW_SQL}
+                ORDER BY _upl_created_at ASC, id ASC
+                LIMIT 1
+                `,
+                [userId]
+            )
+            if (convertedRows[0]?.id) {
+                convertedWorkspace = true
+                return convertedRows[0].id
+            }
+
+            const [{ id: generatedWorkspaceId }] = await tx.query<{ id: string }>('SELECT public.uuid_generate_v7() AS id')
+            const insertedWorkspaceRows = await tx.query<{ id: string }>(
+                `
+                INSERT INTO ${workspacesQt} (
+                    id,
+                    name,
+                    description,
+                    workspace_type,
+                    personal_user_id,
+                    status,
+                    _upl_created_by,
+                    _upl_updated_by
+                )
+                VALUES ($1, $2::jsonb, $3::jsonb, 'personal', $4, 'active', $5, $6)
+                ON CONFLICT (personal_user_id)
+                    WHERE workspace_type = 'personal' AND _upl_deleted = false AND _app_deleted = false
+                    DO NOTHING
+                RETURNING id
+                `,
+                [
+                    generatedWorkspaceId,
+                    JSON.stringify(MAIN_WORKSPACE_NAME),
+                    JSON.stringify(MAIN_WORKSPACE_DESCRIPTION),
+                    userId,
+                    actorUserId ?? null,
+                    actorUserId ?? null
+                ]
+            )
+
+            let insertedWorkspaceId = insertedWorkspaceRows[0]?.id
+            if (insertedWorkspaceId) {
+                createdWorkspace = true
+            } else {
+                const concurrentWorkspaceRows = await tx.query<{ id: string }>(
+                    `
+                    SELECT id
+                    FROM ${workspacesQt}
+                    WHERE workspace_type = 'personal'
+                      AND personal_user_id = $1
+                      AND ${ACTIVE_ROW_SQL}
+                    ORDER BY _upl_created_at ASC, id ASC
+                    LIMIT 1
+                    `,
+                    [userId]
+                )
+                insertedWorkspaceId = concurrentWorkspaceRows[0]?.id ?? generatedWorkspaceId
+                createdWorkspace = concurrentWorkspaceRows.length === 0
+            }
+            return insertedWorkspaceId
+        })
     }
 
     if (!workspaceId) {
         throw new Error('PERSONAL_WORKSPACE_CREATE_FAILED')
+    }
+
+    // The converted workspace already carries the user's owner membership row
+    // (its `is_default_workspace` state was set on bootstrap); creating role or
+    // default bookkeeping for a second personal workspace would be wrong.
+    if (convertedWorkspace) {
+        return { workspaceId }
     }
 
     const seededRoles = await ensureWorkspaceRoleSeeds(executor, schemaName, actorUserId)
@@ -1767,6 +1852,145 @@ export async function ensurePersonalWorkspacesForApplicationMembers(
             seedElements: input.seedElements
         })
     }
+
+    await ensureSharedWorkspaceBaselineMembership(executor, {
+        schemaName: input.schemaName,
+        applicationId: input.applicationId,
+        actorUserId: input.actorUserId
+    })
+}
+
+/**
+ * Two-tier access model: every active member of the application receives a
+ * baseline `member` membership row in every active shared (`non-personal`)
+ * workspace. Explicit `owner` rows always win because the partial arbiter keeps
+ * them and `DO NOTHING` never downgrades an existing row. Membership-only
+ * semantics stay for `personal` workspaces (owner-invited only).
+ *
+ * The set-based INSERT reads both application membership and active shared
+ * workspaces in one statement. A transaction-scoped advisory lock serializes it
+ * against the other writers of the same data (application join/invite, shared
+ * workspace creation/copy/conversion, membership removal) so concurrent
+ * transactions cannot both miss a not-yet-committed counterpart row.
+ */
+export async function ensureSharedWorkspaceBaselineMembership(
+    executor: DbExecutor,
+    input: {
+        schemaName: string
+        applicationId: string
+        actorUserId?: string | null
+    }
+): Promise<number> {
+    await acquireAdvisoryXactLock(executor, `workspace-baseline:${input.schemaName}:${input.applicationId}`)
+
+    const workspacesQt = qSchemaTable(input.schemaName, WORKSPACES_TABLE)
+    const workspaceUserRolesQt = qSchemaTable(input.schemaName, WORKSPACE_USER_ROLES_TABLE)
+    const workspaceRolesQt = qSchemaTable(input.schemaName, WORKSPACE_ROLES_TABLE)
+
+    const rows = await executor.query<{ inserted: number }>(
+        `
+        WITH activeMembers AS (
+            SELECT au.user_id
+            FROM applications.rel_application_users au
+            WHERE au.application_id = $1
+              AND ${ACTIVE_ROW_SQL}
+        ),
+        sharedWorkspaces AS (
+            SELECT w.id
+            FROM ${workspacesQt} w
+            WHERE w.workspace_type <> 'personal'
+              AND w.personal_user_id IS NULL
+              AND COALESCE(w.status, 'active') = 'active'
+              AND ${ACTIVE_ROW_SQL}
+        ),
+        memberRole AS (
+            SELECT r.id
+            FROM ${workspaceRolesQt} r
+            WHERE r.codename = 'member'
+              AND ${ACTIVE_ROW_SQL}
+            LIMIT 1
+        ),
+        inserted AS (
+            INSERT INTO ${workspaceUserRolesQt} (
+                id, workspace_id, user_id, role_id, is_default_workspace,
+                _upl_created_by, _upl_updated_by
+            )
+            SELECT public.uuid_generate_v7(), w.id, m.user_id, mr.id, false, $2, $2
+            FROM sharedWorkspaces w
+            CROSS JOIN activeMembers m
+            CROSS JOIN memberRole mr
+            ON CONFLICT (workspace_id, user_id)
+                WHERE _upl_deleted = false AND _app_deleted = false
+                DO NOTHING
+            RETURNING 1
+        )
+        SELECT COUNT(*)::int AS "inserted" FROM inserted
+        `,
+        [input.applicationId, input.actorUserId ?? null]
+    )
+
+    return rows[0]?.inserted ?? 0
+}
+
+/**
+ * Lifecycle cleanup: a departing application member loses baseline access to
+ * every shared workspace of the application. `owner` rows of shared workspaces
+ * and invitations inside other users' `personal` workspaces are preserved —
+ * they are inert (runtime admission first requires `ensureApplicationAccess`)
+ * and keep the workspace history intact. The advisory lock matches the baseline
+ * enrollment key so removal and (re-)enrollment cannot interleave.
+ */
+export async function removeSharedWorkspaceBaselineMembership(
+    executor: DbExecutor,
+    input: {
+        schemaName: string
+        applicationId: string
+        userId: string
+        actorUserId?: string | null
+    }
+): Promise<number> {
+    await acquireAdvisoryXactLock(executor, `workspace-baseline:${input.schemaName}:${input.applicationId}`)
+
+    const workspacesQt = qSchemaTable(input.schemaName, WORKSPACES_TABLE)
+    const workspaceUserRolesQt = qSchemaTable(input.schemaName, WORKSPACE_USER_ROLES_TABLE)
+    const workspaceRolesQt = qSchemaTable(input.schemaName, WORKSPACE_ROLES_TABLE)
+
+    const deletedRows = await executor.query<{ id: string }>(
+        `
+        UPDATE ${workspaceUserRolesQt} wur
+        SET _upl_deleted = true,
+            _upl_deleted_at = NOW(),
+            _upl_deleted_by = $2,
+            _upl_updated_at = NOW(),
+            _upl_updated_by = $2,
+            _upl_version = COALESCE(wur._upl_version, 1) + 1,
+            _app_deleted = true,
+            _app_deleted_at = NOW(),
+            _app_deleted_by = $2
+        FROM ${workspaceRolesQt} r
+        WHERE wur.role_id = r.id
+          AND r.codename = 'member'
+          AND r._upl_deleted = false
+          AND r._app_deleted = false
+          AND wur.user_id = $1
+          AND wur._upl_deleted = false
+          AND wur._app_deleted = false
+          AND EXISTS (
+              SELECT 1
+              FROM ${workspacesQt} w
+              WHERE w.id = wur.workspace_id
+                AND w.workspace_type <> 'personal'
+                AND w.personal_user_id IS NULL
+                AND COALESCE(w.status, 'active') = 'active'
+                AND w._upl_deleted = false
+                AND w._app_deleted = false
+          )
+        RETURNING wur.id
+        `,
+        [input.userId, input.actorUserId ?? null]
+    )
+
+    return deletedRows.length
 }
 
 export async function archivePersonalWorkspaceForUser(
@@ -1780,6 +2004,12 @@ export async function archivePersonalWorkspaceForUser(
     const workspacesQt = qSchemaTable(input.schemaName, WORKSPACES_TABLE)
     const workspaceUserRolesQt = qSchemaTable(input.schemaName, WORKSPACE_USER_ROLES_TABLE)
 
+    // Serialize with the personal→shared conversion (same key): the archive
+    // transaction either runs before the conversion (workspace stays personal
+    // and gets archived) or after it (the converted row is no longer a
+    // personal workspace and must not be archived).
+    await acquireAdvisoryXactLock(executor, `personal-workspace:${input.schemaName}:${input.userId}`)
+
     const workspaceRows = await executor.query<{ id: string }>(
         `
         SELECT id
@@ -1787,6 +2017,8 @@ export async function archivePersonalWorkspaceForUser(
         WHERE workspace_type = 'personal'
           AND personal_user_id = $1
           AND ${ACTIVE_ROW_SQL}
+        ORDER BY _upl_created_at ASC, id ASC
+        FOR UPDATE
         `,
         [input.userId]
     )
@@ -2065,6 +2297,10 @@ export async function resolveRuntimeWorkspaceAccess(
 
     const workspaceUserRolesQt = qSchemaTable(input.schemaName, WORKSPACE_USER_ROLES_TABLE)
     const workspaceQt = qSchemaTable(input.schemaName, WORKSPACES_TABLE)
+    // Application administrators may list unassigned shared workspaces for
+    // management, but a `personal` workspace of another user stays invisible
+    // unless the admin explicitly holds a workspace membership row (the
+    // two-tier isolation contract).
     const rows = await executor.query<{ workspaceId: string; isDefaultWorkspace: boolean }>(
         `
         SELECT
@@ -2079,7 +2315,10 @@ export async function resolveRuntimeWorkspaceAccess(
         WHERE w.${'"_upl_deleted"'} = false
           AND w.${'"_app_deleted"'} = false
           AND COALESCE(w.status, 'active') = 'active'
-          AND (wur.id IS NOT NULL OR $2::boolean = true)
+          AND (
+              wur.id IS NOT NULL
+              OR ($2::boolean = true AND w.workspace_type <> 'personal' AND w.personal_user_id IS NULL)
+          )
         ORDER BY COALESCE(wur.is_default_workspace, false) DESC, w._upl_created_at ASC, w.id ASC
         `,
         [input.userId, input.allowUnassigned === true]

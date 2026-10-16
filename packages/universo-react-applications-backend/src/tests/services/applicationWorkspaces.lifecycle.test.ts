@@ -216,6 +216,7 @@ describe('applicationWorkspaces lifecycle and seed reset', () => {
 
         const executedSql = executor.query.mock.calls.map(([sql]) => String(sql)).join('\n')
 
+        expect(executedSql).toContain('pg_advisory_xact_lock')
         expect(executedSql).toContain(`UPDATE "${schemaName}"."obj_018f8a787b8f7c1da111222233334552"`)
         expect(executedSql).toContain(`UPDATE "${schemaName}"."tbl_018f8a787b8f7c1da111222233334553"`)
         expect(executedSql).toContain(`UPDATE "${schemaName}"."led_018f8a787b8f7c1da111222233334556"`)
@@ -223,6 +224,80 @@ describe('applicationWorkspaces lifecycle and seed reset', () => {
         expect(executedSql).toContain('RETURNING id')
         expect(executedSql).toContain('WHERE "workspace_id" = ANY($1::uuid[])')
         expect(executedSql).toContain(`UPDATE "${schemaName}"."_app_workspaces"`)
+    })
+
+    it('never archives a shared workspace that was converted from a personal one', async () => {
+        const { executor } = createMockDbExecutor()
+        const schemaName = 'app_018f8a787b8f7c1da111222233334560'
+
+        executor.query.mockImplementation(async (sql: string) => {
+            // The conversion turns the personal row into a non-personal one;
+            // the archive lookup filters on workspace_type='personal', so no
+            // workspace rows may match a converted user on leave.
+            if (sql.includes(`FROM "${schemaName}"."_app_workspaces"`)) {
+                return []
+            }
+            return []
+        })
+
+        await expect(
+            archivePersonalWorkspaceForUser(executor, {
+                schemaName,
+                userId: '018f8a78-7b8f-7c1d-a111-222233334561',
+                actorUserId: '018f8a78-7b8f-7c1d-a111-222233334562'
+            })
+        ).resolves.toBeUndefined()
+
+        const executedSql = executor.query.mock.calls.map(([sql]) => String(sql)).join('\n')
+        expect(executedSql).toContain(`FROM "${schemaName}"."_app_workspaces"`)
+        expect(executedSql).toContain(`workspace_type = 'personal'`)
+        expect(executedSql).toContain('FOR UPDATE')
+        // Zero matched workspaces means no UPDATE reached business tables,
+        // membership rows, or the workspace row itself.
+        expect(executedSql).not.toContain('UPDATE "app_018f8a787b8f7c1da111222233334560"')
+    })
+
+    it('archives a departing personal workspace together with the memberships invited into it', async () => {
+        const { executor } = createMockDbExecutor()
+        const schemaName = 'app_018f8a787b8f7c1da111222233334565'
+        const workspaceId = '018f8a78-7b8f-7c1d-a111-222233334566'
+
+        executor.query.mockImplementation(async (sql: string) => {
+            if (sql.includes(`FROM "${schemaName}"."_app_workspaces"`)) {
+                return [{ id: workspaceId }]
+            }
+            if (sql.includes(`FROM "${schemaName}"."_app_user_roles"`) || sql.includes(`FROM "${schemaName}"."_app_objects"`)) {
+                return []
+            }
+            if (sql.includes('FROM information_schema.tables')) {
+                return [{ tableName: 'obj_018f8a787b8f7c1da111222233334567' }]
+            }
+            if (sql.includes('FROM information_schema.columns')) {
+                return [{ tableName: 'obj_018f8a787b8f7c1da111222233334567', objectId: '018f8a78-7b8f-7c1d-a111-222233334567' }]
+            }
+            if (sql.includes(`FROM "${schemaName}"."_app_components"`)) {
+                return []
+            }
+            return []
+        })
+
+        await archivePersonalWorkspaceForUser(executor, {
+            schemaName,
+            userId: '018f8a78-7b8f-7c1d-a111-222233334568',
+            actorUserId: '018f8a78-7b8f-7c1d-a111-222233334569'
+        })
+
+        const executedSql = executor.query.mock.calls.map(([sql]) => String(sql)).join('\n')
+
+        // Invited members keep losing access: their membership rows inside the
+        // archived personal workspace are soft-deleted by the same UPDATE.
+        expect(executedSql).toContain(`UPDATE "${schemaName}"."_app_workspace_user_roles"`)
+        expect(executedSql).toContain(`WHERE "workspace_id" = ANY($1::uuid[])`)
+        expect(
+            JSON.stringify(executor.query.mock.calls.find((call) => String(call[0]).includes('_app_workspace_user_roles'))?.[1])
+        ).toContain('018f8a78-7b8f-7c1d-a111-222233334566')
+        // The workspace itself is archived, not deleted.
+        expect(executedSql).toContain(`status = 'archived'`)
     })
 
     it('discovers materialized TABLE child tables for workspace lifecycle operations', async () => {

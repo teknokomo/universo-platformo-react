@@ -231,7 +231,7 @@ describe('copyRuntimeConfiguredRelations Entity policy', () => {
                     {
                         objectCodename: 'AccessLinks',
                         parentFieldCodename: 'TargetId',
-                        orderFieldCodename: null,
+                        orderFieldCodename: undefined,
                         refRemaps: []
                     }
                 ]
@@ -278,7 +278,7 @@ describe('copyRuntimeConfiguredRelations Entity policy', () => {
                     {
                         objectCodename: 'OwnedItems',
                         parentFieldCodename: 'Owner',
-                        orderFieldCodename: null,
+                        orderFieldCodename: undefined,
                         refRemaps: []
                     }
                 ]

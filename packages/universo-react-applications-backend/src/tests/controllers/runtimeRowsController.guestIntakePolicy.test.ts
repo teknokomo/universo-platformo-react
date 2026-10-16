@@ -4,7 +4,7 @@ import { createMockDbExecutor } from '../utils/dbMocks'
 
 const mockResolveRuntimeSchema = jest.fn()
 const mockRuntimeQuery = jest.fn()
-const mockCreateQueryHelper = jest.fn(() => mockRuntimeQuery)
+const mockCreateQueryHelper: jest.Mock = jest.fn(() => mockRuntimeQuery)
 const mockResolveInterpretationNetworkRuntimeSurface = jest.fn()
 const mockResolveEffectiveLayoutForRequest = jest.fn()
 

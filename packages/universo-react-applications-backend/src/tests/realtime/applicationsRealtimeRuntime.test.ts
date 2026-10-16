@@ -637,14 +637,34 @@ describe('applications realtime fixed tick room', () => {
     class TestMapSchema<T> extends Map<string, T> {}
     const defineTypes = jest.fn()
 
-    const createClient = (sessionId: string, auth?: Record<string, unknown>) =>
+    interface RealtimeTestRoomClient {
+        sessionId: string
+        auth?: Record<string, unknown>
+        send: jest.Mock
+        leave: jest.Mock
+        close: jest.Mock
+    }
+
+    type FixedTickTestRoomClass = {
+        new (): unknown
+        onAuth?: (token: string, options: unknown) => Promise<boolean | { userId: string; clientCanControl: boolean }>
+    }
+
+    const createRoomClass = (): FixedTickTestRoomClass =>
+        __applicationsRealtimeRuntimeTestUtils.createFixedTickSceneRoom(
+            TestSchema,
+            TestMapSchema as never,
+            defineTypes
+        ) as unknown as FixedTickTestRoomClass
+
+    const createClient = (sessionId: string, auth?: Record<string, unknown>): RealtimeTestRoomClient =>
         ({
             sessionId,
             auth,
             send: jest.fn(),
             leave: jest.fn(),
             close: jest.fn()
-        } as never)
+        } as never as unknown as RealtimeTestRoomClient)
     const createSignedRoomOptions = (overrides: Record<string, unknown> = {}) => {
         const options = __applicationsRealtimeRuntimeTestUtils.parseRoomOptions({
             scopeId: '018f8a78-7b8f-7c1d-a111-2222333346aa:member:workspace:widget:module',
@@ -748,7 +768,7 @@ describe('applications realtime fixed tick room', () => {
     })
 
     it('sets a finite Colyseus message rate limit before intent payload handling', () => {
-        const RoomClass = __applicationsRealtimeRuntimeTestUtils.createFixedTickSceneRoom(TestSchema, TestMapSchema as never, defineTypes)
+        const RoomClass = createRoomClass()
         const room = new RoomClass() as never as {
             maxMessagesPerSecond: number
             onCreate(options: unknown): void
@@ -761,12 +781,12 @@ describe('applications realtime fixed tick room', () => {
     })
 
     it('assigns one stable server-owned ship per controlling user and keeps observer clients read-only', async () => {
-        const RoomClass = __applicationsRealtimeRuntimeTestUtils.createFixedTickSceneRoom(TestSchema, TestMapSchema as never, defineTypes)
+        const RoomClass = createRoomClass()
         const room = new RoomClass() as never as {
-            state: { ships: Map<string, { shipId: string; position: { x: number; y: number; z: number } }> }
+            state: { ships: Map<string, { shipId: string; position: { x: number; y: number; z: number }; lastProcessedInputSeq: number }> }
             onCreate(options: unknown): void
-            onJoin(client: never, options?: unknown): Promise<void>
-            __emitMessage(type: string, client: never, payload: unknown): void
+            onJoin(client: RealtimeTestRoomClient, options?: unknown): Promise<void>
+            __emitMessage(type: string, client: RealtimeTestRoomClient, payload: unknown): void
             __tick(deltaMs: number): void
         }
         room.onCreate(
@@ -819,11 +839,11 @@ describe('applications realtime fixed tick room', () => {
     })
 
     it('fails closed when Colyseus auth is missing or does not match the room scope', async () => {
-        const RoomClass = __applicationsRealtimeRuntimeTestUtils.createFixedTickSceneRoom(TestSchema, TestMapSchema as never, defineTypes)
+        const RoomClass = createRoomClass()
         const room = new RoomClass() as never as {
             state: { ships: Map<string, { shipId: string }> }
             onCreate(options: unknown): void
-            onJoin(client: never): Promise<void>
+            onJoin(client: RealtimeTestRoomClient): Promise<void>
         }
         room.onCreate(createSignedRoomOptions())
 
@@ -844,7 +864,7 @@ describe('applications realtime fixed tick room', () => {
     })
 
     it('requires server-signed room options during Colyseus auth', async () => {
-        const RoomClass = __applicationsRealtimeRuntimeTestUtils.createFixedTickSceneRoom(TestSchema, TestMapSchema as never, defineTypes)
+        const RoomClass = createRoomClass()
         const unsignedOptions = {
             scopeId: '018f8a78-7b8f-7c1d-a111-2222333346aa:member:workspace:widget:module',
             accessMode: 'member',
@@ -864,7 +884,7 @@ describe('applications realtime fixed tick room', () => {
     })
 
     it('rejects replayed or expired signed room options during Colyseus auth', async () => {
-        const RoomClass = __applicationsRealtimeRuntimeTestUtils.createFixedTickSceneRoom(TestSchema, TestMapSchema as never, defineTypes)
+        const RoomClass = createRoomClass()
         const signedOptions = createSignedRoomOptions()
         await expect(RoomClass.onAuth?.('', signedOptions)).resolves.toMatchObject({
             userId: '018f8a78-7b8f-7c1d-a111-2222333346ab'
@@ -883,7 +903,7 @@ describe('applications realtime fixed tick room', () => {
     })
 
     it('rejects tampered or malformed signed room options during Colyseus auth', async () => {
-        const RoomClass = __applicationsRealtimeRuntimeTestUtils.createFixedTickSceneRoom(TestSchema, TestMapSchema as never, defineTypes)
+        const RoomClass = createRoomClass()
         const signedOptions = createSignedRoomOptions()
 
         await expect(RoomClass.onAuth?.('', { ...signedOptions, cruiseSpeed: 999 })).resolves.toBe(false)
@@ -892,11 +912,11 @@ describe('applications realtime fixed tick room', () => {
     })
 
     it('fails closed when controlling access is revoked between room auth and join', async () => {
-        const RoomClass = __applicationsRealtimeRuntimeTestUtils.createFixedTickSceneRoom(TestSchema, TestMapSchema as never, defineTypes)
+        const RoomClass = createRoomClass()
         const room = new RoomClass() as never as {
             state: { ships: Map<string, { connected: boolean }> }
             onCreate(options: unknown): void
-            onJoin(client: never): Promise<void>
+            onJoin(client: RealtimeTestRoomClient): Promise<void>
         }
         const validator = jest.fn(async () => false)
         __applicationsRealtimeRuntimeTestUtils.setRuntimeAccessValidatorForTests(validator)
@@ -924,12 +944,12 @@ describe('applications realtime fixed tick room', () => {
     })
 
     it('fails closed when read-only member access is revoked between room auth and join', async () => {
-        const RoomClass = __applicationsRealtimeRuntimeTestUtils.createFixedTickSceneRoom(TestSchema, TestMapSchema as never, defineTypes)
+        const RoomClass = createRoomClass()
         const room = new RoomClass() as never as {
             state: { ships: Map<string, { connected: boolean }> }
             onCreate(options: unknown): void
-            onJoin(client: never): Promise<void>
-            __emitMessage(type: string, client: never, payload: unknown): void
+            onJoin(client: RealtimeTestRoomClient): Promise<void>
+            __emitMessage(type: string, client: RealtimeTestRoomClient, payload: unknown): void
         }
         const validator = jest.fn(async () => false)
         __applicationsRealtimeRuntimeTestUtils.setRuntimeAccessValidatorForTests(validator)
@@ -959,12 +979,12 @@ describe('applications realtime fixed tick room', () => {
     })
 
     it('bounds queued movement intents per ship before fixed tick processing', async () => {
-        const RoomClass = __applicationsRealtimeRuntimeTestUtils.createFixedTickSceneRoom(TestSchema, TestMapSchema as never, defineTypes)
+        const RoomClass = createRoomClass()
         const room = new RoomClass() as never as {
             state: { ships: Map<string, { lastProcessedInputSeq: number }> }
             onCreate(options: unknown): void
-            onJoin(client: never): Promise<void>
-            __emitMessage(type: string, client: never, payload: unknown): void
+            onJoin(client: RealtimeTestRoomClient): Promise<void>
+            __emitMessage(type: string, client: RealtimeTestRoomClient, payload: unknown): void
             __tick(deltaMs: number): void
         }
         room.onCreate(createSignedRoomOptions())
@@ -984,12 +1004,12 @@ describe('applications realtime fixed tick room', () => {
     })
 
     it('rejects large forward sequence jumps that would make normal inputs stale', async () => {
-        const RoomClass = __applicationsRealtimeRuntimeTestUtils.createFixedTickSceneRoom(TestSchema, TestMapSchema as never, defineTypes)
+        const RoomClass = createRoomClass()
         const room = new RoomClass() as never as {
             state: { ships: Map<string, { lastProcessedInputSeq: number }> }
             onCreate(options: unknown): void
-            onJoin(client: never): Promise<void>
-            __emitMessage(type: string, client: never, payload: unknown): void
+            onJoin(client: RealtimeTestRoomClient): Promise<void>
+            __emitMessage(type: string, client: RealtimeTestRoomClient, payload: unknown): void
             __tick(deltaMs: number): void
         }
         room.onCreate(createSignedRoomOptions())
@@ -1013,12 +1033,12 @@ describe('applications realtime fixed tick room', () => {
     })
 
     it('publishes the current authoritative movement command for point, object, and stop intents', async () => {
-        const RoomClass = __applicationsRealtimeRuntimeTestUtils.createFixedTickSceneRoom(TestSchema, TestMapSchema as never, defineTypes)
+        const RoomClass = createRoomClass()
         const room = new RoomClass() as never as {
             state: { ships: Map<string, { currentCommand: string; currentCommandObjectId: string; hasTarget: boolean }> }
             onCreate(options: unknown): void
-            onJoin(client: never): Promise<void>
-            __emitMessage(type: string, client: never, payload: unknown): void
+            onJoin(client: RealtimeTestRoomClient): Promise<void>
+            __emitMessage(type: string, client: RealtimeTestRoomClient, payload: unknown): void
             __tick(deltaMs: number): void
         }
         room.onCreate(createSignedRoomOptions())
@@ -1063,12 +1083,12 @@ describe('applications realtime fixed tick room', () => {
     })
 
     it('resets the authoritative command when movement arrives or is blocked', async () => {
-        const RoomClass = __applicationsRealtimeRuntimeTestUtils.createFixedTickSceneRoom(TestSchema, TestMapSchema as never, defineTypes)
+        const RoomClass = createRoomClass()
         const room = new RoomClass() as never as {
             state: { ships: Map<string, { currentCommand: string; hasTarget: boolean }> }
             onCreate(options: unknown): void
-            onJoin(client: never): Promise<void>
-            __emitMessage(type: string, client: never, payload: unknown): void
+            onJoin(client: RealtimeTestRoomClient): Promise<void>
+            __emitMessage(type: string, client: RealtimeTestRoomClient, payload: unknown): void
             __tick(deltaMs: number): void
         }
         room.onCreate(createSignedRoomOptions())
@@ -1105,12 +1125,12 @@ describe('applications realtime fixed tick room', () => {
         ;(resolveSweptOrientedBodyContact as jest.Mock).mockImplementation(actualMovement.resolveSweptOrientedBodyContact)
         ;(resolveSafeTargetOutsideGuards as jest.Mock).mockImplementation(actualMovement.resolveSafeTargetOutsideGuards)
         ;(stepFixedTickMovement as jest.Mock).mockImplementation(actualMovement.stepFixedTickMovement)
-        const RoomClass = __applicationsRealtimeRuntimeTestUtils.createFixedTickSceneRoom(TestSchema, TestMapSchema as never, defineTypes)
+        const RoomClass = createRoomClass()
         const room = new RoomClass() as never as {
             state: { ships: Map<string, { currentCommand: string; hasTarget: boolean; position: { x: number; y: number; z: number } }> }
             onCreate(options: unknown): void
-            onJoin(client: never): Promise<void>
-            __emitMessage(type: string, client: never, payload: unknown): void
+            onJoin(client: RealtimeTestRoomClient): Promise<void>
+            __emitMessage(type: string, client: RealtimeTestRoomClient, payload: unknown): void
             __tick(deltaMs: number): void
         }
         room.onCreate(
@@ -1153,12 +1173,12 @@ describe('applications realtime fixed tick room', () => {
         ;(resolveSweptOrientedBodyContact as jest.Mock).mockImplementation(actualMovement.resolveSweptOrientedBodyContact)
         ;(resolveSafeTargetOutsideGuards as jest.Mock).mockImplementation(actualMovement.resolveSafeTargetOutsideGuards)
         ;(stepFixedTickMovement as jest.Mock).mockImplementation(actualMovement.stepFixedTickMovement)
-        const RoomClass = __applicationsRealtimeRuntimeTestUtils.createFixedTickSceneRoom(TestSchema, TestMapSchema as never, defineTypes)
+        const RoomClass = createRoomClass()
         const room = new RoomClass() as never as {
             state: { ships: Map<string, { currentCommand: string; position: { x: number; y: number; z: number } }> }
             onCreate(options: unknown): void
-            onJoin(client: never): Promise<void>
-            __emitMessage(type: string, client: never, payload: unknown): void
+            onJoin(client: RealtimeTestRoomClient): Promise<void>
+            __emitMessage(type: string, client: RealtimeTestRoomClient, payload: unknown): void
             __tick(deltaMs: number): void
         }
         room.onCreate(
@@ -1227,12 +1247,12 @@ describe('applications realtime fixed tick room', () => {
         ;(resolveSafeTargetOutsideGuards as jest.Mock).mockImplementation(actualMovement.resolveSafeTargetOutsideGuards)
         ;(resolveSafeTargetOutsideOccupiedEntities as jest.Mock).mockImplementation(actualMovement.resolveSafeTargetOutsideOccupiedEntities)
         ;(stepFixedTickMovement as jest.Mock).mockImplementation(actualMovement.stepFixedTickMovement)
-        const RoomClass = __applicationsRealtimeRuntimeTestUtils.createFixedTickSceneRoom(TestSchema, TestMapSchema as never, defineTypes)
+        const RoomClass = createRoomClass()
         const room = new RoomClass() as never as {
             state: { ships: Map<string, { currentCommand: string; position: { x: number; y: number; z: number } }> }
             onCreate(options: unknown): void
-            onJoin(client: never): Promise<void>
-            __emitMessage(type: string, client: never, payload: unknown): void
+            onJoin(client: RealtimeTestRoomClient): Promise<void>
+            __emitMessage(type: string, client: RealtimeTestRoomClient, payload: unknown): void
             __tick(deltaMs: number): void
         }
         room.onCreate(
@@ -1286,12 +1306,12 @@ describe('applications realtime fixed tick room', () => {
         ;(resolveSafeTargetOutsideGuards as jest.Mock).mockImplementation(actualMovement.resolveSafeTargetOutsideGuards)
         ;(resolveSafeTargetOutsideOccupiedEntities as jest.Mock).mockImplementation(actualMovement.resolveSafeTargetOutsideOccupiedEntities)
         ;(stepFixedTickMovement as jest.Mock).mockImplementation(actualMovement.stepFixedTickMovement)
-        const RoomClass = __applicationsRealtimeRuntimeTestUtils.createFixedTickSceneRoom(TestSchema, TestMapSchema as never, defineTypes)
+        const RoomClass = createRoomClass()
         const room = new RoomClass() as never as {
             state: { ships: Map<string, { currentCommand: string; position: { x: number; y: number; z: number } }> }
             onCreate(options: unknown): void
-            onJoin(client: never): Promise<void>
-            __emitMessage(type: string, client: never, payload: unknown): void
+            onJoin(client: RealtimeTestRoomClient): Promise<void>
+            __emitMessage(type: string, client: RealtimeTestRoomClient, payload: unknown): void
             __tick(deltaMs: number): void
         }
         room.onCreate(
@@ -1348,12 +1368,12 @@ describe('applications realtime fixed tick room', () => {
         ;(resolveSafeTargetOutsideGuards as jest.Mock).mockImplementation(actualMovement.resolveSafeTargetOutsideGuards)
         ;(resolveSafeTargetOutsideOccupiedEntities as jest.Mock).mockImplementation(actualMovement.resolveSafeTargetOutsideOccupiedEntities)
         ;(stepFixedTickMovement as jest.Mock).mockImplementation(actualMovement.stepFixedTickMovement)
-        const RoomClass = __applicationsRealtimeRuntimeTestUtils.createFixedTickSceneRoom(TestSchema, TestMapSchema as never, defineTypes)
+        const RoomClass = createRoomClass()
         const room = new RoomClass() as never as {
             state: { ships: Map<string, { currentCommand: string; position: { x: number; y: number; z: number } }> }
             onCreate(options: unknown): void
-            onJoin(client: never): Promise<void>
-            __emitMessage(type: string, client: never, payload: unknown): void
+            onJoin(client: RealtimeTestRoomClient): Promise<void>
+            __emitMessage(type: string, client: RealtimeTestRoomClient, payload: unknown): void
             __tick(deltaMs: number): void
         }
         room.onCreate(
@@ -1409,12 +1429,12 @@ describe('applications realtime fixed tick room', () => {
         ;(resolveSweptOrientedBodyContact as jest.Mock).mockImplementation(actualMovement.resolveSweptOrientedBodyContact)
         ;(resolveSafeTargetOutsideGuards as jest.Mock).mockImplementation(actualMovement.resolveSafeTargetOutsideGuards)
         ;(stepFixedTickMovement as jest.Mock).mockImplementation(actualMovement.stepFixedTickMovement)
-        const RoomClass = __applicationsRealtimeRuntimeTestUtils.createFixedTickSceneRoom(TestSchema, TestMapSchema as never, defineTypes)
+        const RoomClass = createRoomClass()
         const room = new RoomClass() as never as {
             state: { ships: Map<string, { currentCommand: string; position: { x: number; y: number; z: number } }> }
             onCreate(options: unknown): void
-            onJoin(client: never): Promise<void>
-            __emitMessage(type: string, client: never, payload: unknown): void
+            onJoin(client: RealtimeTestRoomClient): Promise<void>
+            __emitMessage(type: string, client: RealtimeTestRoomClient, payload: unknown): void
             __tick(deltaMs: number): void
         }
         room.onCreate(
@@ -1459,13 +1479,13 @@ describe('applications realtime fixed tick room', () => {
     })
 
     it('marks disconnected ships for reconnect without duplicating them', async () => {
-        const RoomClass = __applicationsRealtimeRuntimeTestUtils.createFixedTickSceneRoom(TestSchema, TestMapSchema as never, defineTypes)
+        const RoomClass = createRoomClass()
         const room = new RoomClass() as never as {
             state: { ships: Map<string, { connected: boolean }> }
             onCreate(options: unknown): void
-            onJoin(client: never, options?: unknown): Promise<void>
-            onDrop(client: never): void
-            onReconnect(client: never): Promise<void>
+            onJoin(client: RealtimeTestRoomClient, options?: unknown): Promise<void>
+            onDrop(client: RealtimeTestRoomClient): void
+            onReconnect(client: RealtimeTestRoomClient): Promise<void>
         }
         room.onCreate(createSignedRoomOptions())
         const client = createClient('session-1', {
@@ -1487,12 +1507,12 @@ describe('applications realtime fixed tick room', () => {
     })
 
     it('removes ships on permanent Colyseus leaves without opening a reconnect window', async () => {
-        const RoomClass = __applicationsRealtimeRuntimeTestUtils.createFixedTickSceneRoom(TestSchema, TestMapSchema as never, defineTypes)
+        const RoomClass = createRoomClass()
         const room = new RoomClass() as never as {
             state: { ships: Map<string, { connected: boolean }> }
             onCreate(options: unknown): void
-            onJoin(client: never): Promise<void>
-            onLeave(client: never, code?: number): void
+            onJoin(client: RealtimeTestRoomClient): Promise<void>
+            onLeave(client: RealtimeTestRoomClient, code?: number): void
         }
         room.onCreate(createSignedRoomOptions())
         const client = createClient('session-1', {
@@ -1507,12 +1527,12 @@ describe('applications realtime fixed tick room', () => {
     })
 
     it('keeps a reused ship connected when one of multiple active same-user sessions drops', async () => {
-        const RoomClass = __applicationsRealtimeRuntimeTestUtils.createFixedTickSceneRoom(TestSchema, TestMapSchema as never, defineTypes)
+        const RoomClass = createRoomClass()
         const room = new RoomClass() as never as {
             state: { ships: Map<string, { connected: boolean }> }
             onCreate(options: unknown): void
-            onJoin(client: never): Promise<void>
-            onDrop(client: never): void
+            onJoin(client: RealtimeTestRoomClient): Promise<void>
+            onDrop(client: RealtimeTestRoomClient): void
         }
         room.onCreate(createSignedRoomOptions())
         const firstClient = createClient('session-1', {
@@ -1539,13 +1559,13 @@ describe('applications realtime fixed tick room', () => {
     })
 
     it('removes a reconnecting ship when reconnect auth no longer matches the room', async () => {
-        const RoomClass = __applicationsRealtimeRuntimeTestUtils.createFixedTickSceneRoom(TestSchema, TestMapSchema as never, defineTypes)
+        const RoomClass = createRoomClass()
         const room = new RoomClass() as never as {
             state: { ships: Map<string, { connected: boolean }> }
             onCreate(options: unknown): void
-            onJoin(client: never): Promise<void>
-            onDrop(client: never): void
-            onReconnect(client: never): Promise<void>
+            onJoin(client: RealtimeTestRoomClient): Promise<void>
+            onDrop(client: RealtimeTestRoomClient): void
+            onReconnect(client: RealtimeTestRoomClient): Promise<void>
         }
         room.onCreate(createSignedRoomOptions())
         const client = createClient('session-1', {
@@ -1563,13 +1583,13 @@ describe('applications realtime fixed tick room', () => {
     })
 
     it('removes a reconnecting ship when fresh runtime access validation fails', async () => {
-        const RoomClass = __applicationsRealtimeRuntimeTestUtils.createFixedTickSceneRoom(TestSchema, TestMapSchema as never, defineTypes)
+        const RoomClass = createRoomClass()
         const room = new RoomClass() as never as {
             state: { ships: Map<string, { connected: boolean }> }
             onCreate(options: unknown): void
-            onJoin(client: never): Promise<void>
-            onDrop(client: never): void
-            onReconnect(client: never): Promise<void>
+            onJoin(client: RealtimeTestRoomClient): Promise<void>
+            onDrop(client: RealtimeTestRoomClient): void
+            onReconnect(client: RealtimeTestRoomClient): Promise<void>
         }
         room.onCreate(createSignedRoomOptions())
         const client = createClient('session-1', {
@@ -1586,13 +1606,13 @@ describe('applications realtime fixed tick room', () => {
     })
 
     it('rejects stale reconnect tokens after a reconnecting ship runtime was revoked', async () => {
-        const RoomClass = __applicationsRealtimeRuntimeTestUtils.createFixedTickSceneRoom(TestSchema, TestMapSchema as never, defineTypes)
+        const RoomClass = createRoomClass()
         const room = new RoomClass() as never as {
             state: { ships: Map<string, { connected: boolean }> }
             onCreate(options: unknown): void
-            onJoin(client: never): Promise<void>
-            onDrop(client: never): void
-            onReconnect(client: never): Promise<void>
+            onJoin(client: RealtimeTestRoomClient): Promise<void>
+            onDrop(client: RealtimeTestRoomClient): void
+            onReconnect(client: RealtimeTestRoomClient): Promise<void>
             revalidateConnectedClients(): Promise<void>
         }
         room.onCreate(createSignedRoomOptions())
@@ -1615,15 +1635,15 @@ describe('applications realtime fixed tick room', () => {
     })
 
     it('cleans stale reconnect session mappings when access revokes a reconnecting ship', async () => {
-        const RoomClass = __applicationsRealtimeRuntimeTestUtils.createFixedTickSceneRoom(TestSchema, TestMapSchema as never, defineTypes)
+        const RoomClass = createRoomClass()
         const room = new RoomClass() as never as {
             state: { ships: Map<string, { connected: boolean }> }
             onCreate(options: unknown): void
-            onJoin(client: never): Promise<void>
-            onDrop(client: never): void
-            onReconnect(client: never): Promise<void>
+            onJoin(client: RealtimeTestRoomClient): Promise<void>
+            onDrop(client: RealtimeTestRoomClient): void
+            onReconnect(client: RealtimeTestRoomClient): Promise<void>
             revalidateConnectedClients(): Promise<void>
-            getRuntimeForClient(client: never): unknown
+            getRuntimeForClient(client: RealtimeTestRoomClient): unknown
         }
         room.onCreate(createSignedRoomOptions())
         const client = createClient('session-1', {
@@ -1655,12 +1675,12 @@ describe('applications realtime fixed tick room', () => {
     })
 
     it('fails closed before queueing the next intent when controlling access has been revoked', async () => {
-        const RoomClass = __applicationsRealtimeRuntimeTestUtils.createFixedTickSceneRoom(TestSchema, TestMapSchema as never, defineTypes)
+        const RoomClass = createRoomClass()
         const room = new RoomClass() as never as {
             state: { ships: Map<string, { connected: boolean; lastProcessedInputSeq: number }> }
             onCreate(options: unknown): void
-            onJoin(client: never): Promise<void>
-            __emitMessage(type: string, client: never, payload: unknown): void
+            onJoin(client: RealtimeTestRoomClient): Promise<void>
+            __emitMessage(type: string, client: RealtimeTestRoomClient, payload: unknown): void
             __tick(deltaMs: number): void
         }
         room.onCreate(createSignedRoomOptions())
@@ -1680,11 +1700,11 @@ describe('applications realtime fixed tick room', () => {
     })
 
     it('closes connected controlling clients when periodic access revalidation fails', async () => {
-        const RoomClass = __applicationsRealtimeRuntimeTestUtils.createFixedTickSceneRoom(TestSchema, TestMapSchema as never, defineTypes)
+        const RoomClass = createRoomClass()
         const room = new RoomClass() as never as {
             state: { ships: Map<string, { connected: boolean }> }
             onCreate(options: unknown): void
-            onJoin(client: never): Promise<void>
+            onJoin(client: RealtimeTestRoomClient): Promise<void>
             revalidateConnectedClients(): Promise<void>
         }
         room.onCreate(createSignedRoomOptions())
@@ -1712,11 +1732,11 @@ describe('applications realtime fixed tick room', () => {
     })
 
     it('tracks and closes read-only member clients when periodic access revalidation fails', async () => {
-        const RoomClass = __applicationsRealtimeRuntimeTestUtils.createFixedTickSceneRoom(TestSchema, TestMapSchema as never, defineTypes)
+        const RoomClass = createRoomClass()
         const room = new RoomClass() as never as {
             state: { ships: Map<string, { connected: boolean }> }
             onCreate(options: unknown): void
-            onJoin(client: never): Promise<void>
+            onJoin(client: RealtimeTestRoomClient): Promise<void>
             revalidateConnectedClients(): Promise<void>
         }
         room.onCreate(createSignedRoomOptions())
@@ -1743,11 +1763,11 @@ describe('applications realtime fixed tick room', () => {
     })
 
     it('tracks and closes public read-only clients when public runtime access is revoked', async () => {
-        const RoomClass = __applicationsRealtimeRuntimeTestUtils.createFixedTickSceneRoom(TestSchema, TestMapSchema as never, defineTypes)
+        const RoomClass = createRoomClass()
         const room = new RoomClass() as never as {
             state: { ships: Map<string, { connected: boolean }> }
             onCreate(options: unknown): void
-            onJoin(client: never): Promise<void>
+            onJoin(client: RealtimeTestRoomClient): Promise<void>
             revalidateConnectedClients(): Promise<void>
         }
         const publicOptions = createSignedRoomOptions({
@@ -1786,11 +1806,11 @@ describe('applications realtime fixed tick room', () => {
     })
 
     it('fails closed when the room cannot reserve a safe spawn position', async () => {
-        const RoomClass = __applicationsRealtimeRuntimeTestUtils.createFixedTickSceneRoom(TestSchema, TestMapSchema as never, defineTypes)
+        const RoomClass = createRoomClass()
         const room = new RoomClass() as never as {
             state: { ships: Map<string, { connected: boolean }> }
             onCreate(options: unknown): void
-            onJoin(client: never): Promise<void>
+            onJoin(client: RealtimeTestRoomClient): Promise<void>
         }
         room.onCreate(createSignedRoomOptions())
         ;(findFreeSpawnPosition as jest.Mock).mockReturnValueOnce(null)
@@ -1807,19 +1827,19 @@ describe('applications realtime fixed tick room', () => {
     })
 
     it('keeps an active reused ship when a stale reconnect window expires', async () => {
-        const RoomClass = __applicationsRealtimeRuntimeTestUtils.createFixedTickSceneRoom(TestSchema, TestMapSchema as never, defineTypes)
-        let rejectReconnect: ((reason?: unknown) => void) | null = null
+        const RoomClass = createRoomClass()
+        const reconnectGate: { reject: ((reason?: unknown) => void) | null } = { reject: null }
         const room = new RoomClass() as never as {
             state: { ships: Map<string, { connected: boolean }> }
             allowReconnection: jest.Mock
             onCreate(options: unknown): void
-            onJoin(client: never): Promise<void>
-            onDrop(client: never): void
+            onJoin(client: RealtimeTestRoomClient): Promise<void>
+            onDrop(client: RealtimeTestRoomClient): void
         }
         room.allowReconnection.mockImplementationOnce(
             () =>
                 new Promise((_resolve, reject) => {
-                    rejectReconnect = reject
+                    reconnectGate.reject = reject
                 })
         )
         room.onCreate(createSignedRoomOptions())
@@ -1834,7 +1854,8 @@ describe('applications realtime fixed tick room', () => {
         const shipId = (firstClient.send as jest.Mock).mock.calls[0]?.[1]?.shipId
         room.onDrop(firstClient)
         await room.onJoin(secondClient)
-        rejectReconnect?.(new Error('expired'))
+        if (!reconnectGate.reject) throw new Error('Reconnect gate was not initialized')
+        reconnectGate.reject(new Error('expired'))
         await Promise.resolve()
 
         expect(room.state.ships.size).toBe(1)

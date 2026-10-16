@@ -10,7 +10,10 @@ const fields = [
     { codename: 'Payload', columnName: 'payload', dataType: 'JSON' as const }
 ]
 
-const definition = {
+import type { ReportDefinition } from '@universo-react/types'
+import type { RuntimeReportRecordsListResult } from '../../services/runtimeReportsService'
+
+const definition: ReportDefinition = {
     codename: 'LearnerProgress',
     title: { en: 'Learner progress' },
     datasource: {
@@ -806,9 +809,9 @@ describe('RuntimeReportsService', () => {
                     ...definition,
                     columns: [
                         { field: 'Title', label: localizedTitle, type: 'text' },
-                        { field: 'Payload', label: 'Payload', type: 'json' },
-                        { field: 'RawOnly', label: 'Raw only', type: 'json' },
-                        { field: 'Labels', label: 'Labels', type: 'json' }
+                        { field: 'Payload', label: 'Payload', type: 'text' },
+                        { field: 'RawOnly', label: 'Raw only', type: 'text' },
+                        { field: 'Labels', label: 'Labels', type: 'text' }
                     ]
                 }
             },

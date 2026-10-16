@@ -11,6 +11,20 @@ import {
 } from './syncLayoutMaterializationHarness'
 import type { EntityDefinition, PublishedApplicationSnapshot } from './syncLayoutMaterializationHarness'
 
+type SnapshotVlc = {
+    _schema: '1'
+    _primary: string
+    locales: Record<string, { version: number; content: string; createdAt: string; updatedAt: string; isActive: boolean }>
+}
+
+const vlcOne = (content: string, primary = 'en'): SnapshotVlc => ({
+    _schema: '1',
+    _primary: primary,
+    locales: {
+        [primary]: { content, version: 1, isActive: true, createdAt: '1970-01-01T00:00:00.000Z', updatedAt: '1970-01-01T00:00:00.000Z' }
+    }
+})
+
 describe('sync layout snapshot normalization and marketing overlays', () => {
     it('remaps nested parent UUIDs while preserving placement keys and slots in scoped materialization', () => {
         const baseLayoutId = '019f3100-0000-7000-8000-000000000101'
@@ -144,7 +158,11 @@ describe('sync layout snapshot normalization and marketing overlays', () => {
 
         const runtimeSnapshot = buildRuntimeSnapshotForApplicationSync(snapshot, [])
 
-        expect(runtimeSnapshot.layouts?.[0]).toMatchObject({ templateKey: 'marketing-page', config: snapshot.layouts?.[0]?.config })
+        type SnapshotLayoutFixture = { templateKey: string; config: unknown }
+        expect(runtimeSnapshot.layouts?.[0]).toMatchObject({
+            templateKey: 'marketing-page',
+            config: (snapshot.layouts as SnapshotLayoutFixture[] | undefined)?.[0]?.config
+        })
         expect(normalizeSnapshotLayoutZoneWidgets(runtimeSnapshot)).toEqual([])
     })
 
@@ -461,13 +479,15 @@ describe('sync layout snapshot normalization and marketing overlays', () => {
                 'snapshot-intro-page': {
                     id: 'snapshot-intro-page',
                     kind: 'page',
-                    codename: { _primary: 'en', locales: { en: { content: 'InterpretationNetworkIntro' } } },
+                    codename: vlcOne('InterpretationNetworkIntro'),
+                    presentation: { name: vlcOne('InterpretationNetworkIntro') },
                     fields: []
                 },
                 'snapshot-structure-object': {
                     id: 'snapshot-structure-object',
                     kind: 'object',
-                    codename: { _primary: 'en', locales: { en: { content: 'Structure' } } },
+                    codename: vlcOne('Structure'),
+                    presentation: { name: vlcOne('Structure') },
                     fields: []
                 }
             },
@@ -511,14 +531,18 @@ describe('sync layout snapshot normalization and marketing overlays', () => {
             {
                 id: 'runtime-intro-page',
                 kind: 'page',
-                codename: { _primary: 'en', locales: { en: { content: 'InterpretationNetworkIntro' } } }
+                codename: vlcOne('InterpretationNetworkIntro'),
+                presentation: { name: vlcOne('InterpretationNetworkIntro') },
+                fields: []
             },
             {
                 id: 'runtime-structure-object',
                 kind: 'object',
-                codename: { _primary: 'en', locales: { en: { content: 'Structure' } } }
+                codename: vlcOne('Structure'),
+                presentation: { name: vlcOne('Structure') },
+                fields: []
             }
-        ] as EntityDefinition[]
+        ] as unknown as EntityDefinition[]
 
         const runtimeSnapshot = buildRuntimeSnapshotForApplicationSync(snapshot, runtimeEntities)
         const widgets = normalizeSnapshotLayoutZoneWidgets(runtimeSnapshot)

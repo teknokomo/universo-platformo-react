@@ -4,16 +4,34 @@ import { createMockDbExecutor } from '../utils/dbMocks'
 const buildSourceApplication = (): ApplicationCopySourceRecord => ({
     id: 'application-source',
     name: {
-        _schema: 'v1',
+        _schema: '1',
         _primary: 'en',
-        locales: { en: { content: 'Source Application' } }
+        locales: {
+            en: {
+                content: 'Source Application',
+                version: 1,
+                isActive: true,
+                createdAt: '1970-01-01T00:00:00.000Z',
+                updatedAt: '1970-01-01T00:00:00.000Z'
+            }
+        }
     },
     description: {
-        _schema: 'v1',
+        _schema: '1',
         _primary: 'en',
-        locales: { en: { content: 'Source description' } }
+        locales: {
+            en: {
+                content: 'Source description',
+                version: 1,
+                isActive: true,
+                createdAt: '1970-01-01T00:00:00.000Z',
+                updatedAt: '1970-01-01T00:00:00.000Z'
+            }
+        }
     },
     isPublic: false,
+    settings: null,
+    workspacesEnabled: true,
     schemaName: 'app_018f8a787b8f7c1da111222233334444',
     schemaStatus: 'synced',
     schemaSyncedAt: null,
@@ -30,16 +48,34 @@ const buildSourceApplication = (): ApplicationCopySourceRecord => ({
 const buildInsertedApplication = (): ApplicationRecord => ({
     id: 'application-copy',
     name: {
-        _schema: 'v1',
+        _schema: '1',
         _primary: 'en',
-        locales: { en: { content: 'Copied Application' } }
+        locales: {
+            en: {
+                content: 'Copied Application',
+                version: 1,
+                isActive: true,
+                createdAt: '1970-01-01T00:00:00.000Z',
+                updatedAt: '1970-01-01T00:00:00.000Z'
+            }
+        }
     },
     description: {
-        _schema: 'v1',
+        _schema: '1',
         _primary: 'en',
-        locales: { en: { content: 'Copied description' } }
+        locales: {
+            en: {
+                content: 'Copied description',
+                version: 1,
+                isActive: true,
+                createdAt: '1970-01-01T00:00:00.000Z',
+                updatedAt: '1970-01-01T00:00:00.000Z'
+            }
+        }
     },
     isPublic: true,
+    settings: null,
+    workspacesEnabled: true,
     schemaName: 'app_018f8a787b8f7c1da555666677778888',
     schemaStatus: 'outdated',
     schemaSyncedAt: null,
@@ -68,6 +104,8 @@ describe('Applications backend copy persistence', () => {
             copiedName: insertedApplication.name,
             copiedDescription: insertedApplication.description,
             isPublic: insertedApplication.isPublic,
+            settings: null,
+            workspacesEnabled: false,
             schemaName: insertedApplication.schemaName!,
             schemaStatus: insertedApplication.schemaStatus!,
             copyAccess: true,
@@ -102,6 +140,8 @@ describe('Applications backend copy persistence', () => {
             copiedName: insertedApplication.name,
             copiedDescription: insertedApplication.description,
             isPublic: insertedApplication.isPublic,
+            settings: null,
+            workspacesEnabled: false,
             schemaName: insertedApplication.schemaName!,
             schemaStatus: 'draft',
             copyAccess: false,
@@ -132,6 +172,8 @@ describe('Applications backend copy persistence', () => {
                 copiedName: insertedApplication.name,
                 copiedDescription: insertedApplication.description,
                 isPublic: insertedApplication.isPublic,
+                settings: null,
+                workspacesEnabled: false,
                 schemaName: insertedApplication.schemaName!,
                 schemaStatus: insertedApplication.schemaStatus!,
                 copyAccess: true,
