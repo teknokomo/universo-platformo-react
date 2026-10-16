@@ -2,6 +2,13 @@
 
 > Completed work only. Active tasks live in tasks.md; reusable implementation rules live in systemPatterns.md.
 
+## 2026-10-16 — PR #920 review remediation and CI gate fixes
+
+-   Fixed all Greptile/Kilo review findings on PR #920: canonical advisory-lock order (`workspace-baseline` before `personal-workspace`) with last-owner guards serialized against membership removal; `addWorkspaceMember`/`removeWorkspaceMember` now require `applicationId`; workspace-scope member removal preserves the baseline `member` row of active application members; conversion affordance is deny-by-default until viewer identity resolves; the closed-application E2E asserts exact-slug anonymous denial after creating a real AccessLink and short link; OpenAPI pins `/convert` to a strictly-empty body. Backend Jest 170 suites / 1863 tests green, test typecheck green, apps-template Vitest 948 green, conversion suite 3/3.
+-   Fixed the two CI gates that blocked Node CI on this PR: the tracked 73rd Meridian fixture was stale against the #917 pricing semantics (ActionLabel/ActionHref became optional) — refreshed flags and snapshot hash; `marketingPageBaselineContract` still read the legacy `config.__layout` carrier — migrated to the current seed shape (`rendererConfig`, neutral `bindings` envelope, top-level `instanceKey`, registry-default placement). `check:marketing-page-template-contract` and the Meridian contract/drift/runtime gates pass locally.
+-   Open, inherited from main: the Marketing Page browser verification still fails 5 specs. Root cause is a product-level conflict introduced by the #913/#917 policy change: the layout-copy dialog always posts `entityBindingCopyMode:'reuse'` while marketing widgets declare `copyPolicy.binding:'clone-record'`, so `POST /metahub/:id/layout/:layoutId/copy` deterministically returns 409 `VALIDATION_ERROR` ("This widget requires the registered record-copy flow"). Confirmed via a direct API probe on a freshly seeded marketing metahub. Implementing the registered record-copy flow inside layout copy is a feature-sized task outside this PR; specs and helpers were aligned with the current UI (`widget.instanceKey`, `layout-widget-presentation-dialog` testid) so the remaining failures isolate to that single flow.
+-   Post-push memory-bank entries belonging to the parallel Hermes migration were preserved via stash and re-applied to `main` untouched; no schema or metahub-template version bump.
+
 ## 2026-10-16 — Workspace conversion QA remediation (PQA-1…PQA-11)
 
 Closed every finding from the independent QA review of the personal→shared conversion feature (checklist `PQA-1…PQA-11` in `memory-bank/tasks.md`).

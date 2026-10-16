@@ -11,7 +11,6 @@ import {
     ensureListView,
     fillLocalizedField,
     openCreateDialog,
-    readLayoutWidgetConfig,
     responseIsMutation,
     selectMarketingTemplate,
     type LayoutWidgetsResponse
@@ -150,7 +149,7 @@ test('@flow @combined @marketing-page browser authoring publishes edited content
             const independentHeroAccentRu = 'без лишней сложности в повседневных задачах'
 
             const sourceWidgets = (await listLayoutZoneWidgets(api, metahub.id, marketingLayoutId)) as LayoutWidgetsResponse
-            const sourceHeroWidget = sourceWidgets.items?.find((widget) => readLayoutWidgetConfig(widget).instanceKey === 'hero')
+            const sourceHeroWidget = sourceWidgets.items?.find((widget) => widget.instanceKey === 'hero')
             if (!sourceHeroWidget?.id) throw new Error('The marketing layout did not expose its seeded Hero placement')
 
             await test.step('Set the seeded Hero action target before publication', () =>

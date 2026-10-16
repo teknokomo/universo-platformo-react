@@ -93,7 +93,7 @@ export async function createIndependentMarketingHeroRecord(options: {
     expect(duplicateResponse.ok()).toBe(true)
     expect(observedMetahubMutations).toEqual([`POST ${duplicatePath}`])
     await expect(page.getByRole('dialog', { name: 'Hero', exact: true })).toHaveCount(0)
-    await expect(page.getByRole('dialog').filter({ has: page.getByTestId('marketing-widget-config-dialog') })).toHaveCount(0)
+    await expect(page.getByRole('dialog').filter({ has: page.getByTestId('layout-widget-presentation-dialog') })).toHaveCount(0)
 
     const addedHeroWidgets = (await listLayoutZoneWidgets(api, metahubId, marketingLayoutId)) as LayoutWidgetsResponse
     const newlyPersistedHeroWidgets = (addedHeroWidgets.items ?? []).filter(
