@@ -5572,7 +5572,7 @@
                             "_primary": "en"
                         },
                         "dataType": "STRING",
-                        "isRequired": true,
+                        "isRequired": false,
                         "isDisplayComponent": false,
                         "targetConstantId": null,
                         "presentation": {
@@ -5622,7 +5622,7 @@
                             "_primary": "en"
                         },
                         "dataType": "STRING",
-                        "isRequired": true,
+                        "isRequired": false,
                         "isDisplayComponent": false,
                         "targetConstantId": null,
                         "presentation": {
@@ -15697,5 +15697,5 @@
         ],
         "generatedAt": "2026-10-08T06:19:34.150Z"
     },
-    "snapshotHash": "5c5031bdd58f2c34c3babdce41923773266c0d89adf38fa3c188e7d0a364bcdc"
+    "snapshotHash": "4ab3f273b8b3082ab32f0653ad283130706816be0eae278cfcdde8cd8a9eb166"
 }

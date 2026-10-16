@@ -738,12 +738,15 @@ export function RuntimeWorkspacesPage({
     const canManageWorkspace = workspaceMenuTarget?.roleCodename === 'owner'
     const canDeleteWorkspace = canManageWorkspace && workspaceMenuTarget?.workspaceType === 'shared'
     // Conversion is a caller-owned `personal` → `shared` flip (server verifies
-    // `personal_user_id = current_user`), so an invited co-owner sees the
-    // action disabled instead of hitting the typed 403 afterwards.
+    // `personal_user_id = current_user`). The action stays disabled until the
+    // viewer identity is known — callers that cannot resolve it (standalone
+    // dashboards) never show an enabled conversion affordance — and for an
+    // invited co-owner it stays disabled instead of hitting the typed 403.
     const canConvertWorkspace =
         canManageWorkspace &&
         workspaceMenuTarget?.workspaceType === 'personal' &&
-        (currentUserId == null || workspaceMenuTarget?.personalUserId == null || workspaceMenuTarget?.personalUserId === currentUserId)
+        currentUserId != null &&
+        (workspaceMenuTarget?.personalUserId == null || workspaceMenuTarget?.personalUserId === currentUserId)
 
     const renderWorkspaceList = () => (
         <>

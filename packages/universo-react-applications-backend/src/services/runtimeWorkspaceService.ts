@@ -471,6 +471,15 @@ export async function convertPersonalWorkspaceToShared(
     return executor.transaction(async (tx) => {
         const workspacesQt = qSchemaTable(input.schemaName, '_app_workspaces')
 
+        // Canonical lock order across the workspace lifecycle:
+        // `workspace-baseline` (application scope) first, then
+        // `personal-workspace` (user scope below) to serialize with the
+        // provisioning path and to prevent lock-order deadlocks with
+        // application leave/removal (which takes the baseline lock first too).
+        // Advisory locks are re-entrant within the transaction, so the
+        // baseline enrollment below re-acquiress safely.
+        await acquireAdvisoryXactLock(tx, `workspace-baseline:${input.schemaName}:${input.applicationId}`)
+
         // Serialize with ensurePersonalWorkspaceForUser: without this lock,
         // a runtime request racing the conversion could still re-provision a
         // duplicate `Main` personal workspace for the same user.
@@ -786,7 +795,7 @@ async function countOtherActiveOwnerRows(
         schemaName: string
         workspaceId: string
         userId: string
-        applicationId?: string
+        applicationId: string
     }
 ): Promise<number> {
     const workspaceUserRolesQt = qSchemaTable(input.schemaName, '_app_workspace_user_roles')
@@ -802,20 +811,16 @@ async function countOtherActiveOwnerRows(
           AND r.codename = 'owner'
           AND wur.${qColumn('_upl_deleted')} = false
           AND wur.${qColumn('_app_deleted')} = false
-          ${
-              input.applicationId
-                  ? `AND EXISTS (
+          AND EXISTS (
               SELECT 1
               FROM applications.rel_application_users au
               WHERE au.user_id = wur.user_id
                 AND au.application_id = $3
                 AND ${ACTIVE_ROW_SQL}
-          )`
-                  : ''
-          }
+          )
         FOR UPDATE OF wur
         `,
-        input.applicationId ? [input.workspaceId, input.userId, input.applicationId] : [input.workspaceId, input.userId]
+        [input.workspaceId, input.userId, input.applicationId]
     )
     return rows.length
 }
@@ -824,7 +829,7 @@ export async function addWorkspaceMember(
     executor: DbExecutor,
     input: {
         schemaName: string
-        applicationId?: string
+        applicationId: string
         workspaceId: string
         userId: string
         roleCodename: string
@@ -836,6 +841,11 @@ export async function addWorkspaceMember(
             schemaName: input.schemaName,
             workspaceId: input.workspaceId
         })
+
+        // Serialize the self-demotion guard below with application-level
+        // membership mutations (leave/removal) through the workspace
+        // lifecycle's canonical `workspace-baseline` advisory lock.
+        await acquireAdvisoryXactLock(tx, `workspace-baseline:${input.schemaName}:${input.applicationId}`)
 
         const workspaceUserRolesQt = qSchemaTable(input.schemaName, '_app_workspace_user_roles')
         const workspaceRolesQt = qSchemaTable(input.schemaName, '_app_workspace_roles')
@@ -950,7 +960,7 @@ export async function removeWorkspaceMember(
     executor: DbExecutor,
     input: {
         schemaName: string
-        applicationId?: string
+        applicationId: string
         workspaceId: string
         userId: string
         actorUserId?: string | null
@@ -961,6 +971,11 @@ export async function removeWorkspaceMember(
             schemaName: input.schemaName,
             workspaceId: input.workspaceId
         })
+
+        // Serialize last-owner checks with application-level membership
+        // mutations (leave/removal) through the same advisory lock the rest of
+        // the workspace lifecycle uses (`workspace-baseline` first).
+        await acquireAdvisoryXactLock(tx, `workspace-baseline:${input.schemaName}:${input.applicationId}`)
 
         const workspaceUserRolesQt = qSchemaTable(input.schemaName, '_app_workspace_user_roles')
         const workspaceRolesQt = qSchemaTable(input.schemaName, '_app_workspace_roles')
@@ -1004,9 +1019,16 @@ export async function removeWorkspaceMember(
             }
         }
 
+        // Remove the remaining explicit role rows, but keep the baseline
+        // `member` row of a user who is still an active application member:
+        // shared workspaces are visible to every active application member
+        // through that platform-owned row, so a workspace-scope removal must
+        // not revoke it (otherwise the workspace disappears from their
+        // switcher until an unrelated join/creation/conversion re-provisions
+        // access). Application-level leave/removal still cleans it up.
         const deletedRows = await tx.query<{ id: string }>(
             `
-            UPDATE ${workspaceUserRolesQt}
+            UPDATE ${workspaceUserRolesQt} AS wur
             SET ${qColumn('_upl_deleted')} = true,
                 ${qColumn('_upl_deleted_at')} = NOW(),
                 ${qColumn('_upl_deleted_by')} = $3,
@@ -1016,17 +1038,30 @@ export async function removeWorkspaceMember(
                 ${qColumn('_app_deleted')} = true,
                 ${qColumn('_app_deleted_at')} = NOW(),
                 ${qColumn('_app_deleted_by')} = $3
-            WHERE workspace_id = $1
-              AND user_id = $2
-              AND ${ACTIVE_ROW_SQL}
-            RETURNING id
+            FROM ${workspaceRolesQt} AS r
+            WHERE wur.${qColumn('role_id')} = r.id
+              AND wur.workspace_id = $1
+              AND wur.user_id = $2
+              AND wur.${qColumn('_upl_deleted')} = false
+              AND wur.${qColumn('_app_deleted')} = false
+              AND NOT (
+                  r.codename = 'member'
+                  AND EXISTS (
+                      SELECT 1
+                      FROM applications.rel_application_users au
+                      WHERE au.user_id = wur.user_id
+                        AND au.application_id = $4
+                        AND ${ACTIVE_ROW_SQL}
+                  )
+              )
+            RETURNING wur.id
         `,
-            [input.workspaceId, input.userId, input.actorUserId ?? null]
+            [input.workspaceId, input.userId, input.actorUserId ?? null, input.applicationId]
         )
 
-        if (deletedRows.length === 0) {
-            throw new RuntimeWorkspaceError(RUNTIME_WORKSPACE_ERROR_CODES.memberNotFound, 'Workspace member not found')
-        }
+        // A pure baseline member cannot be revoked at the workspace scope:
+        // treat the request as a no-op instead of 404 so the caller-visible
+        // membership list stays consistent with the platform contract.
     })
 }
 

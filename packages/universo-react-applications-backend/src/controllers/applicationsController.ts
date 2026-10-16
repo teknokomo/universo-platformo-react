@@ -38,6 +38,7 @@ import {
     updateApplication
 } from '../persistence/applicationsStore'
 import { lockApplicationForPublicGuestWithdrawal } from '../persistence/publicGuestApplicationStore'
+import { acquireAdvisoryXactLock } from '@universo-react/utils/database'
 import { revokeGuestSessionIdempotencyForApplication } from '../persistence/guestSessionIdempotencyStore'
 import { revokeGuestAssessmentAttemptsForApplication } from '../services/guestAssessmentApplicationRevocation'
 import {
@@ -870,6 +871,12 @@ export function createApplicationsController(getDbExecutor: () => DbExecutor) {
                 IDENTIFIER_REGEX.test(application.schemaName) &&
                 (await runtimeWorkspaceTablesExist(trx, application.schemaName))
             ) {
+                // Canonical lock order across the workspace lifecycle:
+                // `workspace-baseline` (application scope) first, then
+                // `personal-workspace` (user scope). Re-entrant advisory
+                // locks make this safe for the shared helpers below.
+                await acquireAdvisoryXactLock(trx, `workspace-baseline:${application.schemaName}:${applicationId}`)
+
                 await ensurePersonalWorkspaceForUser(trx, {
                     schemaName: application.schemaName,
                     userId,
@@ -916,6 +923,23 @@ export function createApplicationsController(getDbExecutor: () => DbExecutor) {
 
         try {
             await ds.transaction(async (trx) => {
+                if (
+                    application.workspacesEnabled &&
+                    application.schemaName &&
+                    IDENTIFIER_REGEX.test(application.schemaName) &&
+                    (await runtimeWorkspaceTablesExist(trx, application.schemaName))
+                ) {
+                    // Canonical lock order (`workspace-baseline` before
+                    // `personal-workspace`). Holding the application-scoped
+                    // baseline lock across the membership delete AND the
+                    // last-owner check serializes concurrent departures: a
+                    // second co-owner transaction replays only after the
+                    // first one commits and then sees the departed active
+                    // membership instead of silently leaving the workspace
+                    // without owners.
+                    await acquireAdvisoryXactLock(trx, `workspace-baseline:${application.schemaName}:${applicationId}`)
+                }
+
                 await deleteApplicationMember(trx, { applicationId, memberId: member.id, userId })
 
                 if (
@@ -1219,6 +1243,8 @@ export function createApplicationsController(getDbExecutor: () => DbExecutor) {
                     IDENTIFIER_REGEX.test(application.schemaName) &&
                     (await runtimeWorkspaceTablesExist(trx, application.schemaName))
                 ) {
+                    await acquireAdvisoryXactLock(trx, `workspace-baseline:${application.schemaName}:${applicationId}`)
+
                     await ensurePersonalWorkspaceForUser(trx, {
                         schemaName: application.schemaName,
                         userId: user.id,
@@ -1355,6 +1381,17 @@ export function createApplicationsController(getDbExecutor: () => DbExecutor) {
 
         try {
             await ds.transaction(async (trx) => {
+                if (
+                    application.workspacesEnabled &&
+                    application.schemaName &&
+                    IDENTIFIER_REGEX.test(application.schemaName) &&
+                    (await runtimeWorkspaceTablesExist(trx, application.schemaName))
+                ) {
+                    // Same canonical lock order and last-owner serialization as
+                    // the leave flow (see comment there).
+                    await acquireAdvisoryXactLock(trx, `workspace-baseline:${application.schemaName}:${applicationId}`)
+                }
+
                 await deleteApplicationMember(trx, { applicationId, memberId, userId })
 
                 if (

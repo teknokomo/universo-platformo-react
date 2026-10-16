@@ -15,7 +15,6 @@ import {
     listApplicationMembers,
     listApplicationWorkspaces,
     sendWithCsrf,
-    setApplicationDefaultWorkspace,
     setApplicationPublicEntryWorkspace
 } from '../../support/backend/api-session.mjs'
 import { withE2eDatabaseClient } from '../../support/backend/e2eDatabase.mjs'
@@ -844,7 +843,7 @@ test('@flow lms workspace conversion works inside closed applications without le
         const lms = await setupPublishedLmsApplication(ownerApi, {
             runId: runManifest.runId,
             label: 'ConvertClosed',
-            isPublic: false,
+            isPublic: true,
             workspacesEnabled: true
         })
 
@@ -941,24 +940,117 @@ test('@flow lms workspace conversion works inside closed applications without le
             )
             .toBe(true)
 
+        // Bind the anonymous-denial probes to REAL publications: create a
+        // learning resource, a content AccessLink, and a platform short link
+        // through the owner API inside the converted shared workspace, then
+        // request those exact slugs anonymously instead of slugs the test
+        // never created.
+        const closedLearningResourcesObjectId = await waitForApplicationObjectId(ownerApi, lms.applicationId, 'Learning Resources')
+        const closedAccessLinksObjectId = await waitForApplicationObjectId(ownerApi, lms.applicationId, 'Access Links')
+        const closedResourceTypeEnumerationId = await waitForMetahubEnumerationId(ownerApi, lms.metahub.id, 'Resource Type')
+        const closedPublicationStatusEnumerationId = await waitForMetahubEnumerationId(ownerApi, lms.metahub.id, 'Publication Status')
+        const closedPageResourceTypeValueId = await waitForOptionValueId(ownerApi, lms.metahub.id, closedResourceTypeEnumerationId, 'Page')
+        const closedPublishedStatusValueId = await waitForOptionValueId(
+            ownerApi,
+            lms.metahub.id,
+            closedPublicationStatusEnumerationId,
+            'Published'
+        )
+        const closedResourceTitle = `Closed app resource ${runManifest.runId}`
+        const closedResourceRow = await createRuntimeRow(ownerApi, lms.applicationId, {
+            workspaceId: ownerPersonalWorkspace.id,
+            objectCollectionId: closedLearningResourcesObjectId,
+            data: {
+                Title: closedResourceTitle,
+                ResourceType: closedPageResourceTypeValueId,
+                Source: { type: 'page', pageCodename: 'LearnerHome' },
+                PublicationStatus: closedPublishedStatusValueId,
+                EstimatedTimeMinutes: 5,
+                SortOrder: 0,
+                Language: 'en',
+                Version: '1.0'
+            }
+        })
+        await waitForApplicationRuntimeRow(ownerApi, lms.applicationId, closedLearningResourcesObjectId, closedResourceRow.id, {
+            workspaceId: ownerPersonalWorkspace.id
+        })
+
+        const closedAccessSlug = `closed-${runManifest.runId}`
+        const closedAccessLinkRow = await createRuntimeRow(ownerApi, lms.applicationId, {
+            workspaceId: ownerPersonalWorkspace.id,
+            objectCollectionId: closedAccessLinksObjectId,
+            data: {
+                Slug: closedAccessSlug,
+                ContentNodeIdRef: closedResourceRow.id,
+                IsActive: true,
+                MaxUses: 10,
+                LinkTitle: 'Closed app owner access link',
+                ShowFirstName: true,
+                RequireFirstName: true
+            }
+        })
+        await waitForApplicationRuntimeRow(ownerApi, lms.applicationId, closedAccessLinksObjectId, closedAccessLinkRow.id, {
+            workspaceId: ownerPersonalWorkspace.id
+        })
+
+        const closedShortLinkSlug = `e2e-${runManifest.runId}-closed-convert`
+        const closedShortLinkResponse = await sendWithCsrf(ownerApi, 'POST', '/api/v1/global-short-links', {
+            slug: closedShortLinkSlug,
+            target: {
+                kind: 'application-section',
+                applicationId: lms.applicationId,
+                section: 'workspace'
+            }
+        })
+        if (!closedShortLinkResponse.ok) {
+            const closedShortLinkBody = await closedShortLinkResponse.json().catch(() => ({}))
+            throw new Error(
+                `Closed-app short-link creation failed: ${closedShortLinkResponse.status} ${JSON.stringify(closedShortLinkBody)}`
+            )
+        }
+
+        const anonProbeContext = await browser.newContext({ storageState: { cookies: [], origins: [] } })
+        const anonProbe = anonProbeContext.request
+
+        // With the exact slugs committed while the application was still
+        // public, close it: anonymous traffic must lose access to the same
+        // real records (not to fabricated slugs).
+        const closeApplicationResponse = await sendWithCsrf(ownerApi, 'PATCH', `/api/v1/applications/${lms.applicationId}`, {
+            isPublic: false
+        })
+        if (!closeApplicationResponse.ok) {
+            const closeBody = await closeApplicationResponse.json().catch(() => ({}))
+            throw new Error(`Closing the application failed: ${closeApplicationResponse.status} ${JSON.stringify(closeBody)}`)
+        }
+        await expect
+            .poll(
+                async () => {
+                    const response = await anonProbe.get(
+                        `/api/v1/public/applications/${lms.applicationId}/runtime?targetKind=page&locale=en`
+                    )
+                    return response.status()
+                },
+                { timeout: 30_000 }
+            )
+            .not.toBe(200)
+
         // Anonymous guests must stay fully denied on the closed application:
         // public bootstrap, the converted workspace list, access links, and all
         // public short-link resolution reject unauthenticated traffic.
-        const anonClosedContext = await browser.newContext({ storageState: { cookies: [], origins: [] } })
-        const anonClosed = anonClosedContext.request
+        const anonClosed = anonProbeContext.request
         try {
             const runtimeProbeResponse = await anonClosed.get(
                 `/api/v1/public/applications/${lms.applicationId}/runtime?targetKind=page&locale=en`
             )
             expect(runtimeProbeResponse.status(), 'closed application public runtime stays denied').not.toBe(200)
 
-            const linkListResponse = await anonClosed.get(`/api/v1/public/a/${lms.applicationId}/links/${runManifest.runId}-closed`)
-            expect(linkListResponse.status(), 'closed application access links stay denied').not.toBe(200)
+            const linkListResponse = await anonClosed.get(`/api/v1/public/a/${lms.applicationId}/links/${closedAccessSlug}`)
+            expect(linkListResponse.status(), 'the real closed-app AccessLink stays denied for anonymous guests').not.toBe(200)
 
-            const shortResolveResponse = await anonClosed.get(`/api/v1/public/l/e2e-${runManifest.runId}-closed-short`)
-            expect(shortResolveResponse.status(), 'closed application stays unresolvable via public short links').not.toBe(200)
+            const shortResolveResponse = await anonClosed.get(`/api/v1/public/l/${closedShortLinkSlug}`)
+            expect(shortResolveResponse.status(), 'the real closed-app short link stays unresolvable').not.toBe(200)
         } finally {
-            await anonClosedContext.close().catch(() => undefined)
+            await anonProbeContext.close().catch(() => undefined)
         }
     } finally {
         await disposeApiContext(ownerApi)

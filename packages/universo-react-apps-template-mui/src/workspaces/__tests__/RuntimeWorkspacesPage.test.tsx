@@ -2,6 +2,7 @@ import type { ReactNode } from 'react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import RuntimeWorkspacesPage from '../RuntimeWorkspacesPage'
 import ruApps from '../../i18n/locales/ru/apps.json'
 
@@ -1039,7 +1040,7 @@ describe('RuntimeWorkspacesPage', () => {
     })
 
     it('converts an owner-owned personal workspace through the explicit confirmation dialog', async () => {
-        renderPage()
+        renderPage({ currentUserId: 'user-1' })
         await screen.findByRole('button', { name: 'Personal' })
 
         fireEvent.click(screen.getAllByRole('button', { name: 'Workspace actions' })[0])
@@ -1103,28 +1104,34 @@ describe('RuntimeWorkspacesPage', () => {
         expect(makeSharedItem).toHaveAttribute('aria-disabled', 'true')
     })
 
-    it('supports a keyboard-only conversion path from menu open through Escape close', async () => {
+    it('supports a keyboard-only conversion path from menu open through dialog confirm', async () => {
         apiMocks.convertRuntimeWorkspaceToShared.mockResolvedValue({ id: 'ws-personal' })
-        renderPage()
+        renderPage({ currentUserId: 'user-1' })
+        const user = userEvent.setup()
         const actionsButton = await screen.findAllByRole('button', { name: 'Workspace actions' })
 
-        // Keyboard-only traversal: focus the first row actions control, then a business Enter key
-        // activates the focused button (native button behaviour) and opens the row menu.
-        fireEvent.focus(actionsButton[0]!)
+        // The row menu opens through the button activation seam (happy-dom
+        // lacks the native Enter→click button mapping); the dialog staging
+        // below stays keyboard-driven.
         fireEvent.click(actionsButton[0]!)
         const makeSharedItem = await screen.findByRole('menuitem', { name: 'Make shared' })
         expect(makeSharedItem).not.toBeDisabled()
+        // Menu items are `li` elements without native Enter activation in
+        // happy-dom, so the dialog opens through the item activation seam; the
+        // dialog staging below stays keyboard-driven (initial focus, Tab,
+        // Enter, Escape in the dedicated test).
+        fireEvent.focus(makeSharedItem)
         fireEvent.click(makeSharedItem)
 
         const dialog = await screen.findByRole('dialog', { name: 'Convert to shared workspace?' })
         const cancelButton = within(dialog).getByRole('button', { name: 'Cancel' })
         expect(cancelButton).toHaveFocus()
-        // Tab reaches the destructive action while focus stays trapped in the dialog actions row.
-        fireEvent.keyDown(cancelButton, { key: 'Tab' })
+        // Tab really moves focus to the destructive action inside the dialog.
+        await user.tab()
         const convertButton = within(dialog).getByRole('button', { name: 'Convert to shared' })
-        expect(convertButton).toBeInTheDocument()
-        // Confirm supports keyboard activation.
-        fireEvent.click(convertButton)
+        expect(convertButton).toHaveFocus()
+        // Enter on the focused destructive action confirms the conversion.
+        await user.keyboard('{Enter}')
         await waitFor(() => {
             expect(apiMocks.convertRuntimeWorkspaceToShared).toHaveBeenCalledWith({
                 apiBaseUrl: '/api/v1',
@@ -1137,13 +1144,30 @@ describe('RuntimeWorkspacesPage', () => {
         })
     })
 
+    it('closes the conversion dialog with Escape without converting', async () => {
+        renderPage({ currentUserId: 'user-1' })
+        const user = userEvent.setup()
+        await screen.findByRole('button', { name: 'Personal' })
+
+        fireEvent.click(screen.getAllByRole('button', { name: 'Workspace actions' })[0])
+        fireEvent.click(await screen.findByRole('menuitem', { name: 'Make shared' }))
+        const dialog = await screen.findByRole('dialog', { name: 'Convert to shared workspace?' })
+        expect(within(dialog).getByRole('button', { name: 'Cancel' })).toHaveFocus()
+
+        await user.keyboard('{Escape}')
+        await waitFor(() => {
+            expect(screen.queryByRole('dialog', { name: 'Convert to shared workspace?' })).not.toBeInTheDocument()
+        })
+        expect(apiMocks.convertRuntimeWorkspaceToShared).not.toHaveBeenCalled()
+    })
+
     it('keeps the conversion dialog open with a localized error when the backend rejects it', async () => {
         apiMocks.convertRuntimeWorkspaceToShared.mockRejectedValue(
             Object.assign(new Error('Only the personal workspace owner can convert it to shared'), {
                 code: 'WORKSPACE_CONVERSION_BLOCKED'
             })
         )
-        renderPage()
+        renderPage({ currentUserId: 'user-1' })
         await screen.findByRole('button', { name: 'Personal' })
 
         fireEvent.click(screen.getAllByRole('button', { name: 'Workspace actions' })[0])
